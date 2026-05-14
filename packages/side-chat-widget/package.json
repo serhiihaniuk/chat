@@ -1,0 +1,35 @@
+{
+  "name": "@side-chat/side-chat-widget",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b && tsup src/index.ts --format esm --dts"
+  },
+  "peerDependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "dependencies": {
+    "@side-chat/shared-protocol": "workspace:*",
+    "lucide-react": "1.16.0",
+    "streamdown": "2.5.0",
+    "tailwind-merge": "3.4.0",
+    "clsx": "2.1.1"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.6",
+    "tsup": "8.5.1"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}

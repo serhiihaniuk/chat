@@ -1,0 +1,20 @@
+{
+  "name": "@side-chat/db",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@side-chat/shared-protocol": "workspace:*",
+    "pg": "8.20.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/pg": "8.20.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}

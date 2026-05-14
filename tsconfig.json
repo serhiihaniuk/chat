@@ -1,0 +1,21 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared-protocol" },
+    { "path": "packages/db" },
+    { "path": "packages/side-chat-widget" },
+    { "path": "apps/side-chat-api" },
+    { "path": "apps/widget-demo" },
+    { "path": "apps/embedded-host-app" }
+  ],
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
+  }
+}

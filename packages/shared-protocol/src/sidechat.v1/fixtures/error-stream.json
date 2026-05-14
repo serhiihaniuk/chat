@@ -1,0 +1,19 @@
+{
+  "protocol": "sidechat.v1",
+  "events": [
+    {
+      "type": "sidechat.started",
+      "requestId": "req-err-001",
+      "conversationId": "conv-001",
+      "messageId": "msg-asst-002",
+      "model": { "provider": "openai", "id": "gpt-4.1-mini" }
+    },
+    {
+      "type": "sidechat.error",
+      "requestId": "req-err-001",
+      "code": "MODEL_UNAVAILABLE",
+      "message": "Model currently unavailable",
+      "retryable": true
+    }
+  ]
+}

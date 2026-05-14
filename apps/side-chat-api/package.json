@@ -1,0 +1,26 @@
+{
+  "name": "@side-chat/side-chat-api",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "3.0.63",
+    "@side-chat/db": "workspace:*",
+    "@side-chat/shared-protocol": "workspace:*",
+    "ai": "6.0.182",
+    "effect": "4.0.0-beta.66",
+    "hono": "4.12.18",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "25.8.0",
+    "tsx": "4.22.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}
