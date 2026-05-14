@@ -78,6 +78,131 @@ describe('sidechat protocol v1 fixtures', () => {
     expect(frame.includes('event: sidechat.delta')).toBe(true)
   })
 
+
+  test('stream validator accepts valid success sequence', () => {
+    const sequence: SidechatStreamEvent[] = [
+      {
+        type: 'sidechat.started',
+        requestId: 'req-1',
+        conversationId: 'conv',
+        messageId: 'msg-asst',
+        model: { provider: 'openai', id: 'gpt-4.1-mini' }
+      },
+      {
+        type: 'sidechat.delta',
+        requestId: 'req-1',
+        messageId: 'msg-asst',
+        content: 'x',
+        index: 0
+      },
+      {
+        type: 'sidechat.completed',
+        requestId: 'req-1',
+        conversationId: 'conv',
+        messageId: 'msg-asst',
+        model: { provider: 'openai', id: 'gpt-4.1-mini' },
+        finishReason: 'stop',
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 }
+      }
+    ]
+
+    expect(validateSidechatEventSequence(sequence)).toEqual({ ok: true })
+  })
+
+  test('stream validator accepts valid error terminal sequence', () => {
+    const sequence: SidechatStreamEvent[] = [
+      {
+        type: 'sidechat.started',
+        requestId: 'req-1',
+        conversationId: 'conv',
+        messageId: 'msg-asst',
+        model: { provider: 'openai', id: 'gpt-4.1-mini' }
+      },
+      {
+        type: 'sidechat.error',
+        requestId: 'req-1',
+        code: 'InternalError',
+        message: 'fail',
+        retryable: false
+      }
+    ]
+
+    expect(validateSidechatEventSequence(sequence)).toEqual({ ok: true })
+  })
+
+  test('stream validator rejects empty sequence', () => {
+    const result = validateSidechatEventSequence([])
+    expect(result.ok).toBe(false)
+    expect(result).toMatchObject({ code: 'empty' })
+  })
+
+  test('stream validator rejects terminal event without request id', () => {
+    const result = validateSidechatEventSequence([
+      {
+        type: 'sidechat.error',
+        code: 'InternalError',
+        message: 'fail',
+        retryable: false
+      } as unknown as SidechatStreamEvent
+    ])
+
+    expect(result.ok).toBe(false)
+    expect(result).toMatchObject({ code: 'terminal_request_id_missing' })
+  })
+
+  test('stream validator rejects started after terminal', () => {
+    const result = validateSidechatEventSequence([
+      {
+        type: 'sidechat.error',
+        requestId: 'req-1',
+        code: 'InternalError',
+        message: 'fail',
+        retryable: false
+      },
+      {
+        type: 'sidechat.started',
+        requestId: 'req-1',
+        conversationId: 'conv',
+        messageId: 'msg-asst',
+        model: { provider: 'openai', id: 'gpt-4.1-mini' }
+      }
+    ])
+
+    expect(result.ok).toBe(false)
+    expect(result).toMatchObject({ code: 'delta_after_terminal' })
+  })
+
+  test('stream validator rejects prior request id mismatch before terminal', () => {
+    const result = validateSidechatEventSequence([
+      {
+        type: 'sidechat.started',
+        requestId: 'req-1',
+        conversationId: 'conv',
+        messageId: 'msg-asst',
+        model: { provider: 'openai', id: 'gpt-4.1-mini' }
+      },
+      {
+        type: 'sidechat.delta',
+        requestId: 'req-2',
+        messageId: 'msg-asst',
+        content: 'x',
+        index: 0
+      },
+      {
+        type: 'sidechat.completed',
+        requestId: 'req-1',
+        conversationId: 'conv',
+        messageId: 'msg-asst',
+        model: { provider: 'openai', id: 'gpt-4.1-mini' },
+        finishReason: 'stop',
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 }
+      }
+    ])
+
+    expect(result.ok).toBe(false)
+    expect(result).toMatchObject({ code: 'terminal_request_mismatch' })
+  })
+
   test('stream validator requires terminal event', () => {
     const events = [
       {

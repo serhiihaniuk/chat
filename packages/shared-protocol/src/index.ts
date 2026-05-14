@@ -12,14 +12,7 @@ import type {
   SidechatStreamHistoryEvent,
   SidechatStreamStartEvent
 } from './sidechat.v1/types'
-import { SidechatProtocolVersion } from './sidechat.v1/types'
-import {
-  encodeSseEvent,
-  encodeSseFrame,
-  parseKnownSsePayloads,
-  parseSseEvent,
-  protocolLinePrefix
-} from './sidechat.v1/codec'
+import { encodeSseFrame, encodeSseEvent, parseKnownSsePayloads, parseSseEvent, protocolLinePrefix } from './sidechat.v1/codec'
 import { SidechatRequestSchema } from './sidechat.v1/schemas'
 
 export const protocolVersion = SidechatProtocolVersion
@@ -90,7 +83,16 @@ const parsePrefixSeparatedDataLines = (chunk: string): SidechatStreamEvent[] => 
 export { parseSseEvent }
 export const parseSseFrames = (chunk: string): SidechatStreamEvent[] => {
   const framed = parseKnownSsePayloads(chunk)
-  return framed.length > 0 ? framed : parsePrefixSeparatedDataLines(chunk)
+  if (framed.length > 0) return framed
+
+  return chunk
+    .split(protocolLinePrefix)
+    .filter(Boolean)
+    .map((segment) => {
+      const payload = segment.startsWith(' ') ? segment.slice(1) : segment
+      return parseSseEvent(`${protocolLinePrefix} ${payload.trim()}`)
+    })
+    .filter((event): event is SidechatStreamEvent => event !== undefined)
 }
 
 export type {

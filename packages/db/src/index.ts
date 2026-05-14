@@ -1,8 +1,6 @@
 import type { ChatMessage, ModelSelection, TokenUsage } from '@side-chat/shared-protocol'
 
-export interface DbExecutor {
-  query<T extends object = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[] }>
-}
+export interface DbExecutor { query<T extends object = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[] }> }
 export type ConversationRow = { conversation_id: string }
 export type HistoryRow = ChatMessage
 
