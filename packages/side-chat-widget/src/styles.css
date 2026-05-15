@@ -102,3 +102,48 @@
 .sidechat-composer-input {
   resize: vertical;
 }
+
+
+.sidechat-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+  color: #334155;
+  background: #fff;
+}
+
+.sidechat-empty-eyebrow {
+  margin: 0 0 0.25rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.sidechat-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  color: #475569;
+  font-size: 0.875rem;
+}
+
+.sidechat-streaming-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.sidechat-streaming-status svg {
+  animation: sidechat-spin 1s linear infinite;
+}
+
+.sidechat-composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@keyframes sidechat-spin {
+  to { transform: rotate(360deg); }
+}

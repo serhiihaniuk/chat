@@ -21,3 +21,62 @@ main section {
   padding: 2rem;
   box-shadow: 0 18px 42px rgb(15 23 42 / 8%);
 }
+
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  gap: 1.5rem;
+}
+
+.dashboard-hero,
+.insight-panel {
+  max-width: none;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.metric-grid article {
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+}
+
+.metric-grid span,
+.metric-grid small {
+  display: block;
+  color: #64748b;
+}
+
+.metric-grid strong {
+  display: block;
+  margin: 0.25rem 0;
+  color: #0f172a;
+  font-size: 1.6rem;
+}
+
+.insight-panel ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 800px) {
+  main { grid-template-columns: 1fr; padding: 1rem; }
+  .metric-grid { grid-template-columns: 1fr; }
+}
