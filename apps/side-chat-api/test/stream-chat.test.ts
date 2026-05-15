@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { streamChat } from '../src/application/stream-chat.js'
+import { Effect } from 'effect'
+import { streamChat, streamChatEffect } from '../src/application/stream-chat.js'
 import { BillingDenied, ModelUnavailable, RateLimited, Unauthorized, UsageCaptureFailed } from '../src/application/errors.js'
 import type { StreamChatDeps } from '../src/application/stream-chat.js'
 
