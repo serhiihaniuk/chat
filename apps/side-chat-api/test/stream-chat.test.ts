@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { streamChat } from '../src/application/stream-chat.js'
+import { Effect } from 'effect'
+import { streamChat, streamChatEffect } from '../src/application/stream-chat.js'
 import { ModelUnavailable, RateLimited, Unauthorized, UsageCaptureFailed } from '../src/application/errors.js'
 import type { StreamChatDeps } from '../src/application/stream-chat.js'
 
@@ -46,6 +47,15 @@ const baseDeps: StreamChatDeps = {
 }
 
 describe('streamChat', () => {
+  it('exposes the streaming use case through an Effect v4 boundary', async () => {
+    const stream = await Effect.runPromise(streamChatEffect(baseDeps, { requestId: 'req-effect', body: validRequest }))
+    const events = []
+
+    for await (const event of stream) events.push(event.type)
+
+    expect(events).toEqual(['sidechat.started', 'sidechat.delta', 'sidechat.completed'])
+  })
+
   it('emits started/delta/completed for a valid request', async () => {
     const events = await collect(baseDeps, validRequest)
     expect(events.map((e) => (e as { type: string }).type)).toEqual(['sidechat.started', 'sidechat.delta', 'sidechat.completed'])

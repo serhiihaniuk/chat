@@ -1,9 +1,12 @@
+import { Effect } from 'effect'
 import { SidechatRequestSchema, type SidechatStreamEvent, type SidechatRequest } from '@side-chat/shared-protocol'
 import type { AuthPort, BillingPort, ConfigPort, ConversationRepository, ModelPort, ObservabilityPort, RateLimitPort, UsagePort } from '../ports/index.js'
 import { ModelUnavailable, RateLimited, Unauthorized, UsageCaptureFailed } from './errors.js'
 
 export type StreamChatDeps = { model: ModelPort; conversations: ConversationRepository; usage: UsagePort; auth: AuthPort; rateLimit: RateLimitPort; billing: BillingPort; observability: ObservabilityPort; config: ConfigPort }
 export type StreamChatInput = { requestId: string; body: unknown; signal?: AbortSignal }
+
+export const streamChatEffect = (deps: StreamChatDeps, input: StreamChatInput) => Effect.succeed(streamChat(deps, input))
 
 export async function* streamChat(deps: StreamChatDeps, input: StreamChatInput): AsyncIterable<SidechatStreamEvent> {
   const request = SidechatRequestSchema.parse(input.body) satisfies SidechatRequest

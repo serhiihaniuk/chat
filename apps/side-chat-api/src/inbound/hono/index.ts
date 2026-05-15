@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { Effect } from 'effect'
 import { createPostgresSideChatPersistence } from '@side-chat/db'
 
 import {
@@ -14,7 +15,7 @@ import {
 import { fakeModelAdapter } from '../../adapters/ai/fake-model.js'
 import { openAiModelAdapter } from '../../adapters/ai/openai-model.js'
 import { SideChatDomainError } from '../../application/errors.js'
-import { streamChat, type StreamChatDeps } from '../../application/stream-chat.js'
+import { streamChatEffect, type StreamChatDeps } from '../../application/stream-chat.js'
 import type { ConversationRepository } from '../../ports/index.js'
 import { parseSideChatEnv } from './config.js'
 
@@ -141,7 +142,8 @@ const streamEvents = (deps: StreamChatDeps, body: unknown, requestId: string, si
     async start(controller) {
       try {
         await deps.observability.span('sidechat.stream', async () => {
-          for await (const event of streamChat(deps, { requestId, body, signal })) {
+          const events = await Effect.runPromise(streamChatEffect(deps, { requestId, body, signal }))
+          for await (const event of events) {
             controller.enqueue(encoder.encode(`${encodeSseFrame(event)}\n`))
           }
         })

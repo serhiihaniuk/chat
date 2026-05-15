@@ -88,9 +88,7 @@ describe('hono adapter', () => {
     const frames = parseSseFrames(await response.text())
     expect(frames.map((frame) => frame.type)).toEqual([
       'sidechat.started',
-      'sidechat.delta',
-      'sidechat.delta',
-      'sidechat.delta',
+      ...Array.from({ length: 5 }, () => 'sidechat.delta'),
       'sidechat.completed'
     ])
     expect(validateSidechatEventSequence(frames)).toEqual({ ok: true })
@@ -104,6 +102,8 @@ describe('hono adapter', () => {
     expect(frames[1]).toMatchObject({ requestId: 'req-test', messageId: 'req-test-assistant', index: 0 })
     expect(frames[2]).toMatchObject({ requestId: 'req-test', messageId: 'req-test-assistant', index: 1 })
     expect(frames[3]).toMatchObject({ requestId: 'req-test', messageId: 'req-test-assistant', index: 2 })
+    expect(frames[4]).toMatchObject({ requestId: 'req-test', messageId: 'req-test-assistant', index: 3 })
+    expect(frames[5]).toMatchObject({ requestId: 'req-test', messageId: 'req-test-assistant', index: 4 })
     expect(frames.at(-1)).toMatchObject({
       requestId: 'req-test',
       conversationId: 'demo-conversation-001',
