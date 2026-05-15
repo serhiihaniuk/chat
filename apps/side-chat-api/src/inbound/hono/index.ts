@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { createPostgresSideChatPersistence } from '@side-chat/db'
 
 import {
   encodeSseFrame,
@@ -44,62 +45,27 @@ const createMemoryConversationRepository = (): ConversationRepository => {
   }
 }
 
-const createDbDependencies = () => {
-  if (!cachedDb) cachedDb = createDbFromUrl(process.env.DATABASE_URL!)
-
-  const db = cachedDb
-
-  return { db }
-}
-
-const createDbConversationRepository = (): ConversationRepository => {
-  const { db } = createDbDependencies()
+export const createDefaultDeps = (): StreamChatDeps => {
+  const persistence = process.env.DATABASE_URL ? createPostgresSideChatPersistence(process.env.DATABASE_URL) : undefined
 
   return {
-    async createOrGet({ workspaceId, userId, conversationId }) {
-      const idResult = await db.createOrGetConversation(workspaceId, userId, conversationId)
-      return idResult.rows.at(0)?.conversation_id ?? conversationId ?? crypto.randomUUID()
+    model: process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY ? openAiModelAdapter : fakeModelAdapter,
+    conversations: persistence?.conversations ?? createMemoryConversationRepository(),
+    usage: persistence?.usage ?? { async record() {} },
+    auth: { async authorize() { return true } },
+    rateLimit: { async check() { return true } },
+    billing: { async allow() { return true } },
+    observability: {
+      lifecycle() {},
+      counter() {},
+      async span(_name, run) { return run() }
     },
-    async appendUserMessage(conversationId, messageId, content) {
-      await db.appendUserMessage(conversationId, messageId, content)
-      return undefined
-    },
-    async appendAssistantMessage(conversationId, messageId, content, model) {
-      await db.appendAssistantMessage(conversationId, messageId, content, model)
-      return undefined
+    config: {
+      models() { return models },
+      defaultUserId() { return process.env.SIDE_CHAT_DEFAULT_USER_ID ?? 'local-user' }
     }
   }
 }
-
-const createConversationRepository = (): ConversationRepository => (process.env.DATABASE_URL ? createDbConversationRepository() : createMemoryConversationRepository())
-
-const createUsagePort = () =>
-  process.env.DATABASE_URL
-    ? {
-    async record(input: { requestId: string; conversationId: string; messageId: string; model: ModelSelection; usage: { inputTokens: number; outputTokens: number; totalTokens: number } }) {
-      const { db } = createDbDependencies()
-      await db.recordUsage(input.requestId, input.conversationId, input.messageId, input.model, input.usage)
-    }
-  }
-    : { async record() {} }
-
-export const createDefaultDeps = (): StreamChatDeps => ({
-  model: process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY ? openAiModelAdapter : fakeModelAdapter,
-  conversations: createConversationRepository(),
-  usage: createUsagePort(),
-  auth: { async authorize() { return true } },
-  rateLimit: { async check() { return true } },
-  billing: { async allow() { return true } },
-  observability: {
-    lifecycle() {},
-    counter() {},
-    async span(_name, run) { return run() }
-  },
-  config: {
-    models() { return models },
-    defaultUserId() { return process.env.SIDE_CHAT_DEFAULT_USER_ID ?? 'local-user' }
-  }
-})
 
 const toProtocolError = (requestId: string, error: unknown): SidechatStreamErrorEvent => {
   if (error instanceof SideChatDomainError) {

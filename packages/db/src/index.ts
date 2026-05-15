@@ -1,3 +1,4 @@
+import { Pool } from 'pg'
 import type { ChatMessage, ModelSelection, TokenUsage } from '@side-chat/shared-protocol'
 import { Pool } from 'pg'
 
@@ -29,7 +30,46 @@ export class SideChatDb {
   }
 }
 
-export const createDbFromUrl = (connectionString: string) => {
-  const db = new SideChatDb(new Pool({ connectionString }))
-  return db
+export type SideChatPersistence = {
+  conversations: {
+    createOrGet(input: { workspaceId: string; userId: string; conversationId?: string }): Promise<string>
+    appendUserMessage(conversationId: string, messageId: string, content: string): Promise<void>
+    appendAssistantMessage(conversationId: string, messageId: string, content: string, model: ModelSelection): Promise<void>
+  }
+  usage: {
+    record(input: { requestId: string; conversationId: string; messageId: string; model: ModelSelection; usage: TokenUsage }): Promise<void>
+  }
+  close(): Promise<void>
+}
+
+export const createSideChatPersistence = (executor: DbExecutor, close: () => Promise<void> = async () => {}): SideChatPersistence => {
+  const db = new SideChatDb(executor)
+
+  return {
+    conversations: {
+      async createOrGet({ workspaceId, userId, conversationId }) {
+        const result = await db.createOrGetConversation(workspaceId, userId, conversationId)
+        const id = result.rows[0]?.conversation_id
+        if (!id) throw new Error('sidechat_create_or_get_conversation returned no conversation_id')
+        return id
+      },
+      async appendUserMessage(conversationId, messageId, content) {
+        await db.appendUserMessage(conversationId, messageId, content)
+      },
+      async appendAssistantMessage(conversationId, messageId, content, model) {
+        await db.appendAssistantMessage(conversationId, messageId, content, model)
+      }
+    },
+    usage: {
+      async record({ requestId, conversationId, messageId, model, usage }) {
+        await db.recordUsage(requestId, conversationId, messageId, model, usage)
+      }
+    },
+    close
+  }
+}
+
+export const createPostgresSideChatPersistence = (connectionString: string): SideChatPersistence => {
+  const pool = new Pool({ connectionString })
+  return createSideChatPersistence(pool, () => pool.end())
 }
