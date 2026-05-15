@@ -185,7 +185,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
           placeholder={props.placeholder ?? 'Ask about this page'}
           onChange={(event) => setDraft(event.currentTarget.value)}
         />
-        <button type="submit" disabled={!canSend}>
+        <button type="submit" aria-label="send message" disabled={!canSend}>
           <Send aria-hidden="true" />
           Send
         </button>
