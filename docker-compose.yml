@@ -15,21 +15,12 @@ services:
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
   side-chat-api:
     image: node:25-alpine
-    working_dir: /tmp
-    command: >
-      sh -c "
-        rm -rf /tmp/sidechat-app &&
-        mkdir -p /tmp/sidechat-app &&
-        cp -a /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/.npmrc /app/tsconfig.json /app/tsconfig.base.json /app/apps /app/packages /tmp/sidechat-app/ &&
-        find /tmp/sidechat-app -name node_modules -type d -prune -exec rm -rf {} + &&
-        cd /tmp/sidechat-app &&
-        npm install -g pnpm@11.1.2 &&
-        pnpm install --frozen-lockfile --ignore-scripts &&
-        pnpm --filter @side-chat/side-chat-api dev
-      "
+    working_dir: /app
+    command: sh -c "npm install -g pnpm@11.1.2 && pnpm install --frozen-lockfile --config.dangerouslyAllowAllBuilds=true && pnpm --filter @side-chat/side-chat-api dev"
     environment:
       DATABASE_URL: postgres://sidechat_app:sidechat_app@postgres:5432/sidechat
       USE_FAKE_MODEL: "true"
+      CI: "true"
     ports:
       - "3000:3000"
     volumes:
