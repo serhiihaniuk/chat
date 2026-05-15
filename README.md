@@ -94,7 +94,7 @@ Start the API plus Postgres:
 docker compose up --build
 ```
 
-Compose uses `corepack pnpm install --frozen-lockfile` inside the Node container so the checked-in lockfile and `workspace:*` package links are resolved with the same package manager used for local setup.
+Compose uses Postgres 16 and mounts the repository into the Node API container. The API container currently runs `npm install` before `npm run dev --workspace apps/side-chat-api`, so treat a fresh `docker compose up --build` smoke as required release evidence instead of assuming local `node_modules` proves the container path.
 
 Run in the background:
 
@@ -117,7 +117,7 @@ docker compose down --remove-orphans
 docker compose down -v --remove-orphans
 ```
 
-Docker/Postgres PRD alignment is now represented in source: Compose uses `postgres:16`, the API container installs with `pnpm` against the checked-in lockfile, and deterministic seed records live in `docker/postgres/init/002_seed.sql`.
+Current Docker release checks: confirm `docker compose up --build` starts both services, `GET /health` succeeds through port `3000`, the seeded history endpoint can read `demo-conversation-001`, and cleanup leaves no listener on `5432`.
 
 ## No-dev-server cleanup expectation
 

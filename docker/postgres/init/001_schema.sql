@@ -1,4 +1,6 @@
-create role if not exists sidechat_app login password 'sidechat_app';
+create extension if not exists pgcrypto;
+
+create role sidechat_app login password 'sidechat_app';
 create schema if not exists sidechat;
 create table if not exists sidechat.conversations (id text primary key, workspace_id text not null, user_id text not null, created_at timestamptz default now());
 create table if not exists sidechat.messages (id text primary key, conversation_id text references sidechat.conversations(id), role text not null, content text not null, model_provider text, model_id text, created_at timestamptz default now());
