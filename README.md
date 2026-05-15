@@ -25,7 +25,7 @@ This repository currently has npm-compatible workspace scripts, but dependency i
 ## Install
 
 ```sh
-npm install
+corepack pnpm install
 ```
 
 ## Root commands
