@@ -25,6 +25,12 @@ const models: ModelSelection[] = [
   { provider: 'openai', id: 'gpt-4.1-nano' }
 ]
 
+const shouldUseFakeModel = () => {
+  const useFakeModel = process.env.USE_FAKE_MODEL
+  if (useFakeModel === undefined) return true
+  return useFakeModel.toLowerCase() === 'true'
+}
+
 const createMemoryConversationRepository = (): ConversationRepository => {
   const messages = new Map<string, { role: 'user' | 'assistant'; messageId: string; content: string; model?: ModelSelection }[]>()
 
@@ -57,7 +63,10 @@ export const createDefaultDeps = (): StreamChatDeps => {
   const persistence = process.env.DATABASE_URL ? createPostgresSideChatPersistence(process.env.DATABASE_URL) : undefined
 
   return {
-    model: process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY ? openAiModelAdapter : fakeModelAdapter,
+    model:
+      !shouldUseFakeModel() && process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY
+        ? openAiModelAdapter
+        : fakeModelAdapter,
     conversations: persistence?.conversations ?? createMemoryConversationRepository(),
     usage: persistence?.usage ?? { async record() {} },
     auth: { async authorize() { return true } },

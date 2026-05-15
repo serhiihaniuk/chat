@@ -16,7 +16,7 @@ services:
   side-chat-api:
     image: node:25-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm install --frozen-lockfile && npm run dev --workspace apps/side-chat-api"
+    command: sh -c "corepack enable && corepack pnpm --version && corepack pnpm install --frozen-lockfile && corepack pnpm run dev --filter @side-chat/side-chat-api"
     environment:
       DATABASE_URL: postgres://sidechat_app:sidechat_app@postgres:5432/sidechat
       USE_FAKE_MODEL: "true"

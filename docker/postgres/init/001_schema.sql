@@ -1,6 +1,4 @@
-create extension if not exists pgcrypto;
-
-create role sidechat_app login password 'sidechat_app';
+create role if not exists sidechat_app login password 'sidechat_app';
 create schema if not exists sidechat;
 create table if not exists sidechat.conversations (id text primary key, workspace_id text not null, user_id text not null, created_at timestamptz default now());
 create table if not exists sidechat.messages (id text primary key, conversation_id text references sidechat.conversations(id), role text not null, content text not null, model_provider text, model_id text, created_at timestamptz default now());
@@ -29,9 +27,35 @@ create or replace function sidechat_record_usage(request_id text, conversation_i
   insert into sidechat.usage_records(request_id, conversation_id, message_id, model_provider, model_id, input_tokens, output_tokens, total_tokens) values (request_id, conversation_id, message_id, model_provider, model_id, input_tokens, output_tokens, total_tokens) on conflict (request_id) do nothing;
 $$;
 
+create or replace function sidechat_get_workspace_context(workspace_id text, user_id text)
+returns table(
+  conversation_count bigint,
+  message_count bigint,
+  last_used timestamp with time zone
+) language sql security definer as $$
+  with conversation_scope as (
+    select id from sidechat.conversations where workspace_id = sidechat_get_workspace_context.workspace_id and user_id = sidechat_get_workspace_context.user_id
+  )
+  select
+    count(*)::bigint as conversation_count,
+    (
+      select count(*)::bigint
+      from sidechat.messages m
+      where m.conversation_id in (select id from conversation_scope)
+    ) as message_count,
+    (
+      select max(m.created_at)
+      from sidechat.messages m
+      where m.conversation_id in (select id from conversation_scope)
+    ) as last_used
+  from sidechat.conversations c
+  where c.workspace_id = sidechat_get_workspace_context.workspace_id and c.user_id = sidechat_get_workspace_context.user_id;
+$$;
+
 grant execute on function sidechat_create_or_get_conversation(text, text, text) to sidechat_app;
 grant execute on function sidechat_append_user_message(text, text, text) to sidechat_app;
 grant execute on function sidechat_append_assistant_message(text, text, text, text, text) to sidechat_app;
 grant execute on function sidechat_read_seeded_history(text, text) to sidechat_app;
 grant execute on function sidechat_record_usage(text, text, text, text, text, int, int, int) to sidechat_app;
+grant execute on function sidechat_get_workspace_context(text, text) to sidechat_app;
 revoke all on all tables in schema sidechat from sidechat_app;
