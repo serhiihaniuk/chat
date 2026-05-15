@@ -155,6 +155,9 @@ const surfaceContextLimit = 12;
 const shouldResolveSurfaceResource = (kind: string) =>
   kind === "grid" || kind === "table" || kind === "custom";
 
+const isSurfaceCitationSource = (source: WorkbenchCitationSource) =>
+  Boolean(source.resourceId);
+
 export const selectInlineCitationSources = (
   assistantContent: string,
   sources: WorkbenchCitationSource[],
@@ -162,16 +165,18 @@ export const selectInlineCitationSources = (
   const uniqueSources = Array.from(
     new Map(sources.map((source) => [source.sourceId, source])).values(),
   );
-  if (uniqueSources.length <= 1) return uniqueSources;
 
   const normalizedContent = normalizeCitationText(assistantContent);
   const matchedSources = uniqueSources.filter((source) =>
     getSourceSearchTerms(source).some((term) => normalizedContent.includes(term)),
   );
+  if (matchedSources.length > 0) {
+    return matchedSources.slice(0, maxMatchedCitationSources);
+  }
 
-  return matchedSources.length > 0
-    ? matchedSources.slice(0, maxMatchedCitationSources)
-    : uniqueSources.slice(0, 1);
+  return uniqueSources
+    .filter((source) => !isSurfaceCitationSource(source))
+    .slice(0, 1);
 };
 
 export const streamChatEffect = (

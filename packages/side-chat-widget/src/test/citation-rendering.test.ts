@@ -6,6 +6,7 @@ import { Citations } from "../components/ai-elements/citation.js";
 import {
   getMetadataAttachments,
   inferInlineSourcesFromContent,
+  mergeAttachments,
   parseCitationMetadata,
   selectInlineSources,
 } from "../SideChatWidget.js";
@@ -73,6 +74,39 @@ describe("Citation rendering", () => {
     expect(selectInlineSources("Top clients are concentrated.", sources)).toEqual([
       sources[0],
     ]);
+  });
+
+  it("does not fall back to current surface row sources for generic replies", () => {
+    const sources = [
+      {
+        sourceId: "advisoryWorklist:review-redwood-pharma-ag",
+        label: "Portfolio Worklist Â· Redwood Pharma AG",
+        dataset: "client_portfolio_review",
+        resourceId: "advisoryWorklist",
+        rowId: "review-redwood-pharma-ag",
+      },
+    ];
+
+    expect(selectInlineSources("Hello! How can I help?", sources)).toEqual([]);
+  });
+
+  it("keeps current surface row sources when the reply names the row", () => {
+    const sources = [
+      {
+        sourceId: "advisoryWorklist:review-redwood-pharma-ag",
+        label: "Portfolio Worklist Â· Redwood Pharma AG",
+        dataset: "client_portfolio_review",
+        resourceId: "advisoryWorklist",
+        rowId: "review-redwood-pharma-ag",
+      },
+    ];
+
+    expect(
+      selectInlineSources(
+        "Redwood Pharma AG is the first overdue portfolio to review.",
+        sources,
+      ),
+    ).toEqual(sources);
   });
 
   it("extracts persisted citation metadata from reloaded answer text", () => {
@@ -147,6 +181,32 @@ describe("Citation rendering", () => {
       {
         id: "tool-report-1",
         name: "Workbench report.pdf",
+        url: "http://127.0.0.1:3000/reports/report-1.pdf",
+        mediaType: "application/pdf",
+      },
+    ]);
+  });
+
+  it("deduplicates live tool and completed metadata attachments", () => {
+    expect(
+      mergeAttachments([
+        {
+          id: "tool-report-1",
+          name: "Security / Risk Review.pdf",
+          url: "http://127.0.0.1:3000/reports/report-1.pdf",
+          mediaType: "application/pdf",
+        },
+        {
+          id: "tool-report-1",
+          name: "Security / Risk Review.pdf",
+          url: "http://127.0.0.1:3000/reports/report-1.pdf",
+          mediaType: "application/pdf",
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "tool-report-1",
+        name: "Security / Risk Review.pdf",
         url: "http://127.0.0.1:3000/reports/report-1.pdf",
         mediaType: "application/pdf",
       },

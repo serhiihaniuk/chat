@@ -583,6 +583,41 @@ describe("streamChat", () => {
     ]);
   });
 
+  it("does not fall back to current surface row citations for unrelated answers", () => {
+    const sources = [
+      {
+        sourceId: "advisoryWorklist:review-redwood-pharma-ag",
+        label: "Portfolio Worklist Â· Redwood Pharma AG",
+        dataset: "client_portfolio_review" as const,
+        resourceId: "advisoryWorklist",
+        rowId: "review-redwood-pharma-ag",
+      },
+    ];
+
+    expect(selectInlineCitationSources("Hello! How can I help?", sources)).toEqual(
+      [],
+    );
+  });
+
+  it("keeps current surface row citations when the answer names the row", () => {
+    const sources = [
+      {
+        sourceId: "advisoryWorklist:review-redwood-pharma-ag",
+        label: "Portfolio Worklist Â· Redwood Pharma AG",
+        dataset: "client_portfolio_review" as const,
+        resourceId: "advisoryWorklist",
+        rowId: "review-redwood-pharma-ag",
+      },
+    ];
+
+    expect(
+      selectInlineCitationSources(
+        "Redwood Pharma AG is the first overdue portfolio to review.",
+        sources,
+      ),
+    ).toEqual(sources);
+  });
+
   it("throws ModelUnavailable for unsupported models", async () => {
     const deps = {
       ...baseDeps,

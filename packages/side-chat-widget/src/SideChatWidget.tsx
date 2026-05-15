@@ -427,6 +427,22 @@ export const getMetadataAttachments = (
     : [];
 };
 
+export const mergeAttachments = (
+  attachments: AttachmentData[],
+): AttachmentData[] => {
+  const seen = new Set<string>();
+  const merged: AttachmentData[] = [];
+
+  for (const attachment of attachments) {
+    const key = `${attachment.url}::${attachment.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(attachment);
+  }
+
+  return merged;
+};
+
 const isToolPart = (
   part: WidgetMessagePart,
 ): part is Extract<WidgetMessagePart, { type: "tool" }> =>
@@ -475,6 +491,9 @@ const getSourceSearchTerms = (source: CitationSource) => {
 };
 
 const maxMatchedCitationSources = 2;
+
+const isSurfaceCitationSource = (source: CitationSource) =>
+  Boolean(source.resourceId);
 
 const knownWorkbenchSources: CitationSource[] = [
   {
@@ -537,16 +556,18 @@ export const selectInlineSources = (
   const uniqueSources = Array.from(
     new Map(sources.map((source) => [source.sourceId, source])).values(),
   );
-  if (uniqueSources.length <= 1) return uniqueSources;
 
   const normalizedContent = normalizeCitationText(content);
   const matchedSources = uniqueSources.filter((source) =>
     getSourceSearchTerms(source).some((term) => normalizedContent.includes(term)),
   );
+  if (matchedSources.length > 0) {
+    return matchedSources.slice(0, maxMatchedCitationSources);
+  }
 
-  return matchedSources.length > 0
-    ? matchedSources.slice(0, maxMatchedCitationSources)
-    : uniqueSources.slice(0, 1);
+  return uniqueSources
+    .filter((source) => !isSurfaceCitationSource(source))
+    .slice(0, 1);
 };
 
 export const parseCitationMetadata = (content: string) => {
@@ -1255,13 +1276,13 @@ export function SideChatWidget(props: SideChatWidgetProps) {
                 message.role === "assistant" ? getAssistantParts(message) : [];
               const attachments =
                 message.role === "assistant"
-                  ? [
+                  ? mergeAttachments([
                       ...getMessageAttachments(assistantParts, apiEndpoint),
                       ...getMetadataAttachments(
                         message.metadata,
                         apiEndpoint,
                       ),
-                    ]
+                    ])
                   : [];
               const assistantContent =
                 message.role === "assistant"
