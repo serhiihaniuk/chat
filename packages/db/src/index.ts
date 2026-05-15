@@ -1,5 +1,6 @@
 import { Pool } from 'pg'
 import type { ChatMessage, ModelSelection, TokenUsage } from '@side-chat/shared-protocol'
+import { Pool } from 'pg'
 
 export interface DbExecutor { query<T extends object = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[] }> }
 export type ConversationRow = { conversation_id: string }

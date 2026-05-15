@@ -10,6 +10,7 @@ export type SideChatWidgetProps = {
   apiEndpoint: string
   workspaceId: string
   initialConversationId?: string
+  historyEndpoint?: string
   title?: string
   placeholder?: string
   defaultModel?: ModelSelection
@@ -29,7 +30,8 @@ export function SideChatWidget(props: SideChatWidgetProps) {
   const chat = useSideChat({
     apiEndpoint: props.apiEndpoint,
     workspaceId: props.workspaceId,
-    initialConversationId: props.initialConversationId,
+    initialConversationId: open ? props.initialConversationId : undefined,
+    historyEndpoint: props.historyEndpoint,
     defaultModel: props.defaultModel ?? models[0],
     onError: props.onError,
     onUsage: props.onUsage
@@ -85,6 +87,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
       </label>
 
       <Conversation>
+        {chat.isHistoryLoading ? <p>Loading conversation history…</p> : null}
         {chat.messages.length === 0 ? (
           <p>Ask a question about this workspace.</p>
         ) : (
@@ -96,7 +99,16 @@ export function SideChatWidget(props: SideChatWidgetProps) {
         )}
       </Conversation>
 
-      {chat.error ? <div role="alert">{chat.error.message}</div> : null}
+      {chat.error ? (
+        <div role="alert">
+          {chat.error.message}
+          {chat.error.retryable ? (
+            <button type="button" onClick={chat.retryLastMessage} disabled={chat.isStreaming}>
+              Retry
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {chat.usage ? <output>Tokens: {chat.usage.totalTokens}</output> : null}
 
       <Composer onSubmit={submit}>
