@@ -143,7 +143,8 @@ const streamEvents = (deps: StreamChatDeps, body: unknown, requestId: string, si
     async start(controller) {
       try {
         await runEffectBoundary(() => deps.observability.span('sidechat.stream', async () => {
-          for await (const event of streamChat(deps, { requestId, body, signal })) {
+          const events = await Effect.runPromise(streamChatEffect(deps, { requestId, body, signal }))
+          for await (const event of events) {
             controller.enqueue(encoder.encode(`${encodeSseFrame(event)}\n`))
           }
         }))
