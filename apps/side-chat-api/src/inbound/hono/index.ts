@@ -41,6 +41,16 @@ const createMemoryConversationRepository = (): ConversationRepository => {
     },
     async appendAssistantMessage(conversationId, messageId, content, model) {
       messages.get(conversationId)?.push({ role: 'assistant', messageId, content, model })
+    },
+    async readSeededHistory(workspaceId, conversationId) {
+      if (!conversationId) return []
+      if (!messages.has(conversationId)) return []
+
+      return messages.get(conversationId)!.map((entry) => ({
+        id: entry.messageId,
+        role: entry.role,
+        content: entry.content
+      }))
     }
   }
 }
@@ -110,6 +120,18 @@ export const createInboundApp = (deps: StreamChatDeps = createDefaultDeps()) => 
 
   app.get(SidechatProtocol.healthRoute, (c) => c.json({ ok: true }))
   app.get(SidechatProtocol.modelsRoute, (c) => c.json({ models: deps.config.models() }))
+
+  app.get('/chat/history', async (c) => {
+    const workspaceId = c.req.query('workspaceId') ?? ''
+    const conversationId = c.req.query('conversationId') ?? ''
+
+    if (!workspaceId || !conversationId) {
+      return c.json({ error: 'workspaceId and conversationId are required' }, 400)
+    }
+
+    const rows = await deps.conversations.readSeededHistory(workspaceId, conversationId)
+    return c.json({ conversationId, messages: rows })
+  })
 
   app.post(SidechatProtocol.streamRoute, async (c) => {
     const requestId = c.req.header(SidechatRequestIdHeader) ?? crypto.randomUUID()

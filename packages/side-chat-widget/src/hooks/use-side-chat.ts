@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useEffect } from 'react'
 import {
   parseKnownSsePayloads,
   protocolVersion,
@@ -14,6 +15,7 @@ export type UseSideChatOptions = {
   apiEndpoint: string
   workspaceId: string
   initialConversationId?: string
+  historyEndpoint?: string
   defaultModel: ModelSelection
   onError?: (error: SideChatError) => void
   onUsage?: (usage: TokenUsage) => void
@@ -26,6 +28,15 @@ export type WidgetMessage = {
 }
 
 const randomId = () => `client-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+
+const deriveHistoryEndpoint = (apiEndpoint: string): string => {
+  const streamSuffix = '/chat/stream'
+  if (apiEndpoint.endsWith(streamSuffix)) {
+    return `${apiEndpoint.slice(0, -streamSuffix.length)}/chat/history`
+  }
+
+  return `${apiEndpoint}/chat/history`
+}
 
 const requestError = (message: string, requestId: string): SideChatError => ({
   type: 'sidechat.error',
@@ -85,6 +96,55 @@ export function useSideChat(options: UseSideChatOptions) {
   const [error, setError] = useState<SideChatError | undefined>()
   const [usage, setUsage] = useState<TokenUsage | undefined>()
   const [model, setModel] = useState(options.defaultModel)
+  const [lastUserMessage, setLastUserMessage] = useState<string | undefined>()
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const historyEndpoint = options.historyEndpoint ?? deriveHistoryEndpoint(options.apiEndpoint)
+
+  useEffect(() => {
+    if (!options.initialConversationId) return
+
+    let aborted = false
+    const conversationId = options.initialConversationId
+    const loadHistory = async () => {
+      try {
+        setIsLoadingHistory(true)
+        const response = await fetch(`${historyEndpoint}?workspaceId=${encodeURIComponent(options.workspaceId)}&conversationId=${encodeURIComponent(conversationId)}`)
+
+        if (!response.ok) {
+          throw new Error(`History load failed: ${response.status}`)
+        }
+
+        const payload = await response.json() as { messages: Array<{ id: string; role: string; content: string }> }
+        if (aborted) return
+        setMessages(payload.messages.map((message) => ({
+          id: message.id,
+          role: message.role === 'assistant' || message.role === 'user' || message.role === 'system'
+            ? message.role
+            : 'system',
+          content: message.content
+        })))
+      } catch (unknownError) {
+        if (aborted) return
+        const historyError = requestError(
+          unknownError instanceof Error ? unknownError.message : 'Failed to load conversation history',
+          'history-load'
+        )
+        setError(historyError)
+        options.onError?.(historyError)
+      } finally {
+        if (!aborted) {
+          setIsLoadingHistory(false)
+        }
+      }
+    }
+
+    void loadHistory()
+
+    return () => {
+      aborted = true
+      setIsLoadingHistory(false)
+    }
+  }, [historyEndpoint, options.initialConversationId, options.onError, options.workspaceId])
 
   const handleEvent = useCallback((event: SidechatStreamEvent) => {
     if (event.type === 'sidechat.started') {
@@ -123,17 +183,21 @@ export function useSideChat(options: UseSideChatOptions) {
     })))
   }, [options])
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, optionsParam?: { isRetry?: boolean }) => {
     const trimmed = content.trim()
     if (!trimmed || isStreaming) return
 
     const requestId = randomId()
     const messageId = randomId()
-    setMessages((current) => [
-      ...current,
-      { id: messageId, role: 'user', content: trimmed }
-    ])
+    if (!optionsParam?.isRetry) {
+      setMessages((current) => [
+        ...current,
+        { id: messageId, role: 'user', content: trimmed }
+      ])
+    }
+
     setError(undefined)
+    setLastUserMessage(trimmed)
     setIsStreaming(true)
 
     try {
@@ -170,5 +234,20 @@ export function useSideChat(options: UseSideChatOptions) {
     }
   }, [handleEvent, isStreaming, model, options])
 
-  return { messages, isStreaming, error, usage, model, setModel, sendMessage }
+  const retryLastMessage = useCallback(() => {
+    if (!lastUserMessage) return
+    void sendMessage(lastUserMessage, { isRetry: true })
+  }, [lastUserMessage, sendMessage])
+
+  return {
+    messages,
+    isStreaming,
+    error,
+    usage,
+    model,
+    setModel,
+    sendMessage,
+    retryLastMessage,
+    isHistoryLoading: isLoadingHistory
+  }
 }
