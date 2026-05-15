@@ -94,7 +94,7 @@ Start the API plus Postgres:
 docker compose up --build
 ```
 
-Compose uses Postgres 16 and mounts the repository into the Node API container. The API container installs `pnpm@11.1.2`, runs `pnpm install --frozen-lockfile`, and starts `@side-chat/side-chat-api`, so treat a fresh `docker compose up --build` smoke as required release evidence instead of assuming local `node_modules` proves the container path.
+Compose uses Postgres 16 and mounts the repository read-only into the Node API container. The API container stages a clean copy under `/tmp/sidechat-app`, installs dependencies with `pnpm@11.1.2`, and starts `@side-chat/side-chat-api`, so treat a fresh `docker compose up --build` smoke as required release evidence instead of assuming local `node_modules` proves the container path.
 
 Run in the background:
 
