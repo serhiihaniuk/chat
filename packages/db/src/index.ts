@@ -1,4 +1,5 @@
 import type { ChatMessage, ModelSelection, TokenUsage } from '@side-chat/shared-protocol'
+import { Pool } from 'pg'
 
 export interface DbExecutor { query<T extends object = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[] }> }
 export type ConversationRow = { conversation_id: string }
@@ -26,4 +27,9 @@ export class SideChatDb {
   recordUsage(requestId: string, conversationId: string, messageId: string, model: ModelSelection, usage: TokenUsage) {
     return this.db.query('select * from sidechat_record_usage($1, $2, $3, $4, $5, $6, $7, $8)', [requestId, conversationId, messageId, model.provider, model.id, usage.inputTokens, usage.outputTokens, usage.totalTokens])
   }
+}
+
+export const createDbFromUrl = (connectionString: string) => {
+  const db = new SideChatDb(new Pool({ connectionString }))
+  return db
 }

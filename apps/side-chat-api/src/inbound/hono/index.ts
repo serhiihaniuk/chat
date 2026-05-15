@@ -10,11 +10,14 @@ import {
   type ModelSelection,
   type SidechatStreamErrorEvent
 } from '@side-chat/shared-protocol'
+import { createDbFromUrl } from '@side-chat/db'
 import { fakeModelAdapter } from '../../adapters/ai/fake-model.js'
 import { openAiModelAdapter } from '../../adapters/ai/openai-model.js'
 import { SideChatDomainError } from '../../application/errors.js'
 import { streamChat, type StreamChatDeps } from '../../application/stream-chat.js'
 import type { ConversationRepository } from '../../ports/index.js'
+
+let cachedDb: ReturnType<typeof createDbFromUrl> | undefined
 
 const protocol = protocolArtifacts
 
@@ -41,10 +44,49 @@ const createMemoryConversationRepository = (): ConversationRepository => {
   }
 }
 
+const createDbDependencies = () => {
+  if (!cachedDb) cachedDb = createDbFromUrl(process.env.DATABASE_URL!)
+
+  const db = cachedDb
+
+  return { db }
+}
+
+const createDbConversationRepository = (): ConversationRepository => {
+  const { db } = createDbDependencies()
+
+  return {
+    async createOrGet({ workspaceId, userId, conversationId }) {
+      const idResult = await db.createOrGetConversation(workspaceId, userId, conversationId)
+      return idResult.rows.at(0)?.conversation_id ?? conversationId ?? crypto.randomUUID()
+    },
+    async appendUserMessage(conversationId, messageId, content) {
+      await db.appendUserMessage(conversationId, messageId, content)
+      return undefined
+    },
+    async appendAssistantMessage(conversationId, messageId, content, model) {
+      await db.appendAssistantMessage(conversationId, messageId, content, model)
+      return undefined
+    }
+  }
+}
+
+const createConversationRepository = (): ConversationRepository => (process.env.DATABASE_URL ? createDbConversationRepository() : createMemoryConversationRepository())
+
+const createUsagePort = () =>
+  process.env.DATABASE_URL
+    ? {
+    async record(input: { requestId: string; conversationId: string; messageId: string; model: ModelSelection; usage: { inputTokens: number; outputTokens: number; totalTokens: number } }) {
+      const { db } = createDbDependencies()
+      await db.recordUsage(input.requestId, input.conversationId, input.messageId, input.model, input.usage)
+    }
+  }
+    : { async record() {} }
+
 export const createDefaultDeps = (): StreamChatDeps => ({
   model: process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY ? openAiModelAdapter : fakeModelAdapter,
-  conversations: createMemoryConversationRepository(),
-  usage: { async record() {} },
+  conversations: createConversationRepository(),
+  usage: createUsagePort(),
   auth: { async authorize() { return true } },
   rateLimit: { async check() { return true } },
   billing: { async allow() { return true } },
