@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { SidechatRequestSchema, type SidechatStreamEvent, type SidechatRequest } from '@side-chat/shared-protocol'
 import type { AuthPort, BillingPort, ConfigPort, ConversationRepository, ModelPort, ObservabilityPort, RateLimitPort, UsagePort } from '../ports/index.js'
-import { ModelUnavailable, RateLimited, Unauthorized, UsageCaptureFailed } from './errors.js'
+import { BillingDenied, ModelUnavailable, RateLimited, Unauthorized, UsageCaptureFailed } from './errors.js'
 
 export type StreamChatDeps = { model: ModelPort; conversations: ConversationRepository; usage: UsagePort; auth: AuthPort; rateLimit: RateLimitPort; billing: BillingPort; observability: ObservabilityPort; config: ConfigPort }
 export type StreamChatInput = { requestId: string; body: unknown; signal?: AbortSignal }
@@ -14,7 +14,7 @@ export async function* streamChat(deps: StreamChatDeps, input: StreamChatInput):
   if (!deps.config.models().some((model) => model.provider === request.model.provider && model.id === request.model.id)) throw new ModelUnavailable(request.model.id)
   if (!(await deps.auth.authorize(request.workspaceId, userId))) throw new Unauthorized()
   if (!(await deps.rateLimit.check(request.workspaceId, userId))) throw new RateLimited()
-  if (!(await deps.billing.allow(request.workspaceId))) throw new Unauthorized()
+  if (!(await deps.billing.allow(request.workspaceId))) throw new BillingDenied()
 
   const conversationId = await deps.conversations.createOrGet({ workspaceId: request.workspaceId, userId, conversationId: request.conversationId })
   await deps.conversations.appendUserMessage(conversationId, request.message.id, request.message.content)

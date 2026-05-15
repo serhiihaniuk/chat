@@ -14,6 +14,7 @@ import {
 } from '@side-chat/shared-protocol'
 import { fakeModelAdapter } from '../../adapters/ai/fake-model.js'
 import { openAiModelAdapter } from '../../adapters/ai/openai-model.js'
+import { runEffectBoundary } from '../../application/effect-boundary.js'
 import { SideChatDomainError } from '../../application/errors.js'
 import { streamChatEffect, type StreamChatDeps } from '../../application/stream-chat.js'
 import type { ConversationRepository } from '../../ports/index.js'
@@ -141,12 +142,11 @@ const streamEvents = (deps: StreamChatDeps, body: unknown, requestId: string, si
   return new ReadableStream({
     async start(controller) {
       try {
-        await deps.observability.span('sidechat.stream', async () => {
-          const events = await Effect.runPromise(streamChatEffect(deps, { requestId, body, signal }))
-          for await (const event of events) {
+        await runEffectBoundary(() => deps.observability.span('sidechat.stream', async () => {
+          for await (const event of streamChat(deps, { requestId, body, signal })) {
             controller.enqueue(encoder.encode(`${encodeSseFrame(event)}\n`))
           }
-        })
+        }))
       } catch (error) {
         const protocolError = toProtocolError(requestId, error)
         deps.observability.lifecycle(protocolError)

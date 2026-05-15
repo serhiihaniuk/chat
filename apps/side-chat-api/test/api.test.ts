@@ -66,7 +66,6 @@ describe('hono adapter', () => {
   it('streams sidechat.v1 event sequence without provider tokens', async () => {
     process.env.SIDE_CHAT_MODEL_ADAPTER = 'openai'
     delete process.env.OPENAI_API_KEY
-    const app = createApp()
 
     const response = await createApp().request('/chat/stream', {
       method: 'POST',
@@ -111,6 +110,54 @@ describe('hono adapter', () => {
       model: { provider: 'openai', id: 'gpt-4.1-mini' },
       usage: { inputTokens: 3, outputTokens: 18, totalTokens: 21 }
     })
+  })
+
+  it('emits span, lifecycle, and counter observability across a successful stream', async () => {
+    const lifecycle = vi.fn()
+    const counter = vi.fn()
+    const span = vi.fn(async (_name: string, run: () => Promise<void>) => run())
+    const response = await createApp({
+      conversations: {
+        async createOrGet() { return 'demo-conversation-001' },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() { return [] }
+      },
+      model: {
+        async *stream() {
+          yield { kind: 'delta' as const, text: 'hello' }
+          yield { kind: 'done' as const, finishReason: 'stop', usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } }
+        }
+      },
+      usage: { async record() {} },
+      auth: { async authorize() { return true } },
+      rateLimit: { async check() { return true } },
+      billing: { async allow() { return true } },
+      observability: { lifecycle, counter, span },
+      config: {
+        models() { return [{ provider: 'openai', id: 'gpt-4.1-mini' }] },
+        defaultUserId() { return 'local-user' }
+      }
+    }).request('/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'X-Sidechat-Protocol': protocolVersion,
+        'X-Request-Id': 'req-observe'
+      },
+      body: JSON.stringify(streamRequest('observe this'))
+    })
+
+    expect(response.status).toBe(200)
+    const frames = parseSseFrames(await response.text())
+    expect(frames.map((frame) => frame.type)).toEqual(['sidechat.started', 'sidechat.delta', 'sidechat.completed'])
+    expect(span).toHaveBeenCalledWith('sidechat.stream', expect.any(Function))
+    expect(lifecycle).toHaveBeenCalledWith(expect.objectContaining({ type: 'sidechat.started', requestId: 'req-observe' }))
+    expect(lifecycle).toHaveBeenCalledWith(expect.objectContaining({ type: 'sidechat.delta', requestId: 'req-observe' }))
+    expect(lifecycle).toHaveBeenCalledWith(expect.objectContaining({ type: 'sidechat.completed', requestId: 'req-observe' }))
+    expect(counter).toHaveBeenCalledWith('sidechat.stream.started', { model: 'gpt-4.1-mini' })
+    expect(counter).toHaveBeenCalledWith('sidechat.stream.completed', { model: 'gpt-4.1-mini' })
   })
 
 
@@ -326,6 +373,50 @@ describe('hono adapter', () => {
       requestId: 'req-rate',
       code: 'RateLimited',
       retryable: true
+    })
+  })
+
+  it('returns a typed billing-denied error frame when billing boundary denies workspace', async () => {
+    const response = await createApp({
+      auth: { async authorize() { return true } },
+      rateLimit: { async check() { return true } },
+      billing: { async allow() { return false } },
+      usage: { async record() {} },
+      model: { async *stream() { return } },
+      conversations: {
+        async createOrGet() { return 'demo-conversation-001' },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() { return [] }
+      },
+      observability: {
+        lifecycle() {},
+        counter() {},
+        async span(_name, run) { return run() }
+      },
+      config: {
+        models() { return [{ provider: 'openai', id: 'gpt-4.1-mini' }] },
+        defaultUserId() { return 'local-user' }
+      }
+    }).request('/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'X-Sidechat-Protocol': protocolVersion,
+        'X-Request-Id': 'req-billing'
+      },
+      body: JSON.stringify(streamRequest())
+    })
+
+    expect(response.status).toBe(200)
+    const frames = parseSseFrames(await response.text())
+    expect(frames).toHaveLength(1)
+    expect(frames[0]).toMatchObject({
+      type: 'sidechat.error',
+      requestId: 'req-billing',
+      code: 'BillingDenied',
+      retryable: false
     })
   })
 

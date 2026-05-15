@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { Effect } from 'effect'
-import { streamChat, streamChatEffect } from '../src/application/stream-chat.js'
-import { ModelUnavailable, RateLimited, Unauthorized, UsageCaptureFailed } from '../src/application/errors.js'
+import { streamChat } from '../src/application/stream-chat.js'
+import { BillingDenied, ModelUnavailable, RateLimited, Unauthorized, UsageCaptureFailed } from '../src/application/errors.js'
 import type { StreamChatDeps } from '../src/application/stream-chat.js'
 
 const collect = async (deps: StreamChatDeps, body: unknown, requestId = 'req-1') => {
@@ -87,6 +86,14 @@ describe('streamChat', () => {
       rateLimit: { async check() { return false } }
     }
     await expect(collect(deps, validRequest)).rejects.toBeInstanceOf(RateLimited)
+  })
+
+  it('throws BillingDenied when billing boundary denies workspace', async () => {
+    const deps = {
+      ...baseDeps,
+      billing: { async allow() { return false } }
+    }
+    await expect(collect(deps, validRequest)).rejects.toBeInstanceOf(BillingDenied)
   })
 
   it('throws UsageCaptureFailed when usage persistence fails', async () => {
