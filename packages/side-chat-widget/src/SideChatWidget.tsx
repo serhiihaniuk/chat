@@ -41,6 +41,18 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 
   const canSend = draft.trim().length > 0 && !chat.isStreaming
 
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus()
+      return
+    }
+
+    if (restoreLauncherFocus.current) {
+      launcherRef.current?.focus()
+      restoreLauncherFocus.current = false
+    }
+  }, [open])
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!canSend) return
@@ -54,8 +66,16 @@ export function SideChatWidget(props: SideChatWidgetProps) {
   }
 
   const closeWidget = () => {
+    restoreLauncherFocus.current = true
     setOpen(false)
     props.onClose?.()
+  }
+
+  const handlePanelKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation()
+      closeWidget()
+    }
   }
 
   const selectModel = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -128,10 +148,11 @@ export function SideChatWidget(props: SideChatWidgetProps) {
             </option>
           ))}
         </select>
-      </label>
 
       <Conversation>
-        {chat.isHistoryLoading ? <p>Loading conversation history…</p> : null}
+        {chat.isHistoryLoading ? <p role="status">Loading conversation history…</p> : null}
+        {chat.historyStatus === 'loaded' ? <p className="sidechat-history-status">Loaded seeded conversation history.</p> : null}
+        {chat.historyStatus === 'empty' ? <p className="sidechat-history-status">No prior messages in this conversation.</p> : null}
         {chat.messages.length === 0 ? (
           <section className="sidechat-empty-state" aria-label="Empty assistant conversation">
             <p className="sidechat-empty-eyebrow">How can I help?</p>
@@ -147,7 +168,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
       </Conversation>
 
       {chat.error ? (
-        <div role="alert">
+        <div role="alert" className="sidechat-error">
           {chat.error.message}
           {chat.error.retryable ? (
             <button type="button" onClick={chat.retryLastMessage} disabled={chat.isStreaming}>
@@ -173,6 +194,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
           aria-label="chat-input"
           placeholder={props.placeholder ?? 'Ask about this page'}
           onChange={(event) => setDraft(event.currentTarget.value)}
+          ref={inputRef}
         />
         <button type="submit" disabled={!canSend} aria-label="send message">
           <Send aria-hidden="true" />
