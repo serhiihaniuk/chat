@@ -56,4 +56,41 @@ describe('readSideChatStreamEvents', () => {
     await reading
     expect(seen).toEqual(['sidechat.started', 'sidechat.completed'])
   })
+
+  it('reports malformed known stream events without dispatching them', async () => {
+    const malformed = 'event: sidechat.delta\ndata: {"type":"sidechat.delta","requestId":"req-1"}\n\n'
+    const seen: string[] = []
+    const malformedEvents: string[] = []
+
+    await readSideChatStreamEvents(
+      new Response(malformed),
+      (event) => seen.push(event.type),
+      (message) => malformedEvents.push(message)
+    )
+
+    expect(seen).toEqual([])
+    expect(malformedEvents).toEqual(['Malformed sidechat.delta stream event'])
+  })
+
+  it('does not dispatch events after a terminal stream event', async () => {
+    const lateDelta: SidechatStreamEvent = {
+      type: 'sidechat.delta',
+      requestId: 'req-1',
+      messageId: 'assistant-1',
+      content: 'late',
+      index: 99
+    }
+    const seen: string[] = []
+    const malformedEvents: string[] = []
+
+    await readSideChatStreamEvents(
+      new Response(`${encodeSseEventFrame(started)}\n${encodeSseEventFrame(completed)}\n${encodeSseEventFrame(lateDelta)}\n`),
+      (event) => seen.push(event.type),
+      (message) => malformedEvents.push(message)
+    )
+
+    expect(seen).toEqual(['sidechat.started', 'sidechat.completed'])
+    expect(malformedEvents).toEqual(['Ignored sidechat.delta after terminal sidechat stream event'])
+  })
+
 })

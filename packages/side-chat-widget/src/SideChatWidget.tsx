@@ -134,7 +134,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
     >
       <header>
         <strong>{props.title ?? 'Assistant'}</strong>
-        <button type="button" aria-label="Close assistant" onClick={closeWidget}>
+        <button type="button" aria-label="Close assistant" aria-expanded="true" aria-controls={panelId} onClick={closeWidget}>
           <X aria-hidden="true" />
         </button>
       </header>
