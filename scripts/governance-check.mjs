@@ -18,6 +18,10 @@ for (const file of files.filter((f) => f.endsWith('package.json'))) {
 }
 for (const file of files) {
   const rel = relative(root, file)
+  if (rel.startsWith('apps/embedded-host-app') && /\.(md|tsx?|jsx?|json|html|css)$/.test(file)) {
+    const text = readFileSync(file, 'utf8')
+    if (/(side-chat-widget\/src|packages\/side-chat-widget|\.\.\/\.\.\/packages\/side-chat-widget)/.test(text)) fail(`embedded host references internal widget source/package path: ${rel}`)
+  }
   if (/\.md$|package\.json$|\.tsx?$/.test(file)) {
     const text = readFileSync(file, 'utf8')
     if (!rel.startsWith('.omx') && /\bpoc\b/i.test(text)) fail(`prohibited POC naming in ${rel}`)
@@ -26,7 +30,6 @@ for (const file of files) {
     if (/from ['"]pg['"]/.test(text) && !rel.startsWith('packages/db/')) fail(`pg import outside db package: ${rel}`)
     if (rel.startsWith('packages/shared-protocol') && /from ['"](react|hono|effect|pg|@ai-sdk|ai['"])/.test(text)) fail(`shared-protocol boundary violation: ${rel}`)
     if (rel.startsWith('packages/db') && /from ['"](react|hono|@ai-sdk|ai['"])/.test(text)) fail(`db boundary violation: ${rel}`)
-    if (rel.startsWith('apps/embedded-host-app') && /side-chat-widget\/src/.test(text)) fail(`embedded host imports internal widget source: ${rel}`)
     if (rel.startsWith('packages/side-chat-widget/src/components/ai-elements') && /(@\/|next\/|@ai-sdk\/react)/.test(text)) fail(`AI Elements component forbidden import: ${rel}`)
   }
 }

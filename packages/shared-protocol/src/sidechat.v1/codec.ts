@@ -1,13 +1,13 @@
-import {
+import { SidechatProtocolVersion } from './types.js'
+import type {
   SidechatStreamEvent,
-  SidechatProtocolVersion,
   SidechatStreamErrorEvent,
   SidechatStreamCompletedEvent,
   SidechatStreamStartEvent,
   SidechatStreamDeltaEvent,
   SidechatStreamHistoryEvent
-} from './types'
-import { SidechatStreamEventSchema } from './schemas'
+} from './types.js'
+import { SidechatStreamEventSchema } from './schemas.js'
 
 export const protocolLinePrefix = 'data:'
 

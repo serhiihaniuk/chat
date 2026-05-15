@@ -1,5 +1,5 @@
-import { SidechatStreamEvent } from './types'
-import { isTerminalSidechatEvent } from './codec'
+import type { SidechatStreamEvent } from './types.js'
+import { isTerminalSidechatEvent } from './codec.js'
 
 export type SequenceValidation =
   | { ok: true }

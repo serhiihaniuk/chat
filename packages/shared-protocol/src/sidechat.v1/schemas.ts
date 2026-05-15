@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { SidechatProtocolVersion } from './types'
+import { SidechatProtocolVersion } from './types.js'
 
 export const RoleSchema = z.enum(['user', 'assistant', 'system'])
 

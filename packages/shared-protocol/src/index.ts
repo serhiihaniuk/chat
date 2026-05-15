@@ -1,8 +1,8 @@
-export * from './sidechat.v1/types'
-export * from './sidechat.v1/schemas'
-export * from './sidechat.v1/codec'
-export * from './sidechat.v1/sequence'
-export * from './sidechat.v1/contracts'
+export * from './sidechat.v1/types.js'
+export * from './sidechat.v1/schemas.js'
+export * from './sidechat.v1/codec.js'
+export * from './sidechat.v1/sequence.js'
+export * from './sidechat.v1/contracts.js'
 
 import type {
   SidechatStreamCompletedEvent,
@@ -11,16 +11,16 @@ import type {
   SidechatStreamEvent,
   SidechatStreamHistoryEvent,
   SidechatStreamStartEvent
-} from './sidechat.v1/types'
-import { SidechatProtocolVersion } from './sidechat.v1/types'
+} from './sidechat.v1/types.js'
+import { SidechatProtocolVersion } from './sidechat.v1/types.js'
 import {
   encodeSseEvent,
   encodeSseFrame,
   parseKnownSsePayloads,
   parseSseEvent,
   protocolLinePrefix
-} from './sidechat.v1/codec'
-import { SidechatRequestSchema } from './sidechat.v1/schemas'
+} from './sidechat.v1/codec.js'
+import { SidechatRequestSchema } from './sidechat.v1/schemas.js'
 
 export const protocolVersion = SidechatProtocolVersion
 export const streamRequestSchema = SidechatRequestSchema
@@ -100,4 +100,4 @@ export type {
   SidechatStreamErrorEvent,
   SidechatStreamHistoryEvent
 }
-export * from './sidechat.v1/validation'
+export * from './sidechat.v1/validation.js'

@@ -2,12 +2,12 @@ import { z } from 'zod'
 import {
   SidechatRequestSchema,
   SidechatStreamEventSchema
-} from './schemas'
+} from './schemas.js'
 import {
   SidechatStreamResponseHeadersSchema,
   SidechatRequestHeadersSchema
-} from './contracts'
-import type { SidechatStreamEvent } from './types'
+} from './contracts.js'
+import type { SidechatStreamEvent } from './types.js'
 
 export const validateRequest = (value: unknown) => {
   const parsed = SidechatRequestSchema.safeParse(value)
