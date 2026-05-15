@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Bot, Loader2, Send, X } from 'lucide-react'
 import type { ModelSelection, TokenUsage } from '@side-chat/shared-protocol'
 import { Composer, ComposerInput } from './components/ai-elements/Composer.js'
@@ -26,11 +26,13 @@ const fallbackModel: ModelSelection = { provider: 'openai', id: 'gpt-4.1-mini' }
 export function SideChatWidget(props: SideChatWidgetProps) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
+  const launcherButtonRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const models = useMemo(() => props.availableModels?.length ? props.availableModels : [fallbackModel], [props.availableModels])
   const chat = useSideChat({
     apiEndpoint: props.apiEndpoint,
     workspaceId: props.workspaceId,
-    initialConversationId: open ? props.initialConversationId : undefined,
+    initialConversationId: props.initialConversationId,
     historyEndpoint: props.historyEndpoint,
     defaultModel: props.defaultModel ?? models[0],
     onError: props.onError,
@@ -60,9 +62,35 @@ export function SideChatWidget(props: SideChatWidgetProps) {
     chat.setModel(models.find((model) => model.id === event.target.value) ?? models[0])
   }
 
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus()
+    } else {
+      launcherButtonRef.current?.focus()
+    }
+  }, [open])
+
+  const widgetState = chat.isHistoryLoading
+    ? 'loading'
+    : chat.error
+      ? 'error'
+      : chat.isStreaming
+        ? 'streaming'
+        : chat.messages.length === 0
+          ? 'empty'
+          : 'ready'
+
   if (!open) {
     return (
-      <button type="button" aria-label="Open assistant" className="sidechat-launcher" onClick={openWidget}>
+      <button
+        ref={launcherButtonRef}
+        type="button"
+        aria-label="Open assistant"
+        aria-expanded={false}
+        aria-controls="side-chat-widget-panel"
+        className="sidechat-launcher"
+        onClick={openWidget}
+      >
         <Bot aria-hidden="true" />
         How can I help?
       </button>
@@ -70,7 +98,20 @@ export function SideChatWidget(props: SideChatWidgetProps) {
   }
 
   return (
-    <aside className="sidechat-panel" aria-label={props.title ?? 'Side chat assistant'} data-testid="side-chat-widget" data-state={chat.isStreaming ? 'streaming' : 'open'}>
+    <aside
+      id="side-chat-widget-panel"
+      className="sidechat-panel"
+      aria-label={props.title ?? 'Side chat assistant'}
+      aria-live="polite"
+      data-testid="side-chat-widget"
+      data-state={widgetState}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          closeWidget()
+        }
+      }}
+    >
       <header>
         <strong>{props.title ?? 'Assistant'}</strong>
         <button type="button" aria-label="Close assistant" onClick={closeWidget}>
@@ -80,7 +121,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 
       <label>
         Model
-        <select value={chat.model.id} onChange={selectModel}>
+        <select value={chat.model.id} onChange={selectModel} disabled={chat.isStreaming}>
           {models.map((model) => (
             <option key={`${model.provider}:${model.id}`} value={model.id}>
               {model.id}
@@ -127,12 +168,13 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 
       <Composer onSubmit={submit}>
         <ComposerInput
+          ref={inputRef}
           value={draft}
           aria-label="chat-input"
           placeholder={props.placeholder ?? 'Ask about this page'}
           onChange={(event) => setDraft(event.currentTarget.value)}
         />
-        <button type="submit" disabled={!canSend}>
+        <button type="submit" disabled={!canSend} aria-label="send message">
           <Send aria-hidden="true" />
           Send
         </button>

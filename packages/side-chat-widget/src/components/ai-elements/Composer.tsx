@@ -1,4 +1,5 @@
 import type { ComponentPropsWithoutRef, FormEvent, ReactNode } from 'react'
+import { forwardRef } from 'react'
 
 export function Composer({
   children,
@@ -14,6 +15,8 @@ export function Composer({
   )
 }
 
-export function ComposerInput(props: ComponentPropsWithoutRef<'textarea'>) {
-  return <textarea className="sidechat-composer-input" rows={3} {...props} />
-}
+export const ComposerInput = forwardRef<HTMLTextAreaElement, ComponentPropsWithoutRef<'textarea'>>(
+  function ComposerInput(props, ref) {
+    return <textarea ref={ref} className="sidechat-composer-input" rows={3} {...props} />
+  }
+)
