@@ -1,6 +1,5 @@
 import { Pool } from 'pg'
 import type { ChatMessage, ModelSelection, TokenUsage } from '@side-chat/shared-protocol'
-import { Pool } from 'pg'
 
 export interface DbExecutor { query<T extends object = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[] }> }
 export type ConversationRow = { conversation_id: string }
@@ -35,6 +34,7 @@ export type SideChatPersistence = {
     createOrGet(input: { workspaceId: string; userId: string; conversationId?: string }): Promise<string>
     appendUserMessage(conversationId: string, messageId: string, content: string): Promise<void>
     appendAssistantMessage(conversationId: string, messageId: string, content: string, model: ModelSelection): Promise<void>
+    readSeededHistory(workspaceId: string, conversationId: string): Promise<HistoryRow[]>
   }
   usage: {
     record(input: { requestId: string; conversationId: string; messageId: string; model: ModelSelection; usage: TokenUsage }): Promise<void>
@@ -58,6 +58,10 @@ export const createSideChatPersistence = (executor: DbExecutor, close: () => Pro
       },
       async appendAssistantMessage(conversationId, messageId, content, model) {
         await db.appendAssistantMessage(conversationId, messageId, content, model)
+      },
+      async readSeededHistory(workspaceId, conversationId) {
+        const result = await db.readSeededHistory(workspaceId, conversationId)
+        return result.rows
       }
     },
     usage: {
