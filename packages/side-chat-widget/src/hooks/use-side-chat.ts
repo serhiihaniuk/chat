@@ -22,6 +22,8 @@ export type UseSideChatOptions = {
   onUsage?: (usage: TokenUsage) => void
 }
 
+export type HistoryStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error'
+
 export type WidgetMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -72,6 +74,7 @@ export const readSideChatStreamEvents = async (
   onEvent: (event: SidechatStreamEvent) => void,
   onMalformedEvent?: (message: string) => void
 ): Promise<void> => {
+  let terminalSeen = false
   const emit = (chunk: string) => {
     for (const payload of parseSsePayload(chunk)) {
       if (payload.event && !knownEventTypes.has(payload.event)) {
@@ -80,7 +83,13 @@ export const readSideChatStreamEvents = async (
 
       const parsed = parseKnownFramePayload(payload.data)
       if (parsed) {
+        if (terminalSeen) {
+          onMalformedEvent?.(`Ignored ${parsed.type} after terminal sidechat stream event`)
+          continue
+        }
+
         onEvent(parsed)
+        terminalSeen = parsed.type === 'sidechat.completed' || parsed.type === 'sidechat.error'
         continue
       }
 
@@ -127,19 +136,24 @@ export function useSideChat(options: UseSideChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<SideChatError | undefined>()
   const [usage, setUsage] = useState<TokenUsage | undefined>()
-  const [model, setModel] = useState(options.defaultModel)
+  const [model, setModelState] = useState(options.defaultModel)
   const [lastUserMessage, setLastUserMessage] = useState<string | undefined>()
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [historyStatus, setHistoryStatus] = useState<HistoryStatus>('idle')
   const historyEndpoint = options.historyEndpoint ?? deriveHistoryEndpoint(options.apiEndpoint)
 
   useEffect(() => {
-    if (!options.initialConversationId) return
+    if (!options.initialConversationId) {
+      setHistoryStatus('idle')
+      return
+    }
 
     let aborted = false
     const conversationId = options.initialConversationId
     const loadHistory = async () => {
       try {
         setIsLoadingHistory(true)
+        setHistoryStatus('loading')
         const response = await fetch(`${historyEndpoint}?workspaceId=${encodeURIComponent(options.workspaceId)}&conversationId=${encodeURIComponent(conversationId)}`)
 
         if (!response.ok) {
@@ -148,19 +162,22 @@ export function useSideChat(options: UseSideChatOptions) {
 
         const payload = await response.json() as { messages: Array<{ id: string; role: string; content: string }> }
         if (aborted) return
-        setMessages(payload.messages.map((message) => ({
+        const nextMessages: WidgetMessage[] = payload.messages.map((message) => ({
           id: message.id,
           role: message.role === 'assistant' || message.role === 'user' || message.role === 'system'
             ? message.role
             : 'system',
           content: message.content
-        })))
+        }))
+        setMessages(nextMessages)
+        setHistoryStatus(nextMessages.length > 0 ? 'loaded' : 'empty')
       } catch (unknownError) {
         if (aborted) return
         const historyError = requestError(
           unknownError instanceof Error ? unknownError.message : 'Failed to load conversation history',
           'history-load'
         )
+        setHistoryStatus('error')
         setError(historyError)
         options.onError?.(historyError)
       } finally {
@@ -197,6 +214,7 @@ export function useSideChat(options: UseSideChatOptions) {
     }
 
     if (event.type === 'sidechat.completed') {
+      setError(undefined)
       setUsage(event.usage)
       options.onUsage?.(event.usage)
       return
@@ -229,6 +247,7 @@ export function useSideChat(options: UseSideChatOptions) {
     }
 
     setError(undefined)
+    setUsage(undefined)
     setLastUserMessage(trimmed)
     setIsStreaming(true)
 
@@ -253,7 +272,7 @@ export function useSideChat(options: UseSideChatOptions) {
         throw new Error(`Chat request failed: ${response.status}`)
       }
 
-      await readSideChatStreamEvents(response, handleEvent, (message) => {
+      await readSideChatStreamEvents(response, handleEvent, (message: string) => {
         throw new Error(message)
       })
     } catch (unknownError) {
@@ -273,6 +292,12 @@ export function useSideChat(options: UseSideChatOptions) {
     void sendMessage(lastUserMessage, { isRetry: true })
   }, [lastUserMessage, sendMessage])
 
+  const setModel = useCallback((nextModel: ModelSelection) => {
+    setModelState(nextModel)
+    setError(undefined)
+    setUsage(undefined)
+  }, [])
+
   return {
     messages,
     isStreaming,
@@ -282,6 +307,7 @@ export function useSideChat(options: UseSideChatOptions) {
     setModel,
     sendMessage,
     retryLastMessage,
-    isHistoryLoading: isLoadingHistory
+    isHistoryLoading: isLoadingHistory,
+    historyStatus
   }
 }

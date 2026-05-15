@@ -35,6 +35,8 @@ test('embedded widget streams markdown from backend through Streamdown', async (
   await page.goto('/')
   await openWidget(page)
 
+  await page.getByLabel('Assistant model').selectOption('gpt-4.1-nano')
+  await expect(page.getByText('Model: gpt-4.1-nano')).toBeVisible()
   await page.getByLabel('chat-input').fill('summarize markdown')
   const streamResponse = page.waitForResponse((response) => (
     response.url().includes('/chat/stream') && response.status() === 200
