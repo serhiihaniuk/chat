@@ -97,5 +97,48 @@ test("recordUsage uses stored procedure", async () => {
     1,
     2,
     3,
+    null,
+    null,
+    null,
+    null,
   ]);
+});
+
+test("getLatestUsage uses stored procedure", async () => {
+  const calls: Array<{ text: string; params: unknown[] }> = [];
+  const fake = {
+    query: async (text: string, params: unknown[]) => {
+      calls.push({ text, params });
+      return {
+        rows: [
+          {
+            inputTokens: 10,
+            outputTokens: 20,
+            totalTokens: 30,
+            reasoningTokens: 4,
+            cachedInputTokens: 2,
+            estimatedCostUsd: 0.000005,
+          },
+        ],
+      };
+    },
+  };
+
+  const db = new SideChatDb(fake);
+  const result = await db.getLatestUsage(
+    "demo-workspace",
+    "demo-user",
+    "conv-1",
+  );
+
+  expect(calls[0].text).toContain("sidechat_get_latest_usage");
+  expect(calls[0].params).toEqual(["demo-workspace", "demo-user", "conv-1"]);
+  expect(result.rows[0]).toMatchObject({
+    inputTokens: 10,
+    outputTokens: 20,
+    totalTokens: 30,
+    reasoningTokens: 4,
+    cachedInputTokens: 2,
+    estimatedCostUsd: 0.000005,
+  });
 });

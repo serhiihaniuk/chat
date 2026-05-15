@@ -42,6 +42,11 @@ const baseDeps: StreamChatDeps = {
       };
     },
   },
+  pageContext: {
+    async resolve() {
+      return undefined;
+    },
+  },
   conversations: {
     async createOrGet() {
       return "conv-1";
@@ -110,6 +115,88 @@ describe("streamChat", () => {
       "sidechat.started",
       "sidechat.delta",
       "sidechat.completed",
+    ]);
+  });
+
+  it("resolves current page context inside the backend boundary", async () => {
+    const seenContexts: unknown[] = [];
+    const deps: StreamChatDeps = {
+      ...baseDeps,
+      model: {
+        async *stream(request) {
+          seenContexts.push(request.pageContext);
+          yield {
+            kind: "done",
+            finishReason: "stop",
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+        },
+      },
+      pageContext: {
+        async resolve(input) {
+          expect(input).toMatchObject({
+            workspaceId: "demo-workspace",
+            userId: "demo-user",
+            conversationId: "conv-1",
+          });
+          return {
+            pageId: "advisory-workbench",
+            title: "UBS Partner Advisory Workbench",
+            summary: "Dashboard context resolved by the API.",
+            facts: ["At-Risk Accounts is 52."],
+          };
+        },
+      },
+    };
+
+    await collect(deps, validRequest);
+
+    expect(seenContexts).toEqual([
+      {
+        pageId: "advisory-workbench",
+        title: "UBS Partner Advisory Workbench",
+        summary: "Dashboard context resolved by the API.",
+        facts: ["At-Risk Accounts is 52."],
+      },
+    ]);
+  });
+
+  it("passes existing visible conversation history to the model before appending the new user message", async () => {
+    const seenHistory: unknown[] = [];
+    const deps: StreamChatDeps = {
+      ...baseDeps,
+      model: {
+        async *stream(request) {
+          seenHistory.push(request.recentMessages);
+          yield {
+            kind: "done",
+            finishReason: "stop",
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+        },
+      },
+      conversations: {
+        ...baseDeps.conversations,
+        async readSeededHistory() {
+          return [
+            { id: "u-prev", role: "user", content: "previous visible user message" },
+            { id: "a-prev", role: "assistant", content: "previous visible assistant reply" },
+          ];
+        },
+      },
+    };
+
+    await collect(deps, validRequest);
+
+    expect(seenHistory).toEqual([
+      [
+        { id: "u-prev", role: "user", content: "previous visible user message" },
+        {
+          id: "a-prev",
+          role: "assistant",
+          content: "previous visible assistant reply",
+        },
+      ],
     ]);
   });
 

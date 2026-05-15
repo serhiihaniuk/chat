@@ -48,12 +48,15 @@ function fail(message) {
   console.error(`FAIL: ${message}`);
   process.exitCode = 1;
 }
+function relPath(file) {
+  return relative(root, file).replaceAll("\\", "/");
+}
 
 for (const file of files.filter((f) => f.endsWith("package.json"))) {
   const pkg = JSON.parse(readFileSync(file, "utf8"));
   if (/poc/i.test(pkg.name ?? ""))
     fail(
-      `package name contains prohibited POC naming: ${relative(root, file)}`,
+      `package name contains prohibited POC naming: ${relPath(file)}`,
     );
   for (const section of ["dependencies", "devDependencies", "peerDependencies"])
     for (const [name, version] of Object.entries(pkg[section] ?? {}))
@@ -63,11 +66,11 @@ for (const file of files.filter((f) => f.endsWith("package.json"))) {
         !version.startsWith("0.1.0")
       )
         fail(
-          `${relative(root, file)} ${name}=${version}, expected ${exact[name]}`,
+          `${relPath(file)} ${name}=${version}, expected ${exact[name]}`,
         );
 }
 for (const file of files) {
-  const rel = relative(root, file);
+  const rel = relPath(file);
   if (
     rel.startsWith("apps/embedded-host-app") &&
     /\.(md|tsx?|jsx?|json|html|css)$/.test(file)
@@ -88,12 +91,14 @@ for (const file of files) {
       fail(`prohibited POC naming in ${rel}`);
     if (
       /from ['"]hono/.test(text) &&
-      !rel.startsWith("apps/side-chat-api/src/inbound/hono/")
+      !rel.startsWith("apps/side-chat-api/src/inbound/hono/") &&
+      !rel.startsWith("apps/dashboard-data-api/src/")
     )
       fail(`hono import outside inbound adapter: ${rel}`);
     if (
       /from ['"](@ai-sdk|ai['"])/.test(text) &&
-      !rel.startsWith("apps/side-chat-api/src/adapters/ai/")
+      !rel.startsWith("apps/side-chat-api/src/adapters/ai/") &&
+      !rel.startsWith("packages/side-chat-widget/src/components/ai-elements/")
     )
       fail(`AI SDK import outside ai adapter: ${rel}`);
     if (/from ['"]pg['"]/.test(text) && !rel.startsWith("packages/db/"))

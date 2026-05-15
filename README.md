@@ -16,17 +16,17 @@ Side-chat assistant monorepo with a Hono backend, reusable React widget, embedde
 ## Requirements
 
 - Node.js 24+ (verified locally with npm 11).
-- Corepack-managed pnpm for dependency installation from the checked-in `pnpm-lock.yaml`.
+- npm for dependency installation from the checked-in `package-lock.json`.
 - npm workspace scripts from the root `package.json` after dependencies are installed.
 - Docker and Docker Compose for Postgres/API container checks.
 - Playwright browser dependencies for `npm run test:e2e`.
 
-This repository currently has npm-compatible workspace scripts, but dependency installation is pinned by the checked-in `pnpm-lock.yaml`. Use `corepack pnpm install` to create workspace links, then run the documented npm scripts from the root when you need to match the script names used by Docker/Playwright configuration.
+This repository uses npm workspaces for dependency installation and workspace links. Use `npm install` from the repository root, then run the documented npm scripts from the root when you need to match the script names used by Docker/Playwright configuration.
 
 ## Install
 
 ```sh
-corepack pnpm install
+npm install
 ```
 
 ## Root commands
@@ -94,7 +94,7 @@ Start the API plus Postgres:
 docker compose up --build
 ```
 
-Compose uses Postgres 16 and mounts the repository into the Node API container. The API container copies the mounted source to `/tmp/sidechat`, installs `pnpm@11.1.2`, runs `pnpm install --frozen-lockfile`, and starts `@side-chat/side-chat-api` from that copy so container dependency installation does not mutate host `node_modules`. Treat a fresh `docker compose up --build` smoke as required release evidence instead of assuming local `node_modules` proves the container path.
+Compose uses Postgres 16 and mounts the repository into the Node API container. The API container copies the mounted source to `/tmp/sidechat`, runs `npm ci`, and starts `@side-chat/side-chat-api` from that copy so container dependency installation does not mutate host `node_modules`. Treat a fresh `docker compose up --build` smoke as required release evidence instead of assuming local `node_modules` proves the container path.
 
 Run in the background:
 

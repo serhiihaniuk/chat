@@ -5,6 +5,7 @@ import { createPostgresSideChatPersistence } from "@side-chat/db";
 
 const persistence = vi.hoisted(() => ({
   createPostgresSideChatPersistence: vi.fn(),
+  createPostgresAdvisoryDashboardDb: vi.fn(),
   createOrGet: vi.fn(),
   appendUserMessage: vi.fn(),
   appendAssistantMessage: vi.fn(),
@@ -15,6 +16,8 @@ const persistence = vi.hoisted(() => ({
 vi.mock("@side-chat/db", () => ({
   createPostgresSideChatPersistence:
     persistence.createPostgresSideChatPersistence,
+  createPostgresAdvisoryDashboardDb:
+    persistence.createPostgresAdvisoryDashboardDb,
 }));
 
 describe("default deps", () => {

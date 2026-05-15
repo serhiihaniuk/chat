@@ -3,6 +3,8 @@ import {
   SidechatRequestSchema,
   type SidechatStreamEvent,
   type SidechatRequest,
+  type ModelSelection,
+  type TokenUsage,
 } from "@side-chat/shared-protocol";
 import type {
   AuthPort,
@@ -11,8 +13,11 @@ import type {
   ConversationRepository,
   ModelPort,
   ObservabilityPort,
+  PageContextPort,
   RateLimitPort,
   UsagePort,
+  WorkbenchReportPort,
+  WorkbenchToolsPort,
 } from "../ports/index.js";
 import {
   BillingDenied,
@@ -24,6 +29,9 @@ import {
 
 export type StreamChatDeps = {
   model: ModelPort;
+  pageContext: PageContextPort;
+  workbenchTools?: WorkbenchToolsPort;
+  workbenchReports?: WorkbenchReportPort;
   conversations: ConversationRepository;
   usage: UsagePort;
   auth: AuthPort;
@@ -36,6 +44,33 @@ export type StreamChatInput = {
   requestId: string;
   body: unknown;
   signal?: AbortSignal;
+};
+
+const modelPricingPerMillion: Record<
+  string,
+  { inputUsd: number; outputUsd: number; cachedInputUsd?: number }
+> = {
+  "gpt-5.4-nano": { inputUsd: 0.05, outputUsd: 0.2, cachedInputUsd: 0.005 },
+};
+
+const enrichUsage = (model: ModelSelection, usage: TokenUsage): TokenUsage => {
+  const pricing = modelPricingPerMillion[model.id];
+  if (!pricing || usage.estimatedCostUsd !== undefined) return usage;
+
+  const cachedInputTokens = usage.cachedInputTokens ?? 0;
+  const billableInputTokens = Math.max(0, usage.inputTokens - cachedInputTokens);
+  const cachedInputCost =
+    (cachedInputTokens / 1_000_000) *
+    (pricing.cachedInputUsd ?? pricing.inputUsd);
+  const inputCost = (billableInputTokens / 1_000_000) * pricing.inputUsd;
+  const outputCost = (usage.outputTokens / 1_000_000) * pricing.outputUsd;
+
+  return {
+    ...usage,
+    estimatedCostUsd: Number(
+      (inputCost + cachedInputCost + outputCost).toFixed(6),
+    ),
+  };
 };
 
 export const streamChatEffect = (
@@ -73,6 +108,15 @@ export async function* streamChat(
     userId,
     conversationId: request.conversationId,
   });
+  const pageContext = await deps.pageContext?.resolve({
+    workspaceId: request.workspaceId,
+    userId,
+    conversationId,
+  });
+  const recentMessages = await deps.conversations.readSeededHistory(
+    request.workspaceId,
+    conversationId,
+  );
   await deps.conversations.appendUserMessage(
     conversationId,
     request.message.id,
@@ -94,7 +138,18 @@ export async function* streamChat(
 
   let assistantContent = "";
   let index = 0;
-  for await (const chunk of deps.model.stream(request, input.signal)) {
+  let reasoningIndex = 0;
+  let toolIndex = 0;
+  const modelRequest = {
+    ...request,
+    pageContext,
+    recentMessages,
+    userId,
+    workbenchTools: deps.workbenchTools,
+    workbenchReports: deps.workbenchReports,
+  };
+
+  for await (const chunk of deps.model.stream(modelRequest, input.signal)) {
     if (chunk.kind === "delta") {
       assistantContent += chunk.text;
       const event: SidechatStreamEvent = {
@@ -110,6 +165,41 @@ export async function* streamChat(
       continue;
     }
 
+    if (chunk.kind === "reasoning") {
+      const event: SidechatStreamEvent = {
+        type: "sidechat.reasoning",
+        requestId: input.requestId,
+        messageId: assistantMessageId,
+        content: chunk.text,
+        index: reasoningIndex,
+      };
+      reasoningIndex += 1;
+      deps.observability.lifecycle(event);
+      yield event;
+      continue;
+    }
+
+    if (chunk.kind === "tool") {
+      const event: SidechatStreamEvent = {
+        type: "sidechat.tool",
+        requestId: input.requestId,
+        messageId: assistantMessageId,
+        toolCallId: chunk.toolCallId,
+        toolName: chunk.toolName,
+        status: chunk.status,
+        input: chunk.input,
+        output: chunk.output,
+        error: chunk.error,
+        index: toolIndex,
+      };
+      toolIndex += 1;
+      deps.observability.lifecycle(event);
+      yield event;
+      continue;
+    }
+
+    const usage = enrichUsage(request.model, chunk.usage);
+
     await deps.conversations.appendAssistantMessage(
       conversationId,
       assistantMessageId,
@@ -122,7 +212,7 @@ export async function* streamChat(
         conversationId,
         messageId: assistantMessageId,
         model: request.model,
-        usage: chunk.usage,
+        usage,
       });
     } catch {
       throw new UsageCaptureFailed();
@@ -134,7 +224,7 @@ export async function* streamChat(
       messageId: assistantMessageId,
       model: request.model,
       finishReason: chunk.finishReason,
-      usage: chunk.usage,
+      usage,
     };
     deps.observability.lifecycle(completed);
     deps.observability.counter("sidechat.stream.completed", {

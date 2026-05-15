@@ -8,15 +8,19 @@ import { createApp } from "../src/inbound/hono/app.js";
 
 const dbPersistence = vi.hoisted(() => ({
   createPostgresSideChatPersistence: vi.fn(),
+  createPostgresAdvisoryDashboardDb: vi.fn(),
   createOrGet: vi.fn(),
   appendUserMessage: vi.fn(),
   appendAssistantMessage: vi.fn(),
+  readSeededHistory: vi.fn(),
   recordUsage: vi.fn(),
 }));
 
 vi.mock("@side-chat/db", () => ({
   createPostgresSideChatPersistence:
     dbPersistence.createPostgresSideChatPersistence,
+  createPostgresAdvisoryDashboardDb:
+    dbPersistence.createPostgresAdvisoryDashboardDb,
 }));
 
 const originalEnv = {
@@ -30,7 +34,7 @@ const streamRequest = (content = "Explain this report") => ({
   workspaceId: "demo-workspace",
   conversationId: "demo-conversation-001",
   message: { id: "client-msg-001", role: "user" as const, content },
-  model: { provider: "openai", id: "gpt-4.1-mini" },
+  model: { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" },
 });
 
 const seededMessageHistory = [
@@ -76,8 +80,7 @@ describe("hono adapter", () => {
     expect(models.headers.get("Content-Type")).toContain("application/json");
     expect(await models.json()).toEqual({
       models: [
-        { provider: "openai", id: "gpt-4.1-mini" },
-        { provider: "openai", id: "gpt-4.1-nano" },
+        { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" },
       ],
     });
   });
@@ -117,6 +120,7 @@ describe("hono adapter", () => {
     expect(frames.map((frame) => frame.type)).toEqual([
       "sidechat.started",
       ...Array.from({ length: 10 }, () => "sidechat.delta"),
+      "sidechat.reasoning",
       "sidechat.completed",
     ]);
     expect(validateSidechatEventSequence(frames)).toEqual({ ok: true });
@@ -125,7 +129,11 @@ describe("hono adapter", () => {
       requestId: "req-test",
       conversationId: "demo-conversation-001",
       messageId: "req-test-assistant",
-      model: { provider: "openai", id: "gpt-4.1-mini" },
+      model: {
+        provider: "openai",
+        id: "gpt-5.4-nano",
+        reasoningEffort: "medium",
+      },
     });
     expect(frames[1]).toMatchObject({
       requestId: "req-test",
@@ -160,7 +168,11 @@ describe("hono adapter", () => {
       requestId: "req-test",
       conversationId: "demo-conversation-001",
       messageId: "req-test-assistant",
-      model: { provider: "openai", id: "gpt-4.1-mini" },
+      model: {
+        provider: "openai",
+        id: "gpt-5.4-nano",
+        reasoningEffort: "medium",
+      },
       usage: { inputTokens: 3 },
     });
     expect(completed).toEqual(
@@ -249,7 +261,7 @@ describe("hono adapter", () => {
       observability: { lifecycle, counter, span },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";
@@ -293,10 +305,10 @@ describe("hono adapter", () => {
       }),
     );
     expect(counter).toHaveBeenCalledWith("sidechat.stream.started", {
-      model: "gpt-4.1-mini",
+      model: "gpt-5.4-nano",
     });
     expect(counter).toHaveBeenCalledWith("sidechat.stream.completed", {
-      model: "gpt-4.1-mini",
+      model: "gpt-5.4-nano",
     });
   });
 
@@ -306,12 +318,14 @@ describe("hono adapter", () => {
     dbPersistence.createOrGet.mockResolvedValue("conv-from-db");
     dbPersistence.appendUserMessage.mockResolvedValue(undefined);
     dbPersistence.appendAssistantMessage.mockResolvedValue(undefined);
+    dbPersistence.readSeededHistory.mockResolvedValue([]);
     dbPersistence.recordUsage.mockResolvedValue(undefined);
     dbPersistence.createPostgresSideChatPersistence.mockReturnValue({
       conversations: {
         createOrGet: dbPersistence.createOrGet,
         appendUserMessage: dbPersistence.appendUserMessage,
         appendAssistantMessage: dbPersistence.appendAssistantMessage,
+        readSeededHistory: dbPersistence.readSeededHistory,
       },
       usage: { record: dbPersistence.recordUsage },
       close: vi.fn(),
@@ -359,7 +373,7 @@ describe("hono adapter", () => {
       "conv-from-db",
       "req-db-assistant",
       expect.stringContaining("Persist this"),
-      { provider: "openai", id: "gpt-4.1-mini" },
+      { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" },
     );
     expect(dbPersistence.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -411,7 +425,7 @@ describe("hono adapter", () => {
       observability: { lifecycle, counter, span },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";
@@ -536,7 +550,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";
@@ -606,7 +620,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";
@@ -676,7 +690,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";
@@ -754,7 +768,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";
@@ -828,7 +842,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";
@@ -929,7 +943,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";
@@ -953,6 +967,86 @@ describe("hono adapter", () => {
       "/chat/history?workspaceId=demo-workspace",
     );
     expect(response.status).toBe(400);
+  });
+
+  it("returns latest persisted usage for a conversation", async () => {
+    const latest = vi.fn(async () => ({
+      inputTokens: 120,
+      outputTokens: 48,
+      totalTokens: 168,
+      reasoningTokens: 12,
+      cachedInputTokens: 20,
+      estimatedCostUsd: 0.000019,
+    }));
+    const app = createApp({
+      conversations: {
+        async createOrGet() {
+          return "demo-conversation-001";
+        },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() {
+          return [];
+        },
+      },
+      model: { async *stream() {} },
+      usage: {
+        async record() {},
+        latest,
+      },
+      auth: {
+        async authorize() {
+          return true;
+        },
+      },
+      rateLimit: {
+        async check() {
+          return true;
+        },
+      },
+      billing: {
+        async allow() {
+          return true;
+        },
+      },
+      observability: {
+        lifecycle() {},
+        counter() {},
+        async span(_name, run) {
+          return run();
+        },
+      },
+      config: {
+        models() {
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+        },
+        defaultUserId() {
+          return "local-user";
+        },
+      },
+    });
+
+    const response = await app.request(
+      "/chat/usage?workspaceId=demo-workspace&conversationId=demo-conversation-001",
+    );
+
+    expect(response.status).toBe(200);
+    expect(latest).toHaveBeenCalledWith({
+      workspaceId: "demo-workspace",
+      userId: "local-user",
+      conversationId: "demo-conversation-001",
+    });
+    expect(await response.json()).toEqual({
+      conversationId: "demo-conversation-001",
+      usage: {
+        inputTokens: 120,
+        outputTokens: 48,
+        totalTokens: 168,
+        reasoningTokens: 12,
+        cachedInputTokens: 20,
+        estimatedCostUsd: 0.000019,
+      },
+    });
   });
 
   it("requires authorization for history access", async () => {
@@ -993,7 +1087,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-4.1-mini" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
         },
         defaultUserId() {
           return "local-user";

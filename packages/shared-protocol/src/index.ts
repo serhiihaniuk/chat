@@ -7,6 +7,8 @@ export * from "./sidechat.v1/contracts.js";
 import type {
   SidechatStreamCompletedEvent,
   SidechatStreamDeltaEvent,
+  SidechatStreamReasoningEvent,
+  SidechatStreamToolEvent,
   SidechatStreamErrorEvent,
   SidechatStreamEvent,
   SidechatStreamHistoryEvent,
@@ -41,6 +43,24 @@ export const goldenSuccessEvents: SidechatStreamEvent[] = [
     requestId: "req-001",
     messageId: "msg-asst-001",
     content: "Hello",
+    index: 0,
+  },
+  {
+    type: "sidechat.reasoning",
+    requestId: "req-001",
+    messageId: "msg-asst-001",
+    content: "Brief reasoning summary.",
+    index: 0,
+  },
+  {
+    type: "sidechat.tool",
+    requestId: "req-001",
+    messageId: "msg-asst-001",
+    toolCallId: "tool-001",
+    toolName: "workbench_query",
+    status: "completed",
+    input: { query: "dashboard_snapshot" },
+    output: { rows: 1 },
     index: 0,
   },
   {
@@ -97,6 +117,8 @@ export const parseSseFrames = (chunk: string): SidechatStreamEvent[] => {
 export type {
   SidechatStreamStartEvent,
   SidechatStreamDeltaEvent,
+  SidechatStreamReasoningEvent,
+  SidechatStreamToolEvent,
   SidechatStreamCompletedEvent,
   SidechatStreamErrorEvent,
   SidechatStreamHistoryEvent,

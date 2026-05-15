@@ -18,7 +18,7 @@ This project uses lightweight repository governance to protect the side-chat PRD
 
 ## Verification order
 
-Use `corepack pnpm install` first in a fresh worktree, then use this order for final evidence when the implementation lanes are ready:
+Use `npm install` first in a fresh worktree, then use this order for final evidence when the implementation lanes are ready:
 
 ```sh
 npm run lint

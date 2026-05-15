@@ -10,6 +10,7 @@ export interface ChatMessage {
 export interface ModelSelection {
   provider: string;
   id: string;
+  reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 }
 
 export interface SidechatStreamStartEvent {
@@ -28,6 +29,27 @@ export interface SidechatStreamDeltaEvent {
   index: number;
 }
 
+export interface SidechatStreamReasoningEvent {
+  type: "sidechat.reasoning";
+  requestId: string;
+  messageId: string;
+  content: string;
+  index: number;
+}
+
+export interface SidechatStreamToolEvent {
+  type: "sidechat.tool";
+  requestId: string;
+  messageId: string;
+  toolCallId: string;
+  toolName: string;
+  status: "running" | "completed" | "error";
+  input?: unknown;
+  output?: unknown;
+  error?: string;
+  index: number;
+}
+
 export interface SidechatStreamCompletedEvent {
   type: "sidechat.completed";
   requestId: string;
@@ -39,6 +61,10 @@ export interface SidechatStreamCompletedEvent {
     inputTokens: number;
     outputTokens: number;
     totalTokens: number;
+    reasoningTokens?: number;
+    cachedInputTokens?: number;
+    cacheWriteTokens?: number;
+    estimatedCostUsd?: number;
   };
 }
 
@@ -60,6 +86,8 @@ export interface SidechatStreamHistoryEvent {
 export type SidechatStreamEvent =
   | SidechatStreamStartEvent
   | SidechatStreamDeltaEvent
+  | SidechatStreamReasoningEvent
+  | SidechatStreamToolEvent
   | SidechatStreamCompletedEvent
   | SidechatStreamErrorEvent
   | SidechatStreamHistoryEvent;
@@ -80,4 +108,8 @@ export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  reasoningTokens?: number;
+  cachedInputTokens?: number;
+  cacheWriteTokens?: number;
+  estimatedCostUsd?: number;
 }

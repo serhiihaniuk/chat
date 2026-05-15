@@ -5,6 +5,7 @@
     { "path": "packages/db" },
     { "path": "packages/side-chat-widget" },
     { "path": "apps/side-chat-api" },
+    { "path": "apps/dashboard-data-api" },
     { "path": "apps/widget-demo" },
     { "path": "apps/embedded-host-app" }
   ],

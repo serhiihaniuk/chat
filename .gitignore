@@ -32,5 +32,8 @@ pnpm-debug.log*
 
 # Agent/runtime state
 .omx/
+.sidechat-logs/
+.sidechat-reports/
+**/.sidechat-reports/
 
 .pnpm-store/

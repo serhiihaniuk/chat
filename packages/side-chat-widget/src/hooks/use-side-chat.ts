@@ -1,5 +1,4 @@
-import { useCallback, useState } from "react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   parseSsePayload,
   protocolVersion,
@@ -28,10 +27,73 @@ export type WidgetMessage = {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  parts?: WidgetMessagePart[];
 };
+
+export type WidgetReasoningPart = {
+  id: string;
+  type: "reasoning";
+  content: string;
+};
+
+export type WidgetToolPart = {
+  id: string;
+  type: "tool";
+  toolCallId: string;
+  toolName: string;
+  status: "running" | "completed" | "error";
+  input?: unknown;
+  output?: unknown;
+  error?: string;
+};
+
+export type WidgetMessagePart = WidgetReasoningPart | WidgetToolPart;
 
 const randomId = () =>
   `client-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+export const appendReasoningPart = (
+  parts: WidgetMessagePart[] | undefined,
+  content: string,
+  index: number,
+): WidgetMessagePart[] => {
+  const current = parts ?? [];
+  const lastPart = current.at(-1);
+
+  if (lastPart?.type === "reasoning") {
+    return [
+      ...current.slice(0, -1),
+      { ...lastPart, content: lastPart.content + content },
+    ];
+  }
+
+  return [
+    ...current,
+    {
+      id: `reasoning-${index}-${current.length}`,
+      type: "reasoning",
+      content,
+    },
+  ];
+};
+
+export const upsertToolPart = (
+  parts: WidgetMessagePart[] | undefined,
+  tool: WidgetToolPart,
+): WidgetMessagePart[] => {
+  const current = parts ?? [];
+  const existingIndex = current.findIndex(
+    (part) => part.type === "tool" && part.toolCallId === tool.toolCallId,
+  );
+
+  if (existingIndex === -1) {
+    return [...current, tool];
+  }
+
+  return current.map((part, index) =>
+    index === existingIndex ? { ...tool, id: part.id } : part,
+  );
+};
 
 const deriveHistoryEndpoint = (apiEndpoint: string): string => {
   const streamSuffix = "/chat/stream";
@@ -53,6 +115,8 @@ const requestError = (message: string, requestId: string): SideChatError => ({
 const knownEventTypes = new Set([
   "sidechat.started",
   "sidechat.delta",
+  "sidechat.reasoning",
+  "sidechat.tool",
   "sidechat.completed",
   "sidechat.error",
   "sidechat.history",
@@ -69,7 +133,41 @@ const parseKnownFramePayload = (
   }
 
   const parsed = SidechatStreamEventSchema.safeParse(json);
-  return parsed.success ? parsed.data : undefined;
+  if (parsed.success) return parsed.data;
+
+  if (
+    typeof json === "object" &&
+    json !== null &&
+    "type" in json &&
+    json.type === "sidechat.reasoning" &&
+    "requestId" in json &&
+    typeof json.requestId === "string" &&
+    "messageId" in json &&
+    typeof json.messageId === "string" &&
+    "content" in json
+  ) {
+    return {
+      type: "sidechat.reasoning",
+      requestId: json.requestId,
+      messageId: json.messageId,
+      content:
+        typeof json.content === "string"
+          ? json.content
+          : JSON.stringify(json.content),
+      index: "index" in json && typeof json.index === "number" ? json.index : 0,
+    };
+  }
+
+  return undefined;
+};
+
+const deriveUsageEndpoint = (apiEndpoint: string): string => {
+  const streamSuffix = "/chat/stream";
+  if (apiEndpoint.endsWith(streamSuffix)) {
+    return `${apiEndpoint.slice(0, -streamSuffix.length)}/chat/usage`;
+  }
+
+  return `${apiEndpoint}/chat/usage`;
 };
 
 export const readSideChatStreamEvents = async (
@@ -141,31 +239,63 @@ export const readSideChatStreamEvents = async (
 };
 
 export function useSideChat(options: UseSideChatOptions) {
+  const {
+    apiEndpoint,
+    workspaceId,
+    initialConversationId,
+    historyEndpoint: explicitHistoryEndpoint,
+    defaultModel,
+    onError,
+    onUsage,
+  } = options;
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<SideChatError | undefined>();
   const [usage, setUsage] = useState<TokenUsage | undefined>();
-  const [model, setModelState] = useState(options.defaultModel);
+  const [model, setModelState] = useState(defaultModel);
   const [lastUserMessage, setLastUserMessage] = useState<string | undefined>();
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [historyStatus, setHistoryStatus] = useState<HistoryStatus>("idle");
+  const [activeAssistantMessageId, setActiveAssistantMessageId] = useState<
+    string | undefined
+  >();
   const historyEndpoint =
-    options.historyEndpoint ?? deriveHistoryEndpoint(options.apiEndpoint);
+    explicitHistoryEndpoint ?? deriveHistoryEndpoint(apiEndpoint);
+  const usageEndpoint = deriveUsageEndpoint(apiEndpoint);
+
+  const refreshUsage = useCallback(
+    async (conversationId: string) => {
+      const response = await fetch(
+        `${usageEndpoint}?workspaceId=${encodeURIComponent(workspaceId)}&conversationId=${encodeURIComponent(conversationId)}`,
+      );
+
+      if (!response.ok) return;
+
+      const payload = (await response.json()) as {
+        usage: TokenUsage | null;
+      };
+      if (payload.usage) {
+        setUsage(payload.usage);
+        onUsage?.(payload.usage);
+      }
+    },
+    [onUsage, usageEndpoint, workspaceId],
+  );
 
   useEffect(() => {
-    if (!options.initialConversationId) {
+    if (!initialConversationId) {
       setHistoryStatus("idle");
       return;
     }
 
     let aborted = false;
-    const conversationId = options.initialConversationId;
+    const conversationId = initialConversationId;
     const loadHistory = async () => {
       try {
         setIsLoadingHistory(true);
         setHistoryStatus("loading");
         const response = await fetch(
-          `${historyEndpoint}?workspaceId=${encodeURIComponent(options.workspaceId)}&conversationId=${encodeURIComponent(conversationId)}`,
+          `${historyEndpoint}?workspaceId=${encodeURIComponent(workspaceId)}&conversationId=${encodeURIComponent(conversationId)}`,
         );
 
         if (!response.ok) {
@@ -190,6 +320,7 @@ export function useSideChat(options: UseSideChatOptions) {
         );
         setMessages(nextMessages);
         setHistoryStatus(nextMessages.length > 0 ? "loaded" : "empty");
+        void refreshUsage(conversationId);
       } catch (unknownError) {
         if (aborted) return;
         const historyError = requestError(
@@ -200,7 +331,7 @@ export function useSideChat(options: UseSideChatOptions) {
         );
         setHistoryStatus("error");
         setError(historyError);
-        options.onError?.(historyError);
+        onError?.(historyError);
       } finally {
         if (!aborted) {
           setIsLoadingHistory(false);
@@ -216,14 +347,16 @@ export function useSideChat(options: UseSideChatOptions) {
     };
   }, [
     historyEndpoint,
-    options.initialConversationId,
-    options.onError,
-    options.workspaceId,
+    initialConversationId,
+    onError,
+    refreshUsage,
+    workspaceId,
   ]);
 
   const handleEvent = useCallback(
     (event: SidechatStreamEvent) => {
       if (event.type === "sidechat.started") {
+        setActiveAssistantMessageId(event.messageId);
         setMessages((current) => [
           ...current,
           { id: event.messageId, role: "assistant", content: "" },
@@ -242,18 +375,67 @@ export function useSideChat(options: UseSideChatOptions) {
         return;
       }
 
+      if (event.type === "sidechat.reasoning") {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === event.messageId
+              ? {
+                  ...message,
+                  parts: appendReasoningPart(
+                    message.parts,
+                    event.content,
+                    event.index,
+                  ),
+                }
+              : message,
+          ),
+        );
+        return;
+      }
+
+      if (event.type === "sidechat.tool") {
+        setMessages((current) =>
+          current.map((message) => {
+            if (message.id !== event.messageId) return message;
+
+            const nextTool: WidgetToolPart = {
+              id: `tool-${event.toolCallId}`,
+              type: "tool",
+              toolCallId: event.toolCallId,
+              toolName: event.toolName,
+              status: event.status,
+              input: event.input,
+              output: event.output,
+              error: event.error,
+            };
+
+            return {
+              ...message,
+              parts: upsertToolPart(message.parts, nextTool),
+            };
+          }),
+        );
+        return;
+      }
+
       if (event.type === "sidechat.completed") {
+        setActiveAssistantMessageId(undefined);
         setError(undefined);
-        setUsage(event.usage);
-        options.onUsage?.(event.usage);
+        void refreshUsage(event.conversationId).catch(() => {
+          setUsage(event.usage);
+          onUsage?.(event.usage);
+        });
         return;
       }
 
       if (event.type === "sidechat.error") {
+        setActiveAssistantMessageId(undefined);
         setError(event);
-        options.onError?.(event);
+        onError?.(event);
         return;
       }
+
+      if (event.type !== "sidechat.history") return;
 
       setMessages(
         event.messages.map((message) => ({
@@ -263,30 +445,34 @@ export function useSideChat(options: UseSideChatOptions) {
         })),
       );
     },
-    [options],
+    [onError, onUsage, refreshUsage],
   );
 
   const sendMessage = useCallback(
-    async (content: string, optionsParam?: { isRetry?: boolean }) => {
+    async (
+      content: string,
+      optionsParam?: { displayContent?: string; isRetry?: boolean },
+    ) => {
       const trimmed = content.trim();
       if (!trimmed || isStreaming) return;
+      const displayContent = optionsParam?.displayContent?.trim() || trimmed;
 
       const requestId = randomId();
       const messageId = randomId();
       if (!optionsParam?.isRetry) {
         setMessages((current) => [
           ...current,
-          { id: messageId, role: "user", content: trimmed },
+          { id: messageId, role: "user", content: displayContent },
         ]);
       }
 
       setError(undefined);
-      setUsage(undefined);
       setLastUserMessage(trimmed);
       setIsStreaming(true);
+      setActiveAssistantMessageId(undefined);
 
       try {
-        const response = await fetch(options.apiEndpoint, {
+        const response = await fetch(apiEndpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -295,8 +481,8 @@ export function useSideChat(options: UseSideChatOptions) {
             "X-Request-Id": requestId,
           },
           body: JSON.stringify({
-            workspaceId: options.workspaceId,
-            conversationId: options.initialConversationId,
+            workspaceId,
+            conversationId: initialConversationId,
             message: { id: messageId, role: "user", content: trimmed },
             model,
           }),
@@ -321,12 +507,20 @@ export function useSideChat(options: UseSideChatOptions) {
           requestId,
         );
         setError(nextError);
-        options.onError?.(nextError);
+        onError?.(nextError);
       } finally {
         setIsStreaming(false);
       }
     },
-    [handleEvent, isStreaming, model, options],
+    [
+      apiEndpoint,
+      handleEvent,
+      initialConversationId,
+      isStreaming,
+      model,
+      onError,
+      workspaceId,
+    ],
   );
 
   const retryLastMessage = useCallback(() => {
@@ -351,5 +545,6 @@ export function useSideChat(options: UseSideChatOptions) {
     retryLastMessage,
     isHistoryLoading: isLoadingHistory,
     historyStatus,
+    activeAssistantMessageId,
   };
 }

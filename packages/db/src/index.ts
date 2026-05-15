@@ -4,6 +4,19 @@ import type {
   ModelSelection,
   TokenUsage,
 } from "@side-chat/shared-protocol";
+export {
+  AdvisoryDashboardDb,
+  createPostgresAdvisoryDashboardDb,
+} from "./advisory-dashboard.js";
+export type {
+  AdvisoryDashboardSnapshot,
+  AdvisoryKpi,
+  AdvisoryKpiTrend,
+  ClientPortfolioReviewRow,
+  NetNewMoneyTrendPoint,
+  ProductAllocationRow,
+  TopRiskAccountRow,
+} from "./advisory-dashboard.types.js";
 
 export interface DbExecutor {
   query<T extends object = Record<string, unknown>>(
@@ -13,6 +26,7 @@ export interface DbExecutor {
 }
 export type ConversationRow = { conversation_id: string };
 export type HistoryRow = ChatMessage;
+export type UsageRow = TokenUsage;
 
 export class SideChatDb {
   constructor(private readonly db: DbExecutor) {}
@@ -66,7 +80,7 @@ export class SideChatDb {
     usage: TokenUsage,
   ) {
     return this.db.query(
-      "select * from sidechat_record_usage($1, $2, $3, $4, $5, $6, $7, $8)",
+      "select * from sidechat_record_usage($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
       [
         requestId,
         conversationId,
@@ -76,7 +90,18 @@ export class SideChatDb {
         usage.inputTokens,
         usage.outputTokens,
         usage.totalTokens,
+        usage.reasoningTokens ?? null,
+        usage.cachedInputTokens ?? null,
+        usage.cacheWriteTokens ?? null,
+        usage.estimatedCostUsd ?? null,
       ],
+    );
+  }
+
+  getLatestUsage(workspaceId: string, userId: string, conversationId: string) {
+    return this.db.query<UsageRow>(
+      "select * from sidechat_get_latest_usage($1, $2, $3)",
+      [workspaceId, userId, conversationId],
     );
   }
 }
@@ -112,6 +137,11 @@ export type SideChatPersistence = {
       model: ModelSelection;
       usage: TokenUsage;
     }): Promise<void>;
+    latest(input: {
+      workspaceId: string;
+      userId: string;
+      conversationId: string;
+    }): Promise<TokenUsage | undefined>;
   };
   close(): Promise<void>;
 };
@@ -162,6 +192,14 @@ export const createSideChatPersistence = (
           model,
           usage,
         );
+      },
+      async latest({ workspaceId, userId, conversationId }) {
+        const result = await db.getLatestUsage(
+          workspaceId,
+          userId,
+          conversationId,
+        );
+        return result.rows[0];
       },
     },
     close,

@@ -43,7 +43,7 @@ describe("sidechat persistence adapter", () => {
       "select * from sidechat_create_or_get_conversation($1, $2, $3)",
       "select * from sidechat_append_user_message($1, $2, $3)",
       "select * from sidechat_append_assistant_message($1, $2, $3, $4, $5)",
-      "select * from sidechat_record_usage($1, $2, $3, $4, $5, $6, $7, $8)",
+      "select * from sidechat_record_usage($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
     ]);
   });
 

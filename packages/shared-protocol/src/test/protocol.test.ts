@@ -34,6 +34,8 @@ describe("sidechat protocol", () => {
     expect(parsed.map((event) => event.type)).toEqual([
       "sidechat.started",
       "sidechat.delta",
+      "sidechat.reasoning",
+      "sidechat.tool",
       "sidechat.delta",
       "sidechat.completed",
     ]);

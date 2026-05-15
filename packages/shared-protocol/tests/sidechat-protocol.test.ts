@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
   SidechatStreamEventSchema,
@@ -23,7 +24,7 @@ import { validateSidechatEventSequence } from "../src/sidechat.v1/sequence";
 
 describe("sidechat protocol v1 fixtures", () => {
   const fixturesDir = path.resolve(
-    new URL("../src/sidechat.v1/fixtures", import.meta.url).pathname,
+    fileURLToPath(new URL("../src/sidechat.v1/fixtures", import.meta.url)),
   );
 
   test("success fixture validates", () => {

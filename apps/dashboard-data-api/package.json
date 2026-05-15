@@ -1,0 +1,23 @@
+{
+  "name": "@side-chat/dashboard-data-api",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@hono/node-server": "1.19.14",
+    "@side-chat/db": "0.1.0",
+    "hono": "4.12.18",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "25.8.0",
+    "tsx": "4.22.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}

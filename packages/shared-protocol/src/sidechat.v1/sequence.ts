@@ -51,11 +51,15 @@ export const validateSidechatEventSequence = (
   const terminalIndex = terminalIndices.at(0);
   if (terminalIndex !== undefined) {
     for (let i = terminalIndex + 1; i < events.length; i += 1) {
-      if (events[i].type === "sidechat.delta") {
+      if (
+        events[i].type === "sidechat.delta" ||
+        events[i].type === "sidechat.reasoning" ||
+        events[i].type === "sidechat.tool"
+      ) {
         return {
           ok: false,
           code: "delta_after_terminal",
-          message: "delta event after terminal event is invalid",
+          message: "stream content event after terminal event is invalid",
         };
       }
     }

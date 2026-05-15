@@ -2,14 +2,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Response } from "../components/ai-elements/Response.js";
+import { MessageResponse } from "../components/ai-elements/message.js";
 
 describe("Response markdown rendering", () => {
   it("renders partial markdown without throwing", () => {
     const html = renderToStaticMarkup(
-      createElement(Response, {
-        content: "# Partial\n- item\n```ts\nconst value = 1",
-      }),
+      createElement(MessageResponse, null, "# Partial\n- item\n```ts\nconst value = 1"),
     );
 
     expect(html).toContain("Partial");
@@ -19,9 +17,11 @@ describe("Response markdown rendering", () => {
 
   it("does not emit executable script tags from malicious markdown", () => {
     const html = renderToStaticMarkup(
-      createElement(Response, {
-        content: 'safe text <script>alert("xss")</script>',
-      }),
+      createElement(
+        MessageResponse,
+        null,
+        'safe text <script>alert("xss")</script>',
+      ),
     );
 
     expect(html).toContain("safe text");

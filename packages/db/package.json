@@ -8,7 +8,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@side-chat/shared-protocol": "workspace:*",
+    "@side-chat/shared-protocol": "0.1.0",
     "pg": "8.20.0",
     "zod": "4.4.3"
   },
