@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react'
 import { useEffect } from 'react'
 import {
-  parseKnownSsePayloads,
+  parseSsePayload,
   protocolVersion,
+  SidechatStreamEventSchema,
   type ModelSelection,
   type SidechatStreamErrorEvent,
   type SidechatStreamEvent,
@@ -46,13 +47,44 @@ const requestError = (message: string, requestId: string): SideChatError => ({
   retryable: true
 })
 
+const knownEventTypes = new Set([
+  'sidechat.started',
+  'sidechat.delta',
+  'sidechat.completed',
+  'sidechat.error',
+  'sidechat.history'
+])
+
+const parseKnownFramePayload = (data: string): SidechatStreamEvent | undefined => {
+  let json: unknown
+  try {
+    json = JSON.parse(data)
+  } catch {
+    return undefined
+  }
+
+  const parsed = SidechatStreamEventSchema.safeParse(json)
+  return parsed.success ? parsed.data : undefined
+}
+
 export const readSideChatStreamEvents = async (
   response: globalThis.Response,
-  onEvent: (event: SidechatStreamEvent) => void
+  onEvent: (event: SidechatStreamEvent) => void,
+  onMalformedEvent?: (message: string) => void
 ): Promise<void> => {
   const emit = (chunk: string) => {
-    for (const event of parseKnownSsePayloads(chunk)) {
-      onEvent(event)
+    for (const payload of parseSsePayload(chunk)) {
+      if (payload.event && !knownEventTypes.has(payload.event)) {
+        continue
+      }
+
+      const parsed = parseKnownFramePayload(payload.data)
+      if (parsed) {
+        onEvent(parsed)
+        continue
+      }
+
+      onMalformedEvent?.(`Malformed ${payload.event ?? 'sidechat'} stream event`)
     }
   }
 
@@ -221,7 +253,9 @@ export function useSideChat(options: UseSideChatOptions) {
         throw new Error(`Chat request failed: ${response.status}`)
       }
 
-      await readSideChatStreamEvents(response, handleEvent)
+      await readSideChatStreamEvents(response, handleEvent, (message) => {
+        throw new Error(message)
+      })
     } catch (unknownError) {
       const nextError = requestError(
         unknownError instanceof Error ? unknownError.message : 'Chat request failed',
