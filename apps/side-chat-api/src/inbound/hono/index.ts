@@ -16,6 +16,7 @@ import { openAiModelAdapter } from '../../adapters/ai/openai-model.js'
 import { SideChatDomainError } from '../../application/errors.js'
 import { streamChat, type StreamChatDeps } from '../../application/stream-chat.js'
 import type { ConversationRepository } from '../../ports/index.js'
+import { parseSideChatEnv } from './config.js'
 
 
 const protocol = protocolArtifacts
@@ -24,12 +25,6 @@ const models: ModelSelection[] = [
   { provider: 'openai', id: 'gpt-4.1-mini' },
   { provider: 'openai', id: 'gpt-4.1-nano' }
 ]
-
-const shouldUseFakeModel = () => {
-  const useFakeModel = process.env.USE_FAKE_MODEL
-  if (useFakeModel === undefined) return true
-  return useFakeModel.toLowerCase() === 'true'
-}
 
 const createMemoryConversationRepository = (): ConversationRepository => {
   const messages = new Map<string, { role: 'user' | 'assistant'; messageId: string; content: string; model?: ModelSelection }[]>()
@@ -60,11 +55,12 @@ const createMemoryConversationRepository = (): ConversationRepository => {
 }
 
 export const createDefaultDeps = (): StreamChatDeps => {
-  const persistence = process.env.DATABASE_URL ? createPostgresSideChatPersistence(process.env.DATABASE_URL) : undefined
+  const env = parseSideChatEnv()
+  const persistence = env.DATABASE_URL ? createPostgresSideChatPersistence(env.DATABASE_URL) : undefined
 
   return {
     model:
-      !shouldUseFakeModel() && process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY
+      !env.USE_FAKE_MODEL && env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && env.OPENAI_API_KEY
         ? openAiModelAdapter
         : fakeModelAdapter,
     conversations: persistence?.conversations ?? createMemoryConversationRepository(),
@@ -79,7 +75,7 @@ export const createDefaultDeps = (): StreamChatDeps => {
     },
     config: {
       models() { return models },
-      defaultUserId() { return process.env.SIDE_CHAT_DEFAULT_USER_ID ?? 'local-user' }
+      defaultUserId() { return env.SIDE_CHAT_DEFAULT_USER_ID }
     }
   }
 }
