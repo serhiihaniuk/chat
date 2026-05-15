@@ -1,36 +1,42 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createDefaultDeps } from '../src/inbound/hono/index.js'
-import { createDbFromUrl } from '@side-chat/db'
+import { createPostgresSideChatPersistence } from '@side-chat/db'
 
-let queryMock = vi.fn().mockResolvedValue({ rows: [{ conversation_id: 'demo-conversation-001' }] })
-let createOrGetConversationMock = vi.fn()
+const persistence = vi.hoisted(() => ({
+  createPostgresSideChatPersistence: vi.fn(),
+  createOrGet: vi.fn(),
+  appendUserMessage: vi.fn(),
+  appendAssistantMessage: vi.fn(),
+  readSeededHistory: vi.fn(),
+  recordUsage: vi.fn()
+}))
 
-vi.mock('@side-chat/db', async () => {
-  const actual = await vi.importActual<typeof import('@side-chat/db')>('@side-chat/db')
-
-  return {
-    ...actual,
-    createDbFromUrl: vi.fn(() => ({
-      createOrGetConversation: (...args: unknown[]) => {
-        createOrGetConversationMock(...args)
-        return queryMock()
-      },
-      appendUserMessage: (...args: unknown[]) => queryMock(...args),
-      appendAssistantMessage: (...args: unknown[]) => queryMock(...args),
-      recordUsage: (...args: unknown[]) => queryMock(...args)
-    }))
-  }
-})
+vi.mock('@side-chat/db', () => ({
+  createPostgresSideChatPersistence: persistence.createPostgresSideChatPersistence
+}))
 
 describe('default deps', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL
 
   beforeEach(() => {
     vi.clearAllMocks()
-    queryMock = vi.fn().mockResolvedValue({ rows: [{ conversation_id: 'demo-conversation-001' }] })
-    createOrGetConversationMock = vi.fn()
     delete process.env.DATABASE_URL
+    persistence.createOrGet.mockResolvedValue('demo-conversation-001')
+    persistence.appendUserMessage.mockResolvedValue(undefined)
+    persistence.appendAssistantMessage.mockResolvedValue(undefined)
+    persistence.readSeededHistory.mockResolvedValue([])
+    persistence.recordUsage.mockResolvedValue(undefined)
+    persistence.createPostgresSideChatPersistence.mockReturnValue({
+      conversations: {
+        createOrGet: persistence.createOrGet,
+        appendUserMessage: persistence.appendUserMessage,
+        appendAssistantMessage: persistence.appendAssistantMessage,
+        readSeededHistory: persistence.readSeededHistory
+      },
+      usage: { record: persistence.recordUsage },
+      close: vi.fn()
+    })
   })
 
   afterEach(() => {
@@ -44,7 +50,7 @@ describe('default deps', () => {
     const id = await deps.conversations.createOrGet({ workspaceId: 'demo-workspace', userId: 'demo-user', conversationId: 'demo-conversation-001' })
 
     expect(id).toBe('demo-conversation-001')
-    expect(vi.mocked(createDbFromUrl)).not.toHaveBeenCalled()
+    expect(vi.mocked(createPostgresSideChatPersistence)).not.toHaveBeenCalled()
   })
 
   it('uses stored-procedure DB adapter when DATABASE_URL is set', async () => {
@@ -52,8 +58,8 @@ describe('default deps', () => {
     const deps = createDefaultDeps()
     const id = await deps.conversations.createOrGet({ workspaceId: 'demo-workspace', userId: 'demo-user', conversationId: 'demo-conversation-001' })
 
-    expect(vi.mocked(createDbFromUrl)).toHaveBeenCalledWith(process.env.DATABASE_URL)
-    expect(createOrGetConversationMock).toHaveBeenCalledWith('demo-workspace', 'demo-user', 'demo-conversation-001')
+    expect(vi.mocked(createPostgresSideChatPersistence)).toHaveBeenCalledWith(process.env.DATABASE_URL)
+    expect(persistence.createOrGet).toHaveBeenCalledWith({ workspaceId: 'demo-workspace', userId: 'demo-user', conversationId: 'demo-conversation-001' })
     expect(id).toBe('demo-conversation-001')
   })
 })
