@@ -19,7 +19,9 @@ services:
     command: sh -c "rm -rf /tmp/sidechat && mkdir -p /tmp/sidechat && tar --exclude=./node_modules --exclude=./apps/*/node_modules --exclude=./packages/*/node_modules --exclude=./.git -cf - . | tar -C /tmp/sidechat -xf - && cd /tmp/sidechat && npm ci && npm run dev --workspace @side-chat/side-chat-api"
     environment:
       DATABASE_URL: postgres://sidechat_app:sidechat_app@postgres:5432/sidechat
-      USE_FAKE_MODEL: "true"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SIDE_CHAT_MODEL_ADAPTER: openai
+      USE_FAKE_MODEL: "false"
       CI: "true"
     ports:
       - "3000:3000"

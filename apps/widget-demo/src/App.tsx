@@ -22,8 +22,8 @@ export function App() {
         </p>
         <div className="demo-card-grid" aria-label="Demo state checklist">
           <article>
-            <strong>Seeded history</strong>
-            <span>Opens demo-conversation-001 on launch.</span>
+            <strong>Conversation history</strong>
+            <span>Opens demo-conversation-001 on launch for testing.</span>
           </article>
           <article>
             <strong>Streaming markdown</strong>

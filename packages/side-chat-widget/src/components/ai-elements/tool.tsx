@@ -27,8 +27,19 @@ const statusIcon = {
   error: XCircle,
 };
 
+const stripCitationSources = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const { sources: _sources, ...rest } = value as Record<string, unknown>;
+  return rest;
+};
+
 const formatPayload = (value: unknown) =>
-  value === undefined ? undefined : JSON.stringify(value, null, 2);
+  value === undefined
+    ? undefined
+    : JSON.stringify(stripCitationSources(value), null, 2);
 
 const getReportUrl = (value: unknown) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {

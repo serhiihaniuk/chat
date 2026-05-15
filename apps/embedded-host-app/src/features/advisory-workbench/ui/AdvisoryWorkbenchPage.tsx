@@ -1,16 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { HostCommand } from "@side-chat/shared-protocol";
 
+import { useHostSurfaceRegistration } from "../../../shared/host-surface/HostSurfaceProvider.js";
 import { getAdvisoryDashboardSnapshot } from "../api/advisory-dashboard-client.js";
 import type { AdvisoryDashboardSnapshot } from "../model/advisory-dashboard.types.js";
-import { ClientPortfolioReviewTable } from "./ClientPortfolioReviewTable.js";
+import {
+  reduceGridViews,
+  type AdvisoryGridViews,
+} from "../model/grid-view-state.js";
+import { createAdvisoryWorkbenchHostSurface } from "../model/side-chat-host.js";
+import { AdvisoryWorklistTable } from "./AdvisoryWorklistTable.js";
 import { HeaderControls } from "./HeaderControls.js";
 import { KpiGrid } from "./KpiGrid.js";
-import { NetNewMoneyTrendChart } from "./NetNewMoneyTrendChart.js";
-import { ProductAllocationTable } from "./ProductAllocationTable.js";
 import { Sidebar } from "./Sidebar.js";
-import { TopRiskAccountsTable } from "./TopRiskAccountsTable.js";
+import { WorkbenchInsightRail } from "./WorkbenchInsightRail.js";
 
 const workspaceId = "demo-workspace";
+const citationSelectedEventName = "sidechat:citation-selected";
+const citationHighlightDurationMs = 15_000;
+
+type CitationSelectedEvent = CustomEvent<{ sourceId?: unknown }>;
+type HostCommandEvent = CustomEvent<HostCommand>;
 
 export function AdvisoryWorkbenchPage() {
   const [snapshot, setSnapshot] = useState<AdvisoryDashboardSnapshot | null>(
@@ -19,6 +29,15 @@ export function AdvisoryWorkbenchPage() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+  const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
+  const [gridViews, setGridViews] = useState<AdvisoryGridViews>({});
+  const citationClearTimerRef = useRef<number | undefined>(undefined);
+  const hostSurface = useMemo(
+    () => createAdvisoryWorkbenchHostSurface(snapshot),
+    [snapshot],
+  );
+
+  useHostSurfaceRegistration(hostSurface);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -35,6 +54,60 @@ export function AdvisoryWorkbenchPage() {
         setStatus("error");
       });
     return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const onCitationSelected = (event: Event) => {
+      const { sourceId } = (event as CitationSelectedEvent).detail ?? {};
+      if (typeof sourceId !== "string") return;
+
+      window.clearTimeout(citationClearTimerRef.current);
+      setActiveSourceId(null);
+      window.setTimeout(() => {
+        setActiveSourceId(sourceId);
+        document
+          .querySelector(`[data-sidechat-source-id="${CSS.escape(sourceId)}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+      citationClearTimerRef.current = window.setTimeout(() => {
+        setActiveSourceId(null);
+      }, citationHighlightDurationMs);
+    };
+
+    window.addEventListener(citationSelectedEventName, onCitationSelected);
+    return () => {
+      window.clearTimeout(citationClearTimerRef.current);
+      window.removeEventListener(citationSelectedEventName, onCitationSelected);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onHostCommand = (event: Event) => {
+      const command = (event as HostCommandEvent).detail;
+      if (!command || typeof command.type !== "string") return;
+
+      if (
+        command.type === "grid.applyView" ||
+        command.type === "grid.clearView"
+      ) {
+        setGridViews((current) => reduceGridViews(current, command));
+        if (typeof command.resourceId === "string") {
+          scrollHostResourceIntoView(command.resourceId);
+        }
+        return;
+      }
+
+      if (
+        command.type === "ui.focusResource" &&
+        typeof command.resourceId === "string"
+      ) {
+        scrollHostResourceIntoView(command.resourceId);
+      }
+    };
+
+    window.addEventListener("sidechat:host-command", onHostCommand);
+    return () =>
+      window.removeEventListener("sidechat:host-command", onHostCommand);
   }, []);
 
   return (
@@ -69,14 +142,14 @@ export function AdvisoryWorkbenchPage() {
 
         {snapshot ? (
           <>
-            <KpiGrid kpis={snapshot.kpis} />
-            <ClientPortfolioReviewTable
-              rows={snapshot.clientPortfolioReview}
-            />
-            <div className="bottom-grid">
-              <TopRiskAccountsTable rows={snapshot.topRiskAccounts} />
-              <ProductAllocationTable rows={snapshot.productAllocation} />
-              <NetNewMoneyTrendChart points={snapshot.netNewMoneyTrend} />
+            <KpiGrid activeSourceId={activeSourceId} kpis={snapshot.kpis} />
+            <div className="workbench-content">
+              <AdvisoryWorklistTable
+                activeSourceId={activeSourceId}
+                snapshot={snapshot}
+                view={gridViews.advisoryWorklist}
+              />
+              <WorkbenchInsightRail snapshot={snapshot} />
             </div>
           </>
         ) : null}
@@ -84,3 +157,9 @@ export function AdvisoryWorkbenchPage() {
     </div>
   );
 }
+
+const scrollHostResourceIntoView = (resourceId: string) => {
+  document
+    .querySelector(`[data-host-resource-id="${CSS.escape(resourceId)}"]`)
+    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+};

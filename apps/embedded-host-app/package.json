@@ -9,11 +9,13 @@
   "dependencies": {
     "@side-chat/side-chat-widget": "0.1.0",
     "@vitejs/plugin-react": "6.0.2",
-    "vite": "8.0.13",
+    "ag-grid-community": "35.3.0",
+    "ag-grid-react": "35.3.0",
+    "lucide-react": "1.16.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "lucide-react": "1.16.0",
-    "tailwindcss": "4.3.0"
+    "tailwindcss": "4.3.0",
+    "vite": "8.0.13"
   },
   "devDependencies": {
     "@playwright/test": "1.60.0",

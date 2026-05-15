@@ -1,5 +1,9 @@
 import type {
   ChatMessage,
+  CitationSource,
+  HostCommand,
+  HostGridFilter,
+  HostGridSort,
   ModelSelection,
   SidechatRequest,
   SidechatStreamEvent,
@@ -27,19 +31,72 @@ export type WorkbenchQueryInput = {
   query: WorkbenchQueryName;
 };
 
+export type WorkbenchCitationSource = CitationSource;
+
 export type WorkbenchQueryResult = {
   query: WorkbenchQueryName;
   workspaceId: string;
   data: unknown;
+  sources: WorkbenchCitationSource[];
+};
+
+export type WorkbenchSurfaceRow = {
+  id: string;
+  label: string;
+  sourceId?: string;
+  cells: Record<string, string | number | boolean | null>;
+};
+
+export type WorkbenchSurfaceContextResult = {
+  resourceId: string;
+  label: string;
+  workspaceId: string;
+  guidance?: string[];
+  rowCount: number;
+  totalRowCount: number;
+  filters?: HostGridFilter[];
+  sort?: HostGridSort[];
+  rows: WorkbenchSurfaceRow[];
+  sources: WorkbenchCitationSource[];
 };
 
 export interface WorkbenchToolsPort {
   query(input: {
     workspaceId: string;
     userId: string;
+    conversationId?: string;
     pageContext?: ResolvedPageContext;
     query: WorkbenchQueryInput;
   }): Promise<WorkbenchQueryResult>;
+  surfaceContext?(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId?: string;
+    pageContext?: ResolvedPageContext;
+    resourceId: string;
+    limit: number;
+  }): Promise<WorkbenchSurfaceContextResult>;
+}
+
+export type HostGridViewState = {
+  filters?: HostGridFilter[];
+  sort?: HostGridSort[];
+  highlightRowIds?: string[];
+};
+
+export interface HostSurfaceStatePort {
+  applyCommand(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId: string;
+    command: HostCommand;
+  }): Promise<void>;
+  getGridView(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId?: string;
+    resourceId: string;
+  }): Promise<HostGridViewState | undefined>;
 }
 
 export const workbenchReportSectionNames = [
@@ -62,10 +119,20 @@ export const workbenchReportFocusNames = [
 
 export type WorkbenchReportFocusName = (typeof workbenchReportFocusNames)[number];
 
+export const workbenchReportNoteKinds = [
+  "analyst_note",
+  "risk_rationale",
+  "next_action",
+  "custom",
+] as const;
+
+export type WorkbenchReportNoteKind = (typeof workbenchReportNoteKinds)[number];
+
 export type WorkbenchReportInput = {
   title?: string;
   focus?: WorkbenchReportFocusName;
   sections?: WorkbenchReportSectionName[];
+  noteKind?: WorkbenchReportNoteKind;
   note?: string;
 };
 
@@ -90,6 +157,7 @@ export interface WorkbenchReportPort {
 
 export type ModelRequest = SidechatRequest & {
   pageContext?: ResolvedPageContext;
+  surfaceContexts?: WorkbenchSurfaceContextResult[];
   recentMessages?: ChatMessage[];
   userId?: string;
   workbenchTools?: WorkbenchToolsPort;
@@ -108,6 +176,7 @@ export type ModelChunk =
       output?: unknown;
       error?: string;
     }
+  | { kind: "host-command"; commandId: string; command: HostCommand }
   | { kind: "done"; finishReason: string; usage: TokenUsage };
 
 export interface ModelPort {
@@ -141,6 +210,7 @@ export interface ConversationRepository {
     messageId: string,
     content: string,
     model: ModelSelection,
+    metadata?: Record<string, unknown>,
   ): Promise<void>;
   readSeededHistory(
     workspaceId: string,
@@ -150,6 +220,7 @@ export interface ConversationRepository {
       id: string;
       role: "user" | "assistant" | "system";
       content: string;
+      metadata?: Record<string, unknown>;
     }>
   >;
 }

@@ -54,7 +54,8 @@ export const validateSidechatEventSequence = (
       if (
         events[i].type === "sidechat.delta" ||
         events[i].type === "sidechat.reasoning" ||
-        events[i].type === "sidechat.tool"
+        events[i].type === "sidechat.tool" ||
+        events[i].type === "sidechat.host_command"
       ) {
         return {
           ok: false,

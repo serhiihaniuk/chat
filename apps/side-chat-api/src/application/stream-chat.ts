@@ -16,8 +16,11 @@ import type {
   PageContextPort,
   RateLimitPort,
   UsagePort,
+  WorkbenchCitationSource,
   WorkbenchReportPort,
+  WorkbenchReportResult,
   WorkbenchToolsPort,
+  HostSurfaceStatePort,
 } from "../ports/index.js";
 import {
   BillingDenied,
@@ -32,6 +35,7 @@ export type StreamChatDeps = {
   pageContext: PageContextPort;
   workbenchTools?: WorkbenchToolsPort;
   workbenchReports?: WorkbenchReportPort;
+  hostSurfaceState?: HostSurfaceStatePort;
   conversations: ConversationRepository;
   usage: UsagePort;
   auth: AuthPort;
@@ -71,6 +75,103 @@ const enrichUsage = (model: ModelSelection, usage: TokenUsage): TokenUsage => {
       (inputCost + cachedInputCost + outputCost).toFixed(6),
     ),
   };
+};
+
+const isWorkbenchCitationSource = (
+  value: unknown,
+): value is WorkbenchCitationSource => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+
+  const source = value as Record<string, unknown>;
+  return (
+    typeof source.sourceId === "string" &&
+    typeof source.label === "string" &&
+    typeof source.dataset === "string" &&
+    (source.resourceId === undefined || typeof source.resourceId === "string") &&
+    (source.rowId === undefined || typeof source.rowId === "string") &&
+    (source.field === undefined || typeof source.field === "string")
+  );
+};
+
+const getToolCitationSources = (output: unknown): WorkbenchCitationSource[] => {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return [];
+
+  const sources = (output as { sources?: unknown }).sources;
+  return Array.isArray(sources) ? sources.filter(isWorkbenchCitationSource) : [];
+};
+
+const isWorkbenchReportResult = (
+  value: unknown,
+): value is WorkbenchReportResult => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+
+  const report = value as Record<string, unknown>;
+  return (
+    typeof report.reportId === "string" &&
+    typeof report.reportUrl === "string" &&
+    typeof report.title === "string" &&
+    (report.fileName === undefined || typeof report.fileName === "string")
+  );
+};
+
+const getToolAttachment = (chunk: {
+  toolCallId: string;
+  toolName: string;
+  output?: unknown;
+}) => {
+  if (
+    chunk.toolName !== "generate_workbench_report" ||
+    !isWorkbenchReportResult(chunk.output)
+  ) {
+    return undefined;
+  }
+
+  return {
+    id: chunk.toolCallId,
+    name: `${chunk.output.title}.pdf`,
+    url: chunk.output.reportUrl,
+    mediaType: "application/pdf",
+  };
+};
+
+const normalizeCitationText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getSourceSearchTerms = (source: WorkbenchCitationSource) => {
+  const labelTail = source.label.split("·").at(-1)?.trim();
+  return [labelTail, source.rowId, source.field]
+    .filter((term): term is string => Boolean(term && term.length > 2))
+    .map(normalizeCitationText);
+};
+
+const maxMatchedCitationSources = 2;
+
+const surfaceContextLimit = 12;
+
+const shouldResolveSurfaceResource = (kind: string) =>
+  kind === "grid" || kind === "table" || kind === "custom";
+
+export const selectInlineCitationSources = (
+  assistantContent: string,
+  sources: WorkbenchCitationSource[],
+): WorkbenchCitationSource[] => {
+  const uniqueSources = Array.from(
+    new Map(sources.map((source) => [source.sourceId, source])).values(),
+  );
+  if (uniqueSources.length <= 1) return uniqueSources;
+
+  const normalizedContent = normalizeCitationText(assistantContent);
+  const matchedSources = uniqueSources.filter((source) =>
+    getSourceSearchTerms(source).some((term) => normalizedContent.includes(term)),
+  );
+
+  return matchedSources.length > 0
+    ? matchedSources.slice(0, maxMatchedCitationSources)
+    : uniqueSources.slice(0, 1);
 };
 
 export const streamChatEffect = (
@@ -117,6 +218,23 @@ export async function* streamChat(
     request.workspaceId,
     conversationId,
   );
+  const surfaceContexts = deps.workbenchTools?.surfaceContext
+    ? await Promise.all(
+        (request.hostContext?.resources ?? [])
+          .filter((resource) => shouldResolveSurfaceResource(resource.kind))
+          .slice(0, 4)
+          .map((resource) =>
+            deps.workbenchTools!.surfaceContext!({
+              workspaceId: request.workspaceId,
+              userId,
+              conversationId,
+              pageContext,
+              resourceId: resource.id,
+              limit: surfaceContextLimit,
+            }),
+          ),
+      )
+    : undefined;
   await deps.conversations.appendUserMessage(
     conversationId,
     request.message.id,
@@ -140,9 +258,20 @@ export async function* streamChat(
   let index = 0;
   let reasoningIndex = 0;
   let toolIndex = 0;
+  let hostCommandIndex = 0;
+  const citationSources: WorkbenchCitationSource[] =
+    surfaceContexts?.flatMap((context) => context.sources) ?? [];
+  const attachments: Array<{
+    id: string;
+    name: string;
+    url: string;
+    mediaType: string;
+  }> = [];
   const modelRequest = {
     ...request,
+    conversationId,
     pageContext,
+    surfaceContexts,
     recentMessages,
     userId,
     workbenchTools: deps.workbenchTools,
@@ -180,6 +309,12 @@ export async function* streamChat(
     }
 
     if (chunk.kind === "tool") {
+      if (chunk.status === "completed") {
+        citationSources.push(...getToolCitationSources(chunk.output));
+        const attachment = getToolAttachment(chunk);
+        if (attachment) attachments.push(attachment);
+      }
+
       const event: SidechatStreamEvent = {
         type: "sidechat.tool",
         requestId: input.requestId,
@@ -198,13 +333,48 @@ export async function* streamChat(
       continue;
     }
 
+    if (chunk.kind === "host-command") {
+      await deps.hostSurfaceState?.applyCommand({
+        workspaceId: request.workspaceId,
+        userId,
+        conversationId,
+        command: chunk.command,
+      });
+      const event: SidechatStreamEvent = {
+        type: "sidechat.host_command",
+        requestId: input.requestId,
+        messageId: assistantMessageId,
+        commandId: chunk.commandId,
+        command: chunk.command,
+        index: hostCommandIndex,
+      };
+      hostCommandIndex += 1;
+      deps.observability.lifecycle(event);
+      yield event;
+      continue;
+    }
+
     const usage = enrichUsage(request.model, chunk.usage);
+    const selectedCitationSources = selectInlineCitationSources(
+      assistantContent,
+      citationSources,
+    );
+    const metadata =
+      selectedCitationSources.length > 0 || attachments.length > 0
+        ? {
+            ...(selectedCitationSources.length > 0
+              ? { citations: selectedCitationSources }
+              : {}),
+            ...(attachments.length > 0 ? { attachments } : {}),
+          }
+        : undefined;
 
     await deps.conversations.appendAssistantMessage(
       conversationId,
       assistantMessageId,
       assistantContent,
       request.model,
+      metadata,
     );
     try {
       await deps.usage.record({
@@ -225,6 +395,7 @@ export async function* streamChat(
       model: request.model,
       finishReason: chunk.finishReason,
       usage,
+      metadata,
     };
     deps.observability.lifecycle(completed);
     deps.observability.counter("sidechat.stream.completed", {

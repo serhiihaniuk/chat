@@ -19,6 +19,7 @@ import {
   validateRequest,
   validateRequestHeaders,
   validateStreamEvent,
+  HostCommandSchema,
 } from "../src";
 import { validateSidechatEventSequence } from "../src/sidechat.v1/sequence";
 
@@ -56,6 +57,127 @@ describe("sidechat protocol v1 fixtures", () => {
 
     const parsed = SidechatRequestSchema.parse(valid);
     expect(parsed.workspaceId).toBe("demo-workspace");
+  });
+
+  test("request schema accepts host context snapshots", () => {
+    const parsed = SidechatRequestSchema.parse({
+      workspaceId: "demo-workspace",
+      message: { id: "m1", role: "user", content: "filter the grid" },
+      model: { provider: "openai", id: "gpt-4.1-mini" },
+      hostContext: {
+        pageId: "advisory-workbench",
+        title: "Advisory Workbench",
+        resources: [
+          {
+            id: "clientPortfolio",
+            kind: "grid",
+            label: "Client Portfolio Review",
+            rowCount: 250,
+            columns: [
+              {
+                id: "riskScore",
+                label: "Risk Score",
+                type: "number",
+                sortable: true,
+                filterable: true,
+              },
+            ],
+          },
+        ],
+        capabilities: [
+          {
+            id: "grid-view-control",
+            label: "Grid view control",
+            commandTypes: ["grid.applyView", "grid.clearView"],
+          },
+        ],
+      },
+    });
+
+    expect(parsed.hostContext?.resources?.[0]?.id).toBe("clientPortfolio");
+  });
+
+  test("host command schema validates grid view commands", () => {
+    expect(
+      HostCommandSchema.parse({
+        type: "grid.applyView",
+        resourceId: "clientPortfolio",
+        view: {
+          filters: [
+            {
+              columnId: "riskScore",
+              operator: "greaterThanOrEqual",
+              value: 80,
+            },
+            {
+              columnId: "dueDate",
+              operator: "notBlank",
+            },
+          ],
+          sort: [{ columnId: "riskScore", direction: "desc" }],
+          highlightRowIds: ["row-1", "row-2"],
+        },
+      }),
+    ).toMatchObject({
+      type: "grid.applyView",
+      resourceId: "clientPortfolio",
+    });
+  });
+
+  test("stream schema validates host command events", () => {
+    expect(
+      SidechatStreamEventSchema.parse({
+        type: "sidechat.host_command",
+        requestId: "req-1",
+        messageId: "msg-asst-1",
+        commandId: "command-1",
+        command: {
+          type: "grid.applyView",
+          resourceId: "clientPortfolio",
+          view: {
+            sort: [{ columnId: "riskScore", direction: "desc" }],
+          },
+        },
+        index: 0,
+      }),
+    ).toMatchObject({
+      type: "sidechat.host_command",
+      commandId: "command-1",
+    });
+  });
+
+  test("stream schema accepts completed assistant metadata", () => {
+    expect(
+      SidechatStreamEventSchema.parse({
+        type: "sidechat.completed",
+        requestId: "req-1",
+        conversationId: "conv",
+        messageId: "msg-asst",
+        model: { provider: "openai", id: "gpt-4.1-mini" },
+        finishReason: "stop",
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+        metadata: {
+          citations: [
+            {
+              sourceId: "advisoryWorklist:review-global-medtech-inc",
+              label: "Portfolio Worklist - Global MedTech Inc.",
+              dataset: "client_portfolio_review",
+              resourceId: "advisoryWorklist",
+              rowId: "review-global-medtech-inc",
+            },
+          ],
+        },
+      }),
+    ).toMatchObject({
+      type: "sidechat.completed",
+      metadata: {
+        citations: [
+          {
+            sourceId: "advisoryWorklist:review-global-medtech-inc",
+          },
+        ],
+      },
+    });
   });
 
   test("sse encode/decode roundtrip for delta and completed events", () => {

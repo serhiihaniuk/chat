@@ -4,6 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 import type {
   WorkbenchReportPort,
+  WorkbenchReportNoteKind,
   WorkbenchReportSectionName,
 } from "../../ports/index.js";
 
@@ -32,7 +33,7 @@ const sanitizeTitle = (value?: string) => {
 
 const sanitizeNote = (value?: string) => {
   const trimmed = value?.replace(/\s+/g, " ").trim();
-  return trimmed ? trimmed.slice(0, 220) : undefined;
+  return trimmed ? trimmed.slice(0, 700) : undefined;
 };
 
 const formatChf = (value: unknown) => {
@@ -61,8 +62,72 @@ const asArray = (value: unknown): Record<string, unknown>[] =>
 const renderList = (items: string[]) =>
   `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 
+const asText = (value: unknown, fallback = "n/a") => {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+};
+
+export const createAnalystNoteParagraphs = (input: {
+  noteKind?: WorkbenchReportNoteKind;
+  note?: string;
+  kpis: Record<string, unknown>;
+  clients: Record<string, unknown>[];
+  risks: Record<string, unknown>[];
+  trend: Record<string, unknown>[];
+}) => {
+  const userNote = sanitizeNote(input.note);
+  const noteKind = input.noteKind ?? "analyst_note";
+  const biggestClient = input.clients[0];
+  const topRisk = input.risks[0];
+  const latestTrend = input.trend.at(-1);
+  const watchClients = input.clients.filter(
+    (client) => asText(client.coverageStatus, "") !== "Covered",
+  );
+  const paragraphs: string[] = [];
+
+  if (noteKind === "risk_rationale") {
+    paragraphs.push(
+      `Risk rationale: outreach priority should start with ${asText(topRisk?.client, "the highest-priority risk row")} because the workbench flags ${asText(topRisk?.issue, "an active issue").toLowerCase()} with ${asText(topRisk?.priority, "elevated")} priority and ${formatChf(topRisk?.exposureChf)} exposure.`,
+    );
+  }
+
+  if (noteKind === "next_action") {
+    paragraphs.push(
+      `Next action: ask the responsible RM to review ${asText(topRisk?.client, "the top risk account")}, confirm ${asText(topRisk?.issue, "the open risk issue").toLowerCase()}, and document the client follow-up before the due date. Use the watch-list coverage rows to sequence the remaining calls.`,
+    );
+  }
+
+  if (noteKind === "analyst_note" && !userNote) {
+    paragraphs.push(
+      `Analyst note: the workbench shows ${asText(input.kpis.netNewMoney)} Net New Money and ${asText(input.kpis.atRiskAccounts)} at-risk accounts; prioritize covered high-AUM relationships while clearing high-priority risk rows.`,
+    );
+  }
+
+  if (userNote) {
+    paragraphs.push(
+      noteKind === "custom"
+        ? userNote
+        : `Analyst emphasis: ${userNote}`,
+    );
+  }
+
+  if (paragraphs.length === 0 && watchClients.length > 0) {
+    paragraphs.push(
+      `Analyst note: ${watchClients.length} reviewed client row(s) are not fully covered; confirm the next action owners before client outreach.`,
+    );
+  }
+
+  return paragraphs;
+};
+
+const renderAnalystNote = (paragraphs: string[]) =>
+  paragraphs.length
+    ? `<section class="analyst-note"><h2>Analyst Note</h2>${paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}</section>`
+    : "";
+
 const createReportHtml = (input: {
   title: string;
+  noteKind?: WorkbenchReportNoteKind;
   note?: string;
   generatedAt: string;
   snapshot: unknown;
@@ -78,6 +143,14 @@ const createReportHtml = (input: {
   const allocation = asArray(input.allocation).slice(0, 5);
   const trend = asArray(input.trend).slice(-3);
   const biggestClient = clients[0];
+  const analystNoteParagraphs = createAnalystNoteParagraphs({
+    noteKind: input.noteKind,
+    note: input.note,
+    kpis,
+    clients,
+    risks,
+    trend,
+  });
 
   return `<!doctype html>
 <html>
@@ -102,7 +175,9 @@ const createReportHtml = (input: {
     table { width: 100%; border-collapse: collapse; font-size: 11px; }
     th { text-align: left; color: #6b7280; font-weight: 700; border-bottom: 1px solid #e5e7eb; padding: 6px 4px; }
     td { border-bottom: 1px solid #f1f5f9; padding: 6px 4px; }
-    .note { border-left: 3px solid #e30613; padding-left: 10px; color: #374151; }
+    .analyst-note { border-left: 3px solid #e30613; padding: 2px 0 2px 10px; color: #374151; }
+    .analyst-note h2 { color: #111827; }
+    .analyst-note p { margin: 5px 0; }
     footer { position: fixed; bottom: 0; left: 0; right: 0; font-size: 10px; color: #9ca3af; display: flex; justify-content: space-between; }
   </style>
 </head>
@@ -117,11 +192,7 @@ const createReportHtml = (input: {
     <div class="card"><div class="label">Net New Money</div><div class="value">${escapeHtml(kpis.netNewMoney)}</div></div>
     <div class="card"><div class="label">At-Risk Accounts</div><div class="value">${escapeHtml(kpis.atRiskAccounts)}</div></div>
   </div>
-  ${
-    input.note
-      ? `<section><p class="note">${escapeHtml(input.note)}</p></section>`
-      : ""
-  }
+  ${renderAnalystNote(analystNoteParagraphs)}
   <section>
     <h2>Client Coverage Snapshot</h2>
     ${renderList([
@@ -208,6 +279,7 @@ export const createPlaywrightWorkbenchReportPort = (
     const filePath = path.join(store.directory, fileName);
     const html = createReportHtml({
       title,
+      noteKind: report.noteKind,
       note: sanitizeNote(report.note),
       generatedAt,
       snapshot: snapshot.data,

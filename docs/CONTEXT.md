@@ -160,6 +160,14 @@ type SideChatWidgetProps = {
 };
 ```
 
+The widget also supports the newer standard host integration interface:
+
+- `transport`: protocol endpoints such as `streamUrl`, optional `historyUrl`, and optional `usageUrl`.
+- `identity`: stable workspace/user/conversation scope.
+- `host`: a host bridge with `getContext()` and `dispatchCommand(command)`.
+
+The host bridge is the boundary between the reusable chat package and app-specific surfaces such as dashboards, grids, charts, and forms. The widget may send a serializable `hostContext` snapshot with chat requests, and the host may later validate/apply `HostCommand` objects such as `grid.applyView`, `grid.clearView`, and `ui.focusResource`. The widget must not import AG Grid, dashboard internals, or host app state directly. Host shells should wire a generic host-surface registry to the widget; page/features register their own resources through that generic interface so the shell does not know whether the active surface is a financial dashboard, media page, CRM record, or anything else.
+
 Required widget states:
 
 - closed launcher
@@ -217,7 +225,7 @@ Page content:
 - Top controls: date range, filters, export, overflow menu. These are visual/no-op.
 - KPI cards: Total AUM, Net New Money, Advisory Coverage, At-Risk Accounts, Client Meetings, Compliance Alerts.
 
-Main table: Client Portfolio Review / Relationship Coverage.
+Main table: one unified `Portfolio Worklist` super table. Keep the demo focused on this single AG Grid surface rather than multiple competing tables. It combines relationship coverage, portfolio performance, risk/task, due-date, alert, RM, and next-action fields so the assistant can filter and sort one obvious work queue.
 
 Columns:
 
@@ -225,38 +233,16 @@ Columns:
 - Segment
 - AUM
 - 30D Net Flow
-- Risk Profile
-- Suitability Score
+- Risk Score
 - Coverage Status
-- Last Review
+- Priority
+- Risk / Task
+- Exposure
+- Due Date
+- Due Status
 - RM
 - Next Action
 - Alert
-
-Secondary table: Top Risk Accounts.
-
-Columns:
-
-- Client
-- Issue
-- Exposure
-- Priority
-- Owner
-- Due Date
-
-Secondary table: Product Allocation Overview.
-
-Columns:
-
-- Asset Class
-- Current %
-- Target %
-- Drift
-- Recommended Action
-
-Chart:
-
-- One small restrained red line chart for Net New Money Trend is enough.
 
 ## Assistant Direction For UBS Demo
 

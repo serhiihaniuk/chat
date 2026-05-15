@@ -1,17 +1,21 @@
-import { SideChatWidget } from "@side-chat/side-chat-widget";
-
 import { AdvisoryWorkbenchPage } from "./features/advisory-workbench/ui/AdvisoryWorkbenchPage.js";
+import {
+  HostConnectedSideChatWidget,
+  HostSurfaceProvider,
+} from "./shared/host-surface/HostSurfaceProvider.js";
 
 export function App() {
   return (
-    <>
+    <HostSurfaceProvider>
       <AdvisoryWorkbenchPage />
-      <SideChatWidget
-        apiEndpoint="/chat/stream"
-        workspaceId="demo-workspace"
-        initialConversationId="demo-conversation-001"
+      <HostConnectedSideChatWidget
+        identity={{
+          workspaceId: "demo-workspace",
+          conversationId: "demo-conversation-001",
+        }}
+        transport={{ streamUrl: "/chat/stream" }}
         title="Workspace Assistant"
       />
-    </>
+    </HostSurfaceProvider>
   );
 }

@@ -212,7 +212,7 @@ export function ContextContentBody({
           <div className="mt-3 border-t border-border pt-2">
             <div className="mb-1 flex items-center justify-between gap-3">
               <span className="font-semibold text-slate-900">
-                {usageLabel ?? "Last request"}
+                {usageLabel ?? "Conversation usage"}
               </span>
               <span className="text-xs text-slate-500">
                 {usage ? `${formatNumber(usage.totalTokens)} total` : "No usage yet"}

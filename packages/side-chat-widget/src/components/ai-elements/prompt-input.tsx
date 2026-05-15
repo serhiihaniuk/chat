@@ -1,23 +1,29 @@
 import type {
   ComponentPropsWithoutRef,
   CSSProperties,
+  FocusEvent,
   FormEvent,
   ReactNode,
 } from "react";
-import { forwardRef } from "react";
-import { ChevronDown } from "lucide-react";
+import { forwardRef, useId, useState } from "react";
+import { Check, ChevronDown, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils.js";
 
 export function PromptInput({
   children,
+  className,
   onSubmit,
 }: {
   children: ReactNode;
+  className?: string;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
     <form
-      className="shrink-0 px-8 pt-6 pb-8 max-sm:px-4 max-sm:pt-4 max-sm:pb-5"
+      className={cn(
+        "shrink-0 px-8 pt-6 pb-8 max-sm:px-4 max-sm:pt-4 max-sm:pb-5",
+        className,
+      )}
       onSubmit={onSubmit}
       style={{ background: "var(--sidechat-bg, white)" }}
     >
@@ -105,23 +111,107 @@ export function PromptInputButton({
 }
 
 export function PromptInputModelSelect({
+  defaultOpen = false,
+  disabled,
   modelId,
+  onModelChange,
+  options,
 }: {
+  defaultOpen?: boolean;
+  disabled?: boolean;
   modelId: string;
+  onModelChange?: (modelId: string) => void;
+  options?: ReadonlyArray<{ id: string; label: string; description?: string }>;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const listboxId = useId();
+  const modelOptions = options?.length ? options : [{ id: modelId, label: modelId }];
+  const selectedModel =
+    modelOptions.find((option) => option.id === modelId) ?? modelOptions[0];
+  const closeIfFocusLeaves = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setOpen(false);
+    }
+  };
+
   return (
-    <label className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-lg font-semibold text-slate-600 max-sm:h-9 max-sm:px-2 max-sm:text-base">
-      <span className="sr-only">Model</span>
-      <select
+    <div className="relative" onBlur={closeIfFocusLeaves}>
+      <button
+        type="button"
         aria-label="Assistant model"
-        className="max-w-44 appearance-none border-0 bg-transparent pr-5 font:inherit text-inherit outline-none disabled:cursor-not-allowed disabled:opacity-100"
-        disabled
-        value={modelId}
+        aria-controls={listboxId}
+        aria-expanded={open}
+        className="inline-flex h-10 max-w-56 items-center gap-2 rounded-md px-3 text-lg font-semibold text-slate-600 transition hover:bg-slate-500/5 hover:text-slate-900 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-9 max-sm:max-w-44 max-sm:px-2 max-sm:text-base"
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        style={{ outlineColor: "var(--sidechat-accent, rgb(37 99 235))" }}
       >
-        <option value={modelId}>{modelId}</option>
-      </select>
-      <ChevronDown aria-hidden="true" className="-ml-6 size-4 text-slate-400" />
-    </label>
+        <Sparkles aria-hidden="true" className="size-4 text-slate-400" />
+        <span className="truncate">{selectedModel.label}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "size-4 shrink-0 text-slate-400 transition",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open ? (
+        <div
+          className="absolute bottom-full left-0 z-50 mb-2 w-72 overflow-hidden rounded-lg border bg-white py-1 shadow-xl"
+          id={listboxId}
+          role="listbox"
+          style={{
+            borderColor: "var(--sidechat-border, rgb(226 232 240))",
+            boxShadow: "0 18px 48px rgb(15 23 42 / 0.18)",
+          }}
+        >
+          <div className="border-b border-slate-200 px-3 py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+            Model selector
+          </div>
+          {modelOptions.map((option) => {
+            const selected = option.id === modelId;
+            return (
+              <button
+                type="button"
+                aria-selected={selected}
+                className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
+                key={option.id}
+                onClick={() => {
+                  onModelChange?.(option.id);
+                  setOpen(false);
+                }}
+                role="option"
+              >
+                <span
+                  className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]"
+                  style={{
+                    borderColor: selected
+                      ? "var(--sidechat-accent, #059669)"
+                      : "rgb(203 213 225)",
+                    color: selected
+                      ? "var(--sidechat-accent, #059669)"
+                      : "rgb(148 163 184)",
+                  }}
+                >
+                  {selected ? <Check aria-hidden="true" className="size-3" /> : ""}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-slate-900">
+                    {option.label}
+                  </span>
+                  {option.description ? (
+                    <span className="mt-0.5 block text-xs leading-snug text-slate-500">
+                      {option.description}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

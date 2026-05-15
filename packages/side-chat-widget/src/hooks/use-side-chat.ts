@@ -3,6 +3,9 @@ import {
   parseSsePayload,
   protocolVersion,
   SidechatStreamEventSchema,
+  type HostCommand,
+  type HostCommandResult,
+  type HostContextSnapshot,
   type ModelSelection,
   type SidechatStreamErrorEvent,
   type SidechatStreamEvent,
@@ -17,6 +20,13 @@ export type UseSideChatOptions = {
   initialConversationId?: string;
   historyEndpoint?: string;
   defaultModel: ModelSelection;
+  getHostContext?: () =>
+    | HostContextSnapshot
+    | undefined
+    | Promise<HostContextSnapshot | undefined>;
+  dispatchHostCommand?: (
+    command: HostCommand,
+  ) => HostCommandResult | Promise<HostCommandResult>;
   onError?: (error: SideChatError) => void;
   onUsage?: (usage: TokenUsage) => void;
 };
@@ -27,6 +37,7 @@ export type WidgetMessage = {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  metadata?: Record<string, unknown>;
   parts?: WidgetMessagePart[];
 };
 
@@ -47,7 +58,19 @@ export type WidgetToolPart = {
   error?: string;
 };
 
-export type WidgetMessagePart = WidgetReasoningPart | WidgetToolPart;
+export type WidgetHostCommandPart = {
+  id: string;
+  type: "host-command";
+  commandId: string;
+  command: HostCommand;
+  status: "pending" | HostCommandResult["status"];
+  result?: HostCommandResult;
+};
+
+export type WidgetMessagePart =
+  | WidgetReasoningPart
+  | WidgetToolPart
+  | WidgetHostCommandPart;
 
 const randomId = () =>
   `client-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -95,6 +118,26 @@ export const upsertToolPart = (
   );
 };
 
+export const upsertHostCommandPart = (
+  parts: WidgetMessagePart[] | undefined,
+  hostCommand: WidgetHostCommandPart,
+): WidgetMessagePart[] => {
+  const current = parts ?? [];
+  const existingIndex = current.findIndex(
+    (part) =>
+      part.type === "host-command" &&
+      part.commandId === hostCommand.commandId,
+  );
+
+  if (existingIndex === -1) {
+    return [...current, hostCommand];
+  }
+
+  return current.map((part, index) =>
+    index === existingIndex ? { ...hostCommand, id: part.id } : part,
+  );
+};
+
 const deriveHistoryEndpoint = (apiEndpoint: string): string => {
   const streamSuffix = "/chat/stream";
   if (apiEndpoint.endsWith(streamSuffix)) {
@@ -112,11 +155,36 @@ const requestError = (message: string, requestId: string): SideChatError => ({
   retryable: true,
 });
 
+export type CreateChatRequestPayloadInput = {
+  workspaceId: string;
+  conversationId?: string;
+  messageId: string;
+  content: string;
+  model: ModelSelection;
+  hostContext?: HostContextSnapshot;
+};
+
+export const createChatRequestPayload = ({
+  workspaceId,
+  conversationId,
+  messageId,
+  content,
+  model,
+  hostContext,
+}: CreateChatRequestPayloadInput) => ({
+  workspaceId,
+  conversationId,
+  message: { id: messageId, role: "user" as const, content },
+  model,
+  ...(hostContext ? { hostContext } : {}),
+});
+
 const knownEventTypes = new Set([
   "sidechat.started",
   "sidechat.delta",
   "sidechat.reasoning",
   "sidechat.tool",
+  "sidechat.host_command",
   "sidechat.completed",
   "sidechat.error",
   "sidechat.history",
@@ -245,6 +313,8 @@ export function useSideChat(options: UseSideChatOptions) {
     initialConversationId,
     historyEndpoint: explicitHistoryEndpoint,
     defaultModel,
+    getHostContext,
+    dispatchHostCommand: dispatchHostCommandOption,
     onError,
     onUsage,
   } = options;
@@ -303,7 +373,12 @@ export function useSideChat(options: UseSideChatOptions) {
         }
 
         const payload = (await response.json()) as {
-          messages: Array<{ id: string; role: string; content: string }>;
+          messages: Array<{
+            id: string;
+            role: string;
+            content: string;
+            metadata?: Record<string, unknown>;
+          }>;
         };
         if (aborted) return;
         const nextMessages: WidgetMessage[] = payload.messages.map(
@@ -316,6 +391,7 @@ export function useSideChat(options: UseSideChatOptions) {
                 ? message.role
                 : "system",
             content: message.content,
+            metadata: message.metadata,
           }),
         );
         setMessages(nextMessages);
@@ -352,6 +428,30 @@ export function useSideChat(options: UseSideChatOptions) {
     refreshUsage,
     workspaceId,
   ]);
+
+  const dispatchHostCommand = useCallback(
+    async (command: HostCommand): Promise<HostCommandResult> => {
+      if (!dispatchHostCommandOption) {
+        return {
+          status: "unsupported",
+          message: "No host command dispatcher is configured.",
+        };
+      }
+
+      try {
+        return await dispatchHostCommandOption(command);
+      } catch (unknownError) {
+        return {
+          status: "error",
+          message:
+            unknownError instanceof Error
+              ? unknownError.message
+              : "Host command failed.",
+        };
+      }
+    },
+    [dispatchHostCommandOption],
+  );
 
   const handleEvent = useCallback(
     (event: SidechatStreamEvent) => {
@@ -418,7 +518,69 @@ export function useSideChat(options: UseSideChatOptions) {
         return;
       }
 
+      if (event.type === "sidechat.host_command") {
+        const pendingHostCommand: WidgetHostCommandPart = {
+          id: `host-command-${event.commandId}`,
+          type: "host-command",
+          commandId: event.commandId,
+          command: event.command,
+          status: "pending",
+        };
+
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === event.messageId
+              ? {
+                  ...message,
+                  parts: upsertHostCommandPart(
+                    message.parts,
+                    pendingHostCommand,
+                  ),
+                }
+              : message,
+          ),
+        );
+
+        void dispatchHostCommand(event.command).then((result) => {
+          const completedHostCommand: WidgetHostCommandPart = {
+            ...pendingHostCommand,
+            status: result.status,
+            result,
+          };
+
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === event.messageId
+                ? {
+                    ...message,
+                    parts: upsertHostCommandPart(
+                      message.parts,
+                      completedHostCommand,
+                    ),
+                  }
+                : message,
+            ),
+          );
+        });
+        return;
+      }
+
       if (event.type === "sidechat.completed") {
+        if (event.metadata) {
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === event.messageId
+                ? {
+                    ...message,
+                    metadata: {
+                      ...(message.metadata ?? {}),
+                      ...event.metadata,
+                    },
+                  }
+                : message,
+            ),
+          );
+        }
         setActiveAssistantMessageId(undefined);
         setError(undefined);
         void refreshUsage(event.conversationId).catch(() => {
@@ -442,10 +604,11 @@ export function useSideChat(options: UseSideChatOptions) {
           id: message.id,
           role: message.role,
           content: message.content,
+          metadata: message.metadata,
         })),
       );
     },
-    [onError, onUsage, refreshUsage],
+    [dispatchHostCommand, onError, onUsage, refreshUsage],
   );
 
   const sendMessage = useCallback(
@@ -472,6 +635,13 @@ export function useSideChat(options: UseSideChatOptions) {
       setActiveAssistantMessageId(undefined);
 
       try {
+        let hostContext: HostContextSnapshot | undefined;
+        try {
+          hostContext = await getHostContext?.();
+        } catch {
+          hostContext = undefined;
+        }
+
         const response = await fetch(apiEndpoint, {
           method: "POST",
           headers: {
@@ -480,12 +650,14 @@ export function useSideChat(options: UseSideChatOptions) {
             "X-Sidechat-Protocol": protocolVersion,
             "X-Request-Id": requestId,
           },
-          body: JSON.stringify({
+          body: JSON.stringify(createChatRequestPayload({
             workspaceId,
             conversationId: initialConversationId,
-            message: { id: messageId, role: "user", content: trimmed },
+            messageId,
+            content: trimmed,
             model,
-          }),
+            hostContext,
+          })),
         });
 
         if (!response.ok) {
@@ -514,6 +686,7 @@ export function useSideChat(options: UseSideChatOptions) {
     },
     [
       apiEndpoint,
+      getHostContext,
       handleEvent,
       initialConversationId,
       isStreaming,
@@ -542,6 +715,7 @@ export function useSideChat(options: UseSideChatOptions) {
     model,
     setModel,
     sendMessage,
+    dispatchHostCommand,
     retryLastMessage,
     isHistoryLoading: isLoadingHistory,
     historyStatus,

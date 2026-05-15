@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { parseSideChatEnv } from "../src/inbound/hono/config.js";
 
 describe("side-chat env parser", () => {
-  it("defaults to fake model when USE_FAKE_MODEL is unset", () => {
-    expect(parseSideChatEnv({} as NodeJS.ProcessEnv).USE_FAKE_MODEL).toBe(true);
+  it("does not default real app runtime to the fake model", () => {
+    expect(parseSideChatEnv({} as NodeJS.ProcessEnv).USE_FAKE_MODEL).toBe(false);
+    expect(
+      parseSideChatEnv({ NODE_ENV: "test" } as NodeJS.ProcessEnv).USE_FAKE_MODEL,
+    ).toBe(true);
     expect(
       parseSideChatEnv({} as NodeJS.ProcessEnv).SIDE_CHAT_DEFAULT_USER_ID,
     ).toBe("local-user");

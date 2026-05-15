@@ -24,7 +24,7 @@ const sidechatEnvSchema = z.object({
   }, z.boolean()),
   SIDE_CHAT_DEFAULT_USER_ID: z.string().default("local-user"),
   USE_FAKE_MODEL: z.preprocess((value) => {
-    if (value === undefined) return true;
+    if (value === undefined) return false;
     return parseBooleanLike(String(value));
   }, z.boolean()),
 });
@@ -34,7 +34,12 @@ export type SideChatApiEnv = z.output<typeof sidechatEnvSchema>;
 export const parseSideChatEnv = (
   env: NodeJS.ProcessEnv = process.env,
 ): SideChatApiEnv => {
-  const parsed = sidechatEnvSchema.safeParse(env);
+  const normalizedEnv = {
+    ...env,
+    USE_FAKE_MODEL:
+      env.USE_FAKE_MODEL ?? (env.NODE_ENV === "test" ? "true" : undefined),
+  };
+  const parsed = sidechatEnvSchema.safeParse(normalizedEnv);
   if (!parsed.success) {
     return {
       DATABASE_URL: undefined,
@@ -45,7 +50,7 @@ export const parseSideChatEnv = (
       SIDE_CHAT_RATE_LIMITING_ENABLED: true,
       SIDE_CHAT_BILLING_ENABLED: true,
       SIDE_CHAT_DEFAULT_USER_ID: "local-user",
-      USE_FAKE_MODEL: true,
+      USE_FAKE_MODEL: env.NODE_ENV === "test",
     };
   }
 

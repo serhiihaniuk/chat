@@ -1,8 +1,16 @@
 import { openai } from "@ai-sdk/openai";
+import { randomUUID } from "node:crypto";
 import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import {
+  HostCommandSchema,
+  type HostCommand,
+  type HostContextSnapshot,
+  type HostResource,
+} from "@side-chat/shared-protocol";
+import {
   workbenchReportFocusNames,
+  workbenchReportNoteKinds,
   workbenchReportSectionNames,
   workbenchQueryNames,
   type ModelPort,
@@ -58,6 +66,21 @@ const workbenchQueryInputSchema = z.object({
     ),
 });
 
+const workbenchSurfaceContextInputSchema = z.object({
+  resourceId: z
+    .string()
+    .min(1)
+    .describe(
+      "Current host resource id or label to inspect through trusted backend state.",
+    ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .describe("Maximum number of visible rows to include. Use 12 by default."),
+});
+
 const workbenchReportInputSchema = z.object({
   title: z
     .string()
@@ -73,29 +96,267 @@ const workbenchReportInputSchema = z.object({
     .min(1)
     .max(5)
     .describe("Approved report sections to include. This is not arbitrary HTML."),
+  noteKind: z
+    .enum(workbenchReportNoteKinds)
+    .describe(
+      "Analyst note treatment: plain analyst note, risk rationale, next action, or custom user-requested wording.",
+    ),
   note: z
     .string()
     .trim()
-    .max(220)
-    .describe("Optional short analyst note. Use an empty string when no note is needed."),
+    .max(700)
+    .describe(
+      "Optional report-ready analyst note or user-requested custom wording. Keep it professional, do not include markdown, HTML, file paths, or internal tool/schema terms. Use an empty string when no note is needed.",
+    ),
 });
+
+export const isCurrentSurfaceQuestion = (content: string) =>
+  /\b(on (?:this )?page|page listed|listed on (?:this )?page|current view|visible|shown|showing|on screen|screen|table|present in the table|in the table|this list|listed|these rows|what i am seeing|you just filtered|you just sorted)\b/i.test(
+    content,
+  );
+
+const dashboardCommandOutputSchema = z.object({
+  commandId: z.string().min(1),
+  command: HostCommandSchema,
+  reason: z.string().optional(),
+});
+
+const hostCommandActionNames = [
+  "apply_grid_view",
+  "clear_grid_view",
+  "focus_resource",
+] as const;
+
+const hostGridFilterOperatorNames = [
+  "equals",
+  "notEquals",
+  "contains",
+  "startsWith",
+  "endsWith",
+  "greaterThan",
+  "greaterThanOrEqual",
+  "lessThan",
+  "lessThanOrEqual",
+  "between",
+  "in",
+  "blank",
+  "notBlank",
+] as const;
+
+export const hostCommandInputSchema = z.object({
+  action: z
+    .enum(hostCommandActionNames)
+    .describe(
+      "UI action to request: apply a grid view, clear a grid view, or focus a visible resource.",
+    ),
+  resourceId: z
+    .string()
+    .min(1)
+    .describe("The resource id from the provided host context."),
+  filters: z
+    .array(
+      z.object({
+        columnId: z.string().min(1),
+        operator: z.enum(hostGridFilterOperatorNames),
+        value: z
+          .string()
+          .describe(
+            "Visible filter value. Use an empty string for blank/notBlank. Use comma-separated values for between or in.",
+          ),
+      }),
+    )
+    .describe("Grid filters to apply. Use [] when no filters are needed."),
+  sort: z
+    .array(
+      z.object({
+        columnId: z.string().min(1),
+        direction: z.enum(["asc", "desc"]),
+      }),
+    )
+    .describe("Grid sort rules to apply. Use [] when no sorting is needed."),
+  highlightRowIds: z
+    .array(z.string().min(1))
+    .describe("Row ids to highlight. Use [] when no row highlight is needed."),
+  reason: z
+    .string()
+    .trim()
+    .max(160)
+    .describe("Short private reason for the UI action."),
+});
+
+export type HostCommandToolInput = z.infer<typeof hostCommandInputSchema>;
+
+const normalizeHostLookupKey = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+const findHostResource = (
+  hostContext: HostContextSnapshot | undefined,
+  resourceId: string,
+) => {
+  const resources = hostContext?.resources ?? [];
+  const requested = normalizeHostLookupKey(resourceId);
+  const matched = resources.find(
+    (resource) =>
+      normalizeHostLookupKey(resource.id) === requested ||
+      normalizeHostLookupKey(resource.label) === requested,
+  );
+
+  return matched ?? (resources.length === 1 ? resources[0] : undefined);
+};
+
+const findHostColumnId = (
+  resource: HostResource | undefined,
+  columnId: string,
+) => {
+  const columns = resource?.columns ?? [];
+  const requested = normalizeHostLookupKey(columnId);
+  const matched = columns.find(
+    (column) =>
+      normalizeHostLookupKey(column.id) === requested ||
+      normalizeHostLookupKey(column.label) === requested,
+  );
+
+  return matched?.id;
+};
+
+const parseHostFilterValue = (
+  operator: HostCommandToolInput["filters"][number]["operator"],
+  value: string,
+) => {
+  if (operator === "blank" || operator === "notBlank") return undefined;
+
+  if (operator === "between" || operator === "in") {
+    return value
+      .split(",")
+      .map((item) => parseHostFilterScalar(item))
+      .filter((item) => item !== "");
+  }
+
+  return parseHostFilterScalar(value);
+};
+
+const parseHostFilterScalar = (value: string) => {
+  const normalized = value.trim();
+  if (/^(true|false)$/i.test(normalized)) return /^true$/i.test(normalized);
+  if (/^-?\d+(?:\.\d+)?$/.test(normalized)) return Number(normalized);
+  return normalized;
+};
+
+export const toHostCommand = (
+  input: HostCommandToolInput,
+  hostContext?: HostContextSnapshot,
+): HostCommand => {
+  const resource = findHostResource(hostContext, input.resourceId);
+  const resourceId = resource?.id ?? input.resourceId;
+
+  const resolveColumnId = (columnId: string) => {
+    const resolved = findHostColumnId(resource, columnId);
+    if (!resolved && resource) {
+      throw new Error(`Unknown host resource column: ${columnId}`);
+    }
+    return resolved ?? columnId;
+  };
+
+  const command =
+    input.action === "clear_grid_view"
+      ? {
+          type: "grid.clearView" as const,
+          resourceId,
+        }
+      : input.action === "focus_resource"
+        ? {
+            type: "ui.focusResource" as const,
+            resourceId,
+          }
+        : {
+            type: "grid.applyView" as const,
+            resourceId,
+            view: {
+              filters: input.filters.map((filter) => {
+                const value = parseHostFilterValue(
+                  filter.operator,
+                  filter.value,
+                );
+                return value === undefined
+                  ? {
+                      columnId: resolveColumnId(filter.columnId),
+                      operator: filter.operator,
+                    }
+                  : {
+                      columnId: resolveColumnId(filter.columnId),
+                      operator: filter.operator,
+                      value,
+                    };
+              }),
+              sort: input.sort.map((sort) => ({
+                ...sort,
+                columnId: resolveColumnId(sort.columnId),
+              })),
+              highlightRowIds: input.highlightRowIds,
+            },
+          };
+
+  return HostCommandSchema.parse(command);
+};
 
 const createWorkbenchTools = (request: ModelRequest) => {
   if (!request.workbenchTools || !request.userId) return undefined;
+  const currentSurfaceQuestion =
+    isCurrentSurfaceQuestion(request.message.content) &&
+    (Boolean(request.surfaceContexts?.length) ||
+      Boolean(request.workbenchTools.surfaceContext));
 
   const tools = {
-    workbench_query: tool({
-      description:
-        "Query approved UBS Partner Advisory Workbench data through backend stored-procedure access. Use only for exact dashboard facts, rows, risk accounts, allocation, or trend data. Never pass SQL.",
-      inputSchema: workbenchQueryInputSchema,
-      strict: true,
-      execute: async (input) =>
-        request.workbenchTools?.query({
-          workspaceId: request.workspaceId,
-          userId: request.userId!,
-          pageContext: request.pageContext,
-          query: input,
+    ...(currentSurfaceQuestion
+      ? {}
+      : {
+          workbench_query: tool({
+            description:
+              "Query approved UBS Partner Advisory Workbench data through backend stored-procedure access. Use for whole-dashboard facts, source rows, risk accounts, allocation, or trend data. Do not use this for 'on this page', currently visible, currently filtered, or just-sorted table questions; use workbench_surface_context for those. Never pass SQL.",
+            inputSchema: workbenchQueryInputSchema,
+            strict: true,
+            execute: async (input) =>
+              request.workbenchTools?.query({
+                workspaceId: request.workspaceId,
+                userId: request.userId!,
+                conversationId: request.conversationId,
+                pageContext: request.pageContext,
+                query: input,
+              }),
+          }),
         }),
+    ...(request.workbenchTools.surfaceContext
+      ? {
+          workbench_surface_context: tool({
+            description:
+              "Read the trusted backend-known current view for a host resource, including active filters, active sorts, visible row count, and a bounded visible row sample computed from approved backend data. Use this for any question phrased as 'on this page', 'current view', 'visible table', 'top row', 'what I am seeing', 'the table you just filtered/sorted', or 'which exact portfolio on this page'.",
+            inputSchema: workbenchSurfaceContextInputSchema,
+            strict: true,
+            execute: async (input) =>
+              request.workbenchTools?.surfaceContext?.({
+                workspaceId: request.workspaceId,
+                userId: request.userId!,
+                conversationId: request.conversationId,
+                pageContext: request.pageContext,
+                resourceId: input.resourceId,
+                limit: input.limit,
+              }),
+          }),
+        }
+      : {}),
+    host_command: tool({
+      description:
+        "Request the active host surface to apply a visible UI action such as filtering a grid, sorting a grid, clearing a grid view, or focusing a resource. Use this when the user asks to show, filter, sort, focus, find, or surface dashboard rows. Return only validated host commands from the provided host context.",
+      inputSchema: hostCommandInputSchema,
+      strict: true,
+      execute: async (input) => ({
+        commandId: randomUUID(),
+        command: toHostCommand(input, request.hostContext),
+        reason: input.reason,
+      }),
     }),
   };
 
@@ -105,7 +366,7 @@ const createWorkbenchTools = (request: ModelRequest) => {
     ...tools,
     generate_workbench_report: tool({
       description:
-        "Generate a one-page UBS Partner Advisory Workbench PDF report from approved backend workbench data. Inputs control title, focus, sections, and a short note only; HTML and file paths are not accepted.",
+        "Generate a one-page UBS Partner Advisory Workbench PDF report from approved backend workbench data. Inputs control title, focus, sections, analyst note treatment, and report-ready note text only; HTML and file paths are not accepted.",
       inputSchema: workbenchReportInputSchema,
       strict: true,
       execute: async (input) =>
@@ -152,6 +413,7 @@ export const openAiModelAdapter: ModelPort = {
         continue;
       }
       if (part.type === "tool-call") {
+        if (part.toolName === "host_command") continue;
         yield {
           kind: "tool",
           toolCallId: part.toolCallId,
@@ -162,6 +424,17 @@ export const openAiModelAdapter: ModelPort = {
         continue;
       }
       if (part.type === "tool-result") {
+        if (part.toolName === "host_command") {
+          const parsed = dashboardCommandOutputSchema.safeParse(part.output);
+          if (parsed.success) {
+            yield {
+              kind: "host-command",
+              commandId: parsed.data.commandId,
+              command: parsed.data.command,
+            };
+          }
+          continue;
+        }
         yield {
           kind: "tool",
           toolCallId: part.toolCallId,

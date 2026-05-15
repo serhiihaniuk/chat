@@ -138,7 +138,7 @@ test("embedded widget model switching updates streamed metadata", async ({
   ).toBeVisible();
 });
 
-test("embedded widget submits with Ctrl+Enter from the composer input", async ({
+test("embedded widget submits with Enter from the composer input", async ({
   page,
 }) => {
   await page.goto("/");
@@ -149,7 +149,7 @@ test("embedded widget submits with Ctrl+Enter from the composer input", async ({
     (response) =>
       response.url().includes("/chat/stream") && response.status() === 200,
   );
-  await page.keyboard.press("Control+Enter");
+  await page.keyboard.press("Enter");
   await streamResponse;
 
   await expect(

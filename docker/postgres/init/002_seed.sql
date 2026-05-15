@@ -1,6 +1,3 @@
-select * from sidechat_create_or_get_conversation('demo-workspace', 'demo-user', 'demo-conversation-001');
-select * from sidechat_append_assistant_message('demo-conversation-001', 'demo-assistant-msg-001', '# Seeded report\n- Revenue is up', 'openai', 'gpt-4.1-mini');
-
 insert into ubs_partner.workspaces (id, name, as_of_date, range_from, range_to, range_label)
 values ('demo-workspace', 'UBS Partner Demo Workspace', '2025-06-30', '2025-04-01', '2025-06-30', 'Apr 1 - Jun 30, 2025')
 on conflict (id) do update set
@@ -23,6 +20,15 @@ insert into ubs_partner.relationship_managers (id, workspace_id, display_name) v
   ('rm-j-colombo', 'demo-workspace', 'J. Colombo')
 on conflict (id) do update set display_name = excluded.display_name;
 
+insert into ubs_partner.relationship_managers (id, workspace_id, display_name) values
+  ('rm-n-brunner', 'demo-workspace', 'N. Brunner'),
+  ('rm-v-kapoor', 'demo-workspace', 'V. Kapoor'),
+  ('rm-h-mueller', 'demo-workspace', 'H. Mueller'),
+  ('rm-e-dubois', 'demo-workspace', 'E. Dubois'),
+  ('rm-p-stein', 'demo-workspace', 'P. Stein'),
+  ('rm-y-tanaka', 'demo-workspace', 'Y. Tanaka')
+on conflict (id) do update set display_name = excluded.display_name;
+
 insert into ubs_partner.clients (id, workspace_id, relationship_manager_id, name, segment) values
   ('client-ackermann-family-office', 'demo-workspace', 'rm-s-meier', 'Ackermann Family Office', 'UHNW'),
   ('client-bauhaus-enterprises-ag', 'demo-workspace', 'rm-m-keller', 'Bauhaus Enterprises AG', 'Corporate'),
@@ -34,6 +40,36 @@ insert into ubs_partner.clients (id, workspace_id, relationship_manager_id, name
   ('client-horvath-foundation', 'demo-workspace', 'rm-d-schmid', 'Horvath Foundation', 'Institutional'),
   ('client-iverson-family-trust', 'demo-workspace', 'rm-e-martin', 'Iverson Family Trust', 'HNW'),
   ('client-jasper-retail-group', 'demo-workspace', 'rm-j-colombo', 'Jasper Retail Group', 'Corporate')
+on conflict (id) do update set
+  relationship_manager_id = excluded.relationship_manager_id,
+  name = excluded.name,
+  segment = excluded.segment;
+
+insert into ubs_partner.clients (id, workspace_id, relationship_manager_id, name, segment) values
+  ('client-nordstern-capital', 'demo-workspace', 'rm-n-brunner', 'Nordstern Capital', 'Institutional'),
+  ('client-alpine-private-trust', 'demo-workspace', 'rm-s-meier', 'Alpine Private Trust', 'UHNW'),
+  ('client-rhein-wealth-partners', 'demo-workspace', 'rm-v-kapoor', 'Rhein Wealth Partners', 'HNW'),
+  ('client-helvetic-robotics-ag', 'demo-workspace', 'rm-h-mueller', 'Helvetic Robotics AG', 'Corporate'),
+  ('client-zurich-growth-office', 'demo-workspace', 'rm-e-dubois', 'Zurich Growth Office', 'UHNW'),
+  ('client-lakeview-foundation', 'demo-workspace', 'rm-d-schmid', 'Lakeview Foundation', 'Institutional'),
+  ('client-matterhorn-holdings', 'demo-workspace', 'rm-p-stein', 'Matterhorn Holdings', 'Corporate'),
+  ('client-cobalt-medical-group', 'demo-workspace', 'rm-r-li', 'Cobalt Medical Group', 'Corporate'),
+  ('client-st-gallen-family-office', 'demo-workspace', 'rm-c-weber', 'St. Gallen Family Office', 'UHNW'),
+  ('client-meridian-shipping-sa', 'demo-workspace', 'rm-y-tanaka', 'Meridian Shipping SA', 'Corporate'),
+  ('client-summit-ventures', 'demo-workspace', 'rm-m-keller', 'Summit Ventures', 'HNW'),
+  ('client-arbon-manufacturing', 'demo-workspace', 'rm-h-mueller', 'Arbon Manufacturing', 'Corporate'),
+  ('client-limmat-opportunity-fund', 'demo-workspace', 'rm-a-patel', 'Limmat Opportunity Fund', 'Institutional'),
+  ('client-cedar-lake-trust', 'demo-workspace', 'rm-e-martin', 'Cedar Lake Trust', 'HNW'),
+  ('client-bellvue-enterprises', 'demo-workspace', 'rm-t-nguyen', 'Bellvue Enterprises', 'Corporate'),
+  ('client-redwood-pharma-ag', 'demo-workspace', 'rm-r-li', 'Redwood Pharma AG', 'Corporate'),
+  ('client-orion-family-trust', 'demo-workspace', 'rm-n-brunner', 'Orion Family Trust', 'UHNW'),
+  ('client-silverline-retail-holding', 'demo-workspace', 'rm-j-colombo', 'Silverline Retail Holding', 'Corporate'),
+  ('client-aare-endowment', 'demo-workspace', 'rm-d-schmid', 'Aare Endowment', 'Institutional'),
+  ('client-terracotta-properties', 'demo-workspace', 'rm-p-stein', 'Terracotta Properties', 'Corporate'),
+  ('client-verbier-private-wealth', 'demo-workspace', 'rm-l-rossi', 'Verbier Private Wealth', 'HNW'),
+  ('client-aurora-energy-sa', 'demo-workspace', 'rm-y-tanaka', 'Aurora Energy SA', 'Corporate'),
+  ('client-crescent-family-office', 'demo-workspace', 'rm-s-meier', 'Crescent Family Office', 'UHNW'),
+  ('client-kestrel-industries', 'demo-workspace', 'rm-m-keller', 'Kestrel Industries', 'Corporate')
 on conflict (id) do update set
   relationship_manager_id = excluded.relationship_manager_id,
   name = excluded.name,
@@ -74,12 +110,67 @@ on conflict (id) do update set
   next_action = excluded.next_action,
   has_alert = excluded.has_alert;
 
+insert into ubs_partner.client_portfolio_reviews (id, workspace_id, client_id, aum_chf, net_flow_30d_chf, risk_profile, suitability_score, coverage_status, last_review, next_action, has_alert) values
+  ('review-nordstern-capital', 'demo-workspace', 'client-nordstern-capital', 1620000000, 91000000, 'Balanced', 89, 'Covered', '2025-06-11', 'Quarterly mandate review', false),
+  ('review-alpine-private-trust', 'demo-workspace', 'client-alpine-private-trust', 1330000000, 148000000, 'Growth', 84, 'Watch', '2025-06-02', 'Concentration review', true),
+  ('review-rhein-wealth-partners', 'demo-workspace', 'client-rhein-wealth-partners', 1080000000, 73500000, 'Balanced', 91, 'Covered', '2025-06-14', 'Mandate renewal', false),
+  ('review-helvetic-robotics-ag', 'demo-workspace', 'client-helvetic-robotics-ag', 940000000, -62000000, 'Moderate', 63, 'At Risk', '2025-05-12', 'Liquidity covenant update', true),
+  ('review-zurich-growth-office', 'demo-workspace', 'client-zurich-growth-office', 880000000, 126000000, 'Growth', 78, 'Watch', '2025-06-06', 'Options overlay review', true),
+  ('review-lakeview-foundation', 'demo-workspace', 'client-lakeview-foundation', 736000000, 18400000, 'Conservative', 96, 'Covered', '2025-06-18', 'Impact allocation review', false),
+  ('review-matterhorn-holdings', 'demo-workspace', 'client-matterhorn-holdings', 704000000, -31500000, 'Balanced', 69, 'At Risk', '2025-05-22', 'Margin remediation', true),
+  ('review-cobalt-medical-group', 'demo-workspace', 'client-cobalt-medical-group', 681000000, 54000000, 'Moderate', 83, 'Covered', '2025-06-13', 'Treasury sweep', false),
+  ('review-st-gallen-family-office', 'demo-workspace', 'client-st-gallen-family-office', 657000000, 66500000, 'Conservative', 93, 'Covered', '2025-06-17', 'Estate planning sync', false),
+  ('review-meridian-shipping-sa', 'demo-workspace', 'client-meridian-shipping-sa', 629000000, -54000000, 'Moderate', 66, 'At Risk', '2025-05-19', 'FX collateral review', true),
+  ('review-summit-ventures', 'demo-workspace', 'client-summit-ventures', 604000000, 118000000, 'Growth', 76, 'Watch', '2025-06-07', 'Liquidity window', false),
+  ('review-arbon-manufacturing', 'demo-workspace', 'client-arbon-manufacturing', 586000000, -24800000, 'Balanced', 72, 'Watch', '2025-05-24', 'Cash conversion plan', true),
+  ('review-limmat-opportunity-fund', 'demo-workspace', 'client-limmat-opportunity-fund', 552000000, 95000000, 'Growth', 87, 'Covered', '2025-06-19', 'Performance attribution', false),
+  ('review-cedar-lake-trust', 'demo-workspace', 'client-cedar-lake-trust', 506000000, 21200000, 'Conservative', 90, 'Covered', '2025-06-04', 'Beneficiary update', false),
+  ('review-bellvue-enterprises', 'demo-workspace', 'client-bellvue-enterprises', 472000000, -18800000, 'Moderate', 70, 'Watch', '2025-05-27', 'Loan repricing', true),
+  ('review-redwood-pharma-ag', 'demo-workspace', 'client-redwood-pharma-ag', 438000000, -44500000, 'Balanced', 61, 'At Risk', '2025-05-14', 'Alert resolution', true),
+  ('review-orion-family-trust', 'demo-workspace', 'client-orion-family-trust', 421000000, 33800000, 'Balanced', 88, 'Covered', '2025-06-20', 'Tax optimization', false),
+  ('review-silverline-retail-holding', 'demo-workspace', 'client-silverline-retail-holding', 398000000, -27100000, 'Moderate', 67, 'At Risk', '2025-05-21', 'Credit exposure review', true),
+  ('review-aare-endowment', 'demo-workspace', 'client-aare-endowment', 376000000, 17100000, 'Conservative', 94, 'Covered', '2025-06-16', 'Grant liquidity review', false),
+  ('review-terracotta-properties', 'demo-workspace', 'client-terracotta-properties', 349000000, -12200000, 'Balanced', 73, 'Watch', '2025-05-31', 'Real estate leverage review', true),
+  ('review-verbier-private-wealth', 'demo-workspace', 'client-verbier-private-wealth', 327000000, 49300000, 'Growth', 81, 'Covered', '2025-06-09', 'Alternatives pacing', false),
+  ('review-aurora-energy-sa', 'demo-workspace', 'client-aurora-energy-sa', 302000000, -36500000, 'Moderate', 64, 'At Risk', '2025-05-16', 'Commodity hedge review', true),
+  ('review-crescent-family-office', 'demo-workspace', 'client-crescent-family-office', 286000000, 77100000, 'Balanced', 86, 'Covered', '2025-06-15', 'Mandate expansion', false),
+  ('review-kestrel-industries', 'demo-workspace', 'client-kestrel-industries', 244000000, -9400000, 'Moderate', 75, 'Watch', '2025-06-01', 'Working-capital update', false)
+on conflict (id) do update set
+  aum_chf = excluded.aum_chf,
+  net_flow_30d_chf = excluded.net_flow_30d_chf,
+  risk_profile = excluded.risk_profile,
+  suitability_score = excluded.suitability_score,
+  coverage_status = excluded.coverage_status,
+  last_review = excluded.last_review,
+  next_action = excluded.next_action,
+  has_alert = excluded.has_alert;
+
 insert into ubs_partner.risk_accounts (id, workspace_id, client_id, issue, exposure_chf, priority, owner_relationship_manager_id, due_date) values
   ('risk-global-medtech-liquidity-gap', 'demo-workspace', 'client-global-medtech-inc', 'Liquidity gap', 112000000, 'High', 'rm-r-li', '2025-07-08'),
   ('risk-jasper-credit-concentration', 'demo-workspace', 'client-jasper-retail-group', 'Credit concentration', 78000000, 'High', 'rm-j-colombo', '2025-07-04'),
   ('risk-delaunay-margin-utilization', 'demo-workspace', 'client-delaunay-holdings', 'Margin utilization', 64000000, 'Medium', 'rm-t-nguyen', '2025-07-10'),
   ('risk-novatek-covenant-breach', 'demo-workspace', 'client-equinox-partners-llp', 'Covenant breach risk', 52000000, 'Medium', 'rm-a-patel', '2025-07-11'),
   ('risk-chen-equity-concentration', 'demo-workspace', 'client-chen-private-wealth', 'Equity concentration', 46000000, 'Medium', 'rm-l-rossi', '2025-07-07')
+on conflict (id) do update set
+  issue = excluded.issue,
+  exposure_chf = excluded.exposure_chf,
+  priority = excluded.priority,
+  owner_relationship_manager_id = excluded.owner_relationship_manager_id,
+  due_date = excluded.due_date;
+
+insert into ubs_partner.risk_accounts (id, workspace_id, client_id, issue, exposure_chf, priority, owner_relationship_manager_id, due_date) values
+  ('risk-helvetic-liquidity-covenant', 'demo-workspace', 'client-helvetic-robotics-ag', 'Liquidity covenant pressure', 91000000, 'High', 'rm-h-mueller', '2025-06-24'),
+  ('risk-redwood-alert-resolution', 'demo-workspace', 'client-redwood-pharma-ag', 'Unresolved compliance alert', 84000000, 'High', 'rm-r-li', '2025-06-18'),
+  ('risk-meridian-fx-collateral', 'demo-workspace', 'client-meridian-shipping-sa', 'FX collateral shortfall', 73000000, 'High', 'rm-y-tanaka', '2025-06-28'),
+  ('risk-alpine-single-name', 'demo-workspace', 'client-alpine-private-trust', 'Single-name concentration', 69000000, 'High', 'rm-s-meier', '2025-07-02'),
+  ('risk-silverline-credit-line', 'demo-workspace', 'client-silverline-retail-holding', 'Credit line utilization', 58000000, 'Medium', 'rm-j-colombo', '2025-07-06'),
+  ('risk-matterhorn-margin-buffer', 'demo-workspace', 'client-matterhorn-holdings', 'Margin buffer erosion', 56000000, 'Medium', 'rm-p-stein', '2025-06-26'),
+  ('risk-aurora-commodity-hedge', 'demo-workspace', 'client-aurora-energy-sa', 'Commodity hedge mismatch', 51000000, 'Medium', 'rm-y-tanaka', '2025-07-09'),
+  ('risk-bellvue-loan-repricing', 'demo-workspace', 'client-bellvue-enterprises', 'Loan repricing exposure', 43000000, 'Medium', 'rm-t-nguyen', '2025-07-12'),
+  ('risk-zurich-options-overlay', 'demo-workspace', 'client-zurich-growth-office', 'Options overlay review', 41000000, 'Medium', 'rm-e-dubois', '2025-07-01'),
+  ('risk-arbon-cash-conversion', 'demo-workspace', 'client-arbon-manufacturing', 'Cash conversion delay', 38000000, 'Medium', 'rm-h-mueller', '2025-06-27'),
+  ('risk-terracotta-leverage', 'demo-workspace', 'client-terracotta-properties', 'Real estate leverage drift', 34000000, 'Low', 'rm-p-stein', '2025-07-15'),
+  ('risk-kestrel-working-capital', 'demo-workspace', 'client-kestrel-industries', 'Working-capital drawdown', 28000000, 'Low', 'rm-m-keller', '2025-07-18')
 on conflict (id) do update set
   issue = excluded.issue,
   exposure_chf = excluded.exposure_chf,

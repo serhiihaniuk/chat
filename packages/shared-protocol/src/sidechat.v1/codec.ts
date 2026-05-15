@@ -7,6 +7,7 @@ import type {
   SidechatStreamDeltaEvent,
   SidechatStreamReasoningEvent,
   SidechatStreamToolEvent,
+  SidechatStreamHostCommandEvent,
   SidechatStreamHistoryEvent,
 } from "./types.js";
 import { SidechatStreamEventSchema } from "./schemas.js";
@@ -64,6 +65,12 @@ export const isToolSidechatEvent = (
   event: SidechatStreamEvent,
 ): event is SidechatStreamToolEvent => {
   return event.type === "sidechat.tool";
+};
+
+export const isHostCommandSidechatEvent = (
+  event: SidechatStreamEvent,
+): event is SidechatStreamHostCommandEvent => {
+  return event.type === "sidechat.host_command";
 };
 
 export const isHistorySidechatEvent = (
@@ -142,6 +149,7 @@ export const parseKnownSsePayloads = (chunk: string): SidechatStreamEvent[] => {
       payload.event !== "sidechat.delta" &&
       payload.event !== "sidechat.reasoning" &&
       payload.event !== "sidechat.tool" &&
+      payload.event !== "sidechat.host_command" &&
       payload.event !== "sidechat.completed" &&
       payload.event !== "sidechat.error" &&
       payload.event !== "sidechat.history"

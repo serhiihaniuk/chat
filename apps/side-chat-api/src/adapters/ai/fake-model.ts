@@ -1,4 +1,9 @@
-import type { ModelPort, WorkbenchReportInput } from "../../ports/index.js";
+import type {
+  ModelPort,
+  WorkbenchQueryName,
+  WorkbenchReportInput,
+} from "../../ports/index.js";
+import type { HostCommand } from "@side-chat/shared-protocol";
 
 export type FakeModelAdapterOptions = {
   chunkDelayMs?: number;
@@ -55,7 +60,7 @@ const isGenericReportRequest = (content: string) =>
 
 const isReportContinuationRequest = (content: string) =>
   /^\s*[12]\s*(?:$|[.)-])/i.test(content) ||
-  /\b(default|defaults|go ahead|proceed|generate it|create it|use option|option [12]|executive_summary|executive summary|risk_review|risk review|client_coverage|client coverage|portfolio_allocation|portfolio allocation|kpis|biggest_clients|biggest clients|risk_accounts|risk accounts|product_allocation|product allocation|net_new_money_trend|net new money trend|analyst note)\b/i.test(
+  /\b(default|defaults|go ahead|proceed|generate it|create it|use option|option [12]|executive_summary|executive summary|risk_review|risk review|client_coverage|client coverage|portfolio_allocation|portfolio allocation|kpis|biggest_clients|biggest clients|risk_accounts|risk accounts|product_allocation|product allocation|net_new_money_trend|net new money trend|analyst note|suitability|rationale|next action|custom wording)\b/i.test(
     content,
   );
 
@@ -65,12 +70,109 @@ const shouldGenerateReport = (content: string) =>
     !isGenericReportRequest(content)) ||
   isReportContinuationRequest(content);
 
+const resolveHostCommand = (content: string): HostCommand | undefined => {
+  if (/\b(best performing|top performing|strongest flow|best portfolios)\b/i.test(content)) {
+    return {
+      type: "grid.applyView",
+      resourceId: "advisoryWorklist",
+      view: {
+        sort: [{ columnId: "netFlow30dChf", direction: "desc" }],
+      },
+    };
+  }
+
+  if (/\b(highest risk|riskiest|sorted by risk|at risk portfolios)\b/i.test(content)) {
+    return {
+      type: "grid.applyView",
+      resourceId: "advisoryWorklist",
+      view: {
+        filters: [
+          {
+            columnId: "coverageStatus",
+            operator: "equals",
+            value: "At Risk",
+          },
+        ],
+        sort: [{ columnId: "riskScore", direction: "asc" }],
+      },
+    };
+  }
+
+  if (/\b(overdue|past due|late tasks|due first|risk queue)\b/i.test(content)) {
+    return {
+      type: "grid.applyView",
+      resourceId: "advisoryWorklist",
+      view: {
+        filters: [
+          {
+            columnId: "dueStatus",
+            operator: "equals",
+            value: "Overdue",
+          },
+        ],
+        sort: [{ columnId: "dueDate", direction: "asc" }],
+      },
+    };
+  }
+
+  if (/\b(open portfolios|only open|due status open)\b/i.test(content)) {
+    return {
+      type: "grid.applyView",
+      resourceId: "advisoryWorklist",
+      view: {
+        filters: [
+          {
+            columnId: "dueStatus",
+            operator: "equals",
+            value: "Open",
+          },
+        ],
+        sort: [{ columnId: "dueDate", direction: "asc" }],
+      },
+    };
+  }
+
+  return undefined;
+};
+
+const createHostCommandResponse = (command: HostCommand) => {
+  if (command.type === "grid.applyView" && command.resourceId === "advisoryWorklist") {
+    return "I updated the Portfolio Worklist with the requested filter and sort.";
+  }
+  return "I updated the dashboard view.";
+};
+
+const resolveWorkbenchQuery = (content: string): WorkbenchQueryName | undefined => {
+  if (/\b(biggest|largest|second biggest|client|aum)\b/i.test(content)) {
+    return "client_portfolio_review";
+  }
+  if (/\b(risk|at risk|highest risk|priority|exposure)\b/i.test(content)) {
+    return "top_risk_accounts";
+  }
+  if (/\b(allocation|asset class|drift|portfolio mix)\b/i.test(content)) {
+    return "product_allocation";
+  }
+  if (/\b(net new money|money trend|trend|flow|inflow|outflow)\b/i.test(content)) {
+    return "net_new_money_trend";
+  }
+  if (/\b(kpi|summary|summarize|page|dashboard|total aum|advisory coverage|alerts)\b/i.test(content)) {
+    return "dashboard_snapshot";
+  }
+
+  return undefined;
+};
+
 const reportClarificationChunks = [
-  "I can generate that PDF report. Before I do, choose one of these, or say **use defaults** and I’ll create the standard one-page executive snapshot.\n\n",
-  "- **Focus:** executive summary, risk review, client coverage, or portfolio allocation\n",
-  "- **Sections:** KPIs, biggest clients, risk accounts, product allocation, net-new-money trend\n",
-  "- **Analyst note:** optional short line to include at the top\n\n",
-  "Default: executive summary with KPIs, biggest clients, risk accounts, product allocation, and net-new-money trend.",
+  "I can generate that PDF report. Choose one of these, or say **use defaults** and I will create the standard one-page executive snapshot.\n\n",
+  "**Option 1 (recommended): Default executive snapshot**\n",
+  "- Focus: Executive summary\n",
+  "- Sections: KPIs, biggest clients, risk accounts, product allocation, and Net New Money trend\n",
+  "Reply **1** or **use defaults**.\n\n",
+  "**Option 2: Custom report**\n",
+  "- Focus: Executive summary, Risk review, Client coverage, or Portfolio allocation\n",
+  "- Sections: KPIs, biggest clients, risk accounts, product allocation, and Net New Money trend\n",
+  "- Optional analyst note: Risk rationale, Next action, or Custom wording\n",
+  "Reply in plain language, for example: **Risk review with KPIs, risk accounts, and Net New Money trend. Add a next-action note for RM handoff.**",
 ];
 
 export const createFakeModelAdapter = (
@@ -81,13 +183,73 @@ export const createFakeModelAdapter = (
       throw new Error("fake model failure");
     }
 
-    const chunks = isGenericReportRequest(request.message.content)
+    const hostCommand = resolveHostCommand(request.message.content);
+    if (hostCommand) {
+      yield {
+        kind: "host-command",
+        commandId: "fake-host-command-1",
+        command: hostCommand,
+      };
+    }
+
+    let surfaceAnswerChunks: string[] | undefined;
+    if (
+      request.workbenchTools?.surfaceContext &&
+      /\b(how many|count|currently filtered|visible|open portfolios|on this page|present in the table|in the table|this table|what do we do now|what needs attention|pay attention)\b/i.test(
+        request.message.content,
+      ) &&
+      !hostCommand
+    ) {
+      const input = { resourceId: "advisoryWorklist", limit: 12 };
+      yield {
+        kind: "tool",
+        toolCallId: "fake-workbench-surface-context-1",
+        toolName: "workbench_surface_context",
+        status: "running",
+        input,
+      };
+      const output = await request.workbenchTools.surfaceContext({
+        workspaceId: request.workspaceId,
+        userId: request.userId ?? "local-user",
+        conversationId: request.conversationId,
+        pageContext: request.pageContext,
+        ...input,
+      });
+      yield {
+        kind: "tool",
+        toolCallId: "fake-workbench-surface-context-1",
+        toolName: "workbench_surface_context",
+        status: "completed",
+        input,
+        output,
+      };
+      const firstRow = output.rows[0];
+      surfaceAnswerChunks = /\b(which|what|attention|do now|needs attention|pay attention)\b/i.test(
+        request.message.content,
+      ) && firstRow
+        ? [
+            `Focus first on **${firstRow.label}** in the current Portfolio Worklist view. It is the top visible row after the active filters and sort.`,
+          ]
+        : [
+            `The current Portfolio Worklist view has **${output.rowCount}** rows visible out of ${output.totalRowCount}.`,
+          ];
+    }
+
+    const chunks = surfaceAnswerChunks ?? (hostCommand
+      ? [createHostCommandResponse(hostCommand)]
+      : isGenericReportRequest(request.message.content)
       ? reportClarificationChunks
-      : createResponseChunks(request.model.id, request.message.content);
+      : createResponseChunks(request.model.id, request.message.content));
     const chunkDelayMs = options.chunkDelayMs ?? parseChunkDelayMs();
 
-    if (request.message.content.toLowerCase().includes("tool")) {
-      const input = { query: "dashboard_snapshot" as const };
+    const workbenchQuery = resolveWorkbenchQuery(request.message.content);
+    if (
+      request.workbenchTools &&
+      workbenchQuery &&
+      !hostCommand &&
+      !isGenericReportRequest(request.message.content)
+    ) {
+      const input = { query: workbenchQuery };
       yield {
         kind: "tool",
         toolCallId: "fake-workbench-query-1",
@@ -98,6 +260,7 @@ export const createFakeModelAdapter = (
       const output = await request.workbenchTools?.query({
         workspaceId: request.workspaceId,
         userId: request.userId ?? "local-user",
+        conversationId: request.conversationId,
         pageContext: request.pageContext,
         query: input,
       });
@@ -121,7 +284,8 @@ export const createFakeModelAdapter = (
         title: "UBS Partner Workbench Briefing",
         focus: "executive_summary" as const,
         sections: ["kpis", "biggest_clients", "risk_accounts"],
-        note: "Generated from approved workbench data.",
+        noteKind: "next_action",
+        note: "Use this briefing for RM handoff; confirm flagged risks and coverage status before client outreach.",
       };
       yield {
         kind: "tool",

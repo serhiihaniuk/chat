@@ -102,4 +102,69 @@ describe("readSideChatStreamEvents", () => {
       "Ignored sidechat.delta after terminal sidechat stream event",
     ]);
   });
+
+  it("dispatches host command stream events", async () => {
+    const hostCommand: SidechatStreamEvent = {
+      type: "sidechat.host_command",
+      requestId: "req-1",
+      messageId: "assistant-1",
+      commandId: "command-1",
+      command: { type: "ui.focusResource", resourceId: "clientPortfolio" },
+      index: 0,
+    };
+    const seen: string[] = [];
+    const body = `${encodeSseEventFrame(started)}\n${encodeSseEventFrame(hostCommand)}\n${encodeSseEventFrame(completed)}\n`;
+
+    await readSideChatStreamEvents(
+      new Response(body),
+      (event) => seen.push(event.type),
+    );
+
+    expect(seen).toEqual([
+      "sidechat.started",
+      "sidechat.host_command",
+      "sidechat.completed",
+    ]);
+  });
+
+  it("parses completed message metadata for live citations", async () => {
+    const completedWithMetadata: SidechatStreamEvent = {
+      ...completed,
+      metadata: {
+        citations: [
+          {
+            sourceId: "advisoryWorklist:review-global-medtech-inc",
+            label: "Portfolio Worklist - Global MedTech Inc.",
+            dataset: "client_portfolio_review",
+            resourceId: "advisoryWorklist",
+            rowId: "review-global-medtech-inc",
+          },
+        ],
+      },
+    };
+    let seenCompleted: SidechatStreamEvent | undefined;
+
+    await readSideChatStreamEvents(
+      new Response(
+        `${encodeSseEventFrame(started)}\n${encodeSseEventFrame(completedWithMetadata)}\n`,
+      ),
+      (event) => {
+        if (event.type === "sidechat.completed") {
+          seenCompleted = event;
+        }
+      },
+    );
+
+    expect(seenCompleted).toMatchObject({
+      type: "sidechat.completed",
+      metadata: {
+        citations: [
+          {
+            sourceId: "advisoryWorklist:review-global-medtech-inc",
+            resourceId: "advisoryWorklist",
+          },
+        ],
+      },
+    });
+  });
 });

@@ -9,7 +9,8 @@ create schema if not exists ubs_partner;
 create extension if not exists pgcrypto;
 
 create table if not exists sidechat.conversations (id text primary key, workspace_id text not null, user_id text not null, created_at timestamptz default now());
-create table if not exists sidechat.messages (id text primary key, conversation_id text references sidechat.conversations(id), role text not null, content text not null, model_provider text, model_id text, created_at timestamptz default now());
+create table if not exists sidechat.messages (id text primary key, conversation_id text references sidechat.conversations(id), role text not null, content text not null, metadata jsonb not null default '{}'::jsonb, model_provider text, model_id text, created_at timestamptz default now());
+alter table sidechat.messages add column if not exists metadata jsonb not null default '{}'::jsonb;
 create table if not exists sidechat.usage_records (request_id text primary key, conversation_id text not null, message_id text not null, model_provider text not null, model_id text not null, input_tokens int not null, output_tokens int not null, total_tokens int not null, reasoning_tokens int, cached_input_tokens int, cache_write_tokens int, estimated_cost_usd numeric(12, 6), created_at timestamptz default now());
 alter table sidechat.usage_records add column if not exists reasoning_tokens int;
 alter table sidechat.usage_records add column if not exists cached_input_tokens int;
@@ -105,12 +106,15 @@ create or replace function sidechat_append_user_message(p_conversation_id text, 
   insert into sidechat.messages(id, conversation_id, role, content) values (p_message_id, p_conversation_id, 'user', p_content) on conflict (id) do nothing;
 $$;
 
-create or replace function sidechat_append_assistant_message(p_conversation_id text, p_message_id text, p_content text, p_model_provider text, p_model_id text) returns void language sql security definer as $$
-  insert into sidechat.messages(id, conversation_id, role, content, model_provider, model_id) values (p_message_id, p_conversation_id, 'assistant', p_content, p_model_provider, p_model_id) on conflict (id) do nothing;
+drop function if exists sidechat_append_assistant_message(text, text, text, text, text);
+drop function if exists sidechat_append_assistant_message(text, text, text, text, text, jsonb);
+create or replace function sidechat_append_assistant_message(p_conversation_id text, p_message_id text, p_content text, p_model_provider text, p_model_id text, p_metadata jsonb default '{}'::jsonb) returns void language sql security definer as $$
+  insert into sidechat.messages(id, conversation_id, role, content, model_provider, model_id, metadata) values (p_message_id, p_conversation_id, 'assistant', p_content, p_model_provider, p_model_id, coalesce(p_metadata, '{}'::jsonb)) on conflict (id) do nothing;
 $$;
 
-create or replace function sidechat_read_seeded_history(p_workspace_id text, p_conversation_id text) returns table(id text, role text, content text) language sql security definer as $$
-  select m.id, m.role, m.content from sidechat.messages m join sidechat.conversations c on c.id = m.conversation_id where c.workspace_id = p_workspace_id and c.id = p_conversation_id order by m.created_at;
+drop function if exists sidechat_read_seeded_history(text, text);
+create or replace function sidechat_read_seeded_history(p_workspace_id text, p_conversation_id text) returns table(id text, role text, content text, metadata jsonb) language sql security definer as $$
+  select m.id, m.role, m.content, m.metadata from sidechat.messages m join sidechat.conversations c on c.id = m.conversation_id where c.workspace_id = p_workspace_id and c.id = p_conversation_id order by m.created_at;
 $$;
 
 drop function if exists sidechat_record_usage(text, text, text, text, text, int, int, int);
@@ -129,20 +133,18 @@ returns table(
   "estimatedCostUsd" double precision
 ) language sql security definer as $$
   select
-    u.input_tokens as "inputTokens",
-    u.output_tokens as "outputTokens",
-    u.total_tokens as "totalTokens",
-    u.reasoning_tokens as "reasoningTokens",
-    u.cached_input_tokens as "cachedInputTokens",
-    u.cache_write_tokens as "cacheWriteTokens",
-    u.estimated_cost_usd::double precision as "estimatedCostUsd"
+    sum(u.input_tokens)::int as "inputTokens",
+    sum(u.output_tokens)::int as "outputTokens",
+    sum(u.total_tokens)::int as "totalTokens",
+    nullif(sum(coalesce(u.reasoning_tokens, 0)), 0)::int as "reasoningTokens",
+    nullif(sum(coalesce(u.cached_input_tokens, 0)), 0)::int as "cachedInputTokens",
+    nullif(sum(coalesce(u.cache_write_tokens, 0)), 0)::int as "cacheWriteTokens",
+    nullif(sum(coalesce(u.estimated_cost_usd, 0)), 0)::double precision as "estimatedCostUsd"
   from sidechat.usage_records u
   join sidechat.conversations c on c.id = u.conversation_id
   where c.workspace_id = p_workspace_id
-    and c.user_id = p_user_id
     and c.id = p_conversation_id
-  order by u.created_at desc
-  limit 1;
+  group by c.id;
 $$;
 
 create or replace function sidechat_get_workspace_context(p_workspace_id text, p_user_id text)
@@ -317,7 +319,7 @@ $$;
 
 grant execute on function sidechat_create_or_get_conversation(text, text, text) to sidechat_app;
 grant execute on function sidechat_append_user_message(text, text, text) to sidechat_app;
-grant execute on function sidechat_append_assistant_message(text, text, text, text, text) to sidechat_app;
+grant execute on function sidechat_append_assistant_message(text, text, text, text, text, jsonb) to sidechat_app;
 grant execute on function sidechat_read_seeded_history(text, text) to sidechat_app;
 grant execute on function sidechat_record_usage(text, text, text, text, text, int, int, int, int, int, int, numeric) to sidechat_app;
 grant execute on function sidechat_get_latest_usage(text, text, text) to sidechat_app;

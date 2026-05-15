@@ -1,10 +1,15 @@
 "use client";
 
-import { Brain, ChevronDown } from "lucide-react";
 import { useEffect, useState, type ComponentProps } from "react";
 import { cn } from "../../lib/utils.js";
+import {
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+} from "./chain-of-thought.js";
 
-export type ReasoningProps = ComponentProps<"details"> & {
+export type ReasoningProps = ComponentProps<"div"> & {
   isStreaming?: boolean;
 };
 
@@ -21,29 +26,33 @@ export const Reasoning = ({
   }, [isStreaming]);
 
   return (
-    <details
+    <ChainOfThought
       className={cn(
-        "group/reasoning mb-3 rounded-md border px-3 py-2 text-sm",
+        "rounded-md border px-3 py-2 text-sm",
         className,
       )}
-      style={{
-        background: "color-mix(in srgb, var(--sidechat-accent, #2563eb) 7%, white)",
-        borderColor: "color-mix(in srgb, var(--sidechat-accent, #2563eb) 24%, var(--sidechat-border, #e2e8f0))",
-        color: "color-mix(in srgb, var(--sidechat-fg, #0f172a) 70%, var(--sidechat-accent, #2563eb))",
-      }}
+      defaultOpen={isStreaming}
+      onOpenChange={setOpen}
       open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      style={{
+        background:
+          "color-mix(in srgb, var(--sidechat-accent, #2563eb) 7%, white)",
+        borderColor:
+          "color-mix(in srgb, var(--sidechat-accent, #2563eb) 24%, var(--sidechat-border, #e2e8f0))",
+        color:
+          "color-mix(in srgb, var(--sidechat-fg, #0f172a) 70%, var(--sidechat-accent, #2563eb))",
+      }}
       {...props}
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold [&::-webkit-details-marker]:hidden">
-        <Brain aria-hidden="true" className="size-4" />
-        <span>{isStreaming ? "Thinking..." : "Reasoning"}</span>
-        <ChevronDown
-          aria-hidden="true"
-          className="size-4 transition group-open/reasoning:rotate-180"
+      <ChainOfThoughtHeader className="font-semibold">
+        {isStreaming ? "Thinking..." : "Reasoning"}
+      </ChainOfThoughtHeader>
+      <ChainOfThoughtContent>
+        <ChainOfThoughtStep
+          label={<div className="whitespace-pre-wrap leading-6">{children}</div>}
+          status={isStreaming ? "active" : "complete"}
         />
-      </summary>
-      <div className="mt-3 whitespace-pre-wrap leading-6">{children}</div>
-    </details>
+      </ChainOfThoughtContent>
+    </ChainOfThought>
   );
 };

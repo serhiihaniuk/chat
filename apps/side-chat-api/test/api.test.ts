@@ -34,12 +34,26 @@ const streamRequest = (content = "Explain this report") => ({
   workspaceId: "demo-workspace",
   conversationId: "demo-conversation-001",
   message: { id: "client-msg-001", role: "user" as const, content },
-  model: { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" },
+  model: { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" },
 });
 
 const seededMessageHistory = [
   { id: "seed-user-1", role: "user", content: "Seed message" },
-  { id: "seed-asst-1", role: "assistant", content: "Seed reply" },
+  {
+    id: "seed-asst-1",
+    role: "assistant",
+    content: "Seed reply",
+    metadata: {
+      citations: [
+        {
+          sourceId: "client_portfolio_review:review-ackermann-family-office",
+          label: "Client Portfolio Review · Ackermann Family Office",
+          dataset: "client_portfolio_review",
+          rowId: "review-ackermann-family-office",
+        },
+      ],
+    },
+  },
 ];
 
 describe("hono adapter", () => {
@@ -80,7 +94,7 @@ describe("hono adapter", () => {
     expect(models.headers.get("Content-Type")).toContain("application/json");
     expect(await models.json()).toEqual({
       models: [
-        { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" },
+        { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" },
       ],
     });
   });
@@ -132,7 +146,7 @@ describe("hono adapter", () => {
       model: {
         provider: "openai",
         id: "gpt-5.4-nano",
-        reasoningEffort: "medium",
+        reasoningEffort: "high",
       },
     });
     expect(frames[1]).toMatchObject({
@@ -171,7 +185,7 @@ describe("hono adapter", () => {
       model: {
         provider: "openai",
         id: "gpt-5.4-nano",
-        reasoningEffort: "medium",
+        reasoningEffort: "high",
       },
       usage: { inputTokens: 3 },
     });
@@ -261,7 +275,7 @@ describe("hono adapter", () => {
       observability: { lifecycle, counter, span },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -373,7 +387,8 @@ describe("hono adapter", () => {
       "conv-from-db",
       "req-db-assistant",
       expect.stringContaining("Persist this"),
-      { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" },
+      { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" },
+      undefined,
     );
     expect(dbPersistence.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -425,7 +440,7 @@ describe("hono adapter", () => {
       observability: { lifecycle, counter, span },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -550,7 +565,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -620,7 +635,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -690,7 +705,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -768,7 +783,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -842,7 +857,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -943,7 +958,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -1018,7 +1033,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";
@@ -1087,7 +1102,7 @@ describe("hono adapter", () => {
       },
       config: {
         models() {
-          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" }];
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
         },
         defaultUserId() {
           return "local-user";

@@ -46,7 +46,9 @@ test("appendAssistantMessage uses stored procedure", async () => {
 
   const db = new SideChatDb(fake);
   const model: ModelSelection = { provider: "openai", id: "gpt-4.1-mini" };
-  await db.appendAssistantMessage("conv-1", "msg-2", "reply", model);
+  await db.appendAssistantMessage("conv-1", "msg-2", "reply", model, {
+    citations: [{ sourceId: "source-1" }],
+  });
 
   expect(calls[0].text).toContain("sidechat_append_assistant_message");
   expect(calls[0].params).toEqual([
@@ -55,6 +57,7 @@ test("appendAssistantMessage uses stored procedure", async () => {
     "reply",
     "openai",
     "gpt-4.1-mini",
+    { citations: [{ sourceId: "source-1" }] },
   ]);
 });
 

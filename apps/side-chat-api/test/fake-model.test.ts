@@ -95,6 +95,13 @@ describe("fakeModelAdapter", () => {
     expect(content).toContain("use defaults");
     expect(content).toContain("Focus:");
     expect(content).toContain("Sections:");
+    expect(content).toContain("Risk review");
+    expect(content).toContain("Client coverage");
+    expect(content).toContain("Custom wording");
+    expect(content).not.toContain("Suitability");
+    expect(content).not.toMatch(
+      /executive_summary|risk_review|client_coverage|portfolio_allocation|biggest_clients|risk_accounts|product_allocation|net_new_money_trend/,
+    );
   });
 
   it("generates the report when the user asks to use defaults", async () => {
@@ -124,6 +131,7 @@ describe("fakeModelAdapter", () => {
             query: query.query,
             workspaceId: "demo-workspace",
             data: {},
+            sources: [],
           };
         },
       },
@@ -133,6 +141,14 @@ describe("fakeModelAdapter", () => {
     }
 
     expect(generated).toHaveBeenCalledOnce();
+    expect(generated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        report: expect.objectContaining({
+          noteKind: "next_action",
+          note: expect.stringContaining("RM handoff"),
+        }),
+      }),
+    );
     expect(
       chunks.some(
         (chunk) =>
@@ -149,6 +165,7 @@ describe("fakeModelAdapter", () => {
       query: query.query,
       workspaceId: "demo-workspace",
       data: {},
+      sources: [],
     }));
     const chunks = [];
 
@@ -176,5 +193,78 @@ describe("fakeModelAdapter", () => {
           chunk.toolName === "generate_workbench_report",
       ),
     ).toBe(false);
+  });
+
+  it("uses a workbench lookup for natural biggest-client questions", async () => {
+    const queried = vi.fn(async ({ query }) => ({
+      query: query.query,
+      workspaceId: "demo-workspace",
+      data: [],
+      sources: [],
+    }));
+    const chunks = [];
+
+    for await (const chunk of createFakeModelAdapter({
+      chunkDelayMs: 0,
+    }).stream({
+      ...request,
+      message: {
+        id: "msg-biggest-client-natural",
+        role: "user",
+        content: "Who is our biggest client?",
+      },
+      workbenchTools: { query: queried },
+      userId: "local-user",
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(queried).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: { query: "client_portfolio_review" },
+      }),
+    );
+    expect(
+      chunks.some(
+        (chunk) =>
+          chunk.kind === "tool" &&
+          chunk.toolName === "workbench_query" &&
+          chunk.status === "completed",
+      ),
+    ).toBe(true);
+  });
+
+  it("emits a host command for dashboard sorting requests", async () => {
+    const chunks = [];
+
+    for await (const chunk of createFakeModelAdapter({
+      chunkDelayMs: 0,
+    }).stream({
+      ...request,
+      message: {
+        id: "msg-best-performing",
+        role: "user",
+        content: "show best performing portfolios",
+      },
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks[0]).toMatchObject({
+        kind: "host-command",
+        command: {
+          type: "grid.applyView",
+          resourceId: "advisoryWorklist",
+          view: {
+            sort: [{ columnId: "netFlow30dChf", direction: "desc" }],
+          },
+      },
+    });
+    expect(
+      chunks
+        .filter((chunk) => chunk.kind === "delta")
+        .map((chunk) => chunk.text)
+        .join(""),
+    ).toContain("Portfolio Worklist");
   });
 });

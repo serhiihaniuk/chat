@@ -58,10 +58,11 @@ export class SideChatDb {
     messageId: string,
     content: string,
     model: ModelSelection,
+    metadata: Record<string, unknown> = {},
   ) {
     return this.db.query(
-      "select * from sidechat_append_assistant_message($1, $2, $3, $4, $5)",
-      [conversationId, messageId, content, model.provider, model.id],
+      "select * from sidechat_append_assistant_message($1, $2, $3, $4, $5, $6)",
+      [conversationId, messageId, content, model.provider, model.id, metadata],
     );
   }
 
@@ -123,6 +124,7 @@ export type SideChatPersistence = {
       messageId: string,
       content: string,
       model: ModelSelection,
+      metadata?: Record<string, unknown>,
     ): Promise<void>;
     readSeededHistory(
       workspaceId: string,
@@ -170,12 +172,19 @@ export const createSideChatPersistence = (
       async appendUserMessage(conversationId, messageId, content) {
         await db.appendUserMessage(conversationId, messageId, content);
       },
-      async appendAssistantMessage(conversationId, messageId, content, model) {
+      async appendAssistantMessage(
+        conversationId,
+        messageId,
+        content,
+        model,
+        metadata,
+      ) {
         await db.appendAssistantMessage(
           conversationId,
           messageId,
           content,
           model,
+          metadata,
         );
       },
       async readSeededHistory(workspaceId, conversationId) {
