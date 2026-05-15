@@ -24,12 +24,11 @@ Use `corepack pnpm install` first in a fresh worktree, then use this order for f
 npm run lint
 npm run typecheck
 npm test
-npx vitest run packages/db/tests/db-protocol.spec.ts --config vitest.config.ts
 npm run build
 npm run test:e2e
 ```
 
-`npm test` follows the root Vitest include pattern (`packages/**/*.test.ts` and `apps/**/*.test.ts`). The DB stored-procedure protocol regression at `packages/db/tests/db-protocol.spec.ts` is intentionally listed above as an explicit final-gate command until it is renamed or included by the root matcher.
+`npm test` follows the root Vitest include pattern (`packages/**/*.test.ts` and `apps/**/*.test.ts`), including the DB stored-procedure protocol regression at `packages/db/tests/db-protocol.test.ts`.
 
 If e2e fails because required browser binaries are missing, install Playwright browsers in the local environment and rerun. If e2e fails because ports are occupied, identify and stop only the process that belongs to this repo before rerunning. Playwright is configured to reuse existing servers, so preflight ports before treating e2e as fresh evidence.
 

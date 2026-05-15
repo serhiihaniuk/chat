@@ -10,7 +10,7 @@ export default defineConfig({
       reuseExistingServer: true
     },
     {
-      command: 'npm run dev -- --host 127.0.0.1',
+      command: 'npm run dev --workspace @side-chat/embedded-host-app',
       url: 'http://127.0.0.1:5173',
       reuseExistingServer: true
     },
