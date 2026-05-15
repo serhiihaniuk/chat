@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { createDbFromUrl } from '@side-chat/db'
+import { createPostgresSideChatPersistence } from '@side-chat/db'
 
 import {
   encodeSseFrame,
@@ -54,33 +54,12 @@ const createMemoryConversationRepository = (): ConversationRepository => {
 }
 
 export const createDefaultDeps = (): StreamChatDeps => {
-  const db = process.env.DATABASE_URL ? createDbFromUrl(process.env.DATABASE_URL) : undefined
+  const persistence = process.env.DATABASE_URL ? createPostgresSideChatPersistence(process.env.DATABASE_URL) : undefined
 
   return {
     model: process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY ? openAiModelAdapter : fakeModelAdapter,
-    conversations: db ? {
-      async createOrGet({ workspaceId, userId, conversationId }) {
-        const result = await db.createOrGetConversation(workspaceId, userId, conversationId)
-        const id = result.rows[0]?.conversation_id
-        if (!id) throw new Error('sidechat_create_or_get_conversation returned no conversation_id')
-        return id
-      },
-      async appendUserMessage(conversationId, messageId, content) {
-        await db.appendUserMessage(conversationId, messageId, content)
-      },
-      async appendAssistantMessage(conversationId, messageId, content, model) {
-        await db.appendAssistantMessage(conversationId, messageId, content, model)
-      },
-      async readSeededHistory(workspaceId, conversationId) {
-        const result = await db.readSeededHistory(workspaceId, conversationId)
-        return result.rows
-      }
-    } : createMemoryConversationRepository(),
-    usage: db ? {
-      async record({ requestId, conversationId, messageId, model, usage }) {
-        await db.recordUsage(requestId, conversationId, messageId, model, usage)
-      }
-    } : { async record() {} },
+    conversations: persistence?.conversations ?? createMemoryConversationRepository(),
+    usage: persistence?.usage ?? { async record() {} },
     auth: { async authorize() { return true } },
     rateLimit: { async check() { return true } },
     billing: { async allow() { return true } },
