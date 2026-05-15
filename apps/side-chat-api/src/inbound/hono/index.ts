@@ -171,6 +171,11 @@ export const createInboundApp = (deps: StreamChatDeps = createDefaultDeps()) => 
       return c.json({ error: 'workspaceId and conversationId are required' }, 400)
     }
 
+    const isAuthorized = await deps.auth.authorize(workspaceId, deps.config.defaultUserId())
+    if (!isAuthorized) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
     const rows = await deps.conversations.readSeededHistory(workspaceId, conversationId)
     return c.json({ conversationId, messages: rows })
   })

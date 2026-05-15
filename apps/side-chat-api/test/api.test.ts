@@ -487,4 +487,34 @@ describe('hono adapter', () => {
     const response = await createApp().request('/chat/history?workspaceId=demo-workspace')
     expect(response.status).toBe(400)
   })
+
+  it('requires authorization for history access', async () => {
+    const app = createApp({
+      conversations: {
+        async createOrGet() { return 'demo-conversation-001' },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() { return seededMessageHistory }
+      },
+      model: { async *stream() {} },
+      usage: { async record() {} },
+      auth: { async authorize() { return false } },
+      rateLimit: { async check() { return true } },
+      billing: { async allow() { return true } },
+      observability: {
+        lifecycle() {},
+        counter() {},
+        async span(_name, run) { return run() }
+      },
+      config: {
+        models() { return [{ provider: 'openai', id: 'gpt-4.1-mini' }] },
+        defaultUserId() { return 'local-user' }
+      }
+    })
+
+    const response = await app.request('/chat/history?workspaceId=demo-workspace&conversationId=demo-conversation-001')
+
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
+  })
 })
