@@ -95,17 +95,44 @@ const toProtocolError = (requestId: string, error: unknown): SidechatStreamError
   }
 }
 
+const streamErrorResponse = (
+  requestId: string,
+  status: 400,
+  code: string,
+  message: string
+) => new Response(`${encodeSseFrame({
+  type: protocol.error,
+  requestId,
+  code,
+  message,
+  retryable: false
+})}\n`, {
+  status,
+  headers: {
+    'Content-Type': SidechatProtocol.streamContentType,
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    [SidechatProtocolHeader]: protocol.protocol,
+    [SidechatRequestIdHeader]: requestId
+  }
+})
+
 const streamEvents = (deps: StreamChatDeps, body: unknown, requestId: string, signal?: AbortSignal): ReadableStream<Uint8Array> => {
   const encoder = new TextEncoder()
 
   return new ReadableStream({
     async start(controller) {
       try {
-        for await (const event of streamChat(deps, { requestId, body, signal })) {
-          controller.enqueue(encoder.encode(`${encodeSseFrame(event)}\n`))
-        }
+        await deps.observability.span('sidechat.stream', async () => {
+          for await (const event of streamChat(deps, { requestId, body, signal })) {
+            controller.enqueue(encoder.encode(`${encodeSseFrame(event)}\n`))
+          }
+        })
       } catch (error) {
-        controller.enqueue(encoder.encode(`${encodeSseFrame(toProtocolError(requestId, error))}\n`))
+        const protocolError = toProtocolError(requestId, error)
+        deps.observability.lifecycle(protocolError)
+        deps.observability.counter('sidechat.stream.error', { code: protocolError.code })
+        controller.enqueue(encoder.encode(`${encodeSseFrame(protocolError)}\n`))
       } finally {
         controller.close()
       }
@@ -133,6 +160,12 @@ export const createInboundApp = (deps: StreamChatDeps = createDefaultDeps()) => 
 
   app.post(SidechatProtocol.streamRoute, async (c) => {
     const requestId = c.req.header(SidechatRequestIdHeader) ?? crypto.randomUUID()
+    const protocolHeader = c.req.header(SidechatProtocolHeader)
+
+    if (protocolHeader !== protocol.protocol) {
+      return streamErrorResponse(requestId, 400, 'InvalidProtocol', 'X-Sidechat-Protocol: sidechat.v1 is required')
+    }
+
     let body: unknown
 
     try {
@@ -143,19 +176,7 @@ export const createInboundApp = (deps: StreamChatDeps = createDefaultDeps()) => 
 
     const parsed = SidechatRequestSchema.safeParse(body)
     if (!parsed.success) {
-      return c.body(`${encodeSseFrame({
-        type: protocol.error,
-        requestId,
-        code: 'InvalidRequest',
-        message: 'workspaceId, message.content and model.id are required',
-        retryable: false
-      })}\n`, 400, {
-        'Content-Type': SidechatProtocol.streamContentType,
-        'Cache-Control': 'no-cache, no-transform',
-        Connection: 'keep-alive',
-        [SidechatProtocolHeader]: protocol.protocol,
-        [SidechatRequestIdHeader]: requestId
-      })
+      return streamErrorResponse(requestId, 400, 'InvalidRequest', 'workspaceId, message.content and model.id are required')
     }
 
     return c.body(streamEvents(deps, parsed.data, requestId, c.req.raw.signal), 200, {

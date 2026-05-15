@@ -66,6 +66,7 @@ describe('hono adapter', () => {
   it('streams sidechat.v1 event sequence without provider tokens', async () => {
     process.env.SIDE_CHAT_MODEL_ADAPTER = 'openai'
     delete process.env.OPENAI_API_KEY
+    const app = createApp()
 
     const response = await createApp().request('/chat/stream', {
       method: 'POST',
@@ -129,7 +130,9 @@ describe('hono adapter', () => {
       close: vi.fn()
     })
 
-    const response = await createApp().request('/chat/stream', {
+    const app = createApp()
+
+    const response = await app.request('/chat/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -152,7 +155,33 @@ describe('hono adapter', () => {
   })
 
   it('streams protocol-valid error events for model failures', async () => {
-    const response = await createApp().request('/chat/stream', {
+    const lifecycle = vi.fn()
+    const counter = vi.fn()
+    const span = vi.fn(async (_name: string, run: () => Promise<void>) => run())
+    const app = createApp({
+      conversations: {
+        async createOrGet() { return 'demo-conversation-001' },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() { return [] }
+      },
+      model: {
+        async *stream() {
+          throw new Error('fake model failure')
+        }
+      },
+      usage: { async record() {} },
+      auth: { async authorize() { return true } },
+      rateLimit: { async check() { return true } },
+      billing: { async allow() { return true } },
+      observability: { lifecycle, counter, span },
+      config: {
+        models() { return [{ provider: 'openai', id: 'gpt-4.1-mini' }] },
+        defaultUserId() { return 'local-user' }
+      }
+    })
+
+    const response = await app.request('/chat/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -171,6 +200,225 @@ describe('hono adapter', () => {
       type: 'sidechat.error',
       requestId: 'req-fail',
       code: 'InternalError',
+      retryable: false
+    })
+    expect(span).toHaveBeenCalledWith('sidechat.stream', expect.any(Function))
+    expect(lifecycle).toHaveBeenCalledWith(expect.objectContaining({ type: 'sidechat.error', requestId: 'req-fail' }))
+    expect(counter).toHaveBeenCalledWith('sidechat.stream.error', { code: 'InternalError' })
+  })
+
+  it('rejects missing or invalid sidechat protocol headers before streaming', async () => {
+    const cases: Array<Record<string, string>> = [
+      { 'X-Request-Id': 'req-missing-protocol' },
+      { 'X-Sidechat-Protocol': 'sidechat.v0', 'X-Request-Id': 'req-wrong-protocol' }
+    ]
+
+    for (const headers of cases) {
+      const response = await createApp().request('/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          ...headers
+        },
+        body: JSON.stringify(streamRequest())
+      })
+
+      expect(response.status).toBe(400)
+      expect(response.headers.get('Content-Type')).toBe('text/event-stream; charset=utf-8')
+      expect(response.headers.get('X-Sidechat-Protocol')).toBe(protocolVersion)
+      const frames = parseSseFrames(await response.text())
+      expect(frames).toEqual([
+        {
+          type: 'sidechat.error',
+          requestId: headers['X-Request-Id'],
+          code: 'InvalidProtocol',
+          message: 'X-Sidechat-Protocol: sidechat.v1 is required',
+          retryable: false
+        }
+      ])
+      expect(validateSidechatEventSequence(frames)).toEqual({ ok: true })
+    }
+  })
+
+  it('returns a typed unauthorized error frame for auth denial', async () => {
+    const response = await createApp({
+      auth: { async authorize() { return false } },
+      rateLimit: { async check() { return true } },
+      billing: { async allow() { return true } },
+      usage: { async record() {} },
+      model: { async *stream() { return } },
+      conversations: {
+        async createOrGet() { return 'demo-conversation-001' },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() { return [] }
+      },
+      observability: {
+        lifecycle() {},
+        counter() {},
+        async span(_name, run) { return run() }
+      },
+      config: {
+        models() { return [{ provider: 'openai', id: 'gpt-4.1-mini' }] },
+        defaultUserId() { return 'local-user' }
+      }
+    }).request('/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'X-Sidechat-Protocol': protocolVersion,
+        'X-Request-Id': 'req-unauth'
+      },
+      body: JSON.stringify(streamRequest())
+    })
+
+    expect(response.status).toBe(200)
+    const frames = parseSseFrames(await response.text())
+    expect(frames).toHaveLength(1)
+    expect(frames[0]).toMatchObject({
+      type: 'sidechat.error',
+      requestId: 'req-unauth',
+      code: 'Unauthorized',
+      retryable: false
+    })
+  })
+
+  it('returns a typed ratelimit error frame when request is blocked', async () => {
+    const response = await createApp({
+      auth: { async authorize() { return true } },
+      rateLimit: { async check() { return false } },
+      billing: { async allow() { return true } },
+      usage: { async record() {} },
+      model: { async *stream() { return } },
+      conversations: {
+        async createOrGet() { return 'demo-conversation-001' },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() { return [] }
+      },
+      observability: {
+        lifecycle() {},
+        counter() {},
+        async span(_name, run) { return run() }
+      },
+      config: {
+        models() { return [{ provider: 'openai', id: 'gpt-4.1-mini' }] },
+        defaultUserId() { return 'local-user' }
+      }
+    }).request('/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'X-Sidechat-Protocol': protocolVersion,
+        'X-Request-Id': 'req-rate'
+      },
+      body: JSON.stringify(streamRequest())
+    })
+
+    expect(response.status).toBe(200)
+    const frames = parseSseFrames(await response.text())
+    expect(frames).toHaveLength(1)
+    expect(frames[0]).toMatchObject({
+      type: 'sidechat.error',
+      requestId: 'req-rate',
+      code: 'RateLimited',
+      retryable: true
+    })
+  })
+
+  it('returns a typed usage failure error frame when usage record throws', async () => {
+    const response = await createApp({
+      auth: { async authorize() { return true } },
+      rateLimit: { async check() { return true } },
+      billing: { async allow() { return true } },
+      usage: { async record() { throw new Error('db write failed') } },
+      model: { async *stream() { yield { kind: 'done', finishReason: 'stop', usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 } } } },
+      conversations: {
+        async createOrGet() { return 'demo-conversation-001' },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() { return [] }
+      },
+      observability: {
+        lifecycle() {},
+        counter() {},
+        async span(_name, run) { return run() }
+      },
+      config: {
+        models() { return [{ provider: 'openai', id: 'gpt-4.1-mini' }] },
+        defaultUserId() { return 'local-user' }
+      }
+    }).request('/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'X-Sidechat-Protocol': protocolVersion,
+        'X-Request-Id': 'req-usage'
+      },
+      body: JSON.stringify(streamRequest('record usage failure'))
+    })
+
+    expect(response.status).toBe(200)
+    const frames = parseSseFrames(await response.text())
+    expect(frames).toHaveLength(2)
+    expect(frames[0]).toMatchObject({ type: 'sidechat.started', requestId: 'req-usage' })
+    expect(frames[1]).toMatchObject({
+      type: 'sidechat.error',
+      requestId: 'req-usage',
+      code: 'UsageCaptureFailed',
+      retryable: true
+    })
+  })
+
+  it('returns a typed model unavailable frame when requested model is not configured', async () => {
+    const response = await createApp({
+      auth: { async authorize() { return true } },
+      rateLimit: { async check() { return true } },
+      billing: { async allow() { return true } },
+      usage: { async record() {} },
+      model: { async *stream() { return } },
+      conversations: {
+        async createOrGet() { return 'demo-conversation-001' },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() { return [] }
+      },
+      observability: {
+        lifecycle() {},
+        counter() {},
+        async span(_name, run) { return run() }
+      },
+      config: {
+        models() { return [{ provider: 'openai', id: 'gpt-4.1-mini' }] },
+        defaultUserId() { return 'local-user' }
+      }
+    }).request('/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'X-Sidechat-Protocol': protocolVersion,
+        'X-Request-Id': 'req-model'
+      },
+      body: JSON.stringify({
+        workspaceId: 'demo-workspace',
+        message: { id: 'client-msg-001', role: 'user', content: 'test' },
+        conversationId: 'demo-conversation-001',
+        model: { provider: 'openai', id: 'does-not-exist' }
+      })
+    })
+
+    expect(response.status).toBe(200)
+    const frames = parseSseFrames(await response.text())
+    expect(frames).toHaveLength(1)
+    expect(frames[0]).toMatchObject({
+      type: 'sidechat.error',
+      requestId: 'req-model',
+      code: 'ModelUnavailable',
       retryable: false
     })
   })
