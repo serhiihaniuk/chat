@@ -46,7 +46,7 @@ test('embedded widget streams markdown from backend through Streamdown', async (
 
   await expect(page.getByRole('heading', { name: 'Assistant answer' })).toBeVisible()
   await expect(page.getByRole('listitem').filter({ hasText: 'markdown-ready output' })).toBeVisible()
-  await expect(page.getByText(/Model gpt-4\.1-mini received: summarize markdown/)).toBeVisible()
+  await expect(page.getByText(/Model gpt-4\.1-nano received: summarize markdown/)).toBeVisible()
   await expect(page.getByText('Tokens: 20')).toBeVisible()
   await expect(page.getByText(/inline code/)).toBeVisible()
   await expect(page.getByText('const x = 1;')).toBeVisible()
