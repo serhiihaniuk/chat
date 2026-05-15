@@ -77,3 +77,5 @@ export const createPostgresSideChatPersistence = (connectionString: string): Sid
   const pool = new Pool({ connectionString })
   return createSideChatPersistence(pool, () => pool.end())
 }
+
+export const createDbFromUrl = (connectionString: string): SideChatDb => new SideChatDb(new Pool({ connectionString }))
