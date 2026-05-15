@@ -1,8 +1,21 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseSseFrames, protocolVersion, validateSidechatEventSequence } from '@side-chat/shared-protocol'
 import { createApp } from '../src/inbound/hono/app.js'
 
+const dbPersistence = vi.hoisted(() => ({
+  createPostgresSideChatPersistence: vi.fn(),
+  createOrGet: vi.fn(),
+  appendUserMessage: vi.fn(),
+  appendAssistantMessage: vi.fn(),
+  recordUsage: vi.fn()
+}))
+
+vi.mock('@side-chat/db', () => ({
+  createPostgresSideChatPersistence: dbPersistence.createPostgresSideChatPersistence
+}))
+
 const originalEnv = {
+  DATABASE_URL: process.env.DATABASE_URL,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   SIDE_CHAT_MODEL_ADAPTER: process.env.SIDE_CHAT_MODEL_ADAPTER
 }
@@ -16,6 +29,10 @@ const streamRequest = (content = 'Explain this report') => ({
 
 describe('hono adapter', () => {
   afterEach(() => {
+    vi.clearAllMocks()
+    if (originalEnv.DATABASE_URL === undefined) delete process.env.DATABASE_URL
+    else process.env.DATABASE_URL = originalEnv.DATABASE_URL
+
     if (originalEnv.OPENAI_API_KEY === undefined) delete process.env.OPENAI_API_KEY
     else process.env.OPENAI_API_KEY = originalEnv.OPENAI_API_KEY
 
@@ -88,6 +105,45 @@ describe('hono adapter', () => {
       model: { provider: 'openai', id: 'gpt-4.1-mini' },
       usage: { inputTokens: 3, outputTokens: 18, totalTokens: 21 }
     })
+  })
+
+
+  it('uses database-backed persistence when DATABASE_URL is configured', async () => {
+    process.env.DATABASE_URL = 'postgres://sidechat_app:sidechat_app@localhost:5432/sidechat'
+    dbPersistence.createOrGet.mockResolvedValue('conv-from-db')
+    dbPersistence.appendUserMessage.mockResolvedValue(undefined)
+    dbPersistence.appendAssistantMessage.mockResolvedValue(undefined)
+    dbPersistence.recordUsage.mockResolvedValue(undefined)
+    dbPersistence.createPostgresSideChatPersistence.mockReturnValue({
+      conversations: {
+        createOrGet: dbPersistence.createOrGet,
+        appendUserMessage: dbPersistence.appendUserMessage,
+        appendAssistantMessage: dbPersistence.appendAssistantMessage
+      },
+      usage: { record: dbPersistence.recordUsage },
+      close: vi.fn()
+    })
+
+    const response = await createApp().request('/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'X-Sidechat-Protocol': protocolVersion,
+        'X-Request-Id': 'req-db'
+      },
+      body: JSON.stringify(streamRequest('Persist this'))
+    })
+
+    expect(response.status).toBe(200)
+    const frames = parseSseFrames(await response.text())
+    expect(frames[0]).toMatchObject({ type: 'sidechat.started', conversationId: 'conv-from-db' })
+    expect(frames.at(-1)).toMatchObject({ type: 'sidechat.completed', conversationId: 'conv-from-db' })
+    expect(dbPersistence.createPostgresSideChatPersistence).toHaveBeenCalledWith('postgres://sidechat_app:sidechat_app@localhost:5432/sidechat')
+    expect(dbPersistence.createOrGet).toHaveBeenCalledWith({ workspaceId: 'demo-workspace', userId: 'local-user', conversationId: 'demo-conversation-001' })
+    expect(dbPersistence.appendUserMessage).toHaveBeenCalledWith('conv-from-db', 'client-msg-001', 'Persist this')
+    expect(dbPersistence.appendAssistantMessage).toHaveBeenCalledWith('conv-from-db', 'req-db-assistant', expect.stringContaining('Persist this'), { provider: 'openai', id: 'gpt-4.1-mini' })
+    expect(dbPersistence.recordUsage).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'req-db', conversationId: 'conv-from-db', messageId: 'req-db-assistant' }))
   })
 
   it('streams protocol-valid error events for model failures', async () => {
