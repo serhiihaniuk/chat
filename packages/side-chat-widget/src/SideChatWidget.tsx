@@ -151,12 +151,12 @@ const modelAliasOptions = [
   {
     id: "claude-mythos",
     label: "Claude Mythos",
-    description: "Probably remembers the first spreadsheet",
+    description: "Too powerful for public beta",
   },
   {
     id: "claude-mythos-2",
     label: "Claude Mythos 2",
-    description: "Now with twice the folklore",
+    description: "Found a zero-day in the roadmap",
   },
 ] as const;
 const panelId = "side-chat-widget-panel";
