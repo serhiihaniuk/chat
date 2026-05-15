@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { Bot, Loader2, Send, X } from 'lucide-react'
 import type { ModelSelection, TokenUsage } from '@side-chat/shared-protocol'
 import { Composer, ComposerInput } from './components/ai-elements/Composer.js'
@@ -22,12 +22,15 @@ export type SideChatWidgetProps = {
 }
 
 const fallbackModel: ModelSelection = { provider: 'openai', id: 'gpt-4.1-mini' }
+const panelId = 'side-chat-widget-panel'
+const modelSelectId = 'side-chat-widget-model'
 
 export function SideChatWidget(props: SideChatWidgetProps) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const launcherButtonRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const restoreLauncherFocus = useRef(false)
   const models = useMemo(() => props.availableModels?.length ? props.availableModels : [fallbackModel], [props.availableModels])
   const chat = useSideChat({
     apiEndpoint: props.apiEndpoint,
@@ -48,7 +51,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
     }
 
     if (restoreLauncherFocus.current) {
-      launcherRef.current?.focus()
+      launcherButtonRef.current?.focus()
       restoreLauncherFocus.current = false
     }
   }, [open])
@@ -73,6 +76,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 
   const handlePanelKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Escape') {
+      event.preventDefault()
       event.stopPropagation()
       closeWidget()
     }
@@ -81,14 +85,6 @@ export function SideChatWidget(props: SideChatWidgetProps) {
   const selectModel = (event: ChangeEvent<HTMLSelectElement>) => {
     chat.setModel(models.find((model) => model.id === event.target.value) ?? models[0])
   }
-
-  useEffect(() => {
-    if (open) {
-      inputRef.current?.focus()
-    } else {
-      launcherButtonRef.current?.focus()
-    }
-  }, [open])
 
   const widgetState = chat.isHistoryLoading
     ? 'loading'
@@ -107,7 +103,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
         type="button"
         aria-label="Open assistant"
         aria-expanded={false}
-        aria-controls="side-chat-widget-panel"
+        aria-controls={panelId}
         className="sidechat-launcher"
         onClick={openWidget}
       >
@@ -119,35 +115,29 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 
   return (
     <aside
-      id="side-chat-widget-panel"
+      id={panelId}
       className="sidechat-panel"
       aria-label={props.title ?? 'Side chat assistant'}
       aria-live="polite"
       data-testid="side-chat-widget"
       data-state={widgetState}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          event.preventDefault()
-          closeWidget()
-        }
-      }}
+      onKeyDown={handlePanelKeyDown}
     >
       <header>
         <strong>{props.title ?? 'Assistant'}</strong>
-        <button type="button" aria-label="Close assistant" aria-expanded="true" aria-controls={panelId} onClick={closeWidget}>
+        <button type="button" aria-label="Close assistant" aria-expanded={true} aria-controls={panelId} onClick={closeWidget}>
           <X aria-hidden="true" />
         </button>
       </header>
 
-      <label>
-        Model
-        <select value={chat.model.id} onChange={selectModel} disabled={chat.isStreaming}>
-          {models.map((model) => (
-            <option key={`${model.provider}:${model.id}`} value={model.id}>
-              {model.id}
-            </option>
-          ))}
-        </select>
+      <label htmlFor={modelSelectId}>Model</label>
+      <select id={modelSelectId} aria-label="Assistant model" value={chat.model.id} onChange={selectModel} disabled={chat.isStreaming}>
+        {models.map((model) => (
+          <option key={`${model.provider}:${model.id}`} value={model.id}>
+            {model.id}
+          </option>
+        ))}
+      </select>
 
       <Conversation>
         {chat.isHistoryLoading ? <p role="status">Loading conversation history…</p> : null}
@@ -194,9 +184,8 @@ export function SideChatWidget(props: SideChatWidgetProps) {
           aria-label="chat-input"
           placeholder={props.placeholder ?? 'Ask about this page'}
           onChange={(event) => setDraft(event.currentTarget.value)}
-          ref={inputRef}
         />
-        <button type="submit" disabled={!canSend} aria-label="send message">
+        <button type="submit" disabled={!canSend}>
           <Send aria-hidden="true" />
           Send
         </button>
