@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { createPostgresSideChatPersistence } from '@side-chat/db'
 
 import {
   encodeSseFrame,
@@ -41,23 +42,27 @@ const createMemoryConversationRepository = (): ConversationRepository => {
   }
 }
 
-export const createDefaultDeps = (): StreamChatDeps => ({
-  model: process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY ? openAiModelAdapter : fakeModelAdapter,
-  conversations: createMemoryConversationRepository(),
-  usage: { async record() {} },
-  auth: { async authorize() { return true } },
-  rateLimit: { async check() { return true } },
-  billing: { async allow() { return true } },
-  observability: {
-    lifecycle() {},
-    counter() {},
-    async span(_name, run) { return run() }
-  },
-  config: {
-    models() { return models },
-    defaultUserId() { return process.env.SIDE_CHAT_DEFAULT_USER_ID ?? 'local-user' }
+export const createDefaultDeps = (): StreamChatDeps => {
+  const persistence = process.env.DATABASE_URL ? createPostgresSideChatPersistence(process.env.DATABASE_URL) : undefined
+
+  return {
+    model: process.env.SIDE_CHAT_MODEL_ADAPTER === 'openai' && process.env.OPENAI_API_KEY ? openAiModelAdapter : fakeModelAdapter,
+    conversations: persistence?.conversations ?? createMemoryConversationRepository(),
+    usage: persistence?.usage ?? { async record() {} },
+    auth: { async authorize() { return true } },
+    rateLimit: { async check() { return true } },
+    billing: { async allow() { return true } },
+    observability: {
+      lifecycle() {},
+      counter() {},
+      async span(_name, run) { return run() }
+    },
+    config: {
+      models() { return models },
+      defaultUserId() { return process.env.SIDE_CHAT_DEFAULT_USER_ID ?? 'local-user' }
+    }
   }
-})
+}
 
 const toProtocolError = (requestId: string, error: unknown): SidechatStreamErrorEvent => {
   if (error instanceof SideChatDomainError) {

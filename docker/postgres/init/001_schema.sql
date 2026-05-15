@@ -33,6 +33,3 @@ grant execute on function sidechat_append_assistant_message(text, text, text, te
 grant execute on function sidechat_read_seeded_history(text, text) to sidechat_app;
 grant execute on function sidechat_record_usage(text, text, text, text, text, int, int, int) to sidechat_app;
 revoke all on all tables in schema sidechat from sidechat_app;
-
-select * from sidechat_create_or_get_conversation('demo-workspace', 'demo-user', 'demo-conversation-001');
-select * from sidechat_append_assistant_message('demo-conversation-001', 'seed-assistant-001', '# Seeded report\n- Revenue is up', 'openai', 'gpt-4.1-mini');
