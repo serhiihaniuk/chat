@@ -17,6 +17,7 @@ import { SideChatDomainError } from '../../application/errors.js'
 import { streamChat, type StreamChatDeps } from '../../application/stream-chat.js'
 import type { ConversationRepository } from '../../ports/index.js'
 
+
 const protocol = protocolArtifacts
 
 const models: ModelSelection[] = [
