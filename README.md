@@ -15,11 +15,12 @@ Side-chat assistant monorepo with a Hono backend, reusable React widget, embedde
 ## Requirements
 
 - Node.js 24+ (verified locally with npm 11).
-- npm workspaces from the root `package.json`.
+- Corepack-managed pnpm for dependency installation from the checked-in `pnpm-lock.yaml`.
+- npm workspace scripts from the root `package.json` after dependencies are installed.
 - Docker and Docker Compose for Postgres/API container checks.
 - Playwright browser dependencies for `npm run test:e2e`.
 
-This repository currently uses npm workspace scripts as the runnable interface. A historical `pnpm-lock.yaml` may exist, but the documented commands below use npm because that is what `package.json` exposes and what Docker Compose runs.
+This repository currently has npm-compatible workspace scripts, but dependency installation is pinned by the checked-in `pnpm-lock.yaml`. Use `corepack pnpm install` to create workspace links, then run the documented npm scripts from the root when you need to match the script names used by Docker/Playwright configuration.
 
 ## Install
 
@@ -92,6 +93,8 @@ Start the API plus Postgres:
 docker compose up --build
 ```
 
+Current Compose caveat: `side-chat-api` still runs `npm install` inside the Node container. With the current `workspace:*` package specs this may fail on npm versions that reject the workspace protocol. Until that backend lane is fixed, prefer local `corepack pnpm install` plus `npm run dev --workspace @side-chat/side-chat-api` for API verification, or update Compose to use the same package manager before treating container startup as passing evidence.
+
 Run in the background:
 
 ```sh
@@ -113,7 +116,7 @@ docker compose down --remove-orphans
 docker compose down -v --remove-orphans
 ```
 
-Current residual Docker limitation: the checked-in Compose file still uses `postgres:18`, while the PRD target calls for Postgres 16. Treat this as an open backend lane item until the Compose image is changed and verified. Seed data currently lives in `001_schema.sql`; the PRD target calls for a separate `docker/postgres/init/002_seed.sql`.
+Current residual Docker limitations: the checked-in Compose file still uses `postgres:18`, while the PRD target calls for Postgres 16; the API container install command still uses npm despite `workspace:*` specs; and seed data currently lives in `001_schema.sql` while the PRD target calls for a separate `docker/postgres/init/002_seed.sql`. Treat these as open backend lane items until changed and verified.
 
 ## No-dev-server cleanup expectation
 

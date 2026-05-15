@@ -18,7 +18,7 @@ This project uses lightweight repository governance to protect the side-chat PRD
 
 ## Verification order
 
-Use this order for final evidence when the implementation lanes are ready:
+Use `corepack pnpm install` first in a fresh worktree, then use this order for final evidence when the implementation lanes are ready:
 
 ```sh
 npm run lint
@@ -47,6 +47,7 @@ Expected final state is a clean or intentionally documented git status, no repo-
 Before marking the full app complete, confirm these are true in the integrated branch:
 
 - Docker Compose uses the PRD Postgres major version.
+- Docker Compose installs dependencies with the repository package manager or otherwise supports the current `workspace:*` specs.
 - deterministic seed data is split into `docker/postgres/init/002_seed.sql`;
 - API runtime uses the DB-backed repository/usage path when `DATABASE_URL` is present while preserving deterministic fake/in-memory paths for tests;
 - widget UI exposes seeded history and retry/error recovery states;
