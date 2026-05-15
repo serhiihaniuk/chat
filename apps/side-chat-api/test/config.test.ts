@@ -18,4 +18,18 @@ describe('side-chat env parser', () => {
     const env = parseSideChatEnv({ USE_FAKE_MODEL: 'maybe' } as NodeJS.ProcessEnv)
     expect(env.USE_FAKE_MODEL).toBe(true)
   })
+
+  it('supports explicit boundary controls', () => {
+    const env = parseSideChatEnv({
+      SIDE_CHAT_ALLOWED_WORKSPACE_IDS: 'demo-workspace,alpha',
+      SIDE_CHAT_BLOCKED_WORKSPACE_IDS: 'blocked',
+      SIDE_CHAT_RATE_LIMITING_ENABLED: 'false',
+      SIDE_CHAT_BILLING_ENABLED: 'false'
+    } as NodeJS.ProcessEnv)
+
+    expect(env.SIDE_CHAT_ALLOWED_WORKSPACE_IDS).toBe('demo-workspace,alpha')
+    expect(env.SIDE_CHAT_BLOCKED_WORKSPACE_IDS).toBe('blocked')
+    expect(env.SIDE_CHAT_RATE_LIMITING_ENABLED).toBe(false)
+    expect(env.SIDE_CHAT_BILLING_ENABLED).toBe(false)
+  })
 })

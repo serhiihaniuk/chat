@@ -57,6 +57,12 @@ const createMemoryConversationRepository = (): ConversationRepository => {
 export const createDefaultDeps = (): StreamChatDeps => {
   const env = parseSideChatEnv()
   const persistence = env.DATABASE_URL ? createPostgresSideChatPersistence(env.DATABASE_URL) : undefined
+  const allowlist = env.SIDE_CHAT_ALLOWED_WORKSPACE_IDS
+    ? env.SIDE_CHAT_ALLOWED_WORKSPACE_IDS.split(',').map((value) => value.trim()).filter(Boolean)
+    : undefined
+  const blocklist = env.SIDE_CHAT_BLOCKED_WORKSPACE_IDS
+    ? env.SIDE_CHAT_BLOCKED_WORKSPACE_IDS.split(',').map((value) => value.trim()).filter(Boolean)
+    : undefined
 
   return {
     model:
@@ -65,9 +71,15 @@ export const createDefaultDeps = (): StreamChatDeps => {
         : fakeModelAdapter,
     conversations: persistence?.conversations ?? createMemoryConversationRepository(),
     usage: persistence?.usage ?? { async record() {} },
-    auth: { async authorize() { return true } },
-    rateLimit: { async check() { return true } },
-    billing: { async allow() { return true } },
+    auth: {
+      async authorize(workspaceId) {
+        if (allowlist && allowlist.length > 0) return allowlist.includes(workspaceId)
+        if (blocklist && blocklist.includes(workspaceId)) return false
+        return true
+      }
+    },
+    rateLimit: { async check(_workspaceId, _userId) { return env.SIDE_CHAT_RATE_LIMITING_ENABLED } },
+    billing: { async allow(_workspaceId) { return env.SIDE_CHAT_BILLING_ENABLED } },
     observability: {
       lifecycle() {},
       counter() {},
