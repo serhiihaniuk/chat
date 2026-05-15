@@ -1,37 +1,58 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
-import { Bot, Loader2, Send, X } from 'lucide-react'
-import type { ModelSelection, TokenUsage } from '@side-chat/shared-protocol'
-import { Composer, ComposerInput } from './components/ai-elements/Composer.js'
-import { Conversation, Message } from './components/ai-elements/Conversation.js'
-import { Response } from './components/ai-elements/Response.js'
-import { useSideChat, type SideChatError } from './hooks/use-side-chat.js'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
+import { Bot, Loader2, Send, X } from "lucide-react";
+import type { ModelSelection, TokenUsage } from "@side-chat/shared-protocol";
+import { Composer, ComposerInput } from "./components/ai-elements/Composer.js";
+import {
+  Conversation,
+  Message,
+} from "./components/ai-elements/Conversation.js";
+import { Response } from "./components/ai-elements/Response.js";
+import { useSideChat, type SideChatError } from "./hooks/use-side-chat.js";
 
 export type SideChatWidgetProps = {
-  apiEndpoint: string
-  workspaceId: string
-  initialConversationId?: string
-  historyEndpoint?: string
-  title?: string
-  placeholder?: string
-  defaultModel?: ModelSelection
-  availableModels?: ModelSelection[]
-  onOpen?: () => void
-  onClose?: () => void
-  onError?: (error: SideChatError) => void
-  onUsage?: (usage: TokenUsage) => void
-}
+  apiEndpoint: string;
+  workspaceId: string;
+  initialConversationId?: string;
+  historyEndpoint?: string;
+  title?: string;
+  placeholder?: string;
+  defaultModel?: ModelSelection;
+  availableModels?: ModelSelection[];
+  onOpen?: () => void;
+  onClose?: () => void;
+  onError?: (error: SideChatError) => void;
+  onUsage?: (usage: TokenUsage) => void;
+};
 
-const fallbackModel: ModelSelection = { provider: 'openai', id: 'gpt-4.1-mini' }
-const panelId = 'side-chat-widget-panel'
-const modelSelectId = 'side-chat-widget-model'
+const fallbackModel: ModelSelection = {
+  provider: "openai",
+  id: "gpt-4.1-mini",
+};
+const panelId = "side-chat-widget-panel";
+const modelSelectId = "side-chat-widget-model";
 
 export function SideChatWidget(props: SideChatWidgetProps) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const launcherButtonRef = useRef<HTMLButtonElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const restoreLauncherFocus = useRef(false)
-  const models = useMemo(() => props.availableModels?.length ? props.availableModels : [fallbackModel], [props.availableModels])
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const launcherButtonRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const conversationRef = useRef<HTMLDivElement>(null);
+  const shouldStickToLatestMessage = useRef(true);
+  const shouldForceNextScroll = useRef(false);
+  const restoreLauncherFocus = useRef(false);
+  const models = useMemo(
+    () =>
+      props.availableModels?.length ? props.availableModels : [fallbackModel],
+    [props.availableModels],
+  );
   const chat = useSideChat({
     apiEndpoint: props.apiEndpoint,
     workspaceId: props.workspaceId,
@@ -39,62 +60,130 @@ export function SideChatWidget(props: SideChatWidgetProps) {
     historyEndpoint: props.historyEndpoint,
     defaultModel: props.defaultModel ?? models[0],
     onError: props.onError,
-    onUsage: props.onUsage
-  })
+    onUsage: props.onUsage,
+  });
 
-  const canSend = draft.trim().length > 0 && !chat.isStreaming
+  const canSend = draft.trim().length > 0 && !chat.isStreaming;
 
   useEffect(() => {
     if (open) {
-      inputRef.current?.focus()
-      return
+      inputRef.current?.focus({ preventScroll: true });
+      return;
     }
 
     if (restoreLauncherFocus.current) {
-      launcherButtonRef.current?.focus()
-      restoreLauncherFocus.current = false
+      launcherButtonRef.current?.focus({ preventScroll: true });
+      restoreLauncherFocus.current = false;
     }
-  }, [open])
+  }, [open]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      (!chat.isStreaming &&
+        !shouldStickToLatestMessage.current &&
+        !shouldForceNextScroll.current)
+    ) {
+      return;
+    }
+
+    const timeouts: number[] = [];
+    let followUpFrame = 0;
+    const scrollToLatestMessage = () => {
+      const conversation = conversationRef.current;
+      if (!conversation) return;
+      conversation.scrollTo({
+        top: conversation.scrollHeight,
+        behavior: "auto",
+      });
+    };
+
+    const frame = requestAnimationFrame(() => {
+      scrollToLatestMessage();
+      followUpFrame = requestAnimationFrame(scrollToLatestMessage);
+      timeouts.push(
+        window.setTimeout(scrollToLatestMessage, 80),
+        window.setTimeout(() => {
+          scrollToLatestMessage();
+          shouldForceNextScroll.current = false;
+        }, 180),
+      );
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(followUpFrame);
+      for (const timeout of timeouts) {
+        window.clearTimeout(timeout);
+      }
+    };
+  }, [chat.messages, chat.isStreaming, open]);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!canSend) return
-    void chat.sendMessage(draft)
-    setDraft('')
-  }
+    event.preventDefault();
+    if (!canSend) return;
+    shouldStickToLatestMessage.current = true;
+    shouldForceNextScroll.current = true;
+    void chat.sendMessage(draft);
+    setDraft("");
+  };
 
   const openWidget = () => {
-    setOpen(true)
-    props.onOpen?.()
-  }
+    shouldStickToLatestMessage.current = true;
+    shouldForceNextScroll.current = true;
+    setOpen(true);
+    props.onOpen?.();
+  };
 
   const closeWidget = () => {
-    restoreLauncherFocus.current = true
-    setOpen(false)
-    props.onClose?.()
-  }
+    restoreLauncherFocus.current = true;
+    setOpen(false);
+    props.onClose?.();
+  };
 
   const handlePanelKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      event.stopPropagation()
-      closeWidget()
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeWidget();
     }
-  }
+  };
+
+  const handleConversationScroll = () => {
+    const conversation = conversationRef.current;
+    if (!conversation) return;
+
+    const distanceFromBottom =
+      conversation.scrollHeight -
+      conversation.scrollTop -
+      conversation.clientHeight;
+    shouldStickToLatestMessage.current = distanceFromBottom < 56;
+  };
+
+  const handleComposerInputKeyDown = (
+    event: KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (event.key !== "Enter" || (!event.ctrlKey && !event.metaKey)) return;
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  };
 
   const selectModel = (event: ChangeEvent<HTMLSelectElement>) => {
-    chat.setModel(models.find((model) => model.id === event.target.value) ?? models[0])
-  }
+    chat.setModel(
+      models.find((model) => model.id === event.target.value) ?? models[0],
+    );
+  };
 
   const widgetState = chat.isHistoryLoading
-    ? 'loading'
+    ? "loading"
     : chat.error
-      ? 'error'
+      ? "error"
       : chat.isStreaming
-        ? 'streaming'
+        ? "streaming"
         : chat.messages.length === 0
-          ? 'empty'
-          : 'ready'
+          ? "empty"
+          : "ready";
 
   if (!open) {
     return (
@@ -110,28 +199,40 @@ export function SideChatWidget(props: SideChatWidgetProps) {
         <Bot aria-hidden="true" />
         How can I help?
       </button>
-    )
+    );
   }
 
   return (
     <aside
       id={panelId}
       className="sidechat-panel"
-      aria-label={props.title ?? 'Side chat assistant'}
+      aria-label={props.title ?? "Side chat assistant"}
       aria-live="polite"
       data-testid="side-chat-widget"
       data-state={widgetState}
       onKeyDown={handlePanelKeyDown}
     >
       <header>
-        <strong>{props.title ?? 'Assistant'}</strong>
-        <button type="button" aria-label="Close assistant" aria-expanded={true} aria-controls={panelId} onClick={closeWidget}>
+        <strong>{props.title ?? "Assistant"}</strong>
+        <button
+          type="button"
+          aria-label="Close assistant"
+          aria-expanded={true}
+          aria-controls={panelId}
+          onClick={closeWidget}
+        >
           <X aria-hidden="true" />
         </button>
       </header>
 
       <label htmlFor={modelSelectId}>Model</label>
-      <select id={modelSelectId} aria-label="Assistant model" value={chat.model.id} onChange={selectModel} disabled={chat.isStreaming}>
+      <select
+        id={modelSelectId}
+        aria-label="Assistant model"
+        value={chat.model.id}
+        onChange={selectModel}
+        disabled={chat.isStreaming}
+      >
         {models.map((model) => (
           <option key={`${model.provider}:${model.id}`} value={model.id}>
             {model.id}
@@ -139,19 +240,39 @@ export function SideChatWidget(props: SideChatWidgetProps) {
         ))}
       </select>
 
-      <Conversation>
-        {chat.isHistoryLoading ? <p role="status">Loading conversation history…</p> : null}
-        {chat.historyStatus === 'loaded' ? <p className="sidechat-history-status">Loaded seeded conversation history.</p> : null}
-        {chat.historyStatus === 'empty' ? <p className="sidechat-history-status">No prior messages in this conversation.</p> : null}
+      <Conversation ref={conversationRef} onScroll={handleConversationScroll}>
+        {chat.isHistoryLoading ? (
+          <p role="status">Loading conversation history…</p>
+        ) : null}
+        {chat.historyStatus === "loaded" ? (
+          <p className="sidechat-history-status">
+            Loaded seeded conversation history.
+          </p>
+        ) : null}
+        {chat.historyStatus === "empty" ? (
+          <p className="sidechat-history-status">
+            No prior messages in this conversation.
+          </p>
+        ) : null}
         {chat.messages.length === 0 ? (
-          <section className="sidechat-empty-state" aria-label="Empty assistant conversation">
+          <section
+            className="sidechat-empty-state"
+            aria-label="Empty assistant conversation"
+          >
             <p className="sidechat-empty-eyebrow">How can I help?</p>
-            <p>Ask a question about this workspace, switch models, or try a markdown-heavy prompt.</p>
+            <p>
+              Ask a question about this workspace, switch models, or try a
+              markdown-heavy prompt.
+            </p>
           </section>
         ) : (
           chat.messages.map((message) => (
             <Message key={message.id} role={message.role}>
-              {message.role === 'assistant' ? <Response content={message.content} /> : message.content}
+              {message.role === "assistant" ? (
+                <Response content={message.content} />
+              ) : (
+                message.content
+              )}
             </Message>
           ))
         )}
@@ -161,7 +282,11 @@ export function SideChatWidget(props: SideChatWidgetProps) {
         <div role="alert" className="sidechat-error">
           {chat.error.message}
           {chat.error.retryable ? (
-            <button type="button" onClick={chat.retryLastMessage} disabled={chat.isStreaming}>
+            <button
+              type="button"
+              onClick={chat.retryLastMessage}
+              disabled={chat.isStreaming}
+            >
               Retry
             </button>
           ) : null}
@@ -174,7 +299,9 @@ export function SideChatWidget(props: SideChatWidgetProps) {
             <Loader2 aria-hidden="true" /> Streaming…
           </span>
         ) : null}
-        {chat.usage ? <output aria-live="polite">Tokens: {chat.usage.totalTokens}</output> : null}
+        {chat.usage ? (
+          <output aria-live="polite">Tokens: {chat.usage.totalTokens}</output>
+        ) : null}
       </div>
 
       <Composer onSubmit={submit}>
@@ -182,8 +309,9 @@ export function SideChatWidget(props: SideChatWidgetProps) {
           ref={inputRef}
           value={draft}
           aria-label="chat-input"
-          placeholder={props.placeholder ?? 'Ask about this page'}
+          placeholder={props.placeholder ?? "Ask about this page"}
           onChange={(event) => setDraft(event.currentTarget.value)}
+          onKeyDown={handleComposerInputKeyDown}
         />
         <button type="submit" aria-label="send message" disabled={!canSend}>
           <Send aria-hidden="true" />
@@ -191,5 +319,5 @@ export function SideChatWidget(props: SideChatWidgetProps) {
         </button>
       </Composer>
     </aside>
-  )
+  );
 }

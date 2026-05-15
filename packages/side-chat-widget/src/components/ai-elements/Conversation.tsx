@@ -1,23 +1,40 @@
-import type { ReactNode } from 'react'
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { forwardRef } from "react";
 
-export function Conversation({ children }: { children: ReactNode }) {
+export const Conversation = forwardRef<
+  HTMLDivElement,
+  ComponentPropsWithoutRef<"div">
+>(function Conversation({ children, className, ...props }, ref) {
+  const classNames = ["sidechat-conversation", className]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="sidechat-conversation" role="log" aria-live="polite">
+    <div
+      ref={ref}
+      className={classNames}
+      {...props}
+      role="log"
+      aria-live="polite"
+    >
       {children}
     </div>
-  )
-}
+  );
+});
 
 export function Message({
   role,
-  children
+  children,
 }: {
-  role: 'user' | 'assistant' | 'system'
-  children: ReactNode
+  role: "user" | "assistant" | "system";
+  children: ReactNode;
 }) {
   return (
-    <article className={`sidechat-message sidechat-message-${role}`} data-role={role}>
+    <article
+      className={`sidechat-message sidechat-message-${role}`}
+      data-role={role}
+    >
       {children}
     </article>
-  )
+  );
 }
