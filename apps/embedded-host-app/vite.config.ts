@@ -3,4 +3,11 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/chat/stream': 'http://127.0.0.1:3000',
+      '/health': 'http://127.0.0.1:3000',
+      '/models': 'http://127.0.0.1:3000'
+    }
+  }
 })
