@@ -10,7 +10,8 @@ Side-chat assistant monorepo with a Hono backend, reusable React widget, embedde
 - `packages/side-chat-widget` — reusable React widget package.
 - `packages/shared-protocol` — `sidechat.v1` DTOs, SSE helpers, contracts, and sequence validation.
 - `packages/db` — Postgres stored-procedure boundary wrapper.
-- `docker/postgres/init/001_schema.sql` — schema, functions, grants, and current deterministic seed data.
+- `docker/postgres/init/001_schema.sql` — schema, functions, grants, and stored-procedure boundary.
+- `docker/postgres/init/002_seed.sql` — deterministic demo conversation seed data.
 
 ## Requirements
 
@@ -93,7 +94,7 @@ Start the API plus Postgres:
 docker compose up --build
 ```
 
-Current Compose caveat: `side-chat-api` still runs `npm install` inside the Node container. With the current `workspace:*` package specs this may fail on npm versions that reject the workspace protocol. Until that backend lane is fixed, prefer local `corepack pnpm install` plus `npm run dev --workspace @side-chat/side-chat-api` for API verification, or update Compose to use the same package manager before treating container startup as passing evidence.
+Compose uses Postgres 16 and mounts the repository into the Node API container. The API container currently runs `npm install` before `npm run dev --workspace apps/side-chat-api`, so treat a fresh `docker compose up --build` smoke as required release evidence instead of assuming local `node_modules` proves the container path.
 
 Run in the background:
 
@@ -116,7 +117,7 @@ docker compose down --remove-orphans
 docker compose down -v --remove-orphans
 ```
 
-Current residual Docker limitations: the checked-in Compose file still uses `postgres:18`, while the PRD target calls for Postgres 16; the API container install command still uses npm despite `workspace:*` specs; and seed data currently lives in `001_schema.sql` while the PRD target calls for a separate `docker/postgres/init/002_seed.sql`. Treat these as open backend lane items until changed and verified.
+Current Docker release checks: confirm `docker compose up --build` starts both services, `GET /health` succeeds through port `3000`, the seeded history endpoint can read `demo-conversation-001`, and cleanup leaves no listener on `5432`.
 
 ## No-dev-server cleanup expectation
 
@@ -125,10 +126,11 @@ Do not leave local API, Vite, Playwright, or Docker servers running after manual
 ```sh
 lsof -nP -iTCP:3000 -sTCP:LISTEN
 lsof -nP -iTCP:5173 -sTCP:LISTEN
+lsof -nP -iTCP:5432 -sTCP:LISTEN
 docker compose ps
 ```
 
-Stop leftovers with the owning terminal, Playwright cleanup, or Docker Compose cleanup commands above. Do not kill unrelated processes without confirming ownership.
+Stop leftovers with the owning terminal, Playwright cleanup, or Docker Compose cleanup commands above. Do not kill unrelated processes without confirming ownership. Playwright may reuse existing servers, so verify ports `3000` and `5173` are clear before relying on e2e evidence.
 
 ## Protocol and governance
 
@@ -140,7 +142,7 @@ Stop leftovers with the owning terminal, Playwright cleanup, or Docker Compose c
 
 ## Known residual limitations
 
-- DB persistence is still an integration risk unless the API runtime is wired to `packages/db` through `DATABASE_URL`; the deterministic in-memory/fake path remains important for local tests.
-- Postgres image and seed-file split still need to match the PRD target as noted above.
+- DB persistence is wired when `DATABASE_URL` is set, but final release evidence should still include a live Docker/Postgres smoke because most unit tests mock the database executor.
+- The standalone widget demo is documented and bootable, but automated browser regression coverage currently focuses on the embedded host app.
 - Effect usage exists as an application-layer spike; deeper Effect v4 composition is still a larger follow-up.
 - Real OpenAI calls require explicit environment configuration and are intentionally not part of deterministic CI/local verification.

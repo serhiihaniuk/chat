@@ -1,11 +1,13 @@
+create extension if not exists pgcrypto;
+
 create role sidechat_app login password 'sidechat_app';
 create schema if not exists sidechat;
 create table if not exists sidechat.conversations (id text primary key, workspace_id text not null, user_id text not null, created_at timestamptz default now());
 create table if not exists sidechat.messages (id text primary key, conversation_id text references sidechat.conversations(id), role text not null, content text not null, model_provider text, model_id text, created_at timestamptz default now());
 create table if not exists sidechat.usage_records (request_id text primary key, conversation_id text not null, message_id text not null, model_provider text not null, model_id text not null, input_tokens int not null, output_tokens int not null, total_tokens int not null, created_at timestamptz default now());
 
-create or replace function sidechat_create_or_get_conversation(workspace_id text, user_id text, conversation_id text default null) returns table(conversation_id text) language plpgsql security definer as $$
-declare cid text := coalesce(conversation_id, 'conv-' || gen_random_uuid()::text);
+create or replace function sidechat_create_or_get_conversation(workspace_id text, user_id text, conversation_id_input text default null) returns table(conversation_id text) language plpgsql security definer as $$
+declare cid text := coalesce(conversation_id_input, 'conv-' || gen_random_uuid()::text);
 begin
   insert into sidechat.conversations(id, workspace_id, user_id) values (cid, workspace_id, user_id) on conflict (id) do nothing;
   return query select cid;

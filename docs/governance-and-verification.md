@@ -24,10 +24,14 @@ Use `corepack pnpm install` first in a fresh worktree, then use this order for f
 npm run lint
 npm run typecheck
 npm test
+npx vitest run packages/db/tests/db-protocol.spec.ts --config vitest.config.ts
+npm run build
 npm run test:e2e
 ```
 
-If e2e fails because required browser binaries are missing, install Playwright browsers in the local environment and rerun. If e2e fails because ports are occupied, identify and stop only the process that belongs to this repo before rerunning.
+`npm test` follows the root Vitest include pattern (`packages/**/*.test.ts` and `apps/**/*.test.ts`). The DB stored-procedure protocol regression at `packages/db/tests/db-protocol.spec.ts` is intentionally listed above as an explicit final-gate command until it is renamed or included by the root matcher.
+
+If e2e fails because required browser binaries are missing, install Playwright browsers in the local environment and rerun. If e2e fails because ports are occupied, identify and stop only the process that belongs to this repo before rerunning. Playwright is configured to reuse existing servers, so preflight ports before treating e2e as fresh evidence.
 
 ## Dev-server cleanup evidence
 
@@ -37,18 +41,20 @@ Final reports should include all of the following:
 git status --short
 lsof -nP -iTCP:3000 -sTCP:LISTEN
 lsof -nP -iTCP:5173 -sTCP:LISTEN
+lsof -nP -iTCP:5432 -sTCP:LISTEN
 docker compose ps
 ```
 
-Expected final state is a clean or intentionally documented git status, no repo-owned listeners left on ports `3000` or `5173`, and no unexpected Compose services left running. A listener owned by another project is a blocker to e2e reliability and should be reported rather than killed blindly.
+Expected final state is a clean or intentionally documented git status, no repo-owned listeners left on ports `3000`, `5173`, or `5432`, and no unexpected Compose services left running. A listener owned by another project is a blocker to e2e reliability and should be reported rather than killed blindly.
 
 ## PRD-specific open checks
 
 Before marking the full app complete, confirm these are true in the integrated branch:
 
 - Docker Compose uses the PRD Postgres major version.
-- Docker Compose installs dependencies with the repository package manager or otherwise supports the current `workspace:*` specs.
+- Docker Compose starts cleanly from the checked-in install command and supports the current workspace package specs.
 - deterministic seed data is split into `docker/postgres/init/002_seed.sql`;
 - API runtime uses the DB-backed repository/usage path when `DATABASE_URL` is present while preserving deterministic fake/in-memory paths for tests;
 - widget UI exposes seeded history and retry/error recovery states;
-- final verification commands above pass from a fresh workspace install.
+- final verification commands above pass from a fresh workspace install;
+- Docker smoke verifies `/health`, `/chat/history`, and `/chat/stream` with the Compose-provided Postgres/API path before cleanup.
