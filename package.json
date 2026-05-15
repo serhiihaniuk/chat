@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "npm run dev --workspace apps/side-chat-api",
     "build": "tsc -b",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b",
     "test": "vitest run",
     "test:e2e": "playwright test --config apps/embedded-host-app/playwright.config.ts",
     "lint": "node scripts/governance-check.mjs",

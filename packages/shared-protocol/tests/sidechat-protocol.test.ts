@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import {
@@ -21,7 +22,7 @@ import {
 import { validateSidechatEventSequence } from '../src/sidechat.v1/sequence'
 
 describe('sidechat protocol v1 fixtures', () => {
-  const fixturesDir = path.resolve(__dirname, '../src/sidechat.v1/fixtures')
+  const fixturesDir = path.resolve(new URL('../src/sidechat.v1/fixtures', import.meta.url).pathname)
 
   test('success fixture validates', () => {
     const raw = JSON.parse(readFileSync(path.join(fixturesDir, 'success-stream.json'), 'utf8'))

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "src/index.ts",
   "scripts": {
     "build": "tsc -b && tsup src/index.ts --format esm --dts"
   },
@@ -25,11 +25,13 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./styles.css": "./src/styles.css"
   },
   "files": [
-    "dist"
+    "dist",
+    "src/styles.css"
   ]
 }

@@ -5,9 +5,12 @@
     "target": "ES2022",
     "moduleResolution": "Bundler",
     "strict": true,
-    "noEmit": true,
+    "composite": true,
+    "declaration": true,
+    "rootDir": "src",
+    "outDir": "dist",
     "jsx": "react-jsx",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mts", "test/**/*.ts", "test/**/*.tsx", "test/**/*.mts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mts"]
 }

@@ -133,6 +133,9 @@ importers:
       '@ai-sdk/openai':
         specifier: 3.0.63
         version: 3.0.63(zod@4.4.3)
+      '@hono/node-server':
+        specifier: 1.19.14
+        version: 1.19.14(hono@4.12.18)
       '@side-chat/db':
         specifier: workspace:*
         version: link:../../packages/db

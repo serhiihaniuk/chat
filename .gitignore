@@ -32,3 +32,5 @@ pnpm-debug.log*
 
 # Agent/runtime state
 .omx/
+
+.pnpm-store/

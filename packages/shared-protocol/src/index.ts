@@ -4,18 +4,23 @@ export * from './sidechat.v1/codec'
 export * from './sidechat.v1/sequence'
 export * from './sidechat.v1/contracts'
 
-import {
+import type {
   SidechatStreamCompletedEvent,
   SidechatStreamDeltaEvent,
-  SidechatStreamEvent,
   SidechatStreamErrorEvent,
+  SidechatStreamEvent,
   SidechatStreamHistoryEvent,
-  SidechatStreamStartEvent,
-  SidechatProtocolVersion
+  SidechatStreamStartEvent
 } from './sidechat.v1/types'
-import { encodeSseFrame, encodeSseEvent, parseSseEvent, protocolLinePrefix } from './sidechat.v1/codec'
+import { SidechatProtocolVersion } from './sidechat.v1/types'
+import {
+  encodeSseEvent,
+  encodeSseFrame,
+  parseKnownSsePayloads,
+  parseSseEvent,
+  protocolLinePrefix
+} from './sidechat.v1/codec'
 import { SidechatRequestSchema } from './sidechat.v1/schemas'
-import { readFileSync } from 'node:fs'
 
 export const protocolVersion = SidechatProtocolVersion
 export const streamRequestSchema = SidechatRequestSchema
@@ -23,31 +28,70 @@ export const encodeSse = encodeSseEvent
 export const encodeSseEventFrame = encodeSseFrame
 export const parseSse = parseSseEvent
 
-const parseGoldenFixture = (fixture: string): SidechatStreamEvent[] => {
-  try {
-    const payload = JSON.parse(readFileSync(new URL(fixture, import.meta.url), 'utf8')) as {
-      events?: SidechatStreamEvent[]
-      protocol?: string
-    }
-    return Array.isArray(payload.events) ? payload.events : []
-  } catch {
-    return []
+export const goldenSuccessEvents: SidechatStreamEvent[] = [
+  {
+    type: 'sidechat.started',
+    requestId: 'req-001',
+    conversationId: 'conv-001',
+    messageId: 'msg-asst-001',
+    model: { provider: 'openai', id: 'gpt-4.1-mini' }
+  },
+  {
+    type: 'sidechat.delta',
+    requestId: 'req-001',
+    messageId: 'msg-asst-001',
+    content: 'Hello',
+    index: 0
+  },
+  {
+    type: 'sidechat.delta',
+    requestId: 'req-001',
+    messageId: 'msg-asst-001',
+    content: ' world',
+    index: 1
+  },
+  {
+    type: 'sidechat.completed',
+    requestId: 'req-001',
+    conversationId: 'conv-001',
+    messageId: 'msg-asst-001',
+    model: { provider: 'openai', id: 'gpt-4.1-mini' },
+    finishReason: 'stop',
+    usage: { inputTokens: 8, outputTokens: 4, totalTokens: 12 }
   }
-}
+]
 
-export const goldenSuccessEvents = parseGoldenFixture('./sidechat.v1/fixtures/success-stream.json')
-export const goldenErrorEvents = parseGoldenFixture('./sidechat.v1/fixtures/error-stream.json')
+export const goldenErrorEvents: SidechatStreamEvent[] = [
+  {
+    type: 'sidechat.started',
+    requestId: 'req-err-001',
+    conversationId: 'conv-001',
+    messageId: 'msg-asst-002',
+    model: { provider: 'openai', id: 'gpt-4.1-mini' }
+  },
+  {
+    type: 'sidechat.error',
+    requestId: 'req-err-001',
+    code: 'MODEL_UNAVAILABLE',
+    message: 'Model currently unavailable',
+    retryable: true
+  }
+]
+
+const parsePrefixSeparatedDataLines = (chunk: string): SidechatStreamEvent[] => chunk
+  .split(protocolLinePrefix)
+  .filter(Boolean)
+  .map((segment) => {
+    const payload = segment.startsWith(' ') ? segment.slice(1) : segment
+    return parseSseEvent(`${protocolLinePrefix} ${payload.trim()}`)
+  })
+  .filter((event): event is SidechatStreamEvent => event !== undefined)
 
 export { parseSseEvent }
-export const parseSseFrames = (chunk: string): SidechatStreamEvent[] =>
-  chunk
-    .split(protocolLinePrefix)
-    .filter(Boolean)
-    .map((segment) => {
-      const payload = segment.startsWith(' ') ? segment.slice(1) : segment
-      return parseSseEvent(`${protocolLinePrefix} ${payload}`)
-    })
-    .filter((event): event is SidechatStreamEvent => event !== undefined)
+export const parseSseFrames = (chunk: string): SidechatStreamEvent[] => {
+  const framed = parseKnownSsePayloads(chunk)
+  return framed.length > 0 ? framed : parsePrefixSeparatedDataLines(chunk)
+}
 
 export type {
   SidechatStreamStartEvent,

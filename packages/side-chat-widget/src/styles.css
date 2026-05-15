@@ -1,0 +1,104 @@
+.sidechat-launcher {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.8rem 1rem;
+  color: #fff;
+  background: #111827;
+  box-shadow: 0 18px 38px rgb(15 23 42 / 22%);
+  cursor: pointer;
+}
+
+.sidechat-panel {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 50;
+  display: flex;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100vh - 2rem));
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px solid #dbe3ef;
+  border-radius: 1.25rem;
+  padding: 1rem;
+  color: #111827;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 24%);
+}
+
+.sidechat-panel header,
+.sidechat-panel label,
+.sidechat-composer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sidechat-panel header {
+  justify-content: space-between;
+}
+
+.sidechat-panel header button,
+.sidechat-composer button {
+  border: 1px solid #dbe3ef;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.sidechat-panel select,
+.sidechat-composer-input {
+  width: 100%;
+  border: 1px solid #dbe3ef;
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+}
+
+.sidechat-conversation {
+  display: flex;
+  min-height: 12rem;
+  max-height: 22rem;
+  flex-direction: column;
+  gap: 0.65rem;
+  overflow-y: auto;
+  border-radius: 1rem;
+  background: #f8fafc;
+  padding: 0.75rem;
+}
+
+.sidechat-message {
+  max-width: 88%;
+  border-radius: 0.9rem;
+  padding: 0.65rem 0.75rem;
+  line-height: 1.45;
+}
+
+.sidechat-message-user {
+  align-self: flex-end;
+  color: #fff;
+  background: #2563eb;
+}
+
+.sidechat-message-assistant,
+.sidechat-message-system {
+  align-self: flex-start;
+  color: #0f172a;
+  background: #fff;
+}
+
+.sidechat-composer {
+  align-items: stretch;
+}
+
+.sidechat-composer-input {
+  resize: vertical;
+}

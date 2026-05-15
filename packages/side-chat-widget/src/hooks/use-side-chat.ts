@@ -35,35 +35,48 @@ const requestError = (message: string, requestId: string): SideChatError => ({
   retryable: true
 })
 
-const readStreamEvents = async (response: Response): Promise<SidechatStreamEvent[]> => {
+export const readSideChatStreamEvents = async (
+  response: globalThis.Response,
+  onEvent: (event: SidechatStreamEvent) => void
+): Promise<void> => {
+  const emit = (chunk: string) => {
+    for (const event of parseKnownSsePayloads(chunk)) {
+      onEvent(event)
+    }
+  }
+
   if (!response.body) {
-    return parseKnownSsePayloads(await response.text())
+    emit(await response.text())
+    return
   }
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
-  const events: SidechatStreamEvent[] = []
   let pending = ''
+
+  const flushCompleteFrames = () => {
+    for (;;) {
+      const boundary = pending.indexOf('\n\n')
+      if (boundary === -1) return
+
+      const frame = pending.slice(0, boundary + 2)
+      pending = pending.slice(boundary + 2)
+      emit(frame)
+    }
+  }
 
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
 
     pending += decoder.decode(value, { stream: true })
-    const completeBoundary = pending.lastIndexOf('\n\n')
-    if (completeBoundary === -1) continue
-
-    const complete = pending.slice(0, completeBoundary + 2)
-    pending = pending.slice(completeBoundary + 2)
-    events.push(...parseKnownSsePayloads(complete))
+    flushCompleteFrames()
   }
 
   pending += decoder.decode()
   if (pending.trim()) {
-    events.push(...parseKnownSsePayloads(pending.endsWith('\n\n') ? pending : `${pending}\n\n`))
+    emit(pending.endsWith('\n\n') ? pending : `${pending}\n\n`)
   }
-
-  return events
 }
 
 export function useSideChat(options: UseSideChatOptions) {
@@ -144,10 +157,7 @@ export function useSideChat(options: UseSideChatOptions) {
         throw new Error(`Chat request failed: ${response.status}`)
       }
 
-      const events = await readStreamEvents(response)
-      for (const event of events) {
-        handleEvent(event)
-      }
+      await readSideChatStreamEvents(response, handleEvent)
     } catch (unknownError) {
       const nextError = requestError(
         unknownError instanceof Error ? unknownError.message : 'Chat request failed',

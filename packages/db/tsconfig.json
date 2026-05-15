@@ -5,8 +5,11 @@
     "target": "ES2022",
     "moduleResolution": "Bundler",
     "strict": true,
-    "noEmit": true,
+    "composite": true,
+    "declaration": true,
+    "rootDir": "src",
+    "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["src/**/*", "tests/**/*", "test/**/*"]
+  "include": ["src/**/*"]
 }

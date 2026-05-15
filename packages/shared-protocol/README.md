@@ -34,4 +34,4 @@ Reusable protocol contract for the side-chat assistant project.
 
 ## Test coverage
 - Fixtures in `src/sidechat.v1/fixtures`
-- Tests in `tests/sidechat-protocol.spec.ts`
+- Tests in `tests/sidechat-protocol.test.ts`
