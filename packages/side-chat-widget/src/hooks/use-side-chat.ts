@@ -162,7 +162,7 @@ export function useSideChat(options: UseSideChatOptions) {
 
         const payload = await response.json() as { messages: Array<{ id: string; role: string; content: string }> }
         if (aborted) return
-        const nextMessages = payload.messages.map((message) => ({
+        const nextMessages: WidgetMessage[] = payload.messages.map((message) => ({
           id: message.id,
           role: message.role === 'assistant' || message.role === 'user' || message.role === 'system'
             ? message.role
@@ -272,7 +272,7 @@ export function useSideChat(options: UseSideChatOptions) {
         throw new Error(`Chat request failed: ${response.status}`)
       }
 
-      await readSideChatStreamEvents(response, handleEvent, (message) => {
+      await readSideChatStreamEvents(response, handleEvent, (message: string) => {
         throw new Error(message)
       })
     } catch (unknownError) {
