@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAnalystNoteParagraphs } from "../src/adapters/reports/playwright-report.js";
+import { createAnalystNoteParagraphs } from "#adapters/reports/playwright-report.js";
 
 const reportData = {
   kpis: {

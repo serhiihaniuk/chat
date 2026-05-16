@@ -5,6 +5,7 @@
     "target": "ES2022",
     "moduleResolution": "Bundler",
     "strict": true,
+    "customConditions": ["development"],
     "composite": true,
     "declaration": true,
     "rootDir": "src",

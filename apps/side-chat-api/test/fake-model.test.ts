@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SidechatRequest } from "@side-chat/shared-protocol";
-import { createFakeModelAdapter } from "../src/adapters/ai/fake-model.js";
+import { createFakeModelAdapter } from "#adapters/ai/fake-model.js";
 
 const request = {
   workspaceId: "demo-workspace",

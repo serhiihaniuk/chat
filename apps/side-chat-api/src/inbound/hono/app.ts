@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 
-import { createDefaultDeps, createInboundApp } from "./index.js";
-import type { StreamChatDeps } from "../../application/stream-chat.js";
+import type { StreamChatDeps } from "#application/stream-chat.js";
+import { createDefaultDeps } from "./composition/default-deps.js";
+import { createInboundApp } from "./routes/index.js";
 
 export const createApp = (deps: StreamChatDeps = createDefaultDeps()) => {
   const app = new Hono();

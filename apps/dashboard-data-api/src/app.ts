@@ -1,13 +1,13 @@
 import {
-  AdvisoryDashboardDb,
   createPostgresAdvisoryDashboardDb,
 } from "@side-chat/db";
 import { Hono } from "hono";
 
+import type { AdvisoryDashboardReader } from "./advisory-dashboard-port.js";
 import { parseConfig } from "./config.js";
 
 export type DashboardDataDeps = {
-  advisoryDashboard: AdvisoryDashboardDb;
+  advisoryDashboard: AdvisoryDashboardReader;
 };
 
 const getWorkspaceId = (url: URL) =>

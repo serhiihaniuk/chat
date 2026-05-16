@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ModelRequest } from "../src/ports/index.js";
+import type { ModelRequest } from "#ports/index.js";
 import {
   createModelInput,
   workbenchAssistantSystemPrompt,
-} from "../src/application/prompt-context.js";
+} from "#application/prompt-context.js";
 
 const request = {
   workspaceId: "demo-workspace",

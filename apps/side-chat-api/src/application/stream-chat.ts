@@ -1,6 +1,5 @@
 import { Effect } from "effect";
 import {
-  SidechatRequestSchema,
   type SidechatStreamEvent,
   type SidechatRequest,
   type ModelSelection,
@@ -11,6 +10,7 @@ import type {
   BillingPort,
   ConfigPort,
   ConversationRepository,
+  ModelChunk,
   ModelPort,
   ObservabilityPort,
   PageContextPort,
@@ -21,7 +21,7 @@ import type {
   WorkbenchReportResult,
   WorkbenchToolsPort,
   HostSurfaceStatePort,
-} from "../ports/index.js";
+} from "#ports/index.js";
 import {
   BillingDenied,
   ModelUnavailable,
@@ -29,6 +29,7 @@ import {
   Unauthorized,
   UsageCaptureFailed,
 } from "./errors.js";
+import { decodeSidechatRequestEffect } from "./stream-chat-request-schema.js";
 
 export type StreamChatDeps = {
   model: ModelPort;
@@ -151,6 +152,7 @@ const getSourceSearchTerms = (source: WorkbenchCitationSource) => {
 const maxMatchedCitationSources = 2;
 
 const surfaceContextLimit = 12;
+const maxSurfaceContextResources = 4;
 
 const shouldResolveSurfaceResource = (kind: string) =>
   kind === "grid" || kind === "table" || kind === "custom";
@@ -179,35 +181,189 @@ export const selectInlineCitationSources = (
     .slice(0, 1);
 };
 
+type StreamAttachment = {
+  id: string;
+  name: string;
+  url: string;
+  mediaType: string;
+};
+
+type StreamIndexes = {
+  delta: number;
+  reasoning: number;
+  tool: number;
+  hostCommand: number;
+};
+
+const createStreamIndexes = (): StreamIndexes => ({
+  delta: 0,
+  reasoning: 0,
+  tool: 0,
+  hostCommand: 0,
+});
+
+const hasConfiguredModel = (
+  models: ModelSelection[],
+  requested: ModelSelection,
+) =>
+  models.some(
+    (model) =>
+      model.provider === requested.provider && model.id === requested.id,
+  );
+
+const resolveSurfaceContexts = async (
+  deps: StreamChatDeps,
+  request: SidechatRequest,
+  userId: string,
+  conversationId: string,
+  pageContext: Awaited<ReturnType<PageContextPort["resolve"]>>,
+) => {
+  const workbenchTools = deps.workbenchTools;
+  if (!workbenchTools?.surfaceContext) return undefined;
+
+  const resources = (request.hostContext?.resources ?? [])
+    .filter((resource) => shouldResolveSurfaceResource(resource.kind))
+    .slice(0, maxSurfaceContextResources);
+
+  return Promise.all(
+    resources.map((resource) =>
+      workbenchTools.surfaceContext!({
+        workspaceId: request.workspaceId,
+        userId,
+        conversationId,
+        pageContext,
+        resourceId: resource.id,
+        limit: surfaceContextLimit,
+      }),
+    ),
+  );
+};
+
+const createAssistantMetadata = (
+  assistantContent: string,
+  citationSources: WorkbenchCitationSource[],
+  attachments: StreamAttachment[],
+): Record<string, unknown> | undefined => {
+  const selectedCitationSources = selectInlineCitationSources(
+    assistantContent,
+    citationSources,
+  );
+  const metadata: Record<string, unknown> = {};
+
+  if (selectedCitationSources.length > 0) {
+    metadata.citations = selectedCitationSources;
+  }
+
+  if (attachments.length > 0) {
+    metadata.attachments = attachments;
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+};
+
+const observeStreamEvent = (
+  deps: StreamChatDeps,
+  event: SidechatStreamEvent,
+) => {
+  deps.observability.lifecycle(event);
+  return event;
+};
+
+const createDeltaEvent = (
+  requestId: string,
+  assistantMessageId: string,
+  chunk: Extract<ModelChunk, { kind: "delta" }>,
+  indexes: StreamIndexes,
+): SidechatStreamEvent => ({
+  type: "sidechat.delta",
+  requestId,
+  messageId: assistantMessageId,
+  content: chunk.text,
+  index: indexes.delta++,
+});
+
+const createReasoningEvent = (
+  requestId: string,
+  assistantMessageId: string,
+  chunk: Extract<ModelChunk, { kind: "reasoning" }>,
+  indexes: StreamIndexes,
+): SidechatStreamEvent => ({
+  type: "sidechat.reasoning",
+  requestId,
+  messageId: assistantMessageId,
+  content: chunk.text,
+  index: indexes.reasoning++,
+});
+
+const createToolEvent = (
+  requestId: string,
+  assistantMessageId: string,
+  chunk: Extract<ModelChunk, { kind: "tool" }>,
+  indexes: StreamIndexes,
+): SidechatStreamEvent => ({
+  type: "sidechat.tool",
+  requestId,
+  messageId: assistantMessageId,
+  toolCallId: chunk.toolCallId,
+  toolName: chunk.toolName,
+  status: chunk.status,
+  input: chunk.input,
+  output: chunk.output,
+  error: chunk.error,
+  index: indexes.tool++,
+});
+
+const createHostCommandEvent = (
+  requestId: string,
+  assistantMessageId: string,
+  chunk: Extract<ModelChunk, { kind: "host-command" }>,
+  indexes: StreamIndexes,
+): SidechatStreamEvent => ({
+  type: "sidechat.host_command",
+  requestId,
+  messageId: assistantMessageId,
+  commandId: chunk.commandId,
+  command: chunk.command,
+  index: indexes.hostCommand++,
+});
+
 export const streamChatEffect = (
   deps: StreamChatDeps,
   input: StreamChatInput,
-) => Effect.succeed(streamChat(deps, input));
+) =>
+  Effect.map(decodeSidechatRequestEffect(input.body), (request) =>
+    streamChatWithRequest(deps, input, request),
+  );
 
 export async function* streamChat(
   deps: StreamChatDeps,
   input: StreamChatInput,
 ): AsyncIterable<SidechatStreamEvent> {
-  const request = SidechatRequestSchema.parse(
-    input.body,
-  ) satisfies SidechatRequest;
+  const request = await Effect.runPromise(
+    decodeSidechatRequestEffect(input.body),
+  );
+
+  yield* streamChatWithRequest(deps, input, request);
+}
+
+async function* streamChatWithRequest(
+  deps: StreamChatDeps,
+  input: StreamChatInput,
+  request: SidechatRequest,
+): AsyncIterable<SidechatStreamEvent> {
   const userId = deps.config.defaultUserId();
-  if (
-    !deps.config
-      .models()
-      .some(
-        (model) =>
-          model.provider === request.model.provider &&
-          model.id === request.model.id,
-      )
-  )
+  if (!hasConfiguredModel(deps.config.models(), request.model)) {
     throw new ModelUnavailable(request.model.id);
-  if (!(await deps.auth.authorize(request.workspaceId, userId)))
+  }
+  if (!(await deps.auth.authorize(request.workspaceId, userId))) {
     throw new Unauthorized();
-  if (!(await deps.rateLimit.check(request.workspaceId, userId)))
+  }
+  if (!(await deps.rateLimit.check(request.workspaceId, userId))) {
     throw new RateLimited();
-  if (!(await deps.billing.allow(request.workspaceId)))
+  }
+  if (!(await deps.billing.allow(request.workspaceId))) {
     throw new BillingDenied();
+  }
 
   const conversationId = await deps.conversations.createOrGet({
     workspaceId: request.workspaceId,
@@ -223,23 +379,13 @@ export async function* streamChat(
     request.workspaceId,
     conversationId,
   );
-  const surfaceContexts = deps.workbenchTools?.surfaceContext
-    ? await Promise.all(
-        (request.hostContext?.resources ?? [])
-          .filter((resource) => shouldResolveSurfaceResource(resource.kind))
-          .slice(0, 4)
-          .map((resource) =>
-            deps.workbenchTools!.surfaceContext!({
-              workspaceId: request.workspaceId,
-              userId,
-              conversationId,
-              pageContext,
-              resourceId: resource.id,
-              limit: surfaceContextLimit,
-            }),
-          ),
-      )
-    : undefined;
+  const surfaceContexts = await resolveSurfaceContexts(
+    deps,
+    request,
+    userId,
+    conversationId,
+    pageContext,
+  );
   await deps.conversations.appendUserMessage(
     conversationId,
     request.message.id,
@@ -253,25 +399,16 @@ export async function* streamChat(
     requestId: input.requestId,
     model: request.model,
   };
-  deps.observability.lifecycle(started);
   deps.observability.counter("sidechat.stream.started", {
     model: request.model.id,
   });
-  yield started;
+  yield observeStreamEvent(deps, started);
 
   let assistantContent = "";
-  let index = 0;
-  let reasoningIndex = 0;
-  let toolIndex = 0;
-  let hostCommandIndex = 0;
+  const indexes = createStreamIndexes();
   const citationSources: WorkbenchCitationSource[] =
     surfaceContexts?.flatMap((context) => context.sources) ?? [];
-  const attachments: Array<{
-    id: string;
-    name: string;
-    url: string;
-    mediaType: string;
-  }> = [];
+  const attachments: StreamAttachment[] = [];
   const modelRequest = {
     ...request,
     conversationId,
@@ -286,30 +423,18 @@ export async function* streamChat(
   for await (const chunk of deps.model.stream(modelRequest, input.signal)) {
     if (chunk.kind === "delta") {
       assistantContent += chunk.text;
-      const event: SidechatStreamEvent = {
-        type: "sidechat.delta",
-        requestId: input.requestId,
-        messageId: assistantMessageId,
-        content: chunk.text,
-        index,
-      };
-      index += 1;
-      deps.observability.lifecycle(event);
-      yield event;
+      yield observeStreamEvent(
+        deps,
+        createDeltaEvent(input.requestId, assistantMessageId, chunk, indexes),
+      );
       continue;
     }
 
     if (chunk.kind === "reasoning") {
-      const event: SidechatStreamEvent = {
-        type: "sidechat.reasoning",
-        requestId: input.requestId,
-        messageId: assistantMessageId,
-        content: chunk.text,
-        index: reasoningIndex,
-      };
-      reasoningIndex += 1;
-      deps.observability.lifecycle(event);
-      yield event;
+      yield observeStreamEvent(
+        deps,
+        createReasoningEvent(input.requestId, assistantMessageId, chunk, indexes),
+      );
       continue;
     }
 
@@ -320,21 +445,10 @@ export async function* streamChat(
         if (attachment) attachments.push(attachment);
       }
 
-      const event: SidechatStreamEvent = {
-        type: "sidechat.tool",
-        requestId: input.requestId,
-        messageId: assistantMessageId,
-        toolCallId: chunk.toolCallId,
-        toolName: chunk.toolName,
-        status: chunk.status,
-        input: chunk.input,
-        output: chunk.output,
-        error: chunk.error,
-        index: toolIndex,
-      };
-      toolIndex += 1;
-      deps.observability.lifecycle(event);
-      yield event;
+      yield observeStreamEvent(
+        deps,
+        createToolEvent(input.requestId, assistantMessageId, chunk, indexes),
+      );
       continue;
     }
 
@@ -345,34 +459,24 @@ export async function* streamChat(
         conversationId,
         command: chunk.command,
       });
-      const event: SidechatStreamEvent = {
-        type: "sidechat.host_command",
-        requestId: input.requestId,
-        messageId: assistantMessageId,
-        commandId: chunk.commandId,
-        command: chunk.command,
-        index: hostCommandIndex,
-      };
-      hostCommandIndex += 1;
-      deps.observability.lifecycle(event);
-      yield event;
+      yield observeStreamEvent(
+        deps,
+        createHostCommandEvent(
+          input.requestId,
+          assistantMessageId,
+          chunk,
+          indexes,
+        ),
+      );
       continue;
     }
 
     const usage = enrichUsage(request.model, chunk.usage);
-    const selectedCitationSources = selectInlineCitationSources(
+    const metadata = createAssistantMetadata(
       assistantContent,
       citationSources,
+      attachments,
     );
-    const metadata =
-      selectedCitationSources.length > 0 || attachments.length > 0
-        ? {
-            ...(selectedCitationSources.length > 0
-              ? { citations: selectedCitationSources }
-              : {}),
-            ...(attachments.length > 0 ? { attachments } : {}),
-          }
-        : undefined;
 
     await deps.conversations.appendAssistantMessage(
       conversationId,
@@ -402,10 +506,10 @@ export async function* streamChat(
       usage,
       metadata,
     };
-    deps.observability.lifecycle(completed);
     deps.observability.counter("sidechat.stream.completed", {
       model: request.model.id,
     });
-    yield completed;
+    yield observeStreamEvent(deps, completed);
+    return;
   }
 }

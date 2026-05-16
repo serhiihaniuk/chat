@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createDefaultDeps } from "../src/inbound/hono/index.js";
+import { createDefaultDeps } from "#inbound/hono/index.js";
 
 describe("default dependency wiring from environment", () => {
   const originalEnv = { ...process.env };

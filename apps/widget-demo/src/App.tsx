@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { SideChatWidget } from "@side-chat/side-chat-widget";
+import type { ModelSelection } from "@side-chat/shared-protocol";
 
 const availableModels = [
-  { provider: "openai", id: "gpt-4.1-mini" },
-  { provider: "openai", id: "gpt-4.1-nano" },
-];
+  { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" },
+] satisfies ModelSelection[];
 
 export function App() {
   const [events, setEvents] = useState<string[]>([]);

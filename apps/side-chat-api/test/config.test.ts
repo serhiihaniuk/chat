@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSideChatEnv } from "../src/inbound/hono/config.js";
+import { parseSideChatEnv } from "#inbound/hono/config.js";
 
 describe("side-chat env parser", () => {
   it("does not default real app runtime to the fake model", () => {

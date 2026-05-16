@@ -11,6 +11,25 @@ import {
   type SidechatStreamEvent,
   type TokenUsage,
 } from "@side-chat/shared-protocol";
+import {
+  applySideChatStreamEventToMessages,
+  completeHostCommandPartInMessages,
+  getSideChatStreamEventEffect,
+  type WidgetMessage,
+} from "./use-side-chat-events.js";
+
+export {
+  appendReasoningPart,
+  upsertHostCommandPart,
+  upsertToolPart,
+} from "./use-side-chat-events.js";
+export type {
+  WidgetHostCommandPart,
+  WidgetMessage,
+  WidgetMessagePart,
+  WidgetReasoningPart,
+  WidgetToolPart,
+} from "./use-side-chat-events.js";
 
 export type SideChatError = SidechatStreamErrorEvent;
 
@@ -33,110 +52,8 @@ export type UseSideChatOptions = {
 
 export type HistoryStatus = "idle" | "loading" | "loaded" | "empty" | "error";
 
-export type WidgetMessage = {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  metadata?: Record<string, unknown>;
-  parts?: WidgetMessagePart[];
-};
-
-export type WidgetReasoningPart = {
-  id: string;
-  type: "reasoning";
-  content: string;
-};
-
-export type WidgetToolPart = {
-  id: string;
-  type: "tool";
-  toolCallId: string;
-  toolName: string;
-  status: "running" | "completed" | "error";
-  input?: unknown;
-  output?: unknown;
-  error?: string;
-};
-
-export type WidgetHostCommandPart = {
-  id: string;
-  type: "host-command";
-  commandId: string;
-  command: HostCommand;
-  status: "pending" | HostCommandResult["status"];
-  result?: HostCommandResult;
-};
-
-export type WidgetMessagePart =
-  | WidgetReasoningPart
-  | WidgetToolPart
-  | WidgetHostCommandPart;
-
 const randomId = () =>
   `client-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-
-export const appendReasoningPart = (
-  parts: WidgetMessagePart[] | undefined,
-  content: string,
-  index: number,
-): WidgetMessagePart[] => {
-  const current = parts ?? [];
-  const lastPart = current.at(-1);
-
-  if (lastPart?.type === "reasoning") {
-    return [
-      ...current.slice(0, -1),
-      { ...lastPart, content: lastPart.content + content },
-    ];
-  }
-
-  return [
-    ...current,
-    {
-      id: `reasoning-${index}-${current.length}`,
-      type: "reasoning",
-      content,
-    },
-  ];
-};
-
-export const upsertToolPart = (
-  parts: WidgetMessagePart[] | undefined,
-  tool: WidgetToolPart,
-): WidgetMessagePart[] => {
-  const current = parts ?? [];
-  const existingIndex = current.findIndex(
-    (part) => part.type === "tool" && part.toolCallId === tool.toolCallId,
-  );
-
-  if (existingIndex === -1) {
-    return [...current, tool];
-  }
-
-  return current.map((part, index) =>
-    index === existingIndex ? { ...tool, id: part.id } : part,
-  );
-};
-
-export const upsertHostCommandPart = (
-  parts: WidgetMessagePart[] | undefined,
-  hostCommand: WidgetHostCommandPart,
-): WidgetMessagePart[] => {
-  const current = parts ?? [];
-  const existingIndex = current.findIndex(
-    (part) =>
-      part.type === "host-command" &&
-      part.commandId === hostCommand.commandId,
-  );
-
-  if (existingIndex === -1) {
-    return [...current, hostCommand];
-  }
-
-  return current.map((part, index) =>
-    index === existingIndex ? { ...hostCommand, id: part.id } : part,
-  );
-};
 
 const deriveHistoryEndpoint = (apiEndpoint: string): string => {
   const streamSuffix = "/chat/stream";
@@ -455,158 +372,46 @@ export function useSideChat(options: UseSideChatOptions) {
 
   const handleEvent = useCallback(
     (event: SidechatStreamEvent) => {
-      if (event.type === "sidechat.started") {
-        setActiveAssistantMessageId(event.messageId);
-        setMessages((current) => [
-          ...current,
-          { id: event.messageId, role: "assistant", content: "" },
-        ]);
-        return;
-      }
-
-      if (event.type === "sidechat.delta") {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === event.messageId
-              ? { ...message, content: message.content + event.content }
-              : message,
-          ),
-        );
-        return;
-      }
-
-      if (event.type === "sidechat.reasoning") {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === event.messageId
-              ? {
-                  ...message,
-                  parts: appendReasoningPart(
-                    message.parts,
-                    event.content,
-                    event.index,
-                  ),
-                }
-              : message,
-          ),
-        );
-        return;
-      }
-
-      if (event.type === "sidechat.tool") {
-        setMessages((current) =>
-          current.map((message) => {
-            if (message.id !== event.messageId) return message;
-
-            const nextTool: WidgetToolPart = {
-              id: `tool-${event.toolCallId}`,
-              type: "tool",
-              toolCallId: event.toolCallId,
-              toolName: event.toolName,
-              status: event.status,
-              input: event.input,
-              output: event.output,
-              error: event.error,
-            };
-
-            return {
-              ...message,
-              parts: upsertToolPart(message.parts, nextTool),
-            };
-          }),
-        );
-        return;
-      }
-
-      if (event.type === "sidechat.host_command") {
-        const pendingHostCommand: WidgetHostCommandPart = {
-          id: `host-command-${event.commandId}`,
-          type: "host-command",
-          commandId: event.commandId,
-          command: event.command,
-          status: "pending",
-        };
-
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === event.messageId
-              ? {
-                  ...message,
-                  parts: upsertHostCommandPart(
-                    message.parts,
-                    pendingHostCommand,
-                  ),
-                }
-              : message,
-          ),
-        );
-
-        void dispatchHostCommand(event.command).then((result) => {
-          const completedHostCommand: WidgetHostCommandPart = {
-            ...pendingHostCommand,
-            status: result.status,
-            result,
-          };
-
-          setMessages((current) =>
-            current.map((message) =>
-              message.id === event.messageId
-                ? {
-                    ...message,
-                    parts: upsertHostCommandPart(
-                      message.parts,
-                      completedHostCommand,
-                    ),
-                  }
-                : message,
-            ),
-          );
-        });
-        return;
-      }
-
-      if (event.type === "sidechat.completed") {
-        if (event.metadata) {
-          setMessages((current) =>
-            current.map((message) =>
-              message.id === event.messageId
-                ? {
-                    ...message,
-                    metadata: {
-                      ...(message.metadata ?? {}),
-                      ...event.metadata,
-                    },
-                  }
-                : message,
-            ),
-          );
-        }
-        setActiveAssistantMessageId(undefined);
-        setError(undefined);
-        void refreshUsage(event.conversationId).catch(() => {
-          setUsage(event.usage);
-          onUsage?.(event.usage);
-        });
-        return;
-      }
-
-      if (event.type === "sidechat.error") {
-        setActiveAssistantMessageId(undefined);
-        setError(event);
-        onError?.(event);
-        return;
-      }
-
-      if (event.type !== "sidechat.history") return;
-
-      setMessages(
-        event.messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-          metadata: message.metadata,
-        })),
+      setMessages((current) =>
+        applySideChatStreamEventToMessages(current, event),
       );
+
+      const effect = getSideChatStreamEventEffect(event);
+      switch (effect.kind) {
+        case "started":
+          setActiveAssistantMessageId(effect.activeAssistantMessageId);
+          return;
+
+        case "completed":
+          setActiveAssistantMessageId(undefined);
+          setError(undefined);
+          void refreshUsage(effect.conversationId).catch(() => {
+            setUsage(effect.fallbackUsage);
+            onUsage?.(effect.fallbackUsage);
+          });
+          return;
+
+        case "error":
+          setActiveAssistantMessageId(undefined);
+          setError(effect.error);
+          onError?.(effect.error);
+          return;
+
+        case "host-command":
+          void dispatchHostCommand(effect.command).then((result) => {
+            setMessages((current) =>
+              completeHostCommandPartInMessages(current, effect.messageId, {
+                ...effect.pendingHostCommand,
+                status: result.status,
+                result,
+              }),
+            );
+          });
+          return;
+
+        case "none":
+          return;
+      }
     },
     [dispatchHostCommand, onError, onUsage, refreshUsage],
   );

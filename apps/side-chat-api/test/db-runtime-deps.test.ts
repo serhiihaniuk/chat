@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createDefaultDeps } from "../src/inbound/hono/index.js";
+import { createDefaultDeps } from "#inbound/hono/index.js";
 import { createPostgresSideChatPersistence } from "@side-chat/db";
 
 const persistence = vi.hoisted(() => ({

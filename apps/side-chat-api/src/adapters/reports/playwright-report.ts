@@ -6,7 +6,7 @@ import type {
   WorkbenchReportPort,
   WorkbenchReportNoteKind,
   WorkbenchReportSectionName,
-} from "../../ports/index.js";
+} from "#ports/index.js";
 
 export type GeneratedReportStore = {
   directory: string;

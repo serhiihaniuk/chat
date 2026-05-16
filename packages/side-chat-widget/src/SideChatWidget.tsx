@@ -55,7 +55,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
   ConversationScrollToBottomSignal,
-} from "./components/ai-elements/conversation.js";
+} from "./components/ai-elements/Conversation.js";
 import {
   Message,
   MessageContent,
@@ -613,6 +613,152 @@ const cleanReportResponseText = (content: string, hasAttachments: boolean) => {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+};
+
+type SideChatMessage = ReturnType<typeof useSideChat>["messages"][number];
+
+type RenderedChatMessageProps = {
+  message: SideChatMessage;
+  apiEndpoint: string;
+  isStreaming: boolean;
+  activeAssistantMessageId?: string;
+};
+
+const renderAssistantPart = (
+  part: WidgetMessagePart,
+  assistantParts: WidgetMessagePart[],
+  isActiveAssistant: boolean,
+) => {
+  if (part.type === "reasoning") {
+    return (
+      <Reasoning
+        isStreaming={isActiveAssistant && part === assistantParts.at(-1)}
+        key={part.id}
+      >
+        {part.content}
+      </Reasoning>
+    );
+  }
+
+  if (part.type === "host-command") {
+    return (
+      <div className="space-y-2" key={part.id}>
+        <Tool
+          toolName="host_command"
+          displayName="Host surface command"
+          status={getHostCommandToolStatus(part)}
+          input={part.command}
+          output={part.result}
+          error={
+            part.result?.status && part.result.status !== "applied"
+              ? part.result.message
+              : undefined
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2" key={part.id}>
+      <Tool
+        toolName={part.toolName}
+        displayName={toolDisplayNames[part.toolName] ?? part.toolName}
+        status={part.status}
+        input={part.input}
+        output={part.output}
+        error={part.error}
+      />
+    </div>
+  );
+};
+
+const getAssistantMessageView = (
+  message: SideChatMessage,
+  apiEndpoint: string,
+) => {
+  const assistantParts = getAssistantParts(message);
+  const attachments = mergeAttachments([
+    ...getMessageAttachments(assistantParts, apiEndpoint),
+    ...getMetadataAttachments(message.metadata, apiEndpoint),
+  ]);
+  const citationMetadata = parseCitationMetadata(message.content);
+  const content = cleanReportResponseText(
+    citationMetadata.content,
+    attachments.length > 0,
+  );
+  const persistedSources = [
+    ...getMetadataSources(message.metadata),
+    ...citationMetadata.sources,
+  ];
+  const liveSources = assistantParts
+    .filter(isToolPart)
+    .filter((part) => part.status === "completed")
+    .flatMap((part) => getToolSources(part.output));
+
+  return {
+    assistantParts,
+    attachments,
+    content,
+    inlineSources: selectInlineSources(content, [
+      ...persistedSources,
+      ...liveSources,
+    ]),
+  };
+};
+
+const RenderedChatMessage = ({
+  message,
+  apiEndpoint,
+  isStreaming,
+  activeAssistantMessageId,
+}: RenderedChatMessageProps) => {
+  if (message.role !== "assistant") {
+    return (
+      <Message from={message.role}>
+        <MessageContent data-message-from={message.role}>
+          {message.content}
+        </MessageContent>
+      </Message>
+    );
+  }
+
+  const view = getAssistantMessageView(message, apiEndpoint);
+  const isActiveAssistant = isStreaming && activeAssistantMessageId === message.id;
+
+  return (
+    <Message from={message.role}>
+      {view.assistantParts.map((part) =>
+        renderAssistantPart(part, view.assistantParts, isActiveAssistant),
+      )}
+      <MessageContent data-message-from={message.role}>
+        {view.content ? (
+          <>
+            <MessageResponse>{view.content}</MessageResponse>
+            {view.inlineSources.length > 0 ? (
+              <div className="flex items-center gap-1.5 py-2 text-xs text-muted-foreground">
+                <span>Source</span>
+                <Citations sources={view.inlineSources} />
+              </div>
+            ) : null}
+          </>
+        ) : isActiveAssistant ? null : view.attachments.length > 0 ? (
+          <span className="text-muted-foreground">Report ready.</span>
+        ) : null}
+      </MessageContent>
+      {view.attachments.length > 0 ? (
+        <Attachments className="w-full max-w-2xl">
+          {view.attachments.map((attachment) => (
+            <Attachment data={attachment} key={attachment.id}>
+              <AttachmentPreview />
+              <AttachmentInfo />
+              <AttachmentAction />
+            </Attachment>
+          ))}
+        </Attachments>
+      ) : null}
+    </Message>
+  );
 };
 
 export function SideChatWidget(props: SideChatWidgetProps) {
@@ -1271,133 +1417,15 @@ export function SideChatWidget(props: SideChatWidgetProps) {
               title="How can I help?"
             />
           ) : (
-            chat.messages.map((message) => {
-              const assistantParts =
-                message.role === "assistant" ? getAssistantParts(message) : [];
-              const attachments =
-                message.role === "assistant"
-                  ? mergeAttachments([
-                      ...getMessageAttachments(assistantParts, apiEndpoint),
-                      ...getMetadataAttachments(
-                        message.metadata,
-                        apiEndpoint,
-                      ),
-                    ])
-                  : [];
-              const assistantContent =
-                message.role === "assistant"
-                  ? cleanReportResponseText(
-                      parseCitationMetadata(message.content).content,
-                      attachments.length > 0,
-                    )
-                  : message.content;
-              const persistedSources =
-                message.role === "assistant"
-                  ? [
-                      ...getMetadataSources(message.metadata),
-                      ...parseCitationMetadata(message.content).sources,
-                    ]
-                  : [];
-              const liveSources =
-                message.role === "assistant"
-                  ? assistantParts
-                      .filter(isToolPart)
-                      .filter((part) => part.status === "completed")
-                      .flatMap((part) => getToolSources(part.output))
-                  : [];
-              const inlineSources = selectInlineSources(assistantContent, [
-                ...persistedSources,
-                ...liveSources,
-              ]);
-              const isActiveAssistant =
-                message.role === "assistant" &&
-                chat.isStreaming &&
-                chat.activeAssistantMessageId === message.id;
-
-              return (
-                <Message from={message.role} key={message.id}>
-                  {message.role === "assistant"
-                    ? assistantParts.map((part) =>
-                        part.type === "reasoning" ? (
-                          <Reasoning
-                            isStreaming={
-                              chat.isStreaming &&
-                              chat.activeAssistantMessageId === message.id &&
-                              part === assistantParts.at(-1)
-                            }
-                            key={part.id}
-                          >
-                            {part.content}
-                          </Reasoning>
-                        ) : part.type === "host-command" ? (
-                          <div className="space-y-2" key={part.id}>
-                            <Tool
-                              toolName="host_command"
-                              displayName="Host surface command"
-                              status={getHostCommandToolStatus(part)}
-                              input={part.command}
-                              output={part.result}
-                              error={
-                                part.result?.status &&
-                                part.result.status !== "applied"
-                                  ? part.result.message
-                                  : undefined
-                              }
-                            />
-                          </div>
-                        ) : (
-                          <div className="space-y-2" key={part.id}>
-                            <Tool
-                              toolName={part.toolName}
-                              displayName={
-                                toolDisplayNames[part.toolName] ?? part.toolName
-                              }
-                              status={part.status}
-                              input={part.input}
-                              output={part.output}
-                              error={part.error}
-                            />
-                          </div>
-                        ),
-                      )
-                    : null}
-                  <MessageContent data-message-from={message.role}>
-                    {message.role === "assistant" ? (
-                      assistantContent ? (
-                        <>
-                          <MessageResponse>{assistantContent}</MessageResponse>
-                          {inlineSources.length > 0 ? (
-                            <div className="flex items-center gap-1.5 py-2 text-xs text-muted-foreground">
-                              <span>Source</span>
-                              <Citations sources={inlineSources} />
-                            </div>
-                          ) : null}
-                        </>
-                      ) : isActiveAssistant ? null : attachments.length > 0 ? (
-                        <span className="text-muted-foreground">
-                          Report ready.
-                        </span>
-                      ) : (
-                        null
-                      )
-                    ) : (
-                      message.content
-                    )}
-                  </MessageContent>
-                  {attachments.length > 0 ? (
-                    <Attachments className="w-full max-w-2xl">
-                      {attachments.map((attachment) => (
-                        <Attachment data={attachment} key={attachment.id}>
-                          <AttachmentPreview />
-                          <AttachmentInfo />
-                          <AttachmentAction />
-                        </Attachment>
-                      ))}
-                    </Attachments>
-                  ) : null}
-                </Message>
-              );
-            })
+            chat.messages.map((message) => (
+              <RenderedChatMessage
+                activeAssistantMessageId={chat.activeAssistantMessageId}
+                apiEndpoint={apiEndpoint}
+                isStreaming={chat.isStreaming}
+                key={message.id}
+                message={message}
+              />
+            ))
           )}
         </ConversationContent>
         <ConversationScrollToBottomSignal signal={scrollToBottomSignal} />

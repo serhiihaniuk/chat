@@ -12,6 +12,14 @@ export class Unauthorized extends SideChatDomainError {
     super("Unauthorized", "Workspace access denied");
   }
 }
+export class InvalidRequest extends SideChatDomainError {
+  constructor() {
+    super(
+      "InvalidRequest",
+      "workspaceId, message.content and model.id are required",
+    );
+  }
+}
 export class RateLimited extends SideChatDomainError {
   constructor() {
     super("RateLimited", "Rate limit exceeded", true);

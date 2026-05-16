@@ -4,7 +4,7 @@ import {
   hostCommandInputSchema,
   isCurrentSurfaceQuestion,
   toHostCommand,
-} from "../src/adapters/ai/openai-model.js";
+} from "#adapters/ai/openai-model.js";
 
 describe("openai model adapter", () => {
   it("uses a flat host command input schema that OpenAI tool calling accepts", () => {

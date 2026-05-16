@@ -4,15 +4,16 @@ import {
   selectInlineCitationSources,
   streamChat,
   streamChatEffect,
-} from "../src/application/stream-chat.js";
+} from "#application/stream-chat.js";
 import {
   BillingDenied,
+  InvalidRequest,
   ModelUnavailable,
   RateLimited,
   Unauthorized,
   UsageCaptureFailed,
-} from "../src/application/errors.js";
-import type { StreamChatDeps } from "../src/application/stream-chat.js";
+} from "#application/errors.js";
+import type { StreamChatDeps } from "#application/stream-chat.js";
 
 const collect = async (
   deps: StreamChatDeps,
@@ -110,6 +111,21 @@ describe("streamChat", () => {
     ]);
   });
 
+  it("decodes invalid request bodies as typed Effect application errors", async () => {
+    await expect(
+      Effect.runPromise(
+        streamChatEffect(baseDeps, {
+          requestId: "req-invalid-effect",
+          body: {
+            workspaceId: "",
+            message: { id: "msg-1", role: "user", content: "" },
+            model: { provider: "openai", id: "" },
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(InvalidRequest);
+  });
+
   it("emits started/delta/completed for a valid request", async () => {
     const events = await collect(baseDeps, validRequest);
     expect(events.map((e) => (e as { type: string }).type)).toEqual([
@@ -152,6 +168,31 @@ describe("streamChat", () => {
       type: "sidechat.host_command",
       commandId: "command-1",
     });
+  });
+
+  it("stops streaming after the first terminal model chunk", async () => {
+    const deps: StreamChatDeps = {
+      ...baseDeps,
+      model: {
+        async *stream() {
+          yield { kind: "delta", text: "Final answer." };
+          yield {
+            kind: "done",
+            finishReason: "stop",
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+          yield { kind: "delta", text: " late content" };
+        },
+      },
+    };
+
+    const events = await collect(deps, validRequest);
+
+    expect(events.map((event) => (event as { type: string }).type)).toEqual([
+      "sidechat.started",
+      "sidechat.delta",
+      "sidechat.completed",
+    ]);
   });
 
   it("records host command view state in the backend boundary", async () => {

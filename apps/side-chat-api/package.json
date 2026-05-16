@@ -2,10 +2,32 @@
   "name": "@side-chat/side-chat-api",
   "version": "0.1.0",
   "type": "module",
+  "imports": {
+    "#adapters/*.js": {
+      "types": "./src/adapters/*.ts",
+      "development": "./src/adapters/*.ts",
+      "default": "./dist/adapters/*.js"
+    },
+    "#application/*.js": {
+      "types": "./src/application/*.ts",
+      "development": "./src/application/*.ts",
+      "default": "./dist/application/*.js"
+    },
+    "#inbound/*.js": {
+      "types": "./src/inbound/*.ts",
+      "development": "./src/inbound/*.ts",
+      "default": "./dist/inbound/*.js"
+    },
+    "#ports/*.js": {
+      "types": "./src/ports/*.ts",
+      "development": "./src/ports/*.ts",
+      "default": "./dist/ports/*.js"
+    }
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "tsx src/server.ts",
+    "dev": "node --conditions=development --import tsx src/server.ts",
     "build": "tsc -b"
   },
   "dependencies": {

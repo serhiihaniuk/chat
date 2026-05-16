@@ -15,9 +15,9 @@ import {
   workbenchQueryNames,
   type ModelPort,
   type ModelRequest,
-} from "../../ports/index.js";
+} from "#ports/index.js";
 import type { TokenUsage } from "@side-chat/shared-protocol";
-import { createModelInput } from "../../application/prompt-context.js";
+import { createModelInput } from "#application/prompt-context.js";
 
 const asError = (error: unknown) => {
   if (error instanceof Error) return error;
@@ -245,6 +245,69 @@ const parseHostFilterScalar = (value: string) => {
   return normalized;
 };
 
+type ResolveHostColumnId = (columnId: string) => string;
+
+const toGridFilter = (
+  filter: HostCommandToolInput["filters"][number],
+  resolveColumnId: ResolveHostColumnId,
+) => {
+  const value = parseHostFilterValue(filter.operator, filter.value);
+  const baseFilter = {
+    columnId: resolveColumnId(filter.columnId),
+    operator: filter.operator,
+  };
+
+  if (value === undefined) return baseFilter;
+  return { ...baseFilter, value };
+};
+
+const toGridSortRule = (
+  sort: HostCommandToolInput["sort"][number],
+  resolveColumnId: ResolveHostColumnId,
+) => ({
+  ...sort,
+  columnId: resolveColumnId(sort.columnId),
+});
+
+const createApplyGridViewCommand = (
+  input: HostCommandToolInput,
+  resourceId: string,
+  resolveColumnId: ResolveHostColumnId,
+) => ({
+  type: "grid.applyView" as const,
+  resourceId,
+  view: {
+    filters: input.filters.map((filter) =>
+      toGridFilter(filter, resolveColumnId),
+    ),
+    sort: input.sort.map((sort) => toGridSortRule(sort, resolveColumnId)),
+    highlightRowIds: input.highlightRowIds,
+  },
+});
+
+const createHostCommand = (
+  input: HostCommandToolInput,
+  resourceId: string,
+  resolveColumnId: ResolveHostColumnId,
+) => {
+  switch (input.action) {
+    case "clear_grid_view":
+      return {
+        type: "grid.clearView" as const,
+        resourceId,
+      };
+
+    case "focus_resource":
+      return {
+        type: "ui.focusResource" as const,
+        resourceId,
+      };
+
+    case "apply_grid_view":
+      return createApplyGridViewCommand(input, resourceId, resolveColumnId);
+  }
+};
+
 export const toHostCommand = (
   input: HostCommandToolInput,
   hostContext?: HostContextSnapshot,
@@ -260,44 +323,7 @@ export const toHostCommand = (
     return resolved ?? columnId;
   };
 
-  const command =
-    input.action === "clear_grid_view"
-      ? {
-          type: "grid.clearView" as const,
-          resourceId,
-        }
-      : input.action === "focus_resource"
-        ? {
-            type: "ui.focusResource" as const,
-            resourceId,
-          }
-        : {
-            type: "grid.applyView" as const,
-            resourceId,
-            view: {
-              filters: input.filters.map((filter) => {
-                const value = parseHostFilterValue(
-                  filter.operator,
-                  filter.value,
-                );
-                return value === undefined
-                  ? {
-                      columnId: resolveColumnId(filter.columnId),
-                      operator: filter.operator,
-                    }
-                  : {
-                      columnId: resolveColumnId(filter.columnId),
-                      operator: filter.operator,
-                      value,
-                    };
-              }),
-              sort: input.sort.map((sort) => ({
-                ...sort,
-                columnId: resolveColumnId(sort.columnId),
-              })),
-              highlightRowIds: input.highlightRowIds,
-            },
-          };
+  const command = createHostCommand(input, resourceId, resolveColumnId);
 
   return HostCommandSchema.parse(command);
 };

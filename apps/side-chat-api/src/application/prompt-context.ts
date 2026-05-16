@@ -1,4 +1,4 @@
-import type { ModelRequest } from "../ports/index.js";
+import type { ModelRequest } from "#ports/index.js";
 
 const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
 const maxRecentMessages = 12;
@@ -12,6 +12,12 @@ type SurfaceContextForPrompt = NonNullable<
   ModelRequest["surfaceContexts"]
 >[number];
 type SurfaceContextRowForPrompt = SurfaceContextForPrompt["rows"][number];
+type HostResourceForPrompt = NonNullable<
+  NonNullable<ModelRequest["hostContext"]>["resources"]
+>[number];
+type HostCapabilityForPrompt = NonNullable<
+  NonNullable<ModelRequest["hostContext"]>["capabilities"]
+>[number];
 
 export const workbenchAssistantSystemPrompt = [
   "You are Workspace Assistant for the UBS Partner Advisory Workbench.",
@@ -62,30 +68,12 @@ const formatHostContext = (request: ModelRequest): string | undefined => {
   const context = request.hostContext;
   if (!context) return undefined;
 
-  const resourceLines = (context.resources ?? []).slice(0, 12).map((resource) => {
-    const columns = (resource.columns ?? [])
-      .slice(0, 12)
-      .map((column) => `${column.label} (${column.type})`)
-      .join(", ");
-    const rowCount =
-      typeof resource.rowCount === "number"
-        ? `, ${resource.rowCount} rows`
-        : "";
-    return `- ${normalizeWhitespace(resource.label)} [${resource.kind}${rowCount}]${
-      columns ? ` columns: ${columns}` : ""
-    }`;
-  });
-
+  const resourceLines = (context.resources ?? [])
+    .slice(0, 12)
+    .map(formatHostResource);
   const capabilityLines = (context.capabilities ?? [])
     .slice(0, 12)
-    .map(
-      (capability) =>
-        `- ${normalizeWhitespace(capability.label)}${
-          capability.commandTypes?.length
-            ? ` (${capability.commandTypes.join(", ")})`
-            : ""
-        }`,
-    );
+    .map(formatHostCapability);
 
   const lines = [
     `Page: ${normalizeWhitespace(context.title)}`,
@@ -102,6 +90,28 @@ const formatHostContext = (request: ModelRequest): string | undefined => {
   ].filter((line): line is string => Boolean(line));
 
   return lines.length > 0 ? lines.join("\n") : undefined;
+};
+
+const formatHostResource = (resource: HostResourceForPrompt) => {
+  const columns = (resource.columns ?? [])
+    .slice(0, 12)
+    .map((column) => `${column.label} (${column.type})`)
+    .join(", ");
+  const rowCount = formatHostResourceRowCount(resource.rowCount);
+  const columnSummary = columns ? ` columns: ${columns}` : "";
+
+  return `- ${normalizeWhitespace(resource.label)} [${resource.kind}${rowCount}]${columnSummary}`;
+};
+
+const formatHostResourceRowCount = (rowCount: unknown) => {
+  if (typeof rowCount !== "number") return "";
+  return `, ${rowCount} rows`;
+};
+
+const formatHostCapability = (capability: HostCapabilityForPrompt) => {
+  const commandTypes = capability.commandTypes?.join(", ");
+  const commandSummary = commandTypes ? ` (${commandTypes})` : "";
+  return `- ${normalizeWhitespace(capability.label)}${commandSummary}`;
 };
 
 const formatSurfaceContexts = (request: ModelRequest): string | undefined => {
@@ -156,11 +166,13 @@ const formatSurfaceSort = (sort: SurfaceContextForPrompt["sort"]) => {
   if (!sort || sort.length === 0) return undefined;
   return sort
     .slice(0, 6)
-    .map(
-      (item) =>
-        `${item.columnId} ${item.direction === "asc" ? "ascending" : "descending"}`,
-    )
+    .map((item) => `${item.columnId} ${formatSortDirection(item.direction)}`)
     .join("; ");
+};
+
+const formatSortDirection = (direction: "asc" | "desc") => {
+  if (direction === "asc") return "ascending";
+  return "descending";
 };
 
 const formatSurfaceRow = (row: SurfaceContextRowForPrompt, index: number) => {
@@ -171,19 +183,22 @@ const formatSurfaceRow = (row: SurfaceContextRowForPrompt, index: number) => {
   return `    ${index + 1}. ${normalizeWhitespace(row.label)} (${row.id}): ${cells}`;
 };
 
+const surfaceOperatorLabels: Record<string, string> = {
+  equals: "=",
+  notEquals: "!=",
+  contains: "contains",
+  startsWith: "starts with",
+  endsWith: "ends with",
+  greaterThan: ">",
+  greaterThanOrEqual: ">=",
+  lessThan: "<",
+  lessThanOrEqual: "<=",
+  between: "between",
+  in: "in",
+};
+
 const formatSurfaceOperator = (operator: string) => {
-  if (operator === "equals") return "=";
-  if (operator === "notEquals") return "!=";
-  if (operator === "contains") return "contains";
-  if (operator === "startsWith") return "starts with";
-  if (operator === "endsWith") return "ends with";
-  if (operator === "greaterThan") return ">";
-  if (operator === "greaterThanOrEqual") return ">=";
-  if (operator === "lessThan") return "<";
-  if (operator === "lessThanOrEqual") return "<=";
-  if (operator === "between") return "between";
-  if (operator === "in") return "in";
-  return operator;
+  return surfaceOperatorLabels[operator] ?? operator;
 };
 
 const formatSurfaceValue = (value: unknown): string => {
@@ -213,9 +228,9 @@ const formatRecentConversation = (request: ModelRequest): string | undefined => 
   if (messages.length === 0) return undefined;
 
   const formatted = messages.join("\n");
-  return formatted.length <= maxRecentConversationCharacters
-    ? formatted
-    : `…${formatted.slice(-maxRecentConversationCharacters)}`;
+  if (formatted.length <= maxRecentConversationCharacters) return formatted;
+
+  return `…${formatted.slice(-maxRecentConversationCharacters)}`;
 };
 
 export const createModelPrompt = (request: ModelRequest): string => {

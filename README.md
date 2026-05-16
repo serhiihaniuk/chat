@@ -1,148 +1,228 @@
-# side-chat
+# Workbench Side-Chat Assistant
 
-Side-chat assistant monorepo with a Hono backend, reusable React widget, embedded host app, shared streaming protocol, and Postgres boundary package.
+A production-shaped TypeScript foundation for an AI side-chat embedded inside a Workbench-style application.
 
-## Workspace topology
+The demo app is a UBS Partner advisory workbench with a reusable side-chat widget, a typed streaming protocol, a Hono/Effect backend, AI SDK provider adapters, and Postgres-backed dashboard data behind stored procedures.
 
-- `apps/side-chat-api` — Hono inbound adapter and streaming chat application.
-- `apps/embedded-host-app` — Vite host app used by Playwright end-to-end checks.
-- `apps/widget-demo` — standalone Vite widget demo.
-- `packages/side-chat-widget` — reusable React widget package.
-- `packages/shared-protocol` — `sidechat.v1` DTOs, SSE helpers, contracts, and sequence validation.
-- `packages/db` — Postgres stored-procedure boundary wrapper.
-- `docker/postgres/init/001_schema.sql` — schema, functions, grants, and stored-procedure boundary.
-- `docker/postgres/init/002_seed.sql` — deterministic demo conversation seed data.
+## What This App Proves
+
+This project exists to demonstrate one architecture argument:
+
+For a ChatGPT-like assistant embedded in a product UI, the hard part is not only calling a model. The hard part is the product protocol between the browser and the backend.
+
+That protocol has to handle:
+
+- streaming assistant text
+- reasoning/status blocks
+- tool-call states
+- citations and sources
+- host UI commands
+- usage metadata
+- provider switching
+- retries and errors
+- typed frontend/backend contracts
+
+The repo keeps that browser-facing contract in Node.js/TypeScript as `sidechat.v1`. AI SDK is used where it is strongest: inside the provider adapter. A future Python/LangGraph service can sit behind this boundary for RAG or complex agent workflows, but it should not accidentally become the UI-facing chat protocol.
+
+For the full architecture explanation, read [SYSTEM-DESIGN.md](./SYSTEM-DESIGN.md).
+
+## Demo Surface
+
+The main demo is `apps/embedded-host-app`: a single-page UBS Partner advisory workbench.
+
+It shows:
+
+- a realistic dashboard surface with client portfolio review data
+- a reusable `@side-chat/side-chat-widget` embedded into the host
+- host context passed into the assistant
+- streamed assistant responses through `sidechat.v1`
+- reasoning, tool, citation, and host-command event types
+- dashboard data served through a separate read-only API
+- Postgres data access isolated behind `packages/db`
+
+The demo intentionally uses one fixed conversation id for now: `demo-conversation-001`.
+
+## Workspace Topology
+
+```txt
+apps/
+  side-chat-api/        Hono chat API, application use case, Effect boundary, AI SDK adapter
+  dashboard-data-api/   read-only dashboard data API for the host app
+  embedded-host-app/    UBS Partner host app consuming the widget package
+  widget-demo/          isolated widget playground
+packages/
+  shared-protocol/      sidechat.v1 DTOs, schemas, SSE codec, sequence validation
+  side-chat-widget/     reusable React side-chat widget package
+  db/                   Postgres stored-procedure/function access
+docker/postgres/init/   schema and deterministic seed data
+```
+
+This is an npm workspace monorepo. Do not use pnpm for this repo.
+
+## Architecture In One Screen
+
+```txt
+Embedded Workbench Host
+  -> @side-chat/side-chat-widget
+    -> @side-chat/shared-protocol (sidechat.v1)
+      -> apps/side-chat-api Hono inbound adapter
+        -> streamChat application use case
+          -> ports
+            -> AI SDK model adapter
+            -> conversation/usage repository
+            -> Workbench tools adapter
+            -> report adapter
+            -> auth/rate/billing/observability adapters
+
+Host dashboard
+  -> apps/dashboard-data-api
+    -> packages/db
+      -> Postgres stored procedures/functions
+```
+
+The important rule: the browser consumes `sidechat.v1`, not provider stream parts from AI SDK or OpenAI.
 
 ## Requirements
 
-- Node.js 24+ (verified locally with npm 11).
-- npm for dependency installation from the checked-in `package-lock.json`.
-- npm workspace scripts from the root `package.json` after dependencies are installed.
-- Docker and Docker Compose for Postgres/API container checks.
-- Playwright browser dependencies for `npm run test:e2e`.
+- Node.js 24+ with npm 11+
+- Docker and Docker Compose for Postgres-backed demo data
+- Playwright browser dependencies for `npm run test:e2e`
+- An OpenAI API key only when running real provider requests
 
-This repository uses npm workspaces for dependency installation and workspace links. Use `npm install` from the repository root, then run the documented npm scripts from the root when you need to match the script names used by Docker/Playwright configuration.
-
-## Install
+Install dependencies from the repository root:
 
 ```sh
 npm install
 ```
 
-## Root commands
+## Run The Full Demo
 
-Run these from the repository root:
+Start Postgres:
 
 ```sh
-npm run lint          # governance boundary/dependency/static checks
-npm run typecheck     # tsc -b across the workspace
-npm test              # vitest run
-npm run test:e2e      # Playwright against API + embedded host web servers
-npm run build         # tsc -b
-npm run verify        # lint + typecheck + vitest
+docker compose up -d postgres
 ```
 
-Workspace-specific commands:
+Start the side-chat API with real provider requests:
 
 ```sh
+DATABASE_URL=postgres://sidechat_app:sidechat_app@127.0.0.1:5432/sidechat \
+SIDE_CHAT_MODEL_ADAPTER=openai \
+OPENAI_API_KEY="$OPENAI_API_KEY" \
 npm run dev --workspace @side-chat/side-chat-api
-npm run dev --workspace @side-chat/widget-demo
-npm run dev --workspace @side-chat/embedded-host-app
-npm run test:e2e --workspace @side-chat/embedded-host-app
-npm run build --workspace @side-chat/side-chat-api
-npm run build --workspace @side-chat/db
-npm run build --workspace @side-chat/shared-protocol
-npm run build --workspace @side-chat/side-chat-widget
 ```
 
-## Local app URLs
+Start the dashboard data API:
 
-Default local ports:
+```sh
+DATABASE_URL=postgres://sidechat_app:sidechat_app@127.0.0.1:5432/sidechat \
+PORT=3100 \
+npm run dev --workspace @side-chat/dashboard-data-api
+```
 
-- API health: `http://127.0.0.1:3000/health`
-- API stream endpoint: `POST http://127.0.0.1:3000/chat/stream`
-- Embedded host app: `http://127.0.0.1:5173`
-- Widget demo: Vite prints its chosen URL; use `-- --host 127.0.0.1` for loopback-only runs.
+Start the embedded host app:
 
-`npm run test:e2e` starts the API and embedded host through Playwright web servers. It reuses existing servers when present, so clean stale ports before relying on e2e evidence.
+```sh
+npm run dev --workspace @side-chat/embedded-host-app -- --host 127.0.0.1
+```
 
-## Environment variables
+Open:
 
-Backend/runtime variables:
+```txt
+http://127.0.0.1:5173
+```
 
-| Variable | Default | Purpose |
+The Vite host proxies chat routes to `http://127.0.0.1:3000` and dashboard routes to `http://127.0.0.1:3100`.
+
+## Other Local Modes
+
+| Mode | Use when | Command |
 | --- | --- | --- |
-| `PORT` | `3000` | API listen port for `apps/side-chat-api/src/server.ts`. |
-| `SIDE_CHAT_MODEL_ADAPTER` | fake adapter unless set to `openai` with a key | Selects the OpenAI adapter only when `SIDE_CHAT_MODEL_ADAPTER=openai` and `OPENAI_API_KEY` is present. |
-| `OPENAI_API_KEY` | unset | Required only for the OpenAI model adapter. Tests and local deterministic runs should omit it. |
-| `SIDE_CHAT_DEFAULT_USER_ID` | `local-user` | User id supplied to application ports when no auth layer is present. |
-| `DATABASE_URL` | unset in the root dev command; set in Docker Compose | Postgres connection string for DB-backed runtime integration when that lane is wired in. |
-| `USE_FAKE_MODEL` | `true` in Docker Compose | Keeps container runs deterministic. |
+| Deterministic chat | You want no provider credentials and stable local output | `USE_FAKE_MODEL=true npm run dev --workspace @side-chat/side-chat-api` |
+| Widget demo | You want to inspect the reusable widget outside the host app | `npm run dev --workspace @side-chat/widget-demo -- --host 127.0.0.1` |
+| Playwright e2e | You want automated browser coverage for the integrated host path | `npm run test:e2e` |
+| Docker API smoke | You want Postgres plus side-chat API in containers | `docker compose up --build` |
 
-Docker Compose sets:
+`docker compose up --build` starts Postgres and the side-chat API. It passes `SIDE_CHAT_MODEL_ADAPTER=openai` and `USE_FAKE_MODEL=false`, so real stream calls need `OPENAI_API_KEY` in the shell environment. Health checks and DB startup can still be inspected without sending a chat request.
 
-```sh
-DATABASE_URL=postgres://sidechat_app:sidechat_app@postgres:5432/sidechat
-USE_FAKE_MODEL=true
-```
+## Local URLs
 
-## Docker/Postgres workflow
+| Surface | URL |
+| --- | --- |
+| Embedded host app | `http://127.0.0.1:5173` |
+| Side-chat health | `http://127.0.0.1:3000/health` |
+| Side-chat stream | `POST http://127.0.0.1:3000/chat/stream` |
+| Side-chat models | `http://127.0.0.1:3000/models` |
+| Dashboard health | `http://127.0.0.1:3100/dashboard-health` |
+| Dashboard snapshot | `http://127.0.0.1:3100/advisory-dashboard/snapshot` |
 
-Start the API plus Postgres:
+## Environment Variables
 
-```sh
-docker compose up --build
-```
+| Variable | Default | Used by | Purpose |
+| --- | --- | --- | --- |
+| `PORT` | `3000` for side-chat API, `3100` for dashboard API | API apps | Listen port. |
+| `DATABASE_URL` | unset for side-chat API, local Postgres default for dashboard API | API apps | Enables Postgres-backed repositories and dashboard data. |
+| `SIDE_CHAT_MODEL_ADAPTER` | unset | side-chat API | Set to `openai` to use the OpenAI adapter. |
+| `OPENAI_API_KEY` | unset | side-chat API | Required for real OpenAI requests. |
+| `USE_FAKE_MODEL` | `false` outside tests | side-chat API | Set to `true` for deterministic local responses. |
+| `SIDE_CHAT_DEFAULT_USER_ID` | `local-user` | side-chat API | User id used until a real auth adapter exists. |
+| `SIDE_CHAT_ALLOWED_WORKSPACE_IDS` | unset | side-chat API | Optional comma-separated workspace allowlist. |
+| `SIDE_CHAT_BLOCKED_WORKSPACE_IDS` | unset | side-chat API | Optional comma-separated workspace blocklist. |
+| `SIDE_CHAT_RATE_LIMITING_ENABLED` | `true` | side-chat API | Enables the current placeholder rate-limit port. |
+| `SIDE_CHAT_BILLING_ENABLED` | `true` | side-chat API | Enables the current placeholder billing port. |
+| `DASHBOARD_DATA_SOURCE` | `postgres` | dashboard data API tests/config | Can be `postgres` or `fixture`; fixture mode is for deterministic e2e. |
+| `SIDE_CHAT_API_PROXY_TARGET` | `http://127.0.0.1:3000` | embedded host dev server | Overrides the Vite proxy target for chat routes. |
 
-Compose uses Postgres 16 and mounts the repository into the Node API container. The API container copies the mounted source to `/tmp/sidechat`, runs `npm ci`, and starts `@side-chat/side-chat-api` from that copy so container dependency installation does not mutate host `node_modules`. Treat a fresh `docker compose up --build` smoke as required release evidence instead of assuming local `node_modules` proves the container path.
+## Verification
 
-Run in the background:
-
-```sh
-docker compose up --build -d
-```
-
-Reset the database and containers:
-
-```sh
-docker compose down -v --remove-orphans
-docker compose up --build
-```
-
-Cleanup after verification:
-
-```sh
-docker compose down --remove-orphans
-# include -v when you intentionally want to remove the Postgres volume:
-docker compose down -v --remove-orphans
-```
-
-Current Docker release checks: confirm `docker compose up --build` starts both services, `GET /health` succeeds through port `3000`, the seeded history endpoint can read `demo-conversation-001`, and cleanup leaves no listener on `5432`.
-
-## No-dev-server cleanup expectation
-
-Do not leave local API, Vite, Playwright, or Docker servers running after manual verification. Before final handoff, check the usual ports and Compose state:
+Run the broad local gate:
 
 ```sh
-lsof -nP -iTCP:3000 -sTCP:LISTEN
-lsof -nP -iTCP:5173 -sTCP:LISTEN
-lsof -nP -iTCP:5432 -sTCP:LISTEN
-docker compose ps
+npm run verify
 ```
 
-Stop leftovers with the owning terminal, Playwright cleanup, or Docker Compose cleanup commands above. Do not kill unrelated processes without confirming ownership. Playwright may reuse existing servers, so verify ports `3000` and `5173` are clear before relying on e2e evidence.
+Individual commands:
 
-## Protocol and governance
+```sh
+npm run lint          # governance and architecture boundary checks
+npm run typecheck     # TypeScript project references
+npm test              # Vitest
+npm run build         # tsc -b
+npm run test:e2e      # Playwright integrated host path
+```
 
-- Streaming protocol version: `sidechat.v1`.
+`npm run lint` is more than formatting. It enforces dependency pins, naming constraints, Hono/AI SDK/pg import boundaries, shared protocol isolation, AI Elements packaging constraints, and stored-procedure DB rules.
+
+## Protocol And Boundaries
+
+- Protocol version: `sidechat.v1`.
 - Required request header: `X-Sidechat-Protocol: sidechat.v1`.
 - Stream endpoint: `POST /chat/stream` with `Accept: text/event-stream`.
-- Governance check: `npm run lint` enforces dependency pins, naming constraints, package boundaries, Hono/AI SDK/pg import boundaries, shared protocol isolation, and required stored procedures.
-- More governance detail lives in `docs/governance-and-verification.md`.
+- The widget consumes shared protocol events, not AI SDK provider stream parts.
+- Hono imports belong under side-chat API inbound adapters.
+- AI SDK runtime imports belong under side-chat API AI adapters.
+- `pg` imports belong in `packages/db` and explicit test/migration harnesses.
+- Runtime DB access goes through stored procedures/functions.
+- The embedded host consumes `@side-chat/side-chat-widget`; it must not import widget internals.
+- The browser must not connect directly to Postgres.
 
-## Known residual limitations
+## Current Transition States
 
-- DB persistence is wired when `DATABASE_URL` is set, but final release evidence should still include a live Docker/Postgres smoke because most unit tests mock the database executor.
-- The standalone widget demo is documented and bootable, but automated browser regression coverage currently focuses on the embedded host app.
-- Effect usage exists as an application-layer spike; deeper Effect v4 composition is still a larger follow-up.
-- Real OpenAI calls require explicit environment configuration and are intentionally not part of deterministic CI/local verification.
+The app is feature-complete enough for the current demo, but some boundaries are intentionally still visible as transition points:
+
+- The chat API currently builds a `WorkbenchToolsPort` that can read the same advisory data used by the host dashboard. That is explicit and acceptable for the monorepo demo, but it is still a boundary to watch.
+- Effect is present at the request boundary and as a narrow workflow spike. It is not yet a full service/layer rewrite.
+- The model picker is a demo affordance, not a full provider-management product.
+- The fixed demo conversation is intentional for now.
+- Real provider requests require explicit environment configuration and are not part of deterministic CI evidence.
+
+## Documentation Map
+
+- [SYSTEM-DESIGN.md](./SYSTEM-DESIGN.md): canonical architecture and first-principles explanation.
+- [docs/CONTEXT.md](./docs/CONTEXT.md): compact durable context index.
+- [docs/architecture/current.md](./docs/architecture/current.md): brownfield implementation map.
+- [docs/architecture/transition-roadmap.md](./docs/architecture/transition-roadmap.md): refactor path and stop rules.
+- [docs/learning/hexagonal-architecture.md](./docs/learning/hexagonal-architecture.md): ports/adapters primer.
+- [docs/learning/effect-ts.md](./docs/learning/effect-ts.md): Effect TS primer.
+- [docs/learning/ai-sdk-streaming-and-tools.md](./docs/learning/ai-sdk-streaming-and-tools.md): AI SDK stream/tool primer.
+- [docs/learning/frontend-backend-boundaries.md](./docs/learning/frontend-backend-boundaries.md): widget, host, and protocol boundary primer.

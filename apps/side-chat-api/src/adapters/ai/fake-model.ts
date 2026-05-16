@@ -2,7 +2,7 @@ import type {
   ModelPort,
   WorkbenchQueryName,
   WorkbenchReportInput,
-} from "../../ports/index.js";
+} from "#ports/index.js";
 import type { HostCommand } from "@side-chat/shared-protocol";
 
 export type FakeModelAdapterOptions = {

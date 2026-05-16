@@ -1,4 +1,5 @@
 import { Effect } from "effect";
 
-export const runEffectBoundary = <T>(run: () => Promise<T>): Promise<T> =>
-  Effect.runPromise(Effect.tryPromise({ try: run, catch: (error) => error }));
+export const runEffectBoundary = <Success, Error>(
+  program: Effect.Effect<Success, Error, never>,
+): Promise<Success> => Effect.runPromise(program);

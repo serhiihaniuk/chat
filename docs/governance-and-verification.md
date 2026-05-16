@@ -30,6 +30,19 @@ npm run test:e2e
 
 `npm test` follows the root Vitest include pattern (`packages/**/*.test.ts` and `apps/**/*.test.ts`), including the DB stored-procedure protocol regression at `packages/db/tests/db-protocol.test.ts`.
 
+## Code-quality inventory
+
+`npm run quality:inventory` is a report-only smell inventory for the current architecture cleanup lane. It prints line count, `if` count, ternary count, maximum nesting proxies, and long or decision-heavy functions for the files most likely to drift.
+
+This is intentionally not part of `npm run lint` yet. The rule is:
+
+- first add or preserve regression tests for behavior;
+- then extract pure projection/mapping helpers at real boundaries;
+- then use the inventory to check whether touched files are getting simpler;
+- only later consider a fail-on-regression gate for touched files.
+
+Treat the numbers as review prompts, not design law. A long UI composition can be acceptable during a transition; a nested provider adapter mapper is more suspicious because it hides protocol translation policy.
+
 If e2e fails because required browser binaries are missing, install Playwright browsers in the local environment and rerun. If e2e fails because ports are occupied, identify and stop only the process that belongs to this repo before rerunning. Playwright is configured to reuse existing servers, so preflight ports before treating e2e as fresh evidence.
 
 ## Dev-server cleanup evidence

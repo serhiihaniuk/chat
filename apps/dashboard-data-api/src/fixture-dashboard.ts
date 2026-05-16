@@ -1,0 +1,206 @@
+import type { AdvisoryDashboardSnapshot } from "@side-chat/db";
+
+import type { AdvisoryDashboardReader } from "./advisory-dashboard-port.js";
+
+const createFixtureSnapshot = (
+  workspaceId: string,
+): AdvisoryDashboardSnapshot => ({
+  workspaceId,
+  asOfDate: "2025-06-30",
+  dateRange: {
+    from: "2025-04-01",
+    to: "2025-06-30",
+    label: "Apr 1 - Jun 30, 2025",
+  },
+  kpis: [
+    {
+      id: "kpi-total-aum",
+      label: "Total AUM",
+      value: "CHF 24.8B",
+      delta: "+4.2% QoQ",
+      trend: "positive",
+      sortOrder: 1,
+    },
+    {
+      id: "kpi-net-new-money",
+      label: "Net New Money",
+      value: "CHF 562M",
+      delta: "+CHF 118M",
+      trend: "positive",
+      sortOrder: 2,
+    },
+    {
+      id: "kpi-advisory-coverage",
+      label: "Advisory Coverage",
+      value: "78%",
+      delta: "+6 pp",
+      trend: "positive",
+      sortOrder: 3,
+    },
+    {
+      id: "kpi-at-risk-accounts",
+      label: "At-Risk Accounts",
+      value: "52",
+      delta: "+8 this week",
+      trend: "negative",
+      sortOrder: 4,
+    },
+    {
+      id: "kpi-client-meetings",
+      label: "Client Meetings",
+      value: "212",
+      delta: "+18 planned",
+      trend: "positive",
+      sortOrder: 5,
+    },
+    {
+      id: "kpi-compliance-alerts",
+      label: "Compliance Alerts",
+      value: "7",
+      delta: "-3 cleared",
+      trend: "positive",
+      sortOrder: 6,
+    },
+  ],
+  clientPortfolioReview: [
+    {
+      id: "review-ackermann-family-office",
+      clientId: "client-ackermann-family-office",
+      client: "Ackermann Family Office",
+      segment: "UHNW",
+      aumChf: 3_428_000_000,
+      netFlow30dChf: 118_000_000,
+      riskProfile: "Balanced",
+      suitabilityScore: 92,
+      coverageStatus: "Covered",
+      lastReview: "2025-06-12",
+      relationshipManager: "S. Meier",
+      nextAction: "Portfolio review",
+      hasAlert: false,
+    },
+    {
+      id: "review-bauhaus-enterprises-ag",
+      clientId: "client-bauhaus-enterprises-ag",
+      client: "Bauhaus Enterprises AG",
+      segment: "Corporate",
+      aumChf: 1_980_000_000,
+      netFlow30dChf: 72_000_000,
+      riskProfile: "Moderate",
+      suitabilityScore: 86,
+      coverageStatus: "Covered",
+      lastReview: "2025-06-18",
+      relationshipManager: "M. Keller",
+      nextAction: "Cash sweep",
+      hasAlert: false,
+    },
+    {
+      id: "review-chen-private-wealth",
+      clientId: "client-chen-private-wealth",
+      client: "Chen Private Wealth",
+      segment: "HNW",
+      aumChf: 1_450_000_000,
+      netFlow30dChf: -24_000_000,
+      riskProfile: "Growth",
+      suitabilityScore: 78,
+      coverageStatus: "Watch",
+      lastReview: "2025-05-28",
+      relationshipManager: "L. Rossi",
+      nextAction: "Rebalance",
+      hasAlert: true,
+    },
+    {
+      id: "review-global-medtech-inc",
+      clientId: "client-global-medtech-inc",
+      client: "Global MedTech Inc.",
+      segment: "Corporate",
+      aumChf: 654_000_000,
+      netFlow30dChf: -41_000_000,
+      riskProfile: "Balanced",
+      suitabilityScore: 69,
+      coverageStatus: "At Risk",
+      lastReview: "2025-05-06",
+      relationshipManager: "R. Li",
+      nextAction: "Liquidity plan",
+      hasAlert: true,
+    },
+  ],
+  topRiskAccounts: [
+    {
+      id: "risk-global-medtech-liquidity-gap",
+      clientId: "client-global-medtech-inc",
+      client: "Global MedTech Inc.",
+      issue: "Liquidity gap",
+      exposureChf: 112_000_000,
+      priority: "High",
+      owner: "R. Li",
+      dueDate: "2025-06-30",
+    },
+    {
+      id: "risk-chen-equity-concentration",
+      clientId: "client-chen-private-wealth",
+      client: "Chen Private Wealth",
+      issue: "Equity concentration",
+      exposureChf: 46_000_000,
+      priority: "Medium",
+      owner: "L. Rossi",
+      dueDate: "2025-07-07",
+    },
+  ],
+  productAllocation: [
+    {
+      id: "allocation-equities",
+      assetClass: "Equities",
+      currentPercent: 48,
+      targetPercent: 50,
+      driftPp: -2,
+      recommendedAction: "Rebalance into target range",
+    },
+    {
+      id: "allocation-fixed-income",
+      assetClass: "Fixed Income",
+      currentPercent: 28,
+      targetPercent: 25,
+      driftPp: 3,
+      recommendedAction: "Review duration exposure",
+    },
+  ],
+  netNewMoneyTrend: [
+    {
+      id: "nnm-2025-04",
+      month: "2025-04",
+      label: "Apr '25",
+      netNewMoneyChf: 386_000_000,
+    },
+    {
+      id: "nnm-2025-05",
+      month: "2025-05",
+      label: "May '25",
+      netNewMoneyChf: 444_000_000,
+    },
+    {
+      id: "nnm-2025-06",
+      month: "2025-06",
+      label: "Jun '25",
+      netNewMoneyChf: 562_000_000,
+    },
+  ],
+});
+
+export const createFixtureAdvisoryDashboardReader =
+  (): AdvisoryDashboardReader => ({
+    async getAdvisoryDashboardSnapshot(workspaceId) {
+      return createFixtureSnapshot(workspaceId);
+    },
+    async listClientPortfolioReview(workspaceId) {
+      return createFixtureSnapshot(workspaceId).clientPortfolioReview;
+    },
+    async listTopRiskAccounts(workspaceId) {
+      return createFixtureSnapshot(workspaceId).topRiskAccounts;
+    },
+    async listProductAllocation(workspaceId) {
+      return createFixtureSnapshot(workspaceId).productAllocation;
+    },
+    async listNetNewMoneyTrend(workspaceId) {
+      return createFixtureSnapshot(workspaceId).netNewMoneyTrend;
+    },
+  });

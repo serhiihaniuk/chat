@@ -118,6 +118,21 @@ for (const file of files) {
       /(@\/|next\/|@ai-sdk\/react)/.test(text)
     )
       fail(`AI Elements component forbidden import: ${rel}`);
+    if (
+      rel.startsWith("apps/side-chat-api/src/application/") &&
+      /from ['"]#(adapters|inbound)\//.test(text)
+    )
+      fail(`side-chat application imports an outer layer: ${rel}`);
+    if (
+      rel.startsWith("apps/side-chat-api/src/ports/") &&
+      /from ['"]#(application|adapters|inbound)\//.test(text)
+    )
+      fail(`side-chat port imports an implementation layer: ${rel}`);
+    if (
+      rel.startsWith("apps/side-chat-api/src/adapters/") &&
+      /from ['"]#inbound\//.test(text)
+    )
+      fail(`side-chat adapter imports inbound HTTP layer: ${rel}`);
   }
 }
 const sql = readFileSync(

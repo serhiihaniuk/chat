@@ -4,7 +4,7 @@ import {
   protocolVersion,
   validateSidechatEventSequence,
 } from "@side-chat/shared-protocol";
-import { createApp } from "../src/inbound/hono/app.js";
+import { createApp } from "#inbound/hono/app.js";
 
 const dbPersistence = vi.hoisted(() => ({
   createPostgresSideChatPersistence: vi.fn(),

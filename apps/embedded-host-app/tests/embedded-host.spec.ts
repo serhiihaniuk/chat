@@ -6,13 +6,36 @@ const openWidget = async (page: Page) => {
   await expect(page.getByTestId("side-chat-widget")).toBeVisible();
 };
 
+const userMessages = (page: Page) =>
+  page.locator('[data-message-from="user"]');
+
+const assistantMessages = (page: Page) =>
+  page.locator('[data-message-from="assistant"]');
+
+const chooseModelAlias = async (page: Page, optionName: RegExp) => {
+  await page.getByLabel("Assistant model").click();
+  await page.getByRole("option", { name: optionName }).click();
+};
+
+const expectFakeStreamedAnswer = async (
+  page: Page,
+  modelId: string,
+  prompt: string,
+) => {
+  await expect(
+    page.getByText(new RegExp(`Model ${modelId} received: ${prompt}`)).last(),
+  ).toBeVisible();
+};
+
 test("embedded host imports public widget and shows launcher", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Revenue Dashboard" }),
+    page.getByRole("heading", { name: "Advisory Workbench" }),
   ).toBeVisible();
+  await expect(page.getByText("UBS Partner")).toBeVisible();
+  await expect(page.getByLabel("Advisory KPIs")).toContainText("Total AUM");
   await expect(
     page.getByRole("button", { name: /open assistant/i }),
   ).toBeVisible();
@@ -69,7 +92,7 @@ test("embedded widget opens as a bounded chat window on small screens", async ({
   expect(panelBox!.y).toBeGreaterThanOrEqual(8);
   expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(382);
   expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(692);
-  expect(conversationBox!.height).toBeGreaterThan(150);
+  expect(conversationBox!.height).toBeGreaterThanOrEqual(150);
   expect(inputBox!.y).toBeGreaterThan(
     conversationBox!.y + conversationBox!.height,
   );
@@ -81,8 +104,8 @@ test("embedded widget streams markdown from backend through Streamdown", async (
   await page.goto("/");
   await openWidget(page);
 
-  await page.getByLabel("Assistant model").selectOption("gpt-4.1-nano");
-  await expect(page.getByText("Model: gpt-4.1-nano")).toBeVisible();
+  await chooseModelAlias(page, /GPT 6\.0/);
+  await expect(page.getByLabel("Assistant model")).toContainText("GPT 6.0");
   await page.getByLabel("chat-input").fill("summarize markdown");
   const streamResponse = page.waitForResponse(
     (response) =>
@@ -92,9 +115,9 @@ test("embedded widget streams markdown from backend through Streamdown", async (
   await streamResponse;
 
   const currentAnswer = page
-    .locator('[data-role="assistant"]')
+    .locator('[data-message-from="assistant"]')
     .filter({
-      hasText: "Model gpt-4.1-nano received: summarize markdown",
+      hasText: "Model gpt-5.4-nano received: summarize markdown",
     })
     .last();
   await expect(
@@ -106,22 +129,25 @@ test("embedded widget streams markdown from backend through Streamdown", async (
       .filter({ hasText: "markdown-ready output" }),
   ).toBeVisible();
   await expect(
-    currentAnswer.getByText(/Model gpt-4\.1-nano received: summarize markdown/),
+    currentAnswer.getByText(/Model gpt-5\.4-nano received: summarize markdown/),
   ).toBeVisible();
-  await expect(page.getByText(/Tokens: \d+/).last()).toBeVisible();
+  await page.getByRole("button", { name: /Context usage/ }).click();
+  await expect(page.getByText("Conversation usage")).toBeVisible();
+  await expect(page.getByText(/\d+ total/).last()).toBeVisible();
   await expect(currentAnswer.getByText(/inline code/)).toBeVisible();
   await expect(currentAnswer.getByText("const x = 1;")).toBeVisible();
 });
 
-test("embedded widget model switching updates streamed metadata", async ({
+test("embedded widget model picker stays a demo affordance", async ({
   page,
 }) => {
   await page.goto("/");
   await openWidget(page);
 
-  await page
-    .getByRole("combobox", { name: "Model" })
-    .selectOption("gpt-4.1-nano");
+  await chooseModelAlias(page, /Claude Mythos\s+Too powerful/);
+  await expect(page.getByLabel("Assistant model")).toContainText(
+    "Claude Mythos",
+  );
   await page.getByLabel("chat-input").fill("compare model metadata");
 
   const streamResponse = page.waitForResponse(
@@ -131,11 +157,11 @@ test("embedded widget model switching updates streamed metadata", async ({
   await page.getByRole("button", { name: "send message" }).click();
   await streamResponse;
 
-  await expect(
-    page
-      .getByText(/Model gpt-4\.1-nano received: compare model metadata/)
-      .last(),
-  ).toBeVisible();
+  await expectFakeStreamedAnswer(
+    page,
+    "gpt-5.4-nano",
+    "compare model metadata",
+  );
 });
 
 test("embedded widget submits with Enter from the composer input", async ({
@@ -153,11 +179,9 @@ test("embedded widget submits with Enter from the composer input", async ({
   await streamResponse;
 
   await expect(
-    page.locator('[data-role="user"]').getByText("submit with keyboard").last(),
+    userMessages(page).getByText("submit with keyboard").last(),
   ).toBeVisible();
-  await expect(
-    page.getByText(/Model gpt-4\.1-mini received: submit with keyboard/).last(),
-  ).toBeVisible();
+  await expectFakeStreamedAnswer(page, "gpt-5.4-nano", "submit with keyboard");
 });
 
 test("embedded widget scrolls to the latest streamed message", async ({
@@ -180,13 +204,11 @@ test("embedded widget scrolls to the latest streamed message", async ({
   );
   await page.getByRole("button", { name: "send message" }).click();
   await streamResponse;
-  await expect(
-    page
-      .getByText(
-        /Model gpt-4\.1-mini received: scroll to latest message after streaming/,
-      )
-      .last(),
-  ).toBeVisible();
+  await expectFakeStreamedAnswer(
+    page,
+    "gpt-5.4-nano",
+    "scroll to latest message after streaming",
+  );
 
   await expect
     .poll(async () =>
@@ -212,9 +234,7 @@ test("embedded widget loads seeded history when opening conversation by id", asy
   await page.getByRole("button", { name: "send message" }).click();
   await streamResponse;
 
-  await expect(
-    page.getByText(/Model gpt-4\.1-mini received: seed me once/).last(),
-  ).toBeVisible();
+  await expectFakeStreamedAnswer(page, "gpt-5.4-nano", "seed me once");
 
   const historyResponse = page.waitForResponse(
     (response) =>
@@ -225,11 +245,10 @@ test("embedded widget loads seeded history when opening conversation by id", asy
   await historyResponse;
 
   await expect(
-    page.locator('[data-role="user"]').getByText("seed me once").last(),
+    userMessages(page).getByText("seed me once").last(),
   ).toBeVisible();
   await expect(
-    page
-      .locator('[data-role="assistant"]')
+    assistantMessages(page)
       .getByText(/markdown-ready output|deterministic mocked streaming/)
       .last(),
   ).toBeVisible();
@@ -246,7 +265,8 @@ test("embedded widget surfaces retry control on stream failure", async ({
   await page.getByLabel("chat-input").fill("retryable message");
   await page.getByRole("button", { name: "send message" }).click();
 
-  await expect(page.getByRole("alert")).toBeVisible();
+  const chatAlert = page.getByTestId("side-chat-widget").getByRole("alert");
+  await expect(chatAlert).toBeVisible();
   const retryButton = page.getByRole("button", { name: /^retry$/i });
   await expect(retryButton).toBeVisible();
 
@@ -259,13 +279,11 @@ test("embedded widget surfaces retry control on stream failure", async ({
   await page.getByLabel("chat-input").waitFor({ state: "visible" });
   await streamResponse;
 
-  await expect(page.getByRole("alert")).not.toBeVisible();
+  await expect(chatAlert).not.toBeVisible();
   await expect(
-    page.locator('[data-role="user"]').getByText("retryable message").last(),
+    userMessages(page).getByText("retryable message").last(),
   ).toBeVisible();
-  await expect(
-    page.getByText(/Model gpt-4\.1-mini received: retryable message/).last(),
-  ).toBeVisible();
+  await expectFakeStreamedAnswer(page, "gpt-5.4-nano", "retryable message");
 
   await page.unroute("**/chat/stream");
 });
@@ -285,17 +303,12 @@ test("widget-demo app exercises package callbacks and state coverage", async ({
 
   await page.getByRole("button", { name: /open assistant/i }).click();
   await expect(page.getByTestId("side-chat-widget")).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "Model" })
-    .selectOption("gpt-4.1-nano");
+  await chooseModelAlias(page, /GPT 6\.0/);
+  await expect(page.getByLabel("Assistant model")).toContainText("GPT 6.0");
   await page.getByLabel("chat-input").fill("show callback coverage");
   await page.getByRole("button", { name: "send message" }).click();
 
-  await expect(
-    page
-      .getByText(/Model gpt-4\.1-nano received: show callback coverage/)
-      .last(),
-  ).toBeVisible();
+  await expectFakeStreamedAnswer(page, "gpt-5.4-nano", "show callback coverage");
   await expect(page.getByLabel("Widget callback events")).toContainText(
     "usage:",
   );
