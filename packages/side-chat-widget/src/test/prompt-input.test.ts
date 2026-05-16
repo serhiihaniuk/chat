@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { PromptInputModelSelect } from "../components/ai-elements/prompt-input.js";
+import { PromptInputModelSelect } from "../shared/ui/ai-elements/prompt-input.js";
 
 describe("PromptInputModelSelect", () => {
   it("renders friendly model aliases instead of raw backend ids", () => {

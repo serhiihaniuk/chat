@@ -4,13 +4,13 @@ import {
   upsertHostCommandPart,
   upsertToolPart,
   type WidgetMessagePart,
-} from "../hooks/use-side-chat.js";
+} from "../adapters/react/use-side-chat.js";
 import {
   applySideChatStreamEventToMessages,
   completeHostCommandPartInMessages,
   getSideChatStreamEventEffect,
   type WidgetMessage,
-} from "../hooks/use-side-chat-events.js";
+} from "../domain/message/stream-event-state.js";
 
 describe("assistant message parts", () => {
   it("keeps resumed reasoning separate when a tool call interrupts it", () => {

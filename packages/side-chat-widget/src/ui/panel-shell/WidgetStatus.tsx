@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 
-import type { SideChatError } from "../hooks/use-side-chat.js";
+import type { SideChatError } from "../../adapters/react/use-side-chat.js";
 
 export type ErrorBannerProps = {
   error: SideChatError;

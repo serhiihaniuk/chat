@@ -4,24 +4,24 @@ import {
   AttachmentInfo,
   AttachmentPreview,
   Attachments,
-} from "../components/ai-elements/attachments.js";
-import { Citations } from "../components/ai-elements/citation.js";
+} from "../../shared/ui/ai-elements/attachments.js";
+import { Citations } from "../../shared/ui/ai-elements/citation.js";
 import {
   Message,
   MessageContent,
   MessageResponse,
-} from "../components/ai-elements/message.js";
-import { Reasoning } from "../components/ai-elements/reasoning.js";
-import { Tool } from "../components/ai-elements/tool.js";
+} from "../../shared/ui/ai-elements/message.js";
+import { Reasoning } from "../../shared/ui/ai-elements/reasoning.js";
+import { Tool } from "../../shared/ui/ai-elements/tool.js";
 import {
   getAssistantMessageView,
   getHostCommandToolStatus,
   toolDisplayNames,
-} from "../domain/message-presentation.js";
+} from "../../domain/message/message-presentation.js";
 import type {
   WidgetMessage,
   WidgetMessagePart,
-} from "../hooks/use-side-chat-events.js";
+} from "../../domain/message/stream-event-state.js";
 
 export type RenderedChatMessageProps = {
   message: WidgetMessage;

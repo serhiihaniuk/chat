@@ -1,90 +1,132 @@
 # Widget Hexagon
 
-Status: current target implemented incrementally
+Status: implemented target
 
-The reusable widget is a frontend hexagon. That means the React component tree is not the whole architecture. React is the inbound UI adapter around smaller ownership areas.
+The reusable widget is a frontend hexagon. In backend language, React is the primary inbound adapter: the user interacts with React, React calls application workflows, and those workflows depend on stable domain rules and ports.
 
-## First Principle
-
-Hexagonal architecture is dependency direction:
+The point is dependency direction, not folder decoration:
 
 ```txt
-outside adapters -> application workflows -> domain rules
+outside technologies -> adapters -> application workflows -> domain rules
+                              ports define contracts ^
 ```
 
-For a frontend package, the outside adapters are things like React, browser `fetch`, SSE frames, local storage, DOM events, and host app callbacks. The domain rules are things like message projection, citation selection, attachment merging, panel geometry, and protocol event interpretation.
+For this package, outside technologies are React, browser `fetch`, SSE frames, local storage, DOM pointer events, and host app callbacks. Domain rules are message projection, citation selection, attachment merging, model aliases, appearance presets, and panel geometry.
 
-## Current Widget Shape
+## Current Shape
 
 ```txt
-packages/side-chat-widget/src
-  SideChatWidget.tsx
-    React shell and composition
+packages/side-chat-widget/src/
+  index.ts
+    public package API only
+
+  ports/
+    widget-contracts.ts
+      host bridge, identity, and transport contracts
 
   domain/
-    appearance.ts
-      appearance presets and persistence key
-    message-presentation.ts
+    appearance/appearance.ts
+      pure appearance preset rules
+    message/message-presentation.ts
       attachment/citation/message-view projection rules
-    model-selection.ts
-      default model and demo model aliases
-    panel-geometry.ts
-      panel size, offset, resize, drag math
+    message/stream-event-state.ts
+      sidechat stream event -> widget message state rules
+    model/model-selection.ts
+      model alias rules for the demo picker
+    panel/panel-geometry.ts
+      panel size, offset, resize, and drag math
 
   application/
-    stream-event-decoder.ts
-      Effect workflow around UI stream-frame decoding
+    stream-decoding/stream-event-decoder.ts
+      Effect workflow around stream-frame decoding
 
-  hooks/
-    use-side-chat.ts
-      browser transport, history/usage fetches, host command dispatch
-    use-side-chat-events.ts
-      protocol event to widget message state projection
+  adapters/
+    react/use-side-chat.ts
+      browser fetch/SSE/history/usage and host-command orchestration
 
   ui/
-    ChatComposer.tsx
-    ConversationPanel.tsx
-    QuickActions.tsx
-    RenderedChatMessage.tsx
-    ResizeHandles.tsx
-    WidgetHeader.tsx
-    WidgetLauncher.tsx
-    WidgetStatus.tsx
+    side-chat-widget/
+      SideChatWidget.tsx
+      WidgetLauncher.tsx
+    panel-shell/
+      WidgetHeader.tsx
+      WidgetStatus.tsx
+      ResizeHandles.tsx
+      use-panel-shell.ts
+    conversation-feed/
+      ConversationPanel.tsx
+      RenderedChatMessage.tsx
+    composer/
+      ChatComposer.tsx
+      QuickActions.tsx
+
+  shared/
+    ui/ai-elements/
+      vendored AI Elements-derived primitives
+    lib/
+      tiny UI utilities used by shared UI primitives
 ```
 
 ## Ownership Rules
 
 | Area | Owns | Must not own |
 | --- | --- | --- |
-| `domain/` | Pure widget rules and small deterministic projections | React state, network calls, provider SDKs, host app internals |
-| `application/` | UI workflows where decoding, errors, or async boundaries matter | JSX layout, Hono, AI SDK provider calls |
-| `hooks/` | Browser adapters and React state orchestration | Host dashboard implementation details |
-| `ui/` | Focused React components | Protocol decoding, network transport, domain policy |
-| `SideChatWidget.tsx` | Public shell, state wiring, composition | Message rendering internals, citation parsing, panel math |
+| `ports/` | Contracts the outside world must satisfy | Implementations, React state, provider SDK details |
+| `domain/` | Pure deterministic widget rules | React hooks, network calls, browser APIs, JSX layout |
+| `application/` | Workflows where boundary parsing or async/error semantics matter | JSX layout, Hono, provider adapters |
+| `adapters/react/` | React/browser adapter orchestration for application workflows | Host dashboard internals, provider stream parts |
+| `ui/<slice>/` | Presentation components and slice-local UI hooks | Protocol ownership, network transport, domain policy |
+| `shared/ui/` | Reusable visual primitives | Product workflow and host-specific behavior |
+
+## Hooks Rule
+
+Do not create a global `hooks/` folder. A hook is placed by what it owns:
+
+| Hook kind | Location | Example |
+| --- | --- | --- |
+| Application adapter hook | `adapters/react/` | `use-side-chat.ts` owns browser transport, stream reading, history/usage, and host command dispatch |
+| Presentation-only hook | `ui/<slice>/` | `panel-shell/use-panel-shell.ts` owns panel open/close, focus restore, drag, resize, fullscreen |
+| Pure rule helper | `domain/<domain>/` | `panel-geometry.ts` owns clamp and resize math without React |
+| Shared primitive helper | `shared/ui/` or `shared/lib/` | `cn()` supports vendored UI primitives |
+
+That is the difference between architecture and file-type buckets. A file is not placed because it is a hook or component. It is placed where its responsibility belongs.
+
+## UI Micro-Slices
+
+The UI layer is intentionally sliced by product surface:
+
+- `side-chat-widget/` composes the public widget shell.
+- `panel-shell/` owns the movable/resizable container and header/status controls.
+- `conversation-feed/` owns message list rendering.
+- `composer/` owns prompt input and quick actions.
+
+These slices may import domain rules and adapter outputs, but they should not import each other freely. Composition flows through `side-chat-widget/`, which acts like a widget-level page shell.
 
 ## Effect On The Frontend
 
-The frontend does not need Effect everywhere. It uses Effect where a UI workflow crosses a boundary.
+Effect does not need to own every button click. It is most useful where a UI workflow crosses a boundary and needs typed decoding, controlled failure, or composable async work.
 
 Current example:
 
 ```txt
 SSE frame string
-  -> application/stream-event-decoder.ts
+  -> application/stream-decoding/stream-event-decoder.ts
   -> Effect workflow parses JSON
-  -> shared protocol validates `sidechat.v1`
-  -> hook receives `SidechatStreamEvent | undefined`
+  -> shared protocol validates sidechat.v1
+  -> adapters/react/use-side-chat.ts applies domain state transitions
+  -> ui/conversation-feed renders the result
 ```
 
 Teaching rule:
 
 ```txt
-Effect owns the frontend workflow around decoding.
-The shared protocol owns the schema.
-React owns rendering.
+Shared protocol owns the schema.
+Effect owns boundary workflows around that schema.
+React owns presentation and browser lifecycle.
+Domain owns product rules.
 ```
 
-Those are not competing libraries. They are different ownership zones.
+These are ownership zones, not competing libraries.
 
 ## Why This Matters For The Work Demo
 

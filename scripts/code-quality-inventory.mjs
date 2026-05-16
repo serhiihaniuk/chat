@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 
 const defaultFiles = [
-  "packages/side-chat-widget/src/SideChatWidget.tsx",
-  "packages/side-chat-widget/src/hooks/use-side-chat.ts",
-  "packages/side-chat-widget/src/hooks/use-side-chat-events.ts",
+  "packages/side-chat-widget/src/ui/side-chat-widget/SideChatWidget.tsx",
+  "packages/side-chat-widget/src/adapters/react/use-side-chat.ts",
+  "packages/side-chat-widget/src/domain/message/stream-event-state.ts",
+  "packages/side-chat-widget/src/ui/panel-shell/use-panel-shell.ts",
   "apps/side-chat-api/src/application/stream-chat.ts",
   "apps/side-chat-api/src/application/prompt-context.ts",
   "apps/side-chat-api/src/adapters/workbench/workbench-tools-adapter.ts",

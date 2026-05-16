@@ -13,7 +13,7 @@ import {
   ContextContentFooter,
   ContextContentHeader,
   ContextTrigger,
-} from "../components/ai-elements/context.js";
+} from "../../shared/ui/ai-elements/context.js";
 import {
   PromptInput,
   PromptInputButton,
@@ -22,9 +22,9 @@ import {
   PromptInputTextarea,
   PromptInputToolbar,
   PromptInputTools,
-} from "../components/ai-elements/prompt-input.js";
-import { recentContextTotalCharacters } from "../domain/message-presentation.js";
-import { modelAliasOptions } from "../domain/model-selection.js";
+} from "../../shared/ui/ai-elements/prompt-input.js";
+import { recentContextTotalCharacters } from "../../domain/message/message-presentation.js";
+import { modelAliasOptions } from "../../domain/model/model-selection.js";
 
 export type ChatComposerProps = {
   canSend: boolean;

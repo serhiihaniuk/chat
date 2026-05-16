@@ -3,7 +3,7 @@ import {
   encodeSseEventFrame,
   type SidechatStreamEvent,
 } from "@side-chat/shared-protocol";
-import { readSideChatStreamEvents } from "../hooks/use-side-chat.js";
+import { readSideChatStreamEvents } from "../adapters/react/use-side-chat.js";
 
 const started: SidechatStreamEvent = {
   type: "sidechat.started",

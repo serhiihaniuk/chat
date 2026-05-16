@@ -173,15 +173,18 @@ Both can share the same DB package without sharing ownership of the same applica
 Read in this order:
 
 1. `packages/side-chat-widget/src/index.ts`
-2. `packages/side-chat-widget/src/SideChatWidget.tsx`
-3. `packages/side-chat-widget/src/application/stream-event-decoder.ts`
-4. `packages/side-chat-widget/src/domain/message-presentation.ts`
-5. `packages/side-chat-widget/src/hooks/use-side-chat.ts`
-6. `packages/shared-protocol/src/sidechat.v1/schemas.ts`
-7. `apps/embedded-host-app/src/shared/host-surface/HostSurfaceProvider.tsx`
-8. `apps/embedded-host-app/src/features/advisory-workbench/model/side-chat-host.ts`
-9. `apps/embedded-host-app/src/features/advisory-workbench/ui/AdvisoryWorkbenchPage.tsx`
-10. `apps/dashboard-data-api/src/app.ts`
+2. `packages/side-chat-widget/src/ports/widget-contracts.ts`
+3. `packages/side-chat-widget/src/ui/side-chat-widget/SideChatWidget.tsx`
+4. `packages/side-chat-widget/src/application/stream-decoding/stream-event-decoder.ts`
+5. `packages/side-chat-widget/src/domain/message/message-presentation.ts`
+6. `packages/side-chat-widget/src/domain/message/stream-event-state.ts`
+7. `packages/side-chat-widget/src/adapters/react/use-side-chat.ts`
+8. `packages/side-chat-widget/src/ui/panel-shell/use-panel-shell.ts`
+9. `packages/shared-protocol/src/sidechat.v1/schemas.ts`
+10. `apps/embedded-host-app/src/shared/host-surface/HostSurfaceProvider.tsx`
+11. `apps/embedded-host-app/src/features/advisory-workbench/model/side-chat-host.ts`
+12. `apps/embedded-host-app/src/features/advisory-workbench/ui/AdvisoryWorkbenchPage.tsx`
+13. `apps/dashboard-data-api/src/app.ts`
 
 The lesson: reusable UI is created by explicit contracts, not by hiding app-specific imports in a package.
 

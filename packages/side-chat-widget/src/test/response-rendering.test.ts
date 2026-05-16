@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { MessageResponse } from "../components/ai-elements/message.js";
+import { MessageResponse } from "../shared/ui/ai-elements/message.js";
 
 describe("Response markdown rendering", () => {
   it("renders partial markdown without throwing", () => {

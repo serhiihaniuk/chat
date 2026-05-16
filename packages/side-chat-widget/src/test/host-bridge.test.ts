@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createChatRequestPayload } from "../hooks/use-side-chat.js";
+import { createChatRequestPayload } from "../adapters/react/use-side-chat.js";
 
 describe("host bridge request payload", () => {
   it("includes a serializable host context snapshot", () => {

@@ -14,8 +14,8 @@ import {
   appearancePresets,
   type AppearancePreset,
   type AppearancePresetId,
-} from "../domain/appearance.js";
-import { panelId } from "../domain/panel-geometry.js";
+} from "../../domain/appearance/appearance.js";
+import { panelId } from "../../domain/panel/panel-geometry.js";
 
 export type WidgetHeaderProps = {
   appearanceOpen: boolean;

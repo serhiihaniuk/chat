@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 
-import type { ResizeHandle } from "../domain/panel-geometry.js";
+import type { ResizeHandle } from "../../domain/panel/panel-geometry.js";
 
 export type ResizeHandlesProps = {
   onResizeStart: (

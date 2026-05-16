@@ -1,12 +1,12 @@
-import type { SideChatError } from "../hooks/use-side-chat.js";
-import type { WidgetMessage } from "../hooks/use-side-chat-events.js";
+import type { SideChatError } from "../../adapters/react/use-side-chat.js";
+import type { WidgetMessage } from "../../domain/message/stream-event-state.js";
 import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
   ConversationScrollToBottomSignal,
-} from "../components/ai-elements/Conversation.js";
+} from "../../shared/ui/ai-elements/Conversation.js";
 import { RenderedChatMessage } from "./RenderedChatMessage.js";
 
 export type ConversationPanelProps = {

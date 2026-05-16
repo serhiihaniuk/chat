@@ -64,6 +64,7 @@ Historical `.omx` plans/reports are workflow scratchpads, not durable project do
 - Runtime DB access must use stored procedures/functions, not direct application-table SQL from runtime code.
 - `apps/embedded-host-app` must consume `@side-chat/side-chat-widget`; it must not import widget internals.
 - `packages/side-chat-widget` must not require Next.js runtime APIs, app-local aliases, AG Grid, host app state, or provider SDK runtime objects.
+- `packages/side-chat-widget` should place hooks by ownership: application/browser orchestration in `adapters/react`, presentation-only lifecycle beside the relevant `ui/<slice>`, and pure rules in `domain`. Do not reintroduce a global `hooks/` or file-type bucket architecture.
 - The browser must not connect directly to Postgres.
 
 ## Product Protocol

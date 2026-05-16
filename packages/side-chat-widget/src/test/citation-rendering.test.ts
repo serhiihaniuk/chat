@@ -2,14 +2,14 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Citations } from "../components/ai-elements/citation.js";
+import { Citations } from "../shared/ui/ai-elements/citation.js";
 import {
   getMetadataAttachments,
   inferInlineSourcesFromContent,
   mergeAttachments,
   parseCitationMetadata,
   selectInlineSources,
-} from "../SideChatWidget.js";
+} from "../ui/side-chat-widget/SideChatWidget.js";
 
 describe("Citation rendering", () => {
   it("renders source labels as citation chips", () => {

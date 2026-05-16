@@ -11,26 +11,26 @@ import {
   type SidechatStreamEvent,
   type TokenUsage,
 } from "@side-chat/shared-protocol";
-import { decodeKnownFramePayload } from "../application/stream-event-decoder.js";
+import { decodeKnownFramePayload } from "../../application/stream-decoding/stream-event-decoder.js";
 import {
   applySideChatStreamEventToMessages,
   completeHostCommandPartInMessages,
   getSideChatStreamEventEffect,
   type WidgetMessage,
-} from "./use-side-chat-events.js";
+} from "../../domain/message/stream-event-state.js";
 
 export {
   appendReasoningPart,
   upsertHostCommandPart,
   upsertToolPart,
-} from "./use-side-chat-events.js";
+} from "../../domain/message/stream-event-state.js";
 export type {
   WidgetHostCommandPart,
   WidgetMessage,
   WidgetMessagePart,
   WidgetReasoningPart,
   WidgetToolPart,
-} from "./use-side-chat-events.js";
+} from "../../domain/message/stream-event-state.js";
 
 export type SideChatError = SidechatStreamErrorEvent;
 

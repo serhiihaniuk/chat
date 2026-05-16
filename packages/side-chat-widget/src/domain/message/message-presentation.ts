@@ -1,12 +1,19 @@
 import type { CitationSource } from "@side-chat/shared-protocol";
 
-import type { AttachmentData } from "../components/ai-elements/attachments.js";
 import type {
   WidgetHostCommandPart,
   WidgetMessage,
   WidgetMessagePart,
   WidgetToolPart,
-} from "../hooks/use-side-chat-events.js";
+} from "./stream-event-state.js";
+
+export type MessageAttachment = {
+  id: string;
+  name: string;
+  url: string;
+  mediaType?: string;
+  size?: number;
+};
 
 export const recentContextMessageLimit = 12;
 export const recentContextMessageCharacters = 1200;
@@ -65,7 +72,7 @@ const resolveArtifactUrl = (url: string, baseUrl: string) => {
 const getReportAttachment = (
   tool: WidgetToolPart,
   apiEndpoint: string,
-): AttachmentData | undefined => {
+): MessageAttachment | undefined => {
   if (tool.toolName !== "generate_workbench_report" || tool.status !== "completed") {
     return undefined;
   }
@@ -84,7 +91,7 @@ const getReportAttachment = (
   };
 };
 
-const isAttachmentData = (value: unknown): value is AttachmentData => {
+const isAttachmentData = (value: unknown): value is MessageAttachment => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
 
   const attachment = value as Record<string, unknown>;
@@ -101,7 +108,7 @@ const isAttachmentData = (value: unknown): value is AttachmentData => {
 export const getMetadataAttachments = (
   metadata: Record<string, unknown> | undefined,
   apiEndpoint: string,
-): AttachmentData[] => {
+): MessageAttachment[] => {
   const attachments = metadata?.attachments;
   return Array.isArray(attachments)
     ? attachments.filter(isAttachmentData).map((attachment) => ({
@@ -112,10 +119,10 @@ export const getMetadataAttachments = (
 };
 
 export const mergeAttachments = (
-  attachments: AttachmentData[],
-): AttachmentData[] => {
+  attachments: MessageAttachment[],
+): MessageAttachment[] => {
   const seen = new Set<string>();
-  const merged: AttachmentData[] = [];
+  const merged: MessageAttachment[] = [];
 
   for (const attachment of attachments) {
     const key = `${attachment.url}::${attachment.name}`;
@@ -281,7 +288,7 @@ const getMessageAttachments = (
   parts
     .filter(isToolPart)
     .map((tool) => getReportAttachment(tool, apiEndpoint))
-    .filter((attachment): attachment is AttachmentData => Boolean(attachment));
+    .filter((attachment): attachment is MessageAttachment => Boolean(attachment));
 
 const cleanReportResponseText = (content: string, hasAttachments: boolean) => {
   if (!hasAttachments) return content;

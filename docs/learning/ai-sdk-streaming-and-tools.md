@@ -164,7 +164,7 @@ Read these files in order:
 4. `apps/side-chat-api/src/ports/index.ts`
 5. `apps/side-chat-api/src/adapters/ai/openai-model.ts`
 6. `apps/side-chat-api/src/application/stream-chat.ts`
-7. `packages/side-chat-widget/src/hooks/use-side-chat.ts`
+7. `packages/side-chat-widget/src/adapters/react/use-side-chat.ts`
 
 The lesson: provider stream parts enter at the adapter and leave as product events.
 

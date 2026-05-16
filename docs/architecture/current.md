@@ -41,7 +41,7 @@ packages/db
 
 ## What Is Already Strong
 
-The product chat boundary is already real. `packages/shared-protocol/src/sidechat.v1/*` defines the request shape, headers, stream events, host commands, token usage, codecs, and sequence validation. Effect Schema is now the canonical source of truth, with TypeScript types derived from it and validation helpers used by the API and widget. The widget hook consumes that contract instead of consuming provider SDK objects directly.
+The product chat boundary is already real. `packages/shared-protocol/src/sidechat.v1/*` defines the request shape, headers, stream events, host commands, token usage, codecs, and sequence validation. Effect Schema is now the canonical source of truth, with TypeScript types derived from it and validation helpers used by the API and widget. The React adapter consumes that contract instead of consuming provider SDK objects directly.
 
 The AI SDK dependency is also mostly in the right place. `apps/side-chat-api/src/adapters/ai/openai-model.ts` imports `ai` and `@ai-sdk/openai`, calls `streamText`, maps `fullStream` parts, and yields internal `ModelChunk` values through `ModelPort`.
 
@@ -60,7 +60,7 @@ The side-chat API now uses package-local layer aliases for cross-layer imports: 
 | `apps/side-chat-api/src/adapters/ai/openai-model.ts` | The AI SDK adapter owns `streamText`, strict Zod tool inputs, `stopWhen`, `fullStream`, reasoning deltas, tool results, host commands, and report generation tool wiring. Host command outputs are decoded through shared protocol helpers after the adapter-local Zod envelope is parsed. | Adapter-only ownership of provider streaming and provider tool calls, with business policy pushed toward application-owned ports/services where practical. | AI SDK is excellent for provider integration and stream/tool mechanics, but it should not become the application core. | Tool policy can accumulate in provider code and become hard to test without provider behavior. |
 | `apps/side-chat-api/src/adapters/workbench/workbench-tools-adapter.ts` | Workbench data lookup, fallback data, current surface context, citations, and host view filtering now live behind `WorkbenchToolsPort`. | Keep Workbench tool policy outside Hono and continue splitting citation/surface helpers if the adapter grows. | Assistant tools need approved Workbench data, but Hono should not own dashboard query policy. | The adapter is still large and should be watched for smaller helper extraction. |
 | `packages/shared-protocol/src/sidechat.v1/*` | Shared Effect schemas, derived types, headers, routes, SSE codec, and sequence validation. | Stable UI-facing product protocol that can survive provider changes. | This is the strongest evidence for the Node/TypeScript chat boundary argument. | Confusing AI SDK UI message types with the product protocol would make provider details leak into the product contract. |
-| `packages/side-chat-widget/src/*` | The reusable widget now has `domain`, `application`, `hooks`, and `ui` slices. `use-side-chat.ts` posts chat requests, reads SSE frames, handles history/usage, asks for host context, and dispatches host commands. | A reusable frontend hexagon consuming only shared protocol plus explicit host bridge APIs. | This is what makes the widget usable inside a Workbench host without importing host internals. | Host-specific behavior can drift into the package and reduce reuse. |
+| `packages/side-chat-widget/src/*` | The reusable widget now has `ports`, `domain`, `application`, `adapters/react`, micro-sliced `ui`, and `shared/ui` areas. `adapters/react/use-side-chat.ts` posts chat requests, reads SSE frames, handles history/usage, asks for host context, and dispatches host commands. `ui/panel-shell/use-panel-shell.ts` keeps presentation-only panel lifecycle beside the panel shell instead of in a global hook bucket. | A reusable frontend hexagon consuming only shared protocol plus explicit host bridge APIs. | This is what makes the widget usable inside a Workbench host without importing host internals, and it teaches that hooks are placed by responsibility. | Host-specific behavior can drift into the package and reduce reuse. |
 | `packages/db/src/*` | Stored-procedure-backed data access for side chat and advisory dashboard records. | Infrastructure adapter only: no Hono, React, AI SDK, widget, or application use case imports. | DB access should be replaceable/testable from the application perspective. | Direct table SQL or cross-layer imports would break the stored-procedure boundary. |
 | `apps/dashboard-data-api/src/*` | A separate Hono dashboard data service over an `AdvisoryDashboardReader` port, backed by Postgres in normal runtime and by deterministic fixture data in local e2e. | The intended dashboard data API for host/dashboard reads. | The dashboard data problem and chat streaming problem are separate concerns unless deliberately connected. | The chat API still constructs its own Workbench tool adapter for AI context; that coupling is now explicit but can be refined further. |
 
@@ -68,7 +68,7 @@ The side-chat API now uses package-local layer aliases for cross-layer imports: 
 
 ```txt
 Widget composer
-  -> useSideChat()
+  -> adapters/react/useSideChat()
   -> POST /chat/stream with X-Sidechat-Protocol: sidechat.v1
   -> Hono chat stream route module
   -> streamChat()

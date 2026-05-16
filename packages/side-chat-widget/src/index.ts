@@ -1,23 +1,25 @@
-export { SideChatWidget } from "./SideChatWidget.js";
-export { useSideChat } from "./hooks/use-side-chat.js";
+export { SideChatWidget } from "./ui/side-chat-widget/SideChatWidget.js";
+export { useSideChat } from "./adapters/react/use-side-chat.js";
 export {
   Citation,
   Citations,
   citationSelectedEventName,
-} from "./components/ai-elements/citation.js";
+} from "./shared/ui/ai-elements/citation.js";
 export type {
   SideChatHostBridge,
   SideChatIdentity,
   SideChatTransport,
+} from "./ports/widget-contracts.js";
+export type {
   SideChatWidgetProps,
-} from "./SideChatWidget.js";
+} from "./ui/side-chat-widget/SideChatWidget.js";
 export type {
   CitationProps,
   CitationSource,
   CitationsProps,
-} from "./components/ai-elements/citation.js";
+} from "./shared/ui/ai-elements/citation.js";
 export type {
   SideChatError,
   UseSideChatOptions,
   WidgetMessage,
-} from "./hooks/use-side-chat.js";
+} from "./adapters/react/use-side-chat.js";

@@ -1,7 +1,7 @@
 import { Bot } from "lucide-react";
 import type { CSSProperties, RefObject } from "react";
 
-import { panelId } from "../domain/panel-geometry.js";
+import { panelId } from "../../domain/panel/panel-geometry.js";
 
 export type WidgetLauncherProps = {
   appearanceVars: CSSProperties;

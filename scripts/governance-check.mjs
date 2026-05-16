@@ -98,7 +98,7 @@ for (const file of files) {
     if (
       /from ['"](@ai-sdk|ai['"])/.test(text) &&
       !rel.startsWith("apps/side-chat-api/src/adapters/ai/") &&
-      !rel.startsWith("packages/side-chat-widget/src/components/ai-elements/")
+      !rel.startsWith("packages/side-chat-widget/src/shared/ui/ai-elements/")
     )
       fail(`AI SDK import outside ai adapter: ${rel}`);
     if (/from ['"]pg['"]/.test(text) && !rel.startsWith("packages/db/"))
@@ -114,7 +114,7 @@ for (const file of files) {
     )
       fail(`db boundary violation: ${rel}`);
     if (
-      rel.startsWith("packages/side-chat-widget/src/components/ai-elements") &&
+      rel.startsWith("packages/side-chat-widget/src/shared/ui/ai-elements") &&
       /(@\/|next\/|@ai-sdk\/react)/.test(text)
     )
       fail(`AI Elements component forbidden import: ${rel}`);

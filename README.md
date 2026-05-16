@@ -101,13 +101,14 @@ Zod is still allowed inside adapters when a library expects it, such as AI SDK t
 
 `packages/side-chat-widget` is a frontend hexagon:
 
-- `domain/` owns pure widget rules such as message presentation, citation selection, model aliases, appearance presets, and panel geometry.
+- `ports/` owns the host bridge, identity, and transport contracts.
+- `domain/` owns pure widget rules such as message projection, citation selection, model aliases, appearance presets, and panel geometry.
 - `application/` owns UI workflows where a boundary matters, currently the Effect-based stream-frame decoder.
-- `hooks/` adapt browser fetch/SSE, history/usage calls, and host bridge callbacks into React state.
-- `ui/` contains focused React components for launcher, header, conversation, message rendering, quick actions, composer, status, and resize handles.
-- `SideChatWidget.tsx` composes those pieces as the public package shell.
+- `adapters/react/` adapts browser fetch/SSE, history/usage calls, and host bridge callbacks into React state.
+- `ui/` is micro-sliced by product surface: widget shell, panel shell, conversation feed, and composer.
+- `shared/ui/` contains vendored AI Elements-derived visual primitives.
 
-The teaching version: Effect owns the frontend workflow around decoding, shared protocol owns the schema, and React owns rendering.
+The teaching version: shared protocol owns the schema, Effect owns boundary workflows around that schema, React owns presentation and browser lifecycle, and domain owns product rules. Hooks are placed by responsibility, so there is no global `hooks/` bucket.
 
 ## Requirements
 

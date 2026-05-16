@@ -2,7 +2,7 @@ import { FileText, ListChecks, RefreshCcw, Trophy } from "lucide-react";
 import {
   Suggestion,
   Suggestions,
-} from "../components/ai-elements/suggestion.js";
+} from "../../shared/ui/ai-elements/suggestion.js";
 
 export type QuickActionsProps = {
   isStreaming: boolean;
