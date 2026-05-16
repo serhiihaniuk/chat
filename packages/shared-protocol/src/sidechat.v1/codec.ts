@@ -10,7 +10,7 @@ import type {
   SidechatStreamHostCommandEvent,
   SidechatStreamHistoryEvent,
 } from "./types.js";
-import { SidechatStreamEventSchema } from "./schemas.js";
+import { validateStreamEvent } from "./validation.js";
 
 export const protocolLinePrefix = "data:";
 
@@ -37,8 +37,8 @@ export const parseSseEvent = (
     return undefined;
   }
 
-  const parsed = SidechatStreamEventSchema.safeParse(parsedJson);
-  if (!parsed.success) return undefined;
+  const parsed = validateStreamEvent(parsedJson);
+  if (!parsed.ok) return undefined;
 
   return parsed.data;
 };

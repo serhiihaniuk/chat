@@ -51,8 +51,8 @@ apps/
   embedded-host-app/    UBS Partner host app consuming the widget package
   widget-demo/          isolated widget playground
 packages/
-  shared-protocol/      sidechat.v1 DTOs, schemas, SSE codec, sequence validation
-  side-chat-widget/     reusable React side-chat widget package
+  shared-protocol/      sidechat.v1 Effect schemas, DTOs, SSE codec, sequence validation
+  side-chat-widget/     reusable React side-chat widget with frontend hexagon slices
   db/                   Postgres stored-procedure/function access
 docker/postgres/init/   schema and deterministic seed data
 ```
@@ -81,6 +81,33 @@ Host dashboard
 ```
 
 The important rule: the browser consumes `sidechat.v1`, not provider stream parts from AI SDK or OpenAI.
+
+## Protocol Schema Ownership
+
+`packages/shared-protocol` is the canonical contract package. It now defines `sidechat.v1` with Effect Schema first, then exports derived TypeScript types and validation helpers.
+
+That gives the repo one source of truth:
+
+```txt
+Effect Schema
+  -> TypeScript types
+  -> runtime decoders
+  -> future JSON Schema / Standard Schema adapters when an integration needs them
+```
+
+Zod is still allowed inside adapters when a library expects it, such as AI SDK tool input schemas. It does not own the product protocol.
+
+## Widget Architecture
+
+`packages/side-chat-widget` is a frontend hexagon:
+
+- `domain/` owns pure widget rules such as message presentation, citation selection, model aliases, appearance presets, and panel geometry.
+- `application/` owns UI workflows where a boundary matters, currently the Effect-based stream-frame decoder.
+- `hooks/` adapt browser fetch/SSE, history/usage calls, and host bridge callbacks into React state.
+- `ui/` contains focused React components for launcher, header, conversation, message rendering, quick actions, composer, status, and resize handles.
+- `SideChatWidget.tsx` composes those pieces as the public package shell.
+
+The teaching version: Effect owns the frontend workflow around decoding, shared protocol owns the schema, and React owns rendering.
 
 ## Requirements
 
@@ -222,6 +249,7 @@ The app is feature-complete enough for the current demo, but some boundaries are
 - [docs/CONTEXT.md](./docs/CONTEXT.md): compact durable context index.
 - [docs/architecture/current.md](./docs/architecture/current.md): brownfield implementation map.
 - [docs/architecture/transition-roadmap.md](./docs/architecture/transition-roadmap.md): refactor path and stop rules.
+- [docs/architecture/widget-hexagon.md](./docs/architecture/widget-hexagon.md): reusable widget frontend hexagon.
 - [docs/learning/hexagonal-architecture.md](./docs/learning/hexagonal-architecture.md): ports/adapters primer.
 - [docs/learning/effect-ts.md](./docs/learning/effect-ts.md): Effect TS primer.
 - [docs/learning/ai-sdk-streaming-and-tools.md](./docs/learning/ai-sdk-streaming-and-tools.md): AI SDK stream/tool primer.

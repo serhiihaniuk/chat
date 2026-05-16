@@ -77,7 +77,20 @@ Those are exactly the things Effect is good at making explicit.
 
 ## Current Effect Usage
 
-Effect is now used at the first meaningful workflow boundary:
+Effect is now used at meaningful workflow and contract boundaries:
+
+```txt
+packages/shared-protocol
+  owns sidechat.v1 Effect schemas
+
+apps/side-chat-api
+  uses shared validation to decode unknown request bodies into application input
+
+packages/side-chat-widget
+  uses a small Effect workflow to decode stream-frame payloads before React state sees them
+```
+
+The first backend example:
 
 ```ts
 export const streamChatEffect = (deps, input) =>
@@ -89,13 +102,33 @@ export const streamChatEffect = (deps, input) =>
 That decode uses Effect Schema and maps malformed input to an application error:
 
 ```ts
-export const decodeSidechatRequestEffect = (body) =>
-  Schema.decodeUnknownEffect(SidechatRequestEffectSchema)(body).pipe(
-    Effect.mapError(() => new InvalidRequest()),
-  );
+export const decodeSidechatRequestEffect = (body) => {
+  const parsed = validateRequest(body);
+  return parsed.ok
+    ? Effect.succeed(parsed.data)
+    : Effect.fail(new InvalidRequest());
+};
 ```
 
 This is the first useful Effect lesson: unknown JSON enters the application as an Effect, and invalid JSON shape is an expected typed failure instead of a surprise thrown parser error.
+
+The frontend example:
+
+```txt
+SSE data string
+  -> Effect.sync(parse JSON)
+  -> validateStreamEvent from shared protocol
+  -> SidechatStreamEvent | undefined
+```
+
+That teaches the ownership rule:
+
+```txt
+Effect owns the workflow.
+Effect Schema owns the protocol.
+React owns rendering.
+Zod can still exist inside adapters when a library expects it.
+```
 
 It still does not teach every Effect concept:
 

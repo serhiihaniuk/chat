@@ -3,8 +3,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
-  SidechatStreamEventSchema,
-  SidechatRequestSchema,
   protocolArtifacts,
   encodeSseEvent,
   parseSseEvent,
@@ -14,12 +12,14 @@ import {
   parseKnownSsePayloads,
   parseSsePayload,
   SidechatProtocolHeader,
-  SidechatStreamResponseHeadersSchema,
-  SidechatRequestHeadersSchema,
   validateRequest,
   validateRequestHeaders,
+  parseSidechatRequest,
+  parseSidechatRequestHeaders,
+  parseSidechatResponseHeaders,
+  parseSidechatStreamEvent,
+  parseHostCommand,
   validateStreamEvent,
-  HostCommandSchema,
 } from "../src";
 import { validateSidechatEventSequence } from "../src/sidechat.v1/sequence";
 
@@ -34,7 +34,7 @@ describe("sidechat protocol v1 fixtures", () => {
     );
     expect(raw.protocol).toBe("sidechat.v1");
     for (const event of raw.events) {
-      expect(SidechatStreamEventSchema.parse(event)).toBeTruthy();
+      expect(parseSidechatStreamEvent(event)).toBeTruthy();
     }
   });
 
@@ -44,7 +44,7 @@ describe("sidechat protocol v1 fixtures", () => {
     );
     expect(raw.protocol).toBe(protocolArtifacts.protocol);
     for (const event of raw.events) {
-      expect(SidechatStreamEventSchema.parse(event)).toBeTruthy();
+      expect(parseSidechatStreamEvent(event)).toBeTruthy();
     }
   });
 
@@ -55,12 +55,12 @@ describe("sidechat protocol v1 fixtures", () => {
       model: { provider: "openai", id: "gpt-4.1-mini" },
     };
 
-    const parsed = SidechatRequestSchema.parse(valid);
+    const parsed = parseSidechatRequest(valid);
     expect(parsed.workspaceId).toBe("demo-workspace");
   });
 
   test("request schema accepts host context snapshots", () => {
-    const parsed = SidechatRequestSchema.parse({
+    const parsed = parseSidechatRequest({
       workspaceId: "demo-workspace",
       message: { id: "m1", role: "user", content: "filter the grid" },
       model: { provider: "openai", id: "gpt-4.1-mini" },
@@ -99,7 +99,7 @@ describe("sidechat protocol v1 fixtures", () => {
 
   test("host command schema validates grid view commands", () => {
     expect(
-      HostCommandSchema.parse({
+      parseHostCommand({
         type: "grid.applyView",
         resourceId: "clientPortfolio",
         view: {
@@ -126,7 +126,7 @@ describe("sidechat protocol v1 fixtures", () => {
 
   test("stream schema validates host command events", () => {
     expect(
-      SidechatStreamEventSchema.parse({
+      parseSidechatStreamEvent({
         type: "sidechat.host_command",
         requestId: "req-1",
         messageId: "msg-asst-1",
@@ -148,7 +148,7 @@ describe("sidechat protocol v1 fixtures", () => {
 
   test("stream schema accepts completed assistant metadata", () => {
     expect(
-      SidechatStreamEventSchema.parse({
+      parseSidechatStreamEvent({
         type: "sidechat.completed",
         requestId: "req-1",
         conversationId: "conv",
@@ -181,7 +181,7 @@ describe("sidechat protocol v1 fixtures", () => {
   });
 
   test("sse encode/decode roundtrip for delta and completed events", () => {
-    const parsed = SidechatRequestSchema.parse({
+    const parsed = parseSidechatRequest({
       workspaceId: "demo-workspace",
       message: { id: "m-1", role: "user", content: "ping" },
       model: { provider: "openai", id: "gpt-4.1-mini" },
@@ -470,7 +470,7 @@ describe("sidechat protocol v1 fixtures", () => {
 
   test("request headers validate required protocol header", () => {
     expect(() =>
-      SidechatRequestHeadersSchema.parse({
+      parseSidechatRequestHeaders({
         [SidechatProtocolHeader]: "sidechat.v1",
       }),
     ).not.toThrow();
@@ -478,7 +478,7 @@ describe("sidechat protocol v1 fixtures", () => {
 
   test("response headers validate stream contract", () => {
     expect(() =>
-      SidechatStreamResponseHeadersSchema.parse({
+      parseSidechatResponseHeaders({
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",

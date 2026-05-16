@@ -4,7 +4,7 @@ import {
   SidechatProtocol,
   SidechatProtocolHeader,
   SidechatRequestIdHeader,
-  SidechatRequestSchema,
+  validateRequest,
 } from "@side-chat/shared-protocol";
 
 import type { StreamChatDeps } from "#application/stream-chat.js";
@@ -39,8 +39,8 @@ export const registerChatStreamRoute = (
       body = undefined;
     }
 
-    const parsed = SidechatRequestSchema.safeParse(body);
-    if (!parsed.success) {
+    const parsed = validateRequest(body);
+    if (!parsed.ok) {
       return preStreamErrorResponse(
         requestId,
         400,

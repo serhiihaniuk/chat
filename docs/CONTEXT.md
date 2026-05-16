@@ -30,7 +30,7 @@ apps/
   embedded-host-app/    UBS Partner single-page host consuming the widget package
   widget-demo/          isolated widget playground
 packages/
-  shared-protocol/      sidechat.v1 DTOs, schemas, SSE codec, sequence rules
+  shared-protocol/      sidechat.v1 Effect schemas, DTOs, SSE codec, sequence rules
   side-chat-widget/     reusable React widget package
   db/                   Postgres stored-procedure/function access
 docker/postgres/init/   schema and deterministic seed data
@@ -46,6 +46,7 @@ Dependency pins live in `package.json` files and are enforced by `scripts/govern
 - [architecture/current.md](architecture/current.md): brownfield map of current code.
 - [architecture/target.md](architecture/target.md): compact target summary that points back to the canonical system design.
 - [architecture/transition-roadmap.md](architecture/transition-roadmap.md): refactor path and stop rules.
+- [architecture/widget-hexagon.md](architecture/widget-hexagon.md): reusable widget frontend hexagon and Effect-on-UI boundary.
 - [learning/hexagonal-architecture.md](learning/hexagonal-architecture.md): ports/adapters from scratch.
 - [learning/effect-ts.md](learning/effect-ts.md): Effect TS learning guide.
 - [learning/ai-sdk-streaming-and-tools.md](learning/ai-sdk-streaming-and-tools.md): AI SDK streams, tools, and host commands.
@@ -82,7 +83,7 @@ Protocol version: `sidechat.v1`.
 
 Exactly one terminal event is allowed: `sidechat.completed` or terminal `sidechat.error`. The server and widget should defensively prevent deltas after a terminal event.
 
-The shared protocol is the product contract. Do not expose AI SDK provider stream parts directly to the widget.
+The shared protocol is the product contract. It uses Effect Schema as the canonical source of truth for request, stream event, host command, and header shapes. JSON Schema, Standard Schema, or Zod-shaped objects may exist only as adapters at integration boundaries. Do not expose AI SDK provider stream parts directly to the widget.
 
 ## Demo Data
 

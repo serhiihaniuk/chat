@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import {
-  HostCommandSchema,
+  parseHostCommand,
+  validateHostCommand,
   type HostCommand,
   type HostContextSnapshot,
   type HostResource,
@@ -117,7 +118,7 @@ export const isCurrentSurfaceQuestion = (content: string) =>
 
 const dashboardCommandOutputSchema = z.object({
   commandId: z.string().min(1),
-  command: HostCommandSchema,
+  command: z.unknown(),
   reason: z.string().optional(),
 });
 
@@ -325,7 +326,7 @@ export const toHostCommand = (
 
   const command = createHostCommand(input, resourceId, resolveColumnId);
 
-  return HostCommandSchema.parse(command);
+  return parseHostCommand(command);
 };
 
 const createWorkbenchTools = (request: ModelRequest) => {
@@ -452,11 +453,14 @@ export const openAiModelAdapter: ModelPort = {
       if (part.type === "tool-result") {
         if (part.toolName === "host_command") {
           const parsed = dashboardCommandOutputSchema.safeParse(part.output);
-          if (parsed.success) {
+          const command = parsed.success
+            ? validateHostCommand(parsed.data.command)
+            : undefined;
+          if (parsed.success && command?.ok) {
             yield {
               kind: "host-command",
               commandId: parsed.data.commandId,
-              command: parsed.data.command,
+              command: command.data,
             };
           }
           continue;

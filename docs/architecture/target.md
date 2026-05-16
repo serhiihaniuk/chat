@@ -8,7 +8,7 @@ This file stays intentionally compact so architecture details do not drift acros
 
 ## One-Sentence Target
 
-A modular monolith with vertical slices and lightweight ports/adapters: the chat product contract is typed in TypeScript, the widget consumes a stable `sidechat.v1` protocol, Hono translates HTTP, Effect clarifies typed workflow boundaries where useful, AI SDK stays in provider adapters, and Postgres stays behind stored-procedure-backed DB access.
+A modular monolith with vertical slices and lightweight ports/adapters: the chat product contract is typed in TypeScript and owned by Effect Schema, the widget consumes a stable `sidechat.v1` protocol through a frontend hexagon, Hono translates HTTP, Effect clarifies typed workflow boundaries where useful, AI SDK stays in provider adapters, and Postgres stays behind stored-procedure-backed DB access.
 
 ## Target Boundary Map
 
@@ -16,6 +16,7 @@ A modular monolith with vertical slices and lightweight ports/adapters: the chat
 Embedded Workbench Host
   -> side-chat-widget package
     -> shared sidechat.v1 protocol
+      -> Effect Schema validators/types
       -> Hono inbound adapter
         -> application use cases
           -> ports
@@ -30,10 +31,12 @@ Embedded Workbench Host
 ## Boundary Rules To Preserve
 
 - The browser consumes `sidechat.v1`, not provider-native stream parts.
+- Shared protocol Effect schemas are the canonical source of truth; Zod-shaped schemas are adapter-local only.
 - Hono stays an inbound adapter.
 - AI SDK stays a provider adapter.
 - Effect is used for typed errors, dependencies, resource lifetime, and workflows where that meaning is useful.
 - The widget stays reusable and host-agnostic.
+- The widget keeps domain, application, hooks, and UI concerns separate.
 - The host app owns its dashboard UI and host command behavior.
 - Dashboard data access stays behind an explicit API/DB boundary.
 - Runtime Postgres access goes through `packages/db` and stored procedures/functions.
@@ -52,3 +55,4 @@ Embedded Workbench Host
 - [../learning/effect-ts.md](../learning/effect-ts.md)
 - [../learning/ai-sdk-streaming-and-tools.md](../learning/ai-sdk-streaming-and-tools.md)
 - [../learning/frontend-backend-boundaries.md](../learning/frontend-backend-boundaries.md)
+- [widget-hexagon.md](./widget-hexagon.md)

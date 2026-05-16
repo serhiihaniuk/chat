@@ -42,6 +42,10 @@ It defines:
 - SSE encoding/parsing
 - stream sequence validation
 
+Effect Schema is the source of truth for those shapes. The exported TypeScript types are derived from the schemas, and consumers should decode unknown data through shared validation helpers.
+
+Zod can still appear inside adapters that require Zod-compatible input schemas, but it does not define `sidechat.v1`.
+
 This is why the widget and backend can evolve together without passing raw provider objects around.
 
 ## Widget Boundary
@@ -66,6 +70,17 @@ The widget should not know:
 - Workbench feature module imports
 
 The widget asks through interfaces. The host decides how to fulfill them.
+
+Inside the package, the widget is split by ownership:
+
+```txt
+domain/       reusable rules such as panel geometry and message presentation
+application/  boundary workflows such as Effect stream decoding
+hooks/        browser transport and host bridge adapters
+ui/           React components
+```
+
+That is hexagonal architecture on the frontend: React is one adapter around the reusable widget core, not the whole design.
 
 ## Host Bridge
 
@@ -158,12 +173,15 @@ Both can share the same DB package without sharing ownership of the same applica
 Read in this order:
 
 1. `packages/side-chat-widget/src/index.ts`
-2. `packages/side-chat-widget/src/hooks/use-side-chat.ts`
-3. `packages/shared-protocol/src/sidechat.v1/types.ts`
-4. `apps/embedded-host-app/src/shared/host-surface/HostSurfaceProvider.tsx`
-5. `apps/embedded-host-app/src/features/advisory-workbench/model/side-chat-host.ts`
-6. `apps/embedded-host-app/src/features/advisory-workbench/ui/AdvisoryWorkbenchPage.tsx`
-7. `apps/dashboard-data-api/src/app.ts`
+2. `packages/side-chat-widget/src/SideChatWidget.tsx`
+3. `packages/side-chat-widget/src/application/stream-event-decoder.ts`
+4. `packages/side-chat-widget/src/domain/message-presentation.ts`
+5. `packages/side-chat-widget/src/hooks/use-side-chat.ts`
+6. `packages/shared-protocol/src/sidechat.v1/schemas.ts`
+7. `apps/embedded-host-app/src/shared/host-surface/HostSurfaceProvider.tsx`
+8. `apps/embedded-host-app/src/features/advisory-workbench/model/side-chat-host.ts`
+9. `apps/embedded-host-app/src/features/advisory-workbench/ui/AdvisoryWorkbenchPage.tsx`
+10. `apps/dashboard-data-api/src/app.ts`
 
 The lesson: reusable UI is created by explicit contracts, not by hiding app-specific imports in a package.
 

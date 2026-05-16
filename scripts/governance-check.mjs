@@ -105,7 +105,7 @@ for (const file of files) {
       fail(`pg import outside db package: ${rel}`);
     if (
       rel.startsWith("packages/shared-protocol") &&
-      /from ['"](react|hono|effect|pg|@ai-sdk|ai['"])/.test(text)
+      /from ['"](react|hono|pg|@ai-sdk|ai['"])/.test(text)
     )
       fail(`shared-protocol boundary violation: ${rel}`);
     if (

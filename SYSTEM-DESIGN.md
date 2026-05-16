@@ -17,7 +17,7 @@ That is why this repo uses Node.js/TypeScript for the browser-facing boundary, `
 | Goal | Meaning in this repo |
 | --- | --- |
 | Reusable side-chat UI | `packages/side-chat-widget` can be consumed by a host app without importing host internals. |
-| Typed chat protocol | `packages/shared-protocol` owns `sidechat.v1` request, event, schema, codec, and sequence rules. |
+| Typed chat protocol | `packages/shared-protocol` owns `sidechat.v1` request, event, Effect schema, codec, and sequence rules. |
 | UI-facing TypeScript backend | `apps/side-chat-api` owns the browser-facing streaming API. |
 | Provider isolation | AI SDK and OpenAI details stay in `apps/side-chat-api/src/adapters/ai`. |
 | Host ownership | The embedded host owns its dashboard state and exposes only context/commands through a bridge. |
@@ -49,7 +49,7 @@ That is why this repo uses Node.js/TypeScript for the browser-facing boundary, `
 | A4 | AI SDK adapter ownership | AI SDK imports stay in the side-chat API AI adapter boundary. |
 | A5 | Stored-procedure DB boundary | Runtime database access goes through `packages/db` functions/procedures. |
 | A6 | Reusable widget package | The host consumes `@side-chat/side-chat-widget`; it does not import widget internals. |
-| A7 | Effect only where useful | Effect is used for typed boundaries, errors, dependencies, and workflows, not every helper. |
+| A7 | Effect only where useful | Effect is used for typed schemas, boundaries, errors, dependencies, and workflows, not every helper. |
 
 ### 3.3 Verification Requirements
 
@@ -186,9 +186,14 @@ apps/
     src/                     isolated widget playground
 packages/
   shared-protocol/
-    src/sidechat.v1/         DTOs, schemas, headers, SSE codec, sequence rules
+    src/sidechat.v1/         Effect schemas, DTOs, headers, SSE codec, sequence rules
   side-chat-widget/
-    src/                     reusable React widget and vendored AI Elements UI pieces
+    src/
+      domain/                widget rules: message presentation, panel geometry, appearance
+      application/           UI workflows such as Effect stream decoding
+      hooks/                 browser transport and host bridge adapters
+      ui/                    focused React components and vendored AI Elements pieces
+      SideChatWidget.tsx     public shell and composition
   db/
     src/                     Postgres function/procedure access
 docker/postgres/init/
@@ -301,10 +306,21 @@ It owns:
 - request headers
 - request DTOs
 - stream event DTOs
-- Zod schemas
+- Effect schemas as the canonical runtime contract
+- derived TypeScript types
+- validation and parse helpers
 - SSE codec helpers
 - sequence validation
 - protocol fixtures for tests
+
+The ownership rule is:
+
+```txt
+Effect Schema owns the protocol.
+Adapters may translate the protocol for a library boundary.
+```
+
+For example, the AI SDK adapter may still use Zod for provider tool input because AI SDK accepts Zod-style tool schemas. That does not make Zod the product contract. It is only an adapter shape at the provider boundary.
 
 This package is important because it prevents provider leakage.
 
@@ -394,9 +410,10 @@ That extra information is useful for a chat backend because many failures are ex
 
 In this repo, Effect is currently used narrowly:
 
-- request decoding with Effect Schema in the application boundary
+- shared `sidechat.v1` protocol schemas
+- request decoding at the application boundary
 - an explicit boundary runner around the Hono/SSE path
-- a small workflow spike to prove how typed boundaries can work
+- a frontend stream-frame decoding workflow in the widget
 
 Target use:
 
@@ -491,6 +508,18 @@ It provides:
 - dashboard layout/state
 
 The bridge between them is intentionally serializable. That keeps the widget package reusable and prevents host-specific logic from creeping into it.
+
+Internally, the widget is now shaped like a frontend hexagon:
+
+```txt
+SideChatWidget.tsx
+  -> ui/             focused React components
+  -> hooks/          browser transport and host bridge adapters
+  -> application/    UI workflows such as Effect stream decoding
+  -> domain/         message presentation, panel geometry, appearance, model aliases
+```
+
+The main learning point: React renders; the protocol validates; application workflows coordinate boundaries; domain modules hold reusable rules.
 
 ## 15. Postgres Boundary
 

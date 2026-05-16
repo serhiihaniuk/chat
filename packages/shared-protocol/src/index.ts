@@ -23,10 +23,12 @@ import {
   parseSseEvent,
   protocolLinePrefix,
 } from "./sidechat.v1/codec.js";
-import { SidechatRequestSchema } from "./sidechat.v1/schemas.js";
+import { parseSidechatRequest } from "./sidechat.v1/validation.js";
 
 export const protocolVersion = SidechatProtocolVersion;
-export const streamRequestSchema = SidechatRequestSchema;
+export const streamRequestSchema = {
+  parse: parseSidechatRequest,
+};
 export const encodeSse = encodeSseEvent;
 export const encodeSseEventFrame = encodeSseFrame;
 export const parseSse = parseSseEvent;

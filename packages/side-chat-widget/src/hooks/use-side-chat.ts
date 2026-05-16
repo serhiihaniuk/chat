@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+import { Effect } from "effect";
 import {
   parseSsePayload,
   protocolVersion,
-  SidechatStreamEventSchema,
   type HostCommand,
   type HostCommandResult,
   type HostContextSnapshot,
@@ -11,6 +11,7 @@ import {
   type SidechatStreamEvent,
   type TokenUsage,
 } from "@side-chat/shared-protocol";
+import { decodeKnownFramePayload } from "../application/stream-event-decoder.js";
 import {
   applySideChatStreamEventToMessages,
   completeHostCommandPartInMessages,
@@ -110,40 +111,7 @@ const knownEventTypes = new Set([
 const parseKnownFramePayload = (
   data: string,
 ): SidechatStreamEvent | undefined => {
-  let json: unknown;
-  try {
-    json = JSON.parse(data);
-  } catch {
-    return undefined;
-  }
-
-  const parsed = SidechatStreamEventSchema.safeParse(json);
-  if (parsed.success) return parsed.data;
-
-  if (
-    typeof json === "object" &&
-    json !== null &&
-    "type" in json &&
-    json.type === "sidechat.reasoning" &&
-    "requestId" in json &&
-    typeof json.requestId === "string" &&
-    "messageId" in json &&
-    typeof json.messageId === "string" &&
-    "content" in json
-  ) {
-    return {
-      type: "sidechat.reasoning",
-      requestId: json.requestId,
-      messageId: json.messageId,
-      content:
-        typeof json.content === "string"
-          ? json.content
-          : JSON.stringify(json.content),
-      index: "index" in json && typeof json.index === "number" ? json.index : 0,
-    };
-  }
-
-  return undefined;
+  return Effect.runSync(decodeKnownFramePayload(data));
 };
 
 const deriveUsageEndpoint = (apiEndpoint: string): string => {

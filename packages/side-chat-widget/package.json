@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "src/index.ts",
   "scripts": {
-    "build": "tsc -b && tsup src/index.ts --format esm --dts"
+    "build": "tsc -b && tsup src/index.ts --format esm"
   },
   "peerDependencies": {
     "react": "19.2.6",
@@ -18,6 +18,7 @@
     "@streamdown/math": "1.0.2",
     "@streamdown/mermaid": "1.0.2",
     "clsx": "2.1.1",
+    "effect": "4.0.0-beta.66",
     "lucide-react": "1.16.0",
     "streamdown": "2.5.0",
     "tailwind-merge": "3.4.0",
