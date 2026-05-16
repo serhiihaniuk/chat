@@ -1,5 +1,9 @@
 import type { ModelSelection } from "@side-chat/shared-protocol";
 
+/**
+ * Model-selection domain rules. The visible aliases are demo affordances; the
+ * actual provider/model sent to the backend remains the configured fallback.
+ */
 export const fallbackModel: ModelSelection = {
   provider: "openai",
   id: "gpt-5.4-nano",

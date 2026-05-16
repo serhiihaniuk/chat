@@ -1,3 +1,7 @@
+/**
+ * Public package boundary. Host apps should import from here so the widget can
+ * refactor its frontend hexagon internals without breaking consumers.
+ */
 export { SideChatWidget } from "./ui/side-chat-widget/SideChatWidget.js";
 export { useSideChat } from "./adapters/react/use-side-chat.js";
 export {

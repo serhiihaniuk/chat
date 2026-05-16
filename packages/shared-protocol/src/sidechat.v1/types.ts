@@ -31,8 +31,16 @@ import type {
   SidechatTokenUsageSchema,
 } from "./schemas.js";
 
+/**
+ * Protocol version as a type-level value. Keep this stable for sidechat.v1
+ * consumers; protocol-breaking changes should create a new versioned folder.
+ */
 export const SidechatProtocolVersion = "sidechat.v1" as const;
 
+/**
+ * Effect Schema emits readonly shapes. The wire DTOs are plain JSON objects, so
+ * exported app types are made mutable while still deriving from the schema.
+ */
 type MutableDeep<T> = T extends readonly (infer Item)[]
   ? MutableDeep<Item>[]
   : T extends object

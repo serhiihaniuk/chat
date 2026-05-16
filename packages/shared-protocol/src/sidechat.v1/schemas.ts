@@ -1,5 +1,10 @@
 import { Schema } from "effect";
 
+/**
+ * Effect Schema is the canonical sidechat.v1 source of truth: it gives us
+ * TypeScript types, runtime decoding, and future adapter outputs without
+ * maintaining a parallel Zod or JSON Schema contract by hand.
+ */
 export const NonEmptyStringSchema = Schema.String.check(
   Schema.isMinLength(1),
 );
@@ -292,6 +297,10 @@ export const SidechatHeadersSchema = Schema.Struct({
   "X-Request-Id": Schema.optionalKey(Schema.String),
 });
 
+/**
+ * Event-name constants for code that must talk about the protocol without
+ * retyping string literals. The schemas above still own the actual shapes.
+ */
 export const protocolArtifacts = {
   protocol: "sidechat.v1",
   start: "sidechat.started",

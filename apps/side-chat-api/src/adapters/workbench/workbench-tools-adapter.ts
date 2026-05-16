@@ -14,6 +14,10 @@ import type {
   WorkbenchToolsPort,
 } from "#ports/index.js";
 
+/**
+ * Workbench tools adapter. It translates dashboard data and host table state
+ * into model-usable query results and citation sources through backend ports.
+ */
 type ClientPortfolioReviewToolRow = {
   id: string;
   clientId?: string;
@@ -645,6 +649,10 @@ const applyWorklistView = (
   return sortWorklistRows(filtered, sort);
 };
 
+/**
+ * Converts backend-owned Portfolio Worklist rows plus remembered host view
+ * state into the bounded “current visible table” context the model may use.
+ */
 const createSurfaceContextResult = (
   workspaceId: string,
   rows: WorkbenchWorklistRow[],

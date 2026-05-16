@@ -9,6 +9,10 @@ import { SideChatDomainError } from "#application/errors.js";
 
 const protocol = protocolArtifacts;
 
+/**
+ * Converts application/domain failures into terminal stream events. Use this
+ * only after the response has become an SSE stream.
+ */
 export const toProtocolError = (
   requestId: string,
   error: unknown,
@@ -33,6 +37,10 @@ export const toProtocolError = (
   };
 };
 
+/**
+ * Pre-stream errors are ordinary HTTP JSON because no SSE stream exists yet.
+ * Typical examples: missing protocol header or invalid request body.
+ */
 export const preStreamErrorResponse = (
   requestId: string,
   status: 400,

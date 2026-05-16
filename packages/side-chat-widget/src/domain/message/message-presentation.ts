@@ -7,6 +7,11 @@ import type {
   WidgetToolPart,
 } from "./stream-event-state.js";
 
+/**
+ * Presentation-domain rules: these helpers decide what the widget should show
+ * for citations, attachments, tool labels, and visible context sizing without
+ * importing React or browser lifecycle code.
+ */
 export type MessageAttachment = {
   id: string;
   name: string;

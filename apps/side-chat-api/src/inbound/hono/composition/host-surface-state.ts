@@ -3,6 +3,10 @@ import type {
   HostSurfaceStatePort,
 } from "#ports/index.js";
 
+/**
+ * Demo host-surface state. It remembers table view commands server-side so the
+ * model can reason about the currently filtered/sorted resource in one session.
+ */
 export const createMemoryHostSurfaceState = (): HostSurfaceStatePort => {
   const views = new Map<string, Map<string, HostGridViewState>>();
 

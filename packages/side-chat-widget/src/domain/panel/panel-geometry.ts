@@ -1,3 +1,7 @@
+/**
+ * Pure panel geometry rules. Keeping viewport math here lets the React shell
+ * manage pointer events while this file owns the reusable sizing constraints.
+ */
 export const panelId = "side-chat-widget-panel";
 export const defaultPanelWidth = 600;
 export const minPanelSize = { width: 560, height: 560 };

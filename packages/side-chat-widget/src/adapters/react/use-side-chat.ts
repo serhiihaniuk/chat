@@ -19,6 +19,11 @@ import {
   type WidgetMessage,
 } from "../../domain/message/stream-event-state.js";
 
+/**
+ * React/browser adapter for the widget hexagon. It owns fetch, SSE reading,
+ * history/usage calls, host bridge callbacks, and React state; pure protocol
+ * decoding and message projection stay in application/domain modules.
+ */
 export {
   appendReasoningPart,
   upsertHostCommandPart,

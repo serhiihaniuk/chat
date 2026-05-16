@@ -9,6 +9,10 @@ import {
 } from "../../shared/ui/ai-elements/Conversation.js";
 import { RenderedChatMessage } from "./RenderedChatMessage.js";
 
+/**
+ * Conversation feed presentation slice. It renders history/loading states and
+ * delegates each message body to RenderedChatMessage.
+ */
 export type ConversationPanelProps = {
   activeAssistantMessageId?: string;
   apiEndpoint: string;

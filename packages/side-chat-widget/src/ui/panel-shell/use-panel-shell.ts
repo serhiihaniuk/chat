@@ -23,6 +23,11 @@ import {
   type ResizeHandle,
 } from "../../domain/panel/panel-geometry.js";
 
+/**
+ * Presentation hook for the panel shell only. Dragging, resizing, fullscreen,
+ * and focus restoration are UI lifecycle concerns, so they live beside the
+ * shell instead of in a global hooks bucket.
+ */
 type UsePanelShellOptions = {
   onOpen?: () => void;
   onClose?: () => void;

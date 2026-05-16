@@ -8,6 +8,10 @@ import {
 } from "#application/stream-chat.js";
 import { toProtocolError } from "./protocol-errors.js";
 
+/**
+ * Outbound HTTP adapter. It turns the application async event stream into
+ * text/event-stream bytes and guarantees protocol errors are still streamed.
+ */
 export const streamEvents = (
   deps: StreamChatDeps,
   body: unknown,

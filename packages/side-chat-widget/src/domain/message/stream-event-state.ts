@@ -6,6 +6,11 @@ import type {
   TokenUsage,
 } from "@side-chat/shared-protocol";
 
+/**
+ * Pure message projection domain. It translates sidechat.v1 stream events into
+ * widget message state and returns side effects separately so React/fetch logic
+ * stays in adapters instead of being mixed into protocol handling.
+ */
 export type WidgetMessage = {
   id: string;
   role: "user" | "assistant" | "system";

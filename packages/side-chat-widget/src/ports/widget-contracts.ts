@@ -4,6 +4,11 @@ import type {
   HostContextSnapshot,
 } from "@side-chat/shared-protocol";
 
+/**
+ * Widget ports describe what the reusable package needs from a host app.
+ * They keep host state, auth, routing, and table implementations outside the UI
+ * package while still giving the assistant controlled ways to interact.
+ */
 export type SideChatTransport = {
   streamUrl: string;
   historyUrl?: string;

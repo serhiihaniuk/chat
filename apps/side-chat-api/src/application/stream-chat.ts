@@ -31,6 +31,11 @@ import {
 } from "./errors.js";
 import { decodeSidechatRequestEffect } from "./stream-chat-request-schema.js";
 
+/**
+ * Main backend use case. It is intentionally framework-free: it accepts ports,
+ * validates a sidechat.v1 request, orchestrates auth/context/model/tool work,
+ * and yields sidechat.v1 stream events for an inbound adapter to serialize.
+ */
 export type StreamChatDeps = {
   model: ModelPort;
   pageContext: PageContextPort;
@@ -239,6 +244,10 @@ const resolveSurfaceContexts = async (
   );
 };
 
+/**
+ * Final assistant metadata is deliberately selected by the use case, not the
+ * provider adapter, so persistence and protocol metadata stay product-owned.
+ */
 const createAssistantMetadata = (
   assistantContent: string,
   citationSources: WorkbenchCitationSource[],
@@ -335,6 +344,10 @@ export const streamChatEffect = (
     streamChatWithRequest(deps, input, request),
   );
 
+/**
+ * Framework-free use case entry point. It is an async generator so callers can
+ * consume product events without knowing whether transport is HTTP, tests, etc.
+ */
 export async function* streamChat(
   deps: StreamChatDeps,
   input: StreamChatInput,

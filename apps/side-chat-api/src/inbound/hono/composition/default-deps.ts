@@ -16,6 +16,10 @@ import { supportedModels } from "./model-config.js";
 import { createDefaultPageContext } from "./page-context.js";
 import { reportStore } from "./report-store.js";
 
+/**
+ * Composition root for the Hono app. This is where concrete adapters are chosen
+ * from environment configuration and assembled behind application ports.
+ */
 export const createDefaultDeps = (): StreamChatDeps => {
   const env = parseSideChatEnv();
   const persistence = env.DATABASE_URL

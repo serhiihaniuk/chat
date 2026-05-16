@@ -1,5 +1,10 @@
 import type { ModelRequest } from "#ports/index.js";
 
+/**
+ * Prompt assembly belongs in the application layer because it translates
+ * approved page, surface, history, and tool context into model instructions
+ * without leaking adapter details to the use case.
+ */
 const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
 const maxRecentMessages = 12;
 const maxRecentMessageCharacters = 1200;
@@ -233,6 +238,10 @@ const formatRecentConversation = (request: ModelRequest): string | undefined => 
   return `…${formatted.slice(-maxRecentConversationCharacters)}`;
 };
 
+/**
+ * Builds the model-visible user turn. It layers trusted backend context around
+ * the latest message while keeping browser host context clearly labeled.
+ */
 export const createModelPrompt = (request: ModelRequest): string => {
   const pageContext = formatPageContext(request);
   const hostContext = formatHostContext(request);
@@ -279,6 +288,10 @@ export const createModelPrompt = (request: ModelRequest): string => {
   return sections.join("\n");
 };
 
+/**
+ * Final model adapter input. The use case calls this once; provider-specific
+ * request shaping happens later inside the AI adapter.
+ */
 export const createModelInput = (request: ModelRequest) => ({
   system: workbenchAssistantSystemPrompt,
   prompt: createModelPrompt(request),

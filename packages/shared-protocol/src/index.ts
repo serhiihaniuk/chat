@@ -25,6 +25,10 @@ import {
 } from "./sidechat.v1/codec.js";
 import { parseSidechatRequest } from "./sidechat.v1/validation.js";
 
+/**
+ * Package-level facade for sidechat.v1. Consumers should prefer these exports
+ * unless they intentionally need a deep protocol module.
+ */
 export const protocolVersion = SidechatProtocolVersion;
 export const streamRequestSchema = {
   parse: parseSidechatRequest,
@@ -101,6 +105,10 @@ export const goldenErrorEvents: SidechatStreamEvent[] = [
   },
 ];
 
+/**
+ * Compatibility parser for older tests/fixtures that only wrote repeated
+ * `data:` lines instead of full SSE `event:` blocks.
+ */
 const parsePrefixSeparatedDataLines = (chunk: string): SidechatStreamEvent[] =>
   chunk
     .split(protocolLinePrefix)

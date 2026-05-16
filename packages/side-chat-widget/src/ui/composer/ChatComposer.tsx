@@ -26,6 +26,10 @@ import {
 import { recentContextTotalCharacters } from "../../domain/message/message-presentation.js";
 import { modelAliasOptions } from "../../domain/model/model-selection.js";
 
+/**
+ * Composer presentation slice. It owns the input controls and model easter egg;
+ * send behavior stays in the shell/adapters.
+ */
 export type ChatComposerProps = {
   canSend: boolean;
   draft: string;

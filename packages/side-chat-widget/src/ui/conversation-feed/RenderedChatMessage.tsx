@@ -23,6 +23,10 @@ import type {
   WidgetMessagePart,
 } from "../../domain/message/stream-event-state.js";
 
+/**
+ * Rendering composition for one message. Domain helpers decide what is visible;
+ * this component only maps that presentation model onto vendored AI Elements UI.
+ */
 export type RenderedChatMessageProps = {
   message: WidgetMessage;
   apiEndpoint: string;

@@ -10,6 +10,10 @@ import {
   Suggestions,
 } from "../../shared/ui/ai-elements/suggestion.js";
 
+/**
+ * Demo prompt surface. Quick actions paste real user messages into the chat so
+ * the normal model/protocol/tool path runs instead of a hidden shortcut.
+ */
 export type QuickActionsProps = {
   isStreaming: boolean;
   onQuickPrompt: (prompt: string, displayContent?: string) => void;

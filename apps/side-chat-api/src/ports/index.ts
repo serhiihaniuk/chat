@@ -10,6 +10,10 @@ import type {
   TokenUsage,
 } from "@side-chat/shared-protocol";
 
+/**
+ * Backend hexagon ports. The application use case depends on these interfaces,
+ * while Hono, AI SDK, Postgres, reports, auth, and telemetry plug in as adapters.
+ */
 export type ResolvedPageContext = {
   pageId: string;
   title: string;

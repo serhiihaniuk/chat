@@ -2,6 +2,10 @@ import { Schema } from "effect";
 
 import { NonEmptyStringSchema } from "./schemas.js";
 
+/**
+ * HTTP-level protocol constants live beside their schemas so the widget,
+ * server routes, and tests share one spelling for the product boundary.
+ */
 export const SidechatProtocolHeader = "X-Sidechat-Protocol";
 export const SidechatRequestIdHeader = "X-Request-Id";
 

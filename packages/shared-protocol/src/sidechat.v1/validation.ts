@@ -15,6 +15,10 @@ import type {
   SidechatStreamEvent,
 } from "./types.js";
 
+/**
+ * Boundary callers need two styles: parse* for fail-fast internal code and
+ * validate* for adapters that must turn invalid input into protocol errors.
+ */
 export interface SidechatValidationIssue {
   readonly message: string;
 }

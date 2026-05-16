@@ -1,3 +1,7 @@
+/**
+ * Appearance domain rules. These presets are constrained design tokens that the
+ * reusable widget can apply without depending on a host app theme system.
+ */
 export const appearanceStorageKey = "sidechat.appearancePreset";
 
 export const appearancePresets = [

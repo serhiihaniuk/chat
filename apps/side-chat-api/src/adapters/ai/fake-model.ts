@@ -5,6 +5,10 @@ import type {
 } from "#ports/index.js";
 import type { HostCommand } from "@side-chat/shared-protocol";
 
+/**
+ * Deterministic model adapter for tests and local safety. It exercises the same
+ * stream contract as the real adapter without making provider requests.
+ */
 export type FakeModelAdapterOptions = {
   chunkDelayMs?: number;
 };

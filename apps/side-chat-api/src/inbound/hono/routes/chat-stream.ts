@@ -13,6 +13,10 @@ import { streamEvents } from "../response/sse.js";
 
 const protocol = protocolArtifacts;
 
+/**
+ * Inbound HTTP adapter. It owns headers/status codes/body parsing and delegates
+ * the actual chat workflow to the application layer.
+ */
 export const registerChatStreamRoute = (
   app: Hono,
   deps: StreamChatDeps,

@@ -1,6 +1,10 @@
 import type { SidechatStreamEvent } from "./types.js";
 import { isTerminalSidechatEvent } from "./codec.js";
 
+/**
+ * Sequence validation protects the product protocol from impossible stream
+ * histories, even when individual event payloads are schema-valid.
+ */
 export type SequenceValidation =
   | { ok: true }
   | {
@@ -16,6 +20,10 @@ export type SequenceValidation =
       message: string;
     };
 
+/**
+ * Cross-frame protocol validator. A single event can be valid while the stream
+ * is invalid, for example if completion is followed by another delta.
+ */
 export const validateSidechatEventSequence = (
   events: SidechatStreamEvent[],
 ): SequenceValidation => {

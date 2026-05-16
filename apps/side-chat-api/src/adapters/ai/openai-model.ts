@@ -20,6 +20,10 @@ import {
 import type { TokenUsage } from "@side-chat/shared-protocol";
 import { createModelInput } from "#application/prompt-context.js";
 
+/**
+ * AI SDK/OpenAI adapter. It is the only place that should understand provider
+ * stream parts; the rest of the backend consumes normalized ModelChunk values.
+ */
 const asError = (error: unknown) => {
   if (error instanceof Error) return error;
   if (
@@ -329,6 +333,10 @@ export const toHostCommand = (
   return parseHostCommand(command);
 };
 
+/**
+ * Creates AI SDK tools from backend ports. This is the adapter-only place where
+ * Zod tool schemas are needed; sidechat.v1 remains Effect Schema-owned.
+ */
 const createWorkbenchTools = (request: ModelRequest) => {
   if (!request.workbenchTools || !request.userId) return undefined;
   const currentSurfaceQuestion =
@@ -409,6 +417,10 @@ const createWorkbenchTools = (request: ModelRequest) => {
 };
 
 export const openAiModelAdapter: ModelPort = {
+  /**
+   * Translate AI SDK stream parts into provider-neutral ModelChunk values. The
+   * application layer turns those chunks into sidechat.v1 events.
+   */
   async *stream(request, signal) {
     let streamError: unknown;
     const modelInput = createModelInput(request);

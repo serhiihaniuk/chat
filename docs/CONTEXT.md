@@ -47,6 +47,7 @@ Dependency pins live in `package.json` files and are enforced by `scripts/govern
 - [architecture/target.md](architecture/target.md): compact target summary that points back to the canonical system design.
 - [architecture/transition-roadmap.md](architecture/transition-roadmap.md): refactor path and stop rules.
 - [architecture/widget-hexagon.md](architecture/widget-hexagon.md): reusable widget frontend hexagon and Effect-on-UI boundary.
+- [code-walkthrough.md](code-walkthrough.md): practical file-by-file guide explaining what lives where and why.
 - [learning/hexagonal-architecture.md](learning/hexagonal-architecture.md): ports/adapters from scratch.
 - [learning/effect-ts.md](learning/effect-ts.md): Effect TS learning guide.
 - [learning/ai-sdk-streaming-and-tools.md](learning/ai-sdk-streaming-and-tools.md): AI SDK streams, tools, and host commands.

@@ -12,6 +12,10 @@ import type {
 } from "./types.js";
 import { validateStreamEvent } from "./validation.js";
 
+/**
+ * The codec owns only Server-Sent Events framing. It deliberately does not know
+ * about Hono, fetch, React state, or model providers.
+ */
 export const protocolLinePrefix = "data:";
 
 const startsWithPrefix = (line: string): boolean =>
@@ -93,6 +97,10 @@ export const protocolFrame = {
   },
 } as const;
 
+/**
+ * Writes one complete SSE frame. The `event:` line lets browsers and tests know
+ * the product event type before decoding the JSON `data:` line.
+ */
 export const encodeSseFrame = (event: SidechatStreamEvent): string =>
   [`event: ${event.type}`, encodeSseEvent(event), ""].join("\n");
 
@@ -101,6 +109,10 @@ export interface ParsedSsePayload {
   data: string;
 }
 
+/**
+ * Parses raw text/event-stream chunks into payloads. It handles framing only;
+ * validation happens later through sidechat.v1 schemas.
+ */
 export const parseSsePayload = (chunk: string): ParsedSsePayload[] => {
   const blocks = chunk.split("\n\n");
   const out: ParsedSsePayload[] = [];
@@ -138,6 +150,10 @@ export const parseSsePayload = (chunk: string): ParsedSsePayload[] => {
   return out;
 };
 
+/**
+ * Browser/test convenience helper: ignore unknown event names and decode only
+ * known sidechat.v1 payloads into typed stream events.
+ */
 export const parseKnownSsePayloads = (chunk: string): SidechatStreamEvent[] => {
   const payloads = parseSsePayload(chunk);
   const out: SidechatStreamEvent[] = [];

@@ -1,3 +1,7 @@
+/**
+ * Expected use-case failures. The HTTP adapter maps these into sidechat.v1
+ * errors instead of leaking framework or provider exception shapes.
+ */
 export class SideChatDomainError extends Error {
   constructor(
     readonly code: string,

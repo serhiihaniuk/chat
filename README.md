@@ -26,6 +26,8 @@ The repo keeps that browser-facing contract in Node.js/TypeScript as `sidechat.v
 
 For the full architecture explanation, read [SYSTEM-DESIGN.md](./SYSTEM-DESIGN.md).
 
+For a practical file-by-file tour of what lives where and why, read [docs/code-walkthrough.md](./docs/code-walkthrough.md).
+
 ## Demo Surface
 
 The main demo is `apps/embedded-host-app`: a single-page UBS Partner advisory workbench.
