@@ -285,7 +285,6 @@ export function SideChatWidget(props: SideChatWidgetProps) {
       <QuickActions
         isStreaming={chat.isStreaming}
         onQuickPrompt={sendQuickPrompt}
-        onRetry={retryLastMessage}
       />
       <ChatComposer
         canSend={canSend}
