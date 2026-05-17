@@ -27,6 +27,8 @@ export interface DbExecutor {
 export type ConversationRow = { conversation_id: string };
 export type HistoryRow = ChatMessage;
 export type UsageRow = TokenUsage;
+export type ResetConversationHistoryRow = { deletedMessages: number };
+export type ResetConversationUsageRow = { deletedUsageRecords: number };
 
 /**
  * Thin stored-procedure adapter for side-chat persistence. Application code
@@ -77,6 +79,17 @@ export class SideChatDb {
     );
   }
 
+  resetConversationHistory(
+    workspaceId: string,
+    userId: string,
+    conversationId: string,
+  ) {
+    return this.db.query<ResetConversationHistoryRow>(
+      "select * from sidechat_reset_conversation_history($1, $2, $3)",
+      [workspaceId, userId, conversationId],
+    );
+  }
+
   recordUsage(
     requestId: string,
     conversationId: string,
@@ -109,6 +122,17 @@ export class SideChatDb {
       [workspaceId, userId, conversationId],
     );
   }
+
+  resetConversationUsage(
+    workspaceId: string,
+    userId: string,
+    conversationId: string,
+  ) {
+    return this.db.query<ResetConversationUsageRow>(
+      "select * from sidechat_reset_conversation_usage($1, $2, $3)",
+      [workspaceId, userId, conversationId],
+    );
+  }
 }
 
 export type SideChatPersistence = {
@@ -134,6 +158,11 @@ export type SideChatPersistence = {
       workspaceId: string,
       conversationId: string,
     ): Promise<HistoryRow[]>;
+    resetHistory(input: {
+      workspaceId: string;
+      userId: string;
+      conversationId: string;
+    }): Promise<ResetConversationHistoryRow>;
   };
   usage: {
     record(input: {
@@ -148,6 +177,11 @@ export type SideChatPersistence = {
       userId: string;
       conversationId: string;
     }): Promise<TokenUsage | undefined>;
+    reset(input: {
+      workspaceId: string;
+      userId: string;
+      conversationId: string;
+    }): Promise<ResetConversationUsageRow>;
   };
   close(): Promise<void>;
 };
@@ -199,6 +233,14 @@ export const createSideChatPersistence = (
         const result = await db.readSeededHistory(workspaceId, conversationId);
         return result.rows;
       },
+      async resetHistory({ workspaceId, userId, conversationId }) {
+        const result = await db.resetConversationHistory(
+          workspaceId,
+          userId,
+          conversationId,
+        );
+        return result.rows[0] ?? { deletedMessages: 0 };
+      },
     },
     usage: {
       async record({ requestId, conversationId, messageId, model, usage }) {
@@ -217,6 +259,14 @@ export const createSideChatPersistence = (
           conversationId,
         );
         return result.rows[0];
+      },
+      async reset({ workspaceId, userId, conversationId }) {
+        const result = await db.resetConversationUsage(
+          workspaceId,
+          userId,
+          conversationId,
+        );
+        return result.rows[0] ?? { deletedUsageRecords: 0 };
       },
     },
     close,

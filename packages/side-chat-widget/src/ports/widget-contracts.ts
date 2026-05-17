@@ -12,6 +12,7 @@ import type {
 export type SideChatTransport = {
   streamUrl: string;
   historyUrl?: string;
+  historyResetUrl?: string;
   usageUrl?: string;
   protocol?: "sidechat.v1";
 };

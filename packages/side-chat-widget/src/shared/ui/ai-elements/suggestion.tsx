@@ -8,7 +8,7 @@ export type SuggestionsProps = ComponentProps<"div">;
 export const Suggestions = ({ className, ...props }: SuggestionsProps) => (
   <div
     className={cn(
-      "flex shrink-0 items-center gap-3 overflow-x-auto py-1",
+      "sidechat-scrollbar-none flex shrink-0 items-center gap-3 overflow-x-auto py-1",
       className,
     )}
     {...props}

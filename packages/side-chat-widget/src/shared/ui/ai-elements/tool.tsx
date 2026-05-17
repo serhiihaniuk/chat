@@ -73,25 +73,25 @@ export const Tool = ({
       onToggle={(event) => setOpen(event.currentTarget.open)}
       {...props}
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-semibold text-foreground marker:hidden [&::-webkit-details-marker]:hidden">
-        <Wrench aria-hidden="true" className="size-4 text-muted-foreground" />
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-[3px] font-semibold text-foreground marker:hidden [&::-webkit-details-marker]:hidden">
+        <Wrench aria-hidden="true" className="size-3.5 text-muted-foreground" />
         <span>{displayName ?? toolName}</span>
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground",
+            "inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0 text-xs font-semibold text-muted-foreground",
             status === "completed" && "text-emerald-700",
             status === "error" && "text-red-700",
           )}
         >
-          <StatusIcon aria-hidden="true" className="size-3.5" />
+          <StatusIcon aria-hidden="true" className="size-3" />
           {statusLabel[status]}
         </span>
         <ChevronDown
           aria-hidden="true"
-          className="ml-auto size-4 text-muted-foreground transition group-open/tool:rotate-180"
+          className="ml-auto size-3.5 text-muted-foreground transition group-open/tool:rotate-180"
         />
       </summary>
-      <div className="space-y-3 border-t border-border px-3 py-3">
+      <div className="space-y-2 border-t border-border px-2.5 py-2">
         {formatPayload(input) ? (
           <section>
             <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">

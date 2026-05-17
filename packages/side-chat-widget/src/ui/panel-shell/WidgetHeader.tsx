@@ -1,8 +1,8 @@
 import {
-  Copy,
   Maximize2,
   Minimize2,
   Settings,
+  SquarePen,
   X,
 } from "lucide-react";
 import type {
@@ -21,11 +21,13 @@ export type WidgetHeaderProps = {
   appearanceOpen: boolean;
   appearancePreset: AppearancePreset;
   isFullscreen: boolean;
+  newChatDisabled?: boolean;
   title?: string;
   onAppearanceToggle: () => void;
   onClose: () => void;
   onDragStart: (event: ReactPointerEvent<HTMLElement>) => void;
   onFullscreenToggle: () => void;
+  onNewChat: () => void;
   onResetAppearance: () => void;
   onSelectAppearance: (presetId: AppearancePresetId) => void;
 };
@@ -34,16 +36,18 @@ export const WidgetHeader = ({
   appearanceOpen,
   appearancePreset,
   isFullscreen,
+  newChatDisabled = false,
   title,
   onAppearanceToggle,
   onClose,
   onDragStart,
   onFullscreenToggle,
+  onNewChat,
   onResetAppearance,
   onSelectAppearance,
 }: WidgetHeaderProps) => (
   <header
-    className={`flex shrink-0 touch-none select-none items-start justify-between gap-5 px-8 pt-8 pb-4 max-sm:px-4 max-sm:pt-5 ${
+    className={`flex shrink-0 touch-none select-none items-start justify-between gap-5 px-8 pt-5 pb-3 max-sm:px-4 max-sm:pt-4 ${
       isFullscreen
         ? "cursor-default"
         : "cursor-grab active:cursor-grabbing max-sm:cursor-default"
@@ -53,27 +57,29 @@ export const WidgetHeader = ({
   >
     <div className="min-w-0">
       <strong
-        className="block text-2xl font-semibold tracking-tight max-sm:text-lg"
+        className="block text-xl font-semibold tracking-tight max-sm:text-lg"
         style={{ color: "var(--sidechat-fg)" }}
       >
         {title ?? "Workspace Assistant"}
       </strong>
-      <div className="mt-6 flex items-center gap-3 text-base text-slate-500 max-sm:mt-3 max-sm:text-sm">
-        <Copy aria-hidden="true" className="size-5 shrink-0 text-slate-500" />
-        <span>Using current page context</span>
-        <span
-          aria-hidden="true"
-          className="size-2 rounded-full"
-          style={{ background: "var(--sidechat-accent)" }}
-        />
-      </div>
     </div>
-    <div className="relative flex shrink-0 items-start gap-1">
+    <div className="relative -mt-1 flex shrink-0 items-start gap-1">
+      <button
+        type="button"
+        aria-label="Start new chat"
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 max-sm:size-9 [&_svg]:size-5"
+        disabled={newChatDisabled}
+        onClick={onNewChat}
+        style={{ outlineColor: "var(--sidechat-accent)" }}
+        title="New chat"
+      >
+        <SquarePen aria-hidden="true" />
+      </button>
       <button
         type="button"
         aria-expanded={appearanceOpen}
         aria-label="Customize assistant appearance"
-        className="inline-flex size-14 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none max-sm:size-11 [&_svg]:size-7 max-sm:[&_svg]:size-5"
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none max-sm:size-9 [&_svg]:size-5"
         onClick={onAppearanceToggle}
         style={{ outlineColor: "var(--sidechat-accent)" }}
       >
@@ -92,7 +98,7 @@ export const WidgetHeader = ({
           isFullscreen ? "Unfullscreen assistant" : "Fullscreen assistant"
         }
         aria-pressed={isFullscreen}
-        className="inline-flex size-14 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none max-sm:size-11 [&_svg]:size-7 max-sm:[&_svg]:size-5"
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none max-sm:size-9 [&_svg]:size-5"
         onClick={onFullscreenToggle}
         style={{ outlineColor: "var(--sidechat-accent)" }}
         title={isFullscreen ? "Unfullscreen" : "Full screen"}
@@ -108,7 +114,7 @@ export const WidgetHeader = ({
         aria-label="Close assistant"
         aria-expanded={true}
         aria-controls={panelId}
-        className="inline-flex size-14 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:ring-blue-500/20 focus:outline-none max-sm:size-11 [&_svg]:size-8 max-sm:[&_svg]:size-6"
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:ring-blue-500/20 focus:outline-none max-sm:size-9 [&_svg]:size-6 max-sm:[&_svg]:size-5"
         onClick={onClose}
       >
         <X aria-hidden="true" />
@@ -130,7 +136,7 @@ const AppearanceMenu = ({
 }: AppearanceMenuProps) => (
   <section
     aria-label="Appearance presets"
-    className="absolute top-14 right-28 z-30 w-80 rounded-lg border bg-white p-4 text-base shadow-xl shadow-slate-950/15 max-sm:right-0 max-sm:w-[calc(100vw-3rem)]"
+    className="absolute top-11 right-20 z-30 w-80 rounded-lg border bg-white p-4 text-base shadow-xl shadow-slate-950/15 max-sm:right-0 max-sm:w-[calc(100vw-3rem)]"
     style={{
       background: "var(--sidechat-bg)",
       borderColor: "var(--sidechat-border)",

@@ -1,4 +1,5 @@
-import { Globe2, Send } from "lucide-react";
+import { PanelTop, Send } from "lucide-react";
+import { useId } from "react";
 import type {
   FormEvent,
   KeyboardEvent,
@@ -16,7 +17,6 @@ import {
 } from "../../shared/ui/ai-elements/context.js";
 import {
   PromptInput,
-  PromptInputButton,
   PromptInputModelSelect,
   PromptInputSubmit,
   PromptInputTextarea,
@@ -83,10 +83,7 @@ export const ChatComposer = ({
             <ContextContentFooter />
           </ContextContent>
         </Context>
-        <PromptInputButton disabled title="Search is not enabled yet">
-          <Globe2 aria-hidden="true" />
-          Search
-        </PromptInputButton>
+        <PageContextIndicator />
         <PromptInputModelSelect
           disabled={isStreaming}
           modelId={modelAliasId}
@@ -100,6 +97,39 @@ export const ChatComposer = ({
     </PromptInputToolbar>
   </PromptInput>
 );
+
+const PageContextIndicator = () => {
+  const tooltipId = useId();
+
+  return (
+    <span className="group/page-context relative inline-flex shrink-0">
+      <span
+        aria-describedby={tooltipId}
+        aria-label="Using current page context"
+        className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-semibold text-slate-500 outline-none transition hover:bg-slate-50 hover:text-slate-800 focus:ring-2 focus:ring-blue-500/20 max-sm:h-8 [&_svg]:size-4"
+        tabIndex={0}
+      >
+        <PanelTop aria-hidden="true" className="shrink-0" />
+        <span className="whitespace-nowrap">Page</span>
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-emerald-600" />
+      </span>
+      <span
+        className="pointer-events-none absolute bottom-full left-0 z-20 mb-2 hidden w-80 max-w-[calc(100vw-3rem)] rounded-md border border-border bg-white p-3 text-sm text-slate-700 shadow-lg group-hover/page-context:block group-focus-within/page-context:block"
+        id={tooltipId}
+        role="tooltip"
+      >
+        <strong className="block text-sm text-slate-900">Page context</strong>
+        <span className="mt-2 block leading-5">
+          The assistant can use the current Workbench surface: visible dashboard
+          KPIs, portfolio table rows, active filters, and selected client context.
+        </span>
+        <span className="mt-2 block rounded bg-slate-50 p-2 text-xs leading-5 text-slate-500">
+          It does not automatically inspect other pages or hidden browser state.
+        </span>
+      </span>
+    </span>
+  );
+};
 
 const handleComposerInputKeyDown = (
   event: KeyboardEvent<HTMLTextAreaElement>,

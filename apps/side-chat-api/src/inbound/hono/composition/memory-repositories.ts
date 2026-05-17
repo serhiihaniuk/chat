@@ -54,6 +54,11 @@ export const createMemoryConversationRepository =
           metadata: entry.metadata,
         }));
       },
+      async resetHistory({ conversationId }) {
+        const deletedMessages = messages.get(conversationId)?.length ?? 0;
+        messages.set(conversationId, []);
+        return { deletedMessages };
+      },
     };
   };
 
@@ -85,6 +90,21 @@ export const createMemoryUsageRepository = (): UsagePort => {
             record.conversationId === conversationId,
         )
         .sort((left, right) => right.createdAt - left.createdAt)[0]?.usage;
+    },
+    async reset({ workspaceId, userId, conversationId }) {
+      let deletedUsageRecords = 0;
+      for (let index = records.length - 1; index >= 0; index -= 1) {
+        const record = records[index];
+        if (
+          record?.workspaceId === workspaceId &&
+          record.userId === userId &&
+          record.conversationId === conversationId
+        ) {
+          records.splice(index, 1);
+          deletedUsageRecords += 1;
+        }
+      }
+      return { deletedUsageRecords };
     },
   };
 };

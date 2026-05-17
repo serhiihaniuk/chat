@@ -98,7 +98,7 @@ export function ContextTrigger({
       type="button"
       aria-label={`Context usage ${percent}%`}
       className={cn(
-        "inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-none max-sm:h-9 max-sm:px-2",
+        "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-none max-sm:h-8 max-sm:px-2",
         className,
       )}
       {...props}
@@ -107,7 +107,7 @@ export function ContextTrigger({
         <>
           <span>{label ?? "Context"}</span>
           <span>{percent}%</span>
-          <svg aria-hidden="true" className="size-5 -rotate-90" viewBox="0 0 20 20">
+          <svg aria-hidden="true" className="size-4 -rotate-90" viewBox="0 0 20 20">
             <circle
               cx="10"
               cy="10"

@@ -33,3 +33,11 @@
   border-radius: 9999px;
   background: rgb(148 163 184 / 0.8);
 }
+
+.sidechat-scrollbar-none {
+  scrollbar-width: none;
+}
+
+.sidechat-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

@@ -23,7 +23,13 @@ describe("schema initialization enforces runtime grants", () => {
       "grant execute on function sidechat_read_seeded_history(text, text) to sidechat_app;",
     );
     expect(schemaSql).toContain(
+      "grant execute on function sidechat_reset_conversation_history(text, text, text) to sidechat_app;",
+    );
+    expect(schemaSql).toContain(
       "grant execute on function sidechat_record_usage(text, text, text, text, text, int, int, int, int, int, int, numeric) to sidechat_app;",
+    );
+    expect(schemaSql).toContain(
+      "grant execute on function sidechat_reset_conversation_usage(text, text, text) to sidechat_app;",
     );
     expect(schemaSql).toContain(
       "grant execute on function sidechat_get_latest_usage(text, text, text) to sidechat_app;",
@@ -52,9 +58,15 @@ describe("schema initialization enforces runtime grants", () => {
     expect(schemaSql).toContain(
       "create or replace function sidechat_read_seeded_history",
     );
+    expect(schemaSql).toContain(
+      "create or replace function sidechat_reset_conversation_history",
+    );
     expect(schemaSql).toContain("metadata jsonb not null default '{}'::jsonb");
     expect(schemaSql).toContain(
       "create or replace function sidechat_record_usage",
+    );
+    expect(schemaSql).toContain(
+      "create or replace function sidechat_reset_conversation_usage",
     );
     expect(schemaSql).toContain(
       "create or replace function sidechat_get_latest_usage",

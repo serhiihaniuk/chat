@@ -21,7 +21,7 @@ export function PromptInput({
   return (
     <form
       className={cn(
-        "shrink-0 px-8 pt-6 pb-8 max-sm:px-4 max-sm:pt-4 max-sm:pb-5",
+        "shrink-0 px-8 pt-2 pb-4 max-sm:px-4 max-sm:pt-2 max-sm:pb-3",
         className,
       )}
       onSubmit={onSubmit}
@@ -52,7 +52,7 @@ export const PromptInputTextarea = forwardRef<
     <textarea
       ref={ref}
       className={cn(
-        "min-h-24 w-full resize-none border-0 bg-transparent px-6 pt-5 pb-3 text-lg leading-relaxed outline-none placeholder:text-slate-400 max-sm:min-h-20 max-sm:px-4 max-sm:pt-4 max-sm:text-base",
+        "min-h-14 w-full resize-none border-0 bg-transparent px-6 pt-2.5 pb-1.5 text-base leading-relaxed outline-none placeholder:text-slate-400 max-sm:min-h-12 max-sm:px-4 max-sm:pt-2",
         className,
       )}
       rows={2}
@@ -71,7 +71,7 @@ export function PromptInputToolbar({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-5 pb-4 max-sm:px-3 max-sm:pb-3",
+        "flex items-center gap-2 px-5 pb-2.5 max-sm:px-3 max-sm:pb-2",
         className,
       )}
     >
@@ -88,7 +88,7 @@ export function PromptInputTools({
   className?: string;
 }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 items-center gap-2", className)}>
+    <div className={cn("flex min-w-0 flex-1 items-center gap-1.5", className)}>
       {children}
     </div>
   );
@@ -102,7 +102,7 @@ export function PromptInputButton({
     <button
       type="button"
       className={cn(
-        "inline-flex h-10 items-center gap-2 rounded-md px-3 text-base font-semibold text-slate-500 transition hover:text-slate-800 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-45 max-sm:h-9 max-sm:px-2 max-sm:text-sm [&_svg]:size-5",
+        "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-slate-500 transition hover:text-slate-800 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-45 max-sm:h-8 max-sm:px-2 [&_svg]:size-4",
         className,
       )}
       {...props}
@@ -141,7 +141,7 @@ export function PromptInputModelSelect({
         aria-label="Assistant model"
         aria-controls={listboxId}
         aria-expanded={open}
-        className="inline-flex h-10 max-w-56 items-center gap-2 rounded-md px-3 text-lg font-semibold text-slate-600 transition hover:bg-slate-500/5 hover:text-slate-900 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-9 max-sm:max-w-44 max-sm:px-2 max-sm:text-base"
+        className="inline-flex h-9 max-w-56 items-center gap-2 rounded-md px-3 text-base font-semibold text-slate-600 transition hover:bg-slate-500/5 hover:text-slate-900 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-8 max-sm:max-w-44 max-sm:px-2 max-sm:text-sm"
         disabled={disabled}
         onClick={() => setOpen((current) => !current)}
         style={{ outlineColor: "var(--sidechat-accent, rgb(37 99 235))" }}
@@ -158,7 +158,7 @@ export function PromptInputModelSelect({
       </button>
       {open ? (
         <div
-          className="absolute bottom-full left-0 z-50 mb-2 w-72 overflow-hidden rounded-lg border bg-white py-1 shadow-xl"
+          className="absolute right-0 bottom-full z-50 mb-2 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border bg-white py-1 shadow-xl"
           id={listboxId}
           role="listbox"
           style={{
@@ -223,7 +223,7 @@ export function PromptInputSubmit({
     <button
       type="submit"
       className={cn(
-        "ml-auto inline-flex size-12 shrink-0 items-center justify-center rounded-lg text-white transition focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300 max-sm:size-10 [&_svg]:size-6",
+        "ml-auto inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-white transition focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300 max-sm:size-9 [&_svg]:size-5",
         className,
       )}
       style={{

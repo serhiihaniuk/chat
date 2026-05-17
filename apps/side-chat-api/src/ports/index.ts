@@ -227,6 +227,11 @@ export interface ConversationRepository {
       metadata?: Record<string, unknown>;
     }>
   >;
+  resetHistory?(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId: string;
+  }): Promise<{ deletedMessages: number }>;
 }
 
 export interface UsagePort {
@@ -242,6 +247,11 @@ export interface UsagePort {
     userId: string;
     conversationId: string;
   }): Promise<TokenUsage | undefined>;
+  reset?(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId: string;
+  }): Promise<{ deletedUsageRecords: number }>;
 }
 
 export interface AuthPort {

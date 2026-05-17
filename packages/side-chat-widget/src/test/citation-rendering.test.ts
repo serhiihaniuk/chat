@@ -4,12 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import { Citations } from "../shared/ui/ai-elements/citation.js";
 import {
+  getAssistantMessageView,
   getMetadataAttachments,
   inferInlineSourcesFromContent,
   mergeAttachments,
   parseCitationMetadata,
   selectInlineSources,
-} from "../ui/side-chat-widget/SideChatWidget.js";
+} from "../domain/message/message-presentation.js";
 
 describe("Citation rendering", () => {
   it("renders source labels as citation chips", () => {
@@ -94,7 +95,7 @@ describe("Citation rendering", () => {
     const sources = [
       {
         sourceId: "advisoryWorklist:review-redwood-pharma-ag",
-        label: "Portfolio Worklist Â· Redwood Pharma AG",
+        label: "Portfolio Worklist - Redwood Pharma AG",
         dataset: "client_portfolio_review",
         resourceId: "advisoryWorklist",
         rowId: "review-redwood-pharma-ag",
@@ -104,6 +105,32 @@ describe("Citation rendering", () => {
     expect(
       selectInlineSources(
         "Redwood Pharma AG is the first overdue portfolio to review.",
+        sources,
+      ),
+    ).toEqual(sources);
+  });
+
+  it("keeps real Portfolio Worklist sources when the reply names visible rows", () => {
+    const sources = [
+      {
+        sourceId: "advisoryWorklist:review-helvetic-robotics-ag",
+        label: "Portfolio Worklist - Helvetic Robotics AG",
+        dataset: "client_portfolio_review",
+        resourceId: "advisoryWorklist",
+        rowId: "review-helvetic-robotics-ag",
+      },
+      {
+        sourceId: "advisoryWorklist:review-meridian-shipping-sa",
+        label: "Portfolio Worklist - Meridian Shipping SA",
+        dataset: "client_portfolio_review",
+        resourceId: "advisoryWorklist",
+        rowId: "review-meridian-shipping-sa",
+      },
+    ];
+
+    expect(
+      selectInlineSources(
+        "Overdue highlights: Helvetic Robotics AG and Meridian Shipping SA need attention first.",
         sources,
       ),
     ).toEqual(sources);
@@ -158,6 +185,58 @@ describe("Citation rendering", () => {
         label: "Top Risk Accounts · Jasper Retail Group",
         dataset: "top_risk_accounts",
         rowId: "risk-jasper-retail-credit-concentration",
+      },
+    ]);
+  });
+
+  it("recovers Portfolio Worklist citations from reloaded assistant text", () => {
+    expect(
+      inferInlineSourcesFromContent(
+        "Overdue highlights: Helvetic Robotics AG and Meridian Shipping SA need attention first.",
+      ),
+    ).toEqual([
+      {
+        sourceId: "advisoryWorklist:review-helvetic-robotics-ag",
+        label: "Portfolio Worklist - Helvetic Robotics AG",
+        dataset: "client_portfolio_review",
+        resourceId: "advisoryWorklist",
+        rowId: "review-helvetic-robotics-ag",
+      },
+      {
+        sourceId: "advisoryWorklist:review-meridian-shipping-sa",
+        label: "Portfolio Worklist - Meridian Shipping SA",
+        dataset: "client_portfolio_review",
+        resourceId: "advisoryWorklist",
+        rowId: "review-meridian-shipping-sa",
+      },
+    ]);
+  });
+
+  it("shows inferred sources in assistant message views when stored metadata is missing", () => {
+    expect(
+      getAssistantMessageView(
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content:
+            "Overdue highlights: Helvetic Robotics AG and Meridian Shipping SA need attention first.",
+        },
+        "http://127.0.0.1:3000/chat/stream",
+      ).inlineSources,
+    ).toEqual([
+      {
+        sourceId: "advisoryWorklist:review-helvetic-robotics-ag",
+        label: "Portfolio Worklist - Helvetic Robotics AG",
+        dataset: "client_portfolio_review",
+        resourceId: "advisoryWorklist",
+        rowId: "review-helvetic-robotics-ag",
+      },
+      {
+        sourceId: "advisoryWorklist:review-meridian-shipping-sa",
+        label: "Portfolio Worklist - Meridian Shipping SA",
+        dataset: "client_portfolio_review",
+        resourceId: "advisoryWorklist",
+        rowId: "review-meridian-shipping-sa",
       },
     ]);
   });

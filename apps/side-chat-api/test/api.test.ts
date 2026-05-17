@@ -984,6 +984,78 @@ describe("hono adapter", () => {
     expect(response.status).toBe(400);
   });
 
+  it("resets persisted conversation history and usage", async () => {
+    const resetHistory = vi.fn(async () => ({ deletedMessages: 4 }));
+    const resetUsage = vi.fn(async () => ({ deletedUsageRecords: 2 }));
+    const app = createApp({
+      conversations: {
+        async createOrGet() {
+          return "demo-conversation-001";
+        },
+        async appendUserMessage() {},
+        async appendAssistantMessage() {},
+        async readSeededHistory() {
+          return [];
+        },
+        resetHistory,
+      },
+      model: { async *stream() {} },
+      usage: { async record() {}, reset: resetUsage },
+      auth: {
+        async authorize() {
+          return true;
+        },
+      },
+      rateLimit: {
+        async check() {
+          return true;
+        },
+      },
+      billing: {
+        async allow() {
+          return true;
+        },
+      },
+      observability: {
+        lifecycle() {},
+        counter() {},
+        async span(_name, run) {
+          return run();
+        },
+      },
+      config: {
+        models() {
+          return [{ provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" }];
+        },
+        defaultUserId() {
+          return "local-user";
+        },
+      },
+    });
+
+    const response = await app.request(
+      "/chat/history?workspaceId=demo-workspace&conversationId=demo-conversation-001",
+      { method: "DELETE" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resetUsage).toHaveBeenCalledWith({
+      workspaceId: "demo-workspace",
+      userId: "local-user",
+      conversationId: "demo-conversation-001",
+    });
+    expect(resetHistory).toHaveBeenCalledWith({
+      workspaceId: "demo-workspace",
+      userId: "local-user",
+      conversationId: "demo-conversation-001",
+    });
+    expect(await response.json()).toEqual({
+      conversationId: "demo-conversation-001",
+      deletedMessages: 4,
+      deletedUsageRecords: 2,
+    });
+  });
+
   it("returns latest persisted usage for a conversation", async () => {
     const latest = vi.fn(async () => ({
       inputTokens: 120,

@@ -32,6 +32,11 @@ describe("sidechat persistence adapter", () => {
       { provider: "openai", id: "gpt-4.1-mini" },
       { citations: [{ sourceId: "source-1" }] },
     );
+    await persistence.conversations.resetHistory({
+      workspaceId: "demo-workspace",
+      userId: "demo-user",
+      conversationId: "conv-db-1",
+    });
     await persistence.usage.record({
       requestId: "req-001",
       conversationId: "conv-db-1",
@@ -39,12 +44,19 @@ describe("sidechat persistence adapter", () => {
       model: { provider: "openai", id: "gpt-4.1-mini" },
       usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
     });
+    await persistence.usage.reset({
+      workspaceId: "demo-workspace",
+      userId: "demo-user",
+      conversationId: "conv-db-1",
+    });
 
     expect(calls.map((call) => call.text)).toEqual([
       "select * from sidechat_create_or_get_conversation($1, $2, $3)",
       "select * from sidechat_append_user_message($1, $2, $3)",
       "select * from sidechat_append_assistant_message($1, $2, $3, $4, $5, $6)",
+      "select * from sidechat_reset_conversation_history($1, $2, $3)",
       "select * from sidechat_record_usage($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+      "select * from sidechat_reset_conversation_usage($1, $2, $3)",
     ]);
   });
 

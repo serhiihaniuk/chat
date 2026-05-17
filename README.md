@@ -282,10 +282,6 @@ The app is feature-complete enough for the current demo, but some boundaries are
 
 - [SYSTEM-DESIGN.md](./SYSTEM-DESIGN.md): canonical architecture and first-principles explanation.
 - [docs/CONTEXT.md](./docs/CONTEXT.md): compact durable context index.
-- [docs/architecture/current.md](./docs/architecture/current.md): brownfield implementation map.
-- [docs/architecture/transition-roadmap.md](./docs/architecture/transition-roadmap.md): refactor path and stop rules.
-- [docs/architecture/widget-hexagon.md](./docs/architecture/widget-hexagon.md): reusable widget frontend hexagon.
-- [docs/learning/hexagonal-architecture.md](./docs/learning/hexagonal-architecture.md): ports/adapters primer.
-- [docs/learning/effect-ts.md](./docs/learning/effect-ts.md): Effect TS primer.
-- [docs/learning/ai-sdk-streaming-and-tools.md](./docs/learning/ai-sdk-streaming-and-tools.md): AI SDK stream/tool primer.
-- [docs/learning/frontend-backend-boundaries.md](./docs/learning/frontend-backend-boundaries.md): widget, host, and protocol boundary primer.
+- [docs/code-walkthrough.md](./docs/code-walkthrough.md): practical reading path through apps, packages, flows, and file ownership.
+- Workspace `LEARNING.md` files: focused local guides for each app/package.
+- [deploy/demo/README.md](./deploy/demo/README.md): Docker Compose demo deployment notes.

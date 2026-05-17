@@ -28,7 +28,7 @@ export const Reasoning = ({
   return (
     <ChainOfThought
       className={cn(
-        "rounded-md border px-3 py-2 text-sm",
+        "rounded-md border px-2.5 py-[3px] text-sm",
         className,
       )}
       defaultOpen={isStreaming}
@@ -44,12 +44,12 @@ export const Reasoning = ({
       }}
       {...props}
     >
-      <ChainOfThoughtHeader className="font-semibold">
+      <ChainOfThoughtHeader className="font-medium">
         {isStreaming ? "Thinking..." : "Reasoning"}
       </ChainOfThoughtHeader>
       <ChainOfThoughtContent>
         <ChainOfThoughtStep
-          label={<div className="whitespace-pre-wrap leading-6">{children}</div>}
+          label={<div className="whitespace-pre-wrap leading-5">{children}</div>}
           status={isStreaming ? "active" : "complete"}
         />
       </ChainOfThoughtContent>

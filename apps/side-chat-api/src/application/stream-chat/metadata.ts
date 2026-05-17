@@ -74,9 +74,17 @@ const normalizeCitationText = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const getLabelTail = (label: string) =>
+  label.split(/\s(?:·|-)\s/).at(-1)?.trim();
+
+const getRowLabelFromId = (rowId: string | undefined) =>
+  rowId?.replace(/^(?:review|risk|client|kpi)-/, "");
+
 const getSourceSearchTerms = (source: WorkbenchCitationSource) => {
-  const labelTail = source.label.split("·").at(-1)?.trim();
-  return [labelTail, source.rowId, source.field]
+  const labelTail = getLabelTail(source.label);
+  const rowLabel = getRowLabelFromId(source.rowId);
+
+  return [labelTail, rowLabel, source.rowId, source.field]
     .filter((term): term is string => Boolean(term && term.length > 2))
     .map(normalizeCitationText);
 };

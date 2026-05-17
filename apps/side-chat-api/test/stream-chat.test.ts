@@ -644,7 +644,7 @@ describe("streamChat", () => {
     const sources = [
       {
         sourceId: "advisoryWorklist:review-redwood-pharma-ag",
-        label: "Portfolio Worklist Â· Redwood Pharma AG",
+        label: "Portfolio Worklist - Redwood Pharma AG",
         dataset: "client_portfolio_review" as const,
         resourceId: "advisoryWorklist",
         rowId: "review-redwood-pharma-ag",
@@ -654,6 +654,32 @@ describe("streamChat", () => {
     expect(
       selectInlineCitationSources(
         "Redwood Pharma AG is the first overdue portfolio to review.",
+        sources,
+      ),
+    ).toEqual(sources);
+  });
+
+  it("keeps real Portfolio Worklist row citations when the answer names visible rows", () => {
+    const sources = [
+      {
+        sourceId: "advisoryWorklist:review-helvetic-robotics-ag",
+        label: "Portfolio Worklist - Helvetic Robotics AG",
+        dataset: "client_portfolio_review" as const,
+        resourceId: "advisoryWorklist",
+        rowId: "review-helvetic-robotics-ag",
+      },
+      {
+        sourceId: "advisoryWorklist:review-meridian-shipping-sa",
+        label: "Portfolio Worklist - Meridian Shipping SA",
+        dataset: "client_portfolio_review" as const,
+        resourceId: "advisoryWorklist",
+        rowId: "review-meridian-shipping-sa",
+      },
+    ];
+
+    expect(
+      selectInlineCitationSources(
+        "Overdue highlights: Helvetic Robotics AG and Meridian Shipping SA need attention first.",
         sources,
       ),
     ).toEqual(sources);

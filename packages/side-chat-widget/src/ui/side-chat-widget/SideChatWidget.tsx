@@ -91,11 +91,13 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 	const workspaceId = resolveWorkspaceId(props);
 	const initialConversationId = props.identity?.conversationId ?? props.initialConversationId;
 	const historyEndpoint = props.transport?.historyUrl ?? props.historyEndpoint;
+	const historyResetEndpoint = props.transport?.historyResetUrl;
 	const chat = useSideChat({
 		apiEndpoint,
 		workspaceId,
 		initialConversationId,
 		historyEndpoint,
+		historyResetEndpoint,
 		defaultModel: props.defaultModel ?? models[0],
 		getHostContext: props.host?.getContext,
 		dispatchHostCommand: props.host?.dispatchCommand,
@@ -180,6 +182,15 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 		chat.retryLastMessage();
 	};
 
+	const startNewChat = () => {
+		if (chat.isStreaming) return;
+		setAppearanceOpen(false);
+		setDraft('');
+		void chat.resetConversation().then(() => {
+			inputRef.current?.focus({ preventScroll: true });
+		});
+	};
+
 	const toggleFullscreen = () => {
 		setAppearanceOpen(false);
 		panel.toggleFullscreen();
@@ -237,11 +248,13 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 				appearanceOpen={appearanceOpen}
 				appearancePreset={appearancePreset}
 				isFullscreen={panel.isFullscreen}
+				newChatDisabled={chat.isStreaming || chat.isHistoryLoading}
 				title={props.title}
 				onAppearanceToggle={() => setAppearanceOpen((current) => !current)}
 				onClose={panel.closePanel}
 				onDragStart={panel.startPanelDrag}
 				onFullscreenToggle={toggleFullscreen}
+				onNewChat={startNewChat}
 				onResetAppearance={resetAppearancePreset}
 				onSelectAppearance={selectAppearancePreset}
 			/>
@@ -256,7 +269,12 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 				scrollToBottomSignal={scrollToBottomSignal}
 			/>
 			{chat.error ? (
-				<ErrorBanner error={chat.error} isStreaming={chat.isStreaming} onRetry={retryLastMessage} />
+				<ErrorBanner
+					error={chat.error}
+					isStreaming={chat.isStreaming}
+					onDismiss={chat.dismissError}
+					onRetry={retryLastMessage}
+				/>
 			) : null}
 			{chat.isStreaming ? <StreamingStatus /> : null}
 			<QuickActions isStreaming={chat.isStreaming} onQuickPrompt={sendQuickPrompt} />

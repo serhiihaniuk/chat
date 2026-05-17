@@ -53,7 +53,7 @@ export const ChainOfThought = memo(
 
     return (
       <ChainOfThoughtContext.Provider value={chainOfThoughtContext}>
-        <div className={cn("not-prose w-full space-y-4", className)} {...props}>
+        <div className={cn("not-prose w-full space-y-2", className)} {...props}>
           {children}
         </div>
       </ChainOfThoughtContext.Provider>
@@ -70,18 +70,18 @@ export const ChainOfThoughtHeader = memo(
     return (
       <button
         className={cn(
-          "flex w-full items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 focus:ring-2 focus:outline-none",
+          "flex w-full items-center gap-1.5 text-sm text-slate-500 transition-colors hover:text-slate-900 focus:ring-2 focus:outline-none",
           className,
         )}
         onClick={() => setIsOpen(!isOpen)}
         type="button"
         {...props}
       >
-        <BrainIcon className="size-4" />
+        <BrainIcon className="size-3.5" />
         <span className="flex-1 text-left">{children ?? "Chain of Thought"}</span>
         <ChevronDownIcon
           className={cn(
-            "size-4 transition-transform",
+            "size-3.5 transition-transform",
             isOpen ? "rotate-180" : "rotate-0",
           )}
         />
@@ -115,17 +115,17 @@ export const ChainOfThoughtStep = memo(
   }: ChainOfThoughtStepProps) => (
     <div
       className={cn(
-        "flex gap-2 text-sm",
+        "flex gap-2 text-xs",
         stepStatusStyles[status],
         className,
       )}
       {...props}
     >
       <div className="relative mt-0.5">
-        <Icon className="size-4" />
+        <Icon className="size-3.5" />
         <div className="absolute top-7 bottom-0 left-1/2 -mx-px w-px bg-slate-200" />
       </div>
-      <div className="min-w-0 flex-1 space-y-2 overflow-hidden">
+      <div className="min-w-0 flex-1 space-y-1.5 overflow-hidden">
         <div>{label}</div>
         {description ? (
           <div className="text-xs text-slate-500">{description}</div>
@@ -173,7 +173,7 @@ export const ChainOfThoughtContent = memo(
 
     return (
       <div
-        className={cn("mt-2 space-y-3 text-slate-900 outline-none", className)}
+        className={cn("mt-1.5 space-y-2 text-slate-900 outline-none", className)}
         {...props}
       >
         {children}

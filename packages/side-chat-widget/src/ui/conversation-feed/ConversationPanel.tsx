@@ -34,20 +34,10 @@ export const ConversationPanel = ({
   scrollToBottomSignal,
 }: ConversationPanelProps) => (
   <Conversation className="sidechat-conversation mx-auto mt-4 w-full max-w-3xl px-8 max-sm:px-4">
-    <ConversationContent className="min-h-full gap-6 px-0 pt-0 pb-5">
+    <ConversationContent className="min-h-full gap-6 px-5 pt-0 pb-5">
       {isHistoryLoading ? (
         <p className="text-sm text-muted-foreground" role="status">
           Loading conversation history...
-        </p>
-      ) : null}
-      {historyStatus === "loaded" ? (
-        <p className="m-0 self-start rounded border border-border bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground">
-          Loaded conversation history.
-        </p>
-      ) : null}
-      {historyStatus === "empty" ? (
-        <p className="m-0 self-start rounded border border-border bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground">
-          No prior messages in this conversation.
         </p>
       ) : null}
       {messages.length === 0 ? (

@@ -177,9 +177,17 @@ const normalizeCitationText = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const getLabelTail = (label: string) =>
+  label.split(/\s(?:·|-)\s/).at(-1)?.trim();
+
+const getRowLabelFromId = (rowId: string | undefined) =>
+  rowId?.replace(/^(?:review|risk|client|kpi)-/, "");
+
 const getSourceSearchTerms = (source: CitationSource) => {
-  const labelTail = source.label.split("·").at(-1)?.trim();
-  return [labelTail, source.rowId, source.field]
+  const labelTail = getLabelTail(source.label);
+  const rowLabel = getRowLabelFromId(source.rowId);
+
+  return [labelTail, rowLabel, source.rowId, source.field]
     .filter((term): term is string => Boolean(term && term.length > 2))
     .map(normalizeCitationText);
 };
@@ -220,6 +228,48 @@ const knownWorkbenchSources: CitationSource[] = [
     dataset: "top_risk_accounts",
     rowId: "risk-jasper-retail-credit-concentration",
   },
+  {
+    sourceId: "advisoryWorklist:review-redwood-pharma-ag",
+    label: "Portfolio Worklist - Redwood Pharma AG",
+    dataset: "client_portfolio_review",
+    resourceId: "advisoryWorklist",
+    rowId: "review-redwood-pharma-ag",
+  },
+  {
+    sourceId: "advisoryWorklist:review-helvetic-robotics-ag",
+    label: "Portfolio Worklist - Helvetic Robotics AG",
+    dataset: "client_portfolio_review",
+    resourceId: "advisoryWorklist",
+    rowId: "review-helvetic-robotics-ag",
+  },
+  {
+    sourceId: "advisoryWorklist:review-meridian-shipping-sa",
+    label: "Portfolio Worklist - Meridian Shipping SA",
+    dataset: "client_portfolio_review",
+    resourceId: "advisoryWorklist",
+    rowId: "review-meridian-shipping-sa",
+  },
+  {
+    sourceId: "advisoryWorklist:review-matterhorn-holdings",
+    label: "Portfolio Worklist - Matterhorn Holdings",
+    dataset: "client_portfolio_review",
+    resourceId: "advisoryWorklist",
+    rowId: "review-matterhorn-holdings",
+  },
+  {
+    sourceId: "advisoryWorklist:review-silverline-retail-holding",
+    label: "Portfolio Worklist - Silverline Retail Holding",
+    dataset: "client_portfolio_review",
+    resourceId: "advisoryWorklist",
+    rowId: "review-silverline-retail-holding",
+  },
+  {
+    sourceId: "advisoryWorklist:review-aurora-energy-sa",
+    label: "Portfolio Worklist - Aurora Energy SA",
+    dataset: "client_portfolio_review",
+    resourceId: "advisoryWorklist",
+    rowId: "review-aurora-energy-sa",
+  },
 ];
 
 export const inferInlineSourcesFromContent = (content: string) => {
@@ -231,6 +281,7 @@ export const inferInlineSourcesFromContent = (content: string) => {
       normalizedContent.includes(term),
     );
     if (!rowMentioned) return false;
+    if (isSurfaceCitationSource(source)) return true;
     if (source.dataset === "top_risk_accounts") {
       return mentionsTopRisk || normalizedContent.includes("high priority");
     }
@@ -334,6 +385,7 @@ export const getAssistantMessageView = (
     .filter(isToolPart)
     .filter((part) => part.status === "completed")
     .flatMap((part) => getToolSources(part.output));
+  const inferredSources = inferInlineSourcesFromContent(content);
 
   return {
     assistantParts,
@@ -342,6 +394,7 @@ export const getAssistantMessageView = (
     inlineSources: selectInlineSources(content, [
       ...persistedSources,
       ...liveSources,
+      ...inferredSources,
     ]),
   };
 };

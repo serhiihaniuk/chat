@@ -76,6 +76,22 @@ test("readSeededHistory uses stored procedure", async () => {
   expect(calls[0].text).toContain("sidechat_read_seeded_history");
 });
 
+test("resetConversationHistory uses stored procedure", async () => {
+  const calls: Array<{ text: string; params: unknown[] }> = [];
+  const fake = {
+    query: async (text: string, params: unknown[]) => {
+      calls.push({ text, params });
+      return { rows: [] };
+    },
+  };
+
+  const db = new SideChatDb(fake);
+  await db.resetConversationHistory("demo-workspace", "demo-user", "conv-1");
+
+  expect(calls[0].text).toContain("sidechat_reset_conversation_history");
+  expect(calls[0].params).toEqual(["demo-workspace", "demo-user", "conv-1"]);
+});
+
 test("recordUsage uses stored procedure", async () => {
   const calls: Array<{ text: string; params: unknown[] }> = [];
   const fake = {
@@ -144,4 +160,20 @@ test("getLatestUsage uses stored procedure", async () => {
     cachedInputTokens: 2,
     estimatedCostUsd: 0.000005,
   });
+});
+
+test("resetConversationUsage uses stored procedure", async () => {
+  const calls: Array<{ text: string; params: unknown[] }> = [];
+  const fake = {
+    query: async (text: string, params: unknown[]) => {
+      calls.push({ text, params });
+      return { rows: [] };
+    },
+  };
+
+  const db = new SideChatDb(fake);
+  await db.resetConversationUsage("demo-workspace", "demo-user", "conv-1");
+
+  expect(calls[0].text).toContain("sidechat_reset_conversation_usage");
+  expect(calls[0].params).toEqual(["demo-workspace", "demo-user", "conv-1"]);
 });

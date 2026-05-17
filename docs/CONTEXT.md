@@ -43,19 +43,12 @@ Dependency pins live in `package.json` files and are enforced by `scripts/govern
 ## Focused Docs
 
 - [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md): canonical system design, architecture narrative, and first-principles teaching guide.
-- [architecture/current.md](architecture/current.md): brownfield map of current code.
-- [architecture/target.md](architecture/target.md): compact target summary that points back to the canonical system design.
-- [architecture/transition-roadmap.md](architecture/transition-roadmap.md): refactor path and stop rules.
-- [architecture/widget-hexagon.md](architecture/widget-hexagon.md): reusable widget frontend hexagon and Effect-on-UI boundary.
 - [code-walkthrough.md](code-walkthrough.md): practical learning path with local app/package guides, file ownership, and technology-in-context maps.
-- [learning/hexagonal-architecture.md](learning/hexagonal-architecture.md): ports/adapters from scratch.
-- [learning/effect-ts.md](learning/effect-ts.md): Effect TS learning guide.
-- [learning/ai-sdk-streaming-and-tools.md](learning/ai-sdk-streaming-and-tools.md): AI SDK streams, tools, and host commands.
-- [learning/frontend-backend-boundaries.md](learning/frontend-backend-boundaries.md): widget, host bridge, shared protocol, and service boundaries.
-- [governance-and-verification.md](governance-and-verification.md): quality gates and verification order.
+- [../README.md](../README.md): setup, run commands, protocol summary, and verification commands.
+- Package/app `LEARNING.md` files: local code ownership maps for each workspace.
 - [../deploy/demo/README.md](../deploy/demo/README.md): single-Droplet demo deployment with Docker Compose and Caddy.
 
-Historical `.omx` plans/reports are workflow scratchpads, not durable project documentation.
+Historical `.omx` plans/reports and old planning docs are workflow scratchpads, not durable project documentation. Keep `docs/` intentionally small: durable context plus the practical code walkthrough.
 
 ## Hard Boundaries
 

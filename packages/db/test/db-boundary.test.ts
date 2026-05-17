@@ -27,12 +27,22 @@ describe("stored procedure db boundary", () => {
       { provider: "openai", id: "gpt-4.1-mini" },
     );
     await db.readSeededHistory("demo-workspace", "demo-conversation-001");
+    await db.resetConversationHistory(
+      "demo-workspace",
+      "demo-user",
+      "demo-conversation-001",
+    );
     await db.recordUsage(
       "req-001",
       "demo-conversation-001",
       "assistant-msg-001",
       { provider: "openai", id: "gpt-4.1-mini" },
       { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+    );
+    await db.resetConversationUsage(
+      "demo-workspace",
+      "demo-user",
+      "demo-conversation-001",
     );
     expect(sql.every((query) => /^select \* from sidechat_/.test(query))).toBe(
       true,

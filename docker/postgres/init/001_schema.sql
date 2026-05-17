@@ -117,9 +117,39 @@ create or replace function sidechat_read_seeded_history(p_workspace_id text, p_c
   select m.id, m.role, m.content, m.metadata from sidechat.messages m join sidechat.conversations c on c.id = m.conversation_id where c.workspace_id = p_workspace_id and c.id = p_conversation_id order by m.created_at;
 $$;
 
+create or replace function sidechat_reset_conversation_history(p_workspace_id text, p_user_id text, p_conversation_id text)
+returns table("deletedMessages" int) language sql security definer as $$
+  with target_conversation as (
+    select id from sidechat.conversations
+    where workspace_id = p_workspace_id and user_id = p_user_id and id = p_conversation_id
+  ),
+  deleted as (
+    delete from sidechat.messages m
+    using target_conversation c
+    where m.conversation_id = c.id
+    returning 1
+  )
+  select count(*)::int as "deletedMessages" from deleted;
+$$;
+
 drop function if exists sidechat_record_usage(text, text, text, text, text, int, int, int);
 create or replace function sidechat_record_usage(p_request_id text, p_conversation_id text, p_message_id text, p_model_provider text, p_model_id text, p_input_tokens int, p_output_tokens int, p_total_tokens int, p_reasoning_tokens int default null, p_cached_input_tokens int default null, p_cache_write_tokens int default null, p_estimated_cost_usd numeric default null) returns void language sql security definer as $$
   insert into sidechat.usage_records(request_id, conversation_id, message_id, model_provider, model_id, input_tokens, output_tokens, total_tokens, reasoning_tokens, cached_input_tokens, cache_write_tokens, estimated_cost_usd) values (p_request_id, p_conversation_id, p_message_id, p_model_provider, p_model_id, p_input_tokens, p_output_tokens, p_total_tokens, p_reasoning_tokens, p_cached_input_tokens, p_cache_write_tokens, p_estimated_cost_usd) on conflict (request_id) do nothing;
+$$;
+
+create or replace function sidechat_reset_conversation_usage(p_workspace_id text, p_user_id text, p_conversation_id text)
+returns table("deletedUsageRecords" int) language sql security definer as $$
+  with target_conversation as (
+    select id from sidechat.conversations
+    where workspace_id = p_workspace_id and user_id = p_user_id and id = p_conversation_id
+  ),
+  deleted as (
+    delete from sidechat.usage_records u
+    using target_conversation c
+    where u.conversation_id = c.id
+    returning 1
+  )
+  select count(*)::int as "deletedUsageRecords" from deleted;
 $$;
 
 create or replace function sidechat_get_latest_usage(p_workspace_id text, p_user_id text, p_conversation_id text)
@@ -321,7 +351,9 @@ grant execute on function sidechat_create_or_get_conversation(text, text, text) 
 grant execute on function sidechat_append_user_message(text, text, text) to sidechat_app;
 grant execute on function sidechat_append_assistant_message(text, text, text, text, text, jsonb) to sidechat_app;
 grant execute on function sidechat_read_seeded_history(text, text) to sidechat_app;
+grant execute on function sidechat_reset_conversation_history(text, text, text) to sidechat_app;
 grant execute on function sidechat_record_usage(text, text, text, text, text, int, int, int, int, int, int, numeric) to sidechat_app;
+grant execute on function sidechat_reset_conversation_usage(text, text, text) to sidechat_app;
 grant execute on function sidechat_get_latest_usage(text, text, text) to sidechat_app;
 grant execute on function sidechat_get_workspace_context(text, text) to sidechat_app;
 grant execute on function ubs_get_advisory_dashboard_snapshot(text) to sidechat_app;

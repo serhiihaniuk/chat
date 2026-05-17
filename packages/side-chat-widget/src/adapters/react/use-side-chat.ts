@@ -53,6 +53,7 @@ export type UseSideChatOptions = {
   workspaceId: string;
   initialConversationId?: string;
   historyEndpoint?: string;
+  historyResetEndpoint?: string;
   defaultModel: ModelSelection;
   getHostContext?: () =>
     | HostContextSnapshot
@@ -73,6 +74,7 @@ export function useSideChat(options: UseSideChatOptions) {
     workspaceId,
     initialConversationId,
     historyEndpoint: explicitHistoryEndpoint,
+    historyResetEndpoint: explicitHistoryResetEndpoint,
     defaultModel,
     getHostContext,
     dispatchHostCommand: dispatchHostCommandOption,
@@ -92,6 +94,7 @@ export function useSideChat(options: UseSideChatOptions) {
   >();
   const historyEndpoint =
     explicitHistoryEndpoint ?? deriveHistoryEndpoint(apiEndpoint);
+  const historyResetEndpoint = explicitHistoryResetEndpoint ?? historyEndpoint;
   const usageEndpoint = deriveUsageEndpoint(apiEndpoint);
 
   const refreshUsage = useCallback(
@@ -347,10 +350,63 @@ export function useSideChat(options: UseSideChatOptions) {
     ],
   );
 
+  const resetConversation = useCallback(async () => {
+    if (isStreaming) return;
+
+    setError(undefined);
+    setLastUserMessage(undefined);
+    setActiveAssistantMessageId(undefined);
+    setUsage(undefined);
+
+    if (!initialConversationId) {
+      setMessages([]);
+      setHistoryStatus("empty");
+      return;
+    }
+
+    try {
+      setIsLoadingHistory(true);
+      setHistoryStatus("loading");
+      const response = await fetch(
+        `${historyResetEndpoint}?workspaceId=${encodeURIComponent(workspaceId)}&conversationId=${encodeURIComponent(initialConversationId)}`,
+        { method: "DELETE" },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Conversation reset failed: ${response.status}`);
+      }
+
+      setMessages([]);
+      setHistoryStatus("empty");
+    } catch (unknownError) {
+      const resetError = requestError(
+        unknownError instanceof Error
+          ? unknownError.message
+          : "Conversation reset failed",
+        "history-reset",
+      );
+      setHistoryStatus("error");
+      setError(resetError);
+      onError?.(resetError);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [
+    historyResetEndpoint,
+    initialConversationId,
+    isStreaming,
+    onError,
+    workspaceId,
+  ]);
+
   const retryLastMessage = useCallback(() => {
     if (!lastUserMessage) return;
     void sendMessage(lastUserMessage, { isRetry: true });
   }, [lastUserMessage, sendMessage]);
+
+  const dismissError = useCallback(() => {
+    setError(undefined);
+  }, []);
 
   const setModel = useCallback((nextModel: ModelSelection) => {
     setModelState(nextModel);
@@ -368,6 +424,8 @@ export function useSideChat(options: UseSideChatOptions) {
     sendMessage,
     dispatchHostCommand,
     retryLastMessage,
+    dismissError,
+    resetConversation,
     isHistoryLoading: isLoadingHistory,
     historyStatus,
     activeAssistantMessageId,
