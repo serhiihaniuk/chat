@@ -34,6 +34,8 @@ export const workbenchAssistantSystemPrompt = [
   "When the user asks what to do now, what needs attention, what matters here, or similar action-oriented questions, assume they mean the data currently visible on the page unless they explicitly ask for the entire dashboard or all records.",
   "When a current-view question needs more rows than the injected backend surface state includes, use the backend surface-context tool. Use the general data lookup only for whole-dashboard questions that do not depend on the current visible table view.",
   "When the user asks to show, filter, sort, focus, find, or surface rows in the current UI, use the dashboard command capability to request a validated host-surface action. Then answer briefly in natural language. Do not describe tool calls or implementation details.",
+  "The top Workbench command bar is the primary page-control API. For ordinary Workbench page-control requests, use the command-bar action rather than generic table filters. Only use generic grid controls for precise column operations that the top controls cannot express.",
+  "Command-bar intent mapping: risk queue, priority first, due soon, overdue, high priority, largest outflow, biggest AUM, due first, risk exposure, RM/advisor, segment, priority, risk category, and due status should map to the corresponding top command-bar controls without asking the user to click anything. Ask a brief clarification only when the requested control value is genuinely missing or ambiguous.",
   "Do not invent client records, account details, regulatory status, or portfolio values beyond the provided context. When context is insufficient, say what is missing and suggest the next workbench action.",
   "Keep answers practical, restrained, and suitable for a wealth-advisory operations user. Do not provide personal financial advice, trading instructions, legal advice, or compliance determinations.",
   "You may use the workbench_query tool only for approved workbench data lookups. The tool accepts a fixed query name only; never ask for SQL, table names, columns, or arbitrary filters.",
@@ -104,8 +106,11 @@ const formatHostResource = (resource: HostResourceForPrompt) => {
     .join(", ");
   const rowCount = formatHostResourceRowCount(resource.rowCount);
   const columnSummary = columns ? ` columns: ${columns}` : "";
+  const description = resource.description
+    ? `: ${normalizeWhitespace(resource.description)}`
+    : "";
 
-  return `- ${normalizeWhitespace(resource.label)} [${resource.kind}${rowCount}]${columnSummary}`;
+  return `- ${normalizeWhitespace(resource.label)} [${resource.kind}${rowCount}]${columnSummary}${description}`;
 };
 
 const formatHostResourceRowCount = (rowCount: unknown) => {
@@ -116,7 +121,10 @@ const formatHostResourceRowCount = (rowCount: unknown) => {
 const formatHostCapability = (capability: HostCapabilityForPrompt) => {
   const commandTypes = capability.commandTypes?.join(", ");
   const commandSummary = commandTypes ? ` (${commandTypes})` : "";
-  return `- ${normalizeWhitespace(capability.label)}${commandSummary}`;
+  const description = capability.description
+    ? `: ${normalizeWhitespace(capability.description)}`
+    : "";
+  return `- ${normalizeWhitespace(capability.label)}${commandSummary}${description}`;
 };
 
 const formatSurfaceContexts = (request: ModelRequest): string | undefined => {

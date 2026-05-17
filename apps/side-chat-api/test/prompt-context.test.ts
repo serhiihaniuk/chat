@@ -36,6 +36,9 @@ describe("prompt context", () => {
     expect(workbenchAssistantSystemPrompt).toContain(
       "outside the workbench scope",
     );
+    expect(workbenchAssistantSystemPrompt).toContain(
+      "top Workbench command bar is the primary page-control API",
+    );
   });
 
   it("separates system instructions from backend-resolved page context", () => {
@@ -82,6 +85,7 @@ describe("prompt context", () => {
             id: "clientPortfolio",
             kind: "grid",
             label: "Client Portfolio Review",
+            description: "Portfolio table with current advisory rows.",
             rowCount: 250,
             columns: [
               {
@@ -98,6 +102,8 @@ describe("prompt context", () => {
           {
             id: "grid-view-control",
             label: "Grid view control",
+            description:
+              "Apply visible controls for the current portfolio surface.",
             commandTypes: ["grid.applyView"],
           },
         ],
@@ -108,6 +114,10 @@ describe("prompt context", () => {
     expect(input.prompt).toContain("Client Portfolio Review [grid, 250 rows]");
     expect(input.prompt).toContain("Risk Score (number)");
     expect(input.prompt).toContain("Grid view control (grid.applyView)");
+    expect(input.prompt).toContain("Portfolio table with current advisory rows.");
+    expect(input.prompt).toContain(
+      "Apply visible controls for the current portfolio surface.",
+    );
   });
 
   it("includes backend-resolved current surface state as trusted page context", () => {

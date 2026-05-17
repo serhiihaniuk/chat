@@ -188,6 +188,91 @@ const createFixtureSnapshot = (
       netNewMoneyChf: 562_000_000,
     },
   ],
+  riskExposureTrend: [
+    {
+      id: "risk-trend-2025-04-01",
+      date: "2025-04-01",
+      label: "Apr '25",
+      noRiskAumChf: 12_300_000_000,
+      lowRiskAumChf: 3_600_000_000,
+      mediumRiskAumChf: 5_200_000_000,
+      highRiskAumChf: 3_600_000_000,
+      netNewMoneyChf: -520_000_000,
+      eventLabel: null,
+    },
+    {
+      id: "risk-trend-2025-04-15",
+      date: "2025-04-15",
+      label: "Apr 15",
+      noRiskAumChf: 12_700_000_000,
+      lowRiskAumChf: 3_500_000_000,
+      mediumRiskAumChf: 5_400_000_000,
+      highRiskAumChf: 3_500_000_000,
+      netNewMoneyChf: 240_000_000,
+      eventLabel: "Market volatility",
+    },
+    {
+      id: "risk-trend-2025-05-12",
+      date: "2025-05-12",
+      label: "May 12",
+      noRiskAumChf: 13_400_000_000,
+      lowRiskAumChf: 3_900_000_000,
+      mediumRiskAumChf: 5_400_000_000,
+      highRiskAumChf: 3_700_000_000,
+      netNewMoneyChf: -220_000_000,
+      eventLabel: "Policy update",
+    },
+    {
+      id: "risk-trend-2025-06-14",
+      date: "2025-06-14",
+      label: "Jun 14",
+      noRiskAumChf: 14_300_000_000,
+      lowRiskAumChf: 4_000_000_000,
+      mediumRiskAumChf: 5_600_000_000,
+      highRiskAumChf: 3_700_000_000,
+      netNewMoneyChf: 160_000_000,
+      eventLabel: "Fee guidance",
+    },
+    {
+      id: "risk-trend-2025-06-30",
+      date: "2025-06-30",
+      label: "Jun 30",
+      noRiskAumChf: 14_800_000_000,
+      lowRiskAumChf: 4_200_000_000,
+      mediumRiskAumChf: 5_800_000_000,
+      highRiskAumChf: 4_000_000_000,
+      netNewMoneyChf: 790_000_000,
+      eventLabel: null,
+    },
+  ],
+  segmentRiskScores: [
+    { id: "segment-risk-corporate-liquidity", segment: "Corporate", riskAxis: "Liquidity", score: 82 },
+    { id: "segment-risk-uhnw-liquidity", segment: "UHNW", riskAxis: "Liquidity", score: 52 },
+    { id: "segment-risk-institutional-liquidity", segment: "Institutional", riskAxis: "Liquidity", score: 34 },
+    { id: "segment-risk-corporate-credit", segment: "Corporate", riskAxis: "Credit", score: 72 },
+    { id: "segment-risk-uhnw-credit", segment: "UHNW", riskAxis: "Credit", score: 49 },
+    { id: "segment-risk-institutional-credit", segment: "Institutional", riskAxis: "Credit", score: 38 },
+    { id: "segment-risk-corporate-concentration", segment: "Corporate", riskAxis: "Concentration", score: 79 },
+    { id: "segment-risk-uhnw-concentration", segment: "UHNW", riskAxis: "Concentration", score: 60 },
+    { id: "segment-risk-institutional-concentration", segment: "Institutional", riskAxis: "Concentration", score: 44 },
+    { id: "segment-risk-corporate-margin", segment: "Corporate", riskAxis: "Margin", score: 58 },
+    { id: "segment-risk-uhnw-margin", segment: "UHNW", riskAxis: "Margin", score: 64 },
+    { id: "segment-risk-institutional-margin", segment: "Institutional", riskAxis: "Margin", score: 46 },
+    { id: "segment-risk-corporate-covenant", segment: "Corporate", riskAxis: "Covenant", score: 69 },
+    { id: "segment-risk-uhnw-covenant", segment: "UHNW", riskAxis: "Covenant", score: 72 },
+    { id: "segment-risk-institutional-covenant", segment: "Institutional", riskAxis: "Covenant", score: 35 },
+    { id: "segment-risk-corporate-collateral", segment: "Corporate", riskAxis: "Collateral", score: 65 },
+    { id: "segment-risk-uhnw-collateral", segment: "UHNW", riskAxis: "Collateral", score: 46 },
+    { id: "segment-risk-institutional-collateral", segment: "Institutional", riskAxis: "Collateral", score: 41 },
+  ],
+  riskDriverExposure: [
+    { id: "risk-driver-liquidity-gap", driver: "Liquidity gap", exposureChf: 1_400_000_000 },
+    { id: "risk-driver-margin-pressure", driver: "Margin pressure", exposureChf: 1_100_000_000 },
+    { id: "risk-driver-credit-concentration", driver: "Credit concentration", exposureChf: 1_000_000_000 },
+    { id: "risk-driver-collateral-shortfall", driver: "Collateral shortfall", exposureChf: 600_000_000 },
+    { id: "risk-driver-market-volatility", driver: "Market volatility", exposureChf: 800_000_000 },
+    { id: "risk-driver-other", driver: "Other", exposureChf: 800_000_000 },
+  ],
 });
 
 export const createFixtureAdvisoryDashboardReader =
@@ -206,5 +291,14 @@ export const createFixtureAdvisoryDashboardReader =
     },
     async listNetNewMoneyTrend(workspaceId) {
       return createFixtureSnapshot(workspaceId).netNewMoneyTrend;
+    },
+    async listRiskExposureTrend(workspaceId) {
+      return createFixtureSnapshot(workspaceId).riskExposureTrend;
+    },
+    async listSegmentRiskScores(workspaceId) {
+      return createFixtureSnapshot(workspaceId).segmentRiskScores;
+    },
+    async listRiskDriverExposure(workspaceId) {
+      return createFixtureSnapshot(workspaceId).riskDriverExposure;
     },
   });

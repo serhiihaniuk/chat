@@ -202,3 +202,77 @@ insert into ubs_partner.net_new_money_trend (id, workspace_id, month, label, net
 on conflict (id) do update set
   net_new_money_chf = excluded.net_new_money_chf,
   sort_order = excluded.sort_order;
+
+insert into ubs_partner.risk_exposure_trend (
+  id,
+  workspace_id,
+  period_date,
+  label,
+  no_risk_aum_chf,
+  low_risk_aum_chf,
+  medium_risk_aum_chf,
+  high_risk_aum_chf,
+  net_new_money_chf,
+  event_label,
+  sort_order
+) values
+  ('risk-trend-2025-04-01', 'demo-workspace', '2025-04-01', 'Apr ''25', 12300000000, 3600000000, 5200000000, 3600000000, -520000000, null, 1),
+  ('risk-trend-2025-04-08', 'demo-workspace', '2025-04-08', 'Apr 08', 12800000000, 3400000000, 5500000000, 3700000000, -170000000, null, 2),
+  ('risk-trend-2025-04-15', 'demo-workspace', '2025-04-15', 'Apr 15', 12700000000, 3500000000, 5400000000, 3500000000, 240000000, 'Market volatility', 3),
+  ('risk-trend-2025-04-22', 'demo-workspace', '2025-04-22', 'Apr 22', 12500000000, 3600000000, 5300000000, 3300000000, 120000000, null, 4),
+  ('risk-trend-2025-04-30', 'demo-workspace', '2025-04-30', 'Apr 30', 13100000000, 3700000000, 5200000000, 3400000000, -430000000, null, 5),
+  ('risk-trend-2025-05-07', 'demo-workspace', '2025-05-07', 'May 07', 13200000000, 3800000000, 5300000000, 3600000000, -610000000, null, 6),
+  ('risk-trend-2025-05-12', 'demo-workspace', '2025-05-12', 'May 12', 13400000000, 3900000000, 5400000000, 3700000000, -220000000, 'Policy update', 7),
+  ('risk-trend-2025-05-20', 'demo-workspace', '2025-05-20', 'May 20', 13900000000, 4000000000, 5500000000, 3800000000, 640000000, null, 8),
+  ('risk-trend-2025-05-31', 'demo-workspace', '2025-05-31', 'May 31', 13700000000, 4000000000, 5400000000, 3700000000, 520000000, null, 9),
+  ('risk-trend-2025-06-07', 'demo-workspace', '2025-06-07', 'Jun 07', 14000000000, 4100000000, 5500000000, 3800000000, -50000000, null, 10),
+  ('risk-trend-2025-06-14', 'demo-workspace', '2025-06-14', 'Jun 14', 14300000000, 4000000000, 5600000000, 3700000000, 160000000, 'Fee guidance', 11),
+  ('risk-trend-2025-06-23', 'demo-workspace', '2025-06-23', 'Jun 23', 14600000000, 4100000000, 5700000000, 3900000000, 710000000, null, 12),
+  ('risk-trend-2025-06-30', 'demo-workspace', '2025-06-30', 'Jun 30', 14800000000, 4200000000, 5800000000, 4000000000, 790000000, null, 13)
+on conflict (id) do update set
+  period_date = excluded.period_date,
+  label = excluded.label,
+  no_risk_aum_chf = excluded.no_risk_aum_chf,
+  low_risk_aum_chf = excluded.low_risk_aum_chf,
+  medium_risk_aum_chf = excluded.medium_risk_aum_chf,
+  high_risk_aum_chf = excluded.high_risk_aum_chf,
+  net_new_money_chf = excluded.net_new_money_chf,
+  event_label = excluded.event_label,
+  sort_order = excluded.sort_order;
+
+insert into ubs_partner.segment_risk_scores (id, workspace_id, segment, risk_axis, score, sort_order) values
+  ('segment-risk-corporate-liquidity', 'demo-workspace', 'Corporate', 'Liquidity', 82, 1),
+  ('segment-risk-uhnw-liquidity', 'demo-workspace', 'UHNW', 'Liquidity', 52, 1),
+  ('segment-risk-institutional-liquidity', 'demo-workspace', 'Institutional', 'Liquidity', 34, 1),
+  ('segment-risk-corporate-credit', 'demo-workspace', 'Corporate', 'Credit', 72, 2),
+  ('segment-risk-uhnw-credit', 'demo-workspace', 'UHNW', 'Credit', 49, 2),
+  ('segment-risk-institutional-credit', 'demo-workspace', 'Institutional', 'Credit', 38, 2),
+  ('segment-risk-corporate-concentration', 'demo-workspace', 'Corporate', 'Concentration', 79, 3),
+  ('segment-risk-uhnw-concentration', 'demo-workspace', 'UHNW', 'Concentration', 60, 3),
+  ('segment-risk-institutional-concentration', 'demo-workspace', 'Institutional', 'Concentration', 44, 3),
+  ('segment-risk-corporate-margin', 'demo-workspace', 'Corporate', 'Margin', 58, 4),
+  ('segment-risk-uhnw-margin', 'demo-workspace', 'UHNW', 'Margin', 64, 4),
+  ('segment-risk-institutional-margin', 'demo-workspace', 'Institutional', 'Margin', 46, 4),
+  ('segment-risk-corporate-covenant', 'demo-workspace', 'Corporate', 'Covenant', 69, 5),
+  ('segment-risk-uhnw-covenant', 'demo-workspace', 'UHNW', 'Covenant', 72, 5),
+  ('segment-risk-institutional-covenant', 'demo-workspace', 'Institutional', 'Covenant', 35, 5),
+  ('segment-risk-corporate-collateral', 'demo-workspace', 'Corporate', 'Collateral', 65, 6),
+  ('segment-risk-uhnw-collateral', 'demo-workspace', 'UHNW', 'Collateral', 46, 6),
+  ('segment-risk-institutional-collateral', 'demo-workspace', 'Institutional', 'Collateral', 41, 6)
+on conflict (id) do update set
+  segment = excluded.segment,
+  risk_axis = excluded.risk_axis,
+  score = excluded.score,
+  sort_order = excluded.sort_order;
+
+insert into ubs_partner.risk_driver_exposure (id, workspace_id, driver, exposure_chf, sort_order) values
+  ('risk-driver-liquidity-gap', 'demo-workspace', 'Liquidity gap', 1400000000, 1),
+  ('risk-driver-margin-pressure', 'demo-workspace', 'Margin pressure', 1100000000, 2),
+  ('risk-driver-credit-concentration', 'demo-workspace', 'Credit concentration', 1000000000, 3),
+  ('risk-driver-collateral-shortfall', 'demo-workspace', 'Collateral shortfall', 600000000, 4),
+  ('risk-driver-market-volatility', 'demo-workspace', 'Market volatility', 800000000, 5),
+  ('risk-driver-other', 'demo-workspace', 'Other', 800000000, 6)
+on conflict (id) do update set
+  driver = excluded.driver,
+  exposure_chf = excluded.exposure_chf,
+  sort_order = excluded.sort_order;

@@ -33,8 +33,8 @@ export const ConversationPanel = ({
   messages,
   scrollToBottomSignal,
 }: ConversationPanelProps) => (
-  <Conversation className="sidechat-conversation mx-auto mt-4 w-full max-w-3xl px-8 max-sm:px-4">
-    <ConversationContent className="min-h-full gap-6 px-5 pt-0 pb-5">
+  <Conversation className="sidechat-conversation mx-auto mt-4 w-full max-w-3xl px-4 max-sm:px-3">
+    <ConversationContent className="min-h-full w-full gap-6 px-0 pt-0 pb-5">
       {isHistoryLoading ? (
         <p className="text-sm text-muted-foreground" role="status">
           Loading conversation history...

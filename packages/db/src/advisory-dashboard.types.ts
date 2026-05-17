@@ -56,6 +56,31 @@ export type NetNewMoneyTrendPoint = {
   netNewMoneyChf: number;
 };
 
+export type RiskExposureTrendPoint = {
+  id: string;
+  date: string;
+  label: string;
+  noRiskAumChf: number;
+  lowRiskAumChf: number;
+  mediumRiskAumChf: number;
+  highRiskAumChf: number;
+  netNewMoneyChf: number;
+  eventLabel: string | null;
+};
+
+export type SegmentRiskScoreRow = {
+  id: string;
+  segment: string;
+  riskAxis: string;
+  score: number;
+};
+
+export type RiskDriverExposureRow = {
+  id: string;
+  driver: string;
+  exposureChf: number;
+};
+
 export type AdvisoryDashboardSnapshot = {
   workspaceId: string;
   asOfDate: string;
@@ -69,4 +94,7 @@ export type AdvisoryDashboardSnapshot = {
   topRiskAccounts: TopRiskAccountRow[];
   productAllocation: ProductAllocationRow[];
   netNewMoneyTrend: NetNewMoneyTrendPoint[];
+  riskExposureTrend: RiskExposureTrendPoint[];
+  segmentRiskScores: SegmentRiskScoreRow[];
+  riskDriverExposure: RiskDriverExposureRow[];
 };

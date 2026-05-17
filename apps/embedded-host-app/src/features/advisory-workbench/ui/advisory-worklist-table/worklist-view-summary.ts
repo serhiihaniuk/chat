@@ -16,7 +16,7 @@ const columnLabels: Record<keyof AdvisoryWorklistRow, string> = {
   priority: "Priority",
   relationshipManager: "RM",
   riskExposureChf: "Exposure",
-  riskIssue: "Risk / Task",
+  riskIssue: "Risk / Issue",
   riskProfile: "Risk Profile",
   riskScore: "Risk Score",
   segment: "Segment",

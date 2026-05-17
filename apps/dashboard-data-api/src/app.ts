@@ -73,6 +73,27 @@ export const createApp = (deps?: DashboardDataDeps) => {
     );
   });
 
+  app.get("/advisory-dashboard/risk-exposure-trend", async (context) => {
+    const workspaceId = getWorkspaceId(new URL(context.req.url));
+    return context.json(
+      await resolvedDeps.advisoryDashboard.listRiskExposureTrend(workspaceId),
+    );
+  });
+
+  app.get("/advisory-dashboard/segment-risk-scores", async (context) => {
+    const workspaceId = getWorkspaceId(new URL(context.req.url));
+    return context.json(
+      await resolvedDeps.advisoryDashboard.listSegmentRiskScores(workspaceId),
+    );
+  });
+
+  app.get("/advisory-dashboard/risk-driver-exposure", async (context) => {
+    const workspaceId = getWorkspaceId(new URL(context.req.url));
+    return context.json(
+      await resolvedDeps.advisoryDashboard.listRiskDriverExposure(workspaceId),
+    );
+  });
+
   return app;
 };
 

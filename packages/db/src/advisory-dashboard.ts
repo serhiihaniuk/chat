@@ -7,6 +7,9 @@ import type {
   ClientPortfolioReviewRow,
   NetNewMoneyTrendPoint,
   ProductAllocationRow,
+  RiskDriverExposureRow,
+  RiskExposureTrendPoint,
+  SegmentRiskScoreRow,
   TopRiskAccountRow,
 } from "./advisory-dashboard.types.js";
 
@@ -62,6 +65,31 @@ const netNewMoneyTrendPointSchema = z.object({
   netNewMoneyChf: z.number(),
 });
 
+const riskExposureTrendPointSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  label: z.string(),
+  noRiskAumChf: z.number(),
+  lowRiskAumChf: z.number(),
+  mediumRiskAumChf: z.number(),
+  highRiskAumChf: z.number(),
+  netNewMoneyChf: z.number(),
+  eventLabel: z.string().nullable(),
+});
+
+const segmentRiskScoreRowSchema = z.object({
+  id: z.string(),
+  segment: z.string(),
+  riskAxis: z.string(),
+  score: z.number(),
+});
+
+const riskDriverExposureRowSchema = z.object({
+  id: z.string(),
+  driver: z.string(),
+  exposureChf: z.number(),
+});
+
 const advisoryDashboardSnapshotSchema = z.object({
   workspaceId: z.string(),
   asOfDate: z.string(),
@@ -75,6 +103,9 @@ const advisoryDashboardSnapshotSchema = z.object({
   topRiskAccounts: z.array(topRiskAccountRowSchema),
   productAllocation: z.array(productAllocationRowSchema),
   netNewMoneyTrend: z.array(netNewMoneyTrendPointSchema),
+  riskExposureTrend: z.array(riskExposureTrendPointSchema),
+  segmentRiskScores: z.array(segmentRiskScoreRowSchema),
+  riskDriverExposure: z.array(riskDriverExposureRowSchema),
 });
 
 type SnapshotRow = { snapshot: unknown };
@@ -138,6 +169,36 @@ export class AdvisoryDashboardDb {
       [workspaceId],
     );
     return z.array(netNewMoneyTrendPointSchema).parse(result.rows);
+  }
+
+  async listRiskExposureTrend(
+    workspaceId: string,
+  ): Promise<RiskExposureTrendPoint[]> {
+    const result = await this.db.query<SnapshotRow>(
+      "select * from ubs_list_risk_exposure_trend($1)",
+      [workspaceId],
+    );
+    return z.array(riskExposureTrendPointSchema).parse(result.rows);
+  }
+
+  async listSegmentRiskScores(
+    workspaceId: string,
+  ): Promise<SegmentRiskScoreRow[]> {
+    const result = await this.db.query<SnapshotRow>(
+      "select * from ubs_list_segment_risk_scores($1)",
+      [workspaceId],
+    );
+    return z.array(segmentRiskScoreRowSchema).parse(result.rows);
+  }
+
+  async listRiskDriverExposure(
+    workspaceId: string,
+  ): Promise<RiskDriverExposureRow[]> {
+    const result = await this.db.query<SnapshotRow>(
+      "select * from ubs_list_risk_driver_exposure($1)",
+      [workspaceId],
+    );
+    return z.array(riskDriverExposureRowSchema).parse(result.rows);
   }
 }
 

@@ -85,6 +85,37 @@ create table if not exists ubs_partner.net_new_money_trend (
   sort_order int not null
 );
 
+create table if not exists ubs_partner.risk_exposure_trend (
+  id text primary key,
+  workspace_id text not null references ubs_partner.workspaces(id),
+  period_date date not null,
+  label text not null,
+  no_risk_aum_chf numeric(18, 2) not null,
+  low_risk_aum_chf numeric(18, 2) not null,
+  medium_risk_aum_chf numeric(18, 2) not null,
+  high_risk_aum_chf numeric(18, 2) not null,
+  net_new_money_chf numeric(18, 2) not null,
+  event_label text,
+  sort_order int not null
+);
+
+create table if not exists ubs_partner.segment_risk_scores (
+  id text primary key,
+  workspace_id text not null references ubs_partner.workspaces(id),
+  segment text not null,
+  risk_axis text not null,
+  score numeric(6, 2) not null,
+  sort_order int not null
+);
+
+create table if not exists ubs_partner.risk_driver_exposure (
+  id text primary key,
+  workspace_id text not null references ubs_partner.workspaces(id),
+  driver text not null,
+  exposure_chf numeric(18, 2) not null,
+  sort_order int not null
+);
+
 create table if not exists ubs_partner.dashboard_kpis (
   id text primary key,
   workspace_id text not null references ubs_partner.workspaces(id),
@@ -304,6 +335,65 @@ returns table(
   order by sort_order;
 $$;
 
+create or replace function ubs_list_risk_exposure_trend(p_workspace_id text)
+returns table(
+  "id" text,
+  "date" text,
+  "label" text,
+  "noRiskAumChf" double precision,
+  "lowRiskAumChf" double precision,
+  "mediumRiskAumChf" double precision,
+  "highRiskAumChf" double precision,
+  "netNewMoneyChf" double precision,
+  "eventLabel" text
+) language sql security definer as $$
+  select
+    id,
+    to_char(period_date, 'YYYY-MM-DD') as date,
+    label,
+    no_risk_aum_chf::double precision as "noRiskAumChf",
+    low_risk_aum_chf::double precision as "lowRiskAumChf",
+    medium_risk_aum_chf::double precision as "mediumRiskAumChf",
+    high_risk_aum_chf::double precision as "highRiskAumChf",
+    net_new_money_chf::double precision as "netNewMoneyChf",
+    event_label as "eventLabel"
+  from ubs_partner.risk_exposure_trend
+  where workspace_id = p_workspace_id
+  order by sort_order;
+$$;
+
+create or replace function ubs_list_segment_risk_scores(p_workspace_id text)
+returns table(
+  "id" text,
+  "segment" text,
+  "riskAxis" text,
+  "score" double precision
+) language sql security definer as $$
+  select
+    id,
+    segment,
+    risk_axis as "riskAxis",
+    score::double precision as score
+  from ubs_partner.segment_risk_scores
+  where workspace_id = p_workspace_id
+  order by sort_order, segment;
+$$;
+
+create or replace function ubs_list_risk_driver_exposure(p_workspace_id text)
+returns table(
+  "id" text,
+  "driver" text,
+  "exposureChf" double precision
+) language sql security definer as $$
+  select
+    id,
+    driver,
+    exposure_chf::double precision as "exposureChf"
+  from ubs_partner.risk_driver_exposure
+  where workspace_id = p_workspace_id
+  order by sort_order;
+$$;
+
 create or replace function ubs_get_advisory_dashboard_snapshot(p_workspace_id text)
 returns table("snapshot" jsonb) language sql security definer as $$
   select jsonb_build_object(
@@ -341,6 +431,18 @@ returns table("snapshot" jsonb) language sql security definer as $$
     'netNewMoneyTrend', (
       select coalesce(jsonb_agg(to_jsonb(trend)), '[]'::jsonb)
       from ubs_list_net_new_money_trend(w.id) trend
+    ),
+    'riskExposureTrend', (
+      select coalesce(jsonb_agg(to_jsonb(exposure_trend)), '[]'::jsonb)
+      from ubs_list_risk_exposure_trend(w.id) exposure_trend
+    ),
+    'segmentRiskScores', (
+      select coalesce(jsonb_agg(to_jsonb(segment_risk)), '[]'::jsonb)
+      from ubs_list_segment_risk_scores(w.id) segment_risk
+    ),
+    'riskDriverExposure', (
+      select coalesce(jsonb_agg(to_jsonb(driver_exposure)), '[]'::jsonb)
+      from ubs_list_risk_driver_exposure(w.id) driver_exposure
     )
   ) as snapshot
   from ubs_partner.workspaces w
@@ -361,5 +463,8 @@ grant execute on function ubs_list_client_portfolio_review(text) to sidechat_app
 grant execute on function ubs_list_top_risk_accounts(text) to sidechat_app;
 grant execute on function ubs_list_product_allocation(text) to sidechat_app;
 grant execute on function ubs_list_net_new_money_trend(text) to sidechat_app;
+grant execute on function ubs_list_risk_exposure_trend(text) to sidechat_app;
+grant execute on function ubs_list_segment_risk_scores(text) to sidechat_app;
+grant execute on function ubs_list_risk_driver_exposure(text) to sidechat_app;
 revoke all on all tables in schema sidechat from sidechat_app;
 revoke all on all tables in schema ubs_partner from sidechat_app;

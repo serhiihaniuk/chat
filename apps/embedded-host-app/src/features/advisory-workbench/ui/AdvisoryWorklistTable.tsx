@@ -17,7 +17,6 @@ import {
   DueStatusRenderer,
   PriorityRenderer,
 } from "./advisory-worklist-table/worklist-renderers.js";
-import { describeWorklistView } from "./advisory-worklist-table/worklist-view-summary.js";
 import { formatChfCompact, formatSignedChfCompact } from "./formatters.js";
 
 type AdvisoryWorklistTableProps = {
@@ -36,7 +35,18 @@ export function AdvisoryWorklistTable({
   view,
 }: AdvisoryWorklistTableProps) {
   const [quickFilterText, setQuickFilterText] = useState("");
-  const rows = useMemo(() => createWorklistRows(snapshot), [snapshot]);
+  const rows = useMemo(
+    () =>
+      createWorklistRows(snapshot)
+        .sort(
+          (left, right) =>
+            priorityRank[left.priority] - priorityRank[right.priority] ||
+            compareDateValues(left.dueDate, right.dueDate) ||
+            left.client.localeCompare(right.client),
+        )
+        .slice(0, 24),
+    [snapshot],
+  );
   const columnDefs = useMemo(
     () =>
       [
@@ -60,7 +70,7 @@ export function AdvisoryWorklistTable({
         },
         {
           field: "riskIssue",
-          headerName: "Risk / Task",
+          headerName: "Risk / Issue",
           minWidth: 210,
           flex: 1,
         },
@@ -145,7 +155,6 @@ export function AdvisoryWorklistTable({
       ] satisfies DashboardGridColumn<AdvisoryWorklistRow>[],
     [],
   );
-  const viewSummary = describeWorklistView(view);
 
   return (
     <section className="table-card super-table-card">
@@ -167,30 +176,22 @@ export function AdvisoryWorklistTable({
           </label>
         </div>
       </div>
-      <div className="worklist-view-strip" key={view?.sequence ?? "default"}>
-        <span className="view-strip-label">{viewSummary.label}</span>
-        <div className="view-chip-list">
-          {viewSummary.chips.map((chip) => (
-            <span className="view-chip" key={chip}>
-              {chip}
-            </span>
-          ))}
-        </div>
-      </div>
       <DashboardGrid
         activeSourceId={activeSourceId}
         columnDefs={columnDefs}
-        defaultSort={[
-          { colId: "priority", sort: "asc" },
-          { colId: "dueDate", sort: "asc" },
-          { colId: "netFlow30dChf", sort: "desc" },
-        ]}
+        compact
         getSourceId={(row) => `advisoryWorklist:${row.id}`}
         getSourceIds={(row) => row.sourceIds}
         fill
         quickFilterText={quickFilterText}
         resourceId="advisoryWorklist"
+        resultLabel={({ displayedRows, rowDataLength }) =>
+          displayedRows > 0
+            ? `Showing 1-${Math.min(8, displayedRows)} of ${rowDataLength} rows`
+            : `Showing 0 of ${rowDataLength} rows`
+        }
         rowData={rows}
+        showSimplePagination
         view={view}
       />
     </section>

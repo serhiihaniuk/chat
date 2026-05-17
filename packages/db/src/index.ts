@@ -15,6 +15,9 @@ export type {
   ClientPortfolioReviewRow,
   NetNewMoneyTrendPoint,
   ProductAllocationRow,
+  RiskDriverExposureRow,
+  RiskExposureTrendPoint,
+  SegmentRiskScoreRow,
   TopRiskAccountRow,
 } from "./advisory-dashboard.types.js";
 

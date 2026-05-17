@@ -32,6 +32,9 @@ describe("advisory dashboard db adapter", () => {
                 topRiskAccounts: [],
                 productAllocation: [],
                 netNewMoneyTrend: [],
+                riskExposureTrend: [],
+                segmentRiskScores: [],
+                riskDriverExposure: [],
               },
             },
           ],
@@ -66,12 +69,18 @@ describe("advisory dashboard db adapter", () => {
     await db.listTopRiskAccounts("demo-workspace");
     await db.listProductAllocation("demo-workspace");
     await db.listNetNewMoneyTrend("demo-workspace");
+    await db.listRiskExposureTrend("demo-workspace");
+    await db.listSegmentRiskScores("demo-workspace");
+    await db.listRiskDriverExposure("demo-workspace");
 
     expect(calls).toEqual([
       "select * from ubs_list_client_portfolio_review($1)",
       "select * from ubs_list_top_risk_accounts($1)",
       "select * from ubs_list_product_allocation($1)",
       "select * from ubs_list_net_new_money_trend($1)",
+      "select * from ubs_list_risk_exposure_trend($1)",
+      "select * from ubs_list_segment_risk_scores($1)",
+      "select * from ubs_list_risk_driver_exposure($1)",
     ]);
     expect(calls.every((query) => /^select \* from ubs_/.test(query))).toBe(
       true,

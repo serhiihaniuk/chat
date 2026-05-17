@@ -55,7 +55,7 @@ const renderAssistantPart = (
       <div className="space-y-2" key={part.id}>
         <Tool
           toolName="host_command"
-          displayName="Portfolio table command"
+          displayName="Workbench command bar"
           status={getHostCommandToolStatus(part)}
           input={part.command}
           output={part.result}

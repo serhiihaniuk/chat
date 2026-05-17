@@ -9,11 +9,20 @@ import {
   type AdvisoryGridViews,
 } from "../model/grid-view-state.js";
 import { createAdvisoryWorkbenchHostSurface } from "../model/side-chat-host.js";
+import {
+  createWorkbenchControlGridView,
+  defaultWorkbenchControlState,
+  inferWorkbenchControlStateFromGridView,
+  type WorkbenchControlState,
+} from "../model/workbench-controls.js";
 import { AdvisoryWorklistTable } from "./AdvisoryWorklistTable.js";
 import { HeaderControls } from "./HeaderControls.js";
-import { KpiGrid } from "./KpiGrid.js";
 import { Sidebar } from "./Sidebar.js";
-import { WorkbenchInsightRail } from "./WorkbenchInsightRail.js";
+import {
+  RiskIntelligenceOverview,
+  RiskIntelligenceRail,
+} from "./WorkbenchAnalytics.js";
+import { WorkbenchFilterBar } from "./WorkbenchFilterBar.js";
 
 const workspaceId = "demo-workspace";
 const citationSelectedEventName = "sidechat:citation-selected";
@@ -35,10 +44,13 @@ export function AdvisoryWorkbenchPage() {
   );
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const [gridViews, setGridViews] = useState<AdvisoryGridViews>({});
+  const [controls, setControls] = useState<WorkbenchControlState>(
+    defaultWorkbenchControlState,
+  );
   const citationClearTimerRef = useRef<number | undefined>(undefined);
   const hostSurface = useMemo(
-    () => createAdvisoryWorkbenchHostSurface(snapshot),
-    [snapshot],
+    () => createAdvisoryWorkbenchHostSurface(snapshot, controls),
+    [controls, snapshot],
   );
 
   useHostSurfaceRegistration(hostSurface);
@@ -90,11 +102,26 @@ export function AdvisoryWorkbenchPage() {
       const command = (event as HostCommandEvent).detail;
       if (!command || typeof command.type !== "string") return;
 
-      if (
-        command.type === "grid.applyView" ||
-        command.type === "grid.clearView"
-      ) {
+      if (command.type === "grid.applyView") {
         setGridViews((current) => reduceGridViews(current, command));
+        setControls((current) =>
+          inferWorkbenchControlStateFromGridView(
+            {
+              filters: command.view.filters,
+              sort: command.view.sort,
+              highlightRowIds: command.view.highlightRowIds,
+              sequence: Date.now(),
+            },
+            current,
+          ),
+        );
+        scrollHostResourceIntoView(command.resourceId);
+        return;
+      }
+
+      if (command.type === "grid.clearView") {
+        setGridViews((current) => reduceGridViews(current, command));
+        setControls(defaultWorkbenchControlState);
         if (typeof command.resourceId === "string") {
           scrollHostResourceIntoView(command.resourceId);
         }
@@ -114,6 +141,15 @@ export function AdvisoryWorkbenchPage() {
       window.removeEventListener("sidechat:host-command", onHostCommand);
   }, []);
 
+  const applyControls = (next: WorkbenchControlState) => {
+    const view = createWorkbenchControlGridView(next);
+    setControls(next);
+    setGridViews((current) => ({
+      ...current,
+      advisoryWorklist: view,
+    }));
+  };
+
   return (
     <div className="workbench-shell">
       <Sidebar />
@@ -123,7 +159,7 @@ export function AdvisoryWorkbenchPage() {
             <p className="product-label">UBS Partner</p>
             <h1>Advisory Workbench</h1>
             <p className="header-subtitle">
-              Real-time overview of relationships, portfolio performance,
+              Real-time overview of relationship, portfolio performance,
               advisory coverage, and risk.
             </p>
           </div>
@@ -146,14 +182,21 @@ export function AdvisoryWorkbenchPage() {
 
         {snapshot ? (
           <>
-            <KpiGrid activeSourceId={activeSourceId} kpis={snapshot.kpis} />
+            <WorkbenchFilterBar
+              controls={controls}
+              onChange={applyControls}
+              snapshot={snapshot}
+            />
             <div className="workbench-content">
-              <AdvisoryWorklistTable
-                activeSourceId={activeSourceId}
-                snapshot={snapshot}
-                view={gridViews.advisoryWorklist}
-              />
-              <WorkbenchInsightRail snapshot={snapshot} />
+              <div className="primary-workbench-column">
+                <RiskIntelligenceOverview snapshot={snapshot} />
+                <AdvisoryWorklistTable
+                  activeSourceId={activeSourceId}
+                  snapshot={snapshot}
+                  view={gridViews.advisoryWorklist}
+                />
+              </div>
+              <RiskIntelligenceRail snapshot={snapshot} />
             </div>
           </>
         ) : null}

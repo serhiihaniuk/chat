@@ -35,7 +35,11 @@ type DashboardGridProps<TData extends { id: string }> = {
   height?: number;
   quickFilterText?: string;
   resourceId: AdvisoryGridResourceId;
+  resultLabel?:
+    | string
+    | ((counts: { displayedRows: number; rowDataLength: number }) => string);
   rowData: TData[];
+  showSimplePagination?: boolean;
   view?: AdvisoryGridViewState;
 };
 
@@ -176,7 +180,9 @@ export function DashboardGrid<TData extends { id: string }>({
   height = 420,
   quickFilterText,
   resourceId,
+  resultLabel,
   rowData,
+  showSimplePagination = false,
   view,
 }: DashboardGridProps<TData>) {
   const apiRef = useRef<GridApi<TData> | null>(null);
@@ -242,6 +248,10 @@ export function DashboardGrid<TData extends { id: string }>({
 
   const gridHeight = fill ? "100%" : height;
   const minGridHeight = getMinGridHeight({ compact, fill, height });
+  const renderedResultLabel =
+    typeof resultLabel === "function"
+      ? resultLabel({ displayedRows, rowDataLength: rowData.length })
+      : resultLabel;
 
   return (
     <div
@@ -270,14 +280,24 @@ export function DashboardGrid<TData extends { id: string }>({
           onModelUpdated={refreshDisplayedRows}
           onSortChanged={refreshDisplayedRows}
           rowData={rowData}
-          rowHeight={compact ? 40 : 42}
+          rowHeight={compact ? 34 : 42}
           suppressCellFocus
           suppressMovableColumns
           theme="legacy"
         />
       </div>
       <div className="grid-result-line">
-        Showing {displayedRows} of {rowData.length} rows
+        <span>
+          {renderedResultLabel ??
+            `Showing ${displayedRows} of ${rowData.length} rows`}
+        </span>
+        {showSimplePagination ? (
+          <div className="grid-pagination" aria-hidden="true">
+            <button type="button">&lt;</button>
+            <strong>1</strong>
+            <button type="button">&gt;</button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

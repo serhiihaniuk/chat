@@ -3,6 +3,9 @@ import type {
   ClientPortfolioReviewRow,
   NetNewMoneyTrendPoint,
   ProductAllocationRow,
+  RiskDriverExposureRow,
+  RiskExposureTrendPoint,
+  SegmentRiskScoreRow,
   TopRiskAccountRow,
 } from "@side-chat/db";
 
@@ -22,4 +25,11 @@ export type AdvisoryDashboardReader = {
     workspaceId: string,
   ): Promise<ProductAllocationRow[]>;
   listNetNewMoneyTrend(workspaceId: string): Promise<NetNewMoneyTrendPoint[]>;
+  listRiskExposureTrend(
+    workspaceId: string,
+  ): Promise<RiskExposureTrendPoint[]>;
+  listSegmentRiskScores(workspaceId: string): Promise<SegmentRiskScoreRow[]>;
+  listRiskDriverExposure(
+    workspaceId: string,
+  ): Promise<RiskDriverExposureRow[]>;
 };

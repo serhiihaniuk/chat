@@ -6,6 +6,10 @@ import type {
 import type { HostSurfaceRegistration } from "../../../shared/host-surface/HostSurfaceProvider.js";
 import type { AdvisoryDashboardSnapshot } from "./advisory-dashboard.types.js";
 import { isAdvisoryGridResourceId } from "./grid-view-state.js";
+import {
+  formatWorkbenchControlSummary,
+  type WorkbenchControlState,
+} from "./workbench-controls.js";
 
 /**
  * Host-context adapter for the Workbench page. It tells the assistant what UI
@@ -13,12 +17,22 @@ import { isAdvisoryGridResourceId } from "./grid-view-state.js";
  */
 const createAdvisoryWorkbenchHostContext = (
   snapshot: AdvisoryDashboardSnapshot | null,
+  controls: WorkbenchControlState,
 ): HostContextSnapshot => ({
   pageId: "advisory-workbench",
   title: "UBS Partner Advisory Workbench",
-  summary:
-    "Single-page advisory dashboard with KPIs and a unified portfolio worklist combining relationship, portfolio performance, risk, due-date, and next-action fields.",
+  summary: [
+    "Single-page advisory dashboard with a top command bar and a unified portfolio worklist combining relationship, portfolio performance, risk, due-date, and next-action fields.",
+    `Current command bar: ${formatWorkbenchControlSummary(controls)}.`,
+  ].join(" "),
   resources: [
+    {
+      id: "advisoryWorkbenchControls",
+      kind: "custom",
+      label: "Workbench Command Bar",
+      description:
+        "Human and AI control bar for queue/view, client segment, priority, risk category, due status, RM/advisor, sort, and quick filters.",
+    },
     {
       id: "advisoryWorklist",
       kind: "grid",
@@ -56,7 +70,7 @@ const createAdvisoryWorkbenchHostContext = (
         },
         {
           id: "riskIssue",
-          label: "Risk / Task",
+          label: "Risk / Issue",
           type: "text",
           filterable: true,
         },
@@ -100,10 +114,17 @@ const createAdvisoryWorkbenchHostContext = (
   ],
   capabilities: [
     {
-      id: "grid-view-control",
-      label: "Grid view control",
+      id: "workbench-command-bar",
+      label: "Workbench command bar",
       description:
-        "Active surface can apply validated grid filters, sorts, focus, and row highlights.",
+        "Apply the same top-bar controls a human can click: queue/view, client segment, priority, risk category, due status, RM/advisor, sorting, and quick active filters.",
+      commandTypes: ["grid.applyView", "grid.clearView", "ui.focusResource"],
+    },
+    {
+      id: "grid-view-control",
+      label: "Portfolio Worklist view control",
+      description:
+        "Active surface can apply validated grid filters, sorts, focus, and row highlights. Prefer the Workbench command bar controls for common dashboard operations.",
       commandTypes: ["grid.applyView", "grid.clearView", "ui.focusResource"],
     },
   ],
@@ -136,8 +157,9 @@ const dispatchAdvisoryWorkbenchHostCommand = async (
  */
 export const createAdvisoryWorkbenchHostSurface = (
   snapshot: AdvisoryDashboardSnapshot | null,
+  controls: WorkbenchControlState,
 ): HostSurfaceRegistration => ({
   id: "advisory-workbench",
-  getContext: () => createAdvisoryWorkbenchHostContext(snapshot),
+  getContext: () => createAdvisoryWorkbenchHostContext(snapshot, controls),
   dispatchCommand: dispatchAdvisoryWorkbenchHostCommand,
 });
