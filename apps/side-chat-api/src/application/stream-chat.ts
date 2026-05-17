@@ -1,16 +1,15 @@
 import { Effect } from "effect";
 import {
-  type SidechatStreamEvent,
-  type SidechatRequest,
   type ModelSelection,
-  type TokenUsage,
+  type SidechatRequest,
+  type SidechatStreamEvent,
 } from "@side-chat/shared-protocol";
 import type {
   AuthPort,
   BillingPort,
   ConfigPort,
   ConversationRepository,
-  ModelChunk,
+  HostSurfaceStatePort,
   ModelPort,
   ObservabilityPort,
   PageContextPort,
@@ -18,9 +17,7 @@ import type {
   UsagePort,
   WorkbenchCitationSource,
   WorkbenchReportPort,
-  WorkbenchReportResult,
   WorkbenchToolsPort,
-  HostSurfaceStatePort,
 } from "#ports/index.js";
 import {
   BillingDenied,
@@ -30,6 +27,21 @@ import {
   UsageCaptureFailed,
 } from "./errors.js";
 import { decodeSidechatRequestEffect } from "./stream-chat-request-schema.js";
+import {
+  createDeltaEvent,
+  createHostCommandEvent,
+  createReasoningEvent,
+  createStreamIndexes,
+  createToolEvent,
+} from "./stream-chat/events.js";
+import {
+  createAssistantMetadata,
+  getToolAttachment,
+  getToolCitationSources,
+  type StreamAttachment,
+} from "./stream-chat/metadata.js";
+import { resolveSurfaceContexts } from "./stream-chat/surface-contexts.js";
+import { enrichUsage } from "./stream-chat/usage.js";
 
 /**
  * Main backend use case. It is intentionally framework-free: it accepts ports,
@@ -50,162 +62,14 @@ export type StreamChatDeps = {
   observability: ObservabilityPort;
   config: ConfigPort;
 };
+
 export type StreamChatInput = {
   requestId: string;
   body: unknown;
   signal?: AbortSignal;
 };
 
-const modelPricingPerMillion: Record<
-  string,
-  { inputUsd: number; outputUsd: number; cachedInputUsd?: number }
-> = {
-  "gpt-5.4-nano": { inputUsd: 0.05, outputUsd: 0.2, cachedInputUsd: 0.005 },
-};
-
-const enrichUsage = (model: ModelSelection, usage: TokenUsage): TokenUsage => {
-  const pricing = modelPricingPerMillion[model.id];
-  if (!pricing || usage.estimatedCostUsd !== undefined) return usage;
-
-  const cachedInputTokens = usage.cachedInputTokens ?? 0;
-  const billableInputTokens = Math.max(0, usage.inputTokens - cachedInputTokens);
-  const cachedInputCost =
-    (cachedInputTokens / 1_000_000) *
-    (pricing.cachedInputUsd ?? pricing.inputUsd);
-  const inputCost = (billableInputTokens / 1_000_000) * pricing.inputUsd;
-  const outputCost = (usage.outputTokens / 1_000_000) * pricing.outputUsd;
-
-  return {
-    ...usage,
-    estimatedCostUsd: Number(
-      (inputCost + cachedInputCost + outputCost).toFixed(6),
-    ),
-  };
-};
-
-const isWorkbenchCitationSource = (
-  value: unknown,
-): value is WorkbenchCitationSource => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-
-  const source = value as Record<string, unknown>;
-  return (
-    typeof source.sourceId === "string" &&
-    typeof source.label === "string" &&
-    typeof source.dataset === "string" &&
-    (source.resourceId === undefined || typeof source.resourceId === "string") &&
-    (source.rowId === undefined || typeof source.rowId === "string") &&
-    (source.field === undefined || typeof source.field === "string")
-  );
-};
-
-const getToolCitationSources = (output: unknown): WorkbenchCitationSource[] => {
-  if (!output || typeof output !== "object" || Array.isArray(output)) return [];
-
-  const sources = (output as { sources?: unknown }).sources;
-  return Array.isArray(sources) ? sources.filter(isWorkbenchCitationSource) : [];
-};
-
-const isWorkbenchReportResult = (
-  value: unknown,
-): value is WorkbenchReportResult => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-
-  const report = value as Record<string, unknown>;
-  return (
-    typeof report.reportId === "string" &&
-    typeof report.reportUrl === "string" &&
-    typeof report.title === "string" &&
-    (report.fileName === undefined || typeof report.fileName === "string")
-  );
-};
-
-const getToolAttachment = (chunk: {
-  toolCallId: string;
-  toolName: string;
-  output?: unknown;
-}) => {
-  if (
-    chunk.toolName !== "generate_workbench_report" ||
-    !isWorkbenchReportResult(chunk.output)
-  ) {
-    return undefined;
-  }
-
-  return {
-    id: chunk.toolCallId,
-    name: `${chunk.output.title}.pdf`,
-    url: chunk.output.reportUrl,
-    mediaType: "application/pdf",
-  };
-};
-
-const normalizeCitationText = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const getSourceSearchTerms = (source: WorkbenchCitationSource) => {
-  const labelTail = source.label.split("·").at(-1)?.trim();
-  return [labelTail, source.rowId, source.field]
-    .filter((term): term is string => Boolean(term && term.length > 2))
-    .map(normalizeCitationText);
-};
-
-const maxMatchedCitationSources = 2;
-
-const surfaceContextLimit = 12;
-const maxSurfaceContextResources = 4;
-
-const shouldResolveSurfaceResource = (kind: string) =>
-  kind === "grid" || kind === "table" || kind === "custom";
-
-const isSurfaceCitationSource = (source: WorkbenchCitationSource) =>
-  Boolean(source.resourceId);
-
-export const selectInlineCitationSources = (
-  assistantContent: string,
-  sources: WorkbenchCitationSource[],
-): WorkbenchCitationSource[] => {
-  const uniqueSources = Array.from(
-    new Map(sources.map((source) => [source.sourceId, source])).values(),
-  );
-
-  const normalizedContent = normalizeCitationText(assistantContent);
-  const matchedSources = uniqueSources.filter((source) =>
-    getSourceSearchTerms(source).some((term) => normalizedContent.includes(term)),
-  );
-  if (matchedSources.length > 0) {
-    return matchedSources.slice(0, maxMatchedCitationSources);
-  }
-
-  return uniqueSources
-    .filter((source) => !isSurfaceCitationSource(source))
-    .slice(0, 1);
-};
-
-type StreamAttachment = {
-  id: string;
-  name: string;
-  url: string;
-  mediaType: string;
-};
-
-type StreamIndexes = {
-  delta: number;
-  reasoning: number;
-  tool: number;
-  hostCommand: number;
-};
-
-const createStreamIndexes = (): StreamIndexes => ({
-  delta: 0,
-  reasoning: 0,
-  tool: 0,
-  hostCommand: 0,
-});
+export { selectInlineCitationSources } from "./stream-chat/metadata.js";
 
 const hasConfiguredModel = (
   models: ModelSelection[],
@@ -216,60 +80,6 @@ const hasConfiguredModel = (
       model.provider === requested.provider && model.id === requested.id,
   );
 
-const resolveSurfaceContexts = async (
-  deps: StreamChatDeps,
-  request: SidechatRequest,
-  userId: string,
-  conversationId: string,
-  pageContext: Awaited<ReturnType<PageContextPort["resolve"]>>,
-) => {
-  const workbenchTools = deps.workbenchTools;
-  if (!workbenchTools?.surfaceContext) return undefined;
-
-  const resources = (request.hostContext?.resources ?? [])
-    .filter((resource) => shouldResolveSurfaceResource(resource.kind))
-    .slice(0, maxSurfaceContextResources);
-
-  return Promise.all(
-    resources.map((resource) =>
-      workbenchTools.surfaceContext!({
-        workspaceId: request.workspaceId,
-        userId,
-        conversationId,
-        pageContext,
-        resourceId: resource.id,
-        limit: surfaceContextLimit,
-      }),
-    ),
-  );
-};
-
-/**
- * Final assistant metadata is deliberately selected by the use case, not the
- * provider adapter, so persistence and protocol metadata stay product-owned.
- */
-const createAssistantMetadata = (
-  assistantContent: string,
-  citationSources: WorkbenchCitationSource[],
-  attachments: StreamAttachment[],
-): Record<string, unknown> | undefined => {
-  const selectedCitationSources = selectInlineCitationSources(
-    assistantContent,
-    citationSources,
-  );
-  const metadata: Record<string, unknown> = {};
-
-  if (selectedCitationSources.length > 0) {
-    metadata.citations = selectedCitationSources;
-  }
-
-  if (attachments.length > 0) {
-    metadata.attachments = attachments;
-  }
-
-  return Object.keys(metadata).length > 0 ? metadata : undefined;
-};
-
 const observeStreamEvent = (
   deps: StreamChatDeps,
   event: SidechatStreamEvent,
@@ -277,64 +87,6 @@ const observeStreamEvent = (
   deps.observability.lifecycle(event);
   return event;
 };
-
-const createDeltaEvent = (
-  requestId: string,
-  assistantMessageId: string,
-  chunk: Extract<ModelChunk, { kind: "delta" }>,
-  indexes: StreamIndexes,
-): SidechatStreamEvent => ({
-  type: "sidechat.delta",
-  requestId,
-  messageId: assistantMessageId,
-  content: chunk.text,
-  index: indexes.delta++,
-});
-
-const createReasoningEvent = (
-  requestId: string,
-  assistantMessageId: string,
-  chunk: Extract<ModelChunk, { kind: "reasoning" }>,
-  indexes: StreamIndexes,
-): SidechatStreamEvent => ({
-  type: "sidechat.reasoning",
-  requestId,
-  messageId: assistantMessageId,
-  content: chunk.text,
-  index: indexes.reasoning++,
-});
-
-const createToolEvent = (
-  requestId: string,
-  assistantMessageId: string,
-  chunk: Extract<ModelChunk, { kind: "tool" }>,
-  indexes: StreamIndexes,
-): SidechatStreamEvent => ({
-  type: "sidechat.tool",
-  requestId,
-  messageId: assistantMessageId,
-  toolCallId: chunk.toolCallId,
-  toolName: chunk.toolName,
-  status: chunk.status,
-  input: chunk.input,
-  output: chunk.output,
-  error: chunk.error,
-  index: indexes.tool++,
-});
-
-const createHostCommandEvent = (
-  requestId: string,
-  assistantMessageId: string,
-  chunk: Extract<ModelChunk, { kind: "host-command" }>,
-  indexes: StreamIndexes,
-): SidechatStreamEvent => ({
-  type: "sidechat.host_command",
-  requestId,
-  messageId: assistantMessageId,
-  commandId: chunk.commandId,
-  command: chunk.command,
-  index: indexes.hostCommand++,
-});
 
 export const streamChatEffect = (
   deps: StreamChatDeps,
@@ -404,6 +156,7 @@ async function* streamChatWithRequest(
     request.message.id,
     request.message.content,
   );
+
   const assistantMessageId = `${input.requestId}-assistant`;
   const started: SidechatStreamEvent = {
     type: "sidechat.started",
@@ -509,6 +262,7 @@ async function* streamChatWithRequest(
     } catch {
       throw new UsageCaptureFailed();
     }
+
     const completed: SidechatStreamEvent = {
       type: "sidechat.completed",
       requestId: input.requestId,

@@ -64,14 +64,7 @@ const createFilterModel = <TData,>(
     }
 
     if (filterKind === "boolean") {
-      model[filter.columnId] =
-        filter.operator === "blank" || filter.operator === "notBlank"
-          ? createBlankFilter(filter, "text")
-          : {
-              filterType: "text",
-              type: "equals",
-              filter: String(filter.value),
-            };
+      model[filter.columnId] = createBooleanFilter(filter);
       continue;
     }
 
@@ -83,18 +76,35 @@ const createFilterModel = <TData,>(
 
 const createTextFilter = (filter: HostGridFilter) => ({
   filterType: "text",
-  type:
-    filter.operator === "blank" || filter.operator === "notBlank"
-      ? filter.operator
-      : filter.operator === "notEquals"
-      ? "notEqual"
-      : filter.operator === "startsWith" ||
-          filter.operator === "endsWith" ||
-          filter.operator === "equals"
-        ? filter.operator
-        : "contains",
+  type: mapTextFilterOperator(filter.operator),
   filter: String(filter.value ?? ""),
 });
+
+const createBooleanFilter = (filter: HostGridFilter) => {
+  if (filter.operator === "blank" || filter.operator === "notBlank") {
+    return createBlankFilter(filter, "text");
+  }
+
+  return {
+    filterType: "text",
+    type: "equals",
+    filter: String(filter.value),
+  };
+};
+
+const mapTextFilterOperator = (operator: HostGridFilter["operator"]) => {
+  if (operator === "blank" || operator === "notBlank") return operator;
+  if (operator === "notEquals") return "notEqual";
+  if (
+    operator === "startsWith" ||
+    operator === "endsWith" ||
+    operator === "equals"
+  ) {
+    return operator;
+  }
+
+  return "contains";
+};
 
 const createBlankFilter = (filter: HostGridFilter, filterType: string) => ({
   filterType,
@@ -231,6 +241,7 @@ export function DashboardGrid<TData extends { id: string }>({
   }, [quickFilterText]);
 
   const gridHeight = fill ? "100%" : height;
+  const minGridHeight = getMinGridHeight({ compact, fill, height });
 
   return (
     <div
@@ -238,7 +249,7 @@ export function DashboardGrid<TData extends { id: string }>({
         fill ? " is-fill" : ""
       }${className ? ` ${className}` : ""}`}
       data-host-resource-id={resourceId}
-      style={{ minHeight: compact ? 340 : fill ? 0 : height, height: gridHeight }}
+      style={{ minHeight: minGridHeight, height: gridHeight }}
     >
       <div className="dashboard-grid-body">
         <AgGridReact<TData>
@@ -271,6 +282,16 @@ export function DashboardGrid<TData extends { id: string }>({
     </div>
   );
 }
+
+const getMinGridHeight = ({
+  compact,
+  fill,
+  height,
+}: Pick<DashboardGridProps<{ id: string }>, "compact" | "fill" | "height">) => {
+  if (compact) return 340;
+  if (fill) return 0;
+  return height;
+};
 
 const resolveFilter = (
   filterKind: DashboardGridColumn<unknown>["filterKind"],

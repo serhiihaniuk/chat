@@ -1,23 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
-import { Effect } from "effect";
 import {
-  parseSsePayload,
   protocolVersion,
   type HostCommand,
   type HostCommandResult,
   type HostContextSnapshot,
   type ModelSelection,
-  type SidechatStreamErrorEvent,
   type SidechatStreamEvent,
   type TokenUsage,
 } from "@side-chat/shared-protocol";
-import { decodeKnownFramePayload } from "../../application/stream-decoding/stream-event-decoder.js";
 import {
   applySideChatStreamEventToMessages,
   completeHostCommandPartInMessages,
   getSideChatStreamEventEffect,
   type WidgetMessage,
 } from "../../domain/message/stream-event-state.js";
+import {
+  createChatRequestPayload,
+  deriveHistoryEndpoint,
+  deriveUsageEndpoint,
+  randomId,
+  requestError,
+  type SideChatError,
+} from "./use-side-chat/request.js";
+import { readSideChatStreamEvents } from "./use-side-chat/stream-reader.js";
 
 /**
  * React/browser adapter for the widget hexagon. It owns fetch, SSE reading,
@@ -36,8 +41,12 @@ export type {
   WidgetReasoningPart,
   WidgetToolPart,
 } from "../../domain/message/stream-event-state.js";
-
-export type SideChatError = SidechatStreamErrorEvent;
+export {
+  createChatRequestPayload,
+  type CreateChatRequestPayloadInput,
+  type SideChatError,
+} from "./use-side-chat/request.js";
+export { readSideChatStreamEvents } from "./use-side-chat/stream-reader.js";
 
 export type UseSideChatOptions = {
   apiEndpoint: string;
@@ -57,144 +66,6 @@ export type UseSideChatOptions = {
 };
 
 export type HistoryStatus = "idle" | "loading" | "loaded" | "empty" | "error";
-
-const randomId = () =>
-  `client-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-
-const deriveHistoryEndpoint = (apiEndpoint: string): string => {
-  const streamSuffix = "/chat/stream";
-  if (apiEndpoint.endsWith(streamSuffix)) {
-    return `${apiEndpoint.slice(0, -streamSuffix.length)}/chat/history`;
-  }
-
-  return `${apiEndpoint}/chat/history`;
-};
-
-const requestError = (message: string, requestId: string): SideChatError => ({
-  type: "sidechat.error",
-  requestId,
-  code: "REQUEST_FAILED",
-  message,
-  retryable: true,
-});
-
-export type CreateChatRequestPayloadInput = {
-  workspaceId: string;
-  conversationId?: string;
-  messageId: string;
-  content: string;
-  model: ModelSelection;
-  hostContext?: HostContextSnapshot;
-};
-
-export const createChatRequestPayload = ({
-  workspaceId,
-  conversationId,
-  messageId,
-  content,
-  model,
-  hostContext,
-}: CreateChatRequestPayloadInput) => ({
-  workspaceId,
-  conversationId,
-  message: { id: messageId, role: "user" as const, content },
-  model,
-  ...(hostContext ? { hostContext } : {}),
-});
-
-const knownEventTypes = new Set([
-  "sidechat.started",
-  "sidechat.delta",
-  "sidechat.reasoning",
-  "sidechat.tool",
-  "sidechat.host_command",
-  "sidechat.completed",
-  "sidechat.error",
-  "sidechat.history",
-]);
-
-const parseKnownFramePayload = (
-  data: string,
-): SidechatStreamEvent | undefined => {
-  return Effect.runSync(decodeKnownFramePayload(data));
-};
-
-const deriveUsageEndpoint = (apiEndpoint: string): string => {
-  const streamSuffix = "/chat/stream";
-  if (apiEndpoint.endsWith(streamSuffix)) {
-    return `${apiEndpoint.slice(0, -streamSuffix.length)}/chat/usage`;
-  }
-
-  return `${apiEndpoint}/chat/usage`;
-};
-
-export const readSideChatStreamEvents = async (
-  response: globalThis.Response,
-  onEvent: (event: SidechatStreamEvent) => void,
-  onMalformedEvent?: (message: string) => void,
-): Promise<void> => {
-  let terminalSeen = false;
-  const emit = (chunk: string) => {
-    for (const payload of parseSsePayload(chunk)) {
-      if (payload.event && !knownEventTypes.has(payload.event)) {
-        continue;
-      }
-
-      const parsed = parseKnownFramePayload(payload.data);
-      if (parsed) {
-        if (terminalSeen) {
-          onMalformedEvent?.(
-            `Ignored ${parsed.type} after terminal sidechat stream event`,
-          );
-          continue;
-        }
-
-        onEvent(parsed);
-        terminalSeen =
-          parsed.type === "sidechat.completed" ||
-          parsed.type === "sidechat.error";
-        continue;
-      }
-
-      onMalformedEvent?.(
-        `Malformed ${payload.event ?? "sidechat"} stream event`,
-      );
-    }
-  };
-
-  if (!response.body) {
-    emit(await response.text());
-    return;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let pending = "";
-
-  const flushCompleteFrames = () => {
-    for (;;) {
-      const boundary = pending.indexOf("\n\n");
-      if (boundary === -1) return;
-
-      const frame = pending.slice(0, boundary + 2);
-      pending = pending.slice(boundary + 2);
-      emit(frame);
-    }
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    pending += decoder.decode(value, { stream: true });
-    flushCompleteFrames();
-  }
-
-  pending += decoder.decode();
-  if (pending.trim()) {
-    emit(pending.endsWith("\n\n") ? pending : `${pending}\n\n`);
-  }
-};
 
 export function useSideChat(options: UseSideChatOptions) {
   const {
@@ -428,14 +299,16 @@ export function useSideChat(options: UseSideChatOptions) {
             "X-Sidechat-Protocol": protocolVersion,
             "X-Request-Id": requestId,
           },
-          body: JSON.stringify(createChatRequestPayload({
-            workspaceId,
-            conversationId: initialConversationId,
-            messageId,
-            content: trimmed,
-            model,
-            hostContext,
-          })),
+          body: JSON.stringify(
+            createChatRequestPayload({
+              workspaceId,
+              conversationId: initialConversationId,
+              messageId,
+              content: trimmed,
+              model,
+              hostContext,
+            }),
+          ),
         });
 
         if (!response.ok) {

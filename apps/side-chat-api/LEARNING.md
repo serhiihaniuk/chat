@@ -34,6 +34,8 @@ Hono HTTP route
 2. [`src/application/stream-chat.ts`](src/application/stream-chat.ts)  
    Read the product workflow: decode request, gate access, resolve context, stream model chunks, persist, emit protocol events.
 
+   Then read [`src/application/stream-chat/`](src/application/stream-chat/) for the extracted workflow helpers: event factories, citation/attachment metadata, surface context resolution, and usage cost enrichment.
+
 3. [`src/application/prompt-context.ts`](src/application/prompt-context.ts)  
    See how page context, host context, backend surface state, and recent messages become model input.
 
@@ -43,10 +45,15 @@ Hono HTTP route
 5. [`src/adapters/workbench/workbench-tools-adapter.ts`](src/adapters/workbench/workbench-tools-adapter.ts)  
    See how approved dashboard data becomes model tools and citation sources.
 
-6. [`src/inbound/hono/routes/chat-stream.ts`](src/inbound/hono/routes/chat-stream.ts) and [`src/inbound/hono/response/sse.ts`](src/inbound/hono/response/sse.ts)  
+   The adapter is intentionally a small composition file. The real helper ownership lives under [`src/adapters/workbench/workbench-tools/`](src/adapters/workbench/workbench-tools/): fallback demo data, citation shaping, and Portfolio Worklist surface-context logic.
+
+6. [`src/adapters/workbench/host-command-tool.ts`](src/adapters/workbench/host-command-tool.ts)
+   See where model-facing host UI commands become validated `sidechat.v1` host commands. OpenAI exposes this tool, but does not own grid semantics.
+
+7. [`src/inbound/hono/routes/chat-stream.ts`](src/inbound/hono/routes/chat-stream.ts) and [`src/inbound/hono/response/sse.ts`](src/inbound/hono/response/sse.ts)
    See where HTTP becomes SSE.
 
-7. [`src/inbound/hono/composition/default-deps.ts`](src/inbound/hono/composition/default-deps.ts)  
+8. [`src/inbound/hono/composition/default-deps.ts`](src/inbound/hono/composition/default-deps.ts)
    See how real and fake adapters are selected.
 
 ## Key Files
@@ -64,8 +71,11 @@ Hono HTTP route
 | `src/inbound/hono/response/protocol-errors.ts` | Splits pre-stream HTTP errors from in-stream protocol errors. |
 | `src/inbound/hono/response/sse.ts` | Converts application events into `text/event-stream` frames. |
 | `src/application/stream-chat-request-schema.ts` | Effect decode boundary for unknown JSON request bodies. |
+| `src/application/stream-chat/` | Focused helpers used by the main workflow: stream event creation, metadata selection, surface-context lookup, and usage enrichment. |
 | `src/application/errors.ts` | Expected use-case failures that can become `sidechat.error`. |
 | `src/adapters/ai/fake-model.ts` | Deterministic model adapter for tests and local runs without provider tokens. |
+| `src/adapters/workbench/host-command-tool.ts` | Model-facing host command adapter. It owns grid/filter/sort command translation so provider adapters do not. |
+| `src/adapters/workbench/workbench-tools/` | Internal Workbench tool slices for deterministic fallback data, citation source shaping, and current table-view calculations. |
 | `src/adapters/reports/playwright-report.ts` | Report artifact adapter. It keeps PDF generation out of the use case. |
 | `src/inbound/hono/composition/memory-repositories.ts` | In-memory conversation and usage repositories for tests/local fallback. |
 
@@ -77,7 +87,9 @@ Effect is used narrowly. The important use is boundary decoding: unknown JSON en
 
 ### AI SDK
 
-AI SDK is the provider/tool streaming adapter. `openAiModelAdapter.stream` calls `streamText`, defines tools, and receives provider stream parts. It immediately maps those parts into internal `ModelChunk` values. The application layer then maps `ModelChunk` into `sidechat.v1` events.
+AI SDK is the provider/tool streaming adapter. `openAiModelAdapter.stream` calls `streamText`, registers controlled tools, and receives provider stream parts. It immediately maps those parts into internal `ModelChunk` values. The application layer then maps `ModelChunk` into `sidechat.v1` events.
+
+The provider adapter may expose a host command tool, but it must not own host UI semantics. Grid filters, sorts, row highlights, resource lookup, and `HostCommand` validation live in the workbench host-command adapter.
 
 The browser never sees AI SDK parts.
 

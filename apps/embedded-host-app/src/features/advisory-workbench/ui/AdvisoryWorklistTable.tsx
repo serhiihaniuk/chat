@@ -1,15 +1,23 @@
 import { useMemo, useState } from "react";
-import { Search, TriangleAlert } from "lucide-react";
-import type { ICellRendererParams } from "ag-grid-community";
-import type { HostGridFilter, HostGridSort } from "@side-chat/shared-protocol";
+import { Search } from "lucide-react";
 
-import type {
-  AdvisoryDashboardSnapshot,
-  ClientPortfolioReviewRow,
-  TopRiskAccountRow,
-} from "../model/advisory-dashboard.types.js";
+import type { AdvisoryDashboardSnapshot } from "../model/advisory-dashboard.types.js";
 import type { AdvisoryGridViewState } from "../model/grid-view-state.js";
 import { DashboardGrid, type DashboardGridColumn } from "./DashboardGrid.js";
+import {
+  compareDateValues,
+  compareFilterDate,
+  createWorklistRows,
+  priorityRank,
+  type AdvisoryWorklistRow,
+} from "./advisory-worklist-table/worklist-model.js";
+import {
+  AlertRenderer,
+  CoverageRenderer,
+  DueStatusRenderer,
+  PriorityRenderer,
+} from "./advisory-worklist-table/worklist-renderers.js";
+import { describeWorklistView } from "./advisory-worklist-table/worklist-view-summary.js";
 import { formatChfCompact, formatSignedChfCompact } from "./formatters.js";
 
 type AdvisoryWorklistTableProps = {
@@ -22,57 +30,6 @@ type AdvisoryWorklistTableProps = {
  * Visible Portfolio Worklist. It merges client-review and risk rows into one
  * commandable grid so host commands can filter/sort/highlight a real surface.
  */
-type DueStatus = "Overdue" | "Due soon" | "Open" | "No risk";
-
-type AdvisoryWorklistRow = {
-  id: string;
-  sourceIds: string[];
-  client: string;
-  segment: string;
-  aumChf: number;
-  netFlow30dChf: number;
-  riskProfile: string;
-  riskScore: number;
-  coverageStatus: ClientPortfolioReviewRow["coverageStatus"];
-  relationshipManager: string;
-  nextAction: string;
-  hasAlert: boolean;
-  riskIssue: string;
-  riskExposureChf: number | null;
-  priority: TopRiskAccountRow["priority"] | "None";
-  dueDate: string;
-  dueStatus: DueStatus;
-};
-
-const priorityRank: Record<AdvisoryWorklistRow["priority"], number> = {
-  High: 0,
-  Medium: 1,
-  Low: 2,
-  None: 3,
-};
-
-const statusClass = (status: ClientPortfolioReviewRow["coverageStatus"]) =>
-  status === "Covered" ? "covered" : status === "Watch" ? "watch" : "at-risk";
-const columnLabels: Record<keyof AdvisoryWorklistRow, string> = {
-  aumChf: "AUM",
-  client: "Client",
-  coverageStatus: "Coverage",
-  dueDate: "Due Date",
-  dueStatus: "Due Status",
-  hasAlert: "Alert",
-  id: "ID",
-  netFlow30dChf: "30D Flow",
-  nextAction: "Next Action",
-  priority: "Priority",
-  relationshipManager: "RM",
-  riskExposureChf: "Exposure",
-  riskIssue: "Risk / Task",
-  riskProfile: "Risk Profile",
-  riskScore: "Risk Score",
-  segment: "Segment",
-  sourceIds: "Sources",
-};
-
 export function AdvisoryWorklistTable({
   activeSourceId,
   snapshot,
@@ -239,198 +196,3 @@ export function AdvisoryWorklistTable({
     </section>
   );
 }
-
-const describeWorklistView = (view: AdvisoryGridViewState | undefined) => {
-  const sortChips = view?.sort?.map(describeSort) ?? [];
-  const filterChips = view?.filters?.map(describeFilter) ?? [];
-  const chips = [...filterChips, ...sortChips].filter(
-    (chip): chip is string => Boolean(chip),
-  );
-
-  return chips.length > 0
-    ? { label: "AI view", chips }
-    : {
-        label: "Default queue",
-        chips: ["Priority first", "Earliest due date", "Largest outflow"],
-      };
-};
-
-const describeSort = (sort: HostGridSort) => {
-  const label = getColumnLabel(sort.columnId);
-  const direction = sort.direction === "asc" ? "A-Z" : "Z-A";
-  if (
-    sort.columnId.toLowerCase().includes("date") ||
-    sort.columnId.toLowerCase().includes("due")
-  ) {
-    return `${label}: ${sort.direction === "asc" ? "earliest first" : "latest first"}`;
-  }
-  if (
-    sort.columnId.toLowerCase().includes("aum") ||
-    sort.columnId.toLowerCase().includes("score") ||
-    sort.columnId.toLowerCase().includes("flow") ||
-    sort.columnId.toLowerCase().includes("exposure")
-  ) {
-    return `${label}: ${sort.direction === "asc" ? "low to high" : "high to low"}`;
-  }
-  return `${label}: ${direction}`;
-};
-
-const describeFilter = (filter: HostGridFilter) => {
-  const label = getColumnLabel(filter.columnId);
-  if (filter.operator === "blank") return `${label}: empty`;
-  if (filter.operator === "notBlank") return `${label}: filled`;
-  if (filter.operator === "contains") return `${label}: contains ${formatFilterValue(filter.value)}`;
-  if (filter.operator === "equals") return `${label}: ${formatFilterValue(filter.value)}`;
-  if (filter.operator === "greaterThan") return `${label}: > ${formatFilterValue(filter.value)}`;
-  if (filter.operator === "greaterThanOrEqual") return `${label}: >= ${formatFilterValue(filter.value)}`;
-  if (filter.operator === "lessThan") return `${label}: < ${formatFilterValue(filter.value)}`;
-  if (filter.operator === "lessThanOrEqual") return `${label}: <= ${formatFilterValue(filter.value)}`;
-  if (filter.operator === "between" && Array.isArray(filter.value)) {
-    return `${label}: ${formatFilterValue(filter.value[0])} - ${formatFilterValue(filter.value[1])}`;
-  }
-  return `${label}: ${filter.operator}`;
-};
-
-const getColumnLabel = (columnId: string) =>
-  columnLabels[columnId as keyof AdvisoryWorklistRow] ?? columnId;
-
-const formatFilterValue = (value: unknown): string => {
-  if (Array.isArray(value)) return value.map(formatFilterValue).join(", ");
-  if (typeof value === "boolean") return value ? "yes" : "no";
-  if (value === undefined || value === null || value === "") return "any";
-  return String(value);
-};
-
-const createWorklistRows = (
-  snapshot: AdvisoryDashboardSnapshot,
-): AdvisoryWorklistRow[] => {
-  const riskByClient = new Map<string, TopRiskAccountRow[]>();
-  for (const risk of snapshot.topRiskAccounts) {
-    riskByClient.set(risk.clientId, [...(riskByClient.get(risk.clientId) ?? []), risk]);
-  }
-
-  return snapshot.clientPortfolioReview.map((client) => {
-    const topRisk = [...(riskByClient.get(client.clientId) ?? [])].sort(
-      (left, right) =>
-        priorityRank[left.priority] - priorityRank[right.priority] ||
-        left.dueDate.localeCompare(right.dueDate) ||
-        right.exposureChf - left.exposureChf,
-    )[0];
-
-    const dueStatus = getDueStatus(topRisk?.dueDate, snapshot.asOfDate);
-
-    return {
-      id: client.id,
-      sourceIds: [
-        `advisoryWorklist:${client.id}`,
-        `client_portfolio_review:${client.id}`,
-        ...(topRisk ? [`top_risk_accounts:${topRisk.id}`] : []),
-      ],
-      client: client.client,
-      segment: client.segment,
-      aumChf: client.aumChf,
-      netFlow30dChf: client.netFlow30dChf,
-      riskProfile: client.riskProfile,
-      riskScore: client.suitabilityScore,
-      coverageStatus: client.coverageStatus,
-      relationshipManager: client.relationshipManager,
-      nextAction: client.nextAction,
-      hasAlert: client.hasAlert,
-      riskIssue: topRisk?.issue ?? "-",
-      riskExposureChf: topRisk?.exposureChf ?? null,
-      priority: topRisk?.priority ?? "None",
-      dueDate: topRisk?.dueDate ?? "",
-      dueStatus,
-    };
-  });
-};
-
-const getDueStatus = (
-  dueDate: string | undefined,
-  asOfDate: string,
-): DueStatus => {
-  if (!dueDate) return "No risk";
-  const dueTime = toDateOnlyTime(dueDate);
-  const asOfTime = toDateOnlyTime(asOfDate);
-  if (dueTime === null || asOfTime === null) return "Open";
-  if (dueTime <= asOfTime) return "Overdue";
-  if (dueTime <= asOfTime + 7 * 24 * 60 * 60 * 1000) return "Due soon";
-  return "Open";
-};
-
-const compareDateValues = (left: unknown, right: unknown) => {
-  const leftTime = toDateOnlyTime(left);
-  const rightTime = toDateOnlyTime(right);
-  if (leftTime === null && rightTime === null) return 0;
-  if (leftTime === null) return 1;
-  if (rightTime === null) return -1;
-  return leftTime - rightTime;
-};
-
-const compareFilterDate = (
-  filterLocalDateAtMidnight: Date,
-  cellValue: unknown,
-) => {
-  const filterTime = Date.UTC(
-    filterLocalDateAtMidnight.getFullYear(),
-    filterLocalDateAtMidnight.getMonth(),
-    filterLocalDateAtMidnight.getDate(),
-  );
-  const cellTime = toDateOnlyTime(cellValue);
-  if (cellTime === null) return 1;
-  if (cellTime < filterTime) return -1;
-  if (cellTime > filterTime) return 1;
-  return 0;
-};
-
-const toDateOnlyTime = (value: unknown) => {
-  if (typeof value !== "string" || value.trim().length === 0) return null;
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return null;
-  const date = new Date(parsed);
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-};
-
-const CoverageRenderer = ({
-  value,
-}: ICellRendererParams<AdvisoryWorklistRow, AdvisoryWorklistRow["coverageStatus"]>) => {
-  const status = value ?? "Covered";
-  return (
-    <span className={`status-pill ${statusClass(status)}`}>
-      <span aria-hidden="true" />
-      {status}
-    </span>
-  );
-};
-
-const PriorityRenderer = ({
-  value,
-}: ICellRendererParams<AdvisoryWorklistRow, AdvisoryWorklistRow["priority"]>) => {
-  const priority = value ?? "None";
-  return priority === "None" ? (
-    <span className="muted-dash">-</span>
-  ) : (
-    <span className={`priority priority-${priority.toLowerCase()}`}>
-      {priority}
-    </span>
-  );
-};
-
-const DueStatusRenderer = ({
-  value,
-}: ICellRendererParams<AdvisoryWorklistRow, DueStatus>) => {
-  const status = value ?? "Open";
-  return <span className={`due-status ${statusToClassName(status)}`}>{status}</span>;
-};
-
-const AlertRenderer = ({
-  value,
-}: ICellRendererParams<AdvisoryWorklistRow, boolean>) =>
-  value ? (
-    <TriangleAlert className="alert-icon" size={18} aria-label="Alert" />
-  ) : (
-    <span className="muted-dash">-</span>
-  );
-
-const statusToClassName = (status: DueStatus) =>
-  status.toLowerCase().replace(/\s+/g, "-");

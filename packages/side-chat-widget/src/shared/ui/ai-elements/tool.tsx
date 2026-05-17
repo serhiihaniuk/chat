@@ -3,6 +3,7 @@
 import { CheckCircle2, ChevronDown, Clock3, Wrench, XCircle } from "lucide-react";
 import { useEffect, useState, type ComponentProps } from "react";
 import { cn } from "../../lib/utils.js";
+import { isUnknownRecord, readString } from "../../lib/unknown-record.js";
 
 export type ToolStatus = "running" | "completed" | "error";
 
@@ -28,11 +29,9 @@ const statusIcon = {
 };
 
 const stripCitationSources = (value: unknown) => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return value;
-  }
+  if (!isUnknownRecord(value)) return value;
 
-  const { sources: _sources, ...rest } = value as Record<string, unknown>;
+  const { sources: _sources, ...rest } = value;
   return rest;
 };
 
@@ -42,11 +41,8 @@ const formatPayload = (value: unknown) =>
     : JSON.stringify(stripCitationSources(value), null, 2);
 
 const getReportUrl = (value: unknown) => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
-  }
-  const reportUrl = (value as { reportUrl?: unknown }).reportUrl;
-  return typeof reportUrl === "string" ? reportUrl : undefined;
+  if (!isUnknownRecord(value)) return undefined;
+  return readString(value, "reportUrl");
 };
 
 export const Tool = ({

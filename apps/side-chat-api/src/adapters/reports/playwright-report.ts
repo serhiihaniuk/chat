@@ -7,6 +7,10 @@ import type {
   WorkbenchReportNoteKind,
   WorkbenchReportSectionName,
 } from "#ports/index.js";
+import {
+  isUnknownRecord,
+  type UnknownRecord,
+} from "../../shared/unknown-record.js";
 
 /**
  * Report adapter boundary. The chat use case asks for a Workbench report; this
@@ -50,18 +54,13 @@ const formatChf = (value: unknown) => {
   return `CHF ${numeric.toLocaleString("en-US")}`;
 };
 
-const asRecord = (value: unknown): Record<string, unknown> =>
-  value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+const asRecord = (value: unknown): UnknownRecord =>
+  isUnknownRecord(value) ? value : {};
 
-const asArray = (value: unknown): Record<string, unknown>[] =>
-  Array.isArray(value)
-    ? value.filter(
-        (entry): entry is Record<string, unknown> =>
-          entry !== null && typeof entry === "object" && !Array.isArray(entry),
-      )
-    : [];
+const asArray = (value: unknown): UnknownRecord[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isUnknownRecord);
+};
 
 const renderList = (items: string[]) =>
   `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
@@ -108,11 +107,7 @@ export const createAnalystNoteParagraphs = (input: {
   }
 
   if (userNote) {
-    paragraphs.push(
-      noteKind === "custom"
-        ? userNote
-        : `Analyst emphasis: ${userNote}`,
-    );
+    paragraphs.push(formatUserNote(noteKind, userNote));
   }
 
   if (paragraphs.length === 0 && watchClients.length > 0) {
@@ -122,6 +117,14 @@ export const createAnalystNoteParagraphs = (input: {
   }
 
   return paragraphs;
+};
+
+const formatUserNote = (
+  noteKind: WorkbenchReportNoteKind,
+  userNote: string,
+) => {
+  if (noteKind === "custom") return userNote;
+  return `Analyst emphasis: ${userNote}`;
 };
 
 const renderAnalystNote = (paragraphs: string[]) =>

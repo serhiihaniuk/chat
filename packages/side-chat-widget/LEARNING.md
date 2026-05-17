@@ -44,6 +44,8 @@ Host app
 5. [`src/adapters/react/use-side-chat.ts`](src/adapters/react/use-side-chat.ts)  
    Browser lifecycle adapter for fetch, history, usage, host commands, and React state.
 
+   Then read [`src/adapters/react/use-side-chat/`](src/adapters/react/use-side-chat/) for the smaller transport helpers: request payload/endpoint construction and SSE frame reading.
+
 6. [`src/ui/side-chat-widget/SideChatWidget.tsx`](src/ui/side-chat-widget/SideChatWidget.tsx)  
    Public component composition.
 
@@ -57,7 +59,7 @@ Host app
 | `ports/` | Defines what the host app can provide. |
 | `domain/` | Pure rules: messages, citations, appearance, model aliases, panel geometry. |
 | `application/` | Boundary workflow code, currently stream decoding. |
-| `adapters/react/` | Browser and React state adapter. |
+| `adapters/react/` | Browser and React state adapter. `use-side-chat.ts` is the hook; `use-side-chat/` holds focused request and stream-reader helpers. |
 | `ui/` | Product-sliced presentation components. |
 | `shared/ui/ai-elements/` | Vendored visual primitives derived from AI Elements. |
 

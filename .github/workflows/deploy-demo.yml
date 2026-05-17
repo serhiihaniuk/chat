@@ -2,19 +2,6 @@ name: Deploy Demo
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/**"
-      - "packages/**"
-      - "docker/**"
-      - "deploy/demo/**"
-      - "compose.demo.yml"
-      - "Dockerfile"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/deploy-demo.yml"
 
 permissions:
   contents: read

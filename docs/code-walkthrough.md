@@ -277,13 +277,13 @@ Important files:
 | `application/stream-chat.ts / streamChat` | Public async-generator entry point for the use case. Tests can call this without Hono. |
 | `application/stream-chat.ts / streamChatEffect` | Effect-shaped entry point used by the SSE adapter. |
 | `application/stream-chat.ts / streamChatWithRequest` | Core workflow after request decoding: model selection, auth/rate/billing gates, conversation setup, page/surface context, model streaming, persistence, usage, and final event. |
-| `application/stream-chat.ts / resolveSurfaceContexts` | Loads trusted backend table context for host resources so the model can answer “this table/current view” questions without trusting browser row data. |
-| `application/stream-chat.ts / createDeltaEvent` | Maps a normalized model text chunk to `sidechat.delta`. |
-| `application/stream-chat.ts / createReasoningEvent` | Maps a normalized reasoning chunk to `sidechat.reasoning`. |
-| `application/stream-chat.ts / createToolEvent` | Maps a normalized tool chunk to `sidechat.tool`. |
-| `application/stream-chat.ts / createHostCommandEvent` | Maps a validated host command chunk to `sidechat.host_command`. |
-| `application/stream-chat.ts / createAssistantMetadata` | Chooses citations and attachments that should be attached to the final assistant message. |
-| `application/stream-chat.ts / selectInlineCitationSources` | Keeps citations relevant to the actual answer text instead of dumping every source the tools touched. |
+| `application/stream-chat/surface-contexts.ts / resolveSurfaceContexts` | Loads trusted backend table context for host resources so the model can answer “this table/current view” questions without trusting browser row data. |
+| `application/stream-chat/events.ts / createDeltaEvent` | Maps a normalized model text chunk to `sidechat.delta`. |
+| `application/stream-chat/events.ts / createReasoningEvent` | Maps a normalized reasoning chunk to `sidechat.reasoning`. |
+| `application/stream-chat/events.ts / createToolEvent` | Maps a normalized tool chunk to `sidechat.tool`. |
+| `application/stream-chat/events.ts / createHostCommandEvent` | Maps a validated host command chunk to `sidechat.host_command`. |
+| `application/stream-chat/metadata.ts / createAssistantMetadata` | Chooses citations and attachments that should be attached to the final assistant message. |
+| `application/stream-chat/metadata.ts / selectInlineCitationSources` | Keeps citations relevant to the actual answer text instead of dumping every source the tools touched. |
 
 #### Ports Layer
 
@@ -307,14 +307,15 @@ Important files:
 | File / function | Role |
 | --- | --- |
 | `adapters/ai/openai-model.ts / openAiModelAdapter.stream` | Calls AI SDK `streamText`, passes controlled tools, and translates AI SDK `fullStream` parts into `ModelChunk`. |
-| `adapters/ai/openai-model.ts / createWorkbenchTools` | Creates AI SDK tools from backend ports. This is why AI SDK stays behind the adapter. |
+| `adapters/ai/openai-model.ts / createWorkbenchTools` | Registers AI SDK tools from backend ports and workbench tool contracts. This is why AI SDK stays behind the adapter. |
 | `adapters/ai/openai-model.ts / workbench_query` | Tool for whole-dashboard approved data lookups. It does not accept SQL or arbitrary filters. |
 | `adapters/ai/openai-model.ts / workbench_surface_context` | Tool for current visible/filtered/sorted table context. Use this for “on this page/current view/table you just changed” questions. |
-| `adapters/ai/openai-model.ts / host_command` | Tool that asks the host UI to filter/sort/focus resources. Its result is validated as `HostCommand` before the app emits `sidechat.host_command`. |
+| `adapters/ai/openai-model.ts / host_command` | AI SDK registration for the host-command tool. It delegates grid/filter/sort semantics to the workbench host-command adapter. |
 | `adapters/ai/openai-model.ts / generate_workbench_report` | Tool that creates a controlled one-page report through `WorkbenchReportPort`. |
-| `adapters/ai/openai-model.ts / toHostCommand` | Converts model tool input into a protocol-owned `HostCommand`, resolving resource and column labels against host context. |
 | `adapters/ai/openai-model.ts / toTokenUsage` | Maps AI SDK usage shape into the product `TokenUsage` DTO. |
 | `adapters/ai/fake-model.ts / fakeModelAdapter` | Deterministic `ModelPort` implementation for tests and safe local runs. It exercises text, tools, reports, host commands, and usage without provider calls. |
+| `adapters/workbench/host-command-tool.ts / hostCommandInputSchema` | Defines the flat model-facing schema for host UI commands. It stays separate from OpenAI so the provider adapter does not own grid semantics. |
+| `adapters/workbench/host-command-tool.ts / toHostCommand` | Converts model tool input into a protocol-owned `HostCommand`, resolving resource and column labels against host context. |
 
 #### Workbench Adapter Layer
 
@@ -323,10 +324,11 @@ Important files:
 | `adapters/workbench/workbench-tools-adapter.ts / createWorkbenchTools` | Builds the backend workbench tools port. Uses Postgres-backed dashboard data when `DATABASE_URL` exists, otherwise fallback data. |
 | `workbench-tools-adapter.ts / query` | Handles approved whole-dashboard query names and returns data plus citation sources. |
 | `workbench-tools-adapter.ts / surfaceContext` | Rebuilds the Portfolio Worklist from approved backend data, applies remembered host view state, and returns the current visible rows. |
-| `workbench-tools-adapter.ts / createWorkbenchSources` | Converts dashboard/tool rows into source IDs the UI can cite. |
-| `workbench-tools-adapter.ts / createWorklistRows` | Shapes dashboard data into the unified Portfolio Worklist rows used by the demo. |
-| `workbench-tools-adapter.ts / applyWorklistView` | Applies host-command filters/sorts to backend-owned rows. |
-| `workbench-tools-adapter.ts / createSurfaceContextResult` | Produces the bounded current-view context injected into prompts and tool outputs. |
+| `workbench-tools/citations.ts / createWorkbenchSources` | Converts dashboard/tool rows into source IDs the UI can cite. |
+| `workbench-tools/fallback-data.ts / fallbackWorkbenchData` | Provides deterministic demo data when the backend runs without Postgres. |
+| `workbench-tools/surface-context.ts / createWorklistRows` | Shapes dashboard data into the unified Portfolio Worklist rows used by the demo. |
+| `workbench-tools/surface-context.ts / applyWorklistView` | Applies host-command filters/sorts to backend-owned rows. |
+| `workbench-tools/surface-context.ts / createSurfaceContextResult` | Produces the bounded current-view context injected into prompts and tool outputs. |
 
 ### Why There Are Two Error Paths
 

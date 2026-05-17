@@ -1,14 +1,6 @@
 import { openai } from "@ai-sdk/openai";
-import { randomUUID } from "node:crypto";
 import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
-import {
-  parseHostCommand,
-  validateHostCommand,
-  type HostCommand,
-  type HostContextSnapshot,
-  type HostResource,
-} from "@side-chat/shared-protocol";
 import {
   workbenchReportFocusNames,
   workbenchReportNoteKinds,
@@ -19,6 +11,13 @@ import {
 } from "#ports/index.js";
 import type { TokenUsage } from "@side-chat/shared-protocol";
 import { createModelInput } from "#application/prompt-context.js";
+import {
+  createHostCommandToolOutput,
+  hostCommandInputSchema,
+  hostCommandToolDescription,
+  parseHostCommandToolOutput,
+} from "#adapters/workbench/host-command-tool.js";
+import { isUnknownRecord } from "../../shared/unknown-record.js";
 
 /**
  * AI SDK/OpenAI adapter. It is the only place that should understand provider
@@ -26,17 +25,11 @@ import { createModelInput } from "#application/prompt-context.js";
  */
 const asError = (error: unknown) => {
   if (error instanceof Error) return error;
-  if (
-    error &&
-    typeof error === "object" &&
-    "error" in error &&
-    error.error instanceof Error
-  ) {
+  if (isUnknownRecord(error) && error.error instanceof Error) {
     return error.error;
   }
-  return new Error(
-    typeof error === "string" ? error : "OpenAI stream failed",
-  );
+  if (typeof error === "string") return new Error(error);
+  return new Error("OpenAI stream failed");
 };
 
 const toTokenUsage = (usage: {
@@ -120,219 +113,6 @@ export const isCurrentSurfaceQuestion = (content: string) =>
     content,
   );
 
-const dashboardCommandOutputSchema = z.object({
-  commandId: z.string().min(1),
-  command: z.unknown(),
-  reason: z.string().optional(),
-});
-
-const hostCommandActionNames = [
-  "apply_grid_view",
-  "clear_grid_view",
-  "focus_resource",
-] as const;
-
-const hostGridFilterOperatorNames = [
-  "equals",
-  "notEquals",
-  "contains",
-  "startsWith",
-  "endsWith",
-  "greaterThan",
-  "greaterThanOrEqual",
-  "lessThan",
-  "lessThanOrEqual",
-  "between",
-  "in",
-  "blank",
-  "notBlank",
-] as const;
-
-export const hostCommandInputSchema = z.object({
-  action: z
-    .enum(hostCommandActionNames)
-    .describe(
-      "UI action to request: apply a grid view, clear a grid view, or focus a visible resource.",
-    ),
-  resourceId: z
-    .string()
-    .min(1)
-    .describe("The resource id from the provided host context."),
-  filters: z
-    .array(
-      z.object({
-        columnId: z.string().min(1),
-        operator: z.enum(hostGridFilterOperatorNames),
-        value: z
-          .string()
-          .describe(
-            "Visible filter value. Use an empty string for blank/notBlank. Use comma-separated values for between or in.",
-          ),
-      }),
-    )
-    .describe("Grid filters to apply. Use [] when no filters are needed."),
-  sort: z
-    .array(
-      z.object({
-        columnId: z.string().min(1),
-        direction: z.enum(["asc", "desc"]),
-      }),
-    )
-    .describe("Grid sort rules to apply. Use [] when no sorting is needed."),
-  highlightRowIds: z
-    .array(z.string().min(1))
-    .describe("Row ids to highlight. Use [] when no row highlight is needed."),
-  reason: z
-    .string()
-    .trim()
-    .max(160)
-    .describe("Short private reason for the UI action."),
-});
-
-export type HostCommandToolInput = z.infer<typeof hostCommandInputSchema>;
-
-const normalizeHostLookupKey = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
-
-const findHostResource = (
-  hostContext: HostContextSnapshot | undefined,
-  resourceId: string,
-) => {
-  const resources = hostContext?.resources ?? [];
-  const requested = normalizeHostLookupKey(resourceId);
-  const matched = resources.find(
-    (resource) =>
-      normalizeHostLookupKey(resource.id) === requested ||
-      normalizeHostLookupKey(resource.label) === requested,
-  );
-
-  return matched ?? (resources.length === 1 ? resources[0] : undefined);
-};
-
-const findHostColumnId = (
-  resource: HostResource | undefined,
-  columnId: string,
-) => {
-  const columns = resource?.columns ?? [];
-  const requested = normalizeHostLookupKey(columnId);
-  const matched = columns.find(
-    (column) =>
-      normalizeHostLookupKey(column.id) === requested ||
-      normalizeHostLookupKey(column.label) === requested,
-  );
-
-  return matched?.id;
-};
-
-const parseHostFilterValue = (
-  operator: HostCommandToolInput["filters"][number]["operator"],
-  value: string,
-) => {
-  if (operator === "blank" || operator === "notBlank") return undefined;
-
-  if (operator === "between" || operator === "in") {
-    return value
-      .split(",")
-      .map((item) => parseHostFilterScalar(item))
-      .filter((item) => item !== "");
-  }
-
-  return parseHostFilterScalar(value);
-};
-
-const parseHostFilterScalar = (value: string) => {
-  const normalized = value.trim();
-  if (/^(true|false)$/i.test(normalized)) return /^true$/i.test(normalized);
-  if (/^-?\d+(?:\.\d+)?$/.test(normalized)) return Number(normalized);
-  return normalized;
-};
-
-type ResolveHostColumnId = (columnId: string) => string;
-
-const toGridFilter = (
-  filter: HostCommandToolInput["filters"][number],
-  resolveColumnId: ResolveHostColumnId,
-) => {
-  const value = parseHostFilterValue(filter.operator, filter.value);
-  const baseFilter = {
-    columnId: resolveColumnId(filter.columnId),
-    operator: filter.operator,
-  };
-
-  if (value === undefined) return baseFilter;
-  return { ...baseFilter, value };
-};
-
-const toGridSortRule = (
-  sort: HostCommandToolInput["sort"][number],
-  resolveColumnId: ResolveHostColumnId,
-) => ({
-  ...sort,
-  columnId: resolveColumnId(sort.columnId),
-});
-
-const createApplyGridViewCommand = (
-  input: HostCommandToolInput,
-  resourceId: string,
-  resolveColumnId: ResolveHostColumnId,
-) => ({
-  type: "grid.applyView" as const,
-  resourceId,
-  view: {
-    filters: input.filters.map((filter) =>
-      toGridFilter(filter, resolveColumnId),
-    ),
-    sort: input.sort.map((sort) => toGridSortRule(sort, resolveColumnId)),
-    highlightRowIds: input.highlightRowIds,
-  },
-});
-
-const createHostCommand = (
-  input: HostCommandToolInput,
-  resourceId: string,
-  resolveColumnId: ResolveHostColumnId,
-) => {
-  switch (input.action) {
-    case "clear_grid_view":
-      return {
-        type: "grid.clearView" as const,
-        resourceId,
-      };
-
-    case "focus_resource":
-      return {
-        type: "ui.focusResource" as const,
-        resourceId,
-      };
-
-    case "apply_grid_view":
-      return createApplyGridViewCommand(input, resourceId, resolveColumnId);
-  }
-};
-
-export const toHostCommand = (
-  input: HostCommandToolInput,
-  hostContext?: HostContextSnapshot,
-): HostCommand => {
-  const resource = findHostResource(hostContext, input.resourceId);
-  const resourceId = resource?.id ?? input.resourceId;
-
-  const resolveColumnId = (columnId: string) => {
-    const resolved = findHostColumnId(resource, columnId);
-    if (!resolved && resource) {
-      throw new Error(`Unknown host resource column: ${columnId}`);
-    }
-    return resolved ?? columnId;
-  };
-
-  const command = createHostCommand(input, resourceId, resolveColumnId);
-
-  return parseHostCommand(command);
-};
-
 /**
  * Creates AI SDK tools from backend ports. This is the adapter-only place where
  * Zod tool schemas are needed; sidechat.v1 remains Effect Schema-owned.
@@ -383,15 +163,11 @@ const createWorkbenchTools = (request: ModelRequest) => {
         }
       : {}),
     host_command: tool({
-      description:
-        "Request the active host surface to apply a visible UI action such as filtering a grid, sorting a grid, clearing a grid view, or focusing a resource. Use this when the user asks to show, filter, sort, focus, find, or surface dashboard rows. Return only validated host commands from the provided host context.",
+      description: hostCommandToolDescription,
       inputSchema: hostCommandInputSchema,
       strict: true,
-      execute: async (input) => ({
-        commandId: randomUUID(),
-        command: toHostCommand(input, request.hostContext),
-        reason: input.reason,
-      }),
+      execute: async (input) =>
+        createHostCommandToolOutput(input, request.hostContext),
     }),
   };
 
@@ -464,15 +240,12 @@ export const openAiModelAdapter: ModelPort = {
       }
       if (part.type === "tool-result") {
         if (part.toolName === "host_command") {
-          const parsed = dashboardCommandOutputSchema.safeParse(part.output);
-          const command = parsed.success
-            ? validateHostCommand(parsed.data.command)
-            : undefined;
-          if (parsed.success && command?.ok) {
+          const output = parseHostCommandToolOutput(part.output);
+          if (output) {
             yield {
               kind: "host-command",
-              commandId: parsed.data.commandId,
-              command: command.data,
+              commandId: output.commandId,
+              command: output.command,
             };
           }
           continue;

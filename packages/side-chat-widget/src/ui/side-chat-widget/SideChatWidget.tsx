@@ -87,10 +87,8 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 		() => (props.availableModels?.length ? props.availableModels : [fallbackModel]),
 		[props.availableModels]
 	);
-	const apiEndpoint =
-		props.transport?.streamUrl ?? ('apiEndpoint' in props ? props.apiEndpoint : undefined) ?? '';
-	const workspaceId =
-		props.identity?.workspaceId ?? ('workspaceId' in props ? props.workspaceId : undefined) ?? '';
+	const apiEndpoint = resolveApiEndpoint(props);
+	const workspaceId = resolveWorkspaceId(props);
 	const initialConversationId = props.identity?.conversationId ?? props.initialConversationId;
 	const historyEndpoint = props.transport?.historyUrl ?? props.historyEndpoint;
 	const chat = useSideChat({
@@ -278,6 +276,18 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 		</aside>
 	);
 }
+
+const resolveApiEndpoint = (props: SideChatWidgetProps) => {
+	if (props.transport?.streamUrl) return props.transport.streamUrl;
+	if ('apiEndpoint' in props && props.apiEndpoint) return props.apiEndpoint;
+	return '';
+};
+
+const resolveWorkspaceId = (props: SideChatWidgetProps) => {
+	if (props.identity?.workspaceId) return props.identity.workspaceId;
+	if ('workspaceId' in props && props.workspaceId) return props.workspaceId;
+	return '';
+};
 
 type WidgetStateInput = {
 	hasError: boolean;

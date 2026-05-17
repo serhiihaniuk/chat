@@ -6,6 +6,7 @@ import type {
   WidgetMessagePart,
   WidgetToolPart,
 } from "./stream-event-state.js";
+import { isUnknownRecord, readString } from "../../shared/lib/unknown-record.js";
 
 /**
  * Presentation-domain rules: these helpers decide what the widget should show
@@ -58,12 +59,8 @@ export const getVisibleContextCharacters = (
 };
 
 const readStringField = (value: unknown, field: string) => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
-  }
-
-  const fieldValue = (value as Record<string, unknown>)[field];
-  return typeof fieldValue === "string" ? fieldValue : undefined;
+  if (!isUnknownRecord(value)) return undefined;
+  return readString(value, field);
 };
 
 const resolveArtifactUrl = (url: string, baseUrl: string) => {
@@ -90,23 +87,30 @@ const getReportAttachment = (
 
   return {
     id: tool.toolCallId,
-    name: title ? `${title}.pdf` : fileName ?? "Workbench report.pdf",
+    name: getReportAttachmentName(title, fileName),
     url: resolveArtifactUrl(reportUrl, apiEndpoint),
     mediaType: "application/pdf",
   };
 };
 
-const isAttachmentData = (value: unknown): value is MessageAttachment => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+const getReportAttachmentName = (
+  title: string | undefined,
+  fileName: string | undefined,
+) => {
+  if (title) return `${title}.pdf`;
+  if (fileName) return fileName;
+  return "Workbench report.pdf";
+};
 
-  const attachment = value as Record<string, unknown>;
+const isAttachmentData = (value: unknown): value is MessageAttachment => {
+  if (!isUnknownRecord(value)) return false;
+
   return (
-    typeof attachment.id === "string" &&
-    typeof attachment.name === "string" &&
-    typeof attachment.url === "string" &&
-    (attachment.mediaType === undefined ||
-      typeof attachment.mediaType === "string") &&
-    (attachment.size === undefined || typeof attachment.size === "number")
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.url === "string" &&
+    (value.mediaType === undefined || typeof value.mediaType === "string") &&
+    (value.size === undefined || typeof value.size === "number")
   );
 };
 
@@ -144,27 +148,22 @@ export const isToolPart = (
 ): part is WidgetToolPart => part.type === "tool";
 
 const isCitationSource = (value: unknown): value is CitationSource => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
+  if (!isUnknownRecord(value)) return false;
 
-  const source = value as Record<string, unknown>;
   return (
-    typeof source.sourceId === "string" &&
-    typeof source.label === "string" &&
-    typeof source.dataset === "string" &&
-    (source.resourceId === undefined || typeof source.resourceId === "string") &&
-    (source.rowId === undefined || typeof source.rowId === "string") &&
-    (source.field === undefined || typeof source.field === "string")
+    typeof value.sourceId === "string" &&
+    typeof value.label === "string" &&
+    typeof value.dataset === "string" &&
+    (value.resourceId === undefined || typeof value.resourceId === "string") &&
+    (value.rowId === undefined || typeof value.rowId === "string") &&
+    (value.field === undefined || typeof value.field === "string")
   );
 };
 
 const getToolSources = (output: unknown): CitationSource[] => {
-  if (!output || typeof output !== "object" || Array.isArray(output)) {
-    return [];
-  }
+  if (!isUnknownRecord(output)) return [];
 
-  const sources = (output as { sources?: unknown }).sources;
+  const sources = output.sources;
   return Array.isArray(sources) ? sources.filter(isCitationSource) : [];
 };
 

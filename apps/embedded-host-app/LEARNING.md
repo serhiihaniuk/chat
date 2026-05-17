@@ -46,6 +46,8 @@ AdvisoryWorkbenchPage
 6. [`src/features/advisory-workbench/ui/AdvisoryWorklistTable.tsx`](src/features/advisory-workbench/ui/AdvisoryWorklistTable.tsx)  
    See the visible table that commands filter/sort/highlight.
 
+   Then read [`src/features/advisory-workbench/ui/advisory-worklist-table/`](src/features/advisory-workbench/ui/advisory-worklist-table/) for the extracted row model, view-summary chips, and cell renderers.
+
 7. [`src/features/advisory-workbench/api/advisory-dashboard-client.ts`](src/features/advisory-workbench/api/advisory-dashboard-client.ts)  
    See the browser data API client.
 
@@ -60,7 +62,7 @@ AdvisoryWorkbenchPage
 | `src/features/advisory-workbench/model/advisory-dashboard.types.ts` | Host-side dashboard DTOs. |
 | `src/features/advisory-workbench/model/grid-view-state.ts` | Pure reducer for assistant-driven grid view commands. |
 | `src/features/advisory-workbench/model/side-chat-host.ts` | Converts the Workbench page into `HostContextSnapshot` and validates host commands. |
-| `src/features/advisory-workbench/ui/*` | Presentation components for the Workbench page. |
+| `src/features/advisory-workbench/ui/*` | Presentation components for the Workbench page. Focused subfolders hold component-specific model/rendering helpers when a component gets large. |
 
 ## Technology Purpose In Context
 
