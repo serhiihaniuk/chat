@@ -2,6 +2,10 @@ import type { AdvisoryDashboardSnapshot } from "@side-chat/db";
 
 import type { AdvisoryDashboardReader } from "./advisory-dashboard-port.js";
 
+/**
+ * Deterministic reader for no-DB local and e2e paths. It satisfies the same
+ * dashboard port as Postgres, so route behavior stays identical.
+ */
 const createFixtureSnapshot = (
   workspaceId: string,
 ): AdvisoryDashboardSnapshot => ({

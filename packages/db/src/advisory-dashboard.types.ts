@@ -1,3 +1,7 @@
+/**
+ * Shared dashboard DTOs returned by packages/db and consumed by the dashboard
+ * data API plus embedded host app. These are read models, not database tables.
+ */
 export type AdvisoryKpiTrend = "positive" | "negative" | "neutral";
 
 export type AdvisoryKpi = {

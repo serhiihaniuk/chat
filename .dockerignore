@@ -1,0 +1,17 @@
+.git
+.github
+.omx
+node_modules
+**/node_modules
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
+.sidechat-reports
+backups
+coverage
+playwright-report
+test-results
+.env
+.env.*
+!.env.example

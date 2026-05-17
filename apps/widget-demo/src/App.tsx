@@ -6,6 +6,10 @@ const availableModels = [
   { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" },
 ] satisfies ModelSelection[];
 
+/**
+ * Minimal public-package consumer. This app is a packaging and callback smoke
+ * test, not the Workbench integration source of truth.
+ */
 export function App() {
   const [events, setEvents] = useState<string[]>([]);
   const record = (event: string) =>

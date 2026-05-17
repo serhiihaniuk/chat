@@ -2,6 +2,10 @@ import type { Hono } from "hono";
 
 import type { StreamChatDeps } from "#application/stream-chat.js";
 
+/**
+ * Non-stream chat support routes. They read through application ports so memory
+ * and Postgres persistence stay interchangeable.
+ */
 export const registerHistoryUsageRoutes = (
   app: Hono,
   deps: StreamChatDeps,

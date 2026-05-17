@@ -26,7 +26,17 @@ The repo keeps that browser-facing contract in Node.js/TypeScript as `sidechat.v
 
 For the full architecture explanation, read [SYSTEM-DESIGN.md](./SYSTEM-DESIGN.md).
 
-For a practical file-by-file tour of what lives where and why, read [docs/code-walkthrough.md](./docs/code-walkthrough.md).
+For a practical learning path through the files, local guides, and technology boundaries, read [docs/code-walkthrough.md](./docs/code-walkthrough.md).
+
+Local learning guides:
+
+- [Side-Chat API](./apps/side-chat-api/LEARNING.md)
+- [Dashboard Data API](./apps/dashboard-data-api/LEARNING.md)
+- [Embedded Host App](./apps/embedded-host-app/LEARNING.md)
+- [Widget Demo](./apps/widget-demo/LEARNING.md)
+- [Shared Protocol](./packages/shared-protocol/LEARNING.md)
+- [Side-Chat Widget](./packages/side-chat-widget/LEARNING.md)
+- [DB Package](./packages/db/LEARNING.md)
 
 ## Demo Surface
 
@@ -174,6 +184,28 @@ The Vite host proxies chat routes to `http://127.0.0.1:3000` and dashboard route
 | Docker API smoke | You want Postgres plus side-chat API in containers | `docker compose up --build` |
 
 `docker compose up --build` starts Postgres and the side-chat API. It passes `SIDE_CHAT_MODEL_ADAPTER=openai` and `USE_FAKE_MODEL=false`, so real stream calls need `OPENAI_API_KEY` in the shell environment. Health checks and DB startup can still be inspected without sending a chat request.
+
+## Demo Deployment
+
+The public demo deployment path is one DigitalOcean Droplet with Docker Compose and Caddy. It is intentionally demo infrastructure, not the production architecture.
+
+Read [deploy/demo/README.md](./deploy/demo/README.md) for the runbook.
+
+Demo shape:
+
+```txt
+https://$DEMO_DOMAIN
+  -> Caddy
+    -> embedded-host-app static build
+    -> side-chat-api
+    -> dashboard-data-api
+    -> reports
+
+private Docker network
+  -> Postgres
+```
+
+Use `compose.demo.yml` for the Droplet. Keep `docker-compose.yml` for local development.
 
 ## Local URLs
 

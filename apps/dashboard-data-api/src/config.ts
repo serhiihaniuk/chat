@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+/**
+ * App-local environment boundary. Zod is appropriate here because this is
+ * runtime configuration parsing, not the shared sidechat.v1 product protocol.
+ */
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3100),
   DASHBOARD_DATA_SOURCE: z.enum(["postgres", "fixture"]).default("postgres"),

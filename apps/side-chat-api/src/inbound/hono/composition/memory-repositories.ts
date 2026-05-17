@@ -6,6 +6,10 @@ import type {
   UsagePort,
 } from "#ports/index.js";
 
+/**
+ * In-memory adapters for tests and local fallback. They implement the same
+ * ports as Postgres-backed repositories without changing application code.
+ */
 export const createMemoryConversationRepository =
   (): ConversationRepository => {
     const messages = new Map<

@@ -3,6 +3,10 @@ import { SidechatProtocol } from "@side-chat/shared-protocol";
 
 import type { StreamChatDeps } from "#application/stream-chat.js";
 
+/**
+ * Operational routes for local smoke checks and model-picker data. They expose
+ * configured models without leaking provider adapter internals.
+ */
 export const registerHealthModelsRoutes = (
   app: Hono,
   deps: StreamChatDeps,

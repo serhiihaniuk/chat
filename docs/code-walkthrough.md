@@ -32,20 +32,105 @@ Hexagonal architecture means the center of the system talks in its own language.
 
 ## Read The Repo In This Order
 
-1. [packages/shared-protocol/src/sidechat.v1](../packages/shared-protocol/src/sidechat.v1)  
+1. [packages/shared-protocol/LEARNING.md](../packages/shared-protocol/LEARNING.md)
    Start here because this is the product contract. It defines the request DTO, stream events, host commands, SSE codec, and validation helpers.
 
-2. [apps/side-chat-api/src/ports/index.ts](../apps/side-chat-api/src/ports/index.ts)  
+2. [apps/side-chat-api/LEARNING.md](../apps/side-chat-api/LEARNING.md)
    Then read the backend ports. This tells you what the backend workflow needs without telling you which framework or vendor provides it.
 
-3. [apps/side-chat-api/src/application/stream-chat.ts](../apps/side-chat-api/src/application/stream-chat.ts)  
-   This is the backend use case. It authorizes, loads context, asks the model adapter for chunks, maps those chunks into `sidechat.v1` events, stores messages, records usage, and emits completion metadata.
+3. [packages/db/LEARNING.md](../packages/db/LEARNING.md)
+   Read the persistence boundary before reading API composition. It explains why runtime DB access is stored-procedure/function based.
 
-4. [apps/side-chat-api/src/inbound/hono](../apps/side-chat-api/src/inbound/hono)  
-   Read this after the use case. Hono is just the HTTP adapter that receives requests, checks headers, and turns the application stream into SSE bytes.
+4. [apps/dashboard-data-api/LEARNING.md](../apps/dashboard-data-api/LEARNING.md)
+   Read the host dashboard data service. It shows the read-only API path from browser to DB package.
 
-5. [packages/side-chat-widget/src](../packages/side-chat-widget/src)  
+5. [packages/side-chat-widget/LEARNING.md](../packages/side-chat-widget/LEARNING.md)
    Read the widget as a frontend hexagon: `ports`, `domain`, `application`, `adapters/react`, then `ui`.
+
+6. [apps/embedded-host-app/LEARNING.md](../apps/embedded-host-app/LEARNING.md)
+   Read the realistic host. It owns the Workbench page, host-surface context, table state, and command application.
+
+7. [apps/widget-demo/LEARNING.md](../apps/widget-demo/LEARNING.md)
+   Finish with the minimal package consumer. It shows the widget outside the Workbench host.
+
+## Local Learning Guides
+
+| Guide | What to learn there |
+| --- | --- |
+| [Shared Protocol](../packages/shared-protocol/LEARNING.md) | `sidechat.v1`, Effect Schema ownership, SSE events, validation, sequence rules. |
+| [Side-Chat API](../apps/side-chat-api/LEARNING.md) | Hono boundary, `streamChat`, ports, AI SDK adapter, workbench tools, reports, usage. |
+| [DB Package](../packages/db/LEARNING.md) | `pg` isolation, stored procedures/functions, chat persistence, dashboard reads. |
+| [Dashboard Data API](../apps/dashboard-data-api/LEARNING.md) | Read-only dashboard service, fixture vs Postgres source, host data endpoints. |
+| [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md) | Frontend hexagon, React adapter, message projection, host bridge, UI slices. |
+| [Embedded Host App](../apps/embedded-host-app/LEARNING.md) | UBS Partner page, host-surface registry, command application, citation highlighting. |
+| [Widget Demo](../apps/widget-demo/LEARNING.md) | Minimal public-package consumer and callback smoke path. |
+
+## Full App Flows
+
+### Chat Stream Flow
+
+```txt
+User sends a message in the widget
+  -> packages/side-chat-widget/src/adapters/react/use-side-chat.ts
+  -> POST /chat/stream with X-Sidechat-Protocol: sidechat.v1
+  -> apps/side-chat-api/src/inbound/hono/routes/chat-stream.ts
+  -> apps/side-chat-api/src/application/stream-chat.ts
+  -> ModelPort.stream
+  -> apps/side-chat-api/src/adapters/ai/openai-model.ts or fake-model.ts
+  -> sidechat.v1 SSE events
+  -> widget stream decoder
+  -> widget message domain projection
+  -> rendered conversation UI
+```
+
+### Dashboard Data Flow
+
+```txt
+Embedded host page loads
+  -> apps/embedded-host-app/src/features/advisory-workbench/api/advisory-dashboard-client.ts
+  -> GET /advisory-dashboard/snapshot
+  -> apps/dashboard-data-api/src/app.ts
+  -> AdvisoryDashboardReader
+  -> packages/db/src/advisory-dashboard.ts
+  -> ubs_get_advisory_dashboard_snapshot(...)
+  -> Workbench page renders KPIs, table, and insight rail
+```
+
+### Host Command Flow
+
+```txt
+Model decides the table should change
+  -> AI SDK host_command tool
+  -> openai-model.ts validates output as HostCommand
+  -> streamChat emits sidechat.host_command
+  -> use-side-chat.ts dispatches through SideChatHostBridge
+  -> HostSurfaceProvider calls active host registration
+  -> side-chat-host.ts validates resource support
+  -> AdvisoryWorkbenchPage receives sidechat:host-command
+  -> grid-view-state.ts updates local table view
+```
+
+### Persistence And Usage Flow
+
+```txt
+streamChat persists user/assistant messages and token usage
+  -> ConversationRepository / UsagePort
+  -> default-deps.ts chooses Postgres or memory adapter
+  -> packages/db/src/index.ts
+  -> sidechat_* stored procedures/functions
+  -> /chat/history and /chat/usage read back through ports
+```
+
+## Technology Map
+
+| Technology | What it solves here | Where to read |
+| --- | --- | --- |
+| Effect Schema | One source of truth for protocol DTOs and runtime decoding of unknown JSON. | [Shared Protocol](../packages/shared-protocol/LEARNING.md), [Side-Chat API](../apps/side-chat-api/LEARNING.md), [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md) |
+| AI SDK | Provider/tool streaming adapter behind `ModelPort`. It is not the browser protocol. | [Side-Chat API](../apps/side-chat-api/LEARNING.md) |
+| Hono | HTTP and SSE adapter layer for backend apps. | [Side-Chat API](../apps/side-chat-api/LEARNING.md), [Dashboard Data API](../apps/dashboard-data-api/LEARNING.md) |
+| React | Rendering and browser lifecycle in host and widget. | [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md), [Embedded Host App](../apps/embedded-host-app/LEARNING.md), [Widget Demo](../apps/widget-demo/LEARNING.md) |
+| Postgres / `pg` | Runtime persistence and dashboard reads behind stored procedures/functions. | [DB Package](../packages/db/LEARNING.md) |
+| Zod | Adapter-local runtime parsing where a boundary expects it: env config, DB result rows, AI SDK tool input schemas. | Side-chat API, dashboard-data API, DB package |
 
 ## Shared Protocol Package
 

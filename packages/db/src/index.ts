@@ -28,6 +28,10 @@ export type ConversationRow = { conversation_id: string };
 export type HistoryRow = ChatMessage;
 export type UsageRow = TokenUsage;
 
+/**
+ * Thin stored-procedure adapter for side-chat persistence. Application code
+ * calls methods here instead of writing table SQL in runtime services.
+ */
 export class SideChatDb {
   constructor(private readonly db: DbExecutor) {}
 
@@ -148,6 +152,10 @@ export type SideChatPersistence = {
   close(): Promise<void>;
 };
 
+/**
+ * Port-shaped persistence facade consumed by side-chat-api. This hides raw
+ * query rows and exposes the repository methods the application use case needs.
+ */
 export const createSideChatPersistence = (
   executor: DbExecutor,
   close: () => Promise<void> = async () => {},

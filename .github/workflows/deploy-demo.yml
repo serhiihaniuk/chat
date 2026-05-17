@@ -1,0 +1,129 @@
+name: Deploy Demo
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "docker/**"
+      - "deploy/demo/**"
+      - "compose.demo.yml"
+      - "Dockerfile"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-demo.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Use Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm
+        run: npm install -g npm@11.12.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify
+        run: npm run verify
+
+      - name: Resolve image prefix
+        run: |
+          image_prefix="$(printf 'ghcr.io/%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          printf 'IMAGE_PREFIX=%s\n' "$image_prefix" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build images
+        run: |
+          docker build --target side-chat-api -t "$IMAGE_PREFIX/side-chat-api:$IMAGE_TAG" .
+          docker build --target dashboard-data-api -t "$IMAGE_PREFIX/dashboard-data-api:$IMAGE_TAG" .
+          docker build --target embedded-host-app -t "$IMAGE_PREFIX/embedded-host-app:$IMAGE_TAG" .
+
+      - name: Push images
+        run: |
+          docker push "$IMAGE_PREFIX/side-chat-api:$IMAGE_TAG"
+          docker push "$IMAGE_PREFIX/dashboard-data-api:$IMAGE_TAG"
+          docker push "$IMAGE_PREFIX/embedded-host-app:$IMAGE_TAG"
+
+      - name: Prepare SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEMO_SSH_KEY }}" > ~/.ssh/demo_deploy_key
+          chmod 600 ~/.ssh/demo_deploy_key
+          ssh-keyscan -H "${{ secrets.DEMO_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Create deployment runtime files
+        env:
+          DEMO_DOMAIN: ${{ secrets.DEMO_DOMAIN }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          {
+            printf 'DEMO_DOMAIN=%s\n' "$DEMO_DOMAIN"
+            printf 'IMAGE_PREFIX=%s\n' "$IMAGE_PREFIX"
+            printf 'IMAGE_TAG=%s\n' "$IMAGE_TAG"
+            printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
+            printf 'POSTGRES_PASSWORD=%s\n' "$POSTGRES_PASSWORD"
+          } > .env.demo.deploy
+
+          printf '%s\n' "$GHCR_USERNAME" > .ghcr_username.deploy
+          printf '%s' "$GHCR_TOKEN" > .ghcr_token.deploy
+
+      - name: Copy deployment files
+        run: |
+          ssh -i ~/.ssh/demo_deploy_key "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}" "mkdir -p /opt/side-chat-demo/deploy/demo"
+          scp -i ~/.ssh/demo_deploy_key compose.demo.yml "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/compose.demo.yml"
+          scp -i ~/.ssh/demo_deploy_key deploy/demo/Caddyfile "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/deploy/demo/Caddyfile"
+          scp -i ~/.ssh/demo_deploy_key deploy/demo/backup.sh deploy/demo/rollback.sh "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/deploy/demo/"
+          scp -i ~/.ssh/demo_deploy_key .env.demo.deploy "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/.env.demo"
+          scp -i ~/.ssh/demo_deploy_key .ghcr_username.deploy "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/.ghcr_username"
+          scp -i ~/.ssh/demo_deploy_key .ghcr_token.deploy "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/.ghcr_token"
+
+      - name: Deploy on Droplet
+        run: |
+          ssh -i ~/.ssh/demo_deploy_key "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}" << 'EOF'
+          set -eu
+          cd /opt/side-chat-demo
+
+          chmod +x deploy/demo/backup.sh deploy/demo/rollback.sh
+
+          if docker compose --env-file .env.demo -f compose.demo.yml ps --status running postgres -q | grep -q .; then
+            deploy/demo/backup.sh
+          fi
+
+          cat .ghcr_token | docker login ghcr.io -u "$(cat .ghcr_username)" --password-stdin
+          rm -f .ghcr_token .ghcr_username
+
+          docker compose --env-file .env.demo -f compose.demo.yml pull
+          docker compose --env-file .env.demo -f compose.demo.yml up -d
+          EOF
+
+      - name: Smoke public routes
+        run: |
+          base_url="https://${{ secrets.DEMO_DOMAIN }}"
+          curl -fsS "$base_url/health"
+          curl -fsS "$base_url/models"
+          curl -fsS "$base_url/dashboard-health"
+          curl -fsS "$base_url/advisory-dashboard/snapshot?workspaceId=demo-workspace"

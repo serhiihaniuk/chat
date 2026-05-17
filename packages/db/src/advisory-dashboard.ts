@@ -79,6 +79,10 @@ const advisoryDashboardSnapshotSchema = z.object({
 
 type SnapshotRow = { snapshot: unknown };
 
+/**
+ * Stored-function adapter for advisory dashboard reads. It validates database
+ * output before returning typed rows to API apps.
+ */
 export class AdvisoryDashboardDb {
   constructor(private readonly db: DbExecutor) {}
 

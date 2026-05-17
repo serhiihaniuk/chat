@@ -8,6 +8,10 @@ import type {
   WorkbenchReportSectionName,
 } from "#ports/index.js";
 
+/**
+ * Report adapter boundary. The chat use case asks for a Workbench report; this
+ * file owns HTML/PDF rendering and stores the generated artifact.
+ */
 export type GeneratedReportStore = {
   directory: string;
   publicBasePath: string;

@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+/**
+ * Side-chat API environment boundary. Zod is used for app-local config parsing;
+ * shared request/stream contracts remain owned by Effect Schema.
+ */
 const parseBooleanLike = (value: string) => {
   if (typeof value !== "string") return true;
   const normalized = value.trim().toLowerCase();

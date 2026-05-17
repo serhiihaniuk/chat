@@ -22,6 +22,10 @@ const citationHighlightDurationMs = 15_000;
 type CitationSelectedEvent = CustomEvent<{ sourceId?: unknown }>;
 type HostCommandEvent = CustomEvent<HostCommand>;
 
+/**
+ * Main Workbench screen. It owns dashboard data loading, host command events,
+ * citation highlighting, and composition of the visible advisory surface.
+ */
 export function AdvisoryWorkbenchPage() {
   const [snapshot, setSnapshot] = useState<AdvisoryDashboardSnapshot | null>(
     null,

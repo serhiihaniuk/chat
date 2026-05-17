@@ -38,6 +38,10 @@ const unsupportedCommand = (): HostCommandResult => ({
   message: "No active host surface can handle this command.",
 });
 
+/**
+ * Host-surface registry. It lets pages register current context/commands while
+ * keeping the reusable widget unaware of Workbench-specific state.
+ */
 export function HostSurfaceProvider({ children }: { children: ReactNode }) {
   const registrationsRef = useRef(new Map<string, HostSurfaceRegistration>());
   const activeRegistrationIdRef = useRef<string | undefined>(undefined);

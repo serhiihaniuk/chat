@@ -4,6 +4,10 @@ import { createApp } from "./app.js";
 import { parseConfig } from "./config.js";
 import { createFixtureAdvisoryDashboardReader } from "./fixture-dashboard.js";
 
+/**
+ * Node entry point for the dashboard data service. Runtime wiring happens here;
+ * createApp remains dependency-injectable for tests.
+ */
 const config = parseConfig();
 const app = createApp(
   config.DASHBOARD_DATA_SOURCE === "fixture"

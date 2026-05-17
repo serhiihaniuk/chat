@@ -7,6 +7,10 @@ import type { HostSurfaceRegistration } from "../../../shared/host-surface/HostS
 import type { AdvisoryDashboardSnapshot } from "./advisory-dashboard.types.js";
 import { isAdvisoryGridResourceId } from "./grid-view-state.js";
 
+/**
+ * Host-context adapter for the Workbench page. It tells the assistant what UI
+ * resources exist without giving the widget direct access to host internals.
+ */
 const createAdvisoryWorkbenchHostContext = (
   snapshot: AdvisoryDashboardSnapshot | null,
 ): HostContextSnapshot => ({
@@ -126,6 +130,10 @@ const dispatchAdvisoryWorkbenchHostCommand = async (
   return { status: "applied" };
 };
 
+/**
+ * Registration consumed by HostSurfaceProvider. This is the boundary between
+ * reusable widget commands and the concrete Workbench page.
+ */
 export const createAdvisoryWorkbenchHostSurface = (
   snapshot: AdvisoryDashboardSnapshot | null,
 ): HostSurfaceRegistration => ({

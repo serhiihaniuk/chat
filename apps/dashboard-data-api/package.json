@@ -5,8 +5,9 @@
   "main": "dist/server.js",
   "types": "dist/server.d.ts",
   "scripts": {
-    "dev": "tsx src/server.ts",
-    "build": "tsc -b"
+    "dev": "node --conditions=development --import tsx src/server.ts",
+    "build": "tsc -b",
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "@hono/node-server": "1.19.14",

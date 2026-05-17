@@ -6,6 +6,10 @@ import { Hono } from "hono";
 import type { AdvisoryDashboardReader } from "./advisory-dashboard-port.js";
 import { parseConfig } from "./config.js";
 
+/**
+ * Dashboard data HTTP adapter. It owns read-only JSON routes for the host app
+ * and delegates all data access to AdvisoryDashboardReader.
+ */
 export type DashboardDataDeps = {
   advisoryDashboard: AdvisoryDashboardReader;
 };

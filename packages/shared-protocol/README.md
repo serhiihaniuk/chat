@@ -1,5 +1,7 @@
 # Shared Protocol (`sidechat.v1`)
 
+For the guided reading path, see [LEARNING.md](./LEARNING.md).
+
 ## Purpose
 Reusable protocol contract for the side-chat assistant project.
 

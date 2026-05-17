@@ -1,0 +1,103 @@
+name: sidechat-demo
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sidechat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sidechat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - sidechat_demo_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - sidechat_demo
+
+  side-chat-api:
+    image: ${IMAGE_PREFIX:-sidechat-demo}/side-chat-api:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: side-chat-api
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgres://sidechat_app:sidechat_app@postgres:5432/sidechat
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      SIDE_CHAT_MODEL_ADAPTER: openai
+      USE_FAKE_MODEL: "false"
+      SIDE_CHAT_PUBLIC_REPORT_BASE_PATH: https://${DEMO_DOMAIN:?DEMO_DOMAIN is required}/reports
+      CI: "true"
+    expose:
+      - "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - sidechat_demo_reports:/app/.sidechat-reports
+    networks:
+      - sidechat_demo
+
+  dashboard-data-api:
+    image: ${IMAGE_PREFIX:-sidechat-demo}/dashboard-data-api:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dashboard-data-api
+    restart: unless-stopped
+    environment:
+      PORT: "3100"
+      DASHBOARD_DATA_SOURCE: postgres
+      DATABASE_URL: postgres://sidechat_app:sidechat_app@postgres:5432/sidechat
+    expose:
+      - "3100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sidechat_demo
+
+  embedded-host-app:
+    image: ${IMAGE_PREFIX:-sidechat-demo}/embedded-host-app:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: embedded-host-app
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - sidechat_demo
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DEMO_DOMAIN: ${DEMO_DOMAIN:?DEMO_DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - embedded-host-app
+      - side-chat-api
+      - dashboard-data-api
+    volumes:
+      - ./deploy/demo/Caddyfile:/etc/caddy/Caddyfile:ro
+      - sidechat_demo_caddy_data:/data
+      - sidechat_demo_caddy_config:/config
+    networks:
+      - sidechat_demo
+
+networks:
+  sidechat_demo:
+
+volumes:
+  sidechat_demo_postgres_data:
+  sidechat_demo_reports:
+  sidechat_demo_caddy_data:
+  sidechat_demo_caddy_config:

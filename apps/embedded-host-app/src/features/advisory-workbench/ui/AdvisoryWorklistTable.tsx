@@ -18,6 +18,10 @@ type AdvisoryWorklistTableProps = {
   view?: AdvisoryGridViewState;
 };
 
+/**
+ * Visible Portfolio Worklist. It merges client-review and risk rows into one
+ * commandable grid so host commands can filter/sort/highlight a real surface.
+ */
 type DueStatus = "Overdue" | "Due soon" | "Open" | "No risk";
 
 type AdvisoryWorklistRow = {

@@ -47,12 +47,13 @@ Dependency pins live in `package.json` files and are enforced by `scripts/govern
 - [architecture/target.md](architecture/target.md): compact target summary that points back to the canonical system design.
 - [architecture/transition-roadmap.md](architecture/transition-roadmap.md): refactor path and stop rules.
 - [architecture/widget-hexagon.md](architecture/widget-hexagon.md): reusable widget frontend hexagon and Effect-on-UI boundary.
-- [code-walkthrough.md](code-walkthrough.md): practical file-by-file guide explaining what lives where and why.
+- [code-walkthrough.md](code-walkthrough.md): practical learning path with local app/package guides, file ownership, and technology-in-context maps.
 - [learning/hexagonal-architecture.md](learning/hexagonal-architecture.md): ports/adapters from scratch.
 - [learning/effect-ts.md](learning/effect-ts.md): Effect TS learning guide.
 - [learning/ai-sdk-streaming-and-tools.md](learning/ai-sdk-streaming-and-tools.md): AI SDK streams, tools, and host commands.
 - [learning/frontend-backend-boundaries.md](learning/frontend-backend-boundaries.md): widget, host bridge, shared protocol, and service boundaries.
 - [governance-and-verification.md](governance-and-verification.md): quality gates and verification order.
+- [../deploy/demo/README.md](../deploy/demo/README.md): single-Droplet demo deployment with Docker Compose and Caddy.
 
 Historical `.omx` plans/reports are workflow scratchpads, not durable project documentation.
 
@@ -105,6 +106,8 @@ npm run dev --workspace @side-chat/embedded-host-app -- --host 127.0.0.1
 ```
 
 Use fixture mode only when deterministic no-DB local/e2e behavior is more important than demo richness.
+
+For public demo access, use the single-Droplet demo path in `deploy/demo/README.md`. It is intentionally not the production architecture: one Droplet, Caddy as the only public ingress, app containers on a private Docker network, Postgres private to Compose, and named volumes for demo DB/report persistence.
 
 ## UBS Partner Host Direction
 

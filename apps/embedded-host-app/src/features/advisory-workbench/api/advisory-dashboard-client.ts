@@ -1,5 +1,9 @@
 import type { AdvisoryDashboardSnapshot } from "../model/advisory-dashboard.types.js";
 
+/**
+ * Browser-side dashboard API adapter. The host app asks for dashboard JSON; it
+ * does not know whether the server used fixture data or Postgres.
+ */
 export const getAdvisoryDashboardSnapshot = async (
   workspaceId: string,
   signal?: AbortSignal,

@@ -27,6 +27,10 @@ export const isAdvisoryGridResourceId = (
 ): value is AdvisoryGridResourceId =>
   advisoryGridResourceIds.some((resourceId) => resourceId === value);
 
+/**
+ * Pure host-command reducer. The assistant can request grid views, but this
+ * host app decides how those commands affect local table state.
+ */
 export const reduceGridViews = (
   current: AdvisoryGridViews,
   command: HostCommand,

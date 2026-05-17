@@ -1,3 +1,7 @@
+/**
+ * Host-side dashboard DTOs. They mirror the dashboard data API response shape
+ * so the browser can render data without importing DB package internals.
+ */
 export type AdvisoryKpiTrend = "positive" | "negative" | "neutral";
 
 export type AdvisoryKpi = {

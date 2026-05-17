@@ -3,6 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, parse } from "node:path";
 import { fileURLToPath } from "node:url";
 
+/**
+ * Runtime entry point. It loads a nearby .env for local demos, then imports the
+ * Hono app after environment variables are available to the composition root.
+ */
 const parseDotEnvLine = (line: string) => {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith("#")) return;
