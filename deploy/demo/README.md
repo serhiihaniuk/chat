@@ -29,6 +29,7 @@ Only Caddy publishes host ports. Postgres has no public port.
 | `deploy/demo/backup.sh` | Minimal `pg_dump` backup before deploy. |
 | `deploy/demo/rollback.sh` | Image-tag rollback helper. |
 | `deploy/demo/env.demo.example` | Template for the Droplet `.env.demo`. |
+| `docker/postgres/init` | Postgres schema, roles, stored procedures, and deterministic demo seed data. |
 
 ## Runtime Contract
 
@@ -70,7 +71,7 @@ sudo mkdir -p /opt/side-chat-demo
 sudo chown "$USER":"$USER" /opt/side-chat-demo
 ```
 
-5. Copy `compose.demo.yml`, `deploy/demo/Caddyfile`, and the helper scripts into that directory.
+5. Copy `compose.demo.yml`, `deploy/demo/Caddyfile`, the helper scripts, and `docker/postgres/init` into that directory.
 6. Create `.env.demo` from `deploy/demo/env.demo.example`.
 7. Start the stack:
 

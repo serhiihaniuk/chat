@@ -93,10 +93,11 @@ jobs:
 
       - name: Copy deployment files
         run: |
-          ssh -i ~/.ssh/demo_deploy_key "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}" "mkdir -p /opt/side-chat-demo/deploy/demo"
+          ssh -i ~/.ssh/demo_deploy_key "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}" "mkdir -p /opt/side-chat-demo/deploy/demo /opt/side-chat-demo/docker/postgres && rm -rf /opt/side-chat-demo/docker/postgres/init"
           scp -i ~/.ssh/demo_deploy_key compose.demo.yml "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/compose.demo.yml"
           scp -i ~/.ssh/demo_deploy_key deploy/demo/Caddyfile "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/deploy/demo/Caddyfile"
           scp -i ~/.ssh/demo_deploy_key deploy/demo/backup.sh deploy/demo/rollback.sh "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/deploy/demo/"
+          scp -i ~/.ssh/demo_deploy_key -r docker/postgres/init "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/docker/postgres/init"
           scp -i ~/.ssh/demo_deploy_key .env.demo.deploy "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/.env.demo"
           scp -i ~/.ssh/demo_deploy_key .ghcr_username.deploy "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/.ghcr_username"
           scp -i ~/.ssh/demo_deploy_key .ghcr_token.deploy "${{ secrets.DEMO_SSH_USER }}@${{ secrets.DEMO_SSH_HOST }}:/opt/side-chat-demo/.ghcr_token"
