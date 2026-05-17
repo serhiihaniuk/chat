@@ -1,11 +1,12 @@
 import type { HostGridFilter, HostGridSort } from "@side-chat/shared-protocol";
 
 import type { AdvisoryGridViewState } from "../../model/grid-view-state.js";
-import type { AdvisoryWorklistRow } from "./worklist-model.js";
+import type { AdvisoryWorklistRow } from "../../model/worklist-model.js";
 
 const columnLabels: Record<keyof AdvisoryWorklistRow, string> = {
   aumChf: "AUM",
   client: "Client",
+  clientId: "Client ID",
   coverageStatus: "Coverage",
   dueDate: "Due Date",
   dueStatus: "Due Status",

@@ -12,6 +12,7 @@ const defaultCommandBarFields = {
   priority: "all",
   riskCategory: "all",
   dueStatus: "all",
+  dueWindow: "all",
   relationshipManager: "all",
   sortBy: "aumDesc",
   quickFilters: [],
@@ -29,6 +30,10 @@ describe("host command tool adapter", () => {
   it("teaches the model to prefer the Workbench command bar for page controls", () => {
     expect(hostCommandToolDescription).toContain("top Workbench command bar");
     expect(hostCommandToolDescription).toContain("largest outflow");
+    expect(hostCommandToolDescription).toContain("updates the whole page selection");
+    expect(hostCommandToolDescription).toContain("show this week");
+    expect(hostCommandToolDescription).toContain("dueWindow thisWeek");
+    expect(hostCommandToolDescription).toContain("clear_workbench_controls");
     expect(hostCommandToolDescription).toContain("quickFilters largestOutflow");
     expect(hostCommandToolDescription).toContain("sortBy riskExposureDesc");
     expect(hostCommandToolDescription).toContain("generic apply_grid_view only");
@@ -169,6 +174,42 @@ describe("host command tool adapter", () => {
           { columnId: "priority", direction: "asc" },
           { columnId: "dueDate", direction: "asc" },
         ],
+        highlightRowIds: [],
+      },
+    });
+  });
+
+  it("maps natural due-date windows to command-bar date filters", () => {
+    expect(
+      toHostCommand(
+        {
+          action: "apply_workbench_controls",
+          resourceId: "advisoryWorkbenchControls",
+          ...defaultCommandBarFields,
+          dueWindow: "thisWeek",
+          filters: [],
+          sort: [],
+          highlightRowIds: [],
+          reason: "Show items due this week.",
+        },
+        {
+          pageId: "advisory-workbench",
+          title: "Advisory Workbench",
+          metadata: { asOfDate: "2026-05-18" },
+        },
+      ),
+    ).toEqual({
+      type: "grid.applyView",
+      resourceId: "advisoryWorklist",
+      view: {
+        filters: [
+          {
+            columnId: "dueDate",
+            operator: "between",
+            value: ["2026-05-18", "2026-05-24"],
+          },
+        ],
+        sort: [{ columnId: "aumChf", direction: "desc" }],
         highlightRowIds: [],
       },
     });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createWorkbenchTools } from "#adapters/workbench/workbench-tools-adapter.js";
+import { createFallbackDashboardSnapshot } from "#adapters/workbench/workbench-tools/fallback-data.js";
 import { createMemoryHostSurfaceState } from "#inbound/hono/composition/host-surface-state.js";
 
 describe("workbench tools adapter", () => {
@@ -71,6 +72,15 @@ describe("workbench tools adapter", () => {
   it("applies visible worklist filters with the same semantics as host commands", async () => {
     const hostSurfaceState = createMemoryHostSurfaceState();
     const tools = createWorkbenchTools(undefined, hostSurfaceState);
+    const fallbackSnapshot = createFallbackDashboardSnapshot("demo-workspace");
+    const medtechDueDate =
+      fallbackSnapshot.topRiskAccounts.find(
+        (risk) => risk.id === "risk-global-medtech-liquidity-gap",
+      )?.dueDate ?? fallbackSnapshot.asOfDate;
+    const dueDateWindow = [
+      shiftIsoDate(medtechDueDate, -1),
+      shiftIsoDate(medtechDueDate, 1),
+    ];
 
     await hostSurfaceState.applyCommand({
       workspaceId: "demo-workspace",
@@ -94,7 +104,7 @@ describe("workbench tools adapter", () => {
             {
               columnId: "dueDate",
               operator: "between",
-              value: ["2025-07-01", "2025-07-09"],
+              value: dueDateWindow,
             },
           ],
           sort: [{ columnId: "client", direction: "asc" }],
@@ -125,7 +135,7 @@ describe("workbench tools adapter", () => {
         {
           columnId: "dueDate",
           operator: "between",
-          value: ["2025-07-01", "2025-07-09"],
+          value: dueDateWindow,
         },
       ],
     });
@@ -135,9 +145,15 @@ describe("workbench tools adapter", () => {
         label: "Global MedTech Inc.",
         cells: expect.objectContaining({
           riskIssue: "Liquidity gap",
-          dueDate: "2025-07-08",
+          dueDate: medtechDueDate,
         }),
       }),
     ]);
   });
 });
+
+const shiftIsoDate = (value: string, days: number) => {
+  const date = new Date(value);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};

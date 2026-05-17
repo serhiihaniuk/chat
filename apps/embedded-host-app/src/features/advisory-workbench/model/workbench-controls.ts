@@ -28,6 +28,14 @@ export type WorkbenchDueStatus =
   | "Open"
   | "No risk";
 
+export type WorkbenchDueWindow =
+  | "all"
+  | "today"
+  | "thisWeek"
+  | "next7"
+  | "next14"
+  | "thisMonth";
+
 export type WorkbenchPriority = "all" | "High" | "Medium" | "Low";
 
 export type WorkbenchSortId =
@@ -48,6 +56,7 @@ export type WorkbenchControlState = {
   priority: WorkbenchPriority;
   riskCategory: WorkbenchRiskCategory;
   dueStatus: WorkbenchDueStatus;
+  dueWindow: WorkbenchDueWindow;
   rmAdvisor: string;
   sortBy: WorkbenchSortId;
   quickFilters: WorkbenchQuickFilterId[];
@@ -64,6 +73,7 @@ export const defaultWorkbenchControlState: WorkbenchControlState = {
   priority: "all",
   riskCategory: "all",
   dueStatus: "all",
+  dueWindow: "all",
   rmAdvisor: "all",
   sortBy: "aumDesc",
   quickFilters: [],
@@ -101,6 +111,15 @@ export const dueStatusOptions = [
   { label: "No risk", value: "No risk" },
 ] as const satisfies WorkbenchControlOption<WorkbenchDueStatus>[];
 
+export const dueWindowOptions = [
+  { label: "All dates", value: "all" },
+  { label: "Today", value: "today" },
+  { label: "This week", value: "thisWeek" },
+  { label: "Next 7 days", value: "next7" },
+  { label: "Next 14 days", value: "next14" },
+  { label: "This month", value: "thisMonth" },
+] as const satisfies WorkbenchControlOption<WorkbenchDueWindow>[];
+
 export const sortOptions = [
   { label: "AUM (High to Low)", value: "aumDesc" },
   { label: "Due date", value: "dueAsc" },
@@ -133,8 +152,9 @@ export const createRmOptions = (
 
 export const createWorkbenchControlGridView = (
   state: WorkbenchControlState,
+  asOfDate?: string,
 ): AdvisoryGridViewState => ({
-  filters: dedupeFilters(createWorkbenchControlFilters(state)),
+  filters: dedupeFilters(createWorkbenchControlFilters(state, asOfDate)),
   sort: createWorkbenchControlSort(state),
   sequence: Date.now(),
 });
@@ -142,6 +162,7 @@ export const createWorkbenchControlGridView = (
 export const inferWorkbenchControlStateFromGridView = (
   view: AdvisoryGridViewState | undefined,
   current: WorkbenchControlState = defaultWorkbenchControlState,
+  asOfDate?: string,
 ): WorkbenchControlState => {
   if (!view) return defaultWorkbenchControlState;
 
@@ -188,6 +209,7 @@ export const inferWorkbenchControlStateFromGridView = (
 
   const sort = view.sort?.[0];
   if (sort) next.sortBy = inferSortId(view.sort ?? []);
+  next.dueWindow = inferDueWindow(view.filters ?? [], asOfDate);
   next.quickFilters = [...quickFilters];
   return next;
 };
@@ -201,6 +223,7 @@ export const formatWorkbenchControlSummary = (
     `Priority: ${findOptionLabel(priorityOptions, state.priority)}`,
     `Risk Category: ${findOptionLabel(riskCategoryOptions, state.riskCategory)}`,
     `Due Status: ${findOptionLabel(dueStatusOptions, state.dueStatus)}`,
+    `Due Window: ${findOptionLabel(dueWindowOptions, state.dueWindow)}`,
     `RM / Advisor: ${state.rmAdvisor === "all" ? "All RMs" : state.rmAdvisor}`,
     `Sort by: ${findOptionLabel(sortOptions, state.sortBy)}`,
   ];
@@ -226,6 +249,7 @@ const createDynamicOptions = (
 
 const createWorkbenchControlFilters = (
   state: WorkbenchControlState,
+  asOfDate: string | undefined,
 ): HostGridFilter[] => {
   const filters: HostGridFilter[] = [];
 
@@ -263,6 +287,8 @@ const createWorkbenchControlFilters = (
       value: state.dueStatus,
     });
   }
+  const dueWindowFilter = createDueWindowFilter(state.dueWindow, asOfDate);
+  if (dueWindowFilter) filters.push(dueWindowFilter);
   if (state.rmAdvisor !== "all") {
     filters.push({
       columnId: "relationshipManager",
@@ -281,6 +307,19 @@ const createWorkbenchControlFilters = (
   }
 
   return filters;
+};
+
+const createDueWindowFilter = (
+  dueWindow: WorkbenchDueWindow,
+  asOfDate: string | undefined,
+): HostGridFilter | undefined => {
+  const range = createDueWindowRange(dueWindow, asOfDate);
+  if (!range) return undefined;
+  return {
+    columnId: "dueDate",
+    operator: "between",
+    value: range,
+  };
 };
 
 const createWorkbenchControlSort = (
@@ -346,6 +385,35 @@ const inferRiskCategory = (value: string): WorkbenchRiskCategory => {
   return "all";
 };
 
+const inferDueWindow = (
+  filters: HostGridFilter[],
+  asOfDate?: string,
+): WorkbenchDueWindow => {
+  const dueDateFilter = filters.find(
+    (filter) => filter.columnId === "dueDate" && filter.operator === "between",
+  );
+  if (!Array.isArray(dueDateFilter?.value)) return "all";
+
+  const [from, to] = dueDateFilter.value.map((value) => String(value));
+  const referenceDate = asOfDate ?? todayIsoDate();
+  if (matchesDueWindowRange(from, to, "today", referenceDate)) return "today";
+  if (matchesDueWindowRange(from, to, "thisWeek", referenceDate)) return "thisWeek";
+  if (matchesDueWindowRange(from, to, "next7", referenceDate)) return "next7";
+  if (matchesDueWindowRange(from, to, "next14", referenceDate)) return "next14";
+  if (matchesDueWindowRange(from, to, "thisMonth", referenceDate)) return "thisMonth";
+  return "all";
+};
+
+const matchesDueWindowRange = (
+  from: string,
+  to: string,
+  dueWindow: WorkbenchDueWindow,
+  asOfDate: string,
+) => {
+  const range = createDueWindowRange(dueWindow, asOfDate);
+  return Boolean(range && range[0] === from && range[1] === to);
+};
+
 const inferSortId = (sort: HostGridSort[]): WorkbenchSortId => {
   const first = sort[0];
   const second = sort[1];
@@ -372,3 +440,61 @@ const findOptionLabel = <TValue extends string>(
   options: readonly WorkbenchControlOption<TValue>[],
   value: TValue,
 ) => options.find((option) => option.value === value)?.label ?? value;
+
+export const createDueWindowRange = (
+  dueWindow: WorkbenchDueWindow,
+  asOfDate: string | undefined,
+) => {
+  if (dueWindow === "all") return undefined;
+  const start = parseDateOnly(asOfDate) ?? parseDateOnly(todayIsoDate());
+  if (!start) return undefined;
+
+  if (dueWindow === "today") {
+    return [formatIsoDate(start), formatIsoDate(start)] as const;
+  }
+  if (dueWindow === "next7") {
+    return [formatIsoDate(start), formatIsoDate(addDays(start, 7))] as const;
+  }
+  if (dueWindow === "next14") {
+    return [formatIsoDate(start), formatIsoDate(addDays(start, 14))] as const;
+  }
+  if (dueWindow === "thisWeek") {
+    return [formatIsoDate(startOfWeek(start)), formatIsoDate(endOfWeek(start))] as const;
+  }
+  return [formatIsoDate(startOfMonth(start)), formatIsoDate(endOfMonth(start))] as const;
+};
+
+const parseDateOnly = (value: string | undefined) => {
+  if (!value) return undefined;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  const date = new Date(parsed);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+};
+
+const dayMs = 24 * 60 * 60 * 1000;
+
+const addDays = (value: number, days: number) => value + days * dayMs;
+
+const startOfWeek = (value: number) => {
+  const date = new Date(value);
+  const day = date.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  return addDays(value, mondayOffset);
+};
+
+const endOfWeek = (value: number) => addDays(startOfWeek(value), 6);
+
+const startOfMonth = (value: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+};
+
+const endOfMonth = (value: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0);
+};
+
+const todayIsoDate = () => formatIsoDate(Date.now());
+
+const formatIsoDate = (value: number) => new Date(value).toISOString().slice(0, 10);

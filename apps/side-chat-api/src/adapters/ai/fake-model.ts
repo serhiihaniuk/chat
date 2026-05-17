@@ -75,6 +75,24 @@ const shouldGenerateReport = (content: string) =>
   isReportContinuationRequest(content);
 
 const resolveHostCommand = (content: string): HostCommand | undefined => {
+  if (/\b(this week|next week|next 7 days|next seven days|next 14 days|next two weeks|this month|due today|today)\b/i.test(content)) {
+    const dueWindow = resolveDueWindow(content);
+    return {
+      type: "grid.applyView",
+      resourceId: "advisoryWorklist",
+      view: {
+        filters: [
+          {
+            columnId: "dueDate",
+            operator: "between",
+            value: dueWindow,
+          },
+        ],
+        sort: [{ columnId: "dueDate", direction: "asc" }],
+      },
+    };
+  }
+
   if (/\b(best performing|top performing|strongest flow|best portfolios)\b/i.test(content)) {
     return {
       type: "grid.applyView",
@@ -138,6 +156,53 @@ const resolveHostCommand = (content: string): HostCommand | undefined => {
 
   return undefined;
 };
+
+const resolveDueWindow = (content: string) => {
+  const today = todayUtc();
+  if (/\b(next 14 days|next two weeks)\b/i.test(content)) {
+    return [formatIsoDate(today), formatIsoDate(addDays(today, 14))];
+  }
+  if (/\b(next week|next 7 days|next seven days)\b/i.test(content)) {
+    return [formatIsoDate(today), formatIsoDate(addDays(today, 7))];
+  }
+  if (/\b(this month)\b/i.test(content)) {
+    return [formatIsoDate(startOfMonth(today)), formatIsoDate(endOfMonth(today))];
+  }
+  if (/\b(today|due today)\b/i.test(content)) {
+    return [formatIsoDate(today), formatIsoDate(today)];
+  }
+  return [formatIsoDate(startOfWeek(today)), formatIsoDate(endOfWeek(today))];
+};
+
+const dayMs = 24 * 60 * 60 * 1000;
+
+const todayUtc = () => {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+};
+
+const addDays = (value: number, days: number) => value + days * dayMs;
+
+const startOfWeek = (value: number) => {
+  const date = new Date(value);
+  const day = date.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  return addDays(value, mondayOffset);
+};
+
+const endOfWeek = (value: number) => addDays(startOfWeek(value), 6);
+
+const startOfMonth = (value: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+};
+
+const endOfMonth = (value: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0);
+};
+
+const formatIsoDate = (value: number) => new Date(value).toISOString().slice(0, 10);
 
 const createHostCommandResponse = (command: HostCommand) => {
   if (command.type === "grid.applyView" && command.resourceId === "advisoryWorklist") {

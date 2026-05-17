@@ -5,6 +5,7 @@ import type {
 } from "@side-chat/shared-protocol";
 import type { HostSurfaceRegistration } from "../../../shared/host-surface/HostSurfaceProvider.js";
 import type { AdvisoryDashboardSnapshot } from "./advisory-dashboard.types.js";
+import type { AdvisoryGridViewState } from "./grid-view-state.js";
 import { isAdvisoryGridResourceId } from "./grid-view-state.js";
 import {
   formatWorkbenchControlSummary,
@@ -18,6 +19,7 @@ import {
 const createAdvisoryWorkbenchHostContext = (
   snapshot: AdvisoryDashboardSnapshot | null,
   controls: WorkbenchControlState,
+  worklistView: AdvisoryGridViewState | undefined,
 ): HostContextSnapshot => ({
   pageId: "advisory-workbench",
   title: "UBS Partner Advisory Workbench",
@@ -32,12 +34,23 @@ const createAdvisoryWorkbenchHostContext = (
       label: "Workbench Command Bar",
       description:
         "Human and AI control bar for queue/view, client segment, priority, risk category, due status, RM/advisor, sort, and quick filters.",
+      metadata: {
+        currentControls: controls,
+        currentControlSummary: formatWorkbenchControlSummary(controls),
+      },
     },
     {
       id: "advisoryWorklist",
       kind: "grid",
       label: "Portfolio Worklist",
       rowCount: snapshot?.clientPortfolioReview.length,
+      metadata: {
+        currentControls: controls,
+        currentControlSummary: formatWorkbenchControlSummary(controls),
+        ...(worklistView
+          ? { currentView: toHostContextGridView(worklistView) }
+          : {}),
+      },
       columns: [
         { id: "client", label: "Client", type: "text", filterable: true },
         { id: "segment", label: "Segment", type: "text", filterable: true },
@@ -128,6 +141,10 @@ const createAdvisoryWorkbenchHostContext = (
       commandTypes: ["grid.applyView", "grid.clearView", "ui.focusResource"],
     },
   ],
+  metadata: {
+    asOfDate: snapshot?.asOfDate,
+    dateRangeLabel: snapshot?.dateRange.label,
+  },
 });
 
 const dispatchAdvisoryWorkbenchHostCommand = async (
@@ -158,8 +175,16 @@ const dispatchAdvisoryWorkbenchHostCommand = async (
 export const createAdvisoryWorkbenchHostSurface = (
   snapshot: AdvisoryDashboardSnapshot | null,
   controls: WorkbenchControlState,
+  worklistView?: AdvisoryGridViewState,
 ): HostSurfaceRegistration => ({
   id: "advisory-workbench",
-  getContext: () => createAdvisoryWorkbenchHostContext(snapshot, controls),
+  getContext: () =>
+    createAdvisoryWorkbenchHostContext(snapshot, controls, worklistView),
   dispatchCommand: dispatchAdvisoryWorkbenchHostCommand,
+});
+
+const toHostContextGridView = (view: AdvisoryGridViewState) => ({
+  filters: view.filters,
+  sort: view.sort,
+  highlightRowIds: view.highlightRowIds,
 });

@@ -213,7 +213,8 @@ export const fallbackWorkbenchData = {
 
 export const createFallbackDashboardSnapshot = (
   workspaceId: string,
-): AdvisoryDashboardSnapshot => ({
+): AdvisoryDashboardSnapshot =>
+  rollFallbackDashboardDates({
   workspaceId,
   asOfDate: "2025-06-30",
   dateRange: {
@@ -323,3 +324,126 @@ export const createFallbackDashboardSnapshot = (
     },
   ],
 });
+
+const rollFallbackDashboardDates = (
+  snapshot: AdvisoryDashboardSnapshot,
+): AdvisoryDashboardSnapshot => {
+  const dates = createFallbackDateContext();
+  const trendStartMonth = addMonths(
+    startOfUtcMonth(dates.asOfDateValue),
+    1 - snapshot.netNewMoneyTrend.length,
+  );
+
+  return {
+    ...snapshot,
+    asOfDate: dates.asOfDate,
+    clientPortfolioReview: snapshot.clientPortfolioReview.map((row) => ({
+      ...row,
+      lastReview: dates.shiftFromBaselineAsOf(row.lastReview),
+    })),
+    dateRange: {
+      from: dates.rangeFrom,
+      label: dates.rangeLabel,
+      to: dates.asOfDate,
+    },
+    netNewMoneyTrend: snapshot.netNewMoneyTrend.map((point, index) => {
+      const monthDate = addMonths(trendStartMonth, index);
+      return {
+        ...point,
+        label: formatMonthYearLabel(monthDate),
+        month: formatIsoDate(monthDate),
+      };
+    }),
+    riskExposureTrend: snapshot.riskExposureTrend.map((point, index) => {
+      const date = dates.shiftFromBaselineRange(point.date);
+      return {
+        ...point,
+        date: formatIsoDate(date),
+        label: index === 0 ? formatMonthYearLabel(date) : formatMonthDayLabel(date),
+      };
+    }),
+    topRiskAccounts: snapshot.topRiskAccounts.map((risk) => ({
+      ...risk,
+      dueDate: dates.shiftFromBaselineAsOf(risk.dueDate),
+    })),
+  };
+};
+
+const fallbackBaselineAsOf = Date.UTC(2025, 5, 30);
+const fallbackBaselineRangeFrom = Date.UTC(2025, 3, 1);
+const fallbackDayMs = 24 * 60 * 60 * 1000;
+
+const createFallbackDateContext = () => {
+  const asOfDateValue = todayUtc();
+  const rangeFromValue = addDays(asOfDateValue, -90);
+
+  return {
+    asOfDate: formatIsoDate(asOfDateValue),
+    asOfDateValue,
+    rangeFrom: formatIsoDate(rangeFromValue),
+    rangeLabel: `${formatMonthDayLabel(rangeFromValue)} - ${formatMonthDayYearLabel(asOfDateValue)}`,
+    shiftFromBaselineAsOf: (value: string) =>
+      formatIsoDate(
+        addDays(
+          parseIsoDate(value),
+          diffDays(asOfDateValue, fallbackBaselineAsOf),
+        ),
+      ),
+    shiftFromBaselineRange: (value: string) =>
+      addDays(
+        parseIsoDate(value),
+        diffDays(rangeFromValue, fallbackBaselineRangeFrom),
+      ),
+  };
+};
+
+const todayUtc = () => {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+};
+
+const parseIsoDate = (value: string) => {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : todayUtc();
+};
+
+const addDays = (value: number, days: number) => value + days * fallbackDayMs;
+
+const addMonths = (value: number, months: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1);
+};
+
+const startOfUtcMonth = (value: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+};
+
+const diffDays = (left: number, right: number) =>
+  Math.round((left - right) / fallbackDayMs);
+
+const formatIsoDate = (value: number) => new Date(value).toISOString().slice(0, 10);
+
+const formatMonthDayLabel = (value: number) =>
+  new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(value));
+
+const formatMonthDayYearLabel = (value: number) =>
+  new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(value));
+
+const formatMonthYearLabel = (value: number) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    timeZone: "UTC",
+    year: "2-digit",
+  })
+    .format(new Date(value))
+    .replace(" ", " '");

@@ -2,13 +2,14 @@ import type {
   AdvisoryDashboardSnapshot,
   ClientPortfolioReviewRow,
   TopRiskAccountRow,
-} from "../../model/advisory-dashboard.types.js";
+} from "./advisory-dashboard.types.js";
 
 export type DueStatus = "Overdue" | "Due soon" | "Open" | "No risk";
 
 export type AdvisoryWorklistRow = {
   id: string;
   sourceIds: string[];
+  clientId: string;
   client: string;
   segment: string;
   aumChf: number;
@@ -60,6 +61,7 @@ export const createWorklistRows = (
         `client_portfolio_review:${client.id}`,
         ...(topRisk ? [`top_risk_accounts:${topRisk.id}`] : []),
       ],
+      clientId: client.clientId,
       client: client.client,
       segment: client.segment,
       aumChf: client.aumChf,
@@ -79,7 +81,7 @@ export const createWorklistRows = (
   });
 };
 
-const getDueStatus = (
+export const getDueStatus = (
   dueDate: string | undefined,
   asOfDate: string,
 ): DueStatus => {

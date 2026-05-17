@@ -39,6 +39,13 @@ describe("prompt context", () => {
     expect(workbenchAssistantSystemPrompt).toContain(
       "top Workbench command bar is the primary page-control API",
     );
+    expect(workbenchAssistantSystemPrompt).toContain(
+      "supersede older conversation history",
+    );
+    expect(workbenchAssistantSystemPrompt).toContain(
+      "controls the whole page selection",
+    );
+    expect(workbenchAssistantSystemPrompt).toContain("due-date windows");
   });
 
   it("separates system instructions from backend-resolved page context", () => {

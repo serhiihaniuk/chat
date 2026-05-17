@@ -14,6 +14,9 @@ import {
   UsageCaptureFailed,
 } from "#application/errors.js";
 import type { StreamChatDeps } from "#application/stream-chat.js";
+import { createWorkbenchTools } from "#adapters/workbench/workbench-tools-adapter.js";
+import { createMemoryHostSurfaceState } from "#inbound/hono/composition/host-surface-state.js";
+import type { ModelRequest } from "#ports/index.js";
 
 const collect = async (
   deps: StreamChatDeps,
@@ -355,6 +358,74 @@ describe("streamChat", () => {
         },
       ],
     ]);
+  });
+
+  it("syncs the latest host-provided view before resolving current page context", async () => {
+    let seenRequest: ModelRequest | undefined;
+    const hostSurfaceState = createMemoryHostSurfaceState();
+    const deps: StreamChatDeps = {
+      ...baseDeps,
+      hostSurfaceState,
+      workbenchTools: createWorkbenchTools(undefined, hostSurfaceState),
+      model: {
+        async *stream(request) {
+          seenRequest = request;
+          yield {
+            kind: "done",
+            finishReason: "stop",
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+        },
+      },
+    };
+
+    await collect(deps, {
+      ...validRequest,
+      message: {
+        id: "msg-1",
+        role: "user",
+        content: "what is on this page now?",
+      },
+      hostContext: {
+        pageId: "advisory-workbench",
+        title: "Advisory Workbench",
+        resources: [
+          {
+            id: "advisoryWorkbenchControls",
+            kind: "custom",
+            label: "Workbench Command Bar",
+          },
+          {
+            id: "advisoryWorklist",
+            kind: "grid",
+            label: "Portfolio Worklist",
+            metadata: {
+              currentView: {
+                filters: [
+                  {
+                    columnId: "priority",
+                    operator: "equals",
+                    value: "High",
+                  },
+                ],
+                sort: [{ columnId: "dueDate", direction: "asc" }],
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    expect(seenRequest?.surfaceContexts).toHaveLength(1);
+    expect(seenRequest?.surfaceContexts?.[0]).toMatchObject({
+      resourceId: "advisoryWorklist",
+      rowCount: 2,
+      filters: [{ columnId: "priority", operator: "equals", value: "High" }],
+      sort: [{ columnId: "dueDate", direction: "asc" }],
+    });
+    expect(
+      seenRequest?.surfaceContexts?.[0]?.rows.map((row) => row.cells.priority),
+    ).toEqual(["High", "High"]);
   });
 
   it("resolves current page context inside the backend boundary", async () => {

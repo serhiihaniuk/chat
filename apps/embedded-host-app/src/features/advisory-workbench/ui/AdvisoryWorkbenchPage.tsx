@@ -15,6 +15,7 @@ import {
   inferWorkbenchControlStateFromGridView,
   type WorkbenchControlState,
 } from "../model/workbench-controls.js";
+import { createWorkbenchPageSnapshot } from "../model/workbench-page-snapshot.js";
 import { AdvisoryWorklistTable } from "./AdvisoryWorklistTable.js";
 import { HeaderControls } from "./HeaderControls.js";
 import { Sidebar } from "./Sidebar.js";
@@ -48,9 +49,21 @@ export function AdvisoryWorkbenchPage() {
     defaultWorkbenchControlState,
   );
   const citationClearTimerRef = useRef<number | undefined>(undefined);
-  const hostSurface = useMemo(
-    () => createAdvisoryWorkbenchHostSurface(snapshot, controls),
+  const pageSnapshot = useMemo(
+    () =>
+      snapshot
+        ? createWorkbenchPageSnapshot(snapshot, controls)
+        : null,
     [controls, snapshot],
+  );
+  const hostSurface = useMemo(
+    () =>
+      createAdvisoryWorkbenchHostSurface(
+        pageSnapshot,
+        controls,
+        gridViews.advisoryWorklist,
+      ),
+    [controls, gridViews.advisoryWorklist, pageSnapshot],
   );
 
   useHostSurfaceRegistration(hostSurface);
@@ -113,6 +126,7 @@ export function AdvisoryWorkbenchPage() {
               sequence: Date.now(),
             },
             current,
+            snapshot?.asOfDate,
           ),
         );
         scrollHostResourceIntoView(command.resourceId);
@@ -139,10 +153,10 @@ export function AdvisoryWorkbenchPage() {
     window.addEventListener("sidechat:host-command", onHostCommand);
     return () =>
       window.removeEventListener("sidechat:host-command", onHostCommand);
-  }, []);
+  }, [snapshot?.asOfDate]);
 
   const applyControls = (next: WorkbenchControlState) => {
-    const view = createWorkbenchControlGridView(next);
+    const view = createWorkbenchControlGridView(next, snapshot?.asOfDate);
     setControls(next);
     setGridViews((current) => ({
       ...current,
@@ -164,7 +178,7 @@ export function AdvisoryWorkbenchPage() {
             </p>
           </div>
           <HeaderControls
-            dateRangeLabel={snapshot?.dateRange.label ?? "Apr 1 - Jun 30, 2025"}
+            dateRangeLabel={snapshot?.dateRange.label ?? "Loading range"}
           />
         </header>
 
@@ -189,14 +203,14 @@ export function AdvisoryWorkbenchPage() {
             />
             <div className="workbench-content">
               <div className="primary-workbench-column">
-                <RiskIntelligenceOverview snapshot={snapshot} />
+                <RiskIntelligenceOverview snapshot={pageSnapshot ?? snapshot} />
                 <AdvisoryWorklistTable
                   activeSourceId={activeSourceId}
-                  snapshot={snapshot}
+                  snapshot={pageSnapshot ?? snapshot}
                   view={gridViews.advisoryWorklist}
                 />
               </div>
-              <RiskIntelligenceRail snapshot={snapshot} />
+              <RiskIntelligenceRail snapshot={pageSnapshot ?? snapshot} />
             </div>
           </>
         ) : null}

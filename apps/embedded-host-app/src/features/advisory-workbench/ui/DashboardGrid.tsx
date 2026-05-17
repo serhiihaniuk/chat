@@ -143,6 +143,15 @@ const createNumberFilter = (filter: HostGridFilter) => {
 const createDateFilter = (filter: HostGridFilter) =>
   filter.operator === "blank" || filter.operator === "notBlank"
     ? createBlankFilter(filter, "date")
+    : filter.operator === "between" &&
+        Array.isArray(filter.value) &&
+        filter.value.length >= 2
+      ? {
+          filterType: "date",
+          type: "inRange",
+          dateFrom: String(filter.value[0] ?? ""),
+          dateTo: String(filter.value[1] ?? ""),
+        }
     : {
         filterType: "date",
         type: mapComparableOperator(filter.operator),

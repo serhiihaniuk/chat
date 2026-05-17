@@ -3,14 +3,14 @@ import { Search } from "lucide-react";
 
 import type { AdvisoryDashboardSnapshot } from "../model/advisory-dashboard.types.js";
 import type { AdvisoryGridViewState } from "../model/grid-view-state.js";
-import { DashboardGrid, type DashboardGridColumn } from "./DashboardGrid.js";
 import {
   compareDateValues,
   compareFilterDate,
   createWorklistRows,
   priorityRank,
   type AdvisoryWorklistRow,
-} from "./advisory-worklist-table/worklist-model.js";
+} from "../model/worklist-model.js";
+import { DashboardGrid, type DashboardGridColumn } from "./DashboardGrid.js";
 import {
   AlertRenderer,
   CoverageRenderer,
@@ -43,8 +43,7 @@ export function AdvisoryWorklistTable({
             priorityRank[left.priority] - priorityRank[right.priority] ||
             compareDateValues(left.dueDate, right.dueDate) ||
             left.client.localeCompare(right.client),
-        )
-        .slice(0, 24),
+        ),
     [snapshot],
   );
   const columnDefs = useMemo(

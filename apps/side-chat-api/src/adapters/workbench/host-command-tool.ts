@@ -72,6 +72,15 @@ const workbenchDueStatusNames = [
   "No risk",
 ] as const;
 
+const workbenchDueWindowNames = [
+  "all",
+  "today",
+  "thisWeek",
+  "next7",
+  "next14",
+  "thisMonth",
+] as const;
+
 const workbenchSortNames = [
   "aumDesc",
   "dueAsc",
@@ -88,11 +97,13 @@ const workbenchQuickFilterNames = [
 
 export const hostCommandToolDescription = [
   "Control the visible UBS Partner Advisory Workbench UI.",
-  "The top Workbench command bar is the primary page-control surface for humans and the assistant.",
-  "Use apply_workbench_controls whenever the user asks to show, filter, sort, prioritize, queue, or change the current Workbench page using View / Queue, Client Segment, Priority, Risk Category, Due Status, RM / Advisor, Sort by, or quick filters.",
-  "Common mappings: risk queue -> workbenchViewQueue riskQueue; priority first -> workbenchViewQueue priorityFirst; due soon -> workbenchViewQueue dueSoon or dueStatus Due soon; overdue -> dueStatus Overdue or quickFilters overdue; high priority -> priority High or quickFilters highPriority; largest outflow/outflows -> quickFilters largestOutflow and sortBy outflowAsc; biggest AUM -> sortBy aumDesc; due first -> sortBy dueAsc; risk exposure -> sortBy riskExposureDesc; priority due -> sortBy priorityDue.",
-  "For apply_workbench_controls, set resourceId to advisoryWorkbenchControls, keep filters and sort empty, fill every command-bar field, use all for unchanged dropdown controls, and use [] when there are no quick filters.",
-  "Use generic apply_grid_view only for precise column-level views that the command bar cannot express.",
+  "The top Workbench command bar is the primary page-control surface for humans and the assistant; changing it updates the whole page selection, including charts, KPIs, and the Portfolio Worklist.",
+  "Use apply_workbench_controls whenever the user asks to show, filter, sort, prioritize, queue, focus the page on, or change the current Workbench using View / Queue, Client Segment, Priority, Risk Category, Due Status, Due Window, RM / Advisor, Sort by, or quick filter pills.",
+  "Prefer this command-bar action over table/grid filters for ordinary requests such as 'show overdue', 'show this week', 'next 14 days', 'sort the page', 'largest outflow', 'high priority names', 'risk queue', 'only UHNW', 'R. Li', 'liquidity risks', 'due soon', or 'highest exposure'.",
+  "Common mappings: risk queue -> workbenchViewQueue riskQueue; priority first -> workbenchViewQueue priorityFirst; due soon queue -> workbenchViewQueue dueSoon; due soon status -> dueStatus Due soon; today -> dueWindow today; this week -> dueWindow thisWeek; next week/next 7 days -> dueWindow next7; next two weeks/next 14 days -> dueWindow next14; this month -> dueWindow thisMonth; overdue -> dueStatus Overdue and/or quickFilters overdue; high priority -> priority High and/or quickFilters highPriority; largest outflow/outflows -> quickFilters largestOutflow and sortBy outflowAsc; biggest AUM -> sortBy aumDesc; due first -> sortBy dueAsc; risk exposure/highest exposure -> sortBy riskExposureDesc; priority due -> sortBy priorityDue.",
+  "For apply_workbench_controls, set resourceId to advisoryWorkbenchControls, keep filters and sort empty, fill every command-bar field, keep unchanged dropdown controls as all/default, and use [] when no quick filter pill is active.",
+  "Use clear_workbench_controls for requests like reset filters, clear controls, default view, or show everything.",
+  "Use generic apply_grid_view only for precise column-level operations that the top command bar cannot express, such as highlighting exact row ids or a custom contains/between filter.",
 ].join(" ");
 
 export const hostCommandInputSchema = z.object({
@@ -138,42 +149,47 @@ export const hostCommandInputSchema = z.object({
   workbenchViewQueue: z
     .enum(workbenchViewQueueNames)
     .describe(
-      "Top command bar View / Queue control. Use riskQueue for the risk queue, priorityFirst for priority-first work, dueSoon for due-soon work, and default when unchanged.",
+      "Top command bar View / Queue control. Use riskQueue for the risk queue, priorityFirst for priority-first work, dueSoon for the due-soon queue, and default when unchanged or when another control carries the request.",
     ),
   clientSegment: z
     .string()
     .describe(
-      "Top command bar Client Segment selected value, such as all, Corporate, UHNW, HNW, or Institutional. Use all when unchanged.",
+      "Top command bar Client Segment selected value. Use exact visible segment labels such as Corporate, UHNW, HNW, or Institutional. Use all when unchanged or when the user did not ask for a segment.",
     ),
   priority: z
     .enum(workbenchPriorityNames)
     .describe(
-      "Top command bar Priority selected value. Use High for high-priority requests, Medium or Low when requested, and all when unchanged.",
+      "Top command bar Priority selected value. Use High for high-priority requests, Medium or Low only when explicitly requested, and all when unchanged.",
     ),
   riskCategory: z
     .enum(workbenchRiskCategoryNames)
     .describe(
-      "Top command bar Risk Category selected value. Map liquidity, credit, margin, concentration, covenant, and collateral risk wording to the matching value. Use all when unchanged.",
+      "Top command bar Risk Category selected value. Map liquidity, credit, margin, concentration, covenant, and collateral wording to the matching value. Use all when unchanged or when the risk wording is general rather than a category.",
     ),
   dueStatus: z
     .enum(workbenchDueStatusNames)
     .describe(
-      "Top command bar Due Status selected value. Use Overdue, Due soon, Open, or No risk when the user asks for that status; use all when unchanged.",
+      "Top command bar Due Status selected value. Use Overdue, Due soon, Open, or No risk when the user asks for that status. Use all when unchanged. For 'overdue high priority', set both dueStatus Overdue and priority High.",
+    ),
+  dueWindow: z
+    .enum(workbenchDueWindowNames)
+    .describe(
+      "Top command bar Due Window selected value. Use today for items due today, thisWeek for the current Monday-Sunday week, next7 for the next 7 days, next14 for the next 14 days, thisMonth for the current calendar month, and all when unchanged.",
     ),
   relationshipManager: z
     .string()
     .describe(
-      "Top command bar RM / Advisor selected value, such as R. Li or H. Mueller. Use all when unchanged.",
+      "Top command bar RM / Advisor selected value, such as R. Li or H. Mueller. Use the exact advisor label from the current host context when possible; use all when unchanged.",
     ),
   sortBy: z
     .enum(workbenchSortNames)
     .describe(
-      "Top command bar Sort by selected value. Use aumDesc for AUM high to low, dueAsc for earliest due date, outflowAsc for largest outflow, riskExposureDesc for highest risk exposure, and priorityDue for priority plus due date.",
+      "Top command bar Sort by selected value. Use aumDesc for AUM high to low or biggest clients, dueAsc for earliest due date, outflowAsc for largest negative 30D flow, riskExposureDesc for highest risk exposure, and priorityDue for priority plus due date.",
     ),
   quickFilters: z
     .array(z.enum(workbenchQuickFilterNames))
     .describe(
-      "Top command bar quick filter pills. Use largestOutflow, overdue, and/or highPriority for those quick page filters; use [] when none are requested.",
+      "Top command bar quick filter pills. Use largestOutflow, overdue, and/or highPriority when the user asks for those quick page filters. Combine with dropdown values when helpful; use [] when no pill should be active.",
     ),
   reason: z
     .string()
@@ -292,11 +308,12 @@ const createApplyGridViewCommand = (
 const createApplyWorkbenchControlsCommand = (
   input: HostCommandToolInput,
   resourceId: string,
+  hostContext: HostContextSnapshot | undefined,
 ) => ({
   type: "grid.applyView" as const,
   resourceId,
   view: {
-    filters: createWorkbenchControlFilters(input),
+    filters: createWorkbenchControlFilters(input, hostContext),
     sort: createWorkbenchControlSort(input),
     highlightRowIds: input.highlightRowIds,
   },
@@ -306,6 +323,7 @@ const createHostCommand = (
   input: HostCommandToolInput,
   resourceId: string,
   resolveColumnId: ResolveHostColumnId,
+  hostContext: HostContextSnapshot | undefined,
 ) => {
   switch (input.action) {
     case "clear_workbench_controls":
@@ -330,7 +348,7 @@ const createHostCommand = (
       return createApplyGridViewCommand(input, resourceId, resolveColumnId);
 
     case "apply_workbench_controls":
-      return createApplyWorkbenchControlsCommand(input, resourceId);
+      return createApplyWorkbenchControlsCommand(input, resourceId, hostContext);
   }
 };
 
@@ -355,13 +373,14 @@ export const toHostCommand = (
     return resolved ?? columnId;
   };
 
-  const command = createHostCommand(input, resourceId, resolveColumnId);
+  const command = createHostCommand(input, resourceId, resolveColumnId, hostContext);
 
   return parseHostCommand(command);
 };
 
 const createWorkbenchControlFilters = (
   input: HostCommandToolInput,
+  hostContext: HostContextSnapshot | undefined,
 ): HostGridFilter[] => {
   const filters: HostGridFilter[] = [];
   const viewQueue = input.workbenchViewQueue ?? "default";
@@ -391,6 +410,8 @@ const createWorkbenchControlFilters = (
   if (input.dueStatus && input.dueStatus !== "all") {
     filters.push({ columnId: "dueStatus", operator: "equals", value: input.dueStatus });
   }
+  const dueWindowFilter = createDueWindowFilter(input, hostContext);
+  if (dueWindowFilter) filters.push(dueWindowFilter);
   if (!isAllControlValue(relationshipManager)) {
     filters.push({
       columnId: "relationshipManager",
@@ -437,6 +458,82 @@ const createWorkbenchControlSort = (
       return [{ columnId: "aumChf", direction: "desc" }];
   }
 };
+
+const createDueWindowFilter = (
+  input: HostCommandToolInput,
+  hostContext?: HostContextSnapshot,
+): HostGridFilter | undefined => {
+  const range = createDueWindowRange(input.dueWindow ?? "all", hostContext);
+  if (!range) return undefined;
+  return {
+    columnId: "dueDate",
+    operator: "between",
+    value: range,
+  };
+};
+
+const createDueWindowRange = (
+  dueWindow: HostCommandToolInput["dueWindow"],
+  hostContext?: HostContextSnapshot,
+) => {
+  if (dueWindow === "all") return undefined;
+  const start = parseDateOnly(readHostAsOfDate(hostContext) ?? todayIsoDate());
+  if (start === undefined) return undefined;
+
+  if (dueWindow === "today") {
+    return [formatIsoDate(start), formatIsoDate(start)];
+  }
+  if (dueWindow === "next7") {
+    return [formatIsoDate(start), formatIsoDate(addDays(start, 7))];
+  }
+  if (dueWindow === "next14") {
+    return [formatIsoDate(start), formatIsoDate(addDays(start, 14))];
+  }
+  if (dueWindow === "thisWeek") {
+    return [formatIsoDate(startOfWeek(start)), formatIsoDate(endOfWeek(start))];
+  }
+  return [formatIsoDate(startOfMonth(start)), formatIsoDate(endOfMonth(start))];
+};
+
+const readHostAsOfDate = (hostContext: HostContextSnapshot | undefined) => {
+  const metadata = hostContext?.metadata;
+  const value = metadata?.asOfDate;
+  return typeof value === "string" ? value : undefined;
+};
+
+const parseDateOnly = (value: string) => {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  const date = new Date(parsed);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+};
+
+const dayMs = 24 * 60 * 60 * 1000;
+
+const addDays = (value: number, days: number) => value + days * dayMs;
+
+const startOfWeek = (value: number) => {
+  const date = new Date(value);
+  const day = date.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  return addDays(value, mondayOffset);
+};
+
+const endOfWeek = (value: number) => addDays(startOfWeek(value), 6);
+
+const startOfMonth = (value: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+};
+
+const endOfMonth = (value: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0);
+};
+
+const todayIsoDate = () => formatIsoDate(Date.now());
+
+const formatIsoDate = (value: number) => new Date(value).toISOString().slice(0, 10);
 
 const normalizeControlValue = (value: string | undefined) =>
   value?.trim() || "all";

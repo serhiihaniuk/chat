@@ -18,8 +18,9 @@ describe("dashboard data api", () => {
     expect(response.status).toBe(200);
     expect(snapshot).toMatchObject({
       workspaceId: "demo-workspace",
-      dateRange: { label: "Apr 1 - Jun 30, 2025" },
     });
+    expect(snapshot.asOfDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(snapshot.dateRange.label).toContain(" - ");
     expect(snapshot.kpis).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "kpi-total-aum", value: "CHF 24.8B" }),

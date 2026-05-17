@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, type MouseEventHandler } from "react";
 import { Info } from "lucide-react";
 import {
   Area,
@@ -29,12 +29,11 @@ import type {
   RiskDriverExposureRow,
   RiskExposureTrendPoint,
   SegmentRiskScoreRow,
-  TopRiskAccountRow,
 } from "../model/advisory-dashboard.types.js";
 import {
   createWorklistRows,
   type AdvisoryWorklistRow,
-} from "./advisory-worklist-table/worklist-model.js";
+} from "../model/worklist-model.js";
 import { formatChfCompact } from "./formatters.js";
 
 type WorkbenchAnalyticsProps = {
@@ -142,6 +141,11 @@ type ChartTooltipProps<TPayload> = {
   payload?: TooltipPayload<TPayload>[];
 };
 
+type CursorTooltipPosition = {
+  x: number;
+  y: number;
+};
+
 const riskLayerKeys = [
   { key: "noRiskB", label: "No risk", className: "no-risk" },
   { key: "lowB", label: "Low", className: "low" },
@@ -166,9 +170,50 @@ const waterfallColors: Record<RiskDriverClassName, string> = {
   total: "#475569",
 };
 
+const tooltipEscapeViewBox = { x: true, y: true };
+const tooltipWrapperStyle = { pointerEvents: "none" } as const;
+const cursorTooltipOffset = 14;
+const cursorTooltipSize = {
+  width: 230,
+  height: 160,
+};
+
+const useCursorTooltipPosition = () => {
+  const [position, setPosition] = useState<CursorTooltipPosition>();
+
+  const onMouseMove: MouseEventHandler<HTMLDivElement> = (event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const hasViewportSpaceRight =
+      window.innerWidth - event.clientX >
+      cursorTooltipSize.width + cursorTooltipOffset;
+    const hasViewportSpaceBelow =
+      window.innerHeight - event.clientY >
+      cursorTooltipSize.height + cursorTooltipOffset;
+
+    const x = hasViewportSpaceRight
+      ? localX + cursorTooltipOffset
+      : localX - cursorTooltipSize.width - cursorTooltipOffset;
+    const y = hasViewportSpaceBelow
+      ? localY + cursorTooltipOffset
+      : localY - cursorTooltipSize.height - cursorTooltipOffset;
+
+    setPosition({
+      x: Math.max(8 - rect.left, x),
+      y: Math.max(8 - rect.top, y),
+    });
+  };
+
+  const onMouseLeave = () => setPosition(undefined);
+
+  return { onMouseLeave, onMouseMove, position };
+};
+
 export function RiskIntelligenceOverview({
   snapshot,
 }: WorkbenchAnalyticsProps) {
+  const tooltipPosition = useCursorTooltipPosition();
   const chartData = useMemo(
     () => createRiskLayerSeries(snapshot.riskExposureTrend),
     [snapshot.riskExposureTrend],
@@ -208,7 +253,11 @@ export function RiskIntelligenceOverview({
         </span>
       </div>
 
-      <div className="risk-layer-chart-shell">
+      <div
+        className="risk-layer-chart-shell"
+        onMouseLeave={tooltipPosition.onMouseLeave}
+        onMouseMove={tooltipPosition.onMouseMove}
+      >
         <ResponsiveContainer
           height="100%"
           initialDimension={{ height: 300, width: 980 }}
@@ -283,7 +332,15 @@ export function RiskIntelligenceOverview({
               width={60}
               yAxisId="money"
             />
-            <Tooltip content={<RiskLayerTooltip />} cursor={false} />
+            <Tooltip
+              allowEscapeViewBox={tooltipEscapeViewBox}
+              content={<RiskLayerTooltip />}
+              cursor={false}
+              isAnimationActive={false}
+              offset={0}
+              position={tooltipPosition.position}
+              wrapperStyle={tooltipWrapperStyle}
+            />
             {chartData
               .filter((point) => point.eventLabel)
               .map((event) => (
@@ -382,14 +439,16 @@ export function RiskIntelligenceOverview({
 }
 
 export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
+  const compositionTooltipPosition = useCursorTooltipPosition();
+  const momentumTooltipPosition = useCursorTooltipPosition();
+  const radarTooltipPosition = useCursorTooltipPosition();
+  const waterfallTooltipPosition = useCursorTooltipPosition();
   const rows = useMemo(() => createWorklistRows(snapshot), [snapshot]);
   const riskRows = useMemo(() => createRiskSummaryRows(rows), [rows]);
   const radarData = useMemo(
     () => createRadarData(snapshot.segmentRiskScores),
     [snapshot.segmentRiskScores],
   );
-  const largestExposure = getLargestExposure(snapshot.topRiskAccounts);
-  const riskClientTotal = rows.length;
   const totalAumLabel = findKpi(snapshot.kpis, "Total AUM")?.value ?? "CHF 24.8B";
   const momentumData = useMemo(
     () => createMomentumChartData(snapshot.netNewMoneyTrend),
@@ -408,14 +467,26 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
           <Info size={17} aria-hidden="true" />
         </div>
         <div className="risk-composition-body">
-          <div className="risk-donut-shell">
+          <div
+            className="risk-donut-shell"
+            onMouseLeave={compositionTooltipPosition.onMouseLeave}
+            onMouseMove={compositionTooltipPosition.onMouseMove}
+          >
             <ResponsiveContainer
               height="100%"
-              initialDimension={{ height: 140, width: 140 }}
+              initialDimension={{ height: 240, width: 240 }}
               width="100%"
             >
               <PieChart>
-                <Tooltip content={<RiskCompositionTooltip />} cursor={false} />
+                <Tooltip
+                  allowEscapeViewBox={tooltipEscapeViewBox}
+                  content={<RiskCompositionTooltip />}
+                  cursor={false}
+                  isAnimationActive={false}
+                  offset={0}
+                  position={compositionTooltipPosition.position}
+                  wrapperStyle={tooltipWrapperStyle}
+                />
                 <Pie
                   data={riskRows}
                   dataKey="aumChf"
@@ -441,37 +512,6 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
               <span>Total AUM</span>
             </div>
           </div>
-          <div className="composition-risk-list">
-            <div className="rail-subtitle-row">
-              <h3>Risk Mix</h3>
-              <span>Accounts</span>
-            </div>
-            <div className="risk-mix-list compact">
-              {riskRows.map((item) => (
-                <div className="risk-mix-row" key={item.label}>
-                  <span>{item.label}</span>
-                  <div className="risk-mix-track">
-                    <i
-                      className={item.className}
-                      style={{ width: `${item.percent}%` }}
-                    />
-                  </div>
-                  <strong>{item.count}</strong>
-                  <small>{item.percent}%</small>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="largest-exposure-panel compact">
-            <h3>Largest Exposure</h3>
-            <strong>{largestExposure?.client ?? "Global MedTech Inc."}</strong>
-            <span>{largestExposure?.issue ?? "Liquidity gap"}</span>
-            <em>
-              {stripCurrencyPrefix(
-                formatChfCompact(largestExposure?.exposureChf ?? 112_000_000),
-              )}
-            </em>
-          </div>
         </div>
         <div className="money-momentum-panel">
           <div className="rail-subtitle-row">
@@ -482,7 +522,11 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
             <span className="negative">{formatSignedB(minMomentumValue(momentumData))}</span>
             <span className="positive">{formatSignedB(lastMomentumValue(momentumData))}</span>
           </div>
-          <div className="momentum-chart-shell">
+          <div
+            className="momentum-chart-shell"
+            onMouseLeave={momentumTooltipPosition.onMouseLeave}
+            onMouseMove={momentumTooltipPosition.onMouseMove}
+          >
             <ResponsiveContainer
               height="100%"
               initialDimension={{ height: 58, width: 420 }}
@@ -498,7 +542,15 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
                   hide
                   type="number"
                 />
-                <Tooltip content={<MomentumTooltip />} cursor={false} />
+                <Tooltip
+                  allowEscapeViewBox={tooltipEscapeViewBox}
+                  content={<MomentumTooltip />}
+                  cursor={false}
+                  isAnimationActive={false}
+                  offset={0}
+                  position={momentumTooltipPosition.position}
+                  wrapperStyle={tooltipWrapperStyle}
+                />
                 <ReferenceLine stroke="#e5e7eb" y={0} />
                 <Bar
                   dataKey="valueB"
@@ -537,7 +589,11 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
           </span>
         </div>
         <div className="radar-card-body">
-          <div className="radar-chart-shell">
+          <div
+            className="radar-chart-shell"
+            onMouseLeave={radarTooltipPosition.onMouseLeave}
+            onMouseMove={radarTooltipPosition.onMouseMove}
+          >
             <ResponsiveContainer
               height="100%"
               initialDimension={{ height: 190, width: 320 }}
@@ -555,7 +611,15 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
                   tick={{ fill: "#64748b", fontSize: 10 }}
                   tickCount={5}
                 />
-                <Tooltip content={<RadarTooltip />} cursor={false} />
+                <Tooltip
+                  allowEscapeViewBox={tooltipEscapeViewBox}
+                  content={<RadarTooltip />}
+                  cursor={false}
+                  isAnimationActive={false}
+                  offset={0}
+                  position={radarTooltipPosition.position}
+                  wrapperStyle={tooltipWrapperStyle}
+                />
                 <Radar
                   name="Corporate"
                   dataKey="corporate"
@@ -603,7 +667,11 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
           <Info size={17} aria-hidden="true" />
         </div>
         <div className="waterfall-body">
-          <div className="waterfall-chart-shell">
+          <div
+            className="waterfall-chart-shell"
+            onMouseLeave={waterfallTooltipPosition.onMouseLeave}
+            onMouseMove={waterfallTooltipPosition.onMouseMove}
+          >
             <ResponsiveContainer
               height="100%"
               initialDimension={{ height: 180, width: 500 }}
@@ -630,7 +698,15 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
                   ticks={waterfall.ticks}
                   width={34}
                 />
-                <Tooltip content={<WaterfallTooltip />} cursor={false} />
+                <Tooltip
+                  allowEscapeViewBox={tooltipEscapeViewBox}
+                  content={<WaterfallTooltip />}
+                  cursor={false}
+                  isAnimationActive={false}
+                  offset={0}
+                  position={waterfallTooltipPosition.position}
+                  wrapperStyle={tooltipWrapperStyle}
+                />
                 <Bar
                   dataKey="baseB"
                   fill="transparent"
@@ -815,32 +891,45 @@ const renderWaterfallLabel = ({
   );
 };
 
-const createInlineKpis = (kpis: AdvisoryKpi[]) => [
-  {
-    label: "AUM (CHF)",
-    value: findKpi(kpis, "Total AUM")?.value ?? "CHF 24.8B",
-    delta: "+6.4%",
-    tone: "positive",
-  },
-  {
-    label: "Net New Money",
-    value: findKpi(kpis, "Net New Money")?.value ?? "CHF 562M",
-    delta: "+3.1%",
-    tone: "positive",
-  },
-  {
-    label: "Advisory Coverage",
-    value: findKpi(kpis, "Advisory Coverage")?.value ?? "78%",
-    delta: "+4pp",
-    tone: "positive",
-  },
-  {
-    label: "At-Risk Accounts",
-    value: findKpi(kpis, "At-Risk Accounts")?.value ?? "52",
-    delta: "+8",
-    tone: "negative",
-  },
-];
+const createInlineKpis = (kpis: AdvisoryKpi[]) => {
+  const totalAum = findKpi(kpis, "Total AUM");
+  const netNewMoney = findKpi(kpis, "Net New Money");
+  const advisoryCoverage = findKpi(kpis, "Advisory Coverage");
+  const atRiskAccounts = findKpi(kpis, "At-Risk Accounts");
+
+  return [
+    {
+      label: "AUM (CHF)",
+      value: totalAum?.value ?? "CHF 24.8B",
+      delta: totalAum?.delta ?? "+6.4%",
+      tone: kpiToneClass(totalAum),
+    },
+    {
+      label: "Net New Money",
+      value: netNewMoney?.value ?? "CHF 562M",
+      delta: netNewMoney?.delta ?? "+3.1%",
+      tone: kpiToneClass(netNewMoney),
+    },
+    {
+      label: "Advisory Coverage",
+      value: advisoryCoverage?.value ?? "78%",
+      delta: advisoryCoverage?.delta ?? "+4pp",
+      tone: kpiToneClass(advisoryCoverage),
+    },
+    {
+      label: "At-Risk Accounts",
+      value: atRiskAccounts?.value ?? "52",
+      delta: atRiskAccounts?.delta ?? "+8",
+      tone: kpiToneClass(atRiskAccounts),
+    },
+  ];
+};
+
+const kpiToneClass = (kpi: AdvisoryKpi | undefined) => {
+  if (kpi?.trend === "negative") return "negative";
+  if (kpi?.trend === "neutral") return "neutral";
+  return "positive";
+};
 
 const findKpi = (kpis: AdvisoryKpi[], label: string) =>
   kpis.find((kpi) => kpi.label === label);
@@ -951,54 +1040,10 @@ const createRiskSummaryRows = (
   ];
 };
 
-const getLargestExposure = (riskAccounts: TopRiskAccountRow[]) =>
-  [...riskAccounts].sort(
-    (left, right) => right.exposureChf - left.exposureChf,
-  )[0];
-
 const createMomentumChartData = (
   trend: AdvisoryDashboardSnapshot["netNewMoneyTrend"],
 ): MomentumDatum[] => {
-  const values = trend.length
-    ? trend
-    : [
-        {
-          id: "fallback-1",
-          label: "Jan",
-          month: "2025-01",
-          netNewMoneyChf: -500_000_000,
-        },
-        {
-          id: "fallback-2",
-          label: "Feb",
-          month: "2025-02",
-          netNewMoneyChf: 240_000_000,
-        },
-        {
-          id: "fallback-3",
-          label: "Mar",
-          month: "2025-03",
-          netNewMoneyChf: 680_000_000,
-        },
-        {
-          id: "fallback-4",
-          label: "Apr",
-          month: "2025-04",
-          netNewMoneyChf: 420_000_000,
-        },
-        {
-          id: "fallback-5",
-          label: "May",
-          month: "2025-05",
-          netNewMoneyChf: 760_000_000,
-        },
-        {
-          id: "fallback-6",
-          label: "Jun",
-          month: "2025-06",
-          netNewMoneyChf: 1_200_000_000,
-        },
-      ];
+  const values = trend.length ? trend : createFallbackMomentumTrend();
 
   return values.map((point, index) => ({
     id: point.id,
@@ -1013,6 +1058,45 @@ const createMomentumChartData = (
     valueB: chfToB(point.netNewMoneyChf),
   }));
 };
+
+const createFallbackMomentumTrend =
+  (): AdvisoryDashboardSnapshot["netNewMoneyTrend"] => {
+  const monthStart = startOfCurrentUtcMonth();
+  const amounts = [
+    -500_000_000,
+    240_000_000,
+    680_000_000,
+    420_000_000,
+    760_000_000,
+    1_200_000_000,
+  ];
+
+  return amounts.map((netNewMoneyChf, index) => {
+    const date = addUtcMonths(monthStart, index - (amounts.length - 1));
+    return {
+      id: `fallback-${index + 1}`,
+      label: formatFallbackMonthLabel(date),
+      month: new Date(date).toISOString().slice(0, 10),
+      netNewMoneyChf,
+    };
+  });
+};
+
+const startOfCurrentUtcMonth = () => {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+};
+
+const addUtcMonths = (value: number, months: number) => {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1);
+};
+
+const formatFallbackMonthLabel = (value: number) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(value));
 
 const createMomentumDomain = (data: MomentumDatum[]) => {
   const values = data.map((item) => item.valueB);
@@ -1123,8 +1207,6 @@ const getRiskDriverClassName = (driver: string): RiskDriverClassName => {
 
 const splitWaterfallLabel = (label: string) =>
   label.split(/\s+/)[0] ?? label;
-
-const stripCurrencyPrefix = (value: string) => value.replace(/^CHF\s+/, "");
 
 const formatSignedB = (value: number) =>
   `${value >= 0 ? "+" : ""}${value.toFixed(1)}B`;

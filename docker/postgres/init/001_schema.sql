@@ -259,11 +259,12 @@ returns table(
     r.risk_profile as "riskProfile",
     r.suitability_score as "suitabilityScore",
     r.coverage_status as "coverageStatus",
-    to_char(r.last_review, 'Mon DD, YYYY') as "lastReview",
+    to_char(w.as_of_date - (date '2025-06-30' - r.last_review), 'Mon DD, YYYY') as "lastReview",
     rm.display_name as "relationshipManager",
     r.next_action as "nextAction",
     r.has_alert as "hasAlert"
   from ubs_partner.client_portfolio_reviews r
+  join ubs_partner.workspaces w on w.id = r.workspace_id
   join ubs_partner.clients c on c.id = r.client_id
   join ubs_partner.relationship_managers rm on rm.id = c.relationship_manager_id
   where r.workspace_id = p_workspace_id
@@ -289,8 +290,9 @@ returns table(
     r.exposure_chf::double precision as "exposureChf",
     r.priority,
     rm.display_name as owner,
-    to_char(r.due_date, 'Mon DD, YYYY') as "dueDate"
+    to_char(w.as_of_date - (date '2025-06-30' - r.due_date), 'Mon DD, YYYY') as "dueDate"
   from ubs_partner.risk_accounts r
+  join ubs_partner.workspaces w on w.id = r.workspace_id
   join ubs_partner.clients c on c.id = r.client_id
   join ubs_partner.relationship_managers rm on rm.id = r.owner_relationship_manager_id
   where r.workspace_id = p_workspace_id
@@ -326,13 +328,14 @@ returns table(
   "netNewMoneyChf" double precision
 ) language sql security definer as $$
   select
-    id,
-    to_char(month, 'YYYY-MM-DD') as month,
-    label,
-    net_new_money_chf::double precision as "netNewMoneyChf"
-  from ubs_partner.net_new_money_trend
-  where workspace_id = p_workspace_id
-  order by sort_order;
+    trend.id,
+    to_char((date_trunc('month', w.as_of_date)::date - ((6 - trend.sort_order) * interval '1 month'))::date, 'YYYY-MM-DD') as month,
+    to_char((date_trunc('month', w.as_of_date)::date - ((6 - trend.sort_order) * interval '1 month'))::date, 'Mon ''YY') as label,
+    trend.net_new_money_chf::double precision as "netNewMoneyChf"
+  from ubs_partner.net_new_money_trend trend
+  join ubs_partner.workspaces w on w.id = trend.workspace_id
+  where trend.workspace_id = p_workspace_id
+  order by trend.sort_order;
 $$;
 
 create or replace function ubs_list_risk_exposure_trend(p_workspace_id text)
@@ -348,18 +351,22 @@ returns table(
   "eventLabel" text
 ) language sql security definer as $$
   select
-    id,
-    to_char(period_date, 'YYYY-MM-DD') as date,
-    label,
-    no_risk_aum_chf::double precision as "noRiskAumChf",
-    low_risk_aum_chf::double precision as "lowRiskAumChf",
-    medium_risk_aum_chf::double precision as "mediumRiskAumChf",
-    high_risk_aum_chf::double precision as "highRiskAumChf",
-    net_new_money_chf::double precision as "netNewMoneyChf",
-    event_label as "eventLabel"
-  from ubs_partner.risk_exposure_trend
-  where workspace_id = p_workspace_id
-  order by sort_order;
+    trend.id,
+    to_char(w.range_from + (trend.period_date - date '2025-04-01'), 'YYYY-MM-DD') as date,
+    case
+      when trend.sort_order = 1 then to_char(w.range_from + (trend.period_date - date '2025-04-01'), 'Mon ''YY')
+      else to_char(w.range_from + (trend.period_date - date '2025-04-01'), 'Mon FMDD')
+    end as label,
+    trend.no_risk_aum_chf::double precision as "noRiskAumChf",
+    trend.low_risk_aum_chf::double precision as "lowRiskAumChf",
+    trend.medium_risk_aum_chf::double precision as "mediumRiskAumChf",
+    trend.high_risk_aum_chf::double precision as "highRiskAumChf",
+    trend.net_new_money_chf::double precision as "netNewMoneyChf",
+    trend.event_label as "eventLabel"
+  from ubs_partner.risk_exposure_trend trend
+  join ubs_partner.workspaces w on w.id = trend.workspace_id
+  where trend.workspace_id = p_workspace_id
+  order by trend.sort_order;
 $$;
 
 create or replace function ubs_list_segment_risk_scores(p_workspace_id text)

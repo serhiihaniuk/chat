@@ -2,7 +2,10 @@ import { TriangleAlert } from "lucide-react";
 import type { ICellRendererParams } from "ag-grid-community";
 
 import type { ClientPortfolioReviewRow } from "../../model/advisory-dashboard.types.js";
-import type { AdvisoryWorklistRow, DueStatus } from "./worklist-model.js";
+import type {
+  AdvisoryWorklistRow,
+  DueStatus,
+} from "../../model/worklist-model.js";
 
 const coverageStatusClass: Record<
   ClientPortfolioReviewRow["coverageStatus"],

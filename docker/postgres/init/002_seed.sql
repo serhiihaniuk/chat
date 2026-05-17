@@ -1,5 +1,17 @@
+with demo_dates as (
+  select
+    current_date as as_of_date,
+    (current_date - interval '90 days')::date as range_from
+)
 insert into ubs_partner.workspaces (id, name, as_of_date, range_from, range_to, range_label)
-values ('demo-workspace', 'UBS Partner Demo Workspace', '2025-06-30', '2025-04-01', '2025-06-30', 'Apr 1 - Jun 30, 2025')
+select
+  'demo-workspace',
+  'UBS Partner Demo Workspace',
+  as_of_date,
+  range_from,
+  as_of_date,
+  to_char(range_from, 'Mon FMDD') || ' - ' || to_char(as_of_date, 'Mon FMDD, YYYY')
+from demo_dates
 on conflict (id) do update set
   name = excluded.name,
   as_of_date = excluded.as_of_date,
@@ -75,6 +87,73 @@ on conflict (id) do update set
   name = excluded.name,
   segment = excluded.segment;
 
+with generated_clients as (
+  select
+    idx,
+    'client-expansion-' || lpad(idx::text, 3, '0') as client_id,
+    (array['Corporate', 'UHNW', 'HNW', 'Institutional'])[((idx - 1) % 4) + 1] as segment,
+    (array[
+      'rm-r-li',
+      'rm-h-mueller',
+      'rm-y-tanaka',
+      'rm-s-meier',
+      'rm-j-colombo',
+      'rm-p-stein',
+      'rm-a-patel',
+      'rm-t-nguyen',
+      'rm-e-dubois',
+      'rm-m-keller',
+      'rm-n-brunner',
+      'rm-v-kapoor'
+    ])[((idx - 1) % 12) + 1] as relationship_manager_id,
+    (array[
+      'Atlas',
+      'Linden',
+      'Novara',
+      'Helios',
+      'Vector',
+      'Summit',
+      'Praxis',
+      'Cedar',
+      'Rhone',
+      'Basel',
+      'Quanta',
+      'Aster',
+      'Northstar',
+      'Vertex',
+      'Lucerne',
+      'Montreux',
+      'Avalon'
+    ])[((idx - 1) % 17) + 1] || ' ' ||
+    (array[
+      'Capital',
+      'Industries',
+      'Private Wealth',
+      'Holdings',
+      'Ventures',
+      'Foundation',
+      'Manufacturing',
+      'Retail Group',
+      'Family Office',
+      'Properties',
+      'Partners',
+      'Medical Group'
+    ])[((idx - 1) % 12) + 1] as client_name
+  from generate_series(1, 68) as series(idx)
+)
+insert into ubs_partner.clients (id, workspace_id, relationship_manager_id, name, segment)
+select
+  client_id,
+  'demo-workspace',
+  relationship_manager_id,
+  client_name,
+  segment
+from generated_clients
+on conflict (id) do update set
+  relationship_manager_id = excluded.relationship_manager_id,
+  name = excluded.name,
+  segment = excluded.segment;
+
 insert into ubs_partner.dashboard_kpis (id, workspace_id, label, value, delta, trend, sort_order) values
   ('kpi-total-aum', 'demo-workspace', 'Total AUM', 'CHF 24.8B', '6.4% vs prior quarter', 'positive', 1),
   ('kpi-net-new-money', 'demo-workspace', 'Net New Money', 'CHF 562M', '3.1% vs prior quarter', 'positive', 2),
@@ -145,6 +224,70 @@ on conflict (id) do update set
   next_action = excluded.next_action,
   has_alert = excluded.has_alert;
 
+with generated_reviews as (
+  select
+    idx,
+    'review-expansion-' || lpad(idx::text, 3, '0') as review_id,
+    'client-expansion-' || lpad(idx::text, 3, '0') as client_id,
+    (220000000::numeric + ((idx::bigint * 47000000) % 1850000000))::numeric(18, 2) as aum_chf,
+    (((idx::bigint * 17300000) % 190000000) - 80000000)::numeric(18, 2) as net_flow_30d_chf,
+    (array['Balanced', 'Moderate', 'Growth', 'Conservative'])[((idx - 1) % 4) + 1] as risk_profile,
+    (58 + ((idx * 7) % 40))::int as suitability_score,
+    case
+      when idx % 6 = 0 then 'At Risk'
+      when idx % 3 = 0 then 'Watch'
+      else 'Covered'
+    end as coverage_status,
+    (date '2025-06-30' - (((idx * 5) % 72) * interval '1 day'))::date as last_review,
+    (array[
+      'Portfolio review',
+      'Liquidity follow-up',
+      'Mandate renewal',
+      'Risk review',
+      'Rebalance proposal',
+      'Client call',
+      'Credit update',
+      'Treasury sweep'
+    ])[((idx - 1) % 8) + 1] as next_action,
+    (idx % 4 = 0 or idx % 7 = 0) as has_alert
+  from generate_series(1, 68) as series(idx)
+)
+insert into ubs_partner.client_portfolio_reviews (
+  id,
+  workspace_id,
+  client_id,
+  aum_chf,
+  net_flow_30d_chf,
+  risk_profile,
+  suitability_score,
+  coverage_status,
+  last_review,
+  next_action,
+  has_alert
+)
+select
+  review_id,
+  'demo-workspace',
+  client_id,
+  aum_chf,
+  net_flow_30d_chf,
+  risk_profile,
+  suitability_score,
+  coverage_status,
+  last_review,
+  next_action,
+  has_alert
+from generated_reviews
+on conflict (id) do update set
+  aum_chf = excluded.aum_chf,
+  net_flow_30d_chf = excluded.net_flow_30d_chf,
+  risk_profile = excluded.risk_profile,
+  suitability_score = excluded.suitability_score,
+  coverage_status = excluded.coverage_status,
+  last_review = excluded.last_review,
+  next_action = excluded.next_action,
+  has_alert = excluded.has_alert;
+
 insert into ubs_partner.risk_accounts (id, workspace_id, client_id, issue, exposure_chf, priority, owner_relationship_manager_id, due_date) values
   ('risk-global-medtech-liquidity-gap', 'demo-workspace', 'client-global-medtech-inc', 'Liquidity gap', 112000000, 'High', 'rm-r-li', '2025-07-08'),
   ('risk-jasper-credit-concentration', 'demo-workspace', 'client-jasper-retail-group', 'Credit concentration', 78000000, 'High', 'rm-j-colombo', '2025-07-04'),
@@ -171,6 +314,71 @@ insert into ubs_partner.risk_accounts (id, workspace_id, client_id, issue, expos
   ('risk-arbon-cash-conversion', 'demo-workspace', 'client-arbon-manufacturing', 'Cash conversion delay', 38000000, 'Medium', 'rm-h-mueller', '2025-06-27'),
   ('risk-terracotta-leverage', 'demo-workspace', 'client-terracotta-properties', 'Real estate leverage drift', 34000000, 'Low', 'rm-p-stein', '2025-07-15'),
   ('risk-kestrel-working-capital', 'demo-workspace', 'client-kestrel-industries', 'Working-capital drawdown', 28000000, 'Low', 'rm-m-keller', '2025-07-18')
+on conflict (id) do update set
+  issue = excluded.issue,
+  exposure_chf = excluded.exposure_chf,
+  priority = excluded.priority,
+  owner_relationship_manager_id = excluded.owner_relationship_manager_id,
+  due_date = excluded.due_date;
+
+with generated_risks as (
+  select
+    idx,
+    'risk-expansion-' || lpad(idx::text, 3, '0') as risk_id,
+    'client-expansion-' || lpad((((idx - 1) % 68) + 1)::text, 3, '0') as client_id,
+    (array[
+      'Liquidity gap',
+      'Credit concentration',
+      'Margin pressure',
+      'Collateral shortfall',
+      'Covenant review',
+      'Market volatility',
+      'Working-capital drawdown',
+      'Single-name concentration'
+    ])[((idx - 1) % 8) + 1] as issue,
+    (18000000::numeric + ((idx::bigint * 6100000) % 126000000))::numeric(18, 2) as exposure_chf,
+    case
+      when idx % 5 in (0, 1) then 'High'
+      when idx % 5 in (2, 3) then 'Medium'
+      else 'Low'
+    end as priority,
+    (array[
+      'rm-r-li',
+      'rm-h-mueller',
+      'rm-y-tanaka',
+      'rm-s-meier',
+      'rm-j-colombo',
+      'rm-p-stein',
+      'rm-a-patel',
+      'rm-t-nguyen',
+      'rm-e-dubois',
+      'rm-m-keller',
+      'rm-n-brunner',
+      'rm-v-kapoor'
+    ])[((idx - 1) % 12) + 1] as owner_relationship_manager_id,
+    (date '2025-06-30' + (((idx % 45) - 12) * interval '1 day'))::date as due_date
+  from generate_series(1, 52) as series(idx)
+)
+insert into ubs_partner.risk_accounts (
+  id,
+  workspace_id,
+  client_id,
+  issue,
+  exposure_chf,
+  priority,
+  owner_relationship_manager_id,
+  due_date
+)
+select
+  risk_id,
+  'demo-workspace',
+  client_id,
+  issue,
+  exposure_chf,
+  priority,
+  owner_relationship_manager_id,
+  due_date
+from generated_risks
 on conflict (id) do update set
   issue = excluded.issue,
   exposure_chf = excluded.exposure_chf,

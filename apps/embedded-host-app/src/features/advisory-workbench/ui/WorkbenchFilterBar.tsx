@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   BriefcaseBusiness,
+  CalendarDays,
   Check,
   ChevronDown,
   Clock3,
@@ -19,6 +20,7 @@ import {
   createRmOptions,
   createSegmentOptions,
   dueStatusOptions,
+  dueWindowOptions,
   priorityOptions,
   quickFilterOptions,
   riskCategoryOptions,
@@ -26,6 +28,7 @@ import {
   type WorkbenchControlOption,
   type WorkbenchControlState,
   type WorkbenchDueStatus,
+  type WorkbenchDueWindow,
   type WorkbenchPriority,
   type WorkbenchQuickFilterId,
   type WorkbenchRiskCategory,
@@ -46,6 +49,7 @@ type ControlId =
   | "priority"
   | "riskCategory"
   | "dueStatus"
+  | "dueWindow"
   | "rmAdvisor"
   | "sortBy";
 
@@ -102,6 +106,13 @@ export function WorkbenchFilterBar({
           label: "Due Status",
           options: dueStatusOptions,
           value: controls.dueStatus,
+        },
+        {
+          id: "dueWindow",
+          icon: CalendarDays,
+          label: "Due Window",
+          options: dueWindowOptions,
+          value: controls.dueWindow,
         },
         {
           id: "rmAdvisor",
@@ -259,6 +270,9 @@ const updateControlValue = (
   }
   if (id === "dueStatus") {
     return { ...current, dueStatus: value as WorkbenchDueStatus };
+  }
+  if (id === "dueWindow") {
+    return { ...current, dueWindow: value as WorkbenchDueWindow };
   }
   if (id === "rmAdvisor") {
     return { ...current, rmAdvisor: value };
