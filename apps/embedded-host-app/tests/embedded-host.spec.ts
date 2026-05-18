@@ -45,7 +45,7 @@ test("embedded host imports public widget and shows launcher", async ({
 });
 
 test("embedded Workbench page scrolls normally on mobile", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 700 });
+  await page.setViewportSize({ width: 700, height: 760 });
   await page.goto("/");
 
   await expect(
@@ -67,12 +67,15 @@ test("embedded Workbench page scrolls normally on mobile", async ({ page }) => {
       document.querySelector(".workbench-main")!,
     ).overflowY,
     scrollHeight: document.documentElement.scrollHeight,
+    scrollWidth: document.documentElement.scrollWidth,
     viewportHeight: window.innerHeight,
+    viewportWidth: window.innerWidth,
   }));
 
   expect(metrics.bodyOverflowY).not.toBe("hidden");
   expect(metrics.mainOverflowY).not.toBe("hidden");
   expect(metrics.scrollHeight).toBeGreaterThan(metrics.viewportHeight);
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 2);
 
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expect
