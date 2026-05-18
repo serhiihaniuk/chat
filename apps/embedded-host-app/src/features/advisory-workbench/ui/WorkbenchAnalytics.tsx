@@ -50,6 +50,16 @@ type RiskLayerDatum = {
   netNewMoneyB: number;
 };
 
+type ChartAxis = {
+  domain: [number, number];
+  ticks: number[];
+};
+
+type ChartInsight = {
+  date: string;
+  label: string;
+};
+
 type RiskSummaryRow = {
   label: "High" | "Medium" | "Low" | "No risk";
   aumChf: number;
@@ -210,44 +220,6 @@ const useCursorTooltipPosition = () => {
   return { onMouseLeave, onMouseMove, position };
 };
 
-type RiskEventMarkerLabelProps = {
-  date: string;
-  label: string;
-  textAnchor: "start" | "middle" | "end";
-  viewBox?: {
-    x?: number;
-    y?: number;
-  };
-};
-
-const RiskEventMarkerLabel = ({
-  date,
-  label,
-  textAnchor,
-  viewBox,
-}: RiskEventMarkerLabelProps) => {
-  if (typeof viewBox?.x !== "number" || typeof viewBox.y !== "number") {
-    return null;
-  }
-
-  const xOffset = textAnchor === "start" ? 10 : textAnchor === "end" ? -10 : 0;
-  const x = viewBox.x + xOffset;
-  const y = viewBox.y + 24;
-
-  return (
-    <g className="event-marker-label">
-      <text textAnchor={textAnchor} x={x} y={y}>
-        <tspan className="event-marker-date" x={x}>
-          {date}
-        </tspan>
-        <tspan className="event-marker-insight" dy={13} x={x}>
-          {label}
-        </tspan>
-      </text>
-    </g>
-  );
-};
-
 export function RiskIntelligenceOverview({
   snapshot,
 }: WorkbenchAnalyticsProps) {
@@ -257,15 +229,10 @@ export function RiskIntelligenceOverview({
     [snapshot.riskExposureTrend],
   );
   const aumAxis = useMemo(() => createAumAxis(chartData), [chartData]);
+  const moneyAxis = useMemo(() => createMoneyAxis(chartData), [chartData]);
   const kpis = createInlineKpis(snapshot.kpis);
   const xTicks = useMemo(() => createXAxisTicks(chartData), [chartData]);
-  const eventMarkers = useMemo(
-    () =>
-      chartData
-        .map((point, index) => ({ index, point }))
-        .filter(({ point }) => point.eventLabel),
-    [chartData],
-  );
+  const chartInsights = useMemo(() => createChartInsights(chartData), [chartData]);
 
   return (
     <section className="analytics-card risk-overview-card">
@@ -285,17 +252,29 @@ export function RiskIntelligenceOverview({
         </div>
       </div>
 
-      <div className="risk-chart-legend">
-        {riskLayerKeys.map((item) => (
-          <span key={item.key}>
-            <i className={item.className} />
-            {item.label}
+      <div className="risk-chart-meta-row">
+        <div className="risk-chart-legend">
+          {riskLayerKeys.map((item) => (
+            <span key={item.key}>
+              <i className={item.className} />
+              {item.label}
+            </span>
+          ))}
+          <span>
+            <i className="net-new-money" />
+            Net New Money (CHF)
           </span>
-        ))}
-        <span>
-          <i className="net-new-money" />
-          Net New Money (CHF)
-        </span>
+        </div>
+        {chartInsights.length > 0 ? (
+          <div className="risk-chart-insights" aria-label="Chart insights">
+            {chartInsights.map((insight) => (
+              <span key={`${insight.date}-${insight.label}`}>
+                <strong>{insight.date}</strong>
+                {insight.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div
@@ -359,13 +338,11 @@ export function RiskIntelligenceOverview({
             />
             <YAxis
               axisLine={false}
-              domain={[-1.5, 1.5]}
+              domain={moneyAxis.domain}
               orientation="right"
-              tickFormatter={(value) =>
-                value === 0 ? "0" : `${Number(value).toFixed(1)}B`
-              }
+              tickFormatter={formatBillionsTick}
               tickLine={false}
-              ticks={[-1.5, -0.75, 0, 0.75, 1.5]}
+              ticks={moneyAxis.ticks}
               width={60}
               yAxisId="money"
             />
@@ -378,26 +355,6 @@ export function RiskIntelligenceOverview({
               position={tooltipPosition.position}
               wrapperStyle={tooltipWrapperStyle}
             />
-            {eventMarkers.map(({ index, point }) => (
-              <ReferenceLine
-                ifOverflow="extendDomain"
-                key={point.date}
-                label={
-                  <RiskEventMarkerLabel
-                    date={point.date}
-                    label={point.eventLabel ?? ""}
-                    textAnchor={createEventMarkerTextAnchor(
-                      index,
-                      chartData.length,
-                    )}
-                  />
-                }
-                stroke="#94a3b8"
-                strokeDasharray="5 6"
-                x={point.date}
-                yAxisId="aum"
-              />
-            ))}
             <Area
               dataKey="noRiskB"
               fill="url(#noRiskGradient)"
@@ -1004,15 +961,6 @@ const createXAxisTicks = (data: RiskLayerDatum[]) => {
   ];
 };
 
-const createEventMarkerTextAnchor = (
-  index: number,
-  pointCount: number,
-): "start" | "middle" | "end" => {
-  if (index <= 1) return "start";
-  if (index >= pointCount - 2) return "end";
-  return "middle";
-};
-
 const createAumAxis = (data: RiskLayerDatum[]) => {
   const maxStack = Math.max(
     ...data.map(
@@ -1028,7 +976,60 @@ const createAumAxis = (data: RiskLayerDatum[]) => {
   };
 };
 
+const createMoneyAxis = (data: RiskLayerDatum[]): ChartAxis => {
+  const maxAbsoluteValue = Math.max(
+    ...data.map((point) => Math.abs(point.netNewMoneyB)),
+    0.1,
+  );
+  const step = chooseMoneyAxisStep((maxAbsoluteValue * 1.2) / 2);
+  const max = roundB(step * 2);
+
+  return {
+    domain: [-max, max],
+    ticks: [-max, -step, 0, step, max].map(roundB),
+  };
+};
+
+const chooseMoneyAxisStep = (minimumStep: number) =>
+  moneyAxisSteps.find((step) => step >= minimumStep) ??
+  moneyAxisSteps[moneyAxisSteps.length - 1] ??
+  1;
+
+const moneyAxisSteps = [
+  0.05,
+  0.1,
+  0.25,
+  0.5,
+  0.75,
+  1,
+  1.5,
+  2.5,
+  5,
+  7.5,
+  10,
+  15,
+  25,
+] as const;
+
+const createChartInsights = (data: RiskLayerDatum[]): ChartInsight[] =>
+  data
+    .filter((point) => point.eventLabel)
+    .slice(0, 3)
+    .map((point) => ({
+      date: point.date,
+      label: point.eventLabel ?? "",
+    }));
+
 const roundUpToNiceStep = (value: number) => Math.ceil(value / 5) * 5;
+
+const formatBillionsTick = (value: number | string) => {
+  const numericValue = Number(value);
+  if (numericValue === 0) return "0";
+  return `${trimTrailingZeroes(numericValue.toFixed(Math.abs(numericValue) < 1 ? 2 : 1))}B`;
+};
+
+const trimTrailingZeroes = (value: string) =>
+  value.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
 
 const createRiskSummaryRows = (
   rows: AdvisoryWorklistRow[],
