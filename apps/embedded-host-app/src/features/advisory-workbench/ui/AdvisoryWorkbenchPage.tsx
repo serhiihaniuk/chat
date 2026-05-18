@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HostCommand } from "@side-chat/shared-protocol";
 
 import { useHostSurfaceRegistration } from "../../../shared/host-surface/HostSurfaceProvider.js";
@@ -23,11 +23,15 @@ import {
   RiskIntelligenceOverview,
   RiskIntelligenceRail,
 } from "./WorkbenchAnalytics.js";
-import { WorkbenchFilterBar } from "./WorkbenchFilterBar.js";
+import {
+  WorkbenchFilterBar,
+  type WorkbenchHighlightId,
+} from "./WorkbenchFilterBar.js";
 
 const workspaceId = "demo-workspace";
 const citationSelectedEventName = "sidechat:citation-selected";
 const citationHighlightDurationMs = 15_000;
+const aiControlHighlightDurationMs = 5_000;
 
 type CitationSelectedEvent = CustomEvent<{ sourceId?: unknown }>;
 type HostCommandEvent = CustomEvent<HostCommand>;
@@ -48,7 +52,14 @@ export function AdvisoryWorkbenchPage() {
   const [controls, setControls] = useState<WorkbenchControlState>(
     defaultWorkbenchControlState,
   );
+  const [aiHighlightedControlIds, setAiHighlightedControlIds] = useState<
+    WorkbenchHighlightId[]
+  >([]);
   const citationClearTimerRef = useRef<number | undefined>(undefined);
+  const aiControlHighlightTimerRef = useRef<number | undefined>(undefined);
+  const controlsRef = useRef<WorkbenchControlState>(
+    defaultWorkbenchControlState,
+  );
   const pageSnapshot = useMemo(
     () =>
       snapshot
@@ -67,6 +78,34 @@ export function AdvisoryWorkbenchPage() {
   );
 
   useHostSurfaceRegistration(hostSurface);
+
+  const clearAiControlHighlights = useCallback(() => {
+    window.clearTimeout(aiControlHighlightTimerRef.current);
+    setAiHighlightedControlIds([]);
+  }, []);
+
+  const flashAiControlHighlights = useCallback(
+    (controlIds: readonly WorkbenchHighlightId[]) => {
+      const uniqueControlIds = [...new Set(controlIds)];
+      if (uniqueControlIds.length === 0) return;
+
+      window.clearTimeout(aiControlHighlightTimerRef.current);
+      setAiHighlightedControlIds(uniqueControlIds);
+      aiControlHighlightTimerRef.current = window.setTimeout(() => {
+        setAiHighlightedControlIds([]);
+      }, aiControlHighlightDurationMs);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    controlsRef.current = controls;
+  }, [controls]);
+
+  useEffect(
+    () => () => window.clearTimeout(aiControlHighlightTimerRef.current),
+    [],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -116,26 +155,39 @@ export function AdvisoryWorkbenchPage() {
       if (!command || typeof command.type !== "string") return;
 
       if (command.type === "grid.applyView") {
+        const currentControls = controlsRef.current;
+        const nextControls = inferWorkbenchControlStateFromGridView(
+          {
+            filters: command.view.filters,
+            sort: command.view.sort,
+            highlightRowIds: command.view.highlightRowIds,
+            sequence: Date.now(),
+          },
+          currentControls,
+          snapshot?.asOfDate,
+        );
+
         setGridViews((current) => reduceGridViews(current, command));
-        setControls((current) =>
-          inferWorkbenchControlStateFromGridView(
-            {
-              filters: command.view.filters,
-              sort: command.view.sort,
-              highlightRowIds: command.view.highlightRowIds,
-              sequence: Date.now(),
-            },
-            current,
-            snapshot?.asOfDate,
-          ),
+        controlsRef.current = nextControls;
+        setControls(nextControls);
+        flashAiControlHighlights(
+          createChangedControlHighlights(currentControls, nextControls),
         );
         scrollHostResourceIntoView(command.resourceId);
         return;
       }
 
       if (command.type === "grid.clearView") {
+        const currentControls = controlsRef.current;
         setGridViews((current) => reduceGridViews(current, command));
+        controlsRef.current = defaultWorkbenchControlState;
         setControls(defaultWorkbenchControlState);
+        flashAiControlHighlights(
+          createChangedControlHighlights(
+            currentControls,
+            defaultWorkbenchControlState,
+          ),
+        );
         if (typeof command.resourceId === "string") {
           scrollHostResourceIntoView(command.resourceId);
         }
@@ -153,10 +205,12 @@ export function AdvisoryWorkbenchPage() {
     window.addEventListener("sidechat:host-command", onHostCommand);
     return () =>
       window.removeEventListener("sidechat:host-command", onHostCommand);
-  }, [snapshot?.asOfDate]);
+  }, [flashAiControlHighlights, snapshot?.asOfDate]);
 
   const applyControls = (next: WorkbenchControlState) => {
     const view = createWorkbenchControlGridView(next, snapshot?.asOfDate);
+    clearAiControlHighlights();
+    controlsRef.current = next;
     setControls(next);
     setGridViews((current) => ({
       ...current,
@@ -198,6 +252,7 @@ export function AdvisoryWorkbenchPage() {
           <>
             <WorkbenchFilterBar
               controls={controls}
+              highlightedControlIds={aiHighlightedControlIds}
               onChange={applyControls}
               snapshot={snapshot}
             />
@@ -223,4 +278,64 @@ const scrollHostResourceIntoView = (resourceId: string) => {
   document
     .querySelector(`[data-host-resource-id="${CSS.escape(resourceId)}"]`)
     ?.scrollIntoView({ behavior: "smooth", block: "center" });
+};
+
+const createChangedControlHighlights = (
+  previous: WorkbenchControlState,
+  next: WorkbenchControlState,
+): WorkbenchHighlightId[] => {
+  const controlIds: WorkbenchHighlightId[] = [];
+
+  pushIfChanged(controlIds, "viewQueue", previous.viewQueue, next.viewQueue);
+  pushIfChanged(
+    controlIds,
+    "clientSegment",
+    previous.clientSegment,
+    next.clientSegment,
+  );
+  pushIfChanged(controlIds, "priority", previous.priority, next.priority);
+  pushIfChanged(
+    controlIds,
+    "riskCategory",
+    previous.riskCategory,
+    next.riskCategory,
+  );
+  pushIfChanged(
+    controlIds,
+    "dueStatus",
+    previous.dueStatus,
+    next.dueStatus,
+  );
+  pushIfChanged(
+    controlIds,
+    "dueWindow",
+    previous.dueWindow,
+    next.dueWindow,
+  );
+  pushIfChanged(controlIds, "rmAdvisor", previous.rmAdvisor, next.rmAdvisor);
+  pushIfChanged(controlIds, "sortBy", previous.sortBy, next.sortBy);
+
+  const changedQuickFilters = new Set([
+    ...previous.quickFilters,
+    ...next.quickFilters,
+  ]);
+  for (const quickFilter of changedQuickFilters) {
+    if (
+      previous.quickFilters.includes(quickFilter) !==
+      next.quickFilters.includes(quickFilter)
+    ) {
+      controlIds.push(quickFilter);
+    }
+  }
+
+  return controlIds;
+};
+
+const pushIfChanged = (
+  controlIds: WorkbenchHighlightId[],
+  controlId: WorkbenchHighlightId,
+  previous: string,
+  next: string,
+) => {
+  if (previous !== next) controlIds.push(controlId);
 };

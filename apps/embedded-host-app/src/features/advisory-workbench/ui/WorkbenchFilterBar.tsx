@@ -39,11 +39,12 @@ import {
 
 type WorkbenchFilterBarProps = {
   controls: WorkbenchControlState;
+  highlightedControlIds?: readonly WorkbenchHighlightId[];
   onChange: (next: WorkbenchControlState) => void;
   snapshot: AdvisoryDashboardSnapshot;
 };
 
-type ControlId =
+export type WorkbenchControlId =
   | "viewQueue"
   | "clientSegment"
   | "priority"
@@ -53,8 +54,10 @@ type ControlId =
   | "rmAdvisor"
   | "sortBy";
 
+export type WorkbenchHighlightId = WorkbenchControlId | WorkbenchQuickFilterId;
+
 type ToolbarControl<TValue extends string = string> = {
-  id: ControlId;
+  id: WorkbenchControlId;
   icon: typeof ListFilter;
   label: string;
   options: readonly WorkbenchControlOption<TValue>[];
@@ -63,10 +66,17 @@ type ToolbarControl<TValue extends string = string> = {
 
 export function WorkbenchFilterBar({
   controls,
+  highlightedControlIds = [],
   onChange,
   snapshot,
 }: WorkbenchFilterBarProps) {
-  const [openControl, setOpenControl] = useState<ControlId | null>(null);
+  const [openControl, setOpenControl] = useState<WorkbenchControlId | null>(
+    null,
+  );
+  const highlightedControls = useMemo(
+    () => new Set<WorkbenchHighlightId>(highlightedControlIds),
+    [highlightedControlIds],
+  );
   const segmentOptions = useMemo(() => createSegmentOptions(snapshot), [snapshot]);
   const rmOptions = useMemo(() => createRmOptions(snapshot), [snapshot]);
   const toolbarControls = useMemo(
@@ -132,7 +142,7 @@ export function WorkbenchFilterBar({
     [controls, rmOptions, segmentOptions],
   );
 
-  const selectControlValue = (id: ControlId, value: string) => {
+  const selectControlValue = (id: WorkbenchControlId, value: string) => {
     onChange(updateControlValue(controls, id, value));
     setOpenControl(null);
   };
@@ -160,6 +170,7 @@ export function WorkbenchFilterBar({
         {toolbarControls.map((control) => (
           <ToolbarControlMenu
             control={control}
+            isAiHighlighted={highlightedControls.has(control.id)}
             isOpen={openControl === control.id}
             key={control.id}
             onOpenChange={(isOpen) =>
@@ -177,7 +188,9 @@ export function WorkbenchFilterBar({
           return (
             <button
               aria-pressed={active}
-              className={`quick-filter-pill${active ? " is-active" : ""}`}
+              className={`quick-filter-pill${active ? " is-active" : ""}${
+                highlightedControls.has(filter.value) ? " is-ai-highlighted" : ""
+              }`}
               key={filter.value}
               onClick={() => toggleQuickFilter(filter.value)}
               type="button"
@@ -198,14 +211,16 @@ export function WorkbenchFilterBar({
 
 const ToolbarControlMenu = ({
   control,
+  isAiHighlighted,
   isOpen,
   onOpenChange,
   onSelect,
 }: {
   control: ToolbarControl;
+  isAiHighlighted: boolean;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSelect: (id: ControlId, value: string) => void;
+  onSelect: (id: WorkbenchControlId, value: string) => void;
 }) => {
   const Icon = control.icon;
   const selectedLabel =
@@ -216,7 +231,9 @@ const ToolbarControlMenu = ({
     <div className="toolbar-control-menu">
       <button
         aria-expanded={isOpen}
-        className={`toolbar-control${isOpen ? " is-open" : ""}`}
+        className={`toolbar-control${isOpen ? " is-open" : ""}${
+          isAiHighlighted ? " is-ai-highlighted" : ""
+        }`}
         onClick={() => onOpenChange(!isOpen)}
         type="button"
       >
@@ -253,7 +270,7 @@ const ToolbarControlMenu = ({
 
 const updateControlValue = (
   current: WorkbenchControlState,
-  id: ControlId,
+  id: WorkbenchControlId,
   value: string,
 ): WorkbenchControlState => {
   if (id === "viewQueue") {
