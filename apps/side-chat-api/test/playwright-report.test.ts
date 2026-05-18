@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createAnalystNoteParagraphs } from "#adapters/reports/playwright-report.js";
+import {
+  createAnalystNoteParagraphs,
+  createReportHtml,
+} from "#adapters/reports/playwright-report.js";
 
 const reportData = {
   kpis: {
@@ -63,5 +66,55 @@ describe("workbench report analyst note", () => {
     expect(paragraphs).toEqual([
       "Include a client-ready paragraph about improving momentum.",
     ]);
+  });
+
+  it("renders a data-backed top-risk portfolio report from dashboard rows", () => {
+    const html = createReportHtml({
+      title: "Top Risk Portfolios - Risk Report",
+      focus: "risk_review",
+      sections: ["kpis", "risk_accounts", "net_new_money_trend"],
+      noteKind: "risk_rationale",
+      generatedAt: "2026-05-18",
+      snapshot: {
+        kpis: [
+          { label: "Total AUM", value: "CHF 24.8B" },
+          { label: "Net New Money", value: "CHF 562M" },
+          { label: "Advisory Coverage", value: "78%" },
+          { label: "At-Risk Accounts", value: "52" },
+          { label: "Compliance Alerts", value: "7" },
+        ],
+      },
+      clients: [
+        {
+          clientId: "client-global-medtech",
+          client: "Global MedTech Inc.",
+          aumChf: 654_000_000,
+          netFlow30dChf: -8_000_000,
+          nextAction: "Liquidity plan",
+          relationshipManager: "R. Li",
+        },
+      ],
+      risks: [
+        {
+          clientId: "client-global-medtech",
+          client: "Global MedTech Inc.",
+          issue: "Liquidity gap",
+          priority: "High",
+          exposureChf: 112_000_000,
+          owner: "R. Li",
+          dueDate: "2026-05-20",
+        },
+      ],
+      allocation: [],
+      trend: [{ label: "May '26", netNewMoneyChf: 562_000_000 }],
+    });
+
+    expect(html).toContain("Top Risk Portfolios");
+    expect(html).toContain("Global MedTech Inc.");
+    expect(html).toContain("Liquidity gap");
+    expect(html).toContain("CHF 112M");
+    expect(html).toContain("(8M)");
+    expect(html).toContain("May '26: CHF 562M");
+    expect(html).not.toContain("n/a</div></div>");
   });
 });

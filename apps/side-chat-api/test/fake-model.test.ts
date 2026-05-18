@@ -159,6 +159,63 @@ describe("fakeModelAdapter", () => {
     ).toBe(true);
   });
 
+  it("gathers risk data before generating a specific top-risk report", async () => {
+    const generated = vi.fn(async () => ({
+      reportId: "report-risk",
+      fileName: "report-risk.pdf",
+      reportUrl: "http://127.0.0.1:3000/reports/report-risk.pdf",
+      title: "Top Risk Portfolios - Risk Report",
+      pages: 1 as const,
+      sections: ["kpis", "risk_accounts", "biggest_clients", "net_new_money_trend"] as const,
+    }));
+    const queried = vi.fn(async ({ query }) => ({
+      query: query.query,
+      workspaceId: "demo-workspace",
+      data: [],
+      sources: [],
+    }));
+    const chunks = [];
+
+    for await (const chunk of createFakeModelAdapter({
+      chunkDelayMs: 0,
+    }).stream({
+      ...request,
+      message: {
+        id: "msg-risk-report",
+        role: "user",
+        content:
+          "gather data about our top risk portfolios then generate a risk report",
+      },
+      workbenchReports: { generate: generated },
+      workbenchTools: { query: queried },
+      userId: "local-user",
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(queried).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: { query: "top_risk_accounts" },
+      }),
+    );
+    expect(generated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        report: expect.objectContaining({
+          title: "Top Risk Portfolios - Risk Report",
+          focus: "risk_review",
+          noteKind: "risk_rationale",
+          sections: ["kpis", "risk_accounts", "biggest_clients", "net_new_money_trend"],
+        }),
+      }),
+    );
+    expect(
+      chunks
+        .filter((chunk) => chunk.kind === "delta")
+        .map((chunk) => chunk.text)
+        .join(""),
+    ).toBe("Report ready.");
+  });
+
   it("does not generate a report for unrelated workbench questions", async () => {
     const generated = vi.fn();
     const queried = vi.fn(async ({ query }) => ({

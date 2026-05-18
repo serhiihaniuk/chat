@@ -58,7 +58,7 @@ const createResponseChunks = (modelId: string, prompt: string) => [
 const isGenericReportRequest = (content: string) =>
   /\b(generate|create|export|build|make)\b/i.test(content) &&
   /\b(report|pdf|briefing)\b/i.test(content) &&
-  !/\b(default|defaults|go ahead|proceed|executive_summary|risk_review|client_coverage|portfolio_allocation|kpis|biggest_clients|risk_accounts|product_allocation|net_new_money_trend)\b/i.test(
+  !/\b(default|defaults|go ahead|proceed|risk|top risk|portfolio|portfolios|client|coverage|allocation|trend|outflow|executive_summary|risk_review|client_coverage|portfolio_allocation|kpis|biggest_clients|risk_accounts|product_allocation|net_new_money_trend)\b/i.test(
     content,
   );
 
@@ -73,6 +73,26 @@ const shouldGenerateReport = (content: string) =>
     /\b(report|pdf|briefing)\b/i.test(content) &&
     !isGenericReportRequest(content)) ||
   isReportContinuationRequest(content);
+
+const createReportInput = (content: string): WorkbenchReportInput => {
+  if (/\b(risk|top risk|portfolio|portfolios|outflow)\b/i.test(content)) {
+    return {
+      title: "Top Risk Portfolios - Risk Report",
+      focus: "risk_review",
+      sections: ["kpis", "risk_accounts", "biggest_clients", "net_new_money_trend"],
+      noteKind: "risk_rationale",
+      note: "Summarize the highest-priority portfolio risks, exposure concentration, owner handoff, due dates, and recent money-flow pressure for RM follow-up.",
+    };
+  }
+
+  return {
+    title: "UBS Partner Workbench Briefing",
+    focus: "executive_summary",
+    sections: ["kpis", "biggest_clients", "risk_accounts"],
+    noteKind: "next_action",
+    note: "Use this briefing for RM handoff; confirm flagged risks and coverage status before client outreach.",
+  };
+};
 
 const resolveHostCommand = (content: string): HostCommand | undefined => {
   if (/\b(this week|next week|next 7 days|next seven days|next 14 days|next two weeks|this month|due today|today)\b/i.test(content)) {
@@ -304,10 +324,13 @@ export const createFakeModelAdapter = (
           ];
     }
 
+    const reportRequested = shouldGenerateReport(request.message.content);
     const chunks = surfaceAnswerChunks ?? (hostCommand
       ? [createHostCommandResponse(hostCommand)]
       : isGenericReportRequest(request.message.content)
       ? reportClarificationChunks
+      : reportRequested
+      ? ["Report ready."]
       : createResponseChunks(request.model.id, request.message.content));
     const chunkDelayMs = options.chunkDelayMs ?? parseChunkDelayMs();
 
@@ -346,16 +369,10 @@ export const createFakeModelAdapter = (
     if (
       request.workbenchReports &&
       request.workbenchTools &&
-      shouldGenerateReport(request.message.content) &&
+      reportRequested &&
       !isGenericReportRequest(request.message.content)
     ) {
-      const input: WorkbenchReportInput = {
-        title: "UBS Partner Workbench Briefing",
-        focus: "executive_summary" as const,
-        sections: ["kpis", "biggest_clients", "risk_accounts"],
-        noteKind: "next_action",
-        note: "Use this briefing for RM handoff; confirm flagged risks and coverage status before client outreach.",
-      };
+      const input = createReportInput(request.message.content);
       yield {
         kind: "tool",
         toolCallId: "fake-workbench-report-1",

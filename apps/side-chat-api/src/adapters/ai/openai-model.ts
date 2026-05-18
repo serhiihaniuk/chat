@@ -177,7 +177,7 @@ const createWorkbenchTools = (request: ModelRequest) => {
     ...tools,
     generate_workbench_report: tool({
       description:
-        "Generate a one-page UBS Partner Advisory Workbench PDF report from approved backend workbench data. Inputs control title, focus, sections, analyst note treatment, and report-ready note text only; HTML and file paths are not accepted.",
+        "Generate a one-page UBS Partner Advisory Workbench PDF report from approved backend workbench data. For specific requests like top risk portfolios or allocation reports, gather the relevant workbench data first, then call this with a matching title, focus, sections, and data-derived analyst note. Inputs control title, focus, sections, analyst note treatment, and report-ready note text only; HTML and file paths are not accepted.",
       inputSchema: workbenchReportInputSchema,
       strict: true,
       execute: async (input) =>
