@@ -321,6 +321,31 @@ on conflict (id) do update set
   owner_relationship_manager_id = excluded.owner_relationship_manager_id,
   due_date = excluded.due_date;
 
+insert into ubs_partner.risk_accounts (id, workspace_id, client_id, issue, exposure_chf, priority, owner_relationship_manager_id, due_date) values
+  ('risk-ackermann-concentration', 'demo-workspace', 'client-ackermann-family-office', 'Single-name concentration', 62000000, 'Medium', 'rm-s-meier', '2025-07-03'),
+  ('risk-bauhaus-working-capital', 'demo-workspace', 'client-bauhaus-enterprises-ag', 'Working-capital drawdown', 57000000, 'Medium', 'rm-m-keller', '2025-07-05'),
+  ('risk-fischer-estate-liquidity', 'demo-workspace', 'client-fischer-family', 'Estate liquidity review', 24000000, 'Low', 'rm-c-weber', '2025-07-14'),
+  ('risk-horvath-allocation-drift', 'demo-workspace', 'client-horvath-foundation', 'Allocation drift review', 31000000, 'Low', 'rm-d-schmid', '2025-07-16'),
+  ('risk-iverson-tax-collateral', 'demo-workspace', 'client-iverson-family-trust', 'Tax collateral timing', 29000000, 'Low', 'rm-e-martin', '2025-07-19'),
+  ('risk-nordstern-credit-spread', 'demo-workspace', 'client-nordstern-capital', 'Credit spread widening', 76000000, 'Medium', 'rm-n-brunner', '2025-07-06'),
+  ('risk-rhein-mandate-renewal', 'demo-workspace', 'client-rhein-wealth-partners', 'Mandate renewal risk', 36000000, 'Low', 'rm-v-kapoor', '2025-07-17'),
+  ('risk-lakeview-impact-liquidity', 'demo-workspace', 'client-lakeview-foundation', 'Impact liquidity timing', 33000000, 'Low', 'rm-d-schmid', '2025-07-20'),
+  ('risk-cobalt-treasury-concentration', 'demo-workspace', 'client-cobalt-medical-group', 'Treasury concentration', 54000000, 'Medium', 'rm-r-li', '2025-07-08'),
+  ('risk-st-gallen-estate-window', 'demo-workspace', 'client-st-gallen-family-office', 'Estate planning window', 27000000, 'Low', 'rm-c-weber', '2025-07-21'),
+  ('risk-summit-liquidity-window', 'demo-workspace', 'client-summit-ventures', 'Liquidity window review', 59000000, 'Medium', 'rm-m-keller', '2025-07-09'),
+  ('risk-limmat-redemption-flow', 'demo-workspace', 'client-limmat-opportunity-fund', 'Redemption flow watch', 48000000, 'Medium', 'rm-a-patel', '2025-07-10'),
+  ('risk-cedar-beneficiary-timing', 'demo-workspace', 'client-cedar-lake-trust', 'Beneficiary liquidity timing', 26000000, 'Low', 'rm-e-martin', '2025-07-22'),
+  ('risk-orion-tax-concentration', 'demo-workspace', 'client-orion-family-trust', 'Tax concentration review', 39000000, 'Low', 'rm-n-brunner', '2025-07-18'),
+  ('risk-aare-grant-liquidity', 'demo-workspace', 'client-aare-endowment', 'Grant liquidity buffer', 30000000, 'Low', 'rm-d-schmid', '2025-07-23'),
+  ('risk-verbier-alternatives-pacing', 'demo-workspace', 'client-verbier-private-wealth', 'Alternatives pacing risk', 44000000, 'Medium', 'rm-l-rossi', '2025-07-11'),
+  ('risk-crescent-mandate-expansion', 'demo-workspace', 'client-crescent-family-office', 'Mandate expansion review', 35000000, 'Low', 'rm-s-meier', '2025-07-24')
+on conflict (id) do update set
+  issue = excluded.issue,
+  exposure_chf = excluded.exposure_chf,
+  priority = excluded.priority,
+  owner_relationship_manager_id = excluded.owner_relationship_manager_id,
+  due_date = excluded.due_date;
+
 with generated_risks as (
   select
     idx,
@@ -357,7 +382,7 @@ with generated_risks as (
       'rm-v-kapoor'
     ])[((idx - 1) % 12) + 1] as owner_relationship_manager_id,
     (date '2025-06-30' + (((idx % 45) - 12) * interval '1 day'))::date as due_date
-  from generate_series(1, 52) as series(idx)
+  from generate_series(1, 68) as series(idx)
 )
 insert into ubs_partner.risk_accounts (
   id,

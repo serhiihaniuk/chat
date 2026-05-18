@@ -52,8 +52,6 @@ export const createWorklistRows = (
         left.dueDate.localeCompare(right.dueDate) ||
         right.exposureChf - left.exposureChf,
     )[0];
-    const dueStatus = getDueStatus(topRisk?.dueDate, snapshot.asOfDate);
-
     return {
       id: client.id,
       sourceIds: [
@@ -76,7 +74,7 @@ export const createWorklistRows = (
       riskExposureChf: topRisk?.exposureChf ?? null,
       priority: topRisk?.priority ?? "None",
       dueDate: topRisk?.dueDate ?? "",
-      dueStatus,
+      dueStatus: getDueStatus(topRisk?.dueDate, snapshot.asOfDate),
     };
   });
 };
