@@ -492,9 +492,10 @@ button:disabled {
 }
 
 .analytics-card {
+  position: relative;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .risk-overview-card {
@@ -628,10 +629,22 @@ button:disabled {
 }
 
 .risk-layer-chart-shell {
+  position: relative;
   height: 100%;
   min-height: 0;
   flex: 1 1 auto;
+  overflow: visible;
   padding: 4px 18px 12px 16px;
+}
+
+.analytics-card .recharts-wrapper,
+.analytics-card .recharts-surface {
+  overflow: visible;
+}
+
+.analytics-card .recharts-tooltip-wrapper {
+  z-index: 80 !important;
+  pointer-events: none;
 }
 
 .risk-overview-card .recharts-cartesian-axis-tick-value,
@@ -661,7 +674,7 @@ button:disabled {
   min-height: 0;
   grid-template-rows: minmax(0, 35fr) minmax(0, 35fr) minmax(0, 30fr);
   gap: 18px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .rail-card-title-row,
@@ -747,11 +760,13 @@ button:disabled {
 }
 
 .risk-composition-body {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: 1 1 0;
   min-height: 0;
+  overflow: visible;
   padding: 0 24px 4px;
 }
 
@@ -761,6 +776,7 @@ button:disabled {
   height: 100%;
   max-height: 280px;
   min-height: 0;
+  overflow: visible;
 }
 
 .risk-donut-center {
@@ -774,10 +790,6 @@ button:disabled {
   pointer-events: none;
   text-align: center;
   transform: translate(-50%, -50%);
-}
-
-.risk-donut-shell .recharts-tooltip-wrapper {
-  z-index: 8 !important;
 }
 
 .risk-donut-center strong {
@@ -816,8 +828,10 @@ button:disabled {
 }
 
 .momentum-chart-shell {
+  position: relative;
   height: 16px;
   min-height: 16px;
+  overflow: visible;
 }
 
 .waterfall-value-label {
@@ -876,8 +890,10 @@ button:disabled {
 }
 
 .radar-chart-shell {
+  position: relative;
   height: 100%;
   min-height: 170px;
+  overflow: visible;
 }
 
 .risk-scale-note {
@@ -908,8 +924,10 @@ button:disabled {
 }
 
 .waterfall-chart-shell {
+  position: relative;
   height: 100%;
   min-height: 0;
+  overflow: visible;
 }
 
 .waterfall-card .recharts-cartesian-axis-tick-value,
