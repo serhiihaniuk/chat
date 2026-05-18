@@ -368,7 +368,7 @@ export function RiskIntelligenceOverview({
               stroke="#059669"
               strokeOpacity={0.52}
               strokeWidth={1}
-              type="monotone"
+              type="linear"
               yAxisId="aum"
             />
             <Area
@@ -381,7 +381,7 @@ export function RiskIntelligenceOverview({
               stroke="#14b8a6"
               strokeOpacity={0.52}
               strokeWidth={1}
-              type="monotone"
+              type="linear"
               yAxisId="aum"
             />
             <Area
@@ -394,7 +394,7 @@ export function RiskIntelligenceOverview({
               stroke="#f59e0b"
               strokeOpacity={0.48}
               strokeWidth={1}
-              type="monotone"
+              type="linear"
               yAxisId="aum"
             />
             <Area
@@ -407,28 +407,30 @@ export function RiskIntelligenceOverview({
               stroke="#ef4444"
               strokeOpacity={0.5}
               strokeWidth={1}
-              type="monotone"
+              type="linear"
               yAxisId="aum"
             />
             <Line
               activeDot={{
                 fill: "#0b3a82",
-                r: 5,
+                r: 5.6,
                 stroke: "#ffffff",
-                strokeWidth: 2,
+                strokeWidth: 2.2,
               }}
               dataKey="netNewMoneyB"
               dot={{
                 fill: "#0b3a82",
-                r: 3,
+                r: 3.6,
                 stroke: "#ffffff",
-                strokeWidth: 1.5,
+                strokeWidth: 1.7,
               }}
               isAnimationActive={false}
               name="Net New Money"
               stroke="#0b3a82"
-              strokeWidth={2.8}
-              type="monotone"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={3.15}
+              type="linear"
               yAxisId="money"
             />
           </ComposedChart>
