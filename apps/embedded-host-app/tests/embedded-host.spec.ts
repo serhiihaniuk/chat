@@ -52,6 +52,12 @@ test("embedded Workbench page scrolls normally on mobile", async ({ page }) => {
     page.getByRole("heading", { name: "Advisory Workbench" }),
   ).toBeVisible();
   await expect(
+    page.getByRole("region", { name: "Workbench page controls" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Risk Intelligence Overview" }),
+  ).toBeHidden();
+  await expect(
     page.getByRole("heading", { name: "Portfolio Worklist" }),
   ).toBeVisible();
 

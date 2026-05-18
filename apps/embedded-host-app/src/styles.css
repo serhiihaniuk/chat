@@ -2462,15 +2462,22 @@ tbody tr:last-child td {
 
   .primary-workbench-column {
     display: grid;
-    grid-template-rows: auto auto;
+    grid-template-rows: auto;
     gap: 12px;
     min-height: 0;
     overflow: visible;
   }
 
   .risk-overview-card {
-    height: min(560px, calc(100dvh - 110px));
-    min-height: 440px;
+    display: none;
+  }
+
+  .risk-intelligence-rail,
+  .secondary-analytics-rail,
+  .insight-rail,
+  .chart-card,
+  .compact-card {
+    display: none;
   }
 
   .risk-layer-chart-shell {
