@@ -324,8 +324,8 @@ button:disabled {
 .toolbar-control.is-ai-highlighted,
 .quick-filter-pill.is-ai-highlighted {
   box-shadow:
-    inset 0 0 0 1px rgb(16 185 129 / 22%),
-    0 10px 26px rgb(15 23 42 / 8%);
+    inset 0 0 0 1px rgb(245 158 11 / 34%),
+    0 8px 18px rgb(15 23 42 / 5%);
 }
 
 .toolbar-control.is-ai-highlighted::after,
@@ -335,15 +335,7 @@ button:disabled {
   z-index: 0;
   border-radius: inherit;
   animation: ai-tool-highlight-fade 5s ease-out forwards;
-  background:
-    linear-gradient(
-      105deg,
-      rgb(16 185 129 / 20%) 0%,
-      rgb(94 234 212 / 18%) 34%,
-      rgb(11 58 130 / 10%) 68%,
-      rgb(239 68 68 / 10%) 100%
-    );
-  background-size: 240% 100%;
+  background: rgb(254 243 199 / 72%);
   content: "";
   pointer-events: none;
 }
@@ -351,17 +343,14 @@ button:disabled {
 @keyframes ai-tool-highlight-fade {
   0% {
     opacity: 1;
-    background-position: 0% 50%;
   }
 
   45% {
-    opacity: 0.82;
-    background-position: 80% 50%;
+    opacity: 0.78;
   }
 
   100% {
     opacity: 0;
-    background-position: 100% 50%;
   }
 }
 
