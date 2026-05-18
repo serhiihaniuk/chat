@@ -69,6 +69,7 @@ export const ChatComposer = ({
     <PromptInputToolbar>
       <PromptInputTools>
         <Context
+          className="max-sm:hidden"
           description="Visible conversation context is trimmed to the last 12 messages and 6k characters."
           label="Context"
           maxTokens={recentContextTotalCharacters}
@@ -102,7 +103,7 @@ const PageContextIndicator = () => {
   const tooltipId = useId();
 
   return (
-    <span className="group/page-context relative inline-flex shrink-0">
+    <span className="group/page-context relative inline-flex shrink-0 max-sm:hidden">
       <span
         aria-describedby={tooltipId}
         aria-label="Using current page context"

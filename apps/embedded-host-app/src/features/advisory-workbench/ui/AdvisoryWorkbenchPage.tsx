@@ -17,7 +17,6 @@ import {
 } from "../model/workbench-controls.js";
 import { createWorkbenchPageSnapshot } from "../model/workbench-page-snapshot.js";
 import { AdvisoryWorklistTable } from "./AdvisoryWorklistTable.js";
-import { HeaderControls } from "./HeaderControls.js";
 import { Sidebar } from "./Sidebar.js";
 import {
   RiskIntelligenceOverview,
@@ -231,9 +230,6 @@ export function AdvisoryWorkbenchPage() {
               advisory coverage, and risk.
             </p>
           </div>
-          <HeaderControls
-            dateRangeLabel={snapshot?.dateRange.label ?? "Loading range"}
-          />
         </header>
 
         {status === "loading" ? (
