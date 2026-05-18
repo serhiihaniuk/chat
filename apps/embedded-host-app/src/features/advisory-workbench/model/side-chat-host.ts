@@ -22,7 +22,7 @@ const createAdvisoryWorkbenchHostContext = (
   worklistView: AdvisoryGridViewState | undefined,
 ): HostContextSnapshot => ({
   pageId: "advisory-workbench",
-  title: "UBS Partner Advisory Workbench",
+  title: "Advisory Dashboard",
   summary: [
     "Single-page advisory dashboard with a top command bar and a unified portfolio worklist combining relationship, portfolio performance, risk, due-date, and next-action fields.",
     `Current command bar: ${formatWorkbenchControlSummary(controls)}.`,

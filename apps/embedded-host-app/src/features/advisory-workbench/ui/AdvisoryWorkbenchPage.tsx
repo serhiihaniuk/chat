@@ -223,8 +223,8 @@ export function AdvisoryWorkbenchPage() {
       <div className="workbench-main">
         <header className="workbench-header">
           <div>
-            <p className="product-label">UBS Partner</p>
-            <h1>Advisory Workbench</h1>
+            <p className="product-label">Advisory Dashboard</p>
+            <h1>Advisory Dashboard</h1>
             <p className="header-subtitle">
               Real-time overview of relationship, portfolio performance,
               advisory coverage, and risk.

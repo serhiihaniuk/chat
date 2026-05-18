@@ -109,7 +109,7 @@ describe("fakeModelAdapter", () => {
       reportId: "report-1",
       fileName: "report-1.pdf",
       reportUrl: "http://127.0.0.1:3000/reports/report-1.pdf",
-      title: "UBS Partner Workbench Briefing",
+      title: "Advisory Dashboard Briefing",
       pages: 1 as const,
       sections: ["kpis", "biggest_clients", "risk_accounts"] as const,
     }));
@@ -317,7 +317,7 @@ describe("fakeModelAdapter", () => {
         id: "msg-risk-brief",
         role: "user",
         content:
-          "Build a source-backed command-center brief for the Advisory Workbench.",
+          "Build a source-backed command-center brief for the Advisory Dashboard.",
       },
       workbenchTools: { query: queried, surfaceContext },
       userId: "local-user",

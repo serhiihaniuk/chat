@@ -323,7 +323,7 @@ describe("streamChat", () => {
       ...validRequest,
       hostContext: {
         pageId: "advisory-workbench",
-        title: "Advisory Workbench",
+        title: "Advisory Dashboard",
         resources: [
           {
             id: "advisoryWorklist",
@@ -388,7 +388,7 @@ describe("streamChat", () => {
       },
       hostContext: {
         pageId: "advisory-workbench",
-        title: "Advisory Workbench",
+        title: "Advisory Dashboard",
         resources: [
           {
             id: "advisoryWorkbenchControls",
@@ -451,7 +451,7 @@ describe("streamChat", () => {
           });
           return {
             pageId: "advisory-workbench",
-            title: "UBS Partner Advisory Workbench",
+            title: "Advisory Dashboard",
             summary: "Dashboard context resolved by the API.",
             facts: ["At-Risk Accounts is 52."],
           };
@@ -464,7 +464,7 @@ describe("streamChat", () => {
     expect(seenContexts).toEqual([
       {
         pageId: "advisory-workbench",
-        title: "UBS Partner Advisory Workbench",
+        title: "Advisory Dashboard",
         summary: "Dashboard context resolved by the API.",
         facts: ["At-Risk Accounts is 52."],
       },
@@ -606,7 +606,7 @@ describe("streamChat", () => {
               reportId: "report-1",
               fileName: "report-1.pdf",
               reportUrl: "http://127.0.0.1:3000/reports/report-1.pdf",
-              title: "UBS Partner Workbench Briefing",
+              title: "Advisory Dashboard Briefing",
               pages: 1,
               sections: ["kpis"],
             },
@@ -642,7 +642,7 @@ describe("streamChat", () => {
       attachments: [
         {
           id: "tool-report-1",
-          name: "UBS Partner Workbench Briefing.pdf",
+          name: "Advisory Dashboard Briefing.pdf",
           url: "http://127.0.0.1:3000/reports/report-1.pdf",
           mediaType: "application/pdf",
         },

@@ -21,7 +21,7 @@ export type QuickActionsProps = {
 };
 
 export const sourceBackedBriefPrompt =
-  "Build a source-backed command-center brief for the Advisory Workbench. Before answering, check the approved Workbench sources for dashboard KPIs, the current Portfolio Worklist view, top risk accounts, product allocation, and Net New Money trend. Then answer with: 1) executive readout, 2) top 3 risk portfolios with RM, due date, exposure, and 30D flow, 3) allocation or money-flow signal, and 4) next actions.";
+  "Build a source-backed command-center brief for the Advisory Dashboard. Before answering, check the approved dashboard sources for KPIs, the current Portfolio Worklist view, top risk accounts, product allocation, and Net New Money trend. Then answer with: 1) executive readout, 2) top 3 risk portfolios with RM, due date, exposure, and 30D flow, 3) allocation or money-flow signal, and 4) next actions.";
 
 export const QuickActions = ({
   isStreaming,

@@ -19,7 +19,7 @@ The app is feature-complete enough for the current demo. Default future work sho
 - Assume monorepo consumption; npm publishing hardening is not a priority.
 - The model picker is an easter egg/demo affordance unless explicitly made real later.
 - The fake model is useful for tests/local safety, but the demo should be able to run real provider requests when `.env` is configured.
-- Prefer the UBS Partner demo page/data direction before expanding assistant features.
+- Prefer the Advisory Dashboard demo page/data direction before expanding assistant features.
 
 ## Current Topology
 
@@ -27,7 +27,7 @@ The app is feature-complete enough for the current demo. Default future work sho
 apps/
   side-chat-api/        Hono chat API, Effect/application use cases, AI SDK adapter
   dashboard-data-api/   read-only dashboard data API for the host app
-  embedded-host-app/    UBS Partner single-page host consuming the widget package
+  embedded-host-app/    Advisory Dashboard single-page host consuming the widget package
   widget-demo/          isolated widget playground
 packages/
   shared-protocol/      sidechat.v1 Effect schemas, DTOs, SSE codec, sequence rules
@@ -102,9 +102,9 @@ Use fixture mode only when deterministic no-DB local/e2e behavior is more import
 
 For public demo access, use the single-Droplet demo path in `deploy/demo/README.md`. It is intentionally not the production architecture: one Droplet, Caddy as the only public ingress, app containers on a private Docker network, Postgres private to Compose, and named volumes for demo DB/report persistence.
 
-## UBS Partner Host Direction
+## Advisory Dashboard Host Direction
 
-The embedded host app is a single-page UBS Partner advisory workbench.
+The embedded host app is a single-page Advisory Dashboard.
 
 Keep the visual direction restrained: white, charcoal, light gray dividers, sober spacing, and red accent. Avoid playful SaaS blue, gradients, excessive radius, and marketing layouts.
 

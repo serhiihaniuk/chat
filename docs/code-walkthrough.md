@@ -62,7 +62,7 @@ Hexagonal architecture means the center of the system talks in its own language.
 | [DB Package](../packages/db/LEARNING.md) | `pg` isolation, stored procedures/functions, chat persistence, dashboard reads. |
 | [Dashboard Data API](../apps/dashboard-data-api/LEARNING.md) | Read-only dashboard service, fixture vs Postgres source, host data endpoints. |
 | [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md) | Frontend hexagon, React adapter, message projection, host bridge, UI slices. |
-| [Embedded Host App](../apps/embedded-host-app/LEARNING.md) | UBS Partner page, host-surface registry, command application, citation highlighting. |
+| [Embedded Host App](../apps/embedded-host-app/LEARNING.md) | Advisory Dashboard page, host-surface registry, command application, citation highlighting. |
 | [Widget Demo](../apps/widget-demo/LEARNING.md) | Minimal public-package consumer and callback smoke path. |
 
 ## Full App Flows
@@ -429,7 +429,7 @@ Important files:
 
 ## Host App And Table Commands
 
-The embedded host app owns the advisory workbench page. The widget can ask the host to apply a view command, but the host decides how to apply it.
+The embedded host app owns the Advisory Dashboard page. The widget can ask the host to apply a view command, but the host decides how to apply it.
 
 That distinction matters:
 

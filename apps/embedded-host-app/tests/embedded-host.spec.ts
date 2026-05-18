@@ -32,10 +32,15 @@ test("embedded host imports public widget and shows launcher", async ({
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Advisory Workbench" }),
+    page.getByRole("heading", { name: "Advisory Dashboard" }),
   ).toBeVisible();
-  await expect(page.getByText("UBS Partner")).toBeVisible();
-  await expect(page.getByLabel("Advisory KPIs")).toContainText("Total AUM");
+  await expect(page.getByText("Advisory Dashboard").first()).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Workbench page controls" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Portfolio Worklist" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /open assistant/i }),
   ).toBeVisible();
@@ -49,7 +54,7 @@ test("embedded Workbench page scrolls normally on mobile", async ({ page }) => {
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: "Advisory Workbench" }),
+    page.getByRole("heading", { name: "Advisory Dashboard" }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Workbench page controls" }),

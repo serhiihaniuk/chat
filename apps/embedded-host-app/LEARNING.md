@@ -6,7 +6,7 @@ Read this when you want to understand the realistic Workbench page that consumes
 
 ## Purpose
 
-`apps/embedded-host-app` renders the UBS Partner advisory workbench and embeds `@side-chat/side-chat-widget`. It owns the page data, the table view state, and the host bridge that gives the assistant page context and applies safe host commands.
+`apps/embedded-host-app` renders the Advisory Dashboard and embeds `@side-chat/side-chat-widget`. It owns the page data, the table view state, and the host bridge that gives the assistant page context and applies safe host commands.
 
 ```txt
 AdvisoryWorkbenchPage

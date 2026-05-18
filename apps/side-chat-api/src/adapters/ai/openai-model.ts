@@ -130,7 +130,7 @@ const createWorkbenchTools = (request: ModelRequest) => {
       : {
           workbench_query: tool({
             description:
-              "Query approved UBS Partner Advisory Workbench data through backend stored-procedure access. Use for whole-dashboard facts, source rows, risk accounts, allocation, or trend data. Do not use this for 'on this page', currently visible, currently filtered, or just-sorted table questions; use workbench_surface_context for those. Never pass SQL.",
+              "Query approved Advisory Dashboard data through backend stored-procedure access. Use for whole-dashboard facts, source rows, risk accounts, allocation, or trend data. Do not use this for 'on this page', currently visible, currently filtered, or just-sorted table questions; use workbench_surface_context for those. Never pass SQL.",
             inputSchema: workbenchQueryInputSchema,
             strict: true,
             execute: async (input) =>
@@ -177,7 +177,7 @@ const createWorkbenchTools = (request: ModelRequest) => {
     ...tools,
     generate_workbench_report: tool({
       description:
-        "Generate a one-page UBS Partner Advisory Workbench PDF report from approved backend workbench data. For specific requests like top risk portfolios or allocation reports, gather the relevant workbench data first, then call this with a matching title, focus, sections, and data-derived analyst note. Inputs control title, focus, sections, analyst note treatment, and report-ready note text only; HTML and file paths are not accepted.",
+        "Generate a one-page Advisory Dashboard PDF report from approved backend workbench data. For specific requests like top risk portfolios or allocation reports, gather the relevant workbench data first, then call this with a matching title, focus, sections, and data-derived analyst note. Inputs control title, focus, sections, analyst note treatment, and report-ready note text only; HTML and file paths are not accepted.",
       inputSchema: workbenchReportInputSchema,
       strict: true,
       execute: async (input) =>

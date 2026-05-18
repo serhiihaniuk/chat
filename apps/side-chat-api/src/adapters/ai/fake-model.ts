@@ -91,7 +91,7 @@ const createReportInput = (content: string): WorkbenchReportInput => {
   }
 
   return {
-    title: "UBS Partner Workbench Briefing",
+    title: "Advisory Dashboard Briefing",
     focus: "executive_summary",
     sections: ["kpis", "biggest_clients", "risk_accounts"],
     noteKind: "next_action",

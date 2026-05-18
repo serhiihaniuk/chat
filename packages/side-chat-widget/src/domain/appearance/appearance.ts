@@ -7,7 +7,7 @@ export const appearanceStorageKey = "sidechat.appearancePreset";
 export const appearancePresets = [
   {
     id: "ubs",
-    label: "UBS",
+    label: "Advisory",
     accent: "#e60000",
     background: "#ffffff",
     foreground: "#0f172a",

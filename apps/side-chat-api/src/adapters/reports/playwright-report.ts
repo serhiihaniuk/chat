@@ -58,7 +58,7 @@ const escapeHtml = (value: unknown) =>
 
 const sanitizeTitle = (value?: string) => {
   const trimmed = value?.replace(/\s+/g, " ").trim();
-  return trimmed ? trimmed.slice(0, 90) : "UBS Partner Workbench Briefing";
+  return trimmed ? trimmed.slice(0, 90) : "Advisory Dashboard Briefing";
 };
 
 const sanitizeNote = (value?: string) => {
@@ -341,7 +341,7 @@ export const createReportHtml = (input: {
 </head>
 <body>
   <header>
-    <div class="eyebrow">UBS Partner / Advisory Workbench</div>
+    <div class="eyebrow">Advisory Dashboard</div>
     <h1>${escapeHtml(input.title)}</h1>
     <div class="meta">Generated ${escapeHtml(input.generatedAt)} | ${escapeHtml(focusLabel)} | Data-backed briefing</div>
   </header>

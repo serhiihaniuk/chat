@@ -81,7 +81,7 @@ describe("host command tool adapter", () => {
         },
         {
           pageId: "advisory-workbench",
-          title: "Advisory Workbench",
+          title: "Advisory Dashboard",
           resources: [
             {
               id: "advisoryWorklist",
@@ -194,7 +194,7 @@ describe("host command tool adapter", () => {
         },
         {
           pageId: "advisory-workbench",
-          title: "Advisory Workbench",
+          title: "Advisory Dashboard",
           metadata: { asOfDate: "2026-05-18" },
         },
       ),

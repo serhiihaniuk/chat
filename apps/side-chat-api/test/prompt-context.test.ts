@@ -19,7 +19,7 @@ const request = {
   },
   pageContext: {
     pageId: "advisory-workbench",
-    title: "UBS Partner Advisory Workbench",
+    title: "Advisory Dashboard",
     summary: "Relationship and portfolio dashboard.",
     facts: ["At-Risk Accounts is 52.", "Compliance Alerts is 7."],
   },
@@ -34,7 +34,7 @@ describe("prompt context", () => {
       "Do not invent client records",
     );
     expect(workbenchAssistantSystemPrompt).toContain(
-      "outside the workbench scope",
+      "outside the dashboard scope",
     );
     expect(workbenchAssistantSystemPrompt).toContain(
       "top Workbench command bar is the primary page-control API",
@@ -85,7 +85,7 @@ describe("prompt context", () => {
       ...request,
       hostContext: {
         pageId: "advisory-workbench",
-        title: "Advisory Workbench",
+        title: "Advisory Dashboard",
         summary: "Grid-driven portfolio workspace.",
         resources: [
           {

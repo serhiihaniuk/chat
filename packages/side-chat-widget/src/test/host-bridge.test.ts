@@ -12,7 +12,7 @@ describe("host bridge request payload", () => {
         model: { provider: "openai", id: "gpt-5.4-nano" },
         hostContext: {
           pageId: "advisory-workbench",
-          title: "Advisory Workbench",
+          title: "Advisory Dashboard",
           resources: [
             {
               id: "tasks",

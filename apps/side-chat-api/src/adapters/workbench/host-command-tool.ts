@@ -96,7 +96,7 @@ const workbenchQuickFilterNames = [
 ] as const;
 
 export const hostCommandToolDescription = [
-  "Control the visible UBS Partner Advisory Workbench UI.",
+  "Control the visible Advisory Dashboard UI.",
   "The top Workbench command bar is the primary page-control surface for humans and the assistant; changing it updates the whole page selection, including charts, KPIs, and the Portfolio Worklist.",
   "Use apply_workbench_controls whenever the user asks to show, filter, sort, prioritize, queue, focus the page on, or change the current Workbench using View / Queue, Client Segment, Priority, Risk Category, Due Status, Due Window, RM / Advisor, Sort by, or quick filter pills.",
   "Prefer this command-bar action over table/grid filters for ordinary requests such as 'show overdue', 'show this week', 'next 14 days', 'sort the page', 'largest outflow', 'high priority names', 'risk queue', 'only UHNW', 'R. Li', 'liquidity risks', 'due soon', or 'highest exposure'.",

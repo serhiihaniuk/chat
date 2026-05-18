@@ -66,7 +66,7 @@ describe("sidechat protocol v1 fixtures", () => {
       model: { provider: "openai", id: "gpt-4.1-mini" },
       hostContext: {
         pageId: "advisory-workbench",
-        title: "Advisory Workbench",
+        title: "Advisory Dashboard",
         resources: [
           {
             id: "clientPortfolio",

@@ -56,7 +56,7 @@ describe("advisory dashboard db adapter", () => {
     ]);
   });
 
-  it("uses only UBS stored functions for dashboard rowsets", async () => {
+  it("uses only stored functions for dashboard rowsets", async () => {
     const calls: string[] = [];
     const db = new AdvisoryDashboardDb({
       async query(text) {

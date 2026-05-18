@@ -25,7 +25,7 @@ const items = [
 export function Sidebar() {
   return (
     <aside className="workbench-sidebar" aria-label="Workspace navigation">
-      <div className="sidebar-mark" aria-label="UBS Partner">
+      <div className="sidebar-mark" aria-label="Advisory Dashboard">
         <Landmark size={28} strokeWidth={1.8} />
       </div>
       <nav className="sidebar-nav">
