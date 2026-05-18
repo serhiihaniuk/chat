@@ -130,10 +130,65 @@ const snapshot: AdvisoryDashboardSnapshot = {
 };
 
 describe("workbench page snapshot", () => {
-  it("keeps the original snapshot for the default command bar state", () => {
-    expect(createWorkbenchPageSnapshot(snapshot, defaultWorkbenchControlState)).toBe(
+  it("keeps the original page data for the default command bar state", () => {
+    const selected = createWorkbenchPageSnapshot(
       snapshot,
+      defaultWorkbenchControlState,
     );
+
+    expect(selected.clientPortfolioReview).toBe(snapshot.clientPortfolioReview);
+    expect(selected.topRiskAccounts).toBe(snapshot.topRiskAccounts);
+    expect(selected.riskExposureTrend[0]?.eventLabel).toBeNull();
+  });
+
+  it("derives chart annotations from the visible risk trend instead of seed labels", () => {
+    const selected = createWorkbenchPageSnapshot(
+      {
+        ...snapshot,
+        riskExposureTrend: [
+          {
+            date: "2026-05-15",
+            eventLabel: "Seed event",
+            highRiskAumChf: 100_000_000,
+            id: "risk-trend-outflow",
+            label: "May 15",
+            lowRiskAumChf: 0,
+            mediumRiskAumChf: 0,
+            netNewMoneyChf: -80_000_000,
+            noRiskAumChf: 2_000_000_000,
+          },
+          {
+            date: "2026-05-16",
+            eventLabel: "Another seed event",
+            highRiskAumChf: 120_000_000,
+            id: "risk-trend-inflow",
+            label: "May 16",
+            lowRiskAumChf: 0,
+            mediumRiskAumChf: 0,
+            netNewMoneyChf: 90_000_000,
+            noRiskAumChf: 2_000_000_000,
+          },
+          {
+            date: "2026-05-17",
+            eventLabel: "Copied demo label",
+            highRiskAumChf: 220_000_000,
+            id: "risk-trend-at-risk",
+            label: "May 17",
+            lowRiskAumChf: 0,
+            mediumRiskAumChf: 140_000_000,
+            netNewMoneyChf: 10_000_000,
+            noRiskAumChf: 2_000_000_000,
+          },
+        ],
+      },
+      defaultWorkbenchControlState,
+    );
+
+    expect(selected.riskExposureTrend.map((point) => point.eventLabel)).toEqual([
+      "Outflow -80M",
+      "Inflow +90M",
+      "At-risk 360M",
+    ]);
   });
 
   it("projects charts and KPIs from the current command-bar selection", () => {

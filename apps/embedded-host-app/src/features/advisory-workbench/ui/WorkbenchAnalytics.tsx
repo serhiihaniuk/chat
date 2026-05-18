@@ -210,6 +210,44 @@ const useCursorTooltipPosition = () => {
   return { onMouseLeave, onMouseMove, position };
 };
 
+type RiskEventMarkerLabelProps = {
+  date: string;
+  label: string;
+  textAnchor: "start" | "middle" | "end";
+  viewBox?: {
+    x?: number;
+    y?: number;
+  };
+};
+
+const RiskEventMarkerLabel = ({
+  date,
+  label,
+  textAnchor,
+  viewBox,
+}: RiskEventMarkerLabelProps) => {
+  if (typeof viewBox?.x !== "number" || typeof viewBox.y !== "number") {
+    return null;
+  }
+
+  const xOffset = textAnchor === "start" ? 10 : textAnchor === "end" ? -10 : 0;
+  const x = viewBox.x + xOffset;
+  const y = viewBox.y + 24;
+
+  return (
+    <g className="event-marker-label">
+      <text textAnchor={textAnchor} x={x} y={y}>
+        <tspan className="event-marker-date" x={x}>
+          {date}
+        </tspan>
+        <tspan className="event-marker-insight" dy={13} x={x}>
+          {label}
+        </tspan>
+      </text>
+    </g>
+  );
+};
+
 export function RiskIntelligenceOverview({
   snapshot,
 }: WorkbenchAnalyticsProps) {
@@ -221,6 +259,13 @@ export function RiskIntelligenceOverview({
   const aumAxis = useMemo(() => createAumAxis(chartData), [chartData]);
   const kpis = createInlineKpis(snapshot.kpis);
   const xTicks = useMemo(() => createXAxisTicks(chartData), [chartData]);
+  const eventMarkers = useMemo(
+    () =>
+      chartData
+        .map((point, index) => ({ index, point }))
+        .filter(({ point }) => point.eventLabel),
+    [chartData],
+  );
 
   return (
     <section className="analytics-card risk-overview-card">
@@ -258,6 +303,10 @@ export function RiskIntelligenceOverview({
         onMouseLeave={tooltipPosition.onMouseLeave}
         onMouseMove={tooltipPosition.onMouseMove}
       >
+        <div className="risk-chart-axis-labels" aria-hidden="true">
+          <span>AUM (CHF)</span>
+          <span>Net New Money (CHF)</span>
+        </div>
         <ResponsiveContainer
           height="100%"
           initialDimension={{ height: 300, width: 980 }}
@@ -302,12 +351,6 @@ export function RiskIntelligenceOverview({
             <YAxis
               axisLine={false}
               domain={[0, aumAxis.max]}
-              label={{
-                value: "AUM (CHF)",
-                angle: 0,
-                position: "insideTopLeft",
-                offset: 0,
-              }}
               tickFormatter={(value) => (value === 0 ? "0" : `${value}B`)}
               tickLine={false}
               ticks={aumAxis.ticks}
@@ -317,12 +360,6 @@ export function RiskIntelligenceOverview({
             <YAxis
               axisLine={false}
               domain={[-1.5, 1.5]}
-              label={{
-                value: "Net New Money (CHF)",
-                angle: 0,
-                position: "insideTopRight",
-                offset: 0,
-              }}
               orientation="right"
               tickFormatter={(value) =>
                 value === 0 ? "0" : `${Number(value).toFixed(1)}B`
@@ -341,20 +378,23 @@ export function RiskIntelligenceOverview({
               position={tooltipPosition.position}
               wrapperStyle={tooltipWrapperStyle}
             />
-            {chartData
-              .filter((point) => point.eventLabel)
-              .map((event) => (
+            {eventMarkers.map(({ index, point }) => (
               <ReferenceLine
                 ifOverflow="extendDomain"
-                key={event.date}
-                label={{
-                  value: `${event.date}\n${event.eventLabel ?? ""}`,
-                  position: "insideTop",
-                  className: "event-marker-label",
-                }}
+                key={point.date}
+                label={
+                  <RiskEventMarkerLabel
+                    date={point.date}
+                    label={point.eventLabel ?? ""}
+                    textAnchor={createEventMarkerTextAnchor(
+                      index,
+                      chartData.length,
+                    )}
+                  />
+                }
                 stroke="#94a3b8"
                 strokeDasharray="5 6"
-                x={event.date}
+                x={point.date}
                 yAxisId="aum"
               />
             ))}
@@ -962,6 +1002,15 @@ const createXAxisTicks = (data: RiskLayerDatum[]) => {
       ].filter((value): value is string => typeof value === "string"),
     ),
   ];
+};
+
+const createEventMarkerTextAnchor = (
+  index: number,
+  pointCount: number,
+): "start" | "middle" | "end" => {
+  if (index <= 1) return "start";
+  if (index >= pointCount - 2) return "end";
+  return "middle";
 };
 
 const createAumAxis = (data: RiskLayerDatum[]) => {

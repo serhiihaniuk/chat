@@ -45,7 +45,14 @@ export const createWorkbenchPageSnapshot = (
   snapshot: AdvisoryDashboardSnapshot,
   controls: WorkbenchControlState,
 ): AdvisoryDashboardSnapshot => {
-  if (isDefaultControlState(controls)) return snapshot;
+  if (isDefaultControlState(controls)) {
+    return {
+      ...snapshot,
+      riskExposureTrend: createDerivedRiskTrendAnnotations(
+        snapshot.riskExposureTrend,
+      ),
+    };
+  }
 
   const allRows = createWorklistRows(snapshot);
   const selectedRows = allRows.filter((row) =>
@@ -266,11 +273,12 @@ const createSelectedRiskExposureTrend = (
   const flowScale =
     totalFlow !== 0 ? selectedFlow / totalFlow : safeRatio(selectedAum, totalAum);
 
-  return trend.map((point) => {
+  const projectedTrend = trend.map((point) => {
     const stackScale =
       latestStackTotal > 0 ? riskTrendStackTotal(point) / latestStackTotal : 1;
     return {
       ...point,
+      eventLabel: null,
       highRiskAumChf: roundCurrency(selectedLayers.highRiskAumChf * stackScale),
       lowRiskAumChf: roundCurrency(selectedLayers.lowRiskAumChf * stackScale),
       mediumRiskAumChf: roundCurrency(
@@ -280,6 +288,8 @@ const createSelectedRiskExposureTrend = (
       noRiskAumChf: roundCurrency(selectedLayers.noRiskAumChf * stackScale),
     };
   });
+
+  return createDerivedRiskTrendAnnotations(projectedTrend);
 };
 
 const createSelectedSegmentRiskScores = (
@@ -354,6 +364,130 @@ const riskTrendStackTotal = (point: RiskExposureTrendPoint) =>
   point.lowRiskAumChf +
   point.mediumRiskAumChf +
   point.noRiskAumChf;
+
+const createDerivedRiskTrendAnnotations = (
+  trend: RiskExposureTrendPoint[],
+): RiskExposureTrendPoint[] => {
+  const clearedTrend = trend.map((point) => ({ ...point, eventLabel: null }));
+  if (clearedTrend.length < 2) return clearedTrend;
+
+  const candidates = [
+    createLargestOutflowAnnotation(clearedTrend),
+    createPeakAtRiskAnnotation(clearedTrend),
+    createStrongestInflowAnnotation(clearedTrend),
+  ].filter((candidate): candidate is RiskTrendAnnotationCandidate =>
+    candidate !== null,
+  );
+  const annotatedIndexes = new Set<number>();
+  const selectedAnnotations: RiskTrendAnnotationCandidate[] = [];
+
+  for (const candidate of candidates.sort(
+    (left, right) => left.priority - right.priority,
+  )) {
+    if (annotatedIndexes.has(candidate.index)) continue;
+    annotatedIndexes.add(candidate.index);
+    selectedAnnotations.push(candidate);
+    if (selectedAnnotations.length >= 3) break;
+  }
+
+  if (selectedAnnotations.length === 0) return clearedTrend;
+
+  const labelByIndex = new Map(
+    selectedAnnotations.map((annotation) => [
+      annotation.index,
+      annotation.label,
+    ]),
+  );
+  return clearedTrend.map((point, index) => ({
+    ...point,
+    eventLabel: labelByIndex.get(index) ?? null,
+  }));
+};
+
+type RiskTrendAnnotationCandidate = {
+  index: number;
+  label: string;
+  priority: number;
+};
+
+const createLargestOutflowAnnotation = (
+  trend: RiskExposureTrendPoint[],
+): RiskTrendAnnotationCandidate | null => {
+  const index = indexOfExtreme(
+    trend,
+    (point) => point.netNewMoneyChf,
+    "min",
+  );
+  if (index === null || trend[index]?.netNewMoneyChf === undefined) return null;
+  if (trend[index].netNewMoneyChf >= 0) return null;
+  return {
+    index,
+    label: `Outflow ${formatSignedCompactChf(trend[index].netNewMoneyChf)}`,
+    priority: 1,
+  };
+};
+
+const createPeakAtRiskAnnotation = (
+  trend: RiskExposureTrendPoint[],
+): RiskTrendAnnotationCandidate | null => {
+  const index = indexOfExtreme(
+    trend,
+    (point) => point.highRiskAumChf + point.mediumRiskAumChf,
+    "max",
+  );
+  if (index === null) return null;
+  const point = trend[index];
+  if (!point || point.highRiskAumChf + point.mediumRiskAumChf <= 0) return null;
+  return {
+    index,
+    label: `At-risk ${formatCompactChf(
+      point.highRiskAumChf + point.mediumRiskAumChf,
+    )}`,
+    priority: 2,
+  };
+};
+
+const createStrongestInflowAnnotation = (
+  trend: RiskExposureTrendPoint[],
+): RiskTrendAnnotationCandidate | null => {
+  const index = indexOfExtreme(
+    trend,
+    (point) => point.netNewMoneyChf,
+    "max",
+  );
+  if (index === null || trend[index]?.netNewMoneyChf === undefined) return null;
+  if (trend[index].netNewMoneyChf <= 0) return null;
+  return {
+    index,
+    label: `Inflow ${formatSignedCompactChf(trend[index].netNewMoneyChf)}`,
+    priority: 3,
+  };
+};
+
+const indexOfExtreme = (
+  trend: RiskExposureTrendPoint[],
+  selectValue: (point: RiskExposureTrendPoint) => number,
+  direction: "min" | "max",
+) => {
+  const firstPoint = trend[0];
+  if (!firstPoint) return null;
+
+  let selectedIndex = 0;
+  let selectedValue = selectValue(firstPoint);
+  for (let index = 1; index < trend.length; index += 1) {
+    const point = trend[index];
+    if (!point) continue;
+    const value = selectValue(point);
+    if (
+      (direction === "min" && value < selectedValue) ||
+      (direction === "max" && value > selectedValue)
+    ) {
+      selectedIndex = index;
+      selectedValue = value;
+    }
+  }
+  return selectedIndex;
+};
 
 const riskTextMatchesCategory = (
   value: string,
@@ -445,6 +579,20 @@ const formatChf = (value: number) => {
     return `CHF ${sign}${Math.round(absolute / 1_000_000)}M`;
   }
   return `CHF ${sign}${Math.round(absolute).toLocaleString("en-US")}`;
+};
+
+const formatSignedCompactChf = (value: number) =>
+  `${value < 0 ? "-" : "+"}${formatCompactChf(Math.abs(value))}`;
+
+const formatCompactChf = (value: number) => {
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000_000) {
+    return `${formatOneDecimal(absolute / 1_000_000_000)}B`;
+  }
+  if (absolute >= 1_000_000) {
+    return `${Math.round(absolute / 1_000_000)}M`;
+  }
+  return Math.round(absolute).toLocaleString("en-US");
 };
 
 const formatOneDecimal = (value: number) =>
