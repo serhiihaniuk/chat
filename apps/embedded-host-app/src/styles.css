@@ -212,6 +212,8 @@ button:disabled {
 }
 
 .workbench-filter-bar {
+  position: relative;
+  z-index: 20;
   display: flex;
   align-items: stretch;
   justify-content: space-between;
@@ -230,14 +232,19 @@ button:disabled {
 .toolbar-control-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   flex: 1 1 920px;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow: visible;
 }
 
 .toolbar-control-menu {
   position: relative;
+  z-index: 1;
+}
+
+.toolbar-control-menu:has(.toolbar-menu-popover) {
+  z-index: 40;
 }
 
 .toolbar-control {
@@ -313,7 +320,7 @@ button:disabled {
   position: absolute;
   top: calc(100% + 10px);
   left: 1px;
-  z-index: 30;
+  z-index: 40;
   display: grid;
   min-width: 210px;
   max-height: 320px;
