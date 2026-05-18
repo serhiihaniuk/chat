@@ -15,7 +15,7 @@ The app is feature-complete enough for the current demo. Default future work sho
 ## User Clarifications To Preserve
 
 - Teach from first principles while working: Effect TS, hexagonal architecture, AI SDK, AI flows, streaming protocols, tool calls, and frontend/backend boundaries.
-- One fixed demo conversation is intentional for now.
+- Public demos use one shared demo workspace with a browser-local conversation id so each viewer gets isolated chat history and page-control state.
 - Assume monorepo consumption; npm publishing hardening is not a priority.
 - The model picker is an easter egg/demo affordance unless explicitly made real later.
 - The fake model is useful for tests/local safety, but the demo should be able to run real provider requests when `.env` is configured.

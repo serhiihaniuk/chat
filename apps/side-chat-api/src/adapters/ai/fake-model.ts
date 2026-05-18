@@ -74,6 +74,11 @@ const shouldGenerateReport = (content: string) =>
     !isGenericReportRequest(content)) ||
   isReportContinuationRequest(content);
 
+const isSourceBackedBriefRequest = (content: string) =>
+  /\b(source-backed|command-center brief|deep brief|approved workbench sources|executive readout)\b/i.test(
+    content,
+  );
+
 const createReportInput = (content: string): WorkbenchReportInput => {
   if (/\b(risk|top risk|portfolio|portfolios|outflow)\b/i.test(content)) {
     return {
@@ -325,20 +330,92 @@ export const createFakeModelAdapter = (
     }
 
     const reportRequested = shouldGenerateReport(request.message.content);
+    const sourceBackedBriefRequested = isSourceBackedBriefRequest(
+      request.message.content,
+    );
     const chunks = surfaceAnswerChunks ?? (hostCommand
       ? [createHostCommandResponse(hostCommand)]
       : isGenericReportRequest(request.message.content)
       ? reportClarificationChunks
+      : sourceBackedBriefRequested
+      ? [
+          "I checked the Workbench data sources and current page state. Executive readout: risk attention is concentrated in the highest-priority portfolios, money-flow pressure is the clearest near-term signal, and RM follow-up should start with overdue high-exposure accounts.\n\n",
+          "Top risk portfolios: start with the highest exposure at-risk clients, then work through the earliest due dates and largest negative 30D flows.\n\n",
+          "Next actions: confirm the RM owner, filter the page to the risk queue, and generate a risk report if this needs to go into the demo handoff pack.",
+        ]
       : reportRequested
       ? ["Report ready."]
       : createResponseChunks(request.model.id, request.message.content));
     const chunkDelayMs = options.chunkDelayMs ?? parseChunkDelayMs();
 
     const workbenchQuery = resolveWorkbenchQuery(request.message.content);
+    if (request.workbenchTools && sourceBackedBriefRequested && !hostCommand) {
+      const queries: WorkbenchQueryName[] = [
+        "dashboard_snapshot",
+        "client_portfolio_review",
+        "top_risk_accounts",
+        "product_allocation",
+        "net_new_money_trend",
+      ];
+
+      for (const queryName of queries) {
+        const input = { query: queryName };
+        yield {
+          kind: "tool",
+          toolCallId: `fake-workbench-query-${queryName}`,
+          toolName: "workbench_query",
+          status: "running",
+          input,
+        };
+        const output = await request.workbenchTools.query({
+          workspaceId: request.workspaceId,
+          userId: request.userId ?? "local-user",
+          conversationId: request.conversationId,
+          pageContext: request.pageContext,
+          query: input,
+        });
+        yield {
+          kind: "tool",
+          toolCallId: `fake-workbench-query-${queryName}`,
+          toolName: "workbench_query",
+          status: "completed",
+          input,
+          output,
+        };
+      }
+
+      if (request.workbenchTools.surfaceContext) {
+        const input = { resourceId: "advisoryWorklist", limit: 12 };
+        yield {
+          kind: "tool",
+          toolCallId: "fake-workbench-surface-context-brief",
+          toolName: "workbench_surface_context",
+          status: "running",
+          input,
+        };
+        const output = await request.workbenchTools.surfaceContext({
+          workspaceId: request.workspaceId,
+          userId: request.userId ?? "local-user",
+          conversationId: request.conversationId,
+          pageContext: request.pageContext,
+          ...input,
+        });
+        yield {
+          kind: "tool",
+          toolCallId: "fake-workbench-surface-context-brief",
+          toolName: "workbench_surface_context",
+          status: "completed",
+          input,
+          output,
+        };
+      }
+    }
+
     if (
       request.workbenchTools &&
       workbenchQuery &&
       !hostCommand &&
+      !sourceBackedBriefRequested &&
       !isGenericReportRequest(request.message.content)
     ) {
       const input = { query: workbenchQuery };

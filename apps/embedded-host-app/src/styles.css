@@ -2347,8 +2347,20 @@ tbody tr:last-child td {
 }
 
 @media (max-width: 640px) {
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
   .workbench-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
   }
 
   .workbench-sidebar {
@@ -2357,11 +2369,155 @@ tbody tr:last-child td {
   }
 
   .workbench-main {
-    padding: 18px 14px 28px;
+    min-height: auto;
+    overflow: visible;
+    padding: 18px 12px 96px;
+  }
+
+  .workbench-header {
+    gap: 14px;
+    margin-bottom: 14px;
   }
 
   .workbench-header h1 {
-    font-size: 38px;
+    font-size: 34px;
+  }
+
+  .header-subtitle {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .header-controls {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .header-controls .control-button-wide,
+  .header-controls .control-button,
+  .header-controls .control-icon-button {
+    width: 100%;
+  }
+
+  .header-controls .control-icon-button {
+    min-width: 0;
+  }
+
+  .workbench-filter-bar {
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin: 0 -12px 12px;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 10px 12px;
+    scrollbar-width: thin;
+  }
+
+  .toolbar-control-group {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .toolbar-control {
+    min-width: 168px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .toolbar-control:first-child {
+    min-width: 170px;
+  }
+
+  .toolbar-menu-popover {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    bottom: 88px;
+    left: 12px;
+    max-height: min(360px, 56dvh);
+    min-width: 0;
+  }
+
+  .quick-filter-pills {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding-left: 0;
+  }
+
+  .quick-filter-pill {
+    min-height: 38px;
+  }
+
+  .workbench-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .primary-workbench-column {
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 12px;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .risk-overview-card {
+    height: min(560px, calc(100dvh - 110px));
+    min-height: 440px;
+  }
+
+  .risk-layer-chart-shell {
+    min-height: 270px;
+    padding-right: 8px;
+    padding-left: 6px;
+  }
+
+  .risk-chart-axis-labels {
+    right: 8px;
+    left: 6px;
+  }
+
+  .risk-chart-insights {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .risk-chart-insights span {
+    flex: 0 0 auto;
+  }
+
+  .inline-kpi-strip {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inline-kpi {
+    min-width: 0;
+    border-left: 0;
+    padding: 8px 0 0;
+  }
+
+  .inline-kpi:nth-child(even) {
+    padding-left: 12px;
+    border-left: 1px solid #e5e7eb;
+  }
+
+  .super-table-card {
+    min-height: min(680px, calc(100dvh - 80px));
+  }
+
+  .dashboard-grid {
+    min-height: 520px;
   }
 
   .header-controls,
@@ -2409,5 +2565,20 @@ tbody tr:last-child td {
 
   .kpi-grid {
     gap: 12px;
+  }
+
+  .grid-result-line {
+    align-items: center;
+    padding: 8px 12px;
+  }
+
+  .grid-pagination {
+    gap: 4px;
+  }
+
+  .grid-pagination button,
+  .grid-pagination strong {
+    width: 30px;
+    height: 30px;
   }
 }

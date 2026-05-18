@@ -44,6 +44,39 @@ test("embedded host imports public widget and shows launcher", async ({
   ).toHaveAttribute("aria-expanded", "false");
 });
 
+test("embedded Workbench page scrolls normally on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto("/");
+
+  await expect(
+    page.getByRole("heading", { name: "Advisory Workbench" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Portfolio Worklist" }),
+  ).toBeVisible();
+
+  const metrics = await page.evaluate(() => ({
+    bodyOverflowY: getComputedStyle(document.body).overflowY,
+    mainOverflowY: getComputedStyle(
+      document.querySelector(".workbench-main")!,
+    ).overflowY,
+    scrollHeight: document.documentElement.scrollHeight,
+    viewportHeight: window.innerHeight,
+  }));
+
+  expect(metrics.bodyOverflowY).not.toBe("hidden");
+  expect(metrics.mainOverflowY).not.toBe("hidden");
+  expect(metrics.scrollHeight).toBeGreaterThan(metrics.viewportHeight);
+
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(100);
+  await expect(
+    page.getByRole("button", { name: /open assistant/i }),
+  ).toBeVisible();
+});
+
 test("embedded widget is keyboard-openable and returns focus on close", async ({
   page,
 }) => {

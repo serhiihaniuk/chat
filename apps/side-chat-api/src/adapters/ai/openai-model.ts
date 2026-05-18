@@ -205,7 +205,7 @@ export const openAiModelAdapter: ModelPort = {
       system: modelInput.system,
       prompt: modelInput.prompt,
       tools: createWorkbenchTools(request),
-      stopWhen: stepCountIs(3),
+      stopWhen: stepCountIs(6),
       abortSignal: signal,
       providerOptions: {
         openai: {

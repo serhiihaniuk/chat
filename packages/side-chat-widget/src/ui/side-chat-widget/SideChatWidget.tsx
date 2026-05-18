@@ -122,7 +122,7 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 	} as CSSProperties;
 
 	useEffect(() => {
-		if (panel.open) {
+		if (panel.open && shouldAutofocusComposer()) {
 			inputRef.current?.focus({ preventScroll: true });
 		}
 	}, [panel.open]);
@@ -187,7 +187,9 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 		setAppearanceOpen(false);
 		setDraft('');
 		void chat.resetConversation().then(() => {
-			inputRef.current?.focus({ preventScroll: true });
+			if (shouldAutofocusComposer()) {
+				inputRef.current?.focus({ preventScroll: true });
+			}
 		});
 	};
 
@@ -305,6 +307,11 @@ const resolveWorkspaceId = (props: SideChatWidgetProps) => {
 	if (props.identity?.workspaceId) return props.identity.workspaceId;
 	if ('workspaceId' in props && props.workspaceId) return props.workspaceId;
 	return '';
+};
+
+const shouldAutofocusComposer = () => {
+	if (typeof window === 'undefined') return false;
+	return !window.matchMedia('(max-width: 640px), (pointer: coarse)').matches;
 };
 
 type WidgetStateInput = {

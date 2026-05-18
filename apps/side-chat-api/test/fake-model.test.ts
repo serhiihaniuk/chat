@@ -291,6 +291,60 @@ describe("fakeModelAdapter", () => {
     ).toBe(true);
   });
 
+  it("uses multiple backend lookups for the source-backed risk brief quick action", async () => {
+    const queried = vi.fn(async ({ query }) => ({
+      query: query.query,
+      workspaceId: "demo-workspace",
+      data: [],
+      sources: [],
+    }));
+    const surfaceContext = vi.fn(async () => ({
+      resourceId: "advisoryWorklist",
+      label: "Portfolio Worklist",
+      workspaceId: "demo-workspace",
+      rowCount: 12,
+      totalRowCount: 102,
+      rows: [],
+      sources: [],
+    }));
+    const chunks = [];
+
+    for await (const chunk of createFakeModelAdapter({
+      chunkDelayMs: 0,
+    }).stream({
+      ...request,
+      message: {
+        id: "msg-risk-brief",
+        role: "user",
+        content:
+          "Build a source-backed command-center brief for the Advisory Workbench.",
+      },
+      workbenchTools: { query: queried, surfaceContext },
+      userId: "local-user",
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(queried.mock.calls.map(([input]) => input.query.query)).toEqual([
+      "dashboard_snapshot",
+      "client_portfolio_review",
+      "top_risk_accounts",
+      "product_allocation",
+      "net_new_money_trend",
+    ]);
+    expect(surfaceContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceId: "advisoryWorklist",
+        limit: 12,
+      }),
+    );
+    expect(
+      chunks.filter(
+        (chunk) => chunk.kind === "tool" && chunk.status === "completed",
+      ),
+    ).toHaveLength(6);
+  });
+
   it("emits a host command for dashboard sorting requests", async () => {
     const chunks = [];
 
