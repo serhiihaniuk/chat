@@ -175,12 +175,7 @@ button:disabled {
   margin: 0;
   color: #202020;
   font-family:
-    Aptos,
-    Inter,
-    "SF Pro Display",
-    "Segoe UI Variable",
-    "Segoe UI",
-    system-ui,
+    Aptos, Inter, "SF Pro Display", "Segoe UI Variable", "Segoe UI", system-ui,
     sans-serif;
   font-size: clamp(32px, 3vw, 44px);
   font-weight: 520;
@@ -1693,15 +1688,8 @@ tbody tr[data-citation-active="true"] td {
   --ag-cell-horizontal-padding: 12px;
   --ag-data-color: #343a46;
   --ag-font-family:
-    Aptos,
-    Inter,
-    "SF Pro Text",
-    "Segoe UI Variable",
-    "Segoe UI",
-    -apple-system,
-    BlinkMacSystemFont,
-    system-ui,
-    sans-serif;
+    Aptos, Inter, "SF Pro Text", "Segoe UI Variable", "Segoe UI", -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
   --ag-font-size: 13px;
   --ag-header-background-color: var(--surface-subtle);
   --ag-header-foreground-color: #4b5565;
@@ -2083,7 +2071,10 @@ tbody tr:last-child td {
 
 .bottom-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.1fr) minmax(330px, 0.95fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.1fr) minmax(
+      330px,
+      0.95fr
+    );
   gap: 16px;
   margin-top: 16px;
 }
@@ -2562,5 +2553,27 @@ tbody tr:last-child td {
   .grid-pagination strong {
     width: 30px;
     height: 30px;
+  }
+}
+
+@media (min-width: 821px) and (max-height: 980px) {
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .workbench-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .workbench-main {
+    min-height: auto;
+    overflow: visible;
   }
 }
