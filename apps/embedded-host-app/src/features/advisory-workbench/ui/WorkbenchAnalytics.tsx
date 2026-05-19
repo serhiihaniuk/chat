@@ -1,4 +1,12 @@
-import { useMemo, useState, type MouseEventHandler } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEventHandler,
+  type PointerEventHandler,
+} from "react";
 import { Info } from "lucide-react";
 import {
   Area,
@@ -125,6 +133,7 @@ type PieTooltipPayload = {
 
 type RechartsTooltipProps<TPayload> = {
   active?: boolean;
+  isCursorVisible?: boolean;
   payload?: TPayload[];
 };
 
@@ -148,6 +157,7 @@ type TooltipPayload<TPayload> = {
 
 type ChartTooltipProps<TPayload> = {
   active?: boolean;
+  isCursorVisible?: boolean;
   payload?: TooltipPayload<TPayload>[];
 };
 
@@ -189,17 +199,23 @@ const cursorTooltipSize = {
 };
 
 const useCursorTooltipPosition = () => {
+  const anchorRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<CursorTooltipPosition>();
 
-  const onMouseMove: MouseEventHandler<HTMLDivElement> = (event) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const localX = event.clientX - rect.left;
-    const localY = event.clientY - rect.top;
+  const clear = useCallback(() => setPosition(undefined), []);
+
+  const updatePosition = useCallback((clientX: number, clientY: number) => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+
+    const rect = anchor.getBoundingClientRect();
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
     const hasViewportSpaceRight =
-      window.innerWidth - event.clientX >
+      window.innerWidth - clientX >
       cursorTooltipSize.width + cursorTooltipOffset;
     const hasViewportSpaceBelow =
-      window.innerHeight - event.clientY >
+      window.innerHeight - clientY >
       cursorTooltipSize.height + cursorTooltipOffset;
 
     const x = hasViewportSpaceRight
@@ -213,11 +229,54 @@ const useCursorTooltipPosition = () => {
       x: Math.max(8 - rect.left, x),
       y: Math.max(8 - rect.top, y),
     });
+  }, []);
+
+  const onPointerMove: PointerEventHandler<HTMLDivElement> = (event) => {
+    updatePosition(event.clientX, event.clientY);
   };
 
-  const onMouseLeave = () => setPosition(undefined);
+  const onMouseMove: MouseEventHandler<HTMLDivElement> = (event) => {
+    updatePosition(event.clientX, event.clientY);
+  };
 
-  return { onMouseLeave, onMouseMove, position };
+  useEffect(() => {
+    if (!position) return;
+
+    const clearWhenPointerLeavesAnchor = (event: PointerEvent) => {
+      const anchor = anchorRef.current;
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      if (!anchor || !target || !anchor.contains(target)) clear();
+    };
+
+    const clearOnScroll = () => clear();
+
+    document.addEventListener(
+      "pointermove",
+      clearWhenPointerLeavesAnchor,
+      true,
+    );
+    window.addEventListener("blur", clear);
+    window.addEventListener("scroll", clearOnScroll, true);
+
+    return () => {
+      document.removeEventListener(
+        "pointermove",
+        clearWhenPointerLeavesAnchor,
+        true,
+      );
+      window.removeEventListener("blur", clear);
+      window.removeEventListener("scroll", clearOnScroll, true);
+    };
+  }, [clear, position]);
+
+  return {
+    anchorRef,
+    onMouseMove,
+    onPointerCancel: clear,
+    onPointerLeave: clear,
+    onPointerMove,
+    position,
+  };
 };
 
 export function RiskIntelligenceOverview({
@@ -232,7 +291,10 @@ export function RiskIntelligenceOverview({
   const moneyAxis = useMemo(() => createMoneyAxis(chartData), [chartData]);
   const kpis = createInlineKpis(snapshot.kpis);
   const xTicks = useMemo(() => createXAxisTicks(chartData), [chartData]);
-  const chartInsights = useMemo(() => createChartInsights(chartData), [chartData]);
+  const chartInsights = useMemo(
+    () => createChartInsights(chartData),
+    [chartData],
+  );
 
   return (
     <section className="analytics-card risk-overview-card">
@@ -278,8 +340,11 @@ export function RiskIntelligenceOverview({
       </div>
 
       <div
+        ref={tooltipPosition.anchorRef}
         className="risk-layer-chart-shell"
-        onMouseLeave={tooltipPosition.onMouseLeave}
+        onPointerCancel={tooltipPosition.onPointerCancel}
+        onPointerLeave={tooltipPosition.onPointerLeave}
+        onPointerMove={tooltipPosition.onPointerMove}
         onMouseMove={tooltipPosition.onMouseMove}
       >
         <div className="risk-chart-axis-labels" aria-hidden="true">
@@ -348,7 +413,11 @@ export function RiskIntelligenceOverview({
             />
             <Tooltip
               allowEscapeViewBox={tooltipEscapeViewBox}
-              content={<RiskLayerTooltip />}
+              content={
+                <RiskLayerTooltip
+                  isCursorVisible={Boolean(tooltipPosition.position)}
+                />
+              }
               cursor={false}
               isAnimationActive={false}
               offset={0}
@@ -448,7 +517,8 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
     () => createRadarData(snapshot.segmentRiskScores),
     [snapshot.segmentRiskScores],
   );
-  const totalAumLabel = findKpi(snapshot.kpis, "Total AUM")?.value ?? "CHF 24.8B";
+  const totalAumLabel =
+    findKpi(snapshot.kpis, "Total AUM")?.value ?? "CHF 24.8B";
   const momentumData = useMemo(
     () => createMomentumChartData(snapshot.netNewMoneyTrend),
     [snapshot.netNewMoneyTrend],
@@ -467,8 +537,11 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
         </div>
         <div className="risk-composition-body">
           <div
+            ref={compositionTooltipPosition.anchorRef}
             className="risk-donut-shell"
-            onMouseLeave={compositionTooltipPosition.onMouseLeave}
+            onPointerCancel={compositionTooltipPosition.onPointerCancel}
+            onPointerLeave={compositionTooltipPosition.onPointerLeave}
+            onPointerMove={compositionTooltipPosition.onPointerMove}
             onMouseMove={compositionTooltipPosition.onMouseMove}
           >
             <ResponsiveContainer
@@ -479,7 +552,13 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
               <PieChart>
                 <Tooltip
                   allowEscapeViewBox={tooltipEscapeViewBox}
-                  content={<RiskCompositionTooltip />}
+                  content={
+                    <RiskCompositionTooltip
+                      isCursorVisible={Boolean(
+                        compositionTooltipPosition.position,
+                      )}
+                    />
+                  }
                   cursor={false}
                   isAnimationActive={false}
                   offset={0}
@@ -518,12 +597,19 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
             <span>vs prior month</span>
           </div>
           <div className="momentum-axis-row">
-            <span className="negative">{formatSignedB(minMomentumValue(momentumData))}</span>
-            <span className="positive">{formatSignedB(lastMomentumValue(momentumData))}</span>
+            <span className="negative">
+              {formatSignedB(minMomentumValue(momentumData))}
+            </span>
+            <span className="positive">
+              {formatSignedB(lastMomentumValue(momentumData))}
+            </span>
           </div>
           <div
+            ref={momentumTooltipPosition.anchorRef}
             className="momentum-chart-shell"
-            onMouseLeave={momentumTooltipPosition.onMouseLeave}
+            onPointerCancel={momentumTooltipPosition.onPointerCancel}
+            onPointerLeave={momentumTooltipPosition.onPointerLeave}
+            onPointerMove={momentumTooltipPosition.onPointerMove}
             onMouseMove={momentumTooltipPosition.onMouseMove}
           >
             <ResponsiveContainer
@@ -543,7 +629,13 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
                 />
                 <Tooltip
                   allowEscapeViewBox={tooltipEscapeViewBox}
-                  content={<MomentumTooltip />}
+                  content={
+                    <MomentumTooltip
+                      isCursorVisible={Boolean(
+                        momentumTooltipPosition.position,
+                      )}
+                    />
+                  }
                   cursor={false}
                   isAnimationActive={false}
                   offset={0}
@@ -589,8 +681,11 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
         </div>
         <div className="radar-card-body">
           <div
+            ref={radarTooltipPosition.anchorRef}
             className="radar-chart-shell"
-            onMouseLeave={radarTooltipPosition.onMouseLeave}
+            onPointerCancel={radarTooltipPosition.onPointerCancel}
+            onPointerLeave={radarTooltipPosition.onPointerLeave}
+            onPointerMove={radarTooltipPosition.onPointerMove}
             onMouseMove={radarTooltipPosition.onMouseMove}
           >
             <ResponsiveContainer
@@ -612,7 +707,11 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
                 />
                 <Tooltip
                   allowEscapeViewBox={tooltipEscapeViewBox}
-                  content={<RadarTooltip />}
+                  content={
+                    <RadarTooltip
+                      isCursorVisible={Boolean(radarTooltipPosition.position)}
+                    />
+                  }
                   cursor={false}
                   isAnimationActive={false}
                   offset={0}
@@ -667,8 +766,11 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
         </div>
         <div className="waterfall-body">
           <div
+            ref={waterfallTooltipPosition.anchorRef}
             className="waterfall-chart-shell"
-            onMouseLeave={waterfallTooltipPosition.onMouseLeave}
+            onPointerCancel={waterfallTooltipPosition.onPointerCancel}
+            onPointerLeave={waterfallTooltipPosition.onPointerLeave}
+            onPointerMove={waterfallTooltipPosition.onPointerMove}
             onMouseMove={waterfallTooltipPosition.onMouseMove}
           >
             <ResponsiveContainer
@@ -699,7 +801,13 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
                 />
                 <Tooltip
                   allowEscapeViewBox={tooltipEscapeViewBox}
-                  content={<WaterfallTooltip />}
+                  content={
+                    <WaterfallTooltip
+                      isCursorVisible={Boolean(
+                        waterfallTooltipPosition.position,
+                      )}
+                    />
+                  }
                   cursor={false}
                   isAnimationActive={false}
                   offset={0}
@@ -717,7 +825,10 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
                   isAnimationActive={false}
                   stackId="waterfall"
                 >
-                  <LabelList content={renderWaterfallLabel} dataKey="valueLabel" />
+                  <LabelList
+                    content={renderWaterfallLabel}
+                    dataKey="valueLabel"
+                  />
                   {waterfall.items.map((item) => (
                     <Cell
                       fill={waterfallColors[item.className]}
@@ -740,10 +851,11 @@ export function RiskIntelligenceRail({ snapshot }: WorkbenchAnalyticsProps) {
 
 const RiskLayerTooltip = ({
   active,
+  isCursorVisible,
   payload,
 }: ChartTooltipProps<RiskLayerDatum>) => {
   const item = payload?.[0]?.payload;
-  if (!active || !item) return null;
+  if (!isCursorVisible || !active || !item) return null;
 
   return (
     <div className="chart-tooltip">
@@ -777,10 +889,11 @@ const RiskLayerTooltip = ({
 
 const RiskCompositionTooltip = ({
   active,
+  isCursorVisible,
   payload,
 }: RechartsTooltipProps<PieTooltipPayload>) => {
   const item = payload?.[0]?.payload;
-  if (!active || !item) return null;
+  if (!isCursorVisible || !active || !item) return null;
 
   return (
     <div className="chart-tooltip compact-tooltip">
@@ -802,10 +915,11 @@ const RiskCompositionTooltip = ({
 
 const MomentumTooltip = ({
   active,
+  isCursorVisible,
   payload,
 }: RechartsTooltipProps<MomentumTooltipPayload>) => {
   const item = payload?.[0]?.payload;
-  if (!active || !item) return null;
+  if (!isCursorVisible || !active || !item) return null;
 
   return (
     <div className="chart-tooltip compact-tooltip">
@@ -823,9 +937,10 @@ const MomentumTooltip = ({
 
 const RadarTooltip = ({
   active,
+  isCursorVisible,
   payload,
 }: RechartsTooltipProps<RadarTooltipPayload>) => {
-  if (!active || !payload?.length) return null;
+  if (!isCursorVisible || !active || !payload?.length) return null;
 
   return (
     <div className="chart-tooltip compact-tooltip">
@@ -845,10 +960,11 @@ const RadarTooltip = ({
 
 const WaterfallTooltip = ({
   active,
+  isCursorVisible,
   payload,
 }: RechartsTooltipProps<WaterfallTooltipPayload>) => {
   const item = payload?.[0]?.payload;
-  if (!active || !item) return null;
+  if (!isCursorVisible || !active || !item) return null;
 
   return (
     <div className="chart-tooltip compact-tooltip">
@@ -868,12 +984,7 @@ const WaterfallTooltip = ({
   );
 };
 
-const renderWaterfallLabel = ({
-  x,
-  y,
-  width,
-  value,
-}: WaterfallLabelProps) => {
+const renderWaterfallLabel = ({ x, y, width, value }: WaterfallLabelProps) => {
   const numericX = typeof x === "number" ? x : Number(x ?? 0);
   const numericY = typeof y === "number" ? y : Number(y ?? 0);
   const numericWidth = typeof width === "number" ? width : Number(width ?? 0);
@@ -963,9 +1074,7 @@ const createXAxisTicks = (data: RiskLayerDatum[]) => {
 
 const createAumAxis = (data: RiskLayerDatum[]) => {
   const maxStack = Math.max(
-    ...data.map(
-      (item) => item.noRiskB + item.lowB + item.mediumB + item.highB,
-    ),
+    ...data.map((item) => item.noRiskB + item.lowB + item.mediumB + item.highB),
     1,
   );
   const max = roundUpToNiceStep(maxStack * 1.2);
@@ -996,19 +1105,7 @@ const chooseMoneyAxisStep = (minimumStep: number) =>
   1;
 
 const moneyAxisSteps = [
-  0.05,
-  0.1,
-  0.25,
-  0.5,
-  0.75,
-  1,
-  1.5,
-  2.5,
-  5,
-  7.5,
-  10,
-  15,
-  25,
+  0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2.5, 5, 7.5, 10, 15, 25,
 ] as const;
 
 const createChartInsights = (data: RiskLayerDatum[]): ChartInsight[] =>
@@ -1113,26 +1210,22 @@ const createMomentumChartData = (
 
 const createFallbackMomentumTrend =
   (): AdvisoryDashboardSnapshot["netNewMoneyTrend"] => {
-  const monthStart = startOfCurrentUtcMonth();
-  const amounts = [
-    -500_000_000,
-    240_000_000,
-    680_000_000,
-    420_000_000,
-    760_000_000,
-    1_200_000_000,
-  ];
+    const monthStart = startOfCurrentUtcMonth();
+    const amounts = [
+      -500_000_000, 240_000_000, 680_000_000, 420_000_000, 760_000_000,
+      1_200_000_000,
+    ];
 
-  return amounts.map((netNewMoneyChf, index) => {
-    const date = addUtcMonths(monthStart, index - (amounts.length - 1));
-    return {
-      id: `fallback-${index + 1}`,
-      label: formatFallbackMonthLabel(date),
-      month: new Date(date).toISOString().slice(0, 10),
-      netNewMoneyChf,
-    };
-  });
-};
+    return amounts.map((netNewMoneyChf, index) => {
+      const date = addUtcMonths(monthStart, index - (amounts.length - 1));
+      return {
+        id: `fallback-${index + 1}`,
+        label: formatFallbackMonthLabel(date),
+        month: new Date(date).toISOString().slice(0, 10),
+        netNewMoneyChf,
+      };
+    });
+  };
 
 const startOfCurrentUtcMonth = () => {
   const now = new Date();
@@ -1176,10 +1269,7 @@ const radarAxes = [
   "Collateral",
 ] as const;
 
-const segmentKeyByLabel: Record<
-  string,
-  Exclude<keyof RadarDatum, "axis">
-> = {
+const segmentKeyByLabel: Record<string, Exclude<keyof RadarDatum, "axis">> = {
   Corporate: "corporate",
   Institutional: "institutional",
   UHNW: "uhnw",
@@ -1257,8 +1347,7 @@ const getRiskDriverClassName = (driver: string): RiskDriverClassName => {
   return "other";
 };
 
-const splitWaterfallLabel = (label: string) =>
-  label.split(/\s+/)[0] ?? label;
+const splitWaterfallLabel = (label: string) => label.split(/\s+/)[0] ?? label;
 
 const formatSignedB = (value: number) =>
   `${value >= 0 ? "+" : ""}${value.toFixed(1)}B`;

@@ -6,8 +6,7 @@ const openWidget = async (page: Page) => {
   await expect(page.getByTestId("side-chat-widget")).toBeVisible();
 };
 
-const userMessages = (page: Page) =>
-  page.locator('[data-message-from="user"]');
+const userMessages = (page: Page) => page.locator('[data-message-from="user"]');
 
 const assistantMessages = (page: Page) =>
   page.locator('[data-message-from="assistant"]');
@@ -68,9 +67,8 @@ test("embedded Workbench page scrolls normally on mobile", async ({ page }) => {
 
   const metrics = await page.evaluate(() => ({
     bodyOverflowY: getComputedStyle(document.body).overflowY,
-    mainOverflowY: getComputedStyle(
-      document.querySelector(".workbench-main")!,
-    ).overflowY,
+    mainOverflowY: getComputedStyle(document.querySelector(".workbench-main")!)
+      .overflowY,
     scrollHeight: document.documentElement.scrollHeight,
     scrollWidth: document.documentElement.scrollWidth,
     viewportHeight: window.innerHeight,
@@ -209,6 +207,37 @@ test("embedded widget model picker stays a demo affordance", async ({
     "gpt-5.4-nano",
     "compare model metadata",
   );
+});
+
+test("chart tooltips close when pointer leaves toward chat or rapidly exits", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+  await openWidget(page);
+
+  const chart = page.locator(".risk-layer-chart-shell").first();
+  const chartDot = chart.locator(".recharts-dot").first();
+  const tooltip = page.locator(".chart-tooltip").first();
+  await expect(chart).toBeVisible();
+  await expect(chartDot).toBeVisible();
+
+  const hoverChart = async () => {
+    const box = await chartDot.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await expect(tooltip).toBeVisible();
+  };
+
+  await hoverChart();
+  const widgetBox = await page.getByTestId("side-chat-widget").boundingBox();
+  expect(widgetBox).not.toBeNull();
+  await page.mouse.move(widgetBox!.x + 24, widgetBox!.y + 24, { steps: 2 });
+  await expect(tooltip).toBeHidden();
+
+  await hoverChart();
+  await page.mouse.move(1, 1, { steps: 1 });
+  await expect(tooltip).toBeHidden();
 });
 
 test("embedded widget submits with Enter from the composer input", async ({
@@ -355,7 +384,11 @@ test("widget-demo app exercises package callbacks and state coverage", async ({
   await page.getByLabel("chat-input").fill("show callback coverage");
   await page.getByRole("button", { name: "send message" }).click();
 
-  await expectFakeStreamedAnswer(page, "gpt-5.4-nano", "show callback coverage");
+  await expectFakeStreamedAnswer(
+    page,
+    "gpt-5.4-nano",
+    "show callback coverage",
+  );
   await expect(page.getByLabel("Widget callback events")).toContainText(
     "usage:",
   );
