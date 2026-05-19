@@ -55,17 +55,32 @@ Hexagonal architecture means the center of the system talks in its own language.
 
 ## Local Learning Guides
 
-| Guide | What to learn there |
-| --- | --- |
-| [Shared Protocol](../packages/shared-protocol/LEARNING.md) | `sidechat.v1`, Effect Schema ownership, SSE events, validation, sequence rules. |
-| [Side-Chat API](../apps/side-chat-api/LEARNING.md) | Hono boundary, `streamChat`, ports, AI SDK adapter, workbench tools, reports, usage. |
-| [DB Package](../packages/db/LEARNING.md) | `pg` isolation, stored procedures/functions, chat persistence, dashboard reads. |
-| [Dashboard Data API](../apps/dashboard-data-api/LEARNING.md) | Read-only dashboard service, fixture vs Postgres source, host data endpoints. |
-| [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md) | Frontend hexagon, React adapter, message projection, host bridge, UI slices. |
-| [Embedded Host App](../apps/embedded-host-app/LEARNING.md) | Advisory Dashboard page, host-surface registry, command application, citation highlighting. |
-| [Widget Demo](../apps/widget-demo/LEARNING.md) | Minimal public-package consumer and callback smoke path. |
+| Guide                                                        | What to learn there                                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| [Shared Protocol](../packages/shared-protocol/LEARNING.md)   | `sidechat.v1`, Effect Schema ownership, SSE events, validation, sequence rules.             |
+| [Side-Chat API](../apps/side-chat-api/LEARNING.md)           | Hono boundary, `streamChat`, ports, AI SDK adapter, workbench tools, reports, usage.        |
+| [DB Package](../packages/db/LEARNING.md)                     | `pg` isolation, stored procedures/functions, chat persistence, dashboard reads.             |
+| [Dashboard Data API](../apps/dashboard-data-api/LEARNING.md) | Read-only dashboard service, fixture vs Postgres source, host data endpoints.               |
+| [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md) | Frontend hexagon, React adapter, message projection, host bridge, UI slices.                |
+| [Embedded Host App](../apps/embedded-host-app/LEARNING.md)   | Advisory Dashboard page, host-surface registry, command application, citation highlighting. |
+| [Widget Demo](../apps/widget-demo/LEARNING.md)               | Minimal public-package consumer and callback smoke path.                                    |
 
 ## Full App Flows
+
+### Running The Demo Locally
+
+The fastest way to run the integrated demo is:
+
+```sh
+docker compose up --build demo
+```
+
+Open `http://127.0.0.1:8080`.
+
+That single command starts Postgres, the side-chat API, the dashboard data API,
+the built embedded host app, and a local Caddy router. It defaults to the fake
+model adapter for deterministic output. To use a real OpenAI key, run the same
+command with `OPENAI_API_KEY` set and `USE_FAKE_MODEL=false`.
 
 ### Chat Stream Flow
 
@@ -123,25 +138,25 @@ streamChat persists user/assistant messages and token usage
 
 ## Technology Map
 
-| Technology | What it solves here | Where to read |
-| --- | --- | --- |
-| Effect Schema | One source of truth for protocol DTOs and runtime decoding of unknown JSON. | [Shared Protocol](../packages/shared-protocol/LEARNING.md), [Side-Chat API](../apps/side-chat-api/LEARNING.md), [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md) |
-| AI SDK | Provider/tool streaming adapter behind `ModelPort`. It is not the browser protocol. | [Side-Chat API](../apps/side-chat-api/LEARNING.md) |
-| Hono | HTTP and SSE adapter layer for backend apps. | [Side-Chat API](../apps/side-chat-api/LEARNING.md), [Dashboard Data API](../apps/dashboard-data-api/LEARNING.md) |
-| React | Rendering and browser lifecycle in host and widget. | [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md), [Embedded Host App](../apps/embedded-host-app/LEARNING.md), [Widget Demo](../apps/widget-demo/LEARNING.md) |
-| Postgres / `pg` | Runtime persistence and dashboard reads behind stored procedures/functions. | [DB Package](../packages/db/LEARNING.md) |
-| Zod | Adapter-local runtime parsing where a boundary expects it: env config, DB result rows, AI SDK tool input schemas. | Side-chat API, dashboard-data API, DB package |
+| Technology      | What it solves here                                                                                               | Where to read                                                                                                                                                                |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Effect Schema   | One source of truth for protocol DTOs and runtime decoding of unknown JSON.                                       | [Shared Protocol](../packages/shared-protocol/LEARNING.md), [Side-Chat API](../apps/side-chat-api/LEARNING.md), [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md) |
+| AI SDK          | Provider/tool streaming adapter behind `ModelPort`. It is not the browser protocol.                               | [Side-Chat API](../apps/side-chat-api/LEARNING.md)                                                                                                                           |
+| Hono            | HTTP and SSE adapter layer for backend apps.                                                                      | [Side-Chat API](../apps/side-chat-api/LEARNING.md), [Dashboard Data API](../apps/dashboard-data-api/LEARNING.md)                                                             |
+| React           | Rendering and browser lifecycle in host and widget.                                                               | [Side-Chat Widget](../packages/side-chat-widget/LEARNING.md), [Embedded Host App](../apps/embedded-host-app/LEARNING.md), [Widget Demo](../apps/widget-demo/LEARNING.md)     |
+| Postgres / `pg` | Runtime persistence and dashboard reads behind stored procedures/functions.                                       | [DB Package](../packages/db/LEARNING.md)                                                                                                                                     |
+| Zod             | Adapter-local runtime parsing where a boundary expects it: env config, DB result rows, AI SDK tool input schemas. | Side-chat API, dashboard-data API, DB package                                                                                                                                |
 
 ## Shared Protocol Package
 
-| File | What it owns | Why it exists |
-| --- | --- | --- |
-| `contracts.ts` | Header names, route names, protocol version, request/response header schemas. | Keeps HTTP contract strings in one place so routes, widget, and tests do not invent their own spelling. |
-| `schemas.ts` | Effect Schema definitions for requests, messages, events, host commands, citations, and usage. | Effect Schema is the source of truth. Types and runtime decoders come from the same definitions. |
-| `types.ts` | TypeScript types derived from schemas. | Lets code depend on named types without duplicating the schema shape. |
-| `validation.ts` | `parse*` and `validate*` helpers. | Separates two use cases: fail fast when invalid data is exceptional, or return issues when the caller must respond gracefully. |
-| `codec.ts` | SSE frame encode/parse helpers. | Keeps streaming wire formatting out of React and Hono code. |
-| `sequence.ts` | Stream ordering rules. | Protects the protocol from impossible streams, such as deltas after a terminal event. |
+| File            | What it owns                                                                                   | Why it exists                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `contracts.ts`  | Header names, route names, protocol version, request/response header schemas.                  | Keeps HTTP contract strings in one place so routes, widget, and tests do not invent their own spelling.                        |
+| `schemas.ts`    | Effect Schema definitions for requests, messages, events, host commands, citations, and usage. | Effect Schema is the source of truth. Types and runtime decoders come from the same definitions.                               |
+| `types.ts`      | TypeScript types derived from schemas.                                                         | Lets code depend on named types without duplicating the schema shape.                                                          |
+| `validation.ts` | `parse*` and `validate*` helpers.                                                              | Separates two use cases: fail fast when invalid data is exceptional, or return issues when the caller must respond gracefully. |
+| `codec.ts`      | SSE frame encode/parse helpers.                                                                | Keeps streaming wire formatting out of React and Hono code.                                                                    |
+| `sequence.ts`   | Stream ordering rules.                                                                         | Protects the protocol from impossible streams, such as deltas after a terminal event.                                          |
 
 Teaching point: Zod is not needed here because Effect Schema can own both the static type and runtime decoder. If another library later needs JSON Schema, Standard Schema, or Zod-shaped input, that should be an adapter generated from or mapped from this contract, not a second source of truth.
 
@@ -167,36 +182,36 @@ The request is intentionally not an AI SDK request. It does not contain provider
 
 The response is intentionally not an OpenAI stream. It contains product events the UI can render:
 
-| Event | Meaning | Who emits it | Who uses it |
-| --- | --- | --- | --- |
-| `sidechat.started` | Assistant message has begun. | `streamChat`. | Widget creates the active assistant message. |
-| `sidechat.delta` | More assistant text. | Model adapter chunk mapped by `streamChat`. | Widget appends visible text. |
-| `sidechat.reasoning` | Reasoning/status summary text. | Model adapter chunk mapped by `streamChat`. | Widget renders a reasoning part. |
-| `sidechat.tool` | Backend tool lifecycle. | Model adapter chunk mapped by `streamChat`. | Widget renders tool running/completed/error state. |
+| Event                   | Meaning                              | Who emits it                                                                | Who uses it                                            |
+| ----------------------- | ------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `sidechat.started`      | Assistant message has begun.         | `streamChat`.                                                               | Widget creates the active assistant message.           |
+| `sidechat.delta`        | More assistant text.                 | Model adapter chunk mapped by `streamChat`.                                 | Widget appends visible text.                           |
+| `sidechat.reasoning`    | Reasoning/status summary text.       | Model adapter chunk mapped by `streamChat`.                                 | Widget renders a reasoning part.                       |
+| `sidechat.tool`         | Backend tool lifecycle.              | Model adapter chunk mapped by `streamChat`.                                 | Widget renders tool running/completed/error state.     |
 | `sidechat.host_command` | Assistant requests a host UI action. | Model adapter validates tool result, then `streamChat` emits command event. | Widget calls the host bridge and shows command status. |
-| `sidechat.completed` | Stream finished successfully. | `streamChat`. | Widget stops streaming and records usage metadata. |
-| `sidechat.error` | Stream failed. | SSE adapter or application error mapping. | Widget shows error and stops streaming. |
-| `sidechat.history` | Historical conversation payload. | History route. | Widget hydrates prior messages. |
+| `sidechat.completed`    | Stream finished successfully.        | `streamChat`.                                                               | Widget stops streaming and records usage metadata.     |
+| `sidechat.error`        | Stream failed.                       | SSE adapter or application error mapping.                                   | Widget shows error and stops streaming.                |
+| `sidechat.history`      | Historical conversation payload.     | History route.                                                              | Widget hydrates prior messages.                        |
 
 ### Contract File And Function Map
 
-| File / function | Role in the protocol |
-| --- | --- |
-| `schemas.ts / SidechatRequestSchema` | Defines the exact JSON body accepted by `/chat/stream`. This is the “client can ask for a chat turn” shape. |
-| `schemas.ts / HostContextSnapshotSchema` | Defines what the host app may tell the assistant about the current page: resources, columns, capabilities, and metadata. This is context, not trusted data authority. |
-| `schemas.ts / HostCommandSchema` | Defines the controlled UI commands the assistant may request: apply grid view, clear grid view, focus resource, or custom host command. |
-| `schemas.ts / SidechatStreamEventSchema` | Union of all stream events the browser can receive. This is the main product protocol surface. |
-| `schemas.ts / protocolArtifacts` | String constants for event names. Use these where code needs stable names instead of retyping string literals. |
-| `types.ts / SchemaType` | Converts Effect Schema output types into mutable TypeScript DTOs. Effect schemas often produce readonly structures; app DTOs are easier to use as mutable plain objects. |
-| `validation.ts / parseSidechatRequest` | Fail-fast decoder for code paths where invalid input should throw. |
-| `validation.ts / validateRequest` | Safe decoder for HTTP routes that must return a 400 instead of throwing. |
-| `validation.ts / validateStreamEvent` | Safe decoder for streamed payloads. Both server tests and widget stream parsing use this. |
-| `codec.ts / encodeSseEvent` | Turns a validated event into a `data: ...` line. |
-| `codec.ts / encodeSseFrame` | Adds the `event: <event-type>` line around the data payload. This is what the server writes to the browser. |
-| `codec.ts / parseSsePayload` | Parses raw `text/event-stream` chunks into `{ event, data }` payloads without deciding whether the event is valid. |
-| `codec.ts / parseKnownSsePayloads` | Parses only known `sidechat.v1` event names into validated stream events. |
-| `sequence.ts / validateSidechatEventSequence` | Checks cross-event rules, such as one terminal event and no deltas after completion. |
-| `index.ts / protocolVersion` | Package-level export used by consumers that should not import deep protocol paths. |
+| File / function                               | Role in the protocol                                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `schemas.ts / SidechatRequestSchema`          | Defines the exact JSON body accepted by `/chat/stream`. This is the “client can ask for a chat turn” shape.                                                              |
+| `schemas.ts / HostContextSnapshotSchema`      | Defines what the host app may tell the assistant about the current page: resources, columns, capabilities, and metadata. This is context, not trusted data authority.    |
+| `schemas.ts / HostCommandSchema`              | Defines the controlled UI commands the assistant may request: apply grid view, clear grid view, focus resource, or custom host command.                                  |
+| `schemas.ts / SidechatStreamEventSchema`      | Union of all stream events the browser can receive. This is the main product protocol surface.                                                                           |
+| `schemas.ts / protocolArtifacts`              | String constants for event names. Use these where code needs stable names instead of retyping string literals.                                                           |
+| `types.ts / SchemaType`                       | Converts Effect Schema output types into mutable TypeScript DTOs. Effect schemas often produce readonly structures; app DTOs are easier to use as mutable plain objects. |
+| `validation.ts / parseSidechatRequest`        | Fail-fast decoder for code paths where invalid input should throw.                                                                                                       |
+| `validation.ts / validateRequest`             | Safe decoder for HTTP routes that must return a 400 instead of throwing.                                                                                                 |
+| `validation.ts / validateStreamEvent`         | Safe decoder for streamed payloads. Both server tests and widget stream parsing use this.                                                                                |
+| `codec.ts / encodeSseEvent`                   | Turns a validated event into a `data: ...` line.                                                                                                                         |
+| `codec.ts / encodeSseFrame`                   | Adds the `event: <event-type>` line around the data payload. This is what the server writes to the browser.                                                              |
+| `codec.ts / parseSsePayload`                  | Parses raw `text/event-stream` chunks into `{ event, data }` payloads without deciding whether the event is valid.                                                       |
+| `codec.ts / parseKnownSsePayloads`            | Parses only known `sidechat.v1` event names into validated stream events.                                                                                                |
+| `sequence.ts / validateSidechatEventSequence` | Checks cross-event rules, such as one terminal event and no deltas after completion.                                                                                     |
+| `index.ts / protocolVersion`                  | Package-level export used by consumers that should not import deep protocol paths.                                                                                       |
 
 ### Why Effect Schema Here
 
@@ -213,13 +228,13 @@ The OpenAI/AI SDK adapter still uses Zod for AI SDK tool input schemas because A
 
 The backend is organized as a hexagon.
 
-| Area | What it owns | What it must not own |
-| --- | --- | --- |
-| `application/` | Use cases and workflow rules. | Hono request objects, OpenAI SDK objects, Postgres client objects, React concepts. |
-| `ports/` | Interfaces the use case needs. | Concrete implementations. |
-| `adapters/ai/` | AI SDK/OpenAI or fake-model translation into `ModelChunk`. | HTTP routing or widget state. |
-| `adapters/workbench/` | Workbench data/report/tool integration. | Protocol stream framing. |
-| `inbound/hono/` | HTTP, headers, response codes, SSE streams, dependency composition. | Business workflow decisions beyond adapter-level validation. |
+| Area                  | What it owns                                                        | What it must not own                                                               |
+| --------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `application/`        | Use cases and workflow rules.                                       | Hono request objects, OpenAI SDK objects, Postgres client objects, React concepts. |
+| `ports/`              | Interfaces the use case needs.                                      | Concrete implementations.                                                          |
+| `adapters/ai/`        | AI SDK/OpenAI or fake-model translation into `ModelChunk`.          | HTTP routing or widget state.                                                      |
+| `adapters/workbench/` | Workbench data/report/tool integration.                             | Protocol stream framing.                                                           |
+| `inbound/hono/`       | HTTP, headers, response codes, SSE streams, dependency composition. | Business workflow decisions beyond adapter-level validation.                       |
 
 ### Main Backend Flow
 
@@ -253,82 +268,82 @@ Important files:
 
 #### Inbound Hono Layer
 
-| File / function | Role |
-| --- | --- |
-| `inbound/hono/app.ts` | Creates the Hono app and registers route groups. |
-| `inbound/hono/routes/chat-stream.ts / registerChatStreamRoute` | Owns `POST /chat/stream`: request id, protocol header, JSON parsing, pre-stream validation, and response headers. It should not contain model/tool workflow logic. |
-| `inbound/hono/response/protocol-errors.ts / preStreamErrorResponse` | Returns normal JSON errors before streaming begins, for example bad protocol header or invalid request body. |
-| `inbound/hono/response/protocol-errors.ts / toProtocolError` | Converts thrown application/domain errors into streamed `sidechat.error` events after streaming has started. |
-| `inbound/hono/response/sse.ts / streamEvents` | Creates the `ReadableStream`, runs the application workflow, encodes each `SidechatStreamEvent` with `encodeSseFrame`, and closes the stream. |
-| `inbound/hono/composition/default-deps.ts / createDefaultDeps` | Composition root. It chooses fake vs OpenAI model, memory vs Postgres repositories, dashboard tools, report adapter, auth/rate/billing ports, and config. |
-| `inbound/hono/composition/model-config.ts` | Defines which models the backend says are supported. |
-| `inbound/hono/composition/host-surface-state.ts / createMemoryHostSurfaceState` | Demo server-side memory for host table commands, so later tool calls can reason about the current filtered/sorted table. |
+| File / function                                                                 | Role                                                                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `inbound/hono/app.ts`                                                           | Creates the Hono app and registers route groups.                                                                                                                   |
+| `inbound/hono/routes/chat-stream.ts / registerChatStreamRoute`                  | Owns `POST /chat/stream`: request id, protocol header, JSON parsing, pre-stream validation, and response headers. It should not contain model/tool workflow logic. |
+| `inbound/hono/response/protocol-errors.ts / preStreamErrorResponse`             | Returns normal JSON errors before streaming begins, for example bad protocol header or invalid request body.                                                       |
+| `inbound/hono/response/protocol-errors.ts / toProtocolError`                    | Converts thrown application/domain errors into streamed `sidechat.error` events after streaming has started.                                                       |
+| `inbound/hono/response/sse.ts / streamEvents`                                   | Creates the `ReadableStream`, runs the application workflow, encodes each `SidechatStreamEvent` with `encodeSseFrame`, and closes the stream.                      |
+| `inbound/hono/composition/default-deps.ts / createDefaultDeps`                  | Composition root. It chooses fake vs OpenAI model, memory vs Postgres repositories, dashboard tools, report adapter, auth/rate/billing ports, and config.          |
+| `inbound/hono/composition/model-config.ts`                                      | Defines which models the backend says are supported.                                                                                                               |
+| `inbound/hono/composition/host-surface-state.ts / createMemoryHostSurfaceState` | Demo server-side memory for host table commands, so later tool calls can reason about the current filtered/sorted table.                                           |
 
 #### Application Layer
 
-| File / function | Role |
-| --- | --- |
-| `application/stream-chat-request-schema.ts / decodeSidechatRequestEffect` | First application boundary. It turns `unknown` request JSON into `SidechatRequest` or an `InvalidRequest` domain error. |
-| `application/effect-boundary.ts / runEffectBoundary` | Bridge between Effect workflows and ordinary promise-based framework code. |
-| `application/errors.ts / SideChatDomainError` | Base class for expected use-case failures. These become protocol errors instead of leaking random exceptions. |
-| `application/prompt-context.ts / workbenchAssistantSystemPrompt` | System behavior contract for the assistant: scope, data authority, report behavior, citations, and host-command rules. |
-| `application/prompt-context.ts / createModelPrompt` | Builds the user-turn prompt from page context, host context, backend surface state, recent conversation, and the latest user message. |
-| `application/prompt-context.ts / createModelInput` | Returns `{ system, prompt }` for the model adapter. |
-| `application/stream-chat.ts / streamChat` | Public async-generator entry point for the use case. Tests can call this without Hono. |
-| `application/stream-chat.ts / streamChatEffect` | Effect-shaped entry point used by the SSE adapter. |
-| `application/stream-chat.ts / streamChatWithRequest` | Core workflow after request decoding: model selection, auth/rate/billing gates, conversation setup, page/surface context, model streaming, persistence, usage, and final event. |
-| `application/stream-chat/surface-contexts.ts / resolveSurfaceContexts` | Loads trusted backend table context for host resources so the model can answer “this table/current view” questions without trusting browser row data. |
-| `application/stream-chat/events.ts / createDeltaEvent` | Maps a normalized model text chunk to `sidechat.delta`. |
-| `application/stream-chat/events.ts / createReasoningEvent` | Maps a normalized reasoning chunk to `sidechat.reasoning`. |
-| `application/stream-chat/events.ts / createToolEvent` | Maps a normalized tool chunk to `sidechat.tool`. |
-| `application/stream-chat/events.ts / createHostCommandEvent` | Maps a validated host command chunk to `sidechat.host_command`. |
-| `application/stream-chat/metadata.ts / createAssistantMetadata` | Chooses citations and attachments that should be attached to the final assistant message. |
-| `application/stream-chat/metadata.ts / selectInlineCitationSources` | Keeps citations relevant to the actual answer text instead of dumping every source the tools touched. |
+| File / function                                                           | Role                                                                                                                                                                            |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `application/stream-chat-request-schema.ts / decodeSidechatRequestEffect` | First application boundary. It turns `unknown` request JSON into `SidechatRequest` or an `InvalidRequest` domain error.                                                         |
+| `application/effect-boundary.ts / runEffectBoundary`                      | Bridge between Effect workflows and ordinary promise-based framework code.                                                                                                      |
+| `application/errors.ts / SideChatDomainError`                             | Base class for expected use-case failures. These become protocol errors instead of leaking random exceptions.                                                                   |
+| `application/prompt-context.ts / workbenchAssistantSystemPrompt`          | System behavior contract for the assistant: scope, data authority, report behavior, citations, and host-command rules.                                                          |
+| `application/prompt-context.ts / createModelPrompt`                       | Builds the user-turn prompt from page context, host context, backend surface state, recent conversation, and the latest user message.                                           |
+| `application/prompt-context.ts / createModelInput`                        | Returns `{ system, prompt }` for the model adapter.                                                                                                                             |
+| `application/stream-chat.ts / streamChat`                                 | Public async-generator entry point for the use case. Tests can call this without Hono.                                                                                          |
+| `application/stream-chat.ts / streamChatEffect`                           | Effect-shaped entry point used by the SSE adapter.                                                                                                                              |
+| `application/stream-chat.ts / streamChatWithRequest`                      | Core workflow after request decoding: model selection, auth/rate/billing gates, conversation setup, page/surface context, model streaming, persistence, usage, and final event. |
+| `application/stream-chat/surface-contexts.ts / resolveSurfaceContexts`    | Loads trusted backend table context for host resources so the model can answer “this table/current view” questions without trusting browser row data.                           |
+| `application/stream-chat/events.ts / createDeltaEvent`                    | Maps a normalized model text chunk to `sidechat.delta`.                                                                                                                         |
+| `application/stream-chat/events.ts / createReasoningEvent`                | Maps a normalized reasoning chunk to `sidechat.reasoning`.                                                                                                                      |
+| `application/stream-chat/events.ts / createToolEvent`                     | Maps a normalized tool chunk to `sidechat.tool`.                                                                                                                                |
+| `application/stream-chat/events.ts / createHostCommandEvent`              | Maps a validated host command chunk to `sidechat.host_command`.                                                                                                                 |
+| `application/stream-chat/metadata.ts / createAssistantMetadata`           | Chooses citations and attachments that should be attached to the final assistant message.                                                                                       |
+| `application/stream-chat/metadata.ts / selectInlineCitationSources`       | Keeps citations relevant to the actual answer text instead of dumping every source the tools touched.                                                                           |
 
 #### Ports Layer
 
 `apps/side-chat-api/src/ports/index.ts` is the backend’s “inside language.” It should be read as a dependency map:
 
-| Port/type | Meaning |
-| --- | --- |
-| `ModelPort` | Something that can stream normalized `ModelChunk` values. OpenAI and fake adapters both satisfy this. |
-| `ModelChunk` | Internal provider-neutral stream shape: text, reasoning, tool, host command, or done. This is not exposed to the browser. |
-| `WorkbenchToolsPort` | Approved dashboard data access and current-surface context access. |
-| `HostSurfaceStatePort` | Server-side memory of host table commands by workspace/user/conversation/resource. |
-| `WorkbenchReportPort` | Generates a controlled report artifact from approved dashboard data. |
-| `ConversationRepository` | Persists and reads chat messages. |
-| `UsagePort` | Records token usage/cost metadata. |
-| `AuthPort`, `RateLimitPort`, `BillingPort` | Product gates before model work begins. |
-| `ObservabilityPort` | Lifecycle/counter/span hooks without tying the use case to a telemetry vendor. |
-| `ConfigPort` | Supported models and default user id. |
+| Port/type                                  | Meaning                                                                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `ModelPort`                                | Something that can stream normalized `ModelChunk` values. OpenAI and fake adapters both satisfy this.                     |
+| `ModelChunk`                               | Internal provider-neutral stream shape: text, reasoning, tool, host command, or done. This is not exposed to the browser. |
+| `WorkbenchToolsPort`                       | Approved dashboard data access and current-surface context access.                                                        |
+| `HostSurfaceStatePort`                     | Server-side memory of host table commands by workspace/user/conversation/resource.                                        |
+| `WorkbenchReportPort`                      | Generates a controlled report artifact from approved dashboard data.                                                      |
+| `ConversationRepository`                   | Persists and reads chat messages.                                                                                         |
+| `UsagePort`                                | Records token usage/cost metadata.                                                                                        |
+| `AuthPort`, `RateLimitPort`, `BillingPort` | Product gates before model work begins.                                                                                   |
+| `ObservabilityPort`                        | Lifecycle/counter/span hooks without tying the use case to a telemetry vendor.                                            |
+| `ConfigPort`                               | Supported models and default user id.                                                                                     |
 
 #### AI Adapter Layer
 
-| File / function | Role |
-| --- | --- |
-| `adapters/ai/openai-model.ts / openAiModelAdapter.stream` | Calls AI SDK `streamText`, passes controlled tools, and translates AI SDK `fullStream` parts into `ModelChunk`. |
-| `adapters/ai/openai-model.ts / createWorkbenchTools` | Registers AI SDK tools from backend ports and workbench tool contracts. This is why AI SDK stays behind the adapter. |
-| `adapters/ai/openai-model.ts / workbench_query` | Tool for whole-dashboard approved data lookups. It does not accept SQL or arbitrary filters. |
-| `adapters/ai/openai-model.ts / workbench_surface_context` | Tool for current visible/filtered/sorted table context. Use this for “on this page/current view/table you just changed” questions. |
-| `adapters/ai/openai-model.ts / host_command` | AI SDK registration for the host-command tool. It delegates grid/filter/sort semantics to the workbench host-command adapter. |
-| `adapters/ai/openai-model.ts / generate_workbench_report` | Tool that creates a controlled one-page report through `WorkbenchReportPort`. |
-| `adapters/ai/openai-model.ts / toTokenUsage` | Maps AI SDK usage shape into the product `TokenUsage` DTO. |
-| `adapters/ai/fake-model.ts / fakeModelAdapter` | Deterministic `ModelPort` implementation for tests and safe local runs. It exercises text, tools, reports, host commands, and usage without provider calls. |
-| `adapters/workbench/host-command-tool.ts / hostCommandInputSchema` | Defines the flat model-facing schema for host UI commands. It stays separate from OpenAI so the provider adapter does not own grid semantics. |
-| `adapters/workbench/host-command-tool.ts / toHostCommand` | Converts model tool input into a protocol-owned `HostCommand`, resolving resource and column labels against host context. |
+| File / function                                                    | Role                                                                                                                                                        |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapters/ai/openai-model.ts / openAiModelAdapter.stream`          | Calls AI SDK `streamText`, passes controlled tools, and translates AI SDK `fullStream` parts into `ModelChunk`.                                             |
+| `adapters/ai/openai-model.ts / createWorkbenchTools`               | Registers AI SDK tools from backend ports and workbench tool contracts. This is why AI SDK stays behind the adapter.                                        |
+| `adapters/ai/openai-model.ts / workbench_query`                    | Tool for whole-dashboard approved data lookups. It does not accept SQL or arbitrary filters.                                                                |
+| `adapters/ai/openai-model.ts / workbench_surface_context`          | Tool for current visible/filtered/sorted table context. Use this for “on this page/current view/table you just changed” questions.                          |
+| `adapters/ai/openai-model.ts / host_command`                       | AI SDK registration for the host-command tool. It delegates grid/filter/sort semantics to the workbench host-command adapter.                               |
+| `adapters/ai/openai-model.ts / generate_workbench_report`          | Tool that creates a controlled one-page report through `WorkbenchReportPort`.                                                                               |
+| `adapters/ai/openai-model.ts / toTokenUsage`                       | Maps AI SDK usage shape into the product `TokenUsage` DTO.                                                                                                  |
+| `adapters/ai/fake-model.ts / fakeModelAdapter`                     | Deterministic `ModelPort` implementation for tests and safe local runs. It exercises text, tools, reports, host commands, and usage without provider calls. |
+| `adapters/workbench/host-command-tool.ts / hostCommandInputSchema` | Defines the flat model-facing schema for host UI commands. It stays separate from OpenAI so the provider adapter does not own grid semantics.               |
+| `adapters/workbench/host-command-tool.ts / toHostCommand`          | Converts model tool input into a protocol-owned `HostCommand`, resolving resource and column labels against host context.                                   |
 
 #### Workbench Adapter Layer
 
-| File / function | Role |
-| --- | --- |
-| `adapters/workbench/workbench-tools-adapter.ts / createWorkbenchTools` | Builds the backend workbench tools port. Uses Postgres-backed dashboard data when `DATABASE_URL` exists, otherwise fallback data. |
-| `workbench-tools-adapter.ts / query` | Handles approved whole-dashboard query names and returns data plus citation sources. |
-| `workbench-tools-adapter.ts / surfaceContext` | Rebuilds the Portfolio Worklist from approved backend data, applies remembered host view state, and returns the current visible rows. |
-| `workbench-tools/citations.ts / createWorkbenchSources` | Converts dashboard/tool rows into source IDs the UI can cite. |
-| `workbench-tools/fallback-data.ts / fallbackWorkbenchData` | Provides deterministic demo data when the backend runs without Postgres. |
-| `workbench-tools/surface-context.ts / createWorklistRows` | Shapes dashboard data into the unified Portfolio Worklist rows used by the demo. |
-| `workbench-tools/surface-context.ts / applyWorklistView` | Applies host-command filters/sorts to backend-owned rows. |
-| `workbench-tools/surface-context.ts / createSurfaceContextResult` | Produces the bounded current-view context injected into prompts and tool outputs. |
+| File / function                                                        | Role                                                                                                                                  |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapters/workbench/workbench-tools-adapter.ts / createWorkbenchTools` | Builds the backend workbench tools port. Uses Postgres-backed dashboard data when `DATABASE_URL` exists, otherwise fallback data.     |
+| `workbench-tools-adapter.ts / query`                                   | Handles approved whole-dashboard query names and returns data plus citation sources.                                                  |
+| `workbench-tools-adapter.ts / surfaceContext`                          | Rebuilds the Portfolio Worklist from approved backend data, applies remembered host view state, and returns the current visible rows. |
+| `workbench-tools/citations.ts / createWorkbenchSources`                | Converts dashboard/tool rows into source IDs the UI can cite.                                                                         |
+| `workbench-tools/fallback-data.ts / fallbackWorkbenchData`             | Provides deterministic demo data when the backend runs without Postgres.                                                              |
+| `workbench-tools/surface-context.ts / createWorklistRows`              | Shapes dashboard data into the unified Portfolio Worklist rows used by the demo.                                                      |
+| `workbench-tools/surface-context.ts / applyWorklistView`               | Applies host-command filters/sorts to backend-owned rows.                                                                             |
+| `workbench-tools/surface-context.ts / createSurfaceContextResult`      | Produces the bounded current-view context injected into prompts and tool outputs.                                                     |
 
 ### Why There Are Two Error Paths
 
@@ -390,14 +405,14 @@ streamEvents
 
 The widget is also a hexagon, but the outside world is the browser and host app instead of HTTP/framework/database infrastructure.
 
-| Folder | Role | Example |
-| --- | --- | --- |
-| `ports/` | Contracts the host app must satisfy. | Transport, identity, host bridge callbacks. |
-| `domain/` | Pure widget rules. | Message projection, citations, panel geometry, model aliases, appearance presets. |
-| `application/` | Boundary workflows. | Decode streamed frames into known protocol events. |
-| `adapters/react/` | Browser and React lifecycle adapter. | Fetch, SSE reading, history loading, host command dispatch, state updates. |
-| `ui/` | Presentation slices. | Shell, panel, conversation feed, composer. |
-| `shared/ui/` | Vendored visual primitives. | AI Elements-derived components that the package owns locally. |
+| Folder            | Role                                 | Example                                                                           |
+| ----------------- | ------------------------------------ | --------------------------------------------------------------------------------- |
+| `ports/`          | Contracts the host app must satisfy. | Transport, identity, host bridge callbacks.                                       |
+| `domain/`         | Pure widget rules.                   | Message projection, citations, panel geometry, model aliases, appearance presets. |
+| `application/`    | Boundary workflows.                  | Decode streamed frames into known protocol events.                                |
+| `adapters/react/` | Browser and React lifecycle adapter. | Fetch, SSE reading, history loading, host command dispatch, state updates.        |
+| `ui/`             | Presentation slices.                 | Shell, panel, conversation feed, composer.                                        |
+| `shared/ui/`      | Vendored visual primitives.          | AI Elements-derived components that the package owns locally.                     |
 
 This is intentionally not a global `hooks/`, `components/`, `utils/` layout. File type is less important than ownership. A hook that manages panel dragging belongs beside the panel shell. A hook that adapts fetch/SSE into chat state belongs in `adapters/react`.
 

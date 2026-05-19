@@ -21,15 +21,36 @@ Only Caddy publishes host ports. Postgres has no public port.
 
 ## Files
 
-| File | Purpose |
-| --- | --- |
-| `compose.demo.yml` | Demo stack for the Droplet. Separate from local `docker-compose.yml`. |
-| `deploy/demo/Caddyfile` | Public HTTPS and same-origin path routing. |
-| `deploy/demo/embedded-host.Caddyfile` | Internal static server for the built Vite host. |
-| `deploy/demo/backup.sh` | Minimal `pg_dump` backup before deploy. |
-| `deploy/demo/rollback.sh` | Image-tag rollback helper. |
-| `deploy/demo/env.demo.example` | Template for the Droplet `.env.demo`. |
-| `docker/postgres/init` | Postgres schema, roles, stored procedures, and deterministic demo seed data. |
+| File                                  | Purpose                                                                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `docker-compose.yml`                  | Local one-command demo stack. Run `docker compose up --build demo` from the repo root and open `http://127.0.0.1:8080`. |
+| `compose.demo.yml`                    | Demo stack for the Droplet. Separate from local `docker-compose.yml`.                                                   |
+| `deploy/demo/Caddyfile`               | Public HTTPS and same-origin path routing.                                                                              |
+| `deploy/demo/embedded-host.Caddyfile` | Internal static server for the built Vite host.                                                                         |
+| `deploy/demo/backup.sh`               | Minimal `pg_dump` backup before deploy.                                                                                 |
+| `deploy/demo/rollback.sh`             | Image-tag rollback helper.                                                                                              |
+| `deploy/demo/env.demo.example`        | Template for the Droplet `.env.demo`.                                                                                   |
+| `docker/postgres/init`                | Postgres schema, roles, stored procedures, and deterministic demo seed data.                                            |
+
+## Local One-Command Demo
+
+From the repo root:
+
+```sh
+docker compose up --build demo
+```
+
+Open `http://127.0.0.1:8080`.
+
+The local stack defaults to `USE_FAKE_MODEL=true`, so it does not need provider
+credentials. To test real model calls locally, pass a key and disable fake mode:
+
+```sh
+OPENAI_API_KEY="$OPENAI_API_KEY" USE_FAKE_MODEL=false docker compose up --build demo
+```
+
+For persistent local overrides, copy `.env.example` to `.env`. The `.env` file
+is gitignored.
 
 ## Runtime Contract
 
@@ -49,15 +70,15 @@ POSTGRES_PASSWORD=<strong-password>
 
 Caddy preserves path prefixes. Do not use `handle_path` here.
 
-| Public path | Target |
-| --- | --- |
-| `/chat/*` | `side-chat-api:3000` |
-| `/models` | `side-chat-api:3000` |
-| `/health` | `side-chat-api:3000` |
-| `/reports/*` | `side-chat-api:3000` |
+| Public path             | Target                    |
+| ----------------------- | ------------------------- |
+| `/chat/*`               | `side-chat-api:3000`      |
+| `/models`               | `side-chat-api:3000`      |
+| `/health`               | `side-chat-api:3000`      |
+| `/reports/*`            | `side-chat-api:3000`      |
 | `/advisory-dashboard/*` | `dashboard-data-api:3100` |
-| `/dashboard-health` | `dashboard-data-api:3100` |
-| everything else | `embedded-host-app:8080` |
+| `/dashboard-health`     | `dashboard-data-api:3100` |
+| everything else         | `embedded-host-app:8080`  |
 
 ## First Droplet Setup
 

@@ -141,6 +141,55 @@ npm install
 
 ## Run The Full Demo
 
+One-command Docker demo, using deterministic fake model output by default:
+
+```sh
+docker compose up --build demo
+```
+
+Then open:
+
+```txt
+http://127.0.0.1:8080
+```
+
+Equivalent npm alias:
+
+```sh
+npm run demo
+```
+
+To hook a real OpenAI API key into the same local Docker demo:
+
+```sh
+OPENAI_API_KEY="$OPENAI_API_KEY" USE_FAKE_MODEL=false docker compose up --build demo
+```
+
+PowerShell equivalent:
+
+```powershell
+$env:OPENAI_API_KEY = "sk-..."
+$env:USE_FAKE_MODEL = "false"
+docker compose up --build demo
+```
+
+For persistent local settings, copy `.env.example` to `.env` and edit the
+values there. `.env` is gitignored.
+
+The one-command Docker demo starts Postgres, the side-chat API, the dashboard
+data API, the built embedded host app, and a local Caddy router. The side-chat
+and dashboard APIs are also exposed on `127.0.0.1:3000` and `127.0.0.1:3100`
+for direct inspection.
+
+If a local port is already in use, override it before starting Compose:
+
+```powershell
+$env:LOCAL_DEMO_PORT = "8081"
+docker compose up --build demo
+```
+
+### Manual Dev Mode
+
 Start Postgres:
 
 ```sh
@@ -180,14 +229,16 @@ The Vite host proxies chat routes to `http://127.0.0.1:3000` and dashboard route
 
 ## Other Local Modes
 
-| Mode | Use when | Command |
-| --- | --- | --- |
-| Deterministic chat | You want no provider credentials and stable local output | `USE_FAKE_MODEL=true npm run dev --workspace @side-chat/side-chat-api` |
-| Widget demo | You want to inspect the reusable widget outside the host app | `npm run dev --workspace @side-chat/widget-demo -- --host 127.0.0.1` |
-| Playwright e2e | You want automated browser coverage for the integrated host path | `npm run test:e2e` |
-| Docker API smoke | You want Postgres plus side-chat API in containers | `docker compose up --build` |
+| Mode               | Use when                                                         | Command                                                                |
+| ------------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Deterministic chat | You want no provider credentials and stable local output         | `USE_FAKE_MODEL=true npm run dev --workspace @side-chat/side-chat-api` |
+| Widget demo        | You want to inspect the reusable widget outside the host app     | `npm run dev --workspace @side-chat/widget-demo -- --host 127.0.0.1`   |
+| Playwright e2e     | You want automated browser coverage for the integrated host path | `npm run test:e2e`                                                     |
+| Docker full demo   | You want the complete local app behind one URL                   | `docker compose up --build demo`                                       |
 
-`docker compose up --build` starts Postgres and the side-chat API. It passes `SIDE_CHAT_MODEL_ADAPTER=openai` and `USE_FAKE_MODEL=false`, so real stream calls need `OPENAI_API_KEY` in the shell environment. Health checks and DB startup can still be inspected without sending a chat request.
+`docker compose up --build demo` defaults to `USE_FAKE_MODEL=true`, so it runs
+without provider credentials. Pass `OPENAI_API_KEY` and `USE_FAKE_MODEL=false`
+to use the real model adapter.
 
 ## Demo Deployment
 
@@ -213,31 +264,36 @@ Use `compose.demo.yml` for the Droplet. Keep `docker-compose.yml` for local deve
 
 ## Local URLs
 
-| Surface | URL |
-| --- | --- |
-| Embedded host app | `http://127.0.0.1:5173` |
-| Side-chat health | `http://127.0.0.1:3000/health` |
-| Side-chat stream | `POST http://127.0.0.1:3000/chat/stream` |
-| Side-chat models | `http://127.0.0.1:3000/models` |
-| Dashboard health | `http://127.0.0.1:3100/dashboard-health` |
-| Dashboard snapshot | `http://127.0.0.1:3100/advisory-dashboard/snapshot` |
+| Surface                              | URL                                                 |
+| ------------------------------------ | --------------------------------------------------- |
+| One-command Docker demo              | `http://127.0.0.1:8080`                             |
+| Embedded host app in manual dev mode | `http://127.0.0.1:5173`                             |
+| Side-chat health                     | `http://127.0.0.1:3000/health`                      |
+| Side-chat stream                     | `POST http://127.0.0.1:3000/chat/stream`            |
+| Side-chat models                     | `http://127.0.0.1:3000/models`                      |
+| Dashboard health                     | `http://127.0.0.1:3100/dashboard-health`            |
+| Dashboard snapshot                   | `http://127.0.0.1:3100/advisory-dashboard/snapshot` |
 
 ## Environment Variables
 
-| Variable | Default | Used by | Purpose |
-| --- | --- | --- | --- |
-| `PORT` | `3000` for side-chat API, `3100` for dashboard API | API apps | Listen port. |
-| `DATABASE_URL` | unset for side-chat API, local Postgres default for dashboard API | API apps | Enables Postgres-backed repositories and dashboard data. |
-| `SIDE_CHAT_MODEL_ADAPTER` | unset | side-chat API | Set to `openai` to use the OpenAI adapter. |
-| `OPENAI_API_KEY` | unset | side-chat API | Required for real OpenAI requests. |
-| `USE_FAKE_MODEL` | `false` outside tests | side-chat API | Set to `true` for deterministic local responses. |
-| `SIDE_CHAT_DEFAULT_USER_ID` | `local-user` | side-chat API | User id used until a real auth adapter exists. |
-| `SIDE_CHAT_ALLOWED_WORKSPACE_IDS` | unset | side-chat API | Optional comma-separated workspace allowlist. |
-| `SIDE_CHAT_BLOCKED_WORKSPACE_IDS` | unset | side-chat API | Optional comma-separated workspace blocklist. |
-| `SIDE_CHAT_RATE_LIMITING_ENABLED` | `true` | side-chat API | Enables the current placeholder rate-limit port. |
-| `SIDE_CHAT_BILLING_ENABLED` | `true` | side-chat API | Enables the current placeholder billing port. |
-| `DASHBOARD_DATA_SOURCE` | `postgres` | dashboard data API tests/config | Can be `postgres` or `fixture`; fixture mode is for deterministic e2e. |
-| `SIDE_CHAT_API_PROXY_TARGET` | `http://127.0.0.1:3000` | embedded host dev server | Overrides the Vite proxy target for chat routes. |
+| Variable                          | Default                                                           | Used by                         | Purpose                                                                                                     |
+| --------------------------------- | ----------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `PORT`                            | `3000` for side-chat API, `3100` for dashboard API                | API apps                        | Listen port.                                                                                                |
+| `DATABASE_URL`                    | unset for side-chat API, local Postgres default for dashboard API | API apps                        | Enables Postgres-backed repositories and dashboard data.                                                    |
+| `SIDE_CHAT_MODEL_ADAPTER`         | unset                                                             | side-chat API                   | Set to `openai` to use the OpenAI adapter.                                                                  |
+| `OPENAI_API_KEY`                  | unset                                                             | side-chat API                   | Required for real OpenAI requests.                                                                          |
+| `USE_FAKE_MODEL`                  | `true` in local Docker demo, `false` outside tests otherwise      | side-chat API                   | Set to `true` for deterministic local responses; set to `false` with `OPENAI_API_KEY` for real model calls. |
+| `LOCAL_DEMO_PORT`                 | `8080`                                                            | local Docker demo               | Host port for the Caddy demo entrypoint.                                                                    |
+| `SIDE_CHAT_API_PORT`              | `3000`                                                            | local Docker demo               | Host port for direct side-chat API inspection.                                                              |
+| `DASHBOARD_DATA_API_PORT`         | `3100`                                                            | local Docker demo               | Host port for direct dashboard data API inspection.                                                         |
+| `POSTGRES_PORT`                   | `5432`                                                            | local Docker demo               | Host port for direct Postgres inspection.                                                                   |
+| `SIDE_CHAT_DEFAULT_USER_ID`       | `local-user`                                                      | side-chat API                   | User id used until a real auth adapter exists.                                                              |
+| `SIDE_CHAT_ALLOWED_WORKSPACE_IDS` | unset                                                             | side-chat API                   | Optional comma-separated workspace allowlist.                                                               |
+| `SIDE_CHAT_BLOCKED_WORKSPACE_IDS` | unset                                                             | side-chat API                   | Optional comma-separated workspace blocklist.                                                               |
+| `SIDE_CHAT_RATE_LIMITING_ENABLED` | `true`                                                            | side-chat API                   | Enables the current placeholder rate-limit port.                                                            |
+| `SIDE_CHAT_BILLING_ENABLED`       | `true`                                                            | side-chat API                   | Enables the current placeholder billing port.                                                               |
+| `DASHBOARD_DATA_SOURCE`           | `postgres`                                                        | dashboard data API tests/config | Can be `postgres` or `fixture`; fixture mode is for deterministic e2e.                                      |
+| `SIDE_CHAT_API_PROXY_TARGET`      | `http://127.0.0.1:3000`                                           | embedded host dev server        | Overrides the Vite proxy target for chat routes.                                                            |
 
 ## Verification
 

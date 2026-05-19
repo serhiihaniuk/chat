@@ -1,32 +1,100 @@
+name: sidechat-local
+
 services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: sidechat
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d sidechat"]
       interval: 5s
       timeout: 5s
       retries: 10
     volumes:
+      - sidechat_local_postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - sidechat_local
+
   side-chat-api:
-    image: node:25-alpine
-    working_dir: /app
-    command: sh -c "rm -rf /tmp/sidechat && mkdir -p /tmp/sidechat && tar --exclude=./node_modules --exclude=./apps/*/node_modules --exclude=./packages/*/node_modules --exclude=./.git -cf - . | tar -C /tmp/sidechat -xf - && cd /tmp/sidechat && npm ci && npm run dev --workspace @side-chat/side-chat-api"
+    image: ${IMAGE_PREFIX:-sidechat-local}/side-chat-api:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: side-chat-api
     environment:
+      PORT: "3000"
       DATABASE_URL: postgres://sidechat_app:sidechat_app@postgres:5432/sidechat
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      SIDE_CHAT_MODEL_ADAPTER: openai
-      USE_FAKE_MODEL: "false"
+      SIDE_CHAT_MODEL_ADAPTER: ${SIDE_CHAT_MODEL_ADAPTER:-openai}
+      USE_FAKE_MODEL: ${USE_FAKE_MODEL:-true}
+      SIDE_CHAT_FAKE_CHUNK_DELAY_MS: ${SIDE_CHAT_FAKE_CHUNK_DELAY_MS:-0}
+      SIDE_CHAT_PUBLIC_REPORT_BASE_PATH: ${SIDE_CHAT_PUBLIC_REPORT_BASE_PATH:-http://127.0.0.1:${LOCAL_DEMO_PORT:-8080}/reports}
       CI: "true"
     ports:
-      - "3000:3000"
-    volumes:
-      - .:/app:ro
+      - "${SIDE_CHAT_API_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - sidechat_local_reports:/app/.sidechat-reports
+    networks:
+      - sidechat_local
+
+  dashboard-data-api:
+    image: ${IMAGE_PREFIX:-sidechat-local}/dashboard-data-api:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dashboard-data-api
+    environment:
+      PORT: "3100"
+      DASHBOARD_DATA_SOURCE: postgres
+      DATABASE_URL: postgres://sidechat_app:sidechat_app@postgres:5432/sidechat
+    ports:
+      - "${DASHBOARD_DATA_API_PORT:-3100}:3100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sidechat_local
+
+  embedded-host-app:
+    image: ${IMAGE_PREFIX:-sidechat-local}/embedded-host-app:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: embedded-host-app
+    expose:
+      - "8080"
+    networks:
+      - sidechat_local
+
+  demo:
+    image: caddy:2-alpine
+    environment:
+      DEMO_DOMAIN: ":8080"
+    ports:
+      - "${LOCAL_DEMO_PORT:-8080}:8080"
+    depends_on:
+      - embedded-host-app
+      - side-chat-api
+      - dashboard-data-api
+    volumes:
+      - ./deploy/demo/Caddyfile:/etc/caddy/Caddyfile:ro
+      - sidechat_local_caddy_data:/data
+      - sidechat_local_caddy_config:/config
+    networks:
+      - sidechat_local
+
+networks:
+  sidechat_local:
+
+volumes:
+  sidechat_local_postgres_data:
+  sidechat_local_reports:
+  sidechat_local_caddy_data:
+  sidechat_local_caddy_config:

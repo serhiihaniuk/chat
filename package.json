@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace apps/side-chat-api",
+    "demo": "docker compose up --build demo",
     "build": "tsc -b",
     "build:host": "npm run build --workspace @side-chat/side-chat-widget && npm run build --workspace @side-chat/embedded-host-app",
     "build:services": "npm run build --workspace @side-chat/shared-protocol && npm run build --workspace @side-chat/db && npm run build --workspace @side-chat/side-chat-api && npm run build --workspace @side-chat/dashboard-data-api",

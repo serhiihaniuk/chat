@@ -90,7 +90,23 @@ The demo should use Postgres-backed data when possible:
 - Current rich seed shape is roughly 34 portfolio review rows, 17 risk rows, 6 product allocation rows, and 6 net-new-money points.
 - `apps/dashboard-data-api` fixture mode is for local/e2e safety only and may be smaller unless explicitly updated.
 
-For a real demo, run:
+For the full local Docker demo, run one command:
+
+```sh
+docker compose up --build demo
+```
+
+Then open `http://127.0.0.1:8080`. This path starts Postgres, side-chat API,
+dashboard data API, built embedded host app, and local Caddy. It defaults to
+`USE_FAKE_MODEL=true`, so it works without provider credentials.
+
+To use a real OpenAI key with the same local Docker demo:
+
+```sh
+OPENAI_API_KEY="$OPENAI_API_KEY" USE_FAKE_MODEL=false docker compose up --build demo
+```
+
+For manual dev mode, run:
 
 ```sh
 docker compose up -d postgres
