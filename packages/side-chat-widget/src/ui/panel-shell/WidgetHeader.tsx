@@ -1,14 +1,5 @@
-import {
-  Maximize2,
-  Minimize2,
-  Settings,
-  SquarePen,
-  X,
-} from "lucide-react";
-import type {
-  CSSProperties,
-  PointerEvent as ReactPointerEvent,
-} from "react";
+import { Maximize2, Minimize2, Settings, SquarePen, X } from "lucide-react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
 import {
   appearancePresets,
@@ -47,7 +38,7 @@ export const WidgetHeader = ({
   onSelectAppearance,
 }: WidgetHeaderProps) => (
   <header
-    className={`flex shrink-0 touch-none select-none items-start justify-between gap-5 px-8 pt-5 pb-3 max-sm:px-4 max-sm:pt-4 ${
+    className={`shrink-0 touch-none select-none px-4 pt-5 pb-3 max-sm:px-3 max-sm:pt-4 ${
       isFullscreen
         ? "cursor-default"
         : "cursor-grab active:cursor-grabbing max-sm:cursor-default"
@@ -55,70 +46,72 @@ export const WidgetHeader = ({
     onPointerDown={onDragStart}
     style={{ background: "var(--sidechat-bg)" }}
   >
-    <div className="min-w-0">
-      <strong
-        className="block text-xl font-semibold tracking-tight max-sm:text-lg"
-        style={{ color: "var(--sidechat-fg)" }}
-      >
-        {title ?? "Workspace Assistant"}
-      </strong>
-    </div>
-    <div className="relative -mt-1 flex shrink-0 items-start gap-1">
-      <button
-        type="button"
-        aria-label="Start new chat"
-        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 max-sm:size-9 [&_svg]:size-5"
-        disabled={newChatDisabled}
-        onClick={onNewChat}
-        style={{ outlineColor: "var(--sidechat-accent)" }}
-        title="New chat"
-      >
-        <SquarePen aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        aria-expanded={appearanceOpen}
-        aria-label="Customize assistant appearance"
-        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none max-sm:size-9 [&_svg]:size-5"
-        onClick={onAppearanceToggle}
-        style={{ outlineColor: "var(--sidechat-accent)" }}
-      >
-        <Settings aria-hidden="true" />
-      </button>
-      {appearanceOpen ? (
-        <AppearanceMenu
-          appearancePreset={appearancePreset}
-          onResetAppearance={onResetAppearance}
-          onSelectAppearance={onSelectAppearance}
-        />
-      ) : null}
-      <button
-        type="button"
-        aria-label={
-          isFullscreen ? "Unfullscreen assistant" : "Fullscreen assistant"
-        }
-        aria-pressed={isFullscreen}
-        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none max-sm:size-9 [&_svg]:size-5"
-        onClick={onFullscreenToggle}
-        style={{ outlineColor: "var(--sidechat-accent)" }}
-        title={isFullscreen ? "Unfullscreen" : "Full screen"}
-      >
-        {isFullscreen ? (
-          <Minimize2 aria-hidden="true" />
-        ) : (
-          <Maximize2 aria-hidden="true" />
-        )}
-      </button>
-      <button
-        type="button"
-        aria-label="Close assistant"
-        aria-expanded={true}
-        aria-controls={panelId}
-        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:ring-blue-500/20 focus:outline-none max-sm:size-9 [&_svg]:size-6 max-sm:[&_svg]:size-5"
-        onClick={onClose}
-      >
-        <X aria-hidden="true" />
-      </button>
+    <div className="sidechat-header-content mx-auto flex w-full max-w-3xl items-start justify-between gap-5">
+      <div className="min-w-0">
+        <strong
+          className="block text-xl font-semibold tracking-tight max-sm:text-lg"
+          style={{ color: "var(--sidechat-fg)" }}
+        >
+          {title ?? "Workspace Assistant"}
+        </strong>
+      </div>
+      <div className="relative -mt-1 flex shrink-0 items-start gap-1">
+        <button
+          type="button"
+          aria-label="Start new chat"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 max-sm:size-9 [&_svg]:size-5"
+          disabled={newChatDisabled}
+          onClick={onNewChat}
+          style={{ outlineColor: "var(--sidechat-accent)" }}
+          title="New chat"
+        >
+          <SquarePen aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          aria-expanded={appearanceOpen}
+          aria-label="Customize assistant appearance"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none max-sm:size-9 [&_svg]:size-5"
+          onClick={onAppearanceToggle}
+          style={{ outlineColor: "var(--sidechat-accent)" }}
+        >
+          <Settings aria-hidden="true" />
+        </button>
+        {appearanceOpen ? (
+          <AppearanceMenu
+            appearancePreset={appearancePreset}
+            onResetAppearance={onResetAppearance}
+            onSelectAppearance={onSelectAppearance}
+          />
+        ) : null}
+        <button
+          type="button"
+          aria-label={
+            isFullscreen ? "Unfullscreen assistant" : "Fullscreen assistant"
+          }
+          aria-pressed={isFullscreen}
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:outline-none max-sm:size-9 [&_svg]:size-5"
+          onClick={onFullscreenToggle}
+          style={{ outlineColor: "var(--sidechat-accent)" }}
+          title={isFullscreen ? "Unfullscreen" : "Full screen"}
+        >
+          {isFullscreen ? (
+            <Minimize2 aria-hidden="true" />
+          ) : (
+            <Maximize2 aria-hidden="true" />
+          )}
+        </button>
+        <button
+          type="button"
+          aria-label="Close assistant"
+          aria-expanded={true}
+          aria-controls={panelId}
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus:ring-2 focus:ring-blue-500/20 focus:outline-none max-sm:size-9 [&_svg]:size-6 max-sm:[&_svg]:size-5"
+          onClick={onClose}
+        >
+          <X aria-hidden="true" />
+        </button>
+      </div>
     </div>
   </header>
 );

@@ -143,6 +143,35 @@ test("embedded widget opens as a bounded chat window on small screens", async ({
   );
 });
 
+test("embedded widget header stays aligned with the chat column when fullscreen", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1728, height: 1200 });
+  await page.goto("/");
+  await openWidget(page);
+  await page.getByRole("button", { name: /fullscreen assistant/i }).click();
+
+  const layout = await page.evaluate(() => {
+    const header = document.querySelector(".sidechat-header-content");
+    const conversation = document.querySelector(".sidechat-conversation");
+    if (!header || !conversation) return null;
+
+    const headerBox = header.getBoundingClientRect();
+    const conversationBox = conversation.getBoundingClientRect();
+
+    return {
+      conversationLeft: Math.round(conversationBox.left),
+      conversationRight: Math.round(conversationBox.right),
+      headerLeft: Math.round(headerBox.left),
+      headerRight: Math.round(headerBox.right),
+    };
+  });
+
+  expect(layout).not.toBeNull();
+  expect(layout!.headerLeft).toBe(layout!.conversationLeft);
+  expect(layout!.headerRight).toBe(layout!.conversationRight);
+});
+
 test("embedded widget streams markdown from backend through Streamdown", async ({
   page,
 }) => {
