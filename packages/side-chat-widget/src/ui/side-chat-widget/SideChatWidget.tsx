@@ -8,6 +8,7 @@ import {
 	type AppearancePresetId
 } from '../../domain/appearance/appearance.js';
 import {
+	applyModelAliasReasoning,
 	defaultModelAliasId,
 	fallbackModel,
 	resolveModelAliasId
@@ -98,7 +99,10 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 		initialConversationId,
 		historyEndpoint,
 		historyResetEndpoint,
-		defaultModel: props.defaultModel ?? models[0],
+		defaultModel: applyModelAliasReasoning(
+			props.defaultModel ?? models[0],
+			defaultModelAliasId
+		),
 		getHostContext: props.host?.getContext,
 		dispatchHostCommand: props.host?.dispatchCommand,
 		onError: props.onError,
@@ -106,8 +110,9 @@ export function SideChatWidget(props: SideChatWidgetProps) {
 	});
 
 	const selectModelAlias = (aliasId: string) => {
-		setSelectedModelAliasId(resolveModelAliasId(aliasId));
-		chat.setModel(models[0]);
+		const resolvedAliasId = resolveModelAliasId(aliasId);
+		setSelectedModelAliasId(resolvedAliasId);
+		chat.setModel(applyModelAliasReasoning(models[0], resolvedAliasId));
 	};
 
 	const canSend = draft.trim().length > 0 && !chat.isStreaming;

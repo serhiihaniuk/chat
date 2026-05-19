@@ -3,7 +3,7 @@ import { SideChatWidget } from "@side-chat/side-chat-widget";
 import type { ModelSelection } from "@side-chat/shared-protocol";
 
 const availableModels = [
-  { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" },
+  { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" },
 ] satisfies ModelSelection[];
 
 /**

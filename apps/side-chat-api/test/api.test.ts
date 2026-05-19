@@ -94,7 +94,7 @@ describe("hono adapter", () => {
     expect(models.headers.get("Content-Type")).toContain("application/json");
     expect(await models.json()).toEqual({
       models: [
-        { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "high" },
+        { provider: "openai", id: "gpt-5.4-nano", reasoningEffort: "medium" },
       ],
     });
   });

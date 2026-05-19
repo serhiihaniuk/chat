@@ -209,7 +209,7 @@ export const openAiModelAdapter: ModelPort = {
       abortSignal: signal,
       providerOptions: {
         openai: {
-          reasoningEffort: request.model.reasoningEffort ?? "low",
+          reasoningEffort: request.model.reasoningEffort ?? "medium",
           reasoningSummary: "auto",
         },
       },

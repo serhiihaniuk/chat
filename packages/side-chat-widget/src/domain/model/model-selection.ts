@@ -7,7 +7,7 @@ import type { ModelSelection } from "@side-chat/shared-protocol";
 export const fallbackModel: ModelSelection = {
   provider: "openai",
   id: "gpt-5.4-nano",
-  reasoningEffort: "high",
+  reasoningEffort: "medium",
 };
 
 export const defaultModelAliasId = "gpt-5.5";
@@ -39,3 +39,12 @@ export const resolveModelAliasId = (aliasId: string) =>
   modelAliasOptions.some((option) => option.id === aliasId)
     ? aliasId
     : defaultModelAliasId;
+
+export const applyModelAliasReasoning = (
+  model: ModelSelection,
+  aliasId: string,
+): ModelSelection => ({
+  ...model,
+  reasoningEffort:
+    resolveModelAliasId(aliasId) === defaultModelAliasId ? "medium" : "high",
+});
