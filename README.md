@@ -24,7 +24,11 @@ That protocol has to handle:
 
 The repo keeps that browser-facing contract in Node.js/TypeScript as `sidechat.v1`. AI SDK is used where it is strongest: inside the provider adapter. A future Python/LangGraph service can sit behind this boundary for RAG or complex agent workflows, but it should not accidentally become the UI-facing chat protocol.
 
+![Workbench AI Chat Architecture](./docs/assets/workbench-ai-chat-architecture.png)
+
 For the full architecture explanation, read [SYSTEM-DESIGN.md](./SYSTEM-DESIGN.md).
+
+For the presentation narrative behind the diagram, read [docs/stack-comparison-working-note.md](./docs/stack-comparison-working-note.md).
 
 For a practical learning path through the files, local guides, and technology boundaries, read [docs/code-walkthrough.md](./docs/code-walkthrough.md).
 

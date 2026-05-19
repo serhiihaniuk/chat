@@ -43,6 +43,7 @@ Dependency pins live in `package.json` files and are enforced by `scripts/govern
 ## Focused Docs
 
 - [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md): canonical system design, architecture narrative, and first-principles teaching guide.
+- [stack-comparison-working-note.md](stack-comparison-working-note.md): presentation narrative for the Node.js/TypeScript Workbench chat boundary, with Python/LangGraph positioned as specialist backend tooling.
 - [code-walkthrough.md](code-walkthrough.md): practical learning path with local app/package guides, file ownership, and technology-in-context maps.
 - [../README.md](../README.md): setup, run commands, protocol summary, and verification commands.
 - Package/app `LEARNING.md` files: local code ownership maps for each workspace.
