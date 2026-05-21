@@ -277,10 +277,6 @@ Exactly one terminal event should end a stream: `sidechat.completed` or terminal
 Embedded Workbench Host
   |
   +- fetch /advisory-dashboard/snapshot
-  +- fetch /advisory-dashboard/clients
-  +- fetch /advisory-dashboard/risk-accounts
-  +- fetch /advisory-dashboard/product-allocation
-  +- fetch /advisory-dashboard/net-new-money-trend
   |
   v
 apps/dashboard-data-api
@@ -293,6 +289,8 @@ Postgres functions/procedures
 ```
 
 The dashboard data API is deliberately separate from the chat stream API. The host dashboard should not need to know anything about model providers, chat streams, or assistant orchestration.
+
+The current host page fetches the snapshot endpoint for its full initial view. The dashboard data API also exposes granular read endpoints for clients, risk accounts, product allocation, net-new-money trend, risk exposure trend, segment scores, and risk driver exposure so future screens or tools can ask for narrower slices without giving the browser direct Postgres access.
 
 The chat API may also need approved dashboard data for tools. Today it reaches that data through an explicit `WorkbenchToolsPort` adapter. That is an acceptable monorepo transition state, but the coupling is named and contained.
 
@@ -548,9 +546,9 @@ Governance checks enforce the important parts:
 | --- | --- |
 | Full Postgres demo | Realistic local demo with Postgres-backed chat/dashboard data and real provider requests when configured. |
 | Deterministic fake model | Local/dev/test mode with stable assistant output and no provider credentials. |
+| One-command Docker demo | Local full-stack run via `docker compose up --build demo`; fake model by default, real provider when `.env` supplies credentials. |
 | Widget demo | Isolated package surface for widget inspection. |
 | Playwright e2e | Automated integrated browser path for the embedded host app. |
-| Docker API smoke | Containerized Postgres plus side-chat API startup check. |
 
 Real provider mode requires:
 

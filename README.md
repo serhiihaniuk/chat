@@ -28,8 +28,6 @@ The repo keeps that browser-facing contract in Node.js/TypeScript as `sidechat.v
 
 For the full architecture explanation, read [SYSTEM-DESIGN.md](./SYSTEM-DESIGN.md).
 
-For the presentation narrative behind the diagram, read [docs/stack-comparison-working-note.md](./docs/stack-comparison-working-note.md).
-
 For a practical learning path through the files, local guides, and technology boundaries, read [docs/code-walkthrough.md](./docs/code-walkthrough.md).
 
 Local learning guides:
@@ -128,7 +126,7 @@ The teaching version: shared protocol owns the schema, Effect owns boundary work
 
 ## Requirements
 
-- Node.js 24+ with npm 11+
+- Node.js 22.x with npm 11.12.1
 - Docker and Docker Compose for Postgres-backed demo data
 - Playwright browser dependencies for `npm run test:e2e`
 - An OpenAI API key only when running real provider requests
