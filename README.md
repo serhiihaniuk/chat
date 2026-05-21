@@ -26,6 +26,8 @@ The repo keeps that browser-facing contract in Node.js/TypeScript as `sidechat.v
 
 ![Workbench AI Chat Architecture](./docs/assets/workbench-ai-chat-architecture.png)
 
+![Workbench Chat Runtime Flow](./docs/assets/chat-runtime-flow.png)
+
 For the full architecture explanation, read [SYSTEM-DESIGN.md](./SYSTEM-DESIGN.md).
 
 For a practical learning path through the files, local guides, and technology boundaries, read [docs/code-walkthrough.md](./docs/code-walkthrough.md).

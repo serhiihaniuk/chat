@@ -258,6 +258,8 @@ User sends a prompt in the side-chat widget
 
 The server can emit these protocol events:
 
+![Workbench Chat Runtime Flow](./docs/assets/chat-runtime-flow.png)
+
 | Event | Meaning |
 | --- | --- |
 | `sidechat.started` | Stream accepted and assistant message started. |
