@@ -23,6 +23,97 @@ Non-day-one material must be explicitly labeled:
 
 When a folder tree, command, tool, provider, schema field, or flow is not labeled, it is expected day-one architecture.
 
+## 0.1 Day-One Version Pins
+
+Version snapshot date: 2026-05-23.
+
+These pins are part of the production scaffold contract. Strategic dependencies must be declared with exact versions in `package.json` and locked in `package-lock.json`; do not use `^`, `~`, `latest`, workspace-wide floating tags, or implicit transitive dependencies for the packages listed here.
+
+Pinning rules:
+
+- Package upgrades require an intentional PR note or ADR when they affect architecture, protocol, runtime behavior, TypeScript, linting, test execution, database access, or public package APIs.
+- `npm install` must run from the root and produce a committed lockfile.
+- `check-dependency-policy.mjs` and `check-version-pins.mjs` must fail when strategic dependencies are missing, duplicated at conflicting versions, or declared with version ranges.
+- Provider packages should be installed only when their adapter exists. When installed, use the pin in this section.
+- `[Open]` package choices are not day-one dependencies. They are listed here only to prevent accidental adoption before an ADR.
+
+Runtime and package manager pins:
+
+| Item | Pin | Scope |
+| --- | --- | --- |
+| Node.js | `24.16.0` | `.nvmrc`, `engines.node`, CI setup, Docker base image selection. |
+| npm | `11.15.0` | Root `packageManager` value and CI install behavior. |
+| TypeScript | `typescript@6.0.3` | Root compiler and all workspace project references. |
+| Node types | `@types/node@24.12.4` | Server packages, scripts, tests, and Node-based tooling. |
+| TS runner | `tsx@4.22.3` | Local scripts, codegen, and lightweight Node TypeScript execution. |
+
+Backend, service, and assistant runtime pins:
+
+| Package | Pin | Scope |
+| --- | --- | --- |
+| `ai` | `6.0.191` | AI SDK 6 assistant runtime engine. |
+| `@ai-sdk/provider` | `3.0.10` | Provider/runtime adapter typing when needed directly. |
+| `@ai-sdk/openai` | `3.0.65` | OpenAI-compatible provider adapter. |
+| `@ai-sdk/azure` | `3.0.66` | Azure OpenAI provider adapter if accepted by runtime configuration. |
+| `@ai-sdk/anthropic` | `3.0.79` | Anthropic provider adapter if accepted by runtime configuration. |
+| `[Optional]` `@ai-sdk/gateway` | `3.0.120` | Add only if AI Gateway becomes an accepted deployment/provider path. |
+| `hono` | `4.12.22` | `partner-ai-service` HTTP app and inbound routes. |
+| `@hono/node-server` | `2.0.3` | Node server adapter for `partner-ai-service`. |
+| `effect` | `4.0.0-beta.70` | Day-one Effect v4 package line for backend/core workflow programs. |
+| `@effect/platform-node` | `4.0.0-beta.70` | Node-specific Effect v4-compatible platform services. |
+
+Effect version rule:
+
+The architecture uses Effect v4 as the server/core workflow discipline. As of the version snapshot date, Effect v4 is published as `4.0.0-beta.70`, so the production repo accepts that beta line explicitly instead of drifting onto Effect 3. Do not mix v4 core packages with Effect 3 peer packages such as `@effect/platform@0.96.1`. If a v4-compatible Effect package is unavailable, either avoid that package on day one or isolate the need behind a small adapter until a compatible package exists.
+
+Database pins:
+
+| Package | Pin | Scope |
+| --- | --- | --- |
+| `pg` | `8.21.0` | Postgres driver owned by `packages/db`. |
+| `@types/pg` | `8.20.0` | Type declarations for DB package and DB tests. |
+| `drizzle-orm` | `0.45.2` | Drizzle schema, query, relation, and repository implementation. |
+| `drizzle-kit` | `0.31.10` | Migration generation and schema tooling. |
+
+Frontend, widget, and browser harness pins:
+
+| Package | Pin | Scope |
+| --- | --- | --- |
+| `react` | `19.2.6` | Widget peer dependency and harness runtime. |
+| `react-dom` | `19.2.6` | Widget harness/runtime rendering. |
+| `@types/react` | `19.2.15` | Widget and harness TypeScript. |
+| `@types/react-dom` | `19.2.3` | Widget and harness TypeScript. |
+| `vite` | `8.0.14` | Browser harness and package development server/build tooling. |
+| `@vitejs/plugin-react` | `6.0.2` | React support for Vite harnesses. |
+| `lucide-react` | `1.16.0` | Widget icon set if icons are packaged with the widget. |
+
+Testing and quality pins:
+
+| Package | Pin | Scope |
+| --- | --- | --- |
+| `vitest` | `4.1.7` | Unit, integration, contract, and type-adjacent tests. |
+| `@effect/vitest` | `4.0.0-beta.70` | Effect v4-aware test helpers where they simplify Effect tests. |
+| `playwright` | `1.60.0` | Browser harness and widget smoke/e2e tests. |
+| `eslint` | `10.4.0` | Root lint engine. |
+| `@eslint/js` | `10.0.1` | ESLint core recommended rules. |
+| `typescript-eslint` | `8.59.4` | Type-aware TypeScript linting. |
+| `eslint-plugin-import-x` | `4.16.2` | Import hygiene and cycle checks. |
+| `eslint-plugin-react-hooks` | `7.1.1` | React hook rules for widget packages. |
+| `eslint-plugin-react-refresh` | `0.5.2` | React refresh safety where harnesses use it. |
+| `eslint-plugin-jsx-a11y` | `6.10.2` | Widget JSX accessibility checks. |
+| `@vitest/eslint-plugin` | `1.6.17` | Vitest-focused lint rules. |
+| `eslint-plugin-unicorn` | `64.0.0` | `[Optional]` selected style/safety rules only if noise stays low. |
+| `globals` | `17.6.0` | Shared ESLint globals definitions. |
+| `prettier` | `3.8.3` | Formatting only. |
+| `eslint-config-prettier` | `10.1.8` | Prevent ESLint/Prettier formatting conflicts. |
+
+Unpinned until accepted:
+
+- `[Open]` protocol schema library: Effect Schema, Zod, Valibot, TypeBox, Standard Schema, or another accepted schema source.
+- `[Open]` additional AI SDK providers beyond the accepted day-one provider adapters.
+- `[Open]` package publishing/API-surface tools such as API Extractor or `publint`.
+- `[Optional]` dependency graph, dead-code, duplicate-code, secret scanning, or smell plugins unless section 21 promotes them after evidence.
+
 ## 1. Product Boundary
 
 The repository owns an embeddable side-chat assistant product.
@@ -85,7 +176,7 @@ Use cases sit at the center. External systems sit at the edges. Edges talk to th
 
 Effect v4 is the backend workflow discipline.
 
-Use Effect v4 for typed errors, dependency layers, resource safety, structured concurrency, streams, retries, timeouts, config, and observability in server/core code. Do not force Effect into every UI component or public browser API.
+Use the pinned Effect v4 package line for typed errors, dependency layers, resource safety, structured concurrency, streams, retries, timeouts, config, and observability in server/core code. Do not force Effect into every UI component or public browser API.
 
 Assistant runtime is a backend engine, not a product boundary.
 
@@ -1680,6 +1771,7 @@ Scripts should make repository rules executable.
 scripts/
   check-boundaries.mjs
   check-dependency-policy.mjs
+  check-version-pins.mjs
   check-package-exports.mjs
   check-runtime-boundaries.mjs
   check-outbound-rules.mjs
@@ -1710,6 +1802,7 @@ Script responsibilities:
 | --- | --- |
 | `check-boundaries.mjs` | Forbidden imports across packages, layers, and inbound/outbound boundaries. |
 | `check-dependency-policy.mjs` | Dependency allowlists, pinned versions, package-level runtime/dev dependency placement. |
+| `check-version-pins.mjs` | Exact-version enforcement for strategic packages listed in section 0.1; no `^`, `~`, `latest`, or duplicated conflicting versions. |
 | `check-package-exports.mjs` | Public entrypoint discipline and no deep imports by consumers. |
 | `check-runtime-boundaries.mjs` | No framework/provider/DB/browser/env objects crossing into domain, use cases, ports, protocol, client, or widget public APIs. |
 | `check-outbound-rules.mjs` | External-service calls live under outbound adapters or approved provider/runtime adapter folders, not in use cases or tool definitions. |
@@ -1901,7 +1994,7 @@ typescript-eslint
 eslint-plugin-import-x
 eslint-plugin-react-hooks
 eslint-plugin-jsx-a11y
-eslint-plugin-vitest
+@vitest/eslint-plugin
 eslint-plugin-unicorn
 ```
 
@@ -2611,7 +2704,7 @@ It should not become a tax on host apps or widget consumers. Browser-facing and 
 
 ### 24.1 Where Effect Is First-Class
 
-| Area | Effect role |
+| Area | Effect v4 role |
 | --- | --- |
 | `backend-core` | Use cases as `Effect` programs, typed application errors, service dependencies, stream policies. |
 | `assistant-runtime` | Agent/tool-loop execution, provider calls, tool calls, streaming, retries, cancellation, telemetry, and `[Deferred]` approvals/MCP/structured output. |
@@ -3034,7 +3127,7 @@ Never make AI SDK UI messages or provider-native stream events the product proto
 
 ## Effect v4 Rule
 
-Effect v4 is the backend/core workflow discipline. Use it for use cases, services/layers, typed expected errors, streams, retries, timeouts, resource safety, cancellation, and observability in `backend-core`, `assistant-runtime`, `partner-ai-service`, and `db`.
+Effect v4 is the backend/core workflow discipline. Use the pinned v4 package line for use cases, services/layers, typed expected errors, streams, retries, timeouts, resource safety, cancellation, and observability in `backend-core`, `assistant-runtime`, `partner-ai-service`, and `db`.
 
 Do not make host apps, widget consumers, or public browser/client APIs understand Effect.
 
@@ -3091,7 +3184,7 @@ Every item in this section is `[Open]` and must not be implemented as a default 
 - Which type-test tool should own public API compile-time checks: Vitest `expectTypeOf`, `tsd`, API Extractor, or another tool?
 - Should `skipLibCheck` be forbidden, or allowed only with a documented dependency issue?
 - Should `backend-core` public use cases expose Effect programs directly, or should app-facing wrapper functions also exist for simpler adapters?
-- Which Effect v4 modules are stable enough for production v1, and which `effect/unstable/*` modules should be avoided until they stabilize?
+- Which Effect v4 beta risks need explicit mitigation before production hardening, and which `effect/unstable/*` modules should be avoided until they stabilize?
 - Should provider adapters live inside `assistant-runtime`, or in a future `packages/model-providers` package?
 - Should outbound business integrations live under `apps/partner-ai-service/src/outbound`, or graduate into separate packages when reused across services?
 - Which DB operations, if any, should graduate from Drizzle repository queries to stored functions after implementation feedback?
@@ -3116,7 +3209,7 @@ These decisions are provisional and should become ADRs when accepted.
 | Product protocol | Dedicated `packages/chat-protocol`. |
 | TypeScript role | Strict TypeScript is an architecture gate, not only a compile step. |
 | TypeScript escape hatches | `any`, `as any`, `@ts-ignore`, and unsafe double assertions are forbidden except documented interop/type-test cases. |
-| Effect v4 role | Backend/core workflow discipline for use cases, layers, typed errors, streams, resources, and observability. |
+| Effect v4 role | Backend/core workflow discipline for use cases, layers, typed errors, streams, resources, and observability, pinned to `effect@4.0.0-beta.70` until stable v4 replaces it. |
 | Effect in browser APIs | Do not require widget, host, or chat-client consumers to use Effect. |
 | Backend use cases | Dedicated framework-free `packages/backend-core`. |
 | Assistant runtime | Dedicated `packages/assistant-runtime` day one. |
@@ -3143,6 +3236,7 @@ A first clean scaffold is acceptable when:
 - the top-level folders match this document or have documented deviations
 - there is no host app
 - `npm install` works from the root
+- root `packageManager`, `engines.node`, `.nvmrc`, and `package-lock.json` match the version pin contract in section 0.1
 - `npm run verify` exists
 - root TypeScript project references include every app/package
 - strict TypeScript options are enabled and checked by governance
@@ -3157,6 +3251,7 @@ A first clean scaffold is acceptable when:
 - `side-chat-widget` can render against a mocked client stream
 - widget and chat-client public APIs expose plain TypeScript/React-friendly contracts, not required Effect programs
 - boundary checks fail on intentionally forbidden imports
+- dependency and version-pin checks fail on intentionally ranged, missing, duplicated, or misplaced strategic packages
 - runtime-boundary checks fail on domain/use-case code importing framework, provider, DB, browser, env, or client objects
 - outbound-rule checks fail on use cases or assistant tools calling external systems directly
 - test-placement checks fail on intentionally misplaced unit tests
