@@ -3,7 +3,6 @@ import {
   type JsonObject,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-
 import {
   redactAttributes,
   safeJsonPrimitive,

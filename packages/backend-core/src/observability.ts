@@ -42,7 +42,6 @@ const SENSITIVE_KEY_PARTS = [
   "secret",
   "password",
   "credential",
-  "apiKey",
   "apikey",
   "prompt",
   "message",
@@ -67,6 +66,15 @@ export const createRequestCorrelation = (
 export const redactAttributes = (attributes: JsonObject): JsonObject =>
   redactObject(attributes);
 
+export const safeJsonPrimitive = (value: unknown): JsonPrimitive => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "boolean" || value === null) return value;
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "symbol") return value.description ?? "symbol";
+  return "non_primitive";
+};
+
 const redactObject = (source: JsonObject): JsonObject => {
   const redacted: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(source)) {
@@ -89,13 +97,4 @@ const isSensitiveKey = (key: string): boolean => {
   return SENSITIVE_KEY_PARTS.some((part) =>
     normalized.includes(part.toLowerCase()),
   );
-};
-
-export const safeJsonPrimitive = (value: unknown): JsonPrimitive => {
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "boolean" || value === null) return value;
-  if (typeof value === "bigint") return value.toString();
-  if (typeof value === "symbol") return value.description ?? "symbol";
-  return "non_primitive";
 };

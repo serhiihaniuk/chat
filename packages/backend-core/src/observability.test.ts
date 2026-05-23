@@ -1,6 +1,5 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
-
 import type { AuthContext } from "./authority.js";
 import {
   createRequestCorrelation,
