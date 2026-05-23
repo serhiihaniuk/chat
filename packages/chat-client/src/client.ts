@@ -2,7 +2,7 @@ import {
   parseChatStreamRequest,
   type ChatStreamRequest,
   type SidechatStreamEvent,
-} from "../../chat-protocol/src/index.js";
+} from "@side-chat/chat-protocol";
 
 import { ChatClientError } from "./errors.js";
 import { decodeChunkedSseStream, type StreamChunk } from "./sse-reader.js";

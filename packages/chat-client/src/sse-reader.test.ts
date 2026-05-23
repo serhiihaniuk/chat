@@ -6,7 +6,7 @@ import {
   type ErrorEvent,
   type SidechatStreamEvent,
   type StartedEvent,
-} from "../../chat-protocol/src/index.js";
+} from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 
 import { ChatClientError } from "./errors.js";

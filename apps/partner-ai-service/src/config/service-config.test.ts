@@ -3,7 +3,7 @@ import {
   SIDECHAT_PROTOCOL_VERSION,
 } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp } from "../http/app.js";
+import { createPartnerAiServiceApp } from "../inbound/http/app.js";
 import {
   ServiceConfigError,
   createPartnerAiServiceOptionsFromEnv,
@@ -64,6 +64,8 @@ describe("partner ai service env config", () => {
         SIDECHAT_ALLOWED_MODELS: "fake-echo,other-model",
         SIDECHAT_TENANT_ID: "tenant_prod",
         SIDECHAT_WORKSPACE_ID: "workspace_prod",
+        SIDECHAT_DATABASE_URL:
+          "postgres://sidechat:sidechat@localhost/sidechat",
       }),
     );
 

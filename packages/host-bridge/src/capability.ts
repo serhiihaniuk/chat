@@ -1,7 +1,4 @@
-import type {
-  HostCommandEvent,
-  JsonObject,
-} from "../../chat-protocol/src/index.js";
+import type { HostCommandEvent, JsonObject } from "@side-chat/chat-protocol";
 
 export type HostCommand = Pick<
   HostCommandEvent,

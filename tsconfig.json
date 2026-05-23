@@ -1,10 +1,13 @@
 {
-  "files": ["vitest.config.ts"],
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "files": ["vitest.config.ts", "playwright.config.ts"],
   "references": [
     { "path": "./apps/partner-ai-service" },
     { "path": "./packages/chat-protocol" },
-    { "path": "./packages/backend-core" },
-    { "path": "./packages/assistant-runtime" },
+    { "path": "./packages/partner-ai-core" },
+    { "path": "./packages/agent-runtime" },
     { "path": "./packages/chat-client" },
     { "path": "./packages/side-chat-widget" },
     { "path": "./packages/host-bridge" },

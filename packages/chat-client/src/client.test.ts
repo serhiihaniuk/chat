@@ -6,7 +6,7 @@ import {
   type DeltaEvent,
   type SidechatStreamEvent,
   type StartedEvent,
-} from "../../chat-protocol/src/index.js";
+} from "@side-chat/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatClient, type FetchLike } from "./client.js";

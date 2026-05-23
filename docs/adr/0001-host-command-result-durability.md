@@ -51,5 +51,5 @@ Rejected for day one. Persisting host command results inside the chat stream wou
 
 - No service route for host command results may merge without a new accepted ADR or an update to this ADR.
 - No widget code may assume a local host command result was durably applied by the backend.
-- No backend-core use case may require host command result persistence to complete a chat turn.
+- No partner-ai-core use case may require host command result persistence to complete a chat turn.
 - `packages/db` support remains schema/repository contract support only until a later decision changes product behavior.

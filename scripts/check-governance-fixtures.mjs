@@ -64,6 +64,23 @@ expectFailure("boundary fixture", "check-boundaries.mjs", (root) => {
   );
 });
 
+expectFailure(
+  "relative cross-package boundary fixture",
+  "check-boundaries.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "packages/chat-client/src/bad.ts",
+      "export { value } from '../../chat-protocol/src/value.js';\n",
+    );
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/value.ts",
+      "export const value = 1;\n",
+    );
+  },
+);
+
 expectFailure("test placement fixture", "check-test-placement.mjs", (root) => {
   writeFixtureFile(
     root,
@@ -96,6 +113,7 @@ expectFailure(
         useUnknownInCatchVariables: true,
         isolatedModules: true,
         verbatimModuleSyntax: true,
+        skipLibCheck: true,
       },
     });
     writeFixtureFile(
@@ -106,14 +124,44 @@ expectFailure(
   },
 );
 
+expectFailure("outbound fetch fixture", "check-outbound-rules.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/partner-ai-core/src/bad.ts",
+    "export const bad = () => fetch('https://example.test');\n",
+  );
+});
+
 expectFailure(
-  "generated artifact fixture",
+  "generated artifact header fixture",
   "check-generated-artifacts.mjs",
   (root) => {
     writeFixtureFile(
       root,
+      "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
+      '{ "_generatedFrom": "Generated from: fixture" }\n',
+    );
+    writeFixtureFile(
+      root,
+      "docs/generated/partner-ai-service.openapi.generated.json",
+      '{ "_generatedFrom": "Generated from: fixture" }\n',
+    );
+    writeFixtureFile(
+      root,
       "packages/chat-protocol/src/protocol.generated.ts",
       "export {};\n",
+    );
+  },
+);
+
+expectFailure(
+  "generated artifact missing fixture",
+  "check-generated-artifacts.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
+      '{ "_generatedFrom": "Generated from: fixture" }\n',
     );
   },
 );

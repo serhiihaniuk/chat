@@ -7,13 +7,13 @@ const repoRoot = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      "@side-chat/assistant-runtime": resolve(
+      "@side-chat/agent-runtime": resolve(
         repoRoot,
-        "packages/assistant-runtime/src/index.ts",
+        "packages/agent-runtime/src/index.ts",
       ),
-      "@side-chat/backend-core": resolve(
+      "@side-chat/partner-ai-core": resolve(
         repoRoot,
-        "packages/backend-core/src/index.ts",
+        "packages/partner-ai-core/src/index.ts",
       ),
       "@side-chat/chat-client": resolve(
         repoRoot,

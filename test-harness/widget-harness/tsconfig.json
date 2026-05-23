@@ -8,9 +8,18 @@
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
-    { "path": "../../packages/chat-client" },
-    { "path": "../../packages/chat-protocol" },
-    { "path": "../../packages/host-bridge" },
-    { "path": "../../packages/side-chat-widget" }
-  ]
+    {
+      "path": "../../packages/chat-client"
+    },
+    {
+      "path": "../../packages/chat-protocol"
+    },
+    {
+      "path": "../../packages/host-bridge"
+    },
+    {
+      "path": "../../packages/side-chat-widget"
+    }
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

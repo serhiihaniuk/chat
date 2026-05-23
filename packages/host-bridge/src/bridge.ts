@@ -1,7 +1,4 @@
-import type {
-  HostCommandEvent,
-  HostContext,
-} from "../../chat-protocol/src/index.js";
+import type { HostCommandEvent, HostContext } from "@side-chat/chat-protocol";
 
 import { toHostCommand, type HostCapabilities } from "./capability.js";
 import type { HostCommandResult } from "./command-result.js";

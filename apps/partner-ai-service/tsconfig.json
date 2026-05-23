@@ -12,10 +12,11 @@
       "path": "../../packages/chat-protocol"
     },
     {
-      "path": "../../packages/backend-core"
+      "path": "../../packages/partner-ai-core"
     },
     {
       "path": "../../packages/db"
     }
-  ]
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

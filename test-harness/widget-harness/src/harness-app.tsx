@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import {
   SideChatWidget,
   type SideChatWidgetProps,
-} from "../../../packages/side-chat-widget/src/index.js";
+} from "@side-chat/side-chat-widget";
 
 import { createHarnessHostBridge } from "./fake-host-bridge.js";
 import { createLocalServiceClient } from "./local-service-client.js";

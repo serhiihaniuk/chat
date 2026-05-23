@@ -46,12 +46,12 @@ const requiredByPackage = {
     effect: "4.0.0-beta.70",
     "@effect/platform-node": "4.0.0-beta.70",
   },
-  "@side-chat/assistant-runtime": {
+  "@side-chat/agent-runtime": {
     ai: "6.0.191",
     "@ai-sdk/provider": "3.0.10",
     effect: "4.0.0-beta.70",
   },
-  "@side-chat/backend-core": {
+  "@side-chat/partner-ai-core": {
     effect: "4.0.0-beta.70",
   },
   "@side-chat/db": {

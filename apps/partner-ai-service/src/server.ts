@@ -3,7 +3,7 @@ import {
   createPartnerAiServiceOptionsFromEnv,
   readServicePort,
 } from "./config/service-config.js";
-import { createPartnerAiServiceApp } from "./http/app.js";
+import { createPartnerAiServiceApp } from "./inbound/http/app.js";
 
 const app = createPartnerAiServiceApp(createPartnerAiServiceOptionsFromEnv());
 

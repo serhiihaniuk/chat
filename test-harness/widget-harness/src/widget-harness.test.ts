@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { SIDECHAT_PROTOCOL_VERSION } from "../../../packages/chat-protocol/src/index.js";
+import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import {
   createHarnessHostBridge,
   createLocalServiceClient,

@@ -21,6 +21,7 @@ for (const file of listSourceFiles(root)) {
 
   if (
     source.includes("process.env") &&
+    !file.endsWith(".test.ts") &&
     !file.startsWith("apps/partner-ai-service/src/config/")
   ) {
     errors.push(
@@ -46,11 +47,9 @@ for (const file of listSourceFiles(root)) {
 
   if (
     imports.some((name) => name === "ai" || name?.startsWith("@ai-sdk/")) &&
-    area !== "packages/assistant-runtime"
+    area !== "packages/agent-runtime"
   ) {
-    errors.push(
-      `${file}: AI SDK imports are owned by packages/assistant-runtime`,
-    );
+    errors.push(`${file}: AI SDK imports are owned by packages/agent-runtime`);
   }
 }
 

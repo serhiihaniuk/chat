@@ -17,7 +17,7 @@ for (const file of listSourceFiles(root)) {
     /\bfetch\s*\(|new\s+WebSocket\b|new\s+EventSource\b/.test(source);
   const allowed =
     file.startsWith("apps/partner-ai-service/src/outbound/") ||
-    file.startsWith("packages/assistant-runtime/src/adapters/");
+    file.startsWith("packages/agent-runtime/src/adapters/");
 
   if (hasOutboundCall && !allowed) {
     errors.push(

@@ -7,7 +7,7 @@ import {
   resolveRoot,
 } from "./lib/governance.mjs";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, normalize, relative, resolve } from "node:path";
 
 const root = resolveRoot();
 const errors = [];
@@ -22,7 +22,7 @@ const forbiddenByArea = {
     /^@ai-sdk\//,
     /^pg$/,
     /^drizzle-orm$/,
-    /^@side-chat\/(backend-core|assistant-runtime|chat-client|side-chat-widget|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|chat-client|side-chat-widget|db)$/,
   ],
   "packages/host-bridge": [
     /^react$/,
@@ -33,9 +33,9 @@ const forbiddenByArea = {
     /^drizzle-orm$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(backend-core|assistant-runtime|side-chat-widget|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|side-chat-widget|db)$/,
   ],
-  "packages/backend-core": [
+  "packages/partner-ai-core": [
     /^hono$/,
     /^@hono\/node-server$/,
     /^react$/,
@@ -44,9 +44,9 @@ const forbiddenByArea = {
     /^drizzle-orm$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(assistant-runtime|chat-client|side-chat-widget|db)$/,
+    /^@side-chat\/(agent-runtime|chat-client|side-chat-widget|db)$/,
   ],
-  "packages/assistant-runtime": [
+  "packages/agent-runtime": [
     /^hono$/,
     /^@hono\/node-server$/,
     /^react$/,
@@ -63,7 +63,7 @@ const forbiddenByArea = {
     /^drizzle-orm$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(backend-core|assistant-runtime|side-chat-widget|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|side-chat-widget|db)$/,
   ],
   "packages/side-chat-widget": [
     /^hono$/,
@@ -77,7 +77,7 @@ const forbiddenByArea = {
     /^ai-elements$/,
     /^shadcn$/,
     /^@repo\/shadcn-ui$/,
-    /^@side-chat\/(backend-core|assistant-runtime|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|db)$/,
   ],
   "packages/db": [
     /^react$/,
@@ -86,7 +86,7 @@ const forbiddenByArea = {
     /^@hono\/node-server$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(backend-core|assistant-runtime|chat-client|side-chat-widget)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|chat-client|side-chat-widget)$/,
   ],
   "apps/partner-ai-service": [/^@side-chat\/side-chat-widget$/],
 };
@@ -99,6 +99,14 @@ for (const file of listSourceFiles(root)) {
   const source = readFileSync(join(root, file), "utf8");
 
   for (const specifier of importSpecifiers(source)) {
+    const relativeBoundaryError = relativeCrossPackageImportError(
+      root,
+      file,
+      area,
+      specifier,
+    );
+    if (relativeBoundaryError) errors.push(relativeBoundaryError);
+
     const dependency = dependencyName(specifier);
     if (!dependency) continue;
 
@@ -115,3 +123,42 @@ for (const file of listSourceFiles(root)) {
 }
 
 failIfErrors(errors);
+
+function relativeCrossPackageImportError(root, file, area, specifier) {
+  if (!specifier.startsWith(".")) return undefined;
+
+  const importerAbsolute = resolve(root, file);
+  const resolvedAbsolute = normalize(
+    resolve(dirname(importerAbsolute), specifier),
+  );
+  const resolvedRelative = relative(root, resolvedAbsolute)
+    .split(sepForPlatform())
+    .join("/");
+
+  if (resolvedRelative.startsWith("..")) return undefined;
+
+  const targetArea = packageArea(resolvedRelative);
+  if (targetArea === area) return undefined;
+  if (!isWorkspaceArea(area) || !isWorkspaceArea(targetArea)) return undefined;
+
+  return `${file}: relative import crosses package boundary into ${targetArea}; import ${packageNameForMessage(targetArea)} instead`;
+}
+
+function isWorkspaceArea(area) {
+  return (
+    area.startsWith("packages/") ||
+    area.startsWith("apps/") ||
+    area.startsWith("test-harness/")
+  );
+}
+
+function packageNameForMessage(area) {
+  if (area.startsWith("packages/")) {
+    return `@side-chat/${area.slice("packages/".length)}`;
+  }
+  return area;
+}
+
+function sepForPlatform() {
+  return process.platform === "win32" ? "\\" : "/";
+}

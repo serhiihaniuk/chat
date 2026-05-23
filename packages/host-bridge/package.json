@@ -12,6 +12,7 @@
     }
   },
   "scripts": {
+    "build": "tsc -b --pretty false",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
     "test": "cd ../.. && vitest run packages/host-bridge/src/host-bridge.test.ts"
   },

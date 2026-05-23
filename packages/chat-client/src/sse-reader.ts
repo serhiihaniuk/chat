@@ -2,7 +2,7 @@ import {
   decodeSseEvents,
   isTerminalEvent,
   type SidechatStreamEvent,
-} from "../../chat-protocol/src/index.js";
+} from "@side-chat/chat-protocol";
 
 import { ChatClientError } from "./errors.js";
 

@@ -1,9 +1,24 @@
-import { failIfErrors, listFiles, resolveRoot } from "./lib/governance.mjs";
+import {
+  failIfErrors,
+  isFile,
+  listFiles,
+  resolveRoot,
+} from "./lib/governance.mjs";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = resolveRoot();
 const errors = [];
+const expectedGeneratedArtifacts = [
+  "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
+  "docs/generated/partner-ai-service.openapi.generated.json",
+];
+
+for (const artifact of expectedGeneratedArtifacts) {
+  if (!isFile(root, artifact)) {
+    errors.push(`${artifact}: expected generated artifact is missing`);
+  }
+}
 
 for (const file of listFiles(root)) {
   if (/\.generated\.(?:ts|tsx|js|json)$/.test(file)) {

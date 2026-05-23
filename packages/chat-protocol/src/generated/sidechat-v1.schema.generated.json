@@ -1,0 +1,122 @@
+{
+  "_generatedFrom": "Generated from: packages/chat-protocol/src/sidechat-v1/*.ts",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://side-chat.local/schemas/sidechat-v1.schema.json",
+  "title": "Sidechat v1 Protocol",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/ChatStreamRequest" },
+    { "$ref": "#/$defs/SidechatStreamEvent" }
+  ],
+  "$defs": {
+    "ProtocolVersion": { "const": "sidechat.v1" },
+    "JsonObject": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "ChatRequestMessage": {
+      "type": "object",
+      "required": ["id", "role", "content"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "role": { "enum": ["user", "assistant", "system"] },
+        "content": { "type": "string" }
+      }
+    },
+    "HostContext": {
+      "type": "object",
+      "required": ["schemaVersion"],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "type": "string", "minLength": 1 },
+        "origin": { "type": "string" },
+        "url": { "type": "string" },
+        "title": { "type": "string" },
+        "metadata": { "$ref": "#/$defs/JsonObject" }
+      }
+    },
+    "ChatStreamRequest": {
+      "type": "object",
+      "required": ["protocolVersion", "requestId", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "requestId": { "type": "string", "minLength": 1 },
+        "conversationId": { "type": "string" },
+        "assistantProfileId": { "type": "string" },
+        "message": { "$ref": "#/$defs/ChatRequestMessage" },
+        "hostContext": { "$ref": "#/$defs/HostContext" }
+      }
+    },
+    "SidechatStreamEvent": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "eventId",
+        "assistantTurnId",
+        "sequence",
+        "createdAt"
+      ],
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "type": {
+          "enum": [
+            "sidechat.started",
+            "sidechat.delta",
+            "sidechat.reasoning",
+            "sidechat.tool",
+            "sidechat.host_command",
+            "sidechat.completed",
+            "sidechat.error",
+            "sidechat.history"
+          ]
+        },
+        "eventId": { "type": "string" },
+        "assistantTurnId": { "type": "string" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "content": { "type": "string" },
+        "summary": { "type": "string" },
+        "toolCallId": { "type": "string" },
+        "toolName": { "type": "string" },
+        "status": { "type": "string" },
+        "commandId": { "type": "string" },
+        "commandName": { "type": "string" },
+        "payload": { "$ref": "#/$defs/JsonObject" },
+        "finishReason": { "enum": ["stop", "length", "aborted"] },
+        "usage": { "$ref": "#/$defs/UsageMetadata" },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" },
+        "messages": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HistoryMessage" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "HistoryMessage": {
+      "type": "object",
+      "required": ["id", "role", "content", "sequence"],
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "enum": ["user", "assistant", "system"] },
+        "content": { "type": "string" },
+        "sequence": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "UsageMetadata": {
+      "type": "object",
+      "properties": {
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "totalTokens": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

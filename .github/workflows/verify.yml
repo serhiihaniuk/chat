@@ -8,6 +8,20 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sidechat
+          POSTGRES_USER: sidechat
+          POSTGRES_PASSWORD: sidechat
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U sidechat -d sidechat"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
@@ -16,3 +30,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify
+      - run: npm run test:db:integration
+        env:
+          SIDECHAT_TEST_DATABASE_URL: postgres://sidechat:sidechat@127.0.0.1:54329/sidechat
+      - run: npm run test:e2e
+      - run: npm run audit
+      - run: docker compose -f infra/local/docker-compose.yml config
+      - run: docker build -f infra/docker/partner-ai-service.Dockerfile .

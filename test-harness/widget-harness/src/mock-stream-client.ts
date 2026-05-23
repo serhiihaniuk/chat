@@ -1,4 +1,4 @@
-import type { ChatClient } from "../../../packages/chat-client/src/index.js";
+import type { ChatClient } from "@side-chat/chat-client";
 import {
   SIDECHAT_PROTOCOL_VERSION,
   type ChatStreamRequest,
@@ -8,7 +8,7 @@ import {
   type ReasoningEvent,
   type SidechatStreamEvent,
   type StartedEvent,
-} from "../../../packages/chat-protocol/src/index.js";
+} from "@side-chat/chat-protocol";
 
 export const createMockStreamClient = (): ChatClient => ({
   streamChat: (request) =>

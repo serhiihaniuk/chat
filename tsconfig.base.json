@@ -6,10 +6,8 @@
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@side-chat/assistant-runtime": [
-        "packages/assistant-runtime/src/index.ts"
-      ],
-      "@side-chat/backend-core": ["packages/backend-core/src/index.ts"],
+      "@side-chat/agent-runtime": ["packages/agent-runtime/src/index.ts"],
+      "@side-chat/partner-ai-core": ["packages/partner-ai-core/src/index.ts"],
       "@side-chat/chat-client": ["packages/chat-client/src/index.ts"],
       "@side-chat/chat-protocol": ["packages/chat-protocol/src/index.ts"],
       "@side-chat/db": ["packages/db/src/index.ts"],

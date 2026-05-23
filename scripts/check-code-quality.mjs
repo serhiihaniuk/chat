@@ -6,15 +6,25 @@ import {
 } from "./lib/governance.mjs";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 
 const root = resolveRoot();
 const errors = [];
+const gitLsFiles = spawnSync("git", ["ls-files"], {
+  cwd: root,
+  encoding: "utf8",
+});
+const trackedFiles =
+  gitLsFiles.status === 0
+    ? new Set(gitLsFiles.stdout.split("\n").filter(Boolean))
+    : undefined;
 
 for (const file of listFiles(root)) {
   if (
     /^(?:apps|packages|test-harness)\/[^/]+\/(?:dist|build|coverage)\//.test(
       file,
-    )
+    ) &&
+    (trackedFiles === undefined || trackedFiles.has(file))
   ) {
     errors.push(`${file}: generated build/test artifact must not be tracked`);
   }

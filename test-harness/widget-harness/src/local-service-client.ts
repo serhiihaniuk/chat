@@ -2,7 +2,7 @@ import {
   createChatClient,
   type ChatClient,
   type FetchLike,
-} from "../../../packages/chat-client/src/index.js";
+} from "@side-chat/chat-client";
 
 import type { WidgetHarnessConfig } from "./modes.js";
 

@@ -12,6 +12,7 @@
     }
   },
   "scripts": {
+    "build": "tsc -b --pretty false",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run --passWithNoTests"
   }

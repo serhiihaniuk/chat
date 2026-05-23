@@ -8,8 +8,15 @@
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
-    { "path": "../chat-client" },
-    { "path": "../chat-protocol" },
-    { "path": "../host-bridge" }
-  ]
+    {
+      "path": "../chat-client"
+    },
+    {
+      "path": "../chat-protocol"
+    },
+    {
+      "path": "../host-bridge"
+    }
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

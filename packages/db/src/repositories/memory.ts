@@ -1,31 +1,24 @@
 import type {
-  AssistantTurnRepositoryContract,
   AssistantTurnRecord,
   AuditEventRecord,
   ContextSnapshotRecord,
   ConversationRecord,
-  ConversationRepositoryContract,
   HostCommandResultRecord,
-  InteractionRepositoryContract,
   MessageRecord,
   ToolInvocationRecord,
   UsageRecord,
 } from "../schema-contract/index.js";
+import type { SidechatRepositories } from "./contract.js";
 import { DbRepositoryError } from "./errors.js";
 import {
-  createIdGenerator,
   createMemoryStore,
   replaceConversation,
-  result,
   snapshotMemoryStore,
   updateTurn,
   upsertAt,
   type MemoryStoreSnapshot,
 } from "./memory-store.js";
-
-export type SidechatRepositories = ConversationRepositoryContract &
-  AssistantTurnRepositoryContract &
-  InteractionRepositoryContract;
+import { createIdGenerator, result } from "./repository-utils.js";
 
 export type MemorySidechatRepositories = SidechatRepositories & {
   readonly snapshot: () => MemoryStoreSnapshot;

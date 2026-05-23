@@ -1,7 +1,7 @@
-import type { WorkspaceRef } from "@side-chat/backend-core";
-import type { ServiceAuthConfig } from "../auth/service-auth.js";
-import type { PartnerAiServiceOptions } from "../http/app.js";
-import type { ServicePolicyConfig } from "../policy/service-policy.js";
+import type { WorkspaceRef } from "@side-chat/partner-ai-core";
+import type { ServiceAuthConfig } from "../adapters/auth/service-auth.js";
+import type { ServicePolicyConfig } from "../adapters/policy/service-policy.js";
+import type { PartnerAiServiceOptions } from "../inbound/http/app.js";
 
 const DEFAULT_SERVICE_PORT = 8787;
 const DEFAULT_TENANT_ID = "tenant_local";
@@ -26,6 +26,7 @@ export const createPartnerAiServiceOptionsFromEnv = (
   const workspace = readWorkspace(env);
   const profile = readServiceProfile(envValue(env, "SIDECHAT_PROFILE"));
 
+  const persistence = createPersistenceConfig(profile, env);
   return {
     workspace,
     auth: createAuthConfig(
@@ -34,6 +35,7 @@ export const createPartnerAiServiceOptionsFromEnv = (
       envValue(env, "SIDECHAT_AUTH_BEARER_TOKEN"),
     ),
     policies: createPolicyConfig(profile, env),
+    ...(persistence ? { persistence } : {}),
   };
 };
 
@@ -98,6 +100,20 @@ const createPolicyConfig = (
     mode,
     ...(allowedModels.length > 0 ? { allowedModels } : {}),
   };
+};
+
+const createPersistenceConfig = (
+  profile: ServiceProfile,
+  env: ServiceEnv,
+): PartnerAiServiceOptions["persistence"] => {
+  const databaseUrl = envValue(env, "SIDECHAT_DATABASE_URL");
+  if (databaseUrl) return { kind: "postgres", databaseUrl };
+  if (profile === "production") {
+    throw new ServiceConfigError(
+      "SIDECHAT_DATABASE_URL is required in production.",
+    );
+  }
+  return { kind: "memory" };
 };
 
 const readServiceProfile = (rawProfile: string | undefined): ServiceProfile => {

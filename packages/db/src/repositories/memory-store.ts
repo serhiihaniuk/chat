@@ -8,7 +8,6 @@ import type {
   HostCommandResultRecord,
   MessageRecord,
   RecordUsageCommand,
-  RepositoryCommandResult,
   ToolInvocationRecord,
   UsageRecord,
 } from "../schema-contract/index.js";
@@ -59,21 +58,6 @@ export const snapshotMemoryStore = (
   hostCommandResults: [...store.hostCommandResults],
   auditEvents: [...store.auditEvents],
 });
-
-export const result = <RecordType>(
-  record: RecordType,
-  inserted: boolean,
-): RepositoryCommandResult<RecordType> => ({ record, inserted });
-
-export const createIdGenerator = (prefix: string) => {
-  let index = 0;
-  return {
-    next: (kind: string): string => {
-      index += 1;
-      return `${prefix}_${kind}_${index.toString().padStart(4, "0")}`;
-    },
-  };
-};
 
 export const replaceConversation = (
   store: MemoryStore,

@@ -1,9 +1,9 @@
-import type { HostContext } from "../../../packages/chat-protocol/src/index.js";
+import type { HostContext } from "@side-chat/chat-protocol";
 import {
   createCommandResult,
   type HostBridge,
   type HostCommandResult,
-} from "../../../packages/host-bridge/src/index.js";
+} from "@side-chat/host-bridge";
 
 import type { WidgetHarnessConfig } from "./modes.js";
 

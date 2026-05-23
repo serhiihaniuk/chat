@@ -22,7 +22,12 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: [
+            "test-harness/widget-harness/e2e/*.ts",
+            "test-harness/widget-harness/vite.config.ts",
+          ],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
       globals: { ...globals.node, ...globals.browser },
@@ -61,11 +66,16 @@ export default tseslint.config(
   },
   {
     files: ["**/*.test.ts", "**/*.type.test.ts", "vitest.config.ts"],
+    extends: [tseslint.configs.disableTypeChecked],
     rules: { "@typescript-eslint/no-non-null-assertion": "off" },
   },
   {
     files: ["eslint.config.js", "scripts/**/*.mjs"],
     extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
+    files: ["playwright.config.ts", "**/vite.config.ts"],
+    rules: { "import-x/no-cycle": "off" },
   },
   prettier,
 );

@@ -19,21 +19,22 @@ const allowed = {
   "@side-chat/partner-ai-service": new Set([
     "@effect/platform-node",
     "@hono/node-server",
-    "@side-chat/assistant-runtime",
-    "@side-chat/backend-core",
+    "@side-chat/agent-runtime",
+    "@side-chat/partner-ai-core",
     "@side-chat/chat-protocol",
     "@side-chat/db",
     "effect",
     "hono",
   ]),
-  "@side-chat/assistant-runtime": new Set([
+  "@side-chat/agent-runtime": new Set([
+    "@ai-sdk/openai",
     "@ai-sdk/provider",
-    "@side-chat/backend-core",
+    "@side-chat/partner-ai-core",
     "@side-chat/chat-protocol",
     "ai",
     "effect",
   ]),
-  "@side-chat/backend-core": new Set(["@side-chat/chat-protocol", "effect"]),
+  "@side-chat/partner-ai-core": new Set(["@side-chat/chat-protocol", "effect"]),
   "@side-chat/chat-client": new Set(["@side-chat/chat-protocol"]),
   "@side-chat/chat-protocol": new Set(),
   "@side-chat/db": new Set([
@@ -56,7 +57,7 @@ const allowed = {
     "react-dom",
     "tailwind-merge",
   ]),
-  "@side-chat/testing": new Set(),
+  "@side-chat/testing": new Set(["@side-chat/chat-protocol"]),
   "@side-chat/widget-harness": new Set([
     "@side-chat/chat-client",
     "@side-chat/chat-protocol",

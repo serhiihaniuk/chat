@@ -1,4 +1,4 @@
-import type { JsonObject } from "../../chat-protocol/src/index.js";
+import type { JsonObject } from "@side-chat/chat-protocol";
 
 import type { HostCommand } from "./capability.js";
 

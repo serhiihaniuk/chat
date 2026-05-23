@@ -1,0 +1,103 @@
+{
+  "_generatedFrom": "Generated from: apps/partner-ai-service/src/inbound/http/routes.ts and packages/chat-protocol/src/sidechat-v1/*.ts",
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Side Chat Partner AI Service",
+    "version": "0.0.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "getHealth",
+        "responses": {
+          "200": { "description": "Service health" }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "getReadiness",
+        "responses": {
+          "200": { "description": "Service readiness" }
+        }
+      }
+    },
+    "/models": {
+      "get": {
+        "operationId": "listModels",
+        "responses": {
+          "200": {
+            "description": "Available assistant models for the workspace"
+          }
+        }
+      }
+    },
+    "/chat/stream": {
+      "post": {
+        "operationId": "streamChat",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json#/$defs/ChatStreamRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sidechat v1 server-sent event stream",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "500": { "description": "Internal error" }
+        }
+      }
+    },
+    "/chat/history/{conversationId}": {
+      "get": {
+        "operationId": "readChatHistory",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Conversation message history" }
+        }
+      },
+      "delete": {
+        "operationId": "resetChatHistory",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Conversation reset result" }
+        }
+      }
+    },
+    "/usage": {
+      "get": {
+        "operationId": "readUsageSummary",
+        "responses": {
+          "200": { "description": "Workspace usage summary" }
+        }
+      }
+    }
+  }
+}

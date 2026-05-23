@@ -21,6 +21,7 @@ const requiredStrictOptions = {
   useUnknownInCatchVariables: true,
   isolatedModules: true,
   verbatimModuleSyntax: true,
+  skipLibCheck: true,
 };
 
 const base = readJson(root, "tsconfig.base.json");
