@@ -2,7 +2,6 @@ import {
   BackendCoreError,
   createStreamChatUseCase,
   type AssistantRuntimePort,
-  type AuthContext,
   type AuthorityInput,
   type AuthorityPort,
   type ClockPort,
@@ -24,6 +23,11 @@ import {
   type SidechatRepositories,
 } from "@side-chat/db";
 import { Hono } from "hono";
+import {
+  createDevelopmentAuthConfig,
+  createServiceAuthorityPort,
+  type ServiceAuthConfig,
+} from "../auth/service-auth.js";
 import { createServicePersistence } from "../persistence/service-persistence.js";
 
 const DEFAULT_WORKSPACE: WorkspaceRef = {
@@ -36,14 +40,20 @@ const DEFAULT_MODEL_ID = "fake-echo";
 
 export type PartnerAiServiceOptions = {
   readonly repositories?: SidechatRepositories;
+  readonly auth?: ServiceAuthConfig;
+  readonly workspace?: WorkspaceRef;
 };
 
 export const createPartnerAiServiceApp = (
   options: PartnerAiServiceOptions = {},
 ) => {
   const app = new Hono();
+  const workspace = options.workspace ?? DEFAULT_WORKSPACE;
   const repositories =
     options.repositories ?? createMemorySidechatRepositories();
+  const authority = createServiceAuthorityPort(
+    options.auth ?? createDevelopmentAuthConfig(workspace),
+  );
 
   app.post("/chat/stream", async (context) => {
     const persistence = createServicePersistence(repositories);
@@ -59,13 +69,16 @@ export const createPartnerAiServiceApp = (
 
     const authInput = toAuthorityInput(context.req.raw, chatRequest);
     const useCase = createStreamChatUseCase(
-      createFakeServicePorts(persistence.conversations),
+      createFakeServicePorts({
+        authority,
+        conversations: persistence.conversations,
+      }),
     );
 
     try {
       const events: SidechatStreamEvent[] = [];
       for await (const event of useCase.stream({
-        workspace: DEFAULT_WORKSPACE,
+        workspace,
         request: chatRequest,
         authority: authInput,
         providerId: DEFAULT_PROVIDER_ID,
@@ -153,34 +166,18 @@ const jsonError = (
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "Unexpected service error.";
 
-const createFakeServicePorts = (conversations: ConversationRepositoryPort) => ({
-  authority: createHeaderAuthorityPort(),
+const createFakeServicePorts = ({
+  authority,
+  conversations,
+}: {
+  readonly authority: AuthorityPort;
+  readonly conversations: ConversationRepositoryPort;
+}) => ({
+  authority,
   conversations,
   runtime: createFakeRuntimePort(),
   clock: createFixedClock(),
   ids: createDeterministicIds(),
-});
-
-const createHeaderAuthorityPort = (): AuthorityPort => ({
-  resolveAuthContext: (input) =>
-    Promise.resolve(
-      input.bearerToken === "Bearer local-test-token"
-        ? createLocalAuthContext(input)
-        : undefined,
-    ),
-});
-
-const createLocalAuthContext = (input: AuthorityInput): AuthContext => ({
-  ...DEFAULT_WORKSPACE,
-  subject: { subjectId: "subject_local", userId: "user_local" },
-  actor: { subjectId: "subject_local", userId: "user_local" },
-  roles: ["member"],
-  scopes: ["conversation:read", "conversation:write", "message:write"],
-  source: "test_authority",
-  ...(input.hostContext?.origin
-    ? { hostOrigin: input.hostContext.origin }
-    : {}),
-  issuedAt: "2026-05-23T13:00:00.000Z",
 });
 
 const createFakeRuntimePort = (): AssistantRuntimePort => ({

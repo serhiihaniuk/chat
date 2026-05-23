@@ -73,6 +73,69 @@ describe("partner ai service /chat/stream", () => {
     });
   });
 
+  it("refuses production boot without a real authority adapter", () => {
+    expect(() =>
+      createPartnerAiServiceApp({
+        auth: {
+          profile: "production",
+          workspace: {
+            tenantId: "tenant_local",
+            workspaceId: "workspace_local",
+          },
+        },
+      }),
+    ).toThrow("Production auth requires");
+  });
+
+  it("keeps static dev auth out of the production profile", () => {
+    expect(() =>
+      createPartnerAiServiceApp({
+        auth: {
+          profile: "production",
+          trustedBearerToken: "Bearer local-test-token",
+          workspace: {
+            tenantId: "tenant_local",
+            workspaceId: "workspace_local",
+          },
+        },
+      }),
+    ).toThrow("Development static auth cannot");
+  });
+
+  it("denies cross-tenant production auth before persistence or model work", async () => {
+    const repositories = createMemorySidechatRepositories();
+    const response = await createPartnerAiServiceApp({
+      repositories,
+      workspace: {
+        tenantId: "tenant_expected",
+        workspaceId: "workspace_expected",
+      },
+      auth: {
+        profile: "production",
+        trustedBearerToken: "Bearer production-token",
+        workspace: {
+          tenantId: "tenant_other",
+          workspaceId: "workspace_expected",
+        },
+      },
+    }).request("/chat/stream", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer production-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(validRequest),
+    });
+
+    expect(response.status).toBe(403);
+    expect(repositories.snapshot()).toMatchObject({
+      conversations: [],
+      messages: [],
+      assistantTurns: [],
+      usageRecords: [],
+    });
+  });
+
   it("persists conversation state idempotently without durable host-command results", async () => {
     const repositories = createMemorySidechatRepositories();
     const app = createPartnerAiServiceApp({ repositories });
