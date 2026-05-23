@@ -13,6 +13,9 @@
     },
     {
       "path": "../../packages/backend-core"
+    },
+    {
+      "path": "../../packages/db"
     }
   ]
 }

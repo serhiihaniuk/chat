@@ -17,13 +17,19 @@ import {
   createMemoryStore,
   replaceConversation,
   result,
+  snapshotMemoryStore,
   updateTurn,
   upsertAt,
+  type MemoryStoreSnapshot,
 } from "./memory-store.js";
 
 export type SidechatRepositories = ConversationRepositoryContract &
   AssistantTurnRepositoryContract &
   InteractionRepositoryContract;
+
+export type MemorySidechatRepositories = SidechatRepositories & {
+  readonly snapshot: () => MemoryStoreSnapshot;
+};
 
 export type MemoryRepositoryOptions = {
   readonly idPrefix?: string;
@@ -31,7 +37,7 @@ export type MemoryRepositoryOptions = {
 
 export const createMemorySidechatRepositories = (
   options: MemoryRepositoryOptions = {},
-): SidechatRepositories => {
+): MemorySidechatRepositories => {
   const ids = createIdGenerator(options.idPrefix ?? "mem");
   const store = createMemoryStore();
 
@@ -69,6 +75,7 @@ export const createMemorySidechatRepositories = (
   };
 
   return {
+    snapshot: () => snapshotMemoryStore(store),
     createOrGetConversation: async (command) => {
       await Promise.resolve();
       const existing = store.conversations.find(

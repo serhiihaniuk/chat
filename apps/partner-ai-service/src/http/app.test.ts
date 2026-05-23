@@ -2,6 +2,7 @@ import {
   decodeSseEvents,
   SIDECHAT_PROTOCOL_VERSION,
 } from "@side-chat/chat-protocol";
+import { createMemorySidechatRepositories } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "./app.js";
 
@@ -70,5 +71,45 @@ describe("partner ai service /chat/stream", () => {
       code: "unauthorized",
       retryable: false,
     });
+  });
+
+  it("persists conversation state idempotently without durable host-command results", async () => {
+    const repositories = createMemorySidechatRepositories();
+    const app = createPartnerAiServiceApp({ repositories });
+    const postValidRequest = () =>
+      app.request("/chat/stream", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer local-test-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(validRequest),
+      });
+    const expectSuccessfulStream = async () => {
+      const response = await postValidRequest();
+      expect(response.status).toBe(200);
+      await response.text();
+    };
+
+    await expectSuccessfulStream();
+    await expectSuccessfulStream();
+
+    const snapshot = repositories.snapshot();
+    expect(snapshot.conversations).toHaveLength(1);
+    expect(snapshot.messages.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+    ]);
+    expect(snapshot.assistantTurns).toHaveLength(1);
+    expect(snapshot.assistantTurns[0]).toMatchObject({
+      requestId: validRequest.requestId,
+      status: "completed",
+      runtimeProfile: "fake",
+      modelProvider: "fake",
+      modelId: "fake-echo",
+    });
+    expect(snapshot.contextSnapshots).toHaveLength(1);
+    expect(snapshot.usageRecords).toHaveLength(1);
+    expect(snapshot.hostCommandResults).toHaveLength(0);
   });
 });

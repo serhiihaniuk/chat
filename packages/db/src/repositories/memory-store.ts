@@ -25,6 +25,17 @@ export type MemoryStore = {
   readonly auditEvents: AuditEventRecord[];
 };
 
+export type MemoryStoreSnapshot = {
+  readonly conversations: readonly ConversationRecord[];
+  readonly messages: readonly MessageRecord[];
+  readonly assistantTurns: readonly AssistantTurnRecord[];
+  readonly contextSnapshots: readonly ContextSnapshotRecord[];
+  readonly usageRecords: readonly UsageRecord[];
+  readonly toolInvocations: readonly ToolInvocationRecord[];
+  readonly hostCommandResults: readonly HostCommandResultRecord[];
+  readonly auditEvents: readonly AuditEventRecord[];
+};
+
 export const createMemoryStore = (): MemoryStore => ({
   conversations: [],
   messages: [],
@@ -34,6 +45,19 @@ export const createMemoryStore = (): MemoryStore => ({
   toolInvocations: [],
   hostCommandResults: [],
   auditEvents: [],
+});
+
+export const snapshotMemoryStore = (
+  store: MemoryStore,
+): MemoryStoreSnapshot => ({
+  conversations: [...store.conversations],
+  messages: [...store.messages],
+  assistantTurns: [...store.assistantTurns],
+  contextSnapshots: [...store.contextSnapshots],
+  usageRecords: [...store.usageRecords],
+  toolInvocations: [...store.toolInvocations],
+  hostCommandResults: [...store.hostCommandResults],
+  auditEvents: [...store.auditEvents],
 });
 
 export const result = <RecordType>(
