@@ -12,8 +12,8 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc -b --pretty false",
-    "test": "vitest run --passWithNoTests"
+    "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
+    "test": "cd ../.. && vitest run packages/chat-client/src/sse-reader.test.ts packages/chat-client/src/client.test.ts"
   },
   "dependencies": {
     "@side-chat/chat-protocol": "0.0.0"
