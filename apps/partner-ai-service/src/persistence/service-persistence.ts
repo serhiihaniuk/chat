@@ -94,20 +94,13 @@ export const createServicePersistence = (
         now: started.createdAt,
       });
 
-      if (request.hostContext) {
-        await repositories.recordTurnContextSnapshot({
-          workspaceId: pending.authContext.workspaceId,
-          assistantTurnId: turn.record.assistantTurnId,
-          contextSchemaVersion: request.hostContext.schemaVersion,
-          ...(request.hostContext.origin
-            ? { hostSurfaceId: request.hostContext.origin }
-            : {}),
-          hostContextHash: stableHash(toJsonObject(request.hostContext)),
-          capabilitiesHash: "capabilities:none",
-          contextRedactedJson: toJsonObject(request.hostContext),
-          now: started.createdAt,
-        });
-      }
+      await recordContextSnapshot({
+        repositories,
+        pending,
+        request,
+        assistantTurnId: turn.record.assistantTurnId,
+        now: started.createdAt,
+      });
 
       const assistantContent = events
         .filter(isDeltaEvent)
@@ -129,34 +122,161 @@ export const createServicePersistence = (
         now: completed.createdAt,
       });
 
-      if (completed.usage) {
-        await repositories.recordUsage({
-          workspaceId: pending.authContext.workspaceId,
-          assistantTurnId: turn.record.assistantTurnId,
-          runtimeStepIndex: 0,
-          modelProvider: providerId,
-          modelId,
-          inputTokens: completed.usage.inputTokens ?? 0,
-          outputTokens: completed.usage.outputTokens ?? 0,
-          reasoningTokens: 0,
-          cachedInputTokens: 0,
-          totalTokens: completed.usage.totalTokens ?? 0,
-          costUnits: "0",
-          now: completed.createdAt,
-        });
-      }
-
-      if (turn.record.status === "running") {
-        await repositories.completeAssistantTurn({
-          workspaceId: pending.authContext.workspaceId,
-          assistantTurnId: turn.record.assistantTurnId,
-          assistantMessageId: assistantMessage.record.messageId,
-          finishReason: completed.finishReason,
-          now: completed.createdAt,
-        });
-      }
+      await recordUsage({
+        repositories,
+        pending,
+        completed,
+        providerId,
+        modelId,
+        assistantTurnId: turn.record.assistantTurnId,
+      });
+      await completeTurnIfRunning({
+        repositories,
+        pending,
+        completed,
+        assistantTurnId: turn.record.assistantTurnId,
+        assistantMessageId: assistantMessage.record.messageId,
+        status: turn.record.status,
+      });
+      await appendTurnAuditEvent({
+        repositories,
+        pending,
+        request,
+        completed,
+        providerId,
+        modelId,
+        assistantTurnId: turn.record.assistantTurnId,
+        shouldAppend: turn.inserted,
+      });
     },
   };
+};
+
+const recordContextSnapshot = ({
+  repositories,
+  pending,
+  request,
+  assistantTurnId,
+  now,
+}: {
+  readonly repositories: SidechatRepositories;
+  readonly pending: PendingUserMessage;
+  readonly request: ChatStreamRequest;
+  readonly assistantTurnId: string;
+  readonly now: string;
+}) => {
+  if (!request.hostContext) return Promise.resolve();
+
+  return repositories.recordTurnContextSnapshot({
+    workspaceId: pending.authContext.workspaceId,
+    assistantTurnId,
+    contextSchemaVersion: request.hostContext.schemaVersion,
+    ...(request.hostContext.origin
+      ? { hostSurfaceId: request.hostContext.origin }
+      : {}),
+    hostContextHash: stableHash(toJsonObject(request.hostContext)),
+    capabilitiesHash: "capabilities:none",
+    contextRedactedJson: toJsonObject(request.hostContext),
+    now,
+  });
+};
+
+const recordUsage = ({
+  repositories,
+  pending,
+  completed,
+  providerId,
+  modelId,
+  assistantTurnId,
+}: {
+  readonly repositories: SidechatRepositories;
+  readonly pending: PendingUserMessage;
+  readonly completed: CompletedEvent;
+  readonly providerId: string;
+  readonly modelId: string;
+  readonly assistantTurnId: string;
+}) => {
+  if (!completed.usage) return Promise.resolve();
+
+  return repositories.recordUsage({
+    workspaceId: pending.authContext.workspaceId,
+    assistantTurnId,
+    runtimeStepIndex: 0,
+    modelProvider: providerId,
+    modelId,
+    inputTokens: completed.usage.inputTokens ?? 0,
+    outputTokens: completed.usage.outputTokens ?? 0,
+    reasoningTokens: 0,
+    cachedInputTokens: 0,
+    totalTokens: completed.usage.totalTokens ?? 0,
+    costUnits: "0",
+    now: completed.createdAt,
+  });
+};
+
+const completeTurnIfRunning = ({
+  repositories,
+  pending,
+  completed,
+  assistantTurnId,
+  assistantMessageId,
+  status,
+}: {
+  readonly repositories: SidechatRepositories;
+  readonly pending: PendingUserMessage;
+  readonly completed: CompletedEvent;
+  readonly assistantTurnId: string;
+  readonly assistantMessageId: string;
+  readonly status: string;
+}) => {
+  if (status !== "running") return Promise.resolve();
+
+  return repositories.completeAssistantTurn({
+    workspaceId: pending.authContext.workspaceId,
+    assistantTurnId,
+    assistantMessageId,
+    finishReason: completed.finishReason,
+    now: completed.createdAt,
+  });
+};
+
+const appendTurnAuditEvent = ({
+  repositories,
+  pending,
+  request,
+  completed,
+  providerId,
+  modelId,
+  assistantTurnId,
+  shouldAppend,
+}: {
+  readonly repositories: SidechatRepositories;
+  readonly pending: PendingUserMessage;
+  readonly request: ChatStreamRequest;
+  readonly completed: CompletedEvent;
+  readonly providerId: string;
+  readonly modelId: string;
+  readonly assistantTurnId: string;
+  readonly shouldAppend: boolean;
+}) => {
+  if (!shouldAppend) return Promise.resolve();
+
+  return repositories.appendAuditEvent({
+    workspaceId: pending.authContext.workspaceId,
+    subjectId: pending.authContext.subject.subjectId,
+    actorId: pending.authContext.actor.subjectId,
+    eventType: "sidechat.assistant_turn.completed",
+    targetType: "assistant_turn",
+    targetId: assistantTurnId,
+    metadataJson: {
+      modelProvider: providerId,
+      modelId,
+      finishReason: completed.finishReason,
+      usageTotalTokens: completed.usage?.totalTokens ?? null,
+    },
+    requestId: request.requestId,
+    now: completed.createdAt,
+  });
 };
 
 const appendMessage = ({

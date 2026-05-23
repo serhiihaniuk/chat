@@ -7,6 +7,7 @@ import {
   type ClockPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
+  type ObservabilitySinkPort,
   type PolicyPort,
   type RuntimeEvent,
   type WorkspaceRef,
@@ -47,6 +48,7 @@ const DEFAULT_MODEL_ID = "fake-echo";
 export type PartnerAiServiceOptions = {
   readonly repositories?: SidechatRepositories;
   readonly auth?: ServiceAuthConfig;
+  readonly observability?: ObservabilitySinkPort;
   readonly policies?: ServicePolicyConfig;
   readonly workspace?: WorkspaceRef;
 };
@@ -81,6 +83,9 @@ export const createPartnerAiServiceApp = (
       createFakeServicePorts({
         authority,
         conversations: persistence.conversations,
+        ...(options.observability
+          ? { observability: options.observability }
+          : {}),
         policies,
       }),
     );
@@ -93,6 +98,7 @@ export const createPartnerAiServiceApp = (
         authority: authInput,
         providerId: DEFAULT_PROVIDER_ID,
         modelId: DEFAULT_MODEL_ID,
+        ...traceInput(context.req.raw),
       })) {
         events.push(event);
       }
@@ -146,6 +152,11 @@ const toAuthorityInput = (
   };
 };
 
+const traceInput = (request: Request): { readonly traceId?: string } => {
+  const traceId = request.headers.get("x-trace-id") ?? undefined;
+  return traceId ? { traceId } : {};
+};
+
 const mapServiceError = (error: unknown): Response => {
   if (error instanceof BackendCoreError) {
     const status = error.protocolCode === "unauthorized" ? 401 : 403;
@@ -179,14 +190,17 @@ const errorMessage = (error: unknown): string =>
 const createFakeServicePorts = ({
   authority,
   conversations,
+  observability,
   policies,
 }: {
   readonly authority: AuthorityPort;
   readonly conversations: ConversationRepositoryPort;
+  readonly observability?: ObservabilitySinkPort;
   readonly policies: PolicyPort;
 }) => ({
   authority,
   conversations,
+  ...(observability ? { observability } : {}),
   policies,
   runtime: createFakeRuntimePort(),
   clock: createFixedClock(),

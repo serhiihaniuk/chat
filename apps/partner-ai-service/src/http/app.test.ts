@@ -2,6 +2,7 @@ import {
   decodeSseEvents,
   SIDECHAT_PROTOCOL_VERSION,
 } from "@side-chat/chat-protocol";
+import type { ObservabilityRecord } from "@side-chat/backend-core";
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "./app.js";
@@ -192,6 +193,39 @@ describe("partner ai service /chat/stream", () => {
     });
   });
 
+  it("passes request trace correlation into stream observability", async () => {
+    const records: ObservabilityRecord[] = [];
+    const response = await createPartnerAiServiceApp({
+      observability: {
+        record: (record) => {
+          records.push(record);
+        },
+      },
+    }).request("/chat/stream", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer local-test-token",
+        "content-type": "application/json",
+        "x-trace-id": "trace-service-1",
+      },
+      body: JSON.stringify(validRequest),
+    });
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(records.map((record) => record.lifecycleState)).toEqual([
+      "received",
+      "started",
+      "runtime_event",
+      "runtime_event",
+      "runtime_event",
+      "completed",
+    ]);
+    expect(
+      records.every((record) => record.traceId === "trace-service-1"),
+    ).toBe(true);
+  });
+
   it("persists conversation state idempotently without durable host-command results", async () => {
     const repositories = createMemorySidechatRepositories();
     const app = createPartnerAiServiceApp({ repositories });
@@ -229,6 +263,18 @@ describe("partner ai service /chat/stream", () => {
     });
     expect(snapshot.contextSnapshots).toHaveLength(1);
     expect(snapshot.usageRecords).toHaveLength(1);
+    expect(snapshot.auditEvents).toHaveLength(1);
+    expect(snapshot.auditEvents[0]).toMatchObject({
+      eventType: "sidechat.assistant_turn.completed",
+      targetType: "assistant_turn",
+      requestId: validRequest.requestId,
+      metadataJson: {
+        modelProvider: "fake",
+        modelId: "fake-echo",
+        finishReason: "stop",
+        usageTotalTokens: 4,
+      },
+    });
     expect(snapshot.hostCommandResults).toHaveLength(0);
   });
 });

@@ -9,14 +9,24 @@ import {
   assertWorkspaceAuthority,
   type AuthorityInput,
   type AuthorityPort,
+  type AuthContext,
   type WorkspaceRef,
 } from "./authority.js";
 import { BackendCoreError, mapAuthorityDenialToError } from "./errors.js";
+import {
+  createRequestCorrelation,
+  type ObservabilitySinkPort,
+} from "./observability.js";
 import {
   allowRequestPolicy,
   mapPolicyDenialToError,
   type PolicyPort,
 } from "./policy.js";
+import {
+  recordStreamObservation,
+  runtimeEventAttributes,
+  terminalErrorCode,
+} from "./stream-observability.js";
 import type {
   AssistantRuntimePort,
   ClockPort,
@@ -31,6 +41,7 @@ export type StreamChatInput = {
   readonly authority: AuthorityInput;
   readonly providerId: string;
   readonly modelId: string;
+  readonly traceId?: string;
 };
 
 export type StreamChatUseCase = {
@@ -46,48 +57,41 @@ export type StreamChatUseCasePorts = {
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
   readonly policies?: PolicyPort;
+  readonly observability?: ObservabilitySinkPort;
 };
 
 export const createStreamChatUseCase = (
   ports: StreamChatUseCasePorts,
 ): StreamChatUseCase => ({
   async *stream(input) {
-    const authContext = await ports.authority.resolveAuthContext(
-      input.authority,
-    );
-    const authorityDecision = assertWorkspaceAuthority(
-      authContext,
-      input.workspace,
-    );
-    if (!authorityDecision.allowed) {
-      throw mapAuthorityDenialToError(
-        authorityDecision.code,
-        authorityDecision.message,
-      );
-    }
-
-    const policyDecision = await (
-      ports.policies ?? allowRequestPolicy()
-    ).evaluate({
-      authContext: authorityDecision.authContext,
-      workspace: input.workspace,
-      request: input.request,
-      providerId: input.providerId,
-      modelId: input.modelId,
+    const correlation = createRequestCorrelation({
+      requestId: input.request.requestId,
+      ...(input.traceId ? { traceId: input.traceId } : {}),
     });
-    if (!policyDecision.allowed) {
-      throw mapPolicyDenialToError(policyDecision);
-    }
+    const startedAt = ports.clock.now();
+    await recordStreamObservation(ports.observability, {
+      correlation,
+      lifecycleState: "received",
+      startedAt,
+      now: startedAt,
+      attributes: {
+        requestId: input.request.requestId,
+        message: input.request.message,
+        authorization: input.authority.bearerToken ?? null,
+      },
+    });
+
+    const authContext = await resolveAuthorizedContext(ports, input);
 
     const conversation = await ports.conversations.ensureConversation({
-      authContext: authorityDecision.authContext,
+      authContext,
       ...(input.request.conversationId
         ? { requestedConversationId: input.request.conversationId }
         : {}),
       fallbackConversationId: ports.ids.nextConversationId(),
     });
     const conversationDecision = assertWorkspaceAuthority(
-      authorityDecision.authContext,
+      authContext,
       conversation,
     );
     if (!conversationDecision.allowed) {
@@ -98,13 +102,30 @@ export const createStreamChatUseCase = (
     }
 
     await ports.conversations.appendUserMessage({
-      authContext: authorityDecision.authContext,
+      authContext,
       conversationId: conversation.conversationId,
       message: input.request.message,
     });
 
     const assistantTurnId = ports.ids.nextAssistantTurnId();
     const emitted: SidechatStreamEvent[] = [];
+    await recordStreamObservation(ports.observability, {
+      correlation,
+      lifecycleState: "started",
+      assistantTurnId,
+      providerId: input.providerId,
+      modelId: input.modelId,
+      startedAt,
+      now: ports.clock.now(),
+      attributes: {
+        requestId: input.request.requestId,
+        assistantTurnId,
+        providerId: input.providerId,
+        modelId: input.modelId,
+        prompt: input.request.message.content,
+      },
+    });
+
     const emit = (event: SidechatStreamEvent): SidechatStreamEvent => {
       emitted.push(event);
       return event;
@@ -128,24 +149,94 @@ export const createStreamChatUseCase = (
         modelId: input.modelId,
         messages: [input.request.message],
       })) {
+        await recordStreamObservation(ports.observability, {
+          correlation,
+          lifecycleState: "runtime_event",
+          assistantTurnId,
+          providerId: input.providerId,
+          modelId: input.modelId,
+          startedAt,
+          now: ports.clock.now(),
+          attributes: runtimeEventAttributes(runtimeEvent),
+        });
         const event = mapRuntimeEvent(runtimeEvent, input.request, ports);
         if (event) yield emit(event);
       }
     } catch (error) {
+      const mappedError = mapUnknownRuntimeError(error);
+      await recordStreamObservation(ports.observability, {
+        correlation,
+        lifecycleState: "failed",
+        assistantTurnId,
+        providerId: input.providerId,
+        modelId: input.modelId,
+        errorCode: mappedError.protocolCode,
+        startedAt,
+        now: ports.clock.now(),
+        attributes: {
+          errorCode: mappedError.protocolCode,
+          message: mappedError.message,
+        },
+      });
       yield emit(
         createErrorEvent(
           input,
           assistantTurnId,
           emitted.length,
           ports,
-          mapUnknownRuntimeError(error),
+          mappedError,
         ),
       );
     }
 
+    const terminalCode = terminalErrorCode(emitted);
+    await recordStreamObservation(ports.observability, {
+      correlation,
+      lifecycleState: terminalCode ? "failed" : "completed",
+      assistantTurnId,
+      providerId: input.providerId,
+      modelId: input.modelId,
+      ...(terminalCode ? { errorCode: terminalCode } : {}),
+      startedAt,
+      now: ports.clock.now(),
+      attributes: { eventCount: emitted.length },
+    });
+
     validateExactlyOneTerminal(emitted);
   },
 });
+
+const resolveAuthorizedContext = async (
+  ports: StreamChatUseCasePorts,
+  input: StreamChatInput,
+): Promise<AuthContext> => {
+  const authContext = await ports.authority.resolveAuthContext(input.authority);
+  const authorityDecision = assertWorkspaceAuthority(
+    authContext,
+    input.workspace,
+  );
+  if (!authorityDecision.allowed) {
+    throw mapAuthorityDenialToError(
+      authorityDecision.code,
+      authorityDecision.message,
+    );
+  }
+
+  const policyDecision = await (
+    ports.policies ?? allowRequestPolicy()
+  ).evaluate({
+    authContext: authorityDecision.authContext,
+    workspace: input.workspace,
+    request: input.request,
+    providerId: input.providerId,
+    modelId: input.modelId,
+  });
+  if (!policyDecision.allowed) {
+    throw mapPolicyDenialToError(policyDecision);
+  }
+
+  return authorityDecision.authContext;
+};
 
 const mapRuntimeEvent = (
   event: RuntimeEvent,
