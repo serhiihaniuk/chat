@@ -12,6 +12,8 @@
     }
   },
   "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "node dist/server.js",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run --passWithNoTests"
   },

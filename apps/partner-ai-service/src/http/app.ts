@@ -14,6 +14,7 @@ import {
 } from "@side-chat/backend-core";
 import {
   ProtocolValidationError,
+  SIDECHAT_PROTOCOL_VERSION,
   encodeSseEvent,
   parseChatStreamRequest,
   type ChatStreamRequest,
@@ -62,9 +63,12 @@ export const createPartnerAiServiceApp = (
     options.repositories ?? createMemorySidechatRepositories();
   const authConfig = options.auth ?? createDevelopmentAuthConfig(workspace);
   const authority = createServiceAuthorityPort(authConfig);
-  const policies = createServicePolicyPort(
-    options.policies ?? createDefaultPolicyConfig(authConfig.profile),
-  );
+  const policyConfig =
+    options.policies ?? createDefaultPolicyConfig(authConfig.profile);
+  const policies = createServicePolicyPort(policyConfig);
+
+  app.get("/healthz", () => healthResponse(authConfig, policyConfig));
+  app.get("/readyz", () => healthResponse(authConfig, policyConfig));
 
   app.post("/chat/stream", async (context) => {
     const persistence = createServicePersistence(repositories);
@@ -186,6 +190,22 @@ const jsonError = (
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "Unexpected service error.";
+
+const healthResponse = (
+  authConfig: ServiceAuthConfig,
+  policyConfig: ServicePolicyConfig,
+): Response =>
+  Response.json({
+    protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+    status: "ok",
+    service: "partner-ai-service",
+    authProfile: authConfig.profile,
+    policyMode: policyConfig.mode ?? "allow_all",
+    providerId: DEFAULT_PROVIDER_ID,
+    modelId: DEFAULT_MODEL_ID,
+    persistence: "memory",
+    hostCommandResults: "disabled",
+  });
 
 const createFakeServicePorts = ({
   authority,

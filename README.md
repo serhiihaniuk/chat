@@ -9,3 +9,11 @@ external host app -> side-chat-widget -> chat-client -> chat-protocol -> partner
 ```
 
 The browser/backend contract is product-owned and must not expose provider-native stream parts, AI SDK internals, database rows, or host-app implementation details. See `docs/architecture/production-system-design.md` for the source of truth.
+
+Local service smoke runs through the fake-provider compose path:
+
+```sh
+docker compose up --build partner-ai-service
+```
+
+Operational rollout, rollback, and verification steps live in `docs/ops/side-chat-production-runbook.md`.
