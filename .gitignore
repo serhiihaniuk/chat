@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+apps/*/dist/
+packages/*/dist/
+test-harness/*/dist/

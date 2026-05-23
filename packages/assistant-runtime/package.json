@@ -1,0 +1,25 @@
+{
+  "name": "@side-chat/assistant-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@ai-sdk/provider": "3.0.10",
+    "@side-chat/backend-core": "0.0.0",
+    "@side-chat/chat-protocol": "0.0.0",
+    "ai": "6.0.191",
+    "effect": "4.0.0-beta.70"
+  }
+}

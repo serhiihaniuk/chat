@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@side-chat/assistant-runtime": [
+        "packages/assistant-runtime/src/index.ts"
+      ],
+      "@side-chat/backend-core": ["packages/backend-core/src/index.ts"],
+      "@side-chat/chat-client": ["packages/chat-client/src/index.ts"],
+      "@side-chat/chat-protocol": ["packages/chat-protocol/src/index.ts"],
+      "@side-chat/db": ["packages/db/src/index.ts"],
+      "@side-chat/host-bridge": ["packages/host-bridge/src/index.ts"],
+      "@side-chat/side-chat-widget": ["packages/side-chat-widget/src/index.ts"],
+      "@side-chat/testing": ["packages/testing/src/index.ts"]
+    },
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "useUnknownInCatchVariables": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

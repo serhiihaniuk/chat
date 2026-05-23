@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "references": [
+    { "path": "../../packages/chat-client" },
+    { "path": "../../packages/chat-protocol" },
+    { "path": "../../packages/host-bridge" },
+    { "path": "../../packages/side-chat-widget" }
+  ]
+}

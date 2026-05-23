@@ -1,0 +1,15 @@
+{
+  "files": ["vitest.config.ts"],
+  "references": [
+    { "path": "./apps/partner-ai-service" },
+    { "path": "./packages/chat-protocol" },
+    { "path": "./packages/backend-core" },
+    { "path": "./packages/assistant-runtime" },
+    { "path": "./packages/chat-client" },
+    { "path": "./packages/side-chat-widget" },
+    { "path": "./packages/host-bridge" },
+    { "path": "./packages/db" },
+    { "path": "./packages/testing" },
+    { "path": "./test-harness/widget-harness" }
+  ]
+}
