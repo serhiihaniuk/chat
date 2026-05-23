@@ -12,6 +12,11 @@ import {
   type WorkspaceRef,
 } from "./authority.js";
 import { BackendCoreError, mapAuthorityDenialToError } from "./errors.js";
+import {
+  allowRequestPolicy,
+  mapPolicyDenialToError,
+  type PolicyPort,
+} from "./policy.js";
 import type {
   AssistantRuntimePort,
   ClockPort,
@@ -40,6 +45,7 @@ export type StreamChatUseCasePorts = {
   readonly runtime: AssistantRuntimePort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
+  readonly policies?: PolicyPort;
 };
 
 export const createStreamChatUseCase = (
@@ -58,6 +64,19 @@ export const createStreamChatUseCase = (
         authorityDecision.code,
         authorityDecision.message,
       );
+    }
+
+    const policyDecision = await (
+      ports.policies ?? allowRequestPolicy()
+    ).evaluate({
+      authContext: authorityDecision.authContext,
+      workspace: input.workspace,
+      request: input.request,
+      providerId: input.providerId,
+      modelId: input.modelId,
+    });
+    if (!policyDecision.allowed) {
+      throw mapPolicyDenialToError(policyDecision);
     }
 
     const conversation = await ports.conversations.ensureConversation({

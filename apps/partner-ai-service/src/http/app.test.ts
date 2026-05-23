@@ -136,6 +136,62 @@ describe("partner ai service /chat/stream", () => {
     });
   });
 
+  it("refuses production allow-all policy configuration", () => {
+    expect(() =>
+      createPartnerAiServiceApp({
+        auth: {
+          profile: "production",
+          trustedBearerToken: "Bearer production-token",
+          workspace: {
+            tenantId: "tenant_local",
+            workspaceId: "workspace_local",
+          },
+        },
+        policies: { profile: "production", mode: "allow_all" },
+      }),
+    ).toThrow("Production policy cannot use");
+  });
+
+  it("maps production model policy denials before persistence or model work", async () => {
+    const repositories = createMemorySidechatRepositories();
+    const response = await createPartnerAiServiceApp({
+      repositories,
+      auth: {
+        profile: "production",
+        trustedBearerToken: "Bearer production-token",
+        workspace: {
+          tenantId: "tenant_local",
+          workspaceId: "workspace_local",
+        },
+      },
+      policies: {
+        profile: "production",
+        mode: "configured",
+        allowedModels: [],
+      },
+    }).request("/chat/stream", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer production-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(validRequest),
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      code: "forbidden",
+      retryable: false,
+    });
+    expect(repositories.snapshot()).toMatchObject({
+      conversations: [],
+      messages: [],
+      assistantTurns: [],
+      usageRecords: [],
+    });
+  });
+
   it("persists conversation state idempotently without durable host-command results", async () => {
     const repositories = createMemorySidechatRepositories();
     const app = createPartnerAiServiceApp({ repositories });

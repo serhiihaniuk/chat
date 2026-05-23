@@ -15,6 +15,12 @@ import type {
   RuntimeEvent,
 } from "./ports.js";
 import {
+  denyRequestPolicy,
+  POLICY_DENIAL_CODES,
+  type PolicyEvaluationInput,
+  type PolicyPort,
+} from "./policy.js";
+import {
   createStreamChatUseCase,
   type StreamChatInput,
 } from "./stream-chat.js";
@@ -64,6 +70,7 @@ describe("stream chat use case", () => {
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
     expect(ports.calls).toEqual([
       "auth",
+      "policy",
       "ensureConversation",
       "appendUserMessage",
       "runtime",
@@ -79,6 +86,28 @@ describe("stream chat use case", () => {
       protocolCode: "unauthorized",
     });
     expect(ports.calls).toEqual(["auth"]);
+  });
+
+  it("maps policy denials before persistence or model work", async () => {
+    const ports = createFakePorts({
+      authContext,
+      policies: denyRequestPolicy({
+        allowed: false,
+        check: "rate_limit",
+        code: POLICY_DENIAL_CODES.rateLimitExceeded,
+        protocolCode: "rate_limited",
+        message: "Rate limit exceeded for this workspace.",
+        retryable: true,
+      }),
+    });
+    const useCase = createStreamChatUseCase(ports);
+
+    await expect(collect(useCase.stream(input))).rejects.toMatchObject({
+      code: "rate_limit_exceeded",
+      protocolCode: "rate_limited",
+      retryable: true,
+    });
+    expect(ports.calls).toEqual(["auth", "policy"]);
   });
 
   it("denies cross-tenant access before persistence or model work", async () => {
@@ -130,6 +159,7 @@ describe("stream chat use case", () => {
 type FakePortOptions = {
   readonly authContext: AuthContext | undefined;
   readonly runtimeEvents?: readonly RuntimeEvent[];
+  readonly policies?: PolicyPort;
 };
 
 const createFakePorts = (options: FakePortOptions) => {
@@ -176,6 +206,16 @@ const createFakePorts = (options: FakePortOptions) => {
       resolveAuthContext: () => {
         calls.push("auth");
         return Promise.resolve(options.authContext);
+      },
+    },
+    policies: {
+      evaluate: (policyInput: PolicyEvaluationInput) => {
+        calls.push("policy");
+        return (
+          options.policies ?? {
+            evaluate: () => Promise.resolve({ allowed: true } as const),
+          }
+        ).evaluate(policyInput);
       },
     },
     conversations,

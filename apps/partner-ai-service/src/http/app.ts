@@ -7,6 +7,7 @@ import {
   type ClockPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
+  type PolicyPort,
   type RuntimeEvent,
   type WorkspaceRef,
 } from "@side-chat/backend-core";
@@ -29,6 +30,11 @@ import {
   type ServiceAuthConfig,
 } from "../auth/service-auth.js";
 import { createServicePersistence } from "../persistence/service-persistence.js";
+import {
+  createDefaultPolicyConfig,
+  createServicePolicyPort,
+  type ServicePolicyConfig,
+} from "../policy/service-policy.js";
 
 const DEFAULT_WORKSPACE: WorkspaceRef = {
   tenantId: "tenant_local",
@@ -41,6 +47,7 @@ const DEFAULT_MODEL_ID = "fake-echo";
 export type PartnerAiServiceOptions = {
   readonly repositories?: SidechatRepositories;
   readonly auth?: ServiceAuthConfig;
+  readonly policies?: ServicePolicyConfig;
   readonly workspace?: WorkspaceRef;
 };
 
@@ -51,8 +58,10 @@ export const createPartnerAiServiceApp = (
   const workspace = options.workspace ?? DEFAULT_WORKSPACE;
   const repositories =
     options.repositories ?? createMemorySidechatRepositories();
-  const authority = createServiceAuthorityPort(
-    options.auth ?? createDevelopmentAuthConfig(workspace),
+  const authConfig = options.auth ?? createDevelopmentAuthConfig(workspace);
+  const authority = createServiceAuthorityPort(authConfig);
+  const policies = createServicePolicyPort(
+    options.policies ?? createDefaultPolicyConfig(authConfig.profile),
   );
 
   app.post("/chat/stream", async (context) => {
@@ -72,6 +81,7 @@ export const createPartnerAiServiceApp = (
       createFakeServicePorts({
         authority,
         conversations: persistence.conversations,
+        policies,
       }),
     );
 
@@ -169,12 +179,15 @@ const errorMessage = (error: unknown): string =>
 const createFakeServicePorts = ({
   authority,
   conversations,
+  policies,
 }: {
   readonly authority: AuthorityPort;
   readonly conversations: ConversationRepositoryPort;
+  readonly policies: PolicyPort;
 }) => ({
   authority,
   conversations,
+  policies,
   runtime: createFakeRuntimePort(),
   clock: createFixedClock(),
   ids: createDeterministicIds(),
