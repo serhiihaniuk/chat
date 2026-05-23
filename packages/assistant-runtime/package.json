@@ -12,8 +12,8 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc -b --pretty false",
-    "test": "vitest run --passWithNoTests"
+    "typecheck": "tsc --noEmit --pretty false -p tsconfig.json",
+    "test": "cd ../.. && vitest run packages/assistant-runtime/src/fake/fake-provider.test.ts packages/assistant-runtime/src/registry/provider-registry.test.ts packages/assistant-runtime/src/tools/tool-registry.test.ts packages/assistant-runtime/src/runtime/assistant-runtime.test.ts"
   },
   "dependencies": {
     "@ai-sdk/provider": "3.0.10",
