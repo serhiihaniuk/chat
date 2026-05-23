@@ -12,8 +12,8 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc -b --pretty false",
-    "test": "vitest run --passWithNoTests"
+    "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
+    "test": "cd ../.. && vitest run packages/side-chat-widget/src/side-chat-widget.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.5.0",
