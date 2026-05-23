@@ -46,12 +46,15 @@ export const usePanelShell = ({
   const restoreLauncherFocus = useRef(false);
   const panelOffsetRef = useRef(panelOffset);
   const resizeRef = useRef<{
+    hasDragged: boolean;
     handle: ResizeHandle;
+    pointerId: number;
     startOffset: PanelOffset;
     startX: number;
     startY: number;
     startWidth: number;
     startHeight: number;
+    target: HTMLElement;
   } | null>(null);
   const dragRef = useRef<{
     anchorLeft: number;
@@ -90,6 +93,16 @@ export const usePanelShell = ({
     const resizePanel = (event: PointerEvent) => {
       const resize = resizeRef.current;
       if (!resize) return;
+      const distance = Math.hypot(
+        event.clientX - resize.startX,
+        event.clientY - resize.startY,
+      );
+      if (!resize.hasDragged) {
+        if (distance < 4) return;
+        resize.hasDragged = true;
+        document.body.style.cursor = getResizeCursor(resize.handle);
+        document.body.style.userSelect = "none";
+      }
 
       const nextWidth = handleResizesFromLeft(resize.handle)
         ? resize.startWidth + resize.startX - event.clientX
@@ -121,6 +134,12 @@ export const usePanelShell = ({
     };
 
     const stopResize = () => {
+      const resize = resizeRef.current;
+      try {
+        resize?.target.releasePointerCapture(resize.pointerId);
+      } catch {
+        // Pointer capture is best-effort; the browser may have already released it.
+      }
       resizeRef.current = null;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
@@ -129,11 +148,13 @@ export const usePanelShell = ({
     window.addEventListener("pointermove", resizePanel);
     window.addEventListener("pointerup", stopResize);
     window.addEventListener("pointercancel", stopResize);
+    window.addEventListener("blur", stopResize);
 
     return () => {
       window.removeEventListener("pointermove", resizePanel);
       window.removeEventListener("pointerup", stopResize);
       window.removeEventListener("pointercancel", stopResize);
+      window.removeEventListener("blur", stopResize);
       stopResize();
     };
   }, []);
@@ -234,17 +255,21 @@ export const usePanelShell = ({
       event.preventDefault();
       event.stopPropagation();
       if (isFullscreen) return;
+      if (event.button !== 0) return;
+
+      event.currentTarget.setPointerCapture(event.pointerId);
 
       resizeRef.current = {
+        hasDragged: false,
         handle,
+        pointerId: event.pointerId,
         startOffset: panelOffsetRef.current,
         startX: event.clientX,
         startY: event.clientY,
         startWidth: panelSize.width,
         startHeight: panelSize.height,
+        target: event.currentTarget,
       };
-      document.body.style.cursor = getResizeCursor(handle);
-      document.body.style.userSelect = "none";
     },
     [isFullscreen, panelSize.height, panelSize.width],
   );

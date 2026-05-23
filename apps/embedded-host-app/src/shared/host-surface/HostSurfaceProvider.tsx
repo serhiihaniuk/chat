@@ -5,12 +5,9 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
-import {
-  SideChatWidget,
-  type SideChatWidgetProps,
-} from "@side-chat/side-chat-widget";
 import type {
   HostCommand,
   HostCommandResult,
@@ -103,24 +100,124 @@ export function useHostSurfaceRegistration(
   );
 }
 
-type HostConnectedSideChatWidgetProps = Omit<
-  Extract<SideChatWidgetProps, { transport: unknown; identity: unknown }>,
-  "host"
->;
+type HostConnectedSideChatIframeProps = {
+  src: string;
+  title: string;
+};
 
-export function HostConnectedSideChatWidget(
-  props: HostConnectedSideChatWidgetProps,
-) {
+type EmbedMessage =
+  | {
+      type: "sidechat.embed.ready";
+    }
+  | {
+      type: "sidechat.embed.resize";
+      height: number;
+      width: number;
+    }
+  | {
+      type: "sidechat.host.getContext";
+      requestId: string;
+    }
+  | {
+      type: "sidechat.host.dispatchCommand";
+      command: HostCommand;
+      requestId: string;
+    };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isEmbedMessage = (value: unknown): value is EmbedMessage => {
+  if (!isRecord(value) || typeof value.type !== "string") return false;
+  return value.type.startsWith("sidechat.");
+};
+
+const getFrameOrigin = (src: string) => {
+  try {
+    return new URL(src, window.location.href).origin;
+  } catch {
+    return "*";
+  }
+};
+
+const closedFrameSize = { width: 112, height: 112 };
+
+export function HostConnectedSideChatIframe({
+  src,
+  title,
+}: HostConnectedSideChatIframeProps) {
   const registry = useHostSurfaceRegistry();
-  const host = useMemo(
-    () => ({
-      getContext: registry.getContext,
-      dispatchCommand: registry.dispatchCommand,
-    }),
-    [registry.dispatchCommand, registry.getContext],
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [frameSize, setFrameSize] = useState(closedFrameSize);
+  const targetOrigin = useMemo(() => getFrameOrigin(src), [src]);
+
+  const postToFrame = useCallback(
+    (message: unknown) => {
+      iframeRef.current?.contentWindow?.postMessage(message, targetOrigin);
+    },
+    [targetOrigin],
   );
 
-  return <SideChatWidget {...props} host={host} />;
+  useEffect(() => {
+    const onMessage = (event: MessageEvent<unknown>) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      if (targetOrigin !== "*" && event.origin !== targetOrigin) return;
+      if (!isEmbedMessage(event.data)) return;
+
+      if (event.data.type === "sidechat.embed.ready") {
+        postToFrame({
+          type: "sidechat.host.context",
+          context: registry.getContext(),
+        });
+        return;
+      }
+
+      if (event.data.type === "sidechat.embed.resize") {
+        setFrameSize({
+          width: Math.max(80, Math.min(event.data.width, window.innerWidth)),
+          height: Math.max(80, Math.min(event.data.height, window.innerHeight)),
+        });
+        return;
+      }
+
+      if (event.data.type === "sidechat.host.getContext") {
+        postToFrame({
+          type: "sidechat.host.context",
+          requestId: event.data.requestId,
+          context: registry.getContext(),
+        });
+        return;
+      }
+
+      if (event.data.type === "sidechat.host.dispatchCommand") {
+        const { command, requestId } = event.data;
+        void registry.dispatchCommand(command).then((result) => {
+          postToFrame({
+            type: "sidechat.host.commandResult",
+            requestId,
+            result,
+          });
+        });
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [postToFrame, registry, targetOrigin]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      allow="clipboard-write"
+      className="sidechat-embed-frame"
+      src={src}
+      style={{
+        width: `${frameSize.width}px`,
+        height: `${frameSize.height}px`,
+      }}
+      title={title}
+    />
+  );
 }
 
 const useHostSurfaceRegistry = () => {

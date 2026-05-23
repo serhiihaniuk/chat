@@ -6,12 +6,13 @@ export default defineConfig({
   webServer: [
     {
       command: "npm run --workspace @side-chat/side-chat-api dev",
-      url: "http://127.0.0.1:3000/health",
+      url: "http://127.0.0.1:3200/health",
       env: {
+        PORT: "3200",
         SIDE_CHAT_FAKE_CHUNK_DELAY_MS: "0",
         USE_FAKE_MODEL: "true",
       },
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command: "npm run --workspace @side-chat/dashboard-data-api dev",
@@ -25,12 +26,18 @@ export default defineConfig({
     {
       command: "npm run dev --workspace @side-chat/embedded-host-app",
       url: "http://127.0.0.1:5173",
+      env: {
+        SIDE_CHAT_API_PROXY_TARGET: "http://127.0.0.1:3200",
+      },
       reuseExistingServer: true,
     },
     {
       command:
         "npm run --workspace @side-chat/widget-demo dev -- --host 127.0.0.1 --port 4173",
       url: "http://127.0.0.1:4173",
+      env: {
+        SIDE_CHAT_API_PROXY_TARGET: "http://127.0.0.1:3200",
+      },
       reuseExistingServer: true,
     },
   ],

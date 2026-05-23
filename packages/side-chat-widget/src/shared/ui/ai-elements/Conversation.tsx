@@ -12,7 +12,7 @@ export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
     className={cn("relative flex-1 overflow-y-hidden", className)}
     initial="instant"
-    resize="instant"
+    resize="smooth"
     role="log"
     {...props}
   />
@@ -84,8 +84,7 @@ export const ConversationScrollToBottomSignal = ({
     const frame = requestAnimationFrame(() => {
       void scrollToBottom({
         animation: "instant",
-        duration: 600,
-        ignoreEscapes: true,
+        ignoreEscapes: false,
       });
     });
 

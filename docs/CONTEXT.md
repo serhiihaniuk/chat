@@ -8,7 +8,7 @@ Read this before architecture, product, demo-data, widget, backend, or DB change
 
 This repo is a learning-first production-base for a Workbench-embedded AI side-chat assistant.
 
-The main lesson is the architecture argument: a production ChatGPT-like Workbench assistant needs a typed UI-facing chat boundary. A Python/FastAPI or LangGraph service can sit behind that boundary later, but it should not accidentally become the browser-facing chat product protocol just because a prototype was wrapped and deployed.
+The main lesson is the architecture argument: a production ChatGPT-like Workbench assistant needs a typed UI-facing chat boundary. AI SDK 6 should be treated as the backend assistant-runtime engine behind that boundary, with OpenAI, Anthropic, Azure OpenAI, AI Gateway, local, and fake models as provider adapters. A Python/FastAPI or LangGraph service can sit behind the same boundary later, but it should not accidentally become the browser-facing chat product protocol just because a prototype was wrapped and deployed.
 
 The app is feature-complete enough for the current demo. Default future work should be cleanup, tests, docs, teaching, and boundary clarity rather than product expansion.
 
@@ -18,6 +18,7 @@ The app is feature-complete enough for the current demo. Default future work sho
 - Public demos use one shared demo workspace with a browser-local conversation id so each viewer gets isolated chat history and page-control state.
 - Assume monorepo consumption; npm publishing hardening is not a priority.
 - The model picker is an easter egg/demo affordance unless explicitly made real later.
+- If model/provider switching becomes real, back it with an assistant-runtime provider registry rather than OpenAI-specific UI plumbing.
 - The fake model is useful for tests/local safety, but the demo should be able to run real provider requests when `.env` is configured.
 - Prefer the Advisory Dashboard demo page/data direction before expanding assistant features.
 
@@ -25,7 +26,7 @@ The app is feature-complete enough for the current demo. Default future work sho
 
 ```txt
 apps/
-  side-chat-api/        Hono chat API, Effect/application use cases, AI SDK adapter
+  side-chat-api/        Hono chat API, Effect/application use cases, AI SDK-backed assistant runtime
   dashboard-data-api/   read-only dashboard data API for the host app
   embedded-host-app/    Advisory Dashboard single-page host consuming the widget package
   widget-demo/          isolated widget playground
@@ -43,6 +44,7 @@ Dependency pins live in `package.json` files and are enforced by `scripts/govern
 ## Focused Docs
 
 - [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md): canonical system design, architecture narrative, and first-principles teaching guide.
+- [architecture/production-system-design.md](architecture/production-system-design.md): clean production repo system design we will build from.
 - [code-walkthrough.md](code-walkthrough.md): practical learning path with local app/package guides, file ownership, and technology-in-context maps.
 - [../README.md](../README.md): setup, run commands, protocol summary, and verification commands.
 - Package/app `LEARNING.md` files: local code ownership maps for each workspace.
@@ -53,7 +55,7 @@ Historical `.omx` plans/reports and old planning docs are workflow scratchpads, 
 ## Hard Boundaries
 
 - Hono imports belong only under `apps/side-chat-api/src/inbound/hono`, except `apps/dashboard-data-api` owns its own Hono service.
-- AI SDK runtime imports belong only under `apps/side-chat-api/src/adapters/ai`.
+- AI SDK runtime imports belong only under the side-chat API assistant-runtime/AI adapter boundary.
 - `pg` imports belong only in `packages/db` and explicit migration/test harnesses.
 - `packages/db` must not import Hono, React, AI SDK adapters, widget code, or application use cases.
 - Runtime DB access must use stored procedures/functions, not direct application-table SQL from runtime code.

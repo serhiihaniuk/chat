@@ -1,0 +1,3163 @@
+# Side-Chat Production System Design
+
+Status: working system design for the clean production repository
+
+This document is the working system design for the clean production repository for the side-chat assistant. It treats the current repo as a prototype/reference, not as the production base to copy wholesale.
+
+The production repo should keep the architecture lessons that survived the prototype, remove demo-specific sediment, and make AI agents follow a strict first boundary: stable product protocol, framework-free backend core, AI SDK 6 as backend assistant runtime, and providers/models as adapters.
+
+Use this as the build source of truth until it is replaced by accepted ADRs and package-level design docs. It is intentionally one large document for early iteration.
+
+## 0. Document Label Contract
+
+Treat every unmarked item in this document as day-one scope for the clean production repo.
+
+Non-day-one material must be explicitly labeled:
+
+| Label | Meaning |
+| --- | --- |
+| `[Example]` | Illustrative shape or candidate naming. Do not scaffold just because it appears here. |
+| `[Optional]` | May be included on day one if it is cheap and useful, but the scaffold is valid without it. |
+| `[Deferred]` | Not day-one. Requires a later ADR or accepted product need. |
+| `[Open]` | Decision not accepted yet. Do not implement as default. |
+
+When a folder tree, command, tool, provider, schema field, or flow is not labeled, it is expected day-one architecture.
+
+## 1. Product Boundary
+
+The repository owns an embeddable side-chat assistant product.
+
+It does not own the consuming host application.
+
+The host app is an external consumer that integrates through:
+
+- the React widget package
+- the browser/client package
+- the host bridge contract
+- the typed chat protocol
+
+The main product boundary is:
+
+```txt
+external host app
+  -> side-chat-widget
+  -> chat-client
+  -> chat-protocol
+  -> partner-ai-service
+  -> backend-core
+  -> assistant-runtime
+  -> model / tool / persistence / auth / telemetry adapters
+```
+
+The browser-facing protocol must be stable and product-owned. It must not expose provider-native stream parts, AI SDK internals, database tables, or host-app implementation details.
+
+AI SDK 6 is not the browser contract. It is the backend assistant-runtime engine. OpenAI, Anthropic, Azure OpenAI, AI Gateway, local models, and fake models are provider adapters inside or below that runtime.
+
+## 2. Non-Goals
+
+Do not include these in the clean production spine:
+
+- a host app
+- a UBS-specific demo app
+- demo dashboard data
+- demo-only Caddy/Droplet deployment as production structure
+- report/PDF generation unless it becomes a real product requirement
+- placeholder auth, billing, rate limiting, or observability that pretends to be production
+- large local fixtures unless they directly support protocol, widget, runtime, or backend tests
+- extra apps that exist only to showcase the widget
+- generated build artifacts in source control
+
+`[Optional]` or `[Deferred]` additions must earn their place through a real development or product need.
+
+## 3. Core Principles
+
+Protocol first.
+
+The browser/backend contract is the product spine.
+
+Backend core is framework-free.
+
+The chat use cases should not know about Hono, Express, Fastify, OpenAI SDK objects, pg, Drizzle, React, browser APIs, or AI SDK UI messages.
+
+Hexagonal architecture is the default backend shape.
+
+Use cases sit at the center. External systems sit at the edges. Edges talk to the center through ports owned by the center, and concrete adapters are wired only by composition roots.
+
+Effect v4 is the backend workflow discipline.
+
+Use Effect v4 for typed errors, dependency layers, resource safety, structured concurrency, streams, retries, timeouts, config, and observability in server/core code. Do not force Effect into every UI component or public browser API.
+
+Assistant runtime is a backend engine, not a product boundary.
+
+AI SDK 6 should power agents, tool loops, provider tools, and telemetry behind ports. `[Deferred]` AI SDK capabilities such as approvals, structured output, MCP, and reranking must not be scaffolded until accepted. AI SDK must not leak into widget, host, or product protocol code.
+
+Apps are deployable processes only.
+
+An app may compose adapters, parse environment, start servers, and expose HTTP routes. It should not own reusable business logic.
+
+Inbound and outbound are different.
+
+Inbound adapters accept calls into the service, such as HTTP routes and SSE. Outbound adapters call things outside the service, such as auth providers, model providers, telemetry vendors, and Postgres-backed repositories. `[Example]` outbound integrations include MCP servers, CRM, entitlement services, and Redis. Do not hide outbound integrations under vague `utils` or mix them into use cases.
+
+Packages expose public boundaries.
+
+Consumers import from package entrypoints, not internal folders.
+
+The host is external.
+
+The repo defines how a host integrates. It does not ship the host.
+
+Adapters translate, they do not define product truth.
+
+OpenAI, Anthropic, Azure OpenAI, AI Gateway, AI SDK, Postgres, auth providers, and telemetry systems sit outside the core.
+
+Tests protect contracts before implementation detail.
+
+Protocol compatibility, stream sequencing, assistant-runtime event mapping, and widget/backend integration tests matter more than snapshotting incidental UI.
+
+### 3.1 Day-One DB Schema Contract
+
+The DB schema contract comes before repository implementation. Migrations implement the accepted contract; they do not discover it by accident.
+
+The first accepted production scaffold must include this contract before any migration, repository, or persistence adapter is treated as complete. The exact SQL can evolve, but these logical tables, lifecycles, authorization fields, idempotency rules, and repository command boundaries are day-one requirements.
+
+Schema ownership:
+
+- Use the dedicated DB schema `sidechat`.
+- Runtime app/core code must address the database through `packages/db` repository methods, not through table names.
+- Table names are part of the migration and Drizzle schema contract. They can be used by `packages/db`, migrations, DB tests, and operations scripts only.
+- Repository return types are parsed DTOs, not raw rows.
+
+Day-one persistence technology and topology:
+
+| Decision | Day-one stance |
+| --- | --- |
+| Database | PostgreSQL. Local development uses local/container Postgres. Day-one deployment may run Postgres on the same server/VM as `partner-ai-service`; managed Postgres remains compatible later because access stays behind `packages/db`. |
+| Driver | `pg`, owned by `packages/db`. |
+| Query/schema layer | Drizzle, owned by `packages/db`. |
+| Runtime topology | `apps/partner-ai-service` composes the DB layer in the same Node server/process. There is no separate persistence app or microservice. |
+| App access | `partner-ai-service` may import repository factories/layers from `packages/db`; it must not import Drizzle table objects for ad hoc queries. |
+| Core access | `backend-core` sees repository ports only. It must not import `pg`, Drizzle, SQL, or row types. |
+| Schema source | This contract defines product meaning. Drizzle schema/migrations are the executable implementation of the accepted contract. |
+| Stored functions | `[Deferred]` hardening option for operations that later need DB-enforced authorization or complex atomic invariants. Not day-one runtime shape. |
+
+Identity and tenancy vocabulary:
+
+| Field | Meaning |
+| --- | --- |
+| `workspace_id` | Tenant/workspace boundary. Required on every protected row. Opaque product id, not an Azure-specific id. |
+| `subject_id` | Conversation visibility scope. Usually the normalized user/principal id, but may be a service subject if auth design requires it. |
+| `actor_id` | Current authenticated actor that performed an action. Often the same as `subject_id`, but kept separate for delegated/admin/service actions. |
+| `conversation_key` | Host/client supplied opaque thread key, such as `default`, a page/resource key, or a host-owned thread id. Not a secret. |
+| `request_id` | Idempotency key for one user request/assistant turn. Generated by client/service boundary and unique inside workspace scope. |
+
+Column type policy:
+
+| Column kind | Contract |
+| --- | --- |
+| Internal record ids | `uuid` primary keys generated by the service or database, but always returned as opaque strings to TypeScript. |
+| Workspace, subject, actor, provider, model, tool, command, and request ids | `text` with length checks where practical. They are provider-neutral product ids. |
+| Timestamps | `timestamptz`; repository command inputs accept explicit `now` for deterministic tests and transaction consistency. |
+| Status/lifecycle fields | `text` plus check constraints generated from the accepted lifecycle values. Avoid PostgreSQL enum types unless an ADR accepts their migration cost. |
+| Token/count fields | Non-negative integers. Use `bigint` if provider usage limits make overflow plausible. |
+| JSON metadata | `jsonb` with object-shape validation at the repository/protocol boundary. |
+| Hash fields | Stable text hash plus documented algorithm in the DB package contract. |
+
+Day-one lifecycle values:
+
+| Lifecycle | Allowed values |
+| --- | --- |
+| `conversation.status` | `active`, `archived`, `reset` |
+| `message.role` | `system`, `user`, `assistant`, `tool` |
+| `assistant_turn.status` | `running`, `completed`, `user_aborted`, `timed_out`, `provider_failed`, `tool_failed`, `persistence_failed` |
+| `tool_invocation.status` | `running`, `completed`, `failed`, `cancelled`, `skipped` |
+| `host_command_result.status` | `emitted`, `applied`, `rejected`, `unsupported`, `failed`, `timed_out` |
+
+Day-one resume modes:
+
+| Resume mode | Day-one support |
+| --- | --- |
+| Resume completed conversation later | Supported through `conversations`, ordered `messages`, and `conversation_key`. |
+| Retry same user request after network failure | Supported through `request_id` idempotency and existing turn/message lookup. |
+| Reopen UI after a completed turn | Supported through history read plus terminal assistant turn status. |
+| Reconnect to an active stream | Best-effort status only on day one. Full event replay requires `[Deferred]` stream event store. |
+| Continue exact provider stream after process crash | `[Deferred]`. Day one marks stale running turns as terminal failure or timeout and lets the client retry idempotently. |
+
+Day-one logical tables:
+
+| Table | Responsibility | Required contract |
+| --- | --- | --- |
+| `sidechat.conversations` | Authorized thread of user/assistant messages. | `conversation_id`, `workspace_id`, `subject_id`, `conversation_key`, `status`, `created_by_actor_id`, `created_at`, `updated_at`, `last_message_at`. Unique `(workspace_id, subject_id, conversation_key)`. |
+| `sidechat.messages` | Durable message timeline attached to a conversation. | `message_id`, `conversation_id`, `workspace_id`, `role`, `content_text`, `metadata_json`, `sequence_index`, `created_at`. Unique `(conversation_id, sequence_index)`. |
+| `sidechat.assistant_turns` | One accepted user request and assistant response lifecycle. | `assistant_turn_id`, `request_id`, `conversation_id`, `workspace_id`, `subject_id`, `actor_id`, `user_message_id`, `assistant_message_id`, `runtime_profile`, `system_prompt_version`, `context_strategy_version`, `tool_registry_version`, `model_provider`, `model_id`, `status`, `finish_reason`, `error_code`, `started_at`, `completed_at`. Unique `(workspace_id, request_id)`. |
+| `sidechat.turn_context_snapshots` | Redacted host/runtime context used to produce one assistant turn. | `context_snapshot_id`, `assistant_turn_id`, `workspace_id`, `context_schema_version`, `host_surface_id`, `host_context_hash`, `capabilities_hash`, `context_redacted_json`, `created_at`. Unique `(assistant_turn_id)`. |
+| `sidechat.usage_records` | Token/cost/accounting data for each provider model call inside a turn. | `usage_record_id`, `assistant_turn_id`, `workspace_id`, `runtime_step_index`, `model_provider`, `model_id`, `provider_request_id`, `input_tokens`, `output_tokens`, `reasoning_tokens`, `cached_input_tokens`, `total_tokens`, `cost_units`, `created_at`. Unique `(assistant_turn_id, runtime_step_index)`. |
+| `sidechat.tool_invocations` | Auditable record of a model-callable tool run. | `tool_invocation_id`, `assistant_turn_id`, `workspace_id`, `runtime_step_index`, `tool_call_id`, `tool_name`, `status`, `input_hash`, `output_hash`, `input_redacted_json`, `output_redacted_json`, `error_code`, `started_at`, `completed_at`. Unique `(assistant_turn_id, tool_call_id)`. |
+| `sidechat.host_command_results` | Record of commands emitted to the external host and the host's result. | `host_command_id`, `assistant_turn_id`, `workspace_id`, `command_id`, `command_type`, `resource_id`, `status`, `result_code`, `command_redacted_json`, `result_redacted_json`, `created_at`, `resolved_at`. Unique `(assistant_turn_id, command_id)`. |
+| `sidechat.audit_events` | Append-only security and product audit trail for protected actions. | `audit_event_id`, `workspace_id`, `subject_id`, `actor_id`, `event_type`, `target_type`, `target_id`, `metadata_json`, `request_id`, `created_at`. |
+
+Required relationships:
+
+| Relationship | Constraint |
+| --- | --- |
+| Message to conversation | `messages.conversation_id` references `conversations.conversation_id`; repository reads also verify matching `workspace_id`. |
+| Assistant turn to conversation | `assistant_turns.conversation_id` references `conversations.conversation_id`. |
+| Assistant turn user message | `assistant_turns.user_message_id` references `messages.message_id` and must point to a `user` message in the same conversation. |
+| Assistant turn assistant message | `assistant_turns.assistant_message_id` references `messages.message_id` when completed and must point to an `assistant` message in the same conversation. |
+| Context snapshot to assistant turn | `turn_context_snapshots.assistant_turn_id` references `assistant_turns.assistant_turn_id`. |
+| Usage to assistant turn | `usage_records.assistant_turn_id` references `assistant_turns.assistant_turn_id`. |
+| Tool invocation to assistant turn | `tool_invocations.assistant_turn_id` references `assistant_turns.assistant_turn_id`. |
+| Host command to assistant turn | `host_command_results.assistant_turn_id` references `assistant_turns.assistant_turn_id`. |
+
+Required indexes and constraints:
+
+| Area | Requirement |
+| --- | --- |
+| Conversation lookup | Unique index on `(workspace_id, subject_id, conversation_key)`. |
+| Message ordering | Unique index on `(conversation_id, sequence_index)` and read index on `(conversation_id, sequence_index desc)`. |
+| Turn idempotency | Unique index on `(workspace_id, request_id)`. |
+| Turn history | Index on `(conversation_id, started_at desc)`. |
+| Context snapshot lookup | Unique index on `(assistant_turn_id)` and read index on `(workspace_id, host_context_hash)`. |
+| Usage per runtime step | Unique index on `(assistant_turn_id, runtime_step_index)`. |
+| Tool idempotency | Unique index on `(assistant_turn_id, tool_call_id)`. |
+| Host command idempotency | Unique index on `(assistant_turn_id, command_id)`. |
+| Audit investigation | Indexes on `(workspace_id, created_at desc)` and `(target_type, target_id, created_at desc)`. |
+| Tenant isolation | Every child table carries `workspace_id`; repository outputs must verify it matches the requested workspace. |
+
+JSON metadata boundaries:
+
+- `metadata_json`, `context_redacted_json`, `input_redacted_json`, `output_redacted_json`, `command_redacted_json`, and `result_redacted_json` may store extensible metadata and redacted payload summaries.
+- JSON fields must not be the only location for authorization fields, lifecycle state, reportable usage fields, provider/model ids, indexed ids, or error codes.
+- Raw provider requests, raw tool secrets, bearer tokens, access tokens, refresh tokens, and full unredacted external responses must not be persisted in JSON metadata.
+- If a field is needed for querying, authorization, retention, billing, or operational dashboards, it becomes a typed column before production.
+
+Deferred schema areas:
+
+| `[Deferred]` entity | Add when |
+| --- | --- |
+| `[Deferred]` stream event store | Resumable stream replay is accepted. |
+| `[Deferred]` conversation summary store | Long conversation compaction becomes necessary for context-window management. |
+| `[Deferred]` approval request store | Human approval flow is accepted as product behavior. |
+| `[Deferred]` external connector cache | Tool results need durable caching or replay. |
+| `[Deferred]` durable memory store | Cross-conversation memory is accepted as product behavior. |
+| `[Deferred]` billing ledger | Billing moves from usage capture to enforceable financial accounting. |
+
+Required day-one repository command contract:
+
+These commands are implemented inside `packages/db` with Drizzle transactions/queries over Postgres. The method names below are product contracts for repository behavior, not SQL function names.
+
+| Repository command | Inputs | Returns | Responsibility |
+| --- | --- | --- | --- |
+| `createOrGetConversation` | `workspace_id`, `subject_id`, `actor_id`, `conversation_key`, `now` | Conversation DTO | Create or return a conversation scoped to workspace, subject, and conversation key. |
+| `appendMessage` | `workspace_id`, `conversation_id`, `role`, `content_text`, `metadata_json`, `idempotency_key`, `now` | Message DTO | Append a message with monotonic sequence within a conversation. Repeated idempotency key returns the existing message. |
+| `startAssistantTurn` | `workspace_id`, `subject_id`, `actor_id`, `request_id`, `conversation_id`, `user_message_id`, `runtime_profile`, prompt/context/tool versions, `model_provider`, `model_id`, `now` | Assistant turn DTO | Create or return an idempotent running turn for a request id. |
+| `recordTurnContextSnapshot` | `workspace_id`, `assistant_turn_id`, `context_schema_version`, `host_surface_id`, context/capability hashes, `context_redacted_json`, `now` | Context snapshot DTO | Store the redacted host/runtime context used for the turn before model execution. |
+| `completeAssistantTurn` | `workspace_id`, `assistant_turn_id`, `assistant_message_id`, `finish_reason`, `now` | Assistant turn DTO | Mark a running turn completed and link the assistant message. |
+| `failAssistantTurn` | `workspace_id`, `assistant_turn_id`, `status`, `error_code`, `now` | Assistant turn DTO | Mark a running turn failed, aborted, or timed out with a typed terminal status. |
+| `recordUsage` | `workspace_id`, `assistant_turn_id`, `runtime_step_index`, `model_provider`, `model_id`, `provider_request_id`, token fields, `cost_units`, `now` | Usage DTO | Upsert token/cost metadata for one provider model call. |
+| `recordToolInvocation` | `workspace_id`, `assistant_turn_id`, `runtime_step_index`, `tool_call_id`, `tool_name`, `status`, hash/redacted fields, `error_code`, timestamps | Tool invocation DTO | Upsert auditable tool invocation state without storing secrets. |
+| `recordHostCommandResult` | `workspace_id`, `assistant_turn_id`, `command_id`, `command_type`, `resource_id`, `status`, `result_code`, redacted fields, timestamps | Host command DTO | Upsert emitted host command and final host result state. |
+| `readConversationHistory` | `workspace_id`, `subject_id`, `conversation_id`, `limit`, `before_sequence_index` | Ordered message DTO list | Return authorized recent messages for prompt/history use. |
+| `resetConversation` | `workspace_id`, `subject_id`, `conversation_id`, `actor_id`, `request_id`, `now` | Reset summary DTO | Tombstone or redact authorized conversation data according to retention policy. |
+| `appendAuditEvent` | `workspace_id`, `subject_id`, `actor_id`, `event_type`, `target_type`, `target_id`, `request_id`, `metadata_json`, `now` | Audit event DTO | Append a security/product audit event. |
+
+Repository command rules:
+
+- Commands accept explicit `workspace_id`; none infer tenancy from connection state.
+- Commands that read or mutate conversation data accept `subject_id` and must reject cross-subject access.
+- Commands are idempotent where the caller can retry after network or stream interruption.
+- Commands return parsed DTOs and never expose raw Drizzle rows to backend-core.
+- Commands map `pg`/Drizzle errors into stable DB adapter errors, which are then mapped into backend-core persistence errors.
+- Commands must not return raw SQL errors, table names, or internal constraint names to user-facing protocol errors.
+
+Least-privilege role model:
+
+| Role | Grants |
+| --- | --- |
+| `sidechat_owner` | Owns schema, tables, and migrations in controlled environments. Not used by runtime app. |
+| `sidechat_migrator` | Can run migrations and direct schema/table DDL in CI/deploy migration jobs. Not used by runtime app. |
+| `sidechat_runtime` | Can connect and perform least-privilege table reads/writes required by `packages/db` Drizzle repositories. No DDL, no ownership, no cross-schema grants. |
+| `sidechat_readonly_ops` | `[Optional]` operational read-only role for controlled diagnostics, never used by product runtime. |
+
+Runtime DB rules:
+
+- Runtime repositories use Drizzle through `packages/db` only.
+- Runtime roles receive only the table privileges required by repository commands.
+- Migrations and `packages/db` are the only production code paths allowed to know table names.
+- Raw SQL is allowed only in migrations, DB tests, and tightly scoped `packages/db` query helpers when Drizzle cannot express the operation cleanly.
+- Drizzle rows are untrusted until parsed into repository return types.
+- `workspace_id` and `subject_id` or equivalent normalized auth scope must be part of every protected read/write.
+- Request idempotency must prevent duplicate messages, turns, usage records, host commands, and tool side effects.
+- If a request includes host context that affects assistant behavior, a redacted context snapshot must be recorded before model execution.
+- JSON metadata is allowed only for extensible metadata, not for fields needed by authorization, lifecycle, indexing, or reporting.
+
+Retention and deletion contract:
+
+- `resetConversation` must remove prompt-visible message content from future reads.
+- Usage and audit records may remain after reset if they no longer contain prompt/user content and retention policy allows them.
+- Audit events are append-only; correction is represented by another audit event.
+- Hard deletion, legal hold, export, and cross-workspace retention policies are `[Deferred]` until product/compliance requirements are accepted.
+
+### 3.2 Conversation History, Context, And Resume Contract
+
+History is more than messages. The product must be able to explain what the assistant saw, which version of the runtime produced an answer, which tools ran, and whether a user can safely continue from the last turn.
+
+Day-one history contract:
+
+| History area | Day-one responsibility |
+| --- | --- |
+| Conversation identity | Stable `conversation_id` plus host/client `conversation_key` scoped by `workspace_id` and `subject_id`. |
+| Message timeline | Ordered, durable user/assistant/system/tool messages with monotonic `sequence_index`. |
+| Turn lifecycle | One assistant turn per accepted `request_id`, with terminal status and error code when applicable. |
+| Context snapshot | Redacted host/runtime context used for the turn, stored before model execution when context affects behavior. |
+| Runtime versions | `runtime_profile`, `system_prompt_version`, `context_strategy_version`, and `tool_registry_version` on the turn. |
+| Tool and host actions | Tool invocations and host command results attached to the assistant turn for audit and idempotency. |
+| Usage | Provider/model usage records attached to the turn, not inferred from messages later. |
+
+Day-one context contract:
+
+- Context used by the model is assembled from authorized conversation history, current host context, assistant profile, model selection, tool capabilities, and product policy.
+- Host context must include freshness and schema version when it can change assistant behavior.
+- The service records a redacted context snapshot and stable hashes, not unbounded raw host state.
+- The context builder should produce an internal manifest containing included message ids, context snapshot hash, assistant profile/version ids, selected tool names, model id, and budget decisions.
+- The internal manifest can stay in application/runtime logs on day one. Persisting full prompt manifests is `[Deferred]` unless debugging/compliance requires it.
+- Cross-conversation memory, user preference learning, vector retrieval, and conversation summaries are `[Deferred]` until accepted as product behavior.
+
+Resume behavior:
+
+| Scenario | Expected behavior |
+| --- | --- |
+| User opens an existing conversation | Client reads conversation history and last known turn state. |
+| Client retries after losing connection | Same `request_id` must not duplicate messages, turns, tool calls, host commands, or usage records. |
+| Same `request_id` already completed | Service returns or streams the existing completed result path without calling the model again. |
+| Same `request_id` is still running | Day one may return an in-progress/status response. Full stream replay is `[Deferred]`. |
+| Same `request_id` failed or timed out | Service returns the terminal failure. A new attempt uses a new `request_id`. |
+| Service starts with stale running turns | Startup or maintenance marks stale turns as timed out/provider-failed according to policy. |
+
+What else must be considered before implementation:
+
+- history window limits and context budget policy
+- stale host context rules
+- abort/cancel semantics
+- request id generation and propagation from client to service
+- deduplication of tool calls and host commands
+- redaction policy for host context, tool IO, provider errors, and audit metadata
+- retention policy for conversation content versus audit/usage records
+- migration/backfill strategy when context schema versions change
+- diagnostics for "why did the assistant answer this way" without storing unsafe raw prompts
+
+## 4. Top-Level Repository
+
+```txt
+side-chat/
+  apps/
+    partner-ai-service/
+
+  packages/
+    chat-protocol/
+    backend-core/
+    assistant-runtime/
+    chat-client/
+    side-chat-widget/
+    host-bridge/
+    db/
+    testing/
+
+  test-harness/
+    widget-harness/
+
+  infra/
+    local/
+    docker/
+    production/
+
+  docs/
+    architecture/
+    decisions/
+    operations/
+
+  scripts/
+
+  .github/
+    workflows/
+
+  package.json
+  package-lock.json
+  tsconfig.base.json
+  vitest.config.ts
+  eslint.config.js
+  README.md
+```
+
+## 5. Top-Level Responsibilities
+
+| Path | Responsibility | Must not own |
+| --- | --- | --- |
+| `apps/` | Deployable runtime entrypoints and composition roots. | Product protocol definitions, reusable domain logic, widget internals. |
+| `packages/` | Reusable internal/public libraries with explicit public APIs. | Process startup, environment-specific deployment logic. |
+| `test-harness/` | Dev/test-only runnable harnesses for browser integration, widget solo development, and cross-package smoke tests. | Product host app logic, real customer workflows, demo dashboards, deployable production services. |
+| `infra/` | Local and production infrastructure definitions. | Application/domain logic. |
+| `docs/` | Durable architecture, decisions, and operations documentation. | Temporary scratchpads, stale prototype narratives. |
+| `scripts/` | Repo automation, governance checks, code generation. | Runtime application code. |
+| `.github/` | CI, release, and security workflows. | Local-only developer scripts. |
+
+## 6. Dependency Direction
+
+Allowed dependency direction:
+
+```txt
+chat-protocol
+  <- host-bridge
+  <- backend-core
+  <- assistant-runtime
+  <- chat-client
+  <- db
+  <- side-chat-widget
+  <- apps/partner-ai-service
+
+backend-core
+  <- assistant-runtime
+  <- apps/partner-ai-service
+
+assistant-runtime
+  <- apps/partner-ai-service
+
+chat-client
+  <- side-chat-widget
+
+host-bridge
+  <- side-chat-widget
+
+db
+  <- apps/partner-ai-service
+
+testing
+  -> may depend on protocol/core/runtime/client/widget for test utilities only
+```
+
+Suggested package dependency matrix:
+
+| Package | May depend on | Must not depend on |
+| --- | --- | --- |
+| `chat-protocol` | External schema/runtime libs only. | React, HTTP framework, AI SDK, pg, Drizzle, widget, backend core. |
+| `host-bridge` | `chat-protocol` if reusing host context/command types. | React, API server, DB, provider SDKs. |
+| `backend-core` | `chat-protocol`, Effect v4. | Hono/Fastify/Express, React, pg, Drizzle, AI SDK, provider SDK objects. |
+| `assistant-runtime` | `backend-core`, `chat-protocol`, Effect v4, AI SDK/runtime-only provider packages. | HTTP framework, React, pg, Drizzle, widget internals, host app state. |
+| `chat-client` | `chat-protocol`; `[Optional]` protocol validation helpers. | React, widget UI, backend-core, pg, Drizzle, provider SDKs, required Effect runtime in public API. |
+| `side-chat-widget` | `chat-client`, `chat-protocol`, `host-bridge`, React peer deps. | API server internals, DB, provider SDKs, assistant-runtime internals. |
+| `db` | `pg`, Drizzle, `chat-protocol` for persisted DTO types if needed, Effect v4 for resource/transaction safety. | React, HTTP framework, widget, provider SDKs, backend-core. |
+| `apps/partner-ai-service` | `backend-core`, `assistant-runtime`, `chat-protocol`, `db`, Effect v4 runtime/layers, concrete adapter libraries. | Widget internals, host app code. |
+| `testing` | Test-facing utilities from other packages. | Production runtime startup. |
+
+### 6.1 Hexagonal Architecture Contract
+
+Hexagonal architecture means the product behavior is protected from delivery mechanisms and external systems.
+
+The center owns decisions. The edges own translation.
+
+In this repository, the center is mostly `packages/backend-core`, plus the core orchestration parts of `packages/assistant-runtime`. The edges are HTTP/SSE, model providers, databases, auth systems, entitlement systems, telemetry vendors, `[Deferred]` MCP servers, browser transports, and host applications.
+
+Core vocabulary:
+
+| Term | Meaning in this repo |
+| --- | --- |
+| Domain | Pure concepts and rules that describe the product. No IO, no SDKs, no framework objects. |
+| Application use case | A workflow that coordinates domain rules and ports to produce a product result. |
+| Port | An interface or Effect service required by the center to do work outside itself. The center defines the port. |
+| Inbound adapter | A delivery adapter that receives an external call and invokes a use case, such as HTTP routes or SSE endpoints. |
+| Outbound adapter | An infrastructure adapter that implements a port by calling an external system, such as Postgres, Azure SSO, Redis, telemetry, or a provider API. |
+| Composition root | The only place that wires concrete adapters into ports and starts a runtime process. |
+
+Rules:
+
+- Domain files contain product concepts, invariants, pure transformations, and policy inputs/outputs.
+- Domain files do not import HTTP frameworks, React, AI SDK, provider SDKs, DB clients, process env, browser APIs, or app composition.
+- Application use cases orchestrate a user-visible workflow. They may call ports/services, apply policies, map errors, and emit protocol-ready outcomes.
+- Application use cases do not instantiate concrete clients, read environment variables, open database connections, call `fetch` directly, or know provider-native event shapes.
+- Ports are declared by the center, not by adapters. If the use case needs persistence, auth, billing, model execution, observability, clock, ids, or an external tool, it depends on a port.
+- Port signatures use domain/product types and typed application errors. They must not expose `pg`, Drizzle, HTTP request/response objects, AI SDK provider objects, vendor DTOs, or raw unparsed JSON.
+- Inbound adapters parse and validate transport input, build use-case input, call the use case, and map output/errors back to the transport.
+- Inbound adapters do not own business policy, provider choice, entitlement decisions, conversation rules, or stream sequencing rules.
+- Outbound adapters translate a port call into a concrete external call and translate the response back into port/domain types.
+- Outbound adapters do not own use-case decisions. They may own retry, timeout, low-level error mapping, authentication to the external system, and response validation for that system.
+- Composition roots may import both center and edge code. This privilege is local to `apps/partner-ai-service/src/composition` and process startup files.
+- Shared utilities must not become a hidden business layer. If code has product meaning, put it under the owning domain/application/policy area.
+
+Dependency direction:
+
+```txt
+inbound adapter -> application use case -> port/service -> outbound adapter
+                                     ^                  |
+                                     |                  |
+                                domain/policies    composition wires
+```
+
+The source-code dependency is still inward:
+
+```txt
+outbound adapter imports the port it implements
+application use case imports the port it needs
+port does not import the adapter
+domain does not import the use case
+composition imports everything needed to wire the runtime
+```
+
+When to introduce a port:
+
+- the use case needs data or behavior from outside the center
+- the implementation may differ between local, test, staging, and production
+- the dependency has failure, latency, retries, credentials, quotas, or resource lifecycle
+- the dependency should be fakeable in use-case tests
+
+Do not introduce a port for a pure helper, a local calculation, a one-line mapper, or a UI-only concern.
+
+Testing rules:
+
+- domain and policy tests use plain inputs and outputs
+- application use-case tests use fake ports/services
+- inbound adapter tests assert parsing, auth context extraction, status codes, headers, and stream framing
+- outbound adapter tests assert request construction, response parsing, error mapping, retries, and timeouts
+- composition tests assert that production/test layers can be built without exercising real providers by default
+
+Common violations:
+
+- a use case imports `pg`, Drizzle, `fetch`, Hono, AI SDK, or a provider SDK
+- a provider-native stream part appears in `chat-protocol`, `chat-client`, or `side-chat-widget`
+- an HTTP route chooses entitlement or model policy instead of calling a use case
+- an assistant tool owns a raw external client instead of using an outbound service
+- an adapter defines a port after the fact to mirror its own implementation
+- a port returns vendor DTOs or raw database rows
+- `Date.now`, random ids, process env, browser storage, or network calls appear in domain/application code without an injected service
+- generic `utils` or `helpers` folders accumulate product behavior with unclear ownership
+
+## 7. Folder Templates
+
+Use these templates before inventing a new folder shape. The goal is that an AI agent can tell whether a file is a contract, pure rule, runtime implementation, adapter, layer, or test by its path and suffix.
+
+### 7.1 Capability Template
+
+Use this inside `backend-core`, `assistant-runtime`, `chat-client`, and widget domain/application areas when a capability has more than one or two files.
+
+```txt
+<capability>/
+  index.ts                  public exports for this capability inside the package
+  <capability>.types.ts     local public types
+  <capability>.errors.ts    typed expected failures, if any
+  <capability>.policy.ts    pure rules, if any
+  <capability>.service.ts   Effect service tag or service interface, if this is a dependency
+  <capability>.live.ts      live Effect layer or runtime implementation, if needed
+  <capability>.test.ts      colocated tests for the main behavior
+```
+
+Keep pure rules separate from IO. If a file talks to the network, database, provider SDK, filesystem, clock, or process environment, it is not a policy file.
+
+### 7.2 Inbound Adapter Template
+
+Use this for things that receive calls into the service.
+
+```txt
+inbound/<transport>/<capability>/
+  <capability>.route.ts       route/controller/handler
+  <capability>.request.ts     transport request parsing
+  <capability>.response.ts    transport response mapping
+  <capability>.test.ts        colocated route/adapter tests
+```
+
+`[Example]` inbound capabilities: HTTP chat stream route, history route, health route, webhook receiver.
+
+### 7.3 Outbound Adapter Template
+
+Use this for things that call external systems.
+
+```txt
+outbound/<system>/<capability>/
+  <capability>.client.ts      low-level external API client
+  <capability>.adapter.ts     implementation of a core/runtime port
+  <capability>.config.ts      config for this external system
+  <capability>.errors.ts      external-system error mapping
+  <capability>.layer.ts       Effect live/test layer
+  <capability>.test.ts        colocated adapter tests
+```
+
+`[Example]` outbound systems: CRM, document search, market data, entitlement service, Azure SSO/JWT, Redis rate limit, telemetry exporter.
+
+### 7.4 Assistant Tool Template
+
+Use this when exposing an external capability to the assistant as a model-callable tool.
+
+```txt
+tools/<tool-name>/
+  <tool-name>.tool.ts         AI SDK/runtime tool definition
+  <tool-name>.schema.ts       tool input/output schema
+  <tool-name>.policy.ts       permission, [Deferred] approval, and safety rules
+  <tool-name>.mapper.ts       external result -> assistant-safe output
+  <tool-name>.test.ts         colocated tests
+```
+
+The tool file may depend on tool registry/runtime types. It should not own the external client. External calls belong to outbound adapters or Effect services that the tool uses.
+
+### 7.5 Test Placement Rule
+
+Tests are colocated by default:
+
+```txt
+thing.ts
+thing.test.ts
+```
+
+Use a package-level `test-harness/` only for reusable test apps, browser harnesses, or cross-package fixtures that are not owned by one source file. Avoid top-level `test/` folders for ordinary unit tests.
+
+### 7.6 Split Rule
+
+If a folder grows beyond roughly seven source files, or contains more than one reason to change, split it by capability before adding more files. Prefer this shape. Concrete tool/provider names in this snippet are `[Example]` names unless accepted elsewhere as day-one product capabilities:
+
+```txt
+tools/
+  registry/
+  workbench-query/
+  host-command/
+
+providers/
+  registry/
+  openai/
+  anthropic/
+```
+
+over large flat folders like `tools/*.ts` or `providers/*.ts`.
+
+## 8. App: `apps/partner-ai-service`
+
+The only initial app should be the deployable browser-facing Partner AI service. It exposes the product chat HTTP/SSE boundary, but its name should reflect the larger assistant service responsibility rather than a narrow chat route.
+
+It owns:
+
+- process startup
+- environment parsing
+- HTTP framework setup
+- HTTP routes
+- SSE response writing
+- adapter composition
+- outbound service adapter wiring
+- graceful shutdown
+- runtime health checks
+
+It does not own:
+
+- protocol schema truth
+- chat use-case logic
+- assistant-runtime internals
+- widget state
+- host UI behavior
+- database table access rules
+
+Folder structure:
+
+```txt
+apps/partner-ai-service/
+  package.json
+  tsconfig.json
+  src/
+    server.ts
+    config/
+      env.ts
+      runtime-config.ts
+      feature-flags.ts
+    inbound/
+      http/
+        app.ts
+        server.ts
+        middleware/
+          request-id.ts
+          auth-context.ts
+          cors.ts
+          error-logging.ts
+        routes/
+          chat-stream.ts
+          chat-history.ts
+          chat-usage.ts
+          models.ts
+          health.ts
+        response/
+          sse.ts
+          protocol-errors.ts
+          http-errors.ts
+    composition/
+      container.ts
+      container.test.ts
+      layers/
+        backend-core.layer.ts
+        assistant-runtime.layer.ts
+        persistence.layer.ts
+        auth.layer.ts
+        rate-limit.layer.ts
+        billing.layer.ts
+        telemetry.layer.ts
+        outbound.layer.ts
+      registries/
+        provider-registry.ts
+        tool-registry.ts
+        model-registry.ts
+    outbound/
+      auth/
+        auth-context.ts
+        static-auth-adapter.ts
+        jwt-auth-adapter.ts
+        azure-sso-auth-adapter.ts
+      rate-limit/
+        in-memory-rate-limit-adapter.ts
+        redis-rate-limit-adapter.ts
+      billing/
+        allow-all-billing-adapter.ts
+        entitlement-billing-adapter.ts
+      telemetry/
+        logger.ts
+        metrics.ts
+        tracing.ts
+      persistence/
+        db-conversation-repository.ts
+        db-usage-repository.ts
+      tools/
+        crm/
+          crm-client.ts
+          crm-tool-adapter.ts
+          crm-tool-adapter.test.ts
+        documents/
+          document-search-client.ts
+          document-search-tool-adapter.ts
+          document-search-tool-adapter.test.ts
+        market-data/
+          market-data-client.ts
+          market-data-tool-adapter.ts
+          market-data-tool-adapter.test.ts
+      http-clients/
+        create-service-client.ts
+        service-client-error.ts
+        service-client-error.test.ts
+    shared/
+      unknown-record.ts
+      async-disposable.ts
+```
+
+Tests are colocated with the unit they cover:
+
+```txt
+src/inbound/http/routes/chat-stream.ts
+src/inbound/http/routes/chat-stream.test.ts
+src/composition/container.ts
+src/composition/container.test.ts
+src/outbound/auth/jwt-auth-adapter.ts
+src/outbound/auth/jwt-auth-adapter.test.ts
+```
+
+Key file responsibilities:
+
+| File or folder | Responsibility |
+| --- | --- |
+| `src/server.ts` | Reads config, builds container, starts HTTP server, registers shutdown hooks. |
+| `config/env.ts` | Parses raw environment variables and fails loudly for invalid production config. |
+| `config/runtime-config.ts` | Converts parsed env into typed app runtime config. |
+| `inbound/http/app.ts` | Creates the HTTP app and registers middleware/routes. |
+| `routes/chat-stream.ts` | Validates HTTP/protocol headers, parses request body, invokes stream use case. |
+| `response/sse.ts` | Converts typed protocol events to SSE bytes. |
+| `composition/container.ts` | Small composition root that combines layer builders and starts the app runtime. |
+| `composition/layers/*` | Effect layer builders for core, runtime, persistence, auth, billing, rate limiting, telemetry, and outbound services. |
+| `composition/registries/*` | Runtime registries for providers, tools, models, and other selectable capabilities. |
+| `outbound/auth/*` | Concrete identity and authorization adapters, including Azure SSO/JWT where required. |
+| `outbound/persistence/*` | Connects backend-core repositories to `packages/db`. |
+| `outbound/tools/*` | External business-system tool adapters exposed to assistant runtime through explicit ports/tool registry entries. |
+| `outbound/http-clients/*` | Shared low-level HTTP client helpers for outbound integrations only. |
+
+Effect v4 role in this app:
+
+- parse and validate environment/config with typed errors
+- compose production and test layers
+- run the HTTP process with managed resources and graceful shutdown
+- attach request id, trace id, logs, metrics, and spans to request lifecycles
+- translate Effect application failures into HTTP responses or `sidechat.v1` error events
+
+## 9. Package: `packages/chat-protocol`
+
+This package owns the browser/backend product contract.
+
+It owns:
+
+- protocol version
+- request schema
+- stream event schemas
+- host context and host command wire shapes
+- error event shapes
+- usage metadata
+- SSE encoding/decoding
+- stream sequence rules
+- compatibility fixtures
+- protocol schema source of truth, preferably Effect Schema if accepted by ADR
+- `[Deferred]` approval request/resolution event shapes, only when human approval flow is accepted
+
+It does not own:
+
+- HTTP server implementation
+- AI SDK or model provider implementation
+- widget rendering
+- database access
+- business workflow orchestration
+- Effect runtime requirements for browser consumers
+
+Folder structure:
+
+```txt
+packages/chat-protocol/
+  package.json
+  tsconfig.json
+  src/
+    index.ts
+    sidechat-v1/
+      version.ts
+      routes.ts
+      headers.ts
+      primitives.ts
+      message.ts
+      model.ts
+      usage.ts
+      citation.ts
+      host-context.ts
+      host-command.ts
+      request.ts
+      request.test.ts
+      events/
+        started-event.ts
+        delta-event.ts
+        reasoning-event.ts
+        tool-event.ts
+        host-command-event.ts
+        completed-event.ts
+        error-event.ts
+        history-event.ts
+        event-union.ts
+        event-union.test.ts
+      errors.ts
+      sse-codec.ts
+      sse-codec.test.ts
+      sequence.ts
+      sequence.test.ts
+      validation.ts
+      artifacts.ts
+    generated/
+      json-schema/
+        sidechat-v1.schema.json
+      openapi/
+        partner-ai-service.openapi.json
+    fixtures/
+      success-stream.json
+      error-stream.json
+      malformed-stream.json
+      fixtures.test.ts
+```
+
+`[Deferred]` approval extension files, if approval becomes day-one product behavior:
+
+```txt
+packages/chat-protocol/src/sidechat-v1/
+  approval.ts
+  events/
+    approval-requested-event.ts
+    approval-resolved-event.ts
+  fixtures/
+    approval-stream.json
+```
+
+The source schemas are the source of truth. JSON Schema/OpenAPI are generated artifacts. If Effect Schema is accepted, this package may use Effect Schema as the canonical schema language, but public consumers should still be able to use plain TypeScript types and generated JSON Schema/OpenAPI without adopting Effect runtime patterns.
+
+## 10. Package: `packages/backend-core`
+
+This package owns framework-free assistant behavior.
+
+It owns:
+
+- application use cases as Effect v4 programs
+- pure domain concepts
+- ports
+- policies
+- application error model
+- mapping assistant-runtime events to product protocol events
+- service tags/layers for dependencies used by use cases
+
+It does not own:
+
+- HTTP framework
+- AI SDK objects
+- provider SDK objects
+- Postgres clients
+- React state
+- browser APIs
+- process environment parsing
+- concrete production layers
+
+Folder structure:
+
+```txt
+packages/backend-core/
+  package.json
+  tsconfig.json
+  src/
+    index.ts
+    domain/
+      conversation.ts
+      message.ts
+      assistant-turn.ts
+      assistant-event.ts
+      model-selection.ts
+      tool-call.ts
+      citation.ts
+      usage.ts
+      host-command.ts
+    application/
+      stream-chat/
+        stream-chat.ts
+        stream-chat.test.ts
+        stream-chat-input.ts
+        stream-chat-services.ts
+        request-normalizer.ts
+        event-factory.ts
+        assistant-event-mapper.ts
+        terminal-event-policy.ts
+        usage-policy.ts
+        citation-policy.ts
+        host-command-policy.ts
+        stream-observer.ts
+      history/
+        read-history.ts
+        read-history.test.ts
+        reset-history.ts
+        reset-history.test.ts
+      models/
+        list-models.ts
+      usage/
+        read-usage.ts
+    ports/
+      assistant-runtime-port.ts
+      conversation-repository.ts
+      usage-repository.ts
+      host-context-port.ts
+      host-command-state-port.ts
+      auth-port.ts
+      rate-limit-port.ts
+      billing-port.ts
+      observability-port.ts
+      clock-port.ts
+      id-generator-port.ts
+    services/
+      assistant-runtime-service.ts
+      conversation-repository-service.ts
+      usage-repository-service.ts
+      auth-service.ts
+      rate-limit-service.ts
+      billing-service.ts
+      observability-service.ts
+      clock-service.ts
+      id-generator-service.ts
+    policies/
+      model-availability-policy.ts
+      model-availability-policy.test.ts
+      conversation-access-policy.ts
+      stream-sequence-policy.ts
+    errors/
+      application-error.ts
+      unauthorized-error.ts
+      rate-limited-error.ts
+      billing-denied-error.ts
+      model-unavailable-error.ts
+      persistence-error.ts
+```
+
+Key responsibilities:
+
+| File or folder | Responsibility |
+| --- | --- |
+| `domain/*` | Pure product concepts and type helpers. No IO. |
+| `application/stream-chat/stream-chat.ts` | Main assistant turn orchestration as an Effect program. |
+| `assistant-event-mapper.ts` | Maps assistant-runtime events into `chat-protocol` events. |
+| `terminal-event-policy.ts` | Guarantees exactly one terminal stream event. |
+| `ports/assistant-runtime-port.ts` | Framework-free port for running assistant turns. |
+| `services/*` | Effect service tags for dependency injection and test/production layer composition. |
+| `ports/*` | Interfaces required by core. No concrete implementations. |
+| `errors/*` | Typed application errors for adapters to map. |
+
+`[Deferred]` approval files, if approval becomes day-one product behavior:
+
+```txt
+packages/backend-core/src/
+  domain/
+    approval.ts
+  application/stream-chat/
+    approval-policy.ts
+```
+
+Effect v4 role in backend core:
+
+- model every use case as `Effect<Success, ApplicationError, Services>`
+- keep expected failures in the typed error channel, not as unknown thrown exceptions
+- use services/layers instead of manually threading large dependency objects through every use case
+- use `Stream` for assistant event streams and SSE-ready event production
+- use `Scope`/resource safety for any acquired resources exposed through services
+- keep pure domain helpers plain TypeScript when no Effect capability is needed
+
+## 11. Package: `packages/assistant-runtime`
+
+This package owns AI SDK 6-powered assistant orchestration.
+
+Day-one owns:
+
+- assistant profiles
+- AI SDK 6 agent/tool-loop integration
+- Effect v4 runtime programs around agent execution
+- tool registry
+- provider registry
+- provider adapters
+- usage/raw finish reason mapping
+- DevTools/trace integration
+- fake provider for deterministic tests if not placed in `packages/testing`
+
+Deferred capabilities:
+
+- `[Deferred]` approval integration, until human approval is accepted as product behavior
+- `[Deferred]` MCP tool adaptation, until external MCP servers are approved trust zones
+- `[Deferred]` structured final output configuration, until the product requires schema-validated final plans/answers
+- `[Deferred]` reranking integration, until retrieval exists
+
+It does not own:
+
+- HTTP routes
+- product protocol schemas
+- widget rendering
+- host app state
+- DB clients
+- app process startup
+- browser-facing Effect APIs
+
+Folder structure:
+
+```txt
+packages/assistant-runtime/
+  package.json
+  tsconfig.json
+  src/
+    index.ts
+    runtime/
+      create-assistant-runtime.ts
+      create-assistant-runtime.test.ts
+      assistant-runtime.ts
+      assistant-runtime-types.ts
+      assistant-event.ts
+      runtime-error.ts
+      runtime-services.ts
+    profiles/
+      advisory-workbench-assistant.ts
+      profile-registry.ts
+      system-instructions.ts
+    tools/
+      registry/
+        tool-registry.ts
+        tool-registry.test.ts
+        tool-definition.ts
+    providers/
+      registry/
+        provider-registry.ts
+        provider-registry.test.ts
+        provider-config.ts
+        provider-usage.ts
+      <real-provider>/
+        <real-provider>-adapter.ts
+        <real-provider>-config.ts
+        <real-provider>-usage-mapper.ts
+        <real-provider>-adapter.test.ts
+      fake/
+        fake-provider-adapter.ts
+        fake-provider-adapter.test.ts
+        fake-stream-script.ts
+    telemetry/
+      ai-sdk-devtools.ts
+      assistant-trace.ts
+      step-observer.ts
+    layers/
+      assistant-runtime-live.ts
+      assistant-runtime-test.ts
+    shared/
+      unknown-record.ts
+```
+
+`[Example]` product tool folders. These show the expected shape only; do not scaffold these exact tools unless they are accepted as day-one product capabilities:
+
+```txt
+packages/assistant-runtime/src/tools/
+  workbench-query/
+    workbench-query.tool.ts
+    workbench-query.schema.ts
+    workbench-query.policy.ts
+    workbench-query.mapper.ts
+    workbench-query.test.ts
+  surface-context/
+    surface-context.tool.ts
+    surface-context.schema.ts
+    surface-context.test.ts
+  host-command/
+    host-command.tool.ts
+    host-command.schema.ts
+    host-command.policy.ts
+    host-command.test.ts
+  report-generation/
+    report-generation.tool.ts
+    report-generation.schema.ts
+    report-generation.test.ts
+```
+
+`[Example]` provider folders. Day one requires the provider registry, fake provider, and one accepted real provider adapter; these names are candidates, not automatic scaffold scope:
+
+```txt
+packages/assistant-runtime/src/providers/
+  openai/
+  anthropic/
+  azure-openai/
+  ai-gateway/
+  local/
+```
+
+`[Deferred]` extension folders:
+
+```txt
+packages/assistant-runtime/src/
+  approvals/
+  mcp/
+  structured-output/
+```
+
+Key file responsibilities:
+
+| File or folder | Responsibility |
+| --- | --- |
+| `runtime/create-assistant-runtime.ts` | Builds the runtime from profiles, tools, providers, and telemetry. |
+| `runtime/runtime-services.ts` | Effect service tags for runtime dependencies. |
+| `profiles/*` | Named assistants, model defaults, instructions, enabled tools, and stop rules. |
+| `tools/registry/*` | The first-class registry for all model-callable tools. |
+| `tools/<tool-name>/*` | One folder per model-callable tool: schema, policy, mapper, tests, and tool definition. |
+| `providers/registry/*` | Resolves product model/provider selections to provider adapters. |
+| `providers/<real-provider>/*` | Accepted real provider behavior only. Concrete provider name is chosen by ADR/config. |
+| `providers/fake/*` | Deterministic provider for tests and local no-credential runs. |
+| `[Deferred] approvals/*` | Human-in-the-loop approval mechanics before sensitive tool execution. |
+| `[Deferred] mcp/*` | MCP client/tool adaptation with explicit security policy. |
+| `[Deferred] structured-output/*` | Typed final answer/command/citation outputs after tool loops. |
+| `telemetry/*` | AI SDK DevTools, traces, step timing, provider payload visibility. |
+| `layers/*` | Live/test Effect layers for runtime composition. |
+
+AI SDK orchestration rule:
+
+- Prefer AI SDK 6 `Agent` / `ToolLoopAgent` style orchestration for named assistants when the runtime has reusable profiles, tools, provider settings, telemetry, and `[Deferred]` approval/structured-output hooks if those capabilities are accepted.
+- `streamText` with `tools`, `stopWhen`, `providerOptions`, and `fullStream` is acceptable as the low-level implementation, especially inside provider/runtime adapters.
+- Do not hand-roll a recursive model -> tool -> model loop unless an ADR proves AI SDK cannot express the required behavior.
+- Product policy may run before/after the AI SDK call: auth, tenancy, model availability, conversation persistence, host context trust, usage recording, protocol mapping, and terminal-event guarantees.
+- AI SDK UI messages and provider-native stream parts remain internal runtime details; the browser still receives only `chat-protocol` events.
+
+Runtime event shape:
+
+```txt
+AssistantRuntimeEvent
+  | text-delta
+  | reasoning
+  | tool-running
+  | tool-completed
+  | tool-error
+  | host-command
+  | completed
+  | failed
+```
+
+These events are internal. `backend-core` maps them into `sidechat.v1`.
+
+`[Deferred]` runtime events:
+
+```txt
+AssistantRuntimeEvent
+  | approval-requested
+  | approval-resolved
+```
+
+Effect v4 role in assistant runtime:
+
+- wrap AI SDK agent/tool-loop execution in typed Effect programs
+- use `Stream` for text, reasoning, tool, host-command, completion events, and `[Deferred]` approval events if approval is accepted
+- use structured concurrency for parallel tool/retrieval work that must be cancelled together
+- use timeouts, retries, schedules, and typed provider/tool errors around model and tool calls
+- use layers to swap OpenAI, Anthropic, Azure OpenAI, AI Gateway, local, and fake providers
+- attach telemetry spans around each assistant step, provider call, tool call, stream lifecycle, and `[Deferred]` approval wait if approval is accepted
+- keep AI SDK objects and provider-native chunks internal to this package
+
+## 12. Package: `packages/chat-client`
+
+This package owns the browser/client transport layer.
+
+It owns:
+
+- typed fetch client
+- SSE stream reader
+- request construction helpers
+- history and usage client calls
+- retry/error behavior
+- plain Promise/AsyncIterable APIs for browser and non-React consumers
+
+It does not own:
+
+- React state
+- widget UI
+- backend use cases
+- provider APIs
+- Effect runtime requirements for consumers
+
+Folder structure:
+
+```txt
+packages/chat-client/
+  package.json
+  tsconfig.json
+  src/
+    index.ts
+    client/
+      create-chat-client.ts
+      create-chat-client.test.ts
+      chat-client-types.ts
+      stream-chat.ts
+      history.ts
+      usage.ts
+      models.ts
+    transport/
+      fetch-transport.ts
+      request-headers.ts
+      response-errors.ts
+      abort.ts
+    stream/
+      stream-reader.ts
+      stream-reader.test.ts
+      frame-buffer.ts
+      malformed-event-policy.ts
+    retry/
+      retry-policy.ts
+      retry-policy.test.ts
+      backoff.ts
+    errors/
+      chat-client-error.ts
+```
+
+Effect v4 role in the client:
+
+- no required Effect runtime in the public API
+- `[Optional]` internal schema validation is acceptable if it does not force consumers to run Effect programs
+- expose browser-friendly `Promise` and `AsyncIterable` APIs
+- keep errors as client error classes or discriminated unions, not Effect-only types
+
+`[Deferred]` approval client file, if approval becomes product behavior:
+
+```txt
+packages/chat-client/src/client/
+  approvals.ts
+```
+
+## 13. Package: `packages/side-chat-widget`
+
+This package owns the reusable React widget.
+
+It owns:
+
+- React components
+- widget state orchestration
+- protocol-event-to-UI projection
+- composer behavior
+- panel behavior
+- host bridge integration at the widget boundary
+- `[Optional]` iframe-ready sizing signals if packaged as an embeddable shell
+
+It does not own:
+
+- host app routes
+- host app state
+- database access
+- provider SDKs
+- assistant-runtime internals
+- HTTP server routes
+- required Effect runtime knowledge for host apps
+
+Folder structure:
+
+```txt
+packages/side-chat-widget/
+  package.json
+  tsconfig.json
+  src/
+    index.ts
+    styles.css
+    adapters/
+      react/
+        use-side-chat.ts
+        use-side-chat.test.ts
+        use-side-chat-controller.ts
+        use-host-bridge.ts
+        use-widget-resize.ts
+    application/
+      widget-controller.ts
+      send-message-flow.ts
+      load-history-flow.ts
+      host-command-flow.ts
+      host-command-flow.test.ts
+      usage-flow.ts
+    domain/
+      message/
+        message-projection.ts
+        message-projection.test.ts
+        message-parts.ts
+        stream-event-reducer.ts
+        stream-event-reducer.test.ts
+        citation-selection.ts
+      composer/
+        composer-state.ts
+        composer-state.test.ts
+        quick-actions.ts
+      panel/
+        panel-state.ts
+        panel-state.test.ts
+        panel-geometry.ts
+        resize-rules.ts
+      model/
+        model-display.ts
+        model-selection.ts
+      errors/
+        widget-error.ts
+    ui/
+      side-chat-widget/
+        SideChatWidget.tsx
+        SideChatWidget.test.tsx
+        SideChatWidget.types.ts
+      launcher/
+        WidgetLauncher.tsx
+      panel/
+        PanelShell.tsx
+        PanelHeader.tsx
+        PanelStatus.tsx
+        ResizeHandles.tsx
+      conversation/
+        ConversationFeed.tsx
+        RenderedMessage.tsx
+        MessagePartRenderer.tsx
+        ReasoningPart.tsx
+        ToolPart.tsx
+        HostCommandPart.tsx
+        ApprovalPart.tsx
+        CitationList.tsx
+      composer/
+        ChatComposer.tsx
+        QuickActions.tsx
+        ModelSelector.tsx
+      primitives/
+        Button.tsx
+        IconButton.tsx
+        Tooltip.tsx
+        ScrollArea.tsx
+        Textarea.tsx
+        Spinner.tsx
+    shared/
+      lib/
+        cn.ts
+        unknown-record.ts
+```
+
+`[Deferred]` approval widget files, if approval becomes product behavior:
+
+```txt
+packages/side-chat-widget/src/application/
+  approval-flow.ts
+  approval-flow.test.ts
+```
+
+Effect v4 role in the widget:
+
+- prefer plain React hooks, reducer state, and pure domain helpers
+- do not expose Effect programs from widget public props or hooks
+- do not require external host apps to understand Effect
+- use protocol/client outputs as plain events and state transitions
+- only consider Effect internally if a real widget workflow becomes complex enough to justify it
+
+## 14. Package: `packages/host-bridge`
+
+This package defines the contract between the widget and an external host app.
+
+It owns:
+
+- host context provider types
+- host command dispatcher types
+- host capability descriptors
+- command result types
+- `[Optional]` helpers for validating supported resources/commands
+- `[Optional]` iframe postMessage contract if iframe embedding is supported
+
+It does not own:
+
+- React widget rendering
+- host app state
+- backend execution
+- provider APIs
+
+Folder structure:
+
+```txt
+packages/host-bridge/
+  package.json
+  tsconfig.json
+  src/
+    index.ts
+    host-context-provider.ts
+    host-command-dispatcher.ts
+    host-capability.ts
+    host-resource.ts
+    command-result.ts
+    validation.ts
+    validation.test.ts
+    helpers/
+      supports-command.ts
+      supports-command.test.ts
+      supports-resource.ts
+      create-unsupported-result.ts
+```
+
+`[Optional]` iframe bridge files, if iframe embedding is supported:
+
+```txt
+packages/host-bridge/src/
+    iframe/
+      embed-messages.ts
+      embed-messages.test.ts
+      parent-origin-policy.ts
+      resize-message.ts
+      command-bridge.ts
+```
+
+Host command and host context wire schemas may live in `chat-protocol`. `host-bridge` adds ergonomic integration types and helpers for external host apps.
+
+## 15. Package: `packages/db`
+
+This package owns database access.
+
+It implements the day-one DB schema contract from section 3.1. The contract is accepted before repositories and migrations are written.
+
+It owns:
+
+- schema contract types and repository command contract types
+- Postgres client/pool construction with `pg`
+- Drizzle schema, relations, migrations, and query helpers
+- repository implementations
+- `[Deferred]` stored-function facades if a later hardening ADR accepts them
+- DB row parsing
+- test harnesses for DB security and migrations
+- Effect services/layers for DB resources and transactions
+
+It does not own:
+
+- HTTP routes
+- backend use-case orchestration
+- widget state
+- provider APIs
+- assistant runtime behavior
+
+Folder structure:
+
+```txt
+packages/db/
+  package.json
+  tsconfig.json
+  drizzle.config.ts
+  src/
+    index.ts
+    schema-contract/
+      db-identity-contract.ts
+      db-lifecycle-contract.ts
+      db-role-contract.ts
+      conversation-contract.ts
+      message-contract.ts
+      assistant-turn-contract.ts
+      turn-context-snapshot-contract.ts
+      usage-contract.ts
+      tool-invocation-contract.ts
+      host-command-contract.ts
+      audit-contract.ts
+      repository-command-contract.ts
+    drizzle/
+      schema.ts
+      relations.ts
+      tables/
+        conversations.table.ts
+        messages.table.ts
+        assistant-turns.table.ts
+        turn-context-snapshots.table.ts
+        usage-records.table.ts
+        tool-invocations.table.ts
+        host-command-results.table.ts
+        audit-events.table.ts
+    client/
+      create-pool.ts
+      create-drizzle.ts
+      db-executor.ts
+      transaction.ts
+      db-layer.ts
+    repositories/
+      conversation-repository.ts
+      conversation-repository.test.ts
+      usage-repository.ts
+      usage-repository.test.ts
+    queries/
+      conversation-queries.ts
+      message-queries.ts
+      assistant-turn-queries.ts
+      turn-context-snapshot-queries.ts
+      usage-queries.ts
+      tool-invocation-queries.ts
+      host-command-queries.ts
+      audit-queries.ts
+    rows/
+      conversation-row.ts
+      message-row.ts
+      assistant-turn-row.ts
+      turn-context-snapshot-row.ts
+      usage-row.ts
+      tool-invocation-row.ts
+      host-command-row.ts
+      audit-row.ts
+    parsing/
+      parse-conversation-row.ts
+      parse-message-row.ts
+      parse-assistant-turn-row.ts
+      parse-turn-context-snapshot-row.ts
+      parse-usage-row.ts
+      parse-tool-invocation-row.ts
+      parse-host-command-row.ts
+      parse-audit-row.ts
+    errors/
+      db-error.ts
+    services/
+      db-service.ts
+  migrations/
+    0001_schema_contract.sql
+    0002_runtime_roles_and_grants.sql
+    migrations.test.ts
+    schema-security.test.ts
+```
+
+Effect v4 role in DB:
+
+- manage pool lifecycle as a scoped resource
+- represent DB failures with typed errors
+- wrap transactions in resource-safe Effect programs
+- provide repository live layers for backend-core repository services
+- keep `pg`, Drizzle, SQL, and row details out of backend-core and assistant-runtime
+
+## 16. Package: `packages/testing`
+
+This package owns shared test utilities.
+
+It owns:
+
+- deterministic fake provider/model
+- protocol builders
+- mock stream helpers
+- contract assertions
+- browser/client test fixtures
+
+It does not own:
+
+- production code paths
+- product behavior not used by tests
+- runtime app startup
+
+Folder structure:
+
+```txt
+packages/testing/
+  package.json
+  tsconfig.json
+  src/
+    index.ts
+    builders/
+      request-builder.ts
+      event-builder.ts
+      message-builder.ts
+      host-context-builder.ts
+      builders.test.ts
+    fake-provider/
+      fake-provider-adapter.ts
+      fake-provider-adapter.test.ts
+      fake-stream-script.ts
+    assertions/
+      assert-valid-stream.ts
+      assert-terminal-event.ts
+      assert-no-provider-leak.ts
+      assert-no-ai-sdk-leak.ts
+    mock-server/
+      create-mock-chat-server.ts
+      scripted-stream-response.ts
+    fixtures/
+      protocol-fixtures.ts
+```
+
+`[Deferred]` approval test builder, if approval becomes product behavior:
+
+```txt
+packages/testing/src/builders/
+  approval-builder.ts
+```
+
+## 17. Infrastructure
+
+Infrastructure should distinguish local development from production.
+
+Folder structure:
+
+```txt
+infra/
+  local/
+    docker-compose.yml
+    postgres.env.example
+    README.md
+  docker/
+    Dockerfile.partner-ai-service
+    docker-entrypoint.sh
+  production/
+    README.md
+    terraform/
+      main.tf
+      variables.tf
+      outputs.tf
+    k8s/
+      partner-ai-service.deployment.yaml
+      partner-ai-service.service.yaml
+      partner-ai-service.hpa.yaml
+    secrets/
+      README.md
+```
+
+Production infrastructure should cover managed database, secret manager, logs/metrics/traces, autoscaling, rollback, migration execution, backup/restore, and external rate limiting dependency if needed.
+
+## 18. Documentation
+
+Docs should be durable and small enough to stay accurate.
+
+Folder structure:
+
+```txt
+docs/
+  architecture/
+    overview.md
+    protocol.md
+    backend-boundaries.md
+    assistant-runtime.md
+    widget-integration.md
+    data-persistence.md
+    observability.md
+  decisions/
+    ADR-0001-modular-monolith.md
+    ADR-0002-product-protocol.md
+    ADR-0003-no-host-app.md
+    ADR-0004-backend-core-package.md
+    ADR-0005-database-boundary.md
+    ADR-0006-ai-sdk-assistant-runtime.md
+  operations/
+    local-dev.md
+    ci.md
+    deploy.md
+    migrations.md
+    rollback.md
+    incident-response.md
+```
+
+## 19. Scripts
+
+Scripts should make repository rules executable.
+
+```txt
+scripts/
+  check-boundaries.mjs
+  check-dependency-policy.mjs
+  check-package-exports.mjs
+  check-runtime-boundaries.mjs
+  check-outbound-rules.mjs
+  check-test-placement.mjs
+  check-code-quality.mjs
+  check-typescript-rules.mjs
+  check-generated-artifacts.mjs
+  verify.mjs
+  generate-protocol-artifacts.mjs
+  create-migration.mjs
+```
+
+Governance checks should fail when product protocol, backend core, widget, DB, and assistant runtime boundaries drift.
+
+Command shape:
+
+| Command | Responsibility |
+| --- | --- |
+| `npm run lint` | ESLint plus architecture governance scripts. |
+| `npm run typecheck` | `tsc -b` across root project references. |
+| `npm test` | Colocated unit/integration/contract tests that do not need browser automation. |
+| `npm run test:e2e` | Browser harness tests only. |
+| `npm run verify` | Install-safe full local/CI gate: lint, typecheck, tests, generated artifact checks, package export checks. |
+
+Script responsibilities:
+
+| Script | Responsibility |
+| --- | --- |
+| `check-boundaries.mjs` | Forbidden imports across packages, layers, and inbound/outbound boundaries. |
+| `check-dependency-policy.mjs` | Dependency allowlists, pinned versions, package-level runtime/dev dependency placement. |
+| `check-package-exports.mjs` | Public entrypoint discipline and no deep imports by consumers. |
+| `check-runtime-boundaries.mjs` | No framework/provider/DB/browser/env objects crossing into domain, use cases, ports, protocol, client, or widget public APIs. |
+| `check-outbound-rules.mjs` | External-service calls live under outbound adapters or approved provider/runtime adapter folders, not in use cases or tool definitions. |
+| `check-test-placement.mjs` | Ordinary tests are colocated; harnesses are explicitly named. |
+| `check-code-quality.mjs` | File/function size budgets, complexity budgets, nesting budgets, forbidden expression shapes, magic string candidates, and duplication hotspots. |
+| `check-typescript-rules.mjs` | Strict tsconfig inheritance, project references, no unsafe escape hatches. |
+| `check-generated-artifacts.mjs` | Generated JSON Schema/OpenAPI/declaration artifacts are current. |
+
+## 20. TypeScript Discipline
+
+TypeScript is part of the architecture. It should make illegal states and illegal dependencies hard to express, not merely compile JavaScript.
+
+### 20.1 Project Structure
+
+Use project references from the root:
+
+```txt
+tsconfig.base.json          shared strict compiler options
+tsconfig.json               root references only
+apps/*/tsconfig.json        app typecheck config
+packages/*/tsconfig.json    package typecheck config
+packages/*/tsconfig.build.json
+                            declaration/build config when different from tests
+```
+
+Rules:
+
+- every app/package has its own `tsconfig.json`
+- root `tsconfig.json` references every app/package
+- package builds emit declarations when the package has a public API
+- test files are included in typecheck, excluded from package declaration builds
+- path aliases may point to package public entrypoints, not deep internals
+
+### 20.2 Compiler Defaults
+
+The base config should default to:
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "useUnknownInCatchVariables": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  }
+}
+```
+
+Platform options may differ by package. Browser libraries and bundled packages may use bundler-style module resolution. Node-only service packages may use Node-style module resolution. Strictness options should not differ without a documented ADR.
+
+### 20.3 Type Safety Rules
+
+Forbidden by default:
+
+- `any`
+- `as any`
+- double assertions such as `value as unknown as T`
+- `@ts-ignore`
+- non-null assertions for normal control flow
+- untyped `catch (error)` handling beyond `unknown`
+- unvalidated `JSON.parse` results crossing a boundary
+- public exports that expose provider SDK, AI SDK UI message, DB row, HTTP framework, or Effect runtime internals where forbidden by package boundary
+
+Allowed with constraints:
+
+- `unknown` at external boundaries, followed by schema parsing or narrowing
+- `@ts-expect-error` only in type tests, with a short reason
+- type assertions only next to a proven runtime check, schema parser, or narrow interop boundary
+- non-null assertions only in tests or after a local invariant helper that throws a typed defect
+
+### 20.4 Public API Typing
+
+Every package public entrypoint must be declaration-safe:
+
+- exports come from `src/index.ts`
+- public types are named and intentional
+- public APIs avoid leaking internal helper types
+- public APIs avoid deep conditional types that make consumer errors unreadable
+- browser-facing packages expose plain TypeScript types, `Promise`, `AsyncIterable`, callbacks, and React props
+- backend/core packages may expose Effect programs when the consumer is another backend package
+
+Package API checks should catch accidental deep imports and accidental public exports.
+
+### 20.5 Runtime Boundary Validation
+
+TypeScript does not validate runtime input. Parse data at every IO boundary:
+
+| Boundary | Required validation |
+| --- | --- |
+| HTTP request body/query/headers | `chat-protocol` schemas or route-local schemas. |
+| SSE incoming frames | `chat-protocol` event parser. |
+| Environment variables | config schema before app startup. |
+| DB rows | row parser before repository returns data. |
+| External service responses | outbound adapter parser before returning to core/runtime. |
+| Model/provider tool input/output | assistant-runtime tool schemas. |
+| Browser storage/postMessage | client/widget/host-bridge parser before state mutation. |
+
+If a value comes from outside the current trust boundary, it starts as `unknown`.
+
+### 20.6 Exhaustiveness
+
+Discriminated unions are preferred for:
+
+- protocol events
+- assistant runtime events
+- application errors
+- host commands
+- tool states
+- provider selections
+
+Switches over these unions must be exhaustive. Missing cases should fail typecheck or lint.
+
+### 20.7 Type-Aware ESLint
+
+ESLint should run with type information for source files. Required rule families:
+
+- no unsafe `any` usage
+- no floating promises
+- no misused promises
+- consistent type imports/exports
+- exhaustive switch checks
+- no unnecessary conditions
+- restricted template expressions
+- no direct package-internal imports across package boundaries
+- no forbidden framework/provider/DB imports outside allowed folders
+
+Lint should be architecture-aware, not only style-aware.
+
+### 20.8 Type Tests
+
+Use type tests where public contracts matter:
+
+```txt
+src/index.type.test.ts
+src/sidechat-v1/events/event-union.type.test.ts
+```
+
+Type tests should prove:
+
+- public APIs do not expose forbidden internal/provider/runtime types
+- invalid protocol shapes fail at compile time where possible
+- model/provider registry types preserve allowed model ids
+- host commands remain discriminated and exhaustive
+- generated declaration files are consumer-safe
+
+Prefer `expectTypeOf` or a dedicated type-test runner. Use `@ts-expect-error` only in type tests and only with a reason.
+
+### 20.9 TypeScript Governance Checks
+
+Checks should fail if:
+
+- a package is missing from root project references
+- a package lacks its own `tsconfig.json`
+- `strict` options are weakened without an ADR
+- `any`, `as any`, `@ts-ignore`, or unsafe double assertions appear outside allowlisted interop/type-test files
+- a public declaration leaks forbidden internal/provider/runtime types
+- a source file imports from another package's internal path
+- generated declarations or generated protocol artifacts are stale
+
+## 21. Lint And Restriction Design
+
+Linting is the first automated architecture reviewer. It should enforce style only where style affects readability, but it must enforce boundaries aggressively.
+
+### 21.1 Gate Layers
+
+| Layer | Tool shape | Owns |
+| --- | --- | --- |
+| TypeScript | `tsc -b` | Type correctness, project references, declaration safety. |
+| ESLint | type-aware ESLint config | Local code safety, async mistakes, React rules, import hygiene. |
+| Boundary scripts | custom `scripts/check-*.mjs` | Repo-specific architecture restrictions. |
+| Test runner | Vitest and browser harness | Behavior, contracts, integration paths. |
+| Generated artifact checks | custom script | JSON Schema/OpenAPI/declarations stay current. |
+| CI workflow | GitHub Actions | Runs the same gates in a clean environment. |
+
+### 21.2 ESLint Rule Groups
+
+ESLint should catch local mistakes and obvious boundary violations while the custom governance scripts catch repo-wide architecture drift.
+
+Recommended baseline packages:
+
+```txt
+typescript-eslint
+eslint-plugin-import-x
+eslint-plugin-react-hooks
+eslint-plugin-jsx-a11y
+eslint-plugin-vitest
+eslint-plugin-unicorn
+```
+
+Exact plugin choices may change, but these rule groups should remain.
+
+TypeScript safety rules:
+
+| Rule intent | `[Example]` rules |
+| --- | --- |
+| No unsafe values | `@typescript-eslint/no-explicit-any`, `no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-argument`. |
+| No careless casts | `consistent-type-assertions`, `no-unnecessary-type-assertion`, ban `as any`, ban unsafe double assertions through custom `no-restricted-syntax`. |
+| Exhaustive unions | `@typescript-eslint/switch-exhaustiveness-check`, plus type tests for public discriminated unions. |
+| Precise optional/null handling | `strict-boolean-expressions`, `no-unnecessary-condition`, `prefer-nullish-coalescing`, `prefer-optional-chain`. |
+| Safe stringification | `restrict-template-expressions`, `no-base-to-string`. |
+| Type-only hygiene | `consistent-type-imports`, `consistent-type-exports`, `no-import-type-side-effects`. |
+
+Async and Effect-adjacent safety rules:
+
+| Rule intent | `[Example]` rules |
+| --- | --- |
+| No dropped async work | `@typescript-eslint/no-floating-promises`. |
+| No async where a boolean/void callback is expected | `@typescript-eslint/no-misused-promises`. |
+| No fake awaits | `@typescript-eslint/await-thenable`, `require-await`. |
+| Explicit process edges | Promises started in `server.ts`, routes, CLI scripts, and test setup must be awaited, returned, or intentionally detached with a named helper. |
+| Effect runtime boundary | Do not use ESLint alone for this; `check-runtime-boundaries.mjs` should verify Effect does not leak into browser public APIs. |
+
+Import and module rules:
+
+| Rule intent | `[Example]` rules |
+| --- | --- |
+| No cycles | `import-x/no-cycle` for package source. |
+| No duplicate imports | `no-duplicate-imports` or `import-x/no-duplicates`. |
+| No deep package imports | `no-restricted-imports` plus `check-package-exports.mjs`. |
+| No forbidden framework/provider imports | `no-restricted-imports` for obvious package bans, backed by `check-boundaries.mjs`. |
+| No undeclared dependencies | `import-x/no-extraneous-dependencies` where compatible with npm workspaces. |
+| Stable type imports | `@typescript-eslint/consistent-type-imports`. |
+
+Code-shape rules:
+
+| Rule intent | `[Example]` rules |
+| --- | --- |
+| No hidden mutation surprises | Prefer `const`, no parameter reassignment except explicit reducer-style allowlists. |
+| No unclear control flow | `no-fallthrough`, `no-else-return`, `no-unreachable`, `no-implicit-coercion`. |
+| No nested ternaries | `no-nested-ternary`; prefer named functions or explicit `if` blocks. |
+| No dense conditionals | `complexity`, `max-depth`, `max-nested-callbacks`, `max-lines-per-function`, `max-statements` with package-specific budgets. |
+| No broad console logging | `no-console` in production source except app startup/logger adapters. |
+| No debugger or alert | `no-debugger`, `no-alert`. |
+| No magic comments hiding errors | Ban `@ts-ignore`; allow `@ts-expect-error` only in type tests with a description. |
+| No unexplained literals | `no-magic-numbers` only for selected source areas; custom string-literal checks for protocol/error/route/model/provider/event codes. |
+
+React/widget rules:
+
+| Rule intent | `[Example]` rules |
+| --- | --- |
+| Hook correctness | `react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`. |
+| Accessibility basics | `jsx-a11y` rules for interactive elements, labels, keyboard handlers, and ARIA validity. |
+| Browser package isolation | Widget/client code must not import Node-only modules, server config, provider SDKs, DB, or app internals. |
+| Stable UI contracts | Widget public exports come from `src/index.ts`; internal component imports by consumers are forbidden by package-export checks. |
+
+Vitest/test rules:
+
+| Rule intent | `[Example]` rules |
+| --- | --- |
+| No committed focused tests | `vitest/no-focused-tests`. |
+| No disabled tests without quarantine | `vitest/no-disabled-tests` except explicitly allowlisted quarantine files. |
+| Valid expectations | `vitest/valid-expect`, `vitest/expect-expect` where useful. |
+| No real providers by default | Custom script check: tests must use fake providers unless marked as explicit integration tests. |
+| Type-test escape hatches | `@ts-expect-error` allowed in `*.type.test.ts` only with a reason. |
+
+### 21.3 ESLint Overrides
+
+Use overrides by file ownership, not one global compromise.
+
+| Files | Extra rules / allowances |
+| --- | --- |
+| `packages/chat-protocol/src/**` | Ban React, HTTP frameworks, AI SDK, provider SDKs, pg, Drizzle, backend core, widget, browser globals except standard serialization APIs. |
+| `packages/backend-core/src/domain/**`, `packages/backend-core/src/policies/**` | Ban IO imports, process env, timers as globals, framework/provider/DB/browser modules, and app composition. |
+| `packages/backend-core/src/application/**` | Ban concrete adapters, outbound clients, provider SDKs, DB clients, HTTP request/response objects, and direct `fetch`. |
+| `packages/backend-core/src/ports/**`, `packages/backend-core/src/services/**` | Ban vendor DTO imports, framework objects, DB row imports, provider-native stream parts, and browser object types. |
+| `packages/assistant-runtime/src/**` | Allow AI SDK and provider-runtime integrations only in provider/tool/runtime folders; ban HTTP framework, React, pg, Drizzle, widget internals, and app composition. |
+| `apps/partner-ai-service/src/inbound/**` | Allow HTTP framework; ban direct provider SDK/DB client usage and business policy modules that should be reached through use cases. |
+| `apps/partner-ai-service/src/outbound/**` | Allow external clients for the named system; require response parsing and error mapping near the adapter. |
+| `apps/partner-ai-service/src/composition/**` | Allow importing center and edge code for wiring; still ban widget internals and host app code. |
+| `packages/db/src/**` | Allow `pg`, Drizzle, schema/table definitions, and DB query code; ban React, HTTP framework, provider SDKs, widget, and backend-core use-case imports. |
+| `packages/chat-client/src/**` | Allow browser fetch/SSE; ban React, widget UI, backend core, assistant runtime, DB, provider SDKs, and required Effect public types. |
+| `packages/side-chat-widget/src/**` | Allow React; ban API service internals, DB, provider SDKs, assistant-runtime internals, Node-only modules, and required Effect public types. |
+| `**/*.test.ts`, `**/*.test.tsx` | Allow test utilities and dev dependencies; still ban real provider calls unless explicitly marked integration. |
+| `**/*.type.test.ts` | Allow `@ts-expect-error` with descriptions; ban runtime assertions that pretend to test behavior. |
+| `scripts/**` | Allow Node filesystem/process APIs; still ban production source imports that create side effects. |
+
+### 21.4 ESLint vs Custom Governance Scripts
+
+Use ESLint for local AST-level rules:
+
+- unsafe TypeScript usage
+- dropped promises
+- React hooks
+- accessibility basics
+- obvious restricted imports
+- focused/skipped tests
+- syntax bans such as `as any` or `@ts-ignore`
+
+Use custom scripts for repo-aware rules:
+
+- package dependency allowlists
+- package public export discipline
+- generated artifact freshness
+- TypeScript project reference coverage
+- no public declaration leaks of provider/framework/runtime types
+- no ordinary top-level `test/` folders
+- no provider-native strings in protocol/widget/client
+- no runtime-boundary leaks across domain/use-case/port layers
+- no outbound service calls outside approved adapter folders
+
+ESLint should not be the only boundary tool. If a rule needs package graph, generated declarations, workspace manifests, or cross-file ownership, use a custom governance script.
+
+### 21.5 Code Quality Guardrails
+
+Code quality guardrails are product maintenance rules, not personal taste. They exist because AI-generated code tends to drift toward large files, duplicated branches, hidden literals, overly clever expressions, and weak names unless the repository pushes back automatically.
+
+Default budgets:
+
+| Guardrail | Default budget | Enforcement |
+| --- | --- | --- |
+| Source file length | Soft warning over 250 lines, fail over 400 lines. | `check-code-quality.mjs`; exceptions require inline allowlist with reason. |
+| React component file length | Soft warning over 220 lines, fail over 350 lines. | `check-code-quality.mjs`; split into component, hook, reducer, or primitives. |
+| Function length | Soft warning over 50 lines, fail over 80 lines. | ESLint `max-lines-per-function` plus script summary. |
+| Cyclomatic complexity | Warn over 8, fail over 12. | ESLint `complexity`. |
+| Nesting depth | Fail over 3 nested blocks. | ESLint `max-depth`. |
+| Parameters | Warn over 4, fail over 6. | ESLint `max-params`; use named input object or service. |
+| Statements per function | Warn over 20, fail over 35. | ESLint `max-statements`. |
+| Imports per file | Warn over 20, fail over 30. | `check-code-quality.mjs`; usually means split responsibility. |
+| Public exports per package entrypoint | Warn when the entrypoint becomes a dump. | `check-package-exports.mjs`; group exports by capability. |
+
+These budgets are defaults, not laws of physics. Generated files, migrations, schema fixtures, and intentionally dense mapping tables may be allowlisted with a short reason. Business logic, use cases, adapters, and UI components should not routinely need exceptions.
+
+Control-flow rules:
+
+- No nested ternaries.
+- No chained ternaries for rendering product states.
+- No `&&`/`||` expression tricks when the result is not boolean.
+- No deeply nested `if` pyramids; prefer guard clauses, small functions, or policy tables.
+- No `switch` without exhaustive handling for discriminated unions.
+- No mixed side effects and value construction in the same expression.
+- No callback nesting beyond 2 levels in production source.
+
+Magic literal rules:
+
+| Literal kind | Rule |
+| --- | --- |
+| Protocol event names | Must come from `chat-protocol` constants or schema definitions. |
+| Route paths and header names | Must come from protocol/app route constants. |
+| Error codes | Must come from typed error/code modules. |
+| Model/provider ids | Must come from provider registry definitions. |
+| Tool names | Must come from tool registry definitions. |
+| Feature flag names | Must come from config/feature flag constants. |
+| Environment variable names | Must live in env parsing modules only. |
+| CSS class names | Local utility classes are allowed; repeated semantic class groups should become component/primitives. |
+| User-facing copy | Allowed inline in UI components when local and simple; repeated product copy should move to named constants. |
+| Test fixture values | Allowed when the test names the behavior; repeated fixture literals should use builders. |
+
+String literals are not all bad. The rule is: product identifiers, protocol values, provider ids, error codes, route names, env names, and tool names must be centralized. Human-readable UI copy may stay close to the UI unless it is repeated or policy-sensitive.
+
+Duplication rules:
+
+- Do not duplicate protocol event mapping in backend, client, and widget. Use protocol helpers and focused projection functions.
+- Do not duplicate provider/model ids outside provider registry.
+- Do not duplicate request/response parsing; use schemas at boundaries.
+- Do not duplicate fake model scripts across tests; use testing builders/fakes.
+- Do not introduce a shared abstraction for two tiny identical lines. Wait until duplication has product meaning or risk.
+- Prefer copy once, abstract when the third copy proves a stable pattern.
+
+Naming and clarity rules:
+
+- Names should describe product meaning, not file type only. Prefer `streamAssistantTurn` over `handleData`.
+- Avoid vague buckets: `utils`, `helpers`, `misc`, `common`, `manager`, `processor`, `handler` unless scoped by capability.
+- Boolean names should read as predicates: `isAllowed`, `hasTenantAccess`, `shouldRetry`.
+- Functions that cause effects should use verbs: `persistAssistantTurn`, `emitProtocolEvent`.
+- Pure functions should be easy to test without mocks.
+- Comments should explain why, not restate what the code says.
+
+Review smells that should trigger refactoring before merge:
+
+- a file has more than one reason to change
+- a function mixes parsing, policy, IO, and rendering
+- a component owns network calls plus layout plus protocol projection
+- a use case knows transport or provider details
+- a test needs large setup because the unit has too many responsibilities
+- a new helper is imported by unrelated layers
+- a boolean flag changes a function into two different functions
+- a string literal is used as a product identifier in more than one file
+
+Enforcement split:
+
+| Tool | Owns |
+| --- | --- |
+| ESLint | `no-nested-ternary`, `complexity`, `max-depth`, `max-lines-per-function`, `max-statements`, `max-params`, unsafe syntax, hooks, promises. |
+| `check-code-quality.mjs` | File length, import count, literal scans, TODO/FIXME policy, duplicated product strings, exception allowlist, generated-file exclusions. |
+| `check-boundaries.mjs` | Whether the extracted code moved into a legal package/layer. |
+| `check-package-exports.mjs` | Whether split files still expose only intended public APIs. |
+| Code review | Whether an exception is justified, an abstraction is premature, or naming still hides product intent. |
+
+### 21.6 Common Quality Tools First
+
+Prefer common, boring tools where they cover the problem well. Do not make the clean repo depend on niche static-analysis tools by default. A `[Deferred]` specialized tool can be added only when a repeated problem appears and an ADR explains why ESLint, TypeScript, tests, or a small repo-specific check are not enough.
+
+Day-one common stack:
+
+| Tool | Use for | Why it belongs by default |
+| --- | --- | --- |
+| TypeScript `tsc --build` | Project references, declaration checks, strict type safety, package build order. | It is the language/compiler contract. |
+| ESLint core | Code-shape rules, restricted imports/syntax, complexity, nesting, nested ternaries, function budgets. | It is the standard JS/TS lint surface and already supports many needed rules. |
+| `typescript-eslint` | Type-aware lint rules for unsafe calls, unsafe assignments, promises, floating promises, unnecessary conditions. | It extends ESLint with TypeScript-aware checks. |
+| React/JSX ESLint plugins | Hooks rules, JSX accessibility, React refresh constraints if needed by the widget. | They are common frontend guardrails. |
+| Prettier | Formatting only. | It removes formatting debate from code review. |
+| Vitest | Unit and integration tests colocated with source. | It matches the Vite/TypeScript ecosystem and the current prototype direction. |
+| Playwright | Browser smoke/e2e tests for widget behavior and local harnesses. | It verifies real browser behavior where unit tests are weak. |
+| `npm audit` | Lockfile vulnerability gate. | It is built into npm and cheap to run. |
+| GitHub Dependabot/security alerts | Dependency vulnerability visibility and update PRs. | It is common CI/repository hygiene if GitHub hosts the repo. |
+
+`[Example]` proposed command shape:
+
+```json
+{
+  "scripts": {
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "lint:eslint": "eslint .",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "audit": "npm audit --audit-level=high",
+    "lint:custom": "node scripts/check-runtime-boundaries.mjs && node scripts/check-outbound-rules.mjs && node scripts/check-code-quality.mjs",
+    "verify": "npm run format:check && npm run lint:eslint && npm run typecheck && npm test && npm run lint:custom"
+  }
+}
+```
+
+Custom scripts should stay small and repo-specific. They are justified for rules that common tools do not understand as product architecture:
+
+- production profile fail-closed checks
+- protocol/provider/runtime leak scans
+- product-specific magic string categories
+- test placement and integration-test markers
+- generated protocol artifact freshness
+- package-specific exception allowlists with required reasons
+- design/governance synchronization checks
+
+`[Optional]` specialized tools are not part of the default scaffold:
+
+| Tool | Consider only when |
+| --- | --- |
+| API Extractor | Public package APIs become stable enough that accidental exported type changes are a real risk. |
+| Gitleaks or Secretlint | GitHub/platform secret scanning is unavailable or local/CI secret scanning is required. |
+| Dependency graph tools such as `dependency-cruiser` | ESLint import restrictions plus custom boundary checks become too hard to maintain. |
+| Dead-code tools such as Knip | Unused exports/files become a recurring maintenance problem after the package graph grows. |
+| Duplicate-code tools such as `jscpd` | Duplication becomes measurable and code review/custom checks are not enough. |
+| Package publish linters such as `publint` | Packages are published externally or consumed across multiple runtime/module formats. |
+| Additional style/smell plugins such as SonarJS or Unicorn | The team explicitly wants those rule sets and accepts their noise profile. |
+
+The default rule is: common tool first, custom check for product-specific architecture, specialized tool only after evidence.
+
+### 21.7 Import Restrictions
+
+Forbidden imports:
+
+| From | Must not import |
+| --- | --- |
+| `chat-protocol` | React, HTTP framework, AI SDK, provider SDKs, pg, Drizzle, backend-core, widget. |
+| `backend-core` | HTTP framework, React, pg, Drizzle, AI SDK, provider SDKs, app composition, outbound clients. |
+| `assistant-runtime` | HTTP framework, React, pg, Drizzle, widget internals, app composition. |
+| `chat-client` | React, widget UI, backend-core, assistant-runtime, pg, Drizzle, provider SDKs. |
+| `side-chat-widget` | API service internals, DB, provider SDKs, assistant-runtime internals. |
+| `host-bridge` | React UI, API service, DB, provider SDKs. |
+| `db` | React, HTTP framework, widget, AI SDK, provider SDKs, backend-core. |
+| `partner-ai-service` | widget internals, host app code, test-only helpers in production source. |
+
+Allowed exceptions must be explicit in the governance script with a short reason.
+
+### 21.8 Hexagonal Architecture Restrictions
+
+Checks should enforce the center/edge split, not just package names.
+
+Required custom checks:
+
+| Rule | Should fail when |
+| --- | --- |
+| Domain purity | `domain/` or `policies/` imports HTTP frameworks, React, AI SDK, provider SDKs, DB clients, browser APIs, process env, filesystem, timers as globals, or app composition. |
+| Use-case purity | `application/` imports concrete outbound adapters, provider SDKs, DB clients, HTTP request/response objects, or reads process env. |
+| Port purity | `ports/` or `services/` exports vendor DTOs, DB rows, framework objects, browser objects, or raw `unknown` results without schema-owned parsing. |
+| Inbound discipline | `inbound/` owns parsing and response mapping only; it must not contain entitlement/model/conversation policy decisions. |
+| Outbound discipline | External calls, raw clients, SDK calls, credentials, retries, and external response parsing live under `outbound/`, `providers/`, `adapters/`, or `packages/db`, not in use cases. |
+| Composition isolation | Concrete layer wiring and environment-based adapter selection stay under app `composition/` or `server.ts`, not packages. |
+| Tool discipline | Assistant tool definitions depend on tool services/ports; they do not instantiate CRM, document-search, DB, HTTP, or provider clients directly. |
+| Mapper discipline | External DTO to domain/protocol mapping is explicit and colocated with the adapter or use-case boundary, not hidden in generic helpers. |
+
+These checks can begin as repo-local AST/file-path scripts. Promote only highly reusable rules into a custom ESLint plugin after the first production scaffold stabilizes.
+
+### 21.9 Dependency Policy
+
+Rules:
+
+- Runtime dependencies belong only in packages/apps that use them at runtime.
+- Test-only libraries belong in root or package `devDependencies`, never runtime package dependencies.
+- Provider SDKs belong in `assistant-runtime` provider adapters or `partner-ai-service` outbound/provider composition only.
+- React belongs only in widget/browser packages.
+- `pg`, Drizzle, and DB query helpers belong in `packages/db` and app-local migration/test harness code.
+- New dependencies require a reason in the PR/commit when they affect production runtime.
+- Duplicate libraries for the same job are forbidden unless an ADR accepts coexistence.
+
+### 21.10 Generated Artifacts
+
+Generated files are allowed only when they are part of the public contract or build output needed by consumers:
+
+- JSON Schema
+- OpenAPI
+- declaration files for package builds
+- migration metadata if the migration tool requires it
+
+Checks should fail when generated artifacts are stale. Generated outputs should have clear source ownership and should not be edited by hand.
+
+### 21.11 File And Naming Restrictions
+
+Rules:
+
+- public entrypoints are named `index.ts`
+- colocated tests use `*.test.ts` or `*.test.tsx`
+- compile-time tests use `*.type.test.ts`
+- schema files use `*.schema.ts`
+- policies use `*.policy.ts` and contain no IO
+- Effect live layers use `*.layer.ts` or `*.live.ts`
+- adapters use `*.adapter.ts`
+- low-level external clients use `*.client.ts`
+- generated files live under `generated/`
+
+Folders should communicate responsibility: `domain`, `application`, `services`, `inbound`, `outbound`, `composition`, `providers`, `tools`, `ui`, `shared`.
+
+### 21.12 Test Restrictions
+
+Checks should fail if:
+
+- focused tests such as `it.only` or `describe.only` are committed
+- ordinary unit tests are placed in top-level `test/` folders
+- browser/e2e tests import app internals instead of using public UI/API surfaces
+- tests depend on real model providers by default
+- tests require real external services without an explicit integration-test marker
+- snapshots are used for large UI or protocol behavior that should be asserted structurally
+- fake providers drift from protocol sequence rules
+
+### 21.13 Secret And Environment Restrictions
+
+Rules:
+
+- no secret values in source, tests, fixtures, or docs
+- environment variables are parsed once at startup
+- package code does not read `process.env` directly except config adapters
+- browser bundles never include provider keys
+- `[Example]` env files contain shape only, not real credentials
+
+## 22. Public Package APIs
+
+Each package must have a narrow public entrypoint.
+
+| Package | Public API should include | Should not export |
+| --- | --- | --- |
+| `chat-protocol` | Protocol version, route/header constants, schemas, types, validation, SSE codec, sequence validation, fixtures. | Provider-specific fields or framework objects. |
+| `backend-core` | Use cases, port interfaces, application errors, core domain types needed by adapters. | Internal helpers by default. |
+| `assistant-runtime` | Runtime factory, profile/provider/tool registry types, runtime event types, test fake provider helpers if accepted. | AI SDK UI message types as product API. |
+| `chat-client` | `createChatClient`, stream reader types, client error types, retry options. | React or widget state. |
+| `side-chat-widget` | `SideChatWidget`, `[Optional]` `useSideChat`, widget prop types, required CSS export. | Internal component paths. |
+| `host-bridge` | Host context provider, host command dispatcher, host capability types, command result helpers, iframe bridge helpers. | Host app state. |
+| `db` | DB schema/repository command contract types, DB client factory, Drizzle setup, repository factories, migration/test helpers if needed. | Raw table helpers, Drizzle table objects, or query helpers to app code. |
+
+## 23. Runtime Flow
+
+Chat stream flow:
+
+```txt
+external host app renders SideChatWidget
+  -> widget asks host bridge for `[Optional]` current context
+  -> widget uses chat-client to POST /chat/stream
+  -> partner-ai-service validates headers/body against chat-protocol
+  -> partner-ai-service invokes backend-core streamChat use case
+  -> backend-core checks auth/rate/billing/model policy through ports
+  -> backend-core loads conversation context through repository ports
+  -> backend-core calls AssistantRuntimePort.stream
+  -> assistant-runtime runs AI SDK 6 agent/tool loop
+  -> provider adapter maps OpenAI/Anthropic/Azure/local/fake output into runtime events
+  -> backend-core maps runtime events into chat-protocol events
+  -> partner-ai-service writes events as SSE frames
+  -> chat-client decodes SSE frames into protocol events
+  -> widget projects events into renderable message state
+```
+
+Host command flow:
+
+```txt
+assistant-runtime produces host command intent
+  -> backend-core validates command against protocol shape
+  -> backend-core emits sidechat host_command event
+  -> chat-client decodes event
+  -> widget dispatches command through host-bridge callback
+  -> external host applies/rejects command
+  -> widget records command result in UI state
+```
+
+Outbound tool flow:
+
+```txt
+assistant-runtime decides a tool is needed
+  -> tool definition checks policy and [Deferred] approval requirements if approval is accepted
+  -> tool calls an Effect service, not a raw external client
+  -> partner-ai-service outbound adapter implements that service
+  -> outbound client calls the accepted external system
+  -> outbound adapter maps external response/errors into assistant-safe output
+  -> assistant-runtime emits tool events
+  -> backend-core maps runtime tool events into sidechat protocol events
+```
+
+`[Deferred]` approval flow:
+
+```txt
+assistant-runtime reaches sensitive tool
+  -> approval policy decides approval is required
+  -> backend-core emits sidechat approval_requested event
+  -> widget renders approval request
+  -> user/host approves or rejects
+  -> chat-client sends approval resolution
+  -> assistant-runtime continues, skips, or fails according to policy
+```
+
+Persistence flow:
+
+```txt
+backend-core needs history/usage
+  -> calls ConversationRepository / UsageRepository ports
+  -> partner-ai-service persistence adapter implements ports using packages/db
+  -> db repository uses Drizzle over pg inside packages/db
+  -> DB runtime role has only required table privileges
+```
+
+### 23.1 Runtime And Product Contracts
+
+These contracts describe how the product behaves at runtime. They are not scaffold instructions and should remain true even if package structure changes.
+
+#### Product Behavior
+
+Core concepts:
+
+| Concept | Contract |
+| --- | --- |
+| Conversation | A tenant/workspace/caller-scoped thread of user and assistant messages. It is not globally readable and must be authorized on every read/write. |
+| Assistant turn | One user request plus one assistant response stream, including model output, tool events, host-command events, usage metadata, terminal status, and `[Deferred]` approval events if approval is accepted. |
+| Completed answer | A turn that emitted exactly one terminal protocol event: `sidechat.completed` or terminal `sidechat.error`. |
+| Host command | A request for the external host to act. It is never assumed applied until the host returns a result. |
+| Tool result | Data returned by a runtime tool. It is untrusted input until parsed, scoped, redacted, and mapped into assistant-safe output. |
+
+Rules:
+
+- The assistant may suggest, explain, query, or ask the host to act. It must not silently mutate host state.
+- Model output is not authority. Product decisions come from policies, ports, host results, and validated tool outputs.
+- A failed provider/tool/DB/host command should become a typed application error and then a stable protocol error, not an unstructured crash.
+- A partially streamed assistant turn must have a clear terminal state: completed, user-aborted, timed out, provider-failed, tool-failed, persistence-failed, or `[Deferred]` approval-rejected if approval is accepted.
+- The widget may display optimistic local state, but persisted conversation truth comes from the backend.
+
+#### Protocol Semantics
+
+`sidechat.v1` is the browser/backend product contract.
+
+Compatibility rules:
+
+- Additive changes may add optional fields or new non-critical event types.
+- Breaking changes require a new protocol version such as `sidechat.v2`.
+- Existing event names and required fields must not change inside `sidechat.v1`.
+- Provider-native stream parts, AI SDK UI messages, DB rows, Effect errors, and HTTP framework objects are never protocol fields.
+- Unknown non-critical events should not crash the client. The client may ignore them and expose a diagnostic event for debugging.
+- Malformed required events should fail stream parsing and surface a typed client/protocol error.
+- Every protocol change must update schemas, generated artifacts, golden fixtures, sequence tests, and client/widget projection tests.
+
+Versioning should be explicit:
+
+```txt
+request declares accepted protocol version
+service responds with selected protocol version
+client rejects unsupported major versions
+server rejects unsupported request versions
+```
+
+#### Auth, Tenancy, And Authority
+
+The auth provider is intentionally not decided here. Azure SSO is likely for the consuming app, but the production repo should not hard-code Azure into domain or use-case code.
+
+What must be kept in mind now:
+
+- Auth is an adapter concern at the edge, but authorization is a product concern in backend policies.
+- The backend must receive a normalized `AuthContext` before use cases run.
+- Host-provided context is useful, but not authoritative for tenant, workspace, or user identity.
+- Dev/demo auth may exist only behind an explicit non-production profile.
+- Production must fail closed if real auth is not configured.
+
+`[Example]` minimum `AuthContext` shape to design around:
+
+```ts
+type AuthContext = {
+  subjectId: string;
+  workspaceId: string;
+  tenantId?: string;
+  accountId?: string;
+  roles: readonly string[];
+  scopes: readonly string[];
+  authSource: "azure-sso" | "jwt" | "gateway" | "dev-static";
+  hostOrigin?: string;
+  auditActorId: string;
+};
+```
+
+This type is not final. The invariant is more important than the exact field names: every use case that reads or writes conversation, usage, tools, host commands, or `[Deferred]` approvals must have enough identity and scope to authorize the action.
+
+Authorization rules:
+
+- Conversation ownership is checked on every history read/write/reset.
+- Workspace/tenant boundaries are checked before model calls, tools, host commands, and persistence.
+- Host context can narrow or enrich a request, but it cannot grant privileges.
+- Cross-tenant access denial must be covered by tests.
+- Anonymous or shared-demo identities must be impossible in production.
+
+#### Streaming Semantics
+
+SSE streaming is a product behavior, not just an HTTP detail.
+
+Rules:
+
+- Every assistant turn has a stable `assistantTurnId`.
+- Every stream event has a monotonic sequence number within the turn.
+- Exactly one terminal event is allowed.
+- No `delta`, `reasoning`, `tool`, `host_command`, or `[Deferred]` approval events may appear after a terminal event.
+- The server should send heartbeat/comment frames when needed to survive proxies and slow model/tool calls.
+- Client abort should propagate to backend-core and assistant-runtime cancellation.
+- Provider/tool timeout should become a typed terminal error.
+- POST retries must not create duplicate persisted user messages or duplicate tool/host actions.
+
+Day-one resumability stance:
+
+- Do not promise full stream replay unless an event store is explicitly designed.
+- `Last-Event-ID` may be ignored or rejected initially.
+- Use request/turn idempotency to prevent duplicate side effects.
+- `[Deferred]` resumable stream design may replay persisted protocol events by `assistantTurnId` and sequence number.
+
+Persistence timing must be explicit:
+
+- Persist the user message once per accepted turn.
+- Persist the assistant result only when terminal state is known, or persist incremental events only if the repository is designed as an event store.
+- Usage metadata should be recorded once per completed or failed provider turn when available.
+
+#### AI Runtime Behavior
+
+The assistant runtime is allowed to be sophisticated internally, but its behavior must be stable through backend-core ports.
+
+Rules:
+
+- Provider selection comes from a model/provider registry, policy, and configuration, not widget-only state.
+- Fake providers are valid for tests and local development, but forbidden in production.
+- Provider fallback must be explicit. Silent fallback to a cheaper, weaker, or different-region model is not allowed.
+- Provider responses are mapped into runtime events before backend-core maps them into protocol events.
+- Reasoning visibility is a product decision. Internal reasoning traces must not leak to the protocol unless explicitly modeled as safe `sidechat.reasoning` content.
+- Structured output must be schema-validated before it affects tools, host commands, or persisted state.
+- Tool calls are part of a turn lifecycle and must be observable and cancellable. `[Deferred]` approvals follow the same rule if accepted.
+
+#### Tool Safety
+
+Tool output and model instructions are both untrusted.
+
+Tool categories:
+
+| Category | Examples | Default control |
+| --- | --- | --- |
+| Read-only | Search docs, read CRM summary, fetch market data. | Tenant-scoped, parsed, redacted, timeout-limited. |
+| Write | Create note, update task, change CRM field. | Requires host authority; `[Deferred]` explicit approval if approval is accepted. |
+| Sensitive | Financial action, client data export, permission change. | Deny by default until product-approved policy exists. |
+| External-network | `[Example]` MCP server, external API, document service. | Egress allowlist, credentials isolation, response parsing. |
+| Host-command | Ask host to select/filter/open/apply UI action. | Host capability check, command id, result state, timeout. |
+
+Rules:
+
+- Tool definitions do not instantiate raw external clients.
+- Tool input and output are schema-validated.
+- Tool output is treated as untrusted text/data and must not be allowed to inject hidden instructions.
+- Every tool call has tenant/workspace scope, timeout, error mapping, and audit metadata.
+- Sensitive or write tools require host authority on day one; `[Deferred]` approval policy is required before adding human approval behavior.
+- `[Deferred]` MCP servers are external trust zones and require explicit allowlisting before production use.
+
+#### Host Integration Authority
+
+The host app is external and authoritative over its own UI/state. The assistant product owns only its integration contract.
+
+Rules:
+
+- The host advertises capabilities before the widget emits commands that depend on them.
+- Host context has freshness metadata when it affects assistant behavior.
+- Unsupported commands return `unsupported`, not silent success.
+- Rejected commands return `rejected` with a safe reason code.
+- Failed commands return `error` without leaking host internals.
+- Host command ids are stable enough to prevent duplicate application.
+- The backend must not assume a host command was applied unless a result path is explicitly designed.
+
+`[Open]` design question:
+
+- Should host command results remain client-only UI state, be sent back through a product route, or become protocol events in a follow-up turn?
+
+Until this is decided, commands that affect durable backend state should not be implemented.
+
+#### Data Privacy And Retention
+
+Assistant data may contain sensitive business, user, or client information.
+
+Data classes:
+
+| Data | Examples | Default handling |
+| --- | --- | --- |
+| Conversation content | User messages, assistant messages, citations. | Persist only when needed; redact in logs. |
+| Host context | Current page, selected rows, visible record ids. | Treat as request-scoped and untrusted. |
+| Tool results | CRM data, document snippets, market data. | Tenant-scoped, minimized, parsed, redacted. |
+| Provider payloads | Prompts, messages, tool traces, token usage. | Never log raw by default. |
+| Telemetry | Request ids, timing, error codes, counts. | Low-cardinality, redacted, no secrets. |
+| Audit records | Actor, action, target, decision, timestamp. | Separate from observability logs. |
+
+Rules:
+
+- Provider keys, access tokens, raw credentials, and secret values are never logged.
+- Raw prompts and tool results are not logged by default.
+- Retention, deletion/export, and regional residency must be decided before real users or client data.
+- Provider data-use settings must be explicit before production provider calls.
+- Redaction happens before telemetry export, not only in dashboards.
+
+#### Production Runtime Rules
+
+Production must fail closed.
+
+The service must refuse to start in production if any of these are selected:
+
+- static/dev auth
+- fake/local model provider
+- allow-all billing or entitlement adapter
+- in-memory rate limiting when production requires durable/shared limits
+- permissive CORS
+- fixture persistence
+- disabled telemetry when telemetry is required by the production profile
+- missing required secrets
+- direct browser access to provider keys or DB credentials
+
+Local/test shortcuts are allowed only behind explicit non-production profiles.
+
+#### Observability Semantics
+
+Observability should explain what happened without leaking sensitive data.
+
+Minimum events/metrics:
+
+- request received
+- auth accepted/denied
+- stream started/completed/errored/aborted/timed out
+- first-token latency
+- total turn latency
+- provider selected
+- provider latency/error code
+- tool call started/completed/failed/timed out
+- `[Deferred]` approval requested/resolved/rejected/timed out
+- host command emitted/resolved/rejected/timed out
+- token/usage metadata when available
+- persistence latency/error code
+
+Rules:
+
+- Every request has a request id.
+- A turn has an assistant turn id.
+- Logs, metrics, and traces carry correlation ids.
+- Tenant/workspace dimensions must be low-cardinality and safe.
+- Audit events are separate from debug logs.
+- Observability payloads use redacted product fields, not raw provider/tool payloads.
+
+#### Failure Model
+
+Expected failures should be typed and stable.
+
+| Failure | Runtime behavior |
+| --- | --- |
+| Unauthorized | Reject before model/tool/persistence work. |
+| Forbidden/cross-tenant | Reject with safe denial; do not reveal target existence unnecessarily. |
+| Rate limited | Reject with retry metadata when safe. |
+| Model unavailable | Terminal protocol error with product-level model code. |
+| Provider timeout/failure | Cancel runtime work and emit terminal error. |
+| Tool timeout/failure | Emit tool failure and continue or terminal-error according to policy. |
+| `[Deferred]` approval rejected/timed out | Skip, continue, or terminal-error according to approval policy. |
+| Host command rejected/failed | Record command result; do not assume side effect. |
+| Persistence failure | Avoid claiming durable success; emit terminal error if needed. |
+| Client abort | Cancel provider/tool work when possible and record aborted state if persistence is enabled. |
+
+Unexpected defects may fail fast internally, but HTTP/SSE boundaries must translate known application errors into stable protocol responses.
+
+## 24. Effect v4 Role
+
+Effect v4 is the server/core workflow discipline for the production repo.
+
+It should be used where TypeScript otherwise becomes weak under production pressure: async orchestration, typed expected failures, cancellation, resource management, dependency injection, observability, retries, timeouts, streaming, and testable adapter composition.
+
+It should not become a tax on host apps or widget consumers. Browser-facing and public package APIs should remain friendly: DTOs, plain TypeScript types, `Promise`, `AsyncIterable`, React props, and callbacks.
+
+### 24.1 Where Effect Is First-Class
+
+| Area | Effect role |
+| --- | --- |
+| `backend-core` | Use cases as `Effect` programs, typed application errors, service dependencies, stream policies. |
+| `assistant-runtime` | Agent/tool-loop execution, provider calls, tool calls, streaming, retries, cancellation, telemetry, and `[Deferred]` approvals/MCP/structured output. |
+| `partner-ai-service` | Runtime bootstrap, config, layers, HTTP lifecycle, graceful shutdown, error translation, observability. |
+| `db` | Pool lifecycle, transactions, typed DB errors, repository live layers. |
+| `chat-protocol` | Optional canonical schemas if Effect Schema is accepted; generated plain artifacts for consumers. |
+
+### 24.2 Where Effect Is Limited
+
+| Area | Limit |
+| --- | --- |
+| `side-chat-widget` | Do not expose Effect to host apps. Use React state/hooks and pure domain reducers. |
+| `chat-client` | Public API should be `Promise`/`AsyncIterable`; do not require Effect runtime. |
+| `host-bridge` | Keep plain callback/types helpers. |
+| UI primitives | No Effect unless a workflow has real cancellation/resource/concurrency complexity. |
+
+### 24.3 Effect Service Model
+
+Backend/core dependencies should be modeled as services and live/test layers:
+
+```txt
+BackendCore services
+  AssistantRuntime
+  ConversationRepository
+  UsageRepository
+  AuthService
+  RateLimitService
+  BillingService
+  Observability
+  Clock
+  IdGenerator
+
+AssistantRuntime services
+  ProfileRegistry
+  ToolRegistry
+  ProviderRegistry
+  RuntimeTelemetry
+  [Deferred] ApprovalPolicy
+  [Deferred] McpRegistry
+
+PartnerAiService layers
+  ConfigLive
+  HttpLive
+  BackendCoreLive
+  AssistantRuntimeLive
+  DbLive
+  AuthLive
+  TelemetryLive
+```
+
+Tests should compose fake layers rather than mocking deep internals.
+
+### 24.4 Error Model
+
+Expected failures belong in typed error channels:
+
+- unauthorized
+- rate limited
+- billing denied
+- model unavailable
+- provider failed
+- tool failed
+- `[Deferred]` approval rejected
+- persistence failed
+- malformed protocol request
+- stream aborted or timed out
+
+Unexpected defects may still fail fast, but HTTP and SSE adapters must translate known errors into stable product responses.
+
+### 24.5 Stream Model
+
+Effect `Stream` is the preferred internal representation for server-side assistant events:
+
+```txt
+AssistantRuntime Stream
+  -> BackendCore Stream of protocol events
+  -> PartnerAiService SSE writer
+```
+
+The widget and client still consume plain protocol events over SSE.
+
+### 24.6 Adoption Rule
+
+Use Effect deeply where it reduces real complexity. Avoid decorative Effect wrappers around simple pure functions, React components, or one-line helpers.
+
+If a function has no async dependency, no typed failure, no resource, no concurrency, and no observability boundary, plain TypeScript is usually better.
+
+## 25. Production Hardening Requirements
+
+Before calling the new repo production-ready, these areas need real design:
+
+| Area | Requirements |
+| --- | --- |
+| Auth and tenancy | Caller identity, workspace authorization, conversation ownership, host context trust boundaries, audit fields. |
+| Model/provider registry | Provider allowlist, model availability by workspace/account, fallback policy, cost metadata, region/compliance constraints. |
+| Tool safety | Tool permissions, audit trail, sensitive action denials, `[Deferred]` human approval and MCP security policy. |
+| Rate limiting | Per-user/workspace limits, burst/sustained limits, retry metadata, safe test mode. |
+| Billing and entitlements | Model availability, usage recording, spend/token budgets, clear denial errors. |
+| Observability | Request/trace ids, stream lifecycle, assistant steps, tool latency, provider latency, token usage, host command metrics. |
+| Persistence | Migration workflow, rollback policy, least privilege, backups, restore tests, data retention. |
+| Security | CORS allowed origins, no browser provider keys, no direct browser-to-DB path, input limits, stream timeout/abort, dependency/container scanning. |
+
+## 26. Testing Strategy
+
+Tests are colocated with the code they protect. The normal shape is `thing.ts` plus `thing.test.ts`. Use a package-level `test-harness/` only for cross-package browser harnesses, mock servers, or fixtures that are not owned by one source file.
+
+Unit tests own pure logic:
+
+- protocol schemas
+- sequence validation
+- backend policies
+- assistant-runtime provider/tool mapping and `[Deferred]` approval mapping
+- message projection
+- panel/composer state
+- retry policy
+
+Integration tests own package boundaries:
+
+- API route -> backend-core -> assistant-runtime fake provider
+- backend-core -> repository port
+- assistant-runtime -> fake provider/tool registry
+- chat-client -> mock SSE server
+- widget -> chat-client -> mocked stream
+- db repository -> test database
+
+Contract tests own compatibility:
+
+- golden success stream
+- `[Deferred]` golden approval stream
+- golden error stream
+- malformed stream handling
+- no event after terminal
+- no provider-native event leak
+- no AI SDK UI message leak
+- host command schema compatibility
+
+Type tests own compile-time contracts:
+
+- package public APIs expose only intended types
+- invalid protocol/host command shapes fail typecheck where possible
+- discriminated unions remain exhaustive
+- model/provider registry types preserve allowed values
+- `[Example]` `@ts-expect-error` cases fail for the intended reason
+
+E2E tests use a minimal test harness, not a product host app:
+
+```txt
+test-harness/
+  widget-harness/
+    renders SideChatWidget
+    supplies fake host bridge callbacks
+    talks to mock or local partner-ai-service
+```
+
+The harness exists only for tests. It must not become a demo app.
+
+### 26.1 Solo Widget Development Without A Host App
+
+The repository must support developing the widget without cloning, booting, or embedding into a real host application.
+
+Use `test-harness/widget-harness` for this. It is a runnable development and browser-test fixture, not a product app and not a demo host.
+
+It owns:
+
+- rendering `SideChatWidget` in isolation
+- fake host context callbacks
+- fake host command dispatch callbacks
+- scenario controls for host resources, capabilities, current surface state, auth identity, and model mode
+- visual/e2e test fixtures
+- `[Optional]` mock stream mode using `chat-protocol` fixtures
+
+It must not own:
+
+- real host app navigation
+- UBS/advisory demo dashboards
+- production routing
+- business demo data beyond tiny contract fixtures
+- provider keys
+- product-specific host state not needed to exercise the integration contract
+
+Supported solo modes:
+
+| Mode | Runs | Purpose |
+| --- | --- | --- |
+| Mock stream mode | `widget-harness` only. | Fast UI development with deterministic `chat-protocol` fixture events. |
+| Local service + fake provider mode | `widget-harness` + `partner-ai-service` using fake provider/runtime. | End-to-end protocol, SSE, widget state, host bridge, and stream sequencing without credentials. |
+| Local service + real provider mode | `widget-harness` + `partner-ai-service` + configured provider credentials. | Manual validation of the real AI SDK runtime path. |
+
+`[Example]` expected command shape:
+
+```json
+{
+  "scripts": {
+    "dev:service": "npm run dev --workspace @side-chat/partner-ai-service",
+    "dev:widget": "npm run dev --workspace @side-chat/widget-harness",
+    "dev:widget:mock": "npm run dev --workspace @side-chat/widget-harness -- --mode mock-stream",
+    "test:e2e": "playwright test"
+  }
+}
+```
+
+The harness should use the same public widget API an external host would use:
+
+```tsx
+<SideChatWidget
+  apiBaseUrl="http://localhost:3100"
+  workspaceId="local-dev"
+  hostBridge={{
+    getContext: async () => fakeHostContext,
+    dispatchCommand: async (command) => applyCommandToHarnessState(command),
+  }}
+/>
+```
+
+This keeps development ergonomic while preserving the production rule: no host app in the repo.
+
+## 27. Initial Build Milestones
+
+| Milestone | Deliver | Done when |
+| --- | --- | --- |
+| 0. DB schema contract | Day-one entities, table responsibilities, context snapshots, history/resume behavior, repository command API, grants model, idempotency rules. | Contract is accepted before migrations/repositories; deferred schema areas are explicitly labeled. |
+| 1. Contract spine | `packages/chat-protocol`, schemas, SSE codec, sequence validation, fixtures. | Protocol tests pass, fixtures validate, malformed sequences fail predictably. |
+| 2. Backend core | `packages/backend-core`, stream-chat use case, ports, application errors. | Framework-free stream use case emits valid protocol events. |
+| 3. Assistant runtime | `packages/assistant-runtime`, AI SDK 6 runtime, fake provider, tool registry, provider registry. | Runtime emits internal events through fake provider and maps tool/provider states predictably; approval mapping is `[Deferred]`. |
+| 4. Service adapter | `apps/partner-ai-service`, HTTP stream route, config parsing, composition root. | `POST /chat/stream` produces valid SSE and invalid requests return clear errors. |
+| 5. Browser client | `packages/chat-client`, typed stream client, SSE reader. | Client decodes chunked SSE streams and terminal behavior is correct. |
+| 6. Widget | `packages/side-chat-widget`, shell, composer, feed, reasoning/tool/host states, and `[Deferred]` approval states. | Widget streams against mock client/service and external host receives commands. |
+| 7. Persistence implementation | `packages/db`, pg, Drizzle schema/queries, migrations, repositories, least-privilege tests implementing the accepted DB schema contract. | Repository ports have DB implementations, migrations run in CI, and only `packages/db` can access tables/query helpers. |
+| 8. Production hardening | Real auth, rate limiting, telemetry, production image, CI gates, ops docs. | Deploy target is documented, secrets externalized, observability emitted, rollback defined. |
+
+## 28. Governance Checks
+
+The clean repo should make architectural drift hard.
+
+Checks should fail if:
+
+- type-aware ESLint is disabled for source files without a documented reason
+- source files, functions, complexity, nesting, parameters, statements, or import counts exceed code-quality budgets without an allowlisted reason
+- nested ternaries, dense chained conditionals, or unclear expression-side effects appear in production source
+- protocol event names, route paths, header names, error codes, model/provider ids, tool names, feature flags, or env var names are duplicated as magic strings
+- any app/package is missing from TypeScript project references
+- DB migrations or repositories exist without an accepted DB schema/repository command contract
+- strict TypeScript options are weakened without an ADR
+- `any`, `as any`, `@ts-ignore`, or unsafe double assertions appear outside allowlisted interop/type-test files
+- `JSON.parse`, external service responses, DB rows, postMessage payloads, or request bodies cross boundaries without schema parsing
+- switches over protocol/runtime/error/host-command unions are not exhaustive
+- `chat-protocol` imports React, HTTP framework, AI SDK, provider SDKs, pg, or Drizzle
+- domain or policy files import IO, framework, provider, DB, browser, or composition code
+- `backend-core` imports HTTP framework, AI SDK, provider packages, React, pg, or Drizzle
+- `backend-core` application use cases import concrete outbound adapters or instantiate external clients
+- backend ports or services expose vendor DTOs, raw DB rows, framework objects, browser objects, or provider-native stream parts
+- `assistant-runtime` imports HTTP framework, React, widget internals, app composition, pg, or Drizzle
+- assistant tool definitions instantiate raw external clients instead of depending on services/ports
+- inbound adapters contain model, entitlement, conversation, or stream sequencing policy decisions
+- outbound service calls appear outside approved outbound/provider/adapter/DB folders
+- `side-chat-widget` imports API server internals, DB code, provider SDKs, or assistant-runtime internals
+- `side-chat-widget` or `chat-client` public APIs require consumers to run Effect programs
+- `apps/partner-ai-service` imports widget internals or host app code
+- external package consumers import deep internal widget paths in tests/examples
+- provider stream event names appear in widget/domain code
+- AI SDK UI message types appear in chat protocol or widget public API
+- Effect-only error/runtime types become required protocol DTO fields or public browser API types
+- runtime app code imports Drizzle table objects, query helpers, raw SQL, or `pg` outside `packages/db`
+- ordinary unit tests are placed in top-level `test/` folders instead of beside the code they cover
+- public declarations leak forbidden internal/provider/framework/runtime types
+- focused/skipped tests are committed outside allowlisted quarantine files
+- production source reads `process.env` outside config adapters
+- production source imports from `packages/testing`
+- generated files are edited without the generator source changing
+- generated protocol artifacts are stale
+- build artifacts are tracked
+- production profile can boot with dev/static auth, fake providers, permissive CORS, fixture persistence, disabled required telemetry, or missing required secrets
+- protected use cases can run without normalized auth context and workspace/tenant scope
+
+## 29. AI Agent Skill Contract
+
+The production repo should eventually ship with a small set of AI skills that guide agents toward the intended architecture. Do not create these skill folders during the initial design phase. First agree on the skill list, triggers, and responsibilities.
+
+The goal is not to make one giant skill that repeats the whole system design. Skills should be short, triggerable, and procedural. They should tell an AI agent what to check, where code belongs, what is forbidden, and what must be verified for a specific kind of work.
+
+### 29.1 Skill Suite Plan
+
+Day-one skills should protect the highest-risk architectural boundaries.
+
+| Skill name | Use when | Owns | Should not own |
+| --- | --- | --- | --- |
+| `side-chat-architecture` | Creating, editing, or reviewing any production repo code where package/layer ownership matters. | Hexagonal rules, dependency direction, forbidden moves, completion checks. | Detailed protocol schemas, provider-specific setup, UI design details. |
+| `side-chat-protocol` | Changing request DTOs, stream events, SSE codec, sequence rules, host commands, generated schema/OpenAPI. | Protocol compatibility, event ordering, fixture updates, no provider/runtime leaks. | Backend use-case orchestration or widget rendering internals. |
+| `backend-use-case` | Adding or changing `backend-core` domain, policies, ports, services, or application use cases. | Use-case shape, Effect service dependencies, typed errors, fake-port tests. | Concrete HTTP, DB, provider, telemetry, or auth adapters. |
+| `assistant-runtime` | Adding providers, model registry behavior, AI SDK 6 agents, tools, and `[Deferred]` approvals/MCP/reranking/structured output. | Runtime event model, provider/tool registry, AI SDK mapping, fake providers, and `[Deferred]` approval safety. | Browser protocol ownership or widget UI. |
+| `outbound-adapter` | Connecting to an external system such as Azure SSO, CRM, document search, Redis, telemetry, billing, or entitlement services. | Client/adapter/layer shape, response parsing, retries, error mapping, secret handling. | Business decisions that belong in use cases or policies. |
+| `db-schema-contract` | Defining or changing day-one DB entities, table contracts, repository command API, grants, idempotency, retention, audit fields. | Schema contract first, table responsibilities, repository command contracts, deferred schema labels. | Repository implementation details or app use-case behavior. |
+| `db-boundary` | Changing Drizzle schema, migrations, repositories, query helpers, DB clients, row parsers, least-privilege tests. | Migration discipline, Drizzle/pg boundary, row validation, repository adapter tests. | Backend use-case decisions or direct app table access. |
+| `widget-integration` | Changing `side-chat-widget`, `chat-client`, host bridge, iframe/local embedding behavior, browser SSE handling. | Browser/client public API, widget state projection, host bridge callbacks, no server/runtime leaks. | Provider SDKs, DB access, backend-core internals. |
+| `repo-governance` | Adding packages, changing tsconfig/eslint/scripts/CI, moving folders, relaxing rules, adding dependencies. | Boundary scripts, lint rules, TypeScript strictness, package exports, CI gates. | Product feature behavior. |
+
+`[Deferred]` near-future skills should exist after the core scaffold proves the day-one skills are useful.
+
+| Skill name | Use when | Owns |
+| --- | --- | --- |
+| `auth-tenancy` | Implementing caller identity, Azure SSO/JWT validation, workspace authorization, conversation ownership. | Auth context shape, trust boundaries, tenancy tests, audit fields. |
+| `observability` | Adding logs, metrics, traces, stream lifecycle events, provider/tool latency, request correlation. | Telemetry event names, correlation ids, redaction, Effect observability layers. |
+| `security-review` | Reviewing secrets, CORS, input limits, browser exposure, dependency risk, external tool permissions. | Security checklist and threat-model-oriented review prompts. |
+| `test-strategy` | Designing or reviewing unit/integration/contract/e2e/type tests for a change. | Test placement, fake providers, protocol fixtures, no real external services by default. |
+| `adr-writer` | Accepting/rejecting architecture decisions that should become durable ADRs. | Decision format, alternatives rejected, consequences, follow-up rules. |
+
+Do not create separate skills for every folder. Create a new skill only when it changes agent behavior in a way that a short section in an existing skill cannot.
+
+Skill design rules:
+
+- Keep each `SKILL.md` short enough to load comfortably.
+- Put long reference material under `references/` and load it only when needed.
+- Put deterministic checks under `scripts/`, not in prose.
+- Include concrete trigger wording in the skill description.
+- Prefer action checklists over architecture essays.
+- Avoid duplicating the full system design across skills.
+- Each skill should include a small completion checklist.
+- Skills must point back to this system design as the source of truth when a rule is ambiguous.
+
+Suggested trigger split:
+
+| If the user asks to... | Primary skill |
+| --- | --- |
+| add a new feature in server/core code | `side-chat-architecture` plus `backend-use-case` |
+| change streaming events or protocol DTOs | `side-chat-protocol` |
+| add a model/provider/tool flow or `[Deferred]` approval flow | `assistant-runtime` |
+| connect to an external system | `outbound-adapter` |
+| define or revise DB schema contract | `db-schema-contract` |
+| change Drizzle schema, SQL, migrations, repositories, DB roles | `db-boundary` |
+| change widget/client/host bridge behavior | `widget-integration` |
+| change lint, package exports, tsconfig, CI, dependency rules | `repo-governance` |
+| implement SSO, authorization, tenants | `auth-tenancy` |
+| decide or document a major architecture choice | `adr-writer` |
+
+Skill anti-patterns:
+
+- one huge skill that tries to teach the entire repo
+- skills that repeat stale file trees instead of pointing to the current design doc
+- skills that permit agents to bypass tests or governance checks
+- skills that describe desired architecture but do not say how to verify it
+- skills whose trigger descriptions are too vague to activate reliably
+- skills that encode provider-specific behavior into product protocol instructions
+- skills that make frontend/widget work depend on backend Effect runtime concepts
+
+### 29.2 First Skill Draft: `side-chat-architecture`
+
+This is the first `SKILL.md` contract draft for AI agents working in the production repo.
+
+```md
+# Hexagonal Production Repo Architecture
+
+Use this skill when creating, editing, or reviewing code in the side-chat production repo.
+
+## Prime Directive
+
+Preserve the product boundary:
+
+browser/host/widget -> chat-protocol -> partner-ai-service -> backend-core -> assistant-runtime -> adapters
+
+Do not leak provider SDKs, AI SDK UI messages, HTTP framework objects, DB clients, or host app internals across that boundary.
+
+## Dependency Direction
+
+- `chat-protocol` is the browser/backend contract and imports no app/runtime/UI/provider/DB code.
+- `backend-core` owns use cases, ports, policies, Effect services/layers, and application errors. It imports no HTTP framework, React, pg, Drizzle, AI SDK, or provider SDK.
+- `assistant-runtime` owns AI SDK 6 agents, tools, provider registry, Effect runtime programs, and runtime telemetry. `[Deferred]` approvals, MCP, and structured output are added only after acceptance. It depends on backend-core ports/types, not on HTTP or UI.
+- Provider-specific behavior stays in provider adapters.
+- Inbound adapters receive calls into the service; outbound adapters call external systems.
+- External tools/services live behind outbound adapters and Effect services, not inside use cases or tool definitions.
+- `chat-client` owns browser transport and SSE decoding, not React state.
+- `side-chat-widget` owns React UI/state and consumes protocol/client/host-bridge only. Its public API must not require Effect.
+- `host-bridge` owns external host integration contracts, not host state.
+- `apps/partner-ai-service` owns process startup, HTTP, config, Effect layer composition, and concrete adapters.
+- TypeScript strictness is architectural. Do not weaken compiler options to make a change easier.
+
+## Hexagonal Architecture Rule
+
+The center owns product behavior. The edges own translation.
+
+- Domain and policy code must be pure.
+- Application use cases orchestrate workflows through ports/services.
+- Ports are defined by the center and use domain/product types.
+- Inbound adapters parse external input, invoke use cases, and map responses.
+- Outbound adapters implement ports by calling external systems.
+- Composition roots wire concrete adapters to ports.
+
+If code imports an SDK, talks to a network, reads environment, opens a DB connection, touches browser storage, or knows transport objects, it is edge code. Keep it out of domain, policies, use cases, and ports unless the dependency is represented by an explicit port/service.
+
+## Before Editing
+
+1. Identify which package owns the behavior.
+2. Check whether the change is domain rule, application use case, port/service, inbound adapter, outbound adapter, runtime orchestration, provider adapter, client transport, widget UI, host bridge, DB, or app composition.
+3. Put the change in the narrowest owner.
+4. Add or update colocated tests at the same boundary.
+
+## Forbidden Moves
+
+- Do not expose AI SDK or provider stream parts to the widget.
+- Do not import provider SDKs from backend-core, chat-protocol, chat-client, or widget.
+- Do not import HTTP framework objects into backend-core or assistant-runtime.
+- Do not import pg, Drizzle, Drizzle table objects, or DB query helpers outside `packages/db` and colocated migration/test harness code.
+- Do not force Effect runtime types into widget/client public APIs.
+- Do not use `any`, `as any`, `@ts-ignore`, or unsafe double assertions outside approved interop/type-test files.
+- Do not trust unparsed JSON, DB rows, request bodies, postMessage payloads, provider responses, or external service responses.
+- Do not wrap simple pure UI helpers in Effect without a real async/error/resource/concurrency reason.
+- Do not call external services directly from backend-core use cases or assistant tool definitions.
+- Do not expose vendor DTOs, DB rows, HTTP objects, browser objects, or provider-native stream parts through ports.
+- Do not put business policy into inbound adapters or outbound adapters.
+- Do not hide product behavior in generic `utils`, `helpers`, or `shared` folders.
+- Do not add broad `test/` folders for ordinary unit tests; colocate `*.test.ts` beside the source.
+- Do not make a host app part of the production repo.
+- Do not add provider UI before the assistant-runtime provider registry exists.
+- Do not use direct SQL from app/core/runtime code; DB queries belong in `packages/db`.
+
+## AI SDK 6 Rule
+
+AI SDK 6 is the backend assistant-runtime engine. Use it for agents, tool loops, provider tools, and DevTools inside `packages/assistant-runtime`. `[Deferred]` approvals, structured output, MCP, and reranking are added only after acceptance.
+
+Never make AI SDK UI messages or provider-native stream events the product protocol.
+
+## Effect v4 Rule
+
+Effect v4 is the backend/core workflow discipline. Use it for use cases, services/layers, typed expected errors, streams, retries, timeouts, resource safety, cancellation, and observability in `backend-core`, `assistant-runtime`, `partner-ai-service`, and `db`.
+
+Do not make host apps, widget consumers, or public browser/client APIs understand Effect.
+
+## TypeScript Rule
+
+Use TypeScript strict mode as a design tool. Prefer discriminated unions, branded ids where useful, `unknown` at IO boundaries, schema parsing before trust, exhaustive switches, and narrow public exports.
+
+Do not silence type errors. Fix the type model or isolate a documented interop boundary.
+
+## Lint And Restriction Rule
+
+Run the same architecture checks locally and in CI. Do not bypass lint, boundary, dependency, generated-artifact, or test-placement checks to land a change. If a rule is wrong, update the rule and the system design together.
+
+Treat type-aware ESLint as part of the architecture, not as style decoration.
+
+- No unsafe TypeScript values, casts, or hidden `any`.
+- No dropped promises or accidental async callbacks.
+- No non-exhaustive switches over protocol, runtime, error, host-command, or provider unions.
+- No forbidden framework/provider/DB/browser imports outside their allowed folders.
+- No committed focused/skipped tests.
+- No React hook or basic accessibility violations in widget UI.
+- No deep imports across package public boundaries.
+- No oversized files/functions, nested ternaries, excessive nesting, unclear chained conditionals, or unexplained product literals.
+
+Use custom scripts, not ESLint alone, for package-graph checks, generated artifacts, declaration leaks, runtime-boundary leaks, outbound adapter ownership, file-size budgets, import-count budgets, and magic-string scans.
+
+## Completion Check
+
+Before claiming done, verify:
+
+- boundary checks pass
+- typecheck passes
+- type-aware lint passes
+- code-quality budgets pass or exceptions are documented and narrow
+- relevant unit/integration tests pass
+- generated artifact checks pass when schemas or public APIs changed
+- no unsafe TypeScript escape hatches were introduced
+- runtime inputs are parsed at trust boundaries
+- no domain/policy/use-case code imports edge SDKs, clients, or framework objects
+- no outbound service calls live outside outbound/provider/adapter/DB boundaries
+- ports expose product/domain types, not vendor/framework/database types
+- no provider/runtime types leaked into protocol/widget/client
+- no Effect runtime requirements leaked into widget/client public APIs
+- protocol fixtures still validate if stream events changed
+```
+
+## 30. Open Design Questions
+
+Every item in this section is `[Open]` and must not be implemented as a default without an accepted decision.
+
+- Should source schemas use Effect Schema, Zod, Valibot, TypeBox, Standard Schema, or another schema library?
+- If Effect Schema is chosen, what generated artifacts are required so consumers do not need Effect runtime knowledge?
+- Should the repo use one module-resolution strategy everywhere, or separate Node-service and browser-library tsconfig presets?
+- Which type-test tool should own public API compile-time checks: Vitest `expectTypeOf`, `tsd`, API Extractor, or another tool?
+- Should `skipLibCheck` be forbidden, or allowed only with a documented dependency issue?
+- Should `backend-core` public use cases expose Effect programs directly, or should app-facing wrapper functions also exist for simpler adapters?
+- Which Effect v4 modules are stable enough for production v1, and which `effect/unstable/*` modules should be avoided until they stabilize?
+- Should provider adapters live inside `assistant-runtime`, or in a future `packages/model-providers` package?
+- Should outbound business integrations live under `apps/partner-ai-service/src/outbound`, or graduate into separate packages when reused across services?
+- Which DB operations, if any, should graduate from Drizzle repository queries to stored functions after implementation feedback?
+- Should `host-bridge` be a separate package, or part of `chat-protocol` plus widget helper exports?
+- Should `chat-client` be public API for non-React consumers, or internal to the widget at first?
+- What protocol compatibility policy is required before `sidechat.v1` is declared stable?
+- Which auth provider should first implement the normalized `AuthContext`: Azure SSO-backed JWT, gateway token, session token, mTLS behind gateway, or host-signed request?
+- What level of model/tool abstraction is needed before adding multiple providers?
+- Which `[Deferred]` AI SDK 6 capabilities should be promoted after v1: approvals, structured output, MCP, or reranking?
+- Should formatting be handled by ESLint alone, Prettier, or a formatter-independent policy?
+- Which dependency-audit and license checks are required before production?
+
+## 31. Current Draft Decisions
+
+These decisions are provisional and should become ADRs when accepted.
+
+| Decision | Current stance |
+| --- | --- |
+| Host app in repo | No. The host is external. |
+| Repo style | npm workspace modular monolith. |
+| First deployable app | `apps/partner-ai-service` only. |
+| Product protocol | Dedicated `packages/chat-protocol`. |
+| TypeScript role | Strict TypeScript is an architecture gate, not only a compile step. |
+| TypeScript escape hatches | `any`, `as any`, `@ts-ignore`, and unsafe double assertions are forbidden except documented interop/type-test cases. |
+| Effect v4 role | Backend/core workflow discipline for use cases, layers, typed errors, streams, resources, and observability. |
+| Effect in browser APIs | Do not require widget, host, or chat-client consumers to use Effect. |
+| Backend use cases | Dedicated framework-free `packages/backend-core`. |
+| Assistant runtime | Dedicated `packages/assistant-runtime` day one. |
+| AI SDK 6 role | Backend assistant-runtime engine, not browser protocol and not OpenAI-only adapter. |
+| Provider switching | Backed by runtime provider registry before becoming product UI. |
+| Outbound integrations | Start in `apps/partner-ai-service/src/outbound`; extract only when reuse or deployment boundaries justify it. |
+| Auth provider | Not decided. Design against normalized `AuthContext`; keep Azure/JWT/gateway/session details in adapters. |
+| Production runtime profile | Must fail closed when required production auth, provider, CORS, telemetry, secrets, persistence, or rate-limit configuration is missing. |
+| DB schema contract | Accepted before migrations and repository implementations. |
+| Runtime DB access | `packages/db` uses Drizzle over `pg`; direct DB access outside `packages/db`, migrations, and explicit DB test harnesses is forbidden. |
+| Test placement | Colocate ordinary tests beside source files; reserve harness folders for cross-package/browser test infrastructure. |
+| Linting | Type-aware ESLint plus custom governance scripts. |
+| Dependency policy | Runtime dependencies must live only where used; duplicate libraries for the same job need an ADR. |
+| AI skills | Plan the skill suite first; do not create skill folders until names, triggers, and responsibilities are accepted. |
+| Widget package | Dedicated React package with public entrypoint only. |
+| Browser client | Dedicated `packages/chat-client` day one. Revisit only by ADR if scaffold friction proves too high. |
+| DB | Day-one PostgreSQL with `pg` + Drizzle in `packages/db`, composed into the same `partner-ai-service` server process. |
+| Demo code | Excluded from the production spine. |
+
+## 32. Initial Acceptance Criteria For Repo Scaffold
+
+A first clean scaffold is acceptable when:
+
+- the top-level folders match this document or have documented deviations
+- there is no host app
+- `npm install` works from the root
+- `npm run verify` exists
+- root TypeScript project references include every app/package
+- strict TypeScript options are enabled and checked by governance
+- type-aware ESLint and custom governance scripts run through `npm run lint`
+- code-quality budgets fail on intentionally oversized files/functions, nested ternaries, and duplicated product magic strings
+- the DB schema contract exists and defines day-one entities, context snapshots, history/resume behavior, repository command API, grants, idempotency, and deferred schema areas
+- `chat-protocol` has tests for request, event, codec, and sequence rules
+- public package APIs have type tests or declaration checks
+- `backend-core` has an Effect-based fake-runtime stream use-case test
+- `assistant-runtime` has fake provider, tool registry, and provider registry tests
+- `partner-ai-service` can serve a fake streaming response
+- `side-chat-widget` can render against a mocked client stream
+- widget and chat-client public APIs expose plain TypeScript/React-friendly contracts, not required Effect programs
+- boundary checks fail on intentionally forbidden imports
+- runtime-boundary checks fail on domain/use-case code importing framework, provider, DB, browser, env, or client objects
+- outbound-rule checks fail on use cases or assistant tools calling external systems directly
+- test-placement checks fail on intentionally misplaced unit tests
+- README explains the product boundary in one screen

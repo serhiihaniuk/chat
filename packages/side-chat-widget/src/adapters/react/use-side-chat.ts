@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   protocolVersion,
   type HostCommand,
@@ -92,10 +92,15 @@ export function useSideChat(options: UseSideChatOptions) {
   const [activeAssistantMessageId, setActiveAssistantMessageId] = useState<
     string | undefined
   >();
+  const onErrorRef = useRef(onError);
+  const onUsageRef = useRef(onUsage);
   const historyEndpoint =
     explicitHistoryEndpoint ?? deriveHistoryEndpoint(apiEndpoint);
   const historyResetEndpoint = explicitHistoryResetEndpoint ?? historyEndpoint;
   const usageEndpoint = deriveUsageEndpoint(apiEndpoint);
+
+  onErrorRef.current = onError;
+  onUsageRef.current = onUsage;
 
   const refreshUsage = useCallback(
     async (conversationId: string) => {
@@ -110,10 +115,10 @@ export function useSideChat(options: UseSideChatOptions) {
       };
       if (payload.usage) {
         setUsage(payload.usage);
-        onUsage?.(payload.usage);
+        onUsageRef.current?.(payload.usage);
       }
     },
-    [onUsage, usageEndpoint, workspaceId],
+    [usageEndpoint, workspaceId],
   );
 
   useEffect(() => {
@@ -171,7 +176,7 @@ export function useSideChat(options: UseSideChatOptions) {
         );
         setHistoryStatus("error");
         setError(historyError);
-        onError?.(historyError);
+        onErrorRef.current?.(historyError);
       } finally {
         if (!aborted) {
           setIsLoadingHistory(false);
@@ -188,7 +193,6 @@ export function useSideChat(options: UseSideChatOptions) {
   }, [
     historyEndpoint,
     initialConversationId,
-    onError,
     refreshUsage,
     workspaceId,
   ]);
@@ -234,14 +238,14 @@ export function useSideChat(options: UseSideChatOptions) {
           setError(undefined);
           void refreshUsage(effect.conversationId).catch(() => {
             setUsage(effect.fallbackUsage);
-            onUsage?.(effect.fallbackUsage);
+            onUsageRef.current?.(effect.fallbackUsage);
           });
           return;
 
         case "error":
           setActiveAssistantMessageId(undefined);
           setError(effect.error);
-          onError?.(effect.error);
+          onErrorRef.current?.(effect.error);
           return;
 
         case "host-command":
@@ -260,7 +264,7 @@ export function useSideChat(options: UseSideChatOptions) {
           return;
       }
     },
-    [dispatchHostCommand, onError, onUsage, refreshUsage],
+    [dispatchHostCommand, refreshUsage],
   );
 
   const sendMessage = useCallback(
@@ -333,7 +337,7 @@ export function useSideChat(options: UseSideChatOptions) {
           requestId,
         );
         setError(nextError);
-        onError?.(nextError);
+        onErrorRef.current?.(nextError);
       } finally {
         setIsStreaming(false);
       }
@@ -345,7 +349,6 @@ export function useSideChat(options: UseSideChatOptions) {
       initialConversationId,
       isStreaming,
       model,
-      onError,
       workspaceId,
     ],
   );
@@ -387,7 +390,7 @@ export function useSideChat(options: UseSideChatOptions) {
       );
       setHistoryStatus("error");
       setError(resetError);
-      onError?.(resetError);
+      onErrorRef.current?.(resetError);
     } finally {
       setIsLoadingHistory(false);
     }
@@ -395,7 +398,6 @@ export function useSideChat(options: UseSideChatOptions) {
     historyResetEndpoint,
     initialConversationId,
     isStreaming,
-    onError,
     workspaceId,
   ]);
 

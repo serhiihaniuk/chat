@@ -8,9 +8,9 @@ The demo host is a UBS Partner advisory workbench. The assistant appears as a si
 
 The architectural point is deliberate:
 
-> A product chat assistant needs a stable UI-facing chat protocol. The model provider is only one adapter behind that protocol.
+> A product chat assistant needs a stable UI-facing chat protocol. The assistant runtime is the backend engine behind that protocol, and individual model providers are only adapters inside that runtime.
 
-That is why this repo uses Node.js/TypeScript for the browser-facing boundary, `sidechat.v1` for the shared protocol, AI SDK for provider streaming inside an adapter, Effect where typed workflow boundaries help, and Postgres behind stored-procedure-backed data access.
+That is why this repo uses Node.js/TypeScript for the browser-facing boundary, `sidechat.v1` for the shared protocol, AI SDK 6 as the backend assistant-runtime engine, Effect where typed workflow boundaries help, and Postgres behind stored-procedure-backed data access.
 
 ## 2. Goals
 
@@ -19,7 +19,8 @@ That is why this repo uses Node.js/TypeScript for the browser-facing boundary, `
 | Reusable side-chat UI | `packages/side-chat-widget` can be consumed by a host app without importing host internals. |
 | Typed chat protocol | `packages/shared-protocol` owns `sidechat.v1` request, event, Effect schema, codec, and sequence rules. |
 | UI-facing TypeScript backend | `apps/side-chat-api` owns the browser-facing streaming API. |
-| Provider isolation | AI SDK and OpenAI details stay in `apps/side-chat-api/src/adapters/ai`. |
+| Assistant runtime | AI SDK 6 powers backend agent/tool/model orchestration behind the chat use case. |
+| Provider isolation | OpenAI, Anthropic, Azure OpenAI, local models, AI Gateway, and fake-model details stay behind assistant-runtime/provider adapters. |
 | Host ownership | The embedded host owns its dashboard state and exposes only context/commands through a bridge. |
 | DB isolation | `packages/db` owns Postgres access through stored procedures/functions. |
 | Teachable architecture | The folder layout, docs, tests, and governance checks should make the boundary rules visible. |
@@ -46,7 +47,7 @@ That is why this repo uses Node.js/TypeScript for the browser-facing boundary, `
 | A1 | Stable product protocol | The browser consumes `sidechat.v1`, not AI SDK or provider-native stream types. |
 | A2 | Hexagonal boundary | Hono, AI SDK, Postgres, reports, and host context are adapters around application use cases. |
 | A3 | Modular monolith | Modules remain in one workspace until service extraction has a real operational reason. |
-| A4 | AI SDK adapter ownership | AI SDK imports stay in the side-chat API AI adapter boundary. |
+| A4 | Assistant-runtime ownership | AI SDK imports stay inside the side-chat API assistant-runtime/AI adapter boundary. |
 | A5 | Stored-procedure DB boundary | Runtime database access goes through `packages/db` functions/procedures. |
 | A6 | Reusable widget package | The host consumes `@side-chat/side-chat-widget`; it does not import widget internals. |
 | A7 | Effect only where useful | Effect is used for typed schemas, boundaries, errors, dependencies, and workflows, not every helper. |
@@ -112,13 +113,14 @@ For this repo:
 | Inside concept | Outside adapter |
 | --- | --- |
 | Stream a chat response | Hono route calls the use case |
-| Generate model chunks | AI SDK/OpenAI adapter implements `ModelPort` |
+| Run assistant turns | AI SDK-backed assistant runtime implements the chat use case's assistant port |
+| Generate provider chunks | Provider adapters normalize OpenAI, Anthropic, Azure OpenAI, local, gateway, or fake-model output |
 | Store conversations | memory or Postgres repository adapter |
 | Read Workbench context | Workbench tools adapter |
 | Generate reports | Playwright report adapter |
 | Authorize/rate/bill | current placeholder adapters, future real adapters |
 
-The main learning point: Hono is not the architecture. AI SDK is not the architecture. Postgres is not the architecture. They are adapters around the product workflow.
+The main learning point: Hono is not the architecture. AI SDK is not the browser contract. Postgres is not the architecture. AI SDK is the preferred backend engine for assistant orchestration, but it still sits behind product ports so providers and models can change without changing the widget.
 
 ## 5. System Diagram
 
@@ -144,10 +146,13 @@ apps/side-chat-api
   |    owns the chat workflow
   |
   +- ports
-  |    ModelPort, WorkbenchToolsPort, repositories, usage, reports
+  |    AssistantRuntimePort, ModelProviderPort, WorkbenchToolsPort, repositories, usage, reports
+  |
+  +- assistant-runtime
+  |    AI SDK 6 agents, tool registry, provider registry, approvals, telemetry
   |
   +- adapters/ai
-  |    AI SDK/OpenAI or fake model
+  |    OpenAI, Anthropic, Azure OpenAI, AI Gateway, local, or fake providers
   |
   +- adapters/workbench
   |    approved Workbench tool context
@@ -172,7 +177,8 @@ apps/
       inbound/hono/          HTTP/SSE adapter and composition boundary
       application/           chat use case, Effect boundary, request decoding
       ports/                 interfaces the application depends on
-      adapters/ai/           AI SDK/OpenAI and fake model adapters
+      assistant-runtime/     target home for AI SDK 6 agents, tools, approvals, telemetry
+      adapters/ai/           provider adapters: OpenAI, Anthropic, Azure OpenAI, local, fake
       adapters/workbench/    Workbench tool-context adapter
       adapters/reports/      report generation adapter
   dashboard-data-api/
@@ -208,7 +214,7 @@ This tree is intentionally brownfield-real. It describes the codebase as it exis
 | Context | Owns | Does not own |
 | --- | --- | --- |
 | Conversation | messages, conversation id, stream lifecycle, history, usage recording trigger | Hono details, provider-native stream parts, widget rendering |
-| AI Gateway | model selection, provider normalization, provider tool-call mapping | dashboard UI state, DB schema ownership |
+| Assistant Runtime | agent profiles, model/provider selection, tool registry, approvals, MCP/tool adapters, provider normalization, telemetry | browser protocol ownership, dashboard UI state, DB schema ownership |
 | Workbench Context | approved dashboard context, citations, host command shape | arbitrary SQL, browser-only state mutation |
 | Widget | reusable chat shell, event rendering, host bridge API | AG Grid internals, Postgres, provider SDK runtime |
 | Dashboard Data | read-only dashboard records for the host app | chat streaming and model orchestration |
@@ -243,9 +249,11 @@ User sends a prompt in the side-chat widget
   |    check rate/billing ports
   |    load context/history
   |    append user message
-  |    call ModelPort.stream()
+  |    call AssistantRuntimePort.stream()
   |
-  +- AI SDK adapter maps provider stream parts into internal model chunks
+  +- assistant runtime runs an AI SDK 6 agent/tool loop
+  |
+  +- provider adapters normalize OpenAI/Anthropic/Azure/local/fake stream parts
   |
   +- application maps chunks into sidechat.v1 events
   |
@@ -320,7 +328,7 @@ Effect Schema owns the protocol.
 Adapters may translate the protocol for a library boundary.
 ```
 
-For example, the AI SDK adapter may still use Zod for provider tool input because AI SDK accepts Zod-style tool schemas. That does not make Zod the product contract. It is only an adapter shape at the provider boundary.
+For example, the assistant runtime may still use Zod, Standard Schema, or JSON Schema for AI SDK tool input because AI SDK and provider tools expect those integration shapes. That does not make those schemas the product contract. They are adapter shapes at the assistant-runtime boundary.
 
 This package is important because it prevents provider leakage.
 
@@ -333,41 +341,71 @@ Widget consumes OpenAI/AI SDK stream parts directly
 Good boundary:
 
 ```txt
-Provider stream parts -> server adapter normalization -> sidechat.v1 events -> widget
+Provider stream parts -> assistant-runtime normalization -> sidechat.v1 events -> widget
 ```
 
-That makes the browser contract stable even if the provider adapter changes later.
+That makes the browser contract stable even if the assistant runtime switches models, providers, tool transport, or orchestration strategy later.
 
 ## 11. AI SDK Role
 
-AI SDK is used for provider integration, not for the whole app architecture.
+AI SDK 6 should be treated as the backend assistant-runtime engine, not as an OpenAI-only adapter and not as the browser-facing protocol.
 
-It belongs in:
+The current code still places AI SDK usage under:
 
 ```txt
 apps/side-chat-api/src/adapters/ai
 ```
 
-That adapter can own:
+The production target should evolve that into a named runtime boundary:
 
-- `streamText`
-- provider client setup
-- provider options
-- provider tool definitions
-- provider stream part mapping
-- provider usage mapping
-- OpenAI-specific behavior
+```txt
+apps/side-chat-api/src/assistant-runtime
+```
+
+That runtime can own:
+
+- AI SDK 6 agent definitions, including reusable Workbench assistant profiles
+- model/provider routing across OpenAI, Anthropic, Azure OpenAI, AI Gateway, local models, and fake models
+- tool-loop orchestration
+- human approval policy for sensitive tools
+- MCP tool registration and adaptation
+- structured final outputs after tool loops
+- provider stream part mapping into internal assistant events
+- provider usage, raw finish reason, and telemetry mapping
+- DevTools or trace integration for debugging assistant steps
 
 The application use case should own:
 
 - whether a request is allowed
 - what conversation is being answered
-- which ports are called
+- which assistant profile and host capabilities are available
 - what product events mean
 - how errors become `sidechat.v1`
-- which host capabilities are exposed
+- when assistant runtime events become `sidechat.v1`
 
-This separation is the reason the product protocol can survive provider changes.
+Provider-specific code should stay below the assistant runtime. OpenAI-specific behavior belongs in an OpenAI provider adapter; Anthropic-specific behavior belongs in an Anthropic provider adapter; Azure SSO/application identity concerns belong in auth and provider-credential adapters; fake-model behavior remains a deterministic provider for tests.
+
+The browser never sees AI SDK UI messages or provider-native stream parts. It sees `sidechat.v1`.
+
+### 11.1 Target Assistant Runtime Shape
+
+```txt
+application/stream-chat
+  -> AssistantRuntimePort.stream()
+    -> assistant profile
+    -> tool registry
+    -> approval policy
+    -> provider registry
+      -> OpenAI provider adapter
+      -> Anthropic provider adapter
+      -> Azure OpenAI provider adapter
+      -> AI Gateway provider adapter
+      -> local/fake provider adapter
+    -> AssistantRuntimeEvent stream
+  -> sidechat.v1 event mapper
+```
+
+This makes AI SDK 6 valuable without letting it become the product boundary. The runtime can use AI SDK agents, tool approval, MCP, structured outputs, reranking, provider tools, and DevTools while the widget and host stay stable.
 
 ## 12. Effect TS Role
 
@@ -642,8 +680,9 @@ That inventory is a review prompt, not a design law. It helps identify files wit
 These are known and intentionally documented:
 
 - The Workbench tools adapter in the chat API can access the same advisory data used by the host dashboard. It is explicit and isolated, but still a transition state to revisit if service boundaries harden.
+- AI SDK currently lives in an OpenAI-shaped adapter. Production architecture should promote it into a provider-agnostic assistant runtime because the product will use multiple models and providers.
 - Effect is not yet the full dependency/layer model for the chat use case. Current usage is narrow and educational.
-- The model picker is a demo affordance unless it is explicitly turned into real provider selection.
+- The model picker is a demo affordance until it is backed by the assistant runtime's real model/provider registry.
 - The app intentionally uses one demo conversation for now.
 - Authentication, rate limiting, and billing exist as ports/placeholders, not finished production integrations.
 - Real provider calls are not deterministic verification and require explicit environment configuration.
@@ -653,11 +692,14 @@ These are known and intentionally documented:
 Good next architectural steps:
 
 1. Expand Effect around typed application errors and dependency services where it clarifies the stream workflow.
-2. Harden cancellation and retry semantics in the product protocol.
-3. Decide whether Workbench tool context should continue using `packages/db` directly or call a separate data service boundary.
-4. Add real auth, rate limiting, and billing adapters.
-5. Add real model/provider switching only if the product needs it.
-6. Put a Python/LangGraph or RAG service behind the Node chat boundary only when complex agent workflows justify it.
+2. Introduce `AssistantRuntimePort` above provider-level model streaming.
+3. Move tool registration into a first-class assistant tool registry.
+4. Add a provider registry for OpenAI, Anthropic, Azure OpenAI, AI Gateway, local, and fake providers.
+5. Add approval events and policy before enabling sensitive write tools.
+6. Harden cancellation and retry semantics in the product protocol.
+7. Decide whether Workbench tool context should continue using `packages/db` directly or call a separate data service boundary.
+8. Add real auth, rate limiting, and billing adapters.
+9. Put a Python/LangGraph or RAG service behind the Node chat boundary only when complex agent workflows justify it.
 
 Bad next steps:
 
@@ -676,7 +718,7 @@ Bad next steps:
 | Pure DDD ceremony | The app needs clear boundaries, not abstract ceremony. |
 | Direct provider protocol in the browser | The browser contract must remain `sidechat.v1`. |
 | Direct browser-to-database access | The dashboard and assistant must use API/DB package boundaries. |
-| Full provider-management product | The current model picker is a demo affordance. |
+| Provider UI before runtime | Model/provider switching should be backed by the assistant runtime registry before becoming a real product surface. |
 | npm package publishing hardening | Monorepo consumption is assumed for now. |
 
 ## 22. Mental Model
@@ -688,8 +730,9 @@ When deciding where code belongs, ask:
 3. Is this host dashboard behavior? Put it in `apps/embedded-host-app`.
 4. Is this HTTP/SSE translation? Put it in the Hono inbound adapter.
 5. Is this application workflow? Put it in `apps/side-chat-api/src/application`.
-6. Is this provider-specific model streaming? Put it in `apps/side-chat-api/src/adapters/ai`.
-7. Is this Postgres access? Put it in `packages/db`.
-8. Is this a dependency the application should not know concretely? Model it as a port.
+6. Is this assistant orchestration, tool routing, approval, telemetry, or model/provider selection? Put it in the assistant runtime.
+7. Is this provider-specific model streaming? Put it in `apps/side-chat-api/src/adapters/ai`.
+8. Is this Postgres access? Put it in `packages/db`.
+9. Is this a dependency the application should not know concretely? Model it as a port.
 
 That is the practical architecture rule for this codebase.

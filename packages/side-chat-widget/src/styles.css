@@ -21,6 +21,7 @@
 }
 
 .sidechat-conversation {
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgb(148 163 184 / 0.85) transparent;
 }
