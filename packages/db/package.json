@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./schema-contract": {
+      "types": "./dist/schema-contract/index.d.ts",
+      "default": "./dist/schema-contract/index.js"
     }
   },
   "scripts": {
