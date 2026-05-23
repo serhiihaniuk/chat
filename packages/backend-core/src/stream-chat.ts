@@ -18,11 +18,6 @@ import {
   type ObservabilitySinkPort,
 } from "./observability.js";
 import {
-  allowRequestPolicy,
-  mapPolicyDenialToError,
-  type PolicyPort,
-} from "./policy.js";
-import {
   recordStreamObservation,
   runtimeEventAttributes,
   terminalErrorCode,
@@ -56,7 +51,6 @@ export type StreamChatUseCasePorts = {
   readonly runtime: AssistantRuntimePort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
-  readonly policies?: PolicyPort;
   readonly observability?: ObservabilitySinkPort;
 };
 
@@ -81,7 +75,19 @@ export const createStreamChatUseCase = (
       },
     });
 
-    const authContext = await resolveAuthorizedContext(ports, input);
+    const authContext = await ports.authority.resolveAuthContext(
+      input.authority,
+    );
+    const authorityDecision = assertWorkspaceAuthority(
+      authContext,
+      input.workspace,
+    );
+    if (!authorityDecision.allowed) {
+      throw mapAuthorityDenialToError(
+        authorityDecision.code,
+        authorityDecision.message,
+      );
+    }
 
     const conversation = await ports.conversations.ensureConversation({
       authContext,
