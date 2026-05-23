@@ -85,7 +85,23 @@ Frontend, widget, and browser harness pins:
 | `@types/react-dom` | `19.2.3` | Widget and harness TypeScript. |
 | `vite` | `8.0.14` | Browser harness and package development server/build tooling. |
 | `@vitejs/plugin-react` | `6.0.2` | React support for Vite harnesses. |
-| `lucide-react` | `1.16.0` | Widget icon set if icons are packaged with the widget. |
+| `tailwindcss` | `4.3.0` | Tailwind 4 styling engine for widget CSS and browser harnesses. |
+| `@tailwindcss/vite` | `4.3.0` | Tailwind 4 Vite integration for local harness/build tooling. |
+| `@base-ui/react` | `1.5.0` | Accessible primitive behavior for owned widget UI primitives. |
+| `class-variance-authority` | `0.7.1` | Variant definitions for owned UI primitives. |
+| `clsx` | `2.1.1` | Class composition helper used by `cn`. |
+| `tailwind-merge` | `3.6.0` | Tailwind class conflict merging used by `cn`. |
+
+UI dependency policy:
+
+- The widget owns its UI primitive source code. It may use Base UI primitives, CVA, Tailwind 4, and local `cn` utilities.
+- Use shadcn-style components, AI Elements-style chat components, and selected icon assets as owned source code/assets inside this repo, not as package dependencies.
+- Do not depend on `lucide-react`, `ai-elements`, `shadcn`, `@repo/shadcn-ui`, or any shared shadcn package at runtime or build time.
+- Do not import UI components from paths such as `@repo/shadcn-ui/components/ui/button`.
+- If a shadcn-style component is useful, install/copy/adapt the source into `packages/side-chat-widget/src/ui/primitives` and make it depend on Base UI primitives, CVA, Tailwind 4, and local utilities only.
+- If an AI Elements-style chat component is useful, copy/adapt it into the widget conversation/composer UI folders and make protocol DTOs the input boundary, not AI SDK UI messages.
+- If a lucide-style icon is useful, copy the specific SVG/asset into the widget asset folder or create a local icon component from owned source. Do not import from an icon package.
+- Copied/adapted source must be treated as first-party code: colocated tests where useful, repo lint rules, no hidden generator dependency, and license/origin notes when required.
 
 Testing and quality pins:
 
@@ -535,7 +551,7 @@ Suggested package dependency matrix:
 | `backend-core` | `chat-protocol`, Effect v4. | Hono/Fastify/Express, React, pg, Drizzle, AI SDK, provider SDK objects. |
 | `assistant-runtime` | `backend-core`, `chat-protocol`, Effect v4, AI SDK/runtime-only provider packages. | HTTP framework, React, pg, Drizzle, widget internals, host app state. |
 | `chat-client` | `chat-protocol`; `[Optional]` protocol validation helpers. | React, widget UI, backend-core, pg, Drizzle, provider SDKs, required Effect runtime in public API. |
-| `side-chat-widget` | `chat-client`, `chat-protocol`, `host-bridge`, React peer deps. | API server internals, DB, provider SDKs, assistant-runtime internals. |
+| `side-chat-widget` | `chat-client`, `chat-protocol`, `host-bridge`, React peer deps, Base UI primitives, CVA/Tailwind class helpers. | API server internals, DB, provider SDKs, assistant-runtime internals, external UI kit runtime packages. |
 | `db` | `pg`, Drizzle, `chat-protocol` for persisted DTO types if needed, Effect v4 for resource/transaction safety. | React, HTTP framework, widget, provider SDKs, backend-core. |
 | `apps/partner-ai-service` | `backend-core`, `assistant-runtime`, `chat-protocol`, `db`, Effect v4 runtime/layers, concrete adapter libraries. | Widget internals, host app code. |
 | `testing` | Test-facing utilities from other packages. | Production runtime startup. |
@@ -1383,6 +1399,9 @@ packages/side-chat-widget/
   src/
     index.ts
     styles.css
+    assets/
+      images/
+        README.md
     adapters/
       react/
         use-side-chat.ts
@@ -1445,12 +1464,20 @@ packages/side-chat-widget/
         QuickActions.tsx
         ModelSelector.tsx
       primitives/
-        Button.tsx
-        IconButton.tsx
-        Tooltip.tsx
-        ScrollArea.tsx
-        Textarea.tsx
-        Spinner.tsx
+        button/
+          Button.tsx
+          button.variants.ts
+          Button.test.tsx
+        icon-button/
+          IconButton.tsx
+        tooltip/
+          Tooltip.tsx
+        scroll-area/
+          ScrollArea.tsx
+        textarea/
+          Textarea.tsx
+        spinner/
+          Spinner.tsx
     shared/
       lib/
         cn.ts
@@ -1472,6 +1499,24 @@ Effect v4 role in the widget:
 - do not require external host apps to understand Effect
 - use protocol/client outputs as plain events and state transitions
 - only consider Effect internally if a real widget workflow becomes complex enough to justify it
+
+UI source ownership rule:
+
+- `assets/images/` owns selected icons, illustrations, empty states, and visual assets. These are repo files, not package imports from an icon kit.
+- `ui/primitives/*` owns copied/adapted shadcn-style primitives as source code. Components may use `@base-ui/react/*`, `class-variance-authority`, Tailwind 4 classes, and `shared/lib/cn`.
+- AI Elements-style message, reasoning, tool, and composer pieces may be copied/adapted into `ui/conversation` and `ui/composer`, but they become widget code and must consume `chat-protocol` projections rather than AI SDK UI messages.
+- No widget source imports `lucide-react`, `ai-elements`, `shadcn`, `@repo/shadcn-ui`, or generated code that must be re-run by the consuming host app.
+
+Primitive implementation shape:
+
+```tsx
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
+import { cva, type VariantProps } from "class-variance-authority";
+
+import { cn } from "../../shared/lib/cn";
+```
+
+Keep variant definitions beside the primitive, export only through the package/widget public entrypoints that are intended for consumers, and treat copied component code as editable first-party source.
 
 ## 14. Package: `packages/host-bridge`
 
@@ -2301,6 +2346,9 @@ Rules:
 - Test-only libraries belong in root or package `devDependencies`, never runtime package dependencies.
 - Provider SDKs belong in `assistant-runtime` provider adapters or `partner-ai-service` outbound/provider composition only.
 - React belongs only in widget/browser packages.
+- Tailwind 4, Base UI, CVA, `clsx`, and `tailwind-merge` are the accepted UI implementation dependencies.
+- Shadcn-style components, AI Elements-style components, and lucide-style icons are allowed only after they are copied/adapted into owned repo source/assets.
+- `lucide-react`, `ai-elements`, `shadcn`, `@repo/shadcn-ui`, and shared UI kit package imports are forbidden dependencies for the clean scaffold.
 - `pg`, Drizzle, and DB query helpers belong in `packages/db` and app-local migration/test harness code.
 - New dependencies require a reason in the PR/commit when they affect production runtime.
 - Duplicate libraries for the same job are forbidden unless an ADR accepts coexistence.
@@ -3149,6 +3197,7 @@ Treat type-aware ESLint as part of the architecture, not as style decoration.
 - No forbidden framework/provider/DB/browser imports outside their allowed folders.
 - No committed focused/skipped tests.
 - No React hook or basic accessibility violations in widget UI.
+- No external UI-kit package imports for shadcn, AI Elements, lucide, or `@repo/shadcn-ui`; copied/adapted UI source must live in widget folders.
 - No deep imports across package public boundaries.
 - No oversized files/functions, nested ternaries, excessive nesting, unclear chained conditionals, or unexplained product literals.
 
@@ -3222,7 +3271,7 @@ These decisions are provisional and should become ADRs when accepted.
 | Runtime DB access | `packages/db` uses Drizzle over `pg`; direct DB access outside `packages/db`, migrations, and explicit DB test harnesses is forbidden. |
 | Test placement | Colocate ordinary tests beside source files; reserve harness folders for cross-package/browser test infrastructure. |
 | Linting | Type-aware ESLint plus custom governance scripts. |
-| Dependency policy | Runtime dependencies must live only where used; duplicate libraries for the same job need an ADR. |
+| Dependency policy | Runtime dependencies must live only where used; duplicate libraries for the same job need an ADR; shadcn/AI Elements/lucide are used as owned source/assets, not package dependencies. |
 | AI skills | Plan the skill suite first; do not create skill folders until names, triggers, and responsibilities are accepted. |
 | Widget package | Dedicated React package with public entrypoint only. |
 | Browser client | Dedicated `packages/chat-client` day one. Revisit only by ADR if scaffold friction proves too high. |
@@ -3250,6 +3299,7 @@ A first clean scaffold is acceptable when:
 - `partner-ai-service` can serve a fake streaming response
 - `side-chat-widget` can render against a mocked client stream
 - widget and chat-client public APIs expose plain TypeScript/React-friendly contracts, not required Effect programs
+- widget UI primitives and chat UI components are owned source files, with no `lucide-react`, `ai-elements`, `shadcn`, or `@repo/shadcn-ui` dependency/import
 - boundary checks fail on intentionally forbidden imports
 - dependency and version-pin checks fail on intentionally ranged, missing, duplicated, or misplaced strategic packages
 - runtime-boundary checks fail on domain/use-case code importing framework, provider, DB, browser, env, or client objects
