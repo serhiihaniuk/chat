@@ -6,103 +6,182 @@ import type {
   ConversationRecord,
   HostCommandResultRecord,
   MessageRecord,
-  TenantScopedRecord,
   ToolInvocationRecord,
   UsageRecord,
 } from "./entities.js";
 
 export type IdempotencyKey = {
-  readonly requestId: string;
-  readonly operation: string;
+  readonly value: string;
 };
 
-export type RepositoryCommandEnvelope = TenantScopedRecord & {
-  readonly commandId: string;
-  readonly idempotencyKey: IdempotencyKey;
-  readonly actorUserId: string;
+export type RepositoryCommandEnvelope = {
+  readonly workspaceId: string;
+  readonly now: string;
 };
 
-export type CreateConversationCommand = RepositoryCommandEnvelope & {
-  readonly title?: string;
+export type CreateOrGetConversationCommand = RepositoryCommandEnvelope & {
+  readonly subjectId: string;
+  readonly actorId: string;
+  readonly conversationKey: string;
 };
 
 export type AppendMessageCommand = RepositoryCommandEnvelope & {
   readonly conversationId: string;
+  readonly subjectId: string;
   readonly role: MessageRecord["role"];
-  readonly content: string;
+  readonly contentText: string;
+  readonly metadataJson: JsonObject;
+  readonly idempotencyKey: IdempotencyKey;
 };
 
 export type StartAssistantTurnCommand = RepositoryCommandEnvelope & {
+  readonly subjectId: string;
+  readonly actorId: string;
+  readonly requestId: string;
   readonly conversationId: string;
-  readonly assistantTurnId: string;
-  readonly modelId?: string;
+  readonly userMessageId: string;
+  readonly runtimeProfile: string;
+  readonly systemPromptVersion: string;
+  readonly contextStrategyVersion: string;
+  readonly toolRegistryVersion: string;
+  readonly modelProvider: string;
+  readonly modelId: string;
 };
 
-export type SaveContextSnapshotCommand = RepositoryCommandEnvelope & {
-  readonly conversationId: string;
+export type RecordTurnContextSnapshotCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: string;
-  readonly payload: JsonObject;
-  readonly hostOrigin?: string;
+  readonly contextSchemaVersion: string;
+  readonly hostSurfaceId?: string;
+  readonly hostContextHash: string;
+  readonly capabilitiesHash: string;
+  readonly contextRedactedJson: JsonObject;
+};
+
+export type CompleteAssistantTurnCommand = RepositoryCommandEnvelope & {
+  readonly assistantTurnId: string;
+  readonly assistantMessageId: string;
+  readonly finishReason: string;
+};
+
+export type FailAssistantTurnCommand = RepositoryCommandEnvelope & {
+  readonly assistantTurnId: string;
+  readonly status: AssistantTurnRecord["status"];
+  readonly errorCode: string;
 };
 
 export type RecordUsageCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: string;
+  readonly runtimeStepIndex: number;
+  readonly modelProvider: string;
+  readonly modelId: string;
+  readonly providerRequestId?: string;
   readonly inputTokens: number;
   readonly outputTokens: number;
+  readonly reasoningTokens: number;
+  readonly cachedInputTokens: number;
   readonly totalTokens: number;
+  readonly costUnits: string;
 };
 
 export type RecordToolInvocationCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: string;
+  readonly runtimeStepIndex: number;
+  readonly toolCallId: string;
   readonly toolName: string;
-  readonly requestPayload: JsonObject;
+  readonly status: ToolInvocationRecord["status"];
+  readonly inputHash: string;
+  readonly outputHash?: string;
+  readonly inputRedactedJson: JsonObject;
+  readonly outputRedactedJson?: JsonObject;
+  readonly errorCode?: string;
+  readonly startedAt: string;
+  readonly completedAt?: string;
 };
 
 export type RecordHostCommandResultCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: string;
-  readonly commandName: string;
-  readonly requestPayload: JsonObject;
+  readonly commandId: string;
+  readonly commandType: string;
+  readonly resourceId?: string;
+  readonly status: HostCommandResultRecord["status"];
+  readonly resultCode: string;
+  readonly commandRedactedJson: JsonObject;
+  readonly resultRedactedJson?: JsonObject;
+  readonly resolvedAt?: string;
 };
 
-export type WriteAuditEventCommand = RepositoryCommandEnvelope & {
-  readonly action: string;
+export type ReadConversationHistoryCommand = {
+  readonly workspaceId: string;
+  readonly subjectId: string;
+  readonly conversationId: string;
+  readonly limit: number;
+  readonly beforeSequenceIndex?: number;
+};
+
+export type ResetConversationCommand = RepositoryCommandEnvelope & {
+  readonly subjectId: string;
+  readonly actorId: string;
+  readonly conversationId: string;
+  readonly requestId: string;
+};
+
+export type AppendAuditEventCommand = RepositoryCommandEnvelope & {
+  readonly subjectId: string;
+  readonly actorId: string;
+  readonly eventType: string;
   readonly targetType: string;
   readonly targetId: string;
-  readonly metadata: JsonObject;
+  readonly requestId: string;
+  readonly metadataJson: JsonObject;
 };
 
 export type RepositoryCommandInput =
-  | CreateConversationCommand
+  | CreateOrGetConversationCommand
   | AppendMessageCommand
   | StartAssistantTurnCommand
-  | SaveContextSnapshotCommand
+  | RecordTurnContextSnapshotCommand
+  | CompleteAssistantTurnCommand
+  | FailAssistantTurnCommand
   | RecordUsageCommand
   | RecordToolInvocationCommand
   | RecordHostCommandResultCommand
-  | WriteAuditEventCommand;
+  | ReadConversationHistoryCommand
+  | ResetConversationCommand
+  | AppendAuditEventCommand;
 
-export type RepositoryCommandResult<Record> = {
-  readonly record: Record;
-  readonly idempotencyKey: IdempotencyKey;
+export type RepositoryCommandResult<RecordType> = {
+  readonly record: RecordType;
   readonly inserted: boolean;
 };
 
 export type ConversationRepositoryContract = {
-  readonly createConversation: (
-    command: CreateConversationCommand,
+  readonly createOrGetConversation: (
+    command: CreateOrGetConversationCommand,
   ) => Promise<RepositoryCommandResult<ConversationRecord>>;
   readonly appendMessage: (
     command: AppendMessageCommand,
   ) => Promise<RepositoryCommandResult<MessageRecord>>;
+  readonly readConversationHistory: (
+    command: ReadConversationHistoryCommand,
+  ) => Promise<readonly MessageRecord[]>;
+  readonly resetConversation: (
+    command: ResetConversationCommand,
+  ) => Promise<ConversationRecord>;
 };
 
 export type AssistantTurnRepositoryContract = {
   readonly startAssistantTurn: (
     command: StartAssistantTurnCommand,
   ) => Promise<RepositoryCommandResult<AssistantTurnRecord>>;
-  readonly saveContextSnapshot: (
-    command: SaveContextSnapshotCommand,
+  readonly recordTurnContextSnapshot: (
+    command: RecordTurnContextSnapshotCommand,
   ) => Promise<RepositoryCommandResult<ContextSnapshotRecord>>;
+  readonly completeAssistantTurn: (
+    command: CompleteAssistantTurnCommand,
+  ) => Promise<AssistantTurnRecord>;
+  readonly failAssistantTurn: (
+    command: FailAssistantTurnCommand,
+  ) => Promise<AssistantTurnRecord>;
   readonly recordUsage: (
     command: RecordUsageCommand,
   ) => Promise<RepositoryCommandResult<UsageRecord>>;
@@ -115,7 +194,7 @@ export type InteractionRepositoryContract = {
   readonly recordHostCommandResult: (
     command: RecordHostCommandResultCommand,
   ) => Promise<RepositoryCommandResult<HostCommandResultRecord>>;
-  readonly writeAuditEvent: (
-    command: WriteAuditEventCommand,
+  readonly appendAuditEvent: (
+    command: AppendAuditEventCommand,
   ) => Promise<RepositoryCommandResult<AuditEventRecord>>;
 };

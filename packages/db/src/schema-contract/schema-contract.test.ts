@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   ASSISTANT_TURN_STATUSES,
+  CONVERSATION_STATUSES,
   HOST_COMMAND_RESULT_STATUSES,
   SCHEMA_ENTITY_TYPES,
   TOOL_INVOCATION_STATUSES,
-  type AppendMessageCommand,
+  type CreateOrGetConversationCommand,
   type ConversationRecord,
   type RepositoryCommandInput,
 } from "./index.js";
@@ -24,40 +25,55 @@ describe("db schema contract", () => {
   });
 
   it("captures lifecycles before migrations exist", () => {
+    expect(CONVERSATION_STATUSES).toEqual(["active", "archived", "reset"]);
     expect(ASSISTANT_TURN_STATUSES).toEqual([
-      "created",
-      "streaming",
+      "running",
+      "completed",
+      "user_aborted",
+      "timed_out",
+      "provider_failed",
+      "tool_failed",
+      "persistence_failed",
+    ]);
+    expect(TOOL_INVOCATION_STATUSES).toEqual([
+      "running",
       "completed",
       "failed",
-      "aborted",
+      "cancelled",
+      "skipped",
     ]);
-    expect(TOOL_INVOCATION_STATUSES).toContain("running");
-    expect(HOST_COMMAND_RESULT_STATUSES).toContain("rejected");
+    expect(HOST_COMMAND_RESULT_STATUSES).toEqual([
+      "emitted",
+      "applied",
+      "rejected",
+      "unsupported",
+      "failed",
+      "timed_out",
+    ]);
   });
 
-  it("requires tenant scoped records and repository idempotency", () => {
+  it("requires workspace scoped records and repository idempotency", () => {
     const conversation: ConversationRecord = {
-      tenantId: "tenant_001",
       workspaceId: "workspace_001",
       conversationId: "conversation_001",
-      status: "open",
-      createdByUserId: "user_001",
+      subjectId: "subject_001",
+      conversationKey: "default",
+      status: "active",
+      createdByActorId: "actor_001",
       createdAt: "2026-05-23T13:00:00.000Z",
       updatedAt: "2026-05-23T13:00:00.000Z",
+      lastMessageAt: "2026-05-23T13:00:00.000Z",
     };
 
-    const command: AppendMessageCommand = {
-      tenantId: conversation.tenantId,
+    const command: CreateOrGetConversationCommand = {
       workspaceId: conversation.workspaceId,
-      commandId: "command_001",
-      idempotencyKey: { requestId: "request_001", operation: "append" },
-      actorUserId: "user_001",
-      conversationId: conversation.conversationId,
-      role: "user",
-      content: "Explain this dashboard.",
+      subjectId: conversation.subjectId,
+      actorId: "actor_001",
+      conversationKey: conversation.conversationKey,
+      now: "2026-05-23T13:00:00.000Z",
     };
 
     const accepted: RepositoryCommandInput = command;
-    expect(accepted.idempotencyKey.requestId).toBe("request_001");
+    expect(accepted.workspaceId).toBe("workspace_001");
   });
 });

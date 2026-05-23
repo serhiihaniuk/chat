@@ -8,7 +8,6 @@ import type {
 } from "./lifecycle.js";
 
 export type TenantScopedRecord = {
-  readonly tenantId: string;
   readonly workspaceId: string;
 };
 
@@ -20,9 +19,11 @@ export type VersionedRecord = {
 export type ConversationRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly conversationId: string;
+    readonly subjectId: string;
+    readonly conversationKey: string;
     readonly status: ConversationStatus;
-    readonly createdByUserId: string;
-    readonly title?: string;
+    readonly createdByActorId: string;
+    readonly lastMessageAt: string;
   };
 
 export type MessageRecord = TenantScopedRecord &
@@ -30,67 +31,102 @@ export type MessageRecord = TenantScopedRecord &
     readonly messageId: string;
     readonly conversationId: string;
     readonly role: MessageRole;
-    readonly content: string;
-    readonly sequence: number;
+    readonly contentText: string;
+    readonly metadataJson: JsonObject;
+    readonly sequenceIndex: number;
+    readonly idempotencyKey?: string;
   };
 
 export type AssistantTurnRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly assistantTurnId: string;
-    readonly conversationId: string;
     readonly requestId: string;
+    readonly conversationId: string;
+    readonly subjectId: string;
+    readonly actorId: string;
+    readonly userMessageId: string;
+    readonly assistantMessageId?: string;
+    readonly runtimeProfile: string;
+    readonly systemPromptVersion: string;
+    readonly contextStrategyVersion: string;
+    readonly toolRegistryVersion: string;
+    readonly modelProvider: string;
+    readonly modelId: string;
     readonly status: AssistantTurnStatus;
-    readonly modelId?: string;
-    readonly terminalEventId?: string;
+    readonly finishReason?: string;
+    readonly errorCode?: string;
+    readonly startedAt: string;
+    readonly completedAt?: string;
   };
 
 export type ContextSnapshotRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly contextSnapshotId: string;
-    readonly conversationId: string;
     readonly assistantTurnId: string;
-    readonly hostOrigin?: string;
-    readonly payload: JsonObject;
+    readonly contextSchemaVersion: string;
+    readonly hostSurfaceId?: string;
+    readonly hostContextHash: string;
+    readonly capabilitiesHash: string;
+    readonly contextRedactedJson: JsonObject;
   };
 
 export type UsageRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly usageRecordId: string;
     readonly assistantTurnId: string;
+    readonly runtimeStepIndex: number;
+    readonly modelProvider: string;
+    readonly modelId: string;
+    readonly providerRequestId?: string;
     readonly inputTokens: number;
     readonly outputTokens: number;
+    readonly reasoningTokens: number;
+    readonly cachedInputTokens: number;
     readonly totalTokens: number;
+    readonly costUnits: string;
   };
 
 export type ToolInvocationRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly toolInvocationId: string;
     readonly assistantTurnId: string;
+    readonly runtimeStepIndex: number;
+    readonly toolCallId: string;
     readonly toolName: string;
     readonly status: ToolInvocationStatus;
-    readonly requestPayload: JsonObject;
-    readonly resultPayload?: JsonObject;
+    readonly inputHash: string;
+    readonly outputHash?: string;
+    readonly inputRedactedJson: JsonObject;
+    readonly outputRedactedJson?: JsonObject;
     readonly errorCode?: string;
+    readonly startedAt: string;
+    readonly completedAt?: string;
   };
 
 export type HostCommandResultRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly hostCommandResultId: string;
+    readonly hostCommandId: string;
     readonly assistantTurnId: string;
-    readonly commandName: string;
+    readonly commandId: string;
+    readonly commandType: string;
+    readonly resourceId?: string;
     readonly status: HostCommandResultStatus;
-    readonly requestPayload: JsonObject;
-    readonly resultPayload?: JsonObject;
+    readonly resultCode: string;
+    readonly commandRedactedJson: JsonObject;
+    readonly resultRedactedJson?: JsonObject;
+    readonly resolvedAt?: string;
   };
 
 export type AuditEventRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly auditEventId: string;
-    readonly actorUserId: string;
-    readonly action: string;
+    readonly subjectId: string;
+    readonly actorId: string;
+    readonly eventType: string;
     readonly targetType: string;
     readonly targetId: string;
-    readonly metadata: JsonObject;
+    readonly metadataJson: JsonObject;
+    readonly requestId: string;
   };
 
 export type SchemaContractRecord =
