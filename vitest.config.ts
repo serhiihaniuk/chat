@@ -41,6 +41,9 @@ export default defineConfig({
       "packages/**/*.test.ts",
       "test-harness/**/*.test.ts",
     ],
+    exclude: process.env["SIDECHAT_TEST_DATABASE_URL"]
+      ? []
+      : ["packages/**/*.integration.test.ts"],
     passWithNoTests: true,
   },
 });

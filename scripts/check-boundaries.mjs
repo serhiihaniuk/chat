@@ -107,6 +107,14 @@ for (const file of listSourceFiles(root)) {
     );
     if (relativeBoundaryError) errors.push(relativeBoundaryError);
 
+    const sourceFolderBoundaryError = relativeSourceFolderImportError(
+      root,
+      file,
+      area,
+      specifier,
+    );
+    if (sourceFolderBoundaryError) errors.push(sourceFolderBoundaryError);
+
     const dependency = dependencyName(specifier);
     if (!dependency) continue;
 
@@ -127,21 +135,68 @@ failIfErrors(errors);
 function relativeCrossPackageImportError(root, file, area, specifier) {
   if (!specifier.startsWith(".")) return undefined;
 
-  const importerAbsolute = resolve(root, file);
-  const resolvedAbsolute = normalize(
-    resolve(dirname(importerAbsolute), specifier),
-  );
-  const resolvedRelative = relative(root, resolvedAbsolute)
-    .split(sepForPlatform())
-    .join("/");
-
-  if (resolvedRelative.startsWith("..")) return undefined;
+  const resolvedRelative = resolveRelativeImport(root, file, specifier);
+  if (!resolvedRelative || resolvedRelative.startsWith("..")) return undefined;
 
   const targetArea = packageArea(resolvedRelative);
   if (targetArea === area) return undefined;
   if (!isWorkspaceArea(area) || !isWorkspaceArea(targetArea)) return undefined;
 
   return `${file}: relative import crosses package boundary into ${targetArea}; import ${packageNameForMessage(targetArea)} instead`;
+}
+
+function relativeSourceFolderImportError(root, file, area, specifier) {
+  if (!specifier.startsWith(".")) return undefined;
+  if (!isWorkspaceArea(area)) return undefined;
+  if (!file.includes("/src/")) return undefined;
+
+  const resolvedRelative = resolveRelativeImport(root, file, specifier);
+  if (!resolvedRelative || resolvedRelative.startsWith("..")) return undefined;
+  if (packageArea(resolvedRelative) !== area) return undefined;
+
+  const sourceFolder = sourceTopLevelFolder(area, file);
+  const targetFolder = sourceTopLevelFolder(area, resolvedRelative);
+  if (!sourceFolder || !targetFolder || sourceFolder === targetFolder) {
+    return undefined;
+  }
+
+  return `${file}: relative import crosses ${area}/src/${sourceFolder} into src/${targetFolder}; use package-private ${packageImportFor(area, resolvedRelative)} instead`;
+}
+
+function resolveRelativeImport(root, file, specifier) {
+  const importerAbsolute = resolve(root, file);
+  const resolvedAbsolute = normalize(
+    resolve(dirname(importerAbsolute), specifier),
+  );
+  return relative(root, resolvedAbsolute).split(sepForPlatform()).join("/");
+}
+
+function sourceTopLevelFolder(area, file) {
+  const prefix = `${area}/src/`;
+  if (!file.startsWith(prefix)) return undefined;
+
+  const relativeSourcePath = file.slice(prefix.length);
+  const firstSeparator = relativeSourcePath.indexOf("/");
+  if (firstSeparator < 0) return undefined;
+
+  return relativeSourcePath.slice(0, firstSeparator);
+}
+
+function packageImportFor(area, targetFile) {
+  const targetFolder = sourceTopLevelFolder(area, targetFile);
+  if (!targetFolder) return "#<package-internal>";
+
+  const folderPrefix = `${area}/src/${targetFolder}/`;
+  const rawSuffix = targetFile.startsWith(folderPrefix)
+    ? targetFile.slice(folderPrefix.length)
+    : "";
+  const withoutExtension = rawSuffix.replace(/\.(?:c|m)?[jt]sx?$/, "");
+  const suffix =
+    withoutExtension === "index"
+      ? ""
+      : withoutExtension.replace(/\/index$/, "");
+
+  return suffix ? `#${targetFolder}/${suffix}` : `#${targetFolder}`;
 }
 
 function isWorkspaceArea(area) {

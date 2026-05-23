@@ -15,6 +15,23 @@
       "default": "./dist/schema-contract/index.js"
     }
   },
+  "imports": {
+    "#drizzle/*": {
+      "types": "./src/drizzle/*.ts",
+      "development": "./src/drizzle/*.ts",
+      "default": "./dist/drizzle/*.js"
+    },
+    "#schema-contract": {
+      "types": "./src/schema-contract/index.ts",
+      "development": "./src/schema-contract/index.ts",
+      "default": "./dist/schema-contract/index.js"
+    },
+    "#schema-contract/*": {
+      "types": "./src/schema-contract/*.ts",
+      "development": "./src/schema-contract/*.ts",
+      "default": "./dist/schema-contract/*.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -b --pretty false",

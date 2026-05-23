@@ -1,7 +1,7 @@
 import type { AuthContext } from "@side-chat/partner-ai-core";
 import { createMiddleware } from "hono/factory";
 
-import type { ServiceAuthVerifier } from "../../../adapters/auth/service-auth.js";
+import type { ServiceAuthVerifier } from "#adapters/auth/service-auth";
 
 export type AuthContextVariables = {
   Variables: {

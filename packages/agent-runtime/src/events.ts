@@ -1,3 +1,5 @@
+import type { JsonObject } from "@side-chat/chat-protocol";
+
 export type RuntimeEventBase = {
   readonly requestId: string;
   readonly assistantTurnId: string;
@@ -24,7 +26,7 @@ export type RuntimeToolCallEvent = RuntimeEventBase & {
   readonly type: "runtime.tool_call";
   readonly toolCallId: string;
   readonly toolName: string;
-  readonly argumentsJson: Readonly<Record<string, unknown>>;
+  readonly argumentsJson: JsonObject;
 };
 
 export type RuntimeToolResultEvent = RuntimeEventBase & {
@@ -32,7 +34,7 @@ export type RuntimeToolResultEvent = RuntimeEventBase & {
   readonly toolCallId: string;
   readonly toolName: string;
   readonly status: "completed" | "failed";
-  readonly resultJson?: Readonly<Record<string, unknown>>;
+  readonly resultJson?: JsonObject;
   readonly errorCode?: RuntimeErrorCode;
 };
 

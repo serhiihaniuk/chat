@@ -3,7 +3,7 @@ import {
   SIDECHAT_PROTOCOL_VERSION,
 } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp } from "../inbound/http/app.js";
+import { createPartnerAiServiceApp } from "#inbound/http/app";
 import {
   ServiceConfigError,
   createPartnerAiServiceOptionsFromEnv,
@@ -86,5 +86,34 @@ describe("partner ai service env config", () => {
     ).toThrow(ServiceConfigError);
     expect(() => readServicePort({ PORT: "abc" })).toThrow(ServiceConfigError);
     expect(readServicePort({ PORT: "8788" })).toBe(8788);
+  });
+
+  it("maps OpenAI env to runtime provider config", () => {
+    expect(
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROVIDER: "openai",
+        SIDECHAT_OPENAI_API_KEY: "key_123",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5-mini,gpt-5",
+      }).runtime,
+    ).toMatchObject({
+      provider: "openai",
+      apiKey: "key_123",
+      modelIds: ["gpt-5-mini", "gpt-5"],
+      defaultModelId: "gpt-5-mini",
+    });
+  });
+
+  it("rejects OpenAI provider config without credentials or allowed models", () => {
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROVIDER: "openai",
+      }),
+    ).toThrow("SIDECHAT_OPENAI_API_KEY is required");
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROVIDER: "openai",
+        SIDECHAT_OPENAI_API_KEY: "key_123",
+      }),
+    ).toThrow("SIDECHAT_ALLOWED_MODELS is required");
   });
 });

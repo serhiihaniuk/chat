@@ -1,6 +1,6 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
-import type { AuthContext } from "../domain/authority.js";
+import type { AuthContext } from "#domain/authority";
 import {
   createRequestCorrelation,
   redactAttributes,
@@ -12,11 +12,11 @@ import type {
   ConversationRepositoryPort,
   IdGeneratorPort,
   RuntimeEvent,
-} from "../ports/index.js";
+} from "#ports";
 import {
   createStreamChatUseCase,
   type StreamChatInput,
-} from "../application/stream-chat/stream-chat.js";
+} from "#application/stream-chat/stream-chat";
 
 const authContext: AuthContext = {
   tenantId: "tenant_001",

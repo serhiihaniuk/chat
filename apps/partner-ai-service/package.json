@@ -11,9 +11,31 @@
       "default": "./dist/index.js"
     }
   },
+  "imports": {
+    "#adapters/*": {
+      "types": "./src/adapters/*.ts",
+      "development": "./src/adapters/*.ts",
+      "default": "./dist/adapters/*.js"
+    },
+    "#composition/*": {
+      "types": "./src/composition/*.ts",
+      "development": "./src/composition/*.ts",
+      "default": "./dist/composition/*.js"
+    },
+    "#config/*": {
+      "types": "./src/config/*.ts",
+      "development": "./src/config/*.ts",
+      "default": "./dist/config/*.js"
+    },
+    "#inbound/*": {
+      "types": "./src/inbound/*.ts",
+      "development": "./src/inbound/*.ts",
+      "default": "./dist/inbound/*.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b --pretty false",
-    "dev": "tsx src/server.ts",
+    "dev": "tsx --conditions=development src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run --passWithNoTests"

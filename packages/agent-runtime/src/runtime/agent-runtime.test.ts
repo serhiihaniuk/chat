@@ -4,7 +4,7 @@ import {
   createFakeProvider,
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
-} from "../fake/fake-provider.js";
+} from "#fake/fake-provider";
 import { createAgentRuntime } from "./agent-runtime.js";
 
 describe("createAgentRuntime", () => {

@@ -9,11 +9,7 @@ import {
 import { createHarnessHostBridge } from "./fake-host-bridge.js";
 import { createLocalServiceClient } from "./local-service-client.js";
 import { createMockStreamClient } from "./mock-stream-client.js";
-import {
-  modeLabel,
-  parseWidgetHarnessConfig,
-  type WidgetHarnessConfig,
-} from "./modes.js";
+import { parseWidgetHarnessConfig, type WidgetHarnessConfig } from "./modes.js";
 
 export type WidgetHarnessApp = {
   readonly config: WidgetHarnessConfig;
@@ -31,7 +27,11 @@ export const createWidgetHarnessApp = (
   const props: SideChatWidgetProps = {
     client,
     hostBridge,
-    labels: { title: `${modeLabel(config.mode)} harness` },
+    labels: {
+      title: "Workspace Assistant",
+      placeholder: "Ask about this page",
+      send: "Send message",
+    },
   };
 
   return {

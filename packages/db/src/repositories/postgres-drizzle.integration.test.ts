@@ -7,14 +7,11 @@ import { describe, expect, it } from "vitest";
 
 import { createPostgresDrizzleSidechatRepositories } from "./postgres-drizzle.js";
 
-const databaseUrl = process.env["SIDECHAT_TEST_DATABASE_URL"];
-const describeIfDatabase = databaseUrl ? describe : describe.skip;
+const databaseUrl = requireDatabaseUrl();
 const now = "2026-05-23T13:00:00.000Z";
 
-describeIfDatabase("postgres drizzle repositories", () => {
+describe("postgres drizzle repositories", () => {
   it("applies migrations and proves the repository contract against Postgres", async () => {
-    if (!databaseUrl) throw new Error("SIDECHAT_TEST_DATABASE_URL is required");
-
     await applyMigrations(databaseUrl);
     const repositories = createPostgresDrizzleSidechatRepositories({
       connectionString: databaseUrl,
@@ -65,6 +62,16 @@ describeIfDatabase("postgres drizzle repositories", () => {
     }
   });
 });
+
+function requireDatabaseUrl(): string {
+  const value = process.env["SIDECHAT_TEST_DATABASE_URL"];
+  if (!value) {
+    throw new Error(
+      "SIDECHAT_TEST_DATABASE_URL is required for test:db:integration.",
+    );
+  }
+  return value;
+}
 
 const applyMigrations = async (connectionString: string): Promise<void> => {
   const pool = new Pool({ connectionString });

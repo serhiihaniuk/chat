@@ -1,11 +1,25 @@
 import type { WorkspaceRef } from "@side-chat/partner-ai-core";
-import type { ServiceAuthConfig } from "../adapters/auth/service-auth.js";
-import type { ServicePolicyConfig } from "../adapters/policy/service-policy.js";
-import type { PartnerAiServiceOptions } from "../inbound/http/app.js";
+import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
+import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
+import type { RuntimeConfig } from "#composition/service-composition";
+import type { PartnerAiServiceOptions } from "#inbound/http/app";
 
-const DEFAULT_SERVICE_PORT = 8787;
-const DEFAULT_TENANT_ID = "tenant_local";
-const DEFAULT_WORKSPACE_ID = "workspace_local";
+export const SERVICE_ENV_KEYS = {
+  allowedModels: "SIDECHAT_ALLOWED_MODELS",
+  authBearerToken: "SIDECHAT_AUTH_BEARER_TOKEN",
+  databaseUrl: "SIDECHAT_DATABASE_URL",
+  openaiApiKey: "SIDECHAT_OPENAI_API_KEY",
+  openaiBaseUrl: "SIDECHAT_OPENAI_BASE_URL",
+  policyMode: "SIDECHAT_POLICY_MODE",
+  profile: "SIDECHAT_PROFILE",
+  provider: "SIDECHAT_PROVIDER",
+  tenantId: "SIDECHAT_TENANT_ID",
+  workspaceId: "SIDECHAT_WORKSPACE_ID",
+} as const;
+
+export const DEFAULT_SERVICE_PORT = 8787;
+export const DEFAULT_TENANT_ID = "tenant_local";
+export const DEFAULT_WORKSPACE_ID = "workspace_local";
 
 type ServiceEnv = Readonly<Record<string, string | undefined>>;
 type ServiceProfile = "development" | "production";
@@ -24,7 +38,7 @@ export const createPartnerAiServiceOptionsFromEnv = (
   env: ServiceEnv = process.env,
 ): PartnerAiServiceOptions => {
   const workspace = readWorkspace(env);
-  const profile = readServiceProfile(envValue(env, "SIDECHAT_PROFILE"));
+  const profile = readServiceProfile(envValue(env, SERVICE_ENV_KEYS.profile));
 
   const persistence = createPersistenceConfig(profile, env);
   return {
@@ -32,9 +46,10 @@ export const createPartnerAiServiceOptionsFromEnv = (
     auth: createAuthConfig(
       profile,
       workspace,
-      envValue(env, "SIDECHAT_AUTH_BEARER_TOKEN"),
+      envValue(env, SERVICE_ENV_KEYS.authBearerToken),
     ),
     policies: createPolicyConfig(profile, env),
+    runtime: createRuntimeConfig(env),
     ...(persistence ? { persistence } : {}),
   };
 };
@@ -54,8 +69,9 @@ export const readServicePort = (env: ServiceEnv = process.env): number => {
 };
 
 const readWorkspace = (env: ServiceEnv): WorkspaceRef => ({
-  tenantId: envValue(env, "SIDECHAT_TENANT_ID") ?? DEFAULT_TENANT_ID,
-  workspaceId: envValue(env, "SIDECHAT_WORKSPACE_ID") ?? DEFAULT_WORKSPACE_ID,
+  tenantId: envValue(env, SERVICE_ENV_KEYS.tenantId) ?? DEFAULT_TENANT_ID,
+  workspaceId:
+    envValue(env, SERVICE_ENV_KEYS.workspaceId) ?? DEFAULT_WORKSPACE_ID,
 });
 
 const createAuthConfig = (
@@ -83,7 +99,10 @@ const createPolicyConfig = (
   profile: ServiceProfile,
   env: ServiceEnv,
 ): ServicePolicyConfig => {
-  const mode = readPolicyMode(profile, envValue(env, "SIDECHAT_POLICY_MODE"));
+  const mode = readPolicyMode(
+    profile,
+    envValue(env, SERVICE_ENV_KEYS.policyMode),
+  );
 
   if (profile === "development") {
     if (mode === "configured") {
@@ -106,7 +125,7 @@ const createPersistenceConfig = (
   profile: ServiceProfile,
   env: ServiceEnv,
 ): PartnerAiServiceOptions["persistence"] => {
-  const databaseUrl = envValue(env, "SIDECHAT_DATABASE_URL");
+  const databaseUrl = envValue(env, SERVICE_ENV_KEYS.databaseUrl);
   if (databaseUrl) return { kind: "postgres", databaseUrl };
   if (profile === "production") {
     throw new ServiceConfigError(
@@ -146,12 +165,42 @@ const readPolicyMode = (
 };
 
 const readAllowedModels = (env: ServiceEnv): readonly string[] => {
-  const rawModels = envValue(env, "SIDECHAT_ALLOWED_MODELS");
+  const rawModels = envValue(env, SERVICE_ENV_KEYS.allowedModels);
   if (!rawModels) return [];
   return rawModels
     .split(",")
     .map((model) => model.trim())
     .filter(Boolean);
+};
+
+const createRuntimeConfig = (env: ServiceEnv): RuntimeConfig => {
+  const provider = envValue(env, SERVICE_ENV_KEYS.provider) ?? "fake";
+  if (provider === "fake") return { provider };
+  if (provider !== "openai") {
+    throw new ServiceConfigError("SIDECHAT_PROVIDER must be fake or openai.");
+  }
+
+  const apiKey = envValue(env, SERVICE_ENV_KEYS.openaiApiKey);
+  if (!apiKey) {
+    throw new ServiceConfigError(
+      "SIDECHAT_OPENAI_API_KEY is required when SIDECHAT_PROVIDER=openai.",
+    );
+  }
+  const modelIds = readAllowedModels(env);
+  if (modelIds.length === 0) {
+    throw new ServiceConfigError(
+      "SIDECHAT_ALLOWED_MODELS is required when SIDECHAT_PROVIDER=openai.",
+    );
+  }
+
+  const baseUrl = envValue(env, SERVICE_ENV_KEYS.openaiBaseUrl);
+  return {
+    provider,
+    apiKey,
+    modelIds,
+    defaultModelId: modelIds[0] as string,
+    ...(baseUrl ? { baseUrl } : {}),
+  };
 };
 
 const normalizeBearerToken = (token: string): string =>

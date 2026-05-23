@@ -11,7 +11,7 @@ import {
   type toolInvocations,
   type turnContextSnapshots,
   type usageRecords,
-} from "../drizzle/schema.js";
+} from "#drizzle/schema";
 import type {
   AssistantTurnRecord,
   AuditEventRecord,
@@ -21,7 +21,7 @@ import type {
   MessageRecord,
   ToolInvocationRecord,
   UsageRecord,
-} from "../schema-contract/index.js";
+} from "#schema-contract";
 import { DbRepositoryError } from "./errors.js";
 
 export const optional = <Value>(

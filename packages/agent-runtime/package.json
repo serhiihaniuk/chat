@@ -11,6 +11,28 @@
       "default": "./dist/index.js"
     }
   },
+  "imports": {
+    "#fake/*": {
+      "types": "./src/fake/*.ts",
+      "development": "./src/fake/*.ts",
+      "default": "./dist/fake/*.js"
+    },
+    "#registry/*": {
+      "types": "./src/registry/*.ts",
+      "development": "./src/registry/*.ts",
+      "default": "./dist/registry/*.js"
+    },
+    "#runtime/*": {
+      "types": "./src/runtime/*.ts",
+      "development": "./src/runtime/*.ts",
+      "default": "./dist/runtime/*.js"
+    },
+    "#tools/*": {
+      "types": "./src/tools/*.ts",
+      "development": "./src/tools/*.ts",
+      "default": "./dist/tools/*.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc --noEmit --pretty false -p tsconfig.json",

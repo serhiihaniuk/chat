@@ -17,7 +17,7 @@ import {
   HOST_COMMAND_RESULT_STATUSES,
   MESSAGE_ROLES,
   TOOL_INVOCATION_STATUSES,
-} from "../schema-contract/index.js";
+} from "#schema-contract";
 
 const sidechat = pgSchema("sidechat");
 

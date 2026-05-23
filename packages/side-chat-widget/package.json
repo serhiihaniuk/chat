@@ -8,13 +8,102 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "imports": {
+    "#app/flows/*": {
+      "types": "./src/app/flows/*.ts",
+      "development": "./src/app/flows/*.ts",
+      "default": "./dist/app/flows/*.js"
+    },
+    "#app/*": {
+      "types": "./src/app/*.tsx",
+      "development": "./src/app/*.tsx",
+      "default": "./dist/app/*.js"
+    },
+    "#features/composer/model/*": {
+      "types": "./src/features/composer/model/*.ts",
+      "development": "./src/features/composer/model/*.ts",
+      "default": "./dist/features/composer/model/*.js"
+    },
+    "#features/composer/ui/*": {
+      "types": "./src/features/composer/ui/*.tsx",
+      "development": "./src/features/composer/ui/*.tsx",
+      "default": "./dist/features/composer/ui/*.js"
+    },
+    "#features/conversation/model/*": {
+      "types": "./src/features/conversation/model/*.ts",
+      "development": "./src/features/conversation/model/*.ts",
+      "default": "./dist/features/conversation/model/*.js"
+    },
+    "#features/conversation/ui/*": {
+      "types": "./src/features/conversation/ui/*.tsx",
+      "development": "./src/features/conversation/ui/*.tsx",
+      "default": "./dist/features/conversation/ui/*.js"
+    },
+    "#features/panel/ui/*": {
+      "types": "./src/features/panel/ui/*.tsx",
+      "development": "./src/features/panel/ui/*.tsx",
+      "default": "./dist/features/panel/ui/*.js"
+    },
+    "#features/panel/model/*": {
+      "types": "./src/features/panel/model/*.ts",
+      "development": "./src/features/panel/model/*.ts",
+      "default": "./dist/features/panel/model/*.js"
+    },
+    "#features/quick-actions/model/*": {
+      "types": "./src/features/quick-actions/model/*.ts",
+      "development": "./src/features/quick-actions/model/*.ts",
+      "default": "./dist/features/quick-actions/model/*.js"
+    },
+    "#features/quick-actions/ui/*": {
+      "types": "./src/features/quick-actions/ui/*.tsx",
+      "development": "./src/features/quick-actions/ui/*.tsx",
+      "default": "./dist/features/quick-actions/ui/*.js"
+    },
+    "#entities/host-command/*": {
+      "types": "./src/entities/host-command/*.ts",
+      "development": "./src/entities/host-command/*.ts",
+      "default": "./dist/entities/host-command/*.js"
+    },
+    "#entities/message/*": {
+      "types": "./src/entities/message/*.ts",
+      "development": "./src/entities/message/*.ts",
+      "default": "./dist/entities/message/*.js"
+    },
+    "#entities/tool/*": {
+      "types": "./src/entities/tool/*.ts",
+      "development": "./src/entities/tool/*.ts",
+      "default": "./dist/entities/tool/*.js"
+    },
+    "#shared/ai/*": {
+      "types": "./src/shared/ai/*.tsx",
+      "development": "./src/shared/ai/*.tsx",
+      "default": "./dist/shared/ai/*.js"
+    },
+    "#shared/assets/icons/*": {
+      "types": "./src/shared/assets/icons/*.tsx",
+      "development": "./src/shared/assets/icons/*.tsx",
+      "default": "./dist/shared/assets/icons/*.js"
+    },
+    "#shared/lib/*": {
+      "types": "./src/shared/lib/*.ts",
+      "development": "./src/shared/lib/*.ts",
+      "default": "./dist/shared/lib/*.js"
+    },
+    "#shared/ui/*": {
+      "types": "./src/shared/ui/*.tsx",
+      "development": "./src/shared/ui/*.tsx",
+      "default": "./dist/shared/ui/*.js"
     }
   },
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run packages/side-chat-widget/src/application/side-chat-widget.test.ts"
+    "test": "cd ../.. && vitest run packages/side-chat-widget/src"
   },
   "dependencies": {
     "@base-ui/react": "1.5.0",

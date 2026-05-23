@@ -1,4 +1,4 @@
-import type { RepositoryCommandResult } from "../schema-contract/index.js";
+import type { RepositoryCommandResult } from "#schema-contract";
 
 export const result = <RecordType>(
   record: RecordType,

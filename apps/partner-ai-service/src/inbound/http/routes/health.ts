@@ -1,16 +1,17 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import type { Hono } from "hono";
 
-import type { ServiceAuthConfig } from "../../../adapters/auth/service-auth.js";
-import type { ServicePolicyConfig } from "../../../adapters/policy/service-policy.js";
+import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
+import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { AuthContextVariables } from "../middleware/auth-context.js";
-import { DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID } from "./types.js";
 
 export const registerHealthRoutes = (
   app: Hono<AuthContextVariables>,
   options: {
     readonly authConfig: ServiceAuthConfig;
     readonly policyConfig: ServicePolicyConfig;
+    readonly providerId: string;
+    readonly modelId: string;
     readonly persistenceLabel: "memory" | "postgres-drizzle";
   },
 ) => {
@@ -21,8 +22,8 @@ export const registerHealthRoutes = (
       service: "partner-ai-service",
       authProfile: options.authConfig.profile,
       policyMode: options.policyConfig.mode ?? "allow_all",
-      providerId: DEFAULT_PROVIDER_ID,
-      modelId: DEFAULT_MODEL_ID,
+      providerId: options.providerId,
+      modelId: options.modelId,
       persistence: options.persistenceLabel,
       hostCommandResults: "disabled",
     });

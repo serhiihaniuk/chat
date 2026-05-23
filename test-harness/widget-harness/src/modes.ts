@@ -7,7 +7,7 @@ export type WidgetHarnessConfig = {
   readonly workspaceId: string;
 };
 
-const DEFAULT_API_BASE_URL = "http://localhost:3100";
+const DEFAULT_API_BASE_URL = "/api";
 const DEFAULT_AUTH_TOKEN = "local-test-token";
 const DEFAULT_WORKSPACE_ID = "local-dev";
 

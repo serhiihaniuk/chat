@@ -9,6 +9,7 @@ import {
   createMockStreamClient,
   createWidgetHarnessApp,
   parseWidgetHarnessConfig,
+  resolveLocalApiBaseUrl,
   withLocalAuth,
 } from "./index.js";
 
@@ -26,10 +27,10 @@ describe("widget harness modes", () => {
 
     expect(config).toMatchObject({
       mode: "mock-stream",
-      apiBaseUrl: "http://localhost:3100",
+      apiBaseUrl: "/api",
       workspaceId: "local-dev",
     });
-    expect(html).toContain("Mock stream harness");
+    expect(html).toContain("Workspace Assistant");
     expect(html).toContain("side-chat-widget");
   });
 
@@ -53,10 +54,12 @@ describe("widget harness modes", () => {
 
   it("configures local service mode with auth-wrapped fetch", async () => {
     const seenHeaders: HeadersInit[] = [];
+    const seenInputs: Array<string | URL | Request> = [];
     const fetchLike = (
-      _input: string | URL | Request,
+      input: string | URL | Request,
       init: RequestInit = {},
     ) => {
+      seenInputs.push(input);
       seenHeaders.push(init.headers ?? {});
       return Promise.resolve(new Response("busy", { status: 503 }));
     };
@@ -70,6 +73,7 @@ describe("widget harness modes", () => {
     expect(seenHeaders).toEqual([
       { accept: "text/event-stream", authorization: "Bearer local-test-token" },
     ]);
+
     expect(
       createLocalServiceClient(
         parseWidgetHarnessConfig(
@@ -77,6 +81,16 @@ describe("widget harness modes", () => {
         ),
       ),
     ).toHaveProperty("streamChat");
+    expect(
+      resolveLocalApiBaseUrl(
+        parseWidgetHarnessConfig("?mode=local-service").apiBaseUrl,
+      ),
+    ).toBe("http://127.0.0.1:5173/api");
+    expect(resolveLocalApiBaseUrl("http://localhost:3100")).toBe(
+      "http://localhost:3100",
+    );
+    expect(seenInputs).toContain("http://localhost:3100/chat/stream");
+    expect(seenInputs).not.toContain("/api/chat/stream");
   });
 
   it("keeps host command results as harness-local records", async () => {

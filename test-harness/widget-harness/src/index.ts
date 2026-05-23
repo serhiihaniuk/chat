@@ -13,6 +13,7 @@ import { mountBrowserHarness } from "./harness-app.js";
 export { mountBrowserHarness };
 export {
   createLocalServiceClient,
+  resolveLocalApiBaseUrl,
   withLocalAuth,
 } from "./local-service-client.js";
 export {
@@ -25,7 +26,3 @@ export {
   type WidgetHarnessConfig,
   type WidgetHarnessMode,
 } from "./modes.js";
-
-if (typeof document !== "undefined") {
-  mountBrowserHarness();
-}

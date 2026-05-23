@@ -278,3 +278,18 @@ After P0.1 and P0.2 are fixed, add an opt-in live provider smoke that requires e
 ## Bottom Line
 
 The surface scaffold now matches the naming and folder direction much better. The strict blockers are no longer "wrong folders"; they are "fake path still wired as production path" and "agent runtime still not truly AI SDK Agent/ToolLoopAgent-first." Fix those before treating this as the production implementation baseline.
+
+## Remediation Status
+
+Updated on 2026-05-23 after the follow-up implementation pass.
+
+- P0.1 closed: `partner-ai-service` now composes `agent-runtime` in `service-composition.ts`, passes the runtime port into `/chat/stream`, and has regression tests proving composed runtime provider/model metadata reaches persistence.
+- P0.2 closed: `agent-runtime` now wraps AI SDK's exported `ToolLoopAgent`; the local shadow `class ToolLoopAgent` and private `streamText` engine were removed. `check-code-quality.mjs` rejects future local `ToolLoopAgent` class declarations.
+- P1.1 closed for the validation path: `npx -p node@24.16.0 -p npm@11.15.0 npm run verify` now passes format, ESLint, typecheck, tests, build, and custom lint with the repo-pinned runtime.
+- P1.2 closed: `npm run test:db:local` starts local Compose Postgres, waits for health, then runs the DB integration test with `SIDECHAT_TEST_DATABASE_URL`.
+- P1.3 closed: DB integration is excluded from default `npm test` unless its database URL is present, and the skipped-test guard now rejects `.skip` references.
+- P1.4 closed with enforcement: `check-unused-dependencies.mjs` runs in `lint:custom`; day-one pinned-but-not-yet-imported strategic dependencies require explicit allowlist rationale.
+- P1.5 closed: production source budget is now 300 lines, tests hard-fail above 450 lines, the called-out large production files were split, and the Drizzle schema has an explicit schema exception.
+- P2.1 remains an upstream-tracked dependency advisory: `npm audit --audit-level=moderate` still reports the known moderate `drizzle-kit` / `esbuild` chain, `npm view drizzle-kit version` still reports `0.31.10` as the latest compatible published line, and npm only offers a breaking force downgrade to `drizzle-kit@0.18.1`. The default high-severity audit gate remains passable until a compatible upstream fix exists.
+- P2.2 closed for production paths touched here: fake provider/model ids come from `agent-runtime`, protocol version comes from `chat-protocol`, and service env/local defaults are centralized in service config.
+- P2.3 closed as an opt-in path: `npm run smoke:provider:openai` requires explicit `SIDECHAT_PROVIDER=openai`, credentials, allowed models, and `SIDECHAT_LIVE_PROVIDER_SMOKE=approved`.

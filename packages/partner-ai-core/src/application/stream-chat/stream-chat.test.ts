@@ -6,20 +6,20 @@ import {
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
-import { type AuthContext } from "../../domain/authority.js";
+import { type AuthContext } from "#domain/authority";
 import type {
   AgentRuntimePort,
   ClockPort,
   ConversationRepositoryPort,
   IdGeneratorPort,
   RuntimeEvent,
-} from "../../ports/index.js";
+} from "#ports";
 import {
   denyRequestPolicy,
   POLICY_DENIAL_CODES,
   type PolicyEvaluationInput,
   type PolicyPort,
-} from "../../policies/policy.js";
+} from "#policies/policy";
 import {
   createStreamChatUseCase,
   type StreamChatInput,
@@ -64,6 +64,7 @@ describe("stream chat use case", () => {
       SIDECHAT_EVENT_TYPES.delta,
       SIDECHAT_EVENT_TYPES.completed,
     ]);
+    expect(events.map((event) => event.sequence)).toEqual([0, 1, 2, 3]);
     expect(validateSidechatEventSequence(events).terminalEvent.type).toBe(
       SIDECHAT_EVENT_TYPES.completed,
     );
@@ -132,6 +133,46 @@ describe("stream chat use case", () => {
       protocolCode: "forbidden",
     });
     expect(ports.calls).toEqual([]);
+  });
+
+  it("allocates contiguous protocol sequences when runtime lifecycle events are dropped", async () => {
+    const ports = createFakePorts({
+      authContext,
+      runtimeEvents: [
+        {
+          type: "runtime.started",
+          requestId: "request_001",
+          assistantTurnId: "assistant_turn_001",
+          sequence: 0,
+          providerId: "fake",
+          modelId: "fake-echo",
+        },
+        {
+          type: "runtime.output_delta",
+          requestId: "request_001",
+          assistantTurnId: "assistant_turn_001",
+          sequence: 1,
+          content: "Hello",
+        },
+        {
+          type: "runtime.completed",
+          requestId: "request_001",
+          assistantTurnId: "assistant_turn_001",
+          sequence: 2,
+          finishReason: "stop",
+        },
+      ],
+    });
+    const useCase = createStreamChatUseCase(ports);
+
+    const events = await collect(useCase.stream(input));
+
+    expect(events.map((event) => event.type)).toEqual([
+      SIDECHAT_EVENT_TYPES.started,
+      SIDECHAT_EVENT_TYPES.delta,
+      SIDECHAT_EVENT_TYPES.completed,
+    ]);
+    expect(events.map((event) => event.sequence)).toEqual([0, 1, 2]);
   });
 
   it("maps runtime failures to a stable terminal protocol error", async () => {

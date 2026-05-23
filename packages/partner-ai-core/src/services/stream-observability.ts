@@ -10,7 +10,7 @@ import {
   type ObservabilitySinkPort,
   type RequestCorrelation,
 } from "./observability.js";
-import type { RuntimeEvent } from "../ports/index.js";
+import type { RuntimeEvent } from "#ports";
 
 export type StreamObservationInput = {
   readonly correlation: RequestCorrelation;

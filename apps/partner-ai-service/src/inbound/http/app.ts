@@ -8,15 +8,16 @@ import { Hono } from "hono";
 import {
   createServiceAuthVerifier,
   type ServiceAuthConfig,
-} from "../../adapters/auth/service-auth.js";
+} from "#adapters/auth/service-auth";
 import {
   createServicePolicyPort,
   type ServicePolicyConfig,
-} from "../../adapters/policy/service-policy.js";
+} from "#adapters/policy/service-policy";
 import {
   composePartnerAiService,
   type PersistenceConfig,
-} from "../../composition/service-composition.js";
+  type RuntimeConfig,
+} from "#composition/service-composition";
 import {
   authContextMiddleware,
   type AuthContextVariables,
@@ -40,6 +41,7 @@ export type PartnerAiServiceOptions = {
   readonly observability?: ObservabilitySinkPort;
   readonly policies?: ServicePolicyConfig;
   readonly persistence?: PersistenceConfig;
+  readonly runtime?: RuntimeConfig;
   readonly persistenceLabel?: "memory" | "postgres-drizzle";
   readonly workspace?: WorkspaceRef;
 };
@@ -54,6 +56,7 @@ export const createPartnerAiServiceApp = (
     ...(options.policies ? { policies: options.policies } : {}),
     ...(options.persistence ? { persistence: options.persistence } : {}),
     ...(options.repositories ? { repositories: options.repositories } : {}),
+    ...(options.runtime ? { runtime: options.runtime } : {}),
   });
   const authority = createServiceAuthVerifier(composition.auth);
   const policies = createServicePolicyPort(composition.policies);
@@ -65,6 +68,8 @@ export const createPartnerAiServiceApp = (
   registerHealthRoutes(app, {
     authConfig: composition.auth,
     policyConfig: composition.policies,
+    providerId: composition.runtimeProviderId,
+    modelId: composition.runtimeModelId,
     persistenceLabel,
   });
 
@@ -72,7 +77,10 @@ export const createPartnerAiServiceApp = (
   app.use("/chat/*", authContextMiddleware(authority), requireAuth());
   app.use("/usage", authContextMiddleware(authority), requireAuth());
 
-  registerModelsRoute(app, composition.policies);
+  registerModelsRoute(app, composition.policies, {
+    providerId: composition.runtimeProviderId,
+    modelId: composition.runtimeModelId,
+  });
   registerChatHistoryRoutes(app, {
     repositories: composition.repositories,
   });
@@ -80,6 +88,9 @@ export const createPartnerAiServiceApp = (
   registerChatStreamRoute(app, {
     workspace: composition.workspace,
     repositories: composition.repositories,
+    runtime: composition.runtime,
+    providerId: composition.runtimeProviderId,
+    modelId: composition.runtimeModelId,
     policies,
     ...(options.observability ? { observability: options.observability } : {}),
   });

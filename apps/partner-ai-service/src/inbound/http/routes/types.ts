@@ -1,17 +1,18 @@
 import type {
   AuthContext,
+  AgentRuntimePort,
   ObservabilitySinkPort,
   PolicyPort,
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
 
-export const DEFAULT_PROVIDER_ID = "fake";
-export const DEFAULT_MODEL_ID = "fake-echo";
-
 export type RouteDependencies = {
   readonly workspace: WorkspaceRef;
   readonly repositories: SidechatRepositories;
+  readonly runtime: AgentRuntimePort;
+  readonly providerId: string;
+  readonly modelId: string;
   readonly policies: PolicyPort;
   readonly observability?: ObservabilitySinkPort;
 };

@@ -10,7 +10,7 @@ import type {
   RecordUsageCommand,
   ToolInvocationRecord,
   UsageRecord,
-} from "../schema-contract/index.js";
+} from "#schema-contract";
 import { DbRepositoryError } from "./errors.js";
 
 export type MemoryStore = {

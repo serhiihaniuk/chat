@@ -4,7 +4,7 @@ import {
   assistantTurns,
   turnContextSnapshots,
   usageRecords,
-} from "../drizzle/schema.js";
+} from "#drizzle/schema";
 import type { SidechatRepositories } from "./contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./postgres-drizzle-context.js";
 import {

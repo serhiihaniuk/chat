@@ -95,11 +95,12 @@ Frontend, widget, and browser harness pins:
 UI dependency policy:
 
 - The widget owns its UI primitive source code. It may use Base UI primitives, CVA, Tailwind 4, and local `cn` utilities.
-- Use shadcn-style components, AI Elements-style chat components, and selected icon assets as owned source code/assets inside this repo, not as package dependencies.
+- Use shadcn-style primitives, AI Elements-style chat components, and selected icon assets as owned source code/assets inside this repo, not as package dependencies.
+- The local UI dependency ladder is `approved packages -> shared/ui -> shared/ai -> features -> app`.
 - Do not depend on `lucide-react`, `ai-elements`, `shadcn`, `@repo/shadcn-ui`, or any shared shadcn package at runtime or build time.
 - Do not import UI components from paths such as `@repo/shadcn-ui/components/ui/button`.
-- If a shadcn-style component is useful, install/copy/adapt the source into `packages/side-chat-widget/src/ui/primitives` and make it depend on Base UI primitives, CVA, Tailwind 4, and local utilities only.
-- If an AI Elements-style chat component is useful, copy/adapt it into the widget conversation/composer UI folders and make protocol DTOs the input boundary, not AI SDK UI messages.
+- If a shadcn-style primitive is useful, copy/adapt the source into `packages/side-chat-widget/src/shared/ui` and make it depend on Base UI primitives, CVA, Tailwind 4, React, and local utilities only.
+- If an AI Elements-style chat component is useful, copy/adapt it into `packages/side-chat-widget/src/shared/ai`; it may compose `shared/ui` and local assets, but feature UI must remain the adapter from widget projections to generic AI component props.
 - If a lucide-style icon is useful, copy the specific SVG/asset into the widget asset folder or create a local icon component from owned source. Do not import from an icon package.
 - Copied/adapted source must be treated as first-party code: colocated tests where useful, repo lint rules, no hidden generator dependency, and license/origin notes when required.
 
@@ -1402,6 +1403,11 @@ It does not own:
 
 Folder structure:
 
+The widget UI uses the trimmed Feature-Sliced Design shape defined in
+`docs/architecture/widget-ui-system-design.md`. This package intentionally uses
+only `app`, `features`, `entities`, and `shared`; it does not use FSD `pages`,
+`processes`, or `widgets` layers.
+
 ```txt
 packages/side-chat-widget/
   package.json
@@ -1409,97 +1415,122 @@ packages/side-chat-widget/
   src/
     index.ts
     styles.css
-    assets/
-      images/
-        README.md
-    adapters/
-      react/
-        use-side-chat.ts
-        use-side-chat.test.ts
-        use-side-chat-controller.ts
-        use-host-bridge.ts
-        use-widget-resize.ts
-    application/
+    app/
+      side-chat-widget.tsx
       widget-controller.ts
-      send-message-flow.ts
-      load-history-flow.ts
-      host-command-flow.ts
-      host-command-flow.test.ts
-      usage-flow.ts
-    domain/
-      message/
-        message-projection.ts
-        message-projection.test.ts
-        message-parts.ts
-        stream-event-reducer.ts
-        stream-event-reducer.test.ts
-        citation-selection.ts
-      composer/
-        composer-state.ts
-        composer-state.test.ts
-        quick-actions.ts
-      panel/
-        panel-state.ts
-        panel-state.test.ts
-        panel-geometry.ts
-        resize-rules.ts
-      model/
-        model-display.ts
-        model-selection.ts
-      errors/
-        widget-error.ts
-    ui/
-      side-chat-widget/
-        SideChatWidget.tsx
-        SideChatWidget.test.tsx
-        SideChatWidget.types.ts
-      launcher/
-        WidgetLauncher.tsx
-      panel/
-        PanelShell.tsx
-        PanelHeader.tsx
-        PanelStatus.tsx
-        ResizeHandles.tsx
+      widget-view.tsx
+      widget.types.ts
+      flows/
+        send-message-flow.ts
+        host-command-flow.ts
+        load-history-flow.ts
+    features/
       conversation/
-        ConversationFeed.tsx
-        RenderedMessage.tsx
-        MessagePartRenderer.tsx
-        ReasoningPart.tsx
-        ToolPart.tsx
-        HostCommandPart.tsx
-        ApprovalPart.tsx
-        CitationList.tsx
+        model/
+          conversation-state.ts
+          stream-event-reducer.ts
+          selectors.ts
+        ui/
+          conversation-feed.tsx
+          message-row.tsx
+          assistant-message.tsx
+          reasoning-part.tsx
+          tool-part.tsx
+          host-command-part.tsx
+          sources-row.tsx
       composer/
-        ChatComposer.tsx
-        QuickActions.tsx
-        ModelSelector.tsx
-      primitives/
-        button/
-          Button.tsx
-          button.variants.ts
-          Button.test.tsx
-        icon-button/
-          IconButton.tsx
-        tooltip/
-          Tooltip.tsx
-        scroll-area/
-          ScrollArea.tsx
-        textarea/
-          Textarea.tsx
-        spinner/
-          Spinner.tsx
+        model/
+          composer-state.ts
+          submit-rules.ts
+        ui/
+          chat-composer.tsx
+          prompt-input.tsx
+          send-button.tsx
+      panel/
+        model/
+          panel-state.ts
+          panel-reducer.ts
+          panel-geometry.ts
+        ui/
+          panel-shell.tsx
+          panel-header.tsx
+          settings-panel.tsx
+      quick-actions/
+        model/
+          quick-action.ts
+          quick-action-resolver.ts
+        ui/
+          quick-actions-row.tsx
+      context-scope/
+        model/
+          context-state.ts
+          context-display.ts
+        ui/
+          context-selector.tsx
+          context-usage.tsx
+      model-selection/
+        model/
+          model-state.ts
+          model-display.ts
+        ui/
+          model-selector.tsx
+    entities/
+      message/
+        model.ts
+        projection.ts
+      source/
+        model.ts
+        projection.ts
+      tool/
+        model.ts
+        projection.ts
+      host-command/
+        model.ts
+        projection.ts
+      model-option/
+        model.ts
+      host-context/
+        model.ts
+        projection.ts
     shared/
+      ui/
+        badge.tsx
+        button.tsx
+        icon-button.tsx
+        menu.tsx
+        tooltip.tsx
+        textarea.tsx
+        spinner.tsx
+      ai/
+        conversation.tsx
+        message.tsx
+        prompt-input.tsx
+        reasoning.tsx
+        response.tsx
+        source.tsx
+        tool.tsx
+      assets/
+        icons/
+          send-icon.tsx
+          settings-icon.tsx
+        images/
+          README.md
       lib/
         cn.ts
+        assert-never.ts
         unknown-record.ts
 ```
 
 `[Deferred]` approval widget files, if approval becomes product behavior:
 
 ```txt
-packages/side-chat-widget/src/application/
+packages/side-chat-widget/src/features/approval/
+  model/
+    approval-state.ts
+  ui/
+    approval-part.tsx
+packages/side-chat-widget/src/app/flows/
   approval-flow.ts
-  approval-flow.test.ts
 ```
 
 Effect v4 role in the widget:
@@ -1512,9 +1543,11 @@ Effect v4 role in the widget:
 
 UI source ownership rule:
 
-- `assets/images/` owns selected icons, illustrations, empty states, and visual assets. These are repo files, not package imports from an icon kit.
-- `ui/primitives/*` owns copied/adapted shadcn-style primitives as source code. Components may use `@base-ui/react/*`, `class-variance-authority`, Tailwind 4 classes, and `shared/lib/cn`.
-- AI Elements-style message, reasoning, tool, and composer pieces may be copied/adapted into `ui/conversation` and `ui/composer`, but they become widget code and must consume `chat-protocol` projections rather than AI SDK UI messages.
+- `shared/assets/` owns selected icons, illustrations, empty states, and visual assets. These are repo files, not package imports from an icon kit.
+- `shared/ui/*` owns copied/adapted shadcn-style primitives as source code. Components may use `@base-ui/react/*`, `class-variance-authority`, Tailwind 4 classes, and `shared/lib/cn`.
+- `shared/ai/*` owns copied/adapted Vercel AI Elements-style conversation, message, response, reasoning, tool, source, and prompt input pieces as source code. These components may compose `shared/ui`, `shared/lib/cn`, local assets/icons, React, and Tailwind classes.
+- Feature UI owns the product adapter layer: feature files map widget entity/feature projections into generic `shared/ai` props.
+- `shared/ui` and `shared/ai` must not import product features, product entities, protocol DTOs, `chat-client`, `host-bridge`, AI SDK UI message types, provider SDKs, service internals, or database code.
 - No widget source imports `lucide-react`, `ai-elements`, `shadcn`, `@repo/shadcn-ui`, or generated code that must be re-run by the consuming host app.
 
 Primitive implementation shape:
@@ -1523,7 +1556,7 @@ Primitive implementation shape:
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "../../shared/lib/cn";
+import { cn } from "../lib/cn";
 ```
 
 Keep variant definitions beside the primitive, export only through the package/widget public entrypoints that are intended for consumers, and treat copied component code as editable first-party source.
@@ -3231,7 +3264,7 @@ Treat type-aware ESLint as part of the architecture, not as style decoration.
 - No forbidden framework/provider/DB/browser imports outside their allowed folders.
 - No committed focused/skipped tests.
 - No React hook or basic accessibility violations in widget UI.
-- No external UI-kit package imports for shadcn, AI Elements, lucide, or `@repo/shadcn-ui`; copied/adapted UI source must live in widget folders.
+- No external UI-kit package imports for shadcn, AI Elements, lucide, or `@repo/shadcn-ui`; copied/adapted primitive source must live in `shared/ui`, and copied/adapted AI component source must live in `shared/ai`.
 - No deep imports across package public boundaries.
 - No oversized files/functions, nested ternaries, excessive nesting, unclear chained conditionals, or unexplained product literals.
 
@@ -3333,7 +3366,7 @@ A first clean scaffold is acceptable when:
 - `partner-ai-service` can serve a fake streaming response
 - `side-chat-widget` can render against a mocked client stream
 - widget and chat-client public APIs expose plain TypeScript/React-friendly contracts, not required Effect programs
-- widget UI primitives and chat UI components are owned source files, with no `lucide-react`, `ai-elements`, `shadcn`, or `@repo/shadcn-ui` dependency/import
+- widget UI primitives live as owned `shared/ui` source, chat UI components live as owned `shared/ai` source, and neither layer has a `lucide-react`, `ai-elements`, `shadcn`, or `@repo/shadcn-ui` dependency/import
 - boundary checks fail on intentionally forbidden imports
 - dependency and version-pin checks fail on intentionally ranged, missing, duplicated, or misplaced strategic packages
 - runtime-boundary checks fail on domain/use-case code importing framework, provider, DB, browser, env, or client objects

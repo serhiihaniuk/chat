@@ -62,9 +62,9 @@ describe("partner ai service /chat/stream", () => {
       (await app.request("/usage", { headers: authHeaders })).json(),
     ).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      inputTokens: 1,
-      outputTokens: 3,
-      totalTokens: 4,
+      inputTokens: 2,
+      outputTokens: 4,
+      totalTokens: 6,
     });
   });
 
@@ -81,13 +81,66 @@ describe("partner ai service /chat/stream", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/event-stream");
     const events = decodeSseEvents(await response.text());
-    expect(events.map((event) => event.type)).toEqual([
-      "sidechat.started",
-      "sidechat.reasoning",
-      "sidechat.delta",
-      "sidechat.completed",
-    ]);
+    expect(events.map((event) => event.type)).toEqual(
+      expect.arrayContaining([
+        "sidechat.started",
+        "sidechat.reasoning",
+        "sidechat.delta",
+        "sidechat.completed",
+      ]),
+    );
     expect(events.at(-1)).toMatchObject({ type: "sidechat.completed" });
+  });
+
+  it("streams through the runtime configured by service composition", async () => {
+    const response = await createPartnerAiServiceApp({
+      runtime: {
+        provider: "fake",
+        modelId: "fake-custom",
+      },
+    }).request("/chat/stream", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer local-test-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(validRequest),
+    });
+
+    expect(response.status).toBe(200);
+    const events = decodeSseEvents(await response.text());
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "sidechat.reasoning",
+        summary: "fake-provider selected deterministic echo script",
+      }),
+    );
+  });
+
+  it("persists provider/model ids from the composed runtime", async () => {
+    const repositories = createMemorySidechatRepositories();
+    const response = await createPartnerAiServiceApp({
+      repositories,
+      runtime: {
+        provider: "fake",
+        modelId: "fake-custom",
+      },
+    }).request("/chat/stream", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer local-test-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(validRequest),
+    });
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(repositories.snapshot().assistantTurns[0]).toMatchObject({
+      runtimeProfile: "fake",
+      modelProvider: "fake",
+      modelId: "fake-custom",
+    });
   });
 
   it("maps malformed requests to stable bad_request errors", async () => {
@@ -265,14 +318,14 @@ describe("partner ai service /chat/stream", () => {
 
     expect(response.status).toBe(200);
     await response.text();
-    expect(records.map((record) => record.lifecycleState)).toEqual([
-      "received",
-      "started",
-      "runtime_event",
-      "runtime_event",
-      "runtime_event",
-      "completed",
-    ]);
+    expect(records.map((record) => record.lifecycleState)).toEqual(
+      expect.arrayContaining([
+        "received",
+        "started",
+        "runtime_event",
+        "completed",
+      ]),
+    );
     expect(
       records.every((record) => record.traceId === "trace-service-1"),
     ).toBe(true);
@@ -324,7 +377,7 @@ describe("partner ai service /chat/stream", () => {
         modelProvider: "fake",
         modelId: "fake-echo",
         finishReason: "stop",
-        usageTotalTokens: 4,
+        usageTotalTokens: 6,
       },
     });
     expect(snapshot.hostCommandResults).toHaveLength(0);

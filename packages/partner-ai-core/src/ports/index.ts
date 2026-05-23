@@ -3,7 +3,7 @@ import type {
   JsonObject,
   UsageMetadata,
 } from "@side-chat/chat-protocol";
-import type { AuthContext, WorkspaceRef } from "../domain/authority.js";
+import type { AuthContext, WorkspaceRef } from "#domain/authority";
 
 export type ClockPort = {
   readonly now: () => string;

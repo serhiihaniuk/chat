@@ -10,7 +10,7 @@ export const createLocalServiceClient = (
   config: WidgetHarnessConfig,
 ): ChatClient =>
   createChatClient({
-    baseUrl: config.apiBaseUrl,
+    baseUrl: resolveLocalApiBaseUrl(config.apiBaseUrl),
     fetch: withLocalAuth(config.authToken, globalThis.fetch.bind(globalThis)),
   });
 
@@ -32,4 +32,14 @@ const readHeaders = (
   if (headers instanceof Headers) return Object.fromEntries(headers.entries());
   if (Array.isArray(headers)) return Object.fromEntries(headers);
   return headers;
+};
+
+export const resolveLocalApiBaseUrl = (baseUrl: string): string => {
+  if (!baseUrl.startsWith("/")) return baseUrl;
+
+  const origin =
+    typeof window === "undefined"
+      ? "http://127.0.0.1:5173"
+      : window.location.origin;
+  return new URL(baseUrl, origin).toString();
 };

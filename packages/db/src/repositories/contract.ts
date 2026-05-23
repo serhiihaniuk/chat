@@ -2,7 +2,7 @@ import type {
   AssistantTurnRepositoryContract,
   ConversationRepositoryContract,
   InteractionRepositoryContract,
-} from "../schema-contract/index.js";
+} from "#schema-contract";
 
 export type SidechatRepositories = ConversationRepositoryContract &
   AssistantTurnRepositoryContract &

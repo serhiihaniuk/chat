@@ -2,7 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 
 import { AgentRuntimeError } from "../errors.js";
 import type { AssistantProvider } from "../provider.js";
-import { createAiSdkToolLoopAgent } from "../runtime/ai-sdk-tool-loop-agent.js";
+import { createAiSdkToolLoopAgent } from "#runtime/ai-sdk-tool-loop-agent";
 
 export const OPENAI_PROVIDER_ID = "openai" as const;
 export const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";

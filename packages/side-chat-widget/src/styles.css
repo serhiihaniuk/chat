@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+@source "./**/*.{ts,tsx}";
+@source "../../../test-harness/widget-harness/src/**/*.{ts,tsx,html}";

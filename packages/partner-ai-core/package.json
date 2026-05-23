@@ -11,6 +11,38 @@
       "default": "./dist/index.js"
     }
   },
+  "imports": {
+    "#application/*": {
+      "types": "./src/application/*.ts",
+      "development": "./src/application/*.ts",
+      "default": "./dist/application/*.js"
+    },
+    "#domain/*": {
+      "types": "./src/domain/*.ts",
+      "development": "./src/domain/*.ts",
+      "default": "./dist/domain/*.js"
+    },
+    "#errors": {
+      "types": "./src/errors/index.ts",
+      "development": "./src/errors/index.ts",
+      "default": "./dist/errors/index.js"
+    },
+    "#policies/*": {
+      "types": "./src/policies/*.ts",
+      "development": "./src/policies/*.ts",
+      "default": "./dist/policies/*.js"
+    },
+    "#ports": {
+      "types": "./src/ports/index.ts",
+      "development": "./src/ports/index.ts",
+      "default": "./dist/ports/index.js"
+    },
+    "#services/*": {
+      "types": "./src/services/*.ts",
+      "development": "./src/services/*.ts",
+      "default": "./dist/services/*.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -b --pretty false",

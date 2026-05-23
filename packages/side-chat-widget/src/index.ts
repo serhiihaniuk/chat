@@ -1,21 +1,11 @@
 export {
-  Composer,
-  submitComposerMessage,
-  type ComposerProps,
-} from "./domain/composer/composer.js";
-export { Feed, type FeedProps } from "./ui/conversation/feed.js";
-export {
   SideChatWidget,
-  runChatStream,
+  type SideChatWidgetHostCommand,
   type SideChatWidgetLabels,
+  type SideChatWidgetMessage,
+  type SideChatWidgetPanelActions,
   type SideChatWidgetProps,
-} from "./application/side-chat-widget.js";
-export {
-  initialWidgetState,
-  sideChatReducer,
-  type WidgetAction,
-  type WidgetHostCommand,
-  type WidgetMessage,
-  type WidgetState,
-  type WidgetStatus,
-} from "./domain/message/state.js";
+  type SideChatWidgetQuickAction,
+  type SideChatWidgetStateSnapshot,
+  type SideChatWidgetStatus,
+} from "./app/side-chat-widget.js";

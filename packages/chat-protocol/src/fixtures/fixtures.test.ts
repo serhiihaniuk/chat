@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { ProtocolSequenceError } from "../sidechat-v1/errors.js";
-import { parseSidechatStreamEvent } from "../sidechat-v1/validation.js";
-import { validateSidechatEventSequence } from "../sidechat-v1/sequence.js";
+import { ProtocolSequenceError } from "#sidechat-v1/errors";
+import { validateSidechatEventSequence } from "#sidechat-v1/sequence";
+import { parseSidechatStreamEvent } from "#sidechat-v1/validation";
 
 const fixtureDir = dirname(fileURLToPath(import.meta.url));
 

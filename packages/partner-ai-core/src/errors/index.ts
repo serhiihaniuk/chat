@@ -1,6 +1,6 @@
 import type { ProtocolErrorCode } from "@side-chat/chat-protocol";
-import type { AuthorityDenialCode } from "../domain/authority.js";
-import type { PolicyDenialCode } from "../policies/policy.js";
+import type { AuthorityDenialCode } from "#domain/authority";
+import type { PolicyDenialCode } from "#policies/policy";
 
 export type BackendFailureCode =
   | AuthorityDenialCode

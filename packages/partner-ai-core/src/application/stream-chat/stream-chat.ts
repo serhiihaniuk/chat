@@ -1,40 +1,40 @@
 import {
   SIDECHAT_EVENT_TYPES,
-  validateSidechatEventSequence,
   type ChatStreamRequest,
-  type ProtocolErrorCode,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
 import {
   assertWorkspaceAuthority,
   type AuthContext,
   type WorkspaceRef,
-} from "../../domain/authority.js";
-import {
-  PartnerAiCoreError,
-  mapAuthorityDenialToError,
-} from "../../errors/index.js";
+} from "#domain/authority";
+import { mapAuthorityDenialToError } from "#errors";
 import {
   createRequestCorrelation,
   type ObservabilitySinkPort,
-} from "../../services/observability.js";
+} from "#services/observability";
 import {
   allowRequestPolicy,
   mapPolicyDenialToError,
   type PolicyPort,
-} from "../../policies/policy.js";
+} from "#policies/policy";
 import {
   recordStreamObservation,
   runtimeEventAttributes,
   terminalErrorCode,
-} from "../../services/stream-observability.js";
+} from "#services/stream-observability";
 import type {
   AgentRuntimePort,
   ClockPort,
   ConversationRepositoryPort,
   IdGeneratorPort,
-  RuntimeEvent,
-} from "../../ports/index.js";
+} from "#ports";
+import {
+  createErrorEvent,
+  mapRuntimeEvent,
+  mapUnknownRuntimeError,
+  validateExactlyOneTerminal,
+} from "./runtime-event-mapper.js";
 
 export type StreamChatInput = {
   readonly workspace: WorkspaceRef;
@@ -141,6 +141,7 @@ export const createStreamChatUseCase = (
       conversationId: conversation.conversationId,
     });
 
+    let nextStreamSequence = 1;
     try {
       for await (const runtimeEvent of ports.runtime.stream({
         requestId: input.request.requestId,
@@ -159,8 +160,16 @@ export const createStreamChatUseCase = (
           now: ports.clock.now(),
           attributes: runtimeEventAttributes(runtimeEvent),
         });
-        const event = mapRuntimeEvent(runtimeEvent, input.request, ports);
-        if (event) yield emit(event);
+        const event = mapRuntimeEvent(
+          runtimeEvent,
+          input.request,
+          ports,
+          nextStreamSequence,
+        );
+        if (event) {
+          yield emit(event);
+          nextStreamSequence += 1;
+        }
       }
     } catch (error) {
       const mappedError = mapUnknownRuntimeError(error);
@@ -182,7 +191,7 @@ export const createStreamChatUseCase = (
         createErrorEvent(
           input,
           assistantTurnId,
-          emitted.length,
+          nextStreamSequence,
           ports,
           mappedError,
         ),
@@ -235,118 +244,4 @@ const resolveAuthorizedContext = async (
   }
 
   return authorityDecision.authContext;
-};
-
-const mapRuntimeEvent = (
-  event: RuntimeEvent,
-  request: ChatStreamRequest,
-  ports: Pick<StreamChatUseCasePorts, "clock" | "ids">,
-): SidechatStreamEvent | undefined => {
-  const base = {
-    protocolVersion: request.protocolVersion,
-    eventId: ports.ids.nextEventId(),
-    assistantTurnId: event.assistantTurnId,
-    sequence: event.sequence + 1,
-    createdAt: ports.clock.now(),
-  } as const;
-
-  switch (event.type) {
-    case "runtime.started":
-      return undefined;
-    case "runtime.output_delta":
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.delta,
-        content: event.content,
-      };
-    case "runtime.reasoning":
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.reasoning,
-        summary: event.summary,
-      };
-    case "runtime.tool_call":
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.tool,
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        status: "started",
-      };
-    case "runtime.tool_result":
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.tool,
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        status: event.status,
-        ...(event.resultJson ? { result: event.resultJson } : {}),
-        ...(event.errorCode ? { errorCode: "tool_failed" } : {}),
-      };
-    case "runtime.completed":
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.completed,
-        finishReason: event.finishReason,
-        ...(event.usage ? { usage: event.usage } : {}),
-      };
-    case "runtime.error":
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.error,
-        code: mapRuntimeErrorCode(event.code),
-        message: event.message,
-        retryable: event.retryable,
-      };
-  }
-};
-
-const createErrorEvent = (
-  input: StreamChatInput,
-  assistantTurnId: string,
-  sequence: number,
-  ports: Pick<StreamChatUseCasePorts, "clock" | "ids">,
-  error: Pick<PartnerAiCoreError, "protocolCode" | "message" | "retryable">,
-): SidechatStreamEvent => ({
-  protocolVersion: input.request.protocolVersion,
-  type: SIDECHAT_EVENT_TYPES.error,
-  eventId: ports.ids.nextEventId(),
-  assistantTurnId,
-  sequence,
-  createdAt: ports.clock.now(),
-  code: error.protocolCode,
-  message: error.message,
-  retryable: error.retryable,
-});
-
-const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
-  error instanceof PartnerAiCoreError
-    ? error
-    : new PartnerAiCoreError(
-        "runtime_failed",
-        error instanceof Error ? error.message : "Runtime failed",
-        "provider_failed",
-        true,
-      );
-
-const mapRuntimeErrorCode = (code: string): ProtocolErrorCode => {
-  if (code === "tool_failed") return "tool_failed";
-  if (code === "timeout") return "timeout";
-  if (code === "aborted") return "aborted";
-  return "provider_failed";
-};
-
-const validateExactlyOneTerminal = (
-  events: readonly SidechatStreamEvent[],
-): void => {
-  try {
-    validateSidechatEventSequence(events);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "invalid stream";
-    throw new PartnerAiCoreError(
-      "invalid_runtime_sequence",
-      message,
-      "malformed_stream",
-    );
-  }
 };

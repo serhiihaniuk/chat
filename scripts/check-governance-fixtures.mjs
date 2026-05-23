@@ -81,6 +81,36 @@ expectFailure(
   },
 );
 
+expectFailure(
+  "relative source-folder boundary fixture",
+  "check-boundaries.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "packages/partner-ai-core/src/application/bad.ts",
+      "import type { AgentRuntimePort } from '../ports/index.js';\nexport type Bad = AgentRuntimePort;\n",
+    );
+    writeFixtureFile(
+      root,
+      "packages/partner-ai-core/src/ports/index.ts",
+      "export type AgentRuntimePort = { stream: unknown };\n",
+    );
+  },
+);
+
+expectFailure("widget layer fixture", "check-widget-layers.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/side-chat-widget/src/shared/ai/bad.tsx",
+    "import { ChatComposer } from '#features/composer/ui/chat-composer';\nexport const bad = ChatComposer;\n",
+  );
+  writeFixtureFile(
+    root,
+    "packages/side-chat-widget/src/features/composer/ui/chat-composer.tsx",
+    "export const ChatComposer = () => null;\n",
+  );
+});
+
 expectFailure("test placement fixture", "check-test-placement.mjs", (root) => {
   writeFixtureFile(
     root,

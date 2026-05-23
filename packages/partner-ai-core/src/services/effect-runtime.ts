@@ -1,12 +1,12 @@
 import { Context, Effect, Layer } from "effect";
 
-import type { PolicyPort } from "../policies/policy.js";
+import type { PolicyPort } from "#policies/policy";
 import type {
   AgentRuntimePort,
   ClockPort,
   ConversationRepositoryPort,
   IdGeneratorPort,
-} from "../ports/index.js";
+} from "#ports";
 import type { ObservabilitySinkPort } from "./observability.js";
 
 export class ConversationRepositoryService extends Context.Service<

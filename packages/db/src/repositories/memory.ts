@@ -1,13 +1,10 @@
 import type {
   AssistantTurnRecord,
-  AuditEventRecord,
   ContextSnapshotRecord,
   ConversationRecord,
-  HostCommandResultRecord,
   MessageRecord,
-  ToolInvocationRecord,
   UsageRecord,
-} from "../schema-contract/index.js";
+} from "#schema-contract";
 import type { SidechatRepositories } from "./contract.js";
 import { DbRepositoryError } from "./errors.js";
 import {
@@ -15,9 +12,13 @@ import {
   replaceConversation,
   snapshotMemoryStore,
   updateTurn,
-  upsertAt,
   type MemoryStoreSnapshot,
 } from "./memory-store.js";
+import {
+  appendMemoryAuditEvent,
+  recordMemoryHostCommandResult,
+  recordMemoryToolInvocation,
+} from "./memory-interactions.js";
 import { createIdGenerator, result } from "./repository-utils.js";
 
 export type MemorySidechatRepositories = SidechatRepositories & {
@@ -276,88 +277,10 @@ export const createMemorySidechatRepositories = (
       store.usageRecords.push(usage);
       return result(usage, true);
     },
-    recordToolInvocation: async (command) => {
-      await Promise.resolve();
-      const existingIndex = store.toolInvocations.findIndex(
-        (tool) =>
-          tool.workspaceId === command.workspaceId &&
-          tool.assistantTurnId === command.assistantTurnId &&
-          tool.toolCallId === command.toolCallId,
-      );
-      const tool: ToolInvocationRecord = {
-        workspaceId: command.workspaceId,
-        toolInvocationId:
-          existingIndex >= 0
-            ? store.toolInvocations[existingIndex]!.toolInvocationId
-            : ids.next("tool_invocation"),
-        assistantTurnId: command.assistantTurnId,
-        runtimeStepIndex: command.runtimeStepIndex,
-        toolCallId: command.toolCallId,
-        toolName: command.toolName,
-        status: command.status,
-        inputHash: command.inputHash,
-        ...(command.outputHash ? { outputHash: command.outputHash } : {}),
-        inputRedactedJson: command.inputRedactedJson,
-        ...(command.outputRedactedJson
-          ? { outputRedactedJson: command.outputRedactedJson }
-          : {}),
-        ...(command.errorCode ? { errorCode: command.errorCode } : {}),
-        startedAt: command.startedAt,
-        ...(command.completedAt ? { completedAt: command.completedAt } : {}),
-        createdAt: command.now,
-        updatedAt: command.now,
-      };
-      upsertAt(store.toolInvocations, existingIndex, tool);
-      return result(tool, existingIndex < 0);
-    },
-    recordHostCommandResult: async (command) => {
-      await Promise.resolve();
-      const existingIndex = store.hostCommandResults.findIndex(
-        (hostCommand) =>
-          hostCommand.workspaceId === command.workspaceId &&
-          hostCommand.assistantTurnId === command.assistantTurnId &&
-          hostCommand.commandId === command.commandId,
-      );
-      const hostCommand: HostCommandResultRecord = {
-        workspaceId: command.workspaceId,
-        hostCommandId:
-          existingIndex >= 0
-            ? store.hostCommandResults[existingIndex]!.hostCommandId
-            : ids.next("host_command"),
-        assistantTurnId: command.assistantTurnId,
-        commandId: command.commandId,
-        commandType: command.commandType,
-        ...(command.resourceId ? { resourceId: command.resourceId } : {}),
-        status: command.status,
-        resultCode: command.resultCode,
-        commandRedactedJson: command.commandRedactedJson,
-        ...(command.resultRedactedJson
-          ? { resultRedactedJson: command.resultRedactedJson }
-          : {}),
-        createdAt: command.now,
-        updatedAt: command.now,
-        ...(command.resolvedAt ? { resolvedAt: command.resolvedAt } : {}),
-      };
-      upsertAt(store.hostCommandResults, existingIndex, hostCommand);
-      return result(hostCommand, existingIndex < 0);
-    },
-    appendAuditEvent: async (command) => {
-      await Promise.resolve();
-      const auditEvent: AuditEventRecord = {
-        workspaceId: command.workspaceId,
-        auditEventId: ids.next("audit_event"),
-        subjectId: command.subjectId,
-        actorId: command.actorId,
-        eventType: command.eventType,
-        targetType: command.targetType,
-        targetId: command.targetId,
-        metadataJson: command.metadataJson,
-        requestId: command.requestId,
-        createdAt: command.now,
-        updatedAt: command.now,
-      };
-      store.auditEvents.push(auditEvent);
-      return result(auditEvent, true);
-    },
+    recordToolInvocation: (command) =>
+      recordMemoryToolInvocation(command, store, ids),
+    recordHostCommandResult: (command) =>
+      recordMemoryHostCommandResult(command, store, ids),
+    appendAuditEvent: (command) => appendMemoryAuditEvent(command, store, ids),
   };
 };

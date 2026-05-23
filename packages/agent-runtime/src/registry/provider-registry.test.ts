@@ -4,7 +4,7 @@ import {
   createFakeProvider,
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
-} from "../fake/fake-provider.js";
+} from "#fake/fake-provider";
 import { createProviderRegistry } from "./provider-registry.js";
 
 describe("createProviderRegistry", () => {

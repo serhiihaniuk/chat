@@ -1,11 +1,8 @@
 import {
   createProviderRegistry,
   type ProviderSelection,
-} from "../registry/provider-registry.js";
-import {
-  createToolRegistry,
-  type RuntimeTool,
-} from "../tools/tool-registry.js";
+} from "#registry/provider-registry";
+import { createToolRegistry, type RuntimeTool } from "#tools/tool-registry";
 import type { RuntimeEvent } from "../events.js";
 import type { AssistantProvider, RuntimeMessage } from "../provider.js";
 

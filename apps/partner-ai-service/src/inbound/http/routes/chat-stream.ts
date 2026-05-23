@@ -10,17 +10,12 @@ import {
 } from "@side-chat/chat-protocol";
 import type { Hono } from "hono";
 
-import { createServicePersistence } from "../../../adapters/persistence/service-persistence.js";
-import { createFakeServicePorts } from "../../../composition/fake-service-ports.js";
+import { createServicePersistence } from "#adapters/persistence/service-persistence";
+import { createServicePorts } from "#composition/service-ports";
 import type { AuthContextVariables } from "../middleware/auth-context.js";
 import { errorMessage, jsonError } from "../response/protocol-errors.js";
 import { sseResponse } from "../response/sse.js";
-import {
-  DEFAULT_MODEL_ID,
-  DEFAULT_PROVIDER_ID,
-  requireContextAuth,
-  type RouteDependencies,
-} from "./types.js";
+import { requireContextAuth, type RouteDependencies } from "./types.js";
 
 export const registerChatStreamRoute = (
   app: Hono<AuthContextVariables>,
@@ -40,8 +35,9 @@ export const registerChatStreamRoute = (
     }
 
     const useCase = createStreamChatUseCase(
-      createFakeServicePorts({
+      createServicePorts({
         conversations: persistence.conversations,
+        runtime: dependencies.runtime,
         ...(dependencies.observability
           ? { observability: dependencies.observability }
           : {}),
@@ -55,16 +51,16 @@ export const registerChatStreamRoute = (
         workspace: dependencies.workspace,
         request: chatRequest,
         authContext,
-        providerId: DEFAULT_PROVIDER_ID,
-        modelId: DEFAULT_MODEL_ID,
+        providerId: dependencies.providerId,
+        modelId: dependencies.modelId,
         ...traceInput(context.req.raw),
       })) {
         events.push(event);
       }
       await persistence.persistStreamResult({
         request: chatRequest,
-        providerId: DEFAULT_PROVIDER_ID,
-        modelId: DEFAULT_MODEL_ID,
+        providerId: dependencies.providerId,
+        modelId: dependencies.modelId,
         events,
       });
 

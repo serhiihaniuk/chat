@@ -2,8 +2,8 @@ import type {
   ChatStreamRequest,
   ProtocolErrorCode,
 } from "@side-chat/chat-protocol";
-import type { AuthContext, WorkspaceRef } from "../domain/authority.js";
-import { PartnerAiCoreError } from "../errors/index.js";
+import type { AuthContext, WorkspaceRef } from "#domain/authority";
+import { PartnerAiCoreError } from "#errors";
 
 export const POLICY_DENIAL_CODES = {
   rateLimitExceeded: "rate_limit_exceeded",
