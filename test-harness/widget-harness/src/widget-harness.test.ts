@@ -1,0 +1,105 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { SIDECHAT_PROTOCOL_VERSION } from "../../../packages/chat-protocol/src/index.js";
+import {
+  createHarnessHostBridge,
+  createLocalServiceClient,
+  createMockEvents,
+  createMockStreamClient,
+  createWidgetHarnessApp,
+  parseWidgetHarnessConfig,
+  withLocalAuth,
+} from "./index.js";
+
+const request = {
+  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+  requestId: "request-1",
+  message: { id: "message-1", role: "user" as const, content: "hello" },
+};
+
+describe("widget harness modes", () => {
+  it("defaults to mock stream mode and renders the widget shell", () => {
+    const config = parseWidgetHarnessConfig("");
+    const app = createWidgetHarnessApp(config);
+    const html = renderToStaticMarkup(app.element);
+
+    expect(config).toMatchObject({
+      mode: "mock-stream",
+      apiBaseUrl: "http://localhost:3100",
+      workspaceId: "local-dev",
+    });
+    expect(html).toContain("Mock stream harness");
+    expect(html).toContain("side-chat-widget");
+  });
+
+  it("creates deterministic mock stream events with host command sequencing", async () => {
+    const events = createMockEvents(request);
+    const streamed = [];
+    const client = createMockStreamClient();
+    const result = await client.streamChat(request);
+
+    for await (const event of result.events) streamed.push(event.type);
+
+    expect(events.map((event) => event.type)).toEqual([
+      "sidechat.started",
+      "sidechat.reasoning",
+      "sidechat.delta",
+      "sidechat.host_command",
+      "sidechat.completed",
+    ]);
+    expect(streamed).toEqual(events.map((event) => event.type));
+  });
+
+  it("configures local service mode with auth-wrapped fetch", async () => {
+    const seenHeaders: HeadersInit[] = [];
+    const fetchLike = (
+      _input: string | URL | Request,
+      init: RequestInit = {},
+    ) => {
+      seenHeaders.push(init.headers ?? {});
+      return Promise.resolve(new Response("busy", { status: 503 }));
+    };
+    const fetchWithAuth = withLocalAuth("local-test-token", fetchLike);
+
+    await fetchWithAuth("http://localhost:3100/chat/stream", {
+      method: "POST",
+      headers: { accept: "text/event-stream" },
+    });
+
+    expect(seenHeaders).toEqual([
+      { accept: "text/event-stream", authorization: "Bearer local-test-token" },
+    ]);
+    expect(
+      createLocalServiceClient(
+        parseWidgetHarnessConfig(
+          "?mode=local-service&apiBaseUrl=http://localhost:3100",
+        ),
+      ),
+    ).toHaveProperty("streamChat");
+  });
+
+  it("keeps host command results as harness-local records", async () => {
+    const bridge = createHarnessHostBridge(
+      parseWidgetHarnessConfig("?mode=mock-stream"),
+    );
+    const result = await bridge.dispatchCommand({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      type: "sidechat.host_command",
+      eventId: "event-command",
+      assistantTurnId: "turn-1",
+      sequence: 1,
+      createdAt: "2026-05-23T14:00:00.000Z",
+      commandId: "command-1",
+      commandName: "open_resource",
+      payload: { resourceType: "document", resourceId: "doc-1" },
+    });
+
+    expect(result).toMatchObject({
+      status: "applied",
+      resultCode: "harness_local_only",
+      data: { persisted: false },
+    });
+    expect(bridge.commandRecords).toHaveLength(1);
+  });
+});

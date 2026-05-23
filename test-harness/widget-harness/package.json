@@ -13,8 +13,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "typecheck": "tsc -b --pretty false",
-    "test": "vitest run --passWithNoTests"
+    "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
+    "test": "cd ../.. && vitest run test-harness/widget-harness/src/widget-harness.test.ts"
   },
   "dependencies": {
     "@side-chat/chat-client": "0.0.0",
