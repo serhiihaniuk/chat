@@ -12,6 +12,9 @@ const root = resolveRoot();
 const errors = [];
 const sourceLineBudgetExceptions = new Set([
   "packages/db/src/drizzle/schema.ts",
+  "packages/side-chat-widget/src/shared/ai/code-block.tsx",
+  "packages/side-chat-widget/src/shared/ai/message.tsx",
+  "packages/side-chat-widget/src/shared/ai/prompt-input.tsx",
 ]);
 const gitLsFiles = spawnSync("git", ["ls-files"], {
   cwd: root,

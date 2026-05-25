@@ -49,6 +49,14 @@ const allowedUnusedDependencies = new Map([
     "@side-chat/db:effect",
     "Day-one Effect v4 pin required by production-system-design.md.",
   ],
+  [
+    "@side-chat/side-chat-widget:ai-elements",
+    "AI Elements CLI/runtime package is intentionally retained with vendored component source.",
+  ],
+  [
+    "@side-chat/side-chat-widget:react-dom",
+    "Widget declares React DOM as a peer for host applications but does not import it directly.",
+  ],
 ]);
 
 const sourceFiles = listFiles(root).filter(

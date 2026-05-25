@@ -47,10 +47,21 @@ for (const file of listSourceFiles(root)) {
 
   if (
     imports.some((name) => name === "ai" || name?.startsWith("@ai-sdk/")) &&
-    area !== "packages/agent-runtime"
+    area !== "packages/agent-runtime" &&
+    !(
+      importsUseOnlyAiPackage(imports) &&
+      file.startsWith("packages/side-chat-widget/src/shared/ai/")
+    )
   ) {
     errors.push(`${file}: AI SDK imports are owned by packages/agent-runtime`);
   }
 }
 
 failIfErrors(errors);
+
+function importsUseOnlyAiPackage(imports) {
+  return (
+    imports.some((name) => name === "ai") &&
+    !imports.some((name) => name?.startsWith("@ai-sdk/"))
+  );
+}

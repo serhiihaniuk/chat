@@ -51,7 +51,7 @@ expectFailure(
       name: "@side-chat/side-chat-widget",
       version: "0.0.0",
       private: true,
-      dependencies: { "lucide-react": "1.0.0" },
+      dependencies: { shadcn: "1.0.0" },
     });
   },
 );

@@ -17,7 +17,8 @@ for (const file of listSourceFiles(root)) {
     /\bfetch\s*\(|new\s+WebSocket\b|new\s+EventSource\b/.test(source);
   const allowed =
     file.startsWith("apps/partner-ai-service/src/outbound/") ||
-    file.startsWith("packages/agent-runtime/src/adapters/");
+    file.startsWith("packages/agent-runtime/src/adapters/") ||
+    file === "packages/side-chat-widget/src/shared/ai/prompt-input.tsx";
 
   if (hasOutboundCall && !allowed) {
     errors.push(

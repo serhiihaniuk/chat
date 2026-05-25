@@ -9,12 +9,7 @@ import {
 const root = resolveRoot();
 const errors = [];
 
-const forbidden = new Set([
-  "lucide-react",
-  "ai-elements",
-  "shadcn",
-  "@repo/shadcn-ui",
-]);
+const forbidden = new Set(["shadcn", "@repo/shadcn-ui"]);
 const allowed = {
   "@side-chat/partner-ai-service": new Set([
     "@effect/platform-node",
@@ -51,11 +46,25 @@ const allowed = {
     "@side-chat/chat-client",
     "@side-chat/chat-protocol",
     "@side-chat/host-bridge",
+    "@streamdown/cjk",
+    "@streamdown/code",
+    "@streamdown/math",
+    "@streamdown/mermaid",
+    "ai",
+    "ai-elements",
     "class-variance-authority",
     "clsx",
+    "cmdk",
+    "embla-carousel-react",
+    "lucide-react",
+    "motion",
+    "nanoid",
     "react",
     "react-dom",
+    "shiki",
+    "streamdown",
     "tailwind-merge",
+    "use-stick-to-bottom",
   ]),
   "@side-chat/testing": new Set(["@side-chat/chat-protocol"]),
   "@side-chat/widget-harness": new Set([

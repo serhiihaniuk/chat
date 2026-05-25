@@ -10,8 +10,8 @@ import prettier from "eslint-config-prettier";
 
 const restrictedImports = [
   {
-    group: ["lucide-react", "ai-elements", "shadcn", "@repo/shadcn-ui"],
-    message: "Widget UI dependencies must be owned source.",
+    group: ["shadcn", "@repo/shadcn-ui"],
+    message: "shadcn registry packages must not ship with the widget.",
   },
 ];
 

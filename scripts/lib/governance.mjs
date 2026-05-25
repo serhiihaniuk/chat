@@ -68,7 +68,9 @@ export function listWorkspacePackageJsons(root) {
 
     for (const entry of readdirSync(absoluteRoot, { withFileTypes: true })) {
       if (entry.isDirectory()) {
-        const packageJson = join(workspaceRoot, entry.name, "package.json");
+        const packageJson = join(workspaceRoot, entry.name, "package.json")
+          .split(sep)
+          .join("/");
         if (existsSync(join(root, packageJson))) paths.push(packageJson);
       }
     }

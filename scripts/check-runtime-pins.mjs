@@ -9,7 +9,14 @@ const expectedNode = packageJson.engines?.node;
 const expectedNpm = packageJson.engines?.npm;
 const nvmNode = readFileSync(`${root}/.nvmrc`, "utf8").trim();
 const actualNode = process.version.replace(/^v/, "");
-const actualNpm = execFileSync("npm", ["-v"], {
+const npmCommand =
+  process.platform === "win32"
+    ? {
+        command: process.env.ComSpec ?? "cmd.exe",
+        args: ["/d", "/s", "/c", "npm -v"],
+      }
+    : { command: "npm", args: ["-v"] };
+const actualNpm = execFileSync(npmCommand.command, npmCommand.args, {
   cwd: root,
   encoding: "utf8",
 }).trim();

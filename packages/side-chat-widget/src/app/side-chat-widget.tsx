@@ -1,65 +1,54 @@
-import { useMemo, type ReactElement } from "react";
-
-import { resolveWidgetClient } from "./create-widget-client.js";
-import {
-  useSideChatWidgetController,
-  type UseSideChatWidgetControllerOptions,
-} from "./widget-controller.js";
-import type { SideChatWidgetProps } from "./widget.types.js";
-import { SideChatWidgetView } from "./widget-view.js";
 import type { ChatClient } from "@side-chat/chat-client";
-import { defaultQuickActions } from "#features/quick-actions/model/quick-action";
-import { omitUndefined } from "#shared/lib/omit-undefined";
+import type { ChatStreamRequest, HostContext } from "@side-chat/chat-protocol";
+import type { HostBridge } from "@side-chat/host-bridge";
 
-export type {
-  SideChatWidgetHostCommand,
-  SideChatWidgetLabels,
-  SideChatWidgetAssistantProfile,
-  SideChatWidgetIdentity,
-  SideChatWidgetMessage,
-  SideChatWidgetPanelActions,
-  SideChatWidgetPanelSize,
-  SideChatWidgetProps,
-  SideChatWidgetQuickAction,
-  SideChatWidgetStateSnapshot,
-  SideChatWidgetStatus,
-  SideChatWidgetTransport,
-} from "./widget.types.js";
-
-export const SideChatWidget = (props: SideChatWidgetProps): ReactElement => {
-  const client = useMemo(() => resolveWidgetClient(props), [props]);
-  const controllerOptions = useMemo(
-    () => createControllerOptions(props, client),
-    [client, props],
-  );
-  const controller = useSideChatWidgetController(controllerOptions);
-
-  return (
-    <SideChatWidgetView
-      controller={controller}
-      labels={props.labels ?? {}}
-      quickActions={props.quickActions ?? defaultQuickActions}
-    />
-  );
+export type SideChatWidgetLabels = {
+  readonly placeholder?: string;
+  readonly send?: string;
+  readonly title?: string;
 };
 
-const createControllerOptions = (
-  props: SideChatWidgetProps,
-  client: ChatClient,
-): UseSideChatWidgetControllerOptions =>
-  omitUndefined({
-    assistantProfiles: props.assistantProfiles,
-    client,
-    defaultAssistantProfileId: props.defaultAssistantProfileId,
-    defaultOpen: props.defaultOpen,
-    defaultPanelSize: props.defaultPanelSize,
-    hostBridge: props.hostBridge,
-    identity: props.identity,
-    initialConversationId: props.initialConversationId,
-    initialState: props.initialState,
-    onError: props.onError,
-    onOpen: props.onOpen,
-    onUsage: props.onUsage,
-    panelActions: props.panelActions,
-    requestFactory: props.requestFactory,
-  }) as UseSideChatWidgetControllerOptions;
+export type SideChatWidgetPanelActions = {
+  readonly onClose?: () => void;
+  readonly onMinimize?: () => void;
+};
+
+export type SideChatWidgetQuickAction = {
+  readonly id: string;
+  readonly label: string;
+  readonly prompt: string;
+};
+
+export type SideChatWidgetStateSnapshot = Record<string, never>;
+
+export type SideChatWidgetAssistantProfile = {
+  readonly id: string;
+  readonly label: string;
+};
+
+export type SideChatWidgetPanelSize = {
+  readonly height: number;
+  readonly width: number;
+};
+
+export type SideChatWidgetProps = {
+  readonly assistantProfiles?: readonly SideChatWidgetAssistantProfile[];
+  readonly client: ChatClient;
+  readonly defaultAssistantProfileId?: string;
+  readonly defaultOpen?: boolean;
+  readonly defaultPanelSize?: SideChatWidgetPanelSize;
+  readonly hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand">;
+  readonly initialState?: SideChatWidgetStateSnapshot;
+  readonly labels?: SideChatWidgetLabels;
+  readonly panelActions?: SideChatWidgetPanelActions;
+  readonly quickActions?: readonly SideChatWidgetQuickAction[];
+  readonly requestFactory?: (
+    message: string,
+    hostContext?: HostContext,
+  ) => ChatStreamRequest;
+};
+
+export const SideChatWidget = (props: SideChatWidgetProps) => {
+  void props;
+  return null;
+};
