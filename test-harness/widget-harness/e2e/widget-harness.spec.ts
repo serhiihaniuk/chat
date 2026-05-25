@@ -62,10 +62,10 @@ test("streams through the real widget and real backend with mocked DB and model"
 });
 
 test("renders tool activity details from the canonical activity stream", async ({ page }) => {
-  await page.goto("/?mode=mock-stream");
+  await page.goto("/?mode=mock-stream&scenario=tool");
   await expect(page.getByRole("heading", { name: "Workspace Assistant" })).toBeVisible();
 
-  await page.getByLabel("Message").fill("search web for current portfolio news");
+  await page.getByLabel("Message").fill("current portfolio news");
   await page.getByRole("button", { name: "Send" }).click();
 
   await expect(page.getByRole("button", { name: /Thought/u }).last()).toBeVisible({
@@ -76,9 +76,7 @@ test("renders tool activity details from the canonical activity stream", async (
   const toolTrigger = page.getByRole("button", { name: /mock_web_search/u });
   await expect(toolTrigger).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Search query")).toBeVisible();
-  await expect(
-    page.getByText("search web for current portfolio news", { exact: true }).last(),
-  ).toBeVisible();
+  await expect(page.getByText("current portfolio news", { exact: true }).last()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Result", exact: true }).first()).toBeVisible({
     timeout: 15_000,
   });
@@ -89,6 +87,54 @@ test("renders tool activity details from the canonical activity stream", async (
 
   await toolTrigger.click();
   await expect(page.getByText("Search query")).toBeHidden();
+});
+
+test("renders a failed host-command result from the mock harness", async ({ page }) => {
+  await page.goto("/?mode=mock-stream&scenario=failed-host-command");
+
+  await page.getByLabel("Message").fill("open the linked record");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await openActivityPanel(page, { timeout: 15_000 });
+  await expect(page.getByText("Open resource")).toBeVisible();
+  await expect(page.getByText(/harness_command_failed/u)).toBeVisible();
+});
+
+test("sends selected model and host context through public widget seams", async ({ page }) => {
+  await page.goto("/?mode=mock-stream&scenario=echo-request&workspaceId=workspace_context_a");
+
+  await page.getByRole("button", { name: "Select model" }).click();
+  await page.getByRole("option", { name: "GPT-5.4", exact: true }).click();
+  await page.getByLabel("Message").fill("echo request metadata");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(
+    page.getByText(
+      "Mock response: echo request metadata model=gpt-5.4 workspace=workspace_context_a",
+    ),
+  ).toBeVisible();
+});
+
+test("shows a stream error state without arbitrary waits", async ({ page }) => {
+  await page.goto("/?mode=mock-stream&scenario=error");
+
+  await page.getByLabel("Message").fill("trigger mock failure");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(page.getByText("Mock stream failed")).toBeVisible();
+  await page.getByRole("button", { name: "Dismiss error" }).click();
+  await expect(page.getByText("Mock stream failed")).toBeHidden();
+});
+
+test("keeps the widget usable on a mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ height: 740, width: 390 });
+  await page.goto("/?mode=mock-stream");
+
+  const widget = page.getByRole("region", { name: "Workspace Assistant" });
+  await expect(widget).toBeVisible();
+  await expectElementWithinViewport(page, widget);
+  await expectElementWithinViewport(page, page.getByLabel("Message"));
+  await expectElementWithinViewport(page, page.getByRole("button", { name: "Send" }));
 });
 
 test("keeps prompt input context and model controls visible as anchored popovers", async ({

@@ -17,12 +17,24 @@ describe("createOpenAIResponsesProvider", () => {
           new Response(
             [
               sse({
+                type: "response.output_item.added",
+                output_index: 0,
+                item: { type: "message", id: "msg_001" },
+              }),
+              sse({
                 type: "response.output_text.delta",
+                item_id: "msg_001",
                 delta: "Hello ",
               }),
               sse({
                 type: "response.output_text.delta",
+                item_id: "msg_001",
                 delta: "world",
+              }),
+              sse({
+                type: "response.output_item.done",
+                output_index: 0,
+                item: { type: "message", id: "msg_001" },
               }),
               sse({
                 type: "response.completed",
@@ -50,14 +62,30 @@ describe("createOpenAIResponsesProvider", () => {
       }),
     );
 
-    expect(events.map((event) => event.type)).toEqual(["runtime.started", "runtime.completed"]);
+    expect(events.map((event) => event.type)).toEqual([
+      "runtime.started",
+      "runtime.output_delta",
+      "runtime.output_delta",
+      "runtime.completed",
+    ]);
     expect(events[0]).toMatchObject({
       providerId: OPENAI_PROVIDER_ID,
       modelId: "gpt-5.4-mini",
       sequence: 0,
     });
+    expect(events[1]).toMatchObject({
+      type: "runtime.output_delta",
+      content: "Hello ",
+      sequence: 1,
+    });
+    expect(events[2]).toMatchObject({
+      type: "runtime.output_delta",
+      content: "world",
+      sequence: 2,
+    });
     expect(events.at(-1)).toMatchObject({
       type: "runtime.completed",
+      sequence: 3,
       usage: { inputTokens: 5, outputTokens: 2, totalTokens: 7 },
     });
     expect(calls[0]?.headers).toMatchObject({

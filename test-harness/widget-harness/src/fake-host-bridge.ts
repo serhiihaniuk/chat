@@ -1,6 +1,7 @@
 import type { HostContext } from "@side-chat/chat-protocol";
 import {
   createCommandResult,
+  createFailedResult,
   toHostCommand,
   type HostBridge,
   type HostCommandResult,
@@ -26,11 +27,14 @@ export const createHarnessHostBridge = (config: WidgetHarnessConfig): HarnessHos
     getContext: () => Promise.resolve(createHarnessHostContext(config)),
     dispatchCommand: (event) => {
       const command = toHostCommand(event);
-      const result = createCommandResult(command, {
-        status: "applied",
-        resultCode: "harness_local_only",
-        data: { persisted: false },
-      });
+      const result =
+        config.scenario === "failed-host-command"
+          ? createFailedResult(command, "harness_command_failed")
+          : createCommandResult(command, {
+              status: "applied",
+              resultCode: "harness_local_only",
+              data: { persisted: false },
+            });
       commandRecords.push({
         commandId: command.commandId,
         commandName: command.commandName,

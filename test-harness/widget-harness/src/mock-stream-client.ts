@@ -8,41 +8,72 @@ import {
   type SidechatStreamEvent,
   type StartedEvent,
 } from "@side-chat/chat-protocol";
+import type { WidgetHarnessConfig } from "./modes.js";
 
-export const createMockStreamClient = (): ChatClient => ({
+export const createMockStreamClient = (
+  config?: Pick<WidgetHarnessConfig, "scenario">,
+): ChatClient => ({
   streamChat: (request) =>
     Promise.resolve({
       attempt: 1,
-      events: mockStreamEvents(request),
+      events: mockStreamEvents(request, config?.scenario ?? "default"),
     }),
 });
 
 const mockStreamEvents = async function* (
   request: ChatStreamRequest,
+  scenario: WidgetHarnessConfig["scenario"],
 ): AsyncIterable<SidechatStreamEvent> {
-  for (const event of createMockEvents(request)) {
+  for (const event of createMockEvents(request, scenario)) {
     await Promise.resolve();
     yield event;
   }
 };
 
-export const createMockEvents = (request: ChatStreamRequest): readonly SidechatStreamEvent[] => {
+export const createMockEvents = (
+  request: ChatStreamRequest,
+  scenario: WidgetHarnessConfig["scenario"] = "default",
+): readonly SidechatStreamEvent[] => {
   const assistantTurnId = `turn-${request.requestId}`;
-  const toolEvents = shouldUseSearchTool(request.message.content)
-    ? [
-        toolRunningEvent(assistantTurnId, request.message.content),
-        toolCompletedEvent(assistantTurnId, request.message.content),
-      ]
-    : [];
+  const toolEvents =
+    scenario === "tool" || shouldUseSearchTool(request.message.content)
+      ? [
+          toolRunningEvent(assistantTurnId, request.message.content),
+          toolCompletedEvent(assistantTurnId, request.message.content),
+        ]
+      : [];
   const deltaSequence = toolEvents.length > 0 ? 4 : 2;
   const hostCommandSequence = deltaSequence + 1;
   const completedSequence = hostCommandSequence + 1;
+
+  if (scenario === "error") {
+    return [
+      started(assistantTurnId),
+      reasoningEvent(assistantTurnId),
+      {
+        ...baseEvent(assistantTurnId, 2),
+        type: "sidechat.error",
+        code: "internal_error",
+        message: "Mock stream failed",
+        retryable: true,
+      },
+    ];
+  }
+
+  const workspaceId =
+    typeof request.hostContext?.metadata?.["workspaceId"] === "string"
+      ? request.hostContext.metadata["workspaceId"]
+      : "unknown-workspace";
+  const responseContent =
+    scenario === "echo-request"
+      ? `Mock response: ${request.message.content} model=${request.assistantProfileId ?? "none"} workspace=${workspaceId}`
+      : `Mock response: ${request.message.content}`;
 
   return [
     started(assistantTurnId),
     reasoningEvent(assistantTurnId),
     ...toolEvents,
-    deltaEvent(assistantTurnId, deltaSequence, `Mock response: ${request.message.content}`),
+    deltaEvent(assistantTurnId, deltaSequence, responseContent),
     hostCommandEvent(assistantTurnId, hostCommandSequence),
     completedEvent(assistantTurnId, completedSequence),
   ];

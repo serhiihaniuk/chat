@@ -190,4 +190,57 @@ describe("createChatClient", () => {
     ]);
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
   });
+
+  it("maps non-OK history, reset, and usage route responses to HTTP errors", async () => {
+    const fetchMock = vi
+      .fn<FetchLike>()
+      .mockResolvedValueOnce(new Response("no history", { status: 404 }))
+      .mockResolvedValueOnce(new Response("cannot reset", { status: 409 }))
+      .mockResolvedValueOnce(new Response("no usage", { status: 503 }));
+    const client = createChatClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    await expect(client.readHistory?.("missing-conversation")).rejects.toMatchObject({
+      code: "http_error",
+      status: 404,
+    });
+    await expect(client.resetHistory?.("missing-conversation")).rejects.toMatchObject({
+      code: "http_error",
+      status: 409,
+    });
+    await expect(client.readUsage?.()).rejects.toMatchObject({
+      code: "http_error",
+      status: 503,
+    });
+  });
+
+  it("rejects malformed route helper JSON and missing expected fields", async () => {
+    const fetchMock = vi
+      .fn<FetchLike>()
+      .mockResolvedValueOnce(new Response("{", { status: 200 }))
+      .mockResolvedValueOnce(
+        Response.json({ conversationId: "conversation-1", messages: [{ role: "user" }] }),
+      )
+      .mockResolvedValueOnce(Response.json({ conversationId: "conversation-1" }))
+      .mockResolvedValueOnce(Response.json({ totalTokens: "5" }));
+    const client = createChatClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    await expect(client.readHistory?.("conversation-1")).rejects.toMatchObject({
+      code: "network_error",
+    });
+    await expect(client.readHistory?.("conversation-1")).rejects.toMatchObject({
+      code: "network_error",
+    });
+    await expect(client.resetHistory?.("conversation-1")).rejects.toMatchObject({
+      code: "network_error",
+    });
+    await expect(client.readUsage?.()).rejects.toMatchObject({
+      code: "network_error",
+    });
+  });
 });

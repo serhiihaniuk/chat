@@ -83,6 +83,16 @@ export type RecordUsageCommand = RepositoryCommandEnvelope & {
   readonly costUnits: string;
 };
 
+export type ReadUsageSummaryCommand = {
+  readonly workspaceId: string;
+};
+
+export type UsageSummary = {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly totalTokens: number;
+};
+
 export type RecordToolInvocationCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: string;
   readonly runtimeStepIndex: number;
@@ -143,6 +153,7 @@ export type RepositoryCommandInput =
   | CompleteAssistantTurnCommand
   | FailAssistantTurnCommand
   | RecordUsageCommand
+  | ReadUsageSummaryCommand
   | RecordToolInvocationCommand
   | RecordHostCommandResultCommand
   | ReadConversationHistoryCommand
@@ -181,6 +192,7 @@ export type AssistantTurnRepositoryContract = {
   readonly recordUsage: (
     command: RecordUsageCommand,
   ) => Promise<RepositoryCommandResult<UsageRecord>>;
+  readonly readUsageSummary: (command: ReadUsageSummaryCommand) => Promise<UsageSummary>;
 };
 
 export type InteractionRepositoryContract = {

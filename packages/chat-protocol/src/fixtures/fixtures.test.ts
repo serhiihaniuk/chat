@@ -26,6 +26,19 @@ describe("sidechat protocol fixtures", () => {
     expect(validateSidechatEventSequence(events).terminalEvent.type).toBe("sidechat.error");
   });
 
+  it("validates the canonical activity stream", () => {
+    const events = readFixture("activity-stream.json").map(parseSidechatStreamEvent);
+    expect(validateSidechatEventSequence(events).eventCount).toBe(6);
+    expect(events.map((event) => event.type)).toEqual([
+      "sidechat.started",
+      "sidechat.activity",
+      "sidechat.activity",
+      "sidechat.activity",
+      "sidechat.delta",
+      "sidechat.completed",
+    ]);
+  });
+
   it("rejects the malformed golden stream", () => {
     const events = readFixture("malformed-stream.json").map(parseSidechatStreamEvent);
     expect(() => validateSidechatEventSequence(events)).toThrow(ProtocolSequenceError);

@@ -16,9 +16,14 @@ export type WidgetHarnessApp = {
 export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarnessApp => {
   const hostBridge = createHarnessHostBridge(config);
   const client =
-    config.mode === "local-service" ? createLocalServiceClient(config) : createMockStreamClient();
+    config.mode === "local-service"
+      ? createLocalServiceClient(config)
+      : createMockStreamClient(config);
   const props: SideChatWidgetProps = {
-    assistantProfiles: [{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }],
+    assistantProfiles: [
+      { id: "gpt-5.4-mini", label: "GPT-5.4 mini" },
+      { id: "gpt-5.4", label: "GPT-5.4" },
+    ],
     client,
     defaultAssistantProfileId: "gpt-5.4-mini",
     defaultOpen: true,

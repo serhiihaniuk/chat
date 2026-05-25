@@ -78,6 +78,35 @@ describe("AI SDK runtime tool activity mapping", () => {
       title: `Run ${MOCK_WEB_SEARCH_TOOL_NAME}`,
     });
   });
+
+  it("maps AI SDK tool errors to failed normalized runtime activity", () => {
+    const event = mapAiSdkToolActivity(
+      createRequest(),
+      {
+        type: "tool-error",
+        toolCallId: "call_failed",
+        toolName: MOCK_WEB_SEARCH_TOOL_NAME,
+        dynamic: true,
+        input: { query: "portfolio risk" },
+        error: new Error("tool failed"),
+      },
+      5,
+      createRuntimeToolLookup([createMockWebSearchTool({ delayMs: 0 })]),
+    );
+
+    expect(event).toMatchObject({
+      type: "runtime.activity",
+      activityId: "call_failed",
+      activityKind: "tool",
+      status: "failed",
+      details: {
+        tool: {
+          errorCode: "tool_failed",
+          input: { query: "portfolio risk" },
+        },
+      },
+    });
+  });
 });
 
 const createRequest = (): RuntimeRequest => ({

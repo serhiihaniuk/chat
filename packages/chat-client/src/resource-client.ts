@@ -1,5 +1,6 @@
 import type { UsageMetadata } from "@side-chat/chat-protocol";
 
+import { ChatClientError } from "./errors.js";
 import { assertNotAborted, buildPathUrl, createHttpError, withSignal } from "./http-helpers.js";
 import type {
   ChatClientOptions,
@@ -31,11 +32,7 @@ export const readHistoryWithFetch = async (
 
   const response = await transport(url, withSignal(options.signal));
   if (!response.ok) throw createHttpError(response.status, 1);
-  const payload = (await response.json()) as ReadHistoryResult;
-  return {
-    conversationId: payload.conversationId,
-    messages: payload.messages,
-  };
+  return normalizeHistory(await readJson(response, "history"));
 };
 
 export const resetHistoryWithFetch = async (
@@ -54,7 +51,7 @@ export const resetHistoryWithFetch = async (
     ...withSignal(options.signal),
   });
   if (!response.ok) throw createHttpError(response.status, 1);
-  return (await response.json()) as ResetHistoryResult;
+  return normalizeReset(await readJson(response, "history reset"));
 };
 
 export const readUsageWithFetch = async (
@@ -68,11 +65,85 @@ export const readUsageWithFetch = async (
     withSignal(options.signal),
   );
   if (!response.ok) throw createHttpError(response.status, 1);
-  return normalizeUsage((await response.json()) as UsageMetadata);
+  return normalizeUsage(await readJson(response, "usage"));
 };
 
-const normalizeUsage = (payload: UsageMetadata): UsageMetadata => ({
-  ...(payload.inputTokens === undefined ? {} : { inputTokens: payload.inputTokens }),
-  ...(payload.outputTokens === undefined ? {} : { outputTokens: payload.outputTokens }),
-  ...(payload.totalTokens === undefined ? {} : { totalTokens: payload.totalTokens }),
-});
+const readJson = async (response: Response, route: string): Promise<unknown> => {
+  try {
+    return (await response.json()) as unknown;
+  } catch (cause) {
+    throw new ChatClientError("network_error", `Malformed ${route} response JSON`, { cause });
+  }
+};
+
+const normalizeHistory = (payload: unknown): ReadHistoryResult => {
+  if (!isRecord(payload) || typeof payload["conversationId"] !== "string") {
+    throw new ChatClientError("network_error", "Malformed history response");
+  }
+  if (!Array.isArray(payload["messages"])) {
+    throw new ChatClientError("network_error", "Malformed history response");
+  }
+  return {
+    conversationId: payload["conversationId"],
+    messages: payload["messages"].map(normalizeHistoryMessage),
+  };
+};
+
+const normalizeHistoryMessage = (payload: unknown): ReadHistoryResult["messages"][number] => {
+  if (
+    !isRecord(payload) ||
+    typeof payload["id"] !== "string" ||
+    !isHistoryRole(payload["role"]) ||
+    typeof payload["content"] !== "string" ||
+    typeof payload["sequence"] !== "number"
+  ) {
+    throw new ChatClientError("network_error", "Malformed history response");
+  }
+  return {
+    id: payload["id"],
+    role: payload["role"],
+    content: payload["content"],
+    sequence: payload["sequence"],
+  };
+};
+
+const normalizeReset = (payload: unknown): ResetHistoryResult => {
+  if (!isRecord(payload) || typeof payload["conversationId"] !== "string") {
+    throw new ChatClientError("network_error", "Malformed history reset response");
+  }
+  if (typeof payload["status"] !== "string") {
+    throw new ChatClientError("network_error", "Malformed history reset response");
+  }
+  return {
+    conversationId: payload["conversationId"],
+    status: payload["status"],
+  };
+};
+
+const normalizeUsage = (payload: unknown): UsageMetadata => {
+  if (!isRecord(payload)) {
+    throw new ChatClientError("network_error", "Malformed usage response");
+  }
+  if (
+    !isOptionalNumber(payload["inputTokens"]) ||
+    !isOptionalNumber(payload["outputTokens"]) ||
+    !isOptionalNumber(payload["totalTokens"])
+  ) {
+    throw new ChatClientError("network_error", "Malformed usage response");
+  }
+
+  return {
+    ...(payload["inputTokens"] === undefined ? {} : { inputTokens: payload["inputTokens"] }),
+    ...(payload["outputTokens"] === undefined ? {} : { outputTokens: payload["outputTokens"] }),
+    ...(payload["totalTokens"] === undefined ? {} : { totalTokens: payload["totalTokens"] }),
+  };
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isOptionalNumber = (value: unknown): value is number | undefined =>
+  value === undefined || typeof value === "number";
+
+const isHistoryRole = (value: unknown): value is ReadHistoryResult["messages"][number]["role"] =>
+  value === "user" || value === "assistant" || value === "system";

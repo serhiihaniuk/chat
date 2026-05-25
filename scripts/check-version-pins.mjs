@@ -26,8 +26,10 @@ const requiredRoot = {
   vite: "8.0.14",
   "@vitejs/plugin-react": "6.0.2",
   tailwindcss: "4.3.0",
+  testcontainers: "12.0.0",
   "@types/react": "19.2.15",
   "@types/react-dom": "19.2.3",
+  "happy-dom": "20.9.0",
 };
 
 const requiredByPackage = {

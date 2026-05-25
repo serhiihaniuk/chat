@@ -1,9 +1,16 @@
 export type WidgetHarnessMode = "mock-stream" | "local-service";
+export type WidgetHarnessScenario =
+  | "default"
+  | "echo-request"
+  | "error"
+  | "failed-host-command"
+  | "tool";
 
 export type WidgetHarnessConfig = {
   readonly mode: WidgetHarnessMode;
   readonly apiBaseUrl: string;
   readonly authToken: string;
+  readonly scenario: WidgetHarnessScenario;
   readonly workspaceId: string;
 };
 
@@ -18,6 +25,7 @@ export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig =>
     mode,
     apiBaseUrl: params.get("apiBaseUrl") ?? DEFAULT_API_BASE_URL,
     authToken: params.get("authToken") ?? DEFAULT_AUTH_TOKEN,
+    scenario: parseScenario(params.get("scenario")),
     workspaceId: params.get("workspaceId") ?? DEFAULT_WORKSPACE_ID,
   };
 };
@@ -35,4 +43,12 @@ const parseMode = (mode: string | null): WidgetHarnessMode => {
   if (mode === "mock-stream") return "mock-stream";
   if (mode === "local-service") return "local-service";
   return "local-service";
+};
+
+const parseScenario = (scenario: string | null): WidgetHarnessScenario => {
+  if (scenario === "echo-request") return "echo-request";
+  if (scenario === "error") return "error";
+  if (scenario === "failed-host-command") return "failed-host-command";
+  if (scenario === "tool") return "tool";
+  return "default";
 };

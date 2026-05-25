@@ -89,4 +89,25 @@ describe("sidechat event validation", () => {
       expect(() => parseSidechatStreamEvent(providerShape)).toThrow(ProtocolValidationError);
     }
   });
+
+  it("rejects recognizable DB-row and HTTP framework shapes", () => {
+    for (const leakedShape of [
+      {
+        protocolVersion: "sidechat.v1",
+        type: SIDECHAT_EVENT_TYPES.DELTA,
+        eventId: "evt_db_row",
+        assistantTurnId: "turn_001",
+        sequence: 4,
+        createdAt: "2026-05-23T13:00:00.000Z",
+        content_text: "raw row text",
+      },
+      {
+        req: { path: "/chat/stream" },
+        res: {},
+        json: () => undefined,
+      },
+    ]) {
+      expect(() => parseSidechatStreamEvent(leakedShape)).toThrow(ProtocolValidationError);
+    }
+  });
 });

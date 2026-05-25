@@ -259,6 +259,19 @@ export const createMemorySidechatRepositories = (
       store.usageRecords.push(usage);
       return result(usage, true);
     },
+    readUsageSummary: async (command) => {
+      await Promise.resolve();
+      return store.usageRecords
+        .filter((usage) => usage.workspaceId === command.workspaceId)
+        .reduce(
+          (total, usage) => ({
+            inputTokens: total.inputTokens + usage.inputTokens,
+            outputTokens: total.outputTokens + usage.outputTokens,
+            totalTokens: total.totalTokens + usage.totalTokens,
+          }),
+          { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        );
+    },
     recordToolInvocation: (command) => recordMemoryToolInvocation(command, store, ids),
     recordHostCommandResult: (command) => recordMemoryHostCommandResult(command, store, ids),
     appendAuditEvent: (command) => appendMemoryAuditEvent(command, store, ids),

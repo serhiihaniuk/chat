@@ -159,6 +159,71 @@ describe("partner ai service /chat/stream", () => {
     });
   });
 
+  it("maps invalid JSON bodies to stable bad_request errors", async () => {
+    const response = await createPartnerAiServiceApp().request("/chat/stream", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer local-test-token",
+        "content-type": "application/json",
+      },
+      body: "{",
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      code: "bad_request",
+      message: "Request body must be valid JSON.",
+      retryable: false,
+    });
+  });
+
+  it("fails closed for unauthenticated history and usage routes", async () => {
+    const app = createPartnerAiServiceApp();
+
+    const history = await app.request("/chat/history/conversation_1");
+    const usage = await app.request("/usage");
+
+    expect(history.status).toBe(401);
+    expect(usage.status).toBe(401);
+    await expect(history.json()).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      code: "unauthorized",
+    });
+    await expect(usage.json()).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      code: "unauthorized",
+    });
+  });
+
+  it("resets conversation history through the public route", async () => {
+    const app = createPartnerAiServiceApp();
+    const authHeaders = { authorization: "Bearer local-test-token" };
+    const stream = await app.request("/chat/stream", {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(validRequest),
+    });
+    const conversationId = decodeSseEvents(await stream.text()).find(
+      (event) => event.type === "sidechat.started",
+    )?.conversationId;
+
+    const reset = await app.request(`/chat/history/${conversationId}`, {
+      method: "DELETE",
+      headers: authHeaders,
+    });
+
+    expect(reset.status).toBe(200);
+    await expect(reset.json()).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      conversationId,
+      status: "reset",
+    });
+  });
+
   it("fails closed when normalized auth cannot be extracted", async () => {
     const response = await createPartnerAiServiceApp().request("/chat/stream", {
       method: "POST",

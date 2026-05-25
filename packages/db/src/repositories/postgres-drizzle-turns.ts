@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { assistantTurns, turnContextSnapshots, usageRecords } from "#drizzle/schema";
 import type { SidechatRepositories } from "./contract.js";
@@ -23,6 +23,7 @@ export const createPostgresDrizzleTurnRepository = ({
   | "failAssistantTurn"
   | "recordTurnContextSnapshot"
   | "recordUsage"
+  | "readUsageSummary"
   | "startAssistantTurn"
 > => ({
   startAssistantTurn: async (command) => {
@@ -204,5 +205,21 @@ export const createPostgresDrizzleTurnRepository = ({
       ),
       false,
     );
+  },
+  readUsageSummary: async (command) => {
+    const [summary] = await db
+      .select({
+        inputTokens: sql<number>`coalesce(sum(${usageRecords.inputTokens}), 0)`,
+        outputTokens: sql<number>`coalesce(sum(${usageRecords.outputTokens}), 0)`,
+        totalTokens: sql<number>`coalesce(sum(${usageRecords.totalTokens}), 0)`,
+      })
+      .from(usageRecords)
+      .where(eq(usageRecords.workspaceId, command.workspaceId));
+
+    return {
+      inputTokens: Number(summary?.inputTokens ?? 0),
+      outputTokens: Number(summary?.outputTokens ?? 0),
+      totalTokens: Number(summary?.totalTokens ?? 0),
+    };
   },
 });

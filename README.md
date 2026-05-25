@@ -28,3 +28,16 @@ tests and UI development. They are explicit development paths, not the current
 local OpenAI smoke path.
 
 Operational rollout, rollback, and verification steps live in `docs/ops/side-chat-production-runbook.md`.
+
+## Test Lanes
+
+The testing source of truth is `docs/architecture/testing-system-design.md`.
+
+- `npm test`: fast deterministic Vitest lane.
+- `npm run test:e2e`: memory-backed Playwright harness.
+- `npm run test:db:container`: Testcontainers Postgres repository contract.
+- `npm run test:e2e:persistent`: real widget/service with Testcontainers
+  Postgres and fake provider.
+- `npm run verify`: host full gate with pinned Node/npm.
+- `npm run verify:container`: CI/release parity gate inside the dev/test app
+  container.

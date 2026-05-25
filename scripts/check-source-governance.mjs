@@ -80,11 +80,12 @@ function validateTrackedArtifacts() {
   });
   const trackedFiles =
     gitLsFiles.status === 0 ? new Set(gitLsFiles.stdout.split("\n").filter(Boolean)) : undefined;
+  if (trackedFiles === undefined) return;
 
   for (const file of listFiles(root)) {
     if (
       /^(?:apps|packages|test-harness)\/[^/]+\/(?:dist|build|coverage)\//.test(file) &&
-      (trackedFiles === undefined || trackedFiles.has(file))
+      trackedFiles.has(file)
     ) {
       errors.push(`${file}: generated build/test artifact must not be tracked`);
     }

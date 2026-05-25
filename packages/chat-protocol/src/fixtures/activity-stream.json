@@ -1,0 +1,89 @@
+[
+  {
+    "protocolVersion": "sidechat.v1",
+    "type": "sidechat.started",
+    "eventId": "evt_activity_0",
+    "assistantTurnId": "turn_activity_1",
+    "conversationId": "conversation_activity_1",
+    "sequence": 0,
+    "createdAt": "2026-05-23T13:00:00.000Z"
+  },
+  {
+    "protocolVersion": "sidechat.v1",
+    "type": "sidechat.activity",
+    "eventId": "evt_activity_1",
+    "assistantTurnId": "turn_activity_1",
+    "sequence": 1,
+    "createdAt": "2026-05-23T13:00:01.000Z",
+    "activityId": "tool_1",
+    "activityKind": "tool",
+    "status": "running",
+    "title": "Run mock_web_search",
+    "details": {
+      "tool": {
+        "toolCallId": "tool_1",
+        "toolName": "mock_web_search",
+        "input": { "query": "portfolio news" }
+      }
+    }
+  },
+  {
+    "protocolVersion": "sidechat.v1",
+    "type": "sidechat.activity",
+    "eventId": "evt_activity_2",
+    "assistantTurnId": "turn_activity_1",
+    "sequence": 2,
+    "createdAt": "2026-05-23T13:00:02.000Z",
+    "activityId": "tool_1",
+    "activityKind": "tool",
+    "status": "completed",
+    "title": "Run mock_web_search",
+    "details": {
+      "tool": {
+        "toolCallId": "tool_1",
+        "toolName": "mock_web_search",
+        "input": { "query": "portfolio news" },
+        "result": { "summary": "mocked result" },
+        "sources": [{ "label": "Mock Search Result", "url": "https://example.test" }]
+      }
+    }
+  },
+  {
+    "protocolVersion": "sidechat.v1",
+    "type": "sidechat.activity",
+    "eventId": "evt_activity_3",
+    "assistantTurnId": "turn_activity_1",
+    "sequence": 3,
+    "createdAt": "2026-05-23T13:00:03.000Z",
+    "activityId": "host_1",
+    "activityKind": "host_command",
+    "status": "completed",
+    "title": "Open resource",
+    "details": {
+      "hostCommand": {
+        "commandId": "host_1",
+        "commandName": "open_resource",
+        "payload": { "resourceId": "harness_local_only" },
+        "result": { "status": "emitted" }
+      }
+    }
+  },
+  {
+    "protocolVersion": "sidechat.v1",
+    "type": "sidechat.delta",
+    "eventId": "evt_activity_4",
+    "assistantTurnId": "turn_activity_1",
+    "sequence": 4,
+    "createdAt": "2026-05-23T13:00:04.000Z",
+    "content": "Done."
+  },
+  {
+    "protocolVersion": "sidechat.v1",
+    "type": "sidechat.completed",
+    "eventId": "evt_activity_5",
+    "assistantTurnId": "turn_activity_1",
+    "sequence": 5,
+    "createdAt": "2026-05-23T13:00:05.000Z",
+    "finishReason": "stop"
+  }
+]

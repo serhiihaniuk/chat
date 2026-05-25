@@ -10,6 +10,7 @@ const workspaceId = "workspace_e2e";
 export default defineConfig({
   testDir: "test-harness/widget-harness/e2e",
   testMatch: "**/*.spec.ts",
+  testIgnore: "**/persistent.spec.ts",
   fullyParallel: false,
   reporter: "list",
   use: {

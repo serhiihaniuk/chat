@@ -10,3 +10,5 @@ Side Chat is an embeddable AI chat product without an owned host app. The produc
 - `packages/db` owns schema contracts, Drizzle schema, and memory/Postgres repository adapters.
 
 Public package consumers use package entrypoints. Relative imports must not cross package, app, or harness boundaries.
+
+Testing architecture is part of the system design. See `docs/architecture/testing-system-design.md` for test lanes, container strategy, repository contracts, and package ownership.
