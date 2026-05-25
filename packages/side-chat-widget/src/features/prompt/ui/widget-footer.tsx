@@ -24,15 +24,23 @@ import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useCallback } from "react";
 
 import { WidgetContextTools } from "./widget-context.js";
-import { toPromptStatusProps } from "./widget-state.js";
-import type {
-  SideChatWidgetAssistantProfile,
-  SideChatWidgetLabels,
-  SideChatWidgetQuickAction,
-  WidgetMessage,
-  WidgetStatus,
-  WidgetUsage,
-} from "./widget.types.js";
+import type { WidgetMessage, WidgetStatus, WidgetUsage } from "#entities/chat";
+
+type WidgetFooterLabels = {
+  readonly placeholder: string;
+  readonly send: string;
+};
+
+type WidgetFooterAssistantProfile = {
+  readonly id: string;
+  readonly label: string;
+};
+
+type WidgetFooterQuickAction = {
+  readonly id: string;
+  readonly label: string;
+  readonly prompt: string;
+};
 
 export const WidgetFooter = ({
   isBusy,
@@ -50,13 +58,13 @@ export const WidgetFooter = ({
   usage,
 }: {
   readonly isBusy: boolean;
-  readonly labels: Required<SideChatWidgetLabels>;
+  readonly labels: WidgetFooterLabels;
   readonly messageCount: number;
   readonly messages: readonly WidgetMessage[];
   readonly onSubmitMessage: (messageText: string) => Promise<void>;
   readonly onProfileSelect: (profileId: string) => void;
-  readonly profiles: readonly SideChatWidgetAssistantProfile[];
-  readonly quickActions: readonly SideChatWidgetQuickAction[];
+  readonly profiles: readonly WidgetFooterAssistantProfile[];
+  readonly quickActions: readonly WidgetFooterQuickAction[];
   readonly selectedProfileId: string | undefined;
   readonly selectedProfileLabel: string | undefined;
   readonly status: WidgetStatus;
@@ -115,7 +123,7 @@ const PromptModelSelector = ({
   selectedProfileLabel,
 }: {
   readonly onSelect: (profileId: string) => void;
-  readonly profiles: readonly SideChatWidgetAssistantProfile[];
+  readonly profiles: readonly WidgetFooterAssistantProfile[];
   readonly selectedProfileId: string | undefined;
   readonly selectedProfileLabel: string | undefined;
 }) => (
@@ -154,7 +162,7 @@ const QuickActions = ({
 }: {
   readonly messageCount: number;
   readonly onSubmitMessage: (messageText: string) => Promise<void>;
-  readonly quickActions: readonly SideChatWidgetQuickAction[];
+  readonly quickActions: readonly WidgetFooterQuickAction[];
 }) => {
   if (quickActions.length === 0 || messageCount > 0) return null;
 
@@ -171,4 +179,12 @@ const QuickActions = ({
       ))}
     </Suggestions>
   );
+};
+
+const toPromptStatusProps = (
+  status: WidgetStatus,
+): { readonly status?: "submitted" | "streaming" } => {
+  if (status === "submitted") return { status: "submitted" };
+  if (status === "streaming") return { status: "streaming" };
+  return {};
 };

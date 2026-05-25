@@ -1,12 +1,8 @@
 import type { ChatClient } from "@side-chat/chat-client";
-import type {
-  ChatStreamRequest,
-  HostCommandEvent,
-  HostContext,
-  ToolEvent,
-  UsageMetadata,
-} from "@side-chat/chat-protocol";
-import type { HostBridge, HostCommandResult } from "@side-chat/host-bridge";
+import type { ChatStreamRequest, HostContext } from "@side-chat/chat-protocol";
+import type { HostBridge } from "@side-chat/host-bridge";
+
+import type { SideChatWidgetPanelSize } from "#entities/panel";
 
 export type SideChatWidgetLabels = {
   readonly placeholder?: string;
@@ -32,10 +28,7 @@ export type SideChatWidgetAssistantProfile = {
   readonly label: string;
 };
 
-export type SideChatWidgetPanelSize = {
-  readonly height: number;
-  readonly width: number;
-};
+export type { SideChatWidgetPanelSize };
 
 export type SideChatWidgetProps = {
   readonly assistantProfiles?: readonly SideChatWidgetAssistantProfile[];
@@ -49,23 +42,4 @@ export type SideChatWidgetProps = {
   readonly panelActions?: SideChatWidgetPanelActions;
   readonly quickActions?: readonly SideChatWidgetQuickAction[];
   readonly requestFactory?: (message: string, hostContext?: HostContext) => ChatStreamRequest;
-};
-
-export type WidgetStatus = "idle" | "submitted" | "streaming" | "error";
-export type WidgetUsage = UsageMetadata;
-
-export type WidgetMessage = {
-  readonly id: string;
-  readonly role: "user" | "assistant";
-  readonly content: string;
-  readonly reasoning: readonly string[];
-  readonly tools: readonly ToolEvent[];
-  readonly hostCommands: readonly HostCommandView[];
-  readonly isStreaming?: boolean;
-};
-
-export type HostCommandView = {
-  readonly event: HostCommandEvent;
-  readonly result?: HostCommandResult;
-  readonly status: "running" | "completed" | "failed";
 };

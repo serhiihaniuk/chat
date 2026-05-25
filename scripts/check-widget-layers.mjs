@@ -19,7 +19,7 @@ const blockedFixtureText = ["Context 26%", "Current page", "GPT 5.5", "Workspace
 for (const folder of removedTopLevelFolders) {
   if (existsSync(join(root, widgetSourceRoot, folder))) {
     errors.push(
-      `${widgetSourceRoot}/${folder}: widget source must use app/features/entities/shared`,
+      `${widgetSourceRoot}/${folder}: widget source must use app/widgets/features/entities/shared`,
     );
   }
 }
@@ -36,7 +36,9 @@ for (const file of listSourceFiles(root)) {
   const from = classifySourceFile(file);
 
   if (!from) {
-    errors.push(`${file}: widget source must live under app, features, entities, or shared`);
+    errors.push(
+      `${file}: widget source must live under app, widgets, features, entities, or shared`,
+    );
     continue;
   }
 
@@ -70,8 +72,8 @@ failIfErrors(errors);
 function validatePublicEntrypoint(file) {
   const source = readFileSync(join(root, file), "utf8");
   for (const specifier of importSpecifiers(source)) {
-    if (specifier !== "./app/side-chat-widget.js") {
-      errors.push(`${file}: public widget entrypoint may only export the app-level API`);
+    if (specifier !== "./widgets/side-chat/index.js") {
+      errors.push(`${file}: public widget entrypoint may only export the side-chat widget API`);
     }
   }
 }
@@ -112,18 +114,22 @@ function classifyWidgetPath(path) {
 
 function classifyLayerAndSlice(layer, slice) {
   if (layer === "app" || layer === "shared") return { layer };
-  if (layer === "features" || layer === "entities") {
+  if (layer === "widgets" || layer === "features" || layer === "entities") {
     return slice ? { layer, slice } : undefined;
   }
   return undefined;
 }
 
 function validateLayerImport(file, from, target, specifier) {
+  const layerError = validateLayerDirection(file, from, target, specifier);
+  if (layerError) return layerError;
+
   switch (from.layer) {
     case "app":
       return undefined;
+    case "widgets":
     case "features":
-      return validateFeatureImport(file, from, target, specifier);
+      return undefined;
     case "entities":
       return validateEntityImport(file, from, target, specifier);
     case "shared":
@@ -133,13 +139,23 @@ function validateLayerImport(file, from, target, specifier) {
   return undefined;
 }
 
-function validateFeatureImport(file, from, target, specifier) {
-  if (target.layer === "app") {
-    return `${file}: feature code must not import app code through ${specifier}`;
+function validateLayerDirection(file, from, target, specifier) {
+  const fromRank = layerRank(from.layer);
+  const targetRank = layerRank(target.layer);
+
+  if (targetRank > fromRank) {
+    return `${file}: ${from.layer} code must not import ${target.layer} code through ${specifier}`;
   }
-  if (target.layer === "features" && target.slice !== undefined && target.slice !== from.slice) {
-    return `${file}: feature ${from.slice} must not import feature ${target.slice} through ${specifier}`;
+
+  if (
+    targetRank === fromRank &&
+    from.slice !== undefined &&
+    target.slice !== undefined &&
+    target.slice !== from.slice
+  ) {
+    return `${file}: ${from.layer} ${from.slice} must not import ${target.layer} ${target.slice} through ${specifier}`;
   }
+
   return undefined;
 }
 
@@ -154,6 +170,22 @@ function validateEntityImport(file, from, target, specifier) {
 function validateSharedImport(file, target, specifier) {
   if (target.layer === "shared") return undefined;
   return `${file}: shared widget code must not import ${target.layer} through ${specifier}`;
+}
+
+function layerRank(layer) {
+  switch (layer) {
+    case "app":
+      return 4;
+    case "widgets":
+      return 3;
+    case "features":
+      return 2;
+    case "entities":
+      return 1;
+    case "shared":
+      return 0;
+  }
+  return Number.POSITIVE_INFINITY;
 }
 
 function sepForPlatform() {

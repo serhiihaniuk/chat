@@ -45,6 +45,7 @@ export type ReasoningProps = Omit<
   "defaultOpen" | "onOpenChange" | "open"
 > & {
   isStreaming?: boolean;
+  autoClose?: boolean;
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -82,6 +83,7 @@ function useControllableValue<T>({
 export const Reasoning = memo(
   ({
     className,
+    autoClose = true,
     isStreaming = false,
     open,
     defaultOpen,
@@ -127,7 +129,7 @@ export const Reasoning = memo(
     }, [isStreaming, isOpen, setIsOpen, isExplicitlyClosed]);
 
     useEffect(() => {
-      if (hasEverStreamedRef.current && !isStreaming && isOpen && !hasAutoClosed) {
+      if (autoClose && hasEverStreamedRef.current && !isStreaming && isOpen && !hasAutoClosed) {
         const timer = setTimeout(() => {
           setIsOpen(false);
           setHasAutoClosed(true);
@@ -137,7 +139,7 @@ export const Reasoning = memo(
       }
 
       return undefined;
-    }, [isStreaming, isOpen, setIsOpen, hasAutoClosed]);
+    }, [autoClose, isStreaming, isOpen, setIsOpen, hasAutoClosed]);
 
     const handleOpenChange = useCallback(
       (newOpen: boolean) => {
@@ -211,24 +213,31 @@ export const ReasoningTrigger = memo(
   },
 );
 
-export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & {
-  children: string;
-};
+export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent>;
 
 const streamdownPlugins = { cjk, code, math, mermaid };
 
-export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
-  <CollapsibleContent
-    className={cn(
-      "mt-4 text-sm",
-      "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
-      className,
-    )}
-    {...props}
-  >
-    <Streamdown plugins={streamdownPlugins}>{children}</Streamdown>
-  </CollapsibleContent>
-));
+export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => {
+  const content =
+    typeof children === "string" ? (
+      <Streamdown plugins={streamdownPlugins}>{children}</Streamdown>
+    ) : (
+      children
+    );
+
+  return (
+    <CollapsibleContent
+      className={cn(
+        "mt-4 text-sm",
+        "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+        className,
+      )}
+      {...props}
+    >
+      {content}
+    </CollapsibleContent>
+  );
+});
 
 Reasoning.displayName = "Reasoning";
 ReasoningTrigger.displayName = "ReasoningTrigger";

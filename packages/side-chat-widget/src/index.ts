@@ -5,4 +5,4 @@ export {
   type SideChatWidgetProps,
   type SideChatWidgetQuickAction,
   type SideChatWidgetStateSnapshot,
-} from "./app/side-chat-widget.js";
+} from "./widgets/side-chat/index.js";

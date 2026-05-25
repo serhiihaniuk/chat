@@ -4,9 +4,11 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "#shared/ai/conversation";
+import { Button } from "#shared/ui/button";
+import { XIcon } from "lucide-react";
 
 import { WidgetMessageView } from "./widget-message-view.js";
-import type { WidgetMessage } from "./widget.types.js";
+import type { WidgetMessage } from "#entities/chat";
 
 export const WidgetConversation = ({
   messages,
@@ -28,12 +30,28 @@ export const WidgetConversation = ({
   </Conversation>
 );
 
-export const WidgetError = ({ message }: { readonly message: string | undefined }) =>
+export const WidgetError = ({
+  message,
+  onDismiss,
+}: {
+  readonly message: string | undefined;
+  readonly onDismiss: () => void;
+}) =>
   message ? (
     <div
-      className="mx-3 mb-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm"
+      className="mx-3 mb-2 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm"
       role="alert"
     >
-      {message}
+      <span className="min-w-0 flex-1">{message}</span>
+      <Button
+        aria-label="Dismiss error"
+        className="-my-1 -mr-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+        onClick={onDismiss}
+        size="icon-xs"
+        type="button"
+        variant="ghost"
+      >
+        <XIcon className="size-3.5" />
+      </Button>
     </div>
   ) : null;

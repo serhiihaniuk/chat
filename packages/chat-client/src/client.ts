@@ -131,9 +131,10 @@ const streamChatWithFetch = async (
       }
 
       return {
-        events: decodeChunkedSseStream(readResponseBody(response.body), {
-          ...(streamOptions.signal ? { signal: streamOptions.signal } : {}),
-        }),
+        events: decodeChunkedSseStream(
+          readResponseBody(response.body),
+          streamOptions.signal ? { signal: streamOptions.signal } : undefined,
+        ),
         attempt,
       };
     } catch (cause) {

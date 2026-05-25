@@ -42,6 +42,7 @@ export type ToolEvent = SidechatEventBase & {
   readonly toolCallId: string;
   readonly toolName: string;
   readonly status: "started" | "completed" | "failed";
+  readonly input?: JsonObject;
   readonly result?: JsonObject;
   readonly errorCode?: ProtocolErrorCode;
 };

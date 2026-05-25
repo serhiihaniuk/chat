@@ -6,6 +6,16 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "imports": {
+    "#entities/*": {
+      "types": "./src/entities/*/index.ts",
+      "development": "./src/entities/*/index.ts",
+      "default": "./dist/entities/*/index.js"
+    },
+    "#features/*": {
+      "types": "./src/features/*/index.ts",
+      "development": "./src/features/*/index.ts",
+      "default": "./dist/features/*/index.js"
+    },
     "#shared/lib/*": {
       "types": "./src/shared/lib/*.ts",
       "development": "./src/shared/lib/*.ts",

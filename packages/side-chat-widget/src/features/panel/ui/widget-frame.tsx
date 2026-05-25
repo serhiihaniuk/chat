@@ -2,8 +2,8 @@ import { Button } from "#shared/ui/button";
 import { XIcon } from "lucide-react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
-import type { ResizeHandle } from "./widget-resize.js";
-import type { SideChatWidgetPanelSize } from "./widget.types.js";
+import type { SideChatWidgetPanelSize } from "#entities/panel";
+import type { ResizeHandle } from "../model/widget-resize.js";
 
 export const toPanelStyle = (
   panelSize: SideChatWidgetPanelSize,

@@ -95,15 +95,15 @@ expectFailure("widget layer fixture", "check-widget-layers.mjs", (root) => {
   );
 });
 
-expectFailure("test placement fixture", "check-test-placement.mjs", (root) => {
+expectFailure("test placement fixture", "check-source-governance.mjs", (root) => {
   writeFixtureFile(root, "packages/chat-protocol/tests/bad.test.ts", "export {};\n");
 });
 
-expectFailure("build artifact fixture", "check-code-quality.mjs", (root) => {
+expectFailure("build artifact fixture", "check-source-governance.mjs", (root) => {
   writeFixtureFile(root, "packages/chat-protocol/dist/index.js", "export {};\n");
 });
 
-expectFailure("typescript escape fixture", "check-typescript-rules.mjs", (root) => {
+expectFailure("typescript escape fixture", "check-source-governance.mjs", (root) => {
   writeJson(join(root, "tsconfig.base.json"), {
     compilerOptions: {
       strict: true,
@@ -122,7 +122,7 @@ expectFailure("typescript escape fixture", "check-typescript-rules.mjs", (root) 
   writeFixtureFile(
     root,
     "packages/chat-protocol/src/bad.ts",
-    "const value: any = 1;\nexport { value };\n",
+    "const value = 1 as unknown as string;\nexport { value };\n",
   );
 });
 

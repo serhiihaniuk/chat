@@ -18,6 +18,28 @@ describe("sidechat event validation", () => {
     expect(event.type).toBe(SIDECHAT_EVENT_TYPES.DELTA);
   });
 
+  it("accepts tool input and result payloads", () => {
+    const event = parseSidechatStreamEvent({
+      protocolVersion: "sidechat.v1",
+      type: SIDECHAT_EVENT_TYPES.TOOL,
+      eventId: "evt_002",
+      assistantTurnId: "turn_001",
+      sequence: 2,
+      createdAt: "2026-05-23T13:00:00.000Z",
+      toolCallId: "tool_001",
+      toolName: "mock_web_search",
+      status: "completed",
+      input: { query: "latest news" },
+      result: { summary: "mocked result" },
+    });
+
+    expect(event).toMatchObject({
+      type: SIDECHAT_EVENT_TYPES.TOOL,
+      input: { query: "latest news" },
+      result: { summary: "mocked result" },
+    });
+  });
+
   it("rejects provider-native and AI SDK UI stream shapes", () => {
     for (const providerShape of [
       { type: "text-delta", textDelta: "hello" },

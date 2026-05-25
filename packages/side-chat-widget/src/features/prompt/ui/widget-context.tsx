@@ -1,8 +1,9 @@
 import { PromptInputButton } from "#shared/ai/prompt-input";
 import { cn } from "#shared/lib/cn";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "#shared/ui/hover-card";
 import { PanelTopIcon } from "lucide-react";
 
-import type { WidgetMessage, WidgetUsage } from "./widget.types.js";
+import type { WidgetMessage, WidgetUsage } from "#entities/chat";
 
 const recentContextMessageLimit = 12;
 const recentContextMessageCharacters = 1200;
@@ -53,15 +54,20 @@ const ContextUsageControl = ({
   const percent = Math.min(100, Math.round((usedCharacters / recentContextTotalCharacters) * 100));
 
   return (
-    <span className="group/context relative inline-flex max-sm:hidden">
-      <PromptInputButton aria-label={`Context usage ${percent}%`}>
+    <HoverCard closeDelay={100} openDelay={100}>
+      <HoverCardTrigger
+        className="max-sm:hidden"
+        render={<PromptInputButton aria-label={`Context usage ${percent}%`} />}
+      >
         <span>Context</span>
         <span>{percent}%</span>
         <ContextRing percent={percent} />
-      </PromptInputButton>
-      <span
-        className="pointer-events-none absolute bottom-full left-0 z-20 mb-2 hidden w-96 max-w-[calc(100vw-3rem)] rounded-md border border-border bg-popover p-3 text-popover-foreground text-sm shadow-lg group-hover/context:block group-focus-within/context:block"
-        role="tooltip"
+      </HoverCardTrigger>
+      <HoverCardContent
+        align="start"
+        className="w-96 max-w-[calc(100vw-3rem)] rounded-md border border-border p-3 shadow-xl"
+        side="top"
+        sideOffset={8}
       >
         <span className="flex items-center justify-between gap-3">
           <strong className="font-medium text-foreground text-sm">Context usage</strong>
@@ -77,8 +83,8 @@ const ContextUsageControl = ({
         <span className="mt-3 block rounded bg-muted px-2 py-1.5 text-muted-foreground text-xs">
           Visible conversation context is trimmed to the last 12 messages and 6k characters.
         </span>
-      </span>
-    </span>
+      </HoverCardContent>
+    </HoverCard>
   );
 };
 
@@ -158,18 +164,20 @@ const ContextRow = ({ label, value }: { readonly label: string; readonly value: 
 );
 
 const PageContextIndicator = () => (
-  <span className="group/page-context relative inline-flex shrink-0 max-sm:hidden">
-    <PromptInputButton aria-label="Using current page context" className="gap-1.5">
+  <HoverCard closeDelay={100} openDelay={100}>
+    <HoverCardTrigger
+      className="shrink-0 max-sm:hidden"
+      render={<PromptInputButton aria-label="Using current page context" className="gap-1.5" />}
+    >
       <PanelTopIcon className="size-4" />
       <span>Page</span>
       <span aria-hidden="true" className="size-1.5 rounded-full bg-emerald-600" />
-    </PromptInputButton>
-    <span
-      className={cn(
-        "pointer-events-none absolute bottom-full left-0 z-20 mb-2 hidden w-80 max-w-[calc(100vw-3rem)] rounded-md border border-border bg-popover p-3 text-popover-foreground text-sm shadow-lg",
-        "group-hover/page-context:block group-focus-within/page-context:block",
-      )}
-      role="tooltip"
+    </HoverCardTrigger>
+    <HoverCardContent
+      align="start"
+      className={cn("w-80 max-w-[calc(100vw-3rem)] rounded-md border border-border p-3 shadow-xl")}
+      side="top"
+      sideOffset={8}
     >
       <strong className="block font-medium text-foreground text-sm">Page context</strong>
       <span className="mt-2 block leading-5 text-muted-foreground">
@@ -179,8 +187,8 @@ const PageContextIndicator = () => (
       <span className="mt-2 block rounded bg-muted p-2 text-muted-foreground text-xs leading-5">
         It does not automatically inspect other pages or hidden browser state.
       </span>
-    </span>
-  </span>
+    </HoverCardContent>
+  </HoverCard>
 );
 
 const estimateTokens = (characters: number): number => Math.max(0, Math.ceil(characters / 4));

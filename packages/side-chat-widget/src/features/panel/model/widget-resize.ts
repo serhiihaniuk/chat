@@ -6,12 +6,13 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import type { SideChatWidgetPanelSize } from "./widget.types.js";
+import type { SideChatWidgetPanelSize } from "#entities/panel";
 
 export type ResizeHandle = "left" | "right" | "top" | "bottom" | "top-left" | "top-right";
 
 type PanelOffset = { readonly x: number; readonly y: number };
 type PanelSize = SideChatWidgetPanelSize;
+type ViewportSize = { readonly height: number; readonly width: number };
 
 const panelInset = 16;
 const viewportGutter = 32;
@@ -21,23 +22,29 @@ const fallbackPanelSize: PanelSize = { width: 640, height: 760 };
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
-const clampPanelSize = (size: PanelSize): PanelSize => {
-  const maxWidth =
-    typeof window === "undefined" ? fallbackPanelSize.width : window.innerWidth - viewportGutter;
-  const maxHeight =
-    typeof window === "undefined" ? fallbackPanelSize.height : window.innerHeight - viewportGutter;
+const currentViewport = (): ViewportSize | undefined =>
+  typeof window === "undefined"
+    ? undefined
+    : { height: window.innerHeight, width: window.innerWidth };
 
+const clampPanelSize = (size: PanelSize, viewport = currentViewport()): PanelSize => {
+  const maxWidth = viewport ? viewport.width - viewportGutter : fallbackPanelSize.width;
+  const maxHeight = viewport ? viewport.height - viewportGutter : fallbackPanelSize.height;
   return {
     width: clamp(size.width, minPanelSize.width, maxWidth),
     height: clamp(size.height, minPanelSize.height, maxHeight),
   };
 };
 
-const clampPanelOffset = (offset: PanelOffset, size: PanelSize): PanelOffset => {
-  if (typeof window === "undefined") return offset;
+const clampPanelOffset = (
+  offset: PanelOffset,
+  size: PanelSize,
+  viewport = currentViewport(),
+): PanelOffset => {
+  if (!viewport) return offset;
 
-  const maxOffsetX = Math.max(0, window.innerWidth - size.width - panelInset);
-  const maxOffsetY = Math.max(0, window.innerHeight - size.height - panelInset);
+  const maxOffsetX = Math.max(0, viewport.width - size.width - panelInset);
+  const maxOffsetY = Math.max(0, viewport.height - size.height - panelInset);
   return {
     x: clamp(offset.x, -maxOffsetX, panelInset),
     y: clamp(offset.y, -maxOffsetY, panelInset),
@@ -87,6 +94,57 @@ const getNextHeight = (
 const getInitialPanelSize = (defaultPanelSize: SideChatWidgetPanelSize | undefined): PanelSize =>
   clampPanelSize(defaultPanelSize ?? fallbackPanelSize);
 
+export type ResizeCalculationInput = {
+  readonly handle: ResizeHandle;
+  readonly currentX: number;
+  readonly currentY: number;
+  readonly startHeight: number;
+  readonly startOffset: PanelOffset;
+  readonly startWidth: number;
+  readonly startX: number;
+  readonly startY: number;
+  readonly viewport?: ViewportSize;
+};
+
+export const calculateResizedPanel = ({
+  currentX,
+  currentY,
+  handle,
+  startHeight,
+  startOffset,
+  startWidth,
+  startX,
+  startY,
+  viewport,
+}: ResizeCalculationInput): {
+  readonly panelOffset: PanelOffset;
+  readonly panelSize: PanelSize;
+} => {
+  const nextWidth = getNextWidth(handle, startWidth, startX, currentX);
+  const nextHeight = getNextHeight(handle, startHeight, startY, currentY);
+  const panelSize = clampPanelSize(
+    {
+      height: nextHeight,
+      width: nextWidth,
+    },
+    viewport,
+  );
+  const panelOffset = clampPanelOffset(
+    {
+      x: handleResizesFromRight(handle)
+        ? startOffset.x + panelSize.width - startWidth
+        : startOffset.x,
+      y: handleResizesFromBottom(handle)
+        ? startOffset.y + panelSize.height - startHeight
+        : startOffset.y,
+    },
+    panelSize,
+    viewport,
+  );
+
+  return { panelOffset, panelSize };
+};
+
 export const useResizableWidgetPanel = (defaultPanelSize: SideChatWidgetPanelSize | undefined) => {
   const [panelSize, setPanelSize] = useState(() => getInitialPanelSize(defaultPanelSize));
   const [panelOffset, setPanelOffset] = useState<PanelOffset>({ x: 0, y: 0 });
@@ -125,33 +183,19 @@ export const useResizableWidgetPanel = (defaultPanelSize: SideChatWidgetPanelSiz
         document.body.style.userSelect = "none";
       }
 
-      const nextWidth = getNextWidth(
-        resize.handle,
-        resize.startWidth,
-        resize.startX,
-        event.clientX,
-      );
-      const nextHeight = getNextHeight(
-        resize.handle,
-        resize.startHeight,
-        resize.startY,
-        event.clientY,
-      );
-      const nextSize = clampPanelSize({
-        height: nextHeight,
-        width: nextWidth,
+      const next = calculateResizedPanel({
+        currentX: event.clientX,
+        currentY: event.clientY,
+        handle: resize.handle,
+        startHeight: resize.startHeight,
+        startOffset: resize.startOffset,
+        startWidth: resize.startWidth,
+        startX: resize.startX,
+        startY: resize.startY,
       });
-      const nextOffset = {
-        x: handleResizesFromRight(resize.handle)
-          ? resize.startOffset.x + nextSize.width - resize.startWidth
-          : resize.startOffset.x,
-        y: handleResizesFromBottom(resize.handle)
-          ? resize.startOffset.y + nextSize.height - resize.startHeight
-          : resize.startOffset.y,
-      };
 
-      setPanelSize(nextSize);
-      setPanelOffset(clampPanelOffset(nextOffset, nextSize));
+      setPanelSize(next.panelSize);
+      setPanelOffset(next.panelOffset);
     };
 
     const stopResize = () => {

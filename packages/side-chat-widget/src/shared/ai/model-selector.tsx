@@ -9,38 +9,75 @@
   CommandSeparator,
   CommandShortcut,
 } from "#shared/ui/command";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "#shared/ui/dialog";
 import { cn } from "#shared/lib/cn";
-import type { ComponentProps, ReactNode } from "react";
+import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
+import { createContext, type ComponentProps, type ReactNode, useContext, useRef } from "react";
 
-export type ModelSelectorProps = ComponentProps<typeof Dialog>;
-
-export const ModelSelector = (props: ModelSelectorProps) => <Dialog {...props} />;
-
-export type ModelSelectorTriggerProps = ComponentProps<typeof DialogTrigger>;
-
-export const ModelSelectorTrigger = (props: ModelSelectorTriggerProps) => (
-  <DialogTrigger {...props} />
-);
-
-export type ModelSelectorContentProps = ComponentProps<typeof DialogContent> & {
-  title?: ReactNode;
+type ModelSelectorContextValue = {
+  readonly close: () => void;
 };
 
+const ModelSelectorContext = createContext<ModelSelectorContextValue | null>(null);
+
+export type ModelSelectorProps = PopoverPrimitive.Root.Props;
+
+export const ModelSelector = ({ children, modal = false, ...props }: ModelSelectorProps) => {
+  const actionsRef = useRef<PopoverPrimitive.Root.Actions>(null);
+
+  return (
+    <ModelSelectorContext.Provider value={{ close: () => actionsRef.current?.close() }}>
+      <PopoverPrimitive.Root actionsRef={actionsRef} modal={modal} {...props}>
+        {children}
+      </PopoverPrimitive.Root>
+    </ModelSelectorContext.Provider>
+  );
+};
+
+export type ModelSelectorTriggerProps = PopoverPrimitive.Trigger.Props;
+
+export const ModelSelectorTrigger = (props: ModelSelectorTriggerProps) => (
+  <PopoverPrimitive.Trigger {...props} />
+);
+
+export type ModelSelectorContentProps = PopoverPrimitive.Popup.Props &
+  Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset"> & {
+    title?: ReactNode;
+  };
+
 export const ModelSelectorContent = ({
+  align = "end",
+  alignOffset = 0,
   className,
   children,
+  role = "presentation",
+  side = "top",
+  sideOffset = 8,
   title = "Model Selector",
   ...props
 }: ModelSelectorContentProps) => (
-  <DialogContent
-    aria-describedby={undefined}
-    className={cn("outline! border-none! p-0 outline-border! outline-solid!", className)}
-    {...props}
-  >
-    <DialogTitle className="sr-only">{title}</DialogTitle>
-    <Command className="**:data-[slot=command-input-wrapper]:h-auto">{children}</Command>
-  </DialogContent>
+  <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Positioner
+      align={align}
+      alignOffset={alignOffset}
+      className="isolate z-[60]"
+      side={side}
+      sideOffset={sideOffset}
+    >
+      <PopoverPrimitive.Popup
+        className={cn(
+          "z-[60] w-[min(22rem,calc(100vw-2rem))] origin-(--transform-origin) overflow-hidden rounded-xl border border-border bg-popover p-0 text-popover-foreground shadow-xl outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          className,
+        )}
+        role={role}
+        {...props}
+      >
+        <PopoverPrimitive.Title className="sr-only">{title}</PopoverPrimitive.Title>
+        <Command className="rounded-xl! **:data-[slot=command-input-wrapper]:h-auto">
+          {children}
+        </Command>
+      </PopoverPrimitive.Popup>
+    </PopoverPrimitive.Positioner>
+  </PopoverPrimitive.Portal>
 );
 
 export type ModelSelectorDialogProps = ComponentProps<typeof CommandDialog>;
@@ -69,7 +106,19 @@ export const ModelSelectorGroup = (props: ModelSelectorGroupProps) => <CommandGr
 
 export type ModelSelectorItemProps = ComponentProps<typeof CommandItem>;
 
-export const ModelSelectorItem = (props: ModelSelectorItemProps) => <CommandItem {...props} />;
+export const ModelSelectorItem = ({ onSelect, ...props }: ModelSelectorItemProps) => {
+  const selector = useContext(ModelSelectorContext);
+
+  return (
+    <CommandItem
+      onSelect={(value) => {
+        onSelect?.(value);
+        selector?.close();
+      }}
+      {...props}
+    />
+  );
+};
 
 export type ModelSelectorShortcutProps = ComponentProps<typeof CommandShortcut>;
 

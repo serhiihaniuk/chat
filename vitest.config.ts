@@ -18,7 +18,14 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["apps/**/*.test.ts", "packages/**/*.test.ts", "test-harness/**/*.test.ts"],
+    include: [
+      "apps/**/*.test.ts",
+      "apps/**/*.test.tsx",
+      "packages/**/*.test.ts",
+      "packages/**/*.test.tsx",
+      "test-harness/**/*.test.ts",
+      "test-harness/**/*.test.tsx",
+    ],
     exclude: process.env["SIDECHAT_TEST_DATABASE_URL"] ? [] : ["packages/**/*.integration.test.ts"],
     passWithNoTests: true,
   },

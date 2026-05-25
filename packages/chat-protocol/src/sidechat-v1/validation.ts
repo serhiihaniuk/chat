@@ -44,9 +44,7 @@ const validatePayload = (event: Record<string, unknown>): void => {
       requireString(event["summary"], 'event["summary"]');
       return;
     case SIDECHAT_EVENT_TYPES.TOOL:
-      requireString(event["toolCallId"], 'event["toolCallId"]');
-      requireString(event["toolName"], 'event["toolName"]');
-      requireOneOf(event["status"], ["started", "completed", "failed"], 'event["status"]');
+      validateToolPayload(event);
       return;
     case SIDECHAT_EVENT_TYPES.HOST_COMMAND:
       requireString(event["commandId"], 'event["commandId"]');
@@ -68,6 +66,18 @@ const validatePayload = (event: Record<string, unknown>): void => {
         throw new Error('event["messages"] must be an array');
       }
       return;
+  }
+};
+
+const validateToolPayload = (event: Record<string, unknown>): void => {
+  requireString(event["toolCallId"], 'event["toolCallId"]');
+  requireString(event["toolName"], 'event["toolName"]');
+  requireOneOf(event["status"], ["started", "completed", "failed"], 'event["status"]');
+  if (event["input"] !== undefined && !isRecord(event["input"])) {
+    throw new Error('event["input"] must be an object');
+  }
+  if (event["result"] !== undefined && !isRecord(event["result"])) {
+    throw new Error('event["result"] must be an object');
   }
 };
 

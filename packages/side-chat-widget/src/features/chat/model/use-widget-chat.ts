@@ -1,12 +1,17 @@
 import {
   SIDECHAT_EVENT_TYPES,
+  type ChatStreamRequest,
   type HostCommandEvent,
+  type HostContext,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
+import type { ChatClient } from "@side-chat/chat-client";
 import type { HostBridge } from "@side-chat/host-bridge";
 import { useCallback, useRef, useState } from "react";
 
 import {
+  appendHostCommandThought,
+  appendReasoningThought,
   createDefaultRequest,
   createId,
   createWidgetMessage,
@@ -14,13 +19,13 @@ import {
   updateHostCommand,
   updateMessage,
   upsertToolEvent,
-} from "./widget-state.js";
-import type {
-  SideChatWidgetProps,
-  WidgetMessage,
-  WidgetStatus,
-  WidgetUsage,
-} from "./widget.types.js";
+  upsertToolThought,
+  type WidgetMessage,
+  type WidgetStatus,
+  type WidgetUsage,
+} from "#entities/chat";
+
+type WidgetChatRequestFactory = (message: string, hostContext?: HostContext) => ChatStreamRequest;
 
 export const useWidgetChat = ({
   client,
@@ -28,9 +33,9 @@ export const useWidgetChat = ({
   requestFactory,
   selectedProfileId,
 }: {
-  readonly client: SideChatWidgetProps["client"];
-  readonly hostBridge: SideChatWidgetProps["hostBridge"];
-  readonly requestFactory: SideChatWidgetProps["requestFactory"];
+  readonly client: ChatClient;
+  readonly hostBridge: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
+  readonly requestFactory: WidgetChatRequestFactory | undefined;
   readonly selectedProfileId: string | undefined;
 }) => {
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
@@ -49,6 +54,7 @@ export const useWidgetChat = ({
         updateMessage(current, assistantMessageId, (message) => ({
           ...message,
           hostCommands: [...message.hostCommands, { event, status: "running" }],
+          thoughts: appendHostCommandThought(message.thoughts, { event, status: "running" }),
         })),
       );
 
@@ -96,6 +102,7 @@ export const useWidgetChat = ({
             updateMessage(current, assistantMessageId, (message) => ({
               ...message,
               reasoning: [...message.reasoning, event.summary],
+              thoughts: appendReasoningThought(message.thoughts, event),
             })),
           );
           return;
@@ -105,6 +112,7 @@ export const useWidgetChat = ({
             updateMessage(current, assistantMessageId, (message) => ({
               ...message,
               tools: upsertToolEvent(message.tools, event),
+              thoughts: upsertToolThought(message.thoughts, event),
             })),
           );
           return;
@@ -208,7 +216,13 @@ export const useWidgetChat = ({
     abortControllerRef.current?.abort();
   }, []);
 
+  const clearError = useCallback(() => {
+    setErrorMessage(undefined);
+    setStatus((currentStatus) => (currentStatus === "error" ? "idle" : currentStatus));
+  }, []);
+
   return {
+    clearError,
     errorMessage,
     messages,
     setErrorMessage,

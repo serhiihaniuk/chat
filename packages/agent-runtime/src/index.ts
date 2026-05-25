@@ -6,4 +6,5 @@ export * from "./provider.js";
 export * from "./registry/provider-registry.js";
 export * from "./runtime/agent-runtime.js";
 export * from "./runtime/ai-sdk-tool-loop-agent.js";
+export * from "./tools/mock-web-search.js";
 export * from "./tools/tool-registry.js";

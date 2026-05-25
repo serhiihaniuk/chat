@@ -1,11 +1,16 @@
 import { useMemo, useState } from "react";
 
-import { useWidgetChat } from "./use-widget-chat.js";
-import { WidgetConversation, WidgetError } from "./widget-conversation.js";
-import { WidgetFooter } from "./widget-footer.js";
-import { ClosedWidgetLauncher, ResizeHandles, toPanelStyle, WidgetHeader } from "./widget-frame.js";
-import { useResizableWidgetPanel } from "./widget-resize.js";
-import type { SideChatWidgetLabels, SideChatWidgetProps } from "./widget.types.js";
+import { useWidgetChat } from "#features/chat";
+import { WidgetConversation, WidgetError } from "#features/conversation";
+import {
+  ClosedWidgetLauncher,
+  ResizeHandles,
+  toPanelStyle,
+  useResizableWidgetPanel,
+  WidgetHeader,
+} from "#features/panel";
+import { WidgetFooter } from "#features/prompt";
+import type { SideChatWidgetLabels, SideChatWidgetProps } from "../model/side-chat-widget.types.js";
 
 export type {
   SideChatWidgetAssistantProfile,
@@ -15,7 +20,7 @@ export type {
   SideChatWidgetProps,
   SideChatWidgetQuickAction,
   SideChatWidgetStateSnapshot,
-} from "./widget.types.js";
+} from "../model/side-chat-widget.types.js";
 
 const defaultLabels = {
   placeholder: "Ask anything...",
@@ -60,7 +65,7 @@ export const SideChatWidget = ({
   return (
     <section
       aria-label={resolvedLabels.title}
-      className="side-chat-widget-root fixed right-4 bottom-4 z-50 flex max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground shadow-xl"
+      className="side-chat-widget-root fixed right-4 bottom-4 z-50 flex max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col rounded-lg border border-border bg-background text-foreground shadow-xl"
       style={toPanelStyle(panel.panelSize, panel.panelOffset)}
     >
       <ResizeHandles onResizeStart={panel.startResize} />
@@ -72,7 +77,7 @@ export const SideChatWidget = ({
         title={resolvedLabels.title}
       />
       <WidgetConversation messages={chat.messages} />
-      <WidgetError message={chat.errorMessage} />
+      <WidgetError message={chat.errorMessage} onDismiss={chat.clearError} />
       <WidgetFooter
         isBusy={isBusy}
         labels={resolvedLabels}

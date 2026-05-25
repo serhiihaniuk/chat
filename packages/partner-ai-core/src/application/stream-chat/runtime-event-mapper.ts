@@ -50,6 +50,7 @@ export const mapRuntimeEvent = (
         toolCallId: event.toolCallId,
         toolName: event.toolName,
         status: "started",
+        input: event.argumentsJson,
       };
     case "runtime.tool_result":
       return {

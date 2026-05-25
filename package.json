@@ -13,7 +13,7 @@
     "format:check": "oxfmt . --check",
     "build": "tsc -b --pretty false",
     "lint:oxlint": "oxlint --deny-warnings .",
-    "lint:custom": "node scripts/check-runtime-pins.mjs && node scripts/check-version-pins.mjs && node scripts/check-dependency-policy.mjs && node scripts/check-unused-dependencies.mjs && node scripts/check-package-exports.mjs && node scripts/check-boundaries.mjs && node scripts/check-widget-layers.mjs && node scripts/check-runtime-boundaries.mjs && node scripts/check-outbound-rules.mjs && node scripts/check-test-placement.mjs && node scripts/check-code-quality.mjs && node scripts/check-typescript-rules.mjs && node scripts/check-generated-artifacts.mjs && node scripts/check-governance-fixtures.mjs",
+    "lint:custom": "node scripts/check-runtime-pins.mjs && node scripts/check-version-pins.mjs && node scripts/check-dependency-policy.mjs && node scripts/check-unused-dependencies.mjs && node scripts/check-package-exports.mjs && node scripts/check-boundaries.mjs && node scripts/check-widget-layers.mjs && node scripts/check-runtime-boundaries.mjs && node scripts/check-outbound-rules.mjs && node scripts/check-source-governance.mjs && node scripts/check-generated-artifacts.mjs && node scripts/check-governance-fixtures.mjs",
     "lint": "npm run lint:oxlint && npm run lint:custom",
     "typecheck": "tsc --noEmit --pretty false -p tsconfig.check.json",
     "test": "vitest run",

@@ -12,22 +12,44 @@ Design anchors:
 - `docs/architecture/production-system-design.md:2651` host-command result durable path remains ADR-gated.
 - `docs/architecture/production-system-design.md:2657` privacy, audit, and observability requirements.
 
-## Local Fake-Provider Path
+## Local Provider Paths
 
-The compose profile runs with the fake provider and does not require real credentials:
+The current local-service path is configured from `.env`. For the OpenAI smoke
+path, configure the following keys without committing their values:
+
+- `SIDECHAT_PROVIDER=openai`
+- `SIDECHAT_OPENAI_API_KEY`
+- `SIDECHAT_ALLOWED_MODELS`, currently including `gpt-5.4-mini`
+- `SIDECHAT_OPENAI_REASONING_EFFORT=medium`
+- `SIDECHAT_OPENAI_REASONING_SUMMARY=auto`
+- `SIDECHAT_AUTH_BEARER_TOKEN=local-compose-token`
+- `SIDECHAT_DATABASE_URL` when using the local Postgres/Drizzle persistence path
+
+Start the service and widget harness:
 
 ```sh
-docker compose up --build partner-ai-service
+npm run dev --workspace @side-chat/partner-ai-service
+npm run dev --workspace @side-chat/widget-harness -- --host 127.0.0.1
 curl -fsS http://127.0.0.1:8787/healthz
 ```
 
-Local configuration:
+Open the harness at:
+
+```txt
+http://127.0.0.1:5173/?mode=local-service&authToken=local-compose-token&workspaceId=workspace_local
+```
+
+Local defaults:
 
 - `SIDECHAT_PROFILE=development`
 - `SIDECHAT_AUTH_BEARER_TOKEN=local-compose-token`
 - `SIDECHAT_POLICY_MODE=allow_all`
 - `SIDECHAT_TENANT_ID=tenant_local`
 - `SIDECHAT_WORKSPACE_ID=workspace_local`
+
+The fake provider remains available by setting `SIDECHAT_PROVIDER=fake` or by
+using mock-stream harness mode. That path is for deterministic tests and UI work,
+not for proving the current real-provider service flow.
 
 The local image serves `POST /chat/stream`, `GET /healthz`, and `GET /readyz`. Health responses expose profile, policy mode, provider id, model id, persistence mode, and host-command durability state, but no tokens or message payloads.
 
@@ -39,11 +61,17 @@ Required production settings:
 - `SIDECHAT_AUTH_BEARER_TOKEN=<trusted-service-token>` until the production authority adapter replaces the scaffold token adapter.
 - `SIDECHAT_TENANT_ID=<tenant-id>`
 - `SIDECHAT_WORKSPACE_ID=<workspace-id>`
+- `SIDECHAT_PROVIDER=openai` or another accepted real provider.
+- `SIDECHAT_OPENAI_API_KEY=<secret>` when OpenAI is selected.
 - `SIDECHAT_POLICY_MODE=fail_closed` until entitlement/model policy is configured.
 - `SIDECHAT_ALLOWED_MODELS=<comma-separated-model-ids>` only when `SIDECHAT_POLICY_MODE=configured`.
+- `SIDECHAT_DATABASE_URL=<postgres-url>`
 - `PORT=<service-port>` defaults to `8787`.
 
-Production refuses the development static token and rejects `allow_all` policy mode. The day-one service still defaults to the fake provider until a provider-selection service configuration is accepted; real OpenAI provider traffic remains gated by ADR 0002 follow-up rollout work, secret injection, data-use review, and live integration tests.
+Production refuses the development static token, rejects `allow_all` policy mode,
+and must not boot on the fake provider. Real provider traffic requires secret
+injection, model allowlist configuration, data-use review, and live smoke
+approval.
 
 ## Health Checks
 
@@ -79,10 +107,13 @@ Rollback is git/image based:
 1. Stop new traffic at the edge or deployment controller.
 2. Redeploy the previous image tag.
 3. Confirm `/healthz` and `/readyz`.
-4. Run a fake-provider smoke request against `POST /chat/stream`.
+4. Run a provider-appropriate smoke request against `POST /chat/stream`. For the
+   current local OpenAI path, include a prompt that triggers the backend
+   `mock_web_search` tool and confirm `sidechat.tool` started/completed events.
 5. If the bad release reached `main`, revert the commit with a new Lore commit and push `main`.
 
-No default local path uses real model credentials, and no day-one migration performs destructive schema changes.
+No day-one migration performs destructive schema changes. Do not log or copy
+provider credentials during rollback.
 
 ## Verification Commands
 
@@ -92,7 +123,7 @@ Run these before declaring an infra or ops change complete:
 npm run verify
 npm audit --audit-level=high
 docker compose config
-docker compose up --build partner-ai-service
+npm run dev --workspace @side-chat/partner-ai-service
 curl -fsS http://127.0.0.1:8787/healthz
 ```
 

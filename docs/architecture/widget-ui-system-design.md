@@ -1,8 +1,8 @@
 # Widget UI Technical System Design
 
-Date: 2026-05-23
+Date: 2026-05-25
 
-Status: Draft implementation design.
+Status: Current widget implementation guide.
 
 This document defines the technical UI architecture for
 `packages/side-chat-widget`. It uses a trimmed Feature-Sliced Design shape that
@@ -38,6 +38,10 @@ Do not use these FSD layers:
 - `widgets`: the whole package is the widget; adding an FSD `widgets` layer
   would be confusing.
 
+The current implementation actively uses `app` and `shared`. `features` and
+`entities` remain the allowed next slices when a capability grows large enough
+to split out of `app`; do not create empty ceremonial folders.
+
 Layer meanings:
 
 | Layer      | Purpose                                                                                                                         | May import                                                  |
@@ -51,8 +55,9 @@ Import direction is strict. Lower layers must not import higher layers.
 
 ## 3. Local UI Library Stack
 
-The widget uses copied/adapted component source as owned repository code, not as
-installed UI-kit packages. The dependency ladder is:
+The widget uses exact shadcn-style primitives and AI Elements-derived chat
+components as first-party widget code, while retaining the accepted packages that
+those components need. The dependency ladder is:
 
 ```txt
 approved packages
@@ -63,11 +68,15 @@ approved packages
   -> app
 ```
 
-Approved packages for this ladder are React, Tailwind 4, `@base-ui/react`,
-`class-variance-authority`, `clsx`, and `tailwind-merge`. Local icons/assets and
-`shared/lib/cn` are also allowed. Do not install or import `shadcn`,
-`@repo/shadcn-ui`, `ai-elements`, `lucide-react`, or AI SDK UI message types in
-the widget.
+Approved widget UI/runtime packages for this ladder are React, Tailwind 4,
+`@base-ui/react`, `class-variance-authority`, `clsx`, `tailwind-merge`,
+`ai-elements`, `lucide-react`, `motion`, `nanoid`, `streamdown`, the accepted
+Streamdown plugins, `shiki`, `cmdk`, `embla-carousel-react`, and
+`use-stick-to-bottom`. Local `shared/lib/cn` is also allowed.
+
+Do not install or import `shadcn`, `@repo/shadcn-ui`, generated shadcn registry
+packages, or Radix UI packages in the widget. Base UI is the primitive behavior
+base.
 
 ### 3.1 `shared/ui`: Local Primitive Library
 
@@ -82,12 +91,14 @@ after copying they are first-party widget code.
 - `@base-ui/react` primitives for behavior-heavy controls;
 - `class-variance-authority`;
 - `shared/lib/cn`;
-- local assets/icons only when the component is explicitly icon-related.
+- `lucide-react` icons when the component is explicitly icon-related;
+- small accepted behavior dependencies such as `cmdk` or
+  `embla-carousel-react` for exact shadcn component parity.
 
 `shared/ui` must not import:
 
 - `shadcn`, `@repo/shadcn-ui`, or any generated shadcn registry output;
-- `ai-elements` or Vercel AI Elements source as a dependency;
+- Vercel AI Elements component source directly;
 - AI SDK, provider SDK, protocol DTOs, chat client, host bridge, app state,
   feature state, or entity projections.
 
@@ -105,10 +116,12 @@ Initial primitive targets:
 
 ### 3.2 `shared/ai`: Local AI Component Library
 
-`shared/ai` is the local Vercel AI Elements-style component library. Files in
-this folder may start from copied/adapted Vercel AI Elements source, but after
-copying they are first-party widget code. They compose `shared/ui`; they do not
-replace it.
+`shared/ai` is the local AI Elements-derived component library. Files in this
+folder may start from copied/adapted Vercel AI Elements source, but after
+copying they are first-party widget code. The package keeps `ai-elements` as an
+accepted dependency so the implementation can track the default component API
+and styling more closely without requiring consumers to run generators. These
+components compose `shared/ui`; they do not replace it.
 
 `shared/ai` may import:
 
@@ -116,14 +129,15 @@ replace it.
 - Tailwind 4 classes;
 - `shared/ui` primitives;
 - `shared/lib/cn`;
-- local assets/icons.
+- local assets/icons;
+- accepted AI display dependencies such as `ai`, `ai-elements`, `streamdown`,
+  `motion`, `nanoid`, and `use-stick-to-bottom` when needed by the copied
+  component behavior.
 
 `shared/ai` must not import:
 
-- `ai-elements`;
 - `shadcn`, `@repo/shadcn-ui`, or shadcn registry output;
-- AI SDK UI message types;
-- protocol DTOs, chat client, host bridge, app state, feature state, or entity
+- provider SDKs, chat client, host bridge, app state, feature state, or entity
   projections.
 
 Local mapping:
@@ -132,171 +146,120 @@ Local mapping:
 | -------------------------------------- | ----------- | ------------------------------------------------- | ----------------------------------------- |
 | `Conversation` / conversation viewport | `shared/ai` | `conversation.tsx`                                | Generic items/render callbacks only.      |
 | `Message`                              | `shared/ai` | `message.tsx`                                     | Generic role/content props only.          |
-| `Response` / rendered assistant text   | `shared/ai` | `response.tsx`                                    | Renderable text/parts, not protocol DTOs. |
+| `Response` / rendered assistant text   | `shared/ai` | `message.tsx` / `MessageResponse`                 | Renderable text/parts, not protocol DTOs. |
 | `Reasoning`                            | `shared/ai` | `reasoning.tsx`                                   | Generic title/state/content props.        |
-| `Tool` / tool part                     | `shared/ai` | `tool.tsx`                                        | Generic name/status/body props.           |
-| `Sources` / `Source`                   | `shared/ai` | `source.tsx`                                      | Generic source label/href/metadata props. |
+| `Tool` / tool part                     | `shared/ai` | `tool.tsx`                                        | Generic name/status/input/result props.   |
+| `Sources` / `Source`                   | `shared/ai` | `sources.tsx`                                     | Generic source label/href/metadata props. |
 | `PromptInput`                          | `shared/ai` | `prompt-input.tsx`                                | Plain value/change/submit/slot props.     |
+| `ModelSelector`                        | `shared/ai` | `model-selector.tsx`                              | Generic model options/selection props.    |
+| `InlineCitation`                       | `shared/ai` | `inline-citation.tsx`                             | Generic citation label/href props.        |
+| `Suggestion`                           | `shared/ai` | `suggestion.tsx`                                  | Generic suggestion action props.          |
 | Loading affordances                    | `shared/ui` | `spinner.tsx`; composed by `shared/ai` as needed. | Generic pending state only.               |
 
-Feature UI owns the product adapter layer. For example,
-`features/conversation/ui/conversation-feed.tsx` maps `ConversationState` and
-message/source/tool projections into generic `shared/ai` props, while
-`features/composer/ui/chat-composer.tsx` maps `ComposerState`, context controls,
-model controls, and submit intents into `shared/ai/prompt-input.tsx`.
+Feature UI currently owns the product adapter layer. For example,
+`features/conversation/ui/widget-message-view.tsx` maps message/reasoning/tool/host-command
+state into generic `shared/ai` props, while `features/prompt/ui/widget-footer.tsx`
+maps composer state, context controls, model controls, and submit intents into
+`shared/ai/prompt-input.tsx`.
 
 ## 4. Source Layout Contract
 
-Day-1 implementation must use the trimmed FSD layers below. Files listed here
-without a current product behavior are layout targets, not permission to add fake
-UI. A folder becomes day-1 only when the behavior and tests exist.
+The active implementation uses FSD layers with public slice APIs:
 
 ```txt
 packages/side-chat-widget/src/
   index.ts
   styles.css
 
-  app/
-    side-chat-widget.tsx
-    widget-controller.ts
-    widget-view.tsx
-    widget.types.ts
-    flows/
-      send-message-flow.ts
-      host-command-flow.ts
-      load-history-flow.ts
+  widgets/
+    side-chat/
+      index.ts
+      model/
+        side-chat-widget.types.ts
+      ui/
+        side-chat-widget.tsx
 
   features/
+    chat/
+      index.ts
+      model/
+        use-widget-chat.ts
+    conversation/
+      index.ts
+      ui/
+        widget-conversation.tsx
+        widget-message-view.tsx
     panel/
       index.ts
       model/
-        panel-state.ts
-        panel-reducer.ts
-        panel-actions.ts
-        panel-geometry.ts
+        widget-resize.ts
       ui/
-        panel-shell.tsx
-        panel-header.tsx
-        panel-status.tsx
-        settings-panel.tsx
-        resize-handles.tsx
-
-    conversation/
+        widget-frame.tsx
+    prompt/
       index.ts
-      model/
-        conversation-state.ts
-        stream-event-reducer.ts
-        selectors.ts
       ui/
-        conversation-feed.tsx
-        conversation-empty.tsx
-        conversation-error.tsx
-        message-row.tsx
-        assistant-message.tsx
-        reasoning-part.tsx
-        tool-part.tsx
-        host-command-part.tsx
-        sources-row.tsx
-
-    composer/
-      index.ts
-      model/
-        composer-state.ts
-        composer-reducer.ts
-        submit-rules.ts
-      ui/
-        chat-composer.tsx
-        send-button.tsx
-
-    quick-actions/
-      index.ts
-      model/
-        quick-action.ts
-        quick-action-resolver.ts
-      ui/
-        quick-actions-row.tsx
-
-    context-scope/
-      index.ts
-      model/
-        context-state.ts
-        context-display.ts
-      ui/
-        context-selector.tsx
-        context-usage.tsx
-
-    model-selection/
-      index.ts
-      model/
-        model-state.ts
-        model-display.ts
-      ui/
-        model-selector.tsx
+        widget-context.tsx
+        widget-footer.tsx
 
   entities/
-    message/
+    chat/
       index.ts
-      model.ts
-      projection.ts
-    source/
+      model/
+        widget-chat.ts
+    panel/
       index.ts
-      model.ts
-      projection.ts
-    tool/
-      index.ts
-      model.ts
-      projection.ts
-    host-command/
-      index.ts
-      model.ts
-      projection.ts
-    model-option/
-      index.ts
-      model.ts
-    host-context/
-      index.ts
-      model.ts
-      projection.ts
+      model/
+        panel.ts
 
   shared/
     ui/
       button.tsx
       badge.tsx
-      icon-button.tsx
-      menu.tsx
-      tooltip.tsx
+      button-group.tsx
+      carousel.tsx
+      collapsible.tsx
+      command.tsx
+      dialog.tsx
+      dropdown-menu.tsx
+      hover-card.tsx
+      input.tsx
+      input-group.tsx
+      scroll-area.tsx
+      select.tsx
+      separator.tsx
       textarea.tsx
+      tooltip.tsx
       spinner.tsx
     ai/
+      code-block.tsx
       conversation.tsx
+      inline-citation.tsx
       message.tsx
+      model-selector.tsx
       prompt-input.tsx
       reasoning.tsx
-      response.tsx
-      source.tsx
+      shimmer.tsx
+      sources.tsx
+      suggestion.tsx
       tool.tsx
-    assets/
-      icons/
-        panel-icons.tsx
-      images/
-        README.md
     lib/
-      assert-never.ts
       cn.ts
       unknown-record.ts
 ```
 
 The repository now enforces the first migration/refactor step:
 
-- widget source uses `app/features/entities/shared`, not
+- widget source uses `widgets/features/entities/shared`, not
   `application/domain/ui`;
-- `src/index.ts` exports only the app-level public API;
-- feature UI maps feature state into generic `shared/ai` components;
+- `src/index.ts` exports only the `widgets/side-chat` public API;
+- widgets import feature/entity public APIs through `#features/*` and
+  `#entities/*`, avoiding same-layer cross-imports;
+- feature UI maps widget state into generic `shared/ai` components;
 - `shared/ai` and `shared/ui` do not import product packages or feature state;
 - fake scaffold labels such as static context percentages, fake model names, and
   static source chips are blocked.
-- app composition is split into `side-chat-widget.tsx`,
-  `widget-controller.ts`, `widget-view.tsx`, and flow files.
+- app composition is split into the public component, chat hook, frame,
+  conversation, footer, message view, resize, context, and state modules.
 
 During later migration, do not create a parallel duplicate implementation; move
 one capability slice at a time and keep tests green.
@@ -328,8 +291,8 @@ Public API rules:
 - Do not expose Effect programs.
 - Do not expose AI SDK, provider, DB, Hono, Drizzle, or service config types.
 - If host-controlled state is needed, add explicit controlled props/callbacks.
-- `[Future]` Model catalog, context options, and controlled panel state may be
-  added after the real data contract exists.
+- Model options and context controls are rendered inside the prompt input area
+  when real props/context are available.
 
 ## 6. State Ownership
 
@@ -414,13 +377,8 @@ Owns:
 - quick action availability;
 - resolution to either prompt submission or host-command intent.
 
-Default quick actions:
-
-- Summary;
-- Risk brief;
-- Report;
-- Top client;
-- Review.
+Quick actions/suggestions are supplied through props or harness scenarios. Do not
+hardcode fake product actions in the widget.
 
 ### Context Scope
 
@@ -467,15 +425,15 @@ features or React UI.
 Submit flow:
 
 ```txt
-features/composer UI
-  -> app controller intent
+features/prompt/ui/widget-footer prompt input
+  -> widgets/side-chat controller intent
   -> hostBridge.getContext()
-  -> app requestFactory({ message, selectedModel, context })
+  -> widgets/side-chat requestFactory({ message, selectedModel, context })
   -> chatClient.streamChat(request)
   -> sidechat.v1 events
-  -> features/conversation reducer
+  -> features/chat + entities/chat state helpers
   -> entities projections
-  -> feature UI render
+  -> features/shared AI render
 ```
 
 Host command flow:
@@ -483,10 +441,10 @@ Host command flow:
 ```txt
 sidechat.host_command event
   -> entities/host-command projection
-  -> features/conversation pending part
-  -> app/flows/host-command-flow dispatches hostBridge.dispatchCommand
+  -> features/conversation message view pending part
+  -> features/chat dispatches hostBridge.dispatchCommand
   -> HostCommandResult
-  -> features/conversation updates part
+  -> features/conversation message view updates part
 ```
 
 Quick action flow:
@@ -495,40 +453,39 @@ Quick action flow:
 features/quick-actions UI
   -> quick-action resolver
   -> prompt intent OR host-command intent
-  -> app controller routes into submit or host command flow
+  -> widgets/side-chat routes into submit or host command flow
 ```
 
 Panel action flow:
 
 ```txt
-features/panel UI
+features/panel/ui/widget-frame UI
   -> panel reducer
-  -> optional app onPanelAction callback
+  -> optional widget onPanelAction callback
 ```
 
 ## 9. UI Composition
 
-`app/widget-view.tsx` composes the screen:
+`widgets/side-chat/ui/side-chat-widget.tsx` composes the screen:
 
 ```tsx
-<PanelShell>
-  <PanelHeader />
-  <ConversationFeed />
-  <QuickActionsRow />
-  <ChatComposer contextControl={<ContextSelector />} modelControl={<ModelSelector />} />
-  <SettingsPanel />
-</PanelShell>
+<WidgetFrame>
+  <WidgetConversation />
+  <WidgetFooter />
+</WidgetFrame>
 ```
 
 UI rules:
 
-- Feature UI receives projected state and callbacks.
-- Feature UI does not call `chatClient` or `hostBridge` directly.
+- App UI receives projected state and callbacks.
+- App render components do not call `chatClient` or `hostBridge` directly.
 - Shared UI primitives do not know product concepts.
 - Shared AI components do not know product concepts.
-- Feature UI adapts entity/feature projections into generic `shared/ai` props.
-- Icon buttons are local icon components plus accessible labels/tooltips.
-- Text-only send button is an interim state; final send is icon-first.
+- App UI adapts widget projections into generic `shared/ai` props until a slice
+  needs promotion to `features`/`entities`.
+- Model picker and context control belong inside the prompt input surface.
+- Reasoning and tool calls render through the AI component layer.
+- The panel is resizable through widget-owned geometry state.
 
 ## 10. Styling
 
@@ -546,7 +503,7 @@ Styling rules:
 - Use `shared/lib/cn` for class merging.
 - Use Base UI for behavior-heavy primitives where helpful.
 - Use CVA only for repeated variants.
-- No external UI kit package imports.
+- No shadcn registry package imports.
 - No nested cards for page sections.
 - Fixed-format controls must have stable dimensions.
 - Desktop and mobile text must not clip or overlap.
@@ -558,8 +515,8 @@ The harness remains outside the widget package and consumes only public APIs.
 Required modes:
 
 - `mock-stream`;
-- `local-service` with fake provider;
-- `local-service` with real provider credentials.
+- `local-service` with configured OpenAI/provider credentials;
+- explicit fake-provider mode for deterministic service tests.
 
 Required scenario fixtures:
 
@@ -621,37 +578,35 @@ final product UI.
 Known gaps:
 
 - settings panel is missing;
-- resize handles are missing;
 - new-chat does not reset local conversation state yet;
 - quick actions are prop-driven prompt intents, but there is no product catalog
   yet;
 - source chips are omitted until real citation/source data exists;
-- context and model toolbar labels render only when real labels are supplied;
-- model/context selectors are missing;
-- send button is text-first;
-- markdown/code/list rendering is missing;
+- source/citation data is still limited to what the protocol/service emits;
 - mobile browser smoke is missing.
 
 ## 14. Migration Plan
 
-1. `[Done]` Create `shared/lib`, `shared/assets`, and the local shadcn-style primitive
-   library under `shared/ui`.
+1. `[Done]` Create `shared/lib` and the local shadcn-style primitive library
+   under `shared/ui`.
 2. `[Done]` Localize the approved Vercel AI Elements-style patterns under `shared/ai`,
-   depending only on `shared/ui`, `shared/lib`, local assets/icons, React,
-   Tailwind 4, and the approved primitive dependencies.
-3. `[Done]` Create feature UI adapters that map entity/feature state into generic
+   depending only on `shared/ui`, `shared/lib`, accepted UI/runtime
+   dependencies, React, and Tailwind 4.
+3. `[Done]` Create feature-level UI adapters that map widget state into generic
    `shared/ai` props.
-4. `[Partial]` Create `entities` projections for message, tool, and host
-   command. Source, model option, and host context entities wait for real data
-   contracts.
-5. `[Done]` Move conversation reducer/rendering into `features/conversation`.
-6. `[Done]` Move composer state/rendering into `features/composer`.
-7. `[Done]` Move panel shell/header/state into `features/panel`.
-8. Add `features/context-scope` and `features/model-selection`.
-9. `[Partial]` Add `features/quick-actions` and wire prompt actions to submit;
-   host-command quick actions wait for typed command intents.
-10. `[Done]` Split `app` into public component, controller, pure view, and
-    flows.
+4. `[Partial]` Keep message, tool, host command, model, context, and source
+   projections in feature/entity slices.
+5. `[Done]` Move conversation rendering into
+   `features/conversation/ui/widget-conversation.tsx` and
+   `features/conversation/ui/widget-message-view.tsx`.
+6. `[Done]` Move composer rendering into `features/prompt/ui/widget-footer.tsx`.
+7. `[Done]` Move panel shell/header/resize state into
+   `features/panel/ui/widget-frame.tsx` and `features/panel/model/widget-resize.ts`.
+8. `[Done]` Add context and model controls inside the prompt input surface.
+9. `[Partial]` Add suggestions/quick actions through typed props; host-command
+   quick actions wait for typed command intents.
+10. `[Done]` Split widget source into FSD `widgets`, `features`, `entities`,
+    and `shared` layers with public slice APIs.
 11. Expand harness scenarios.
 12. Add desktop/mobile Playwright smoke checks.
 13. Run pinned `npm run verify` and update this gap register.
@@ -664,12 +619,14 @@ The trimmed FSD migration is acceptable when:
 - local shadcn-style primitives are present as owned source in `shared/ui`;
 - approved Vercel AI Elements-style patterns are present as owned source in
   `shared/ai`;
-- `shared/ai` depends on `shared/ui`, never on shadcn packages, AI Elements
-  packages, AI SDK UI types, protocol DTOs, or product feature state;
+- `shared/ai` depends on `shared/ui` and accepted AI display dependencies, never
+  on shadcn registry packages, provider SDKs, chat client, host bridge, app state,
+  or product feature state;
 - the widget still exports only public package APIs;
 - every visible control has behavior or an honest disabled state;
 - all protocol event types render through entity/feature projections;
-- quick actions and source chips are interactive through typed intents;
+- quick actions/suggestions and source/citation displays are interactive through
+  typed intents when real data is present;
 - model/context controls use real state, not hardcoded labels;
 - desktop and mobile browser smoke tests pass;
 - local-service mode streams through the service path;

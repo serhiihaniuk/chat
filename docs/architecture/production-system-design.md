@@ -1,10 +1,14 @@
 # Side-Chat Production System Design
 
-Status: working system design for the clean production repository
+Status: current working system design
 
-This document is the working system design for the clean production repository for the side-chat assistant. It treats the current repo as a prototype/reference, not as the production base to copy wholesale.
+This document is the working system design for the side-chat assistant repository.
+It started as the clean production repo plan and now tracks the accepted current
+implementation direction.
 
-The production repo should keep the architecture lessons that survived the prototype, remove demo-specific sediment, and make AI agents follow a strict first boundary: stable product protocol, framework-free `partner-ai-core`, AI SDK 6-powered `agent-runtime`, and providers/models as adapters.
+The repository should keep a strict first boundary: stable product protocol,
+framework-free `partner-ai-core`, AI SDK 6-powered `agent-runtime`, and
+providers/models/tools as adapters.
 
 Use this as the build source of truth until it is replaced by accepted ADRs and package-level design docs. It is intentionally one large document for early iteration.
 
@@ -92,17 +96,31 @@ Frontend, widget, and browser harness pins:
 | `class-variance-authority` | `0.7.1` | Variant definitions for owned UI primitives. |
 | `clsx` | `2.1.1` | Class composition helper used by `cn`. |
 | `tailwind-merge` | `3.6.0` | Tailwind class conflict merging used by `cn`. |
+| `ai-elements` | `1.9.0` | Accepted AI Elements component dependency used by the widget implementation. |
+| `lucide-react` | `1.16.0` | Accepted icon dependency for shadcn/AI Elements-derived widget components. |
+| `motion` | `12.40.0` | Accepted animation dependency for AI Elements-derived widget interactions. |
+| `ai` | `6.0.191` | Runtime package also used for AI UI/tool part types in vendored widget components. |
+| `nanoid` | `5.1.11` | Accepted id helper used by AI Elements-derived widget components. |
+| `streamdown` | `2.5.0` | Assistant markdown/stream rendering in the widget. |
+| `@streamdown/cjk` | `1.0.3` | Streamdown plugin. |
+| `@streamdown/code` | `1.1.1` | Streamdown code rendering plugin. |
+| `@streamdown/math` | `1.0.2` | Streamdown math plugin. |
+| `@streamdown/mermaid` | `1.0.2` | Streamdown Mermaid plugin. |
+| `shiki` | `4.1.0` | Code highlighting for assistant output. |
+| `cmdk` | `1.1.1` | Command primitive used by exact shadcn-style components. |
+| `embla-carousel-react` | `8.6.0` | Carousel primitive used by exact shadcn-style components. |
+| `use-stick-to-bottom` | `1.1.4` | Conversation viewport stick-to-bottom behavior. |
 
 UI dependency policy:
 
-- The widget owns its UI primitive source code. It may use Base UI primitives, CVA, Tailwind 4, and local `cn` utilities.
-- Use shadcn-style primitives, AI Elements-style chat components, and selected icon assets as owned source code/assets inside this repo, not as package dependencies.
+- The widget owns its UI primitive source code. It may use Base UI primitives, CVA, Tailwind 4, local `cn` utilities, and the accepted AI Elements/shadcn-derived dependencies listed above.
+- Use exact shadcn-style primitives and AI Elements-style chat components as owned widget source where copied/adapted, while retaining the accepted packages needed by those components.
 - The local UI dependency ladder is `approved packages -> shared/ui -> shared/ai -> features -> app`.
-- Do not depend on `lucide-react`, `ai-elements`, `shadcn`, `@repo/shadcn-ui`, or any shared shadcn package at runtime or build time.
+- Do not depend on `shadcn`, `@repo/shadcn-ui`, generated shadcn registry packages, Radix UI packages, or any shared shadcn package at runtime or build time.
 - Do not import UI components from paths such as `@repo/shadcn-ui/components/ui/button`.
-- If a shadcn-style primitive is useful, copy/adapt the source into `packages/side-chat-widget/src/shared/ui` and make it depend on Base UI primitives, CVA, Tailwind 4, React, and local utilities only.
-- If an AI Elements-style chat component is useful, copy/adapt it into `packages/side-chat-widget/src/shared/ai`; it may compose `shared/ui` and local assets, but feature UI must remain the adapter from widget projections to generic AI component props.
-- If a lucide-style icon is useful, copy the specific SVG/asset into the widget asset folder or create a local icon component from owned source. Do not import from an icon package.
+- If a shadcn-style primitive is useful, install/copy the exact source into `packages/side-chat-widget/src/shared/ui`, keep Base UI as the primitive behavior base, and remove generator/registry metadata afterward.
+- If an AI Elements-style chat component is useful, keep the selected source under `packages/side-chat-widget/src/shared/ai`; it may compose `shared/ui` and accepted AI display dependencies, but feature/widget UI must remain the adapter from widget projections to generic AI component props.
+- `lucide-react` is the accepted widget icon package for these components.
 - Copied/adapted source must be treated as first-party code: colocated tests where useful, repo lint rules, no hidden generator dependency, and license/origin notes when required.
 
 Testing and quality pins:
@@ -478,9 +496,6 @@ side-chat/
 
   scripts/
 
-  .github/
-    workflows/
-
   package.json
   package-lock.json
   tsconfig.base.json
@@ -499,7 +514,6 @@ side-chat/
 | `infra/` | Local and production infrastructure definitions. | Application/domain logic. |
 | `docs/` | Durable architecture, decisions, and operations documentation. | Temporary scratchpads, stale prototype narratives. |
 | `scripts/` | Repo automation, governance checks, code generation. | Runtime application code. |
-| `.github/` | CI, release, and security workflows. | Local-only developer scripts. |
 
 ## 6. Dependency Direction
 
@@ -544,7 +558,7 @@ Suggested package dependency matrix:
 | `partner-ai-core` | `chat-protocol`, Effect v4. | Hono/Fastify/Express, React, pg, Drizzle, AI SDK, provider SDK objects. |
 | `agent-runtime` | `partner-ai-core`, `chat-protocol`, Effect v4, AI SDK/runtime-only provider packages. | HTTP framework, React, pg, Drizzle, widget internals, host app state. |
 | `chat-client` | `chat-protocol`; `[Optional]` protocol validation helpers. | React, widget UI, partner-ai-core, pg, Drizzle, provider SDKs, required Effect runtime in public API. |
-| `side-chat-widget` | `chat-client`, `chat-protocol`, `host-bridge`, React peer deps, Base UI primitives, CVA/Tailwind class helpers. | API server internals, DB, provider SDKs, agent-runtime internals, external UI kit runtime packages. |
+| `side-chat-widget` | `chat-client`, `chat-protocol`, `host-bridge`, React peer deps, Base UI primitives, CVA/Tailwind class helpers, accepted AI Elements/shadcn-derived widget dependencies. | API server internals, DB, provider SDKs, agent-runtime internals, shadcn registry packages, Radix UI packages. |
 | `db` | `pg`, Drizzle, `chat-protocol` for persisted DTO types if needed, Effect v4 for resource/transaction safety. | React, HTTP framework, widget, provider SDKs, partner-ai-core. |
 | `apps/partner-ai-service` | `partner-ai-core`, `agent-runtime`, `chat-protocol`, `db`, Effect v4 runtime/layers, concrete adapter libraries. | Widget internals, host app code. |
 | `testing` | Test-facing utilities from other packages. | Production runtime startup. |
@@ -1407,109 +1421,54 @@ packages/side-chat-widget/
   src/
     index.ts
     styles.css
-    app/
-      side-chat-widget.tsx
-      widget-controller.ts
-      widget-view.tsx
-      widget.types.ts
-      flows/
-        send-message-flow.ts
-        host-command-flow.ts
-        load-history-flow.ts
+    widgets/
+      side-chat/
+        index.ts
+        model/
+          side-chat-widget.types.ts
+        ui/
+          side-chat-widget.tsx
     features/
+      chat/
       conversation/
-        model/
-          conversation-state.ts
-          stream-event-reducer.ts
-          selectors.ts
-        ui/
-          conversation-feed.tsx
-          message-row.tsx
-          assistant-message.tsx
-          reasoning-part.tsx
-          tool-part.tsx
-          host-command-part.tsx
-          sources-row.tsx
-      composer/
-        model/
-          composer-state.ts
-          submit-rules.ts
-        ui/
-          chat-composer.tsx
-          prompt-input.tsx
-          send-button.tsx
       panel/
-        model/
-          panel-state.ts
-          panel-reducer.ts
-          panel-geometry.ts
-        ui/
-          panel-shell.tsx
-          panel-header.tsx
-          settings-panel.tsx
-      quick-actions/
-        model/
-          quick-action.ts
-          quick-action-resolver.ts
-        ui/
-          quick-actions-row.tsx
-      context-scope/
-        model/
-          context-state.ts
-          context-display.ts
-        ui/
-          context-selector.tsx
-          context-usage.tsx
-      model-selection/
-        model/
-          model-state.ts
-          model-display.ts
-        ui/
-          model-selector.tsx
+      prompt/
     entities/
-      message/
-        model.ts
-        projection.ts
-      source/
-        model.ts
-        projection.ts
-      tool/
-        model.ts
-        projection.ts
-      host-command/
-        model.ts
-        projection.ts
-      model-option/
-        model.ts
-      host-context/
-        model.ts
-        projection.ts
+      chat/
+      panel/
     shared/
       ui/
         badge.tsx
         button.tsx
-        icon-button.tsx
-        menu.tsx
+        button-group.tsx
+        carousel.tsx
+        collapsible.tsx
+        command.tsx
+        dialog.tsx
+        dropdown-menu.tsx
+        hover-card.tsx
+        input.tsx
+        input-group.tsx
+        scroll-area.tsx
+        select.tsx
+        separator.tsx
         tooltip.tsx
         textarea.tsx
         spinner.tsx
       ai/
+        code-block.tsx
         conversation.tsx
+        inline-citation.tsx
         message.tsx
+        model-selector.tsx
         prompt-input.tsx
         reasoning.tsx
-        response.tsx
-        source.tsx
+        shimmer.tsx
+        sources.tsx
+        suggestion.tsx
         tool.tsx
-      assets/
-        icons/
-          send-icon.tsx
-          settings-icon.tsx
-        images/
-          README.md
       lib/
         cn.ts
-        assert-never.ts
         unknown-record.ts
 ```
 
@@ -1521,8 +1480,6 @@ packages/side-chat-widget/src/features/approval/
     approval-state.ts
   ui/
     approval-part.tsx
-packages/side-chat-widget/src/app/flows/
-  approval-flow.ts
 ```
 
 Effect v4 role in the widget:
@@ -1535,12 +1492,23 @@ Effect v4 role in the widget:
 
 UI source ownership rule:
 
-- `shared/assets/` owns selected icons, illustrations, empty states, and visual assets. These are repo files, not package imports from an icon kit.
-- `shared/ui/*` owns copied/adapted shadcn-style primitives as source code. Components may use `@base-ui/react/*`, `class-variance-authority`, Tailwind 4 classes, and `shared/lib/cn`.
-- `shared/ai/*` owns copied/adapted Vercel AI Elements-style conversation, message, response, reasoning, tool, source, and prompt input pieces as source code. These components may compose `shared/ui`, `shared/lib/cn`, local assets/icons, React, and Tailwind classes.
-- Feature UI owns the product adapter layer: feature files map widget entity/feature projections into generic `shared/ai` props.
-- `shared/ui` and `shared/ai` must not import product features, product entities, protocol DTOs, `chat-client`, `host-bridge`, AI SDK UI message types, provider SDKs, service internals, or database code.
-- No widget source imports `lucide-react`, `ai-elements`, `shadcn`, `@repo/shadcn-ui`, or generated code that must be re-run by the consuming host app.
+- `shared/ui/*` owns copied/adapted shadcn-style primitives as source code.
+  Components may use `@base-ui/react/*`, `class-variance-authority`, Tailwind 4
+  classes, `shared/lib/cn`, `lucide-react`, and accepted behavior dependencies
+  needed for exact component parity.
+- `shared/ai/*` owns copied/adapted AI Elements-style conversation, message,
+  reasoning, tool, source, citation, suggestion, model selector, and prompt input
+  pieces as source code. These components may compose `shared/ui`,
+  `shared/lib/cn`, React, Tailwind classes, `ai-elements`, `ai`, `motion`,
+  Streamdown packages, and the other accepted widget UI/runtime dependencies.
+- App or feature UI owns the product adapter layer: it maps widget state and
+  protocol projections into generic `shared/ai` props.
+- `shared/ui` and `shared/ai` must not import app state, product features,
+  product entities, `chat-client`, `host-bridge`, provider SDKs, service
+  internals, database code, or agent-runtime internals.
+- No widget source imports `shadcn`, `@repo/shadcn-ui`, generated shadcn registry
+  packages, Radix UI packages, or generated code that must be re-run by the
+  consuming host app.
 
 Primitive implementation shape:
 
@@ -1855,9 +1823,7 @@ scripts/
   check-package-exports.mjs
   check-runtime-boundaries.mjs
   check-outbound-rules.mjs
-  check-test-placement.mjs
-  check-code-quality.mjs
-  check-typescript-rules.mjs
+  check-source-governance.mjs
   check-generated-artifacts.mjs
   verify.mjs
   generate-protocol-artifacts.mjs
@@ -1886,9 +1852,7 @@ Script responsibilities:
 | `check-package-exports.mjs` | Public entrypoint discipline and no deep imports by consumers. |
 | `check-runtime-boundaries.mjs` | No framework/provider/DB/browser/env objects crossing into domain, use cases, ports, protocol, client, or widget public APIs. |
 | `check-outbound-rules.mjs` | External-service calls live under outbound adapters or approved provider/runtime adapter folders, not in use cases or tool definitions. |
-| `check-test-placement.mjs` | Ordinary tests are colocated; harnesses are explicitly named. |
-| `check-code-quality.mjs` | File/function size budgets, complexity budgets, nesting budgets, forbidden expression shapes, magic string candidates, and duplication hotspots. |
-| `check-typescript-rules.mjs` | Strict tsconfig inheritance, project references, no unsafe escape hatches. |
+| `check-source-governance.mjs` | Test placement, source line budgets, tracked artifact bans, strict tsconfig inheritance, project references, double-assertion bans, and local `ToolLoopAgent` shadow bans. |
 | `check-generated-artifacts.mjs` | Generated JSON Schema/OpenAPI/declaration artifacts are current. |
 
 ## 20. TypeScript Discipline
@@ -2061,7 +2025,7 @@ Linting is the first automated architecture reviewer. It should enforce style on
 | Boundary scripts | custom `scripts/check-*.mjs` | Repo-specific architecture restrictions. |
 | Test runner | Vitest and browser harness | Behavior, contracts, integration paths. |
 | Generated artifact checks | custom script | JSON Schema/OpenAPI/declarations stay current. |
-| CI workflow | GitHub Actions | Runs the same gates in a clean environment. |
+| Pipeline/local gate | `npm run verify` | Runs the same gates locally and in whatever external pipeline adopts the repo. |
 
 ### 21.2 Oxlint Rule Groups
 
@@ -2195,14 +2159,14 @@ Default budgets:
 
 | Guardrail | Default budget | Enforcement |
 | --- | --- | --- |
-| Source file length | Soft warning over 250 lines, fail over 400 lines. | `check-code-quality.mjs`; exceptions require inline allowlist with reason. |
-| React component file length | Soft warning over 220 lines, fail over 350 lines. | `check-code-quality.mjs`; split into component, hook, reducer, or primitives. |
-| Function length | Soft warning over 50 lines, fail over 80 lines. | `check-code-quality.mjs`. |
+| Source file length | Fail over 300 lines for production source; explicit exceptions are allowlisted in the governance script. | `check-source-governance.mjs`; split by capability before adding exceptions. |
+| Test source file length | Fail over 450 lines. | `check-source-governance.mjs`; split fixture builders or scenario groups. |
+| Function length | Review concern unless repeated drift appears. | Code review; add an Oxlint or governance rule only after repeated failures. |
 | Cyclomatic complexity | Warn over 8, fail over 12. | Oxlint `complexity`. |
 | Nesting depth | Fail over 3 nested blocks. | Oxlint `max-depth`. |
 | Parameters | Fail over 6. | Oxlint `max-params`; use named input object or service. |
-| Statements per function | Warn over 20, fail over 35. | `check-code-quality.mjs`. |
-| Imports per file | Warn over 20, fail over 30. | `check-code-quality.mjs`; usually means split responsibility. |
+| Statements per function | Review concern unless repeated drift appears. | Code review; keep automated checks focused on fast, low-noise failures. |
+| Imports per file | Review concern unless repeated drift appears. | Code review; boundary scripts catch illegal imports. |
 | Public exports per package entrypoint | Warn when the entrypoint becomes a dump. | `check-package-exports.mjs`; group exports by capability. |
 
 These budgets are defaults, not laws of physics. Generated files, migrations, schema fixtures, and intentionally dense mapping tables may be allowlisted with a short reason. Business logic, use cases, adapters, and UI components should not routinely need exceptions.
@@ -2267,8 +2231,8 @@ Enforcement split:
 
 | Tool | Owns |
 | --- | --- |
-| Oxlint | `no-nested-ternary`, `complexity`, `max-depth`, `max-params`, unsafe syntax, hooks, promises. |
-| `check-code-quality.mjs` | File length, import count, literal scans, TODO/FIXME policy, duplicated product strings, exception allowlist, generated-file exclusions. |
+| Oxlint | `correctness`, `no-nested-ternary`, `complexity`, `max-depth`, `max-params`, unsafe syntax, hooks, promises, focused/skipped Vitest tests, `any`, and TypeScript directive comments. |
+| `check-source-governance.mjs` | File length, test placement, tracked artifact bans, strict tsconfig policy, project references, double assertions, and local `ToolLoopAgent` shadows. |
 | `check-boundaries.mjs` | Whether the extracted code moved into a legal package/layer. |
 | `check-package-exports.mjs` | Whether split files still expose only intended public APIs. |
 | Code review | Whether an exception is justified, an abstraction is premature, or naming still hides product intent. |
@@ -2301,7 +2265,7 @@ Day-one common stack:
     "test": "vitest run",
     "test:browser": "playwright test",
     "audit": "npm audit --audit-level=high",
-    "lint:custom": "node scripts/check-runtime-boundaries.mjs && node scripts/check-outbound-rules.mjs && node scripts/check-code-quality.mjs",
+    "lint:custom": "node scripts/check-runtime-boundaries.mjs && node scripts/check-outbound-rules.mjs && node scripts/check-source-governance.mjs",
     "verify": "npm run format:check && npm run lint:oxlint && npm run typecheck && npm test && npm run lint:custom"
   }
 }
@@ -2375,9 +2339,16 @@ Rules:
 - Test-only libraries belong in root or package `devDependencies`, never runtime package dependencies.
 - Provider SDKs belong in `agent-runtime` provider adapters or `partner-ai-service` outbound/provider composition only.
 - React belongs only in widget/browser packages.
-- Tailwind 4, Base UI, CVA, `clsx`, and `tailwind-merge` are the accepted UI implementation dependencies.
-- Shadcn-style components, AI Elements-style components, and lucide-style icons are allowed only after they are copied/adapted into owned repo source/assets.
-- `lucide-react`, `ai-elements`, `shadcn`, `@repo/shadcn-ui`, and shared UI kit package imports are forbidden dependencies for the clean scaffold.
+- Tailwind 4, Base UI, CVA, `clsx`, `tailwind-merge`, `ai-elements`,
+  `lucide-react`, `motion`, `ai`, Streamdown packages, `shiki`, `cmdk`,
+  `embla-carousel-react`, `nanoid`, and `use-stick-to-bottom` are accepted
+  widget UI/runtime dependencies.
+- Shadcn-style components and AI Elements-style components must live as owned
+  widget source when copied/adapted. The shadcn CLI registry and generated
+  registry metadata are not runtime dependencies.
+- `shadcn`, `@repo/shadcn-ui`, generated shadcn registry packages, Radix UI, and
+  shared UI kit package imports are forbidden dependencies for the clean
+  scaffold.
 - `pg`, Drizzle, and DB query helpers belong in `packages/db` and app-local migration/test harness code.
 - New dependencies require a reason in the PR/commit when they affect production runtime.
 - Duplicate libraries for the same job are forbidden unless an ADR accepts coexistence.
@@ -2491,6 +2462,12 @@ agent-runtime decides a tool is needed
   -> agent-runtime emits tool events
   -> partner-ai-core maps runtime tool events into sidechat protocol events
 ```
+
+Current accepted backend tool:
+
+| Tool | Owner | Behavior |
+| --- | --- | --- |
+| `mock_web_search` | `packages/agent-runtime/src/tools/mock-web-search.ts` | Deterministically simulates a web search inside the backend, streams progress text, emits `sidechat.tool` started/completed events with input/result objects, and feeds the result into the assistant context. It performs no external network egress. |
 
 `[Deferred]` approval flow:
 
@@ -2922,9 +2899,10 @@ Unit tests own pure logic:
 
 Integration tests own package boundaries:
 
-- API route -> partner-ai-core -> agent-runtime fake provider
+- API route -> partner-ai-core -> agent-runtime configured provider
 - partner-ai-core -> repository port
-- agent-runtime -> fake provider/tool registry
+- agent-runtime -> fake provider/tool registry for deterministic tests
+- agent-runtime -> mock web-search tool registry path
 - chat-client -> mock SSE server
 - widget -> chat-client -> mocked stream
 - db repository -> test database
@@ -2989,8 +2967,8 @@ Supported solo modes:
 | Mode | Runs | Purpose |
 | --- | --- | --- |
 | Mock stream mode | `widget-harness` only. | Fast UI development with deterministic `chat-protocol` fixture events. |
-| Local service + fake provider mode | `widget-harness` + `partner-ai-service` using fake provider/runtime. | End-to-end protocol, SSE, widget state, host bridge, and stream sequencing without credentials. |
-| Local service + real provider mode | `widget-harness` + `partner-ai-service` + configured provider credentials. | Manual validation of the real AI SDK runtime path. |
+| Local service + configured provider mode | `widget-harness` + `partner-ai-service` + `.env` provider credentials. | End-to-end protocol, SSE, widget state, host bridge, tool events, and the real AI SDK runtime path. |
+| Explicit fake provider mode | `widget-harness` + `partner-ai-service` using `SIDECHAT_PROVIDER=fake`. | Deterministic protocol, SSE, widget state, host bridge, and stream sequencing without credentials. |
 
 `[Example]` expected command shape:
 
@@ -3027,7 +3005,7 @@ This keeps development ergonomic while preserving the production rule: no host a
 | 0. DB schema contract | Day-one entities, table responsibilities, context snapshots, history/resume behavior, repository command API, grants model, idempotency rules. | Contract is accepted before migrations/repositories; deferred schema areas are explicitly labeled. |
 | 1. Contract spine | `packages/chat-protocol`, schemas, SSE codec, sequence validation, fixtures. | Protocol tests pass, fixtures validate, malformed sequences fail predictably. |
 | 2. Partner AI core | `packages/partner-ai-core`, stream-chat use case, ports, application errors. | Framework-free stream use case emits valid protocol events. |
-| 3. Agent runtime | `packages/agent-runtime`, AI SDK 6 runtime, fake provider, tool registry, provider registry. | Runtime emits internal events through fake provider and maps tool/provider states predictably; approval mapping is `[Deferred]`. |
+| 3. Agent runtime | `packages/agent-runtime`, AI SDK 6 runtime, OpenAI provider, fake provider, mock web-search tool, tool registry, provider registry. | Runtime emits internal events through configured providers and maps tool/provider states predictably; approval mapping is `[Deferred]`. |
 | 4. Service adapter | `apps/partner-ai-service`, HTTP stream route, config parsing, composition root. | `POST /chat/stream` produces valid SSE and invalid requests return clear errors. |
 | 5. Browser client | `packages/chat-client`, typed stream client, SSE reader. | Client decodes chunked SSE streams and terminal behavior is correct. |
 | 6. Widget | `packages/side-chat-widget`, shell, composer, feed, reasoning/tool/host states, and `[Deferred]` approval states. | Widget streams against mock client/service and external host receives commands. |
@@ -3250,7 +3228,9 @@ Treat type-aware Oxlint as part of the architecture, not as style decoration.
 - No forbidden framework/provider/DB/browser imports outside their allowed folders.
 - No committed focused/skipped tests.
 - No React hook or basic accessibility violations in widget UI.
-- No external UI-kit package imports for shadcn, AI Elements, lucide, or `@repo/shadcn-ui`; copied/adapted primitive source must live in `shared/ui`, and copied/adapted AI component source must live in `shared/ai`.
+- No shadcn registry, Radix UI, or `@repo/shadcn-ui` imports; copied/adapted
+  primitive source must live in `shared/ui`, and copied/adapted AI component
+  source must live in `shared/ai` while using the accepted widget dependencies.
 - No deep imports across package public boundaries.
 - No oversized files/functions, nested ternaries, excessive nesting, unclear chained conditionals, or unexplained product literals.
 
@@ -3324,7 +3304,7 @@ These decisions are provisional and should become ADRs when accepted.
 | Runtime DB access | `packages/db` uses Drizzle over `pg`; direct DB access outside `packages/db`, migrations, and explicit DB test harnesses is forbidden. |
 | Test placement | Colocate ordinary tests beside source files; reserve harness folders for cross-package/browser test infrastructure. |
 | Linting | Type-aware Oxlint plus custom governance scripts. |
-| Dependency policy | Runtime dependencies must live only where used; duplicate libraries for the same job need an ADR; shadcn/AI Elements/lucide are used as owned source/assets, not package dependencies. |
+| Dependency policy | Runtime dependencies must live only where used; duplicate libraries for the same job need an ADR; shadcn registry/Radix packages are forbidden, while `ai-elements` and `lucide-react` are accepted widget dependencies. |
 | AI skills | Plan the skill suite first; do not create skill folders until names, triggers, and responsibilities are accepted. |
 | Widget package | Dedicated React package with public entrypoint only. |
 | Browser client | Dedicated `packages/chat-client` day one. Revisit only by ADR if scaffold friction proves too high. |
@@ -3352,7 +3332,7 @@ A first clean scaffold is acceptable when:
 - `partner-ai-service` can serve a fake streaming response
 - `side-chat-widget` can render against a mocked client stream
 - widget and chat-client public APIs expose plain TypeScript/React-friendly contracts, not required Effect programs
-- widget UI primitives live as owned `shared/ui` source, chat UI components live as owned `shared/ai` source, and neither layer has a `lucide-react`, `ai-elements`, `shadcn`, or `@repo/shadcn-ui` dependency/import
+- widget UI primitives live as owned `shared/ui` source, chat UI components live as owned `shared/ai` source, and neither layer has a `shadcn`, `@repo/shadcn-ui`, generated shadcn registry, or Radix dependency/import
 - boundary checks fail on intentionally forbidden imports
 - dependency and version-pin checks fail on intentionally ranged, missing, duplicated, or misplaced strategic packages
 - runtime-boundary checks fail on domain/use-case code importing framework, provider, DB, browser, env, or client objects

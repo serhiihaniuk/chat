@@ -1,6 +1,7 @@
 import {
   createAgentRuntime,
   createFakeProvider,
+  createMockWebSearchTool,
   createOpenAIResponsesProvider,
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
@@ -89,6 +90,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
 const createRuntimeForConfig = (config: RuntimeConfig): AgentRuntime =>
   createAgentRuntime({
     providers: [createProviderForRuntime(config)],
+    tools: [createMockWebSearchTool()],
   });
 
 const createProviderForRuntime = (config: RuntimeConfig): AssistantProvider => {

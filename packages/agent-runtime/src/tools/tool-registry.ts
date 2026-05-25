@@ -1,11 +1,20 @@
 import { AgentRuntimeError } from "../errors.js";
+import type { RuntimeMessage } from "../provider.js";
+import type { JsonObject } from "@side-chat/chat-protocol";
 
-export type RuntimeTool<
-  Input extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-  Output extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-> = {
+export type RuntimeToolRequest = {
+  readonly requestId: string;
+  readonly assistantTurnId: string;
+  readonly messages: readonly RuntimeMessage[];
+};
+
+export type RuntimeTool = {
   readonly name: string;
-  run(input: Input): Promise<Output> | Output;
+  readonly description?: string;
+  createInput?: (request: RuntimeToolRequest) => JsonObject;
+  shouldInvoke?: (request: RuntimeToolRequest) => boolean;
+  progress?: (input: JsonObject) => readonly string[];
+  run(input: JsonObject): Promise<JsonObject> | JsonObject;
 };
 
 export type ToolRegistry = {

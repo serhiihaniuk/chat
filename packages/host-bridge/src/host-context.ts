@@ -42,7 +42,7 @@ export const toProtocolHostContext = (snapshot: HostContextSnapshot): HostContex
 });
 
 const mergeMetadata = (snapshot: HostContextSnapshot): JsonObject => ({
-  ...(snapshot.metadata ?? {}),
+  ...snapshot.metadata,
   collectedAt: snapshot.collectedAt,
   ...(snapshot.expiresAt ? { expiresAt: snapshot.expiresAt } : {}),
   ...(snapshot.capabilityHash ? { capabilityHash: snapshot.capabilityHash } : {}),
