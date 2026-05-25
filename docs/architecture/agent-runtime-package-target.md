@@ -57,27 +57,20 @@ packages/agent-runtime/
 
     runtime/
       agent-runtime.ts
-      create-agent-runtime.ts
       runtime-request.ts
       runtime-event.ts
       runtime-error.ts
-      runtime-services.ts
 
     effect/
       stream-interop.ts
-      runtime-layer.ts
-      runtime-scope.ts
 
     ai-sdk/
       tool-loop-agent-runner.ts
       ai-sdk-tool-adapter.ts
-      ai-sdk-stream-mapper.ts
-      usage-mapper.ts
 
     providers/
       model-provider.ts
       provider-registry.ts
-      provider-selection.ts
       openai/
         openai-model-provider.ts
       fake/
@@ -86,28 +79,22 @@ packages/agent-runtime/
     profiles/
       assistant-profile.ts
       profile-registry.ts
-      prompt-profile.ts
 
     context/
       context-board.ts
       prompt-renderer.ts
-      prompt-sections.ts
 
     tools/
       runtime-tool.ts
       tool-registry.ts
       tool-selection.ts
-      tool-result.ts
-      tool-errors.ts
 
     telemetry/
       runtime-observer.ts
-      step-observer.ts
 
     testing/
-      fake-runtime.ts
-      fake-tools.ts
-      scripted-stream.ts
+      mock-runtime-tool.ts
+      scripted-language-model.ts
 ```
 
 Concrete product tools should live outside this package. In Side Chat, they

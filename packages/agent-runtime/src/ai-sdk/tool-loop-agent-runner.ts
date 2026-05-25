@@ -1,19 +1,19 @@
 import {
   ToolLoopAgent as AiSdkToolLoopAgent,
   type LanguageModel,
+  type LanguageModelUsage,
   type TextStreamPart,
   type ToolLoopAgentSettings,
   type ToolSet,
 } from "ai";
 
-import type { RuntimeEvent } from "#runtime/runtime-event";
+import type { RuntimeEvent, RuntimeUsage } from "#runtime/runtime-event";
 import type { RuntimeProviderRequest } from "#runtime/runtime-request";
 import {
   createAiSdkToolSet,
   createRuntimeToolLookup,
   mapAiSdkToolActivity,
 } from "./ai-sdk-tool-adapter.js";
-import { toRuntimeUsage } from "./usage-mapper.js";
 
 export type AiSdkToolLoopAgentRunOptions = {
   readonly model: LanguageModel;
@@ -200,3 +200,9 @@ const mapFinishReason = (reason: string): "stop" | "length" | "aborted" => {
   if (reason === "abort" || reason === "content-filter") return "aborted";
   return "stop";
 };
+
+const toRuntimeUsage = (usage: LanguageModelUsage): RuntimeUsage => ({
+  inputTokens: usage.inputTokens ?? 0,
+  outputTokens: usage.outputTokens ?? 0,
+  totalTokens: usage.totalTokens ?? 0,
+});

@@ -7,9 +7,8 @@ import {
   type RuntimeEventStream,
 } from "#effect/stream-interop";
 import { runAiSdkToolLoopAgent } from "#ai-sdk/tool-loop-agent-runner";
-import type { ModelProvider } from "#providers/model-provider";
+import type { ModelProvider, ProviderSelection } from "#providers/model-provider";
 import { createProviderRegistry } from "#providers/provider-registry";
-import type { ProviderSelection } from "#providers/provider-selection";
 import type { AssistantProfile } from "#profiles/assistant-profile";
 import { createProfileRegistry } from "#profiles/profile-registry";
 import { createToolRegistry } from "#tools/tool-registry";

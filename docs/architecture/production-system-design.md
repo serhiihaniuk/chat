@@ -1170,48 +1170,43 @@ packages/agent-runtime/
   src/
     index.ts
     runtime/
-      create-agent-runtime.ts
-      create-agent-runtime.test.ts
       agent-runtime.ts
-      agent-runtime-types.ts
-      agent-event.ts
-      ai-sdk-agent-factory.ts
-      ai-sdk-stream-mapper.ts
+      agent-runtime.test.ts
+      runtime-request.ts
+      runtime-event.ts
       runtime-error.ts
-      runtime-services.ts
+    ai-sdk/
+      tool-loop-agent-runner.ts
+      ai-sdk-tool-adapter.ts
+      ai-sdk-tool-adapter.test.ts
+    context/
+      context-board.ts
+      prompt-renderer.ts
     profiles/
-      advisory-workbench-assistant.ts
+      assistant-profile.ts
       profile-registry.ts
-      system-instructions.ts
     tools/
-      registry/
-        tool-registry.ts
-        tool-registry.test.ts
-        tool-definition.ts
+      runtime-tool.ts
+      tool-registry.ts
+      tool-registry.test.ts
+      tool-selection.ts
     providers/
-      registry/
-        provider-registry.ts
-        provider-registry.test.ts
-        provider-config.ts
-        provider-usage.ts
-      <real-provider>/
-        <real-provider>-adapter.ts
-        <real-provider>-config.ts
-        <real-provider>-usage-mapper.ts
-        <real-provider>-adapter.test.ts
+      model-provider.ts
+      provider-registry.ts
+      provider-registry.test.ts
+      openai/
+        openai-model-provider.ts
+        openai-model-provider.test.ts
       fake/
-        fake-provider-adapter.ts
-        fake-provider-adapter.test.ts
-        fake-stream-script.ts
+        fake-model-provider.ts
+        fake-model-provider.test.ts
     telemetry/
-      ai-sdk-devtools.ts
-      assistant-trace.ts
-      step-observer.ts
-    layers/
-      agent-runtime-live.ts
-      agent-runtime-test.ts
-    shared/
-      unknown-record.ts
+      runtime-observer.ts
+    effect/
+      stream-interop.ts
+    testing/
+      mock-runtime-tool.ts
+      scripted-language-model.ts
 ```
 
 `[Example]` product tool folders. These show the expected shape only; do not scaffold these exact tools unless they are accepted as day-one product capabilities:
@@ -1263,21 +1258,18 @@ Key file responsibilities:
 
 | File or folder | Responsibility |
 | --- | --- |
-| `runtime/create-agent-runtime.ts` | Builds the runtime from profiles, tools, providers, and telemetry. It returns the product runtime boundary, not raw AI SDK calls. |
-| `runtime/ai-sdk-agent-factory.ts` | Creates AI SDK `Agent` / `ToolLoopAgent` instances from accepted assistant profiles, provider selections, registered tool capabilities, stop rules, and telemetry settings. |
-| `runtime/ai-sdk-stream-mapper.ts` | Maps AI SDK agent stream parts into internal `AgentRuntimeEvent` values while keeping AI SDK UI messages and provider-native parts private. |
-| `runtime/runtime-services.ts` | Effect service tags for runtime dependencies. |
+| `runtime/agent-runtime.ts` | Builds the runtime from profiles, tools, providers, and telemetry. It returns the product runtime boundary, not raw AI SDK calls. |
+| `ai-sdk/tool-loop-agent-runner.ts` | Creates and runs AI SDK `ToolLoopAgent` instances from accepted assistant profiles, provider selections, registered tool capabilities, stop rules, and telemetry settings. |
+| `ai-sdk/ai-sdk-tool-adapter.ts` | Converts runtime tools into AI SDK tools and maps AI SDK tool stream parts into internal `AgentRuntimeEvent` values. |
 | `profiles/*` | Named assistants, model defaults, instructions, available tool capability policy, and stop rules. |
-| `tools/registry/*` | The first-class registry for model-callable capabilities. |
-| `tools/*` | Runtime tool protocol, selection, result, and error types. Concrete product tools live in the consuming app as ports/adapters. |
-| `providers/registry/*` | Resolves product model/provider selections to provider adapters. |
+| `tools/*` | Runtime tool protocol, registry, and selection. Concrete product tools live in the consuming app as ports/adapters. |
+| `providers/provider-registry.ts` | Resolves product model/provider selections to provider adapters. |
 | `providers/<real-provider>/*` | Accepted real provider behavior only. Concrete provider name is chosen by ADR/config. |
 | `providers/fake/*` | Deterministic provider for tests and local no-credential runs. |
 | `[Deferred] approvals/*` | Human-in-the-loop approval mechanics before sensitive tool execution. |
 | `[Deferred] mcp/*` | MCP client/tool adaptation with explicit security policy. |
 | `[Deferred] structured-output/*` | Typed final answer/command/citation outputs after tool loops. |
-| `telemetry/*` | AI SDK DevTools, traces, step timing, provider payload visibility. |
-| `layers/*` | Live/test Effect layers for runtime composition. |
+| `telemetry/*` | Runtime observer protocol, traces, step timing, provider payload visibility. |
 
 AI SDK orchestration rule:
 

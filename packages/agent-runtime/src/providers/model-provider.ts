@@ -2,7 +2,11 @@ import type { Effect } from "effect";
 import type { LanguageModel, ToolLoopAgentSettings } from "ai";
 
 import type { AgentRuntimeError } from "#runtime/runtime-error";
-import type { ProviderSelection } from "./provider-selection.js";
+
+export type ProviderSelection = {
+  readonly providerId: string;
+  readonly modelId: string;
+};
 
 export type ModelProvider = {
   readonly providerId: string;

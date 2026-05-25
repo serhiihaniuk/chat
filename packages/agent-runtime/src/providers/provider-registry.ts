@@ -1,8 +1,7 @@
 import { Effect } from "effect";
 
 import { AgentRuntimeError } from "#runtime/runtime-error";
-import type { ModelProvider } from "./model-provider.js";
-import type { ProviderSelection } from "./provider-selection.js";
+import type { ModelProvider, ProviderSelection } from "./model-provider.js";
 
 export type ProviderRegistry = {
   readonly providers: readonly ModelProvider[];
