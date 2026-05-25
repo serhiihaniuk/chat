@@ -32,12 +32,17 @@ paths.
 - `apps/partner-ai-service` uses `inbound/http`, `composition`, `adapters`, `outbound`, and config boundaries.
 - Production persistence fails closed without `SIDECHAT_DATABASE_URL`; production composition selects the Postgres/Drizzle repository adapter.
 - `packages/db` includes real Postgres/Drizzle repositories for conversations, messages, assistant turns, context snapshots, usage, tool invocations, host command results, and audit events.
-- `packages/agent-runtime` routes OpenAI execution through AI SDK-backed runtime code.
-- `packages/agent-runtime` registers a deterministic backend
-  `mock_web_search` capability. The model decides whether to call it through
-  `ToolLoopAgent`; observed tool-call/tool-result parts map into normalized
-  activity without external egress.
-- `packages/partner-ai-core` is organized into domain, application, ports, policies, errors, and services, including Effect service/layer coverage.
+- `packages/agent-runtime` routes provider execution through AI SDK-backed
+  runtime code and exposes `streamEffect(request)` as its only assistant-turn
+  stream surface.
+- `apps/partner-ai-service` registers the app-owned deterministic
+  `mock_web_search` runtime tool in development composition. The model decides
+  whether to call it through `ToolLoopAgent`; observed tool-call/tool-result
+  parts map into normalized activity without external egress.
+- `packages/partner-ai-core` is organized into domain, application, ports,
+  policies, errors, and services. Its chat workflow entrypoint is
+  `streamChatEffect(input)` with app-owned ports supplied through Effect
+  services/layers.
 - `packages/side-chat-widget` is organized into `widgets`, `features`,
   `entities`, and `shared`, with exact shadcn-style primitives and AI
   Elements-derived components under `shared/ui` and `shared/ai`.

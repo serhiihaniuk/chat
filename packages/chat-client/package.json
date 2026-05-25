@@ -17,6 +17,7 @@
     "test": "cd ../.. && vitest run packages/chat-client/src/sse-reader.test.ts packages/chat-client/src/client.test.ts"
   },
   "dependencies": {
-    "@side-chat/chat-protocol": "0.0.0"
+    "@side-chat/chat-protocol": "0.0.0",
+    "@side-chat/shared": "0.0.0"
   }
 }

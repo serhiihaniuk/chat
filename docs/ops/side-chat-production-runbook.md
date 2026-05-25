@@ -4,6 +4,14 @@
 
 This runbook covers the day-one `partner-ai-service` scaffold. It is aligned to the production design requirements for normalized auth context, fail-closed production policy, no durable host-command result behavior before ADR acceptance, provider selection through runtime adapters, and metadata-only observability.
 
+Operationally, the service composes app-owned adapters into the Effect-first
+core workflow. HTTP routes call `streamChatEffect(input)`, `partner-ai-core`
+calls `AgentRuntimePort.streamEffect(request)`, and only the HTTP/SSE response
+writer converts the Effect stream into the transport shape required by Hono.
+Concrete tools such as `mock_web_search` are service-owned runtime tools; they
+are injected into `agent-runtime` during composition and must not be added as
+product knowledge inside the runtime package.
+
 Design anchors:
 
 - `docs/architecture/production-system-design.md:2540` normalized `AuthContext` before protected use cases.

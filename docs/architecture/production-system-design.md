@@ -7,8 +7,8 @@ It started as the clean production repo plan and now tracks the accepted current
 implementation direction.
 
 The repository should keep a strict first boundary: stable product protocol,
-framework-free `partner-ai-core`, AI SDK 6-powered `agent-runtime`, and
-providers/models/tools as adapters.
+framework-free Effect-first `partner-ai-core`, AI SDK 6-powered Effect-first
+`agent-runtime`, and providers/models/tools as adapters.
 
 Use this as the build source of truth until it is replaced by accepted ADRs and package-level design docs. It is intentionally one large document for early iteration.
 
@@ -70,6 +70,14 @@ Server, service, and agent runtime pins:
 Effect version rule:
 
 The architecture uses Effect v4 as the server/core workflow discipline. As of the version snapshot date, Effect v4 is published as `4.0.0-beta.70`, so the production repo accepts that beta line explicitly instead of drifting onto Effect 3. Do not mix v4 core packages with Effect 3 peer packages such as `@effect/platform@0.96.1`. If a v4-compatible Effect package is unavailable, either avoid that package on day one or isolate the need behind a small adapter until a compatible package exists.
+
+Effect API rule:
+
+- `partner-ai-core` exposes use cases as Effect programs. The chat stream entrypoint is `streamChatEffect(input)`, with ports supplied through `createPartnerAiCoreLayer(...)`.
+- `agent-runtime` exposes one assistant-turn stream surface: `streamEffect(request)`.
+- Do not add package-level Promise or `AsyncIterable` facades for core/runtime workflows. Convert to those shapes only at transport edges that require them, such as SSE response writing.
+- Expected failures use the Effect error channel. Use `Effect.fail`, `Effect.try`, `Effect.tryPromise`, or yielded failing effects for known product/provider/tool/persistence failures.
+- Raw JavaScript `throw` is a defect. Package boundaries may map defects into typed errors as a safety net, but implementation code must not use `throw` as expected control flow.
 
 Database pins:
 
@@ -252,7 +260,7 @@ The first accepted production scaffold must include this contract before any mig
 Schema ownership:
 
 - Use the dedicated DB schema `sidechat`.
-- Runtime app/core code must address the database through `packages/db` repository methods, not through table names.
+- Application, core, and runtime code must address the database through `packages/db` repository methods, not through table names.
 - Table names are part of the migration and Drizzle schema contract. They can be used by `packages/db`, migrations, DB tests, and operations scripts only.
 - Repository return types are parsed DTOs, not raw rows.
 
@@ -444,10 +452,12 @@ Day-one history contract:
 
 Day-one context contract:
 
-- Context used by the model is assembled from authorized conversation history, current host context, assistant profile, model selection, available tool capabilities, and product policy.
+- Context used by the model is assembled by `partner-ai-core` workflows from authorized conversation history, current host context, assistant profile, model selection, available tool capabilities, and product policy.
 - Host context must include freshness and schema version when it can change assistant behavior.
-- The service records a redacted context snapshot and stable hashes, not unbounded raw host state.
+- App/service adapters provide IO ports for history, persistence, host context, and summaries. They do not decide context policy.
+- The core records a redacted context snapshot and stable hashes through ports, not unbounded raw host state.
 - The context builder should produce an internal manifest containing included message ids, context snapshot hash, assistant profile/version ids, available tool capability ids, tool registry version, model id, and budget decisions.
+- `agent-runtime` receives only the prepared `RuntimeContextBoard` and renders it into model-facing messages.
 - The internal manifest can stay in application/runtime logs on day one. Persisting full prompt manifests is `[Deferred]` unless debugging/compliance requires it.
 - Cross-conversation memory, user preference learning, vector retrieval, and conversation summaries are `[Deferred]` until accepted as product behavior.
 
@@ -1122,10 +1132,13 @@ packages/partner-ai-core/src/
 Effect v4 role in `partner-ai-core`:
 
 - model every use case as `Effect<Success, ApplicationError, Services>`
+- make core ports Effect-shaped for async/failing dependencies instead of Promise-shaped
+- expose assistant output as `Stream<SidechatStreamEvent, PartnerAiCoreError>`
 - keep expected failures in the typed error channel, not as unknown thrown exceptions
 - use services/layers instead of manually threading large dependency objects through every use case
 - use `Stream` for assistant event streams and SSE-ready event production
 - use `Scope`/resource safety for any acquired resources exposed through services
+- adapt Promise-based HTTP, DB, telemetry, and policy libraries in app/service adapters before they enter core
 - keep pure domain helpers plain TypeScript when no Effect capability is needed
 
 ## 11. Package: `packages/agent-runtime`
@@ -1134,11 +1147,11 @@ This package owns AI SDK 6-powered assistant orchestration.
 
 Day-one owns:
 
-- assistant profiles
+- assistant profile defaults
 - AI SDK 6 Agent / ToolLoopAgent integration as the primary assistant execution boundary
 - Effect v4 runtime programs around agent execution
-- tool registry
-- provider registry
+- Effect-based runtime tool protocol and registry
+- model provider protocol and private provider resolution
 - provider adapters
 - usage/raw finish reason mapping
 - DevTools/trace integration
@@ -1165,81 +1178,57 @@ Folder structure:
 
 ```txt
 packages/agent-runtime/
+  README.md
   package.json
   tsconfig.json
   src/
     index.ts
     runtime/
-      create-agent-runtime.ts
-      create-agent-runtime.test.ts
       agent-runtime.ts
-      agent-runtime-types.ts
-      agent-event.ts
-      ai-sdk-agent-factory.ts
-      ai-sdk-stream-mapper.ts
-      runtime-error.ts
-      runtime-services.ts
-    profiles/
-      advisory-workbench-assistant.ts
-      profile-registry.ts
-      system-instructions.ts
+      agent-runtime.test.ts
+      contract/
+        runtime-request.ts
+        runtime-event.ts
+        runtime-error.ts
+        runtime-stream.ts
+      turn/
+        assistant-profile.ts
+        prepare-runtime-turn.ts
+        provider-selection.ts
+        tool-selection.ts
+        prompt-rendering.ts
+      ai-sdk/
+        tool-loop-agent-runner.ts
+        ai-sdk-tool-adapter.ts
+        ai-sdk-tool-adapter.test.ts
+        runtime-tool-executor.ts
+        reasoning-activity.ts
+        stream-part-mapper.ts
+        tool-activity-mapper.ts
     tools/
-      registry/
-        tool-registry.ts
-        tool-registry.test.ts
-        tool-definition.ts
+      runtime-tool.ts
+      tool-registry.ts
+      tool-registry.test.ts
     providers/
-      registry/
-        provider-registry.ts
-        provider-registry.test.ts
-        provider-config.ts
-        provider-usage.ts
-      <real-provider>/
-        <real-provider>-adapter.ts
-        <real-provider>-config.ts
-        <real-provider>-usage-mapper.ts
-        <real-provider>-adapter.test.ts
+      model-provider.ts
+      openai/
+        openai-model-provider.ts
+        openai-model-provider.test.ts
       fake/
-        fake-provider-adapter.ts
-        fake-provider-adapter.test.ts
-        fake-stream-script.ts
-    telemetry/
-      ai-sdk-devtools.ts
-      assistant-trace.ts
-      step-observer.ts
-    layers/
-      agent-runtime-live.ts
-      agent-runtime-test.ts
-    shared/
-      unknown-record.ts
+        fake-model-provider.ts
+        fake-model-provider.test.ts
+    testing/
+      mock-runtime-tool.ts
+      scripted-language-model.ts
 ```
 
-`[Example]` product tool folders. These show the expected shape only; do not scaffold these exact tools unless they are accepted as day-one product capabilities:
+Concrete product tools do not live under `packages/agent-runtime/src/tools/`.
+They live in the consuming app as ports/adapters, then get injected through the
+runtime tool protocol.
 
-```txt
-packages/agent-runtime/src/tools/
-  workbench-query/
-    workbench-query.tool.ts
-    workbench-query.schema.ts
-    workbench-query.policy.ts
-    workbench-query.mapper.ts
-    workbench-query.test.ts
-  surface-context/
-    surface-context.tool.ts
-    surface-context.schema.ts
-    surface-context.test.ts
-  host-command/
-    host-command.tool.ts
-    host-command.schema.ts
-    host-command.policy.ts
-    host-command.test.ts
-  report-generation/
-    report-generation.tool.ts
-    report-generation.schema.ts
-    report-generation.test.ts
-```
-
-`[Example]` provider folders. Day one requires the provider registry, fake provider, and one accepted real provider adapter; these names are candidates, not automatic scaffold scope:
+`[Example]` provider folders. Day one requires the provider protocol, fake
+provider, and one accepted real provider adapter; these names are candidates,
+not automatic scaffold scope:
 
 ```txt
 packages/agent-runtime/src/providers/
@@ -1263,48 +1252,46 @@ Key file responsibilities:
 
 | File or folder | Responsibility |
 | --- | --- |
-| `runtime/create-agent-runtime.ts` | Builds the runtime from profiles, tools, providers, and telemetry. It returns the product runtime boundary, not raw AI SDK calls. |
-| `runtime/ai-sdk-agent-factory.ts` | Creates AI SDK `Agent` / `ToolLoopAgent` instances from accepted assistant profiles, provider selections, registered tool capabilities, stop rules, and telemetry settings. |
-| `runtime/ai-sdk-stream-mapper.ts` | Maps AI SDK agent stream parts into internal `AgentRuntimeEvent` values while keeping AI SDK UI messages and provider-native parts private. |
-| `runtime/runtime-services.ts` | Effect service tags for runtime dependencies. |
-| `profiles/*` | Named assistants, model defaults, instructions, available tool capability policy, and stop rules. |
-| `tools/registry/*` | The first-class registry for model-callable capabilities. |
-| `tools/<tool-name>/*` | One folder per model-callable capability: schema, policy, mapper, tests, and tool definition. |
-| `providers/registry/*` | Resolves product model/provider selections to provider adapters. |
+| `runtime/agent-runtime.ts` | Entry point that builds the runtime from injected providers/tools/profiles and exposes the Effect `streamEffect` surface. |
+| `runtime/contract/*` | Public request, event, error, and stream contracts. |
+| `runtime/turn/*` | Decides profile, provider/model, allowed tools, and final prompt messages before the model starts. |
+| `runtime/ai-sdk/tool-loop-agent-runner.ts` | Creates and runs AI SDK `ToolLoopAgent` instances from resolved provider/model, rendered messages, and selected tool capabilities. |
+| `runtime/ai-sdk/ai-sdk-tool-adapter.ts` | Converts runtime tools into AI SDK tools. |
+| `runtime/ai-sdk/runtime-tool-executor.ts` | Interprets app-owned RuntimeTool Effects for AI SDK callbacks, including abort and declared timeout handling. |
+| `runtime/ai-sdk/*-mapper.ts`, `reasoning-activity.ts` | Maps AI SDK stream parts into internal `RuntimeEvent` values. |
+| `tools/*` | Runtime tool protocol and reusable registry. Concrete product tools live in the consuming app as ports/adapters. |
+| `providers/model-provider.ts` | Defines provider adapters as model/option resolvers, not assistant-turn orchestrators. |
 | `providers/<real-provider>/*` | Accepted real provider behavior only. Concrete provider name is chosen by ADR/config. |
 | `providers/fake/*` | Deterministic provider for tests and local no-credential runs. |
 | `[Deferred] approvals/*` | Human-in-the-loop approval mechanics before sensitive tool execution. |
 | `[Deferred] mcp/*` | MCP client/tool adaptation with explicit security policy. |
 | `[Deferred] structured-output/*` | Typed final answer/command/citation outputs after tool loops. |
-| `telemetry/*` | AI SDK DevTools, traces, step timing, provider payload visibility. |
-| `layers/*` | Live/test Effect layers for runtime composition. |
 
 AI SDK orchestration rule:
 
 - The main product assistant path is AI SDK 6 `Agent` / `ToolLoopAgent` first. If a flow has a reusable assistant profile, tools, provider selection, stop rules, telemetry, or future approval/structured-output hooks, it belongs behind an Agent-compatible runtime boundary.
 - `streamText` is a low-level primitive. It may appear inside the Agent/ToolLoopAgent implementation, tests, or explicitly accepted tiny non-agent utilities such as title generation, summarization, or classification. It must not become the public runtime orchestrator for chat.
-- `partner-ai-service` and `partner-ai-core` must call the `agent-runtime` port/facade, not `streamText`, provider SDKs, or raw provider HTTP directly.
+- `partner-ai-service` and `partner-ai-core` must call the `agent-runtime` port through `AgentRuntimePort.streamEffect`, not `streamText`, provider SDKs, raw provider HTTP, or package-level compatibility wrappers.
 - Do not hand-roll a recursive model -> tool -> model loop unless an ADR proves AI SDK Agent / ToolLoopAgent cannot express the required behavior.
 - Tool availability is derived from runtime composition, assistant profile, product policy, and trusted context. It is not a user-controlled request field.
-- Registered runtime tools are converted into AI SDK tools inside `agent-runtime`; the model chooses a tool and its input through the `ToolLoopAgent`.
+- Registered runtime tools are app-owned capabilities that satisfy the Effect-based runtime tool protocol. They are converted into AI SDK tools inside `agent-runtime`; the model chooses a tool and its input through the `ToolLoopAgent`.
 - Runtime tools must not expose `shouldInvoke`, `createInput`, or pre-model progress hooks. Those fields make the backend choose and run tools before the agent acts.
 - Tool output returns to the model through the AI SDK tool loop. The runtime observes AI SDK `tool-input-start`, `tool-call`, `tool-result`, and `tool-error` stream parts and maps them into normalized runtime activity events.
+- Awaiting AI SDK `agent.stream(...)` only opens the provider/tool-loop stream handle. It must not be treated as buffering the full assistant answer; the answer continues through `result.fullStream` and is mapped as parts arrive.
 - Do not call OpenAI/Anthropic/Azure/etc. through raw `fetch` for normal assistant execution unless an ADR documents the provider gap, the allowed file boundary, and the removal condition.
 - Product policy may run before/after the AI SDK call: auth, tenancy, model availability, conversation persistence, host context trust, usage recording, protocol mapping, and terminal-event guarantees.
 - AI SDK UI messages and provider-native stream parts remain internal runtime details; the browser still receives only `chat-protocol` events.
+- Runtime constants use exported constant objects with uppercase property names, such as `RUNTIME_EVENT_TYPES.OUTPUT_DELTA`; do not reintroduce string literals for protocol, runtime, error, route, provider/model, tool, or environment names.
 
 Runtime event shape:
 
 ```txt
-AgentRuntimeEvent
-  | text-delta
-  | reasoning
-  | tool-running
-  | tool-completed
-  | tool-error
-  | host-command
-  | completed
-  | failed
+RuntimeEvent
+  | runtime.started
+  | runtime.output_delta
+  | runtime.activity
+  | runtime.completed
+  | runtime.error
 ```
 
 These events are internal. `partner-ai-core` maps them into `sidechat.v1`.
@@ -1320,10 +1307,13 @@ AgentRuntimeEvent
 Effect v4 role in `agent-runtime`:
 
 - wrap AI SDK agent/tool-loop execution in typed Effect programs
+- keep the AI SDK ToolLoopAgent runner as an Effect `Stream` internally
+- expose only `streamEffect` as the package runtime surface
 - use `Stream` for text, reasoning, tool, host-command, completion events, and `[Deferred]` approval events if approval is accepted
+- require runtime tools to execute through Effect at the interface level
 - use structured concurrency for parallel tool/retrieval work that must be cancelled together
 - use timeouts, retries, schedules, and typed provider/tool errors around model and tool calls
-- use layers to swap OpenAI, Anthropic, Azure OpenAI, AI Gateway, local, and fake providers
+- use application and core layers for service composition, and use the runtime provider protocol for OpenAI, Anthropic, Azure OpenAI, AI Gateway, local, and fake providers
 - attach telemetry spans around each assistant step, provider call, tool call, stream lifecycle, and `[Deferred]` approval wait if approval is accepted
 - keep AI SDK objects and provider-native chunks internal to this package
 
@@ -2013,7 +2003,7 @@ Type tests should prove:
 
 - public APIs do not expose forbidden internal/provider/runtime types
 - invalid protocol shapes fail at compile time where possible
-- model/provider registry types preserve allowed model ids
+- model/provider catalog types preserve allowed model ids
 - host commands remain discriminated and exhaustive
 - generated declaration files are consumer-safe
 
@@ -2207,7 +2197,7 @@ Magic literal rules:
 | Protocol event names | Must come from `chat-protocol` constants or schema definitions. |
 | Route paths and header names | Must come from protocol/app route constants. |
 | Error codes | Must come from typed error/code modules. |
-| Model/provider ids | Must come from provider registry definitions. |
+| Model/provider ids | Must come from model/provider catalog definitions. |
 | Tool names | Must come from tool registry definitions. |
 | Feature flag names | Must come from config/feature flag constants. |
 | Environment variable names | Must live in env parsing modules only. |
@@ -2220,7 +2210,7 @@ String literals are not all bad. The rule is: product identifiers, protocol valu
 Duplication rules:
 
 - Do not duplicate protocol event mapping in backend, client, and widget. Use protocol helpers and focused projection functions.
-- Do not duplicate provider/model ids outside provider registry.
+- Do not duplicate provider/model ids outside the model/provider catalog.
 - Do not duplicate request/response parsing; use schemas at boundaries.
 - Do not duplicate fake model scripts across tests; use testing builders/fakes.
 - Do not introduce a shared abstraction for two tiny identical lines. Wait until duplication has product meaning or risk.
@@ -2428,8 +2418,8 @@ Each package must have a narrow public entrypoint.
 | Package | Public API should include | Should not export |
 | --- | --- | --- |
 | `chat-protocol` | Protocol version, route/header constants, schemas, types, validation, SSE codec, sequence validation, fixtures. | Provider-specific fields or framework objects. |
-| `partner-ai-core` | Use cases, port interfaces, application errors, core domain types needed by adapters. | Internal helpers by default. |
-| `agent-runtime` | Runtime factory, profile/provider/tool registry types, runtime event types, test fake provider helpers if accepted. | AI SDK UI message types as product API. |
+| `partner-ai-core` | `streamChatEffect`, `createPartnerAiCoreLayer`, port interfaces, application errors, core domain types needed by adapters. | Internal helpers by default; Promise or `AsyncIterable` use-case facades. |
+| `agent-runtime` | Runtime factory with `streamEffect`, profile/provider/tool protocol types, runtime event types, test fake provider helpers if accepted. | AI SDK UI message types as product API; `stream(request)` or other non-Effect runtime facades. |
 | `chat-client` | `createChatClient`, stream reader types, client error types, retry options. | React or widget state. |
 | `side-chat-widget` | `SideChatWidget`, `[Optional]` `useSideChat`, widget prop types, required CSS export. | Internal component paths. |
 | `host-bridge` | Host context provider, host command dispatcher, host capability types, command result helpers, iframe bridge helpers. | Host app state. |
@@ -2445,12 +2435,13 @@ external host app renders SideChatWidget
   -> widget uses chat-client to POST /chat/stream
   -> partner-ai-service Hono auth middleware verifies credentials and attaches normalized AuthContext
   -> partner-ai-service validates headers/body against chat-protocol
-  -> partner-ai-service invokes partner-ai-core streamChat use case with AuthContext
+  -> partner-ai-service builds the partner-ai-core Effect Layer from app-owned ports
+  -> partner-ai-service calls partner-ai-core streamChatEffect with AuthContext
   -> partner-ai-core checks auth/rate/billing/model policy through ports
   -> partner-ai-core loads conversation context through repository ports
-  -> partner-ai-core calls AgentRuntimePort.stream
-  -> agent-runtime runs AI SDK 6 agent/tool loop
-  -> provider adapter maps OpenAI/Anthropic/Azure/local/fake output into runtime events
+  -> partner-ai-core calls AgentRuntimePort.streamEffect
+  -> agent-runtime resolves provider/model and runs AI SDK 6 agent/tool loop
+  -> provider adapter supplies model handle/options while agent-runtime maps output into runtime events
   -> partner-ai-core maps runtime events into chat-protocol events
   -> partner-ai-service writes events as SSE frames
   -> chat-client decodes SSE frames into protocol events
@@ -2472,11 +2463,11 @@ agent-runtime produces host command intent
 Outbound tool flow:
 
 ```txt
-agent-runtime registers available tool capabilities
+partner-ai-service registers app-owned tool capabilities with agent-runtime
   -> ToolLoopAgent receives the capabilities with automatic tool choice
   -> model decides a tool is needed and produces tool input
-  -> AI SDK executes the selected runtime tool
-  -> tool definition checks policy and [Deferred] approval requirements if approval is accepted
+  -> AI SDK asks agent-runtime to execute the selected runtime tool
+  -> app-owned tool adapter checks policy and [Deferred] approval requirements if approval is accepted
   -> tool calls an Effect service or adapter port, not a raw external client
   -> partner-ai-service outbound adapter implements that service
   -> outbound client calls the accepted external system
@@ -2490,7 +2481,7 @@ Accepted backend tool:
 
 | Tool | Owner | Behavior |
 | --- | --- | --- |
-| `mock_web_search` | `packages/agent-runtime/src/tools/mock-web-search.ts` | Deterministically simulates a web search inside the backend without external network egress. It is a development capability with a model-facing input schema. Non-production runtime composition may make it available to the agent; production composition must not expose it. When the model chooses it, observed tool-call/tool-result stream parts become ordered `sidechat.activity` tool rows with input/result/source objects. |
+| `mock_web_search` | `apps/partner-ai-service/src/adapters/tools/mock-web-search-tool.ts` | Deterministically simulates a web search inside the backend without external network egress. It is a development capability with a model-facing input schema and an Effect-based runtime tool implementation. Non-production runtime composition may make it available to the agent; production composition must not expose it. When the model chooses it, observed tool-call/tool-result stream parts become ordered `sidechat.activity` tool rows with input/result/source objects. |
 
 `[Deferred]` approval flow:
 
@@ -2675,7 +2666,7 @@ The `agent-runtime` is allowed to be sophisticated internally, but its behavior 
 
 Rules:
 
-- Provider selection comes from a model/provider registry, policy, and configuration, not widget-only state.
+- Provider selection comes from a model/provider catalog, policy, and configuration, not widget-only state.
 - Fake providers are valid for tests and local development, but forbidden in production.
 - Provider fallback must be explicit. Silent fallback to a cheaper, weaker, or different-region model is not allowed.
 - Provider responses are mapped into runtime events before partner-ai-core maps them into protocol events.
@@ -2829,9 +2820,9 @@ It should not become a tax on host apps or widget consumers. Browser-facing and 
 
 | Area | Effect v4 role |
 | --- | --- |
-| `partner-ai-core` | Use cases as `Effect` programs, typed application errors, service dependencies, stream policies. |
-| `agent-runtime` | Agent/tool-loop execution, provider calls, tool calls, streaming, retries, cancellation, telemetry, and `[Deferred]` approvals/MCP/structured output. |
-| `partner-ai-service` | Runtime bootstrap, config, layers, HTTP lifecycle, graceful shutdown, error translation, observability. |
+| `partner-ai-core` | Use cases and ports as `Effect` programs, typed application errors, service dependencies, stream policies, and protocol event streams. |
+| `agent-runtime` | Agent/tool-loop execution as Effect streams, provider calls, tool calls, streaming, retries, cancellation, telemetry, and `[Deferred]` approvals/MCP/structured output. |
+| `partner-ai-service` | Runtime bootstrap, config, layers, HTTP lifecycle, Promise/edge adapter conversion, graceful shutdown, error translation, observability. |
 | `db` | Pool lifecycle, transactions, typed DB errors, repository live layers. |
 | `chat-protocol` | Optional canonical schemas if Effect Schema is accepted; generated plain artifacts for consumers. |
 
@@ -2861,9 +2852,9 @@ PartnerAiCore services
   IdGenerator
 
 AgentRuntime services
-  ProfileRegistry
-  ToolRegistry
-  ProviderRegistry
+  AgentRuntime
+  RuntimeTool protocol
+  ModelProvider protocol
   RuntimeTelemetry
   [Deferred] ApprovalPolicy
   [Deferred] McpRegistry
@@ -2922,7 +2913,7 @@ Before calling the new repo production-ready, these areas need real design:
 | Area | Requirements |
 | --- | --- |
 | Auth and tenancy | Caller identity, workspace authorization, conversation ownership, host context trust boundaries, audit fields. |
-| Model/provider registry | Provider allowlist, model availability by workspace/account, fallback policy, cost metadata, region/compliance constraints. |
+| Model/provider catalog | Provider allowlist, model availability by workspace/account, fallback policy, cost metadata, region/compliance constraints. |
 | Tool safety | Tool permissions, audit trail, sensitive action denials, `[Deferred]` human approval and MCP security policy. |
 | Rate limiting | Per-user/workspace limits, burst/sustained limits, retry metadata, safe test mode. |
 | Billing and entitlements | Model availability, usage recording, spend/token budgets, clear denial errors. |
@@ -2950,7 +2941,7 @@ Integration tests own package boundaries:
 - API route -> partner-ai-core -> agent-runtime configured provider
 - partner-ai-core -> repository port
 - agent-runtime -> fake provider/tool registry for deterministic tests
-- agent-runtime -> mock web-search activity/tool registry path
+- partner-ai-service mock web-search adapter -> agent-runtime tool registry/activity path
 - chat-client -> mock SSE server
 - widget -> chat-client -> mocked activity stream
 - db repository -> test database
@@ -2973,7 +2964,7 @@ Type tests own compile-time contracts:
 - package public APIs expose only intended types
 - invalid protocol/host command shapes fail typecheck where possible
 - discriminated unions remain exhaustive
-- model/provider registry types preserve allowed values
+- model/provider catalog types preserve allowed values
 - `[Example]` `@ts-expect-error` cases fail for the intended reason
 
 E2E tests use a minimal test harness, not a product host app:
@@ -3055,7 +3046,7 @@ This keeps development ergonomic while preserving the production rule: no host a
 | 0. DB schema contract | Day-one entities, table responsibilities, context snapshots, history/resume behavior, repository command API, grants model, idempotency rules. | Contract is accepted before migrations/repositories; deferred schema areas are explicitly labeled. |
 | 1. Contract spine | `packages/chat-protocol`, schemas, SSE codec, sequence validation, fixtures. | Protocol tests pass, fixtures validate, malformed sequences fail predictably. |
 | 2. Partner AI core | `packages/partner-ai-core`, stream-chat use case, ports, application errors. | Framework-free stream use case emits valid protocol events. |
-| 3. Agent runtime | `packages/agent-runtime`, AI SDK 6 runtime, OpenAI provider, fake provider, mock web-search tool, tool registry, provider registry. | Runtime emits typed activity/tool/provider events through configured providers; approval mapping is `[Deferred]`. |
+| 3. Agent runtime | `packages/agent-runtime`, AI SDK 6 runtime, OpenAI provider, fake provider, Effect-based tool protocol, tool registry, model provider protocol, and app-injected mock web-search fixture. | Runtime emits typed activity/tool/provider events through configured providers; approval mapping is `[Deferred]`. |
 | 4. Service adapter | `apps/partner-ai-service`, HTTP stream route, config parsing, composition root. | `POST /chat/stream` produces valid SSE and invalid requests return clear errors. |
 | 5. Browser client | `packages/chat-client`, typed stream client, SSE reader. | Client decodes chunked SSE streams and terminal behavior is correct. |
 | 6. Widget | `packages/side-chat-widget`, shell, composer, feed, canonical activity timeline, and `[Deferred]` approval states. | Widget streams against mock client/service, renders activity in protocol order, and external host receives commands. |
@@ -3121,7 +3112,7 @@ Day-one skills should protect the highest-risk architectural boundaries.
 | `side-chat-architecture` | Creating, editing, or reviewing any production repo code where package/layer ownership matters. | Hexagonal rules, dependency direction, forbidden moves, completion checks. | Detailed protocol schemas, provider-specific setup, UI design details. |
 | `side-chat-protocol` | Changing request DTOs, stream events, SSE codec, sequence rules, host commands, generated schema/OpenAPI. | Protocol compatibility, event ordering, fixture updates, no provider/runtime leaks. | Partner AI core use-case orchestration or widget rendering internals. |
 | `partner-ai-use-case` | Adding or changing `partner-ai-core` domain, policies, ports, services, or application use cases. | Use-case shape, Effect service dependencies, typed errors, fake-port tests. | Concrete HTTP, DB, provider, telemetry, or auth adapters. |
-| `agent-runtime` | Adding providers, model registry behavior, AI SDK 6 agents, tools, and `[Deferred]` approvals/MCP/reranking/structured output. | Runtime event model, provider/tool registry, AI SDK mapping, fake providers, and `[Deferred]` approval safety. | Browser protocol ownership or widget UI. |
+| `agent-runtime` | Adding providers, model selection behavior, AI SDK 6 agents, tools, and `[Deferred]` approvals/MCP/reranking/structured output. | Runtime event model, provider/tool protocols, AI SDK mapping, fake providers, and `[Deferred]` approval safety. | Browser protocol ownership or widget UI. |
 | `outbound-adapter` | Connecting to an external system such as Azure SSO, CRM, document search, Redis, telemetry, billing, or entitlement services. | Client/adapter/layer shape, response parsing, retries, error mapping, secret handling. | Business decisions that belong in use cases or policies. |
 | `db-schema-contract` | Defining or changing day-one DB entities, table contracts, repository command API, grants, idempotency, retention, audit fields. | Schema contract first, table responsibilities, repository command contracts, deferred schema labels. | Repository implementation details or app use-case behavior. |
 | `db-boundary` | Changing Drizzle schema, migrations, repositories, query helpers, DB clients, row parsers, least-privilege tests. | Migration discipline, Drizzle/pg boundary, row validation, repository adapter tests. | Partner AI core use-case decisions or direct app table access. |
@@ -3196,8 +3187,8 @@ Do not leak provider SDKs, AI SDK UI messages, HTTP framework objects, DB client
 ## Dependency Direction
 
 - `chat-protocol` is the browser/backend contract and imports no app/runtime/UI/provider/DB code.
-- `partner-ai-core` owns use cases, ports, policies, Effect services/layers, and application errors. It imports no HTTP framework, React, pg, Drizzle, AI SDK, or provider SDK.
-- `agent-runtime` owns AI SDK 6 agents, tools, provider registry, Effect runtime programs, and runtime telemetry. `[Deferred]` approvals, MCP, and structured output are added only after acceptance. It depends on partner-ai-core ports/types, not on HTTP or UI.
+- `partner-ai-core` owns Effect use cases, ports, policies, context-board product workflow, Effect services/layers, and application errors. It imports no HTTP framework, React, pg, Drizzle, AI SDK, or provider SDK.
+- `agent-runtime` owns AI SDK 6 agents, the Effect-based tool protocol/registry, model provider protocol, Effect runtime programs, and runtime event mapping. Concrete product tools live in consuming apps as ports/adapters. `[Deferred]` approvals, MCP, telemetry, and structured output are added only after acceptance. It does not depend on partner-ai-core, HTTP, or UI.
 - Provider-specific behavior stays in provider adapters.
 - Inbound adapters receive calls into the service; outbound adapters call external systems.
 - External tools/services live behind outbound adapters and Effect services, not inside use cases or tool definitions.
@@ -3234,6 +3225,8 @@ If code imports an SDK, talks to a network, reads environment, opens a DB connec
 - Do not import HTTP framework objects into partner-ai-core or agent-runtime.
 - Do not import pg, Drizzle, Drizzle table objects, or DB query helpers outside `packages/db` and colocated migration/test harness code.
 - Do not force Effect runtime types into widget/client public APIs.
+- Do not add Promise or `AsyncIterable` package-level facades for partner-ai-core or agent-runtime workflows; use Effect streams and convert only at transport edges.
+- Do not use raw `throw` for expected failures inside Effect workflows; use `Effect.fail`, `Effect.try`, or `Effect.tryPromise`.
 - Do not use `any`, `as any`, `@ts-ignore`, or unsafe double assertions outside approved interop/type-test files.
 - Do not trust unparsed JSON, DB rows, request bodies, postMessage payloads, provider responses, or external service responses.
 - Do not wrap simple pure UI helpers in Effect without a real async/error/resource/concurrency reason.
@@ -3243,8 +3236,8 @@ If code imports an SDK, talks to a network, reads environment, opens a DB connec
 - Do not hide product behavior in generic `utils`, `helpers`, or `shared` folders.
 - Do not add broad `test/` folders for ordinary unit tests; colocate `*.test.ts` beside the source.
 - Do not make a host app part of the production repo.
-- Do not add provider UI before the agent-runtime provider registry exists.
-- Do not use direct SQL from app/core/runtime code; DB queries belong in `packages/db`.
+- Do not add provider UI before provider/model policy and runtime provider support exist.
+- Do not use direct SQL from application, core, or runtime code; DB queries belong in `packages/db`.
 
 ## AI SDK 6 Rule
 
@@ -3252,11 +3245,18 @@ AI SDK 6 is the engine inside `packages/agent-runtime`. The product assistant pa
 
 Do not call `streamText` directly from `partner-ai-service`, `partner-ai-core`, `chat-protocol`, `chat-client`, or `side-chat-widget`. Do not build a custom model/tool recursion loop or raw provider HTTP stream for normal assistant execution without an ADR.
 
+The package runtime surface is `AgentRuntime.streamEffect(request)` only. Do not
+add `stream(request)` or other non-Effect runtime facades.
+
 Never make AI SDK UI messages or provider-native stream events the product protocol.
 
 ## Effect v4 Rule
 
 Effect v4 is the server/core workflow discipline. Use the pinned v4 package line for use cases, services/layers, typed expected errors, streams, retries, timeouts, resource safety, cancellation, and observability in `partner-ai-core`, `agent-runtime`, `partner-ai-service`, and `db`.
+
+Known failures belong in the Effect error channel. Raw JavaScript `throw` is a
+defect and should only appear as a bug or inside an `Effect.try` /
+`Effect.tryPromise` boundary that maps it into a typed error.
 
 Do not make host apps, widget consumers, or public browser/client APIs understand Effect.
 
@@ -3306,16 +3306,18 @@ Before claiming done, verify:
 - protocol fixtures still validate if stream events changed
 ```
 
-## 30. Open Design Questions
+## 30. Future Decision Queue
 
-Every item in this section is `[Open]` and must not be implemented as a default without an accepted decision.
+These items are deliberately outside the current final state. The restrictions
+above remain binding until an ADR or an accepted design update changes them. Do
+not use this queue as permission to add alternate package APIs, move ownership,
+or bypass dependency boundaries.
 
 - Should source schemas use Effect Schema, Zod, Valibot, TypeBox, Standard Schema, or another schema library?
 - If Effect Schema is chosen, what generated artifacts are required so consumers do not need Effect runtime knowledge?
 - Should the repo use one module-resolution strategy everywhere, or separate Node-service and browser-library tsconfig presets?
 - Which type-test tool should own public API compile-time checks: Vitest `expectTypeOf`, `tsd`, API Extractor, or another tool?
 - Should `skipLibCheck` be forbidden, or allowed only with a documented dependency issue?
-- Should `partner-ai-core` public use cases expose Effect programs directly, or should app-facing wrapper functions also exist for simpler adapters?
 - Which Effect v4 beta risks need explicit mitigation before production hardening, and which `effect/unstable/*` modules should be avoided until they stabilize?
 - Should provider adapters live inside `agent-runtime`, or in a future `packages/model-providers` package?
 - Should outbound business integrations live under `apps/partner-ai-service/src/outbound`, or graduate into separate packages when reused across services?
@@ -3329,9 +3331,10 @@ Every item in this section is `[Open]` and must not be implemented as a default 
 - Should formatting be handled by Oxlint alone, Oxfmt, or a formatter-independent policy?
 - Which dependency-audit and license checks are required before production?
 
-## 31. Current Draft Decisions
+## 31. Current Decisions
 
-These decisions are provisional and should become ADRs when accepted.
+These decisions describe the accepted spine of the repo. Change them only with a
+focused design update or ADR.
 
 | Decision | Current stance |
 | --- | --- |
@@ -3343,10 +3346,10 @@ These decisions are provisional and should become ADRs when accepted.
 | TypeScript escape hatches | `any`, `as any`, `@ts-ignore`, and unsafe double assertions are forbidden except documented interop/type-test cases. |
 | Effect v4 role | Server/core workflow discipline for use cases, layers, typed errors, streams, resources, and observability, pinned to `effect@4.0.0-beta.70` until stable v4 replaces it. |
 | Effect in browser APIs | Do not require widget, host, or chat-client consumers to use Effect. |
-| Partner AI core | Dedicated framework-free `packages/partner-ai-core`. |
-| Agent runtime | Dedicated `packages/agent-runtime` day one. |
+| Partner AI core | Dedicated framework-free `packages/partner-ai-core` with Effect use cases such as `streamChatEffect`; no parallel Promise/AsyncIterable use-case facades. |
+| Agent runtime | Dedicated `packages/agent-runtime` day one with `streamEffect` as the only assistant-turn stream surface. |
 | AI SDK 6 role | Engine inside `packages/agent-runtime`, not browser protocol and not OpenAI-only adapter. |
-| Provider switching | Backed by runtime provider registry before becoming product UI. |
+| Provider switching | Backed by provider/model policy and runtime provider support before becoming product UI. |
 | Outbound integrations | Start in `apps/partner-ai-service/src/outbound`; extract only when reuse or deployment boundaries justify it. |
 | Auth provider | Not decided. Design against normalized `AuthContext`; keep Azure/JWT/gateway/session details in adapters. |
 | Production runtime profile | Must fail closed when required production auth, provider, CORS, telemetry, secrets, persistence, or rate-limit configuration is missing. |
@@ -3378,7 +3381,7 @@ A first clean scaffold is acceptable when:
 - `chat-protocol` has tests for request, event, codec, and sequence rules
 - public package APIs have type tests or declaration checks
 - `partner-ai-core` has an Effect-based fake-runtime stream use-case test
-- `agent-runtime` has fake provider, tool registry, and provider registry tests
+- `agent-runtime` has fake provider, tool registry, and runtime provider-selection tests
 - `partner-ai-service` can serve a fake streaming response
 - `side-chat-widget` can render against a mocked client stream
 - widget and chat-client public APIs expose plain TypeScript/React-friendly contracts, not required Effect programs

@@ -1,21 +1,24 @@
-export type ProtocolErrorCode =
-  | "bad_request"
-  | "unauthorized"
-  | "forbidden"
-  | "not_found"
-  | "conflict"
-  | "rate_limited"
-  | "aborted"
-  | "timeout"
-  | "provider_failed"
-  | "tool_failed"
-  | "persistence_failed"
-  | "internal_error"
-  | "malformed_stream"
-  | "unsupported_protocol";
+export const PROTOCOL_ERROR_CODES = {
+  BAD_REQUEST: "bad_request",
+  UNAUTHORIZED: "unauthorized",
+  FORBIDDEN: "forbidden",
+  NOT_FOUND: "not_found",
+  CONFLICT: "conflict",
+  RATE_LIMITED: "rate_limited",
+  ABORTED: "aborted",
+  TIMEOUT: "timeout",
+  PROVIDER_FAILED: "provider_failed",
+  TOOL_FAILED: "tool_failed",
+  PERSISTENCE_FAILED: "persistence_failed",
+  INTERNAL_ERROR: "internal_error",
+  MALFORMED_STREAM: "malformed_stream",
+  UNSUPPORTED_PROTOCOL: "unsupported_protocol",
+} as const;
+
+export type ProtocolErrorCode = (typeof PROTOCOL_ERROR_CODES)[keyof typeof PROTOCOL_ERROR_CODES];
 
 export class ProtocolValidationError extends Error {
-  readonly code = "bad_request" as const;
+  readonly code = PROTOCOL_ERROR_CODES.BAD_REQUEST;
 
   constructor(message: string) {
     super(message);
@@ -24,7 +27,7 @@ export class ProtocolValidationError extends Error {
 }
 
 export class ProtocolSequenceError extends Error {
-  readonly code = "malformed_stream" as const;
+  readonly code = PROTOCOL_ERROR_CODES.MALFORMED_STREAM;
 
   constructor(message: string) {
     super(message);

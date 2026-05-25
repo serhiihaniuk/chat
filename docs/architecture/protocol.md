@@ -11,9 +11,10 @@ Generated artifacts are required:
 
 ## Stream Activity Contract
 
-Protocol event type strings are centralized in `SIDECHAT_EVENT_TYPES`. Product
-code should import those constants instead of repeating strings such as
-`sidechat.activity`.
+Protocol event type and error strings are centralized in constant objects such
+as `SIDECHAT_EVENT_TYPES` and `PROTOCOL_ERROR_CODES`. Product code should import
+those constants instead of repeating strings such as `sidechat.activity` or
+`bad_request`. Constant object properties use uppercase names.
 
 Assistant activity is represented by `sidechat.activity`. This is the canonical
 product event for the widget's Thinking panel and activity timeline. It is not a

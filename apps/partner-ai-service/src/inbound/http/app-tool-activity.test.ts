@@ -1,5 +1,14 @@
-import { decodeSseEvents, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
-import type { RuntimeEvent } from "@side-chat/agent-runtime";
+import {
+  SIDECHAT_EVENT_TYPES,
+  SIDECHAT_PROTOCOL_VERSION,
+  decodeSseEvents,
+} from "@side-chat/chat-protocol";
+import {
+  RUNTIME_FINISH_REASONS,
+  RUNTIME_EVENT_TYPES,
+  type RuntimeEvent,
+} from "@side-chat/agent-runtime";
+import { Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "./app.js";
 
@@ -18,9 +27,9 @@ describe("partner ai service tool activity stream", () => {
     const runtimeEvents = createToolRuntimeEvents("request_001", "assistant_turn_001");
     const response = await createPartnerAiServiceApp({
       agentRuntime: {
-        stream: async function* (request) {
+        streamEffect: (request) => {
           expect(request.messages).toEqual([validRequest.message]);
-          for (const event of runtimeEvents) yield event;
+          return Stream.fromIterable(runtimeEvents);
         },
       },
     }).request("/chat/stream", {
@@ -34,9 +43,9 @@ describe("partner ai service tool activity stream", () => {
 
     expect(response.status).toBe(200);
     const events = decodeSseEvents(await response.text());
-    expect(events.filter((event) => event.type === "sidechat.activity")).toEqual([
+    expect(events.filter((event) => event.type === SIDECHAT_EVENT_TYPES.ACTIVITY)).toEqual([
       expect.objectContaining({
-        type: "sidechat.activity",
+        type: SIDECHAT_EVENT_TYPES.ACTIVITY,
         sequence: 1,
         activityId: "call_001",
         activityKind: "tool",
@@ -50,7 +59,7 @@ describe("partner ai service tool activity stream", () => {
         },
       }),
       expect.objectContaining({
-        type: "sidechat.activity",
+        type: SIDECHAT_EVENT_TYPES.ACTIVITY,
         sequence: 2,
         activityId: "call_001",
         activityKind: "tool",
@@ -66,7 +75,7 @@ describe("partner ai service tool activity stream", () => {
         },
       }),
     ]);
-    expect(events.at(-1)).toMatchObject({ type: "sidechat.completed" });
+    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
   });
 });
 
@@ -75,7 +84,7 @@ const createToolRuntimeEvents = (
   assistantTurnId: string,
 ): readonly RuntimeEvent[] => [
   {
-    type: "runtime.activity",
+    type: RUNTIME_EVENT_TYPES.ACTIVITY,
     requestId,
     assistantTurnId,
     sequence: 0,
@@ -92,7 +101,7 @@ const createToolRuntimeEvents = (
     },
   },
   {
-    type: "runtime.activity",
+    type: RUNTIME_EVENT_TYPES.ACTIVITY,
     requestId,
     assistantTurnId,
     sequence: 1,
@@ -111,11 +120,11 @@ const createToolRuntimeEvents = (
     },
   },
   {
-    type: "runtime.completed",
+    type: RUNTIME_EVENT_TYPES.COMPLETED,
     requestId,
     assistantTurnId,
     sequence: 2,
-    finishReason: "stop",
+    finishReason: RUNTIME_FINISH_REASONS.STOP,
     usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
   },
 ];

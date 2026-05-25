@@ -1,8 +1,8 @@
 export const AUTHORITY_DENIAL_CODES = {
-  missingAuth: "missing_auth",
-  crossTenantWorkspace: "cross_tenant_workspace",
-  missingScope: "missing_scope",
-  productionAuthRequired: "production_auth_required",
+  MISSING_AUTH: "missing_auth",
+  CROSS_TENANT_WORKSPACE: "cross_tenant_workspace",
+  MISSING_SCOPE: "missing_scope",
+  PRODUCTION_AUTH_REQUIRED: "production_auth_required",
 } as const;
 
 export type AuthorityDenialCode =
@@ -59,9 +59,16 @@ export type AuthorityDecision = AuthorityGrant | AuthorityDenial;
 export const PRODUCTION_AUTHORITY_INVARIANT =
   "Production requests fail closed unless a trusted authority adapter returns an AuthContext; host context never establishes tenant, workspace, user, role, or scope authority.";
 
+/**
+ * Missing auth is a workflow stop, not a recoverable runtime event.
+ *
+ * Core performs this check before persistence or model work so an unauthenticated
+ * request cannot create conversations, append messages, call tools, or spend
+ * provider tokens.
+ */
 export const denyMissingAuth = (): AuthorityDenial => ({
   allowed: false,
-  code: AUTHORITY_DENIAL_CODES.missingAuth,
+  code: AUTHORITY_DENIAL_CODES.MISSING_AUTH,
   message: "A trusted AuthContext is required before protected work runs.",
 });
 
@@ -81,7 +88,7 @@ export const assertWorkspaceAuthority = (
   if (!matchesTenant || !matchesWorkspace) {
     return {
       allowed: false,
-      code: AUTHORITY_DENIAL_CODES.crossTenantWorkspace,
+      code: AUTHORITY_DENIAL_CODES.CROSS_TENANT_WORKSPACE,
       message: "AuthContext does not grant access to the requested workspace.",
     };
   }
@@ -89,6 +96,13 @@ export const assertWorkspaceAuthority = (
   return required;
 };
 
+/**
+ * Scope checks are separate from workspace checks on purpose.
+ *
+ * Some workflows only need workspace membership, while others need a specific
+ * capability such as writing messages or invoking tools. Keeping this small
+ * avoids baking route-specific policy into the shared workspace guard.
+ */
 export const assertRequiredScope = (
   authContext: AuthContext | undefined,
   scope: AuthorityScope,
@@ -99,7 +113,7 @@ export const assertRequiredScope = (
   if (!required.authContext.scopes.includes(scope)) {
     return {
       allowed: false,
-      code: AUTHORITY_DENIAL_CODES.missingScope,
+      code: AUTHORITY_DENIAL_CODES.MISSING_SCOPE,
       message: `AuthContext is missing required scope ${scope}.`,
     };
   }

@@ -1,10 +1,12 @@
 import type { ConversationRepositoryPort } from "@side-chat/partner-ai-core";
-import type {
-  ChatStreamRequest,
-  CompletedEvent,
-  DeltaEvent,
-  SidechatStreamEvent,
-  StartedEvent,
+import { Effect } from "effect";
+import {
+  SIDECHAT_EVENT_TYPES,
+  type ChatStreamRequest,
+  type CompletedEvent,
+  type DeltaEvent,
+  type SidechatStreamEvent,
+  type StartedEvent,
 } from "@side-chat/chat-protocol";
 import type { SidechatRepositories } from "@side-chat/db";
 import {
@@ -33,39 +35,43 @@ export const createServicePersistence = (
 
   return {
     conversations: {
-      ensureConversation: async ({
-        authContext,
-        requestedConversationId,
-        fallbackConversationId,
-      }) => {
-        const conversation = await repositories.createOrGetConversation({
-          workspaceId: authContext.workspaceId,
-          subjectId: authContext.subject.subjectId,
-          actorId: authContext.actor.subjectId,
-          conversationKey: requestedConversationId ?? fallbackConversationId,
-          now: authContext.issuedAt,
-        });
-        return {
-          tenantId: authContext.tenantId,
-          workspaceId: authContext.workspaceId,
-          conversationId: conversation.record.conversationId,
-        };
-      },
-      appendUserMessage: async ({ authContext, conversationId, message }) => {
-        const persisted = await appendMessage({
-          repositories,
-          authContext,
-          conversationId,
-          message,
-          idempotencyKey: `${message.id}:user`,
-          now: authContext.issuedAt,
-        });
-        pendingUserMessage = {
-          authContext,
-          conversationId,
-          userMessageId: persisted.record.messageId,
-        };
-      },
+      ensureConversation: ({ authContext, requestedConversationId, fallbackConversationId }) =>
+        Effect.tryPromise({
+          try: async () => {
+            const conversation = await repositories.createOrGetConversation({
+              workspaceId: authContext.workspaceId,
+              subjectId: authContext.subject.subjectId,
+              actorId: authContext.actor.subjectId,
+              conversationKey: requestedConversationId ?? fallbackConversationId,
+              now: authContext.issuedAt,
+            });
+            return {
+              tenantId: authContext.tenantId,
+              workspaceId: authContext.workspaceId,
+              conversationId: conversation.record.conversationId,
+            };
+          },
+          catch: (error) => error,
+        }),
+      appendUserMessage: ({ authContext, conversationId, message }) =>
+        Effect.tryPromise({
+          try: async () => {
+            const persisted = await appendMessage({
+              repositories,
+              authContext,
+              conversationId,
+              message,
+              idempotencyKey: `${message.id}:user`,
+              now: authContext.issuedAt,
+            });
+            pendingUserMessage = {
+              authContext,
+              conversationId,
+              userMessageId: persisted.record.messageId,
+            };
+          },
+          catch: (error) => error,
+        }),
     },
     persistStreamResult: async ({ request, providerId, modelId, events }) => {
       const pending = pendingUserMessage;
@@ -150,10 +156,10 @@ export const createServicePersistence = (
 };
 
 const isStartedEvent = (event: SidechatStreamEvent): event is StartedEvent =>
-  event.type === "sidechat.started";
+  event.type === SIDECHAT_EVENT_TYPES.STARTED;
 
 const isDeltaEvent = (event: SidechatStreamEvent): event is DeltaEvent =>
-  event.type === "sidechat.delta";
+  event.type === SIDECHAT_EVENT_TYPES.DELTA;
 
 const isCompletedEvent = (event: SidechatStreamEvent): event is CompletedEvent =>
-  event.type === "sidechat.completed";
+  event.type === SIDECHAT_EVENT_TYPES.COMPLETED;

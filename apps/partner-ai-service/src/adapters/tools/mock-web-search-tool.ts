@@ -1,18 +1,7 @@
+import { Effect } from "effect";
+import { AgentRuntimeError, RUNTIME_ERROR_CODES, type RuntimeTool } from "@side-chat/agent-runtime";
 import type { JsonObject } from "@side-chat/chat-protocol";
-
-import type { RuntimeTool } from "./tool-registry.js";
-
-export const MOCK_WEB_SEARCH_TOOL_NAME = "mock_web_search" as const;
-
-export type MockWebSearchInput = JsonObject & {
-  readonly query: string;
-};
-
-export type MockWebSearchResult = JsonObject & {
-  readonly query: string;
-  readonly summary: string;
-  readonly results: JsonObject[];
-};
+import { isRecord } from "@side-chat/shared";
 
 const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
 
@@ -21,7 +10,7 @@ export const createMockWebSearchTool = ({
 }: {
   readonly delayMs?: number;
 } = {}): RuntimeTool => ({
-  name: MOCK_WEB_SEARCH_TOOL_NAME,
+  name: "mock_web_search",
   description:
     "Search the web for recent or external information. Use this when the user asks to search, look up current information, or find sources outside the conversation.",
   inputSchema: {
@@ -36,22 +25,23 @@ export const createMockWebSearchTool = ({
     additionalProperties: false,
   },
   readSources: (result) => readSources(result),
-  run: async (input) => {
-    if (delayMs > 0) await wait(delayMs);
+  execute: (input) =>
+    Effect.gen(function* () {
+      if (delayMs > 0) yield* Effect.sleep(delayMs);
 
-    return {
-      query: readQuery(input),
-      summary: `Mocked web search found briefing-style context for "${readQuery(input)}".`,
-      results: [
-        {
-          title: "Mock Search Result",
-          url: "https://example.test/search-result",
-          snippet:
-            "This is a deterministic mocked result. It behaves like web search without leaving the backend.",
-        },
-      ],
-    };
-  },
+      return {
+        query: readQuery(input),
+        summary: `Mocked web search found briefing-style context for "${readQuery(input)}".`,
+        results: [
+          {
+            title: "Mock Search Result",
+            url: "https://example.test/search-result",
+            snippet:
+              "This is a deterministic mocked result. It behaves like web search without leaving the backend.",
+          },
+        ],
+      };
+    }).pipe(Effect.mapError(toToolError)),
 });
 
 const readQuery = (input: JsonObject): string =>
@@ -72,10 +62,10 @@ const readSources = (result: JsonObject) => {
   });
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const wait = (durationMs: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, durationMs);
-  });
+const toToolError = (error: unknown): AgentRuntimeError => {
+  if (error instanceof AgentRuntimeError) return error;
+  return new AgentRuntimeError(
+    RUNTIME_ERROR_CODES.TOOL_FAILED,
+    error instanceof Error ? error.message : "mock_web_search failed.",
+  );
+};

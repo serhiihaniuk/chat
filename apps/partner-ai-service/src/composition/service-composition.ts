@@ -1,13 +1,12 @@
 import {
   createAgentRuntime,
   createFakeProvider,
-  createMockWebSearchTool,
   createOpenAIResponsesProvider,
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
   OPENAI_PROVIDER_ID,
   type AgentRuntime,
-  type AssistantProvider,
+  type ModelProvider,
 } from "@side-chat/agent-runtime";
 import {
   createMemorySidechatRepositories,
@@ -20,6 +19,7 @@ import {
   createDefaultPolicyConfig,
   type ServicePolicyConfig,
 } from "#adapters/policy/service-policy";
+import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
 import type { WorkspaceRef } from "@side-chat/partner-ai-core";
 
 export type PersistenceConfig =
@@ -96,7 +96,7 @@ const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): Agen
     tools: config.enableMockWebSearch ? [createMockWebSearchTool()] : [],
   });
 
-const createProviderForRuntime = (config: RuntimeConfig): AssistantProvider => {
+const createProviderForRuntime = (config: RuntimeConfig): ModelProvider => {
   if (config.provider === "openai") {
     return createOpenAIResponsesProvider({
       apiKey: config.apiKey,

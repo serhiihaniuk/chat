@@ -1,17 +1,13 @@
-import { SIDECHAT_PROTOCOL_VERSION, type SidechatProtocolVersion } from "./version.js";
+export type { JsonObject, JsonPrimitive, JsonValue } from "@side-chat/shared";
+export { isRecord } from "@side-chat/shared";
 
-export type JsonPrimitive = string | number | boolean | null;
-export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
-export type JsonObject = { readonly [key: string]: JsonValue };
+import { SIDECHAT_PROTOCOL_VERSION, type SidechatProtocolVersion } from "./version.js";
 
 export type SidechatId = string;
 
 export type ProtocolEnvelope = {
   readonly protocolVersion: SidechatProtocolVersion;
 };
-
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 export const readString = (record: Record<string, unknown>, key: string): string | undefined => {
   const value = record[key];

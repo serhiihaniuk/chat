@@ -12,6 +12,23 @@ export const SIDECHAT_EVENT_TYPES = {
 
 export type SidechatEventType = (typeof SIDECHAT_EVENT_TYPES)[keyof typeof SIDECHAT_EVENT_TYPES];
 
+export const ACTIVITY_KINDS = {
+  PROGRESS: "progress",
+  REASONING: "reasoning",
+  TOOL: "tool",
+  HOST_COMMAND: "host_command",
+} as const;
+
+export type ActivityKind = (typeof ACTIVITY_KINDS)[keyof typeof ACTIVITY_KINDS];
+
+export const ACTIVITY_STATUSES = {
+  RUNNING: "running",
+  COMPLETED: "completed",
+  FAILED: "failed",
+} as const;
+
+export type ActivityStatus = (typeof ACTIVITY_STATUSES)[keyof typeof ACTIVITY_STATUSES];
+
 export type SidechatEventBase = ProtocolEnvelope & {
   readonly type: SidechatEventType;
   readonly eventId: string;
@@ -29,9 +46,6 @@ export type DeltaEvent = SidechatEventBase & {
   readonly type: typeof SIDECHAT_EVENT_TYPES.DELTA;
   readonly content: string;
 };
-
-export type ActivityKind = "progress" | "reasoning" | "tool" | "host_command";
-export type ActivityStatus = "running" | "completed" | "failed";
 
 export type ActivitySource = {
   readonly label: string;

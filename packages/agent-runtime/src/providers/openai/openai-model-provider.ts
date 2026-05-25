@@ -1,8 +1,9 @@
+import { Effect } from "effect";
 import { createOpenAI } from "@ai-sdk/openai";
 
-import { AgentRuntimeError } from "../errors.js";
-import type { AssistantProvider } from "../provider.js";
-import { createAiSdkToolLoopAgent } from "#runtime/ai-sdk-tool-loop-agent";
+import { AgentRuntimeError } from "#runtime/contract/runtime-error";
+import { RUNTIME_ERROR_CODES } from "#runtime/contract/runtime-event";
+import type { ModelProvider } from "#providers/model-provider";
 
 export const OPENAI_PROVIDER_ID = "openai" as const;
 export const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -22,13 +23,16 @@ export type OpenAIReasoningSummary = "auto" | "concise" | "detailed";
 
 export const createOpenAIResponsesProvider = (
   options: OpenAIResponsesProviderOptions,
-): AssistantProvider => {
+): ModelProvider => {
   if (options.apiKey.trim().length === 0) {
-    throw new AgentRuntimeError("provider_unavailable", "OpenAI provider requires an API key.");
+    throw new AgentRuntimeError(
+      RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
+      "OpenAI provider requires an API key.",
+    );
   }
   if (options.modelIds.length === 0) {
     throw new AgentRuntimeError(
-      "model_unavailable",
+      RUNTIME_ERROR_CODES.MODEL_UNAVAILABLE,
       "OpenAI provider requires at least one allowed model id.",
     );
   }
@@ -38,21 +42,17 @@ export const createOpenAIResponsesProvider = (
     ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
-  const agent = createAiSdkToolLoopAgent({
-    providerOptions: {
-      openai: {
-        reasoningEffort: options.reasoningEffort ?? "medium",
-        reasoningSummary: options.reasoningSummary ?? "auto",
-      },
-    },
-    resolveModel: (runtimeRequest) => openai.responses(runtimeRequest.modelId),
-  });
 
   return {
     providerId: OPENAI_PROVIDER_ID,
     modelIds: options.modelIds,
-    stream(request) {
-      return agent.stream({ ...request, providerId: OPENAI_PROVIDER_ID });
-    },
+    resolveModel: (selection) => Effect.succeed(openai.responses(selection.modelId)),
+    resolveProviderOptions: () =>
+      Effect.succeed({
+        openai: {
+          reasoningEffort: options.reasoningEffort ?? "medium",
+          reasoningSummary: options.reasoningSummary ?? "auto",
+        },
+      }),
   };
 };

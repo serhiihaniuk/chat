@@ -1,56 +1,134 @@
-import { createProviderRegistry, type ProviderSelection } from "#registry/provider-registry";
-import { createToolRegistry, type RuntimeTool } from "#tools/tool-registry";
-import type { RuntimeEvent } from "../events.js";
-import type { AssistantProvider, RuntimeMessage } from "../provider.js";
+import { Cause, Effect, Stream } from "effect";
+import type { LanguageModel, ToolLoopAgentSettings } from "ai";
+
+import { runAiSdkToolLoopAgentStream } from "./ai-sdk/tool-loop-agent-runner.js";
+import type { ModelProvider } from "#providers/model-provider";
+import type { RuntimeTool } from "#tools/runtime-tool";
+import { AgentRuntimeError } from "./contract/runtime-error.js";
+import { RUNTIME_ERROR_CODES } from "./contract/runtime-event.js";
+import type { RuntimeEventStream } from "./contract/runtime-stream.js";
+import type { AgentRuntimeRequest, RuntimeProviderRequest } from "./contract/runtime-request.js";
+import type { AssistantProfile } from "./turn/assistant-profile.js";
+import {
+  createRuntimeState,
+  prepareRuntimeTurn,
+  type RuntimeState,
+} from "./turn/prepare-runtime-turn.js";
+
+export {
+  createDefaultAssistantProfile,
+  DEFAULT_ASSISTANT_PROFILE_ID,
+  type AssistantProfile,
+} from "./turn/assistant-profile.js";
 
 export type AgentRuntime = {
-  stream(request: AgentRuntimeRequest): AsyncIterable<RuntimeEvent>;
+  streamEffect(request: AgentRuntimeRequest): RuntimeEventStream;
 };
 
-export type AgentRuntimeRequest = ProviderSelection & {
-  readonly requestId: string;
-  readonly assistantTurnId: string;
-  readonly messages: readonly RuntimeMessage[];
-};
-
+/**
+ * These options are the capabilities the runtime may use on future requests.
+ *
+ * The app injects providers and tools once at startup. A later
+ * AgentRuntimeRequest decides which profile, provider, model, and tools are
+ * actually used for that specific assistant turn.
+ */
 export type AgentRuntimeOptions = {
-  readonly providers: readonly AssistantProvider[];
+  readonly providers: readonly ModelProvider[];
+  readonly profiles?: readonly AssistantProfile[];
   readonly tools?: readonly RuntimeTool[];
 };
 
-export type AgentRuntimeProfile = {
-  readonly profileId: string;
-  readonly instructions?: string;
-  readonly availableToolNames?: readonly string[];
+type RuntimeExecution = {
+  readonly model: LanguageModel;
+  readonly providerOptions: ToolLoopAgentSettings["providerOptions"] | undefined;
+  readonly providerRequest: RuntimeProviderRequest;
 };
 
+/**
+ * Create the runtime object that partner-ai-core calls for every assistant turn.
+ *
+ * This does not start a model call. It only indexes the injected providers,
+ * profiles, and tools so each request can be checked quickly before streaming.
+ */
 export const createAgentRuntime = (options: AgentRuntimeOptions): AgentRuntime => {
-  const providerRegistry = createProviderRegistry(options.providers);
-  const toolRegistry = createToolRegistry(options.tools ?? []);
+  const state = createRuntimeState(options);
+
+  /**
+   * streamEffect is the Effect-native way to run one assistant turn.
+   *
+   * It prepares the provider-ready request first. If that succeeds, it opens
+   * the AI SDK ToolLoopAgent as an Effect Stream so provider failures,
+   * cancellation, timeouts, and future tracing stay in the typed workflow.
+   */
+  const streamEffect = (request: AgentRuntimeRequest): RuntimeEventStream =>
+    catchRuntimeDefects(
+      Stream.unwrap(
+        Effect.map(
+          createRuntimeExecution(state, request),
+          ({ model, providerOptions, providerRequest }) =>
+            runAiSdkToolLoopAgentStream({
+              model,
+              providerOptions,
+              request: providerRequest,
+            }),
+        ),
+      ),
+    );
 
   return {
-    stream(request) {
-      const tools = toolRegistry.tools;
-      const provider = providerRegistry.resolve(request);
-      return provider.stream({
-        requestId: request.requestId,
-        assistantTurnId: request.assistantTurnId,
-        providerId: provider.providerId,
-        modelId: request.modelId,
-        messages: createProviderMessages(request.messages),
-        ...(tools.length > 0 ? { tools } : {}),
-      });
-    },
+    streamEffect,
   };
 };
 
-const DEFAULT_ASSISTANT_INSTRUCTIONS: RuntimeMessage = {
-  role: "system",
-  content:
-    "Render final assistant answers as GitHub-flavored Markdown. Use bullet or numbered lists when the answer contains multiple items, preserve emphasis with Markdown syntax, and keep tool payload JSON out of the visible answer unless the user explicitly asks for raw data.",
-};
+const createRuntimeExecution = (
+  state: RuntimeState,
+  request: AgentRuntimeRequest,
+): Effect.Effect<RuntimeExecution, AgentRuntimeError> =>
+  Effect.gen(function* () {
+    /**
+     * prepareRuntimeTurn answers the questions that must be settled before the
+     * model starts:
+     *
+     * Which profile is active? Which provider/model is selected? Which tools are
+     * the model allowed to see? What final message list will the provider get?
+     */
+    const turn = yield* attemptRuntime(() => prepareRuntimeTurn(state, request));
+    const { provider, providerRequest, selection } = turn;
+    const model = yield* provider.resolveModel(selection);
+    const providerOptions = provider.resolveProviderOptions
+      ? yield* provider.resolveProviderOptions(selection)
+      : undefined;
 
-const createProviderMessages = (requestMessages: readonly RuntimeMessage[]): RuntimeMessage[] => [
-  DEFAULT_ASSISTANT_INSTRUCTIONS,
-  ...requestMessages,
-];
+    return {
+      model,
+      providerOptions,
+      providerRequest,
+    };
+  });
+
+const attemptRuntime = <A>(tryFn: () => A): Effect.Effect<A, AgentRuntimeError> =>
+  Effect.try({
+    try: tryFn,
+    catch: (error) => toRuntimeError(error),
+  });
+
+/**
+ * Convert unexpected defects at the runtime package boundary.
+ *
+ * Effect keeps typed failures and defects separate: `Effect.fail` and
+ * `Effect.try` use the error channel, while a raw `throw` is a defect. We still
+ * protect callers here so an accidental adapter throw becomes AgentRuntimeError
+ * instead of escaping as an untyped fiber failure.
+ */
+const catchRuntimeDefects = (stream: RuntimeEventStream): RuntimeEventStream =>
+  Stream.catchCauseIf(stream, Cause.hasDies, (cause) =>
+    Stream.fail(toRuntimeError(Cause.squash(cause))),
+  );
+
+const toRuntimeError = (error: unknown): AgentRuntimeError => {
+  if (error instanceof AgentRuntimeError) return error;
+  return new AgentRuntimeError(
+    RUNTIME_ERROR_CODES.INTERNAL_ERROR,
+    error instanceof Error ? error.message : "agent runtime failed",
+  );
+};
