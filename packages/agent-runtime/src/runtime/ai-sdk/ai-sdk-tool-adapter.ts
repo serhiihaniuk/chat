@@ -17,6 +17,12 @@ import type { RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 import type { RuntimeEvent } from "#runtime/runtime-event";
 import type { RuntimeProviderRequest } from "#runtime/runtime-request";
 
+/**
+ * Converts app-owned RuntimeTool values into AI SDK tools.
+ *
+ * Tool execution still goes through the Effect-based RuntimeTool interface;
+ * the AI SDK shape is contained inside this runtime adapter folder.
+ */
 export const createAiSdkToolSet = (
   runtimeTools: readonly RuntimeTool[] | undefined,
   request: RuntimeProviderRequest,

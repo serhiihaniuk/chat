@@ -6,26 +6,6 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "imports": {
-    "#ai-sdk/*": {
-      "types": "./src/ai-sdk/*.ts",
-      "development": "./src/ai-sdk/*.ts",
-      "default": "./dist/ai-sdk/*.js"
-    },
-    "#context/*": {
-      "types": "./src/context/*.ts",
-      "development": "./src/context/*.ts",
-      "default": "./dist/context/*.js"
-    },
-    "#effect/*": {
-      "types": "./src/effect/*.ts",
-      "development": "./src/effect/*.ts",
-      "default": "./dist/effect/*.js"
-    },
-    "#profiles/*": {
-      "types": "./src/profiles/*.ts",
-      "development": "./src/profiles/*.ts",
-      "default": "./dist/profiles/*.js"
-    },
     "#providers/*": {
       "types": "./src/providers/*.ts",
       "development": "./src/providers/*.ts",
@@ -51,11 +31,6 @@
       "development": "./src/testing/*.ts",
       "default": "./dist/testing/*.js"
     },
-    "#telemetry/*": {
-      "types": "./src/telemetry/*.ts",
-      "development": "./src/telemetry/*.ts",
-      "default": "./dist/telemetry/*.js"
-    },
     "#tools/*": {
       "types": "./src/tools/*.ts",
       "development": "./src/tools/*.ts",
@@ -71,7 +46,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc --noEmit --pretty false -p tsconfig.json",
-    "test": "cd ../.. && vitest run packages/agent-runtime/src/providers/fake/fake-model-provider.test.ts packages/agent-runtime/src/providers/openai/openai-model-provider.test.ts packages/agent-runtime/src/providers/provider-registry.test.ts packages/agent-runtime/src/tools/tool-registry.test.ts packages/agent-runtime/src/runtime/agent-runtime.test.ts packages/agent-runtime/src/ai-sdk/ai-sdk-tool-adapter.test.ts packages/agent-runtime/src/provider.type.test.ts"
+    "test": "cd ../.. && vitest run packages/agent-runtime/src/providers/fake/fake-model-provider.test.ts packages/agent-runtime/src/providers/openai/openai-model-provider.test.ts packages/agent-runtime/src/tools/tool-registry.test.ts packages/agent-runtime/src/runtime/agent-runtime.test.ts packages/agent-runtime/src/runtime/ai-sdk/ai-sdk-tool-adapter.test.ts packages/agent-runtime/src/provider.type.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "3.0.65",

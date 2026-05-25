@@ -29,9 +29,10 @@ external host app -> side-chat-widget -> chat-client -> chat-protocol -> partner
 - `packages/host-bridge`: host context/command boundary.
 - `packages/partner-ai-core`: framework-free use cases, policies, ports, runtime
   event mapping, and application errors.
-- `packages/agent-runtime`: AI SDK `ToolLoopAgent` runtime, provider registry,
+- `packages/agent-runtime`: AI SDK `ToolLoopAgent` runtime, provider protocol,
   OpenAI adapter, fake provider fixture, Effect-based runtime tool protocol,
-  registered tool capability registry, and AI SDK tool adaptation.
+  registered tool capability registry, and private AI SDK tool adaptation under
+  `runtime/ai-sdk`.
 - `packages/db`: Postgres/Drizzle persistence boundary and repository adapters.
 - `packages/side-chat-widget`: React widget using FSD layers: `widgets`,
   `features`, `entities`, and `shared`; `shared/ui` contains shadcn-style

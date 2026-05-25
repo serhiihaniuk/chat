@@ -150,6 +150,36 @@ describe("createAgentRuntime", () => {
       ),
     ).rejects.toThrow("tool missing_tool is not registered");
   });
+
+  it("rejects unavailable provider and model selections without fallback", async () => {
+    const runtime = createAgentRuntime({
+      providers: [createFakeProvider()],
+    });
+
+    await expect(
+      collectEvents(
+        runtime.stream({
+          providerId: "missing-provider",
+          modelId: FAKE_ECHO_MODEL_ID,
+          requestId: "req_missing_provider",
+          assistantTurnId: "turn_missing_provider",
+          messages: [],
+        }),
+      ),
+    ).rejects.toThrow("provider missing-provider is not registered");
+
+    await expect(
+      collectEvents(
+        runtime.stream({
+          providerId: FAKE_PROVIDER_ID,
+          modelId: "missing-model",
+          requestId: "req_missing_model",
+          assistantTurnId: "turn_missing_model",
+          messages: [],
+        }),
+      ),
+    ).rejects.toThrow("model missing-model is not registered");
+  });
 });
 
 const createCapturingProvider = (modelCalls: LanguageModelV3CallOptions[]): ModelProvider => ({

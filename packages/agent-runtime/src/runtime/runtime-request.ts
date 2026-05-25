@@ -1,9 +1,34 @@
-import type { RuntimeContextBoard } from "#context/context-board";
+import type { JsonObject } from "@side-chat/chat-protocol";
 import type { RuntimeTool } from "#tools/runtime-tool";
 
 export type RuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
   readonly content: string;
+};
+
+/**
+ * The context board is already selected, authorized, and compressed context.
+ *
+ * Building or squashing this board belongs to the consuming app/core. The
+ * runtime only renders it into model-facing messages for one assistant turn.
+ */
+export type RuntimeContextBoard = {
+  readonly sections: readonly RuntimeContextSection[];
+  readonly manifest?: RuntimeContextManifest;
+};
+
+export type RuntimeContextSection = {
+  readonly title: string;
+  readonly content: string;
+  readonly priority?: number;
+  readonly metadata?: JsonObject;
+};
+
+export type RuntimeContextManifest = {
+  readonly snapshotId?: string;
+  readonly snapshotHash?: string;
+  readonly includedMessageIds?: readonly string[];
+  readonly budget?: JsonObject;
 };
 
 export type AgentRuntimeRequest = {

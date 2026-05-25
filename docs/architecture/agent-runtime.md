@@ -1,20 +1,20 @@
 # Agent Runtime
 
-Status: accepted final-state runtime design
+Status: accepted runtime design
 
-`packages/agent-runtime` is the backend assistant orchestration engine. It is
-the only package that may import AI SDK runtime/provider APIs.
+`packages/agent-runtime` is the backend assistant execution engine. It is the
+only package that may import AI SDK runtime/provider APIs.
 
-The runtime boundary is Agent/ToolLoopAgent-first:
+The runtime boundary is `ToolLoopAgent`-first:
 
 ```txt
 partner-ai-core
   -> AgentRuntimePort
   -> agent-runtime
-    -> assistant profile
-    -> registered tool capabilities
-    -> provider registry
-    -> AI SDK ToolLoopAgent
+    -> assistant profile defaults
+    -> injected runtime tools
+    -> injected model providers
+    -> runtime/ai-sdk ToolLoopAgent adapter
     -> normalized runtime events
 ```
 
@@ -24,10 +24,38 @@ creates and runs the AI SDK `ToolLoopAgent` for every turn.
 
 The runtime exposes two server-side stream surfaces:
 
-- `streamEffect(request)`: first-class Effect `Stream<RuntimeEvent,
-AgentRuntimeError>`.
+- `streamEffect(request)`: first-class Effect
+  `Stream<RuntimeEvent, AgentRuntimeError>`.
 - `stream(request)`: async-iterable adapter for server callers that do not want
-  to run Effect directly.
+  to consume Effect directly.
+
+## Package Shape
+
+The folder map intentionally stays small:
+
+```txt
+src/
+  runtime/
+    agent-runtime.ts
+    runtime-request.ts
+    runtime-event.ts
+    runtime-error.ts
+    runtime-stream.ts
+    ai-sdk/
+      tool-loop-agent-runner.ts
+      ai-sdk-tool-adapter.ts
+  providers/
+    model-provider.ts
+    openai/
+    fake/
+  tools/
+    runtime-tool.ts
+    tool-registry.ts
+  testing/
+```
+
+`runtime/agent-runtime.ts` is the readable orchestration story. The nested
+`runtime/ai-sdk/*` folder is private adapter code, not a public package domain.
 
 ## Tool Capabilities
 
@@ -76,13 +104,22 @@ Rejected runtime-tool fields:
 Those fields make the backend decide before the model starts. They create fake
 instant activity and break the ChatGPT-style agent timeline.
 
+## Context Board
+
+`RuntimeContextBoard` is prepared context. It is passed in with the turn request
+and rendered by the runtime, but it is not built by the runtime.
+
+The app/core owns context gathering, redaction, authorization, squashing,
+budgeting, and persistence. The runtime owns only the model-facing rendering of
+that prepared board.
+
 ## Execution Flow
 
 ```txt
 service composition registers app-owned runtime tools
   -> runtime resolves assistant profile and provider/model
-  -> runtime renders profile instructions and context board
-  -> runtime converts registered tools into AI SDK tools
+  -> runtime renders profile instructions and prepared context board
+  -> runtime converts selected tools into AI SDK tools
   -> ToolLoopAgent streams with toolChoice: "auto"
   -> model emits tool input/call parts when it chooses a capability
   -> AI SDK executes the selected tool adapter
@@ -135,6 +172,7 @@ Runtime tests must prove:
 
 - tools are registered as available capabilities;
 - the runtime does not execute a tool before provider/model streaming;
+- missing provider/model/tool selections fail through the runtime boundary;
 - AI SDK tool parts map into one stable runtime activity row;
 - sources are mapped by the tool adapter;
 - provider-specific stream shapes never leak into partner AI core, protocol,

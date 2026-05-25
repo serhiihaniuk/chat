@@ -1,10 +1,16 @@
 import { Stream } from "effect";
 
-import { AgentRuntimeError } from "#runtime/runtime-error";
-import type { RuntimeEvent } from "#runtime/runtime-event";
+import { AgentRuntimeError } from "./runtime-error.js";
+import type { RuntimeEvent } from "./runtime-event.js";
 
 export type RuntimeEventStream = Stream.Stream<RuntimeEvent, AgentRuntimeError>;
 
+/**
+ * Effect Stream is the runtime's server-side stream type.
+ *
+ * AsyncIterable remains available for callers that only need a plain
+ * JavaScript stream surface.
+ */
 export const runtimeStreamFromAsyncIterable = (
   iterable: AsyncIterable<RuntimeEvent>,
 ): RuntimeEventStream => Stream.fromAsyncIterable(iterable, toAgentRuntimeError);

@@ -15,6 +15,12 @@ import {
   mapAiSdkToolActivity,
 } from "./ai-sdk-tool-adapter.js";
 
+/**
+ * Private adapter around AI SDK ToolLoopAgent.
+ *
+ * This file is the only place that runs the AI SDK agent loop. Everything it
+ * yields is normalized into RuntimeEvent before leaving agent-runtime.
+ */
 export type AiSdkToolLoopAgentRunOptions = {
   readonly model: LanguageModel;
   readonly providerOptions?: ToolLoopAgentSettings["providerOptions"] | undefined;

@@ -6,10 +6,10 @@ Accepted
 
 ## Context
 
-SC-18 requires a real provider adapter behind the agent-runtime registry while
+SC-18 requires a real provider adapter behind the agent-runtime provider protocol while
 keeping the fake provider as an explicit deterministic test/local fixture. The
 production system design requires provider selection through
-registry/configuration, explicit fallback behavior, stable runtime-event mapping,
+configuration/policy, explicit fallback behavior, stable runtime-event mapping,
 no provider-native protocol leakage, and explicit provider data-use settings
 before production provider calls.
 
@@ -27,10 +27,12 @@ Use OpenAI Responses as the first accepted real provider adapter.
 
 Implementation constraints:
 
-- The adapter lives inside `packages/agent-runtime` and implements `AssistantProvider`.
-- The adapter uses `fetch` directly and remains dependency-free for the scaffold.
-- The adapter maps OpenAI streaming events into internal `RuntimeEvent` values only.
-- The adapter is selected only through the existing provider registry.
+- The adapter lives inside `packages/agent-runtime` and implements `ModelProvider`.
+- The adapter uses the AI SDK OpenAI provider package and exposes model handles
+  to the runtime.
+- AI SDK and OpenAI-native stream details remain inside `packages/agent-runtime`.
+- The adapter is selected only through runtime provider/model configuration and
+  product policy.
 - The fake provider remains available as an explicit deterministic test/local
   provider.
 - Local service mode may select OpenAI through `SIDECHAT_PROVIDER=openai`,
