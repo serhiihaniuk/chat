@@ -76,13 +76,23 @@ describe("observability redaction and correlation", () => {
     const records: ObservabilityRecord[] = [];
     const ports = createObservedPorts(records, [
       {
-        type: "runtime.tool_call",
+        type: "runtime.activity",
         requestId: "request_observe_1",
         assistantTurnId: "assistant_turn_001",
         sequence: 0,
-        toolCallId: "tool_001",
-        toolName: "search",
-        argumentsJson: { query: "secret tool query" },
+        activityId: "tool_001",
+        activityKind: "tool",
+        status: "running",
+        title: "Run search",
+        details: {
+          tool: {
+            toolCallId: "tool_001",
+            toolName: "search",
+            input: { query: "secret tool query" },
+            result: { summary: "secret search result" },
+            sources: [{ label: "Secret source", url: "https://secret.example/result" }],
+          },
+        },
       },
       {
         type: "runtime.error",
@@ -120,9 +130,20 @@ describe("observability redaction and correlation", () => {
     });
     expect(records.find((record) => record.lifecycleState === "runtime_event")).toMatchObject({
       attributes: {
-        argumentsJson: "[redacted]",
+        activityMeta: {
+          tool: {
+            parametersPresent: true,
+            responsePresent: true,
+            sourceCount: 1,
+            toolCallId: "tool_001",
+            toolName: "search",
+          },
+        },
       },
     });
+    expect(JSON.stringify(records)).not.toContain("secret tool query");
+    expect(JSON.stringify(records)).not.toContain("secret search result");
+    expect(JSON.stringify(records)).not.toContain("secret.example");
     expect(
       records.find(
         (record) =>

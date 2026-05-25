@@ -4,7 +4,6 @@ import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type {
   OpenAIReasoningEffort,
   OpenAIReasoningSummary,
-  RuntimeConfig,
 } from "#composition/service-composition";
 import type { PartnerAiServiceOptions } from "#inbound/http/app";
 
@@ -19,6 +18,7 @@ export const SERVICE_ENV_KEYS = {
   policyMode: "SIDECHAT_POLICY_MODE",
   profile: "SIDECHAT_PROFILE",
   provider: "SIDECHAT_PROVIDER",
+  enableDevTools: "SIDECHAT_ENABLE_DEV_TOOLS",
   tenantId: "SIDECHAT_TENANT_ID",
   workspaceId: "SIDECHAT_WORKSPACE_ID",
 } as const;
@@ -51,7 +51,7 @@ export const createPartnerAiServiceOptionsFromEnv = (
     workspace,
     auth: createAuthConfig(profile, workspace, envValue(env, SERVICE_ENV_KEYS.authBearerToken)),
     policies: createPolicyConfig(profile, env),
-    runtime: createRuntimeConfig(env),
+    runtime: createRuntimeConfig(profile, env),
     ...(persistence ? { persistence } : {}),
   };
 };
@@ -155,10 +155,19 @@ const readAllowedModels = (env: ServiceEnv): readonly string[] => {
     .filter(Boolean);
 };
 
-const createRuntimeConfig = (env: ServiceEnv): RuntimeConfig => {
-  const provider = envValue(env, SERVICE_ENV_KEYS.provider) ?? "fake";
-  if (provider === "fake") return { provider };
-  if (provider !== "openai") {
+const createRuntimeConfig = (
+  profile: ServiceProfile,
+  env: ServiceEnv,
+): NonNullable<PartnerAiServiceOptions["runtime"]> => {
+  const provider = envValue(env, SERVICE_ENV_KEYS.provider);
+  if (profile === "production" && (!provider || provider === "fake")) {
+    throw new ServiceConfigError("Production profile requires SIDECHAT_PROVIDER=openai.");
+  }
+
+  const resolvedProvider = provider ?? "fake";
+  const enableMockWebSearch = readDevToolFlag(profile, env);
+  if (resolvedProvider === "fake") return { provider: resolvedProvider, enableMockWebSearch };
+  if (resolvedProvider !== "openai") {
     throw new ServiceConfigError("SIDECHAT_PROVIDER must be fake or openai.");
   }
 
@@ -177,10 +186,11 @@ const createRuntimeConfig = (env: ServiceEnv): RuntimeConfig => {
 
   const baseUrl = envValue(env, SERVICE_ENV_KEYS.openaiBaseUrl);
   return {
-    provider,
+    provider: resolvedProvider,
     apiKey,
     modelIds,
     defaultModelId: modelIds[0] as string,
+    enableMockWebSearch,
     ...(baseUrl ? { baseUrl } : {}),
     reasoningEffort: readOpenAIReasoningEffort(
       envValue(env, SERVICE_ENV_KEYS.openaiReasoningEffort),
@@ -189,6 +199,20 @@ const createRuntimeConfig = (env: ServiceEnv): RuntimeConfig => {
       envValue(env, SERVICE_ENV_KEYS.openaiReasoningSummary),
     ),
   };
+};
+
+const readDevToolFlag = (profile: ServiceProfile, env: ServiceEnv): boolean => {
+  const rawFlag = envValue(env, SERVICE_ENV_KEYS.enableDevTools);
+  if (profile === "production") {
+    if (rawFlag === "true") {
+      throw new ServiceConfigError("SIDECHAT_ENABLE_DEV_TOOLS is not allowed in production.");
+    }
+    return false;
+  }
+  if (!rawFlag) return true;
+  if (rawFlag === "true") return true;
+  if (rawFlag === "false") return false;
+  throw new ServiceConfigError("SIDECHAT_ENABLE_DEV_TOOLS must be true or false.");
 };
 
 const openaiReasoningEfforts = new Set<OpenAIReasoningEffort>([

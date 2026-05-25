@@ -4,9 +4,7 @@ import type { JsonObject, ProtocolEnvelope } from "../primitives.js";
 export const SIDECHAT_EVENT_TYPES = {
   STARTED: "sidechat.started",
   DELTA: "sidechat.delta",
-  REASONING: "sidechat.reasoning",
-  TOOL: "sidechat.tool",
-  HOST_COMMAND: "sidechat.host_command",
+  ACTIVITY: "sidechat.activity",
   COMPLETED: "sidechat.completed",
   ERROR: "sidechat.error",
   HISTORY: "sidechat.history",
@@ -32,26 +30,52 @@ export type DeltaEvent = SidechatEventBase & {
   readonly content: string;
 };
 
-export type ReasoningEvent = SidechatEventBase & {
-  readonly type: typeof SIDECHAT_EVENT_TYPES.REASONING;
-  readonly summary: string;
+export type ActivityKind = "progress" | "reasoning" | "tool" | "host_command";
+export type ActivityStatus = "running" | "completed" | "failed";
+
+export type ActivitySource = {
+  readonly label: string;
+  readonly url?: string;
 };
 
-export type ToolEvent = SidechatEventBase & {
-  readonly type: typeof SIDECHAT_EVENT_TYPES.TOOL;
+export type ActivityImage = {
+  readonly alt: string;
+  readonly caption?: string;
+  readonly mediaType: string;
+  readonly data: string;
+};
+
+export type ActivityToolDetails = {
   readonly toolCallId: string;
   readonly toolName: string;
-  readonly status: "started" | "completed" | "failed";
   readonly input?: JsonObject;
   readonly result?: JsonObject;
+  readonly sources?: readonly ActivitySource[];
   readonly errorCode?: ProtocolErrorCode;
 };
 
-export type HostCommandEvent = SidechatEventBase & {
-  readonly type: typeof SIDECHAT_EVENT_TYPES.HOST_COMMAND;
+export type ActivityHostCommandDetails = {
   readonly commandId: string;
   readonly commandName: string;
   readonly payload: JsonObject;
+  readonly result?: JsonObject;
+};
+
+export type ActivityDetails = {
+  readonly sources?: readonly ActivitySource[];
+  readonly images?: readonly ActivityImage[];
+  readonly tool?: ActivityToolDetails;
+  readonly hostCommand?: ActivityHostCommandDetails;
+};
+
+export type ActivityEvent = SidechatEventBase & {
+  readonly type: typeof SIDECHAT_EVENT_TYPES.ACTIVITY;
+  readonly activityId: string;
+  readonly activityKind: ActivityKind;
+  readonly status: ActivityStatus;
+  readonly title: string;
+  readonly body?: string;
+  readonly details?: ActivityDetails;
 };
 
 export type CompletedEvent = SidechatEventBase & {
@@ -89,9 +113,7 @@ export type TerminalEvent = CompletedEvent | ErrorEvent;
 export type SidechatStreamEvent =
   | StartedEvent
   | DeltaEvent
-  | ReasoningEvent
-  | ToolEvent
-  | HostCommandEvent
+  | ActivityEvent
   | CompletedEvent
   | ErrorEvent
   | HistoryEvent;

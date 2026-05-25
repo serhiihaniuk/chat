@@ -1,6 +1,7 @@
 import type { HostContext } from "@side-chat/chat-protocol";
 import {
   createCommandResult,
+  toHostCommand,
   type HostBridge,
   type HostCommandResult,
 } from "@side-chat/host-bridge";
@@ -24,22 +25,15 @@ export const createHarnessHostBridge = (config: WidgetHarnessConfig): HarnessHos
     commandRecords,
     getContext: () => Promise.resolve(createHarnessHostContext(config)),
     dispatchCommand: (event) => {
-      const result = createCommandResult(
-        {
-          assistantTurnId: event.assistantTurnId,
-          commandId: event.commandId,
-          commandName: event.commandName,
-          payload: event.payload,
-        },
-        {
-          status: "applied",
-          resultCode: "harness_local_only",
-          data: { persisted: false },
-        },
-      );
+      const command = toHostCommand(event);
+      const result = createCommandResult(command, {
+        status: "applied",
+        resultCode: "harness_local_only",
+        data: { persisted: false },
+      });
       commandRecords.push({
-        commandId: event.commandId,
-        commandName: event.commandName,
+        commandId: command.commandId,
+        commandName: command.commandName,
         result,
       });
       return Promise.resolve(result);

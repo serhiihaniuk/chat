@@ -115,7 +115,7 @@ UI dependency policy:
 
 - The widget owns its UI primitive source code. It may use Base UI primitives, CVA, Tailwind 4, local `cn` utilities, and the accepted AI Elements/shadcn-derived dependencies listed above.
 - Use exact shadcn-style primitives and AI Elements-style chat components as owned widget source where copied/adapted, while retaining the accepted packages needed by those components.
-- The local UI dependency ladder is `approved packages -> shared/ui -> shared/ai -> features -> app`.
+- The local UI dependency ladder is `approved packages -> shared/ui -> shared/ai -> features -> widgets`.
 - Do not depend on `shadcn`, `@repo/shadcn-ui`, generated shadcn registry packages, Radix UI packages, or any shared shadcn package at runtime or build time.
 - Do not import UI components from paths such as `@repo/shadcn-ui/components/ui/button`.
 - If a shadcn-style primitive is useful, install/copy the exact source into `packages/side-chat-widget/src/shared/ui`, keep Base UI as the primitive behavior base, and remove generator/registry metadata afterward.
@@ -169,7 +169,7 @@ external host app
 
 The browser-facing protocol must be stable and product-owned. It must not expose provider-native stream parts, AI SDK internals, database tables, or host-app implementation details.
 
-AI SDK 6 is not the browser contract. It is the engine inside `agent-runtime`. The main assistant path is Agent / ToolLoopAgent-first: named assistants are reusable runtime units with model selection, instructions, tools, stop rules, telemetry, and stream mapping behind one boundary. `streamText` is a low-level primitive, not the product orchestration boundary. OpenAI, Anthropic, Azure OpenAI, AI Gateway, local models, and fake models are provider adapters inside or below that runtime.
+AI SDK 6 is not the browser contract. It is the engine inside `agent-runtime`. The main assistant path is Agent / ToolLoopAgent-first: named assistants are reusable runtime units with model selection, instructions, registered tool capabilities, stop rules, telemetry, and stream mapping behind one boundary. `streamText` is a low-level primitive, not the product orchestration boundary. OpenAI, Anthropic, Azure OpenAI, AI Gateway, local models, and fake models are provider adapters inside or below that runtime.
 
 ## 2. Non-Goals
 
@@ -208,6 +208,16 @@ Use the pinned Effect v4 package line for typed errors, dependency layers, resou
 `agent-runtime` is a backend engine, not a product boundary.
 
 AI SDK 6 should power reusable agents, tool loops, provider tools, streaming, and telemetry behind ports. The default assistant execution shape is AI SDK `Agent` / `ToolLoopAgent`; direct `streamText` usage is allowed only as an implementation detail inside `packages/agent-runtime` or for explicitly accepted tiny non-agent utilities. `[Deferred]` AI SDK capabilities such as approvals, structured output, MCP, and reranking must not be scaffolded until accepted. AI SDK must not leak into widget, host, or product protocol code.
+
+Tools are registered agent capabilities, not request instructions.
+
+The runtime/profile/policy composition decides which tools are available to an assistant turn. The `ToolLoopAgent` receives those capabilities and the model decides whether and when to call them. The backend must not infer tool use from prompt keywords, run a tool before the model starts, or append manual "tool returned" system messages as a substitute for the model/tool loop.
+
+Tool registration and tool availability are different states. A tool may exist
+in the backend registry without being available to a specific assistant turn.
+Production composition must expose only accepted production tools. Development
+mock tools and fake providers are non-production configuration and must fail
+closed under `SIDECHAT_PROFILE=production`.
 
 Apps are deployable processes only.
 
@@ -434,10 +444,10 @@ Day-one history contract:
 
 Day-one context contract:
 
-- Context used by the model is assembled from authorized conversation history, current host context, assistant profile, model selection, tool capabilities, and product policy.
+- Context used by the model is assembled from authorized conversation history, current host context, assistant profile, model selection, available tool capabilities, and product policy.
 - Host context must include freshness and schema version when it can change assistant behavior.
 - The service records a redacted context snapshot and stable hashes, not unbounded raw host state.
-- The context builder should produce an internal manifest containing included message ids, context snapshot hash, assistant profile/version ids, selected tool names, model id, and budget decisions.
+- The context builder should produce an internal manifest containing included message ids, context snapshot hash, assistant profile/version ids, available tool capability ids, tool registry version, model id, and budget decisions.
 - The internal manifest can stay in application/runtime logs on day one. Persisting full prompt manifests is `[Deferred]` unless debugging/compliance requires it.
 - Cross-conversation memory, user preference learning, vector retrieval, and conversation summaries are `[Deferred]` until accepted as product behavior.
 
@@ -902,6 +912,7 @@ It owns:
 - protocol version
 - request schema
 - stream event schemas
+- canonical assistant activity event schema
 - host context and host command wire shapes
 - error event shapes
 - usage metadata
@@ -944,9 +955,7 @@ packages/chat-protocol/
       events/
         started-event.ts
         delta-event.ts
-        reasoning-event.ts
-        tool-event.ts
-        host-command-event.ts
+        activity-event.ts
         completed-event.ts
         error-event.ts
         history-event.ts
@@ -1255,12 +1264,12 @@ Key file responsibilities:
 | File or folder | Responsibility |
 | --- | --- |
 | `runtime/create-agent-runtime.ts` | Builds the runtime from profiles, tools, providers, and telemetry. It returns the product runtime boundary, not raw AI SDK calls. |
-| `runtime/ai-sdk-agent-factory.ts` | Creates AI SDK `Agent` / `ToolLoopAgent` instances from accepted assistant profiles, provider selections, tools, stop rules, and telemetry settings. |
+| `runtime/ai-sdk-agent-factory.ts` | Creates AI SDK `Agent` / `ToolLoopAgent` instances from accepted assistant profiles, provider selections, registered tool capabilities, stop rules, and telemetry settings. |
 | `runtime/ai-sdk-stream-mapper.ts` | Maps AI SDK agent stream parts into internal `AgentRuntimeEvent` values while keeping AI SDK UI messages and provider-native parts private. |
 | `runtime/runtime-services.ts` | Effect service tags for runtime dependencies. |
-| `profiles/*` | Named assistants, model defaults, instructions, enabled tools, and stop rules. |
-| `tools/registry/*` | The first-class registry for all model-callable tools. |
-| `tools/<tool-name>/*` | One folder per model-callable tool: schema, policy, mapper, tests, and tool definition. |
+| `profiles/*` | Named assistants, model defaults, instructions, available tool capability policy, and stop rules. |
+| `tools/registry/*` | The first-class registry for model-callable capabilities. |
+| `tools/<tool-name>/*` | One folder per model-callable capability: schema, policy, mapper, tests, and tool definition. |
 | `providers/registry/*` | Resolves product model/provider selections to provider adapters. |
 | `providers/<real-provider>/*` | Accepted real provider behavior only. Concrete provider name is chosen by ADR/config. |
 | `providers/fake/*` | Deterministic provider for tests and local no-credential runs. |
@@ -1276,6 +1285,10 @@ AI SDK orchestration rule:
 - `streamText` is a low-level primitive. It may appear inside the Agent/ToolLoopAgent implementation, tests, or explicitly accepted tiny non-agent utilities such as title generation, summarization, or classification. It must not become the public runtime orchestrator for chat.
 - `partner-ai-service` and `partner-ai-core` must call the `agent-runtime` port/facade, not `streamText`, provider SDKs, or raw provider HTTP directly.
 - Do not hand-roll a recursive model -> tool -> model loop unless an ADR proves AI SDK Agent / ToolLoopAgent cannot express the required behavior.
+- Tool availability is derived from runtime composition, assistant profile, product policy, and trusted context. It is not a user-controlled request field.
+- Registered runtime tools are converted into AI SDK tools inside `agent-runtime`; the model chooses a tool and its input through the `ToolLoopAgent`.
+- Runtime tools must not expose `shouldInvoke`, `createInput`, or pre-model progress hooks. Those fields make the backend choose and run tools before the agent acts.
+- Tool output returns to the model through the AI SDK tool loop. The runtime observes AI SDK `tool-input-start`, `tool-call`, `tool-result`, and `tool-error` stream parts and maps them into normalized runtime activity events.
 - Do not call OpenAI/Anthropic/Azure/etc. through raw `fetch` for normal assistant execution unless an ADR documents the provider gap, the allowed file boundary, and the removal condition.
 - Product policy may run before/after the AI SDK call: auth, tenancy, model availability, conversation persistence, host context trust, usage recording, protocol mapping, and terminal-event guarantees.
 - AI SDK UI messages and provider-native stream parts remain internal runtime details; the browser still receives only `chat-protocol` events.
@@ -1411,8 +1424,8 @@ Folder structure:
 
 The widget UI uses the trimmed Feature-Sliced Design shape defined in
 `docs/architecture/widget-ui-system-design.md`. This package intentionally uses
-only `app`, `features`, `entities`, and `shared`; it does not use FSD `pages`,
-`processes`, or `widgets` layers.
+only `widgets`, `features`, `entities`, and `shared`; it does not use FSD
+`pages`, `processes`, or `app` layers.
 
 ```txt
 packages/side-chat-widget/
@@ -1435,6 +1448,8 @@ packages/side-chat-widget/
       prompt/
     entities/
       chat/
+        model/
+          activity.ts
       panel/
     shared/
       ui/
@@ -1457,7 +1472,9 @@ packages/side-chat-widget/
         spinner.tsx
       ai/
         code-block.tsx
+        chain-of-thought.tsx
         conversation.tsx
+        image.tsx
         inline-citation.tsx
         message.tsx
         model-selector.tsx
@@ -1497,13 +1514,14 @@ UI source ownership rule:
   classes, `shared/lib/cn`, `lucide-react`, and accepted behavior dependencies
   needed for exact component parity.
 - `shared/ai/*` owns copied/adapted AI Elements-style conversation, message,
-  reasoning, tool, source, citation, suggestion, model selector, and prompt input
-  pieces as source code. These components may compose `shared/ui`,
+  reasoning, chain-of-thought activity, tool, image, source, citation,
+  suggestion, model selector, and prompt input pieces as source code. These
+  components may compose `shared/ui`,
   `shared/lib/cn`, React, Tailwind classes, `ai-elements`, `ai`, `motion`,
   Streamdown packages, and the other accepted widget UI/runtime dependencies.
-- App or feature UI owns the product adapter layer: it maps widget state and
+- Widget or feature UI owns the product adapter layer: it maps widget state and
   protocol projections into generic `shared/ai` props.
-- `shared/ui` and `shared/ai` must not import app state, product features,
+- `shared/ui` and `shared/ai` must not import widget state, product features,
   product entities, `chat-client`, `host-bridge`, provider SDKs, service
   internals, database code, or agent-runtime internals.
 - No widget source imports `shadcn`, `@repo/shadcn-ui`, generated shadcn registry
@@ -1957,6 +1975,7 @@ If a value comes from outside the current trust boundary, it starts as `unknown`
 Discriminated unions are preferred for:
 
 - protocol events
+- assistant activity states
 - `agent-runtime` events
 - application errors
 - host commands
@@ -2435,39 +2454,43 @@ external host app renders SideChatWidget
   -> partner-ai-core maps runtime events into chat-protocol events
   -> partner-ai-service writes events as SSE frames
   -> chat-client decodes SSE frames into protocol events
-  -> widget projects events into renderable message state
+  -> widget projects events into message text plus canonical assistant activity state
 ```
 
 Host command flow:
 
 ```txt
 agent-runtime produces host command intent
-  -> partner-ai-core validates command against protocol shape
-  -> partner-ai-core emits sidechat host_command event
+  -> partner-ai-core validates command against protocol activity shape
+  -> partner-ai-core emits sidechat.activity activityKind=host_command
   -> chat-client decodes event
-  -> widget dispatches command through host-bridge callback
+  -> widget renders the host-command activity row and dispatches command through host-bridge callback
   -> external host applies/rejects command
-  -> widget records command result in UI state
+  -> widget updates the same activity row with host result state
 ```
 
 Outbound tool flow:
 
 ```txt
-agent-runtime decides a tool is needed
+agent-runtime registers available tool capabilities
+  -> ToolLoopAgent receives the capabilities with automatic tool choice
+  -> model decides a tool is needed and produces tool input
+  -> AI SDK executes the selected runtime tool
   -> tool definition checks policy and [Deferred] approval requirements if approval is accepted
-  -> tool calls an Effect service, not a raw external client
+  -> tool calls an Effect service or adapter port, not a raw external client
   -> partner-ai-service outbound adapter implements that service
   -> outbound client calls the accepted external system
   -> outbound adapter maps external response/errors into assistant-safe output
-  -> agent-runtime emits tool events
-  -> partner-ai-core maps runtime tool events into sidechat protocol events
+  -> AI SDK returns tool output to the model loop
+  -> agent-runtime observes tool stream parts and emits typed activity events
+  -> partner-ai-core maps runtime activity events into sidechat.activity protocol events
 ```
 
-Current accepted backend tool:
+Accepted backend tool:
 
 | Tool | Owner | Behavior |
 | --- | --- | --- |
-| `mock_web_search` | `packages/agent-runtime/src/tools/mock-web-search.ts` | Deterministically simulates a web search inside the backend, streams progress text, emits `sidechat.tool` started/completed events with input/result objects, and feeds the result into the assistant context. It performs no external network egress. |
+| `mock_web_search` | `packages/agent-runtime/src/tools/mock-web-search.ts` | Deterministically simulates a web search inside the backend without external network egress. It is a development capability with a model-facing input schema. Non-production runtime composition may make it available to the agent; production composition must not expose it. When the model chooses it, observed tool-call/tool-result stream parts become ordered `sidechat.activity` tool rows with input/result/source objects. |
 
 `[Deferred]` approval flow:
 
@@ -2502,10 +2525,12 @@ Core concepts:
 | Concept | Contract |
 | --- | --- |
 | Conversation | A tenant/workspace/caller-scoped thread of user and assistant messages. It is not globally readable and must be authorized on every read/write. |
-| Assistant turn | One user request plus one assistant response stream, including model output, tool events, host-command events, usage metadata, terminal status, and `[Deferred]` approval events if approval is accepted. |
+| Assistant turn | One user request plus one assistant response stream, including final text output, canonical activity events, usage metadata, terminal status, and `[Deferred]` approval events if approval is accepted. |
 | Completed answer | A turn that emitted exactly one terminal protocol event: `sidechat.completed` or terminal `sidechat.error`. |
 | Host command | A request for the external host to act. It is never assumed applied until the host returns a result. |
 | Tool result | Data returned by a runtime tool. It is untrusted input until parsed, scoped, redacted, and mapped into assistant-safe output. |
+| Assistant activity | A product-safe, ordered timeline item inside the Thinking panel. Activity covers progress, safe reasoning summaries, tool execution, and host-command work. |
+| Tool capability | A registered backend capability exposed to the agent runtime with a model-facing schema. Availability is decided by runtime composition/profile/policy; use is decided by the model through the tool loop. |
 
 Rules:
 
@@ -2528,6 +2553,25 @@ Compatibility rules:
 - Unknown non-critical events should not crash the client. The client may ignore them and expose a diagnostic event for debugging.
 - Malformed required events should fail stream parsing and surface a typed client/protocol error.
 - Every protocol change must update schemas, generated artifacts, golden fixtures, sequence tests, and client/widget projection tests.
+
+Activity rules:
+
+- `sidechat.activity` is the only browser-facing event for assistant work shown
+  in the Thinking panel.
+- Activity events have stable `activityId`, `activityKind`, `status`, `title`,
+  optional `body`, and optional structured `details`.
+- Activity details can include row-local sources and images for search results,
+  citations, and found/generated images.
+- Tool activity details include tool identity, parameters, result, error, and
+  sources after redaction.
+- Tool activity rows are produced from observed model/tool-loop events, not from
+  backend prompt keyword matching.
+- Host-command activity details include command identity, payload, dispatch
+  status, and host result state.
+- The protocol sequence number defines timeline order; clients must not infer
+  order from grouped arrays or natural-language text.
+- Final assistant answer text is streamed separately from activity and rendered
+  after the activity section.
 
 Versioning should be explicit:
 
@@ -2606,7 +2650,7 @@ Rules:
 - Every assistant turn has a stable `assistantTurnId`.
 - Every stream event has a monotonic sequence number within the turn.
 - Exactly one terminal event is allowed.
-- No `delta`, `reasoning`, `tool`, `host_command`, or `[Deferred]` approval events may appear after a terminal event.
+- No `delta`, `activity`, or `[Deferred]` approval events may appear after a terminal event.
 - The server should send heartbeat/comment frames when needed to survive proxies and slow model/tool calls.
 - Client abort should propagate to partner-ai-core and agent-runtime cancellation.
 - Provider/tool timeout should become a typed terminal error.
@@ -2635,7 +2679,7 @@ Rules:
 - Fake providers are valid for tests and local development, but forbidden in production.
 - Provider fallback must be explicit. Silent fallback to a cheaper, weaker, or different-region model is not allowed.
 - Provider responses are mapped into runtime events before partner-ai-core maps them into protocol events.
-- Reasoning visibility is a product decision. Internal reasoning traces must not leak to the protocol unless explicitly modeled as safe `sidechat.reasoning` content.
+- Reasoning visibility is a product decision. Internal reasoning traces must not leak to the protocol; only explicitly mapped safe summaries may appear as `sidechat.activity` content.
 - Structured output must be schema-validated before it affects tools, host commands, or persisted state.
 - Tool calls are part of a turn lifecycle and must be observable and cancellable. `[Deferred]` approvals follow the same rule if accepted.
 
@@ -2701,6 +2745,9 @@ Rules:
 
 - Provider keys, access tokens, raw credentials, and secret values are never logged.
 - Raw prompts and tool results are not logged by default.
+- Observability activity metadata may include ids, kind, status, counts,
+  `toolName`, `toolCallId`, and error codes, but not tool parameters, tool
+  results, host payloads/results, sources, image bytes, or assistant text.
 - Retention, deletion/export, and regional residency must be decided before real users or client data.
 - Provider data-use settings must be explicit before production provider calls.
 - Redaction happens before telemetry export, not only in dashboards.
@@ -2892,8 +2939,9 @@ Unit tests own pure logic:
 - protocol schemas
 - sequence validation
 - partner-ai-core policies
-- agent-runtime provider/tool mapping and `[Deferred]` approval mapping
+- agent-runtime provider/activity/tool mapping and `[Deferred]` approval mapping
 - message projection
+- assistant activity projection and lifecycle rules
 - panel/composer state
 - retry policy
 
@@ -2902,9 +2950,9 @@ Integration tests own package boundaries:
 - API route -> partner-ai-core -> agent-runtime configured provider
 - partner-ai-core -> repository port
 - agent-runtime -> fake provider/tool registry for deterministic tests
-- agent-runtime -> mock web-search tool registry path
+- agent-runtime -> mock web-search activity/tool registry path
 - chat-client -> mock SSE server
-- widget -> chat-client -> mocked stream
+- widget -> chat-client -> mocked activity stream
 - db repository -> test database
 
 Contract tests own compatibility:
@@ -2916,6 +2964,8 @@ Contract tests own compatibility:
 - no event after terminal
 - no provider-native event leak
 - no AI SDK UI message leak
+- activity timeline order and one-active-row semantics
+- tool details open by default and collapsible in chronological place
 - host command schema compatibility
 
 Type tests own compile-time contracts:
@@ -2967,7 +3017,7 @@ Supported solo modes:
 | Mode | Runs | Purpose |
 | --- | --- | --- |
 | Mock stream mode | `widget-harness` only. | Fast UI development with deterministic `chat-protocol` fixture events. |
-| Local service + configured provider mode | `widget-harness` + `partner-ai-service` + `.env` provider credentials. | End-to-end protocol, SSE, widget state, host bridge, tool events, and the real AI SDK runtime path. |
+| Local service + configured provider mode | `widget-harness` + `partner-ai-service` + `.env` provider credentials. | End-to-end protocol, SSE, widget state, host bridge, assistant activity events, and the real AI SDK runtime path. |
 | Explicit fake provider mode | `widget-harness` + `partner-ai-service` using `SIDECHAT_PROVIDER=fake`. | Deterministic protocol, SSE, widget state, host bridge, and stream sequencing without credentials. |
 
 `[Example]` expected command shape:
@@ -3005,10 +3055,10 @@ This keeps development ergonomic while preserving the production rule: no host a
 | 0. DB schema contract | Day-one entities, table responsibilities, context snapshots, history/resume behavior, repository command API, grants model, idempotency rules. | Contract is accepted before migrations/repositories; deferred schema areas are explicitly labeled. |
 | 1. Contract spine | `packages/chat-protocol`, schemas, SSE codec, sequence validation, fixtures. | Protocol tests pass, fixtures validate, malformed sequences fail predictably. |
 | 2. Partner AI core | `packages/partner-ai-core`, stream-chat use case, ports, application errors. | Framework-free stream use case emits valid protocol events. |
-| 3. Agent runtime | `packages/agent-runtime`, AI SDK 6 runtime, OpenAI provider, fake provider, mock web-search tool, tool registry, provider registry. | Runtime emits internal events through configured providers and maps tool/provider states predictably; approval mapping is `[Deferred]`. |
+| 3. Agent runtime | `packages/agent-runtime`, AI SDK 6 runtime, OpenAI provider, fake provider, mock web-search tool, tool registry, provider registry. | Runtime emits typed activity/tool/provider events through configured providers; approval mapping is `[Deferred]`. |
 | 4. Service adapter | `apps/partner-ai-service`, HTTP stream route, config parsing, composition root. | `POST /chat/stream` produces valid SSE and invalid requests return clear errors. |
 | 5. Browser client | `packages/chat-client`, typed stream client, SSE reader. | Client decodes chunked SSE streams and terminal behavior is correct. |
-| 6. Widget | `packages/side-chat-widget`, shell, composer, feed, reasoning/tool/host states, and `[Deferred]` approval states. | Widget streams against mock client/service and external host receives commands. |
+| 6. Widget | `packages/side-chat-widget`, shell, composer, feed, canonical activity timeline, and `[Deferred]` approval states. | Widget streams against mock client/service, renders activity in protocol order, and external host receives commands. |
 | 7. Persistence implementation | `packages/db`, pg, Drizzle schema/queries, migrations, repositories, least-privilege tests implementing the accepted DB schema contract. | Repository ports have DB implementations, migrations run in CI, and only `packages/db` can access tables/query helpers. |
 | 8. Production hardening | Real auth, rate limiting, telemetry, production image, CI gates, ops docs. | Deploy target is documented, secrets externalized, observability emitted, rollback defined. |
 

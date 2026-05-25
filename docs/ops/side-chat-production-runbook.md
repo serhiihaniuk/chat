@@ -44,6 +44,8 @@ Local defaults:
 - `SIDECHAT_PROFILE=development`
 - `SIDECHAT_AUTH_BEARER_TOKEN=local-compose-token`
 - `SIDECHAT_POLICY_MODE=allow_all`
+- `SIDECHAT_ENABLE_DEV_TOOLS=true`, which exposes non-production development
+  capabilities such as `mock_web_search`
 - `SIDECHAT_TENANT_ID=tenant_local`
 - `SIDECHAT_WORKSPACE_ID=workspace_local`
 
@@ -63,15 +65,16 @@ Required production settings:
 - `SIDECHAT_WORKSPACE_ID=<workspace-id>`
 - `SIDECHAT_PROVIDER=openai` or another accepted real provider.
 - `SIDECHAT_OPENAI_API_KEY=<secret>` when OpenAI is selected.
+- `SIDECHAT_ENABLE_DEV_TOOLS` must be unset or `false`.
 - `SIDECHAT_POLICY_MODE=fail_closed` until entitlement/model policy is configured.
 - `SIDECHAT_ALLOWED_MODELS=<comma-separated-model-ids>` only when `SIDECHAT_POLICY_MODE=configured`.
 - `SIDECHAT_DATABASE_URL=<postgres-url>`
 - `PORT=<service-port>` defaults to `8787`.
 
 Production refuses the development static token, rejects `allow_all` policy mode,
-and must not boot on the fake provider. Real provider traffic requires secret
-injection, model allowlist configuration, data-use review, and live smoke
-approval.
+must not boot on the fake provider, and rejects development tool exposure. Real
+provider traffic requires secret injection, model allowlist configuration,
+data-use review, and live smoke approval.
 
 ## Health Checks
 
@@ -108,8 +111,9 @@ Rollback is git/image based:
 2. Redeploy the previous image tag.
 3. Confirm `/healthz` and `/readyz`.
 4. Run a provider-appropriate smoke request against `POST /chat/stream`. For the
-   current local OpenAI path, include a prompt that triggers the backend
-   `mock_web_search` tool and confirm `sidechat.tool` started/completed events.
+   current local OpenAI path, confirm the runtime advertises registered tool
+   capabilities to the agent and that any model-chosen tool call appears as an
+   ordered `sidechat.activity` tool row.
 5. If the bad release reached `main`, revert the commit with a new Lore commit and push `main`.
 
 No day-one migration performs destructive schema changes. Do not log or copy

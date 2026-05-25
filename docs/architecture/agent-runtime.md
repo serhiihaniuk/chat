@@ -1,22 +1,114 @@
 # Agent Runtime
 
-The agent runtime uses AI SDK as the model orchestration engine. Provider-specific code stays at the adapter edge; partner AI core receives normalized runtime events and usage data.
+Status: accepted final-state runtime design
 
-The OpenAI Responses adapter uses `@ai-sdk/openai` and the shared AI SDK engine. Raw provider stream shapes and direct provider HTTP calls must not leak into protocol, client, widget, partner AI core, or service route code.
+`packages/agent-runtime` is the backend assistant orchestration engine. It is
+the only package that may import AI SDK runtime/provider APIs.
 
-The current service composition can run OpenAI locally from env configuration.
-`SIDECHAT_PROVIDER=openai`, `SIDECHAT_OPENAI_API_KEY`, `SIDECHAT_ALLOWED_MODELS`,
-and the OpenAI reasoning env keys select the real provider path. Fake providers
-and mocked AI SDK streams remain deterministic test and fixture paths.
+The runtime boundary is Agent/ToolLoopAgent-first:
 
-Runtime tools are backend-owned capabilities registered in the runtime/tool
-registry. The current accepted development tool is `mock_web_search`: it accepts
-a search-style input, streams progress as normal assistant deltas, emits
-normalized runtime tool call/result events, and returns deterministic assistant
-context without external network egress.
+```txt
+partner-ai-core
+  -> AgentRuntimePort
+  -> agent-runtime
+    -> assistant profile
+    -> registered tool capabilities
+    -> provider registry
+    -> AI SDK ToolLoopAgent
+    -> normalized runtime events
+```
 
-Provider-native tool calls, AI SDK UI message parts, and raw tool payloads stay
-inside `agent-runtime`. Partner AI core maps normalized runtime tool events into
-`sidechat.tool`, and the widget renders the protocol event through its tool UI.
+## Tool Capabilities
 
-Live provider smoke tests require explicit credentials and data-use approval.
+Tools are registered capabilities available to the agent. They are not
+request-level instructions and they are not backend keyword heuristics.
+
+The model decides whether and when to call a tool after the runtime exposes the
+available tool set to `ToolLoopAgent`.
+
+Tool availability is decided by runtime/profile/policy composition before the
+turn starts. Registered does not mean globally available: production profiles
+must expose only accepted production tools, while development-only tools stay
+behind explicit non-production configuration.
+
+Runtime tools use this product contract:
+
+```ts
+type RuntimeTool = {
+  readonly name: string;
+  readonly description: string;
+  readonly inputSchema: JSONSchema7;
+  run(input: JsonObject): Promise<JsonObject> | JsonObject;
+  readSources?: (result: JsonObject) => readonly ActivitySource[];
+};
+```
+
+Rejected runtime-tool fields:
+
+- `shouldInvoke`
+- `createInput`
+- pre-model `progress`
+
+Those fields make the backend decide before the model starts. They create fake
+instant activity and break the ChatGPT-style agent timeline.
+
+## Execution Flow
+
+```txt
+service composition registers runtime tools
+  -> runtime resolves assistant profile and provider/model
+  -> runtime converts registered tools into AI SDK tools
+  -> ToolLoopAgent streams with toolChoice: "auto"
+  -> model emits tool input/call parts when it chooses a capability
+  -> AI SDK executes the selected tool adapter
+  -> tool output returns to the model through the AI SDK tool loop
+  -> runtime maps observed stream parts into normalized runtime events
+```
+
+The runtime must not append manual "Backend tool returned" system messages.
+Tool results belong to the AI SDK tool loop and to product-safe activity
+details.
+
+## Stream Mapping
+
+Provider-native stream parts are private to this package. Normalized runtime
+events are the package boundary:
+
+| AI SDK part        | Runtime event                                        |
+| ------------------ | ---------------------------------------------------- |
+| `reasoning-delta`  | `runtime.activity` with `activityKind: "reasoning"`. |
+| `text-delta`       | `runtime.output_delta`.                              |
+| `tool-input-start` | `runtime.activity` tool row running.                 |
+| `tool-call`        | Same tool row with stable input.                     |
+| `tool-result`      | Same tool row completed with result and sources.     |
+| `tool-error`       | Same tool row failed with tool error code.           |
+| `finish`           | `runtime.completed`.                                 |
+| `error`            | `runtime.error`.                                     |
+
+Tool activity uses `toolCallId` as the stable activity id. The started and
+completed events update the same canonical row downstream.
+
+Reasoning activity is a safe summary only. Raw hidden chain-of-thought never
+crosses the runtime boundary.
+
+## Development Tool
+
+`mock_web_search` is the accepted development search capability. It simulates web
+search without external egress, exposes a model-facing query schema, and returns
+deterministic JSON plus source metadata.
+
+It is still a normal registered runtime tool. The model must call it through the
+agent loop. The backend must not auto-run it because a user typed "search" or
+"web". Production service configuration must not expose this development
+capability.
+
+## Tests
+
+Runtime tests must prove:
+
+- tools are registered as available capabilities;
+- the runtime does not execute a tool before provider/model streaming;
+- AI SDK tool parts map into one stable runtime activity row;
+- sources are mapped by the tool adapter;
+- provider-specific stream shapes never leak into partner AI core, protocol,
+  client, or widget code.

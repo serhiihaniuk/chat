@@ -10,7 +10,7 @@ process while keeping expensive or non-deterministic dependencies mocked.
 The e2e lane must prove this path:
 
 ```txt
-Playwright browser -> widget-harness -> SideChatWidget -> chat-client -> Hono service -> partner-ai-core -> agent-runtime -> mocked model/tool -> mocked DB
+Playwright browser -> widget-harness -> SideChatWidget -> chat-client -> Hono service -> partner-ai-core -> agent-runtime -> mocked model/provider -> mocked DB
 ```
 
 ## Test Environment
@@ -24,6 +24,7 @@ The service runs with:
 
 - `SIDECHAT_PROFILE=development`;
 - `SIDECHAT_PROVIDER=fake`, which is the mocked model provider;
+- `SIDECHAT_ENABLE_DEV_TOOLS=true`, which is allowed only in development;
 - no `SIDECHAT_DATABASE_URL`, which selects memory repositories as the mocked DB;
 - `SIDECHAT_AUTH_BEARER_TOKEN=local-compose-token`;
 - `SIDECHAT_POLICY_MODE=allow_all`;
@@ -31,24 +32,30 @@ The service runs with:
 
 This keeps the backend real while avoiding OpenAI credentials and Postgres.
 
-## Current Coverage
+## Required Coverage
 
-The e2e spec covers:
+The e2e spec covers the product behavior, not implementation details:
 
 - harness loads in `mock-stream` mode for fast UI smoke;
 - service `/healthz` reports mocked model and memory persistence;
 - widget sends a message through `local-service`;
 - `/chat/stream` returns `200`;
 - user and assistant messages render in the real widget;
-- reasoning UI is visible from the real service stream;
+- one Thinking / Thought for N seconds section is visible from the real service
+  stream;
 - `/usage` records tokens through the memory repository;
-- search-style prompts invoke backend `mock_web_search`;
-- `sidechat.tool` renders through the widget tool component with parameters and
-  result.
+- `mock-stream` mode renders registered-tool activity fixtures through the same
+  widget projection used by service streams;
+- service integration tests cover the runtime -> partner-ai-core ->
+  `sidechat.activity` tool mapping with running/completed rows;
+- `sidechat.activity` renders a single ordered timeline;
+- tool activity renders through the widget tool component with parameters,
+  result, error, and sources in an open-by-default expandable row;
+- only the current activity row appears running;
+- completed activity rows do not reorder or visually reactivate after later
+  events.
 
-## Next Coverage To Add
-
-Add these when the related product behavior exists:
+The e2e lane also covers:
 
 - conversation id continuity and `/chat/history` assertions;
 - reset/new-chat e2e behavior;

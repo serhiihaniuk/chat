@@ -1,19 +1,12 @@
 import { AgentRuntimeError } from "../errors.js";
-import type { RuntimeMessage } from "../provider.js";
-import type { JsonObject } from "@side-chat/chat-protocol";
-
-export type RuntimeToolRequest = {
-  readonly requestId: string;
-  readonly assistantTurnId: string;
-  readonly messages: readonly RuntimeMessage[];
-};
+import type { ActivitySource, JsonObject } from "@side-chat/chat-protocol";
+import type { JSONSchema7 } from "@ai-sdk/provider";
 
 export type RuntimeTool = {
   readonly name: string;
-  readonly description?: string;
-  createInput?: (request: RuntimeToolRequest) => JsonObject;
-  shouldInvoke?: (request: RuntimeToolRequest) => boolean;
-  progress?: (input: JsonObject) => readonly string[];
+  readonly description: string;
+  readonly inputSchema: JSONSchema7;
+  readSources?: (result: JsonObject) => readonly ActivitySource[];
   run(input: JsonObject): Promise<JsonObject> | JsonObject;
 };
 

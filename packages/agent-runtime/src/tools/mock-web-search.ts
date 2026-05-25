@@ -1,6 +1,6 @@
 import type { JsonObject } from "@side-chat/chat-protocol";
 
-import type { RuntimeTool, RuntimeToolRequest } from "./tool-registry.js";
+import type { RuntimeTool } from "./tool-registry.js";
 
 export const MOCK_WEB_SEARCH_TOOL_NAME = "mock_web_search" as const;
 
@@ -14,7 +14,7 @@ export type MockWebSearchResult = JsonObject & {
   readonly results: JsonObject[];
 };
 
-const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 3000;
+const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
 
 export const createMockWebSearchTool = ({
   delayMs = DEFAULT_MOCK_WEB_SEARCH_DELAY_MS,
@@ -23,13 +23,19 @@ export const createMockWebSearchTool = ({
 } = {}): RuntimeTool => ({
   name: MOCK_WEB_SEARCH_TOOL_NAME,
   description:
-    "Mocked web search tool that simulates looking up external information before answering.",
-  createInput: (request) => ({ query: lastUserText(request) }),
-  shouldInvoke: (request) => shouldSearchWeb(lastUserText(request)),
-  progress: () => [
-    "Searching the web\n",
-    "Scanning mocked result pages and checking snippets...\n",
-  ],
+    "Search the web for recent or external information. Use this when the user asks to search, look up current information, or find sources outside the conversation.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "The web search query to run.",
+      },
+    },
+    required: ["query"],
+    additionalProperties: false,
+  },
+  readSources: (result) => readSources(result),
   run: async (input) => {
     if (delayMs > 0) await wait(delayMs);
 
@@ -48,14 +54,26 @@ export const createMockWebSearchTool = ({
   },
 });
 
-const lastUserText = (request: RuntimeToolRequest): string =>
-  [...request.messages].reverse().find((message) => message.role === "user")?.content ?? "";
-
 const readQuery = (input: JsonObject): string =>
   typeof input["query"] === "string" ? input["query"] : "";
 
-const shouldSearchWeb = (text: string): boolean =>
-  /\b(search|web|latest|current|today|news|lookup|look up|find)\b/iu.test(text);
+const readSources = (result: JsonObject) => {
+  const results = result["results"];
+  if (!Array.isArray(results)) return [];
+
+  return results.flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry["url"] !== "string") return [];
+    return [
+      {
+        label: typeof entry["title"] === "string" ? entry["title"] : new URL(entry["url"]).hostname,
+        url: entry["url"],
+      },
+    ];
+  });
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const wait = (durationMs: number): Promise<void> =>
   new Promise((resolve) => {

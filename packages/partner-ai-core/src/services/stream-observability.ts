@@ -1,6 +1,8 @@
 import {
+  type ActivityDetails,
   SIDECHAT_EVENT_TYPES,
   type JsonObject,
+  type JsonValue,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
 import {
@@ -53,23 +55,13 @@ export const runtimeEventAttributes = (event: RuntimeEvent): JsonObject => {
       };
     case "runtime.output_delta":
       return { eventType: event.type, output: event.content };
-    case "runtime.reasoning":
-      return { eventType: event.type, prompt: event.summary };
-    case "runtime.tool_call":
+    case "runtime.activity":
       return {
         eventType: event.type,
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        argumentsJson: event.argumentsJson,
-      };
-    case "runtime.tool_result":
-      return {
-        eventType: event.type,
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
+        activityId: event.activityId,
+        activityKind: event.activityKind,
         status: event.status,
-        resultJson: event.resultJson ?? null,
-        errorCode: event.errorCode ?? null,
+        activityMeta: toJsonActivityMetadata(event.details),
       };
     case "runtime.completed":
       return { eventType: event.type, finishReason: event.finishReason };
@@ -93,4 +85,35 @@ const elapsedMs = (startedAt: string, now: string): number => {
   const ended = Date.parse(now);
   if (!Number.isFinite(started) || !Number.isFinite(ended)) return 0;
   return Math.max(0, ended - started);
+};
+
+const toJsonActivityMetadata = (details: ActivityDetails | undefined): JsonObject | null => {
+  if (!details) return null;
+
+  const output: Record<string, JsonValue> = {};
+  if (details.sources) {
+    output["sourceCount"] = details.sources.length;
+  }
+  if (details.images) {
+    output["imageCount"] = details.images.length;
+  }
+  if (details.tool) {
+    output["tool"] = {
+      toolCallId: details.tool.toolCallId,
+      toolName: details.tool.toolName,
+      parametersPresent: Boolean(details.tool.input),
+      responsePresent: Boolean(details.tool.result),
+      sourceCount: details.tool.sources?.length ?? 0,
+      ...(details.tool.errorCode ? { errorCode: details.tool.errorCode } : {}),
+    };
+  }
+  if (details.hostCommand) {
+    output["hostCommand"] = {
+      commandId: details.hostCommand.commandId,
+      commandName: details.hostCommand.commandName,
+      parametersPresent: true,
+      responsePresent: Boolean(details.hostCommand.result),
+    };
+  }
+  return output;
 };

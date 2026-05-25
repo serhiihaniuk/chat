@@ -37,30 +37,16 @@ export const mapRuntimeEvent = (
         type: SIDECHAT_EVENT_TYPES.DELTA,
         content: event.content,
       };
-    case "runtime.reasoning":
+    case "runtime.activity":
       return {
         ...base,
-        type: SIDECHAT_EVENT_TYPES.REASONING,
-        summary: event.summary,
-      };
-    case "runtime.tool_call":
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.TOOL,
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        status: "started",
-        input: event.argumentsJson,
-      };
-    case "runtime.tool_result":
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.TOOL,
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
+        type: SIDECHAT_EVENT_TYPES.ACTIVITY,
+        activityId: event.activityId,
+        activityKind: event.activityKind,
         status: event.status,
-        ...(event.resultJson ? { result: event.resultJson } : {}),
-        ...(event.errorCode ? { errorCode: "tool_failed" } : {}),
+        title: event.title,
+        ...(event.body ? { body: event.body } : {}),
+        ...(event.details ? { details: event.details } : {}),
       };
     case "runtime.completed":
       return {

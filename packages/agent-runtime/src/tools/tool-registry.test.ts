@@ -5,6 +5,8 @@ import { createToolRegistry, type RuntimeTool } from "./tool-registry.js";
 describe("createToolRegistry", () => {
   const lookupTool: RuntimeTool = {
     name: "lookup",
+    description: "Look up deterministic test data.",
+    inputSchema: { type: "object", additionalProperties: false },
     run: () => ({ ok: true }),
   };
 

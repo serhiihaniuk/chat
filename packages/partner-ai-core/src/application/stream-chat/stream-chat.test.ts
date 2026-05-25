@@ -57,7 +57,7 @@ describe("stream chat use case", () => {
 
     expect(events.map((event) => event.type)).toEqual([
       SIDECHAT_EVENT_TYPES.STARTED,
-      SIDECHAT_EVENT_TYPES.REASONING,
+      SIDECHAT_EVENT_TYPES.ACTIVITY,
       SIDECHAT_EVENT_TYPES.DELTA,
       SIDECHAT_EVENT_TYPES.COMPLETED,
     ]);
@@ -260,11 +260,14 @@ const createFakePorts = (options: FakePortOptions = {}) => {
 
 const defaultRuntimeEvents = (): readonly RuntimeEvent[] => [
   {
-    type: "runtime.reasoning",
+    type: "runtime.activity",
     requestId: "request_001",
     assistantTurnId: "assistant_turn_001",
     sequence: 0,
-    summary: "fake runtime selected deterministic response",
+    activityId: "activity_001",
+    activityKind: "reasoning",
+    status: "completed",
+    title: "Fake runtime selected deterministic response",
   },
   {
     type: "runtime.output_delta",

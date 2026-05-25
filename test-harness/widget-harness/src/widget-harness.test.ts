@@ -20,15 +20,16 @@ const request = {
 };
 
 describe("widget harness modes", () => {
-  it("defaults to mock stream mode and mounts the widget shell", () => {
+  it("defaults to local service mode and mounts the widget shell", () => {
     const config = parseWidgetHarnessConfig("");
     const app = createWidgetHarnessApp(config);
     const html = renderToStaticMarkup(app.element);
 
     expect(config).toMatchObject({
-      mode: "mock-stream",
+      mode: "local-service",
       apiBaseUrl: "/api",
-      workspaceId: "local-dev",
+      authToken: "local-compose-token",
+      workspaceId: "workspace_local",
     });
     expect(html).toContain("Workspace Assistant");
     expect(html).toContain("No messages yet");
@@ -44,9 +45,9 @@ describe("widget harness modes", () => {
 
     expect(events.map((event) => event.type)).toEqual([
       "sidechat.started",
-      "sidechat.reasoning",
+      "sidechat.activity",
       "sidechat.delta",
-      "sidechat.host_command",
+      "sidechat.activity",
       "sidechat.completed",
     ]);
     expect(streamed).toEqual(events.map((event) => event.type));
@@ -88,14 +89,22 @@ describe("widget harness modes", () => {
     const bridge = createHarnessHostBridge(parseWidgetHarnessConfig("?mode=mock-stream"));
     const result = await bridge.dispatchCommand({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      type: "sidechat.host_command",
+      type: "sidechat.activity",
       eventId: "event-command",
       assistantTurnId: "turn-1",
       sequence: 1,
       createdAt: "2026-05-23T14:00:00.000Z",
-      commandId: "command-1",
-      commandName: "open_resource",
-      payload: { resourceType: "document", resourceId: "doc-1" },
+      activityId: "command-1",
+      activityKind: "host_command",
+      status: "running",
+      title: "Open resource",
+      details: {
+        hostCommand: {
+          commandId: "command-1",
+          commandName: "open_resource",
+          payload: { resourceType: "document", resourceId: "doc-1" },
+        },
+      },
     });
 
     expect(result).toMatchObject({

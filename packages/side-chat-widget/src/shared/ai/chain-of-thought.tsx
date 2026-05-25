@@ -56,24 +56,32 @@ export const ChainOfThoughtContent = ({ className, ...props }: ChainOfThoughtCon
   />
 );
 
-export type ChainOfThoughtStepStatus = "pending" | "running" | "completed" | "failed";
+export type ChainOfThoughtStepStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "active"
+  | "complete";
+type NormalizedChainOfThoughtStepStatus = "pending" | "running" | "completed" | "failed";
 
-export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
+export type ChainOfThoughtStepProps = Omit<ComponentProps<"div">, "title"> & {
   readonly icon?: LucideIcon;
   readonly status?: ChainOfThoughtStepStatus;
-  readonly title: ReactNode;
+  readonly title?: ReactNode;
+  readonly label?: ReactNode;
   readonly description?: ReactNode;
   readonly sources?: readonly string[];
 };
 
-const statusStyles: Record<ChainOfThoughtStepStatus, string> = {
+const statusStyles: Record<NormalizedChainOfThoughtStepStatus, string> = {
   completed: "text-muted-foreground",
   failed: "text-destructive",
   pending: "text-muted-foreground",
   running: "text-foreground",
 };
 
-const statusLabels: Record<ChainOfThoughtStepStatus, string> = {
+const statusLabels: Record<NormalizedChainOfThoughtStepStatus, string> = {
   completed: "Completed",
   failed: "Error",
   pending: "Pending",
@@ -85,45 +93,130 @@ export const ChainOfThoughtStep = ({
   className,
   description,
   icon: Icon = CircleIcon,
+  label,
   sources = [],
   status = "completed",
   title,
   ...props
-}: ChainOfThoughtStepProps) => (
-  <div className={cn("grid grid-cols-[1rem_1fr] gap-x-4 text-sm", className)} {...props}>
-    <div className="flex flex-col items-center pt-1">
-      <Icon className={cn("size-3.5", statusStyles[status])} />
-      {(children || description || sources.length > 0) && (
-        <span className="mt-2 h-full min-h-5 w-px bg-border" />
-      )}
-    </div>
-    <div className="space-y-2 pb-3">
-      <div
-        className={cn(
-          "font-medium text-foreground",
-          status === "completed" && "text-muted-foreground",
-          status === "failed" && "text-destructive",
-        )}
-      >
-        {title}
+}: ChainOfThoughtStepProps) => {
+  const normalizedStatus = normalizeStepStatus(status);
+  const titleContent = title ?? label;
+  return (
+    <div className={cn("grid grid-cols-[1rem_1fr] gap-x-4 text-sm", className)} {...props}>
+      <StepMarker
+        hasTail={hasStepTail({ children, description, sources })}
+        icon={Icon}
+        status={normalizedStatus}
+      />
+      <div className="space-y-2 pb-3">
+        <div className={stepTitleClassName(normalizedStatus)}>{titleContent}</div>
+        <span className="sr-only">{statusLabels[normalizedStatus]}</span>
+        <StepSources sources={sources} />
+        <StepDescription description={description} />
+        <StepChildren>{children}</StepChildren>
       </div>
-      <span className="sr-only">{statusLabels[status]}</span>
-      {sources.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {sources.map((source) => (
-            <Badge key={source} variant="secondary">
-              {source}
-            </Badge>
-          ))}
-        </div>
-      )}
-      {description && (
-        <div className="max-w-prose text-muted-foreground leading-6">{description}</div>
-      )}
-      {children && <div className="space-y-3">{children}</div>}
     </div>
+  );
+};
+
+const StepMarker = ({
+  hasTail,
+  icon: Icon,
+  status,
+}: {
+  readonly hasTail: boolean;
+  readonly icon: LucideIcon;
+  readonly status: NormalizedChainOfThoughtStepStatus;
+}) => (
+  <div className="flex flex-col items-center pt-1">
+    <Icon className={cn("size-3.5", statusStyles[status])} />
+    {hasTail && <span className="mt-2 h-full min-h-5 w-px bg-border" />}
   </div>
 );
+
+const StepSources = ({ sources }: { readonly sources: readonly string[] }) => {
+  if (sources.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {sources.map((source) => (
+        <Badge key={source} variant="secondary">
+          {source}
+        </Badge>
+      ))}
+    </div>
+  );
+};
+
+const StepDescription = ({ description }: { readonly description: ReactNode }) => {
+  if (!description) return null;
+  return <div className="max-w-prose text-muted-foreground leading-6">{description}</div>;
+};
+
+const StepChildren = ({ children }: { readonly children: ReactNode }) => {
+  if (!children) return null;
+  return <div className="space-y-3">{children}</div>;
+};
+
+const hasStepTail = ({
+  children,
+  description,
+  sources,
+}: {
+  readonly children: ReactNode;
+  readonly description: ReactNode;
+  readonly sources: readonly string[];
+}): boolean => Boolean(children || description || sources.length > 0);
+
+const stepTitleClassName = (status: NormalizedChainOfThoughtStepStatus): string =>
+  cn(
+    "font-medium text-foreground",
+    status === "completed" && "text-muted-foreground",
+    status === "failed" && "text-destructive",
+  );
+
+export type ChainOfThoughtSearchResultsProps = ComponentProps<"div">;
+
+export const ChainOfThoughtSearchResults = ({
+  className,
+  ...props
+}: ChainOfThoughtSearchResultsProps) => (
+  <div className={cn("flex flex-wrap gap-2", className)} {...props} />
+);
+
+export type ChainOfThoughtSearchResultProps = ComponentProps<typeof Badge>;
+
+export const ChainOfThoughtSearchResult = ({
+  className,
+  variant = "secondary",
+  ...props
+}: ChainOfThoughtSearchResultProps) => (
+  <Badge className={cn("max-w-full truncate", className)} variant={variant} {...props} />
+);
+
+export type ChainOfThoughtImageProps = ComponentProps<"figure"> & {
+  readonly caption?: ReactNode;
+};
+
+export const ChainOfThoughtImage = ({
+  caption,
+  children,
+  className,
+  ...props
+}: ChainOfThoughtImageProps) => (
+  <figure className={cn("space-y-2", className)} {...props}>
+    {children}
+    {caption && <figcaption className="text-muted-foreground text-xs">{caption}</figcaption>}
+  </figure>
+);
+
+const normalizeStepStatus = (
+  status: ChainOfThoughtStepStatus,
+): NormalizedChainOfThoughtStepStatus => {
+  if (status === "active") return "running";
+  if (status === "complete") return "completed";
+  return status;
+};
 
 export const chainOfThoughtIcons = {
   check: CheckCircleIcon,

@@ -6,7 +6,7 @@ Accepted for day-one production scaffold.
 
 ## Context
 
-The production design includes `sidechat.host_command_results` in the day-one DB schema contract so the persistence model can represent commands emitted to an external host and the host's result. The same design keeps backend durable host-command product behavior open: no service route, protocol behavior, widget assumption, or state-changing backend command workflow should appear before an explicit decision.
+The production design includes `sidechat.host_command_results` in the day-one DB schema contract so the persistence model can represent commands emitted to an external host and the host's result. The same design keeps backend durable host-command result behavior open: no service result route, durable result protocol event, or state-changing backend command workflow should appear before an explicit decision.
 
 This creates an intentional split:
 
@@ -20,7 +20,8 @@ Day-one host command results are client/local-harness only.
 
 The accepted product behavior is:
 
-- The widget dispatches `sidechat.host_command` events through `packages/host-bridge`.
+- The widget dispatches `sidechat.activity` events with
+  `activityKind: "host_command"` through `packages/host-bridge`.
 - The host bridge returns local command results to widget state for display, testing, and harness smoke flows.
 - `packages/db` keeps `host_command_results` schema and repository contract support as an executable schema contract.
 - `apps/partner-ai-service` does not expose a host-command result route.

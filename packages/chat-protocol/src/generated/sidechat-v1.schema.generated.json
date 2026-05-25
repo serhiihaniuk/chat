@@ -46,7 +46,7 @@
         "hostContext": { "$ref": "#/$defs/HostContext" }
       }
     },
-    "SidechatStreamEvent": {
+    "SidechatEventBase": {
       "type": "object",
       "required": [
         "protocolVersion",
@@ -62,9 +62,7 @@
           "enum": [
             "sidechat.started",
             "sidechat.delta",
-            "sidechat.reasoning",
-            "sidechat.tool",
-            "sidechat.host_command",
+            "sidechat.activity",
             "sidechat.completed",
             "sidechat.error",
             "sidechat.history"
@@ -76,16 +74,12 @@
         "createdAt": { "type": "string" },
         "conversationId": { "type": "string" },
         "content": { "type": "string" },
-        "summary": { "type": "string" },
-        "toolCallId": { "type": "string" },
-        "toolName": { "type": "string" },
-        "status": { "type": "string" },
-        "input": { "$ref": "#/$defs/JsonObject" },
-        "result": { "$ref": "#/$defs/JsonObject" },
-        "errorCode": { "type": "string" },
-        "commandId": { "type": "string" },
-        "commandName": { "type": "string" },
-        "payload": { "$ref": "#/$defs/JsonObject" },
+        "activityId": { "type": "string" },
+        "activityKind": { "enum": ["progress", "reasoning", "tool", "host_command"] },
+        "status": { "enum": ["running", "completed", "failed"] },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "details": { "$ref": "#/$defs/ActivityDetails" },
         "finishReason": { "enum": ["stop", "length", "aborted"] },
         "usage": { "$ref": "#/$defs/UsageMetadata" },
         "code": { "type": "string" },
@@ -95,6 +89,226 @@
           "type": "array",
           "items": { "$ref": "#/$defs/HistoryMessage" }
         }
+      },
+      "additionalProperties": false
+    },
+    "SidechatStreamEvent": {
+      "oneOf": [
+        { "$ref": "#/$defs/StartedEvent" },
+        { "$ref": "#/$defs/DeltaEvent" },
+        { "$ref": "#/$defs/ActivityEvent" },
+        { "$ref": "#/$defs/CompletedEvent" },
+        { "$ref": "#/$defs/ErrorEvent" },
+        { "$ref": "#/$defs/HistoryEvent" }
+      ]
+    },
+    "StartedEvent": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "eventId",
+        "assistantTurnId",
+        "sequence",
+        "createdAt"
+      ],
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "type": { "const": "sidechat.started" },
+        "eventId": { "type": "string", "minLength": 1 },
+        "assistantTurnId": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "minLength": 1 },
+        "conversationId": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "DeltaEvent": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "eventId",
+        "assistantTurnId",
+        "sequence",
+        "createdAt",
+        "content"
+      ],
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "type": { "const": "sidechat.delta" },
+        "eventId": { "type": "string", "minLength": 1 },
+        "assistantTurnId": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "minLength": 1 },
+        "content": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "ActivityEvent": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "eventId",
+        "assistantTurnId",
+        "sequence",
+        "createdAt",
+        "activityId",
+        "activityKind",
+        "status",
+        "title"
+      ],
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "type": { "const": "sidechat.activity" },
+        "eventId": { "type": "string", "minLength": 1 },
+        "assistantTurnId": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "minLength": 1 },
+        "activityId": { "type": "string", "minLength": 1 },
+        "activityKind": { "enum": ["progress", "reasoning", "tool", "host_command"] },
+        "status": { "enum": ["running", "completed", "failed"] },
+        "title": { "type": "string", "minLength": 1 },
+        "body": { "type": "string", "minLength": 1 },
+        "details": { "$ref": "#/$defs/ActivityDetails" }
+      },
+      "additionalProperties": false
+    },
+    "CompletedEvent": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "eventId",
+        "assistantTurnId",
+        "sequence",
+        "createdAt",
+        "finishReason"
+      ],
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "type": { "const": "sidechat.completed" },
+        "eventId": { "type": "string", "minLength": 1 },
+        "assistantTurnId": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "minLength": 1 },
+        "finishReason": { "enum": ["stop", "length", "aborted"] },
+        "usage": { "$ref": "#/$defs/UsageMetadata" }
+      },
+      "additionalProperties": false
+    },
+    "ErrorEvent": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "eventId",
+        "assistantTurnId",
+        "sequence",
+        "createdAt",
+        "code",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "type": { "const": "sidechat.error" },
+        "eventId": { "type": "string", "minLength": 1 },
+        "assistantTurnId": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "minLength": 1 },
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "retryable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "HistoryEvent": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "eventId",
+        "assistantTurnId",
+        "sequence",
+        "createdAt",
+        "messages"
+      ],
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "type": { "const": "sidechat.history" },
+        "eventId": { "type": "string", "minLength": 1 },
+        "assistantTurnId": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "minLength": 1 },
+        "messages": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HistoryMessage" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ActivityDetails": {
+      "type": "object",
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ActivitySource" }
+        },
+        "images": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ActivityImage" }
+        },
+        "tool": { "$ref": "#/$defs/ActivityToolDetails" },
+        "hostCommand": { "$ref": "#/$defs/ActivityHostCommandDetails" }
+      },
+      "additionalProperties": false
+    },
+    "ActivitySource": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "label": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "ActivityImage": {
+      "type": "object",
+      "required": ["alt", "mediaType", "data"],
+      "properties": {
+        "alt": { "type": "string" },
+        "caption": { "type": "string" },
+        "mediaType": { "type": "string" },
+        "data": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "ActivityToolDetails": {
+      "type": "object",
+      "required": ["toolCallId", "toolName"],
+      "properties": {
+        "toolCallId": { "type": "string" },
+        "toolName": { "type": "string" },
+        "input": { "$ref": "#/$defs/JsonObject" },
+        "result": { "$ref": "#/$defs/JsonObject" },
+        "sources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ActivitySource" }
+        },
+        "errorCode": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "ActivityHostCommandDetails": {
+      "type": "object",
+      "required": ["commandId", "commandName", "payload"],
+      "properties": {
+        "commandId": { "type": "string" },
+        "commandName": { "type": "string" },
+        "payload": { "$ref": "#/$defs/JsonObject" },
+        "result": { "$ref": "#/$defs/JsonObject" }
       },
       "additionalProperties": false
     },

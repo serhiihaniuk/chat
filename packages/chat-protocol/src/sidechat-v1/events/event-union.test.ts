@@ -18,26 +18,66 @@ describe("sidechat event validation", () => {
     expect(event.type).toBe(SIDECHAT_EVENT_TYPES.DELTA);
   });
 
-  it("accepts tool input and result payloads", () => {
+  it("accepts canonical activity payloads with tool details", () => {
     const event = parseSidechatStreamEvent({
       protocolVersion: "sidechat.v1",
-      type: SIDECHAT_EVENT_TYPES.TOOL,
+      type: SIDECHAT_EVENT_TYPES.ACTIVITY,
       eventId: "evt_002",
       assistantTurnId: "turn_001",
       sequence: 2,
       createdAt: "2026-05-23T13:00:00.000Z",
-      toolCallId: "tool_001",
-      toolName: "mock_web_search",
+      activityId: "tool_001",
+      activityKind: "tool",
       status: "completed",
-      input: { query: "latest news" },
-      result: { summary: "mocked result" },
+      title: "Run mock_web_search",
+      details: {
+        tool: {
+          toolCallId: "tool_001",
+          toolName: "mock_web_search",
+          input: { query: "latest news" },
+          result: { summary: "mocked result" },
+        },
+      },
     });
 
     expect(event).toMatchObject({
-      type: SIDECHAT_EVENT_TYPES.TOOL,
-      input: { query: "latest news" },
-      result: { summary: "mocked result" },
+      type: SIDECHAT_EVENT_TYPES.ACTIVITY,
+      activityKind: "tool",
+      details: {
+        tool: {
+          input: { query: "latest news" },
+          result: { summary: "mocked result" },
+        },
+      },
     });
+  });
+
+  it("rejects malformed nested activity details", () => {
+    const baseActivity = {
+      protocolVersion: "sidechat.v1",
+      type: SIDECHAT_EVENT_TYPES.ACTIVITY,
+      eventId: "evt_bad_activity",
+      assistantTurnId: "turn_001",
+      sequence: 3,
+      createdAt: "2026-05-23T13:00:00.000Z",
+      activityId: "tool_001",
+      activityKind: "tool",
+      status: "completed",
+      title: "Run mock_web_search",
+    };
+
+    for (const details of [
+      { tool: { toolName: "mock_web_search" } },
+      { tool: { toolCallId: "tool_001", toolName: "mock_web_search", result: "raw" } },
+      { tool: { toolCallId: "tool_001", toolName: "mock_web_search", providerPart: {} } },
+      { sources: [{ url: "https://example.test/result" }] },
+      { images: [{ alt: "chart", mediaType: "image/png" }] },
+      { hostCommand: { commandId: "cmd_001", commandName: "open_resource" } },
+    ]) {
+      expect(() => parseSidechatStreamEvent({ ...baseActivity, details })).toThrow(
+        ProtocolValidationError,
+      );
+    }
   });
 
   it("rejects provider-native and AI SDK UI stream shapes", () => {

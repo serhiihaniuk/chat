@@ -1,4 +1,5 @@
 import type { ObservabilitySinkPort, WorkspaceRef } from "@side-chat/partner-ai-core";
+import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
 import { Hono } from "hono";
 
@@ -8,6 +9,7 @@ import {
   composePartnerAiService,
   type PersistenceConfig,
   type RuntimeConfig,
+  type RuntimeToolConfig,
 } from "#composition/service-composition";
 import { authContextMiddleware, type AuthContextVariables } from "./middleware/auth-context.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
@@ -29,7 +31,8 @@ export type PartnerAiServiceOptions = {
   readonly observability?: ObservabilitySinkPort;
   readonly policies?: ServicePolicyConfig;
   readonly persistence?: PersistenceConfig;
-  readonly runtime?: RuntimeConfig;
+  readonly runtime?: RuntimeConfig & RuntimeToolConfig;
+  readonly agentRuntime?: AgentRuntime;
   readonly persistenceLabel?: "memory" | "postgres-drizzle";
   readonly workspace?: WorkspaceRef;
 };
@@ -43,6 +46,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     ...(options.persistence ? { persistence: options.persistence } : {}),
     ...(options.repositories ? { repositories: options.repositories } : {}),
     ...(options.runtime ? { runtime: options.runtime } : {}),
+    ...(options.agentRuntime ? { agentRuntime: options.agentRuntime } : {}),
   });
   const authority = createServiceAuthVerifier(composition.auth);
   const policies = createServicePolicyPort(composition.policies);

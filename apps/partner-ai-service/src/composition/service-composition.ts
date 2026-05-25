@@ -38,6 +38,9 @@ export type RuntimeConfig =
       readonly reasoningEffort?: OpenAIReasoningEffort;
       readonly reasoningSummary?: OpenAIReasoningSummary;
     };
+export type RuntimeToolConfig = {
+  readonly enableMockWebSearch?: boolean;
+};
 
 export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
@@ -61,7 +64,7 @@ export type ServiceCompositionOptions = {
   readonly policies?: ServicePolicyConfig;
   readonly persistence?: PersistenceConfig;
   readonly repositories?: SidechatRepositories;
-  readonly runtime?: RuntimeConfig;
+  readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
 };
 
@@ -87,10 +90,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   };
 };
 
-const createRuntimeForConfig = (config: RuntimeConfig): AgentRuntime =>
+const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): AgentRuntime =>
   createAgentRuntime({
     providers: [createProviderForRuntime(config)],
-    tools: [createMockWebSearchTool()],
+    tools: config.enableMockWebSearch ? [createMockWebSearchTool()] : [],
   });
 
 const createProviderForRuntime = (config: RuntimeConfig): AssistantProvider => {

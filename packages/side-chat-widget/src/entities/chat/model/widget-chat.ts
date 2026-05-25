@@ -1,12 +1,11 @@
 import {
   SIDECHAT_PROTOCOL_VERSION,
   type ChatStreamRequest,
-  type HostCommandEvent,
   type HostContext,
-  type ToolEvent,
   type UsageMetadata,
 } from "@side-chat/chat-protocol";
-import type { HostCommandResult } from "@side-chat/host-bridge";
+
+import { createEmptyActivityTimeline, type WidgetActivityTimeline } from "./activity.js";
 
 export type WidgetStatus = "idle" | "submitted" | "streaming" | "error";
 export type WidgetUsage = UsageMetadata;
@@ -15,40 +14,8 @@ export type WidgetMessage = {
   readonly id: string;
   readonly role: "user" | "assistant";
   readonly content: string;
-  readonly thoughts: readonly WidgetThought[];
-  readonly reasoning: readonly string[];
-  readonly tools: readonly ToolEvent[];
-  readonly hostCommands: readonly HostCommandView[];
+  readonly activity: WidgetActivityTimeline;
   readonly isStreaming?: boolean;
-};
-
-export type WidgetReasoningThought = {
-  readonly kind: "reasoning";
-  readonly id: string;
-  readonly sequence: number;
-  readonly content: string;
-};
-
-export type WidgetToolThought = {
-  readonly kind: "tool";
-  readonly id: string;
-  readonly sequence: number;
-  readonly tool: ToolEvent;
-};
-
-export type WidgetHostCommandThought = {
-  readonly kind: "host-command";
-  readonly id: string;
-  readonly sequence: number;
-  readonly command: HostCommandView;
-};
-
-export type WidgetThought = WidgetReasoningThought | WidgetToolThought | WidgetHostCommandThought;
-
-export type HostCommandView = {
-  readonly event: HostCommandEvent;
-  readonly result?: HostCommandResult;
-  readonly status: "running" | "completed" | "failed";
 };
 
 export const createDefaultRequest = ({
@@ -84,10 +51,7 @@ export const createWidgetMessage = (
   id,
   role,
   content,
-  thoughts: [],
-  reasoning: [],
-  tools: [],
-  hostCommands: [],
+  activity: createEmptyActivityTimeline(),
   isStreaming,
 });
 
@@ -96,85 +60,6 @@ export const updateMessage = (
   id: string,
   update: (message: WidgetMessage) => WidgetMessage,
 ): WidgetMessage[] => messages.map((message) => (message.id === id ? update(message) : message));
-
-export const updateHostCommand = (
-  messages: readonly WidgetMessage[],
-  messageId: string,
-  commandId: string,
-  nextCommand: HostCommandView,
-): WidgetMessage[] =>
-  updateMessage(messages, messageId, (message) => ({
-    ...message,
-    hostCommands: message.hostCommands.map((command) =>
-      command.event.commandId === commandId ? nextCommand : command,
-    ),
-    thoughts: message.thoughts.map((thought) =>
-      thought.kind === "host-command" && thought.command.event.commandId === commandId
-        ? { ...thought, command: nextCommand }
-        : thought,
-    ),
-  }));
-
-export const upsertToolEvent = (tools: readonly ToolEvent[], event: ToolEvent): ToolEvent[] => {
-  const index = tools.findIndex((tool) => tool.toolCallId === event.toolCallId);
-  if (index < 0) return [...tools, event];
-  return tools.map((tool, currentIndex) => (currentIndex === index ? { ...tool, ...event } : tool));
-};
-
-export const appendReasoningThought = (
-  thoughts: readonly WidgetThought[],
-  event: { readonly eventId: string; readonly sequence: number; readonly summary: string },
-): WidgetThought[] => [
-  ...thoughts,
-  {
-    content: event.summary,
-    id: event.eventId,
-    kind: "reasoning",
-    sequence: event.sequence,
-  },
-];
-
-export const upsertToolThought = (
-  thoughts: readonly WidgetThought[],
-  event: ToolEvent,
-): WidgetThought[] => {
-  const index = thoughts.findIndex(
-    (thought) => thought.kind === "tool" && thought.tool.toolCallId === event.toolCallId,
-  );
-  if (index < 0) {
-    return [
-      ...thoughts,
-      {
-        id: event.toolCallId,
-        kind: "tool",
-        sequence: event.sequence,
-        tool: event,
-      },
-    ];
-  }
-
-  return thoughts.map((thought, currentIndex) =>
-    currentIndex === index && thought.kind === "tool"
-      ? {
-          ...thought,
-          tool: { ...thought.tool, ...event },
-        }
-      : thought,
-  );
-};
-
-export const appendHostCommandThought = (
-  thoughts: readonly WidgetThought[],
-  command: HostCommandView,
-): WidgetThought[] => [
-  ...thoughts,
-  {
-    command,
-    id: command.event.commandId,
-    kind: "host-command",
-    sequence: command.event.sequence,
-  },
-];
 
 export const toErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "Chat request failed";

@@ -1,25 +1,30 @@
 import {
   SIDECHAT_EVENT_TYPES,
   type ChatStreamRequest,
-  type HostCommandEvent,
+  type ActivityDetails,
   type HostContext,
+  type JsonObject,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
 import type { ChatClient } from "@side-chat/chat-client";
-import type { HostBridge } from "@side-chat/host-bridge";
+import {
+  isHostCommandActivityEvent,
+  type HostBridge,
+  type HostCommandActivityEvent,
+  type HostCommandResult,
+} from "@side-chat/host-bridge";
 import { useCallback, useRef, useState } from "react";
 
 import {
-  appendHostCommandThought,
-  appendReasoningThought,
+  applyActivityEvent,
+  completeActivityTimeline,
   createDefaultRequest,
   createId,
   createWidgetMessage,
+  toJsonObject,
+  updateActivityItem,
   toErrorMessage,
-  updateHostCommand,
   updateMessage,
-  upsertToolEvent,
-  upsertToolThought,
   type WidgetMessage,
   type WidgetStatus,
   type WidgetUsage,
@@ -46,35 +51,39 @@ export const useWidgetChat = ({
 
   const dispatchHostCommand = useCallback(
     async (
-      event: HostCommandEvent,
+      event: HostCommandActivityEvent,
       assistantMessageId: string,
       bridge: Pick<HostBridge, "dispatchCommand"> | undefined,
     ): Promise<void> => {
-      setMessages((current) =>
-        updateMessage(current, assistantMessageId, (message) => ({
-          ...message,
-          hostCommands: [...message.hostCommands, { event, status: "running" }],
-          thoughts: appendHostCommandThought(message.thoughts, { event, status: "running" }),
-        })),
-      );
-
-      if (!bridge) return;
+      if (!bridge) {
+        setMessages((current) =>
+          updateMessage(current, assistantMessageId, (message) => ({
+            ...message,
+            activity: updateHostCommandActivity(message.activity, event.activityId, "failed"),
+          })),
+        );
+        return;
+      }
 
       try {
         const result = await bridge.dispatchCommand(event);
         setMessages((current) =>
-          updateHostCommand(current, assistantMessageId, event.commandId, {
-            event,
-            result,
-            status: "completed",
-          }),
+          updateMessage(current, assistantMessageId, (message) => ({
+            ...message,
+            activity: updateHostCommandActivity(
+              message.activity,
+              event.activityId,
+              result.status === "applied" ? "completed" : "failed",
+              result,
+            ),
+          })),
         );
       } catch {
         setMessages((current) =>
-          updateHostCommand(current, assistantMessageId, event.commandId, {
-            event,
-            status: "failed",
-          }),
+          updateMessage(current, assistantMessageId, (message) => ({
+            ...message,
+            activity: updateHostCommandActivity(message.activity, event.activityId, "failed"),
+          })),
         );
       }
     },
@@ -97,28 +106,16 @@ export const useWidgetChat = ({
           );
           return;
 
-        case SIDECHAT_EVENT_TYPES.REASONING:
+        case SIDECHAT_EVENT_TYPES.ACTIVITY:
           setMessages((current) =>
             updateMessage(current, assistantMessageId, (message) => ({
               ...message,
-              reasoning: [...message.reasoning, event.summary],
-              thoughts: appendReasoningThought(message.thoughts, event),
+              activity: applyActivityEvent(message.activity, event),
             })),
           );
-          return;
-
-        case SIDECHAT_EVENT_TYPES.TOOL:
-          setMessages((current) =>
-            updateMessage(current, assistantMessageId, (message) => ({
-              ...message,
-              tools: upsertToolEvent(message.tools, event),
-              thoughts: upsertToolThought(message.thoughts, event),
-            })),
-          );
-          return;
-
-        case SIDECHAT_EVENT_TYPES.HOST_COMMAND:
-          await dispatchHostCommand(event, assistantMessageId, bridge);
+          if (isHostCommandActivityEvent(event)) {
+            await dispatchHostCommand(event, assistantMessageId, bridge);
+          }
           return;
 
         case SIDECHAT_EVENT_TYPES.ERROR:
@@ -127,6 +124,7 @@ export const useWidgetChat = ({
           setMessages((current) =>
             updateMessage(current, assistantMessageId, (message) => ({
               ...message,
+              activity: completeActivityTimeline(message.activity, event.createdAt),
               isStreaming: false,
             })),
           );
@@ -134,6 +132,12 @@ export const useWidgetChat = ({
 
         case SIDECHAT_EVENT_TYPES.COMPLETED:
           setUsage(event.usage);
+          setMessages((current) =>
+            updateMessage(current, assistantMessageId, (message) => ({
+              ...message,
+              activity: completeActivityTimeline(message.activity, event.createdAt),
+            })),
+          );
           return;
 
         case SIDECHAT_EVENT_TYPES.STARTED:
@@ -188,6 +192,7 @@ export const useWidgetChat = ({
         setMessages((current) =>
           updateMessage(current, assistantMessageId, (message) => ({
             ...message,
+            activity: completeActivityTimeline(message.activity),
             isStreaming: false,
           })),
         );
@@ -196,6 +201,7 @@ export const useWidgetChat = ({
         setMessages((current) =>
           updateMessage(current, assistantMessageId, (message) => ({
             ...message,
+            activity: completeActivityTimeline(message.activity),
             isStreaming: false,
           })),
         );
@@ -232,3 +238,40 @@ export const useWidgetChat = ({
     usage,
   };
 };
+
+const updateHostCommandActivity = (
+  activity: WidgetMessage["activity"],
+  activityId: string,
+  status: "completed" | "failed",
+  result?: HostCommandResult,
+): WidgetMessage["activity"] =>
+  updateActivityItem(activity, activityId, (item) => ({
+    ...item,
+    status,
+    details: mergeHostCommandResult(item.details, result),
+  }));
+
+const mergeHostCommandResult = (
+  details: ActivityDetails | undefined,
+  result: HostCommandResult | undefined,
+): ActivityDetails | undefined => {
+  if (!result) return details;
+  if (!details?.hostCommand) return details;
+  return {
+    ...details,
+    hostCommand: {
+      ...details.hostCommand,
+      result: toHostCommandResultJson(result),
+    },
+  };
+};
+
+const toHostCommandResultJson = (result: HostCommandResult): JsonObject =>
+  toJsonObject({
+    commandId: result.commandId,
+    commandName: result.commandName,
+    status: result.status,
+    resultCode: result.resultCode,
+    resolvedAt: result.resolvedAt,
+    data: result.data,
+  });

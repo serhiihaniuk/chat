@@ -28,11 +28,11 @@ Current baseline:
 - The agent runtime uses AI SDK `ToolLoopAgent` as the orchestration boundary
   and emits normalized runtime events.
 - A backend `mock_web_search` tool is registered by the service. It simulates web
-  search without external egress, emits `sidechat.tool` started/completed events,
-  streams progress text, and feeds the mocked result back into the assistant
-  context.
-- `sidechat.tool` events now carry optional `input`, `result`, and `errorCode`
-  fields so the widget can render AI Elements-style tool UI without provider
+  search without external egress, emits ordered `sidechat.activity` progress and
+  tool rows, and feeds the mocked result back into the assistant context.
+- `sidechat.activity` is the canonical assistant-activity protocol event. Tool
+  parameters, results, errors, and sources live under `details.tool`, allowing
+  the widget to render a stable AI Elements-style timeline without provider
   native payloads.
 - The widget uses the refactored prompt input, model picker, context control,
   reasoning display, source/tool surfaces, and resizable panel. It intentionally
@@ -49,9 +49,9 @@ Current baseline:
 - API health smoke against the local service reported `providerId:"openai"`,
   `modelId:"gpt-5.4-mini"`, and `persistence:"postgres-drizzle"` with no secret
   values exposed.
-- API stream smoke for a search-style prompt emitted `sidechat.tool` started and
-  completed events for the backend mock web-search tool, plus streamed assistant
-  output.
+- API stream smoke for a search-style prompt emitted ordered `sidechat.activity`
+  progress/tool events for the backend mock web-search tool, plus streamed
+  assistant output.
 
 ## Known Residuals
 

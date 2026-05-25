@@ -48,7 +48,7 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
     className={cn(
       "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
       "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
-      "group-[.is-assistant]:text-foreground",
+      "group-[.is-assistant]:w-full group-[.is-assistant]:text-foreground",
       className,
     )}
     {...props}
@@ -287,7 +287,13 @@ const streamdownPlugins = { cjk, code, math, mermaid };
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
-      className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+      className={cn(
+        "w-full max-w-[80ch] text-foreground",
+        "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        "[&_a]:underline [&_a]:underline-offset-4",
+        "[&_li]:leading-7 [&_ol]:list-decimal [&_ol]:ps-6 [&_p]:leading-7 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:ps-6",
+        className,
+      )}
       plugins={streamdownPlugins}
       {...props}
     />

@@ -1,4 +1,10 @@
-import type { ChatRequestMessage, JsonObject, UsageMetadata } from "@side-chat/chat-protocol";
+import type {
+  ActivityDetails,
+  ActivityKind,
+  ActivityStatus,
+  ChatRequestMessage,
+  UsageMetadata,
+} from "@side-chat/chat-protocol";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 
 export type ClockPort = {
@@ -58,25 +64,14 @@ export type RuntimeOutputDeltaEvent = RuntimeEventBase & {
   readonly content: string;
 };
 
-export type RuntimeReasoningEvent = RuntimeEventBase & {
-  readonly type: "runtime.reasoning";
-  readonly summary: string;
-};
-
-export type RuntimeToolCallEvent = RuntimeEventBase & {
-  readonly type: "runtime.tool_call";
-  readonly toolCallId: string;
-  readonly toolName: string;
-  readonly argumentsJson: JsonObject;
-};
-
-export type RuntimeToolResultEvent = RuntimeEventBase & {
-  readonly type: "runtime.tool_result";
-  readonly toolCallId: string;
-  readonly toolName: string;
-  readonly status: "completed" | "failed";
-  readonly resultJson?: JsonObject;
-  readonly errorCode?: string;
+export type RuntimeActivityEvent = RuntimeEventBase & {
+  readonly type: "runtime.activity";
+  readonly activityId: string;
+  readonly activityKind: ActivityKind;
+  readonly status: ActivityStatus;
+  readonly title: string;
+  readonly body?: string;
+  readonly details?: ActivityDetails;
 };
 
 export type RuntimeCompletedEvent = RuntimeEventBase & {
@@ -95,9 +90,7 @@ export type RuntimeErrorEvent = RuntimeEventBase & {
 export type RuntimeEvent =
   | RuntimeStartedEvent
   | RuntimeOutputDeltaEvent
-  | RuntimeReasoningEvent
-  | RuntimeToolCallEvent
-  | RuntimeToolResultEvent
+  | RuntimeActivityEvent
   | RuntimeCompletedEvent
   | RuntimeErrorEvent;
 

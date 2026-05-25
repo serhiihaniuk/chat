@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { AgentRuntimeError } from "../errors.js";
 import { createFakeProvider, FAKE_ECHO_MODEL_ID, FAKE_PROVIDER_ID } from "#fake/fake-provider";
 import { createMockWebSearchTool, MOCK_WEB_SEARCH_TOOL_NAME } from "#tools/mock-web-search";
+import type { RuntimeRequest } from "../provider.js";
 import { createAgentRuntime } from "./agent-runtime.js";
 
 describe("createAgentRuntime", () => {
@@ -24,24 +24,45 @@ describe("createAgentRuntime", () => {
     expect(events.every((event) => event.requestId === "req_001")).toBe(true);
   });
 
-  it("checks requested tools before model execution", () => {
+  it("does not accept request-level tool selection", async () => {
     const runtime = createAgentRuntime({
-      providers: [createFakeProvider()],
+      providers: [
+        createFakeProvider({
+          script: (request) => [
+            {
+              type: "runtime.started",
+              requestId: request.requestId,
+              assistantTurnId: request.assistantTurnId,
+              sequence: 0,
+              providerId: FAKE_PROVIDER_ID,
+              modelId: FAKE_ECHO_MODEL_ID,
+            },
+            {
+              type: "runtime.completed",
+              requestId: request.requestId,
+              assistantTurnId: request.assistantTurnId,
+              sequence: 1,
+              finishReason: "stop",
+            },
+          ],
+        }),
+      ],
     });
 
-    expect(() =>
+    const events = await collectEvents(
       runtime.stream({
         providerId: FAKE_PROVIDER_ID,
         modelId: FAKE_ECHO_MODEL_ID,
         requestId: "req_002",
         assistantTurnId: "turn_002",
         messages: [],
-        toolNames: ["missing"],
       }),
-    ).toThrow(AgentRuntimeError);
+    );
+
+    expect(events.at(-1)?.type).toBe("runtime.completed");
   });
 
-  it("streams auto-invoked backend tool calls and adds their output to provider context", async () => {
+  it("prepends markdown rendering instructions before provider execution", async () => {
     const providerMessages: unknown[] = [];
     const runtime = createAgentRuntime({
       providers: [
@@ -68,7 +89,59 @@ describe("createAgentRuntime", () => {
           },
         },
       ],
-      tools: [createMockWebSearchTool({ delayMs: 0 })],
+    });
+
+    await collectEvents(
+      runtime.stream({
+        providerId: FAKE_PROVIDER_ID,
+        modelId: FAKE_ECHO_MODEL_ID,
+        requestId: "req_markdown",
+        assistantTurnId: "turn_markdown",
+        messages: [{ role: "user", content: "respond in list" }],
+      }),
+    );
+
+    expect(providerMessages[0]).toMatchObject({
+      role: "system",
+      content: expect.stringContaining("GitHub-flavored Markdown"),
+    });
+    expect(providerMessages[1]).toMatchObject({ role: "user", content: "respond in list" });
+  });
+
+  it("exposes tools to the selected provider without running them before the model", async () => {
+    const providerRequests: RuntimeRequest[] = [];
+    const tool = {
+      ...createMockWebSearchTool({ delayMs: 0 }),
+      run: () => {
+        throw new Error("The runtime must not execute tools before provider streaming.");
+      },
+    };
+    const runtime = createAgentRuntime({
+      providers: [
+        {
+          providerId: FAKE_PROVIDER_ID,
+          modelIds: [FAKE_ECHO_MODEL_ID],
+          async *stream(request) {
+            providerRequests.push(request);
+            yield {
+              type: "runtime.started",
+              requestId: request.requestId,
+              assistantTurnId: request.assistantTurnId,
+              sequence: 0,
+              providerId: FAKE_PROVIDER_ID,
+              modelId: FAKE_ECHO_MODEL_ID,
+            };
+            yield {
+              type: "runtime.completed",
+              requestId: request.requestId,
+              assistantTurnId: request.assistantTurnId,
+              sequence: 1,
+              finishReason: "stop",
+            };
+          },
+        },
+      ],
+      tools: [tool],
     });
 
     const events = await collectEvents(
@@ -81,26 +154,14 @@ describe("createAgentRuntime", () => {
       }),
     );
 
-    expect(events).toMatchObject([
-      { type: "runtime.reasoning", summary: expect.stringContaining("Searching the web") },
-      { type: "runtime.reasoning", summary: expect.stringContaining("Scanning mocked") },
-      {
-        type: "runtime.tool_call",
-        toolName: MOCK_WEB_SEARCH_TOOL_NAME,
-        argumentsJson: { query: "search web for portfolio news" },
-      },
-      {
-        type: "runtime.tool_result",
-        toolName: MOCK_WEB_SEARCH_TOOL_NAME,
-        status: "completed",
-      },
-      { type: "runtime.started" },
-      { type: "runtime.completed" },
+    expect(events).toMatchObject([{ type: "runtime.started" }, { type: "runtime.completed" }]);
+    expect(providerRequests).toHaveLength(1);
+    expect(providerRequests[0]?.tools?.map((runtimeTool) => runtimeTool.name)).toEqual([
+      MOCK_WEB_SEARCH_TOOL_NAME,
     ]);
-    expect(providerMessages).toContainEqual(
+    expect(providerRequests[0]?.messages).not.toContainEqual(
       expect.objectContaining({
-        role: "system",
-        content: expect.stringContaining("Backend tool mock_web_search returned"),
+        content: expect.stringContaining("Backend tool"),
       }),
     );
   });

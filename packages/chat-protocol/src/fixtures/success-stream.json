@@ -19,23 +19,34 @@
   },
   {
     "protocolVersion": "sidechat.v1",
-    "type": "sidechat.reasoning",
+    "type": "sidechat.activity",
     "eventId": "evt_003",
     "assistantTurnId": "turn_success_001",
     "sequence": 2,
     "createdAt": "2026-05-23T13:00:00.200Z",
-    "summary": "Prepared a concise answer."
+    "activityId": "activity_reasoning_001",
+    "activityKind": "reasoning",
+    "status": "completed",
+    "title": "Prepared a concise answer."
   },
   {
     "protocolVersion": "sidechat.v1",
-    "type": "sidechat.host_command",
+    "type": "sidechat.activity",
     "eventId": "evt_004",
     "assistantTurnId": "turn_success_001",
     "sequence": 3,
     "createdAt": "2026-05-23T13:00:00.300Z",
-    "commandId": "cmd_001",
-    "commandName": "highlight_source",
-    "payload": { "sourceId": "source_001" }
+    "activityId": "cmd_001",
+    "activityKind": "host_command",
+    "status": "running",
+    "title": "Highlight source",
+    "details": {
+      "hostCommand": {
+        "commandId": "cmd_001",
+        "commandName": "highlight_source",
+        "payload": { "sourceId": "source_001" }
+      }
+    }
   },
   {
     "protocolVersion": "sidechat.v1",

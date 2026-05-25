@@ -24,6 +24,7 @@ export default defineConfig({
         SIDECHAT_ALLOWED_MODELS: "",
         SIDECHAT_AUTH_BEARER_TOKEN: authToken,
         SIDECHAT_DATABASE_URL: "",
+        SIDECHAT_ENABLE_DEV_TOOLS: "true",
         SIDECHAT_OPENAI_API_KEY: "",
         SIDECHAT_POLICY_MODE: "allow_all",
         SIDECHAT_PROFILE: "development",

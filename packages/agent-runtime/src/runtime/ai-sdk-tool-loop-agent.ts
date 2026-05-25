@@ -9,6 +9,11 @@ import {
 
 import type { RuntimeEvent, RuntimeUsage } from "../events.js";
 import type { RuntimeRequest } from "../provider.js";
+import {
+  createAiSdkToolSet,
+  createRuntimeToolLookup,
+  mapAiSdkToolActivity,
+} from "./ai-sdk-runtime-tools.js";
 
 export type AiSdkModelResolver = (request: RuntimeRequest) => LanguageModel;
 export type AiSdkToolLoopAgentOptions = {
@@ -36,22 +41,62 @@ export const createAiSdkToolLoopAgent = ({
     };
     sequence += 1;
 
+    const tools = createAiSdkToolSet(request.tools);
+    const runtimeTools = createRuntimeToolLookup(request.tools);
     const agent = new AiSdkToolLoopAgent({
       model: resolveModel(request),
       allowSystemInMessages: true,
       maxRetries: 0,
+      ...(tools ? { tools, toolChoice: "auto" as const } : {}),
       ...(providerOptions ? { providerOptions } : {}),
     });
     const result = await agent.stream({
       messages: [...request.messages],
     });
 
+    const reasoningState: ReasoningStreamState = {
+      blockIndex: 0,
+      text: "",
+    };
+    const flushReasoning = (): RuntimeEvent | undefined => {
+      const event = createReasoningActivity(request, sequence, reasoningState, "completed");
+      if (event) {
+        sequence += 1;
+        reasoningState.blockIndex += 1;
+        reasoningState.text = "";
+      }
+      return event;
+    };
+
     for await (const part of result.fullStream) {
+      if (part.type === "reasoning-delta") {
+        reasoningState.text = `${reasoningState.text}${part.text}`;
+        const event = createReasoningActivity(request, sequence, reasoningState, "running");
+        if (event) {
+          yield event;
+          sequence += 1;
+        }
+        continue;
+      }
+
+      const reasoningEvent = flushReasoning();
+      if (reasoningEvent) yield reasoningEvent;
+
+      const toolEvent = mapAiSdkToolActivity(request, part, sequence, runtimeTools);
+      if (toolEvent) {
+        yield toolEvent;
+        sequence += 1;
+        continue;
+      }
+
       const event = mapAiSdkStreamPart(request, part, sequence);
       if (!event) continue;
       yield event;
       sequence += 1;
     }
+
+    const reasoningEvent = flushReasoning();
+    if (reasoningEvent) yield reasoningEvent;
   },
 });
 
@@ -67,15 +112,6 @@ const mapAiSdkStreamPart = (
       assistantTurnId: request.assistantTurnId,
       sequence,
       content: part.text,
-    };
-  }
-  if (part.type === "reasoning-delta") {
-    return {
-      type: "runtime.reasoning",
-      requestId: request.requestId,
-      assistantTurnId: request.assistantTurnId,
-      sequence,
-      summary: part.text,
     };
   }
   if (part.type === "finish") {
@@ -101,6 +137,56 @@ const mapAiSdkStreamPart = (
   }
   return undefined;
 };
+
+const createReasoningActivity = (
+  request: RuntimeRequest,
+  sequence: number,
+  state: ReasoningStreamState,
+  status: "running" | "completed",
+): RuntimeEvent | undefined => {
+  const presentation = toReasoningPresentation(state.text);
+  if (!presentation) return undefined;
+
+  return {
+    type: "runtime.activity",
+    activityId: `reasoning-${request.assistantTurnId}-${state.blockIndex}`,
+    activityKind: "reasoning",
+    requestId: request.requestId,
+    assistantTurnId: request.assistantTurnId,
+    sequence,
+    status,
+    title: presentation.title,
+    ...(presentation.body ? { body: presentation.body } : {}),
+  };
+};
+
+type ReasoningStreamState = {
+  blockIndex: number;
+  text: string;
+};
+
+const toReasoningPresentation = (
+  reasoningText: string,
+): { readonly title: string; readonly body?: string } | undefined => {
+  const normalized = reasoningText.replace(/\s+/gu, " ").trim();
+  if (!normalized) return undefined;
+
+  const titledContent = /^\*\*(?<title>[^*]+)\*\*\s*(?<body>.*)$/su.exec(normalized);
+  const title = stripInlineMarkdown(titledContent?.groups?.["title"] ?? "");
+  const body = titledContent?.groups?.["body"]?.trim();
+  if (title) return { title, ...(body ? { body } : {}) };
+
+  const fallbackTitle = stripInlineMarkdown(normalized).replace(/\*/gu, "").trim();
+  return {
+    title: fallbackTitle && normalized.length <= 120 ? fallbackTitle : "Thinking",
+  };
+};
+
+const stripInlineMarkdown = (value: string): string =>
+  value
+    .replace(/\*\*(?<content>[^*]+)\*\*/gu, "$<content>")
+    .replace(/[_`]/gu, "")
+    .trim();
 
 const mapFinishReason = (reason: string): "stop" | "length" | "aborted" => {
   if (reason === "length") return "length";

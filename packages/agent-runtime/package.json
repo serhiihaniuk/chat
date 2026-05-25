@@ -36,7 +36,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc --noEmit --pretty false -p tsconfig.json",
-    "test": "cd ../.. && vitest run packages/agent-runtime/src/fake/fake-provider.test.ts packages/agent-runtime/src/registry/provider-registry.test.ts packages/agent-runtime/src/tools/tool-registry.test.ts packages/agent-runtime/src/runtime/agent-runtime.test.ts"
+    "test": "cd ../.. && vitest run packages/agent-runtime/src/fake/fake-provider.test.ts packages/agent-runtime/src/registry/provider-registry.test.ts packages/agent-runtime/src/tools/tool-registry.test.ts packages/agent-runtime/src/runtime/agent-runtime.test.ts packages/agent-runtime/src/runtime/ai-sdk-runtime-tools.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "3.0.65",

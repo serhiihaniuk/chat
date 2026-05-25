@@ -1,4 +1,5 @@
 import type { RuntimeEvent } from "./events.js";
+import type { RuntimeTool } from "./tools/tool-registry.js";
 
 export type RuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
@@ -11,7 +12,7 @@ export type RuntimeRequest = {
   readonly providerId?: string;
   readonly modelId: string;
   readonly messages: readonly RuntimeMessage[];
-  readonly toolNames?: readonly string[];
+  readonly tools?: readonly RuntimeTool[];
 };
 
 export type AssistantProvider = {

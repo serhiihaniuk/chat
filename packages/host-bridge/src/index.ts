@@ -1,8 +1,10 @@
 export {
+  isHostCommandActivityEvent,
   supportsCommand,
   toHostCommand,
   type HostCapabilities,
   type HostCommand,
+  type HostCommandActivityEvent,
   type HostCommandCapability,
 } from "./capability.js";
 export {

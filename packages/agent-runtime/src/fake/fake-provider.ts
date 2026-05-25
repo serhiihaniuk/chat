@@ -43,11 +43,14 @@ export const createDeterministicEchoScript = (
       modelId: request.modelId,
     };
     const reasoning: RuntimeEvent = {
-      type: "runtime.reasoning",
+      type: "runtime.activity",
       requestId: request.requestId,
       assistantTurnId: request.assistantTurnId,
       sequence: 1,
-      summary: "fake-provider selected deterministic echo script",
+      activityId: "fake-provider-plan",
+      activityKind: "reasoning",
+      status: "completed",
+      title: "Selected deterministic echo script",
     };
     const deltas = words.map<RuntimeEvent>((word, index) => ({
       type: "runtime.output_delta",

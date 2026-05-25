@@ -24,7 +24,8 @@ paths.
 - `docker compose -f infra/local/docker-compose.yml config`: pass.
 - `docker compose -f infra/local/docker-compose.yml build partner-ai-service`: pass.
 - Local API smoke: `/healthz` reports OpenAI provider metadata without secrets,
-  and a search-style stream emits backend `mock_web_search` tool events.
+  and the OpenAI runtime receives registered tool capabilities through the AI
+  SDK agent loop.
 
 ## Accepted State
 
@@ -33,12 +34,15 @@ paths.
 - `packages/db` includes real Postgres/Drizzle repositories for conversations, messages, assistant turns, context snapshots, usage, tool invocations, host command results, and audit events.
 - `packages/agent-runtime` routes OpenAI execution through AI SDK-backed runtime code.
 - `packages/agent-runtime` registers a deterministic backend
-  `mock_web_search` tool that emits normalized tool events and simulated search
-  progress without external egress.
+  `mock_web_search` capability. The model decides whether to call it through
+  `ToolLoopAgent`; observed tool-call/tool-result parts map into normalized
+  activity without external egress.
 - `packages/partner-ai-core` is organized into domain, application, ports, policies, errors, and services, including Effect service/layer coverage.
-- `packages/side-chat-widget` is organized into `app` and `shared`, with exact
-  shadcn-style primitives and AI Elements-derived components under
-  `shared/ui` and `shared/ai`.
+- `packages/side-chat-widget` is organized into `widgets`, `features`,
+  `entities`, and `shared`, with exact shadcn-style primitives and AI
+  Elements-derived components under `shared/ui` and `shared/ai`.
+- `entities/chat` owns the canonical assistant activity projection that renders
+  the Thinking timeline in protocol order.
 - `packages/testing` provides shared protocol builders, stream helpers, and assertions.
 - Generated protocol/OpenAPI artifacts are required by governance.
 - Boundary, dependency, outbound, TypeScript, package export, generated artifact,

@@ -1,9 +1,22 @@
-import type { HostCommandEvent, JsonObject } from "@side-chat/chat-protocol";
+import type {
+  ActivityEvent,
+  ActivityHostCommandDetails,
+  JsonObject,
+} from "@side-chat/chat-protocol";
 
-export type HostCommand = Pick<
-  HostCommandEvent,
-  "assistantTurnId" | "commandId" | "commandName" | "payload"
->;
+export type HostCommandActivityEvent = ActivityEvent & {
+  readonly activityKind: "host_command";
+  readonly details: {
+    readonly hostCommand: ActivityHostCommandDetails;
+  };
+};
+
+export type HostCommand = {
+  readonly assistantTurnId: string;
+  readonly commandId: string;
+  readonly commandName: string;
+  readonly payload: JsonObject;
+};
 
 export type HostCommandCapability = {
   readonly commandName: string;
@@ -15,11 +28,16 @@ export type HostCapabilities = {
   readonly commands: readonly HostCommandCapability[];
 };
 
-export const toHostCommand = (event: HostCommandEvent): HostCommand => ({
+export const isHostCommandActivityEvent = (
+  event: ActivityEvent,
+): event is HostCommandActivityEvent =>
+  event.activityKind === "host_command" && event.details?.hostCommand !== undefined;
+
+export const toHostCommand = (event: HostCommandActivityEvent): HostCommand => ({
   assistantTurnId: event.assistantTurnId,
-  commandId: event.commandId,
-  commandName: event.commandName,
-  payload: event.payload,
+  commandId: event.details.hostCommand.commandId,
+  commandName: event.details.hostCommand.commandName,
+  payload: event.details.hostCommand.payload,
 });
 
 export const supportsCommand = (capabilities: HostCapabilities, command: HostCommand): boolean =>

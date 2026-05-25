@@ -1,8 +1,13 @@
-import { SIDECHAT_PROTOCOL_VERSION, type HostCommandEvent } from "@side-chat/chat-protocol";
+import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 
 import { createHostBridge } from "./bridge.js";
-import { supportsCommand, toHostCommand, type HostCapabilities } from "./capability.js";
+import {
+  supportsCommand,
+  toHostCommand,
+  type HostCapabilities,
+  type HostCommandActivityEvent,
+} from "./capability.js";
 import {
   createCommandResult,
   createRejectedResult,
@@ -25,16 +30,24 @@ const capabilities: HostCapabilities = {
 
 const commandEvent = (
   payload = { resourceType: "document", resourceId: "doc-1" },
-): HostCommandEvent => ({
+): HostCommandActivityEvent => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-  type: "sidechat.host_command",
+  type: "sidechat.activity",
   eventId: "evt-command-1",
   assistantTurnId: "turn-1",
   sequence: 2,
   createdAt: "2026-05-23T00:00:02.000Z",
-  commandId: "command-1",
-  commandName: "open_resource",
-  payload,
+  activityId: "command-1",
+  activityKind: "host_command",
+  status: "running",
+  title: "Open resource",
+  details: {
+    hostCommand: {
+      commandId: "command-1",
+      commandName: "open_resource",
+      payload,
+    },
+  },
 });
 
 const contextSnapshot: HostContextSnapshot = {

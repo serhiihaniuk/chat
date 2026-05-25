@@ -56,9 +56,11 @@ describe("partner ai service env config", () => {
     const app = createPartnerAiServiceApp(
       createPartnerAiServiceOptionsFromEnv({
         SIDECHAT_PROFILE: "production",
+        SIDECHAT_PROVIDER: "openai",
+        SIDECHAT_OPENAI_API_KEY: "prod-key",
         SIDECHAT_AUTH_BEARER_TOKEN: "prod-token",
         SIDECHAT_POLICY_MODE: "configured",
-        SIDECHAT_ALLOWED_MODELS: "fake-echo,other-model",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini,other-model",
         SIDECHAT_TENANT_ID: "tenant_prod",
         SIDECHAT_WORKSPACE_ID: "workspace_prod",
         SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
@@ -69,9 +71,35 @@ describe("partner ai service env config", () => {
     await expect(readiness.json()).resolves.toMatchObject({
       authProfile: "production",
       policyMode: "configured",
-      providerId: "fake",
-      modelId: "fake-echo",
+      providerId: "openai",
+      modelId: "gpt-5.4-mini",
     });
+  });
+
+  it("rejects fake provider and dev tools in production", () => {
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROFILE: "production",
+        SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
+      }),
+    ).toThrow("SIDECHAT_PROVIDER=openai");
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROFILE: "production",
+        SIDECHAT_PROVIDER: "fake",
+        SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
+      }),
+    ).toThrow("SIDECHAT_PROVIDER=openai");
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROFILE: "production",
+        SIDECHAT_PROVIDER: "openai",
+        SIDECHAT_OPENAI_API_KEY: "key_123",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini",
+        SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
+        SIDECHAT_ENABLE_DEV_TOOLS: "true",
+      }),
+    ).toThrow("SIDECHAT_ENABLE_DEV_TOOLS");
   });
 
   it("validates operational profile and port inputs", () => {
@@ -98,6 +126,7 @@ describe("partner ai service env config", () => {
       apiKey: "key_123",
       modelIds: ["gpt-5.4-mini"],
       defaultModelId: "gpt-5.4-mini",
+      enableMockWebSearch: true,
       reasoningEffort: "medium",
       reasoningSummary: "auto",
     });

@@ -24,13 +24,16 @@ trimmed FSD shape documented above:
 The UI dependency ladder is:
 
 ```txt
-approved packages -> shared/ui -> shared/ai -> entities -> features -> widgets
+approved packages -> shared/ui -> shared/ai -> features -> widgets
 ```
+
+Entities may import protocol types and `shared/lib` helpers, but they must not
+import React UI or `shared/ai` components.
 
 `shared/ui` may start from shadcn-style source, but it must not depend on a
 shadcn package or generated registry. It may depend on React, Tailwind 4,
 `@base-ui/react`, `class-variance-authority`, local `cn`, and accepted widget UI
-dependencies where the current implementation needs them.
+dependencies where the component needs them.
 
 `shared/ai` is the widget-local AI component layer. The package intentionally
 keeps `ai-elements` as an accepted dependency while selected component source is
@@ -43,5 +46,11 @@ has no dependency on partner AI core, agent runtime, DB, Hono, Drizzle, Effect,
 provider SDKs, or forbidden shadcn registry packages.
 
 The current user-facing widget includes a resizable panel, conversation stream,
-reasoning display, backend tool display, source/citation surfaces, prompt input,
-context control, model picker inside the prompt input area, and host-command UI.
+canonical assistant activity timeline, backend tool rows, source/citation
+surfaces, prompt input, context control, model picker inside the prompt input
+area, and host-command activity UI.
+
+Assistant activity is one ordered projection owned by `entities/chat`. Feature
+UI renders that projection through generic `shared/ai` components. The widget
+stores typed reasoning, progress, tool, and host-command activity in that single
+projection and does not infer tool progress from display text.

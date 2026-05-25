@@ -30,7 +30,8 @@ external host app -> side-chat-widget -> chat-client -> chat-protocol -> partner
 - `packages/partner-ai-core`: framework-free use cases, policies, ports, runtime
   event mapping, and application errors.
 - `packages/agent-runtime`: AI SDK `ToolLoopAgent` runtime, provider registry,
-  OpenAI adapter, fake provider fixture, tool registry, and backend tools.
+  OpenAI adapter, fake provider fixture, registered tool capability registry,
+  and backend tool adapters.
 - `packages/db`: Postgres/Drizzle persistence boundary and repository adapters.
 - `packages/side-chat-widget`: React widget using FSD layers: `widgets`,
   `features`, `entities`, and `shared`; `shared/ui` contains shadcn-style
@@ -55,24 +56,44 @@ The current local service path is OpenAI-configured through `.env`:
 Fake provider mode remains an explicit deterministic test/development path. It
 must not be described as the current real-provider smoke path.
 
-The current backend development tool is `mock_web_search`. It simulates web
-search inside `agent-runtime`, emits normalized tool events, streams progress
-text, and feeds deterministic search context back to the assistant without
-external egress.
+The accepted backend development capability is `mock_web_search`. It simulates
+web search inside `agent-runtime` without external egress. It is registered as
+an available tool for the agent; the model decides whether and when to call it
+through the AI SDK tool loop.
+
+Development tool exposure is non-production behavior. The service may expose
+`mock_web_search` in development profile through dev-tool configuration, but
+production profile must fail closed on fake providers and development tools.
 
 ## Protocol State
 
 `sidechat.v1` is the browser/backend contract. Event type strings are centralized
 in `SIDECHAT_EVENT_TYPES`.
 
-`sidechat.tool` carries backend tool state with:
+Assistant work is represented by a canonical ordered activity stream. The
+protocol emits `sidechat.activity` events for progress, safe reasoning summaries,
+tool execution, and host-command activity observed from the runtime. Every
+activity event has a stable
+`activityId`, a monotonic `sequence`, an `activityKind`, a lifecycle `status`,
+and display text that is safe for the widget to render.
+
+Tool activity is a `sidechat.activity` item with `activityKind: "tool"` and
+contains the tool details needed by the UI:
 
 - `toolCallId`
 - `toolName`
 - `status`
 - optional `input`
 - optional `result`
+- optional `sources`
 - optional `errorCode`
+
+Tool parameters, result, error, and sources stay inside the expandable tool
+activity row. They do not create separate top-level timeline rows.
+
+The protocol does not carry request-level tool selection. Tool availability is a
+runtime/profile/policy concern, and provider-native tool parts are normalized
+before partner AI core maps them to protocol events.
 
 Do not expose provider-native stream parts, AI SDK UI messages, DB rows, or
 framework objects through the protocol.
@@ -92,14 +113,21 @@ The widget includes:
 
 - resizable panel;
 - conversation stream;
-- reasoning display;
-- backend tool display;
+- canonical assistant activity timeline;
+- a single Thinking / Thought for N seconds activity section;
+- backend tool rows inside the activity timeline;
 - source/citation surfaces;
 - suggestions/quick actions from props;
 - prompt input;
 - context controls;
 - model picker inside the prompt input;
-- host-command display.
+- host-command activity display.
+
+Assistant message state stores final assistant text separately from activity
+state. Activity state is one ordered model with typed item kinds for reasoning,
+progress, tools, and host commands. Completed activity rows keep their order and
+main visual presentation after completion; only the current activity item appears
+running.
 
 The UI system intentionally keeps accepted dependencies such as `ai-elements`,
 `lucide-react`, `motion`, Streamdown packages, `cmdk`, `embla-carousel-react`,

@@ -81,7 +81,7 @@ describe("partner ai service /chat/stream", () => {
     expect(events.map((event) => event.type)).toEqual(
       expect.arrayContaining([
         "sidechat.started",
-        "sidechat.reasoning",
+        "sidechat.activity",
         "sidechat.delta",
         "sidechat.completed",
       ]),
@@ -108,8 +108,9 @@ describe("partner ai service /chat/stream", () => {
     const events = decodeSseEvents(await response.text());
     expect(events).toContainEqual(
       expect.objectContaining({
-        type: "sidechat.reasoning",
-        summary: "fake-provider selected deterministic echo script",
+        type: "sidechat.activity",
+        activityKind: "reasoning",
+        title: "Selected deterministic echo script",
       }),
     );
   });

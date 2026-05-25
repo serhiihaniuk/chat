@@ -33,7 +33,9 @@ test("runs the widget harness in a browser with deterministic mock streaming", a
   await page.getByRole("button", { name: "Send" }).click();
 
   await expect(page.getByText("Mock response: hello browser")).toBeVisible();
-  await expect(page.getByText("open_resource: applied")).toBeVisible();
+  await openActivityPanel(page);
+  await expect(page.getByText("Open resource")).toBeVisible();
+  await expect(page.getByText(/harness_local_only/u)).toBeVisible();
 });
 
 test("streams through the real widget and real backend with mocked DB and model", async ({
@@ -55,34 +57,38 @@ test("streams through the real widget and real backend with mocked DB and model"
   await expect(page.getByText("Fake response: hello e2e backend")).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByRole("heading", { name: "Thinking" })).toBeVisible();
+  await openActivityPanel(page);
   await expectUsageWasRecorded(request);
 });
 
-test("renders backend tool usage from the real service stream", async ({ page, request }) => {
-  await expectServiceHealth(request);
-  await openLocalServiceWidget(page);
+test("renders tool activity details from the canonical activity stream", async ({ page }) => {
+  await page.goto("/?mode=mock-stream");
+  await expect(page.getByRole("heading", { name: "Workspace Assistant" })).toBeVisible();
 
   await page.getByLabel("Message").fill("search web for current portfolio news");
   await page.getByRole("button", { name: "Send" }).click();
 
-  await expect(page.getByRole("heading", { name: "Thinking" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /Thought/u }).last()).toBeVisible({
+    timeout: 15_000,
+  });
+  await waitForActivityPanelAutoClose(page);
+  await openActivityPanel(page, { timeout: 15_000 });
   const toolTrigger = page.getByRole("button", { name: /mock_web_search/u });
   await expect(toolTrigger).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("Parameters")).toBeHidden();
-
-  await toolTrigger.click();
-  await expect(page.getByText("Parameters")).toBeVisible();
-  await expect(page.getByText('"query"').first()).toBeVisible();
-  await expect(page.getByText('"search web for current portfolio news"').first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Result" })).toBeVisible();
+  await expect(page.getByText("Search query")).toBeVisible();
+  await expect(
+    page.getByText("search web for current portfolio news", { exact: true }).last(),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Result", exact: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByText(/Mocked web search found/u)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Search results", exact: true })).toBeVisible();
+  await expect(page.getByText("Mock Search Result")).toBeVisible();
+  await expect(page.getByText("example.test")).toBeVisible();
 
   await toolTrigger.click();
-  await expect(page.getByText("Parameters")).toBeHidden();
-
-  await expect(page.getByText("Searching the web")).toBeVisible();
-  await expect(page.getByText(/Fake response: search web/u)).toBeVisible();
+  await expect(page.getByText("Search query")).toBeHidden();
 });
 
 test("keeps prompt input context and model controls visible as anchored popovers", async ({
@@ -109,6 +115,21 @@ test("keeps prompt input context and model controls visible as anchored popovers
 const openLocalServiceWidget = async (page: Page) => {
   await page.goto(`/?mode=local-service&authToken=${authToken}&workspaceId=${workspaceId}`);
   await expect(page.getByRole("heading", { name: "Workspace Assistant" })).toBeVisible();
+};
+
+const openActivityPanel = async (page: Page, options: { readonly timeout?: number } = {}) => {
+  const trigger = page.getByRole("button", { name: /Thinking|Thought/u }).last();
+  await expect(trigger).toBeVisible({ timeout: options.timeout ?? 5_000 });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") {
+    await trigger.click();
+  }
+};
+
+const waitForActivityPanelAutoClose = async (page: Page) => {
+  const trigger = page.getByRole("button", { name: /Thinking|Thought/u }).last();
+  if ((await trigger.getAttribute("aria-expanded")) === "true") {
+    await expect(trigger).toHaveAttribute("aria-expanded", "false", { timeout: 2_000 });
+  }
 };
 
 const expectServiceHealth = async (request: APIRequestContext) => {

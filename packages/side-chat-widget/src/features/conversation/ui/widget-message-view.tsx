@@ -1,53 +1,65 @@
+import {
+  ChainOfThoughtImage,
+  ChainOfThoughtContent,
+  ChainOfThoughtStep,
+} from "#shared/ai/chain-of-thought";
 import { Message, MessageContent, MessageResponse } from "#shared/ai/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "#shared/ai/reasoning";
-import { ChainOfThoughtContent, ChainOfThoughtStep } from "#shared/ai/chain-of-thought";
 import { ToolInput, ToolOutput } from "#shared/ai/tool";
-import { Badge } from "#shared/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#shared/ui/collapsible";
-import { cn } from "#shared/lib/cn";
-import { ChevronDownIcon, SearchIcon } from "lucide-react";
-import type { ToolEvent } from "@side-chat/chat-protocol";
+import {
+  BrainIcon,
+  ChevronDownIcon,
+  CommandIcon,
+  SearchIcon,
+  WrenchIcon,
+  type LucideIcon,
+} from "lucide-react";
 
-import type { HostCommandView, WidgetMessage, WidgetThought } from "#entities/chat";
+import type { WidgetActivityItem, WidgetMessage } from "#entities/chat";
+import { readActivitySourceLabel, ToolActivityDetails } from "./widget-tool-activity-details.js";
 
 export const WidgetMessageView = ({ message }: { readonly message: WidgetMessage }) => {
-  const showThoughts = shouldShowThoughts(message);
+  const showActivity = shouldShowActivity(message);
 
   return (
     <Message from={message.role}>
       <MessageContent>
-        {showThoughts && <WidgetThoughts message={message} />}
+        {showActivity && <WidgetActivityTimeline message={message} />}
         {message.content ? (
-          <MessageResponse>{message.content}</MessageResponse>
+          <MessageResponse
+            isAnimating={message.role === "assistant" && message.isStreaming === true}
+          >
+            {message.content}
+          </MessageResponse>
         ) : (
           message.isStreaming &&
-          !showThoughts && <p className="text-muted-foreground text-sm">Thinking...</p>
+          !showActivity && <p className="text-muted-foreground text-sm">Thinking...</p>
         )}
       </MessageContent>
     </Message>
   );
 };
 
-const WidgetThoughts = ({ message }: { readonly message: WidgetMessage }) => {
-  const orderedThoughts = toThoughtRows(readMessageThoughts(message), message.isStreaming === true);
-  const keepOpen = orderedThoughts.some(
-    (thought) => thought.kind === "tool" || thought.kind === "host-command",
-  );
+const WidgetActivityTimeline = ({ message }: { readonly message: WidgetMessage }) => {
+  const duration = readActivityDuration(message);
 
   return (
     <Reasoning
-      autoClose={!keepOpen}
-      defaultOpen={hasThoughtContent(message)}
+      autoClose
+      defaultOpen={message.isStreaming === true}
       isStreaming={message.isStreaming ?? false}
+      {...(duration !== undefined ? { duration } : {})}
     >
       <ReasoningTrigger />
       <ReasoningContent>
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h3 className="font-semibold text-foreground text-lg">Thinking</h3>
-        </div>
         <ChainOfThoughtContent>
-          {orderedThoughts.map((thought) => (
-            <ThoughtRow key={thought.id} thought={thought} />
+          {message.activity.items.map((item) => (
+            <ActivityRow
+              isActive={message.activity.activeItemId === item.id}
+              item={item}
+              key={item.id}
+            />
           ))}
         </ChainOfThoughtContent>
       </ReasoningContent>
@@ -55,240 +67,151 @@ const WidgetThoughts = ({ message }: { readonly message: WidgetMessage }) => {
   );
 };
 
-const shouldShowThoughts = (message: WidgetMessage): boolean =>
-  message.role === "assistant" && hasThoughtContent(message);
-
-const hasThoughtContent = (message: WidgetMessage): boolean =>
-  message.isStreaming === true ||
-  readMessageThoughtCount(message) > 0 ||
-  message.reasoning.length > 0 ||
-  message.tools.length > 0 ||
-  message.hostCommands.length > 0;
-
-type ThoughtRow =
-  | {
-      readonly id: string;
-      readonly kind: "reasoning";
-      readonly content: string;
-      readonly status: "running" | "completed";
-    }
-  | {
-      readonly id: string;
-      readonly kind: "tool";
-      readonly tool: ToolEvent;
-    }
-  | {
-      readonly id: string;
-      readonly kind: "host-command";
-      readonly command: HostCommandView;
-    };
-
-const ThoughtRow = ({ thought }: { readonly thought: ThoughtRow }) => {
-  switch (thought.kind) {
-    case "reasoning":
-      const presentation = toThoughtPresentation(thought.content);
-      return (
-        <ChainOfThoughtStep
-          description={
-            presentation.body ? (
-              <MessageResponse className="text-muted-foreground">
-                {presentation.body}
-              </MessageResponse>
-            ) : undefined
-          }
-          status={thought.status}
-          title={presentation.title}
-        />
-      );
-    case "tool":
-      return <ToolThoughtStep tool={thought.tool} />;
-    case "host-command":
-      return <HostCommandThoughtStep command={thought.command} />;
-  }
-};
-
-const toThoughtRows = (thoughts: readonly WidgetThought[], isStreaming: boolean): ThoughtRow[] => {
-  const rows: ThoughtRow[] = [];
-  let modelReasoning = "";
-  let modelReasoningIndex = 0;
-
-  const flushModelReasoning = () => {
-    const content = normalizeReasoning(modelReasoning);
-    if (content.length > 0) {
-      rows.push({
-        content,
-        id: `reasoning-model-${modelReasoningIndex}`,
-        kind: "reasoning",
-        status: "completed",
-      });
-      modelReasoningIndex += 1;
-      modelReasoning = "";
-    }
-  };
-
-  for (const thought of [...thoughts].sort((left, right) => left.sequence - right.sequence)) {
-    if (thought.kind === "reasoning" && !isToolProgressReasoning(thought.content)) {
-      modelReasoning += thought.content;
-      continue;
-    }
-
-    flushModelReasoning();
-    rows.push(toThoughtRow(thought));
+const ActivityRow = ({
+  isActive,
+  item,
+}: {
+  readonly isActive: boolean;
+  readonly item: WidgetActivityItem;
+}) => {
+  const displayStatus = toActivityDisplayStatus(item, isActive);
+  if (item.kind === "tool") return <ToolActivityStep displayStatus={displayStatus} item={item} />;
+  if (item.kind === "host_command") {
+    return <HostCommandActivityStep displayStatus={displayStatus} item={item} />;
   }
 
-  flushModelReasoning();
-  return markActiveThoughtRow(rows, isStreaming);
-};
-
-const markActiveThoughtRow = (rows: readonly ThoughtRow[], isStreaming: boolean): ThoughtRow[] => {
-  if (!isStreaming) return [...rows];
-  const activeIndex = rows.findLastIndex(
-    (row) => row.kind === "reasoning" || (row.kind === "tool" && row.tool.status === "started"),
-  );
-  if (activeIndex < 0) return [...rows];
-
-  return rows.map((row, index) =>
-    index === activeIndex && row.kind === "reasoning" ? { ...row, status: "running" } : row,
+  return (
+    <ChainOfThoughtStep
+      description={item.body ? <MessageResponse>{item.body}</MessageResponse> : undefined}
+      icon={activityIcon(item)}
+      sources={item.details?.sources?.map(readActivitySourceLabel) ?? []}
+      status={displayStatus}
+      title={item.title}
+    >
+      <ActivityImages item={item} />
+    </ChainOfThoughtStep>
   );
 };
 
-const toThoughtRow = (thought: WidgetThought): ThoughtRow => {
-  switch (thought.kind) {
-    case "reasoning":
-      return {
-        content: thought.content.trim(),
-        id: thought.id,
-        kind: "reasoning",
-        status: "completed",
-      };
-    case "tool":
-      return {
-        id: thought.id,
-        kind: "tool",
-        tool: thought.tool,
-      };
-    case "host-command":
-      return {
-        command: thought.command,
-        id: thought.id,
-        kind: "host-command",
-      };
-  }
+const ToolActivityStep = ({
+  displayStatus,
+  item,
+}: {
+  readonly displayStatus: ChainOfThoughtStepStatus;
+  readonly item: WidgetActivityItem;
+}) => {
+  const tool = item.details?.tool;
+  const sources = tool?.sources ?? item.details?.sources ?? [];
+
+  return (
+    <Collapsible className="group/tool" defaultOpen>
+      <ChainOfThoughtStep
+        icon={WrenchIcon}
+        status={displayStatus}
+        title={
+          <CollapsibleTrigger className="flex w-full items-center gap-3 rounded-sm text-left transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+            <span className="min-w-0 flex-1 truncate">{item.title}</span>
+            <span className="rounded border border-border px-1.5 py-0.5 font-medium text-[0.6875rem] text-muted-foreground uppercase tracking-wide group-data-[state=open]/tool:text-foreground">
+              {readToolActionLabel(item, displayStatus)}
+            </span>
+            <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/tool:rotate-180" />
+          </CollapsibleTrigger>
+        }
+      >
+        <CollapsibleContent className="space-y-3">
+          <ToolActivityDetails item={item} sources={sources} />
+        </CollapsibleContent>
+      </ChainOfThoughtStep>
+    </Collapsible>
+  );
 };
 
-const isToolProgressReasoning = (entry: string): boolean =>
-  entry.trim().startsWith("Searching the web") || entry.trim().startsWith("Scanning mocked");
-
-const normalizeReasoning = (reasoning: string): string => reasoning.replace(/\s+/gu, " ").trim();
-
-const toThoughtPresentation = (
-  content: string,
-): {
-  readonly title: string;
-  readonly body: string | undefined;
-} => {
-  const trimmed = content.trim();
-  const titledContentMatch = /^\*\*(?<title>[^*]+)\*\*\s*(?<body>.*)$/su.exec(trimmed);
-  if (titledContentMatch?.groups) {
-    const title = titledContentMatch.groups["title"]?.trim();
-    const body = titledContentMatch.groups["body"]?.trim();
-    if (title) return { title, body: body || undefined };
-  }
-
-  return { title: trimmed, body: undefined };
-};
-
-const readMessageThoughts = (message: WidgetMessage): readonly WidgetThought[] => {
-  if (readMessageThoughtCount(message) > 0) return message.thoughts;
-
-  return [
-    ...message.reasoning.map<WidgetThought>((content, index) => ({
-      content,
-      id: `reasoning-${index}`,
-      kind: "reasoning",
-      sequence: index,
-    })),
-    ...message.tools.map<WidgetThought>((tool) => ({
-      id: tool.toolCallId,
-      kind: "tool",
-      sequence: tool.sequence,
-      tool,
-    })),
-    ...message.hostCommands.map<WidgetThought>((command) => ({
-      command,
-      id: command.event.commandId,
-      kind: "host-command",
-      sequence: command.event.sequence,
-    })),
-  ];
-};
-
-const readMessageThoughtCount = (message: WidgetMessage): number => message.thoughts?.length ?? 0;
-
-const ToolThoughtStep = ({ tool }: { readonly tool: ToolEvent }) => (
-  <Collapsible className="group/tool grid grid-cols-[1rem_1fr] gap-x-3 text-sm">
-    <div className="flex flex-col items-center pt-0.5">
-      <SearchIcon className={cn("size-4", toToolIconClassName(tool.status))} />
-      <span className="mt-2 h-full min-h-4 w-px bg-border" />
-    </div>
-    <div className="space-y-2 pb-1">
-      <CollapsibleTrigger className="flex w-full items-center gap-2 text-left">
-        <span className="font-medium text-muted-foreground group-data-[state=open]/tool:text-foreground">
-          {tool.status === "started" ? `Running ${tool.toolName}` : tool.toolName}
-        </span>
-        <ChevronDownIcon className="ml-auto size-4 text-muted-foreground transition-transform group-data-[state=open]/tool:rotate-180" />
-      </CollapsibleTrigger>
-      {toolSources(tool).length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {toolSources(tool).map((source) => (
-            <Badge key={source} variant="secondary">
-              {source}
-            </Badge>
-          ))}
+const HostCommandActivityStep = ({
+  displayStatus,
+  item,
+}: {
+  readonly displayStatus: ChainOfThoughtStepStatus;
+  readonly item: WidgetActivityItem;
+}) => {
+  const hostCommand = item.details?.hostCommand;
+  return (
+    <ChainOfThoughtStep
+      description={item.body ? <MessageResponse>{item.body}</MessageResponse> : undefined}
+      icon={CommandIcon}
+      status={displayStatus}
+      title={item.title}
+    >
+      {hostCommand && (
+        <div className="space-y-3">
+          <ToolInput input={hostCommand.payload} />
+          <ToolOutput
+            output={hostCommand.result}
+            {...(item.status === "failed" ? { errorText: "host_command_failed" } : {})}
+          />
         </div>
       )}
-      <CollapsibleContent className="space-y-3">
-        <ToolInput input={tool.input ?? {}} />
-        <ToolOutput
-          errorText={tool.errorCode}
-          output={tool.status === "started" ? undefined : tool.result}
-        />
-      </CollapsibleContent>
-    </div>
-  </Collapsible>
-);
+    </ChainOfThoughtStep>
+  );
+};
 
-const HostCommandThoughtStep = ({ command }: { readonly command: HostCommandView }) => (
-  <ChainOfThoughtStep
-    status={command.status === "failed" ? "failed" : toThoughtStatus(command.status)}
-    title={command.event.commandName}
-  >
-    <p className={cn("text-sm", command.status === "failed" && "text-destructive")}>
-      {command.event.commandName}: {command.result?.status ?? command.status}
-    </p>
-  </ChainOfThoughtStep>
-);
+const ActivityImages = ({ item }: { readonly item: WidgetActivityItem }) => {
+  const images = item.details?.images ?? [];
+  if (images.length === 0) return null;
 
-const toThoughtStatus = (status: ToolEvent["status"] | "running" | "completed" | "failed") => {
-  if (status === "started" || status === "running") return "running";
+  return images.map((image) => (
+    <ChainOfThoughtImage caption={image.caption} key={`${image.mediaType}:${image.alt}`}>
+      <img
+        alt={image.alt}
+        className="aspect-square h-[150px] rounded-md border object-cover"
+        src={`data:${image.mediaType};base64,${image.data}`}
+      />
+    </ChainOfThoughtImage>
+  ));
+};
+
+const shouldShowActivity = (message: WidgetMessage): boolean =>
+  message.role === "assistant" &&
+  (message.isStreaming === true || message.activity.items.length > 0);
+
+const activityIcon = (item: WidgetActivityItem): LucideIcon => {
+  if (item.kind === "progress") return SearchIcon;
+  return BrainIcon;
+};
+
+type ChainOfThoughtStepStatus = "running" | "completed" | "failed";
+
+const toActivityDisplayStatus = (
+  item: WidgetActivityItem,
+  isActive: boolean,
+): ChainOfThoughtStepStatus => {
+  if (item.status === "running" && !isActive) return "completed";
+  return toStepStatus(item.status);
+};
+
+const toStepStatus = (status: WidgetActivityItem["status"]): ChainOfThoughtStepStatus => {
+  if (status === "running") return "running";
   if (status === "failed") return "failed";
   return "completed";
 };
 
-const toToolIconClassName = (status: ToolEvent["status"]): string => {
-  if (status === "failed") return "text-destructive";
-  return "text-foreground";
+const readToolActionLabel = (
+  item: WidgetActivityItem,
+  displayStatus: ChainOfThoughtStepStatus,
+): string => {
+  const tool = item.details?.tool;
+  if (displayStatus === "running") return "Running";
+  if (item.status === "failed" || tool?.errorCode) return "View error";
+  if (tool?.result) return "View result";
+  return "View details";
 };
 
-const toolSources = (tool: ToolEvent): string[] => {
-  const results = tool.result?.["results"];
-  if (!Array.isArray(results)) return [];
+const readActivityDuration = (message: WidgetMessage): number | undefined => {
+  const { completedAt, startedAt } = message.activity;
+  if (!completedAt || !startedAt) return undefined;
 
-  return results
-    .map((result) => (isRecord(result) && typeof result["url"] === "string" ? result["url"] : ""))
-    .filter(Boolean)
-    .map((url) => new URL(url).hostname);
+  const started = Date.parse(startedAt);
+  const completed = Date.parse(completedAt);
+  if (!Number.isFinite(started) || !Number.isFinite(completed)) return undefined;
+
+  return Math.max(1, Math.ceil((completed - started) / 1000));
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);

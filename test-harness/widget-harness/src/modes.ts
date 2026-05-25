@@ -8,8 +8,8 @@ export type WidgetHarnessConfig = {
 };
 
 const DEFAULT_API_BASE_URL = "/api";
-const DEFAULT_AUTH_TOKEN = "local-test-token";
-const DEFAULT_WORKSPACE_ID = "local-dev";
+const DEFAULT_AUTH_TOKEN = "local-compose-token";
+const DEFAULT_WORKSPACE_ID = "workspace_local";
 
 export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig => {
   const params = new URLSearchParams(search);
@@ -32,6 +32,7 @@ export const modeLabel = (mode: WidgetHarnessMode): string => {
 };
 
 const parseMode = (mode: string | null): WidgetHarnessMode => {
+  if (mode === "mock-stream") return "mock-stream";
   if (mode === "local-service") return "local-service";
-  return "mock-stream";
+  return "local-service";
 };

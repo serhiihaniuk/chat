@@ -16,7 +16,7 @@ describe("createFakeProvider", () => {
 
     expect(events.map((event) => event.type)).toEqual([
       "runtime.started",
-      "runtime.reasoning",
+      "runtime.activity",
       "runtime.output_delta",
       "runtime.output_delta",
       "runtime.output_delta",
