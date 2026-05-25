@@ -14,31 +14,53 @@ import { projectToolPart } from "#entities/tool/projection";
 import { Conversation, ConversationContent } from "#shared/ai/conversation";
 
 export type ConversationFeedProps = {
+  readonly onDismissError?: () => void;
+  readonly onRetry?: () => void;
   readonly state: WidgetState;
 };
 
-export const ConversationFeed = ({ state }: ConversationFeedProps) => (
+export const ConversationFeed = ({
+  onDismissError,
+  onRetry,
+  state,
+}: ConversationFeedProps) => (
   <Conversation className="side-chat-feed">
     <ConversationContent>
+      {state.historyStatus === "loading" ? (
+        <p className="ml-[6.5rem] text-xl text-slate-500">Loading history...</p>
+      ) : null}
       {shouldShowConversationEmptyState(state) ? <ConversationEmpty /> : null}
       {state.messages.map((message) => (
         <MessageRow key={message.id} message={message} />
       ))}
-      {state.reasoning.map((summary, index) => (
-        <ReasoningPart key={`${index}:${summary}`} summary={summary} />
-      ))}
-      {state.tools.map((tool) => (
-        <ToolPart key={projectToolPart(tool).id} tool={tool} />
-      ))}
-      {state.hostCommands.map((command) => (
-        <HostCommandPart
-          command={command}
-          key={projectHostCommandPart(command).id}
-        />
-      ))}
+      {hasInlineParts(state) ? null : <DetachedParts state={state} />}
       {hasConversationError(state) ? (
-        <ConversationError message={state.errorMessage ?? "Request failed"} />
+        <ConversationError
+          message={state.errorMessage ?? "Request failed"}
+          {...(onDismissError ? { onDismiss: onDismissError } : {})}
+          {...(onRetry ? { onRetry } : {})}
+        />
       ) : null}
     </ConversationContent>
   </Conversation>
 );
+
+const DetachedParts = ({ state }: { readonly state: WidgetState }) => (
+  <>
+    {state.reasoning.map((summary, index) => (
+      <ReasoningPart key={`${index}:${summary}`} summary={summary} />
+    ))}
+    {state.tools.map((tool) => (
+      <ToolPart key={projectToolPart(tool).id} tool={tool} />
+    ))}
+    {state.hostCommands.map((command) => (
+      <HostCommandPart
+        command={command}
+        key={projectHostCommandPart(command).id}
+      />
+    ))}
+  </>
+);
+
+const hasInlineParts = (state: WidgetState): boolean =>
+  state.messages.some((message) => (message.parts?.length ?? 0) > 0);

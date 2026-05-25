@@ -22,7 +22,7 @@ export const ConversationContent = ({
 }: ConversationContentProps): ReactElement => (
   <div
     className={cn(
-      "flex h-full flex-col gap-5 overflow-y-auto px-8 py-6",
+      "flex h-full flex-col gap-6 overflow-y-auto px-8 py-6 max-[720px]:px-5",
       className,
     )}
     {...props}
@@ -40,12 +40,16 @@ export const ConversationEmptyState = ({
 }): ReactElement => (
   <div
     className={cn(
-      "flex h-full flex-col items-center justify-center gap-2 text-center text-slate-500",
+      "flex h-full flex-col items-center justify-center gap-4 text-center text-slate-500",
       className,
     )}
     {...props}
   >
-    <p className="text-xl font-semibold text-slate-800">{title}</p>
-    <p className="max-w-sm text-base leading-6">{description}</p>
+    <p className="text-[1.75rem] leading-tight font-semibold text-slate-500 max-[720px]:text-xl">
+      {title}
+    </p>
+    <p className="max-w-4xl text-[1.75rem] leading-tight text-slate-500 max-[720px]:max-w-sm max-[720px]:text-base">
+      {description}
+    </p>
   </div>
 );

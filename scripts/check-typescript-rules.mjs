@@ -45,6 +45,7 @@ for (const file of listFiles(root, (path) => path.endsWith("tsconfig.json"))) {
 }
 
 for (const file of listSourceFiles(root)) {
+  if (/(?:^|\/)(?:dist|build|coverage)\//.test(file)) continue;
   if (!/\.(?:ts|tsx)$/.test(file)) continue;
 
   const source = readFileSync(join(root, file), "utf8");

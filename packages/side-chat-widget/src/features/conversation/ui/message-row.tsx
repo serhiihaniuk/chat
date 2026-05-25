@@ -15,7 +15,7 @@ export const MessageRow = ({ message }: MessageRowProps): ReactElement => (
   >
     <MessageRoleLabel>{message.role}</MessageRoleLabel>
     {message.role === "assistant" ? (
-      <AssistantMessage content={message.content} />
+      <AssistantMessage message={message} />
     ) : (
       <MessageContent>{message.content}</MessageContent>
     )}

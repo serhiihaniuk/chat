@@ -11,7 +11,12 @@ import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const ignoredDirectories = new Set([".git", ".omx", "node_modules"]);
+const ignoredDirectories = new Set([
+  ".git",
+  ".omx",
+  ".playwright-mcp",
+  "node_modules",
+]);
 
 export function resolveRoot(argv = process.argv.slice(2)) {
   const index = argv.indexOf("--root");

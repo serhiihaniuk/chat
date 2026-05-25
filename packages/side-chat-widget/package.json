@@ -49,6 +49,11 @@
       "development": "./src/features/panel/ui/*.tsx",
       "default": "./dist/features/panel/ui/*.js"
     },
+    "#features/panel/ui/use-panel-shell": {
+      "types": "./src/features/panel/ui/use-panel-shell.tsx",
+      "development": "./src/features/panel/ui/use-panel-shell.tsx",
+      "default": "./dist/features/panel/ui/use-panel-shell.js"
+    },
     "#features/panel/model/*": {
       "types": "./src/features/panel/model/*.ts",
       "development": "./src/features/panel/model/*.ts",

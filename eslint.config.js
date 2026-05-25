@@ -16,7 +16,17 @@ const restrictedImports = [
 ];
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/coverage/**", "node_modules/**", ".omx/**"] },
+  {
+    ignores: [
+      "**/dist/**",
+      "**/coverage/**",
+      "node_modules/**",
+      ".omx/**",
+      ".playwright-mcp/**",
+      "playwright.config.js",
+      "vitest.config.js",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {

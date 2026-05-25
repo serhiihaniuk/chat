@@ -159,4 +159,43 @@ describe("createChatClient", () => {
     expect(result.attempt).toBe(2);
     expect(events.at(-1)?.type).toBe("sidechat.completed");
   });
+
+  it("reads history, resets history, and reads usage through typed routes", async () => {
+    const fetchMock = vi
+      .fn<FetchLike>()
+      .mockResolvedValueOnce(
+        Response.json({
+          conversationId: "conversation-1",
+          messages: [{ id: "m1", role: "user", content: "past", sequence: 0 }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ conversationId: "conversation-1", status: "reset" }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ inputTokens: 2, outputTokens: 3, totalTokens: 5 }),
+      );
+    const client = createChatClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    expect(
+      await client.readHistory?.("conversation-1", { limit: 10 }),
+    ).toMatchObject({
+      conversationId: "conversation-1",
+      messages: [{ content: "past" }],
+    });
+    expect(await client.resetHistory?.("conversation-1")).toMatchObject({
+      status: "reset",
+    });
+    expect(await client.readUsage?.()).toMatchObject({ totalTokens: 5 });
+
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+      "https://assistant.example.test/chat/history/conversation-1?limit=10",
+      "https://assistant.example.test/chat/history/conversation-1",
+      "https://assistant.example.test/usage",
+    ]);
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
+  });
 });

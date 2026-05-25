@@ -2,6 +2,7 @@ import type { QuickAction } from "./quick-action.js";
 
 export type QuickActionSelection =
   | {
+      readonly displayContent?: string;
       readonly prompt: string;
       readonly status: "selected";
     }
@@ -19,5 +20,9 @@ export const resolveQuickActionSelection = (
   const prompt = resolveQuickActionPrompt(action);
   if (action.disabled) return { reason: "disabled", status: "ignored" };
   if (prompt.length === 0) return { reason: "empty_prompt", status: "ignored" };
-  return { prompt, status: "selected" };
+  return {
+    ...(action.displayContent ? { displayContent: action.displayContent } : {}),
+    prompt,
+    status: "selected",
+  };
 };

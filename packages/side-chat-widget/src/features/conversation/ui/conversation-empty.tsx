@@ -4,7 +4,8 @@ import { ConversationEmptyState } from "#shared/ai/conversation";
 
 export const ConversationEmpty = (): ReactElement => (
   <ConversationEmptyState
-    description="Ask about the current page or choose a suggested action."
-    title="Ready when you are"
+    className="min-h-56 justify-center rounded-lg border border-dashed border-slate-300 bg-white text-slate-500 max-[720px]:min-h-40"
+    description="Ask a question about this workspace, switch models, or try a markdown-heavy prompt."
+    title="How can I help?"
   />
 );

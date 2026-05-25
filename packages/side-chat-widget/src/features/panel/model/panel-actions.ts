@@ -1,3 +1,5 @@
+import type { PanelOffset } from "./panel-geometry.js";
+
 export type PanelHeaderActions = {
   readonly onClose?: () => void;
   readonly onNewChat?: () => void;
@@ -9,6 +11,8 @@ export type PanelAction =
   | { readonly type: "close" }
   | { readonly type: "minimize" }
   | { readonly type: "new_chat" }
+  | { readonly type: "open" }
+  | { readonly offset: PanelOffset; readonly type: "offset_changed" }
   | { readonly type: "toggle_expanded" }
   | { readonly type: "toggle_settings" }
   | { readonly type: "resize_started" }

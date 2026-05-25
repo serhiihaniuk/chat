@@ -24,6 +24,7 @@ import {
   sideChatReducer,
   type WidgetAction,
 } from "#features/conversation/model/conversation-state";
+import { getAssistantMessageView } from "#features/conversation/model/message-view";
 
 const request: ChatStreamRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -204,6 +205,35 @@ describe("sideChatReducer", () => {
       status: "applied",
       resultCode: "opened",
     });
+    expect(resolved.messages.at(-1)?.parts?.at(-1)).toMatchObject({
+      status: "applied",
+      resultCode: "opened",
+    });
+  });
+
+  it("builds an assistant message view with parts, citations, and attachments", () => {
+    const state = [started, reasoning, tool, hostCommand, completed].reduce(
+      (current, event) =>
+        sideChatReducer(current, { type: "stream_event", event }),
+      sideChatReducer(initialWidgetState, {
+        type: "stream_event",
+        event: {
+          ...delta,
+          content:
+            'answer <!-- sidechat-citations:[{"sourceId":"s1","label":"Source one"}] -->',
+        },
+      }),
+    );
+    const message = state.messages.find((item) => item.role === "assistant");
+
+    if (!message) throw new Error("assistant message missing");
+    expect(getAssistantMessageView(message)).toMatchObject({
+      content: "answer",
+      reasoningParts: [{ content: "thinking" }],
+      toolParts: [{ toolName: "lookup" }],
+      hostCommandParts: [{ commandName: "open_resource" }],
+      sources: [{ sourceId: "s1", label: "Source one" }],
+    });
   });
 });
 
@@ -224,6 +254,7 @@ describe("SideChatWidget components", () => {
     const html = renderToStaticMarkup(
       createElement(SideChatWidget, {
         client,
+        defaultOpen: true,
         initialState: state,
         labels: { title: "Assistant" },
       }),

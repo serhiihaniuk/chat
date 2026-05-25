@@ -25,7 +25,11 @@ export const createWidgetHarnessApp = (
       ? createLocalServiceClient(config)
       : createMockStreamClient();
   const props: SideChatWidgetProps = {
+    assistantProfiles: [{ id: "gpt-5.5", label: "GPT 5.5" }],
     client,
+    defaultAssistantProfileId: "gpt-5.5",
+    defaultOpen: true,
+    defaultPanelSize: resolveHarnessPanelSize(),
     hostBridge,
     labels: {
       title: "Workspace Assistant",
@@ -37,6 +41,17 @@ export const createWidgetHarnessApp = (
   return {
     config,
     element: createElement(SideChatWidget, props),
+  };
+};
+
+const resolveHarnessPanelSize = (): {
+  readonly height: number;
+  readonly width: number;
+} => {
+  if (typeof window === "undefined") return { height: 1200, width: 1440 };
+  return {
+    height: Math.max(760, window.innerHeight - 24),
+    width: Math.max(640, window.innerWidth - 64),
   };
 };
 

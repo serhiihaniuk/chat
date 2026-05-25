@@ -7,6 +7,7 @@ for (const file of listFiles(root, (path) =>
   /\.(?:test|spec)\.(?:ts|tsx|js|jsx)$/.test(path),
 )) {
   const parts = file.split("/");
+  if (parts.includes("dist") || parts.includes("build")) continue;
 
   if (parts.includes("test") || parts.includes("tests")) {
     errors.push(

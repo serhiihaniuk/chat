@@ -1,8 +1,19 @@
 node_modules/
+.playwright-mcp/
 dist/
 coverage/
 test-results/
 *.tsbuildinfo
+playwright.config.js
+vitest.config.js
+test-harness/widget-harness/e2e/*.d.ts
+test-harness/widget-harness/e2e/*.d.ts.map
+test-harness/widget-harness/e2e/*.js
+test-harness/widget-harness/e2e/*.js.map
+test-harness/widget-harness/vite.config.d.ts
+test-harness/widget-harness/vite.config.d.ts.map
+test-harness/widget-harness/vite.config.js
+test-harness/widget-harness/vite.config.js.map
 
 apps/*/dist/
 packages/*/dist/

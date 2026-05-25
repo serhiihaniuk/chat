@@ -1,10 +1,22 @@
 import {
   parseChatStreamRequest,
   type ChatStreamRequest,
+  type HistoryMessage,
   type SidechatStreamEvent,
+  type UsageMetadata,
 } from "@side-chat/chat-protocol";
 
 import { ChatClientError } from "./errors.js";
+import {
+  assertNotAborted,
+  buildPathUrl,
+  createHttpError,
+} from "./http-helpers.js";
+import {
+  readHistoryWithFetch,
+  readUsageWithFetch,
+  resetHistoryWithFetch,
+} from "./resource-client.js";
 import { decodeChunkedSseStream, type StreamChunk } from "./sse-reader.js";
 
 export type FetchLike = (
@@ -19,9 +31,11 @@ export type RetryPolicy = {
 
 export type ChatClientOptions = {
   readonly baseUrl: string;
+  readonly historyPath?: string;
   readonly streamPath?: string;
   readonly fetch?: FetchLike;
   readonly retry?: RetryPolicy;
+  readonly usagePath?: string;
 };
 
 export type StreamChatOptions = {
@@ -34,7 +48,39 @@ export type StreamChatResult = {
   readonly attempt: number;
 };
 
+export type ReadHistoryOptions = {
+  readonly limit?: number;
+  readonly signal?: AbortSignal;
+};
+
+export type ReadHistoryResult = {
+  readonly conversationId: string;
+  readonly messages: readonly HistoryMessage[];
+};
+
+export type ResetHistoryOptions = {
+  readonly signal?: AbortSignal;
+};
+
+export type ResetHistoryResult = {
+  readonly conversationId: string;
+  readonly status: string;
+};
+
+export type ReadUsageOptions = {
+  readonly signal?: AbortSignal;
+};
+
 export type ChatClient = {
+  readonly readHistory?: (
+    conversationId: string,
+    options?: ReadHistoryOptions,
+  ) => Promise<ReadHistoryResult>;
+  readonly readUsage?: (options?: ReadUsageOptions) => Promise<UsageMetadata>;
+  readonly resetHistory?: (
+    conversationId: string,
+    options?: ResetHistoryOptions,
+  ) => Promise<ResetHistoryResult>;
   readonly streamChat: (
     request: ChatStreamRequest,
     options?: StreamChatOptions,
@@ -51,6 +97,12 @@ export const createChatClient = (options: ChatClientOptions): ChatClient => {
   }
 
   return {
+    readHistory: (conversationId, readOptions = {}) =>
+      readHistoryWithFetch(conversationId, options, readOptions, transport),
+    readUsage: (usageOptions = {}) =>
+      readUsageWithFetch(options, usageOptions, transport),
+    resetHistory: (conversationId, resetOptions = {}) =>
+      resetHistoryWithFetch(conversationId, options, resetOptions, transport),
     streamChat: (request, streamOptions = {}) =>
       streamChatWithFetch(request, options, streamOptions, transport),
   };
@@ -108,11 +160,10 @@ const streamChatWithFetch = async (
 };
 
 const buildUrl = (options: ChatClientOptions): string => {
-  const base = options.baseUrl.endsWith("/")
-    ? options.baseUrl
-    : `${options.baseUrl}/`;
-  const path = (options.streamPath ?? DEFAULT_STREAM_PATH).replace(/^\//u, "");
-  return new URL(path, base).toString();
+  return buildPathUrl(
+    options.baseUrl,
+    options.streamPath ?? DEFAULT_STREAM_PATH,
+  );
 };
 
 const buildRequestInit = (
@@ -142,12 +193,6 @@ const readResponseBody = async function* (
     reader.releaseLock();
   }
 };
-
-const createHttpError = (status: number, attempt: number): ChatClientError =>
-  new ChatClientError("http_error", `Chat stream request failed: ${status}`, {
-    status,
-    attempt,
-  });
 
 const toClientError = (cause: unknown, attempt: number): ChatClientError => {
   if (cause instanceof ChatClientError) return cause;
@@ -180,12 +225,4 @@ const shouldRetry = (
     ? new Set(retry.statuses)
     : DEFAULT_RETRY_STATUS;
   return statuses.has(error.status);
-};
-
-const assertNotAborted = (signal: AbortSignal | undefined): void => {
-  if (signal?.aborted === true) {
-    throw new ChatClientError("aborted", "Chat stream was aborted", {
-      cause: signal.reason,
-    });
-  }
 };
