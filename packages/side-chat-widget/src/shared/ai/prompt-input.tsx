@@ -168,6 +168,115 @@ const captureScreenshot = async (): Promise<File | null> => {
   }
 };
 
+type PromptInputFileError = {
+  code: "max_files" | "max_file_size" | "accept";
+  message: string;
+};
+
+const validatePromptInputFiles = ({
+  incoming,
+  matchesAccept,
+  maxFileSize,
+  onError,
+}: {
+  readonly incoming: readonly File[];
+  readonly matchesAccept: (file: File) => boolean;
+  readonly maxFileSize: number | undefined;
+  readonly onError: ((error: PromptInputFileError) => void) | undefined;
+}): File[] | undefined => {
+  const accepted = incoming.filter((file) => matchesAccept(file));
+  if (incoming.length > 0 && accepted.length === 0) {
+    onError?.({
+      code: "accept",
+      message: "No files match the accepted types.",
+    });
+    return undefined;
+  }
+
+  const sized = maxFileSize
+    ? accepted.filter((file) => file.size <= maxFileSize)
+    : accepted;
+  if (accepted.length > 0 && sized.length === 0) {
+    onError?.({
+      code: "max_file_size",
+      message: "All files exceed the maximum size.",
+    });
+    return undefined;
+  }
+
+  return sized;
+};
+
+const capPromptInputFiles = ({
+  currentCount,
+  files,
+  maxFiles,
+  onError,
+}: {
+  readonly currentCount: number;
+  readonly files: readonly File[];
+  readonly maxFiles: number | undefined;
+  readonly onError: ((error: PromptInputFileError) => void) | undefined;
+}): File[] => {
+  const capacity =
+    typeof maxFiles === "number"
+      ? Math.max(0, maxFiles - currentCount)
+      : undefined;
+  const capped =
+    typeof capacity === "number" ? files.slice(0, capacity) : [...files];
+
+  if (typeof capacity === "number" && files.length > capacity) {
+    onError?.({
+      code: "max_files",
+      message: "Too many files. Some were not added.",
+    });
+  }
+
+  return capped;
+};
+
+type PromptTextareaKeyboardEvent = Parameters<
+  KeyboardEventHandler<HTMLTextAreaElement>
+>[0];
+
+const isPlainEnterSubmit = (
+  event: PromptTextareaKeyboardEvent,
+  isComposing: boolean,
+) =>
+  event.key === "Enter" &&
+  !isComposing &&
+  !event.nativeEvent.isComposing &&
+  !event.shiftKey;
+
+const requestSubmitFromTextarea = (textarea: HTMLTextAreaElement): void => {
+  const submitButton = textarea.form?.querySelector(
+    'button[type="submit"]',
+  ) as HTMLButtonElement | null;
+
+  if (!submitButton?.disabled) {
+    textarea.form?.requestSubmit();
+  }
+};
+
+const removeLastAttachmentFromEmptyTextarea = (
+  event: PromptTextareaKeyboardEvent,
+  attachments: Pick<AttachmentsContext, "files" | "remove">,
+): void => {
+  if (
+    event.key !== "Backspace" ||
+    event.currentTarget.value !== "" ||
+    attachments.files.length === 0
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  const lastAttachment = attachments.files.at(-1);
+  if (lastAttachment) {
+    attachments.remove(lastAttachment.id);
+  }
+};
+
 // ============================================================================
 // Provider Context & Types
 // ============================================================================
@@ -501,10 +610,7 @@ export type PromptInputProps = Omit<
   maxFiles?: number;
   // bytes
   maxFileSize?: number;
-  onError?: (err: {
-    code: "max_files" | "max_file_size" | "accept";
-    message: string;
-  }) => void;
+  onError?: (error: PromptInputFileError) => void;
   onSubmit: (
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>,
@@ -578,38 +684,21 @@ export const PromptInput = ({
   const addLocal = useCallback(
     (fileList: File[] | FileList) => {
       const incoming = [...fileList];
-      const accepted = incoming.filter((f) => matchesAccept(f));
-      if (incoming.length && accepted.length === 0) {
-        onError?.({
-          code: "accept",
-          message: "No files match the accepted types.",
-        });
-        return;
-      }
-      const withinSize = (f: File) =>
-        maxFileSize ? f.size <= maxFileSize : true;
-      const sized = accepted.filter(withinSize);
-      if (accepted.length > 0 && sized.length === 0) {
-        onError?.({
-          code: "max_file_size",
-          message: "All files exceed the maximum size.",
-        });
-        return;
-      }
+      const sized = validatePromptInputFiles({
+        incoming,
+        matchesAccept,
+        maxFileSize,
+        onError,
+      });
+      if (!sized) return;
 
       setItems((prev) => {
-        const capacity =
-          typeof maxFiles === "number"
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined;
-        const capped =
-          typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-        if (typeof capacity === "number" && sized.length > capacity) {
-          onError?.({
-            code: "max_files",
-            message: "Too many files. Some were not added.",
-          });
-        }
+        const capped = capPromptInputFiles({
+          currentCount: prev.length,
+          files: sized,
+          maxFiles,
+          onError,
+        });
         const next: (FileUIPart & { id: string })[] = [];
         for (const file of capped) {
           next.push({
@@ -642,38 +731,20 @@ export const PromptInput = ({
   const addWithProviderValidation = useCallback(
     (fileList: File[] | FileList) => {
       const incoming = [...fileList];
-      const accepted = incoming.filter((f) => matchesAccept(f));
-      if (incoming.length && accepted.length === 0) {
-        onError?.({
-          code: "accept",
-          message: "No files match the accepted types.",
-        });
-        return;
-      }
-      const withinSize = (f: File) =>
-        maxFileSize ? f.size <= maxFileSize : true;
-      const sized = accepted.filter(withinSize);
-      if (accepted.length > 0 && sized.length === 0) {
-        onError?.({
-          code: "max_file_size",
-          message: "All files exceed the maximum size.",
-        });
-        return;
-      }
+      const sized = validatePromptInputFiles({
+        incoming,
+        matchesAccept,
+        maxFileSize,
+        onError,
+      });
+      if (!sized) return;
 
-      const currentCount = files.length;
-      const capacity =
-        typeof maxFiles === "number"
-          ? Math.max(0, maxFiles - currentCount)
-          : undefined;
-      const capped =
-        typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-      if (typeof capacity === "number" && sized.length > capacity) {
-        onError?.({
-          code: "max_files",
-          message: "Too many files. Some were not added.",
-        });
-      }
+      const capped = capPromptInputFiles({
+        currentCount: files.length,
+        files: sized,
+        maxFiles,
+        onError,
+      });
 
       if (capped.length > 0) {
         controller?.attachments.add(capped);
@@ -979,39 +1050,13 @@ export const PromptInputTextarea = ({
         return;
       }
 
-      if (e.key === "Enter") {
-        if (isComposing || e.nativeEvent.isComposing) {
-          return;
-        }
-        if (e.shiftKey) {
-          return;
-        }
+      if (isPlainEnterSubmit(e, isComposing)) {
         e.preventDefault();
-
-        // Check if the submit button is disabled before submitting
-        const { form } = e.currentTarget;
-        const submitButton = form?.querySelector(
-          'button[type="submit"]',
-        ) as HTMLButtonElement | null;
-        if (submitButton?.disabled) {
-          return;
-        }
-
-        form?.requestSubmit();
+        requestSubmitFromTextarea(e.currentTarget);
       }
 
       // Remove last attachment when Backspace is pressed and textarea is empty
-      if (
-        e.key === "Backspace" &&
-        e.currentTarget.value === "" &&
-        attachments.files.length > 0
-      ) {
-        e.preventDefault();
-        const lastAttachment = attachments.files.at(-1);
-        if (lastAttachment) {
-          attachments.remove(lastAttachment.id);
-        }
-      }
+      removeLastAttachmentFromEmptyTextarea(e, attachments);
     },
     [onKeyDown, isComposing, attachments],
   );

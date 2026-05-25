@@ -34,19 +34,19 @@ export const mapRuntimeEvent = (
     case "runtime.output_delta":
       return {
         ...base,
-        type: SIDECHAT_EVENT_TYPES.delta,
+        type: SIDECHAT_EVENT_TYPES.DELTA,
         content: event.content,
       };
     case "runtime.reasoning":
       return {
         ...base,
-        type: SIDECHAT_EVENT_TYPES.reasoning,
+        type: SIDECHAT_EVENT_TYPES.REASONING,
         summary: event.summary,
       };
     case "runtime.tool_call":
       return {
         ...base,
-        type: SIDECHAT_EVENT_TYPES.tool,
+        type: SIDECHAT_EVENT_TYPES.TOOL,
         toolCallId: event.toolCallId,
         toolName: event.toolName,
         status: "started",
@@ -54,7 +54,7 @@ export const mapRuntimeEvent = (
     case "runtime.tool_result":
       return {
         ...base,
-        type: SIDECHAT_EVENT_TYPES.tool,
+        type: SIDECHAT_EVENT_TYPES.TOOL,
         toolCallId: event.toolCallId,
         toolName: event.toolName,
         status: event.status,
@@ -64,14 +64,14 @@ export const mapRuntimeEvent = (
     case "runtime.completed":
       return {
         ...base,
-        type: SIDECHAT_EVENT_TYPES.completed,
+        type: SIDECHAT_EVENT_TYPES.COMPLETED,
         finishReason: event.finishReason,
         ...(event.usage ? { usage: event.usage } : {}),
       };
     case "runtime.error":
       return {
         ...base,
-        type: SIDECHAT_EVENT_TYPES.error,
+        type: SIDECHAT_EVENT_TYPES.ERROR,
         code: mapRuntimeErrorCode(event.code),
         message: event.message,
         retryable: event.retryable,
@@ -87,7 +87,7 @@ export const createErrorEvent = (
   error: Pick<PartnerAiCoreError, "protocolCode" | "message" | "retryable">,
 ): SidechatStreamEvent => ({
   protocolVersion: input.request.protocolVersion,
-  type: SIDECHAT_EVENT_TYPES.error,
+  type: SIDECHAT_EVENT_TYPES.ERROR,
   eventId: ports.ids.nextEventId(),
   assistantTurnId,
   sequence,

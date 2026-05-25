@@ -34,7 +34,7 @@ export const createWidgetHarnessApp = (
     labels: {
       title: "Workspace Assistant",
       placeholder: "Ask about this page",
-      send: "Send message",
+      send: "Send",
     },
   };
 

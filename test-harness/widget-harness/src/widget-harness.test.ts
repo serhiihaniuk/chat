@@ -20,7 +20,7 @@ const request = {
 };
 
 describe("widget harness modes", () => {
-  it("defaults to mock stream mode and mounts the blank widget reset point", () => {
+  it("defaults to mock stream mode and mounts the widget shell", () => {
     const config = parseWidgetHarnessConfig("");
     const app = createWidgetHarnessApp(config);
     const html = renderToStaticMarkup(app.element);
@@ -30,7 +30,8 @@ describe("widget harness modes", () => {
       apiBaseUrl: "/api",
       workspaceId: "local-dev",
     });
-    expect(html).toBe("");
+    expect(html).toContain("Workspace Assistant");
+    expect(html).toContain("No messages yet");
   });
 
   it("creates deterministic mock stream events with host command sequencing", async () => {

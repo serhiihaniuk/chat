@@ -7,7 +7,7 @@ describe("sidechat event validation", () => {
   it("accepts product-owned protocol events", () => {
     const event = parseSidechatStreamEvent({
       protocolVersion: "sidechat.v1",
-      type: SIDECHAT_EVENT_TYPES.delta,
+      type: SIDECHAT_EVENT_TYPES.DELTA,
       eventId: "evt_001",
       assistantTurnId: "turn_001",
       sequence: 1,
@@ -15,7 +15,7 @@ describe("sidechat event validation", () => {
       content: "hello",
     });
 
-    expect(event.type).toBe(SIDECHAT_EVENT_TYPES.delta);
+    expect(event.type).toBe(SIDECHAT_EVENT_TYPES.DELTA);
   });
 
   it("rejects provider-native and AI SDK UI stream shapes", () => {

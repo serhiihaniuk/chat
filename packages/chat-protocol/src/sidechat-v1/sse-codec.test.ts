@@ -8,7 +8,7 @@ import { decodeSseEvents, encodeSseEvent } from "./sse-codec.js";
 
 const event: SidechatStreamEvent = {
   protocolVersion: "sidechat.v1",
-  type: SIDECHAT_EVENT_TYPES.completed,
+  type: SIDECHAT_EVENT_TYPES.COMPLETED,
   eventId: "evt_001",
   assistantTurnId: "turn_001",
   sequence: 0,

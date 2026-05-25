@@ -40,8 +40,8 @@ export const validateSidechatEventSequence = (
   }
 
   if (
-    terminalEvent.type !== SIDECHAT_EVENT_TYPES.completed &&
-    terminalEvent.type !== SIDECHAT_EVENT_TYPES.error
+    terminalEvent.type !== SIDECHAT_EVENT_TYPES.COMPLETED &&
+    terminalEvent.type !== SIDECHAT_EVENT_TYPES.ERROR
   ) {
     throw new ProtocolSequenceError("terminal event type is unsupported");
   }

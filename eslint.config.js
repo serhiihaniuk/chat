@@ -60,7 +60,7 @@ export default tseslint.config(
       "@typescript-eslint/switch-exhaustiveness-check": "error",
       "no-restricted-imports": ["error", { patterns: restrictedImports }],
       "no-nested-ternary": "error",
-      complexity: ["warn", 12],
+      complexity: ["error", 12],
       "max-depth": ["error", 4],
       "max-params": ["warn", 6],
       "no-debugger": "error",

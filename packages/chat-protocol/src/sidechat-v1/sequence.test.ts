@@ -14,14 +14,14 @@ const baseEvent = {
 
 const started: SidechatStreamEvent = {
   ...baseEvent,
-  type: SIDECHAT_EVENT_TYPES.started,
+  type: SIDECHAT_EVENT_TYPES.STARTED,
   eventId: "evt_001",
   sequence: 0,
 };
 
 const completed: SidechatStreamEvent = {
   ...baseEvent,
-  type: SIDECHAT_EVENT_TYPES.completed,
+  type: SIDECHAT_EVENT_TYPES.COMPLETED,
   eventId: "evt_002",
   sequence: 1,
   finishReason: "stop",
@@ -44,7 +44,7 @@ describe("validateSidechatEventSequence", () => {
   it("rejects events after terminal", () => {
     const lateDelta: SidechatStreamEvent = {
       ...baseEvent,
-      type: SIDECHAT_EVENT_TYPES.delta,
+      type: SIDECHAT_EVENT_TYPES.DELTA,
       eventId: "evt_003",
       sequence: 2,
       content: "late",

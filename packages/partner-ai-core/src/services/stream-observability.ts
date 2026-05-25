@@ -89,7 +89,7 @@ export const terminalErrorCode = (
   events: readonly SidechatStreamEvent[],
 ): string | undefined => {
   const terminal = events.at(-1);
-  return terminal?.type === SIDECHAT_EVENT_TYPES.error
+  return terminal?.type === SIDECHAT_EVENT_TYPES.ERROR
     ? terminal.code
     : undefined;
 };

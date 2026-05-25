@@ -59,14 +59,14 @@ describe("stream chat use case", () => {
     const events = await collect(useCase.stream(input));
 
     expect(events.map((event) => event.type)).toEqual([
-      SIDECHAT_EVENT_TYPES.started,
-      SIDECHAT_EVENT_TYPES.reasoning,
-      SIDECHAT_EVENT_TYPES.delta,
-      SIDECHAT_EVENT_TYPES.completed,
+      SIDECHAT_EVENT_TYPES.STARTED,
+      SIDECHAT_EVENT_TYPES.REASONING,
+      SIDECHAT_EVENT_TYPES.DELTA,
+      SIDECHAT_EVENT_TYPES.COMPLETED,
     ]);
     expect(events.map((event) => event.sequence)).toEqual([0, 1, 2, 3]);
     expect(validateSidechatEventSequence(events).terminalEvent.type).toBe(
-      SIDECHAT_EVENT_TYPES.completed,
+      SIDECHAT_EVENT_TYPES.COMPLETED,
     );
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
     expect(ports.calls).toEqual([
@@ -168,9 +168,9 @@ describe("stream chat use case", () => {
     const events = await collect(useCase.stream(input));
 
     expect(events.map((event) => event.type)).toEqual([
-      SIDECHAT_EVENT_TYPES.started,
-      SIDECHAT_EVENT_TYPES.delta,
-      SIDECHAT_EVENT_TYPES.completed,
+      SIDECHAT_EVENT_TYPES.STARTED,
+      SIDECHAT_EVENT_TYPES.DELTA,
+      SIDECHAT_EVENT_TYPES.COMPLETED,
     ]);
     expect(events.map((event) => event.sequence)).toEqual([0, 1, 2]);
   });
@@ -195,7 +195,7 @@ describe("stream chat use case", () => {
     const events = await collect(useCase.stream(input));
 
     expect(events.at(-1)).toMatchObject({
-      type: SIDECHAT_EVENT_TYPES.error,
+      type: SIDECHAT_EVENT_TYPES.ERROR,
       code: "timeout",
       retryable: true,
     });
@@ -298,5 +298,5 @@ const collect = async <T>(items: AsyncIterable<T>): Promise<T[]> => {
 };
 
 const isTerminalEvent = (event: SidechatStreamEvent): boolean =>
-  event.type === SIDECHAT_EVENT_TYPES.completed ||
-  event.type === SIDECHAT_EVENT_TYPES.error;
+  event.type === SIDECHAT_EVENT_TYPES.COMPLETED ||
+  event.type === SIDECHAT_EVENT_TYPES.ERROR;

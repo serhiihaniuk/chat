@@ -6,7 +6,7 @@ test("runs the widget harness in a browser with deterministic mock streaming", a
   await page.goto("/?mode=mock-stream");
 
   await expect(
-    page.getByRole("heading", { name: "Mock stream harness" }),
+    page.getByRole("heading", { name: "Workspace Assistant" }),
   ).toBeVisible();
   await page.getByLabel("Message").fill("hello browser");
   await page.getByRole("button", { name: "Send" }).click();

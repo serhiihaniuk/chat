@@ -42,15 +42,15 @@ const parseEventEnvelope = (input: unknown): Record<string, unknown> => {
 
 const validatePayload = (event: Record<string, unknown>): void => {
   switch (event["type"]) {
-    case SIDECHAT_EVENT_TYPES.started:
+    case SIDECHAT_EVENT_TYPES.STARTED:
       return;
-    case SIDECHAT_EVENT_TYPES.delta:
+    case SIDECHAT_EVENT_TYPES.DELTA:
       requireString(event["content"], 'event["content"]');
       return;
-    case SIDECHAT_EVENT_TYPES.reasoning:
+    case SIDECHAT_EVENT_TYPES.REASONING:
       requireString(event["summary"], 'event["summary"]');
       return;
-    case SIDECHAT_EVENT_TYPES.tool:
+    case SIDECHAT_EVENT_TYPES.TOOL:
       requireString(event["toolCallId"], 'event["toolCallId"]');
       requireString(event["toolName"], 'event["toolName"]');
       requireOneOf(
@@ -59,27 +59,27 @@ const validatePayload = (event: Record<string, unknown>): void => {
         'event["status"]',
       );
       return;
-    case SIDECHAT_EVENT_TYPES.hostCommand:
+    case SIDECHAT_EVENT_TYPES.HOST_COMMAND:
       requireString(event["commandId"], 'event["commandId"]');
       requireString(event["commandName"], 'event["commandName"]');
       if (!isRecord(event["payload"]))
         throw new Error('event["payload"] must be an object');
       return;
-    case SIDECHAT_EVENT_TYPES.completed:
+    case SIDECHAT_EVENT_TYPES.COMPLETED:
       requireOneOf(
         event["finishReason"],
         ["stop", "length", "aborted"],
         'event["finishReason"]',
       );
       return;
-    case SIDECHAT_EVENT_TYPES.error:
+    case SIDECHAT_EVENT_TYPES.ERROR:
       requireString(event["code"], 'event["code"]');
       requireString(event["message"], 'event["message"]');
       if (typeof event["retryable"] !== "boolean") {
         throw new Error('event["retryable"] must be boolean');
       }
       return;
-    case SIDECHAT_EVENT_TYPES.history:
+    case SIDECHAT_EVENT_TYPES.HISTORY:
       if (!Array.isArray(event["messages"])) {
         throw new Error('event["messages"] must be an array');
       }

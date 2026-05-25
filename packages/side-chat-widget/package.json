@@ -19,6 +19,11 @@
       "development": "./src/shared/lib/*.ts",
       "default": "./dist/shared/lib/*.js"
     },
+    "#shared/ai/*": {
+      "types": "./src/shared/ai/*.tsx",
+      "development": "./src/shared/ai/*.tsx",
+      "default": "./dist/shared/ai/*.js"
+    },
     "#shared/ui/*": {
       "types": "./src/shared/ui/*.tsx",
       "development": "./src/shared/ui/*.tsx",

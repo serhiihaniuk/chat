@@ -133,7 +133,7 @@ export const createStreamChatUseCase = (
 
     yield emit({
       protocolVersion: input.request.protocolVersion,
-      type: SIDECHAT_EVENT_TYPES.started,
+      type: SIDECHAT_EVENT_TYPES.STARTED,
       eventId: ports.ids.nextEventId(),
       assistantTurnId,
       sequence: 0,
