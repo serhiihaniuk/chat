@@ -17,7 +17,7 @@ import {
 
 export type AiSdkToolLoopAgentRunOptions = {
   readonly model: LanguageModel;
-  readonly providerOptions?: ToolLoopAgentSettings["providerOptions"];
+  readonly providerOptions?: ToolLoopAgentSettings["providerOptions"] | undefined;
   readonly request: RuntimeProviderRequest;
 };
 

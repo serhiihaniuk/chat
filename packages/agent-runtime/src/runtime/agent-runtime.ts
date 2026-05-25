@@ -1,4 +1,5 @@
 import { Effect, Stream } from "effect";
+import type { LanguageModel, ToolLoopAgentSettings } from "ai";
 
 import { createPromptRenderer, type PromptRenderer } from "#context/prompt-renderer";
 import {
@@ -30,6 +31,12 @@ export type AgentRuntimeOptions = {
   readonly promptRenderer?: PromptRenderer;
 };
 
+type RuntimeExecution = {
+  readonly model: LanguageModel;
+  readonly providerOptions: ToolLoopAgentSettings["providerOptions"] | undefined;
+  readonly providerRequest: RuntimeProviderRequest;
+};
+
 export const createAgentRuntime = (options: AgentRuntimeOptions): AgentRuntime => {
   const providerRegistry = createProviderRegistry(options.providers);
   const profileRegistry = createProfileRegistry(options.profiles);
@@ -55,14 +62,16 @@ export const createAgentRuntime = (options: AgentRuntimeOptions): AgentRuntime =
     },
   };
 
-  const createRuntimeExecution = (request: AgentRuntimeRequest) =>
+  const createRuntimeExecution = (
+    request: AgentRuntimeRequest,
+  ): Effect.Effect<RuntimeExecution, AgentRuntimeError> =>
     Effect.gen(function* () {
       const profile = yield* resolveProfile(request.profileId);
       const selection = yield* Effect.try({
         try: () => resolveProviderSelection(request, profile, providerRegistry.providers),
         catch: (error) => toRuntimeError(error),
       });
-      const provider = yield* providerRegistry.resolve(selection);
+      const provider: ModelProvider = yield* providerRegistry.resolve(selection);
       const model = yield* provider.resolveModel(selection);
       const providerOptions = provider.resolveProviderOptions
         ? yield* provider.resolveProviderOptions(selection)
