@@ -9,6 +9,7 @@ import {
 import type { ModelProvider } from "#providers/model-provider";
 import { createScriptedLanguageModel } from "#testing/scripted-language-model";
 import { createMockWebSearchTool, MOCK_WEB_SEARCH_TOOL_NAME } from "#testing/mock-runtime-tool";
+import { RUNTIME_ERROR_CODES } from "./contract/runtime-event.js";
 import { createAgentRuntime } from "./agent-runtime.js";
 
 describe("createAgentRuntime", () => {
@@ -17,13 +18,15 @@ describe("createAgentRuntime", () => {
       providers: [createFakeProvider()],
     });
     const events = await collectEvents(
-      runtime.stream({
-        providerId: FAKE_PROVIDER_ID,
-        modelId: FAKE_ECHO_MODEL_ID,
-        requestId: "req_001",
-        assistantTurnId: "turn_001",
-        messages: [{ role: "user", content: "map me later" }],
-      }),
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          providerId: FAKE_PROVIDER_ID,
+          modelId: FAKE_ECHO_MODEL_ID,
+          requestId: "req_001",
+          assistantTurnId: "turn_001",
+          messages: [{ role: "user", content: "map me later" }],
+        }),
+      ),
     );
 
     expect(events[0]?.type).toBe("runtime.started");
@@ -67,21 +70,23 @@ describe("createAgentRuntime", () => {
     });
 
     await collectEvents(
-      runtime.stream({
-        profileId: "analyst",
-        requestId: "req_context",
-        assistantTurnId: "turn_context",
-        messages: [{ role: "user", content: "respond in list" }],
-        contextBoard: {
-          sections: [
-            {
-              title: "Portfolio",
-              content: "Risk budget is tight.",
-              priority: 10,
-            },
-          ],
-        },
-      }),
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          profileId: "analyst",
+          requestId: "req_context",
+          assistantTurnId: "turn_context",
+          messages: [{ role: "user", content: "respond in list" }],
+          contextBoard: {
+            sections: [
+              {
+                title: "Portfolio",
+                content: "Risk budget is tight.",
+                priority: 10,
+              },
+            ],
+          },
+        }),
+      ),
     );
 
     expect(modelCalls[0]?.prompt[0]).toMatchObject({
@@ -115,14 +120,16 @@ describe("createAgentRuntime", () => {
     });
 
     const events = await collectEvents(
-      runtime.stream({
-        providerId: "capture",
-        modelId: "capture-model",
-        requestId: "req_003",
-        assistantTurnId: "turn_003",
-        messages: [{ role: "user", content: "search web for portfolio news" }],
-        availableToolNames: [MOCK_WEB_SEARCH_TOOL_NAME],
-      }),
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          providerId: "capture",
+          modelId: "capture-model",
+          requestId: "req_003",
+          assistantTurnId: "turn_003",
+          messages: [{ role: "user", content: "search web for portfolio news" }],
+          availableToolNames: [MOCK_WEB_SEARCH_TOOL_NAME],
+        }),
+      ),
     );
 
     expect(events[0]).toMatchObject({ type: "runtime.started" });
@@ -139,14 +146,16 @@ describe("createAgentRuntime", () => {
 
     await expect(
       collectEvents(
-        runtime.stream({
-          providerId: FAKE_PROVIDER_ID,
-          modelId: FAKE_ECHO_MODEL_ID,
-          requestId: "req_missing_tool",
-          assistantTurnId: "turn_missing_tool",
-          messages: [],
-          availableToolNames: ["missing_tool"],
-        }),
+        Stream.toAsyncIterable(
+          runtime.streamEffect({
+            providerId: FAKE_PROVIDER_ID,
+            modelId: FAKE_ECHO_MODEL_ID,
+            requestId: "req_missing_tool",
+            assistantTurnId: "turn_missing_tool",
+            messages: [],
+            availableToolNames: ["missing_tool"],
+          }),
+        ),
       ),
     ).rejects.toThrow("tool missing_tool is not registered");
   });
@@ -158,27 +167,54 @@ describe("createAgentRuntime", () => {
 
     await expect(
       collectEvents(
-        runtime.stream({
-          providerId: "missing-provider",
-          modelId: FAKE_ECHO_MODEL_ID,
-          requestId: "req_missing_provider",
-          assistantTurnId: "turn_missing_provider",
-          messages: [],
-        }),
+        Stream.toAsyncIterable(
+          runtime.streamEffect({
+            providerId: "missing-provider",
+            modelId: FAKE_ECHO_MODEL_ID,
+            requestId: "req_missing_provider",
+            assistantTurnId: "turn_missing_provider",
+            messages: [],
+          }),
+        ),
       ),
     ).rejects.toThrow("provider missing-provider is not registered");
 
     await expect(
       collectEvents(
-        runtime.stream({
-          providerId: FAKE_PROVIDER_ID,
-          modelId: "missing-model",
-          requestId: "req_missing_model",
-          assistantTurnId: "turn_missing_model",
-          messages: [],
-        }),
+        Stream.toAsyncIterable(
+          runtime.streamEffect({
+            providerId: FAKE_PROVIDER_ID,
+            modelId: "missing-model",
+            requestId: "req_missing_model",
+            assistantTurnId: "turn_missing_model",
+            messages: [],
+          }),
+        ),
       ),
     ).rejects.toThrow("model missing-model is not registered");
+  });
+
+  it("maps unexpected adapter throws into the runtime error channel", async () => {
+    const runtime = createAgentRuntime({
+      providers: [createThrowingProvider()],
+    });
+
+    await expect(
+      collectEvents(
+        Stream.toAsyncIterable(
+          runtime.streamEffect({
+            providerId: "throwing",
+            modelId: "throwing-model",
+            requestId: "req_throwing_provider",
+            assistantTurnId: "turn_throwing_provider",
+            messages: [],
+          }),
+        ),
+      ),
+    ).rejects.toMatchObject({
+      code: RUNTIME_ERROR_CODES.INTERNAL_ERROR,
+      message: "provider adapter exploded",
+    });
   });
 });
 
@@ -194,6 +230,14 @@ const createCapturingProvider = (modelCalls: LanguageModelV3CallOptions[]): Mode
         onStreamCall: (options) => modelCalls.push(options),
       }),
     ),
+});
+
+const createThrowingProvider = (): ModelProvider => ({
+  providerId: "throwing",
+  modelIds: ["throwing-model"],
+  resolveModel: () => {
+    throw new Error("provider adapter exploded");
+  },
 });
 
 const collectEvents = async <T>(events: AsyncIterable<T>): Promise<T[]> => {

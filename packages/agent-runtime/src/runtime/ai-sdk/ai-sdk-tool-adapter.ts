@@ -1,10 +1,10 @@
-import { Effect } from "effect";
 import { jsonSchema, tool as createAiTool, type ToolExecutionOptions, type ToolSet } from "ai";
 import type { JsonObject } from "@side-chat/chat-protocol";
 import type { RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 
 import type { RuntimeProviderRequest } from "../contract/runtime-request.js";
 import { toJsonObject } from "./json-value.js";
+import { executeRuntimeToolForAiSdk } from "./runtime-tool-executor.js";
 
 /**
  * Convert app-owned RuntimeTool values into the AI SDK tool shape.
@@ -29,11 +29,10 @@ const toAiSdkTool = (runtimeTool: RuntimeTool, request: RuntimeProviderRequest) 
     description: runtimeTool.description,
     inputSchema: jsonSchema<JsonObject>(runtimeTool.inputSchema),
     execute: async (input, options) =>
-      Effect.runPromise(
-        runtimeTool.execute(
-          toJsonObject(input),
-          createRuntimeToolContext(runtimeTool, request, options),
-        ),
+      executeRuntimeToolForAiSdk(
+        runtimeTool,
+        toJsonObject(input),
+        createRuntimeToolContext(runtimeTool, request, options),
       ),
   });
 

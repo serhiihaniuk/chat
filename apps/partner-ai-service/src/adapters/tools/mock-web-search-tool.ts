@@ -1,6 +1,7 @@
 import { Effect } from "effect";
-import { AgentRuntimeError, type RuntimeTool } from "@side-chat/agent-runtime";
+import { AgentRuntimeError, RUNTIME_ERROR_CODES, type RuntimeTool } from "@side-chat/agent-runtime";
 import type { JsonObject } from "@side-chat/chat-protocol";
+import { isRecord } from "@side-chat/shared";
 
 const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
 
@@ -24,26 +25,23 @@ export const createMockWebSearchTool = ({
     additionalProperties: false,
   },
   readSources: (result) => readSources(result),
-  execute: (input, context) =>
-    Effect.tryPromise({
-      try: async (signal) => {
-        if (delayMs > 0) await wait(delayMs, context.abortSignal ?? signal);
+  execute: (input) =>
+    Effect.gen(function* () {
+      if (delayMs > 0) yield* Effect.sleep(delayMs);
 
-        return {
-          query: readQuery(input),
-          summary: `Mocked web search found briefing-style context for "${readQuery(input)}".`,
-          results: [
-            {
-              title: "Mock Search Result",
-              url: "https://example.test/search-result",
-              snippet:
-                "This is a deterministic mocked result. It behaves like web search without leaving the backend.",
-            },
-          ],
-        };
-      },
-      catch: (error) => toToolError(error),
-    }),
+      return {
+        query: readQuery(input),
+        summary: `Mocked web search found briefing-style context for "${readQuery(input)}".`,
+        results: [
+          {
+            title: "Mock Search Result",
+            url: "https://example.test/search-result",
+            snippet:
+              "This is a deterministic mocked result. It behaves like web search without leaving the backend.",
+          },
+        ],
+      };
+    }).pipe(Effect.mapError(toToolError)),
 });
 
 const readQuery = (input: JsonObject): string =>
@@ -67,33 +65,7 @@ const readSources = (result: JsonObject) => {
 const toToolError = (error: unknown): AgentRuntimeError => {
   if (error instanceof AgentRuntimeError) return error;
   return new AgentRuntimeError(
-    "tool_failed",
+    RUNTIME_ERROR_CODES.TOOL_FAILED,
     error instanceof Error ? error.message : "mock_web_search failed.",
   );
 };
-
-const wait = (durationMs: number, signal: AbortSignal): Promise<void> =>
-  new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(readAbortReason(signal));
-      return;
-    }
-
-    const timeout = setTimeout(resolve, durationMs);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timeout);
-        reject(readAbortReason(signal));
-      },
-      { once: true },
-    );
-  });
-
-const readAbortReason = (signal: AbortSignal): Error => {
-  const reason: unknown = signal.reason;
-  return reason instanceof Error ? reason : new Error("mock_web_search aborted.");
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);

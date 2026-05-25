@@ -23,7 +23,8 @@ The package does not own:
 
 - product-specific tool catalogs;
 - concrete tool ports for a consuming app;
-- context collection, authorization, redaction, squashing, or persistence;
+- context collection, authorization, redaction, squashing, manifests, or
+  persistence;
 - product policy;
 - conversation persistence;
 - HTTP routes or Hono objects;
@@ -69,6 +70,10 @@ packages/agent-runtime/
         tool-loop-agent-runner.ts
         ai-sdk-tool-adapter.ts
         ai-sdk-tool-adapter.test.ts
+        runtime-tool-executor.ts
+        reasoning-activity.ts
+        stream-part-mapper.ts
+        tool-activity-mapper.ts
 
     providers/
       model-provider.ts
@@ -98,7 +103,7 @@ Removed top-level folders are intentional:
   private runtime turn preparation.
 - `profiles/` was only small runtime config. `AssistantProfile` now lives in
   `runtime/turn/assistant-profile.ts`.
-- `effect/` was not a product concept. Stream interop now lives in
+- `effect/` was not a product concept. The public Effect stream type lives in
   `runtime/contract/runtime-stream.ts`.
 - `telemetry/` had only unused stubs. Add telemetry back when it has real
   observer wiring.
@@ -109,7 +114,6 @@ Removed top-level folders are intentional:
 
 ```ts
 export type AgentRuntime = {
-  stream(request: AgentRuntimeRequest): AsyncIterable<RuntimeEvent>;
   streamEffect(request: AgentRuntimeRequest): RuntimeEventStream;
 };
 
@@ -123,14 +127,15 @@ export const createAgentRuntime: (options: AgentRuntimeOptions) => AgentRuntime;
 ```
 
 The root package exports protocol types and accepted adapters. It does not
-export AI SDK adapter internals.
+export AI SDK adapter internals, raw AI SDK stream parts, or alternate
+non-Effect runtime facades.
 
 ## Runtime Flow
 
 ```txt
 AgentRuntimeRequest
   -> runtime/turn prepares profile, provider/model, tools, and messages
-  -> run runtime/ai-sdk ToolLoopAgent adapter
+  -> runtime/ai-sdk opens ToolLoopAgent as an Effect Stream
   -> map provider-native stream parts into RuntimeEvent
 ```
 
@@ -156,11 +161,16 @@ both. `availableToolNames` selects from the merged set for the current turn.
 The runtime must not execute tools before the model chooses them through the
 tool loop.
 
+AI SDK requires Promise-returning tool callbacks, so `runtime-tool-executor.ts`
+is the single bridge that interprets the RuntimeTool Effect, passes abort
+signals through, and enforces declared tool timeouts. The tool protocol remains
+Effect-first.
+
 ## Context Board
 
 The context board is built outside `agent-runtime`.
 
-The app/core owns:
+`partner-ai-core` owns product context workflow and app-owned ports implement:
 
 - authorized conversation history;
 - host context trust and freshness;
@@ -177,18 +187,25 @@ The app/core owns:
 - prompt rendering from the board into model-facing messages;
 - profile instructions and runtime formatting rules.
 
-Context squashing that needs an LLM should be modeled as an explicit app/core
-workflow that may call a runtime operation. The authority over what may be
-included remains outside this package.
+Context squashing that needs an LLM should be modeled as an explicit
+`partner-ai-core` workflow that may call a runtime operation through a port. The
+authority over what may be included remains outside this package.
 
 ## Effect
 
 Effect is used where it makes the boundary clearer:
 
 - `streamEffect` returns an Effect `Stream<RuntimeEvent, AgentRuntimeError>`;
+- the AI SDK ToolLoopAgent runner is an Effect Stream internally;
 - runtime tools execute through Effect;
 - providers resolve models/options through Effect;
 - typed provider/tool/runtime errors stay explicit.
+
+Known failures use `Effect.fail`, `Effect.try`, `Effect.tryPromise`, or yielded
+failing effects. Raw JavaScript `throw` is a defect. The runtime catches defects
+at the package stream boundary and maps them into `AgentRuntimeError`, but
+implementation code should not use `throw` for expected provider, tool, policy,
+or runtime failures.
 
 Do not wrap pure object formatting helpers in Effect unless they need typed
 errors, dependencies, resources, concurrency, cancellation, or observability.
@@ -200,6 +217,6 @@ errors, dependencies, resources, concurrency, cancellation, or observability.
 - Concrete tools are app-owned injected capabilities.
 - Backend and UI-facing tools use the same runtime tool protocol.
 - Product policy chooses available tools per turn.
-- Context selection and trust belong to application/core.
+- Context selection and trust belong to `partner-ai-core` and app-owned ports.
 - Prompt rendering belongs to runtime.
 - The runtime never infers tool use from prompt keywords before the model acts.

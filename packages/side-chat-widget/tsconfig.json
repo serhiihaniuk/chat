@@ -16,6 +16,9 @@
     },
     {
       "path": "../host-bridge"
+    },
+    {
+      "path": "../shared"
     }
   ],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]

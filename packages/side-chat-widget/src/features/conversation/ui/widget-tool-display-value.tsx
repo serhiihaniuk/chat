@@ -1,4 +1,8 @@
+import { isRecord } from "@side-chat/shared";
+
 import { MessageResponse } from "#shared/ai/message";
+
+export { isRecord };
 
 export const ToolDisplayValue = ({ value }: { readonly value: unknown }) => {
   if (typeof value === "string")
@@ -14,9 +18,6 @@ export const displayEntries = (value: unknown): readonly (readonly [string, unkn
   if (!isRecord(value)) return [];
   return Object.entries(value).filter(([, entry]) => entry !== undefined);
 };
-
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 export const toDisplayLabel = (key: string): string =>
   key

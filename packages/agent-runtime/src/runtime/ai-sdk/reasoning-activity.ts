@@ -1,5 +1,10 @@
-import type { RuntimeEvent } from "../contract/runtime-event.js";
+import { RUNTIME_EVENT_TYPES, type RuntimeEvent } from "../contract/runtime-event.js";
+import type { ActivityKind, ActivityStatus } from "@side-chat/chat-protocol";
 import type { RuntimeProviderRequest } from "../contract/runtime-request.js";
+
+const ACTIVITY_KIND_REASONING = "reasoning" satisfies ActivityKind;
+const ACTIVITY_STATUS_RUNNING = "running" satisfies ActivityStatus;
+const ACTIVITY_STATUS_COMPLETED = "completed" satisfies ActivityStatus;
 
 export type ReasoningStreamState = {
   blockIndex: number;
@@ -25,7 +30,7 @@ export const appendReasoningDelta = (
   sequence: number,
 ): RuntimeEvent | undefined => {
   state.text = `${state.text}${delta}`;
-  return createReasoningActivity(request, sequence, state, "running");
+  return createReasoningActivity(request, sequence, state, ACTIVITY_STATUS_RUNNING);
 };
 
 /**
@@ -39,7 +44,7 @@ export const flushReasoningActivity = (
   state: ReasoningStreamState,
   sequence: number,
 ): RuntimeEvent | undefined => {
-  const event = createReasoningActivity(request, sequence, state, "completed");
+  const event = createReasoningActivity(request, sequence, state, ACTIVITY_STATUS_COMPLETED);
   if (event) {
     state.blockIndex += 1;
     state.text = "";
@@ -51,15 +56,15 @@ const createReasoningActivity = (
   request: RuntimeProviderRequest,
   sequence: number,
   state: ReasoningStreamState,
-  status: "running" | "completed",
+  status: ActivityStatus,
 ): RuntimeEvent | undefined => {
   const presentation = toReasoningPresentation(state.text);
   if (!presentation) return undefined;
 
   return {
-    type: "runtime.activity",
+    type: RUNTIME_EVENT_TYPES.ACTIVITY,
     activityId: `reasoning-${request.assistantTurnId}-${state.blockIndex}`,
-    activityKind: "reasoning",
+    activityKind: ACTIVITY_KIND_REASONING,
     requestId: request.requestId,
     assistantTurnId: request.assistantTurnId,
     sequence,

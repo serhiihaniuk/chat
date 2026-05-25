@@ -1,5 +1,36 @@
 import type { ActivityDetails, ActivityKind, ActivityStatus } from "@side-chat/chat-protocol";
 
+export const RUNTIME_EVENT_TYPES = {
+  STARTED: "runtime.started",
+  OUTPUT_DELTA: "runtime.output_delta",
+  ACTIVITY: "runtime.activity",
+  COMPLETED: "runtime.completed",
+  ERROR: "runtime.error",
+} as const;
+
+export type RuntimeEventType = (typeof RUNTIME_EVENT_TYPES)[keyof typeof RUNTIME_EVENT_TYPES];
+
+export const RUNTIME_ERROR_CODES = {
+  PROVIDER_UNAVAILABLE: "provider_unavailable",
+  MODEL_UNAVAILABLE: "model_unavailable",
+  TOOL_UNAVAILABLE: "tool_unavailable",
+  TOOL_FAILED: "tool_failed",
+  TIMEOUT: "timeout",
+  ABORTED: "aborted",
+  INTERNAL_ERROR: "internal_error",
+} as const;
+
+export type RuntimeErrorCode = (typeof RUNTIME_ERROR_CODES)[keyof typeof RUNTIME_ERROR_CODES];
+
+export const RUNTIME_FINISH_REASONS = {
+  STOP: "stop",
+  LENGTH: "length",
+  ABORTED: "aborted",
+} as const;
+
+export type RuntimeFinishReason =
+  (typeof RUNTIME_FINISH_REASONS)[keyof typeof RUNTIME_FINISH_REASONS];
+
 /**
  * RuntimeEvent is the provider-neutral output boundary.
  *
@@ -13,18 +44,18 @@ export type RuntimeEventBase = {
 };
 
 export type RuntimeStartedEvent = RuntimeEventBase & {
-  readonly type: "runtime.started";
+  readonly type: typeof RUNTIME_EVENT_TYPES.STARTED;
   readonly providerId: string;
   readonly modelId: string;
 };
 
 export type RuntimeOutputDeltaEvent = RuntimeEventBase & {
-  readonly type: "runtime.output_delta";
+  readonly type: typeof RUNTIME_EVENT_TYPES.OUTPUT_DELTA;
   readonly content: string;
 };
 
 export type RuntimeActivityEvent = RuntimeEventBase & {
-  readonly type: "runtime.activity";
+  readonly type: typeof RUNTIME_EVENT_TYPES.ACTIVITY;
   readonly activityId: string;
   readonly activityKind: ActivityKind;
   readonly status: ActivityStatus;
@@ -34,13 +65,13 @@ export type RuntimeActivityEvent = RuntimeEventBase & {
 };
 
 export type RuntimeCompletedEvent = RuntimeEventBase & {
-  readonly type: "runtime.completed";
-  readonly finishReason: "stop" | "length" | "aborted";
+  readonly type: typeof RUNTIME_EVENT_TYPES.COMPLETED;
+  readonly finishReason: RuntimeFinishReason;
   readonly usage?: RuntimeUsage;
 };
 
 export type RuntimeErrorEvent = RuntimeEventBase & {
-  readonly type: "runtime.error";
+  readonly type: typeof RUNTIME_EVENT_TYPES.ERROR;
   readonly code: RuntimeErrorCode;
   readonly message: string;
   readonly retryable: boolean;
@@ -55,15 +86,6 @@ export type RuntimeEvent =
 
 export type RuntimeTerminalEvent = RuntimeCompletedEvent | RuntimeErrorEvent;
 
-export type RuntimeErrorCode =
-  | "provider_unavailable"
-  | "model_unavailable"
-  | "tool_unavailable"
-  | "tool_failed"
-  | "timeout"
-  | "aborted"
-  | "internal_error";
-
 export type RuntimeUsage = {
   readonly inputTokens: number;
   readonly outputTokens: number;
@@ -76,4 +98,4 @@ export type RuntimeUsage = {
  * Completion and error are both terminal; activity and output deltas are not.
  */
 export const isRuntimeTerminalEvent = (event: RuntimeEvent): event is RuntimeTerminalEvent =>
-  event.type === "runtime.completed" || event.type === "runtime.error";
+  event.type === RUNTIME_EVENT_TYPES.COMPLETED || event.type === RUNTIME_EVENT_TYPES.ERROR;

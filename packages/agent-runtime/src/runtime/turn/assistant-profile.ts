@@ -1,4 +1,5 @@
 import { AgentRuntimeError } from "../contract/runtime-error.js";
+import { RUNTIME_ERROR_CODES } from "../contract/runtime-event.js";
 
 /**
  * AssistantProfile is a named assistant configuration used during turn setup.
@@ -47,7 +48,10 @@ export const createProfileCatalog = (
   const byId = new Map<string, AssistantProfile>();
   for (const profile of normalizedProfiles) {
     if (byId.has(profile.profileId)) {
-      throw new AgentRuntimeError("internal_error", `duplicate profile ${profile.profileId}`);
+      throw new AgentRuntimeError(
+        RUNTIME_ERROR_CODES.INTERNAL_ERROR,
+        `duplicate profile ${profile.profileId}`,
+      );
     }
     byId.set(profile.profileId, profile);
   }
@@ -69,7 +73,10 @@ export const resolveProfile = (
 ): AssistantProfile => {
   const profile = catalog.byId.get(profileId);
   if (!profile) {
-    throw new AgentRuntimeError("internal_error", `profile ${profileId} is not registered`);
+    throw new AgentRuntimeError(
+      RUNTIME_ERROR_CODES.INTERNAL_ERROR,
+      `profile ${profileId} is not registered`,
+    );
   }
   return profile;
 };

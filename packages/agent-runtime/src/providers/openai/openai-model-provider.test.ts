@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Stream } from "effect";
 import { createAgentRuntime } from "#runtime/agent-runtime";
 import {
   createOpenAIResponsesProvider,
@@ -59,13 +60,15 @@ describe("createOpenAIResponsesProvider", () => {
     });
 
     const events = await collect(
-      runtime.stream({
-        requestId: "request_001",
-        assistantTurnId: "turn_001",
-        providerId: OPENAI_PROVIDER_ID,
-        modelId: "gpt-5.4-mini",
-        messages: [{ role: "user", content: "hello" }],
-      }),
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          requestId: "request_001",
+          assistantTurnId: "turn_001",
+          providerId: OPENAI_PROVIDER_ID,
+          modelId: "gpt-5.4-mini",
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      ),
     );
 
     expect(events.map((event) => event.type)).toEqual([
@@ -131,13 +134,15 @@ describe("createOpenAIResponsesProvider", () => {
 
     await expect(
       collect(
-        runtime.stream({
-          requestId: "request_002",
-          assistantTurnId: "turn_002",
-          providerId: OPENAI_PROVIDER_ID,
-          modelId: "gpt-5.4-mini",
-          messages: [{ role: "user", content: "hello" }],
-        }),
+        Stream.toAsyncIterable(
+          runtime.streamEffect({
+            requestId: "request_002",
+            assistantTurnId: "turn_002",
+            providerId: OPENAI_PROVIDER_ID,
+            modelId: "gpt-5.4-mini",
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        ),
       ),
     ).resolves.toMatchObject([
       { type: "runtime.started", sequence: 0 },

@@ -70,17 +70,17 @@ npm run verify:container
 
 ## Package Ownership
 
-| Package                       | Test Ownership                                                                                                                                             |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/chat-protocol`      | `sidechat.v1` request/event validation, SSE codecs, event sequence rules, golden fixtures, generated schema compatibility, and type-level protocol unions. |
-| `packages/chat-client`        | Browser-safe fetch transport, streaming decode, abort/retry behavior, history/reset/usage route helpers, and malformed response handling.                  |
-| `packages/host-bridge`        | Host context and host command contracts, local command results, and public type surfaces.                                                                  |
-| `packages/partner-ai-core`    | Use-case behavior through ports: auth, policies, stream orchestration, observability, persistence callbacks, and runtime event mapping.                    |
-| `packages/agent-runtime`      | Provider adapters, fake provider determinism, AI SDK/tool mapping, OpenAI Responses normalization, and runtime public types.                               |
-| `apps/partner-ai-service`     | HTTP route behavior via `app.request`, auth and policy fail-closed behavior, service composition, and protocol-shaped responses.                           |
-| `packages/db`                 | Schema contract, migrations, memory repositories, Postgres/Drizzle repositories, and the shared repository contract.                                       |
-| `packages/side-chat-widget`   | Widget model tests, static rendering tests, DOM interaction tests with a fake `ChatClient` and fake `HostBridge`, and browser behavior via harness E2E.    |
-| `test-harness/widget-harness` | Playwright flows, harness modes, fake host bridge, mock stream scenarios, and local-service integration.                                                   |
+| Package                       | Test Ownership                                                                                                                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/chat-protocol`      | `sidechat.v1` request/event validation, SSE codecs, event sequence rules, golden fixtures, generated schema compatibility, and type-level protocol unions.            |
+| `packages/chat-client`        | Browser-safe fetch transport, streaming decode, abort/retry behavior, history/reset/usage route helpers, and malformed response handling.                             |
+| `packages/host-bridge`        | Host context and host command contracts, local command results, and public type surfaces.                                                                             |
+| `packages/partner-ai-core`    | Use-case behavior through ports: auth, policies, stream orchestration, observability, persistence callbacks, and runtime event mapping.                               |
+| `packages/agent-runtime`      | Provider adapters, fake provider determinism, AI SDK/tool mapping, OpenAI Responses normalization, defect-to-typed-error boundary behavior, and runtime public types. |
+| `apps/partner-ai-service`     | HTTP route behavior via `app.request`, auth and policy fail-closed behavior, service composition, and protocol-shaped responses.                                      |
+| `packages/db`                 | Schema contract, migrations, memory repositories, Postgres/Drizzle repositories, and the shared repository contract.                                                  |
+| `packages/side-chat-widget`   | Widget model tests, static rendering tests, DOM interaction tests with a fake `ChatClient` and fake `HostBridge`, and browser behavior via harness E2E.               |
+| `test-harness/widget-harness` | Playwright flows, harness modes, fake host bridge, mock stream scenarios, and local-service integration.                                                              |
 
 ## Boundaries
 
@@ -89,6 +89,8 @@ Tests must fail for broken product behavior, not for harmless refactors.
 - Protocol tests assert normalized `sidechat.v1`, not provider SDK payloads.
 - Client tests use fake `fetch` and controlled streams, not a real service.
 - Core tests use ports and fakes, not service adapters or database adapters.
+- Core/runtime tests consume Effect streams. They may convert to `AsyncIterable`
+  inside the test harness, but package APIs should remain Effect-first.
 - Service tests assert HTTP/protocol behavior, not framework object internals.
 - DB tests may assert rows, schema, migrations, and adapter-specific behavior.
 - Widget tests assert visible behavior and public seams, not hook call counts.

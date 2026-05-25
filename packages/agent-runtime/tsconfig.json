@@ -13,6 +13,9 @@
     },
     {
       "path": "../chat-protocol"
+    },
+    {
+      "path": "../shared"
     }
   ],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]

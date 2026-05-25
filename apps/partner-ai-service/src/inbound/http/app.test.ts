@@ -1,6 +1,12 @@
-import { decodeSseEvents, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import {
+  PROTOCOL_ERROR_CODES,
+  SIDECHAT_EVENT_TYPES,
+  SIDECHAT_PROTOCOL_VERSION,
+  decodeSseEvents,
+} from "@side-chat/chat-protocol";
 import type { ObservabilityRecord } from "@side-chat/partner-ai-core";
 import { createMemorySidechatRepositories } from "@side-chat/db";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "./app.js";
 
@@ -37,7 +43,7 @@ describe("partner ai service /chat/stream", () => {
     });
     const streamedEvents = decodeSseEvents(await stream.text());
     const conversationId = streamedEvents.find(
-      (event) => event.type === "sidechat.started",
+      (event) => event.type === SIDECHAT_EVENT_TYPES.STARTED,
     )?.conversationId;
 
     await expect(
@@ -80,13 +86,13 @@ describe("partner ai service /chat/stream", () => {
     const events = decodeSseEvents(await response.text());
     expect(events.map((event) => event.type)).toEqual(
       expect.arrayContaining([
-        "sidechat.started",
-        "sidechat.activity",
-        "sidechat.delta",
-        "sidechat.completed",
+        SIDECHAT_EVENT_TYPES.STARTED,
+        SIDECHAT_EVENT_TYPES.ACTIVITY,
+        SIDECHAT_EVENT_TYPES.DELTA,
+        SIDECHAT_EVENT_TYPES.COMPLETED,
       ]),
     );
-    expect(events.at(-1)).toMatchObject({ type: "sidechat.completed" });
+    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
   });
 
   it("streams through the runtime configured by service composition", async () => {
@@ -108,7 +114,7 @@ describe("partner ai service /chat/stream", () => {
     const events = decodeSseEvents(await response.text());
     expect(events).toContainEqual(
       expect.objectContaining({
-        type: "sidechat.activity",
+        type: SIDECHAT_EVENT_TYPES.ACTIVITY,
         activityKind: "reasoning",
         title: "Selected deterministic echo script",
       }),
@@ -154,7 +160,7 @@ describe("partner ai service /chat/stream", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      code: "bad_request",
+      code: PROTOCOL_ERROR_CODES.BAD_REQUEST,
       retryable: false,
     });
   });
@@ -172,7 +178,7 @@ describe("partner ai service /chat/stream", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      code: "bad_request",
+      code: PROTOCOL_ERROR_CODES.BAD_REQUEST,
       message: "Request body must be valid JSON.",
       retryable: false,
     });
@@ -188,11 +194,11 @@ describe("partner ai service /chat/stream", () => {
     expect(usage.status).toBe(401);
     await expect(history.json()).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      code: "unauthorized",
+      code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
     });
     await expect(usage.json()).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      code: "unauthorized",
+      code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
     });
   });
 
@@ -208,7 +214,7 @@ describe("partner ai service /chat/stream", () => {
       body: JSON.stringify(validRequest),
     });
     const conversationId = decodeSseEvents(await stream.text()).find(
-      (event) => event.type === "sidechat.started",
+      (event) => event.type === SIDECHAT_EVENT_TYPES.STARTED,
     )?.conversationId;
 
     const reset = await app.request(`/chat/history/${conversationId}`, {
@@ -234,7 +240,7 @@ describe("partner ai service /chat/stream", () => {
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      code: "unauthorized",
+      code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
       retryable: false,
     });
   });
@@ -350,7 +356,7 @@ describe("partner ai service /chat/stream", () => {
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      code: "forbidden",
+      code: PROTOCOL_ERROR_CODES.FORBIDDEN,
       retryable: false,
     });
     expect(repositories.snapshot()).toMatchObject({
@@ -365,9 +371,7 @@ describe("partner ai service /chat/stream", () => {
     const records: ObservabilityRecord[] = [];
     const response = await createPartnerAiServiceApp({
       observability: {
-        record: (record) => {
-          records.push(record);
-        },
+        record: (record) => Effect.sync(() => records.push(record)),
       },
     }).request("/chat/stream", {
       method: "POST",

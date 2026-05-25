@@ -1,4 +1,5 @@
 import type { UsageMetadata } from "@side-chat/chat-protocol";
+import { isRecord } from "@side-chat/shared";
 
 import { ChatClientError } from "./errors.js";
 import { assertNotAborted, buildPathUrl, createHttpError, withSignal } from "./http-helpers.js";
@@ -138,9 +139,6 @@ const normalizeUsage = (payload: unknown): UsageMetadata => {
     ...(payload["totalTokens"] === undefined ? {} : { totalTokens: payload["totalTokens"] }),
   };
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isOptionalNumber = (value: unknown): value is number | undefined =>
   value === undefined || typeof value === "number";

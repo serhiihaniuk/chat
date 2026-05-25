@@ -53,6 +53,7 @@
     "@ai-sdk/provider": "3.0.10",
     "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/partner-ai-core": "0.0.0",
+    "@side-chat/shared": "0.0.0",
     "ai": "6.0.191",
     "effect": "4.0.0-beta.70",
     "zod": "4.4.3"

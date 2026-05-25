@@ -1,10 +1,16 @@
-import { PartnerAiCoreError, createStreamChatUseCase } from "@side-chat/partner-ai-core";
 import {
+  PartnerAiCoreError,
+  createPartnerAiCoreLayer,
+  streamChatEffect,
+} from "@side-chat/partner-ai-core";
+import {
+  PROTOCOL_ERROR_CODES,
   ProtocolValidationError,
   parseChatStreamRequest,
   type ChatStreamRequest,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
+import { Stream } from "effect";
 import type { Hono } from "hono";
 
 import { createServicePersistence } from "#adapters/persistence/service-persistence";
@@ -22,16 +28,16 @@ export const registerChatStreamRoute = (
     const authContext = requireContextAuth(context.get("authContext"));
     const persistence = createServicePersistence(dependencies.repositories);
     const parsed = await parseJsonBody(context.req.raw);
-    if (!parsed.ok) return jsonError("bad_request", parsed.message, 400);
+    if (!parsed.ok) return jsonError(PROTOCOL_ERROR_CODES.BAD_REQUEST, parsed.message, 400);
 
     let chatRequest: ChatStreamRequest;
     try {
       chatRequest = parseChatStreamRequest(parsed.value);
     } catch (error) {
-      return jsonError("bad_request", errorMessage(error), 400);
+      return jsonError(PROTOCOL_ERROR_CODES.BAD_REQUEST, errorMessage(error), 400);
     }
 
-    const useCase = createStreamChatUseCase(
+    const coreLayer = createPartnerAiCoreLayer(
       createServicePorts({
         conversations: persistence.conversations,
         runtime: dependencies.runtime,
@@ -41,16 +47,16 @@ export const registerChatStreamRoute = (
     );
 
     try {
-      const eventIterator = useCase
-        .stream({
+      const eventIterator = Stream.toAsyncIterable(
+        streamChatEffect({
           workspace: dependencies.workspace,
           request: chatRequest,
           authContext,
           providerId: dependencies.providerId,
           modelId: dependencies.modelId,
           ...traceInput(context.req.raw),
-        })
-        [Symbol.asyncIterator]();
+        }).pipe(Stream.provide(coreLayer)),
+      )[Symbol.asyncIterator]();
       const firstEvent = await eventIterator.next();
 
       return streamingSseResponse({
@@ -102,11 +108,11 @@ const traceInput = (request: Request): { readonly traceId?: string } => {
 
 const mapServiceError = (error: unknown): Response => {
   if (error instanceof PartnerAiCoreError) {
-    const status = error.protocolCode === "unauthorized" ? 401 : 403;
+    const status = error.protocolCode === PROTOCOL_ERROR_CODES.UNAUTHORIZED ? 401 : 403;
     return jsonError(error.protocolCode, error.message, status, error.retryable);
   }
   if (error instanceof ProtocolValidationError) {
-    return jsonError("bad_request", error.message, 400);
+    return jsonError(PROTOCOL_ERROR_CODES.BAD_REQUEST, error.message, 400);
   }
-  return jsonError("internal_error", errorMessage(error), 500, true);
+  return jsonError(PROTOCOL_ERROR_CODES.INTERNAL_ERROR, errorMessage(error), 500, true);
 };

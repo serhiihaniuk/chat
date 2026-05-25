@@ -1,18 +1,23 @@
 import {
+  PROTOCOL_ERROR_CODES,
   SIDECHAT_EVENT_TYPES,
   SIDECHAT_PROTOCOL_VERSION,
   validateSidechatEventSequence,
   type ChatStreamRequest,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
+import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
-import { type AuthContext } from "#domain/authority";
-import type {
-  AgentRuntimePort,
-  ClockPort,
-  ConversationRepositoryPort,
-  IdGeneratorPort,
-  RuntimeEvent,
+import { AUTHORITY_DENIAL_CODES, type AuthContext } from "#domain/authority";
+import {
+  RUNTIME_ERROR_CODES,
+  RUNTIME_EVENT_TYPES,
+  RUNTIME_FINISH_REASONS,
+  type AgentRuntimePort,
+  type ClockPort,
+  type ConversationRepositoryPort,
+  type IdGeneratorPort,
+  type RuntimeEvent,
 } from "#ports";
 import {
   denyRequestPolicy,
@@ -20,7 +25,8 @@ import {
   type PolicyEvaluationInput,
   type PolicyPort,
 } from "#policies/policy";
-import { createStreamChatUseCase, type StreamChatInput } from "./stream-chat.js";
+import { createPartnerAiCoreLayer } from "#services/effect-runtime";
+import { streamChatEffect, type StreamChatInput } from "./stream-chat.js";
 
 const authContext: AuthContext = {
   tenantId: "tenant_001",
@@ -49,11 +55,10 @@ const input: StreamChatInput = {
 };
 
 describe("stream chat use case", () => {
-  it("streams valid sidechat.v1 events through fake ports", async () => {
+  it("streams valid sidechat.v1 events through Effect services", async () => {
     const ports = createFakePorts({ authContext });
-    const useCase = createStreamChatUseCase(ports);
 
-    const events = await collect(useCase.stream(input));
+    const events = await collect(runStreamChat(input, ports));
 
     expect(events.map((event) => event.type)).toEqual([
       SIDECHAT_EVENT_TYPES.STARTED,
@@ -71,18 +76,12 @@ describe("stream chat use case", () => {
 
   it("requires normalized AuthContext before protected work", async () => {
     const ports = createFakePorts();
-    const useCase = createStreamChatUseCase(ports);
 
     await expect(
-      collect(
-        useCase.stream({
-          ...input,
-          authContext: undefined,
-        }),
-      ),
+      collect(runStreamChat({ ...input, authContext: undefined }, ports)),
     ).rejects.toMatchObject({
-      code: "missing_auth",
-      protocolCode: "unauthorized",
+      code: AUTHORITY_DENIAL_CODES.MISSING_AUTH,
+      protocolCode: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
     });
     expect(ports.calls).toEqual([]);
   });
@@ -93,17 +92,16 @@ describe("stream chat use case", () => {
       policies: denyRequestPolicy({
         allowed: false,
         check: "rate_limit",
-        code: POLICY_DENIAL_CODES.rateLimitExceeded,
-        protocolCode: "rate_limited",
+        code: POLICY_DENIAL_CODES.RATE_LIMIT_EXCEEDED,
+        protocolCode: PROTOCOL_ERROR_CODES.RATE_LIMITED,
         message: "Rate limit exceeded for this workspace.",
         retryable: true,
       }),
     });
-    const useCase = createStreamChatUseCase(ports);
 
-    await expect(collect(useCase.stream(input))).rejects.toMatchObject({
-      code: "rate_limit_exceeded",
-      protocolCode: "rate_limited",
+    await expect(collect(runStreamChat(input, ports))).rejects.toMatchObject({
+      code: POLICY_DENIAL_CODES.RATE_LIMIT_EXCEEDED,
+      protocolCode: PROTOCOL_ERROR_CODES.RATE_LIMITED,
       retryable: true,
     });
     expect(ports.calls).toEqual(["policy"]);
@@ -111,18 +109,17 @@ describe("stream chat use case", () => {
 
   it("denies cross-tenant access before persistence or model work", async () => {
     const ports = createFakePorts({ authContext });
-    const useCase = createStreamChatUseCase(ports);
 
     await expect(
       collect(
-        useCase.stream({
-          ...input,
-          workspace: { tenantId: "tenant_002", workspaceId: "workspace_001" },
-        }),
+        runStreamChat(
+          { ...input, workspace: { tenantId: "tenant_002", workspaceId: "workspace_001" } },
+          ports,
+        ),
       ),
     ).rejects.toMatchObject({
-      code: "cross_tenant_workspace",
-      protocolCode: "forbidden",
+      code: AUTHORITY_DENIAL_CODES.CROSS_TENANT_WORKSPACE,
+      protocolCode: PROTOCOL_ERROR_CODES.FORBIDDEN,
     });
     expect(ports.calls).toEqual([]);
   });
@@ -132,7 +129,7 @@ describe("stream chat use case", () => {
       authContext,
       runtimeEvents: [
         {
-          type: "runtime.started",
+          type: RUNTIME_EVENT_TYPES.STARTED,
           requestId: "request_001",
           assistantTurnId: "assistant_turn_001",
           sequence: 0,
@@ -140,24 +137,23 @@ describe("stream chat use case", () => {
           modelId: "fake-echo",
         },
         {
-          type: "runtime.output_delta",
+          type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
           requestId: "request_001",
           assistantTurnId: "assistant_turn_001",
           sequence: 1,
           content: "Hello",
         },
         {
-          type: "runtime.completed",
+          type: RUNTIME_EVENT_TYPES.COMPLETED,
           requestId: "request_001",
           assistantTurnId: "assistant_turn_001",
           sequence: 2,
-          finishReason: "stop",
+          finishReason: RUNTIME_FINISH_REASONS.STOP,
         },
       ],
     });
-    const useCase = createStreamChatUseCase(ports);
 
-    const events = await collect(useCase.stream(input));
+    const events = await collect(runStreamChat(input, ports));
 
     expect(events.map((event) => event.type)).toEqual([
       SIDECHAT_EVENT_TYPES.STARTED,
@@ -172,23 +168,22 @@ describe("stream chat use case", () => {
       authContext,
       runtimeEvents: [
         {
-          type: "runtime.error",
+          type: RUNTIME_EVENT_TYPES.ERROR,
           requestId: "request_001",
           assistantTurnId: "assistant_turn_001",
           sequence: 0,
-          code: "timeout",
+          code: RUNTIME_ERROR_CODES.TIMEOUT,
           message: "provider timed out",
           retryable: true,
         },
       ],
     });
-    const useCase = createStreamChatUseCase(ports);
 
-    const events = await collect(useCase.stream(input));
+    const events = await collect(runStreamChat(input, ports));
 
     expect(events.at(-1)).toMatchObject({
       type: SIDECHAT_EVENT_TYPES.ERROR,
-      code: "timeout",
+      code: PROTOCOL_ERROR_CODES.TIMEOUT,
       retryable: true,
     });
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
@@ -218,7 +213,7 @@ const createFakePorts = (options: FakePortOptions = {}) => {
   const conversations: ConversationRepositoryPort = {
     ensureConversation: ({ authContext: context, fallbackConversationId }) => {
       calls.push("ensureConversation");
-      return Promise.resolve({
+      return Effect.succeed({
         tenantId: context.tenantId,
         workspaceId: context.workspaceId,
         conversationId: fallbackConversationId,
@@ -226,16 +221,13 @@ const createFakePorts = (options: FakePortOptions = {}) => {
     },
     appendUserMessage: () => {
       calls.push("appendUserMessage");
-      return Promise.resolve();
+      return Effect.succeed(undefined);
     },
   };
   const runtime: AgentRuntimePort = {
-    stream: async function* () {
+    streamEffect: () => {
       calls.push("runtime");
-      await Promise.resolve();
-      for (const event of options.runtimeEvents ?? defaultRuntimeEvents()) {
-        yield event;
-      }
+      return Stream.fromIterable(options.runtimeEvents ?? defaultRuntimeEvents());
     },
   };
 
@@ -246,7 +238,7 @@ const createFakePorts = (options: FakePortOptions = {}) => {
         calls.push("policy");
         return (
           options.policies ?? {
-            evaluate: () => Promise.resolve({ allowed: true } as const),
+            evaluate: () => Effect.succeed({ allowed: true } as const),
           }
         ).evaluate(policyInput);
       },
@@ -258,9 +250,27 @@ const createFakePorts = (options: FakePortOptions = {}) => {
   };
 };
 
+const runStreamChat = (
+  streamInput: StreamChatInput,
+  ports: ReturnType<typeof createFakePorts>,
+): AsyncIterable<SidechatStreamEvent> =>
+  Stream.toAsyncIterable(
+    streamChatEffect(streamInput).pipe(
+      Stream.provide(
+        createPartnerAiCoreLayer({
+          conversations: ports.conversations,
+          runtime: ports.runtime,
+          clock: ports.clock,
+          ids: ports.ids,
+          policies: ports.policies,
+        }),
+      ),
+    ),
+  );
+
 const defaultRuntimeEvents = (): readonly RuntimeEvent[] => [
   {
-    type: "runtime.activity",
+    type: RUNTIME_EVENT_TYPES.ACTIVITY,
     requestId: "request_001",
     assistantTurnId: "assistant_turn_001",
     sequence: 0,
@@ -270,18 +280,18 @@ const defaultRuntimeEvents = (): readonly RuntimeEvent[] => [
     title: "Fake runtime selected deterministic response",
   },
   {
-    type: "runtime.output_delta",
+    type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
     requestId: "request_001",
     assistantTurnId: "assistant_turn_001",
     sequence: 1,
     content: "Fake response",
   },
   {
-    type: "runtime.completed",
+    type: RUNTIME_EVENT_TYPES.COMPLETED,
     requestId: "request_001",
     assistantTurnId: "assistant_turn_001",
     sequence: 2,
-    finishReason: "stop",
+    finishReason: RUNTIME_FINISH_REASONS.STOP,
     usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
   },
 ];

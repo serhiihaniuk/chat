@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import type { JsonObject } from "@side-chat/chat-protocol";
+import { isRecord } from "@side-chat/shared";
 
 import type { RuntimeTool } from "#tools/tool-registry";
 
@@ -51,6 +52,3 @@ const readSources = (result: JsonObject) => {
     ];
   });
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);

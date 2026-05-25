@@ -8,6 +8,8 @@ import type {
   JsonObject,
   JsonValue,
 } from "@side-chat/chat-protocol";
+import { ACTIVITY_KINDS, ACTIVITY_STATUSES } from "@side-chat/chat-protocol";
+import { compactJsonObject } from "@side-chat/shared";
 
 export type WidgetActivityItem = {
   readonly id: string;
@@ -70,7 +72,9 @@ export const completeActivityTimeline = (
   activeItemId: undefined,
   completedAt: completedAt ?? timeline.completedAt,
   items: timeline.items.map((item) =>
-    item.status === "running" ? { ...item, status: "completed" } : item,
+    item.status === ACTIVITY_STATUSES.RUNNING
+      ? { ...item, status: ACTIVITY_STATUSES.COMPLETED }
+      : item,
   ),
 });
 
@@ -85,19 +89,12 @@ export const updateActivityItem = (
   return {
     ...timeline,
     items,
-    activeItemId: active?.status === "running" ? active.id : undefined,
+    activeItemId: active?.status === ACTIVITY_STATUSES.RUNNING ? active.id : undefined,
   };
 };
 
-export const toJsonObject = (
-  value: Readonly<Record<string, JsonValue | undefined>>,
-): JsonObject => {
-  const json: Record<string, JsonValue> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (entry !== undefined) json[key] = entry;
-  }
-  return json;
-};
+export const toJsonObject = (value: Readonly<Record<string, JsonValue | undefined>>): JsonObject =>
+  compactJsonObject(value);
 
 const toActivityItem = (event: ActivityEvent): WidgetActivityItem => ({
   id: event.activityId,
@@ -114,8 +111,8 @@ const mergeActivityItem = (
   existing: WidgetActivityItem,
   event: ActivityEvent,
 ): WidgetActivityItem => {
-  const wasRunning = existing.status === "running";
-  const canUpdatePresentation = existing.kind === "reasoning";
+  const wasRunning = existing.status === ACTIVITY_STATUSES.RUNNING;
+  const canUpdatePresentation = existing.kind === ACTIVITY_KINDS.REASONING;
 
   return {
     ...existing,
@@ -132,7 +129,7 @@ const sortActivityItems = (items: readonly WidgetActivityItem[]): WidgetActivity
 
 const readActiveItemId = (items: readonly WidgetActivityItem[]): string | undefined =>
   sortActivityItems(items)
-    .filter((item) => item.status === "running")
+    .filter((item) => item.status === ACTIVITY_STATUSES.RUNNING)
     .at(-1)?.id;
 
 const mergeActivityDetails = (

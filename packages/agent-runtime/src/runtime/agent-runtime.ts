@@ -1,16 +1,12 @@
-import { Effect, Stream } from "effect";
+import { Cause, Effect, Stream } from "effect";
 import type { LanguageModel, ToolLoopAgentSettings } from "ai";
 
-import { runAiSdkToolLoopAgent } from "./ai-sdk/tool-loop-agent-runner.js";
+import { runAiSdkToolLoopAgentStream } from "./ai-sdk/tool-loop-agent-runner.js";
 import type { ModelProvider } from "#providers/model-provider";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import { AgentRuntimeError } from "./contract/runtime-error.js";
-import type { RuntimeEvent } from "./contract/runtime-event.js";
-import {
-  runtimeStreamFromAsyncIterable,
-  runtimeStreamToAsyncIterable,
-  type RuntimeEventStream,
-} from "./contract/runtime-stream.js";
+import { RUNTIME_ERROR_CODES } from "./contract/runtime-event.js";
+import type { RuntimeEventStream } from "./contract/runtime-stream.js";
 import type { AgentRuntimeRequest, RuntimeProviderRequest } from "./contract/runtime-request.js";
 import type { AssistantProfile } from "./turn/assistant-profile.js";
 import {
@@ -26,7 +22,6 @@ export {
 } from "./turn/assistant-profile.js";
 
 export type AgentRuntime = {
-  stream(request: AgentRuntimeRequest): AsyncIterable<RuntimeEvent>;
   streamEffect(request: AgentRuntimeRequest): RuntimeEventStream;
 };
 
@@ -62,26 +57,25 @@ export const createAgentRuntime = (options: AgentRuntimeOptions): AgentRuntime =
    * streamEffect is the Effect-native way to run one assistant turn.
    *
    * It prepares the provider-ready request first. If that succeeds, it opens
-   * the AI SDK ToolLoopAgent stream and converts its async iterable into the
-   * runtime's Effect Stream.
+   * the AI SDK ToolLoopAgent as an Effect Stream so provider failures,
+   * cancellation, timeouts, and future tracing stay in the typed workflow.
    */
   const streamEffect = (request: AgentRuntimeRequest): RuntimeEventStream =>
-    Stream.unwrap(
-      Effect.map(
-        createRuntimeExecution(state, request),
-        ({ model, providerOptions, providerRequest }) =>
-          runtimeStreamFromAsyncIterable(
-            runAiSdkToolLoopAgent({
+    catchRuntimeDefects(
+      Stream.unwrap(
+        Effect.map(
+          createRuntimeExecution(state, request),
+          ({ model, providerOptions, providerRequest }) =>
+            runAiSdkToolLoopAgentStream({
               model,
               providerOptions,
               request: providerRequest,
             }),
-          ),
+        ),
       ),
     );
 
   return {
-    stream: (request) => runtimeStreamToAsyncIterable(streamEffect(request)),
     streamEffect,
   };
 };
@@ -95,7 +89,7 @@ const createRuntimeExecution = (
      * prepareRuntimeTurn answers the questions that must be settled before the
      * model starts:
      *
-     * Which profile is active? Which provider/model is selected? Which tools is
+     * Which profile is active? Which provider/model is selected? Which tools are
      * the model allowed to see? What final message list will the provider get?
      */
     const turn = yield* attemptRuntime(() => prepareRuntimeTurn(state, request));
@@ -118,10 +112,23 @@ const attemptRuntime = <A>(tryFn: () => A): Effect.Effect<A, AgentRuntimeError> 
     catch: (error) => toRuntimeError(error),
   });
 
+/**
+ * Convert unexpected defects at the runtime package boundary.
+ *
+ * Effect keeps typed failures and defects separate: `Effect.fail` and
+ * `Effect.try` use the error channel, while a raw `throw` is a defect. We still
+ * protect callers here so an accidental adapter throw becomes AgentRuntimeError
+ * instead of escaping as an untyped fiber failure.
+ */
+const catchRuntimeDefects = (stream: RuntimeEventStream): RuntimeEventStream =>
+  Stream.catchCauseIf(stream, Cause.hasDies, (cause) =>
+    Stream.fail(toRuntimeError(Cause.squash(cause))),
+  );
+
 const toRuntimeError = (error: unknown): AgentRuntimeError => {
   if (error instanceof AgentRuntimeError) return error;
   return new AgentRuntimeError(
-    "internal_error",
+    RUNTIME_ERROR_CODES.INTERNAL_ERROR,
     error instanceof Error ? error.message : "agent runtime failed",
   );
 };

@@ -24,7 +24,7 @@ describe("normalized authority contract", () => {
   it("fails closed before protected work when trusted auth is missing", () => {
     expect(requireAuthContext(undefined)).toEqual({
       allowed: false,
-      code: AUTHORITY_DENIAL_CODES.missingAuth,
+      code: AUTHORITY_DENIAL_CODES.MISSING_AUTH,
       message: "A trusted AuthContext is required before protected work runs.",
     });
   });
@@ -37,21 +37,21 @@ describe("normalized authority contract", () => {
 
     expect(decision).toMatchObject({
       allowed: false,
-      code: AUTHORITY_DENIAL_CODES.crossTenantWorkspace,
+      code: AUTHORITY_DENIAL_CODES.CROSS_TENANT_WORKSPACE,
     });
   });
 
   it("keeps host-provided context outside authoritative identity", () => {
     expect(requireAuthContext(undefined)).toMatchObject({
       allowed: false,
-      code: AUTHORITY_DENIAL_CODES.missingAuth,
+      code: AUTHORITY_DENIAL_CODES.MISSING_AUTH,
     });
   });
 
   it("requires explicit scopes from trusted authority", () => {
     expect(assertRequiredScope(authContext, "audit:write")).toMatchObject({
       allowed: false,
-      code: AUTHORITY_DENIAL_CODES.missingScope,
+      code: AUTHORITY_DENIAL_CODES.MISSING_SCOPE,
     });
   });
 

@@ -50,6 +50,7 @@
     "@side-chat/chat-client": "0.0.0",
     "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/host-bridge": "0.0.0",
+    "@side-chat/shared": "0.0.0",
     "@streamdown/cjk": "1.0.3",
     "@streamdown/code": "1.1.1",
     "@streamdown/math": "1.0.2",

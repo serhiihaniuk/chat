@@ -1,4 +1,9 @@
-import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import {
+  PROTOCOL_ERROR_CODES,
+  SIDECHAT_EVENT_TYPES,
+  SIDECHAT_PROTOCOL_VERSION,
+} from "@side-chat/chat-protocol";
+import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import type { AuthContext } from "#domain/authority";
 import {
@@ -6,17 +11,17 @@ import {
   redactAttributes,
   type ObservabilityRecord,
 } from "./observability.js";
-import type {
-  AgentRuntimePort,
-  ClockPort,
-  ConversationRepositoryPort,
-  IdGeneratorPort,
-  RuntimeEvent,
-} from "#ports";
 import {
-  createStreamChatUseCase,
-  type StreamChatInput,
-} from "#application/stream-chat/stream-chat";
+  RUNTIME_ERROR_CODES,
+  RUNTIME_EVENT_TYPES,
+  type AgentRuntimePort,
+  type ClockPort,
+  type ConversationRepositoryPort,
+  type IdGeneratorPort,
+  type RuntimeEvent,
+} from "#ports";
+import { streamChatEffect, type StreamChatInput } from "#application/stream-chat/stream-chat";
+import { createPartnerAiCoreLayer } from "./effect-runtime.js";
 
 const authContext: AuthContext = {
   tenantId: "tenant_001",
@@ -76,7 +81,7 @@ describe("observability redaction and correlation", () => {
     const records: ObservabilityRecord[] = [];
     const ports = createObservedPorts(records, [
       {
-        type: "runtime.activity",
+        type: RUNTIME_EVENT_TYPES.ACTIVITY,
         requestId: "request_observe_1",
         assistantTurnId: "assistant_turn_001",
         sequence: 0,
@@ -95,21 +100,35 @@ describe("observability redaction and correlation", () => {
         },
       },
       {
-        type: "runtime.error",
+        type: RUNTIME_EVENT_TYPES.ERROR,
         requestId: "request_observe_1",
         assistantTurnId: "assistant_turn_001",
         sequence: 1,
-        code: "timeout",
+        code: RUNTIME_ERROR_CODES.TIMEOUT,
         message: "provider leaked secret detail",
         retryable: true,
       },
     ]);
 
-    const events = await collect(createStreamChatUseCase(ports).stream(input));
+    const events = await collect(
+      Stream.toAsyncIterable(
+        streamChatEffect(input).pipe(
+          Stream.provide(
+            createPartnerAiCoreLayer({
+              conversations: ports.conversations,
+              runtime: ports.runtime,
+              clock: ports.clock,
+              ids: ports.ids,
+              observability: ports.observability,
+            }),
+          ),
+        ),
+      ),
+    );
 
     expect(events.at(-1)).toMatchObject({
-      type: "sidechat.error",
-      code: "timeout",
+      type: SIDECHAT_EVENT_TYPES.ERROR,
+      code: PROTOCOL_ERROR_CODES.TIMEOUT,
     });
     expect(records.map((record) => record.lifecycleState)).toEqual([
       "received",
@@ -147,14 +166,15 @@ describe("observability redaction and correlation", () => {
     expect(
       records.find(
         (record) =>
-          record.lifecycleState === "runtime_event" && record.attributes["errorCode"] === "timeout",
+          record.lifecycleState === "runtime_event" &&
+          record.attributes["errorCode"] === RUNTIME_ERROR_CODES.TIMEOUT,
       ),
     ).toMatchObject({
       attributes: { message: "[redacted]" },
     });
     expect(records.at(-1)).toMatchObject({
       lifecycleState: "failed",
-      errorCode: "timeout",
+      errorCode: PROTOCOL_ERROR_CODES.TIMEOUT,
       latencyMs: 70,
       attributes: { eventCount: 3 },
     });
@@ -168,20 +188,15 @@ const createObservedPorts = (
   const clock = createSteppingClock();
   const conversations: ConversationRepositoryPort = {
     ensureConversation: ({ authContext: context, fallbackConversationId }) =>
-      Promise.resolve({
+      Effect.succeed({
         tenantId: context.tenantId,
         workspaceId: context.workspaceId,
         conversationId: fallbackConversationId,
       }),
-    appendUserMessage: () => Promise.resolve(),
+    appendUserMessage: () => Effect.succeed(undefined),
   };
   const runtime: AgentRuntimePort = {
-    stream: async function* () {
-      for (const event of runtimeEvents) {
-        await Promise.resolve();
-        yield event;
-      }
-    },
+    streamEffect: () => Stream.fromIterable(runtimeEvents),
   };
   const ids: IdGeneratorPort = {
     nextConversationId: () => "conversation_001",
@@ -201,9 +216,10 @@ const createObservedPorts = (
     clock,
     ids,
     observability: {
-      record: (record: ObservabilityRecord) => {
-        records.push(record);
-      },
+      record: (record: ObservabilityRecord) =>
+        Effect.sync(() => {
+          records.push(record);
+        }),
     },
   };
 };

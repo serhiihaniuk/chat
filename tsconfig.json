@@ -11,6 +11,7 @@
     { "path": "./packages/chat-client" },
     { "path": "./packages/side-chat-widget" },
     { "path": "./packages/host-bridge" },
+    { "path": "./packages/shared" },
     { "path": "./packages/db" },
     { "path": "./packages/testing" },
     { "path": "./test-harness/widget-harness" }

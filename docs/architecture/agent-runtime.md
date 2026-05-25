@@ -22,12 +22,12 @@ Provider adapters are model resolvers, not assistant-turn orchestrators. They
 expose `ModelProvider.resolveModel` and optional provider options. The runtime
 creates and runs the AI SDK `ToolLoopAgent` for every turn.
 
-The runtime exposes two server-side stream surfaces:
+The runtime exposes one server-side stream surface:
 
-- `streamEffect(request)`: first-class Effect
-  `Stream<RuntimeEvent, AgentRuntimeError>`.
-- `stream(request)`: async-iterable adapter for server callers that do not want
-  to consume Effect directly.
+- `streamEffect(request)`: Effect `Stream<RuntimeEvent, AgentRuntimeError>`.
+
+There is no package-level `stream(request)` wrapper. If a transport needs
+`AsyncIterable`, the transport adapter converts the Effect stream at that edge.
 
 ## Package Shape
 
@@ -51,6 +51,7 @@ src/
     ai-sdk/
       tool-loop-agent-runner.ts
       ai-sdk-tool-adapter.ts
+      runtime-tool-executor.ts
   providers/
     model-provider.ts
     openai/
@@ -65,6 +66,10 @@ src/
 request/event/error shape. `runtime/turn/*` decides profile, provider/model,
 allowed tools, and final prompt messages before the model starts.
 `runtime/ai-sdk/*` is private adapter code, not a public package domain.
+
+The runtime execution path is Effect-first. `streamEffect` returns the runtime
+event stream directly; transport adapters convert it only at the edge when a
+platform API requires another stream shape.
 
 ## Tool Capabilities
 
@@ -104,6 +109,11 @@ Tool execution is Effect-based at the interface level so expected failures,
 cancellation, timeouts, dependencies, and telemetry can be handled as runtime
 workflow concerns instead of untyped promise callbacks.
 
+AI SDK still requires Promise-returning tool callbacks. That conversion happens
+only in `runtime/ai-sdk/runtime-tool-executor.ts`, where the RuntimeTool Effect
+is interpreted, aborted when the request is aborted, and failed with a typed
+runtime timeout when `timeoutMs` is declared.
+
 Rejected runtime-tool fields:
 
 - `shouldInvoke`
@@ -118,9 +128,13 @@ instant activity and break the ChatGPT-style agent timeline.
 `RuntimeContextBoard` is prepared context. It is passed in with the turn request
 and rendered by the runtime, but it is not built by the runtime.
 
-The app/core owns context gathering, redaction, authorization, squashing,
-budgeting, and persistence. The runtime owns only the model-facing rendering of
-that prepared board.
+`partner-ai-core` owns context gathering policy, redaction, authorization,
+squashing, budgeting, manifests, and persistence through app-owned ports. The
+runtime owns only the model-facing rendering of that prepared board.
+
+If context squashing needs a model call, `partner-ai-core` should call an
+explicit runtime-facing port for that operation. The runtime still does not
+decide what context is allowed.
 
 ## Execution Flow
 
@@ -129,7 +143,7 @@ service composition registers app-owned runtime tools
   -> runtime resolves assistant profile and provider/model
   -> runtime renders profile instructions and prepared context board
   -> runtime converts selected tools into AI SDK tools
-  -> ToolLoopAgent streams with toolChoice: "auto"
+  -> ToolLoopAgent opens a provider/tool-loop stream with toolChoice: "auto"
   -> model emits tool input/call parts when it chooses a capability
   -> AI SDK executes the selected tool adapter
   -> tool output returns to the model through the AI SDK tool loop
@@ -139,6 +153,10 @@ service composition registers app-owned runtime tools
 The runtime must not append manual "Backend tool returned" system messages.
 Tool results belong to the AI SDK tool loop and to product-safe activity
 details.
+
+Awaiting AI SDK `agent.stream(...)` opens the stream handle. It does not wait
+for the full assistant response. The answer continues through `result.fullStream`
+and is mapped into runtime events as provider parts arrive.
 
 ## Stream Mapping
 
@@ -182,6 +200,8 @@ Runtime tests must prove:
 - tools are registered as available capabilities;
 - the runtime does not execute a tool before provider/model streaming;
 - missing provider/model/tool selections fail through the runtime boundary;
+- raw adapter throws are converted at the runtime boundary while known failures
+  use the typed Effect error channel;
 - AI SDK tool parts map into one stable runtime activity row;
 - sources are mapped by the tool adapter;
 - provider-specific stream shapes never leak into partner AI core, protocol,

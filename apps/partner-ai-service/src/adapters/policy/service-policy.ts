@@ -1,8 +1,10 @@
 import {
   POLICY_DENIAL_CODES,
+  PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   type PolicyDecision,
   type PolicyPort,
 } from "@side-chat/partner-ai-core";
+import { Effect } from "effect";
 
 export type ServicePolicyConfig =
   | {
@@ -16,7 +18,7 @@ export type ServicePolicyConfig =
     };
 
 export class ServicePolicyConfigurationError extends Error {
-  readonly code = "production_policy_required";
+  readonly code = POLICY_DENIAL_CODES.PRODUCTION_POLICY_REQUIRED;
 
   constructor(message: string) {
     super(message);
@@ -39,18 +41,18 @@ export const createServicePolicyPort = (config: ServicePolicyConfig): PolicyPort
   return {
     evaluate: (input) => {
       if (config.mode === "fail_closed") {
-        return Promise.resolve(failClosedDecision());
+        return Effect.succeed(failClosedDecision());
       }
 
       if (config.mode === "configured") {
-        return Promise.resolve(
+        return Effect.succeed(
           (config.allowedModels ?? []).includes(input.modelId)
             ? { allowed: true }
             : modelUnavailableDecision(input.modelId),
         );
       }
 
-      return Promise.resolve({ allowed: true });
+      return Effect.succeed({ allowed: true });
     },
   };
 };
@@ -58,8 +60,8 @@ export const createServicePolicyPort = (config: ServicePolicyConfig): PolicyPort
 const failClosedDecision = (): PolicyDecision => ({
   allowed: false,
   check: "entitlement",
-  code: POLICY_DENIAL_CODES.productionPolicyRequired,
-  protocolCode: "forbidden",
+  code: POLICY_DENIAL_CODES.PRODUCTION_POLICY_REQUIRED,
+  protocolCode: PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.FORBIDDEN,
   message:
     "Production policy is fail-closed until entitlement and model availability are configured.",
 });
@@ -67,7 +69,7 @@ const failClosedDecision = (): PolicyDecision => ({
 const modelUnavailableDecision = (modelId: string): PolicyDecision => ({
   allowed: false,
   check: "model_availability",
-  code: POLICY_DENIAL_CODES.modelUnavailable,
-  protocolCode: "forbidden",
+  code: POLICY_DENIAL_CODES.MODEL_UNAVAILABLE,
+  protocolCode: PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.FORBIDDEN,
   message: `Model ${modelId} is not available for this workspace.`,
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Stream } from "effect";
 import { createAgentRuntime } from "#runtime/agent-runtime";
 import { isRuntimeTerminalEvent } from "#runtime/contract/runtime-event";
 import { createFakeProvider, FAKE_ECHO_MODEL_ID, FAKE_PROVIDER_ID } from "./fake-model-provider.js";
@@ -9,13 +10,15 @@ describe("createFakeProvider", () => {
       providers: [createFakeProvider()],
     });
     const events = await collectEvents(
-      runtime.stream({
-        requestId: "req_001",
-        assistantTurnId: "turn_001",
-        providerId: FAKE_PROVIDER_ID,
-        modelId: FAKE_ECHO_MODEL_ID,
-        messages: [{ role: "user", content: "hello runtime" }],
-      }),
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          requestId: "req_001",
+          assistantTurnId: "turn_001",
+          providerId: FAKE_PROVIDER_ID,
+          modelId: FAKE_ECHO_MODEL_ID,
+          messages: [{ role: "user", content: "hello runtime" }],
+        }),
+      ),
     );
 
     expect(events[0]?.type).toBe("runtime.started");
@@ -47,13 +50,15 @@ describe("createFakeProvider", () => {
       providers: [createFakeProvider()],
     });
     const events = await collectEvents(
-      runtime.stream({
-        requestId: "req_002",
-        assistantTurnId: "turn_002",
-        providerId: FAKE_PROVIDER_ID,
-        modelId: FAKE_ECHO_MODEL_ID,
-        messages: [],
-      }),
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          requestId: "req_002",
+          assistantTurnId: "turn_002",
+          providerId: FAKE_PROVIDER_ID,
+          modelId: FAKE_ECHO_MODEL_ID,
+          messages: [],
+        }),
+      ),
     );
 
     expect(events.filter(isRuntimeTerminalEvent)).toHaveLength(1);

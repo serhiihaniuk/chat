@@ -9,8 +9,9 @@ export type RuntimeMessage = {
 /**
  * The context board is already selected, authorized, and compressed context.
  *
- * Building or squashing this board belongs to the consuming app/core. The
- * runtime only renders it into model-facing messages for one assistant turn.
+ * Building or squashing this board belongs to partner-ai-core workflows and
+ * app-owned ports. The runtime only renders it into model-facing messages for
+ * one assistant turn.
  */
 export type RuntimeContextBoard = {
   readonly sections: readonly RuntimeContextSection[];

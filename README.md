@@ -10,6 +10,13 @@ external host app -> side-chat-widget -> chat-client -> chat-protocol -> partner
 
 The browser/backend contract is product-owned and must not expose provider-native stream parts, AI SDK internals, database rows, or host-app implementation details. See `docs/architecture/production-system-design.md` for the source of truth.
 
+Server/core packages are Effect-first. `partner-ai-core` exposes
+`streamChatEffect(input)` through Effect services/layers, and `agent-runtime`
+exposes `streamEffect(request)` as its only assistant-turn stream surface.
+Concrete tools and external-service adapters live in apps, then get injected
+through ports. Browser/client/widget APIs stay plain protocol and React-friendly
+TypeScript.
+
 Local service smoke runs through the configured service path. The current local
 workspace runs `partner-ai-service` from `.env`, with OpenAI selected through
 `SIDECHAT_PROVIDER=openai`, an allowed model list, and medium reasoning by

@@ -1,5 +1,6 @@
 import type { ModelProvider, ProviderSelection } from "#providers/model-provider";
 import { AgentRuntimeError } from "../contract/runtime-error.js";
+import { RUNTIME_ERROR_CODES } from "../contract/runtime-event.js";
 import type { AgentRuntimeRequest } from "../contract/runtime-request.js";
 import type { AssistantProfile } from "./assistant-profile.js";
 
@@ -20,7 +21,7 @@ export const createProviderCatalog = (providers: readonly ModelProvider[]): Prov
   for (const provider of providers) {
     if (byId.has(provider.providerId)) {
       throw new AgentRuntimeError(
-        "provider_unavailable",
+        RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
         `duplicate provider ${provider.providerId}`,
       );
     }
@@ -48,9 +49,15 @@ export const resolveProviderSelection = (
   const modelId = request.modelId ?? profile.defaultModelId ?? provider?.modelIds[0];
 
   if (!providerId)
-    throw new AgentRuntimeError("provider_unavailable", "No provider selected for runtime turn.");
+    throw new AgentRuntimeError(
+      RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
+      "No provider selected for runtime turn.",
+    );
   if (!modelId)
-    throw new AgentRuntimeError("model_unavailable", "No model selected for runtime turn.");
+    throw new AgentRuntimeError(
+      RUNTIME_ERROR_CODES.MODEL_UNAVAILABLE,
+      "No model selected for runtime turn.",
+    );
 
   return { providerId, modelId };
 };
@@ -69,13 +76,13 @@ export const resolveProvider = (
   const provider = catalog.byId.get(selection.providerId);
   if (!provider) {
     throw new AgentRuntimeError(
-      "provider_unavailable",
+      RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
       `provider ${selection.providerId} is not registered`,
     );
   }
   if (!provider.modelIds.includes(selection.modelId)) {
     throw new AgentRuntimeError(
-      "model_unavailable",
+      RUNTIME_ERROR_CODES.MODEL_UNAVAILABLE,
       `model ${selection.modelId} is not registered for provider ${selection.providerId}`,
     );
   }

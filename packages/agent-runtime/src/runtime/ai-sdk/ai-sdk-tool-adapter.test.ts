@@ -33,6 +33,26 @@ describe("createAiSdkToolSet", () => {
       toolName: "context_echo",
     });
   });
+
+  it("enforces declared runtime tool timeouts before returning to AI SDK", async () => {
+    const runtimeTool: RuntimeTool = {
+      name: "slow_tool",
+      description: "Never returns before the runtime timeout.",
+      inputSchema: { type: "object", additionalProperties: true },
+      timeoutMs: 1,
+      execute: () => Effect.never,
+    };
+
+    const toolSet = createAiSdkToolSet([runtimeTool], createRequest());
+    const aiSdkTool = toolSet?.["slow_tool"];
+
+    await expect(
+      aiSdkTool?.execute?.({}, { toolCallId: "call_timeout", messages: [] }),
+    ).rejects.toMatchObject({
+      code: "timeout",
+      message: "slow_tool timed out after 1ms.",
+    });
+  });
 });
 
 describe("AI SDK runtime tool activity mapping", () => {

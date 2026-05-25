@@ -27,8 +27,9 @@ external host app -> side-chat-widget -> chat-client -> chat-protocol -> partner
   generated JSON Schema, and stream sequence checks.
 - `packages/chat-client`: browser-safe typed stream client.
 - `packages/host-bridge`: host context/command boundary.
-- `packages/partner-ai-core`: framework-free use cases, policies, ports, runtime
-  event mapping, and application errors.
+- `packages/partner-ai-core`: framework-free Effect-first use cases, policies,
+  ports, runtime event mapping, context-board product workflow ownership, and
+  application errors.
 - `packages/agent-runtime`: AI SDK `ToolLoopAgent` runtime, provider protocol,
   OpenAI adapter, fake provider fixture, Effect-based runtime tool protocol,
   registered tool capability registry, and private AI SDK tool adaptation under
@@ -62,6 +63,25 @@ The accepted backend development capability is `mock_web_search`. It is an
 egress and is injected into `agent-runtime` through the Effect-based runtime
 tool protocol. The model decides whether and when to call it through the AI SDK
 tool loop.
+
+Core/server workflow code should be Effect-first. `partner-ai-core` ports expose
+`Effect` programs and runtime streams; `agent-runtime` exposes
+`streamEffect`; service adapters convert Promise-based HTTP, DB, policy, and
+provider libraries into Effect at the edge. Package APIs do not expose
+alternate `AsyncIterable` runtime facades; transport adapters convert streams
+only at their own boundary, such as SSE response writing.
+
+Effect expected failures use the typed error channel. Known failures should be
+created with `Effect.fail`, `Effect.try`, `Effect.tryPromise`, or yielded
+failing effects. Raw JavaScript `throw` is a defect. `partner-ai-core` and
+`agent-runtime` package boundaries catch defects as a safety net, but
+implementation code should not use `throw` for expected business, provider,
+persistence, or tool failures.
+
+Context-board construction, redaction, squashing, manifests, and persistence are
+product workflow concerns owned by `partner-ai-core` and app-owned ports. The
+agent runtime receives only a prepared `RuntimeContextBoard` and renders it into
+model-facing messages.
 
 Development tool exposure is non-production behavior. The service may expose
 `mock_web_search` in development profile through dev-tool configuration, but

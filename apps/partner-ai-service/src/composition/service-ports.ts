@@ -5,7 +5,7 @@ import type {
   IdGeneratorPort,
   ObservabilitySinkPort,
   PolicyPort,
-  StreamChatUseCasePorts,
+  StreamChatPorts,
 } from "@side-chat/partner-ai-core";
 
 export type ServicePortsOptions = {
@@ -17,7 +17,7 @@ export type ServicePortsOptions = {
   readonly observability?: ObservabilitySinkPort;
 };
 
-export const createServicePorts = (options: ServicePortsOptions): StreamChatUseCasePorts => ({
+export const createServicePorts = (options: ServicePortsOptions): StreamChatPorts => ({
   conversations: options.conversations,
   runtime: options.runtime,
   clock: options.clock ?? systemClock,

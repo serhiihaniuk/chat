@@ -9,6 +9,10 @@ tool-loop-agent-runner.ts
 ai-sdk-tool-adapter.ts
   converts RuntimeTool.execute into an AI SDK tool callback
 
+runtime-tool-executor.ts
+  interprets the app-owned RuntimeTool Effect for AI SDK, enforcing aborts and
+  declared tool timeouts before converting back to the Promise callback shape
+
 tool-activity-mapper.ts
   maps AI SDK tool stream parts into one runtime.activity row per tool call
 
@@ -24,3 +28,7 @@ json-value.ts
 
 The adapter must not choose tools, pick models, or decide product policy. Those
 questions are answered in `runtime/turn/` before this folder runs.
+
+`tool-loop-agent-runner.ts` awaits `agent.stream(...)` only long enough to get
+AI SDK's stream handle. The assistant answer is still streamed through
+`result.fullStream`, then consumed by Effect as provider parts arrive.

@@ -1,4 +1,5 @@
 import type { JsonObject, JsonPrimitive, JsonValue } from "@side-chat/chat-protocol";
+import { Effect } from "effect";
 
 export type TraceCorrelationInput = {
   readonly requestId: string;
@@ -28,7 +29,18 @@ export type ObservabilityRecord = RequestCorrelation & {
 };
 
 export type ObservabilitySinkPort = {
-  readonly record: (record: ObservabilityRecord) => void | Promise<void>;
+  readonly record: (record: ObservabilityRecord) => Effect.Effect<void, unknown>;
+};
+
+/**
+ * Explicit no-op sink for compositions that do not install telemetry yet.
+ *
+ * The stream-chat workflow can stay Effect-native without forcing every local
+ * test or development route to invent an observability adapter. Production can
+ * replace this with a real sink at the Layer boundary.
+ */
+export const NOOP_OBSERVABILITY_SINK: ObservabilitySinkPort = {
+  record: () => Effect.succeed(undefined),
 };
 
 const SENSITIVE_KEY_PARTS = [

@@ -5,6 +5,7 @@ import {
   type JsonValue,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
+import { Effect } from "effect";
 import {
   redactAttributes,
   safeJsonPrimitive,
@@ -12,7 +13,7 @@ import {
   type ObservabilitySinkPort,
   type RequestCorrelation,
 } from "./observability.js";
-import type { RuntimeEvent } from "#ports";
+import { RUNTIME_EVENT_TYPES, type RuntimeEvent } from "#ports";
 
 export type StreamObservationInput = {
   readonly correlation: RequestCorrelation;
@@ -26,13 +27,13 @@ export type StreamObservationInput = {
   readonly attributes: JsonObject;
 };
 
-export const recordStreamObservation = async (
+export const recordStreamObservation = (
   sink: ObservabilitySinkPort | undefined,
   input: StreamObservationInput,
-): Promise<void> => {
-  if (!sink) return;
+): Effect.Effect<void, unknown> => {
+  if (!sink) return Effect.succeed(undefined);
 
-  await sink.record({
+  return sink.record({
     requestId: input.correlation.requestId,
     traceId: input.correlation.traceId,
     lifecycleState: input.lifecycleState,
@@ -47,15 +48,15 @@ export const recordStreamObservation = async (
 
 export const runtimeEventAttributes = (event: RuntimeEvent): JsonObject => {
   switch (event.type) {
-    case "runtime.started":
+    case RUNTIME_EVENT_TYPES.STARTED:
       return {
         eventType: event.type,
         providerId: event.providerId,
         modelId: event.modelId,
       };
-    case "runtime.output_delta":
+    case RUNTIME_EVENT_TYPES.OUTPUT_DELTA:
       return { eventType: event.type, output: event.content };
-    case "runtime.activity":
+    case RUNTIME_EVENT_TYPES.ACTIVITY:
       return {
         eventType: event.type,
         activityId: event.activityId,
@@ -63,9 +64,9 @@ export const runtimeEventAttributes = (event: RuntimeEvent): JsonObject => {
         status: event.status,
         activityMeta: toJsonActivityMetadata(event.details),
       };
-    case "runtime.completed":
+    case RUNTIME_EVENT_TYPES.COMPLETED:
       return { eventType: event.type, finishReason: event.finishReason };
-    case "runtime.error":
+    case RUNTIME_EVENT_TYPES.ERROR:
       return {
         eventType: event.type,
         errorCode: event.code,

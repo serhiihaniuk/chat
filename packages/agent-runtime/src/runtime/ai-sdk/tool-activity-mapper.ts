@@ -1,10 +1,32 @@
 import type { TextStreamPart, ToolSet } from "ai";
-import type { ActivitySource, JsonObject, ProtocolErrorCode } from "@side-chat/chat-protocol";
+import {
+  type ActivitySource,
+  type ActivityKind,
+  type ActivityStatus,
+  type JsonObject,
+  type ProtocolErrorCode,
+} from "@side-chat/chat-protocol";
 import type { RuntimeTool } from "#tools/runtime-tool";
 
-import type { RuntimeEvent } from "../contract/runtime-event.js";
+import {
+  RUNTIME_ERROR_CODES,
+  RUNTIME_EVENT_TYPES,
+  type RuntimeEvent,
+} from "../contract/runtime-event.js";
 import type { RuntimeProviderRequest } from "../contract/runtime-request.js";
 import { toJsonObject } from "./json-value.js";
+
+const AI_SDK_TOOL_PART_TYPES = {
+  INPUT_START: "tool-input-start",
+  CALL: "tool-call",
+  RESULT: "tool-result",
+  ERROR: "tool-error",
+} as const;
+
+const ACTIVITY_KIND_TOOL = "tool" satisfies ActivityKind;
+const ACTIVITY_STATUS_RUNNING = "running" satisfies ActivityStatus;
+const ACTIVITY_STATUS_COMPLETED = "completed" satisfies ActivityStatus;
+const ACTIVITY_STATUS_FAILED = "failed" satisfies ActivityStatus;
 
 /**
  * Keep a lookup from streamed tool names back to the app-owned RuntimeTool.
@@ -31,17 +53,31 @@ export const mapAiSdkToolActivity = (
   sequence: number,
   runtimeTools: ReadonlyMap<string, RuntimeTool>,
 ): RuntimeEvent | undefined => {
-  if (part.type === "tool-input-start") return mapToolInputStart(request, sequence, part);
-  if (part.type === "tool-call") return mapToolCall(request, sequence, part);
-  if (part.type === "tool-result") return mapToolResult(request, sequence, part, runtimeTools);
-  if (part.type === "tool-error") return mapToolError(request, sequence, part);
+  if (part.type === AI_SDK_TOOL_PART_TYPES.INPUT_START)
+    return mapToolInputStart(request, sequence, part);
+  if (part.type === AI_SDK_TOOL_PART_TYPES.CALL) return mapToolCall(request, sequence, part);
+  if (part.type === AI_SDK_TOOL_PART_TYPES.RESULT)
+    return mapToolResult(request, sequence, part, runtimeTools);
+  if (part.type === AI_SDK_TOOL_PART_TYPES.ERROR) return mapToolError(request, sequence, part);
   return undefined;
 };
 
-type AiSdkToolInputStartPart = Extract<TextStreamPart<ToolSet>, { type: "tool-input-start" }>;
-type AiSdkToolCallPart = Extract<TextStreamPart<ToolSet>, { type: "tool-call" }>;
-type AiSdkToolResultPart = Extract<TextStreamPart<ToolSet>, { type: "tool-result" }>;
-type AiSdkToolErrorPart = Extract<TextStreamPart<ToolSet>, { type: "tool-error" }>;
+type AiSdkToolInputStartPart = Extract<
+  TextStreamPart<ToolSet>,
+  { type: typeof AI_SDK_TOOL_PART_TYPES.INPUT_START }
+>;
+type AiSdkToolCallPart = Extract<
+  TextStreamPart<ToolSet>,
+  { type: typeof AI_SDK_TOOL_PART_TYPES.CALL }
+>;
+type AiSdkToolResultPart = Extract<
+  TextStreamPart<ToolSet>,
+  { type: typeof AI_SDK_TOOL_PART_TYPES.RESULT }
+>;
+type AiSdkToolErrorPart = Extract<
+  TextStreamPart<ToolSet>,
+  { type: typeof AI_SDK_TOOL_PART_TYPES.ERROR }
+>;
 
 /**
  * Show that the model chose a tool before the full input is available.
@@ -58,7 +94,7 @@ const mapToolInputStart = (
   createToolActivity({
     request,
     sequence,
-    status: "running",
+    status: ACTIVITY_STATUS_RUNNING,
     toolCallId: part.id,
     toolName: part.toolName,
     input: {},
@@ -80,7 +116,7 @@ const mapToolCall = (
   createToolActivity({
     request,
     sequence,
-    status: "running",
+    status: ACTIVITY_STATUS_RUNNING,
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     input: toJsonObject(part.input),
@@ -105,7 +141,7 @@ const mapToolResult = (
   return createToolActivity({
     request,
     sequence,
-    status: part.preliminary ? "running" : "completed",
+    status: part.preliminary ? ACTIVITY_STATUS_RUNNING : ACTIVITY_STATUS_COMPLETED,
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     input: toJsonObject(part.input),
@@ -129,18 +165,18 @@ const mapToolError = (
   createToolActivity({
     request,
     sequence,
-    status: "failed",
+    status: ACTIVITY_STATUS_FAILED,
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     input: toJsonObject(part.input),
-    errorCode: "tool_failed",
+    errorCode: RUNTIME_ERROR_CODES.TOOL_FAILED,
     ...titleProp(part.title),
   });
 
 type ToolActivityInput = {
   readonly request: RuntimeProviderRequest;
   readonly sequence: number;
-  readonly status: "running" | "completed" | "failed";
+  readonly status: ActivityStatus;
   readonly toolCallId: string;
   readonly toolName: string;
   readonly title?: string;
@@ -162,9 +198,9 @@ const createToolActivity = ({
   toolCallId,
   toolName,
 }: ToolActivityInput): RuntimeEvent => ({
-  type: "runtime.activity",
+  type: RUNTIME_EVENT_TYPES.ACTIVITY,
   activityId: toolCallId,
-  activityKind: "tool",
+  activityKind: ACTIVITY_KIND_TOOL,
   requestId: request.requestId,
   assistantTurnId: request.assistantTurnId,
   sequence,
