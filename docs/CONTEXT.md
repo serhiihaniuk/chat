@@ -30,8 +30,8 @@ external host app -> side-chat-widget -> chat-client -> chat-protocol -> partner
 - `packages/partner-ai-core`: framework-free use cases, policies, ports, runtime
   event mapping, and application errors.
 - `packages/agent-runtime`: AI SDK `ToolLoopAgent` runtime, provider registry,
-  OpenAI adapter, fake provider fixture, registered tool capability registry,
-  and backend tool adapters.
+  OpenAI adapter, fake provider fixture, Effect-based runtime tool protocol,
+  registered tool capability registry, and AI SDK tool adaptation.
 - `packages/db`: Postgres/Drizzle persistence boundary and repository adapters.
 - `packages/side-chat-widget`: React widget using FSD layers: `widgets`,
   `features`, `entities`, and `shared`; `shared/ui` contains shadcn-style
@@ -56,10 +56,11 @@ The current local service path is OpenAI-configured through `.env`:
 Fake provider mode remains an explicit deterministic test/development path. It
 must not be described as the current real-provider smoke path.
 
-The accepted backend development capability is `mock_web_search`. It simulates
-web search inside `agent-runtime` without external egress. It is registered as
-an available tool for the agent; the model decides whether and when to call it
-through the AI SDK tool loop.
+The accepted backend development capability is `mock_web_search`. It is an
+`apps/partner-ai-service` adapter that simulates web search without external
+egress and is injected into `agent-runtime` through the Effect-based runtime
+tool protocol. The model decides whether and when to call it through the AI SDK
+tool loop.
 
 Development tool exposure is non-production behavior. The service may expose
 `mock_web_search` in development profile through dev-tool configuration, but

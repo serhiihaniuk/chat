@@ -1,45 +1,26 @@
+import { Effect } from "effect";
 import type { JsonObject } from "@side-chat/chat-protocol";
 
-import type { RuntimeTool } from "./tool-registry.js";
+import type { RuntimeTool } from "#tools/tool-registry";
 
 export const MOCK_WEB_SEARCH_TOOL_NAME = "mock_web_search" as const;
 
-export type MockWebSearchInput = JsonObject & {
-  readonly query: string;
-};
-
-export type MockWebSearchResult = JsonObject & {
-  readonly query: string;
-  readonly summary: string;
-  readonly results: JsonObject[];
-};
-
-const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
-
-export const createMockWebSearchTool = ({
-  delayMs = DEFAULT_MOCK_WEB_SEARCH_DELAY_MS,
-}: {
-  readonly delayMs?: number;
-} = {}): RuntimeTool => ({
+export const createMockWebSearchTool = (): RuntimeTool => ({
   name: MOCK_WEB_SEARCH_TOOL_NAME,
-  description:
-    "Search the web for recent or external information. Use this when the user asks to search, look up current information, or find sources outside the conversation.",
+  description: "Search deterministic fixture data.",
   inputSchema: {
     type: "object",
     properties: {
       query: {
         type: "string",
-        description: "The web search query to run.",
       },
     },
     required: ["query"],
     additionalProperties: false,
   },
   readSources: (result) => readSources(result),
-  run: async (input) => {
-    if (delayMs > 0) await wait(delayMs);
-
-    return {
+  execute: (input) =>
+    Effect.succeed({
       query: readQuery(input),
       summary: `Mocked web search found briefing-style context for "${readQuery(input)}".`,
       results: [
@@ -50,8 +31,7 @@ export const createMockWebSearchTool = ({
             "This is a deterministic mocked result. It behaves like web search without leaving the backend.",
         },
       ],
-    };
-  },
+    }),
 });
 
 const readQuery = (input: JsonObject): string =>
@@ -74,8 +54,3 @@ const readSources = (result: JsonObject) => {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const wait = (durationMs: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, durationMs);
-  });

@@ -1,62 +1,68 @@
 import { describe, expect, it } from "vitest";
+import { createAgentRuntime } from "#runtime/agent-runtime";
 import {
   createOpenAIResponsesProvider,
   OPENAI_PROVIDER_ID,
   OPENAI_RESPONSES_URL,
-} from "./openai-responses-provider.js";
+} from "./openai-model-provider.js";
 
 describe("createOpenAIResponsesProvider", () => {
-  it("maps OpenAI Responses SSE text events into runtime events", async () => {
+  it("resolves an OpenAI Responses model for runtime execution", async () => {
     const calls: RequestInit[] = [];
-    const provider = createOpenAIResponsesProvider({
-      apiKey: "test-key",
-      modelIds: ["gpt-5.4-mini"],
-      fetch: (_url, init) => {
-        calls.push(init ?? {});
-        return Promise.resolve(
-          new Response(
-            [
-              sse({
-                type: "response.output_item.added",
-                output_index: 0,
-                item: { type: "message", id: "msg_001" },
-              }),
-              sse({
-                type: "response.output_text.delta",
-                item_id: "msg_001",
-                delta: "Hello ",
-              }),
-              sse({
-                type: "response.output_text.delta",
-                item_id: "msg_001",
-                delta: "world",
-              }),
-              sse({
-                type: "response.output_item.done",
-                output_index: 0,
-                item: { type: "message", id: "msg_001" },
-              }),
-              sse({
-                type: "response.completed",
-                response: {
-                  usage: {
-                    input_tokens: 5,
-                    output_tokens: 2,
-                    total_tokens: 7,
-                  },
-                },
-              }),
-            ].join(""),
-            { status: 200 },
-          ),
-        );
-      },
+    const runtime = createAgentRuntime({
+      providers: [
+        createOpenAIResponsesProvider({
+          apiKey: "test-key",
+          modelIds: ["gpt-5.4-mini"],
+          fetch: (_url, init) => {
+            calls.push(init ?? {});
+            return Promise.resolve(
+              new Response(
+                [
+                  sse({
+                    type: "response.output_item.added",
+                    output_index: 0,
+                    item: { type: "message", id: "msg_001" },
+                  }),
+                  sse({
+                    type: "response.output_text.delta",
+                    item_id: "msg_001",
+                    delta: "Hello ",
+                  }),
+                  sse({
+                    type: "response.output_text.delta",
+                    item_id: "msg_001",
+                    delta: "world",
+                  }),
+                  sse({
+                    type: "response.output_item.done",
+                    output_index: 0,
+                    item: { type: "message", id: "msg_001" },
+                  }),
+                  sse({
+                    type: "response.completed",
+                    response: {
+                      usage: {
+                        input_tokens: 5,
+                        output_tokens: 2,
+                        total_tokens: 7,
+                      },
+                    },
+                  }),
+                ].join(""),
+                { status: 200 },
+              ),
+            );
+          },
+        }),
+      ],
     });
 
     const events = await collect(
-      provider.stream({
+      runtime.stream({
         requestId: "request_001",
         assistantTurnId: "turn_001",
+        providerId: OPENAI_PROVIDER_ID,
         modelId: "gpt-5.4-mini",
         messages: [{ role: "user", content: "hello" }],
       }),
@@ -95,7 +101,13 @@ describe("createOpenAIResponsesProvider", () => {
     expect(typeof body).toBe("string");
     expect(JSON.parse(body as string)).toMatchObject({
       model: "gpt-5.4-mini",
-      input: [{ role: "user", content: [{ type: "input_text", text: "hello" }] }],
+      input: [
+        {
+          role: "developer",
+          content: expect.stringContaining("GitHub-flavored Markdown"),
+        },
+        { role: "user", content: [{ type: "input_text", text: "hello" }] },
+      ],
       reasoning: {
         effort: "medium",
         summary: "auto",
@@ -104,20 +116,25 @@ describe("createOpenAIResponsesProvider", () => {
   });
 
   it("turns provider HTTP failures into runtime errors without fallback", async () => {
-    const provider = createOpenAIResponsesProvider({
-      apiKey: "test-key",
-      modelIds: ["gpt-5.4-mini"],
-      fetch: (url) => {
-        expect(url).toBe(OPENAI_RESPONSES_URL);
-        return Promise.resolve(new Response("nope", { status: 503 }));
-      },
+    const runtime = createAgentRuntime({
+      providers: [
+        createOpenAIResponsesProvider({
+          apiKey: "test-key",
+          modelIds: ["gpt-5.4-mini"],
+          fetch: (url) => {
+            expect(url).toBe(OPENAI_RESPONSES_URL);
+            return Promise.resolve(new Response("nope", { status: 503 }));
+          },
+        }),
+      ],
     });
 
     await expect(
       collect(
-        provider.stream({
+        runtime.stream({
           requestId: "request_002",
           assistantTurnId: "turn_002",
+          providerId: OPENAI_PROVIDER_ID,
           modelId: "gpt-5.4-mini",
           messages: [{ role: "user", content: "hello" }],
         }),

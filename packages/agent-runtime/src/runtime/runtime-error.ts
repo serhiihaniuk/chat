@@ -1,4 +1,4 @@
-import type { RuntimeErrorCode } from "./events.js";
+import type { RuntimeErrorCode } from "./runtime-event.js";
 
 export class AgentRuntimeError extends Error {
   readonly code: RuntimeErrorCode;

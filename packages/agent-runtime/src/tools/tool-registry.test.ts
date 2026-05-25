@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AgentRuntimeError } from "../errors.js";
+import { Effect } from "effect";
+import { AgentRuntimeError } from "#runtime/runtime-error";
 import { createToolRegistry, type RuntimeTool } from "./tool-registry.js";
 
 describe("createToolRegistry", () => {
@@ -7,7 +8,7 @@ describe("createToolRegistry", () => {
     name: "lookup",
     description: "Look up deterministic test data.",
     inputSchema: { type: "object", additionalProperties: false },
-    run: () => ({ ok: true }),
+    execute: () => Effect.succeed({ ok: true }),
   };
 
   it("resolves registered tools", () => {

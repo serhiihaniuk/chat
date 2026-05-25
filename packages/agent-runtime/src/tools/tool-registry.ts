@@ -1,14 +1,13 @@
-import { AgentRuntimeError } from "../errors.js";
-import type { ActivitySource, JsonObject } from "@side-chat/chat-protocol";
-import type { JSONSchema7 } from "@ai-sdk/provider";
+import { AgentRuntimeError } from "#runtime/runtime-error";
+import type { RuntimeTool } from "./runtime-tool.js";
 
-export type RuntimeTool = {
-  readonly name: string;
-  readonly description: string;
-  readonly inputSchema: JSONSchema7;
-  readSources?: (result: JsonObject) => readonly ActivitySource[];
-  run(input: JsonObject): Promise<JsonObject> | JsonObject;
-};
+export type {
+  RuntimeTool,
+  RuntimeToolContext,
+  RuntimeToolEffect,
+  RuntimeToolError,
+  RuntimeToolRequirements,
+} from "./runtime-tool.js";
 
 export type ToolRegistry = {
   readonly tools: readonly RuntimeTool[];

@@ -18,10 +18,23 @@ partner-ai-core
     -> normalized runtime events
 ```
 
+Provider adapters are model resolvers, not assistant-turn orchestrators. They
+expose `ModelProvider.resolveModel` and optional provider options. The runtime
+creates and runs the AI SDK `ToolLoopAgent` for every turn.
+
+The runtime exposes two server-side stream surfaces:
+
+- `streamEffect(request)`: first-class Effect `Stream<RuntimeEvent,
+AgentRuntimeError>`.
+- `stream(request)`: async-iterable adapter for server callers that do not want
+  to run Effect directly.
+
 ## Tool Capabilities
 
-Tools are registered capabilities available to the agent. They are not
-request-level instructions and they are not backend keyword heuristics.
+Tools are registered capabilities available to the agent. Concrete tool
+definitions are supplied by the consuming server app as ports/adapters that
+satisfy the runtime protocol. They are not request-level instructions and they
+are not backend keyword heuristics.
 
 The model decides whether and when to call a tool after the runtime exposes the
 available tool set to `ToolLoopAgent`.
@@ -31,6 +44,10 @@ turn starts. Registered does not mean globally available: production profiles
 must expose only accepted production tools, while development-only tools stay
 behind explicit non-production configuration.
 
+`agent-runtime` owns the protocol, registry mechanics, AI SDK tool adaptation,
+and stream mapping. The consuming app owns concrete tool ports such as finance
+lookup, PDF report generation, host command creation, or development fixtures.
+
 Runtime tools use this product contract:
 
 ```ts
@@ -38,10 +55,17 @@ type RuntimeTool = {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: JSONSchema7;
-  run(input: JsonObject): Promise<JsonObject> | JsonObject;
+  execute(
+    input: JsonObject,
+    context: RuntimeToolContext,
+  ): Effect.Effect<JsonObject, AgentRuntimeError, never>;
   readSources?: (result: JsonObject) => readonly ActivitySource[];
 };
 ```
+
+Tool execution is Effect-based at the interface level so expected failures,
+cancellation, timeouts, dependencies, and telemetry can be handled as runtime
+workflow concerns instead of untyped promise callbacks.
 
 Rejected runtime-tool fields:
 
@@ -55,8 +79,9 @@ instant activity and break the ChatGPT-style agent timeline.
 ## Execution Flow
 
 ```txt
-service composition registers runtime tools
+service composition registers app-owned runtime tools
   -> runtime resolves assistant profile and provider/model
+  -> runtime renders profile instructions and context board
   -> runtime converts registered tools into AI SDK tools
   -> ToolLoopAgent streams with toolChoice: "auto"
   -> model emits tool input/call parts when it chooses a capability
@@ -93,9 +118,11 @@ crosses the runtime boundary.
 
 ## Development Tool
 
-`mock_web_search` is the accepted development search capability. It simulates web
-search without external egress, exposes a model-facing query schema, and returns
-deterministic JSON plus source metadata.
+`mock_web_search` is the accepted development search capability. It lives in the
+`apps/partner-ai-service` adapter layer and is injected into `agent-runtime`
+only by non-production service composition. It simulates web search without
+external egress, exposes a model-facing query schema, and returns deterministic
+JSON plus source metadata.
 
 It is still a normal registered runtime tool. The model must call it through the
 agent loop. The backend must not auto-run it because a user typed "search" or

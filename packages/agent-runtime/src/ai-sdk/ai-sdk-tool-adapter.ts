@@ -1,22 +1,30 @@
-import { jsonSchema, tool as createAiTool, type TextStreamPart, type ToolSet } from "ai";
+import { Effect } from "effect";
+import {
+  jsonSchema,
+  tool as createAiTool,
+  type TextStreamPart,
+  type ToolExecutionOptions,
+  type ToolSet,
+} from "ai";
 import type {
   ActivitySource,
   JsonObject,
   JsonValue,
   ProtocolErrorCode,
 } from "@side-chat/chat-protocol";
-import type { RuntimeTool } from "#tools/tool-registry";
+import type { RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 
-import type { RuntimeEvent } from "../events.js";
-import type { RuntimeRequest } from "../provider.js";
+import type { RuntimeEvent } from "#runtime/runtime-event";
+import type { RuntimeProviderRequest } from "#runtime/runtime-request";
 
 export const createAiSdkToolSet = (
   runtimeTools: readonly RuntimeTool[] | undefined,
+  request: RuntimeProviderRequest,
 ): ToolSet | undefined => {
   if (!runtimeTools || runtimeTools.length === 0) return undefined;
 
   return Object.fromEntries(
-    runtimeTools.map((runtimeTool) => [runtimeTool.name, toAiSdkTool(runtimeTool)]),
+    runtimeTools.map((runtimeTool) => [runtimeTool.name, toAiSdkTool(runtimeTool, request)]),
   ) as ToolSet;
 };
 
@@ -26,7 +34,7 @@ export const createRuntimeToolLookup = (
   new Map((runtimeTools ?? []).map((runtimeTool) => [runtimeTool.name, runtimeTool]));
 
 export const mapAiSdkToolActivity = (
-  request: RuntimeRequest,
+  request: RuntimeProviderRequest,
   part: TextStreamPart<ToolSet>,
   sequence: number,
   runtimeTools: ReadonlyMap<string, RuntimeTool>,
@@ -87,15 +95,35 @@ export const mapAiSdkToolActivity = (
   return undefined;
 };
 
-const toAiSdkTool = (runtimeTool: RuntimeTool) =>
+const toAiSdkTool = (runtimeTool: RuntimeTool, request: RuntimeProviderRequest) =>
   createAiTool<JsonObject, JsonObject>({
     description: runtimeTool.description,
     inputSchema: jsonSchema<JsonObject>(runtimeTool.inputSchema),
-    execute: async (input) => runtimeTool.run(toJsonObject(input)),
+    execute: async (input, options) =>
+      Effect.runPromise(
+        runtimeTool.execute(
+          toJsonObject(input),
+          createRuntimeToolContext(runtimeTool, request, options),
+        ),
+      ),
   });
 
+const createRuntimeToolContext = (
+  runtimeTool: RuntimeTool,
+  request: RuntimeProviderRequest,
+  options: ToolExecutionOptions,
+): RuntimeToolContext => ({
+  requestId: request.requestId,
+  assistantTurnId: request.assistantTurnId,
+  modelId: request.modelId,
+  toolName: runtimeTool.name,
+  toolCallId: options.toolCallId,
+  ...(request.providerId ? { providerId: request.providerId } : {}),
+  ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
+});
+
 type ToolActivityInput = {
-  readonly request: RuntimeRequest;
+  readonly request: RuntimeProviderRequest;
   readonly sequence: number;
   readonly status: "running" | "completed" | "failed";
   readonly toolCallId: string;

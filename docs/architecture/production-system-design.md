@@ -1269,7 +1269,7 @@ Key file responsibilities:
 | `runtime/runtime-services.ts` | Effect service tags for runtime dependencies. |
 | `profiles/*` | Named assistants, model defaults, instructions, available tool capability policy, and stop rules. |
 | `tools/registry/*` | The first-class registry for model-callable capabilities. |
-| `tools/<tool-name>/*` | One folder per model-callable capability: schema, policy, mapper, tests, and tool definition. |
+| `tools/*` | Runtime tool protocol, selection, result, and error types. Concrete product tools live in the consuming app as ports/adapters. |
 | `providers/registry/*` | Resolves product model/provider selections to provider adapters. |
 | `providers/<real-provider>/*` | Accepted real provider behavior only. Concrete provider name is chosen by ADR/config. |
 | `providers/fake/*` | Deterministic provider for tests and local no-credential runs. |
@@ -1286,7 +1286,7 @@ AI SDK orchestration rule:
 - `partner-ai-service` and `partner-ai-core` must call the `agent-runtime` port/facade, not `streamText`, provider SDKs, or raw provider HTTP directly.
 - Do not hand-roll a recursive model -> tool -> model loop unless an ADR proves AI SDK Agent / ToolLoopAgent cannot express the required behavior.
 - Tool availability is derived from runtime composition, assistant profile, product policy, and trusted context. It is not a user-controlled request field.
-- Registered runtime tools are converted into AI SDK tools inside `agent-runtime`; the model chooses a tool and its input through the `ToolLoopAgent`.
+- Registered runtime tools are app-owned capabilities that satisfy the Effect-based runtime tool protocol. They are converted into AI SDK tools inside `agent-runtime`; the model chooses a tool and its input through the `ToolLoopAgent`.
 - Runtime tools must not expose `shouldInvoke`, `createInput`, or pre-model progress hooks. Those fields make the backend choose and run tools before the agent acts.
 - Tool output returns to the model through the AI SDK tool loop. The runtime observes AI SDK `tool-input-start`, `tool-call`, `tool-result`, and `tool-error` stream parts and maps them into normalized runtime activity events.
 - Do not call OpenAI/Anthropic/Azure/etc. through raw `fetch` for normal assistant execution unless an ADR documents the provider gap, the allowed file boundary, and the removal condition.
@@ -1321,6 +1321,7 @@ Effect v4 role in `agent-runtime`:
 
 - wrap AI SDK agent/tool-loop execution in typed Effect programs
 - use `Stream` for text, reasoning, tool, host-command, completion events, and `[Deferred]` approval events if approval is accepted
+- require runtime tools to execute through Effect at the interface level
 - use structured concurrency for parallel tool/retrieval work that must be cancelled together
 - use timeouts, retries, schedules, and typed provider/tool errors around model and tool calls
 - use layers to swap OpenAI, Anthropic, Azure OpenAI, AI Gateway, local, and fake providers
@@ -2449,8 +2450,8 @@ external host app renders SideChatWidget
   -> partner-ai-core checks auth/rate/billing/model policy through ports
   -> partner-ai-core loads conversation context through repository ports
   -> partner-ai-core calls AgentRuntimePort.stream
-  -> agent-runtime runs AI SDK 6 agent/tool loop
-  -> provider adapter maps OpenAI/Anthropic/Azure/local/fake output into runtime events
+  -> agent-runtime resolves provider/model and runs AI SDK 6 agent/tool loop
+  -> provider adapter supplies model handle/options while agent-runtime maps output into runtime events
   -> partner-ai-core maps runtime events into chat-protocol events
   -> partner-ai-service writes events as SSE frames
   -> chat-client decodes SSE frames into protocol events
@@ -2472,11 +2473,11 @@ agent-runtime produces host command intent
 Outbound tool flow:
 
 ```txt
-agent-runtime registers available tool capabilities
+partner-ai-service registers app-owned tool capabilities with agent-runtime
   -> ToolLoopAgent receives the capabilities with automatic tool choice
   -> model decides a tool is needed and produces tool input
-  -> AI SDK executes the selected runtime tool
-  -> tool definition checks policy and [Deferred] approval requirements if approval is accepted
+  -> AI SDK asks agent-runtime to execute the selected runtime tool
+  -> app-owned tool adapter checks policy and [Deferred] approval requirements if approval is accepted
   -> tool calls an Effect service or adapter port, not a raw external client
   -> partner-ai-service outbound adapter implements that service
   -> outbound client calls the accepted external system
@@ -2490,7 +2491,7 @@ Accepted backend tool:
 
 | Tool | Owner | Behavior |
 | --- | --- | --- |
-| `mock_web_search` | `packages/agent-runtime/src/tools/mock-web-search.ts` | Deterministically simulates a web search inside the backend without external network egress. It is a development capability with a model-facing input schema. Non-production runtime composition may make it available to the agent; production composition must not expose it. When the model chooses it, observed tool-call/tool-result stream parts become ordered `sidechat.activity` tool rows with input/result/source objects. |
+| `mock_web_search` | `apps/partner-ai-service/src/adapters/tools/mock-web-search-tool.ts` | Deterministically simulates a web search inside the backend without external network egress. It is a development capability with a model-facing input schema and an Effect-based runtime tool implementation. Non-production runtime composition may make it available to the agent; production composition must not expose it. When the model chooses it, observed tool-call/tool-result stream parts become ordered `sidechat.activity` tool rows with input/result/source objects. |
 
 `[Deferred]` approval flow:
 
@@ -2950,7 +2951,7 @@ Integration tests own package boundaries:
 - API route -> partner-ai-core -> agent-runtime configured provider
 - partner-ai-core -> repository port
 - agent-runtime -> fake provider/tool registry for deterministic tests
-- agent-runtime -> mock web-search activity/tool registry path
+- partner-ai-service mock web-search adapter -> agent-runtime tool registry/activity path
 - chat-client -> mock SSE server
 - widget -> chat-client -> mocked activity stream
 - db repository -> test database
@@ -3055,7 +3056,7 @@ This keeps development ergonomic while preserving the production rule: no host a
 | 0. DB schema contract | Day-one entities, table responsibilities, context snapshots, history/resume behavior, repository command API, grants model, idempotency rules. | Contract is accepted before migrations/repositories; deferred schema areas are explicitly labeled. |
 | 1. Contract spine | `packages/chat-protocol`, schemas, SSE codec, sequence validation, fixtures. | Protocol tests pass, fixtures validate, malformed sequences fail predictably. |
 | 2. Partner AI core | `packages/partner-ai-core`, stream-chat use case, ports, application errors. | Framework-free stream use case emits valid protocol events. |
-| 3. Agent runtime | `packages/agent-runtime`, AI SDK 6 runtime, OpenAI provider, fake provider, mock web-search tool, tool registry, provider registry. | Runtime emits typed activity/tool/provider events through configured providers; approval mapping is `[Deferred]`. |
+| 3. Agent runtime | `packages/agent-runtime`, AI SDK 6 runtime, OpenAI provider, fake provider, Effect-based tool protocol, tool registry, provider registry, and app-injected mock web-search fixture. | Runtime emits typed activity/tool/provider events through configured providers; approval mapping is `[Deferred]`. |
 | 4. Service adapter | `apps/partner-ai-service`, HTTP stream route, config parsing, composition root. | `POST /chat/stream` produces valid SSE and invalid requests return clear errors. |
 | 5. Browser client | `packages/chat-client`, typed stream client, SSE reader. | Client decodes chunked SSE streams and terminal behavior is correct. |
 | 6. Widget | `packages/side-chat-widget`, shell, composer, feed, canonical activity timeline, and `[Deferred]` approval states. | Widget streams against mock client/service, renders activity in protocol order, and external host receives commands. |
@@ -3197,7 +3198,7 @@ Do not leak provider SDKs, AI SDK UI messages, HTTP framework objects, DB client
 
 - `chat-protocol` is the browser/backend contract and imports no app/runtime/UI/provider/DB code.
 - `partner-ai-core` owns use cases, ports, policies, Effect services/layers, and application errors. It imports no HTTP framework, React, pg, Drizzle, AI SDK, or provider SDK.
-- `agent-runtime` owns AI SDK 6 agents, tools, provider registry, Effect runtime programs, and runtime telemetry. `[Deferred]` approvals, MCP, and structured output are added only after acceptance. It depends on partner-ai-core ports/types, not on HTTP or UI.
+- `agent-runtime` owns AI SDK 6 agents, the Effect-based tool protocol/registry, provider registry, Effect runtime programs, and runtime telemetry. Concrete product tools live in consuming apps as ports/adapters. `[Deferred]` approvals, MCP, and structured output are added only after acceptance. It depends on partner-ai-core ports/types, not on HTTP or UI.
 - Provider-specific behavior stays in provider adapters.
 - Inbound adapters receive calls into the service; outbound adapters call external systems.
 - External tools/services live behind outbound adapters and Effect services, not inside use cases or tool definitions.

@@ -1,5 +1,5 @@
 import { decodeSseEvents, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
-import type { RuntimeEvent } from "@side-chat/agent-runtime";
+import { runtimeStreamFromAsyncIterable, type RuntimeEvent } from "@side-chat/agent-runtime";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "./app.js";
 
@@ -21,6 +21,9 @@ describe("partner ai service tool activity stream", () => {
         stream: async function* (request) {
           expect(request.messages).toEqual([validRequest.message]);
           for (const event of runtimeEvents) yield event;
+        },
+        streamEffect(request) {
+          return runtimeStreamFromAsyncIterable(this.stream(request));
         },
       },
     }).request("/chat/stream", {

@@ -1,107 +1,114 @@
 import {
   ToolLoopAgent as AiSdkToolLoopAgent,
   type LanguageModel,
-  type LanguageModelUsage,
   type TextStreamPart,
   type ToolLoopAgentSettings,
   type ToolSet,
 } from "ai";
 
-import type { RuntimeEvent, RuntimeUsage } from "../events.js";
-import type { RuntimeRequest } from "../provider.js";
+import type { RuntimeEvent } from "#runtime/runtime-event";
+import type { RuntimeProviderRequest } from "#runtime/runtime-request";
 import {
   createAiSdkToolSet,
   createRuntimeToolLookup,
   mapAiSdkToolActivity,
-} from "./ai-sdk-runtime-tools.js";
+} from "./ai-sdk-tool-adapter.js";
+import { toRuntimeUsage } from "./usage-mapper.js";
 
-export type AiSdkModelResolver = (request: RuntimeRequest) => LanguageModel;
-export type AiSdkToolLoopAgentOptions = {
+export type AiSdkToolLoopAgentRunOptions = {
+  readonly model: LanguageModel;
   readonly providerOptions?: ToolLoopAgentSettings["providerOptions"];
-  readonly resolveModel: AiSdkModelResolver;
+  readonly request: RuntimeProviderRequest;
 };
 
-export type AiSdkRuntimeAgent = {
-  readonly stream: (request: RuntimeRequest) => AsyncIterable<RuntimeEvent>;
-};
-
-export const createAiSdkToolLoopAgent = ({
+export const runAiSdkToolLoopAgent = ({
+  model,
   providerOptions,
-  resolveModel,
-}: AiSdkToolLoopAgentOptions): AiSdkRuntimeAgent => ({
-  async *stream(request) {
-    let sequence = 0;
-    yield {
-      type: "runtime.started",
-      requestId: request.requestId,
-      assistantTurnId: request.assistantTurnId,
-      sequence,
-      providerId: request.providerId ?? "ai-sdk",
-      modelId: request.modelId,
-    };
-    sequence += 1;
+  request,
+}: AiSdkToolLoopAgentRunOptions): AsyncIterable<RuntimeEvent> =>
+  streamAiSdkToolLoop({
+    model,
+    providerOptions,
+    request,
+  });
 
-    const tools = createAiSdkToolSet(request.tools);
-    const runtimeTools = createRuntimeToolLookup(request.tools);
-    const agent = new AiSdkToolLoopAgent({
-      model: resolveModel(request),
-      allowSystemInMessages: true,
-      maxRetries: 0,
-      ...(tools ? { tools, toolChoice: "auto" as const } : {}),
-      ...(providerOptions ? { providerOptions } : {}),
-    });
-    const result = await agent.stream({
-      messages: [...request.messages],
-    });
+async function* streamAiSdkToolLoop({
+  model,
+  providerOptions,
+  request,
+}: AiSdkToolLoopAgentRunOptions): AsyncIterable<RuntimeEvent> {
+  let sequence = 0;
+  yield {
+    type: "runtime.started",
+    requestId: request.requestId,
+    assistantTurnId: request.assistantTurnId,
+    sequence,
+    providerId: request.providerId,
+    modelId: request.modelId,
+  };
+  sequence += 1;
 
-    const reasoningState: ReasoningStreamState = {
-      blockIndex: 0,
-      text: "",
-    };
-    const flushReasoning = (): RuntimeEvent | undefined => {
-      const event = createReasoningActivity(request, sequence, reasoningState, "completed");
-      if (event) {
-        sequence += 1;
-        reasoningState.blockIndex += 1;
-        reasoningState.text = "";
-      }
-      return event;
-    };
+  const tools = createAiSdkToolSet(request.tools, request);
+  const runtimeTools = createRuntimeToolLookup(request.tools);
+  const agent = new AiSdkToolLoopAgent({
+    model,
+    allowSystemInMessages: true,
+    maxRetries: 0,
+    ...(tools ? { tools, toolChoice: "auto" as const } : {}),
+    ...(providerOptions ? { providerOptions } : {}),
+  });
+  const result = await agent.stream({
+    messages: [...request.messages],
+    ...(request.abortSignal ? { abortSignal: request.abortSignal } : {}),
+  });
 
-    for await (const part of result.fullStream) {
-      if (part.type === "reasoning-delta") {
-        reasoningState.text = `${reasoningState.text}${part.text}`;
-        const event = createReasoningActivity(request, sequence, reasoningState, "running");
-        if (event) {
-          yield event;
-          sequence += 1;
-        }
-        continue;
-      }
-
-      const reasoningEvent = flushReasoning();
-      if (reasoningEvent) yield reasoningEvent;
-
-      const toolEvent = mapAiSdkToolActivity(request, part, sequence, runtimeTools);
-      if (toolEvent) {
-        yield toolEvent;
-        sequence += 1;
-        continue;
-      }
-
-      const event = mapAiSdkStreamPart(request, part, sequence);
-      if (!event) continue;
-      yield event;
+  const reasoningState: ReasoningStreamState = {
+    blockIndex: 0,
+    text: "",
+  };
+  const flushReasoning = (): RuntimeEvent | undefined => {
+    const event = createReasoningActivity(request, sequence, reasoningState, "completed");
+    if (event) {
       sequence += 1;
+      reasoningState.blockIndex += 1;
+      reasoningState.text = "";
+    }
+    return event;
+  };
+
+  for await (const part of result.fullStream) {
+    if (part.type === "reasoning-delta") {
+      reasoningState.text = `${reasoningState.text}${part.text}`;
+      const event = createReasoningActivity(request, sequence, reasoningState, "running");
+      if (event) {
+        yield event;
+        sequence += 1;
+      }
+      continue;
     }
 
     const reasoningEvent = flushReasoning();
     if (reasoningEvent) yield reasoningEvent;
-  },
-});
+
+    const toolEvent = mapAiSdkToolActivity(request, part, sequence, runtimeTools);
+    if (toolEvent) {
+      yield toolEvent;
+      sequence += 1;
+      continue;
+    }
+
+    const event = mapAiSdkStreamPart(request, part, sequence);
+    if (!event) continue;
+    yield event;
+    sequence += 1;
+  }
+
+  const reasoningEvent = flushReasoning();
+  if (reasoningEvent) yield reasoningEvent;
+}
 
 const mapAiSdkStreamPart = (
-  request: RuntimeRequest,
+  request: RuntimeProviderRequest,
   part: TextStreamPart<ToolSet>,
   sequence: number,
 ): RuntimeEvent | undefined => {
@@ -139,7 +146,7 @@ const mapAiSdkStreamPart = (
 };
 
 const createReasoningActivity = (
-  request: RuntimeRequest,
+  request: RuntimeProviderRequest,
   sequence: number,
   state: ReasoningStreamState,
   status: "running" | "completed",
@@ -193,9 +200,3 @@ const mapFinishReason = (reason: string): "stop" | "length" | "aborted" => {
   if (reason === "abort" || reason === "content-filter") return "aborted";
   return "stop";
 };
-
-const toRuntimeUsage = (usage: LanguageModelUsage): RuntimeUsage => ({
-  inputTokens: usage.inputTokens ?? 0,
-  outputTokens: usage.outputTokens ?? 0,
-  totalTokens: usage.totalTokens ?? 0,
-});
