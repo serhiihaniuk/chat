@@ -19,24 +19,18 @@ export const validateSidechatEventSequence = (
   let terminalEvent: SidechatStreamEvent | undefined;
   for (const event of events) {
     if (event.sequence <= previousSequence) {
-      throw new ProtocolSequenceError(
-        "event sequence must be strictly monotonic",
-      );
+      throw new ProtocolSequenceError("event sequence must be strictly monotonic");
     }
     previousSequence = event.sequence;
 
     if (terminalEvent) {
-      throw new ProtocolSequenceError(
-        "no event may appear after terminal event",
-      );
+      throw new ProtocolSequenceError("no event may appear after terminal event");
     }
     if (isTerminalEvent(event)) terminalEvent = event;
   }
 
   if (!terminalEvent) {
-    throw new ProtocolSequenceError(
-      "stream must include exactly one terminal event",
-    );
+    throw new ProtocolSequenceError("stream must include exactly one terminal event");
   }
 
   if (

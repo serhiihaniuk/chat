@@ -1,15 +1,8 @@
-import {
-  SIDECHAT_PROTOCOL_VERSION,
-  type HostCommandEvent,
-} from "@side-chat/chat-protocol";
+import { SIDECHAT_PROTOCOL_VERSION, type HostCommandEvent } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 
 import { createHostBridge } from "./bridge.js";
-import {
-  supportsCommand,
-  toHostCommand,
-  type HostCapabilities,
-} from "./capability.js";
+import { supportsCommand, toHostCommand, type HostCapabilities } from "./capability.js";
 import {
   createCommandResult,
   createRejectedResult,
@@ -61,23 +54,17 @@ const contextSnapshot: HostContextSnapshot = {
 
 describe("host bridge capabilities", () => {
   it("matches supported commands by name and resource type", () => {
-    expect(supportsCommand(capabilities, toHostCommand(commandEvent()))).toBe(
-      true,
-    );
+    expect(supportsCommand(capabilities, toHostCommand(commandEvent()))).toBe(true);
     expect(
       supportsCommand(
         capabilities,
-        toHostCommand(
-          commandEvent({ resourceType: "ticket", resourceId: "t-1" }),
-        ),
+        toHostCommand(commandEvent({ resourceType: "ticket", resourceId: "t-1" })),
       ),
     ).toBe(false);
   });
 
   it("returns unsupported results before dispatching unsupported commands", async () => {
-    const unsupported = toHostCommand(
-      commandEvent({ resourceType: "ticket", resourceId: "t-1" }),
-    );
+    const unsupported = toHostCommand(commandEvent({ resourceType: "ticket", resourceId: "t-1" }));
     let dispatched = false;
 
     const result = await dispatchSupportedCommand(
@@ -141,10 +128,7 @@ describe("host context bridge", () => {
   it("collects context and dispatches commands through the public bridge", async () => {
     const command = toHostCommand(commandEvent());
     const bridge = createHostBridge({
-      contextProvider: createStaticHostContextProvider(
-        contextSnapshot,
-        capabilities,
-      ),
+      contextProvider: createStaticHostContextProvider(contextSnapshot, capabilities),
       capabilities,
       dispatcher: {
         dispatchCommand: () =>

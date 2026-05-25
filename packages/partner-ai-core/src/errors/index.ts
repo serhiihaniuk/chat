@@ -32,8 +32,4 @@ export const mapAuthorityDenialToError = (
   code: AuthorityDenialCode,
   message: string,
 ): PartnerAiCoreError =>
-  new PartnerAiCoreError(
-    code,
-    message,
-    code === "missing_auth" ? "unauthorized" : "forbidden",
-  );
+  new PartnerAiCoreError(code, message, code === "missing_auth" ? "unauthorized" : "forbidden");

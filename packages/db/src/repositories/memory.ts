@@ -35,14 +35,10 @@ export const createMemorySidechatRepositories = (
   const ids = createIdGenerator(options.idPrefix ?? "mem");
   const store = createMemoryStore();
 
-  const getConversation = (
-    workspaceId: string,
-    conversationId: string,
-  ): ConversationRecord => {
+  const getConversation = (workspaceId: string, conversationId: string): ConversationRecord => {
     const conversation = store.conversations.find(
       (candidate) =>
-        candidate.workspaceId === workspaceId &&
-        candidate.conversationId === conversationId,
+        candidate.workspaceId === workspaceId && candidate.conversationId === conversationId,
     );
     if (!conversation) {
       throw new DbRepositoryError(
@@ -135,11 +131,7 @@ export const createMemorySidechatRepositories = (
     },
     readConversationHistory: async (command) => {
       await Promise.resolve();
-      requireSubjectConversation(
-        command.workspaceId,
-        command.subjectId,
-        command.conversationId,
-      );
+      requireSubjectConversation(command.workspaceId, command.subjectId, command.conversationId);
       return store.messages
         .filter(
           (message) =>
@@ -168,15 +160,9 @@ export const createMemorySidechatRepositories = (
     },
     startAssistantTurn: async (command) => {
       await Promise.resolve();
-      requireSubjectConversation(
-        command.workspaceId,
-        command.subjectId,
-        command.conversationId,
-      );
+      requireSubjectConversation(command.workspaceId, command.subjectId, command.conversationId);
       const existing = store.assistantTurns.find(
-        (turn) =>
-          turn.workspaceId === command.workspaceId &&
-          turn.requestId === command.requestId,
+        (turn) => turn.workspaceId === command.workspaceId && turn.requestId === command.requestId,
       );
       if (existing) return result(existing, false);
 
@@ -216,9 +202,7 @@ export const createMemorySidechatRepositories = (
         contextSnapshotId: ids.next("context_snapshot"),
         assistantTurnId: command.assistantTurnId,
         contextSchemaVersion: command.contextSchemaVersion,
-        ...(command.hostSurfaceId
-          ? { hostSurfaceId: command.hostSurfaceId }
-          : {}),
+        ...(command.hostSurfaceId ? { hostSurfaceId: command.hostSurfaceId } : {}),
         hostContextHash: command.hostContextHash,
         capabilitiesHash: command.capabilitiesHash,
         contextRedactedJson: command.contextRedactedJson,
@@ -262,9 +246,7 @@ export const createMemorySidechatRepositories = (
         runtimeStepIndex: command.runtimeStepIndex,
         modelProvider: command.modelProvider,
         modelId: command.modelId,
-        ...(command.providerRequestId
-          ? { providerRequestId: command.providerRequestId }
-          : {}),
+        ...(command.providerRequestId ? { providerRequestId: command.providerRequestId } : {}),
         inputTokens: command.inputTokens,
         outputTokens: command.outputTokens,
         reasoningTokens: command.reasoningTokens,
@@ -277,10 +259,8 @@ export const createMemorySidechatRepositories = (
       store.usageRecords.push(usage);
       return result(usage, true);
     },
-    recordToolInvocation: (command) =>
-      recordMemoryToolInvocation(command, store, ids),
-    recordHostCommandResult: (command) =>
-      recordMemoryHostCommandResult(command, store, ids),
+    recordToolInvocation: (command) => recordMemoryToolInvocation(command, store, ids),
+    recordHostCommandResult: (command) => recordMemoryHostCommandResult(command, store, ids),
     appendAuditEvent: (command) => appendMemoryAuditEvent(command, store, ids),
   };
 };

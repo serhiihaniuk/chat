@@ -46,9 +46,7 @@ export const createMemoryStore = (): MemoryStore => ({
   auditEvents: [],
 });
 
-export const snapshotMemoryStore = (
-  store: MemoryStore,
-): MemoryStoreSnapshot => ({
+export const snapshotMemoryStore = (store: MemoryStore): MemoryStoreSnapshot => ({
   conversations: [...store.conversations],
   messages: [...store.messages],
   assistantTurns: [...store.assistantTurns],
@@ -59,10 +57,7 @@ export const snapshotMemoryStore = (
   auditEvents: [...store.auditEvents],
 });
 
-export const replaceConversation = (
-  store: MemoryStore,
-  conversation: ConversationRecord,
-): void => {
+export const replaceConversation = (store: MemoryStore, conversation: ConversationRecord): void => {
   const index = store.conversations.findIndex(
     (candidate) =>
       candidate.workspaceId === conversation.workspaceId &&
@@ -72,17 +67,13 @@ export const replaceConversation = (
 };
 
 export const updateTurn = (
-  command:
-    | CompleteAssistantTurnCommand
-    | FailAssistantTurnCommand
-    | RecordUsageCommand,
+  command: CompleteAssistantTurnCommand | FailAssistantTurnCommand | RecordUsageCommand,
   store: MemoryStore,
   patch: Partial<AssistantTurnRecord>,
 ): AssistantTurnRecord => {
   const index = store.assistantTurns.findIndex(
     (turn) =>
-      turn.workspaceId === command.workspaceId &&
-      turn.assistantTurnId === command.assistantTurnId,
+      turn.workspaceId === command.workspaceId && turn.assistantTurnId === command.assistantTurnId,
   );
   if (index < 0) {
     throw new DbRepositoryError(

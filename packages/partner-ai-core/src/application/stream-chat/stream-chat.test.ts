@@ -20,10 +20,7 @@ import {
   type PolicyEvaluationInput,
   type PolicyPort,
 } from "#policies/policy";
-import {
-  createStreamChatUseCase,
-  type StreamChatInput,
-} from "./stream-chat.js";
+import { createStreamChatUseCase, type StreamChatInput } from "./stream-chat.js";
 
 const authContext: AuthContext = {
   tenantId: "tenant_001",
@@ -69,12 +66,7 @@ describe("stream chat use case", () => {
       SIDECHAT_EVENT_TYPES.COMPLETED,
     );
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
-    expect(ports.calls).toEqual([
-      "policy",
-      "ensureConversation",
-      "appendUserMessage",
-      "runtime",
-    ]);
+    expect(ports.calls).toEqual(["policy", "ensureConversation", "appendUserMessage", "runtime"]);
   });
 
   it("requires normalized AuthContext before protected work", async () => {
@@ -298,5 +290,4 @@ const collect = async <T>(items: AsyncIterable<T>): Promise<T[]> => {
 };
 
 const isTerminalEvent = (event: SidechatStreamEvent): boolean =>
-  event.type === SIDECHAT_EVENT_TYPES.COMPLETED ||
-  event.type === SIDECHAT_EVENT_TYPES.ERROR;
+  event.type === SIDECHAT_EVENT_TYPES.COMPLETED || event.type === SIDECHAT_EVENT_TYPES.ERROR;

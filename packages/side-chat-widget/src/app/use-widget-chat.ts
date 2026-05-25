@@ -19,6 +19,7 @@ import type {
   SideChatWidgetProps,
   WidgetMessage,
   WidgetStatus,
+  WidgetUsage,
 } from "./widget.types.js";
 
 export const useWidgetChat = ({
@@ -35,6 +36,7 @@ export const useWidgetChat = ({
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const [status, setStatus] = useState<WidgetStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const [usage, setUsage] = useState<WidgetUsage | undefined>();
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
 
   const dispatchHostCommand = useCallback(
@@ -122,8 +124,11 @@ export const useWidgetChat = ({
           );
           return;
 
-        case SIDECHAT_EVENT_TYPES.STARTED:
         case SIDECHAT_EVENT_TYPES.COMPLETED:
+          setUsage(event.usage);
+          return;
+
+        case SIDECHAT_EVENT_TYPES.STARTED:
         case SIDECHAT_EVENT_TYPES.HISTORY:
           return;
       }
@@ -144,12 +149,7 @@ export const useWidgetChat = ({
       const userMessageId = createId("user");
       const assistantMessageId = createId("assistant");
       const userMessage = createWidgetMessage(userMessageId, "user", trimmed);
-      const assistantMessage = createWidgetMessage(
-        assistantMessageId,
-        "assistant",
-        "",
-        true,
-      );
+      const assistantMessage = createWidgetMessage(assistantMessageId, "assistant", "", true);
 
       setMessages((current) => [...current, userMessage, assistantMessage]);
       setStatus("submitted");
@@ -201,14 +201,7 @@ export const useWidgetChat = ({
         setErrorMessage(toErrorMessage(error));
       }
     },
-    [
-      applyStreamEvent,
-      client,
-      hostBridge,
-      requestFactory,
-      selectedProfileId,
-      status,
-    ],
+    [applyStreamEvent, client, hostBridge, requestFactory, selectedProfileId, status],
   );
 
   const stop = useCallback(() => {
@@ -222,5 +215,6 @@ export const useWidgetChat = ({
     status,
     stop,
     submitMessage,
+    usage,
   };
 };

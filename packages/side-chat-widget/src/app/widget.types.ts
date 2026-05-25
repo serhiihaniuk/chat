@@ -4,6 +4,7 @@ import type {
   HostCommandEvent,
   HostContext,
   ToolEvent,
+  UsageMetadata,
 } from "@side-chat/chat-protocol";
 import type { HostBridge, HostCommandResult } from "@side-chat/host-bridge";
 
@@ -47,13 +48,11 @@ export type SideChatWidgetProps = {
   readonly labels?: SideChatWidgetLabels;
   readonly panelActions?: SideChatWidgetPanelActions;
   readonly quickActions?: readonly SideChatWidgetQuickAction[];
-  readonly requestFactory?: (
-    message: string,
-    hostContext?: HostContext,
-  ) => ChatStreamRequest;
+  readonly requestFactory?: (message: string, hostContext?: HostContext) => ChatStreamRequest;
 };
 
 export type WidgetStatus = "idle" | "submitted" | "streaming" | "error";
+export type WidgetUsage = UsageMetadata;
 
 export type WidgetMessage = {
   readonly id: string;

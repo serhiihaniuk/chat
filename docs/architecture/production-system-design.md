@@ -54,6 +54,7 @@ Server, service, and agent runtime pins:
 | `ai` | `6.0.191` | AI SDK 6 `agent-runtime` engine. |
 | `@ai-sdk/provider` | `3.0.10` | Provider/runtime adapter typing when needed directly. |
 | `@ai-sdk/openai` | `3.0.65` | OpenAI-compatible provider adapter. |
+| `zod` | `4.4.3` | AI SDK provider-utils peer dependency for provider runtime execution. |
 | `@ai-sdk/azure` | `3.0.66` | Azure OpenAI provider adapter if accepted by runtime configuration. |
 | `@ai-sdk/anthropic` | `3.0.79` | Anthropic provider adapter if accepted by runtime configuration. |
 | `[Optional]` `@ai-sdk/gateway` | `3.0.120` | Add only if AI Gateway becomes an accepted deployment/provider path. |
@@ -111,18 +112,9 @@ Testing and quality pins:
 | `vitest` | `4.1.7` | Unit, integration, contract, and type-adjacent tests. |
 | `@effect/vitest` | `4.0.0-beta.70` | Effect v4-aware test helpers where they simplify Effect tests. |
 | `playwright` | `1.60.0` | Browser harness and widget smoke/e2e tests. |
-| `eslint` | `10.4.0` | Root lint engine. |
-| `@eslint/js` | `10.0.1` | ESLint core recommended rules. |
-| `typescript-eslint` | `8.59.4` | Type-aware TypeScript linting. |
-| `eslint-plugin-import-x` | `4.16.2` | Import hygiene and cycle checks. |
-| `eslint-plugin-react-hooks` | `7.1.1` | React hook rules for widget packages. |
-| `eslint-plugin-react-refresh` | `0.5.2` | React refresh safety where harnesses use it. |
-| `eslint-plugin-jsx-a11y` | `6.10.2` | Widget JSX accessibility checks. |
-| `@vitest/eslint-plugin` | `1.6.17` | Vitest-focused lint rules. |
-| `eslint-plugin-unicorn` | `64.0.0` | `[Optional]` selected style/safety rules only if noise stays low. |
-| `globals` | `17.6.0` | Shared ESLint globals definitions. |
-| `prettier` | `3.8.3` | Formatting only. |
-| `eslint-config-prettier` | `10.1.8` | Prevent ESLint/Prettier formatting conflicts. |
+| `oxlint` | `1.66.0` | Root type-aware lint engine. |
+| `oxlint-tsgolint` | `0.23.0` | Type-aware rule runtime used by Oxlint. |
+| `oxfmt` | `0.51.0` | Root formatter. |
 
 Unpinned until accepted:
 
@@ -493,7 +485,7 @@ side-chat/
   package-lock.json
   tsconfig.base.json
   vitest.config.ts
-  eslint.config.js
+  .oxlintrc.json
   README.md
 ```
 
@@ -1878,7 +1870,7 @@ Command shape:
 
 | Command | Responsibility |
 | --- | --- |
-| `npm run lint` | ESLint plus architecture governance scripts. |
+| `npm run lint` | Oxlint plus architecture governance scripts. |
 | `npm run typecheck` | `tsc -b` across root project references. |
 | `npm test` | Colocated unit/integration/contract tests that do not need browser automation. |
 | `npm run test:e2e` | Browser harness tests only. |
@@ -2009,9 +2001,9 @@ Discriminated unions are preferred for:
 
 Switches over these unions must be exhaustive. Missing cases should fail typecheck or lint.
 
-### 20.7 Type-Aware ESLint
+### 20.7 Type-Aware Oxlint
 
-ESLint should run with type information for source files. Required rule families:
+Oxlint should run with type information for source files. Required rule families:
 
 - no unsafe `any` usage
 - no floating promises
@@ -2065,36 +2057,32 @@ Linting is the first automated architecture reviewer. It should enforce style on
 | Layer | Tool shape | Owns |
 | --- | --- | --- |
 | TypeScript | `tsc -b` | Type correctness, project references, declaration safety. |
-| ESLint | type-aware ESLint config | Local code safety, async mistakes, React rules, import hygiene. |
+| Oxlint | type-aware Oxlint config | Local code safety, async mistakes, React rules, import hygiene. |
 | Boundary scripts | custom `scripts/check-*.mjs` | Repo-specific architecture restrictions. |
 | Test runner | Vitest and browser harness | Behavior, contracts, integration paths. |
 | Generated artifact checks | custom script | JSON Schema/OpenAPI/declarations stay current. |
 | CI workflow | GitHub Actions | Runs the same gates in a clean environment. |
 
-### 21.2 ESLint Rule Groups
+### 21.2 Oxlint Rule Groups
 
-ESLint should catch local mistakes and obvious boundary violations while the custom governance scripts catch repo-wide architecture drift.
+Oxlint should catch local mistakes and obvious boundary violations while the custom governance scripts catch repo-wide architecture drift.
 
-Recommended baseline packages:
+Recommended baseline tools:
 
 ```txt
-typescript-eslint
-eslint-plugin-import-x
-eslint-plugin-react-hooks
-eslint-plugin-jsx-a11y
-@vitest/eslint-plugin
-eslint-plugin-unicorn
+oxlint
+oxfmt
 ```
 
-Exact plugin choices may change, but these rule groups should remain.
+Exact OXC versions may change intentionally, but these rule groups should remain.
 
 TypeScript safety rules:
 
 | Rule intent | `[Example]` rules |
 | --- | --- |
-| No unsafe values | `@typescript-eslint/no-explicit-any`, `no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-argument`. |
+| No unsafe values | `typescript/no-explicit-any`, `no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-argument`. |
 | No careless casts | `consistent-type-assertions`, `no-unnecessary-type-assertion`, ban `as any`, ban unsafe double assertions through custom `no-restricted-syntax`. |
-| Exhaustive unions | `@typescript-eslint/switch-exhaustiveness-check`, plus type tests for public discriminated unions. |
+| Exhaustive unions | `typescript/switch-exhaustiveness-check`, plus type tests for public discriminated unions. |
 | Precise optional/null handling | `strict-boolean-expressions`, `no-unnecessary-condition`, `prefer-nullish-coalescing`, `prefer-optional-chain`. |
 | Safe stringification | `restrict-template-expressions`, `no-base-to-string`. |
 | Type-only hygiene | `consistent-type-imports`, `consistent-type-exports`, `no-import-type-side-effects`. |
@@ -2103,11 +2091,11 @@ Async and Effect-adjacent safety rules:
 
 | Rule intent | `[Example]` rules |
 | --- | --- |
-| No dropped async work | `@typescript-eslint/no-floating-promises`. |
-| No async where a boolean/void callback is expected | `@typescript-eslint/no-misused-promises`. |
-| No fake awaits | `@typescript-eslint/await-thenable`, `require-await`. |
+| No dropped async work | `typescript/no-floating-promises`. |
+| No async where a boolean/void callback is expected | `typescript/no-misused-promises`. |
+| No fake awaits | `typescript/await-thenable`, `require-await`. |
 | Explicit process edges | Promises started in `server.ts`, routes, CLI scripts, and test setup must be awaited, returned, or intentionally detached with a named helper. |
-| Effect runtime boundary | Do not use ESLint alone for this; `check-runtime-boundaries.mjs` should verify Effect does not leak into browser public APIs. |
+| Effect runtime boundary | Do not use Oxlint alone for this; `check-runtime-boundaries.mjs` should verify Effect does not leak into browser public APIs. |
 
 Import and module rules:
 
@@ -2118,7 +2106,7 @@ Import and module rules:
 | No deep package imports | `no-restricted-imports` plus `check-package-exports.mjs`. |
 | No forbidden framework/provider imports | `no-restricted-imports` for obvious package bans, backed by `check-boundaries.mjs`. |
 | No undeclared dependencies | `import-x/no-extraneous-dependencies` where compatible with npm workspaces. |
-| Stable type imports | `@typescript-eslint/consistent-type-imports`. |
+| Stable type imports | `typescript/consistent-type-imports`. |
 
 Code-shape rules:
 
@@ -2152,7 +2140,7 @@ Vitest/test rules:
 | No real providers by default | Custom script check: tests must use fake providers unless marked as explicit integration tests. |
 | Type-test escape hatches | `@ts-expect-error` allowed in `*.type.test.ts` only with a reason. |
 
-### 21.3 ESLint Overrides
+### 21.3 Oxlint Overrides
 
 Use overrides by file ownership, not one global compromise.
 
@@ -2173,9 +2161,9 @@ Use overrides by file ownership, not one global compromise.
 | `**/*.type.test.ts` | Allow `@ts-expect-error` with descriptions; ban runtime assertions that pretend to test behavior. |
 | `scripts/**` | Allow Node filesystem/process APIs; still ban production source imports that create side effects. |
 
-### 21.4 ESLint vs Custom Governance Scripts
+### 21.4 Oxlint vs Custom Governance Scripts
 
-Use ESLint for local AST-level rules:
+Use Oxlint for local AST-level rules:
 
 - unsafe TypeScript usage
 - dropped promises
@@ -2197,7 +2185,7 @@ Use custom scripts for repo-aware rules:
 - no runtime-boundary leaks across domain/use-case/port layers
 - no outbound service calls outside approved adapter folders
 
-ESLint should not be the only boundary tool. If a rule needs package graph, generated declarations, workspace manifests, or cross-file ownership, use a custom governance script.
+Oxlint should not be the only boundary tool. If a rule needs package graph, generated declarations, workspace manifests, or cross-file ownership, use a custom governance script.
 
 ### 21.5 Code Quality Guardrails
 
@@ -2209,11 +2197,11 @@ Default budgets:
 | --- | --- | --- |
 | Source file length | Soft warning over 250 lines, fail over 400 lines. | `check-code-quality.mjs`; exceptions require inline allowlist with reason. |
 | React component file length | Soft warning over 220 lines, fail over 350 lines. | `check-code-quality.mjs`; split into component, hook, reducer, or primitives. |
-| Function length | Soft warning over 50 lines, fail over 80 lines. | ESLint `max-lines-per-function` plus script summary. |
-| Cyclomatic complexity | Warn over 8, fail over 12. | ESLint `complexity`. |
-| Nesting depth | Fail over 3 nested blocks. | ESLint `max-depth`. |
-| Parameters | Warn over 4, fail over 6. | ESLint `max-params`; use named input object or service. |
-| Statements per function | Warn over 20, fail over 35. | ESLint `max-statements`. |
+| Function length | Soft warning over 50 lines, fail over 80 lines. | `check-code-quality.mjs`. |
+| Cyclomatic complexity | Warn over 8, fail over 12. | Oxlint `complexity`. |
+| Nesting depth | Fail over 3 nested blocks. | Oxlint `max-depth`. |
+| Parameters | Fail over 6. | Oxlint `max-params`; use named input object or service. |
+| Statements per function | Warn over 20, fail over 35. | `check-code-quality.mjs`. |
 | Imports per file | Warn over 20, fail over 30. | `check-code-quality.mjs`; usually means split responsibility. |
 | Public exports per package entrypoint | Warn when the entrypoint becomes a dump. | `check-package-exports.mjs`; group exports by capability. |
 
@@ -2279,7 +2267,7 @@ Enforcement split:
 
 | Tool | Owns |
 | --- | --- |
-| ESLint | `no-nested-ternary`, `complexity`, `max-depth`, `max-lines-per-function`, `max-statements`, `max-params`, unsafe syntax, hooks, promises. |
+| Oxlint | `no-nested-ternary`, `complexity`, `max-depth`, `max-params`, unsafe syntax, hooks, promises. |
 | `check-code-quality.mjs` | File length, import count, literal scans, TODO/FIXME policy, duplicated product strings, exception allowlist, generated-file exclusions. |
 | `check-boundaries.mjs` | Whether the extracted code moved into a legal package/layer. |
 | `check-package-exports.mjs` | Whether split files still expose only intended public APIs. |
@@ -2287,17 +2275,15 @@ Enforcement split:
 
 ### 21.6 Common Quality Tools First
 
-Prefer common, boring tools where they cover the problem well. Do not make the clean repo depend on niche static-analysis tools by default. A `[Deferred]` specialized tool can be added only when a repeated problem appears and an ADR explains why ESLint, TypeScript, tests, or a small repo-specific check are not enough.
+Prefer common, boring tools where they cover the problem well. Do not make the clean repo depend on niche static-analysis tools by default. A `[Deferred]` specialized tool can be added only when a repeated problem appears and an ADR explains why Oxlint, TypeScript, tests, or a small repo-specific check are not enough.
 
 Day-one common stack:
 
 | Tool | Use for | Why it belongs by default |
 | --- | --- | --- |
 | TypeScript `tsc --build` | Project references, declaration checks, strict type safety, package build order. | It is the language/compiler contract. |
-| ESLint core | Code-shape rules, restricted imports/syntax, complexity, nesting, nested ternaries, function budgets. | It is the standard JS/TS lint surface and already supports many needed rules. |
-| `typescript-eslint` | Type-aware lint rules for unsafe calls, unsafe assignments, promises, floating promises, unnecessary conditions. | It extends ESLint with TypeScript-aware checks. |
-| React/JSX ESLint plugins | Hooks rules, JSX accessibility, React refresh constraints if needed by the widget. | They are common frontend guardrails. |
-| Prettier | Formatting only. | It removes formatting debate from code review. |
+| Oxlint | Code-shape rules, restricted imports/syntax, TypeScript safety rules, React hooks, Vitest checks, complexity, nesting, and nested ternaries. | It gives the repo a fast OXC lint path while preserving local safety intent. |
+| Oxfmt | Formatting only. | It removes formatting debate from code review without retaining the Prettier dependency. |
 | Vitest | Unit and integration tests colocated with source. | It matches the Vite/TypeScript ecosystem and the current prototype direction. |
 | Playwright | Browser smoke/e2e tests for widget behavior and local harnesses. | It verifies real browser behavior where unit tests are weak. |
 | `npm audit` | Lockfile vulnerability gate. | It is built into npm and cheap to run. |
@@ -2308,15 +2294,15 @@ Day-one common stack:
 ```json
 {
   "scripts": {
-    "format": "prettier . --write",
-    "format:check": "prettier . --check",
-    "lint:eslint": "eslint .",
+    "format": "oxfmt . --write",
+    "format:check": "oxfmt . --check",
+    "lint:oxlint": "oxlint --deny-warnings .",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:browser": "playwright test",
     "audit": "npm audit --audit-level=high",
     "lint:custom": "node scripts/check-runtime-boundaries.mjs && node scripts/check-outbound-rules.mjs && node scripts/check-code-quality.mjs",
-    "verify": "npm run format:check && npm run lint:eslint && npm run typecheck && npm test && npm run lint:custom"
+    "verify": "npm run format:check && npm run lint:oxlint && npm run typecheck && npm test && npm run lint:custom"
   }
 }
 ```
@@ -2337,7 +2323,7 @@ Custom scripts should stay small and repo-specific. They are justified for rules
 | --- | --- |
 | API Extractor | Public package APIs become stable enough that accidental exported type changes are a real risk. |
 | Gitleaks or Secretlint | GitHub/platform secret scanning is unavailable or local/CI secret scanning is required. |
-| Dependency graph tools such as `dependency-cruiser` | ESLint import restrictions plus custom boundary checks become too hard to maintain. |
+| Dependency graph tools such as `dependency-cruiser` | Oxlint import restrictions plus custom boundary checks become too hard to maintain. |
 | Dead-code tools such as Knip | Unused exports/files become a recurring maintenance problem after the package graph grows. |
 | Duplicate-code tools such as `jscpd` | Duplication becomes measurable and code review/custom checks are not enough. |
 | Package publish linters such as `publint` | Packages are published externally or consumed across multiple runtime/module formats. |
@@ -2379,7 +2365,7 @@ Required custom checks:
 | Tool discipline | Assistant tool definitions depend on tool services/ports; they do not instantiate CRM, document-search, DB, HTTP, or provider clients directly. |
 | Mapper discipline | External DTO to domain/protocol mapping is explicit and colocated with the adapter or use-case boundary, not hidden in generic helpers. |
 
-These checks can begin as repo-local AST/file-path scripts. Promote only highly reusable rules into a custom ESLint plugin after the first production scaffold stabilizes.
+These checks can begin as repo-local AST/file-path scripts. Promote only highly reusable rules into a custom Oxlint rule package after the first production scaffold stabilizes.
 
 ### 21.9 Dependency Policy
 
@@ -3054,7 +3040,7 @@ The clean repo should make architectural drift hard.
 
 Checks should fail if:
 
-- type-aware ESLint is disabled for source files without a documented reason
+- type-aware Oxlint is disabled for source files without a documented reason
 - source files, functions, complexity, nesting, parameters, statements, or import counts exceed code-quality budgets without an allowlisted reason
 - nested ternaries, dense chained conditionals, or unclear expression-side effects appear in production source
 - protocol event names, route paths, header names, error codes, model/provider ids, tool names, feature flags, or env var names are duplicated as magic strings
@@ -3112,7 +3098,7 @@ Day-one skills should protect the highest-risk architectural boundaries.
 | `db-schema-contract` | Defining or changing day-one DB entities, table contracts, repository command API, grants, idempotency, retention, audit fields. | Schema contract first, table responsibilities, repository command contracts, deferred schema labels. | Repository implementation details or app use-case behavior. |
 | `db-boundary` | Changing Drizzle schema, migrations, repositories, query helpers, DB clients, row parsers, least-privilege tests. | Migration discipline, Drizzle/pg boundary, row validation, repository adapter tests. | Partner AI core use-case decisions or direct app table access. |
 | `widget-integration` | Changing `side-chat-widget`, `chat-client`, host bridge, iframe/local embedding behavior, browser SSE handling. | Browser/client public API, widget state projection, host bridge callbacks, no server/runtime leaks. | Provider SDKs, DB access, partner-ai-core internals. |
-| `repo-governance` | Adding packages, changing tsconfig/eslint/scripts/CI, moving folders, relaxing rules, adding dependencies. | Boundary scripts, lint rules, TypeScript strictness, package exports, CI gates. | Product feature behavior. |
+| `repo-governance` | Adding packages, changing tsconfig/lint/scripts/CI, moving folders, relaxing rules, adding dependencies. | Boundary scripts, lint rules, TypeScript strictness, package exports, CI gates. | Product feature behavior. |
 
 `[Deferred]` near-future skills should exist after the core scaffold proves the day-one skills are useful.
 
@@ -3256,7 +3242,7 @@ Do not silence type errors. Fix the type model or isolate a documented interop b
 
 Run the same architecture checks locally and in CI. Do not bypass lint, boundary, dependency, generated-artifact, or test-placement checks to land a change. If a rule is wrong, update the rule and the system design together.
 
-Treat type-aware ESLint as part of the architecture, not as style decoration.
+Treat type-aware Oxlint as part of the architecture, not as style decoration.
 
 - No unsafe TypeScript values, casts, or hidden `any`.
 - No dropped promises or accidental async callbacks.
@@ -3268,7 +3254,7 @@ Treat type-aware ESLint as part of the architecture, not as style decoration.
 - No deep imports across package public boundaries.
 - No oversized files/functions, nested ternaries, excessive nesting, unclear chained conditionals, or unexplained product literals.
 
-Use custom scripts, not ESLint alone, for package-graph checks, generated artifacts, declaration leaks, runtime-boundary leaks, outbound adapter ownership, file-size budgets, import-count budgets, and magic-string scans.
+Use custom scripts, not Oxlint alone, for package-graph checks, generated artifacts, declaration leaks, runtime-boundary leaks, outbound adapter ownership, file-size budgets, import-count budgets, and magic-string scans.
 
 ## Completion Check
 
@@ -3310,7 +3296,7 @@ Every item in this section is `[Open]` and must not be implemented as a default 
 - Which auth provider should first implement the normalized `AuthContext`: Azure SSO-backed JWT, gateway token, session token, mTLS behind gateway, or host-signed request?
 - What level of model/tool abstraction is needed before adding multiple providers?
 - Which `[Deferred]` AI SDK 6 capabilities should be promoted after v1: approvals, structured output, MCP, or reranking?
-- Should formatting be handled by ESLint alone, Prettier, or a formatter-independent policy?
+- Should formatting be handled by Oxlint alone, Oxfmt, or a formatter-independent policy?
 - Which dependency-audit and license checks are required before production?
 
 ## 31. Current Draft Decisions
@@ -3337,7 +3323,7 @@ These decisions are provisional and should become ADRs when accepted.
 | DB schema contract | Accepted before migrations and repository implementations. |
 | Runtime DB access | `packages/db` uses Drizzle over `pg`; direct DB access outside `packages/db`, migrations, and explicit DB test harnesses is forbidden. |
 | Test placement | Colocate ordinary tests beside source files; reserve harness folders for cross-package/browser test infrastructure. |
-| Linting | Type-aware ESLint plus custom governance scripts. |
+| Linting | Type-aware Oxlint plus custom governance scripts. |
 | Dependency policy | Runtime dependencies must live only where used; duplicate libraries for the same job need an ADR; shadcn/AI Elements/lucide are used as owned source/assets, not package dependencies. |
 | AI skills | Plan the skill suite first; do not create skill folders until names, triggers, and responsibilities are accepted. |
 | Widget package | Dedicated React package with public entrypoint only. |
@@ -3356,7 +3342,7 @@ A first clean scaffold is acceptable when:
 - `npm run verify` exists
 - root TypeScript project references include every app/package
 - strict TypeScript options are enabled and checked by governance
-- type-aware ESLint and custom governance scripts run through `npm run lint`
+- type-aware Oxlint and custom governance scripts run through `npm run lint`
 - code-quality budgets fail on intentionally oversized files/functions, nested ternaries, and duplicated product magic strings
 - the DB schema contract exists and defines day-one entities, context snapshots, history/resume behavior, repository command API, grants, idempotency, and deferred schema areas
 - `chat-protocol` has tests for request, event, codec, and sequence rules

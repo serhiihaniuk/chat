@@ -39,9 +39,7 @@ export const recordMemoryToolInvocation = async (
     inputHash: command.inputHash,
     ...(command.outputHash ? { outputHash: command.outputHash } : {}),
     inputRedactedJson: command.inputRedactedJson,
-    ...(command.outputRedactedJson
-      ? { outputRedactedJson: command.outputRedactedJson }
-      : {}),
+    ...(command.outputRedactedJson ? { outputRedactedJson: command.outputRedactedJson } : {}),
     ...(command.errorCode ? { errorCode: command.errorCode } : {}),
     startedAt: command.startedAt,
     ...(command.completedAt ? { completedAt: command.completedAt } : {}),
@@ -77,9 +75,7 @@ export const recordMemoryHostCommandResult = async (
     status: command.status,
     resultCode: command.resultCode,
     commandRedactedJson: command.commandRedactedJson,
-    ...(command.resultRedactedJson
-      ? { resultRedactedJson: command.resultRedactedJson }
-      : {}),
+    ...(command.resultRedactedJson ? { resultRedactedJson: command.resultRedactedJson } : {}),
     createdAt: command.now,
     updatedAt: command.now,
     ...(command.resolvedAt ? { resolvedAt: command.resolvedAt } : {}),

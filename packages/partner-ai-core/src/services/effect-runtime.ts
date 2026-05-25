@@ -14,19 +14,17 @@ export class ConversationRepositoryService extends Context.Service<
   ConversationRepositoryPort
 >()("@side-chat/partner-ai-core/ConversationRepositoryService") {}
 
-export class AgentRuntimeService extends Context.Service<
-  AgentRuntimeService,
-  AgentRuntimePort
->()("@side-chat/partner-ai-core/AgentRuntimeService") {}
+export class AgentRuntimeService extends Context.Service<AgentRuntimeService, AgentRuntimePort>()(
+  "@side-chat/partner-ai-core/AgentRuntimeService",
+) {}
 
 export class ClockService extends Context.Service<ClockService, ClockPort>()(
   "@side-chat/partner-ai-core/ClockService",
 ) {}
 
-export class IdGeneratorService extends Context.Service<
-  IdGeneratorService,
-  IdGeneratorPort
->()("@side-chat/partner-ai-core/IdGeneratorService") {}
+export class IdGeneratorService extends Context.Service<IdGeneratorService, IdGeneratorPort>()(
+  "@side-chat/partner-ai-core/IdGeneratorService",
+) {}
 
 export class PolicyService extends Context.Service<PolicyService, PolicyPort>()(
   "@side-chat/partner-ai-core/PolicyService",

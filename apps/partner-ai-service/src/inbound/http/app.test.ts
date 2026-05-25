@@ -1,7 +1,4 @@
-import {
-  decodeSseEvents,
-  SIDECHAT_PROTOCOL_VERSION,
-} from "@side-chat/chat-protocol";
+import { decodeSseEvents, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import type { ObservabilityRecord } from "@side-chat/partner-ai-core";
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
@@ -319,16 +316,9 @@ describe("partner ai service /chat/stream", () => {
     expect(response.status).toBe(200);
     await response.text();
     expect(records.map((record) => record.lifecycleState)).toEqual(
-      expect.arrayContaining([
-        "received",
-        "started",
-        "runtime_event",
-        "completed",
-      ]),
+      expect.arrayContaining(["received", "started", "runtime_event", "completed"]),
     );
-    expect(
-      records.every((record) => record.traceId === "trace-service-1"),
-    ).toBe(true);
+    expect(records.every((record) => record.traceId === "trace-service-1")).toBe(true);
   });
 
   it("persists conversation state idempotently without durable host-command results", async () => {
@@ -354,10 +344,7 @@ describe("partner ai service /chat/stream", () => {
 
     const snapshot = repositories.snapshot();
     expect(snapshot.conversations).toHaveLength(1);
-    expect(snapshot.messages.map((message) => message.role)).toEqual([
-      "user",
-      "assistant",
-    ]);
+    expect(snapshot.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
     expect(snapshot.assistantTurns).toHaveLength(1);
     expect(snapshot.assistantTurns[0]).toMatchObject({
       requestId: validRequest.requestId,

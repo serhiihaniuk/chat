@@ -6,10 +6,7 @@ export const buildPathUrl = (baseUrl: string, rawPath: string): string => {
   return new URL(path, base).toString();
 };
 
-export const createHttpError = (
-  status: number,
-  attempt: number,
-): ChatClientError =>
+export const createHttpError = (status: number, attempt: number): ChatClientError =>
   new ChatClientError("http_error", `Chat client request failed: ${status}`, {
     status,
     attempt,

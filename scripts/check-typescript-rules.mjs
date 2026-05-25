@@ -27,20 +27,13 @@ const requiredStrictOptions = {
 const base = readJson(root, "tsconfig.base.json");
 for (const [option, value] of Object.entries(requiredStrictOptions)) {
   if (base.compilerOptions?.[option] !== value)
-    errors.push(
-      `tsconfig.base.json: compilerOptions.${option} must be ${String(value)}`,
-    );
+    errors.push(`tsconfig.base.json: compilerOptions.${option} must be ${String(value)}`);
 }
 
 for (const file of listFiles(root, (path) => path.endsWith("tsconfig.json"))) {
   const tsconfig = readJson(root, file);
-  if (
-    file !== "tsconfig.json" &&
-    tsconfig.compilerOptions?.composite !== true
-  ) {
-    errors.push(
-      `${file}: workspace tsconfig must enable composite project references`,
-    );
+  if (file !== "tsconfig.json" && tsconfig.compilerOptions?.composite !== true) {
+    errors.push(`${file}: workspace tsconfig must enable composite project references`);
   }
 }
 
@@ -50,8 +43,7 @@ for (const file of listSourceFiles(root)) {
 
   const source = readFileSync(join(root, file), "utf8");
   if (/\bany\b/.test(source)) errors.push(`${file}: any is forbidden`);
-  if (/@ts-ignore/.test(source))
-    errors.push(`${file}: @ts-ignore is forbidden`);
+  if (/@ts-ignore/.test(source)) errors.push(`${file}: @ts-ignore is forbidden`);
   if (/as\s+unknown\s+as/.test(source))
     errors.push(`${file}: unsafe double assertion is forbidden`);
 }

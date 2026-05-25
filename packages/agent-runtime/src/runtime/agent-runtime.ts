@@ -1,7 +1,4 @@
-import {
-  createProviderRegistry,
-  type ProviderSelection,
-} from "#registry/provider-registry";
+import { createProviderRegistry, type ProviderSelection } from "#registry/provider-registry";
 import { createToolRegistry, type RuntimeTool } from "#tools/tool-registry";
 import type { RuntimeEvent } from "../events.js";
 import type { AssistantProvider, RuntimeMessage } from "../provider.js";
@@ -28,16 +25,13 @@ export type AgentRuntimeProfile = {
   readonly defaultToolNames?: readonly string[];
 };
 
-export const createAgentRuntime = (
-  options: AgentRuntimeOptions,
-): AgentRuntime => {
+export const createAgentRuntime = (options: AgentRuntimeOptions): AgentRuntime => {
   const providerRegistry = createProviderRegistry(options.providers);
   const toolRegistry = createToolRegistry(options.tools ?? []);
 
   return {
     stream(request) {
-      for (const toolName of request.toolNames ?? [])
-        toolRegistry.resolve(toolName);
+      for (const toolName of request.toolNames ?? []) toolRegistry.resolve(toolName);
       const provider = providerRegistry.resolve(request);
       return provider.stream({
         requestId: request.requestId,

@@ -10,7 +10,7 @@ describe("createOpenAIResponsesProvider", () => {
     const calls: RequestInit[] = [];
     const provider = createOpenAIResponsesProvider({
       apiKey: "test-key",
-      modelIds: ["gpt-5-mini"],
+      modelIds: ["gpt-5.4-mini"],
       fetch: (_url, init) => {
         calls.push(init ?? {});
         return Promise.resolve(
@@ -45,18 +45,15 @@ describe("createOpenAIResponsesProvider", () => {
       provider.stream({
         requestId: "request_001",
         assistantTurnId: "turn_001",
-        modelId: "gpt-5-mini",
+        modelId: "gpt-5.4-mini",
         messages: [{ role: "user", content: "hello" }],
       }),
     );
 
-    expect(events.map((event) => event.type)).toEqual([
-      "runtime.started",
-      "runtime.completed",
-    ]);
+    expect(events.map((event) => event.type)).toEqual(["runtime.started", "runtime.completed"]);
     expect(events[0]).toMatchObject({
       providerId: OPENAI_PROVIDER_ID,
-      modelId: "gpt-5-mini",
+      modelId: "gpt-5.4-mini",
       sequence: 0,
     });
     expect(events.at(-1)).toMatchObject({
@@ -69,17 +66,19 @@ describe("createOpenAIResponsesProvider", () => {
     const body = calls[0]?.body;
     expect(typeof body).toBe("string");
     expect(JSON.parse(body as string)).toMatchObject({
-      model: "gpt-5-mini",
-      input: [
-        { role: "user", content: [{ type: "input_text", text: "hello" }] },
-      ],
+      model: "gpt-5.4-mini",
+      input: [{ role: "user", content: [{ type: "input_text", text: "hello" }] }],
+      reasoning: {
+        effort: "medium",
+        summary: "auto",
+      },
     });
   });
 
   it("turns provider HTTP failures into runtime errors without fallback", async () => {
     const provider = createOpenAIResponsesProvider({
       apiKey: "test-key",
-      modelIds: ["gpt-5-mini"],
+      modelIds: ["gpt-5.4-mini"],
       fetch: (url) => {
         expect(url).toBe(OPENAI_RESPONSES_URL);
         return Promise.resolve(new Response("nope", { status: 503 }));
@@ -91,7 +90,7 @@ describe("createOpenAIResponsesProvider", () => {
         provider.stream({
           requestId: "request_002",
           assistantTurnId: "turn_002",
-          modelId: "gpt-5-mini",
+          modelId: "gpt-5.4-mini",
           messages: [{ role: "user", content: "hello" }],
         }),
       ),
@@ -109,12 +108,12 @@ describe("createOpenAIResponsesProvider", () => {
   });
 
   it("requires explicit credentials and model allowlist", () => {
-    expect(() =>
-      createOpenAIResponsesProvider({ apiKey: "", modelIds: ["gpt-5-mini"] }),
-    ).toThrow("requires an API key");
-    expect(() =>
-      createOpenAIResponsesProvider({ apiKey: "test-key", modelIds: [] }),
-    ).toThrow("requires at least one allowed model");
+    expect(() => createOpenAIResponsesProvider({ apiKey: "", modelIds: ["gpt-5.4-mini"] })).toThrow(
+      "requires an API key",
+    );
+    expect(() => createOpenAIResponsesProvider({ apiKey: "test-key", modelIds: [] })).toThrow(
+      "requires at least one allowed model",
+    );
   });
 });
 

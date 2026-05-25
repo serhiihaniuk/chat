@@ -164,9 +164,7 @@ export type ConversationRepositoryContract = {
   readonly readConversationHistory: (
     command: ReadConversationHistoryCommand,
   ) => Promise<readonly MessageRecord[]>;
-  readonly resetConversation: (
-    command: ResetConversationCommand,
-  ) => Promise<ConversationRecord>;
+  readonly resetConversation: (command: ResetConversationCommand) => Promise<ConversationRecord>;
 };
 
 export type AssistantTurnRepositoryContract = {
@@ -179,9 +177,7 @@ export type AssistantTurnRepositoryContract = {
   readonly completeAssistantTurn: (
     command: CompleteAssistantTurnCommand,
   ) => Promise<AssistantTurnRecord>;
-  readonly failAssistantTurn: (
-    command: FailAssistantTurnCommand,
-  ) => Promise<AssistantTurnRecord>;
+  readonly failAssistantTurn: (command: FailAssistantTurnCommand) => Promise<AssistantTurnRecord>;
   readonly recordUsage: (
     command: RecordUsageCommand,
   ) => Promise<RepositoryCommandResult<UsageRecord>>;

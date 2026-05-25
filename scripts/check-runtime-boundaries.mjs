@@ -24,15 +24,10 @@ for (const file of listSourceFiles(root)) {
     !file.endsWith(".test.ts") &&
     !file.startsWith("apps/partner-ai-service/src/config/")
   ) {
-    errors.push(
-      `${file}: production source reads process.env outside a config adapter`,
-    );
+    errors.push(`${file}: production source reads process.env outside a config adapter`);
   }
 
-  if (
-    imports.some((name) => name === "pg" || name === "drizzle-orm") &&
-    area !== "packages/db"
-  ) {
+  if (imports.some((name) => name === "pg" || name === "drizzle-orm") && area !== "packages/db") {
     errors.push(`${file}: pg/Drizzle runtime imports are owned by packages/db`);
   }
 
@@ -40,9 +35,7 @@ for (const file of listSourceFiles(root)) {
     imports.some((name) => name === "hono" || name === "@hono/node-server") &&
     area !== "apps/partner-ai-service"
   ) {
-    errors.push(
-      `${file}: HTTP framework imports are owned by apps/partner-ai-service`,
-    );
+    errors.push(`${file}: HTTP framework imports are owned by apps/partner-ai-service`);
   }
 
   if (
@@ -61,7 +54,6 @@ failIfErrors(errors);
 
 function importsUseOnlyAiPackage(imports) {
   return (
-    imports.some((name) => name === "ai") &&
-    !imports.some((name) => name?.startsWith("@ai-sdk/"))
+    imports.some((name) => name === "ai") && !imports.some((name) => name?.startsWith("@ai-sdk/"))
   );
 }

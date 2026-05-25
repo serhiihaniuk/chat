@@ -22,25 +22,17 @@ export const toHostCommand = (event: HostCommandEvent): HostCommand => ({
   payload: event.payload,
 });
 
-export const supportsCommand = (
-  capabilities: HostCapabilities,
-  command: HostCommand,
-): boolean =>
+export const supportsCommand = (capabilities: HostCapabilities, command: HostCommand): boolean =>
   capabilities.commands.some(
     (capability) =>
       capability.commandName === command.commandName &&
       supportsResourceType(capability, command.payload),
   );
 
-const supportsResourceType = (
-  capability: HostCommandCapability,
-  payload: JsonObject,
-): boolean => {
+const supportsResourceType = (capability: HostCommandCapability, payload: JsonObject): boolean => {
   const resourceTypes = capability.resourceTypes;
   if (!resourceTypes || resourceTypes.length === 0) return true;
 
   const resourceType = payload["resourceType"];
-  return (
-    typeof resourceType === "string" && resourceTypes.includes(resourceType)
-  );
+  return typeof resourceType === "string" && resourceTypes.includes(resourceType);
 };

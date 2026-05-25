@@ -14,10 +14,7 @@ import {
   type SidechatRepositories,
 } from "@side-chat/db";
 
-import {
-  createDevelopmentAuthConfig,
-  type ServiceAuthConfig,
-} from "#adapters/auth/service-auth";
+import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/auth/service-auth";
 import {
   createDefaultPolicyConfig,
   type ServicePolicyConfig,
@@ -37,7 +34,13 @@ export type RuntimeConfig =
       readonly defaultModelId: string;
       readonly baseUrl?: string;
       readonly fetch?: typeof fetch;
+      readonly reasoningEffort?: OpenAIReasoningEffort;
+      readonly reasoningSummary?: OpenAIReasoningSummary;
     };
+
+export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export type OpenAIReasoningSummary = "auto" | "concise" | "detailed";
 
 export type ServiceComposition = {
   readonly workspace: WorkspaceRef;
@@ -61,16 +64,12 @@ export type ServiceCompositionOptions = {
   readonly agentRuntime?: AgentRuntime;
 };
 
-export const composePartnerAiService = (
-  options: ServiceCompositionOptions,
-): ServiceComposition => {
+export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
   const auth = options.auth ?? createDevelopmentAuthConfig(options.workspace);
   const policies = options.policies ?? createDefaultPolicyConfig(auth.profile);
   const persistence =
-    options.persistence ??
-    defaultPersistenceForComposition(auth.profile, options.repositories);
-  const repositories =
-    options.repositories ?? createRepositoriesForPersistence(persistence);
+    options.persistence ?? defaultPersistenceForComposition(auth.profile, options.repositories);
+  const repositories = options.repositories ?? createRepositoriesForPersistence(persistence);
   const runtimeConfig = options.runtime ?? { provider: "fake" };
   const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);
 
@@ -83,8 +82,7 @@ export const composePartnerAiService = (
     runtime,
     runtimeProviderId: providerIdForRuntime(runtimeConfig),
     runtimeModelId: modelIdForRuntime(runtimeConfig),
-    persistenceLabel:
-      persistence.kind === "postgres" ? "postgres-drizzle" : "memory",
+    persistenceLabel: persistence.kind === "postgres" ? "postgres-drizzle" : "memory",
   };
 };
 
@@ -100,6 +98,8 @@ const createProviderForRuntime = (config: RuntimeConfig): AssistantProvider => {
       modelIds: config.modelIds,
       ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
       ...(config.fetch ? { fetch: config.fetch } : {}),
+      ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}),
+      ...(config.reasoningSummary ? { reasoningSummary: config.reasoningSummary } : {}),
     });
   }
 
@@ -112,13 +112,9 @@ const providerIdForRuntime = (config: RuntimeConfig): string =>
   config.provider === "openai" ? OPENAI_PROVIDER_ID : FAKE_PROVIDER_ID;
 
 const modelIdForRuntime = (config: RuntimeConfig): string =>
-  config.provider === "openai"
-    ? config.defaultModelId
-    : (config.modelId ?? FAKE_ECHO_MODEL_ID);
+  config.provider === "openai" ? config.defaultModelId : (config.modelId ?? FAKE_ECHO_MODEL_ID);
 
-const createRepositoriesForPersistence = (
-  persistence: PersistenceConfig,
-): SidechatRepositories => {
+const createRepositoriesForPersistence = (persistence: PersistenceConfig): SidechatRepositories => {
   if (persistence.kind === "postgres") {
     return createPostgresDrizzleSidechatRepositories({
       connectionString: persistence.databaseUrl,

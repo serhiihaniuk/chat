@@ -107,18 +107,12 @@ export const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
         true,
       );
 
-export const validateExactlyOneTerminal = (
-  events: readonly SidechatStreamEvent[],
-): void => {
+export const validateExactlyOneTerminal = (events: readonly SidechatStreamEvent[]): void => {
   try {
     validateSidechatEventSequence(events);
   } catch (error) {
     const message = error instanceof Error ? error.message : "invalid stream";
-    throw new PartnerAiCoreError(
-      "invalid_runtime_sequence",
-      message,
-      "malformed_stream",
-    );
+    throw new PartnerAiCoreError("invalid_runtime_sequence", message, "malformed_stream");
   }
 };
 

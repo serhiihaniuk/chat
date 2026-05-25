@@ -1,7 +1,4 @@
-import type {
-  ChatStreamRequest,
-  ProtocolErrorCode,
-} from "@side-chat/chat-protocol";
+import type { ChatStreamRequest, ProtocolErrorCode } from "@side-chat/chat-protocol";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import { PartnerAiCoreError } from "#errors";
 
@@ -12,8 +9,7 @@ export const POLICY_DENIAL_CODES = {
   productionPolicyRequired: "production_policy_required",
 } as const;
 
-export type PolicyDenialCode =
-  (typeof POLICY_DENIAL_CODES)[keyof typeof POLICY_DENIAL_CODES];
+export type PolicyDenialCode = (typeof POLICY_DENIAL_CODES)[keyof typeof POLICY_DENIAL_CODES];
 
 export type PolicyCheck = "rate_limit" | "entitlement" | "model_availability";
 
@@ -52,9 +48,7 @@ export const denyRequestPolicy = (denial: PolicyDenial): PolicyPort => ({
   evaluate: () => Promise.resolve(denial),
 });
 
-export const mapPolicyDenialToError = (
-  denial: PolicyDenial,
-): PartnerAiCoreError =>
+export const mapPolicyDenialToError = (denial: PolicyDenial): PartnerAiCoreError =>
   new PartnerAiCoreError(
     denial.code,
     denial.message,

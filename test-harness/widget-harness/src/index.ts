@@ -16,10 +16,7 @@ export {
   resolveLocalApiBaseUrl,
   withLocalAuth,
 } from "./local-service-client.js";
-export {
-  createMockEvents,
-  createMockStreamClient,
-} from "./mock-stream-client.js";
+export { createMockEvents, createMockStreamClient } from "./mock-stream-client.js";
 export {
   modeLabel,
   parseWidgetHarnessConfig,

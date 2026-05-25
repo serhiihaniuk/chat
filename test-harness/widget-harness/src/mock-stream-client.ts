@@ -27,9 +27,7 @@ const mockStreamEvents = async function* (
   }
 };
 
-export const createMockEvents = (
-  request: ChatStreamRequest,
-): readonly SidechatStreamEvent[] => {
+export const createMockEvents = (request: ChatStreamRequest): readonly SidechatStreamEvent[] => {
   const assistantTurnId = `turn-${request.requestId}`;
   return [
     started(assistantTurnId),

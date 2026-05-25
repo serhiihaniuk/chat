@@ -24,9 +24,7 @@ import type {
 } from "#schema-contract";
 import { DbRepositoryError } from "./errors.js";
 
-export const optional = <Value>(
-  value: Value | null | undefined,
-): Value | undefined =>
+export const optional = <Value>(value: Value | null | undefined): Value | undefined =>
   value === null || value === undefined ? undefined : value;
 
 export const one = <RecordType>(
@@ -53,9 +51,7 @@ export const toConversationRecord = (
   lastMessageAt: row.lastMessageAt,
 });
 
-export const toMessageRecord = (
-  row: typeof messages.$inferSelect,
-): MessageRecord => ({
+export const toMessageRecord = (row: typeof messages.$inferSelect): MessageRecord => ({
   messageId: row.messageId,
   conversationId: row.conversationId,
   workspaceId: row.workspaceId,
@@ -78,9 +74,7 @@ export const toAssistantTurnRecord = (
   subjectId: row.subjectId,
   actorId: row.actorId,
   userMessageId: row.userMessageId,
-  ...(row.assistantMessageId
-    ? { assistantMessageId: row.assistantMessageId }
-    : {}),
+  ...(row.assistantMessageId ? { assistantMessageId: row.assistantMessageId } : {}),
   runtimeProfile: row.runtimeProfile,
   systemPromptVersion: row.systemPromptVersion,
   contextStrategyVersion: row.contextStrategyVersion,
@@ -111,18 +105,14 @@ export const toContextSnapshotRecord = (
   updatedAt: row.createdAt,
 });
 
-export const toUsageRecord = (
-  row: typeof usageRecords.$inferSelect,
-): UsageRecord => ({
+export const toUsageRecord = (row: typeof usageRecords.$inferSelect): UsageRecord => ({
   usageRecordId: row.usageRecordId,
   assistantTurnId: row.assistantTurnId,
   workspaceId: row.workspaceId,
   runtimeStepIndex: row.runtimeStepIndex,
   modelProvider: row.modelProvider,
   modelId: row.modelId,
-  ...(row.providerRequestId
-    ? { providerRequestId: row.providerRequestId }
-    : {}),
+  ...(row.providerRequestId ? { providerRequestId: row.providerRequestId } : {}),
   inputTokens: row.inputTokens,
   outputTokens: row.outputTokens,
   reasoningTokens: row.reasoningTokens,
@@ -146,9 +136,7 @@ export const toToolInvocationRecord = (
   inputHash: row.inputHash,
   ...(row.outputHash ? { outputHash: row.outputHash } : {}),
   inputRedactedJson: row.inputRedactedJson,
-  ...(row.outputRedactedJson
-    ? { outputRedactedJson: row.outputRedactedJson }
-    : {}),
+  ...(row.outputRedactedJson ? { outputRedactedJson: row.outputRedactedJson } : {}),
   ...(row.errorCode ? { errorCode: row.errorCode } : {}),
   startedAt: row.startedAt,
   ...(row.completedAt ? { completedAt: row.completedAt } : {}),
@@ -168,17 +156,13 @@ export const toHostCommandResultRecord = (
   status: row.status as HostCommandResultRecord["status"],
   resultCode: row.resultCode,
   commandRedactedJson: row.commandRedactedJson,
-  ...(row.resultRedactedJson
-    ? { resultRedactedJson: row.resultRedactedJson }
-    : {}),
+  ...(row.resultRedactedJson ? { resultRedactedJson: row.resultRedactedJson } : {}),
   createdAt: row.createdAt,
   updatedAt: row.resolvedAt ?? row.createdAt,
   ...(row.resolvedAt ? { resolvedAt: row.resolvedAt } : {}),
 });
 
-export const toAuditEventRecord = (
-  row: typeof auditEvents.$inferSelect,
-): AuditEventRecord => ({
+export const toAuditEventRecord = (row: typeof auditEvents.$inferSelect): AuditEventRecord => ({
   auditEventId: row.auditEventId,
   workspaceId: row.workspaceId,
   subjectId: row.subjectId,
@@ -220,11 +204,7 @@ export const requireSubjectConversation = async (
   subjectId: string,
   conversationId: string,
 ): Promise<ConversationRecord> => {
-  const conversation = await requireConversation(
-    db,
-    workspaceId,
-    conversationId,
-  );
+  const conversation = await requireConversation(db, workspaceId, conversationId);
   if (conversation.subjectId !== subjectId) {
     throw new DbRepositoryError(
       "cross_tenant_access_denied",
@@ -268,10 +248,7 @@ export const buildHistoryWhere = (
   beforeSequenceIndex: number | undefined,
 ): SQL =>
   beforeSequenceIndex === undefined
-    ? and(
-        eq(messages.workspaceId, workspaceId),
-        eq(messages.conversationId, conversationId),
-      )!
+    ? and(eq(messages.workspaceId, workspaceId), eq(messages.conversationId, conversationId))!
     : and(
         eq(messages.workspaceId, workspaceId),
         eq(messages.conversationId, conversationId),

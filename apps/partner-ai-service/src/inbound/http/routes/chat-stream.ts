@@ -1,7 +1,4 @@
-import {
-  PartnerAiCoreError,
-  createStreamChatUseCase,
-} from "@side-chat/partner-ai-core";
+import { PartnerAiCoreError, createStreamChatUseCase } from "@side-chat/partner-ai-core";
 import {
   ProtocolValidationError,
   parseChatStreamRequest,
@@ -14,7 +11,7 @@ import { createServicePersistence } from "#adapters/persistence/service-persiste
 import { createServicePorts } from "#composition/service-ports";
 import type { AuthContextVariables } from "../middleware/auth-context.js";
 import { errorMessage, jsonError } from "../response/protocol-errors.js";
-import { sseResponse } from "../response/sse.js";
+import { streamingSseResponse } from "../response/sse.js";
 import { requireContextAuth, type RouteDependencies } from "./types.js";
 
 export const registerChatStreamRoute = (
@@ -38,44 +35,58 @@ export const registerChatStreamRoute = (
       createServicePorts({
         conversations: persistence.conversations,
         runtime: dependencies.runtime,
-        ...(dependencies.observability
-          ? { observability: dependencies.observability }
-          : {}),
+        ...(dependencies.observability ? { observability: dependencies.observability } : {}),
         policies: dependencies.policies,
       }),
     );
 
     try {
-      const events: SidechatStreamEvent[] = [];
-      for await (const event of useCase.stream({
-        workspace: dependencies.workspace,
-        request: chatRequest,
-        authContext,
-        providerId: dependencies.providerId,
-        modelId: dependencies.modelId,
-        ...traceInput(context.req.raw),
-      })) {
-        events.push(event);
-      }
-      await persistence.persistStreamResult({
-        request: chatRequest,
-        providerId: dependencies.providerId,
-        modelId: dependencies.modelId,
-        events,
-      });
+      const eventIterator = useCase
+        .stream({
+          workspace: dependencies.workspace,
+          request: chatRequest,
+          authContext,
+          providerId: dependencies.providerId,
+          modelId: dependencies.modelId,
+          ...traceInput(context.req.raw),
+        })
+        [Symbol.asyncIterator]();
+      const firstEvent = await eventIterator.next();
 
-      return sseResponse(events, chatRequest.requestId);
+      return streamingSseResponse({
+        events: prependFirstEvent(firstEvent, eventIterator),
+        requestId: chatRequest.requestId,
+        onComplete: (streamEvents) =>
+          persistence.persistStreamResult({
+            request: chatRequest,
+            providerId: dependencies.providerId,
+            modelId: dependencies.modelId,
+            events: streamEvents,
+          }),
+      });
     } catch (error) {
       return mapServiceError(error);
     }
   });
 };
 
+const prependFirstEvent = async function* (
+  firstEvent: IteratorResult<SidechatStreamEvent>,
+  events: AsyncIterator<SidechatStreamEvent>,
+): AsyncIterable<SidechatStreamEvent> {
+  if (!firstEvent.done) yield firstEvent.value;
+
+  while (true) {
+    const nextEvent = await events.next();
+    if (nextEvent.done) return;
+    yield nextEvent.value;
+  }
+};
+
 const parseJsonBody = async (
   request: Request,
 ): Promise<
-  | { readonly ok: true; readonly value: unknown }
-  | { readonly ok: false; readonly message: string }
+  { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly message: string }
 > => {
   try {
     return { ok: true, value: (await request.json()) as unknown };
@@ -92,12 +103,7 @@ const traceInput = (request: Request): { readonly traceId?: string } => {
 const mapServiceError = (error: unknown): Response => {
   if (error instanceof PartnerAiCoreError) {
     const status = error.protocolCode === "unauthorized" ? 401 : 403;
-    return jsonError(
-      error.protocolCode,
-      error.message,
-      status,
-      error.retryable,
-    );
+    return jsonError(error.protocolCode, error.message, status, error.retryable);
   }
   if (error instanceof ProtocolValidationError) {
     return jsonError("bad_request", error.message, 400);

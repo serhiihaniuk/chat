@@ -1,10 +1,7 @@
 import { createElement, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 
-import {
-  SideChatWidget,
-  type SideChatWidgetProps,
-} from "@side-chat/side-chat-widget";
+import { SideChatWidget, type SideChatWidgetProps } from "@side-chat/side-chat-widget";
 
 import { createHarnessHostBridge } from "./fake-host-bridge.js";
 import { createLocalServiceClient } from "./local-service-client.js";
@@ -16,18 +13,14 @@ export type WidgetHarnessApp = {
   readonly element: ReactElement;
 };
 
-export const createWidgetHarnessApp = (
-  config: WidgetHarnessConfig,
-): WidgetHarnessApp => {
+export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarnessApp => {
   const hostBridge = createHarnessHostBridge(config);
   const client =
-    config.mode === "local-service"
-      ? createLocalServiceClient(config)
-      : createMockStreamClient();
+    config.mode === "local-service" ? createLocalServiceClient(config) : createMockStreamClient();
   const props: SideChatWidgetProps = {
-    assistantProfiles: [{ id: "gpt-5.5", label: "GPT 5.5" }],
+    assistantProfiles: [{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }],
     client,
-    defaultAssistantProfileId: "gpt-5.5",
+    defaultAssistantProfileId: "gpt-5.4-mini",
     defaultOpen: true,
     defaultPanelSize: resolveHarnessPanelSize(),
     hostBridge,
@@ -55,10 +48,7 @@ const resolveHarnessPanelSize = (): {
   };
 };
 
-export const mountWidgetHarness = (
-  container: Element,
-  search: string,
-): void => {
+export const mountWidgetHarness = (container: Element, search: string): void => {
   const app = createWidgetHarnessApp(parseWidgetHarnessConfig(search));
   createRoot(container).render(app.element);
 };

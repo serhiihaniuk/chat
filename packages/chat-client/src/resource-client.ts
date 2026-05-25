@@ -1,11 +1,6 @@
 import type { UsageMetadata } from "@side-chat/chat-protocol";
 
-import {
-  assertNotAborted,
-  buildPathUrl,
-  createHttpError,
-  withSignal,
-} from "./http-helpers.js";
+import { assertNotAborted, buildPathUrl, createHttpError, withSignal } from "./http-helpers.js";
 import type {
   ChatClientOptions,
   FetchLike,
@@ -69,10 +64,7 @@ export const readUsageWithFetch = async (
 ): Promise<UsageMetadata> => {
   assertNotAborted(options.signal);
   const response = await transport(
-    buildPathUrl(
-      clientOptions.baseUrl,
-      clientOptions.usagePath ?? DEFAULT_USAGE_PATH,
-    ),
+    buildPathUrl(clientOptions.baseUrl, clientOptions.usagePath ?? DEFAULT_USAGE_PATH),
     withSignal(options.signal),
   );
   if (!response.ok) throw createHttpError(response.status, 1);
@@ -80,13 +72,7 @@ export const readUsageWithFetch = async (
 };
 
 const normalizeUsage = (payload: UsageMetadata): UsageMetadata => ({
-  ...(payload.inputTokens === undefined
-    ? {}
-    : { inputTokens: payload.inputTokens }),
-  ...(payload.outputTokens === undefined
-    ? {}
-    : { outputTokens: payload.outputTokens }),
-  ...(payload.totalTokens === undefined
-    ? {}
-    : { totalTokens: payload.totalTokens }),
+  ...(payload.inputTokens === undefined ? {} : { inputTokens: payload.inputTokens }),
+  ...(payload.outputTokens === undefined ? {} : { outputTokens: payload.outputTokens }),
+  ...(payload.totalTokens === undefined ? {} : { totalTokens: payload.totalTokens }),
 });

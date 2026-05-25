@@ -88,9 +88,7 @@ describe("createChatClient", () => {
     const events = await collect(result.events);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://assistant.example.test/chat/stream",
-    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://assistant.example.test/chat/stream");
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       headers: {
@@ -135,9 +133,9 @@ describe("createChatClient", () => {
       fetch: fetchMock,
     });
 
-    await expect(
-      client.streamChat(request, { signal: controller.signal }),
-    ).rejects.toMatchObject({ code: "aborted" });
+    await expect(client.streamChat(request, { signal: controller.signal })).rejects.toMatchObject({
+      code: "aborted",
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -169,20 +167,14 @@ describe("createChatClient", () => {
           messages: [{ id: "m1", role: "user", content: "past", sequence: 0 }],
         }),
       )
-      .mockResolvedValueOnce(
-        Response.json({ conversationId: "conversation-1", status: "reset" }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({ inputTokens: 2, outputTokens: 3, totalTokens: 5 }),
-      );
+      .mockResolvedValueOnce(Response.json({ conversationId: "conversation-1", status: "reset" }))
+      .mockResolvedValueOnce(Response.json({ inputTokens: 2, outputTokens: 3, totalTokens: 5 }));
     const client = createChatClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
     });
 
-    expect(
-      await client.readHistory?.("conversation-1", { limit: 10 }),
-    ).toMatchObject({
+    expect(await client.readHistory?.("conversation-1", { limit: 10 })).toMatchObject({
       conversationId: "conversation-1",
       messages: [{ content: "past" }],
     });

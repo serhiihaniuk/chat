@@ -21,9 +21,7 @@ export type HostContextRequest = {
 };
 
 export type HostContextProvider = {
-  readonly getContext: (
-    request: HostContextRequest,
-  ) => Promise<HostContextSnapshot>;
+  readonly getContext: (request: HostContextRequest) => Promise<HostContextSnapshot>;
   readonly getCapabilities?: () => Promise<HostCapabilities>;
 };
 
@@ -32,14 +30,10 @@ export const createStaticHostContextProvider = (
   capabilities?: HostCapabilities,
 ): HostContextProvider => ({
   getContext: () => Promise.resolve(snapshot),
-  ...(capabilities
-    ? { getCapabilities: () => Promise.resolve(capabilities) }
-    : {}),
+  ...(capabilities ? { getCapabilities: () => Promise.resolve(capabilities) } : {}),
 });
 
-export const toProtocolHostContext = (
-  snapshot: HostContextSnapshot,
-): HostContext => ({
+export const toProtocolHostContext = (snapshot: HostContextSnapshot): HostContext => ({
   schemaVersion: snapshot.schemaVersion,
   ...(snapshot.origin ? { origin: snapshot.origin } : {}),
   ...(snapshot.url ? { url: snapshot.url } : {}),
@@ -51,9 +45,7 @@ const mergeMetadata = (snapshot: HostContextSnapshot): JsonObject => ({
   ...(snapshot.metadata ?? {}),
   collectedAt: snapshot.collectedAt,
   ...(snapshot.expiresAt ? { expiresAt: snapshot.expiresAt } : {}),
-  ...(snapshot.capabilityHash
-    ? { capabilityHash: snapshot.capabilityHash }
-    : {}),
+  ...(snapshot.capabilityHash ? { capabilityHash: snapshot.capabilityHash } : {}),
   ...(snapshot.surface ? { surface: encodeSurface(snapshot.surface) } : {}),
 });
 

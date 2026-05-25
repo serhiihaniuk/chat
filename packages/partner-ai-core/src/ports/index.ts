@@ -1,8 +1,4 @@
-import type {
-  ChatRequestMessage,
-  JsonObject,
-  UsageMetadata,
-} from "@side-chat/chat-protocol";
+import type { ChatRequestMessage, JsonObject, UsageMetadata } from "@side-chat/chat-protocol";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 
 export type ClockPort = {

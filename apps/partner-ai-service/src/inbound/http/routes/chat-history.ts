@@ -60,10 +60,7 @@ export const registerChatHistoryRoutes = (
   });
 };
 
-const readPositiveInteger = (
-  rawValue: string | undefined,
-  fallback: number,
-): number => {
+const readPositiveInteger = (rawValue: string | undefined, fallback: number): number => {
   if (!rawValue) return fallback;
   const parsed = Number(rawValue);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;

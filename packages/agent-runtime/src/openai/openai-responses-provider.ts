@@ -12,16 +12,19 @@ export type OpenAIResponsesProviderOptions = {
   readonly modelIds: readonly string[];
   readonly baseUrl?: string;
   readonly fetch?: typeof fetch;
+  readonly reasoningEffort?: OpenAIReasoningEffort;
+  readonly reasoningSummary?: OpenAIReasoningSummary;
 };
+
+export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export type OpenAIReasoningSummary = "auto" | "concise" | "detailed";
 
 export const createOpenAIResponsesProvider = (
   options: OpenAIResponsesProviderOptions,
 ): AssistantProvider => {
   if (options.apiKey.trim().length === 0) {
-    throw new AgentRuntimeError(
-      "provider_unavailable",
-      "OpenAI provider requires an API key.",
-    );
+    throw new AgentRuntimeError("provider_unavailable", "OpenAI provider requires an API key.");
   }
   if (options.modelIds.length === 0) {
     throw new AgentRuntimeError(
@@ -35,9 +38,15 @@ export const createOpenAIResponsesProvider = (
     ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
-  const agent = createAiSdkToolLoopAgent((runtimeRequest) =>
-    openai.responses(runtimeRequest.modelId),
-  );
+  const agent = createAiSdkToolLoopAgent({
+    providerOptions: {
+      openai: {
+        reasoningEffort: options.reasoningEffort ?? "medium",
+        reasoningSummary: options.reasoningSummary ?? "auto",
+      },
+    },
+    resolveModel: (runtimeRequest) => openai.responses(runtimeRequest.modelId),
+  });
 
   return {
     providerId: OPENAI_PROVIDER_ID,

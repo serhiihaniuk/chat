@@ -3,9 +3,7 @@ import { failIfErrors, listFiles, resolveRoot } from "./lib/governance.mjs";
 const root = resolveRoot();
 const errors = [];
 
-for (const file of listFiles(root, (path) =>
-  /\.(?:test|spec)\.(?:ts|tsx|js|jsx)$/.test(path),
-)) {
+for (const file of listFiles(root, (path) => /\.(?:test|spec)\.(?:ts|tsx|js|jsx)$/.test(path))) {
   const parts = file.split("/");
   if (parts.includes("dist") || parts.includes("build")) continue;
 
@@ -18,9 +16,7 @@ for (const file of listFiles(root, (path) =>
   const isHarness = file.startsWith("test-harness/");
   const isColocatedSourceTest = file.includes("/src/");
   if (!isHarness && !isColocatedSourceTest && !file.startsWith("scripts/")) {
-    errors.push(
-      `${file}: tests must be colocated under src or live in test-harness`,
-    );
+    errors.push(`${file}: tests must be colocated under src or live in test-harness`);
   }
 }
 

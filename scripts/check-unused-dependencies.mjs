@@ -46,9 +46,10 @@ const allowedUnusedDependencies = new Map([
     "Day-one Effect v4 pin required by production-system-design.md.",
   ],
   [
-    "@side-chat/db:effect",
-    "Day-one Effect v4 pin required by production-system-design.md.",
+    "@side-chat/agent-runtime:zod",
+    "AI SDK provider-utils peer dependency required by provider runtime execution.",
   ],
+  ["@side-chat/db:effect", "Day-one Effect v4 pin required by production-system-design.md."],
   [
     "@side-chat/side-chat-widget:ai-elements",
     "AI Elements CLI/runtime package is intentionally retained with vendored component source.",

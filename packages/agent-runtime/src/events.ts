@@ -77,7 +77,5 @@ export type RuntimeUsage = {
   readonly totalTokens: number;
 };
 
-export const isRuntimeTerminalEvent = (
-  event: RuntimeEvent,
-): event is RuntimeTerminalEvent =>
+export const isRuntimeTerminalEvent = (event: RuntimeEvent): event is RuntimeTerminalEvent =>
   event.type === "runtime.completed" || event.type === "runtime.error";

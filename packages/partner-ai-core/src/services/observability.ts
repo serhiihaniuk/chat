@@ -1,8 +1,4 @@
-import type {
-  JsonObject,
-  JsonPrimitive,
-  JsonValue,
-} from "@side-chat/chat-protocol";
+import type { JsonObject, JsonPrimitive, JsonValue } from "@side-chat/chat-protocol";
 
 export type TraceCorrelationInput = {
   readonly requestId: string;
@@ -56,15 +52,12 @@ const SENSITIVE_KEY_PARTS = [
 
 const REDACTED = "[redacted]";
 
-export const createRequestCorrelation = (
-  input: TraceCorrelationInput,
-): RequestCorrelation => ({
+export const createRequestCorrelation = (input: TraceCorrelationInput): RequestCorrelation => ({
   requestId: input.requestId,
   traceId: input.traceId ?? `trace_${input.requestId}`,
 });
 
-export const redactAttributes = (attributes: JsonObject): JsonObject =>
-  redactObject(attributes);
+export const redactAttributes = (attributes: JsonObject): JsonObject => redactObject(attributes);
 
 export const safeJsonPrimitive = (value: unknown): JsonPrimitive => {
   if (typeof value === "string") return value;
@@ -94,7 +87,5 @@ const isJsonObject = (value: JsonValue): value is JsonObject =>
 
 const isSensitiveKey = (key: string): boolean => {
   const normalized = key.toLowerCase();
-  return SENSITIVE_KEY_PARTS.some((part) =>
-    normalized.includes(part.toLowerCase()),
-  );
+  return SENSITIVE_KEY_PARTS.some((part) => normalized.includes(part.toLowerCase()));
 };

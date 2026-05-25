@@ -3,21 +3,10 @@ import {
   type ChatStreamRequest,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-import {
-  assertWorkspaceAuthority,
-  type AuthContext,
-  type WorkspaceRef,
-} from "#domain/authority";
+import { assertWorkspaceAuthority, type AuthContext, type WorkspaceRef } from "#domain/authority";
 import { mapAuthorityDenialToError } from "#errors";
-import {
-  createRequestCorrelation,
-  type ObservabilitySinkPort,
-} from "#services/observability";
-import {
-  allowRequestPolicy,
-  mapPolicyDenialToError,
-  type PolicyPort,
-} from "#policies/policy";
+import { createRequestCorrelation, type ObservabilitySinkPort } from "#services/observability";
+import { allowRequestPolicy, mapPolicyDenialToError, type PolicyPort } from "#policies/policy";
 import {
   recordStreamObservation,
   runtimeEventAttributes,
@@ -46,9 +35,7 @@ export type StreamChatInput = {
 };
 
 export type StreamChatUseCase = {
-  readonly stream: (
-    input: StreamChatInput,
-  ) => AsyncIterable<SidechatStreamEvent>;
+  readonly stream: (input: StreamChatInput) => AsyncIterable<SidechatStreamEvent>;
 };
 
 export type StreamChatUseCasePorts = {
@@ -60,9 +47,7 @@ export type StreamChatUseCasePorts = {
   readonly observability?: ObservabilitySinkPort;
 };
 
-export const createStreamChatUseCase = (
-  ports: StreamChatUseCasePorts,
-): StreamChatUseCase => ({
+export const createStreamChatUseCase = (ports: StreamChatUseCasePorts): StreamChatUseCase => ({
   async *stream(input) {
     const authContext = await resolveAuthorizedContext(ports, input);
     const correlation = createRequestCorrelation({
@@ -90,15 +75,9 @@ export const createStreamChatUseCase = (
         : {}),
       fallbackConversationId: ports.ids.nextConversationId(),
     });
-    const conversationDecision = assertWorkspaceAuthority(
-      authContext,
-      conversation,
-    );
+    const conversationDecision = assertWorkspaceAuthority(authContext, conversation);
     if (!conversationDecision.allowed) {
-      throw mapAuthorityDenialToError(
-        conversationDecision.code,
-        conversationDecision.message,
-      );
+      throw mapAuthorityDenialToError(conversationDecision.code, conversationDecision.message);
     }
 
     await ports.conversations.appendUserMessage({
@@ -160,12 +139,7 @@ export const createStreamChatUseCase = (
           now: ports.clock.now(),
           attributes: runtimeEventAttributes(runtimeEvent),
         });
-        const event = mapRuntimeEvent(
-          runtimeEvent,
-          input.request,
-          ports,
-          nextStreamSequence,
-        );
+        const event = mapRuntimeEvent(runtimeEvent, input.request, ports, nextStreamSequence);
         if (event) {
           yield emit(event);
           nextStreamSequence += 1;
@@ -187,15 +161,7 @@ export const createStreamChatUseCase = (
           message: mappedError.message,
         },
       });
-      yield emit(
-        createErrorEvent(
-          input,
-          assistantTurnId,
-          nextStreamSequence,
-          ports,
-          mappedError,
-        ),
-      );
+      yield emit(createErrorEvent(input, assistantTurnId, nextStreamSequence, ports, mappedError));
     }
 
     const terminalCode = terminalErrorCode(emitted);
@@ -219,20 +185,12 @@ const resolveAuthorizedContext = async (
   ports: StreamChatUseCasePorts,
   input: StreamChatInput,
 ): Promise<AuthContext> => {
-  const authorityDecision = assertWorkspaceAuthority(
-    input.authContext,
-    input.workspace,
-  );
+  const authorityDecision = assertWorkspaceAuthority(input.authContext, input.workspace);
   if (!authorityDecision.allowed) {
-    throw mapAuthorityDenialToError(
-      authorityDecision.code,
-      authorityDecision.message,
-    );
+    throw mapAuthorityDenialToError(authorityDecision.code, authorityDecision.message);
   }
 
-  const policyDecision = await (
-    ports.policies ?? allowRequestPolicy()
-  ).evaluate({
+  const policyDecision = await (ports.policies ?? allowRequestPolicy()).evaluate({
     authContext: authorityDecision.authContext,
     workspace: input.workspace,
     request: input.request,

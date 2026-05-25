@@ -108,15 +108,9 @@ describe("observability redaction and correlation", () => {
       "runtime_event",
       "failed",
     ]);
-    expect(
-      records.every((record) => record.requestId === input.request.requestId),
-    ).toBe(true);
-    expect(
-      records.every((record) => record.traceId === "trace-explicit-1"),
-    ).toBe(true);
-    expect(
-      records.find((record) => record.lifecycleState === "started"),
-    ).toMatchObject({
+    expect(records.every((record) => record.requestId === input.request.requestId)).toBe(true);
+    expect(records.every((record) => record.traceId === "trace-explicit-1")).toBe(true);
+    expect(records.find((record) => record.lifecycleState === "started")).toMatchObject({
       assistantTurnId: "assistant_turn_001",
       providerId: "fake",
       modelId: "fake-echo",
@@ -124,9 +118,7 @@ describe("observability redaction and correlation", () => {
         prompt: "[redacted]",
       },
     });
-    expect(
-      records.find((record) => record.lifecycleState === "runtime_event"),
-    ).toMatchObject({
+    expect(records.find((record) => record.lifecycleState === "runtime_event")).toMatchObject({
       attributes: {
         argumentsJson: "[redacted]",
       },
@@ -134,8 +126,7 @@ describe("observability redaction and correlation", () => {
     expect(
       records.find(
         (record) =>
-          record.lifecycleState === "runtime_event" &&
-          record.attributes["errorCode"] === "timeout",
+          record.lifecycleState === "runtime_event" && record.attributes["errorCode"] === "timeout",
       ),
     ).toMatchObject({
       attributes: { message: "[redacted]" },

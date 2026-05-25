@@ -14,12 +14,7 @@ const widgetSourceRoot = `${widgetArea}/src`;
 const errors = [];
 
 const removedTopLevelFolders = ["application", "assets", "domain", "ui"];
-const blockedFixtureText = [
-  "Context 26%",
-  "Current page",
-  "GPT 5.5",
-  "Workspace context",
-];
+const blockedFixtureText = ["Context 26%", "Current page", "GPT 5.5", "Workspace context"];
 
 for (const folder of removedTopLevelFolders) {
   if (existsSync(join(root, widgetSourceRoot, folder))) {
@@ -41,9 +36,7 @@ for (const file of listSourceFiles(root)) {
   const from = classifySourceFile(file);
 
   if (!from) {
-    errors.push(
-      `${file}: widget source must live under app, features, entities, or shared`,
-    );
+    errors.push(`${file}: widget source must live under app, features, entities, or shared`);
     continue;
   }
 
@@ -61,9 +54,7 @@ for (const file of listSourceFiles(root)) {
 
     const dependency = dependencyName(specifier);
     if (from.layer === "shared" && dependency?.startsWith("@side-chat/")) {
-      errors.push(
-        `${file}: shared widget code must not import product package ${dependency}`,
-      );
+      errors.push(`${file}: shared widget code must not import product package ${dependency}`);
     }
 
     const target = classifyImportTarget(file, specifier);
@@ -80,9 +71,7 @@ function validatePublicEntrypoint(file) {
   const source = readFileSync(join(root, file), "utf8");
   for (const specifier of importSpecifiers(source)) {
     if (specifier !== "./app/side-chat-widget.js") {
-      errors.push(
-        `${file}: public widget entrypoint may only export the app-level API`,
-      );
+      errors.push(`${file}: public widget entrypoint may only export the app-level API`);
     }
   }
 }
@@ -99,9 +88,7 @@ function classifyImportTarget(file, specifier) {
 
   const importerAbsolute = resolve(root, file);
   const sourceRootAbsolute = resolve(root, widgetSourceRoot);
-  const targetAbsolute = normalize(
-    resolve(dirname(importerAbsolute), specifier),
-  );
+  const targetAbsolute = normalize(resolve(dirname(importerAbsolute), specifier));
   const targetRelative = relative(sourceRootAbsolute, targetAbsolute)
     .split(sepForPlatform())
     .join("/");
@@ -150,11 +137,7 @@ function validateFeatureImport(file, from, target, specifier) {
   if (target.layer === "app") {
     return `${file}: feature code must not import app code through ${specifier}`;
   }
-  if (
-    target.layer === "features" &&
-    target.slice !== undefined &&
-    target.slice !== from.slice
-  ) {
+  if (target.layer === "features" && target.slice !== undefined && target.slice !== from.slice) {
     return `${file}: feature ${from.slice} must not import feature ${target.slice} through ${specifier}`;
   }
   return undefined;

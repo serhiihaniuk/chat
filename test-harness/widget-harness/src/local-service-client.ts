@@ -1,14 +1,8 @@
-import {
-  createChatClient,
-  type ChatClient,
-  type FetchLike,
-} from "@side-chat/chat-client";
+import { createChatClient, type ChatClient, type FetchLike } from "@side-chat/chat-client";
 
 import type { WidgetHarnessConfig } from "./modes.js";
 
-export const createLocalServiceClient = (
-  config: WidgetHarnessConfig,
-): ChatClient =>
+export const createLocalServiceClient = (config: WidgetHarnessConfig): ChatClient =>
   createChatClient({
     baseUrl: resolveLocalApiBaseUrl(config.apiBaseUrl),
     fetch: withLocalAuth(config.authToken, globalThis.fetch.bind(globalThis)),
@@ -25,9 +19,7 @@ export const withLocalAuth =
       },
     });
 
-const readHeaders = (
-  headers: HeadersInit | undefined,
-): Record<string, string> => {
+const readHeaders = (headers: HeadersInit | undefined): Record<string, string> => {
   if (!headers) return {};
   if (headers instanceof Headers) return Object.fromEntries(headers.entries());
   if (Array.isArray(headers)) return Object.fromEntries(headers);
@@ -37,9 +29,6 @@ const readHeaders = (
 export const resolveLocalApiBaseUrl = (baseUrl: string): string => {
   if (!baseUrl.startsWith("/")) return baseUrl;
 
-  const origin =
-    typeof window === "undefined"
-      ? "http://127.0.0.1:5173"
-      : window.location.origin;
+  const origin = typeof window === "undefined" ? "http://127.0.0.1:5173" : window.location.origin;
   return new URL(baseUrl, origin).toString();
 };

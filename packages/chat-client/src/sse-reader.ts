@@ -40,16 +40,10 @@ export const decodeChunkedSseStream = async function* (
 
   assertNotAborted(options.signal);
   if (extracted.remaining.trim().length > 0) {
-    throw new ChatClientError(
-      "malformed_stream",
-      "SSE stream ended with an incomplete frame",
-    );
+    throw new ChatClientError("malformed_stream", "SSE stream ended with an incomplete frame");
   }
   if (!state.terminalSeen) {
-    throw new ChatClientError(
-      "missing_terminal",
-      "SSE stream ended before a terminal event",
-    );
+    throw new ChatClientError("missing_terminal", "SSE stream ended before a terminal event");
   }
 };
 
@@ -91,10 +85,7 @@ const extractFrames = (source: string): ExtractedFrames => {
   return { frames, remaining };
 };
 
-const decodeFrame = function* (
-  frame: string,
-  state: StreamState,
-): Iterable<SidechatStreamEvent> {
+const decodeFrame = function* (frame: string, state: StreamState): Iterable<SidechatStreamEvent> {
   try {
     const events = decodeSseEvents(`${frame}\n\n`);
     for (const event of events) {
@@ -109,21 +100,12 @@ const decodeFrame = function* (
   }
 };
 
-const validateIncrementalEvent = (
-  event: SidechatStreamEvent,
-  state: StreamState,
-): void => {
+const validateIncrementalEvent = (event: SidechatStreamEvent, state: StreamState): void => {
   if (event.sequence <= state.previousSequence) {
-    throw new ChatClientError(
-      "malformed_stream",
-      "SSE event sequence must increase",
-    );
+    throw new ChatClientError("malformed_stream", "SSE event sequence must increase");
   }
   if (state.terminalSeen) {
-    throw new ChatClientError(
-      "malformed_stream",
-      "SSE event received after terminal event",
-    );
+    throw new ChatClientError("malformed_stream", "SSE event received after terminal event");
   }
 
   state.previousSequence = event.sequence;

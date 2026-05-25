@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createFakeProvider,
-  FAKE_ECHO_MODEL_ID,
-  FAKE_PROVIDER_ID,
-} from "./fake-provider.js";
+import { createFakeProvider, FAKE_ECHO_MODEL_ID, FAKE_PROVIDER_ID } from "./fake-provider.js";
 import { isRuntimeTerminalEvent } from "../events.js";
 
 describe("createFakeProvider", () => {

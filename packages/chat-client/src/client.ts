@@ -7,11 +7,7 @@ import {
 } from "@side-chat/chat-protocol";
 
 import { ChatClientError } from "./errors.js";
-import {
-  assertNotAborted,
-  buildPathUrl,
-  createHttpError,
-} from "./http-helpers.js";
+import { assertNotAborted, buildPathUrl, createHttpError } from "./http-helpers.js";
 import {
   readHistoryWithFetch,
   readUsageWithFetch,
@@ -19,10 +15,7 @@ import {
 } from "./resource-client.js";
 import { decodeChunkedSseStream, type StreamChunk } from "./sse-reader.js";
 
-export type FetchLike = (
-  input: string | URL | Request,
-  init?: RequestInit,
-) => Promise<Response>;
+export type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export type RetryPolicy = {
   readonly attempts: number;
@@ -99,8 +92,7 @@ export const createChatClient = (options: ChatClientOptions): ChatClient => {
   return {
     readHistory: (conversationId, readOptions = {}) =>
       readHistoryWithFetch(conversationId, options, readOptions, transport),
-    readUsage: (usageOptions = {}) =>
-      readUsageWithFetch(options, usageOptions, transport),
+    readUsage: (usageOptions = {}) => readUsageWithFetch(options, usageOptions, transport),
     resetHistory: (conversationId, resetOptions = {}) =>
       resetHistoryWithFetch(conversationId, options, resetOptions, transport),
     streamChat: (request, streamOptions = {}) =>
@@ -133,11 +125,9 @@ const streamChatWithFetch = async (
       }
 
       if (!response.body) {
-        throw new ChatClientError(
-          "network_error",
-          "Streaming response body is missing",
-          { attempt },
-        );
+        throw new ChatClientError("network_error", "Streaming response body is missing", {
+          attempt,
+        });
       }
 
       return {
@@ -160,10 +150,7 @@ const streamChatWithFetch = async (
 };
 
 const buildUrl = (options: ChatClientOptions): string => {
-  return buildPathUrl(
-    options.baseUrl,
-    options.streamPath ?? DEFAULT_STREAM_PATH,
-  );
+  return buildPathUrl(options.baseUrl, options.streamPath ?? DEFAULT_STREAM_PATH);
 };
 
 const buildRequestInit = (
@@ -221,8 +208,6 @@ const shouldRetry = (
   if (!retry) return false;
   if (error.code !== "http_error" || error.status === undefined) return false;
 
-  const statuses = retry.statuses
-    ? new Set(retry.statuses)
-    : DEFAULT_RETRY_STATUS;
+  const statuses = retry.statuses ? new Set(retry.statuses) : DEFAULT_RETRY_STATUS;
   return statuses.has(error.status);
 };

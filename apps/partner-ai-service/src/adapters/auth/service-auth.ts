@@ -1,9 +1,4 @@
-import type {
-  AuditActor,
-  AuthContext,
-  SubjectRef,
-  WorkspaceRef,
-} from "@side-chat/partner-ai-core";
+import type { AuditActor, AuthContext, SubjectRef, WorkspaceRef } from "@side-chat/partner-ai-core";
 import type { HostContext } from "@side-chat/chat-protocol";
 
 export const DEFAULT_DEV_BEARER_TOKEN = "Bearer local-test-token";
@@ -40,9 +35,7 @@ export type ServiceAuthInput = {
 };
 
 export type ServiceAuthVerifier = {
-  readonly resolveAuthContext: (
-    input: ServiceAuthInput,
-  ) => Promise<AuthContext | undefined>;
+  readonly resolveAuthContext: (input: ServiceAuthInput) => Promise<AuthContext | undefined>;
 };
 
 export class ServiceAuthConfigurationError extends Error {
@@ -54,16 +47,12 @@ export class ServiceAuthConfigurationError extends Error {
   }
 }
 
-export const createDevelopmentAuthConfig = (
-  workspace: WorkspaceRef,
-): DevelopmentAuthConfig => ({
+export const createDevelopmentAuthConfig = (workspace: WorkspaceRef): DevelopmentAuthConfig => ({
   profile: "development",
   workspace,
 });
 
-export const createServiceAuthVerifier = (
-  config: ServiceAuthConfig,
-): ServiceAuthVerifier => {
+export const createServiceAuthVerifier = (config: ServiceAuthConfig): ServiceAuthVerifier => {
   const trustedToken = tokenForConfig(config);
   return {
     resolveAuthContext: (input) =>
@@ -95,10 +84,7 @@ const tokenForConfig = (config: ServiceAuthConfig): string => {
   return config.trustedBearerToken;
 };
 
-const toAuthContext = (
-  config: ServiceAuthConfig,
-  hostOrigin: string | undefined,
-): AuthContext => {
+const toAuthContext = (config: ServiceAuthConfig, hostOrigin: string | undefined): AuthContext => {
   const subject = config.subject ?? {
     subjectId: `${config.workspace.workspaceId}:subject`,
     userId: `${config.workspace.workspaceId}:user`,
@@ -109,10 +95,7 @@ const toAuthContext = (
     actor: config.actor ?? subject,
     roles: ["member"],
     scopes: ["conversation:read", "conversation:write", "message:write"],
-    source:
-      config.profile === "production"
-        ? "signed_service_token"
-        : "test_authority",
+    source: config.profile === "production" ? "signed_service_token" : "test_authority",
     ...(hostOrigin ? { hostOrigin } : {}),
     issuedAt: config.issuedAt ?? "2026-05-23T13:00:00.000Z",
   };

@@ -27,13 +27,9 @@ export class ServicePolicyConfigurationError extends Error {
 export const createDefaultPolicyConfig = (
   profile: ServicePolicyConfig["profile"],
 ): ServicePolicyConfig =>
-  profile === "production"
-    ? { profile, mode: "fail_closed" }
-    : { profile, mode: "allow_all" };
+  profile === "production" ? { profile, mode: "fail_closed" } : { profile, mode: "allow_all" };
 
-export const createServicePolicyPort = (
-  config: ServicePolicyConfig,
-): PolicyPort => {
+export const createServicePolicyPort = (config: ServicePolicyConfig): PolicyPort => {
   if (config.profile === "production" && config.mode === "allow_all") {
     throw new ServicePolicyConfigurationError(
       "Production policy cannot use the allow-all adapter.",

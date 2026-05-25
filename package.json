@@ -2,24 +2,19 @@
   "name": "side-chat",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
-  "engines": {
-    "node": "24.16.0",
-    "npm": "11.15.0"
-  },
-  "packageManager": "npm@11.15.0",
   "workspaces": [
     "apps/*",
     "packages/*",
     "test-harness/*"
   ],
+  "type": "module",
   "scripts": {
-    "format": "prettier . --write",
-    "format:check": "prettier . --check",
+    "format": "oxfmt . --write",
+    "format:check": "oxfmt . --check",
     "build": "tsc -b --pretty false",
-    "lint:eslint": "eslint .",
+    "lint:oxlint": "oxlint --deny-warnings .",
     "lint:custom": "node scripts/check-runtime-pins.mjs && node scripts/check-version-pins.mjs && node scripts/check-dependency-policy.mjs && node scripts/check-unused-dependencies.mjs && node scripts/check-package-exports.mjs && node scripts/check-boundaries.mjs && node scripts/check-widget-layers.mjs && node scripts/check-runtime-boundaries.mjs && node scripts/check-outbound-rules.mjs && node scripts/check-test-placement.mjs && node scripts/check-code-quality.mjs && node scripts/check-typescript-rules.mjs && node scripts/check-generated-artifacts.mjs && node scripts/check-governance-fixtures.mjs",
-    "lint": "npm run lint:eslint && npm run lint:custom",
+    "lint": "npm run lint:oxlint && npm run lint:custom",
     "typecheck": "tsc --noEmit --pretty false -p tsconfig.check.json",
     "test": "vitest run",
     "test:db:integration": "vitest run packages/db/src/repositories/postgres-drizzle.integration.test.ts",
@@ -27,31 +22,27 @@
     "test:e2e": "node node_modules/playwright/cli.js test",
     "smoke:provider:openai": "tsx --conditions=development scripts/smoke-openai-provider.mjs",
     "audit": "npm audit --audit-level=high",
-    "verify": "npm run format:check && npm run lint:eslint && npm run typecheck && npm test && npm run build && npm run lint:custom"
+    "verify": "npm run format:check && npm run lint:oxlint && npm run typecheck && npm test && npm run build && npm run lint:custom"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0-beta.70",
-    "@eslint/js": "10.0.1",
     "@types/node": "24.12.4",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
-    "@vitest/eslint-plugin": "1.6.17",
-    "eslint": "10.4.0",
-    "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-import-x": "4.16.2",
-    "eslint-plugin-jsx-a11y": "6.10.2",
-    "eslint-plugin-react-hooks": "7.1.1",
-    "eslint-plugin-react-refresh": "0.5.2",
-    "eslint-plugin-unicorn": "64.0.0",
-    "globals": "17.6.0",
+    "oxfmt": "0.51.0",
+    "oxlint": "1.66.0",
+    "oxlint-tsgolint": "0.23.0",
     "playwright": "1.60.0",
-    "prettier": "3.8.3",
     "tailwindcss": "4.3.0",
     "tsx": "4.22.3",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.59.4",
     "vite": "8.0.14",
     "vitest": "4.1.7"
-  }
+  },
+  "engines": {
+    "node": "24.16.0",
+    "npm": "11.15.0"
+  },
+  "packageManager": "npm@11.15.0"
 }

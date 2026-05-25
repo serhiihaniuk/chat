@@ -28,6 +28,7 @@ const allowed = {
     "@side-chat/chat-protocol",
     "ai",
     "effect",
+    "zod",
   ]),
   "@side-chat/partner-ai-core": new Set(["@side-chat/chat-protocol", "effect"]),
   "@side-chat/chat-client": new Set(["@side-chat/chat-protocol"]),
@@ -87,9 +88,7 @@ for (const packageJsonPath of listWorkspacePackageJsons(root)) {
   const allowedForPackage = allowed[packageJson.name];
 
   if (!allowedForPackage)
-    errors.push(
-      `${packageJsonPath}: package ${packageJson.name} has no dependency policy entry`,
-    );
+    errors.push(`${packageJsonPath}: package ${packageJson.name} has no dependency policy entry`);
 
   for (const dependency of Object.keys(dependencies)) {
     if (forbidden.has(dependency))

@@ -5,12 +5,6 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  },
   "imports": {
     "#adapters/*": {
       "types": "./src/adapters/*.ts",
@@ -33,6 +27,12 @@
       "default": "./dist/inbound/*.js"
     }
   },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b --pretty false",
     "dev": "tsx --conditions=development src/server.ts",
@@ -44,9 +44,9 @@
     "@effect/platform-node": "4.0.0-beta.70",
     "@hono/node-server": "2.0.3",
     "@side-chat/agent-runtime": "0.0.0",
-    "@side-chat/partner-ai-core": "0.0.0",
     "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/db": "0.0.0",
+    "@side-chat/partner-ai-core": "0.0.0",
     "effect": "4.0.0-beta.70",
     "hono": "4.12.22"
   }

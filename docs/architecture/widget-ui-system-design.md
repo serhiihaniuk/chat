@@ -315,10 +315,7 @@ export type SideChatWidgetProps = {
   readonly labels?: SideChatWidgetLabels;
   readonly panelActions?: SideChatWidgetPanelActions;
   readonly quickActions?: readonly SideChatWidgetQuickAction[];
-  readonly requestFactory?: (
-    message: string,
-    hostContext?: HostContext,
-  ) => ChatStreamRequest;
+  readonly requestFactory?: (message: string, hostContext?: HostContext) => ChatStreamRequest;
 };
 ```
 
@@ -518,10 +515,7 @@ features/panel UI
   <PanelHeader />
   <ConversationFeed />
   <QuickActionsRow />
-  <ChatComposer
-    contextControl={<ContextSelector />}
-    modelControl={<ModelSelector />}
-  />
+  <ChatComposer contextControl={<ContextSelector />} modelControl={<ModelSelector />} />
   <SettingsPanel />
 </PanelShell>
 ```

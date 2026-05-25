@@ -5,16 +5,6 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./schema-contract": {
-      "types": "./dist/schema-contract/index.d.ts",
-      "default": "./dist/schema-contract/index.js"
-    }
-  },
   "imports": {
     "#drizzle/*": {
       "types": "./src/drizzle/*.ts",
@@ -30,6 +20,16 @@
       "types": "./src/schema-contract/*.ts",
       "development": "./src/schema-contract/*.ts",
       "default": "./dist/schema-contract/*.js"
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema-contract": {
+      "types": "./dist/schema-contract/index.d.ts",
+      "default": "./dist/schema-contract/index.js"
     }
   },
   "scripts": {

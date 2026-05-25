@@ -1,16 +1,11 @@
 import { ProtocolValidationError } from "./errors.js";
 import { isRecord } from "./primitives.js";
 import { SIDECHAT_PROTOCOL_VERSION } from "./version.js";
-import {
-  SIDECHAT_EVENT_TYPES,
-  type SidechatStreamEvent,
-} from "./events/event-union.js";
+import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "./events/event-union.js";
 
 const eventTypes = new Set<string>(Object.values(SIDECHAT_EVENT_TYPES));
 
-export const parseSidechatStreamEvent = (
-  input: unknown,
-): SidechatStreamEvent => {
+export const parseSidechatStreamEvent = (input: unknown): SidechatStreamEvent => {
   try {
     const event = parseEventEnvelope(input);
     validatePayload(event);
@@ -24,9 +19,7 @@ export const parseSidechatStreamEvent = (
 const parseEventEnvelope = (input: unknown): Record<string, unknown> => {
   if (!isRecord(input)) throw new Error("event must be an object");
   if (input["protocolVersion"] !== SIDECHAT_PROTOCOL_VERSION) {
-    throw new Error(
-      `event["protocolVersion"] must be ${SIDECHAT_PROTOCOL_VERSION}`,
-    );
+    throw new Error(`event["protocolVersion"] must be ${SIDECHAT_PROTOCOL_VERSION}`);
   }
 
   const type = input["type"];
@@ -53,24 +46,15 @@ const validatePayload = (event: Record<string, unknown>): void => {
     case SIDECHAT_EVENT_TYPES.TOOL:
       requireString(event["toolCallId"], 'event["toolCallId"]');
       requireString(event["toolName"], 'event["toolName"]');
-      requireOneOf(
-        event["status"],
-        ["started", "completed", "failed"],
-        'event["status"]',
-      );
+      requireOneOf(event["status"], ["started", "completed", "failed"], 'event["status"]');
       return;
     case SIDECHAT_EVENT_TYPES.HOST_COMMAND:
       requireString(event["commandId"], 'event["commandId"]');
       requireString(event["commandName"], 'event["commandName"]');
-      if (!isRecord(event["payload"]))
-        throw new Error('event["payload"] must be an object');
+      if (!isRecord(event["payload"])) throw new Error('event["payload"] must be an object');
       return;
     case SIDECHAT_EVENT_TYPES.COMPLETED:
-      requireOneOf(
-        event["finishReason"],
-        ["stop", "length", "aborted"],
-        'event["finishReason"]',
-      );
+      requireOneOf(event["finishReason"], ["stop", "length", "aborted"], 'event["finishReason"]');
       return;
     case SIDECHAT_EVENT_TYPES.ERROR:
       requireString(event["code"], 'event["code"]');
@@ -93,11 +77,7 @@ const requireString = (value: unknown, label: string): void => {
   }
 };
 
-const requireOneOf = (
-  value: unknown,
-  allowed: readonly string[],
-  label: string,
-): void => {
+const requireOneOf = (value: unknown, allowed: readonly string[], label: string): void => {
   if (typeof value !== "string" || !allowed.includes(value)) {
     throw new Error(`${label} has unsupported value`);
   }

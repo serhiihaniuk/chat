@@ -32,9 +32,7 @@ export const recordContextSnapshot = ({
     workspaceId: pending.authContext.workspaceId,
     assistantTurnId,
     contextSchemaVersion: request.hostContext.schemaVersion,
-    ...(request.hostContext.origin
-      ? { hostSurfaceId: request.hostContext.origin }
-      : {}),
+    ...(request.hostContext.origin ? { hostSurfaceId: request.hostContext.origin } : {}),
     hostContextHash: stableHash(toJsonObject(request.hostContext)),
     capabilitiesHash: "capabilities:none",
     contextRedactedJson: toJsonObject(request.hostContext),
@@ -174,5 +172,4 @@ const toJsonObject = (value: ChatStreamRequest["hostContext"]): JsonObject => ({
   ...(value?.metadata ? { metadata: value.metadata } : {}),
 });
 
-const stableHash = (value: JsonObject): string =>
-  `json:${JSON.stringify(value).length}`;
+const stableHash = (value: JsonObject): string => `json:${JSON.stringify(value).length}`;

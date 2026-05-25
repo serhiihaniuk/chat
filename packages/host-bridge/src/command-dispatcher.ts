@@ -1,8 +1,4 @@
-import {
-  supportsCommand,
-  type HostCapabilities,
-  type HostCommand,
-} from "./capability.js";
+import { supportsCommand, type HostCapabilities, type HostCommand } from "./capability.js";
 import {
   createFailedResult,
   createUnsupportedResult,
@@ -10,9 +6,7 @@ import {
 } from "./command-result.js";
 
 export type HostCommandDispatcher = {
-  readonly dispatchCommand: (
-    command: HostCommand,
-  ) => Promise<HostCommandResult>;
+  readonly dispatchCommand: (command: HostCommand) => Promise<HostCommandResult>;
 };
 
 export const dispatchSupportedCommand = async (

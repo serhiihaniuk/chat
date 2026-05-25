@@ -37,10 +37,7 @@ const messageRoles = new Set<ChatMessageRole>(["user", "assistant", "system"]);
 export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
   try {
     if (!isRecord(input)) throw new Error("request must be an object");
-    const protocolVersion = assertProtocolVersion(
-      input["protocolVersion"],
-      "request",
-    );
+    const protocolVersion = assertProtocolVersion(input["protocolVersion"], "request");
     const requestId = requireString(input, "requestId", "request");
     const message = parseMessage(input["message"]);
     const conversationId = readString(input, "conversationId");
@@ -74,19 +71,12 @@ const parseMessage = (input: unknown): ChatRequestMessage => {
 
 const parseHostContext = (input: unknown): HostContext | undefined => {
   if (input === undefined) return undefined;
-  if (!isRecord(input))
-    throw new Error("request.hostContext must be an object");
-  const schemaVersion = requireString(
-    input,
-    "schemaVersion",
-    "request.hostContext",
-  );
+  if (!isRecord(input)) throw new Error("request.hostContext must be an object");
+  const schemaVersion = requireString(input, "schemaVersion", "request.hostContext");
   const origin = readString(input, "origin");
   const url = readString(input, "url");
   const title = readString(input, "title");
-  const metadata = isRecord(input["metadata"])
-    ? (input["metadata"] as JsonObject)
-    : undefined;
+  const metadata = isRecord(input["metadata"]) ? (input["metadata"] as JsonObject) : undefined;
   return {
     schemaVersion,
     ...(origin ? { origin } : {}),

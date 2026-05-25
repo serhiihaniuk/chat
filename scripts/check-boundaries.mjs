@@ -96,20 +96,10 @@ for (const file of listSourceFiles(root)) {
   const source = readFileSync(join(root, file), "utf8");
 
   for (const specifier of importSpecifiers(source)) {
-    const relativeBoundaryError = relativeCrossPackageImportError(
-      root,
-      file,
-      area,
-      specifier,
-    );
+    const relativeBoundaryError = relativeCrossPackageImportError(root, file, area, specifier);
     if (relativeBoundaryError) errors.push(relativeBoundaryError);
 
-    const sourceFolderBoundaryError = relativeSourceFolderImportError(
-      root,
-      file,
-      area,
-      specifier,
-    );
+    const sourceFolderBoundaryError = relativeSourceFolderImportError(root, file, area, specifier);
     if (sourceFolderBoundaryError) errors.push(sourceFolderBoundaryError);
 
     const dependency = dependencyName(specifier);
@@ -120,9 +110,7 @@ for (const file of listSourceFiles(root)) {
     }
 
     if (dependency === "@side-chat/testing" && area !== "packages/testing") {
-      errors.push(
-        `${file}: production source must not import packages/testing`,
-      );
+      errors.push(`${file}: production source must not import packages/testing`);
     }
   }
 }
@@ -162,9 +150,7 @@ function relativeSourceFolderImportError(root, file, area, specifier) {
 
 function resolveRelativeImport(root, file, specifier) {
   const importerAbsolute = resolve(root, file);
-  const resolvedAbsolute = normalize(
-    resolve(dirname(importerAbsolute), specifier),
-  );
+  const resolvedAbsolute = normalize(resolve(dirname(importerAbsolute), specifier));
   return relative(root, resolvedAbsolute).split(sepForPlatform()).join("/");
 }
 
@@ -188,19 +174,14 @@ function packageImportFor(area, targetFile) {
     ? targetFile.slice(folderPrefix.length)
     : "";
   const withoutExtension = rawSuffix.replace(/\.(?:c|m)?[jt]sx?$/, "");
-  const suffix =
-    withoutExtension === "index"
-      ? ""
-      : withoutExtension.replace(/\/index$/, "");
+  const suffix = withoutExtension === "index" ? "" : withoutExtension.replace(/\/index$/, "");
 
   return suffix ? `#${targetFolder}/${suffix}` : `#${targetFolder}`;
 }
 
 function isWorkspaceArea(area) {
   return (
-    area.startsWith("packages/") ||
-    area.startsWith("apps/") ||
-    area.startsWith("test-harness/")
+    area.startsWith("packages/") || area.startsWith("apps/") || area.startsWith("test-harness/")
   );
 }
 

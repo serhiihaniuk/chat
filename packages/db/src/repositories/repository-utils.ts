@@ -1,4 +1,5 @@
 import type { RepositoryCommandResult } from "#schema-contract";
+import { randomUUID } from "node:crypto";
 
 export const result = <RecordType>(
   record: RecordType,
@@ -14,3 +15,7 @@ export const createIdGenerator = (prefix: string) => {
     },
   };
 };
+
+export const createRandomIdGenerator = (prefix: string) => ({
+  next: (kind: string): string => `${prefix}_${kind}_${randomUUID()}`,
+});

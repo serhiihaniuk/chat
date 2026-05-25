@@ -5,17 +5,17 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  },
   "imports": {
     "#sidechat-v1/*": {
       "types": "./src/sidechat-v1/*.ts",
       "development": "./src/sidechat-v1/*.ts",
       "default": "./dist/sidechat-v1/*.js"
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {

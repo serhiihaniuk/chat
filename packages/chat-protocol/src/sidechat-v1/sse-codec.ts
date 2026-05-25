@@ -6,9 +6,7 @@ export const encodeSseEvent = (event: SidechatStreamEvent): string =>
   `id: ${event.eventId}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 
 export const decodeSseEvents = (stream: string): SidechatStreamEvent[] => {
-  const frames = stream
-    .split(/\r?\n\r?\n/u)
-    .filter((frame) => frame.trim().length > 0);
+  const frames = stream.split(/\r?\n\r?\n/u).filter((frame) => frame.trim().length > 0);
   return frames.map(decodeFrame);
 };
 
@@ -28,19 +26,14 @@ const decodeFrame = (frame: string): SidechatStreamEvent => {
     if (field === "data") dataLines.push(value);
   }
 
-  if (dataLines.length === 0)
-    throw new ProtocolValidationError("SSE frame missing data");
+  if (dataLines.length === 0) throw new ProtocolValidationError("SSE frame missing data");
   const parsed = parseJson(dataLines.join("\n"));
   const event = parseSidechatStreamEvent(parsed);
   if (eventName && eventName !== event.type) {
-    throw new ProtocolValidationError(
-      "SSE event field does not match payload type",
-    );
+    throw new ProtocolValidationError("SSE event field does not match payload type");
   }
   if (eventId && eventId !== event.eventId) {
-    throw new ProtocolValidationError(
-      "SSE id field does not match payload eventId",
-    );
+    throw new ProtocolValidationError("SSE id field does not match payload eventId");
   }
   return event;
 };

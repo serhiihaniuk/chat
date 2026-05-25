@@ -155,6 +155,5 @@ const isStartedEvent = (event: SidechatStreamEvent): event is StartedEvent =>
 const isDeltaEvent = (event: SidechatStreamEvent): event is DeltaEvent =>
   event.type === "sidechat.delta";
 
-const isCompletedEvent = (
-  event: SidechatStreamEvent,
-): event is CompletedEvent => event.type === "sidechat.completed";
+const isCompletedEvent = (event: SidechatStreamEvent): event is CompletedEvent =>
+  event.type === "sidechat.completed";

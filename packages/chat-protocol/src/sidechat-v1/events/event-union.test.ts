@@ -24,9 +24,7 @@ describe("sidechat event validation", () => {
       { type: "tool-call", toolCallId: "call_1" },
       { role: "assistant", parts: [{ type: "text", text: "hello" }] },
     ]) {
-      expect(() => parseSidechatStreamEvent(providerShape)).toThrow(
-        ProtocolValidationError,
-      );
+      expect(() => parseSidechatStreamEvent(providerShape)).toThrow(ProtocolValidationError);
     }
   });
 });

@@ -13,16 +13,11 @@ export type HarnessHostCommandRecord = {
   readonly result: HostCommandResult;
 };
 
-export type HarnessHostBridge = Pick<
-  HostBridge,
-  "getContext" | "dispatchCommand"
-> & {
+export type HarnessHostBridge = Pick<HostBridge, "getContext" | "dispatchCommand"> & {
   readonly commandRecords: readonly HarnessHostCommandRecord[];
 };
 
-export const createHarnessHostBridge = (
-  config: WidgetHarnessConfig,
-): HarnessHostBridge => {
+export const createHarnessHostBridge = (config: WidgetHarnessConfig): HarnessHostBridge => {
   const commandRecords: HarnessHostCommandRecord[] = [];
 
   return {
@@ -52,9 +47,7 @@ export const createHarnessHostBridge = (
   };
 };
 
-export const createHarnessHostContext = (
-  config: WidgetHarnessConfig,
-): HostContext => ({
+export const createHarnessHostContext = (config: WidgetHarnessConfig): HostContext => ({
   schemaVersion: "widget-harness.host-context.v1",
   origin: "http://localhost:5173",
   title: `${config.workspaceId} widget harness`,

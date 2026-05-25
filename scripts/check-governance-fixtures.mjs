@@ -42,19 +42,15 @@ expectFailure("version range fixture", "check-version-pins.mjs", (root) => {
   });
 });
 
-expectFailure(
-  "forbidden dependency fixture",
-  "check-dependency-policy.mjs",
-  (root) => {
-    writeJson(join(root, "package.json"), { name: "fixture", private: true });
-    writeJson(join(root, "packages/side-chat-widget/package.json"), {
-      name: "@side-chat/side-chat-widget",
-      version: "0.0.0",
-      private: true,
-      dependencies: { shadcn: "1.0.0" },
-    });
-  },
-);
+expectFailure("forbidden dependency fixture", "check-dependency-policy.mjs", (root) => {
+  writeJson(join(root, "package.json"), { name: "fixture", private: true });
+  writeJson(join(root, "packages/side-chat-widget/package.json"), {
+    name: "@side-chat/side-chat-widget",
+    version: "0.0.0",
+    private: true,
+    dependencies: { shadcn: "1.0.0" },
+  });
+});
 
 expectFailure("boundary fixture", "check-boundaries.mjs", (root) => {
   writeFixtureFile(
@@ -64,39 +60,27 @@ expectFailure("boundary fixture", "check-boundaries.mjs", (root) => {
   );
 });
 
-expectFailure(
-  "relative cross-package boundary fixture",
-  "check-boundaries.mjs",
-  (root) => {
-    writeFixtureFile(
-      root,
-      "packages/chat-client/src/bad.ts",
-      "export { value } from '../../chat-protocol/src/value.js';\n",
-    );
-    writeFixtureFile(
-      root,
-      "packages/chat-protocol/src/value.ts",
-      "export const value = 1;\n",
-    );
-  },
-);
+expectFailure("relative cross-package boundary fixture", "check-boundaries.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/chat-client/src/bad.ts",
+    "export { value } from '../../chat-protocol/src/value.js';\n",
+  );
+  writeFixtureFile(root, "packages/chat-protocol/src/value.ts", "export const value = 1;\n");
+});
 
-expectFailure(
-  "relative source-folder boundary fixture",
-  "check-boundaries.mjs",
-  (root) => {
-    writeFixtureFile(
-      root,
-      "packages/partner-ai-core/src/application/bad.ts",
-      "import type { AgentRuntimePort } from '../ports/index.js';\nexport type Bad = AgentRuntimePort;\n",
-    );
-    writeFixtureFile(
-      root,
-      "packages/partner-ai-core/src/ports/index.ts",
-      "export type AgentRuntimePort = { stream: unknown };\n",
-    );
-  },
-);
+expectFailure("relative source-folder boundary fixture", "check-boundaries.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/partner-ai-core/src/application/bad.ts",
+    "import type { AgentRuntimePort } from '../ports/index.js';\nexport type Bad = AgentRuntimePort;\n",
+  );
+  writeFixtureFile(
+    root,
+    "packages/partner-ai-core/src/ports/index.ts",
+    "export type AgentRuntimePort = { stream: unknown };\n",
+  );
+});
 
 expectFailure("widget layer fixture", "check-widget-layers.mjs", (root) => {
   writeFixtureFile(
@@ -112,47 +96,35 @@ expectFailure("widget layer fixture", "check-widget-layers.mjs", (root) => {
 });
 
 expectFailure("test placement fixture", "check-test-placement.mjs", (root) => {
-  writeFixtureFile(
-    root,
-    "packages/chat-protocol/tests/bad.test.ts",
-    "export {};\n",
-  );
+  writeFixtureFile(root, "packages/chat-protocol/tests/bad.test.ts", "export {};\n");
 });
 
 expectFailure("build artifact fixture", "check-code-quality.mjs", (root) => {
-  writeFixtureFile(
-    root,
-    "packages/chat-protocol/dist/index.js",
-    "export {};\n",
-  );
+  writeFixtureFile(root, "packages/chat-protocol/dist/index.js", "export {};\n");
 });
 
-expectFailure(
-  "typescript escape fixture",
-  "check-typescript-rules.mjs",
-  (root) => {
-    writeJson(join(root, "tsconfig.base.json"), {
-      compilerOptions: {
-        strict: true,
-        exactOptionalPropertyTypes: true,
-        noUncheckedIndexedAccess: true,
-        noImplicitOverride: true,
-        noImplicitReturns: true,
-        noFallthroughCasesInSwitch: true,
-        noPropertyAccessFromIndexSignature: true,
-        useUnknownInCatchVariables: true,
-        isolatedModules: true,
-        verbatimModuleSyntax: true,
-        skipLibCheck: true,
-      },
-    });
-    writeFixtureFile(
-      root,
-      "packages/chat-protocol/src/bad.ts",
-      "const value: any = 1;\nexport { value };\n",
-    );
-  },
-);
+expectFailure("typescript escape fixture", "check-typescript-rules.mjs", (root) => {
+  writeJson(join(root, "tsconfig.base.json"), {
+    compilerOptions: {
+      strict: true,
+      exactOptionalPropertyTypes: true,
+      noUncheckedIndexedAccess: true,
+      noImplicitOverride: true,
+      noImplicitReturns: true,
+      noFallthroughCasesInSwitch: true,
+      noPropertyAccessFromIndexSignature: true,
+      useUnknownInCatchVariables: true,
+      isolatedModules: true,
+      verbatimModuleSyntax: true,
+      skipLibCheck: true,
+    },
+  });
+  writeFixtureFile(
+    root,
+    "packages/chat-protocol/src/bad.ts",
+    "const value: any = 1;\nexport { value };\n",
+  );
+});
 
 expectFailure("outbound fetch fixture", "check-outbound-rules.mjs", (root) => {
   writeFixtureFile(
@@ -162,38 +134,26 @@ expectFailure("outbound fetch fixture", "check-outbound-rules.mjs", (root) => {
   );
 });
 
-expectFailure(
-  "generated artifact header fixture",
-  "check-generated-artifacts.mjs",
-  (root) => {
-    writeFixtureFile(
-      root,
-      "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
-      '{ "_generatedFrom": "Generated from: fixture" }\n',
-    );
-    writeFixtureFile(
-      root,
-      "docs/generated/partner-ai-service.openapi.generated.json",
-      '{ "_generatedFrom": "Generated from: fixture" }\n',
-    );
-    writeFixtureFile(
-      root,
-      "packages/chat-protocol/src/protocol.generated.ts",
-      "export {};\n",
-    );
-  },
-);
+expectFailure("generated artifact header fixture", "check-generated-artifacts.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
+    '{ "_generatedFrom": "Generated from: fixture" }\n',
+  );
+  writeFixtureFile(
+    root,
+    "docs/generated/partner-ai-service.openapi.generated.json",
+    '{ "_generatedFrom": "Generated from: fixture" }\n',
+  );
+  writeFixtureFile(root, "packages/chat-protocol/src/protocol.generated.ts", "export {};\n");
+});
 
-expectFailure(
-  "generated artifact missing fixture",
-  "check-generated-artifacts.mjs",
-  (root) => {
-    writeFixtureFile(
-      root,
-      "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
-      '{ "_generatedFrom": "Generated from: fixture" }\n',
-    );
-  },
-);
+expectFailure("generated artifact missing fixture", "check-generated-artifacts.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
+    '{ "_generatedFrom": "Generated from: fixture" }\n',
+  );
+});
 
 failIfErrors(errors);

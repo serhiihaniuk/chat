@@ -1,7 +1,4 @@
-import {
-  decodeSseEvents,
-  SIDECHAT_PROTOCOL_VERSION,
-} from "@side-chat/chat-protocol";
+import { decodeSseEvents, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "#inbound/http/app";
 import {
@@ -64,8 +61,7 @@ describe("partner ai service env config", () => {
         SIDECHAT_ALLOWED_MODELS: "fake-echo,other-model",
         SIDECHAT_TENANT_ID: "tenant_prod",
         SIDECHAT_WORKSPACE_ID: "workspace_prod",
-        SIDECHAT_DATABASE_URL:
-          "postgres://sidechat:sidechat@localhost/sidechat",
+        SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
       }),
     );
 
@@ -93,14 +89,37 @@ describe("partner ai service env config", () => {
       createPartnerAiServiceOptionsFromEnv({
         SIDECHAT_PROVIDER: "openai",
         SIDECHAT_OPENAI_API_KEY: "key_123",
-        SIDECHAT_ALLOWED_MODELS: "gpt-5-mini,gpt-5",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini",
+        SIDECHAT_OPENAI_REASONING_EFFORT: "medium",
+        SIDECHAT_OPENAI_REASONING_SUMMARY: "auto",
       }).runtime,
     ).toMatchObject({
       provider: "openai",
       apiKey: "key_123",
-      modelIds: ["gpt-5-mini", "gpt-5"],
-      defaultModelId: "gpt-5-mini",
+      modelIds: ["gpt-5.4-mini"],
+      defaultModelId: "gpt-5.4-mini",
+      reasoningEffort: "medium",
+      reasoningSummary: "auto",
     });
+  });
+
+  it("rejects unsupported OpenAI reasoning options", () => {
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROVIDER: "openai",
+        SIDECHAT_OPENAI_API_KEY: "key_123",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini",
+        SIDECHAT_OPENAI_REASONING_EFFORT: "very-hard",
+      }),
+    ).toThrow("SIDECHAT_OPENAI_REASONING_EFFORT");
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROVIDER: "openai",
+        SIDECHAT_OPENAI_API_KEY: "key_123",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini",
+        SIDECHAT_OPENAI_REASONING_SUMMARY: "verbose",
+      }),
+    ).toThrow("SIDECHAT_OPENAI_REASONING_SUMMARY");
   });
 
   it("rejects OpenAI provider config without credentials or allowed models", () => {

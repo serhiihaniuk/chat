@@ -2,10 +2,7 @@ import type { HostCommandEvent, HostContext } from "@side-chat/chat-protocol";
 
 import { toHostCommand, type HostCapabilities } from "./capability.js";
 import type { HostCommandResult } from "./command-result.js";
-import {
-  dispatchSupportedCommand,
-  type HostCommandDispatcher,
-} from "./command-dispatcher.js";
+import { dispatchSupportedCommand, type HostCommandDispatcher } from "./command-dispatcher.js";
 import {
   toProtocolHostContext,
   type HostContextProvider,
@@ -15,9 +12,7 @@ import {
 export type HostBridge = {
   readonly getContext: (request: HostContextRequest) => Promise<HostContext>;
   readonly getCapabilities: () => Promise<HostCapabilities>;
-  readonly dispatchCommand: (
-    event: HostCommandEvent,
-  ) => Promise<HostCommandResult>;
+  readonly dispatchCommand: (event: HostCommandEvent) => Promise<HostCommandResult>;
 };
 
 export type HostBridgeOptions = {
@@ -34,9 +29,5 @@ export const createHostBridge = (options: HostBridgeOptions): HostBridge => ({
       ? await options.contextProvider.getCapabilities()
       : options.capabilities,
   dispatchCommand: (event) =>
-    dispatchSupportedCommand(
-      options.dispatcher,
-      options.capabilities,
-      toHostCommand(event),
-    ),
+    dispatchSupportedCommand(options.dispatcher, options.capabilities, toHostCommand(event)),
 });

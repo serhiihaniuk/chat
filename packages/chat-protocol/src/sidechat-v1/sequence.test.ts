@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ProtocolSequenceError } from "./errors.js";
-import {
-  SIDECHAT_EVENT_TYPES,
-  type SidechatStreamEvent,
-} from "./events/event-union.js";
+import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "./events/event-union.js";
 import { validateSidechatEventSequence } from "./sequence.js";
 
 const baseEvent = {
@@ -36,9 +33,7 @@ describe("validateSidechatEventSequence", () => {
   });
 
   it("rejects missing terminal events", () => {
-    expect(() => validateSidechatEventSequence([started])).toThrow(
-      ProtocolSequenceError,
-    );
+    expect(() => validateSidechatEventSequence([started])).toThrow(ProtocolSequenceError);
   });
 
   it("rejects events after terminal", () => {
@@ -50,8 +45,8 @@ describe("validateSidechatEventSequence", () => {
       content: "late",
     };
 
-    expect(() =>
-      validateSidechatEventSequence([started, completed, lateDelta]),
-    ).toThrow(ProtocolSequenceError);
+    expect(() => validateSidechatEventSequence([started, completed, lateDelta])).toThrow(
+      ProtocolSequenceError,
+    );
   });
 });

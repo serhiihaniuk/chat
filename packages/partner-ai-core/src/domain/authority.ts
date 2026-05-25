@@ -8,10 +8,7 @@ export const AUTHORITY_DENIAL_CODES = {
 export type AuthorityDenialCode =
   (typeof AUTHORITY_DENIAL_CODES)[keyof typeof AUTHORITY_DENIAL_CODES];
 
-export type AuthoritySource =
-  | "signed_service_token"
-  | "session_authority"
-  | "test_authority";
+export type AuthoritySource = "signed_service_token" | "session_authority" | "test_authority";
 
 export type AuthorityRole = "owner" | "admin" | "member" | "viewer";
 
@@ -68,9 +65,7 @@ export const denyMissingAuth = (): AuthorityDenial => ({
   message: "A trusted AuthContext is required before protected work runs.",
 });
 
-export const requireAuthContext = (
-  authContext: AuthContext | undefined,
-): AuthorityDecision =>
+export const requireAuthContext = (authContext: AuthContext | undefined): AuthorityDecision =>
   authContext ? { allowed: true, authContext } : denyMissingAuth();
 
 export const assertWorkspaceAuthority = (
@@ -81,8 +76,7 @@ export const assertWorkspaceAuthority = (
   if (!required.allowed) return required;
 
   const matchesTenant = required.authContext.tenantId === workspace.tenantId;
-  const matchesWorkspace =
-    required.authContext.workspaceId === workspace.workspaceId;
+  const matchesWorkspace = required.authContext.workspaceId === workspace.workspaceId;
 
   if (!matchesTenant || !matchesWorkspace) {
     return {

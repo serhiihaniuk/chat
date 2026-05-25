@@ -46,10 +46,7 @@ export const createUnsupportedResult = (
     resultCode,
   });
 
-export const createRejectedResult = (
-  command: HostCommand,
-  resultCode: string,
-): HostCommandResult =>
+export const createRejectedResult = (command: HostCommand, resultCode: string): HostCommandResult =>
   createCommandResult(command, {
     status: "rejected",
     resultCode,

@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ProtocolValidationError } from "./errors.js";
-import {
-  SIDECHAT_EVENT_TYPES,
-  type SidechatStreamEvent,
-} from "./events/event-union.js";
+import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "./events/event-union.js";
 import { decodeSseEvents, encodeSseEvent } from "./sse-codec.js";
 
 const event: SidechatStreamEvent = {
@@ -22,10 +19,7 @@ describe("SSE codec", () => {
   });
 
   it("rejects mismatched SSE event names", () => {
-    const frame = encodeSseEvent(event).replace(
-      "event: sidechat.completed",
-      "event: text-delta",
-    );
+    const frame = encodeSseEvent(event).replace("event: sidechat.completed", "event: text-delta");
 
     expect(() => decodeSseEvents(frame)).toThrow(ProtocolValidationError);
   });

@@ -22,21 +22,15 @@ import {
 const sidechat = pgSchema("sidechat");
 
 const createdAt = () =>
-  timestamp("created_at", { mode: "string", withTimezone: true })
-    .notNull()
-    .defaultNow();
+  timestamp("created_at", { mode: "string", withTimezone: true }).notNull().defaultNow();
 
 const updatedAt = () =>
-  timestamp("updated_at", { mode: "string", withTimezone: true })
-    .notNull()
-    .defaultNow();
+  timestamp("updated_at", { mode: "string", withTimezone: true }).notNull().defaultNow();
 
 const workspaceIdColumn = () => text("workspace_id").notNull();
 
 const inList = (columnName: string, values: readonly string[]) =>
-  sql.raw(
-    `${columnName} in (${values.map((value) => `'${value}'`).join(", ")})`,
-  );
+  sql.raw(`${columnName} in (${values.map((value) => `'${value}'`).join(", ")})`);
 
 export const conversations = sidechat.table(
   "conversations",
@@ -62,10 +56,7 @@ export const conversations = sidechat.table(
       table.subjectId,
       table.conversationKey,
     ),
-    check(
-      "conversations_status_check",
-      inList("status", CONVERSATION_STATUSES),
-    ),
+    check("conversations_status_check", inList("status", CONVERSATION_STATUSES)),
   ],
 );
 
@@ -85,18 +76,9 @@ export const messages = sidechat.table(
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex("messages_conversation_sequence_uq").on(
-      table.conversationId,
-      table.sequenceIndex,
-    ),
-    uniqueIndex("messages_workspace_idempotency_uq").on(
-      table.workspaceId,
-      table.idempotencyKey,
-    ),
-    index("messages_conversation_sequence_desc_idx").on(
-      table.conversationId,
-      table.sequenceIndex,
-    ),
+    uniqueIndex("messages_conversation_sequence_uq").on(table.conversationId, table.sequenceIndex),
+    uniqueIndex("messages_workspace_idempotency_uq").on(table.workspaceId, table.idempotencyKey),
+    index("messages_conversation_sequence_desc_idx").on(table.conversationId, table.sequenceIndex),
     check("messages_role_check", inList("role", MESSAGE_ROLES)),
   ],
 );
@@ -115,9 +97,7 @@ export const assistantTurns = sidechat.table(
     userMessageId: text("user_message_id")
       .notNull()
       .references(() => messages.messageId),
-    assistantMessageId: text("assistant_message_id").references(
-      () => messages.messageId,
-    ),
+    assistantMessageId: text("assistant_message_id").references(() => messages.messageId),
     runtimeProfile: text("runtime_profile").notNull(),
     systemPromptVersion: text("system_prompt_version").notNull(),
     contextStrategyVersion: text("context_strategy_version").notNull(),
@@ -137,18 +117,9 @@ export const assistantTurns = sidechat.table(
     }),
   },
   (table) => [
-    uniqueIndex("assistant_turns_workspace_request_uq").on(
-      table.workspaceId,
-      table.requestId,
-    ),
-    index("assistant_turns_conversation_started_idx").on(
-      table.conversationId,
-      table.startedAt,
-    ),
-    check(
-      "assistant_turns_status_check",
-      inList("status", ASSISTANT_TURN_STATUSES),
-    ),
+    uniqueIndex("assistant_turns_workspace_request_uq").on(table.workspaceId, table.requestId),
+    index("assistant_turns_conversation_started_idx").on(table.conversationId, table.startedAt),
+    check("assistant_turns_status_check", inList("status", ASSISTANT_TURN_STATUSES)),
   ],
 );
 
@@ -164,17 +135,12 @@ export const turnContextSnapshots = sidechat.table(
     hostSurfaceId: text("host_surface_id"),
     hostContextHash: text("host_context_hash").notNull(),
     capabilitiesHash: text("capabilities_hash").notNull(),
-    contextRedactedJson: jsonb("context_redacted_json")
-      .$type<JsonObject>()
-      .notNull(),
+    contextRedactedJson: jsonb("context_redacted_json").$type<JsonObject>().notNull(),
     createdAt: createdAt(),
   },
   (table) => [
     uniqueIndex("turn_context_snapshots_turn_uq").on(table.assistantTurnId),
-    index("turn_context_snapshots_workspace_hash_idx").on(
-      table.workspaceId,
-      table.hostContextHash,
-    ),
+    index("turn_context_snapshots_workspace_hash_idx").on(table.workspaceId, table.hostContextHash),
   ],
 );
 
@@ -199,10 +165,7 @@ export const usageRecords = sidechat.table(
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex("usage_records_turn_step_uq").on(
-      table.assistantTurnId,
-      table.runtimeStepIndex,
-    ),
+    uniqueIndex("usage_records_turn_step_uq").on(table.assistantTurnId, table.runtimeStepIndex),
   ],
 );
 
@@ -220,9 +183,7 @@ export const toolInvocations = sidechat.table(
     status: text("status").notNull(),
     inputHash: text("input_hash").notNull(),
     outputHash: text("output_hash"),
-    inputRedactedJson: jsonb("input_redacted_json")
-      .$type<JsonObject>()
-      .notNull(),
+    inputRedactedJson: jsonb("input_redacted_json").$type<JsonObject>().notNull(),
     outputRedactedJson: jsonb("output_redacted_json").$type<JsonObject>(),
     errorCode: text("error_code"),
     startedAt: timestamp("started_at", {
@@ -235,14 +196,8 @@ export const toolInvocations = sidechat.table(
     }),
   },
   (table) => [
-    uniqueIndex("tool_invocations_turn_call_uq").on(
-      table.assistantTurnId,
-      table.toolCallId,
-    ),
-    check(
-      "tool_invocations_status_check",
-      inList("status", TOOL_INVOCATION_STATUSES),
-    ),
+    uniqueIndex("tool_invocations_turn_call_uq").on(table.assistantTurnId, table.toolCallId),
+    check("tool_invocations_status_check", inList("status", TOOL_INVOCATION_STATUSES)),
   ],
 );
 
@@ -259,9 +214,7 @@ export const hostCommandResults = sidechat.table(
     resourceId: text("resource_id"),
     status: text("status").notNull(),
     resultCode: text("result_code").notNull(),
-    commandRedactedJson: jsonb("command_redacted_json")
-      .$type<JsonObject>()
-      .notNull(),
+    commandRedactedJson: jsonb("command_redacted_json").$type<JsonObject>().notNull(),
     resultRedactedJson: jsonb("result_redacted_json").$type<JsonObject>(),
     createdAt: createdAt(),
     resolvedAt: timestamp("resolved_at", {
@@ -270,14 +223,8 @@ export const hostCommandResults = sidechat.table(
     }),
   },
   (table) => [
-    uniqueIndex("host_command_results_turn_command_uq").on(
-      table.assistantTurnId,
-      table.commandId,
-    ),
-    check(
-      "host_command_results_status_check",
-      inList("status", HOST_COMMAND_RESULT_STATUSES),
-    ),
+    uniqueIndex("host_command_results_turn_command_uq").on(table.assistantTurnId, table.commandId),
+    check("host_command_results_status_check", inList("status", HOST_COMMAND_RESULT_STATUSES)),
   ],
 );
 
@@ -296,15 +243,8 @@ export const auditEvents = sidechat.table(
     createdAt: createdAt(),
   },
   (table) => [
-    index("audit_events_workspace_created_idx").on(
-      table.workspaceId,
-      table.createdAt,
-    ),
-    index("audit_events_target_created_idx").on(
-      table.targetType,
-      table.targetId,
-      table.createdAt,
-    ),
+    index("audit_events_workspace_created_idx").on(table.workspaceId, table.createdAt),
+    index("audit_events_target_created_idx").on(table.targetType, table.targetId, table.createdAt),
   ],
 );
 

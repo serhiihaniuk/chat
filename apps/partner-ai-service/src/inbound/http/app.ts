@@ -1,27 +1,15 @@
-import type {
-  ObservabilitySinkPort,
-  WorkspaceRef,
-} from "@side-chat/partner-ai-core";
+import type { ObservabilitySinkPort, WorkspaceRef } from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
 import { Hono } from "hono";
 
-import {
-  createServiceAuthVerifier,
-  type ServiceAuthConfig,
-} from "#adapters/auth/service-auth";
-import {
-  createServicePolicyPort,
-  type ServicePolicyConfig,
-} from "#adapters/policy/service-policy";
+import { createServiceAuthVerifier, type ServiceAuthConfig } from "#adapters/auth/service-auth";
+import { createServicePolicyPort, type ServicePolicyConfig } from "#adapters/policy/service-policy";
 import {
   composePartnerAiService,
   type PersistenceConfig,
   type RuntimeConfig,
 } from "#composition/service-composition";
-import {
-  authContextMiddleware,
-  type AuthContextVariables,
-} from "./middleware/auth-context.js";
+import { authContextMiddleware, type AuthContextVariables } from "./middleware/auth-context.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAuth } from "./middleware/require-auth.js";
 import { registerChatHistoryRoutes } from "./routes/chat-history.js";
@@ -46,9 +34,7 @@ export type PartnerAiServiceOptions = {
   readonly workspace?: WorkspaceRef;
 };
 
-export const createPartnerAiServiceApp = (
-  options: PartnerAiServiceOptions = {},
-) => {
+export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {}) => {
   const app = new Hono<AuthContextVariables>();
   const composition = composePartnerAiService({
     workspace: options.workspace ?? DEFAULT_WORKSPACE,
@@ -60,8 +46,7 @@ export const createPartnerAiServiceApp = (
   });
   const authority = createServiceAuthVerifier(composition.auth);
   const policies = createServicePolicyPort(composition.policies);
-  const persistenceLabel =
-    options.persistenceLabel ?? composition.persistenceLabel;
+  const persistenceLabel = options.persistenceLabel ?? composition.persistenceLabel;
 
   app.use("*", requestIdMiddleware());
 

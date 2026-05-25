@@ -45,5 +45,4 @@ export const HOST_COMMAND_RESULT_STATUSES = [
   "failed",
   "timed_out",
 ] as const;
-export type HostCommandResultStatus =
-  (typeof HOST_COMMAND_RESULT_STATUSES)[number];
+export type HostCommandResultStatus = (typeof HOST_COMMAND_RESULT_STATUSES)[number];

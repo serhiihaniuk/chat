@@ -21,20 +21,14 @@ export const WidgetConversation = ({
           title="No messages yet"
         />
       ) : (
-        messages.map((message) => (
-          <WidgetMessageView key={message.id} message={message} />
-        ))
+        messages.map((message) => <WidgetMessageView key={message.id} message={message} />)
       )}
     </ConversationContent>
     <ConversationScrollButton />
   </Conversation>
 );
 
-export const WidgetError = ({
-  message,
-}: {
-  readonly message: string | undefined;
-}) =>
+export const WidgetError = ({ message }: { readonly message: string | undefined }) =>
   message ? (
     <div
       className="mx-3 mb-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm"

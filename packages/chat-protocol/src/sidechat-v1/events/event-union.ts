@@ -12,8 +12,7 @@ export const SIDECHAT_EVENT_TYPES = {
   HISTORY: "sidechat.history",
 } as const;
 
-export type SidechatEventType =
-  (typeof SIDECHAT_EVENT_TYPES)[keyof typeof SIDECHAT_EVENT_TYPES];
+export type SidechatEventType = (typeof SIDECHAT_EVENT_TYPES)[keyof typeof SIDECHAT_EVENT_TYPES];
 
 export type SidechatEventBase = ProtocolEnvelope & {
   readonly type: SidechatEventType;
@@ -96,8 +95,5 @@ export type SidechatStreamEvent =
   | ErrorEvent
   | HistoryEvent;
 
-export const isTerminalEvent = (
-  event: SidechatStreamEvent,
-): event is TerminalEvent =>
-  event.type === SIDECHAT_EVENT_TYPES.COMPLETED ||
-  event.type === SIDECHAT_EVENT_TYPES.ERROR;
+export const isTerminalEvent = (event: SidechatStreamEvent): event is TerminalEvent =>
+  event.type === SIDECHAT_EVENT_TYPES.COMPLETED || event.type === SIDECHAT_EVENT_TYPES.ERROR;

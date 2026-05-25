@@ -17,10 +17,7 @@ export const createPostgresDrizzleConversationRepository = ({
   ids,
 }: PostgresDrizzleRepositoryContext): Pick<
   SidechatRepositories,
-  | "appendMessage"
-  | "createOrGetConversation"
-  | "readConversationHistory"
-  | "resetConversation"
+  "appendMessage" | "createOrGetConversation" | "readConversationHistory" | "resetConversation"
 > => ({
   createOrGetConversation: async (command) => {
     const inserted = await db
@@ -37,11 +34,7 @@ export const createPostgresDrizzleConversationRepository = ({
         lastMessageAt: command.now,
       })
       .onConflictDoNothing({
-        target: [
-          conversations.workspaceId,
-          conversations.subjectId,
-          conversations.conversationKey,
-        ],
+        target: [conversations.workspaceId, conversations.subjectId, conversations.conversationKey],
       })
       .returning();
     if (inserted[0]) return result(toConversationRecord(inserted[0]), true);
@@ -164,11 +157,7 @@ export const createPostgresDrizzleConversationRepository = ({
       .select()
       .from(messages)
       .where(
-        buildHistoryWhere(
-          command.workspaceId,
-          command.conversationId,
-          command.beforeSequenceIndex,
-        ),
+        buildHistoryWhere(command.workspaceId, command.conversationId, command.beforeSequenceIndex),
       )
       .orderBy(desc(messages.sequenceIndex))
       .limit(command.limit);

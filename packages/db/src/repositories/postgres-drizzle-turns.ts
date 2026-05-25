@@ -1,10 +1,6 @@
 import { and, eq } from "drizzle-orm";
 
-import {
-  assistantTurns,
-  turnContextSnapshots,
-  usageRecords,
-} from "#drizzle/schema";
+import { assistantTurns, turnContextSnapshots, usageRecords } from "#drizzle/schema";
 import type { SidechatRepositories } from "./contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./postgres-drizzle-context.js";
 import {
@@ -204,11 +200,7 @@ export const createPostgresDrizzleTurnRepository = ({
       .limit(1);
     return result(
       toUsageRecord(
-        one(
-          existing,
-          "record_not_found",
-          "Usage conflict did not return an existing record.",
-        ),
+        one(existing, "record_not_found", "Usage conflict did not return an existing record."),
       ),
       false,
     );

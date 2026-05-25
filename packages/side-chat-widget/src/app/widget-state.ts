@@ -5,11 +5,7 @@ import {
   type ToolEvent,
 } from "@side-chat/chat-protocol";
 
-import type {
-  HostCommandView,
-  WidgetMessage,
-  WidgetStatus,
-} from "./widget.types.js";
+import type { HostCommandView, WidgetMessage, WidgetStatus } from "./widget.types.js";
 
 export const createDefaultRequest = ({
   assistantProfileId,
@@ -54,8 +50,7 @@ export const updateMessage = (
   messages: readonly WidgetMessage[],
   id: string,
   update: (message: WidgetMessage) => WidgetMessage,
-): WidgetMessage[] =>
-  messages.map((message) => (message.id === id ? update(message) : message));
+): WidgetMessage[] => messages.map((message) => (message.id === id ? update(message) : message));
 
 export const updateHostCommand = (
   messages: readonly WidgetMessage[],
@@ -70,15 +65,10 @@ export const updateHostCommand = (
     ),
   }));
 
-export const upsertToolEvent = (
-  tools: readonly ToolEvent[],
-  event: ToolEvent,
-): ToolEvent[] => {
+export const upsertToolEvent = (tools: readonly ToolEvent[], event: ToolEvent): ToolEvent[] => {
   const index = tools.findIndex((tool) => tool.toolCallId === event.toolCallId);
   if (index < 0) return [...tools, event];
-  return tools.map((tool, currentIndex) =>
-    currentIndex === index ? event : tool,
-  );
+  return tools.map((tool, currentIndex) => (currentIndex === index ? event : tool));
 };
 
 export const toPromptStatusProps = (

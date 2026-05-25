@@ -8,9 +8,7 @@ import {
   type StartedEvent,
 } from "@side-chat/chat-protocol";
 
-export const buildChatStreamRequest = (
-  content = "hello",
-): ChatStreamRequest => ({
+export const buildChatStreamRequest = (content = "hello"): ChatStreamRequest => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId: "test-request-1",
   message: {
@@ -30,10 +28,7 @@ export const buildStartedEvent = (sequence = 0): StartedEvent => ({
   conversationId: "test-conversation-1",
 });
 
-export const buildDeltaEvent = (
-  content = "hello",
-  sequence = 1,
-): DeltaEvent => ({
+export const buildDeltaEvent = (content = "hello", sequence = 1): DeltaEvent => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   type: "sidechat.delta",
   eventId: `test-event-${sequence}`,
@@ -54,37 +49,27 @@ export const buildCompletedEvent = (sequence = 2): CompletedEvent => ({
   usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
 });
 
-export const buildSuccessStreamEvents = (
-  content = "hello",
-): readonly SidechatStreamEvent[] => [
+export const buildSuccessStreamEvents = (content = "hello"): readonly SidechatStreamEvent[] => [
   buildStartedEvent(0),
   buildDeltaEvent(content, 1),
   buildCompletedEvent(2),
 ];
 
-export const encodeMockSseStream = (
-  events: readonly SidechatStreamEvent[],
-): string => events.map(encodeSseEvent).join("");
+export const encodeMockSseStream = (events: readonly SidechatStreamEvent[]): string =>
+  events.map(encodeSseEvent).join("");
 
-export const collectAsyncIterable = async <T>(
-  items: AsyncIterable<T>,
-): Promise<T[]> => {
+export const collectAsyncIterable = async <T>(items: AsyncIterable<T>): Promise<T[]> => {
   const collected: T[] = [];
   for await (const item of items) collected.push(item);
   return collected;
 };
 
-export const assertTerminalStream = (
-  events: readonly SidechatStreamEvent[],
-): void => {
+export const assertTerminalStream = (events: readonly SidechatStreamEvent[]): void => {
   const terminal = events.filter(
-    (event) =>
-      event.type === "sidechat.completed" || event.type === "sidechat.error",
+    (event) => event.type === "sidechat.completed" || event.type === "sidechat.error",
   );
   if (terminal.length !== 1) {
-    throw new Error(
-      `Expected one terminal event, received ${terminal.length}.`,
-    );
+    throw new Error(`Expected one terminal event, received ${terminal.length}.`);
   }
 };
 

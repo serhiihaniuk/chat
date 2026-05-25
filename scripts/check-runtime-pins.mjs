@@ -31,9 +31,7 @@ if (actualNpm !== expectedNpm) {
   errors.push(`npm ${actualNpm} does not match pinned ${expectedNpm}`);
 }
 if (packageJson.packageManager !== `npm@${expectedNpm}`) {
-  errors.push(
-    `packageManager ${packageJson.packageManager} does not match npm@${expectedNpm}`,
-  );
+  errors.push(`packageManager ${packageJson.packageManager} does not match npm@${expectedNpm}`);
 }
 
 failIfErrors(errors);

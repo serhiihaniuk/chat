@@ -17,9 +17,7 @@ export type ServicePortsOptions = {
   readonly observability?: ObservabilitySinkPort;
 };
 
-export const createServicePorts = (
-  options: ServicePortsOptions,
-): StreamChatUseCasePorts => ({
+export const createServicePorts = (options: ServicePortsOptions): StreamChatUseCasePorts => ({
   conversations: options.conversations,
   runtime: options.runtime,
   clock: options.clock ?? systemClock,

@@ -1,9 +1,4 @@
-import {
-  failIfErrors,
-  listFiles,
-  listSourceFiles,
-  resolveRoot,
-} from "./lib/governance.mjs";
+import { failIfErrors, listFiles, listSourceFiles, resolveRoot } from "./lib/governance.mjs";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -21,15 +16,11 @@ const gitLsFiles = spawnSync("git", ["ls-files"], {
   encoding: "utf8",
 });
 const trackedFiles =
-  gitLsFiles.status === 0
-    ? new Set(gitLsFiles.stdout.split("\n").filter(Boolean))
-    : undefined;
+  gitLsFiles.status === 0 ? new Set(gitLsFiles.stdout.split("\n").filter(Boolean)) : undefined;
 
 for (const file of listFiles(root)) {
   if (
-    /^(?:apps|packages|test-harness)\/[^/]+\/(?:dist|build|coverage)\//.test(
-      file,
-    ) &&
+    /^(?:apps|packages|test-harness)\/[^/]+\/(?:dist|build|coverage)\//.test(file) &&
     (trackedFiles === undefined || trackedFiles.has(file))
   ) {
     errors.push(`${file}: generated build/test artifact must not be tracked`);
@@ -54,8 +45,7 @@ for (const file of listSourceFiles(root)) {
     errors.push(`${file}: test source file exceeds 450-line budget`);
   if (productionSource && /\bdebugger\b/.test(source))
     errors.push(`${file}: debugger statement is forbidden`);
-  if (productionSource && /\balert\s*\(/.test(source))
-    errors.push(`${file}: alert is forbidden`);
+  if (productionSource && /\balert\s*\(/.test(source)) errors.push(`${file}: alert is forbidden`);
   if (/\b(?:describe|it|test)\.only\s*\(/.test(source))
     errors.push(`${file}: focused test is forbidden`);
   if (/\b(?:describe|it|test)\.skip\b/.test(source))

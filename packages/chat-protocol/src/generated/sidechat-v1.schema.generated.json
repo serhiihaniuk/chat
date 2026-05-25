@@ -4,10 +4,7 @@
   "$id": "https://side-chat.local/schemas/sidechat-v1.schema.json",
   "title": "Sidechat v1 Protocol",
   "type": "object",
-  "oneOf": [
-    { "$ref": "#/$defs/ChatStreamRequest" },
-    { "$ref": "#/$defs/SidechatStreamEvent" }
-  ],
+  "oneOf": [{ "$ref": "#/$defs/ChatStreamRequest" }, { "$ref": "#/$defs/SidechatStreamEvent" }],
   "$defs": {
     "ProtocolVersion": { "const": "sidechat.v1" },
     "JsonObject": {

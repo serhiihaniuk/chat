@@ -55,10 +55,7 @@ describe("widget harness modes", () => {
   it("configures local service mode with auth-wrapped fetch", async () => {
     const seenHeaders: HeadersInit[] = [];
     const seenInputs: Array<string | URL | Request> = [];
-    const fetchLike = (
-      input: string | URL | Request,
-      init: RequestInit = {},
-    ) => {
+    const fetchLike = (input: string | URL | Request, init: RequestInit = {}) => {
       seenInputs.push(input);
       seenHeaders.push(init.headers ?? {});
       return Promise.resolve(new Response("busy", { status: 503 }));
@@ -76,27 +73,19 @@ describe("widget harness modes", () => {
 
     expect(
       createLocalServiceClient(
-        parseWidgetHarnessConfig(
-          "?mode=local-service&apiBaseUrl=http://localhost:3100",
-        ),
+        parseWidgetHarnessConfig("?mode=local-service&apiBaseUrl=http://localhost:3100"),
       ),
     ).toHaveProperty("streamChat");
-    expect(
-      resolveLocalApiBaseUrl(
-        parseWidgetHarnessConfig("?mode=local-service").apiBaseUrl,
-      ),
-    ).toBe("http://127.0.0.1:5173/api");
-    expect(resolveLocalApiBaseUrl("http://localhost:3100")).toBe(
-      "http://localhost:3100",
+    expect(resolveLocalApiBaseUrl(parseWidgetHarnessConfig("?mode=local-service").apiBaseUrl)).toBe(
+      "http://127.0.0.1:5173/api",
     );
+    expect(resolveLocalApiBaseUrl("http://localhost:3100")).toBe("http://localhost:3100");
     expect(seenInputs).toContain("http://localhost:3100/chat/stream");
     expect(seenInputs).not.toContain("/api/chat/stream");
   });
 
   it("keeps host command results as harness-local records", async () => {
-    const bridge = createHarnessHostBridge(
-      parseWidgetHarnessConfig("?mode=mock-stream"),
-    );
+    const bridge = createHarnessHostBridge(parseWidgetHarnessConfig("?mode=mock-stream"));
     const result = await bridge.dispatchCommand({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       type: "sidechat.host_command",

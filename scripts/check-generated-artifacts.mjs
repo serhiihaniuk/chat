@@ -1,9 +1,4 @@
-import {
-  failIfErrors,
-  isFile,
-  listFiles,
-  resolveRoot,
-} from "./lib/governance.mjs";
+import { failIfErrors, isFile, listFiles, resolveRoot } from "./lib/governance.mjs";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -29,9 +24,7 @@ for (const file of listFiles(root)) {
         .slice(0, 5)
         .some((line) => line.includes("Generated from:"))
     ) {
-      errors.push(
-        `${file}: generated artifact must declare its generator source in the header`,
-      );
+      errors.push(`${file}: generated artifact must declare its generator source in the header`);
     }
   }
 }

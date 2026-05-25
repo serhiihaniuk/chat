@@ -3,6 +3,7 @@ import {
   type LanguageModel,
   type LanguageModelUsage,
   type TextStreamPart,
+  type ToolLoopAgentSettings,
   type ToolSet,
 } from "ai";
 
@@ -11,6 +12,7 @@ import type { RuntimeRequest } from "../provider.js";
 
 export type AiSdkModelResolver = (request: RuntimeRequest) => LanguageModel;
 export type AiSdkToolLoopAgentOptions = {
+  readonly providerOptions?: ToolLoopAgentSettings["providerOptions"];
   readonly resolveModel: AiSdkModelResolver;
 };
 
@@ -18,9 +20,10 @@ export type AiSdkRuntimeAgent = {
   readonly stream: (request: RuntimeRequest) => AsyncIterable<RuntimeEvent>;
 };
 
-export const createAiSdkToolLoopAgent = (
-  resolveModel: (request: RuntimeRequest) => LanguageModel,
-): AiSdkRuntimeAgent => ({
+export const createAiSdkToolLoopAgent = ({
+  providerOptions,
+  resolveModel,
+}: AiSdkToolLoopAgentOptions): AiSdkRuntimeAgent => ({
   async *stream(request) {
     let sequence = 0;
     yield {
@@ -37,6 +40,7 @@ export const createAiSdkToolLoopAgent = (
       model: resolveModel(request),
       allowSystemInMessages: true,
       maxRetries: 0,
+      ...(providerOptions ? { providerOptions } : {}),
     });
     const result = await agent.stream({
       messages: [...request.messages],
@@ -91,10 +95,7 @@ const mapAiSdkStreamPart = (
       assistantTurnId: request.assistantTurnId,
       sequence,
       code: "provider_unavailable",
-      message:
-        part.error instanceof Error
-          ? part.error.message
-          : "AI SDK agent stream failed.",
+      message: part.error instanceof Error ? part.error.message : "AI SDK agent stream failed.",
       retryable: true,
     };
   }

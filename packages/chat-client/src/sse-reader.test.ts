@@ -12,9 +12,7 @@ import { describe, expect, it } from "vitest";
 import { ChatClientError } from "./errors.js";
 import { decodeChunkedSseStream, type StreamChunk } from "./sse-reader.js";
 
-const collect = async (
-  chunks: readonly StreamChunk[],
-): Promise<SidechatStreamEvent[]> => {
+const collect = async (chunks: readonly StreamChunk[]): Promise<SidechatStreamEvent[]> => {
   const events: SidechatStreamEvent[] = [];
   for await (const event of decodeChunkedSseStream(toAsync(chunks))) {
     events.push(event);
@@ -22,9 +20,7 @@ const collect = async (
   return events;
 };
 
-const toAsync = async function* (
-  chunks: readonly StreamChunk[],
-): AsyncIterable<StreamChunk> {
+const toAsync = async function* (chunks: readonly StreamChunk[]): AsyncIterable<StreamChunk> {
   for (const chunk of chunks) {
     await Promise.resolve();
     yield chunk;
@@ -75,9 +71,7 @@ const terminalError = (sequence = 1): ErrorEvent => ({
 
 describe("decodeChunkedSseStream", () => {
   it("decodes split mock SSE frames", async () => {
-    const stream = [started(), delta(), completed()]
-      .map(encodeSseEvent)
-      .join("");
+    const stream = [started(), delta(), completed()].map(encodeSseEvent).join("");
     const events = await collect([
       stream.slice(0, 9),
       stream.slice(9, 41),
@@ -92,10 +86,7 @@ describe("decodeChunkedSseStream", () => {
   });
 
   it("yields protocol terminal error events", async () => {
-    const events = await collect([
-      encodeSseEvent(started()),
-      encodeSseEvent(terminalError()),
-    ]);
+    const events = await collect([encodeSseEvent(started()), encodeSseEvent(terminalError())]);
 
     expect(events.at(-1)).toMatchObject({
       type: "sidechat.error",
@@ -105,17 +96,13 @@ describe("decodeChunkedSseStream", () => {
   });
 
   it("rejects malformed partial frames", async () => {
-    await expect(
-      collect(["event: sidechat.delta\ndata: {"]),
-    ).rejects.toMatchObject({
+    await expect(collect(["event: sidechat.delta\ndata: {"])).rejects.toMatchObject({
       code: "malformed_stream",
     });
   });
 
   it("rejects events after a terminal event", async () => {
-    const stream = [started(), completed(), delta(3)]
-      .map(encodeSseEvent)
-      .join("");
+    const stream = [started(), completed(), delta(3)].map(encodeSseEvent).join("");
 
     await expect(collect([stream])).rejects.toMatchObject({
       code: "malformed_stream",
@@ -123,8 +110,6 @@ describe("decodeChunkedSseStream", () => {
   });
 
   it("rejects streams without a terminal event", async () => {
-    await expect(collect([encodeSseEvent(started())])).rejects.toBeInstanceOf(
-      ChatClientError,
-    );
+    await expect(collect([encodeSseEvent(started())])).rejects.toBeInstanceOf(ChatClientError);
   });
 });

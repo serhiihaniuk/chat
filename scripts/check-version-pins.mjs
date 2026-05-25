@@ -20,18 +20,9 @@ const requiredRoot = {
   vitest: "4.1.7",
   "@effect/vitest": "4.0.0-beta.70",
   playwright: "1.60.0",
-  eslint: "10.4.0",
-  "@eslint/js": "10.0.1",
-  "typescript-eslint": "8.59.4",
-  "eslint-plugin-import-x": "4.16.2",
-  "eslint-plugin-react-hooks": "7.1.1",
-  "eslint-plugin-react-refresh": "0.5.2",
-  "eslint-plugin-jsx-a11y": "6.10.2",
-  "@vitest/eslint-plugin": "1.6.17",
-  "eslint-plugin-unicorn": "64.0.0",
-  globals: "17.6.0",
-  prettier: "3.8.3",
-  "eslint-config-prettier": "10.1.8",
+  oxlint: "1.66.0",
+  "oxlint-tsgolint": "0.23.0",
+  oxfmt: "0.51.0",
   vite: "8.0.14",
   "@vitejs/plugin-react": "6.0.2",
   tailwindcss: "4.3.0",
@@ -50,6 +41,7 @@ const requiredByPackage = {
     ai: "6.0.191",
     "@ai-sdk/provider": "3.0.10",
     effect: "4.0.0-beta.70",
+    zod: "4.4.3",
   },
   "@side-chat/partner-ai-core": {
     effect: "4.0.0-beta.70",
@@ -93,23 +85,19 @@ const requiredByPackage = {
   },
 };
 
-if (rootPackage.engines?.node !== "24.16.0")
-  errors.push("root engines.node must be 24.16.0");
-if (rootPackage.engines?.npm !== "11.15.0")
-  errors.push("root engines.npm must be 11.15.0");
+if (rootPackage.engines?.node !== "24.16.0") errors.push("root engines.node must be 24.16.0");
+if (rootPackage.engines?.npm !== "11.15.0") errors.push("root engines.npm must be 11.15.0");
 if (rootPackage.packageManager !== "npm@11.15.0")
   errors.push("root packageManager must be npm@11.15.0");
 if (!isFile(root, ".nvmrc")) errors.push(".nvmrc is required");
 if (
   isFile(root, ".nvmrc") &&
   readJson(root, "package.json") &&
-  (await import("node:fs")).readFileSync(`${root}/.nvmrc`, "utf8").trim() !==
-    "24.16.0"
+  (await import("node:fs")).readFileSync(`${root}/.nvmrc`, "utf8").trim() !== "24.16.0"
 ) {
   errors.push(".nvmrc must contain 24.16.0");
 }
-if (!isFile(root, "package-lock.json"))
-  errors.push("package-lock.json is required");
+if (!isFile(root, "package-lock.json")) errors.push("package-lock.json is required");
 
 for (const [name, version] of Object.entries(requiredRoot)) {
   if (rootPackage.devDependencies?.[name] !== version) {
@@ -125,24 +113,17 @@ for (const path of packageJsonPaths) {
   for (const [name, version] of Object.entries(dependencies)) {
     if (name.startsWith("@side-chat/")) {
       if (version !== "0.0.0")
-        errors.push(
-          `${path}: internal dependency ${name} must use exact 0.0.0`,
-        );
+        errors.push(`${path}: internal dependency ${name} must use exact 0.0.0`);
       continue;
     }
 
     if (!isExactVersion(version)) {
-      errors.push(
-        `${path}: dependency ${name} must use an exact version, got ${version}`,
-      );
+      errors.push(`${path}: dependency ${name} must use an exact version, got ${version}`);
     }
   }
 
-  for (const [name, version] of Object.entries(
-    requiredByPackage[packageJson.name] ?? {},
-  )) {
-    if (dependencies[name] !== version)
-      errors.push(`${path}: ${name} must be exactly ${version}`);
+  for (const [name, version] of Object.entries(requiredByPackage[packageJson.name] ?? {})) {
+    if (dependencies[name] !== version) errors.push(`${path}: ${name} must be exactly ${version}`);
   }
 }
 

@@ -16,11 +16,7 @@ export class ChatClientError extends Error {
   readonly status?: number;
   readonly attempt?: number;
 
-  constructor(
-    code: ChatClientErrorCode,
-    message: string,
-    options: ChatClientErrorOptions = {},
-  ) {
+  constructor(code: ChatClientErrorCode, message: string, options: ChatClientErrorOptions = {}) {
     super(message, withCause(options.cause));
     this.name = "ChatClientError";
     this.code = code;

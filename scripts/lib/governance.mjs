@@ -11,12 +11,7 @@ import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const ignoredDirectories = new Set([
-  ".git",
-  ".omx",
-  ".playwright-mcp",
-  "node_modules",
-]);
+const ignoredDirectories = new Set([".git", ".omx", ".playwright-mcp", "node_modules"]);
 
 export function resolveRoot(argv = process.argv.slice(2)) {
   const index = argv.indexOf("--root");
@@ -68,9 +63,7 @@ export function listWorkspacePackageJsons(root) {
 
     for (const entry of readdirSync(absoluteRoot, { withFileTypes: true })) {
       if (entry.isDirectory()) {
-        const packageJson = join(workspaceRoot, entry.name, "package.json")
-          .split(sep)
-          .join("/");
+        const packageJson = join(workspaceRoot, entry.name, "package.json").split(sep).join("/");
         if (existsSync(join(root, packageJson))) paths.push(packageJson);
       }
     }
@@ -83,18 +76,14 @@ export function packageArea(file) {
   const parts = file.split("/");
   if (parts[0] === "packages" && parts[1]) return `packages/${parts[1]}`;
   if (parts[0] === "apps" && parts[1]) return `apps/${parts[1]}`;
-  if (parts[0] === "test-harness" && parts[1])
-    return `test-harness/${parts[1]}`;
+  if (parts[0] === "test-harness" && parts[1]) return `test-harness/${parts[1]}`;
   return parts[0] ?? "";
 }
 
 export function packageNameFromPath(area) {
-  if (area.startsWith("packages/"))
-    return `@side-chat/${area.slice("packages/".length)}`;
-  if (area === "apps/partner-ai-service")
-    return "@side-chat/partner-ai-service";
-  if (area === "test-harness/widget-harness")
-    return "@side-chat/widget-harness";
+  if (area.startsWith("packages/")) return `@side-chat/${area.slice("packages/".length)}`;
+  if (area === "apps/partner-ai-service") return "@side-chat/partner-ai-service";
+  if (area === "test-harness/widget-harness") return "@side-chat/widget-harness";
   return area;
 }
 
@@ -154,8 +143,7 @@ export function makeFixtureRoot() {
 }
 
 export function removeFixtureRoot(root) {
-  if (root.includes("side-chat-governance-"))
-    rmSync(root, { recursive: true, force: true });
+  if (root.includes("side-chat-governance-")) rmSync(root, { recursive: true, force: true });
 }
 
 export function writeFixtureFile(root, path, content) {

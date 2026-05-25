@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AgentRuntimeError } from "../errors.js";
-import {
-  createFakeProvider,
-  FAKE_ECHO_MODEL_ID,
-  FAKE_PROVIDER_ID,
-} from "#fake/fake-provider";
+import { createFakeProvider, FAKE_ECHO_MODEL_ID, FAKE_PROVIDER_ID } from "#fake/fake-provider";
 import { createAgentRuntime } from "./agent-runtime.js";
 
 describe("createAgentRuntime", () => {

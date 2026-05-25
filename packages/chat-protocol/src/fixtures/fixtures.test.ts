@@ -17,27 +17,17 @@ const readFixture = (name: string): unknown[] => {
 
 describe("sidechat protocol fixtures", () => {
   it("validates the golden success stream", () => {
-    const events = readFixture("success-stream.json").map(
-      parseSidechatStreamEvent,
-    );
+    const events = readFixture("success-stream.json").map(parseSidechatStreamEvent);
     expect(validateSidechatEventSequence(events).eventCount).toBe(5);
   });
 
   it("validates the golden error stream", () => {
-    const events = readFixture("error-stream.json").map(
-      parseSidechatStreamEvent,
-    );
-    expect(validateSidechatEventSequence(events).terminalEvent.type).toBe(
-      "sidechat.error",
-    );
+    const events = readFixture("error-stream.json").map(parseSidechatStreamEvent);
+    expect(validateSidechatEventSequence(events).terminalEvent.type).toBe("sidechat.error");
   });
 
   it("rejects the malformed golden stream", () => {
-    const events = readFixture("malformed-stream.json").map(
-      parseSidechatStreamEvent,
-    );
-    expect(() => validateSidechatEventSequence(events)).toThrow(
-      ProtocolSequenceError,
-    );
+    const events = readFixture("malformed-stream.json").map(parseSidechatStreamEvent);
+    expect(() => validateSidechatEventSequence(events)).toThrow(ProtocolSequenceError);
   });
 });

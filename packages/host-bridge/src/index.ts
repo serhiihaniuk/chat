@@ -14,15 +14,8 @@ export {
   type HostCommandResult,
   type HostCommandResultStatus,
 } from "./command-result.js";
-export {
-  dispatchSupportedCommand,
-  type HostCommandDispatcher,
-} from "./command-dispatcher.js";
-export {
-  createHostBridge,
-  type HostBridge,
-  type HostBridgeOptions,
-} from "./bridge.js";
+export { dispatchSupportedCommand, type HostCommandDispatcher } from "./command-dispatcher.js";
+export { createHostBridge, type HostBridge, type HostBridgeOptions } from "./bridge.js";
 export {
   createStaticHostContextProvider,
   toProtocolHostContext,

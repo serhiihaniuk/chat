@@ -6,7 +6,7 @@ import type { SidechatRepositories } from "./contract.js";
 import { createPostgresDrizzleConversationRepository } from "./postgres-drizzle-conversations.js";
 import { createPostgresDrizzleInteractionRepository } from "./postgres-drizzle-interactions.js";
 import { createPostgresDrizzleTurnRepository } from "./postgres-drizzle-turns.js";
-import { createIdGenerator } from "./repository-utils.js";
+import { createRandomIdGenerator } from "./repository-utils.js";
 
 export type PostgresDrizzleRepositoryOptions = {
   readonly connectionString: string;
@@ -24,7 +24,7 @@ export const createPostgresDrizzleSidechatRepositories = (
   const pool = new Pool({ connectionString: options.connectionString });
   const context = {
     db: drizzle(pool, { schema: sidechatTables }),
-    ids: createIdGenerator("pg"),
+    ids: createRandomIdGenerator("pg"),
   };
 
   return {

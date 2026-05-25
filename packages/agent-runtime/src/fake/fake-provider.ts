@@ -10,13 +10,9 @@ export type FakeProviderOptions = {
   readonly script?: FakeRuntimeScript;
 };
 
-export type FakeRuntimeScript = (
-  request: RuntimeRequest,
-) => readonly RuntimeEvent[];
+export type FakeRuntimeScript = (request: RuntimeRequest) => readonly RuntimeEvent[];
 
-export const createFakeProvider = (
-  options: FakeProviderOptions = {},
-): AssistantProvider => {
+export const createFakeProvider = (options: FakeProviderOptions = {}): AssistantProvider => {
   const providerId = options.providerId ?? FAKE_PROVIDER_ID;
   const modelIds = options.modelIds ?? [FAKE_ECHO_MODEL_ID];
   const script = options.script ?? createDeterministicEchoScript(providerId);
@@ -36,8 +32,7 @@ export const createDeterministicEchoScript = (
 ): FakeRuntimeScript => {
   return (request) => {
     const userText = lastUserMessage(request)?.content ?? "";
-    const answer =
-      userText.length > 0 ? `Fake response: ${userText}` : "Fake response.";
+    const answer = userText.length > 0 ? `Fake response: ${userText}` : "Fake response.";
     const words = answer.split(" ");
     const started: RuntimeEvent = {
       type: "runtime.started",

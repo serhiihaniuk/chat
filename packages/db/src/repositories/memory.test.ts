@@ -118,9 +118,7 @@ describe("memory sidechat repositories", () => {
     });
 
     expect(repeatedTurn.inserted).toBe(false);
-    expect(repeatedTurn.record.assistantTurnId).toBe(
-      turn.record.assistantTurnId,
-    );
+    expect(repeatedTurn.record.assistantTurnId).toBe(turn.record.assistantTurnId);
 
     const context = await repositories.recordTurnContextSnapshot({
       workspaceId: "workspace_1",

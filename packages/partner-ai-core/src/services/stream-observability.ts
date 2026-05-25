@@ -34,9 +34,7 @@ export const recordStreamObservation = async (
     requestId: input.correlation.requestId,
     traceId: input.correlation.traceId,
     lifecycleState: input.lifecycleState,
-    ...(input.assistantTurnId
-      ? { assistantTurnId: input.assistantTurnId }
-      : {}),
+    ...(input.assistantTurnId ? { assistantTurnId: input.assistantTurnId } : {}),
     ...(input.providerId ? { providerId: input.providerId } : {}),
     ...(input.modelId ? { modelId: input.modelId } : {}),
     ...(input.errorCode ? { errorCode: input.errorCode } : {}),
@@ -85,13 +83,9 @@ export const runtimeEventAttributes = (event: RuntimeEvent): JsonObject => {
   }
 };
 
-export const terminalErrorCode = (
-  events: readonly SidechatStreamEvent[],
-): string | undefined => {
+export const terminalErrorCode = (events: readonly SidechatStreamEvent[]): string | undefined => {
   const terminal = events.at(-1);
-  return terminal?.type === SIDECHAT_EVENT_TYPES.ERROR
-    ? terminal.code
-    : undefined;
+  return terminal?.type === SIDECHAT_EVENT_TYPES.ERROR ? terminal.code : undefined;
 };
 
 const elapsedMs = (startedAt: string, now: string): number => {

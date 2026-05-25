@@ -11,9 +11,7 @@ const DEFAULT_API_BASE_URL = "/api";
 const DEFAULT_AUTH_TOKEN = "local-test-token";
 const DEFAULT_WORKSPACE_ID = "local-dev";
 
-export const parseWidgetHarnessConfig = (
-  search: string,
-): WidgetHarnessConfig => {
+export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig => {
   const params = new URLSearchParams(search);
   const mode = parseMode(params.get("mode"));
   return {
