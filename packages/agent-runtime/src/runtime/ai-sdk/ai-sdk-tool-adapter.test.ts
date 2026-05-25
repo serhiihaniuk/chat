@@ -3,11 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createMockWebSearchTool, MOCK_WEB_SEARCH_TOOL_NAME } from "#testing/mock-runtime-tool";
 import type { RuntimeProviderRequest } from "../contract/runtime-request.js";
 import type { RuntimeTool } from "#tools/runtime-tool";
-import {
-  createAiSdkToolSet,
-  createRuntimeToolLookup,
-  mapAiSdkToolActivity,
-} from "./ai-sdk-tool-adapter.js";
+import { createAiSdkToolSet } from "./ai-sdk-tool-adapter.js";
+import { createRuntimeToolLookup, mapAiSdkToolActivity } from "./tool-activity-mapper.js";
 
 describe("createAiSdkToolSet", () => {
   it("executes injected runtime tools through Effect with request context", async () => {

@@ -1,25 +1,26 @@
 import {
   ToolLoopAgent as AiSdkToolLoopAgent,
   type LanguageModel,
-  type LanguageModelUsage,
-  type TextStreamPart,
   type ToolLoopAgentSettings,
-  type ToolSet,
 } from "ai";
 
-import type { RuntimeEvent, RuntimeUsage } from "../contract/runtime-event.js";
+import type { RuntimeEvent } from "../contract/runtime-event.js";
 import type { RuntimeProviderRequest } from "../contract/runtime-request.js";
+import { createAiSdkToolSet } from "./ai-sdk-tool-adapter.js";
 import {
-  createAiSdkToolSet,
-  createRuntimeToolLookup,
-  mapAiSdkToolActivity,
-} from "./ai-sdk-tool-adapter.js";
+  appendReasoningDelta,
+  createReasoningStreamState,
+  flushReasoningActivity,
+} from "./reasoning-activity.js";
+import { createRuntimeStartedEvent, mapAiSdkStreamPart } from "./stream-part-mapper.js";
+import { createRuntimeToolLookup, mapAiSdkToolActivity } from "./tool-activity-mapper.js";
 
 /**
- * Private adapter around AI SDK ToolLoopAgent.
+ * Run one already-prepared request through AI SDK ToolLoopAgent.
  *
- * This file is the only place that runs the AI SDK agent loop. Everything it
- * yields is normalized into RuntimeEvent before leaving agent-runtime.
+ * `turn/prepare-runtime-turn.ts` already selected provider/model, tools, and
+ * messages. This file does not decide policy; it only runs the AI SDK stream
+ * and yields normalized RuntimeEvent values in sequence order.
  */
 export type AiSdkToolLoopAgentRunOptions = {
   readonly model: LanguageModel;
@@ -43,19 +44,27 @@ async function* streamAiSdkToolLoop({
   providerOptions,
   request,
 }: AiSdkToolLoopAgentRunOptions): AsyncIterable<RuntimeEvent> {
+  /**
+   * Sequence is assigned at the adapter boundary, not by individual mappers.
+   *
+   * AI SDK yields different part types from one stream. Keeping the counter in
+   * this loop guarantees that text, reasoning, tool activity, errors, and the
+   * final completion share one chronological order.
+   */
   let sequence = 0;
-  yield {
-    type: "runtime.started",
-    requestId: request.requestId,
-    assistantTurnId: request.assistantTurnId,
-    sequence,
-    providerId: request.providerId,
-    modelId: request.modelId,
-  };
+  yield createRuntimeStartedEvent(request, sequence);
   sequence += 1;
 
   const tools = createAiSdkToolSet(request.tools, request);
   const runtimeTools = createRuntimeToolLookup(request.tools);
+
+  /**
+   * AI SDK receives system messages from runtime prompt rendering.
+   *
+   * `toolChoice: "auto"` is intentional: the runtime exposes capabilities, but
+   * the model chooses if/when to call them. The backend must not pre-run tools
+   * because that would fake activity before the agent acts.
+   */
   const agent = new AiSdkToolLoopAgent({
     model,
     allowSystemInMessages: true,
@@ -68,24 +77,22 @@ async function* streamAiSdkToolLoop({
     ...(request.abortSignal ? { abortSignal: request.abortSignal } : {}),
   });
 
-  const reasoningState: ReasoningStreamState = {
-    blockIndex: 0,
-    text: "",
-  };
+  const reasoningState = createReasoningStreamState();
   const flushReasoning = (): RuntimeEvent | undefined => {
-    const event = createReasoningActivity(request, sequence, reasoningState, "completed");
-    if (event) {
-      sequence += 1;
-      reasoningState.blockIndex += 1;
-      reasoningState.text = "";
-    }
+    const event = flushReasoningActivity(request, reasoningState, sequence);
+    if (event) sequence += 1;
     return event;
   };
 
   for await (const part of result.fullStream) {
+    /**
+     * Reasoning arrives as deltas, but downstream UI wants one activity row.
+     *
+     * We update the same reasoning activity while deltas arrive, then mark it
+     * completed before emitting any normal text/tool/completion event.
+     */
     if (part.type === "reasoning-delta") {
-      reasoningState.text = `${reasoningState.text}${part.text}`;
-      const event = createReasoningActivity(request, sequence, reasoningState, "running");
+      const event = appendReasoningDelta(request, reasoningState, part.text, sequence);
       if (event) {
         yield event;
         sequence += 1;
@@ -96,6 +103,12 @@ async function* streamAiSdkToolLoop({
     const reasoningEvent = flushReasoning();
     if (reasoningEvent) yield reasoningEvent;
 
+    /**
+     * Tool parts are observed as stream parts, not as separate backend actions.
+     *
+     * The tool adapter executes the selected RuntimeTool through AI SDK. Here
+     * we only map the observed input/result/error parts to one activity row.
+     */
     const toolEvent = mapAiSdkToolActivity(request, part, sequence, runtimeTools);
     if (toolEvent) {
       yield toolEvent;
@@ -112,103 +125,3 @@ async function* streamAiSdkToolLoop({
   const reasoningEvent = flushReasoning();
   if (reasoningEvent) yield reasoningEvent;
 }
-
-const mapAiSdkStreamPart = (
-  request: RuntimeProviderRequest,
-  part: TextStreamPart<ToolSet>,
-  sequence: number,
-): RuntimeEvent | undefined => {
-  if (part.type === "text-delta") {
-    return {
-      type: "runtime.output_delta",
-      requestId: request.requestId,
-      assistantTurnId: request.assistantTurnId,
-      sequence,
-      content: part.text,
-    };
-  }
-  if (part.type === "finish") {
-    return {
-      type: "runtime.completed",
-      requestId: request.requestId,
-      assistantTurnId: request.assistantTurnId,
-      sequence,
-      finishReason: mapFinishReason(part.finishReason),
-      usage: toRuntimeUsage(part.totalUsage),
-    };
-  }
-  if (part.type === "error") {
-    return {
-      type: "runtime.error",
-      requestId: request.requestId,
-      assistantTurnId: request.assistantTurnId,
-      sequence,
-      code: "provider_unavailable",
-      message: part.error instanceof Error ? part.error.message : "AI SDK agent stream failed.",
-      retryable: true,
-    };
-  }
-  return undefined;
-};
-
-const createReasoningActivity = (
-  request: RuntimeProviderRequest,
-  sequence: number,
-  state: ReasoningStreamState,
-  status: "running" | "completed",
-): RuntimeEvent | undefined => {
-  const presentation = toReasoningPresentation(state.text);
-  if (!presentation) return undefined;
-
-  return {
-    type: "runtime.activity",
-    activityId: `reasoning-${request.assistantTurnId}-${state.blockIndex}`,
-    activityKind: "reasoning",
-    requestId: request.requestId,
-    assistantTurnId: request.assistantTurnId,
-    sequence,
-    status,
-    title: presentation.title,
-    ...(presentation.body ? { body: presentation.body } : {}),
-  };
-};
-
-type ReasoningStreamState = {
-  blockIndex: number;
-  text: string;
-};
-
-const toReasoningPresentation = (
-  reasoningText: string,
-): { readonly title: string; readonly body?: string } | undefined => {
-  const normalized = reasoningText.replace(/\s+/gu, " ").trim();
-  if (!normalized) return undefined;
-
-  const titledContent = /^\*\*(?<title>[^*]+)\*\*\s*(?<body>.*)$/su.exec(normalized);
-  const title = stripInlineMarkdown(titledContent?.groups?.["title"] ?? "");
-  const body = titledContent?.groups?.["body"]?.trim();
-  if (title) return { title, ...(body ? { body } : {}) };
-
-  const fallbackTitle = stripInlineMarkdown(normalized).replace(/\*/gu, "").trim();
-  return {
-    title: fallbackTitle && normalized.length <= 120 ? fallbackTitle : "Thinking",
-  };
-};
-
-const stripInlineMarkdown = (value: string): string =>
-  value
-    .replace(/\*\*(?<content>[^*]+)\*\*/gu, "$<content>")
-    .replace(/[_`]/gu, "")
-    .trim();
-
-const mapFinishReason = (reason: string): "stop" | "length" | "aborted" => {
-  if (reason === "length") return "length";
-  if (reason === "abort" || reason === "content-filter") return "aborted";
-  return "stop";
-};
-
-const toRuntimeUsage = (usage: LanguageModelUsage): RuntimeUsage => ({
-  inputTokens: usage.inputTokens ?? 0,
-  outputTokens: usage.outputTokens ?? 0,
-  totalTokens: usage.totalTokens ?? 0,
-});

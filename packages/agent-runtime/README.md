@@ -55,6 +55,10 @@ src/
     ai-sdk/
       tool-loop-agent-runner.ts
       ai-sdk-tool-adapter.ts
+      tool-activity-mapper.ts
+      reasoning-activity.ts
+      stream-part-mapper.ts
+      json-value.ts
 
   providers/
     model-provider.ts
