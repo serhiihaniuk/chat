@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Effect } from "effect";
-import { AgentRuntimeError } from "#runtime/runtime-error";
+import { AgentRuntimeError } from "#runtime/contract/runtime-error";
 import { createToolRegistry, type RuntimeTool } from "./tool-registry.js";
 
 describe("createToolRegistry", () => {

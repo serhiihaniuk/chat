@@ -2,7 +2,7 @@ import type { Effect } from "effect";
 import type { ActivitySource, JsonObject } from "@side-chat/chat-protocol";
 import type { JSONSchema7 } from "@ai-sdk/provider";
 
-import type { AgentRuntimeError } from "#runtime/runtime-error";
+import type { AgentRuntimeError } from "#runtime/contract/runtime-error";
 
 /**
  * Runtime tools are capabilities injected by the consuming app.

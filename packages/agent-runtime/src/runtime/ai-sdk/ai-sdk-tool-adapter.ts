@@ -14,8 +14,8 @@ import type {
 } from "@side-chat/chat-protocol";
 import type { RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 
-import type { RuntimeEvent } from "#runtime/runtime-event";
-import type { RuntimeProviderRequest } from "#runtime/runtime-request";
+import type { RuntimeEvent } from "../contract/runtime-event.js";
+import type { RuntimeProviderRequest } from "../contract/runtime-request.js";
 
 /**
  * Converts app-owned RuntimeTool values into AI SDK tools.

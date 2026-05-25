@@ -1173,10 +1173,17 @@ packages/agent-runtime/
     runtime/
       agent-runtime.ts
       agent-runtime.test.ts
-      runtime-request.ts
-      runtime-event.ts
-      runtime-error.ts
-      runtime-stream.ts
+      contract/
+        runtime-request.ts
+        runtime-event.ts
+        runtime-error.ts
+        runtime-stream.ts
+      turn/
+        assistant-profile.ts
+        prepare-runtime-turn.ts
+        provider-selection.ts
+        tool-selection.ts
+        prompt-rendering.ts
       ai-sdk/
         tool-loop-agent-runner.ts
         ai-sdk-tool-adapter.ts
@@ -1228,11 +1235,11 @@ Key file responsibilities:
 
 | File or folder | Responsibility |
 | --- | --- |
-| `runtime/agent-runtime.ts` | Builds the runtime from profile defaults, injected tools, and injected providers. It returns the product runtime boundary, not raw AI SDK calls. |
+| `runtime/agent-runtime.ts` | Entry point that builds the runtime from injected providers/tools/profiles and exposes stream surfaces. |
+| `runtime/contract/*` | Public request, event, error, and stream contracts. |
+| `runtime/turn/*` | Decides profile, provider/model, allowed tools, and final prompt messages before the model starts. |
 | `runtime/ai-sdk/tool-loop-agent-runner.ts` | Creates and runs AI SDK `ToolLoopAgent` instances from resolved provider/model, rendered messages, and selected tool capabilities. |
 | `runtime/ai-sdk/ai-sdk-tool-adapter.ts` | Converts runtime tools into AI SDK tools and maps AI SDK tool stream parts into internal `RuntimeEvent` values. |
-| `runtime/runtime-request.ts` | Defines the turn request and prepared context-board input shape. |
-| `runtime/runtime-event.ts` | Defines provider-neutral runtime events emitted by the package. |
 | `tools/*` | Runtime tool protocol and reusable registry. Concrete product tools live in the consuming app as ports/adapters. |
 | `providers/model-provider.ts` | Defines provider adapters as model/option resolvers, not assistant-turn orchestrators. |
 | `providers/<real-provider>/*` | Accepted real provider behavior only. Concrete provider name is chosen by ADR/config. |

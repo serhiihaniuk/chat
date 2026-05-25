@@ -7,8 +7,8 @@ import {
   type ToolSet,
 } from "ai";
 
-import type { RuntimeEvent, RuntimeUsage } from "#runtime/runtime-event";
-import type { RuntimeProviderRequest } from "#runtime/runtime-request";
+import type { RuntimeEvent, RuntimeUsage } from "../contract/runtime-event.js";
+import type { RuntimeProviderRequest } from "../contract/runtime-request.js";
 import {
   createAiSdkToolSet,
   createRuntimeToolLookup,

@@ -31,6 +31,12 @@ export type RuntimeContextManifest = {
   readonly budget?: JsonObject;
 };
 
+/**
+ * AgentRuntimeRequest is the public per-turn input contract.
+ *
+ * It carries caller-approved messages, optional prepared context, optional
+ * provider/model/profile hints, and the exact tool allowlist for this turn.
+ */
 export type AgentRuntimeRequest = {
   readonly requestId: string;
   readonly assistantTurnId: string;
@@ -44,6 +50,13 @@ export type AgentRuntimeRequest = {
   readonly abortSignal?: AbortSignal;
 };
 
+/**
+ * RuntimeProviderRequest is the private request handed to the model runner.
+ *
+ * At this point profile/request choices have produced concrete provider/model
+ * ids, tools are selected, and prompt/context messages are rendered into the
+ * provider-neutral message list.
+ */
 export type RuntimeProviderRequest = {
   readonly requestId: string;
   readonly assistantTurnId: string;

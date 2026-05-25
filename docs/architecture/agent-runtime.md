@@ -37,10 +37,17 @@ The folder map intentionally stays small:
 src/
   runtime/
     agent-runtime.ts
-    runtime-request.ts
-    runtime-event.ts
-    runtime-error.ts
-    runtime-stream.ts
+    contract/
+      runtime-request.ts
+      runtime-event.ts
+      runtime-error.ts
+      runtime-stream.ts
+    turn/
+      assistant-profile.ts
+      prepare-runtime-turn.ts
+      provider-selection.ts
+      tool-selection.ts
+      prompt-rendering.ts
     ai-sdk/
       tool-loop-agent-runner.ts
       ai-sdk-tool-adapter.ts
@@ -54,8 +61,10 @@ src/
   testing/
 ```
 
-`runtime/agent-runtime.ts` is the readable orchestration story. The nested
-`runtime/ai-sdk/*` folder is private adapter code, not a public package domain.
+`runtime/agent-runtime.ts` is the entry point. `runtime/contract/*` is the public
+request/event/error shape. `runtime/turn/*` decides profile, provider/model,
+allowed tools, and final prompt messages before the model starts.
+`runtime/ai-sdk/*` is private adapter code, not a public package domain.
 
 ## Tool Capabilities
 

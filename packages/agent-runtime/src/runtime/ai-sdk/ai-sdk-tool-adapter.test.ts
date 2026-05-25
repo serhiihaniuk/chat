@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { createMockWebSearchTool, MOCK_WEB_SEARCH_TOOL_NAME } from "#testing/mock-runtime-tool";
-import type { RuntimeProviderRequest } from "#runtime/runtime-request";
+import type { RuntimeProviderRequest } from "../contract/runtime-request.js";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import {
   createAiSdkToolSet,

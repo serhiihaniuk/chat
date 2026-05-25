@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createAgentRuntime } from "#runtime/agent-runtime";
-import { isRuntimeTerminalEvent } from "#runtime/runtime-event";
+import { isRuntimeTerminalEvent } from "#runtime/contract/runtime-event";
 import { createFakeProvider, FAKE_ECHO_MODEL_ID, FAKE_PROVIDER_ID } from "./fake-model-provider.js";
 
 describe("createFakeProvider", () => {

@@ -51,10 +51,19 @@ packages/agent-runtime/
     runtime/
       agent-runtime.ts
       agent-runtime.test.ts
-      runtime-request.ts
-      runtime-event.ts
-      runtime-error.ts
-      runtime-stream.ts
+
+      contract/
+        runtime-request.ts
+        runtime-event.ts
+        runtime-error.ts
+        runtime-stream.ts
+
+      turn/
+        assistant-profile.ts
+        prepare-runtime-turn.ts
+        provider-selection.ts
+        tool-selection.ts
+        prompt-rendering.ts
 
       ai-sdk/
         tool-loop-agent-runner.ts
@@ -85,12 +94,12 @@ packages/agent-runtime/
 Removed top-level folders are intentional:
 
 - `context/` was only a prepared context-board type plus prompt rendering.
-  The type now lives in `runtime-request.ts`, and rendering is private runtime
-  orchestration.
-- `profiles/` was only small runtime config. `AssistantProfile` now lives next
-  to `AgentRuntimeOptions`.
+  The type now lives in `runtime/contract/runtime-request.ts`, and rendering is
+  private runtime turn preparation.
+- `profiles/` was only small runtime config. `AssistantProfile` now lives in
+  `runtime/turn/assistant-profile.ts`.
 - `effect/` was not a product concept. Stream interop now lives in
-  `runtime-stream.ts`.
+  `runtime/contract/runtime-stream.ts`.
 - `telemetry/` had only unused stubs. Add telemetry back when it has real
   observer wiring.
 - `ai-sdk/` is nested under `runtime/` because AI SDK is the runtime engine, not
@@ -120,10 +129,7 @@ export AI SDK adapter internals.
 
 ```txt
 AgentRuntimeRequest
-  -> resolve assistant profile
-  -> resolve provider/model
-  -> select injected tools for this turn
-  -> render profile instructions and context board
+  -> runtime/turn prepares profile, provider/model, tools, and messages
   -> run runtime/ai-sdk ToolLoopAgent adapter
   -> map provider-native stream parts into RuntimeEvent
 ```

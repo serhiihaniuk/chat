@@ -38,10 +38,19 @@ src/
 
   runtime/
     agent-runtime.ts
-    runtime-request.ts
-    runtime-event.ts
-    runtime-error.ts
-    runtime-stream.ts
+
+    contract/
+      runtime-request.ts
+      runtime-event.ts
+      runtime-error.ts
+      runtime-stream.ts
+
+    turn/
+      assistant-profile.ts
+      prepare-runtime-turn.ts
+      provider-selection.ts
+      tool-selection.ts
+      prompt-rendering.ts
 
     ai-sdk/
       tool-loop-agent-runner.ts
@@ -63,12 +72,12 @@ src/
 
 ## Responsibilities
 
-`runtime/` owns the assistant turn lifecycle and public runtime contracts:
+`runtime/` owns the assistant turn lifecycle:
 
 - `agent-runtime.ts` is the readable orchestration story.
-- `runtime-request.ts` is the input contract, including prepared context board.
-- `runtime-event.ts` is the provider-neutral output contract.
-- `runtime-stream.ts` bridges Effect `Stream` and plain `AsyncIterable`.
+- `runtime/contract/*` is the public request/event/error/stream contract.
+- `runtime/turn/*` decides profile, provider/model, allowed tools, and final
+  prompt messages before the model starts.
 - `runtime/ai-sdk/*` contains the private AI SDK ToolLoopAgent adapter.
 
 `providers/` owns the model-provider protocol and accepted provider adapters.

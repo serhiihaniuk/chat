@@ -1,5 +1,11 @@
 import type { ActivityDetails, ActivityKind, ActivityStatus } from "@side-chat/chat-protocol";
 
+/**
+ * RuntimeEvent is the provider-neutral output boundary.
+ *
+ * AI SDK stream parts and provider-native chunks are normalized into this union
+ * before anything leaves packages/agent-runtime.
+ */
 export type RuntimeEventBase = {
   readonly requestId: string;
   readonly assistantTurnId: string;
@@ -64,5 +70,10 @@ export type RuntimeUsage = {
   readonly totalTokens: number;
 };
 
+/**
+ * Terminal detection is shared by tests and callers that need to close streams.
+ *
+ * Completion and error are both terminal; activity and output deltas are not.
+ */
 export const isRuntimeTerminalEvent = (event: RuntimeEvent): event is RuntimeTerminalEvent =>
   event.type === "runtime.completed" || event.type === "runtime.error";

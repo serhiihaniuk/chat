@@ -1,7 +1,7 @@
 import type { Effect } from "effect";
 import type { LanguageModel, ToolLoopAgentSettings } from "ai";
 
-import type { AgentRuntimeError } from "#runtime/runtime-error";
+import type { AgentRuntimeError } from "#runtime/contract/runtime-error";
 
 export type ProviderSelection = {
   readonly providerId: string;

@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { createOpenAI } from "@ai-sdk/openai";
 
-import { AgentRuntimeError } from "#runtime/runtime-error";
+import { AgentRuntimeError } from "#runtime/contract/runtime-error";
 import type { ModelProvider } from "#providers/model-provider";
 
 export const OPENAI_PROVIDER_ID = "openai" as const;

@@ -1,4 +1,4 @@
-import { AgentRuntimeError } from "#runtime/runtime-error";
+import { AgentRuntimeError } from "#runtime/contract/runtime-error";
 import type { RuntimeTool } from "./runtime-tool.js";
 
 export type {
