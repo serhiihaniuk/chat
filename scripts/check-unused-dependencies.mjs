@@ -18,7 +18,6 @@ const ignoredDependencies = new Set([
   "@types/pg",
   "@types/react",
   "@types/react-dom",
-  "class-variance-authority",
   "clsx",
   "drizzle-kit",
   "tailwind-merge",
@@ -38,21 +37,12 @@ const allowedUnusedDependencies = new Map([
     "Day-one AI SDK provider typing pin required by production-system-design.md.",
   ],
   [
-    "@side-chat/agent-runtime:@side-chat/partner-ai-core",
-    "Boundary dependency retained for runtime/core adapter convergence.",
-  ],
-  [
     "@side-chat/agent-runtime:effect",
     "Day-one Effect v4 pin required by production-system-design.md.",
   ],
   [
     "@side-chat/agent-runtime:zod",
     "AI SDK provider-utils peer dependency required by provider runtime execution.",
-  ],
-  ["@side-chat/db:effect", "Day-one Effect v4 pin required by production-system-design.md."],
-  [
-    "@side-chat/side-chat-widget:ai-elements",
-    "AI Elements CLI/runtime package is intentionally retained with vendored component source.",
   ],
   [
     "@side-chat/side-chat-widget:react-dom",

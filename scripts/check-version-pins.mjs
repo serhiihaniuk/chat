@@ -53,7 +53,6 @@ const requiredByPackage = {
     "@types/pg": "8.20.0",
     "drizzle-orm": "0.45.2",
     "drizzle-kit": "0.31.10",
-    effect: "4.0.0-beta.70",
   },
   "@side-chat/side-chat-widget": {
     react: "19.2.6",
@@ -64,10 +63,7 @@ const requiredByPackage = {
     "@streamdown/math": "1.0.2",
     "@streamdown/mermaid": "1.0.2",
     ai: "6.0.191",
-    "ai-elements": "1.9.0",
-    "class-variance-authority": "0.7.1",
     clsx: "2.1.1",
-    cmdk: "1.1.1",
     "embla-carousel-react": "8.6.0",
     "lucide-react": "1.16.0",
     motion: "12.40.0",

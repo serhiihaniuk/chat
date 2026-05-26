@@ -13,6 +13,10 @@ import { spawnSync } from "node:child_process";
 
 const ignoredDirectories = new Set([".git", ".omx", ".playwright-mcp", "node_modules"]);
 
+function isIgnoredDirectory(name) {
+  return ignoredDirectories.has(name) || name.startsWith("node_modules.");
+}
+
 export function resolveRoot(argv = process.argv.slice(2)) {
   const index = argv.indexOf("--root");
   return index >= 0 && argv[index + 1] ? argv[index + 1] : process.cwd();
@@ -37,7 +41,7 @@ export function listFiles(root, predicate = () => true, current = root) {
     const rel = relative(root, absolute);
 
     if (entry.isDirectory()) {
-      if (!ignoredDirectories.has(entry.name)) {
+      if (!isIgnoredDirectory(entry.name)) {
         files.push(...listFiles(root, predicate, absolute));
       }
       continue;

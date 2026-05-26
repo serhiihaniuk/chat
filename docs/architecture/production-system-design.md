@@ -101,10 +101,8 @@ Frontend, widget, and browser harness pins:
 | `tailwindcss` | `4.3.0` | Tailwind 4 styling engine for widget CSS and browser harnesses. |
 | `@tailwindcss/vite` | `4.3.0` | Tailwind 4 Vite integration for local harness/build tooling. |
 | `@base-ui/react` | `1.5.0` | Accessible primitive behavior for owned widget UI primitives. |
-| `class-variance-authority` | `0.7.1` | Variant definitions for owned UI primitives. |
 | `clsx` | `2.1.1` | Class composition helper used by `cn`. |
 | `tailwind-merge` | `3.6.0` | Tailwind class conflict merging used by `cn`. |
-| `ai-elements` | `1.9.0` | Accepted AI Elements component dependency used by the widget implementation. |
 | `lucide-react` | `1.16.0` | Accepted icon dependency for shadcn/AI Elements-derived widget components. |
 | `motion` | `12.40.0` | Accepted animation dependency for AI Elements-derived widget interactions. |
 | `ai` | `6.0.191` | Runtime package also used for AI UI/tool part types in vendored widget components. |
@@ -115,7 +113,6 @@ Frontend, widget, and browser harness pins:
 | `@streamdown/math` | `1.0.2` | Streamdown math plugin. |
 | `@streamdown/mermaid` | `1.0.2` | Streamdown Mermaid plugin. |
 | `shiki` | `4.1.0` | Code highlighting for assistant output. |
-| `cmdk` | `1.1.1` | Command primitive used by exact shadcn-style components. |
 | `embla-carousel-react` | `8.6.0` | Carousel primitive used by exact shadcn-style components. |
 | `use-stick-to-bottom` | `1.1.4` | Conversation viewport stick-to-bottom behavior. |
 
@@ -1500,14 +1497,14 @@ Effect v4 role in the widget:
 UI source ownership rule:
 
 - `shared/ui/*` owns copied/adapted shadcn-style primitives as source code.
-  Components may use `@base-ui/react/*`, `class-variance-authority`, Tailwind 4
-  classes, `shared/lib/cn`, `lucide-react`, and accepted behavior dependencies
-  needed for exact component parity.
+  Components may use `@base-ui/react/*`, Tailwind 4 classes, `shared/lib/cn`,
+  `lucide-react`, and accepted behavior dependencies needed for exact component
+  parity.
 - `shared/ai/*` owns copied/adapted AI Elements-style conversation, message,
   reasoning, chain-of-thought activity, tool, image, source, citation,
   suggestion, model selector, and prompt input pieces as source code. These
   components may compose `shared/ui`,
-  `shared/lib/cn`, React, Tailwind classes, `ai-elements`, `ai`, `motion`,
+  `shared/lib/cn`, React, Tailwind classes, `ai`, `motion`,
   Streamdown packages, and the other accepted widget UI/runtime dependencies.
 - Widget or feature UI owns the product adapter layer: it maps widget state and
   protocol projections into generic `shared/ai` props.
@@ -1522,12 +1519,16 @@ Primitive implementation shape:
 
 ```tsx
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
-import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "../lib/cn";
+
+const BUTTON_VARIANT_CLASS = {
+  default: "bg-primary text-primary-foreground",
+  ghost: "hover:bg-muted",
+} as const;
 ```
 
-Keep variant definitions beside the primitive, export only through the package/widget public entrypoints that are intended for consumers, and treat copied component code as editable first-party source.
+Keep variant class maps beside the primitive, export only through the package/widget public entrypoints that are intended for consumers, and treat copied component code as editable first-party source.
 
 ## 14. Package: `packages/host-bridge`
 
@@ -2348,10 +2349,10 @@ Rules:
 - Test-only libraries belong in root or package `devDependencies`, never runtime package dependencies.
 - Provider SDKs belong in `agent-runtime` provider adapters or `partner-ai-service` outbound/provider composition only.
 - React belongs only in widget/browser packages.
-- Tailwind 4, Base UI, CVA, `clsx`, `tailwind-merge`, `ai-elements`,
-  `lucide-react`, `motion`, `ai`, Streamdown packages, `shiki`, `cmdk`,
-  `embla-carousel-react`, `nanoid`, and `use-stick-to-bottom` are accepted
-  widget UI/runtime dependencies.
+- Tailwind 4, Base UI, CVA, `clsx`, `tailwind-merge`, `lucide-react`,
+  `motion`, `ai`, Streamdown packages, `shiki`, `embla-carousel-react`,
+  `nanoid`, and `use-stick-to-bottom` are accepted widget UI/runtime
+  dependencies.
 - Shadcn-style components and AI Elements-style components must live as owned
   widget source when copied/adapted. The shadcn CLI registry and generated
   registry metadata are not runtime dependencies.
@@ -3357,7 +3358,7 @@ focused design update or ADR.
 | Runtime DB access | `packages/db` uses Drizzle over `pg`; direct DB access outside `packages/db`, migrations, and explicit DB test harnesses is forbidden. |
 | Test placement | Colocate ordinary tests beside source files; reserve harness folders for cross-package/browser test infrastructure. |
 | Linting | Type-aware Oxlint plus custom governance scripts. |
-| Dependency policy | Runtime dependencies must live only where used; duplicate libraries for the same job need an ADR; shadcn registry/Radix packages are forbidden, while `ai-elements` and `lucide-react` are accepted widget dependencies. |
+| Dependency policy | Runtime dependencies must live only where used; duplicate libraries for the same job need an ADR; shadcn registry/Radix packages are forbidden, while `lucide-react` is an accepted widget dependency. |
 | AI skills | Plan the skill suite first; do not create skill folders until names, triggers, and responsibilities are accepted. |
 | Widget package | Dedicated React package with public entrypoint only. |
 | Browser client | Dedicated `packages/chat-client` day one. Revisit only by ADR if scaffold friction proves too high. |

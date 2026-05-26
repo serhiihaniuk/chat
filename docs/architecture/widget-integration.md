@@ -32,11 +32,10 @@ import React UI or `shared/ai` components.
 
 `shared/ui` may start from shadcn-style source, but it must not depend on a
 shadcn package or generated registry. It may depend on React, Tailwind 4,
-`@base-ui/react`, `class-variance-authority`, local `cn`, and accepted widget UI
-dependencies where the component needs them.
+`@base-ui/react`, local `cn`, and accepted widget UI dependencies where the
+component needs them.
 
-`shared/ai` is the widget-local AI component layer. The package intentionally
-keeps `ai-elements` as an accepted dependency while selected component source is
+`shared/ai` is the widget-local AI component layer. Selected component source is
 vendored/adapted under `shared/ai` so consumers do not run generators. It
 composes `shared/ui` and receives generic props. Feature UI maps widget
 projections and state into those generic props.

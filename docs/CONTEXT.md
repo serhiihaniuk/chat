@@ -151,10 +151,10 @@ progress, tools, and host commands. Completed activity rows keep their order and
 main visual presentation after completion; only the current activity item appears
 running.
 
-The UI system intentionally keeps accepted dependencies such as `ai-elements`,
-`lucide-react`, `motion`, Streamdown packages, `cmdk`, `embla-carousel-react`,
-`nanoid`, and `use-stick-to-bottom`. Do not add shadcn registry packages, Radix
-UI packages, or generated registry metadata.
+The UI system intentionally keeps accepted dependencies such as `lucide-react`,
+`motion`, Streamdown packages, `embla-carousel-react`, `nanoid`, and
+`use-stick-to-bottom`. Do not add shadcn registry packages, Radix UI packages,
+or generated registry metadata.
 
 ## Governance And Verification
 

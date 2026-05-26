@@ -66,10 +66,9 @@ approved packages
 ```
 
 Approved widget UI/runtime packages for this ladder are React, Tailwind 4,
-`@base-ui/react`, `class-variance-authority`, `clsx`, `tailwind-merge`,
-`ai-elements`, `lucide-react`, `motion`, `nanoid`, `streamdown`, the accepted
-Streamdown plugins, `shiki`, `cmdk`, `embla-carousel-react`, and
-`use-stick-to-bottom`. Local `shared/lib/cn` is also allowed.
+`@base-ui/react`, `clsx`, `tailwind-merge`, `lucide-react`, `motion`, `nanoid`,
+`streamdown`, the accepted Streamdown plugins, `shiki`, `embla-carousel-react`,
+and `use-stick-to-bottom`. Local `shared/lib/cn` is also allowed.
 
 Do not install or import `shadcn`, `@repo/shadcn-ui`, generated shadcn registry
 packages, or Radix UI packages in the widget. Base UI is the primitive behavior
@@ -86,11 +85,10 @@ after copying they are first-party widget code.
 - React;
 - Tailwind 4 classes;
 - `@base-ui/react` primitives for behavior-heavy controls;
-- `class-variance-authority`;
 - `shared/lib/cn`;
 - `lucide-react` icons when the component is explicitly icon-related;
-- small accepted behavior dependencies such as `cmdk` or
-  `embla-carousel-react` for exact shadcn component parity.
+- small accepted behavior dependencies such as `embla-carousel-react` for exact
+  shadcn component parity.
 
 `shared/ui` must not import:
 
@@ -115,10 +113,8 @@ Primitive owners:
 
 `shared/ai` is the local AI Elements-derived component library. Files in this
 folder may start from copied/adapted Vercel AI Elements source, but after
-copying they are first-party widget code. The package keeps `ai-elements` as an
-accepted dependency so the implementation can track the default component API
-and styling more closely without requiring consumers to run generators. These
-components compose `shared/ui`; they do not replace it.
+copying they are first-party widget code. These components compose `shared/ui`;
+they do not replace it.
 
 `shared/ai` may import:
 
@@ -127,9 +123,9 @@ components compose `shared/ui`; they do not replace it.
 - `shared/ui` primitives;
 - `shared/lib/cn`;
 - local assets/icons;
-- accepted AI display dependencies such as `ai`, `ai-elements`, `streamdown`,
-  `motion`, `nanoid`, and `use-stick-to-bottom` when needed by the copied
-  component behavior.
+- accepted AI display dependencies such as `ai`, `streamdown`, `motion`,
+  `nanoid`, and `use-stick-to-bottom` when needed by the copied component
+  behavior.
 
 `shared/ai` must not import:
 
