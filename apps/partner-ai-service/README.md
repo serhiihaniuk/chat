@@ -9,6 +9,7 @@ Not source of truth for: global vocabulary or product requirements.
 - Hono HTTP routes and middleware.
 - Auth, config, persistence, policy, provider, and tool adapters.
 - Concrete turn guard registries and guard adapters.
+- Concrete RAG retrievers and retrieved-context mapping.
 - Deployable service composition of `partner-ai-core`, `agent-runtime`, `db`,
   and concrete enterprise adapters.
 - SSE response conversion at the transport edge.
@@ -38,6 +39,8 @@ HTTP request -> auth/request parsing -> StreamChatInput
 - Hono objects do not enter core.
 - Promise/AsyncIterable conversion happens at HTTP edges.
 - App-owned concrete tools are injected into runtime through core/service ports.
+- RAG retrievers are injected through service composition and mapped to prepared
+  context before runtime execution.
 - Mock or demo tools are local development and test fixtures; production
   profiles must fail closed instead of exposing them by default.
 

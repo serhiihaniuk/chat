@@ -6,13 +6,13 @@ Not source of truth for: domain term definitions or detailed helper flow.
 
 ## apps/partner-ai-service
 
-| Field          | Value                                                                                                                                                 |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owns           | Deployable service composition, HTTP routes, auth/config adapters, concrete turn guard adapters, SSE conversion, concrete service ports and adapters. |
-| Public surface | Service entrypoint and local server.                                                                                                                  |
-| May depend on  | Core, runtime providers, db adapters, protocol, Hono.                                                                                                 |
-| Must not know  | Product turn lifecycle decisions, widget internal state, or copied UI primitives.                                                                     |
-| Main tests     | `apps/partner-ai-service/src/**/*.test.ts`.                                                                                                           |
+| Field          | Value                                                                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owns           | Deployable service composition, HTTP routes, auth/config adapters, concrete turn guard and RAG retriever adapters, SSE conversion, concrete service ports and adapters. |
+| Public surface | Service entrypoint and local server.                                                                                                                                    |
+| May depend on  | Core, runtime providers, db adapters, protocol, Hono.                                                                                                                   |
+| Must not know  | Product turn lifecycle decisions, widget internal state, or copied UI primitives.                                                                                       |
+| Main tests     | `apps/partner-ai-service/src/**/*.test.ts`.                                                                                                                             |
 
 ## packages/chat-protocol
 
@@ -46,13 +46,13 @@ Not source of truth for: domain term definitions or detailed helper flow.
 
 ## packages/partner-ai-core
 
-| Field          | Value                                                                                                                                               |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owns           | Product stream-chat workflow, manifest/policy validation, turn guard contract/timing, context preparation, turn lifecycle, protocol mapping, ports. |
-| Public surface | `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.                                                                                      |
-| May depend on  | `chat-protocol`, `shared` utilities, Effect.                                                                                                        |
-| Must not know  | Hono, Drizzle/Postgres, provider SDKs, React, widget state.                                                                                         |
-| Main tests     | `packages/partner-ai-core/src/**/*.test.ts`.                                                                                                        |
+| Field          | Value                                                                                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owns           | Product stream-chat workflow, manifest/policy validation, turn guard and RAG retriever contract/timing, context preparation, turn lifecycle, protocol mapping, ports. |
+| Public surface | `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.                                                                                                        |
+| May depend on  | `chat-protocol`, `shared` utilities, Effect.                                                                                                                          |
+| Must not know  | Hono, Drizzle/Postgres, provider SDKs, React, widget state.                                                                                                           |
+| Main tests     | `packages/partner-ai-core/src/**/*.test.ts`.                                                                                                                          |
 
 ## packages/agent-runtime
 

@@ -119,6 +119,7 @@ export const prepareStreamChatTurn = (
           manifest: turnPlan.manifest,
           policyDecision: turnPlan.policyDecision,
           now: ports.clock.now(),
+          ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
         }),
         STREAM_CHAT_FAILURES.CONTEXT,
       ),

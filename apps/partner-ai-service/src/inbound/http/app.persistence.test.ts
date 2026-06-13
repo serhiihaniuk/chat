@@ -1,6 +1,15 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories } from "@side-chat/db";
-import { hashCanonicalJson } from "@side-chat/partner-ai-core";
+import {
+  CONTEXT_REDACTION_CLASSES,
+  CONTEXT_TRUST_LEVELS,
+  hashCanonicalJson,
+  type RagContextCandidate,
+  type RagRetrievalInput,
+  type RagRetrieverPort,
+  type RetrievalSourceCapability,
+} from "@side-chat/partner-ai-core";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "./app.js";
 
@@ -107,4 +116,76 @@ describe("partner ai service /chat/stream persistence", () => {
     });
     expect(snapshot.hostCommandResults).toHaveLength(0);
   });
+
+  it("persists policy-allowed RAG candidates in the context snapshot", async () => {
+    const repositories = createMemorySidechatRepositories();
+    const retrievalInputs: RagRetrievalInput[] = [];
+    const app = createPartnerAiServiceApp({
+      repositories,
+      retrievalSources: [docsSource],
+      ragRetriever: createRagRetriever((input) => {
+        retrievalInputs.push(input);
+        return Effect.succeed([createRagCandidate()]);
+      }),
+    });
+
+    const response = await app.request("/chat/stream", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer local-test-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(validRequest),
+    });
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(retrievalInputs[0]).toMatchObject({
+      requestId: "request_001",
+      userMessage: "hello service",
+      allowedSourceIds: ["docs"],
+    });
+    expect(repositories.snapshot().contextSnapshots[0]?.contextRedactedJson).toMatchObject({
+      sections: expect.arrayContaining([
+        expect.objectContaining({
+          title: "Retrieved context",
+          content: expect.stringContaining("Docs say hello service."),
+        }),
+      ]),
+      candidates: expect.arrayContaining([
+        expect.objectContaining({
+          candidateId: "rag_docs_service_1",
+          sourceType: "retrieval_result",
+          sourceId: "docs",
+          provenance: {
+            sourceId: "docs",
+            label: "Docs result",
+            url: "https://docs.example/service",
+          },
+        }),
+      ]),
+    });
+  });
+});
+
+const docsSource: RetrievalSourceCapability = {
+  sourceId: "docs",
+  description: "Product documentation.",
+  trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
+};
+
+const createRagRetriever = (retrieve: RagRetrieverPort["retrieve"]): RagRetrieverPort => ({
+  retrieve,
+});
+
+const createRagCandidate = (): RagContextCandidate => ({
+  candidateId: "rag_docs_service_1",
+  sourceId: "docs",
+  title: "Docs result",
+  content: "Docs say hello service.",
+  url: "https://docs.example/service",
+  score: 0.91,
+  estimatedTokens: 9,
+  trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
+  redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
 });

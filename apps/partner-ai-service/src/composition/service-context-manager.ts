@@ -6,6 +6,7 @@ import {
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
   hashCanonicalJson,
+  retrieveAllowedRagCandidates,
   resolveAssistantProfileFromManifest,
   type AssistantProfile,
   type ContextCandidate,
@@ -13,10 +14,13 @@ import {
   type HostCapabilityManifest,
   type PreparedContextSection,
   type PreparedTurnContext,
+  type RagContextCandidate,
+  type RagRetrieverPort,
   type TurnPolicyDecision,
 } from "@side-chat/partner-ai-core";
 import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
+import { createRagContextSections, toRagContextCandidate } from "./service-rag-context.js";
 
 type ServiceHostContext = {
   readonly title?: string;
@@ -24,8 +28,22 @@ type ServiceHostContext = {
   readonly origin?: string;
 };
 
-export const createServiceContextManager = (): ContextManagerPort => ({
-  prepareTurnContext: ({ request, manifest, policyDecision, now }) =>
+export type ServiceContextManagerOptions = {
+  readonly ragRetriever: RagRetrieverPort;
+};
+
+export const createServiceContextManager = ({
+  ragRetriever,
+}: ServiceContextManagerOptions): ContextManagerPort => ({
+  prepareTurnContext: ({
+    authContext,
+    workspace,
+    request,
+    manifest,
+    policyDecision,
+    now,
+    abortSignal,
+  }) =>
     Effect.gen(function* () {
       const resolution = resolveAssistantProfileFromManifest(manifest, policyDecision.profileId);
       if (!resolution.resolved) {
@@ -37,6 +55,14 @@ export const createServiceContextManager = (): ContextManagerPort => ({
           ),
         );
       }
+      const ragCandidates = yield* retrieveAllowedRagCandidates({
+        retriever: ragRetriever,
+        authContext,
+        workspace,
+        request,
+        policyDecision,
+        ...optionalField("abortSignal", abortSignal),
+      });
 
       return createPreparedTurnContext({
         requestId: request.requestId,
@@ -45,6 +71,7 @@ export const createServiceContextManager = (): ContextManagerPort => ({
         manifest,
         profile: resolution.profile,
         policyDecision,
+        ragCandidates,
         createdAt: now,
         ...optionalField("hostContext", request.hostContext),
       });
@@ -59,6 +86,7 @@ const createPreparedTurnContext = ({
   manifest,
   profile,
   policyDecision,
+  ragCandidates,
   createdAt,
 }: {
   readonly requestId: string;
@@ -68,6 +96,7 @@ const createPreparedTurnContext = ({
   readonly manifest: HostCapabilityManifest;
   readonly profile: AssistantProfile;
   readonly policyDecision: TurnPolicyDecision;
+  readonly ragCandidates: readonly RagContextCandidate[];
   readonly createdAt: string;
 }): PreparedTurnContext => {
   const candidates = createContextCandidates({
@@ -75,11 +104,13 @@ const createPreparedTurnContext = ({
     messageContent,
     manifest,
     policyDecision,
+    ragCandidates,
     ...optionalField("hostContext", hostContext),
   });
   const sections = createContextSections({
     manifest,
     policyDecision,
+    ragCandidates,
     ...optionalField("hostContext", hostContext),
   });
   const entries = candidates.map((candidate) => ({
@@ -129,12 +160,14 @@ const createContextCandidates = ({
   hostContext,
   manifest,
   policyDecision,
+  ragCandidates,
 }: {
   readonly messageId: string;
   readonly messageContent: string;
   readonly hostContext?: ServiceHostContext;
   readonly manifest: HostCapabilityManifest;
   readonly policyDecision: TurnPolicyDecision;
+  readonly ragCandidates: readonly RagContextCandidate[];
 }): readonly ContextCandidate[] => [
   {
     candidateId: `message_${messageId}`,
@@ -148,6 +181,7 @@ const createContextCandidates = ({
     provenance: { sourceId: messageId, label: "Current user message" },
   },
   ...hostContextCandidates(hostContext, manifest),
+  ...ragCandidates.map(toRagContextCandidate),
   ...policyDecision.allowedToolNames.map((toolName) => toolCandidate(manifest, toolName)),
 ];
 
@@ -192,12 +226,15 @@ const createContextSections = ({
   hostContext,
   manifest,
   policyDecision,
+  ragCandidates,
 }: {
   readonly hostContext?: ServiceHostContext;
   readonly manifest: HostCapabilityManifest;
   readonly policyDecision: TurnPolicyDecision;
+  readonly ragCandidates: readonly RagContextCandidate[];
 }): readonly PreparedContextSection[] => [
   ...hostContextSections(hostContext),
+  ...createRagContextSections(ragCandidates),
   ...allowedToolSections(manifest, policyDecision.allowedToolNames),
 ];
 

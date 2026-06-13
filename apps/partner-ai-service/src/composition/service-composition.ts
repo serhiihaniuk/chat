@@ -11,6 +11,8 @@ import {
 import {
   type ContextManagerPort,
   type HostCapabilityManifestPort,
+  type RagRetrieverPort,
+  type RetrievalSourceCapability,
   type TurnGuardRegistryPort,
   type TurnPolicyResolverPort,
   type WorkspaceRef,
@@ -28,6 +30,7 @@ import {
   createDefaultPolicyConfig,
   type ServicePolicyConfig,
 } from "#adapters/policy/service-policy";
+import { createNoopRagRetriever } from "#adapters/rag/noop-rag-retriever";
 import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
 import { createServiceContextManager } from "./service-context-manager.js";
 import {
@@ -70,6 +73,7 @@ export type ServiceComposition = {
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
+  readonly ragRetriever: RagRetrieverPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntime;
   readonly runtimeProviderId: string;
@@ -86,6 +90,8 @@ export type ServiceCompositionOptions = {
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
   readonly turnGuards?: TurnGuardRegistryPort;
+  readonly ragRetriever?: RagRetrieverPort;
+  readonly retrievalSources?: readonly RetrievalSourceCapability[];
 };
 
 export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
@@ -101,8 +107,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtimeConfig,
     providerId: runtimeProviderId,
     modelId: runtimeModelId,
+    ...optionalField("retrievalSources", options.retrievalSources),
   });
   const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);
+  const ragRetriever = options.ragRetriever ?? createNoopRagRetriever();
 
   return {
     workspace: options.workspace,
@@ -114,7 +122,8 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     hostCapabilities: createStaticHostCapabilityManifestPort(manifest),
     turnPolicies: createServiceTurnPolicyResolver(),
     turnGuards: options.turnGuards ?? createNoopTurnGuardRegistry(),
-    contextManager: createServiceContextManager(),
+    ragRetriever,
+    contextManager: createServiceContextManager({ ragRetriever }),
     runtime,
     runtimeProviderId,
     runtimeModelId,

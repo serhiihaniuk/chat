@@ -17,6 +17,7 @@ import type {
 } from "#domain/harness";
 
 export type * from "./turn-guard.js";
+export type * from "./rag-retriever.js";
 
 /**
  * Ports are the core package's dependencies, not implementations.
@@ -141,6 +142,7 @@ export type ContextManagerPort = {
     readonly manifest: HostCapabilityManifest;
     readonly policyDecision: TurnPolicyDecision;
     readonly now: string;
+    readonly abortSignal?: AbortSignal;
   }) => Effect.Effect<PreparedTurnContext, unknown>;
 };
 

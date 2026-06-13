@@ -1,5 +1,7 @@
 import type {
   ObservabilitySinkPort,
+  RagRetrieverPort,
+  RetrievalSourceCapability,
   TurnGuardRegistryPort,
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
@@ -40,6 +42,8 @@ export type PartnerAiServiceOptions = {
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
   readonly turnGuards?: TurnGuardRegistryPort;
+  readonly ragRetriever?: RagRetrieverPort;
+  readonly retrievalSources?: readonly RetrievalSourceCapability[];
   readonly persistenceLabel?: "memory" | "postgres-drizzle";
   readonly workspace?: WorkspaceRef;
 };
@@ -100,4 +104,6 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   ...optionalField("runtime", options.runtime),
   ...optionalField("agentRuntime", options.agentRuntime),
   ...optionalField("turnGuards", options.turnGuards),
+  ...optionalField("ragRetriever", options.ragRetriever),
+  ...optionalField("retrievalSources", options.retrievalSources),
 });
