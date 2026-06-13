@@ -5,6 +5,7 @@ import type { PolicyDenialCode } from "#policies/policy";
 export const PARTNER_AI_CORE_ERROR_CODES = {
   RUNTIME_FAILED: "runtime_failed",
   PERSISTENCE_FAILED: "persistence_failed",
+  TURN_GUARD_BLOCKED: "turn_guard_blocked",
   INVALID_RUNTIME_SEQUENCE: "invalid_runtime_sequence",
 } as const;
 

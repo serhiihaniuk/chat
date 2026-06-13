@@ -9,6 +9,7 @@ import type {
   ConversationRepositoryPort,
   HostCapabilityManifestPort,
   IdGeneratorPort,
+  TurnGuardRegistryPort,
   TurnPolicyResolverPort,
 } from "#ports";
 import { NOOP_OBSERVABILITY_SINK, type ObservabilitySinkPort } from "./observability.js";
@@ -41,6 +42,11 @@ export class TurnPolicyResolverService extends Context.Service<
   TurnPolicyResolverPort
 >()("@side-chat/partner-ai-core/TurnPolicyResolverService") {}
 
+export class TurnGuardRegistryService extends Context.Service<
+  TurnGuardRegistryService,
+  TurnGuardRegistryPort
+>()("@side-chat/partner-ai-core/TurnGuardRegistryService") {}
+
 export class ContextManagerService extends Context.Service<
   ContextManagerService,
   ContextManagerPort
@@ -72,6 +78,7 @@ export type PartnerAiCoreServices =
   | AssistantTurnLifecycleService
   | HostCapabilityManifestService
   | TurnPolicyResolverService
+  | TurnGuardRegistryService
   | ContextManagerService
   | AgentRuntimeService
   | ClockService
@@ -84,6 +91,7 @@ export type PartnerAiCoreLayerInput = {
   readonly assistantTurns: AssistantTurnLifecyclePort;
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
+  readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntimePort;
   readonly clock: ClockPort;
@@ -106,6 +114,7 @@ export const createPartnerAiCoreLayer = (
     Layer.succeed(AssistantTurnLifecycleService, input.assistantTurns),
     Layer.succeed(HostCapabilityManifestService, input.hostCapabilities),
     Layer.succeed(TurnPolicyResolverService, input.turnPolicies),
+    Layer.succeed(TurnGuardRegistryService, input.turnGuards),
     Layer.succeed(ContextManagerService, input.contextManager),
     Layer.succeed(AgentRuntimeService, input.runtime),
     Layer.succeed(ClockService, input.clock),
@@ -127,6 +136,7 @@ export const partnerAiCoreServicesEffect = Effect.gen(function* () {
     assistantTurns: yield* AssistantTurnLifecycleService,
     hostCapabilities: yield* HostCapabilityManifestService,
     turnPolicies: yield* TurnPolicyResolverService,
+    turnGuards: yield* TurnGuardRegistryService,
     contextManager: yield* ContextManagerService,
     runtime: yield* AgentRuntimeService,
     clock: yield* ClockService,

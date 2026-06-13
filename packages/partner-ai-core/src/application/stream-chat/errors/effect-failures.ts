@@ -37,6 +37,12 @@ export const STREAM_CHAT_FAILURES = {
     protocolCode: PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
     retryable: true,
   },
+  TURN_GUARD: {
+    code: PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
+    message: "Turn guard failed.",
+    protocolCode: PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
+    retryable: false,
+  },
   OBSERVABILITY: {
     code: PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
     message: "Stream observability failed.",

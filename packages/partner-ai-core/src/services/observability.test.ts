@@ -131,6 +131,7 @@ describe("observability redaction and correlation", () => {
               clock: ports.clock,
               ids: ports.ids,
               policies: ports.policies,
+              turnGuards: { guards: [] },
               observability: ports.observability,
             }),
           ),

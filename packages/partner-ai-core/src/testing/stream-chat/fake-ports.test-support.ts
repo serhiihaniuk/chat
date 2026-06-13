@@ -18,6 +18,7 @@ import {
   type IdGeneratorPort,
   type RuntimeEvent,
   type RuntimeRequest,
+  type TurnGuardRegistryPort,
 } from "#ports";
 import type { PolicyEvaluationInput, PolicyPort } from "#policies/policy";
 import { createPartnerAiCoreLayer } from "#services/effect-runtime";
@@ -34,6 +35,7 @@ export type FakePortOptions = {
   readonly policies?: PolicyPort;
   readonly manifest?: HostCapabilityManifest;
   readonly policyDecision?: TurnPolicyDecision;
+  readonly turnGuards?: TurnGuardRegistryPort;
   readonly preparedContext?: PreparedTurnContext;
 };
 
@@ -70,6 +72,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
         return Effect.succeed(manifest);
       },
     },
+    turnGuards: options.turnGuards ?? { guards: [] },
     turnPolicies: {
       resolveTurnPolicy: () => {
         calls.push("turnPolicy");
@@ -111,6 +114,7 @@ export const runStreamChat = (
           hostCapabilities: ports.hostCapabilities,
           assistantTurns: ports.assistantTurns,
           turnPolicies: ports.turnPolicies,
+          turnGuards: ports.turnGuards,
           contextManager: ports.contextManager,
           runtime: ports.runtime,
           clock: ports.clock,

@@ -38,6 +38,7 @@ transports convert the Effect stream at their own boundary.
 StreamChatInput
 -> authorize workspace/project scope
 -> decide allowed profile/model/tools
+-> run turn guards before private context/tools
 -> ensure conversation
 -> persist user message
 -> prepare context and runtime request

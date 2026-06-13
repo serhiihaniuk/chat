@@ -12,6 +12,8 @@ import type {
   HostCapabilityManifestPort,
   IdGeneratorPort,
   MessageRef,
+  TurnGuardDecision,
+  TurnGuardRegistryPort,
   TurnPolicyResolverPort,
 } from "#ports";
 import type { PolicyPort } from "#policies/policy";
@@ -45,6 +47,7 @@ export type StreamChatPorts = {
   readonly assistantTurns: AssistantTurnLifecyclePort;
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
+  readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntimePort;
   readonly clock: ClockPort;
@@ -70,5 +73,6 @@ export type PreparedStreamChatTurn = {
   readonly assistantTurnId: string;
   readonly manifestHash: string;
   readonly policyDecision: TurnPolicyDecision;
+  readonly turnGuardDecisions: readonly TurnGuardDecision[];
   readonly preparedContext: PreparedTurnContext;
 };

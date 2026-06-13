@@ -9,6 +9,7 @@ import type {
   ObservabilitySinkPort,
   PolicyPort,
   StreamChatPorts,
+  TurnGuardRegistryPort,
   TurnPolicyResolverPort,
 } from "@side-chat/partner-ai-core";
 
@@ -17,6 +18,7 @@ export type ServicePortsOptions = {
   readonly assistantTurns: AssistantTurnLifecyclePort;
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
+  readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntimePort;
   readonly clock?: ClockPort;
@@ -30,6 +32,7 @@ export const createServicePorts = (options: ServicePortsOptions): StreamChatPort
   assistantTurns: options.assistantTurns,
   hostCapabilities: options.hostCapabilities,
   turnPolicies: options.turnPolicies,
+  turnGuards: options.turnGuards,
   contextManager: options.contextManager,
   runtime: options.runtime,
   clock: options.clock ?? systemClock,

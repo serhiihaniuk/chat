@@ -1,4 +1,8 @@
-import type { ObservabilitySinkPort, WorkspaceRef } from "@side-chat/partner-ai-core";
+import type {
+  ObservabilitySinkPort,
+  TurnGuardRegistryPort,
+  WorkspaceRef,
+} from "@side-chat/partner-ai-core";
 import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
 import { optionalField } from "@side-chat/shared";
@@ -35,6 +39,7 @@ export type PartnerAiServiceOptions = {
   readonly persistence?: PersistenceConfig;
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
+  readonly turnGuards?: TurnGuardRegistryPort;
   readonly persistenceLabel?: "memory" | "postgres-drizzle";
   readonly workspace?: WorkspaceRef;
 };
@@ -74,6 +79,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     repositories: composition.repositories,
     hostCapabilities: composition.hostCapabilities,
     turnPolicies: composition.turnPolicies,
+    turnGuards: composition.turnGuards,
     contextManager: composition.contextManager,
     runtime: composition.runtime,
     policies,
@@ -93,4 +99,5 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   ...optionalField("repositories", options.repositories),
   ...optionalField("runtime", options.runtime),
   ...optionalField("agentRuntime", options.agentRuntime),
+  ...optionalField("turnGuards", options.turnGuards),
 });

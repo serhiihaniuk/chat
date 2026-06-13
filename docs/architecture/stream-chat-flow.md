@@ -13,14 +13,15 @@ Not source of truth for: every helper implementation.
 |     2 | service adapter    | Builds StreamChatInput from protocol request and service context. | HTTP/request error.                                | StreamChatInput.                          |
 |     3 | core authorization | Proves workspace/project access before writes.                    | Pre-start rejection.                               | Authorized request context.               |
 |     4 | turn policy        | Resolves allowed profile, model, and tools.                       | Pre-start rejection.                               | Turn plan.                                |
-|     5 | conversation       | Loads or creates authorized conversation.                         | Pre-start rejection.                               | Conversation ref.                         |
-|     6 | user message       | Persists visible user message.                                    | Pre-start rejection.                               | User message record/ref.                  |
-|     7 | assistant turn     | Starts assistant turn record.                                     | Pre-start rejection when not started.              | Assistant turn ref.                       |
-|     8 | prepared context   | Builds and records context sent to runtime.                       | Pre-start rejection when not started.              | Prepared context and manifest.            |
-|     9 | started event      | Emits `sidechat.started`.                                         | After this point, failures become terminal events. | Started protocol event.                   |
-|    10 | runtime stream     | Executes AgentRuntimeRequest.                                     | Runtime failure maps to post-start terminal error. | RuntimeEvents.                            |
-|    11 | protocol mapping   | Maps RuntimeEvents to SidechatStreamEvents.                       | Mapping failure maps to terminal error.            | Protocol stream events.                   |
-|    12 | finalization       | Emits exactly one terminal event.                                 | Error terminal on failure.                         | `sidechat.completed` or `sidechat.error`. |
+|     5 | turn guards        | Checks user text against selected profile and safety policy.      | Pre-start rejection.                               | Allow, warning, or block decision.        |
+|     6 | conversation       | Loads or creates authorized conversation.                         | Pre-start rejection.                               | Conversation ref.                         |
+|     7 | user message       | Persists visible user message.                                    | Pre-start rejection.                               | User message record/ref.                  |
+|     8 | assistant turn     | Starts assistant turn record.                                     | Pre-start rejection when not started.              | Assistant turn ref.                       |
+|     9 | prepared context   | Builds and records context sent to runtime.                       | Pre-start rejection when not started.              | Prepared context and manifest.            |
+|    10 | started event      | Emits `sidechat.started`.                                         | After this point, failures become terminal events. | Started protocol event.                   |
+|    11 | runtime stream     | Executes AgentRuntimeRequest.                                     | Runtime failure maps to post-start terminal error. | RuntimeEvents.                            |
+|    12 | protocol mapping   | Maps RuntimeEvents to SidechatStreamEvents.                       | Mapping failure maps to terminal error.            | Protocol stream events.                   |
+|    13 | finalization       | Emits exactly one terminal event.                                 | Error terminal on failure.                         | `sidechat.completed` or `sidechat.error`. |
 
 ## Spine Function Rule
 

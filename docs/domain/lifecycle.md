@@ -49,11 +49,12 @@ DTOs, database rows, Hono objects, or Effect values.
 |     1 | Validate HTTP method, auth, and request body. | Reject as HTTP/request error.                                       | Valid ChatStreamRequest.                  |
 |     2 | Authorize workspace/project scope.            | Reject before `sidechat.started`.                                   | Authorized core input.                    |
 |     3 | Decide allowed profile, model, and tools.     | Reject before `sidechat.started`.                                   | Turn plan.                                |
-|     4 | Ensure conversation and persist user message. | Reject before `sidechat.started`.                                   | Conversation and user message records.    |
-|     5 | Start assistant turn and prepare context.     | Reject before `sidechat.started` if the browser has not seen start. | Assistant turn and prepared context.      |
-|     6 | Emit `sidechat.started`.                      | Stream is now product-started.                                      | Started protocol event.                   |
-|     7 | Run agent runtime and map RuntimeEvents.      | Convert post-start failures to terminal `sidechat.error`.           | Deltas, activity, sources, usage.         |
-|     8 | Emit terminal event exactly once.             | Terminal error if runtime/core fails after start.                   | `sidechat.completed` or `sidechat.error`. |
+|     4 | Run turn guards before private context/tools. | Reject before `sidechat.started`.                                   | Allow, warning, or block decision.        |
+|     5 | Ensure conversation and persist user message. | Reject before `sidechat.started`.                                   | Conversation and user message records.    |
+|     6 | Start assistant turn and prepare context.     | Reject before `sidechat.started` if the browser has not seen start. | Assistant turn and prepared context.      |
+|     7 | Emit `sidechat.started`.                      | Stream is now product-started.                                      | Started protocol event.                   |
+|     8 | Run agent runtime and map RuntimeEvents.      | Convert post-start failures to terminal `sidechat.error`.           | Deltas, activity, sources, usage.         |
+|     9 | Emit terminal event exactly once.             | Terminal error if runtime/core fails after start.                   | `sidechat.completed` or `sidechat.error`. |
 
 ## Tool And Activity Lifecycle
 

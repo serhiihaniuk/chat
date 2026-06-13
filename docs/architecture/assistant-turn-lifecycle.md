@@ -27,29 +27,29 @@ HTTP adapter parses ChatStreamRequest and auth
 |     4 | Load and validate host capability manifest  | `partner-ai-core` through port                    | Pre-start rejection                                              |
 |     5 | Resolve and validate turn policy decision   | `partner-ai-core` through port                    | Pre-start rejection                                              |
 |     6 | Evaluate product policy                     | `partner-ai-core` through port                    | Pre-start rejection                                              |
-|     7 | Ensure authorized conversation              | `partner-ai-core` through repository port         | Pre-start rejection                                              |
-|     8 | Append user message                         | `partner-ai-core` through repository port         | Pre-start rejection                                              |
-|     9 | Start assistant turn record                 | `partner-ai-core` through lifecycle port          | Pre-start rejection, with failed turn recording after this point |
-|    10 | Prepare context and record context snapshot | `partner-ai-core` through context/lifecycle ports | Pre-start rejection, with failed turn recording                  |
-|    11 | Record stream started                       | `partner-ai-core` observability                   | Pre-start rejection                                              |
-|    12 | Emit `sidechat.started`                     | protocol stream                                   | Streaming has begun                                              |
-|    13 | Execute runtime stream                      | `agent-runtime`                                   | Post-start terminal `sidechat.error`                             |
-|    14 | Map RuntimeEvents to protocol events        | `partner-ai-core`                                 | Post-start terminal `sidechat.error`                             |
-|    15 | Emit exactly one terminal event             | protocol finalization                             | `sidechat.completed` or `sidechat.error`                         |
+|     7 | Run turn guards                             | `partner-ai-core` through guard registry port     | Pre-start rejection                                              |
+|     8 | Ensure authorized conversation              | `partner-ai-core` through repository port         | Pre-start rejection                                              |
+|     9 | Append user message                         | `partner-ai-core` through repository port         | Pre-start rejection                                              |
+|    10 | Start assistant turn record                 | `partner-ai-core` through lifecycle port          | Pre-start rejection, with failed turn recording after this point |
+|    11 | Prepare context and record context snapshot | `partner-ai-core` through context/lifecycle ports | Pre-start rejection, with failed turn recording                  |
+|    12 | Record stream started                       | `partner-ai-core` observability                   | Pre-start rejection                                              |
+|    13 | Emit `sidechat.started`                     | protocol stream                                   | Streaming has begun                                              |
+|    14 | Execute runtime stream                      | `agent-runtime`                                   | Post-start terminal `sidechat.error`                             |
+|    15 | Map RuntimeEvents to protocol events        | `partner-ai-core`                                 | Post-start terminal `sidechat.error`                             |
+|    16 | Emit exactly one terminal event             | protocol finalization                             | `sidechat.completed` or `sidechat.error`                         |
 
-## Target Seam Entries
+## Future Seam Entries
 
 Later implementation phases extend this order without changing the failure
 split.
 
-| Seam                     | Target location                                                   | Why there                                                                                          |
-| ------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Turn guards              | After turn policy, before private memory/RAG/tools/main execution | Unsafe prompts should be blocked before sensitive context is exposed.                              |
-| Memory recall            | During context preparation                                        | Memory is model-visible context, not runtime-private behavior.                                     |
-| RAG retrieval            | During context preparation                                        | Retrieval needs auth, source allowlists, provenance, and token budgeting before the model answers. |
-| Research agent           | After guards/policy, before final context selection               | Research output becomes context candidates or artifacts, not direct browser protocol events.       |
-| Agent executor selection | Before runtime request creation                                   | Core chooses an allowed executor; the model does not choose arbitrary execution engines.           |
-| Memory write candidates  | After runtime output and policy checks                            | Durable memory writes need explicit policy and should not happen silently from raw model claims.   |
+| Seam                     | Target location                                     | Why there                                                                                          |
+| ------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Memory recall            | During context preparation                          | Memory is model-visible context, not runtime-private behavior.                                     |
+| RAG retrieval            | During context preparation                          | Retrieval needs auth, source allowlists, provenance, and token budgeting before the model answers. |
+| Research agent           | After guards/policy, before final context selection | Research output becomes context candidates or artifacts, not direct browser protocol events.       |
+| Agent executor selection | Before runtime request creation                     | Core chooses an allowed executor; the model does not choose arbitrary execution engines.           |
+| Memory write candidates  | After runtime output and policy checks              | Durable memory writes need explicit policy and should not happen silently from raw model claims.   |
 
 ## Failure Split
 

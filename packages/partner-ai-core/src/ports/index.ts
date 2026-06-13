@@ -16,6 +16,8 @@ import type {
   TurnPolicyDecision,
 } from "#domain/harness";
 
+export type * from "./turn-guard.js";
+
 /**
  * Ports are the core package's dependencies, not implementations.
  *

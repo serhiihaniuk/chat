@@ -16,7 +16,11 @@ import type { Hono } from "hono";
 import { createServicePersistence } from "#adapters/persistence/service-persistence";
 import { createServicePorts } from "#composition/service-ports";
 import type { AuthContextVariables } from "../middleware/auth-context.js";
-import { errorMessage, jsonError } from "../response/protocol-errors.js";
+import {
+  errorMessage,
+  httpStatusForProtocolError,
+  jsonError,
+} from "../response/protocol-errors.js";
 import { streamingSseResponse } from "../response/sse.js";
 import { requireContextAuth, type RouteDependencies } from "./types.js";
 
@@ -43,6 +47,7 @@ export const registerChatStreamRoute = (
         assistantTurns: persistence.assistantTurns,
         hostCapabilities: dependencies.hostCapabilities,
         turnPolicies: dependencies.turnPolicies,
+        turnGuards: dependencies.turnGuards,
         contextManager: dependencies.contextManager,
         runtime: dependencies.runtime,
         ...(dependencies.observability ? { observability: dependencies.observability } : {}),
@@ -105,8 +110,12 @@ const traceInput = (request: Request): { readonly traceId?: string } => {
 
 const mapServiceError = (error: unknown): Response => {
   if (error instanceof PartnerAiCoreError) {
-    const status = error.protocolCode === PROTOCOL_ERROR_CODES.UNAUTHORIZED ? 401 : 403;
-    return jsonError(error.protocolCode, error.message, status, error.retryable);
+    return jsonError(
+      error.protocolCode,
+      error.message,
+      httpStatusForProtocolError(error.protocolCode),
+      error.retryable,
+    );
   }
   if (error instanceof ProtocolValidationError) {
     return jsonError(PROTOCOL_ERROR_CODES.BAD_REQUEST, error.message, 400);

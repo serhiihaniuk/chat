@@ -55,15 +55,16 @@ Not source of truth for: architecture decisions or implementation plans.
 
 ## Capability Terms
 
-| Term                      | Meaning                                                                                                            | Owner                      | Do not confuse with      | Allowed aliases     | Forbidden aliases      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------- | ------------------------ | ------------------- | ---------------------- |
-| host capability manifest  | Host-app declaration of possible profiles, tools, commands, retrieval sources, policies, workflows, and renderers. | `partner-ai-core`, service | executable registry      | manifest when local | plugin list            |
-| assistant profile         | Versioned assistant configuration selected for one turn before runtime execution.                                  | `partner-ai-core`          | model id                 | profile when local  | persona in broad scope |
-| ToolCapability            | Manifest declaration for a backend capability that may become a runtime tool if policy and registry allow it.      | `partner-ai-core`          | RuntimeTool              | tool declaration    | tool in broad scope    |
-| RetrievalSourceCapability | Manifest declaration for a source that RAG may search when policy allows it.                                       | `partner-ai-core`          | RuntimeTool              | retrieval source    | search tool            |
-| MemoryPolicy              | Manifest/profile policy for whether memory may be read or written for one turn.                                    | `partner-ai-core`          | RAG source               | none                | memory store           |
-| TurnPolicyDecision        | Per-turn policy result that selects profile/model/tools/commands/RAG/memory/workflow exposure.                     | `partner-ai-core`          | host capability manifest | policy decision     | config, options        |
-| executable registry       | Runtime or service-side collection of concrete implementations that can run if selected.                           | service, `agent-runtime`   | host capability manifest | registry when local | plugin list            |
+| Term                      | Meaning                                                                                                              | Owner                      | Do not confuse with         | Allowed aliases     | Forbidden aliases      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------- | --------------------------- | ------------------- | ---------------------- |
+| host capability manifest  | Host-app declaration of possible profiles, tools, commands, retrieval sources, policies, workflows, and renderers.   | `partner-ai-core`, service | executable registry         | manifest when local | plugin list            |
+| assistant profile         | Versioned assistant configuration selected for one turn before runtime execution.                                    | `partner-ai-core`          | model id                    | profile when local  | persona in broad scope |
+| ToolCapability            | Manifest declaration for a backend capability that may become a runtime tool if policy and registry allow it.        | `partner-ai-core`          | RuntimeTool                 | tool declaration    | tool in broad scope    |
+| RetrievalSourceCapability | Manifest declaration for a source that RAG may search when policy allows it.                                         | `partner-ai-core`          | RuntimeTool                 | retrieval source    | search tool            |
+| MemoryPolicy              | Manifest/profile policy for whether memory may be read or written for one turn.                                      | `partner-ai-core`          | RAG source                  | none                | memory store           |
+| TurnPolicyDecision        | Per-turn policy result that selects profile/model/tools/commands/RAG/memory/workflow exposure.                       | `partner-ai-core`          | host capability manifest    | policy decision     | config, options        |
+| TurnGuard                 | Pre-context safety check that may allow, warn, or block one turn before conversation persistence, context, or tools. | `partner-ai-core`, service | product policy, RuntimeTool | guard when local    | safety plugin          |
+| executable registry       | Runtime or service-side collection of concrete implementations that can run if selected.                             | service, `agent-runtime`   | host capability manifest    | registry when local | plugin list            |
 
 ## Tool And Activity Terms
 

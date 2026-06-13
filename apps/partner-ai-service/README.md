@@ -8,6 +8,7 @@ Not source of truth for: global vocabulary or product requirements.
 
 - Hono HTTP routes and middleware.
 - Auth, config, persistence, policy, provider, and tool adapters.
+- Concrete turn guard registries and guard adapters.
 - Deployable service composition of `partner-ai-core`, `agent-runtime`, `db`,
   and concrete enterprise adapters.
 - SSE response conversion at the transport edge.

@@ -97,6 +97,7 @@ describe("partner AI core Effect runtime layer", () => {
         nextEventId: () => "event-1",
       },
       policies: { evaluate: () => Effect.succeed({ allowed: true }) },
+      turnGuards: { guards: [] },
       observability: { record: () => Effect.succeed(undefined) },
     });
 

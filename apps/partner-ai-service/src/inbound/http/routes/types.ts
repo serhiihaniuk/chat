@@ -5,6 +5,7 @@ import type {
   HostCapabilityManifestPort,
   ObservabilitySinkPort,
   PolicyPort,
+  TurnGuardRegistryPort,
   TurnPolicyResolverPort,
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
@@ -16,6 +17,7 @@ export type RouteDependencies = {
   readonly repositories: SidechatRepositories;
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
+  readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntimePort;
   readonly policies: PolicyPort;

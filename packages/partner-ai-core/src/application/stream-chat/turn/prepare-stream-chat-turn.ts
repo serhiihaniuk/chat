@@ -13,6 +13,7 @@ import type {
   StreamChatInput,
   StreamChatPorts,
 } from "../stream-chat-types.js";
+import { runTurnGuards } from "../guards/run-turn-guards.js";
 import { resolveAllowedTurnPlan } from "./turn-policy-plan.js";
 
 /**
@@ -51,6 +52,14 @@ export const prepareStreamChatTurn = (
 
     // Resolve the per-turn allowlist.
     const turnPlan = yield* resolveAllowedTurnPlan(ports, input, authContext);
+
+    // Block unsafe prompts before private context or runtime tools are exposed.
+    const turnGuardDecisions = yield* runTurnGuards({
+      registry: ports.turnGuards,
+      streamInput: input,
+      authContext,
+      turnPlan,
+    });
 
     // Attach the user-visible message to an authorized conversation.
     const conversation = yield* mapPortFailure(
@@ -161,6 +170,7 @@ export const prepareStreamChatTurn = (
       assistantTurnId: assistantTurn.assistantTurnId,
       manifestHash: turnPlan.manifestHash,
       policyDecision: turnPlan.policyDecision,
+      turnGuardDecisions,
       preparedContext,
     };
   });

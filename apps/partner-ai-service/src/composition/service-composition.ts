@@ -11,6 +11,7 @@ import {
 import {
   type ContextManagerPort,
   type HostCapabilityManifestPort,
+  type TurnGuardRegistryPort,
   type TurnPolicyResolverPort,
   type WorkspaceRef,
 } from "@side-chat/partner-ai-core";
@@ -22,6 +23,7 @@ import {
 import { optionalField } from "@side-chat/shared";
 
 import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/auth/service-auth";
+import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
 import {
   createDefaultPolicyConfig,
   type ServicePolicyConfig,
@@ -67,6 +69,7 @@ export type ServiceComposition = {
   readonly repositories: SidechatRepositories;
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
+  readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntime;
   readonly runtimeProviderId: string;
@@ -82,6 +85,7 @@ export type ServiceCompositionOptions = {
   readonly repositories?: SidechatRepositories;
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
+  readonly turnGuards?: TurnGuardRegistryPort;
 };
 
 export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
@@ -109,6 +113,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     repositories,
     hostCapabilities: createStaticHostCapabilityManifestPort(manifest),
     turnPolicies: createServiceTurnPolicyResolver(),
+    turnGuards: options.turnGuards ?? createNoopTurnGuardRegistry(),
     contextManager: createServiceContextManager(),
     runtime,
     runtimeProviderId,
