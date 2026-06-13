@@ -82,6 +82,7 @@ activity row. They do not become separate top-level timeline rows.
 
 ## Related Docs
 
+- `docs/architecture/assistant-turn-lifecycle.md`
 - `docs/architecture/stream-chat-flow.md`
 - `docs/architecture/boundaries.md`
 - `docs/domain/vocabulary.md`

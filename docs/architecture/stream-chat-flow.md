@@ -39,6 +39,7 @@ prepares, or finalizes.
 
 ## Related Docs
 
+- `docs/architecture/assistant-turn-lifecycle.md`
 - `docs/domain/lifecycle.md`
 - `docs/architecture/effect-style.md`
 - `packages/partner-ai-core/src/application/stream-chat/README.md`

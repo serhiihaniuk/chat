@@ -18,16 +18,16 @@ import { resolveAllowedTurnPlan } from "./turn-policy-plan.js";
 /**
  * Prepare everything that must succeed before the browser sees `started`.
  *
- * Source checks include authorization, policy, conversation creation, user-message persistence, and
- * initial observability all happen before the protocol stream opens. If this
- * fails, the HTTP adapter can return a request-level error instead of
- * half-opening an SSE response.
+ * Everything in this function finishes before the protocol stream opens. If a
+ * step fails, the HTTP adapter can reject setup instead of half-opening an SSE
+ * response.
  */
 export const prepareStreamChatTurn = (
   ports: StreamChatPorts,
   input: StreamChatInput,
 ): Effect.Effect<PreparedStreamChatTurn, PartnerAiCoreErrorType> =>
   Effect.gen(function* () {
+    // Prove caller authority before any product state changes.
     const authContext = yield* resolveAuthorizedContext(input);
     const correlation = createRequestCorrelation({
       requestId: input.request.requestId,
@@ -35,6 +35,7 @@ export const prepareStreamChatTurn = (
     });
     const startedAt = ports.clock.now();
 
+    // Record receipt before later stages mutate product state.
     yield* recordStreamObservationEffect(ports.observability, {
       correlation,
       lifecycleState: "received",
@@ -48,8 +49,10 @@ export const prepareStreamChatTurn = (
       },
     });
 
+    // Resolve the per-turn allowlist.
     const turnPlan = yield* resolveAllowedTurnPlan(ports, input, authContext);
 
+    // Attach the user-visible message to an authorized conversation.
     const conversation = yield* mapPortFailure(
       ports.conversations.ensureConversation({
         authContext,
@@ -76,6 +79,7 @@ export const prepareStreamChatTurn = (
       STREAM_CHAT_FAILURES.PERSISTENCE,
     );
 
+    // Create the durable record that streamed output attaches to.
     const assistantTurn = yield* mapPortFailure(
       ports.assistantTurns.startAssistantTurn({
         authContext,
@@ -92,6 +96,8 @@ export const prepareStreamChatTurn = (
       }),
       STREAM_CHAT_FAILURES.PERSISTENCE,
     );
+
+    // Prepare and persist the model-visible context snapshot.
     const preparedContext = yield* failStartedTurnOnError(
       ports,
       authContext,
@@ -125,6 +131,7 @@ export const prepareStreamChatTurn = (
       ),
     );
 
+    // Mark pre-start preparation complete; protocol streaming can now open.
     yield* recordStreamObservationEffect(ports.observability, {
       correlation,
       lifecycleState: "started",

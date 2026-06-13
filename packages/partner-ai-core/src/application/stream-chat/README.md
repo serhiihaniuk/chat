@@ -29,6 +29,7 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 
 ## Related Docs
 
+- `docs/architecture/assistant-turn-lifecycle.md`
 - `docs/domain/lifecycle.md`
 - `docs/architecture/stream-chat-flow.md`
 - `docs/architecture/effect-style.md`
