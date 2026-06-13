@@ -7,6 +7,14 @@ import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import type { AuthContext } from "#domain/authority";
 import {
+  HOST_CAPABILITY_SCHEMA_VERSIONS,
+  createTurnPolicyDecision,
+  hashHostCapabilityManifest,
+  resolveAssistantProfileFromManifest,
+  type AssistantProfile,
+  type HostCapabilityManifest,
+} from "#domain/harness";
+import {
   createRequestCorrelation,
   redactAttributes,
   type ObservabilityRecord,
@@ -36,6 +44,7 @@ const authContext: AuthContext = {
 
 const input: StreamChatInput = {
   workspace: { tenantId: "tenant_001", workspaceId: "workspace_001" },
+  hostAppId: "host_app_001",
   request: {
     protocolVersion: SIDECHAT_PROTOCOL_VERSION,
     requestId: "request_observe_1",
@@ -46,8 +55,6 @@ const input: StreamChatInput = {
     },
   },
   authContext,
-  providerId: "fake",
-  modelId: "fake-echo",
   traceId: "trace-explicit-1",
 };
 
@@ -116,9 +123,14 @@ describe("observability redaction and correlation", () => {
           Stream.provide(
             createPartnerAiCoreLayer({
               conversations: ports.conversations,
+              assistantTurns: ports.assistantTurns,
+              hostCapabilities: ports.hostCapabilities,
+              turnPolicies: ports.turnPolicies,
+              contextManager: ports.contextManager,
               runtime: ports.runtime,
               clock: ports.clock,
               ids: ports.ids,
+              policies: ports.policies,
               observability: ports.observability,
             }),
           ),
@@ -175,7 +187,7 @@ describe("observability redaction and correlation", () => {
     expect(records.at(-1)).toMatchObject({
       lifecycleState: "failed",
       errorCode: PROTOCOL_ERROR_CODES.TIMEOUT,
-      latencyMs: 70,
+      latencyMs: 110,
       attributes: { eventCount: 3 },
     });
   });
@@ -186,6 +198,13 @@ const createObservedPorts = (
   runtimeEvents: readonly RuntimeEvent[],
 ) => {
   const clock = createSteppingClock();
+  const manifest = createManifest();
+  const profile = resolveProfile(manifest);
+  const policyDecision = createTurnPolicyDecision({
+    manifest,
+    profile,
+    manifestHash: hashHostCapabilityManifest(manifest),
+  });
   const conversations: ConversationRepositoryPort = {
     ensureConversation: ({ authContext: context, fallbackConversationId }) =>
       Effect.succeed({
@@ -193,14 +212,33 @@ const createObservedPorts = (
         workspaceId: context.workspaceId,
         conversationId: fallbackConversationId,
       }),
-    appendUserMessage: () => Effect.succeed(undefined),
+    appendUserMessage: () =>
+      Effect.succeed({
+        tenantId: "tenant_001",
+        workspaceId: "workspace_001",
+        conversationId: "conversation_001",
+        messageId: "message_record_001",
+      }),
+  };
+  const assistantTurns = {
+    startAssistantTurn: () =>
+      Effect.succeed({
+        tenantId: "tenant_001",
+        workspaceId: "workspace_001",
+        conversationId: "conversation_001",
+        assistantTurnId: "assistant_turn_001",
+        status: "running" as const,
+        inserted: true,
+      }),
+    recordContextSnapshot: () => Effect.succeed(undefined),
+    completeAssistantTurn: () => Effect.succeed(undefined),
+    failAssistantTurn: () => Effect.succeed(undefined),
   };
   const runtime: AgentRuntimePort = {
     streamEffect: () => Stream.fromIterable(runtimeEvents),
   };
   const ids: IdGeneratorPort = {
     nextConversationId: () => "conversation_001",
-    nextAssistantTurnId: () => "assistant_turn_001",
     nextEventId: (() => {
       let index = 0;
       return () => {
@@ -212,9 +250,44 @@ const createObservedPorts = (
 
   return {
     conversations,
+    assistantTurns,
+    hostCapabilities: { loadManifest: () => Effect.succeed(manifest) },
+    turnPolicies: { resolveTurnPolicy: () => Effect.succeed(policyDecision) },
+    contextManager: {
+      prepareTurnContext: () =>
+        Effect.succeed({
+          contextId: "context_observe_1",
+          profile,
+          policyDecision,
+          candidates: [],
+          runtimeMessages: [
+            { role: "user" as const, content: "secret prompt should not be logged" },
+          ],
+          contextBoard: {
+            sections: [],
+            manifest: {
+              manifestId: "context_manifest_observe_1",
+              manifestHash: "sha256:context_observe_1",
+              profileId: profile.profileId,
+              profileVersion: profile.version,
+              entries: [],
+              budget: {
+                maxInputTokens: 4096,
+                reservedOutputTokens: 512,
+                includedCandidateIds: [],
+                droppedCandidateIds: [],
+              },
+              createdAt: "2026-05-23T13:00:00.000Z",
+            },
+          },
+        }),
+    },
     runtime,
     clock,
     ids,
+    policies: {
+      evaluate: () => Effect.succeed({ allowed: true } as const),
+    },
     observability: {
       record: (record: ObservabilityRecord) =>
         Effect.sync(() => {
@@ -222,6 +295,41 @@ const createObservedPorts = (
         }),
     },
   };
+};
+
+const createManifest = (): HostCapabilityManifest => ({
+  schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
+  hostAppId: "host_app_001",
+  defaultAssistantProfileId: "analyst",
+  assistantProfiles: [createProfile()],
+  tools: [],
+  commands: [],
+  retrievalSources: [],
+  workflows: [],
+  approvalPolicies: [],
+  memoryPolicies: [{ policyId: "no_memory", mode: "disabled", scopes: [] }],
+  activityRenderers: [],
+});
+
+const createProfile = (): AssistantProfile => ({
+  profileId: "analyst",
+  version: "2026-06-13",
+  displayName: "Analyst",
+  systemPromptId: "prompt_analyst_v1",
+  modelPolicy: { providerId: "fake", modelId: "fake-echo" },
+  defaultToolPolicy: { mode: "closed", allowedToolNames: [] },
+  retrievalPolicy: { mode: "disabled", sourceIds: [] },
+  memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
+  outputContract: { format: "markdown" },
+  safetyPolicy: { policyId: "standard", promptInjectionMode: "standard" },
+});
+
+const resolveProfile = (manifest: HostCapabilityManifest): AssistantProfile => {
+  const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+  if (!resolution.resolved) {
+    throw new Error(resolution.issue.message);
+  }
+  return resolution.profile;
 };
 
 const createSteppingClock = (): ClockPort => {

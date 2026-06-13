@@ -11,7 +11,7 @@ import type {
   ToolInvocationRecord,
   UsageRecord,
 } from "#schema-contract";
-import { DbRepositoryError } from "./errors.js";
+import { DbRepositoryError } from "../errors.js";
 
 export type MemoryStore = {
   readonly conversations: ConversationRecord[];

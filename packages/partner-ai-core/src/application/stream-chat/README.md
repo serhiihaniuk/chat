@@ -10,21 +10,24 @@ stream-chat.ts
   public entrypoints:
   streamChatEffect
 
-prepare-stream-chat-turn.ts
+turn/prepare-stream-chat-turn.ts
   pre-stream work that must finish before sidechat.started:
   authority, policy, conversation creation, user-message persistence
 
-protocol-event-stream.ts
+protocol/protocol-event-stream.ts
   streaming work after sidechat.started:
   runtime event mapping, terminal error handling, final sequence validation
 
-runtime-event-mapper.ts
+protocol/protocol-terminal-lifecycle.ts
+  completion/failure persistence and terminal protocol invariants
+
+protocol/runtime-event-mapper.ts
   pure RuntimeEvent -> sidechat.v1 event mapping
 
-stream-chat-observability.ts
+observability/stream-chat-observability.ts
   Effect wrapper around stream lifecycle observation
 
-effect-failures.ts
+errors/effect-failures.ts
   stable PartnerAiCoreError mapping for port failures
 
 stream-chat-types.ts

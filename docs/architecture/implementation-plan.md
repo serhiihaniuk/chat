@@ -542,14 +542,14 @@ Purpose: harden the framework for real deployments.
 The phases are ordered by dependency, but implementation can be staffed in
 parallel once interfaces are stable:
 
-| Workstream | Owns | Can start after |
-| --- | --- | --- |
-| Core harness | policy, turn lifecycle, context manager | Phase 0 |
-| Runtime | request shape, tool fail-closed, stream event mapping | Phase 0 |
-| Persistence | ledger records, summaries, memory, retrieval, workflows | Phase 0 |
-| Widget/protocol | conversation id, activity/workflow events | Phase 1 |
-| Evals | context fixtures, retrieval/memory/workflow evals | Phase 2 |
-| Ops/Effect | config, layers, telemetry | Phase 1 |
+| Workstream      | Owns                                                    | Can start after |
+| --------------- | ------------------------------------------------------- | --------------- |
+| Core harness    | policy, turn lifecycle, context manager                 | Phase 0         |
+| Runtime         | request shape, tool fail-closed, stream event mapping   | Phase 0         |
+| Persistence     | ledger records, summaries, memory, retrieval, workflows | Phase 0         |
+| Widget/protocol | conversation id, activity/workflow events               | Phase 1         |
+| Evals           | context fixtures, retrieval/memory/workflow evals       | Phase 2         |
+| Ops/Effect      | config, layers, telemetry                               | Phase 1         |
 
 ## First Ten Implementation Issues
 
@@ -570,15 +570,15 @@ parallel once interfaces are stable:
 
 ## Risks and Mitigations
 
-| Risk | Mitigation |
-| --- | --- |
-| Adding retrieval/memory before context manager creates prompt stuffing | Gate retrieval and memory behind context manager candidates and manifests |
-| Workflow engine becomes too abstract | Start with compaction workflow, then one customer-facing two-node workflow |
-| Tool exposure becomes unsafe as real tools arrive | Fail closed by default and expose only policy-derived allowlists |
-| Persistence migrations sprawl | Add records phase by phase with repository contract tests |
-| Evals become flaky or expensive | Start deterministic; add live model lanes only behind explicit opt-in |
-| Effect layer migration blocks feature work | Introduce scoped layers around new resources first, then migrate existing adapters |
-| Widget promises features backend does not honor | Add protocol tests and e2e flows for profile, context, conversation, workflow activity |
+| Risk                                                                   | Mitigation                                                                             |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Adding retrieval/memory before context manager creates prompt stuffing | Gate retrieval and memory behind context manager candidates and manifests              |
+| Workflow engine becomes too abstract                                   | Start with compaction workflow, then one customer-facing two-node workflow             |
+| Tool exposure becomes unsafe as real tools arrive                      | Fail closed by default and expose only policy-derived allowlists                       |
+| Persistence migrations sprawl                                          | Add records phase by phase with repository contract tests                              |
+| Evals become flaky or expensive                                        | Start deterministic; add live model lanes only behind explicit opt-in                  |
+| Effect layer migration blocks feature work                             | Introduce scoped layers around new resources first, then migrate existing adapters     |
+| Widget promises features backend does not honor                        | Add protocol tests and e2e flows for profile, context, conversation, workflow activity |
 
 ## Verification Strategy
 

@@ -9,6 +9,12 @@ import {
   type ModelProvider,
 } from "@side-chat/agent-runtime";
 import {
+  type ContextManagerPort,
+  type HostCapabilityManifestPort,
+  type TurnPolicyResolverPort,
+  type WorkspaceRef,
+} from "@side-chat/partner-ai-core";
+import {
   createMemorySidechatRepositories,
   createPostgresDrizzleSidechatRepositories,
   type SidechatRepositories,
@@ -20,7 +26,12 @@ import {
   type ServicePolicyConfig,
 } from "#adapters/policy/service-policy";
 import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
-import type { WorkspaceRef } from "@side-chat/partner-ai-core";
+import { createServiceContextManager } from "./service-context-manager.js";
+import {
+  createServiceHostCapabilityManifest,
+  createServiceTurnPolicyResolver,
+  createStaticHostCapabilityManifestPort,
+} from "./service-harness.js";
 
 export type PersistenceConfig =
   | { readonly kind: "memory" }
@@ -48,10 +59,14 @@ export type OpenAIReasoningSummary = "auto" | "concise" | "detailed";
 
 export type ServiceComposition = {
   readonly workspace: WorkspaceRef;
+  readonly hostAppId: string;
   readonly auth: ServiceAuthConfig;
   readonly policies: ServicePolicyConfig;
   readonly persistence: PersistenceConfig;
   readonly repositories: SidechatRepositories;
+  readonly hostCapabilities: HostCapabilityManifestPort;
+  readonly turnPolicies: TurnPolicyResolverPort;
+  readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntime;
   readonly runtimeProviderId: string;
   readonly runtimeModelId: string;
@@ -75,17 +90,28 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     options.persistence ?? defaultPersistenceForComposition(auth.profile, options.repositories);
   const repositories = options.repositories ?? createRepositoriesForPersistence(persistence);
   const runtimeConfig = options.runtime ?? { provider: "fake" };
+  const runtimeProviderId = providerIdForRuntime(runtimeConfig);
+  const runtimeModelId = modelIdForRuntime(runtimeConfig);
+  const manifest = createServiceHostCapabilityManifest({
+    runtimeConfig,
+    providerId: runtimeProviderId,
+    modelId: runtimeModelId,
+  });
   const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);
 
   return {
     workspace: options.workspace,
+    hostAppId: manifest.hostAppId,
     auth,
     policies,
     persistence,
     repositories,
+    hostCapabilities: createStaticHostCapabilityManifestPort(manifest),
+    turnPolicies: createServiceTurnPolicyResolver(),
+    contextManager: createServiceContextManager(),
     runtime,
-    runtimeProviderId: providerIdForRuntime(runtimeConfig),
-    runtimeModelId: modelIdForRuntime(runtimeConfig),
+    runtimeProviderId,
+    runtimeModelId,
     persistenceLabel: persistence.kind === "postgres" ? "postgres-drizzle" : "memory",
   };
 };

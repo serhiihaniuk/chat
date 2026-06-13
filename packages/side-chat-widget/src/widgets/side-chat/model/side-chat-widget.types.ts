@@ -1,5 +1,4 @@
 import type { ChatClient } from "@side-chat/chat-client";
-import type { ChatStreamRequest, HostContext } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
 
 import type { SideChatWidgetPanelSize } from "#entities/panel";
@@ -41,5 +40,4 @@ export type SideChatWidgetProps = {
   readonly labels?: SideChatWidgetLabels;
   readonly panelActions?: SideChatWidgetPanelActions;
   readonly quickActions?: readonly SideChatWidgetQuickAction[];
-  readonly requestFactory?: (message: string, hostContext?: HostContext) => ChatStreamRequest;
 };

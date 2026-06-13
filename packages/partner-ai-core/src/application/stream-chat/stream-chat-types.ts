@@ -1,11 +1,18 @@
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
+import type { PreparedTurnContext, TurnPolicyDecision } from "#domain/harness";
 import type {
   AgentRuntimePort,
+  AssistantTurnLifecyclePort,
+  AssistantTurnRef,
   ClockPort,
+  ContextManagerPort,
   ConversationRef,
   ConversationRepositoryPort,
+  HostCapabilityManifestPort,
   IdGeneratorPort,
+  MessageRef,
+  TurnPolicyResolverPort,
 } from "#ports";
 import type { PolicyPort } from "#policies/policy";
 import type { ObservabilitySinkPort, RequestCorrelation } from "#services/observability";
@@ -19,11 +26,11 @@ import type { ObservabilitySinkPort, RequestCorrelation } from "#services/observ
  */
 export type StreamChatInput = {
   readonly workspace: WorkspaceRef;
+  readonly hostAppId: string;
   readonly request: ChatStreamRequest;
   readonly authContext: AuthContext | undefined;
-  readonly providerId: string;
-  readonly modelId: string;
   readonly traceId?: string;
+  readonly abortSignal?: AbortSignal;
 };
 
 /**
@@ -35,10 +42,14 @@ export type StreamChatInput = {
  */
 export type StreamChatPorts = {
   readonly conversations: ConversationRepositoryPort;
+  readonly assistantTurns: AssistantTurnLifecyclePort;
+  readonly hostCapabilities: HostCapabilityManifestPort;
+  readonly turnPolicies: TurnPolicyResolverPort;
+  readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntimePort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
-  readonly policies?: PolicyPort;
+  readonly policies: PolicyPort;
   readonly observability?: ObservabilitySinkPort;
 };
 
@@ -54,5 +65,10 @@ export type PreparedStreamChatTurn = {
   readonly correlation: RequestCorrelation;
   readonly startedAt: string;
   readonly conversation: ConversationRef;
+  readonly userMessage: MessageRef;
+  readonly assistantTurn: AssistantTurnRef;
   readonly assistantTurnId: string;
+  readonly manifestHash: string;
+  readonly policyDecision: TurnPolicyDecision;
+  readonly preparedContext: PreparedTurnContext;
 };

@@ -25,15 +25,15 @@ This document is the source of truth for how the repository is tested.
 
 ## Test Lanes
 
-| Lane               | Command                       | Environment                                  | What It Proves                                                                                                                             |
-| ------------------ | ----------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Fast deterministic | `npm test`                    | Host Node/npm                                | Vitest unit, contract, service route, component, and type tests. No Docker, no real Postgres, no real model providers, no product network. |
-| Browser harness    | `npm run test:e2e`            | Host Playwright                              | Real widget and real service process with fake provider and memory repositories. Browser-visible behavior and harness wiring.              |
-| DB contract        | `npm run test:db:container`   | Host Node plus Testcontainers Postgres       | Shared repository contract against the real Postgres/Drizzle adapter.                                                                      |
-| Persistent browser | `npm run test:e2e:persistent` | Host Playwright plus Testcontainers Postgres | Real widget, real service, fake provider, and real Postgres through public widget/service seams.                                           |
-| AI evals           | `npm run test:evals`           | Deterministic fixtures plus optional approved model lane | Context assembly, compaction, retrieval, memory, tool-use, workflow, and safety quality gates.                                            |
-| Host full gate     | `npm run verify`              | Host pinned Node `24.16.0` and npm `11.15.0` | Format, lint, typecheck, fast tests, build, and custom governance.                                                                         |
-| Container parity   | `npm run verify:container`    | Dev/test app container                       | The accepted full suite inside the controlled Linux app runtime. This is the CI/release truth.                                             |
+| Lane               | Command                       | Environment                                              | What It Proves                                                                                                                             |
+| ------------------ | ----------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fast deterministic | `npm test`                    | Host Node/npm                                            | Vitest unit, contract, service route, component, and type tests. No Docker, no real Postgres, no real model providers, no product network. |
+| Browser harness    | `npm run test:e2e`            | Host Playwright                                          | Real widget and real service process with fake provider and memory repositories. Browser-visible behavior and harness wiring.              |
+| DB contract        | `npm run test:db:container`   | Host Node plus Testcontainers Postgres                   | Shared repository contract against the real Postgres/Drizzle adapter.                                                                      |
+| Persistent browser | `npm run test:e2e:persistent` | Host Playwright plus Testcontainers Postgres             | Real widget, real service, fake provider, and real Postgres through public widget/service seams.                                           |
+| AI evals           | `npm run test:evals`          | Deterministic fixtures plus optional approved model lane | Context assembly, compaction, retrieval, memory, tool-use, workflow, and safety quality gates.                                             |
+| Host full gate     | `npm run verify`              | Host pinned Node `24.16.0` and npm `11.15.0`             | Format, lint, typecheck, fast tests, build, and custom governance.                                                                         |
+| Container parity   | `npm run verify:container`    | Dev/test app container                                   | The accepted full suite inside the controlled Linux app runtime. This is the CI/release truth.                                             |
 
 ## Current Flow
 
@@ -74,18 +74,18 @@ npm run verify:container
 
 ## Package Ownership
 
-| Package                       | Test Ownership                                                                                                                                                        |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/chat-protocol`      | `sidechat.v1` request/event validation, SSE codecs, event sequence rules, golden fixtures, generated schema compatibility, and type-level protocol unions.            |
-| `packages/chat-client`        | Browser-safe fetch transport, streaming decode, abort/retry behavior, history/reset/usage route helpers, and malformed response handling.                             |
-| `packages/host-bridge`        | Host context and host command contracts, local command results, and public type surfaces.                                                                             |
-| `packages/partner-ai-core`    | Use-case behavior through ports: auth, policies, stream orchestration, observability, persistence callbacks, and runtime event mapping.                               |
-| `packages/agent-runtime`      | Provider adapters, fake provider determinism, AI SDK/tool mapping, OpenAI Responses normalization, defect-to-typed-error boundary behavior, and runtime public types. |
-| `apps/partner-ai-service`     | HTTP route behavior via `app.request`, auth and policy fail-closed behavior, service composition, and protocol-shaped responses.                                      |
-| `packages/db`                 | Schema contract, migrations, memory repositories, Postgres/Drizzle repositories, and the shared repository contract.                                                  |
-| `packages/side-chat-widget`   | Widget model tests, static rendering tests, DOM interaction tests with a fake `ChatClient` and fake `HostBridge`, and browser behavior via harness E2E.               |
-| `test-harness/widget-harness` | Playwright flows, harness modes, fake host bridge, mock stream scenarios, and local-service integration.                                                              |
-| `packages/evals` or `apps/eval-runner` | Target package/app for golden context assembly, retrieval quality, memory correctness, tool-use decisions, workflow outcomes, and prompt-injection resistance. |
+| Package                                | Test Ownership                                                                                                                                                        |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/chat-protocol`               | `sidechat.v1` request/event validation, SSE codecs, event sequence rules, golden fixtures, generated schema compatibility, and type-level protocol unions.            |
+| `packages/chat-client`                 | Browser-safe fetch transport, streaming decode, abort/retry behavior, history/reset/usage route helpers, and malformed response handling.                             |
+| `packages/host-bridge`                 | Host context and host command contracts, local command results, and public type surfaces.                                                                             |
+| `packages/partner-ai-core`             | Use-case behavior through ports: auth, policies, stream orchestration, observability, persistence callbacks, and runtime event mapping.                               |
+| `packages/agent-runtime`               | Provider adapters, fake provider determinism, AI SDK/tool mapping, OpenAI Responses normalization, defect-to-typed-error boundary behavior, and runtime public types. |
+| `apps/partner-ai-service`              | HTTP route behavior via `app.request`, auth and policy fail-closed behavior, service composition, and protocol-shaped responses.                                      |
+| `packages/db`                          | Schema contract, migrations, memory repositories, Postgres/Drizzle repositories, and the shared repository contract.                                                  |
+| `packages/side-chat-widget`            | Widget model tests, static rendering tests, DOM interaction tests with a fake `ChatClient` and fake `HostBridge`, and browser behavior via harness E2E.               |
+| `test-harness/widget-harness`          | Playwright flows, harness modes, fake host bridge, mock stream scenarios, and local-service integration.                                                              |
+| `packages/evals` or `apps/eval-runner` | Target package/app for golden context assembly, retrieval quality, memory correctness, tool-use decisions, workflow outcomes, and prompt-injection resistance.        |
 
 ## Target AI Eval Coverage
 

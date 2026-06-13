@@ -8,7 +8,7 @@ import {
   type SidechatStreamEvent,
   type StartedEvent,
 } from "@side-chat/chat-protocol";
-import { createCommandResult, toHostCommand, type HostBridge } from "@side-chat/host-bridge";
+import type { HostBridge } from "@side-chat/host-bridge";
 import { Window } from "happy-dom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -95,6 +95,26 @@ describe("SideChatWidget interactions", () => {
     });
   });
 
+  it("sends the server conversation id on subsequent chat requests", async () => {
+    const requests: ChatStreamRequest[] = [];
+    const client = fakeClient(async function* (request) {
+      await Promise.resolve();
+      requests.push(request);
+      yield started();
+      yield delta(`response ${requests.length}`);
+      yield completed();
+    });
+
+    renderWidget(client);
+    await submit("first message");
+    await waitForText("response 1");
+    await submit("second message");
+    await waitForText("response 2");
+
+    expect(requests[0]?.conversationId).toBeUndefined();
+    expect(requests[1]?.conversationId).toBe("conversation-1");
+  });
+
   it("shows and dismisses a visible error when the chat client rejects", async () => {
     const client = fakeClient(() => Promise.reject(new Error("stream exploded")));
 
@@ -107,15 +127,17 @@ describe("SideChatWidget interactions", () => {
   });
 
   it("dispatches host-command activity through the host bridge and renders the local result", async () => {
-    const dispatchCommand = vi.fn<NonNullable<HostBridge["dispatchCommand"]>>((event) => {
-      const command = toHostCommand(event);
-      return Promise.resolve(
-        createCommandResult(command, {
-          status: "applied",
-          resultCode: "component_test_applied",
-        }),
-      );
-    });
+    let dispatchCount = 0;
+    const dispatchCommandImpl: NonNullable<HostBridge["dispatchCommand"]> = () => {
+      dispatchCount += 1;
+      return Promise.resolve({
+        commandId: "host-command-1",
+        commandName: "open_resource",
+        status: "applied",
+        resultCode: "component_test_applied",
+        resolvedAt: "2026-05-23T13:00:00.000Z",
+      });
+    };
     const client = fakeClient(async function* () {
       await Promise.resolve();
       yield started();
@@ -124,7 +146,7 @@ describe("SideChatWidget interactions", () => {
     });
 
     renderWidget(client, {
-      dispatchCommand,
+      dispatchCommand: dispatchCommandImpl,
       getContext: () =>
         Promise.resolve({
           schemaVersion: "test.host-context.v1",
@@ -134,7 +156,7 @@ describe("SideChatWidget interactions", () => {
     await submit("open record");
 
     await waitForText("component_test_applied");
-    expect(dispatchCommand).toHaveBeenCalledTimes(1);
+    expect(dispatchCount).toBe(1);
   });
 
   it("aborts the active request from the stop control", async () => {

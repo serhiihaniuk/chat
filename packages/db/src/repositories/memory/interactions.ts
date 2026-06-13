@@ -8,8 +8,8 @@ import type {
   HostCommandResultRecord,
   ToolInvocationRecord,
 } from "#schema-contract";
-import { upsertAt, type MemoryStore } from "./memory-store.js";
-import { result, type createIdGenerator } from "./repository-utils.js";
+import { upsertAt, type MemoryStore } from "./store.js";
+import { result, type createIdGenerator } from "../repository-utils.js";
 
 type MemoryIds = ReturnType<typeof createIdGenerator>;
 

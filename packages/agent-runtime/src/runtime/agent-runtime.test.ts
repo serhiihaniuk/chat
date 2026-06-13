@@ -139,6 +139,51 @@ describe("createAgentRuntime", () => {
     ]);
   });
 
+  it("exposes no tools when a turn has no explicit request or profile allowlist", async () => {
+    const modelCalls: LanguageModelV3CallOptions[] = [];
+    const runtime = createAgentRuntime({
+      providers: [createCapturingProvider(modelCalls)],
+      tools: [createMockWebSearchTool()],
+    });
+
+    await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          providerId: "capture",
+          modelId: "capture-model",
+          requestId: "req_no_tools",
+          assistantTurnId: "turn_no_tools",
+          messages: [{ role: "user", content: "Can you search?" }],
+        }),
+      ),
+    );
+
+    expect(modelCalls[0]?.tools).toBeUndefined();
+  });
+
+  it("treats an empty request allowlist as an explicit no-tools decision", async () => {
+    const modelCalls: LanguageModelV3CallOptions[] = [];
+    const runtime = createAgentRuntime({
+      providers: [createCapturingProvider(modelCalls)],
+      tools: [createMockWebSearchTool()],
+    });
+
+    await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          providerId: "capture",
+          modelId: "capture-model",
+          requestId: "req_empty_tools",
+          assistantTurnId: "turn_empty_tools",
+          messages: [{ role: "user", content: "Can you search?" }],
+          availableToolNames: [],
+        }),
+      ),
+    );
+
+    expect(modelCalls[0]?.tools).toBeUndefined();
+  });
+
   it("rejects unavailable selected tools without fallback", async () => {
     const runtime = createAgentRuntime({
       providers: [createFakeProvider()],

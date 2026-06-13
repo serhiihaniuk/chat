@@ -1,6 +1,7 @@
 import type { ChatStreamRequest, ProtocolErrorCode } from "@side-chat/chat-protocol";
 import { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
+import type { HostCapabilityManifest, TurnPolicyDecision } from "#domain/harness";
 import { PartnerAiCoreError } from "#errors";
 
 export const POLICY_DENIAL_CODES = {
@@ -18,8 +19,8 @@ export type PolicyEvaluationInput = {
   readonly authContext: AuthContext;
   readonly workspace: WorkspaceRef;
   readonly request: ChatStreamRequest;
-  readonly providerId: string;
-  readonly modelId: string;
+  readonly manifest: HostCapabilityManifest;
+  readonly policyDecision: TurnPolicyDecision;
 };
 
 export type PolicyGrant = {
@@ -40,17 +41,6 @@ export type PolicyDecision = PolicyGrant | PolicyDenial;
 export type PolicyPort = {
   readonly evaluate: (input: PolicyEvaluationInput) => Effect.Effect<PolicyDecision, unknown>;
 };
-
-/**
- * Development/test default used when a caller omits a policy port.
- *
- * This is not production policy. It lets local compositions exercise the rest
- * of the stream-chat workflow without installing entitlement or model access
- * services. The production service passes a concrete policy adapter.
- */
-export const allowRequestPolicy = (): PolicyPort => ({
-  evaluate: () => Effect.succeed({ allowed: true }),
-});
 
 /**
  * Small deterministic policy double for tests and local characterization.

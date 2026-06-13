@@ -1,6 +1,7 @@
 export {
   createDefaultRequest,
   createId,
+  createWidgetChatRequest,
   createWidgetMessage,
   toErrorMessage,
   updateMessage,
@@ -12,5 +13,10 @@ export {
   toJsonObject,
   updateActivityItem,
 } from "./model/activity.js";
-export type { WidgetMessage, WidgetStatus, WidgetUsage } from "./model/widget-chat.js";
+export type {
+  WidgetChatRequestInput,
+  WidgetMessage,
+  WidgetStatus,
+  WidgetUsage,
+} from "./model/widget-chat.js";
 export type { WidgetActivityItem, WidgetActivityTimeline } from "./model/activity.js";

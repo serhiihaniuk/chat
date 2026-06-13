@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SidechatRepositories } from "./contract.js";
+import type { SidechatRepositories } from "#repositories/contract";
 
 const now = "2026-05-23T13:00:00.000Z";
 

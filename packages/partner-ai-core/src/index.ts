@@ -1,5 +1,6 @@
 export * from "./application/stream-chat/stream-chat.js";
 export * from "./domain/authority.js";
+export * from "./domain/harness.js";
 export * from "./errors/index.js";
 export * from "./policies/policy.js";
 export * from "./ports/index.js";

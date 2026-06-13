@@ -12,5 +12,5 @@
       "path": "../chat-protocol"
     }
   ],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.test-support.ts"]
 }

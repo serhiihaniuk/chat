@@ -1,11 +1,15 @@
 import { Context, Effect, Layer } from "effect";
 
-import { allowRequestPolicy, type PolicyPort } from "#policies/policy";
+import type { PolicyPort } from "#policies/policy";
 import type {
   AgentRuntimePort,
+  AssistantTurnLifecyclePort,
   ClockPort,
+  ContextManagerPort,
   ConversationRepositoryPort,
+  HostCapabilityManifestPort,
   IdGeneratorPort,
+  TurnPolicyResolverPort,
 } from "#ports";
 import { NOOP_OBSERVABILITY_SINK, type ObservabilitySinkPort } from "./observability.js";
 
@@ -21,6 +25,26 @@ export class ConversationRepositoryService extends Context.Service<
   ConversationRepositoryService,
   ConversationRepositoryPort
 >()("@side-chat/partner-ai-core/ConversationRepositoryService") {}
+
+export class AssistantTurnLifecycleService extends Context.Service<
+  AssistantTurnLifecycleService,
+  AssistantTurnLifecyclePort
+>()("@side-chat/partner-ai-core/AssistantTurnLifecycleService") {}
+
+export class HostCapabilityManifestService extends Context.Service<
+  HostCapabilityManifestService,
+  HostCapabilityManifestPort
+>()("@side-chat/partner-ai-core/HostCapabilityManifestService") {}
+
+export class TurnPolicyResolverService extends Context.Service<
+  TurnPolicyResolverService,
+  TurnPolicyResolverPort
+>()("@side-chat/partner-ai-core/TurnPolicyResolverService") {}
+
+export class ContextManagerService extends Context.Service<
+  ContextManagerService,
+  ContextManagerPort
+>()("@side-chat/partner-ai-core/ContextManagerService") {}
 
 export class AgentRuntimeService extends Context.Service<AgentRuntimeService, AgentRuntimePort>()(
   "@side-chat/partner-ai-core/AgentRuntimeService",
@@ -45,6 +69,10 @@ export class ObservabilityService extends Context.Service<
 
 export type PartnerAiCoreServices =
   | ConversationRepositoryService
+  | AssistantTurnLifecycleService
+  | HostCapabilityManifestService
+  | TurnPolicyResolverService
+  | ContextManagerService
   | AgentRuntimeService
   | ClockService
   | IdGeneratorService
@@ -53,30 +81,36 @@ export type PartnerAiCoreServices =
 
 export type PartnerAiCoreLayerInput = {
   readonly conversations: ConversationRepositoryPort;
+  readonly assistantTurns: AssistantTurnLifecyclePort;
+  readonly hostCapabilities: HostCapabilityManifestPort;
+  readonly turnPolicies: TurnPolicyResolverPort;
+  readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntimePort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
-  readonly policies?: PolicyPort;
+  readonly policies: PolicyPort;
   readonly observability?: ObservabilitySinkPort;
 };
 
 /**
  * Build the core service environment from app-owned ports.
  *
- * Policy and observability have safe defaults so development tests can compose
- * the native Effect entrypoint easily. Production still owns the decision to
- * pass real adapters; the core package only provides a fail-open local policy
- * when no policy port was explicitly supplied.
+ * Observability has a no-op default because it does not change product
+ * behavior. Policy is required so every turn has an explicit request gate.
  */
 export const createPartnerAiCoreLayer = (
   input: PartnerAiCoreLayerInput,
 ): Layer.Layer<PartnerAiCoreServices> =>
   Layer.mergeAll(
     Layer.succeed(ConversationRepositoryService, input.conversations),
+    Layer.succeed(AssistantTurnLifecycleService, input.assistantTurns),
+    Layer.succeed(HostCapabilityManifestService, input.hostCapabilities),
+    Layer.succeed(TurnPolicyResolverService, input.turnPolicies),
+    Layer.succeed(ContextManagerService, input.contextManager),
     Layer.succeed(AgentRuntimeService, input.runtime),
     Layer.succeed(ClockService, input.clock),
     Layer.succeed(IdGeneratorService, input.ids),
-    Layer.succeed(PolicyService, input.policies ?? allowRequestPolicy()),
+    Layer.succeed(PolicyService, input.policies),
     Layer.succeed(ObservabilityService, input.observability ?? NOOP_OBSERVABILITY_SINK),
   );
 
@@ -90,6 +124,10 @@ export const createPartnerAiCoreLayer = (
 export const partnerAiCoreServicesEffect = Effect.gen(function* () {
   return {
     conversations: yield* ConversationRepositoryService,
+    assistantTurns: yield* AssistantTurnLifecycleService,
+    hostCapabilities: yield* HostCapabilityManifestService,
+    turnPolicies: yield* TurnPolicyResolverService,
+    contextManager: yield* ContextManagerService,
     runtime: yield* AgentRuntimeService,
     clock: yield* ClockService,
     ids: yield* IdGeneratorService,

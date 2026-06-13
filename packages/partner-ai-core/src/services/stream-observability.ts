@@ -3,6 +3,7 @@ import {
   SIDECHAT_EVENT_TYPES,
   type JsonObject,
   type JsonValue,
+  type ProtocolErrorCode,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
 import { Effect } from "effect";
@@ -76,7 +77,9 @@ export const runtimeEventAttributes = (event: RuntimeEvent): JsonObject => {
   }
 };
 
-export const terminalErrorCode = (events: readonly SidechatStreamEvent[]): string | undefined => {
+export const terminalErrorCode = (
+  events: readonly SidechatStreamEvent[],
+): ProtocolErrorCode | undefined => {
   const terminal = events.at(-1);
   return terminal?.type === SIDECHAT_EVENT_TYPES.ERROR ? terminal.code : undefined;
 };

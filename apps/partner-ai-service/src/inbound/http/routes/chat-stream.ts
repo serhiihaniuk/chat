@@ -40,6 +40,10 @@ export const registerChatStreamRoute = (
     const coreLayer = createPartnerAiCoreLayer(
       createServicePorts({
         conversations: persistence.conversations,
+        assistantTurns: persistence.assistantTurns,
+        hostCapabilities: dependencies.hostCapabilities,
+        turnPolicies: dependencies.turnPolicies,
+        contextManager: dependencies.contextManager,
         runtime: dependencies.runtime,
         ...(dependencies.observability ? { observability: dependencies.observability } : {}),
         policies: dependencies.policies,
@@ -50,10 +54,10 @@ export const registerChatStreamRoute = (
       const eventIterator = Stream.toAsyncIterable(
         streamChatEffect({
           workspace: dependencies.workspace,
+          hostAppId: dependencies.hostAppId,
           request: chatRequest,
           authContext,
-          providerId: dependencies.providerId,
-          modelId: dependencies.modelId,
+          abortSignal: context.req.raw.signal,
           ...traceInput(context.req.raw),
         }).pipe(Stream.provide(coreLayer)),
       )[Symbol.asyncIterator]();
@@ -62,13 +66,6 @@ export const registerChatStreamRoute = (
       return streamingSseResponse({
         events: prependFirstEvent(firstEvent, eventIterator),
         requestId: chatRequest.requestId,
-        onComplete: (streamEvents) =>
-          persistence.persistStreamResult({
-            request: chatRequest,
-            providerId: dependencies.providerId,
-            modelId: dependencies.modelId,
-            events: streamEvents,
-          }),
       });
     } catch (error) {
       return mapServiceError(error);

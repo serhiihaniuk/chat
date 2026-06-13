@@ -12,25 +12,20 @@ export const sseResponse = (events: readonly SidechatStreamEvent[], requestId: s
 
 export const streamingSseResponse = ({
   events,
-  onComplete,
   requestId,
 }: {
   readonly events: AsyncIterable<SidechatStreamEvent>;
-  readonly onComplete: (events: readonly SidechatStreamEvent[]) => Promise<void>;
   readonly requestId: string;
 }): Response => {
   const encoder = new TextEncoder();
-  const emitted: SidechatStreamEvent[] = [];
 
   return new Response(
     new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
           for await (const event of events) {
-            emitted.push(event);
             controller.enqueue(encoder.encode(encodeSseEvent(event)));
           }
-          await onComplete(emitted);
           controller.close();
         } catch (error) {
           controller.error(error);

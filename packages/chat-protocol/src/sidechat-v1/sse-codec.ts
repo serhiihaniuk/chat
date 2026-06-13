@@ -10,32 +10,61 @@ export const decodeSseEvents = (stream: string): SidechatStreamEvent[] => {
   return frames.map(decodeFrame);
 };
 
+type DecodedFrameFields = {
+  readonly dataLines: readonly string[];
+  readonly eventName: string | undefined;
+  readonly eventId: string | undefined;
+};
+
 const decodeFrame = (frame: string): SidechatStreamEvent => {
-  const dataLines: string[] = [];
-  let eventName: string | undefined;
-  let eventId: string | undefined;
+  const decoded = readFrameFields(frame);
 
-  for (const line of frame.split(/\r?\n/u)) {
-    if (line.startsWith(":")) continue;
-    const separator = line.indexOf(":");
-    if (separator < 0) throw new ProtocolValidationError("malformed SSE field");
-    const field = line.slice(0, separator);
-    const value = line.slice(separator + 1).trimStart();
-    if (field === "event") eventName = value;
-    if (field === "id") eventId = value;
-    if (field === "data") dataLines.push(value);
-  }
-
-  if (dataLines.length === 0) throw new ProtocolValidationError("SSE frame missing data");
-  const parsed = parseJson(dataLines.join("\n"));
+  if (decoded.dataLines.length === 0) throw new ProtocolValidationError("SSE frame missing data");
+  const parsed = parseJson(decoded.dataLines.join("\n"));
   const event = parseSidechatStreamEvent(parsed);
-  if (eventName && eventName !== event.type) {
+  assertFrameMatchesPayload(decoded, event);
+  return event;
+};
+
+const readFrameFields = (frame: string): DecodedFrameFields =>
+  frame.split(/\r?\n/u).reduce<DecodedFrameFields>(
+    (fields, line) => {
+      if (line.startsWith(":")) return fields;
+      const parsed = parseFrameLine(line);
+      return collectFrameField(fields, parsed);
+    },
+    { dataLines: [] as string[], eventName: undefined, eventId: undefined },
+  );
+
+const parseFrameLine = (line: string): { readonly field: string; readonly value: string } => {
+  const separator = line.indexOf(":");
+  if (separator < 0) throw new ProtocolValidationError("malformed SSE field");
+
+  return {
+    field: line.slice(0, separator),
+    value: line.slice(separator + 1).trimStart(),
+  };
+};
+
+const collectFrameField = (
+  fields: DecodedFrameFields,
+  parsed: { readonly field: string; readonly value: string },
+): DecodedFrameFields => ({
+  dataLines: parsed.field === "data" ? [...fields.dataLines, parsed.value] : fields.dataLines,
+  eventName: parsed.field === "event" ? parsed.value : fields.eventName,
+  eventId: parsed.field === "id" ? parsed.value : fields.eventId,
+});
+
+const assertFrameMatchesPayload = (
+  fields: Pick<DecodedFrameFields, "eventName" | "eventId">,
+  event: SidechatStreamEvent,
+): void => {
+  if (fields.eventName && fields.eventName !== event.type) {
     throw new ProtocolValidationError("SSE event field does not match payload type");
   }
-  if (eventId && eventId !== event.eventId) {
+  if (fields.eventId && fields.eventId !== event.eventId) {
     throw new ProtocolValidationError("SSE id field does not match payload eventId");
   }
-  return event;
 };
 
 const parseJson = (source: string): unknown => {

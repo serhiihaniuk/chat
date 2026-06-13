@@ -1,8 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 
 import { assistantTurns, turnContextSnapshots, usageRecords } from "#drizzle/schema";
-import type { SidechatRepositories } from "./contract.js";
-import type { PostgresDrizzleRepositoryContext } from "./postgres-drizzle-context.js";
+import type { SidechatRepositories } from "../contract.js";
+import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
   one,
   optional,
@@ -11,8 +11,8 @@ import {
   toAssistantTurnRecord,
   toContextSnapshotRecord,
   toUsageRecord,
-} from "./postgres-drizzle-records.js";
-import { result } from "./repository-utils.js";
+} from "./records.js";
+import { result } from "../repository-utils.js";
 
 export const createPostgresDrizzleTurnRepository = ({
   db,

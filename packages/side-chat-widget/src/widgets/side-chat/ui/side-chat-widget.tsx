@@ -38,7 +38,6 @@ export const SideChatWidget = ({
   labels,
   panelActions,
   quickActions = [],
-  requestFactory,
 }: SideChatWidgetProps) => {
   const resolvedLabels = { ...defaultLabels, ...labels };
   const initialProfileId = defaultAssistantProfileId ?? assistantProfiles.at(0)?.id;
@@ -53,7 +52,6 @@ export const SideChatWidget = ({
   const chat = useWidgetChat({
     client,
     hostBridge,
-    requestFactory,
     selectedProfileId,
   });
   const isBusy = chat.status === "submitted" || chat.status === "streaming";

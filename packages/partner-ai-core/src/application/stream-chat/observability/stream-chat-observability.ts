@@ -1,14 +1,10 @@
-import { Effect } from "effect";
+import type { Effect } from "effect";
 import type { PartnerAiCoreError } from "#errors";
 import { runtimeEventAttributes, recordStreamObservation } from "#services/stream-observability";
 import type { RuntimeEvent } from "#ports";
 import type { ObservabilitySinkPort } from "#services/observability";
-import type {
-  PreparedStreamChatTurn,
-  StreamChatInput,
-  StreamChatPorts,
-} from "./stream-chat-types.js";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "./effect-failures.js";
+import type { PreparedStreamChatTurn, StreamChatPorts } from "../stream-chat-types.js";
+import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 
 /**
  * Record one lifecycle observation through the same typed error channel.
@@ -32,7 +28,6 @@ export const recordStreamObservationEffect = (
  */
 export const recordRuntimeEventObservation = (
   ports: StreamChatPorts,
-  input: StreamChatInput,
   turn: PreparedStreamChatTurn,
   runtimeEvent: RuntimeEvent,
 ): Effect.Effect<void, PartnerAiCoreError> =>
@@ -40,8 +35,8 @@ export const recordRuntimeEventObservation = (
     correlation: turn.correlation,
     lifecycleState: "runtime_event",
     assistantTurnId: turn.assistantTurnId,
-    providerId: input.providerId,
-    modelId: input.modelId,
+    providerId: turn.policyDecision.providerId,
+    modelId: turn.policyDecision.modelId,
     startedAt: turn.startedAt,
     now: ports.clock.now(),
     attributes: runtimeEventAttributes(runtimeEvent),

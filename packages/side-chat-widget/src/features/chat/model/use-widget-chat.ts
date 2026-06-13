@@ -1,151 +1,38 @@
-import {
-  SIDECHAT_EVENT_TYPES,
-  type ChatStreamRequest,
-  type ActivityDetails,
-  type HostContext,
-  type JsonObject,
-  type SidechatStreamEvent,
-} from "@side-chat/chat-protocol";
 import type { ChatClient } from "@side-chat/chat-client";
-import {
-  isHostCommandActivityEvent,
-  type HostBridge,
-  type HostCommandActivityEvent,
-  type HostCommandResult,
-} from "@side-chat/host-bridge";
+import type { HostBridge } from "@side-chat/host-bridge";
 import { useCallback, useRef, useState } from "react";
 
 import {
-  applyActivityEvent,
   completeActivityTimeline,
-  createDefaultRequest,
   createId,
+  createWidgetChatRequest,
   createWidgetMessage,
-  toJsonObject,
-  updateActivityItem,
   toErrorMessage,
   updateMessage,
   type WidgetMessage,
   type WidgetStatus,
   type WidgetUsage,
 } from "#entities/chat";
-
-type WidgetChatRequestFactory = (message: string, hostContext?: HostContext) => ChatStreamRequest;
+import { useWidgetStreamEvents } from "./widget-stream-events.js";
 
 export const useWidgetChat = ({
   client,
   hostBridge,
-  requestFactory,
   selectedProfileId,
 }: {
   readonly client: ChatClient;
   readonly hostBridge: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
-  readonly requestFactory: WidgetChatRequestFactory | undefined;
   readonly selectedProfileId: string | undefined;
 }) => {
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const [status, setStatus] = useState<WidgetStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [usage, setUsage] = useState<WidgetUsage | undefined>();
+  const [conversationId, setConversationId] = useState<string | undefined>();
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
-
-  const dispatchHostCommand = useCallback(
-    async (
-      event: HostCommandActivityEvent,
-      assistantMessageId: string,
-      bridge: Pick<HostBridge, "dispatchCommand"> | undefined,
-    ): Promise<void> => {
-      if (!bridge) {
-        setMessages((current) =>
-          updateMessage(current, assistantMessageId, (message) => ({
-            ...message,
-            activity: updateHostCommandActivity(message.activity, event.activityId, "failed"),
-          })),
-        );
-        return;
-      }
-
-      try {
-        const result = await bridge.dispatchCommand(event);
-        setMessages((current) =>
-          updateMessage(current, assistantMessageId, (message) => ({
-            ...message,
-            activity: updateHostCommandActivity(
-              message.activity,
-              event.activityId,
-              result.status === "applied" ? "completed" : "failed",
-              result,
-            ),
-          })),
-        );
-      } catch {
-        setMessages((current) =>
-          updateMessage(current, assistantMessageId, (message) => ({
-            ...message,
-            activity: updateHostCommandActivity(message.activity, event.activityId, "failed"),
-          })),
-        );
-      }
-    },
-    [],
-  );
-
-  const applyStreamEvent = useCallback(
-    async (
-      event: SidechatStreamEvent,
-      assistantMessageId: string,
-      bridge: Pick<HostBridge, "dispatchCommand"> | undefined,
-    ): Promise<void> => {
-      switch (event.type) {
-        case SIDECHAT_EVENT_TYPES.DELTA:
-          setMessages((current) =>
-            updateMessage(current, assistantMessageId, (message) => ({
-              ...message,
-              content: `${message.content}${event.content}`,
-            })),
-          );
-          return;
-
-        case SIDECHAT_EVENT_TYPES.ACTIVITY:
-          setMessages((current) =>
-            updateMessage(current, assistantMessageId, (message) => ({
-              ...message,
-              activity: applyActivityEvent(message.activity, event),
-            })),
-          );
-          if (isHostCommandActivityEvent(event)) {
-            await dispatchHostCommand(event, assistantMessageId, bridge);
-          }
-          return;
-
-        case SIDECHAT_EVENT_TYPES.ERROR:
-          setErrorMessage(event.message);
-          setStatus("error");
-          setMessages((current) =>
-            updateMessage(current, assistantMessageId, (message) => ({
-              ...message,
-              activity: completeActivityTimeline(message.activity, event.createdAt),
-              isStreaming: false,
-            })),
-          );
-          return;
-
-        case SIDECHAT_EVENT_TYPES.COMPLETED:
-          setUsage(event.usage);
-          setMessages((current) =>
-            updateMessage(current, assistantMessageId, (message) => ({
-              ...message,
-              activity: completeActivityTimeline(message.activity, event.createdAt),
-            })),
-          );
-          return;
-
-        case SIDECHAT_EVENT_TYPES.STARTED:
-        case SIDECHAT_EVENT_TYPES.HISTORY:
-          return;
-      }
-    },
-    [dispatchHostCommand],
+  const applyStreamEvent = useWidgetStreamEvents(
+    { setMessages, setStatus, setErrorMessage, setUsage, setConversationId },
+    hostBridge,
   );
 
   const submitMessage = useCallback(
@@ -169,15 +56,14 @@ export const useWidgetChat = ({
 
       try {
         const hostContext = await hostBridge?.getContext({ requestId });
-        const request =
-          requestFactory?.(trimmed, hostContext) ??
-          createDefaultRequest({
-            assistantProfileId: selectedProfileId,
-            content: trimmed,
-            hostContext,
-            messageId: userMessageId,
-            requestId,
-          });
+        const request = createWidgetChatRequest({
+          assistantProfileId: selectedProfileId,
+          conversationId,
+          hostContext,
+          message: trimmed,
+          messageId: userMessageId,
+          requestId,
+        });
 
         const result = await client.streamChat(request, {
           signal: abortController.signal,
@@ -186,25 +72,13 @@ export const useWidgetChat = ({
 
         for await (const event of result.events) {
           if (abortController.signal.aborted) break;
-          await applyStreamEvent(event, assistantMessageId, hostBridge);
+          await applyStreamEvent(event, assistantMessageId);
         }
 
-        setMessages((current) =>
-          updateMessage(current, assistantMessageId, (message) => ({
-            ...message,
-            activity: completeActivityTimeline(message.activity),
-            isStreaming: false,
-          })),
-        );
+        setMessages((current) => completeAssistantMessage(current, assistantMessageId));
         setStatus("idle");
       } catch (error) {
-        setMessages((current) =>
-          updateMessage(current, assistantMessageId, (message) => ({
-            ...message,
-            activity: completeActivityTimeline(message.activity),
-            isStreaming: false,
-          })),
-        );
+        setMessages((current) => completeAssistantMessage(current, assistantMessageId));
 
         if (abortController.signal.aborted) {
           setStatus("idle");
@@ -215,7 +89,7 @@ export const useWidgetChat = ({
         setErrorMessage(toErrorMessage(error));
       }
     },
-    [applyStreamEvent, client, hostBridge, requestFactory, selectedProfileId, status],
+    [applyStreamEvent, client, conversationId, hostBridge, selectedProfileId, status],
   );
 
   const stop = useCallback(() => {
@@ -224,7 +98,7 @@ export const useWidgetChat = ({
 
   const clearError = useCallback(() => {
     setErrorMessage(undefined);
-    setStatus((currentStatus) => (currentStatus === "error" ? "idle" : currentStatus));
+    setStatus(clearErrorStatus);
   }, []);
 
   return {
@@ -239,39 +113,15 @@ export const useWidgetChat = ({
   };
 };
 
-const updateHostCommandActivity = (
-  activity: WidgetMessage["activity"],
-  activityId: string,
-  status: "completed" | "failed",
-  result?: HostCommandResult,
-): WidgetMessage["activity"] =>
-  updateActivityItem(activity, activityId, (item) => ({
-    ...item,
-    status,
-    details: mergeHostCommandResult(item.details, result),
+const completeAssistantMessage = (
+  messages: readonly WidgetMessage[],
+  assistantMessageId: string,
+): WidgetMessage[] =>
+  updateMessage(messages, assistantMessageId, (message) => ({
+    ...message,
+    activity: completeActivityTimeline(message.activity),
+    isStreaming: false,
   }));
 
-const mergeHostCommandResult = (
-  details: ActivityDetails | undefined,
-  result: HostCommandResult | undefined,
-): ActivityDetails | undefined => {
-  if (!result) return details;
-  if (!details?.hostCommand) return details;
-  return {
-    ...details,
-    hostCommand: {
-      ...details.hostCommand,
-      result: toHostCommandResultJson(result),
-    },
-  };
-};
-
-const toHostCommandResultJson = (result: HostCommandResult): JsonObject =>
-  toJsonObject({
-    commandId: result.commandId,
-    commandName: result.commandName,
-    status: result.status,
-    resultCode: result.resultCode,
-    resolvedAt: result.resolvedAt,
-    data: result.data,
-  });
+const clearErrorStatus = (status: WidgetStatus): WidgetStatus =>
+  status === "error" ? "idle" : status;

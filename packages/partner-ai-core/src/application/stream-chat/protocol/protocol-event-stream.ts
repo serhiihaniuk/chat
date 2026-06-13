@@ -2,23 +2,21 @@ import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-
 import { Effect, Ref, Stream } from "effect";
 import type { RuntimeEvent } from "#ports";
 import type { PartnerAiCoreError } from "#errors";
-import { terminalErrorCode } from "#services/stream-observability";
-import { STREAM_CHAT_FAILURES, mapSyncFailure } from "./effect-failures.js";
 import {
   createErrorEvent,
   mapRuntimeEvent,
   mapUnknownRuntimeError,
-  validateExactlyOneTerminal,
 } from "./runtime-event-mapper.js";
+import { finalizeProtocolStream } from "./protocol-terminal-lifecycle.js";
 import {
   recordRuntimeEventObservation,
   recordStreamObservationEffect,
-} from "./stream-chat-observability.js";
+} from "../observability/stream-chat-observability.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,
   StreamChatPorts,
-} from "./stream-chat-types.js";
+} from "../stream-chat-types.js";
 
 /**
  * Build the browser-facing stream after preflight work has succeeded.
@@ -107,9 +105,13 @@ const createRuntimeEventStream = (
     .streamEffect({
       requestId: input.request.requestId,
       assistantTurnId: turn.assistantTurnId,
-      providerId: input.providerId,
-      modelId: input.modelId,
-      messages: [input.request.message],
+      providerId: turn.policyDecision.providerId,
+      modelId: turn.policyDecision.modelId,
+      profileId: turn.policyDecision.profileId,
+      messages: turn.preparedContext.runtimeMessages,
+      contextBoard: turn.preparedContext.contextBoard,
+      availableToolNames: turn.policyDecision.allowedToolNames,
+      ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
     })
     .pipe(Stream.mapError(mapUnknownRuntimeError));
 
@@ -122,7 +124,7 @@ const mapRuntimeEventEffect = (
   runtimeEvent: RuntimeEvent,
 ): Effect.Effect<SidechatStreamEvent | undefined, PartnerAiCoreError> =>
   Effect.gen(function* () {
-    yield* recordRuntimeEventObservation(ports, input, turn, runtimeEvent);
+    yield* recordRuntimeEventObservation(ports, turn, runtimeEvent);
     const sequence = yield* Ref.get(nextProtocolSequence);
     const event = mapRuntimeEvent(runtimeEvent, input.request, ports, sequence);
     if (!event) return undefined;
@@ -151,8 +153,8 @@ const emitRuntimeFailureEvent = (
       correlation: turn.correlation,
       lifecycleState: "failed",
       assistantTurnId: turn.assistantTurnId,
-      providerId: input.providerId,
-      modelId: input.modelId,
+      providerId: turn.policyDecision.providerId,
+      modelId: turn.policyDecision.modelId,
       errorCode: error.protocolCode,
       startedAt: turn.startedAt,
       now: ports.clock.now(),
@@ -165,39 +167,6 @@ const emitRuntimeFailureEvent = (
     return yield* rememberEvent(
       emitted,
       createErrorEvent(input, turn.assistantTurnId, sequence, ports, error),
-    );
-  });
-
-/**
- * Record final lifecycle state and validate the event sequence.
- *
- * The runtime is allowed to be implemented by different providers and fakes,
- * so core does not trust it blindly. This final check keeps `sidechat.v1`
- * consumers protected from missing or duplicate terminal events.
- */
-const finalizeProtocolStream = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-  emitted: Ref.Ref<SidechatStreamEvent[]>,
-): Effect.Effect<void, PartnerAiCoreError> =>
-  Effect.gen(function* () {
-    const events = yield* Ref.get(emitted);
-    const terminalCode = terminalErrorCode(events);
-    yield* recordStreamObservationEffect(ports.observability, {
-      correlation: turn.correlation,
-      lifecycleState: terminalCode ? "failed" : "completed",
-      assistantTurnId: turn.assistantTurnId,
-      providerId: input.providerId,
-      modelId: input.modelId,
-      ...(terminalCode ? { errorCode: terminalCode } : {}),
-      startedAt: turn.startedAt,
-      now: ports.clock.now(),
-      attributes: { eventCount: events.length },
-    });
-    yield* mapSyncFailure(
-      () => validateExactlyOneTerminal(events),
-      STREAM_CHAT_FAILURES.INVALID_RUNTIME_SEQUENCE,
     );
   });
 

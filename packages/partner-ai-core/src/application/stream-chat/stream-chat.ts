@@ -2,8 +2,8 @@ import { Effect, Stream } from "effect";
 import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
 import type { PartnerAiCoreError } from "#errors";
 import { partnerAiCoreServicesEffect, type PartnerAiCoreServices } from "#services/effect-runtime";
-import { createProtocolEventStream } from "./protocol-event-stream.js";
-import { prepareStreamChatTurn } from "./prepare-stream-chat-turn.js";
+import { createProtocolEventStream } from "./protocol/protocol-event-stream.js";
+import { prepareStreamChatTurn } from "./turn/prepare-stream-chat-turn.js";
 import type { StreamChatInput, StreamChatPorts } from "./stream-chat-types.js";
 
 export type {

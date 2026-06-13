@@ -20,6 +20,16 @@
       "types": "./src/schema-contract/*.ts",
       "development": "./src/schema-contract/*.ts",
       "default": "./dist/schema-contract/*.js"
+    },
+    "#repositories/*": {
+      "types": "./src/repositories/*.ts",
+      "development": "./src/repositories/*.ts",
+      "default": "./dist/repositories/*.js"
+    },
+    "#testing/*": {
+      "types": "./src/testing/*.ts",
+      "development": "./src/testing/*.ts",
+      "default": "./dist/testing/*.js"
     }
   },
   "exports": {

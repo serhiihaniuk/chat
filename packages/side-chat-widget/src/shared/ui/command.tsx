@@ -99,12 +99,7 @@ function CommandDialog({
   );
 }
 
-function CommandInput({
-  className,
-  onChange,
-  value,
-  ...props
-}: React.ComponentProps<"input">) {
+function CommandInput({ className, onChange, value, ...props }: React.ComponentProps<"input">) {
   const command = useCommandContext();
 
   return (
@@ -207,7 +202,7 @@ function CommandItem({
   const command = useCommandContext();
   const id = React.useId();
   const fallbackValue = React.useMemo(
-    () => React.Children.toArray(children).join(" "),
+    () => React.Children.toArray(children).flatMap(commandTextFromNode).join(" "),
     [children],
   );
   const itemValue = value ?? fallbackValue;
@@ -263,6 +258,15 @@ function CommandItem({
     </div>
   );
 }
+
+const commandTextFromNode = (node: React.ReactNode): string[] => {
+  if (typeof node === "string" || typeof node === "number") return [String(node)];
+  if (Array.isArray(node)) return node.flatMap(commandTextFromNode);
+  if (React.isValidElement<{ readonly children?: React.ReactNode }>(node)) {
+    return commandTextFromNode(node.props.children);
+  }
+  return [];
+};
 
 function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) {
   return (

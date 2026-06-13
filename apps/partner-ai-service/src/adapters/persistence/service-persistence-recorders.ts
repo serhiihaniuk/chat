@@ -1,142 +1,117 @@
 import type {
   ChatRequestMessage,
   ChatStreamRequest,
-  CompletedEvent,
   JsonObject,
+  UsageMetadata,
 } from "@side-chat/chat-protocol";
-import type { AuthContext } from "@side-chat/partner-ai-core";
+import {
+  hashCanonicalJson,
+  type AuthContext,
+  type PreparedTurnContext,
+} from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
-
-export type PendingUserMessage = {
-  readonly authContext: AuthContext;
-  readonly conversationId: string;
-  readonly userMessageId: string;
-};
+import { toJsonObject } from "@side-chat/shared";
 
 export const recordContextSnapshot = ({
   repositories,
-  pending,
-  request,
+  authContext,
   assistantTurnId,
+  preparedContext,
+  hostContext,
+  manifestHash,
   now,
 }: {
   readonly repositories: SidechatRepositories;
-  readonly pending: PendingUserMessage;
-  readonly request: ChatStreamRequest;
+  readonly authContext: AuthContext;
   readonly assistantTurnId: string;
+  readonly preparedContext: PreparedTurnContext;
+  readonly hostContext: ChatStreamRequest["hostContext"];
+  readonly manifestHash: string;
   readonly now: string;
-}) => {
-  if (!request.hostContext) return Promise.resolve();
-
-  return repositories.recordTurnContextSnapshot({
-    workspaceId: pending.authContext.workspaceId,
+}) =>
+  repositories.recordTurnContextSnapshot({
+    workspaceId: authContext.workspaceId,
     assistantTurnId,
-    contextSchemaVersion: request.hostContext.schemaVersion,
-    ...(request.hostContext.origin ? { hostSurfaceId: request.hostContext.origin } : {}),
-    hostContextHash: stableHash(toJsonObject(request.hostContext)),
-    capabilitiesHash: "capabilities:none",
-    contextRedactedJson: toJsonObject(request.hostContext),
+    contextSchemaVersion: "sidechat.context-manifest.v1",
+    ...(hostContext?.origin ? { hostSurfaceId: hostContext.origin } : {}),
+    hostContextHash: hashCanonicalJson(hostContext ?? null),
+    capabilitiesHash: manifestHash,
+    contextRedactedJson: toContextSnapshotJson(preparedContext),
     now,
   });
-};
 
 export const recordUsage = ({
   repositories,
-  pending,
-  completed,
+  authContext,
+  assistantTurnId,
+  usage,
   providerId,
   modelId,
-  assistantTurnId,
+  now,
 }: {
   readonly repositories: SidechatRepositories;
-  readonly pending: PendingUserMessage;
-  readonly completed: CompletedEvent;
+  readonly authContext: AuthContext;
+  readonly assistantTurnId: string;
+  readonly usage: UsageMetadata | undefined;
   readonly providerId: string;
   readonly modelId: string;
-  readonly assistantTurnId: string;
+  readonly now: string;
 }) => {
-  if (!completed.usage) return Promise.resolve();
+  if (!usage) return Promise.resolve();
 
   return repositories.recordUsage({
-    workspaceId: pending.authContext.workspaceId,
+    workspaceId: authContext.workspaceId,
     assistantTurnId,
     runtimeStepIndex: 0,
     modelProvider: providerId,
     modelId,
-    inputTokens: completed.usage.inputTokens ?? 0,
-    outputTokens: completed.usage.outputTokens ?? 0,
+    inputTokens: usage.inputTokens ?? 0,
+    outputTokens: usage.outputTokens ?? 0,
     reasoningTokens: 0,
     cachedInputTokens: 0,
-    totalTokens: completed.usage.totalTokens ?? 0,
+    totalTokens: usage.totalTokens ?? 0,
     costUnits: "0",
-    now: completed.createdAt,
-  });
-};
-
-export const completeTurnIfRunning = ({
-  repositories,
-  pending,
-  completed,
-  assistantTurnId,
-  assistantMessageId,
-  status,
-}: {
-  readonly repositories: SidechatRepositories;
-  readonly pending: PendingUserMessage;
-  readonly completed: CompletedEvent;
-  readonly assistantTurnId: string;
-  readonly assistantMessageId: string;
-  readonly status: string;
-}) => {
-  if (status !== "running") return Promise.resolve();
-
-  return repositories.completeAssistantTurn({
-    workspaceId: pending.authContext.workspaceId,
-    assistantTurnId,
-    assistantMessageId,
-    finishReason: completed.finishReason,
-    now: completed.createdAt,
+    now,
   });
 };
 
 export const appendTurnAuditEvent = ({
   repositories,
-  pending,
+  authContext,
   request,
-  completed,
+  assistantTurnId,
   providerId,
   modelId,
-  assistantTurnId,
-  shouldAppend,
+  finishReason,
+  totalTokens,
+  now,
 }: {
   readonly repositories: SidechatRepositories;
-  readonly pending: PendingUserMessage;
+  readonly authContext: AuthContext;
   readonly request: ChatStreamRequest;
-  readonly completed: CompletedEvent;
+  readonly assistantTurnId: string;
   readonly providerId: string;
   readonly modelId: string;
-  readonly assistantTurnId: string;
-  readonly shouldAppend: boolean;
-}) => {
-  if (!shouldAppend) return Promise.resolve();
-
-  return repositories.appendAuditEvent({
-    workspaceId: pending.authContext.workspaceId,
-    subjectId: pending.authContext.subject.subjectId,
-    actorId: pending.authContext.actor.subjectId,
+  readonly finishReason: string;
+  readonly totalTokens: number | undefined;
+  readonly now: string;
+}) =>
+  repositories.appendAuditEvent({
+    workspaceId: authContext.workspaceId,
+    subjectId: authContext.subject.subjectId,
+    actorId: authContext.actor.subjectId,
     eventType: "sidechat.assistant_turn.completed",
     targetType: "assistant_turn",
     targetId: assistantTurnId,
     metadataJson: {
       modelProvider: providerId,
       modelId,
-      finishReason: completed.finishReason,
-      usageTotalTokens: completed.usage?.totalTokens ?? null,
+      finishReason,
+      usageTotalTokens: totalTokens ?? null,
     },
     requestId: request.requestId,
-    now: completed.createdAt,
+    now,
   });
-};
 
 export const appendMessage = ({
   repositories,
@@ -164,12 +139,26 @@ export const appendMessage = ({
     now,
   });
 
-const toJsonObject = (value: ChatStreamRequest["hostContext"]): JsonObject => ({
-  schemaVersion: value?.schemaVersion ?? "unknown",
-  ...(value?.origin ? { origin: value.origin } : {}),
-  ...(value?.url ? { url: value.url } : {}),
-  ...(value?.title ? { title: value.title } : {}),
-  ...(value?.metadata ? { metadata: value.metadata } : {}),
-});
-
-const stableHash = (value: JsonObject): string => `json:${JSON.stringify(value).length}`;
+const toContextSnapshotJson = (preparedContext: PreparedTurnContext): JsonObject =>
+  toJsonObject({
+    contextId: preparedContext.contextId,
+    runtimeMessages: preparedContext.runtimeMessages,
+    manifest: preparedContext.contextBoard.manifest,
+    sections: preparedContext.contextBoard.sections.map((section) => ({
+      title: section.title,
+      content: section.content,
+      priority: section.priority,
+      ...(section.metadata ? { metadata: section.metadata } : {}),
+    })),
+    candidates: preparedContext.candidates.map((candidate) => ({
+      candidateId: candidate.candidateId,
+      sourceType: candidate.sourceType,
+      sourceId: candidate.sourceId,
+      trustLevel: candidate.trustLevel,
+      redactionClass: candidate.redactionClass,
+      estimatedTokens: candidate.estimatedTokens,
+      priority: candidate.priority,
+      provenance: candidate.provenance,
+      ...(candidate.metadata ? { metadata: candidate.metadata } : {}),
+    })),
+  });

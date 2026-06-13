@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createPostgresDrizzleSidechatRepositories } from "./postgres-drizzle.js";
-import { sidechatRepositoryContract } from "./repository-contract.test-support.js";
+import { createPostgresDrizzleSidechatRepositories } from "./index.js";
+import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
 
 const databaseUrl = requireDatabaseUrl();
 

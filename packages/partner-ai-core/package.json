@@ -35,6 +35,11 @@
       "types": "./src/services/*.ts",
       "development": "./src/services/*.ts",
       "default": "./dist/services/*.js"
+    },
+    "#testing/*": {
+      "types": "./src/testing/*.ts",
+      "development": "./src/testing/*.ts",
+      "default": "./dist/testing/*.js"
     }
   },
   "exports": {

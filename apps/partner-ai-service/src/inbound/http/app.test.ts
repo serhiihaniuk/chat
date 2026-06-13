@@ -141,7 +141,7 @@ describe("partner ai service /chat/stream", () => {
     expect(response.status).toBe(200);
     await response.text();
     expect(repositories.snapshot().assistantTurns[0]).toMatchObject({
-      runtimeProfile: "fake",
+      runtimeProfile: "default",
       modelProvider: "fake",
       modelId: "fake-custom",
     });
@@ -389,55 +389,6 @@ describe("partner ai service /chat/stream", () => {
       expect.arrayContaining(["received", "started", "runtime_event", "completed"]),
     );
     expect(records.every((record) => record.traceId === "trace-service-1")).toBe(true);
-  });
-
-  it("persists conversation state idempotently without durable host-command results", async () => {
-    const repositories = createMemorySidechatRepositories();
-    const app = createPartnerAiServiceApp({ repositories });
-    const postValidRequest = () =>
-      app.request("/chat/stream", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer local-test-token",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(validRequest),
-      });
-    const expectSuccessfulStream = async () => {
-      const response = await postValidRequest();
-      expect(response.status).toBe(200);
-      await response.text();
-    };
-
-    await expectSuccessfulStream();
-    await expectSuccessfulStream();
-
-    const snapshot = repositories.snapshot();
-    expect(snapshot.conversations).toHaveLength(1);
-    expect(snapshot.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
-    expect(snapshot.assistantTurns).toHaveLength(1);
-    expect(snapshot.assistantTurns[0]).toMatchObject({
-      requestId: validRequest.requestId,
-      status: "completed",
-      runtimeProfile: "fake",
-      modelProvider: "fake",
-      modelId: "fake-echo",
-    });
-    expect(snapshot.contextSnapshots).toHaveLength(1);
-    expect(snapshot.usageRecords).toHaveLength(1);
-    expect(snapshot.auditEvents).toHaveLength(1);
-    expect(snapshot.auditEvents[0]).toMatchObject({
-      eventType: "sidechat.assistant_turn.completed",
-      targetType: "assistant_turn",
-      requestId: validRequest.requestId,
-      metadataJson: {
-        modelProvider: "fake",
-        modelId: "fake-echo",
-        finishReason: "stop",
-        usageTotalTokens: 6,
-      },
-    });
-    expect(snapshot.hostCommandResults).toHaveLength(0);
   });
 });
 

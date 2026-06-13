@@ -112,42 +112,67 @@ const streamChatWithFetch = async (
   let attempt = 1;
 
   while (attempt <= maxAttempts) {
-    assertNotAborted(streamOptions.signal);
-
-    try {
-      const response = await transport(
-        buildUrl(clientOptions),
-        buildRequestInit(parsedRequest, streamOptions.signal),
-      );
-
-      if (!response.ok) {
-        throw createHttpError(response.status, attempt);
-      }
-
-      if (!response.body) {
-        throw new ChatClientError("network_error", "Streaming response body is missing", {
-          attempt,
-        });
-      }
-
-      return {
-        events: decodeChunkedSseStream(
-          readResponseBody(response.body),
-          streamOptions.signal ? { signal: streamOptions.signal } : undefined,
-        ),
-        attempt,
-      };
-    } catch (cause) {
-      assertNotAborted(streamOptions.signal);
-      const error = toClientError(cause, attempt);
-      if (!shouldRetry(error, retry, attempt, maxAttempts)) throw error;
-      attempt += 1;
-    }
+    const result = await requestStreamAttempt(
+      parsedRequest,
+      clientOptions,
+      streamOptions,
+      transport,
+      attempt,
+    );
+    if (result.ok) return result.value;
+    if (!shouldRetry(result.error, retry, attempt, maxAttempts)) throw result.error;
+    attempt += 1;
   }
 
   throw new ChatClientError("network_error", "Retry loop exhausted", {
     attempt: maxAttempts,
   });
+};
+
+type StreamAttemptResult =
+  | { readonly ok: true; readonly value: StreamChatResult }
+  | { readonly ok: false; readonly error: ChatClientError };
+
+const requestStreamAttempt = async (
+  request: ChatStreamRequest,
+  clientOptions: ChatClientOptions,
+  streamOptions: StreamChatOptions,
+  transport: FetchLike,
+  attempt: number,
+): Promise<StreamAttemptResult> => {
+  assertNotAborted(streamOptions.signal);
+
+  try {
+    const response = await transport(
+      buildUrl(clientOptions),
+      buildRequestInit(request, streamOptions.signal),
+    );
+    return { ok: true, value: streamResultFromResponse(response, streamOptions, attempt) };
+  } catch (cause) {
+    assertNotAborted(streamOptions.signal);
+    return { ok: false, error: toClientError(cause, attempt) };
+  }
+};
+
+const streamResultFromResponse = (
+  response: Response,
+  streamOptions: StreamChatOptions,
+  attempt: number,
+): StreamChatResult => {
+  if (!response.ok) throw createHttpError(response.status, attempt);
+  if (!response.body) {
+    throw new ChatClientError("network_error", "Streaming response body is missing", {
+      attempt,
+    });
+  }
+
+  return {
+    events: decodeChunkedSseStream(
+      readResponseBody(response.body),
+      streamOptions.signal ? { signal: streamOptions.signal } : undefined,
+    ),
+    attempt,
+  };
 };
 
 const buildUrl = (options: ChatClientOptions): string => {

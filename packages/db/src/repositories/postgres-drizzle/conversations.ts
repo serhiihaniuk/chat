@@ -1,16 +1,16 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 
 import { conversations, messages } from "#drizzle/schema";
-import type { SidechatRepositories } from "./contract.js";
-import type { PostgresDrizzleRepositoryContext } from "./postgres-drizzle-context.js";
+import type { SidechatRepositories } from "../contract.js";
+import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
   buildHistoryWhere,
   one,
   requireSubjectConversation,
   toConversationRecord,
   toMessageRecord,
-} from "./postgres-drizzle-records.js";
-import { result } from "./repository-utils.js";
+} from "./records.js";
+import { result } from "../repository-utils.js";
 
 export const createPostgresDrizzleConversationRepository = ({
   db,

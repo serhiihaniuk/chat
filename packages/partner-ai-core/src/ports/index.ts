@@ -2,11 +2,19 @@ import type {
   ActivityDetails,
   ActivityKind,
   ActivityStatus,
+  ChatStreamRequest,
   ChatRequestMessage,
+  ProtocolErrorCode,
   UsageMetadata,
 } from "@side-chat/chat-protocol";
 import type { Effect, Stream } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
+import type {
+  HostCapabilityManifest,
+  PreparedContextBoard,
+  PreparedTurnContext,
+  TurnPolicyDecision,
+} from "#domain/harness";
 
 /**
  * Ports are the core package's dependencies, not implementations.
@@ -21,12 +29,16 @@ export type ClockPort = {
 
 export type IdGeneratorPort = {
   readonly nextConversationId: () => string;
-  readonly nextAssistantTurnId: () => string;
   readonly nextEventId: () => string;
 };
 
 export type ConversationRef = WorkspaceRef & {
   readonly conversationId: string;
+};
+
+export type MessageRef = WorkspaceRef & {
+  readonly conversationId: string;
+  readonly messageId: string;
 };
 
 export type ConversationRepositoryPort = {
@@ -39,20 +51,125 @@ export type ConversationRepositoryPort = {
     readonly authContext: AuthContext;
     readonly conversationId: string;
     readonly message: ChatRequestMessage;
+  }) => Effect.Effect<MessageRef, unknown>;
+};
+
+export type AssistantTurnFailureStatus =
+  | "user_aborted"
+  | "timed_out"
+  | "provider_failed"
+  | "tool_failed"
+  | "persistence_failed";
+
+export type AssistantTurnStatus = "running" | "completed" | AssistantTurnFailureStatus;
+
+export type AssistantTurnRef = WorkspaceRef & {
+  readonly conversationId: string;
+  readonly assistantTurnId: string;
+  readonly status: AssistantTurnStatus;
+  readonly inserted: boolean;
+};
+
+export type AssistantTurnLifecyclePort = {
+  readonly startAssistantTurn: (input: {
+    readonly authContext: AuthContext;
+    readonly conversation: ConversationRef;
+    readonly userMessage: MessageRef;
+    readonly request: ChatStreamRequest;
+    readonly profileId: string;
+    readonly profileVersion: string;
+    readonly systemPromptId: string;
+    readonly manifestHash: string;
+    readonly providerId: string;
+    readonly modelId: string;
+    readonly now: string;
+  }) => Effect.Effect<AssistantTurnRef, unknown>;
+  readonly recordContextSnapshot: (input: {
+    readonly authContext: AuthContext;
+    readonly assistantTurnId: string;
+    readonly preparedContext: PreparedTurnContext;
+    readonly hostContext: ChatStreamRequest["hostContext"];
+    readonly manifestHash: string;
+    readonly now: string;
+  }) => Effect.Effect<void, unknown>;
+  readonly completeAssistantTurn: (input: {
+    readonly authContext: AuthContext;
+    readonly conversation: ConversationRef;
+    readonly request: ChatStreamRequest;
+    readonly assistantTurnId: string;
+    readonly assistantContent: string;
+    readonly finishReason: string;
+    readonly usage?: UsageMetadata;
+    readonly providerId: string;
+    readonly modelId: string;
+    readonly now: string;
+  }) => Effect.Effect<void, unknown>;
+  readonly failAssistantTurn: (input: {
+    readonly authContext: AuthContext;
+    readonly assistantTurnId: string;
+    readonly status: AssistantTurnFailureStatus;
+    readonly errorCode: ProtocolErrorCode;
+    readonly now: string;
   }) => Effect.Effect<void, unknown>;
 };
 
+export type HostCapabilityManifestPort = {
+  readonly loadManifest: (input: {
+    readonly authContext: AuthContext;
+    readonly workspace: WorkspaceRef;
+    readonly hostAppId: string;
+  }) => Effect.Effect<HostCapabilityManifest, unknown>;
+};
+
+export type TurnPolicyResolverPort = {
+  readonly resolveTurnPolicy: (input: {
+    readonly authContext: AuthContext;
+    readonly workspace: WorkspaceRef;
+    readonly request: ChatStreamRequest;
+    readonly manifest: HostCapabilityManifest;
+    readonly manifestHash: string;
+  }) => Effect.Effect<TurnPolicyDecision, unknown>;
+};
+
+export type ContextManagerPort = {
+  readonly prepareTurnContext: (input: {
+    readonly authContext: AuthContext;
+    readonly workspace: WorkspaceRef;
+    readonly request: ChatStreamRequest;
+    readonly manifest: HostCapabilityManifest;
+    readonly policyDecision: TurnPolicyDecision;
+    readonly now: string;
+  }) => Effect.Effect<PreparedTurnContext, unknown>;
+};
+
+/**
+ * One provider-neutral chat message core has approved for runtime execution.
+ *
+ * It is intentionally plain text and role-only so provider-native message
+ * parts, protocol DTOs, and UI concerns stay outside the core/runtime seam.
+ */
 export type RuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
   readonly content: string;
 };
 
+/**
+ * Prepared per-turn request that core sends to the runtime.
+ *
+ * Core constructs these messages from the product request and prepared context.
+ * The runtime may render profile/context system messages around them, but it
+ * must not recover hidden host data or conversation history on its own.
+ */
 export type RuntimeRequest = {
   readonly requestId: string;
   readonly assistantTurnId: string;
   readonly providerId: string;
   readonly modelId: string;
+  readonly profileId: string;
   readonly messages: readonly RuntimeMessage[];
+  readonly contextBoard: PreparedContextBoard;
+  readonly availableToolNames: readonly string[];
+  readonly abortSignal?: AbortSignal;
 };
 
 export type RuntimeEventBase = {

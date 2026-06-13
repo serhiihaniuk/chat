@@ -4,10 +4,10 @@ export {
   createMemorySidechatRepositories,
   type MemorySidechatRepositories,
   type MemoryRepositoryOptions,
-} from "./memory.js";
-export type { MemoryStoreSnapshot } from "./memory-store.js";
+} from "./memory/index.js";
+export type { MemoryStoreSnapshot } from "./memory/store.js";
 export {
   createPostgresDrizzleSidechatRepositories,
   type PostgresDrizzleRepositoryOptions,
   type PostgresDrizzleSidechatRepositories,
-} from "./postgres-drizzle.js";
+} from "./postgres-drizzle/index.js";

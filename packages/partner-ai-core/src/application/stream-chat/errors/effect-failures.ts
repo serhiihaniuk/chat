@@ -13,6 +13,18 @@ export type CoreFailure = {
 };
 
 export const STREAM_CHAT_FAILURES = {
+  CAPABILITY_MANIFEST: {
+    code: PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
+    message: "Host capability manifest resolution failed.",
+    protocolCode: PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
+    retryable: false,
+  },
+  CONTEXT: {
+    code: PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
+    message: "Context preparation failed.",
+    protocolCode: PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
+    retryable: true,
+  },
   PERSISTENCE: {
     code: PARTNER_AI_CORE_ERROR_CODES.PERSISTENCE_FAILED,
     message: "Conversation persistence failed.",

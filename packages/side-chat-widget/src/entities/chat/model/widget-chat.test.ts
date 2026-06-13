@@ -48,9 +48,7 @@ describe("widget-state", () => {
 
   it("omits optional request fields when they are unavailable", () => {
     const request = createDefaultRequest({
-      assistantProfileId: undefined,
       content: "hello",
-      hostContext: undefined,
       messageId: "message_001",
       requestId: "request_001",
     });

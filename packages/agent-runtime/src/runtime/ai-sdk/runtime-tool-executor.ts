@@ -19,9 +19,10 @@ export const executeRuntimeToolForAiSdk = async (
   context: RuntimeToolContext,
 ): Promise<JsonObject> => {
   const execution = withRuntimeToolTimeout(runtimeTool, runtimeTool.execute(input, context));
-  const exit = await Effect.runPromiseExit(execution, {
-    ...(context.abortSignal ? { signal: context.abortSignal } : {}),
-  });
+  const exit = await Effect.runPromiseExit(
+    execution,
+    context.abortSignal ? { signal: context.abortSignal } : undefined,
+  );
 
   if (Exit.isSuccess(exit)) return exit.value;
   throw runtimeToolFailure(runtimeTool, context, exit);

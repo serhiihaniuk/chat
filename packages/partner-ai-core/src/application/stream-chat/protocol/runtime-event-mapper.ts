@@ -19,7 +19,7 @@ import {
   type RuntimeEvent,
   type RuntimeErrorEvent,
 } from "#ports";
-import type { StreamChatInput } from "./stream-chat-types.js";
+import type { StreamChatInput } from "../stream-chat-types.js";
 
 type RuntimeErrorCode = RuntimeErrorEvent["code"];
 

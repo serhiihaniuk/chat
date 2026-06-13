@@ -12,10 +12,9 @@ export const createToolCatalog = (tools: readonly RuntimeTool[] | undefined): To
 /**
  * Select the exact tools the model can see for one assistant turn.
  *
- * Registration alone is not permission. A finance lookup tool can be registered
- * at startup, but a request/profile still has to allow it before the AI SDK
- * ToolLoopAgent receives it. This prevents a generic runtime from exposing
- * every app capability to every assistant turn.
+ * Registration alone is not permission. If neither the request nor the profile
+ * provides an allowlist, the model sees no tools. That fail-closed default lets
+ * partner-ai-core make capability exposure an explicit per-turn policy decision.
  */
 export const selectRuntimeTools = (
   registry: ToolRegistry,
@@ -31,7 +30,7 @@ export const selectRuntimeTools = (
   }
 
   const selectedNames = request.availableToolNames ?? profile.defaultToolNames;
-  if (!selectedNames) return [...mergedTools.values()];
+  if (!selectedNames) return [];
 
   return selectedNames.map((name) => {
     const tool = mergedTools.get(name);

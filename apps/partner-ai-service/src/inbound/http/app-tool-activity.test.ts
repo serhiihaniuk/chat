@@ -28,7 +28,7 @@ describe("partner ai service tool activity stream", () => {
     const response = await createPartnerAiServiceApp({
       agentRuntime: {
         streamEffect: (request) => {
-          expect(request.messages).toEqual([validRequest.message]);
+          expect(request.messages).toEqual([{ role: "user", content: "hello service" }]);
           return Stream.fromIterable(runtimeEvents);
         },
       },

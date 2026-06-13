@@ -1,16 +1,16 @@
 import { and, eq } from "drizzle-orm";
 
 import { auditEvents, hostCommandResults, toolInvocations } from "#drizzle/schema";
-import type { SidechatRepositories } from "./contract.js";
-import type { PostgresDrizzleRepositoryContext } from "./postgres-drizzle-context.js";
+import type { SidechatRepositories } from "../contract.js";
+import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
   one,
   optional,
   toAuditEventRecord,
   toHostCommandResultRecord,
   toToolInvocationRecord,
-} from "./postgres-drizzle-records.js";
-import { result } from "./repository-utils.js";
+} from "./records.js";
+import { result } from "../repository-utils.js";
 
 export const createPostgresDrizzleInteractionRepository = ({
   db,

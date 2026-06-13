@@ -1,14 +1,15 @@
-import type {
-  ActivityDetails,
-  ActivityEvent,
-  ActivityHostCommandDetails,
-  ActivityKind,
-  ActivityStatus,
-  ActivityToolDetails,
-  JsonObject,
-  JsonValue,
+import {
+  ACTIVITY_KINDS,
+  ACTIVITY_STATUSES,
+  type ActivityDetails,
+  type ActivityEvent,
+  type ActivityHostCommandDetails,
+  type ActivityKind,
+  type ActivityStatus,
+  type ActivityToolDetails,
+  type JsonObject,
+  type JsonValue,
 } from "@side-chat/chat-protocol";
-import { ACTIVITY_KINDS, ACTIVITY_STATUSES } from "@side-chat/chat-protocol";
 import { compactJsonObject } from "@side-chat/shared";
 
 export type WidgetActivityItem = {

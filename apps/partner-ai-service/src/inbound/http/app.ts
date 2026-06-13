@@ -76,10 +76,12 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
   registerChatUsageRoute(app, composition.repositories);
   registerChatStreamRoute(app, {
     workspace: composition.workspace,
+    hostAppId: composition.hostAppId,
     repositories: composition.repositories,
+    hostCapabilities: composition.hostCapabilities,
+    turnPolicies: composition.turnPolicies,
+    contextManager: composition.contextManager,
     runtime: composition.runtime,
-    providerId: composition.runtimeProviderId,
-    modelId: composition.runtimeModelId,
     policies,
     ...(options.observability ? { observability: options.observability } : {}),
   });

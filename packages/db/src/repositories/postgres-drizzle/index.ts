@@ -2,11 +2,11 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import { sidechatTables } from "#drizzle/schema";
-import type { SidechatRepositories } from "./contract.js";
-import { createPostgresDrizzleConversationRepository } from "./postgres-drizzle-conversations.js";
-import { createPostgresDrizzleInteractionRepository } from "./postgres-drizzle-interactions.js";
-import { createPostgresDrizzleTurnRepository } from "./postgres-drizzle-turns.js";
-import { createRandomIdGenerator } from "./repository-utils.js";
+import type { SidechatRepositories } from "../contract.js";
+import { createPostgresDrizzleConversationRepository } from "./conversations.js";
+import { createPostgresDrizzleInteractionRepository } from "./interactions.js";
+import { createPostgresDrizzleTurnRepository } from "./turns.js";
+import { createRandomIdGenerator } from "../repository-utils.js";
 
 export type PostgresDrizzleRepositoryOptions = {
   readonly connectionString: string;

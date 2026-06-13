@@ -8,7 +8,7 @@ import { sidechatTables } from "./schema.js";
 const migration = readFileSync(
   new URL("../../migrations/0000_side_chat_day_one.sql", import.meta.url),
   "utf8",
-);
+).replaceAll("\r\n", "\n");
 
 describe("sidechat drizzle schema and migration", () => {
   it("exports the day-one logical tables", () => {

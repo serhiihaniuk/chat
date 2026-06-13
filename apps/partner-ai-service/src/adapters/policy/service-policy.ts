@@ -46,9 +46,9 @@ export const createServicePolicyPort = (config: ServicePolicyConfig): PolicyPort
 
       if (config.mode === "configured") {
         return Effect.succeed(
-          (config.allowedModels ?? []).includes(input.modelId)
+          (config.allowedModels ?? []).includes(input.policyDecision.modelId)
             ? { allowed: true }
-            : modelUnavailableDecision(input.modelId),
+            : modelUnavailableDecision(input.policyDecision.modelId),
         );
       }
 

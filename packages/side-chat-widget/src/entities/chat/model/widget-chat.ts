@@ -18,21 +18,33 @@ export type WidgetMessage = {
   readonly isStreaming?: boolean;
 };
 
+export type WidgetChatRequestInput = {
+  readonly assistantProfileId: string | undefined;
+  readonly conversationId: string | undefined;
+  readonly hostContext: HostContext | undefined;
+  readonly message: string;
+  readonly messageId: string;
+  readonly requestId: string;
+};
+
 export const createDefaultRequest = ({
   assistantProfileId,
+  conversationId,
   content,
   hostContext,
   messageId,
   requestId,
 }: {
-  readonly assistantProfileId: string | undefined;
+  readonly assistantProfileId?: string;
+  readonly conversationId?: string;
   readonly content: string;
-  readonly hostContext: HostContext | undefined;
+  readonly hostContext?: HostContext;
   readonly messageId: string;
   readonly requestId: string;
 }): ChatStreamRequest => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId,
+  ...(conversationId ? { conversationId } : {}),
   ...(assistantProfileId ? { assistantProfileId } : {}),
   message: {
     id: messageId,
@@ -41,6 +53,23 @@ export const createDefaultRequest = ({
   },
   ...(hostContext ? { hostContext } : {}),
 });
+
+export const createWidgetChatRequest = ({
+  assistantProfileId,
+  conversationId,
+  hostContext,
+  message,
+  messageId,
+  requestId,
+}: WidgetChatRequestInput): ChatStreamRequest =>
+  createDefaultRequest({
+    content: message,
+    messageId,
+    requestId,
+    ...(assistantProfileId ? { assistantProfileId } : {}),
+    ...(conversationId ? { conversationId } : {}),
+    ...(hostContext ? { hostContext } : {}),
+  });
 
 export const createWidgetMessage = (
   id: string,

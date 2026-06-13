@@ -99,6 +99,48 @@ expectFailure("test placement fixture", "check-source-governance.mjs", (root) =>
   writeFixtureFile(root, "packages/chat-protocol/tests/bad.test.ts", "export {};\n");
 });
 
+expectFailure("code shape complexity fixture", "check-code-shape.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/chat-protocol/src/bad.ts",
+    [
+      "export const bad = (value) => {",
+      "  if (value.a) {",
+      "    if (value.b) {",
+      "      if (value.c) {",
+      "        if (value.d) {",
+      "          if (value.e) {",
+      "            if (value.f) return true;",
+      "          }",
+      "        }",
+      "      }",
+      "    }",
+      "  }",
+      "  return false;",
+      "};",
+      "",
+    ].join("\n"),
+  );
+});
+
+expectFailure("test support placement fixture", "check-code-shape.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/chat-protocol/src/sidechat-v1/fixtures.test-support.ts",
+    "export const fixture = {};\n",
+  );
+});
+
+expectFailure("flat source directory fixture", "check-code-shape.mjs", (root) => {
+  for (let index = 1; index <= 13; index += 1) {
+    writeFixtureFile(
+      root,
+      `packages/chat-protocol/src/flat/file-${index}.ts`,
+      `export const value${index} = ${index};\n`,
+    );
+  }
+});
+
 expectFailure("build artifact fixture", "check-source-governance.mjs", (root) => {
   writeFixtureFile(root, "packages/chat-protocol/dist/index.js", "export {};\n");
 });

@@ -1,58 +1,19 @@
 import {
   PROTOCOL_ERROR_CODES,
   SIDECHAT_EVENT_TYPES,
-  SIDECHAT_PROTOCOL_VERSION,
   validateSidechatEventSequence,
-  type ChatStreamRequest,
-  type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
-import { AUTHORITY_DENIAL_CODES, type AuthContext } from "#domain/authority";
+import { AUTHORITY_DENIAL_CODES } from "#domain/authority";
+import { RUNTIME_ERROR_CODES, RUNTIME_EVENT_TYPES, RUNTIME_FINISH_REASONS } from "#ports";
+import { denyRequestPolicy, POLICY_DENIAL_CODES } from "#policies/policy";
+import { authContext, input } from "#testing/stream-chat/fixtures.test-support";
 import {
-  RUNTIME_ERROR_CODES,
-  RUNTIME_EVENT_TYPES,
-  RUNTIME_FINISH_REASONS,
-  type AgentRuntimePort,
-  type ClockPort,
-  type ConversationRepositoryPort,
-  type IdGeneratorPort,
-  type RuntimeEvent,
-} from "#ports";
-import {
-  denyRequestPolicy,
-  POLICY_DENIAL_CODES,
-  type PolicyEvaluationInput,
-  type PolicyPort,
-} from "#policies/policy";
-import { createPartnerAiCoreLayer } from "#services/effect-runtime";
-import { streamChatEffect, type StreamChatInput } from "./stream-chat.js";
-
-const authContext: AuthContext = {
-  tenantId: "tenant_001",
-  workspaceId: "workspace_001",
-  subject: { subjectId: "subject_001", userId: "user_001" },
-  actor: { subjectId: "subject_001", userId: "user_001" },
-  roles: ["member"],
-  scopes: ["conversation:read", "conversation:write", "message:write"],
-  source: "test_authority",
-  hostOrigin: "https://host.example",
-  issuedAt: "2026-05-23T13:00:00.000Z",
-};
-
-const request: ChatStreamRequest = {
-  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-  requestId: "request_001",
-  message: { id: "message_001", role: "user", content: "hello" },
-};
-
-const input: StreamChatInput = {
-  workspace: { tenantId: "tenant_001", workspaceId: "workspace_001" },
-  request,
-  authContext,
-  providerId: "fake",
-  modelId: "fake-echo",
-};
+  collect,
+  createFakePorts,
+  isTerminalEvent,
+  runStreamChat,
+} from "#testing/stream-chat/fake-ports.test-support";
 
 describe("stream chat use case", () => {
   it("streams valid sidechat.v1 events through Effect services", async () => {
@@ -71,7 +32,42 @@ describe("stream chat use case", () => {
       SIDECHAT_EVENT_TYPES.COMPLETED,
     );
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
-    expect(ports.calls).toEqual(["policy", "ensureConversation", "appendUserMessage", "runtime"]);
+    expect(ports.calls).toEqual([
+      "hostCapabilities",
+      "turnPolicy",
+      "policy",
+      "ensureConversation",
+      "appendUserMessage",
+      "startAssistantTurn",
+      "contextManager",
+      "recordContextSnapshot",
+      "runtime",
+      "completeAssistantTurn",
+    ]);
+  });
+
+  it("passes resolved profile, prepared context, explicit tool allowlist, and abort signal to runtime", async () => {
+    const ports = createFakePorts({ authContext });
+    const abortController = new AbortController();
+
+    await collect(runStreamChat({ ...input, abortSignal: abortController.signal }, ports));
+
+    expect(ports.runtimeRequests[0]).toMatchObject({
+      requestId: "request_001",
+      assistantTurnId: "assistant_turn_001",
+      providerId: "fake",
+      modelId: "fake-echo",
+      profileId: "analyst",
+      availableToolNames: ["mock_web_search"],
+      messages: [{ role: "user", content: "hello" }],
+      contextBoard: {
+        manifest: {
+          profileId: "analyst",
+          profileVersion: "2026-06-13",
+        },
+      },
+    });
+    expect(ports.runtimeRequests[0]?.abortSignal).toBe(abortController.signal);
   });
 
   it("requires normalized AuthContext before protected work", async () => {
@@ -104,7 +100,7 @@ describe("stream chat use case", () => {
       protocolCode: PROTOCOL_ERROR_CODES.RATE_LIMITED,
       retryable: true,
     });
-    expect(ports.calls).toEqual(["policy"]);
+    expect(ports.calls).toEqual(["hostCapabilities", "turnPolicy", "policy"]);
   });
 
   it("denies cross-tenant access before persistence or model work", async () => {
@@ -187,120 +183,38 @@ describe("stream chat use case", () => {
       retryable: true,
     });
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
+    expect(ports.failedTurns[0]).toMatchObject({
+      status: "timed_out",
+      errorCode: PROTOCOL_ERROR_CODES.TIMEOUT,
+    });
+  });
+
+  it("marks aborted runtime terminals as user-aborted turns", async () => {
+    const ports = createFakePorts({
+      authContext,
+      runtimeEvents: [
+        {
+          type: RUNTIME_EVENT_TYPES.ERROR,
+          requestId: "request_001",
+          assistantTurnId: "assistant_turn_001",
+          sequence: 0,
+          code: RUNTIME_ERROR_CODES.ABORTED,
+          message: "request aborted",
+          retryable: false,
+        },
+      ],
+    });
+
+    const events = await collect(runStreamChat(input, ports));
+
+    expect(events.at(-1)).toMatchObject({
+      type: SIDECHAT_EVENT_TYPES.ERROR,
+      code: PROTOCOL_ERROR_CODES.ABORTED,
+      retryable: false,
+    });
+    expect(ports.failedTurns[0]).toMatchObject({
+      status: "user_aborted",
+      errorCode: PROTOCOL_ERROR_CODES.ABORTED,
+    });
   });
 });
-
-type FakePortOptions = {
-  readonly authContext?: AuthContext;
-  readonly runtimeEvents?: readonly RuntimeEvent[];
-  readonly policies?: PolicyPort;
-};
-
-const createFakePorts = (options: FakePortOptions = {}) => {
-  const calls: string[] = [];
-  const clock: ClockPort = { now: () => "2026-05-23T13:00:00.000Z" };
-  const ids: IdGeneratorPort = {
-    nextConversationId: () => "conversation_001",
-    nextAssistantTurnId: () => "assistant_turn_001",
-    nextEventId: (() => {
-      let index = 0;
-      return () => {
-        index += 1;
-        return `event_${index.toString().padStart(3, "0")}`;
-      };
-    })(),
-  };
-  const conversations: ConversationRepositoryPort = {
-    ensureConversation: ({ authContext: context, fallbackConversationId }) => {
-      calls.push("ensureConversation");
-      return Effect.succeed({
-        tenantId: context.tenantId,
-        workspaceId: context.workspaceId,
-        conversationId: fallbackConversationId,
-      });
-    },
-    appendUserMessage: () => {
-      calls.push("appendUserMessage");
-      return Effect.succeed(undefined);
-    },
-  };
-  const runtime: AgentRuntimePort = {
-    streamEffect: () => {
-      calls.push("runtime");
-      return Stream.fromIterable(options.runtimeEvents ?? defaultRuntimeEvents());
-    },
-  };
-
-  return {
-    calls,
-    policies: {
-      evaluate: (policyInput: PolicyEvaluationInput) => {
-        calls.push("policy");
-        return (
-          options.policies ?? {
-            evaluate: () => Effect.succeed({ allowed: true } as const),
-          }
-        ).evaluate(policyInput);
-      },
-    },
-    conversations,
-    runtime,
-    clock,
-    ids,
-  };
-};
-
-const runStreamChat = (
-  streamInput: StreamChatInput,
-  ports: ReturnType<typeof createFakePorts>,
-): AsyncIterable<SidechatStreamEvent> =>
-  Stream.toAsyncIterable(
-    streamChatEffect(streamInput).pipe(
-      Stream.provide(
-        createPartnerAiCoreLayer({
-          conversations: ports.conversations,
-          runtime: ports.runtime,
-          clock: ports.clock,
-          ids: ports.ids,
-          policies: ports.policies,
-        }),
-      ),
-    ),
-  );
-
-const defaultRuntimeEvents = (): readonly RuntimeEvent[] => [
-  {
-    type: RUNTIME_EVENT_TYPES.ACTIVITY,
-    requestId: "request_001",
-    assistantTurnId: "assistant_turn_001",
-    sequence: 0,
-    activityId: "activity_001",
-    activityKind: "reasoning",
-    status: "completed",
-    title: "Fake runtime selected deterministic response",
-  },
-  {
-    type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
-    requestId: "request_001",
-    assistantTurnId: "assistant_turn_001",
-    sequence: 1,
-    content: "Fake response",
-  },
-  {
-    type: RUNTIME_EVENT_TYPES.COMPLETED,
-    requestId: "request_001",
-    assistantTurnId: "assistant_turn_001",
-    sequence: 2,
-    finishReason: RUNTIME_FINISH_REASONS.STOP,
-    usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
-  },
-];
-
-const collect = async <T>(items: AsyncIterable<T>): Promise<T[]> => {
-  const collected: T[] = [];
-  for await (const item of items) collected.push(item);
-  return collected;
-};
-
-const isTerminalEvent = (event: SidechatStreamEvent): boolean =>
-  event.type === SIDECHAT_EVENT_TYPES.COMPLETED || event.type === SIDECHAT_EVENT_TYPES.ERROR;

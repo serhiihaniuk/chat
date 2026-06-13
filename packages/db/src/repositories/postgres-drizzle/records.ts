@@ -22,7 +22,7 @@ import type {
   ToolInvocationRecord,
   UsageRecord,
 } from "#schema-contract";
-import { DbRepositoryError } from "./errors.js";
+import { DbRepositoryError } from "../errors.js";
 
 export const optional = <Value>(value: Value | null | undefined): Value | undefined =>
   value === null || value === undefined ? undefined : value;
