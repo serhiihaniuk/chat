@@ -9,8 +9,18 @@ import {
 import type { ModelProvider } from "#providers/model-provider";
 import { createScriptedLanguageModel } from "#testing/scripted-language-model";
 import { createMockWebSearchTool, MOCK_WEB_SEARCH_TOOL_NAME } from "#testing/mock-runtime-tool";
-import { RUNTIME_ERROR_CODES } from "./contract/runtime-event.js";
-import { createAgentRuntime } from "./agent-runtime.js";
+import {
+  RUNTIME_ERROR_CODES,
+  RUNTIME_EVENT_TYPES,
+  RUNTIME_FINISH_REASONS,
+  type RuntimeEvent,
+} from "./contract/runtime-event.js";
+import {
+  createAgentRuntime,
+  DEFAULT_AGENT_EXECUTOR_ID,
+  type AgentExecutionRequest,
+  type AgentExecutor,
+} from "./agent-runtime.js";
 
 describe("createAgentRuntime", () => {
   it("streams internal events by resolving a model provider through the runtime", async () => {
@@ -216,6 +226,75 @@ describe("createAgentRuntime", () => {
     expect(modelCalls[0]?.tools).toBeUndefined();
   });
 
+  it("selects a requested executor without entering the AI SDK stream runner", async () => {
+    const modelCalls: LanguageModelV3CallOptions[] = [];
+    const executionRequests: AgentExecutionRequest[] = [];
+    const runtime = createAgentRuntime({
+      providers: [createCapturingProvider(modelCalls)],
+      executors: [createDeterministicExecutor("deterministic.test", executionRequests)],
+    });
+
+    const events = await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          executorId: "deterministic.test",
+          providerId: "capture",
+          modelId: "capture-model",
+          requestId: "req_executor",
+          assistantTurnId: "turn_executor",
+          messages: [{ role: "user", content: "executor seam" }],
+        }),
+      ),
+    );
+
+    expect(events.map((event) => event.type)).toEqual([
+      RUNTIME_EVENT_TYPES.STARTED,
+      RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
+      RUNTIME_EVENT_TYPES.COMPLETED,
+    ]);
+    expect(events[1]).toMatchObject({ content: "executor:deterministic.test" });
+    expect(executionRequests[0]?.providerRequest).toMatchObject({
+      requestId: "req_executor",
+      assistantTurnId: "turn_executor",
+      providerId: "capture",
+      modelId: "capture-model",
+    });
+    expect(modelCalls).toHaveLength(0);
+  });
+
+  it("rejects unknown executors before resolving provider adapters", async () => {
+    const runtime = createAgentRuntime({
+      providers: [createThrowingProvider()],
+    });
+
+    await expect(
+      collectEvents(
+        Stream.toAsyncIterable(
+          runtime.streamEffect({
+            executorId: "missing_executor",
+            providerId: "throwing",
+            modelId: "throwing-model",
+            requestId: "req_missing_executor",
+            assistantTurnId: "turn_missing_executor",
+            messages: [],
+          }),
+        ),
+      ),
+    ).rejects.toMatchObject({
+      code: RUNTIME_ERROR_CODES.EXECUTOR_UNAVAILABLE,
+      message: "executor missing_executor is not registered",
+    });
+  });
+
+  it("rejects duplicate executor ids during composition", () => {
+    expect(() =>
+      createAgentRuntime({
+        providers: [createFakeProvider()],
+        executors: [createDeterministicExecutor(DEFAULT_AGENT_EXECUTOR_ID)],
+      }),
+    ).toThrow(`duplicate executor ${DEFAULT_AGENT_EXECUTOR_ID}`);
+  });
+
   it("rejects unavailable selected tools without fallback", async () => {
     const runtime = createAgentRuntime({
       providers: [createFakeProvider()],
@@ -314,6 +393,44 @@ const createThrowingProvider = (): ModelProvider => ({
   modelIds: ["throwing-model"],
   resolveModel: () => {
     throw new Error("provider adapter exploded");
+  },
+});
+
+const createDeterministicExecutor = (
+  executorId: string,
+  calls: AgentExecutionRequest[] = [],
+): AgentExecutor => ({
+  executorId,
+  description: "Deterministic fixture executor.",
+  stream: (executionRequest) => {
+    calls.push(executionRequest);
+    const { requestId, assistantTurnId, providerId, modelId } = executionRequest.providerRequest;
+    const events = [
+      {
+        type: RUNTIME_EVENT_TYPES.STARTED,
+        requestId,
+        assistantTurnId,
+        sequence: 0,
+        providerId,
+        modelId,
+      },
+      {
+        type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
+        requestId,
+        assistantTurnId,
+        sequence: 1,
+        content: `executor:${executorId}`,
+      },
+      {
+        type: RUNTIME_EVENT_TYPES.COMPLETED,
+        requestId,
+        assistantTurnId,
+        sequence: 2,
+        finishReason: RUNTIME_FINISH_REASONS.STOP,
+      },
+    ] satisfies readonly RuntimeEvent[];
+
+    return Stream.fromIterable(events);
   },
 });
 

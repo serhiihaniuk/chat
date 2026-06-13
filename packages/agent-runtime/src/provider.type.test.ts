@@ -3,7 +3,7 @@ import type { Effect } from "effect";
 import type { LanguageModel } from "ai";
 
 import type { RuntimeEvent } from "#runtime/contract/runtime-event";
-import type { AgentRuntime } from "#runtime/agent-runtime";
+import type { AgentExecutionRequest, AgentExecutor, AgentRuntime } from "#runtime/agent-runtime";
 import type { AgentRuntimeError } from "#runtime/contract/runtime-error";
 import type { RuntimeEventStream } from "#runtime/contract/runtime-stream";
 import type { ModelProvider } from "#providers/model-provider";
@@ -14,6 +14,8 @@ describe("agent runtime public provider types", () => {
       Effect.Effect<LanguageModel, AgentRuntimeError>
     >();
     expectTypeOf<ModelProvider>().not.toHaveProperty("stream");
+    expectTypeOf<ReturnType<AgentExecutor["stream"]>>().toEqualTypeOf<RuntimeEventStream>();
+    expectTypeOf<AgentExecutionRequest["model"]>().toEqualTypeOf<unknown>();
     expectTypeOf<ReturnType<AgentRuntime["streamEffect"]>>().toEqualTypeOf<RuntimeEventStream>();
     expectTypeOf<
       Extract<RuntimeEvent, { type: "response.output_text.delta" }>

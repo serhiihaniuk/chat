@@ -56,13 +56,13 @@ Not source of truth for: domain term definitions or detailed helper flow.
 
 ## packages/agent-runtime
 
-| Field          | Value                                                                                                                                        |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owns           | One prepared assistant turn, executable runtime tool registry, profile/provider/model/tool preparation, AI SDK adapter, RuntimeEvent stream. |
-| Public surface | `createAgentRuntime`, `streamEffect`, RuntimeEvent/request/error/tool/provider types.                                                        |
-| May depend on  | AI SDK, provider SDK packages, Effect.                                                                                                       |
-| Must not know  | Product authorization, approval policy, host-command dispatch, persistence policy, browser widget state, DB rows, Hono.                      |
-| Main tests     | `packages/agent-runtime/src/**/*.test.ts`.                                                                                                   |
+| Field          | Value                                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Owns           | One prepared assistant turn, AgentExecutor registry/selection, executable runtime tool registry, profile/provider/model/tool preparation, AI SDK adapter, RuntimeEvent stream. |
+| Public surface | `createAgentRuntime`, `streamEffect`, AgentExecutor, RuntimeEvent/request/error/tool/provider types.                                                                           |
+| May depend on  | AI SDK, provider SDK packages, Effect.                                                                                                                                         |
+| Must not know  | Product authorization, approval policy, host-command dispatch, persistence policy, browser widget state, DB rows, Hono.                                                        |
+| Main tests     | `packages/agent-runtime/src/**/*.test.ts`.                                                                                                                                     |
 
 ## packages/db
 

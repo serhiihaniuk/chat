@@ -1,6 +1,13 @@
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import {
+  RUNTIME_EVENT_TYPES,
+  RUNTIME_FINISH_REASONS,
+  type AgentExecutionRequest,
+  type AgentExecutor,
+  type RuntimeEvent,
+} from "@side-chat/agent-runtime";
+import {
   createJiraSearchIssuesCapability,
   createJiraSearchIssuesTool,
   JIRA_SEARCH_ISSUES_TOOL_NAME,
@@ -84,6 +91,38 @@ describe("service composition runtime tools", () => {
     ).rejects.toThrow(`tool ${JIRA_SEARCH_ISSUES_TOOL_NAME} is not registered`);
   });
 
+  it("injects app-owned agent executors into the runtime registry", async () => {
+    const executionRequests: AgentExecutionRequest[] = [];
+    const composition = composePartnerAiService({
+      workspace,
+      runtime: {
+        provider: "fake",
+        executors: [createDeterministicExecutor("service.test_executor", executionRequests)],
+      },
+    });
+
+    const events = await collectEvents(
+      Stream.toAsyncIterable(
+        composition.runtime.streamEffect({
+          executorId: "service.test_executor",
+          providerId: composition.runtimeProviderId,
+          modelId: composition.runtimeModelId,
+          requestId: "request_executor",
+          assistantTurnId: "turn_executor",
+          messages: [{ role: "user", content: "use fixture executor" }],
+        }),
+      ),
+    );
+
+    expect(events.map((event) => event.type)).toEqual([
+      RUNTIME_EVENT_TYPES.STARTED,
+      RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
+      RUNTIME_EVENT_TYPES.COMPLETED,
+    ]);
+    expect(events[1]).toMatchObject({ content: "executor:service.test_executor" });
+    expect(executionRequests).toHaveLength(1);
+  });
+
   it("declares host commands separately from backend runtime tools", async () => {
     const composition = composePartnerAiService({
       workspace,
@@ -144,6 +183,44 @@ const collectEvents = async <T>(events: AsyncIterable<T>): Promise<T[]> => {
   for await (const event of events) collected.push(event);
   return collected;
 };
+
+const createDeterministicExecutor = (
+  executorId: string,
+  calls: AgentExecutionRequest[],
+): AgentExecutor => ({
+  executorId,
+  description: "Deterministic service composition executor.",
+  stream: (executionRequest) => {
+    calls.push(executionRequest);
+    const { requestId, assistantTurnId, providerId, modelId } = executionRequest.providerRequest;
+    const events = [
+      {
+        type: RUNTIME_EVENT_TYPES.STARTED,
+        requestId,
+        assistantTurnId,
+        sequence: 0,
+        providerId,
+        modelId,
+      },
+      {
+        type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
+        requestId,
+        assistantTurnId,
+        sequence: 1,
+        content: `executor:${executorId}`,
+      },
+      {
+        type: RUNTIME_EVENT_TYPES.COMPLETED,
+        requestId,
+        assistantTurnId,
+        sequence: 2,
+        finishReason: RUNTIME_FINISH_REASONS.STOP,
+      },
+    ] satisfies readonly RuntimeEvent[];
+
+    return Stream.fromIterable(events);
+  },
+});
 
 const JIRA_CREATE_ISSUE_TOOL_NAME = "jira.create_issue";
 

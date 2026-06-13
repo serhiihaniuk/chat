@@ -40,6 +40,8 @@ HTTP request -> auth/request parsing -> StreamChatInput
 - Hono objects do not enter core.
 - Promise/AsyncIterable conversion happens at HTTP edges.
 - App-owned concrete tools are injected into runtime through core/service ports.
+- App-owned agent executors are injected into runtime through service
+  composition; executor ids are not browser or manifest capabilities.
 - Tool declarations (`ToolCapability`) and executable tools (`RuntimeTool`) are
   wired separately so a manifest entry does not silently become model access.
 - Host commands are browser/host-app UI interactions and stay outside the
@@ -67,6 +69,10 @@ HTTP request -> auth/request parsing -> StreamChatInput
 Service composition accepts runtime tool implementations separately from
 manifest declarations. Selected tool names that lack an executable registration
 fail closed in `agent-runtime`.
+
+Service composition also accepts runtime executor implementations separately
+from tools. Unknown executor ids fail closed in `agent-runtime` before the
+executor stream starts.
 
 ## Related Docs
 

@@ -34,13 +34,14 @@ Not source of truth for: architecture decisions or implementation plans.
 
 ## Request Chain
 
-| Term                    | Meaning                                                  | Owner             | Do not confuse with     | Allowed aliases | Forbidden aliases               |
-| ----------------------- | -------------------------------------------------------- | ----------------- | ----------------------- | --------------- | ------------------------------- |
-| ChatStreamRequest       | Browser-facing `sidechat.v1` stream request.             | `chat-protocol`   | StreamChatInput         | none            | request in broad scope          |
-| StreamChatInput         | Product-core input assembled by the service adapter.     | `partner-ai-core` | ChatStreamRequest       | none            | input in broad scope            |
-| AgentRuntimeRequest     | Request from product core into agent runtime.            | `agent-runtime`   | RuntimeProviderRequest  | none            | runtime input                   |
-| RuntimeProviderRequest  | Provider-ready request after runtime preparation.        | `agent-runtime`   | AI SDK provider request | none            | provider request in broad scope |
-| AI SDK provider request | Private DTO/options passed to AI SDK/provider internals. | `agent-runtime`   | RuntimeProviderRequest  | none            | runtime request                 |
+| Term                    | Meaning                                                                                             | Owner             | Do not confuse with         | Allowed aliases     | Forbidden aliases               |
+| ----------------------- | --------------------------------------------------------------------------------------------------- | ----------------- | --------------------------- | ------------------- | ------------------------------- |
+| ChatStreamRequest       | Browser-facing `sidechat.v1` stream request.                                                        | `chat-protocol`   | StreamChatInput             | none                | request in broad scope          |
+| StreamChatInput         | Product-core input assembled by the service adapter.                                                | `partner-ai-core` | ChatStreamRequest           | none                | input in broad scope            |
+| AgentRuntimeRequest     | Request from product core into agent runtime.                                                       | `agent-runtime`   | RuntimeProviderRequest      | none                | runtime input                   |
+| RuntimeProviderRequest  | Provider-ready request after runtime preparation.                                                   | `agent-runtime`   | AI SDK provider request     | none                | provider request in broad scope |
+| AgentExecutor           | Runtime execution engine selected for one prepared turn and responsible for emitting RuntimeEvents. | `agent-runtime`   | model provider, RuntimeTool | executor when local | agent in broad scope            |
+| AI SDK provider request | Private DTO/options passed to AI SDK/provider internals.                                            | `agent-runtime`   | RuntimeProviderRequest      | none                | runtime request                 |
 
 ## Event Chain
 

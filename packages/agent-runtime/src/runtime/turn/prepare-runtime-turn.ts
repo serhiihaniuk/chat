@@ -1,5 +1,11 @@
 import type { ModelProvider, ProviderSelection } from "#providers/model-provider";
 import type { RuntimeTool } from "#tools/runtime-tool";
+import type { AgentExecutor } from "../executors/agent-executor.js";
+import {
+  createExecutorCatalog,
+  resolveAgentExecutor,
+  type ExecutorCatalog,
+} from "../executors/executor-selection.js";
 import type {
   AgentRuntimeRequest,
   RuntimeMessage,
@@ -28,6 +34,7 @@ import { createToolCatalog, selectRuntimeTools, type ToolCatalog } from "./tool-
  * capabilities are allowed for one assistant turn.
  */
 export type RuntimeState = {
+  readonly executors: ExecutorCatalog;
   readonly providers: ProviderCatalog;
   readonly profiles: ProfileCatalog;
   readonly tools: ToolCatalog;
@@ -41,16 +48,19 @@ export type RuntimeState = {
  * to the AI SDK adapter.
  */
 export type PreparedRuntimeTurn = {
+  readonly executor: AgentExecutor;
   readonly provider: ModelProvider;
   readonly selection: ProviderSelection;
   readonly providerRequest: RuntimeProviderRequest;
 };
 
 export const createRuntimeState = (options: {
+  readonly executors?: readonly AgentExecutor[];
   readonly providers: readonly ModelProvider[];
   readonly profiles?: readonly AssistantProfile[];
   readonly tools?: readonly RuntimeTool[];
 }): RuntimeState => ({
+  executors: createExecutorCatalog(options.executors),
   providers: createProviderCatalog(options.providers),
   profiles: createProfileCatalog(options.profiles),
   tools: createToolCatalog(options.tools),
@@ -68,12 +78,14 @@ export const prepareRuntimeTurn = (
   request: AgentRuntimeRequest,
 ): PreparedRuntimeTurn => {
   const profile = resolveProfile(state.profiles, request.profileId);
+  const executor = resolveAgentExecutor(state.executors, request);
   const selection = resolveProviderSelection(request, profile, state.providers.providers);
   const provider = resolveProvider(state.providers, selection);
   const tools = selectRuntimeTools(state.tools, profile, request);
   const messages = renderRuntimeMessages(profile, request);
 
   return {
+    executor,
     provider,
     selection,
     providerRequest: createProviderRequest(request, selection, tools, messages),

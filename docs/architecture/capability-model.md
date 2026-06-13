@@ -4,8 +4,7 @@ Read this when: you need to know why a declared capability is not automatically
 available to a model call.
 Source of truth for: current manifest, executable registry, and per-turn policy
 separation.
-Not source of truth for: future RAG, memory, guard, or agent-executor
-implementations.
+Not source of truth for: future RAG, memory, or guard implementations.
 
 ## Three Separate Objects
 
@@ -37,6 +36,14 @@ with `tool_unavailable`; it does not silently expose a replacement.
 
 If a tool is registered in runtime but no request/profile allowlist selects it,
 the model sees no tool.
+
+## Agent Executor Path
+
+`AgentExecutor` is not a model-callable capability. Core or service code may
+select an executor id on `AgentRuntimeRequest`; the runtime resolves that id
+against its executor registry before streaming. Missing ids use the default
+AI SDK tool-loop executor, and unknown ids fail closed with
+`executor_unavailable`.
 
 ## Runtime Tool Versus Host Command
 

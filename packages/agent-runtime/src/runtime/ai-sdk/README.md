@@ -8,7 +8,7 @@ Not source of truth for: provider policy, product policy, or protocol events.
 
 | File                        | Owns                                                                |
 | --------------------------- | ------------------------------------------------------------------- |
-| `tool-loop-agent-runner.ts` | Opens ToolLoopAgent and preserves runtime event order.              |
+| `tool-loop-agent-runner.ts` | Opens ToolLoopAgent for the default executor and preserves order.   |
 | `ai-sdk-tool-adapter.ts`    | Converts RuntimeTool into an AI SDK tool callback.                  |
 | `runtime-tool-executor.ts`  | Runs RuntimeTool Effects with abort and timeout handling.           |
 | `tool-activity-mapper.ts`   | Maps AI SDK tool parts into one runtime activity row per tool call. |
@@ -19,6 +19,8 @@ Not source of truth for: provider policy, product policy, or protocol events.
 ## Boundary Rules
 
 - This is the only runtime folder that speaks AI SDK.
+- The default `AgentExecutor` calls into this folder; other executors must still
+  emit RuntimeEvents at the runtime boundary.
 - It must not choose tools, pick product profiles, or decide product policy.
 - It awaits `agent.stream(...)` only long enough to get AI SDK's stream handle.
 - The assistant answer still streams through `result.fullStream`.

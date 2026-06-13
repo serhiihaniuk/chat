@@ -10,8 +10,10 @@ browser protocol.
 ## Owns
 
 - `AgentRuntime.streamEffect(request)`.
-- Assistant profile, provider/model, tool, and prompt preparation for one turn.
-- Private AI SDK `ToolLoopAgent` integration.
+- Assistant profile, executor, provider/model, tool, and prompt preparation for
+  one turn.
+- AgentExecutor registry/selection and the private AI SDK `ToolLoopAgent`
+  executor implementation.
 - Runtime tool protocol and normalized RuntimeEvents.
 - Provider adapters and deterministic runtime test fakes.
 
@@ -27,6 +29,7 @@ browser protocol.
 
 - `createAgentRuntime`
 - `AgentRuntime`, `AgentRuntimeOptions`, and `AssistantProfile`
+- `AgentExecutor`, `AgentExecutionRequest`, and `DEFAULT_AGENT_EXECUTOR_ID`
 - `AgentRuntimeRequest`, `RuntimeContextBoard`, and runtime message types
 - `RuntimeEvent`, `RuntimeEventStream`, and runtime errors
 - `RuntimeTool` and `createToolRegistry`
@@ -41,11 +44,12 @@ implementation detail.
 ```txt
 AgentRuntimeRequest
 -> resolve assistant profile
+-> resolve requested/default AgentExecutor
 -> resolve provider/model
 -> select injected tools for this turn
 -> render profile instructions and context board
--> open AI SDK ToolLoopAgent stream
--> map AI SDK stream parts into RuntimeEvent values
+-> execute selected AgentExecutor
+-> map executor/provider stream parts into RuntimeEvent values
 ```
 
 ## Boundary Rules
@@ -62,6 +66,8 @@ AgentRuntimeRequest
 ## Local Conventions
 
 - `runtime/turn/**` prepares the request and must not import AI SDK.
+- `runtime/executors/**` owns executor ids and selection. Unknown executor ids
+  fail before streaming instead of falling back.
 - `runtime/ai-sdk/**` runs the private AI SDK adapter and must not decide
   product policy.
 - `RuntimeTool.execute` returns an Effect because tools are backend ports that

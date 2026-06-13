@@ -11,7 +11,8 @@ Not source of truth for: product policy or browser protocol.
 | ------------------ | ------------------------------------------------------------------------------------ |
 | `agent-runtime.ts` | Entry point used by product core and server callers.                                 |
 | `contract/`        | Request, event, error, and stream types that can cross the package boundary.         |
-| `turn/`            | Profile, provider/model, allowed tools, and prompt messages before the model starts. |
+| `turn/`            | Profile, executor, provider/model, allowed tools, and prompt messages before stream. |
+| `executors/`       | AgentExecutor contract, registry, selection, and default executor wiring.            |
 | `ai-sdk/`          | Private adapter that opens AI SDK ToolLoopAgent and maps provider parts.             |
 
 ## Read Path
@@ -19,6 +20,7 @@ Not source of truth for: product policy or browser protocol.
 ```txt
 agent-runtime.ts
 -> turn/prepare-runtime-turn.ts
+-> executors/executor-selection.ts
 -> ai-sdk/tool-loop-agent-runner.ts
 -> contract/runtime-event.ts
 ```
@@ -26,6 +28,7 @@ agent-runtime.ts
 ## Boundary Rules
 
 - `turn/` must not import AI SDK. It only decides what will be sent.
+- `executors/` must resolve registered execution engines before streaming.
 - `ai-sdk/` must not decide product policy. It only runs the prepared request.
 - The native runtime path is `streamEffect`.
 - Transport adapters may convert streams at their own edges.

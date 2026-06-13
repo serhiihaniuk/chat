@@ -1,13 +1,12 @@
 import { Cause, Effect, Stream } from "effect";
-import type { LanguageModel, ToolLoopAgentSettings } from "ai";
 
-import { runAiSdkToolLoopAgentStream } from "./ai-sdk/tool-loop-agent-runner.js";
 import type { ModelProvider } from "#providers/model-provider";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import { AgentRuntimeError } from "./contract/runtime-error.js";
 import { RUNTIME_ERROR_CODES } from "./contract/runtime-event.js";
 import type { RuntimeEventStream } from "./contract/runtime-stream.js";
 import type { AgentRuntimeRequest, RuntimeProviderRequest } from "./contract/runtime-request.js";
+import type { AgentExecutor } from "./executors/agent-executor.js";
 import type { AssistantProfile } from "./turn/assistant-profile.js";
 import {
   createRuntimeState,
@@ -20,6 +19,11 @@ export {
   DEFAULT_ASSISTANT_PROFILE_ID,
   type AssistantProfile,
 } from "./turn/assistant-profile.js";
+export {
+  DEFAULT_AGENT_EXECUTOR_ID,
+  type AgentExecutionRequest,
+  type AgentExecutor,
+} from "./executors/agent-executor.js";
 
 export type AgentRuntime = {
   streamEffect(request: AgentRuntimeRequest): RuntimeEventStream;
@@ -29,18 +33,20 @@ export type AgentRuntime = {
  * These options are the capabilities the runtime may use on future requests.
  *
  * Source is app composition: it injects providers and tools once. A later
- * AgentRuntimeRequest decides which profile, provider, model, and tools are
- * actually used for that specific assistant turn.
+ * AgentRuntimeRequest decides which executor, profile, provider, model, and
+ * tools are actually used for that specific assistant turn.
  */
 export type AgentRuntimeOptions = {
+  readonly executors?: readonly AgentExecutor[];
   readonly providers: readonly ModelProvider[];
   readonly profiles?: readonly AssistantProfile[];
   readonly tools?: readonly RuntimeTool[];
 };
 
 type RuntimeExecution = {
-  readonly model: LanguageModel;
-  readonly providerOptions: ToolLoopAgentSettings["providerOptions"] | undefined;
+  readonly executor: AgentExecutor;
+  readonly model: unknown;
+  readonly providerOptions: unknown;
   readonly providerRequest: RuntimeProviderRequest;
 };
 
@@ -65,19 +71,20 @@ const openPreparedRuntimeStream = (
   state: RuntimeState,
   request: AgentRuntimeRequest,
 ): RuntimeEventStream => {
-  const preparedStream = Effect.map(createRuntimeExecution(state, request), openAiSdkRuntimeStream);
+  const preparedStream = Effect.map(createRuntimeExecution(state, request), openExecutorStream);
   return Stream.unwrap(preparedStream);
 };
 
-const openAiSdkRuntimeStream = ({
+const openExecutorStream = ({
+  executor,
   model,
   providerOptions,
   providerRequest,
 }: RuntimeExecution): RuntimeEventStream =>
-  runAiSdkToolLoopAgentStream({
+  executor.stream({
     model,
     providerOptions,
-    request: providerRequest,
+    providerRequest,
   });
 
 const createRuntimeExecution = (
@@ -89,17 +96,19 @@ const createRuntimeExecution = (
      * prepareRuntimeTurn answers the questions that must be settled before the
      * model starts:
      *
-     * Which profile is active? Which provider/model is selected? Which tools are
-     * the model allowed to see? What final message list will the provider get?
+     * Which executor is allowed? Which profile is active? Which provider/model
+     * is selected? Which tools are the model allowed to see? What final message
+     * list will the provider get?
      */
     const turn = yield* attemptRuntime(() => prepareRuntimeTurn(state, request));
-    const { provider, providerRequest, selection } = turn;
+    const { executor, provider, providerRequest, selection } = turn;
     const model = yield* provider.resolveModel(selection);
     const providerOptions = provider.resolveProviderOptions
       ? yield* provider.resolveProviderOptions(selection)
       : undefined;
 
     return {
+      executor,
       model,
       providerOptions,
       providerRequest,

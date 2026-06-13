@@ -169,6 +169,7 @@ export type RuntimeMessage = {
 export type RuntimeRequest = {
   readonly requestId: string;
   readonly assistantTurnId: string;
+  readonly executorId?: string;
   readonly providerId: string;
   readonly modelId: string;
   readonly profileId: string;
@@ -204,6 +205,7 @@ export type RuntimeEventType = (typeof RUNTIME_EVENT_TYPES)[keyof typeof RUNTIME
 export const RUNTIME_ERROR_CODES = {
   PROVIDER_UNAVAILABLE: "provider_unavailable",
   MODEL_UNAVAILABLE: "model_unavailable",
+  EXECUTOR_UNAVAILABLE: "executor_unavailable",
   TOOL_UNAVAILABLE: "tool_unavailable",
   TOOL_FAILED: "tool_failed",
   TIMEOUT: "timeout",

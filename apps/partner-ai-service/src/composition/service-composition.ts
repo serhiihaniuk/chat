@@ -6,6 +6,7 @@ import {
   FAKE_PROVIDER_ID,
   OPENAI_PROVIDER_ID,
   type AgentRuntime,
+  type AgentExecutor,
   type ModelProvider,
   type RuntimeTool,
 } from "@side-chat/agent-runtime";
@@ -63,6 +64,7 @@ export type RuntimeConfig =
       readonly reasoningSummary?: OpenAIReasoningSummary;
     };
 export type RuntimeToolConfig = {
+  readonly executors?: readonly AgentExecutor[];
   readonly enableMockWebSearch?: boolean;
   readonly runtimeTools?: readonly RuntimeTool[];
   readonly toolCapabilities?: readonly ToolCapability[];
@@ -153,6 +155,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
 
 const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): AgentRuntime =>
   createAgentRuntime({
+    ...optionalField("executors", config.executors),
     providers: [createProviderForRuntime(config)],
     tools: [
       ...(config.enableMockWebSearch ? [createMockWebSearchTool()] : []),

@@ -34,7 +34,7 @@ HTTP adapter parses ChatStreamRequest and auth
 |    11 | Prepare context, recall memory, retrieve allowed RAG, and record context snapshot | `partner-ai-core` through context/lifecycle ports | Pre-start rejection, with failed turn recording                                        |
 |    12 | Record stream started                                                             | `partner-ai-core` observability                   | Pre-start rejection                                                                    |
 |    13 | Emit `sidechat.started`                                                           | protocol stream                                   | Streaming has begun                                                                    |
-|    14 | Execute runtime stream                                                            | `agent-runtime`                                   | Post-start terminal `sidechat.error`                                                   |
+|    14 | Execute selected/default AgentExecutor through runtime stream                     | `agent-runtime`                                   | Post-start terminal `sidechat.error`                                                   |
 |    15 | Map RuntimeEvents to protocol events                                              | `partner-ai-core`                                 | Post-start terminal `sidechat.error`                                                   |
 |    16 | Finalize terminal state and record allowed memory write candidates                | protocol finalization                             | `sidechat.completed` or `sidechat.error`; memory write candidate failures are observed |
 
@@ -43,10 +43,13 @@ HTTP adapter parses ChatStreamRequest and auth
 Later implementation phases extend this order without changing the failure
 split.
 
-| Seam                     | Target location                                     | Why there                                                                                    |
-| ------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Research agent           | After guards/policy, before final context selection | Research output becomes context candidates or artifacts, not direct browser protocol events. |
-| Agent executor selection | Before runtime request creation                     | Core chooses an allowed executor; the model does not choose arbitrary execution engines.     |
+| Seam           | Target location                                     | Why there                                                                                    |
+| -------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Research agent | After guards/policy, before final context selection | Research output becomes context candidates or artifacts, not direct browser protocol events. |
+
+`AgentRuntimeRequest.executorId` is the current runtime seam for core-selected
+execution engines. Missing ids use the default AI SDK tool-loop executor; unknown
+ids fail before the executor stream starts. The model never selects an executor.
 
 ## Failure Split
 

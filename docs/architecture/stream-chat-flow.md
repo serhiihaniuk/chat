@@ -19,7 +19,7 @@ Not source of truth for: every helper implementation.
 |     8 | assistant turn     | Starts assistant turn record.                                                         | Pre-start rejection when not started.              | Assistant turn ref.                       |
 |     9 | prepared context   | Builds and records host, memory, allowed RAG, and tool context sent to runtime.       | Pre-start rejection when not started.              | Prepared context and manifest.            |
 |    10 | started event      | Emits `sidechat.started`.                                                             | After this point, failures become terminal events. | Started protocol event.                   |
-|    11 | runtime stream     | Executes AgentRuntimeRequest.                                                         | Runtime failure maps to post-start terminal error. | RuntimeEvents.                            |
+|    11 | runtime stream     | Executes AgentRuntimeRequest through the selected/default AgentExecutor.              | Runtime failure maps to post-start terminal error. | RuntimeEvents.                            |
 |    12 | protocol mapping   | Maps RuntimeEvents to SidechatStreamEvents.                                           | Mapping failure maps to terminal error.            | Protocol stream events.                   |
 |    13 | finalization       | Validates terminal event, persists turn outcome, and records memory write candidates. | Error terminal on runtime/protocol failure.        | `sidechat.completed` or `sidechat.error`. |
 

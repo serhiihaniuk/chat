@@ -11,7 +11,7 @@ Not source of truth for: product requirements or every import rule.
 | ---------------- | ------------------------- | -------------------------- | ------------------------------------------------------ | ------------------------------------------- |
 | HTTP adapter     | HTTP/Hono request         | StreamChatInput            | Auth, request id, body validation, transport errors    | Hono objects into core                      |
 | Product core     | StreamChatInput and ports | SidechatStreamEvent stream | Policy, context, persistence order, terminal semantics | DB rows, provider DTOs, browser UI state    |
-| Runtime          | AgentRuntimeRequest       | RuntimeEvent stream        | Prepared turn execution only                           | Product auth/persistence policy             |
+| Runtime          | AgentRuntimeRequest       | RuntimeEvent stream        | Selected executor and prepared turn execution only     | Product auth/persistence policy             |
 | Provider adapter | RuntimeProviderRequest    | AI SDK/provider stream     | Provider selection and options                         | AI SDK parts outside runtime                |
 | Protocol         | Core event mapper         | `sidechat.v1` events       | Browser-safe DTOs and sequence                         | Runtime/provider/database/framework objects |
 | Widget           | Protocol stream events    | UI message/activity state  | Visible state and accessibility                        | Effect, provider DTOs, service internals    |
