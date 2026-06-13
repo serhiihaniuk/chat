@@ -1,5 +1,7 @@
 import type {
   ObservabilitySinkPort,
+  MemoryPolicy,
+  MemoryPort,
   RagRetrieverPort,
   RetrievalSourceCapability,
   TurnGuardRegistryPort,
@@ -42,6 +44,8 @@ export type PartnerAiServiceOptions = {
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
   readonly turnGuards?: TurnGuardRegistryPort;
+  readonly memory?: MemoryPort;
+  readonly memoryPolicy?: MemoryPolicy;
   readonly ragRetriever?: RagRetrieverPort;
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
   readonly persistenceLabel?: "memory" | "postgres-drizzle";
@@ -85,6 +89,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     turnPolicies: composition.turnPolicies,
     turnGuards: composition.turnGuards,
     contextManager: composition.contextManager,
+    memory: composition.memory,
     runtime: composition.runtime,
     policies,
     ...optionalField("observability", options.observability),
@@ -104,6 +109,8 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   ...optionalField("runtime", options.runtime),
   ...optionalField("agentRuntime", options.agentRuntime),
   ...optionalField("turnGuards", options.turnGuards),
+  ...optionalField("memory", options.memory),
+  ...optionalField("memoryPolicy", options.memoryPolicy),
   ...optionalField("ragRetriever", options.ragRetriever),
   ...optionalField("retrievalSources", options.retrievalSources),
 });

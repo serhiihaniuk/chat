@@ -49,6 +49,7 @@ export const registerChatStreamRoute = (
         turnPolicies: dependencies.turnPolicies,
         turnGuards: dependencies.turnGuards,
         contextManager: dependencies.contextManager,
+        memory: dependencies.memory,
         runtime: dependencies.runtime,
         ...(dependencies.observability ? { observability: dependencies.observability } : {}),
         policies: dependencies.policies,

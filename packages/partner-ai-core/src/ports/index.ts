@@ -18,6 +18,7 @@ import type {
 
 export type * from "./turn-guard.js";
 export type * from "./rag-retriever.js";
+export type * from "./memory-port.js";
 
 /**
  * Ports are the core package's dependencies, not implementations.
@@ -138,6 +139,7 @@ export type ContextManagerPort = {
   readonly prepareTurnContext: (input: {
     readonly authContext: AuthContext;
     readonly workspace: WorkspaceRef;
+    readonly conversation: ConversationRef;
     readonly request: ChatStreamRequest;
     readonly manifest: HostCapabilityManifest;
     readonly policyDecision: TurnPolicyDecision;

@@ -88,6 +88,11 @@ describe("partner AI core Effect runtime layer", () => {
             },
           }),
       },
+      memory: {
+        recall: () => Effect.succeed([]),
+        proposeWriteCandidates: () => Effect.succeed([]),
+        writeCandidates: () => Effect.succeed(undefined),
+      },
       runtime: {
         streamEffect: () => Stream.empty,
       },

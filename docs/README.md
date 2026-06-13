@@ -6,19 +6,19 @@ Not source of truth for: domain term definitions or implementation details.
 
 ## Reading Paths
 
-| Task                         | Read                                                                                |
-| ---------------------------- | ----------------------------------------------------------------------------------- |
-| Learn the product shape      | `architecture/foundation-overview.md`, then `architecture/system-overview.md`       |
-| Edit domain terms            | `domain/vocabulary.md`                                                              |
-| Change package boundaries    | `architecture/package-map.md`, then `architecture/boundaries.md`                    |
-| Change capability policy     | `architecture/capability-model.md`, then `architecture/stream-chat-flow.md`         |
-| Change retrieval/RAG context | `architecture/assistant-turn-lifecycle.md`, then `architecture/stream-chat-flow.md` |
-| Change stream-chat behavior  | `architecture/assistant-turn-lifecycle.md`, then `architecture/stream-chat-flow.md` |
-| Change Effect workflows      | `architecture/effect-style.md`                                                      |
-| Change widget code           | `architecture/widget-architecture.md`                                               |
-| Change tests or gates        | `architecture/testing-and-verification.md`                                          |
-| Review product scope         | `product/functional-requirements.md`                                                |
-| Review quality requirements  | `product/non-functional-requirements.md`                                            |
+| Task                            | Read                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| Learn the product shape         | `architecture/foundation-overview.md`, then `architecture/system-overview.md`       |
+| Edit domain terms               | `domain/vocabulary.md`                                                              |
+| Change package boundaries       | `architecture/package-map.md`, then `architecture/boundaries.md`                    |
+| Change capability policy        | `architecture/capability-model.md`, then `architecture/stream-chat-flow.md`         |
+| Change retrieval/memory context | `architecture/assistant-turn-lifecycle.md`, then `architecture/stream-chat-flow.md` |
+| Change stream-chat behavior     | `architecture/assistant-turn-lifecycle.md`, then `architecture/stream-chat-flow.md` |
+| Change Effect workflows         | `architecture/effect-style.md`                                                      |
+| Change widget code              | `architecture/widget-architecture.md`                                               |
+| Change tests or gates           | `architecture/testing-and-verification.md`                                          |
+| Review product scope            | `product/functional-requirements.md`                                                |
+| Review quality requirements     | `product/non-functional-requirements.md`                                            |
 
 ## Durable Docs
 

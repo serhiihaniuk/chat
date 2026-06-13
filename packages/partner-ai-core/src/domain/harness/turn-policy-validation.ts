@@ -7,6 +7,7 @@ import {
   type TurnPolicyDecision,
   type TurnPolicyValidationResult,
 } from "./capabilities.js";
+import { profileMemoryIssues } from "./turn-policy-memory-validation.js";
 
 export const validateTurnPolicyDecision = (
   manifest: HostCapabilityManifest,
@@ -21,6 +22,7 @@ export const validateTurnPolicyDecision = (
     ...manifestWorkflowIssues(manifest, decision),
     ...profileToolIssues(profile, decision),
     ...profileRetrievalIssues(profile, decision),
+    ...profileMemoryIssues(profile, decision),
   ];
 
   return issues.length === 0 ? { valid: true, decision } : { valid: false, issues };

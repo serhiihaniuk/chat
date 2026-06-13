@@ -115,6 +115,7 @@ export const prepareStreamChatTurn = (
         ports.contextManager.prepareTurnContext({
           authContext,
           workspace: input.workspace,
+          conversation,
           request: input.request,
           manifest: turnPlan.manifest,
           policyDecision: turnPlan.policyDecision,

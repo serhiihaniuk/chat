@@ -4,6 +4,13 @@ import {
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
   hashCanonicalJson,
+  type MemoryPolicy,
+  type MemoryPort,
+  type MemoryRecallInput,
+  type MemoryRecord,
+  type MemoryWriteCandidate,
+  type MemoryWriteCandidateProposalInput,
+  type MemoryWriteCandidateRecordInput,
   type RagContextCandidate,
   type RagRetrievalInput,
   type RagRetrieverPort,
@@ -166,7 +173,65 @@ describe("partner ai service /chat/stream persistence", () => {
       ]),
     });
   });
+
+  it("recalls memory into context and records post-turn memory write candidates", async () => {
+    const repositories = createMemorySidechatRepositories();
+    const recallInputs: MemoryRecallInput[] = [];
+    const proposalInputs: MemoryWriteCandidateProposalInput[] = [];
+    const writeInputs: MemoryWriteCandidateRecordInput[] = [];
+    const app = createPartnerAiServiceApp({
+      repositories,
+      memoryPolicy: userMemoryPolicy,
+      memory: createMemoryPort({ recallInputs, proposalInputs, writeInputs }),
+    });
+
+    const response = await app.request("/chat/stream", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer local-test-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(validRequest),
+    });
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(recallInputs[0]).toMatchObject({
+      requestId: "request_001",
+      userMessage: "hello service",
+      allowedScopes: ["user"],
+    });
+    expect(repositories.snapshot().contextSnapshots[0]?.contextRedactedJson).toMatchObject({
+      sections: expect.arrayContaining([
+        expect.objectContaining({
+          title: "Memory",
+          content: expect.stringContaining("User prefers concise answers."),
+        }),
+      ]),
+      candidates: expect.arrayContaining([
+        expect.objectContaining({
+          candidateId: "memory_memory_user_service_1",
+          sourceType: "memory",
+          sourceId: "memory_user_service_1",
+        }),
+      ]),
+    });
+    expect(proposalInputs[0]).toMatchObject({
+      requestId: "request_001",
+      assistantContent: expect.stringContaining("hello service"),
+      allowedScopes: ["user"],
+    });
+    expect(writeInputs[0]).toMatchObject({
+      candidates: [expect.objectContaining({ candidateId: "memory_write_user_service_1" })],
+    });
+  });
 });
+
+const userMemoryPolicy: MemoryPolicy = {
+  policyId: "user_memory",
+  mode: "read_write",
+  scopes: ["user"],
+};
 
 const docsSource: RetrievalSourceCapability = {
   sourceId: "docs",
@@ -188,4 +253,46 @@ const createRagCandidate = (): RagContextCandidate => ({
   estimatedTokens: 9,
   trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
   redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
+});
+
+const createMemoryPort = ({
+  recallInputs,
+  proposalInputs,
+  writeInputs,
+}: {
+  readonly recallInputs: MemoryRecallInput[];
+  readonly proposalInputs: MemoryWriteCandidateProposalInput[];
+  readonly writeInputs: MemoryWriteCandidateRecordInput[];
+}): MemoryPort => ({
+  recall: (input) =>
+    Effect.sync(() => {
+      recallInputs.push(input);
+      return [createMemoryRecord()];
+    }),
+  proposeWriteCandidates: (input) =>
+    Effect.sync(() => {
+      proposalInputs.push(input);
+      return [createMemoryWriteCandidate(input.assistantTurnId)];
+    }),
+  writeCandidates: (input) =>
+    Effect.sync(() => {
+      writeInputs.push(input);
+    }),
+});
+
+const createMemoryRecord = (): MemoryRecord => ({
+  memoryId: "memory_user_service_1",
+  scope: "user",
+  content: "User prefers concise answers.",
+  confidence: 0.93,
+  updatedAt: "2026-05-23T12:00:00.000Z",
+});
+
+const createMemoryWriteCandidate = (assistantTurnId: string): MemoryWriteCandidate => ({
+  candidateId: "memory_write_user_service_1",
+  scope: "user",
+  content: "User greeted the service.",
+  reason: "Deterministic test memory candidate.",
+  confidence: 0.8,
+  sourceTurnId: assistantTurnId,
 });

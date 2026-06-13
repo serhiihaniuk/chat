@@ -16,12 +16,14 @@ import {
   type ClockPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
+  type MemoryPort,
   type RuntimeEvent,
   type RuntimeRequest,
   type TurnGuardRegistryPort,
 } from "#ports";
 import type { PolicyEvaluationInput, PolicyPort } from "#policies/policy";
 import { createPartnerAiCoreLayer } from "#services/effect-runtime";
+import type { ObservabilitySinkPort } from "#services/observability";
 import { streamChatEffect, type StreamChatInput } from "#application/stream-chat/stream-chat";
 import {
   createManifest,
@@ -37,6 +39,8 @@ export type FakePortOptions = {
   readonly policyDecision?: TurnPolicyDecision;
   readonly turnGuards?: TurnGuardRegistryPort;
   readonly preparedContext?: PreparedTurnContext;
+  readonly memory?: MemoryPort;
+  readonly observability?: ObservabilitySinkPort;
 };
 
 export const createFakePorts = (options: FakePortOptions = {}) => {
@@ -85,6 +89,13 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
         return Effect.succeed(preparedContext);
       },
     },
+    memory:
+      options.memory ??
+      ({
+        recall: () => Effect.succeed([]),
+        proposeWriteCandidates: () => Effect.succeed([]),
+        writeCandidates: () => Effect.succeed(undefined),
+      } satisfies MemoryPort),
     policies: {
       evaluate: (policyInput: PolicyEvaluationInput) => {
         calls.push("policy");
@@ -99,6 +110,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     runtime,
     clock,
     ids,
+    ...(options.observability ? { observability: options.observability } : {}),
   };
 };
 
@@ -116,10 +128,12 @@ export const runStreamChat = (
           turnPolicies: ports.turnPolicies,
           turnGuards: ports.turnGuards,
           contextManager: ports.contextManager,
+          memory: ports.memory,
           runtime: ports.runtime,
           clock: ports.clock,
           ids: ports.ids,
           policies: ports.policies,
+          ...(ports.observability ? { observability: ports.observability } : {}),
         }),
       ),
     ),

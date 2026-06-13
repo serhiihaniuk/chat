@@ -19,36 +19,34 @@ HTTP adapter parses ChatStreamRequest and auth
 -> protocol terminal finalization
 ```
 
-| Order | Stage                                                              | Owner                                             | Failure behavior                                                 |
-| ----: | ------------------------------------------------------------------ | ------------------------------------------------- | ---------------------------------------------------------------- |
-|     1 | Validate HTTP/auth/request body                                    | service route                                     | HTTP/request error                                               |
-|     2 | Prove workspace authority                                          | `partner-ai-core`                                 | Pre-start rejection                                              |
-|     3 | Record request received                                            | `partner-ai-core` observability                   | Pre-start rejection                                              |
-|     4 | Load and validate host capability manifest                         | `partner-ai-core` through port                    | Pre-start rejection                                              |
-|     5 | Resolve and validate turn policy decision                          | `partner-ai-core` through port                    | Pre-start rejection                                              |
-|     6 | Evaluate product policy                                            | `partner-ai-core` through port                    | Pre-start rejection                                              |
-|     7 | Run turn guards                                                    | `partner-ai-core` through guard registry port     | Pre-start rejection                                              |
-|     8 | Ensure authorized conversation                                     | `partner-ai-core` through repository port         | Pre-start rejection                                              |
-|     9 | Append user message                                                | `partner-ai-core` through repository port         | Pre-start rejection                                              |
-|    10 | Start assistant turn record                                        | `partner-ai-core` through lifecycle port          | Pre-start rejection, with failed turn recording after this point |
-|    11 | Prepare context, retrieve allowed RAG, and record context snapshot | `partner-ai-core` through context/lifecycle ports | Pre-start rejection, with failed turn recording                  |
-|    12 | Record stream started                                              | `partner-ai-core` observability                   | Pre-start rejection                                              |
-|    13 | Emit `sidechat.started`                                            | protocol stream                                   | Streaming has begun                                              |
-|    14 | Execute runtime stream                                             | `agent-runtime`                                   | Post-start terminal `sidechat.error`                             |
-|    15 | Map RuntimeEvents to protocol events                               | `partner-ai-core`                                 | Post-start terminal `sidechat.error`                             |
-|    16 | Emit exactly one terminal event                                    | protocol finalization                             | `sidechat.completed` or `sidechat.error`                         |
+| Order | Stage                                                                             | Owner                                             | Failure behavior                                                                       |
+| ----: | --------------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
+|     1 | Validate HTTP/auth/request body                                                   | service route                                     | HTTP/request error                                                                     |
+|     2 | Prove workspace authority                                                         | `partner-ai-core`                                 | Pre-start rejection                                                                    |
+|     3 | Record request received                                                           | `partner-ai-core` observability                   | Pre-start rejection                                                                    |
+|     4 | Load and validate host capability manifest                                        | `partner-ai-core` through port                    | Pre-start rejection                                                                    |
+|     5 | Resolve and validate turn policy decision                                         | `partner-ai-core` through port                    | Pre-start rejection                                                                    |
+|     6 | Evaluate product policy                                                           | `partner-ai-core` through port                    | Pre-start rejection                                                                    |
+|     7 | Run turn guards                                                                   | `partner-ai-core` through guard registry port     | Pre-start rejection                                                                    |
+|     8 | Ensure authorized conversation                                                    | `partner-ai-core` through repository port         | Pre-start rejection                                                                    |
+|     9 | Append user message                                                               | `partner-ai-core` through repository port         | Pre-start rejection                                                                    |
+|    10 | Start assistant turn record                                                       | `partner-ai-core` through lifecycle port          | Pre-start rejection, with failed turn recording after this point                       |
+|    11 | Prepare context, recall memory, retrieve allowed RAG, and record context snapshot | `partner-ai-core` through context/lifecycle ports | Pre-start rejection, with failed turn recording                                        |
+|    12 | Record stream started                                                             | `partner-ai-core` observability                   | Pre-start rejection                                                                    |
+|    13 | Emit `sidechat.started`                                                           | protocol stream                                   | Streaming has begun                                                                    |
+|    14 | Execute runtime stream                                                            | `agent-runtime`                                   | Post-start terminal `sidechat.error`                                                   |
+|    15 | Map RuntimeEvents to protocol events                                              | `partner-ai-core`                                 | Post-start terminal `sidechat.error`                                                   |
+|    16 | Finalize terminal state and record allowed memory write candidates                | protocol finalization                             | `sidechat.completed` or `sidechat.error`; memory write candidate failures are observed |
 
 ## Future Seam Entries
 
 Later implementation phases extend this order without changing the failure
 split.
 
-| Seam                     | Target location                                     | Why there                                                                                        |
-| ------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Memory recall            | During context preparation                          | Memory is model-visible context, not runtime-private behavior.                                   |
-| Research agent           | After guards/policy, before final context selection | Research output becomes context candidates or artifacts, not direct browser protocol events.     |
-| Agent executor selection | Before runtime request creation                     | Core chooses an allowed executor; the model does not choose arbitrary execution engines.         |
-| Memory write candidates  | After runtime output and policy checks              | Durable memory writes need explicit policy and should not happen silently from raw model claims. |
+| Seam                     | Target location                                     | Why there                                                                                    |
+| ------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Research agent           | After guards/policy, before final context selection | Research output becomes context candidates or artifacts, not direct browser protocol events. |
+| Agent executor selection | Before runtime request creation                     | Core chooses an allowed executor; the model does not choose arbitrary execution engines.     |
 
 ## Failure Split
 
@@ -63,6 +61,11 @@ instead of treating the SSE transport as the source of truth.
 If an assistant turn record already exists but the protocol stream has not
 started, core records the failed turn and still rejects setup. That preserves
 durable state without half-opening the browser stream.
+
+Memory recall is part of context preparation, so recall failures stay pre-start.
+Memory write candidates run only after successful output and policy checks.
+Those candidate-recording failures are observable side effects, not a second
+terminal stream outcome.
 
 ## Files To Open
 

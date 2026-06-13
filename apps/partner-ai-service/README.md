@@ -10,6 +10,7 @@ Not source of truth for: global vocabulary or product requirements.
 - Auth, config, persistence, policy, provider, and tool adapters.
 - Concrete turn guard registries and guard adapters.
 - Concrete RAG retrievers and retrieved-context mapping.
+- Concrete memory adapters and recalled-memory context mapping.
 - Deployable service composition of `partner-ai-core`, `agent-runtime`, `db`,
   and concrete enterprise adapters.
 - SSE response conversion at the transport edge.
@@ -41,6 +42,8 @@ HTTP request -> auth/request parsing -> StreamChatInput
 - App-owned concrete tools are injected into runtime through core/service ports.
 - RAG retrievers are injected through service composition and mapped to prepared
   context before runtime execution.
+- Memory adapters are injected through service composition; recall maps to
+  prepared context and write candidates run after successful turns.
 - Mock or demo tools are local development and test fixtures; production
   profiles must fail closed instead of exposing them by default.
 

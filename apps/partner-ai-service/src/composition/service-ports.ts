@@ -6,6 +6,7 @@ import type {
   ConversationRepositoryPort,
   HostCapabilityManifestPort,
   IdGeneratorPort,
+  MemoryPort,
   ObservabilitySinkPort,
   PolicyPort,
   StreamChatPorts,
@@ -20,6 +21,7 @@ export type ServicePortsOptions = {
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
+  readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
   readonly clock?: ClockPort;
   readonly ids?: IdGeneratorPort;
@@ -34,6 +36,7 @@ export const createServicePorts = (options: ServicePortsOptions): StreamChatPort
   turnPolicies: options.turnPolicies,
   turnGuards: options.turnGuards,
   contextManager: options.contextManager,
+  memory: options.memory,
   runtime: options.runtime,
   clock: options.clock ?? systemClock,
   ids: options.ids ?? randomIds,

@@ -17,6 +17,7 @@ import { terminalErrorCode } from "#services/stream-observability";
 import { STREAM_CHAT_FAILURES, mapPortFailure, mapSyncFailure } from "../errors/effect-failures.js";
 import { validateExactlyOneTerminal } from "./runtime-event-mapper.js";
 import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
+import { recordAllowedMemoryWriteCandidates } from "../memory/record-allowed-memory-write-candidates.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,
@@ -96,24 +97,107 @@ const completeAssistantTurnFromEvents = (
     );
   }
 
-  return mapPortFailure(
-    ports.assistantTurns.completeAssistantTurn({
-      authContext: turn.authContext,
-      conversation: turn.conversation,
-      request: input.request,
-      assistantTurnId: turn.assistantTurnId,
-      assistantContent: events
-        .filter(isDeltaEvent)
-        .map((event) => event.content)
-        .join(""),
-      finishReason: completed.finishReason,
-      ...(completed.usage ? { usage: completed.usage } : {}),
-      providerId: turn.policyDecision.providerId,
-      modelId: turn.policyDecision.modelId,
-      now: completed.createdAt,
-    }),
-    STREAM_CHAT_FAILURES.PERSISTENCE,
+  const assistantContent = assistantContentFromEvents(events);
+
+  return Effect.gen(function* () {
+    yield* mapPortFailure(
+      ports.assistantTurns.completeAssistantTurn({
+        authContext: turn.authContext,
+        conversation: turn.conversation,
+        request: input.request,
+        assistantTurnId: turn.assistantTurnId,
+        assistantContent,
+        finishReason: completed.finishReason,
+        ...(completed.usage ? { usage: completed.usage } : {}),
+        providerId: turn.policyDecision.providerId,
+        modelId: turn.policyDecision.modelId,
+        now: completed.createdAt,
+      }),
+      STREAM_CHAT_FAILURES.PERSISTENCE,
+    );
+
+    yield* recordMemoryWriteCandidatesAfterCompletion(ports, input, turn, assistantContent);
+  });
+};
+
+const assistantContentFromEvents = (events: readonly SidechatStreamEvent[]): string =>
+  events
+    .filter(isDeltaEvent)
+    .map((event) => event.content)
+    .join("");
+
+const recordMemoryWriteCandidatesAfterCompletion = (
+  ports: StreamChatPorts,
+  input: StreamChatInput,
+  turn: PreparedStreamChatTurn,
+  assistantContent: string,
+): Effect.Effect<void, PartnerAiCoreError> =>
+  recordAllowedMemoryWriteCandidates({
+    memory: ports.memory,
+    authContext: turn.authContext,
+    workspace: input.workspace,
+    request: input.request,
+    conversation: turn.conversation,
+    assistantTurnId: turn.assistantTurnId,
+    policyDecision: turn.policyDecision,
+    assistantContent,
+  }).pipe(
+    Effect.flatMap((candidates) =>
+      candidates.length > 0
+        ? recordMemoryWriteCandidateObservation(ports, turn, "recorded", candidates.length)
+        : Effect.void,
+    ),
+    Effect.catch((error: PartnerAiCoreError) =>
+      recordMemoryWriteCandidateObservation(ports, turn, "failed", 0, error).pipe(
+        Effect.catch(() => Effect.void),
+      ),
+    ),
   );
+
+const recordMemoryWriteCandidateObservation = (
+  ports: StreamChatPorts,
+  turn: PreparedStreamChatTurn,
+  status: "recorded" | "failed",
+  candidateCount: number,
+  error?: PartnerAiCoreError,
+): Effect.Effect<void, PartnerAiCoreError> =>
+  recordStreamObservationEffect(
+    ports.observability,
+    createMemoryWriteCandidateObservationInput(ports, turn, status, candidateCount, error),
+  );
+
+const createMemoryWriteCandidateObservationInput = (
+  ports: StreamChatPorts,
+  turn: PreparedStreamChatTurn,
+  status: "recorded" | "failed",
+  candidateCount: number,
+  error: PartnerAiCoreError | undefined,
+): Parameters<typeof recordStreamObservationEffect>[1] => {
+  const input: Parameters<typeof recordStreamObservationEffect>[1] = {
+    correlation: turn.correlation,
+    lifecycleState: "completed",
+    assistantTurnId: turn.assistantTurnId,
+    providerId: turn.policyDecision.providerId,
+    modelId: turn.policyDecision.modelId,
+    startedAt: turn.startedAt,
+    now: ports.clock.now(),
+    attributes: {
+      stage: "memory_write_candidates",
+      status,
+      candidateCount,
+    },
+  };
+  if (!error) return input;
+
+  return {
+    ...input,
+    errorCode: error.protocolCode,
+    attributes: {
+      ...input.attributes,
+      errorCode: error.protocolCode,
+      message: error.message,
+    },
+  };
 };
 
 const failAssistantTurnFromTerminal = (

@@ -9,6 +9,8 @@ import {
   type TurnPolicyDecision,
   type TurnPolicyResolutionInput,
 } from "./capabilities.js";
+import { validateMemoryPolicyReferences } from "./turn-policy-memory-validation.js";
+import { duplicateValueIssues } from "./validation-issue-helpers.js";
 
 export const validateHostCapabilityManifest = (
   manifest: HostCapabilityManifest,
@@ -49,8 +51,15 @@ export const validateHostCapabilityManifest = (
   const retrievalSourceIds = new Set(manifest.retrievalSources.map((source) => source.sourceId));
 
   issues.push(
+    ...duplicateValueIssues(
+      manifest.memoryPolicies.map((policy) => policy.policyId),
+      "memoryPolicies",
+      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_MEMORY_POLICY_ID,
+      "memory policy id",
+    ),
     ...validateDefaultProfileReference(manifest, profileIds),
     ...validateAssistantProfileReferences(manifest, toolNames, retrievalSourceIds),
+    ...validateMemoryPolicyReferences(manifest),
     ...validateWorkflowReferences(manifest, profileIds, toolNames),
   );
 
@@ -104,26 +113,6 @@ export const createTurnPolicyDecision = ({
   ),
   manifestHash,
 });
-
-const duplicateValueIssues = (
-  values: readonly string[],
-  path: string,
-  code: HostCapabilityValidationCode,
-  label: string,
-): readonly HostCapabilityValidationIssue[] => {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-  for (const value of values) {
-    if (seen.has(value)) duplicates.add(value);
-    seen.add(value);
-  }
-
-  return [...duplicates].map((value) => ({
-    code,
-    path,
-    message: `Duplicate ${label} ${value}.`,
-  }));
-};
 
 const validateDefaultProfileReference = (
   manifest: HostCapabilityManifest,

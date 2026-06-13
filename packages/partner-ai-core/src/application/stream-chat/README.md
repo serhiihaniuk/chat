@@ -7,18 +7,20 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 
 ## Files
 
-| Path                                         | Owns                                                                                                            |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `stream-chat.ts`                             | Public `streamChatEffect` entrypoint.                                                                           |
-| `turn/prepare-stream-chat-turn.ts`           | Pre-start authority, policy, turn guards, conversation, user message, context, and runtime request preparation. |
-| `guards/run-turn-guards.ts`                  | Pre-context guard execution and guard failure mapping.                                                          |
-| `rag/retrieve-allowed-rag-candidates.ts`     | Policy-scoped RAG retrieval and retriever failure mapping before runtime execution.                             |
-| `protocol/protocol-event-stream.ts`          | Runtime event mapping, post-start terminal handling, and sequence validation.                                   |
-| `protocol/protocol-terminal-lifecycle.ts`    | Completion/failure persistence and terminal invariants.                                                         |
-| `protocol/runtime-event-mapper.ts`           | Pure RuntimeEvent to `sidechat.v1` event mapping.                                                               |
-| `observability/stream-chat-observability.ts` | Effect wrapper around stream lifecycle observation.                                                             |
-| `errors/effect-failures.ts`                  | Stable PartnerAiCoreError mapping for port failures.                                                            |
-| `stream-chat-types.ts`                       | Public and internal types shared by this use case.                                                              |
+| Path                                               | Owns                                                                                                            |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `stream-chat.ts`                                   | Public `streamChatEffect` entrypoint.                                                                           |
+| `turn/prepare-stream-chat-turn.ts`                 | Pre-start authority, policy, turn guards, conversation, user message, context, and runtime request preparation. |
+| `guards/run-turn-guards.ts`                        | Pre-context guard execution and guard failure mapping.                                                          |
+| `memory/recall-allowed-memory-candidates.ts`       | Policy-scoped memory recall before runtime execution.                                                           |
+| `memory/record-allowed-memory-write-candidates.ts` | Policy-scoped post-turn memory write candidate recording.                                                       |
+| `rag/retrieve-allowed-rag-candidates.ts`           | Policy-scoped RAG retrieval and retriever failure mapping before runtime execution.                             |
+| `protocol/protocol-event-stream.ts`                | Runtime event mapping, post-start terminal handling, and sequence validation.                                   |
+| `protocol/protocol-terminal-lifecycle.ts`          | Completion/failure persistence and terminal invariants.                                                         |
+| `protocol/runtime-event-mapper.ts`                 | Pure RuntimeEvent to `sidechat.v1` event mapping.                                                               |
+| `observability/stream-chat-observability.ts`       | Effect wrapper around stream lifecycle observation.                                                             |
+| `errors/effect-failures.ts`                        | Stable PartnerAiCoreError mapping for port failures.                                                            |
+| `stream-chat-types.ts`                             | Public and internal types shared by this use case.                                                              |
 
 ## Boundary Rules
 
@@ -30,6 +32,9 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
   runtime tools.
 - RAG retrieval runs during context preparation from allowed retrieval source ids;
   runtime does not fetch app RAG directly.
+- Memory recall runs during context preparation from allowed scopes. Memory
+  write candidates run after successful output and do not silently become raw
+  model-claimed durable memory.
 - Post-start runtime failures become terminal `sidechat.error` events.
 - Successful streams emit terminal `sidechat.completed`.
 

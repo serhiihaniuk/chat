@@ -101,6 +101,28 @@ describe("host capability manifest contract", () => {
     ]);
   });
 
+  it("rejects turn policies that widen memory outside the resolved profile", () => {
+    const analyst = createAssistantProfile({
+      memoryPolicy: { policyId: "user_memory", mode: "read", scopes: ["user"] },
+    });
+    const manifest = createManifest({ assistantProfiles: [analyst] });
+    const decision = {
+      ...createTurnPolicyDecision({
+        manifest,
+        profile: analyst,
+        manifestHash: hashHostCapabilityManifest(manifest),
+      }),
+      memoryScope: { mode: "read_write", scopes: ["user", "workspace"] } as const,
+    };
+
+    const validation = validateTurnPolicyDecision(manifest, analyst, decision);
+
+    expect(turnPolicyIssueCodes(validation)).toEqual([
+      HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MEMORY_POLICY_MISMATCH,
+      HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MEMORY_POLICY_MISMATCH,
+    ]);
+  });
+
   it("hashes equivalent manifests deterministically", () => {
     expect(hashHostCapabilityManifest(createManifest())).toBe(
       hashHostCapabilityManifest(createManifest()),
@@ -125,6 +147,54 @@ describe("host capability manifest contract", () => {
     );
 
     expect(issueCodes(validation)).toContain(HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_TOOL_NAME);
+  });
+
+  it("fails closed on duplicate memory policy ids", () => {
+    const memoryPolicy = { policyId: "user_memory", mode: "read" as const, scopes: ["user"] };
+    const validation = validateHostCapabilityManifest(
+      createManifest({
+        assistantProfiles: [createAssistantProfile({ memoryPolicy })],
+        memoryPolicies: [memoryPolicy, memoryPolicy],
+      }),
+    );
+
+    expect(issueCodes(validation)).toContain(
+      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_MEMORY_POLICY_ID,
+    );
+  });
+
+  it("fails closed when profiles reference missing memory policies", () => {
+    const validation = validateHostCapabilityManifest(
+      createManifest({
+        assistantProfiles: [
+          createAssistantProfile({
+            memoryPolicy: { policyId: "user_memory", mode: "read", scopes: ["user"] },
+          }),
+        ],
+        memoryPolicies: [],
+      }),
+    );
+
+    expect(issueCodes(validation)).toContain(
+      HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_MEMORY_POLICY_REFERENCE,
+    );
+  });
+
+  it("fails closed when profile memory policy differs from manifest memory policy", () => {
+    const validation = validateHostCapabilityManifest(
+      createManifest({
+        assistantProfiles: [
+          createAssistantProfile({
+            memoryPolicy: { policyId: "user_memory", mode: "read_write", scopes: ["user"] },
+          }),
+        ],
+        memoryPolicies: [{ policyId: "user_memory", mode: "read", scopes: ["user"] }],
+      }),
+    );
+
+    expect(issueCodes(validation)).toContain(
+      HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MEMORY_POLICY_MISMATCH,
+    );
   });
 
   it("fails closed on duplicate workflow ids", () => {

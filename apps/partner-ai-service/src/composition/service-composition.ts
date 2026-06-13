@@ -11,6 +11,8 @@ import {
 import {
   type ContextManagerPort,
   type HostCapabilityManifestPort,
+  type MemoryPolicy,
+  type MemoryPort,
   type RagRetrieverPort,
   type RetrievalSourceCapability,
   type TurnGuardRegistryPort,
@@ -26,6 +28,7 @@ import { optionalField } from "@side-chat/shared";
 
 import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/auth/service-auth";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
+import { createNoopMemoryPort } from "#adapters/memory/noop-memory-port";
 import {
   createDefaultPolicyConfig,
   type ServicePolicyConfig,
@@ -73,6 +76,7 @@ export type ServiceComposition = {
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
+  readonly memory: MemoryPort;
   readonly ragRetriever: RagRetrieverPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntime;
@@ -90,6 +94,8 @@ export type ServiceCompositionOptions = {
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
   readonly turnGuards?: TurnGuardRegistryPort;
+  readonly memory?: MemoryPort;
+  readonly memoryPolicy?: MemoryPolicy;
   readonly ragRetriever?: RagRetrieverPort;
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
 };
@@ -107,9 +113,11 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtimeConfig,
     providerId: runtimeProviderId,
     modelId: runtimeModelId,
+    ...optionalField("memoryPolicy", options.memoryPolicy),
     ...optionalField("retrievalSources", options.retrievalSources),
   });
   const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);
+  const memory = options.memory ?? createNoopMemoryPort();
   const ragRetriever = options.ragRetriever ?? createNoopRagRetriever();
 
   return {
@@ -122,8 +130,9 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     hostCapabilities: createStaticHostCapabilityManifestPort(manifest),
     turnPolicies: createServiceTurnPolicyResolver(),
     turnGuards: options.turnGuards ?? createNoopTurnGuardRegistry(),
+    memory,
     ragRetriever,
-    contextManager: createServiceContextManager({ ragRetriever }),
+    contextManager: createServiceContextManager({ memory, ragRetriever }),
     runtime,
     runtimeProviderId,
     runtimeModelId,

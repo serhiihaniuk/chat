@@ -9,6 +9,7 @@ import type {
   ConversationRepositoryPort,
   HostCapabilityManifestPort,
   IdGeneratorPort,
+  MemoryPort,
   TurnGuardRegistryPort,
   TurnPolicyResolverPort,
 } from "#ports";
@@ -52,6 +53,10 @@ export class ContextManagerService extends Context.Service<
   ContextManagerPort
 >()("@side-chat/partner-ai-core/ContextManagerService") {}
 
+export class MemoryService extends Context.Service<MemoryService, MemoryPort>()(
+  "@side-chat/partner-ai-core/MemoryService",
+) {}
+
 export class AgentRuntimeService extends Context.Service<AgentRuntimeService, AgentRuntimePort>()(
   "@side-chat/partner-ai-core/AgentRuntimeService",
 ) {}
@@ -80,6 +85,7 @@ export type PartnerAiCoreServices =
   | TurnPolicyResolverService
   | TurnGuardRegistryService
   | ContextManagerService
+  | MemoryService
   | AgentRuntimeService
   | ClockService
   | IdGeneratorService
@@ -93,6 +99,7 @@ export type PartnerAiCoreLayerInput = {
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
+  readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
@@ -116,6 +123,7 @@ export const createPartnerAiCoreLayer = (
     Layer.succeed(TurnPolicyResolverService, input.turnPolicies),
     Layer.succeed(TurnGuardRegistryService, input.turnGuards),
     Layer.succeed(ContextManagerService, input.contextManager),
+    Layer.succeed(MemoryService, input.memory),
     Layer.succeed(AgentRuntimeService, input.runtime),
     Layer.succeed(ClockService, input.clock),
     Layer.succeed(IdGeneratorService, input.ids),
@@ -138,6 +146,7 @@ export const partnerAiCoreServicesEffect = Effect.gen(function* () {
     turnPolicies: yield* TurnPolicyResolverService,
     turnGuards: yield* TurnGuardRegistryService,
     contextManager: yield* ContextManagerService,
+    memory: yield* MemoryService,
     runtime: yield* AgentRuntimeService,
     clock: yield* ClockService,
     ids: yield* IdGeneratorService,

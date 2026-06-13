@@ -6,12 +6,15 @@ import {
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
   hashCanonicalJson,
+  recallAllowedMemoryCandidates,
   retrieveAllowedRagCandidates,
   resolveAssistantProfileFromManifest,
   type AssistantProfile,
   type ContextCandidate,
   type ContextManagerPort,
   type HostCapabilityManifest,
+  type MemoryPort,
+  type MemoryRecord,
   type PreparedContextSection,
   type PreparedTurnContext,
   type RagContextCandidate,
@@ -20,24 +23,28 @@ import {
 } from "@side-chat/partner-ai-core";
 import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
+import {
+  createHostContextCandidates,
+  createHostContextSections,
+  type ServiceHostContext,
+} from "./service-host-context.js";
+import { createMemoryContextSections, toMemoryContextCandidate } from "./service-memory-context.js";
 import { createRagContextSections, toRagContextCandidate } from "./service-rag-context.js";
-
-type ServiceHostContext = {
-  readonly title?: string;
-  readonly url?: string;
-  readonly origin?: string;
-};
+import { createAllowedToolSections, createToolContextCandidate } from "./service-tool-context.js";
 
 export type ServiceContextManagerOptions = {
   readonly ragRetriever: RagRetrieverPort;
+  readonly memory: MemoryPort;
 };
 
 export const createServiceContextManager = ({
   ragRetriever,
+  memory,
 }: ServiceContextManagerOptions): ContextManagerPort => ({
   prepareTurnContext: ({
     authContext,
     workspace,
+    conversation,
     request,
     manifest,
     policyDecision,
@@ -63,6 +70,15 @@ export const createServiceContextManager = ({
         policyDecision,
         ...optionalField("abortSignal", abortSignal),
       });
+      const memoryRecords = yield* recallAllowedMemoryCandidates({
+        memory,
+        authContext,
+        workspace,
+        conversation,
+        request,
+        policyDecision,
+        ...optionalField("abortSignal", abortSignal),
+      });
 
       return createPreparedTurnContext({
         requestId: request.requestId,
@@ -71,6 +87,7 @@ export const createServiceContextManager = ({
         manifest,
         profile: resolution.profile,
         policyDecision,
+        memoryRecords,
         ragCandidates,
         createdAt: now,
         ...optionalField("hostContext", request.hostContext),
@@ -86,6 +103,7 @@ const createPreparedTurnContext = ({
   manifest,
   profile,
   policyDecision,
+  memoryRecords,
   ragCandidates,
   createdAt,
 }: {
@@ -96,6 +114,7 @@ const createPreparedTurnContext = ({
   readonly manifest: HostCapabilityManifest;
   readonly profile: AssistantProfile;
   readonly policyDecision: TurnPolicyDecision;
+  readonly memoryRecords: readonly MemoryRecord[];
   readonly ragCandidates: readonly RagContextCandidate[];
   readonly createdAt: string;
 }): PreparedTurnContext => {
@@ -104,12 +123,14 @@ const createPreparedTurnContext = ({
     messageContent,
     manifest,
     policyDecision,
+    memoryRecords,
     ragCandidates,
     ...optionalField("hostContext", hostContext),
   });
   const sections = createContextSections({
     manifest,
     policyDecision,
+    memoryRecords,
     ragCandidates,
     ...optionalField("hostContext", hostContext),
   });
@@ -160,6 +181,7 @@ const createContextCandidates = ({
   hostContext,
   manifest,
   policyDecision,
+  memoryRecords,
   ragCandidates,
 }: {
   readonly messageId: string;
@@ -167,6 +189,7 @@ const createContextCandidates = ({
   readonly hostContext?: ServiceHostContext;
   readonly manifest: HostCapabilityManifest;
   readonly policyDecision: TurnPolicyDecision;
+  readonly memoryRecords: readonly MemoryRecord[];
   readonly ragCandidates: readonly RagContextCandidate[];
 }): readonly ContextCandidate[] => [
   {
@@ -180,105 +203,31 @@ const createContextCandidates = ({
     priority: 100,
     provenance: { sourceId: messageId, label: "Current user message" },
   },
-  ...hostContextCandidates(hostContext, manifest),
+  ...createHostContextCandidates(hostContext, manifest),
+  ...memoryRecords.map(toMemoryContextCandidate),
   ...ragCandidates.map(toRagContextCandidate),
-  ...policyDecision.allowedToolNames.map((toolName) => toolCandidate(manifest, toolName)),
+  ...policyDecision.allowedToolNames.map((toolName) =>
+    createToolContextCandidate(manifest, toolName),
+  ),
 ];
-
-const hostContextCandidates = (
-  hostContext: ServiceHostContext | undefined,
-  manifest: HostCapabilityManifest,
-): readonly ContextCandidate[] => {
-  if (!hostContext) return [];
-
-  const content = renderHostContext(hostContext);
-  return [
-    {
-      candidateId: "host_context",
-      sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.HOST_CONTEXT,
-      sourceId: manifest.hostAppId,
-      trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
-      redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
-      content,
-      estimatedTokens: estimateTokens(content),
-      priority: 80,
-      provenance: { sourceId: manifest.hostAppId, label: "Host page context" },
-    },
-  ];
-};
-
-const toolCandidate = (manifest: HostCapabilityManifest, toolName: string): ContextCandidate => {
-  const content = renderToolCapability(manifest, toolName);
-  return {
-    candidateId: `tool_${toolName}`,
-    sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_CAPABILITY,
-    sourceId: toolName,
-    trustLevel: CONTEXT_TRUST_LEVELS.SYSTEM,
-    redactionClass: CONTEXT_REDACTION_CLASSES.PUBLIC,
-    content,
-    estimatedTokens: estimateTokens(content),
-    priority: 70,
-    provenance: { sourceId: toolName, label: "Allowed runtime tool" },
-  };
-};
 
 const createContextSections = ({
   hostContext,
   manifest,
   policyDecision,
+  memoryRecords,
   ragCandidates,
 }: {
   readonly hostContext?: ServiceHostContext;
   readonly manifest: HostCapabilityManifest;
   readonly policyDecision: TurnPolicyDecision;
+  readonly memoryRecords: readonly MemoryRecord[];
   readonly ragCandidates: readonly RagContextCandidate[];
 }): readonly PreparedContextSection[] => [
-  ...hostContextSections(hostContext),
+  ...createHostContextSections(hostContext),
+  ...createMemoryContextSections(memoryRecords),
   ...createRagContextSections(ragCandidates),
-  ...allowedToolSections(manifest, policyDecision.allowedToolNames),
+  ...createAllowedToolSections(manifest, policyDecision.allowedToolNames),
 ];
-
-const hostContextSections = (
-  hostContext: ServiceHostContext | undefined,
-): readonly PreparedContextSection[] =>
-  hostContext
-    ? [
-        {
-          title: "Host context",
-          content: renderHostContext(hostContext),
-          priority: 80,
-        },
-      ]
-    : [];
-
-const allowedToolSections = (
-  manifest: HostCapabilityManifest,
-  allowedToolNames: readonly string[],
-): readonly PreparedContextSection[] =>
-  allowedToolNames.length > 0
-    ? [
-        {
-          title: "Allowed tools",
-          content: allowedToolNames
-            .map((toolName) => renderToolCapability(manifest, toolName))
-            .join("\n"),
-          priority: 70,
-        },
-      ]
-    : [];
-
-const renderHostContext = (hostContext: ServiceHostContext): string =>
-  [
-    hostContext.title ? `Title: ${hostContext.title}` : undefined,
-    hostContext.url ? `URL: ${hostContext.url}` : undefined,
-    hostContext.origin ? `Origin: ${hostContext.origin}` : undefined,
-  ]
-    .filter((line): line is string => Boolean(line))
-    .join("\n");
-
-const renderToolCapability = (manifest: HostCapabilityManifest, toolName: string): string => {
-  const tool = manifest.tools.find((candidate) => candidate.name === toolName);
-  return tool ? `${tool.name}: ${tool.description}` : `${toolName}: unavailable`;
-};
 
 const estimateTokens = (content: string): number => Math.max(1, Math.ceil(content.length / 4));

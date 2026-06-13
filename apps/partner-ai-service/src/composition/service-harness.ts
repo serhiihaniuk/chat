@@ -9,6 +9,7 @@ import {
   type AssistantProfile,
   type HostCapabilityManifest,
   type HostCapabilityManifestPort,
+  type MemoryPolicy,
   type RetrievalSourceCapability,
   type ToolCapability,
   type TurnPolicyResolverPort,
@@ -29,11 +30,13 @@ export const createServiceHostCapabilityManifest = ({
   providerId,
   modelId,
   retrievalSources = [],
+  memoryPolicy = { policyId: "no_memory", mode: "disabled", scopes: [] },
 }: {
   readonly runtimeConfig: { readonly enableMockWebSearch?: boolean };
   readonly providerId: string;
   readonly modelId: string;
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
+  readonly memoryPolicy?: MemoryPolicy;
 }): HostCapabilityManifest => {
   const tools = runtimeConfig.enableMockWebSearch ? [createMockWebSearchCapability()] : [];
   const profile = createDefaultServiceAssistantProfile({
@@ -41,6 +44,7 @@ export const createServiceHostCapabilityManifest = ({
     modelId,
     allowedToolNames: tools.map((tool) => tool.name),
     retrievalSourceIds: retrievalSources.map((source) => source.sourceId),
+    memoryPolicy,
   });
 
   return {
@@ -53,7 +57,7 @@ export const createServiceHostCapabilityManifest = ({
     retrievalSources,
     workflows: [],
     approvalPolicies: [],
-    memoryPolicies: [profile.memoryPolicy],
+    memoryPolicies: [memoryPolicy],
     activityRenderers: [],
   };
 };
@@ -114,11 +118,13 @@ const createDefaultServiceAssistantProfile = ({
   modelId,
   allowedToolNames,
   retrievalSourceIds,
+  memoryPolicy,
 }: {
   readonly providerId: string;
   readonly modelId: string;
   readonly allowedToolNames: readonly string[];
   readonly retrievalSourceIds: readonly string[];
+  readonly memoryPolicy: MemoryPolicy;
 }): AssistantProfile => ({
   profileId: DEFAULT_RUNTIME_PROFILE_ID,
   version: "2026-06-13",
@@ -133,7 +139,7 @@ const createDefaultServiceAssistantProfile = ({
     mode: retrievalSourceIds.length > 0 ? "profile_sources" : "disabled",
     sourceIds: retrievalSourceIds,
   },
-  memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
+  memoryPolicy,
   outputContract: { format: "markdown" },
   safetyPolicy: { policyId: "standard", promptInjectionMode: "standard" },
 });

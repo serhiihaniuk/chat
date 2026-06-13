@@ -64,6 +64,9 @@ Not source of truth for: architecture decisions or implementation plans.
 | RagRetrieverPort          | Core port for authorized pre-model retrieval from policy-allowed retrieval sources.                                  | `partner-ai-core`, service | RuntimeTool                 | RAG retriever       | model search tool      |
 | RagContextCandidate       | Retrieved context candidate with provenance, trust, redaction class, and token estimate.                             | `partner-ai-core`, service | tool result                 | RAG candidate       | search result          |
 | MemoryPolicy              | Manifest/profile policy for whether memory may be read or written for one turn.                                      | `partner-ai-core`          | RAG source                  | none                | memory store           |
+| MemoryPort                | Core port for policy-scoped memory recall and post-turn memory write candidates.                                     | `partner-ai-core`, service | repository port             | memory adapter      | memory repository      |
+| MemoryRecord              | Recalled durable memory allowed into prepared context for one turn.                                                  | `partner-ai-core`, service | RagContextCandidate         | recalled memory     | fact in broad scope    |
+| MemoryWriteCandidate      | Post-turn candidate proposed for possible durable memory storage under `MemoryPolicy`.                               | `partner-ai-core`, service | MemoryRecord                | memory candidate    | automatic memory write |
 | TurnPolicyDecision        | Per-turn policy result that selects profile/model/tools/commands/RAG/memory/workflow exposure.                       | `partner-ai-core`          | host capability manifest    | policy decision     | config, options        |
 | TurnGuard                 | Pre-context safety check that may allow, warn, or block one turn before conversation persistence, context, or tools. | `partner-ai-core`, service | product policy, RuntimeTool | guard when local    | safety plugin          |
 | executable registry       | Runtime or service-side collection of concrete implementations that can run if selected.                             | service, `agent-runtime`   | host capability manifest    | registry when local | plugin list            |
@@ -159,8 +162,7 @@ recordStartedStreamTurn
 
 ## Terms Pending Clarification
 
-| Term              | Question                                              | Temporary owner   |
-| ----------------- | ----------------------------------------------------- | ----------------- |
-| workflow run      | Exact durable shape for future multi-agent workflows. | product docs      |
-| context manifest  | Final persisted hash and manifest semantics.          | `partner-ai-core` |
-| memory extraction | Whether memory is product-owned, host-owned, or both. | product docs      |
+| Term             | Question                                              | Temporary owner   |
+| ---------------- | ----------------------------------------------------- | ----------------- |
+| workflow run     | Exact durable shape for future multi-agent workflows. | product docs      |
+| context manifest | Final persisted hash and manifest semantics.          | `partner-ai-core` |
