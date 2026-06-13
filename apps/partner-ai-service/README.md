@@ -9,6 +9,7 @@ Not source of truth for: global vocabulary or product requirements.
 - Hono HTTP routes and middleware.
 - Auth, config, persistence, policy, provider, and tool adapters.
 - Concrete turn guard registries and guard adapters.
+- Concrete host-command and observability adapter starting points.
 - Concrete RAG retrievers and retrieved-context mapping.
 - Concrete research agents and research-context mapping.
 - Concrete memory adapters and recalled-memory context mapping.
@@ -47,6 +48,8 @@ HTTP request -> auth/request parsing -> StreamChatInput
   wired separately so a manifest entry does not silently become model access.
 - Host commands are browser/host-app UI interactions and stay outside the
   runtime tool registry.
+- Host-command adapters live separately from runtime tools so UI commands do
+  not become backend model-callable tools by location.
 - RAG retrievers are injected through service composition and mapped to prepared
   context before runtime execution.
 - Research agents are injected through service composition and run only through
@@ -65,10 +68,12 @@ HTTP request -> auth/request parsing -> StreamChatInput
 
 - Backend runtime tools: `src/adapters/tools/`
 - Enterprise tool example: `src/adapters/tools/examples/jira-search-issues-tool.ts`
+- Host-command adapters: `src/adapters/host-commands/`
 - RAG adapters: `src/adapters/rag/`
 - Research agent adapters: `src/adapters/agents/`
 - Memory adapters: `src/adapters/memory/`
 - Turn guard registries: `src/adapters/guards/`
+- Observability sinks: `src/adapters/observability/`
 
 Service composition accepts runtime tool implementations separately from
 manifest declarations. Selected tool names that lack an executable registration

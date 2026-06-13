@@ -125,6 +125,11 @@ and `runtime.toolCapabilities` for manifest declarations. Supplying only one
 side is allowed, but selected tools without a matching runtime implementation
 fail closed with `tool_unavailable`.
 
+Service adapter implementations live under
+`apps/partner-ai-service/src/adapters/`. The adapter README there is the local
+map for tools, RAG, memory, guards, research agents, host commands, and
+observability sinks.
+
 ## Where To Open First
 
 - `packages/partner-ai-core/src/domain/harness/capabilities.ts`
@@ -135,6 +140,7 @@ fail closed with `tool_unavailable`.
 - `packages/agent-runtime/src/tools/tool-registry.ts`
 - `apps/partner-ai-service/src/composition/service-harness.ts`
 - `apps/partner-ai-service/src/composition/service-composition.ts`
+- `apps/partner-ai-service/src/adapters/README.md`
 - `apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts`
 - `packages/host-bridge/src/capability.ts`
 
