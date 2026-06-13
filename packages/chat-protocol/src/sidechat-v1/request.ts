@@ -47,10 +47,10 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
     return {
       protocolVersion,
       requestId,
-      ...conversationIdField(conversationId),
-      ...assistantProfileIdField(assistantProfileId),
+      ...optionalField("conversationId", conversationId),
+      ...optionalField("assistantProfileId", assistantProfileId),
       message,
-      ...hostContextField(hostContext),
+      ...optionalField("hostContext", hostContext),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "invalid request";
@@ -79,32 +79,15 @@ const parseHostContext = (input: unknown): HostContext | undefined => {
   const metadata = isRecord(input["metadata"]) ? (input["metadata"] as JsonObject) : undefined;
   return {
     schemaVersion,
-    ...originField(origin),
-    ...urlField(url),
-    ...titleField(title),
-    ...metadataField(metadata),
+    ...optionalField("origin", origin),
+    ...optionalField("url", url),
+    ...optionalField("title", title),
+    ...optionalField("metadata", metadata),
   };
 };
 
-const conversationIdField = (
-  conversationId: string | undefined,
-): { readonly conversationId?: string } => (conversationId ? { conversationId } : {});
-
-const assistantProfileIdField = (
-  assistantProfileId: string | undefined,
-): { readonly assistantProfileId?: string } => (assistantProfileId ? { assistantProfileId } : {});
-
-const hostContextField = (
-  hostContext: HostContext | undefined,
-): { readonly hostContext?: HostContext } => (hostContext ? { hostContext } : {});
-
-const originField = (origin: string | undefined): { readonly origin?: string } =>
-  origin ? { origin } : {};
-
-const urlField = (url: string | undefined): { readonly url?: string } => (url ? { url } : {});
-
-const titleField = (title: string | undefined): { readonly title?: string } =>
-  title ? { title } : {};
-
-const metadataField = (metadata: JsonObject | undefined): { readonly metadata?: JsonObject } =>
-  metadata ? { metadata } : {};
+const optionalField = <Key extends string, Value>(
+  key: Key,
+  value: Value | undefined,
+): { readonly [Field in Key]?: Value } =>
+  value === undefined ? {} : ({ [key]: value } as { readonly [Field in Key]?: Value });
