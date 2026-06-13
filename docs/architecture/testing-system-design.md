@@ -10,6 +10,8 @@ This document is the source of truth for how the repository is tested.
 
 - Keep ordinary tests deterministic, fast, and Docker-free.
 - Prove `sidechat.v1` as the browser/backend contract.
+- Prove the target AI harness contracts: context assembly, budget decisions,
+  manifests, compaction, retrieval, memory, tool governance, and workflows.
 - Keep provider-native events inside `packages/agent-runtime`.
 - Keep database row and schema assertions inside `packages/db`.
 - Keep HTTP framework internals inside `apps/partner-ai-service`.
@@ -19,6 +21,7 @@ This document is the source of truth for how the repository is tested.
   tests cannot honestly cover.
 - Run the accepted full suite inside one pinned app test container before merge
   or release.
+- Add AI evals as product gates for prompt/profile/context/retrieval changes.
 
 ## Test Lanes
 
@@ -28,6 +31,7 @@ This document is the source of truth for how the repository is tested.
 | Browser harness    | `npm run test:e2e`            | Host Playwright                              | Real widget and real service process with fake provider and memory repositories. Browser-visible behavior and harness wiring.              |
 | DB contract        | `npm run test:db:container`   | Host Node plus Testcontainers Postgres       | Shared repository contract against the real Postgres/Drizzle adapter.                                                                      |
 | Persistent browser | `npm run test:e2e:persistent` | Host Playwright plus Testcontainers Postgres | Real widget, real service, fake provider, and real Postgres through public widget/service seams.                                           |
+| AI evals           | `npm run test:evals`           | Deterministic fixtures plus optional approved model lane | Context assembly, compaction, retrieval, memory, tool-use, workflow, and safety quality gates.                                            |
 | Host full gate     | `npm run verify`              | Host pinned Node `24.16.0` and npm `11.15.0` | Format, lint, typecheck, fast tests, build, and custom governance.                                                                         |
 | Container parity   | `npm run verify:container`    | Dev/test app container                       | The accepted full suite inside the controlled Linux app runtime. This is the CI/release truth.                                             |
 
@@ -81,6 +85,22 @@ npm run verify:container
 | `packages/db`                 | Schema contract, migrations, memory repositories, Postgres/Drizzle repositories, and the shared repository contract.                                                  |
 | `packages/side-chat-widget`   | Widget model tests, static rendering tests, DOM interaction tests with a fake `ChatClient` and fake `HostBridge`, and browser behavior via harness E2E.               |
 | `test-harness/widget-harness` | Playwright flows, harness modes, fake host bridge, mock stream scenarios, and local-service integration.                                                              |
+| `packages/evals` or `apps/eval-runner` | Target package/app for golden context assembly, retrieval quality, memory correctness, tool-use decisions, workflow outcomes, and prompt-injection resistance. |
+
+## Target AI Eval Coverage
+
+The target architecture needs evals in addition to unit and integration tests.
+At minimum, add fixtures for:
+
+- context candidate gathering and budget fit decisions;
+- rendered context snapshots and manifest hashes;
+- compaction preservation across long conversations;
+- retrieval relevance, permission filters, and citation correctness;
+- memory extraction, supersession, and selection;
+- tool allowlist and tool-result summarization behavior;
+- workflow node handoffs, verifier results, and failure handling;
+- prompt-injection resistance across retrieved docs, user text, tool results,
+  and host context.
 
 ## Boundaries
 

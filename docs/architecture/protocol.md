@@ -105,3 +105,23 @@ activity, never inferred from natural-language strings.
 
 Final assistant answer text is still streamed through assistant message events
 such as deltas and rendered separately from activity.
+
+## Target Workflow Activity
+
+The target harness adds multi-agent workflow progress without exposing provider
+or AI SDK internals. Workflow events should let the widget show long-running
+agent work while preserving stable product semantics.
+
+Future protocol concepts:
+
+- workflow run started/completed/failed/aborted;
+- workflow node started/progress/completed/failed;
+- node activity linked to an agent profile, tool, retrieval task, compaction
+  task, or verifier task;
+- handoff artifacts such as summaries, findings, citations, plans, and review
+  results;
+- stable event ids for reconnect/resume if SSE remains the transport.
+
+The protocol should still carry product DTOs only. It must not expose provider
+stream parts, AI SDK messages, database rows, Effect objects, or internal
+workflow implementation details.
