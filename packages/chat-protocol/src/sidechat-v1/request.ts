@@ -47,10 +47,10 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
     return {
       protocolVersion,
       requestId,
-      ...(conversationId ? { conversationId } : {}),
-      ...(assistantProfileId ? { assistantProfileId } : {}),
+      ...conversationIdField(conversationId),
+      ...assistantProfileIdField(assistantProfileId),
       message,
-      ...(hostContext ? { hostContext } : {}),
+      ...hostContextField(hostContext),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "invalid request";
@@ -79,9 +79,32 @@ const parseHostContext = (input: unknown): HostContext | undefined => {
   const metadata = isRecord(input["metadata"]) ? (input["metadata"] as JsonObject) : undefined;
   return {
     schemaVersion,
-    ...(origin ? { origin } : {}),
-    ...(url ? { url } : {}),
-    ...(title ? { title } : {}),
-    ...(metadata ? { metadata } : {}),
+    ...originField(origin),
+    ...urlField(url),
+    ...titleField(title),
+    ...metadataField(metadata),
   };
 };
+
+const conversationIdField = (
+  conversationId: string | undefined,
+): { readonly conversationId?: string } => (conversationId ? { conversationId } : {});
+
+const assistantProfileIdField = (
+  assistantProfileId: string | undefined,
+): { readonly assistantProfileId?: string } => (assistantProfileId ? { assistantProfileId } : {});
+
+const hostContextField = (
+  hostContext: HostContext | undefined,
+): { readonly hostContext?: HostContext } => (hostContext ? { hostContext } : {});
+
+const originField = (origin: string | undefined): { readonly origin?: string } =>
+  origin ? { origin } : {};
+
+const urlField = (url: string | undefined): { readonly url?: string } => (url ? { url } : {});
+
+const titleField = (title: string | undefined): { readonly title?: string } =>
+  title ? { title } : {};
+
+const metadataField = (metadata: JsonObject | undefined): { readonly metadata?: JsonObject } =>
+  metadata ? { metadata } : {};

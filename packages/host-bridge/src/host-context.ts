@@ -30,27 +30,56 @@ export const createStaticHostContextProvider = (
   capabilities?: HostCapabilities,
 ): HostContextProvider => ({
   getContext: () => Promise.resolve(snapshot),
-  ...(capabilities ? { getCapabilities: () => Promise.resolve(capabilities) } : {}),
+  ...capabilitiesField(capabilities),
 });
 
 export const toProtocolHostContext = (snapshot: HostContextSnapshot): HostContext => ({
   schemaVersion: snapshot.schemaVersion,
-  ...(snapshot.origin ? { origin: snapshot.origin } : {}),
-  ...(snapshot.url ? { url: snapshot.url } : {}),
-  ...(snapshot.title ? { title: snapshot.title } : {}),
+  ...originField(snapshot.origin),
+  ...urlField(snapshot.url),
+  ...titleField(snapshot.title),
   metadata: mergeMetadata(snapshot),
 });
 
 const mergeMetadata = (snapshot: HostContextSnapshot): JsonObject => ({
   ...snapshot.metadata,
   collectedAt: snapshot.collectedAt,
-  ...(snapshot.expiresAt ? { expiresAt: snapshot.expiresAt } : {}),
-  ...(snapshot.capabilityHash ? { capabilityHash: snapshot.capabilityHash } : {}),
-  ...(snapshot.surface ? { surface: encodeSurface(snapshot.surface) } : {}),
+  ...expiresAtField(snapshot.expiresAt),
+  ...capabilityHashField(snapshot.capabilityHash),
+  ...surfaceField(snapshot.surface),
 });
 
 const encodeSurface = (surface: HostSurface): JsonObject => ({
   surfaceId: surface.surfaceId,
-  ...(surface.resourceType ? { resourceType: surface.resourceType } : {}),
-  ...(surface.resourceId ? { resourceId: surface.resourceId } : {}),
+  ...resourceTypeField(surface.resourceType),
+  ...resourceIdField(surface.resourceId),
 });
+
+const capabilitiesField = (
+  capabilities: HostCapabilities | undefined,
+): { readonly getCapabilities?: () => Promise<HostCapabilities> } =>
+  capabilities ? { getCapabilities: () => Promise.resolve(capabilities) } : {};
+
+const originField = (origin: string | undefined): { readonly origin?: string } =>
+  origin ? { origin } : {};
+
+const urlField = (url: string | undefined): { readonly url?: string } => (url ? { url } : {});
+
+const titleField = (title: string | undefined): { readonly title?: string } =>
+  title ? { title } : {};
+
+const expiresAtField = (expiresAt: string | undefined): { readonly expiresAt?: string } =>
+  expiresAt ? { expiresAt } : {};
+
+const capabilityHashField = (
+  capabilityHash: string | undefined,
+): { readonly capabilityHash?: string } => (capabilityHash ? { capabilityHash } : {});
+
+const surfaceField = (surface: HostSurface | undefined): { readonly surface?: JsonObject } =>
+  surface ? { surface: encodeSurface(surface) } : {};
+
+const resourceTypeField = (resourceType: string | undefined): { readonly resourceType?: string } =>
+  resourceType ? { resourceType } : {};
+
+const resourceIdField = (resourceId: string | undefined): { readonly resourceId?: string } =>
+  resourceId ? { resourceId } : {};

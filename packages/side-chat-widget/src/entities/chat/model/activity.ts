@@ -103,8 +103,8 @@ const toActivityItem = (event: ActivityEvent): WidgetActivityItem => ({
   sequence: event.sequence,
   status: event.status,
   title: event.title,
-  ...(event.body ? { body: event.body } : {}),
-  ...(event.details ? { details: event.details } : {}),
+  ...bodyField(event.body),
+  ...detailsField(event.details),
   createdAt: event.createdAt,
 });
 
@@ -117,7 +117,7 @@ const mergeActivityItem = (
 
   return {
     ...existing,
-    ...(wasRunning && canUpdatePresentation ? { title: event.title, body: event.body } : {}),
+    ...presentationUpdate(wasRunning && canUpdatePresentation, event),
     status: wasRunning ? event.status : existing.status,
     details: mergeActivityDetails(existing.details, event.details),
   };
@@ -146,8 +146,8 @@ const mergeActivityDetails = (
   return {
     ...existing,
     ...incoming,
-    ...(tool ? { tool } : {}),
-    ...(hostCommand ? { hostCommand } : {}),
+    ...toolDetailsField(tool),
+    ...hostCommandDetailsField(hostCommand),
   };
 };
 
@@ -158,6 +158,26 @@ const mergeToolDetails = (
   if (existing && incoming) return { ...existing, ...incoming };
   return incoming ?? existing;
 };
+
+const bodyField = (body: string | undefined): { readonly body?: string } => (body ? { body } : {});
+
+const detailsField = (
+  details: ActivityDetails | undefined,
+): { readonly details?: ActivityDetails } => (details ? { details } : {});
+
+const presentationUpdate = (
+  canUpdatePresentation: boolean,
+  event: ActivityEvent,
+): { readonly title?: string; readonly body?: string | undefined } =>
+  canUpdatePresentation ? { title: event.title, body: event.body } : {};
+
+const toolDetailsField = (
+  tool: ActivityToolDetails | undefined,
+): { readonly tool?: ActivityToolDetails } => (tool ? { tool } : {});
+
+const hostCommandDetailsField = (
+  hostCommand: ActivityHostCommandDetails | undefined,
+): { readonly hostCommand?: ActivityHostCommandDetails } => (hostCommand ? { hostCommand } : {});
 
 const mergeHostCommandDetails = (
   existing: ActivityHostCommandDetails | undefined,

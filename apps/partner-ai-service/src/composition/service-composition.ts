@@ -127,10 +127,10 @@ const createProviderForRuntime = (config: RuntimeConfig): ModelProvider => {
     return createOpenAIResponsesProvider({
       apiKey: config.apiKey,
       modelIds: config.modelIds,
-      ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
-      ...(config.fetch ? { fetch: config.fetch } : {}),
-      ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}),
-      ...(config.reasoningSummary ? { reasoningSummary: config.reasoningSummary } : {}),
+      ...baseUrlField(config.baseUrl),
+      ...fetchField(config.fetch),
+      ...reasoningEffortField(config.reasoningEffort),
+      ...reasoningSummaryField(config.reasoningSummary),
     });
   }
 
@@ -169,3 +169,20 @@ const failMissingProductionPersistence = (): never => {
     "Production profile requires SIDECHAT_DATABASE_URL for Postgres/Drizzle persistence.",
   );
 };
+
+const baseUrlField = (baseUrl: string | undefined): { readonly baseUrl?: string } =>
+  baseUrl ? { baseUrl } : {};
+
+const fetchField = (
+  fetchImplementation: typeof fetch | undefined,
+): { readonly fetch?: typeof fetch } => (fetchImplementation ? { fetch: fetchImplementation } : {});
+
+const reasoningEffortField = (
+  reasoningEffort: OpenAIReasoningEffort | undefined,
+): { readonly reasoningEffort?: OpenAIReasoningEffort } =>
+  reasoningEffort ? { reasoningEffort } : {};
+
+const reasoningSummaryField = (
+  reasoningSummary: OpenAIReasoningSummary | undefined,
+): { readonly reasoningSummary?: OpenAIReasoningSummary } =>
+  reasoningSummary ? { reasoningSummary } : {};

@@ -44,14 +44,14 @@ export const createDefaultRequest = ({
 }): ChatStreamRequest => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId,
-  ...(conversationId ? { conversationId } : {}),
-  ...(assistantProfileId ? { assistantProfileId } : {}),
+  ...conversationIdField(conversationId),
+  ...assistantProfileIdField(assistantProfileId),
   message: {
     id: messageId,
     role: "user",
     content,
   },
-  ...(hostContext ? { hostContext } : {}),
+  ...hostContextField(hostContext),
 });
 
 export const createWidgetChatRequest = ({
@@ -66,9 +66,9 @@ export const createWidgetChatRequest = ({
     content: message,
     messageId,
     requestId,
-    ...(assistantProfileId ? { assistantProfileId } : {}),
-    ...(conversationId ? { conversationId } : {}),
-    ...(hostContext ? { hostContext } : {}),
+    ...assistantProfileIdField(assistantProfileId),
+    ...conversationIdField(conversationId),
+    ...hostContextField(hostContext),
   });
 
 export const createWidgetMessage = (
@@ -100,3 +100,15 @@ export const createId = (prefix: string): string => {
       : Math.random().toString(36).slice(2);
   return `${prefix}-${random}`;
 };
+
+const conversationIdField = (
+  conversationId: string | undefined,
+): { readonly conversationId?: string } => (conversationId ? { conversationId } : {});
+
+const assistantProfileIdField = (
+  assistantProfileId: string | undefined,
+): { readonly assistantProfileId?: string } => (assistantProfileId ? { assistantProfileId } : {});
+
+const hostContextField = (
+  hostContext: HostContext | undefined,
+): { readonly hostContext?: HostContext } => (hostContext ? { hostContext } : {});

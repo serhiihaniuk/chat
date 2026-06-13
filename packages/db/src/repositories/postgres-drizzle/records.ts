@@ -59,7 +59,7 @@ export const toMessageRecord = (row: typeof messages.$inferSelect): MessageRecor
   contentText: row.contentText,
   metadataJson: row.metadataJson,
   sequenceIndex: row.sequenceIndex,
-  ...(row.idempotencyKey ? { idempotencyKey: row.idempotencyKey } : {}),
+  ...optionalField("idempotencyKey", row.idempotencyKey),
   createdAt: row.createdAt,
   updatedAt: row.createdAt,
 });
@@ -74,7 +74,7 @@ export const toAssistantTurnRecord = (
   subjectId: row.subjectId,
   actorId: row.actorId,
   userMessageId: row.userMessageId,
-  ...(row.assistantMessageId ? { assistantMessageId: row.assistantMessageId } : {}),
+  ...optionalField("assistantMessageId", row.assistantMessageId),
   runtimeProfile: row.runtimeProfile,
   systemPromptVersion: row.systemPromptVersion,
   contextStrategyVersion: row.contextStrategyVersion,
@@ -82,10 +82,10 @@ export const toAssistantTurnRecord = (
   modelProvider: row.modelProvider,
   modelId: row.modelId,
   status: row.status as AssistantTurnRecord["status"],
-  ...(row.finishReason ? { finishReason: row.finishReason } : {}),
-  ...(row.errorCode ? { errorCode: row.errorCode } : {}),
+  ...optionalField("finishReason", row.finishReason),
+  ...optionalField("errorCode", row.errorCode),
   startedAt: row.startedAt,
-  ...(row.completedAt ? { completedAt: row.completedAt } : {}),
+  ...optionalField("completedAt", row.completedAt),
   createdAt: row.startedAt,
   updatedAt: row.completedAt ?? row.startedAt,
 });
@@ -97,7 +97,7 @@ export const toContextSnapshotRecord = (
   assistantTurnId: row.assistantTurnId,
   workspaceId: row.workspaceId,
   contextSchemaVersion: row.contextSchemaVersion,
-  ...(row.hostSurfaceId ? { hostSurfaceId: row.hostSurfaceId } : {}),
+  ...optionalField("hostSurfaceId", row.hostSurfaceId),
   hostContextHash: row.hostContextHash,
   capabilitiesHash: row.capabilitiesHash,
   contextRedactedJson: row.contextRedactedJson,
@@ -112,7 +112,7 @@ export const toUsageRecord = (row: typeof usageRecords.$inferSelect): UsageRecor
   runtimeStepIndex: row.runtimeStepIndex,
   modelProvider: row.modelProvider,
   modelId: row.modelId,
-  ...(row.providerRequestId ? { providerRequestId: row.providerRequestId } : {}),
+  ...optionalField("providerRequestId", row.providerRequestId),
   inputTokens: row.inputTokens,
   outputTokens: row.outputTokens,
   reasoningTokens: row.reasoningTokens,
@@ -134,12 +134,12 @@ export const toToolInvocationRecord = (
   toolName: row.toolName,
   status: row.status as ToolInvocationRecord["status"],
   inputHash: row.inputHash,
-  ...(row.outputHash ? { outputHash: row.outputHash } : {}),
+  ...optionalField("outputHash", row.outputHash),
   inputRedactedJson: row.inputRedactedJson,
-  ...(row.outputRedactedJson ? { outputRedactedJson: row.outputRedactedJson } : {}),
-  ...(row.errorCode ? { errorCode: row.errorCode } : {}),
+  ...optionalField("outputRedactedJson", row.outputRedactedJson),
+  ...optionalField("errorCode", row.errorCode),
   startedAt: row.startedAt,
-  ...(row.completedAt ? { completedAt: row.completedAt } : {}),
+  ...optionalField("completedAt", row.completedAt),
   createdAt: row.startedAt,
   updatedAt: row.completedAt ?? row.startedAt,
 });
@@ -152,14 +152,14 @@ export const toHostCommandResultRecord = (
   workspaceId: row.workspaceId,
   commandId: row.commandId,
   commandType: row.commandType,
-  ...(row.resourceId ? { resourceId: row.resourceId } : {}),
+  ...optionalField("resourceId", row.resourceId),
   status: row.status as HostCommandResultRecord["status"],
   resultCode: row.resultCode,
   commandRedactedJson: row.commandRedactedJson,
-  ...(row.resultRedactedJson ? { resultRedactedJson: row.resultRedactedJson } : {}),
+  ...optionalField("resultRedactedJson", row.resultRedactedJson),
   createdAt: row.createdAt,
   updatedAt: row.resolvedAt ?? row.createdAt,
-  ...(row.resolvedAt ? { resolvedAt: row.resolvedAt } : {}),
+  ...optionalField("resolvedAt", row.resolvedAt),
 });
 
 export const toAuditEventRecord = (row: typeof auditEvents.$inferSelect): AuditEventRecord => ({
@@ -254,3 +254,9 @@ export const buildHistoryWhere = (
         eq(messages.conversationId, conversationId),
         lt(messages.sequenceIndex, beforeSequenceIndex),
       )!;
+
+const optionalField = <Key extends string, Value>(
+  key: Key,
+  value: Value | null | undefined,
+): { readonly [Field in Key]?: Value } =>
+  value ? ({ [key]: value } as { readonly [Field in Key]?: Value }) : {};

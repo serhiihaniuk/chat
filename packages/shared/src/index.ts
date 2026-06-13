@@ -21,7 +21,7 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 /**
  * Normalize unknown input into a protocol-safe JSON object.
  *
- * This is meant for adapter boundaries where provider/tool libraries may return
+ * Source adapter boundaries may receive provider/tool libraries that return
  * values outside JSON. Undefined fields are omitted, non-finite numbers become
  * null, bigint and symbol values become stable strings when possible, and scalar
  * roots are wrapped under `value` so downstream contracts always receive an

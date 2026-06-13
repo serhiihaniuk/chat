@@ -37,12 +37,12 @@ export const recordMemoryToolInvocation = async (
     toolName: command.toolName,
     status: command.status,
     inputHash: command.inputHash,
-    ...(command.outputHash ? { outputHash: command.outputHash } : {}),
+    ...optionalField("outputHash", command.outputHash),
     inputRedactedJson: command.inputRedactedJson,
-    ...(command.outputRedactedJson ? { outputRedactedJson: command.outputRedactedJson } : {}),
-    ...(command.errorCode ? { errorCode: command.errorCode } : {}),
+    ...optionalField("outputRedactedJson", command.outputRedactedJson),
+    ...optionalField("errorCode", command.errorCode),
     startedAt: command.startedAt,
-    ...(command.completedAt ? { completedAt: command.completedAt } : {}),
+    ...optionalField("completedAt", command.completedAt),
     createdAt: command.now,
     updatedAt: command.now,
   };
@@ -71,14 +71,14 @@ export const recordMemoryHostCommandResult = async (
     assistantTurnId: command.assistantTurnId,
     commandId: command.commandId,
     commandType: command.commandType,
-    ...(command.resourceId ? { resourceId: command.resourceId } : {}),
+    ...optionalField("resourceId", command.resourceId),
     status: command.status,
     resultCode: command.resultCode,
     commandRedactedJson: command.commandRedactedJson,
-    ...(command.resultRedactedJson ? { resultRedactedJson: command.resultRedactedJson } : {}),
+    ...optionalField("resultRedactedJson", command.resultRedactedJson),
     createdAt: command.now,
     updatedAt: command.now,
-    ...(command.resolvedAt ? { resolvedAt: command.resolvedAt } : {}),
+    ...optionalField("resolvedAt", command.resolvedAt),
   };
   upsertAt(store.hostCommandResults, existingIndex, hostCommand);
   return result(hostCommand, existingIndex < 0);
@@ -106,3 +106,9 @@ export const appendMemoryAuditEvent = async (
   store.auditEvents.push(auditEvent);
   return result(auditEvent, true);
 };
+
+const optionalField = <Key extends string, Value>(
+  key: Key,
+  value: Value | null | undefined,
+): { readonly [Field in Key]?: Value } =>
+  value ? ({ [key]: value } as { readonly [Field in Key]?: Value }) : {};

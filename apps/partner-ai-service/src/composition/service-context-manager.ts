@@ -45,7 +45,7 @@ export const createServiceContextManager = (): ContextManagerPort => ({
         profile: resolution.profile,
         policyDecision,
         createdAt: now,
-        ...(request.hostContext ? { hostContext: request.hostContext } : {}),
+        ...hostContextField(request.hostContext),
       });
     }),
 });
@@ -74,12 +74,12 @@ const createPreparedTurnContext = ({
     messageContent,
     manifest,
     policyDecision,
-    ...(hostContext ? { hostContext } : {}),
+    ...hostContextField(hostContext),
   });
   const sections = createContextSections({
     manifest,
     policyDecision,
-    ...(hostContext ? { hostContext } : {}),
+    ...hostContextField(hostContext),
   });
   const entries = candidates.map((candidate) => ({
     candidateId: candidate.candidateId,
@@ -196,7 +196,18 @@ const createContextSections = ({
   readonly manifest: HostCapabilityManifest;
   readonly policyDecision: TurnPolicyDecision;
 }): readonly PreparedContextSection[] => [
-  ...(hostContext
+  ...hostContextSections(hostContext),
+  ...allowedToolSections(manifest, policyDecision.allowedToolNames),
+];
+
+const hostContextField = (
+  hostContext: ServiceHostContext | undefined,
+): { readonly hostContext?: ServiceHostContext } => (hostContext ? { hostContext } : {});
+
+const hostContextSections = (
+  hostContext: ServiceHostContext | undefined,
+): readonly PreparedContextSection[] =>
+  hostContext
     ? [
         {
           title: "Host context",
@@ -204,19 +215,23 @@ const createContextSections = ({
           priority: 80,
         },
       ]
-    : []),
-  ...(policyDecision.allowedToolNames.length > 0
+    : [];
+
+const allowedToolSections = (
+  manifest: HostCapabilityManifest,
+  allowedToolNames: readonly string[],
+): readonly PreparedContextSection[] =>
+  allowedToolNames.length > 0
     ? [
         {
           title: "Allowed tools",
-          content: policyDecision.allowedToolNames
+          content: allowedToolNames
             .map((toolName) => renderToolCapability(manifest, toolName))
             .join("\n"),
           priority: 70,
         },
       ]
-    : []),
-];
+    : [];
 
 const renderHostContext = (hostContext: ServiceHostContext): string =>
   [

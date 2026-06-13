@@ -10,6 +10,7 @@ import {
   type PersistenceConfig,
   type RuntimeConfig,
   type RuntimeToolConfig,
+  type ServiceCompositionOptions,
 } from "#composition/service-composition";
 import { authContextMiddleware, type AuthContextVariables } from "./middleware/auth-context.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
@@ -39,15 +40,7 @@ export type PartnerAiServiceOptions = {
 
 export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {}) => {
   const app = new Hono<AuthContextVariables>();
-  const composition = composePartnerAiService({
-    workspace: options.workspace ?? DEFAULT_WORKSPACE,
-    ...(options.auth ? { auth: options.auth } : {}),
-    ...(options.policies ? { policies: options.policies } : {}),
-    ...(options.persistence ? { persistence: options.persistence } : {}),
-    ...(options.repositories ? { repositories: options.repositories } : {}),
-    ...(options.runtime ? { runtime: options.runtime } : {}),
-    ...(options.agentRuntime ? { agentRuntime: options.agentRuntime } : {}),
-  });
+  const composition = composePartnerAiService(compositionOptions(options));
   const authority = createServiceAuthVerifier(composition.auth);
   const policies = createServicePolicyPort(composition.policies);
   const persistenceLabel = options.persistenceLabel ?? composition.persistenceLabel;
@@ -83,10 +76,47 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     contextManager: composition.contextManager,
     runtime: composition.runtime,
     policies,
-    ...(options.observability ? { observability: options.observability } : {}),
+    ...observabilityField(options.observability),
   });
 
   return app;
 };
 
 export type PartnerAiServiceApp = ReturnType<typeof createPartnerAiServiceApp>;
+
+const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositionOptions => ({
+  workspace: options.workspace ?? DEFAULT_WORKSPACE,
+  ...authField(options.auth),
+  ...policiesField(options.policies),
+  ...persistenceField(options.persistence),
+  ...repositoriesField(options.repositories),
+  ...runtimeField(options.runtime),
+  ...agentRuntimeField(options.agentRuntime),
+});
+
+const authField = (auth: ServiceAuthConfig | undefined): { readonly auth?: ServiceAuthConfig } =>
+  auth ? { auth } : {};
+
+const policiesField = (
+  policies: ServicePolicyConfig | undefined,
+): { readonly policies?: ServicePolicyConfig } => (policies ? { policies } : {});
+
+const persistenceField = (
+  persistence: PersistenceConfig | undefined,
+): { readonly persistence?: PersistenceConfig } => (persistence ? { persistence } : {});
+
+const repositoriesField = (
+  repositories: SidechatRepositories | undefined,
+): { readonly repositories?: SidechatRepositories } => (repositories ? { repositories } : {});
+
+const runtimeField = (
+  runtime: (RuntimeConfig & RuntimeToolConfig) | undefined,
+): { readonly runtime?: RuntimeConfig & RuntimeToolConfig } => (runtime ? { runtime } : {});
+
+const agentRuntimeField = (
+  agentRuntime: AgentRuntime | undefined,
+): { readonly agentRuntime?: AgentRuntime } => (agentRuntime ? { agentRuntime } : {});
+
+const observabilityField = (
+  observability: ObservabilitySinkPort | undefined,
+): { readonly observability?: ObservabilitySinkPort } => (observability ? { observability } : {});
