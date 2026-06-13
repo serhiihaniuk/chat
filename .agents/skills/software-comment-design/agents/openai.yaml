@@ -1,0 +1,6 @@
+interface:
+  display_name: "Software Comment Design"
+  short_description: "Write and review code comments as precise design knowledge, not code narration."
+  default_prompt: "Use the software-comment-design skill to write, review, or clean up code comments."
+policy:
+  allow_implicit_invocation: true

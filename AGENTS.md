@@ -4,7 +4,12 @@
 
 Read `docs/CONTEXT.md` and `docs/architecture/overview.md` before changing
 package boundaries. The production source of truth is
-`docs/architecture/production-system-design.md`.
+`docs/architecture/production-system-design.md`. The execution plan is
+`docs/architecture/implementation-plan.md`.
+
+For orchestration handoff on the target AI harness build, read
+`.agents/handoff/ai-harness-orchestrator.md` before planning or delegating
+implementation work.
 
 Core/server workflows are Effect-first:
 

@@ -1,6 +1,6 @@
 # Side Chat Durable Context
 
-Last updated: 2026-05-25
+Last updated: 2026-06-13
 
 This file is the quick orientation layer for architecture, product, widget,
 backend, and DB decisions. Deeper rationale lives in `docs/architecture/*`,
@@ -8,9 +8,14 @@ backend, and DB decisions. Deeper rationale lives in `docs/architecture/*`,
 
 ## Product Shape
 
-Side Chat is an embeddable assistant product. This repo owns the protocol,
-browser client, React widget, host bridge contract, partner AI core, agent
-runtime, concrete service adapters, database boundary, and test harnesses.
+Side Chat is an embeddable AI harness for ordinary web applications. This repo
+owns the protocol, browser client, React widget, host bridge contract, partner AI
+core, agent runtime, concrete adapters, database seam, and test harnesses.
+
+The project direction is defined by
+`docs/architecture/production-system-design.md`. That document is the target
+architecture for the next build phase. The execution plan is
+`docs/architecture/implementation-plan.md`.
 
 It does not own a real consuming host application or UBS demo dashboard. External
 hosts integrate through:
@@ -19,22 +24,37 @@ hosts integrate through:
 external host app -> side-chat-widget -> chat-client -> chat-protocol -> partner-ai-service -> partner-ai-core -> agent-runtime -> adapters
 ```
 
+The final harness shape is:
+
+```txt
+host capability manifest
+-> policy/profile resolution
+-> conversation and turn lifecycle
+-> context manager
+-> optional workflow engine
+-> agent runtime
+-> streamed protocol events
+-> durable event/tool/usage/context records
+-> compaction, memory extraction, and eval feedback
+```
+
 ## Current Repository Shape
 
 - `apps/partner-ai-service`: Hono service, config parsing, HTTP routes, auth,
-  policy, runtime/persistence composition, and startup.
+  adapter composition, transport conversion, and startup.
 - `packages/chat-protocol`: `sidechat.v1` DTOs, constants, validators, SSE codec,
   generated JSON Schema, and stream sequence checks.
 - `packages/chat-client`: browser-safe typed stream client.
 - `packages/host-bridge`: host context/command boundary.
-- `packages/partner-ai-core`: framework-free Effect-first use cases, policies,
-  ports, runtime event mapping, context-board product workflow ownership, and
+- `packages/partner-ai-core`: framework-free Effect-first product harness:
+  policy decisions, turn lifecycle, context management, context manifests, tool
+  exposure decisions, workflow orchestration, runtime event mapping, and typed
   application errors.
 - `packages/agent-runtime`: AI SDK `ToolLoopAgent` runtime, provider protocol,
   OpenAI adapter, fake provider fixture, Effect-based runtime tool protocol,
   registered tool capability registry, and private AI SDK tool adaptation under
   `runtime/ai-sdk`.
-- `packages/db`: Postgres/Drizzle persistence boundary and repository adapters.
+- `packages/db`: Postgres/Drizzle persistence seam and repository adapters.
 - `packages/side-chat-widget`: React widget using FSD layers: `widgets`,
   `features`, `entities`, and `shared`; `shared/ui` contains shadcn-style
   primitives and `shared/ai` contains AI Elements-derived components.
@@ -79,13 +99,29 @@ implementation code should not use `throw` for expected business, provider,
 persistence, or tool failures.
 
 Context-board construction, redaction, squashing, manifests, and persistence are
-product workflow concerns owned by `partner-ai-core` and app-owned ports. The
+product workflow concerns owned by `partner-ai-core` and app-owned adapters. The
 agent runtime receives only a prepared `RuntimeContextBoard` and renders it into
 model-facing messages.
+
+The target architecture deepens this into a full context manager. It should own
+candidate gathering, trust labels, token budgets, history windows, summaries,
+compaction, memory injection, retrieval injection, tool-result compression,
+rendering, snapshots, and manifests. The widget context meter is not the
+authoritative model context budget.
+
+Host apps should eventually register a capability manifest describing tools,
+commands, retrieval sources, assistant profiles, workflows, approval policies,
+memory policies, and UI activity renderers. Core policy resolves that manifest
+per turn or workflow node.
 
 Development tool exposure is non-production behavior. The service may expose
 `mock_web_search` in development profile through dev-tool configuration, but
 production profile must fail closed on fake providers and development tools.
+
+Multi-agent workflows are target framework behavior, not current runtime
+behavior. A workflow must have isolated context per agent node, explicit budgets,
+abort propagation, persisted artifacts, handoffs, and audit. Do not model
+multi-agent work as a raw tool that simply calls another model.
 
 ## Protocol State
 
