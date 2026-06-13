@@ -64,6 +64,8 @@ Not source of truth for: architecture decisions or implementation plans.
 | RetrievalSourceCapability | Manifest declaration for a source that RAG may search when policy allows it.                                         | `partner-ai-core`          | RuntimeTool                 | retrieval source    | search tool            |
 | RagRetrieverPort          | Core port for authorized pre-model retrieval from policy-allowed retrieval sources.                                  | `partner-ai-core`, service | RuntimeTool                 | RAG retriever       | model search tool      |
 | RagContextCandidate       | Retrieved context candidate with provenance, trust, redaction class, and token estimate.                             | `partner-ai-core`, service | tool result                 | RAG candidate       | search result          |
+| ResearchAgentPort         | Core port for policy-scoped pre-answer research that produces prepared context candidates and workflow artifacts.    | `partner-ai-core`, service | AgentExecutor, RuntimeTool  | research agent      | model search tool      |
+| ResearchSourceCandidate   | Research-source context candidate returned by a research agent and admitted only when its source is policy-allowed.  | `partner-ai-core`, service | RagContextCandidate         | research candidate  | browser event          |
 | MemoryPolicy              | Manifest/profile policy for whether memory may be read or written for one turn.                                      | `partner-ai-core`          | RAG source                  | none                | memory store           |
 | MemoryPort                | Core port for policy-scoped memory recall and post-turn memory write candidates.                                     | `partner-ai-core`, service | repository port             | memory adapter      | memory repository      |
 | MemoryRecord              | Recalled durable memory allowed into prepared context for one turn.                                                  | `partner-ai-core`, service | RagContextCandidate         | recalled memory     | fact in broad scope    |
@@ -165,7 +167,6 @@ recordStartedStreamTurn
 
 ## Terms Pending Clarification
 
-| Term             | Question                                              | Temporary owner   |
-| ---------------- | ----------------------------------------------------- | ----------------- |
-| workflow run     | Exact durable shape for future multi-agent workflows. | product docs      |
-| context manifest | Final persisted hash and manifest semantics.          | `partner-ai-core` |
+| Term             | Question                                     | Temporary owner   |
+| ---------------- | -------------------------------------------- | ----------------- |
+| context manifest | Final persisted hash and manifest semantics. | `partner-ai-core` |

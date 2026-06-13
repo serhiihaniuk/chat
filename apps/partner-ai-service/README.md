@@ -10,6 +10,7 @@ Not source of truth for: global vocabulary or product requirements.
 - Auth, config, persistence, policy, provider, and tool adapters.
 - Concrete turn guard registries and guard adapters.
 - Concrete RAG retrievers and retrieved-context mapping.
+- Concrete research agents and research-context mapping.
 - Concrete memory adapters and recalled-memory context mapping.
 - Deployable service composition of `partner-ai-core`, `agent-runtime`, `db`,
   and concrete enterprise adapters.
@@ -48,6 +49,8 @@ HTTP request -> auth/request parsing -> StreamChatInput
   runtime tool registry.
 - RAG retrievers are injected through service composition and mapped to prepared
   context before runtime execution.
+- Research agents are injected through service composition and run only through
+  policy-allowed workflow/source context preparation.
 - Memory adapters are injected through service composition; recall maps to
   prepared context and write candidates run after successful turns.
 - Mock or demo tools are local development and test fixtures; production
@@ -63,6 +66,7 @@ HTTP request -> auth/request parsing -> StreamChatInput
 - Backend runtime tools: `src/adapters/tools/`
 - Enterprise tool example: `src/adapters/tools/examples/jira-search-issues-tool.ts`
 - RAG adapters: `src/adapters/rag/`
+- Research agent adapters: `src/adapters/agents/`
 - Memory adapters: `src/adapters/memory/`
 - Turn guard registries: `src/adapters/guards/`
 

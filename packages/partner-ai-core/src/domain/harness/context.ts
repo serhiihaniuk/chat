@@ -6,6 +6,7 @@ import type {
   ContextTrustLevel,
   TurnPolicyDecision,
 } from "./capabilities.js";
+import type { WorkflowArtifact } from "./workflows.js";
 
 export type ContextCandidateProvenance = {
   readonly sourceId: string;
@@ -89,6 +90,7 @@ export type PreparedTurnContext = {
   readonly profile: AssistantProfile;
   readonly policyDecision: TurnPolicyDecision;
   readonly candidates: readonly ContextCandidate[];
+  readonly workflowArtifacts: readonly WorkflowArtifact[];
   readonly contextBoard: PreparedContextBoard;
   readonly runtimeMessages: readonly PreparedRuntimeMessage[];
 };

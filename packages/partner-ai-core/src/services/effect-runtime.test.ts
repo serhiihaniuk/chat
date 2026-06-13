@@ -51,6 +51,7 @@ describe("partner AI core Effect runtime layer", () => {
             contextId: "context-1",
             profile,
             policyDecision,
+            workflowArtifacts: [],
             candidates: [],
             runtimeMessages: [{ role: "user", content: "hello" }],
             contextBoard: {

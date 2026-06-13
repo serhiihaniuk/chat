@@ -45,6 +45,19 @@ against its executor registry before streaming. Missing ids use the default
 AI SDK tool-loop executor, and unknown ids fail closed with
 `executor_unavailable`.
 
+## Research Agent Path
+
+`ResearchAgentPort` is not a model-callable tool and not an `AgentExecutor`.
+Service composition injects a concrete research agent, while the host capability
+manifest declares the retrieval sources and workflows that policy may allow.
+Core runs research during context preparation only when the per-turn policy
+allows source ids and the `research_context` workflow.
+
+Research output is admitted as prepared context candidates and workflow
+artifacts. It is preserved in the context manifest and persistence snapshot, but
+it is not streamed as `sidechat.v1` protocol data and it does not select the
+final runtime executor.
+
 ## Runtime Tool Versus Host Command
 
 Use a `RuntimeTool` for backend work the selected agent executor may call during

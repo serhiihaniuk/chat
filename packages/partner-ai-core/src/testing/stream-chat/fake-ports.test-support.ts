@@ -14,6 +14,7 @@ import {
   type AgentRuntimePort,
   type AssistantTurnLifecyclePort,
   type ClockPort,
+  type ContextManagerPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
   type MemoryPort,
@@ -38,6 +39,7 @@ export type FakePortOptions = {
   readonly manifest?: HostCapabilityManifest;
   readonly policyDecision?: TurnPolicyDecision;
   readonly turnGuards?: TurnGuardRegistryPort;
+  readonly contextManager?: ContextManagerPort;
   readonly preparedContext?: PreparedTurnContext;
   readonly memory?: MemoryPort;
   readonly observability?: ObservabilitySinkPort;
@@ -84,8 +86,13 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
       },
     },
     contextManager: {
-      prepareTurnContext: () => {
+      prepareTurnContext: (
+        contextInput: Parameters<ContextManagerPort["prepareTurnContext"]>[0],
+      ) => {
         calls.push("contextManager");
+        if (options.contextManager) {
+          return options.contextManager.prepareTurnContext(contextInput);
+        }
         return Effect.succeed(preparedContext);
       },
     },

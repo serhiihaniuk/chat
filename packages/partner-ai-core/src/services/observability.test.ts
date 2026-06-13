@@ -261,6 +261,7 @@ const createObservedPorts = (
           contextId: "context_observe_1",
           profile,
           policyDecision,
+          workflowArtifacts: [],
           candidates: [],
           runtimeMessages: [
             { role: "user" as const, content: "secret prompt should not be logged" },

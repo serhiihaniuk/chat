@@ -143,6 +143,7 @@ const toContextSnapshotJson = (preparedContext: PreparedTurnContext): JsonObject
   toJsonObject({
     contextId: preparedContext.contextId,
     runtimeMessages: preparedContext.runtimeMessages,
+    workflowArtifacts: preparedContext.workflowArtifacts,
     manifest: preparedContext.contextBoard.manifest,
     sections: preparedContext.contextBoard.sections.map((section) => ({
       title: section.title,

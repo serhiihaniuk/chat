@@ -72,6 +72,7 @@ export const createPreparedContext = (
   contextId: "context_001",
   profile,
   policyDecision,
+  workflowArtifacts: [],
   candidates: [
     {
       candidateId: "candidate_current_message",

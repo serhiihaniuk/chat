@@ -261,6 +261,7 @@ describe("harness substrate types", () => {
         profile: createAssistantProfile(),
         manifestHash: "sha256:manifest_001",
       }),
+      workflowArtifacts: [],
       candidates: [
         {
           candidateId: "candidate_001",

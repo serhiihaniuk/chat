@@ -8,6 +8,14 @@ import {
   type RuntimeEvent,
 } from "@side-chat/agent-runtime";
 import {
+  CONTEXT_TRUST_LEVELS,
+  RESEARCH_CONTEXT_WORKFLOW_ID,
+  type ResearchAgentPort,
+  type ResearchSourceCandidate,
+  type RetrievalSourceCapability,
+  type WorkflowCapability,
+} from "@side-chat/partner-ai-core";
+import {
   createJiraSearchIssuesCapability,
   createJiraSearchIssuesTool,
   JIRA_SEARCH_ISSUES_TOOL_NAME,
@@ -123,6 +131,30 @@ describe("service composition runtime tools", () => {
     expect(executionRequests).toHaveLength(1);
   });
 
+  it("declares research workflows separately from runtime execution", async () => {
+    const researchAgent: ResearchAgentPort = {
+      runResearch: () =>
+        Effect.succeed({
+          summary: "Research fixture.",
+          sources: [] satisfies readonly ResearchSourceCandidate[],
+        }),
+    };
+    const composition = composePartnerAiService({
+      workspace,
+      researchAgent,
+      retrievalSources: [docsSource],
+      workflows: [researchWorkflow],
+    });
+
+    const manifest = await loadManifest(composition);
+
+    expect(composition.researchAgent).toBe(researchAgent);
+    expect(manifest.retrievalSources.map((source) => source.sourceId)).toEqual(["docs"]);
+    expect(manifest.workflows.map((workflow) => workflow.workflowId)).toEqual([
+      RESEARCH_CONTEXT_WORKFLOW_ID,
+    ]);
+  });
+
   it("declares host commands separately from backend runtime tools", async () => {
     const composition = composePartnerAiService({
       workspace,
@@ -228,4 +260,22 @@ const jiraCreateIssueCapability = {
   name: JIRA_CREATE_ISSUE_TOOL_NAME,
   description: "Create a Jira issue after approval.",
   inputSchema: { type: "object" },
+};
+
+const docsSource: RetrievalSourceCapability = {
+  sourceId: "docs",
+  description: "Workspace documentation.",
+  trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
+};
+
+const researchWorkflow: WorkflowCapability = {
+  workflowId: RESEARCH_CONTEXT_WORKFLOW_ID,
+  description: "Run pre-answer research.",
+  nodes: [
+    {
+      nodeId: "research",
+      profileId: "default",
+      toolPolicy: { mode: "closed", allowedToolNames: [] },
+    },
+  ],
 };

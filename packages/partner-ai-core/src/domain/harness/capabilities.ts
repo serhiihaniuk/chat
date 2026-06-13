@@ -41,6 +41,7 @@ export const CONTEXT_CANDIDATE_SOURCE_TYPES = {
   TOOL_CAPABILITY: "tool_capability",
   RETRIEVAL_RESULT: "retrieval_result",
   MEMORY: "memory",
+  RESEARCH_RESULT: "research_result",
   TOOL_RESULT: "tool_result",
   WORKFLOW_ARTIFACT: "workflow_artifact",
 } as const;

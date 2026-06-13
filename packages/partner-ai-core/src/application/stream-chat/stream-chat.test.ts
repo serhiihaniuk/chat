@@ -84,6 +84,36 @@ describe("stream chat use case", () => {
     expect(ports.runtimeRequests[0]?.abortSignal).toBe(abortController.signal);
   });
 
+  it("marks started turns failed when context preparation fails", async () => {
+    const ports = createFakePorts({
+      authContext,
+      contextManager: {
+        prepareTurnContext: () => Effect.fail(new Error("research unavailable")),
+      },
+    });
+
+    await expect(collect(runStreamChat(input, ports))).rejects.toMatchObject({
+      code: PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
+      protocolCode: PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
+      message: "research unavailable",
+    });
+    expect(ports.calls).toEqual([
+      "hostCapabilities",
+      "turnPolicy",
+      "policy",
+      "ensureConversation",
+      "appendUserMessage",
+      "startAssistantTurn",
+      "contextManager",
+      "failAssistantTurn",
+    ]);
+    expect(ports.failedTurns[0]).toMatchObject({
+      assistantTurnId: "assistant_turn_001",
+      status: "provider_failed",
+      errorCode: PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
+    });
+  });
+
   it("requires normalized AuthContext before protected work", async () => {
     const ports = createFakePorts();
 

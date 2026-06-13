@@ -19,6 +19,7 @@ import type {
 export type * from "./turn-guard.js";
 export type * from "./rag-retriever.js";
 export type * from "./memory-port.js";
+export type * from "./research-agent.js";
 
 /**
  * Ports are the core package's dependencies, not implementations.

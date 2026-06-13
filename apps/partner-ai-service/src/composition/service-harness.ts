@@ -15,6 +15,7 @@ import {
   type RetrievalSourceCapability,
   type ToolCapability,
   type TurnPolicyResolverPort,
+  type WorkflowCapability,
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 
@@ -35,6 +36,7 @@ export const createServiceHostCapabilityManifest = ({
   hostCommands = [],
   approvalPolicies = [],
   retrievalSources = [],
+  workflows = [],
   memoryPolicy = { policyId: "no_memory", mode: "disabled", scopes: [] },
 }: {
   readonly runtimeConfig: { readonly enableMockWebSearch?: boolean };
@@ -44,6 +46,7 @@ export const createServiceHostCapabilityManifest = ({
   readonly hostCommands?: readonly HostCommandCapability[];
   readonly approvalPolicies?: readonly ApprovalPolicy[];
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
+  readonly workflows?: readonly WorkflowCapability[];
   readonly memoryPolicy?: MemoryPolicy;
 }): HostCapabilityManifest => {
   const tools = [
@@ -66,7 +69,7 @@ export const createServiceHostCapabilityManifest = ({
     tools,
     commands: hostCommands,
     retrievalSources,
-    workflows: [],
+    workflows,
     approvalPolicies,
     memoryPolicies: [memoryPolicy],
     activityRenderers: [],

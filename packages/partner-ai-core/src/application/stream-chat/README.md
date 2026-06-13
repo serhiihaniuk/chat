@@ -15,6 +15,7 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 | `memory/recall-allowed-memory-candidates.ts`       | Policy-scoped memory recall before runtime execution.                                                           |
 | `memory/record-allowed-memory-write-candidates.ts` | Policy-scoped post-turn memory write candidate recording.                                                       |
 | `rag/retrieve-allowed-rag-candidates.ts`           | Policy-scoped RAG retrieval and retriever failure mapping before runtime execution.                             |
+| `research/run-allowed-research-agent.ts`           | Policy-scoped pre-answer research and research-output mapping into context candidates/artifacts.                |
 | `protocol/protocol-event-stream.ts`                | Runtime event mapping, post-start terminal handling, and sequence validation.                                   |
 | `protocol/protocol-terminal-lifecycle.ts`          | Completion/failure persistence and terminal invariants.                                                         |
 | `protocol/runtime-event-mapper.ts`                 | Pure RuntimeEvent to `sidechat.v1` event mapping.                                                               |
@@ -32,6 +33,9 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
   runtime tools.
 - RAG retrieval runs during context preparation from allowed retrieval source ids;
   runtime does not fetch app RAG directly.
+- Research runs during context preparation only when workflow and retrieval
+  source policy allow it. Research output becomes candidates/artifacts, not
+  protocol events or runtime executor selection.
 - Memory recall runs during context preparation from allowed scopes. Memory
   write candidates run after successful output and do not silently become raw
   model-claimed durable memory.

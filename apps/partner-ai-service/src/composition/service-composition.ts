@@ -18,10 +18,12 @@ import {
   type MemoryPolicy,
   type MemoryPort,
   type RagRetrieverPort,
+  type ResearchAgentPort,
   type RetrievalSourceCapability,
   type ToolCapability,
   type TurnGuardRegistryPort,
   type TurnPolicyResolverPort,
+  type WorkflowCapability,
   type WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import {
@@ -31,6 +33,7 @@ import {
 } from "@side-chat/db";
 import { optionalField } from "@side-chat/shared";
 
+import { createNoopResearchAgent } from "#adapters/agents/noop-research-agent";
 import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/auth/service-auth";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
 import { createNoopMemoryPort } from "#adapters/memory/noop-memory-port";
@@ -88,6 +91,7 @@ export type ServiceComposition = {
   readonly turnGuards: TurnGuardRegistryPort;
   readonly memory: MemoryPort;
   readonly ragRetriever: RagRetrieverPort;
+  readonly researchAgent: ResearchAgentPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntime;
   readonly runtimeProviderId: string;
@@ -108,6 +112,8 @@ export type ServiceCompositionOptions = {
   readonly memoryPolicy?: MemoryPolicy;
   readonly ragRetriever?: RagRetrieverPort;
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
+  readonly researchAgent?: ResearchAgentPort;
+  readonly workflows?: readonly WorkflowCapability[];
 };
 
 export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
@@ -128,10 +134,12 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     ...optionalField("approvalPolicies", runtimeConfig.approvalPolicies),
     ...optionalField("memoryPolicy", options.memoryPolicy),
     ...optionalField("retrievalSources", options.retrievalSources),
+    ...optionalField("workflows", options.workflows),
   });
   const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);
   const memory = options.memory ?? createNoopMemoryPort();
   const ragRetriever = options.ragRetriever ?? createNoopRagRetriever();
+  const researchAgent = options.researchAgent ?? createNoopResearchAgent();
 
   return {
     workspace: options.workspace,
@@ -145,7 +153,8 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     turnGuards: options.turnGuards ?? createNoopTurnGuardRegistry(),
     memory,
     ragRetriever,
-    contextManager: createServiceContextManager({ memory, ragRetriever }),
+    researchAgent,
+    contextManager: createServiceContextManager({ memory, ragRetriever, researchAgent }),
     runtime,
     runtimeProviderId,
     runtimeModelId,

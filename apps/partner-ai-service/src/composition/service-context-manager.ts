@@ -9,6 +9,7 @@ import {
   recallAllowedMemoryCandidates,
   retrieveAllowedRagCandidates,
   resolveAssistantProfileFromManifest,
+  runAllowedResearchAgent,
   type AssistantProfile,
   type ContextCandidate,
   type ContextManagerPort,
@@ -19,7 +20,9 @@ import {
   type PreparedTurnContext,
   type RagContextCandidate,
   type RagRetrieverPort,
+  type ResearchAgentPort,
   type TurnPolicyDecision,
+  type WorkflowArtifact,
 } from "@side-chat/partner-ai-core";
 import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
@@ -30,16 +33,19 @@ import {
 } from "./service-host-context.js";
 import { createMemoryContextSections, toMemoryContextCandidate } from "./service-memory-context.js";
 import { createRagContextSections, toRagContextCandidate } from "./service-rag-context.js";
+import { createResearchContextSections } from "./service-research-context.js";
 import { createAllowedToolSections, createToolContextCandidate } from "./service-tool-context.js";
 
 export type ServiceContextManagerOptions = {
   readonly ragRetriever: RagRetrieverPort;
   readonly memory: MemoryPort;
+  readonly researchAgent: ResearchAgentPort;
 };
 
 export const createServiceContextManager = ({
   ragRetriever,
   memory,
+  researchAgent,
 }: ServiceContextManagerOptions): ContextManagerPort => ({
   prepareTurnContext: ({
     authContext,
@@ -79,6 +85,15 @@ export const createServiceContextManager = ({
         policyDecision,
         ...optionalField("abortSignal", abortSignal),
       });
+      const researchContext = yield* runAllowedResearchAgent({
+        researchAgent,
+        authContext,
+        workspace,
+        request,
+        policyDecision,
+        now,
+        ...optionalField("abortSignal", abortSignal),
+      });
 
       return createPreparedTurnContext({
         requestId: request.requestId,
@@ -89,6 +104,8 @@ export const createServiceContextManager = ({
         policyDecision,
         memoryRecords,
         ragCandidates,
+        researchCandidates: researchContext.candidates,
+        workflowArtifacts: researchContext.workflowArtifacts,
         createdAt: now,
         ...optionalField("hostContext", request.hostContext),
       });
@@ -105,6 +122,8 @@ const createPreparedTurnContext = ({
   policyDecision,
   memoryRecords,
   ragCandidates,
+  researchCandidates,
+  workflowArtifacts,
   createdAt,
 }: {
   readonly requestId: string;
@@ -116,6 +135,8 @@ const createPreparedTurnContext = ({
   readonly policyDecision: TurnPolicyDecision;
   readonly memoryRecords: readonly MemoryRecord[];
   readonly ragCandidates: readonly RagContextCandidate[];
+  readonly researchCandidates: readonly ContextCandidate[];
+  readonly workflowArtifacts: readonly WorkflowArtifact[];
   readonly createdAt: string;
 }): PreparedTurnContext => {
   const candidates = createContextCandidates({
@@ -125,6 +146,7 @@ const createPreparedTurnContext = ({
     policyDecision,
     memoryRecords,
     ragCandidates,
+    researchCandidates,
     ...optionalField("hostContext", hostContext),
   });
   const sections = createContextSections({
@@ -132,6 +154,8 @@ const createPreparedTurnContext = ({
     policyDecision,
     memoryRecords,
     ragCandidates,
+    researchCandidates,
+    workflowArtifacts,
     ...optionalField("hostContext", hostContext),
   });
   const entries = candidates.map((candidate) => ({
@@ -149,6 +173,7 @@ const createPreparedTurnContext = ({
     profile,
     policyDecision,
     candidates,
+    workflowArtifacts,
     runtimeMessages: [{ role: "user", content: messageContent }],
     contextBoard: {
       sections,
@@ -159,6 +184,7 @@ const createPreparedTurnContext = ({
           entries,
           profileId: profile.profileId,
           policyDecision,
+          workflowArtifacts,
         }),
         profileId: profile.profileId,
         profileVersion: profile.version,
@@ -183,6 +209,7 @@ const createContextCandidates = ({
   policyDecision,
   memoryRecords,
   ragCandidates,
+  researchCandidates,
 }: {
   readonly messageId: string;
   readonly messageContent: string;
@@ -191,6 +218,7 @@ const createContextCandidates = ({
   readonly policyDecision: TurnPolicyDecision;
   readonly memoryRecords: readonly MemoryRecord[];
   readonly ragCandidates: readonly RagContextCandidate[];
+  readonly researchCandidates: readonly ContextCandidate[];
 }): readonly ContextCandidate[] => [
   {
     candidateId: `message_${messageId}`,
@@ -206,6 +234,7 @@ const createContextCandidates = ({
   ...createHostContextCandidates(hostContext, manifest),
   ...memoryRecords.map(toMemoryContextCandidate),
   ...ragCandidates.map(toRagContextCandidate),
+  ...researchCandidates,
   ...policyDecision.allowedToolNames.map((toolName) =>
     createToolContextCandidate(manifest, toolName),
   ),
@@ -217,16 +246,21 @@ const createContextSections = ({
   policyDecision,
   memoryRecords,
   ragCandidates,
+  researchCandidates,
+  workflowArtifacts,
 }: {
   readonly hostContext?: ServiceHostContext;
   readonly manifest: HostCapabilityManifest;
   readonly policyDecision: TurnPolicyDecision;
   readonly memoryRecords: readonly MemoryRecord[];
   readonly ragCandidates: readonly RagContextCandidate[];
+  readonly researchCandidates: readonly ContextCandidate[];
+  readonly workflowArtifacts: readonly WorkflowArtifact[];
 }): readonly PreparedContextSection[] => [
   ...createHostContextSections(hostContext),
   ...createMemoryContextSections(memoryRecords),
   ...createRagContextSections(ragCandidates),
+  ...createResearchContextSections(researchCandidates, workflowArtifacts),
   ...createAllowedToolSections(manifest, policyDecision.allowedToolNames),
 ];
 
