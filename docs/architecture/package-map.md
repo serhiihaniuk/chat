@@ -6,13 +6,13 @@ Not source of truth for: domain term definitions or detailed helper flow.
 
 ## apps/partner-ai-service
 
-| Field          | Value                                                                                   |
-| -------------- | --------------------------------------------------------------------------------------- |
-| Owns           | HTTP routes, auth/config adapters, composition, SSE conversion, concrete service ports. |
-| Public surface | Service entrypoint and local server.                                                    |
-| May depend on  | Core, runtime providers, db adapters, protocol, Hono.                                   |
-| Must not know  | Widget internal state or copied UI primitives.                                          |
-| Main tests     | `apps/partner-ai-service/src/**/*.test.ts`.                                             |
+| Field          | Value                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Owns           | Deployable service composition, HTTP routes, auth/config adapters, SSE conversion, concrete service ports and adapters. |
+| Public surface | Service entrypoint and local server.                                                                                    |
+| May depend on  | Core, runtime providers, db adapters, protocol, Hono.                                                                   |
+| Must not know  | Product turn lifecycle decisions, widget internal state, or copied UI primitives.                                       |
+| Main tests     | `apps/partner-ai-service/src/**/*.test.ts`.                                                                             |
 
 ## packages/chat-protocol
 

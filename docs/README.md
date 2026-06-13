@@ -6,17 +6,17 @@ Not source of truth for: domain term definitions or implementation details.
 
 ## Reading Paths
 
-| Task                        | Read                                                             |
-| --------------------------- | ---------------------------------------------------------------- |
-| Learn the product shape     | `architecture/system-overview.md`, then `domain/lifecycle.md`    |
-| Edit domain terms           | `domain/vocabulary.md`                                           |
-| Change package boundaries   | `architecture/package-map.md`, then `architecture/boundaries.md` |
-| Change stream-chat behavior | `architecture/stream-chat-flow.md`, then `domain/lifecycle.md`   |
-| Change Effect workflows     | `architecture/effect-style.md`                                   |
-| Change widget code          | `architecture/widget-architecture.md`                            |
-| Change tests or gates       | `architecture/testing-and-verification.md`                       |
-| Review product scope        | `product/functional-requirements.md`                             |
-| Review quality requirements | `product/non-functional-requirements.md`                         |
+| Task                        | Read                                                                          |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| Learn the product shape     | `architecture/foundation-overview.md`, then `architecture/system-overview.md` |
+| Edit domain terms           | `domain/vocabulary.md`                                                        |
+| Change package boundaries   | `architecture/package-map.md`, then `architecture/boundaries.md`              |
+| Change stream-chat behavior | `architecture/stream-chat-flow.md`, then `domain/lifecycle.md`                |
+| Change Effect workflows     | `architecture/effect-style.md`                                                |
+| Change widget code          | `architecture/widget-architecture.md`                                         |
+| Change tests or gates       | `architecture/testing-and-verification.md`                                    |
+| Review product scope        | `product/functional-requirements.md`                                          |
+| Review quality requirements | `product/non-functional-requirements.md`                                      |
 
 ## Durable Docs
 
@@ -26,6 +26,7 @@ Not source of truth for: domain term definitions or implementation details.
 | `domain/lifecycle.md`                      | Assistant turn, stream, tool, and terminal order.            |
 | `product/functional-requirements.md`       | Final intended product behavior.                             |
 | `product/non-functional-requirements.md`   | Quality, safety, readability, and verification requirements. |
+| `architecture/foundation-overview.md`      | Product identity and adoption shape.                         |
 | `architecture/system-overview.md`          | One-screen system map.                                       |
 | `architecture/package-map.md`              | Package ownership and public surfaces.                       |
 | `architecture/boundaries.md`               | What must not cross each seam.                               |

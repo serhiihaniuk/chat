@@ -2,7 +2,13 @@
 
 Read this when: you need the whole Side Chat system on one page.
 Source of truth for: high-level data flow.
-Not source of truth for: detailed package rules or domain definitions.
+Not source of truth for: product identity, detailed package rules, or domain
+definitions.
+
+Side Chat is an adoptable enterprise assistant foundation. The consuming host
+app stays outside this repo; the repository provides the assistant UI,
+browser/server protocol, deployable service composition, core turn lifecycle,
+runtime boundary, and extension seams.
 
 ## Flow
 
@@ -47,6 +53,7 @@ agent-runtime
 
 ## Related Docs
 
+- `docs/architecture/foundation-overview.md`
 - `docs/architecture/package-map.md`
 - `docs/architecture/boundaries.md`
 - `docs/domain/lifecycle.md`

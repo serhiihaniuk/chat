@@ -4,9 +4,10 @@ Read this when: you need the shortest entrypoint into this repository.
 Source of truth for: setup commands and the top-level package map.
 Not source of truth for: domain terms, package boundaries, or test policy.
 
-Side Chat is an embeddable assistant harness for ordinary web applications. It
-owns the browser protocol, client, React widget, host bridge, product core,
-agent runtime, service adapters, persistence boundary, and test harnesses.
+Side Chat is an adoptable enterprise assistant foundation for ordinary web
+applications. It owns the browser protocol, client, React widget, host bridge,
+deployable service composition, product core, agent runtime, service adapters,
+persistence boundary, and test harnesses.
 
 It does not own a consuming host application. Host apps integrate through the
 widget, host bridge, and service API.
@@ -21,6 +22,7 @@ host app -> side-chat-widget -> chat-client -> chat-protocol
 | Need                     | Document                                        |
 | ------------------------ | ----------------------------------------------- |
 | Documentation map        | `docs/README.md`                                |
+| Product identity         | `docs/architecture/foundation-overview.md`      |
 | Canonical terms          | `docs/domain/vocabulary.md`                     |
 | Assistant turn lifecycle | `docs/domain/lifecycle.md`                      |
 | Package ownership        | `docs/architecture/package-map.md`              |

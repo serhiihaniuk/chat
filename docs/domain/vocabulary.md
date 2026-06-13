@@ -17,17 +17,20 @@ Not source of truth for: architecture decisions or implementation plans.
 
 ## Core Product Terms
 
-| Term             | Meaning                                                             | Owner                     | Do not confuse with | Allowed aliases   | Forbidden aliases            |
-| ---------------- | ------------------------------------------------------------------- | ------------------------- | ------------------- | ----------------- | ---------------------------- |
-| Side Chat        | The embeddable assistant harness owned by this repo.                | product docs              | a generic chat app  | none              | chat app, AI thing           |
-| workspace        | Authorized product scope for a request.                             | `partner-ai-core`         | browser session     | none              | tenant when not in code      |
-| project          | Optional product scope associated with a conversation or request.   | `partner-ai-core`         | workspace           | none              | generic context              |
-| conversation     | Durable chat thread containing user messages and assistant turns.   | `partner-ai-core`, `db`   | assistant turn      | thread when local | chat session                 |
-| user message     | User-submitted message persisted and displayed in a conversation.   | `partner-ai-core`, widget | protocol request    | none              | input, prompt in broad scope |
-| assistant turn   | One assistant response lifecycle attached to a user message.        | `partner-ai-core`, `db`   | model call          | none              | run, response in broad scope |
-| stream chat turn | Product workflow that prepares and streams one assistant turn.      | `partner-ai-core`         | runtime execution   | none              | stream in broad scope        |
-| turn plan        | Policy decision for allowed profile, model, and tools for one turn. | `partner-ai-core`         | runtime request     | none              | config, options              |
-| prepared context | Context snapshot/messages prepared before runtime execution.        | `partner-ai-core`         | host context        | none              | prompt in broad scope        |
+| Term                           | Meaning                                                                                                                 | Owner                     | Do not confuse with  | Allowed aliases          | Forbidden aliases            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------- | -------------------- | ------------------------ | ---------------------------- |
+| Side Chat                      | The adoptable enterprise assistant foundation owned by this repo.                                                       | product docs              | a generic chat app   | none                     | chat app, AI thing           |
+| adoptable assistant foundation | Ownable repository shape that an enterprise team can deploy and extend with its app-specific assistant capabilities.    | architecture docs         | public SDK framework | assistant foundation     | demo app, plugin framework   |
+| host app                       | The consuming web app that embeds Side Chat and owns business UI, auth, domain entities, and host-specific permissions. | product docs, host bridge | Side Chat service    | embedding app when local | demo app                     |
+| embedding surface              | Host-app page, dashboard, portal, or internal tool where Side Chat is embedded.                                         | product docs, widget      | Side Chat Widget     | none                     | host app                     |
+| workspace                      | Authorized product scope for a request.                                                                                 | `partner-ai-core`         | browser session      | none                     | tenant when not in code      |
+| project                        | Optional product scope associated with a conversation or request.                                                       | `partner-ai-core`         | workspace            | none                     | generic context              |
+| conversation                   | Durable chat thread containing user messages and assistant turns.                                                       | `partner-ai-core`, `db`   | assistant turn       | thread when local        | chat session                 |
+| user message                   | User-submitted message persisted and displayed in a conversation.                                                       | `partner-ai-core`, widget | protocol request     | none                     | input, prompt in broad scope |
+| assistant turn                 | One assistant response lifecycle attached to a user message.                                                            | `partner-ai-core`, `db`   | model call           | none                     | run, response in broad scope |
+| stream chat turn               | Product workflow that prepares and streams one assistant turn.                                                          | `partner-ai-core`         | runtime execution    | none                     | stream in broad scope        |
+| turn plan                      | Policy decision for allowed profile, model, and tools for one turn.                                                     | `partner-ai-core`         | runtime request      | none                     | config, options              |
+| prepared context               | Context snapshot/messages prepared before runtime execution.                                                            | `partner-ai-core`         | host context         | none                     | prompt in broad scope        |
 
 ## Request Chain
 

@@ -8,7 +8,8 @@ Not source of truth for: global vocabulary or product requirements.
 
 - Hono HTTP routes and middleware.
 - Auth, config, persistence, policy, provider, and tool adapters.
-- Composition of `partner-ai-core`, `agent-runtime`, and `db`.
+- Deployable service composition of `partner-ai-core`, `agent-runtime`, `db`,
+  and concrete enterprise adapters.
 - SSE response conversion at the transport edge.
 
 ## Does Not Own
@@ -36,6 +37,8 @@ HTTP request -> auth/request parsing -> StreamChatInput
 - Hono objects do not enter core.
 - Promise/AsyncIterable conversion happens at HTTP edges.
 - App-owned concrete tools are injected into runtime through core/service ports.
+- Mock or demo tools are local development and test fixtures; production
+  profiles must fail closed instead of exposing them by default.
 
 ## Tests
 
@@ -45,5 +48,6 @@ HTTP request -> auth/request parsing -> StreamChatInput
 ## Related Docs
 
 - `docs/architecture/boundaries.md`
+- `docs/architecture/foundation-overview.md`
 - `docs/architecture/stream-chat-flow.md`
 - `docs/architecture/testing-and-verification.md`
