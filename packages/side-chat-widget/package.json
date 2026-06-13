@@ -38,6 +38,11 @@
       "development": "./src/index.ts",
       "default": "./dist/index.js"
     },
+    "./testing": {
+      "types": "./dist/entities/chat/testing.d.ts",
+      "development": "./src/entities/chat/testing.ts",
+      "default": "./dist/entities/chat/testing.js"
+    },
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

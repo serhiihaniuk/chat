@@ -14,6 +14,10 @@ export default defineConfig({
       "@side-chat/db": resolve(repoRoot, "packages/db/src/index.ts"),
       "@side-chat/host-bridge": resolve(repoRoot, "packages/host-bridge/src/index.ts"),
       "@side-chat/shared": resolve(repoRoot, "packages/shared/src/index.ts"),
+      "@side-chat/side-chat-widget/testing": resolve(
+        repoRoot,
+        "packages/side-chat-widget/src/entities/chat/testing.ts",
+      ),
       "@side-chat/side-chat-widget": resolve(repoRoot, "packages/side-chat-widget/src/index.ts"),
       "@side-chat/testing": resolve(repoRoot, "packages/testing/src/index.ts"),
     },

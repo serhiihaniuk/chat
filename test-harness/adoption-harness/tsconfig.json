@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../../apps/partner-ai-service"
+    },
+    {
+      "path": "../../packages/chat-client"
+    },
+    {
+      "path": "../../packages/chat-protocol"
+    },
+    {
+      "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/partner-ai-core"
+    },
+    {
+      "path": "../../packages/side-chat-widget"
+    }
+  ],
+  "exclude": ["src/**/*.test.ts"]
+}

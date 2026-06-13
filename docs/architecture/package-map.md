@@ -113,3 +113,13 @@ Not source of truth for: domain term definitions or detailed helper flow.
 | May depend on  | Widget, client, host bridge, local harness helpers.                   |
 | Must not know  | Production deployment details.                                        |
 | Main tests     | `test-harness/widget-harness/src/**/*.test.ts` and E2E scenarios.     |
+
+## test-harness/adoption-harness
+
+| Field          | Value                                                                                                            |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Owns           | Cross-package adopter golden-path tests spanning service, core, runtime, protocol, client, and widget state.     |
+| Public surface | No runtime API; workspace package shape only.                                                                    |
+| May depend on  | Service, core, db memory repositories, protocol, chat client, widget testing helpers, and deterministic effects. |
+| Must not know  | Browser harness pages, production deployment details, provider-native events, or Hono internals.                 |
+| Main tests     | `test-harness/adoption-harness/src/**/*.test.ts`.                                                                |

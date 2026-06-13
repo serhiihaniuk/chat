@@ -72,6 +72,15 @@ const allowed = {
     "use-stick-to-bottom",
   ]),
   "@side-chat/testing": new Set(["@side-chat/chat-protocol"]),
+  "@side-chat/adoption-harness": new Set([
+    "@side-chat/chat-client",
+    "@side-chat/chat-protocol",
+    "@side-chat/db",
+    "@side-chat/partner-ai-core",
+    "@side-chat/partner-ai-service",
+    "@side-chat/side-chat-widget",
+    "effect",
+  ]),
   "@side-chat/widget-harness": new Set([
     "@side-chat/chat-client",
     "@side-chat/chat-protocol",

@@ -23,6 +23,9 @@ Not source of truth for: backend workflow or protocol definitions.
 
 `src/index.ts` exports the side-chat widget API.
 
+`@side-chat/side-chat-widget/testing` exports widget model projection helpers
+for harness tests. It is not a host application API.
+
 ## Main Flows
 
 ```txt

@@ -12,6 +12,9 @@
       "@side-chat/db": ["./packages/db/src/index.ts"],
       "@side-chat/host-bridge": ["./packages/host-bridge/src/index.ts"],
       "@side-chat/shared": ["./packages/shared/src/index.ts"],
+      "@side-chat/side-chat-widget/testing": [
+        "./packages/side-chat-widget/src/entities/chat/testing.ts"
+      ],
       "@side-chat/side-chat-widget": ["./packages/side-chat-widget/src/index.ts"],
       "@side-chat/testing": ["./packages/testing/src/index.ts"]
     },
