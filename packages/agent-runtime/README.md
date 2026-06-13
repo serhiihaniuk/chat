@@ -17,7 +17,7 @@ browser protocol.
 
 ## Does Not Own
 
-- Product authorization or policy.
+- Product authorization, approval policy, or host-command dispatch.
 - Context gathering, squashing, redaction, or manifests.
 - Database writes.
 - HTTP/SSE transport.
@@ -56,6 +56,8 @@ AgentRuntimeRequest
 - Expected failures use `Effect.fail`, `Effect.try`, or `Effect.tryPromise`.
 - Raw `throw` is a defect.
 - Provider DTOs and AI SDK stream parts do not leave this package.
+- Approval requirements and host commands stay in product/host-bridge policy;
+  runtime receives only selected backend `RuntimeTool` names for a turn.
 
 ## Local Conventions
 

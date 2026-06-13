@@ -7,14 +7,18 @@ import {
   OPENAI_PROVIDER_ID,
   type AgentRuntime,
   type ModelProvider,
+  type RuntimeTool,
 } from "@side-chat/agent-runtime";
 import {
   type ContextManagerPort,
+  type ApprovalPolicy,
+  type HostCommandCapability,
   type HostCapabilityManifestPort,
   type MemoryPolicy,
   type MemoryPort,
   type RagRetrieverPort,
   type RetrievalSourceCapability,
+  type ToolCapability,
   type TurnGuardRegistryPort,
   type TurnPolicyResolverPort,
   type WorkspaceRef,
@@ -60,6 +64,10 @@ export type RuntimeConfig =
     };
 export type RuntimeToolConfig = {
   readonly enableMockWebSearch?: boolean;
+  readonly runtimeTools?: readonly RuntimeTool[];
+  readonly toolCapabilities?: readonly ToolCapability[];
+  readonly hostCommands?: readonly HostCommandCapability[];
+  readonly approvalPolicies?: readonly ApprovalPolicy[];
 };
 
 export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -113,6 +121,9 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtimeConfig,
     providerId: runtimeProviderId,
     modelId: runtimeModelId,
+    ...optionalField("toolCapabilities", runtimeConfig.toolCapabilities),
+    ...optionalField("hostCommands", runtimeConfig.hostCommands),
+    ...optionalField("approvalPolicies", runtimeConfig.approvalPolicies),
     ...optionalField("memoryPolicy", options.memoryPolicy),
     ...optionalField("retrievalSources", options.retrievalSources),
   });
@@ -143,7 +154,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
 const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): AgentRuntime =>
   createAgentRuntime({
     providers: [createProviderForRuntime(config)],
-    tools: config.enableMockWebSearch ? [createMockWebSearchTool()] : [],
+    tools: [
+      ...(config.enableMockWebSearch ? [createMockWebSearchTool()] : []),
+      ...(config.runtimeTools ?? []),
+    ],
   });
 
 const createProviderForRuntime = (config: RuntimeConfig): ModelProvider => {

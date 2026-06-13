@@ -68,19 +68,21 @@ Not source of truth for: architecture decisions or implementation plans.
 | MemoryRecord              | Recalled durable memory allowed into prepared context for one turn.                                                  | `partner-ai-core`, service | RagContextCandidate         | recalled memory     | fact in broad scope    |
 | MemoryWriteCandidate      | Post-turn candidate proposed for possible durable memory storage under `MemoryPolicy`.                               | `partner-ai-core`, service | MemoryRecord                | memory candidate    | automatic memory write |
 | TurnPolicyDecision        | Per-turn policy result that selects profile/model/tools/commands/RAG/memory/workflow exposure.                       | `partner-ai-core`          | host capability manifest    | policy decision     | config, options        |
+| ApprovalPolicy            | Manifest policy requiring user or host approval before a declared tool or host command is used.                      | `partner-ai-core`          | runtime tool execution      | approval rule       | permission flag        |
 | TurnGuard                 | Pre-context safety check that may allow, warn, or block one turn before conversation persistence, context, or tools. | `partner-ai-core`, service | product policy, RuntimeTool | guard when local    | safety plugin          |
 | executable registry       | Runtime or service-side collection of concrete implementations that can run if selected.                             | service, `agent-runtime`   | host capability manifest    | registry when local | plugin list            |
 
 ## Tool And Activity Terms
 
-| Term                | Meaning                                                                 | Owner           | Do not confuse with     | Allowed aliases | Forbidden aliases     |
-| ------------------- | ----------------------------------------------------------------------- | --------------- | ----------------------- | --------------- | --------------------- |
-| RuntimeTool         | App-owned executable model-callable tool registered with agent runtime. | `agent-runtime` | ToolCapability          | none            | tool in broad scope   |
-| tool call           | Model/provider request to execute a runtime tool.                       | `agent-runtime` | host command            | none            | call in broad scope   |
-| tool result         | Successful result from a runtime tool.                                  | `agent-runtime` | host command result     | none            | result in broad scope |
-| tool error          | Public failed tool activity shape, not a raw thrown value.              | `agent-runtime` | provider/tool exception | none            | exception             |
-| host command        | Command sent from Side Chat to a host app capability.                   | `host-bridge`   | runtime tool call       | none            | tool call             |
-| host command result | Result returned by a host app after a host command.                     | `host-bridge`   | tool result             | none            | result in broad scope |
+| Term                  | Meaning                                                                             | Owner                            | Do not confuse with     | Allowed aliases     | Forbidden aliases     |
+| --------------------- | ----------------------------------------------------------------------------------- | -------------------------------- | ----------------------- | ------------------- | --------------------- |
+| RuntimeTool           | App-owned executable model-callable tool registered with agent runtime.             | `agent-runtime`                  | ToolCapability          | none                | tool in broad scope   |
+| tool call             | Model/provider request to execute a runtime tool.                                   | `agent-runtime`                  | host command            | none                | call in broad scope   |
+| tool result           | Successful result from a runtime tool.                                              | `agent-runtime`                  | host command result     | none                | result in broad scope |
+| tool error            | Public failed tool activity shape, not a raw thrown value.                          | `agent-runtime`                  | provider/tool exception | none                | exception             |
+| host command          | Command sent from Side Chat to a host app capability.                               | `host-bridge`                    | runtime tool call       | none                | tool call             |
+| HostCommandCapability | Manifest declaration for a browser/host-app UI command, not a backend runtime tool. | `partner-ai-core`, `host-bridge` | RuntimeTool             | command declaration | tool capability       |
+| host command result   | Result returned by a host app after a host command.                                 | `host-bridge`                    | tool result             | none                | result in broad scope |
 
 ## Package And Boundary Terms
 

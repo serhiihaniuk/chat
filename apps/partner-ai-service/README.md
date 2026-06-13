@@ -40,6 +40,10 @@ HTTP request -> auth/request parsing -> StreamChatInput
 - Hono objects do not enter core.
 - Promise/AsyncIterable conversion happens at HTTP edges.
 - App-owned concrete tools are injected into runtime through core/service ports.
+- Tool declarations (`ToolCapability`) and executable tools (`RuntimeTool`) are
+  wired separately so a manifest entry does not silently become model access.
+- Host commands are browser/host-app UI interactions and stay outside the
+  runtime tool registry.
 - RAG retrievers are injected through service composition and mapped to prepared
   context before runtime execution.
 - Memory adapters are injected through service composition; recall maps to
@@ -51,6 +55,18 @@ HTTP request -> auth/request parsing -> StreamChatInput
 
 - `src/inbound/http/*.test.ts`
 - Adapter and config tests under `src/**`
+
+## Adapter Starting Points
+
+- Backend runtime tools: `src/adapters/tools/`
+- Enterprise tool example: `src/adapters/tools/examples/jira-search-issues-tool.ts`
+- RAG adapters: `src/adapters/rag/`
+- Memory adapters: `src/adapters/memory/`
+- Turn guard registries: `src/adapters/guards/`
+
+Service composition accepts runtime tool implementations separately from
+manifest declarations. Selected tool names that lack an executable registration
+fail closed in `agent-runtime`.
 
 ## Related Docs
 

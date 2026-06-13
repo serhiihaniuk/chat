@@ -7,6 +7,7 @@ import {
   type TurnPolicyDecision,
   type TurnPolicyValidationResult,
 } from "./capabilities.js";
+import { approvalRequirementIssues } from "./turn-policy-approval-validation.js";
 import { profileMemoryIssues } from "./turn-policy-memory-validation.js";
 
 export const validateTurnPolicyDecision = (
@@ -23,6 +24,7 @@ export const validateTurnPolicyDecision = (
     ...profileToolIssues(profile, decision),
     ...profileRetrievalIssues(profile, decision),
     ...profileMemoryIssues(profile, decision),
+    ...approvalRequirementIssues(manifest, decision),
   ];
 
   return issues.length === 0 ? { valid: true, decision } : { valid: false, issues };

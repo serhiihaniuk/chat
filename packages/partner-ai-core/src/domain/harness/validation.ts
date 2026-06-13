@@ -3,14 +3,26 @@ import {
   HOST_CAPABILITY_VALIDATION_CODES,
   type AssistantProfileResolution,
   type HostCapabilityManifest,
-  type HostCapabilityValidationCode,
   type HostCapabilityValidationIssue,
   type HostCapabilityValidationResult,
   type TurnPolicyDecision,
   type TurnPolicyResolutionInput,
 } from "./capabilities.js";
+import {
+  approvalRequirementsForSelectedCapabilities,
+  validateApprovalPolicyReferences,
+} from "./turn-policy-approval-validation.js";
 import { validateMemoryPolicyReferences } from "./turn-policy-memory-validation.js";
-import { duplicateValueIssues } from "./validation-issue-helpers.js";
+import {
+  readApprovalPolicyId,
+  readAssistantProfileId,
+  readHostCommandName,
+  readMemoryPolicyId,
+  readRetrievalSourceId,
+  readToolCapabilityName,
+  readWorkflowId,
+} from "./validation-field-readers.js";
+import { duplicateValueIssues, unknownValueIssues } from "./validation-issue-helpers.js";
 
 export const validateHostCapabilityManifest = (
   manifest: HostCapabilityManifest,
@@ -27,32 +39,45 @@ export const validateHostCapabilityManifest = (
 
   issues.push(
     ...duplicateValueIssues(
-      manifest.assistantProfiles.map((profile) => profile.profileId),
+      manifest.assistantProfiles.map(readAssistantProfileId),
       "assistantProfiles",
       HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_PROFILE_ID,
       "assistant profile id",
     ),
     ...duplicateValueIssues(
-      manifest.tools.map((tool) => tool.name),
+      manifest.tools.map(readToolCapabilityName),
       "tools",
       HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_TOOL_NAME,
       "tool name",
     ),
     ...duplicateValueIssues(
-      manifest.workflows.map((workflow) => workflow.workflowId),
+      manifest.commands.map(readHostCommandName),
+      "commands",
+      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_COMMAND_NAME,
+      "host command name",
+    ),
+    ...duplicateValueIssues(
+      manifest.workflows.map(readWorkflowId),
       "workflows",
       HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_WORKFLOW_ID,
       "workflow id",
     ),
+    ...duplicateValueIssues(
+      manifest.approvalPolicies.map(readApprovalPolicyId),
+      "approvalPolicies",
+      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_APPROVAL_POLICY_ID,
+      "approval policy id",
+    ),
   );
 
-  const profileIds = new Set(manifest.assistantProfiles.map((profile) => profile.profileId));
-  const toolNames = new Set(manifest.tools.map((tool) => tool.name));
-  const retrievalSourceIds = new Set(manifest.retrievalSources.map((source) => source.sourceId));
+  const profileIds = new Set(manifest.assistantProfiles.map(readAssistantProfileId));
+  const toolNames = new Set(manifest.tools.map(readToolCapabilityName));
+  const commandNames = new Set(manifest.commands.map(readHostCommandName));
+  const retrievalSourceIds = new Set(manifest.retrievalSources.map(readRetrievalSourceId));
 
   issues.push(
     ...duplicateValueIssues(
-      manifest.memoryPolicies.map((policy) => policy.policyId),
+      manifest.memoryPolicies.map(readMemoryPolicyId),
       "memoryPolicies",
       HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_MEMORY_POLICY_ID,
       "memory policy id",
@@ -60,6 +85,7 @@ export const validateHostCapabilityManifest = (
     ...validateDefaultProfileReference(manifest, profileIds),
     ...validateAssistantProfileReferences(manifest, toolNames, retrievalSourceIds),
     ...validateMemoryPolicyReferences(manifest),
+    ...validateApprovalPolicyReferences(manifest, toolNames, commandNames),
     ...validateWorkflowReferences(manifest, profileIds, toolNames),
   );
 
@@ -89,30 +115,36 @@ export const createTurnPolicyDecision = ({
   manifest,
   profile,
   manifestHash,
-}: TurnPolicyResolutionInput): TurnPolicyDecision => ({
-  profileId: profile.profileId,
-  profileVersion: profile.version,
-  providerId: profile.modelPolicy.providerId,
-  modelId: profile.modelPolicy.modelId,
-  allowedToolNames: profile.defaultToolPolicy.allowedToolNames,
-  allowedCommandNames: [],
-  retrievalSourceIds: profile.retrievalPolicy.sourceIds,
-  memoryScope: {
-    mode: profile.memoryPolicy.mode,
-    scopes: profile.memoryPolicy.scopes,
-  },
-  workflowPolicy: {
-    mode: "manifest_workflows",
-    allowedWorkflowIds: manifest.workflows.map((workflow) => workflow.workflowId),
-  },
-  approvalRequirements: manifest.approvalPolicies.flatMap((policy) =>
-    policy.capabilityNames.map((capabilityName) => ({
-      capabilityName,
-      mode: policy.mode,
-    })),
-  ),
-  manifestHash,
-});
+}: TurnPolicyResolutionInput): TurnPolicyDecision => {
+  const allowedCommandNames: readonly string[] = [];
+  const selectedCapabilityNames = new Set([
+    ...profile.defaultToolPolicy.allowedToolNames,
+    ...allowedCommandNames,
+  ]);
+
+  return {
+    profileId: profile.profileId,
+    profileVersion: profile.version,
+    providerId: profile.modelPolicy.providerId,
+    modelId: profile.modelPolicy.modelId,
+    allowedToolNames: profile.defaultToolPolicy.allowedToolNames,
+    allowedCommandNames,
+    retrievalSourceIds: profile.retrievalPolicy.sourceIds,
+    memoryScope: {
+      mode: profile.memoryPolicy.mode,
+      scopes: profile.memoryPolicy.scopes,
+    },
+    workflowPolicy: {
+      mode: "manifest_workflows",
+      allowedWorkflowIds: manifest.workflows.map((workflow) => workflow.workflowId),
+    },
+    approvalRequirements: approvalRequirementsForSelectedCapabilities(
+      manifest,
+      selectedCapabilityNames,
+    ),
+    manifestHash,
+  };
+};
 
 const validateDefaultProfileReference = (
   manifest: HostCapabilityManifest,
@@ -175,18 +207,3 @@ const validateWorkflowReferences = (
       ),
     ]),
   );
-
-const unknownValueIssues = (
-  values: readonly string[],
-  knownValues: ReadonlySet<string>,
-  path: string,
-  code: HostCapabilityValidationCode,
-  message: (value: string) => string,
-): readonly HostCapabilityValidationIssue[] =>
-  values
-    .filter((value) => !knownValues.has(value))
-    .map((value) => ({
-      code,
-      path,
-      message: message(value),
-    }));

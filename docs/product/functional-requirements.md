@@ -49,6 +49,8 @@ assistant experience without exposing provider internals to the browser.
 - Tool availability is decided by product policy/profile before runtime
   execution.
 - Runtime tools are app-owned capabilities injected into agent runtime.
+- Declared tools are not executable unless a matching runtime tool is registered.
+- Mutating tools require an explicit approval policy path before execution.
 - Tool activity appears as `sidechat.activity`.
 - Tool inputs, outputs, errors, and sources stay inside activity details.
 - Development tools such as `mock_web_search` must fail closed in production
@@ -76,6 +78,8 @@ assistant experience without exposing provider internals to the browser.
 - The host bridge is the browser seam for host context and host commands.
 - Host commands are not runtime tools unless the service explicitly exposes a
   tool adapter for that behavior.
+- Host commands are declared separately from backend runtime tools and are
+  dispatched through the host bridge.
 - The repo does not ship a production host app.
 
 ## History, Model, And Usage Endpoints

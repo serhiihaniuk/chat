@@ -22,3 +22,18 @@ export const duplicateValueIssues = (
     message: `Duplicate ${label} ${value}.`,
   }));
 };
+
+export const unknownValueIssues = (
+  values: readonly string[],
+  knownValues: ReadonlySet<string>,
+  path: string,
+  code: HostCapabilityValidationCode,
+  message: (value: string) => string,
+): readonly HostCapabilityValidationIssue[] =>
+  values
+    .filter((value) => !knownValues.has(value))
+    .map((value) => ({
+      code,
+      path,
+      message: message(value),
+    }));

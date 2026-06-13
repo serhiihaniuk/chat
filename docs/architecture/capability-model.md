@@ -38,6 +38,40 @@ with `tool_unavailable`; it does not silently expose a replacement.
 If a tool is registered in runtime but no request/profile allowlist selects it,
 the model sees no tool.
 
+## Runtime Tool Versus Host Command
+
+Use a `RuntimeTool` for backend work the selected agent executor may call during
+model execution:
+
+```txt
+jira.search_issues
+customer.lookup
+incident.create
+```
+
+Use a host command for browser/host-app UI work:
+
+```txt
+host.open_ticket_panel
+host.highlight_document_section
+host.insert_text_into_editor
+```
+
+Host commands are declared on `HostCapabilityManifest.commands` and dispatched
+through `packages/host-bridge`. They are not executable runtime tools unless the
+service also models a separate backend `RuntimeTool`.
+
+## Approval-Sensitive Capabilities
+
+`ApprovalPolicy` references declared tool or host-command names. Manifest
+validation fails closed when an approval policy points at an undeclared
+capability.
+
+Mutating tools such as `jira.create_issue` should be declared with an approval
+policy before a service adapter executes the mutation. The runtime still
+receives only the final per-turn tool allowlist; approval requirements are
+product policy data, not AI SDK provider options.
+
 ## Mock Tool Placement
 
 `mock_web_search` is a local development and test fixture:
@@ -51,6 +85,26 @@ the model sees no tool.
 This fixture proves the manifest -> policy -> runtime registry path. It is not
 the default enterprise tool architecture.
 
+## Enterprise Tool Example
+
+`apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts`
+shows the intended service-side shape for a concrete app-owned tool:
+
+```txt
+RuntimeTool implementation
+ToolCapability declaration
+small input reader
+authorization-aware client call
+protocol-safe JSON result
+optional source extraction
+runtime-safe error mapping
+```
+
+Service composition accepts `runtime.runtimeTools` for executable registrations
+and `runtime.toolCapabilities` for manifest declarations. Supplying only one
+side is allowed, but selected tools without a matching runtime implementation
+fail closed with `tool_unavailable`.
+
 ## Where To Open First
 
 - `packages/partner-ai-core/src/domain/harness/capabilities.ts`
@@ -61,6 +115,8 @@ the default enterprise tool architecture.
 - `packages/agent-runtime/src/tools/tool-registry.ts`
 - `apps/partner-ai-service/src/composition/service-harness.ts`
 - `apps/partner-ai-service/src/composition/service-composition.ts`
+- `apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts`
+- `packages/host-bridge/src/capability.ts`
 
 ## Related Docs
 

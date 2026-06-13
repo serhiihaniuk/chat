@@ -48,7 +48,7 @@ describe("host capability manifest contract", () => {
         mode: "manifest_workflows",
         allowedWorkflowIds: ["research_then_answer"],
       },
-      approvalRequirements: [{ capabilityName: "open_record", mode: "on_request" }],
+      approvalRequirements: [],
     });
     expect(decision.manifestHash).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(validateTurnPolicyDecision(manifest, resolution.profile, decision)).toMatchObject({
@@ -341,14 +341,7 @@ const createManifest = (
     defaultAssistantProfileId: analyst.profileId,
     assistantProfiles: [analyst],
     tools: [createTool("mock_web_search")],
-    commands: [
-      {
-        commandName: "open_record",
-        description: "Open a host app record for the user.",
-        inputSchema: { type: "object" },
-        approvalMode: "on_request",
-      },
-    ],
+    commands: [createHostCommand("open_record")],
     retrievalSources: [
       {
         sourceId: "docs",
@@ -357,13 +350,7 @@ const createManifest = (
       },
     ],
     workflows: [createWorkflow("research_then_answer", analyst.profileId)],
-    approvalPolicies: [
-      {
-        policyId: "host_commands_require_review",
-        mode: "on_request",
-        capabilityNames: ["open_record"],
-      },
-    ],
+    approvalPolicies: [createApprovalPolicy("host_commands_require_review", ["open_record"])],
     memoryPolicies: [analyst.memoryPolicy],
     activityRenderers: [{ rendererId: "tool_row", activityKind: "tool" }],
     ...overrides,
@@ -391,6 +378,19 @@ const createTool = (name: string) => ({
   name,
   description: `${name} test capability.`,
   inputSchema: { type: "object" },
+});
+
+const createHostCommand = (commandName: string) => ({
+  commandName,
+  description: "Open a host app record for the user.",
+  inputSchema: { type: "object" },
+  approvalMode: "on_request" as const,
+});
+
+const createApprovalPolicy = (policyId: string, capabilityNames: readonly string[]) => ({
+  policyId,
+  mode: "on_request" as const,
+  capabilityNames,
 });
 
 const createWorkflow = (

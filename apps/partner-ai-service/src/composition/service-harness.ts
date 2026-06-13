@@ -7,6 +7,8 @@ import {
   resolveAssistantProfileFromManifest,
   validateHostCapabilityManifest,
   type AssistantProfile,
+  type ApprovalPolicy,
+  type HostCommandCapability,
   type HostCapabilityManifest,
   type HostCapabilityManifestPort,
   type MemoryPolicy,
@@ -29,16 +31,25 @@ export const createServiceHostCapabilityManifest = ({
   runtimeConfig,
   providerId,
   modelId,
+  toolCapabilities = [],
+  hostCommands = [],
+  approvalPolicies = [],
   retrievalSources = [],
   memoryPolicy = { policyId: "no_memory", mode: "disabled", scopes: [] },
 }: {
   readonly runtimeConfig: { readonly enableMockWebSearch?: boolean };
   readonly providerId: string;
   readonly modelId: string;
+  readonly toolCapabilities?: readonly ToolCapability[];
+  readonly hostCommands?: readonly HostCommandCapability[];
+  readonly approvalPolicies?: readonly ApprovalPolicy[];
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
   readonly memoryPolicy?: MemoryPolicy;
 }): HostCapabilityManifest => {
-  const tools = runtimeConfig.enableMockWebSearch ? [createMockWebSearchCapability()] : [];
+  const tools = [
+    ...(runtimeConfig.enableMockWebSearch ? [createMockWebSearchCapability()] : []),
+    ...toolCapabilities,
+  ];
   const profile = createDefaultServiceAssistantProfile({
     providerId,
     modelId,
@@ -53,10 +64,10 @@ export const createServiceHostCapabilityManifest = ({
     defaultAssistantProfileId: profile.profileId,
     assistantProfiles: [profile],
     tools,
-    commands: [],
+    commands: hostCommands,
     retrievalSources,
     workflows: [],
-    approvalPolicies: [],
+    approvalPolicies,
     memoryPolicies: [memoryPolicy],
     activityRenderers: [],
   };

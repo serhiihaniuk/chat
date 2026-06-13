@@ -31,6 +31,8 @@ widget asks bridge -> host provides context or command result -> widget displays
 ## Boundary Rules
 
 - Host commands are not runtime tools by default.
+- `HostCommandCapability` describes browser/host-app dispatch support, while
+  backend `RuntimeTool` implementations live in service/runtime code.
 - Keep the API browser-safe and framework-light.
 - Do not import runtime, DB, service, provider, or widget internals.
 
