@@ -105,7 +105,7 @@ const mapToolInputStart = (
  * Replace the placeholder activity with the completed tool input.
  *
  * At this point the model has produced the JSON arguments but the tool has not
- * finished. The runtime keeps the same activity id so the UI updates one row
+ * finished. Invariant: the runtime keeps the same activity id so the UI updates one row
  * instead of rendering a separate "input known" row.
  */
 const mapToolCall = (
@@ -147,7 +147,7 @@ const mapToolResult = (
     input: toJsonObject(part.input),
     result,
     ...titleProp(part.title),
-    ...(sources ? { sources } : {}),
+    sources,
   });
 };
 
@@ -179,11 +179,11 @@ type ToolActivityInput = {
   readonly status: ActivityStatus;
   readonly toolCallId: string;
   readonly toolName: string;
-  readonly title?: string;
+  readonly title?: string | undefined;
   readonly input: JsonObject;
-  readonly result?: JsonObject;
-  readonly sources?: readonly ActivitySource[];
-  readonly errorCode?: ProtocolErrorCode;
+  readonly result?: JsonObject | undefined;
+  readonly sources?: readonly ActivitySource[] | undefined;
+  readonly errorCode?: ProtocolErrorCode | undefined;
 };
 
 const createToolActivity = ({
@@ -207,16 +207,32 @@ const createToolActivity = ({
   status,
   title: title ?? `Run ${toolName}`,
   details: {
-    tool: {
-      toolCallId,
-      toolName,
-      input,
-      ...(result ? { result } : {}),
-      ...(sources && sources.length > 0 ? { sources } : {}),
-      ...(errorCode ? { errorCode } : {}),
-    },
+    tool: createToolActivityDetails({ toolCallId, toolName, input, result, sources, errorCode }),
   },
 });
+
+const createToolActivityDetails = ({
+  errorCode,
+  input,
+  result,
+  sources,
+  toolCallId,
+  toolName,
+}: Pick<
+  ToolActivityInput,
+  "errorCode" | "input" | "result" | "sources" | "toolCallId" | "toolName"
+>) => ({
+  toolCallId,
+  toolName,
+  input,
+  ...(result ? { result } : {}),
+  ...(hasSources(sources) ? { sources } : {}),
+  ...(errorCode ? { errorCode } : {}),
+});
+
+const hasSources = (
+  sources: readonly ActivitySource[] | undefined,
+): sources is readonly ActivitySource[] => Boolean(sources && sources.length > 0);
 
 const titleProp = (title: string | undefined): { readonly title?: string } =>
   title ? { title } : {};

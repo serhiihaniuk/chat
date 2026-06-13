@@ -34,7 +34,7 @@ export type RuntimeFinishReason =
 /**
  * RuntimeEvent is the provider-neutral output boundary.
  *
- * AI SDK stream parts and provider-native chunks are normalized into this union
+ * Source AI SDK stream parts and provider-native chunks are normalized into this union
  * before anything leaves packages/agent-runtime.
  */
 export type RuntimeEventBase = {

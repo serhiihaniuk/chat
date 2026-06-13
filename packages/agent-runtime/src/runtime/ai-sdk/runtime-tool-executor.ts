@@ -8,10 +8,9 @@ import { RUNTIME_ERROR_CODES } from "../contract/runtime-event.js";
 /**
  * Execute one app-owned RuntimeTool for an AI SDK tool callback.
  *
- * AI SDK expects a Promise-returning callback, while Side Chat tools expose an
+ * Source tools expose an
  * Effect program so timeout, cancellation, dependencies, and typed failures
- * stay explicit at the runtime seam. This adapter is the one place where that
- * Effect program is interpreted back into a Promise for AI SDK.
+ * stay explicit. Target AI SDK receives one Promise-returning callback here.
  */
 export const executeRuntimeToolForAiSdk = async (
   runtimeTool: RuntimeTool,

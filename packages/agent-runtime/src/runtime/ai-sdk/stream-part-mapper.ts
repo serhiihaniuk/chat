@@ -17,7 +17,7 @@ const AI_SDK_FINISH_REASON_CONTENT_FILTER = "content-filter" as const;
 /**
  * Emit the first event before any provider output is read.
  *
- * This gives the service/UI a concrete turn boundary immediately: which
+ * Target service/UI gets a concrete turn boundary immediately: which
  * provider/model is being used, which request is streaming, and where later
  * sequence numbers begin.
  */
@@ -36,7 +36,7 @@ export const createRuntimeStartedEvent = (
 /**
  * Map ordinary AI SDK stream parts into the runtime event contract.
  *
- * Tool and reasoning parts are handled in their own files because they update
+ * Source tool and reasoning parts are handled in their own files because they update
  * activity rows. This mapper owns the simple terminal/text cases that become
  * direct runtime events.
  */

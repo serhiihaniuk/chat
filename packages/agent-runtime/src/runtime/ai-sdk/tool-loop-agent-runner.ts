@@ -25,7 +25,7 @@ import { createRuntimeToolLookup, mapAiSdkToolActivity } from "./tool-activity-m
 /**
  * Stable trace span for the moment AI SDK opens the provider/tool-loop stream.
  *
- * This span measures stream setup, not full response generation. Individual
+ * Target is stream setup, not full response generation. Individual
  * runtime events still arrive later through `result.fullStream`.
  */
 const AI_SDK_AGENT_STREAM_OPEN_SPAN = "agent-runtime.ai-sdk.open-stream" as const;
@@ -34,7 +34,7 @@ const AI_SDK_TOOL_CHOICE_AUTO = "auto" as const;
 /**
  * Run one already-prepared request through AI SDK ToolLoopAgent.
  *
- * `turn/prepare-runtime-turn.ts` already selected provider/model, tools, and
+ * Source `turn/prepare-runtime-turn.ts` already selected provider/model, tools, and
  * messages. This file does not decide policy; it only runs the AI SDK stream
  * and yields normalized RuntimeEvent values in sequence order.
  */
@@ -47,7 +47,7 @@ export type AiSdkToolLoopAgentRunOptions = {
 /**
  * Run AI SDK ToolLoopAgent as an Effect Stream.
  *
- * This is the only runtime path. Provider startup, stream errors, interruption,
+ * Invariant: this is the only runtime path. Provider startup, stream errors, interruption,
  * and future tracing/retry policy all belong in this Stream pipeline.
  */
 export const runAiSdkToolLoopAgentStream = ({
@@ -70,18 +70,25 @@ const createAiSdkRuntimeEventStream = ({
   model,
   providerOptions,
   request,
-}: AiSdkToolLoopAgentRunOptions): RuntimeEventStream =>
-  Stream.unwrap(
-    Effect.map(createAiSdkPartStream({ model, providerOptions, request }), (parts) =>
-      Stream.fromAsyncIterable(parts, toRuntimeError).pipe(
-        Stream.mapAccum(
-          () => createRuntimeEventMappingState(request.tools),
-          (state, part) => mapAiSdkPartToRuntimeEvents(request, state, part),
-          {
-            onHalt: (state) => flushReasoningOnStreamEnd(request, state),
-          },
-        ),
-      ),
+}: AiSdkToolLoopAgentRunOptions): RuntimeEventStream => {
+  const openedParts = createAiSdkPartStream({ model, providerOptions, request });
+  const mappedEvents = Effect.map(openedParts, (parts) =>
+    mapAiSdkPartsToRuntimeEventStream(request, parts),
+  );
+  return Stream.unwrap(mappedEvents);
+};
+
+const mapAiSdkPartsToRuntimeEventStream = (
+  request: RuntimeProviderRequest,
+  parts: AsyncIterable<TextStreamPart<ToolSet>>,
+): RuntimeEventStream =>
+  Stream.fromAsyncIterable(parts, toRuntimeError).pipe(
+    Stream.mapAccum(
+      () => createRuntimeEventMappingState(request.tools),
+      (state, part) => mapAiSdkPartToRuntimeEvents(request, state, part),
+      {
+        onHalt: (state) => flushReasoningOnStreamEnd(request, state),
+      },
     ),
   );
 

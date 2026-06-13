@@ -35,7 +35,7 @@ export type RuntimeContextManifest = {
 /**
  * AgentRuntimeRequest is the public per-turn input contract.
  *
- * It carries caller-approved messages, optional prepared context, optional
+ * Source callers provide approved messages, optional prepared context, optional
  * provider/model/profile hints, and the exact tool allowlist for this turn.
  */
 export type AgentRuntimeRequest = {

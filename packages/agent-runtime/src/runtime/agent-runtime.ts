@@ -28,7 +28,7 @@ export type AgentRuntime = {
 /**
  * These options are the capabilities the runtime may use on future requests.
  *
- * The app injects providers and tools once at startup. A later
+ * Source is app composition: it injects providers and tools once. A later
  * AgentRuntimeRequest decides which profile, provider, model, and tools are
  * actually used for that specific assistant turn.
  */
@@ -53,32 +53,32 @@ type RuntimeExecution = {
 export const createAgentRuntime = (options: AgentRuntimeOptions): AgentRuntime => {
   const state = createRuntimeState(options);
 
-  /**
-   * streamEffect is the Effect-native way to run one assistant turn.
-   *
-   * It prepares the provider-ready request first. If that succeeds, it opens
-   * the AI SDK ToolLoopAgent as an Effect Stream so provider failures,
-   * cancellation, timeouts, and future tracing stay in the typed workflow.
-   */
   const streamEffect = (request: AgentRuntimeRequest): RuntimeEventStream =>
-    catchRuntimeDefects(
-      Stream.unwrap(
-        Effect.map(
-          createRuntimeExecution(state, request),
-          ({ model, providerOptions, providerRequest }) =>
-            runAiSdkToolLoopAgentStream({
-              model,
-              providerOptions,
-              request: providerRequest,
-            }),
-        ),
-      ),
-    );
+    catchRuntimeDefects(openPreparedRuntimeStream(state, request));
 
   return {
     streamEffect,
   };
 };
+
+const openPreparedRuntimeStream = (
+  state: RuntimeState,
+  request: AgentRuntimeRequest,
+): RuntimeEventStream => {
+  const preparedStream = Effect.map(createRuntimeExecution(state, request), openAiSdkRuntimeStream);
+  return Stream.unwrap(preparedStream);
+};
+
+const openAiSdkRuntimeStream = ({
+  model,
+  providerOptions,
+  providerRequest,
+}: RuntimeExecution): RuntimeEventStream =>
+  runAiSdkToolLoopAgentStream({
+    model,
+    providerOptions,
+    request: providerRequest,
+  });
 
 const createRuntimeExecution = (
   state: RuntimeState,

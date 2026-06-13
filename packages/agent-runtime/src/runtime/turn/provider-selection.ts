@@ -34,7 +34,7 @@ export const createProviderCatalog = (providers: readonly ModelProvider[]): Prov
 /**
  * Choose provider/model ids before any provider adapter is called.
  *
- * The priority is concrete and intentionally small:
+ * Source priority is concrete and intentionally small:
  * request values, then profile values, then the only registered provider/model
  * for simple local setups. Missing or unknown ids fail the turn instead of
  * guessing another model.

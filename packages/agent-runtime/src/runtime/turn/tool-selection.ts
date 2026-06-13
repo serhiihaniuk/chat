@@ -12,7 +12,7 @@ export const createToolCatalog = (tools: readonly RuntimeTool[] | undefined): To
 /**
  * Select the exact tools the model can see for one assistant turn.
  *
- * Registration alone is not permission. If neither the request nor the profile
+ * Source registration alone is not permission. If neither the request nor the profile
  * provides an allowlist, the model sees no tools. That fail-closed default lets
  * partner-ai-core make capability exposure an explicit per-turn policy decision.
  */

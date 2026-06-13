@@ -4,7 +4,7 @@ import { RUNTIME_ERROR_CODES } from "../contract/runtime-event.js";
 /**
  * AssistantProfile is a named assistant configuration used during turn setup.
  *
- * Example: an "analyst" profile can say "use these system instructions, usually
+ * Source app policy can create an "analyst" profile that says "use these system instructions, usually
  * use provider X/model Y, and expose tools A and B unless the request narrows
  * the tool list." This avoids repeating those choices on every request while
  * still letting product policy override them per turn.
@@ -63,7 +63,7 @@ export const createProfileCatalog = (
  * Pick the profile that will provide instructions and usual choices for this turn.
  *
  * If the request does not name one, the built-in default is used. If it names a
- * missing profile, the request fails because silently swapping instructions or
+ * missing profile, the request fails to preserve instructions and avoid silently swapping
  * the usual provider/model/tool choices would make the assistant behavior
  * surprising.
  */
