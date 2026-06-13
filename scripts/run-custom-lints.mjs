@@ -16,6 +16,7 @@ const checks = [
   "check-outbound-rules.mjs",
   "check-code-shape.mjs",
   "check-source-governance.mjs",
+  "check-human-readability.mjs",
   "check-generated-artifacts.mjs",
   "check-governance-fixtures.mjs",
 ];

@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 
 const root = resolveRoot();
 const errors = [];
+const COPIED_SHARED_AI_PREFIX = "packages/side-chat-widget/src/shared/ai/";
 const requiredStrictOptions = {
   strict: true,
   exactOptionalPropertyTypes: true,
@@ -24,12 +25,7 @@ const requiredStrictOptions = {
   verbatimModuleSyntax: true,
   skipLibCheck: true,
 };
-const sourceLineBudgetExceptions = new Set([
-  "packages/db/src/drizzle/schema.ts",
-  "packages/side-chat-widget/src/shared/ai/code-block.tsx",
-  "packages/side-chat-widget/src/shared/ai/message.tsx",
-  "packages/side-chat-widget/src/shared/ai/prompt-input.tsx",
-]);
+const sourceLineBudgetExceptions = new Set(["packages/db/src/drizzle/schema.ts"]);
 
 validateTsconfigPolicy();
 validateTestPlacement();
@@ -116,6 +112,7 @@ function validateSourceLineBudget(file, source) {
     productionSource &&
     !file.endsWith(".test.ts") &&
     !sourceLineBudgetExceptions.has(file) &&
+    !isCopiedSharedAiPrimitive(file) &&
     lineCount > 300
   ) {
     errors.push(`${file}: production source file exceeds 300-line budget`);
@@ -123,4 +120,8 @@ function validateSourceLineBudget(file, source) {
   if (productionSource && file.endsWith(".test.ts") && lineCount > 450) {
     errors.push(`${file}: test source file exceeds 450-line budget`);
   }
+}
+
+function isCopiedSharedAiPrimitive(file) {
+  return file.startsWith(COPIED_SHARED_AI_PREFIX);
 }

@@ -1,0 +1,323 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { failIfErrors, listFiles, listSourceFiles, resolveRoot } from "./lib/governance.mjs";
+
+const root = resolveRoot();
+const errors = [];
+const warnings = [];
+
+const COPIED_SHARED_AI_PREFIX = "packages/side-chat-widget/src/shared/ai/";
+const TEMPORARY_PLAN_PREFIX = "side-chat-readability-to-9-orchestrator-plan/";
+const GENERATED_DOC_PREFIX = "docs/generated/";
+const MAX_DOC_PARAGRAPH_CHARACTERS = 620;
+const MAX_DOC_PARAGRAPH_WORDS = 105;
+const MAX_PRODUCTION_SOURCE_LINES = 300;
+const MAX_TEST_SOURCE_LINES = 450;
+
+const requiredReadableDocs = lines(`
+docs/README.md
+docs/domain/vocabulary.md
+docs/domain/lifecycle.md
+docs/architecture/package-map.md
+docs/architecture/boundaries.md
+docs/architecture/widget-architecture.md
+docs/architecture/testing-and-verification.md
+packages/side-chat-widget/src/shared/ai/README.md
+`);
+
+const staleTruthDocs = lines(`
+docs/CONTEXT.md
+docs/architecture/production-system-design.md
+docs/architecture/implementation-plan.md
+docs/architecture/overview.md
+docs/ops/side-chat-production-runbook.md
+.agents/handoff/ai-harness-orchestrator.md
+`);
+
+validateRequiredDocs();
+validateStaleTruthDocs();
+validateMarkdownDocs();
+validateSourceReadability();
+validateQualitySkill();
+
+printWarnings();
+failIfErrors(errors);
+
+function lines(value) {
+  return value.trim().split("\n");
+}
+
+function validateRequiredDocs() {
+  for (const file of requiredReadableDocs) {
+    if (existsSync(join(root, file))) continue;
+
+    errors.push(
+      `${file}: required readability documentation is missing.\n` +
+        "  Readable fix: create the canonical doc or quarantine README so agents have one source of truth.",
+    );
+  }
+}
+
+function validateStaleTruthDocs() {
+  for (const file of staleTruthDocs) {
+    if (!existsSync(join(root, file))) continue;
+
+    errors.push(
+      `${file}: obsolete target/current/planning doc remains as durable truth.\n` +
+        "  Readable fix: move current content into docs/domain, docs/product, or docs/architecture and delete the stale source.",
+    );
+  }
+}
+
+function validateMarkdownDocs() {
+  for (const file of listMarkdownFiles()) {
+    const source = readFileSync(join(root, file), "utf8");
+    validateDocContract(file, source);
+    validateDocParagraphs(file, source);
+    validateReadmeVocabularyOwnership(file, source);
+    validateFakeProductionLanguage(file, source);
+  }
+}
+
+function listMarkdownFiles() {
+  return listFiles(root, (file) => {
+    if (!file.endsWith(".md")) return false;
+    if (isIgnoredPath(file)) return false;
+    return isDurableDocPath(file);
+  });
+}
+
+function isDurableDocPath(file) {
+  return (
+    file === "README.md" ||
+    file === "AGENTS.md" ||
+    file.startsWith("docs/") ||
+    file.endsWith("/README.md")
+  );
+}
+
+function validateDocContract(file, source) {
+  if (file === "AGENTS.md") return;
+  if (file.startsWith("docs/adr/")) return;
+
+  const required = ["Read this when:", "Source of truth for:", "Not source of truth for:"];
+  for (const phrase of required) {
+    if (source.includes(phrase)) continue;
+
+    errors.push(
+      `${file}: durable doc is missing "${phrase}".\n` +
+        "  Readable fix: start the file with the standard reader/source/non-source contract.",
+    );
+  }
+}
+
+function validateDocParagraphs(file, source) {
+  for (const paragraph of proseParagraphs(source)) {
+    const normalized = paragraph.replace(/\s+/gu, " ").trim();
+    const wordCount = normalized.split(/\s+/u).filter(Boolean).length;
+    if (normalized.length <= MAX_DOC_PARAGRAPH_CHARACTERS && wordCount <= MAX_DOC_PARAGRAPH_WORDS) {
+      continue;
+    }
+
+    errors.push(
+      `${file}: paragraph is too dense (${wordCount} words, ${normalized.length} characters).\n` +
+        "  Readable fix: split it into a table, list, short flow, or smaller reference paragraphs.",
+    );
+  }
+}
+
+function proseParagraphs(source) {
+  const paragraphs = [];
+  let insideFence = false;
+  let current = [];
+
+  for (const line of source.split("\n")) {
+    if (line.trim().startsWith("```")) {
+      insideFence = !insideFence;
+      flush();
+      continue;
+    }
+    if (insideFence || isNonProseLine(line)) {
+      flush();
+      continue;
+    }
+    if (line.trim() === "") {
+      flush();
+      continue;
+    }
+    current.push(line.trim());
+  }
+
+  flush();
+  return paragraphs;
+
+  function flush() {
+    if (current.length > 0) paragraphs.push(current.join(" "));
+    current = [];
+  }
+}
+
+function isNonProseLine(line) {
+  const trimmed = line.trim();
+  return (
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("|") ||
+    trimmed.startsWith("- ") ||
+    trimmed.startsWith("* ") ||
+    /^\d+\.\s/u.test(trimmed) ||
+    trimmed.startsWith(">") ||
+    trimmed.startsWith("<!--")
+  );
+}
+
+function validateReadmeVocabularyOwnership(file, source) {
+  if (!file.endsWith("README.md")) return;
+  if (file === "docs/README.md") return;
+  if (!/\|\s*Term\s*\|\s*Meaning\s*\|/iu.test(source)) return;
+
+  errors.push(
+    `${file}: README defines vocabulary terms that belong in docs/domain/vocabulary.md.\n` +
+      "  Readable fix: move the term table to the vocabulary doc and link to it from this local package card.",
+  );
+}
+
+function validateFakeProductionLanguage(file, source) {
+  if (!/production runbook|rollout|rollback/iu.test(source)) return;
+  if (file.includes("non-functional-requirements.md")) return;
+
+  warnings.push(
+    `${file}: production-operation wording found. Confirm this is real operation guidance, not fake current truth.`,
+  );
+}
+
+function validateSourceReadability() {
+  for (const file of listSourceFiles(root)) {
+    if (isIgnoredPath(file) || !isProjectSourceFile(file)) continue;
+
+    const source = readFileSync(join(root, file), "utf8");
+    validateSourceLineBudget(file, source);
+    warnInsideOutEffectOrStream(file, source);
+    warnDenseConditionalSpreads(file, source);
+    warnDenseArchitectureComments(file, source);
+  }
+}
+
+function validateSourceLineBudget(file, source) {
+  if (isCopiedSharedAiPrimitive(file) || file === "packages/db/src/drizzle/schema.ts") return;
+
+  const lineCount = source.split("\n").length;
+  if (isTestLikeFile(file) && lineCount > MAX_TEST_SOURCE_LINES) {
+    errors.push(
+      `${file}: test source file exceeds ${MAX_TEST_SOURCE_LINES}-line readability budget.`,
+    );
+    return;
+  }
+  if (!isTestLikeFile(file) && lineCount > MAX_PRODUCTION_SOURCE_LINES) {
+    errors.push(
+      `${file}: production source file exceeds ${MAX_PRODUCTION_SOURCE_LINES}-line readability budget.\n` +
+        "  Readable fix: split by responsibility or document a narrow generated/schema exception.",
+    );
+  }
+}
+
+function warnInsideOutEffectOrStream(file, source) {
+  const patterns = [
+    /Stream\.unwrap\s*\(\s*Effect\.(?:map|flatMap|gen)\s*\(/u,
+    /Effect\.(?:map|flatMap)\s*\([^)]*Stream\.unwrap/u,
+  ];
+  if (!patterns.some((pattern) => pattern.test(source))) return;
+
+  warnings.push(
+    `${file}: possible inside-out Effect/Stream expression. Readable fix: split prepare -> open -> map -> finalize stages.`,
+  );
+}
+
+function warnDenseConditionalSpreads(file, source) {
+  const conditionalSpreads = source.match(/\.\.\.\s*\([^)]*(?:&&|\?)\s*/gu) ?? [];
+  if (conditionalSpreads.length < 4) return;
+
+  warnings.push(
+    `${file}: conditional object spread chain has ${conditionalSpreads.length} branches. Readable fix: name the boundary DTO builder steps.`,
+  );
+}
+
+function warnDenseArchitectureComments(file, source) {
+  for (const comment of commentsIn(source)) {
+    const termCount = architectureTermCount(comment);
+    if (termCount < 4 || hasSourceTargetGrounding(comment)) continue;
+
+    warnings.push(
+      `${file}: dense architecture comment names ${termCount} hard terms without source/target/invariant grounding.`,
+    );
+  }
+}
+
+function commentsIn(source) {
+  const comments = [];
+  const pattern = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/gu;
+  for (const match of source.matchAll(pattern)) {
+    comments.push(match[0]);
+  }
+  return comments;
+}
+
+function architectureTermCount(comment) {
+  const matches = comment.match(
+    /\b(runtime|provider|adapter|protocol|activity|context|manifest|tool|turn|stream|Effect|Stream|typed|boundary|policy|profile|workflow|terminal)\b/gu,
+  );
+  return matches?.length ?? 0;
+}
+
+function hasSourceTargetGrounding(comment) {
+  return /\b(source|target|receives|emits|returns|becomes|preserve|invariant|hidden|hides|normalizes|from|to)\b/iu.test(
+    comment,
+  );
+}
+
+function validateQualitySkill() {
+  const skill = ".agents/skills/side-chat-code-quality-gate/SKILL.md";
+  if (!existsSync(join(root, skill))) {
+    errors.push(`${skill}: canonical code-quality skill is missing.`);
+    return;
+  }
+
+  const source = readFileSync(join(root, skill), "utf8");
+  for (const phrase of ["docs quality", "Documentation quality gate", "final-state rewrite"]) {
+    if (source.includes(phrase)) continue;
+    errors.push(`${skill}: missing readability instruction phrase "${phrase}".`);
+  }
+}
+
+function isIgnoredPath(file) {
+  return (
+    file.startsWith(TEMPORARY_PLAN_PREFIX) ||
+    file.startsWith(GENERATED_DOC_PREFIX) ||
+    file.includes("/dist/") ||
+    file.includes("/build/") ||
+    file.includes("/coverage/") ||
+    file.startsWith(".omx/") ||
+    file.startsWith(".git/")
+  );
+}
+
+function isProjectSourceFile(file) {
+  return (
+    /^(?:apps|packages|test-harness)\/.+\/src\//u.test(file) &&
+    /\.(?:ts|tsx|js|jsx|mjs)$/u.test(file) &&
+    !file.endsWith(".d.ts")
+  );
+}
+
+function isTestLikeFile(file) {
+  return /\.(?:test|spec)\.(?:ts|tsx|js|jsx)$/u.test(file) || file.includes(".test-support.");
+}
+
+function isCopiedSharedAiPrimitive(file) {
+  return file.startsWith(COPIED_SHARED_AI_PREFIX);
+}
+
+function printWarnings() {
+  for (const warning of warnings) {
+    console.warn(`[readability warning] ${warning}`);
+  }
+}

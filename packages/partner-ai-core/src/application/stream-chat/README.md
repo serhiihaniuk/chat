@@ -1,50 +1,34 @@
 # Stream Chat Use Case
 
-This folder owns one product workflow: convert an authenticated
-`ChatStreamRequest` into a valid `sidechat.v1` event stream.
+Read this when: editing the core workflow that turns one authenticated chat
+request into a valid `sidechat.v1` event stream.
+Source of truth for: local stream-chat folder responsibilities.
+Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 
-The files are split by the order of the workflow:
+## Files
 
-```txt
-stream-chat.ts
-  public entrypoints:
-  streamChatEffect
+| Path                                         | Owns                                                                                               |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `stream-chat.ts`                             | Public `streamChatEffect` entrypoint.                                                              |
+| `turn/prepare-stream-chat-turn.ts`           | Pre-start authority, policy, conversation, user message, context, and runtime request preparation. |
+| `protocol/protocol-event-stream.ts`          | Runtime event mapping, post-start terminal handling, and sequence validation.                      |
+| `protocol/protocol-terminal-lifecycle.ts`    | Completion/failure persistence and terminal invariants.                                            |
+| `protocol/runtime-event-mapper.ts`           | Pure RuntimeEvent to `sidechat.v1` event mapping.                                                  |
+| `observability/stream-chat-observability.ts` | Effect wrapper around stream lifecycle observation.                                                |
+| `errors/effect-failures.ts`                  | Stable PartnerAiCoreError mapping for port failures.                                               |
+| `stream-chat-types.ts`                       | Public and internal types shared by this use case.                                                 |
 
-turn/prepare-stream-chat-turn.ts
-  pre-stream work that must finish before sidechat.started:
-  authority, policy, conversation creation, user-message persistence
+## Boundary Rules
 
-protocol/protocol-event-stream.ts
-  streaming work after sidechat.started:
-  runtime event mapping, terminal error handling, final sequence validation
+- `streamChatEffect(input)` is the native Effect-first API.
+- Apps provide concrete ports through `createPartnerAiCoreLayer(...)`.
+- `AsyncIterable` conversion belongs at the HTTP/SSE response boundary.
+- Pre-start failures reject request setup.
+- Post-start runtime failures become terminal `sidechat.error` events.
+- Successful streams emit terminal `sidechat.completed`.
 
-protocol/protocol-terminal-lifecycle.ts
-  completion/failure persistence and terminal protocol invariants
+## Related Docs
 
-protocol/runtime-event-mapper.ts
-  pure RuntimeEvent -> sidechat.v1 event mapping
-
-observability/stream-chat-observability.ts
-  Effect wrapper around stream lifecycle observation
-
-errors/effect-failures.ts
-  stable PartnerAiCoreError mapping for port failures
-
-stream-chat-types.ts
-  public and internal types shared by the files above
-```
-
-`streamChatEffect(input)` is the native Effect-first API. It reads core services
-from the Effect environment and returns
-`Stream<SidechatStreamEvent, PartnerAiCoreError>`.
-
-Apps provide concrete ports through `createPartnerAiCoreLayer(...)`. The only
-conversion to `AsyncIterable` should happen at the HTTP/SSE response boundary,
-where the transport writer requires that shape.
-
-Do not add a second package-level Promise or `AsyncIterable` facade. New callers
-should compose an Effect Layer and call `streamChatEffect`.
-
-Before `sidechat.started`, failures are request-level failures. After
-`sidechat.started`, runtime failures become terminal `sidechat.error` events so
-the browser always sees one terminal protocol event.
+- `docs/domain/lifecycle.md`
+- `docs/architecture/stream-chat-flow.md`
+- `docs/architecture/effect-style.md`

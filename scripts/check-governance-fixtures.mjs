@@ -131,6 +131,23 @@ expectFailure("test support placement fixture", "check-code-shape.mjs", (root) =
   );
 });
 
+expectFailure("human readability dense doc fixture", "check-human-readability.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "README.md",
+    [
+      "# Fixture",
+      "",
+      "Read this when: checking a fixture.",
+      "Source of truth for: fixture behavior.",
+      "Not source of truth for: real docs.",
+      "",
+      "This paragraph intentionally keeps adding more and more text without giving the reader a table, list, short flow, or concrete contract, because the readability gate needs to catch documentation that looks plausible but forces a maintainer to parse a wall of prose before they can tell what matters, what owns the term, what boundary is crossed, which invariant must be preserved, and which part of the system should be edited next when the behavior changes.",
+      "",
+    ].join("\n"),
+  );
+});
+
 expectFailure("flat source directory fixture", "check-code-shape.mjs", (root) => {
   for (let index = 1; index <= 13; index += 1) {
     writeFixtureFile(

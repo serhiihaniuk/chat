@@ -1,0 +1,17 @@
+# Optional Codex/OpenAI agent metadata for the Side Chat code quality gate skill.
+# The canonical behavior lives in ../SKILL.md.
+name: side-chat-code-quality-gate
+version: 1.2.0
+triggers:
+  - side chat code quality
+  - code smells
+  - cognitive complexity
+  - human cognitive load
+  - clever hard to understand code
+  - comments assume too much context
+  - Effect Stream readability
+  - AI SDK ToolLoopAgent
+  - Oxlint Oxfmt TypeScript custom lints
+  - package boundaries
+  - widget layers
+  - runtime boundaries

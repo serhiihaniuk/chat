@@ -9,11 +9,7 @@ const MAX_COGNITIVE_COMPLEXITY = 12;
 const MAX_PRODUCTION_FUNCTIONS_PER_FILE = 28;
 const MAX_PRODUCTION_FILES_PER_DIRECTORY = 12;
 const MAX_NESTED_FUNCTIONS = 8;
-const shapeBudgetExceptions = new Set([
-  "packages/side-chat-widget/src/shared/ai/code-block.tsx",
-  "packages/side-chat-widget/src/shared/ai/message.tsx",
-  "packages/side-chat-widget/src/shared/ai/prompt-input.tsx",
-]);
+const COPIED_SHARED_AI_PREFIX = "packages/side-chat-widget/src/shared/ai/";
 const directoryBudgetExceptions = new Map([
   [
     "packages/side-chat-widget/src/shared/ui",
@@ -30,7 +26,7 @@ for (const file of sourceFiles) {
   if (!isWorkspaceSourceFile(file)) continue;
 
   validateTestSupportPlacement(file);
-  if (!isAnalyzableSourceFile(file) || shapeBudgetExceptions.has(file)) continue;
+  if (!isAnalyzableSourceFile(file) || isCopiedSharedAiPrimitive(file)) continue;
 
   const source = readFileSync(join(root, file), "utf8");
   const sourceFile = ts.createSourceFile(
@@ -54,6 +50,10 @@ function isWorkspaceSourceFile(file) {
 
 function isAnalyzableSourceFile(file) {
   return /\.(?:ts|tsx|js|jsx)$/u.test(file) && !file.endsWith(".d.ts");
+}
+
+function isCopiedSharedAiPrimitive(file) {
+  return file.startsWith(COPIED_SHARED_AI_PREFIX);
 }
 
 function isTestLikeFile(file) {
