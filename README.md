@@ -1,50 +1,64 @@
 # Side Chat
 
-Side Chat is an embeddable assistant product. This repository owns the product protocol, browser client, React widget, host bridge contract, partner AI core, agent runtime, concrete adapters, database boundary, and test harnesses.
+Read this when: you need the shortest entrypoint into this repository.
+Source of truth for: setup commands and the top-level package map.
+Not source of truth for: domain terms, package boundaries, or test policy.
 
-It does **not** own a consuming host application or demo dashboard. External host apps integrate through the stable boundary:
+Side Chat is an embeddable assistant harness for ordinary web applications. It
+owns the browser protocol, client, React widget, host bridge, product core,
+agent runtime, service adapters, persistence boundary, and test harnesses.
+
+It does not own a consuming host application. Host apps integrate through the
+widget, host bridge, and service API.
 
 ```txt
-external host app -> side-chat-widget -> chat-client -> chat-protocol -> partner-ai-service -> partner-ai-core -> agent-runtime -> adapters
+host app -> side-chat-widget -> chat-client -> chat-protocol
+  -> partner-ai-service -> partner-ai-core -> agent-runtime -> provider/tools
 ```
 
-The browser/backend contract is product-owned and must not expose provider-native stream parts, AI SDK internals, database rows, or host-app implementation details. See `docs/architecture/production-system-design.md` for the source of truth.
+## Read First
 
-Server/core packages are Effect-first. `partner-ai-core` exposes
-`streamChatEffect(input)` through Effect services/layers, and `agent-runtime`
-exposes `streamEffect(request)` as its only assistant-turn stream surface.
-Concrete tools and external-service adapters live in apps, then get injected
-through ports. Browser/client/widget APIs stay plain protocol and React-friendly
-TypeScript.
+| Need                     | Document                                        |
+| ------------------------ | ----------------------------------------------- |
+| Documentation map        | `docs/README.md`                                |
+| Canonical terms          | `docs/domain/vocabulary.md`                     |
+| Assistant turn lifecycle | `docs/domain/lifecycle.md`                      |
+| Package ownership        | `docs/architecture/package-map.md`              |
+| Boundary rules           | `docs/architecture/boundaries.md`               |
+| Verification commands    | `docs/architecture/testing-and-verification.md` |
+| Agent rules              | `AGENTS.md`                                     |
 
-Local service smoke runs through the configured service path. The current local
-workspace runs `partner-ai-service` from `.env`, with OpenAI selected through
-`SIDECHAT_PROVIDER=openai`, an allowed model list, and medium reasoning by
-default. Do not put secret values in docs or committed examples.
+## Local Commands
 
 ```sh
+npm install
 npm run dev --workspace @side-chat/partner-ai-service
 npm run dev --workspace @side-chat/widget-harness -- --host 127.0.0.1
 ```
 
-Open the harness with a local-service URL such as
-`http://127.0.0.1:5173/?mode=local-service&authToken=local-compose-token&workspaceId=workspace_local`.
+Open the harness with:
 
-The fake provider and mock-stream harness mode still exist for deterministic
-tests and UI development. They are explicit development paths, not the current
-local OpenAI smoke path.
+```txt
+http://127.0.0.1:5173/?mode=local-service&authToken=local-compose-token&workspaceId=workspace_local
+```
 
-Operational rollout, rollback, and verification steps live in `docs/ops/side-chat-production-runbook.md`.
+Do not put secret values in docs or committed examples. Local service settings
+come from `.env`.
 
-## Test Lanes
+## Verification
 
-The testing source of truth is `docs/architecture/testing-system-design.md`.
+| Command                | Proves                                              |
+| ---------------------- | --------------------------------------------------- |
+| `npm run format:check` | Oxfmt style is stable.                              |
+| `npm run lint:oxlint`  | Oxlint rules and TypeScript-aware lint pass.        |
+| `npm run typecheck`    | Strict TypeScript contracts compile.                |
+| `npm test`             | Deterministic Vitest scenarios pass.                |
+| `npm run lint:custom`  | Side Chat boundary and readability governance pass. |
+| `npm run verify`       | The local full gate passes.                         |
 
-- `npm test`: fast deterministic Vitest lane.
-- `npm run test:e2e`: memory-backed Playwright harness.
-- `npm run test:db:container`: Testcontainers Postgres repository contract.
-- `npm run test:e2e:persistent`: real widget/service with Testcontainers
-  Postgres and fake provider.
-- `npm run verify`: host full gate with pinned Node/npm.
-- `npm run verify:container`: CI/release parity gate inside the dev/test app
-  container.
+Use the pinned runtime when the shell is not already on Node `24.16.0` and npm
+`11.15.0`:
+
+```sh
+npx -p node@24.16.0 -p npm@11.15.0 npm run verify
+```
