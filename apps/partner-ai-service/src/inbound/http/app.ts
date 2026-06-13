@@ -1,6 +1,7 @@
 import type { ObservabilitySinkPort, WorkspaceRef } from "@side-chat/partner-ai-core";
 import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
+import { optionalField } from "@side-chat/shared";
 import { Hono } from "hono";
 
 import { createServiceAuthVerifier, type ServiceAuthConfig } from "#adapters/auth/service-auth";
@@ -76,7 +77,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     contextManager: composition.contextManager,
     runtime: composition.runtime,
     policies,
-    ...observabilityField(options.observability),
+    ...optionalField("observability", options.observability),
   });
 
   return app;
@@ -86,37 +87,10 @@ export type PartnerAiServiceApp = ReturnType<typeof createPartnerAiServiceApp>;
 
 const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositionOptions => ({
   workspace: options.workspace ?? DEFAULT_WORKSPACE,
-  ...authField(options.auth),
-  ...policiesField(options.policies),
-  ...persistenceField(options.persistence),
-  ...repositoriesField(options.repositories),
-  ...runtimeField(options.runtime),
-  ...agentRuntimeField(options.agentRuntime),
+  ...optionalField("auth", options.auth),
+  ...optionalField("policies", options.policies),
+  ...optionalField("persistence", options.persistence),
+  ...optionalField("repositories", options.repositories),
+  ...optionalField("runtime", options.runtime),
+  ...optionalField("agentRuntime", options.agentRuntime),
 });
-
-const authField = (auth: ServiceAuthConfig | undefined): { readonly auth?: ServiceAuthConfig } =>
-  auth ? { auth } : {};
-
-const policiesField = (
-  policies: ServicePolicyConfig | undefined,
-): { readonly policies?: ServicePolicyConfig } => (policies ? { policies } : {});
-
-const persistenceField = (
-  persistence: PersistenceConfig | undefined,
-): { readonly persistence?: PersistenceConfig } => (persistence ? { persistence } : {});
-
-const repositoriesField = (
-  repositories: SidechatRepositories | undefined,
-): { readonly repositories?: SidechatRepositories } => (repositories ? { repositories } : {});
-
-const runtimeField = (
-  runtime: (RuntimeConfig & RuntimeToolConfig) | undefined,
-): { readonly runtime?: RuntimeConfig & RuntimeToolConfig } => (runtime ? { runtime } : {});
-
-const agentRuntimeField = (
-  agentRuntime: AgentRuntime | undefined,
-): { readonly agentRuntime?: AgentRuntime } => (agentRuntime ? { agentRuntime } : {});
-
-const observabilityField = (
-  observability: ObservabilitySinkPort | undefined,
-): { readonly observability?: ObservabilitySinkPort } => (observability ? { observability } : {});

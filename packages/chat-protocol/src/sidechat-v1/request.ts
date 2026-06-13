@@ -1,4 +1,5 @@
 import { ProtocolValidationError } from "./errors.js";
+import { optionalField } from "@side-chat/shared";
 import {
   assertProtocolVersion,
   isRecord,
@@ -85,9 +86,3 @@ const parseHostContext = (input: unknown): HostContext | undefined => {
     ...optionalField("metadata", metadata),
   };
 };
-
-const optionalField = <Key extends string, Value>(
-  key: Key,
-  value: Value | undefined,
-): { readonly [Field in Key]?: Value } =>
-  value === undefined ? {} : ({ [key]: value } as { readonly [Field in Key]?: Value });

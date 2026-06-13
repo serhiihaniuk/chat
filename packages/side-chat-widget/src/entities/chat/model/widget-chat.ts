@@ -4,6 +4,7 @@ import {
   type HostContext,
   type UsageMetadata,
 } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 
 import { createEmptyActivityTimeline, type WidgetActivityTimeline } from "./activity.js";
 
@@ -44,14 +45,14 @@ export const createDefaultRequest = ({
 }): ChatStreamRequest => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId,
-  ...conversationIdField(conversationId),
-  ...assistantProfileIdField(assistantProfileId),
+  ...optionalField("conversationId", conversationId || undefined),
+  ...optionalField("assistantProfileId", assistantProfileId || undefined),
   message: {
     id: messageId,
     role: "user",
     content,
   },
-  ...hostContextField(hostContext),
+  ...optionalField("hostContext", hostContext),
 });
 
 export const createWidgetChatRequest = ({
@@ -66,9 +67,9 @@ export const createWidgetChatRequest = ({
     content: message,
     messageId,
     requestId,
-    ...assistantProfileIdField(assistantProfileId),
-    ...conversationIdField(conversationId),
-    ...hostContextField(hostContext),
+    ...optionalField("assistantProfileId", assistantProfileId || undefined),
+    ...optionalField("conversationId", conversationId || undefined),
+    ...optionalField("hostContext", hostContext),
   });
 
 export const createWidgetMessage = (
@@ -100,15 +101,3 @@ export const createId = (prefix: string): string => {
       : Math.random().toString(36).slice(2);
   return `${prefix}-${random}`;
 };
-
-const conversationIdField = (
-  conversationId: string | undefined,
-): { readonly conversationId?: string } => (conversationId ? { conversationId } : {});
-
-const assistantProfileIdField = (
-  assistantProfileId: string | undefined,
-): { readonly assistantProfileId?: string } => (assistantProfileId ? { assistantProfileId } : {});
-
-const hostContextField = (
-  hostContext: HostContext | undefined,
-): { readonly hostContext?: HostContext } => (hostContext ? { hostContext } : {});

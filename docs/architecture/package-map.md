@@ -40,7 +40,7 @@ Not source of truth for: domain term definitions or detailed helper flow.
 | -------------- | ---------------------------------------------------------------- |
 | Owns           | Browser seam for host context and host command dispatch/results. |
 | Public surface | Host bridge types and dispatcher.                                |
-| May depend on  | Plain TypeScript utilities.                                      |
+| May depend on  | `chat-protocol` and `shared` plain TypeScript utilities.         |
 | Must not know  | Runtime tools, provider details, DB rows, service internals.     |
 | Main tests     | `packages/host-bridge/src/**/*.test.ts`.                         |
 
@@ -50,7 +50,7 @@ Not source of truth for: domain term definitions or detailed helper flow.
 | -------------- | ------------------------------------------------------------------------------------------------------------- |
 | Owns           | Product stream-chat workflow, policy decisions, context preparation, turn lifecycle, protocol mapping, ports. |
 | Public surface | `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.                                                |
-| May depend on  | `chat-protocol`, `agent-runtime` public contract types, Effect.                                               |
+| May depend on  | `chat-protocol`, `shared` utilities, Effect.                                                                  |
 | Must not know  | Hono, Drizzle/Postgres, provider SDKs, React, widget state.                                                   |
 | Main tests     | `packages/partner-ai-core/src/**/*.test.ts`.                                                                  |
 
@@ -70,7 +70,7 @@ Not source of truth for: domain term definitions or detailed helper flow.
 | -------------- | --------------------------------------------------------------------------------------------------- |
 | Owns           | Persistence schema, repository contracts, Postgres/Drizzle adapters, memory repositories for tests. |
 | Public surface | Repository interfaces and adapter factories.                                                        |
-| May depend on  | Drizzle/Postgres and package-local test helpers.                                                    |
+| May depend on  | `chat-protocol`, `shared` utilities, Drizzle/Postgres, and package-local test helpers.              |
 | Must not know  | Hono, React, widget code, agent runtime internals, partner core use cases.                          |
 | Main tests     | Repository contract and integration tests under `packages/db/src`.                                  |
 

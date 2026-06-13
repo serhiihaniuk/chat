@@ -8,6 +8,7 @@ import type {
   HostCommandResultRecord,
   ToolInvocationRecord,
 } from "#schema-contract";
+import { optionalField } from "@side-chat/shared";
 import { upsertAt, type MemoryStore } from "./store.js";
 import { result, type createIdGenerator } from "../repository-utils.js";
 
@@ -37,12 +38,12 @@ export const recordMemoryToolInvocation = async (
     toolName: command.toolName,
     status: command.status,
     inputHash: command.inputHash,
-    ...optionalField("outputHash", command.outputHash),
+    ...optionalField("outputHash", command.outputHash || undefined),
     inputRedactedJson: command.inputRedactedJson,
-    ...optionalField("outputRedactedJson", command.outputRedactedJson),
-    ...optionalField("errorCode", command.errorCode),
+    ...optionalField("outputRedactedJson", command.outputRedactedJson || undefined),
+    ...optionalField("errorCode", command.errorCode || undefined),
     startedAt: command.startedAt,
-    ...optionalField("completedAt", command.completedAt),
+    ...optionalField("completedAt", command.completedAt || undefined),
     createdAt: command.now,
     updatedAt: command.now,
   };
@@ -71,14 +72,14 @@ export const recordMemoryHostCommandResult = async (
     assistantTurnId: command.assistantTurnId,
     commandId: command.commandId,
     commandType: command.commandType,
-    ...optionalField("resourceId", command.resourceId),
+    ...optionalField("resourceId", command.resourceId || undefined),
     status: command.status,
     resultCode: command.resultCode,
     commandRedactedJson: command.commandRedactedJson,
-    ...optionalField("resultRedactedJson", command.resultRedactedJson),
+    ...optionalField("resultRedactedJson", command.resultRedactedJson || undefined),
     createdAt: command.now,
     updatedAt: command.now,
-    ...optionalField("resolvedAt", command.resolvedAt),
+    ...optionalField("resolvedAt", command.resolvedAt || undefined),
   };
   upsertAt(store.hostCommandResults, existingIndex, hostCommand);
   return result(hostCommand, existingIndex < 0);
@@ -106,9 +107,3 @@ export const appendMemoryAuditEvent = async (
   store.auditEvents.push(auditEvent);
   return result(auditEvent, true);
 };
-
-const optionalField = <Key extends string, Value>(
-  key: Key,
-  value: Value | null | undefined,
-): { readonly [Field in Key]?: Value } =>
-  value ? ({ [key]: value } as { readonly [Field in Key]?: Value }) : {};

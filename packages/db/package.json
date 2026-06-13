@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@side-chat/chat-protocol": "0.0.0",
+    "@side-chat/shared": "0.0.0",
     "drizzle-orm": "0.45.2",
     "pg": "8.21.0"
   },

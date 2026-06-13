@@ -1,4 +1,5 @@
 import type { WorkspaceRef } from "@side-chat/partner-ai-core";
+import { optionalField } from "@side-chat/shared";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type {
@@ -52,7 +53,7 @@ export const createPartnerAiServiceOptionsFromEnv = (
     auth: createAuthConfig(profile, workspace, envValue(env, SERVICE_ENV_KEYS.authBearerToken)),
     policies: createPolicyConfig(profile, env),
     runtime: createRuntimeConfig(profile, env),
-    ...persistenceField(persistence),
+    ...optionalField("persistence", persistence),
   };
 };
 
@@ -85,14 +86,14 @@ const createAuthConfig = (
     return {
       profile,
       workspace,
-      ...trustedBearerTokenField(bearerToken),
+      ...optionalField("trustedBearerToken", bearerToken),
     };
   }
 
   return {
     profile,
     workspace,
-    ...devBearerTokenField(bearerToken),
+    ...optionalField("devBearerToken", bearerToken),
   };
 };
 
@@ -110,7 +111,7 @@ const createPolicyConfig = (profile: ServiceProfile, env: ServiceEnv): ServicePo
   return {
     profile,
     mode,
-    ...allowedModelsField(allowedModels),
+    ...optionalField("allowedModels", allowedModels.length > 0 ? allowedModels : undefined),
   };
 };
 
@@ -191,7 +192,7 @@ const createRuntimeConfig = (
     modelIds,
     defaultModelId: modelIds[0] as string,
     enableMockWebSearch,
-    ...baseUrlField(baseUrl),
+    ...optionalField("baseUrl", baseUrl),
     reasoningEffort: readOpenAIReasoningEffort(
       envValue(env, SERVICE_ENV_KEYS.openaiReasoningEffort),
     ),
@@ -253,24 +254,3 @@ const envValue = (env: ServiceEnv, key: string): string | undefined => {
   const value = env[key]?.trim();
   return value ? value : undefined;
 };
-
-const persistenceField = (
-  persistence: PartnerAiServiceOptions["persistence"],
-): { readonly persistence?: NonNullable<PartnerAiServiceOptions["persistence"]> } =>
-  persistence ? { persistence } : {};
-
-const trustedBearerTokenField = (
-  trustedBearerToken: string | undefined,
-): { readonly trustedBearerToken?: string } => (trustedBearerToken ? { trustedBearerToken } : {});
-
-const devBearerTokenField = (
-  devBearerToken: string | undefined,
-): { readonly devBearerToken?: string } => (devBearerToken ? { devBearerToken } : {});
-
-const allowedModelsField = (
-  allowedModels: readonly string[],
-): { readonly allowedModels?: readonly string[] } =>
-  allowedModels.length > 0 ? { allowedModels } : {};
-
-const baseUrlField = (baseUrl: string | undefined): { readonly baseUrl?: string } =>
-  baseUrl ? { baseUrl } : {};

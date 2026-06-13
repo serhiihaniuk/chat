@@ -10,7 +10,7 @@ import {
   type JsonObject,
   type JsonValue,
 } from "@side-chat/chat-protocol";
-import { compactJsonObject } from "@side-chat/shared";
+import { compactJsonObject, optionalField } from "@side-chat/shared";
 
 export type WidgetActivityItem = {
   readonly id: string;
@@ -103,8 +103,8 @@ const toActivityItem = (event: ActivityEvent): WidgetActivityItem => ({
   sequence: event.sequence,
   status: event.status,
   title: event.title,
-  ...bodyField(event.body),
-  ...detailsField(event.details),
+  ...optionalField("body", event.body || undefined),
+  ...optionalField("details", event.details),
   createdAt: event.createdAt,
 });
 
@@ -146,8 +146,8 @@ const mergeActivityDetails = (
   return {
     ...existing,
     ...incoming,
-    ...toolDetailsField(tool),
-    ...hostCommandDetailsField(hostCommand),
+    ...optionalField("tool", tool),
+    ...optionalField("hostCommand", hostCommand),
   };
 };
 
@@ -159,25 +159,11 @@ const mergeToolDetails = (
   return incoming ?? existing;
 };
 
-const bodyField = (body: string | undefined): { readonly body?: string } => (body ? { body } : {});
-
-const detailsField = (
-  details: ActivityDetails | undefined,
-): { readonly details?: ActivityDetails } => (details ? { details } : {});
-
 const presentationUpdate = (
   canUpdatePresentation: boolean,
   event: ActivityEvent,
 ): { readonly title?: string; readonly body?: string | undefined } =>
   canUpdatePresentation ? { title: event.title, body: event.body } : {};
-
-const toolDetailsField = (
-  tool: ActivityToolDetails | undefined,
-): { readonly tool?: ActivityToolDetails } => (tool ? { tool } : {});
-
-const hostCommandDetailsField = (
-  hostCommand: ActivityHostCommandDetails | undefined,
-): { readonly hostCommand?: ActivityHostCommandDetails } => (hostCommand ? { hostCommand } : {});
 
 const mergeHostCommandDetails = (
   existing: ActivityHostCommandDetails | undefined,

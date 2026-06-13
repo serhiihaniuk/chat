@@ -66,3 +66,13 @@ export const compactJsonObject = (
   }
   return json;
 };
+
+export type OptionalField<Key extends string, Value> = {
+  readonly [Field in Key]?: NonNullable<Value>;
+};
+
+export const optionalField = <Key extends string, Value>(
+  key: Key,
+  value: Value,
+): OptionalField<Key, Value> =>
+  value === null || value === undefined ? {} : ({ [key]: value } as OptionalField<Key, Value>);

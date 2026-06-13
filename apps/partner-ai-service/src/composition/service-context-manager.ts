@@ -15,6 +15,7 @@ import {
   type PreparedTurnContext,
   type TurnPolicyDecision,
 } from "@side-chat/partner-ai-core";
+import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
 
 type ServiceHostContext = {
@@ -45,7 +46,7 @@ export const createServiceContextManager = (): ContextManagerPort => ({
         profile: resolution.profile,
         policyDecision,
         createdAt: now,
-        ...hostContextField(request.hostContext),
+        ...optionalField("hostContext", request.hostContext),
       });
     }),
 });
@@ -74,12 +75,12 @@ const createPreparedTurnContext = ({
     messageContent,
     manifest,
     policyDecision,
-    ...hostContextField(hostContext),
+    ...optionalField("hostContext", hostContext),
   });
   const sections = createContextSections({
     manifest,
     policyDecision,
-    ...hostContextField(hostContext),
+    ...optionalField("hostContext", hostContext),
   });
   const entries = candidates.map((candidate) => ({
     candidateId: candidate.candidateId,
@@ -199,10 +200,6 @@ const createContextSections = ({
   ...hostContextSections(hostContext),
   ...allowedToolSections(manifest, policyDecision.allowedToolNames),
 ];
-
-const hostContextField = (
-  hostContext: ServiceHostContext | undefined,
-): { readonly hostContext?: ServiceHostContext } => (hostContext ? { hostContext } : {});
 
 const hostContextSections = (
   hostContext: ServiceHostContext | undefined,

@@ -17,6 +17,7 @@
     "test": "cd ../.. && vitest run packages/host-bridge/src/host-bridge.test.ts"
   },
   "dependencies": {
-    "@side-chat/chat-protocol": "0.0.0"
+    "@side-chat/chat-protocol": "0.0.0",
+    "@side-chat/shared": "0.0.0"
   }
 }
