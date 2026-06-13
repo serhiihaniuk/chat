@@ -16,7 +16,7 @@ export type ContextCandidateProvenance = {
 /**
  * One candidate input the context manager may render for a turn.
  *
- * Candidates carry provenance, trust, redaction, and token estimates so the
+ * Source candidates carry provenance, trust, redaction, and token estimates so the
  * final context manifest can reconstruct why model-visible content was
  * included or dropped.
  */

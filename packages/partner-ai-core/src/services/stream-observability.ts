@@ -38,10 +38,10 @@ export const recordStreamObservation = (
     requestId: input.correlation.requestId,
     traceId: input.correlation.traceId,
     lifecycleState: input.lifecycleState,
-    ...(input.assistantTurnId ? { assistantTurnId: input.assistantTurnId } : {}),
-    ...(input.providerId ? { providerId: input.providerId } : {}),
-    ...(input.modelId ? { modelId: input.modelId } : {}),
-    ...(input.errorCode ? { errorCode: input.errorCode } : {}),
+    ...assistantTurnField(input.assistantTurnId),
+    ...providerField(input.providerId),
+    ...modelField(input.modelId),
+    ...errorCodeField(input.errorCode),
     latencyMs: elapsedMs(input.startedAt, input.now),
     attributes: redactAttributes(input.attributes),
   });
@@ -108,7 +108,7 @@ const toJsonActivityMetadata = (details: ActivityDetails | undefined): JsonObjec
       parametersPresent: Boolean(details.tool.input),
       responsePresent: Boolean(details.tool.result),
       sourceCount: details.tool.sources?.length ?? 0,
-      ...(details.tool.errorCode ? { errorCode: details.tool.errorCode } : {}),
+      ...errorCodeField(details.tool.errorCode),
     };
   }
   if (details.hostCommand) {
@@ -121,3 +121,16 @@ const toJsonActivityMetadata = (details: ActivityDetails | undefined): JsonObjec
   }
   return output;
 };
+
+const assistantTurnField = (
+  assistantTurnId: string | undefined,
+): { readonly assistantTurnId?: string } => (assistantTurnId ? { assistantTurnId } : {});
+
+const providerField = (providerId: string | undefined): { readonly providerId?: string } =>
+  providerId ? { providerId } : {};
+
+const modelField = (modelId: string | undefined): { readonly modelId?: string } =>
+  modelId ? { modelId } : {};
+
+const errorCodeField = (errorCode: string | undefined): { readonly errorCode?: string } =>
+  errorCode ? { errorCode } : {};

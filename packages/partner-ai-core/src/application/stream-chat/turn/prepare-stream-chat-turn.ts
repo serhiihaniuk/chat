@@ -18,7 +18,7 @@ import { resolveAllowedTurnPlan } from "./turn-policy-plan.js";
 /**
  * Prepare everything that must succeed before the browser sees `started`.
  *
- * Authorization, policy, conversation creation, user-message persistence, and
+ * Source checks include authorization, policy, conversation creation, user-message persistence, and
  * initial observability all happen before the protocol stream opens. If this
  * fails, the HTTP adapter can return a request-level error instead of
  * half-opening an SSE response.

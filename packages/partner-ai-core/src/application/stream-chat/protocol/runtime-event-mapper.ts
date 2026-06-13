@@ -112,7 +112,7 @@ export const createErrorEvent = (
 /**
  * Normalize unexpected runtime failures into a retryable provider error.
  *
- * Expected failures should already be PartnerAiCoreError. This fallback protects
+ * Invariant: expected failures should already be PartnerAiCoreError. This fallback protects
  * the stream contract when an adapter throws an unknown value or a provider
  * stream fails outside its typed error channel.
  */
@@ -129,7 +129,7 @@ export const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
 /**
  * Enforce the browser protocol after runtime mapping has finished.
  *
- * The runtime can produce deltas, activities, completion, or error, but the
+ * Source runtime can produce deltas, activities, completion, or error, but the
  * public stream is only valid if exactly one terminal sidechat event exists.
  */
 export const validateExactlyOneTerminal = (events: readonly SidechatStreamEvent[]): void => {

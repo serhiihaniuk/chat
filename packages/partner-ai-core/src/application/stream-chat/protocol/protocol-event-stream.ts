@@ -29,30 +29,36 @@ export const createProtocolEventStream = (
   ports: StreamChatPorts,
   input: StreamChatInput,
   turn: PreparedStreamChatTurn,
-): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
-  Stream.unwrap(
-    Effect.gen(function* () {
-      const emitted = yield* Ref.make<SidechatStreamEvent[]>([]);
-      const nextProtocolSequence = yield* Ref.make(1);
+): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> => {
+  const protocolStream = Effect.gen(function* () {
+    const emitted = yield* Ref.make<SidechatStreamEvent[]>([]);
+    const nextProtocolSequence = yield* Ref.make(1);
 
-      const started = Stream.fromEffect(emitStartedEvent(ports, input, turn, emitted));
-      const runtimeEvents = createObservedRuntimeEventStream(
-        ports,
-        input,
-        turn,
-        emitted,
-        nextProtocolSequence,
-      );
+    return createStartedProtocolStream(ports, input, turn, emitted, nextProtocolSequence);
+  });
 
-      return Stream.concat(
-        started,
-        Stream.concat(
-          runtimeEvents,
-          Stream.fromEffectDrain(finalizeProtocolStream(ports, input, turn, emitted)),
-        ),
-      );
-    }),
+  return Stream.unwrap(protocolStream);
+};
+
+const createStartedProtocolStream = (
+  ports: StreamChatPorts,
+  input: StreamChatInput,
+  turn: PreparedStreamChatTurn,
+  emitted: Ref.Ref<SidechatStreamEvent[]>,
+  nextProtocolSequence: Ref.Ref<number>,
+): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> => {
+  const started = Stream.fromEffect(emitStartedEvent(ports, input, turn, emitted));
+  const runtimeEvents = createObservedRuntimeEventStream(
+    ports,
+    input,
+    turn,
+    emitted,
+    nextProtocolSequence,
   );
+  const finalized = Stream.fromEffectDrain(finalizeProtocolStream(ports, input, turn, emitted));
+
+  return Stream.concat(started, Stream.concat(runtimeEvents, finalized));
+};
 
 const emitStartedEvent = (
   ports: StreamChatPorts,
@@ -136,7 +142,7 @@ const mapRuntimeEventEffect = (
 /**
  * Convert a runtime failure into the stream's terminal protocol event.
  *
- * Before streaming starts, failures reject the request. After streaming starts,
+ * Source failures before streaming reject the request. After streaming starts,
  * the browser needs a final `sidechat.error` event so SSE consumers can close
  * the turn without seeing a broken transport as the product state.
  */

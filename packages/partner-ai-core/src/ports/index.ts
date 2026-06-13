@@ -145,7 +145,7 @@ export type ContextManagerPort = {
 /**
  * One provider-neutral chat message core has approved for runtime execution.
  *
- * It is intentionally plain text and role-only so provider-native message
+ * Invariant: it is intentionally plain text and role-only so provider-native message
  * parts, protocol DTOs, and UI concerns stay outside the core/runtime seam.
  */
 export type RuntimeMessage = {
@@ -181,7 +181,7 @@ export type RuntimeEventBase = {
 /**
  * Runtime event names are the boundary between agent-runtime and core.
  *
- * The AI SDK can emit many provider-specific stream parts. Core only accepts
+ * Source AI SDK can emit many provider-specific stream parts. Core only accepts
  * this smaller union so protocol mapping, persistence, and UI behavior never
  * depend on provider-native names.
  */

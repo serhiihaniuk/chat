@@ -53,7 +53,7 @@ export const STREAM_CHAT_FAILURES = {
 /**
  * Keep unknown port failures in the typed core error channel.
  *
- * Core ports may adapt databases, policy services, telemetry, or runtime
+ * Source ports may adapt databases, policy services, telemetry, or runtime
  * streams. This helper gives each boundary a stable PartnerAiCoreError without
  * letting thrown adapter values leak through the use case.
  */

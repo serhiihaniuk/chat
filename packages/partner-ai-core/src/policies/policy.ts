@@ -45,7 +45,7 @@ export type PolicyPort = {
 /**
  * Small deterministic policy double for tests and local characterization.
  *
- * It keeps policy-denial tests focused on the core workflow order: policy must
+ * Target policy-denial tests stay focused on the core workflow order: policy must
  * fail before conversation persistence or runtime work starts.
  */
 export const denyRequestPolicy = (denial: PolicyDenial): PolicyPort => ({

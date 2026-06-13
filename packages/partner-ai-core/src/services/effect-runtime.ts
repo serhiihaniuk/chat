@@ -16,7 +16,7 @@ import { NOOP_OBSERVABILITY_SINK, type ObservabilitySinkPort } from "./observabi
 /**
  * Effect services are the dependency boundary for core workflows.
  *
- * They let `streamChatEffect` ask for "conversation repository" or "runtime"
+ * Source `streamChatEffect` asks for "conversation repository" or "runtime"
  * without importing the HTTP app, database package, provider SDK, or concrete
  * tool adapters. The app chooses the real implementations when it builds the
  * Layer.

@@ -21,10 +21,12 @@ export type {
  */
 export const streamChatEffect = (
   input: StreamChatInput,
-): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError, PartnerAiCoreServices> =>
-  Stream.unwrap(
-    Effect.map(partnerAiCoreServicesEffect, (ports) => createStreamChatStream(ports, input)),
+): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError, PartnerAiCoreServices> => {
+  const resolvedServices = Effect.map(partnerAiCoreServicesEffect, (ports) =>
+    createStreamChatStream(ports, input),
   );
+  return Stream.unwrap(resolvedServices);
+};
 
 /**
  * Build the stream from already-resolved services.
@@ -35,9 +37,9 @@ export const streamChatEffect = (
 const createStreamChatStream = (
   ports: StreamChatPorts,
   input: StreamChatInput,
-): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
-  Stream.unwrap(
-    Effect.map(prepareStreamChatTurn(ports, input), (turn) =>
-      createProtocolEventStream(ports, input, turn),
-    ),
+): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> => {
+  const preparedTurn = Effect.map(prepareStreamChatTurn(ports, input), (turn) =>
+    createProtocolEventStream(ports, input, turn),
   );
+  return Stream.unwrap(preparedTurn);
+};
