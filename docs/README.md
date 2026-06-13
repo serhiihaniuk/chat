@@ -11,6 +11,7 @@ Not source of truth for: domain term definitions or implementation details.
 | Learn the product shape     | `architecture/foundation-overview.md`, then `architecture/system-overview.md` |
 | Edit domain terms           | `domain/vocabulary.md`                                                        |
 | Change package boundaries   | `architecture/package-map.md`, then `architecture/boundaries.md`              |
+| Change capability policy    | `architecture/capability-model.md`, then `architecture/stream-chat-flow.md`   |
 | Change stream-chat behavior | `architecture/stream-chat-flow.md`, then `domain/lifecycle.md`                |
 | Change Effect workflows     | `architecture/effect-style.md`                                                |
 | Change widget code          | `architecture/widget-architecture.md`                                         |
@@ -27,6 +28,7 @@ Not source of truth for: domain term definitions or implementation details.
 | `product/functional-requirements.md`       | Final intended product behavior.                             |
 | `product/non-functional-requirements.md`   | Quality, safety, readability, and verification requirements. |
 | `architecture/foundation-overview.md`      | Product identity and adoption shape.                         |
+| `architecture/capability-model.md`         | Manifest, executable registry, and turn-policy separation.   |
 | `architecture/system-overview.md`          | One-screen system map.                                       |
 | `architecture/package-map.md`              | Package ownership and public surfaces.                       |
 | `architecture/boundaries.md`               | What must not cross each seam.                               |

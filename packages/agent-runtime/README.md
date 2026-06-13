@@ -75,5 +75,6 @@ npm test --workspace @side-chat/agent-runtime
 ## Related Docs
 
 - `docs/domain/vocabulary.md`
+- `docs/architecture/capability-model.md`
 - `docs/architecture/boundaries.md`
 - `docs/architecture/effect-style.md`

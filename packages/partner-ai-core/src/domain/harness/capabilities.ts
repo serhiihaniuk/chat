@@ -91,6 +91,12 @@ export type RetrievalPolicy = {
   readonly sourceIds: readonly string[];
 };
 
+/**
+ * Manifest/profile memory exposure policy for one assistant turn.
+ *
+ * This does not recall or persist memory. It only says whether selected memory
+ * scopes may be read or receive write candidates when memory ports exist.
+ */
 export type MemoryPolicy = {
   readonly policyId: string;
   readonly mode: MemoryPolicyMode;
@@ -122,12 +128,24 @@ export type AssistantProfile = {
   readonly safetyPolicy: SafetyPolicy;
 };
 
+/**
+ * Manifest declaration for a backend capability the host app can offer.
+ *
+ * This is not executable code. A matching RuntimeTool must still be registered
+ * in agent-runtime, and a TurnPolicyDecision must allow the name for the turn.
+ */
 export type ToolCapability = {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: JsonObject;
 };
 
+/**
+ * Manifest declaration for a host-app UI command.
+ *
+ * Commands are browser/host interactions, not backend runtime tools, unless the
+ * service separately models a backend tool that asks for or records approval.
+ */
 export type HostCommandCapability = {
   readonly commandName: string;
   readonly description: string;
@@ -135,6 +153,12 @@ export type HostCommandCapability = {
   readonly approvalMode: ApprovalMode;
 };
 
+/**
+ * Manifest declaration for a source RAG may search during context preparation.
+ *
+ * The declaration names a possible source only. Turn policy chooses source ids,
+ * and context preparation owns retrieval from the selected sources.
+ */
 export type RetrievalSourceCapability = {
   readonly sourceId: string;
   readonly description: string;

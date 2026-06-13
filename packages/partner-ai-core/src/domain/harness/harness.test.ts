@@ -79,6 +79,28 @@ describe("host capability manifest contract", () => {
     ]);
   });
 
+  it("rejects turn policies that expose manifest-declared tools outside the resolved profile", () => {
+    const manifest = createManifest({
+      tools: [createTool("mock_web_search"), createTool("admin_lookup")],
+    });
+    const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+    if (!resolution.resolved) return;
+    const decision = {
+      ...createTurnPolicyDecision({
+        manifest,
+        profile: resolution.profile,
+        manifestHash: hashHostCapabilityManifest(manifest),
+      }),
+      allowedToolNames: ["mock_web_search", "admin_lookup"],
+    };
+
+    const validation = validateTurnPolicyDecision(manifest, resolution.profile, decision);
+
+    expect(turnPolicyIssueCodes(validation)).toEqual([
+      HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
+    ]);
+  });
+
   it("hashes equivalent manifests deterministically", () => {
     expect(hashHostCapabilityManifest(createManifest())).toBe(
       hashHostCapabilityManifest(createManifest()),

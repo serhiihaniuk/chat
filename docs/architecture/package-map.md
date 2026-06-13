@@ -46,23 +46,23 @@ Not source of truth for: domain term definitions or detailed helper flow.
 
 ## packages/partner-ai-core
 
-| Field          | Value                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------- |
-| Owns           | Product stream-chat workflow, policy decisions, context preparation, turn lifecycle, protocol mapping, ports. |
-| Public surface | `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.                                                |
-| May depend on  | `chat-protocol`, `shared` utilities, Effect.                                                                  |
-| Must not know  | Hono, Drizzle/Postgres, provider SDKs, React, widget state.                                                   |
-| Main tests     | `packages/partner-ai-core/src/**/*.test.ts`.                                                                  |
+| Field          | Value                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Owns           | Product stream-chat workflow, manifest/policy validation, context preparation, turn lifecycle, protocol mapping, ports. |
+| Public surface | `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.                                                          |
+| May depend on  | `chat-protocol`, `shared` utilities, Effect.                                                                            |
+| Must not know  | Hono, Drizzle/Postgres, provider SDKs, React, widget state.                                                             |
+| Main tests     | `packages/partner-ai-core/src/**/*.test.ts`.                                                                            |
 
 ## packages/agent-runtime
 
-| Field          | Value                                                                                                      |
-| -------------- | ---------------------------------------------------------------------------------------------------------- |
-| Owns           | One prepared assistant turn, profile/provider/model/tool preparation, AI SDK adapter, RuntimeEvent stream. |
-| Public surface | `createAgentRuntime`, `streamEffect`, RuntimeEvent/request/error/tool/provider types.                      |
-| May depend on  | AI SDK, provider SDK packages, Effect.                                                                     |
-| Must not know  | Product authorization, persistence policy, browser widget state, DB rows, Hono.                            |
-| Main tests     | `packages/agent-runtime/src/**/*.test.ts`.                                                                 |
+| Field          | Value                                                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owns           | One prepared assistant turn, executable runtime tool registry, profile/provider/model/tool preparation, AI SDK adapter, RuntimeEvent stream. |
+| Public surface | `createAgentRuntime`, `streamEffect`, RuntimeEvent/request/error/tool/provider types.                                                        |
+| May depend on  | AI SDK, provider SDK packages, Effect.                                                                                                       |
+| Must not know  | Product authorization, persistence policy, browser widget state, DB rows, Hono.                                                              |
+| Main tests     | `packages/agent-runtime/src/**/*.test.ts`.                                                                                                   |
 
 ## packages/db
 

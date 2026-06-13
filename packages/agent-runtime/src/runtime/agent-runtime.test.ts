@@ -139,6 +139,38 @@ describe("createAgentRuntime", () => {
     ]);
   });
 
+  it("passes only per-turn allowed tools from a larger executable registry to the provider", async () => {
+    const modelCalls: LanguageModelV3CallOptions[] = [];
+    const runtime = createAgentRuntime({
+      providers: [createCapturingProvider(modelCalls)],
+      tools: [
+        createMockWebSearchTool(),
+        {
+          ...createMockWebSearchTool(),
+          name: "admin_lookup",
+          description: "Look up privileged admin data.",
+        },
+      ],
+    });
+
+    await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          providerId: "capture",
+          modelId: "capture-model",
+          requestId: "req_larger_registry",
+          assistantTurnId: "turn_larger_registry",
+          messages: [{ role: "user", content: "search public sources" }],
+          availableToolNames: [MOCK_WEB_SEARCH_TOOL_NAME],
+        }),
+      ),
+    );
+
+    expect(modelCalls[0]?.tools?.map((runtimeTool) => runtimeTool.name)).toEqual([
+      MOCK_WEB_SEARCH_TOOL_NAME,
+    ]);
+  });
+
   it("exposes no tools when a turn has no explicit request or profile allowlist", async () => {
     const modelCalls: LanguageModelV3CallOptions[] = [];
     const runtime = createAgentRuntime({

@@ -5,9 +5,15 @@ import {
 } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 import { AUTHORITY_DENIAL_CODES } from "#domain/authority";
+import { createTurnPolicyDecision, hashHostCapabilityManifest } from "#domain/harness";
 import { RUNTIME_ERROR_CODES, RUNTIME_EVENT_TYPES, RUNTIME_FINISH_REASONS } from "#ports";
 import { denyRequestPolicy, POLICY_DENIAL_CODES } from "#policies/policy";
-import { authContext, input } from "#testing/stream-chat/fixtures.test-support";
+import {
+  authContext,
+  createManifest,
+  input,
+  resolveTestProfile,
+} from "#testing/stream-chat/fixtures.test-support";
 import {
   collect,
   createFakePorts,
@@ -101,6 +107,37 @@ describe("stream chat use case", () => {
       retryable: true,
     });
     expect(ports.calls).toEqual(["hostCapabilities", "turnPolicy", "policy"]);
+  });
+
+  it("rejects manifest-declared tools outside the resolved profile before protected work", async () => {
+    const baseManifest = createManifest();
+    const manifest = {
+      ...baseManifest,
+      tools: [
+        ...baseManifest.tools,
+        {
+          name: "admin_lookup",
+          description: "Look up privileged admin data.",
+          inputSchema: { type: "object" },
+        },
+      ],
+    };
+    const profile = resolveTestProfile(manifest);
+    const policyDecision = {
+      ...createTurnPolicyDecision({
+        manifest,
+        profile,
+        manifestHash: hashHostCapabilityManifest(manifest),
+      }),
+      allowedToolNames: ["mock_web_search", "admin_lookup"],
+    };
+    const ports = createFakePorts({ authContext, manifest, policyDecision });
+
+    await expect(collect(runStreamChat(input, ports))).rejects.toMatchObject({
+      protocolCode: PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
+      message: expect.stringContaining("outside profile analyst"),
+    });
+    expect(ports.calls).toEqual(["hostCapabilities", "turnPolicy"]);
   });
 
   it("denies cross-tenant access before persistence or model work", async () => {

@@ -65,5 +65,6 @@ npx vitest run apps/partner-ai-service/src/inbound/http/app.test.ts
 ## Related Docs
 
 - `docs/domain/lifecycle.md`
+- `docs/architecture/capability-model.md`
 - `docs/architecture/stream-chat-flow.md`
 - `docs/architecture/boundaries.md`

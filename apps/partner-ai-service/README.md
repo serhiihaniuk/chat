@@ -49,5 +49,6 @@ HTTP request -> auth/request parsing -> StreamChatInput
 
 - `docs/architecture/boundaries.md`
 - `docs/architecture/foundation-overview.md`
+- `docs/architecture/capability-model.md`
 - `docs/architecture/stream-chat-flow.md`
 - `docs/architecture/testing-and-verification.md`

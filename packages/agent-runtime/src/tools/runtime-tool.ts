@@ -28,6 +28,13 @@ export type RuntimeToolEffect = Effect.Effect<
   RuntimeToolRequirements
 >;
 
+/**
+ * Executable backend capability exposed to the selected agent executor.
+ *
+ * This is the implementation side of a tool. A manifest ToolCapability may
+ * describe the same name, but runtime executes only registered tools selected
+ * by the per-turn AgentRuntimeRequest allowlist.
+ */
 export type RuntimeTool = {
   readonly name: string;
   readonly description: string;
