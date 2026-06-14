@@ -6,41 +6,32 @@ Not source of truth for: domain term definitions or implementation details.
 
 ## Reading Paths
 
-| Task                            | Read                                                                                |
-| ------------------------------- | ----------------------------------------------------------------------------------- |
-| Learn the product shape         | `architecture/foundation-overview.md`, then `architecture/system-overview.md`       |
-| Adopt or extend Side Chat       | `architecture/adoption-extension-map.md`, then `architecture/capability-model.md`   |
-| Edit domain terms               | `domain/vocabulary.md`                                                              |
-| Change package boundaries       | `architecture/package-map.md`, then `architecture/boundaries.md`                    |
-| Change capability policy        | `architecture/capability-model.md`, then `architecture/stream-chat-flow.md`         |
-| Change retrieval/memory context | `architecture/assistant-turn-lifecycle.md`, then `architecture/stream-chat-flow.md` |
-| Change stream-chat behavior     | `architecture/assistant-turn-lifecycle.md`, then `architecture/stream-chat-flow.md` |
-| Change Effect workflows         | `architecture/effect-style.md`                                                      |
-| Change widget code              | `architecture/widget-architecture.md`                                               |
-| Change tests or gates           | `architecture/testing-and-verification.md`                                          |
-| Review product scope            | `product/functional-requirements.md`                                                |
-| Review quality requirements     | `product/non-functional-requirements.md`                                            |
+| Task                                                                  | Read                                          |
+| --------------------------------------------------------------------- | --------------------------------------------- |
+| Learn the product shape                                               | `architecture/system-map.md`                  |
+| Edit domain terms                                                     | `domain/vocabulary.md`                        |
+| Change stream-chat lifecycle                                          | `architecture/assistant-turn.md`              |
+| Add tools, guards, RAG, memory, research, executors, or host commands | `architecture/extension-seams.md`             |
+| Change package imports or data boundaries                             | `architecture/package-boundaries.md`          |
+| Change runtime, protocol, events, or Effect/Stream code               | `architecture/runtime-and-protocol-events.md` |
+| Change widget, host bridge, or copied UI primitives                   | `architecture/widget-and-host-integration.md` |
+| Review product or quality requirements                                | `product/requirements.md`                     |
+| Choose verification commands                                          | `operations/verification.md`                  |
 
 ## Durable Docs
 
-| File                                       | Owns                                                         |
-| ------------------------------------------ | ------------------------------------------------------------ |
-| `domain/vocabulary.md`                     | Canonical terms, aliases, and forbidden aliases.             |
-| `domain/lifecycle.md`                      | Assistant turn, stream, tool, and terminal order.            |
-| `product/functional-requirements.md`       | Final intended product behavior.                             |
-| `product/non-functional-requirements.md`   | Quality, safety, readability, and verification requirements. |
-| `architecture/foundation-overview.md`      | Product identity and adoption shape.                         |
-| `architecture/adoption-extension-map.md`   | First files and folders for adopter extension seams.         |
-| `architecture/capability-model.md`         | Manifest, executable registry, and turn-policy separation.   |
-| `architecture/system-overview.md`          | One-screen system map.                                       |
-| `architecture/package-map.md`              | Package ownership and public surfaces.                       |
-| `architecture/boundaries.md`               | What must not cross each seam.                               |
-| `architecture/assistant-turn-lifecycle.md` | Current assistant turn lifecycle order.                      |
-| `architecture/stream-chat-flow.md`         | Main assistant turn stages.                                  |
-| `architecture/effect-style.md`             | Local Effect usage rules.                                    |
-| `architecture/widget-architecture.md`      | Widget layers and copied UI quarantine.                      |
-| `architecture/testing-and-verification.md` | Commands and what each lane proves.                          |
-| `adr/*.md`                                 | Accepted decisions and why.                                  |
+| File                                          | Owns                                                         |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| `domain/vocabulary.md`                        | Canonical terms and names to avoid.                          |
+| `architecture/system-map.md`                  | Product identity, package roles, and first files.            |
+| `architecture/assistant-turn.md`              | Assistant turn lifecycle and failure split.                  |
+| `architecture/extension-seams.md`             | Adoption seams and contract locations.                       |
+| `architecture/package-boundaries.md`          | Import/data boundaries and common mistakes.                  |
+| `architecture/runtime-and-protocol-events.md` | Runtime/provider/protocol event separation and stream style. |
+| `architecture/widget-and-host-integration.md` | Widget layers, host bridge, and copied UI quarantine.        |
+| `product/requirements.md`                     | Functional, quality, safety, and adoption requirements.      |
+| `operations/verification.md`                  | Local gates, scenario lanes, and reporting.                  |
+| `adr/*.md`                                    | Accepted decisions and why.                                  |
 
-Package READMEs are local orientation cards. They may link to vocabulary terms,
-but they do not define global vocabulary.
+Package READMEs are local orientation cards. They may link to canonical docs,
+but they do not define global vocabulary or repeat architecture chapters.

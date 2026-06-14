@@ -43,7 +43,8 @@ user submit -> optimistic widget state -> chat-client stream
 
 Widget unit/model tests and harness E2E tests.
 
-## Related Docs
+## Canonical Docs
 
-- `docs/architecture/widget-architecture.md`
+- `docs/architecture/widget-and-host-integration.md`
+- `docs/architecture/runtime-and-protocol-events.md`
 - `packages/side-chat-widget/src/shared/ai/README.md`

@@ -30,6 +30,6 @@ Test-only helpers exported for workspace tests.
 
 Consumers prove helper behavior through their package tests.
 
-## Related Docs
+## Canonical Docs
 
-- `docs/architecture/testing-and-verification.md`
+- `docs/operations/verification.md`

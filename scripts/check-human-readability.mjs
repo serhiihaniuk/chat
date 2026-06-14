@@ -17,11 +17,14 @@ const MAX_TEST_SOURCE_LINES = 450;
 const requiredReadableDocs = lines(`
 docs/README.md
 docs/domain/vocabulary.md
-docs/domain/lifecycle.md
-docs/architecture/package-map.md
-docs/architecture/boundaries.md
-docs/architecture/widget-architecture.md
-docs/architecture/testing-and-verification.md
+docs/architecture/system-map.md
+docs/architecture/assistant-turn.md
+docs/architecture/extension-seams.md
+docs/architecture/package-boundaries.md
+docs/architecture/runtime-and-protocol-events.md
+docs/architecture/widget-and-host-integration.md
+docs/product/requirements.md
+docs/operations/verification.md
 packages/side-chat-widget/src/shared/ai/README.md
 `);
 
@@ -183,7 +186,7 @@ function validateReadmeVocabularyOwnership(file, source) {
 
 function validateFakeProductionLanguage(file, source) {
   if (!/production runbook|rollout|rollback/iu.test(source)) return;
-  if (file.includes("non-functional-requirements.md")) return;
+  if (file.includes("product/requirements.md")) return;
 
   warnings.push(
     `${file}: production-operation wording found. Confirm this is real operation guidance, not fake current truth.`,

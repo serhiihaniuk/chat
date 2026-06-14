@@ -39,7 +39,8 @@ adopter service config -> policy/context/runtime -> sidechat.v1 events
 
 `src/**/*.test.ts`
 
-## Related Docs
+## Canonical Docs
 
-- `docs/architecture/stream-chat-flow.md`
-- `docs/architecture/testing-and-verification.md`
+- `docs/architecture/assistant-turn.md`
+- `docs/architecture/package-boundaries.md`
+- `docs/operations/verification.md`

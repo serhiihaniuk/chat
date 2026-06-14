@@ -34,8 +34,8 @@ agent-runtime.ts
 - Transport adapters may convert streams at their own edges.
 - Expected failures use Effect's error channel; raw `throw` is a defect.
 
-## Related Docs
+## Canonical Docs
 
 - `packages/agent-runtime/README.md`
-- `docs/architecture/effect-style.md`
-- `docs/architecture/boundaries.md`
+- `docs/architecture/runtime-and-protocol-events.md`
+- `docs/architecture/package-boundaries.md`

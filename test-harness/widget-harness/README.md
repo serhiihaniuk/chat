@@ -40,7 +40,7 @@ harness mode -> widget props/client/host bridge -> visible browser scenario
 - `src/**/*.test.ts`
 - E2E specs under `e2e`
 
-## Related Docs
+## Canonical Docs
 
-- `docs/architecture/widget-architecture.md`
-- `docs/architecture/testing-and-verification.md`
+- `docs/architecture/widget-and-host-integration.md`
+- `docs/operations/verification.md`

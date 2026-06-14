@@ -19,16 +19,16 @@ host app -> side-chat-widget -> chat-client -> chat-protocol
 
 ## Read First
 
-| Need                     | Document                                        |
-| ------------------------ | ----------------------------------------------- |
-| Documentation map        | `docs/README.md`                                |
-| Product identity         | `docs/architecture/foundation-overview.md`      |
-| Canonical terms          | `docs/domain/vocabulary.md`                     |
-| Assistant turn lifecycle | `docs/domain/lifecycle.md`                      |
-| Package ownership        | `docs/architecture/package-map.md`              |
-| Boundary rules           | `docs/architecture/boundaries.md`               |
-| Verification commands    | `docs/architecture/testing-and-verification.md` |
-| Agent rules              | `AGENTS.md`                                     |
+| Need                     | Document                                  |
+| ------------------------ | ----------------------------------------- |
+| Documentation map        | `docs/README.md`                          |
+| Product identity         | `docs/architecture/system-map.md`         |
+| Canonical terms          | `docs/domain/vocabulary.md`               |
+| Assistant turn lifecycle | `docs/architecture/assistant-turn.md`     |
+| Extension seams          | `docs/architecture/extension-seams.md`    |
+| Boundary rules           | `docs/architecture/package-boundaries.md` |
+| Verification commands    | `docs/operations/verification.md`         |
+| Agent rules              | `AGENTS.md`                               |
 
 ## Local Commands
 

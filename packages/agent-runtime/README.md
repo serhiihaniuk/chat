@@ -9,83 +9,38 @@ browser protocol.
 
 ## Owns
 
-- `AgentRuntime.streamEffect(request)`.
+- `AgentRuntime.streamEffect(request)` and `createAgentRuntime`.
 - Assistant profile, executor, provider/model, tool, and prompt preparation for
-  one turn.
-- AgentExecutor registry/selection and the private AI SDK `ToolLoopAgent`
-  executor implementation.
+  one prepared turn.
+- AgentExecutor registry/selection and the default AI SDK tool-loop executor.
 - Runtime tool protocol and normalized RuntimeEvents.
 - Provider adapters and deterministic runtime test fakes.
 
 ## Does Not Own
 
 - Product authorization, approval policy, or host-command dispatch.
-- Context gathering, squashing, redaction, or manifests.
-- Database writes.
+- Context gathering, redaction, manifests, or database writes.
 - HTTP/SSE transport.
 - Widget or `sidechat.v1` browser state.
 
-## Public Surface
+## First Files To Open
 
-- `createAgentRuntime`
-- `AgentRuntime`, `AgentRuntimeOptions`, and `AssistantProfile`
-- `AgentExecutor`, `AgentExecutionRequest`, and `DEFAULT_AGENT_EXECUTOR_ID`
-- `AgentRuntimeRequest`, `RuntimeContextBoard`, and runtime message types
-- `RuntimeEvent`, `RuntimeEventStream`, and runtime errors
-- `RuntimeActivityDetails` and provider-neutral runtime activity types
-- `RuntimeTool` and `createToolRegistry`
-- `ModelProvider` and accepted provider adapters
-- package-local testing fakes
+- `src/runtime/README.md`
+- `src/runtime/agent-runtime.ts`
+- `src/runtime/turn/prepare-runtime-turn.ts`
+- `src/runtime/executors/executor-selection.ts`
+- `src/runtime/ai-sdk/README.md`
+- `src/tools/runtime-tool.ts`
 
-The root package does not export `runtime/ai-sdk/*`. AI SDK is private runtime
-implementation detail.
+## Verify
 
-## Main Flow
+- `npm test --workspace @side-chat/agent-runtime`
+- `npm run typecheck --workspace @side-chat/agent-runtime`
+- Full gate: `npm run verify`
 
-```txt
-AgentRuntimeRequest
--> resolve assistant profile
--> resolve requested/default AgentExecutor
--> resolve provider/model
--> select injected tools for this turn
--> render request system instructions and context board
--> execute selected AgentExecutor
--> map executor/provider stream parts into RuntimeEvent values
-```
+## Canonical Docs
 
-## Boundary Rules
-
-- The native API is `streamEffect(request)`.
-- Do not add package-level Promise or `AsyncIterable` facades.
-- Transport adapters convert streams at their own edges.
-- Expected failures use `Effect.fail`, `Effect.try`, or `Effect.tryPromise`.
-- Raw `throw` is a defect.
-- Provider DTOs and AI SDK stream parts do not leave this package.
-- Approval requirements and host commands stay in product/host-bridge policy;
-  runtime receives only selected backend `RuntimeTool` names for a turn.
-
-## Local Conventions
-
-- `runtime/turn/**` prepares the request and must not import AI SDK.
-- `runtime/executors/**` owns executor ids and selection. Unknown executor ids
-  fail before streaming instead of falling back.
-- Product traffic should pass resolved `systemInstructions` on the request;
-  package-local profile instructions are only the standalone runtime fallback.
-- `runtime/ai-sdk/**` runs the private AI SDK adapter and must not decide
-  product policy.
-- `RuntimeTool.execute` returns an Effect because tools are backend ports that
-  can fail, depend on services, time out, or be cancelled.
-
-## Tests
-
-```sh
-npm run typecheck --workspace @side-chat/agent-runtime
-npm test --workspace @side-chat/agent-runtime
-```
-
-## Related Docs
-
-- `docs/domain/vocabulary.md`
-- `docs/architecture/capability-model.md`
-- `docs/architecture/boundaries.md`
-- `docs/architecture/effect-style.md`
+- `docs/architecture/extension-seams.md`
+- `docs/architecture/package-boundaries.md`
+- `docs/architecture/runtime-and-protocol-events.md`
+- `docs/operations/verification.md`

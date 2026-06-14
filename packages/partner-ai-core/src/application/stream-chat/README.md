@@ -42,9 +42,9 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 - Post-start runtime failures become terminal `sidechat.error` events.
 - Successful streams emit terminal `sidechat.completed`.
 
-## Related Docs
+## Canonical Docs
 
-- `docs/architecture/assistant-turn-lifecycle.md`
-- `docs/domain/lifecycle.md`
-- `docs/architecture/stream-chat-flow.md`
-- `docs/architecture/effect-style.md`
+- `docs/architecture/assistant-turn.md`
+- `docs/architecture/extension-seams.md`
+- `docs/architecture/runtime-and-protocol-events.md`
+- `docs/architecture/package-boundaries.md`

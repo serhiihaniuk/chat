@@ -38,7 +38,8 @@ fetch response -> SSE chunks -> SidechatStreamEvent values
 
 Package-local stream and client tests under `src`.
 
-## Related Docs
+## Canonical Docs
 
-- `docs/domain/lifecycle.md`
-- `docs/architecture/boundaries.md`
+- `docs/architecture/runtime-and-protocol-events.md`
+- `docs/architecture/package-boundaries.md`
+- `docs/operations/verification.md`

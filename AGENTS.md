@@ -8,12 +8,12 @@ Before changing code or durable docs, read:
 
 1. `docs/README.md`
 2. `docs/domain/vocabulary.md`
-3. `docs/architecture/package-map.md`
-4. `docs/architecture/boundaries.md`
+3. `docs/architecture/system-map.md`
+4. `docs/architecture/package-boundaries.md`
 5. The nearest package or folder `README.md`
 
 For stream-chat, runtime, protocol, or widget changes, also read the matching
-flow doc under `docs/domain` or `docs/architecture`.
+flow doc under `docs/architecture`.
 
 ## Final-State Rule
 
@@ -38,8 +38,8 @@ Write for a lower-context human maintainer, not for AI working memory.
 
 Docs are part of the quality gate. Canonical terms live in
 `docs/domain/vocabulary.md`. Lifecycle order lives in
-`docs/domain/lifecycle.md`. Package READMEs are local cards, not global
-vocabulary dumps.
+`docs/architecture/assistant-turn.md`. Package READMEs are local cards, not
+global vocabulary dumps.
 
 Update docs in the same patch when code changes package ownership, lifecycle
 order, protocol events, domain terms, or verification behavior.

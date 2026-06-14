@@ -45,8 +45,8 @@ product/service port call -> repository adapter -> persistence record
 - Repository contract tests under `src`.
 - Container tests through `npm run test:db:container`.
 
-## Related Docs
+## Canonical Docs
 
-- `docs/architecture/package-map.md`
-- `docs/architecture/boundaries.md`
-- `docs/architecture/testing-and-verification.md`
+- `docs/architecture/system-map.md`
+- `docs/architecture/package-boundaries.md`
+- `docs/operations/verification.md`

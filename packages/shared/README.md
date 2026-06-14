@@ -32,7 +32,7 @@ Utility exports only.
 
 Add package-local tests when a utility has behavior worth preserving.
 
-## Related Docs
+## Canonical Docs
 
-- `docs/architecture/package-map.md`
-- `docs/architecture/boundaries.md`
+- `docs/architecture/system-map.md`
+- `docs/architecture/package-boundaries.md`

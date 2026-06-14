@@ -41,8 +41,9 @@ SSE encode/decode round trip
 
 Package-local tests under `src/sidechat-v1`.
 
-## Related Docs
+## Canonical Docs
 
 - `docs/domain/vocabulary.md`
-- `docs/domain/lifecycle.md`
-- `docs/architecture/boundaries.md`
+- `docs/architecture/runtime-and-protocol-events.md`
+- `docs/architecture/package-boundaries.md`
+- `docs/operations/verification.md`

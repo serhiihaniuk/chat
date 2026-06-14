@@ -26,8 +26,8 @@ Not source of truth for: provider policy, product policy, or protocol events.
 - The assistant answer still streams through `result.fullStream`.
 - Downstream packages receive RuntimeEvents, not AI SDK stream parts.
 
-## Related Docs
+## Canonical Docs
 
 - `packages/agent-runtime/README.md`
-- `docs/architecture/effect-style.md`
-- `docs/domain/lifecycle.md`
+- `docs/architecture/runtime-and-protocol-events.md`
+- `docs/architecture/assistant-turn.md`

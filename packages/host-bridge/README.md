@@ -40,7 +40,9 @@ widget asks bridge -> host provides context or command result -> widget displays
 
 Package-local tests under `src`.
 
-## Related Docs
+## Canonical Docs
 
 - `docs/domain/vocabulary.md`
-- `docs/architecture/boundaries.md`
+- `docs/architecture/extension-seams.md`
+- `docs/architecture/package-boundaries.md`
+- `docs/architecture/widget-and-host-integration.md`

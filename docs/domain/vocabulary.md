@@ -1,161 +1,141 @@
-# Side Chat Domain Vocabulary
+# Vocabulary
 
 Read this when: a term in code, docs, tests, comments, events, or review notes
 is unclear.
-Source of truth for: canonical terms, aliases, forbidden aliases, and ownership.
-Not source of truth for: architecture decisions or implementation plans.
+Source of truth for: canonical Side Chat terms and names to avoid.
+Not source of truth for: lifecycle order, package boundaries, or implementation
+plans.
 
 ## Rules
 
-| Rule                   | Meaning                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| One canonical name     | Use the term in this file when naming code, docs, and tests.                 |
-| Owner is explicit      | The owner owns the shape and meaning of the term.                            |
-| Definitions stay short | If a definition needs an essay, split the term.                              |
-| Aliases are deliberate | Allowed aliases are local conveniences; forbidden aliases should be removed. |
-| Update with code       | Rename or add vocabulary in the same patch as code/docs that introduce it.   |
+- Use the canonical term in code, docs, tests, and review notes.
+- Keep aliases local and intentional.
+- Use `docs/architecture/package-boundaries.md` for boundary rules.
+- Use `docs/architecture/assistant-turn.md` for lifecycle order.
+- Rename docs/tests/comments in the same patch when a term changes.
 
-## Core Product Terms
+## Product Shape
 
-| Term                           | Meaning                                                                                                                 | Owner                      | Do not confuse with  | Allowed aliases          | Forbidden aliases            |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------------- | ------------------------ | ---------------------------- |
-| Side Chat                      | The adoptable enterprise assistant foundation owned by this repo.                                                       | product docs               | a generic chat app   | none                     | chat app, AI thing           |
-| adoptable assistant foundation | Ownable repository shape that an enterprise team can deploy and extend with its app-specific assistant capabilities.    | architecture docs          | public SDK framework | assistant foundation     | demo app, plugin framework   |
-| host app                       | The consuming web app that embeds Side Chat and owns business UI, auth, domain entities, and host-specific permissions. | product docs, host bridge  | Side Chat service    | embedding app when local | demo app                     |
-| embedding surface              | Host-app page, dashboard, portal, or internal tool where Side Chat is embedded.                                         | product docs, widget       | Side Chat Widget     | none                     | host app                     |
-| workspace                      | Authorized product scope for a request.                                                                                 | `partner-ai-core`          | browser session      | none                     | tenant when not in code      |
-| project                        | Optional product scope associated with a conversation or request.                                                       | `partner-ai-core`          | workspace            | none                     | generic context              |
-| conversation                   | Durable chat thread containing user messages and assistant turns.                                                       | `partner-ai-core`, `db`    | assistant turn       | thread when local        | chat session                 |
-| user message                   | User-submitted message persisted and displayed in a conversation.                                                       | `partner-ai-core`, widget  | protocol request     | none                     | input, prompt in broad scope |
-| assistant turn                 | One assistant response lifecycle attached to a user message.                                                            | `partner-ai-core`, `db`    | model call           | none                     | run, response in broad scope |
-| stream chat turn               | Product workflow that prepares and streams one assistant turn.                                                          | `partner-ai-core`          | runtime execution    | none                     | stream in broad scope        |
-| turn plan                      | Policy decision for allowed profile, model, and tools for one turn.                                                     | `partner-ai-core`          | runtime request      | none                     | config, options              |
-| prepared context               | Context snapshot/messages prepared before runtime execution.                                                            | `partner-ai-core`          | host context         | none                     | prompt in broad scope        |
-| system prompt id               | Durable assistant profile identifier for the source of resolved system instructions.                                    | `partner-ai-core`, service | system instructions  | none                     | prompt text                  |
-| system instructions            | Resolved prompt text passed from core to runtime for one prepared assistant turn.                                       | `partner-ai-core`, runtime | user message         | instructions when local  | browser prompt               |
+- **Side Chat**: the adoptable enterprise assistant foundation owned by this
+  repo. Avoid generic chat app, demo app, or plugin framework.
+- **Adoptable assistant foundation**: ownable repo shape an enterprise team can
+  deploy and extend with app-specific assistant capabilities.
+- **Host app**: consuming web app that embeds Side Chat and owns business UI,
+  auth, domain entities, and host-specific permissions.
+- **Embedding surface**: host-app page, dashboard, portal, or internal tool
+  where Side Chat is embedded.
+
+## Core Lifecycle
+
+- **Workspace**: authorized product scope for a request. Avoid tenant unless the
+  local code is actually tenant-shaped.
+- **Project**: optional product scope associated with a conversation or request.
+- **Conversation**: durable chat thread containing user messages and assistant
+  turns. Use thread only in local UI wording.
+- **User message**: user-submitted message persisted and displayed in a
+  conversation. Avoid broad input or prompt.
+- **Assistant turn**: one assistant response lifecycle attached to a user
+  message. Do not confuse it with one model call.
+- **Stream chat turn**: product workflow that prepares and streams one assistant
+  turn.
+- **Turn plan**: per-turn decision selecting profile, model, tools, commands,
+  RAG, memory, research, guards, approvals, executor id, and instructions.
+- **Prepared context**: context snapshot/messages prepared before runtime
+  execution. Do not use prompt for the full prepared context.
+- **System prompt id**: durable profile identifier for the source of resolved
+  system instructions.
+- **System instructions**: resolved prompt text passed from core to runtime for
+  one prepared assistant turn.
 
 ## Request Chain
 
-| Term                    | Meaning                                                                                             | Owner             | Do not confuse with         | Allowed aliases     | Forbidden aliases               |
-| ----------------------- | --------------------------------------------------------------------------------------------------- | ----------------- | --------------------------- | ------------------- | ------------------------------- |
-| ChatStreamRequest       | Browser-facing `sidechat.v1` stream request.                                                        | `chat-protocol`   | StreamChatInput             | none                | request in broad scope          |
-| StreamChatInput         | Product-core input assembled by the service adapter.                                                | `partner-ai-core` | ChatStreamRequest           | none                | input in broad scope            |
-| AgentRuntimeRequest     | Request from product core into agent runtime.                                                       | `agent-runtime`   | RuntimeProviderRequest      | none                | runtime input                   |
-| RuntimeProviderRequest  | Provider-ready request after runtime preparation.                                                   | `agent-runtime`   | AI SDK provider request     | none                | provider request in broad scope |
-| AgentExecutor           | Runtime execution engine selected for one prepared turn and responsible for emitting RuntimeEvents. | `agent-runtime`   | model provider, RuntimeTool | executor when local | agent in broad scope            |
-| AI SDK provider request | Private DTO/options passed to AI SDK/provider internals.                                            | `agent-runtime`   | RuntimeProviderRequest      | none                | runtime request                 |
-
-## Event Chain
-
-| Term                   | Meaning                                                                                         | Owner                     | Do not confuse with    | Allowed aliases | Forbidden aliases           |
-| ---------------------- | ----------------------------------------------------------------------------------------------- | ------------------------- | ---------------------- | --------------- | --------------------------- |
-| AI SDK stream part     | Provider/tool-loop event emitted by AI SDK.                                                     | `agent-runtime`           | RuntimeEvent           | none            | part in broad scope         |
-| RuntimeEvent           | Normalized internal event emitted by agent runtime.                                             | `agent-runtime`           | SidechatStreamEvent    | none            | event in broad scope        |
-| RuntimeActivityDetails | Provider-neutral runtime activity detail shape mapped to browser-safe activity details by core. | `agent-runtime`           | ActivityDetails        | none            | protocol details            |
-| activity event         | Runtime/protocol event kind for visible progress, tool, reasoning, or host-command rows.        | runtime, protocol, widget | terminal event         | none            | activity in broad scope     |
-| SidechatStreamEvent    | Browser-facing `sidechat.v1` stream event.                                                      | `chat-protocol`           | RuntimeEvent           | protocol event  | stream event in broad scope |
-| widget message         | Client-side message state rendered by the widget.                                               | widget                    | protocol event         | none            | message in broad scope      |
-| widget activity item   | Client-side activity timeline row derived from protocol activity events.                        | widget                    | runtime activity event | none            | item                        |
+- **ChatStreamRequest**: browser-facing `sidechat.v1` stream request.
+- **StreamChatInput**: product-core input assembled by the service adapter.
+- **AgentRuntimeRequest**: prepared turn request from product core into agent
+  runtime.
+- **RuntimeProviderRequest**: provider-ready request after runtime preparation.
+- **AI SDK provider request**: private provider/options payload inside runtime.
 
 ## Capability Terms
 
-| Term                      | Meaning                                                                                                              | Owner                      | Do not confuse with         | Allowed aliases     | Forbidden aliases      |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------- | --------------------------- | ------------------- | ---------------------- |
-| host capability manifest  | Host-app declaration of possible profiles, tools, commands, retrieval sources, policies, workflows, and renderers.   | `partner-ai-core`, service | executable registry         | manifest when local | plugin list            |
-| assistant profile         | Versioned assistant configuration selected for one turn before runtime execution.                                    | `partner-ai-core`          | model id                    | profile when local  | persona in broad scope |
-| ToolCapability            | Manifest declaration for a backend capability that may become a runtime tool if policy and registry allow it.        | `partner-ai-core`          | RuntimeTool                 | tool declaration    | tool in broad scope    |
-| RetrievalSourceCapability | Manifest declaration for a source that RAG may search when policy allows it.                                         | `partner-ai-core`          | RuntimeTool                 | retrieval source    | search tool            |
-| RagRetrieverPort          | Core port for authorized pre-model retrieval from policy-allowed retrieval sources.                                  | `partner-ai-core`, service | RuntimeTool                 | RAG retriever       | model search tool      |
-| RagContextCandidate       | Retrieved context candidate with provenance, trust, redaction class, and token estimate.                             | `partner-ai-core`, service | tool result                 | RAG candidate       | search result          |
-| ResearchAgentPort         | Core port for policy-scoped pre-answer research that produces prepared context candidates and workflow artifacts.    | `partner-ai-core`, service | AgentExecutor, RuntimeTool  | research agent      | model search tool      |
-| ResearchSourceCandidate   | Research-source context candidate returned by a research agent and admitted only when its source is policy-allowed.  | `partner-ai-core`, service | RagContextCandidate         | research candidate  | browser event          |
-| MemoryPolicy              | Manifest/profile policy for whether memory may be read or written for one turn.                                      | `partner-ai-core`          | RAG source                  | none                | memory store           |
-| MemoryPort                | Core port for policy-scoped memory recall and post-turn memory write candidates.                                     | `partner-ai-core`, service | repository port             | memory adapter      | memory repository      |
-| MemoryRecord              | Recalled durable memory allowed into prepared context for one turn.                                                  | `partner-ai-core`, service | RagContextCandidate         | recalled memory     | fact in broad scope    |
-| MemoryWriteCandidate      | Post-turn candidate proposed for possible durable memory storage under `MemoryPolicy`.                               | `partner-ai-core`, service | MemoryRecord                | memory candidate    | automatic memory write |
-| TurnPolicyDecision        | Per-turn policy result that selects profile/model/tools/commands/RAG/memory/workflow exposure.                       | `partner-ai-core`          | host capability manifest    | policy decision     | config, options        |
-| ApprovalPolicy            | Manifest policy requiring user or host approval before a declared tool or host command is used.                      | `partner-ai-core`          | runtime tool execution      | approval rule       | permission flag        |
-| TurnGuard                 | Pre-context safety check that may allow, warn, or block one turn before conversation persistence, context, or tools. | `partner-ai-core`, service | product policy, RuntimeTool | guard when local    | safety plugin          |
-| turn guard ids            | Assistant-profile safety policy list selecting which registered turn guards run for one turn.                        | `partner-ai-core`, service | turn guard registry         | selected guard ids  | registered guards      |
-| executable registry       | Runtime or service-side collection of concrete implementations that can run if selected.                             | service, `agent-runtime`   | host capability manifest    | registry when local | plugin list            |
+- **Host capability manifest**: host-app declaration of possible profiles,
+  tools, commands, retrieval sources, policies, workflows, and renderers.
+- **Assistant profile**: versioned assistant configuration selected for one turn.
+- **ToolCapability**: manifest declaration for a backend capability; not
+  executable until policy selects it and runtime has a matching RuntimeTool.
+- **RuntimeTool**: app-owned executable model-callable backend tool registered
+  with agent runtime.
+- **HostCommandCapability**: manifest declaration for a browser/host-app UI
+  command, separate from RuntimeTool.
+- **RetrievalSourceCapability**: manifest declaration for a source RAG may search
+  when policy allows it.
+- **RagRetrieverPort**: core port for authorized pre-model retrieval from
+  policy-allowed sources.
+- **RagContextCandidate**: retrieved context candidate with provenance, trust,
+  redaction class, and token estimate.
+- **ResearchAgentPort**: core port for policy-scoped pre-answer research that
+  produces prepared context candidates and artifacts.
+- **ResearchSourceCandidate**: research context candidate admitted only when its
+  source is policy-allowed.
+- **MemoryPolicy**: manifest/profile policy for whether memory may be read or
+  written for one turn.
+- **MemoryPort**: core port for memory recall and post-turn memory write
+  candidates.
+- **MemoryRecord**: recalled durable memory allowed into prepared context.
+- **MemoryWriteCandidate**: post-turn candidate proposed for durable memory
+  storage under MemoryPolicy.
+- **TurnGuard**: pre-context safety check that may allow, warn, or block one
+  turn.
+- **AgentExecutor**: runtime execution engine selected for one prepared turn and
+  responsible for emitting RuntimeEvents.
+- **ApprovalPolicy**: policy requiring user or host approval before a declared
+  tool or host command is used.
 
-## Tool And Activity Terms
+## Tool And Host Terms
 
-| Term                  | Meaning                                                                             | Owner                            | Do not confuse with     | Allowed aliases     | Forbidden aliases     |
-| --------------------- | ----------------------------------------------------------------------------------- | -------------------------------- | ----------------------- | ------------------- | --------------------- |
-| RuntimeTool           | App-owned executable model-callable tool registered with agent runtime.             | `agent-runtime`                  | ToolCapability          | none                | tool in broad scope   |
-| tool call             | Model/provider request to execute a runtime tool.                                   | `agent-runtime`                  | host command            | none                | call in broad scope   |
-| tool result           | Successful result from a runtime tool.                                              | `agent-runtime`                  | host command result     | none                | result in broad scope |
-| tool error            | Public failed tool activity shape, not a raw thrown value.                          | `agent-runtime`                  | provider/tool exception | none                | exception             |
-| host command          | Command sent from Side Chat to a host app capability.                               | `host-bridge`                    | runtime tool call       | none                | tool call             |
-| HostCommandCapability | Manifest declaration for a browser/host-app UI command, not a backend runtime tool. | `partner-ai-core`, `host-bridge` | RuntimeTool             | command declaration | tool capability       |
-| host command result   | Result returned by a host app after a host command.                                 | `host-bridge`                    | tool result             | none                | result in broad scope |
+- **Tool call**: model/provider request to execute a runtime tool.
+- **Tool result**: successful result from a runtime tool.
+- **Tool error**: public failed tool activity shape, not a raw thrown value.
+- **Host command**: command sent from Side Chat to a host app capability.
+- **Host command result**: result returned by a host app after a host command.
 
-## Package And Boundary Terms
+## Event Terms
 
-| Term                  | Meaning                                                                     | Owner                  | Do not confuse with     | Allowed aliases      | Forbidden aliases             |
-| --------------------- | --------------------------------------------------------------------------- | ---------------------- | ----------------------- | -------------------- | ----------------------------- |
-| HTTP adapter boundary | Service route seam that parses HTTP and delegates product workflow.         | `partner-ai-service`   | product core            | route boundary       | route logic                   |
-| product core boundary | Seam where `partner-ai-core` owns product workflow and ports.               | `partner-ai-core`      | runtime boundary        | core boundary        | core in broad scope           |
-| runtime boundary      | Seam where `agent-runtime` hides provider and AI SDK details.               | `agent-runtime`        | protocol boundary       | none                 | adapter boundary when unclear |
-| protocol boundary     | Seam exposing browser-facing `sidechat.v1` types/events.                    | `chat-protocol`        | runtime boundary        | none                 | contract when vague           |
-| widget boundary       | Seam where protocol events become UI state.                                 | widget                 | protocol boundary       | none                 | client boundary               |
-| host bridge boundary  | Seam between widget/product and host app capabilities.                      | `host-bridge`          | runtime tool boundary   | none                 | host in broad scope           |
-| database boundary     | Seam between product ports and persistence records.                         | `db`, service adapters | product core            | persistence boundary | persistence in broad scope    |
-| copied UI primitive   | External copied visual component not governed by project readability style. | widget `shared/ai`     | project-owned component | copied AI component  | shared component              |
+- **AI SDK stream part**: provider/tool-loop event emitted by AI SDK; private to
+  `agent-runtime`.
+- **RuntimeEvent**: normalized internal event emitted by agent runtime.
+- **RuntimeActivityDetails**: provider-neutral activity details mapped by core to
+  browser-safe activity details.
+- **SidechatStreamEvent**: browser-facing `sidechat.v1` stream event.
+- **Activity event**: visible progress, tool, reasoning, or host-command row.
+- **Widget message**: client-side message state rendered by the widget.
+- **Widget activity item**: client-side activity timeline row derived from
+  protocol activity events.
+- **Terminal event**: final browser-facing event that closes product turn state.
+- **Pre-start failure**: failure before `sidechat.started`; request setup
+  rejects.
+- **Post-start failure**: failure after `sidechat.started`; stream emits terminal
+  `sidechat.error`.
 
-## Terminal Lifecycle Terms
+## Boundary Terms
 
-| Term                 | Meaning                                                                        | Owner           | Do not confuse with     | Allowed aliases | Forbidden aliases          |
-| -------------------- | ------------------------------------------------------------------------------ | --------------- | ----------------------- | --------------- | -------------------------- |
-| `sidechat.started`   | Browser-facing event meaning product stream setup succeeded.                   | `chat-protocol` | HTTP response open      | none            | started in broad scope     |
-| `sidechat.completed` | Browser-facing terminal success event.                                         | `chat-protocol` | transport close         | none            | done                       |
-| `sidechat.error`     | Browser-facing terminal error after stream start.                              | `chat-protocol` | HTTP pre-start error    | none            | failure in broad scope     |
-| pre-start failure    | Failure before the browser receives `sidechat.started`; request setup rejects. | service, core   | terminal protocol error | none            | setup error when unclear   |
-| post-start failure   | Failure after `sidechat.started`; stream emits terminal `sidechat.error`.      | core, protocol  | HTTP error              | none            | runtime error when unclear |
-| terminal event       | Final browser-facing event closing product turn state.                         | `chat-protocol` | transport close         | none            | final event in broad scope |
+- **HTTP adapter boundary**: HTTP/Hono request becomes StreamChatInput.
+- **Product core boundary**: StreamChatInput and ports become protocol event
+  stream.
+- **Runtime boundary**: AgentRuntimeRequest becomes RuntimeEvent stream.
+- **Protocol boundary**: core event mapper emits browser-safe `sidechat.v1`.
+- **Widget boundary**: protocol events become UI message/activity state.
+- **Host bridge boundary**: widget/product host seam to host commands/context.
+- **Database boundary**: product ports become persistence records.
+- **Copied UI primitive**: external visual component under widget `shared/ai`.
 
-## UI And Widget Terms
+## Names To Avoid In Larger Scopes
 
-| Term                         | Meaning                                                                | Owner  | Do not confuse with    | Allowed aliases | Forbidden aliases       |
-| ---------------------------- | ---------------------------------------------------------------------- | ------ | ---------------------- | --------------- | ----------------------- |
-| optimistic user message      | Pending user message shown before stream completion.                   | widget | persisted user message | none            | local message           |
-| optimistic assistant message | Assistant placeholder while a stream is running.                       | widget | assistant turn record  | none            | pending response        |
-| widget stream event          | Protocol event as consumed by widget state.                            | widget | RuntimeEvent           | none            | event in broad scope    |
-| activity timeline            | UI list of progress, tool, reasoning, and host-command activity items. | widget | conversation messages  | none            | timeline in broad scope |
-
-## Persistence Terms
-
-| Term               | Meaning                                                                   | Owner             | Do not confuse with    | Allowed aliases | Forbidden aliases   |
-| ------------------ | ------------------------------------------------------------------------- | ----------------- | ---------------------- | --------------- | ------------------- |
-| repository port    | Product-core interface for persistence work.                              | `partner-ai-core` | Drizzle repository     | none            | database helper     |
-| repository adapter | Concrete persistence implementation behind a port.                        | `db`, service     | repository port        | none            | port when concrete  |
-| memory repository  | Deterministic in-memory repository for tests and local development paths. | `db`, tests       | production persistence | fake repository | production fallback |
-
-## Forbidden Generic Names In Larger Scopes
-
-Avoid these in boundary and spine functions unless the scope is tiny and the type
-makes meaning obvious:
+Avoid these unless the type or tiny local scope makes the meaning obvious:
 
 ```txt
-data
-item
-entry
-payload
-result
-context
-event
-part
-message
-request
-response
-state
-handle
-process
-map
-normalize
-build
-create
+data item entry payload result context event part message request response state
+handle process map normalize build create
 ```
 
 Prefer completed source-to-target names:
@@ -164,13 +144,6 @@ Prefer completed source-to-target names:
 mapAiSdkPartToRuntimeEvents
 mapRuntimeEventToProtocolEvent
 createRuntimeProviderRequest
-createProtocolStartedEvent
 applyProtocolActivityToWidgetTimeline
 recordStartedStreamTurn
 ```
-
-## Terms Pending Clarification
-
-| Term             | Question                                     | Temporary owner   |
-| ---------------- | -------------------------------------------- | ----------------- |
-| context manifest | Final persisted hash and manifest semantics. | `partner-ai-core` |

@@ -1,22 +1,23 @@
-# Testing And Verification
+# Verification
 
 Read this when: you need to choose or report verification commands.
-Source of truth for: test lanes, gates, and what each command proves.
-Not source of truth for: test fixture design details.
+Source of truth for: local gates, scenario lanes, and what each command proves.
+Not source of truth for: test fixture design or product requirements.
 
 ## Local Gate
 
-| Command                | What it proves                           |
-| ---------------------- | ---------------------------------------- |
-| `npm run format:check` | Oxfmt would not rewrite tracked files.   |
-| `npm run lint:oxlint`  | Oxlint and TypeScript-aware rules pass.  |
-| `npm run typecheck`    | Strict TS compile contracts hold.        |
-| `npm test`             | Deterministic Vitest scenarios pass.     |
-| `npm run build`        | Project references build.                |
-| `npm run lint:custom`  | Side Chat custom governance passes.      |
-| `npm run verify`       | Full local gate passes in project order. |
+| Command                | Proves                                    |
+| ---------------------- | ----------------------------------------- |
+| `npm run format:check` | Oxfmt would not rewrite tracked files.    |
+| `npm run lint:oxlint`  | Oxlint and TypeScript-aware rules pass.   |
+| `npm run typecheck`    | Strict TypeScript compile contracts hold. |
+| `npm test`             | Deterministic Vitest scenarios pass.      |
+| `npm run build`        | Project references build.                 |
+| `npm run lint:custom`  | Side Chat custom governance passes.       |
+| `npm run verify`       | Full local gate passes in project order.  |
 
-Use the pinned runtime when needed:
+Use the pinned runtime when the shell is not already on Node `24.16.0` and npm
+`11.15.0`:
 
 ```sh
 npx -p node@24.16.0 -p npm@11.15.0 npm run verify

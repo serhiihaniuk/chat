@@ -28,14 +28,14 @@ Read local context before making or reviewing changes:
 1. `AGENTS.md`
 2. `docs/README.md`
 3. `docs/domain/vocabulary.md`
-4. `docs/architecture/package-map.md`
-5. `docs/architecture/boundaries.md`
+4. `docs/architecture/system-map.md`
+5. `docs/architecture/package-boundaries.md`
 6. Relevant flow or style docs when the touched area crosses package boundaries:
-   - `docs/domain/lifecycle.md`
-   - `docs/architecture/stream-chat-flow.md`
-   - `docs/architecture/effect-style.md`
-   - `docs/architecture/widget-architecture.md`
-   - `docs/architecture/testing-and-verification.md`
+   - `docs/architecture/assistant-turn.md`
+   - `docs/architecture/extension-seams.md`
+   - `docs/architecture/runtime-and-protocol-events.md`
+   - `docs/architecture/widget-and-host-integration.md`
+   - `docs/operations/verification.md`
 7. Relevant package `README.md` or folder `README.md` near the code.
 
 Do not invent architecture rules. Use the repo's package ownership, imports, custom lint scripts, and docs as evidence.
@@ -265,10 +265,10 @@ Durable documentation must reduce context load instead of becoming another archi
 Use the canonical docs:
 
 - `docs/domain/vocabulary.md` owns terms.
-- `docs/domain/lifecycle.md` owns lifecycle order.
-- `docs/architecture/package-map.md` owns package cards.
-- `docs/architecture/boundaries.md` owns import/data boundaries.
-- `docs/architecture/testing-and-verification.md` owns gate commands.
+- `docs/architecture/assistant-turn.md` owns lifecycle order.
+- `docs/architecture/system-map.md` owns package roles and first files.
+- `docs/architecture/package-boundaries.md` owns import/data boundaries.
+- `docs/operations/verification.md` owns gate commands.
 
 Flag docs when:
 

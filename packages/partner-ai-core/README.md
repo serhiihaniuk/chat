@@ -9,10 +9,10 @@ execution, or widget UI.
 
 ## Owns
 
-- `streamChatEffect(input)`.
+- `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.
 - Product authorization, policy, context, turn lifecycle, and protocol mapping.
-- Turn guard selection, RAG retriever, and memory port contracts.
-- App-owned ports needed by the stream-chat use case.
+- Turn guard selection, RAG retriever, memory, research, and runtime port
+  contracts.
 - Typed product failures and terminal protocol semantics.
 - Effect Layer wiring for core services.
 
@@ -22,57 +22,26 @@ execution, or widget UI.
 - Drizzle/Postgres implementation.
 - Provider SDKs or AI SDK stream parts.
 - Widget message/activity rendering.
-- Concrete app tools.
+- Concrete app tools or service adapters.
 
-## Public Surface
+## First Files To Open
 
-- `streamChatEffect(input)`
-- `createPartnerAiCoreLayer(...)`
-- Product workflow types and port contracts needed by service adapters.
+- `src/application/stream-chat/README.md`
+- `src/application/stream-chat/stream-chat.ts`
+- `src/application/stream-chat/turn/prepare-stream-chat-turn.ts`
+- `src/application/stream-chat/turn/turn-policy-plan.ts`
+- `src/application/stream-chat/protocol/protocol-event-stream.ts`
+- `src/ports/`
 
-The package does not expose parallel Promise or `AsyncIterable` facades. Edge
-transports convert the Effect stream at their own boundary.
+## Verify
 
-## Main Flow
+- `npm test --workspace @side-chat/partner-ai-core`
+- `npm run typecheck --workspace @side-chat/partner-ai-core`
+- Full gate: `npm run verify`
 
-```txt
-StreamChatInput
--> authorize workspace/project scope
--> decide allowed profile/model/tools/executor/instructions
--> run profile-selected turn guards before private context/tools
--> ensure conversation
--> persist user message
--> recall memory, retrieve allowed RAG, and prepare context/runtime request
--> map RuntimeEvents into sidechat.v1 events
--> record allowed memory write candidates after successful output
--> emit exactly one terminal event
-```
+## Canonical Docs
 
-## Boundary Rules
-
-- Context-board construction, redaction, manifests, and persistence decisions
-  belong here.
-- RAG retrieval runs during context preparation from policy-allowed source ids.
-- Memory recall runs during context preparation; memory write candidates run
-  after successful output and explicit `read_write` policy.
-- Agent runtime receives only prepared context and runtime request data.
-- Executor id and system instructions come from the selected profile's turn
-  policy decision, not from browser input.
-- Core uses ports for outside IO.
-- Expected failures use Effect's error channel.
-- Browser-visible output is only `sidechat.v1` protocol events.
-
-## Tests
-
-```sh
-npm run typecheck --workspace @side-chat/partner-ai-core
-npx vitest run packages/partner-ai-core/src/application/stream-chat/stream-chat.test.ts
-npx vitest run apps/partner-ai-service/src/inbound/http/app.test.ts
-```
-
-## Related Docs
-
-- `docs/domain/lifecycle.md`
-- `docs/architecture/capability-model.md`
-- `docs/architecture/stream-chat-flow.md`
-- `docs/architecture/boundaries.md`
+- `docs/architecture/assistant-turn.md`
+- `docs/architecture/extension-seams.md`
+- `docs/architecture/package-boundaries.md`
+- `docs/architecture/runtime-and-protocol-events.md`
