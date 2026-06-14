@@ -1,4 +1,5 @@
 import {
+  CONTEXT_ADMISSION_SELECTION_MODES,
   HISTORY_CONTEXT_MODES,
   MEMORY_POLICY_MODES,
   type ContextAdmissionConfig,
@@ -219,6 +220,17 @@ export const createContextAdmissionStatus = (config: ContextAdmissionConfig): Ca
   state: CAPABILITY_STATES.NOOP,
   adapterId: "simple-include-all-context-admission",
   policyId: config.policyId,
+  selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,
+  recordedBudget: {
+    maxInputTokens: config.maxInputTokens,
+    reservedOutputTokens: config.reservedOutputTokens,
+    sourceTokenBudgets: {
+      history: config.maxHistoryTokens,
+      memory: config.maxMemoryTokens,
+      rag: config.maxRagTokens,
+      research: config.maxResearchTokens,
+    },
+  },
   reason:
     "configured token budgets are recorded; candidate trimming is implemented in a later phase",
   safeForProduction: false,

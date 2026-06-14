@@ -145,8 +145,16 @@ const assertRuntimeContextBoard = (contextBoard: RuntimeContextBoard | undefined
     ]),
   );
   expect(contextBoard.manifest?.budget).toMatchObject({
+    policyId: "deterministic_v1",
+    selectionMode: "include_all",
     maxInputTokens: 6_000,
     reservedOutputTokens: 1_000,
+    sourceTokenBudgets: {
+      history: 600,
+      memory: 500,
+      rag: 1_400,
+      research: 900,
+    },
   });
 };
 
@@ -165,8 +173,16 @@ const assertPersistedContextSnapshot = (
     runtimeMessages: [{ role: "user", content: "hello configured service" }],
     manifest: {
       budget: {
+        policyId: "deterministic_v1",
+        selectionMode: "include_all",
         maxInputTokens: 6_000,
         reservedOutputTokens: 1_000,
+        sourceTokenBudgets: {
+          history: 600,
+          memory: 500,
+          rag: 1_400,
+          research: 900,
+        },
       },
       entries: expect.arrayContaining([
         expect.objectContaining({

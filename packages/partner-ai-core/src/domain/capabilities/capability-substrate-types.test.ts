@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CAPABILITY_FAILURE_MODES,
   CONTEXT_ADMISSION_POLICIES,
+  CONTEXT_ADMISSION_SELECTION_MODES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
   HISTORY_CONTEXT_MODES,
@@ -73,8 +74,16 @@ describe("capability substrate types", () => {
             },
           ],
           budget: {
+            policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
+            selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,
             maxInputTokens: 4096,
             reservedOutputTokens: 512,
+            sourceTokenBudgets: {
+              history: 1000,
+              memory: 500,
+              rag: 1500,
+              research: 1000,
+            },
             includedCandidateIds: ["candidate_001"],
             droppedCandidateIds: [],
           },

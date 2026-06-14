@@ -55,6 +55,17 @@ describe("partner ai service capability diagnostics", () => {
           state: "noop",
           adapterId: "simple-include-all-context-admission",
           policyId: "deterministic_v1",
+          selectionMode: "include_all",
+          recordedBudget: {
+            maxInputTokens: 24_000,
+            reservedOutputTokens: 4_000,
+            sourceTokenBudgets: {
+              history: 4_000,
+              memory: 2_000,
+              rag: 8_000,
+              research: 4_000,
+            },
+          },
           safeForProduction: false,
         },
         persistence: {
@@ -105,6 +116,11 @@ describe("partner ai service capability diagnostics", () => {
           adapterId: "current-message-only-history-context",
           policyId: "recent_plus_summary",
           safeForProduction: false,
+        },
+        contextAdmission: {
+          state: "noop",
+          policyId: "deterministic_v1",
+          selectionMode: "include_all",
         },
       },
     });

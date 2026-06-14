@@ -45,6 +45,12 @@ Default local boot is honest about the current app shape:
   a token budget;
 - memory repositories are process-local and not durable.
 
+Context admission diagnostics expose the configured policy id, the actual
+selection mode, and a secret-free recorded budget. Today that means
+`policyId: deterministic_v1` with `selectionMode: include_all`; later budgeted
+admission must change the selection mode only when candidates can really be
+dropped under budget pressure.
+
 Production-profile composition rejects enabled memory, RAG, or research
 declarations when the matching concrete adapter is missing. Diagnostics never
 include secrets, connection strings, raw memory, retrieved text, provider

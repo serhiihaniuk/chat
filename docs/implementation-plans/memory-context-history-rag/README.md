@@ -18,18 +18,19 @@ This folder is ordered by implementation dependency, not by audit section.
 
 ## Implementation Order
 
-| Order | Plan                                      | Why now                                                                                    |
-| ----: | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-|     1 | `01-capability-status-and-diagnostics.md` | Make current disabled/no-op behavior visible before adding more wiring.                    |
-|     2 | `02-capability-configuration.md`          | Create the config path that later concrete adapters will use.                              |
-|     3 | `03-app-behavior-test-coverage.md`        | Lock the distinction between seam tests and launched app behavior.                         |
-|     4 | `04-conversation-history-context.md`      | Deliver ordinary chat continuity, the most visible missing behavior.                       |
-|     5 | `05-postgres-persistence-path.md`         | Prove durable history before building durable memory on top of it.                         |
-|     6 | `06-budgeted-context-admission.md`        | Replace include-all before memory/RAG introduce broader candidate volume.                  |
-|     7 | `07-real-memory.md`                       | Add durable recall/write once policy, config, tests, persistence, and admission are ready. |
-|     8 | `08-real-rag.md`                          | Add authorized retrieval once configuration and context admission are explicit.            |
-|     9 | `09-research-agent.md`                    | Add research last, and only if product needs pre-answer synthesis beyond RAG.              |
-|    10 | `10-final-definition-of-done.md`          | Use as the final acceptance gate after implemented phases land.                            |
+| Order | Plan                                             | Why now                                                                                    |
+| ----: | ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+|     1 | `01-capability-status-and-diagnostics.md`        | Make current disabled/no-op behavior visible before adding more wiring.                    |
+|     2 | `02-capability-configuration.md`                 | Create the config path that later concrete adapters will use.                              |
+|     3 | `03-app-behavior-test-coverage.md`               | Lock the distinction between seam tests and launched app behavior.                         |
+|   3.5 | `03.5-align-implemented-capability-substrate.md` | Re-check the implemented control plane before later phases build on it.                    |
+|     4 | `04-conversation-history-context.md`             | Deliver ordinary chat continuity, the most visible missing behavior.                       |
+|     5 | `05-postgres-persistence-path.md`                | Prove durable history before building durable memory on top of it.                         |
+|     6 | `06-budgeted-context-admission.md`               | Replace include-all before memory/RAG introduce broader candidate volume.                  |
+|     7 | `07-real-memory.md`                              | Add durable recall/write once policy, config, tests, persistence, and admission are ready. |
+|     8 | `08-real-rag.md`                                 | Add authorized retrieval once configuration and context admission are explicit.            |
+|     9 | `09-research-agent.md`                           | Add research last, and only if product needs pre-answer synthesis beyond RAG.              |
+|    10 | `10-final-definition-of-done.md`                 | Use as the final acceptance gate after implemented phases land.                            |
 
 ## Non-Negotiable Rules
 

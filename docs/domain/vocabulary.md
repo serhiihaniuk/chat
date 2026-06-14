@@ -42,6 +42,9 @@ plans.
   RAG, memory, research, guards, approvals, executor id, and instructions.
 - **Prepared context**: context snapshot/messages prepared before runtime
   execution. Do not use prompt for the full prepared context.
+- **Context admission selection mode**: behavior actually used by the context
+  manager for gathered candidates. `include_all` records budgets without
+  trimming; `budgeted` means candidates can be dropped under configured limits.
 - **System prompt id**: durable profile identifier for the source of resolved
   system instructions.
 - **System instructions**: resolved prompt text passed from core to runtime for

@@ -135,8 +135,16 @@ describe("service context manager context admission", () => {
     );
 
     expect(preparedContext.contextBoard.manifest.budget).toMatchObject({
+      policyId: "deterministic_v1",
+      selectionMode: "include_all",
       maxInputTokens: 12_000,
       reservedOutputTokens: 2_000,
+      sourceTokenBudgets: {
+        history: 1_500,
+        memory: 900,
+        rag: 4_000,
+        research: 1_600,
+      },
     });
   });
 });

@@ -14,8 +14,10 @@ the status, config, and test foundation from the first three phases.
 ## Design Decision
 
 Use recent conversation messages as runtime messages for the first
-implementation. Record history inclusion in the prepared context manifest. Add
-summaries later when older history needs to fit inside tighter budgets.
+implementation, but keep runtime messages model-shaped: role and content only.
+Record message ids, sequence, token estimates, and drop reasons in the prepared
+context manifest. Add summaries later when older history needs to fit inside
+tighter budgets.
 
 This keeps conversation history distinct from memory:
 
@@ -28,18 +30,26 @@ research: pre-answer synthesis or gathering
 
 ## Ownership
 
-| Concern                         | Owner                                                        |
-| ------------------------------- | ------------------------------------------------------------ |
-| History repository contract     | `packages/db`                                                |
-| History admission policy        | `packages/partner-ai-core` turn or context policy            |
-| History retrieval and rendering | `apps/partner-ai-service/src/composition/context-manager/**` |
-| Runtime request execution       | `packages/agent-runtime`                                     |
+| Concern                               | Owner                                                        |
+| ------------------------------------- | ------------------------------------------------------------ |
+| History context/read port decision    | `packages/partner-ai-core/src/ports/context/**`              |
+| History admission policy              | `packages/partner-ai-core` turn or context policy            |
+| Repository storage contracts/adapters | `packages/db`                                                |
+| Service history adapter and rendering | `apps/partner-ai-service/src/composition/context-manager/**` |
+| Runtime request execution             | `packages/agent-runtime`                                     |
 
 The widget and chat client must not rebuild model context from browser history.
 
 ## Implementation Steps
 
-1. Extend or use the existing core history config.
+1. Decide the core-owned history read/context port before DB wiring.
+
+   The service adapter may read from repositories, but core must see a
+   model-context contract such as authorized prior messages with role/content
+   plus safe metadata. Do not make `packages/db` records the shape passed into
+   context preparation.
+
+2. Extend or use the existing core history config.
 
    Phase 2 already introduced `HistoryContextConfig` in `partner-ai-core`.
    Add only the missing fields needed for role inclusion and failed/aborted turn
@@ -56,20 +66,21 @@ The widget and chat client must not rebuild model context from browser history.
    };
    ```
 
-2. Retrieve authorized prior messages during context preparation.
+3. Retrieve authorized prior messages during context preparation.
 
    Exclude the current user message if it is already rendered separately.
 
-3. Normalize persisted records into model-safe messages.
+4. Normalize persisted records into model-safe messages and manifest metadata.
 
-   Preserve role, content, sequence, message id, and estimated tokens.
+   Runtime messages preserve role and content only. The context manifest records
+   message id, sequence, estimated tokens, inclusion, and drop reason.
 
-4. Admit history under a recent-window budget.
+5. Admit history under a recent-window budget.
 
    Drop oldest messages first when over budget. Record dropped counts and
    reasons in the manifest.
 
-5. Render admitted history before the current user message.
+6. Render admitted history before the current user message.
 
    Keep profile system instructions and trusted context board ordering intact.
    The target model input order is:
@@ -81,12 +92,12 @@ The widget and chat client must not rebuild model context from browser history.
    current user message
    ```
 
-6. Honor reset.
+7. Honor reset.
 
    Reset conversation must prevent old messages from entering future model
    context.
 
-7. Record history admission in the manifest.
+8. Record history admission in the manifest.
 
    Suggested content-safe manifest shape:
 

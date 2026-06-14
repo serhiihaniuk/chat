@@ -1,4 +1,5 @@
 import type {
+  ContextAdmissionSelectionMode,
   ContextAdmissionConfig,
   HistoryContextConfig,
   MemoryPolicy,
@@ -38,7 +39,30 @@ export type CapabilityStatus = {
   readonly policyId?: string;
   readonly configuredSourceCount?: number;
   readonly configuredAgentCount?: number;
+  /** Actual context selector behavior; distinct from configured admission policy id. */
+  readonly selectionMode?: ContextAdmissionSelectionMode;
+  /** Secret-free context token limits recorded for health/readiness diagnostics. */
+  readonly recordedBudget?: ContextAdmissionRecordedBudget;
   readonly reason?: string;
+};
+
+/**
+ * Secret-free budget summary exposed by service diagnostics.
+ *
+ * Source: configured context admission settings.
+ * Target: health/readiness JSON. This explains recorded limits only; the
+ * sibling `selectionMode` field says whether the current selector enforces
+ * those limits or only records them.
+ */
+export type ContextAdmissionRecordedBudget = {
+  readonly maxInputTokens: number;
+  readonly reservedOutputTokens: number;
+  readonly sourceTokenBudgets: {
+    readonly history: number;
+    readonly memory: number;
+    readonly rag: number;
+    readonly research: number;
+  };
 };
 
 /**

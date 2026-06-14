@@ -48,24 +48,34 @@ user: user preferences/facts that follow the user only when policy allows
 
 Each memory record must have explicit scope. No global memory by accident.
 
+## Memory Field Ownership
+
+Core port fields should be the model-context contract: ids, scope, content,
+confidence, updated time, safe provenance, redaction/trust metadata when needed
+for admission, and token estimates when the adapter can provide them.
+
+DB metadata should own storage lifecycle details: active/superseded/deleted
+status, approval status, dedupe keys, source table ids, migration-only fields,
+and adapter-specific indexing data. Service adapters must filter or map those
+storage details before returning `MemoryRecord` values to core.
+
 ## Data Requirements
 
-Recalled memories should include:
+Recalled memories returned through `MemoryPort` should include:
 
 ```txt
 memory id
 scope
 kind: fact, preference, summary, or instruction
 content
-status: active, superseded, or deleted
 source turn or provenance
 trust/confidence signal if available
 redaction class
 estimated tokens
-created and updated timestamps
+updated timestamp
 ```
 
-Write candidates should include:
+Write candidates returned through `MemoryPort` should include:
 
 ```txt
 candidate id
@@ -76,9 +86,10 @@ proposed content
 source assistant turn id
 source message ids
 reason or provenance
-status: proposed, approved, rejected, or applied
-dedupe key or explicit no-dedupe decision
 ```
+
+The database record may add proposed/approved/rejected/applied status and
+dedupe metadata after the port candidate is adapted into storage.
 
 ## Implementation Steps
 

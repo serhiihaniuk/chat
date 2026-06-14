@@ -78,6 +78,14 @@ errors.
 [ ] production-like database config does not silently fall back to memory repositories
 ```
 
+Use these commands for the DB and persistent-service lanes:
+
+```sh
+npm run test:db:container
+npm test -- --run apps/partner-ai-service/src/inbound/http/app.persistence.test.ts
+npm run test:e2e:persistent
+```
+
 ## Exit Criteria
 
 ```txt

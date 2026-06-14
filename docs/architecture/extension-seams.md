@@ -28,6 +28,11 @@ safe status fields. No-op adapters are allowed for local bootstrap, but
 production-profile composition must not enable memory, RAG, or research without a
 matching concrete adapter.
 
+Context admission status reports both the configured policy id and the actual
+selection mode. `deterministic_v1` with `include_all` means budgets are recorded
+but not yet enforced; `budgeted` must be reserved for selectors that can really
+drop candidates under pressure.
+
 Portable capability configuration contracts live in
 `packages/partner-ai-core/src/domain/capabilities/contracts/capability-configuration.ts`.
 `apps/partner-ai-service` parses `SIDECHAT_*` values and adds deployable modes

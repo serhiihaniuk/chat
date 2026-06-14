@@ -27,14 +27,20 @@ candidate admission.
 
 ## Admission Contract
 
-Define named policies:
+Keep policy identity separate from selector behavior.
+
+Current implemented behavior:
 
 ```txt
-simple_include_all
-deterministic_v1
+policyId: deterministic_v1
+selectionMode: include_all
 ```
 
-`deterministic_v1` should define:
+This means the service records the configured budgets but still includes every
+gathered candidate. Phase 6 may switch `selectionMode` to `budgeted` only when
+the context manager actually enforces caps and records dropped candidates.
+
+`deterministic_v1` budgeted behavior should define:
 
 ```txt
 max input tokens
@@ -100,7 +106,10 @@ reason such as `budget_exceeded`, `source_limit_exceeded`, `policy_disabled`,
 7. Include optional candidates while budget remains.
 8. Drop or truncate oversized optional candidates according to policy.
 9. Record included and dropped candidates in the manifest with safe reasons.
-10. Keep simple include-all available only as an explicit local/dev mode.
+10. Change diagnostics from `selectionMode: include_all` to
+    `selectionMode: budgeted` only after tests prove real trimming behavior.
+11. If simple include-all remains available, keep it as an explicit local/dev
+    selector behavior, not as a misleading budgeted policy.
 
 ## Tests
 
@@ -120,6 +129,7 @@ reason such as `budget_exceeded`, `source_limit_exceeded`, `policy_disabled`,
 
 ```txt
 [ ] Admission policy has an explicit name and contract.
+[ ] Diagnostics distinguish configured policy from actual selector behavior.
 [ ] Token budget is not a hidden constant.
 [ ] Candidates can be dropped under budget pressure.
 [ ] Dropped candidates are recorded in the manifest.

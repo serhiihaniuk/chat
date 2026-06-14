@@ -213,7 +213,11 @@ describe("service composition runtime tools", () => {
       rag: { state: "configured", configuredSourceCount: 1 },
       research: { state: "configured", configuredAgentCount: 1 },
       history: { state: "noop", policyId: "recent_messages" },
-      contextAdmission: { state: "noop", policyId: "deterministic_v1" },
+      contextAdmission: {
+        state: "noop",
+        policyId: "deterministic_v1",
+        selectionMode: "include_all",
+      },
     });
   });
 

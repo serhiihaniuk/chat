@@ -26,21 +26,23 @@ model-callable runtime tool.
 
 ## Retrieval Source Registration
 
-Suggested source shape:
+Portable manifest declaration shape:
 
 ```ts
-export type RetrievalSourceManifest = {
+export type RetrievalSourceCapability = {
   readonly sourceId: string;
-  readonly displayName: string;
   readonly description: string;
-  readonly adapterId: string;
-  readonly defaultEnabled: boolean;
-  readonly trustLevel: "host" | "retrieved" | "external";
-  readonly redactionClass: "public" | "internal" | "confidential";
+  readonly trustLevel: ContextTrustLevel;
 };
 ```
 
-Profiles and policies should select allowed source ids.
+Profiles and policies should select allowed source ids. Adapter ids, HTTP URLs,
+static-file paths, credentials, default enablement, and service-only source
+defaults stay in `apps/partner-ai-service` config/adapters and must not become
+portable manifest fields.
+
+Retrieved candidates carry per-result provenance, redaction class, score, URL,
+and token estimate after the selected service adapter runs.
 
 ## Initial Backend Decision
 
@@ -56,7 +58,8 @@ need. The near-term gap is that the app has no concrete retrieval path at all.
 
 ## Implementation Steps
 
-1. Model configured retrieval sources in service config and manifest.
+1. Model configured retrieval source ids in service config and portable manifest
+   declarations without adapter ids or credentials.
 2. Implement at least one non-noop retriever under
    `apps/partner-ai-service/src/adapters/rag/`.
 3. Pass only policy-allowed source ids into retrieval.

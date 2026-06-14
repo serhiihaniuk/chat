@@ -31,9 +31,14 @@ that status explicit through phase 1 diagnostics.
 
 ```txt
 disabled: no research runs
-external/langgraph: external agent returns summary, sources, and optional artifacts
-internal: local model/tool/RAG workflow synthesizes research context
+noop: manifest declaration with no concrete research adapter, local/test only
+external: external agent returns summary, sources, and optional artifacts
+langgraph: LangGraph-backed external workflow adapter
 ```
+
+These are the modes currently parsed by service config. If an `internal` mode is
+needed later, add it deliberately to service config, diagnostics, tests, and
+adapter selection before using it in a plan.
 
 Do not make research a generic plugin. Keep the boundary as either
 `ResearchAgentPort` or `AgentExecutor`, depending on behavior.

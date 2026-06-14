@@ -12,6 +12,8 @@ import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import type { AuthContext } from "#domain/authority";
 import {
+  CONTEXT_ADMISSION_POLICIES,
+  CONTEXT_ADMISSION_SELECTION_MODES,
   HOST_CAPABILITY_SCHEMA_VERSIONS,
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
@@ -277,8 +279,16 @@ const createObservedPorts = (
               profileVersion: profile.version,
               entries: [],
               budget: {
+                policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
+                selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,
                 maxInputTokens: 4096,
                 reservedOutputTokens: 512,
+                sourceTokenBudgets: {
+                  history: 1000,
+                  memory: 500,
+                  rag: 1500,
+                  research: 1000,
+                },
                 includedCandidateIds: [],
                 droppedCandidateIds: [],
               },

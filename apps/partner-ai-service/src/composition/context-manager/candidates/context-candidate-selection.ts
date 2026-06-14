@@ -1,8 +1,9 @@
-import type {
-  ContextBudgetDecision,
-  ContextCandidate,
-  ContextAdmissionConfig,
-  ContextManifestEntry,
+import {
+  CONTEXT_ADMISSION_SELECTION_MODES,
+  type ContextAdmissionConfig,
+  type ContextBudgetDecision,
+  type ContextCandidate,
+  type ContextManifestEntry,
 } from "@side-chat/partner-ai-core";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 
@@ -35,8 +36,16 @@ export const createSimpleContextAdmission = (
   dropped: [],
   entries: candidates.map(toIncludedManifestEntry),
   budget: {
+    policyId: config.policyId,
+    selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,
     maxInputTokens: config.maxInputTokens,
     reservedOutputTokens: config.reservedOutputTokens,
+    sourceTokenBudgets: {
+      history: config.maxHistoryTokens,
+      memory: config.maxMemoryTokens,
+      rag: config.maxRagTokens,
+      research: config.maxResearchTokens,
+    },
     includedCandidateIds: candidates.map((candidate) => candidate.candidateId),
     droppedCandidateIds: [],
   },

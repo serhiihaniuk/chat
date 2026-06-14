@@ -17,7 +17,8 @@ is proven only by fake-injected seam tests.
 [ ] Enabled memory recalls and writes through a concrete adapter.
 [ ] RAG can be enabled by config.
 [ ] Enabled RAG retrieves from at least one concrete source.
-[ ] Context admission is budgeted selection, or simple include-all is explicitly accepted as temporary.
+[ ] Context admission is budgeted selection; simple include-all is only an
+    explicit interim state before phase 6 and cannot satisfy final completion.
 [ ] Health or diagnostics reveal whether memory/RAG/research/history are enabled.
 [ ] Tests fail if production-like config silently falls back to no-op memory/RAG/research.
 [ ] Docs distinguish extension seams from implemented capabilities.
@@ -31,6 +32,8 @@ is proven only by fake-injected seam tests.
 [ ] Service config has explicit memory/RAG/research/history/context budget fields.
 [ ] No-op adapters are explicit and unsafe for production-like enabled capabilities.
 [ ] Diagnostics show disabled/noop/configured/misconfigured state.
+[ ] Diagnostics distinguish configured context admission policy from actual
+    selector behavior.
 [ ] Secrets are not leaked in diagnostics.
 ```
 
@@ -58,6 +61,7 @@ is proven only by fake-injected seam tests.
 
 ```txt
 [ ] Admission policy is named.
+[ ] Context manifest records policy id, selector behavior, and source token budgets.
 [ ] Budget comes from config/profile/policy.
 [ ] Candidates can be dropped.
 [ ] Drop reasons are manifest-visible.
