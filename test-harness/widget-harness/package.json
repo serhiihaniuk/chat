@@ -5,6 +5,28 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "imports": {
+    "#app/*": {
+      "types": "./src/app/*.tsx",
+      "development": "./src/app/*.tsx",
+      "default": "./dist/app/*.js"
+    },
+    "#clients/*": {
+      "types": "./src/clients/*.ts",
+      "development": "./src/clients/*.ts",
+      "default": "./dist/clients/*.js"
+    },
+    "#config/*": {
+      "types": "./src/config/*.ts",
+      "development": "./src/config/*.ts",
+      "default": "./dist/config/*.js"
+    },
+    "#host/*": {
+      "types": "./src/host/*.ts",
+      "development": "./src/host/*.ts",
+      "default": "./dist/host/*.js"
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,7 +37,7 @@
     "build": "tsc -b --pretty false",
     "dev": "vite",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run test-harness/widget-harness/src/widget-harness.test.ts"
+    "test": "cd ../.. && vitest run test-harness/widget-harness/src/app/widget-harness.test.ts"
   },
   "dependencies": {
     "@side-chat/chat-client": "0.0.0",

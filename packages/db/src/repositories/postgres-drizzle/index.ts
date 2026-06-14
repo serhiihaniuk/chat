@@ -3,9 +3,9 @@ import { Pool } from "pg";
 
 import { sidechatTables } from "#drizzle/schema";
 import type { SidechatRepositories } from "../contract.js";
-import { createPostgresDrizzleConversationRepository } from "./conversations.js";
-import { createPostgresDrizzleInteractionRepository } from "./interactions.js";
-import { createPostgresDrizzleTurnRepository } from "./turns.js";
+import { createPostgresDrizzleConversationRepository } from "./records/conversations.js";
+import { createPostgresDrizzleInteractionRepository } from "./records/interactions.js";
+import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
 import { createRandomIdGenerator } from "../repository-utils.js";
 
 export type PostgresDrizzleRepositoryOptions = {

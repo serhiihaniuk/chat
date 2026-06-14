@@ -43,12 +43,12 @@ import {
 } from "#adapters/policy/service-policy";
 import { createNoopRagRetriever } from "#adapters/rag/noop-rag-retriever";
 import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
-import { createServiceContextManager } from "./service-context-manager.js";
+import { createServiceContextManager } from "./context-manager/service-context-manager.js";
 import {
   createServiceHostCapabilityManifest,
   createServiceTurnPolicyResolver,
   createStaticHostCapabilityManifestPort,
-} from "./service-harness.js";
+} from "./manifest/service-harness.js";
 
 export type PersistenceConfig =
   | { readonly kind: "memory" }

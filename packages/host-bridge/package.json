@@ -5,6 +5,23 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "imports": {
+    "#bridge/*": {
+      "types": "./src/bridge/*.ts",
+      "development": "./src/bridge/*.ts",
+      "default": "./dist/bridge/*.js"
+    },
+    "#commands/*": {
+      "types": "./src/commands/*.ts",
+      "development": "./src/commands/*.ts",
+      "default": "./dist/commands/*.js"
+    },
+    "#context/*": {
+      "types": "./src/context/*.ts",
+      "development": "./src/context/*.ts",
+      "default": "./dist/context/*.js"
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,7 +31,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run packages/host-bridge/src/host-bridge.test.ts"
+    "test": "cd ../.. && vitest run packages/host-bridge/src/bridge/host-bridge.test.ts"
   },
   "dependencies": {
     "@side-chat/chat-protocol": "0.0.0",

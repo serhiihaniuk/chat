@@ -132,9 +132,9 @@ observability sinks.
 
 ## Where To Open First
 
-- `packages/partner-ai-core/src/domain/harness/capabilities.ts`
-- `packages/partner-ai-core/src/domain/harness/validation.ts`
-- `packages/partner-ai-core/src/domain/harness/turn-policy-validation.ts`
+- `packages/partner-ai-core/src/domain/harness/contracts/capabilities.ts`
+- `packages/partner-ai-core/src/domain/harness/validation/validation.ts`
+- `packages/partner-ai-core/src/domain/harness/turn-policy/turn-policy-validation.ts`
 - `packages/partner-ai-core/src/application/stream-chat/turn/turn-policy-plan.ts`
 - `packages/agent-runtime/src/runtime/turn/tool-selection.ts`
 - `packages/agent-runtime/src/tools/tool-registry.ts`
@@ -142,7 +142,7 @@ observability sinks.
 - `apps/partner-ai-service/src/composition/service-composition.ts`
 - `apps/partner-ai-service/src/adapters/README.md`
 - `apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts`
-- `packages/host-bridge/src/capability.ts`
+- `packages/host-bridge/src/commands/capability.ts`
 
 ## Related Docs
 

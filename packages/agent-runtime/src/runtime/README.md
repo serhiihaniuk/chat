@@ -21,7 +21,7 @@ Not source of truth for: product policy or browser protocol.
 agent-runtime.ts
 -> turn/prepare-runtime-turn.ts
 -> executors/executor-selection.ts
--> ai-sdk/tool-loop-agent-runner.ts
+-> ai-sdk/streaming/tool-loop-agent-runner.ts
 -> contract/runtime-event.ts
 ```
 

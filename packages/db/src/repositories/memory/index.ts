@@ -1,13 +1,13 @@
 import type { SidechatRepositories } from "../contract.js";
-import { createMemoryStore, snapshotMemoryStore, type MemoryStoreSnapshot } from "./store.js";
-import { createMemoryConversationRepository } from "./conversations.js";
+import { createMemoryStore, snapshotMemoryStore, type MemoryStoreSnapshot } from "./store/store.js";
+import { createMemoryConversationRepository } from "./records/conversations.js";
 import {
   appendMemoryAuditEvent,
   recordMemoryHostCommandResult,
   recordMemoryToolInvocation,
-} from "./interactions.js";
-import { createMemoryAssistantTurnRepository } from "./turns.js";
-import { createMemoryUsageRepository } from "./usage.js";
+} from "./records/interactions.js";
+import { createMemoryAssistantTurnRepository } from "./records/turns.js";
+import { createMemoryUsageRepository } from "./records/usage.js";
 import { createIdGenerator } from "../repository-utils.js";
 
 export type MemorySidechatRepositories = SidechatRepositories & {

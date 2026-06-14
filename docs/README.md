@@ -9,6 +9,7 @@ Not source of truth for: domain term definitions or implementation details.
 | Task                            | Read                                                                                |
 | ------------------------------- | ----------------------------------------------------------------------------------- |
 | Learn the product shape         | `architecture/foundation-overview.md`, then `architecture/system-overview.md`       |
+| Adopt or extend Side Chat       | `architecture/adoption-extension-map.md`, then `architecture/capability-model.md`   |
 | Edit domain terms               | `domain/vocabulary.md`                                                              |
 | Change package boundaries       | `architecture/package-map.md`, then `architecture/boundaries.md`                    |
 | Change capability policy        | `architecture/capability-model.md`, then `architecture/stream-chat-flow.md`         |
@@ -29,6 +30,7 @@ Not source of truth for: domain term definitions or implementation details.
 | `product/functional-requirements.md`       | Final intended product behavior.                             |
 | `product/non-functional-requirements.md`   | Quality, safety, readability, and verification requirements. |
 | `architecture/foundation-overview.md`      | Product identity and adoption shape.                         |
+| `architecture/adoption-extension-map.md`   | First files and folders for adopter extension seams.         |
 | `architecture/capability-model.md`         | Manifest, executable registry, and turn-policy separation.   |
 | `architecture/system-overview.md`          | One-screen system map.                                       |
 | `architecture/package-map.md`              | Package ownership and public surfaces.                       |

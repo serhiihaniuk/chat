@@ -69,6 +69,7 @@ Open these before changing implementation:
 ## Related Docs
 
 - `docs/domain/vocabulary.md`
+- `docs/architecture/adoption-extension-map.md`
 - `docs/architecture/capability-model.md`
 - `docs/domain/lifecycle.md`
 - `docs/architecture/package-map.md`

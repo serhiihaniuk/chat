@@ -3,23 +3,23 @@ export {
   createHarnessHostContext,
   type HarnessHostBridge,
   type HarnessHostCommandRecord,
-} from "./fake-host-bridge.js";
+} from "./host/fake-host-bridge.js";
 export {
   createWidgetHarnessApp,
   mountWidgetHarness,
   type WidgetHarnessApp,
-} from "./harness-app.js";
-import { mountBrowserHarness } from "./harness-app.js";
+} from "./app/harness-app.js";
+import { mountBrowserHarness } from "./app/harness-app.js";
 export { mountBrowserHarness };
 export {
   createLocalServiceClient,
   resolveLocalApiBaseUrl,
   withLocalAuth,
-} from "./local-service-client.js";
-export { createMockEvents, createMockStreamClient } from "./mock-stream-client.js";
+} from "./clients/local-service-client.js";
+export { createMockEvents, createMockStreamClient } from "./clients/mock-stream-client.js";
 export {
   modeLabel,
   parseWidgetHarnessConfig,
   type WidgetHarnessConfig,
   type WidgetHarnessMode,
-} from "./modes.js";
+} from "./config/modes.js";

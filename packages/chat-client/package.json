@@ -5,6 +5,23 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "imports": {
+    "#http/*": {
+      "types": "./src/http/*.ts",
+      "development": "./src/http/*.ts",
+      "default": "./dist/http/*.js"
+    },
+    "#resources/*": {
+      "types": "./src/resources/*.ts",
+      "development": "./src/resources/*.ts",
+      "default": "./dist/resources/*.js"
+    },
+    "#transport/*": {
+      "types": "./src/transport/*.ts",
+      "development": "./src/transport/*.ts",
+      "default": "./dist/transport/*.js"
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,7 +31,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run packages/chat-client/src/sse-reader.test.ts packages/chat-client/src/client.test.ts"
+    "test": "cd ../.. && vitest run packages/chat-client/src/transport/sse-reader.test.ts packages/chat-client/src/transport/client.test.ts"
   },
   "dependencies": {
     "@side-chat/chat-protocol": "0.0.0",

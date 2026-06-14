@@ -7,7 +7,7 @@ const root = resolveRoot();
 const errors = [];
 const MAX_COGNITIVE_COMPLEXITY = 12;
 const MAX_PRODUCTION_FUNCTIONS_PER_FILE = 28;
-const MAX_PRODUCTION_FILES_PER_DIRECTORY = 12;
+const MAX_SOURCE_FILES_PER_DIRECTORY = 5;
 const MAX_NESTED_FUNCTIONS = 8;
 const COPIED_SHARED_AI_PREFIX = "packages/side-chat-widget/src/shared/ai/";
 const directoryBudgetExceptions = new Map([
@@ -16,6 +16,13 @@ const directoryBudgetExceptions = new Map([
     {
       maxFiles: 20,
       reason: "shared UI primitive catalog keeps direct #shared/ui/<component> imports stable",
+    },
+  ],
+  [
+    "packages/side-chat-widget/src/shared/ai",
+    {
+      maxFiles: 12,
+      reason: "copied AI UI primitives are quarantined vendor-style source",
     },
   ],
 ]);
@@ -105,32 +112,25 @@ function validateFileResponsibilityBudget(file, sourceFile) {
 function validateDirectoryFileBudgets(files) {
   const byDirectory = new Map();
   for (const file of files) {
-    if (!isProductionSourceFile(file)) continue;
+    if (!isWorkspaceSourceFile(file) || !isAnalyzableSourceFile(file)) continue;
+    if (/(?:^|\/)(?:dist|build|coverage)\//u.test(file)) continue;
+
     const directory = file.slice(0, file.lastIndexOf("/"));
     byDirectory.set(directory, (byDirectory.get(directory) ?? 0) + 1);
   }
 
   for (const [directory, count] of byDirectory) {
     const exception = directoryBudgetExceptions.get(directory);
-    const maxFiles = exception?.maxFiles ?? MAX_PRODUCTION_FILES_PER_DIRECTORY;
+    const maxFiles = exception?.maxFiles ?? MAX_SOURCE_FILES_PER_DIRECTORY;
     if (count <= maxFiles) continue;
 
     errors.push(
-      `${directory}: production source directory contains ${count} files (max ${maxFiles}).\n` +
+      `${directory}: source directory contains ${count} files, including tests (max ${maxFiles}).\n` +
         `  Refactor prompt: split this folder into responsibility-named child folders, leave only public barrels or primary entrypoints at this level, and update imports so the hierarchy explains the domain before someone opens files.${
           exception ? ` Existing exception reason: ${exception.reason}.` : ""
         }`,
     );
   }
-}
-
-function isProductionSourceFile(file) {
-  return (
-    isWorkspaceSourceFile(file) &&
-    isAnalyzableSourceFile(file) &&
-    !isTestLikeFile(file) &&
-    !file.endsWith(".d.ts")
-  );
 }
 
 function functionLikeNodes(sourceFile) {

@@ -11,6 +11,10 @@ export {
   type ResetHistoryResult,
   type StreamChatOptions,
   type StreamChatResult,
-} from "./client.js";
-export { ChatClientError, type ChatClientErrorCode } from "./errors.js";
-export { decodeChunkedSseStream, type ChunkedSseOptions, type StreamChunk } from "./sse-reader.js";
+} from "./transport/client.js";
+export { ChatClientError, type ChatClientErrorCode } from "./http/errors.js";
+export {
+  decodeChunkedSseStream,
+  type ChunkedSseOptions,
+  type StreamChunk,
+} from "./transport/sse-reader.js";

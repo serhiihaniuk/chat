@@ -26,11 +26,11 @@ import {
 import { authContextMiddleware, type AuthContextVariables } from "./middleware/auth-context.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAuth } from "./middleware/require-auth.js";
-import { registerChatHistoryRoutes } from "./routes/chat-history.js";
-import { registerChatStreamRoute } from "./routes/chat-stream.js";
-import { registerChatUsageRoute } from "./routes/chat-usage.js";
-import { registerHealthRoutes } from "./routes/health.js";
-import { registerModelsRoute } from "./routes/models.js";
+import { registerChatHistoryRoutes } from "./routes/chat/chat-history.js";
+import { registerChatStreamRoute } from "./routes/chat/chat-stream.js";
+import { registerChatUsageRoute } from "./routes/chat/chat-usage.js";
+import { registerHealthRoutes } from "./routes/health/health.js";
+import { registerModelsRoute } from "./routes/models/models.js";
 
 const DEFAULT_WORKSPACE: WorkspaceRef = {
   tenantId: "tenant_local",

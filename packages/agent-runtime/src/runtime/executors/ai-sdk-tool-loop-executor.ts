@@ -1,6 +1,6 @@
 import type { LanguageModel, ToolLoopAgentSettings } from "ai";
 
-import { runAiSdkToolLoopAgentStream } from "../ai-sdk/tool-loop-agent-runner.js";
+import { runAiSdkToolLoopAgentStream } from "../ai-sdk/streaming/tool-loop-agent-runner.js";
 import {
   DEFAULT_AGENT_EXECUTOR_ID,
   type AgentExecutionRequest,

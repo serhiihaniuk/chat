@@ -17,7 +17,10 @@ import {
 } from "lucide-react";
 
 import type { WidgetActivityItem, WidgetMessage } from "#entities/chat";
-import { readActivitySourceLabel, ToolActivityDetails } from "./widget-tool-activity-details.js";
+import {
+  readActivitySourceLabel,
+  ToolActivityDetails,
+} from "./tool-activity/widget-tool-activity-details.js";
 
 export const WidgetMessageView = ({ message }: { readonly message: WidgetMessage }) => {
   const showActivity = shouldShowActivity(message);

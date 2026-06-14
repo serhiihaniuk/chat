@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ProtocolValidationError } from "../errors.js";
-import { parseSidechatStreamEvent } from "../validation.js";
+import { parseSidechatStreamEvent } from "../validation/validation.js";
 import { SIDECHAT_EVENT_TYPES } from "./event-union.js";
 
 describe("sidechat event validation", () => {

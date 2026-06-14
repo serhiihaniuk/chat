@@ -6,7 +6,7 @@ export {
   type HostCommand,
   type HostCommandActivityEvent,
   type HostCommandCapability,
-} from "./capability.js";
+} from "./commands/capability.js";
 export {
   createCommandResult,
   createFailedResult,
@@ -15,9 +15,12 @@ export {
   type CommandResultInput,
   type HostCommandResult,
   type HostCommandResultStatus,
-} from "./command-result.js";
-export { dispatchSupportedCommand, type HostCommandDispatcher } from "./command-dispatcher.js";
-export { createHostBridge, type HostBridge, type HostBridgeOptions } from "./bridge.js";
+} from "./commands/command-result.js";
+export {
+  dispatchSupportedCommand,
+  type HostCommandDispatcher,
+} from "./commands/command-dispatcher.js";
+export { createHostBridge, type HostBridge, type HostBridgeOptions } from "./bridge/bridge.js";
 export {
   createStaticHostContextProvider,
   toProtocolHostContext,
@@ -25,4 +28,4 @@ export {
   type HostContextRequest,
   type HostContextSnapshot,
   type HostSurface,
-} from "./host-context.js";
+} from "./context/host-context.js";
