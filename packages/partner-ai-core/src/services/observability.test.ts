@@ -3,6 +3,11 @@ import {
   SIDECHAT_EVENT_TYPES,
   SIDECHAT_PROTOCOL_VERSION,
 } from "@side-chat/chat-protocol";
+import {
+  RUNTIME_ERROR_CODES,
+  RUNTIME_EVENT_TYPES,
+  type RuntimeEvent,
+} from "@side-chat/agent-runtime";
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import type { AuthContext } from "#domain/authority";
@@ -20,13 +25,10 @@ import {
   type ObservabilityRecord,
 } from "./observability.js";
 import {
-  RUNTIME_ERROR_CODES,
-  RUNTIME_EVENT_TYPES,
   type AgentRuntimePort,
   type ClockPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
-  type RuntimeEvent,
 } from "#ports";
 import { streamChatEffect, type StreamChatInput } from "#application/stream-chat/stream-chat";
 import { createPartnerAiCoreLayer } from "./effect-runtime.js";

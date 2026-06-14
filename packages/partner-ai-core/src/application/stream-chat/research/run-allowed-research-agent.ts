@@ -1,5 +1,5 @@
-import type { ChatStreamRequest, JsonObject } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
+import type { ChatStreamRequest } from "@side-chat/chat-protocol";
+import { optionalField, type JsonObject } from "@side-chat/shared";
 import { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import {

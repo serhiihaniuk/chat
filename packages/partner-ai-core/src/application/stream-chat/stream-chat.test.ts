@@ -3,12 +3,16 @@ import {
   SIDECHAT_EVENT_TYPES,
   validateSidechatEventSequence,
 } from "@side-chat/chat-protocol";
+import {
+  RUNTIME_ERROR_CODES,
+  RUNTIME_EVENT_TYPES,
+  RUNTIME_FINISH_REASONS,
+} from "@side-chat/agent-runtime";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { AUTHORITY_DENIAL_CODES } from "#domain/authority";
 import { createTurnPolicyDecision, hashHostCapabilityManifest } from "#domain/capabilities";
 import { PARTNER_AI_CORE_ERROR_CODES } from "#errors";
-import { RUNTIME_ERROR_CODES, RUNTIME_EVENT_TYPES, RUNTIME_FINISH_REASONS } from "#ports";
 import { denyRequestPolicy, POLICY_DENIAL_CODES } from "#policies/policy";
 import {
   authContext,

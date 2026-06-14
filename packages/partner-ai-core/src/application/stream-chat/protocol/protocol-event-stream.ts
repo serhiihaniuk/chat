@@ -1,7 +1,7 @@
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
+import type { RuntimeEvent } from "@side-chat/agent-runtime";
 import { optionalField } from "@side-chat/shared";
 import { Effect, Ref, Stream } from "effect";
-import type { RuntimeEvent } from "#ports";
 import type { PartnerAiCoreError } from "#errors";
 import {
   createProtocolEventAccumulator,

@@ -1,4 +1,9 @@
 import { optionalField, type JsonObject, type JsonValue } from "@side-chat/shared";
+import {
+  RUNTIME_EVENT_TYPES,
+  type RuntimeActivityDetails,
+  type RuntimeEvent,
+} from "@side-chat/agent-runtime";
 import { Effect } from "effect";
 import {
   redactAttributes,
@@ -7,7 +12,6 @@ import {
   type ObservabilitySinkPort,
   type RequestCorrelation,
 } from "./observability.js";
-import { RUNTIME_EVENT_TYPES, type RuntimeActivityDetails, type RuntimeEvent } from "#ports";
 
 export type StreamObservationInput = {
   readonly correlation: RequestCorrelation;

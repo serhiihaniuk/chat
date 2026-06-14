@@ -1,7 +1,7 @@
+import type { RuntimeEvent } from "@side-chat/agent-runtime";
 import type { Effect } from "effect";
 import type { PartnerAiCoreError } from "#errors";
 import { runtimeEventAttributes, recordStreamObservation } from "#services/stream-observability";
-import type { RuntimeEvent } from "#ports";
 import type { ObservabilitySinkPort } from "#services/observability";
 import type { PreparedStreamChatTurn, StreamChatPorts } from "../stream-chat-types.js";
 import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";

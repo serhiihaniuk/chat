@@ -24,6 +24,14 @@ execution, or widget UI.
 - Widget message/activity rendering.
 - Concrete app tools or service adapters.
 
+## Boundary Rules
+
+- `chat-protocol` imports are limited to browser request/message/error/usage
+  DTOs and the stream-chat protocol mapper.
+- Runtime request, event, and stream contracts come from `agent-runtime`
+  through the runtime port.
+- Neutral JSON primitives come from `shared`, not from `chat-protocol`.
+
 ## First Files To Open
 
 - `src/application/stream-chat/README.md`

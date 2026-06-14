@@ -33,6 +33,8 @@ widget asks bridge -> host provides context or command result -> widget displays
 - Host commands are not runtime tools by default.
 - `HostCommandCapability` describes browser/host-app dispatch support, while
   backend `RuntimeTool` implementations live in service/runtime code.
+- `chat-protocol` imports are limited to browser-facing host context and
+  host-command activity DTOs; neutral JSON primitives come from `shared`.
 - Keep the API browser-safe and framework-light.
 - Do not import runtime, DB, service, provider, or widget internals.
 

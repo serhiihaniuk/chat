@@ -1,8 +1,5 @@
-import type {
-  ActivityEvent,
-  ActivityHostCommandDetails,
-  JsonObject,
-} from "@side-chat/chat-protocol";
+import type { ActivityEvent, ActivityHostCommandDetails } from "@side-chat/chat-protocol";
+import type { JsonObject } from "@side-chat/shared";
 
 export type HostCommandActivityEvent = ActivityEvent & {
   readonly activityKind: "host_command";

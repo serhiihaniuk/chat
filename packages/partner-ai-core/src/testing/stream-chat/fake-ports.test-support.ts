@@ -1,4 +1,10 @@
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
+import {
+  RUNTIME_EVENT_TYPES,
+  RUNTIME_FINISH_REASONS,
+  type AgentRuntimeRequest,
+  type RuntimeEvent,
+} from "@side-chat/agent-runtime";
 import { optionalField } from "@side-chat/shared";
 import { Effect, Stream } from "effect";
 import type { AuthContext } from "#domain/authority";
@@ -10,8 +16,6 @@ import {
   type TurnPolicyDecision,
 } from "#domain/capabilities";
 import {
-  RUNTIME_EVENT_TYPES,
-  RUNTIME_FINISH_REASONS,
   type AgentRuntimePort,
   type AssistantTurnLifecyclePort,
   type ClockPort,
@@ -19,8 +23,6 @@ import {
   type ConversationRepositoryPort,
   type IdGeneratorPort,
   type MemoryPort,
-  type RuntimeEvent,
-  type RuntimeRequest,
   type TurnGuardRegistryPort,
 } from "#ports";
 import type { PolicyEvaluationInput, PolicyPort } from "#policies/policy";
@@ -48,7 +50,7 @@ export type FakePortOptions = {
 
 export const createFakePorts = (options: FakePortOptions = {}) => {
   const calls: string[] = [];
-  const runtimeRequests: RuntimeRequest[] = [];
+  const runtimeRequests: AgentRuntimeRequest[] = [];
   const completedTurns: Parameters<AssistantTurnLifecyclePort["completeAssistantTurn"]>[0][] = [];
   const failedTurns: Parameters<AssistantTurnLifecyclePort["failAssistantTurn"]>[0][] = [];
   const manifest = options.manifest ?? createManifest();
@@ -221,7 +223,7 @@ const createAssistantTurnLifecyclePort = (
 
 const createRuntimePort = (
   calls: string[],
-  runtimeRequests: RuntimeRequest[],
+  runtimeRequests: AgentRuntimeRequest[],
   runtimeEvents: readonly RuntimeEvent[] | undefined,
 ): AgentRuntimePort => ({
   streamEffect: (runtimeRequest) => {

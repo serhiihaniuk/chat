@@ -1,5 +1,4 @@
-import type { JsonObject } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
+import { optionalField, type JsonObject } from "@side-chat/shared";
 
 import type { HostCommand } from "./capability.js";
 

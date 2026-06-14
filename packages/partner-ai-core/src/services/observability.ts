@@ -1,4 +1,4 @@
-import type { JsonObject, JsonPrimitive, JsonValue } from "@side-chat/chat-protocol";
+import type { JsonObject, JsonPrimitive, JsonValue } from "@side-chat/shared";
 import { Effect } from "effect";
 
 export type TraceCorrelationInput = {

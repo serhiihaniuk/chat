@@ -7,22 +7,21 @@ import {
   type ProtocolErrorCode,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
+import {
+  RUNTIME_ERROR_CODES,
+  RUNTIME_EVENT_TYPES,
+  type RuntimeActivityDetails,
+  type RuntimeActivityToolDetails,
+  type RuntimeEvent,
+  type RuntimeErrorEvent,
+} from "@side-chat/agent-runtime";
 import { optionalField } from "@side-chat/shared";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
 } from "#errors";
-import {
-  RUNTIME_ERROR_CODES,
-  RUNTIME_EVENT_TYPES,
-  type ClockPort,
-  type IdGeneratorPort,
-  type RuntimeActivityDetails,
-  type RuntimeActivityToolDetails,
-  type RuntimeEvent,
-  type RuntimeErrorEvent,
-} from "#ports";
+import { type ClockPort, type IdGeneratorPort } from "#ports";
 import type { StreamChatInput } from "../stream-chat-types.js";
 
 type RuntimeErrorCode = RuntimeErrorEvent["code"];

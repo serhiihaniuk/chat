@@ -25,13 +25,13 @@ const allowed = {
   "@side-chat/agent-runtime": new Set([
     "@ai-sdk/openai",
     "@ai-sdk/provider",
-    "@side-chat/chat-protocol",
     "@side-chat/shared",
     "ai",
     "effect",
     "zod",
   ]),
   "@side-chat/partner-ai-core": new Set([
+    "@side-chat/agent-runtime",
     "@side-chat/chat-protocol",
     "@side-chat/shared",
     "effect",
@@ -39,14 +39,7 @@ const allowed = {
   "@side-chat/chat-client": new Set(["@side-chat/chat-protocol", "@side-chat/shared"]),
   "@side-chat/chat-protocol": new Set(["@side-chat/shared"]),
   "@side-chat/shared": new Set(),
-  "@side-chat/db": new Set([
-    "@side-chat/chat-protocol",
-    "@side-chat/shared",
-    "@types/pg",
-    "drizzle-kit",
-    "drizzle-orm",
-    "pg",
-  ]),
+  "@side-chat/db": new Set(["@side-chat/shared", "@types/pg", "drizzle-kit", "drizzle-orm", "pg"]),
   "@side-chat/host-bridge": new Set(["@side-chat/chat-protocol", "@side-chat/shared"]),
   "@side-chat/side-chat-widget": new Set([
     "@base-ui/react",

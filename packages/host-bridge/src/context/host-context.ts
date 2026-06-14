@@ -1,5 +1,5 @@
-import type { HostContext, JsonObject } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
+import type { HostContext } from "@side-chat/chat-protocol";
+import { optionalField, type JsonObject } from "@side-chat/shared";
 
 import type { HostCapabilities } from "#commands/capability";
 
