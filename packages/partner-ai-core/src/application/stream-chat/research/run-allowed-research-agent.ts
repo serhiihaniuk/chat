@@ -9,7 +9,7 @@ import {
   type ContextCandidate,
   type TurnPolicyDecision,
   type WorkflowArtifact,
-} from "#domain/harness";
+} from "#domain/capabilities";
 import type {
   ResearchAgentInput,
   ResearchAgentOutput,

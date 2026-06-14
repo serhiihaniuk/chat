@@ -1,7 +1,6 @@
 import type {
   ChatRequestMessage,
   ChatStreamRequest,
-  JsonObject,
   UsageMetadata,
 } from "@side-chat/chat-protocol";
 import {
@@ -10,7 +9,7 @@ import {
   type PreparedTurnContext,
 } from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
-import { toJsonObject } from "@side-chat/shared";
+import { optionalField, toJsonObject, type JsonObject } from "@side-chat/shared";
 
 export const recordContextSnapshot = ({
   repositories,
@@ -33,7 +32,7 @@ export const recordContextSnapshot = ({
     workspaceId: authContext.workspaceId,
     assistantTurnId,
     contextSchemaVersion: "sidechat.context-manifest.v1",
-    ...(hostContext?.origin ? { hostSurfaceId: hostContext.origin } : {}),
+    ...optionalField("hostSurfaceId", hostContext?.origin || undefined),
     hostContextHash: hashCanonicalJson(hostContext ?? null),
     capabilitiesHash: manifestHash,
     contextRedactedJson: toContextSnapshotJson(preparedContext),
@@ -149,7 +148,7 @@ const toContextSnapshotJson = (preparedContext: PreparedTurnContext): JsonObject
       title: section.title,
       content: section.content,
       priority: section.priority,
-      ...(section.metadata ? { metadata: section.metadata } : {}),
+      ...optionalField("metadata", section.metadata),
     })),
     candidates: preparedContext.candidates.map((candidate) => ({
       candidateId: candidate.candidateId,
@@ -160,6 +159,6 @@ const toContextSnapshotJson = (preparedContext: PreparedTurnContext): JsonObject
       estimatedTokens: candidate.estimatedTokens,
       priority: candidate.priority,
       provenance: candidate.provenance,
-      ...(candidate.metadata ? { metadata: candidate.metadata } : {}),
+      ...optionalField("metadata", candidate.metadata),
     })),
   });

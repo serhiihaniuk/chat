@@ -1,11 +1,5 @@
-import {
-  PROTOCOL_ERROR_CODES,
-  SIDECHAT_EVENT_TYPES,
-  type CompletedEvent,
-  type DeltaEvent,
-  type ProtocolErrorCode,
-  type SidechatStreamEvent,
-} from "@side-chat/chat-protocol";
+import { PROTOCOL_ERROR_CODES, type ProtocolErrorCode } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 import { Effect, Ref } from "effect";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
@@ -13,9 +7,12 @@ import {
   PartnerAiCoreError,
 } from "#errors";
 import type { AssistantTurnFailureStatus } from "#ports";
-import { terminalErrorCode } from "#services/stream-observability";
 import { STREAM_CHAT_FAILURES, mapPortFailure, mapSyncFailure } from "../errors/effect-failures.js";
-import { validateExactlyOneTerminal } from "./runtime-event-mapper.js";
+import {
+  protocolTerminalErrorCode,
+  validateProtocolAccumulator,
+  type ProtocolEventAccumulator,
+} from "./protocol-event-accumulator.js";
 import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
 import { recordAllowedMemoryWriteCandidates } from "../memory/record-allowed-memory-write-candidates.js";
 import type {
@@ -28,39 +25,46 @@ export const finalizeProtocolStream = (
   ports: StreamChatPorts,
   input: StreamChatInput,
   turn: PreparedStreamChatTurn,
-  emitted: Ref.Ref<SidechatStreamEvent[]>,
+  accumulator: Ref.Ref<ProtocolEventAccumulator>,
 ): Effect.Effect<void, PartnerAiCoreError> =>
   Effect.gen(function* () {
-    const events = yield* Ref.get(emitted);
-    yield* validateTerminalOrFailTurn(ports, turn, events);
-    const terminalCode = terminalErrorCode(events);
+    // Validate the accumulated stream facts before writing durable outcome
+    // state. A malformed runtime sequence must not be recorded as success.
+    const state = yield* Ref.get(accumulator);
+    yield* validateTerminalOrFailTurn(ports, turn, state);
+
+    // Terminal code is the durable split between completed and failed turns.
+    const terminalCode = protocolTerminalErrorCode(state);
     if (turn.assistantTurn.status === "running") {
       if (terminalCode) {
         yield* failAssistantTurnFromTerminal(ports, turn, terminalCode);
       } else {
-        yield* completeAssistantTurnFromEvents(ports, input, turn, events);
+        yield* completeAssistantTurnFromAccumulator(ports, input, turn, state);
       }
     }
+
+    // Observability closes the lifecycle after persistence so diagnostics match
+    // the durable turn state.
     yield* recordStreamObservationEffect(ports.observability, {
       correlation: turn.correlation,
       lifecycleState: terminalCode ? "failed" : "completed",
       assistantTurnId: turn.assistantTurnId,
       providerId: turn.policyDecision.providerId,
       modelId: turn.policyDecision.modelId,
-      ...(terminalCode ? { errorCode: terminalCode } : {}),
+      ...optionalField("errorCode", terminalCode),
       startedAt: turn.startedAt,
       now: ports.clock.now(),
-      attributes: { eventCount: events.length },
+      attributes: { eventCount: state.eventCount },
     });
   });
 
 const validateTerminalOrFailTurn = (
   ports: StreamChatPorts,
   turn: PreparedStreamChatTurn,
-  events: readonly SidechatStreamEvent[],
+  accumulator: ProtocolEventAccumulator,
 ): Effect.Effect<void, PartnerAiCoreError> =>
   mapSyncFailure(
-    () => validateExactlyOneTerminal(events),
+    () => validateProtocolAccumulator(accumulator),
     STREAM_CHAT_FAILURES.INVALID_RUNTIME_SEQUENCE,
   ).pipe(
     Effect.catch((error: PartnerAiCoreError) =>
@@ -80,13 +84,13 @@ const validateTerminalOrFailTurn = (
     ),
   );
 
-const completeAssistantTurnFromEvents = (
+const completeAssistantTurnFromAccumulator = (
   ports: StreamChatPorts,
   input: StreamChatInput,
   turn: PreparedStreamChatTurn,
-  events: readonly SidechatStreamEvent[],
+  accumulator: ProtocolEventAccumulator,
 ): Effect.Effect<void, PartnerAiCoreError> => {
-  const completed = events.find(isCompletedEvent);
+  const completed = accumulator.completedEvent;
   if (!completed) {
     return Effect.fail(
       new PartnerAiCoreError(
@@ -97,18 +101,18 @@ const completeAssistantTurnFromEvents = (
     );
   }
 
-  const assistantContent = assistantContentFromEvents(events);
-
   return Effect.gen(function* () {
+    // Persist assistant content from the accumulator rather than replaying the
+    // protocol event stream; long streams should not be retained only for this.
     yield* mapPortFailure(
       ports.assistantTurns.completeAssistantTurn({
         authContext: turn.authContext,
         conversation: turn.conversation,
         request: input.request,
         assistantTurnId: turn.assistantTurnId,
-        assistantContent,
+        assistantContent: accumulator.assistantContent,
         finishReason: completed.finishReason,
-        ...(completed.usage ? { usage: completed.usage } : {}),
+        ...optionalField("usage", completed.usage),
         providerId: turn.policyDecision.providerId,
         modelId: turn.policyDecision.modelId,
         now: completed.createdAt,
@@ -116,15 +120,16 @@ const completeAssistantTurnFromEvents = (
       STREAM_CHAT_FAILURES.PERSISTENCE,
     );
 
-    yield* recordMemoryWriteCandidatesAfterCompletion(ports, input, turn, assistantContent);
+    // Memory writes are post-success candidates. Their failures are observed
+    // but must not create a second terminal stream outcome.
+    yield* recordMemoryWriteCandidatesAfterCompletion(
+      ports,
+      input,
+      turn,
+      accumulator.assistantContent,
+    );
   });
 };
-
-const assistantContentFromEvents = (events: readonly SidechatStreamEvent[]): string =>
-  events
-    .filter(isDeltaEvent)
-    .map((event) => event.content)
-    .join("");
 
 const recordMemoryWriteCandidatesAfterCompletion = (
   ports: StreamChatPorts,
@@ -215,12 +220,6 @@ const failAssistantTurnFromTerminal = (
     }),
     STREAM_CHAT_FAILURES.PERSISTENCE,
   );
-
-const isDeltaEvent = (event: SidechatStreamEvent): event is DeltaEvent =>
-  event.type === SIDECHAT_EVENT_TYPES.DELTA;
-
-const isCompletedEvent = (event: SidechatStreamEvent): event is CompletedEvent =>
-  event.type === SIDECHAT_EVENT_TYPES.COMPLETED;
 
 const failureStatusForProtocolCode = (code: ProtocolErrorCode): AssistantTurnFailureStatus => {
   if (code === PROTOCOL_ERROR_CODES.ABORTED) return "user_aborted";

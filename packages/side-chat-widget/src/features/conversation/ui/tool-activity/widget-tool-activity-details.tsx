@@ -1,4 +1,5 @@
 import { MessageResponse } from "#shared/ai/message";
+import { optionalField } from "@side-chat/shared";
 
 import type { WidgetActivityItem } from "#entities/chat";
 import {
@@ -250,8 +251,8 @@ const readResultCards = (value: unknown): readonly ToolResultCard[] => {
     return [
       {
         title: title || readActivitySourceLabel({ label: "Source", url }),
-        ...(url ? { url } : {}),
-        ...(snippet ? { snippet } : {}),
+        ...optionalField("url", url || undefined),
+        ...optionalField("snippet", snippet || undefined),
       },
     ];
   });

@@ -2,7 +2,7 @@ import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import type { ConversationRef, MemoryPort, MemoryWriteCandidate } from "#ports";
-import type { TurnPolicyDecision } from "#domain/harness";
+import type { TurnPolicyDecision } from "#domain/capabilities";
 import type { PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
 import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 

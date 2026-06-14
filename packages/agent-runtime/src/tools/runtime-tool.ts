@@ -1,8 +1,19 @@
 import type { Effect } from "effect";
-import type { ActivitySource, JsonObject } from "@side-chat/chat-protocol";
 import type { JSONSchema7 } from "@ai-sdk/provider";
+import type { JsonObject } from "@side-chat/shared";
 
 import type { AgentRuntimeError } from "#runtime/contract/runtime-error";
+import type { RuntimeActivitySource } from "#runtime/contract/runtime-activity";
+
+export type RuntimeToolScope = {
+  readonly hostAppId: string;
+  readonly workspaceId: string;
+  readonly subjectId: string;
+  readonly conversationId: string;
+  readonly assistantTurnId: string;
+  readonly profileId: string;
+  readonly allowedHostCommandNames?: readonly string[];
+};
 
 /**
  * Runtime tools are capabilities injected by the consuming app.
@@ -13,6 +24,7 @@ import type { AgentRuntimeError } from "#runtime/contract/runtime-error";
 export type RuntimeToolContext = {
   readonly requestId: string;
   readonly assistantTurnId: string;
+  readonly scope?: RuntimeToolScope;
   readonly providerId?: string;
   readonly modelId: string;
   readonly toolName: string;
@@ -40,6 +52,6 @@ export type RuntimeTool = {
   readonly description: string;
   readonly inputSchema: JSONSchema7;
   readonly timeoutMs?: number;
-  readSources?: (result: JsonObject) => readonly ActivitySource[];
+  readSources?: (result: JsonObject) => readonly RuntimeActivitySource[];
   execute(input: JsonObject, context: RuntimeToolContext): RuntimeToolEffect;
 };

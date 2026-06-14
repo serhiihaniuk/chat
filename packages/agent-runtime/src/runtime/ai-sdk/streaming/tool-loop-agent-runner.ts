@@ -6,6 +6,7 @@ import {
   type ToolSet,
 } from "ai";
 import { Effect, Stream } from "effect";
+import { optionalField } from "@side-chat/shared";
 
 import { AgentRuntimeError } from "../../contract/runtime-error.js";
 import { RUNTIME_ERROR_CODES, type RuntimeEvent } from "../../contract/runtime-event.js";
@@ -115,8 +116,9 @@ const createAiSdkPartStream = ({
         model,
         allowSystemInMessages: true,
         maxRetries: 0,
-        ...(tools ? { tools, toolChoice: AI_SDK_TOOL_CHOICE_AUTO } : {}),
-        ...(providerOptions ? { providerOptions } : {}),
+        ...optionalField("tools", tools),
+        ...optionalField("toolChoice", tools ? AI_SDK_TOOL_CHOICE_AUTO : undefined),
+        ...optionalField("providerOptions", providerOptions),
       });
 
       /**
@@ -128,7 +130,7 @@ const createAiSdkPartStream = ({
        */
       const result = await agent.stream({
         messages: [...request.messages],
-        ...(request.abortSignal ? { abortSignal: request.abortSignal } : {}),
+        ...optionalField("abortSignal", request.abortSignal),
       });
       return result.fullStream;
     },

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "imports": {
     "#sidechat-v1/*": {
       "types": "./src/sidechat-v1/*.ts",
@@ -14,7 +14,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
       "default": "./dist/index.js"
     }
   },

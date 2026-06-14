@@ -1,5 +1,5 @@
-import type { JsonObject } from "@side-chat/chat-protocol";
-import type { RuntimeTool } from "#tools/runtime-tool";
+import type { JsonObject } from "@side-chat/shared";
+import type { RuntimeTool, RuntimeToolScope } from "#tools/runtime-tool";
 
 export type RuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
@@ -36,8 +36,8 @@ export type RuntimeContextManifest = {
  * AgentRuntimeRequest is the public per-turn input contract.
  *
  * Source callers provide approved messages, optional prepared context, optional
- * executor/provider/model/profile hints, and the exact tool allowlist for this
- * turn.
+ * resolved instructions, optional executor/provider/model/profile hints, and
+ * the exact tool allowlist for this turn.
  */
 export type AgentRuntimeRequest = {
   readonly requestId: string;
@@ -46,10 +46,12 @@ export type AgentRuntimeRequest = {
   readonly providerId?: string;
   readonly modelId?: string;
   readonly profileId?: string;
+  readonly systemInstructions?: string;
   readonly messages: readonly RuntimeMessage[];
   readonly contextBoard?: RuntimeContextBoard;
   readonly availableToolNames?: readonly string[];
   readonly tools?: readonly RuntimeTool[];
+  readonly toolScope?: RuntimeToolScope;
   readonly abortSignal?: AbortSignal;
 };
 
@@ -67,5 +69,6 @@ export type RuntimeProviderRequest = {
   readonly modelId: string;
   readonly messages: readonly RuntimeMessage[];
   readonly tools?: readonly RuntimeTool[];
+  readonly toolScope?: RuntimeToolScope;
   readonly abortSignal?: AbortSignal;
 };

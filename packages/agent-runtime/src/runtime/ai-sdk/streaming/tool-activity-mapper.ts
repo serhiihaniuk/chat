@@ -1,13 +1,13 @@
 import type { TextStreamPart, ToolSet } from "ai";
-import {
-  type ActivitySource,
-  type ActivityKind,
-  type ActivityStatus,
-  type JsonObject,
-  type ProtocolErrorCode,
-} from "@side-chat/chat-protocol";
+import { optionalField, type JsonObject } from "@side-chat/shared";
 import type { RuntimeTool } from "#tools/runtime-tool";
 
+import {
+  RUNTIME_ACTIVITY_KINDS,
+  RUNTIME_ACTIVITY_STATUSES,
+  type RuntimeActivitySource,
+  type RuntimeActivityStatus,
+} from "../../contract/runtime-activity.js";
 import {
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
@@ -22,11 +22,6 @@ const AI_SDK_TOOL_PART_TYPES = {
   RESULT: "tool-result",
   ERROR: "tool-error",
 } as const;
-
-const ACTIVITY_KIND_TOOL = "tool" satisfies ActivityKind;
-const ACTIVITY_STATUS_RUNNING = "running" satisfies ActivityStatus;
-const ACTIVITY_STATUS_COMPLETED = "completed" satisfies ActivityStatus;
-const ACTIVITY_STATUS_FAILED = "failed" satisfies ActivityStatus;
 
 /**
  * Keep a lookup from streamed tool names back to the app-owned RuntimeTool.
@@ -94,7 +89,7 @@ const mapToolInputStart = (
   createToolActivity({
     request,
     sequence,
-    status: ACTIVITY_STATUS_RUNNING,
+    status: RUNTIME_ACTIVITY_STATUSES.RUNNING,
     toolCallId: part.id,
     toolName: part.toolName,
     input: {},
@@ -116,7 +111,7 @@ const mapToolCall = (
   createToolActivity({
     request,
     sequence,
-    status: ACTIVITY_STATUS_RUNNING,
+    status: RUNTIME_ACTIVITY_STATUSES.RUNNING,
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     input: toJsonObject(part.input),
@@ -141,7 +136,9 @@ const mapToolResult = (
   return createToolActivity({
     request,
     sequence,
-    status: part.preliminary ? ACTIVITY_STATUS_RUNNING : ACTIVITY_STATUS_COMPLETED,
+    status: part.preliminary
+      ? RUNTIME_ACTIVITY_STATUSES.RUNNING
+      : RUNTIME_ACTIVITY_STATUSES.COMPLETED,
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     input: toJsonObject(part.input),
@@ -165,7 +162,7 @@ const mapToolError = (
   createToolActivity({
     request,
     sequence,
-    status: ACTIVITY_STATUS_FAILED,
+    status: RUNTIME_ACTIVITY_STATUSES.FAILED,
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     input: toJsonObject(part.input),
@@ -176,14 +173,14 @@ const mapToolError = (
 type ToolActivityInput = {
   readonly request: RuntimeProviderRequest;
   readonly sequence: number;
-  readonly status: ActivityStatus;
+  readonly status: RuntimeActivityStatus;
   readonly toolCallId: string;
   readonly toolName: string;
   readonly title?: string | undefined;
   readonly input: JsonObject;
   readonly result?: JsonObject | undefined;
-  readonly sources?: readonly ActivitySource[] | undefined;
-  readonly errorCode?: ProtocolErrorCode | undefined;
+  readonly sources?: readonly RuntimeActivitySource[] | undefined;
+  readonly errorCode?: string | undefined;
 };
 
 const createToolActivity = ({
@@ -200,7 +197,7 @@ const createToolActivity = ({
 }: ToolActivityInput): RuntimeEvent => ({
   type: RUNTIME_EVENT_TYPES.ACTIVITY,
   activityId: toolCallId,
-  activityKind: ACTIVITY_KIND_TOOL,
+  activityKind: RUNTIME_ACTIVITY_KINDS.TOOL,
   requestId: request.requestId,
   assistantTurnId: request.assistantTurnId,
   sequence,
@@ -225,14 +222,14 @@ const createToolActivityDetails = ({
   toolCallId,
   toolName,
   input,
-  ...(result ? { result } : {}),
-  ...(hasSources(sources) ? { sources } : {}),
-  ...(errorCode ? { errorCode } : {}),
+  ...optionalField("result", result),
+  ...optionalField("sources", hasSources(sources) ? sources : undefined),
+  ...optionalField("errorCode", errorCode),
 });
 
 const hasSources = (
-  sources: readonly ActivitySource[] | undefined,
-): sources is readonly ActivitySource[] => Boolean(sources && sources.length > 0);
+  sources: readonly RuntimeActivitySource[] | undefined,
+): sources is readonly RuntimeActivitySource[] => Boolean(sources && sources.length > 0);
 
 const titleProp = (title: string | undefined): { readonly title?: string } =>
-  title ? { title } : {};
+  optionalField("title", title);

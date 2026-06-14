@@ -1,4 +1,8 @@
-import type { ActivityDetails, ActivityKind, ActivityStatus } from "@side-chat/chat-protocol";
+import type {
+  RuntimeActivityDetails,
+  RuntimeActivityKind,
+  RuntimeActivityStatus,
+} from "./runtime-activity.js";
 
 export const RUNTIME_EVENT_TYPES = {
   STARTED: "runtime.started",
@@ -58,11 +62,11 @@ export type RuntimeOutputDeltaEvent = RuntimeEventBase & {
 export type RuntimeActivityEvent = RuntimeEventBase & {
   readonly type: typeof RUNTIME_EVENT_TYPES.ACTIVITY;
   readonly activityId: string;
-  readonly activityKind: ActivityKind;
-  readonly status: ActivityStatus;
+  readonly activityKind: RuntimeActivityKind;
+  readonly status: RuntimeActivityStatus;
   readonly title: string;
   readonly body?: string;
-  readonly details?: ActivityDetails;
+  readonly details?: RuntimeActivityDetails;
 };
 
 export type RuntimeCompletedEvent = RuntimeEventBase & {

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "imports": {
     "#drizzle/*": {
       "types": "./src/drizzle/*.ts",
@@ -34,11 +34,13 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./schema-contract": {
-      "types": "./dist/schema-contract/index.d.ts",
+      "types": "./src/schema-contract/index.ts",
+      "development": "./src/schema-contract/index.ts",
       "default": "./dist/schema-contract/index.js"
     }
   },
@@ -48,7 +50,6 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/shared": "0.0.0",
     "drizzle-orm": "0.45.2",
     "pg": "8.21.0"

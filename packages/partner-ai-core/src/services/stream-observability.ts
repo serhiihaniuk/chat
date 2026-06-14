@@ -1,12 +1,4 @@
-import {
-  type ActivityDetails,
-  SIDECHAT_EVENT_TYPES,
-  type JsonObject,
-  type JsonValue,
-  type ProtocolErrorCode,
-  type SidechatStreamEvent,
-} from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
+import { optionalField, type JsonObject, type JsonValue } from "@side-chat/shared";
 import { Effect } from "effect";
 import {
   redactAttributes,
@@ -15,7 +7,7 @@ import {
   type ObservabilitySinkPort,
   type RequestCorrelation,
 } from "./observability.js";
-import { RUNTIME_EVENT_TYPES, type RuntimeEvent } from "#ports";
+import { RUNTIME_EVENT_TYPES, type RuntimeActivityDetails, type RuntimeEvent } from "#ports";
 
 export type StreamObservationInput = {
   readonly correlation: RequestCorrelation;
@@ -78,13 +70,6 @@ export const runtimeEventAttributes = (event: RuntimeEvent): JsonObject => {
   }
 };
 
-export const terminalErrorCode = (
-  events: readonly SidechatStreamEvent[],
-): ProtocolErrorCode | undefined => {
-  const terminal = events.at(-1);
-  return terminal?.type === SIDECHAT_EVENT_TYPES.ERROR ? terminal.code : undefined;
-};
-
 const elapsedMs = (startedAt: string, now: string): number => {
   const started = Date.parse(startedAt);
   const ended = Date.parse(now);
@@ -92,7 +77,7 @@ const elapsedMs = (startedAt: string, now: string): number => {
   return Math.max(0, ended - started);
 };
 
-const toJsonActivityMetadata = (details: ActivityDetails | undefined): JsonObject | null => {
+const toJsonActivityMetadata = (details: RuntimeActivityDetails | undefined): JsonObject | null => {
   if (!details) return null;
 
   const output: Record<string, JsonValue> = {};
@@ -110,14 +95,6 @@ const toJsonActivityMetadata = (details: ActivityDetails | undefined): JsonObjec
       responsePresent: Boolean(details.tool.result),
       sourceCount: details.tool.sources?.length ?? 0,
       ...optionalField("errorCode", details.tool.errorCode || undefined),
-    };
-  }
-  if (details.hostCommand) {
-    output["hostCommand"] = {
-      commandId: details.hostCommand.commandId,
-      commandName: details.hostCommand.commandName,
-      parametersPresent: true,
-      responsePresent: Boolean(details.hostCommand.result),
     };
   }
   return output;

@@ -1,5 +1,5 @@
 import { Effect, Exit, Option } from "effect";
-import type { JsonObject } from "@side-chat/chat-protocol";
+import type { JsonObject } from "@side-chat/shared";
 import type { RuntimeTool, RuntimeToolContext, RuntimeToolEffect } from "#tools/runtime-tool";
 
 import { AgentRuntimeError } from "../../contract/runtime-error.js";

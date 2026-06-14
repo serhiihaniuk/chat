@@ -1,4 +1,5 @@
 import type { AuthContext } from "@side-chat/partner-ai-core";
+import { optionalField } from "@side-chat/shared";
 import { createMiddleware } from "hono/factory";
 
 import type { ServiceAuthVerifier } from "#adapters/auth/service-auth";
@@ -14,7 +15,7 @@ export const authContextMiddleware = (authority: ServiceAuthVerifier) =>
     const bearerToken = context.req.header("authorization");
     const authContext = await authority.resolveAuthContext({
       requestId: context.req.header("x-request-id") ?? "route-request",
-      ...(bearerToken ? { bearerToken } : {}),
+      ...optionalField("bearerToken", bearerToken || undefined),
     });
 
     if (authContext) context.set("authContext", authContext);

@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import { AgentRuntimeError, RUNTIME_ERROR_CODES, type RuntimeTool } from "@side-chat/agent-runtime";
-import type { JsonObject } from "@side-chat/chat-protocol";
-import { isRecord } from "@side-chat/shared";
+import { isRecord, type JsonObject } from "@side-chat/shared";
 
 const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
 export const MOCK_WEB_SEARCH_TOOL_NAME = "mock_web_search";

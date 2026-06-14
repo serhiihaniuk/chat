@@ -6,6 +6,7 @@
     "ignoreDeprecations": "6.0",
     "paths": {
       "@side-chat/agent-runtime": ["./packages/agent-runtime/src/index.ts"],
+      "@side-chat/partner-ai-service": ["./apps/partner-ai-service/src/index.ts"],
       "@side-chat/partner-ai-core": ["./packages/partner-ai-core/src/index.ts"],
       "@side-chat/chat-client": ["./packages/chat-client/src/index.ts"],
       "@side-chat/chat-protocol": ["./packages/chat-protocol/src/index.ts"],

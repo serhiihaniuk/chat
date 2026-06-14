@@ -1,7 +1,7 @@
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
-import type { TurnPolicyDecision } from "#domain/harness";
+import type { TurnPolicyDecision } from "#domain/capabilities";
 import type { RagContextCandidate, RagRetrieverPort, RagRetrievalInput } from "#ports";
 import type { PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
 import { optionalField } from "@side-chat/shared";
@@ -64,10 +64,10 @@ const createRagRetrievalInput = ({
   workspace,
   requestId: request.requestId,
   userMessage: request.message.content,
-  ...(request.hostContext ? { hostContext: request.hostContext } : {}),
+  ...optionalField("hostContext", request.hostContext),
   allowedSourceIds: policyDecision.retrievalSourceIds,
   maxCandidates,
-  ...(abortSignal ? { abortSignal } : {}),
+  ...optionalField("abortSignal", abortSignal),
 });
 
 type RagRetrievalInputFactory = Omit<

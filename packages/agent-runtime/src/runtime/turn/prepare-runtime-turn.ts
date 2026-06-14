@@ -1,4 +1,5 @@
 import type { ModelProvider, ProviderSelection } from "#providers/model-provider";
+import { optionalField } from "@side-chat/shared";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import type { AgentExecutor } from "../executors/agent-executor.js";
 import {
@@ -77,11 +78,22 @@ export const prepareRuntimeTurn = (
   state: RuntimeState,
   request: AgentRuntimeRequest,
 ): PreparedRuntimeTurn => {
+  // Resolve profile defaults before any request-level provider/model/tool overrides.
   const profile = resolveProfile(state.profiles, request.profileId);
+
+  // Choose the execution engine before provider setup. Unknown executor ids
+  // must fail before any provider stream can open.
   const executor = resolveAgentExecutor(state.executors, request);
+
+  // Prove the selected provider/model pair is registered before preparing messages.
   const selection = resolveProviderSelection(request, profile, state.providers.providers);
   const provider = resolveProvider(state.providers, selection);
+
+  // Expose only tools selected for this turn; the registry is larger than the
+  // per-turn allowlist by design.
   const tools = selectRuntimeTools(state.tools, profile, request);
+
+  // Render the provider-neutral messages after core has resolved instructions and context.
   const messages = renderRuntimeMessages(profile, request);
 
   return {
@@ -103,6 +115,7 @@ const createProviderRequest = (
   providerId: selection.providerId,
   modelId: selection.modelId,
   messages,
-  ...(tools.length > 0 ? { tools } : {}),
-  ...(request.abortSignal ? { abortSignal: request.abortSignal } : {}),
+  ...optionalField("tools", tools.length > 0 ? tools : undefined),
+  ...optionalField("toolScope", request.toolScope),
+  ...optionalField("abortSignal", request.abortSignal),
 });

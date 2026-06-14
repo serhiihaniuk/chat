@@ -1,6 +1,5 @@
 import { Effect } from "effect";
-import type { JsonObject } from "@side-chat/chat-protocol";
-import { isRecord } from "@side-chat/shared";
+import { isRecord, type JsonObject } from "@side-chat/shared";
 
 import type { RuntimeTool } from "#tools/tool-registry";
 

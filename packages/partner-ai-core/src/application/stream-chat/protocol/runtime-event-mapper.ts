@@ -1,11 +1,13 @@
 import {
   PROTOCOL_ERROR_CODES,
   SIDECHAT_EVENT_TYPES,
-  validateSidechatEventSequence,
   type ChatStreamRequest,
+  type ActivityDetails,
+  type ActivityToolDetails,
   type ProtocolErrorCode,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
@@ -16,6 +18,8 @@ import {
   RUNTIME_EVENT_TYPES,
   type ClockPort,
   type IdGeneratorPort,
+  type RuntimeActivityDetails,
+  type RuntimeActivityToolDetails,
   type RuntimeEvent,
   type RuntimeErrorEvent,
 } from "#ports";
@@ -70,15 +74,18 @@ export const mapRuntimeEvent = (
         activityKind: event.activityKind,
         status: event.status,
         title: event.title,
-        ...(event.body ? { body: event.body } : {}),
-        ...(event.details ? { details: event.details } : {}),
+        ...optionalField("body", event.body || undefined),
+        ...optionalField(
+          "details",
+          event.details ? mapRuntimeActivityDetails(event.details) : undefined,
+        ),
       };
     case RUNTIME_EVENT_TYPES.COMPLETED:
       return {
         ...base,
         type: SIDECHAT_EVENT_TYPES.COMPLETED,
         finishReason: event.finishReason,
-        ...(event.usage ? { usage: event.usage } : {}),
+        ...optionalField("usage", event.usage),
       };
     case RUNTIME_EVENT_TYPES.ERROR:
       return {
@@ -127,25 +134,6 @@ export const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
       );
 
 /**
- * Enforce the browser protocol after runtime mapping has finished.
- *
- * Source runtime can produce deltas, activities, completion, or error, but the
- * public stream is only valid if exactly one terminal sidechat event exists.
- */
-export const validateExactlyOneTerminal = (events: readonly SidechatStreamEvent[]): void => {
-  try {
-    validateSidechatEventSequence(events);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "invalid stream";
-    throw new PartnerAiCoreError(
-      PARTNER_AI_CORE_ERROR_CODES.INVALID_RUNTIME_SEQUENCE,
-      message,
-      PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.MALFORMED_STREAM,
-    );
-  }
-};
-
-/**
  * Runtime errors are internal names; protocol errors are browser-facing names.
  *
  * Only supported runtime error codes become specific protocol codes. Unknown
@@ -158,3 +146,18 @@ const mapRuntimeErrorCode = (code: string): ProtocolErrorCode => {
   if (code === RUNTIME_ERROR_CODE_ABORTED) return PROTOCOL_ERROR_CODES.ABORTED;
   return PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.PROVIDER_FAILED;
 };
+
+const mapRuntimeActivityDetails = (details: RuntimeActivityDetails): ActivityDetails => ({
+  ...optionalField("sources", details.sources),
+  ...optionalField("images", details.images),
+  ...optionalField("tool", details.tool ? mapRuntimeToolDetails(details.tool) : undefined),
+});
+
+const mapRuntimeToolDetails = (tool: RuntimeActivityToolDetails): ActivityToolDetails => ({
+  toolCallId: tool.toolCallId,
+  toolName: tool.toolName,
+  ...optionalField("input", tool.input),
+  ...optionalField("result", tool.result),
+  ...optionalField("sources", tool.sources),
+  ...optionalField("errorCode", tool.errorCode ? mapRuntimeErrorCode(tool.errorCode) : undefined),
+});

@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { createOpenAI } from "@ai-sdk/openai";
+import { optionalField } from "@side-chat/shared";
 
 import { AgentRuntimeError } from "#runtime/contract/runtime-error";
 import { RUNTIME_ERROR_CODES } from "#runtime/contract/runtime-event";
@@ -39,8 +40,8 @@ export const createOpenAIResponsesProvider = (
 
   const openai = createOpenAI({
     apiKey: options.apiKey,
-    ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
-    ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...optionalField("baseURL", options.baseUrl),
+    ...optionalField("fetch", options.fetch),
   });
 
   return {

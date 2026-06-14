@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "imports": {
     "#entities/*": {
       "types": "./src/entities/*/index.ts",
@@ -34,12 +34,12 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "development": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./testing": {
-      "types": "./dist/entities/chat/testing.d.ts",
+      "types": "./src/entities/chat/testing.ts",
       "development": "./src/entities/chat/testing.ts",
       "default": "./dist/entities/chat/testing.js"
     },

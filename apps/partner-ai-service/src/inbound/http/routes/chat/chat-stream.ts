@@ -10,6 +10,7 @@ import {
   type ChatStreamRequest,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 import { Stream } from "effect";
 import type { Hono } from "hono";
 
@@ -51,7 +52,7 @@ export const registerChatStreamRoute = (
         contextManager: dependencies.contextManager,
         memory: dependencies.memory,
         runtime: dependencies.runtime,
-        ...(dependencies.observability ? { observability: dependencies.observability } : {}),
+        ...optionalField("observability", dependencies.observability),
         policies: dependencies.policies,
       }),
     );
@@ -106,7 +107,7 @@ const parseJsonBody = async (
 
 const traceInput = (request: Request): { readonly traceId?: string } => {
   const traceId = request.headers.get("x-trace-id") ?? undefined;
-  return traceId ? { traceId } : {};
+  return optionalField("traceId", traceId || undefined);
 };
 
 const mapServiceError = (error: unknown): Response => {

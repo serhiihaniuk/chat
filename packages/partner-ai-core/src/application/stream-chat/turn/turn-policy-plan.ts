@@ -7,7 +7,7 @@ import {
   type AssistantProfile,
   type HostCapabilityManifest,
   type TurnPolicyDecision,
-} from "#domain/harness";
+} from "#domain/capabilities";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,

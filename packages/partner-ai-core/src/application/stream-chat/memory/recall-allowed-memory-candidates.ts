@@ -3,7 +3,7 @@ import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import type { ConversationRef, MemoryPort, MemoryRecord } from "#ports";
-import type { TurnPolicyDecision } from "#domain/harness";
+import type { TurnPolicyDecision } from "#domain/capabilities";
 import type { PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
 import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 

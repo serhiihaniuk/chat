@@ -1,8 +1,12 @@
 import { Effect } from "effect";
-import { AgentRuntimeError, RUNTIME_ERROR_CODES, type RuntimeTool } from "@side-chat/agent-runtime";
-import type { ActivitySource, JsonObject } from "@side-chat/chat-protocol";
+import {
+  AgentRuntimeError,
+  RUNTIME_ERROR_CODES,
+  type RuntimeActivitySource,
+  type RuntimeTool,
+} from "@side-chat/agent-runtime";
 import type { ToolCapability } from "@side-chat/partner-ai-core";
-import { compactJsonObject, isRecord } from "@side-chat/shared";
+import { compactJsonObject, isRecord, optionalField, type JsonObject } from "@side-chat/shared";
 
 export const JIRA_SEARCH_ISSUES_TOOL_NAME = "jira.search_issues";
 
@@ -74,7 +78,7 @@ export const createJiraSearchIssuesTool = ({
           query: searchInput.query,
           maxResults: searchInput.maxResults,
           requestId: context.requestId,
-          ...(context.abortSignal ? { abortSignal: context.abortSignal } : {}),
+          ...optionalField("abortSignal", context.abortSignal),
         })
         .pipe(Effect.mapError(toJiraToolError));
 
@@ -116,7 +120,7 @@ const toJiraSearchIssuesResult = (issues: readonly JiraIssue[]): JsonObject => (
   ),
 });
 
-const readJiraIssueSources = (result: JsonObject): readonly ActivitySource[] => {
+const readJiraIssueSources = (result: JsonObject): readonly RuntimeActivitySource[] => {
   const issues = result["issues"];
   if (!Array.isArray(issues)) return [];
 

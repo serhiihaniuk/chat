@@ -46,6 +46,7 @@ export type PartnerAiServiceOptions = {
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
   readonly turnGuards?: TurnGuardRegistryPort;
+  readonly turnGuardIds?: readonly string[];
   readonly memory?: MemoryPort;
   readonly memoryPolicy?: MemoryPolicy;
   readonly ragRetriever?: RagRetrieverPort;
@@ -113,6 +114,7 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   ...optionalField("runtime", options.runtime),
   ...optionalField("agentRuntime", options.agentRuntime),
   ...optionalField("turnGuards", options.turnGuards),
+  ...optionalField("turnGuardIds", options.turnGuardIds),
   ...optionalField("memory", options.memory),
   ...optionalField("memoryPolicy", options.memoryPolicy),
   ...optionalField("ragRetriever", options.ragRetriever),

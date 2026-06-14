@@ -1,19 +1,22 @@
 import { Effect } from "effect";
-import { assertWorkspaceAuthority, type AuthContext } from "#domain/authority";
-import {
-  PARTNER_AI_CORE_ERROR_CODES,
-  mapAuthorityDenialToError,
-  type PartnerAiCoreError as PartnerAiCoreErrorType,
-} from "#errors";
-import { createRequestCorrelation } from "#services/observability";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
-import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
+import type { PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,
   StreamChatPorts,
 } from "../stream-chat-types.js";
-import { runTurnGuards } from "../guards/run-turn-guards.js";
+import {
+  appendUserMessage,
+  createStreamChatRequestScope,
+  ensureAuthorizedConversation,
+  prepareAndRecordTurnContext,
+  recordReceivedStreamRequest,
+  recordStartedStreamTurn,
+  resolveAuthorizedContext,
+  runSelectedTurnGuards,
+  startAssistantTurnRecord,
+  toPreparedStreamChatTurn,
+} from "./stream-chat-turn-prestart-lifecycle.js";
 import { resolveAllowedTurnPlan } from "./turn-policy-plan.js";
 
 /**
@@ -28,199 +31,64 @@ export const prepareStreamChatTurn = (
   input: StreamChatInput,
 ): Effect.Effect<PreparedStreamChatTurn, PartnerAiCoreErrorType> =>
   Effect.gen(function* () {
-    // Prove caller authority before any product state changes.
+    // Prove the host app allows this subject to act in the requested workspace.
     const authContext = yield* resolveAuthorizedContext(input);
-    const correlation = createRequestCorrelation({
-      requestId: input.request.requestId,
-      ...(input.traceId ? { traceId: input.traceId } : {}),
-    });
-    const startedAt = ports.clock.now();
 
-    // Record receipt before later stages mutate product state.
-    yield* recordStreamObservationEffect(ports.observability, {
-      correlation,
-      lifecycleState: "received",
-      startedAt,
-      now: startedAt,
-      attributes: {
-        requestId: input.request.requestId,
-        message: input.request.message,
-        authSource: authContext.source,
-        subjectId: authContext.subject.subjectId,
-      },
-    });
+    // Create the request-level correlation used by observations and persisted records.
+    const requestScope = createStreamChatRequestScope(ports, input);
 
-    // Resolve the per-turn allowlist.
+    // Record that the request was received before any agent/runtime work can start.
+    yield* recordReceivedStreamRequest(ports, input, authContext, requestScope);
+
+    // Choose the profile, tools, guards, RAG sources, memory policy, and executor for this turn.
     const turnPlan = yield* resolveAllowedTurnPlan(ports, input, authContext);
 
-    // Block unsafe prompts before private context or runtime tools are exposed.
-    const turnGuardDecisions = yield* runTurnGuards({
-      registry: ports.turnGuards,
-      streamInput: input,
+    // Block unsafe prompts before private memory, RAG, tools, or the main executor are exposed.
+    const turnGuardDecisions = yield* runSelectedTurnGuards(ports, input, authContext, turnPlan);
+
+    // Load or create only the conversation this subject may access.
+    const conversation = yield* ensureAuthorizedConversation(ports, input, authContext);
+
+    // Store the user-visible message that starts this assistant turn.
+    const userMessage = yield* appendUserMessage(ports, input, authContext, conversation);
+
+    // Create the assistant turn record that streamed runtime/protocol events attach to.
+    const assistantTurn = yield* startAssistantTurnRecord(
+      ports,
+      input,
       authContext,
       turnPlan,
-    });
-
-    // Attach the user-visible message to an authorized conversation.
-    const conversation = yield* mapPortFailure(
-      ports.conversations.ensureConversation({
-        authContext,
-        ...(input.request.conversationId
-          ? { requestedConversationId: input.request.conversationId }
-          : {}),
-        fallbackConversationId: ports.ids.nextConversationId(),
-      }),
-      STREAM_CHAT_FAILURES.PERSISTENCE,
-    );
-    const conversationDecision = assertWorkspaceAuthority(authContext, conversation);
-    if (!conversationDecision.allowed) {
-      return yield* Effect.fail(
-        mapAuthorityDenialToError(conversationDecision.code, conversationDecision.message),
-      );
-    }
-
-    const userMessage = yield* mapPortFailure(
-      ports.conversations.appendUserMessage({
-        authContext,
-        conversationId: conversation.conversationId,
-        message: input.request.message,
-      }),
-      STREAM_CHAT_FAILURES.PERSISTENCE,
+      conversation,
+      userMessage,
     );
 
-    // Create the durable record that streamed output attaches to.
-    const assistantTurn = yield* mapPortFailure(
-      ports.assistantTurns.startAssistantTurn({
-        authContext,
-        conversation,
-        userMessage,
-        request: input.request,
-        profileId: turnPlan.policyDecision.profileId,
-        profileVersion: turnPlan.policyDecision.profileVersion,
-        systemPromptId: turnPlan.profile.systemPromptId,
-        manifestHash: turnPlan.manifestHash,
-        providerId: turnPlan.policyDecision.providerId,
-        modelId: turnPlan.policyDecision.modelId,
-        now: ports.clock.now(),
-      }),
-      STREAM_CHAT_FAILURES.PERSISTENCE,
-    );
-
-    // Prepare and persist the model-visible context snapshot.
-    const preparedContext = yield* failStartedTurnOnError(
-      ports,
+    // Gather host context, memory, RAG, research output, and tool context into a model-ready board.
+    const preparedContext = yield* prepareAndRecordTurnContext(ports, input, {
       authContext,
-      assistantTurn.assistantTurnId,
-      mapPortFailure(
-        ports.contextManager.prepareTurnContext({
-          authContext,
-          workspace: input.workspace,
-          conversation,
-          request: input.request,
-          manifest: turnPlan.manifest,
-          policyDecision: turnPlan.policyDecision,
-          now: ports.clock.now(),
-          ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
-        }),
-        STREAM_CHAT_FAILURES.CONTEXT,
-      ),
-    );
-    yield* failStartedTurnOnError(
-      ports,
-      authContext,
-      assistantTurn.assistantTurnId,
-      mapPortFailure(
-        ports.assistantTurns.recordContextSnapshot({
-          authContext,
-          assistantTurnId: assistantTurn.assistantTurnId,
-          preparedContext,
-          hostContext: input.request.hostContext,
-          manifestHash: turnPlan.manifestHash,
-          now: ports.clock.now(),
-        }),
-        STREAM_CHAT_FAILURES.PERSISTENCE,
-      ),
-    );
-
-    // Mark pre-start preparation complete; protocol streaming can now open.
-    yield* recordStreamObservationEffect(ports.observability, {
-      correlation,
-      lifecycleState: "started",
-      assistantTurnId: assistantTurn.assistantTurnId,
-      providerId: turnPlan.policyDecision.providerId,
-      modelId: turnPlan.policyDecision.modelId,
-      startedAt,
-      now: ports.clock.now(),
-      attributes: {
-        requestId: input.request.requestId,
-        assistantTurnId: assistantTurn.assistantTurnId,
-        providerId: turnPlan.policyDecision.providerId,
-        modelId: turnPlan.policyDecision.modelId,
-        profileId: turnPlan.policyDecision.profileId,
-        contextManifestHash: preparedContext.contextBoard.manifest.manifestHash,
-        prompt: input.request.message.content,
-      },
-    });
-
-    return {
-      authContext,
-      correlation,
-      startedAt,
       conversation,
       userMessage,
       assistantTurn,
-      assistantTurnId: assistantTurn.assistantTurnId,
-      manifestHash: turnPlan.manifestHash,
-      policyDecision: turnPlan.policyDecision,
-      turnGuardDecisions,
+      turnPlan,
+    });
+
+    // Mark the stream as startable after all durable pre-start setup has succeeded.
+    yield* recordStartedStreamTurn(
+      ports,
+      input,
+      requestScope,
+      turnPlan,
+      assistantTurn,
       preparedContext,
-    };
-  });
+    );
 
-const failStartedTurnOnError = <A>(
-  ports: StreamChatPorts,
-  authContext: AuthContext,
-  assistantTurnId: string,
-  effect: Effect.Effect<A, PartnerAiCoreErrorType>,
-): Effect.Effect<A, PartnerAiCoreErrorType> =>
-  effect.pipe(
-    Effect.catch((error: PartnerAiCoreErrorType) =>
-      markStartedTurnFailed(ports, authContext, assistantTurnId, error).pipe(
-        Effect.andThen(Effect.fail(error)),
-      ),
-    ),
-  );
-
-const markStartedTurnFailed = (
-  ports: StreamChatPorts,
-  authContext: AuthContext,
-  assistantTurnId: string,
-  error: PartnerAiCoreErrorType,
-): Effect.Effect<void, PartnerAiCoreErrorType> =>
-  mapPortFailure(
-    ports.assistantTurns.failAssistantTurn({
+    return toPreparedStreamChatTurn({
+      requestScope,
       authContext,
-      assistantTurnId,
-      status:
-        error.code === PARTNER_AI_CORE_ERROR_CODES.PERSISTENCE_FAILED
-          ? "persistence_failed"
-          : "provider_failed",
-      errorCode: error.protocolCode,
-      now: ports.clock.now(),
-    }),
-    STREAM_CHAT_FAILURES.PERSISTENCE,
-  );
-
-const resolveAuthorizedContext = (
-  input: StreamChatInput,
-): Effect.Effect<AuthContext, PartnerAiCoreErrorType> =>
-  Effect.gen(function* () {
-    const authorityDecision = assertWorkspaceAuthority(input.authContext, input.workspace);
-    if (!authorityDecision.allowed) {
-      return yield* Effect.fail(
-        mapAuthorityDenialToError(authorityDecision.code, authorityDecision.message),
-      );
-    }
-
-    return authorityDecision.authContext;
+      turnPlan,
+      turnGuardDecisions,
+      conversation,
+      userMessage,
+      assistantTurn,
+      preparedContext,
+    });
   });

@@ -1,10 +1,11 @@
 import { RUNTIME_EVENT_TYPES, type RuntimeEvent } from "../../contract/runtime-event.js";
-import type { ActivityKind, ActivityStatus } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
-
-const ACTIVITY_KIND_REASONING = "reasoning" satisfies ActivityKind;
-const ACTIVITY_STATUS_RUNNING = "running" satisfies ActivityStatus;
-const ACTIVITY_STATUS_COMPLETED = "completed" satisfies ActivityStatus;
+import {
+  RUNTIME_ACTIVITY_KINDS,
+  RUNTIME_ACTIVITY_STATUSES,
+  type RuntimeActivityStatus,
+} from "../../contract/runtime-activity.js";
 
 export type ReasoningStreamState = {
   blockIndex: number;
@@ -30,7 +31,7 @@ export const appendReasoningDelta = (
   sequence: number,
 ): RuntimeEvent | undefined => {
   state.text = `${state.text}${delta}`;
-  return createReasoningActivity(request, sequence, state, ACTIVITY_STATUS_RUNNING);
+  return createReasoningActivity(request, sequence, state, RUNTIME_ACTIVITY_STATUSES.RUNNING);
 };
 
 /**
@@ -44,7 +45,12 @@ export const flushReasoningActivity = (
   state: ReasoningStreamState,
   sequence: number,
 ): RuntimeEvent | undefined => {
-  const event = createReasoningActivity(request, sequence, state, ACTIVITY_STATUS_COMPLETED);
+  const event = createReasoningActivity(
+    request,
+    sequence,
+    state,
+    RUNTIME_ACTIVITY_STATUSES.COMPLETED,
+  );
   if (event) {
     state.blockIndex += 1;
     state.text = "";
@@ -56,7 +62,7 @@ const createReasoningActivity = (
   request: RuntimeProviderRequest,
   sequence: number,
   state: ReasoningStreamState,
-  status: ActivityStatus,
+  status: RuntimeActivityStatus,
 ): RuntimeEvent | undefined => {
   const presentation = toReasoningPresentation(state.text);
   if (!presentation) return undefined;
@@ -64,13 +70,13 @@ const createReasoningActivity = (
   return {
     type: RUNTIME_EVENT_TYPES.ACTIVITY,
     activityId: `reasoning-${request.assistantTurnId}-${state.blockIndex}`,
-    activityKind: ACTIVITY_KIND_REASONING,
+    activityKind: RUNTIME_ACTIVITY_KINDS.REASONING,
     requestId: request.requestId,
     assistantTurnId: request.assistantTurnId,
     sequence,
     status,
     title: presentation.title,
-    ...(presentation.body ? { body: presentation.body } : {}),
+    ...optionalField("body", presentation.body || undefined),
   };
 };
 
@@ -89,7 +95,7 @@ const toReasoningPresentation = (
   const titledContent = /^\*\*(?<title>[^*]+)\*\*\s*(?<body>.*)$/su.exec(normalized);
   const title = stripInlineMarkdown(titledContent?.groups?.["title"] ?? "");
   const body = titledContent?.groups?.["body"]?.trim();
-  if (title) return { title, ...(body ? { body } : {}) };
+  if (title) return { title, ...optionalField("body", body || undefined) };
 
   const fallbackTitle = stripInlineMarkdown(normalized).replace(/\*/gu, "").trim();
   return {

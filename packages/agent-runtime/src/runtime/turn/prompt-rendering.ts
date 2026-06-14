@@ -18,14 +18,17 @@ export const renderRuntimeMessages = (
   profile: AssistantProfile,
   request: AgentRuntimeRequest,
 ): readonly RuntimeMessage[] => [
-  profileToSystemMessage(profile),
+  profileToSystemMessage(profile, request),
   ...(request.contextBoard ? [contextBoardToSystemMessage(request.contextBoard)] : []),
   ...request.messages,
 ];
 
-const profileToSystemMessage = (profile: AssistantProfile): RuntimeMessage => ({
+const profileToSystemMessage = (
+  profile: AssistantProfile,
+  request: AgentRuntimeRequest,
+): RuntimeMessage => ({
   role: "system",
-  content: profile.systemInstructions,
+  content: request.systemInstructions ?? profile.systemInstructions,
 });
 
 const contextBoardToSystemMessage = (contextBoard: RuntimeContextBoard): RuntimeMessage => ({
