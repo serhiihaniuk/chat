@@ -39,19 +39,20 @@ The widget and chat client must not rebuild model context from browser history.
 
 ## Implementation Steps
 
-1. Add history policy fields.
+1. Extend or use the existing core history config.
 
-   Include enabled/disabled, max recent messages, max tokens, role inclusion,
-   and failed/aborted turn behavior.
+   Phase 2 already introduced `HistoryContextConfig` in `partner-ai-core`.
+   Add only the missing fields needed for role inclusion and failed/aborted turn
+   behavior, or keep those decisions in named service helpers if the core
+   contract does not need to expose them yet.
 
-   Suggested type:
+   Existing base shape:
 
    ```ts
-   export type HistoryAdmissionPolicy = {
+   export type HistoryContextConfig = {
      readonly mode: "disabled" | "recent_messages" | "recent_plus_summary";
      readonly maxMessages: number;
-     readonly maxEstimatedTokens: number;
-     readonly includeAssistantMessages: boolean;
+     readonly maxTokens: number;
    };
    ```
 

@@ -23,6 +23,8 @@ app is actually doing.
 
 Do not put status decisions in the widget or runtime. Runtime receives prepared
 turns; it does not know whether service adapters are no-op or configured.
+This status object is service diagnostics only; it is not the portable
+capability configuration or manifest API that `partner-ai-core` owns.
 
 ## Implementation Steps
 

@@ -14,12 +14,13 @@ temporarily widening include-all prompt stuffing.
 
 ## Ownership
 
-| Concern                          | Owner                                                                                               |
-| -------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Admission policy name and budget | profile/config resolved by service/core policy                                                      |
-| Candidate normalization          | `apps/partner-ai-service/src/composition/context-manager/candidates/**`                             |
-| Candidate selection              | `apps/partner-ai-service/src/composition/context-manager/candidates/context-candidate-selection.ts` |
-| Manifest explanation             | `apps/partner-ai-service/src/composition/context-manager/rendering/context-manifest.ts`             |
+| Concern                        | Owner                                                                                               |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Portable admission config      | `packages/partner-ai-core/src/domain/capabilities/contracts/capability-configuration.ts`            |
+| Service env/profile resolution | `apps/partner-ai-service/src/config/**` and service composition                                     |
+| Candidate normalization        | `apps/partner-ai-service/src/composition/context-manager/candidates/**`                             |
+| Candidate selection            | `apps/partner-ai-service/src/composition/context-manager/candidates/context-candidate-selection.ts` |
+| Manifest explanation           | `apps/partner-ai-service/src/composition/context-manager/rendering/context-manifest.ts`             |
 
 Runtime receives prepared context. It should not decide product authorization or
 candidate admission.
@@ -86,7 +87,8 @@ reason such as `budget_exceeded`, `source_limit_exceeded`, `policy_disabled`,
 
 ## Implementation Steps
 
-1. Resolve context budget from config/profile.
+1. Resolve context budget from the core `ContextAdmissionConfig` populated by
+   service env/profile config.
 2. Normalize candidates with source kind, priority, estimated tokens, redaction
    class, required flag, and stable tie-break key.
 3. Partition required and optional candidates.

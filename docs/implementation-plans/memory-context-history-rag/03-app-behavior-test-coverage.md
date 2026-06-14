@@ -96,6 +96,8 @@ Use narrow commands first:
 npm test -- --run apps/partner-ai-service/src/config/service-config.test.ts
 npm test -- --run apps/partner-ai-service/src/composition/service-composition.test.ts
 npm test -- --run apps/partner-ai-service/src/composition/context-manager/service-context-manager.test.ts
+npm test -- --run apps/partner-ai-service/src/inbound/http/routes/health/health-capability-status.test.ts
+npm test -- --run apps/partner-ai-service/src/inbound/http/routes/chat/chat-stream.configured-capabilities.test.ts
 npm test -- --run test-harness/adoption-harness/src/adoption-golden-path.test.ts
 ```
 
