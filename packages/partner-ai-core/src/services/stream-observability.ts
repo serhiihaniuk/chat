@@ -44,6 +44,8 @@ export const recordStreamObservation = (
   });
 };
 
+// This map may include raw debug fields such as output text or tool metadata.
+// `recordStreamObservation` redacts the attributes before anything reaches the sink.
 export const runtimeEventAttributes = (event: RuntimeEvent): JsonObject => {
   switch (event.type) {
     case RUNTIME_EVENT_TYPES.STARTED:

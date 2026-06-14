@@ -179,9 +179,10 @@ export type RetrievalSourceCapability = {
 };
 
 /**
- * Source: host manifest declaration for one pre-answer research agent.
- * Target: context preparation can use this id to produce research artifacts.
- * Invariant: this does not select AgentExecutor or emit protocol events.
+ * Research agent the host app says can help before the answer is generated.
+ *
+ * This only registers the agent id. It does not choose the main executor and it
+ * does not emit browser events by itself.
  */
 export type ResearchAgentCapability = {
   readonly researchAgentId: string;

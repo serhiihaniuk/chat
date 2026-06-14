@@ -5,6 +5,12 @@ import { parseSidechatStreamEvent } from "../validation/validation.js";
 export const encodeSseEvent = (event: SidechatStreamEvent): string =>
   `id: ${event.eventId}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 
+/**
+ * Decode SSE text into validated Side Chat events.
+ *
+ * The frame id and event name must match the JSON payload so a malformed frame
+ * cannot pretend to be a different event.
+ */
 export const decodeSseEvents = (stream: string): SidechatStreamEvent[] => {
   const frames = stream.split(/\r?\n\r?\n/u).filter((frame) => frame.trim().length > 0);
   return frames.map(decodeFrame);

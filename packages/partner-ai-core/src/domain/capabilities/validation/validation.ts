@@ -115,6 +115,9 @@ export const createTurnPolicyDecision = ({
   profile,
   manifestHash,
 }: TurnPolicyResolutionInput): TurnPolicyDecision => {
+  // Host commands are registered in the manifest but are not selected for a
+  // turn here yet. When command execution is wired, this is the place that must
+  // choose which command names the turn may use.
   const allowedCommandNames: readonly string[] = [];
   const selectedCapabilityNames = new Set([
     ...profile.defaultToolPolicy.allowedToolNames,

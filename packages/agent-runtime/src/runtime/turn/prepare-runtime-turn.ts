@@ -42,11 +42,10 @@ export type RuntimeState = {
 };
 
 /**
- * PreparedRuntimeTurn is the result of checking one AgentRuntimeRequest.
+ * Checked runtime plan used to open the stream.
  *
- * After this exists, the runtime knows the exact provider object to call, the
- * selected provider/model ids, and the RuntimeProviderRequest that can be sent
- * to the AI SDK adapter.
+ * After this exists, the runtime knows which executor to call, which provider
+ * owns the selected model, and what messages/tools to send.
  */
 export type PreparedRuntimeTurn = {
   readonly executor: AgentExecutor;
@@ -68,32 +67,29 @@ export const createRuntimeState = (options: {
 });
 
 /**
- * Convert a public AgentRuntimeRequest into the private provider-ready request.
+ * Prepare the runtime-side inputs needed before model streaming starts.
  *
- * This function does not import AI SDK and does not call the model. It only
- * settles everything that must be known before streaming can start:
- * profile instructions, provider/model ids, allowed tools, and final messages.
+ * This checks the selected profile, executor, provider, model, tools, and
+ * messages. It does not call the model.
  */
 export const prepareRuntimeTurn = (
   state: RuntimeState,
   request: AgentRuntimeRequest,
 ): PreparedRuntimeTurn => {
-  // Resolve profile defaults before any request-level provider/model/tool overrides.
+  // Pick the instructions and usual defaults before applying request choices.
   const profile = resolveProfile(state.profiles, request.profileId);
 
-  // Choose the execution engine before provider setup. Unknown executor ids
-  // must fail before any provider stream can open.
+  // Choose the execution engine before any provider stream can open.
   const executor = resolveAgentExecutor(state.executors, request);
 
-  // Prove the selected provider/model pair is registered before preparing messages.
+  // Make sure the selected provider/model pair is registered.
   const selection = resolveProviderSelection(request, profile, state.providers.providers);
   const provider = resolveProvider(state.providers, selection);
 
-  // Expose only tools selected for this turn; the registry is larger than the
-  // per-turn allowlist by design.
+  // Keep only the tools selected for this turn.
   const tools = selectRuntimeTools(state.tools, profile, request);
 
-  // Render the provider-neutral messages after core has resolved instructions and context.
+  // Build the final model messages after instructions, context, and tools are fixed.
   const messages = renderRuntimeMessages(profile, request);
 
   return {
@@ -104,6 +100,12 @@ export const prepareRuntimeTurn = (
   };
 };
 
+/**
+ * Build the object passed to `executor.stream`.
+ *
+ * At this point provider/model ids, messages, and tools are final for this
+ * turn.
+ */
 const createProviderRequest = (
   request: AgentRuntimeRequest,
   selection: ProviderSelection,

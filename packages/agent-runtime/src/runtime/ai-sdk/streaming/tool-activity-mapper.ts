@@ -149,10 +149,10 @@ const mapToolResult = (
 };
 
 /**
- * Convert a provider/tool execution failure into the runtime activity contract.
+ * Show a failed tool row without exposing the thrown value.
  *
- * The detailed thrown value stays private to the adapter boundary. Downstream
- * code only needs a stable failed activity with a typed protocol error code.
+ * The UI only needs to know which tool call failed and that it was a tool
+ * failure. Detailed provider/tool exceptions stay in the runtime.
  */
 const mapToolError = (
   request: RuntimeProviderRequest,

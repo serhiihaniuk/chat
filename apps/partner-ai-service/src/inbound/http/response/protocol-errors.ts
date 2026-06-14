@@ -35,5 +35,11 @@ const PROTOCOL_ERROR_HTTP_STATUS = {
   [PROTOCOL_ERROR_CODES.UNSUPPORTED_PROTOCOL]: 400,
 } as const satisfies Record<ProtocolErrorCode, number>;
 
+/**
+ * Return the HTTP status for a Side Chat error code.
+ *
+ * Keep the mapping here so individual routes do not invent their own status
+ * choices for the same error code.
+ */
 export const httpStatusForProtocolError = (code: ProtocolErrorCode): number =>
   PROTOCOL_ERROR_HTTP_STATUS[code];

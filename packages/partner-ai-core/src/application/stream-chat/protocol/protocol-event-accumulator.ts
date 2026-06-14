@@ -49,6 +49,12 @@ export const recordProtocolEvent = (
   };
 };
 
+/**
+ * Check the events collected for one browser stream.
+ *
+ * Sequence numbers must be contiguous, and completed/error must appear exactly
+ * once as the final event.
+ */
 export const validateProtocolAccumulator = (accumulator: ProtocolEventAccumulator): void => {
   const reason =
     accumulator.invalidReason ??

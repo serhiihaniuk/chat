@@ -7,11 +7,20 @@ import {
   type RuntimeActivityStatus,
 } from "../../contract/runtime-activity.js";
 
+/**
+ * Scratch state for reasoning text that is still streaming.
+ *
+ * The SDK can send many small chunks. This state lets the UI update one row
+ * until the current reasoning block is flushed.
+ */
 export type ReasoningStreamState = {
   blockIndex: number;
   text: string;
 };
 
+/**
+ * Start a fresh reasoning accumulator for one model stream.
+ */
 export const createReasoningStreamState = (): ReasoningStreamState => ({
   blockIndex: 0,
   text: "",

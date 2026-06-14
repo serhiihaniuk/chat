@@ -20,8 +20,6 @@ export const createServiceContextManager = (
       // uses the same policy identity that core admitted for this turn.
       const contextProfile = yield* resolveContextProfile(input.manifest, input.policyDecision);
 
-      // Source-specific ports stay behind this service boundary; failures here
-      // are pre-start setup failures before private context reaches runtime.
       const gatheredContext = yield* gatherAllowedTurnContext(options, input);
 
       const candidates = createContextCandidates(input, gatheredContext);

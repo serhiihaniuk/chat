@@ -11,8 +11,8 @@ export type ContextAdmission = {
   readonly budget: ContextBudgetDecision;
 };
 
-// This default admission includes all candidates and records their estimated
-// tokens. It is intentionally simple until a real budget/ranking strategy is added.
+// Temporary behavior: include every gathered candidate and record estimated token
+// use so we can observe it. No trimming or sorting happens here yet.
 export const createSimpleContextAdmission = (
   candidates: readonly ContextCandidate[],
 ): ContextAdmission => ({

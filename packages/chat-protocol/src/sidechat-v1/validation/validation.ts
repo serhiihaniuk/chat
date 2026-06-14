@@ -5,6 +5,12 @@ import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "../events/event-
 
 const eventTypes = new Set<string>(Object.values(SIDECHAT_EVENT_TYPES));
 
+/**
+ * Validate one event received from or sent to a browser stream.
+ *
+ * Only declared sidechat.v1 fields are accepted. Server-only objects such as
+ * database rows, HTTP objects, or runtime events do not belong in this payload.
+ */
 export const parseSidechatStreamEvent = (input: unknown): SidechatStreamEvent => {
   try {
     const event = parseEventEnvelope(input);

@@ -16,6 +16,7 @@ export const MOCK_WEB_SEARCH_INPUT_SCHEMA = {
   additionalProperties: false,
 } as const satisfies JsonObject;
 
+// Local/dev tool fixture. It is deterministic and never calls the external web.
 export const createMockWebSearchTool = ({
   delayMs = DEFAULT_MOCK_WEB_SEARCH_DELAY_MS,
 }: {

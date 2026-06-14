@@ -16,6 +16,12 @@ export type AgentExecutionRequest = {
   readonly providerRequest: RuntimeProviderRequest;
 };
 
+/**
+ * Pluggable runner for one prepared assistant turn.
+ *
+ * The runtime chooses the model, messages, and tools before calling an
+ * executor. The executor's job is only to produce RuntimeEvents.
+ */
 export type AgentExecutor = {
   readonly executorId: string;
   readonly description: string;

@@ -25,6 +25,13 @@ import {
 import { streamingSseResponse } from "../../response/sse.js";
 import { requireContextAuth, type RouteDependencies } from "../types.js";
 
+/**
+ * Add POST /chat/stream.
+ *
+ * The route reads JSON, attaches auth and trace data, asks core for stream
+ * events, and writes them as SSE. It should not decide which model, profile, or
+ * tools are allowed.
+ */
 export const registerChatStreamRoute = (
   app: Hono<AuthContextVariables>,
   dependencies: RouteDependencies,
@@ -110,6 +117,8 @@ const traceInput = (request: Request): { readonly traceId?: string } => {
   return optionalField("traceId", traceId || undefined);
 };
 
+// Keep response shape in one place for setup failures. Once streaming starts,
+// errors travel as terminal stream events instead.
 const mapServiceError = (error: unknown): Response => {
   if (error instanceof PartnerAiCoreError) {
     return jsonError(

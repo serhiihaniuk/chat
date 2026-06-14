@@ -23,9 +23,9 @@ import type { ObservabilitySinkPort, RequestCorrelation } from "#services/observ
 /**
  * Input for one assistant turn.
  *
- * The HTTP app parses `ChatStreamRequest` and supplies trusted `AuthContext`.
- * Core treats host context inside the request as product data only; it does not
- * use it to establish tenant, workspace, or user authority.
+ * The HTTP app parses `ChatStreamRequest` and attaches `AuthContext` when
+ * available. Core checks authority before using context, persistence, or model
+ * execution; host context inside the request is page data only.
  */
 export type StreamChatInput = {
   readonly workspace: WorkspaceRef;

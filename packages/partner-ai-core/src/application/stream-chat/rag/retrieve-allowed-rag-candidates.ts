@@ -83,6 +83,8 @@ const filterAllowedRagCandidates = (
   maxCandidates: number,
 ): readonly RagContextCandidate[] => {
   const allowedSources = new Set(allowedSourceIds);
+  // Recheck the provider response. A retriever can return stale or unauthorized
+  // source ids, and core must not pass those candidates to the model.
   return candidates
     .filter((candidate) => allowedSources.has(candidate.sourceId))
     .slice(0, maxCandidates);

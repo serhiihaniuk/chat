@@ -36,11 +36,10 @@ type EventMappingPorts = {
 };
 
 /**
- * Map provider-neutral runtime events into the public sidechat.v1 protocol.
+ * Convert runtime events into the sidechat.v1 events sent to the browser.
  *
- * Core deliberately drops `runtime.started` because the browser already gets
- * `sidechat.started` from the prepared turn. Every other runtime event becomes
- * visible output/activity or the one terminal protocol event.
+ * `runtime.started` is skipped because the browser already received
+ * `sidechat.started` when the turn was prepared.
  */
 export const mapRuntimeEvent = (
   event: RuntimeEvent,
@@ -116,11 +115,10 @@ export const createErrorEvent = (
 });
 
 /**
- * Normalize unexpected runtime failures into a retryable provider error.
+ * Convert an unexpected runtime failure to the public error the browser can see.
  *
- * Invariant: expected failures should already be PartnerAiCoreError. This fallback protects
- * the stream contract when an adapter throws an unknown value or a provider
- * stream fails outside its typed error channel.
+ * Normal failures should already be PartnerAiCoreError. This fallback is for
+ * thrown values and provider streams that broke outside typed handling.
  */
 export const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
   error instanceof PartnerAiCoreError
@@ -133,11 +131,10 @@ export const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
       );
 
 /**
- * Runtime errors are internal names; protocol errors are browser-facing names.
+ * Hide internal runtime error names from the browser.
  *
- * Only supported runtime error codes become specific protocol codes. Unknown
- * runtime failures map to provider_failed so the browser does not learn
- * provider or adapter implementation details.
+ * Known failures keep their useful public code. Everything else becomes
+ * provider_failed so adapter/provider details do not leak into sidechat.v1.
  */
 const mapRuntimeErrorCode = (code: string): ProtocolErrorCode => {
   if (code === RUNTIME_ERROR_CODE_TOOL_FAILED) return PROTOCOL_ERROR_CODES.TOOL_FAILED;

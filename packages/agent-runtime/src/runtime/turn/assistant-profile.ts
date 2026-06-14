@@ -2,15 +2,9 @@ import { AgentRuntimeError } from "../contract/runtime-error.js";
 import { RUNTIME_ERROR_CODES } from "../contract/runtime-event.js";
 
 /**
- * AssistantProfile is a named assistant configuration used during turn setup.
+ * Reusable setup for a kind of assistant.
  *
- * Source app policy can create an "analyst" profile that says "use these system instructions, usually
- * use provider X/model Y, and expose tools A and B unless the request narrows
- * the tool list." This avoids repeating those choices on every request while
- * still letting product policy override them per turn.
- *
- * A profile is not permission. The consuming app must decide whether a user or
- * tenant may use a profile before calling the runtime.
+ * The caller still decides whether the current user may use this profile.
  */
 export type AssistantProfile = {
   readonly profileId: string;
@@ -22,12 +16,7 @@ export type AssistantProfile = {
 };
 
 /**
- * The built-in default keeps small runtimes from sending a model prompt with no
- * baseline assistant instructions.
- *
- * Tests and simple local setups can omit profiles and still get predictable
- * Markdown answers. Production composition should usually inject explicit
- * profiles instead of relying on this generic default.
+ * Fallback profile for tests and small local apps that did not register one.
  */
 export const DEFAULT_ASSISTANT_PROFILE_ID = "default" as const;
 
@@ -60,12 +49,10 @@ export const createProfileCatalog = (
 };
 
 /**
- * Pick the profile that will provide instructions and usual choices for this turn.
+ * Return the requested profile, or the built-in default when none is named.
  *
- * If the request does not name one, the built-in default is used. If it names a
- * missing profile, the request fails to preserve instructions and avoid silently swapping
- * the usual provider/model/tool choices would make the assistant behavior
- * surprising.
+ * A missing profile fails instead of silently changing instructions or model
+ * defaults.
  */
 export const resolveProfile = (
   catalog: ProfileCatalog,

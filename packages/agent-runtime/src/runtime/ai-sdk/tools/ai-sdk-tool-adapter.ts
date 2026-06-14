@@ -7,11 +7,10 @@ import { toJsonObject } from "./json-value.js";
 import { executeRuntimeToolForAiSdk } from "./runtime-tool-executor.js";
 
 /**
- * Convert app-owned RuntimeTool values into the AI SDK tool shape.
+ * Convert the selected app tools to the shape AI SDK expects.
  *
- * The consuming app owns what a tool does. This adapter only teaches AI SDK how
- * to call that tool and how to pass request context such as request id, turn id,
- * model id, provider id, and tool call id into the Effect-based tool function.
+ * The app still owns what each tool does. This wrapper only adds the current
+ * turn ids before the tool runs.
  */
 export const createAiSdkToolSet = (
   runtimeTools: readonly RuntimeTool[] | undefined,
@@ -37,11 +36,7 @@ const toAiSdkTool = (runtimeTool: RuntimeTool, request: RuntimeProviderRequest) 
   });
 
 /**
- * RuntimeToolContext is the tool's view of the current agent turn.
- *
- * Tools should not have to parse AI SDK messages or provider-native metadata to
- * know where they are running. The adapter gives them the normalized ids they
- * need for logging, authorization, cancellation, and activity correlation.
+ * Give the tool the ids it needs for logs, auth checks, cancellation, and UI rows.
  */
 const createRuntimeToolContext = (
   runtimeTool: RuntimeTool,

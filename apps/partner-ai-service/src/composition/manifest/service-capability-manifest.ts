@@ -32,6 +32,9 @@ const DEFAULT_RUNTIME_SYSTEM_PROMPT_ID = "runtime_default_profile";
 const DEFAULT_RUNTIME_SYSTEM_INSTRUCTIONS =
   "Render final assistant answers as GitHub-flavored Markdown. Use bullet or numbered lists when the answer contains multiple items, preserve emphasis with Markdown syntax, and keep tool payload JSON out of the visible answer unless the user explicitly asks for raw data.";
 
+// Declare what this service can offer before core chooses the turn policy.
+// The manifest is availability, not permission: validation and policy resolution
+// still decide what a single assistant turn may actually use.
 export const createServiceHostCapabilityManifest = ({
   runtimeConfig,
   providerId,

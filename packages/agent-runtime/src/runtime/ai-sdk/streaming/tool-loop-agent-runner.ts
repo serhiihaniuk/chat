@@ -35,9 +35,8 @@ const AI_SDK_TOOL_CHOICE_AUTO = "auto" as const;
 /**
  * Run one already-prepared request through AI SDK ToolLoopAgent.
  *
- * Source `turn/prepare-runtime-turn.ts` already selected provider/model, tools, and
- * messages. This file does not decide policy; it only runs the AI SDK stream
- * and yields normalized RuntimeEvent values in sequence order.
+ * The executor receives final model, message, and tool choices. This file opens
+ * the AI SDK stream and emits RuntimeEvents in the same order.
  */
 export type AiSdkToolLoopAgentRunOptions = {
   readonly model: LanguageModel;
@@ -57,11 +56,11 @@ export const runAiSdkToolLoopAgentStream = ({
   request,
 }: AiSdkToolLoopAgentRunOptions): RuntimeEventStream => {
   /**
-   * Sequence is assigned at the adapter boundary, not by individual mappers.
+   * Assign sequence numbers in the stream loop, not inside each mapper.
    *
-   * AI SDK yields different part types from one stream. Keeping the counter in
-   * this loop guarantees that text, reasoning, tool activity, errors, and the
-   * final completion share one chronological order.
+   * AI SDK yields many part types from one stream. Keeping the counter here
+   * gives text, reasoning, tool activity, errors, and completion one shared
+   * order.
    */
   const started = Stream.succeed(createRuntimeStartedEvent(request, 0));
   return Stream.concat(started, createAiSdkRuntimeEventStream({ model, providerOptions, request }));
@@ -83,6 +82,8 @@ const mapAiSdkPartsToRuntimeEventStream = (
   request: RuntimeProviderRequest,
   parts: AsyncIterable<TextStreamPart<ToolSet>>,
 ): RuntimeEventStream =>
+  // Turn AI SDK parts into runtime events. The mapping state owns sequence
+  // numbers and flushes any pending reasoning row at stream end.
   Stream.fromAsyncIterable(parts, toRuntimeError).pipe(
     Stream.mapAccum(
       () => createRuntimeEventMappingState(request.tools),
@@ -225,6 +226,8 @@ const createEventAppender = (state: RuntimeEventMappingState) => {
 
 const toRuntimeError = (error: unknown): AgentRuntimeError => {
   if (error instanceof AgentRuntimeError) return error;
+  // Do not pass SDK errors through as-is. Runtime callers only receive
+  // AgentRuntimeError values.
   return new AgentRuntimeError(
     RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
     error instanceof Error ? error.message : "AI SDK agent stream failed.",

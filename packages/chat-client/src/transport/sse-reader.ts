@@ -12,6 +12,9 @@ export type ChunkedSseOptions = {
   readonly signal?: AbortSignal;
 };
 
+// Parse the response as sidechat protocol frames, not just text chunks. Every
+// event must arrive in sequence, and the stream is valid only after a terminal
+// event has been seen.
 export const decodeChunkedSseStream = async function* (
   chunks: AsyncIterable<StreamChunk>,
   options: ChunkedSseOptions = {},
@@ -39,6 +42,8 @@ export const decodeChunkedSseStream = async function* (
   }
 
   assertNotAborted(options.signal);
+  // A valid assistant stream ends cleanly after one terminal event. Leftover
+  // bytes or no terminal event means the conversation is incomplete.
   if (extracted.remaining.trim().length > 0) {
     throw new ChatClientError("malformed_stream", "SSE stream ended with an incomplete frame");
   }
@@ -48,6 +53,7 @@ export const decodeChunkedSseStream = async function* (
 };
 
 type StreamState = {
+  // Tracks stream rules that span more than one SSE frame.
   previousSequence: number;
   terminalSeen: boolean;
 };
@@ -101,6 +107,8 @@ const decodeFrame = function* (frame: string, state: StreamState): Iterable<Side
 };
 
 const validateIncrementalEvent = (event: SidechatStreamEvent, state: StreamState): void => {
+  // Sequence order and a single terminal event are part of sidechat.v1. The
+  // client rejects streams that would make later UI state ambiguous.
   if (event.sequence <= state.previousSequence) {
     throw new ChatClientError("malformed_stream", "SSE event sequence must increase");
   }

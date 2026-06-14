@@ -38,6 +38,8 @@ export const applyActivityEvent = (
   timeline: WidgetActivityTimeline,
   event: ActivityEvent,
 ): WidgetActivityTimeline => {
+  // activityId is the row id for progress updates. Repeated events with the
+  // same id update one row instead of appending duplicate timeline items.
   const existing = timeline.items.find((item) => item.id === event.activityId);
   const startedAt = timeline.startedAt ?? event.createdAt;
 

@@ -43,6 +43,9 @@ export const NOOP_OBSERVABILITY_SINK: ObservabilitySinkPort = {
   record: () => Effect.succeed(undefined),
 };
 
+// Redaction is key-based only: lowercase substring matching, repeated through
+// objects and arrays. It blocks obvious secret/content fields, but it does not
+// understand every sensitive value a caller might put under a harmless key.
 const SENSITIVE_KEY_PARTS = [
   "authorization",
   "bearer",

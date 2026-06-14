@@ -129,5 +129,7 @@ const missingApprovalRequirementIssues = (
       message: `Turn policy is missing required ${requirement.mode} approval for ${requirement.capabilityName}.`,
     }));
 
+// Use a separator that cannot appear by accident in normal capability names, so
+// "tool:a"+"b" and "tool"+"a:b" cannot become the same comparison key.
 const approvalRequirementKey = (requirement: ApprovalRequirement): string =>
   `${requirement.capabilityName}\u0000${requirement.mode}`;

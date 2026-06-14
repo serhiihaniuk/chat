@@ -59,6 +59,8 @@ const dispatchHostCommandActivity = async (
   assistantMessageId: string,
 ): Promise<void> => {
   if (!hostBridge) {
+    // Keep the activity row visible even when the widget was mounted without a
+    // host bridge. This is a UI failure state, not a transport failure.
     recordHostCommandResult(
       actions,
       assistantMessageId,
@@ -104,6 +106,8 @@ const applyWidgetStreamEvent = async (
     case SIDECHAT_EVENT_TYPES.ACTIVITY:
       actions.setMessages((current) => applyAssistantActivity(current, assistantMessageId, event));
       if (isHostCommandActivityEvent(event)) {
+        // Wait for the host result so the timeline row shows the real command
+        // outcome before later stream events update the assistant turn.
         await dispatchHostCommand(event, assistantMessageId);
       }
       return;
@@ -128,6 +132,8 @@ const applyWidgetStreamEvent = async (
       return;
 
     case SIDECHAT_EVENT_TYPES.HISTORY:
+      // Active streams ignore history. Existing conversation history is loaded
+      // through the history path, not replayed through this live event loop.
       return;
   }
 };
@@ -194,6 +200,8 @@ const updateHostCommandResult = (
 ): WidgetMessage[] =>
   updateMessage(messages, assistantMessageId, (message) => ({
     ...message,
+    // Host commands have richer result statuses, but the timeline item is
+    // binary today: applied commands complete, every other result is failed.
     activity: updateHostCommandActivity(
       message.activity,
       event.activityId,

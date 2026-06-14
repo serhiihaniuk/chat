@@ -6,11 +6,10 @@ import { AgentRuntimeError } from "../../contract/runtime-error.js";
 import { RUNTIME_ERROR_CODES } from "../../contract/runtime-event.js";
 
 /**
- * Execute one app-owned RuntimeTool for an AI SDK tool callback.
+ * Run an app-owned tool when AI SDK calls it.
  *
- * Source tools expose an
- * Effect program so timeout, cancellation, dependencies, and typed failures
- * stay explicit. Target AI SDK receives one Promise-returning callback here.
+ * Tools are written as Effect programs so timeouts, cancellation, and typed
+ * failures stay explicit. AI SDK receives the Promise wrapper it expects here.
  */
 export const executeRuntimeToolForAiSdk = async (
   runtimeTool: RuntimeTool,
@@ -28,12 +27,10 @@ export const executeRuntimeToolForAiSdk = async (
 };
 
 /**
- * Apply the tool-level timeout declared by the app-owned tool.
+ * Enforce a tool's declared timeout.
  *
- * `RuntimeTool.timeoutMs` is a protocol promise: if a tool declares it, the
- * runtime is responsible for enforcing it. The timeout becomes a typed
- * AgentRuntimeError so downstream stream mapping can produce stable error
- * events instead of leaking scheduler-specific exceptions.
+ * If a tool says it has a timeout, runtime owns that timer and reports timeout
+ * as AgentRuntimeError, not as a scheduler-specific exception.
  */
 const withRuntimeToolTimeout = (
   runtimeTool: RuntimeTool,

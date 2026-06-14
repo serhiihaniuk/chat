@@ -124,6 +124,9 @@ export type UsageMetadata = {
 };
 
 export type TerminalEvent = CompletedEvent | ErrorEvent;
+/**
+ * All event shapes a browser client can receive for one Side Chat stream.
+ */
 export type SidechatStreamEvent =
   | StartedEvent
   | DeltaEvent
@@ -132,5 +135,10 @@ export type SidechatStreamEvent =
   | ErrorEvent
   | HistoryEvent;
 
+/**
+ * Tell whether this event closes the stream.
+ *
+ * After completed/error, another event in the same sequence is malformed.
+ */
 export const isTerminalEvent = (event: SidechatStreamEvent): event is TerminalEvent =>
   event.type === SIDECHAT_EVENT_TYPES.COMPLETED || event.type === SIDECHAT_EVENT_TYPES.ERROR;

@@ -34,11 +34,10 @@ export const createRuntimeStartedEvent = (
 });
 
 /**
- * Map ordinary AI SDK stream parts into the runtime event contract.
+ * Handle AI SDK parts that become plain runtime events.
  *
- * Source tool and reasoning parts are handled in their own files because they update
- * activity rows. This mapper owns the simple terminal/text cases that become
- * direct runtime events.
+ * Tool parts are handled elsewhere because they update activity rows. This file
+ * only maps text deltas, final completion, and provider errors.
  */
 export const mapAiSdkStreamPart = (
   request: RuntimeProviderRequest,
@@ -94,11 +93,10 @@ const mapFinishReason = (reason: string): RuntimeFinishReason => {
 };
 
 /**
- * Normalize token usage before it crosses the adapter boundary.
+ * Fill missing token counts with zero.
  *
- * Providers do not always return every usage field. The runtime contract uses
- * numbers so downstream accounting and tests never have to branch on missing
- * provider-specific usage values.
+ * Providers do not always report every count; callers should not have to branch
+ * on missing usage fields.
  */
 const toRuntimeUsage = (usage: LanguageModelUsage): RuntimeUsage => ({
   inputTokens: usage.inputTokens ?? 0,

@@ -20,6 +20,11 @@ export type AssistantTurnRef = WorkspaceRef & {
   readonly inserted: boolean;
 };
 
+/**
+ * Store the lifecycle of one assistant reply.
+ *
+ * Start it, save the prepared context, then write either completed or failed.
+ */
 export type AssistantTurnLifecyclePort = {
   readonly startAssistantTurn: (input: {
     readonly authContext: AuthContext;

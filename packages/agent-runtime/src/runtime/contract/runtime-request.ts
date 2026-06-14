@@ -7,17 +7,19 @@ export type RuntimeMessage = {
 };
 
 /**
- * The context board is already selected, authorized, and compressed context.
+ * Context that is ready to show the model.
  *
- * Building or squashing this board belongs to partner-ai-core context preparation and
- * app-owned ports. The runtime only renders it into model-facing messages for
- * one assistant turn.
+ * It has already been selected and shortened. Runtime only places it into the
+ * message list.
  */
 export type RuntimeContextBoard = {
   readonly sections: readonly RuntimeContextSection[];
   readonly manifest?: RuntimeContextManifest;
 };
 
+/**
+ * A titled piece of approved context.
+ */
 export type RuntimeContextSection = {
   readonly title: string;
   readonly content: string;
@@ -25,6 +27,11 @@ export type RuntimeContextSection = {
   readonly metadata?: JsonObject;
 };
 
+/**
+ * Optional debug data for a prepared context board.
+ *
+ * This describes what was selected; it is not model configuration.
+ */
 export type RuntimeContextManifest = {
   readonly snapshotId?: string;
   readonly snapshotHash?: string;
@@ -33,11 +40,10 @@ export type RuntimeContextManifest = {
 };
 
 /**
- * AgentRuntimeRequest is the public per-turn input contract.
+ * One turn handed from core to runtime.
  *
- * Source callers provide approved messages, optional prepared context, optional
- * resolved instructions, optional executor/provider/model/profile hints, and
- * the exact tool allowlist for this turn.
+ * Messages and allowed tools are already chosen. Empty profile/provider/model
+ * fields mean "use the runtime defaults."
  */
 export type AgentRuntimeRequest = {
   readonly requestId: string;
@@ -56,11 +62,9 @@ export type AgentRuntimeRequest = {
 };
 
 /**
- * RuntimeProviderRequest is the private request handed to the model runner.
+ * What an executor receives after turn setup.
  *
- * At this point profile/request choices have produced concrete provider/model
- * ids, tools are selected, and prompt/context messages are rendered into the
- * provider-neutral message list.
+ * Ids, messages, and tools are final for this turn.
  */
 export type RuntimeProviderRequest = {
   readonly requestId: string;

@@ -26,6 +26,13 @@ export type ResolvedTurnPlan = {
   readonly profile: AssistantProfile;
 };
 
+/**
+ * Decide what this assistant turn is allowed to use.
+ *
+ * The result names the approved profile, tools, guards, context sources, and
+ * executor. Runtime receives this decision; it does not choose those things
+ * itself.
+ */
 export const resolveAllowedTurnPlan = (
   ports: StreamChatPorts,
   input: StreamChatInput,

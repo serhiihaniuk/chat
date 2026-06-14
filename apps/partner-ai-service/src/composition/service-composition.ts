@@ -117,6 +117,9 @@ export type ServiceCompositionOptions = {
   readonly researchAgents?: readonly ResearchAgentCapability[];
 };
 
+// Build the service graph for one deployable app. Missing adapters use local
+// development defaults; production callers should inject real auth, persistence,
+// runtime, memory, retrieval, research, and guard adapters explicitly.
 export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
   const auth = options.auth ?? createDevelopmentAuthConfig(options.workspace);
   const policies = options.policies ?? createDefaultPolicyConfig(auth.profile);
@@ -164,6 +167,8 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   };
 };
 
+// `fake` is for local/dev bootstrap. Production should pass OpenAI config so
+// the runtime has real provider credentials instead of deterministic echo.
 const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): AgentRuntime =>
   createAgentRuntime({
     ...optionalField("executors", config.executors),
@@ -211,6 +216,8 @@ const defaultPersistenceForComposition = (
   profile: ServiceAuthConfig["profile"],
   repositories: SidechatRepositories | undefined,
 ): PersistenceConfig => {
+  // If repositories are injected, the caller already chose how persistence works.
+  // This helper only guards the "nothing was configured" production path.
   if (repositories) return { kind: "memory" };
   if (profile === "production") return failMissingProductionPersistence();
   return { kind: "memory" };

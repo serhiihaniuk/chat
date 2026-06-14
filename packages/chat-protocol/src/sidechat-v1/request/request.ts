@@ -35,6 +35,12 @@ export type ChatStreamRequest = ProtocolEnvelope & {
 
 const messageRoles = new Set<ChatMessageRole>(["user", "assistant", "system"]);
 
+/**
+ * Validate the browser request for a new assistant turn.
+ *
+ * The result is still only user message data. Auth, persistence, and model
+ * choices are added later by server-side packages.
+ */
 export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
   try {
     if (!isRecord(input)) throw new Error("request must be an object");
@@ -70,6 +76,8 @@ const parseMessage = (input: unknown): ChatRequestMessage => {
   return { id, role: role as ChatMessageRole, content };
 };
 
+// Host context is optional page metadata from the browser. It helps explain
+// where the message came from, but it is not proof of user or workspace access.
 const parseHostContext = (input: unknown): HostContext | undefined => {
   if (input === undefined) return undefined;
   if (!isRecord(input)) throw new Error("request.hostContext must be an object");

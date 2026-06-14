@@ -16,6 +16,8 @@ export const resolveContextProfile = (
   const resolution = resolveAssistantProfileFromManifest(manifest, policyDecision.profileId);
   if (resolution.resolved) return Effect.succeed(resolution.profile);
 
+  // At this point policy already selected the profile id. If the manifest no
+  // longer contains it, treat that as service configuration failure, not denial.
   return Effect.fail(
     new PartnerAiCoreError(
       PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,

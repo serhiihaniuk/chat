@@ -21,6 +21,12 @@ import type {
   StreamChatPorts,
 } from "../stream-chat-types.js";
 
+/**
+ * Persist the final result after a browser stream closes.
+ *
+ * The accumulator is checked before writing complete/failed state so persisted
+ * turn status matches the events the browser actually received.
+ */
 export const finalizeProtocolStream = (
   ports: StreamChatPorts,
   input: StreamChatInput,
@@ -28,9 +34,9 @@ export const finalizeProtocolStream = (
   accumulator: Ref.Ref<ProtocolEventAccumulator>,
 ): Effect.Effect<void, PartnerAiCoreError> =>
   Effect.gen(function* () {
-    // Validate the accumulated stream facts before writing durable outcome
-    // state. A malformed runtime sequence must not be recorded as success.
     const state = yield* Ref.get(accumulator);
+    // If stream events are malformed, write a failed turn before surfacing the
+    // protocol error. Never let a malformed stream be saved as completed.
     yield* validateTerminalOrFailTurn(ports, turn, state);
 
     // Terminal code is the durable split between completed and failed turns.

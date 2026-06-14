@@ -57,6 +57,13 @@ export type PartnerAiServiceOptions = {
   readonly workspace?: WorkspaceRef;
 };
 
+/**
+ * Create the Hono app for the service.
+ *
+ * This is where routes receive already-built dependencies. Route files should
+ * parse requests and write responses, not rebuild policy, storage, or runtime
+ * wiring.
+ */
 export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {}) => {
   const app = new Hono<AuthContextVariables>();
   const composition = composePartnerAiService(compositionOptions(options));

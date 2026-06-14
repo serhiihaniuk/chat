@@ -46,6 +46,8 @@ export const supportsCommand = (capabilities: HostCapabilities, command: HostCom
 
 const supportsResourceType = (capability: HostCommandCapability, payload: JsonObject): boolean => {
   const resourceTypes = capability.resourceTypes;
+  // No resource list means the command applies to every resource. If a list is
+  // present, the command payload must name one allowed resource type.
   if (!resourceTypes || resourceTypes.length === 0) return true;
 
   const resourceType = payload["resourceType"];

@@ -122,12 +122,10 @@ const attemptRuntime = <A>(tryFn: () => A): Effect.Effect<A, AgentRuntimeError> 
   });
 
 /**
- * Convert unexpected defects at the runtime package boundary.
+ * Catch raw throws from adapters and turn them into runtime errors.
  *
- * Effect keeps typed failures and defects separate: `Effect.fail` and
- * `Effect.try` use the error channel, while a raw `throw` is a defect. We still
- * protect callers here so an accidental adapter throw becomes AgentRuntimeError
- * instead of escaping as an untyped fiber failure.
+ * Most failures should use Effect.fail or Effect.try. This protects callers when
+ * adapter code throws before it can return a typed AgentRuntimeError.
  */
 const catchRuntimeDefects = (stream: RuntimeEventStream): RuntimeEventStream =>
   Stream.catchCauseIf(stream, Cause.hasDies, (cause) =>

@@ -49,6 +49,13 @@ export type MemoryWriteCandidateRecordInput = {
   readonly candidates: readonly MemoryWriteCandidate[];
 };
 
+/**
+ * Durable memory operations used by one assistant turn.
+ *
+ * Recall happens before the model answers. Write candidates are proposed after
+ * a successful answer, and adapters must store them only when the selected
+ * memory policy allows writes.
+ */
 export type MemoryPort = {
   readonly recall: (input: MemoryRecallInput) => Effect.Effect<readonly MemoryRecord[], unknown>;
   readonly proposeWriteCandidates: (

@@ -9,6 +9,12 @@ export const RUNTIME_ACTIVITY_KINDS = {
 export type RuntimeActivityKind =
   (typeof RUNTIME_ACTIVITY_KINDS)[keyof typeof RUNTIME_ACTIVITY_KINDS];
 
+/**
+ * Statuses for one progress row.
+ *
+ * The same `activityId` may move from running to completed or failed. That
+ * means "update this row", not "render a new assistant message".
+ */
 export const RUNTIME_ACTIVITY_STATUSES = {
   RUNNING: "running",
   COMPLETED: "completed",
@@ -30,6 +36,13 @@ export type RuntimeActivityImage = {
   readonly data: string;
 };
 
+/**
+ * Visible state for one tool call.
+ *
+ * `toolCallId` is the row identity while input, result, or error information
+ * arrives. Tool exceptions are reduced to `errorCode`; callers should not
+ * expect a thrown value here.
+ */
 export type RuntimeActivityToolDetails = {
   readonly toolCallId: string;
   readonly toolName: string;
@@ -39,6 +52,12 @@ export type RuntimeActivityToolDetails = {
   readonly errorCode?: string;
 };
 
+/**
+ * Optional details attached to an activity row.
+ *
+ * Tool input and result stay with the activity that produced them. They do not
+ * become separate chat messages.
+ */
 export type RuntimeActivityDetails = {
   readonly sources?: readonly RuntimeActivitySource[];
   readonly images?: readonly RuntimeActivityImage[];

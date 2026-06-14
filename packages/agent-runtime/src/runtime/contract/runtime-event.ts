@@ -14,6 +14,11 @@ export const RUNTIME_EVENT_TYPES = {
 
 export type RuntimeEventType = (typeof RUNTIME_EVENT_TYPES)[keyof typeof RUNTIME_EVENT_TYPES];
 
+/**
+ * Runtime failure codes that callers can branch on.
+ *
+ * Specific SDK or provider error objects are not part of this contract.
+ */
 export const RUNTIME_ERROR_CODES = {
   PROVIDER_UNAVAILABLE: "provider_unavailable",
   MODEL_UNAVAILABLE: "model_unavailable",
@@ -37,10 +42,9 @@ export type RuntimeFinishReason =
   (typeof RUNTIME_FINISH_REASONS)[keyof typeof RUNTIME_FINISH_REASONS];
 
 /**
- * RuntimeEvent is the provider-neutral output boundary.
+ * Fields every runtime event carries.
  *
- * Source AI SDK stream parts and provider-native chunks are normalized into this union
- * before anything leaves packages/agent-runtime.
+ * `sequence` increases in emit order for one assistant turn.
  */
 export type RuntimeEventBase = {
   readonly requestId: string;

@@ -16,9 +16,8 @@ export const gatherAllowedTurnContext = (
   input: PrepareTurnContextInput,
 ) =>
   Effect.gen(function* () {
-    // At this boundary, service RAG, memory, and research ports become gathered
-    // turn context. Their failures remain pre-start before private context
-    // reaches runtime messages or browser-visible protocol events.
+    // Gather all private context before runtime starts. If any source fails,
+    // the turn stops before model messages or browser events are produced.
     const ragCandidates = yield* retrieveAllowedRagCandidates({
       retriever: ports.ragRetriever,
       authContext: input.authContext,

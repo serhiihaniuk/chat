@@ -10,6 +10,12 @@ export type SequenceValidationResult = {
   readonly eventCount: number;
 };
 
+/**
+ * Check that a complete stream is ordered and closed.
+ *
+ * Events must be non-empty, sequence numbers must increase by one, and the last
+ * event must be the only completed/error event.
+ */
 export const validateSidechatEventSequence = (
   events: readonly SidechatStreamEvent[],
 ): SequenceValidationResult => {

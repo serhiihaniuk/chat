@@ -185,11 +185,10 @@ const mapRuntimeEventEffect = (
   });
 
 /**
- * Convert a runtime failure into the stream's terminal protocol event.
+ * Emit the final error event after streaming has already started.
  *
- * Source failures before streaming reject the request. After streaming starts,
- * the browser needs a final `sidechat.error` event so SSE consumers can close
- * the turn without seeing a broken transport as the product state.
+ * Before `sidechat.started`, a failure rejects the request. After it, the
+ * browser needs `sidechat.error` so the UI can close the turn cleanly.
  */
 const emitRuntimeFailureEvent = (
   ports: StreamChatPorts,

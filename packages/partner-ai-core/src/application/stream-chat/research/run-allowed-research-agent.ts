@@ -53,6 +53,9 @@ export const runAllowedResearchAgent = ({
   PreparedResearchContext,
   PartnerAiCoreErrorType
 > => {
+  // Research uses the same source allowlist as RAG today, so one policy choice
+  // controls every external context source for the turn. Split here if research
+  // later needs its own allowlist.
   const allowedSourceIds = policyDecision.retrievalSourceIds;
   if (allowedSourceIds.length === 0 || !allowsResearchAgent(policyDecision, researchAgentId)) {
     return Effect.succeed(emptyResearchContext);
@@ -114,6 +117,8 @@ const toPreparedResearchContext = (
   researchAgentId: string,
   now: string,
 ): PreparedResearchContext => {
+  // Check the returned sources again. Research adapters can return old or
+  // unauthorized source ids, and only allowed sources may reach the model.
   const sourceCandidates = output.sources.filter((source) =>
     allowedSourceIds.includes(source.sourceId),
   );
