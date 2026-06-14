@@ -21,6 +21,13 @@ RuntimeTools that also have executable registrations. Host commands remain
 browser/host-app interactions unless the service separately implements a backend
 tool.
 
+Service diagnostics report this separation explicitly. `apps/partner-ai-service`
+composition owns capability status for memory, RAG, research, history context,
+context admission, and persistence, and `/healthz` plus `/readyz` expose only
+safe status fields. No-op adapters are allowed for local bootstrap, but
+production-profile composition must not enable memory, RAG, or research without a
+matching concrete adapter.
+
 ## Backend Runtime Tool
 
 - What it is: model-callable backend work such as search, lookup, or mutation.

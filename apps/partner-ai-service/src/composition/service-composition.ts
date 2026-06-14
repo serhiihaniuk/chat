@@ -14,6 +14,7 @@ import {
   type ContextManagerPort,
   type ApprovalPolicy,
   type HostCommandCapability,
+  type HostCapabilityManifest,
   type HostCapabilityManifestPort,
   type MemoryPolicy,
   type MemoryPort,
@@ -43,6 +44,11 @@ import {
 } from "#adapters/policy/service-policy";
 import { createNoopRagRetriever } from "#adapters/rag/noop-rag-retriever";
 import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
+import {
+  assertProductionCapabilityStatus,
+  createServiceCapabilityStatus,
+  type ServiceCapabilityStatus,
+} from "./capability-status.js";
 import { createServiceContextManager } from "./context-manager/service-context-manager.js";
 import {
   createServiceHostCapabilityManifest,
@@ -97,6 +103,7 @@ export type ServiceComposition = {
   readonly runtimeProviderId: string;
   readonly runtimeModelId: string;
   readonly persistenceLabel: "memory" | "postgres-drizzle";
+  readonly capabilities: ServiceCapabilityStatus;
 };
 
 /**
@@ -163,6 +170,16 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     ...optionalField("researchAgents", options.researchAgents),
     ...optionalField("turnGuardIds", options.turnGuardIds),
   });
+  const capabilities = createServiceCapabilityStatus({
+    memoryPolicy: resolveManifestMemoryPolicy(manifest),
+    memoryAdapterProvided: Boolean(options.memory),
+    retrievalSources: manifest.retrievalSources,
+    ragRetrieverProvided: Boolean(options.ragRetriever),
+    researchAgents: manifest.researchAgents,
+    researchAgentProvided: Boolean(options.researchAgent),
+    persistenceKind: persistence.kind,
+  });
+  assertProductionCapabilityStatus(capabilities, auth.profile);
 
   // Create the executor side of the service. Tests may inject a prepared
   // AgentRuntime; otherwise config becomes either fake local runtime or OpenAI.
@@ -194,6 +211,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtimeProviderId,
     runtimeModelId,
     persistenceLabel: persistence.kind === "postgres" ? "postgres-drizzle" : "memory",
+    capabilities,
   };
 };
 
@@ -267,3 +285,12 @@ const failMissingProductionPersistence = (): never => {
     "Production profile requires SIDECHAT_DATABASE_URL for Postgres/Drizzle persistence.",
   );
 };
+
+const DISABLED_MEMORY_POLICY: MemoryPolicy = {
+  policyId: "no_memory",
+  mode: "disabled",
+  scopes: [],
+};
+
+const resolveManifestMemoryPolicy = (manifest: HostCapabilityManifest): MemoryPolicy =>
+  manifest.memoryPolicies[0] ?? DISABLED_MEMORY_POLICY;

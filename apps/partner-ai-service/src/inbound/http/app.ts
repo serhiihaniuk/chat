@@ -79,6 +79,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     providerId: composition.runtimeProviderId,
     modelId: composition.runtimeModelId,
     persistenceLabel,
+    capabilities: composition.capabilities,
   });
 
   app.use("/models", authContextMiddleware(authority), requireAuth());

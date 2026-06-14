@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
+import type { ServiceCapabilityStatus } from "#composition/capability-status";
 import type { AuthContextVariables } from "../../middleware/auth-context.js";
 
 export const registerHealthRoutes = (
@@ -13,6 +14,7 @@ export const registerHealthRoutes = (
     readonly providerId: string;
     readonly modelId: string;
     readonly persistenceLabel: "memory" | "postgres-drizzle";
+    readonly capabilities: ServiceCapabilityStatus;
   },
 ) => {
   const response = () =>
@@ -25,6 +27,7 @@ export const registerHealthRoutes = (
       providerId: options.providerId,
       modelId: options.modelId,
       persistence: options.persistenceLabel,
+      capabilities: options.capabilities,
       hostCommandResults: "disabled",
     });
 

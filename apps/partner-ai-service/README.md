@@ -30,6 +30,26 @@ Not source of truth for: global vocabulary or product requirements.
 - `src/adapters/README.md`
 - `src/config/service-config.ts`
 
+## Capability Diagnostics
+
+`/healthz` and `/readyz` include a safe `capabilities` object owned by service
+composition. It reports whether memory, RAG, research, history context, context
+admission, and persistence are disabled, no-op, configured, or misconfigured.
+
+Default local boot is honest about the current app shape:
+
+- memory, RAG, and research seams exist, but their fallback adapters return no
+  candidates unless concrete adapters are injected;
+- prior conversation history is not admitted into runtime context yet;
+- context admission currently records an include-all policy rather than enforcing
+  a token budget;
+- memory repositories are process-local and not durable.
+
+Production-profile composition rejects enabled memory, RAG, or research
+declarations when the matching concrete adapter is missing. Diagnostics never
+include secrets, connection strings, raw memory, retrieved text, provider
+requests, or private context-board content.
+
 ## Verify
 
 - `npm test --workspace @side-chat/partner-ai-service`
