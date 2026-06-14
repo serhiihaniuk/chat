@@ -100,17 +100,15 @@ test("renders a failed host-command result from the mock harness", async ({ page
   await expect(page.getByText(/harness_command_failed/u)).toBeVisible();
 });
 
-test("sends selected model and host context through public widget seams", async ({ page }) => {
+test("sends assistant profile and host context through public widget seams", async ({ page }) => {
   await page.goto("/?mode=mock-stream&scenario=echo-request&workspaceId=workspace_context_a");
 
-  await page.getByRole("button", { name: "Select model" }).click();
-  await page.getByRole("option", { name: "GPT-5.4", exact: true }).click();
   await page.getByLabel("Message").fill("echo request metadata");
   await page.getByRole("button", { name: "Send" }).click();
 
   await expect(
     page.getByText(
-      "Mock response: echo request metadata model=gpt-5.4 workspace=workspace_context_a",
+      "Mock response: echo request metadata model=default workspace=workspace_context_a",
     ),
   ).toBeVisible();
 });

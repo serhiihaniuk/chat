@@ -8,6 +8,8 @@ import { createLocalServiceClient } from "#clients/local-service-client";
 import { createMockStreamClient } from "#clients/mock-stream-client";
 import { parseWidgetHarnessConfig, type WidgetHarnessConfig } from "#config/modes";
 
+const SERVICE_DEFAULT_ASSISTANT_PROFILE_ID = "default";
+
 export type WidgetHarnessApp = {
   readonly config: WidgetHarnessConfig;
   readonly element: ReactElement;
@@ -21,11 +23,10 @@ export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarne
       : createMockStreamClient(config);
   const props: SideChatWidgetProps = {
     assistantProfiles: [
-      { id: "gpt-5.4-mini", label: "GPT-5.4 mini" },
-      { id: "gpt-5.4", label: "GPT-5.4" },
+      { id: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID, label: "Default assistant" },
     ],
     client,
-    defaultAssistantProfileId: "gpt-5.4-mini",
+    defaultAssistantProfileId: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID,
     defaultOpen: true,
     defaultPanelSize: resolveHarnessPanelSize(),
     hostBridge,
