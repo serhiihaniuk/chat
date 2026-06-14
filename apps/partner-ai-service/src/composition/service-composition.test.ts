@@ -217,6 +217,49 @@ describe("service composition runtime tools", () => {
     });
   });
 
+  it("rejects concrete capability modes when matching adapters are missing", () => {
+    expect(() =>
+      composePartnerAiService({
+        workspace,
+        capabilities: {
+          ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
+          memory: {
+            mode: "external",
+            autoWrite: "disabled",
+            defaultScope: "user",
+          },
+        },
+      }),
+    ).toThrow("SIDECHAT_MEMORY_MODE=external requires a concrete memory adapter.");
+
+    expect(() =>
+      composePartnerAiService({
+        workspace,
+        capabilities: {
+          ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
+          rag: {
+            mode: "external",
+            sourceIds: ["docs"],
+            failureMode: "fail_turn",
+          },
+        },
+      }),
+    ).toThrow("SIDECHAT_RAG_MODE=external requires a concrete RAG retriever.");
+
+    expect(() =>
+      composePartnerAiService({
+        workspace,
+        capabilities: {
+          ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
+          research: {
+            mode: "external",
+            failureMode: "fail_turn",
+          },
+        },
+      }),
+    ).toThrow("SIDECHAT_RESEARCH_MODE=external requires a concrete research adapter.");
+  });
+
   it("resolves the service system prompt id to runtime instructions", async () => {
     const composition = composePartnerAiService({ workspace });
 
