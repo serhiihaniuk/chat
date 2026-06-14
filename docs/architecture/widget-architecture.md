@@ -1,6 +1,6 @@
 # Widget Architecture
 
-Read this when: you edit the React widget, harness-facing UI behavior, or
+Read this when: you edit the React widget, browser-visible UI behavior, or
 copied visual primitives.
 Source of truth for: widget layers and `shared/ai/**` quarantine.
 Not source of truth for: backend workflow or protocol term definitions.

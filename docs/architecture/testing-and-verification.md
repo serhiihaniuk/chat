@@ -43,15 +43,15 @@ npx -p node@24.16.0 -p npm@11.15.0 npm run verify
 
 ## Scenario Lanes
 
-| Lane             | Command                         | Use when                                               |
-| ---------------- | ------------------------------- | ------------------------------------------------------ |
-| Unit/service     | `npm test`                      | Most code changes.                                     |
-| Adoption flow    | `npm test`                      | Cross-package adopter golden path in adoption harness. |
-| DB contract      | `npm run test:db:container`     | Persistence/schema/repository changes.                 |
-| Widget harness   | `npm run test:e2e`              | Browser-visible widget behavior changes.               |
-| Persistent E2E   | `npm run test:e2e:persistent`   | Service plus DB plus widget integration changes.       |
-| Provider smoke   | `npm run smoke:provider:openai` | Explicit provider smoke with configured credentials.   |
-| Container parity | `npm run verify:container`      | Release/CI parity checks.                              |
+| Lane             | Command                         | Use when                                             |
+| ---------------- | ------------------------------- | ---------------------------------------------------- |
+| Unit/service     | `npm test`                      | Most code changes.                                   |
+| Adoption flow    | `npm test`                      | Cross-package adopter golden path.                   |
+| DB contract      | `npm run test:db:container`     | Persistence/schema/repository changes.               |
+| Widget browser   | `npm run test:e2e`              | Browser-visible widget behavior changes.             |
+| Persistent E2E   | `npm run test:e2e:persistent`   | Service plus DB plus widget integration changes.     |
+| Provider smoke   | `npm run smoke:provider:openai` | Explicit provider smoke with configured credentials. |
+| Container parity | `npm run verify:container`      | Release/CI parity checks.                            |
 
 ## Reporting Failures
 

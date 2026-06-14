@@ -70,7 +70,7 @@ Not source of truth for: feature behavior or package ownership.
 - Tests should describe scenarios and visible contracts.
 - Unit tests cover mapping and policy decisions.
 - Integration tests cover service adapters and repository contracts.
-- E2E tests cover widget/harness behavior.
+- E2E tests cover browser-visible widget behavior.
 - Governance tests cover boundary and readability failures.
 
 ## Security And Privacy

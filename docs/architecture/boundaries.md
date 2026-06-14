@@ -24,17 +24,21 @@ Not source of truth for: product requirements or every import rule.
 - Hono imports stay under `apps/partner-ai-service`.
 - AI SDK and provider SDK imports stay under `packages/agent-runtime`.
 - Drizzle/Postgres imports stay under `packages/db`.
-- React imports stay in widget and harness UI code.
+- React imports stay in widget and `test-harness` UI code.
 - Effect imports stay out of browser/client/widget public APIs.
 - Cross-package imports use package names, not relative paths.
 
 ## Data Rules
 
 - `chat-protocol` owns browser-facing DTOs.
-- `agent-runtime` owns RuntimeEvent and provider-ready request details.
+- `shared` owns domain-neutral JSON primitives and optional object-field helpers.
+- `agent-runtime` owns RuntimeEvent, RuntimeActivity details, and
+  provider-ready request details.
 - `partner-ai-core` owns product workflow types and ports.
 - `db` owns persistence records and adapters.
 - The widget owns UI state types.
+- Runtime, database, and service persistence code must not import
+  `chat-protocol` only to get JSON primitives or runtime activity shapes.
 
 ## Related Checks
 

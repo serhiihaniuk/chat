@@ -8,7 +8,7 @@ Not source of truth for: global vocabulary or product requirements.
 
 - Hono HTTP routes and middleware.
 - Auth, config, persistence, policy, provider, and tool adapters.
-- Concrete turn guard registries and guard adapters.
+- Concrete turn guard registries, selected guard ids, and guard adapters.
 - Concrete host-command and observability adapter starting points.
 - Concrete RAG retrievers and retrieved-context mapping.
 - Concrete research agents and research-context mapping.
@@ -44,6 +44,8 @@ HTTP request -> auth/request parsing -> StreamChatInput
 - App-owned concrete tools are injected into runtime through core/service ports.
 - App-owned agent executors are injected into runtime through service
   composition; executor ids are not browser or manifest capabilities.
+- Assistant profile system prompt ids resolve to runtime system instructions in
+  service composition before core policy validation.
 - Tool declarations (`ToolCapability`) and executable tools (`RuntimeTool`) are
   wired separately so a manifest entry does not silently become model access.
 - Host commands are browser/host-app UI interactions and stay outside the
@@ -82,6 +84,10 @@ fail closed in `agent-runtime`.
 Service composition also accepts runtime executor implementations separately
 from tools. Unknown executor ids fail closed in `agent-runtime` before the
 executor stream starts.
+
+Service composition accepts `turnGuardIds` separately from the guard registry.
+Registered guards run only when the selected profile safety policy names their
+ids.
 
 ## Related Docs
 

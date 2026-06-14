@@ -16,13 +16,13 @@ This creates an intentional split:
 
 ## Decision
 
-Day-one host command results are client/local-harness only.
+Day-one host command results are client/local fixture only.
 
 The accepted product behavior is:
 
 - The widget dispatches `sidechat.activity` events with
   `activityKind: "host_command"` through `packages/host-bridge`.
-- The host bridge returns local command results to widget state for display, testing, and harness smoke flows.
+- The host bridge returns local command results to widget state for display, testing, and browser smoke flows.
 - `packages/db` keeps `host_command_results` schema and repository contract support as an executable schema contract.
 - `apps/partner-ai-service` does not expose a host-command result route.
 - `chat-protocol` does not add a host-command result event or request shape.

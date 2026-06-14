@@ -17,20 +17,22 @@ Not source of truth for: architecture decisions or implementation plans.
 
 ## Core Product Terms
 
-| Term                           | Meaning                                                                                                                 | Owner                     | Do not confuse with  | Allowed aliases          | Forbidden aliases            |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------- | -------------------- | ------------------------ | ---------------------------- |
-| Side Chat                      | The adoptable enterprise assistant foundation owned by this repo.                                                       | product docs              | a generic chat app   | none                     | chat app, AI thing           |
-| adoptable assistant foundation | Ownable repository shape that an enterprise team can deploy and extend with its app-specific assistant capabilities.    | architecture docs         | public SDK framework | assistant foundation     | demo app, plugin framework   |
-| host app                       | The consuming web app that embeds Side Chat and owns business UI, auth, domain entities, and host-specific permissions. | product docs, host bridge | Side Chat service    | embedding app when local | demo app                     |
-| embedding surface              | Host-app page, dashboard, portal, or internal tool where Side Chat is embedded.                                         | product docs, widget      | Side Chat Widget     | none                     | host app                     |
-| workspace                      | Authorized product scope for a request.                                                                                 | `partner-ai-core`         | browser session      | none                     | tenant when not in code      |
-| project                        | Optional product scope associated with a conversation or request.                                                       | `partner-ai-core`         | workspace            | none                     | generic context              |
-| conversation                   | Durable chat thread containing user messages and assistant turns.                                                       | `partner-ai-core`, `db`   | assistant turn       | thread when local        | chat session                 |
-| user message                   | User-submitted message persisted and displayed in a conversation.                                                       | `partner-ai-core`, widget | protocol request     | none                     | input, prompt in broad scope |
-| assistant turn                 | One assistant response lifecycle attached to a user message.                                                            | `partner-ai-core`, `db`   | model call           | none                     | run, response in broad scope |
-| stream chat turn               | Product workflow that prepares and streams one assistant turn.                                                          | `partner-ai-core`         | runtime execution    | none                     | stream in broad scope        |
-| turn plan                      | Policy decision for allowed profile, model, and tools for one turn.                                                     | `partner-ai-core`         | runtime request      | none                     | config, options              |
-| prepared context               | Context snapshot/messages prepared before runtime execution.                                                            | `partner-ai-core`         | host context         | none                     | prompt in broad scope        |
+| Term                           | Meaning                                                                                                                 | Owner                      | Do not confuse with  | Allowed aliases          | Forbidden aliases            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------------- | ------------------------ | ---------------------------- |
+| Side Chat                      | The adoptable enterprise assistant foundation owned by this repo.                                                       | product docs               | a generic chat app   | none                     | chat app, AI thing           |
+| adoptable assistant foundation | Ownable repository shape that an enterprise team can deploy and extend with its app-specific assistant capabilities.    | architecture docs          | public SDK framework | assistant foundation     | demo app, plugin framework   |
+| host app                       | The consuming web app that embeds Side Chat and owns business UI, auth, domain entities, and host-specific permissions. | product docs, host bridge  | Side Chat service    | embedding app when local | demo app                     |
+| embedding surface              | Host-app page, dashboard, portal, or internal tool where Side Chat is embedded.                                         | product docs, widget       | Side Chat Widget     | none                     | host app                     |
+| workspace                      | Authorized product scope for a request.                                                                                 | `partner-ai-core`          | browser session      | none                     | tenant when not in code      |
+| project                        | Optional product scope associated with a conversation or request.                                                       | `partner-ai-core`          | workspace            | none                     | generic context              |
+| conversation                   | Durable chat thread containing user messages and assistant turns.                                                       | `partner-ai-core`, `db`    | assistant turn       | thread when local        | chat session                 |
+| user message                   | User-submitted message persisted and displayed in a conversation.                                                       | `partner-ai-core`, widget  | protocol request     | none                     | input, prompt in broad scope |
+| assistant turn                 | One assistant response lifecycle attached to a user message.                                                            | `partner-ai-core`, `db`    | model call           | none                     | run, response in broad scope |
+| stream chat turn               | Product workflow that prepares and streams one assistant turn.                                                          | `partner-ai-core`          | runtime execution    | none                     | stream in broad scope        |
+| turn plan                      | Policy decision for allowed profile, model, and tools for one turn.                                                     | `partner-ai-core`          | runtime request      | none                     | config, options              |
+| prepared context               | Context snapshot/messages prepared before runtime execution.                                                            | `partner-ai-core`          | host context         | none                     | prompt in broad scope        |
+| system prompt id               | Durable assistant profile identifier for the source of resolved system instructions.                                    | `partner-ai-core`, service | system instructions  | none                     | prompt text                  |
+| system instructions            | Resolved prompt text passed from core to runtime for one prepared assistant turn.                                       | `partner-ai-core`, runtime | user message         | instructions when local  | browser prompt               |
 
 ## Request Chain
 
@@ -45,14 +47,15 @@ Not source of truth for: architecture decisions or implementation plans.
 
 ## Event Chain
 
-| Term                 | Meaning                                                                                  | Owner                     | Do not confuse with    | Allowed aliases | Forbidden aliases           |
-| -------------------- | ---------------------------------------------------------------------------------------- | ------------------------- | ---------------------- | --------------- | --------------------------- |
-| AI SDK stream part   | Provider/tool-loop event emitted by AI SDK.                                              | `agent-runtime`           | RuntimeEvent           | none            | part in broad scope         |
-| RuntimeEvent         | Normalized internal event emitted by agent runtime.                                      | `agent-runtime`           | SidechatStreamEvent    | none            | event in broad scope        |
-| activity event       | Runtime/protocol event kind for visible progress, tool, reasoning, or host-command rows. | runtime, protocol, widget | terminal event         | none            | activity in broad scope     |
-| SidechatStreamEvent  | Browser-facing `sidechat.v1` stream event.                                               | `chat-protocol`           | RuntimeEvent           | protocol event  | stream event in broad scope |
-| widget message       | Client-side message state rendered by the widget.                                        | widget                    | protocol event         | none            | message in broad scope      |
-| widget activity item | Client-side activity timeline row derived from protocol activity events.                 | widget                    | runtime activity event | none            | item                        |
+| Term                   | Meaning                                                                                         | Owner                     | Do not confuse with    | Allowed aliases | Forbidden aliases           |
+| ---------------------- | ----------------------------------------------------------------------------------------------- | ------------------------- | ---------------------- | --------------- | --------------------------- |
+| AI SDK stream part     | Provider/tool-loop event emitted by AI SDK.                                                     | `agent-runtime`           | RuntimeEvent           | none            | part in broad scope         |
+| RuntimeEvent           | Normalized internal event emitted by agent runtime.                                             | `agent-runtime`           | SidechatStreamEvent    | none            | event in broad scope        |
+| RuntimeActivityDetails | Provider-neutral runtime activity detail shape mapped to browser-safe activity details by core. | `agent-runtime`           | ActivityDetails        | none            | protocol details            |
+| activity event         | Runtime/protocol event kind for visible progress, tool, reasoning, or host-command rows.        | runtime, protocol, widget | terminal event         | none            | activity in broad scope     |
+| SidechatStreamEvent    | Browser-facing `sidechat.v1` stream event.                                                      | `chat-protocol`           | RuntimeEvent           | protocol event  | stream event in broad scope |
+| widget message         | Client-side message state rendered by the widget.                                               | widget                    | protocol event         | none            | message in broad scope      |
+| widget activity item   | Client-side activity timeline row derived from protocol activity events.                        | widget                    | runtime activity event | none            | item                        |
 
 ## Capability Terms
 
@@ -73,6 +76,7 @@ Not source of truth for: architecture decisions or implementation plans.
 | TurnPolicyDecision        | Per-turn policy result that selects profile/model/tools/commands/RAG/memory/workflow exposure.                       | `partner-ai-core`          | host capability manifest    | policy decision     | config, options        |
 | ApprovalPolicy            | Manifest policy requiring user or host approval before a declared tool or host command is used.                      | `partner-ai-core`          | runtime tool execution      | approval rule       | permission flag        |
 | TurnGuard                 | Pre-context safety check that may allow, warn, or block one turn before conversation persistence, context, or tools. | `partner-ai-core`, service | product policy, RuntimeTool | guard when local    | safety plugin          |
+| turn guard ids            | Assistant-profile safety policy list selecting which registered turn guards run for one turn.                        | `partner-ai-core`, service | turn guard registry         | selected guard ids  | registered guards      |
 | executable registry       | Runtime or service-side collection of concrete implementations that can run if selected.                             | service, `agent-runtime`   | host capability manifest    | registry when local | plugin list            |
 
 ## Tool And Activity Terms
@@ -122,11 +126,11 @@ Not source of truth for: architecture decisions or implementation plans.
 
 ## Persistence Terms
 
-| Term               | Meaning                                                               | Owner             | Do not confuse with    | Allowed aliases | Forbidden aliases   |
-| ------------------ | --------------------------------------------------------------------- | ----------------- | ---------------------- | --------------- | ------------------- |
-| repository port    | Product-core interface for persistence work.                          | `partner-ai-core` | Drizzle repository     | none            | database helper     |
-| repository adapter | Concrete persistence implementation behind a port.                    | `db`, service     | repository port        | none            | port when concrete  |
-| memory repository  | Deterministic in-memory repository for tests and local harness paths. | `db`, tests       | production persistence | fake repository | production fallback |
+| Term               | Meaning                                                                   | Owner             | Do not confuse with    | Allowed aliases | Forbidden aliases   |
+| ------------------ | ------------------------------------------------------------------------- | ----------------- | ---------------------- | --------------- | ------------------- |
+| repository port    | Product-core interface for persistence work.                              | `partner-ai-core` | Drizzle repository     | none            | database helper     |
+| repository adapter | Concrete persistence implementation behind a port.                        | `db`, service     | repository port        | none            | port when concrete  |
+| memory repository  | Deterministic in-memory repository for tests and local development paths. | `db`, tests       | production persistence | fake repository | production fallback |
 
 ## Forbidden Generic Names In Larger Scopes
 

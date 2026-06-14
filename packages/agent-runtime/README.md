@@ -32,6 +32,7 @@ browser protocol.
 - `AgentExecutor`, `AgentExecutionRequest`, and `DEFAULT_AGENT_EXECUTOR_ID`
 - `AgentRuntimeRequest`, `RuntimeContextBoard`, and runtime message types
 - `RuntimeEvent`, `RuntimeEventStream`, and runtime errors
+- `RuntimeActivityDetails` and provider-neutral runtime activity types
 - `RuntimeTool` and `createToolRegistry`
 - `ModelProvider` and accepted provider adapters
 - package-local testing fakes
@@ -47,7 +48,7 @@ AgentRuntimeRequest
 -> resolve requested/default AgentExecutor
 -> resolve provider/model
 -> select injected tools for this turn
--> render profile instructions and context board
+-> render request system instructions and context board
 -> execute selected AgentExecutor
 -> map executor/provider stream parts into RuntimeEvent values
 ```
@@ -68,6 +69,8 @@ AgentRuntimeRequest
 - `runtime/turn/**` prepares the request and must not import AI SDK.
 - `runtime/executors/**` owns executor ids and selection. Unknown executor ids
   fail before streaming instead of falling back.
+- Product traffic should pass resolved `systemInstructions` on the request;
+  package-local profile instructions are only the standalone runtime fallback.
 - `runtime/ai-sdk/**` runs the private AI SDK adapter and must not decide
   product policy.
 - `RuntimeTool.execute` returns an Effect because tools are backend ports that

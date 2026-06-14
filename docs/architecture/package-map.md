@@ -46,13 +46,13 @@ Not source of truth for: domain term definitions or detailed helper flow.
 
 ## packages/partner-ai-core
 
-| Field          | Value                                                                                                                                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Owns           | Product stream-chat workflow, manifest/policy validation, tool/host-command exposure decisions, turn guard, RAG retriever, research-agent, and memory contract/timing, context preparation, turn lifecycle, protocol mapping, ports. |
-| Public surface | `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.                                                                                                                                                                       |
-| May depend on  | `chat-protocol`, `shared` utilities, Effect.                                                                                                                                                                                         |
-| Must not know  | Hono, Drizzle/Postgres, provider SDKs, React, widget state.                                                                                                                                                                          |
-| Main tests     | `packages/partner-ai-core/src/**/*.test.ts`.                                                                                                                                                                                         |
+| Field          | Value                                                                                                                                                                                                                                                                |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owns           | Product stream-chat workflow, manifest/policy validation, profile prompt/executor policy, tool/host-command exposure decisions, turn guard, RAG retriever, research-agent, and memory contract/timing, context preparation, turn lifecycle, protocol mapping, ports. |
+| Public surface | `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.                                                                                                                                                                                                       |
+| May depend on  | `chat-protocol`, `shared` utilities, Effect.                                                                                                                                                                                                                         |
+| Must not know  | Hono, Drizzle/Postgres, provider SDKs, React, widget state.                                                                                                                                                                                                          |
+| Main tests     | `packages/partner-ai-core/src/**/*.test.ts`.                                                                                                                                                                                                                         |
 
 ## packages/agent-runtime
 
@@ -60,7 +60,7 @@ Not source of truth for: domain term definitions or detailed helper flow.
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Owns           | One prepared assistant turn, AgentExecutor registry/selection, executable runtime tool registry, profile/provider/model/tool preparation, AI SDK adapter, RuntimeEvent stream. |
 | Public surface | `createAgentRuntime`, `streamEffect`, AgentExecutor, RuntimeEvent/request/error/tool/provider types.                                                                           |
-| May depend on  | AI SDK, provider SDK packages, Effect.                                                                                                                                         |
+| May depend on  | `shared` utilities, AI SDK, provider SDK packages, Effect.                                                                                                                     |
 | Must not know  | Product authorization, approval policy, host-command dispatch, persistence policy, browser widget state, DB rows, Hono.                                                        |
 | Main tests     | `packages/agent-runtime/src/**/*.test.ts`.                                                                                                                                     |
 
@@ -70,7 +70,7 @@ Not source of truth for: domain term definitions or detailed helper flow.
 | -------------- | --------------------------------------------------------------------------------------------------- |
 | Owns           | Persistence schema, repository contracts, Postgres/Drizzle adapters, memory repositories for tests. |
 | Public surface | Repository interfaces and adapter factories.                                                        |
-| May depend on  | `chat-protocol`, `shared` utilities, Drizzle/Postgres, and package-local test helpers.              |
+| May depend on  | `shared` utilities, Drizzle/Postgres, and package-local test helpers.                               |
 | Must not know  | Hono, React, widget code, agent runtime internals, partner core use cases.                          |
 | Main tests     | Repository contract and integration tests under `packages/db/src`.                                  |
 
@@ -82,17 +82,17 @@ Not source of truth for: domain term definitions or detailed helper flow.
 | Public surface | Embeddable widget API from `src/index.ts`.                                                    |
 | May depend on  | `chat-client`, `chat-protocol`, `host-bridge`, React, accepted UI libraries.                  |
 | Must not know  | Effect, DB rows, Hono, provider SDKs, runtime internals.                                      |
-| Main tests     | Widget model/component tests and harness E2E tests.                                           |
+| Main tests     | Widget model/component tests and browser E2E tests.                                           |
 
 ## packages/shared
 
-| Field          | Value                                                         |
-| -------------- | ------------------------------------------------------------- |
-| Owns           | Small cross-package utilities that are truly domain-neutral.  |
-| Public surface | Utility exports.                                              |
-| May depend on  | Minimal TypeScript-only dependencies.                         |
-| Must not know  | Product workflow, provider details, DB, Hono, React UI state. |
-| Main tests     | Package-local tests when utilities need behavior coverage.    |
+| Field          | Value                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Owns           | Small cross-package utilities that are truly domain-neutral, including JSON primitives and optional object-field helpers. |
+| Public surface | Utility exports.                                                                                                          |
+| May depend on  | Minimal TypeScript-only dependencies.                                                                                     |
+| Must not know  | Product workflow, provider details, DB, Hono, React UI state.                                                             |
+| Main tests     | Package-local tests when utilities need behavior coverage.                                                                |
 
 ## packages/testing
 
@@ -110,7 +110,7 @@ Not source of truth for: domain term definitions or detailed helper flow.
 | -------------- | --------------------------------------------------------------------- |
 | Owns           | Browser harness for mock-stream and local-service widget development. |
 | Public surface | Vite harness app and Playwright scenarios.                            |
-| May depend on  | Widget, client, host bridge, local harness helpers.                   |
+| May depend on  | Widget, client, host bridge, local dev helpers.                       |
 | Must not know  | Production deployment details.                                        |
 | Main tests     | `test-harness/widget-harness/src/**/*.test.ts` and E2E scenarios.     |
 

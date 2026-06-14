@@ -6,8 +6,8 @@ Not source of truth for: package implementation details or migration plans.
 
 ## Product Purpose
 
-Side Chat provides an embeddable assistant harness. A host app can add a chat
-widget, expose governed context and commands, and receive a stable streamed
+Side Chat provides an embeddable assistant foundation. A host app can add a
+chat widget, expose governed context and commands, and receive a stable streamed
 assistant experience without exposing provider internals to the browser.
 
 ## Actors And Contexts

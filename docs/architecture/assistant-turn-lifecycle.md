@@ -26,20 +26,33 @@ HTTP adapter parses ChatStreamRequest and auth
 |     4 | Load and validate host capability manifest                                                              | `partner-ai-core` through port                    | Pre-start rejection                                                                    |
 |     5 | Resolve and validate turn policy decision                                                               | `partner-ai-core` through port                    | Pre-start rejection                                                                    |
 |     6 | Evaluate product policy                                                                                 | `partner-ai-core` through port                    | Pre-start rejection                                                                    |
-|     7 | Run turn guards                                                                                         | `partner-ai-core` through guard registry port     | Pre-start rejection                                                                    |
+|     7 | Run selected turn guards                                                                                | `partner-ai-core` through guard registry port     | Pre-start rejection                                                                    |
 |     8 | Ensure authorized conversation                                                                          | `partner-ai-core` through repository port         | Pre-start rejection                                                                    |
 |     9 | Append user message                                                                                     | `partner-ai-core` through repository port         | Pre-start rejection                                                                    |
 |    10 | Start assistant turn record                                                                             | `partner-ai-core` through lifecycle port          | Pre-start rejection, with failed turn recording after this point                       |
 |    11 | Prepare context, recall memory, retrieve allowed RAG, run allowed research, and record context snapshot | `partner-ai-core` through context/lifecycle ports | Pre-start rejection, with failed turn recording                                        |
 |    12 | Record stream started                                                                                   | `partner-ai-core` observability                   | Pre-start rejection                                                                    |
 |    13 | Emit `sidechat.started`                                                                                 | protocol stream                                   | Streaming has begun                                                                    |
-|    14 | Execute selected/default AgentExecutor through runtime stream                                           | `agent-runtime`                                   | Post-start terminal `sidechat.error`                                                   |
+|    14 | Execute selected AgentExecutor through runtime stream                                                   | `agent-runtime`                                   | Post-start terminal `sidechat.error`                                                   |
 |    15 | Map RuntimeEvents to protocol events                                                                    | `partner-ai-core`                                 | Post-start terminal `sidechat.error`                                                   |
 |    16 | Finalize terminal state and record allowed memory write candidates                                      | protocol finalization                             | `sidechat.completed` or `sidechat.error`; memory write candidate failures are observed |
 
-`AgentRuntimeRequest.executorId` is the current runtime seam for core-selected
-execution engines. Missing ids use the default AI SDK tool-loop executor; unknown
-ids fail before the executor stream starts. The model never selects an executor.
+`AgentRuntimeRequest.executorId` is the current runtime seam for profile-selected
+execution engines. Product traffic resolves the executor from the assistant
+profile into the turn policy decision before runtime starts. Direct runtime
+callers that omit the id use the default AI SDK tool-loop executor; unknown ids
+fail before the executor stream starts. The model never selects an executor.
+
+`AgentRuntimeRequest.systemInstructions` is the prepared prompt seam. Service
+composition resolves the profile `systemPromptId` into instructions, core
+validates and records that resolved text in the turn policy decision, and
+runtime renders it for the provider. Browser requests do not carry raw system
+instructions.
+
+`SafetyPolicy.turnGuardIds` selects which registered turn guards run for the
+profile. Unselected registered guards are inert for that turn, and selected
+guards missing from the registry fail closed before any private context,
+conversation persistence, or runtime tool work.
 
 `ResearchAgentPort` is the current pre-answer research seam. Core runs it during
 context preparation only when turn policy allows both retrieval source ids and
@@ -64,7 +77,9 @@ durable state without half-opening the browser stream.
 Memory recall, RAG retrieval, and research are part of context preparation, so
 their failures stay pre-start. Memory write candidates run only after successful
 output and policy checks. Those candidate-recording failures are observable side
-effects, not a second terminal stream outcome.
+effects, not a second terminal stream outcome. Protocol finalization keeps only
+the accumulated terminal state, assistant content, and usage needed to prove the
+stream closed exactly once.
 
 ## Files To Open
 

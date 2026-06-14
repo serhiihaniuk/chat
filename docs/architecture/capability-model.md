@@ -39,11 +39,32 @@ the model sees no tool.
 
 ## Agent Executor Path
 
-`AgentExecutor` is not a model-callable capability. Core or service code may
-select an executor id on `AgentRuntimeRequest`; the runtime resolves that id
-against its executor registry before streaming. Missing ids use the default
-AI SDK tool-loop executor, and unknown ids fail closed with
-`executor_unavailable`.
+`AgentExecutor` is not a model-callable capability. The selected assistant
+profile carries the executor id for the turn, core copies it into the turn
+policy decision, and `AgentRuntimeRequest.executorId` sends that choice to the
+runtime. The runtime resolves the id against its executor registry before
+streaming. Direct runtime callers that omit the id use the default AI SDK
+tool-loop executor; unknown ids fail closed with `executor_unavailable`.
+
+## System Prompt Path
+
+`systemPromptId` is the durable profile identifier for the prompt source.
+Service composition resolves that id into `systemInstructions` before core sees
+the profile. Core validates the resolved instructions, records them on the turn
+policy decision, and passes them to `AgentRuntimeRequest.systemInstructions`.
+
+Runtime renders request instructions ahead of provider execution. It may still
+fall back to its package-local profile instructions for direct tests or
+standalone runtime callers, but product traffic should treat core-provided
+instructions as the prepared turn contract.
+
+## Turn Guard Path
+
+Registered guards do not automatically run. The selected profile's
+`SafetyPolicy.turnGuardIds` declares which guard ids apply to this turn. Core
+runs only those selected guards before conversation persistence, context
+preparation, or runtime tools. A selected id missing from the guard registry
+fails closed before `sidechat.started`.
 
 ## Research Agent Path
 
@@ -132,13 +153,13 @@ observability sinks.
 
 ## Where To Open First
 
-- `packages/partner-ai-core/src/domain/harness/contracts/capabilities.ts`
-- `packages/partner-ai-core/src/domain/harness/validation/validation.ts`
-- `packages/partner-ai-core/src/domain/harness/turn-policy/turn-policy-validation.ts`
+- `packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts`
+- `packages/partner-ai-core/src/domain/capabilities/validation/validation.ts`
+- `packages/partner-ai-core/src/domain/capabilities/turn-policy/turn-policy-validation.ts`
 - `packages/partner-ai-core/src/application/stream-chat/turn/turn-policy-plan.ts`
 - `packages/agent-runtime/src/runtime/turn/tool-selection.ts`
 - `packages/agent-runtime/src/tools/tool-registry.ts`
-- `apps/partner-ai-service/src/composition/service-harness.ts`
+- `apps/partner-ai-service/src/composition/service-capability-manifest.ts`
 - `apps/partner-ai-service/src/composition/service-composition.ts`
 - `apps/partner-ai-service/src/adapters/README.md`
 - `apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts`

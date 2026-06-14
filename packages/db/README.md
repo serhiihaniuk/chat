@@ -33,6 +33,8 @@ product/service port call -> repository adapter -> persistence record
 ## Boundary Rules
 
 - Drizzle and Postgres stay inside this package.
+- Use `shared` for JSON primitives and optional field helpers; persistence code
+  must not import browser protocol types for generic JSON.
 - Memory repositories are explicit test/local paths, not silent production
   fallback.
 - Do not import Hono, React, widget code, agent runtime internals, or partner

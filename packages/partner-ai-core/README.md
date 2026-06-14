@@ -11,7 +11,7 @@ execution, or widget UI.
 
 - `streamChatEffect(input)`.
 - Product authorization, policy, context, turn lifecycle, and protocol mapping.
-- Turn guard, RAG retriever, and memory port contracts.
+- Turn guard selection, RAG retriever, and memory port contracts.
 - App-owned ports needed by the stream-chat use case.
 - Typed product failures and terminal protocol semantics.
 - Effect Layer wiring for core services.
@@ -38,8 +38,8 @@ transports convert the Effect stream at their own boundary.
 ```txt
 StreamChatInput
 -> authorize workspace/project scope
--> decide allowed profile/model/tools
--> run turn guards before private context/tools
+-> decide allowed profile/model/tools/executor/instructions
+-> run profile-selected turn guards before private context/tools
 -> ensure conversation
 -> persist user message
 -> recall memory, retrieve allowed RAG, and prepare context/runtime request
@@ -56,6 +56,8 @@ StreamChatInput
 - Memory recall runs during context preparation; memory write candidates run
   after successful output and explicit `read_write` policy.
 - Agent runtime receives only prepared context and runtime request data.
+- Executor id and system instructions come from the selected profile's turn
+  policy decision, not from browser input.
 - Core uses ports for outside IO.
 - Expected failures use Effect's error channel.
 - Browser-visible output is only `sidechat.v1` protocol events.
