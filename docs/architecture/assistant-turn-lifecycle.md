@@ -1,7 +1,6 @@
 # Assistant Turn Lifecycle
 
-Read this when: you need the current and target order of one stream chat
-assistant turn.
+Read this when: you need the current order of one stream chat assistant turn.
 Source of truth for: where policy, context, runtime execution, terminal events,
 and future extension seams enter the turn.
 Not source of truth for: package ownership tables or provider/runtime internals.

@@ -35,7 +35,7 @@ Not source of truth for: domain term definitions or implementation details.
 | `architecture/system-overview.md`          | One-screen system map.                                       |
 | `architecture/package-map.md`              | Package ownership and public surfaces.                       |
 | `architecture/boundaries.md`               | What must not cross each seam.                               |
-| `architecture/assistant-turn-lifecycle.md` | Current and target assistant turn lifecycle order.           |
+| `architecture/assistant-turn-lifecycle.md` | Current assistant turn lifecycle order.                      |
 | `architecture/stream-chat-flow.md`         | Main assistant turn stages.                                  |
 | `architecture/effect-style.md`             | Local Effect usage rules.                                    |
 | `architecture/widget-architecture.md`      | Widget layers and copied UI quarantine.                      |

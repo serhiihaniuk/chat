@@ -31,7 +31,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run packages/host-bridge/src/bridge/host-bridge.test.ts"
+    "test": "cd ../.. && vitest run packages/host-bridge/src/bridge/host-bridge.test.ts packages/host-bridge/src/bridge/host-bridge.type.test.ts"
   },
   "dependencies": {
     "@side-chat/chat-protocol": "0.0.0",

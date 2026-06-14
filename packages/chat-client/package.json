@@ -31,7 +31,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run packages/chat-client/src/transport/sse-reader.test.ts packages/chat-client/src/transport/client.test.ts"
+    "test": "cd ../.. && vitest run packages/chat-client/src/transport/sse-reader.test.ts packages/chat-client/src/transport/client.test.ts packages/chat-client/src/transport/client.type.test.ts"
   },
   "dependencies": {
     "@side-chat/chat-protocol": "0.0.0",
