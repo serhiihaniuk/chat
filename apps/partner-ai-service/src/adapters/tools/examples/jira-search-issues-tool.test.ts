@@ -35,6 +35,12 @@ describe("jira search issues runtime tool example", () => {
       query: "architecture",
       maxResults: 5,
       requestId: "request_jira_001",
+      hostAppId: "host_jira_001",
+      workspaceId: "workspace_jira_001",
+      subjectId: "subject_jira_001",
+      conversationId: "conversation_jira_001",
+      assistantTurnId: "turn_jira_001",
+      profileId: "profile_jira_001",
     });
     expect(result).toMatchObject({
       count: 1,
@@ -53,6 +59,19 @@ describe("jira search issues runtime tool example", () => {
         url: "https://jira.example.test/browse/SC-42",
       },
     ]);
+  });
+
+  it("fails closed when enterprise runtime scope is missing", async () => {
+    const tool = createJiraSearchIssuesTool({
+      jiraClient: { searchIssues: () => Effect.succeed([]) },
+    });
+
+    await expect(
+      Effect.runPromise(tool.execute({ query: "SC" }, toolContextWithoutScope)),
+    ).rejects.toMatchObject({
+      code: RUNTIME_ERROR_CODES.TOOL_FAILED,
+      message: "jira.search_issues requires runtime tool scope.",
+    });
   });
 
   it("rejects invalid input as a runtime-safe tool failure", async () => {
@@ -82,10 +101,23 @@ describe("jira search issues runtime tool example", () => {
   });
 });
 
-const toolContext: RuntimeToolContext = {
+const toolContextWithoutScope: RuntimeToolContext = {
   requestId: "request_jira_001",
   assistantTurnId: "turn_jira_001",
   providerId: "fake",
   modelId: "fake-echo",
   toolName: JIRA_SEARCH_ISSUES_TOOL_NAME,
+};
+
+const toolContext: RuntimeToolContext = {
+  ...toolContextWithoutScope,
+  scope: {
+    hostAppId: "host_jira_001",
+    workspaceId: "workspace_jira_001",
+    subjectId: "subject_jira_001",
+    conversationId: "conversation_jira_001",
+    assistantTurnId: "turn_jira_001",
+    profileId: "profile_jira_001",
+    allowedHostCommandNames: ["host.open_ticket_panel"],
+  },
 };

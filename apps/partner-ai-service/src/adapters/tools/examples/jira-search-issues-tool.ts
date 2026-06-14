@@ -4,6 +4,8 @@ import {
   RUNTIME_ERROR_CODES,
   type RuntimeActivitySource,
   type RuntimeTool,
+  type RuntimeToolContext,
+  type RuntimeToolScope,
 } from "@side-chat/agent-runtime";
 import type { ToolCapability } from "@side-chat/partner-ai-core";
 import { compactJsonObject, isRecord, optionalField, type JsonObject } from "@side-chat/shared";
@@ -39,14 +41,20 @@ export type JiraSearchIssuesRequest = {
   readonly query: string;
   readonly maxResults: number;
   readonly requestId: string;
+  readonly hostAppId: string;
+  readonly workspaceId: string;
+  readonly subjectId: string;
+  readonly conversationId: string;
+  readonly assistantTurnId: string;
+  readonly profileId: string;
   readonly abortSignal?: AbortSignal;
 };
 
 /**
  * Concrete Jira clients own Jira auth and visibility checks.
  *
- * This example tool passes turn request metadata into that app-owned client and
- * normalizes the visible issues into runtime-safe JSON.
+ * This example tool passes primitive runtime scope into that app-owned client
+ * and normalizes the visible issues into runtime-safe JSON.
  */
 export type JiraClient = {
   readonly searchIssues: (
@@ -73,11 +81,18 @@ export const createJiraSearchIssuesTool = ({
   execute: (input, context) =>
     Effect.gen(function* () {
       const searchInput = yield* readJiraSearchIssuesInput(input);
+      const scope = yield* readJiraToolScope(context);
       const issues = yield* jiraClient
         .searchIssues({
           query: searchInput.query,
           maxResults: searchInput.maxResults,
           requestId: context.requestId,
+          hostAppId: scope.hostAppId,
+          workspaceId: scope.workspaceId,
+          subjectId: scope.subjectId,
+          conversationId: scope.conversationId,
+          assistantTurnId: scope.assistantTurnId,
+          profileId: scope.profileId,
           ...optionalField("abortSignal", context.abortSignal),
         })
         .pipe(Effect.mapError(toJiraToolError));
@@ -85,6 +100,18 @@ export const createJiraSearchIssuesTool = ({
       return toJiraSearchIssuesResult(issues);
     }).pipe(Effect.mapError(toJiraToolError)),
 });
+
+const readJiraToolScope = (
+  context: RuntimeToolContext,
+): Effect.Effect<RuntimeToolScope, AgentRuntimeError> =>
+  context.scope
+    ? Effect.succeed(context.scope)
+    : Effect.fail(
+        new AgentRuntimeError(
+          RUNTIME_ERROR_CODES.TOOL_FAILED,
+          "jira.search_issues requires runtime tool scope.",
+        ),
+      );
 
 const readJiraSearchIssuesInput = (
   input: JsonObject,
