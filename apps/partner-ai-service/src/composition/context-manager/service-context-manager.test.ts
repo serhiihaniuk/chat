@@ -25,7 +25,7 @@ import { createNoopResearchAgent } from "#adapters/agents/noop-research-agent";
 import { createNoopMemoryPort } from "#adapters/memory/noop-memory-port";
 import { createNoopRagRetriever } from "#adapters/rag/noop-rag-retriever";
 import { createServiceContextManager } from "./service-context-manager.js";
-import { createServiceHostCapabilityManifest } from "../manifest/service-harness.js";
+import { createServiceHostCapabilityManifest } from "../manifest/service-capability-manifest.js";
 
 const authContext = {
   tenantId: "tenant_local",

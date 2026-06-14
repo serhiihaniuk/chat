@@ -13,7 +13,7 @@ import {
   resolveAssistantProfileFromManifest,
   type AssistantProfile,
   type HostCapabilityManifest,
-} from "#domain/harness";
+} from "#domain/capabilities";
 import {
   createRequestCorrelation,
   redactAttributes,
@@ -324,12 +324,14 @@ const createProfile = (): AssistantProfile => ({
   version: "2026-06-13",
   displayName: "Analyst",
   systemPromptId: "prompt_analyst_v1",
+  systemInstructions: "Use concise analyst language.",
+  executorId: "ai_sdk.tool_loop",
   modelPolicy: { providerId: "fake", modelId: "fake-echo" },
   defaultToolPolicy: { mode: "closed", allowedToolNames: [] },
   retrievalPolicy: { mode: "disabled", sourceIds: [] },
   memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
   outputContract: { format: "markdown" },
-  safetyPolicy: { policyId: "standard", promptInjectionMode: "standard" },
+  safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
 });
 
 const resolveProfile = (manifest: HostCapabilityManifest): AssistantProfile => {

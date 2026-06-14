@@ -1,4 +1,5 @@
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 import { Effect, Stream } from "effect";
 import type { AuthContext } from "#domain/authority";
 import {
@@ -7,7 +8,7 @@ import {
   type HostCapabilityManifest,
   type PreparedTurnContext,
   type TurnPolicyDecision,
-} from "#domain/harness";
+} from "#domain/capabilities";
 import {
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
@@ -117,7 +118,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     runtime,
     clock,
     ids,
-    ...(options.observability ? { observability: options.observability } : {}),
+    ...optionalField("observability", options.observability),
   };
 };
 
@@ -140,7 +141,7 @@ export const runStreamChat = (
           clock: ports.clock,
           ids: ports.ids,
           policies: ports.policies,
-          ...(ports.observability ? { observability: ports.observability } : {}),
+          ...optionalField("observability", ports.observability),
         }),
       ),
     ),

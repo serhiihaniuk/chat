@@ -6,7 +6,7 @@ import {
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
   type TurnPolicyDecision,
-} from "#domain/harness";
+} from "#domain/capabilities";
 import { PARTNER_AI_CORE_ERROR_CODES } from "#errors";
 import type { ResearchAgentInput, ResearchAgentPort, ResearchSourceCandidate } from "#ports";
 import {
@@ -169,6 +169,8 @@ const createPolicyDecision = ({
 }): TurnPolicyDecision => ({
   profileId: "analyst",
   profileVersion: "2026-06-13",
+  systemInstructions: "Use concise analyst language.",
+  executorId: "ai_sdk.tool_loop",
   providerId: "fake",
   modelId: "fake-echo",
   allowedToolNames: [],

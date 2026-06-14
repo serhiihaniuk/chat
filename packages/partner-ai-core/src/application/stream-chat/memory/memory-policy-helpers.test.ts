@@ -2,7 +2,7 @@ import { PROTOCOL_ERROR_CODES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { AuthContext } from "#domain/authority";
-import type { TurnPolicyDecision } from "#domain/harness";
+import type { TurnPolicyDecision } from "#domain/capabilities";
 import type {
   MemoryPort,
   MemoryRecallInput,
@@ -195,6 +195,8 @@ const createPolicyDecision = ({
 }): TurnPolicyDecision => ({
   profileId: "analyst",
   profileVersion: "2026-06-13",
+  systemInstructions: "Use concise analyst language.",
+  executorId: "ai_sdk.tool_loop",
   providerId: "fake",
   modelId: "fake-echo",
   allowedToolNames: [],

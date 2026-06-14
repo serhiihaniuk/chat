@@ -6,7 +6,7 @@ import {
   CONTEXT_TRUST_LEVELS,
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
-} from "#domain/harness";
+} from "#domain/capabilities";
 import { PARTNER_AI_CORE_ERROR_CODES } from "#errors";
 import type { RagContextCandidate, RagRetrievalInput, RagRetrieverPort } from "#ports";
 import {

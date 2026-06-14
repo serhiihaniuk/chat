@@ -21,6 +21,7 @@ describe("partner ai service turn guards", () => {
     const repositories = createMemorySidechatRepositories();
     const response = await createPartnerAiServiceApp({
       repositories,
+      turnGuardIds: ["service.test.guard"],
       turnGuards: {
         guards: [
           createTurnGuard(() =>
@@ -56,6 +57,7 @@ describe("partner ai service turn guards", () => {
     const repositories = createMemorySidechatRepositories();
     const response = await createPartnerAiServiceApp({
       repositories,
+      turnGuardIds: ["service.test.guard"],
       turnGuards: {
         guards: [createTurnGuard(() => Effect.fail(new Error("classifier unavailable")))],
       },

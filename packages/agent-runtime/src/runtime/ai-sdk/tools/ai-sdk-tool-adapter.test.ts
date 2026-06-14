@@ -20,6 +20,8 @@ describe("createAiSdkToolSet", () => {
           input,
           requestId: context.requestId,
           assistantTurnId: context.assistantTurnId,
+          workspaceId: context.scope?.workspaceId ?? null,
+          subjectId: context.scope?.subjectId ?? null,
           toolName: context.toolName,
         }),
     };
@@ -33,6 +35,8 @@ describe("createAiSdkToolSet", () => {
       input: { query: "portfolio risk" },
       requestId: "req_001",
       assistantTurnId: "turn_001",
+      workspaceId: "workspace_001",
+      subjectId: "subject_001",
       toolName: "context_echo",
     });
   });
@@ -170,4 +174,13 @@ const createRequest = (): RuntimeProviderRequest => ({
   providerId: "provider",
   modelId: "model",
   messages: [{ role: "user", content: "search web for portfolio risk" }],
+  toolScope: {
+    hostAppId: "host_001",
+    workspaceId: "workspace_001",
+    subjectId: "subject_001",
+    conversationId: "conversation_001",
+    assistantTurnId: "turn_001",
+    profileId: "profile_001",
+    allowedHostCommandNames: ["host.open_ticket_panel"],
+  },
 });

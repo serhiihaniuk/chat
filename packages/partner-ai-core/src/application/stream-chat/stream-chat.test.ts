@@ -6,15 +6,9 @@ import {
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { AUTHORITY_DENIAL_CODES } from "#domain/authority";
-import { createTurnPolicyDecision, hashHostCapabilityManifest } from "#domain/harness";
+import { createTurnPolicyDecision, hashHostCapabilityManifest } from "#domain/capabilities";
 import { PARTNER_AI_CORE_ERROR_CODES } from "#errors";
-import {
-  RUNTIME_ERROR_CODES,
-  RUNTIME_EVENT_TYPES,
-  RUNTIME_FINISH_REASONS,
-  type TurnGuard,
-  type TurnGuardInput,
-} from "#ports";
+import { RUNTIME_ERROR_CODES, RUNTIME_EVENT_TYPES, RUNTIME_FINISH_REASONS } from "#ports";
 import { denyRequestPolicy, POLICY_DENIAL_CODES } from "#policies/policy";
 import {
   authContext,
@@ -29,7 +23,7 @@ import {
   runStreamChat,
 } from "#testing/stream-chat/fake-ports.test-support";
 
-describe("stream chat use case", () => {
+describe("stream chat lifecycle and policy", () => {
   it("streams valid sidechat.v1 events through Effect services", async () => {
     const ports = createFakePorts({ authContext });
 
@@ -69,10 +63,21 @@ describe("stream chat use case", () => {
     expect(ports.runtimeRequests[0]).toMatchObject({
       requestId: "request_001",
       assistantTurnId: "assistant_turn_001",
+      executorId: "ai_sdk.tool_loop",
       providerId: "fake",
       modelId: "fake-echo",
       profileId: "analyst",
+      systemInstructions: "Use concise analyst language.",
       availableToolNames: ["mock_web_search"],
+      toolScope: {
+        hostAppId: "host_app_001",
+        workspaceId: "workspace_001",
+        subjectId: "subject_001",
+        conversationId: "conversation_001",
+        assistantTurnId: "assistant_turn_001",
+        profileId: "analyst",
+        allowedHostCommandNames: [],
+      },
       messages: [{ role: "user", content: "hello" }],
       contextBoard: {
         manifest: {
@@ -147,87 +152,6 @@ describe("stream chat use case", () => {
     expect(ports.calls).toEqual(["hostCapabilities", "turnPolicy", "policy"]);
   });
 
-  it("runs allow turn guards before persistence, context, or runtime work", async () => {
-    const guardInputs: TurnGuardInput[] = [];
-    const guard = createTurnGuard((guardInput) => {
-      guardInputs.push(guardInput);
-      return Effect.succeed({ kind: "allow" });
-    });
-    const ports = createFakePorts({ authContext, turnGuards: { guards: [guard] } });
-
-    await collect(runStreamChat(input, ports));
-
-    expect(guardInputs[0]).toMatchObject({
-      requestId: "request_001",
-      userMessage: "hello",
-      hostAppId: "host_app_001",
-      profileId: "analyst",
-      safetyPolicyId: "standard",
-    });
-    expect(guardInputs[0]).not.toHaveProperty("contextBoard");
-    expect(ports.calls).toEqual([
-      "hostCapabilities",
-      "turnPolicy",
-      "policy",
-      "ensureConversation",
-      "appendUserMessage",
-      "startAssistantTurn",
-      "contextManager",
-      "recordContextSnapshot",
-      "runtime",
-      "completeAssistantTurn",
-    ]);
-  });
-
-  it("blocks guarded turns before persistence, context, or runtime work", async () => {
-    const guardInputs: TurnGuardInput[] = [];
-    const guard = createTurnGuard((guardInput) => {
-      guardInputs.push(guardInput);
-      return Effect.succeed({
-        kind: "block",
-        publicReason: "I cannot help with that request.",
-        internalReason: "prompt injection attempt",
-        errorCode: PROTOCOL_ERROR_CODES.FORBIDDEN,
-      });
-    });
-    const ports = createFakePorts({ authContext, turnGuards: { guards: [guard] } });
-
-    await expect(collect(runStreamChat(input, ports))).rejects.toMatchObject({
-      code: PARTNER_AI_CORE_ERROR_CODES.TURN_GUARD_BLOCKED,
-      protocolCode: PROTOCOL_ERROR_CODES.FORBIDDEN,
-      message: "I cannot help with that request.",
-    });
-    expect(guardInputs).toHaveLength(1);
-    expect(ports.calls).toEqual(["hostCapabilities", "turnPolicy", "policy"]);
-  });
-
-  it("continues guarded turns with warnings", async () => {
-    const guard = createTurnGuard(() =>
-      Effect.succeed({
-        kind: "allow_with_warning",
-        warning: "Prompt looked unusual but stayed inside policy.",
-      }),
-    );
-    const ports = createFakePorts({ authContext, turnGuards: { guards: [guard] } });
-
-    const events = await collect(runStreamChat(input, ports));
-
-    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
-    expect(ports.runtimeRequests).toHaveLength(1);
-  });
-
-  it("maps guard failures before persistence, context, or runtime work", async () => {
-    const guard = createTurnGuard(() => Effect.fail(new Error("classifier unavailable")));
-    const ports = createFakePorts({ authContext, turnGuards: { guards: [guard] } });
-
-    await expect(collect(runStreamChat(input, ports))).rejects.toMatchObject({
-      code: PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
-      protocolCode: PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
-      message: "classifier unavailable",
-    });
-    expect(ports.calls).toEqual(["hostCapabilities", "turnPolicy", "policy"]);
-  });
-
   it("rejects manifest-declared tools outside the resolved profile before protected work", async () => {
     const baseManifest = createManifest();
     const manifest = {
@@ -275,7 +199,9 @@ describe("stream chat use case", () => {
     });
     expect(ports.calls).toEqual([]);
   });
+});
 
+describe("stream chat runtime terminal mapping", () => {
   it("allocates contiguous protocol sequences when runtime lifecycle events are dropped", async () => {
     const ports = createFakePorts({
       authContext,
@@ -313,6 +239,41 @@ describe("stream chat use case", () => {
       SIDECHAT_EVENT_TYPES.COMPLETED,
     ]);
     expect(events.map((event) => event.sequence)).toEqual([0, 1, 2]);
+  });
+
+  it("fails started turns when the runtime emits more than one terminal event", async () => {
+    const ports = createFakePorts({
+      authContext,
+      runtimeEvents: [
+        {
+          type: RUNTIME_EVENT_TYPES.COMPLETED,
+          requestId: "request_001",
+          assistantTurnId: "assistant_turn_001",
+          sequence: 0,
+          finishReason: RUNTIME_FINISH_REASONS.STOP,
+        },
+        {
+          type: RUNTIME_EVENT_TYPES.ERROR,
+          requestId: "request_001",
+          assistantTurnId: "assistant_turn_001",
+          sequence: 1,
+          code: RUNTIME_ERROR_CODES.INTERNAL_ERROR,
+          message: "late runtime error",
+          retryable: false,
+        },
+      ],
+    });
+
+    await expect(collect(runStreamChat(input, ports))).rejects.toMatchObject({
+      code: PARTNER_AI_CORE_ERROR_CODES.INVALID_RUNTIME_SEQUENCE,
+      protocolCode: PROTOCOL_ERROR_CODES.MALFORMED_STREAM,
+      message: expect.stringContaining("Expected exactly one terminal event"),
+    });
+    expect(ports.completedTurns).toEqual([]);
+    expect(ports.failedTurns[0]).toMatchObject({
+      status: "provider_failed",
+      errorCode: PROTOCOL_ERROR_CODES.MALFORMED_STREAM,
+    });
   });
 
   it("maps runtime failures to a stable terminal protocol error", async () => {
@@ -373,10 +334,4 @@ describe("stream chat use case", () => {
       errorCode: PROTOCOL_ERROR_CODES.ABORTED,
     });
   });
-});
-
-const createTurnGuard = (check: TurnGuard["check"]): TurnGuard => ({
-  guardId: "test.guard",
-  description: "Deterministic test turn guard.",
-  check,
 });

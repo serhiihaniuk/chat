@@ -9,7 +9,7 @@ import {
   type HostCapabilityManifest,
   type PreparedTurnContext,
   type TurnPolicyDecision,
-} from "#domain/harness";
+} from "#domain/capabilities";
 import type { StreamChatInput } from "#application/stream-chat/stream-chat";
 
 export const authContext: AuthContext = {
@@ -127,6 +127,8 @@ const createProfile = (): AssistantProfile => ({
   version: "2026-06-13",
   displayName: "Analyst",
   systemPromptId: "prompt_analyst_v1",
+  systemInstructions: "Use concise analyst language.",
+  executorId: "ai_sdk.tool_loop",
   modelPolicy: { providerId: "fake", modelId: "fake-echo" },
   defaultToolPolicy: {
     mode: "profile_allowlist",
@@ -135,5 +137,5 @@ const createProfile = (): AssistantProfile => ({
   retrievalPolicy: { mode: "disabled", sourceIds: [] },
   memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
   outputContract: { format: "markdown" },
-  safetyPolicy: { policyId: "standard", promptInjectionMode: "standard" },
+  safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
 });

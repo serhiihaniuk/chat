@@ -6,7 +6,7 @@ import {
   hashHostCapabilityManifest,
   type AssistantProfile,
   type HostCapabilityManifest,
-} from "#domain/harness";
+} from "#domain/capabilities";
 import type {
   MemoryPort,
   MemoryWriteCandidateProposalInput,

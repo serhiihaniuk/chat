@@ -1,4 +1,4 @@
-import { Effect, Stream } from "effect";
+import { Stream } from "effect";
 import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import { describe, expect, it } from "vitest";
 import {
@@ -6,21 +6,9 @@ import {
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
 } from "#providers/fake/fake-model-provider";
-import type { ModelProvider } from "#providers/model-provider";
-import { createScriptedLanguageModel } from "#testing/scripted-language-model";
 import { createMockWebSearchTool, MOCK_WEB_SEARCH_TOOL_NAME } from "#testing/mock-runtime-tool";
-import {
-  RUNTIME_ERROR_CODES,
-  RUNTIME_EVENT_TYPES,
-  RUNTIME_FINISH_REASONS,
-  type RuntimeEvent,
-} from "./contract/runtime-event.js";
-import {
-  createAgentRuntime,
-  DEFAULT_AGENT_EXECUTOR_ID,
-  type AgentExecutionRequest,
-  type AgentExecutor,
-} from "./agent-runtime.js";
+import { collectEvents, createCapturingProvider } from "#testing/agent-runtime-test-support";
+import { createAgentRuntime } from "./agent-runtime.js";
 
 describe("createAgentRuntime", () => {
   it("streams internal events by resolving a model provider through the runtime", async () => {
@@ -113,6 +101,38 @@ describe("createAgentRuntime", () => {
     expect(modelCalls[0]?.prompt.at(-1)).toMatchObject({
       role: "user",
       content: [{ type: "text", text: "respond in list" }],
+    });
+  });
+
+  it("uses resolved request instructions when core supplies them for the turn", async () => {
+    const modelCalls: LanguageModelV3CallOptions[] = [];
+    const runtime = createAgentRuntime({
+      providers: [createCapturingProvider(modelCalls)],
+      profiles: [
+        {
+          profileId: "analyst",
+          systemInstructions: "Use catalog fallback instructions.",
+          defaultProviderId: "capture",
+          defaultModelId: "capture-model",
+        },
+      ],
+    });
+
+    await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          profileId: "analyst",
+          requestId: "req_resolved_instructions",
+          assistantTurnId: "turn_resolved_instructions",
+          systemInstructions: "Use resolved host profile instructions.",
+          messages: [{ role: "user", content: "answer from resolved prompt" }],
+        }),
+      ),
+    );
+
+    expect(modelCalls[0]?.prompt[0]).toMatchObject({
+      role: "system",
+      content: "Use resolved host profile instructions.",
     });
   });
 
@@ -225,217 +245,4 @@ describe("createAgentRuntime", () => {
 
     expect(modelCalls[0]?.tools).toBeUndefined();
   });
-
-  it("selects a requested executor without entering the AI SDK stream runner", async () => {
-    const modelCalls: LanguageModelV3CallOptions[] = [];
-    const executionRequests: AgentExecutionRequest[] = [];
-    const runtime = createAgentRuntime({
-      providers: [createCapturingProvider(modelCalls)],
-      executors: [createDeterministicExecutor("deterministic.test", executionRequests)],
-    });
-
-    const events = await collectEvents(
-      Stream.toAsyncIterable(
-        runtime.streamEffect({
-          executorId: "deterministic.test",
-          providerId: "capture",
-          modelId: "capture-model",
-          requestId: "req_executor",
-          assistantTurnId: "turn_executor",
-          messages: [{ role: "user", content: "executor seam" }],
-        }),
-      ),
-    );
-
-    expect(events.map((event) => event.type)).toEqual([
-      RUNTIME_EVENT_TYPES.STARTED,
-      RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
-      RUNTIME_EVENT_TYPES.COMPLETED,
-    ]);
-    expect(events[1]).toMatchObject({ content: "executor:deterministic.test" });
-    expect(executionRequests[0]?.providerRequest).toMatchObject({
-      requestId: "req_executor",
-      assistantTurnId: "turn_executor",
-      providerId: "capture",
-      modelId: "capture-model",
-    });
-    expect(modelCalls).toHaveLength(0);
-  });
-
-  it("rejects unknown executors before resolving provider adapters", async () => {
-    const runtime = createAgentRuntime({
-      providers: [createThrowingProvider()],
-    });
-
-    await expect(
-      collectEvents(
-        Stream.toAsyncIterable(
-          runtime.streamEffect({
-            executorId: "missing_executor",
-            providerId: "throwing",
-            modelId: "throwing-model",
-            requestId: "req_missing_executor",
-            assistantTurnId: "turn_missing_executor",
-            messages: [],
-          }),
-        ),
-      ),
-    ).rejects.toMatchObject({
-      code: RUNTIME_ERROR_CODES.EXECUTOR_UNAVAILABLE,
-      message: "executor missing_executor is not registered",
-    });
-  });
-
-  it("rejects duplicate executor ids during composition", () => {
-    expect(() =>
-      createAgentRuntime({
-        providers: [createFakeProvider()],
-        executors: [createDeterministicExecutor(DEFAULT_AGENT_EXECUTOR_ID)],
-      }),
-    ).toThrow(`duplicate executor ${DEFAULT_AGENT_EXECUTOR_ID}`);
-  });
-
-  it("rejects unavailable selected tools without fallback", async () => {
-    const runtime = createAgentRuntime({
-      providers: [createFakeProvider()],
-    });
-
-    await expect(
-      collectEvents(
-        Stream.toAsyncIterable(
-          runtime.streamEffect({
-            providerId: FAKE_PROVIDER_ID,
-            modelId: FAKE_ECHO_MODEL_ID,
-            requestId: "req_missing_tool",
-            assistantTurnId: "turn_missing_tool",
-            messages: [],
-            availableToolNames: ["missing_tool"],
-          }),
-        ),
-      ),
-    ).rejects.toThrow("tool missing_tool is not registered");
-  });
-
-  it("rejects unavailable provider and model selections without fallback", async () => {
-    const runtime = createAgentRuntime({
-      providers: [createFakeProvider()],
-    });
-
-    await expect(
-      collectEvents(
-        Stream.toAsyncIterable(
-          runtime.streamEffect({
-            providerId: "missing-provider",
-            modelId: FAKE_ECHO_MODEL_ID,
-            requestId: "req_missing_provider",
-            assistantTurnId: "turn_missing_provider",
-            messages: [],
-          }),
-        ),
-      ),
-    ).rejects.toThrow("provider missing-provider is not registered");
-
-    await expect(
-      collectEvents(
-        Stream.toAsyncIterable(
-          runtime.streamEffect({
-            providerId: FAKE_PROVIDER_ID,
-            modelId: "missing-model",
-            requestId: "req_missing_model",
-            assistantTurnId: "turn_missing_model",
-            messages: [],
-          }),
-        ),
-      ),
-    ).rejects.toThrow("model missing-model is not registered");
-  });
-
-  it("maps unexpected adapter throws into the runtime error channel", async () => {
-    const runtime = createAgentRuntime({
-      providers: [createThrowingProvider()],
-    });
-
-    await expect(
-      collectEvents(
-        Stream.toAsyncIterable(
-          runtime.streamEffect({
-            providerId: "throwing",
-            modelId: "throwing-model",
-            requestId: "req_throwing_provider",
-            assistantTurnId: "turn_throwing_provider",
-            messages: [],
-          }),
-        ),
-      ),
-    ).rejects.toMatchObject({
-      code: RUNTIME_ERROR_CODES.INTERNAL_ERROR,
-      message: "provider adapter exploded",
-    });
-  });
 });
-
-const createCapturingProvider = (modelCalls: LanguageModelV3CallOptions[]): ModelProvider => ({
-  providerId: "capture",
-  modelIds: ["capture-model"],
-  resolveModel: (selection) =>
-    Effect.succeed(
-      createScriptedLanguageModel({
-        providerId: "capture",
-        modelId: selection.modelId,
-        text: "Captured response.",
-        onStreamCall: (options) => modelCalls.push(options),
-      }),
-    ),
-});
-
-const createThrowingProvider = (): ModelProvider => ({
-  providerId: "throwing",
-  modelIds: ["throwing-model"],
-  resolveModel: () => {
-    throw new Error("provider adapter exploded");
-  },
-});
-
-const createDeterministicExecutor = (
-  executorId: string,
-  calls: AgentExecutionRequest[] = [],
-): AgentExecutor => ({
-  executorId,
-  description: "Deterministic fixture executor.",
-  stream: (executionRequest) => {
-    calls.push(executionRequest);
-    const { requestId, assistantTurnId, providerId, modelId } = executionRequest.providerRequest;
-    const events = [
-      {
-        type: RUNTIME_EVENT_TYPES.STARTED,
-        requestId,
-        assistantTurnId,
-        sequence: 0,
-        providerId,
-        modelId,
-      },
-      {
-        type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
-        requestId,
-        assistantTurnId,
-        sequence: 1,
-        content: `executor:${executorId}`,
-      },
-      {
-        type: RUNTIME_EVENT_TYPES.COMPLETED,
-        requestId,
-        assistantTurnId,
-        sequence: 2,
-        finishReason: RUNTIME_FINISH_REASONS.STOP,
-      },
-    ] satisfies readonly RuntimeEvent[];
-
-    return Stream.fromIterable(events);
-  },
-});
-
-const collectEvents = async <T>(events: AsyncIterable<T>): Promise<T[]> => {
-  const collected: T[] = [];
-  for await (const event of events) collected.push(event);
-  return collected;
-};
