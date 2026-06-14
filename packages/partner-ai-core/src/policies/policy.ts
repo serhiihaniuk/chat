@@ -1,7 +1,7 @@
 import type { ChatStreamRequest, ProtocolErrorCode } from "@side-chat/chat-protocol";
 import { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
-import type { HostCapabilityManifest, TurnPolicyDecision } from "#domain/harness";
+import type { HostCapabilityManifest, TurnPolicyDecision } from "#domain/capabilities";
 import { PartnerAiCoreError } from "#errors";
 
 export const POLICY_DENIAL_CODES = {

@@ -33,6 +33,7 @@ import {
   updateMessage,
   type WidgetMessage,
 } from "@side-chat/side-chat-widget/testing";
+import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -49,6 +50,7 @@ describe("golden-path adopter flow", () => {
       repositories,
       runtime: { provider: "fake", enableMockWebSearch: true },
       turnGuards: createRecordingGuardRegistry(guardInputs),
+      turnGuardIds: ["adoption.prompt_guard"],
       retrievalSources: [docsSource],
       ragRetriever: createRecordingRagRetriever(ragInputs),
       memoryPolicy: { policyId: "user_memory", mode: "read_write", scopes: ["user"] },
@@ -234,8 +236,8 @@ const projectEventsIntoWidgetState = (
 
   return {
     messages,
-    ...optionalValue("conversationId", conversationId),
-    ...optionalValue("usage", usage),
+    ...optionalField("conversationId", conversationId),
+    ...optionalField("usage", usage),
   };
 };
 
@@ -360,12 +362,6 @@ const asArray = (value: JsonValue | undefined): readonly JsonValue[] =>
 
 const isJsonObject = (value: JsonValue): value is JsonObject =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const optionalValue = <Key extends string, Value>(
-  key: Key,
-  value: Value | undefined,
-): { readonly [Property in Key]?: Value } =>
-  value === undefined ? {} : ({ [key]: value } as { readonly [Property in Key]: Value });
 
 const docsSource: RetrievalSourceCapability = {
   sourceId: "docs",

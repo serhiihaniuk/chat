@@ -125,6 +125,8 @@ export const createTurnPolicyDecision = ({
   return {
     profileId: profile.profileId,
     profileVersion: profile.version,
+    systemInstructions: profile.systemInstructions,
+    executorId: profile.executorId,
     providerId: profile.modelPolicy.providerId,
     modelId: profile.modelPolicy.modelId,
     allowedToolNames: profile.defaultToolPolicy.allowedToolNames,

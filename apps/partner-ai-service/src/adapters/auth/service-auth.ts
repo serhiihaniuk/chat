@@ -1,5 +1,6 @@
 import type { AuditActor, AuthContext, SubjectRef, WorkspaceRef } from "@side-chat/partner-ai-core";
 import type { HostContext } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 
 export const DEFAULT_DEV_BEARER_TOKEN = "Bearer local-test-token";
 
@@ -96,7 +97,7 @@ const toAuthContext = (config: ServiceAuthConfig, hostOrigin: string | undefined
     roles: ["member"],
     scopes: ["conversation:read", "conversation:write", "message:write"],
     source: config.profile === "production" ? "signed_service_token" : "test_authority",
-    ...(hostOrigin ? { hostOrigin } : {}),
+    ...optionalField("hostOrigin", hostOrigin || undefined),
     issuedAt: config.issuedAt ?? "2026-05-23T13:00:00.000Z",
   };
 };

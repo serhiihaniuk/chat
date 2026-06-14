@@ -1,5 +1,5 @@
 import type { UsageMetadata } from "@side-chat/chat-protocol";
-import { isRecord } from "@side-chat/shared";
+import { isRecord, optionalField } from "@side-chat/shared";
 
 import { ChatClientError } from "#http/errors";
 import { assertNotAborted, buildPathUrl, createHttpError, withSignal } from "#http/http-helpers";
@@ -125,18 +125,21 @@ const normalizeUsage = (payload: unknown): UsageMetadata => {
   if (!isRecord(payload)) {
     throw new ChatClientError("network_error", "Malformed usage response");
   }
+  const inputTokens = payload["inputTokens"];
+  const outputTokens = payload["outputTokens"];
+  const totalTokens = payload["totalTokens"];
   if (
-    !isOptionalNumber(payload["inputTokens"]) ||
-    !isOptionalNumber(payload["outputTokens"]) ||
-    !isOptionalNumber(payload["totalTokens"])
+    !isOptionalNumber(inputTokens) ||
+    !isOptionalNumber(outputTokens) ||
+    !isOptionalNumber(totalTokens)
   ) {
     throw new ChatClientError("network_error", "Malformed usage response");
   }
 
   return {
-    ...(payload["inputTokens"] === undefined ? {} : { inputTokens: payload["inputTokens"] }),
-    ...(payload["outputTokens"] === undefined ? {} : { outputTokens: payload["outputTokens"] }),
-    ...(payload["totalTokens"] === undefined ? {} : { totalTokens: payload["totalTokens"] }),
+    ...optionalField("inputTokens", inputTokens),
+    ...optionalField("outputTokens", outputTokens),
+    ...optionalField("totalTokens", totalTokens),
   };
 };
 

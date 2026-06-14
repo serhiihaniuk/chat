@@ -1,0 +1,25 @@
+import type { ChatRequestMessage } from "@side-chat/chat-protocol";
+import type { Effect } from "effect";
+import type { AuthContext, WorkspaceRef } from "#domain/authority";
+
+export type ConversationRef = WorkspaceRef & {
+  readonly conversationId: string;
+};
+
+export type MessageRef = WorkspaceRef & {
+  readonly conversationId: string;
+  readonly messageId: string;
+};
+
+export type ConversationRepositoryPort = {
+  readonly ensureConversation: (input: {
+    readonly authContext: AuthContext;
+    readonly requestedConversationId?: string;
+    readonly fallbackConversationId: string;
+  }) => Effect.Effect<ConversationRef, unknown>;
+  readonly appendUserMessage: (input: {
+    readonly authContext: AuthContext;
+    readonly conversationId: string;
+    readonly message: ChatRequestMessage;
+  }) => Effect.Effect<MessageRef, unknown>;
+};

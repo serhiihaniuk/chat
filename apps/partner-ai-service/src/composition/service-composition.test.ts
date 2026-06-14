@@ -155,6 +155,17 @@ describe("service composition runtime tools", () => {
     ]);
   });
 
+  it("resolves the service system prompt id to runtime instructions", async () => {
+    const composition = composePartnerAiService({ workspace });
+
+    const manifest = await loadManifest(composition);
+
+    expect(manifest.assistantProfiles[0]).toMatchObject({
+      systemPromptId: "runtime_default_profile",
+      systemInstructions: expect.stringContaining("GitHub-flavored Markdown"),
+    });
+  });
+
   it("declares host commands separately from backend runtime tools", async () => {
     const composition = composePartnerAiService({
       workspace,

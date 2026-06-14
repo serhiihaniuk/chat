@@ -8,6 +8,13 @@ import {
   type TurnPolicyValidationResult,
 } from "../contracts/capabilities.js";
 import { approvalRequirementIssues } from "./turn-policy-approval-validation.js";
+import {
+  readManifestTurnPolicyReferences,
+  unknownManifestCommandMessage,
+  unknownManifestRetrievalSourceMessage,
+  unknownManifestToolMessage,
+  unknownManifestWorkflowMessage,
+} from "./turn-policy-manifest-lookups.js";
 import { profileMemoryIssues } from "./turn-policy-memory-validation.js";
 
 export const validateTurnPolicyDecision = (
@@ -15,12 +22,13 @@ export const validateTurnPolicyDecision = (
   profile: AssistantProfile,
   decision: TurnPolicyDecision,
 ): TurnPolicyValidationResult => {
+  const manifestReferences = readManifestTurnPolicyReferences(manifest);
   const issues: HostCapabilityValidationIssue[] = [
     ...profileIdentityIssues(profile, decision),
-    ...manifestToolIssues(manifest, decision),
-    ...manifestCommandIssues(manifest, decision),
-    ...manifestRetrievalIssues(manifest, decision),
-    ...manifestWorkflowIssues(manifest, decision),
+    ...manifestToolIssues(manifestReferences.toolNames, decision),
+    ...manifestCommandIssues(manifestReferences.commandNames, decision),
+    ...manifestRetrievalIssues(manifestReferences.retrievalSourceIds, decision),
+    ...manifestWorkflowIssues(manifestReferences.workflowIds, decision),
     ...profileToolIssues(profile, decision),
     ...profileRetrievalIssues(profile, decision),
     ...profileMemoryIssues(profile, decision),
@@ -36,6 +44,8 @@ const profileIdentityIssues = (
 ): readonly HostCapabilityValidationIssue[] => [
   ...profileIdIssues(profile, decision),
   ...profileVersionIssues(profile, decision),
+  ...profileInstructionsIssues(profile, decision),
+  ...profileExecutorIssues(profile, decision),
   ...profileModelIssues(profile, decision),
 ];
 
@@ -82,52 +92,80 @@ const profileModelIssues = (
         },
       ];
 
+const profileInstructionsIssues = (
+  profile: AssistantProfile,
+  decision: TurnPolicyDecision,
+): readonly HostCapabilityValidationIssue[] =>
+  decision.systemInstructions === profile.systemInstructions
+    ? []
+    : [
+        {
+          code: HOST_CAPABILITY_VALIDATION_CODES.PROFILE_INSTRUCTIONS_POLICY_MISMATCH,
+          path: "systemInstructions",
+          message: `Turn policy instructions do not match profile ${profile.profileId}.`,
+        },
+      ];
+
+const profileExecutorIssues = (
+  profile: AssistantProfile,
+  decision: TurnPolicyDecision,
+): readonly HostCapabilityValidationIssue[] =>
+  decision.executorId === profile.executorId
+    ? []
+    : [
+        {
+          code: HOST_CAPABILITY_VALIDATION_CODES.PROFILE_EXECUTOR_POLICY_MISMATCH,
+          path: "executorId",
+          message: `Turn policy executor ${decision.executorId} does not match profile ${profile.profileId} executor ${profile.executorId}.`,
+        },
+      ];
+
 const manifestToolIssues = (
-  manifest: HostCapabilityManifest,
+  toolNames: ReadonlySet<string>,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   unknownValueIssues(
     decision.allowedToolNames,
-    toolNameSet(manifest),
+    toolNames,
     "allowedToolNames",
     HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
-    turnPolicyUnknownToolMessage,
+    unknownManifestToolMessage,
   );
 
 const manifestCommandIssues = (
-  manifest: HostCapabilityManifest,
+  commandNames: ReadonlySet<string>,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   unknownValueIssues(
     decision.allowedCommandNames,
-    commandNameSet(manifest),
+    commandNames,
     "allowedCommandNames",
     HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_COMMAND_REFERENCE,
-    turnPolicyUnknownCommandMessage,
+    unknownManifestCommandMessage,
   );
 
 const manifestRetrievalIssues = (
-  manifest: HostCapabilityManifest,
+  retrievalSourceIds: ReadonlySet<string>,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   unknownValueIssues(
     decision.retrievalSourceIds,
-    retrievalSourceIdSet(manifest),
+    retrievalSourceIds,
     "retrievalSourceIds",
     HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_RETRIEVAL_SOURCE_REFERENCE,
-    turnPolicyUnknownRetrievalSourceMessage,
+    unknownManifestRetrievalSourceMessage,
   );
 
 const manifestWorkflowIssues = (
-  manifest: HostCapabilityManifest,
+  workflowIds: ReadonlySet<string>,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   unknownValueIssues(
     decision.workflowPolicy.allowedWorkflowIds,
-    workflowIdSet(manifest),
+    workflowIds,
     "workflowPolicy.allowedWorkflowIds",
     HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_WORKFLOW_REFERENCE,
-    turnPolicyUnknownWorkflowMessage,
+    unknownManifestWorkflowMessage,
   );
 
 const profileToolIssues = (
@@ -169,27 +207,3 @@ const unknownValueIssues = (
       path,
       message: message(value),
     }));
-
-const toolNameSet = (manifest: HostCapabilityManifest): ReadonlySet<string> =>
-  new Set(manifest.tools.map((tool) => tool.name));
-
-const commandNameSet = (manifest: HostCapabilityManifest): ReadonlySet<string> =>
-  new Set(manifest.commands.map((command) => command.commandName));
-
-const retrievalSourceIdSet = (manifest: HostCapabilityManifest): ReadonlySet<string> =>
-  new Set(manifest.retrievalSources.map((source) => source.sourceId));
-
-const workflowIdSet = (manifest: HostCapabilityManifest): ReadonlySet<string> =>
-  new Set(manifest.workflows.map((workflow) => workflow.workflowId));
-
-const turnPolicyUnknownToolMessage = (toolName: string): string =>
-  `Turn policy references unknown tool ${toolName}.`;
-
-const turnPolicyUnknownCommandMessage = (commandName: string): string =>
-  `Turn policy references unknown host command ${commandName}.`;
-
-const turnPolicyUnknownRetrievalSourceMessage = (sourceId: string): string =>
-  `Turn policy references unknown retrieval source ${sourceId}.`;
-
-const turnPolicyUnknownWorkflowMessage = (workflowId: string): string =>
-  `Turn policy references unknown workflow ${workflowId}.`;

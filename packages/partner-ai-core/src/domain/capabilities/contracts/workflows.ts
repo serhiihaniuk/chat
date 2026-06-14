@@ -1,4 +1,4 @@
-import type { JsonObject } from "@side-chat/chat-protocol";
+import type { JsonObject } from "@side-chat/shared";
 
 export const WORKFLOW_RUN_STATUSES = {
   PENDING: "pending",

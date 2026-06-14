@@ -5,6 +5,7 @@ import {
   type SidechatStreamEvent,
   type UsageMetadata,
 } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 
 import { ChatClientError } from "#http/errors";
 import { assertNotAborted, buildPathUrl, createHttpError } from "#http/http-helpers";
@@ -189,7 +190,7 @@ const buildRequestInit = (
     "content-type": "application/json",
   },
   body: JSON.stringify(request),
-  ...(signal ? { signal } : {}),
+  ...optionalField("signal", signal),
 });
 
 const readResponseBody = async function* (

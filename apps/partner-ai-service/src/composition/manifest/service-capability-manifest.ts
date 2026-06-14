@@ -17,6 +17,7 @@ import {
   type TurnPolicyResolverPort,
   type WorkflowCapability,
 } from "@side-chat/partner-ai-core";
+import { DEFAULT_AGENT_EXECUTOR_ID } from "@side-chat/agent-runtime";
 import { Effect } from "effect";
 
 import {
@@ -27,6 +28,9 @@ import {
 
 const LOCAL_HOST_APP_ID = "side-chat-local";
 const DEFAULT_RUNTIME_PROFILE_ID = "default";
+const DEFAULT_RUNTIME_SYSTEM_PROMPT_ID = "runtime_default_profile";
+const DEFAULT_RUNTIME_SYSTEM_INSTRUCTIONS =
+  "Render final assistant answers as GitHub-flavored Markdown. Use bullet or numbered lists when the answer contains multiple items, preserve emphasis with Markdown syntax, and keep tool payload JSON out of the visible answer unless the user explicitly asks for raw data.";
 
 export const createServiceHostCapabilityManifest = ({
   runtimeConfig,
@@ -37,6 +41,7 @@ export const createServiceHostCapabilityManifest = ({
   approvalPolicies = [],
   retrievalSources = [],
   workflows = [],
+  turnGuardIds = [],
   memoryPolicy = { policyId: "no_memory", mode: "disabled", scopes: [] },
 }: {
   readonly runtimeConfig: { readonly enableMockWebSearch?: boolean };
@@ -47,6 +52,7 @@ export const createServiceHostCapabilityManifest = ({
   readonly approvalPolicies?: readonly ApprovalPolicy[];
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
   readonly workflows?: readonly WorkflowCapability[];
+  readonly turnGuardIds?: readonly string[];
   readonly memoryPolicy?: MemoryPolicy;
 }): HostCapabilityManifest => {
   const tools = [
@@ -58,6 +64,7 @@ export const createServiceHostCapabilityManifest = ({
     modelId,
     allowedToolNames: tools.map((tool) => tool.name),
     retrievalSourceIds: retrievalSources.map((source) => source.sourceId),
+    turnGuardIds,
     memoryPolicy,
   });
 
@@ -132,18 +139,22 @@ const createDefaultServiceAssistantProfile = ({
   modelId,
   allowedToolNames,
   retrievalSourceIds,
+  turnGuardIds,
   memoryPolicy,
 }: {
   readonly providerId: string;
   readonly modelId: string;
   readonly allowedToolNames: readonly string[];
   readonly retrievalSourceIds: readonly string[];
+  readonly turnGuardIds: readonly string[];
   readonly memoryPolicy: MemoryPolicy;
 }): AssistantProfile => ({
   profileId: DEFAULT_RUNTIME_PROFILE_ID,
   version: "2026-06-13",
   displayName: "Default assistant",
-  systemPromptId: "runtime_default_profile",
+  systemPromptId: DEFAULT_RUNTIME_SYSTEM_PROMPT_ID,
+  systemInstructions: resolveServiceSystemInstructions(DEFAULT_RUNTIME_SYSTEM_PROMPT_ID),
+  executorId: DEFAULT_AGENT_EXECUTOR_ID,
   modelPolicy: { providerId, modelId },
   defaultToolPolicy: {
     mode: allowedToolNames.length > 0 ? "profile_allowlist" : "closed",
@@ -155,8 +166,16 @@ const createDefaultServiceAssistantProfile = ({
   },
   memoryPolicy,
   outputContract: { format: "markdown" },
-  safetyPolicy: { policyId: "standard", promptInjectionMode: "standard" },
+  safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds },
 });
+
+const resolveServiceSystemInstructions = (systemPromptId: string): string => {
+  if (systemPromptId === DEFAULT_RUNTIME_SYSTEM_PROMPT_ID) {
+    return DEFAULT_RUNTIME_SYSTEM_INSTRUCTIONS;
+  }
+
+  throw new Error(`Unknown service system prompt ${systemPromptId}.`);
+};
 
 const createMockWebSearchCapability = (): ToolCapability => {
   const tool = createMockWebSearchTool({ delayMs: 0 });

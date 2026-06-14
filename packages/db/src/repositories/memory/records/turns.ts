@@ -3,6 +3,7 @@ import type {
   AssistantTurnRepositoryContract,
   ContextSnapshotRecord,
 } from "#schema-contract";
+import { optionalField } from "@side-chat/shared";
 import { requireSubjectConversation, type MemoryRepositoryContext } from "./conversations.js";
 import { updateTurn } from "../store/store.js";
 import { result } from "../../repository-utils.js";
@@ -63,7 +64,7 @@ export const createMemoryAssistantTurnRepository = ({
       contextSnapshotId: ids.next("context_snapshot"),
       assistantTurnId: command.assistantTurnId,
       contextSchemaVersion: command.contextSchemaVersion,
-      ...(command.hostSurfaceId ? { hostSurfaceId: command.hostSurfaceId } : {}),
+      ...optionalField("hostSurfaceId", command.hostSurfaceId || undefined),
       hostContextHash: command.hostContextHash,
       capabilitiesHash: command.capabilitiesHash,
       contextRedactedJson: command.contextRedactedJson,

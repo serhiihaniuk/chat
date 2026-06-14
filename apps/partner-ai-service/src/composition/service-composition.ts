@@ -48,7 +48,7 @@ import {
   createServiceHostCapabilityManifest,
   createServiceTurnPolicyResolver,
   createStaticHostCapabilityManifestPort,
-} from "./manifest/service-harness.js";
+} from "./manifest/service-capability-manifest.js";
 
 export type PersistenceConfig =
   | { readonly kind: "memory" }
@@ -108,6 +108,7 @@ export type ServiceCompositionOptions = {
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
   readonly turnGuards?: TurnGuardRegistryPort;
+  readonly turnGuardIds?: readonly string[];
   readonly memory?: MemoryPort;
   readonly memoryPolicy?: MemoryPolicy;
   readonly ragRetriever?: RagRetrieverPort;
@@ -135,6 +136,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     ...optionalField("memoryPolicy", options.memoryPolicy),
     ...optionalField("retrievalSources", options.retrievalSources),
     ...optionalField("workflows", options.workflows),
+    ...optionalField("turnGuardIds", options.turnGuardIds),
   });
   const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);
   const memory = options.memory ?? createNoopMemoryPort();

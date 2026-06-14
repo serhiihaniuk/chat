@@ -1,20 +1,21 @@
-import type { ChatStreamRequest, JsonObject } from "@side-chat/chat-protocol";
+import type { ChatStreamRequest } from "@side-chat/chat-protocol";
+import type { JsonObject } from "@side-chat/shared";
 import type { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
-import type { ContextRedactionClass, ContextTrustLevel } from "#domain/harness";
+import type { ContextRedactionClass, ContextTrustLevel } from "#domain/capabilities";
 
-export type RagRetrievalInput = {
+export type ResearchAgentInput = {
   readonly authContext: AuthContext;
   readonly workspace: WorkspaceRef;
   readonly requestId: string;
   readonly userMessage: string;
   readonly hostContext?: ChatStreamRequest["hostContext"];
   readonly allowedSourceIds: readonly string[];
-  readonly maxCandidates: number;
+  readonly maxResearchSteps: number;
   readonly abortSignal?: AbortSignal;
 };
 
-export type RagContextCandidate = {
+export type ResearchSourceCandidate = {
   readonly candidateId: string;
   readonly sourceId: string;
   readonly title: string;
@@ -27,8 +28,13 @@ export type RagContextCandidate = {
   readonly metadata?: JsonObject;
 };
 
-export type RagRetrieverPort = {
-  readonly retrieve: (
-    input: RagRetrievalInput,
-  ) => Effect.Effect<readonly RagContextCandidate[], unknown>;
+export type ResearchAgentOutput = {
+  readonly summary: string;
+  readonly sources: readonly ResearchSourceCandidate[];
+  readonly artifactId?: string;
+  readonly metadata?: JsonObject;
+};
+
+export type ResearchAgentPort = {
+  readonly runResearch: (input: ResearchAgentInput) => Effect.Effect<ResearchAgentOutput, unknown>;
 };

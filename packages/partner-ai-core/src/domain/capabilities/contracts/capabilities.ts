@@ -1,4 +1,4 @@
-import type { JsonObject } from "@side-chat/chat-protocol";
+import type { JsonObject } from "@side-chat/shared";
 
 export const HOST_CAPABILITY_SCHEMA_VERSIONS = {
   V1: "sidechat.host-capabilities.v1",
@@ -17,6 +17,7 @@ export const HOST_CAPABILITY_VALIDATION_CODES = {
   DUPLICATE_WORKFLOW_ID: "duplicate_workflow_id",
   MISSING_DEFAULT_PROFILE: "missing_default_profile",
   UNKNOWN_PROFILE_REFERENCE: "unknown_profile_reference",
+  PROFILE_EXECUTOR_POLICY_MISMATCH: "profile_executor_policy_mismatch",
   UNKNOWN_TOOL_REFERENCE: "unknown_tool_reference",
   UNKNOWN_COMMAND_REFERENCE: "unknown_command_reference",
   UNKNOWN_WORKFLOW_REFERENCE: "unknown_workflow_reference",
@@ -24,6 +25,7 @@ export const HOST_CAPABILITY_VALIDATION_CODES = {
   UNKNOWN_MEMORY_POLICY_REFERENCE: "unknown_memory_policy_reference",
   UNKNOWN_APPROVAL_REFERENCE: "unknown_approval_reference",
   PROFILE_VERSION_MISMATCH: "profile_version_mismatch",
+  PROFILE_INSTRUCTIONS_POLICY_MISMATCH: "profile_instructions_policy_mismatch",
   PROFILE_MODEL_POLICY_MISMATCH: "profile_model_policy_mismatch",
   PROFILE_MEMORY_POLICY_MISMATCH: "profile_memory_policy_mismatch",
   APPROVAL_POLICY_MISMATCH: "approval_policy_mismatch",
@@ -114,6 +116,7 @@ export type MemoryPolicy = {
 export type SafetyPolicy = {
   readonly policyId: string;
   readonly promptInjectionMode: "standard" | "strict";
+  readonly turnGuardIds: readonly string[];
 };
 
 /**
@@ -128,6 +131,8 @@ export type AssistantProfile = {
   readonly version: string;
   readonly displayName: string;
   readonly systemPromptId: string;
+  readonly systemInstructions: string;
+  readonly executorId: string;
   readonly modelPolicy: ModelPolicy;
   readonly defaultToolPolicy: ToolExposurePolicy;
   readonly retrievalPolicy: RetrievalPolicy;
@@ -261,6 +266,8 @@ export type ApprovalRequirement = {
 export type TurnPolicyDecision = {
   readonly profileId: string;
   readonly profileVersion: string;
+  readonly systemInstructions: string;
+  readonly executorId: string;
   readonly providerId: string;
   readonly modelId: string;
   readonly allowedToolNames: readonly string[];

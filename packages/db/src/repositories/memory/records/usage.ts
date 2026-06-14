@@ -1,4 +1,5 @@
 import type { AssistantTurnRepositoryContract, UsageRecord } from "#schema-contract";
+import { optionalField } from "@side-chat/shared";
 import type { MemoryRepositoryContext } from "./conversations.js";
 import { result } from "../../repository-utils.js";
 
@@ -26,7 +27,7 @@ export const createMemoryUsageRepository = ({
       runtimeStepIndex: command.runtimeStepIndex,
       modelProvider: command.modelProvider,
       modelId: command.modelId,
-      ...(command.providerRequestId ? { providerRequestId: command.providerRequestId } : {}),
+      ...optionalField("providerRequestId", command.providerRequestId || undefined),
       inputTokens: command.inputTokens,
       outputTokens: command.outputTokens,
       reasoningTokens: command.reasoningTokens,

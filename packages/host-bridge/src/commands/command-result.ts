@@ -1,4 +1,5 @@
 import type { JsonObject } from "@side-chat/chat-protocol";
+import { optionalField } from "@side-chat/shared";
 
 import type { HostCommand } from "./capability.js";
 
@@ -34,7 +35,7 @@ export const createCommandResult = (
   status: input.status,
   resultCode: input.resultCode,
   resolvedAt: input.resolvedAt ?? new Date().toISOString(),
-  ...(input.data ? { data: input.data } : {}),
+  ...optionalField("data", input.data),
 });
 
 export const createUnsupportedResult = (
