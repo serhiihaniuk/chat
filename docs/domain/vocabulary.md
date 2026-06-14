@@ -59,7 +59,7 @@ plans.
 ## Capability Terms
 
 - **Host capability manifest**: host-app declaration of possible profiles,
-  tools, commands, retrieval sources, policies, workflows, and renderers.
+  tools, commands, retrieval sources, research agents, policies, and renderers.
 - **Assistant profile**: versioned assistant configuration selected for one turn.
 - **ToolCapability**: manifest declaration for a backend capability; not
   executable until policy selects it and runtime has a matching RuntimeTool.

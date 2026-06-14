@@ -33,8 +33,8 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
   persistence, context, or runtime tools.
 - RAG retrieval runs during context preparation from allowed retrieval source ids;
   runtime does not fetch app RAG directly.
-- Research runs during context preparation only when workflow and retrieval
-  source policy allow it. Research output becomes candidates/artifacts, not
+- Research runs during context preparation only when research policy and
+  retrieval source policy allow it. Research output becomes candidates/artifacts, not
   protocol events or runtime executor selection.
 - Memory recall runs during context preparation from allowed scopes. Memory
   write candidates run after successful output and do not silently become raw

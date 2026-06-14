@@ -18,7 +18,7 @@ export const createPreparedContextSections = (
   ...createRagContextSections(gatheredContext.ragCandidates),
   ...createResearchContextSections(
     gatheredContext.researchCandidates,
-    gatheredContext.workflowArtifacts,
+    gatheredContext.researchArtifacts,
   ),
   ...createAllowedToolSections(input.manifest, input.policyDecision.allowedToolNames),
 ];

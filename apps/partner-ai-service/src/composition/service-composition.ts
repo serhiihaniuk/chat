@@ -18,12 +18,12 @@ import {
   type MemoryPolicy,
   type MemoryPort,
   type RagRetrieverPort,
+  type ResearchAgentCapability,
   type ResearchAgentPort,
   type RetrievalSourceCapability,
   type ToolCapability,
   type TurnGuardRegistryPort,
   type TurnPolicyResolverPort,
-  type WorkflowCapability,
   type WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import {
@@ -114,7 +114,7 @@ export type ServiceCompositionOptions = {
   readonly ragRetriever?: RagRetrieverPort;
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
   readonly researchAgent?: ResearchAgentPort;
-  readonly workflows?: readonly WorkflowCapability[];
+  readonly researchAgents?: readonly ResearchAgentCapability[];
 };
 
 export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
@@ -135,7 +135,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     ...optionalField("approvalPolicies", runtimeConfig.approvalPolicies),
     ...optionalField("memoryPolicy", options.memoryPolicy),
     ...optionalField("retrievalSources", options.retrievalSources),
-    ...optionalField("workflows", options.workflows),
+    ...optionalField("researchAgents", options.researchAgents),
     ...optionalField("turnGuardIds", options.turnGuardIds),
   });
   const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);

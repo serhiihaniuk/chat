@@ -99,7 +99,7 @@ export const assertWorkspaceAuthority = (
 /**
  * Scope checks are separate from workspace checks on purpose.
  *
- * Some workflows only need workspace membership, while others need a specific
+ * Some requests only need workspace membership, while others need a specific
  * capability such as writing messages or invoking tools. Keeping this small
  * avoids baking route-specific policy into the shared workspace guard.
  */

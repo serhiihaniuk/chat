@@ -9,7 +9,7 @@ export type RuntimeMessage = {
 /**
  * The context board is already selected, authorized, and compressed context.
  *
- * Building or squashing this board belongs to partner-ai-core workflows and
+ * Building or squashing this board belongs to partner-ai-core context preparation and
  * app-owned ports. The runtime only renders it into model-facing messages for
  * one assistant turn.
  */

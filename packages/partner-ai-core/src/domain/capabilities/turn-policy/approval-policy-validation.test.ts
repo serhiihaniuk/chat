@@ -179,7 +179,7 @@ const createManifest = (
     tools: [createTool("jira.search_issues")],
     commands: [createHostCommand("host.open_ticket_panel")],
     retrievalSources: [],
-    workflows: [],
+    researchAgents: [],
     approvalPolicies: [
       createApprovalPolicy("host_commands_require_review", ["host.open_ticket_panel"]),
     ],

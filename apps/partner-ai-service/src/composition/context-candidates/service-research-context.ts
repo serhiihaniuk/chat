@@ -2,12 +2,12 @@ import {
   CONTEXT_CANDIDATE_SOURCE_TYPES,
   type ContextCandidate,
   type PreparedContextSection,
-  type WorkflowArtifact,
+  type ResearchArtifact,
 } from "@side-chat/partner-ai-core";
 
 export const createResearchContextSections = (
   candidates: readonly ContextCandidate[],
-  artifacts: readonly WorkflowArtifact[],
+  artifacts: readonly ResearchArtifact[],
 ): readonly PreparedContextSection[] => {
   const researchCandidates = candidates.filter(isResearchCandidate);
   if (researchCandidates.length === 0 && artifacts.length === 0) return [];
@@ -31,9 +31,9 @@ export const createResearchContextSections = (
 
 const isResearchCandidate = (candidate: ContextCandidate): boolean =>
   candidate.sourceType === CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_RESULT ||
-  candidate.sourceType === CONTEXT_CANDIDATE_SOURCE_TYPES.WORKFLOW_ARTIFACT;
+  candidate.sourceType === CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_ARTIFACT;
 
-const renderResearchArtifact = (artifact: WorkflowArtifact): string => {
+const renderResearchArtifact = (artifact: ResearchArtifact): string => {
   const summary = artifact.payload["summary"];
   return typeof summary === "string" ? `Research summary: ${summary}` : "";
 };

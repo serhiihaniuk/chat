@@ -18,9 +18,9 @@ import {
   readAssistantProfileId,
   readHostCommandName,
   readMemoryPolicyId,
+  readResearchAgentId,
   readRetrievalSourceId,
   readToolCapabilityName,
-  readWorkflowId,
 } from "./validation-field-readers.js";
 import { duplicateValueIssues, unknownValueIssues } from "./validation-issue-helpers.js";
 
@@ -57,10 +57,10 @@ export const validateHostCapabilityManifest = (
       "host command name",
     ),
     ...duplicateValueIssues(
-      manifest.workflows.map(readWorkflowId),
-      "workflows",
-      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_WORKFLOW_ID,
-      "workflow id",
+      manifest.researchAgents.map(readResearchAgentId),
+      "researchAgents",
+      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_RESEARCH_AGENT_ID,
+      "research agent id",
     ),
     ...duplicateValueIssues(
       manifest.approvalPolicies.map(readApprovalPolicyId),
@@ -86,7 +86,6 @@ export const validateHostCapabilityManifest = (
     ...validateAssistantProfileReferences(manifest, toolNames, retrievalSourceIds),
     ...validateMemoryPolicyReferences(manifest),
     ...validateApprovalPolicyReferences(manifest, toolNames, commandNames),
-    ...validateWorkflowReferences(manifest, profileIds, toolNames),
   );
 
   return issues.length === 0 ? { valid: true, manifest } : { valid: false, issues };
@@ -136,9 +135,9 @@ export const createTurnPolicyDecision = ({
       mode: profile.memoryPolicy.mode,
       scopes: profile.memoryPolicy.scopes,
     },
-    workflowPolicy: {
-      mode: "manifest_workflows",
-      allowedWorkflowIds: manifest.workflows.map((workflow) => workflow.workflowId),
+    researchPolicy: {
+      mode: manifest.researchAgents.length > 0 ? "manifest_research_agents" : "disabled",
+      allowedResearchAgentIds: manifest.researchAgents.map((agent) => agent.researchAgentId),
     },
     approvalRequirements: approvalRequirementsForSelectedCapabilities(
       manifest,
@@ -184,28 +183,3 @@ const validateAssistantProfileReferences = (
         `Assistant profile ${profile.profileId} references unknown retrieval source ${sourceId}.`,
     ),
   ]);
-
-const validateWorkflowReferences = (
-  manifest: HostCapabilityManifest,
-  profileIds: ReadonlySet<string>,
-  toolNames: ReadonlySet<string>,
-): readonly HostCapabilityValidationIssue[] =>
-  manifest.workflows.flatMap((workflow, workflowIndex) =>
-    workflow.nodes.flatMap((node, nodeIndex) => [
-      ...unknownValueIssues(
-        [node.profileId],
-        profileIds,
-        `workflows[${workflowIndex}].nodes[${nodeIndex}].profileId`,
-        HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_PROFILE_REFERENCE,
-        (profileId) => `Workflow ${workflow.workflowId} references unknown profile ${profileId}.`,
-      ),
-      ...unknownValueIssues(
-        node.toolPolicy.allowedToolNames,
-        toolNames,
-        `workflows[${workflowIndex}].nodes[${nodeIndex}].toolPolicy.allowedToolNames`,
-        HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
-        (toolName) =>
-          `Workflow ${workflow.workflowId} node ${node.nodeId} references unknown tool ${toolName}.`,
-      ),
-    ]),
-  );

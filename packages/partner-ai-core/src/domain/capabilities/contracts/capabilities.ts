@@ -14,13 +14,13 @@ export const HOST_CAPABILITY_VALIDATION_CODES = {
   DUPLICATE_COMMAND_NAME: "duplicate_command_name",
   DUPLICATE_MEMORY_POLICY_ID: "duplicate_memory_policy_id",
   DUPLICATE_APPROVAL_POLICY_ID: "duplicate_approval_policy_id",
-  DUPLICATE_WORKFLOW_ID: "duplicate_workflow_id",
+  DUPLICATE_RESEARCH_AGENT_ID: "duplicate_research_agent_id",
   MISSING_DEFAULT_PROFILE: "missing_default_profile",
   UNKNOWN_PROFILE_REFERENCE: "unknown_profile_reference",
   PROFILE_EXECUTOR_POLICY_MISMATCH: "profile_executor_policy_mismatch",
   UNKNOWN_TOOL_REFERENCE: "unknown_tool_reference",
   UNKNOWN_COMMAND_REFERENCE: "unknown_command_reference",
-  UNKNOWN_WORKFLOW_REFERENCE: "unknown_workflow_reference",
+  UNKNOWN_RESEARCH_AGENT_REFERENCE: "unknown_research_agent_reference",
   UNKNOWN_RETRIEVAL_SOURCE_REFERENCE: "unknown_retrieval_source_reference",
   UNKNOWN_MEMORY_POLICY_REFERENCE: "unknown_memory_policy_reference",
   UNKNOWN_APPROVAL_REFERENCE: "unknown_approval_reference",
@@ -45,7 +45,7 @@ export const CONTEXT_CANDIDATE_SOURCE_TYPES = {
   MEMORY: "memory",
   RESEARCH_RESULT: "research_result",
   TOOL_RESULT: "tool_result",
-  WORKFLOW_ARTIFACT: "workflow_artifact",
+  RESEARCH_ARTIFACT: "research_artifact",
 } as const;
 
 export type ContextCandidateSourceType =
@@ -77,7 +77,7 @@ export type RetrievalPolicyMode = "disabled" | "profile_sources";
 
 export type MemoryPolicyMode = "disabled" | "read" | "read_write";
 
-export type WorkflowPolicyMode = "disabled" | "manifest_workflows";
+export type ResearchPolicyMode = "disabled" | "manifest_research_agents";
 
 export type ApprovalMode = "never" | "on_request" | "always";
 
@@ -178,16 +178,14 @@ export type RetrievalSourceCapability = {
   readonly trustLevel: ContextTrustLevel;
 };
 
-export type WorkflowNodeCapability = {
-  readonly nodeId: string;
-  readonly profileId: string;
-  readonly toolPolicy: ToolExposurePolicy;
-};
-
-export type WorkflowCapability = {
-  readonly workflowId: string;
+/**
+ * Source: host manifest declaration for one pre-answer research agent.
+ * Target: context preparation can use this id to produce research artifacts.
+ * Invariant: this does not select AgentExecutor or emit protocol events.
+ */
+export type ResearchAgentCapability = {
+  readonly researchAgentId: string;
   readonly description: string;
-  readonly nodes: readonly WorkflowNodeCapability[];
 };
 
 export type ApprovalPolicy = {
@@ -205,7 +203,7 @@ export type ActivityRendererCapability = {
  * Host-declared capability catalog for one embedding surface.
  *
  * The manifest is the authority for profiles, tools, commands, retrieval
- * sources, workflows, approvals, and renderers available to core policy. A
+ * sources, research agents, approvals, and renderers available to core policy. A
  * capability being present here is registration only; exposure is decided by
  * `TurnPolicyDecision` for each turn.
  */
@@ -217,7 +215,7 @@ export type HostCapabilityManifest = {
   readonly tools: readonly ToolCapability[];
   readonly commands: readonly HostCommandCapability[];
   readonly retrievalSources: readonly RetrievalSourceCapability[];
-  readonly workflows: readonly WorkflowCapability[];
+  readonly researchAgents: readonly ResearchAgentCapability[];
   readonly approvalPolicies: readonly ApprovalPolicy[];
   readonly memoryPolicies: readonly MemoryPolicy[];
   readonly activityRenderers: readonly ActivityRendererCapability[];
@@ -246,9 +244,9 @@ export type MemoryScopeDecision = {
   readonly scopes: readonly string[];
 };
 
-export type WorkflowPolicyDecision = {
-  readonly mode: WorkflowPolicyMode;
-  readonly allowedWorkflowIds: readonly string[];
+export type ResearchPolicyDecision = {
+  readonly mode: ResearchPolicyMode;
+  readonly allowedResearchAgentIds: readonly string[];
 };
 
 export type ApprovalRequirement = {
@@ -274,7 +272,7 @@ export type TurnPolicyDecision = {
   readonly allowedCommandNames: readonly string[];
   readonly retrievalSourceIds: readonly string[];
   readonly memoryScope: MemoryScopeDecision;
-  readonly workflowPolicy: WorkflowPolicyDecision;
+  readonly researchPolicy: ResearchPolicyDecision;
   readonly approvalRequirements: readonly ApprovalRequirement[];
   readonly manifestHash: string;
 };

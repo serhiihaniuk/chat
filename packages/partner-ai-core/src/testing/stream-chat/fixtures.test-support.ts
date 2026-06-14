@@ -51,7 +51,7 @@ export const createManifest = (): HostCapabilityManifest => ({
   ],
   commands: [],
   retrievalSources: [],
-  workflows: [],
+  researchAgents: [],
   approvalPolicies: [],
   memoryPolicies: [{ policyId: "no_memory", mode: "disabled", scopes: [] }],
   activityRenderers: [],
@@ -72,7 +72,7 @@ export const createPreparedContext = (
   contextId: "context_001",
   profile,
   policyDecision,
-  workflowArtifacts: [],
+  researchArtifacts: [],
   candidates: [
     {
       candidateId: "candidate_current_message",

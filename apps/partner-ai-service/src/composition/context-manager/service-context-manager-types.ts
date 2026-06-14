@@ -5,8 +5,8 @@ import type {
   MemoryRecord,
   RagContextCandidate,
   RagRetrieverPort,
+  ResearchArtifact,
   ResearchAgentPort,
-  WorkflowArtifact,
 } from "@side-chat/partner-ai-core";
 
 export type ServiceContextManagerOptions = {
@@ -21,5 +21,5 @@ export type GatheredTurnContext = {
   readonly ragCandidates: readonly RagContextCandidate[];
   readonly memoryRecords: readonly MemoryRecord[];
   readonly researchCandidates: readonly ContextCandidate[];
-  readonly workflowArtifacts: readonly WorkflowArtifact[];
+  readonly researchArtifacts: readonly ResearchArtifact[];
 };

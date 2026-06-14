@@ -2,16 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
-  WORKFLOW_RUN_STATUSES,
   createTurnPolicyDecision,
   type PreparedTurnContext,
-  type WorkflowNode,
-  type WorkflowRun,
+  type ResearchArtifact,
 } from "../capabilities.js";
 import { createAssistantProfile, createManifest } from "#testing/capabilities/manifest-fixtures";
 
 describe("capability substrate types", () => {
-  it("models context manifests and workflow ledger records without infrastructure types", () => {
+  it("models context manifests and research artifacts without infrastructure types", () => {
+    const artifact = {
+      artifactId: "artifact_research_001",
+      researchRunId: "research_context_request_001",
+      researchAgentId: "research_context",
+      artifactKind: "research_summary",
+      contentType: "application/json",
+      payload: { summary: "Research found one relevant source." },
+      createdAt: "2026-06-13T12:00:00.000Z",
+    } satisfies ResearchArtifact;
     const prepared = {
       contextId: "context_001",
       profile: createAssistantProfile(),
@@ -20,7 +27,7 @@ describe("capability substrate types", () => {
         profile: createAssistantProfile(),
         manifestHash: "sha256:manifest_001",
       }),
-      workflowArtifacts: [],
+      researchArtifacts: [artifact],
       candidates: [
         {
           candidateId: "candidate_001",
@@ -69,23 +76,8 @@ describe("capability substrate types", () => {
         },
       },
     } satisfies PreparedTurnContext;
-    const run = {
-      workflowRunId: "workflow_run_001",
-      workflowId: "research_then_answer",
-      conversationId: "conversation_001",
-      status: WORKFLOW_RUN_STATUSES.RUNNING,
-      startedAt: "2026-06-13T12:00:00.000Z",
-    } satisfies WorkflowRun;
-    const node = {
-      workflowRunId: run.workflowRunId,
-      nodeId: "research",
-      profileId: prepared.profile.profileId,
-      status: "pending",
-      parentNodeIds: [],
-    } satisfies WorkflowNode;
 
     expect(prepared.contextBoard.manifest.entries).toHaveLength(1);
-    expect(run.status).toBe(WORKFLOW_RUN_STATUSES.RUNNING);
-    expect(node.profileId).toBe("analyst");
+    expect(prepared.researchArtifacts[0]?.researchAgentId).toBe("research_context");
   });
 });

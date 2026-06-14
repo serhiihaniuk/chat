@@ -10,7 +10,6 @@ import { createMemorySidechatRepositories } from "@side-chat/db";
 import {
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
-  RESEARCH_CONTEXT_WORKFLOW_ID,
   type MemoryPort,
   type MemoryRecallInput,
   type MemoryWriteCandidateProposalInput,
@@ -18,11 +17,12 @@ import {
   type RagRetrievalInput,
   type RagRetrieverPort,
   type ResearchAgentInput,
+  RESEARCH_CONTEXT_AGENT_ID,
+  type ResearchAgentCapability,
   type ResearchAgentPort,
   type RetrievalSourceCapability,
   type TurnGuardInput,
   type TurnGuardRegistryPort,
-  type WorkflowCapability,
 } from "@side-chat/partner-ai-core";
 import { createPartnerAiServiceApp } from "@side-chat/partner-ai-service";
 import {
@@ -55,7 +55,7 @@ describe("golden-path adopter flow", () => {
       ragRetriever: createRecordingRagRetriever(ragInputs),
       memoryPolicy: { policyId: "user_memory", mode: "read_write", scopes: ["user"] },
       memory: createRecordingMemory(memoryRecallInputs, memoryProposalInputs, memoryWriteInputs),
-      workflows: [researchWorkflow],
+      researchAgents: [researchAgentCapability],
       researchAgent: createRecordingResearchAgent(researchInputs),
     });
     const client = createChatClient({
@@ -117,13 +117,13 @@ describe("golden-path adopter flow", () => {
         "host_context",
         "memory",
         "retrieval_result",
-        "workflow_artifact",
+        "research_artifact",
         "research_result",
         "tool_capability",
       ]),
     );
     expect(readCandidateSourceIds(contextSnapshot)).toContain("mock_web_search");
-    expect(readWorkflowArtifactKinds(contextSnapshot)).toEqual(["research_summary"]);
+    expect(readResearchArtifactKinds(contextSnapshot)).toEqual(["research_summary"]);
     expect(snapshot.assistantTurns[0]).toMatchObject({
       requestId: "request_adoption_001",
       status: "completed",
@@ -350,8 +350,8 @@ const readCandidateSourceIds = (snapshot: JsonObject | undefined): readonly stri
     .filter((sourceId): sourceId is string => typeof sourceId === "string");
 };
 
-const readWorkflowArtifactKinds = (snapshot: JsonObject | undefined): readonly string[] => {
-  const artifacts = asArray(snapshot?.["workflowArtifacts"]);
+const readResearchArtifactKinds = (snapshot: JsonObject | undefined): readonly string[] => {
+  const artifacts = asArray(snapshot?.["researchArtifacts"]);
   return artifacts
     .map((artifact) => (isJsonObject(artifact) ? artifact["artifactKind"] : undefined))
     .filter((artifactKind): artifactKind is string => typeof artifactKind === "string");
@@ -369,14 +369,7 @@ const docsSource: RetrievalSourceCapability = {
   trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
 };
 
-const researchWorkflow: WorkflowCapability = {
-  workflowId: RESEARCH_CONTEXT_WORKFLOW_ID,
+const researchAgentCapability: ResearchAgentCapability = {
+  researchAgentId: RESEARCH_CONTEXT_AGENT_ID,
   description: "Run pre-answer research.",
-  nodes: [
-    {
-      nodeId: "research",
-      profileId: "default",
-      toolPolicy: { mode: "closed", allowedToolNames: [] },
-    },
-  ],
 };

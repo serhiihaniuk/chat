@@ -10,8 +10,8 @@ import {
 import {
   createAssistantProfile,
   createManifest,
+  createResearchAgentCapability,
   createTool,
-  createWorkflow,
   issueCodes,
 } from "#testing/capabilities/manifest-fixtures";
 
@@ -43,9 +43,9 @@ describe("host capability manifest contract", () => {
       allowedCommandNames: [],
       retrievalSourceIds: ["docs"],
       memoryScope: { mode: "disabled", scopes: [] },
-      workflowPolicy: {
-        mode: "manifest_workflows",
-        allowedWorkflowIds: ["research_then_answer"],
+      researchPolicy: {
+        mode: "manifest_research_agents",
+        allowedResearchAgentIds: ["research_context"],
       },
       approvalRequirements: [],
     });
@@ -129,14 +129,14 @@ describe("host capability manifest contract", () => {
     );
   });
 
-  it("fails closed on duplicate workflow ids", () => {
-    const workflow = createWorkflow("research_then_answer", "analyst");
+  it("fails closed on duplicate research agent ids", () => {
+    const researchAgent = createResearchAgentCapability("research_context");
     const validation = validateHostCapabilityManifest(
-      createManifest({ workflows: [workflow, workflow] }),
+      createManifest({ researchAgents: [researchAgent, researchAgent] }),
     );
 
     expect(issueCodes(validation)).toContain(
-      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_WORKFLOW_ID,
+      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_RESEARCH_AGENT_ID,
     );
   });
 
@@ -150,19 +150,7 @@ describe("host capability manifest contract", () => {
     );
   });
 
-  it("fails closed when a workflow node references a missing profile", () => {
-    const validation = validateHostCapabilityManifest(
-      createManifest({
-        workflows: [createWorkflow("research_then_answer", "missing_profile")],
-      }),
-    );
-
-    expect(issueCodes(validation)).toContain(
-      HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_PROFILE_REFERENCE,
-    );
-  });
-
-  it("fails closed when profiles or workflow nodes reference missing tools", () => {
+  it("fails closed when profiles reference missing tools", () => {
     const analyst = createAssistantProfile({
       defaultToolPolicy: {
         mode: "profile_allowlist",
@@ -172,12 +160,10 @@ describe("host capability manifest contract", () => {
     const validation = validateHostCapabilityManifest(
       createManifest({
         assistantProfiles: [analyst],
-        workflows: [createWorkflow("research_then_answer", "analyst", ["missing_tool"])],
       }),
     );
 
     expect(issueCodes(validation)).toEqual([
-      HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
       HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
     ]);
   });

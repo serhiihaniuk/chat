@@ -7,8 +7,8 @@ import {
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
   type ContextCandidate,
+  type ResearchArtifact,
   type TurnPolicyDecision,
-  type WorkflowArtifact,
 } from "#domain/capabilities";
 import type {
   ResearchAgentInput,
@@ -20,11 +20,11 @@ import type { PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
 import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 
 const DEFAULT_RESEARCH_STEP_LIMIT = 4;
-export const RESEARCH_CONTEXT_WORKFLOW_ID = "research_context" as const;
+export const RESEARCH_CONTEXT_AGENT_ID = "research_context" as const;
 
 export type PreparedResearchContext = {
   readonly candidates: readonly ContextCandidate[];
-  readonly workflowArtifacts: readonly WorkflowArtifact[];
+  readonly researchArtifacts: readonly ResearchArtifact[];
 };
 
 export type RunAllowedResearchAgentInput = {
@@ -36,7 +36,7 @@ export type RunAllowedResearchAgentInput = {
   readonly now: string;
   readonly abortSignal?: AbortSignal;
   readonly maxResearchSteps?: number;
-  readonly workflowId?: string;
+  readonly researchAgentId?: string;
 };
 
 export const runAllowedResearchAgent = ({
@@ -48,13 +48,13 @@ export const runAllowedResearchAgent = ({
   now,
   abortSignal,
   maxResearchSteps = DEFAULT_RESEARCH_STEP_LIMIT,
-  workflowId = RESEARCH_CONTEXT_WORKFLOW_ID,
+  researchAgentId = RESEARCH_CONTEXT_AGENT_ID,
 }: RunAllowedResearchAgentInput): Effect.Effect<
   PreparedResearchContext,
   PartnerAiCoreErrorType
 > => {
   const allowedSourceIds = policyDecision.retrievalSourceIds;
-  if (allowedSourceIds.length === 0 || !allowsResearchWorkflow(policyDecision, workflowId)) {
+  if (allowedSourceIds.length === 0 || !allowsResearchAgent(policyDecision, researchAgentId)) {
     return Effect.succeed(emptyResearchContext);
   }
 
@@ -72,14 +72,14 @@ export const runAllowedResearchAgent = ({
     STREAM_CHAT_FAILURES.CONTEXT,
   ).pipe(
     Effect.map((output) =>
-      toPreparedResearchContext(output, request, allowedSourceIds, workflowId, now),
+      toPreparedResearchContext(output, request, allowedSourceIds, researchAgentId, now),
     ),
   );
 };
 
 const emptyResearchContext: PreparedResearchContext = {
   candidates: [],
-  workflowArtifacts: [],
+  researchArtifacts: [],
 };
 
 const createResearchAgentInput = ({
@@ -111,19 +111,19 @@ const toPreparedResearchContext = (
   output: ResearchAgentOutput,
   request: ChatStreamRequest,
   allowedSourceIds: readonly string[],
-  workflowId: string,
+  researchAgentId: string,
   now: string,
 ): PreparedResearchContext => {
   const sourceCandidates = output.sources.filter((source) =>
     allowedSourceIds.includes(source.sourceId),
   );
-  const artifact = createResearchArtifact(output, request, sourceCandidates, workflowId, now);
+  const artifact = createResearchArtifact(output, request, sourceCandidates, researchAgentId, now);
   const summaryCandidate = artifact
     ? [toResearchSummaryCandidate(output.summary, artifact, output.metadata)]
     : [];
 
   return {
-    workflowArtifacts: artifact ? [artifact] : [],
+    researchArtifacts: artifact ? [artifact] : [],
     candidates: [
       ...summaryCandidate,
       ...sourceCandidates.map((source) => toResearchSourceContextCandidate(source, artifact)),
@@ -135,17 +135,17 @@ const createResearchArtifact = (
   output: ResearchAgentOutput,
   request: ChatStreamRequest,
   sources: readonly ResearchSourceCandidate[],
-  workflowId: string,
+  researchAgentId: string,
   now: string,
-): WorkflowArtifact | undefined => {
+): ResearchArtifact | undefined => {
   const summary = output.summary.trim();
   if (summary.length === 0) return undefined;
 
   const artifactId = output.artifactId ?? `research_artifact_${request.requestId}`;
   return {
     artifactId,
-    workflowRunId: `${workflowId}_${request.requestId}`,
-    nodeId: "research",
+    researchRunId: `${researchAgentId}_${request.requestId}`,
+    researchAgentId,
     artifactKind: "research_summary",
     contentType: "application/json",
     payload: {
@@ -159,11 +159,11 @@ const createResearchArtifact = (
 
 const toResearchSummaryCandidate = (
   summary: string,
-  artifact: WorkflowArtifact,
+  artifact: ResearchArtifact,
   metadata: JsonObject | undefined,
 ): ContextCandidate => ({
   candidateId: `research_summary_${artifact.artifactId}`,
-  sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.WORKFLOW_ARTIFACT,
+  sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_ARTIFACT,
   sourceId: artifact.artifactId,
   trustLevel: CONTEXT_TRUST_LEVELS.GENERATED,
   redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
@@ -172,15 +172,15 @@ const toResearchSummaryCandidate = (
   priority: 78,
   provenance: { sourceId: artifact.artifactId, label: "Research summary" },
   metadata: {
-    workflowRunId: artifact.workflowRunId,
-    nodeId: artifact.nodeId,
+    researchRunId: artifact.researchRunId,
+    researchAgentId: artifact.researchAgentId,
     ...optionalField("research", metadata),
   },
 });
 
 const toResearchSourceContextCandidate = (
   source: ResearchSourceCandidate,
-  artifact: WorkflowArtifact | undefined,
+  artifact: ResearchArtifact | undefined,
 ): ContextCandidate => ({
   candidateId: `research_${source.candidateId}`,
   sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_RESULT,
@@ -206,6 +206,6 @@ const estimateTokens = (content: string): number => Math.max(1, Math.ceil(conten
 const researchPriority = (score: number): number =>
   Math.min(92, Math.max(45, Math.round(score * 100)));
 
-const allowsResearchWorkflow = (decision: TurnPolicyDecision, workflowId: string): boolean =>
-  decision.workflowPolicy.mode === "manifest_workflows" &&
-  decision.workflowPolicy.allowedWorkflowIds.includes(workflowId);
+const allowsResearchAgent = (decision: TurnPolicyDecision, researchAgentId: string): boolean =>
+  decision.researchPolicy.mode === "manifest_research_agents" &&
+  decision.researchPolicy.allowedResearchAgentIds.includes(researchAgentId);

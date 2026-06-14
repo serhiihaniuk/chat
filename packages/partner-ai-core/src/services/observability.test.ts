@@ -263,7 +263,7 @@ const createObservedPorts = (
           contextId: "context_observe_1",
           profile,
           policyDecision,
-          workflowArtifacts: [],
+          researchArtifacts: [],
           candidates: [],
           runtimeMessages: [
             { role: "user" as const, content: "secret prompt should not be logged" },
@@ -315,7 +315,7 @@ const createManifest = (): HostCapabilityManifest => ({
   tools: [],
   commands: [],
   retrievalSources: [],
-  workflows: [],
+  researchAgents: [],
   approvalPolicies: [],
   memoryPolicies: [{ policyId: "no_memory", mode: "disabled", scopes: [] }],
   activityRenderers: [],

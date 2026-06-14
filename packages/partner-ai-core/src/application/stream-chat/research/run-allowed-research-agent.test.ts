@@ -10,12 +10,12 @@ import {
 import { PARTNER_AI_CORE_ERROR_CODES } from "#errors";
 import type { ResearchAgentInput, ResearchAgentPort, ResearchSourceCandidate } from "#ports";
 import {
-  RESEARCH_CONTEXT_WORKFLOW_ID,
+  RESEARCH_CONTEXT_AGENT_ID,
   runAllowedResearchAgent,
 } from "./run-allowed-research-agent.js";
 
 describe("runAllowedResearchAgent", () => {
-  it("skips research when source or workflow policy disables it", async () => {
+  it("skips research when source or research policy disables it", async () => {
     const calls: ResearchAgentInput[] = [];
     const researchAgent = createResearchAgent(calls);
 
@@ -27,12 +27,12 @@ describe("runAllowedResearchAgent", () => {
         request,
         policyDecision: createPolicyDecision({
           retrievalSourceIds: [],
-          allowedWorkflowIds: [RESEARCH_CONTEXT_WORKFLOW_ID],
+          allowedResearchAgentIds: [RESEARCH_CONTEXT_AGENT_ID],
         }),
         now,
       }),
     );
-    const noWorkflow = await Effect.runPromise(
+    const noResearchAgent = await Effect.runPromise(
       runAllowedResearchAgent({
         researchAgent,
         authContext,
@@ -40,18 +40,18 @@ describe("runAllowedResearchAgent", () => {
         request,
         policyDecision: createPolicyDecision({
           retrievalSourceIds: ["docs"],
-          allowedWorkflowIds: [],
+          allowedResearchAgentIds: [],
         }),
         now,
       }),
     );
 
-    expect(noSources).toEqual({ candidates: [], workflowArtifacts: [] });
-    expect(noWorkflow).toEqual({ candidates: [], workflowArtifacts: [] });
+    expect(noSources).toEqual({ candidates: [], researchArtifacts: [] });
+    expect(noResearchAgent).toEqual({ candidates: [], researchArtifacts: [] });
     expect(calls).toEqual([]);
   });
 
-  it("maps research output into context candidates and a workflow artifact", async () => {
+  it("maps research output into context candidates and a research artifact", async () => {
     const calls: ResearchAgentInput[] = [];
     const abortController = new AbortController();
 
@@ -63,7 +63,7 @@ describe("runAllowedResearchAgent", () => {
         request,
         policyDecision: createPolicyDecision({
           retrievalSourceIds: ["docs"],
-          allowedWorkflowIds: [RESEARCH_CONTEXT_WORKFLOW_ID],
+          allowedResearchAgentIds: [RESEARCH_CONTEXT_AGENT_ID],
         }),
         abortSignal: abortController.signal,
         maxResearchSteps: 2,
@@ -79,21 +79,22 @@ describe("runAllowedResearchAgent", () => {
       hostContext: request.hostContext,
     });
     expect(calls[0]?.abortSignal).toBe(abortController.signal);
-    expect(researchContext.workflowArtifacts).toEqual([
+    expect(researchContext.researchArtifacts).toEqual([
       expect.objectContaining({
         artifactId: "artifact_research_001",
-        workflowRunId: "research_context_request_research_001",
+        researchRunId: "research_context_request_research_001",
+        researchAgentId: RESEARCH_CONTEXT_AGENT_ID,
         artifactKind: "research_summary",
       }),
     ]);
-    expect(researchContext.workflowArtifacts[0]?.payload).toMatchObject({
+    expect(researchContext.researchArtifacts[0]?.payload).toMatchObject({
       summary: "Research says docs are relevant.",
       sourceIds: ["docs"],
     });
     expect(researchContext.candidates).toEqual([
       expect.objectContaining({
         candidateId: "research_summary_artifact_research_001",
-        sourceType: "workflow_artifact",
+        sourceType: "research_artifact",
         sourceId: "artifact_research_001",
       }),
       expect.objectContaining({
@@ -123,7 +124,7 @@ describe("runAllowedResearchAgent", () => {
           request,
           policyDecision: createPolicyDecision({
             retrievalSourceIds: ["docs"],
-            allowedWorkflowIds: [RESEARCH_CONTEXT_WORKFLOW_ID],
+            allowedResearchAgentIds: [RESEARCH_CONTEXT_AGENT_ID],
           }),
           now,
         }),
@@ -162,10 +163,10 @@ const createResearchSource = (sourceId: string, candidateId: string): ResearchSo
 
 const createPolicyDecision = ({
   retrievalSourceIds,
-  allowedWorkflowIds,
+  allowedResearchAgentIds,
 }: {
   readonly retrievalSourceIds: readonly string[];
-  readonly allowedWorkflowIds: readonly string[];
+  readonly allowedResearchAgentIds: readonly string[];
 }): TurnPolicyDecision => ({
   profileId: "analyst",
   profileVersion: "2026-06-13",
@@ -177,7 +178,7 @@ const createPolicyDecision = ({
   allowedCommandNames: [],
   retrievalSourceIds,
   memoryScope: { mode: "disabled", scopes: [] },
-  workflowPolicy: { mode: "manifest_workflows", allowedWorkflowIds },
+  researchPolicy: { mode: "manifest_research_agents", allowedResearchAgentIds },
   approvalRequirements: [],
   manifestHash: "sha256:test",
 });

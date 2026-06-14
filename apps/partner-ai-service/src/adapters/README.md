@@ -27,8 +27,8 @@ guard, research, or host-command logic directly.
 
 ## Seam Notes
 
-- Research runs during context preparation only when policy allows workflow and
-  source ids.
+- Research runs during context preparation only when policy allows the research
+  agent id and source ids.
 - Turn guards run before conversation persistence, private context, RAG, memory,
   research, or runtime execution.
 - Memory recall runs during context preparation; write candidates run after

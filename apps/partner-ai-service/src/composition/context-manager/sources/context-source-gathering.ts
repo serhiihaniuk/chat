@@ -50,6 +50,6 @@ export const gatherAllowedTurnContext = (
       ragCandidates,
       memoryRecords,
       researchCandidates: researchContext.candidates,
-      workflowArtifacts: researchContext.workflowArtifacts,
+      researchArtifacts: researchContext.researchArtifacts,
     } satisfies GatheredTurnContext;
   });

@@ -51,7 +51,7 @@ describe("partner AI core Effect runtime layer", () => {
             contextId: "context-1",
             profile,
             policyDecision,
-            workflowArtifacts: [],
+            researchArtifacts: [],
             candidates: [],
             runtimeMessages: [{ role: "user", content: "hello" }],
             contextBoard: {
@@ -140,7 +140,7 @@ const manifest: HostCapabilityManifest = {
   tools: [],
   commands: [],
   retrievalSources: [],
-  workflows: [],
+  researchAgents: [],
   approvalPolicies: [],
   memoryPolicies: [profile.memoryPolicy],
   activityRenderers: [],

@@ -3,10 +3,10 @@ import type {
   MemoryPolicy,
   MemoryPort,
   RagRetrieverPort,
+  ResearchAgentCapability,
   ResearchAgentPort,
   RetrievalSourceCapability,
   TurnGuardRegistryPort,
-  WorkflowCapability,
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import type { AgentRuntime } from "@side-chat/agent-runtime";
@@ -52,7 +52,7 @@ export type PartnerAiServiceOptions = {
   readonly ragRetriever?: RagRetrieverPort;
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
   readonly researchAgent?: ResearchAgentPort;
-  readonly workflows?: readonly WorkflowCapability[];
+  readonly researchAgents?: readonly ResearchAgentCapability[];
   readonly persistenceLabel?: "memory" | "postgres-drizzle";
   readonly workspace?: WorkspaceRef;
 };
@@ -120,5 +120,5 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   ...optionalField("ragRetriever", options.ragRetriever),
   ...optionalField("retrievalSources", options.retrievalSources),
   ...optionalField("researchAgent", options.researchAgent),
-  ...optionalField("workflows", options.workflows),
+  ...optionalField("researchAgents", options.researchAgents),
 });

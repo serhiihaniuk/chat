@@ -5,7 +5,7 @@ import {
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
   resolveAssistantProfileFromManifest,
-  RESEARCH_CONTEXT_WORKFLOW_ID,
+  RESEARCH_CONTEXT_AGENT_ID,
   type MemoryPolicy,
   type MemoryPort,
   type MemoryRecallInput,
@@ -14,10 +14,10 @@ import {
   type RagRetrievalInput,
   type RagRetrieverPort,
   type ResearchAgentInput,
+  type ResearchAgentCapability,
   type ResearchAgentPort,
   type ResearchSourceCandidate,
   type RetrievalSourceCapability,
-  type WorkflowCapability,
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
@@ -177,7 +177,7 @@ describe("service context manager research", () => {
         memory: createNoopMemoryPort(),
         ragRetriever: createNoopRagRetriever(),
         researchAgent,
-      }).prepareTurnContext(createContextInput({ workflows: [researchWorkflow] })),
+      }).prepareTurnContext(createContextInput({ researchAgents: [researchAgentCapability] })),
     );
 
     expect(researchInputs[0]).toMatchObject({
@@ -186,17 +186,18 @@ describe("service context manager research", () => {
       allowedSourceIds: ["docs"],
       maxResearchSteps: 4,
     });
-    expect(preparedContext.workflowArtifacts).toEqual([
+    expect(preparedContext.researchArtifacts).toEqual([
       expect.objectContaining({
         artifactId: "artifact_research_context_001",
-        workflowRunId: "research_context_request_context_rag_001",
+        researchRunId: "research_context_request_context_rag_001",
+        researchAgentId: RESEARCH_CONTEXT_AGENT_ID,
         artifactKind: "research_summary",
       }),
     ]);
     expect(preparedContext.candidates).toContainEqual(
       expect.objectContaining({
         candidateId: "research_summary_artifact_research_context_001",
-        sourceType: "workflow_artifact",
+        sourceType: "research_artifact",
         sourceId: "artifact_research_context_001",
       }),
     );
@@ -228,7 +229,7 @@ describe("service context manager research", () => {
     );
   });
 
-  it("does not call research when source or workflow policy disables it", async () => {
+  it("does not call research when source or research policy disables it", async () => {
     const researchInputs: ResearchAgentInput[] = [];
     const researchAgent = createResearchAgent(researchInputs);
 
@@ -238,36 +239,39 @@ describe("service context manager research", () => {
         ragRetriever: createNoopRagRetriever(),
         researchAgent,
       }).prepareTurnContext(
-        createContextInput({ retrievalSources: [], workflows: [researchWorkflow] }),
+        createContextInput({
+          retrievalSources: [],
+          researchAgents: [researchAgentCapability],
+        }),
       ),
     );
-    const noWorkflow = await Effect.runPromise(
+    const noResearchAgent = await Effect.runPromise(
       createServiceContextManager({
         memory: createNoopMemoryPort(),
         ragRetriever: createNoopRagRetriever(),
         researchAgent,
-      }).prepareTurnContext(createContextInput({ workflows: [] })),
+      }).prepareTurnContext(createContextInput({ researchAgents: [] })),
     );
 
     expect(researchInputs).toEqual([]);
     expect(noSources.candidates).not.toContainEqual(
       expect.objectContaining({ sourceType: "research_result" }),
     );
-    expect(noWorkflow.candidates).not.toContainEqual(
+    expect(noResearchAgent.candidates).not.toContainEqual(
       expect.objectContaining({ sourceType: "research_result" }),
     );
-    expect(noSources.workflowArtifacts).toEqual([]);
-    expect(noWorkflow.workflowArtifacts).toEqual([]);
+    expect(noSources.researchArtifacts).toEqual([]);
+    expect(noResearchAgent.researchArtifacts).toEqual([]);
   });
 });
 
 const createContextInput = ({
   retrievalSources = [docsSource],
-  workflows = [],
+  researchAgents = [],
   memoryPolicy = { policyId: "no_memory", mode: "disabled", scopes: [] },
 }: {
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
-  readonly workflows?: readonly WorkflowCapability[];
+  readonly researchAgents?: readonly ResearchAgentCapability[];
   readonly memoryPolicy?: MemoryPolicy;
 } = {}) => {
   const manifest = createServiceHostCapabilityManifest({
@@ -275,7 +279,7 @@ const createContextInput = ({
     providerId: "fake",
     modelId: "fake-echo",
     retrievalSources,
-    workflows,
+    researchAgents,
     memoryPolicy,
   });
   const profileResolution = resolveAssistantProfileFromManifest(manifest);
@@ -350,14 +354,7 @@ const createResearchSource = (): ResearchSourceCandidate => ({
   redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
 });
 
-const researchWorkflow: WorkflowCapability = {
-  workflowId: RESEARCH_CONTEXT_WORKFLOW_ID,
+const researchAgentCapability: ResearchAgentCapability = {
+  researchAgentId: RESEARCH_CONTEXT_AGENT_ID,
   description: "Run pre-answer research.",
-  nodes: [
-    {
-      nodeId: "research",
-      profileId: "default",
-      toolPolicy: { mode: "closed", allowedToolNames: [] },
-    },
-  ],
 };

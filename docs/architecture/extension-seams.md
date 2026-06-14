@@ -79,11 +79,11 @@ tool.
 
 ## Research Agent
 
-- What it is: pre-answer research that prepares context candidates and workflow
+- What it is: pre-answer research that prepares context candidates and research
   artifacts.
 - Runs: during context preparation when policy allows source ids and the
-  `research_context` workflow.
-- Receives/returns: authorized source/workflow request; returns candidates and
+  `research_context` research agent id.
+- Receives/returns: authorized source/research request; returns candidates and
   artifacts, not protocol events.
 - Implementation: `apps/partner-ai-service/src/adapters/agents/`.
 - Contract: `packages/partner-ai-core/src/ports/context/research-agent.ts`.

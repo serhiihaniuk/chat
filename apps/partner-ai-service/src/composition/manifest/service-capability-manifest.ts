@@ -12,10 +12,10 @@ import {
   type HostCapabilityManifest,
   type HostCapabilityManifestPort,
   type MemoryPolicy,
+  type ResearchAgentCapability,
   type RetrievalSourceCapability,
   type ToolCapability,
   type TurnPolicyResolverPort,
-  type WorkflowCapability,
 } from "@side-chat/partner-ai-core";
 import { DEFAULT_AGENT_EXECUTOR_ID } from "@side-chat/agent-runtime";
 import { Effect } from "effect";
@@ -40,7 +40,7 @@ export const createServiceHostCapabilityManifest = ({
   hostCommands = [],
   approvalPolicies = [],
   retrievalSources = [],
-  workflows = [],
+  researchAgents = [],
   turnGuardIds = [],
   memoryPolicy = { policyId: "no_memory", mode: "disabled", scopes: [] },
 }: {
@@ -51,7 +51,7 @@ export const createServiceHostCapabilityManifest = ({
   readonly hostCommands?: readonly HostCommandCapability[];
   readonly approvalPolicies?: readonly ApprovalPolicy[];
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
-  readonly workflows?: readonly WorkflowCapability[];
+  readonly researchAgents?: readonly ResearchAgentCapability[];
   readonly turnGuardIds?: readonly string[];
   readonly memoryPolicy?: MemoryPolicy;
 }): HostCapabilityManifest => {
@@ -76,7 +76,7 @@ export const createServiceHostCapabilityManifest = ({
     tools,
     commands: hostCommands,
     retrievalSources,
-    workflows,
+    researchAgents,
     approvalPolicies,
     memoryPolicies: [memoryPolicy],
     activityRenderers: [],

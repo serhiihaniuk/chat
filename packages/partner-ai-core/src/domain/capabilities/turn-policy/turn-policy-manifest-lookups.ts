@@ -4,7 +4,7 @@ export type ManifestTurnPolicyReferences = {
   readonly toolNames: ReadonlySet<string>;
   readonly commandNames: ReadonlySet<string>;
   readonly retrievalSourceIds: ReadonlySet<string>;
-  readonly workflowIds: ReadonlySet<string>;
+  readonly researchAgentIds: ReadonlySet<string>;
 };
 
 export const readManifestTurnPolicyReferences = (
@@ -13,7 +13,7 @@ export const readManifestTurnPolicyReferences = (
   toolNames: new Set(manifest.tools.map((tool) => tool.name)),
   commandNames: new Set(manifest.commands.map((command) => command.commandName)),
   retrievalSourceIds: new Set(manifest.retrievalSources.map((source) => source.sourceId)),
-  workflowIds: new Set(manifest.workflows.map((workflow) => workflow.workflowId)),
+  researchAgentIds: new Set(manifest.researchAgents.map((agent) => agent.researchAgentId)),
 });
 
 export const unknownManifestToolMessage = (toolName: string): string =>
@@ -25,5 +25,5 @@ export const unknownManifestCommandMessage = (commandName: string): string =>
 export const unknownManifestRetrievalSourceMessage = (sourceId: string): string =>
   `Turn policy references unknown retrieval source ${sourceId}.`;
 
-export const unknownManifestWorkflowMessage = (workflowId: string): string =>
-  `Turn policy references unknown workflow ${workflowId}.`;
+export const unknownManifestResearchAgentMessage = (researchAgentId: string): string =>
+  `Turn policy references unknown research agent ${researchAgentId}.`;

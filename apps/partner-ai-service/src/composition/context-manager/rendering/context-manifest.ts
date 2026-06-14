@@ -3,8 +3,8 @@ import {
   type AssistantProfile,
   type ContextManifest,
   type PreparedContextSection,
+  type ResearchArtifact,
   type TurnPolicyDecision,
-  type WorkflowArtifact,
 } from "@side-chat/partner-ai-core";
 import type { ContextAdmission } from "../candidates/context-candidate-selection.js";
 
@@ -13,7 +13,7 @@ export const createPreparedContextManifest = ({
   profile,
   policyDecision,
   sections,
-  workflowArtifacts,
+  researchArtifacts,
   admission,
   createdAt,
 }: {
@@ -21,7 +21,7 @@ export const createPreparedContextManifest = ({
   readonly profile: AssistantProfile;
   readonly policyDecision: TurnPolicyDecision;
   readonly sections: readonly PreparedContextSection[];
-  readonly workflowArtifacts: readonly WorkflowArtifact[];
+  readonly researchArtifacts: readonly ResearchArtifact[];
   readonly admission: ContextAdmission;
   readonly createdAt: string;
 }): ContextManifest => ({
@@ -31,7 +31,7 @@ export const createPreparedContextManifest = ({
     entries: admission.entries,
     profileId: profile.profileId,
     policyDecision,
-    workflowArtifacts,
+    researchArtifacts,
   }),
   profileId: profile.profileId,
   profileVersion: profile.version,

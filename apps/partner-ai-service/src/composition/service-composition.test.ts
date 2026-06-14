@@ -9,11 +9,11 @@ import {
 } from "@side-chat/agent-runtime";
 import {
   CONTEXT_TRUST_LEVELS,
-  RESEARCH_CONTEXT_WORKFLOW_ID,
+  RESEARCH_CONTEXT_AGENT_ID,
+  type ResearchAgentCapability,
   type ResearchAgentPort,
   type ResearchSourceCandidate,
   type RetrievalSourceCapability,
-  type WorkflowCapability,
 } from "@side-chat/partner-ai-core";
 import {
   createJiraSearchIssuesCapability,
@@ -131,7 +131,7 @@ describe("service composition runtime tools", () => {
     expect(executionRequests).toHaveLength(1);
   });
 
-  it("declares research workflows separately from runtime execution", async () => {
+  it("declares research agents separately from runtime execution", async () => {
     const researchAgent: ResearchAgentPort = {
       runResearch: () =>
         Effect.succeed({
@@ -143,15 +143,15 @@ describe("service composition runtime tools", () => {
       workspace,
       researchAgent,
       retrievalSources: [docsSource],
-      workflows: [researchWorkflow],
+      researchAgents: [researchAgentCapability],
     });
 
     const manifest = await loadManifest(composition);
 
     expect(composition.researchAgent).toBe(researchAgent);
     expect(manifest.retrievalSources.map((source) => source.sourceId)).toEqual(["docs"]);
-    expect(manifest.workflows.map((workflow) => workflow.workflowId)).toEqual([
-      RESEARCH_CONTEXT_WORKFLOW_ID,
+    expect(manifest.researchAgents.map((agent) => agent.researchAgentId)).toEqual([
+      RESEARCH_CONTEXT_AGENT_ID,
     ]);
   });
 
@@ -279,14 +279,7 @@ const docsSource: RetrievalSourceCapability = {
   trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
 };
 
-const researchWorkflow: WorkflowCapability = {
-  workflowId: RESEARCH_CONTEXT_WORKFLOW_ID,
+const researchAgentCapability: ResearchAgentCapability = {
+  researchAgentId: RESEARCH_CONTEXT_AGENT_ID,
   description: "Run pre-answer research.",
-  nodes: [
-    {
-      nodeId: "research",
-      profileId: "default",
-      toolPolicy: { mode: "closed", allowedToolNames: [] },
-    },
-  ],
 };

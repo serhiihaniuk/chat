@@ -203,7 +203,7 @@ const createPolicyDecision = ({
   allowedCommandNames: [],
   retrievalSourceIds: [],
   memoryScope: { mode, scopes },
-  workflowPolicy: { mode: "disabled", allowedWorkflowIds: [] },
+  researchPolicy: { mode: "disabled", allowedResearchAgentIds: [] },
   approvalRequirements: [],
   manifestHash: "sha256:test",
 });

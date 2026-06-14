@@ -32,7 +32,7 @@ export const createServiceContextManager = (
         profile: contextProfile,
         policyDecision: input.policyDecision,
         sections,
-        workflowArtifacts: gatheredContext.workflowArtifacts,
+        researchArtifacts: gatheredContext.researchArtifacts,
         admission,
         createdAt: input.now,
       });
@@ -43,7 +43,7 @@ export const createServiceContextManager = (
         profile: contextProfile,
         policyDecision: input.policyDecision,
         candidates,
-        workflowArtifacts: gatheredContext.workflowArtifacts,
+        researchArtifacts: gatheredContext.researchArtifacts,
         runtimeMessages,
         contextBoard: { sections, manifest },
       } satisfies PreparedTurnContext;

@@ -3,7 +3,7 @@ import {
   HOST_CAPABILITY_SCHEMA_VERSIONS,
   type AssistantProfile,
   type HostCapabilityManifest,
-  type WorkflowCapability,
+  type ResearchAgentCapability,
 } from "#domain/capabilities";
 
 type ValidationWithIssueCodes =
@@ -29,7 +29,7 @@ export const createManifest = (
         trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
       },
     ],
-    workflows: [createWorkflow("research_then_answer", analyst.profileId)],
+    researchAgents: [createResearchAgentCapability("research_context")],
     approvalPolicies: [createApprovalPolicy("host_commands_require_review", ["open_record"])],
     memoryPolicies: [analyst.memoryPolicy],
     activityRenderers: [{ rendererId: "tool_row", activityKind: "tool" }],
@@ -64,20 +64,11 @@ export const createTool = (name: string) => ({
   inputSchema: { type: "object" },
 });
 
-export const createWorkflow = (
-  workflowId: string,
-  profileId: string,
-  allowedToolNames: readonly string[] = ["mock_web_search"],
-): WorkflowCapability => ({
-  workflowId,
-  description: "Research with one node, then answer.",
-  nodes: [
-    {
-      nodeId: "research",
-      profileId,
-      toolPolicy: { mode: "profile_allowlist", allowedToolNames },
-    },
-  ],
+export const createResearchAgentCapability = (
+  researchAgentId: string,
+): ResearchAgentCapability => ({
+  researchAgentId,
+  description: "Run pre-answer research for this turn.",
 });
 
 export const issueCodes = (validation: ValidationWithIssueCodes): readonly string[] =>

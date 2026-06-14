@@ -11,9 +11,9 @@ import { approvalRequirementIssues } from "./turn-policy-approval-validation.js"
 import {
   readManifestTurnPolicyReferences,
   unknownManifestCommandMessage,
+  unknownManifestResearchAgentMessage,
   unknownManifestRetrievalSourceMessage,
   unknownManifestToolMessage,
-  unknownManifestWorkflowMessage,
 } from "./turn-policy-manifest-lookups.js";
 import { profileMemoryIssues } from "./turn-policy-memory-validation.js";
 
@@ -28,7 +28,7 @@ export const validateTurnPolicyDecision = (
     ...manifestToolIssues(manifestReferences.toolNames, decision),
     ...manifestCommandIssues(manifestReferences.commandNames, decision),
     ...manifestRetrievalIssues(manifestReferences.retrievalSourceIds, decision),
-    ...manifestWorkflowIssues(manifestReferences.workflowIds, decision),
+    ...manifestResearchAgentIssues(manifestReferences.researchAgentIds, decision),
     ...profileToolIssues(profile, decision),
     ...profileRetrievalIssues(profile, decision),
     ...profileMemoryIssues(profile, decision),
@@ -156,16 +156,16 @@ const manifestRetrievalIssues = (
     unknownManifestRetrievalSourceMessage,
   );
 
-const manifestWorkflowIssues = (
-  workflowIds: ReadonlySet<string>,
+const manifestResearchAgentIssues = (
+  researchAgentIds: ReadonlySet<string>,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   unknownValueIssues(
-    decision.workflowPolicy.allowedWorkflowIds,
-    workflowIds,
-    "workflowPolicy.allowedWorkflowIds",
-    HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_WORKFLOW_REFERENCE,
-    unknownManifestWorkflowMessage,
+    decision.researchPolicy.allowedResearchAgentIds,
+    researchAgentIds,
+    "researchPolicy.allowedResearchAgentIds",
+    HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_RESEARCH_AGENT_REFERENCE,
+    unknownManifestResearchAgentMessage,
   );
 
 const profileToolIssues = (

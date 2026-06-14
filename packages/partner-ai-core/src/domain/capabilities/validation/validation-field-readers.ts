@@ -3,9 +3,9 @@ import type {
   AssistantProfile,
   HostCommandCapability,
   MemoryPolicy,
+  ResearchAgentCapability,
   RetrievalSourceCapability,
   ToolCapability,
-  WorkflowCapability,
 } from "../contracts/capabilities.js";
 
 export const readAssistantProfileId = (profile: AssistantProfile): string => profile.profileId;
@@ -14,7 +14,8 @@ export const readToolCapabilityName = (tool: ToolCapability): string => tool.nam
 
 export const readHostCommandName = (command: HostCommandCapability): string => command.commandName;
 
-export const readWorkflowId = (workflow: WorkflowCapability): string => workflow.workflowId;
+export const readResearchAgentId = (agent: ResearchAgentCapability): string =>
+  agent.researchAgentId;
 
 export const readApprovalPolicyId = (policy: ApprovalPolicy): string => policy.policyId;
 
