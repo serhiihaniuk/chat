@@ -2,15 +2,25 @@ import type { WorkspaceRef } from "@side-chat/partner-ai-core";
 import { optionalField } from "@side-chat/shared";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
+import {
+  createMemoryPolicyForCapabilityConfig,
+  createResearchAgentsForCapabilityConfig,
+  createRetrievalSourcesForCapabilityConfig,
+} from "#composition/capabilities/capability-manifest-declarations";
 import type {
   OpenAIReasoningEffort,
   OpenAIReasoningSummary,
 } from "#composition/service-composition";
 import type { PartnerAiServiceOptions } from "#inbound/http/app";
+import { CAPABILITY_ENV_KEYS, createCapabilityConfigFromEnv } from "./service-capability-config.js";
+import { ServiceConfigError } from "./service-config-error.js";
+
+export { ServiceConfigError } from "./service-config-error.js";
 
 export const SERVICE_ENV_KEYS = {
   allowedModels: "SIDECHAT_ALLOWED_MODELS",
   authBearerToken: "SIDECHAT_AUTH_BEARER_TOKEN",
+  ...CAPABILITY_ENV_KEYS,
   databaseUrl: "SIDECHAT_DATABASE_URL",
   openaiApiKey: "SIDECHAT_OPENAI_API_KEY",
   openaiBaseUrl: "SIDECHAT_OPENAI_BASE_URL",
@@ -32,15 +42,6 @@ type ServiceEnv = Readonly<Record<string, string | undefined>>;
 type ServiceProfile = "development" | "production";
 type PolicyMode = "allow_all" | "fail_closed" | "configured";
 
-export class ServiceConfigError extends Error {
-  readonly code = "service_config_invalid";
-
-  constructor(message: string) {
-    super(message);
-    this.name = "ServiceConfigError";
-  }
-}
-
 export const createPartnerAiServiceOptionsFromEnv = (
   env: ServiceEnv = process.env,
 ): PartnerAiServiceOptions => {
@@ -48,11 +49,16 @@ export const createPartnerAiServiceOptionsFromEnv = (
   const profile = readServiceProfile(envValue(env, SERVICE_ENV_KEYS.profile));
 
   const persistence = createPersistenceConfig(profile, env);
+  const capabilities = createCapabilityConfigFromEnv(env);
   return {
     workspace,
     auth: createAuthConfig(profile, workspace, envValue(env, SERVICE_ENV_KEYS.authBearerToken)),
     policies: createPolicyConfig(profile, env),
     runtime: createRuntimeConfig(profile, env),
+    capabilities,
+    memoryPolicy: createMemoryPolicyForCapabilityConfig(capabilities.memory),
+    retrievalSources: createRetrievalSourcesForCapabilityConfig(capabilities.rag),
+    researchAgents: createResearchAgentsForCapabilityConfig(capabilities.research),
     ...optionalField("persistence", persistence),
   };
 };

@@ -14,7 +14,6 @@ import {
   type ContextManagerPort,
   type ApprovalPolicy,
   type HostCommandCapability,
-  type HostCapabilityManifest,
   type HostCapabilityManifestPort,
   type MemoryPolicy,
   type MemoryPort,
@@ -34,27 +33,32 @@ import {
 } from "@side-chat/db";
 import { optionalField } from "@side-chat/shared";
 
-import { createNoopResearchAgent } from "#adapters/agents/noop-research-agent";
 import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/auth/service-auth";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
-import { createNoopMemoryPort } from "#adapters/memory/noop-memory-port";
 import {
   createDefaultPolicyConfig,
   type ServicePolicyConfig,
 } from "#adapters/policy/service-policy";
-import { createNoopRagRetriever } from "#adapters/rag/noop-rag-retriever";
 import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
 import {
   assertProductionCapabilityStatus,
-  createServiceCapabilityStatus,
   type ServiceCapabilityStatus,
-} from "./capability-status.js";
+} from "#composition/capabilities/capability-status";
+import {
+  DEFAULT_SERVICE_CAPABILITY_CONFIG,
+  type ServiceCapabilityConfig,
+} from "#composition/capabilities/service-capability-settings";
 import { createServiceContextManager } from "./context-manager/service-context-manager.js";
 import {
   createServiceHostCapabilityManifest,
   createServiceTurnPolicyResolver,
   createStaticHostCapabilityManifestPort,
 } from "./manifest/service-capability-manifest.js";
+import {
+  createCapabilityStatusForComposition,
+  resolveCapabilityManifestInputs,
+  selectCapabilityAdapters,
+} from "#composition/capabilities/service-capability-composition";
 
 export type PersistenceConfig =
   | { readonly kind: "memory" }
@@ -121,6 +125,8 @@ export type ServiceCompositionOptions = {
   readonly repositories?: SidechatRepositories;
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
+  /** Capability declarations; concrete memory/RAG/research work still needs the ports below. */
+  readonly capabilities?: ServiceCapabilityConfig;
   readonly turnGuards?: TurnGuardRegistryPort;
   readonly turnGuardIds?: readonly string[];
   readonly memory?: MemoryPort;
@@ -147,6 +153,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const persistence =
     options.persistence ?? defaultPersistenceForComposition(auth.profile, options.repositories);
   const repositories = options.repositories ?? createRepositoriesForPersistence(persistence);
+  const capabilityConfig = options.capabilities ?? DEFAULT_SERVICE_CAPABILITY_CONFIG;
 
   // Choose the runtime identity before building the manifest. Core later checks
   // the manifest against these ids, so they must describe the runtime we create
@@ -154,6 +161,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const runtimeConfig = options.runtime ?? { provider: "fake" };
   const runtimeProviderId = providerIdForRuntime(runtimeConfig);
   const runtimeModelId = modelIdForRuntime(runtimeConfig);
+  const capabilityManifestInputs = resolveCapabilityManifestInputs(options, capabilityConfig);
 
   // Publish what this service can offer to core. The manifest names available
   // tools, commands, memory, retrieval, research, and guards; turn policy still
@@ -165,18 +173,13 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     ...optionalField("toolCapabilities", runtimeConfig.toolCapabilities),
     ...optionalField("hostCommands", runtimeConfig.hostCommands),
     ...optionalField("approvalPolicies", runtimeConfig.approvalPolicies),
-    ...optionalField("memoryPolicy", options.memoryPolicy),
-    ...optionalField("retrievalSources", options.retrievalSources),
-    ...optionalField("researchAgents", options.researchAgents),
+    ...capabilityManifestInputs,
     ...optionalField("turnGuardIds", options.turnGuardIds),
   });
-  const capabilities = createServiceCapabilityStatus({
-    memoryPolicy: resolveManifestMemoryPolicy(manifest),
-    memoryAdapterProvided: Boolean(options.memory),
-    retrievalSources: manifest.retrievalSources,
-    ragRetrieverProvided: Boolean(options.ragRetriever),
-    researchAgents: manifest.researchAgents,
-    researchAgentProvided: Boolean(options.researchAgent),
+  const capabilities = createCapabilityStatusForComposition({
+    options,
+    capabilityConfig,
+    manifest,
     persistenceKind: persistence.kind,
   });
   assertProductionCapabilityStatus(capabilities, auth.profile);
@@ -187,9 +190,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
 
   // Context adapters are optional for local boot, but the no-op versions mean
   // "no memory/RAG/research was provided", not "feature is production-ready".
-  const memory = options.memory ?? createNoopMemoryPort();
-  const ragRetriever = options.ragRetriever ?? createNoopRagRetriever();
-  const researchAgent = options.researchAgent ?? createNoopResearchAgent();
+  const { memory, ragRetriever, researchAgent } = selectCapabilityAdapters(
+    capabilityConfig,
+    options,
+  );
 
   // Return the complete graph in one object so HTTP routes can stay thin: they
   // receive ready ports instead of knowing how to assemble core, runtime, and DB.
@@ -206,7 +210,13 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     memory,
     ragRetriever,
     researchAgent,
-    contextManager: createServiceContextManager({ memory, ragRetriever, researchAgent }),
+    contextManager: createServiceContextManager({
+      memory,
+      ragRetriever,
+      researchAgent,
+      history: capabilityConfig.history,
+      contextAdmission: capabilityConfig.contextAdmission,
+    }),
     runtime,
     runtimeProviderId,
     runtimeModelId,
@@ -285,12 +295,3 @@ const failMissingProductionPersistence = (): never => {
     "Production profile requires SIDECHAT_DATABASE_URL for Postgres/Drizzle persistence.",
   );
 };
-
-const DISABLED_MEMORY_POLICY: MemoryPolicy = {
-  policyId: "no_memory",
-  mode: "disabled",
-  scopes: [],
-};
-
-const resolveManifestMemoryPolicy = (manifest: HostCapabilityManifest): MemoryPolicy =>
-  manifest.memoryPolicies[0] ?? DISABLED_MEMORY_POLICY;

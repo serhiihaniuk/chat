@@ -23,6 +23,7 @@ import {
   type RuntimeToolConfig,
   type ServiceCompositionOptions,
 } from "#composition/service-composition";
+import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
 import { authContextMiddleware, type AuthContextVariables } from "./middleware/auth-context.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAuth } from "./middleware/require-auth.js";
@@ -45,6 +46,13 @@ export type PartnerAiServiceOptions = {
   readonly persistence?: PersistenceConfig;
   readonly runtime?: RuntimeConfig & RuntimeToolConfig;
   readonly agentRuntime?: AgentRuntime;
+  /**
+   * Capability declarations forwarded to service composition.
+   *
+   * HTTP setup does not interpret these values; composition turns them into
+   * manifest entries, context budgets, health status, and selected ports.
+   */
+  readonly capabilities?: ServiceCapabilityConfig;
   readonly turnGuards?: TurnGuardRegistryPort;
   readonly turnGuardIds?: readonly string[];
   readonly memory?: MemoryPort;
@@ -121,6 +129,7 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   ...optionalField("repositories", options.repositories),
   ...optionalField("runtime", options.runtime),
   ...optionalField("agentRuntime", options.agentRuntime),
+  ...optionalField("capabilities", options.capabilities),
   ...optionalField("turnGuards", options.turnGuards),
   ...optionalField("turnGuardIds", options.turnGuardIds),
   ...optionalField("memory", options.memory),

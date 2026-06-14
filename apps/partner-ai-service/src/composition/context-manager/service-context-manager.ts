@@ -23,7 +23,7 @@ export const createServiceContextManager = (
       const gatheredContext = yield* gatherAllowedTurnContext(options, input);
 
       const candidates = createContextCandidates(input, gatheredContext);
-      const admission = createSimpleContextAdmission(candidates);
+      const admission = createSimpleContextAdmission(candidates, options.contextAdmission);
       const sections = createPreparedContextSections(input, gatheredContext);
       const manifest = createPreparedContextManifest({
         requestId: input.request.requestId,

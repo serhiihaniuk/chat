@@ -28,6 +28,12 @@ safe status fields. No-op adapters are allowed for local bootstrap, but
 production-profile composition must not enable memory, RAG, or research without a
 matching concrete adapter.
 
+Portable capability configuration contracts live in
+`packages/partner-ai-core/src/domain/capabilities/contracts/capability-configuration.ts`.
+`apps/partner-ai-service` parses `SIDECHAT_*` values and adds deployable modes
+such as no-op, Postgres, HTTP, external, or LangGraph before mapping those
+settings into core manifest declarations and ports.
+
 ## Backend Runtime Tool
 
 - What it is: model-callable backend work such as search, lookup, or mutation.

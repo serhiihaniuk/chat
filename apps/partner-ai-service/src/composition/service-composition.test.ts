@@ -10,9 +10,11 @@ import {
 import {
   CONTEXT_TRUST_LEVELS,
   RESEARCH_CONTEXT_AGENT_ID,
+  type MemoryPort,
   type ResearchAgentCapability,
   type ResearchAgentPort,
   type ResearchSourceCandidate,
+  type RagRetrieverPort,
   type RetrievalSourceCapability,
 } from "@side-chat/partner-ai-core";
 import {
@@ -20,6 +22,8 @@ import {
   createJiraSearchIssuesTool,
   JIRA_SEARCH_ISSUES_TOOL_NAME,
 } from "#adapters/tools/examples/jira-search-issues-tool";
+import { createNoopResearchAgent } from "#adapters/agents/noop-research-agent";
+import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import { composePartnerAiService } from "./service-composition.js";
 
 const workspace = {
@@ -155,6 +159,64 @@ describe("service composition runtime tools", () => {
     ]);
   });
 
+  it("wires configured capability declarations to provided adapters", async () => {
+    const memory = createMemoryPort();
+    const ragRetriever = createRagRetriever();
+    const researchAgent = createNoopResearchAgent();
+    const composition = composePartnerAiService({
+      workspace,
+      capabilities: {
+        ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
+        memory: {
+          mode: "external",
+          autoWrite: "disabled",
+          defaultScope: "user",
+        },
+        rag: {
+          mode: "external",
+          sourceIds: ["docs"],
+          failureMode: "fail_turn",
+        },
+        research: {
+          mode: "external",
+          failureMode: "fail_turn",
+        },
+        history: {
+          mode: "recent_messages",
+          maxMessages: 6,
+          maxTokens: 900,
+        },
+      },
+      memory,
+      ragRetriever,
+      researchAgent,
+    });
+
+    const manifest = await loadManifest(composition);
+
+    expect(composition.memory).toBe(memory);
+    expect(composition.ragRetriever).toBe(ragRetriever);
+    expect(composition.researchAgent).toBe(researchAgent);
+    expect(manifest.memoryPolicies).toEqual([
+      {
+        policyId: "configured_user_memory",
+        mode: "read",
+        scopes: ["user"],
+      },
+    ]);
+    expect(manifest.retrievalSources.map((source) => source.sourceId)).toEqual(["docs"]);
+    expect(manifest.researchAgents.map((agent) => agent.researchAgentId)).toEqual([
+      RESEARCH_CONTEXT_AGENT_ID,
+    ]);
+    expect(composition.capabilities).toMatchObject({
+      memory: { state: "configured", policyId: "configured_user_memory" },
+      rag: { state: "configured", configuredSourceCount: 1 },
+      research: { state: "configured", configuredAgentCount: 1 },
+      history: { state: "noop", policyId: "recent_messages" },
+      contextAdmission: { state: "noop", policyId: "deterministic_v1" },
+    });
+  });
+
   it("resolves the service system prompt id to runtime instructions", async () => {
     const composition = composePartnerAiService({ workspace });
 
@@ -283,3 +345,13 @@ const researchAgentCapability: ResearchAgentCapability = {
   researchAgentId: RESEARCH_CONTEXT_AGENT_ID,
   description: "Run pre-answer research.",
 };
+
+const createMemoryPort = (): MemoryPort => ({
+  recall: () => Effect.succeed([]),
+  proposeWriteCandidates: () => Effect.succeed([]),
+  writeCandidates: () => Effect.succeed(undefined),
+});
+
+const createRagRetriever = (): RagRetrieverPort => ({
+  retrieve: () => Effect.succeed([]),
+});

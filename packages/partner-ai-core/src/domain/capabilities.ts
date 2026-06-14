@@ -1,4 +1,5 @@
 export * from "./capabilities/contracts/capabilities.js";
+export * from "./capabilities/contracts/capability-configuration.js";
 export * from "./capabilities/contracts/context.js";
 export * from "./capabilities/contracts/hashing.js";
 export * from "./capabilities/contracts/research-artifacts.js";

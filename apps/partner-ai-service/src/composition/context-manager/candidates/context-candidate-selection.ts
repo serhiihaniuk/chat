@@ -1,9 +1,17 @@
 import type {
   ContextBudgetDecision,
   ContextCandidate,
+  ContextAdmissionConfig,
   ContextManifestEntry,
 } from "@side-chat/partner-ai-core";
+import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 
+/**
+ * Source: gathered model-context candidates.
+ * Target: rendered candidate bodies plus context-manifest metadata.
+ * Invariant: `entries` and `budget` must remain safe to persist; candidate
+ * bodies stay in `included` or `dropped` for rendering decisions only.
+ */
 export type ContextAdmission = {
   readonly included: readonly ContextCandidate[];
   readonly dropped: readonly ContextCandidate[];
@@ -11,17 +19,24 @@ export type ContextAdmission = {
   readonly budget: ContextBudgetDecision;
 };
 
-// Temporary behavior: include every gathered candidate and record estimated token
-// use so we can observe it. No trimming or sorting happens here yet.
+/**
+ * Record the configured admission budget while keeping current include-all behavior.
+ *
+ * Source: gathered host, memory, RAG, research, and tool candidates.
+ * Target: context-board entries plus budget metadata for the prepared turn.
+ * Non-guarantee: this policy does not trim or rank candidates yet; later
+ * deterministic admission can use the same core `ContextAdmissionConfig`.
+ */
 export const createSimpleContextAdmission = (
   candidates: readonly ContextCandidate[],
+  config: ContextAdmissionConfig = DEFAULT_SERVICE_CAPABILITY_CONFIG.contextAdmission,
 ): ContextAdmission => ({
   included: candidates,
   dropped: [],
   entries: candidates.map(toIncludedManifestEntry),
   budget: {
-    maxInputTokens: 8192,
-    reservedOutputTokens: 1024,
+    maxInputTokens: config.maxInputTokens,
+    reservedOutputTokens: config.reservedOutputTokens,
     includedCandidateIds: candidates.map((candidate) => candidate.candidateId),
     droppedCandidateIds: [],
   },

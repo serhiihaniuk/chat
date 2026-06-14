@@ -3,7 +3,7 @@ name: side-chat-code-quality-gate
 description: Review, write, refactor, or gate Side Chat TypeScript, React, Node, docs, READMEs, architecture notes, comments, tests, and custom governance for human-level cognitive load, readability, cognitive complexity, AI SDK/Effect clarity, useful comments, Oxlint/Oxfmt/TypeScript/Vitest/custom governance, package boundaries, UI quality, service quality, and maintainability. Use for hard-to-understand code or docs, oversized functions/files, unclear runtime/provider/protocol/tool terms, comments that assume too much context, AI-generated code review, code smells, quality gates, or repo-wide audits. Do not use for testing-only design tasks; use side-chat-testing-architecture for tests.
 compatibility: Codex CLI, Codex IDE extension, Codex app; instruction-first skill with optional local Python hotspot scan; no network required.
 metadata:
-  version: "1.2.0"
+  version: "1.2.1"
   project: "Side Chat"
   domain: "TypeScript, Effect, AI SDK, React widget, Node service, monorepo quality gate"
   source: "Project-specific adaptation from uploaded Side Chat repository and integrated software-comment-design skill."
@@ -85,13 +85,14 @@ If dependencies are not installed or the shell is not on Node `24.16.0` and npm 
 3. Keep one abstraction level per function. Do not mix policy choice, provider adaptation, protocol mapping, UI rendering, persistence, and error conversion in one block.
 4. Keep package vocabulary local. When code uses terms like runtime, provider, adapter, protocol, activity, context board, RuntimeTool, ToolLoopAgent, Effect, Stream, or sidechat.v1, the local file must show what role the term plays here.
 5. Prefer code structure over comments. First try naming, extraction, typed domain objects, guard clauses, and smaller orchestration steps. Add comments only when code still cannot carry the design knowledge.
-6. Comments are part of the quality gate. A comment fails if it is accurate only for someone who already knows the whole system.
-7. Do not over-comment. A useful comment should bridge missing context, state a contract, explain a non-obvious invariant, or warn about a boundary. Delete comments that merely narrate syntax.
-8. Preserve behavior and public contracts unless the user explicitly asks for behavior change.
-9. Treat docs as part of behavior for maintainers. When code changes domain terms, lifecycle order, package ownership, verification behavior, or boundary meaning, update canonical docs in the same patch.
-10. Prefer final-state rewrite over compatibility preservation for unshipped internal shapes.
-11. Patch only high-confidence, scoped issues. Report uncertain design findings separately.
-12. Do not mention this skill inside code comments.
+6. Comments are part of the quality gate. A comment fails if it is accurate only for someone who already knows the whole system. A missing comment is also a gate failure when changed code introduces a complex exported type, config/status/control-plane shape, boundary mapper, adapter selector, protocol/context/runtime transformation, or spine function.
+7. "Prefer structure over comments" does not waive comment coverage for exported contracts or boundary-heavy code. Good names reduce mechanical comments; they do not replace source/target/invariant documentation when the code coordinates lifecycle, privacy, ports, policy, or model-visible behavior.
+8. Do not over-comment. A useful comment should bridge missing context, state a contract, explain a non-obvious invariant, or warn about a boundary. Delete comments that merely narrate syntax.
+9. Preserve behavior and public contracts unless the user explicitly asks for behavior change.
+10. Treat docs as part of behavior for maintainers. When code changes domain terms, lifecycle order, package ownership, verification behavior, or boundary meaning, update canonical docs in the same patch.
+11. Prefer final-state rewrite over compatibility preservation for unshipped internal shapes.
+12. Patch only high-confidence, scoped issues. Report uncertain design findings separately.
+13. Do not mention this skill inside code comments.
 
 ## Human cognitive load budget
 
@@ -129,7 +130,8 @@ Before accepting generated code, ask:
 4. Does each function have one reason to change?
 5. Are Effect/Stream/AI SDK boundaries named rather than hidden inside callback nesting?
 6. Does the comment explain why this boundary exists, not just what the next line does?
-7. Could a new maintainer safely modify this without opening five architecture docs first?
+7. Did you audit for missing comments, not only bad existing comments?
+8. Could a new maintainer safely modify this without opening five architecture docs first?
 
 If any answer is no, improve structure first. Then add the smallest useful context bridge comment.
 
@@ -240,6 +242,31 @@ Prefer this comment pattern for boundary-heavy code:
  */
 ```
 
+## Mandatory comment coverage gate
+
+Run this as a separate pass before finalizing non-trivial code. Do it even when the implementation already has good names and small functions.
+
+Missing-comment findings are `comment-quality` findings. Treat them as blockers when the code is complex enough that a lower-context maintainer would otherwise need the implementation plan, the chat thread, or several architecture docs to safely edit it.
+
+Required coverage triggers:
+
+- Exported complex types, option objects, config objects, status objects, manifest shapes, protocol shapes, and context-board shapes need contract comments. State the local role plus source, target, invariant, and important non-guarantees. Document fields when the name does not reveal units, lifecycle, privacy, or failure semantics.
+- Spine functions that coordinate several lifecycle steps need a top-level contract and step comments. Each step comment should say what the step proves, records, publishes, selects, hides, prepares, or fails before the next step can run.
+- Boundary mappers and adapter selectors need source representation, target contract, hidden detail, and invariant comments. Examples include env-to-config, config-to-manifest, manifest-to-status, provider-to-runtime, runtime-to-protocol, DB-to-domain, and context-candidate-to-context-board conversions.
+- Diagnostics and health/status surfaces need comments that name what may be exposed and what must stay hidden, especially credentials, provider options, memory records, retrieved content, and raw tool/provider errors.
+- Config parsers need comments separating declaration validation from concrete resource selection. For example, env parsing may declare intent, but composition chooses ports and enforces concrete adapter requirements.
+
+Human-readable means concrete. Reject comments that say only "control plane", "adapter boundary", "runtime contract", "typed config", or "validates intent" unless the same comment names the source entity, target entity, invariant, and what does not happen at that boundary.
+
+Use this checklist on the changed files:
+
+1. New or changed exported types have comments when they carry domain meaning beyond plain data.
+2. New or changed fields have comments when names do not expose units, privacy, lifecycle, or failure behavior.
+3. New or changed spine functions have top-level and stage comments.
+4. New or changed boundary mappers explain source, target, hidden detail, and invariant.
+5. Comments can be understood without reading the implementation plan or the current chat.
+6. No comment exists only to explain avoidable complexity that should be named or extracted instead.
+
 ## Domain-term traceability rule
 
 When code introduces or transforms a Side Chat entity, the reader should be able to trace it through names, types, or a nearby comment.
@@ -338,9 +365,10 @@ When editing files:
 2. Make the smallest coherent diff.
 3. Keep behavior and public exports stable unless asked otherwise.
 4. Prefer names/extraction over explanatory comments.
-5. Add comments only for local context bridges, contracts, invariants, non-guarantees, or boundary rationale.
-6. Run the narrowest relevant checks possible.
-7. Final response: changed files, what readability/quality issue was fixed, docs updated/deleted, vocabulary terms changed, verification, and remaining risk.
+5. Run the mandatory comment coverage gate on changed exported types, spine functions, boundary mappers, config parsers, adapter selectors, and diagnostics.
+6. Add comments only for local context bridges, contracts, invariants, non-guarantees, or boundary rationale.
+7. Run the narrowest relevant checks possible.
+8. Final response: changed files, what readability/quality issue was fixed, comments added/deleted, docs updated/deleted, vocabulary terms changed, verification, and remaining risk.
 
 For worker-style phase reports, include:
 
@@ -385,6 +413,8 @@ Read `references/repo-quality-gates.md` before proposing or changing quality gat
 Read `references/ai-sdk-effect-readability.md` for Effect, Stream, ToolLoopAgent, runtime-event, and adapter-boundary code.
 
 Read `references/comment-readability-rubric.md` for comments, context bridges, and domain-term traceability.
+
+Read `references/comment-readability-rubric.md` as mandatory when changed code adds or refactors exported types, config/status/control-plane objects, boundary mappers, adapter selectors, diagnostics, or spine functions.
 
 Read `references/side-chat-architecture-map.md` when a change crosses packages or introduces imports.
 

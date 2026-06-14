@@ -11,6 +11,7 @@ import {
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
+import { createPartnerAiServiceOptionsFromEnv } from "#config/service-config";
 import { createPartnerAiServiceApp } from "../../app.js";
 
 describe("partner ai service capability diagnostics", () => {
@@ -53,13 +54,56 @@ describe("partner ai service capability diagnostics", () => {
           capability: "contextAdmission",
           state: "noop",
           adapterId: "simple-include-all-context-admission",
-          policyId: "include-all-context-admission",
+          policyId: "deterministic_v1",
           safeForProduction: false,
         },
         persistence: {
           capability: "persistence",
           state: "configured",
           adapterId: "memory-sidechat-repositories",
+          safeForProduction: false,
+        },
+      },
+    });
+  });
+
+  it("reports env-configured no-op capabilities without leaking adapter details", async () => {
+    const response = await createPartnerAiServiceApp(
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_MEMORY_MODE: "noop",
+        SIDECHAT_MEMORY_DEFAULT_SCOPE: "user",
+        SIDECHAT_RAG_MODE: "noop",
+        SIDECHAT_RAG_SOURCES: "docs",
+        SIDECHAT_RESEARCH_MODE: "noop",
+        SIDECHAT_HISTORY_MODE: "recent_plus_summary",
+      }),
+    ).request("/readyz");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      capabilities: {
+        memory: {
+          state: "noop",
+          adapterId: "noop-memory-port",
+          policyId: "configured_user_memory",
+          safeForProduction: false,
+        },
+        rag: {
+          state: "noop",
+          adapterId: "noop-rag-retriever",
+          configuredSourceCount: 1,
+          safeForProduction: false,
+        },
+        research: {
+          state: "noop",
+          adapterId: "noop-research-agent",
+          configuredAgentCount: 1,
+          safeForProduction: false,
+        },
+        history: {
+          state: "noop",
+          adapterId: "current-message-only-history-context",
+          policyId: "recent_plus_summary",
           safeForProduction: false,
         },
       },

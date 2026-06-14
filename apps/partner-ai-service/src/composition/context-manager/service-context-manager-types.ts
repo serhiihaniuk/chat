@@ -7,12 +7,16 @@ import type {
   RagRetrieverPort,
   ResearchArtifact,
   ResearchAgentPort,
+  ContextAdmissionConfig,
+  HistoryContextConfig,
 } from "@side-chat/partner-ai-core";
 
 export type ServiceContextManagerOptions = {
   readonly ragRetriever: RagRetrieverPort;
   readonly memory: MemoryPort;
   readonly researchAgent: ResearchAgentPort;
+  readonly history?: HistoryContextConfig;
+  readonly contextAdmission?: ContextAdmissionConfig;
 };
 
 export type PrepareTurnContextInput = Parameters<ContextManagerPort["prepareTurnContext"]>[0];

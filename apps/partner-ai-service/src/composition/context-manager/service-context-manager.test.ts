@@ -115,6 +115,32 @@ describe("service context manager RAG", () => {
   });
 });
 
+describe("service context manager context admission", () => {
+  it("records configured token budgets in the prepared context manifest", async () => {
+    const preparedContext = await Effect.runPromise(
+      createServiceContextManager({
+        memory: createNoopMemoryPort(),
+        ragRetriever: createNoopRagRetriever(),
+        researchAgent: createNoopResearchAgent(),
+        contextAdmission: {
+          policyId: "deterministic_v1",
+          maxInputTokens: 12_000,
+          reservedOutputTokens: 2_000,
+          maxHistoryTokens: 1_500,
+          maxMemoryTokens: 900,
+          maxRagTokens: 4_000,
+          maxResearchTokens: 1_600,
+        },
+      }).prepareTurnContext(createContextInput({ retrievalSources: [] })),
+    );
+
+    expect(preparedContext.contextBoard.manifest.budget).toMatchObject({
+      maxInputTokens: 12_000,
+      reservedOutputTokens: 2_000,
+    });
+  });
+});
+
 describe("service context manager memory", () => {
   it("adds recalled memory candidates and sections when policy allows recall", async () => {
     const recallInputs: MemoryRecallInput[] = [];

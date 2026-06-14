@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  CAPABILITY_FAILURE_MODES,
+  CONTEXT_ADMISSION_POLICIES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
+  HISTORY_CONTEXT_MODES,
+  MEMORY_AUTO_WRITE_MODES,
+  MEMORY_DEFAULT_SCOPES,
   createTurnPolicyDecision,
+  type CapabilityConfig,
   type PreparedTurnContext,
   type ResearchArtifact,
 } from "../capabilities.js";
@@ -79,5 +85,38 @@ describe("capability substrate types", () => {
 
     expect(prepared.contextBoard.manifest.entries).toHaveLength(1);
     expect(prepared.researchArtifacts[0]?.researchAgentId).toBe("research_context");
+  });
+
+  it("exports capability configuration contracts without service adapter modes", () => {
+    const config = {
+      memory: {
+        autoWrite: MEMORY_AUTO_WRITE_MODES.PROPOSE_ONLY,
+        defaultScope: MEMORY_DEFAULT_SCOPES.USER,
+      },
+      rag: {
+        sourceIds: ["docs"],
+        failureMode: CAPABILITY_FAILURE_MODES.DEGRADE,
+      },
+      research: {
+        failureMode: CAPABILITY_FAILURE_MODES.FAIL_TURN,
+      },
+      history: {
+        mode: HISTORY_CONTEXT_MODES.RECENT_MESSAGES,
+        maxMessages: 12,
+        maxTokens: 4_000,
+      },
+      contextAdmission: {
+        policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
+        maxInputTokens: 24_000,
+        reservedOutputTokens: 4_000,
+        maxHistoryTokens: 4_000,
+        maxMemoryTokens: 2_000,
+        maxRagTokens: 8_000,
+        maxResearchTokens: 4_000,
+      },
+    } satisfies CapabilityConfig;
+
+    expect(config.memory.defaultScope).toBe(MEMORY_DEFAULT_SCOPES.USER);
+    expect(config.rag.sourceIds).toEqual(["docs"]);
   });
 });
