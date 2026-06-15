@@ -77,14 +77,14 @@ export type RuntimeActivityEvent = RuntimeEventBase & {
   readonly activityKind: RuntimeActivityKind;
   readonly status: RuntimeActivityStatus;
   readonly title: string;
-  readonly body?: string;
-  readonly details?: RuntimeActivityDetails;
+  readonly body?: string | undefined;
+  readonly details?: RuntimeActivityDetails | undefined;
 };
 
 export type RuntimeCompletedEvent = RuntimeEventBase & {
   readonly type: typeof RUNTIME_EVENT_TYPES.COMPLETED;
   readonly finishReason: RuntimeFinishReason;
-  readonly usage?: RuntimeUsage;
+  readonly usage?: RuntimeUsage | undefined;
 };
 
 export type RuntimeErrorEvent = RuntimeEventBase & {

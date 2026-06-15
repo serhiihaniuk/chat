@@ -4,7 +4,6 @@ import {
   retrieveAllowedRagCandidates,
   runAllowedResearchAgent,
 } from "@side-chat/partner-ai-core";
-import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import type {
@@ -35,7 +34,7 @@ export const gatherAllowedTurnContext = (
       workspace: input.workspace,
       request: input.request,
       policyDecision: input.policyDecision,
-      ...optionalField("abortSignal", input.abortSignal),
+      abortSignal: input.abortSignal,
     });
     const memoryRecords = yield* recallAllowedMemoryCandidates({
       memory: ports.memory,
@@ -44,7 +43,7 @@ export const gatherAllowedTurnContext = (
       conversation: input.conversation,
       request: input.request,
       policyDecision: input.policyDecision,
-      ...optionalField("abortSignal", input.abortSignal),
+      abortSignal: input.abortSignal,
     });
     const researchContext = yield* runAllowedResearchAgent({
       researchAgent: ports.researchAgent,
@@ -53,7 +52,7 @@ export const gatherAllowedTurnContext = (
       request: input.request,
       policyDecision: input.policyDecision,
       now: input.now,
-      ...optionalField("abortSignal", input.abortSignal),
+      abortSignal: input.abortSignal,
     });
 
     return {
@@ -80,6 +79,6 @@ const readAllowedConversationHistory = (
     conversation: input.conversation,
     currentUserMessage: input.currentUserMessage,
     limit: config.maxMessages + 1,
-    ...optionalField("abortSignal", input.abortSignal),
+    abortSignal: input.abortSignal,
   });
 };

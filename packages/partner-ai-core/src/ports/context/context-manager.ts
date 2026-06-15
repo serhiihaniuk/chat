@@ -18,6 +18,6 @@ export type ContextManagerPort = {
     readonly manifest: HostCapabilityManifest;
     readonly policyDecision: TurnPolicyDecision;
     readonly now: string;
-    readonly abortSignal?: AbortSignal;
+    readonly abortSignal?: AbortSignal | undefined;
   }) => Effect.Effect<PreparedTurnContext, unknown>;
 };

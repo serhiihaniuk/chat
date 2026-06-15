@@ -4,7 +4,6 @@ import type {
   PreparedHistoryMessage,
 } from "@side-chat/partner-ai-core";
 import type { MessageRecord, SidechatRepositories } from "@side-chat/db";
-import { optionalField } from "@side-chat/shared";
 
 export const createRepositoryConversationHistoryContext = (
   repositories: SidechatRepositories,
@@ -20,7 +19,7 @@ export const createRepositoryConversationHistoryContext = (
           conversationId: input.conversation.conversationId,
           limit: input.limit,
           beforeSequenceIndex: input.currentUserMessage.sequenceIndex,
-          ...optionalField("afterSequenceIndex", input.conversation.historyCutoffSequenceIndex),
+          afterSequenceIndex: input.conversation.historyCutoffSequenceIndex,
         });
 
         return records.flatMap(toPreparedHistoryMessage);

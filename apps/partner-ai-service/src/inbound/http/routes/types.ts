@@ -23,7 +23,7 @@ export type RouteDependencies = {
   readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
   readonly policies: PolicyPort;
-  readonly observability?: ObservabilitySinkPort;
+  readonly observability?: ObservabilitySinkPort | undefined;
 };
 
 export const requireContextAuth = (authContext: AuthContext | undefined) => {

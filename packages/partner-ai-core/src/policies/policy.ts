@@ -33,7 +33,7 @@ export type PolicyDenial = {
   readonly code: PolicyDenialCode;
   readonly protocolCode: ProtocolErrorCode;
   readonly message: string;
-  readonly retryable?: boolean;
+  readonly retryable?: boolean | undefined;
 };
 
 export type PolicyDecision = PolicyGrant | PolicyDenial;

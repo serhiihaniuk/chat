@@ -4,7 +4,6 @@ import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import type { TurnPolicyDecision } from "#domain/capabilities";
 import type { RagContextCandidate, RagRetrieverPort, RagRetrievalInput } from "#ports";
 import type { PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
-import { optionalField } from "@side-chat/shared";
 import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 
 const DEFAULT_RAG_CANDIDATE_LIMIT = 5;
@@ -15,8 +14,8 @@ export type RetrieveAllowedRagCandidatesInput = {
   readonly workspace: WorkspaceRef;
   readonly request: ChatStreamRequest;
   readonly policyDecision: TurnPolicyDecision;
-  readonly abortSignal?: AbortSignal;
-  readonly maxCandidates?: number;
+  readonly abortSignal?: AbortSignal | undefined;
+  readonly maxCandidates?: number | undefined;
 };
 
 export const retrieveAllowedRagCandidates = ({
@@ -41,7 +40,7 @@ export const retrieveAllowedRagCandidates = ({
         request,
         policyDecision,
         maxCandidates,
-        ...optionalField("abortSignal", abortSignal),
+        abortSignal,
       }),
     ),
     STREAM_CHAT_FAILURES.CONTEXT,
@@ -64,10 +63,10 @@ const createRagRetrievalInput = ({
   workspace,
   requestId: request.requestId,
   userMessage: request.message.content,
-  ...optionalField("hostContext", request.hostContext),
+  hostContext: request.hostContext,
   allowedSourceIds: policyDecision.retrievalSourceIds,
   maxCandidates,
-  ...optionalField("abortSignal", abortSignal),
+  abortSignal,
 });
 
 type RagRetrievalInputFactory = Omit<

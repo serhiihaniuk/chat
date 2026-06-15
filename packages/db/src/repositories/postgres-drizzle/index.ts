@@ -2,7 +2,7 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import { sidechatTables } from "#drizzle/schema";
-import type { SidechatRepositories } from "../contract.js";
+import { REPOSITORY_ADAPTER_KINDS, type SidechatRepositories } from "../contract.js";
 import { createPostgresDrizzleConversationRepository } from "./records/conversations.js";
 import { createPostgresDrizzleInteractionRepository } from "./records/interactions.js";
 import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
@@ -13,7 +13,7 @@ export type PostgresDrizzleRepositoryOptions = {
 };
 
 export type PostgresDrizzleSidechatRepositories = SidechatRepositories & {
-  readonly kind: "postgres-drizzle";
+  readonly adapterKind: typeof REPOSITORY_ADAPTER_KINDS.POSTGRES_DRIZZLE;
   readonly db: NodePgDatabase<typeof sidechatTables>;
   readonly close: () => Promise<void>;
 };
@@ -28,7 +28,7 @@ export const createPostgresDrizzleSidechatRepositories = (
   };
 
   return {
-    kind: "postgres-drizzle",
+    adapterKind: REPOSITORY_ADAPTER_KINDS.POSTGRES_DRIZZLE,
     db: context.db,
     close: () => pool.end(),
     ...createPostgresDrizzleConversationRepository(context),

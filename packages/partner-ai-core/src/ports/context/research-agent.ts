@@ -25,10 +25,10 @@ export type ResearchAgentInput = {
   readonly workspace: WorkspaceRef;
   readonly requestId: string;
   readonly userMessage: string;
-  readonly hostContext?: ChatStreamRequest["hostContext"];
+  readonly hostContext?: ChatStreamRequest["hostContext"] | undefined;
   readonly allowedSourceIds: readonly string[];
   readonly maxResearchSteps: number;
-  readonly abortSignal?: AbortSignal;
+  readonly abortSignal?: AbortSignal | undefined;
 };
 
 /**
@@ -43,12 +43,12 @@ export type ResearchSourceCandidate = {
   readonly sourceId: string;
   readonly title: string;
   readonly content: string;
-  readonly url?: string;
+  readonly url?: string | undefined;
   readonly score: number;
   readonly estimatedTokens: number;
   readonly trustLevel: ContextTrustLevel;
   readonly redactionClass: ContextRedactionClass;
-  readonly metadata?: JsonObject;
+  readonly metadata?: JsonObject | undefined;
 };
 
 /**
@@ -61,8 +61,8 @@ export type ResearchSourceCandidate = {
 export type ResearchAgentOutput = {
   readonly summary: string;
   readonly sources: readonly ResearchSourceCandidate[];
-  readonly artifactId?: string;
-  readonly metadata?: JsonObject;
+  readonly artifactId?: string | undefined;
+  readonly metadata?: JsonObject | undefined;
 };
 
 /** App-owned research adapter called only during core context preparation. */

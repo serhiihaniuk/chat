@@ -39,8 +39,8 @@ export const SideChatWidget = ({
   panelActions,
   quickActions = [],
 }: SideChatWidgetProps) => {
-  const resolvedLabels = { ...defaultLabels, ...labels };
-  const initialProfileId = defaultAssistantProfileId ?? assistantProfiles.at(0)?.id;
+  const resolvedLabels = resolveWidgetLabels(labels);
+  const initialProfileId = resolveInitialProfileId(defaultAssistantProfileId, assistantProfiles);
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId);
   const panel = useResizableWidgetPanel(defaultPanelSize);
@@ -54,7 +54,7 @@ export const SideChatWidget = ({
     hostBridge,
     selectedProfileId,
   });
-  const isBusy = chat.status === "submitted" || chat.status === "streaming";
+  const isBusy = isBusyStatus(chat.status);
 
   if (!isOpen) {
     return <ClosedWidgetLauncher label={resolvedLabels.title} onOpen={() => setIsOpen(true)} />;
@@ -94,3 +94,16 @@ export const SideChatWidget = ({
     </section>
   );
 };
+
+const resolveWidgetLabels = (labels: SideChatWidgetLabels | undefined) => ({
+  placeholder: labels?.placeholder ?? defaultLabels.placeholder,
+  send: labels?.send ?? defaultLabels.send,
+  title: labels?.title ?? defaultLabels.title,
+});
+
+const resolveInitialProfileId = (
+  defaultAssistantProfileId: string | undefined,
+  assistantProfiles: readonly { readonly id: string }[],
+): string | undefined => defaultAssistantProfileId ?? assistantProfiles.at(0)?.id;
+
+const isBusyStatus = (status: string): boolean => status === "submitted" || status === "streaming";

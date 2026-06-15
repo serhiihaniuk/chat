@@ -32,8 +32,8 @@ export type StreamChatInput = {
   readonly hostAppId: string;
   readonly request: ChatStreamRequest;
   readonly authContext: AuthContext | undefined;
-  readonly traceId?: string;
-  readonly abortSignal?: AbortSignal;
+  readonly traceId?: string | undefined;
+  readonly abortSignal?: AbortSignal | undefined;
 };
 
 /**
@@ -55,7 +55,7 @@ export type StreamChatPorts = {
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
   readonly policies: PolicyPort;
-  readonly observability?: ObservabilitySinkPort;
+  readonly observability?: ObservabilitySinkPort | undefined;
 };
 
 /**

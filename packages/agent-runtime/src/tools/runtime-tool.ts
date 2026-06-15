@@ -24,7 +24,7 @@ export type RuntimeToolScope = {
   readonly conversationId: ConversationId;
   readonly assistantTurnId: AssistantTurnId;
   readonly profileId: ProfileId;
-  readonly allowedHostCommandNames?: readonly string[];
+  readonly allowedHostCommandNames?: readonly string[] | undefined;
 };
 
 /**
@@ -36,12 +36,12 @@ export type RuntimeToolScope = {
 export type RuntimeToolContext = {
   readonly requestId: RequestId;
   readonly assistantTurnId: AssistantTurnId;
-  readonly scope?: RuntimeToolScope;
-  readonly providerId?: ProviderId;
+  readonly scope?: RuntimeToolScope | undefined;
+  readonly providerId?: ProviderId | undefined;
   readonly modelId: ModelId;
   readonly toolName: string;
-  readonly toolCallId?: ToolCallId;
-  readonly abortSignal?: AbortSignal;
+  readonly toolCallId?: ToolCallId | undefined;
+  readonly abortSignal?: AbortSignal | undefined;
 };
 
 export type RuntimeToolError = AgentRuntimeError;
@@ -63,7 +63,7 @@ export type RuntimeTool = {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: JSONSchema7;
-  readonly timeoutMs?: number;
-  readSources?: (result: JsonObject) => readonly RuntimeActivitySource[];
+  readonly timeoutMs?: number | undefined;
+  readSources?: ((result: JsonObject) => readonly RuntimeActivitySource[]) | undefined;
   execute(input: JsonObject, context: RuntimeToolContext): RuntimeToolEffect;
 };

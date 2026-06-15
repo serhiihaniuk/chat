@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { createOpenAI } from "@ai-sdk/openai";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 
 import { AgentRuntimeError } from "#runtime/contract/runtime-error";
 import { RUNTIME_ERROR_CODES } from "#runtime/contract/runtime-event";
@@ -12,10 +12,10 @@ export const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 export type OpenAIResponsesProviderOptions = {
   readonly apiKey: string;
   readonly modelIds: readonly string[];
-  readonly baseUrl?: string;
-  readonly fetch?: typeof fetch;
-  readonly reasoningEffort?: OpenAIReasoningEffort;
-  readonly reasoningSummary?: OpenAIReasoningSummary;
+  readonly baseUrl?: string | undefined;
+  readonly fetch?: typeof fetch | undefined;
+  readonly reasoningEffort?: OpenAIReasoningEffort | undefined;
+  readonly reasoningSummary?: OpenAIReasoningSummary | undefined;
 };
 
 export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -38,11 +38,13 @@ export const createOpenAIResponsesProvider = (
     );
   }
 
-  const openai = createOpenAI({
-    apiKey: options.apiKey,
-    ...optionalField("baseURL", options.baseUrl),
-    ...optionalField("fetch", options.fetch),
-  });
+  const openai = createOpenAI(
+    omitUndefinedProperties({
+      apiKey: options.apiKey,
+      baseURL: options.baseUrl,
+      fetch: options.fetch,
+    }),
+  );
 
   return {
     providerId: OPENAI_PROVIDER_ID,

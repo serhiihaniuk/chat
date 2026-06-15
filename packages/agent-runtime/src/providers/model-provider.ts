@@ -12,7 +12,9 @@ export type ModelProvider = {
   readonly providerId: string;
   readonly modelIds: readonly string[];
   resolveModel(selection: ProviderSelection): Effect.Effect<LanguageModel, AgentRuntimeError>;
-  resolveProviderOptions?(
-    selection: ProviderSelection,
-  ): Effect.Effect<ToolLoopAgentSettings["providerOptions"] | undefined, AgentRuntimeError>;
+  resolveProviderOptions?:
+    | ((
+        selection: ProviderSelection,
+      ) => Effect.Effect<ToolLoopAgentSettings["providerOptions"] | undefined, AgentRuntimeError>)
+    | undefined;
 };

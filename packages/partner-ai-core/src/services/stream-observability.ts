@@ -1,4 +1,4 @@
-import { optionalField, type JsonObject, type JsonValue } from "@side-chat/shared";
+import { omitUndefinedProperties, type JsonObject, type JsonValue } from "@side-chat/shared";
 import {
   RUNTIME_EVENT_TYPES,
   type RuntimeActivityDetails,
@@ -16,10 +16,10 @@ import {
 export type StreamObservationInput = {
   readonly correlation: RequestCorrelation;
   readonly lifecycleState: ObservabilityRecord["lifecycleState"];
-  readonly assistantTurnId?: string;
-  readonly providerId?: string;
-  readonly modelId?: string;
-  readonly errorCode?: string;
+  readonly assistantTurnId?: string | undefined;
+  readonly providerId?: string | undefined;
+  readonly modelId?: string | undefined;
+  readonly errorCode?: string | undefined;
   readonly startedAt: string;
   readonly now: string;
   readonly attributes: JsonObject;
@@ -35,10 +35,10 @@ export const recordStreamObservation = (
     requestId: input.correlation.requestId,
     traceId: input.correlation.traceId,
     lifecycleState: input.lifecycleState,
-    ...optionalField("assistantTurnId", input.assistantTurnId || undefined),
-    ...optionalField("providerId", input.providerId || undefined),
-    ...optionalField("modelId", input.modelId || undefined),
-    ...optionalField("errorCode", input.errorCode || undefined),
+    assistantTurnId: input.assistantTurnId,
+    providerId: input.providerId,
+    modelId: input.modelId,
+    errorCode: input.errorCode,
     latencyMs: elapsedMs(input.startedAt, input.now),
     attributes: redactAttributes(input.attributes),
   });
@@ -94,14 +94,14 @@ const toJsonActivityMetadata = (details: RuntimeActivityDetails | undefined): Js
     output["imageCount"] = details.images.length;
   }
   if (details.tool) {
-    output["tool"] = {
+    output["tool"] = omitUndefinedProperties({
       toolCallId: details.tool.toolCallId,
       toolName: details.tool.toolName,
       parametersPresent: Boolean(details.tool.input),
       responsePresent: Boolean(details.tool.result),
       sourceCount: details.tool.sources?.length ?? 0,
-      ...optionalField("errorCode", details.tool.errorCode || undefined),
-    };
+      errorCode: details.tool.errorCode === "" ? undefined : details.tool.errorCode,
+    });
   }
   return output;
 };

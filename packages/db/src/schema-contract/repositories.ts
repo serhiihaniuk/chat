@@ -37,7 +37,7 @@ export type RepositoryCommandEnvelope = {
 };
 
 export type CreateOrGetConversationCommand = RepositoryCommandEnvelope & {
-  readonly conversationId?: ConversationId;
+  readonly conversationId?: ConversationId | undefined;
   readonly subjectId: SubjectId;
   readonly actorId: ActorId;
   readonly conversationKey: string;
@@ -69,7 +69,7 @@ export type StartAssistantTurnCommand = RepositoryCommandEnvelope & {
 export type RecordTurnContextSnapshotCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
   readonly contextSchemaVersion: string;
-  readonly hostSurfaceId?: HostSurfaceId;
+  readonly hostSurfaceId?: HostSurfaceId | undefined;
   readonly hostContextHash: string;
   readonly capabilitiesHash: string;
   readonly contextRedactedJson: JsonObject;
@@ -92,7 +92,7 @@ export type RecordUsageCommand = RepositoryCommandEnvelope & {
   readonly runtimeStepIndex: number;
   readonly modelProvider: string;
   readonly modelId: ModelId;
-  readonly providerRequestId?: ProviderRequestId;
+  readonly providerRequestId?: ProviderRequestId | undefined;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly reasoningTokens: number;
@@ -118,24 +118,24 @@ export type RecordToolInvocationCommand = RepositoryCommandEnvelope & {
   readonly toolName: string;
   readonly status: ToolInvocationRecord["status"];
   readonly inputHash: string;
-  readonly outputHash?: string;
+  readonly outputHash?: string | undefined;
   readonly inputRedactedJson: JsonObject;
-  readonly outputRedactedJson?: JsonObject;
-  readonly errorCode?: string;
+  readonly outputRedactedJson?: JsonObject | undefined;
+  readonly errorCode?: string | undefined;
   readonly startedAt: string;
-  readonly completedAt?: string;
+  readonly completedAt?: string | undefined;
 };
 
 export type RecordHostCommandResultCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
   readonly commandId: HostCommandId;
   readonly commandType: string;
-  readonly resourceId?: ResourceId;
+  readonly resourceId?: ResourceId | undefined;
   readonly status: HostCommandResultRecord["status"];
   readonly resultCode: string;
   readonly commandRedactedJson: JsonObject;
-  readonly resultRedactedJson?: JsonObject;
-  readonly resolvedAt?: string;
+  readonly resultRedactedJson?: JsonObject | undefined;
+  readonly resolvedAt?: string | undefined;
 };
 
 export type ReadConversationHistoryCommand = {
@@ -143,8 +143,8 @@ export type ReadConversationHistoryCommand = {
   readonly subjectId: SubjectId;
   readonly conversationId: ConversationId;
   readonly limit: number;
-  readonly afterSequenceIndex?: number;
-  readonly beforeSequenceIndex?: number;
+  readonly afterSequenceIndex?: number | undefined;
+  readonly beforeSequenceIndex?: number | undefined;
 };
 
 export type ResetConversationCommand = RepositoryCommandEnvelope & {

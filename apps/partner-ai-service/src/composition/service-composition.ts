@@ -11,9 +11,11 @@ import {
 import {
   createMemorySidechatRepositories,
   createPostgresDrizzleSidechatRepositories,
+  isRepositoryAdapterKind,
+  REPOSITORY_ADAPTER_KINDS,
+  type RepositoryAdapterKind,
   type SidechatRepositories,
 } from "@side-chat/db";
-import { optionalField } from "@side-chat/shared";
 
 import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/auth/service-auth";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
@@ -86,11 +88,11 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtimeConfig,
     providerId: runtimeProviderId,
     modelId: runtimeModelId,
-    ...optionalField("toolCapabilities", runtimeConfig.toolCapabilities),
-    ...optionalField("hostCommands", runtimeConfig.hostCommands),
-    ...optionalField("approvalPolicies", runtimeConfig.approvalPolicies),
+    toolCapabilities: runtimeConfig.toolCapabilities,
+    hostCommands: runtimeConfig.hostCommands,
+    approvalPolicies: runtimeConfig.approvalPolicies,
     ...capabilityManifestInputs,
-    ...optionalField("turnGuardIds", options.turnGuardIds),
+    turnGuardIds: options.turnGuardIds,
   });
   const capabilities = createCapabilityStatusForComposition({
     options,
@@ -145,7 +147,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
 
 const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): AgentRuntime =>
   createAgentRuntime({
-    ...optionalField("executors", config.executors),
+    executors: config.executors,
     providers: [createProviderForRuntime(config)],
     tools: [
       ...(config.enableMockWebSearch ? [createMockWebSearchTool()] : []),
@@ -158,10 +160,10 @@ const createProviderForRuntime = (config: RuntimeConfig): ModelProvider => {
     return createOpenAIResponsesProvider({
       apiKey: config.apiKey,
       modelIds: config.modelIds,
-      ...optionalField("baseUrl", config.baseUrl || undefined),
-      ...optionalField("fetch", config.fetch),
-      ...optionalField("reasoningEffort", config.reasoningEffort),
-      ...optionalField("reasoningSummary", config.reasoningSummary),
+      baseUrl: config.baseUrl === "" ? undefined : config.baseUrl,
+      fetch: config.fetch,
+      reasoningEffort: config.reasoningEffort,
+      reasoningSummary: config.reasoningSummary,
     });
   }
 
@@ -189,10 +191,40 @@ const createRepositoriesForPersistence = (persistence: PersistenceConfig): Sidec
 const persistenceLabelForRepositories = (
   repositories: SidechatRepositories,
 ): ServiceComposition["persistenceLabel"] => {
-  if ("kind" in repositories && repositories.kind === "postgres-drizzle") {
-    return "postgres-drizzle";
+  const adapterKind = repositoryAdapterKindForComposition(repositories);
+  switch (adapterKind) {
+    case REPOSITORY_ADAPTER_KINDS.MEMORY:
+      return "memory";
+    case REPOSITORY_ADAPTER_KINDS.POSTGRES_DRIZZLE:
+      return "postgres-drizzle";
+    case REPOSITORY_ADAPTER_KINDS.CUSTOM:
+      throw new Error(
+        "Custom repositories require service-level persistence metadata before composition can report persistence diagnostics.",
+      );
   }
-  return "memory";
+
+  const unhandledKind: never = adapterKind;
+  return unhandledKind;
+};
+
+/**
+ * Read the repository identity promised by `@side-chat/db`.
+ *
+ * Injected repository objects come from app code or tests, so composition still
+ * checks the runtime value before publishing persistence diagnostics. Missing
+ * or unknown markers fail closed instead of becoming local memory persistence.
+ */
+const repositoryAdapterKindForComposition = (
+  repositories: SidechatRepositories,
+): RepositoryAdapterKind => {
+  const adapterKind = (repositories as { readonly adapterKind?: unknown }).adapterKind;
+  if (isRepositoryAdapterKind(adapterKind)) {
+    return adapterKind;
+  }
+
+  throw new Error(
+    "Injected repositories must declare a valid adapterKind; service composition cannot infer persistence from untagged repositories.",
+  );
 };
 
 const assertPersistenceMatchesRepositories = (

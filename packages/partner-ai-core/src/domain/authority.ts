@@ -42,7 +42,7 @@ export type WorkspaceRef = {
 };
 
 export type AuditActor = SubjectRef & {
-  readonly displayName?: string;
+  readonly displayName?: string | undefined;
 };
 
 export type AuthContext = WorkspaceRef & {
@@ -51,7 +51,7 @@ export type AuthContext = WorkspaceRef & {
   readonly roles: readonly AuthorityRole[];
   readonly scopes: readonly AuthorityScope[];
   readonly source: AuthoritySource;
-  readonly hostOrigin?: string;
+  readonly hostOrigin?: string | undefined;
   readonly issuedAt: string;
 };
 

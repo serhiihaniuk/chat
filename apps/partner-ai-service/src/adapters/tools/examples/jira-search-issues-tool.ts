@@ -8,7 +8,7 @@ import {
   type RuntimeToolScope,
 } from "@side-chat/agent-runtime";
 import type { ToolCapability } from "@side-chat/partner-ai-core";
-import { compactJsonObject, isRecord, optionalField, type JsonObject } from "@side-chat/shared";
+import { compactJsonObject, isRecord, type JsonObject } from "@side-chat/shared";
 
 export const JIRA_SEARCH_ISSUES_TOOL_NAME = "jira.search_issues";
 
@@ -47,7 +47,7 @@ export type JiraSearchIssuesRequest = {
   readonly conversationId: string;
   readonly assistantTurnId: string;
   readonly profileId: string;
-  readonly abortSignal?: AbortSignal;
+  readonly abortSignal?: AbortSignal | undefined;
 };
 
 /**
@@ -93,7 +93,7 @@ export const createJiraSearchIssuesTool = ({
           conversationId: scope.conversationId,
           assistantTurnId: scope.assistantTurnId,
           profileId: scope.profileId,
-          ...optionalField("abortSignal", context.abortSignal),
+          abortSignal: context.abortSignal,
         })
         .pipe(Effect.mapError(toJiraToolError));
 

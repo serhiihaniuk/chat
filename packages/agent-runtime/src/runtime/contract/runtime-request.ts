@@ -22,7 +22,7 @@ export type RuntimeMessage = {
  */
 export type RuntimeContextBoard = {
   readonly sections: readonly RuntimeContextSection[];
-  readonly manifest?: RuntimeContextManifest;
+  readonly manifest?: RuntimeContextManifest | undefined;
 };
 
 /**
@@ -31,8 +31,8 @@ export type RuntimeContextBoard = {
 export type RuntimeContextSection = {
   readonly title: string;
   readonly content: string;
-  readonly priority?: number;
-  readonly metadata?: JsonObject;
+  readonly priority?: number | undefined;
+  readonly metadata?: JsonObject | undefined;
 };
 
 /**
@@ -41,11 +41,11 @@ export type RuntimeContextSection = {
  * This describes what was selected; it is not model configuration.
  */
 export type RuntimeContextManifest = {
-  readonly snapshotId?: string;
-  readonly snapshotHash?: string;
-  readonly includedMessageIds?: readonly string[];
-  readonly history?: JsonObject;
-  readonly budget?: JsonObject;
+  readonly snapshotId?: string | undefined;
+  readonly snapshotHash?: string | undefined;
+  readonly includedMessageIds?: readonly string[] | undefined;
+  readonly history?: JsonObject | undefined;
+  readonly budget?: JsonObject | undefined;
 };
 
 /**
@@ -57,17 +57,17 @@ export type RuntimeContextManifest = {
 export type AgentRuntimeRequest = {
   readonly requestId: RequestId;
   readonly assistantTurnId: AssistantTurnId;
-  readonly executorId?: ExecutorId;
-  readonly providerId?: ProviderId;
-  readonly modelId?: ModelId;
-  readonly profileId?: ProfileId;
-  readonly systemInstructions?: string;
+  readonly executorId?: ExecutorId | undefined;
+  readonly providerId?: ProviderId | undefined;
+  readonly modelId?: ModelId | undefined;
+  readonly profileId?: ProfileId | undefined;
+  readonly systemInstructions?: string | undefined;
   readonly messages: readonly RuntimeMessage[];
-  readonly contextBoard?: RuntimeContextBoard;
-  readonly availableToolNames?: readonly string[];
-  readonly tools?: readonly RuntimeTool[];
-  readonly toolScope?: RuntimeToolScope;
-  readonly abortSignal?: AbortSignal;
+  readonly contextBoard?: RuntimeContextBoard | undefined;
+  readonly availableToolNames?: readonly string[] | undefined;
+  readonly tools?: readonly RuntimeTool[] | undefined;
+  readonly toolScope?: RuntimeToolScope | undefined;
+  readonly abortSignal?: AbortSignal | undefined;
 };
 
 /**
@@ -81,7 +81,7 @@ export type RuntimeProviderRequest = {
   readonly providerId: ProviderId;
   readonly modelId: ModelId;
   readonly messages: readonly RuntimeMessage[];
-  readonly tools?: readonly RuntimeTool[];
-  readonly toolScope?: RuntimeToolScope;
-  readonly abortSignal?: AbortSignal;
+  readonly tools?: readonly RuntimeTool[] | undefined;
+  readonly toolScope?: RuntimeToolScope | undefined;
+  readonly abortSignal?: AbortSignal | undefined;
 };

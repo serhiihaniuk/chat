@@ -9,7 +9,7 @@ import { ChatClientError } from "#http/errors";
 export type StreamChunk = string | Uint8Array;
 
 export type ChunkedSseOptions = {
-  readonly signal?: AbortSignal;
+  readonly signal?: AbortSignal | undefined;
 };
 
 // Parse the response as sidechat protocol frames, not just text chunks. Every

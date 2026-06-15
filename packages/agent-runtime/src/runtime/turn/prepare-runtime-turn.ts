@@ -1,5 +1,4 @@
 import type { ModelProvider, ProviderSelection } from "#providers/model-provider";
-import { optionalField } from "@side-chat/shared";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import type { AgentExecutor } from "../executors/agent-executor.js";
 import {
@@ -55,10 +54,10 @@ export type PreparedRuntimeTurn = {
 };
 
 export const createRuntimeState = (options: {
-  readonly executors?: readonly AgentExecutor[];
+  readonly executors?: readonly AgentExecutor[] | undefined;
   readonly providers: readonly ModelProvider[];
-  readonly profiles?: readonly AssistantProfile[];
-  readonly tools?: readonly RuntimeTool[];
+  readonly profiles?: readonly AssistantProfile[] | undefined;
+  readonly tools?: readonly RuntimeTool[] | undefined;
 }): RuntimeState => ({
   executors: createExecutorCatalog(options.executors),
   providers: createProviderCatalog(options.providers),
@@ -117,7 +116,7 @@ const createProviderRequest = (
   providerId: selection.providerId,
   modelId: selection.modelId,
   messages,
-  ...optionalField("tools", tools.length > 0 ? tools : undefined),
-  ...optionalField("toolScope", request.toolScope),
-  ...optionalField("abortSignal", request.abortSignal),
+  tools: tools.length > 0 ? tools : undefined,
+  toolScope: request.toolScope,
+  abortSignal: request.abortSignal,
 });

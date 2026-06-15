@@ -1,5 +1,4 @@
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import type { ConversationRef, MemoryPort, MemoryRecord } from "#ports";
@@ -16,8 +15,8 @@ export type RecallAllowedMemoryCandidatesInput = {
   readonly request: ChatStreamRequest;
   readonly conversation: ConversationRef;
   readonly policyDecision: TurnPolicyDecision;
-  readonly abortSignal?: AbortSignal;
-  readonly maxCandidates?: number;
+  readonly abortSignal?: AbortSignal | undefined;
+  readonly maxCandidates?: number | undefined;
 };
 
 export const recallAllowedMemoryCandidates = ({
@@ -46,7 +45,7 @@ export const recallAllowedMemoryCandidates = ({
       conversationId: conversation.conversationId,
       userMessage: request.message.content,
       allowedScopes,
-      ...optionalField("abortSignal", abortSignal),
+      abortSignal,
     }),
     STREAM_CHAT_FAILURES.CONTEXT,
   ).pipe(

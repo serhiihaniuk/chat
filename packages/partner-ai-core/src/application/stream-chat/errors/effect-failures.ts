@@ -9,7 +9,7 @@ export type CoreFailure = {
   readonly code: ConstructorParameters<typeof PartnerAiCoreError>[0];
   readonly message: string;
   readonly protocolCode: ConstructorParameters<typeof PartnerAiCoreError>[2];
-  readonly retryable?: boolean;
+  readonly retryable?: boolean | undefined;
 };
 
 export const STREAM_CHAT_FAILURES = {

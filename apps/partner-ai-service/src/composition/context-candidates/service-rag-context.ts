@@ -4,7 +4,6 @@ import {
   type PreparedContextSection,
   type RagContextCandidate,
 } from "@side-chat/partner-ai-core";
-import { optionalField } from "@side-chat/shared";
 
 export const toRagContextCandidate = (candidate: RagContextCandidate): ContextCandidate => ({
   candidateId: candidate.candidateId,
@@ -18,9 +17,9 @@ export const toRagContextCandidate = (candidate: RagContextCandidate): ContextCa
   provenance: {
     sourceId: candidate.sourceId,
     label: candidate.title,
-    ...optionalField("url", candidate.url),
+    url: candidate.url,
   },
-  ...optionalField("metadata", candidate.metadata),
+  metadata: candidate.metadata,
 });
 
 export const createRagContextSections = (

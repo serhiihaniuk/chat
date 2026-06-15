@@ -1,5 +1,5 @@
 import { jsonSchema, tool as createAiTool, type ToolExecutionOptions, type ToolSet } from "ai";
-import { optionalField, type JsonObject } from "@side-chat/shared";
+import type { JsonObject } from "@side-chat/shared";
 import type { RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 
 import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
@@ -45,10 +45,10 @@ const createRuntimeToolContext = (
 ): RuntimeToolContext => ({
   requestId: request.requestId,
   assistantTurnId: request.assistantTurnId,
-  ...optionalField("scope", request.toolScope),
+  scope: request.toolScope,
   modelId: request.modelId,
   toolName: runtimeTool.name,
   toolCallId: options.toolCallId,
-  ...optionalField("providerId", request.providerId),
-  ...optionalField("abortSignal", options.abortSignal),
+  providerId: request.providerId,
+  abortSignal: options.abortSignal,
 });

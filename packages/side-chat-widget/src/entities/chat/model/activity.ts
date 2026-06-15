@@ -10,7 +10,7 @@ import {
   type JsonObject,
   type JsonValue,
 } from "@side-chat/chat-protocol";
-import { compactJsonObject, optionalField } from "@side-chat/shared";
+import { compactJsonObject, omitUndefinedProperties } from "@side-chat/shared";
 
 export type WidgetActivityItem = {
   readonly id: string;
@@ -105,8 +105,8 @@ const toActivityItem = (event: ActivityEvent): WidgetActivityItem => ({
   sequence: event.sequence,
   status: event.status,
   title: event.title,
-  ...optionalField("body", event.body || undefined),
-  ...optionalField("details", event.details),
+  body: event.body,
+  details: event.details,
   createdAt: event.createdAt,
 });
 
@@ -119,7 +119,8 @@ const mergeActivityItem = (
 
   return {
     ...existing,
-    ...presentationUpdate(wasRunning && canUpdatePresentation, event),
+    title: wasRunning && canUpdatePresentation ? event.title : existing.title,
+    body: wasRunning && canUpdatePresentation ? event.body : existing.body,
     status: wasRunning ? event.status : existing.status,
     details: mergeActivityDetails(existing.details, event.details),
   };
@@ -145,12 +146,12 @@ const mergeActivityDetails = (
   const tool = mergeToolDetails(existing.tool, incoming.tool);
   const hostCommand = mergeHostCommandDetails(existing.hostCommand, incoming.hostCommand);
 
-  return {
+  return omitUndefinedProperties({
     ...existing,
     ...incoming,
-    ...optionalField("tool", tool),
-    ...optionalField("hostCommand", hostCommand),
-  };
+    tool,
+    hostCommand,
+  });
 };
 
 const mergeToolDetails = (
@@ -160,12 +161,6 @@ const mergeToolDetails = (
   if (existing && incoming) return { ...existing, ...incoming };
   return incoming ?? existing;
 };
-
-const presentationUpdate = (
-  canUpdatePresentation: boolean,
-  event: ActivityEvent,
-): { readonly title?: string; readonly body?: string | undefined } =>
-  canUpdatePresentation ? { title: event.title, body: event.body } : {};
 
 const mergeHostCommandDetails = (
   existing: ActivityHostCommandDetails | undefined,

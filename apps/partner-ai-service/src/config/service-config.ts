@@ -1,5 +1,5 @@
 import type { WorkspaceRef } from "@side-chat/partner-ai-core";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import {
@@ -65,7 +65,7 @@ export const createPartnerAiServiceOptionsFromEnv = (
 
   const persistence = createPersistenceConfig(profile, env);
   const capabilities = createCapabilityConfigFromEnv(env);
-  return {
+  return omitUndefinedProperties({
     workspace,
     auth: createAuthConfig(profile, workspace, envValue(env, SERVICE_ENV_KEYS.authBearerToken)),
     policies: createPolicyConfig(profile, env),
@@ -74,8 +74,8 @@ export const createPartnerAiServiceOptionsFromEnv = (
     memoryPolicy: createMemoryPolicyForCapabilityConfig(capabilities.memory),
     retrievalSources: createRetrievalSourcesForCapabilityConfig(capabilities.rag),
     researchAgents: createResearchAgentsForCapabilityConfig(capabilities.research),
-    ...optionalField("persistence", persistence),
-  };
+    persistence,
+  });
 };
 
 export const readServicePort = (env: ServiceEnv = process.env): number => {
@@ -107,18 +107,18 @@ const createAuthConfig = (
   // production credential.
   const bearerToken = rawToken ? normalizeBearerToken(rawToken) : undefined;
   if (profile === "production") {
-    return {
+    return omitUndefinedProperties({
       profile,
       workspace,
-      ...optionalField("trustedBearerToken", bearerToken),
-    };
+      trustedBearerToken: bearerToken,
+    });
   }
 
-  return {
+  return omitUndefinedProperties({
     profile,
     workspace,
-    ...optionalField("devBearerToken", bearerToken),
-  };
+    devBearerToken: bearerToken,
+  });
 };
 
 const createPolicyConfig = (profile: ServiceProfile, env: ServiceEnv): ServicePolicyConfig => {
@@ -132,11 +132,11 @@ const createPolicyConfig = (profile: ServiceProfile, env: ServiceEnv): ServicePo
   }
 
   const allowedModels = readAllowedModels(env);
-  return {
+  return omitUndefinedProperties({
     profile,
     mode,
-    ...optionalField("allowedModels", allowedModels.length > 0 ? allowedModels : undefined),
-  };
+    allowedModels: allowedModels.length > 0 ? allowedModels : undefined,
+  });
 };
 
 const createPersistenceConfig = (
@@ -215,20 +215,20 @@ const createRuntimeConfig = (
   }
 
   const baseUrl = envValue(env, SERVICE_ENV_KEYS.openaiBaseUrl);
-  return {
-    provider: resolvedProvider,
+  return omitUndefinedProperties({
+    provider: "openai",
     apiKey,
     modelIds,
     defaultModelId: modelIds[0] as string,
     enableMockWebSearch,
-    ...optionalField("baseUrl", baseUrl),
+    baseUrl,
     reasoningEffort: readOpenAIReasoningEffort(
       envValue(env, SERVICE_ENV_KEYS.openaiReasoningEffort),
     ),
     reasoningSummary: readOpenAIReasoningSummary(
       envValue(env, SERVICE_ENV_KEYS.openaiReasoningSummary),
     ),
-  };
+  });
 };
 
 const readDevToolFlag = (profile: ServiceProfile, env: ServiceEnv): boolean => {

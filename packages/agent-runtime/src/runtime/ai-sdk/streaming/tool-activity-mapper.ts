@@ -1,5 +1,5 @@
 import type { TextStreamPart, ToolSet } from "ai";
-import { optionalField, type JsonObject } from "@side-chat/shared";
+import type { JsonObject } from "@side-chat/shared";
 import type { RuntimeTool } from "#tools/runtime-tool";
 
 import {
@@ -93,7 +93,7 @@ const mapToolInputStart = (
     toolCallId: part.id,
     toolName: part.toolName,
     input: {},
-    ...titleProp(part.title),
+    title: part.title,
   });
 
 /**
@@ -115,7 +115,7 @@ const mapToolCall = (
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     input: toJsonObject(part.input),
-    ...titleProp(part.title),
+    title: part.title,
   });
 
 /**
@@ -143,7 +143,7 @@ const mapToolResult = (
     toolName: part.toolName,
     input: toJsonObject(part.input),
     result,
-    ...titleProp(part.title),
+    title: part.title,
     sources,
   });
 };
@@ -167,7 +167,7 @@ const mapToolError = (
     toolName: part.toolName,
     input: toJsonObject(part.input),
     errorCode: RUNTIME_ERROR_CODES.TOOL_FAILED,
-    ...titleProp(part.title),
+    title: part.title,
   });
 
 type ToolActivityInput = {
@@ -222,14 +222,11 @@ const createToolActivityDetails = ({
   toolCallId,
   toolName,
   input,
-  ...optionalField("result", result),
-  ...optionalField("sources", hasSources(sources) ? sources : undefined),
-  ...optionalField("errorCode", errorCode),
+  result,
+  sources: hasSources(sources) ? sources : undefined,
+  errorCode,
 });
 
 const hasSources = (
   sources: readonly RuntimeActivitySource[] | undefined,
 ): sources is readonly RuntimeActivitySource[] => Boolean(sources && sources.length > 0);
-
-const titleProp = (title: string | undefined): { readonly title?: string } =>
-  optionalField("title", title);

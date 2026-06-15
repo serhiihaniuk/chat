@@ -1,6 +1,6 @@
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
-import type { RuntimeEvent } from "@side-chat/agent-runtime";
-import { optionalField } from "@side-chat/shared";
+import type { RuntimeContextBoard, RuntimeEvent } from "@side-chat/agent-runtime";
+import { toJsonObject } from "@side-chat/shared";
 import { Effect, Ref, Stream } from "effect";
 import type { PartnerAiCoreError } from "#errors";
 import {
@@ -148,7 +148,7 @@ const createRuntimeEventStream = (
       profileId: turn.policyDecision.profileId,
       systemInstructions: turn.policyDecision.systemInstructions,
       messages: turn.preparedContext.runtimeMessages,
-      contextBoard: turn.preparedContext.contextBoard,
+      contextBoard: toRuntimeContextBoard(turn.preparedContext.contextBoard),
       availableToolNames: turn.policyDecision.allowedToolNames,
       toolScope: {
         hostAppId: input.hostAppId,
@@ -159,9 +159,27 @@ const createRuntimeEventStream = (
         profileId: turn.policyDecision.profileId,
         allowedHostCommandNames: turn.policyDecision.allowedCommandNames,
       },
-      ...optionalField("abortSignal", input.abortSignal),
+      abortSignal: input.abortSignal,
     })
     .pipe(Stream.mapError(mapUnknownRuntimeError));
+
+const toRuntimeContextBoard = (
+  contextBoard: PreparedStreamChatTurn["preparedContext"]["contextBoard"],
+): RuntimeContextBoard => {
+  const manifest = contextBoard.manifest;
+  return {
+    sections: contextBoard.sections,
+    manifest: {
+      snapshotId: manifest.manifestId,
+      snapshotHash: manifest.manifestHash,
+      includedMessageIds: manifest.history.messages
+        .filter((message) => message.included)
+        .map((message) => message.messageId),
+      history: toJsonObject(manifest.history),
+      budget: toJsonObject(manifest.budget),
+    },
+  };
+};
 
 const mapRuntimeEventEffect = (
   ports: StreamChatPorts,

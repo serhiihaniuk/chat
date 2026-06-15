@@ -7,7 +7,7 @@ import { Message, MessageContent, MessageResponse } from "#shared/ai/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "#shared/ai/reasoning";
 import { ToolInput, ToolOutput } from "#shared/ai/tool";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#shared/ui/collapsible";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedField } from "@side-chat/shared";
 import {
   BrainIcon,
   ChevronDownIcon,
@@ -53,7 +53,7 @@ const WidgetActivityTimeline = ({ message }: { readonly message: WidgetMessage }
       autoClose
       defaultOpen={message.isStreaming === true}
       isStreaming={message.isStreaming ?? false}
-      {...optionalField("duration", duration)}
+      {...omitUndefinedField("duration", duration)}
     >
       <ReasoningTrigger />
       <ReasoningContent>
@@ -150,7 +150,7 @@ const HostCommandActivityStep = ({
           <ToolInput input={hostCommand.payload} />
           <ToolOutput
             output={hostCommand.result}
-            {...optionalField(
+            {...omitUndefinedField(
               "errorText",
               item.status === "failed" ? "host_command_failed" : undefined,
             )}

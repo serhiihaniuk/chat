@@ -1,5 +1,5 @@
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
-import { optionalField, type JsonObject } from "@side-chat/shared";
+import { omitUndefinedProperties, type JsonObject } from "@side-chat/shared";
 import { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import {
@@ -39,9 +39,9 @@ export type RunAllowedResearchAgentInput = {
   readonly request: ChatStreamRequest;
   readonly policyDecision: TurnPolicyDecision;
   readonly now: string;
-  readonly abortSignal?: AbortSignal;
-  readonly maxResearchSteps?: number;
-  readonly researchAgentId?: string;
+  readonly abortSignal?: AbortSignal | undefined;
+  readonly maxResearchSteps?: number | undefined;
+  readonly researchAgentId?: string | undefined;
 };
 
 export const runAllowedResearchAgent = ({
@@ -74,7 +74,7 @@ export const runAllowedResearchAgent = ({
         request,
         allowedSourceIds,
         maxResearchSteps,
-        ...optionalField("abortSignal", abortSignal),
+        abortSignal,
       }),
     ),
     STREAM_CHAT_FAILURES.CONTEXT,
@@ -103,16 +103,16 @@ const createResearchAgentInput = ({
   readonly request: ChatStreamRequest;
   readonly allowedSourceIds: readonly string[];
   readonly maxResearchSteps: number;
-  readonly abortSignal?: AbortSignal;
+  readonly abortSignal?: AbortSignal | undefined;
 }): ResearchAgentInput => ({
   authContext,
   workspace,
   requestId: request.requestId,
   userMessage: request.message.content,
-  ...optionalField("hostContext", request.hostContext),
+  hostContext: request.hostContext,
   allowedSourceIds,
   maxResearchSteps,
-  ...optionalField("abortSignal", abortSignal),
+  abortSignal,
 });
 
 const toPreparedResearchContext = (
@@ -160,11 +160,11 @@ const createResearchArtifact = (
     researchAgentId: toResearchAgentId(researchAgentId),
     artifactKind: "research_summary",
     contentType: "application/json",
-    payload: {
+    payload: omitUndefinedProperties({
       summary,
       sourceIds: sources.map((source) => source.sourceId),
-      ...optionalField("metadata", output.metadata),
-    } satisfies JsonObject,
+      metadata: output.metadata,
+    }) satisfies JsonObject,
     createdAt: now,
   };
 };
@@ -183,11 +183,11 @@ const toResearchSummaryCandidate = (
   estimatedTokens: estimateTokens(summary),
   priority: 78,
   provenance: { sourceId: toContextSourceId(artifact.artifactId), label: "Research summary" },
-  metadata: {
+  metadata: omitUndefinedProperties({
     researchRunId: `${artifact.researchRunId}`,
     researchAgentId: `${artifact.researchAgentId}`,
-    ...optionalField("research", metadata),
-  },
+    research: metadata,
+  }),
 });
 
 const toResearchSourceContextCandidate = (
@@ -202,15 +202,15 @@ const toResearchSourceContextCandidate = (
   content: source.content,
   estimatedTokens: source.estimatedTokens,
   priority: researchPriority(source.score),
-  provenance: {
+  provenance: omitUndefinedProperties({
     sourceId: source.sourceId,
     label: source.title,
-    ...optionalField("url", source.url),
-  },
-  metadata: {
-    ...optionalField("artifactId", artifact?.artifactId),
-    ...optionalField("source", source.metadata),
-  },
+    url: source.url,
+  }),
+  metadata: omitUndefinedProperties({
+    artifactId: artifact?.artifactId,
+    source: source.metadata,
+  }),
 });
 
 const estimateTokens = (content: string): number => Math.max(1, Math.ceil(content.length / 4));

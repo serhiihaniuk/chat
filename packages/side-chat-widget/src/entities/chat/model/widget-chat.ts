@@ -4,7 +4,7 @@ import {
   type HostContext,
   type UsageMetadata,
 } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 
 import { createEmptyActivityTimeline, type WidgetActivityTimeline } from "./activity.js";
 
@@ -16,7 +16,7 @@ export type WidgetMessage = {
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly activity: WidgetActivityTimeline;
-  readonly isStreaming?: boolean;
+  readonly isStreaming?: boolean | undefined;
 };
 
 export type WidgetChatRequestInput = {
@@ -36,24 +36,25 @@ export const createDefaultRequest = ({
   messageId,
   requestId,
 }: {
-  readonly assistantProfileId?: string;
-  readonly conversationId?: string;
+  readonly assistantProfileId?: string | undefined;
+  readonly conversationId?: string | undefined;
   readonly content: string;
-  readonly hostContext?: HostContext;
+  readonly hostContext?: HostContext | undefined;
   readonly messageId: string;
   readonly requestId: string;
-}): ChatStreamRequest => ({
-  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-  requestId,
-  ...optionalField("conversationId", conversationId || undefined),
-  ...optionalField("assistantProfileId", assistantProfileId || undefined),
-  message: {
-    id: messageId,
-    role: "user",
-    content,
-  },
-  ...optionalField("hostContext", hostContext),
-});
+}): ChatStreamRequest =>
+  omitUndefinedProperties({
+    protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+    requestId,
+    conversationId: conversationId === "" ? undefined : conversationId,
+    assistantProfileId: assistantProfileId === "" ? undefined : assistantProfileId,
+    message: {
+      id: messageId,
+      role: "user",
+      content,
+    },
+    hostContext,
+  });
 
 export const createWidgetChatRequest = ({
   assistantProfileId,
@@ -67,9 +68,9 @@ export const createWidgetChatRequest = ({
     content: message,
     messageId,
     requestId,
-    ...optionalField("assistantProfileId", assistantProfileId || undefined),
-    ...optionalField("conversationId", conversationId || undefined),
-    ...optionalField("hostContext", hostContext),
+    assistantProfileId,
+    conversationId,
+    hostContext,
   });
 
 export const createWidgetMessage = (

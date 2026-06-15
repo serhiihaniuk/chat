@@ -60,7 +60,7 @@ export type ContextAdmissionSelectionMode = ObjectValue<typeof CONTEXT_ADMISSION
 export type ContextCandidateProvenance = {
   readonly sourceId: ContextSourceId;
   readonly label: string;
-  readonly url?: string;
+  readonly url?: string | undefined;
 };
 
 /**
@@ -80,7 +80,7 @@ export type ContextCandidate = {
   readonly estimatedTokens: number;
   readonly priority: number;
   readonly provenance: ContextCandidateProvenance;
-  readonly metadata?: JsonObject;
+  readonly metadata?: JsonObject | undefined;
 };
 
 /**
@@ -166,7 +166,7 @@ export type PreparedContextSection = {
   readonly title: string;
   readonly content: string;
   readonly priority: number;
-  readonly metadata?: JsonObject;
+  readonly metadata?: JsonObject | undefined;
 };
 
 /**
@@ -207,7 +207,7 @@ export type HistoryContextManifestMessage = {
   readonly role: PreparedHistoryMessageRole;
   readonly estimatedTokens: number;
   readonly included: boolean;
-  readonly dropReason?: HistoryContextDropReason;
+  readonly dropReason?: HistoryContextDropReason | undefined;
 };
 
 /**

@@ -1,4 +1,3 @@
-import { optionalField } from "@side-chat/shared";
 import {
   HISTORY_CONTEXT_MODES,
   type HistoryContextConfig,
@@ -16,7 +15,7 @@ export type ConversationHistoryAdmission = {
 export type AdmitConversationHistoryContextInput = {
   readonly messages: readonly PreparedHistoryMessage[];
   readonly config: HistoryContextConfig;
-  readonly currentUserMessageId?: string;
+  readonly currentUserMessageId?: string | undefined;
 };
 
 /**
@@ -121,7 +120,7 @@ const trimHistoryTokenWindow = (messages: readonly PreparedHistoryMessage[], max
 };
 
 const toManifestMessage = (
-  message: PreparedHistoryMessage & { readonly dropReason?: HistoryContextDropReason },
+  message: PreparedHistoryMessage & { readonly dropReason?: HistoryContextDropReason | undefined },
   included: boolean,
 ): HistoryContextManifestMessage => ({
   messageId: message.messageId,
@@ -129,7 +128,7 @@ const toManifestMessage = (
   role: message.role,
   estimatedTokens: message.estimatedTokens,
   included,
-  ...optionalField("dropReason", message.dropReason),
+  dropReason: message.dropReason,
 });
 
 const sumEstimatedTokens = (messages: readonly PreparedHistoryMessage[]): number =>

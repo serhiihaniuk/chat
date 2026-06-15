@@ -111,7 +111,7 @@ export type PartnerAiCoreLayerInput = {
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
   readonly policies: PolicyPort;
-  readonly observability?: ObservabilitySinkPort;
+  readonly observability?: ObservabilitySinkPort | undefined;
 };
 
 /**

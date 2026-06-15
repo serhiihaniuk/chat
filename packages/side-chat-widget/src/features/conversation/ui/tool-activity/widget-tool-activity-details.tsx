@@ -1,5 +1,5 @@
 import { MessageResponse } from "#shared/ai/message";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 
 import type { WidgetActivityItem } from "#entities/chat";
 import {
@@ -249,11 +249,11 @@ const readResultCards = (value: unknown): readonly ToolResultCard[] => {
     if (!title && !url && !snippet) return [];
 
     return [
-      {
-        title: title || readActivitySourceLabel({ label: "Source", url }),
-        ...optionalField("url", url || undefined),
-        ...optionalField("snippet", snippet || undefined),
-      },
+      omitUndefinedProperties({
+        title: title === "" ? readActivitySourceLabel({ label: "Source", url }) : title,
+        url: url === "" ? undefined : url,
+        snippet: snippet === "" ? undefined : snippet,
+      }),
     ];
   });
 };

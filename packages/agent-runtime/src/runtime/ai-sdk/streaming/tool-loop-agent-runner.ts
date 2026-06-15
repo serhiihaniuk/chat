@@ -6,7 +6,7 @@ import {
   type ToolSet,
 } from "ai";
 import { Effect, Stream } from "effect";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 
 import { AgentRuntimeError } from "../../contract/runtime-error.js";
 import { RUNTIME_ERROR_CODES, type RuntimeEvent } from "../../contract/runtime-event.js";
@@ -113,14 +113,16 @@ const createAiSdkPartStream = ({
        * but the model chooses if/when to call them. The backend must not pre-run
        * tools because that would fake activity before the agent acts.
        */
-      const agent = new AiSdkToolLoopAgent({
-        model,
-        allowSystemInMessages: true,
-        maxRetries: 0,
-        ...optionalField("tools", tools),
-        ...optionalField("toolChoice", tools ? AI_SDK_TOOL_CHOICE_AUTO : undefined),
-        ...optionalField("providerOptions", providerOptions),
-      });
+      const agent = new AiSdkToolLoopAgent(
+        omitUndefinedProperties({
+          model,
+          allowSystemInMessages: true,
+          maxRetries: 0,
+          tools,
+          toolChoice: tools ? AI_SDK_TOOL_CHOICE_AUTO : undefined,
+          providerOptions,
+        }),
+      );
 
       /**
        * `agent.stream` returns the stream handle; it does not buffer the answer.
@@ -129,10 +131,13 @@ const createAiSdkPartStream = ({
        * stream. The caller still receives `result.fullStream` as a lazy
        * AsyncIterable, and Effect consumes each provider part as it arrives.
        */
-      const result = await agent.stream({
-        messages: [...request.messages],
-        ...optionalField("abortSignal", request.abortSignal),
-      });
+      const messages = [...request.messages];
+      const result = await agent.stream(
+        omitUndefinedProperties({
+          messages,
+          abortSignal: request.abortSignal,
+        }),
+      );
       return result.fullStream;
     },
     catch: (error) => toRuntimeError(error),

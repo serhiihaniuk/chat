@@ -5,7 +5,6 @@ import {
   type AgentRuntimeRequest,
   type RuntimeEvent,
 } from "@side-chat/agent-runtime";
-import { optionalField } from "@side-chat/shared";
 import { Effect, Stream } from "effect";
 import type { AuthContext } from "#domain/authority";
 import {
@@ -36,16 +35,16 @@ import {
 } from "./fixtures.test-support.js";
 
 export type FakePortOptions = {
-  readonly authContext?: AuthContext;
-  readonly runtimeEvents?: readonly RuntimeEvent[];
-  readonly policies?: PolicyPort;
-  readonly manifest?: HostCapabilityManifest;
-  readonly policyDecision?: TurnPolicyDecision;
-  readonly turnGuards?: TurnGuardRegistryPort;
-  readonly contextManager?: ContextManagerPort;
-  readonly preparedContext?: PreparedTurnContext;
-  readonly memory?: MemoryPort;
-  readonly observability?: ObservabilitySinkPort;
+  readonly authContext?: AuthContext | undefined;
+  readonly runtimeEvents?: readonly RuntimeEvent[] | undefined;
+  readonly policies?: PolicyPort | undefined;
+  readonly manifest?: HostCapabilityManifest | undefined;
+  readonly policyDecision?: TurnPolicyDecision | undefined;
+  readonly turnGuards?: TurnGuardRegistryPort | undefined;
+  readonly contextManager?: ContextManagerPort | undefined;
+  readonly preparedContext?: PreparedTurnContext | undefined;
+  readonly memory?: MemoryPort | undefined;
+  readonly observability?: ObservabilitySinkPort | undefined;
 };
 
 export const createFakePorts = (options: FakePortOptions = {}) => {
@@ -120,7 +119,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     runtime,
     clock,
     ids,
-    ...optionalField("observability", options.observability),
+    observability: options.observability,
   };
 };
 
@@ -143,7 +142,7 @@ export const runStreamChat = (
           clock: ports.clock,
           ids: ports.ids,
           policies: ports.policies,
-          ...optionalField("observability", ports.observability),
+          observability: ports.observability,
         }),
       ),
     ),

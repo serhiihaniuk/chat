@@ -82,12 +82,54 @@ export const compactJsonObject = (
   return json;
 };
 
-export type OptionalField<Key extends string, Value> = {
+export type OmitUndefinedField<Key extends string, Value> = {
+  readonly [Field in Key]?: Exclude<Value, undefined>;
+};
+
+export type OmitNullishField<Key extends string, Value> = {
   readonly [Field in Key]?: NonNullable<Value>;
 };
 
-export const optionalField = <Key extends string, Value>(
+type UndefinedPropertyKeys<Value extends object> = {
+  [Key in keyof Value]-?: undefined extends Value[Key] ? Key : never;
+}[keyof Value];
+
+type DefinedPropertyKeys<Value extends object> = Exclude<keyof Value, UndefinedPropertyKeys<Value>>;
+
+type SimplifyObject<Value extends object> = {
+  readonly [Key in keyof Value]: Value[Key];
+};
+
+export type OmitUndefinedProperties<Value extends object> = SimplifyObject<
+  {
+    readonly [Key in DefinedPropertyKeys<Value>]: Value[Key];
+  } & {
+    readonly [Key in UndefinedPropertyKeys<Value>]?: Exclude<Value[Key], undefined>;
+  }
+>;
+
+export const omitUndefinedField = <Key extends string, Value>(
   key: Key,
   value: Value,
-): OptionalField<Key, Value> =>
-  value === null || value === undefined ? {} : ({ [key]: value } as OptionalField<Key, Value>);
+): OmitUndefinedField<Key, Value> =>
+  value === undefined ? {} : ({ [key]: value } as OmitUndefinedField<Key, Value>);
+
+/**
+ * Shallowly omit own enumerable string-keyed properties whose value is undefined.
+ */
+export const omitUndefinedProperties = <const Value extends object>(
+  value: Value,
+): OmitUndefinedProperties<Value> => {
+  const output: Record<string, unknown> = {};
+  for (const key of Object.keys(value) as Array<keyof Value & string>) {
+    const entry = value[key];
+    if (entry !== undefined) output[key] = entry;
+  }
+  return output as OmitUndefinedProperties<Value>;
+};
+
+export const omitNullishField = <Key extends string, Value>(
+  key: Key,
+  value: Value,
+): OmitNullishField<Key, Value> =>
+  value === null || value === undefined ? {} : ({ [key]: value } as OmitNullishField<Key, Value>);

@@ -1,9 +1,8 @@
 import { ProtocolValidationError } from "../errors.js";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import {
   assertProtocolVersion,
   isRecord,
-  readString,
   requireString,
   toConversationId,
   toMessageId,
@@ -54,17 +53,17 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
     const requestId = toRequestId(requireString(input, "requestId", "request"));
     const message = parseMessage(input["message"]);
     const conversationId = readOptionalConversationId(input);
-    const assistantProfileId = readString(input, "assistantProfileId");
-    const hostContext = parseHostContext(input["hostContext"]);
+    const assistantProfileId = readOptionalString(input, "assistantProfileId", "request");
+    const hostContext = parseOptionalHostContext(input);
 
-    return {
+    return omitUndefinedProperties({
       protocolVersion,
       requestId,
-      ...optionalField("conversationId", conversationId),
-      ...optionalField("assistantProfileId", assistantProfileId),
+      conversationId,
+      assistantProfileId,
       message,
-      ...optionalField("hostContext", hostContext),
-    };
+      hostContext,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "invalid request";
     throw new ProtocolValidationError(message);
@@ -83,25 +82,65 @@ const parseMessage = (input: unknown): ChatRequestMessage => {
 };
 
 const readOptionalConversationId = (input: Record<string, unknown>): ConversationId | undefined => {
-  const conversationId = readString(input, "conversationId");
-  return conversationId ? toConversationId(conversationId) : undefined;
+  const conversationId = readOptionalString(input, "conversationId", "request");
+  return conversationId === undefined ? undefined : toConversationId(conversationId);
 };
 
 // Host context is optional page metadata from the browser. It helps explain
 // where the message came from, but it is not proof of user or workspace access.
+const parseOptionalHostContext = (input: Record<string, unknown>): HostContext | undefined => {
+  if (!Object.hasOwn(input, "hostContext")) return undefined;
+  return parseHostContext(input["hostContext"]);
+};
+
 const parseHostContext = (input: unknown): HostContext | undefined => {
-  if (input === undefined) return undefined;
   if (!isRecord(input)) throw new Error("request.hostContext must be an object");
   const schemaVersion = requireString(input, "schemaVersion", "request.hostContext");
-  const origin = readString(input, "origin");
-  const url = readString(input, "url");
-  const title = readString(input, "title");
-  const metadata = isRecord(input["metadata"]) ? (input["metadata"] as JsonObject) : undefined;
-  return {
+  const origin = readOptionalString(input, "origin", "request.hostContext");
+  const url = readOptionalString(input, "url", "request.hostContext");
+  const title = readOptionalString(input, "title", "request.hostContext");
+  const metadata = readOptionalJsonObject(input, "metadata", "request.hostContext");
+  return omitUndefinedProperties({
     schemaVersion,
-    ...optionalField("origin", origin),
-    ...optionalField("url", url),
-    ...optionalField("title", title),
-    ...optionalField("metadata", metadata),
-  };
+    origin,
+    url,
+    title,
+    metadata,
+  });
+};
+
+const readOptionalString = (
+  record: Record<string, unknown>,
+  key: string,
+  context: string,
+): string | undefined => {
+  if (!Object.hasOwn(record, key)) return undefined;
+  return requireString(record, key, context);
+};
+
+const readOptionalJsonObject = (
+  record: Record<string, unknown>,
+  key: string,
+  context: string,
+): JsonObject | undefined => {
+  if (!Object.hasOwn(record, key)) return undefined;
+  const value = record[key];
+  if (!isJsonObject(value)) throw new Error(`${context}.${key} must be a JSON object`);
+  return value;
+};
+
+const isJsonObject = (value: unknown): value is JsonObject =>
+  isRecord(value) && Object.values(value).every(isJsonValue);
+
+const isJsonValue = (value: unknown): value is JsonObject[keyof JsonObject] => {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    (typeof value === "number" && Number.isFinite(value))
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return isJsonObject(value);
 };

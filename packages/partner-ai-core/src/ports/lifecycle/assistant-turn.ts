@@ -54,7 +54,7 @@ export type AssistantTurnLifecyclePort = {
     readonly assistantTurnId: string;
     readonly assistantContent: string;
     readonly finishReason: string;
-    readonly usage?: UsageMetadata;
+    readonly usage?: UsageMetadata | undefined;
     readonly providerId: string;
     readonly modelId: string;
     readonly now: string;

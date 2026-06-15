@@ -1,4 +1,4 @@
-import type { SidechatRepositories } from "../contract.js";
+import { REPOSITORY_ADAPTER_KINDS, type SidechatRepositories } from "../contract.js";
 import { createMemoryStore, snapshotMemoryStore, type MemoryStoreSnapshot } from "./store/store.js";
 import { createMemoryConversationRepository } from "./records/conversations.js";
 import {
@@ -11,7 +11,7 @@ import { createMemoryUsageRepository } from "./records/usage.js";
 import { createIdGenerator } from "../repository-utils.js";
 
 export type MemorySidechatRepositories = SidechatRepositories & {
-  readonly kind: "memory";
+  readonly adapterKind: typeof REPOSITORY_ADAPTER_KINDS.MEMORY;
   readonly snapshot: () => MemoryStoreSnapshot;
 };
 
@@ -27,7 +27,7 @@ export const createMemorySidechatRepositories = (
   const context = { ids, store };
 
   return {
-    kind: "memory",
+    adapterKind: REPOSITORY_ADAPTER_KINDS.MEMORY,
     snapshot: () => snapshotMemoryStore(store),
     ...createMemoryConversationRepository(context),
     ...createMemoryAssistantTurnRepository(context),

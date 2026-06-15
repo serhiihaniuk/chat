@@ -1,4 +1,3 @@
-import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
 import { assertWorkspaceAuthority, type AuthContext } from "#domain/authority";
 import type { PreparedTurnContext } from "#domain/capabilities";
@@ -58,7 +57,7 @@ export const createStreamChatRequestScope = (
 ): StreamChatRequestScope => ({
   correlation: createRequestCorrelation({
     requestId: input.request.requestId,
-    ...optionalField("traceId", input.traceId || undefined),
+    traceId: input.traceId,
   }),
   startedAt: ports.clock.now(),
 });
@@ -104,7 +103,7 @@ export const ensureAuthorizedConversation = (
     const conversation = yield* mapPortFailure(
       ports.conversations.ensureConversation({
         authContext,
-        ...optionalField("requestedConversationId", input.request.conversationId || undefined),
+        requestedConversationId: input.request.conversationId,
         fallbackConversationId: ports.ids.nextConversationId(),
       }),
       STREAM_CHAT_FAILURES.PERSISTENCE,
@@ -177,7 +176,7 @@ export const prepareAndRecordTurnContext = (
           manifest: contextInput.turnPlan.manifest,
           policyDecision: contextInput.turnPlan.policyDecision,
           now: ports.clock.now(),
-          ...optionalField("abortSignal", input.abortSignal),
+          abortSignal: input.abortSignal,
         }),
         STREAM_CHAT_FAILURES.CONTEXT,
       ),

@@ -10,7 +10,7 @@ export type TurnGuardInput = {
   readonly hostAppId: string;
   readonly profileId: string;
   readonly safetyPolicyId: string;
-  readonly abortSignal?: AbortSignal;
+  readonly abortSignal?: AbortSignal | undefined;
 };
 
 export type TurnGuardDecision =

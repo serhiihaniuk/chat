@@ -7,14 +7,14 @@ export type ChatClientErrorCode =
 
 export type ChatClientErrorOptions = {
   readonly cause?: unknown;
-  readonly status?: number;
-  readonly attempt?: number;
+  readonly status?: number | undefined;
+  readonly attempt?: number | undefined;
 };
 
 export class ChatClientError extends Error {
   readonly code: ChatClientErrorCode;
-  readonly status?: number;
-  readonly attempt?: number;
+  readonly status?: number | undefined;
+  readonly attempt?: number | undefined;
 
   constructor(code: ChatClientErrorCode, message: string, options: ChatClientErrorOptions = {}) {
     super(message, withCause(options.cause));

@@ -169,6 +169,12 @@ export const sidechatRepositoryContract = (
 
         expect(repeatedTurn.inserted).toBe(false);
         expect(repeatedTurn.record.assistantTurnId).toBe(turn.record.assistantTurnId);
+        expectCanonicalOmittedFields(turn.record, [
+          "assistantMessageId",
+          "finishReason",
+          "errorCode",
+          "completedAt",
+        ]);
 
         const context = await repositories.recordTurnContextSnapshot({
           workspaceId: workspaceId(scope),
@@ -245,7 +251,9 @@ export const sidechatRepositoryContract = (
         });
 
         expect(context.record.contextRedactedJson).toEqual({ title: "Host" });
+        expectCanonicalOmittedFields(context.record, ["hostSurfaceId"]);
         expect(usage.record.totalTokens).toBe(3);
+        expectCanonicalOmittedFields(usage.record, ["providerRequestId"]);
         await expect(
           repositories.readUsageSummary({ workspaceId: workspaceId(scope) }),
         ).resolves.toEqual({
@@ -254,7 +262,9 @@ export const sidechatRepositoryContract = (
           totalTokens: 3,
         });
         expect(tool.record.outputHash).toBe("output_hash");
+        expectCanonicalOmittedFields(tool.record, ["errorCode"]);
         expect(host.record.status).toBe("emitted");
+        expectCanonicalOmittedFields(host.record, ["resultRedactedJson", "resolvedAt"]);
         expect(audit.record.eventType).toBe("conversation.created");
         expect(completed.status).toBe("completed");
         expect(history.map((message) => message.contentText)).toEqual(["hello", "hello back"]);
@@ -264,4 +274,16 @@ export const sidechatRepositoryContract = (
       }
     });
   });
+};
+
+const expectCanonicalOmittedFields = (
+  record: Record<string, unknown>,
+  fieldNames: readonly string[],
+): void => {
+  for (const fieldName of fieldNames) {
+    expect(Object.hasOwn(record, fieldName)).toBe(false);
+  }
+  for (const fieldValue of Object.values(record)) {
+    expect(fieldValue).not.toBeUndefined();
+  }
 };

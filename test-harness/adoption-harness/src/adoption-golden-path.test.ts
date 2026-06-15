@@ -33,7 +33,7 @@ import {
   updateMessage,
   type WidgetMessage,
 } from "@side-chat/side-chat-widget/testing";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -234,11 +234,11 @@ const projectEventsIntoWidgetState = (
     }
   }
 
-  return {
+  return omitUndefinedProperties({
     messages,
-    ...optionalField("conversationId", conversationId),
-    ...optionalField("usage", usage),
-  };
+    conversationId,
+    usage,
+  });
 };
 
 const createRecordingGuardRegistry = (calls: TurnGuardInput[]): TurnGuardRegistryPort => ({

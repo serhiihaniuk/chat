@@ -47,16 +47,16 @@ export const createServiceHostCapabilityManifest = ({
   turnGuardIds = [],
   memoryPolicy = { policyId: "no_memory", mode: "disabled", scopes: [] },
 }: {
-  readonly runtimeConfig: { readonly enableMockWebSearch?: boolean };
+  readonly runtimeConfig: { readonly enableMockWebSearch?: boolean | undefined };
   readonly providerId: string;
   readonly modelId: string;
-  readonly toolCapabilities?: readonly ToolCapability[];
-  readonly hostCommands?: readonly HostCommandCapability[];
-  readonly approvalPolicies?: readonly ApprovalPolicy[];
-  readonly retrievalSources?: readonly RetrievalSourceCapability[];
-  readonly researchAgents?: readonly ResearchAgentCapability[];
-  readonly turnGuardIds?: readonly string[];
-  readonly memoryPolicy?: MemoryPolicy;
+  readonly toolCapabilities?: readonly ToolCapability[] | undefined;
+  readonly hostCommands?: readonly HostCommandCapability[] | undefined;
+  readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
+  readonly retrievalSources?: readonly RetrievalSourceCapability[] | undefined;
+  readonly researchAgents?: readonly ResearchAgentCapability[] | undefined;
+  readonly turnGuardIds?: readonly string[] | undefined;
+  readonly memoryPolicy?: MemoryPolicy | undefined;
 }): HostCapabilityManifest => {
   const tools = [
     ...(runtimeConfig.enableMockWebSearch ? [createMockWebSearchCapability()] : []),

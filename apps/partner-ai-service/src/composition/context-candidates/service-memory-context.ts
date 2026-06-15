@@ -8,7 +8,6 @@ import {
   type MemoryRecord,
   type PreparedContextSection,
 } from "@side-chat/partner-ai-core";
-import { optionalField } from "@side-chat/shared";
 
 export const toMemoryContextCandidate = (record: MemoryRecord): ContextCandidate => ({
   candidateId: toContextCandidateId(`memory_${record.memoryId}`),
@@ -23,7 +22,7 @@ export const toMemoryContextCandidate = (record: MemoryRecord): ContextCandidate
     sourceId: toContextSourceId(record.memoryId),
     label: `${record.scope} memory`,
   },
-  ...optionalField("metadata", record.metadata),
+  metadata: record.metadata,
 });
 
 export const createMemoryContextSections = (

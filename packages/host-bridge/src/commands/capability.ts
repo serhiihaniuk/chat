@@ -17,7 +17,7 @@ export type HostCommand = {
 
 export type HostCommandCapability = {
   readonly commandName: string;
-  readonly resourceTypes?: readonly string[];
+  readonly resourceTypes?: readonly string[] | undefined;
 };
 
 export type HostCapabilities = {

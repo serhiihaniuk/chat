@@ -3,7 +3,7 @@ import type {
   AssistantTurnRepositoryContract,
   ContextSnapshotRecord,
 } from "#schema-contract";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import { requireSubjectConversation, type MemoryRepositoryContext } from "./conversations.js";
 import { updateTurn } from "../store/store.js";
 import { result } from "../../repository-utils.js";
@@ -59,18 +59,18 @@ export const createMemoryAssistantTurnRepository = ({
     );
     if (existing) return result(existing, false);
 
-    const snapshot: ContextSnapshotRecord = {
+    const snapshot: ContextSnapshotRecord = omitUndefinedProperties({
       workspaceId: command.workspaceId,
       contextSnapshotId: ids.next("context_snapshot"),
       assistantTurnId: command.assistantTurnId,
       contextSchemaVersion: command.contextSchemaVersion,
-      ...optionalField("hostSurfaceId", command.hostSurfaceId || undefined),
+      hostSurfaceId: command.hostSurfaceId,
       hostContextHash: command.hostContextHash,
       capabilitiesHash: command.capabilitiesHash,
       contextRedactedJson: command.contextRedactedJson,
       createdAt: command.now,
       updatedAt: command.now,
-    };
+    });
     store.contextSnapshots.push(snapshot);
     return result(snapshot, true);
   },

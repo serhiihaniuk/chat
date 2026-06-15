@@ -1,5 +1,5 @@
 import type { AssistantTurnRepositoryContract, UsageRecord } from "#schema-contract";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import type { MemoryRepositoryContext } from "./conversations.js";
 import { result } from "../../repository-utils.js";
 
@@ -20,14 +20,14 @@ export const createMemoryUsageRepository = ({
     );
     if (existing) return result(existing, false);
 
-    const usage: UsageRecord = {
+    const usage: UsageRecord = omitUndefinedProperties({
       workspaceId: command.workspaceId,
       usageRecordId: ids.next("usage"),
       assistantTurnId: command.assistantTurnId,
       runtimeStepIndex: command.runtimeStepIndex,
       modelProvider: command.modelProvider,
       modelId: command.modelId,
-      ...optionalField("providerRequestId", command.providerRequestId || undefined),
+      providerRequestId: command.providerRequestId,
       inputTokens: command.inputTokens,
       outputTokens: command.outputTokens,
       reasoningTokens: command.reasoningTokens,
@@ -36,7 +36,7 @@ export const createMemoryUsageRepository = ({
       costUnits: command.costUnits,
       createdAt: command.now,
       updatedAt: command.now,
-    };
+    });
     store.usageRecords.push(usage);
     return result(usage, true);
   },

@@ -16,12 +16,43 @@ The target state is:
 
 ```txt
 [ ] Internal option/input/state surfaces can accept explicit undefined.
+[ ] Ordinary human call sites can pass computed optional values without ceremony.
 [ ] JSON, sidechat.v1, SSE, and DB record outputs keep canonical omitted fields.
 [ ] Malformed optional protocol fields are rejected instead of erased.
 [ ] Repository adapter identity is an explicit contract, not a property-presence guess.
 [ ] Helper names reveal whether they omit undefined, omit nullish values, or compact JSON.
 [ ] Static checks prevent the unsafe patterns from returning.
 ```
+
+## Implementation Status
+
+Implemented on 2026-06-15. The remaining `optionalField` mentions in this
+document describe the original migration problem and historical plan steps, not
+a live shared API. Boundary builders now use `omitUndefinedProperties(...)`
+when they already have an object of computed optional values; the single-field
+`omitUndefinedField(...)` helper remains for narrow prop-spread/test ergonomics.
+Full local verification passes under the pinned Node/npm runtime; DB container
+verification still requires an available local container runtime.
+
+## Human Safety Rationale
+
+This is not an AI cleanup preference. Humans will naturally write code like this:
+
+```ts
+createService({
+  runtime: maybeRuntime,
+  observability: maybeObservability,
+  abortSignal: maybeAbortSignal,
+});
+```
+
+That should be safe when the target is an in-memory option bag. Requiring
+callers to remember `optionalField(...)`, conditional spreads, or hand-written
+undefined filtering makes the safe path surprising and the unsafe path easy.
+
+The repo should make the common human call site correct by type. Boundary code
+should then perform the explicit conversion to protocol, JSON, SSE, or database
+records. The burden belongs at the boundary, not at every caller.
 
 ## Current Evidence
 
@@ -359,6 +390,7 @@ npx -p node@24.16.0 -p npm@11.15.0 npm run test:db:container
 ```txt
 [ ] Optional protocol fields reject invalid present values.
 [ ] Internal option bags can pass explicit undefined without spread helpers.
+[ ] Ordinary human call sites do not need `optionalField` or conditional spreads.
 [ ] Canonical protocol events do not expose explicit undefined own-properties.
 [ ] Repository adapter kind is typed and exhaustively checked.
 [ ] DB records normalize SQL null to omitted output consistently.

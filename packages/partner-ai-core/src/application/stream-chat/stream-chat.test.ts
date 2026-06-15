@@ -85,8 +85,17 @@ describe("stream chat lifecycle and policy", () => {
       messages: [{ role: "user", content: "hello" }],
       contextBoard: {
         manifest: {
-          profileId: "analyst",
-          profileVersion: "2026-06-13",
+          snapshotId: "context_manifest_001",
+          snapshotHash: "sha256:context_manifest_001",
+          includedMessageIds: [],
+          history: {
+            policyMode: "disabled",
+            messages: [],
+          },
+          budget: {
+            policyId: "deterministic_v1",
+            selectionMode: "include_all",
+          },
         },
       },
     });

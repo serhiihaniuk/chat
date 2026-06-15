@@ -4,14 +4,14 @@ import type { HostBridge } from "@side-chat/host-bridge";
 import type { SideChatWidgetPanelSize } from "#entities/panel";
 
 export type SideChatWidgetLabels = {
-  readonly placeholder?: string;
-  readonly send?: string;
-  readonly title?: string;
+  readonly placeholder?: string | undefined;
+  readonly send?: string | undefined;
+  readonly title?: string | undefined;
 };
 
 export type SideChatWidgetPanelActions = {
-  readonly onClose?: () => void;
-  readonly onMinimize?: () => void;
+  readonly onClose?: (() => void) | undefined;
+  readonly onMinimize?: (() => void) | undefined;
 };
 
 export type SideChatWidgetQuickAction = {
@@ -30,14 +30,14 @@ export type SideChatWidgetAssistantProfile = {
 export type { SideChatWidgetPanelSize };
 
 export type SideChatWidgetProps = {
-  readonly assistantProfiles?: readonly SideChatWidgetAssistantProfile[];
+  readonly assistantProfiles?: readonly SideChatWidgetAssistantProfile[] | undefined;
   readonly client: ChatClient;
-  readonly defaultAssistantProfileId?: string;
-  readonly defaultOpen?: boolean;
-  readonly defaultPanelSize?: SideChatWidgetPanelSize;
-  readonly hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand">;
-  readonly initialState?: SideChatWidgetStateSnapshot;
-  readonly labels?: SideChatWidgetLabels;
-  readonly panelActions?: SideChatWidgetPanelActions;
-  readonly quickActions?: readonly SideChatWidgetQuickAction[];
+  readonly defaultAssistantProfileId?: string | undefined;
+  readonly defaultOpen?: boolean | undefined;
+  readonly defaultPanelSize?: SideChatWidgetPanelSize | undefined;
+  readonly hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
+  readonly initialState?: SideChatWidgetStateSnapshot | undefined;
+  readonly labels?: SideChatWidgetLabels | undefined;
+  readonly panelActions?: SideChatWidgetPanelActions | undefined;
+  readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
 };

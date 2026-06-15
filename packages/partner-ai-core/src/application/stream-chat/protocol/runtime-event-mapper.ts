@@ -3,6 +3,8 @@ import {
   SIDECHAT_EVENT_TYPES,
   type ChatStreamRequest,
   type ActivityDetails,
+  type ActivityImage,
+  type ActivitySource,
   type ActivityToolDetails,
   type ProtocolErrorCode,
   type SidechatStreamEvent,
@@ -12,11 +14,13 @@ import {
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
   type RuntimeActivityDetails,
+  type RuntimeActivityImage,
+  type RuntimeActivitySource,
   type RuntimeActivityToolDetails,
   type RuntimeEvent,
   type RuntimeErrorEvent,
 } from "@side-chat/agent-runtime";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
@@ -66,26 +70,23 @@ export const mapRuntimeEvent = (
         content: event.content,
       };
     case RUNTIME_EVENT_TYPES.ACTIVITY:
-      return {
+      return omitUndefinedProperties({
         ...base,
         type: SIDECHAT_EVENT_TYPES.ACTIVITY,
         activityId: toActivityId(event.activityId),
         activityKind: event.activityKind,
         status: event.status,
         title: event.title,
-        ...optionalField("body", event.body || undefined),
-        ...optionalField(
-          "details",
-          event.details ? mapRuntimeActivityDetails(event.details) : undefined,
-        ),
-      };
+        body: event.body === "" ? undefined : event.body,
+        details: event.details ? mapRuntimeActivityDetails(event.details) : undefined,
+      });
     case RUNTIME_EVENT_TYPES.COMPLETED:
-      return {
+      return omitUndefinedProperties({
         ...base,
         type: SIDECHAT_EVENT_TYPES.COMPLETED,
         finishReason: event.finishReason,
-        ...optionalField("usage", event.usage),
-      };
+        usage: event.usage,
+      });
     case RUNTIME_EVENT_TYPES.ERROR:
       return {
         ...base,
@@ -144,17 +145,33 @@ const mapRuntimeErrorCode = (code: string): ProtocolErrorCode => {
   return PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.PROVIDER_FAILED;
 };
 
-const mapRuntimeActivityDetails = (details: RuntimeActivityDetails): ActivityDetails => ({
-  ...optionalField("sources", details.sources),
-  ...optionalField("images", details.images),
-  ...optionalField("tool", details.tool ? mapRuntimeToolDetails(details.tool) : undefined),
-});
+const mapRuntimeActivityDetails = (details: RuntimeActivityDetails): ActivityDetails =>
+  omitUndefinedProperties({
+    sources: details.sources?.map(mapRuntimeActivitySource),
+    images: details.images?.map(mapRuntimeActivityImage),
+    tool: details.tool ? mapRuntimeToolDetails(details.tool) : undefined,
+  });
 
-const mapRuntimeToolDetails = (tool: RuntimeActivityToolDetails): ActivityToolDetails => ({
-  toolCallId: tool.toolCallId,
-  toolName: tool.toolName,
-  ...optionalField("input", tool.input),
-  ...optionalField("result", tool.result),
-  ...optionalField("sources", tool.sources),
-  ...optionalField("errorCode", tool.errorCode ? mapRuntimeErrorCode(tool.errorCode) : undefined),
-});
+const mapRuntimeToolDetails = (tool: RuntimeActivityToolDetails): ActivityToolDetails =>
+  omitUndefinedProperties({
+    toolCallId: tool.toolCallId,
+    toolName: tool.toolName,
+    input: tool.input,
+    result: tool.result,
+    sources: tool.sources?.map(mapRuntimeActivitySource),
+    errorCode: tool.errorCode ? mapRuntimeErrorCode(tool.errorCode) : undefined,
+  });
+
+const mapRuntimeActivitySource = (source: RuntimeActivitySource): ActivitySource =>
+  omitUndefinedProperties({
+    label: source.label,
+    url: source.url === "" ? undefined : source.url,
+  });
+
+const mapRuntimeActivityImage = (image: RuntimeActivityImage): ActivityImage =>
+  omitUndefinedProperties({
+    alt: image.alt,
+    caption: image.caption === "" ? undefined : image.caption,
+    mediaType: image.mediaType,
+    data: image.data,
+  });

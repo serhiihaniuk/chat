@@ -10,7 +10,6 @@ import {
   type ChatStreamRequest,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
 import { Stream } from "effect";
 import type { Hono } from "hono";
 
@@ -59,7 +58,7 @@ export const registerChatStreamRoute = (
         contextManager: dependencies.contextManager,
         memory: dependencies.memory,
         runtime: dependencies.runtime,
-        ...optionalField("observability", dependencies.observability),
+        observability: dependencies.observability,
         policies: dependencies.policies,
       }),
     );
@@ -112,9 +111,9 @@ const parseJsonBody = async (
   }
 };
 
-const traceInput = (request: Request): { readonly traceId?: string } => {
+const traceInput = (request: Request): { readonly traceId?: string | undefined } => {
   const traceId = request.headers.get("x-trace-id") ?? undefined;
-  return optionalField("traceId", traceId || undefined);
+  return { traceId: traceId === "" ? undefined : traceId };
 };
 
 // Keep response shape in one place for setup failures. Once streaming starts,

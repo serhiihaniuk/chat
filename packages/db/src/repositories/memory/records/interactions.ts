@@ -8,7 +8,7 @@ import type {
   HostCommandResultRecord,
   ToolInvocationRecord,
 } from "#schema-contract";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import { upsertAt, type MemoryStore } from "../store/store.js";
 import { result, type createIdGenerator } from "../../repository-utils.js";
 
@@ -26,7 +26,7 @@ export const recordMemoryToolInvocation = async (
       tool.assistantTurnId === command.assistantTurnId &&
       tool.toolCallId === command.toolCallId,
   );
-  const tool: ToolInvocationRecord = {
+  const tool: ToolInvocationRecord = omitUndefinedProperties({
     workspaceId: command.workspaceId,
     toolInvocationId:
       existingIndex >= 0
@@ -38,15 +38,15 @@ export const recordMemoryToolInvocation = async (
     toolName: command.toolName,
     status: command.status,
     inputHash: command.inputHash,
-    ...optionalField("outputHash", command.outputHash || undefined),
+    outputHash: command.outputHash,
     inputRedactedJson: command.inputRedactedJson,
-    ...optionalField("outputRedactedJson", command.outputRedactedJson || undefined),
-    ...optionalField("errorCode", command.errorCode || undefined),
+    outputRedactedJson: command.outputRedactedJson,
+    errorCode: command.errorCode,
     startedAt: command.startedAt,
-    ...optionalField("completedAt", command.completedAt || undefined),
+    completedAt: command.completedAt,
     createdAt: command.now,
     updatedAt: command.now,
-  };
+  });
   upsertAt(store.toolInvocations, existingIndex, tool);
   return result(tool, existingIndex < 0);
 };
@@ -63,7 +63,7 @@ export const recordMemoryHostCommandResult = async (
       hostCommand.assistantTurnId === command.assistantTurnId &&
       hostCommand.commandId === command.commandId,
   );
-  const hostCommand: HostCommandResultRecord = {
+  const hostCommand: HostCommandResultRecord = omitUndefinedProperties({
     workspaceId: command.workspaceId,
     hostCommandId:
       existingIndex >= 0
@@ -72,15 +72,15 @@ export const recordMemoryHostCommandResult = async (
     assistantTurnId: command.assistantTurnId,
     commandId: command.commandId,
     commandType: command.commandType,
-    ...optionalField("resourceId", command.resourceId || undefined),
+    resourceId: command.resourceId,
     status: command.status,
     resultCode: command.resultCode,
     commandRedactedJson: command.commandRedactedJson,
-    ...optionalField("resultRedactedJson", command.resultRedactedJson || undefined),
+    resultRedactedJson: command.resultRedactedJson,
     createdAt: command.now,
     updatedAt: command.now,
-    ...optionalField("resolvedAt", command.resolvedAt || undefined),
-  };
+    resolvedAt: command.resolvedAt,
+  });
   upsertAt(store.hostCommandResults, existingIndex, hostCommand);
   return result(hostCommand, existingIndex < 0);
 };

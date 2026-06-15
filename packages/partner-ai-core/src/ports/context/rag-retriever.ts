@@ -24,10 +24,10 @@ export type RagRetrievalInput = {
   readonly workspace: WorkspaceRef;
   readonly requestId: string;
   readonly userMessage: string;
-  readonly hostContext?: ChatStreamRequest["hostContext"];
+  readonly hostContext?: ChatStreamRequest["hostContext"] | undefined;
   readonly allowedSourceIds: readonly string[];
   readonly maxCandidates: number;
-  readonly abortSignal?: AbortSignal;
+  readonly abortSignal?: AbortSignal | undefined;
 };
 
 /**
@@ -42,12 +42,12 @@ export type RagContextCandidate = {
   readonly sourceId: string;
   readonly title: string;
   readonly content: string;
-  readonly url?: string;
+  readonly url?: string | undefined;
   readonly score: number;
   readonly estimatedTokens: number;
   readonly trustLevel: ContextTrustLevel;
   readonly redactionClass: ContextRedactionClass;
-  readonly metadata?: JsonObject;
+  readonly metadata?: JsonObject | undefined;
 };
 
 /** App-owned retrieval adapter called only during core context preparation. */

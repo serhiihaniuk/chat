@@ -13,7 +13,6 @@ import type {
   TurnGuardRegistryPort,
   TurnPolicyResolverPort,
 } from "@side-chat/partner-ai-core";
-import { optionalField } from "@side-chat/shared";
 
 export type ServicePortsOptions = {
   readonly conversations: ConversationRepositoryPort;
@@ -24,10 +23,10 @@ export type ServicePortsOptions = {
   readonly contextManager: ContextManagerPort;
   readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
-  readonly clock?: ClockPort;
-  readonly ids?: IdGeneratorPort;
+  readonly clock?: ClockPort | undefined;
+  readonly ids?: IdGeneratorPort | undefined;
   readonly policies: PolicyPort;
-  readonly observability?: ObservabilitySinkPort;
+  readonly observability?: ObservabilitySinkPort | undefined;
 };
 
 export const createServicePorts = (options: ServicePortsOptions): StreamChatPorts => ({
@@ -42,7 +41,7 @@ export const createServicePorts = (options: ServicePortsOptions): StreamChatPort
   clock: options.clock ?? systemClock,
   ids: options.ids ?? randomIds,
   policies: options.policies,
-  ...optionalField("observability", options.observability),
+  observability: options.observability,
 });
 
 const systemClock: ClockPort = {

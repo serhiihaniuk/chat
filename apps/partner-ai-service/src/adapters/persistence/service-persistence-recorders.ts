@@ -9,12 +9,14 @@ import {
   type PreparedTurnContext,
 } from "@side-chat/partner-ai-core";
 import { toActorId, type ConversationRecord, type SidechatRepositories } from "@side-chat/db";
-import { optionalField, toJsonObject, type JsonObject } from "@side-chat/shared";
+import { omitUndefinedProperties, toJsonObject, type JsonObject } from "@side-chat/shared";
 
 export const conversationHistoryCutoffField = (
   conversation: ConversationRecord,
 ): { readonly historyCutoffSequenceIndex?: number } =>
-  optionalField("historyCutoffSequenceIndex", conversation.historyCutoffSequenceIndex);
+  omitUndefinedProperties({
+    historyCutoffSequenceIndex: conversation.historyCutoffSequenceIndex,
+  });
 
 export const recordContextSnapshot = ({
   repositories,
@@ -33,16 +35,18 @@ export const recordContextSnapshot = ({
   readonly manifestHash: string;
   readonly now: string;
 }) =>
-  repositories.recordTurnContextSnapshot({
-    workspaceId: authContext.workspaceId,
-    assistantTurnId,
-    contextSchemaVersion: "sidechat.context-manifest.v1",
-    ...optionalField("hostSurfaceId", hostContext?.origin || undefined),
-    hostContextHash: hashCanonicalJson(hostContext ?? null),
-    capabilitiesHash: manifestHash,
-    contextRedactedJson: toContextSnapshotJson(preparedContext),
-    now,
-  });
+  repositories.recordTurnContextSnapshot(
+    omitUndefinedProperties({
+      workspaceId: authContext.workspaceId,
+      assistantTurnId,
+      contextSchemaVersion: "sidechat.context-manifest.v1",
+      hostSurfaceId: hostContext?.origin === "" ? undefined : hostContext?.origin,
+      hostContextHash: hashCanonicalJson(hostContext ?? null),
+      capabilitiesHash: manifestHash,
+      contextRedactedJson: toContextSnapshotJson(preparedContext),
+      now,
+    }),
+  );
 
 export const recordUsage = ({
   repositories,
@@ -150,23 +154,27 @@ const toContextSnapshotJson = (preparedContext: PreparedTurnContext): JsonObject
     history: preparedContext.history,
     researchArtifacts: preparedContext.researchArtifacts,
     manifest: preparedContext.contextBoard.manifest,
-    sections: preparedContext.contextBoard.sections.map((section) => ({
-      title: section.title,
-      content: section.content,
-      priority: section.priority,
-      ...optionalField("metadata", section.metadata),
-    })),
-    candidates: preparedContext.candidates.map((candidate) => ({
-      candidateId: candidate.candidateId,
-      sourceType: candidate.sourceType,
-      sourceId: candidate.sourceId,
-      trustLevel: candidate.trustLevel,
-      redactionClass: candidate.redactionClass,
-      estimatedTokens: candidate.estimatedTokens,
-      priority: candidate.priority,
-      provenance: candidate.provenance,
-      ...optionalField("metadata", candidate.metadata),
-    })),
+    sections: preparedContext.contextBoard.sections.map((section) =>
+      omitUndefinedProperties({
+        title: section.title,
+        content: section.content,
+        priority: section.priority,
+        metadata: section.metadata,
+      }),
+    ),
+    candidates: preparedContext.candidates.map((candidate) =>
+      omitUndefinedProperties({
+        candidateId: candidate.candidateId,
+        sourceType: candidate.sourceType,
+        sourceId: candidate.sourceId,
+        trustLevel: candidate.trustLevel,
+        redactionClass: candidate.redactionClass,
+        estimatedTokens: candidate.estimatedTokens,
+        priority: candidate.priority,
+        provenance: candidate.provenance,
+        metadata: candidate.metadata,
+      }),
+    ),
   });
 
 /**

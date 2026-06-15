@@ -1,4 +1,5 @@
 import { ChatClientError } from "./errors.js";
+import { omitUndefinedProperties } from "@side-chat/shared";
 
 export const buildPathUrl = (baseUrl: string, rawPath: string): string => {
   const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -21,4 +22,4 @@ export const assertNotAborted = (signal: AbortSignal | undefined): void => {
 };
 
 export const withSignal = (signal: AbortSignal | undefined): RequestInit =>
-  signal ? { signal } : {};
+  omitUndefinedProperties({ signal });

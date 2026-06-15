@@ -1,6 +1,6 @@
 import { and, eq, gt, lt, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { optionalField } from "@side-chat/shared";
+import { omitNullishField } from "@side-chat/shared";
 
 import {
   assistantTurns,
@@ -47,7 +47,7 @@ export const toConversationRecord = (
   conversationKey: row.conversationKey,
   status: row.status as ConversationRecord["status"],
   createdByActorId: row.createdByActorId,
-  ...optionalField("historyCutoffSequenceIndex", row.historyCutoffSequenceIndex ?? undefined),
+  ...omitNullishField("historyCutoffSequenceIndex", row.historyCutoffSequenceIndex),
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
   lastMessageAt: row.lastMessageAt,
@@ -61,7 +61,7 @@ export const toMessageRecord = (row: typeof messages.$inferSelect): MessageRecor
   contentText: row.contentText,
   metadataJson: row.metadataJson,
   sequenceIndex: row.sequenceIndex,
-  ...optionalField("idempotencyKey", row.idempotencyKey || undefined),
+  ...omitNullishField("idempotencyKey", row.idempotencyKey),
   createdAt: row.createdAt,
   updatedAt: row.createdAt,
 });
@@ -76,7 +76,7 @@ export const toAssistantTurnRecord = (
   subjectId: row.subjectId,
   actorId: row.actorId,
   userMessageId: row.userMessageId,
-  ...optionalField("assistantMessageId", row.assistantMessageId || undefined),
+  ...omitNullishField("assistantMessageId", row.assistantMessageId),
   runtimeProfile: row.runtimeProfile,
   systemPromptVersion: row.systemPromptVersion,
   contextStrategyVersion: row.contextStrategyVersion,
@@ -84,10 +84,10 @@ export const toAssistantTurnRecord = (
   modelProvider: row.modelProvider,
   modelId: row.modelId,
   status: row.status as AssistantTurnRecord["status"],
-  ...optionalField("finishReason", row.finishReason || undefined),
-  ...optionalField("errorCode", row.errorCode || undefined),
+  ...omitNullishField("finishReason", row.finishReason),
+  ...omitNullishField("errorCode", row.errorCode),
   startedAt: row.startedAt,
-  ...optionalField("completedAt", row.completedAt || undefined),
+  ...omitNullishField("completedAt", row.completedAt),
   createdAt: row.startedAt,
   updatedAt: row.completedAt ?? row.startedAt,
 });
@@ -99,7 +99,7 @@ export const toContextSnapshotRecord = (
   assistantTurnId: row.assistantTurnId,
   workspaceId: row.workspaceId,
   contextSchemaVersion: row.contextSchemaVersion,
-  ...optionalField("hostSurfaceId", row.hostSurfaceId || undefined),
+  ...omitNullishField("hostSurfaceId", row.hostSurfaceId),
   hostContextHash: row.hostContextHash,
   capabilitiesHash: row.capabilitiesHash,
   contextRedactedJson: row.contextRedactedJson,
@@ -114,7 +114,7 @@ export const toUsageRecord = (row: typeof usageRecords.$inferSelect): UsageRecor
   runtimeStepIndex: row.runtimeStepIndex,
   modelProvider: row.modelProvider,
   modelId: row.modelId,
-  ...optionalField("providerRequestId", row.providerRequestId || undefined),
+  ...omitNullishField("providerRequestId", row.providerRequestId),
   inputTokens: row.inputTokens,
   outputTokens: row.outputTokens,
   reasoningTokens: row.reasoningTokens,
@@ -136,12 +136,12 @@ export const toToolInvocationRecord = (
   toolName: row.toolName,
   status: row.status as ToolInvocationRecord["status"],
   inputHash: row.inputHash,
-  ...optionalField("outputHash", row.outputHash || undefined),
+  ...omitNullishField("outputHash", row.outputHash),
   inputRedactedJson: row.inputRedactedJson,
-  ...optionalField("outputRedactedJson", row.outputRedactedJson || undefined),
-  ...optionalField("errorCode", row.errorCode || undefined),
+  ...omitNullishField("outputRedactedJson", row.outputRedactedJson),
+  ...omitNullishField("errorCode", row.errorCode),
   startedAt: row.startedAt,
-  ...optionalField("completedAt", row.completedAt || undefined),
+  ...omitNullishField("completedAt", row.completedAt),
   createdAt: row.startedAt,
   updatedAt: row.completedAt ?? row.startedAt,
 });
@@ -154,14 +154,14 @@ export const toHostCommandResultRecord = (
   workspaceId: row.workspaceId,
   commandId: row.commandId,
   commandType: row.commandType,
-  ...optionalField("resourceId", row.resourceId || undefined),
+  ...omitNullishField("resourceId", row.resourceId),
   status: row.status as HostCommandResultRecord["status"],
   resultCode: row.resultCode,
   commandRedactedJson: row.commandRedactedJson,
-  ...optionalField("resultRedactedJson", row.resultRedactedJson || undefined),
+  ...omitNullishField("resultRedactedJson", row.resultRedactedJson),
   createdAt: row.createdAt,
   updatedAt: row.resolvedAt ?? row.createdAt,
-  ...optionalField("resolvedAt", row.resolvedAt || undefined),
+  ...omitNullishField("resolvedAt", row.resolvedAt),
 });
 
 export const toAuditEventRecord = (row: typeof auditEvents.$inferSelect): AuditEventRecord => ({

@@ -14,7 +14,7 @@ import { Effect } from "effect";
 /** Correlation fields available before a durable assistant turn exists. */
 export type TraceCorrelationInput = {
   readonly requestId: string;
-  readonly traceId?: string;
+  readonly traceId?: string | undefined;
 };
 
 /** Stable ids used to connect logs, persisted turn records, and stream events. */
@@ -40,11 +40,11 @@ export type ObservabilityLifecycleState =
  */
 export type ObservabilityRecord = RequestCorrelation & {
   readonly lifecycleState: ObservabilityLifecycleState;
-  readonly assistantTurnId?: string;
-  readonly providerId?: string;
-  readonly modelId?: string;
+  readonly assistantTurnId?: string | undefined;
+  readonly providerId?: string | undefined;
+  readonly modelId?: string | undefined;
   readonly latencyMs: number;
-  readonly errorCode?: string;
+  readonly errorCode?: string | undefined;
   readonly attributes: JsonObject;
 };
 

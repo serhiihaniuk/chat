@@ -9,7 +9,7 @@ import {
   type StartedEvent,
 } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedField } from "@side-chat/shared";
 import { Window } from "happy-dom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -191,7 +191,7 @@ const renderWidget = (
       client,
       defaultAssistantProfileId: "gpt-5.4-mini",
       labels: { placeholder: "Message", send: "Send", title: "Workspace Assistant" },
-      ...optionalField("hostBridge", hostBridge),
+      ...omitUndefinedField("hostBridge", hostBridge),
     } satisfies Parameters<typeof SideChatWidget>[0];
     root.render(<SideChatWidget {...props} />);
   });

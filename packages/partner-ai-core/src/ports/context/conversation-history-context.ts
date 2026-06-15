@@ -18,6 +18,6 @@ export type ConversationHistoryContextPort = {
     readonly conversation: ConversationRef;
     readonly currentUserMessage: MessageRef;
     readonly limit: number;
-    readonly abortSignal?: AbortSignal;
+    readonly abortSignal?: AbortSignal | undefined;
   }) => Effect.Effect<readonly PreparedHistoryMessage[], unknown>;
 };

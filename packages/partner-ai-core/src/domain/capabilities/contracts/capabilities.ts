@@ -86,7 +86,7 @@ export type ApprovalMode = "never" | "on_request" | "always";
 
 export type OutputContract = {
   readonly format: "markdown" | "json" | "text";
-  readonly schema?: JsonObject;
+  readonly schema?: JsonObject | undefined;
 };
 
 export type ModelPolicy = {

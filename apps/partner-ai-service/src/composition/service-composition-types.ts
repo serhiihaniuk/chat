@@ -40,16 +40,16 @@ export type PersistenceConfig =
  * and HTTP routes receive only runtime ids and the prepared AgentRuntime port.
  */
 export type RuntimeConfig =
-  | { readonly provider: "fake"; readonly modelId?: string }
+  | { readonly provider: "fake"; readonly modelId?: string | undefined }
   | {
       readonly provider: "openai";
       readonly apiKey: string;
       readonly modelIds: readonly string[];
       readonly defaultModelId: string;
-      readonly baseUrl?: string;
-      readonly fetch?: typeof fetch;
-      readonly reasoningEffort?: OpenAIReasoningEffort;
-      readonly reasoningSummary?: OpenAIReasoningSummary;
+      readonly baseUrl?: string | undefined;
+      readonly fetch?: typeof fetch | undefined;
+      readonly reasoningEffort?: OpenAIReasoningEffort | undefined;
+      readonly reasoningSummary?: OpenAIReasoningSummary | undefined;
     };
 
 /**
@@ -59,12 +59,12 @@ export type RuntimeConfig =
  * registrations feed agent-runtime execution.
  */
 export type RuntimeToolConfig = {
-  readonly executors?: readonly AgentExecutor[];
-  readonly enableMockWebSearch?: boolean;
-  readonly runtimeTools?: readonly RuntimeTool[];
-  readonly toolCapabilities?: readonly ToolCapability[];
-  readonly hostCommands?: readonly HostCommandCapability[];
-  readonly approvalPolicies?: readonly ApprovalPolicy[];
+  readonly executors?: readonly AgentExecutor[] | undefined;
+  readonly enableMockWebSearch?: boolean | undefined;
+  readonly runtimeTools?: readonly RuntimeTool[] | undefined;
+  readonly toolCapabilities?: readonly ToolCapability[] | undefined;
+  readonly hostCommands?: readonly HostCommandCapability[] | undefined;
+  readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
 };
 
 export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -107,20 +107,20 @@ export type ServiceComposition = {
  */
 export type ServiceCompositionOptions = {
   readonly workspace: WorkspaceRef;
-  readonly auth?: ServiceAuthConfig;
-  readonly policies?: ServicePolicyConfig;
-  readonly persistence?: PersistenceConfig;
-  readonly repositories?: SidechatRepositories;
-  readonly runtime?: RuntimeConfig & RuntimeToolConfig;
-  readonly agentRuntime?: AgentRuntime;
+  readonly auth?: ServiceAuthConfig | undefined;
+  readonly policies?: ServicePolicyConfig | undefined;
+  readonly persistence?: PersistenceConfig | undefined;
+  readonly repositories?: SidechatRepositories | undefined;
+  readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
+  readonly agentRuntime?: AgentRuntime | undefined;
   /** Capability declarations; concrete memory/RAG/research work still needs the ports below. */
-  readonly capabilities?: ServiceCapabilityConfig;
-  readonly turnGuards?: TurnGuardRegistryPort;
-  readonly turnGuardIds?: readonly string[];
-  readonly memory?: MemoryPort;
-  readonly memoryPolicy?: MemoryPolicy;
-  readonly ragRetriever?: RagRetrieverPort;
-  readonly retrievalSources?: readonly RetrievalSourceCapability[];
-  readonly researchAgent?: ResearchAgentPort;
-  readonly researchAgents?: readonly ResearchAgentCapability[];
+  readonly capabilities?: ServiceCapabilityConfig | undefined;
+  readonly turnGuards?: TurnGuardRegistryPort | undefined;
+  readonly turnGuardIds?: readonly string[] | undefined;
+  readonly memory?: MemoryPort | undefined;
+  readonly memoryPolicy?: MemoryPolicy | undefined;
+  readonly ragRetriever?: RagRetrieverPort | undefined;
+  readonly retrievalSources?: readonly RetrievalSourceCapability[] | undefined;
+  readonly researchAgent?: ResearchAgentPort | undefined;
+  readonly researchAgents?: readonly ResearchAgentCapability[] | undefined;
 };

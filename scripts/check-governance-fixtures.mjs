@@ -193,6 +193,22 @@ expectFailure("outbound fetch fixture", "check-outbound-rules.mjs", (root) => {
   );
 });
 
+expectFailure(
+  "undefined optional contract fixture",
+  "check-undefined-optional-contracts.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "packages/partner-ai-core/src/bad.ts",
+      [
+        "const maybeTraceId = '';",
+        "export const bad = { traceId: maybeTraceId || undefined };",
+        "",
+      ].join("\n"),
+    );
+  },
+);
+
 expectFailure("generated artifact header fixture", "check-generated-artifacts.mjs", (root) => {
   writeFixtureFile(
     root,

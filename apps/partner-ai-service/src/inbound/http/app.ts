@@ -11,7 +11,6 @@ import type {
 } from "@side-chat/partner-ai-core";
 import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
-import { optionalField } from "@side-chat/shared";
 import { Hono } from "hono";
 
 import { createServiceAuthVerifier, type ServiceAuthConfig } from "#adapters/auth/service-auth";
@@ -47,29 +46,29 @@ const DEFAULT_WORKSPACE: WorkspaceRef = {
  * the Hono app.
  */
 export type PartnerAiServiceOptions = {
-  readonly repositories?: SidechatRepositories;
-  readonly auth?: ServiceAuthConfig;
-  readonly observability?: ObservabilitySinkPort;
-  readonly policies?: ServicePolicyConfig;
-  readonly persistence?: PersistenceConfig;
-  readonly runtime?: RuntimeConfig & RuntimeToolConfig;
-  readonly agentRuntime?: AgentRuntime;
+  readonly repositories?: SidechatRepositories | undefined;
+  readonly auth?: ServiceAuthConfig | undefined;
+  readonly observability?: ObservabilitySinkPort | undefined;
+  readonly policies?: ServicePolicyConfig | undefined;
+  readonly persistence?: PersistenceConfig | undefined;
+  readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
+  readonly agentRuntime?: AgentRuntime | undefined;
   /**
    * Capability declarations forwarded to service composition.
    *
    * HTTP setup does not interpret these values; composition turns them into
    * manifest entries, context budgets, health status, and selected ports.
    */
-  readonly capabilities?: ServiceCapabilityConfig;
-  readonly turnGuards?: TurnGuardRegistryPort;
-  readonly turnGuardIds?: readonly string[];
-  readonly memory?: MemoryPort;
-  readonly memoryPolicy?: MemoryPolicy;
-  readonly ragRetriever?: RagRetrieverPort;
-  readonly retrievalSources?: readonly RetrievalSourceCapability[];
-  readonly researchAgent?: ResearchAgentPort;
-  readonly researchAgents?: readonly ResearchAgentCapability[];
-  readonly workspace?: WorkspaceRef;
+  readonly capabilities?: ServiceCapabilityConfig | undefined;
+  readonly turnGuards?: TurnGuardRegistryPort | undefined;
+  readonly turnGuardIds?: readonly string[] | undefined;
+  readonly memory?: MemoryPort | undefined;
+  readonly memoryPolicy?: MemoryPolicy | undefined;
+  readonly ragRetriever?: RagRetrieverPort | undefined;
+  readonly retrievalSources?: readonly RetrievalSourceCapability[] | undefined;
+  readonly researchAgent?: ResearchAgentPort | undefined;
+  readonly researchAgents?: readonly ResearchAgentCapability[] | undefined;
+  readonly workspace?: WorkspaceRef | undefined;
 };
 
 /**
@@ -119,7 +118,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     memory: composition.memory,
     runtime: composition.runtime,
     policies,
-    ...optionalField("observability", options.observability),
+    observability: options.observability,
   });
 
   return app;
@@ -129,19 +128,19 @@ export type PartnerAiServiceApp = ReturnType<typeof createPartnerAiServiceApp>;
 
 const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositionOptions => ({
   workspace: options.workspace ?? DEFAULT_WORKSPACE,
-  ...optionalField("auth", options.auth),
-  ...optionalField("policies", options.policies),
-  ...optionalField("persistence", options.persistence),
-  ...optionalField("repositories", options.repositories),
-  ...optionalField("runtime", options.runtime),
-  ...optionalField("agentRuntime", options.agentRuntime),
-  ...optionalField("capabilities", options.capabilities),
-  ...optionalField("turnGuards", options.turnGuards),
-  ...optionalField("turnGuardIds", options.turnGuardIds),
-  ...optionalField("memory", options.memory),
-  ...optionalField("memoryPolicy", options.memoryPolicy),
-  ...optionalField("ragRetriever", options.ragRetriever),
-  ...optionalField("retrievalSources", options.retrievalSources),
-  ...optionalField("researchAgent", options.researchAgent),
-  ...optionalField("researchAgents", options.researchAgents),
+  auth: options.auth,
+  policies: options.policies,
+  persistence: options.persistence,
+  repositories: options.repositories,
+  runtime: options.runtime,
+  agentRuntime: options.agentRuntime,
+  capabilities: options.capabilities,
+  turnGuards: options.turnGuards,
+  turnGuardIds: options.turnGuardIds,
+  memory: options.memory,
+  memoryPolicy: options.memoryPolicy,
+  ragRetriever: options.ragRetriever,
+  retrievalSources: options.retrievalSources,
+  researchAgent: options.researchAgent,
+  researchAgents: options.researchAgents,
 });

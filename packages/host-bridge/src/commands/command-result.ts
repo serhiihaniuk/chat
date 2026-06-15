@@ -1,4 +1,4 @@
-import { optionalField, type JsonObject } from "@side-chat/shared";
+import { omitUndefinedProperties, type JsonObject } from "@side-chat/shared";
 
 import type { HostCommand } from "./capability.js";
 
@@ -21,21 +21,22 @@ export type HostCommandResult = {
 export type CommandResultInput = {
   readonly status: HostCommandResultStatus;
   readonly resultCode: string;
-  readonly resolvedAt?: string;
-  readonly data?: JsonObject;
+  readonly resolvedAt?: string | undefined;
+  readonly data?: JsonObject | undefined;
 };
 
 export const createCommandResult = (
   command: HostCommand,
   input: CommandResultInput,
-): HostCommandResult => ({
-  commandId: command.commandId,
-  commandName: command.commandName,
-  status: input.status,
-  resultCode: input.resultCode,
-  resolvedAt: input.resolvedAt ?? new Date().toISOString(),
-  ...optionalField("data", input.data),
-});
+): HostCommandResult =>
+  omitUndefinedProperties({
+    commandId: command.commandId,
+    commandName: command.commandName,
+    status: input.status,
+    resultCode: input.resultCode,
+    resolvedAt: input.resolvedAt ?? new Date().toISOString(),
+    data: input.data,
+  });
 
 export const createUnsupportedResult = (
   command: HostCommand,

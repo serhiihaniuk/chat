@@ -5,7 +5,7 @@ import {
   type SidechatStreamEvent,
   type UsageMetadata,
 } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 
 import { ChatClientError } from "#http/errors";
 import { assertNotAborted, buildPathUrl, createHttpError } from "#http/http-helpers";
@@ -20,21 +20,21 @@ export type FetchLike = (input: string | URL | Request, init?: RequestInit) => P
 
 export type RetryPolicy = {
   readonly attempts: number;
-  readonly statuses?: readonly number[];
+  readonly statuses?: readonly number[] | undefined;
 };
 
 export type ChatClientOptions = {
   readonly baseUrl: string;
-  readonly historyPath?: string;
-  readonly streamPath?: string;
-  readonly fetch?: FetchLike;
-  readonly retry?: RetryPolicy;
-  readonly usagePath?: string;
+  readonly historyPath?: string | undefined;
+  readonly streamPath?: string | undefined;
+  readonly fetch?: FetchLike | undefined;
+  readonly retry?: RetryPolicy | undefined;
+  readonly usagePath?: string | undefined;
 };
 
 export type StreamChatOptions = {
-  readonly signal?: AbortSignal;
-  readonly retry?: RetryPolicy;
+  readonly signal?: AbortSignal | undefined;
+  readonly retry?: RetryPolicy | undefined;
 };
 
 export type StreamChatResult = {
@@ -43,8 +43,8 @@ export type StreamChatResult = {
 };
 
 export type ReadHistoryOptions = {
-  readonly limit?: number;
-  readonly signal?: AbortSignal;
+  readonly limit?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
 };
 
 export type ReadHistoryResult = {
@@ -53,7 +53,7 @@ export type ReadHistoryResult = {
 };
 
 export type ResetHistoryOptions = {
-  readonly signal?: AbortSignal;
+  readonly signal?: AbortSignal | undefined;
 };
 
 export type ResetHistoryResult = {
@@ -62,19 +62,17 @@ export type ResetHistoryResult = {
 };
 
 export type ReadUsageOptions = {
-  readonly signal?: AbortSignal;
+  readonly signal?: AbortSignal | undefined;
 };
 
 export type ChatClient = {
-  readonly readHistory?: (
-    conversationId: string,
-    options?: ReadHistoryOptions,
-  ) => Promise<ReadHistoryResult>;
-  readonly readUsage?: (options?: ReadUsageOptions) => Promise<UsageMetadata>;
-  readonly resetHistory?: (
-    conversationId: string,
-    options?: ResetHistoryOptions,
-  ) => Promise<ResetHistoryResult>;
+  readonly readHistory?:
+    | ((conversationId: string, options?: ReadHistoryOptions) => Promise<ReadHistoryResult>)
+    | undefined;
+  readonly readUsage?: ((options?: ReadUsageOptions) => Promise<UsageMetadata>) | undefined;
+  readonly resetHistory?:
+    | ((conversationId: string, options?: ResetHistoryOptions) => Promise<ResetHistoryResult>)
+    | undefined;
   readonly streamChat: (
     request: ChatStreamRequest,
     options?: StreamChatOptions,
@@ -183,15 +181,16 @@ const buildUrl = (options: ChatClientOptions): string => {
 const buildRequestInit = (
   request: ChatStreamRequest,
   signal: AbortSignal | undefined,
-): RequestInit => ({
-  method: "POST",
-  headers: {
-    accept: "text/event-stream",
-    "content-type": "application/json",
-  },
-  body: JSON.stringify(request),
-  ...optionalField("signal", signal),
-});
+): RequestInit =>
+  omitUndefinedProperties({
+    method: "POST",
+    headers: {
+      accept: "text/event-stream",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
 
 const readResponseBody = async function* (
   body: ReadableStream<Uint8Array>,

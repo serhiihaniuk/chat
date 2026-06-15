@@ -37,10 +37,10 @@ export type AgentRuntime = {
  * tools are actually used for that specific assistant turn.
  */
 export type AgentRuntimeOptions = {
-  readonly executors?: readonly AgentExecutor[];
+  readonly executors?: readonly AgentExecutor[] | undefined;
   readonly providers: readonly ModelProvider[];
-  readonly profiles?: readonly AssistantProfile[];
-  readonly tools?: readonly RuntimeTool[];
+  readonly profiles?: readonly AssistantProfile[] | undefined;
+  readonly tools?: readonly RuntimeTool[] | undefined;
 };
 
 type RuntimeExecution = {

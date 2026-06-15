@@ -27,12 +27,12 @@ export type RuntimeActivityStatus =
 
 export type RuntimeActivitySource = {
   readonly label: string;
-  readonly url?: string;
+  readonly url?: string | undefined;
 };
 
 export type RuntimeActivityImage = {
   readonly alt: string;
-  readonly caption?: string;
+  readonly caption?: string | undefined;
   readonly mediaType: string;
   readonly data: string;
 };
@@ -47,10 +47,10 @@ export type RuntimeActivityImage = {
 export type RuntimeActivityToolDetails = {
   readonly toolCallId: ToolCallId;
   readonly toolName: string;
-  readonly input?: JsonObject;
-  readonly result?: JsonObject;
-  readonly sources?: readonly RuntimeActivitySource[];
-  readonly errorCode?: string;
+  readonly input?: JsonObject | undefined;
+  readonly result?: JsonObject | undefined;
+  readonly sources?: readonly RuntimeActivitySource[] | undefined;
+  readonly errorCode?: string | undefined;
 };
 
 /**
@@ -60,7 +60,7 @@ export type RuntimeActivityToolDetails = {
  * become separate chat messages.
  */
 export type RuntimeActivityDetails = {
-  readonly sources?: readonly RuntimeActivitySource[];
-  readonly images?: readonly RuntimeActivityImage[];
-  readonly tool?: RuntimeActivityToolDetails;
+  readonly sources?: readonly RuntimeActivitySource[] | undefined;
+  readonly images?: readonly RuntimeActivityImage[] | undefined;
+  readonly tool?: RuntimeActivityToolDetails | undefined;
 };

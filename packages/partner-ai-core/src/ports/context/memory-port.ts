@@ -24,7 +24,7 @@ export type MemoryRecallInput = {
   readonly conversationId: string;
   readonly userMessage: string;
   readonly allowedScopes: readonly string[];
-  readonly abortSignal?: AbortSignal;
+  readonly abortSignal?: AbortSignal | undefined;
 };
 
 /**
@@ -40,7 +40,7 @@ export type MemoryRecord = {
   readonly content: string;
   readonly confidence: number;
   readonly updatedAt: string;
-  readonly metadata?: JsonObject;
+  readonly metadata?: JsonObject | undefined;
 };
 
 /**
@@ -57,7 +57,7 @@ export type MemoryWriteCandidate = {
   readonly reason: string;
   readonly confidence: number;
   readonly sourceTurnId: string;
-  readonly metadata?: JsonObject;
+  readonly metadata?: JsonObject | undefined;
 };
 
 /**

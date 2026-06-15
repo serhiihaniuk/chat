@@ -1,5 +1,4 @@
 import { RUNTIME_EVENT_TYPES, type RuntimeEvent } from "../../contract/runtime-event.js";
-import { optionalField } from "@side-chat/shared";
 import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
 import {
   RUNTIME_ACTIVITY_KINDS,
@@ -85,7 +84,7 @@ const createReasoningActivity = (
     sequence,
     status,
     title: presentation.title,
-    ...optionalField("body", presentation.body || undefined),
+    body: presentation.body,
   };
 };
 
@@ -97,14 +96,14 @@ const createReasoningActivity = (
  */
 const toReasoningPresentation = (
   reasoningText: string,
-): { readonly title: string; readonly body?: string } | undefined => {
+): { readonly title: string; readonly body?: string | undefined } | undefined => {
   const normalized = reasoningText.replace(/\s+/gu, " ").trim();
   if (!normalized) return undefined;
 
   const titledContent = /^\*\*(?<title>[^*]+)\*\*\s*(?<body>.*)$/su.exec(normalized);
   const title = stripInlineMarkdown(titledContent?.groups?.["title"] ?? "");
   const body = titledContent?.groups?.["body"]?.trim();
-  if (title) return { title, ...optionalField("body", body || undefined) };
+  if (title) return { title, body: body === "" ? undefined : body };
 
   const fallbackTitle = stripInlineMarkdown(normalized).replace(/\*/gu, "").trim();
   return {

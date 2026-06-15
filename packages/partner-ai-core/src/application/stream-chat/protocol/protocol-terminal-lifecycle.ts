@@ -1,5 +1,5 @@
 import { PROTOCOL_ERROR_CODES, type ProtocolErrorCode } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import { Effect, Ref } from "effect";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
@@ -51,17 +51,20 @@ export const finalizeProtocolStream = (
 
     // Observability closes the lifecycle after persistence so diagnostics match
     // the durable turn state.
-    yield* recordStreamObservationEffect(ports.observability, {
-      correlation: turn.correlation,
-      lifecycleState: terminalCode ? "failed" : "completed",
-      assistantTurnId: turn.assistantTurnId,
-      providerId: turn.policyDecision.providerId,
-      modelId: turn.policyDecision.modelId,
-      ...optionalField("errorCode", terminalCode),
-      startedAt: turn.startedAt,
-      now: ports.clock.now(),
-      attributes: { eventCount: state.eventCount },
-    });
+    yield* recordStreamObservationEffect(
+      ports.observability,
+      omitUndefinedProperties({
+        correlation: turn.correlation,
+        lifecycleState: terminalCode ? "failed" : "completed",
+        assistantTurnId: turn.assistantTurnId,
+        providerId: turn.policyDecision.providerId,
+        modelId: turn.policyDecision.modelId,
+        errorCode: terminalCode,
+        startedAt: turn.startedAt,
+        now: ports.clock.now(),
+        attributes: { eventCount: state.eventCount },
+      }),
+    );
   });
 
 const validateTerminalOrFailTurn = (
@@ -111,18 +114,20 @@ const completeAssistantTurnFromAccumulator = (
     // Persist assistant content from the accumulator rather than replaying the
     // protocol event stream; long streams should not be retained only for this.
     yield* mapPortFailure(
-      ports.assistantTurns.completeAssistantTurn({
-        authContext: turn.authContext,
-        conversation: turn.conversation,
-        request: input.request,
-        assistantTurnId: turn.assistantTurnId,
-        assistantContent: accumulator.assistantContent,
-        finishReason: completed.finishReason,
-        ...optionalField("usage", completed.usage),
-        providerId: turn.policyDecision.providerId,
-        modelId: turn.policyDecision.modelId,
-        now: completed.createdAt,
-      }),
+      ports.assistantTurns.completeAssistantTurn(
+        omitUndefinedProperties({
+          authContext: turn.authContext,
+          conversation: turn.conversation,
+          request: input.request,
+          assistantTurnId: turn.assistantTurnId,
+          assistantContent: accumulator.assistantContent,
+          finishReason: completed.finishReason,
+          usage: completed.usage,
+          providerId: turn.policyDecision.providerId,
+          modelId: turn.policyDecision.modelId,
+          now: completed.createdAt,
+        }),
+      ),
       STREAM_CHAT_FAILURES.PERSISTENCE,
     );
 

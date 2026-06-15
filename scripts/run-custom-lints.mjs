@@ -14,6 +14,7 @@ const checks = [
   "check-widget-layers.mjs",
   "check-runtime-boundaries.mjs",
   "check-outbound-rules.mjs",
+  "check-undefined-optional-contracts.mjs",
   "check-code-shape.mjs",
   "check-source-governance.mjs",
   "check-human-readability.mjs",

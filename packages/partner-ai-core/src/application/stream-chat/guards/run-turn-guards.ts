@@ -1,4 +1,3 @@
-import { optionalField } from "@side-chat/shared";
 import { Effect } from "effect";
 import type { AuthContext } from "#domain/authority";
 import {
@@ -101,7 +100,7 @@ const createTurnGuardInput = (
   hostAppId: input.hostAppId,
   profileId: turnPlan.policyDecision.profileId,
   safetyPolicyId: turnPlan.profile.safetyPolicy.policyId,
-  ...optionalField("abortSignal", input.abortSignal),
+  abortSignal: input.abortSignal,
 });
 
 const toBlockedTurnGuardError = (decision: Extract<TurnGuardDecision, { kind: "block" }>) =>

@@ -1,25 +1,24 @@
 import type { AuditActor, AuthContext, SubjectRef, WorkspaceRef } from "@side-chat/partner-ai-core";
 import type { HostContext } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
 
 export const DEFAULT_DEV_BEARER_TOKEN = "Bearer local-test-token";
 
 export type DevelopmentAuthConfig = {
   readonly profile: "development";
-  readonly devBearerToken?: string;
+  readonly devBearerToken?: string | undefined;
   readonly workspace: WorkspaceRef;
-  readonly subject?: SubjectRef;
-  readonly actor?: AuditActor;
-  readonly issuedAt?: string;
+  readonly subject?: SubjectRef | undefined;
+  readonly actor?: AuditActor | undefined;
+  readonly issuedAt?: string | undefined;
 };
 
 export type ProductionAuthConfig = {
   readonly profile: "production";
-  readonly trustedBearerToken?: string;
+  readonly trustedBearerToken?: string | undefined;
   readonly workspace: WorkspaceRef;
-  readonly subject?: SubjectRef;
-  readonly actor?: AuditActor;
-  readonly issuedAt?: string;
+  readonly subject?: SubjectRef | undefined;
+  readonly actor?: AuditActor | undefined;
+  readonly issuedAt?: string | undefined;
 };
 
 export type ServiceAuthConfig = DevelopmentAuthConfig | ProductionAuthConfig;
@@ -31,8 +30,8 @@ export type HostProvidedContext = Pick<
 
 export type ServiceAuthInput = {
   readonly requestId: string;
-  readonly bearerToken?: string;
-  readonly hostContext?: HostProvidedContext;
+  readonly bearerToken?: string | undefined;
+  readonly hostContext?: HostProvidedContext | undefined;
 };
 
 export type ServiceAuthVerifier = {
@@ -97,7 +96,7 @@ const toAuthContext = (config: ServiceAuthConfig, hostOrigin: string | undefined
     roles: ["member"],
     scopes: ["conversation:read", "conversation:write", "message:write"],
     source: config.profile === "production" ? "signed_service_token" : "test_authority",
-    ...optionalField("hostOrigin", hostOrigin || undefined),
+    hostOrigin: hostOrigin === "" ? undefined : hostOrigin,
     issuedAt: config.issuedAt ?? "2026-05-23T13:00:00.000Z",
   };
 };

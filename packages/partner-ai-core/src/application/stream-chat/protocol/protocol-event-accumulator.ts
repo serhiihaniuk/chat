@@ -4,7 +4,6 @@ import {
   type ProtocolErrorCode,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-import { optionalField } from "@side-chat/shared";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
@@ -36,10 +35,10 @@ type ProtocolTerminalEvent = Extract<
 export type ProtocolEventAccumulator = {
   readonly eventCount: number;
   readonly terminalCount: number;
-  readonly terminalEvent?: ProtocolTerminalEvent;
-  readonly completedEvent?: CompletedEvent;
+  readonly terminalEvent?: ProtocolTerminalEvent | undefined;
+  readonly completedEvent?: CompletedEvent | undefined;
   readonly assistantContent: string;
-  readonly invalidReason?: string;
+  readonly invalidReason?: string | undefined;
 };
 
 /** Initial accumulator before `sidechat.started` is remembered. */
@@ -66,10 +65,10 @@ export const recordProtocolEvent = (
   return {
     eventCount: accumulator.eventCount + 1,
     terminalCount: accumulator.terminalCount + (isTerminalEvent(event) ? 1 : 0),
-    ...optionalField("terminalEvent", terminalEvent),
-    ...optionalField("completedEvent", completedEvent),
+    terminalEvent,
+    completedEvent,
     assistantContent: appendAssistantContent(accumulator.assistantContent, event),
-    ...optionalField("invalidReason", invalidReason),
+    invalidReason,
   };
 };
 

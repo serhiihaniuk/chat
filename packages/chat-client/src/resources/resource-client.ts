@@ -1,5 +1,5 @@
 import type { UsageMetadata } from "@side-chat/chat-protocol";
-import { isRecord, optionalField } from "@side-chat/shared";
+import { isRecord, omitUndefinedProperties } from "@side-chat/shared";
 
 import { ChatClientError } from "#http/errors";
 import { assertNotAborted, buildPathUrl, createHttpError, withSignal } from "#http/http-helpers";
@@ -136,11 +136,11 @@ const normalizeUsage = (payload: unknown): UsageMetadata => {
     throw new ChatClientError("network_error", "Malformed usage response");
   }
 
-  return {
-    ...optionalField("inputTokens", inputTokens),
-    ...optionalField("outputTokens", outputTokens),
-    ...optionalField("totalTokens", totalTokens),
-  };
+  return omitUndefinedProperties({
+    inputTokens,
+    outputTokens,
+    totalTokens,
+  });
 };
 
 const isOptionalNumber = (value: unknown): value is number | undefined =>

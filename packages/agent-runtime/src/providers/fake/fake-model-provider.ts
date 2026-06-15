@@ -8,8 +8,8 @@ export const FAKE_PROVIDER_ID = "fake" as const;
 export const FAKE_ECHO_MODEL_ID = "fake-echo" as const;
 
 export type FakeProviderOptions = {
-  readonly providerId?: string;
-  readonly modelIds?: readonly string[];
+  readonly providerId?: string | undefined;
+  readonly modelIds?: readonly string[] | undefined;
 };
 
 export const createFakeProvider = (options: FakeProviderOptions = {}): ModelProvider => {

@@ -12,7 +12,6 @@ import {
   type HostCommandActivityEvent,
   type HostCommandResult,
 } from "@side-chat/host-bridge";
-import { optionalField } from "@side-chat/shared";
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 
 import {
@@ -244,7 +243,7 @@ const createFailedHostCommandResult = (
   createCommandResult(toHostCommand(event), {
     status: "failed",
     resultCode,
-    ...optionalField("data", error ? toJsonObject({ message: toErrorMessage(error) }) : undefined),
+    data: error ? toJsonObject({ message: toErrorMessage(error) }) : undefined,
   });
 
 const toHostCommandResultJson = (result: HostCommandResult): JsonObject =>

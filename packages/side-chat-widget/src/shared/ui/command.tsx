@@ -225,7 +225,7 @@ function CommandItem({
 
   return (
     <div
-      aria-disabled={disabled || undefined}
+      aria-disabled={disabled ? true : undefined}
       data-disabled={disabled ? "true" : undefined}
       data-slot="command-item"
       hidden={!matchesQuery}
