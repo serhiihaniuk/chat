@@ -38,6 +38,14 @@ const DEFAULT_WORKSPACE: WorkspaceRef = {
   workspaceId: "workspace_local",
 };
 
+/**
+ * HTTP-facing options for embedding the service in tests, local boot, or a host app.
+ *
+ * These inputs are still service-layer dependencies. `createPartnerAiServiceApp`
+ * forwards them into composition and route registration; it does not reinterpret
+ * product policy, rebuild runtime providers, or expose adapter secrets through
+ * the Hono app.
+ */
 export type PartnerAiServiceOptions = {
   readonly repositories?: SidechatRepositories;
   readonly auth?: ServiceAuthConfig;
@@ -61,6 +69,7 @@ export type PartnerAiServiceOptions = {
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
   readonly researchAgent?: ResearchAgentPort;
   readonly researchAgents?: readonly ResearchAgentCapability[];
+  /** Safe display label for diagnostics; does not change the selected repositories. */
   readonly persistenceLabel?: "memory" | "postgres-drizzle";
   readonly workspace?: WorkspaceRef;
 };

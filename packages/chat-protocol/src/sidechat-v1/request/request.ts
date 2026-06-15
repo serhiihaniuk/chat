@@ -5,14 +5,20 @@ import {
   isRecord,
   readString,
   requireString,
+  toConversationId,
+  toMessageId,
+  toRequestId,
   type JsonObject,
+  type ConversationId,
+  type MessageId,
   type ProtocolEnvelope,
+  type RequestId,
 } from "../primitives.js";
 
 export type ChatMessageRole = "user" | "assistant" | "system";
 
 export type ChatRequestMessage = {
-  readonly id: string;
+  readonly id: MessageId;
   readonly role: ChatMessageRole;
   readonly content: string;
 };
@@ -26,8 +32,8 @@ export type HostContext = {
 };
 
 export type ChatStreamRequest = ProtocolEnvelope & {
-  readonly requestId: string;
-  readonly conversationId?: string;
+  readonly requestId: RequestId;
+  readonly conversationId?: ConversationId;
   readonly assistantProfileId?: string;
   readonly message: ChatRequestMessage;
   readonly hostContext?: HostContext;
@@ -45,9 +51,9 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
   try {
     if (!isRecord(input)) throw new Error("request must be an object");
     const protocolVersion = assertProtocolVersion(input["protocolVersion"], "request");
-    const requestId = requireString(input, "requestId", "request");
+    const requestId = toRequestId(requireString(input, "requestId", "request"));
     const message = parseMessage(input["message"]);
-    const conversationId = readString(input, "conversationId");
+    const conversationId = readOptionalConversationId(input);
     const assistantProfileId = readString(input, "assistantProfileId");
     const hostContext = parseHostContext(input["hostContext"]);
 
@@ -67,13 +73,18 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
 
 const parseMessage = (input: unknown): ChatRequestMessage => {
   if (!isRecord(input)) throw new Error("request.message must be an object");
-  const id = requireString(input, "id", "request.message");
+  const id = toMessageId(requireString(input, "id", "request.message"));
   const content = requireString(input, "content", "request.message");
   const role = input["role"];
   if (typeof role !== "string" || !messageRoles.has(role as ChatMessageRole)) {
     throw new Error("request.message.role must be user, assistant, or system");
   }
   return { id, role: role as ChatMessageRole, content };
+};
+
+const readOptionalConversationId = (input: Record<string, unknown>): ConversationId | undefined => {
+  const conversationId = readString(input, "conversationId");
+  return conversationId ? toConversationId(conversationId) : undefined;
 };
 
 // Host context is optional page metadata from the browser. It helps explain

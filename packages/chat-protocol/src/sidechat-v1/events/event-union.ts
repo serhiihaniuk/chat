@@ -1,5 +1,16 @@
 import type { ProtocolErrorCode } from "../errors.js";
-import type { JsonObject, ProtocolEnvelope } from "../primitives.js";
+import type {
+  ActivityId,
+  AssistantTurnId,
+  ConversationId,
+  EventId,
+  HostCommandId,
+  JsonObject,
+  MessageId,
+  ProtocolEnvelope,
+  ProtocolSequence,
+  ToolCallId,
+} from "../primitives.js";
 
 export const SIDECHAT_EVENT_TYPES = {
   STARTED: "sidechat.started",
@@ -31,15 +42,15 @@ export type ActivityStatus = (typeof ACTIVITY_STATUSES)[keyof typeof ACTIVITY_ST
 
 export type SidechatEventBase = ProtocolEnvelope & {
   readonly type: SidechatEventType;
-  readonly eventId: string;
-  readonly assistantTurnId: string;
-  readonly sequence: number;
+  readonly eventId: EventId;
+  readonly assistantTurnId: AssistantTurnId;
+  readonly sequence: ProtocolSequence;
   readonly createdAt: string;
 };
 
 export type StartedEvent = SidechatEventBase & {
   readonly type: typeof SIDECHAT_EVENT_TYPES.STARTED;
-  readonly conversationId?: string;
+  readonly conversationId?: ConversationId;
 };
 
 export type DeltaEvent = SidechatEventBase & {
@@ -60,7 +71,7 @@ export type ActivityImage = {
 };
 
 export type ActivityToolDetails = {
-  readonly toolCallId: string;
+  readonly toolCallId: ToolCallId;
   readonly toolName: string;
   readonly input?: JsonObject;
   readonly result?: JsonObject;
@@ -69,7 +80,7 @@ export type ActivityToolDetails = {
 };
 
 export type ActivityHostCommandDetails = {
-  readonly commandId: string;
+  readonly commandId: HostCommandId;
   readonly commandName: string;
   readonly payload: JsonObject;
   readonly result?: JsonObject;
@@ -84,7 +95,7 @@ export type ActivityDetails = {
 
 export type ActivityEvent = SidechatEventBase & {
   readonly type: typeof SIDECHAT_EVENT_TYPES.ACTIVITY;
-  readonly activityId: string;
+  readonly activityId: ActivityId;
   readonly activityKind: ActivityKind;
   readonly status: ActivityStatus;
   readonly title: string;
@@ -111,10 +122,10 @@ export type HistoryEvent = SidechatEventBase & {
 };
 
 export type HistoryMessage = {
-  readonly id: string;
+  readonly id: MessageId;
   readonly role: "user" | "assistant" | "system";
   readonly content: string;
-  readonly sequence: number;
+  readonly sequence: ProtocolSequence;
 };
 
 export type UsageMetadata = {

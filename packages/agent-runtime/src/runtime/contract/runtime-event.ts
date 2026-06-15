@@ -3,6 +3,14 @@ import type {
   RuntimeActivityKind,
   RuntimeActivityStatus,
 } from "./runtime-activity.js";
+import type {
+  AssistantTurnId,
+  ModelId,
+  ProviderId,
+  RequestId,
+  RuntimeActivityId,
+  RuntimeSequence,
+} from "./ids/runtime-ids.js";
 
 export const RUNTIME_EVENT_TYPES = {
   STARTED: "runtime.started",
@@ -47,15 +55,15 @@ export type RuntimeFinishReason =
  * `sequence` increases in emit order for one assistant turn.
  */
 export type RuntimeEventBase = {
-  readonly requestId: string;
-  readonly assistantTurnId: string;
-  readonly sequence: number;
+  readonly requestId: RequestId;
+  readonly assistantTurnId: AssistantTurnId;
+  readonly sequence: RuntimeSequence;
 };
 
 export type RuntimeStartedEvent = RuntimeEventBase & {
   readonly type: typeof RUNTIME_EVENT_TYPES.STARTED;
-  readonly providerId: string;
-  readonly modelId: string;
+  readonly providerId: ProviderId;
+  readonly modelId: ModelId;
 };
 
 export type RuntimeOutputDeltaEvent = RuntimeEventBase & {
@@ -65,7 +73,7 @@ export type RuntimeOutputDeltaEvent = RuntimeEventBase & {
 
 export type RuntimeActivityEvent = RuntimeEventBase & {
   readonly type: typeof RUNTIME_EVENT_TYPES.ACTIVITY;
-  readonly activityId: string;
+  readonly activityId: RuntimeActivityId;
   readonly activityKind: RuntimeActivityKind;
   readonly status: RuntimeActivityStatus;
   readonly title: string;

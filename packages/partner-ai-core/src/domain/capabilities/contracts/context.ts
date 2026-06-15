@@ -1,9 +1,10 @@
-import type { JsonObject } from "@side-chat/shared";
+import { brandString, type Brand, type JsonObject } from "@side-chat/shared";
 import type {
   AssistantProfile,
   ContextCandidateSourceType,
   ContextRedactionClass,
   ContextTrustLevel,
+  ProfileId,
   TurnPolicyDecision,
 } from "./capabilities.js";
 import type { ContextAdmissionPolicy, HistoryContextMode } from "./capability-configuration.js";
@@ -24,6 +25,24 @@ import type { ResearchArtifact } from "./research-artifacts.js";
 
 type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
 
+export type ContextId = Brand<string, "ContextId">;
+export type ContextCandidateId = Brand<string, "ContextCandidateId">;
+export type ContextSourceId = Brand<string, "ContextSourceId">;
+export type ContextManifestId = Brand<string, "ContextManifestId">;
+export type ContextManifestHash = Brand<string, "ContextManifestHash">;
+export type MessageId = Brand<string, "MessageId">;
+
+export const toContextId = (value: string): ContextId => brandString<"ContextId">(value);
+export const toContextCandidateId = (value: string): ContextCandidateId =>
+  brandString<"ContextCandidateId">(value);
+export const toContextSourceId = (value: string): ContextSourceId =>
+  brandString<"ContextSourceId">(value);
+export const toContextManifestId = (value: string): ContextManifestId =>
+  brandString<"ContextManifestId">(value);
+export const toContextManifestHash = (value: string): ContextManifestHash =>
+  brandString<"ContextManifestHash">(value);
+export const toMessageId = (value: string): MessageId => brandString<"MessageId">(value);
+
 export const CONTEXT_ADMISSION_SELECTION_MODES = {
   INCLUDE_ALL: "include_all",
   BUDGETED: "budgeted",
@@ -39,7 +58,7 @@ export type ContextAdmissionSelectionMode = ObjectValue<typeof CONTEXT_ADMISSION
  * provider-native metadata, or private repository records.
  */
 export type ContextCandidateProvenance = {
-  readonly sourceId: string;
+  readonly sourceId: ContextSourceId;
   readonly label: string;
   readonly url?: string;
 };
@@ -52,9 +71,9 @@ export type ContextCandidateProvenance = {
  * provenance, trust, redaction, and token estimates without adapter internals.
  */
 export type ContextCandidate = {
-  readonly candidateId: string;
+  readonly candidateId: ContextCandidateId;
   readonly sourceType: ContextCandidateSourceType;
-  readonly sourceId: string;
+  readonly sourceId: ContextSourceId;
   readonly trustLevel: ContextTrustLevel;
   readonly redactionClass: ContextRedactionClass;
   readonly content: string;
@@ -97,8 +116,8 @@ export type ContextBudgetDecision = {
   readonly reservedOutputTokens: number;
   /** Source caps recorded from configuration, in approximate tokens. */
   readonly sourceTokenBudgets: ContextSourceTokenBudgets;
-  readonly includedCandidateIds: readonly string[];
-  readonly droppedCandidateIds: readonly string[];
+  readonly includedCandidateIds: readonly ContextCandidateId[];
+  readonly droppedCandidateIds: readonly ContextCandidateId[];
 };
 
 /**
@@ -109,9 +128,9 @@ export type ContextBudgetDecision = {
  * and diagnostics can explain admission without copying model-visible content.
  */
 export type ContextManifestEntry = {
-  readonly candidateId: string;
+  readonly candidateId: ContextCandidateId;
   readonly sourceType: ContextCandidateSourceType;
-  readonly sourceId: string;
+  readonly sourceId: ContextSourceId;
   readonly trustLevel: ContextTrustLevel;
   readonly redactionClass: ContextRedactionClass;
   readonly estimatedTokens: number;
@@ -126,9 +145,9 @@ export type ContextManifestEntry = {
  * internals.
  */
 export type ContextManifest = {
-  readonly manifestId: string;
-  readonly manifestHash: string;
-  readonly profileId: string;
+  readonly manifestId: ContextManifestId;
+  readonly manifestHash: ContextManifestHash;
+  readonly profileId: ProfileId;
   readonly profileVersion: string;
   readonly entries: readonly ContextManifestEntry[];
   readonly history: HistoryContextManifest;
@@ -172,7 +191,7 @@ export type PreparedHistoryMessageRole = "user" | "assistant";
  * crossing from persistence into core.
  */
 export type PreparedHistoryMessage = {
-  readonly messageId: string;
+  readonly messageId: MessageId;
   readonly sequenceIndex: number;
   readonly role: PreparedHistoryMessageRole;
   readonly content: string;
@@ -183,7 +202,7 @@ export type PreparedHistoryMessage = {
 export type HistoryContextDropReason = "message_limit" | "token_limit";
 
 export type HistoryContextManifestMessage = {
-  readonly messageId: string;
+  readonly messageId: MessageId;
   readonly sequenceIndex: number;
   readonly role: PreparedHistoryMessageRole;
   readonly estimatedTokens: number;
@@ -228,7 +247,7 @@ export type PreparedRuntimeMessage = {
  * memory, retrieval, research, or conversation history.
  */
 export type PreparedTurnContext = {
-  readonly contextId: string;
+  readonly contextId: ContextId;
   readonly profile: AssistantProfile;
   readonly policyDecision: TurnPolicyDecision;
   readonly history: HistoryContextManifest;

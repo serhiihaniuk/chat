@@ -6,6 +6,14 @@ import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
 import type { AuthContextVariables } from "../../middleware/auth-context.js";
 
+/**
+ * Register secret-safe liveness and readiness diagnostics.
+ *
+ * Requests to `/healthz` and `/readyz` receive status from the composed service
+ * graph: protocol version, selected runtime ids, adapter labels, and scrubbed
+ * capability status. Auth tokens, database URLs, provider options, retrieved
+ * context, memory records, and raw runtime/provider errors stay hidden.
+ */
 export const registerHealthRoutes = (
   app: Hono<AuthContextVariables>,
   options: {

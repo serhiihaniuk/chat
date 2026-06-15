@@ -2,6 +2,7 @@ import { ProtocolValidationError } from "../errors.js";
 import { isRecord } from "../primitives.js";
 import { SIDECHAT_PROTOCOL_VERSION } from "../version.js";
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "../events/event-union.js";
+import { toBrandedSidechatEvent } from "./sidechat-event-branding.js";
 
 const eventTypes = new Set<string>(Object.values(SIDECHAT_EVENT_TYPES));
 
@@ -15,7 +16,7 @@ export const parseSidechatStreamEvent = (input: unknown): SidechatStreamEvent =>
   try {
     const event = parseEventEnvelope(input);
     validatePayload(event);
-    return event as SidechatStreamEvent;
+    return toBrandedSidechatEvent(event);
   } catch (error) {
     const message = error instanceof Error ? error.message : "invalid event";
     throw new ProtocolValidationError(message);
@@ -93,7 +94,7 @@ const requireOneOf = (value: unknown, allowed: readonly string[], label: string)
 };
 
 const requireNonNegativeInteger = (value: unknown, label: string): void => {
-  if (!Number.isInteger(value) || (value as number) < 0) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
     throw new Error(`${label} must be a non-negative integer`);
   }
 };

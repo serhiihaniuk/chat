@@ -1,4 +1,5 @@
 import type { JsonObject } from "@side-chat/shared";
+import type { ToolCallId } from "./ids/runtime-ids.js";
 
 export const RUNTIME_ACTIVITY_KINDS = {
   PROGRESS: "progress",
@@ -44,7 +45,7 @@ export type RuntimeActivityImage = {
  * expect a thrown value here.
  */
 export type RuntimeActivityToolDetails = {
-  readonly toolCallId: string;
+  readonly toolCallId: ToolCallId;
   readonly toolName: string;
   readonly input?: JsonObject;
   readonly result?: JsonObject;

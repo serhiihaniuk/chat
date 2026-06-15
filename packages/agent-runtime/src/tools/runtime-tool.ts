@@ -4,14 +4,26 @@ import type { JsonObject } from "@side-chat/shared";
 
 import type { AgentRuntimeError } from "#runtime/contract/runtime-error";
 import type { RuntimeActivitySource } from "#runtime/contract/runtime-activity";
+import type {
+  AssistantTurnId,
+  ConversationId,
+  HostAppId,
+  ModelId,
+  ProfileId,
+  ProviderId,
+  RequestId,
+  SubjectId,
+  ToolCallId,
+  WorkspaceId,
+} from "#runtime/contract/ids/runtime-ids";
 
 export type RuntimeToolScope = {
-  readonly hostAppId: string;
-  readonly workspaceId: string;
-  readonly subjectId: string;
-  readonly conversationId: string;
-  readonly assistantTurnId: string;
-  readonly profileId: string;
+  readonly hostAppId: HostAppId;
+  readonly workspaceId: WorkspaceId;
+  readonly subjectId: SubjectId;
+  readonly conversationId: ConversationId;
+  readonly assistantTurnId: AssistantTurnId;
+  readonly profileId: ProfileId;
   readonly allowedHostCommandNames?: readonly string[];
 };
 
@@ -22,13 +34,13 @@ export type RuntimeToolScope = {
  * know the concrete finance, PDF, CRM, host-command, or test services behind it.
  */
 export type RuntimeToolContext = {
-  readonly requestId: string;
-  readonly assistantTurnId: string;
+  readonly requestId: RequestId;
+  readonly assistantTurnId: AssistantTurnId;
   readonly scope?: RuntimeToolScope;
-  readonly providerId?: string;
-  readonly modelId: string;
+  readonly providerId?: ProviderId;
+  readonly modelId: ModelId;
   readonly toolName: string;
-  readonly toolCallId?: string;
+  readonly toolCallId?: ToolCallId;
   readonly abortSignal?: AbortSignal;
 };
 

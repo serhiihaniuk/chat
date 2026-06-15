@@ -16,6 +16,13 @@ import {
 } from "./service-capability-settings.js";
 import type { CapabilityStatus } from "./capability-status.js";
 
+/**
+ * Turns manifest declarations and injected adapter presence into health status.
+ *
+ * Inputs from the final manifest and service options become secret-safe status
+ * rows for health routes. They preserve only ids, counts, and adapter labels;
+ * credentials, retrieved text, memory content, and provider errors stay hidden.
+ */
 type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
 
 export const CAPABILITY_STATES = {

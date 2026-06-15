@@ -6,6 +6,11 @@ import {
   CONTEXT_CANDIDATE_SOURCE_TYPES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
+  toContextCandidateId,
+  toContextSourceId,
+  toResearchAgentId,
+  toResearchArtifactId,
+  toResearchRunId,
   type ContextCandidate,
   type ResearchArtifact,
   type TurnPolicyDecision,
@@ -146,11 +151,13 @@ const createResearchArtifact = (
   const summary = output.summary.trim();
   if (summary.length === 0) return undefined;
 
-  const artifactId = output.artifactId ?? `research_artifact_${request.requestId}`;
+  const artifactId = toResearchArtifactId(
+    output.artifactId ?? `research_artifact_${request.requestId}`,
+  );
   return {
     artifactId,
-    researchRunId: `${researchAgentId}_${request.requestId}`,
-    researchAgentId,
+    researchRunId: toResearchRunId(`${researchAgentId}_${request.requestId}`),
+    researchAgentId: toResearchAgentId(researchAgentId),
     artifactKind: "research_summary",
     contentType: "application/json",
     payload: {
@@ -167,18 +174,18 @@ const toResearchSummaryCandidate = (
   artifact: ResearchArtifact,
   metadata: JsonObject | undefined,
 ): ContextCandidate => ({
-  candidateId: `research_summary_${artifact.artifactId}`,
+  candidateId: toContextCandidateId(`research_summary_${artifact.artifactId}`),
   sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_ARTIFACT,
-  sourceId: artifact.artifactId,
+  sourceId: toContextSourceId(artifact.artifactId),
   trustLevel: CONTEXT_TRUST_LEVELS.GENERATED,
   redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
   content: summary,
   estimatedTokens: estimateTokens(summary),
   priority: 78,
-  provenance: { sourceId: artifact.artifactId, label: "Research summary" },
+  provenance: { sourceId: toContextSourceId(artifact.artifactId), label: "Research summary" },
   metadata: {
-    researchRunId: artifact.researchRunId,
-    researchAgentId: artifact.researchAgentId,
+    researchRunId: `${artifact.researchRunId}`,
+    researchAgentId: `${artifact.researchAgentId}`,
     ...optionalField("research", metadata),
   },
 });
@@ -187,7 +194,7 @@ const toResearchSourceContextCandidate = (
   source: ResearchSourceCandidate,
   artifact: ResearchArtifact | undefined,
 ): ContextCandidate => ({
-  candidateId: `research_${source.candidateId}`,
+  candidateId: toContextCandidateId(`research_${source.candidateId}`),
   sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_RESULT,
   sourceId: source.sourceId,
   trustLevel: source.trustLevel,

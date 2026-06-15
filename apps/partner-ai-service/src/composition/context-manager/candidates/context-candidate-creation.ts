@@ -2,6 +2,8 @@ import {
   CONTEXT_CANDIDATE_SOURCE_TYPES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
+  toContextCandidateId,
+  toContextSourceId,
   type ContextCandidate,
 } from "@side-chat/partner-ai-core";
 import { createHostContextCandidates } from "../../context-candidates/service-host-context.js";
@@ -28,16 +30,16 @@ export const createContextCandidates = (
 ];
 
 const createCurrentMessageCandidate = (input: PrepareTurnContextInput): ContextCandidate => ({
-  candidateId: `message_${input.request.message.id}`,
+  candidateId: toContextCandidateId(`message_${input.request.message.id}`),
   sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.CURRENT_MESSAGE,
-  sourceId: input.request.message.id,
+  sourceId: toContextSourceId(input.request.message.id),
   trustLevel: CONTEXT_TRUST_LEVELS.USER_PROVIDED,
   redactionClass: CONTEXT_REDACTION_CLASSES.USER_CONFIDENTIAL,
   content: input.request.message.content,
   estimatedTokens: estimateTokens(input.request.message.content),
   priority: 100,
   provenance: {
-    sourceId: input.request.message.id,
+    sourceId: toContextSourceId(input.request.message.id),
     label: "Current user message",
   },
 });

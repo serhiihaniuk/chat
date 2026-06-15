@@ -3,6 +3,7 @@ export * from "./providers/model-provider.js";
 export * from "./providers/openai/openai-model-provider.js";
 export * from "./runtime/agent-runtime.js";
 export * from "./runtime/contract/runtime-error.js";
+export * from "./runtime/contract/ids/runtime-ids.js";
 export * from "./runtime/contract/runtime-activity.js";
 export * from "./runtime/contract/runtime-event.js";
 export * from "./runtime/contract/runtime-request.js";

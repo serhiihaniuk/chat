@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { toTargetId } from "#schema-contract";
 import type { SidechatRepositories } from "#repositories/contract";
 
 const now = "2026-05-23T13:00:00.000Z";
@@ -214,7 +215,7 @@ export const sidechatRepositoryContract = (
           actorId: actorId(scope),
           eventType: "conversation.created",
           targetType: "conversation",
-          targetId: conversation.conversationId,
+          targetId: toTargetId(conversation.conversationId),
           requestId: "request_1",
           metadataJson: {},
           now,

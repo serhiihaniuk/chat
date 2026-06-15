@@ -6,26 +6,8 @@ import {
   FAKE_PROVIDER_ID,
   OPENAI_PROVIDER_ID,
   type AgentRuntime,
-  type AgentExecutor,
   type ModelProvider,
-  type RuntimeTool,
 } from "@side-chat/agent-runtime";
-import {
-  type ContextManagerPort,
-  type ApprovalPolicy,
-  type HostCommandCapability,
-  type HostCapabilityManifestPort,
-  type MemoryPolicy,
-  type MemoryPort,
-  type RagRetrieverPort,
-  type ResearchAgentCapability,
-  type ResearchAgentPort,
-  type RetrievalSourceCapability,
-  type ToolCapability,
-  type TurnGuardRegistryPort,
-  type TurnPolicyResolverPort,
-  type WorkspaceRef,
-} from "@side-chat/partner-ai-core";
 import {
   createMemorySidechatRepositories,
   createPostgresDrizzleSidechatRepositories,
@@ -36,19 +18,10 @@ import { optionalField } from "@side-chat/shared";
 import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/auth/service-auth";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
 import { createRepositoryConversationHistoryContext } from "#adapters/persistence/repository-conversation-history-context";
-import {
-  createDefaultPolicyConfig,
-  type ServicePolicyConfig,
-} from "#adapters/policy/service-policy";
+import { createDefaultPolicyConfig } from "#adapters/policy/service-policy";
 import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
-import {
-  assertProductionCapabilityStatus,
-  type ServiceCapabilityStatus,
-} from "#composition/capabilities/capability-status";
-import {
-  DEFAULT_SERVICE_CAPABILITY_CONFIG,
-  type ServiceCapabilityConfig,
-} from "#composition/capabilities/service-capability-settings";
+import { assertProductionCapabilityStatus } from "#composition/capabilities/capability-status";
+import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import { createServiceContextManager } from "./context-manager/service-context-manager.js";
 import {
   createServiceHostCapabilityManifest,
@@ -60,83 +33,23 @@ import {
   resolveCapabilityManifestInputs,
   selectCapabilityAdapters,
 } from "#composition/capabilities/service-capability-composition";
+import type {
+  PersistenceConfig,
+  RuntimeConfig,
+  RuntimeToolConfig,
+  ServiceComposition,
+  ServiceCompositionOptions,
+} from "./service-composition-types.js";
 
-export type PersistenceConfig =
-  | { readonly kind: "memory" }
-  | { readonly kind: "postgres"; readonly databaseUrl: string };
-
-export type RuntimeConfig =
-  | { readonly provider: "fake"; readonly modelId?: string }
-  | {
-      readonly provider: "openai";
-      readonly apiKey: string;
-      readonly modelIds: readonly string[];
-      readonly defaultModelId: string;
-      readonly baseUrl?: string;
-      readonly fetch?: typeof fetch;
-      readonly reasoningEffort?: OpenAIReasoningEffort;
-      readonly reasoningSummary?: OpenAIReasoningSummary;
-    };
-export type RuntimeToolConfig = {
-  readonly executors?: readonly AgentExecutor[];
-  readonly enableMockWebSearch?: boolean;
-  readonly runtimeTools?: readonly RuntimeTool[];
-  readonly toolCapabilities?: readonly ToolCapability[];
-  readonly hostCommands?: readonly HostCommandCapability[];
-  readonly approvalPolicies?: readonly ApprovalPolicy[];
-};
-
-export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
-
-export type OpenAIReasoningSummary = "auto" | "concise" | "detailed";
-
-export type ServiceComposition = {
-  readonly workspace: WorkspaceRef;
-  readonly hostAppId: string;
-  readonly auth: ServiceAuthConfig;
-  readonly policies: ServicePolicyConfig;
-  readonly persistence: PersistenceConfig;
-  readonly repositories: SidechatRepositories;
-  readonly hostCapabilities: HostCapabilityManifestPort;
-  readonly turnPolicies: TurnPolicyResolverPort;
-  readonly turnGuards: TurnGuardRegistryPort;
-  readonly memory: MemoryPort;
-  readonly ragRetriever: RagRetrieverPort;
-  readonly researchAgent: ResearchAgentPort;
-  readonly contextManager: ContextManagerPort;
-  readonly runtime: AgentRuntime;
-  readonly runtimeProviderId: string;
-  readonly runtimeModelId: string;
-  readonly persistenceLabel: "memory" | "postgres-drizzle";
-  readonly capabilities: ServiceCapabilityStatus;
-};
-
-/**
- * Inputs for wiring one service instance.
- *
- * Production code should pass explicit adapters for anything that touches real
- * users, data, providers, or policy. Omitted adapters fall back to local/test
- * behavior so the service can still boot in development.
- */
-export type ServiceCompositionOptions = {
-  readonly workspace: WorkspaceRef;
-  readonly auth?: ServiceAuthConfig;
-  readonly policies?: ServicePolicyConfig;
-  readonly persistence?: PersistenceConfig;
-  readonly repositories?: SidechatRepositories;
-  readonly runtime?: RuntimeConfig & RuntimeToolConfig;
-  readonly agentRuntime?: AgentRuntime;
-  /** Capability declarations; concrete memory/RAG/research work still needs the ports below. */
-  readonly capabilities?: ServiceCapabilityConfig;
-  readonly turnGuards?: TurnGuardRegistryPort;
-  readonly turnGuardIds?: readonly string[];
-  readonly memory?: MemoryPort;
-  readonly memoryPolicy?: MemoryPolicy;
-  readonly ragRetriever?: RagRetrieverPort;
-  readonly retrievalSources?: readonly RetrievalSourceCapability[];
-  readonly researchAgent?: ResearchAgentPort;
-  readonly researchAgents?: readonly ResearchAgentCapability[];
-};
+export type {
+  OpenAIReasoningEffort,
+  OpenAIReasoningSummary,
+  PersistenceConfig,
+  RuntimeConfig,
+  RuntimeToolConfig,
+  ServiceComposition,
+  ServiceCompositionOptions,
+} from "./service-composition-types.js";
 
 /**
  * Build the service graph used by HTTP routes.

@@ -13,6 +13,14 @@ import type {
   ServiceContextManagerOptions,
 } from "../service-context-manager-types.js";
 
+/**
+ * Gather every policy-allowed context source before model execution.
+ *
+ * Conversation history, RAG, memory, and research adapters are called while the
+ * turn is still pre-runtime. The gathered records remain service-private until
+ * candidate creation and rendering decide which safe text and metadata join the
+ * prepared context board.
+ */
 export const gatherAllowedTurnContext = (
   ports: ServiceContextManagerOptions,
   input: PrepareTurnContextInput,

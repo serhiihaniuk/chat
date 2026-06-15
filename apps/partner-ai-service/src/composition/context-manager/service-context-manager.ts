@@ -16,6 +16,14 @@ import { gatherAllowedTurnContext } from "./sources/context-source-gathering.js"
 
 export type { ServiceContextManagerOptions } from "./service-context-manager-types.js";
 
+/**
+ * Build the context manager used before each runtime turn.
+ *
+ * Authorized context from history, memory, RAG, research, host, and tools
+ * becomes a prepared context board and runtime chat messages. Runtime streaming has not
+ * started here, so lookup, admission, and rendering failures stay pre-start
+ * failures instead of partial assistant responses.
+ */
 export const createServiceContextManager = (
   options: ServiceContextManagerOptions,
 ): ContextManagerPort => ({
@@ -25,8 +33,12 @@ export const createServiceContextManager = (
       // uses the same policy identity that core admitted for this turn.
       const contextProfile = yield* resolveContextProfile(input.manifest, input.policyDecision);
 
+      // Gather source records under the already-admitted policy before any
+      // candidate can be rendered into the model-visible context board.
       const gatheredContext = yield* gatherAllowedTurnContext(options, input);
 
+      // Prepare candidate metadata and the current include-all admission record
+      // so persisted manifests can explain what was available for the turn.
       const candidates = createContextCandidates(input, gatheredContext);
       const admission = createSimpleContextAdmission(candidates, options.contextAdmission);
       const historyAdmission = admitConversationHistoryContext({
@@ -34,6 +46,9 @@ export const createServiceContextManager = (
         config: options.history ?? DEFAULT_SERVICE_CAPABILITY_CONFIG.history,
         currentUserMessageId: input.currentUserMessage.messageId,
       });
+      // Render the selected context board and chat messages separately: history
+      // can become runtime messages, while memory/RAG/research/tool context
+      // stays in named context-board sections.
       const sections = createPreparedContextSections(input, gatheredContext);
       const manifest = createPreparedContextManifest({
         requestId: input.request.requestId,
@@ -47,6 +62,8 @@ export const createServiceContextManager = (
       });
       const runtimeMessages = createRuntimeMessages(input, historyAdmission.admittedMessages);
 
+      // Finalize the core-owned prepared context contract. Downstream runtime
+      // code receives messages and context, not service adapter records.
       return {
         contextId: `context_${input.request.requestId}`,
         profile: contextProfile,

@@ -1,3 +1,20 @@
+declare const brandSymbol: unique symbol;
+
+/**
+ * Nominal marker for primitive values that should not be interchangeable.
+ *
+ * Runtime values stay unchanged. Raw primitives can still enter contracts for a
+ * low-churn rollout, while values already branded as different concepts stop
+ * being interchangeable.
+ */
+export type Brand<Value, Name extends string> = Value & {
+  readonly [brandSymbol]?: Name;
+};
+
+export const brandString = <Name extends string>(value: string): Brand<string, Name> => value;
+
+export const brandNumber = <Name extends string>(value: number): Brand<number, Name> => value;
+
 /**
  * JSON values that are safe to place on Side Chat protocol payloads.
  *

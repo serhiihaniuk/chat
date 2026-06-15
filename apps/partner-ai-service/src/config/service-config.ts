@@ -17,6 +17,14 @@ import { ServiceConfigError } from "./service-config-error.js";
 
 export { ServiceConfigError } from "./service-config-error.js";
 
+/**
+ * Environment-to-service adapter for deployable Side Chat configuration.
+ *
+ * This file reads `SIDECHAT_*` process settings into HTTP, auth, policy,
+ * persistence, runtime, and capability options consumed by app composition.
+ * It validates operator intent and secret presence, but it does not open
+ * providers, choose database clients, or build model-visible context.
+ */
 export const SERVICE_ENV_KEYS = {
   allowedModels: "SIDECHAT_ALLOWED_MODELS",
   authBearerToken: "SIDECHAT_AUTH_BEARER_TOKEN",
@@ -42,6 +50,13 @@ type ServiceEnv = Readonly<Record<string, string | undefined>>;
 type ServiceProfile = "development" | "production";
 type PolicyMode = "allow_all" | "fail_closed" | "configured";
 
+/**
+ * Translate process environment into the service composition options.
+ *
+ * Raw env values become typed service config here. Concrete resources are still
+ * selected by composition, so failures in this file mean the declaration is
+ * invalid or unsafe before any HTTP route or provider stream can start.
+ */
 export const createPartnerAiServiceOptionsFromEnv = (
   env: ServiceEnv = process.env,
 ): PartnerAiServiceOptions => {
@@ -87,6 +102,9 @@ const createAuthConfig = (
   workspace: WorkspaceRef,
   rawToken: string | undefined,
 ): ServiceAuthConfig => {
+  // Normalize the bearer token shape without logging or exposing the token.
+  // The auth adapter later decides whether it is a development or trusted
+  // production credential.
   const bearerToken = rawToken ? normalizeBearerToken(rawToken) : undefined;
   if (profile === "production") {
     return {
@@ -125,6 +143,9 @@ const createPersistenceConfig = (
   profile: ServiceProfile,
   env: ServiceEnv,
 ): PartnerAiServiceOptions["persistence"] => {
+  // Env declares the persistence mode by providing a database URL. The database
+  // client is opened later by composition so config parsing stays side-effect
+  // free and production can fail before routes are registered.
   const databaseUrl = envValue(env, SERVICE_ENV_KEYS.databaseUrl);
   if (databaseUrl) return { kind: "postgres", databaseUrl };
   if (profile === "production") {
@@ -166,6 +187,8 @@ const createRuntimeConfig = (
   profile: ServiceProfile,
   env: ServiceEnv,
 ): NonNullable<PartnerAiServiceOptions["runtime"]> => {
+  // Choose the runtime declaration only. Runtime composition later turns this
+  // into provider registrations, keeping provider SDK objects out of config.
   const provider = envValue(env, SERVICE_ENV_KEYS.provider);
   if (profile === "production" && (!provider || provider === "fake")) {
     throw new ServiceConfigError("Production profile requires SIDECHAT_PROVIDER=openai.");

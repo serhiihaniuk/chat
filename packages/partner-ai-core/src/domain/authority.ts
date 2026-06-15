@@ -1,3 +1,15 @@
+import { brandString, type Brand } from "@side-chat/shared";
+
+export type TenantId = Brand<string, "TenantId">;
+export type WorkspaceId = Brand<string, "WorkspaceId">;
+export type SubjectId = Brand<string, "SubjectId">;
+export type UserId = Brand<string, "UserId">;
+
+export const toTenantId = (value: string): TenantId => brandString<"TenantId">(value);
+export const toWorkspaceId = (value: string): WorkspaceId => brandString<"WorkspaceId">(value);
+export const toSubjectId = (value: string): SubjectId => brandString<"SubjectId">(value);
+export const toUserId = (value: string): UserId => brandString<"UserId">(value);
+
 export const AUTHORITY_DENIAL_CODES = {
   MISSING_AUTH: "missing_auth",
   CROSS_TENANT_WORKSPACE: "cross_tenant_workspace",
@@ -20,13 +32,13 @@ export type AuthorityScope =
   | "audit:write";
 
 export type SubjectRef = {
-  readonly subjectId: string;
-  readonly userId: string;
+  readonly subjectId: SubjectId;
+  readonly userId: UserId;
 };
 
 export type WorkspaceRef = {
-  readonly tenantId: string;
-  readonly workspaceId: string;
+  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
 };
 
 export type AuditActor = SubjectRef & {

@@ -1,5 +1,13 @@
 import type { JsonObject } from "@side-chat/shared";
 import type { RuntimeTool, RuntimeToolScope } from "#tools/runtime-tool";
+import type {
+  AssistantTurnId,
+  ExecutorId,
+  ModelId,
+  ProfileId,
+  ProviderId,
+  RequestId,
+} from "./ids/runtime-ids.js";
 
 export type RuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
@@ -47,12 +55,12 @@ export type RuntimeContextManifest = {
  * fields mean "use the runtime defaults."
  */
 export type AgentRuntimeRequest = {
-  readonly requestId: string;
-  readonly assistantTurnId: string;
-  readonly executorId?: string;
-  readonly providerId?: string;
-  readonly modelId?: string;
-  readonly profileId?: string;
+  readonly requestId: RequestId;
+  readonly assistantTurnId: AssistantTurnId;
+  readonly executorId?: ExecutorId;
+  readonly providerId?: ProviderId;
+  readonly modelId?: ModelId;
+  readonly profileId?: ProfileId;
   readonly systemInstructions?: string;
   readonly messages: readonly RuntimeMessage[];
   readonly contextBoard?: RuntimeContextBoard;
@@ -68,10 +76,10 @@ export type AgentRuntimeRequest = {
  * Ids, messages, and tools are final for this turn.
  */
 export type RuntimeProviderRequest = {
-  readonly requestId: string;
-  readonly assistantTurnId: string;
-  readonly providerId: string;
-  readonly modelId: string;
+  readonly requestId: RequestId;
+  readonly assistantTurnId: AssistantTurnId;
+  readonly providerId: ProviderId;
+  readonly modelId: ModelId;
   readonly messages: readonly RuntimeMessage[];
   readonly tools?: readonly RuntimeTool[];
   readonly toolScope?: RuntimeToolScope;

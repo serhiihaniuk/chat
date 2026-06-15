@@ -26,6 +26,16 @@
       "development": "./src/runtime/*.ts",
       "default": "./dist/runtime/*.js"
     },
+    "#runtime/contract/*": {
+      "types": "./src/runtime/contract/*.ts",
+      "development": "./src/runtime/contract/*.ts",
+      "default": "./dist/runtime/contract/*.js"
+    },
+    "#runtime/contract/ids/*": {
+      "types": "./src/runtime/contract/ids/*.ts",
+      "development": "./src/runtime/contract/ids/*.ts",
+      "default": "./dist/runtime/contract/ids/*.js"
+    },
     "#testing/*": {
       "types": "./src/testing/*.ts",
       "development": "./src/testing/*.ts",

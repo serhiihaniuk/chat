@@ -1,4 +1,21 @@
 import type { JsonObject } from "@side-chat/shared";
+import type {
+  ActivityRendererId,
+  ExecutorId,
+  HostAppId,
+  ManifestHash,
+  ModelId,
+  PolicyId,
+  ProfileId,
+  ProviderId,
+  ResearchAgentId,
+  RetrievalSourceId,
+  SystemPromptId,
+} from "./ids/capability-ids.js";
+import type { HostCapabilityValidationCode } from "./validation/capability-validation-codes.js";
+
+export * from "./ids/capability-ids.js";
+export * from "./validation/capability-validation-codes.js";
 
 /**
  * Portable host capability declarations that core policy can reason about.
@@ -19,33 +36,6 @@ export const HOST_CAPABILITY_SCHEMA_VERSIONS = {
 
 export type HostCapabilitySchemaVersion =
   (typeof HOST_CAPABILITY_SCHEMA_VERSIONS)[keyof typeof HOST_CAPABILITY_SCHEMA_VERSIONS];
-
-export const HOST_CAPABILITY_VALIDATION_CODES = {
-  UNKNOWN_SCHEMA_VERSION: "unknown_schema_version",
-  DUPLICATE_PROFILE_ID: "duplicate_profile_id",
-  DUPLICATE_TOOL_NAME: "duplicate_tool_name",
-  DUPLICATE_COMMAND_NAME: "duplicate_command_name",
-  DUPLICATE_MEMORY_POLICY_ID: "duplicate_memory_policy_id",
-  DUPLICATE_APPROVAL_POLICY_ID: "duplicate_approval_policy_id",
-  DUPLICATE_RESEARCH_AGENT_ID: "duplicate_research_agent_id",
-  MISSING_DEFAULT_PROFILE: "missing_default_profile",
-  UNKNOWN_PROFILE_REFERENCE: "unknown_profile_reference",
-  PROFILE_EXECUTOR_POLICY_MISMATCH: "profile_executor_policy_mismatch",
-  UNKNOWN_TOOL_REFERENCE: "unknown_tool_reference",
-  UNKNOWN_COMMAND_REFERENCE: "unknown_command_reference",
-  UNKNOWN_RESEARCH_AGENT_REFERENCE: "unknown_research_agent_reference",
-  UNKNOWN_RETRIEVAL_SOURCE_REFERENCE: "unknown_retrieval_source_reference",
-  UNKNOWN_MEMORY_POLICY_REFERENCE: "unknown_memory_policy_reference",
-  UNKNOWN_APPROVAL_REFERENCE: "unknown_approval_reference",
-  PROFILE_VERSION_MISMATCH: "profile_version_mismatch",
-  PROFILE_INSTRUCTIONS_POLICY_MISMATCH: "profile_instructions_policy_mismatch",
-  PROFILE_MODEL_POLICY_MISMATCH: "profile_model_policy_mismatch",
-  PROFILE_MEMORY_POLICY_MISMATCH: "profile_memory_policy_mismatch",
-  APPROVAL_POLICY_MISMATCH: "approval_policy_mismatch",
-} as const;
-
-export type HostCapabilityValidationCode =
-  (typeof HOST_CAPABILITY_VALIDATION_CODES)[keyof typeof HOST_CAPABILITY_VALIDATION_CODES];
 
 export const CONTEXT_CANDIDATE_SOURCE_TYPES = {
   CURRENT_MESSAGE: "current_message",
@@ -100,8 +90,8 @@ export type OutputContract = {
 };
 
 export type ModelPolicy = {
-  readonly providerId: string;
-  readonly modelId: string;
+  readonly providerId: ProviderId;
+  readonly modelId: ModelId;
 };
 
 export type ToolExposurePolicy = {
@@ -111,7 +101,7 @@ export type ToolExposurePolicy = {
 
 export type RetrievalPolicy = {
   readonly mode: RetrievalPolicyMode;
-  readonly sourceIds: readonly string[];
+  readonly sourceIds: readonly RetrievalSourceId[];
 };
 
 /**
@@ -121,13 +111,13 @@ export type RetrievalPolicy = {
  * scopes may be read or receive write candidates when memory ports exist.
  */
 export type MemoryPolicy = {
-  readonly policyId: string;
+  readonly policyId: PolicyId;
   readonly mode: MemoryPolicyMode;
   readonly scopes: readonly string[];
 };
 
 export type SafetyPolicy = {
-  readonly policyId: string;
+  readonly policyId: PolicyId;
   readonly promptInjectionMode: "standard" | "strict";
   readonly turnGuardIds: readonly string[];
 };
@@ -140,12 +130,12 @@ export type SafetyPolicy = {
  * callers must not treat request-level model ids as a second selection path.
  */
 export type AssistantProfile = {
-  readonly profileId: string;
+  readonly profileId: ProfileId;
   readonly version: string;
   readonly displayName: string;
-  readonly systemPromptId: string;
+  readonly systemPromptId: SystemPromptId;
   readonly systemInstructions: string;
-  readonly executorId: string;
+  readonly executorId: ExecutorId;
   readonly modelPolicy: ModelPolicy;
   readonly defaultToolPolicy: ToolExposurePolicy;
   readonly retrievalPolicy: RetrievalPolicy;
@@ -186,7 +176,7 @@ export type HostCommandCapability = {
  * and context preparation owns retrieval from the selected sources.
  */
 export type RetrievalSourceCapability = {
-  readonly sourceId: string;
+  readonly sourceId: RetrievalSourceId;
   readonly description: string;
   readonly trustLevel: ContextTrustLevel;
 };
@@ -198,18 +188,18 @@ export type RetrievalSourceCapability = {
  * does not emit browser events by itself.
  */
 export type ResearchAgentCapability = {
-  readonly researchAgentId: string;
+  readonly researchAgentId: ResearchAgentId;
   readonly description: string;
 };
 
 export type ApprovalPolicy = {
-  readonly policyId: string;
+  readonly policyId: PolicyId;
   readonly mode: ApprovalMode;
   readonly capabilityNames: readonly string[];
 };
 
 export type ActivityRendererCapability = {
-  readonly rendererId: string;
+  readonly rendererId: ActivityRendererId;
   readonly activityKind: string;
 };
 
@@ -223,8 +213,8 @@ export type ActivityRendererCapability = {
  */
 export type HostCapabilityManifest = {
   readonly schemaVersion: string;
-  readonly hostAppId: string;
-  readonly defaultAssistantProfileId: string;
+  readonly hostAppId: HostAppId;
+  readonly defaultAssistantProfileId: ProfileId;
   readonly assistantProfiles: readonly AssistantProfile[];
   readonly tools: readonly ToolCapability[];
   readonly commands: readonly HostCommandCapability[];
@@ -260,7 +250,7 @@ export type MemoryScopeDecision = {
 
 export type ResearchPolicyDecision = {
   readonly mode: ResearchPolicyMode;
-  readonly allowedResearchAgentIds: readonly string[];
+  readonly allowedResearchAgentIds: readonly ResearchAgentId[];
 };
 
 export type ApprovalRequirement = {
@@ -276,23 +266,23 @@ export type ApprovalRequirement = {
  * so the runtime receives a closed allowlist rather than rediscovering tools.
  */
 export type TurnPolicyDecision = {
-  readonly profileId: string;
+  readonly profileId: ProfileId;
   readonly profileVersion: string;
   readonly systemInstructions: string;
-  readonly executorId: string;
-  readonly providerId: string;
-  readonly modelId: string;
+  readonly executorId: ExecutorId;
+  readonly providerId: ProviderId;
+  readonly modelId: ModelId;
   readonly allowedToolNames: readonly string[];
   readonly allowedCommandNames: readonly string[];
-  readonly retrievalSourceIds: readonly string[];
+  readonly retrievalSourceIds: readonly RetrievalSourceId[];
   readonly memoryScope: MemoryScopeDecision;
   readonly researchPolicy: ResearchPolicyDecision;
   readonly approvalRequirements: readonly ApprovalRequirement[];
-  readonly manifestHash: string;
+  readonly manifestHash: ManifestHash;
 };
 
 export type TurnPolicyResolutionInput = {
   readonly manifest: HostCapabilityManifest;
   readonly profile: AssistantProfile;
-  readonly manifestHash: string;
+  readonly manifestHash: ManifestHash;
 };

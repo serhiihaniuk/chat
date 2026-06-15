@@ -2,6 +2,8 @@ import {
   CONTEXT_CANDIDATE_SOURCE_TYPES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
+  toContextCandidateId,
+  toContextSourceId,
   type ContextCandidate,
   type HostCapabilityManifest,
   type PreparedContextSection,
@@ -22,15 +24,15 @@ export const createHostContextCandidates = (
   const content = renderHostContext(hostContext);
   return [
     {
-      candidateId: "host_context",
+      candidateId: toContextCandidateId("host_context"),
       sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.HOST_CONTEXT,
-      sourceId: manifest.hostAppId,
+      sourceId: toContextSourceId(manifest.hostAppId),
       trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
       redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
       content,
       estimatedTokens: estimateTokens(content),
       priority: 80,
-      provenance: { sourceId: manifest.hostAppId, label: "Host page context" },
+      provenance: { sourceId: toContextSourceId(manifest.hostAppId), label: "Host page context" },
     },
   ];
 };

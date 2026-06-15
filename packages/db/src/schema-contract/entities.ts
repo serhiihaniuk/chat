@@ -1,5 +1,28 @@
 import type { JsonObject } from "@side-chat/shared";
 import type {
+  ActorId,
+  AssistantMessageId,
+  AssistantTurnId,
+  AuditEventId,
+  ContextSnapshotId,
+  ConversationId,
+  HostCommandId,
+  HostCommandResultId,
+  HostSurfaceId,
+  MessageId,
+  ModelId,
+  ProviderRequestId,
+  RequestId,
+  ResourceId,
+  SubjectId,
+  TargetId,
+  ToolCallId,
+  ToolInvocationId,
+  UsageRecordId,
+  UserMessageId,
+  WorkspaceId,
+} from "./ids/persistence-ids.js";
+import type {
   AssistantTurnStatus,
   ConversationStatus,
   HostCommandResultStatus,
@@ -8,7 +31,7 @@ import type {
 } from "./lifecycle.js";
 
 export type TenantScopedRecord = {
-  readonly workspaceId: string;
+  readonly workspaceId: WorkspaceId;
 };
 
 export type VersionedRecord = {
@@ -18,19 +41,19 @@ export type VersionedRecord = {
 
 export type ConversationRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly conversationId: string;
-    readonly subjectId: string;
+    readonly conversationId: ConversationId;
+    readonly subjectId: SubjectId;
     readonly conversationKey: string;
     readonly status: ConversationStatus;
-    readonly createdByActorId: string;
+    readonly createdByActorId: ActorId;
     readonly historyCutoffSequenceIndex?: number;
     readonly lastMessageAt: string;
   };
 
 export type MessageRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly messageId: string;
-    readonly conversationId: string;
+    readonly messageId: MessageId;
+    readonly conversationId: ConversationId;
     readonly role: MessageRole;
     readonly contentText: string;
     readonly metadataJson: JsonObject;
@@ -40,19 +63,19 @@ export type MessageRecord = TenantScopedRecord &
 
 export type AssistantTurnRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly assistantTurnId: string;
-    readonly requestId: string;
-    readonly conversationId: string;
-    readonly subjectId: string;
-    readonly actorId: string;
-    readonly userMessageId: string;
-    readonly assistantMessageId?: string;
+    readonly assistantTurnId: AssistantTurnId;
+    readonly requestId: RequestId;
+    readonly conversationId: ConversationId;
+    readonly subjectId: SubjectId;
+    readonly actorId: ActorId;
+    readonly userMessageId: UserMessageId;
+    readonly assistantMessageId?: AssistantMessageId;
     readonly runtimeProfile: string;
     readonly systemPromptVersion: string;
     readonly contextStrategyVersion: string;
     readonly toolRegistryVersion: string;
     readonly modelProvider: string;
-    readonly modelId: string;
+    readonly modelId: ModelId;
     readonly status: AssistantTurnStatus;
     readonly finishReason?: string;
     readonly errorCode?: string;
@@ -62,10 +85,10 @@ export type AssistantTurnRecord = TenantScopedRecord &
 
 export type ContextSnapshotRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly contextSnapshotId: string;
-    readonly assistantTurnId: string;
+    readonly contextSnapshotId: ContextSnapshotId;
+    readonly assistantTurnId: AssistantTurnId;
     readonly contextSchemaVersion: string;
-    readonly hostSurfaceId?: string;
+    readonly hostSurfaceId?: HostSurfaceId;
     readonly hostContextHash: string;
     readonly capabilitiesHash: string;
     readonly contextRedactedJson: JsonObject;
@@ -73,12 +96,12 @@ export type ContextSnapshotRecord = TenantScopedRecord &
 
 export type UsageRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly usageRecordId: string;
-    readonly assistantTurnId: string;
+    readonly usageRecordId: UsageRecordId;
+    readonly assistantTurnId: AssistantTurnId;
     readonly runtimeStepIndex: number;
     readonly modelProvider: string;
-    readonly modelId: string;
-    readonly providerRequestId?: string;
+    readonly modelId: ModelId;
+    readonly providerRequestId?: ProviderRequestId;
     readonly inputTokens: number;
     readonly outputTokens: number;
     readonly reasoningTokens: number;
@@ -89,10 +112,10 @@ export type UsageRecord = TenantScopedRecord &
 
 export type ToolInvocationRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly toolInvocationId: string;
-    readonly assistantTurnId: string;
+    readonly toolInvocationId: ToolInvocationId;
+    readonly assistantTurnId: AssistantTurnId;
     readonly runtimeStepIndex: number;
-    readonly toolCallId: string;
+    readonly toolCallId: ToolCallId;
     readonly toolName: string;
     readonly status: ToolInvocationStatus;
     readonly inputHash: string;
@@ -106,11 +129,11 @@ export type ToolInvocationRecord = TenantScopedRecord &
 
 export type HostCommandResultRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly hostCommandId: string;
-    readonly assistantTurnId: string;
-    readonly commandId: string;
+    readonly hostCommandId: HostCommandResultId;
+    readonly assistantTurnId: AssistantTurnId;
+    readonly commandId: HostCommandId;
     readonly commandType: string;
-    readonly resourceId?: string;
+    readonly resourceId?: ResourceId;
     readonly status: HostCommandResultStatus;
     readonly resultCode: string;
     readonly commandRedactedJson: JsonObject;
@@ -120,14 +143,14 @@ export type HostCommandResultRecord = TenantScopedRecord &
 
 export type AuditEventRecord = TenantScopedRecord &
   VersionedRecord & {
-    readonly auditEventId: string;
-    readonly subjectId: string;
-    readonly actorId: string;
+    readonly auditEventId: AuditEventId;
+    readonly subjectId: SubjectId;
+    readonly actorId: ActorId;
     readonly eventType: string;
     readonly targetType: string;
-    readonly targetId: string;
+    readonly targetId: TargetId;
     readonly metadataJson: JsonObject;
-    readonly requestId: string;
+    readonly requestId: RequestId;
   };
 
 export type SchemaContractRecord =

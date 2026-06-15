@@ -6,6 +6,7 @@ import {
   type ActivityToolDetails,
   type ProtocolErrorCode,
   type SidechatStreamEvent,
+  toActivityId,
 } from "@side-chat/chat-protocol";
 import {
   RUNTIME_ERROR_CODES,
@@ -68,7 +69,7 @@ export const mapRuntimeEvent = (
       return {
         ...base,
         type: SIDECHAT_EVENT_TYPES.ACTIVITY,
-        activityId: event.activityId,
+        activityId: toActivityId(event.activityId),
         activityKind: event.activityKind,
         status: event.status,
         title: event.title,
