@@ -42,7 +42,7 @@ plans.
 - **Stream chat turn**: product workflow that prepares and streams one assistant
   turn.
 - **Turn plan**: per-turn decision selecting profile, model, tools, commands,
-  RAG, memory, research, guards, approvals, executor id, and instructions.
+  guards, approvals, executor id, and instructions.
 - **Prepared context**: context snapshot/messages prepared before runtime
   execution. Do not use prompt for the full prepared context.
 - **Context admission selection mode**: behavior actually used by the context
@@ -65,7 +65,7 @@ plans.
 ## Capability Terms
 
 - **Host capability manifest**: host-app declaration of possible profiles,
-  tools, commands, retrieval sources, research agents, policies, and renderers.
+  tools, commands, approval policies, and renderers.
 - **Assistant profile**: versioned assistant configuration selected for one turn.
 - **ToolCapability**: manifest declaration for a backend capability; not
   executable until policy selects it and runtime has a matching RuntimeTool.
@@ -73,23 +73,6 @@ plans.
   with agent runtime.
 - **HostCommandCapability**: manifest declaration for a browser/host-app UI
   command, separate from RuntimeTool.
-- **RetrievalSourceCapability**: manifest declaration for a source RAG may search
-  when policy allows it.
-- **RagRetrieverPort**: core port for authorized pre-model retrieval from
-  policy-allowed sources.
-- **RagContextCandidate**: retrieved context candidate with provenance, trust,
-  redaction class, and token estimate.
-- **ResearchAgentPort**: core port for policy-scoped pre-answer research that
-  produces prepared context candidates and artifacts.
-- **ResearchSourceCandidate**: research context candidate admitted only when its
-  source is policy-allowed.
-- **MemoryPolicy**: manifest/profile policy for whether memory may be read or
-  written for one turn.
-- **MemoryPort**: core port for memory recall and post-turn memory write
-  candidates.
-- **MemoryRecord**: recalled durable memory allowed into prepared context.
-- **MemoryWriteCandidate**: post-turn candidate proposed for durable memory
-  storage under MemoryPolicy.
 - **TurnGuard**: pre-context safety check that may allow, warn, or block one
   turn.
 - **AgentExecutor**: runtime execution engine selected for one prepared turn and

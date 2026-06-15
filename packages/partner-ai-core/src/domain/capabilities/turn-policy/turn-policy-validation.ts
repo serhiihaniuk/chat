@@ -11,11 +11,8 @@ import { approvalRequirementIssues } from "./turn-policy-approval-validation.js"
 import {
   readManifestTurnPolicyReferences,
   unknownManifestCommandMessage,
-  unknownManifestResearchAgentMessage,
-  unknownManifestRetrievalSourceMessage,
   unknownManifestToolMessage,
 } from "./turn-policy-manifest-lookups.js";
-import { profileMemoryIssues } from "./turn-policy-memory-validation.js";
 
 export const validateTurnPolicyDecision = (
   manifest: HostCapabilityManifest,
@@ -27,11 +24,7 @@ export const validateTurnPolicyDecision = (
     ...profileIdentityIssues(profile, decision),
     ...manifestToolIssues(manifestReferences.toolNames, decision),
     ...manifestCommandIssues(manifestReferences.commandNames, decision),
-    ...manifestRetrievalIssues(manifestReferences.retrievalSourceIds, decision),
-    ...manifestResearchAgentIssues(manifestReferences.researchAgentIds, decision),
     ...profileToolIssues(profile, decision),
-    ...profileRetrievalIssues(profile, decision),
-    ...profileMemoryIssues(profile, decision),
     ...approvalRequirementIssues(manifest, decision),
   ];
 
@@ -144,30 +137,6 @@ const manifestCommandIssues = (
     unknownManifestCommandMessage,
   );
 
-const manifestRetrievalIssues = (
-  retrievalSourceIds: ReadonlySet<string>,
-  decision: TurnPolicyDecision,
-): readonly HostCapabilityValidationIssue[] =>
-  unknownValueIssues(
-    decision.retrievalSourceIds,
-    retrievalSourceIds,
-    "retrievalSourceIds",
-    HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_RETRIEVAL_SOURCE_REFERENCE,
-    unknownManifestRetrievalSourceMessage,
-  );
-
-const manifestResearchAgentIssues = (
-  researchAgentIds: ReadonlySet<string>,
-  decision: TurnPolicyDecision,
-): readonly HostCapabilityValidationIssue[] =>
-  unknownValueIssues(
-    decision.researchPolicy.allowedResearchAgentIds,
-    researchAgentIds,
-    "researchPolicy.allowedResearchAgentIds",
-    HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_RESEARCH_AGENT_REFERENCE,
-    unknownManifestResearchAgentMessage,
-  );
-
 const profileToolIssues = (
   profile: AssistantProfile,
   decision: TurnPolicyDecision,
@@ -178,19 +147,6 @@ const profileToolIssues = (
     "allowedToolNames",
     HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
     (toolName) => `Turn policy exposes tool ${toolName} outside profile ${profile.profileId}.`,
-  );
-
-const profileRetrievalIssues = (
-  profile: AssistantProfile,
-  decision: TurnPolicyDecision,
-): readonly HostCapabilityValidationIssue[] =>
-  unknownValueIssues(
-    decision.retrievalSourceIds,
-    new Set(profile.retrievalPolicy.sourceIds),
-    "retrievalSourceIds",
-    HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_RETRIEVAL_SOURCE_REFERENCE,
-    (sourceId) =>
-      `Turn policy exposes retrieval source ${sourceId} outside profile ${profile.profileId}.`,
   );
 
 const unknownValueIssues = (

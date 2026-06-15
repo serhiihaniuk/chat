@@ -131,7 +131,6 @@ describe("observability redaction and correlation", () => {
               hostCapabilities: ports.hostCapabilities,
               turnPolicies: ports.turnPolicies,
               contextManager: ports.contextManager,
-              memory: ports.memory,
               runtime: ports.runtime,
               clock: ports.clock,
               ids: ports.ids,
@@ -268,7 +267,6 @@ const createObservedPorts = (
           profile,
           policyDecision,
           history: emptyHistoryManifest,
-          researchArtifacts: [],
           candidates: [],
           runtimeMessages: [
             { role: "user" as const, content: "secret prompt should not be logged" },
@@ -289,9 +287,6 @@ const createObservedPorts = (
                 reservedOutputTokens: 512,
                 sourceTokenBudgets: {
                   history: 1000,
-                  memory: 500,
-                  rag: 1500,
-                  research: 1000,
                 },
                 includedCandidateIds: [],
                 droppedCandidateIds: [],
@@ -300,11 +295,6 @@ const createObservedPorts = (
             },
           },
         }),
-    },
-    memory: {
-      recall: () => Effect.succeed([]),
-      proposeWriteCandidates: () => Effect.succeed([]),
-      writeCandidates: () => Effect.succeed(undefined),
     },
     runtime,
     clock,
@@ -328,10 +318,7 @@ const createManifest = (): HostCapabilityManifest => ({
   assistantProfiles: [createProfile()],
   tools: [],
   commands: [],
-  retrievalSources: [],
-  researchAgents: [],
   approvalPolicies: [],
-  memoryPolicies: [{ policyId: "no_memory", mode: "disabled", scopes: [] }],
   activityRenderers: [],
 });
 
@@ -344,8 +331,6 @@ const createProfile = (): AssistantProfile => ({
   executorId: "ai_sdk.tool_loop",
   modelPolicy: { providerId: "fake", modelId: "fake-echo" },
   defaultToolPolicy: { mode: "closed", allowedToolNames: [] },
-  retrievalPolicy: { mode: "disabled", sourceIds: [] },
-  memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
   outputContract: { format: "markdown" },
   safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
 });

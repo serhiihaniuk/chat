@@ -29,7 +29,7 @@ browser-facing contract.
 - Other executors may use different engines but must still emit RuntimeEvents at
   the runtime boundary.
 - Runtime does not decide product authorization, approval policy, host-command
-  dispatch, persistence, or memory/RAG access.
+  dispatch, persistence, or context access.
 
 ## Protocol Rules
 

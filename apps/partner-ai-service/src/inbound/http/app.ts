@@ -1,12 +1,6 @@
 import type {
   ObservabilitySinkPort,
   ConversationTitleGenerationPort,
-  MemoryPolicy,
-  MemoryPort,
-  RagRetrieverPort,
-  ResearchAgentCapability,
-  ResearchAgentPort,
-  RetrievalSourceCapability,
   TurnGuardRegistryPort,
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
@@ -64,12 +58,6 @@ export type PartnerAiServiceOptions = {
   readonly capabilities?: ServiceCapabilityConfig | undefined;
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
-  readonly memory?: MemoryPort | undefined;
-  readonly memoryPolicy?: MemoryPolicy | undefined;
-  readonly ragRetriever?: RagRetrieverPort | undefined;
-  readonly retrievalSources?: readonly RetrievalSourceCapability[] | undefined;
-  readonly researchAgent?: ResearchAgentPort | undefined;
-  readonly researchAgents?: readonly ResearchAgentCapability[] | undefined;
   readonly workspace?: WorkspaceRef | undefined;
 };
 
@@ -117,7 +105,6 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     turnPolicies: composition.turnPolicies,
     turnGuards: composition.turnGuards,
     contextManager: composition.contextManager,
-    memory: composition.memory,
     runtime: composition.runtime,
     conversationTitleGeneration: composition.conversationTitleGeneration,
     policies,
@@ -141,10 +128,4 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   capabilities: options.capabilities,
   turnGuards: options.turnGuards,
   turnGuardIds: options.turnGuardIds,
-  memory: options.memory,
-  memoryPolicy: options.memoryPolicy,
-  ragRetriever: options.ragRetriever,
-  retrievalSources: options.retrievalSources,
-  researchAgent: options.researchAgent,
-  researchAgents: options.researchAgents,
 });

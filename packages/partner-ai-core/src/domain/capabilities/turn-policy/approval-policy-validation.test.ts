@@ -178,12 +178,9 @@ const createManifest = (
     assistantProfiles: [analyst],
     tools: [createTool("jira.search_issues")],
     commands: [createHostCommand("host.open_ticket_panel")],
-    retrievalSources: [],
-    researchAgents: [],
     approvalPolicies: [
       createApprovalPolicy("host_commands_require_review", ["host.open_ticket_panel"]),
     ],
-    memoryPolicies: [analyst.memoryPolicy],
     activityRenderers: [],
     ...overrides,
   };
@@ -205,8 +202,6 @@ const createAssistantProfile = ({
     mode: "profile_allowlist",
     allowedToolNames,
   },
-  retrievalPolicy: { mode: "disabled", sourceIds: [] },
-  memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
   outputContract: { format: "markdown" },
   safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
 });

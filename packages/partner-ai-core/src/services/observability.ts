@@ -1,15 +1,7 @@
 import type { JsonObject, JsonPrimitive, JsonValue } from "@side-chat/shared";
 import { Effect } from "effect";
 
-/**
- * Secret-safe stream-chat observability contract.
- *
- * Each stream-chat lifecycle fact becomes an `ObservabilityRecord` before it
- * leaves core. Records may identify request/trace ids, latency, lifecycle state,
- * assistant turn id, provider/model ids, and redacted attributes; raw messages,
- * prompts, retrieved content, memory records, tool payloads, provider options,
- * credentials, and protocol bodies must not cross this port.
- */
+/** Secret-safe telemetry records emitted by the stream-chat workflow. */
 
 /** Correlation fields available before a durable assistant turn exists. */
 export type TraceCorrelationInput = {
@@ -109,8 +101,8 @@ export const redactAttributes = (attributes: JsonObject): JsonObject => redactOb
 /**
  * Normalize unknown values into JSON primitives for diagnostic attributes.
  *
- * Complex objects are intentionally collapsed so accidental provider, tool,
- * memory, or protocol payloads cannot slip through as structured telemetry.
+ * Complex objects are intentionally collapsed so accidental private payloads
+ * cannot slip through as structured telemetry.
  */
 export const safeJsonPrimitive = (value: unknown): JsonPrimitive => {
   if (typeof value === "string") return value;

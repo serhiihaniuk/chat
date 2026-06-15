@@ -13,8 +13,7 @@ execution, or widget UI.
 - Product authorization, policy, context, turn lifecycle, and protocol mapping.
 - Post-success conversation title generation timing, admitted inputs,
   sanitization, persistence call, and failure isolation.
-- Turn guard selection, RAG retriever, memory, research, and runtime port
-  contracts.
+- Turn guard selection, context manager, and runtime port contracts.
 - Typed product failures and terminal protocol semantics.
 - Effect Layer wiring for core services.
 

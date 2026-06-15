@@ -159,7 +159,6 @@ const toContextSnapshotJson = (preparedContext: PreparedTurnContext): JsonObject
     contextId: preparedContext.contextId,
     runtimeMessageSummary: toRuntimeMessageSummary(preparedContext),
     history: preparedContext.history,
-    researchArtifacts: preparedContext.researchArtifacts,
     manifest: preparedContext.contextBoard.manifest,
     sections: preparedContext.contextBoard.sections.map((section) =>
       omitUndefinedProperties({

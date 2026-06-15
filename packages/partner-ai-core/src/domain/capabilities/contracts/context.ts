@@ -8,16 +8,15 @@ import type {
   TurnPolicyDecision,
 } from "./capabilities.js";
 import type { ContextAdmissionPolicy, HistoryContextMode } from "./capability-configuration.js";
-import type { ResearchArtifact } from "./research-artifacts.js";
 
 /**
  * Core-owned model context contracts for one prepared assistant turn.
  *
- * Host page context, conversation history, memory records, RAG results, and
- * research output become `ContextCandidate` values, then an admitted
- * `PreparedContextBoard` and provider-neutral `PreparedRuntimeMessage` list.
- * Candidate text may appear in board sections and runtime messages; manifests
- * keep only ids, source labels, trust, redaction, token estimates, and budgets.
+ * Host page context and conversation history become `ContextCandidate` values
+ * or prepared runtime messages, then an admitted `PreparedContextBoard` and
+ * provider-neutral `PreparedRuntimeMessage` list. Candidate text may appear in
+ * board sections and runtime messages; manifests keep only ids, source labels,
+ * trust, redaction, token estimates, and budgets.
  *
  * Update this comment when context preparation gains a new source type, changes
  * what becomes model-visible, or moves admission responsibility across packages.
@@ -103,9 +102,6 @@ export type ContextCandidate = {
  */
 export type ContextSourceTokenBudgets = {
   readonly history: number;
-  readonly memory: number;
-  readonly rag: number;
-  readonly research: number;
 };
 
 /**
@@ -184,8 +180,8 @@ export type PreparedContextSection = {
 /**
  * Context package passed to runtime beside rendered messages.
  *
- * Runtime may read the board, but it must not fetch more host data or reinterpret
- * the manifest as permission to access memory, retrieval, research, or history.
+ * Runtime may read the board, but it must not fetch more host data or
+ * reinterpret the manifest as permission to access more history.
  */
 export type PreparedContextBoard = {
   readonly sections: readonly PreparedContextSection[];
@@ -255,8 +251,8 @@ export type PreparedRuntimeMessage = {
  * Final model-context package produced by core before runtime execution.
  *
  * Core builds this after policy and guards select what the turn may use. Runtime
- * receives the package from core as-is and must not gather extra host data,
- * memory, retrieval, research, or conversation history.
+ * receives the package from core as-is and must not gather extra host data or
+ * conversation history.
  */
 export type PreparedTurnContext = {
   readonly contextId: ContextId;
@@ -264,7 +260,6 @@ export type PreparedTurnContext = {
   readonly policyDecision: TurnPolicyDecision;
   readonly history: HistoryContextManifest;
   readonly candidates: readonly ContextCandidate[];
-  readonly researchArtifacts: readonly ResearchArtifact[];
   readonly contextBoard: PreparedContextBoard;
   readonly runtimeMessages: readonly PreparedRuntimeMessage[];
 };

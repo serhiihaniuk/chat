@@ -2,9 +2,6 @@ import type {
   ApprovalPolicy,
   AssistantProfile,
   HostCommandCapability,
-  MemoryPolicy,
-  ResearchAgentCapability,
-  RetrievalSourceCapability,
   ToolCapability,
 } from "../contracts/capabilities.js";
 
@@ -14,11 +11,4 @@ export const readToolCapabilityName = (tool: ToolCapability): string => tool.nam
 
 export const readHostCommandName = (command: HostCommandCapability): string => command.commandName;
 
-export const readResearchAgentId = (agent: ResearchAgentCapability): string =>
-  agent.researchAgentId;
-
 export const readApprovalPolicyId = (policy: ApprovalPolicy): string => policy.policyId;
-
-export const readMemoryPolicyId = (policy: MemoryPolicy): string => policy.policyId;
-
-export const readRetrievalSourceId = (source: RetrievalSourceCapability): string => source.sourceId;

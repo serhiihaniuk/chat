@@ -1,9 +1,7 @@
 import {
-  CONTEXT_TRUST_LEVELS,
   HOST_CAPABILITY_SCHEMA_VERSIONS,
   type AssistantProfile,
   type HostCapabilityManifest,
-  type ResearchAgentCapability,
 } from "#domain/capabilities";
 
 type ValidationWithIssueCodes =
@@ -22,16 +20,7 @@ export const createManifest = (
     assistantProfiles: [analyst],
     tools: [createTool("mock_web_search")],
     commands: [createHostCommand("open_record")],
-    retrievalSources: [
-      {
-        sourceId: "docs",
-        description: "Workspace documentation.",
-        trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
-      },
-    ],
-    researchAgents: [createResearchAgentCapability("research_context")],
     approvalPolicies: [createApprovalPolicy("host_commands_require_review", ["open_record"])],
-    memoryPolicies: [analyst.memoryPolicy],
     activityRenderers: [{ rendererId: "tool_row", activityKind: "tool" }],
     ...overrides,
   };
@@ -51,8 +40,6 @@ export const createAssistantProfile = (
     mode: "profile_allowlist",
     allowedToolNames: ["mock_web_search"],
   },
-  retrievalPolicy: { mode: "profile_sources", sourceIds: ["docs"] },
-  memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
   outputContract: { format: "markdown" },
   safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
   ...overrides,
@@ -62,13 +49,6 @@ export const createTool = (name: string) => ({
   name,
   description: `${name} test capability.`,
   inputSchema: { type: "object" },
-});
-
-export const createResearchAgentCapability = (
-  researchAgentId: string,
-): ResearchAgentCapability => ({
-  researchAgentId,
-  description: "Run pre-answer research for this turn.",
 });
 
 export const issueCodes = (validation: ValidationWithIssueCodes): readonly string[] =>

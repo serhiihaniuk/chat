@@ -8,21 +8,10 @@ import {
   type RuntimeEvent,
 } from "@side-chat/agent-runtime";
 import {
-  CONTEXT_TRUST_LEVELS,
-  RESEARCH_CONTEXT_AGENT_ID,
-  type MemoryPort,
-  type ResearchAgentCapability,
-  type ResearchAgentPort,
-  type ResearchSourceCandidate,
-  type RagRetrieverPort,
-  type RetrievalSourceCapability,
-} from "@side-chat/partner-ai-core";
-import {
   createJiraSearchIssuesCapability,
   createJiraSearchIssuesTool,
   JIRA_SEARCH_ISSUES_TOOL_NAME,
 } from "#adapters/tools/examples/jira-search-issues-tool";
-import { createNoopResearchAgent } from "#adapters/agents/noop-research-agent";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import { composePartnerAiService } from "./service-composition.js";
 
@@ -135,83 +124,23 @@ describe("service composition runtime tools", () => {
     expect(executionRequests).toHaveLength(1);
   });
 
-  it("declares research agents separately from runtime execution", async () => {
-    const researchAgent: ResearchAgentPort = {
-      runResearch: () =>
-        Effect.succeed({
-          summary: "Research fixture.",
-          sources: [] satisfies readonly ResearchSourceCandidate[],
-        }),
-    };
-    const composition = composePartnerAiService({
-      workspace,
-      researchAgent,
-      retrievalSources: [docsSource],
-      researchAgents: [researchAgentCapability],
-    });
-
-    const manifest = await loadManifest(composition);
-
-    expect(composition.researchAgent).toBe(researchAgent);
-    expect(manifest.retrievalSources.map((source) => source.sourceId)).toEqual(["docs"]);
-    expect(manifest.researchAgents.map((agent) => agent.researchAgentId)).toEqual([
-      RESEARCH_CONTEXT_AGENT_ID,
-    ]);
-  });
-
-  it("wires configured capability declarations to provided adapters", async () => {
-    const memory = createMemoryPort();
-    const ragRetriever = createRagRetriever();
-    const researchAgent = createNoopResearchAgent();
+  it("wires configured history and admission declarations", async () => {
     const composition = composePartnerAiService({
       workspace,
       capabilities: {
         ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
-        memory: {
-          mode: "external",
-          autoWrite: "disabled",
-          defaultScope: "user",
-        },
-        rag: {
-          mode: "external",
-          sourceIds: ["docs"],
-          failureMode: "fail_turn",
-        },
-        research: {
-          mode: "external",
-          failureMode: "fail_turn",
-        },
         history: {
           mode: "recent_messages",
           maxMessages: 6,
           maxTokens: 900,
         },
       },
-      memory,
-      ragRetriever,
-      researchAgent,
     });
 
     const manifest = await loadManifest(composition);
 
-    expect(composition.memory).toBe(memory);
-    expect(composition.ragRetriever).toBe(ragRetriever);
-    expect(composition.researchAgent).toBe(researchAgent);
-    expect(manifest.memoryPolicies).toEqual([
-      {
-        policyId: "configured_user_memory",
-        mode: "read",
-        scopes: ["user"],
-      },
-    ]);
-    expect(manifest.retrievalSources.map((source) => source.sourceId)).toEqual(["docs"]);
-    expect(manifest.researchAgents.map((agent) => agent.researchAgentId)).toEqual([
-      RESEARCH_CONTEXT_AGENT_ID,
-    ]);
+    expect(manifest.assistantProfiles).toHaveLength(1);
     expect(composition.capabilities).toMatchObject({
-      memory: { state: "configured", policyId: "configured_user_memory" },
-      rag: { state: "configured", configuredSourceCount: 1 },
-      research: { state: "configured", configuredAgentCount: 1 },
       history: { state: "configured", policyId: "recent_messages" },
       contextAdmission: {
         state: "configured",
@@ -219,49 +148,6 @@ describe("service composition runtime tools", () => {
         selectionMode: "budgeted",
       },
     });
-  });
-
-  it("rejects concrete capability modes when matching adapters are missing", () => {
-    expect(() =>
-      composePartnerAiService({
-        workspace,
-        capabilities: {
-          ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
-          memory: {
-            mode: "external",
-            autoWrite: "disabled",
-            defaultScope: "user",
-          },
-        },
-      }),
-    ).toThrow("SIDECHAT_MEMORY_MODE=external requires a concrete memory adapter.");
-
-    expect(() =>
-      composePartnerAiService({
-        workspace,
-        capabilities: {
-          ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
-          rag: {
-            mode: "external",
-            sourceIds: ["docs"],
-            failureMode: "fail_turn",
-          },
-        },
-      }),
-    ).toThrow("SIDECHAT_RAG_MODE=external requires a concrete RAG retriever.");
-
-    expect(() =>
-      composePartnerAiService({
-        workspace,
-        capabilities: {
-          ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
-          research: {
-            mode: "external",
-            failureMode: "fail_turn",
-          },
-        },
-      }),
-    ).toThrow("SIDECHAT_RESEARCH_MODE=external requires a concrete research adapter.");
   });
 
   it("resolves the service system prompt id to runtime instructions", async () => {
@@ -381,24 +267,3 @@ const jiraCreateIssueCapability = {
   description: "Create a Jira issue after approval.",
   inputSchema: { type: "object" },
 };
-
-const docsSource: RetrievalSourceCapability = {
-  sourceId: "docs",
-  description: "Workspace documentation.",
-  trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
-};
-
-const researchAgentCapability: ResearchAgentCapability = {
-  researchAgentId: RESEARCH_CONTEXT_AGENT_ID,
-  description: "Run pre-answer research.",
-};
-
-const createMemoryPort = (): MemoryPort => ({
-  recall: () => Effect.succeed([]),
-  proposeWriteCandidates: () => Effect.succeed([]),
-  writeCandidates: () => Effect.succeed(undefined),
-});
-
-const createRagRetriever = (): RagRetrieverPort => ({
-  retrieve: () => Effect.succeed([]),
-});

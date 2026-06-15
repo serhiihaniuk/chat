@@ -40,10 +40,10 @@ export const prepareStreamChatTurn = (
     // Record that the request was received before any agent/runtime work can start.
     yield* recordReceivedStreamRequest(ports, input, authContext, requestScope);
 
-    // Choose the profile, tools, guards, RAG sources, memory policy, and executor for this turn.
+    // Choose the profile, tools, guards, and executor for this turn.
     const turnPlan = yield* resolveAllowedTurnPlan(ports, input, authContext);
 
-    // Block unsafe prompts before private memory, RAG, tools, or the main executor are exposed.
+    // Block unsafe prompts before private tools or the main executor are exposed.
     const turnGuardDecisions = yield* runSelectedTurnGuards(ports, input, authContext, turnPlan);
 
     // Load or create only the conversation this subject may access.
@@ -62,7 +62,7 @@ export const prepareStreamChatTurn = (
       userMessage,
     );
 
-    // Gather host context, memory, RAG, research output, and tool context into a model-ready board.
+    // Gather host context and tool context into a model-ready board.
     const preparedContext = yield* prepareAndRecordTurnContext(ports, input, {
       authContext,
       conversation,

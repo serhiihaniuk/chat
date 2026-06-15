@@ -25,12 +25,6 @@ export const STREAM_CHAT_FAILURES = {
     protocolCode: PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
     retryable: true,
   },
-  MEMORY_WRITE_CANDIDATES: {
-    code: PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
-    message: "Memory write candidate recording failed.",
-    protocolCode: PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
-    retryable: true,
-  },
   PERSISTENCE: {
     code: PARTNER_AI_CORE_ERROR_CODES.PERSISTENCE_FAILED,
     message: "Conversation persistence failed.",

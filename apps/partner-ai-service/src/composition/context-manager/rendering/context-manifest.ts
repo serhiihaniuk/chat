@@ -6,7 +6,6 @@ import {
   type ContextManifest,
   type HistoryContextManifest,
   type PreparedContextSection,
-  type ResearchArtifact,
   type TurnPolicyDecision,
 } from "@side-chat/partner-ai-core";
 import type { ContextAdmission } from "../candidates/context-candidate-selection.js";
@@ -16,7 +15,6 @@ export const createPreparedContextManifest = ({
   profile,
   policyDecision,
   sections,
-  researchArtifacts,
   admission,
   history,
   createdAt,
@@ -25,7 +23,6 @@ export const createPreparedContextManifest = ({
   readonly profile: AssistantProfile;
   readonly policyDecision: TurnPolicyDecision;
   readonly sections: readonly PreparedContextSection[];
-  readonly researchArtifacts: readonly ResearchArtifact[];
   readonly admission: ContextAdmission;
   readonly history: HistoryContextManifest;
   readonly createdAt: string;
@@ -38,7 +35,6 @@ export const createPreparedContextManifest = ({
       history,
       profileId: profile.profileId,
       policyDecision,
-      researchArtifacts,
     }),
   ),
   profileId: profile.profileId,

@@ -14,7 +14,6 @@ import {
   type ProtocolEventAccumulator,
 } from "./protocol-event-accumulator.js";
 import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
-import { recordAllowedMemoryWriteCandidates } from "../memory/record-allowed-memory-write-candidates.js";
 import { prepareConversationTitleAfterCompletion } from "../conversation-title/prepare-conversation-title.js";
 import type {
   PreparedStreamChatTurn,
@@ -140,90 +139,7 @@ const completeAssistantTurnFromAccumulator = (
       turn,
       accumulator.assistantContent,
     );
-
-    // Memory writes are post-success candidates. Their failures are observed
-    // but must not create a second terminal stream outcome.
-    yield* recordMemoryWriteCandidatesAfterCompletion(
-      ports,
-      input,
-      turn,
-      accumulator.assistantContent,
-    );
   });
-};
-
-const recordMemoryWriteCandidatesAfterCompletion = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-  assistantContent: string,
-): Effect.Effect<void, PartnerAiCoreError> =>
-  recordAllowedMemoryWriteCandidates({
-    memory: ports.memory,
-    authContext: turn.authContext,
-    workspace: input.workspace,
-    request: input.request,
-    conversation: turn.conversation,
-    assistantTurnId: turn.assistantTurnId,
-    policyDecision: turn.policyDecision,
-    assistantContent,
-  }).pipe(
-    Effect.flatMap((candidates) =>
-      candidates.length > 0
-        ? recordMemoryWriteCandidateObservation(ports, turn, "recorded", candidates.length)
-        : Effect.void,
-    ),
-    Effect.catch((error: PartnerAiCoreError) =>
-      recordMemoryWriteCandidateObservation(ports, turn, "failed", 0, error).pipe(
-        Effect.catch(() => Effect.void),
-      ),
-    ),
-  );
-
-const recordMemoryWriteCandidateObservation = (
-  ports: StreamChatPorts,
-  turn: PreparedStreamChatTurn,
-  status: "recorded" | "failed",
-  candidateCount: number,
-  error?: PartnerAiCoreError,
-): Effect.Effect<void, PartnerAiCoreError> =>
-  recordStreamObservationEffect(
-    ports.observability,
-    createMemoryWriteCandidateObservationInput(ports, turn, status, candidateCount, error),
-  );
-
-const createMemoryWriteCandidateObservationInput = (
-  ports: StreamChatPorts,
-  turn: PreparedStreamChatTurn,
-  status: "recorded" | "failed",
-  candidateCount: number,
-  error: PartnerAiCoreError | undefined,
-): Parameters<typeof recordStreamObservationEffect>[1] => {
-  const input: Parameters<typeof recordStreamObservationEffect>[1] = {
-    correlation: turn.correlation,
-    lifecycleState: "completed",
-    assistantTurnId: turn.assistantTurnId,
-    providerId: turn.policyDecision.providerId,
-    modelId: turn.policyDecision.modelId,
-    startedAt: turn.startedAt,
-    now: ports.clock.now(),
-    attributes: {
-      stage: "memory_write_candidates",
-      status,
-      candidateCount,
-    },
-  };
-  if (!error) return input;
-
-  return {
-    ...input,
-    errorCode: error.protocolCode,
-    attributes: {
-      ...input.attributes,
-      errorCode: error.protocolCode,
-      message: error.message,
-    },
-  };
 };
 
 const failAssistantTurnFromTerminal = (

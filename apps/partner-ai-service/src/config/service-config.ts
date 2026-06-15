@@ -2,11 +2,6 @@ import type { WorkspaceRef } from "@side-chat/partner-ai-core";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
-import {
-  createMemoryPolicyForCapabilityConfig,
-  createResearchAgentsForCapabilityConfig,
-  createRetrievalSourcesForCapabilityConfig,
-} from "#composition/capabilities/capability-manifest-declarations";
 import type {
   OpenAIReasoningEffort,
   OpenAIReasoningSummary,
@@ -71,9 +66,6 @@ export const createPartnerAiServiceOptionsFromEnv = (
     policies: createPolicyConfig(profile, env),
     runtime: createRuntimeConfig(profile, env),
     capabilities,
-    memoryPolicy: createMemoryPolicyForCapabilityConfig(capabilities.memory),
-    retrievalSources: createRetrievalSourcesForCapabilityConfig(capabilities.rag),
-    researchAgents: createResearchAgentsForCapabilityConfig(capabilities.research),
     persistence,
   });
 };

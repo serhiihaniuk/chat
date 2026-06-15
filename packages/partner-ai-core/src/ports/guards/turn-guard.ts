@@ -31,7 +31,7 @@ export type TurnGuardDecision =
  *
  * Source input is intentionally smaller than StreamChatInput: guards see the
  * user text, authority, selected profile, and safety policy, but not prepared
- * context, RAG, memory, or runtime tools.
+ * context or runtime tools.
  */
 export type TurnGuard = {
   readonly guardId: string;

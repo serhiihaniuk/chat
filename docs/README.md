@@ -6,19 +6,19 @@ Not source of truth for: domain term definitions or implementation details.
 
 ## Reading Paths
 
-| Task                                                                  | Read                                                        |
-| --------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Learn the product shape                                               | `architecture/system-map.md`                                |
-| Edit domain terms                                                     | `domain/vocabulary.md`                                      |
-| Change stream-chat lifecycle                                          | `architecture/assistant-turn.md`                            |
-| Add tools, guards, RAG, memory, research, executors, or host commands | `architecture/extension-seams.md`                           |
-| Change package imports or data boundaries                             | `architecture/package-boundaries.md`                        |
-| Change runtime, protocol, events, or Effect/Stream code               | `architecture/runtime-and-protocol-events.md`               |
-| Change widget, host bridge, or copied UI primitives                   | `architecture/widget-and-host-integration.md`               |
-| Review product or quality requirements                                | `product/requirements.md`                                   |
-| Choose verification commands                                          | `operations/verification.md`                                |
-| Understand conversation title generation                              | `implementation-plans/conversation-title-generation.md`     |
-| Implement memory, history, RAG, research, or context admission gaps   | `implementation-plans/memory-context-history-rag/README.md` |
+| Task                                                          | Read                                                        |
+| ------------------------------------------------------------- | ----------------------------------------------------------- |
+| Learn the product shape                                       | `architecture/system-map.md`                                |
+| Edit domain terms                                             | `domain/vocabulary.md`                                      |
+| Change stream-chat lifecycle                                  | `architecture/assistant-turn.md`                            |
+| Add tools, guards, executors, observability, or host commands | `architecture/extension-seams.md`                           |
+| Change package imports or data boundaries                     | `architecture/package-boundaries.md`                        |
+| Change runtime, protocol, events, or Effect/Stream code       | `architecture/runtime-and-protocol-events.md`               |
+| Change widget, host bridge, or copied UI primitives           | `architecture/widget-and-host-integration.md`               |
+| Review product or quality requirements                        | `product/requirements.md`                                   |
+| Choose verification commands                                  | `operations/verification.md`                                |
+| Understand conversation title generation                      | `implementation-plans/conversation-title-generation.md`     |
+| Review deferred context capability plans                      | `implementation-plans/memory-context-history-rag/README.md` |
 
 ## Durable Docs
 

@@ -12,7 +12,6 @@ import type {
   ConversationRepositoryPort,
   HostCapabilityManifestPort,
   IdGeneratorPort,
-  MemoryPort,
   MessageRef,
   TurnGuardDecision,
   TurnGuardRegistryPort,
@@ -51,7 +50,6 @@ export type StreamChatPorts = {
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
-  readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
   readonly conversationTitleGeneration: ConversationTitleGenerationPort;
   readonly clock: ClockPort;

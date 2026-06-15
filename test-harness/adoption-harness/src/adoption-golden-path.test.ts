@@ -7,23 +7,7 @@ import {
   type UsageMetadata,
 } from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories } from "@side-chat/db";
-import {
-  CONTEXT_REDACTION_CLASSES,
-  CONTEXT_TRUST_LEVELS,
-  type MemoryPort,
-  type MemoryRecallInput,
-  type MemoryWriteCandidateProposalInput,
-  type MemoryWriteCandidateRecordInput,
-  type RagRetrievalInput,
-  type RagRetrieverPort,
-  type ResearchAgentInput,
-  RESEARCH_CONTEXT_AGENT_ID,
-  type ResearchAgentCapability,
-  type ResearchAgentPort,
-  type RetrievalSourceCapability,
-  type TurnGuardInput,
-  type TurnGuardRegistryPort,
-} from "@side-chat/partner-ai-core";
+import { type TurnGuardInput, type TurnGuardRegistryPort } from "@side-chat/partner-ai-core";
 import { createPartnerAiServiceApp } from "@side-chat/partner-ai-service";
 import {
   applyActivityEvent,
@@ -41,22 +25,11 @@ describe("golden-path adopter flow", () => {
   it("streams from manifest policy through context, runtime, client, and widget state", async () => {
     const repositories = createMemorySidechatRepositories({ idPrefix: "adoption" });
     const guardInputs: TurnGuardInput[] = [];
-    const ragInputs: RagRetrievalInput[] = [];
-    const researchInputs: ResearchAgentInput[] = [];
-    const memoryRecallInputs: MemoryRecallInput[] = [];
-    const memoryProposalInputs: MemoryWriteCandidateProposalInput[] = [];
-    const memoryWriteInputs: MemoryWriteCandidateRecordInput[] = [];
     const app = createPartnerAiServiceApp({
       repositories,
       runtime: { provider: "fake", enableMockWebSearch: true },
       turnGuards: createRecordingGuardRegistry(guardInputs),
       turnGuardIds: ["adoption.prompt_guard"],
-      retrievalSources: [docsSource],
-      ragRetriever: createRecordingRagRetriever(ragInputs),
-      memoryPolicy: { policyId: "user_memory", mode: "read_write", scopes: ["user"] },
-      memory: createRecordingMemory(memoryRecallInputs, memoryProposalInputs, memoryWriteInputs),
-      researchAgents: [researchAgentCapability],
-      researchAgent: createRecordingResearchAgent(researchInputs),
     });
     const client = createChatClient({
       baseUrl: "http://side-chat-adoption.test",
@@ -97,33 +70,10 @@ describe("golden-path adopter flow", () => {
     });
     expect(guardInputs[0]).not.toHaveProperty("contextBoard");
     expect(guardInputs[0]).not.toHaveProperty("allowedToolNames");
-    expect(ragInputs[0]).toMatchObject({ allowedSourceIds: ["docs"] });
-    expect(researchInputs[0]).toMatchObject({
-      allowedSourceIds: ["docs"],
-      requestId: "request_adoption_001",
-    });
-    expect(memoryRecallInputs[0]).toMatchObject({ allowedScopes: ["user"] });
-    expect(memoryProposalInputs[0]).toMatchObject({
-      userMessage: "Summarize adoption context",
-      assistantContent: "Fake response: Summarize adoption context",
-      allowedScopes: ["user"],
-    });
-    expect(memoryWriteInputs[0]?.candidates).toEqual([
-      expect.objectContaining({ candidateId: "memory_write_adoption_001", scope: "user" }),
-    ]);
     expect(readCandidateSourceTypes(contextSnapshot)).toEqual(
-      expect.arrayContaining([
-        "current_message",
-        "host_context",
-        "memory",
-        "retrieval_result",
-        "research_artifact",
-        "research_result",
-        "tool_capability",
-      ]),
+      expect.arrayContaining(["current_message", "host_context", "tool_capability"]),
     );
     expect(readCandidateSourceIds(contextSnapshot)).toContain("mock_web_search");
-    expect(readResearchArtifactKinds(contextSnapshot)).toEqual(["research_summary"]);
     expect(snapshot.assistantTurns[0]).toMatchObject({
       requestId: "request_adoption_001",
       status: "completed",
@@ -255,87 +205,6 @@ const createRecordingGuardRegistry = (calls: TurnGuardInput[]): TurnGuardRegistr
   ],
 });
 
-const createRecordingRagRetriever = (calls: RagRetrievalInput[]): RagRetrieverPort => ({
-  retrieve: (input) =>
-    Effect.sync(() => {
-      calls.push(input);
-      return [
-        {
-          candidateId: "rag_docs_adoption_001",
-          sourceId: "docs",
-          title: "Adoption docs",
-          content: "Adoption docs explain the customer workspace.",
-          url: "https://docs.example/adoption",
-          score: 0.91,
-          estimatedTokens: 12,
-          trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
-          redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
-        },
-      ];
-    }),
-});
-
-const createRecordingResearchAgent = (calls: ResearchAgentInput[]): ResearchAgentPort => ({
-  runResearch: (input) =>
-    Effect.sync(() => {
-      calls.push(input);
-      return {
-        summary: "Research summary combines adoption docs and memory.",
-        artifactId: "artifact_adoption_research_001",
-        sources: [
-          {
-            candidateId: "research_docs_adoption_001",
-            sourceId: "docs",
-            title: "Research source",
-            content: "Research source cites the adoption docs.",
-            score: 0.86,
-            estimatedTokens: 10,
-            trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
-            redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
-          },
-        ],
-      };
-    }),
-});
-
-const createRecordingMemory = (
-  recallCalls: MemoryRecallInput[],
-  proposalCalls: MemoryWriteCandidateProposalInput[],
-  writeCalls: MemoryWriteCandidateRecordInput[],
-): MemoryPort => ({
-  recall: (input) =>
-    Effect.sync(() => {
-      recallCalls.push(input);
-      return [
-        {
-          memoryId: "memory_adoption_001",
-          scope: "user",
-          content: "Prefers concise architecture summaries.",
-          confidence: 0.94,
-          updatedAt: "2026-06-13T12:00:00.000Z",
-        },
-      ];
-    }),
-  proposeWriteCandidates: (input) =>
-    Effect.sync(() => {
-      proposalCalls.push(input);
-      return [
-        {
-          candidateId: "memory_write_adoption_001",
-          scope: "user",
-          content: "Asked for the adoption golden path.",
-          reason: "User-specific follow-up preference.",
-          confidence: 0.82,
-          sourceTurnId: input.assistantTurnId,
-        },
-      ];
-    }),
-  writeCandidates: (input) =>
-    Effect.sync(() => {
-      writeCalls.push(input);
-    }),
-});
-
 const readCandidateSourceTypes = (snapshot: JsonObject | undefined): readonly string[] => {
   const candidates = asArray(snapshot?.["candidates"]);
   return candidates
@@ -350,26 +219,8 @@ const readCandidateSourceIds = (snapshot: JsonObject | undefined): readonly stri
     .filter((sourceId): sourceId is string => typeof sourceId === "string");
 };
 
-const readResearchArtifactKinds = (snapshot: JsonObject | undefined): readonly string[] => {
-  const artifacts = asArray(snapshot?.["researchArtifacts"]);
-  return artifacts
-    .map((artifact) => (isJsonObject(artifact) ? artifact["artifactKind"] : undefined))
-    .filter((artifactKind): artifactKind is string => typeof artifactKind === "string");
-};
-
 const asArray = (value: JsonValue | undefined): readonly JsonValue[] =>
   Array.isArray(value) ? value : [];
 
 const isJsonObject = (value: JsonValue): value is JsonObject =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const docsSource: RetrievalSourceCapability = {
-  sourceId: "docs",
-  description: "Workspace documentation.",
-  trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
-};
-
-const researchAgentCapability: ResearchAgentCapability = {
-  researchAgentId: RESEARCH_CONTEXT_AGENT_ID,
-  description: "Run pre-answer research.",
-};

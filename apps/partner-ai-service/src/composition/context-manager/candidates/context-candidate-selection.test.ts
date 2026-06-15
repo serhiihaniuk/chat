@@ -19,20 +19,20 @@ describe("createBudgetedContextAdmission", () => {
       [
         createCandidate({ candidateId: "current", sourceType: "current_message", tokens: 4 }),
         createCandidate({ candidateId: "host", sourceType: "host_context", tokens: 6 }),
-        createCandidate({ candidateId: "memory", sourceType: "memory", tokens: 8 }),
+        createCandidate({ candidateId: "tool", sourceType: "tool_capability", tokens: 8 }),
       ],
       createConfig(),
     );
 
     expect(admission.budget).toMatchObject({
       selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.BUDGETED,
-      includedCandidateIds: ["current", "host", "memory"],
+      includedCandidateIds: ["current", "host", "tool"],
       droppedCandidateIds: [],
     });
     expect(admission.entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ candidateId: "host", included: true }),
-        expect.objectContaining({ candidateId: "memory", included: true }),
+        expect.objectContaining({ candidateId: "tool", included: true }),
       ]),
     );
   });
@@ -42,10 +42,15 @@ describe("createBudgetedContextAdmission", () => {
       [
         createCandidate({ candidateId: "current", sourceType: "current_message", tokens: 10 }),
         createCandidate({ candidateId: "host", sourceType: "host_context", tokens: 15 }),
-        createCandidate({ candidateId: "memory", sourceType: "memory", tokens: 15, priority: 72 }),
         createCandidate({
-          candidateId: "rag",
-          sourceType: "retrieval_result",
+          candidateId: "tool_high",
+          sourceType: "tool_capability",
+          tokens: 12,
+          priority: 72,
+        }),
+        createCandidate({
+          candidateId: "tool_low",
+          sourceType: "tool_capability",
           tokens: 15,
           priority: 60,
         }),
@@ -53,11 +58,11 @@ describe("createBudgetedContextAdmission", () => {
       createConfig({ maxInputTokens: 45, reservedOutputTokens: 5 }),
     );
 
-    expect(admission.budget.includedCandidateIds).toEqual(["current", "host", "memory"]);
-    expect(admission.budget.droppedCandidateIds).toEqual(["rag"]);
+    expect(admission.budget.includedCandidateIds).toEqual(["current", "host", "tool_high"]);
+    expect(admission.budget.droppedCandidateIds).toEqual(["tool_low"]);
     expect(admission.entries).toContainEqual(
       expect.objectContaining({
-        candidateId: "rag",
+        candidateId: "tool_low",
         included: false,
         dropReason: CONTEXT_ADMISSION_DROP_REASONS.BUDGET_EXCEEDED,
       }),
@@ -68,28 +73,28 @@ describe("createBudgetedContextAdmission", () => {
     const admission = createBudgetedContextAdmission(
       [
         createCandidate({ candidateId: "current", sourceType: "current_message", tokens: 1 }),
-        createCandidate({ candidateId: "memory_b", sourceType: "memory", tokens: 1, priority: 80 }),
-        createCandidate({ candidateId: "memory_a", sourceType: "memory", tokens: 1, priority: 80 }),
-        createCandidate({ candidateId: "memory_c", sourceType: "memory", tokens: 1, priority: 80 }),
+        createCandidate({ candidateId: "host_b", sourceType: "host_context", tokens: 1 }),
+        createCandidate({ candidateId: "host_a", sourceType: "host_context", tokens: 1 }),
+        createCandidate({ candidateId: "host_c", sourceType: "host_context", tokens: 1 }),
       ],
       createConfig(),
     );
 
     expect(admission.budget.includedCandidateIds).toEqual([
       "current",
-      "memory_a",
-      "memory_b",
-      "memory_c",
+      "host_a",
+      "host_b",
+      "host_c",
     ]);
   });
 
-  it("keeps required context ahead of optional high-scoring retrieval", () => {
+  it("keeps required context ahead of optional high-scoring tool context", () => {
     const admission = createBudgetedContextAdmission(
       [
         createCandidate({ candidateId: "current", sourceType: "current_message", tokens: 18 }),
         createCandidate({
-          candidateId: "rag_high",
-          sourceType: "retrieval_result",
+          candidateId: "tool_high",
+          sourceType: "tool_capability",
           tokens: 5,
           priority: 95,
         }),
@@ -100,7 +105,7 @@ describe("createBudgetedContextAdmission", () => {
     expect(admission.budget.includedCandidateIds).toEqual(["current"]);
     expect(admission.entries).toContainEqual(
       expect.objectContaining({
-        candidateId: "rag_high",
+        candidateId: "tool_high",
         included: false,
         dropReason: CONTEXT_ADMISSION_DROP_REASONS.BUDGET_EXCEEDED,
       }),
@@ -116,20 +121,30 @@ describe("createBudgetedContextAdmission", () => {
     ).toThrow(ContextAdmissionBudgetError);
   });
 
-  it("enforces source-specific caps before optional candidates use total budget", () => {
+  it("enforces history caps before optional candidates use total budget", () => {
     const admission = createBudgetedContextAdmission(
       [
         createCandidate({ candidateId: "current", sourceType: "current_message", tokens: 2 }),
-        createCandidate({ candidateId: "memory_a", sourceType: "memory", tokens: 8, priority: 80 }),
-        createCandidate({ candidateId: "memory_b", sourceType: "memory", tokens: 8, priority: 79 }),
+        createCandidate({
+          candidateId: "history_a",
+          sourceType: "conversation_history",
+          tokens: 8,
+          priority: 80,
+        }),
+        createCandidate({
+          candidateId: "history_b",
+          sourceType: "conversation_history",
+          tokens: 8,
+          priority: 79,
+        }),
       ],
-      createConfig({ maxMemoryTokens: 10 }),
+      createConfig({ maxHistoryTokens: 10 }),
     );
 
-    expect(admission.budget.includedCandidateIds).toEqual(["current", "memory_a"]);
+    expect(admission.budget.includedCandidateIds).toEqual(["current", "history_a"]);
     expect(admission.entries).toContainEqual(
       expect.objectContaining({
-        candidateId: "memory_b",
+        candidateId: "history_b",
         included: false,
         dropReason: CONTEXT_ADMISSION_DROP_REASONS.SOURCE_LIMIT_EXCEEDED,
       }),
@@ -143,8 +158,8 @@ describe("createBudgetedContextAdmission", () => {
         createCandidate({ candidateId: "host", sourceType: "host_context", tokens: 1 }),
         createCandidate({ candidateId: "host", sourceType: "host_context", tokens: 1 }),
         createCandidate({
-          candidateId: "secret_memory",
-          sourceType: "memory",
+          candidateId: "secret_tool",
+          sourceType: "tool_capability",
           tokens: 1,
           redactionClass: CONTEXT_REDACTION_CLASSES.SECRET,
         }),
@@ -161,7 +176,7 @@ describe("createBudgetedContextAdmission", () => {
     );
     expect(admission.entries).toContainEqual(
       expect.objectContaining({
-        candidateId: "secret_memory",
+        candidateId: "secret_tool",
         included: false,
         dropReason: CONTEXT_ADMISSION_DROP_REASONS.REDACTION_BLOCKED,
       }),
@@ -177,9 +192,6 @@ const createConfig = (overrides: Partial<ContextAdmissionConfig> = {}): ContextA
   maxInputTokens: 100,
   reservedOutputTokens: 10,
   maxHistoryTokens: 30,
-  maxMemoryTokens: 30,
-  maxRagTokens: 30,
-  maxResearchTokens: 30,
   ...overrides,
 });
 
@@ -216,10 +228,10 @@ const defaultPriorityForSource = (sourceType: ContextCandidate["sourceType"]): n
       return 100;
     case CONTEXT_CANDIDATE_SOURCE_TYPES.HOST_CONTEXT:
       return 80;
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.MEMORY:
-      return 72;
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.RETRIEVAL_RESULT:
-      return 70;
+    case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_HISTORY:
+      return 75;
+    case CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_CAPABILITY:
+      return 50;
     default:
       return 60;
   }

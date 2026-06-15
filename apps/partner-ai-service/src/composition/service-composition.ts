@@ -31,11 +31,7 @@ import {
   createServiceTurnPolicyResolver,
   createStaticHostCapabilityManifestPort,
 } from "./manifest/service-capability-manifest.js";
-import {
-  createCapabilityStatusForComposition,
-  resolveCapabilityManifestInputs,
-  selectCapabilityAdapters,
-} from "#composition/capabilities/service-capability-composition";
+import { createCapabilityStatusForComposition } from "#composition/capabilities/service-capability-composition";
 import type {
   PersistenceConfig,
   RuntimeConfig,
@@ -80,13 +76,12 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const runtimeConfig = options.runtime ?? { provider: "fake" };
   const runtimeProviderId = providerIdForRuntime(runtimeConfig);
   const runtimeModelId = modelIdForRuntime(runtimeConfig);
-  const capabilityManifestInputs = resolveCapabilityManifestInputs(options, capabilityConfig);
   const conversationTitleGeneration =
     options.conversationTitleGeneration ?? DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION;
 
   // Publish what this service can offer to core. The manifest names available
-  // tools, commands, memory, retrieval, research, and guards; turn policy still
-  // chooses which of them a single request may use.
+  // tools, commands, and guards; turn policy still chooses which of them a
+  // single request may use.
   const manifest = createServiceHostCapabilityManifest({
     runtimeConfig,
     providerId: runtimeProviderId,
@@ -94,13 +89,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     toolCapabilities: runtimeConfig.toolCapabilities,
     hostCommands: runtimeConfig.hostCommands,
     approvalPolicies: runtimeConfig.approvalPolicies,
-    ...capabilityManifestInputs,
     turnGuardIds: options.turnGuardIds,
   });
   const capabilities = createCapabilityStatusForComposition({
-    options,
     capabilityConfig,
-    manifest,
     persistenceKind: persistenceLabel === "postgres-drizzle" ? "postgres" : "memory",
   });
   assertProductionCapabilityStatus(capabilities, auth.profile);
@@ -109,12 +101,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   // AgentRuntime; otherwise config becomes either fake local runtime or OpenAI.
   const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);
 
-  // Context adapters are optional for local boot, but the no-op versions mean
-  // "no memory/RAG/research was provided", not "feature is production-ready".
-  const { memory, ragRetriever, researchAgent } = selectCapabilityAdapters(
-    capabilityConfig,
-    options,
-  );
   const historyContext = createRepositoryConversationHistoryContext(repositories);
 
   // Return the complete graph in one object so HTTP routes can stay thin: they
@@ -129,14 +115,8 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     hostCapabilities: createStaticHostCapabilityManifestPort(manifest),
     turnPolicies: createServiceTurnPolicyResolver(),
     turnGuards: options.turnGuards ?? createNoopTurnGuardRegistry(),
-    memory,
-    ragRetriever,
-    researchAgent,
     contextManager: createServiceContextManager({
       historyContext,
-      memory,
-      ragRetriever,
-      researchAgent,
       history: capabilityConfig.history,
       contextAdmission: capabilityConfig.contextAdmission,
     }),

@@ -55,7 +55,7 @@ provider adapter details.
 - Request authority is checked before persistence, private context, or runtime
   execution.
 - Secrets are not committed or copied into docs.
-- Host context and retrieved context are authorized and redacted before the model
+- Host context and admitted context are authorized and redacted before the model
   sees them.
 - Redaction happens before sensitive fields are logged.
 - Browser-facing source/citation data is protocol-safe.
@@ -73,8 +73,8 @@ provider adapter details.
 
 ## Adoption And Extension Requirements
 
-- Adopters can find where to add a tool, guard, RAG, memory, research agent,
-  agent executor, host command, policy rule, or observability sink quickly.
+- Adopters can find where to add a tool, guard, agent executor, host command,
+  policy rule, or observability sink quickly.
 - The repo does not ship a production host app.
 - Resource endpoints remain separate from the stream endpoint.
 - Model choices are constrained by service configuration and product policy.

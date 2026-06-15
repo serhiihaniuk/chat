@@ -8,8 +8,8 @@ Not source of truth for: global vocabulary or product requirements.
 
 - Hono HTTP routes, middleware, and SSE response conversion.
 - Auth, config, persistence, policy, provider, and tool adapters.
-- Concrete turn guard, RAG, research, memory, host-command, and observability
-  adapter starting points.
+- Concrete turn guard, host-command, tool, persistence, policy, and
+  observability adapter starting points.
 - Deployable service composition of core, runtime, DB, and enterprise adapters.
 - Local development/test fixtures that are explicitly enabled by config.
 
@@ -34,8 +34,8 @@ Not source of truth for: global vocabulary or product requirements.
 ## Capability Diagnostics
 
 `/healthz` and `/readyz` include a safe `capabilities` object owned by service
-composition. It reports whether memory, RAG, research, history context, context
-admission, and persistence are disabled, no-op, configured, or misconfigured.
+composition. It reports whether history context, context admission, and
+persistence are disabled, configured, or misconfigured.
 
 The chat resource surface includes `GET /chat/conversations` for the current
 authorized workspace subject and `GET /chat/history/:conversationId` for
@@ -48,8 +48,6 @@ accept a caller-supplied subject id.
 
 Default local boot is honest about the current app shape:
 
-- memory, RAG, and research seams exist, but their fallback adapters return no
-  candidates unless concrete adapters are injected;
 - prior conversation history is disabled by default; `recent_messages` admits
   authorized same-conversation user/assistant messages before the current user
   message, and reset starts a new history boundary; `recent_plus_summary` is
@@ -57,7 +55,7 @@ Default local boot is honest about the current app shape:
   generation exists;
 - context admission enforces deterministic token budgets before optional
   context reaches runtime;
-- memory repositories are process-local and not durable.
+- in-memory repositories are process-local and not durable.
 
 Context admission diagnostics expose the configured policy id, the actual
 selection mode, and a secret-free recorded budget. `policyId:
@@ -70,59 +68,38 @@ Persistence diagnostics are derived from the composed repository adapter. A
 in-memory repositories report `persistence: memory` and remain explicitly
 non-production-safe because they reset with the process.
 
-Production-profile composition rejects enabled memory, RAG, research, or summary
-history declarations when the matching concrete implementation is missing.
-Diagnostics never include secrets, connection strings, raw memory, retrieved
-text, provider requests, or private context-board content.
+Production-profile composition rejects summary history until the matching
+implementation exists. Diagnostics never include secrets, connection strings,
+provider requests, or private context-board content.
 
 ## Capability Configuration
 
 `partner-ai-core` owns the portable capability configuration contract used by
-manifests, policy, and context preparation. This service parses `SIDECHAT_*`
-environment values and adds deployable adapter modes such as no-op, Postgres,
-HTTP, external, or LangGraph.
+policy and context preparation. This service parses `SIDECHAT_*` environment
+values for the implemented RC capabilities.
 
 Local defaults are explicit and fail closed:
 
-| Env key                                   | Local default      | Meaning                                                                |
-| ----------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
-| `SIDECHAT_MEMORY_MODE`                    | `disabled`         | `disabled` or explicit `noop`; concrete modes need a memory adapter.   |
-| `SIDECHAT_MEMORY_AUTO_WRITE`              | `disabled`         | `disabled`, `propose_only`, or `auto_apply` for future memory writes.  |
-| `SIDECHAT_MEMORY_DEFAULT_SCOPE`           | `user`             | Default manifest memory scope when memory is enabled.                  |
-| `SIDECHAT_RAG_MODE`                       | `disabled`         | `disabled` or explicit `noop`; concrete modes need a retriever.        |
-| `SIDECHAT_RAG_SOURCES`                    | empty              | Comma-separated retrieval source ids for manifest declarations.        |
-| `SIDECHAT_RAG_FAILURE_MODE`               | `degrade`          | Parsed for later retriever behavior.                                   |
-| `SIDECHAT_RESEARCH_MODE`                  | `disabled`         | `disabled` or explicit `noop`; concrete modes need a research adapter. |
-| `SIDECHAT_RESEARCH_FAILURE_MODE`          | `degrade`          | Parsed for later research behavior.                                    |
-| `SIDECHAT_HISTORY_MODE`                   | `disabled`         | `disabled`, `recent_messages`, or future `recent_plus_summary`.        |
-| `SIDECHAT_HISTORY_MAX_MESSAGES`           | `12`               | Maximum same-conversation messages admitted into runtime context.      |
-| `SIDECHAT_HISTORY_MAX_TOKENS`             | `4000`             | Approximate token budget for admitted conversation history.            |
-| `SIDECHAT_CONTEXT_ADMISSION_POLICY`       | `deterministic_v1` | Recorded context admission policy id.                                  |
-| `SIDECHAT_CONTEXT_MAX_INPUT_TOKENS`       | `24000`            | Recorded model input budget.                                           |
-| `SIDECHAT_CONTEXT_RESERVED_OUTPUT_TOKENS` | `4000`             | Reserved output budget; must be below max input tokens.                |
-| `SIDECHAT_CONTEXT_MAX_HISTORY_TOKENS`     | `4000`             | Recorded per-source history budget.                                    |
-| `SIDECHAT_CONTEXT_MAX_MEMORY_TOKENS`      | `2000`             | Recorded per-source memory budget.                                     |
-| `SIDECHAT_CONTEXT_MAX_RAG_TOKENS`         | `8000`             | Recorded per-source RAG budget.                                        |
-| `SIDECHAT_CONTEXT_MAX_RESEARCH_TOKENS`    | `4000`             | Recorded per-source research budget.                                   |
+| Env key                                   | Local default      | Meaning                                                           |
+| ----------------------------------------- | ------------------ | ----------------------------------------------------------------- |
+| `SIDECHAT_HISTORY_MODE`                   | `disabled`         | `disabled`, `recent_messages`, or future `recent_plus_summary`.   |
+| `SIDECHAT_HISTORY_MAX_MESSAGES`           | `12`               | Maximum same-conversation messages admitted into runtime context. |
+| `SIDECHAT_HISTORY_MAX_TOKENS`             | `4000`             | Approximate token budget for admitted conversation history.       |
+| `SIDECHAT_CONTEXT_ADMISSION_POLICY`       | `deterministic_v1` | Recorded context admission policy id.                             |
+| `SIDECHAT_CONTEXT_MAX_INPUT_TOKENS`       | `24000`            | Recorded model input budget.                                      |
+| `SIDECHAT_CONTEXT_RESERVED_OUTPUT_TOKENS` | `4000`             | Reserved output budget; must be below max input tokens.           |
+| `SIDECHAT_CONTEXT_MAX_HISTORY_TOKENS`     | `4000`             | Recorded per-source history budget.                               |
 
-Example local path that declares capabilities without pretending they are real
-adapters:
+Example local path that enables recent conversation history:
 
 ```sh
-SIDECHAT_MEMORY_MODE=noop \
-SIDECHAT_RAG_MODE=noop \
-SIDECHAT_RAG_SOURCES=docs,tickets \
-SIDECHAT_RESEARCH_MODE=noop \
 SIDECHAT_HISTORY_MODE=recent_messages \
 npm run dev --workspace @side-chat/partner-ai-service
 ```
 
-This reports memory, RAG, and research as no-op in diagnostics, while history
-reports the repository-backed context adapter when `recent_messages` is enabled.
-`recent_plus_summary` reports `missing-history-summary-generator` and is not
-production-safe until summary generation is implemented. Production-profile
-config rejects enabled memory, RAG, research, or summary-history declarations
-until the matching concrete implementation is provided.
+History reports the repository-backed context adapter when `recent_messages` is
+enabled. `recent_plus_summary` reports `missing-history-summary-generator` and
+is not production-safe until summary generation is implemented.
 
 ## Verify
 

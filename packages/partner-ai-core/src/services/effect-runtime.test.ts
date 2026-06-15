@@ -56,7 +56,6 @@ describe("partner AI core Effect runtime layer", () => {
             profile,
             policyDecision,
             history: emptyHistoryManifest,
-            researchArtifacts: [],
             candidates: [],
             runtimeMessages: [{ role: "user", content: "hello" }],
             contextBoard: {
@@ -91,9 +90,6 @@ describe("partner AI core Effect runtime layer", () => {
                   reservedOutputTokens: 512,
                   sourceTokenBudgets: {
                     history: 1000,
-                    memory: 500,
-                    rag: 1500,
-                    research: 1000,
                   },
                   includedCandidateIds: ["candidate-1"],
                   droppedCandidateIds: [],
@@ -102,11 +98,6 @@ describe("partner AI core Effect runtime layer", () => {
               },
             },
           }),
-      },
-      memory: {
-        recall: () => Effect.succeed([]),
-        proposeWriteCandidates: () => Effect.succeed([]),
-        writeCandidates: () => Effect.succeed(undefined),
       },
       runtime: {
         streamEffect: () => Stream.empty,
@@ -141,8 +132,6 @@ const profile: AssistantProfile = {
   executorId: "ai_sdk.tool_loop",
   modelPolicy: { providerId: "fake", modelId: "fake-echo" },
   defaultToolPolicy: { mode: "closed", allowedToolNames: [] },
-  retrievalPolicy: { mode: "disabled", sourceIds: [] },
-  memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
   outputContract: { format: "markdown" },
   safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
 };
@@ -154,10 +143,7 @@ const manifest: HostCapabilityManifest = {
   assistantProfiles: [profile],
   tools: [],
   commands: [],
-  retrievalSources: [],
-  researchAgents: [],
   approvalPolicies: [],
-  memoryPolicies: [profile.memoryPolicy],
   activityRenderers: [],
 };
 

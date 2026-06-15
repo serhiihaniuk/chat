@@ -1,20 +1,26 @@
 # Memory, Context, History, and RAG Implementation Plan
 
-Read this when: you need the ordered implementation path for turning the
-current memory, RAG, research, history, context admission, and persistence seams
-into app behavior.
-Source of truth for: implementation order for this plan set.
+Read this when: you need the ordered implementation path for current history,
+context admission, and persistence work, or the deferred future plans for
+memory, RAG, and research.
+Source of truth for: implementation order and RC deferral for this plan set.
 Not source of truth for: canonical vocabulary, lifecycle order, or package
 boundaries.
 
 ## Why This Folder Exists
 
-The architecture already has seams for memory, RAG, research, context boards,
-history persistence, and memory-write lifecycle hooks. The running app still
-needs concrete adapters, configuration, app-path tests, and honest status
-reporting.
+This folder preserves the implementation sequence for history, context
+admission, persistence, and future memory/RAG/research work. For RC,
+memory/RAG/research are planning-only and should not appear in the running app.
 
 This folder is ordered by implementation dependency, not by audit section.
+
+## RC Scope Note
+
+For RC, memory, RAG, and research are intentionally cut from the current app and
+remain only as deferred planning docs. Use
+`rc-cut-memory-rag-research-from-app.md` as the removal plan before treating
+phases 7 through 9 as future implementation work.
 
 ## Implementation Order
 

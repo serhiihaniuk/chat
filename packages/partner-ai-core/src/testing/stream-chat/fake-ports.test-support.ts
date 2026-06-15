@@ -23,7 +23,6 @@ import {
   type ContextManagerPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
-  type MemoryPort,
   type TurnGuardRegistryPort,
 } from "#ports";
 import type { PolicyEvaluationInput, PolicyPort } from "#policies/policy";
@@ -50,7 +49,6 @@ export type FakePortOptions = {
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly contextManager?: ContextManagerPort | undefined;
   readonly preparedContext?: PreparedTurnContext | undefined;
-  readonly memory?: MemoryPort | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
 };
 
@@ -108,13 +106,6 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
         return Effect.succeed(preparedContext);
       },
     },
-    memory:
-      options.memory ??
-      ({
-        recall: () => Effect.succeed([]),
-        proposeWriteCandidates: () => Effect.succeed([]),
-        writeCandidates: () => Effect.succeed(undefined),
-      } satisfies MemoryPort),
     policies: {
       evaluate: (policyInput: PolicyEvaluationInput) => {
         calls.push("policy");
@@ -149,7 +140,6 @@ export const runStreamChat = (
           turnPolicies: ports.turnPolicies,
           turnGuards: ports.turnGuards,
           contextManager: ports.contextManager,
-          memory: ports.memory,
           runtime: ports.runtime,
           conversationTitleGeneration: ports.conversationTitleGeneration,
           clock: ports.clock,

@@ -1,31 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
-  CAPABILITY_FAILURE_MODES,
   CONTEXT_ADMISSION_POLICIES,
   CONTEXT_ADMISSION_SELECTION_MODES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
   HISTORY_CONTEXT_MODES,
-  MEMORY_AUTO_WRITE_MODES,
-  MEMORY_DEFAULT_SCOPES,
   createTurnPolicyDecision,
   type CapabilityConfig,
   type PreparedTurnContext,
-  type ResearchArtifact,
 } from "../capabilities.js";
 import { createAssistantProfile, createManifest } from "#testing/capabilities/manifest-fixtures";
 
 describe("capability substrate types", () => {
-  it("models context manifests and research artifacts without infrastructure types", () => {
-    const artifact = {
-      artifactId: "artifact_research_001",
-      researchRunId: "research_context_request_001",
-      researchAgentId: "research_context",
-      artifactKind: "research_summary",
-      contentType: "application/json",
-      payload: { summary: "Research found one relevant source." },
-      createdAt: "2026-06-13T12:00:00.000Z",
-    } satisfies ResearchArtifact;
+  it("models prepared context without infrastructure types", () => {
     const prepared = {
       contextId: "context_001",
       profile: createAssistantProfile(),
@@ -42,7 +29,6 @@ describe("capability substrate types", () => {
         estimatedTokens: 0,
         messages: [],
       },
-      researchArtifacts: [artifact],
       candidates: [
         {
           candidateId: "candidate_001",
@@ -96,9 +82,6 @@ describe("capability substrate types", () => {
             reservedOutputTokens: 512,
             sourceTokenBudgets: {
               history: 1000,
-              memory: 500,
-              rag: 1500,
-              research: 1000,
             },
             includedCandidateIds: ["candidate_001"],
             droppedCandidateIds: [],
@@ -109,22 +92,10 @@ describe("capability substrate types", () => {
     } satisfies PreparedTurnContext;
 
     expect(prepared.contextBoard.manifest.entries).toHaveLength(1);
-    expect(prepared.researchArtifacts[0]?.researchAgentId).toBe("research_context");
   });
 
   it("exports capability configuration contracts without service adapter modes", () => {
     const config = {
-      memory: {
-        autoWrite: MEMORY_AUTO_WRITE_MODES.PROPOSE_ONLY,
-        defaultScope: MEMORY_DEFAULT_SCOPES.USER,
-      },
-      rag: {
-        sourceIds: ["docs"],
-        failureMode: CAPABILITY_FAILURE_MODES.DEGRADE,
-      },
-      research: {
-        failureMode: CAPABILITY_FAILURE_MODES.FAIL_TURN,
-      },
       history: {
         mode: HISTORY_CONTEXT_MODES.RECENT_MESSAGES,
         maxMessages: 12,
@@ -135,13 +106,10 @@ describe("capability substrate types", () => {
         maxInputTokens: 24_000,
         reservedOutputTokens: 4_000,
         maxHistoryTokens: 4_000,
-        maxMemoryTokens: 2_000,
-        maxRagTokens: 8_000,
-        maxResearchTokens: 4_000,
       },
     } satisfies CapabilityConfig;
 
-    expect(config.memory.defaultScope).toBe(MEMORY_DEFAULT_SCOPES.USER);
-    expect(config.rag.sourceIds).toEqual(["docs"]);
+    expect(config.history.maxMessages).toBe(12);
+    expect(config.contextAdmission.maxHistoryTokens).toBe(4_000);
   });
 });

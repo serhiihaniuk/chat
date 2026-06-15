@@ -12,14 +12,10 @@ import {
   approvalRequirementsForSelectedCapabilities,
   validateApprovalPolicyReferences,
 } from "../turn-policy/turn-policy-approval-validation.js";
-import { validateMemoryPolicyReferences } from "../turn-policy/turn-policy-memory-validation.js";
 import {
   readApprovalPolicyId,
   readAssistantProfileId,
   readHostCommandName,
-  readMemoryPolicyId,
-  readResearchAgentId,
-  readRetrievalSourceId,
   readToolCapabilityName,
 } from "./validation-field-readers.js";
 import { duplicateValueIssues, unknownValueIssues } from "./validation-issue-helpers.js";
@@ -57,12 +53,6 @@ export const validateHostCapabilityManifest = (
       "host command name",
     ),
     ...duplicateValueIssues(
-      manifest.researchAgents.map(readResearchAgentId),
-      "researchAgents",
-      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_RESEARCH_AGENT_ID,
-      "research agent id",
-    ),
-    ...duplicateValueIssues(
       manifest.approvalPolicies.map(readApprovalPolicyId),
       "approvalPolicies",
       HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_APPROVAL_POLICY_ID,
@@ -73,18 +63,10 @@ export const validateHostCapabilityManifest = (
   const profileIds = new Set(manifest.assistantProfiles.map(readAssistantProfileId));
   const toolNames = new Set(manifest.tools.map(readToolCapabilityName));
   const commandNames = new Set(manifest.commands.map(readHostCommandName));
-  const retrievalSourceIds = new Set(manifest.retrievalSources.map(readRetrievalSourceId));
 
   issues.push(
-    ...duplicateValueIssues(
-      manifest.memoryPolicies.map(readMemoryPolicyId),
-      "memoryPolicies",
-      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_MEMORY_POLICY_ID,
-      "memory policy id",
-    ),
     ...validateDefaultProfileReference(manifest, profileIds),
-    ...validateAssistantProfileReferences(manifest, toolNames, retrievalSourceIds),
-    ...validateMemoryPolicyReferences(manifest),
+    ...validateAssistantProfileReferences(manifest, toolNames),
     ...validateApprovalPolicyReferences(manifest, toolNames, commandNames),
   );
 
@@ -133,15 +115,6 @@ export const createTurnPolicyDecision = ({
     modelId: profile.modelPolicy.modelId,
     allowedToolNames: profile.defaultToolPolicy.allowedToolNames,
     allowedCommandNames,
-    retrievalSourceIds: profile.retrievalPolicy.sourceIds,
-    memoryScope: {
-      mode: profile.memoryPolicy.mode,
-      scopes: profile.memoryPolicy.scopes,
-    },
-    researchPolicy: {
-      mode: manifest.researchAgents.length > 0 ? "manifest_research_agents" : "disabled",
-      allowedResearchAgentIds: manifest.researchAgents.map((agent) => agent.researchAgentId),
-    },
     approvalRequirements: approvalRequirementsForSelectedCapabilities(
       manifest,
       selectedCapabilityNames,
@@ -167,22 +140,13 @@ const validateDefaultProfileReference = (
 const validateAssistantProfileReferences = (
   manifest: HostCapabilityManifest,
   toolNames: ReadonlySet<string>,
-  retrievalSourceIds: ReadonlySet<string>,
 ): readonly HostCapabilityValidationIssue[] =>
-  manifest.assistantProfiles.flatMap((profile, profileIndex) => [
-    ...unknownValueIssues(
+  manifest.assistantProfiles.flatMap((profile, profileIndex) =>
+    unknownValueIssues(
       profile.defaultToolPolicy.allowedToolNames,
       toolNames,
       `assistantProfiles[${profileIndex}].defaultToolPolicy.allowedToolNames`,
       HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
       (toolName) => `Assistant profile ${profile.profileId} references unknown tool ${toolName}.`,
     ),
-    ...unknownValueIssues(
-      profile.retrievalPolicy.sourceIds,
-      retrievalSourceIds,
-      `assistantProfiles[${profileIndex}].retrievalPolicy.sourceIds`,
-      HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_RETRIEVAL_SOURCE_REFERENCE,
-      (sourceId) =>
-        `Assistant profile ${profile.profileId} references unknown retrieval source ${sourceId}.`,
-    ),
-  ]);
+  );

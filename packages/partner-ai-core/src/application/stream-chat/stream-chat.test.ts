@@ -106,14 +106,14 @@ describe("stream chat lifecycle and policy", () => {
     const ports = createFakePorts({
       authContext,
       contextManager: {
-        prepareTurnContext: () => Effect.fail(new Error("research unavailable")),
+        prepareTurnContext: () => Effect.fail(new Error("context unavailable")),
       },
     });
 
     await expect(collect(runStreamChat(input, ports))).rejects.toMatchObject({
       code: PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
       protocolCode: PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
-      message: "research unavailable",
+      message: "context unavailable",
     });
     expect(ports.calls).toEqual([
       "hostCapabilities",

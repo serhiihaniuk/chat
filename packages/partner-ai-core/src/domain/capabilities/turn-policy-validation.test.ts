@@ -7,7 +7,6 @@ import {
   validateTurnPolicyDecision,
 } from "../capabilities.js";
 import {
-  createAssistantProfile,
   createManifest,
   createTool,
   turnPolicyIssueCodes,
@@ -96,28 +95,6 @@ describe("turn policy validation", () => {
 
     expect(turnPolicyIssueCodes(validation)).toEqual([
       HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
-    ]);
-  });
-
-  it("rejects turn policies that widen memory outside the resolved profile", () => {
-    const analyst = createAssistantProfile({
-      memoryPolicy: { policyId: "user_memory", mode: "read", scopes: ["user"] },
-    });
-    const manifest = createManifest({ assistantProfiles: [analyst] });
-    const decision = {
-      ...createTurnPolicyDecision({
-        manifest,
-        profile: analyst,
-        manifestHash: hashHostCapabilityManifest(manifest),
-      }),
-      memoryScope: { mode: "read_write", scopes: ["user", "workspace"] } as const,
-    };
-
-    const validation = validateTurnPolicyDecision(manifest, analyst, decision);
-
-    expect(turnPolicyIssueCodes(validation)).toEqual([
-      HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MEMORY_POLICY_MISMATCH,
-      HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MEMORY_POLICY_MISMATCH,
     ]);
   });
 });

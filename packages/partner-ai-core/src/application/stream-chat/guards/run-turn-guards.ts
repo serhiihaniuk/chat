@@ -21,8 +21,8 @@ export type RunTurnGuardsInput = {
 /**
  * Run the safety checks selected for this turn.
  *
- * Guards run before private context, memory, retrieval, research, or tools are
- * exposed. A block stops setup before any browser stream opens.
+ * Guards run before private context or tools are exposed. A block stops setup
+ * before any browser stream opens.
  */
 export const runTurnGuards = ({
   registry,

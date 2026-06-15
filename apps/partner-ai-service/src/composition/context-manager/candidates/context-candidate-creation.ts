@@ -7,23 +7,14 @@ import {
   type ContextCandidate,
 } from "@side-chat/partner-ai-core";
 import { createHostContextCandidates } from "../../context-candidates/service-host-context.js";
-import { toMemoryContextCandidate } from "../../context-candidates/service-memory-context.js";
-import { toRagContextCandidate } from "../../context-candidates/service-rag-context.js";
 import { createToolContextCandidate } from "../../context-candidates/service-tool-context.js";
-import type {
-  GatheredTurnContext,
-  PrepareTurnContextInput,
-} from "../service-context-manager-types.js";
+import type { PrepareTurnContextInput } from "../service-context-manager-types.js";
 
 export const createContextCandidates = (
   input: PrepareTurnContextInput,
-  gatheredContext: GatheredTurnContext,
 ): readonly ContextCandidate[] => [
   createCurrentMessageCandidate(input),
   ...createHostContextCandidates(input.request.hostContext, input.manifest),
-  ...gatheredContext.memoryRecords.map(toMemoryContextCandidate),
-  ...gatheredContext.ragCandidates.map(toRagContextCandidate),
-  ...gatheredContext.researchCandidates,
   ...input.policyDecision.allowedToolNames.map((toolName) =>
     createToolContextCandidate(input.manifest, toolName),
   ),

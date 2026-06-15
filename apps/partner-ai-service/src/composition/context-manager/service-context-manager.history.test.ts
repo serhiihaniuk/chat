@@ -8,9 +8,6 @@ import {
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { createNoopResearchAgent } from "#adapters/agents/noop-research-agent";
-import { createNoopMemoryPort } from "#adapters/memory/noop-memory-port";
-import { createNoopRagRetriever } from "#adapters/rag/noop-rag-retriever";
 import { createServiceHostCapabilityManifest } from "../manifest/service-capability-manifest.js";
 import { createServiceContextManager } from "./service-context-manager.js";
 
@@ -182,9 +179,6 @@ const prepareHistoryContext = ({
     createServiceContextManager({
       historyContext: createHistoryContext(calls, messages),
       history: { mode, maxMessages, maxTokens },
-      memory: createNoopMemoryPort(),
-      ragRetriever: createNoopRagRetriever(),
-      researchAgent: createNoopResearchAgent(),
     }).prepareTurnContext(createContextInput()),
   );
 
@@ -193,8 +187,6 @@ const createContextInput = () => {
     runtimeConfig: {},
     providerId: "fake",
     modelId: "fake-echo",
-    retrievalSources: [],
-    memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
   });
   const profileResolution = resolveAssistantProfileFromManifest(manifest);
   if (!profileResolution.resolved) throw new Error(profileResolution.issue.message);

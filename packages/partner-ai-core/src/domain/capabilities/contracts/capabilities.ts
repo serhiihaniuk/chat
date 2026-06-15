@@ -8,8 +8,6 @@ import type {
   PolicyId,
   ProfileId,
   ProviderId,
-  ResearchAgentId,
-  RetrievalSourceId,
   SystemPromptId,
 } from "./ids/capability-ids.js";
 import type { HostCapabilityValidationCode } from "./validation/capability-validation-codes.js";
@@ -21,10 +19,9 @@ export * from "./validation/capability-validation-codes.js";
  * Portable host capability declarations that core policy can reason about.
  *
  * These types describe what a host app may offer to one embedding surface:
- * profiles, backend tools, host commands, retrieval sources, research agents,
- * memory policy, approvals, and renderers. They are registration and policy
- * inputs only; executable tools, database adapters, provider credentials, and
- * browser rendering stay outside this contract.
+ * profiles, backend tools, host commands, approvals, and renderers. They are
+ * registration and policy inputs only; executable tools, database adapters,
+ * provider credentials, and browser rendering stay outside this contract.
  *
  * Update this comment when capability ownership changes or when a manifest
  * field starts carrying executable, provider-native, or browser-only detail.
@@ -44,11 +41,7 @@ export const CONTEXT_CANDIDATE_SOURCE_TYPES = {
   HOST_CONTEXT: "host_context",
   ASSISTANT_PROFILE: "assistant_profile",
   TOOL_CAPABILITY: "tool_capability",
-  RETRIEVAL_RESULT: "retrieval_result",
-  MEMORY: "memory",
-  RESEARCH_RESULT: "research_result",
   TOOL_RESULT: "tool_result",
-  RESEARCH_ARTIFACT: "research_artifact",
 } as const;
 
 export type ContextCandidateSourceType =
@@ -76,12 +69,6 @@ export type ContextRedactionClass =
 
 export type ToolPolicyMode = "closed" | "profile_allowlist";
 
-export type RetrievalPolicyMode = "disabled" | "profile_sources";
-
-export type MemoryPolicyMode = "disabled" | "read" | "read_write";
-
-export type ResearchPolicyMode = "disabled" | "manifest_research_agents";
-
 export type ApprovalMode = "never" | "on_request" | "always";
 
 export type OutputContract = {
@@ -99,23 +86,6 @@ export type ToolExposurePolicy = {
   readonly allowedToolNames: readonly string[];
 };
 
-export type RetrievalPolicy = {
-  readonly mode: RetrievalPolicyMode;
-  readonly sourceIds: readonly RetrievalSourceId[];
-};
-
-/**
- * Manifest/profile memory exposure policy for one assistant turn.
- *
- * This does not recall or persist memory. It only says whether selected memory
- * scopes may be read or receive write candidates when memory ports exist.
- */
-export type MemoryPolicy = {
-  readonly policyId: PolicyId;
-  readonly mode: MemoryPolicyMode;
-  readonly scopes: readonly string[];
-};
-
 export type SafetyPolicy = {
   readonly policyId: PolicyId;
   readonly promptInjectionMode: "standard" | "strict";
@@ -126,8 +96,8 @@ export type SafetyPolicy = {
  * Versioned assistant policy registered by a host capability manifest.
  *
  * Core resolves exactly one profile per assistant turn. Provider/model, default
- * tools, retrieval, memory, output, and safety policy flow from that profile;
- * callers must not treat request-level model ids as a second selection path.
+ * tools, output, and safety policy flow from that profile; callers must not
+ * treat request-level model ids as a second selection path.
  */
 export type AssistantProfile = {
   readonly profileId: ProfileId;
@@ -138,8 +108,6 @@ export type AssistantProfile = {
   readonly executorId: ExecutorId;
   readonly modelPolicy: ModelPolicy;
   readonly defaultToolPolicy: ToolExposurePolicy;
-  readonly retrievalPolicy: RetrievalPolicy;
-  readonly memoryPolicy: MemoryPolicy;
   readonly outputContract: OutputContract;
   readonly safetyPolicy: SafetyPolicy;
 };
@@ -169,29 +137,6 @@ export type HostCommandCapability = {
   readonly approvalMode: ApprovalMode;
 };
 
-/**
- * Manifest declaration for a source RAG may search during context preparation.
- *
- * The declaration names a possible source only. Turn policy chooses source ids,
- * and context preparation owns retrieval from the selected sources.
- */
-export type RetrievalSourceCapability = {
-  readonly sourceId: RetrievalSourceId;
-  readonly description: string;
-  readonly trustLevel: ContextTrustLevel;
-};
-
-/**
- * Research agent the host app says can help before the answer is generated.
- *
- * This only registers the agent id. It does not choose the main executor and it
- * does not emit browser events by itself.
- */
-export type ResearchAgentCapability = {
-  readonly researchAgentId: ResearchAgentId;
-  readonly description: string;
-};
-
 export type ApprovalPolicy = {
   readonly policyId: PolicyId;
   readonly mode: ApprovalMode;
@@ -206,10 +151,9 @@ export type ActivityRendererCapability = {
 /**
  * Host-declared capability catalog for one embedding surface.
  *
- * The manifest is the authority for profiles, tools, commands, retrieval
- * sources, research agents, approvals, and renderers available to core policy. A
- * capability being present here is registration only; exposure is decided by
- * `TurnPolicyDecision` for each turn.
+ * The manifest is the authority for profiles, tools, commands, approvals, and
+ * renderers available to core policy. A capability being present here is
+ * registration only; exposure is decided by `TurnPolicyDecision` for each turn.
  */
 export type HostCapabilityManifest = {
   readonly schemaVersion: string;
@@ -218,10 +162,7 @@ export type HostCapabilityManifest = {
   readonly assistantProfiles: readonly AssistantProfile[];
   readonly tools: readonly ToolCapability[];
   readonly commands: readonly HostCommandCapability[];
-  readonly retrievalSources: readonly RetrievalSourceCapability[];
-  readonly researchAgents: readonly ResearchAgentCapability[];
   readonly approvalPolicies: readonly ApprovalPolicy[];
-  readonly memoryPolicies: readonly MemoryPolicy[];
   readonly activityRenderers: readonly ActivityRendererCapability[];
 };
 
@@ -242,16 +183,6 @@ export type TurnPolicyValidationResult =
 export type AssistantProfileResolution =
   | { readonly resolved: true; readonly profile: AssistantProfile }
   | { readonly resolved: false; readonly issue: HostCapabilityValidationIssue };
-
-export type MemoryScopeDecision = {
-  readonly mode: MemoryPolicyMode;
-  readonly scopes: readonly string[];
-};
-
-export type ResearchPolicyDecision = {
-  readonly mode: ResearchPolicyMode;
-  readonly allowedResearchAgentIds: readonly ResearchAgentId[];
-};
 
 export type ApprovalRequirement = {
   readonly capabilityName: string;
@@ -274,9 +205,6 @@ export type TurnPolicyDecision = {
   readonly modelId: ModelId;
   readonly allowedToolNames: readonly string[];
   readonly allowedCommandNames: readonly string[];
-  readonly retrievalSourceIds: readonly RetrievalSourceId[];
-  readonly memoryScope: MemoryScopeDecision;
-  readonly researchPolicy: ResearchPolicyDecision;
   readonly approvalRequirements: readonly ApprovalRequirement[];
   readonly manifestHash: ManifestHash;
 };

@@ -1,7 +1,7 @@
 # Extension Seams
 
-Read this when: an adopting team needs to add a tool, guard, RAG, memory,
-research agent, executor, host command, policy rule, or observability sink.
+Read this when: an adopting team needs to add a tool, guard, executor, host
+command, policy rule, or observability sink.
 Source of truth for: first files and contracts for extension work.
 Not source of truth for: lifecycle order, package ownership, or provider adapter
 internals.
@@ -22,11 +22,9 @@ browser/host-app interactions unless the service separately implements a backend
 tool.
 
 Service diagnostics report this separation explicitly. `apps/partner-ai-service`
-composition owns capability status for memory, RAG, research, history context,
-context admission, and persistence, and `/healthz` plus `/readyz` expose only
-safe status fields. No-op adapters are allowed for local bootstrap, but
-production-profile composition must not enable memory, RAG, research, or summary
-history without a matching concrete implementation.
+composition owns capability status for history context, context admission, and
+persistence, and `/healthz` plus `/readyz` expose only safe status fields.
+Summary history reports misconfigured until a matching implementation exists.
 
 Context admission status reports both the configured policy id and the actual
 selection mode. `deterministic_v1` with `budgeted` means budgets are enforced
@@ -35,9 +33,8 @@ the manifest with safe reasons.
 
 Portable capability configuration contracts live in
 `packages/partner-ai-core/src/domain/capabilities/contracts/capability-configuration.ts`.
-`apps/partner-ai-service` parses `SIDECHAT_*` values and adds deployable modes
-such as no-op, Postgres, HTTP, external, or LangGraph before mapping those
-settings into core manifest declarations and ports.
+`apps/partner-ai-service` parses `SIDECHAT_*` values for history and context
+admission before mapping those settings into core configuration and ports.
 
 ## Backend Runtime Tool
 
@@ -65,47 +62,12 @@ settings into core manifest declarations and ports.
 ## Turn Guard
 
 - What it is: prompt/security check selected by the assistant profile.
-- Runs: before conversation persistence, private context, RAG, memory, research,
-  or runtime tools.
+- Runs: before conversation persistence, private context, or runtime tools.
 - Receives/returns: minimal turn/profile input and allow, warn, or block.
 - Implementation: `apps/partner-ai-service/src/adapters/guards/`.
 - Contract: `packages/partner-ai-core/src/ports/guards/turn-guard.ts`.
 - Common mistake: registering a guard and assuming it runs without selecting its
   id in profile safety policy.
-
-## RAG Retriever
-
-- What it is: authorized retrieval from host-owned knowledge sources.
-- Runs: during context preparation from policy-allowed retrieval source ids.
-- Receives/returns: retrieval request plus source ids; returns candidates with
-  provenance, trust, redaction class, and token estimate.
-- Implementation: `apps/partner-ai-service/src/adapters/rag/`.
-- Contract: `packages/partner-ai-core/src/ports/context/rag-retriever.ts`.
-- Common mistake: modeling RAG as a model-callable search tool when it should be
-  prepared context.
-
-## Memory Port
-
-- What it is: policy-scoped durable memory recall and write candidate recording.
-- Runs: recall during context preparation; write candidates after successful
-  output under write policy.
-- Receives/returns: authorized memory scope; returns recalled memory or records
-  memory candidates.
-- Implementation: `apps/partner-ai-service/src/adapters/memory/`.
-- Contract: `packages/partner-ai-core/src/ports/context/memory-port.ts`.
-- Common mistake: persisting raw model claims as memory without memory policy.
-
-## Research Agent
-
-- What it is: pre-answer research that prepares context candidates and research
-  artifacts.
-- Runs: during context preparation when policy allows source ids and the
-  `research_context` research agent id.
-- Receives/returns: authorized source/research request; returns candidates and
-  artifacts, not protocol events.
-- Implementation: `apps/partner-ai-service/src/adapters/agents/`.
-- Contract: `packages/partner-ai-core/src/ports/context/research-agent.ts`.
-- Common mistake: treating research as the final AgentExecutor.
 
 ## Agent Executor
 
@@ -123,8 +85,8 @@ settings into core manifest declarations and ports.
 - Runs: only when the owning product workflow invokes it; title generation runs
   after successful first-turn completion.
 - Receives/returns: a minimal runtime request and RuntimeEvents through
-  `createBasicRuntimeAgent`; no tools, host command scope, RAG, memory, or
-  previous history unless the owning workflow deliberately admits them.
+  `createBasicRuntimeAgent`; no tools, host command scope, or previous history
+  unless the owning workflow deliberately admits them.
 - Implementation: lifecycle and admitted inputs in `packages/partner-ai-core`;
   prompt/config defaults in `apps/partner-ai-service`; reusable constructor in
   `packages/agent-runtime/src/runtime/basic-agent/`.
@@ -136,8 +98,8 @@ settings into core manifest declarations and ports.
 
 ## Policy Resolver
 
-- What it is: per-turn selection of profile, model, tools, host commands, RAG,
-  memory, research, guards, approvals, executor id, and instructions.
+- What it is: per-turn selection of profile, model, tools, host commands,
+  guards, approvals, executor id, and instructions.
 - Runs: before turn guards and before any private context or persistence.
 - Receives/returns: authorized input plus manifest/profile data; returns a turn
   policy decision.

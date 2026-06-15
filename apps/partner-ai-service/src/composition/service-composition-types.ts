@@ -5,12 +5,6 @@ import type {
   ConversationTitleGenerationPort,
   HostCapabilityManifestPort,
   HostCommandCapability,
-  MemoryPolicy,
-  MemoryPort,
-  RagRetrieverPort,
-  ResearchAgentCapability,
-  ResearchAgentPort,
-  RetrievalSourceCapability,
   ToolCapability,
   TurnGuardRegistryPort,
   TurnPolicyResolverPort,
@@ -88,9 +82,6 @@ export type ServiceComposition = {
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
-  readonly memory: MemoryPort;
-  readonly ragRetriever: RagRetrieverPort;
-  readonly researchAgent: ResearchAgentPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntime;
   readonly conversationTitleGeneration: ConversationTitleGenerationPort;
@@ -116,14 +107,8 @@ export type ServiceCompositionOptions = {
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
   readonly agentRuntime?: AgentRuntime | undefined;
   readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
-  /** Capability declarations; concrete memory/RAG/research work still needs the ports below. */
+  /** Capability declarations for implemented service context behavior. */
   readonly capabilities?: ServiceCapabilityConfig | undefined;
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
-  readonly memory?: MemoryPort | undefined;
-  readonly memoryPolicy?: MemoryPolicy | undefined;
-  readonly ragRetriever?: RagRetrieverPort | undefined;
-  readonly retrievalSources?: readonly RetrievalSourceCapability[] | undefined;
-  readonly researchAgent?: ResearchAgentPort | undefined;
-  readonly researchAgents?: readonly ResearchAgentCapability[] | undefined;
 };

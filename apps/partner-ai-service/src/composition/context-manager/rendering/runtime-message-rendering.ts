@@ -2,8 +2,8 @@ import type { PreparedHistoryMessage, PreparedRuntimeMessage } from "@side-chat/
 import type { PrepareTurnContextInput } from "../service-context-manager-types.js";
 
 // Conversation history and the current user message are rendered as runtime
-// messages. Memory, RAG, research, and host context travel through the prepared
-// context board instead of being rendered as chat-turn messages.
+// messages. Host context travels through the prepared context board instead of
+// being rendered as chat-turn messages.
 export const createRuntimeMessages = (
   input: PrepareTurnContextInput,
   historyMessages: readonly PreparedHistoryMessage[],

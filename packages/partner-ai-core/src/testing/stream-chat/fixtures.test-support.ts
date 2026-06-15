@@ -52,10 +52,7 @@ export const createManifest = (): HostCapabilityManifest => ({
     },
   ],
   commands: [],
-  retrievalSources: [],
-  researchAgents: [],
   approvalPolicies: [],
-  memoryPolicies: [{ policyId: "no_memory", mode: "disabled", scopes: [] }],
   activityRenderers: [],
 });
 
@@ -74,7 +71,6 @@ export const createPreparedContext = (
   contextId: "context_001",
   profile,
   policyDecision,
-  researchArtifacts: [],
   candidates: [
     {
       candidateId: "candidate_current_message",
@@ -128,9 +124,6 @@ export const createPreparedContext = (
         reservedOutputTokens: 512,
         sourceTokenBudgets: {
           history: 1000,
-          memory: 500,
-          rag: 1500,
-          research: 1000,
         },
         includedCandidateIds: ["candidate_current_message"],
         droppedCandidateIds: [],
@@ -160,8 +153,6 @@ const createProfile = (): AssistantProfile => ({
     mode: "profile_allowlist",
     allowedToolNames: ["mock_web_search"],
   },
-  retrievalPolicy: { mode: "disabled", sourceIds: [] },
-  memoryPolicy: { policyId: "no_memory", mode: "disabled", scopes: [] },
   outputContract: { format: "markdown" },
   safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
 });

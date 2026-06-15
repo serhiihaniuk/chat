@@ -11,9 +11,6 @@ import {
   type HostCommandCapability,
   type HostCapabilityManifest,
   type HostCapabilityManifestPort,
-  type MemoryPolicy,
-  type ResearchAgentCapability,
-  type RetrievalSourceCapability,
   type ToolCapability,
   type TurnPolicyResolverPort,
 } from "@side-chat/partner-ai-core";
@@ -42,10 +39,7 @@ export const createServiceHostCapabilityManifest = ({
   toolCapabilities = [],
   hostCommands = [],
   approvalPolicies = [],
-  retrievalSources = [],
-  researchAgents = [],
   turnGuardIds = [],
-  memoryPolicy = { policyId: "no_memory", mode: "disabled", scopes: [] },
 }: {
   readonly runtimeConfig: { readonly enableMockWebSearch?: boolean | undefined };
   readonly providerId: string;
@@ -53,10 +47,7 @@ export const createServiceHostCapabilityManifest = ({
   readonly toolCapabilities?: readonly ToolCapability[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
   readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
-  readonly retrievalSources?: readonly RetrievalSourceCapability[] | undefined;
-  readonly researchAgents?: readonly ResearchAgentCapability[] | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
-  readonly memoryPolicy?: MemoryPolicy | undefined;
 }): HostCapabilityManifest => {
   const tools = [
     ...(runtimeConfig.enableMockWebSearch ? [createMockWebSearchCapability()] : []),
@@ -66,9 +57,7 @@ export const createServiceHostCapabilityManifest = ({
     providerId,
     modelId,
     allowedToolNames: tools.map((tool) => tool.name),
-    retrievalSourceIds: retrievalSources.map((source) => source.sourceId),
     turnGuardIds,
-    memoryPolicy,
   });
 
   return {
@@ -78,10 +67,7 @@ export const createServiceHostCapabilityManifest = ({
     assistantProfiles: [profile],
     tools,
     commands: hostCommands,
-    retrievalSources,
-    researchAgents,
     approvalPolicies,
-    memoryPolicies: [memoryPolicy],
     activityRenderers: [],
   };
 };
@@ -141,16 +127,12 @@ const createDefaultServiceAssistantProfile = ({
   providerId,
   modelId,
   allowedToolNames,
-  retrievalSourceIds,
   turnGuardIds,
-  memoryPolicy,
 }: {
   readonly providerId: string;
   readonly modelId: string;
   readonly allowedToolNames: readonly string[];
-  readonly retrievalSourceIds: readonly string[];
   readonly turnGuardIds: readonly string[];
-  readonly memoryPolicy: MemoryPolicy;
 }): AssistantProfile => ({
   profileId: DEFAULT_RUNTIME_PROFILE_ID,
   version: "2026-06-13",
@@ -163,11 +145,6 @@ const createDefaultServiceAssistantProfile = ({
     mode: allowedToolNames.length > 0 ? "profile_allowlist" : "closed",
     allowedToolNames,
   },
-  retrievalPolicy: {
-    mode: retrievalSourceIds.length > 0 ? "profile_sources" : "disabled",
-    sourceIds: retrievalSourceIds,
-  },
-  memoryPolicy,
   outputContract: { format: "markdown" },
   safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds },
 });

@@ -10,7 +10,6 @@ import {
 import {
   createAssistantProfile,
   createManifest,
-  createResearchAgentCapability,
   createTool,
   issueCodes,
 } from "#testing/capabilities/manifest-fixtures";
@@ -41,12 +40,6 @@ describe("host capability manifest contract", () => {
       modelId: "fake-echo",
       allowedToolNames: ["mock_web_search"],
       allowedCommandNames: [],
-      retrievalSourceIds: ["docs"],
-      memoryScope: { mode: "disabled", scopes: [] },
-      researchPolicy: {
-        mode: "manifest_research_agents",
-        allowedResearchAgentIds: ["research_context"],
-      },
       approvalRequirements: [],
     });
     expect(decision.manifestHash).toMatch(/^sha256:[a-f0-9]{64}$/);
@@ -79,65 +72,6 @@ describe("host capability manifest contract", () => {
     );
 
     expect(issueCodes(validation)).toContain(HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_TOOL_NAME);
-  });
-
-  it("fails closed on duplicate memory policy ids", () => {
-    const memoryPolicy = { policyId: "user_memory", mode: "read" as const, scopes: ["user"] };
-    const validation = validateHostCapabilityManifest(
-      createManifest({
-        assistantProfiles: [createAssistantProfile({ memoryPolicy })],
-        memoryPolicies: [memoryPolicy, memoryPolicy],
-      }),
-    );
-
-    expect(issueCodes(validation)).toContain(
-      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_MEMORY_POLICY_ID,
-    );
-  });
-
-  it("fails closed when profiles reference missing memory policies", () => {
-    const validation = validateHostCapabilityManifest(
-      createManifest({
-        assistantProfiles: [
-          createAssistantProfile({
-            memoryPolicy: { policyId: "user_memory", mode: "read", scopes: ["user"] },
-          }),
-        ],
-        memoryPolicies: [],
-      }),
-    );
-
-    expect(issueCodes(validation)).toContain(
-      HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_MEMORY_POLICY_REFERENCE,
-    );
-  });
-
-  it("fails closed when profile memory policy differs from manifest memory policy", () => {
-    const validation = validateHostCapabilityManifest(
-      createManifest({
-        assistantProfiles: [
-          createAssistantProfile({
-            memoryPolicy: { policyId: "user_memory", mode: "read_write", scopes: ["user"] },
-          }),
-        ],
-        memoryPolicies: [{ policyId: "user_memory", mode: "read", scopes: ["user"] }],
-      }),
-    );
-
-    expect(issueCodes(validation)).toContain(
-      HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MEMORY_POLICY_MISMATCH,
-    );
-  });
-
-  it("fails closed on duplicate research agent ids", () => {
-    const researchAgent = createResearchAgentCapability("research_context");
-    const validation = validateHostCapabilityManifest(
-      createManifest({ researchAgents: [researchAgent, researchAgent] }),
-    );
-
-    expect(issueCodes(validation)).toContain(
-      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_RESEARCH_AGENT_ID,
-    );
   });
 
   it("fails closed when the default profile id is not registered", () => {

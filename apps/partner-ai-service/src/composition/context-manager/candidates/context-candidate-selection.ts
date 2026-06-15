@@ -190,9 +190,6 @@ const sourceLimitDropReason = (
 
 const toSourceTokenBudgets = (config: ContextAdmissionConfig): ContextSourceTokenBudgets => ({
   history: config.maxHistoryTokens,
-  memory: config.maxMemoryTokens,
-  rag: config.maxRagTokens,
-  research: config.maxResearchTokens,
 });
 
 const isRequiredCandidate = (candidate: ContextCandidate): boolean =>
@@ -213,13 +210,6 @@ const sourceRank = (sourceType: ContextCandidateSourceType): number => {
     case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_HISTORY:
     case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_SUMMARY:
       return 15;
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.MEMORY:
-      return 20;
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.RETRIEVAL_RESULT:
-      return 30;
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_ARTIFACT:
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_RESULT:
-      return 40;
     case CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_CAPABILITY:
     case CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_RESULT:
       return 50;
@@ -237,21 +227,11 @@ const sourceBudgetKeyForCandidate = (candidate: ContextCandidate): SourceBudgetK
     case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_HISTORY:
     case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_SUMMARY:
       return "history";
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.MEMORY:
-      return "memory";
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.RETRIEVAL_RESULT:
-      return "rag";
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_ARTIFACT:
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.RESEARCH_RESULT:
-      return "research";
   }
 };
 
 const emptyUsedSourceTokens = (): Record<SourceBudgetKey, number> => ({
   history: 0,
-  memory: 0,
-  rag: 0,
-  research: 0,
 });
 
 const toIncludedManifestEntry = (candidate: ContextCandidate): ContextManifestEntry => ({

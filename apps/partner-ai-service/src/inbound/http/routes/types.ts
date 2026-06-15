@@ -4,7 +4,6 @@ import type {
   ContextManagerPort,
   ConversationTitleGenerationPort,
   HostCapabilityManifestPort,
-  MemoryPort,
   ObservabilitySinkPort,
   PolicyPort,
   TurnGuardRegistryPort,
@@ -21,7 +20,6 @@ export type RouteDependencies = {
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
-  readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
   readonly conversationTitleGeneration: ConversationTitleGenerationPort;
   readonly policies: PolicyPort;
