@@ -1,5 +1,18 @@
 import type { JsonObject } from "@side-chat/shared";
 
+/**
+ * Portable host capability declarations that core policy can reason about.
+ *
+ * These types describe what a host app may offer to one embedding surface:
+ * profiles, backend tools, host commands, retrieval sources, research agents,
+ * memory policy, approvals, and renderers. They are registration and policy
+ * inputs only; executable tools, database adapters, provider credentials, and
+ * browser rendering stay outside this contract.
+ *
+ * Update this comment when capability ownership changes or when a manifest
+ * field starts carrying executable, provider-native, or browser-only detail.
+ */
+
 export const HOST_CAPABILITY_SCHEMA_VERSIONS = {
   V1: "sidechat.host-capabilities.v1",
 } as const;

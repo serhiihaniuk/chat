@@ -9,6 +9,19 @@ import type {
 import type { ContextAdmissionPolicy, HistoryContextMode } from "./capability-configuration.js";
 import type { ResearchArtifact } from "./research-artifacts.js";
 
+/**
+ * Core-owned model context contracts for one prepared assistant turn.
+ *
+ * Host page context, conversation history, memory records, RAG results, and
+ * research output become `ContextCandidate` values, then an admitted
+ * `PreparedContextBoard` and provider-neutral `PreparedRuntimeMessage` list.
+ * Candidate text may appear in board sections and runtime messages; manifests
+ * keep only ids, source labels, trust, redaction, token estimates, and budgets.
+ *
+ * Update this comment when context preparation gains a new source type, changes
+ * what becomes model-visible, or moves admission responsibility across packages.
+ */
+
 type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
 
 export const CONTEXT_ADMISSION_SELECTION_MODES = {
@@ -18,6 +31,13 @@ export const CONTEXT_ADMISSION_SELECTION_MODES = {
 
 export type ContextAdmissionSelectionMode = ObjectValue<typeof CONTEXT_ADMISSION_SELECTION_MODES>;
 
+/**
+ * Human-readable origin for a context candidate.
+ *
+ * Provenance may be recorded in manifests or diagnostics. It should identify
+ * the source well enough for audit without carrying adapter credentials,
+ * provider-native metadata, or private repository records.
+ */
 export type ContextCandidateProvenance = {
   readonly sourceId: string;
   readonly label: string;
@@ -81,6 +101,13 @@ export type ContextBudgetDecision = {
   readonly droppedCandidateIds: readonly string[];
 };
 
+/**
+ * Content-free manifest row for one candidate considered during admission.
+ *
+ * The context manifest records ids, source, trust, redaction, token estimate,
+ * and inclusion result. Candidate text stays out of the manifest so persistence
+ * and diagnostics can explain admission without copying model-visible content.
+ */
 export type ContextManifestEntry = {
   readonly candidateId: string;
   readonly sourceType: ContextCandidateSourceType;
@@ -91,6 +118,13 @@ export type ContextManifestEntry = {
   readonly included: boolean;
 };
 
+/**
+ * Audit manifest for the prepared context board.
+ *
+ * This is the durable explanation of what context was considered and admitted.
+ * It must preserve candidate identity and budgets, not full content or adapter
+ * internals.
+ */
 export type ContextManifest = {
   readonly manifestId: string;
   readonly manifestHash: string;
@@ -102,6 +136,13 @@ export type ContextManifest = {
   readonly createdAt: string;
 };
 
+/**
+ * Model-visible section admitted into the prepared context board.
+ *
+ * Sections are ordered and prioritized before runtime execution. Metadata is
+ * optional because source-specific adapter detail must not be required by the
+ * runtime boundary.
+ */
 export type PreparedContextSection = {
   readonly title: string;
   readonly content: string;
@@ -109,6 +150,12 @@ export type PreparedContextSection = {
   readonly metadata?: JsonObject;
 };
 
+/**
+ * Context package passed to runtime beside rendered messages.
+ *
+ * Runtime may read the board, but it must not fetch more host data or reinterpret
+ * the manifest as permission to access memory, retrieval, research, or history.
+ */
 export type PreparedContextBoard = {
   readonly sections: readonly PreparedContextSection[];
   readonly manifest: ContextManifest;
@@ -161,6 +208,13 @@ export type HistoryContextManifest = {
   readonly messages: readonly HistoryContextManifestMessage[];
 };
 
+/**
+ * Final role/content message shape passed to agent-runtime.
+ *
+ * Core renders system instructions, admitted context, current user input, and
+ * selected history into this provider-neutral format. Provider-specific message
+ * DTOs are created later inside agent-runtime.
+ */
 export type PreparedRuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
   readonly content: string;

@@ -2,6 +2,21 @@ import type { JsonObject } from "@side-chat/shared";
 import type { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 
+/**
+ * Core memory seam for recall and post-answer write candidates.
+ *
+ * Authorized turn identity and policy-allowed scopes become `MemoryRecord`
+ * values before model execution, then `MemoryWriteCandidate` values after a
+ * successful answer. The port exposes scoped content and confidence only; raw
+ * storage rows, embedding indexes, and credentials stay inside the app adapter.
+ */
+
+/**
+ * Request to recall durable memory before model execution.
+ *
+ * `allowedScopes` is the closed policy result for the turn. Adapters must not
+ * widen it based on user message content, host context, or storage defaults.
+ */
 export type MemoryRecallInput = {
   readonly authContext: AuthContext;
   readonly workspace: WorkspaceRef;
@@ -12,6 +27,13 @@ export type MemoryRecallInput = {
   readonly abortSignal?: AbortSignal;
 };
 
+/**
+ * Memory content admitted for context consideration.
+ *
+ * The record is already authorized for the requested workspace and scope, but
+ * it is not automatically model-visible. Core receives it as context input and
+ * applies admission policy before runtime sees any candidate text.
+ */
 export type MemoryRecord = {
   readonly memoryId: string;
   readonly scope: string;
@@ -21,6 +43,13 @@ export type MemoryRecord = {
   readonly metadata?: JsonObject;
 };
 
+/**
+ * Proposed durable memory write from a completed assistant turn.
+ *
+ * This is a candidate, not a committed fact. The adapter may store it for
+ * review or auto-apply only according to the selected memory policy and host
+ * configuration.
+ */
 export type MemoryWriteCandidate = {
   readonly candidateId: string;
   readonly scope: string;
@@ -31,6 +60,13 @@ export type MemoryWriteCandidate = {
   readonly metadata?: JsonObject;
 };
 
+/**
+ * Input for proposing memory writes after a successful answer.
+ *
+ * Core supplies user and assistant text so the adapter can suggest candidates,
+ * but candidates still flow back through policy-scoped recording instead of
+ * silently becoming model-visible memory.
+ */
 export type MemoryWriteCandidateProposalInput = {
   readonly authContext: AuthContext;
   readonly workspace: WorkspaceRef;
@@ -42,6 +78,13 @@ export type MemoryWriteCandidateProposalInput = {
   readonly allowedScopes: readonly string[];
 };
 
+/**
+ * Input for recording policy-approved memory write candidates.
+ *
+ * The adapter receives candidate content and authorized turn identity only.
+ * Runtime events, provider messages, and raw protocol payloads are intentionally
+ * not part of the storage contract.
+ */
 export type MemoryWriteCandidateRecordInput = {
   readonly authContext: AuthContext;
   readonly workspace: WorkspaceRef;

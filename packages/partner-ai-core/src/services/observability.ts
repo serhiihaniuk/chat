@@ -1,11 +1,23 @@
 import type { JsonObject, JsonPrimitive, JsonValue } from "@side-chat/shared";
 import { Effect } from "effect";
 
+/**
+ * Secret-safe stream-chat observability contract.
+ *
+ * Each stream-chat lifecycle fact becomes an `ObservabilityRecord` before it
+ * leaves core. Records may identify request/trace ids, latency, lifecycle state,
+ * assistant turn id, provider/model ids, and redacted attributes; raw messages,
+ * prompts, retrieved content, memory records, tool payloads, provider options,
+ * credentials, and protocol bodies must not cross this port.
+ */
+
+/** Correlation fields available before a durable assistant turn exists. */
 export type TraceCorrelationInput = {
   readonly requestId: string;
   readonly traceId?: string;
 };
 
+/** Stable ids used to connect logs, persisted turn records, and stream events. */
 export type RequestCorrelation = {
   readonly requestId: string;
   readonly traceId: string;
@@ -18,6 +30,14 @@ export type ObservabilityLifecycleState =
   | "completed"
   | "failed";
 
+/**
+ * Redacted lifecycle observation for one stream-chat turn.
+ *
+ * Core receives each lifecycle observation as this telemetry-safe record before
+ * calling the sink. The record may identify lifecycle state and selected
+ * provider/model ids; model-visible text and raw adapter/provider errors must
+ * already be removed or redacted.
+ */
 export type ObservabilityRecord = RequestCorrelation & {
   readonly lifecycleState: ObservabilityLifecycleState;
   readonly assistantTurnId?: string;
@@ -28,6 +48,7 @@ export type ObservabilityRecord = RequestCorrelation & {
   readonly attributes: JsonObject;
 };
 
+/** Telemetry adapter supplied by service composition. */
 export type ObservabilitySinkPort = {
   readonly record: (record: ObservabilityRecord) => Effect.Effect<void, unknown>;
 };
@@ -76,8 +97,21 @@ export const createRequestCorrelation = (input: TraceCorrelationInput): RequestC
   traceId: input.traceId ?? `trace_${input.requestId}`,
 });
 
+/**
+ * Remove obvious sensitive fields before data leaves core telemetry code.
+ *
+ * Redaction is key-based and recursive. Callers should still avoid putting
+ * private values under harmless-looking keys because this is a safety net, not
+ * a semantic data-loss-prevention engine.
+ */
 export const redactAttributes = (attributes: JsonObject): JsonObject => redactObject(attributes);
 
+/**
+ * Normalize unknown values into JSON primitives for diagnostic attributes.
+ *
+ * Complex objects are intentionally collapsed so accidental provider, tool,
+ * memory, or protocol payloads cannot slip through as structured telemetry.
+ */
 export const safeJsonPrimitive = (value: unknown): JsonPrimitive => {
   if (typeof value === "string") return value;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;

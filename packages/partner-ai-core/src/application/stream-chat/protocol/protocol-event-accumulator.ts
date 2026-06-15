@@ -11,11 +11,28 @@ import {
   PartnerAiCoreError,
 } from "#errors";
 
+/**
+ * Finalization facts collected while core emits one browser protocol stream.
+ *
+ * The accumulator preserves only what terminal persistence needs: event counts,
+ * terminal identity, completed usage, accumulated assistant text, and the first
+ * protocol-ordering problem. It does not keep every event or runtime/provider
+ * payload, so finalization can validate the stream without turning diagnostics
+ * into a private content log.
+ */
+
 type ProtocolTerminalEvent = Extract<
   SidechatStreamEvent,
   { readonly type: typeof SIDECHAT_EVENT_TYPES.COMPLETED | typeof SIDECHAT_EVENT_TYPES.ERROR }
 >;
 
+/**
+ * Minimal mutable summary of emitted `sidechat.v1` events.
+ *
+ * `assistantContent` is the only accumulated model text because successful turn
+ * persistence needs the final answer. Invalid ordering is stored as the first
+ * reason so later events cannot hide the original protocol violation.
+ */
 export type ProtocolEventAccumulator = {
   readonly eventCount: number;
   readonly terminalCount: number;
@@ -25,12 +42,19 @@ export type ProtocolEventAccumulator = {
   readonly invalidReason?: string;
 };
 
+/** Initial accumulator before `sidechat.started` is remembered. */
 export const createProtocolEventAccumulator = (): ProtocolEventAccumulator => ({
   eventCount: 0,
   terminalCount: 0,
   assistantContent: "",
 });
 
+/**
+ * Remember one browser-visible event for later terminal validation.
+ *
+ * Runtime sequence ids are not used here. The accumulator checks the
+ * browser-facing sequence that core assigns after `sidechat.started`.
+ */
 export const recordProtocolEvent = (
   accumulator: ProtocolEventAccumulator,
   event: SidechatStreamEvent,
