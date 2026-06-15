@@ -2,7 +2,7 @@ import { brandString, type Brand } from "@side-chat/shared";
 
 export type WorkspaceId = Brand<string, "WorkspaceId">;
 export type SubjectId = Brand<string, "SubjectId">;
-export type ActorId = Brand<string, "SubjectId">;
+export type ActorId = Brand<string, "ActorId">;
 export type ConversationId = Brand<string, "ConversationId">;
 export type MessageId = Brand<string, "MessageId">;
 export type UserMessageId = Brand<string, "MessageId">;
@@ -24,7 +24,7 @@ export type TargetId = Brand<string, "TargetId">;
 
 export const toWorkspaceId = (value: string): WorkspaceId => brandString<"WorkspaceId">(value);
 export const toSubjectId = (value: string): SubjectId => brandString<"SubjectId">(value);
-export const toActorId = (value: string): ActorId => brandString<"SubjectId">(value);
+export const toActorId = (value: string): ActorId => brandString<"ActorId">(value);
 export const toConversationId = (value: string): ConversationId =>
   brandString<"ConversationId">(value);
 export const toMessageId = (value: string): MessageId => brandString<"MessageId">(value);

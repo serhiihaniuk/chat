@@ -1,5 +1,6 @@
 import {
   admitConversationHistoryContext,
+  toContextId,
   type ContextManagerPort,
   type PreparedTurnContext,
 } from "@side-chat/partner-ai-core";
@@ -65,7 +66,7 @@ export const createServiceContextManager = (
       // Finalize the core-owned prepared context contract. Downstream runtime
       // code receives messages and context, not service adapter records.
       return {
-        contextId: `context_${input.request.requestId}`,
+        contextId: toContextId(`context_${input.request.requestId}`),
         profile: contextProfile,
         policyDecision: input.policyDecision,
         history: historyAdmission.manifest,

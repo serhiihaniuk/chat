@@ -1,5 +1,7 @@
 import {
   hashCanonicalJson,
+  toContextManifestHash,
+  toContextManifestId,
   type AssistantProfile,
   type ContextManifest,
   type HistoryContextManifest,
@@ -28,15 +30,17 @@ export const createPreparedContextManifest = ({
   readonly history: HistoryContextManifest;
   readonly createdAt: string;
 }): ContextManifest => ({
-  manifestId: `context_manifest_${requestId}`,
-  manifestHash: hashCanonicalJson({
-    sections,
-    entries: admission.entries,
-    history,
-    profileId: profile.profileId,
-    policyDecision,
-    researchArtifacts,
-  }),
+  manifestId: toContextManifestId(`context_manifest_${requestId}`),
+  manifestHash: toContextManifestHash(
+    hashCanonicalJson({
+      sections,
+      entries: admission.entries,
+      history,
+      profileId: profile.profileId,
+      policyDecision,
+      researchArtifacts,
+    }),
+  ),
   profileId: profile.profileId,
   profileVersion: profile.version,
   entries: admission.entries,

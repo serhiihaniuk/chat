@@ -1,13 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   ASSISTANT_TURN_STATUSES,
   CONVERSATION_STATUSES,
   HOST_COMMAND_RESULT_STATUSES,
   SCHEMA_ENTITY_TYPES,
   TOOL_INVOCATION_STATUSES,
+  type ActorId,
   type CreateOrGetConversationCommand,
   type ConversationRecord,
   type RepositoryCommandInput,
+  type SubjectId,
 } from "./index.js";
 
 describe("db schema contract", () => {
@@ -75,5 +77,9 @@ describe("db schema contract", () => {
 
     const accepted: RepositoryCommandInput = command;
     expect(accepted.workspaceId).toBe("workspace_001");
+  });
+
+  it("keeps persistence actor and subject identities distinct", () => {
+    expectTypeOf<ActorId>().not.toEqualTypeOf<SubjectId>();
   });
 });

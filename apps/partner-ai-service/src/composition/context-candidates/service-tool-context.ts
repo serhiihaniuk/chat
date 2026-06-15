@@ -2,6 +2,8 @@ import {
   CONTEXT_CANDIDATE_SOURCE_TYPES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
+  toContextCandidateId,
+  toContextSourceId,
   type ContextCandidate,
   type HostCapabilityManifest,
   type PreparedContextSection,
@@ -13,15 +15,15 @@ export const createToolContextCandidate = (
 ): ContextCandidate => {
   const content = renderToolCapability(manifest, toolName);
   return {
-    candidateId: `tool_${toolName}`,
+    candidateId: toContextCandidateId(`tool_${toolName}`),
     sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_CAPABILITY,
-    sourceId: toolName,
+    sourceId: toContextSourceId(toolName),
     trustLevel: CONTEXT_TRUST_LEVELS.SYSTEM,
     redactionClass: CONTEXT_REDACTION_CLASSES.PUBLIC,
     content,
     estimatedTokens: estimateTokens(content),
     priority: 70,
-    provenance: { sourceId: toolName, label: "Allowed runtime tool" },
+    provenance: { sourceId: toContextSourceId(toolName), label: "Allowed runtime tool" },
   };
 };
 

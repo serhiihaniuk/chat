@@ -8,7 +8,7 @@ import {
   type AuthContext,
   type PreparedTurnContext,
 } from "@side-chat/partner-ai-core";
-import type { ConversationRecord, SidechatRepositories } from "@side-chat/db";
+import { toActorId, type ConversationRecord, type SidechatRepositories } from "@side-chat/db";
 import { optionalField, toJsonObject, type JsonObject } from "@side-chat/shared";
 
 export const conversationHistoryCutoffField = (
@@ -103,7 +103,7 @@ export const appendTurnAuditEvent = ({
   repositories.appendAuditEvent({
     workspaceId: authContext.workspaceId,
     subjectId: authContext.subject.subjectId,
-    actorId: authContext.actor.subjectId,
+    actorId: toActorId(authContext.actor.subjectId),
     eventType: "sidechat.assistant_turn.completed",
     targetType: "assistant_turn",
     targetId: assistantTurnId,

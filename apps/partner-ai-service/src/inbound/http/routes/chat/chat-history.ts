@@ -1,4 +1,5 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import { toActorId } from "@side-chat/db";
 import type { Hono } from "hono";
 
 import type { AuthContextVariables } from "../../middleware/auth-context.js";
@@ -44,7 +45,7 @@ export const registerChatHistoryRoutes = (
       const reset = await dependencies.repositories.resetConversation({
         workspaceId: authContext.workspaceId,
         subjectId: authContext.subject.subjectId,
-        actorId: authContext.actor.subjectId,
+        actorId: toActorId(authContext.actor.subjectId),
         conversationId,
         requestId: `reset:${conversationId}`,
         now: authContext.issuedAt,

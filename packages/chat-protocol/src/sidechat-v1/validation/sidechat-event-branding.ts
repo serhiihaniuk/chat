@@ -34,7 +34,7 @@ import {
   readFinishReason,
   readHistoryMessageRole,
   readJsonObject,
-  readNumber,
+  readNonNegativeInteger,
   readOptionalArray,
   readOptionalJsonObject,
   readOptionalNumber,
@@ -86,7 +86,7 @@ const toEventBase = (event: Record<string, unknown>): SidechatEventBase => ({
   assistantTurnId: toAssistantTurnId(
     readString(event["assistantTurnId"], 'event["assistantTurnId"]'),
   ),
-  sequence: toProtocolSequence(readNumber(event["sequence"], 'event["sequence"]')),
+  sequence: toProtocolSequence(readNonNegativeInteger(event["sequence"], 'event["sequence"]')),
   createdAt: readString(event["createdAt"], 'event["createdAt"]'),
 });
 
@@ -242,6 +242,8 @@ const toHistoryMessage = (value: unknown): HistoryMessage => {
     id: toMessageId(readString(message["id"], 'event["messages"][].id')),
     role: readHistoryMessageRole(message["role"]),
     content: readString(message["content"], 'event["messages"][].content'),
-    sequence: toProtocolSequence(readNumber(message["sequence"], 'event["messages"][].sequence')),
+    sequence: toProtocolSequence(
+      readNonNegativeInteger(message["sequence"], 'event["messages"][].sequence'),
+    ),
   };
 };

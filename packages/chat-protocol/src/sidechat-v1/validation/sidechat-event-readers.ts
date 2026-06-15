@@ -42,6 +42,13 @@ export const readNumber = (value: unknown, label: string): number => {
   return value;
 };
 
+export const readNonNegativeInteger = (value: unknown, label: string): number => {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw new ProtocolValidationError(`${label} must be a non-negative integer`);
+  }
+  return value;
+};
+
 export const readOptionalNumber = (value: unknown): number | undefined =>
   typeof value === "number" && Number.isFinite(value) ? value : undefined;
 

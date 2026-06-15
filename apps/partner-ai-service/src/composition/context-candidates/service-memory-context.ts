@@ -2,6 +2,8 @@ import {
   CONTEXT_CANDIDATE_SOURCE_TYPES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
+  toContextCandidateId,
+  toContextSourceId,
   type ContextCandidate,
   type MemoryRecord,
   type PreparedContextSection,
@@ -9,16 +11,16 @@ import {
 import { optionalField } from "@side-chat/shared";
 
 export const toMemoryContextCandidate = (record: MemoryRecord): ContextCandidate => ({
-  candidateId: `memory_${record.memoryId}`,
+  candidateId: toContextCandidateId(`memory_${record.memoryId}`),
   sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.MEMORY,
-  sourceId: record.memoryId,
+  sourceId: toContextSourceId(record.memoryId),
   trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
   redactionClass: CONTEXT_REDACTION_CLASSES.USER_CONFIDENTIAL,
   content: record.content,
   estimatedTokens: estimateTokens(record.content),
   priority: memoryPriority(record.confidence),
   provenance: {
-    sourceId: record.memoryId,
+    sourceId: toContextSourceId(record.memoryId),
     label: `${record.scope} memory`,
   },
   ...optionalField("metadata", record.metadata),
