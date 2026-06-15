@@ -147,7 +147,7 @@ const assertRuntimeContextBoard = (contextBoard: RuntimeContextBoard | undefined
   );
   expect(contextBoard.manifest?.budget).toMatchObject({
     policyId: "deterministic_v1",
-    selectionMode: "include_all",
+    selectionMode: "budgeted",
     maxInputTokens: 6_000,
     reservedOutputTokens: 1_000,
     sourceTokenBudgets: {
@@ -180,7 +180,7 @@ const assertPersistedContextSnapshot = (
     manifest: {
       budget: {
         policyId: "deterministic_v1",
-        selectionMode: "include_all",
+        selectionMode: "budgeted",
         maxInputTokens: 6_000,
         reservedOutputTokens: 1_000,
         sourceTokenBudgets: {

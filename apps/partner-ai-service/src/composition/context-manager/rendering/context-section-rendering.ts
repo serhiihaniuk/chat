@@ -1,6 +1,14 @@
-import type { PreparedContextSection } from "@side-chat/partner-ai-core";
+import {
+  toContextCandidateId,
+  type ContextCandidate,
+  type PreparedContextSection,
+  type ResearchArtifact,
+} from "@side-chat/partner-ai-core";
 import { createHostContextSections } from "../../context-candidates/service-host-context.js";
-import { createMemoryContextSections } from "../../context-candidates/service-memory-context.js";
+import {
+  createMemoryContextSections,
+  toMemoryContextCandidate,
+} from "../../context-candidates/service-memory-context.js";
 import { createRagContextSections } from "../../context-candidates/service-rag-context.js";
 import { createResearchContextSections } from "../../context-candidates/service-research-context.js";
 import { createAllowedToolSections } from "../../context-candidates/service-tool-context.js";
@@ -12,13 +20,43 @@ import type {
 export const createPreparedContextSections = (
   input: PrepareTurnContextInput,
   gatheredContext: GatheredTurnContext,
+  includedCandidates: readonly ContextCandidate[],
+  researchArtifacts: readonly ResearchArtifact[],
 ): readonly PreparedContextSection[] => [
-  ...createHostContextSections(input.request.hostContext),
-  ...createMemoryContextSections(gatheredContext.memoryRecords),
-  ...createRagContextSections(gatheredContext.ragCandidates),
-  ...createResearchContextSections(
-    gatheredContext.researchCandidates,
-    gatheredContext.researchArtifacts,
+  ...createAdmittedHostContextSections(input, includedCandidates),
+  ...createMemoryContextSections(
+    gatheredContext.memoryRecords.filter((record) =>
+      includesCandidate(includedCandidates, toMemoryContextCandidate(record).candidateId),
+    ),
   ),
-  ...createAllowedToolSections(input.manifest, input.policyDecision.allowedToolNames),
+  ...createRagContextSections(
+    gatheredContext.ragCandidates.filter((candidate) =>
+      includesCandidate(includedCandidates, candidate.candidateId),
+    ),
+  ),
+  ...createResearchContextSections(
+    gatheredContext.researchCandidates.filter((candidate) =>
+      includesCandidate(includedCandidates, candidate.candidateId),
+    ),
+    researchArtifacts,
+  ),
+  ...createAllowedToolSections(
+    input.manifest,
+    input.policyDecision.allowedToolNames.filter((toolName) =>
+      includesCandidate(includedCandidates, toContextCandidateId(`tool_${toolName}`)),
+    ),
+  ),
 ];
+
+const createAdmittedHostContextSections = (
+  input: PrepareTurnContextInput,
+  includedCandidates: readonly ContextCandidate[],
+): readonly PreparedContextSection[] => {
+  if (!includesCandidate(includedCandidates, toContextCandidateId("host_context"))) return [];
+  return createHostContextSections(input.request.hostContext);
+};
+
+const includesCandidate = (
+  candidates: readonly ContextCandidate[],
+  candidateId: ContextCandidate["candidateId"],
+): boolean => candidates.some((candidate) => candidate.candidateId === candidateId);

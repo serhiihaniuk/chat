@@ -45,15 +45,15 @@ Default local boot is honest about the current app shape:
   message, and reset starts a new history boundary; `recent_plus_summary` is
   parsed for the future summary lane but reports misconfigured until summary
   generation exists;
-- context admission currently records an include-all policy rather than enforcing
-  a token budget;
+- context admission enforces deterministic token budgets before optional
+  context reaches runtime;
 - memory repositories are process-local and not durable.
 
 Context admission diagnostics expose the configured policy id, the actual
-selection mode, and a secret-free recorded budget. Today that means
-`policyId: deterministic_v1` with `selectionMode: include_all`; later budgeted
-admission must change the selection mode only when candidates can really be
-dropped under budget pressure.
+selection mode, and a secret-free recorded budget. `policyId:
+deterministic_v1` with `selectionMode: budgeted` means the context manager can
+drop optional candidates under token pressure and record safe drop reasons in
+the manifest.
 
 Persistence diagnostics are derived from the composed repository adapter. A
 `SIDECHAT_DATABASE_URL` selects the Postgres/Drizzle repositories; local

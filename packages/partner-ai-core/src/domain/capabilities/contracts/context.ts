@@ -50,6 +50,16 @@ export const CONTEXT_ADMISSION_SELECTION_MODES = {
 
 export type ContextAdmissionSelectionMode = ObjectValue<typeof CONTEXT_ADMISSION_SELECTION_MODES>;
 
+export const CONTEXT_ADMISSION_DROP_REASONS = {
+  BUDGET_EXCEEDED: "budget_exceeded",
+  SOURCE_LIMIT_EXCEEDED: "source_limit_exceeded",
+  POLICY_DISABLED: "policy_disabled",
+  REDACTION_BLOCKED: "redaction_blocked",
+  DUPLICATE: "duplicate",
+} as const;
+
+export type ContextAdmissionDropReason = ObjectValue<typeof CONTEXT_ADMISSION_DROP_REASONS>;
+
 /**
  * Human-readable origin for a context candidate.
  *
@@ -135,6 +145,8 @@ export type ContextManifestEntry = {
   readonly redactionClass: ContextRedactionClass;
   readonly estimatedTokens: number;
   readonly included: boolean;
+  /** Stable, content-free reason recorded only when the candidate was dropped. */
+  readonly dropReason?: ContextAdmissionDropReason | undefined;
 };
 
 /**

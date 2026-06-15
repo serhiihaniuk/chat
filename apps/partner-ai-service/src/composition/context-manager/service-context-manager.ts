@@ -1,13 +1,15 @@
 import {
   admitConversationHistoryContext,
+  toContextCandidateId,
   toContextId,
   type ContextManagerPort,
   type PreparedTurnContext,
+  type ResearchArtifact,
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import { createContextCandidates } from "./candidates/context-candidate-creation.js";
-import { createSimpleContextAdmission } from "./candidates/context-candidate-selection.js";
+import { createBudgetedContextAdmission } from "./candidates/context-candidate-selection.js";
 import { resolveContextProfile } from "./profile/context-profile-resolution.js";
 import { createPreparedContextManifest } from "./rendering/context-manifest.js";
 import { createPreparedContextSections } from "./rendering/context-section-rendering.js";
@@ -38,10 +40,13 @@ export const createServiceContextManager = (
       // candidate can be rendered into the model-visible context board.
       const gatheredContext = yield* gatherAllowedTurnContext(options, input);
 
-      // Prepare candidate metadata and the current include-all admission record
-      // so persisted manifests can explain what was available for the turn.
+      // Prepare candidate metadata and enforce the configured admission budget
+      // before any optional context can become model-visible.
       const candidates = createContextCandidates(input, gatheredContext);
-      const admission = createSimpleContextAdmission(candidates, options.contextAdmission);
+      const admission = yield* Effect.try({
+        try: () => createBudgetedContextAdmission(candidates, options.contextAdmission),
+        catch: (error) => error,
+      });
       const historyAdmission = admitConversationHistoryContext({
         messages: gatheredContext.historyMessages,
         config: options.history ?? DEFAULT_SERVICE_CAPABILITY_CONFIG.history,
@@ -50,13 +55,22 @@ export const createServiceContextManager = (
       // Render the selected context board and chat messages separately: history
       // can become runtime messages, while memory/RAG/research/tool context
       // stays in named context-board sections.
-      const sections = createPreparedContextSections(input, gatheredContext);
+      const admittedResearchArtifacts = selectAdmittedResearchArtifacts(
+        gatheredContext.researchArtifacts,
+        admission,
+      );
+      const sections = createPreparedContextSections(
+        input,
+        gatheredContext,
+        admission.included,
+        admittedResearchArtifacts,
+      );
       const manifest = createPreparedContextManifest({
         requestId: input.request.requestId,
         profile: contextProfile,
         policyDecision: input.policyDecision,
         sections,
-        researchArtifacts: gatheredContext.researchArtifacts,
+        researchArtifacts: admittedResearchArtifacts,
         admission,
         history: historyAdmission.manifest,
         createdAt: input.now,
@@ -71,9 +85,21 @@ export const createServiceContextManager = (
         policyDecision: input.policyDecision,
         history: historyAdmission.manifest,
         candidates,
-        researchArtifacts: gatheredContext.researchArtifacts,
+        researchArtifacts: admittedResearchArtifacts,
         runtimeMessages,
         contextBoard: { sections, manifest },
       } satisfies PreparedTurnContext;
     }),
 });
+
+const selectAdmittedResearchArtifacts = (
+  artifacts: readonly ResearchArtifact[],
+  admission: ReturnType<typeof createBudgetedContextAdmission>,
+): readonly ResearchArtifact[] => {
+  const admittedCandidateIds = new Set(
+    admission.included.map((candidate) => candidate.candidateId),
+  );
+  return artifacts.filter((artifact) =>
+    admittedCandidateIds.has(toContextCandidateId(`research_summary_${artifact.artifactId}`)),
+  );
+};

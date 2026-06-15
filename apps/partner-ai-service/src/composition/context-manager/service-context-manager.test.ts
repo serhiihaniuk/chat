@@ -141,7 +141,7 @@ describe("service context manager context admission", () => {
 
     expect(preparedContext.contextBoard.manifest.budget).toMatchObject({
       policyId: "deterministic_v1",
-      selectionMode: "include_all",
+      selectionMode: "budgeted",
       maxInputTokens: 12_000,
       reservedOutputTokens: 2_000,
       sourceTokenBudgets: {

@@ -214,9 +214,9 @@ describe("service composition runtime tools", () => {
       research: { state: "configured", configuredAgentCount: 1 },
       history: { state: "configured", policyId: "recent_messages" },
       contextAdmission: {
-        state: "noop",
+        state: "configured",
         policyId: "deterministic_v1",
-        selectionMode: "include_all",
+        selectionMode: "budgeted",
       },
     });
   });

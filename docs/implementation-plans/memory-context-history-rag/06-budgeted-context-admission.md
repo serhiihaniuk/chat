@@ -29,16 +29,18 @@ candidate admission.
 
 Keep policy identity separate from selector behavior.
 
-Current implemented behavior:
+Implemented behavior:
 
 ```txt
 policyId: deterministic_v1
-selectionMode: include_all
+selectionMode: budgeted
 ```
 
-This means the service records the configured budgets but still includes every
-gathered candidate. Phase 6 may switch `selectionMode` to `budgeted` only when
-the context manager actually enforces caps and records dropped candidates.
+This means the service records configured budgets, enforces total and
+source-specific caps for optional context-board candidates, and records dropped
+candidates with safe reasons. Conversation history keeps its dedicated
+history-policy manifest and token cap while the context admission budget records
+the configured history limit alongside memory, RAG, and research limits.
 
 `deterministic_v1` budgeted behavior should define:
 

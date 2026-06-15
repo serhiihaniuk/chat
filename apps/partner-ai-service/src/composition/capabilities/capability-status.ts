@@ -68,7 +68,7 @@ export type ContextAdmissionRecordedBudget = {
  *
  * Memory, RAG, research, and history can make production unsafe when advertised
  * without the concrete implementation their mode requires. Context admission is
- * reported for visibility but is not used by the production adapter assertion yet.
+ * reported here as the configured selector behavior and safe token budget.
  */
 export type ServiceCapabilityStatus = {
   readonly memory: CapabilityStatus;

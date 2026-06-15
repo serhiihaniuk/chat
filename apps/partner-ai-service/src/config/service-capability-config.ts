@@ -119,9 +119,8 @@ export const createCapabilityConfigFromEnv = (env: ServiceEnv): ServiceCapabilit
 const createContextAdmissionConfig = (
   env: ServiceEnv,
 ): ServiceCapabilityConfig["contextAdmission"] => {
-  // Admission budgets are recorded by the current include-all policy. Keeping
-  // them typed now makes the later trimming phase a context-manager change, not
-  // another env/config migration.
+  // Admission budgets are enforced later by the context manager. Env parsing
+  // only validates operator intent and keeps the budget values secret-free.
   const config = {
     policyId: readContextAdmissionPolicy(envValue(env, CAPABILITY_ENV_KEYS.contextAdmissionPolicy)),
     maxInputTokens: readPositiveInt(

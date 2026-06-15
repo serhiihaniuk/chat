@@ -235,10 +235,10 @@ export const createHistoryStatus = (config: HistoryContextConfig): CapabilitySta
 
 export const createContextAdmissionStatus = (config: ContextAdmissionConfig): CapabilityStatus => ({
   capability: "contextAdmission",
-  state: CAPABILITY_STATES.NOOP,
-  adapterId: "simple-include-all-context-admission",
+  state: CAPABILITY_STATES.CONFIGURED,
+  adapterId: "deterministic-budgeted-context-admission",
   policyId: config.policyId,
-  selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,
+  selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.BUDGETED,
   recordedBudget: {
     maxInputTokens: config.maxInputTokens,
     reservedOutputTokens: config.reservedOutputTokens,
@@ -249,9 +249,8 @@ export const createContextAdmissionStatus = (config: ContextAdmissionConfig): Ca
       research: config.maxResearchTokens,
     },
   },
-  reason:
-    "configured token budgets are recorded; candidate trimming is implemented in a later phase",
-  safeForProduction: false,
+  reason: "configured token budgets are enforced before optional context reaches runtime",
+  safeForProduction: true,
 });
 
 export const createPersistenceStatus = (kind: "memory" | "postgres"): CapabilityStatus => {
