@@ -1,4 +1,8 @@
-import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import {
+  SIDECHAT_EVENT_TYPES,
+  SIDECHAT_PROTOCOL_VERSION,
+  decodeSseEvents,
+} from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import {
   CONTEXT_REDACTION_CLASSES,
@@ -129,6 +133,40 @@ describe("partner ai service /chat/stream persistence", () => {
     expect(snapshot.hostCommandResults).toHaveLength(0);
   });
 
+  it("reads persisted history through a fresh app composition and honors reset boundaries", async () => {
+    const repositories = createMemorySidechatRepositories();
+    const firstApp = createPartnerAiServiceApp({ repositories });
+
+    const stream = await firstApp.request("/chat/stream", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(validRequest),
+    });
+    const conversationId = readStartedConversationId(await stream.text());
+    const restartedApp = createPartnerAiServiceApp({ repositories });
+
+    await expect((await restartedApp.request("/healthz")).json()).resolves.toMatchObject({
+      persistence: "memory",
+      capabilities: {
+        persistence: {
+          adapterId: "memory-sidechat-repositories",
+          safeForProduction: false,
+        },
+      },
+    });
+    await expect(readHistory(restartedApp, conversationId)).resolves.toEqual([
+      "hello service",
+      "Fake response: hello service",
+    ]);
+
+    const reset = await restartedApp.request(`/chat/history/${conversationId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    expect(reset.status).toBe(200);
+    await expect(readHistory(restartedApp, conversationId)).resolves.toEqual([]);
+  });
+
   it("persists policy-allowed RAG candidates in the context snapshot", async () => {
     const repositories = createMemorySidechatRepositories();
     const retrievalInputs: RagRetrievalInput[] = [];
@@ -231,6 +269,35 @@ describe("partner ai service /chat/stream persistence", () => {
     });
   });
 });
+
+const authHeaders = () => ({
+  authorization: "Bearer local-test-token",
+  "content-type": "application/json",
+});
+
+const readStartedConversationId = (body: string): string => {
+  const started = decodeSseEvents(body).find(
+    (event) => event.type === SIDECHAT_EVENT_TYPES.STARTED,
+  );
+  if (!started || !("conversationId" in started) || !started.conversationId) {
+    throw new Error("Expected stream to include a started event with conversationId.");
+  }
+  return started.conversationId;
+};
+
+const readHistory = async (
+  app: ReturnType<typeof createPartnerAiServiceApp>,
+  conversationId: string,
+): Promise<readonly string[]> => {
+  const response = await app.request(`/chat/history/${conversationId}`, {
+    headers: authHeaders(),
+  });
+  expect(response.status).toBe(200);
+  const history = (await response.json()) as {
+    readonly messages: readonly { readonly content: string }[];
+  };
+  return history.messages.map((message) => message.content);
+};
 
 const userMemoryPolicy: MemoryPolicy = {
   policyId: "user_memory",

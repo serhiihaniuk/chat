@@ -127,6 +127,64 @@ export function isExactVersion(version) {
   return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version);
 }
 
+export function packageManagerVersion(packageManager, name) {
+  const prefix = `${name}@`;
+  return typeof packageManager === "string" && packageManager.startsWith(prefix)
+    ? packageManager.slice(prefix.length)
+    : null;
+}
+
+export function versionSatisfiesRange(version, range) {
+  if (typeof version !== "string" || typeof range !== "string") return false;
+
+  const comparators = range.trim().split(/\s+/).filter(Boolean);
+  if (comparators.length === 0) return false;
+
+  return comparators.every((comparator) => versionSatisfiesComparator(version, comparator));
+}
+
+function versionSatisfiesComparator(version, comparator) {
+  if (isExactVersion(comparator)) return compareVersions(version, comparator) === 0;
+
+  const match = /^(>=|>|<=|<|=)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(comparator);
+  if (!match) return false;
+
+  const comparison = compareVersions(version, match[2]);
+  switch (match[1]) {
+    case ">=":
+      return comparison >= 0;
+    case ">":
+      return comparison > 0;
+    case "<=":
+      return comparison <= 0;
+    case "<":
+      return comparison < 0;
+    case "=":
+      return comparison === 0;
+    default:
+      return false;
+  }
+}
+
+function compareVersions(left, right) {
+  const leftParts = parseVersion(left);
+  const rightParts = parseVersion(right);
+  if (!leftParts || !rightParts) return Number.NaN;
+
+  for (let index = 0; index < 3; index += 1) {
+    const difference = leftParts[index] - rightParts[index];
+    if (difference !== 0) return difference;
+  }
+
+  return 0;
+}
+
+function parseVersion(version) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(version);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
 export function failIfErrors(errors) {
   if (errors.length === 0) return;
 

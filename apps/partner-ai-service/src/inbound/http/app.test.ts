@@ -228,6 +228,18 @@ describe("partner ai service /chat/stream", () => {
       conversationId,
       status: "reset",
     });
+
+    await expect(
+      (
+        await app.request(`/chat/history/${conversationId}`, {
+          headers: authHeaders,
+        })
+      ).json(),
+    ).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      conversationId,
+      messages: [],
+    });
   });
 
   it("fails closed when normalized auth cannot be extracted", async () => {

@@ -55,6 +55,11 @@ selection mode, and a secret-free recorded budget. Today that means
 admission must change the selection mode only when candidates can really be
 dropped under budget pressure.
 
+Persistence diagnostics are derived from the composed repository adapter. A
+`SIDECHAT_DATABASE_URL` selects the Postgres/Drizzle repositories; local
+in-memory repositories report `persistence: memory` and remain explicitly
+non-production-safe because they reset with the process.
+
 Production-profile composition rejects enabled memory, RAG, research, or summary
 history declarations when the matching concrete implementation is missing.
 Diagnostics never include secrets, connection strings, raw memory, retrieved

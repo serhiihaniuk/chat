@@ -58,8 +58,9 @@ come from `.env`.
 | `npm run lint:custom`  | Side Chat boundary and readability governance pass. |
 | `npm run verify`       | The local full gate passes.                         |
 
-Use the pinned runtime when the shell is not already on Node `24.16.0` and npm
-`11.15.0`:
+Supported local runtimes are Node `>=24.15.0 <25.0.0` and npm
+`>=11.12.0 <12.0.0`. The repo keeps Node `24.16.0` and npm `11.15.0` as
+the recommended fixture runtime for reproducible checks:
 
 ```sh
 npx -p node@24.16.0 -p npm@11.15.0 npm run verify

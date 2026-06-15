@@ -1,5 +1,6 @@
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
+import { createMemorySidechatRepositories } from "@side-chat/db";
 import {
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
@@ -262,6 +263,19 @@ describe("service composition runtime tools", () => {
         },
       }),
     ).toThrow("SIDECHAT_RESEARCH_MODE=external requires a concrete research adapter.");
+  });
+
+  it("rejects explicit persistence config that does not match injected repositories", () => {
+    expect(() =>
+      composePartnerAiService({
+        workspace,
+        persistence: {
+          kind: "postgres",
+          databaseUrl: "postgres://sidechat:sidechat@localhost/sidechat",
+        },
+        repositories: createMemorySidechatRepositories(),
+      }),
+    ).toThrow("Persistence config postgres does not match injected memory repositories.");
   });
 
   it("resolves the service system prompt id to runtime instructions", async () => {

@@ -16,8 +16,9 @@ Not source of truth for: test fixture design or product requirements.
 | `npm run lint:custom`  | Side Chat custom governance passes.       |
 | `npm run verify`       | Full local gate passes in project order.  |
 
-Use the pinned runtime when the shell is not already on Node `24.16.0` and npm
-`11.15.0`:
+Supported local runtimes are Node `>=24.15.0 <25.0.0` and npm
+`>=11.12.0 <12.0.0`. The repo keeps Node `24.16.0` and npm `11.15.0` as
+the recommended fixture runtime for reproducible checks:
 
 ```sh
 npx -p node@24.16.0 -p npm@11.15.0 npm run verify
@@ -27,7 +28,7 @@ npx -p node@24.16.0 -p npm@11.15.0 npm run verify
 
 | Script                          | Catches                                         |
 | ------------------------------- | ----------------------------------------------- |
-| `check-runtime-pins.mjs`        | Node/npm version drift.                         |
+| `check-runtime-pins.mjs`        | Node/npm supported-runtime drift.               |
 | `check-version-pins.mjs`        | Dependency version ranges.                      |
 | `check-dependency-policy.mjs`   | Disallowed dependencies.                        |
 | `check-unused-dependencies.mjs` | Declared but unused packages.                   |

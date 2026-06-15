@@ -11,6 +11,7 @@ import { createMemoryUsageRepository } from "./records/usage.js";
 import { createIdGenerator } from "../repository-utils.js";
 
 export type MemorySidechatRepositories = SidechatRepositories & {
+  readonly kind: "memory";
   readonly snapshot: () => MemoryStoreSnapshot;
 };
 
@@ -26,6 +27,7 @@ export const createMemorySidechatRepositories = (
   const context = { ids, store };
 
   return {
+    kind: "memory",
     snapshot: () => snapshotMemoryStore(store),
     ...createMemoryConversationRepository(context),
     ...createMemoryAssistantTurnRepository(context),

@@ -136,19 +136,22 @@ const readMemoryConversationHistory =
   ({ store }: MemoryRepositoryContext): ConversationRepositoryContract["readConversationHistory"] =>
   async (command) => {
     await Promise.resolve();
-    requireSubjectConversation(
+    const conversation = requireSubjectConversation(
       store,
       command.workspaceId,
       command.subjectId,
       command.conversationId,
+    );
+    const afterSequenceIndex = historyLowerBound(
+      command.afterSequenceIndex,
+      conversation.historyCutoffSequenceIndex,
     );
     return store.messages
       .filter(
         (message) =>
           message.workspaceId === command.workspaceId &&
           message.conversationId === command.conversationId &&
-          (command.afterSequenceIndex === undefined ||
-            message.sequenceIndex > command.afterSequenceIndex) &&
+          (afterSequenceIndex === undefined || message.sequenceIndex > afterSequenceIndex) &&
           (command.beforeSequenceIndex === undefined ||
             message.sequenceIndex < command.beforeSequenceIndex),
       )
@@ -189,4 +192,13 @@ const nextHistoryCutoff = (
   if (sequenceIndexes.length === 0) return {};
 
   return { historyCutoffSequenceIndex: Math.max(...sequenceIndexes) };
+};
+
+const historyLowerBound = (
+  requestedAfter: number | undefined,
+  resetCutoff: number | undefined,
+): number | undefined => {
+  if (requestedAfter === undefined) return resetCutoff;
+  if (resetCutoff === undefined) return requestedAfter;
+  return Math.max(requestedAfter, resetCutoff);
 };

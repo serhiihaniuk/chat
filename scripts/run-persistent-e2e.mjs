@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
+import { Pool } from "pg";
 import {
   applySidechatMigrations,
   startPostgresTestContainer,
@@ -13,6 +14,20 @@ const widgetBaseUrl = `http://127.0.0.1:${widgetPort}`;
 const authToken = "persistent-e2e-token";
 const workspaceId = "workspace_persistent_e2e";
 const repoRoot = resolve(import.meta.dirname, "..");
+const serviceEnv = (connectionString) => ({
+  PORT: String(servicePort),
+  SIDECHAT_ALLOWED_MODELS: "",
+  SIDECHAT_AUTH_BEARER_TOKEN: authToken,
+  SIDECHAT_DATABASE_URL: connectionString,
+  SIDECHAT_ENABLE_DEV_TOOLS: "true",
+  SIDECHAT_HISTORY_MODE: "recent_messages",
+  SIDECHAT_OPENAI_API_KEY: "",
+  SIDECHAT_POLICY_MODE: "allow_all",
+  SIDECHAT_PROFILE: "development",
+  SIDECHAT_PROVIDER: "fake",
+  SIDECHAT_TENANT_ID: "tenant_persistent_e2e",
+  SIDECHAT_WORKSPACE_ID: workspaceId,
+});
 
 const run = async () => {
   const postgres = await startPostgresTestContainer();
@@ -22,27 +37,15 @@ const run = async () => {
     console.log("Applying migrations for persistent E2E Postgres...");
     await applySidechatMigrations(postgres.connectionString);
     console.log("Starting partner-ai-service against Testcontainers Postgres...");
-    const service = spawnProcess(
-      "npm",
-      ["--workspace", "@side-chat/partner-ai-service", "run", "dev"],
-      {
-        PORT: String(servicePort),
-        SIDECHAT_ALLOWED_MODELS: "",
-        SIDECHAT_AUTH_BEARER_TOKEN: authToken,
-        SIDECHAT_DATABASE_URL: postgres.connectionString,
-        SIDECHAT_ENABLE_DEV_TOOLS: "true",
-        SIDECHAT_HISTORY_MODE: "recent_messages",
-        SIDECHAT_OPENAI_API_KEY: "",
-        SIDECHAT_POLICY_MODE: "allow_all",
-        SIDECHAT_PROFILE: "development",
-        SIDECHAT_PROVIDER: "fake",
-        SIDECHAT_TENANT_ID: "tenant_persistent_e2e",
-        SIDECHAT_WORKSPACE_ID: workspaceId,
-      },
-    );
+    let service = startPersistentService(postgres.connectionString);
     children.push(service);
     await waitForUrl(`${serviceBaseUrl}/healthz`);
     console.log(`partner-ai-service is healthy at ${serviceBaseUrl}.`);
+    service = await verifyServiceRestartPersistence({
+      connectionString: postgres.connectionString,
+      currentService: service,
+      children,
+    });
 
     console.log("Starting widget harness for persistent E2E...");
     const widget = spawnProcess(
@@ -82,6 +85,107 @@ const run = async () => {
       await killProcessTree(child);
     }
     await postgres.stop();
+  }
+};
+
+const startPersistentService = (connectionString) =>
+  spawnProcess(
+    "npm",
+    ["--workspace", "@side-chat/partner-ai-service", "run", "dev"],
+    serviceEnv(connectionString),
+  );
+
+const verifyServiceRestartPersistence = async ({ connectionString, currentService, children }) => {
+  console.log("Verifying service history survives a restart...");
+  await expectPersistentHealth();
+  const expectedHistory = ["Persistent restart smoke", "Fake response: Persistent restart smoke"];
+  const streamBody = await postStream({
+    requestId: "request_persistent_restart_smoke",
+    messageId: "message_persistent_restart_smoke",
+    content: expectedHistory[0],
+  });
+  const conversationId = readConversationId(streamBody);
+  await expectHistory(conversationId, expectedHistory);
+  await expectTableCountAtLeast(connectionString, "sidechat.messages", 2);
+  await expectTableCountAtLeast(connectionString, "sidechat.assistant_turns", 1);
+  await expectTableCountAtLeast(connectionString, "sidechat.turn_context_snapshots", 1);
+
+  await killProcessTree(currentService);
+  const restartedService = startPersistentService(connectionString);
+  children.push(restartedService);
+  await waitForUrl(`${serviceBaseUrl}/healthz`);
+  await expectPersistentHealth();
+  await expectHistory(conversationId, expectedHistory);
+
+  await resetConversation(conversationId);
+  await expectHistory(conversationId, []);
+  return restartedService;
+};
+
+const expectPersistentHealth = async () => {
+  const response = await fetch(`${serviceBaseUrl}/healthz`);
+  if (!response.ok) throw new Error(`Expected healthy service, got ${response.status}.`);
+  const health = await response.json();
+  if (health.persistence !== "postgres-drizzle") {
+    throw new Error(`Expected postgres-drizzle persistence, got ${health.persistence}.`);
+  }
+};
+
+const postStream = async ({ requestId, messageId, content }) => {
+  const response = await fetch(`${serviceBaseUrl}/chat/stream`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      protocolVersion: "sidechat.v1",
+      requestId,
+      message: { id: messageId, role: "user", content },
+      hostContext: {
+        schemaVersion: "host.v1",
+        origin: "https://persistent-e2e.example",
+      },
+    }),
+  });
+  if (!response.ok) throw new Error(`Persistent stream smoke failed with ${response.status}.`);
+  return response.text();
+};
+
+const expectHistory = async (conversationId, expectedMessages) => {
+  const response = await fetch(`${serviceBaseUrl}/chat/history/${conversationId}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`History read failed with ${response.status}.`);
+  const history = await response.json();
+  const messages = history.messages.map((message) => message.content);
+  if (JSON.stringify(messages) !== JSON.stringify(expectedMessages)) {
+    throw new Error(
+      `Expected history ${JSON.stringify(expectedMessages)}, got ${JSON.stringify(messages)}.`,
+    );
+  }
+};
+
+const resetConversation = async (conversationId) => {
+  const response = await fetch(`${serviceBaseUrl}/chat/history/${conversationId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`History reset failed with ${response.status}.`);
+};
+
+const expectTableCountAtLeast = async (connectionString, tableName, minimumCount) => {
+  const pool = new Pool({ connectionString });
+  try {
+    const result = await pool.query(`SELECT count(*)::int AS count FROM ${tableName}`);
+    const count = Number(result.rows[0]?.count ?? 0);
+    if (count < minimumCount) {
+      throw new Error(
+        `Expected ${tableName} to contain at least ${minimumCount} rows, got ${count}.`,
+      );
+    }
+  } finally {
+    await pool.end();
   }
 };
 
@@ -157,5 +261,15 @@ const waitForUrl = async (url) => {
   }
   throw new Error(`Timed out waiting for ${url}`);
 };
+
+const readConversationId = (body) => {
+  const match = /"conversationId":"([^"]+)"/u.exec(body);
+  if (!match?.[1]) throw new Error("Expected stream to include a conversation id.");
+  return match[1];
+};
+
+const authHeaders = () => ({
+  authorization: `Bearer ${authToken}`,
+});
 
 await run();

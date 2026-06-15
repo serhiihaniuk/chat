@@ -51,6 +51,9 @@ test("persists send, history, reset, and usage through public widget and service
     conversationId,
     status: "reset",
   });
+  await expect(readHistory(request, conversationId)).resolves.toMatchObject({
+    messages: [],
+  });
 });
 
 const openPersistentWidget = async (page: Page) => {

@@ -69,8 +69,6 @@ export type PartnerAiServiceOptions = {
   readonly retrievalSources?: readonly RetrievalSourceCapability[];
   readonly researchAgent?: ResearchAgentPort;
   readonly researchAgents?: readonly ResearchAgentCapability[];
-  /** Safe display label for diagnostics; does not change the selected repositories. */
-  readonly persistenceLabel?: "memory" | "postgres-drizzle";
   readonly workspace?: WorkspaceRef;
 };
 
@@ -86,7 +84,6 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
   const composition = composePartnerAiService(compositionOptions(options));
   const authority = createServiceAuthVerifier(composition.auth);
   const policies = createServicePolicyPort(composition.policies);
-  const persistenceLabel = options.persistenceLabel ?? composition.persistenceLabel;
 
   app.use("*", requestIdMiddleware());
 
@@ -95,7 +92,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     policyConfig: composition.policies,
     providerId: composition.runtimeProviderId,
     modelId: composition.runtimeModelId,
-    persistenceLabel,
+    persistenceLabel: composition.persistenceLabel,
     capabilities: composition.capabilities,
   });
 

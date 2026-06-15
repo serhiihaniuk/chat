@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { failIfErrors, readJson, resolveRoot } from "./lib/governance.mjs";
+import {
+  failIfErrors,
+  packageManagerVersion,
+  readJson,
+  resolveRoot,
+  versionSatisfiesRange,
+} from "./lib/governance.mjs";
 
 const root = resolveRoot();
 const errors = [];
@@ -21,17 +27,21 @@ const actualNpm = execFileSync(npmCommand.command, npmCommand.args, {
   encoding: "utf8",
 }).trim();
 
-if (expectedNode !== nvmNode) {
-  errors.push(`.nvmrc ${nvmNode} does not match engines.node ${expectedNode}`);
+if (!versionSatisfiesRange(nvmNode, expectedNode)) {
+  errors.push(`.nvmrc ${nvmNode} is outside supported Node range ${expectedNode}`);
 }
-if (actualNode !== expectedNode) {
-  errors.push(`node ${actualNode} does not match pinned ${expectedNode}`);
+if (!versionSatisfiesRange(actualNode, expectedNode)) {
+  errors.push(`node ${actualNode} is outside supported range ${expectedNode}`);
 }
-if (actualNpm !== expectedNpm) {
-  errors.push(`npm ${actualNpm} does not match pinned ${expectedNpm}`);
+if (!versionSatisfiesRange(actualNpm, expectedNpm)) {
+  errors.push(`npm ${actualNpm} is outside supported range ${expectedNpm}`);
 }
-if (packageJson.packageManager !== `npm@${expectedNpm}`) {
-  errors.push(`packageManager ${packageJson.packageManager} does not match npm@${expectedNpm}`);
+
+const packageManagerNpm = packageManagerVersion(packageJson.packageManager, "npm");
+if (!packageManagerNpm) {
+  errors.push(`packageManager ${packageJson.packageManager} must use npm`);
+} else if (!versionSatisfiesRange(packageManagerNpm, expectedNpm)) {
+  errors.push(`packageManager npm ${packageManagerNpm} is outside supported range ${expectedNpm}`);
 }
 
 failIfErrors(errors);

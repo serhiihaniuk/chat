@@ -2,8 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { toTargetId } from "#schema-contract";
 import type { SidechatRepositories } from "#repositories/contract";
-
-const now = "2026-05-23T13:00:00.000Z";
+import {
+  actorId,
+  appendUserMessage,
+  closeIfNeeded,
+  createConversation,
+  now,
+  readConversationHistory,
+  subjectId,
+  workspaceId,
+} from "./repository-contract.helpers.js";
 
 export const sidechatRepositoryContract = (
   label: string,
@@ -78,6 +86,11 @@ export const sidechatRepositoryContract = (
           requestId: "reset_1",
           now,
         });
+        const emptyPostResetHistory = await readConversationHistory(
+          repositories,
+          scope,
+          conversation.conversationId,
+        );
         await repositories.appendMessage({
           workspaceId: workspaceId(scope),
           subjectId: subjectId(scope),
@@ -88,18 +101,15 @@ export const sidechatRepositoryContract = (
           idempotencyKey: { value: "request_after_reset:user" },
           now,
         });
-        const postResetHistory = await repositories.readConversationHistory({
-          workspaceId: workspaceId(scope),
-          subjectId: subjectId(scope),
-          conversationId: conversation.conversationId,
-          limit: 10,
-          ...(reset.historyCutoffSequenceIndex === undefined
-            ? {}
-            : { afterSequenceIndex: reset.historyCutoffSequenceIndex }),
-        });
+        const postResetHistory = await readConversationHistory(
+          repositories,
+          scope,
+          conversation.conversationId,
+        );
 
         expect(reset.status).toBe("reset");
         expect(reset.historyCutoffSequenceIndex).toBe(0);
+        expect(emptyPostResetHistory).toEqual([]);
         expect(postResetHistory.map((message) => message.contentText)).toEqual(["after reset"]);
       } finally {
         await closeIfNeeded(repositories);
@@ -255,45 +265,3 @@ export const sidechatRepositoryContract = (
     });
   });
 };
-
-const createConversation = async (repositories: SidechatRepositories, scope: string) => {
-  const conversation = await repositories.createOrGetConversation({
-    workspaceId: workspaceId(scope),
-    subjectId: subjectId(scope),
-    actorId: actorId(scope),
-    conversationKey: "default",
-    now,
-  });
-  return conversation.record;
-};
-
-const appendUserMessage = (
-  repositories: SidechatRepositories,
-  scope: string,
-  conversationId: string,
-) =>
-  repositories.appendMessage({
-    workspaceId: workspaceId(scope),
-    subjectId: subjectId(scope),
-    conversationId,
-    role: "user",
-    contentText: "hello",
-    metadataJson: {},
-    idempotencyKey: { value: "request_1:user" },
-    now,
-  });
-
-const workspaceId = (scope: string) => `workspace_${scope}`;
-const subjectId = (scope: string) => `subject_${scope}`;
-const actorId = (scope: string) => `actor_${scope}`;
-
-const closeIfNeeded = async (repositories: SidechatRepositories): Promise<void> => {
-  if (hasClose(repositories)) {
-    await repositories.close();
-  }
-};
-
-const hasClose = (
-  repositories: SidechatRepositories,
-): repositories is SidechatRepositories & { readonly close: () => Promise<void> } =>
-  "close" in repositories && typeof repositories["close"] === "function";

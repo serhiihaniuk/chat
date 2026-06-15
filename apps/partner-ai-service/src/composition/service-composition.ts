@@ -67,6 +67,8 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const persistence =
     options.persistence ?? defaultPersistenceForComposition(auth.profile, options.repositories);
   const repositories = options.repositories ?? createRepositoriesForPersistence(persistence);
+  if (options.persistence) assertPersistenceMatchesRepositories(options.persistence, repositories);
+  const persistenceLabel = persistenceLabelForRepositories(repositories);
   const capabilityConfig = options.capabilities ?? DEFAULT_SERVICE_CAPABILITY_CONFIG;
 
   // Choose the runtime identity before building the manifest. Core later checks
@@ -94,7 +96,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     options,
     capabilityConfig,
     manifest,
-    persistenceKind: persistence.kind,
+    persistenceKind: persistenceLabel === "postgres-drizzle" ? "postgres" : "memory",
   });
   assertProductionCapabilityStatus(capabilities, auth.profile);
 
@@ -136,7 +138,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtime,
     runtimeProviderId,
     runtimeModelId,
-    persistenceLabel: persistence.kind === "postgres" ? "postgres-drizzle" : "memory",
+    persistenceLabel,
     capabilities,
   };
 };
@@ -182,6 +184,28 @@ const createRepositoriesForPersistence = (persistence: PersistenceConfig): Sidec
   }
 
   return createMemorySidechatRepositories();
+};
+
+const persistenceLabelForRepositories = (
+  repositories: SidechatRepositories,
+): ServiceComposition["persistenceLabel"] => {
+  if ("kind" in repositories && repositories.kind === "postgres-drizzle") {
+    return "postgres-drizzle";
+  }
+  return "memory";
+};
+
+const assertPersistenceMatchesRepositories = (
+  persistence: PersistenceConfig,
+  repositories: SidechatRepositories,
+): void => {
+  const actualLabel = persistenceLabelForRepositories(repositories);
+  const expectedLabel = persistence.kind === "postgres" ? "postgres-drizzle" : "memory";
+  if (actualLabel === expectedLabel) return;
+
+  throw new Error(
+    `Persistence config ${persistence.kind} does not match injected ${actualLabel} repositories.`,
+  );
 };
 
 const defaultPersistenceForComposition = (

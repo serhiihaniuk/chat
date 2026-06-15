@@ -147,11 +147,15 @@ export const createPostgresDrizzleConversationRepository = ({
     );
   },
   readConversationHistory: async (command) => {
-    await requireSubjectConversation(
+    const conversation = await requireSubjectConversation(
       db,
       command.workspaceId,
       command.subjectId,
       command.conversationId,
+    );
+    const afterSequenceIndex = historyLowerBound(
+      command.afterSequenceIndex,
+      conversation.historyCutoffSequenceIndex,
     );
     const rows = await db
       .select()
@@ -160,7 +164,7 @@ export const createPostgresDrizzleConversationRepository = ({
         buildHistoryWhere(
           command.workspaceId,
           command.conversationId,
-          command.afterSequenceIndex,
+          afterSequenceIndex,
           command.beforeSequenceIndex,
         ),
       )
@@ -200,3 +204,12 @@ export const createPostgresDrizzleConversationRepository = ({
     );
   },
 });
+
+const historyLowerBound = (
+  requestedAfter: number | undefined,
+  resetCutoff: number | undefined,
+): number | undefined => {
+  if (requestedAfter === undefined) return resetCutoff;
+  if (resetCutoff === undefined) return requestedAfter;
+  return Math.max(requestedAfter, resetCutoff);
+};

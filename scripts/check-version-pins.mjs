@@ -4,14 +4,20 @@ import {
   isExactVersion,
   isFile,
   listWorkspacePackageJsons,
+  packageManagerVersion,
   readJson,
   resolveRoot,
+  versionSatisfiesRange,
 } from "./lib/governance.mjs";
+import { readFileSync } from "node:fs";
 
 const root = resolveRoot();
 const errors = [];
 
 const rootPackage = readJson(root, "package.json");
+const supportedNodeRange = ">=24.15.0 <25.0.0";
+const supportedNpmRange = ">=11.12.0 <12.0.0";
+const preferredNpmVersion = "11.15.0";
 
 const requiredRoot = {
   typescript: "6.0.3",
@@ -83,17 +89,21 @@ const requiredByPackage = {
   },
 };
 
-if (rootPackage.engines?.node !== "24.16.0") errors.push("root engines.node must be 24.16.0");
-if (rootPackage.engines?.npm !== "11.15.0") errors.push("root engines.npm must be 11.15.0");
-if (rootPackage.packageManager !== "npm@11.15.0")
-  errors.push("root packageManager must be npm@11.15.0");
+if (rootPackage.engines?.node !== supportedNodeRange)
+  errors.push(`root engines.node must be ${supportedNodeRange}`);
+if (rootPackage.engines?.npm !== supportedNpmRange)
+  errors.push(`root engines.npm must be ${supportedNpmRange}`);
+
+const rootPackageManagerNpm = packageManagerVersion(rootPackage.packageManager, "npm");
+if (rootPackageManagerNpm !== preferredNpmVersion)
+  errors.push(`root packageManager must be npm@${preferredNpmVersion}`);
 if (!isFile(root, ".nvmrc")) errors.push(".nvmrc is required");
 if (
   isFile(root, ".nvmrc") &&
   readJson(root, "package.json") &&
-  (await import("node:fs")).readFileSync(`${root}/.nvmrc`, "utf8").trim() !== "24.16.0"
+  !versionSatisfiesRange(readFileSync(`${root}/.nvmrc`, "utf8").trim(), supportedNodeRange)
 ) {
-  errors.push(".nvmrc must contain 24.16.0");
+  errors.push(`.nvmrc must satisfy ${supportedNodeRange}`);
 }
 if (!isFile(root, "package-lock.json")) errors.push("package-lock.json is required");
 

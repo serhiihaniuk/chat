@@ -25,7 +25,7 @@ function expectFailure(name, script, setup) {
   }
 }
 
-expectFailure("version range fixture", "check-version-pins.mjs", (root) => {
+expectFailure("hard runtime pin fixture", "check-version-pins.mjs", (root) => {
   writeJson(join(root, "package.json"), {
     name: "fixture",
     private: true,
