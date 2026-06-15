@@ -1,17 +1,19 @@
 import { Context, Effect, Layer } from "effect";
 
 import type { PolicyPort } from "#policies/policy";
-import type {
-  AgentRuntimePort,
-  AssistantTurnLifecyclePort,
-  ClockPort,
-  ContextManagerPort,
-  ConversationRepositoryPort,
-  HostCapabilityManifestPort,
-  IdGeneratorPort,
-  MemoryPort,
-  TurnGuardRegistryPort,
-  TurnPolicyResolverPort,
+import {
+  DISABLED_CONVERSATION_TITLE_GENERATION,
+  type AgentRuntimePort,
+  type AssistantTurnLifecyclePort,
+  type ClockPort,
+  type ConversationTitleGenerationPort,
+  type ContextManagerPort,
+  type ConversationRepositoryPort,
+  type HostCapabilityManifestPort,
+  type IdGeneratorPort,
+  type MemoryPort,
+  type TurnGuardRegistryPort,
+  type TurnPolicyResolverPort,
 } from "#ports";
 import { NOOP_OBSERVABILITY_SINK, type ObservabilitySinkPort } from "./observability.js";
 
@@ -21,7 +23,8 @@ import { NOOP_OBSERVABILITY_SINK, type ObservabilitySinkPort } from "./observabi
  * Each service names one job the host can perform for the workflow: persist
  * conversation and assistant-turn state, publish host capabilities, resolve
  * policy and guards, prepare context and memory, run the model-side runtime,
- * mint ids and timestamps, enforce request policy, and emit observability.
+ * configure small post-turn model jobs, mint ids and timestamps, enforce
+ * request policy, and emit observability.
  * The Effect Layer binds these jobs to real app adapters at composition time, so
  * partner-ai-core can coordinate the turn without importing HTTP, database,
  * provider, or tool-adapter packages.
@@ -68,6 +71,11 @@ export class AgentRuntimeService extends Context.Service<AgentRuntimeService, Ag
   "@side-chat/partner-ai-core/AgentRuntimeService",
 ) {}
 
+export class ConversationTitleGenerationService extends Context.Service<
+  ConversationTitleGenerationService,
+  ConversationTitleGenerationPort
+>()("@side-chat/partner-ai-core/ConversationTitleGenerationService") {}
+
 export class ClockService extends Context.Service<ClockService, ClockPort>()(
   "@side-chat/partner-ai-core/ClockService",
 ) {}
@@ -94,6 +102,7 @@ export type PartnerAiCoreServices =
   | ContextManagerService
   | MemoryService
   | AgentRuntimeService
+  | ConversationTitleGenerationService
   | ClockService
   | IdGeneratorService
   | PolicyService
@@ -108,6 +117,7 @@ export type PartnerAiCoreLayerInput = {
   readonly contextManager: ContextManagerPort;
   readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
+  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
   readonly policies: PolicyPort;
@@ -132,6 +142,10 @@ export const createPartnerAiCoreLayer = (
     Layer.succeed(ContextManagerService, input.contextManager),
     Layer.succeed(MemoryService, input.memory),
     Layer.succeed(AgentRuntimeService, input.runtime),
+    Layer.succeed(
+      ConversationTitleGenerationService,
+      input.conversationTitleGeneration ?? DISABLED_CONVERSATION_TITLE_GENERATION,
+    ),
     Layer.succeed(ClockService, input.clock),
     Layer.succeed(IdGeneratorService, input.ids),
     Layer.succeed(PolicyService, input.policies),
@@ -155,6 +169,7 @@ export const partnerAiCoreServicesEffect = Effect.gen(function* () {
     contextManager: yield* ContextManagerService,
     memory: yield* MemoryService,
     runtime: yield* AgentRuntimeService,
+    conversationTitleGeneration: yield* ConversationTitleGenerationService,
     clock: yield* ClockService,
     ids: yield* IdGeneratorService,
     policies: yield* PolicyService,

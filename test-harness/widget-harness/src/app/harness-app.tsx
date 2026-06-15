@@ -24,6 +24,7 @@ export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarne
   const props: SideChatWidgetProps = {
     assistantProfiles: [{ id: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID, label: "Default assistant" }],
     client,
+    conversationStorageKey: `side-chat-widget:${config.workspaceId}:conversations`,
     defaultAssistantProfileId: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID,
     defaultOpen: true,
     defaultPanelSize: resolveHarnessPanelSize(),

@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { REPOSITORY_ADAPTER_KINDS } from "../contract.js";
 import { createMemorySidechatRepositories } from "./index.js";
+import { conversationListRepositoryContract } from "#testing/conversation-list-contract.test-support";
 import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
 
 sidechatRepositoryContract("memory sidechat repositories", () =>
+  createMemorySidechatRepositories({ idPrefix: "test" }),
+);
+conversationListRepositoryContract("memory sidechat repositories", () =>
   createMemorySidechatRepositories({ idPrefix: "test" }),
 );
 

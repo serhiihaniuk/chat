@@ -145,7 +145,7 @@ test("keeps prompt input context and model controls visible as anchored popovers
   await expect(contextButton).toBeVisible();
   await contextButton.hover();
 
-  const contextDetails = page.getByText(/Visible conversation context is trimmed/u);
+  const contextDetails = page.getByText(/Estimate only: this meter counts/u);
   await expect(contextDetails).toBeVisible();
   await expectElementWithinViewport(page, contextDetails);
 

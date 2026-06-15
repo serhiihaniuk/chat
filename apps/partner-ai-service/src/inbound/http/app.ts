@@ -1,5 +1,6 @@
 import type {
   ObservabilitySinkPort,
+  ConversationTitleGenerationPort,
   MemoryPolicy,
   MemoryPort,
   RagRetrieverPort,
@@ -53,6 +54,7 @@ export type PartnerAiServiceOptions = {
   readonly persistence?: PersistenceConfig | undefined;
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
   readonly agentRuntime?: AgentRuntime | undefined;
+  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   /**
    * Capability declarations forwarded to service composition.
    *
@@ -117,6 +119,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     contextManager: composition.contextManager,
     memory: composition.memory,
     runtime: composition.runtime,
+    conversationTitleGeneration: composition.conversationTitleGeneration,
     policies,
     observability: options.observability,
   });
@@ -134,6 +137,7 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   repositories: options.repositories,
   runtime: options.runtime,
   agentRuntime: options.agentRuntime,
+  conversationTitleGeneration: options.conversationTitleGeneration,
   capabilities: options.capabilities,
   turnGuards: options.turnGuards,
   turnGuardIds: options.turnGuardIds,

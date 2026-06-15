@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import { createPostgresDrizzleSidechatRepositories } from "./index.js";
+import { conversationListRepositoryContract } from "#testing/conversation-list-contract.test-support";
 import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
 
 const databaseUrl = requireDatabaseUrl();
 
 describe("postgres drizzle repositories", () => {
   sidechatRepositoryContract("shared repository contract", () =>
+    createPostgresDrizzleSidechatRepositories({
+      connectionString: databaseUrl,
+    }),
+  );
+  conversationListRepositoryContract("postgres drizzle repositories", () =>
     createPostgresDrizzleSidechatRepositories({
       connectionString: databaseUrl,
     }),

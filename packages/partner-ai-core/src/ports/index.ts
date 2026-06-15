@@ -9,3 +9,4 @@ export type * from "./lifecycle/assistant-turn.js";
 export type * from "./lifecycle/clock.js";
 export type * from "./lifecycle/conversation.js";
 export * from "./runtime/runtime-port.js";
+export * from "./title/conversation-title-generation.js";

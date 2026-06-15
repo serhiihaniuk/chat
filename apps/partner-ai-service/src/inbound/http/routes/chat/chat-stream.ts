@@ -58,6 +58,7 @@ export const registerChatStreamRoute = (
         contextManager: dependencies.contextManager,
         memory: dependencies.memory,
         runtime: dependencies.runtime,
+        conversationTitleGeneration: dependencies.conversationTitleGeneration,
         observability: dependencies.observability,
         policies: dependencies.policies,
       }),

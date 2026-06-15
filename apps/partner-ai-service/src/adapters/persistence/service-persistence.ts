@@ -8,10 +8,10 @@ import { toActorId, type SidechatRepositories } from "@side-chat/db";
 import {
   appendMessage,
   appendTurnAuditEvent,
-  conversationHistoryCutoffField,
   recordContextSnapshot,
   recordUsage,
 } from "./service-persistence-recorders.js";
+import { createConversationPersistence } from "./service-conversation-persistence.js";
 
 export type ServicePersistence = {
   readonly conversations: ConversationRepositoryPort;
@@ -25,13 +25,6 @@ export const createServicePersistence = (
   assistantTurns: createAssistantTurnPersistence(repositories),
 });
 
-const createConversationPersistence = (
-  repositories: SidechatRepositories,
-): ConversationRepositoryPort => ({
-  ensureConversation: createEnsureConversationEffect(repositories),
-  appendUserMessage: createAppendUserMessageEffect(repositories),
-});
-
 const createAssistantTurnPersistence = (
   repositories: SidechatRepositories,
 ): AssistantTurnLifecyclePort => ({
@@ -40,62 +33,6 @@ const createAssistantTurnPersistence = (
   completeAssistantTurn: createCompleteAssistantTurnEffect(repositories),
   failAssistantTurn: createFailAssistantTurnEffect(repositories),
 });
-
-const createEnsureConversationEffect =
-  (repositories: SidechatRepositories): ConversationRepositoryPort["ensureConversation"] =>
-  ({ authContext, requestedConversationId, fallbackConversationId }) =>
-    Effect.tryPromise({
-      try: async () => {
-        const conversationId = conversationIdForRequest(
-          requestedConversationId,
-          fallbackConversationId,
-        );
-        const conversation = await repositories.createOrGetConversation({
-          workspaceId: authContext.workspaceId,
-          subjectId: authContext.subject.subjectId,
-          actorId: toActorId(authContext.actor.subjectId),
-          conversationId,
-          conversationKey: conversationId,
-          now: authContext.issuedAt,
-        });
-        return {
-          tenantId: authContext.tenantId,
-          workspaceId: authContext.workspaceId,
-          conversationId: conversation.record.conversationId,
-          ...conversationHistoryCutoffField(conversation.record),
-        };
-      },
-      catch: (error) => error,
-    });
-
-const conversationIdForRequest = (
-  requestedConversationId: string | undefined,
-  fallbackConversationId: string,
-) => requestedConversationId ?? fallbackConversationId;
-
-const createAppendUserMessageEffect =
-  (repositories: SidechatRepositories): ConversationRepositoryPort["appendUserMessage"] =>
-  ({ authContext, conversationId, message }) =>
-    Effect.tryPromise({
-      try: async () => {
-        const persisted = await appendMessage({
-          repositories,
-          authContext,
-          conversationId,
-          message,
-          idempotencyKey: `${message.id}:user`,
-          now: authContext.issuedAt,
-        });
-        return {
-          tenantId: authContext.tenantId,
-          workspaceId: authContext.workspaceId,
-          conversationId,
-          messageId: persisted.record.messageId,
-          sequenceIndex: persisted.record.sequenceIndex,
-        };
-      },
-      catch: (error) => error,
-    });
 
 const createStartAssistantTurnEffect =
   (repositories: SidechatRepositories): AssistantTurnLifecyclePort["startAssistantTurn"] =>

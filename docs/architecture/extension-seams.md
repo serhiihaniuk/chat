@@ -116,6 +116,24 @@ settings into core manifest declarations and ports.
 - Contract: `packages/agent-runtime/src/runtime/executors/agent-executor.ts`.
 - Common mistake: exposing executor ids as browser or manifest capabilities.
 
+## Auxiliary Model Job
+
+- What it is: small model-only internal work such as conversation title
+  generation, classifiers, routing decisions, or security checks.
+- Runs: only when the owning product workflow invokes it; title generation runs
+  after successful first-turn completion.
+- Receives/returns: a minimal runtime request and RuntimeEvents through
+  `createBasicRuntimeAgent`; no tools, host command scope, RAG, memory, or
+  previous history unless the owning workflow deliberately admits them.
+- Implementation: lifecycle and admitted inputs in `packages/partner-ai-core`;
+  prompt/config defaults in `apps/partner-ai-service`; reusable constructor in
+  `packages/agent-runtime/src/runtime/basic-agent/`.
+- Contract: `packages/agent-runtime/src/runtime/basic-agent/basic-runtime-agent.ts`
+  plus the core port that enables the specific job.
+- Common mistake: building a route-local or persistence-local hidden model agent
+  that owns prompt text, lifecycle timing, sanitization, and runtime request
+  shaping all at once.
+
 ## Policy Resolver
 
 - What it is: per-turn selection of profile, model, tools, host commands, RAG,

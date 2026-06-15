@@ -32,6 +32,9 @@ plans.
 - **Project**: optional product scope associated with a conversation or request.
 - **Conversation**: durable chat thread containing user messages and assistant
   turns. Use thread only in local UI wording.
+- **Conversation title**: durable display label generated once after the first
+  successful exchange when service config enables title generation. It is not a
+  browser protocol event or a user-authored message.
 - **User message**: user-submitted message persisted and displayed in a
   conversation. Avoid broad input or prompt.
 - **Assistant turn**: one assistant response lifecycle attached to a user

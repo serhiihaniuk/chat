@@ -18,6 +18,7 @@ describe("postgres row record mappers", () => {
       subjectId: "subject_1",
       conversationKey: "default",
       status: "active",
+      titleText: null,
       createdByActorId: "actor_1",
       historyCutoffSequenceIndex: null,
       createdAt: now,
@@ -66,7 +67,7 @@ describe("postgres row record mappers", () => {
       resolvedAt: null,
     } satisfies typeof hostCommandResults.$inferSelect);
 
-    expectCanonicalOmittedFields(conversation, ["historyCutoffSequenceIndex"]);
+    expectCanonicalOmittedFields(conversation, ["titleText", "historyCutoffSequenceIndex"]);
     expectCanonicalOmittedFields(message, ["idempotencyKey"]);
     expectCanonicalOmittedFields(tool, [
       "outputHash",

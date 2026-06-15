@@ -11,6 +11,8 @@ execution, or widget UI.
 
 - `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.
 - Product authorization, policy, context, turn lifecycle, and protocol mapping.
+- Post-success conversation title generation timing, admitted inputs,
+  sanitization, persistence call, and failure isolation.
 - Turn guard selection, RAG retriever, memory, research, and runtime port
   contracts.
 - Typed product failures and terminal protocol semantics.
@@ -39,6 +41,7 @@ execution, or widget UI.
 - `src/application/stream-chat/turn/prepare-stream-chat-turn.ts`
 - `src/application/stream-chat/turn/turn-policy-plan.ts`
 - `src/application/stream-chat/protocol/protocol-event-stream.ts`
+- `src/application/stream-chat/conversation-title/prepare-conversation-title.ts`
 - `src/ports/`
 
 ## Verify

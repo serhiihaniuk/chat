@@ -10,6 +10,8 @@ browser protocol.
 ## Owns
 
 - `AgentRuntime.streamEffect(request)` and `createAgentRuntime`.
+- `createBasicRuntimeAgent(runtime, defaults)` for small model-only jobs that
+  reuse runtime validation without exposing tools by default.
 - Assistant profile, executor, provider/model, tool, and prompt preparation for
   one prepared turn.
 - AgentExecutor registry/selection and the default AI SDK tool-loop executor.
@@ -27,6 +29,7 @@ browser protocol.
 
 - `src/runtime/README.md`
 - `src/runtime/agent-runtime.ts`
+- `src/runtime/basic-agent/basic-runtime-agent.ts`
 - `src/runtime/turn/prepare-runtime-turn.ts`
 - `src/runtime/executors/executor-selection.ts`
 - `src/runtime/ai-sdk/README.md`

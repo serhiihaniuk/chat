@@ -6,6 +6,8 @@ import { assertNotAborted, buildPathUrl, createHttpError, withSignal } from "#ht
 import type {
   ChatClientOptions,
   FetchLike,
+  ListConversationsOptions,
+  ListConversationsResult,
   ReadHistoryOptions,
   ReadHistoryResult,
   ReadUsageOptions,
@@ -14,7 +16,29 @@ import type {
 } from "#transport/client";
 
 const DEFAULT_HISTORY_PATH = "/chat/history";
+const DEFAULT_CONVERSATIONS_PATH = "/chat/conversations";
 const DEFAULT_USAGE_PATH = "/usage";
+
+export const listConversationsWithFetch = async (
+  clientOptions: ChatClientOptions,
+  options: ListConversationsOptions,
+  transport: FetchLike,
+): Promise<ListConversationsResult> => {
+  assertNotAborted(options.signal);
+  const url = new URL(
+    buildPathUrl(
+      clientOptions.baseUrl,
+      clientOptions.conversationsPath ?? DEFAULT_CONVERSATIONS_PATH,
+    ),
+  );
+  if (options.limit !== undefined) {
+    url.searchParams.set("limit", String(options.limit));
+  }
+
+  const response = await transport(url, withSignal(options.signal));
+  if (!response.ok) throw createHttpError(response.status, 1);
+  return normalizeConversationList(await readJson(response, "conversation list"));
+};
 
 export const readHistoryWithFetch = async (
   conversationId: string,
@@ -87,6 +111,39 @@ const normalizeHistory = (payload: unknown): ReadHistoryResult => {
   return {
     conversationId: payload["conversationId"],
     messages: payload["messages"].map(normalizeHistoryMessage),
+  };
+};
+
+const normalizeConversationList = (payload: unknown): ListConversationsResult => {
+  if (!isRecord(payload) || !Array.isArray(payload["conversations"])) {
+    throw new ChatClientError("network_error", "Malformed conversation list response");
+  }
+  return {
+    conversations: payload["conversations"].map(normalizeConversationSummary),
+  };
+};
+
+const normalizeConversationSummary = (
+  payload: unknown,
+): ListConversationsResult["conversations"][number] => {
+  if (
+    !isRecord(payload) ||
+    typeof payload["conversationId"] !== "string" ||
+    typeof payload["title"] !== "string" ||
+    typeof payload["status"] !== "string" ||
+    typeof payload["createdAt"] !== "string" ||
+    typeof payload["updatedAt"] !== "string" ||
+    typeof payload["lastMessageAt"] !== "string"
+  ) {
+    throw new ChatClientError("network_error", "Malformed conversation list response");
+  }
+  return {
+    conversationId: payload["conversationId"],
+    title: payload["title"],
+    status: payload["status"],
+    createdAt: payload["createdAt"],
+    updatedAt: payload["updatedAt"],
+    lastMessageAt: payload["lastMessageAt"],
   };
 };
 

@@ -48,6 +48,17 @@ describe("partner ai service /chat/stream", () => {
 
     await expect(
       (
+        await app.request("/chat/conversations?limit=10", {
+          headers: authHeaders,
+        })
+      ).json(),
+    ).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      conversations: [{ conversationId, title: "Service greeting" }],
+    });
+
+    await expect(
+      (
         await app.request(`/chat/history/${conversationId}`, {
           headers: authHeaders,
         })
@@ -187,11 +198,17 @@ describe("partner ai service /chat/stream", () => {
   it("fails closed for unauthenticated history and usage routes", async () => {
     const app = createPartnerAiServiceApp();
 
+    const conversations = await app.request("/chat/conversations");
     const history = await app.request("/chat/history/conversation_1");
     const usage = await app.request("/usage");
 
+    expect(conversations.status).toBe(401);
     expect(history.status).toBe(401);
     expect(usage.status).toBe(401);
+    await expect(conversations.json()).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
+    });
     await expect(history.json()).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,

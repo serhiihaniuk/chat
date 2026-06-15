@@ -7,6 +7,13 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 
 ## Files
 
+`application/stream-chat` is one application use case, not a feature or adapter
+layer. The subfolders below are lifecycle stages inside one streamed assistant
+turn. They may call ports, apply core policy, shape model-visible context, or
+map internal runtime events to browser-safe protocol events, but they must not
+implement Hono routes, databases, provider SDKs, React state, or other outside
+adapters.
+
 | Path                                               | Owns                                                                                                                     |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `stream-chat.ts`                                   | Public `streamChatEffect` entrypoint.                                                                                    |
@@ -17,6 +24,7 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 | `memory/record-allowed-memory-write-candidates.ts` | Policy-scoped post-turn memory write candidate recording.                                                                |
 | `rag/retrieve-allowed-rag-candidates.ts`           | Policy-scoped RAG retrieval and retriever failure mapping before runtime execution.                                      |
 | `research/run-allowed-research-agent.ts`           | Policy-scoped pre-answer research and research-output mapping into context candidates/artifacts.                         |
+| `conversation-title/prepare-conversation-title.ts` | Post-success conversation-title lifecycle, sanitization, write-once persistence, and failure observation.                |
 | `protocol/protocol-event-stream.ts`                | Runtime event mapping, post-start terminal handling, and sequence validation.                                            |
 | `protocol/protocol-terminal-lifecycle.ts`          | Completion/failure persistence and terminal invariants.                                                                  |
 | `protocol/runtime-event-mapper.ts`                 | Pure RuntimeEvent to `sidechat.v1` event mapping.                                                                        |
@@ -40,6 +48,9 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 - Memory recall runs during context preparation from allowed scopes. Memory
   write candidates run after successful output and do not silently become raw
   model-claimed durable memory.
+- Conversation title generation runs after successful first exchanges when the
+  service enables it. Core owns when it runs, output sanitization, and failure
+  isolation; service composition owns the prompt config.
 - Post-start runtime failures become terminal `sidechat.error` events.
 - Successful streams emit terminal `sidechat.completed`.
 

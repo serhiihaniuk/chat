@@ -15,6 +15,7 @@ import {
 } from "./protocol-event-accumulator.js";
 import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
 import { recordAllowedMemoryWriteCandidates } from "../memory/record-allowed-memory-write-candidates.js";
+import { prepareConversationTitleAfterCompletion } from "../conversation-title/prepare-conversation-title.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,
@@ -129,6 +130,15 @@ const completeAssistantTurnFromAccumulator = (
         }),
       ),
       STREAM_CHAT_FAILURES.PERSISTENCE,
+    );
+
+    // Conversation titles are post-success enrichment. They are allowed to
+    // fail independently because the browser-visible answer already completed.
+    yield* prepareConversationTitleAfterCompletion(
+      ports,
+      input,
+      turn,
+      accumulator.assistantContent,
     );
 
     // Memory writes are post-success candidates. Their failures are observed

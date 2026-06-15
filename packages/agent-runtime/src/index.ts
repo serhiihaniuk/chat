@@ -2,6 +2,7 @@ export * from "./providers/fake/fake-model-provider.js";
 export * from "./providers/model-provider.js";
 export * from "./providers/openai/openai-model-provider.js";
 export * from "./runtime/agent-runtime.js";
+export * from "./runtime/basic-agent/basic-runtime-agent.js";
 export * from "./runtime/contract/runtime-error.js";
 export * from "./runtime/contract/ids/runtime-ids.js";
 export * from "./runtime/contract/runtime-activity.js";

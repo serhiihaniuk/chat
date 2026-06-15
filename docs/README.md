@@ -17,6 +17,7 @@ Not source of truth for: domain term definitions or implementation details.
 | Change widget, host bridge, or copied UI primitives                   | `architecture/widget-and-host-integration.md`               |
 | Review product or quality requirements                                | `product/requirements.md`                                   |
 | Choose verification commands                                          | `operations/verification.md`                                |
+| Understand conversation title generation                              | `implementation-plans/conversation-title-generation.md`     |
 | Implement memory, history, RAG, research, or context admission gaps   | `implementation-plans/memory-context-history-rag/README.md` |
 
 ## Durable Docs

@@ -53,7 +53,7 @@ describe("partner ai service configured capability app path", () => {
     expect(response.status).toBe(200);
     await response.text();
 
-    assertRuntimeRequestBoundary(one(harness.runtimeRequests));
+    assertRuntimeRequestBoundary(one(visibleRuntimeRequests(harness.runtimeRequests)));
     assertConfiguredContextAdaptersRan(harness);
     assertPersistedContextSnapshot(harness.repositories);
     assertConfiguredMemoryWritePath(harness);
@@ -379,3 +379,8 @@ const one = <T>(items: readonly T[]): T => {
   if (!item) throw new Error("expected exactly one item");
   return item;
 };
+
+const visibleRuntimeRequests = (
+  requests: readonly AgentRuntimeRequest[],
+): readonly AgentRuntimeRequest[] =>
+  requests.filter((request) => !request.requestId.endsWith(":conversation-title"));

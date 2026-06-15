@@ -226,6 +226,7 @@ const createObservedPorts = (
         messageId: "message_record_001",
         sequenceIndex: 0,
       }),
+    prepareConversationTitle: () => Effect.succeed(undefined),
   };
   const assistantTurns = {
     startAssistantTurn: () =>

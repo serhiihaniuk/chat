@@ -22,6 +22,7 @@ import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-re
 import { createRepositoryConversationHistoryContext } from "#adapters/persistence/repository-conversation-history-context";
 import { createDefaultPolicyConfig } from "#adapters/policy/service-policy";
 import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
+import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/service-conversation-title-config";
 import { assertProductionCapabilityStatus } from "#composition/capabilities/capability-status";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import { createServiceContextManager } from "./context-manager/service-context-manager.js";
@@ -80,6 +81,8 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const runtimeProviderId = providerIdForRuntime(runtimeConfig);
   const runtimeModelId = modelIdForRuntime(runtimeConfig);
   const capabilityManifestInputs = resolveCapabilityManifestInputs(options, capabilityConfig);
+  const conversationTitleGeneration =
+    options.conversationTitleGeneration ?? DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION;
 
   // Publish what this service can offer to core. The manifest names available
   // tools, commands, memory, retrieval, research, and guards; turn policy still
@@ -138,6 +141,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
       contextAdmission: capabilityConfig.contextAdmission,
     }),
     runtime,
+    conversationTitleGeneration,
     runtimeProviderId,
     runtimeModelId,
     persistenceLabel,

@@ -45,10 +45,13 @@ export type ConversationRecord = TenantScopedRecord &
     readonly subjectId: SubjectId;
     readonly conversationKey: string;
     readonly status: ConversationStatus;
+    readonly titleText?: string;
     readonly createdByActorId: ActorId;
     readonly historyCutoffSequenceIndex?: number;
     readonly lastMessageAt: string;
   };
+
+export type ConversationSummaryRecord = ConversationRecord;
 
 export type MessageRecord = TenantScopedRecord &
   VersionedRecord & {

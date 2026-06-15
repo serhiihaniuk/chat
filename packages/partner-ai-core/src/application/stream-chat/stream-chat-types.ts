@@ -6,6 +6,7 @@ import type {
   AssistantTurnLifecyclePort,
   AssistantTurnRef,
   ClockPort,
+  ConversationTitleGenerationPort,
   ContextManagerPort,
   ConversationRef,
   ConversationRepositoryPort,
@@ -52,6 +53,7 @@ export type StreamChatPorts = {
   readonly contextManager: ContextManagerPort;
   readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
+  readonly conversationTitleGeneration: ConversationTitleGenerationPort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
   readonly policies: PolicyPort;

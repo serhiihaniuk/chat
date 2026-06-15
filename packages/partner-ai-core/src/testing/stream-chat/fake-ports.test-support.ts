@@ -18,6 +18,8 @@ import {
   type AgentRuntimePort,
   type AssistantTurnLifecyclePort,
   type ClockPort,
+  DISABLED_CONVERSATION_TITLE_GENERATION,
+  type ConversationTitleGenerationPort,
   type ContextManagerPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
@@ -34,9 +36,14 @@ import {
   resolveTestProfile,
 } from "./fixtures.test-support.js";
 
+type RuntimeEventFixture =
+  | readonly RuntimeEvent[]
+  | ((request: AgentRuntimeRequest) => readonly RuntimeEvent[]);
+
 export type FakePortOptions = {
   readonly authContext?: AuthContext | undefined;
-  readonly runtimeEvents?: readonly RuntimeEvent[] | undefined;
+  readonly runtimeEvents?: RuntimeEventFixture | undefined;
+  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   readonly policies?: PolicyPort | undefined;
   readonly manifest?: HostCapabilityManifest | undefined;
   readonly policyDecision?: TurnPolicyDecision | undefined;
@@ -52,6 +59,8 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
   const runtimeRequests: AgentRuntimeRequest[] = [];
   const completedTurns: Parameters<AssistantTurnLifecyclePort["completeAssistantTurn"]>[0][] = [];
   const failedTurns: Parameters<AssistantTurnLifecyclePort["failAssistantTurn"]>[0][] = [];
+  const preparedTitles: Parameters<ConversationRepositoryPort["prepareConversationTitle"]>[0][] =
+    [];
   const manifest = options.manifest ?? createManifest();
   const profile = resolveTestProfile(manifest);
   const policyDecision =
@@ -64,7 +73,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
   const preparedContext = options.preparedContext ?? createPreparedContext(profile, policyDecision);
   const clock: ClockPort = { now: () => "2026-05-23T13:00:00.000Z" };
   const ids = createIdGeneratorPort();
-  const conversations = createConversationRepositoryPort(calls);
+  const conversations = createConversationRepositoryPort(calls, preparedTitles);
   const assistantTurns = createAssistantTurnLifecyclePort(calls, completedTurns, failedTurns);
   const runtime = createRuntimePort(calls, runtimeRequests, options.runtimeEvents);
 
@@ -73,6 +82,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     runtimeRequests,
     completedTurns,
     failedTurns,
+    preparedTitles,
     assistantTurns,
     hostCapabilities: {
       loadManifest: () => {
@@ -117,6 +127,8 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     },
     conversations,
     runtime,
+    conversationTitleGeneration:
+      options.conversationTitleGeneration ?? DISABLED_CONVERSATION_TITLE_GENERATION,
     clock,
     ids,
     observability: options.observability,
@@ -139,6 +151,7 @@ export const runStreamChat = (
           contextManager: ports.contextManager,
           memory: ports.memory,
           runtime: ports.runtime,
+          conversationTitleGeneration: ports.conversationTitleGeneration,
           clock: ports.clock,
           ids: ports.ids,
           policies: ports.policies,
@@ -168,7 +181,10 @@ const createIdGeneratorPort = (): IdGeneratorPort => ({
   })(),
 });
 
-const createConversationRepositoryPort = (calls: string[]): ConversationRepositoryPort => ({
+const createConversationRepositoryPort = (
+  calls: string[],
+  preparedTitles: Parameters<ConversationRepositoryPort["prepareConversationTitle"]>[0][],
+): ConversationRepositoryPort => ({
   ensureConversation: ({ authContext: context, fallbackConversationId }) => {
     calls.push("ensureConversation");
     return Effect.succeed({
@@ -186,6 +202,11 @@ const createConversationRepositoryPort = (calls: string[]): ConversationReposito
       messageId: "message_record_001",
       sequenceIndex: 0,
     });
+  },
+  prepareConversationTitle: (titleInput) => {
+    calls.push("prepareConversationTitle");
+    preparedTitles.push(titleInput);
+    return Effect.succeed(undefined);
   },
 });
 
@@ -224,14 +245,22 @@ const createAssistantTurnLifecyclePort = (
 const createRuntimePort = (
   calls: string[],
   runtimeRequests: AgentRuntimeRequest[],
-  runtimeEvents: readonly RuntimeEvent[] | undefined,
+  runtimeEvents: RuntimeEventFixture | undefined,
 ): AgentRuntimePort => ({
   streamEffect: (runtimeRequest) => {
     calls.push("runtime");
     runtimeRequests.push(runtimeRequest);
-    return Stream.fromIterable(runtimeEvents ?? defaultRuntimeEvents());
+    return Stream.fromIterable(resolveRuntimeEvents(runtimeEvents, runtimeRequest));
   },
 });
+
+const resolveRuntimeEvents = (
+  runtimeEvents: RuntimeEventFixture | undefined,
+  runtimeRequest: AgentRuntimeRequest,
+): readonly RuntimeEvent[] => {
+  if (!runtimeEvents) return defaultRuntimeEvents();
+  return typeof runtimeEvents === "function" ? runtimeEvents(runtimeRequest) : runtimeEvents;
+};
 
 const defaultRuntimeEvents = (): readonly RuntimeEvent[] => [
   {

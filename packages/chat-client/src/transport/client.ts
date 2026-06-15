@@ -10,6 +10,7 @@ import { omitUndefinedProperties } from "@side-chat/shared";
 import { ChatClientError } from "#http/errors";
 import { assertNotAborted, buildPathUrl, createHttpError } from "#http/http-helpers";
 import {
+  listConversationsWithFetch,
   readHistoryWithFetch,
   readUsageWithFetch,
   resetHistoryWithFetch,
@@ -25,6 +26,7 @@ export type RetryPolicy = {
 
 export type ChatClientOptions = {
   readonly baseUrl: string;
+  readonly conversationsPath?: string | undefined;
   readonly historyPath?: string | undefined;
   readonly streamPath?: string | undefined;
   readonly fetch?: FetchLike | undefined;
@@ -47,6 +49,24 @@ export type ReadHistoryOptions = {
   readonly signal?: AbortSignal | undefined;
 };
 
+export type ListConversationsOptions = {
+  readonly limit?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
+};
+
+export type ConversationSummary = {
+  readonly conversationId: string;
+  readonly title: string;
+  readonly status: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly lastMessageAt: string;
+};
+
+export type ListConversationsResult = {
+  readonly conversations: readonly ConversationSummary[];
+};
+
 export type ReadHistoryResult = {
   readonly conversationId: string;
   readonly messages: readonly HistoryMessage[];
@@ -66,6 +86,9 @@ export type ReadUsageOptions = {
 };
 
 export type ChatClient = {
+  readonly listConversations?:
+    | ((options?: ListConversationsOptions) => Promise<ListConversationsResult>)
+    | undefined;
   readonly readHistory?:
     | ((conversationId: string, options?: ReadHistoryOptions) => Promise<ReadHistoryResult>)
     | undefined;
@@ -89,6 +112,8 @@ export const createChatClient = (options: ChatClientOptions): ChatClient => {
   }
 
   return {
+    listConversations: (listOptions = {}) =>
+      listConversationsWithFetch(options, listOptions, transport),
     readHistory: (conversationId, readOptions = {}) =>
       readHistoryWithFetch(conversationId, options, readOptions, transport),
     readUsage: (usageOptions = {}) => readUsageWithFetch(options, usageOptions, transport),

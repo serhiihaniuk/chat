@@ -27,6 +27,7 @@ describe("partner AI core Effect runtime layer", () => {
             messageId: "message-1",
             sequenceIndex: 0,
           }),
+        prepareConversationTitle: () => Effect.succeed(undefined),
       },
       assistantTurns: {
         startAssistantTurn: () =>
@@ -124,6 +125,7 @@ describe("partner AI core Effect runtime layer", () => {
 
     expect(services.clock.now()).toBe("2026-05-23T00:00:00.000Z");
     expect(services.ids.nextEventId()).toBe("event-1");
+    expect(services.conversationTitleGeneration.mode).toBe("disabled");
     expect(await Effect.runPromise(services.hostCapabilities.loadManifest(manifestInput))).toBe(
       manifest,
     );

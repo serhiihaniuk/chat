@@ -1,6 +1,6 @@
 import { Button } from "#shared/ui/button";
 import { XIcon } from "lucide-react";
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
 import type { SideChatWidgetPanelSize } from "#entities/panel";
 import type { ResizeHandle } from "../model/widget-resize.js";
@@ -92,20 +92,21 @@ export const ClosedWidgetLauncher = ({
 );
 
 export const WidgetHeader = ({
+  actions,
   onClose,
   title,
 }: {
+  readonly actions?: ReactNode | undefined;
   readonly onClose: () => void;
   readonly title: string;
 }) => (
-  <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
-    <div className="min-w-0">
+  <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
+    <div className="min-w-0 flex-1">
       <h2 className="truncate font-medium text-sm">{title}</h2>
     </div>
-    <div className="flex items-center gap-1">
-      <Button aria-label="Close" onClick={onClose} size="icon-sm" type="button" variant="ghost">
-        <XIcon className="size-4" />
-      </Button>
-    </div>
+    {actions}
+    <Button aria-label="Close" onClick={onClose} size="icon-sm" type="button" variant="ghost">
+      <XIcon className="size-4" />
+    </Button>
   </header>
 );

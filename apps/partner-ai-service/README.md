@@ -29,12 +29,22 @@ Not source of truth for: global vocabulary or product requirements.
 - `src/composition/manifest/service-capability-manifest.ts`
 - `src/adapters/README.md`
 - `src/config/service-config.ts`
+- `src/config/service-conversation-title-config.ts`
 
 ## Capability Diagnostics
 
 `/healthz` and `/readyz` include a safe `capabilities` object owned by service
 composition. It reports whether memory, RAG, research, history context, context
 admission, and persistence are disabled, no-op, configured, or misconfigured.
+
+The chat resource surface includes `GET /chat/conversations` for the current
+authorized workspace subject and `GET /chat/history/:conversationId` for
+hydrating a selected conversation. Service composition owns the conversation
+title prompt/config. Core runs that config through a no-tools runtime basic
+agent after the first successful turn, sanitizes the output, and stores the
+title once; older records with no stored title still fall back to safe
+first-message text while listed. Both routes use repository scoping and never
+accept a caller-supplied subject id.
 
 Default local boot is honest about the current app shape:
 

@@ -40,6 +40,7 @@ export const conversations = sidechat.table(
     subjectId: text("subject_id").notNull(),
     conversationKey: text("conversation_key").notNull(),
     status: text("status").notNull().default("active"),
+    titleText: text("title_text"),
     createdByActorId: text("created_by_actor_id").notNull(),
     historyCutoffSequenceIndex: integer("history_cutoff_sequence_index"),
     createdAt: createdAt(),

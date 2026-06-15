@@ -46,6 +46,7 @@ export const toConversationRecord = (
   subjectId: row.subjectId,
   conversationKey: row.conversationKey,
   status: row.status as ConversationRecord["status"],
+  ...omitNullishField("titleText", row.titleText),
   createdByActorId: row.createdByActorId,
   ...omitNullishField("historyCutoffSequenceIndex", row.historyCutoffSequenceIndex),
   createdAt: row.createdAt,

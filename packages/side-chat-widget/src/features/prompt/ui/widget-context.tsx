@@ -81,7 +81,8 @@ const ContextUsageControl = ({
         </span>
         <ContextUsageRows usedCharacters={usedCharacters} usage={usage} />
         <span className="mt-3 block rounded bg-muted px-2 py-1.5 text-muted-foreground text-xs">
-          Visible conversation context is trimmed to the last 12 messages and 6k characters.
+          Estimate only: this meter counts recent visible chat text. The service separately applies
+          backend token budgets before each model call.
         </span>
       </HoverCardContent>
     </HoverCard>
@@ -128,19 +129,19 @@ const ContextUsageRows = ({
 }) => (
   <span className="mt-3 grid gap-2">
     <ContextRow
-      label="Visible context"
+      label="Visible chat text"
       value={`${compactNumber.format(usedCharacters)} / ${compactNumber.format(
         recentContextTotalCharacters,
       )} chars`}
     />
     <ContextRow
-      label="Approx. context tokens"
+      label="Approx. chat tokens"
       value={`${compactNumber.format(
         estimateTokens(usedCharacters),
       )} / ${compactNumber.format(estimateTokens(recentContextTotalCharacters))}`}
     />
     <ContextRow
-      label="Conversation usage"
+      label="Last turn tokens"
       value={usage ? `${compactNumber.format(usage.totalTokens ?? 0)} total` : "-"}
     />
     <ContextRow

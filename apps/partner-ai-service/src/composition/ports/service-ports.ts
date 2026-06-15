@@ -1,17 +1,19 @@
-import type {
-  AgentRuntimePort,
-  AssistantTurnLifecyclePort,
-  ClockPort,
-  ContextManagerPort,
-  ConversationRepositoryPort,
-  HostCapabilityManifestPort,
-  IdGeneratorPort,
-  MemoryPort,
-  ObservabilitySinkPort,
-  PolicyPort,
-  StreamChatPorts,
-  TurnGuardRegistryPort,
-  TurnPolicyResolverPort,
+import {
+  DISABLED_CONVERSATION_TITLE_GENERATION,
+  type AgentRuntimePort,
+  type AssistantTurnLifecyclePort,
+  type ClockPort,
+  type ConversationTitleGenerationPort,
+  type ContextManagerPort,
+  type ConversationRepositoryPort,
+  type HostCapabilityManifestPort,
+  type IdGeneratorPort,
+  type MemoryPort,
+  type ObservabilitySinkPort,
+  type PolicyPort,
+  type StreamChatPorts,
+  type TurnGuardRegistryPort,
+  type TurnPolicyResolverPort,
 } from "@side-chat/partner-ai-core";
 
 export type ServicePortsOptions = {
@@ -23,6 +25,7 @@ export type ServicePortsOptions = {
   readonly contextManager: ContextManagerPort;
   readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
+  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   readonly clock?: ClockPort | undefined;
   readonly ids?: IdGeneratorPort | undefined;
   readonly policies: PolicyPort;
@@ -38,6 +41,8 @@ export const createServicePorts = (options: ServicePortsOptions): StreamChatPort
   contextManager: options.contextManager,
   memory: options.memory,
   runtime: options.runtime,
+  conversationTitleGeneration:
+    options.conversationTitleGeneration ?? DISABLED_CONVERSATION_TITLE_GENERATION,
   clock: options.clock ?? systemClock,
   ids: options.ids ?? randomIds,
   policies: options.policies,

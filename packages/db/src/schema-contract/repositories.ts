@@ -4,6 +4,7 @@ import type {
   AuditEventRecord,
   ContextSnapshotRecord,
   ConversationRecord,
+  ConversationSummaryRecord,
   HostCommandResultRecord,
   MessageRecord,
   ToolInvocationRecord,
@@ -147,6 +148,18 @@ export type ReadConversationHistoryCommand = {
   readonly beforeSequenceIndex?: number | undefined;
 };
 
+export type ListConversationsCommand = {
+  readonly workspaceId: WorkspaceId;
+  readonly subjectId: SubjectId;
+  readonly limit: number;
+};
+
+export type PrepareConversationTitleCommand = RepositoryCommandEnvelope & {
+  readonly subjectId: SubjectId;
+  readonly conversationId: ConversationId;
+  readonly titleText: string;
+};
+
 export type ResetConversationCommand = RepositoryCommandEnvelope & {
   readonly subjectId: SubjectId;
   readonly actorId: ActorId;
@@ -176,6 +189,8 @@ export type RepositoryCommandInput =
   | RecordToolInvocationCommand
   | RecordHostCommandResultCommand
   | ReadConversationHistoryCommand
+  | ListConversationsCommand
+  | PrepareConversationTitleCommand
   | ResetConversationCommand
   | AppendAuditEventCommand;
 
@@ -194,6 +209,12 @@ export type ConversationRepositoryContract = {
   readonly readConversationHistory: (
     command: ReadConversationHistoryCommand,
   ) => Promise<readonly MessageRecord[]>;
+  readonly listConversations: (
+    command: ListConversationsCommand,
+  ) => Promise<readonly ConversationSummaryRecord[]>;
+  readonly prepareConversationTitle: (
+    command: PrepareConversationTitleCommand,
+  ) => Promise<ConversationRecord>;
   readonly resetConversation: (command: ResetConversationCommand) => Promise<ConversationRecord>;
 };
 

@@ -23,6 +23,11 @@ Not source of truth for: backend workflow or protocol definitions.
 
 `src/index.ts` exports the side-chat widget API.
 
+The widget can render a conversation selector when the supplied chat client
+supports conversation listing and history reads. `conversationStorageKey`
+enables browser-local restoration of the last selected conversation shell; the
+messages themselves are hydrated through the client history route.
+
 `@side-chat/side-chat-widget/testing` exports widget model projection helpers
 for harness tests. It is not a host application API.
 

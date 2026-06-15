@@ -2,6 +2,7 @@ import type {
   AuthContext,
   AgentRuntimePort,
   ContextManagerPort,
+  ConversationTitleGenerationPort,
   HostCapabilityManifestPort,
   MemoryPort,
   ObservabilitySinkPort,
@@ -22,6 +23,7 @@ export type RouteDependencies = {
   readonly contextManager: ContextManagerPort;
   readonly memory: MemoryPort;
   readonly runtime: AgentRuntimePort;
+  readonly conversationTitleGeneration: ConversationTitleGenerationPort;
   readonly policies: PolicyPort;
   readonly observability?: ObservabilitySinkPort | undefined;
 };

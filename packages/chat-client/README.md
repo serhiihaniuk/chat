@@ -20,7 +20,9 @@ Not source of truth for: protocol definitions or widget rendering.
 
 ## Public Surface
 
-Client creation and stream/resource request helpers.
+Client creation, stream helpers, and resource helpers for listing
+conversations, reading conversation history, resetting history, and reading
+usage.
 
 ## Main Flows
 

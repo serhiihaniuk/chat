@@ -6,8 +6,10 @@ import type {
 import { DbRepositoryError } from "../../errors.js";
 import { replaceConversation, type MemoryStore } from "../store/store.js";
 import { result, type createIdGenerator } from "../../repository-utils.js";
+import { listMemoryConversations } from "./conversation-list.js";
 
 type MemoryIds = ReturnType<typeof createIdGenerator>;
+type MemoryStoreContext = Pick<MemoryRepositoryContext, "store">;
 
 export type MemoryRepositoryContext = {
   readonly store: MemoryStore;
@@ -55,6 +57,8 @@ export const createMemoryConversationRepository = ({
   createOrGetConversation: createOrGetMemoryConversation({ ids, store }),
   appendMessage: appendMemoryMessage({ ids, store }),
   readConversationHistory: readMemoryConversationHistory({ ids, store }),
+  listConversations: listMemoryConversations({ store }),
+  prepareConversationTitle: prepareMemoryConversationTitle({ store }),
   resetConversation: resetMemoryConversation({ ids, store }),
 });
 
@@ -157,6 +161,23 @@ const readMemoryConversationHistory =
       )
       .sort((left, right) => left.sequenceIndex - right.sequenceIndex)
       .slice(-command.limit);
+  };
+
+const prepareMemoryConversationTitle =
+  ({ store }: MemoryStoreContext): ConversationRepositoryContract["prepareConversationTitle"] =>
+  async (command) => {
+    await Promise.resolve();
+    const conversation = requireSubjectConversation(
+      store,
+      command.workspaceId,
+      command.subjectId,
+      command.conversationId,
+    );
+    if (conversation.titleText) return conversation;
+
+    const titled = { ...conversation, titleText: command.titleText, updatedAt: command.now };
+    replaceConversation(store, titled);
+    return titled;
   };
 
 const resetMemoryConversation =

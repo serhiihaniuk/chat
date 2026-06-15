@@ -4,6 +4,7 @@ import type { AuthContext, WorkspaceRef } from "#domain/authority";
 
 export type ConversationRef = WorkspaceRef & {
   readonly conversationId: string;
+  readonly titleText?: string | undefined;
   readonly historyCutoffSequenceIndex?: number | undefined;
 };
 
@@ -25,4 +26,10 @@ export type ConversationRepositoryPort = {
     readonly conversationId: string;
     readonly message: ChatRequestMessage;
   }) => Effect.Effect<MessageRef, unknown>;
+  readonly prepareConversationTitle: (input: {
+    readonly authContext: AuthContext;
+    readonly conversationId: string;
+    readonly titleText: string;
+    readonly now: string;
+  }) => Effect.Effect<void, unknown>;
 };

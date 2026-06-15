@@ -158,9 +158,23 @@ describe("createChatClient", () => {
     expect(events.at(-1)?.type).toBe("sidechat.completed");
   });
 
-  it("reads history, resets history, and reads usage through typed routes", async () => {
+  it("lists conversations, reads history, resets history, and reads usage through typed routes", async () => {
     const fetchMock = vi
       .fn<FetchLike>()
+      .mockResolvedValueOnce(
+        Response.json({
+          conversations: [
+            {
+              conversationId: "conversation-1",
+              title: "past",
+              status: "active",
+              createdAt: "2026-05-23T00:00:00.000Z",
+              updatedAt: "2026-05-23T00:01:00.000Z",
+              lastMessageAt: "2026-05-23T00:01:00.000Z",
+            },
+          ],
+        }),
+      )
       .mockResolvedValueOnce(
         Response.json({
           conversationId: "conversation-1",
@@ -174,6 +188,9 @@ describe("createChatClient", () => {
       fetch: fetchMock,
     });
 
+    expect(await client.listConversations?.({ limit: 20 })).toMatchObject({
+      conversations: [{ conversationId: "conversation-1", title: "past" }],
+    });
     expect(await client.readHistory?.("conversation-1", { limit: 10 })).toMatchObject({
       conversationId: "conversation-1",
       messages: [{ content: "past" }],
@@ -184,16 +201,18 @@ describe("createChatClient", () => {
     expect(await client.readUsage?.()).toMatchObject({ totalTokens: 5 });
 
     expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+      "https://assistant.example.test/chat/conversations?limit=20",
       "https://assistant.example.test/chat/history/conversation-1?limit=10",
       "https://assistant.example.test/chat/history/conversation-1",
       "https://assistant.example.test/usage",
     ]);
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: "DELETE" });
   });
 
   it("maps non-OK history, reset, and usage route responses to HTTP errors", async () => {
     const fetchMock = vi
       .fn<FetchLike>()
+      .mockResolvedValueOnce(new Response("no conversations", { status: 503 }))
       .mockResolvedValueOnce(new Response("no history", { status: 404 }))
       .mockResolvedValueOnce(new Response("cannot reset", { status: 409 }))
       .mockResolvedValueOnce(new Response("no usage", { status: 503 }));
@@ -202,6 +221,10 @@ describe("createChatClient", () => {
       fetch: fetchMock,
     });
 
+    await expect(client.listConversations?.()).rejects.toMatchObject({
+      code: "http_error",
+      status: 503,
+    });
     await expect(client.readHistory?.("missing-conversation")).rejects.toMatchObject({
       code: "http_error",
       status: 404,
@@ -219,6 +242,7 @@ describe("createChatClient", () => {
   it("rejects malformed route helper JSON and missing expected fields", async () => {
     const fetchMock = vi
       .fn<FetchLike>()
+      .mockResolvedValueOnce(Response.json({ conversations: [{ conversationId: "c1" }] }))
       .mockResolvedValueOnce(new Response("{", { status: 200 }))
       .mockResolvedValueOnce(
         Response.json({ conversationId: "conversation-1", messages: [{ role: "user" }] }),
@@ -230,6 +254,9 @@ describe("createChatClient", () => {
       fetch: fetchMock,
     });
 
+    await expect(client.listConversations?.()).rejects.toMatchObject({
+      code: "network_error",
+    });
     await expect(client.readHistory?.("conversation-1")).rejects.toMatchObject({
       code: "network_error",
     });

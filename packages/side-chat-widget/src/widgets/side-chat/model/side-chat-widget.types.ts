@@ -32,6 +32,7 @@ export type { SideChatWidgetPanelSize };
 export type SideChatWidgetProps = {
   readonly assistantProfiles?: readonly SideChatWidgetAssistantProfile[] | undefined;
   readonly client: ChatClient;
+  readonly conversationStorageKey?: string | undefined;
   readonly defaultAssistantProfileId?: string | undefined;
   readonly defaultOpen?: boolean | undefined;
   readonly defaultPanelSize?: SideChatWidgetPanelSize | undefined;

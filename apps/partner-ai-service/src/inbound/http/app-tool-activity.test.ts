@@ -25,10 +25,11 @@ const validRequest = {
 describe("partner ai service tool activity stream", () => {
   it("maps service runtime tool activity into ordered protocol activity rows", async () => {
     const runtimeEvents = createToolRuntimeEvents("request_001", "assistant_turn_001");
+    const runtimeRequests: unknown[] = [];
     const response = await createPartnerAiServiceApp({
       agentRuntime: {
         streamEffect: (request) => {
-          expect(request.messages).toEqual([{ role: "user", content: "hello service" }]);
+          runtimeRequests.push(request);
           return Stream.fromIterable(runtimeEvents);
         },
       },
@@ -43,6 +44,9 @@ describe("partner ai service tool activity stream", () => {
 
     expect(response.status).toBe(200);
     const events = decodeSseEvents(await response.text());
+    expect(visibleRuntimeRequests(runtimeRequests)[0]).toMatchObject({
+      messages: [{ role: "user", content: "hello service" }],
+    });
     expect(events.filter((event) => event.type === SIDECHAT_EVENT_TYPES.ACTIVITY)).toEqual([
       expect.objectContaining({
         type: SIDECHAT_EVENT_TYPES.ACTIVITY,
@@ -128,3 +132,13 @@ const createToolRuntimeEvents = (
     usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
   },
 ];
+
+const visibleRuntimeRequests = (requests: readonly unknown[]): readonly unknown[] =>
+  requests.filter(
+    (request): request is { readonly requestId: string } =>
+      typeof request === "object" &&
+      request !== null &&
+      "requestId" in request &&
+      typeof request.requestId === "string" &&
+      !request.requestId.endsWith(":title"),
+  );

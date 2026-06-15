@@ -95,6 +95,7 @@ describe("partner ai service /chat/stream persistence", () => {
 
     const snapshot = repositories.snapshot();
     expect(snapshot.conversations).toHaveLength(1);
+    expect(snapshot.conversations[0]?.titleText).toBe("Service greeting");
     expect(snapshot.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
     expect(snapshot.assistantTurns).toHaveLength(1);
     expect(snapshot.assistantTurns[0]).toMatchObject({

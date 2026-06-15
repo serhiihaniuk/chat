@@ -2,6 +2,7 @@ import type { AgentExecutor, AgentRuntime, RuntimeTool } from "@side-chat/agent-
 import type {
   ApprovalPolicy,
   ContextManagerPort,
+  ConversationTitleGenerationPort,
   HostCapabilityManifestPort,
   HostCommandCapability,
   MemoryPolicy,
@@ -92,6 +93,7 @@ export type ServiceComposition = {
   readonly researchAgent: ResearchAgentPort;
   readonly contextManager: ContextManagerPort;
   readonly runtime: AgentRuntime;
+  readonly conversationTitleGeneration: ConversationTitleGenerationPort;
   readonly runtimeProviderId: string;
   readonly runtimeModelId: string;
   readonly persistenceLabel: "memory" | "postgres-drizzle";
@@ -113,6 +115,7 @@ export type ServiceCompositionOptions = {
   readonly repositories?: SidechatRepositories | undefined;
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
   readonly agentRuntime?: AgentRuntime | undefined;
+  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   /** Capability declarations; concrete memory/RAG/research work still needs the ports below. */
   readonly capabilities?: ServiceCapabilityConfig | undefined;
   readonly turnGuards?: TurnGuardRegistryPort | undefined;

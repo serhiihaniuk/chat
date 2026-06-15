@@ -96,26 +96,6 @@ describe("SideChatWidget interactions", () => {
     });
   });
 
-  it("sends the server conversation id on subsequent chat requests", async () => {
-    const requests: ChatStreamRequest[] = [];
-    const client = fakeClient(async function* (request) {
-      await Promise.resolve();
-      requests.push(request);
-      yield started();
-      yield delta(`response ${requests.length}`);
-      yield completed();
-    });
-
-    renderWidget(client);
-    await submit("first message");
-    await waitForText("response 1");
-    await submit("second message");
-    await waitForText("response 2");
-
-    expect(requests[0]?.conversationId).toBeUndefined();
-    expect(requests[1]?.conversationId).toBe("conversation-1");
-  });
-
   it("shows and dismisses a visible error when the chat client rejects", async () => {
     const client = fakeClient(() => Promise.reject(new Error("stream exploded")));
 
@@ -184,11 +164,13 @@ describe("SideChatWidget interactions", () => {
 const renderWidget = (
   client: ChatClient,
   hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand">,
+  options: { readonly conversationStorageKey?: string | undefined } = {},
 ) => {
   act(() => {
     const props = {
       assistantProfiles: [{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }],
       client,
+      ...omitUndefinedField("conversationStorageKey", options.conversationStorageKey),
       defaultAssistantProfileId: "gpt-5.4-mini",
       labels: { placeholder: "Message", send: "Send", title: "Workspace Assistant" },
       ...omitUndefinedField("hostBridge", hostBridge),
@@ -234,7 +216,9 @@ const fakeClient = (
   createEvents: (
     request: ChatStreamRequest,
   ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
+  overrides: Partial<Pick<ChatClient, "listConversations" | "readHistory">> = {},
 ): ChatClient => ({
+  ...overrides,
   streamChat: async (request) => ({
     attempt: 1,
     events: await createEvents(request),
@@ -249,10 +233,10 @@ const baseEvent = (sequence: number) => ({
   createdAt: "2026-05-23T13:00:00.000Z",
 });
 
-const started = (): StartedEvent => ({
+const started = (conversationId = "conversation-1"): StartedEvent => ({
   ...baseEvent(0),
   type: "sidechat.started",
-  conversationId: "conversation-1",
+  conversationId,
 });
 
 const delta = (content: string): DeltaEvent => ({

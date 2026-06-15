@@ -10,6 +10,28 @@ export const registerChatHistoryRoutes = (
   app: Hono<AuthContextVariables>,
   dependencies: Pick<RouteDependencies, "repositories">,
 ) => {
+  app.get("/chat/conversations", async (context) => {
+    const authContext = requireContextAuth(context.get("authContext"));
+    const limit = readPositiveInteger(context.req.query("limit"), 25);
+    const conversations = await dependencies.repositories.listConversations({
+      workspaceId: authContext.workspaceId,
+      subjectId: authContext.subject.subjectId,
+      limit,
+    });
+
+    return context.json({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      conversations: conversations.map((conversation) => ({
+        conversationId: conversation.conversationId,
+        title: conversation.titleText ?? "Untitled chat",
+        status: conversation.status,
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt,
+        lastMessageAt: conversation.lastMessageAt,
+      })),
+    });
+  });
+
   app.get("/chat/history/:conversationId", async (context) => {
     const authContext = requireContextAuth(context.get("authContext"));
     const conversationId = context.req.param("conversationId");

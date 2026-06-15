@@ -18,6 +18,13 @@ export const conversationHistoryCutoffField = (
     historyCutoffSequenceIndex: conversation.historyCutoffSequenceIndex,
   });
 
+export const conversationTitleTextField = (
+  conversation: ConversationRecord,
+): { readonly titleText?: string } =>
+  omitUndefinedProperties({
+    titleText: conversation.titleText,
+  });
+
 export const recordContextSnapshot = ({
   repositories,
   authContext,

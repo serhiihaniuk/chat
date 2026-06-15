@@ -10,6 +10,7 @@ Not source of truth for: product policy or browser protocol.
 | Path               | Owns                                                                                 |
 | ------------------ | ------------------------------------------------------------------------------------ |
 | `agent-runtime.ts` | Entry point used by product core and server callers.                                 |
+| `basic-agent/`     | Minimal constructor for model-only auxiliary jobs such as title or safety checks.    |
 | `contract/`        | Request, event, error, and stream types that can cross the package boundary.         |
 | `turn/`            | Profile, executor, provider/model, allowed tools, and prompt messages before stream. |
 | `executors/`       | AgentExecutor contract, registry, selection, and default executor wiring.            |
@@ -31,6 +32,8 @@ agent-runtime.ts
 - `executors/` must resolve registered execution engines before streaming.
 - `ai-sdk/` must not decide product policy. It only runs the prepared request.
 - The native runtime path is `streamEffect`.
+- Basic runtime agents are wrappers over `streamEffect`. They do not own prompt
+  wording, product lifecycle, persistence, or provider-native behavior.
 - Transport adapters may convert streams at their own edges.
 - Expected failures use Effect's error channel; raw `throw` is a defect.
 

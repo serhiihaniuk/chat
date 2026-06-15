@@ -1,6 +1,7 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, sql, type SQL } from "drizzle-orm";
 
 import { conversations, messages } from "#drizzle/schema";
+import type { ConversationRecord, ConversationSummaryRecord } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
@@ -17,7 +18,12 @@ export const createPostgresDrizzleConversationRepository = ({
   ids,
 }: PostgresDrizzleRepositoryContext): Pick<
   SidechatRepositories,
-  "appendMessage" | "createOrGetConversation" | "readConversationHistory" | "resetConversation"
+  | "appendMessage"
+  | "createOrGetConversation"
+  | "readConversationHistory"
+  | "listConversations"
+  | "prepareConversationTitle"
+  | "resetConversation"
 > => ({
   createOrGetConversation: async (command) => {
     const inserted = await db
@@ -172,6 +178,53 @@ export const createPostgresDrizzleConversationRepository = ({
       .limit(command.limit);
     return rows.reverse().map(toMessageRecord);
   },
+  listConversations: async (command) => {
+    const rows = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.workspaceId, command.workspaceId),
+          eq(conversations.subjectId, command.subjectId),
+        ),
+      )
+      .orderBy(desc(conversations.lastMessageAt))
+      .limit(command.limit);
+    return Promise.all(
+      rows.map((row) => readConversationSummaryTitle(db, toConversationRecord(row))),
+    );
+  },
+  prepareConversationTitle: async (command) => {
+    await requireSubjectConversation(
+      db,
+      command.workspaceId,
+      command.subjectId,
+      command.conversationId,
+    );
+    const rows = await db
+      .update(conversations)
+      .set({
+        titleText: command.titleText,
+        updatedAt: command.now,
+      })
+      .where(
+        and(
+          eq(conversations.workspaceId, command.workspaceId),
+          eq(conversations.subjectId, command.subjectId),
+          eq(conversations.conversationId, command.conversationId),
+          isNull(conversations.titleText),
+        ),
+      )
+      .returning();
+    if (rows[0]) return toConversationRecord(rows[0]);
+
+    return requireSubjectConversation(
+      db,
+      command.workspaceId,
+      command.subjectId,
+      command.conversationId,
+    );
+  },
   resetConversation: async (command) => {
     await requireSubjectConversation(
       db,
@@ -212,4 +265,32 @@ const historyLowerBound = (
   if (requestedAfter === undefined) return resetCutoff;
   if (resetCutoff === undefined) return requestedAfter;
   return Math.max(requestedAfter, resetCutoff);
+};
+
+const readConversationSummaryTitle = async (
+  db: PostgresDrizzleRepositoryContext["db"],
+  conversation: ConversationRecord,
+): Promise<ConversationSummaryRecord> => {
+  if (conversation.titleText) return conversation;
+
+  const titleMessage = await db
+    .select({ contentText: messages.contentText })
+    .from(messages)
+    .where(buildTitleMessageWhere(conversation))
+    .orderBy(asc(messages.sequenceIndex))
+    .limit(1);
+  const titleText = titleMessage[0]?.contentText;
+  return titleText ? { ...conversation, titleText } : { ...conversation };
+};
+
+const buildTitleMessageWhere = (conversation: ConversationRecord): SQL => {
+  const clauses = [
+    eq(messages.workspaceId, conversation.workspaceId),
+    eq(messages.conversationId, conversation.conversationId),
+    eq(messages.role, "user"),
+  ];
+  if (conversation.historyCutoffSequenceIndex !== undefined) {
+    clauses.push(gt(messages.sequenceIndex, conversation.historyCutoffSequenceIndex));
+  }
+  return and(...clauses)!;
 };

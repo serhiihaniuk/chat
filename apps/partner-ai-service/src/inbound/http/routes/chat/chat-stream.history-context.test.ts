@@ -43,18 +43,19 @@ describe("partner ai service conversation history context", () => {
     expect(secondResponse.status).toBe(200);
     await secondResponse.text();
 
-    expect(harness.runtimeRequests[1]?.messages).toEqual([
+    const visibleRequests = visibleRuntimeRequests(harness.runtimeRequests);
+    expect(visibleRequests[1]?.messages).toEqual([
       { role: "user", content: "hello configured service" },
       { role: "assistant", content: "Recorded history context." },
       { role: "user", content: "what did I say first?" },
     ]);
-    expect(harness.runtimeRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
+    expect(visibleRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
       policyMode: "recent_messages",
       consideredMessageCount: 2,
       admittedMessageCount: 2,
       droppedMessageCount: 0,
     });
-    expect(harness.runtimeRequests[1]?.messages[0]).not.toHaveProperty("id");
+    expect(visibleRequests[1]?.messages[0]).not.toHaveProperty("id");
   });
 
   it("uses reset as a history context boundary", async () => {
@@ -71,10 +72,11 @@ describe("partner ai service conversation history context", () => {
     expect(secondResponse.status).toBe(200);
     await secondResponse.text();
 
-    expect(harness.runtimeRequests[1]?.messages).toEqual([
+    const visibleRequests = visibleRuntimeRequests(harness.runtimeRequests);
+    expect(visibleRequests[1]?.messages).toEqual([
       { role: "user", content: "what did I say first?" },
     ]);
-    expect(harness.runtimeRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
+    expect(visibleRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
       policyMode: "recent_messages",
       consideredMessageCount: 0,
       admittedMessageCount: 0,
@@ -100,11 +102,12 @@ describe("partner ai service conversation history context", () => {
     expect(secondResponse.status).toBe(200);
     await secondResponse.text();
 
-    expect(harness.runtimeRequests[1]?.messages).toEqual([
+    const visibleRequests = visibleRuntimeRequests(harness.runtimeRequests);
+    expect(visibleRequests[1]?.messages).toEqual([
       { role: "user", content: "hello configured service" },
       { role: "user", content: "what did I say first?" },
     ]);
-    expect(harness.runtimeRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
+    expect(visibleRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
       policyMode: "recent_messages",
       consideredMessageCount: 1,
       admittedMessageCount: 1,
@@ -184,6 +187,11 @@ const recordRuntimeRequests = (
     return Stream.fromIterable(runtimeEvents(request, calls.length - 1));
   },
 });
+
+const visibleRuntimeRequests = (
+  requests: readonly AgentRuntimeRequest[],
+): readonly AgentRuntimeRequest[] =>
+  requests.filter((request) => !request.requestId.endsWith(":conversation-title"));
 
 const createCompletedRuntimeEvents = (request: AgentRuntimeRequest): readonly RuntimeEvent[] => [
   {
