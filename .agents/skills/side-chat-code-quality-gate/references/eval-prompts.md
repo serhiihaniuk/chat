@@ -32,7 +32,7 @@ Expected behavior: explain the local input/output/boundary/invariant, not broad 
 Check this repository for quality hotspots and tell me where AI-generated complexity is most likely hiding.
 ```
 
-Expected behavior: inspect scripts/configs, optionally run `side_chat_quality_snapshot.py`, manually review top hotspots before making claims.
+Expected behavior: inspect scripts/configs, run `side_chat_quality_snapshot.py` when available, manually review top hotspots before making claims.
 
 ## Boundary leak
 

@@ -87,7 +87,7 @@ If dependencies are not installed or the shell is not on Node `24.16.0` and npm 
 5. Use code structure before comments. First try naming, extraction, typed domain objects, guard clauses, and smaller orchestration steps. Add comments only when code still cannot carry the design knowledge.
 6. Comments are part of the quality gate. A comment fails if it is accurate only for someone who already knows the whole system. A missing comment is also a gate failure when changed code introduces a complex exported type, config/status/control-plane shape, boundary mapper, adapter selector, protocol/context/runtime transformation, or spine function.
 7. "Structure before comments" does not waive comment coverage for exported contracts or boundary-heavy code. Good names reduce mechanical comments; they do not replace the need to explain source, target, hidden detail, invariant, and non-guarantee when code coordinates lifecycle, privacy, ports, policy, or model-visible behavior. Treat those words as review questions, not labels to paste into comments.
-8. Do not over-comment. A useful comment should bridge missing context, state a contract, explain a non-obvious invariant, or warn about a boundary. Delete comments that merely narrate syntax.
+8. Do not over-comment. A useful comment bridges missing context, states a contract, explains a non-obvious invariant, or warns about a boundary. Delete comments that merely narrate syntax.
 9. Preserve behavior and public contracts unless the user explicitly asks for behavior change.
 10. Treat docs as part of behavior for maintainers. When code changes domain terms, lifecycle order, package ownership, verification behavior, or boundary meaning, update canonical docs in the same patch.
 11. Use final-state rewrite instead of compatibility preservation for unshipped internal shapes.
@@ -213,8 +213,9 @@ This shape is not mandatory. Use it when it reduces cognitive load more than it 
 
 Use the comment rules from the earlier `software-comment-design` skill as part of this skill. In Side Chat, comment quality is readability quality.
 
-A comment should answer one of these questions:
+Every kept comment must answer at least one of these questions:
 
+- What mental model explains this concept-dense file, and why do these concepts belong together here?
 - What contract can callers rely on?
 - What local role does this concept play in the Side Chat pipeline?
 - Why does this boundary convert one representation into another?
@@ -239,7 +240,7 @@ A comment fails when it:
 - assumes the reader already knows the whole architecture;
 - confidently states rationale not proven by code, tests, or docs;
 - explains a private implementation detail while omitting caller-visible contract;
-- compensates for code that should be renamed or split.
+- compensates for code that needs to be renamed or split.
 
 Use this comment pattern for boundary-heavy code:
 
@@ -348,16 +349,68 @@ Health/diagnostics privacy:
  */
 ```
 
+File-level orientation for concept-dense files:
+
+```ts
+/**
+ * A core assistant turn sees the host app through this capability menu.
+ *
+ * Each service names one job the host can perform for the workflow: persist
+ * conversation and assistant-turn state, publish host capabilities, resolve
+ * policy and guards, prepare context and memory, run the model-side runtime,
+ * mint ids and timestamps, enforce request policy, and emit observability.
+ * The Effect Layer binds these jobs to real app adapters at composition time, so
+ * partner-ai-core can coordinate the turn without importing HTTP, database,
+ * provider, or tool-adapter packages.
+ *
+ * Update this comment when the core workflow gains or loses an app-supplied
+ * capability, or when a capability's job moves across package boundaries.
+ */
+```
+
+Runtime turn file-level orientation:
+
+```ts
+/**
+ * Resolves one prepared runtime turn before any provider stream starts.
+ *
+ * The helpers in this file turn app-registered executors, profiles, providers,
+ * and tools into the checked `RuntimeProviderRequest` passed to an executor.
+ * Product policy and context admission are already resolved by partner-ai-core;
+ * this file validates runtime availability and builds the provider-facing
+ * request without calling the model.
+ *
+ * Update this comment when runtime preparation gains a new decision point or
+ * when ownership moves between product core and agent-runtime.
+ */
+```
+
 ## Mandatory comment coverage gate
 
 Run this as a separate pass before finalizing non-trivial code. Do it even when the implementation already has good names and small functions.
 
 Missing-comment findings are `comment-quality` findings. Treat them as blockers when the code is complex enough that a lower-context maintainer would otherwise need the implementation plan, the chat thread, or several architecture docs to safely edit it.
 
+File-level orientation comments are required for concept-dense files. They must
+state the file's non-obvious role, which main concepts belong together here, why
+they share this file, what boundary or lifecycle responsibility stays outside the
+file, and what kind of future change requires updating the comment. Do not add
+file-level boilerplate to simple leaf files, barrel exports, tiny helpers, or
+files whose name plus one export already explains the whole file.
+When a file contains many same-shaped declarations, group them by workflow job
+or product role so the reader can answer "what are these things doing here?"
+
+These comments are the local bridge for maintainers who land in core files from
+search, a stack trace, or code review without opening the architecture docs.
+Files such as runtime turn preparation, Effect service tags, protocol event
+mappers, context managers, and service composition roots must make their main
+idea visible at the top of the file.
+
 Required coverage triggers:
 
+- Concept-dense files need one file-level orientation comment before the first exported concept. This is mandatory for Effect service/tag files, runtime/request contract files, protocol mapper files, adapter composition roots, capability contract files, context manager files, and files that define several related exported concepts.
 - Exported complex types, option objects, config objects, status objects, manifest shapes, protocol shapes, and context-board shapes need contract comments. Cover the local role, source, target, invariant, and important non-guarantees in prose. Use labeled blocks only when a dense exported type contract is genuinely easier to scan that way. Document fields when the name does not reveal units, lifecycle, privacy, or failure semantics.
-- Spine functions that coordinate several lifecycle steps need a top-level contract and step comments. Each step comment should say what the step proves, records, publishes, selects, hides, prepares, or fails before the next step can run.
+- Spine functions that coordinate several lifecycle steps need a top-level contract and step comments. Each step comment must say what the step proves, records, publishes, selects, hides, prepares, or fails before the next step can run.
 - Boundary mappers and adapter selectors need source representation, target contract, hidden detail, and invariant comments. Examples include env-to-config, config-to-manifest, manifest-to-status, provider-to-runtime, runtime-to-protocol, DB-to-domain, and context-candidate-to-context-board conversions.
 - Diagnostics and health/status surfaces need comments that name what may be exposed and what must stay hidden, especially credentials, provider options, memory records, retrieved content, and raw tool/provider errors.
 - Config parsers need comments separating declaration validation from concrete resource selection. For example, env parsing may declare intent, but composition chooses ports and enforces concrete adapter requirements.
@@ -366,12 +419,13 @@ Human-readable means concrete. Reject comments that say only "control plane", "a
 
 Use this checklist on the changed files:
 
-1. New or changed exported types have comments when they carry domain meaning beyond plain data.
-2. New or changed fields have comments when names do not expose units, privacy, lifecycle, or failure behavior.
-3. New or changed spine functions have top-level and stage comments.
-4. New or changed boundary mappers explain source, target, hidden detail, and invariant.
-5. Comments can be understood without reading the implementation plan or the current chat.
-6. No comment exists only to explain avoidable complexity that should be named or extracted instead.
+1. Concept-dense files have a current file-level orientation comment.
+2. New or changed exported types have comments when they carry domain meaning beyond plain data.
+3. New or changed fields have comments when names do not expose units, privacy, lifecycle, or failure behavior.
+4. New or changed spine functions have top-level and stage comments.
+5. New or changed boundary mappers explain source, target, hidden detail, and invariant.
+6. Comments can be understood without reading the implementation plan or the current chat.
+7. No comment exists only to explain avoidable complexity that should be named or extracted instead.
 
 ## Domain-term traceability rule
 

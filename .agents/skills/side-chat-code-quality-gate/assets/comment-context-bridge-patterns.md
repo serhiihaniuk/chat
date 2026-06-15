@@ -5,6 +5,28 @@ Use source, target, hidden detail, and invariant as drafting questions. Do not
 paste `Source:`, `Target:`, or `Invariant:` labels into code unless that labeled
 shape is clearer than prose in the local file.
 
+## File-level orientation
+
+Use this for concept-dense files, not simple leaf files or barrels. The first
+line must state the file's mental model, not the visible declaration category.
+
+```ts
+/**
+ * A core assistant turn sees the host app through this capability menu.
+ *
+ * Each service names one job the host can perform for the workflow: persist
+ * conversation and assistant-turn state, publish host capabilities, resolve
+ * policy and guards, prepare context and memory, run the model-side runtime,
+ * mint ids and timestamps, enforce request policy, and emit observability.
+ * The Effect Layer binds these jobs to real app adapters at composition time, so
+ * partner-ai-core can coordinate the turn without importing HTTP, database,
+ * provider, or tool-adapter packages.
+ *
+ * Update this comment when the core workflow gains or loses an app-supplied
+ * capability, or when a capability's job moves across package boundaries.
+ */
+```
+
 ## Spine function
 
 ```ts

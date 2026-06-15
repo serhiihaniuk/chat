@@ -16,13 +16,20 @@ import type {
 import { NOOP_OBSERVABILITY_SINK, type ObservabilitySinkPort } from "./observability.js";
 
 /**
- * Effect services are the dependency boundary for core workflows.
+ * A core assistant turn sees the host app through this capability menu.
  *
- * Source `streamChatEffect` asks for "conversation repository" or "runtime"
- * without importing the HTTP app, database package, provider SDK, or concrete
- * tool adapters. The app chooses the real implementations when it builds the
- * Layer.
+ * Each service names one job the host can perform for the workflow: persist
+ * conversation and assistant-turn state, publish host capabilities, resolve
+ * policy and guards, prepare context and memory, run the model-side runtime,
+ * mint ids and timestamps, enforce request policy, and emit observability.
+ * The Effect Layer binds these jobs to real app adapters at composition time, so
+ * partner-ai-core can coordinate the turn without importing HTTP, database,
+ * provider, or tool-adapter packages.
+ *
+ * Update this comment when the core workflow gains or loses an app-supplied
+ * capability, or when a capability's job moves across package boundaries.
  */
+
 export class ConversationRepositoryService extends Context.Service<
   ConversationRepositoryService,
   ConversationRepositoryPort

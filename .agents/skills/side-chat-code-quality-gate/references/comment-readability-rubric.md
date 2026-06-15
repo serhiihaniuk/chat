@@ -6,6 +6,7 @@ This skill folds the earlier comment-design guidance into Side Chat's quality ga
 
 Use comments for:
 
+- file-level orientation for concept-dense files;
 - source-to-target boundary translation;
 - caller-visible contract;
 - invariant or stable identity rule;
@@ -21,6 +22,12 @@ Flag comments that:
 - say “convert”, “map”, “handle”, “process”, “stable”, “typed”, “adapter boundary”, “runtime contract”, or “provider-ready” without naming concrete source and target entities;
 - assume the reader already knows architecture docs;
 - explain many details but omit the local invariant;
+- omit a file-level orientation comment from a concept-dense file;
+- leave a file-level orientation comment stale after exported concepts,
+  ownership, or lifecycle responsibilities change;
+- use a file-level comment that only restates visible declarations such as
+  "defines types", "defines service tags", or "contains helpers";
+- fail to group many same-shaped declarations by workflow job or product role;
 - dump `Source:`, `Target:`, and `Invariant:` labels when ordinary prose would
   be easier to read;
 - become a substitute for simpler names or less nesting;
@@ -90,12 +97,44 @@ Missing comments are failures for complex Side Chat code, even when existing com
 
 Add or verify comments for:
 
+- concept-dense files such as Effect service/tag files, runtime/request contract
+  files, protocol mapper files, adapter composition roots, capability contract
+  files, context manager files, and files that define several related exported
+  concepts;
 - exported complex types, option objects, config objects, status objects, manifest shapes, protocol shapes, and context-board shapes;
 - fields whose names do not reveal units, privacy rules, lifecycle stage, failure behavior, or whether the value is model-visible;
 - spine functions that coordinate several lifecycle steps;
 - boundary mappers such as env-to-config, config-to-manifest, manifest-to-status, provider-to-runtime, runtime-to-protocol, DB-to-domain, and context-candidate-to-context-board conversion;
 - adapter selectors and composition roots where missing dependencies become no-op ports, concrete ports, or startup failures;
 - diagnostics and health/readiness objects that must expose safe status without leaking secrets or private content.
+
+## File-level orientation comment shape
+
+Use this when a file defines several related concepts or one boundary surface
+that is hard to understand from filenames alone:
+the comment is the local bridge for readers who reach the file from search,
+stack traces, or review without the architecture docs already open.
+
+```ts
+/**
+ * A core assistant turn sees the host app through this capability menu.
+ *
+ * Each service names one job the host can perform for the workflow: persist
+ * conversation and assistant-turn state, publish host capabilities, resolve
+ * policy and guards, prepare context and memory, run the model-side runtime,
+ * mint ids and timestamps, enforce request policy, and emit observability.
+ * The Effect Layer binds these jobs to real app adapters at composition time, so
+ * partner-ai-core can coordinate the turn without importing HTTP, database,
+ * provider, or tool-adapter packages.
+ *
+ * Update this comment when the core workflow gains or loses an app-supplied
+ * capability, or when a capability's job moves across package boundaries.
+ */
+```
+
+The comment must name the file's non-obvious role, why the concepts belong
+together, what stays outside this file, and the update trigger. Do not add this
+comment to simple leaf files, barrels, or tiny helpers.
 
 ## Spine-function comment shape
 
@@ -120,7 +159,7 @@ export const prepareThing = (...) =>
   });
 ```
 
-Every stage comment should use a strong verb such as prove, record, publish, select, hide, prepare, finalize, or fail. Avoid comments that merely say "build", "map", "handle", or "process".
+Every stage comment must use a strong verb such as prove, record, publish, select, hide, prepare, finalize, or fail. Avoid comments that merely say "build", "map", "handle", or "process".
 
 ## Type contract comment checklist
 

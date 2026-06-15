@@ -34,16 +34,23 @@ Do not use this skill for general README writing, user-facing docs, changelogs, 
    translate them into a comment a maintainer would naturally read. Use literal
    labels only when the local style already uses them and labels are clearer
    than prose.
-8. Do not mention the book, this skill, or “philosophy” inside code comments.
+8. Add and maintain a file-level orientation comment for concept-dense files.
+   A file is concept-dense when it defines multiple related exported symbols,
+   registers services, composes a workflow, maps across a boundary, or introduces
+   domain concepts that only make sense together.
+9. Do not add file-level boilerplate to simple leaf files, barrel exports, tiny
+   helpers, or files whose name plus one export already explains the whole file.
+10. Do not mention the book, this skill, or “philosophy” inside code comments.
 
 ## Decision algorithm
 
 For each candidate location:
 
 1. Classify the comment type.
+   - File-level orientation comment: maintainer-facing map of a concept-dense file; states the file's non-obvious role, why the main concepts belong together, and what responsibility stays outside the file.
    - Interface comment: caller-visible contract for exported functions, classes, components, hooks, modules, endpoints, config, public fields, or shared utilities.
    - Implementation comment: maintainer-facing reason, invariant, workaround, algorithm sketch, ordering rule, performance constraint, concurrency/lifecycle rule, or surprising edge case.
-   - Noise comment: restates nearby code, mirrors the name, narrates obvious control flow, or compensates for code that should be simplified.
+   - Noise comment: restates nearby code, mirrors the name, narrates obvious control flow, or compensates for code that needs simplifying.
 
 2. Apply the comment test.
    - Reader needs this to use or safely change the code: yes/no.
@@ -99,6 +106,27 @@ Use implementation comments for non-obvious internal knowledge:
 
 Write implementation comments as constraints or rationale, not as line-by-line narration.
 
+## File-level orientation contract
+
+Use one file-level orientation comment near the top of a concept-dense file,
+before the first exported concept. The comment must help a lower-context
+maintainer decide whether this is the file they need and how to update it safely.
+It is a local entrypoint for readers who reached the file from search, stack
+trace, or review without first reading the architecture docs.
+
+The comment must state:
+
+1. The file's non-obvious role or mental model, not just the declarations visible in code.
+2. The main concepts or exported symbols and why they belong together.
+3. The boundary, lifecycle stage, or responsibility that stays outside the file.
+4. The update trigger: what kind of future change requires editing the comment.
+
+Do not duplicate the import list. Do not summarize every function. Do not add a
+file-level comment that says only "utilities", "helpers", "services", or
+"types"; name the actual concepts and the reason they share this file.
+When a file contains many same-shaped declarations, group them by job or role so
+the reader can answer "what are these things doing here?"
+
 ## Comment templates
 
 Interface:
@@ -141,6 +169,25 @@ Boundary with hidden detail:
  * Provider and tool exceptions may contain implementation details. Those raw
  * values stay inside the runtime boundary; downstream code receives only the
  * stable failure code and safe activity metadata.
+ */
+```
+
+File-level orientation:
+
+```ts
+/**
+ * A core assistant turn sees the host app through this capability menu.
+ *
+ * Each service names one job the host can perform for the workflow: persist
+ * conversation and assistant-turn state, publish host capabilities, resolve
+ * policy and guards, prepare context and memory, run the model-side runtime,
+ * mint ids and timestamps, enforce request policy, and emit observability.
+ * The Effect Layer binds these jobs to real app adapters at composition time, so
+ * partner-ai-core can coordinate the turn without importing HTTP, database,
+ * provider, or tool-adapter packages.
+ *
+ * Update this comment when the core workflow gains or loses an app-supplied
+ * capability, or when a capability's job moves across package boundaries.
  */
 ```
 

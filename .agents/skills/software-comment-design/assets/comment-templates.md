@@ -13,6 +13,29 @@ Use these as patterns. Replace placeholders with facts from the codebase. Do not
  */
 ```
 
+## File-level orientation
+
+Use this only for concept-dense files. Do not add it to simple leaf files,
+barrels, or tiny helpers. The first line must state the file's mental model, not
+the visible declaration category.
+
+```ts
+/**
+ * A core assistant turn sees the host app through this capability menu.
+ *
+ * Each service names one job the host can perform for the workflow: persist
+ * conversation and assistant-turn state, publish host capabilities, resolve
+ * policy and guards, prepare context and memory, run the model-side runtime,
+ * mint ids and timestamps, enforce request policy, and emit observability.
+ * The Effect Layer binds these jobs to real app adapters at composition time, so
+ * partner-ai-core can coordinate the turn without importing HTTP, database,
+ * provider, or tool-adapter packages.
+ *
+ * Update this comment when the core workflow gains or loses an app-supplied
+ * capability, or when a capability's job moves across package boundaries.
+ */
+```
+
 ## React hook
 
 ```ts

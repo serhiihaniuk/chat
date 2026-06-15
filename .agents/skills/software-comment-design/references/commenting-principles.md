@@ -105,6 +105,8 @@ Worse:
 
 ## Comment durability
 
-A comment should be easy to keep correct. Prefer comments about stable contracts, invariants, and rationale over descriptions of local mechanics that change during ordinary refactors.
+A useful comment must be easy to keep correct. Use comments for stable
+contracts, invariants, and rationale. Do not describe local mechanics that
+change during ordinary refactors.
 
 If a comment needs to mention implementation, anchor it to a real constraint: ordering, race prevention, API quirk, performance, or compatibility.
