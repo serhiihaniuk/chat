@@ -185,6 +185,7 @@ const createConversationRepositoryPort = (calls: string[]): ConversationReposito
       workspaceId: "workspace_001",
       conversationId: "conversation_001",
       messageId: "message_record_001",
+      sequenceIndex: 0,
     });
   },
 });

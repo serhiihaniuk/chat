@@ -4,11 +4,14 @@ import type { AuthContext, WorkspaceRef } from "#domain/authority";
 
 export type ConversationRef = WorkspaceRef & {
   readonly conversationId: string;
+  readonly historyCutoffSequenceIndex?: number;
 };
 
 export type MessageRef = WorkspaceRef & {
   readonly conversationId: string;
   readonly messageId: string;
+  /** Repository sequence used to read prior messages without duplicating the current user message. */
+  readonly sequenceIndex: number;
 };
 
 export type ConversationRepositoryPort = {

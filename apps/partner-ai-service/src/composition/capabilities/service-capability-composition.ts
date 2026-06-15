@@ -42,10 +42,10 @@ import type {
 /**
  * Manifest-facing declarations resolved from service capability config.
  *
- * Source: explicit composition overrides plus `ServiceCapabilityConfig`.
- * Target: the host capability manifest that core turn policy reads.
- * Invariant: direct options still win so tests and custom apps can inject exact
- * manifest declarations without going through env parsing.
+ * Explicit composition overrides and `ServiceCapabilityConfig` become the host
+ * capability manifest that core turn policy reads. Direct options still win so
+ * tests and custom apps can inject exact manifest declarations without going
+ * through env parsing.
  */
 export type CapabilityManifestInputs = {
   readonly memoryPolicy: MemoryPolicy;
@@ -56,10 +56,9 @@ export type CapabilityManifestInputs = {
 /**
  * Executable context ports selected for the service graph.
  *
- * Source: injected ports plus capability modes.
- * Target: the context manager used before every assistant turn.
- * Invariant: disabled and no-op modes receive safe no-op ports; concrete modes
- * must receive real ports before HTTP routes can run.
+ * Injected ports and capability modes become the context ports used before
+ * every assistant turn. Disabled and no-op modes receive safe no-op ports;
+ * concrete modes must receive real ports before HTTP routes can run.
  */
 export type CapabilityAdapters = {
   readonly memory: MemoryPort;
@@ -88,10 +87,9 @@ export const resolveCapabilityManifestInputs = (
 /**
  * Build safe capability diagnostics from the final manifest and injected ports.
  *
- * Source: the manifest that turn policy will read plus the actual ports passed
- * to composition.
- * Target: `/healthz` and `/readyz` status. No secrets, adapter internals, or
- * context-board content are exposed.
+ * The final manifest and injected ports become `/healthz` and `/readyz` status.
+ * Diagnostics may report capability ids, counts, and adapter presence, but not
+ * secrets, adapter internals, or context-board content.
  */
 export const createCapabilityStatusForComposition = ({
   options,

@@ -8,8 +8,13 @@ import {
   type AuthContext,
   type PreparedTurnContext,
 } from "@side-chat/partner-ai-core";
-import type { SidechatRepositories } from "@side-chat/db";
+import type { ConversationRecord, SidechatRepositories } from "@side-chat/db";
 import { optionalField, toJsonObject, type JsonObject } from "@side-chat/shared";
+
+export const conversationHistoryCutoffField = (
+  conversation: ConversationRecord,
+): { readonly historyCutoffSequenceIndex?: number } =>
+  optionalField("historyCutoffSequenceIndex", conversation.historyCutoffSequenceIndex);
 
 export const recordContextSnapshot = ({
   repositories,
@@ -141,7 +146,8 @@ export const appendMessage = ({
 const toContextSnapshotJson = (preparedContext: PreparedTurnContext): JsonObject =>
   toJsonObject({
     contextId: preparedContext.contextId,
-    runtimeMessages: preparedContext.runtimeMessages,
+    runtimeMessageSummary: toRuntimeMessageSummary(preparedContext),
+    history: preparedContext.history,
     researchArtifacts: preparedContext.researchArtifacts,
     manifest: preparedContext.contextBoard.manifest,
     sections: preparedContext.contextBoard.sections.map((section) => ({
@@ -161,4 +167,21 @@ const toContextSnapshotJson = (preparedContext: PreparedTurnContext): JsonObject
       provenance: candidate.provenance,
       ...optionalField("metadata", candidate.metadata),
     })),
+  });
+
+/**
+ * Persist only a content-free index of runtime chat messages.
+ *
+ * The runtime receives full role/content pairs, but context snapshots should
+ * only keep enough metadata to audit message count, roles, and which history
+ * messages were admitted. Prior conversation text stays out of this persisted
+ * JSON so history is not duplicated in another storage path.
+ */
+const toRuntimeMessageSummary = (preparedContext: PreparedTurnContext): JsonObject =>
+  toJsonObject({
+    messageCount: preparedContext.runtimeMessages.length,
+    roles: preparedContext.runtimeMessages.map((message) => message.role),
+    admittedHistoryMessageIds: preparedContext.history.messages
+      .filter((message) => message.included)
+      .map((message) => message.messageId),
   });

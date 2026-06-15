@@ -14,22 +14,34 @@ test("persists send, history, reset, and usage through public widget and service
   const streamResponse = page.waitForResponse((response) =>
     response.url().includes("/api/chat/stream"),
   );
-  await page.getByLabel("Message").fill("hello persistent postgres");
+  await page.getByLabel("Message").fill("My project codename is Blue Lynx.");
   await page.getByRole("button", { name: "Send" }).click();
   const streamBody = await (await streamResponse).text();
   const conversationId = readConversationId(streamBody);
   const totalTokens = readTotalTokens(streamBody);
   expect(totalTokens).toBeGreaterThan(0);
-  await expect(page.getByText("Fake response: hello persistent postgres")).toBeVisible({
+  await expect(page.getByText("Fake response: My project codename is Blue Lynx.")).toBeVisible({
+    timeout: 15_000,
+  });
+
+  const followUpResponse = page.waitForResponse((response) =>
+    response.url().includes("/api/chat/stream"),
+  );
+  await page.getByLabel("Message").fill("What is my project codename?");
+  await page.getByRole("button", { name: "Send" }).click();
+  const followUpTokens = readTotalTokens(await (await followUpResponse).text());
+  await expect(page.getByText("Your project codename is Blue Lynx.")).toBeVisible({
     timeout: 15_000,
   });
 
   const history = await readHistory(request, conversationId);
   expect(history.messages.map((message) => message.content)).toEqual([
-    "hello persistent postgres",
-    "Fake response: hello persistent postgres",
+    "My project codename is Blue Lynx.",
+    "Fake response: My project codename is Blue Lynx.",
+    "What is my project codename?",
+    "Your project codename is Blue Lynx.",
   ]);
-  await expectPersistentUsage(request, totalTokens);
+  await expectPersistentUsage(request, totalTokens + followUpTokens);
 
   const reset = await request.delete(`${serviceBaseUrl}/chat/history/${conversationId}`, {
     headers: authHeaders(),

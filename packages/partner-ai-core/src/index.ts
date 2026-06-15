@@ -1,4 +1,5 @@
 export * from "./application/stream-chat/stream-chat.js";
+export * from "./application/stream-chat/history/admit-conversation-history-context.js";
 export * from "./application/stream-chat/memory/recall-allowed-memory-candidates.js";
 export * from "./application/stream-chat/memory/record-allowed-memory-write-candidates.js";
 export * from "./application/stream-chat/rag/retrieve-allowed-rag-candidates.js";

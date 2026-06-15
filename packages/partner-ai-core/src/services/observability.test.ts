@@ -224,6 +224,7 @@ const createObservedPorts = (
         workspaceId: "workspace_001",
         conversationId: "conversation_001",
         messageId: "message_record_001",
+        sequenceIndex: 0,
       }),
   };
   const assistantTurns = {
@@ -265,6 +266,7 @@ const createObservedPorts = (
           contextId: "context_observe_1",
           profile,
           policyDecision,
+          history: emptyHistoryManifest,
           researchArtifacts: [],
           candidates: [],
           runtimeMessages: [
@@ -278,6 +280,7 @@ const createObservedPorts = (
               profileId: profile.profileId,
               profileVersion: profile.version,
               entries: [],
+              history: emptyHistoryManifest,
               budget: {
                 policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
                 selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,
@@ -352,6 +355,15 @@ const resolveProfile = (manifest: HostCapabilityManifest): AssistantProfile => {
     throw new Error(resolution.issue.message);
   }
   return resolution.profile;
+};
+
+const emptyHistoryManifest = {
+  policyMode: "disabled" as const,
+  consideredMessageCount: 0,
+  admittedMessageCount: 0,
+  droppedMessageCount: 0,
+  estimatedTokens: 0,
+  messages: [],
 };
 
 const createSteppingClock = (): ClockPort => {

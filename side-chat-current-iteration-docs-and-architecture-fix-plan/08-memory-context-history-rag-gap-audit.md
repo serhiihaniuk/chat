@@ -655,20 +655,20 @@ Acceptance target:
 
 ## 5. Gap Matrix
 
-| Capability | Current state | User-visible result | Missing work | Severity |
-| --- | --- | --- | --- | --- |
-| Real model | Implemented for OpenAI provider path | Model can answer | Keep configured model/profile aligned | Low |
-| Memory recall | Port and tests only, default no-op | Model does not remember durable facts | Concrete MemoryPort and store | High |
-| Memory write | Lifecycle hook exists, default no-op | No facts are saved after answers | Extraction and persistence | High |
-| RAG | Port and tests only, default no-op | No docs/knowledge retrieval | Retriever, sources, config | High |
-| Research | Port and tests only, default no-op | No pre-answer research | Agent adapter, policy/config | Medium-high |
-| Conversation history API | Implemented | UI/API can fetch history | Persisted DB path verification | Medium |
-| Conversation history in prompt | Missing | Follow-up turns lack prior-turn context | History admission strategy | High |
-| Context board | Implemented | Populated context can reach model | Real data sources | Medium |
-| Context admission | Simple include-all | No real budget/squash behavior | Budgeted selection | Medium-high |
-| Service config | Provider/persistence focused | Cannot enable memory/RAG/research normally | Capability config | High |
-| Tests | Seam tests with fakes | Tests pass while app has no real capability | App-path tests | High |
-| Docs | Intended architecture mostly documented | Docs can overpromise implementation | Status notes and acceptance updates | Medium |
+| Capability                     | Current state                           | User-visible result                         | Missing work                          | Severity    |
+| ------------------------------ | --------------------------------------- | ------------------------------------------- | ------------------------------------- | ----------- |
+| Real model                     | Implemented for OpenAI provider path    | Model can answer                            | Keep configured model/profile aligned | Low         |
+| Memory recall                  | Port and tests only, default no-op      | Model does not remember durable facts       | Concrete MemoryPort and store         | High        |
+| Memory write                   | Lifecycle hook exists, default no-op    | No facts are saved after answers            | Extraction and persistence            | High        |
+| RAG                            | Port and tests only, default no-op      | No docs/knowledge retrieval                 | Retriever, sources, config            | High        |
+| Research                       | Port and tests only, default no-op      | No pre-answer research                      | Agent adapter, policy/config          | Medium-high |
+| Conversation history API       | Implemented                             | UI/API can fetch history                    | Persisted DB path verification        | Medium      |
+| Conversation history in prompt | Missing                                 | Follow-up turns lack prior-turn context     | History admission strategy            | High        |
+| Context board                  | Implemented                             | Populated context can reach model           | Real data sources                     | Medium      |
+| Context admission              | Simple include-all                      | No real budget/squash behavior              | Budgeted selection                    | Medium-high |
+| Service config                 | Provider/persistence focused            | Cannot enable memory/RAG/research normally  | Capability config                     | High        |
+| Tests                          | Seam tests with fakes                   | Tests pass while app has no real capability | App-path tests                        | High        |
+| Docs                           | Intended architecture mostly documented | Docs can overpromise implementation         | Status notes and acceptance updates   | Medium      |
 
 ## 6. Recommended Implementation Order
 

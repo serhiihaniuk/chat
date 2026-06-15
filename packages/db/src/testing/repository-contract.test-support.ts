@@ -28,6 +28,18 @@ export const sidechatRepositoryContract = (
         expect(repeated.inserted).toBe(false);
         expect(repeated.record.conversationId).toBe(conversation.conversationId);
 
+        const explicitConversationId = `conversation_${scope}_explicit`;
+        const explicit = await repositories.createOrGetConversation({
+          workspaceId: workspaceId(scope),
+          subjectId: subjectId(scope),
+          actorId: actorId(scope),
+          conversationId: explicitConversationId,
+          conversationKey: explicitConversationId,
+          now,
+        });
+
+        expect(explicit.record.conversationId).toBe(explicitConversationId);
+
         const first = await appendUserMessage(repositories, scope, conversation.conversationId);
         const second = await appendUserMessage(repositories, scope, conversation.conversationId);
 
@@ -44,6 +56,7 @@ export const sidechatRepositoryContract = (
       const scope = nextScope();
       try {
         const conversation = await createConversation(repositories, scope);
+        await appendUserMessage(repositories, scope, conversation.conversationId);
 
         await expect(
           repositories.readConversationHistory({
@@ -64,8 +77,29 @@ export const sidechatRepositoryContract = (
           requestId: "reset_1",
           now,
         });
+        await repositories.appendMessage({
+          workspaceId: workspaceId(scope),
+          subjectId: subjectId(scope),
+          conversationId: conversation.conversationId,
+          role: "user",
+          contentText: "after reset",
+          metadataJson: {},
+          idempotencyKey: { value: "request_after_reset:user" },
+          now,
+        });
+        const postResetHistory = await repositories.readConversationHistory({
+          workspaceId: workspaceId(scope),
+          subjectId: subjectId(scope),
+          conversationId: conversation.conversationId,
+          limit: 10,
+          ...(reset.historyCutoffSequenceIndex === undefined
+            ? {}
+            : { afterSequenceIndex: reset.historyCutoffSequenceIndex }),
+        });
 
         expect(reset.status).toBe("reset");
+        expect(reset.historyCutoffSequenceIndex).toBe(0);
+        expect(postResetHistory.map((message) => message.contentText)).toEqual(["after reset"]);
       } finally {
         await closeIfNeeded(repositories);
       }

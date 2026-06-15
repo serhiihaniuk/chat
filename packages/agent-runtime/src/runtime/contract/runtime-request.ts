@@ -36,6 +36,7 @@ export type RuntimeContextManifest = {
   readonly snapshotId?: string;
   readonly snapshotHash?: string;
   readonly includedMessageIds?: readonly string[];
+  readonly history?: JsonObject;
   readonly budget?: JsonObject;
 };
 

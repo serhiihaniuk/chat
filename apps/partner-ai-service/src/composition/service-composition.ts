@@ -35,6 +35,7 @@ import { optionalField } from "@side-chat/shared";
 
 import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/auth/service-auth";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
+import { createRepositoryConversationHistoryContext } from "#adapters/persistence/repository-conversation-history-context";
 import {
   createDefaultPolicyConfig,
   type ServicePolicyConfig,
@@ -194,6 +195,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     capabilityConfig,
     options,
   );
+  const historyContext = createRepositoryConversationHistoryContext(repositories);
 
   // Return the complete graph in one object so HTTP routes can stay thin: they
   // receive ready ports instead of knowing how to assemble core, runtime, and DB.
@@ -211,6 +213,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     ragRetriever,
     researchAgent,
     contextManager: createServiceContextManager({
+      historyContext,
       memory,
       ragRetriever,
       researchAgent,
@@ -225,8 +228,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   };
 };
 
-// `fake` is for local/dev bootstrap. Production should pass OpenAI config so
-// the runtime has real provider credentials instead of deterministic echo.
 const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): AgentRuntime =>
   createAgentRuntime({
     ...optionalField("executors", config.executors),
@@ -239,7 +240,6 @@ const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): Agen
 
 const createProviderForRuntime = (config: RuntimeConfig): ModelProvider => {
   if (config.provider === "openai") {
-    // OpenAI config becomes the provider used by agent-runtime for model calls.
     return createOpenAIResponsesProvider({
       apiKey: config.apiKey,
       modelIds: config.modelIds,
@@ -250,8 +250,6 @@ const createProviderForRuntime = (config: RuntimeConfig): ModelProvider => {
     });
   }
 
-  // Fake provider is deterministic and local. It is useful for bootstrapping
-  // routes and tests, but it does not exercise external provider behavior.
   return createFakeProvider({
     modelIds: [config.modelId ?? FAKE_ECHO_MODEL_ID],
   });
@@ -265,13 +263,11 @@ const modelIdForRuntime = (config: RuntimeConfig): string =>
 
 const createRepositoriesForPersistence = (persistence: PersistenceConfig): SidechatRepositories => {
   if (persistence.kind === "postgres") {
-    // Production persistence is explicit: config must provide the database URL.
     return createPostgresDrizzleSidechatRepositories({
       connectionString: persistence.databaseUrl,
     });
   }
 
-  // Memory repositories keep local/dev setup simple and reset with the process.
   return createMemorySidechatRepositories();
 };
 
@@ -279,14 +275,10 @@ const defaultPersistenceForComposition = (
   profile: ServiceAuthConfig["profile"],
   repositories: SidechatRepositories | undefined,
 ): PersistenceConfig => {
-  // Injected repositories mean the caller already chose storage. Return the
-  // harmless label used by this composition object and do not apply env guards.
   if (repositories) return { kind: "memory" };
 
-  // Without injected repositories, production must name its durable store.
   if (profile === "production") return failMissingProductionPersistence();
 
-  // Local/dev requests may run entirely in memory.
   return { kind: "memory" };
 };
 

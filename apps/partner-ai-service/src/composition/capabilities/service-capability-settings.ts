@@ -50,10 +50,10 @@ export type ResearchCapabilityMode = ObjectValue<typeof RESEARCH_CAPABILITY_MODE
 /**
  * Service memory settings declared before the service graph is built.
  *
- * Source: `SIDECHAT_MEMORY_*` env keys or `ServiceCompositionOptions.capabilities`.
- * Target: the core `MemoryPolicy` published in the host capability manifest.
- * Invariant: this declaration never creates storage; concrete memory work still
- * requires a `MemoryPort` selected by service composition.
+ * `SIDECHAT_MEMORY_*` env keys and explicit composition options become the
+ * memory policy published in the host capability manifest. This declaration
+ * never creates storage; concrete memory work still requires a `MemoryPort`
+ * selected by service composition.
  */
 export type ServiceMemoryCapabilityConfig = MemoryCapabilityConfig & {
   /** Chooses whether memory is absent, declared as no-op, or requires a concrete port. */
@@ -63,10 +63,10 @@ export type ServiceMemoryCapabilityConfig = MemoryCapabilityConfig & {
 /**
  * Retrieval capability declared before the service graph is built.
  *
- * Source: `SIDECHAT_RAG_*` env keys or `ServiceCompositionOptions.capabilities`.
- * Target: retrieval source declarations in the core host capability manifest.
- * Invariant: source ids describe what a turn policy may expose; a real
- * retriever still requires a `RagRetrieverPort` selected by composition.
+ * `SIDECHAT_RAG_*` env keys and explicit composition options become retrieval
+ * source declarations in the host capability manifest. Source ids describe what
+ * turn policy may expose; a real retriever still requires a `RagRetrieverPort`
+ * selected by composition.
  */
 export type ServiceRagCapabilityConfig = RagCapabilityConfig & {
   /** Chooses whether RAG is absent, declared as no-op, or requires a concrete retriever. */
@@ -76,10 +76,10 @@ export type ServiceRagCapabilityConfig = RagCapabilityConfig & {
 /**
  * Pre-answer research capability declared before the service graph is built.
  *
- * Source: `SIDECHAT_RESEARCH_*` env keys or `ServiceCompositionOptions.capabilities`.
- * Target: research-agent declarations in the core host capability manifest.
- * Invariant: this only advertises a research lane; execution still requires a
- * `ResearchAgentPort` selected by composition.
+ * `SIDECHAT_RESEARCH_*` env keys and explicit composition options become
+ * research-agent declarations in the host capability manifest. This only
+ * advertises a research lane; execution still requires a `ResearchAgentPort`
+ * selected by composition.
  */
 export type ServiceResearchCapabilityConfig = ResearchCapabilityConfig & {
   /** Chooses whether research is absent, declared as no-op, or requires a concrete agent. */
@@ -87,12 +87,12 @@ export type ServiceResearchCapabilityConfig = ResearchCapabilityConfig & {
 };
 
 /**
- * Service-owned capability control plane.
+ * Service-owned capability settings used to build the app graph.
  *
- * Source: env parsing or explicit composition options.
- * Target: manifest declarations, context-manager budgets, selected local ports,
- * and safe health diagnostics. Provider/runtime code consumes only the resolved
- * manifest and ports; it does not read service env directly.
+ * Env parsing and explicit composition options meet here before the service
+ * builds manifests, context-manager budgets, local ports, and health
+ * diagnostics. Provider and runtime code consume only resolved manifests and
+ * ports; they do not read service env directly.
  */
 export type ServiceCapabilityConfig = Omit<CapabilityConfig, "memory" | "rag" | "research"> & {
   readonly memory: ServiceMemoryCapabilityConfig;

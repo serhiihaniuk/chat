@@ -41,6 +41,7 @@ export const conversations = sidechat.table(
     conversationKey: text("conversation_key").notNull(),
     status: text("status").notNull().default("active"),
     createdByActorId: text("created_by_actor_id").notNull(),
+    historyCutoffSequenceIndex: integer("history_cutoff_sequence_index"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     lastMessageAt: timestamp("last_message_at", {

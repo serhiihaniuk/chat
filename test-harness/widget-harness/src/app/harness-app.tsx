@@ -22,9 +22,7 @@ export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarne
       ? createLocalServiceClient(config)
       : createMockStreamClient(config);
   const props: SideChatWidgetProps = {
-    assistantProfiles: [
-      { id: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID, label: "Default assistant" },
-    ],
+    assistantProfiles: [{ id: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID, label: "Default assistant" }],
     client,
     defaultAssistantProfileId: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID,
     defaultOpen: true,

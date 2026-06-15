@@ -25,6 +25,7 @@ describe("partner AI core Effect runtime layer", () => {
             workspaceId: "workspace-1",
             conversationId: "conversation-1",
             messageId: "message-1",
+            sequenceIndex: 0,
           }),
       },
       assistantTurns: {
@@ -53,6 +54,7 @@ describe("partner AI core Effect runtime layer", () => {
             contextId: "context-1",
             profile,
             policyDecision,
+            history: emptyHistoryManifest,
             researchArtifacts: [],
             candidates: [],
             runtimeMessages: [{ role: "user", content: "hello" }],
@@ -80,6 +82,7 @@ describe("partner AI core Effect runtime layer", () => {
                     included: true,
                   },
                 ],
+                history: emptyHistoryManifest,
                 budget: {
                   policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
                   selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,
@@ -161,6 +164,15 @@ const policyDecision = createTurnPolicyDecision({
   profile,
   manifestHash: hashHostCapabilityManifest(manifest),
 });
+
+const emptyHistoryManifest = {
+  policyMode: "disabled" as const,
+  consideredMessageCount: 0,
+  admittedMessageCount: 0,
+  droppedMessageCount: 0,
+  estimatedTokens: 0,
+  messages: [],
+};
 
 const manifestInput = {
   authContext: {

@@ -6,13 +6,14 @@ import type {
   PreparedTurnContext,
   TurnPolicyDecision,
 } from "#domain/capabilities";
-import type { ConversationRef } from "../lifecycle/conversation.js";
+import type { ConversationRef, MessageRef } from "../lifecycle/conversation.js";
 
 export type ContextManagerPort = {
   readonly prepareTurnContext: (input: {
     readonly authContext: AuthContext;
     readonly workspace: WorkspaceRef;
     readonly conversation: ConversationRef;
+    readonly currentUserMessage: MessageRef;
     readonly request: ChatStreamRequest;
     readonly manifest: HostCapabilityManifest;
     readonly policyDecision: TurnPolicyDecision;

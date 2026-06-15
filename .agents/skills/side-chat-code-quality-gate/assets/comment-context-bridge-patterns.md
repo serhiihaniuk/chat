@@ -1,6 +1,35 @@
 # Comment Context Bridge Patterns
 
 Use these when a comment must help a reader who does not know the whole Side Chat context.
+Use source, target, hidden detail, and invariant as drafting questions. Do not
+paste `Source:`, `Target:`, or `Invariant:` labels into code unless that labeled
+shape is clearer than prose in the local file.
+
+## Spine function
+
+```ts
+/**
+ * Prepare the runtime-side inputs needed before model streaming starts.
+ *
+ * Profile defaults, executor choice, provider/model selection, tool exposure,
+ * and final messages are resolved here. The provider stream is not opened until
+ * this returns, so selection failures stay pre-stream and never look like a
+ * partial model response.
+ */
+```
+
+Stage comments should name what the step makes true before the next step:
+
+```ts
+// Pick the instructions and usual defaults before applying request choices.
+const profile = resolveProfile(state.profiles, request.profileId);
+
+// Choose the execution engine before any provider stream can open.
+const executor = resolveAgentExecutor(state.executors, request);
+
+// Keep only the tools selected for this turn.
+const tools = selectRuntimeTools(state.tools, profile, request);
+```
 
 ## Boundary mapper
 
@@ -19,8 +48,35 @@ Concrete example:
 /**
  * Convert AI SDK `tool-error` stream parts into Side Chat's tool activity row.
  *
- * The thrown provider/tool value stays inside `agent-runtime`; downstream
- * packages only receive a failed activity and the stable `TOOL_FAILED` code.
+ * AI SDK parts may contain provider or tool exceptions. Those raw values stay
+ * inside `agent-runtime`; downstream packages receive only a failed activity,
+ * the stable `TOOL_FAILED` code, and safe metadata they can render or persist.
+ */
+```
+
+## Context privacy
+
+```ts
+/**
+ * Select prior conversation messages for the next assistant turn.
+ *
+ * The input is already authorized and model-safe; this function only decides
+ * which messages are admitted under the configured history policy. Disabled
+ * modes return no messages, admitted messages keep repository order, and the
+ * manifest records ids, order, token estimates, and drop reasons without
+ * copying message text.
+ */
+```
+
+## Diagnostics privacy
+
+```ts
+/**
+ * Report whether configured capabilities are safe for this service profile.
+ *
+ * Health output may expose capability names, ids, counts, and adapter status.
+ * It must not expose credentials, provider options, memory records, retrieved
+ * content, or raw tool/provider errors.
  */
 ```
 

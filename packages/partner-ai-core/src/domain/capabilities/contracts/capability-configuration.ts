@@ -50,12 +50,10 @@ export const CONTEXT_ADMISSION_POLICIES = {
 export type ContextAdmissionPolicy = ObjectValue<typeof CONTEXT_ADMISSION_POLICIES>;
 
 /**
- * Core contract for declaring model-visible memory behavior.
+ * Memory behavior that core may publish for a turn.
  *
- * Source: a host service or embedding app that prepares a capability manifest.
- * Target: memory policy declarations and context-preparation ports. The shape
- * names policy intent only; concrete stores such as Postgres remain service
- * adapter configuration outside partner-ai-core.
+ * This is policy intent only. It does not choose storage; service composition
+ * still supplies any concrete `MemoryPort`.
  */
 export type MemoryCapabilityConfig = {
   /** Controls whether the manifest policy is read-only or read/write. */
@@ -65,11 +63,10 @@ export type MemoryCapabilityConfig = {
 };
 
 /**
- * Core contract for retrieval source declarations.
+ * Searchable source ids that core may publish for retrieval.
  *
- * Source: a host service or embedding app that knows its searchable sources.
- * Target: retrieval source ids in `HostCapabilityManifest` and later RAG
- * context preparation. The ids are declarations, not retriever credentials.
+ * These ids let policy decide which sources a turn can use. They are not
+ * retriever credentials.
  */
 export type RagCapabilityConfig = {
   /** Stable source ids that turn policy may allow for model-context retrieval. */
@@ -79,11 +76,10 @@ export type RagCapabilityConfig = {
 };
 
 /**
- * Core contract for pre-answer research declarations.
+ * Pre-answer research behavior that core may publish for a turn.
  *
- * Source: a host service or embedding app that can run research before runtime.
- * Target: research-agent manifest declarations and later context preparation.
- * This does not select a concrete agent implementation.
+ * This declares whether research may participate in context preparation. It
+ * does not select a concrete agent implementation.
  */
 export type ResearchCapabilityConfig = {
   /** Failure behavior intended for the research phase once an agent runs. */
@@ -91,11 +87,11 @@ export type ResearchCapabilityConfig = {
 };
 
 /**
- * Core contract for conversation-history admission into model context.
+ * Conversation-history behavior for context preparation.
  *
- * Source: a host service that has access to conversation state.
- * Target: context preparation before runtime execution. Current services may
- * record this contract before implementing actual history retrieval.
+ * A service with conversation state uses this to decide whether prior messages
+ * can be considered before model execution. Future modes may be parsed before
+ * every mode has a concrete reader.
  */
 export type HistoryContextConfig = {
   /** Chooses whether prior messages are excluded or made available for admission. */
@@ -107,11 +103,10 @@ export type HistoryContextConfig = {
 };
 
 /**
- * Core contract for admitting gathered candidates into the context board.
+ * Budgets used when gathered candidates are admitted.
  *
- * Source: memory, RAG, research, history, tool, and host-context candidates.
- * Target: `ContextBudgetDecision` plus persisted context-manifest metadata.
- * Invariant: `reservedOutputTokens` must stay below `maxInputTokens`.
+ * Admission records these limits with the prepared turn. Services must keep
+ * `reservedOutputTokens` below `maxInputTokens`.
  */
 export type ContextAdmissionConfig = {
   /** Stable admission policy id recorded in the context manifest. */
@@ -131,12 +126,11 @@ export type ContextAdmissionConfig = {
 };
 
 /**
- * Portable capability configuration contract owned by partner-ai-core.
+ * Portable capability configuration owned by partner-ai-core.
  *
- * Source: host/service configuration after local parsing.
- * Target: capability manifests, context preparation, and turn policy. Services
- * may add adapter-selection fields around this shape, but those implementation
- * choices must not become part of the core contract.
+ * Host and service configuration flows into this shape after local parsing.
+ * Services may wrap it with deployment-specific fields, but those choices stay
+ * out of the core contract.
  */
 export type CapabilityConfig = {
   readonly memory: MemoryCapabilityConfig;

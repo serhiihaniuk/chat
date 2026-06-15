@@ -1,4 +1,5 @@
 export type * from "./capabilities/capability-ports.js";
+export type * from "./context/conversation-history-context.js";
 export type * from "./context/context-manager.js";
 export type * from "./context/memory-port.js";
 export type * from "./context/rag-retriever.js";

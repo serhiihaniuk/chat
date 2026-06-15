@@ -48,12 +48,10 @@ export const CAPABILITY_ENV_KEYS = {
 /**
  * Prepare the capability declarations that must be settled before composition.
  *
- * Source: `SIDECHAT_*` environment variables.
- * Target: `ServiceCapabilityConfig` for manifest declarations, context budgets,
- * health status, and port selection.
- * Invariant: this parser validates operator intent only. It never creates
- * memory, RAG, or research ports; composition remains the only place that can
- * choose a no-op port or require a concrete implementation.
+ * `SIDECHAT_*` environment variables become the service capability config used
+ * for manifest declarations, context budgets, health status, and port
+ * selection. This parser validates operator intent only; composition remains
+ * the place that chooses no-op ports or requires concrete implementations.
  */
 export const createCapabilityConfigFromEnv = (env: ServiceEnv): ServiceCapabilityConfig => {
   // Prove that any declared retrieval lane has source ids before a manifest can
@@ -89,8 +87,8 @@ export const createCapabilityConfigFromEnv = (env: ServiceEnv): ServiceCapabilit
     failureMode: readResearchFailureMode(envValue(env, CAPABILITY_ENV_KEYS.researchFailureMode)),
   };
 
-  // Record future history admission limits even though current context
-  // preparation still includes only the active user message.
+  // Declare history admission limits before composition chooses the
+  // repository-backed context reader for implemented modes.
   const history = {
     mode: readHistoryMode(envValue(env, CAPABILITY_ENV_KEYS.historyMode)),
     maxMessages: readPositiveInt(

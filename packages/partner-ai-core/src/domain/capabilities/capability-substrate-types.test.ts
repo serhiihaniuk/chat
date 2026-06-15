@@ -34,6 +34,14 @@ describe("capability substrate types", () => {
         profile: createAssistantProfile(),
         manifestHash: "sha256:manifest_001",
       }),
+      history: {
+        policyMode: HISTORY_CONTEXT_MODES.DISABLED,
+        consideredMessageCount: 0,
+        admittedMessageCount: 0,
+        droppedMessageCount: 0,
+        estimatedTokens: 0,
+        messages: [],
+      },
       researchArtifacts: [artifact],
       candidates: [
         {
@@ -73,6 +81,14 @@ describe("capability substrate types", () => {
               included: true,
             },
           ],
+          history: {
+            policyMode: HISTORY_CONTEXT_MODES.DISABLED,
+            consideredMessageCount: 0,
+            admittedMessageCount: 0,
+            droppedMessageCount: 0,
+            estimatedTokens: 0,
+            messages: [],
+          },
           budget: {
             policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
             selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,

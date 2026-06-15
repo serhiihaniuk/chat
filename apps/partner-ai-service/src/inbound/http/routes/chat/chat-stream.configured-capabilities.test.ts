@@ -6,7 +6,7 @@ import {
   type RuntimeContextBoard,
   type RuntimeEvent,
 } from "@side-chat/agent-runtime";
-import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import { SIDECHAT_PROTOCOL_VERSION, type ChatStreamRequest } from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import {
   CONTEXT_REDACTION_CLASSES,
@@ -42,7 +42,7 @@ const validRequest = {
     origin: "https://host.example",
     title: "Configured service test",
   },
-} as const;
+} satisfies ChatStreamRequest;
 
 describe("partner ai service configured capability app path", () => {
   it("sends prepared context to runtime without protocol or database DTOs", async () => {
@@ -102,6 +102,7 @@ const createConfiguredCapabilityHarness = (): ConfiguredCapabilityHarness => {
 
 const postConfiguredStreamRequest = async (
   app: ReturnType<typeof createPartnerAiServiceApp>,
+  request: ChatStreamRequest = validRequest,
 ): Promise<Response> =>
   app.request("/chat/stream", {
     method: "POST",
@@ -109,7 +110,7 @@ const postConfiguredStreamRequest = async (
       authorization: "Bearer local-test-token",
       "content-type": "application/json",
     },
-    body: JSON.stringify(validRequest),
+    body: JSON.stringify(request),
   });
 
 const assertRuntimeRequestBoundary = (runtimeRequest: AgentRuntimeRequest) => {
@@ -169,8 +170,13 @@ const assertConfiguredContextAdaptersRan = (harness: ConfiguredCapabilityHarness
 const assertPersistedContextSnapshot = (
   repositories: ReturnType<typeof createMemorySidechatRepositories>,
 ) => {
-  expect(repositories.snapshot().contextSnapshots[0]?.contextRedactedJson).toMatchObject({
-    runtimeMessages: [{ role: "user", content: "hello configured service" }],
+  const snapshotJson = repositories.snapshot().contextSnapshots[0]?.contextRedactedJson;
+  expect(snapshotJson).toMatchObject({
+    runtimeMessageSummary: {
+      messageCount: 1,
+      roles: ["user"],
+      admittedHistoryMessageIds: [],
+    },
     manifest: {
       budget: {
         policyId: "deterministic_v1",
@@ -208,6 +214,7 @@ const assertPersistedContextSnapshot = (
       ]),
     },
   });
+  expect(snapshotJson).not.toHaveProperty("runtimeMessages");
 };
 
 const assertConfiguredMemoryWritePath = (harness: ConfiguredCapabilityHarness) => {

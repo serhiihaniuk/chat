@@ -8,6 +8,7 @@ CREATE TABLE sidechat.conversations (
   status text NOT NULL DEFAULT 'active'
     CHECK (status IN ('active', 'archived', 'reset')),
   created_by_actor_id text NOT NULL,
+  history_cutoff_sequence_index integer,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   last_message_at timestamptz NOT NULL DEFAULT now(),

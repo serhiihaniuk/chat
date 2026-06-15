@@ -116,14 +116,14 @@ The widget and chat client must not rebuild model context from browser history.
 ## Tests
 
 ```txt
-[ ] second turn can use context from the first turn
-[ ] reset removes old turns from future model context
-[ ] history is scoped by workspace, subject, and conversation
-[ ] current user message is not duplicated
-[ ] max message count is enforced
-[ ] max token budget is enforced
-[ ] failed or aborted turns follow the chosen policy
-[ ] widget harness smoke proves a follow-up question can refer to the previous answer
+[x] second turn can use context from the first turn
+[x] reset removes old turns from future model context
+[x] history is scoped by workspace, subject, and conversation
+[x] current user message is not duplicated
+[x] max message count is enforced
+[x] max token budget is enforced
+[x] failed or aborted turns follow the chosen persisted-message policy
+[x] widget harness smoke proves a follow-up question can refer to the previous answer
 ```
 
 ## Deterministic Acceptance Scenario
@@ -145,8 +145,8 @@ After reset:
 ## Exit Criteria
 
 ```txt
-[ ] Follow-up turns receive prior conversation context according to policy.
-[ ] History inclusion is visible in prepared context or runtime request tests.
-[ ] Reset prevents old context from influencing future answers.
-[ ] History behavior is covered below browser level and by one widget smoke.
+[x] Follow-up turns receive prior conversation context according to policy.
+[x] History inclusion is visible in prepared context or runtime request tests.
+[x] Reset prevents old context from influencing future answers.
+[x] History behavior is covered below browser level and by one widget smoke.
 ```

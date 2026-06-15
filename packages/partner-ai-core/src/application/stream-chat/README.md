@@ -12,6 +12,7 @@ Not source of truth for: HTTP routing, runtime internals, or widget rendering.
 | `stream-chat.ts`                                   | Public `streamChatEffect` entrypoint.                                                                                    |
 | `turn/prepare-stream-chat-turn.ts`                 | Pre-start authority, policy, selected turn guards, conversation, user message, context, and runtime request preparation. |
 | `guards/run-turn-guards.ts`                        | Pre-context guard execution and guard failure mapping.                                                                   |
+| `history/admit-conversation-history-context.ts`    | Core-owned recent conversation history selector and content-safe history manifest creation.                              |
 | `memory/recall-allowed-memory-candidates.ts`       | Policy-scoped memory recall before runtime execution.                                                                    |
 | `memory/record-allowed-memory-write-candidates.ts` | Policy-scoped post-turn memory write candidate recording.                                                                |
 | `rag/retrieve-allowed-rag-candidates.ts`           | Policy-scoped RAG retrieval and retriever failure mapping before runtime execution.                                      |

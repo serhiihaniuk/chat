@@ -11,6 +11,7 @@ import {
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import { createPartnerAiServiceOptionsFromEnv } from "#config/service-config";
 import { createPartnerAiServiceApp } from "../../app.js";
 
@@ -47,7 +48,7 @@ describe("partner ai service capability diagnostics", () => {
         history: {
           capability: "history",
           state: "disabled",
-          adapterId: "current-message-only-history-context",
+          adapterId: "repository-conversation-history-context",
           safeForProduction: true,
         },
         contextAdmission: {
@@ -112,8 +113,8 @@ describe("partner ai service capability diagnostics", () => {
           safeForProduction: false,
         },
         history: {
-          state: "noop",
-          adapterId: "current-message-only-history-context",
+          state: "misconfigured",
+          adapterId: "missing-history-summary-generator",
           policyId: "recent_plus_summary",
           safeForProduction: false,
         },
@@ -185,6 +186,20 @@ describe("partner ai service capability diagnostics", () => {
         researchAgents: [researchAgentCapability],
       }),
     ).toThrow("Production profile requires concrete adapters for enabled capabilities: research.");
+
+    expect(() =>
+      createPartnerAiServiceApp({
+        auth: productionAuth,
+        persistence: productionPersistence,
+        capabilities: {
+          ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
+          history: {
+            ...DEFAULT_SERVICE_CAPABILITY_CONFIG.history,
+            mode: "recent_plus_summary",
+          },
+        },
+      }),
+    ).toThrow("Production profile requires concrete adapters for enabled capabilities: history.");
   });
 
   it("omits secrets and private adapter details from diagnostics", async () => {

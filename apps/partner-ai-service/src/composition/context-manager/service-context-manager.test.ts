@@ -5,11 +5,13 @@ import {
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
   resolveAssistantProfileFromManifest,
+  type ConversationHistoryContextPort,
   RESEARCH_CONTEXT_AGENT_ID,
   type MemoryPolicy,
   type MemoryPort,
   type MemoryRecallInput,
   type MemoryRecord,
+  type PreparedHistoryMessage,
   type RagContextCandidate,
   type RagRetrievalInput,
   type RagRetrieverPort,
@@ -62,6 +64,7 @@ describe("service context manager RAG", () => {
 
     const preparedContext = await Effect.runPromise(
       createServiceContextManager({
+        historyContext: createHistoryContext(),
         memory: createNoopMemoryPort(),
         ragRetriever,
         researchAgent: createNoopResearchAgent(),
@@ -103,6 +106,7 @@ describe("service context manager RAG", () => {
   it("does not call retrieval when the resolved policy disables RAG", async () => {
     const preparedContext = await Effect.runPromise(
       createServiceContextManager({
+        historyContext: createHistoryContext(),
         memory: createNoopMemoryPort(),
         ragRetriever: createNoopRagRetriever(),
         researchAgent: createNoopResearchAgent(),
@@ -119,6 +123,7 @@ describe("service context manager context admission", () => {
   it("records configured token budgets in the prepared context manifest", async () => {
     const preparedContext = await Effect.runPromise(
       createServiceContextManager({
+        historyContext: createHistoryContext(),
         memory: createNoopMemoryPort(),
         ragRetriever: createNoopRagRetriever(),
         researchAgent: createNoopResearchAgent(),
@@ -164,6 +169,7 @@ describe("service context manager memory", () => {
 
     const preparedContext = await Effect.runPromise(
       createServiceContextManager({
+        historyContext: createHistoryContext(),
         memory,
         ragRetriever: createNoopRagRetriever(),
         researchAgent: createNoopResearchAgent(),
@@ -208,6 +214,7 @@ describe("service context manager research", () => {
 
     const preparedContext = await Effect.runPromise(
       createServiceContextManager({
+        historyContext: createHistoryContext(),
         memory: createNoopMemoryPort(),
         ragRetriever: createNoopRagRetriever(),
         researchAgent,
@@ -269,6 +276,7 @@ describe("service context manager research", () => {
 
     const noSources = await Effect.runPromise(
       createServiceContextManager({
+        historyContext: createHistoryContext(),
         memory: createNoopMemoryPort(),
         ragRetriever: createNoopRagRetriever(),
         researchAgent,
@@ -281,6 +289,7 @@ describe("service context manager research", () => {
     );
     const noResearchAgent = await Effect.runPromise(
       createServiceContextManager({
+        historyContext: createHistoryContext(),
         memory: createNoopMemoryPort(),
         ragRetriever: createNoopRagRetriever(),
         researchAgent,
@@ -327,6 +336,13 @@ const createContextInput = ({
       workspaceId: "workspace_local",
       conversationId: "conversation_context_001",
     },
+    currentUserMessage: {
+      tenantId: "tenant_local",
+      workspaceId: "workspace_local",
+      conversationId: "conversation_context_001",
+      messageId: "message_record_context_001",
+      sequenceIndex: 2,
+    },
     request,
     manifest,
     policyDecision: createTurnPolicyDecision({
@@ -343,6 +359,17 @@ const docsSource: RetrievalSourceCapability = {
   description: "Product documentation.",
   trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
 };
+
+const createHistoryContext = (
+  calls: Parameters<ConversationHistoryContextPort["readConversationHistory"]>[0][] = [],
+  messages: readonly PreparedHistoryMessage[] = [],
+): ConversationHistoryContextPort => ({
+  readConversationHistory: (input) =>
+    Effect.sync(() => {
+      calls.push(input);
+      return messages;
+    }),
+});
 
 const createRagCandidate = (): RagContextCandidate => ({
   candidateId: "rag_docs_1",

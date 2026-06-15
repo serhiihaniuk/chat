@@ -22,12 +22,19 @@ Do not use this skill for general README writing, user-facing docs, changelogs, 
 ## AI-critical rules
 
 1. Never invent intent. Derive rationale from code, tests, surrounding comments, names, tickets in context, or explicit user instruction. If intent is missing, document only observable contract or ask.
-2. Prefer better code over comments that compensate for confusing names or structure. If a rename or extraction is safer and in scope, do that instead of explaining bad code.
+2. Refactor confusing names or structure instead of adding comments that
+   compensate for bad code. If a rename or extraction is safer and in scope, do
+   that instead of explaining bad code.
 3. Add comments only when they say something useful that code, names, types, and tests do not already make obvious.
 4. Treat stale comments as defects. Update or delete comments that contradict code.
 5. Keep comments near the abstraction or decision they describe. Do not bury durable design knowledge in the final response only.
 6. Preserve the repository’s comment style and language conventions.
-7. Do not mention the book, this skill, or “philosophy” inside code comments.
+7. Treat checklist labels as drafting aids, not final comment prose. If you use words
+   such as source, target, invariant, privacy, or non-guarantee while planning,
+   translate them into a comment a maintainer would naturally read. Use literal
+   labels only when the local style already uses them and labels are clearer
+   than prose.
+8. Do not mention the book, this skill, or “philosophy” inside code comments.
 
 ## Decision algorithm
 
@@ -42,7 +49,7 @@ For each candidate location:
    - Reader needs this to use or safely change the code: yes/no.
    - The information is not obvious from code/types/names/tests: yes/no.
    - The statement is stable enough to survive local implementation changes: yes/no.
-   - Add or keep the comment only when the first two are yes and the third is usually yes.
+   - Add or keep the comment only when the first two answers are yes and the third is also true.
 
 3. Choose the smallest safe action.
    - Keep: accurate and useful.
@@ -55,7 +62,11 @@ For each candidate location:
    - Start with meaning, contract, or reason; avoid narrating syntax.
    - Include exact units, ranges, ordering, ownership, lifecycle, side effects, errors, non-guarantees, or invariants when relevant.
    - Use one short paragraph for most inline comments.
+   - When the comment carries a boundary, lifecycle, privacy, failure, or
+     ordering rule, write enough prose to state the useful facts. Do not
+     compress that knowledge into a vague one-liner.
    - For public interfaces, state what callers may assume and what they must not assume.
+   - Do not paste template labels into code when a sentence would be easier to read.
 
 5. Validate before finalizing.
    - Compare each claim against code and tests.
@@ -64,7 +75,7 @@ For each candidate location:
 
 ## Interface comment contract
 
-For public APIs and shared abstractions, prefer this information order:
+For public APIs and shared abstractions, use this information order:
 
 1. What abstraction the symbol represents or provides.
 2. Caller-visible inputs, outputs, side effects, errors, or lifecycle rules.
@@ -106,6 +117,31 @@ Implementation rationale:
 ```ts
 // Keep the original index as the final tie-breaker. Equal-score items must keep
 // stable ordering so consumers do not remount rows between renders.
+```
+
+Lifecycle boundary:
+
+```ts
+/**
+ * Prepare the runtime-side inputs needed before model streaming starts.
+ *
+ * Profile defaults, executor choice, provider/model selection, tool exposure,
+ * and final messages are resolved here. The provider stream is not opened until
+ * this returns, so selection failures stay pre-stream and never look like a
+ * partial model response.
+ */
+```
+
+Boundary with hidden detail:
+
+```ts
+/**
+ * Convert provider tool errors into a public activity failure.
+ *
+ * Provider and tool exceptions may contain implementation details. Those raw
+ * values stay inside the runtime boundary; downstream code receives only the
+ * stable failure code and safe activity metadata.
+ */
 ```
 
 Invariant:

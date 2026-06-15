@@ -198,20 +198,31 @@ export const createHistoryStatus = (config: HistoryContextConfig): CapabilitySta
     return {
       capability: "history",
       state: CAPABILITY_STATES.DISABLED,
-      adapterId: "current-message-only-history-context",
+      adapterId: "repository-conversation-history-context",
       policyId: config.mode,
-      reason: "prior conversation history is not admitted into runtime context yet",
+      reason: "history context is disabled for the active service configuration",
       safeForProduction: true,
+    };
+  }
+
+  if (config.mode === HISTORY_CONTEXT_MODES.RECENT_PLUS_SUMMARY) {
+    return {
+      capability: "history",
+      state: CAPABILITY_STATES.MISCONFIGURED,
+      adapterId: "missing-history-summary-generator",
+      policyId: config.mode,
+      reason:
+        "recent_plus_summary requires history summarization, which is not implemented yet; use recent_messages for current history context",
+      safeForProduction: false,
     };
   }
 
   return {
     capability: "history",
-    state: CAPABILITY_STATES.NOOP,
-    adapterId: "current-message-only-history-context",
+    state: CAPABILITY_STATES.CONFIGURED,
+    adapterId: "repository-conversation-history-context",
     policyId: config.mode,
-    reason: `history mode ${config.mode} is configured, but history context admission is implemented in a later phase`,
-    safeForProduction: false,
+    safeForProduction: true,
   };
 };
 

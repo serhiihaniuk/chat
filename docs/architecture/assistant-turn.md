@@ -25,28 +25,29 @@ one prepared turn.
 
 ## Turn Lifecycle
 
-| Order | Stage                                                                                                                       | Owner                      | Failure behavior                                                             |
-| ----: | --------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------- |
-|     1 | Validate HTTP method, auth, and request body.                                                                               | service route              | HTTP/request error                                                           |
-|     2 | Prove workspace/project authority.                                                                                          | core                       | Pre-start rejection                                                          |
-|     3 | Record request received.                                                                                                    | core observability         | Pre-start rejection                                                          |
-|     4 | Load and validate host capability manifest.                                                                                 | core through port          | Pre-start rejection                                                          |
-|     5 | Resolve profile, model, tools, executor id, instructions, commands, RAG, memory, research, and approval policy.             | core policy                | Pre-start rejection                                                          |
-|     6 | Run profile-selected turn guards before private context, persistence, or runtime tools.                                     | core guard port            | Pre-start rejection                                                          |
-|     7 | Ensure authorized conversation and append the user message.                                                                 | core repository port       | Pre-start rejection                                                          |
-|     8 | Start the assistant turn record.                                                                                            | core lifecycle port        | Pre-start rejection, with failed turn recording after this point             |
-|     9 | Prepare context: host context, memory recall, allowed RAG, allowed research, tool context, artifacts, and context manifest. | core context ports         | Pre-start rejection, with failed turn recording                              |
-|    10 | Record stream started and emit `sidechat.started`.                                                                          | core/protocol              | Streaming has begun                                                          |
-|    11 | Execute selected AgentExecutor through runtime.                                                                             | runtime                    | Post-start terminal `sidechat.error`                                         |
-|    12 | Map RuntimeEvents to SidechatStreamEvents.                                                                                  | core protocol mapper       | Post-start terminal `sidechat.error`                                         |
-|    13 | Finalize terminal state, persist outcome, and record allowed memory write candidates.                                       | core protocol finalization | `sidechat.completed` or `sidechat.error`; memory write failures are observed |
+| Order | Stage                                                                                                                                                  | Owner                      | Failure behavior                                                             |
+| ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ---------------------------------------------------------------------------- |
+|     1 | Validate HTTP method, auth, and request body.                                                                                                          | service route              | HTTP/request error                                                           |
+|     2 | Prove workspace/project authority.                                                                                                                     | core                       | Pre-start rejection                                                          |
+|     3 | Record request received.                                                                                                                               | core observability         | Pre-start rejection                                                          |
+|     4 | Load and validate host capability manifest.                                                                                                            | core through port          | Pre-start rejection                                                          |
+|     5 | Resolve profile, model, tools, executor id, instructions, commands, RAG, memory, research, and approval policy.                                        | core policy                | Pre-start rejection                                                          |
+|     6 | Run profile-selected turn guards before private context, persistence, or runtime tools.                                                                | core guard port            | Pre-start rejection                                                          |
+|     7 | Ensure authorized conversation and append the user message.                                                                                            | core repository port       | Pre-start rejection                                                          |
+|     8 | Start the assistant turn record.                                                                                                                       | core lifecycle port        | Pre-start rejection, with failed turn recording after this point             |
+|     9 | Prepare context: same-conversation history, host context, memory recall, allowed RAG, allowed research, tool context, artifacts, and context manifest. | core context ports         | Pre-start rejection, with failed turn recording                              |
+|    10 | Record stream started and emit `sidechat.started`.                                                                                                     | core/protocol              | Streaming has begun                                                          |
+|    11 | Execute selected AgentExecutor through runtime.                                                                                                        | runtime                    | Post-start terminal `sidechat.error`                                         |
+|    12 | Map RuntimeEvents to SidechatStreamEvents.                                                                                                             | core protocol mapper       | Post-start terminal `sidechat.error`                                         |
+|    13 | Finalize terminal state, persist outcome, and record allowed memory write candidates.                                                                  | core protocol finalization | `sidechat.completed` or `sidechat.error`; memory write failures are observed |
 
 ## Extension Timing
 
 - Turn guards run after policy selection and before conversation persistence,
   context gathering, RAG, memory, research, or runtime tools.
-- Memory recall, RAG retrieval, and research are context-preparation work. They
-  happen before `sidechat.started` and use policy-allowed scopes/source ids.
+- Conversation history, memory recall, RAG retrieval, and research are
+  context-preparation work. They happen before `sidechat.started` and use
+  policy-allowed conversations, scopes, or source ids.
 - Runtime executor selection is part of the turn policy decision. The model does
   not choose an executor.
 - Runtime tools are exposed only after policy allows their names and runtime can

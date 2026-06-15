@@ -21,12 +21,18 @@ Flag comments that:
 - say “convert”, “map”, “handle”, “process”, “stable”, “typed”, “adapter boundary”, “runtime contract”, or “provider-ready” without naming concrete source and target entities;
 - assume the reader already knows architecture docs;
 - explain many details but omit the local invariant;
+- dump `Source:`, `Target:`, and `Invariant:` labels when ordinary prose would
+  be easier to read;
 - become a substitute for simpler names or less nesting;
 - invent intent not visible in code, tests, docs, or user instruction.
 
 ## Context bridge pattern
 
-Prefer this shape:
+Use this shape as prose. Use source, target, hidden detail, and invariant as
+drafting questions, not as labels to paste into the comment.
+Boundary-heavy Side Chat comments must not be terse one-liners. Write two to
+five informative lines that name the local role first, then the lifecycle,
+privacy, failure, ordering, or non-guarantee that future edits must preserve.
 
 ```ts
 /**
@@ -37,14 +43,26 @@ Prefer this shape:
  */
 ```
 
+Avoid this worksheet shape unless the surrounding file already uses compact
+contract labels and the labels are clearer than sentences:
+
+```ts
+/**
+ * Source: <source representation>.
+ * Target: <target representation>.
+ * Invariant: <rule>.
+ */
+```
+
 Example:
 
 ```ts
 /**
  * Convert AI SDK `tool-error` stream parts into Side Chat's tool activity row.
  *
- * The thrown provider/tool value stays inside `agent-runtime`; downstream
- * packages only receive a failed activity and the stable `TOOL_FAILED` code.
+ * AI SDK parts may contain provider or tool exceptions. Those raw values stay
+ * inside `agent-runtime`; downstream packages receive only a failed activity,
+ * the stable `TOOL_FAILED` code, and safe metadata they can render or persist.
  */
 ```
 
@@ -104,23 +122,35 @@ export const prepareThing = (...) =>
 
 Every stage comment should use a strong verb such as prove, record, publish, select, hide, prepare, finalize, or fail. Avoid comments that merely say "build", "map", "handle", or "process".
 
-## Type contract comment shape
+## Type contract comment checklist
 
-Use this for exported types that carry domain meaning:
+Use this for exported types that carry domain meaning. Answer these questions
+while drafting:
+
+- Where do values come from?
+- Who consumes the shape?
+- What rule must future edits preserve?
+- What must callers not assume?
+
+Write prose:
 
 ```ts
 /**
- * <Local role of this shape.>
+ * Secret-safe status for one optional service capability.
  *
- * Source: <where values come from>.
- * Target: <who consumes this shape>.
- * Invariant: <rule future edits must preserve>.
- * Non-guarantee: <what callers must not assume>, when relevant.
+ * Health endpoints may expose capability names, ids, counts, and adapter
+ * presence. They must not expose credentials, provider options, retrieved
+ * content, memory records, or raw tool/provider errors, because this shape is
+ * safe for readiness probes and operator diagnostics.
  */
-export type Example = {
-  /** <Units, lifecycle, visibility, or side effect if not obvious from the name.> */
-  readonly value: number;
+export type CapabilityStatus = {
+  readonly capability: string;
+  readonly state: CapabilityState;
 };
 ```
 
-Do not let compact AI-friendly phrases stand alone. If a comment says "control plane", "adapter boundary", "runtime contract", "typed config", or "validates intent", it must also name concrete source and target entities plus the invariant.
+Do not use literal `Source:`, `Target:`, `Invariant:`, or `Non-guarantee:`
+labels unless a dense exported record is easier to scan that way. Do not let
+compact AI-friendly phrases stand alone. If a comment says "control plane",
+"adapter boundary", "runtime contract", "typed config", or "validates intent",
+it must also name concrete source and target entities plus the invariant.

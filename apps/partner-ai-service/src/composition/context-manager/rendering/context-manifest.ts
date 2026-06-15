@@ -2,6 +2,7 @@ import {
   hashCanonicalJson,
   type AssistantProfile,
   type ContextManifest,
+  type HistoryContextManifest,
   type PreparedContextSection,
   type ResearchArtifact,
   type TurnPolicyDecision,
@@ -15,6 +16,7 @@ export const createPreparedContextManifest = ({
   sections,
   researchArtifacts,
   admission,
+  history,
   createdAt,
 }: {
   readonly requestId: string;
@@ -23,12 +25,14 @@ export const createPreparedContextManifest = ({
   readonly sections: readonly PreparedContextSection[];
   readonly researchArtifacts: readonly ResearchArtifact[];
   readonly admission: ContextAdmission;
+  readonly history: HistoryContextManifest;
   readonly createdAt: string;
 }): ContextManifest => ({
   manifestId: `context_manifest_${requestId}`,
   manifestHash: hashCanonicalJson({
     sections,
     entries: admission.entries,
+    history,
     profileId: profile.profileId,
     policyDecision,
     researchArtifacts,
@@ -36,6 +40,7 @@ export const createPreparedContextManifest = ({
   profileId: profile.profileId,
   profileVersion: profile.version,
   entries: admission.entries,
+  history,
   budget: admission.budget,
   createdAt,
 });

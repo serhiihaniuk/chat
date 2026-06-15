@@ -23,6 +23,7 @@ export type ConversationRecord = TenantScopedRecord &
     readonly conversationKey: string;
     readonly status: ConversationStatus;
     readonly createdByActorId: string;
+    readonly historyCutoffSequenceIndex?: number;
     readonly lastMessageAt: string;
   };
 

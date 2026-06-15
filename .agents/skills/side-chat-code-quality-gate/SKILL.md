@@ -80,17 +80,17 @@ If dependencies are not installed or the shell is not on Node `24.16.0` and npm 
 
 ## AI-critical behavior rules
 
-1. Prefer boring code. Reject clever one-liners, nested combinator chains, compressed ternaries, or type tricks when named steps would be easier to read.
+1. Write boring code. Reject clever one-liners, nested combinator chains, compressed ternaries, or type tricks when named steps would be easier to read.
 2. Treat complexity metrics as a smoke alarm, not the final diagnosis. Inspect the code path and tests before refactoring.
 3. Keep one abstraction level per function. Do not mix policy choice, provider adaptation, protocol mapping, UI rendering, persistence, and error conversion in one block.
 4. Keep package vocabulary local. When code uses terms like runtime, provider, adapter, protocol, activity, context board, RuntimeTool, ToolLoopAgent, Effect, Stream, or sidechat.v1, the local file must show what role the term plays here.
-5. Prefer code structure over comments. First try naming, extraction, typed domain objects, guard clauses, and smaller orchestration steps. Add comments only when code still cannot carry the design knowledge.
+5. Use code structure before comments. First try naming, extraction, typed domain objects, guard clauses, and smaller orchestration steps. Add comments only when code still cannot carry the design knowledge.
 6. Comments are part of the quality gate. A comment fails if it is accurate only for someone who already knows the whole system. A missing comment is also a gate failure when changed code introduces a complex exported type, config/status/control-plane shape, boundary mapper, adapter selector, protocol/context/runtime transformation, or spine function.
-7. "Prefer structure over comments" does not waive comment coverage for exported contracts or boundary-heavy code. Good names reduce mechanical comments; they do not replace source/target/invariant documentation when the code coordinates lifecycle, privacy, ports, policy, or model-visible behavior.
+7. "Structure before comments" does not waive comment coverage for exported contracts or boundary-heavy code. Good names reduce mechanical comments; they do not replace the need to explain source, target, hidden detail, invariant, and non-guarantee when code coordinates lifecycle, privacy, ports, policy, or model-visible behavior. Treat those words as review questions, not labels to paste into comments.
 8. Do not over-comment. A useful comment should bridge missing context, state a contract, explain a non-obvious invariant, or warn about a boundary. Delete comments that merely narrate syntax.
 9. Preserve behavior and public contracts unless the user explicitly asks for behavior change.
 10. Treat docs as part of behavior for maintainers. When code changes domain terms, lifecycle order, package ownership, verification behavior, or boundary meaning, update canonical docs in the same patch.
-11. Prefer final-state rewrite over compatibility preservation for unshipped internal shapes.
+11. Use final-state rewrite instead of compatibility preservation for unshipped internal shapes.
 12. Patch only high-confidence, scoped issues. Report uncertain design findings separately.
 13. Do not mention this skill inside code comments.
 
@@ -144,7 +144,7 @@ Treat repo thresholds as hard maximums, not targets:
 - New or heavily changed functions should normally stay around cognitive complexity `8` or below.
 - Functions between `9` and `12` need a clear reason: cohesive domain decision, already-tested algorithm, or unavoidable adapter mapping.
 - Do not introduce new code above the repo hard limit of `12`.
-- Prefer 2-4 named steps over one expression that requires simulating nested `Effect`, `Stream`, object spread, and callback behavior in your head.
+- Use 2-4 named steps instead of one expression that requires simulating nested `Effect`, `Stream`, object spread, and callback behavior in your head.
 - If a comment is needed only so the reader can parse the expression, refactor the expression first.
 - When an abstraction makes code shorter but increases concept count, reject it unless it also reduces future change cost.
 
@@ -177,7 +177,7 @@ Flag code when:
 - A comment names `Effect`, `Stream`, `ToolLoopAgent`, `runtime`, `provider`, `adapter`, or `protocol` without saying what role it plays in this boundary.
 - Typed failures, defects, provider errors, tool errors, and protocol errors are mixed without naming where conversion happens.
 
-Prefer:
+Use:
 
 - named preparation step;
 - named adapter invocation step;
@@ -222,6 +222,16 @@ A comment should answer one of these questions:
 - What information is intentionally hidden or normalized?
 - What simpler-looking change would break architecture, privacy, streaming order, or typed errors?
 
+Use the answers as drafting notes. The final code comment must read like a
+human maintainer wrote it for another maintainer. Do not emit `Source:`,
+`Target:`, or `Invariant:` labels as the standard form. Do not use labeled
+blocks unless they are clearer than prose for a dense exported type contract.
+
+Boundary-heavy Side Chat comments must not be cryptic one-liners. Write two to
+five informative lines: local role first, then the lifecycle boundary, hidden
+detail, privacy rule, failure rule, ordering rule, or non-guarantee that future
+edits must preserve.
+
 A comment fails when it:
 
 - repeats code, type names, or function names;
@@ -231,7 +241,7 @@ A comment fails when it:
 - explains a private implementation detail while omitting caller-visible contract;
 - compensates for code that should be renamed or split.
 
-Prefer this comment pattern for boundary-heavy code:
+Use this comment pattern for boundary-heavy code:
 
 ```ts
 /**
@@ -239,6 +249,102 @@ Prefer this comment pattern for boundary-heavy code:
  *
  * At this boundary, <source representation> becomes <target representation>.
  * <What is preserved, hidden, normalized, or intentionally not guaranteed.>
+ */
+```
+
+Use this pattern as prose. Do not turn it into a worksheet:
+
+```ts
+/**
+ * Source: <source representation>.
+ * Target: <target representation>.
+ * Invariant: <rule>.
+ */
+```
+
+Do not use that labeled form unless the surrounding file already uses compact
+contract labels and the labels are easier to scan than a sentence.
+
+## Good AI Comment Examples
+
+Use these as examples for AI-generated comments in Side Chat. They are concrete,
+short, and readable without the implementation plan.
+
+Spine function:
+
+```ts
+/**
+ * Prepare the runtime-side inputs needed before model streaming starts.
+ *
+ * Profile defaults, executor choice, provider/model selection, tool exposure,
+ * and final messages are resolved here. The provider stream is not opened until
+ * this returns, so selection failures stay pre-stream and never look like a
+ * partial model response.
+ */
+export const prepareRuntimeTurn = (
+  state: RuntimeState,
+  request: AgentRuntimeRequest,
+): PreparedRuntimeTurn => {
+  // Pick the instructions and usual defaults before applying request choices.
+  const profile = resolveProfile(state.profiles, request.profileId);
+
+  // Choose the execution engine before any provider stream can open.
+  const executor = resolveAgentExecutor(state.executors, request);
+
+  // Make sure the selected provider/model pair is registered.
+  const selection = resolveProviderSelection(request, profile, state.providers.providers);
+  const provider = resolveProvider(state.providers, selection);
+
+  // Keep only the tools selected for this turn.
+  const tools = selectRuntimeTools(state.tools, profile, request);
+
+  // Build the final model messages after instructions, context, and tools are fixed.
+  const messages = renderRuntimeMessages(profile, request);
+
+  return {
+    executor,
+    provider,
+    selection,
+    providerRequest: createProviderRequest(request, selection, tools, messages),
+  };
+};
+```
+
+History/context privacy:
+
+```ts
+/**
+ * Select prior conversation messages for the next assistant turn.
+ *
+ * The input is already authorized and model-safe; this function only decides
+ * which messages are admitted under the configured history policy. Disabled
+ * modes return no messages, admitted messages keep repository order, and the
+ * manifest records ids, order, token estimates, and drop reasons without
+ * copying message text.
+ */
+```
+
+AI SDK boundary:
+
+```ts
+/**
+ * Convert AI SDK `tool-error` stream parts into Side Chat's tool activity row.
+ *
+ * AI SDK parts may contain provider or tool exceptions. Those raw values stay
+ * inside `agent-runtime`; downstream packages receive only a failed activity,
+ * the stable `TOOL_FAILED` code, and safe metadata they can render or persist.
+ */
+```
+
+Health/diagnostics privacy:
+
+```ts
+/**
+ * Report whether configured capabilities are safe for this service profile.
+ *
+ * Health output may expose capability names, ids, counts, and adapter status.
+ * It must not expose credentials, provider options, memory records, retrieved
+ * content, or raw tool/provider errors.
  */
 ```
 
@@ -250,13 +356,13 @@ Missing-comment findings are `comment-quality` findings. Treat them as blockers 
 
 Required coverage triggers:
 
-- Exported complex types, option objects, config objects, status objects, manifest shapes, protocol shapes, and context-board shapes need contract comments. State the local role plus source, target, invariant, and important non-guarantees. Document fields when the name does not reveal units, lifecycle, privacy, or failure semantics.
+- Exported complex types, option objects, config objects, status objects, manifest shapes, protocol shapes, and context-board shapes need contract comments. Cover the local role, source, target, invariant, and important non-guarantees in prose. Use labeled blocks only when a dense exported type contract is genuinely easier to scan that way. Document fields when the name does not reveal units, lifecycle, privacy, or failure semantics.
 - Spine functions that coordinate several lifecycle steps need a top-level contract and step comments. Each step comment should say what the step proves, records, publishes, selects, hides, prepares, or fails before the next step can run.
 - Boundary mappers and adapter selectors need source representation, target contract, hidden detail, and invariant comments. Examples include env-to-config, config-to-manifest, manifest-to-status, provider-to-runtime, runtime-to-protocol, DB-to-domain, and context-candidate-to-context-board conversions.
 - Diagnostics and health/status surfaces need comments that name what may be exposed and what must stay hidden, especially credentials, provider options, memory records, retrieved content, and raw tool/provider errors.
 - Config parsers need comments separating declaration validation from concrete resource selection. For example, env parsing may declare intent, but composition chooses ports and enforces concrete adapter requirements.
 
-Human-readable means concrete. Reject comments that say only "control plane", "adapter boundary", "runtime contract", "typed config", or "validates intent" unless the same comment names the source entity, target entity, invariant, and what does not happen at that boundary.
+Human-readable means concrete. Reject comments that say only "control plane", "adapter boundary", "runtime contract", "typed config", or "validates intent" unless the same comment names the source entity, target entity, invariant, and what does not happen at that boundary. Also reject comments that are only a labeled checklist when a short paragraph would be easier to read.
 
 Use this checklist on the changed files:
 
@@ -364,7 +470,7 @@ When editing files:
 1. State the intended safe transformation before broad edits.
 2. Make the smallest coherent diff.
 3. Keep behavior and public exports stable unless asked otherwise.
-4. Prefer names/extraction over explanatory comments.
+4. Use names/extraction before explanatory comments.
 5. Run the mandatory comment coverage gate on changed exported types, spine functions, boundary mappers, config parsers, adapter selectors, and diagnostics.
 6. Add comments only for local context bridges, contracts, invariants, non-guarantees, or boundary rationale.
 7. Run the narrowest relevant checks possible.

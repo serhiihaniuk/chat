@@ -1,8 +1,18 @@
-import type { PreparedRuntimeMessage } from "@side-chat/partner-ai-core";
+import type { PreparedHistoryMessage, PreparedRuntimeMessage } from "@side-chat/partner-ai-core";
 import type { PrepareTurnContextInput } from "../service-context-manager-types.js";
 
-// Only the user's current message is rendered as a runtime message. Memory,
-// RAG, research, and host context travel through the prepared context board.
+// Conversation history and the current user message are rendered as runtime
+// messages. Memory, RAG, research, and host context travel through the prepared
+// context board instead of being rendered as chat-turn messages.
 export const createRuntimeMessages = (
   input: PrepareTurnContextInput,
-): readonly PreparedRuntimeMessage[] => [{ role: "user", content: input.request.message.content }];
+  historyMessages: readonly PreparedHistoryMessage[],
+): readonly PreparedRuntimeMessage[] => [
+  ...historyMessages.map(toRuntimeMessage),
+  { role: "user", content: input.request.message.content },
+];
+
+const toRuntimeMessage = (message: PreparedHistoryMessage): PreparedRuntimeMessage => ({
+  role: message.role,
+  content: message.content,
+});

@@ -75,7 +75,7 @@ const createOrGetMemoryConversation =
 
     const conversation: ConversationRecord = {
       workspaceId: command.workspaceId,
-      conversationId: ids.next("conversation"),
+      conversationId: command.conversationId ?? ids.next("conversation"),
       subjectId: command.subjectId,
       conversationKey: command.conversationKey,
       status: "active",
@@ -125,6 +125,7 @@ const appendMemoryMessage =
     store.messages.push(message);
     replaceConversation(store, {
       ...conversation,
+      status: "active",
       updatedAt: command.now,
       lastMessageAt: command.now,
     });
@@ -146,6 +147,8 @@ const readMemoryConversationHistory =
         (message) =>
           message.workspaceId === command.workspaceId &&
           message.conversationId === command.conversationId &&
+          (command.afterSequenceIndex === undefined ||
+            message.sequenceIndex > command.afterSequenceIndex) &&
           (command.beforeSequenceIndex === undefined ||
             message.sequenceIndex < command.beforeSequenceIndex),
       )
@@ -166,8 +169,24 @@ const resetMemoryConversation =
     const reset = {
       ...conversation,
       status: "reset" as const,
+      ...nextHistoryCutoff(store, command.workspaceId, command.conversationId),
       updatedAt: command.now,
     };
     replaceConversation(store, reset);
     return reset;
   };
+
+const nextHistoryCutoff = (
+  store: MemoryStore,
+  workspaceId: string,
+  conversationId: string,
+): Pick<ConversationRecord, "historyCutoffSequenceIndex"> | Record<string, never> => {
+  const sequenceIndexes = store.messages
+    .filter(
+      (message) => message.workspaceId === workspaceId && message.conversationId === conversationId,
+    )
+    .map((message) => message.sequenceIndex);
+  if (sequenceIndexes.length === 0) return {};
+
+  return { historyCutoffSequenceIndex: Math.max(...sequenceIndexes) };
+};

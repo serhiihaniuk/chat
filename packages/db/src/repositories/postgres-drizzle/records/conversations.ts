@@ -23,7 +23,7 @@ export const createPostgresDrizzleConversationRepository = ({
     const inserted = await db
       .insert(conversations)
       .values({
-        conversationId: ids.next("conversation"),
+        conversationId: command.conversationId ?? ids.next("conversation"),
         workspaceId: command.workspaceId,
         subjectId: command.subjectId,
         conversationKey: command.conversationKey,
@@ -114,7 +114,7 @@ export const createPostgresDrizzleConversationRepository = ({
       if (!message) return undefined;
       await transaction
         .update(conversations)
-        .set({ updatedAt: command.now, lastMessageAt: command.now })
+        .set({ status: "active", updatedAt: command.now, lastMessageAt: command.now })
         .where(
           and(
             eq(conversations.workspaceId, command.workspaceId),
@@ -157,7 +157,12 @@ export const createPostgresDrizzleConversationRepository = ({
       .select()
       .from(messages)
       .where(
-        buildHistoryWhere(command.workspaceId, command.conversationId, command.beforeSequenceIndex),
+        buildHistoryWhere(
+          command.workspaceId,
+          command.conversationId,
+          command.afterSequenceIndex,
+          command.beforeSequenceIndex,
+        ),
       )
       .orderBy(desc(messages.sequenceIndex))
       .limit(command.limit);
@@ -170,9 +175,19 @@ export const createPostgresDrizzleConversationRepository = ({
       command.subjectId,
       command.conversationId,
     );
+    const [lastMessage] = await db
+      .select({ sequenceIndex: messages.sequenceIndex })
+      .from(messages)
+      .where(buildHistoryWhere(command.workspaceId, command.conversationId, undefined, undefined))
+      .orderBy(desc(messages.sequenceIndex))
+      .limit(1);
     const rows = await db
       .update(conversations)
-      .set({ status: "reset", updatedAt: command.now })
+      .set({
+        status: "reset",
+        historyCutoffSequenceIndex: lastMessage?.sequenceIndex ?? null,
+        updatedAt: command.now,
+      })
       .where(
         and(
           eq(conversations.workspaceId, command.workspaceId),

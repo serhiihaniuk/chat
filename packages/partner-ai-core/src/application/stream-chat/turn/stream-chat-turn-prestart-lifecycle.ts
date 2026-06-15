@@ -172,6 +172,7 @@ export const prepareAndRecordTurnContext = (
           authContext: contextInput.authContext,
           workspace: input.workspace,
           conversation: contextInput.conversation,
+          currentUserMessage: contextInput.userMessage,
           request: input.request,
           manifest: contextInput.turnPlan.manifest,
           policyDecision: contextInput.turnPlan.policyDecision,

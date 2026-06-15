@@ -8,6 +8,7 @@ import type { SidechatRepositories } from "@side-chat/db";
 import {
   appendMessage,
   appendTurnAuditEvent,
+  conversationHistoryCutoffField,
   recordContextSnapshot,
   recordUsage,
 } from "./service-persistence-recorders.js";
@@ -45,21 +46,32 @@ const createEnsureConversationEffect =
   ({ authContext, requestedConversationId, fallbackConversationId }) =>
     Effect.tryPromise({
       try: async () => {
+        const conversationId = conversationIdForRequest(
+          requestedConversationId,
+          fallbackConversationId,
+        );
         const conversation = await repositories.createOrGetConversation({
           workspaceId: authContext.workspaceId,
           subjectId: authContext.subject.subjectId,
           actorId: authContext.actor.subjectId,
-          conversationKey: requestedConversationId ?? fallbackConversationId,
+          conversationId,
+          conversationKey: conversationId,
           now: authContext.issuedAt,
         });
         return {
           tenantId: authContext.tenantId,
           workspaceId: authContext.workspaceId,
           conversationId: conversation.record.conversationId,
+          ...conversationHistoryCutoffField(conversation.record),
         };
       },
       catch: (error) => error,
     });
+
+const conversationIdForRequest = (
+  requestedConversationId: string | undefined,
+  fallbackConversationId: string,
+) => requestedConversationId ?? fallbackConversationId;
 
 const createAppendUserMessageEffect =
   (repositories: SidechatRepositories): ConversationRepositoryPort["appendUserMessage"] =>
@@ -79,6 +91,7 @@ const createAppendUserMessageEffect =
           workspaceId: authContext.workspaceId,
           conversationId,
           messageId: persisted.record.messageId,
+          sequenceIndex: persisted.record.sequenceIndex,
         };
       },
       catch: (error) => error,

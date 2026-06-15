@@ -63,6 +63,34 @@ describe("createFakeProvider", () => {
 
     expect(events.filter(isRuntimeTerminalEvent)).toHaveLength(1);
   });
+
+  it("answers the deterministic codename follow-up from prior runtime messages", async () => {
+    const runtime = createAgentRuntime({
+      providers: [createFakeProvider()],
+    });
+    const events = await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect({
+          requestId: "req_codename",
+          assistantTurnId: "turn_codename",
+          providerId: FAKE_PROVIDER_ID,
+          modelId: FAKE_ECHO_MODEL_ID,
+          messages: [
+            { role: "user", content: "My project codename is Blue Lynx." },
+            { role: "assistant", content: "I will remember Blue Lynx." },
+            { role: "user", content: "What is my project codename?" },
+          ],
+        }),
+      ),
+    );
+
+    expect(
+      events
+        .filter((event) => event.type === "runtime.output_delta")
+        .map((event) => event.content)
+        .join(""),
+    ).toBe("Your project codename is Blue Lynx.");
+  });
 });
 
 const collectEvents = async <T>(events: AsyncIterable<T>): Promise<T[]> => {

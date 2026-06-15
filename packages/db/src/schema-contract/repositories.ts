@@ -20,6 +20,7 @@ export type RepositoryCommandEnvelope = {
 };
 
 export type CreateOrGetConversationCommand = RepositoryCommandEnvelope & {
+  readonly conversationId?: string;
   readonly subjectId: string;
   readonly actorId: string;
   readonly conversationKey: string;
@@ -125,6 +126,7 @@ export type ReadConversationHistoryCommand = {
   readonly subjectId: string;
   readonly conversationId: string;
   readonly limit: number;
+  readonly afterSequenceIndex?: number;
   readonly beforeSequenceIndex?: number;
 };
 

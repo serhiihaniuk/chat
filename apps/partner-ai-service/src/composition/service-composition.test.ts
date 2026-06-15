@@ -212,7 +212,7 @@ describe("service composition runtime tools", () => {
       memory: { state: "configured", policyId: "configured_user_memory" },
       rag: { state: "configured", configuredSourceCount: 1 },
       research: { state: "configured", configuredAgentCount: 1 },
-      history: { state: "noop", policyId: "recent_messages" },
+      history: { state: "configured", policyId: "recent_messages" },
       contextAdmission: {
         state: "noop",
         policyId: "deterministic_v1",

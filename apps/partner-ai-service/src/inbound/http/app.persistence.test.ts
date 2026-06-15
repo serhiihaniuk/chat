@@ -105,9 +105,14 @@ describe("partner ai service /chat/stream persistence", () => {
       hostContextHash: hashCanonicalJson(persistedRequest.hostContext),
       capabilitiesHash: snapshot.assistantTurns[0]?.toolRegistryVersion,
       contextRedactedJson: expect.objectContaining({
-        runtimeMessages: [{ role: "user", content: "hello service" }],
+        runtimeMessageSummary: {
+          messageCount: 1,
+          roles: ["user"],
+          admittedHistoryMessageIds: [],
+        },
       }),
     });
+    expect(snapshot.contextSnapshots[0]?.contextRedactedJson).not.toHaveProperty("runtimeMessages");
     expect(snapshot.usageRecords).toHaveLength(1);
     expect(snapshot.auditEvents).toHaveLength(1);
     expect(snapshot.auditEvents[0]).toMatchObject({

@@ -9,9 +9,9 @@ import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.
 /**
  * Record one lifecycle observation through the same typed error channel.
  *
- * Invariant: observability should not throw arbitrary adapter errors into the workflow.
- * If a telemetry sink fails, core turns that into a PartnerAiCoreError before
- * `sidechat.started`, or into a terminal stream error after streaming begins.
+ * A telemetry sink failure becomes a PartnerAiCoreError before
+ * `sidechat.started`, or a terminal stream error after streaming begins. Sink
+ * adapter errors should not escape directly into the stream-chat workflow.
  */
 export const recordStreamObservationEffect = (
   sink: ObservabilitySinkPort | undefined,
@@ -20,11 +20,11 @@ export const recordStreamObservationEffect = (
   mapPortFailure(recordStreamObservation(sink, input), STREAM_CHAT_FAILURES.OBSERVABILITY);
 
 /**
- * Convert runtime events into safe observability attributes.
+ * Record safe telemetry attributes for one runtime event.
  *
- * Source runtime events can contain prompts, provider output, tool input, or tool
- * results. The lower-level stream-observability service redacts those fields
- * before records leave core.
+ * A runtime event becomes a telemetry record without model prompts, model
+ * output, or tool payloads. `runtimeEventAttributes` strips those values before
+ * telemetry is written.
  */
 export const recordRuntimeEventObservation = (
   ports: StreamChatPorts,

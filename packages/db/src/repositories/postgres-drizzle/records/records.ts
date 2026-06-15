@@ -1,4 +1,4 @@
-import { and, eq, lt, type SQL } from "drizzle-orm";
+import { and, eq, gt, lt, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { optionalField } from "@side-chat/shared";
 
@@ -47,6 +47,7 @@ export const toConversationRecord = (
   conversationKey: row.conversationKey,
   status: row.status as ConversationRecord["status"],
   createdByActorId: row.createdByActorId,
+  ...optionalField("historyCutoffSequenceIndex", row.historyCutoffSequenceIndex ?? undefined),
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
   lastMessageAt: row.lastMessageAt,
@@ -246,12 +247,19 @@ export const requireRunningTurn = async (
 export const buildHistoryWhere = (
   workspaceId: string,
   conversationId: string,
+  afterSequenceIndex: number | undefined,
   beforeSequenceIndex: number | undefined,
-): SQL =>
-  beforeSequenceIndex === undefined
-    ? and(eq(messages.workspaceId, workspaceId), eq(messages.conversationId, conversationId))!
-    : and(
-        eq(messages.workspaceId, workspaceId),
-        eq(messages.conversationId, conversationId),
-        lt(messages.sequenceIndex, beforeSequenceIndex),
-      )!;
+): SQL => {
+  const clauses = [
+    eq(messages.workspaceId, workspaceId),
+    eq(messages.conversationId, conversationId),
+  ];
+  if (afterSequenceIndex !== undefined) {
+    clauses.push(gt(messages.sequenceIndex, afterSequenceIndex));
+  }
+  if (beforeSequenceIndex !== undefined) {
+    clauses.push(lt(messages.sequenceIndex, beforeSequenceIndex));
+  }
+
+  return and(...clauses)!;
+};

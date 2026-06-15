@@ -113,6 +113,14 @@ export const createPreparedContext = (
           included: true,
         },
       ],
+      history: {
+        policyMode: "disabled",
+        consideredMessageCount: 0,
+        admittedMessageCount: 0,
+        droppedMessageCount: 0,
+        estimatedTokens: 0,
+        messages: [],
+      },
       budget: {
         policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
         selectionMode: CONTEXT_ADMISSION_SELECTION_MODES.INCLUDE_ALL,
@@ -129,6 +137,14 @@ export const createPreparedContext = (
       },
       createdAt: "2026-05-23T13:00:00.000Z",
     },
+  },
+  history: {
+    policyMode: "disabled",
+    consideredMessageCount: 0,
+    admittedMessageCount: 0,
+    droppedMessageCount: 0,
+    estimatedTokens: 0,
+    messages: [],
   },
 });
 

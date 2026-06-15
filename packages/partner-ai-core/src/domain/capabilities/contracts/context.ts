@@ -6,7 +6,7 @@ import type {
   ContextTrustLevel,
   TurnPolicyDecision,
 } from "./capabilities.js";
-import type { ContextAdmissionPolicy } from "./capability-configuration.js";
+import type { ContextAdmissionPolicy, HistoryContextMode } from "./capability-configuration.js";
 import type { ResearchArtifact } from "./research-artifacts.js";
 
 type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
@@ -27,11 +27,9 @@ export type ContextCandidateProvenance = {
 /**
  * Candidate considered for one prepared context board.
  *
- * Source: host request data, authorized context ports, or service-owned
- * capability declarations. Target: context admission and `ContextManifest`
- * entries. Invariant: candidate content becomes model-visible only after
- * admission; manifest metadata keeps provenance, trust, redaction, and token
- * estimates without exposing adapter internals.
+ * Candidates can come from host request data or authorized context ports. Their
+ * content becomes model-visible only after admission; persisted metadata keeps
+ * provenance, trust, redaction, and token estimates without adapter internals.
  */
 export type ContextCandidate = {
   readonly candidateId: string;
@@ -49,10 +47,10 @@ export type ContextCandidate = {
 /**
  * Source-specific token caps recorded with a context decision.
  *
- * Source: the portable `ContextAdmissionConfig` selected before context
- * preparation. Target: persisted manifest metadata and runtime debug context.
- * These numbers explain configured limits; they do not prove candidates were
- * trimmed unless `selectionMode` says the admission selector is budgeted.
+ * These values come from the portable `ContextAdmissionConfig` selected before
+ * context preparation. They explain configured limits in manifests and runtime
+ * debug context, but they do not prove candidates were trimmed unless
+ * `selectionMode` says the selector is budgeted.
  */
 export type ContextSourceTokenBudgets = {
   readonly history: number;
@@ -64,9 +62,9 @@ export type ContextSourceTokenBudgets = {
 /**
  * Safe explanation of how gathered context was admitted for one turn.
  *
- * Source: the context manager after candidate selection. Target: context
- * manifest metadata stored with the turn. Invariant: `policyId` records the
- * configured policy, while `selectionMode` records the behavior actually used.
+ * After candidate selection, the admission result becomes audit metadata for
+ * the turn. `policyId` records configured operator intent, while
+ * `selectionMode` records the selector behavior that actually ran.
  */
 export type ContextBudgetDecision = {
   /** Configured admission policy selected before context preparation. */
@@ -99,6 +97,7 @@ export type ContextManifest = {
   readonly profileId: string;
   readonly profileVersion: string;
   readonly entries: readonly ContextManifestEntry[];
+  readonly history: HistoryContextManifest;
   readonly budget: ContextBudgetDecision;
   readonly createdAt: string;
 };
@@ -115,6 +114,53 @@ export type PreparedContextBoard = {
   readonly manifest: ContextManifest;
 };
 
+export type PreparedHistoryMessageRole = "user" | "assistant";
+
+/**
+ * Prior conversation message safe for runtime message rendering.
+ *
+ * Service adapters turn authorized conversation records into this model-visible
+ * role/content shape before context admission. Repository rows, reset storage
+ * details, and browser protocol DTOs stay inside the service adapter instead of
+ * crossing from persistence into core.
+ */
+export type PreparedHistoryMessage = {
+  readonly messageId: string;
+  readonly sequenceIndex: number;
+  readonly role: PreparedHistoryMessageRole;
+  readonly content: string;
+  /** Approximate input-token cost used by recent history admission. */
+  readonly estimatedTokens: number;
+};
+
+export type HistoryContextDropReason = "message_limit" | "token_limit";
+
+export type HistoryContextManifestMessage = {
+  readonly messageId: string;
+  readonly sequenceIndex: number;
+  readonly role: PreparedHistoryMessageRole;
+  readonly estimatedTokens: number;
+  readonly included: boolean;
+  readonly dropReason?: HistoryContextDropReason;
+};
+
+/**
+ * Content-safe explanation of conversation-history admission.
+ *
+ * The context manager stores this with the prepared context so operators can
+ * audit which prior messages moved from history into model context. Message
+ * text never appears here; the manifest records ids, order, token estimates,
+ * and drop reasons only.
+ */
+export type HistoryContextManifest = {
+  readonly policyMode: HistoryContextMode;
+  readonly consideredMessageCount: number;
+  readonly admittedMessageCount: number;
+  readonly droppedMessageCount: number;
+  readonly estimatedTokens: number;
+  readonly messages: readonly HistoryContextManifestMessage[];
+};
+
 export type PreparedRuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
   readonly content: string;
@@ -123,15 +169,15 @@ export type PreparedRuntimeMessage = {
 /**
  * Final model-context package produced by core before runtime execution.
  *
- * Source: the core context manager after policy and guards have selected what
- * the turn may use. Target: the runtime request and redacted context snapshots.
- * Invariant: runtime receives this package as-is and must not gather hidden host
- * context or conversation history outside it.
+ * Core builds this after policy and guards select what the turn may use. Runtime
+ * receives the package from core as-is and must not gather extra host data,
+ * memory, retrieval, research, or conversation history.
  */
 export type PreparedTurnContext = {
   readonly contextId: string;
   readonly profile: AssistantProfile;
   readonly policyDecision: TurnPolicyDecision;
+  readonly history: HistoryContextManifest;
   readonly candidates: readonly ContextCandidate[];
   readonly researchArtifacts: readonly ResearchArtifact[];
   readonly contextBoard: PreparedContextBoard;

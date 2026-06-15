@@ -25,8 +25,8 @@ Service diagnostics report this separation explicitly. `apps/partner-ai-service`
 composition owns capability status for memory, RAG, research, history context,
 context admission, and persistence, and `/healthz` plus `/readyz` expose only
 safe status fields. No-op adapters are allowed for local bootstrap, but
-production-profile composition must not enable memory, RAG, or research without a
-matching concrete adapter.
+production-profile composition must not enable memory, RAG, research, or summary
+history without a matching concrete implementation.
 
 Context admission status reports both the configured policy id and the actual
 selection mode. `deterministic_v1` with `include_all` means budgets are recorded

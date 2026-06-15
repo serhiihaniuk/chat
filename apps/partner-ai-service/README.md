@@ -40,7 +40,11 @@ Default local boot is honest about the current app shape:
 
 - memory, RAG, and research seams exist, but their fallback adapters return no
   candidates unless concrete adapters are injected;
-- prior conversation history is not admitted into runtime context yet;
+- prior conversation history is disabled by default; `recent_messages` admits
+  authorized same-conversation user/assistant messages before the current user
+  message, and reset starts a new history boundary; `recent_plus_summary` is
+  parsed for the future summary lane but reports misconfigured until summary
+  generation exists;
 - context admission currently records an include-all policy rather than enforcing
   a token budget;
 - memory repositories are process-local and not durable.
@@ -51,10 +55,10 @@ selection mode, and a secret-free recorded budget. Today that means
 admission must change the selection mode only when candidates can really be
 dropped under budget pressure.
 
-Production-profile composition rejects enabled memory, RAG, or research
-declarations when the matching concrete adapter is missing. Diagnostics never
-include secrets, connection strings, raw memory, retrieved text, provider
-requests, or private context-board content.
+Production-profile composition rejects enabled memory, RAG, research, or summary
+history declarations when the matching concrete implementation is missing.
+Diagnostics never include secrets, connection strings, raw memory, retrieved
+text, provider requests, or private context-board content.
 
 ## Capability Configuration
 
@@ -75,9 +79,9 @@ Local defaults are explicit and fail closed:
 | `SIDECHAT_RAG_FAILURE_MODE`               | `degrade`          | Parsed for later retriever behavior.                                   |
 | `SIDECHAT_RESEARCH_MODE`                  | `disabled`         | `disabled` or explicit `noop`; concrete modes need a research adapter. |
 | `SIDECHAT_RESEARCH_FAILURE_MODE`          | `degrade`          | Parsed for later research behavior.                                    |
-| `SIDECHAT_HISTORY_MODE`                   | `disabled`         | `disabled`, `recent_messages`, or `recent_plus_summary`.               |
-| `SIDECHAT_HISTORY_MAX_MESSAGES`           | `12`               | Parsed history window size for the later history-context phase.        |
-| `SIDECHAT_HISTORY_MAX_TOKENS`             | `4000`             | Parsed history token budget.                                           |
+| `SIDECHAT_HISTORY_MODE`                   | `disabled`         | `disabled`, `recent_messages`, or future `recent_plus_summary`.        |
+| `SIDECHAT_HISTORY_MAX_MESSAGES`           | `12`               | Maximum same-conversation messages admitted into runtime context.      |
+| `SIDECHAT_HISTORY_MAX_TOKENS`             | `4000`             | Approximate token budget for admitted conversation history.            |
 | `SIDECHAT_CONTEXT_ADMISSION_POLICY`       | `deterministic_v1` | Recorded context admission policy id.                                  |
 | `SIDECHAT_CONTEXT_MAX_INPUT_TOKENS`       | `24000`            | Recorded model input budget.                                           |
 | `SIDECHAT_CONTEXT_RESERVED_OUTPUT_TOKENS` | `4000`             | Reserved output budget; must be below max input tokens.                |
@@ -98,9 +102,12 @@ SIDECHAT_HISTORY_MODE=recent_messages \
 npm run dev --workspace @side-chat/partner-ai-service
 ```
 
-This reports memory, RAG, research, and history as no-op or not-yet-enforced in
-diagnostics. Production-profile config rejects those enabled declarations until
-the matching concrete adapters are provided.
+This reports memory, RAG, and research as no-op in diagnostics, while history
+reports the repository-backed context adapter when `recent_messages` is enabled.
+`recent_plus_summary` reports `missing-history-summary-generator` and is not
+production-safe until summary generation is implemented. Production-profile
+config rejects enabled memory, RAG, research, or summary-history declarations
+until the matching concrete implementation is provided.
 
 ## Verify
 

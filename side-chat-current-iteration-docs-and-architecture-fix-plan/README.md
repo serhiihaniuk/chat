@@ -30,6 +30,14 @@ relevant repo files
 
 The all-in-one file is for the human owner or the orchestrator when full context is needed. Do not feed it to every implementation agent by default.
 
+For the memory/context/history/RAG gap audit, provide:
+
+```txt
+08-memory-context-history-rag-gap-audit.md
+one 09-17 gap plan only
+relevant canonical docs from docs/README.md
+```
+
 ## Package contents
 
 ```txt
@@ -42,5 +50,14 @@ The all-in-one file is for the human owner or the orchestrator when full context
 06-service-widget-testing-governance-plan.md
 07-acceptance-criteria.md
 08-memory-context-history-rag-gap-audit.md
+09-real-memory-implementation-plan.md
+10-real-rag-implementation-plan.md
+11-real-research-agent-implementation-plan.md
+12-conversation-history-context-plan.md
+13-budgeted-context-admission-plan.md
+14-capability-configuration-plan.md
+15-app-behavior-test-coverage-plan.md
+16-postgres-persistence-path-plan.md
+17-capability-status-docs-sync-plan.md
 ALL-IN-ONE-current-iteration-fix-plan.md
 ```

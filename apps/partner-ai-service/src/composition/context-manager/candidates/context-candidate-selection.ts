@@ -8,10 +8,11 @@ import {
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 
 /**
- * Source: gathered model-context candidates.
- * Target: rendered candidate bodies plus context-manifest metadata.
- * Invariant: `entries` and `budget` must remain safe to persist; candidate
- * bodies stay in `included` or `dropped` for rendering decisions only.
+ * Admission result for gathered model-context candidates.
+ *
+ * Candidate bodies remain available only for rendering the prepared context
+ * board. The manifest entries and budget are the persisted explanation and must
+ * stay safe to store without copying hidden adapter details.
  */
 export type ContextAdmission = {
   readonly included: readonly ContextCandidate[];
@@ -23,10 +24,10 @@ export type ContextAdmission = {
 /**
  * Record the configured admission budget while keeping current include-all behavior.
  *
- * Source: gathered host, memory, RAG, research, and tool candidates.
- * Target: context-board entries plus budget metadata for the prepared turn.
- * Non-guarantee: this policy does not trim or rank candidates yet; later
- * deterministic admission can use the same core `ContextAdmissionConfig`.
+ * Gathered host, memory, RAG, research, and tool candidates all pass through
+ * today. The prepared turn still records the configured budget so later
+ * deterministic admission can start trimming without changing the manifest
+ * contract.
  */
 export const createSimpleContextAdmission = (
   candidates: readonly ContextCandidate[],

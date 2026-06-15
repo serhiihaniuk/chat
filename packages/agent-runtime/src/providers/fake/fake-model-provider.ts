@@ -33,16 +33,42 @@ export const createFakeProvider = (options: FakeProviderOptions = {}): ModelProv
 
 const createDeterministicEchoText = (options: LanguageModelV3CallOptions): string => {
   const userText = lastUserText(options);
+  const codename = findPriorProjectCodename(options, userText);
+  if (codename) return `Your project codename is ${codename}.`;
+
   return userText.length > 0 ? `Fake response: ${userText}` : "Fake response.";
 };
 
 const lastUserText = (options: LanguageModelV3CallOptions): string => {
-  const userMessage = [...options.prompt].reverse().find((message) => message.role === "user");
-  if (!userMessage || userMessage.role !== "user") return "";
-
-  return userMessage.content
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join(" ")
-    .trim();
+  const userMessage = userTextMessages(options).at(-1);
+  return userMessage ?? "";
 };
+
+const findPriorProjectCodename = (
+  options: LanguageModelV3CallOptions,
+  latestUserText: string,
+): string | undefined => {
+  if (!/\bwhat is my project codename\b/iu.test(latestUserText)) return undefined;
+
+  const priorUserText = userTextMessages(options).slice(0, -1).join(" ");
+  const match = /\bproject codename is (?<codename>[A-Za-z0-9][A-Za-z0-9 _-]*)(?:[.!?]|$)/u.exec(
+    priorUserText,
+  );
+  return match?.groups?.["codename"]?.trim();
+};
+
+const userTextMessages = (options: LanguageModelV3CallOptions): readonly string[] =>
+  options.prompt
+    .flatMap((message) => {
+      if (message.role !== "user") return [];
+
+      return [message];
+    })
+    .map((message) => {
+      return message.content
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join(" ")
+        .trim();
+    })
+    .filter((content) => content.length > 0);
