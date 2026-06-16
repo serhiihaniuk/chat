@@ -1,31 +1,18 @@
 import type { Effect } from "effect";
 import type { JSONSchema7 } from "@ai-sdk/provider";
 import type { JsonObject } from "@side-chat/shared";
-
-import type { AgentRuntimeError } from "#runtime/contract/runtime-error";
-import type { RuntimeActivitySource } from "#runtime/contract/runtime-activity";
 import type {
+  AiRuntimeError,
+  AiToolScope,
   AssistantTurnId,
-  ConversationId,
-  HostAppId,
   ModelId,
-  ProfileId,
   ProviderId,
   RequestId,
-  SubjectId,
+  RuntimeActivitySource,
   ToolCallId,
-  WorkspaceId,
-} from "#runtime/contract/ids/runtime-ids";
+} from "@side-chat/ai-runtime-contract";
 
-export type RuntimeToolScope = {
-  readonly hostAppId: HostAppId;
-  readonly workspaceId: WorkspaceId;
-  readonly subjectId: SubjectId;
-  readonly conversationId: ConversationId;
-  readonly assistantTurnId: AssistantTurnId;
-  readonly profileId: ProfileId;
-  readonly allowedHostCommandNames?: readonly string[] | undefined;
-};
+export type RuntimeToolScope = AiToolScope;
 
 /**
  * Runtime tools are capabilities injected by the consuming app.
@@ -44,7 +31,7 @@ export type RuntimeToolContext = {
   readonly abortSignal?: AbortSignal | undefined;
 };
 
-export type RuntimeToolError = AgentRuntimeError;
+export type RuntimeToolError = AiRuntimeError;
 export type RuntimeToolRequirements = never;
 export type RuntimeToolEffect = Effect.Effect<
   JsonObject,
@@ -57,7 +44,7 @@ export type RuntimeToolEffect = Effect.Effect<
  *
  * This is the implementation side of a tool. A manifest ToolCapability may
  * describe the same name, but runtime executes only registered tools selected
- * by the per-turn AgentRuntimeRequest allowlist.
+ * by the per-turn AiRuntimeRequest tool-name allowlist.
  */
 export type RuntimeTool = {
   readonly name: string;

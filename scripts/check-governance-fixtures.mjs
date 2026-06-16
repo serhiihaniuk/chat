@@ -73,12 +73,12 @@ expectFailure("relative source-folder boundary fixture", "check-boundaries.mjs",
   writeFixtureFile(
     root,
     "packages/partner-ai-core/src/application/bad.ts",
-    "import type { AgentRuntimePort } from '../ports/index.js';\nexport type Bad = AgentRuntimePort;\n",
+    "import type { AiRuntimePort } from '../ports/index.js';\nexport type Bad = AiRuntimePort;\n",
   );
   writeFixtureFile(
     root,
     "packages/partner-ai-core/src/ports/index.ts",
-    "export type AgentRuntimePort = { stream: unknown };\n",
+    "export type AiRuntimePort = { stream: unknown };\n",
   );
 });
 

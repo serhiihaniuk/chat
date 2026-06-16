@@ -22,7 +22,7 @@ const forbiddenByArea = {
     /^@ai-sdk\//,
     /^pg$/,
     /^drizzle-orm$/,
-    /^@side-chat\/(partner-ai-core|agent-runtime|chat-client|side-chat-widget|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|chat-client|side-chat-widget|db)$/,
   ],
   "packages/host-bridge": [
     /^react$/,
@@ -33,7 +33,7 @@ const forbiddenByArea = {
     /^drizzle-orm$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(partner-ai-core|agent-runtime|side-chat-widget|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|side-chat-widget|db)$/,
   ],
   "packages/partner-ai-core": [
     /^hono$/,
@@ -44,7 +44,18 @@ const forbiddenByArea = {
     /^drizzle-orm$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(chat-client|side-chat-widget|db)$/,
+    /^@side-chat\/(agent-runtime|chat-client|side-chat-widget|db)$/,
+  ],
+  "packages/ai-runtime-contract": [
+    /^hono$/,
+    /^@hono\/node-server$/,
+    /^react$/,
+    /^react-dom$/,
+    /^pg$/,
+    /^drizzle-orm$/,
+    /^ai$/,
+    /^@ai-sdk\//,
+    /^@side-chat\/(partner-ai-core|agent-runtime|chat-protocol|chat-client|side-chat-widget|db)$/,
   ],
   "packages/agent-runtime": [
     /^hono$/,
@@ -63,7 +74,7 @@ const forbiddenByArea = {
     /^drizzle-orm$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(partner-ai-core|agent-runtime|side-chat-widget|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|side-chat-widget|db)$/,
   ],
   "packages/side-chat-widget": [
     /^hono$/,
@@ -74,7 +85,7 @@ const forbiddenByArea = {
     /^@ai-sdk\//,
     /^shadcn$/,
     /^@repo\/shadcn-ui$/,
-    /^@side-chat\/(partner-ai-core|agent-runtime|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|db)$/,
   ],
   "packages/db": [
     /^react$/,
@@ -83,7 +94,7 @@ const forbiddenByArea = {
     /^@hono\/node-server$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(partner-ai-core|agent-runtime|chat-protocol|chat-client|side-chat-widget)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|chat-protocol|chat-client|side-chat-widget)$/,
   ],
   "apps/partner-ai-service": [/^@side-chat\/side-chat-widget$/],
 };

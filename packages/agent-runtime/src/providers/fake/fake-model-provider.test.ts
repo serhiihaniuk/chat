@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Stream } from "effect";
+import { isRuntimeTerminalEvent, type AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
 import { createAgentRuntime } from "#runtime/agent-runtime";
-import { isRuntimeTerminalEvent } from "#runtime/contract/runtime-event";
 import { createFakeProvider, FAKE_ECHO_MODEL_ID, FAKE_PROVIDER_ID } from "./fake-model-provider.js";
 
 describe("createFakeProvider", () => {
@@ -9,17 +9,14 @@ describe("createFakeProvider", () => {
     const runtime = createAgentRuntime({
       providers: [createFakeProvider()],
     });
-    const events = await collectEvents(
-      Stream.toAsyncIterable(
-        runtime.streamEffect({
-          requestId: "req_001",
-          assistantTurnId: "turn_001",
-          providerId: FAKE_PROVIDER_ID,
-          modelId: FAKE_ECHO_MODEL_ID,
-          messages: [{ role: "user", content: "hello runtime" }],
-        }),
-      ),
-    );
+    const request = runtimeRequest({
+      requestId: "req_001",
+      assistantTurnId: "turn_001",
+      providerId: FAKE_PROVIDER_ID,
+      modelId: FAKE_ECHO_MODEL_ID,
+      messages: [{ role: "user", content: "hello runtime" }],
+    });
+    const events = await collectEvents(Stream.toAsyncIterable(runtime.streamEffect(request)));
 
     expect(events[0]?.type).toBe("runtime.started");
     expect(events[1]).toMatchObject({
@@ -49,17 +46,14 @@ describe("createFakeProvider", () => {
     const runtime = createAgentRuntime({
       providers: [createFakeProvider()],
     });
-    const events = await collectEvents(
-      Stream.toAsyncIterable(
-        runtime.streamEffect({
-          requestId: "req_002",
-          assistantTurnId: "turn_002",
-          providerId: FAKE_PROVIDER_ID,
-          modelId: FAKE_ECHO_MODEL_ID,
-          messages: [],
-        }),
-      ),
-    );
+    const request = runtimeRequest({
+      requestId: "req_002",
+      assistantTurnId: "turn_002",
+      providerId: FAKE_PROVIDER_ID,
+      modelId: FAKE_ECHO_MODEL_ID,
+      messages: [],
+    });
+    const events = await collectEvents(Stream.toAsyncIterable(runtime.streamEffect(request)));
 
     expect(events.filter(isRuntimeTerminalEvent)).toHaveLength(1);
   });
@@ -68,21 +62,18 @@ describe("createFakeProvider", () => {
     const runtime = createAgentRuntime({
       providers: [createFakeProvider()],
     });
-    const events = await collectEvents(
-      Stream.toAsyncIterable(
-        runtime.streamEffect({
-          requestId: "req_codename",
-          assistantTurnId: "turn_codename",
-          providerId: FAKE_PROVIDER_ID,
-          modelId: FAKE_ECHO_MODEL_ID,
-          messages: [
-            { role: "user", content: "My project codename is Blue Lynx." },
-            { role: "assistant", content: "I will remember Blue Lynx." },
-            { role: "user", content: "What is my project codename?" },
-          ],
-        }),
-      ),
-    );
+    const request = runtimeRequest({
+      requestId: "req_codename",
+      assistantTurnId: "turn_codename",
+      providerId: FAKE_PROVIDER_ID,
+      modelId: FAKE_ECHO_MODEL_ID,
+      messages: [
+        { role: "user", content: "My project codename is Blue Lynx." },
+        { role: "assistant", content: "I will remember Blue Lynx." },
+        { role: "user", content: "What is my project codename?" },
+      ],
+    });
+    const events = await collectEvents(Stream.toAsyncIterable(runtime.streamEffect(request)));
 
     expect(
       events
@@ -98,3 +89,22 @@ const collectEvents = async <T>(events: AsyncIterable<T>): Promise<T[]> => {
   for await (const event of events) collected.push(event);
   return collected;
 };
+
+const runtimeRequest = (overrides: Partial<AiRuntimeRequest>): AiRuntimeRequest => ({
+  executorId: "ai_sdk.tool_loop",
+  providerId: FAKE_PROVIDER_ID,
+  modelId: FAKE_ECHO_MODEL_ID,
+  requestId: "req_default",
+  assistantTurnId: "turn_default",
+  messages: [],
+  toolNames: [],
+  toolScope: {
+    hostAppId: "host_app_001",
+    workspaceId: "workspace_001",
+    subjectId: "subject_001",
+    conversationId: "conversation_001",
+    assistantTurnId: "turn_default",
+    allowedHostCommandNames: [],
+  },
+  ...overrides,
+});

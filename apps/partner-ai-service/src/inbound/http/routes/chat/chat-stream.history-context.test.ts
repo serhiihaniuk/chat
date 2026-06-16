@@ -2,10 +2,10 @@ import {
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
-  type AgentRuntime,
-  type AgentRuntimeRequest,
+  type AiRuntimePort,
+  type AiRuntimeRequest,
   type RuntimeEvent,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
 import {
   SIDECHAT_EVENT_TYPES,
   SIDECHAT_PROTOCOL_VERSION,
@@ -43,18 +43,13 @@ describe("partner ai service conversation history context", () => {
     await secondResponse.text();
 
     const visibleRequests = visibleRuntimeRequests(harness.runtimeRequests);
-    expect(visibleRequests[1]?.messages).toEqual([
+    expect(runtimeChatMessages(visibleRequests[1])).toEqual([
       { role: "user", content: "hello configured service" },
       { role: "assistant", content: "Recorded history context." },
       { role: "user", content: "what did I say first?" },
     ]);
-    expect(visibleRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
-      policyMode: "recent_messages",
-      consideredMessageCount: 2,
-      admittedMessageCount: 2,
-      droppedMessageCount: 0,
-    });
-    expect(visibleRequests[1]?.messages[0]).not.toHaveProperty("id");
+    expect(visibleRequests[1]).not.toHaveProperty("contextBoard");
+    expect(runtimeChatMessages(visibleRequests[1])[0]).not.toHaveProperty("id");
   });
 
   it("uses reset as a history context boundary", async () => {
@@ -72,14 +67,10 @@ describe("partner ai service conversation history context", () => {
     await secondResponse.text();
 
     const visibleRequests = visibleRuntimeRequests(harness.runtimeRequests);
-    expect(visibleRequests[1]?.messages).toEqual([
+    expect(runtimeChatMessages(visibleRequests[1])).toEqual([
       { role: "user", content: "what did I say first?" },
     ]);
-    expect(visibleRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
-      policyMode: "recent_messages",
-      consideredMessageCount: 0,
-      admittedMessageCount: 0,
-    });
+    expect(visibleRequests[1]).not.toHaveProperty("contextBoard");
   });
 
   it("admits persisted user messages from failed prior turns only", async () => {
@@ -102,25 +93,21 @@ describe("partner ai service conversation history context", () => {
     await secondResponse.text();
 
     const visibleRequests = visibleRuntimeRequests(harness.runtimeRequests);
-    expect(visibleRequests[1]?.messages).toEqual([
+    expect(runtimeChatMessages(visibleRequests[1])).toEqual([
       { role: "user", content: "hello configured service" },
       { role: "user", content: "what did I say first?" },
     ]);
-    expect(visibleRequests[1]?.contextBoard?.manifest?.history).toMatchObject({
-      policyMode: "recent_messages",
-      consideredMessageCount: 1,
-      admittedMessageCount: 1,
-    });
+    expect(visibleRequests[1]).not.toHaveProperty("contextBoard");
   });
 });
 
 type HistoryHarness = {
   readonly app: ReturnType<typeof createPartnerAiServiceApp>;
-  readonly runtimeRequests: AgentRuntimeRequest[];
+  readonly runtimeRequests: AiRuntimeRequest[];
 };
 
 type RuntimeEventsFactory = (
-  request: AgentRuntimeRequest,
+  request: AiRuntimeRequest,
   callIndex: number,
 ) => readonly RuntimeEvent[];
 
@@ -129,7 +116,7 @@ const createHistoryHarness = ({
 }: {
   readonly runtimeEvents?: RuntimeEventsFactory;
 } = {}): HistoryHarness => {
-  const runtimeRequests: AgentRuntimeRequest[] = [];
+  const runtimeRequests: AiRuntimeRequest[] = [];
   return {
     runtimeRequests,
     app: createPartnerAiServiceApp({
@@ -177,9 +164,9 @@ const readStartedConversationId = (body: string): string => {
 };
 
 const recordRuntimeRequests = (
-  calls: AgentRuntimeRequest[],
+  calls: AiRuntimeRequest[],
   runtimeEvents: RuntimeEventsFactory,
-): AgentRuntime => ({
+): AiRuntimePort => ({
   streamEffect: (request) => {
     calls.push(request);
     return Stream.fromIterable(runtimeEvents(request, calls.length - 1));
@@ -187,18 +174,21 @@ const recordRuntimeRequests = (
 });
 
 const visibleRuntimeRequests = (
-  requests: readonly AgentRuntimeRequest[],
-): readonly AgentRuntimeRequest[] =>
+  requests: readonly AiRuntimeRequest[],
+): readonly AiRuntimeRequest[] =>
   requests.filter((request) => !request.requestId.endsWith(":conversation-title"));
 
-const createCompletedRuntimeEvents = (request: AgentRuntimeRequest): readonly RuntimeEvent[] => [
+const runtimeChatMessages = (request: AiRuntimeRequest | undefined) =>
+  request?.messages.filter((message) => message.role !== "system") ?? [];
+
+const createCompletedRuntimeEvents = (request: AiRuntimeRequest): readonly RuntimeEvent[] => [
   {
     type: RUNTIME_EVENT_TYPES.STARTED,
     requestId: request.requestId,
     assistantTurnId: request.assistantTurnId,
     sequence: 0,
-    providerId: request.providerId ?? "fake",
-    modelId: request.modelId ?? "fake-echo",
+    providerId: request.providerId,
+    modelId: request.modelId,
   },
   {
     type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
@@ -216,14 +206,14 @@ const createCompletedRuntimeEvents = (request: AgentRuntimeRequest): readonly Ru
   },
 ];
 
-const createFailedRuntimeEvents = (request: AgentRuntimeRequest): readonly RuntimeEvent[] => [
+const createFailedRuntimeEvents = (request: AiRuntimeRequest): readonly RuntimeEvent[] => [
   {
     type: RUNTIME_EVENT_TYPES.STARTED,
     requestId: request.requestId,
     assistantTurnId: request.assistantTurnId,
     sequence: 0,
-    providerId: request.providerId ?? "fake",
-    modelId: request.modelId ?? "fake-echo",
+    providerId: request.providerId,
+    modelId: request.modelId,
   },
   {
     type: RUNTIME_EVENT_TYPES.ERROR,

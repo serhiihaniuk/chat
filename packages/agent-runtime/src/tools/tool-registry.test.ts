@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Effect } from "effect";
-import { AgentRuntimeError } from "#runtime/contract/runtime-error";
+import { AiRuntimeError } from "@side-chat/ai-runtime-contract";
 import { createToolRegistry, type RuntimeTool } from "./tool-registry.js";
 
 describe("createToolRegistry", () => {
@@ -20,6 +20,6 @@ describe("createToolRegistry", () => {
   it("rejects unavailable tools without fallback", () => {
     const registry = createToolRegistry([lookupTool]);
 
-    expect(() => registry.resolve("missing")).toThrow(AgentRuntimeError);
+    expect(() => registry.resolve("missing")).toThrow(AiRuntimeError);
   });
 });

@@ -1,24 +1,28 @@
+import type {
+  AiRuntimeEventStream,
+  AiRuntimeMessage,
+  AiRuntimeRequest,
+} from "@side-chat/ai-runtime-contract";
 import type { AgentRuntime } from "../agent-runtime.js";
-import type { AgentRuntimeRequest, RuntimeMessage } from "../contract/runtime-request.js";
-import type { RuntimeEventStream } from "../contract/runtime-stream.js";
 
 export type BasicRuntimeAgentDefaults = Pick<
-  AgentRuntimeRequest,
-  "availableToolNames" | "executorId" | "modelId" | "profileId" | "providerId" | "toolScope"
+  AiRuntimeRequest,
+  "executorId" | "modelId" | "providerId" | "toolScope"
 > & {
+  readonly toolNames?: readonly string[] | undefined;
   readonly systemInstructions?: string | undefined;
 };
 
 export type BasicRuntimeAgentInput = {
-  readonly requestId: AgentRuntimeRequest["requestId"];
-  readonly assistantTurnId: AgentRuntimeRequest["assistantTurnId"];
-  readonly messages: readonly RuntimeMessage[];
+  readonly requestId: AiRuntimeRequest["requestId"];
+  readonly assistantTurnId: AiRuntimeRequest["assistantTurnId"];
+  readonly messages: readonly AiRuntimeMessage[];
   readonly abortSignal?: AbortSignal | undefined;
   readonly systemInstructions?: string | undefined;
 };
 
 export type BasicRuntimeAgent = {
-  readonly streamEffect: (input: BasicRuntimeAgentInput) => RuntimeEventStream;
+  readonly streamEffect: (input: BasicRuntimeAgentInput) => AiRuntimeEventStream;
 };
 
 /**
@@ -30,7 +34,7 @@ export type BasicRuntimeAgent = {
  */
 export const createBasicRuntimeAgent = (
   runtime: AgentRuntime,
-  defaults: BasicRuntimeAgentDefaults = {},
+  defaults: BasicRuntimeAgentDefaults,
 ): BasicRuntimeAgent => ({
   streamEffect: (input) =>
     runtime.streamEffect({
@@ -39,11 +43,20 @@ export const createBasicRuntimeAgent = (
       executorId: defaults.executorId,
       providerId: defaults.providerId,
       modelId: defaults.modelId,
-      profileId: defaults.profileId,
-      systemInstructions: input.systemInstructions ?? defaults.systemInstructions,
-      messages: input.messages,
-      availableToolNames: defaults.availableToolNames ?? [],
+      messages: createBasicRuntimeMessages(
+        input.systemInstructions ?? defaults.systemInstructions,
+        input.messages,
+      ),
+      toolNames: defaults.toolNames ?? [],
       toolScope: defaults.toolScope,
       abortSignal: input.abortSignal,
     }),
 });
+
+const createBasicRuntimeMessages = (
+  systemInstructions: string | undefined,
+  messages: readonly AiRuntimeMessage[],
+): readonly AiRuntimeMessage[] => {
+  if (!systemInstructions?.trim()) return messages;
+  return [{ role: "system", content: systemInstructions }, ...messages];
+};

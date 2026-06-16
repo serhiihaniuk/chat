@@ -7,8 +7,8 @@ import {
   type RuntimeEvent,
   type RuntimeFinishReason,
   type RuntimeUsage,
-} from "../../contract/runtime-event.js";
-import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
+} from "@side-chat/ai-runtime-contract";
+import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 
 const AI_SDK_FINISH_REASON_LENGTH = "length" as const;
 const AI_SDK_FINISH_REASON_ABORT = "abort" as const;

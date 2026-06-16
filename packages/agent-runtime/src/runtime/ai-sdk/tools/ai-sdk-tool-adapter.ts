@@ -2,7 +2,7 @@ import { jsonSchema, tool as createAiTool, type ToolExecutionOptions, type ToolS
 import type { JsonObject } from "@side-chat/shared";
 import type { RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 
-import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
+import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 import { toJsonObject } from "./json-value.js";
 import { executeRuntimeToolForAiSdk } from "./runtime-tool-executor.js";
 

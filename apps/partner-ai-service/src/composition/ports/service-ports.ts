@@ -1,6 +1,6 @@
 import {
   DISABLED_CONVERSATION_TITLE_GENERATION,
-  type AgentRuntimePort,
+  type AiRuntimePort,
   type AssistantTurnLifecyclePort,
   type ClockPort,
   type ConversationTitleGenerationPort,
@@ -22,7 +22,7 @@ export type ServicePortsOptions = {
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
-  readonly runtime: AgentRuntimePort;
+  readonly runtime: AiRuntimePort;
   readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   readonly clock?: ClockPort | undefined;
   readonly ids?: IdGeneratorPort | undefined;

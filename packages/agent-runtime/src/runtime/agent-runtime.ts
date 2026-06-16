@@ -1,13 +1,16 @@
 import { Cause, Effect, Stream } from "effect";
+import {
+  AiRuntimeError,
+  RUNTIME_ERROR_CODES,
+  type AiRuntimeEventStream,
+  type AiRuntimePort,
+  type AiRuntimeRequest,
+} from "@side-chat/ai-runtime-contract";
 
 import type { ModelProvider } from "#providers/model-provider";
 import type { RuntimeTool } from "#tools/runtime-tool";
-import { AgentRuntimeError } from "./contract/runtime-error.js";
-import { RUNTIME_ERROR_CODES } from "./contract/runtime-event.js";
-import type { RuntimeEventStream } from "./contract/runtime-stream.js";
-import type { AgentRuntimeRequest, RuntimeProviderRequest } from "./contract/runtime-request.js";
+import type { RuntimeProviderRequest } from "./turn/runtime-provider-request.js";
 import type { AgentExecutor } from "./executors/agent-executor.js";
-import type { AssistantProfile } from "./turn/assistant-profile.js";
 import {
   createRuntimeState,
   prepareRuntimeTurn,
@@ -15,31 +18,23 @@ import {
 } from "./turn/prepare-runtime-turn.js";
 
 export {
-  createDefaultAssistantProfile,
-  DEFAULT_ASSISTANT_PROFILE_ID,
-  type AssistantProfile,
-} from "./turn/assistant-profile.js";
-export {
   DEFAULT_AGENT_EXECUTOR_ID,
   type AgentExecutionRequest,
   type AgentExecutor,
 } from "./executors/agent-executor.js";
 
-export type AgentRuntime = {
-  streamEffect(request: AgentRuntimeRequest): RuntimeEventStream;
-};
+export type AgentRuntime = AiRuntimePort;
 
 /**
  * These options are the capabilities the runtime may use on future requests.
  *
  * Source is app composition: it injects providers and tools once. A later
- * AgentRuntimeRequest decides which executor, profile, provider, model, and
- * tools are actually used for that specific assistant turn.
+ * AiRuntimeRequest decides which executor, provider, model, and tool names are
+ * actually used for that specific assistant turn.
  */
 export type AgentRuntimeOptions = {
   readonly executors?: readonly AgentExecutor[] | undefined;
   readonly providers: readonly ModelProvider[];
-  readonly profiles?: readonly AssistantProfile[] | undefined;
   readonly tools?: readonly RuntimeTool[] | undefined;
 };
 
@@ -54,12 +49,12 @@ type RuntimeExecution = {
  * Create the runtime object that partner-ai-core calls for every assistant turn.
  *
  * This does not start a model call. It only indexes the injected providers,
- * profiles, and tools so each request can be checked quickly before streaming.
+ * executors, and tools so each request can be checked quickly before streaming.
  */
 export const createAgentRuntime = (options: AgentRuntimeOptions): AgentRuntime => {
   const state = createRuntimeState(options);
 
-  const streamEffect = (request: AgentRuntimeRequest): RuntimeEventStream =>
+  const streamEffect = (request: AiRuntimeRequest): AiRuntimeEventStream =>
     catchRuntimeDefects(openPreparedRuntimeStream(state, request));
 
   return {
@@ -69,8 +64,8 @@ export const createAgentRuntime = (options: AgentRuntimeOptions): AgentRuntime =
 
 const openPreparedRuntimeStream = (
   state: RuntimeState,
-  request: AgentRuntimeRequest,
-): RuntimeEventStream => {
+  request: AiRuntimeRequest,
+): AiRuntimeEventStream => {
   const preparedStream = Effect.map(createRuntimeExecution(state, request), openExecutorStream);
   return Stream.unwrap(preparedStream);
 };
@@ -80,7 +75,7 @@ const openExecutorStream = ({
   model,
   providerOptions,
   providerRequest,
-}: RuntimeExecution): RuntimeEventStream =>
+}: RuntimeExecution): AiRuntimeEventStream =>
   executor.stream({
     model,
     providerOptions,
@@ -89,16 +84,16 @@ const openExecutorStream = ({
 
 const createRuntimeExecution = (
   state: RuntimeState,
-  request: AgentRuntimeRequest,
-): Effect.Effect<RuntimeExecution, AgentRuntimeError> =>
+  request: AiRuntimeRequest,
+): Effect.Effect<RuntimeExecution, AiRuntimeError> =>
   Effect.gen(function* () {
     /**
      * prepareRuntimeTurn answers the questions that must be settled before the
      * model starts:
      *
-     * Which executor is allowed? Which profile is active? Which provider/model
-     * is selected? Which tools are the model allowed to see? What final message
-     * list will the provider get?
+     * Which executor is allowed? Which provider/model is selected? Which
+     * registered tools are the model allowed to see? The message list is
+     * already final and is passed through unchanged.
      */
     const turn = yield* attemptRuntime(() => prepareRuntimeTurn(state, request));
     const { executor, provider, providerRequest, selection } = turn;
@@ -115,7 +110,7 @@ const createRuntimeExecution = (
     };
   });
 
-const attemptRuntime = <A>(tryFn: () => A): Effect.Effect<A, AgentRuntimeError> =>
+const attemptRuntime = <A>(tryFn: () => A): Effect.Effect<A, AiRuntimeError> =>
   Effect.try({
     try: tryFn,
     catch: (error) => toRuntimeError(error),
@@ -125,16 +120,16 @@ const attemptRuntime = <A>(tryFn: () => A): Effect.Effect<A, AgentRuntimeError> 
  * Catch raw throws from adapters and turn them into runtime errors.
  *
  * Most failures should use Effect.fail or Effect.try. This protects callers when
- * adapter code throws before it can return a typed AgentRuntimeError.
+ * adapter code throws before it can return a typed AiRuntimeError.
  */
-const catchRuntimeDefects = (stream: RuntimeEventStream): RuntimeEventStream =>
+const catchRuntimeDefects = (stream: AiRuntimeEventStream): AiRuntimeEventStream =>
   Stream.catchCauseIf(stream, Cause.hasDies, (cause) =>
     Stream.fail(toRuntimeError(Cause.squash(cause))),
   );
 
-const toRuntimeError = (error: unknown): AgentRuntimeError => {
-  if (error instanceof AgentRuntimeError) return error;
-  return new AgentRuntimeError(
+const toRuntimeError = (error: unknown): AiRuntimeError => {
+  if (error instanceof AiRuntimeError) return error;
+  return new AiRuntimeError(
     RUNTIME_ERROR_CODES.INTERNAL_ERROR,
     error instanceof Error ? error.message : "agent runtime failed",
   );

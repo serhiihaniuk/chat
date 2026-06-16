@@ -1,9 +1,7 @@
 import { Effect, Exit, Option } from "effect";
 import type { JsonObject } from "@side-chat/shared";
+import { AiRuntimeError, RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
 import type { RuntimeTool, RuntimeToolContext, RuntimeToolEffect } from "#tools/runtime-tool";
-
-import { AgentRuntimeError } from "../../contract/runtime-error.js";
-import { RUNTIME_ERROR_CODES } from "../../contract/runtime-event.js";
 
 /**
  * Run an app-owned tool when AI SDK calls it.
@@ -30,7 +28,7 @@ export const executeRuntimeToolForAiSdk = async (
  * Enforce a tool's declared timeout.
  *
  * If a tool says it has a timeout, runtime owns that timer and reports timeout
- * as AgentRuntimeError, not as a scheduler-specific exception.
+ * as AiRuntimeError, not as a scheduler-specific exception.
  */
 const withRuntimeToolTimeout = (
   runtimeTool: RuntimeTool,
@@ -43,7 +41,7 @@ const withRuntimeToolTimeout = (
       duration: runtimeTool.timeoutMs,
       orElse: () =>
         Effect.fail(
-          new AgentRuntimeError(
+          new AiRuntimeError(
             RUNTIME_ERROR_CODES.TIMEOUT,
             `${runtimeTool.name} timed out after ${runtimeTool.timeoutMs}ms.`,
           ),
@@ -55,16 +53,16 @@ const withRuntimeToolTimeout = (
 const runtimeToolFailure = (
   runtimeTool: RuntimeTool,
   context: RuntimeToolContext,
-  exit: Exit.Exit<JsonObject, AgentRuntimeError>,
-): AgentRuntimeError => {
+  exit: Exit.Exit<JsonObject, AiRuntimeError>,
+): AiRuntimeError => {
   const typedError = Option.getOrUndefined(Exit.findErrorOption(exit));
   if (typedError) return typedError;
 
   if (context.abortSignal?.aborted) {
-    return new AgentRuntimeError(RUNTIME_ERROR_CODES.ABORTED, `${runtimeTool.name} was aborted.`);
+    return new AiRuntimeError(RUNTIME_ERROR_CODES.ABORTED, `${runtimeTool.name} was aborted.`);
   }
 
-  return new AgentRuntimeError(
+  return new AiRuntimeError(
     RUNTIME_ERROR_CODES.TOOL_FAILED,
     `${runtimeTool.name} failed before returning a typed tool error.`,
   );

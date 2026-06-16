@@ -1,5 +1,6 @@
 import { Effect } from "effect";
-import { AgentRuntimeError, RUNTIME_ERROR_CODES, type RuntimeTool } from "@side-chat/agent-runtime";
+import { AiRuntimeError, RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
+import type { RuntimeTool } from "@side-chat/agent-runtime";
 import { isRecord, type JsonObject } from "@side-chat/shared";
 
 const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
@@ -47,12 +48,12 @@ export const createMockWebSearchTool = ({
     }).pipe(Effect.mapError(toToolError)),
 });
 
-const readQuery = (input: JsonObject): Effect.Effect<string, AgentRuntimeError> => {
+const readQuery = (input: JsonObject): Effect.Effect<string, AiRuntimeError> => {
   const query = input["query"];
   if (typeof query === "string" && query.trim().length > 0) return Effect.succeed(query.trim());
 
   return Effect.fail(
-    new AgentRuntimeError(
+    new AiRuntimeError(
       RUNTIME_ERROR_CODES.TOOL_FAILED,
       "mock_web_search requires a non-empty query string.",
     ),
@@ -74,9 +75,9 @@ const readSources = (result: JsonObject) => {
   });
 };
 
-const toToolError = (error: unknown): AgentRuntimeError => {
-  if (error instanceof AgentRuntimeError) return error;
-  return new AgentRuntimeError(
+const toToolError = (error: unknown): AiRuntimeError => {
+  if (error instanceof AiRuntimeError) return error;
+  return new AiRuntimeError(
     RUNTIME_ERROR_CODES.TOOL_FAILED,
     error instanceof Error ? error.message : "mock_web_search failed.",
   );

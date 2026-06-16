@@ -3,7 +3,7 @@ import {
   RUNTIME_EVENT_TYPES,
   type RuntimeActivityDetails,
   type RuntimeEvent,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
 import { Effect } from "effect";
 import {
   redactAttributes,

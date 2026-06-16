@@ -1,10 +1,4 @@
-import {
-  createBasicRuntimeAgent,
-  RUNTIME_EVENT_TYPES,
-  toAssistantTurnId,
-  toRequestId,
-  type RuntimeEvent,
-} from "@side-chat/agent-runtime";
+import { RUNTIME_EVENT_TYPES, type RuntimeEvent } from "@side-chat/ai-runtime-contract";
 import { Effect, Stream } from "effect";
 import type { ConversationTitlePromptConfig } from "#ports";
 import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
@@ -13,6 +7,7 @@ import type {
   StreamChatInput,
   StreamChatPorts,
 } from "../stream-chat-types.js";
+import { createConversationTitleRuntimeRequest } from "./title-runtime-request.js";
 
 const TITLE_MAX_WORDS = 6;
 const TITLE_MIN_WORDS = 2;
@@ -176,20 +171,8 @@ const runConversationTitleAgent = (
   turn: PreparedStreamChatTurn,
   titleInput: RunnableTitleInput,
 ): Effect.Effect<string, TitleGenerationFailure> => {
-  const titleAgent = createBasicRuntimeAgent(ports.runtime, {
-    providerId: turn.policyDecision.providerId,
-    modelId: turn.policyDecision.modelId,
-    systemInstructions: titleInput.prompt.systemInstructions,
-    availableToolNames: [],
-  });
-
-  const titleEventStream = titleAgent
-    .streamEffect({
-      requestId: toRequestId(`${input.request.requestId}:conversation-title`),
-      assistantTurnId: toAssistantTurnId(`${turn.assistantTurnId}:conversation-title`),
-      messages: [{ role: "user", content: titleInput.userPrompt }],
-      abortSignal: input.abortSignal,
-    })
+  const titleEventStream = ports.runtime
+    .streamEffect(createConversationTitleRuntimeRequest(input, turn, titleInput))
     .pipe(Stream.mapError(() => titleGenerationFailure(TITLE_FAILURE_REASONS.RUNTIME_FAILED)));
 
   return collectTitleOutput(titleEventStream);

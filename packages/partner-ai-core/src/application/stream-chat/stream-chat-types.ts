@@ -2,7 +2,7 @@ import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import type { PreparedTurnContext, TurnPolicyDecision } from "#domain/capabilities";
 import type {
-  AgentRuntimePort,
+  AiRuntimePort,
   AssistantTurnLifecyclePort,
   AssistantTurnRef,
   ClockPort,
@@ -50,7 +50,7 @@ export type StreamChatPorts = {
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
-  readonly runtime: AgentRuntimePort;
+  readonly runtime: AiRuntimePort;
   readonly conversationTitleGeneration: ConversationTitleGenerationPort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;

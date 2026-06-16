@@ -1,5 +1,10 @@
 import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import { Stream } from "effect";
+import {
+  RUNTIME_ERROR_CODES,
+  RUNTIME_EVENT_TYPES,
+  type AiRuntimeRequest,
+} from "@side-chat/ai-runtime-contract";
 import { describe, expect, it } from "vitest";
 import { createFakeProvider } from "#providers/fake/fake-model-provider";
 import {
@@ -8,7 +13,6 @@ import {
   createDeterministicExecutor,
   createThrowingProvider,
 } from "#testing/agent-runtime-test-support";
-import { RUNTIME_ERROR_CODES, RUNTIME_EVENT_TYPES } from "./contract/runtime-event.js";
 import {
   createAgentRuntime,
   DEFAULT_AGENT_EXECUTOR_ID,
@@ -27,9 +31,8 @@ describe("createAgentRuntime executor selection", () => {
     const events = await collectEvents(
       Stream.toAsyncIterable(
         runtime.streamEffect({
+          ...runtimeRequest(),
           executorId: "deterministic.test",
-          providerId: "capture",
-          modelId: "capture-model",
           requestId: "req_executor",
           assistantTurnId: "turn_executor",
           messages: [{ role: "user", content: "executor seam" }],
@@ -61,6 +64,7 @@ describe("createAgentRuntime executor selection", () => {
       collectEvents(
         Stream.toAsyncIterable(
           runtime.streamEffect({
+            ...runtimeRequest(),
             executorId: "missing_executor",
             providerId: "throwing",
             modelId: "throwing-model",
@@ -84,4 +88,22 @@ describe("createAgentRuntime executor selection", () => {
       }),
     ).toThrow(`duplicate executor ${DEFAULT_AGENT_EXECUTOR_ID}`);
   });
+});
+
+const runtimeRequest = (): AiRuntimeRequest => ({
+  executorId: DEFAULT_AGENT_EXECUTOR_ID,
+  providerId: "capture",
+  modelId: "capture-model",
+  requestId: "req_default",
+  assistantTurnId: "turn_default",
+  messages: [],
+  toolNames: [],
+  toolScope: {
+    hostAppId: "host_app_001",
+    workspaceId: "workspace_001",
+    subjectId: "subject_001",
+    conversationId: "conversation_001",
+    assistantTurnId: "turn_default",
+    allowedHostCommandNames: [],
+  },
 });

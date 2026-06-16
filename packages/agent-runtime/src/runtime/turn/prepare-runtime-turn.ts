@@ -1,3 +1,4 @@
+import type { AiRuntimeMessage, AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
 import type { ModelProvider, ProviderSelection } from "#providers/model-provider";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import type { AgentExecutor } from "../executors/agent-executor.js";
@@ -6,24 +7,12 @@ import {
   resolveAgentExecutor,
   type ExecutorCatalog,
 } from "../executors/executor-selection.js";
-import type {
-  AgentRuntimeRequest,
-  RuntimeMessage,
-  RuntimeProviderRequest,
-} from "../contract/runtime-request.js";
-import {
-  createProfileCatalog,
-  resolveProfile,
-  type AssistantProfile,
-  type ProfileCatalog,
-} from "./assistant-profile.js";
+import type { RuntimeProviderRequest } from "./runtime-provider-request.js";
 import {
   createProviderCatalog,
   resolveProvider,
-  resolveProviderSelection,
   type ProviderCatalog,
 } from "./provider-selection.js";
-import { renderRuntimeMessages } from "./prompt-rendering.js";
 import { createToolCatalog, selectRuntimeTools, type ToolCatalog } from "./tool-selection.js";
 
 /**
@@ -36,7 +25,6 @@ import { createToolCatalog, selectRuntimeTools, type ToolCatalog } from "./tool-
 export type RuntimeState = {
   readonly executors: ExecutorCatalog;
   readonly providers: ProviderCatalog;
-  readonly profiles: ProfileCatalog;
   readonly tools: ToolCatalog;
 };
 
@@ -56,46 +44,39 @@ export type PreparedRuntimeTurn = {
 export const createRuntimeState = (options: {
   readonly executors?: readonly AgentExecutor[] | undefined;
   readonly providers: readonly ModelProvider[];
-  readonly profiles?: readonly AssistantProfile[] | undefined;
   readonly tools?: readonly RuntimeTool[] | undefined;
 }): RuntimeState => ({
   executors: createExecutorCatalog(options.executors),
   providers: createProviderCatalog(options.providers),
-  profiles: createProfileCatalog(options.profiles),
   tools: createToolCatalog(options.tools),
 });
 
 /**
  * Prepare the runtime-side inputs needed before model streaming starts.
  *
- * This checks the selected profile, executor, provider, model, tools, and
- * messages. It does not call the model.
+ * Source is partner-ai-core's final AiRuntimeRequest. Target is one registered
+ * AgentExecutor. Invariant: runtime validates local registrations but does not
+ * add product policy, prompt text, or context.
  */
 export const prepareRuntimeTurn = (
   state: RuntimeState,
-  request: AgentRuntimeRequest,
+  request: AiRuntimeRequest,
 ): PreparedRuntimeTurn => {
-  // Pick the instructions and usual defaults before applying request choices.
-  const profile = resolveProfile(state.profiles, request.profileId);
-
   // Choose the execution engine before any provider stream can open.
-  const executor = resolveAgentExecutor(state.executors, request);
+  const executor = resolveAgentExecutor(state.executors, request.executorId);
 
   // Make sure the selected provider/model pair is registered.
-  const selection = resolveProviderSelection(request, profile, state.providers.providers);
+  const selection = { providerId: request.providerId, modelId: request.modelId };
   const provider = resolveProvider(state.providers, selection);
 
   // Keep only the tools selected for this turn.
-  const tools = selectRuntimeTools(state.tools, profile, request);
-
-  // Build the final model messages after instructions, context, and tools are fixed.
-  const messages = renderRuntimeMessages(profile, request);
+  const tools = selectRuntimeTools(state.tools, request.toolNames);
 
   return {
     executor,
     provider,
     selection,
-    providerRequest: createProviderRequest(request, selection, tools, messages),
+    providerRequest: createProviderRequest(request, tools, request.messages),
   };
 };
 
@@ -106,15 +87,14 @@ export const prepareRuntimeTurn = (
  * turn.
  */
 const createProviderRequest = (
-  request: AgentRuntimeRequest,
-  selection: ProviderSelection,
+  request: AiRuntimeRequest,
   tools: readonly RuntimeTool[],
-  messages: readonly RuntimeMessage[],
+  messages: readonly AiRuntimeMessage[],
 ): RuntimeProviderRequest => ({
   requestId: request.requestId,
   assistantTurnId: request.assistantTurnId,
-  providerId: selection.providerId,
-  modelId: selection.modelId,
+  providerId: request.providerId,
+  modelId: request.modelId,
   messages,
   tools: tools.length > 0 ? tools : undefined,
   toolScope: request.toolScope,

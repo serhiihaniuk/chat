@@ -5,6 +5,7 @@
   "files": ["vitest.config.ts", "playwright.config.ts"],
   "references": [
     { "path": "./apps/partner-ai-service" },
+    { "path": "./packages/ai-runtime-contract" },
     { "path": "./packages/chat-protocol" },
     { "path": "./packages/partner-ai-core" },
     { "path": "./packages/agent-runtime" },

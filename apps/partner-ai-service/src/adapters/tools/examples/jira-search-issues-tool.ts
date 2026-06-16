@@ -1,8 +1,10 @@
 import { Effect } from "effect";
 import {
-  AgentRuntimeError,
+  AiRuntimeError,
   RUNTIME_ERROR_CODES,
   type RuntimeActivitySource,
+} from "@side-chat/ai-runtime-contract";
+import {
   type RuntimeTool,
   type RuntimeToolContext,
   type RuntimeToolScope,
@@ -46,7 +48,6 @@ export type JiraSearchIssuesRequest = {
   readonly subjectId: string;
   readonly conversationId: string;
   readonly assistantTurnId: string;
-  readonly profileId: string;
   readonly abortSignal?: AbortSignal | undefined;
 };
 
@@ -92,7 +93,6 @@ export const createJiraSearchIssuesTool = ({
           subjectId: scope.subjectId,
           conversationId: scope.conversationId,
           assistantTurnId: scope.assistantTurnId,
-          profileId: scope.profileId,
           abortSignal: context.abortSignal,
         })
         .pipe(Effect.mapError(toJiraToolError));
@@ -103,11 +103,11 @@ export const createJiraSearchIssuesTool = ({
 
 const readJiraToolScope = (
   context: RuntimeToolContext,
-): Effect.Effect<RuntimeToolScope, AgentRuntimeError> =>
+): Effect.Effect<RuntimeToolScope, AiRuntimeError> =>
   context.scope
     ? Effect.succeed(context.scope)
     : Effect.fail(
-        new AgentRuntimeError(
+        new AiRuntimeError(
           RUNTIME_ERROR_CODES.TOOL_FAILED,
           "jira.search_issues requires runtime tool scope.",
         ),
@@ -115,11 +115,11 @@ const readJiraToolScope = (
 
 const readJiraSearchIssuesInput = (
   input: JsonObject,
-): Effect.Effect<{ readonly query: string; readonly maxResults: number }, AgentRuntimeError> => {
+): Effect.Effect<{ readonly query: string; readonly maxResults: number }, AiRuntimeError> => {
   const query = input["query"];
   if (typeof query !== "string" || query.trim().length === 0) {
     return Effect.fail(
-      new AgentRuntimeError(
+      new AiRuntimeError(
         RUNTIME_ERROR_CODES.TOOL_FAILED,
         "jira.search_issues requires a non-empty query string.",
       ),
@@ -169,9 +169,9 @@ const readJiraIssueSourceLabel = (issue: Record<string, unknown>): string => {
   return "Jira issue";
 };
 
-const toJiraToolError = (error: unknown): AgentRuntimeError => {
-  if (error instanceof AgentRuntimeError) return error;
-  return new AgentRuntimeError(
+const toJiraToolError = (error: unknown): AiRuntimeError => {
+  if (error instanceof AiRuntimeError) return error;
+  return new AiRuntimeError(
     RUNTIME_ERROR_CODES.TOOL_FAILED,
     error instanceof Error ? error.message : "jira.search_issues failed.",
   );

@@ -5,15 +5,13 @@ import type { RuntimeTool } from "#tools/runtime-tool";
 import {
   RUNTIME_ACTIVITY_KINDS,
   RUNTIME_ACTIVITY_STATUSES,
-  type RuntimeActivitySource,
-  type RuntimeActivityStatus,
-} from "../../contract/runtime-activity.js";
-import {
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
+  type RuntimeActivitySource,
+  type RuntimeActivityStatus,
   type RuntimeEvent,
-} from "../../contract/runtime-event.js";
-import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
+} from "@side-chat/ai-runtime-contract";
+import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 import { toJsonObject } from "../tools/json-value.js";
 
 const AI_SDK_TOOL_PART_TYPES = {

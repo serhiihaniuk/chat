@@ -7,7 +7,7 @@ import {
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
   type RuntimeEvent,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import type { AuthContext } from "#domain/authority";
@@ -27,7 +27,7 @@ import {
   type ObservabilityRecord,
 } from "./observability.js";
 import {
-  type AgentRuntimePort,
+  type AiRuntimePort,
   type ClockPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
@@ -240,7 +240,7 @@ const createObservedPorts = (
     completeAssistantTurn: () => Effect.succeed(undefined),
     failAssistantTurn: () => Effect.succeed(undefined),
   };
-  const runtime: AgentRuntimePort = {
+  const runtime: AiRuntimePort = {
     streamEffect: () => Stream.fromIterable(runtimeEvents),
   };
   const ids: IdGeneratorPort = {
