@@ -52,7 +52,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run --passWithNoTests"
+    "test": "cd ../.. && vitest run packages/partner-ai-core/src --passWithNoTests"
   },
   "dependencies": {
     "@side-chat/ai-runtime-contract": "0.0.0",

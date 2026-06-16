@@ -39,7 +39,7 @@
     "dev": "tsx --conditions=development src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run --passWithNoTests"
+    "test": "cd ../.. && vitest run apps/partner-ai-service/src --passWithNoTests"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.70",

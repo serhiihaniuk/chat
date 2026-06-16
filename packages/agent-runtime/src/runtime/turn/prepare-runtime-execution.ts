@@ -1,5 +1,5 @@
 import type { AiRuntimeMessage, AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
-import type { ModelProvider, ProviderSelection } from "#providers/model-provider";
+import type { ModelProvider } from "#providers/model-provider";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import type { AgentExecutor } from "../executors/agent-executor.js";
 import {
@@ -13,7 +13,11 @@ import {
   resolveProvider,
   type ProviderCatalog,
 } from "./provider-selection.js";
-import { createToolCatalog, selectRuntimeTools, type ToolCatalog } from "./tool-selection.js";
+import {
+  createToolCatalog,
+  selectRuntimeToolsByName,
+  type ToolCatalog,
+} from "./tool-selection.js";
 
 /**
  * RuntimeState is the indexed copy of what the app injected at startup.
@@ -34,10 +38,9 @@ export type RuntimeState = {
  * After this exists, the runtime knows which executor to call, which provider
  * owns the selected model, and what messages/tools to send.
  */
-export type PreparedRuntimeTurn = {
+export type PreparedRuntimeExecution = {
   readonly executor: AgentExecutor;
   readonly provider: ModelProvider;
-  readonly selection: ProviderSelection;
   readonly providerRequest: RuntimeProviderRequest;
 };
 
@@ -58,24 +61,22 @@ export const createRuntimeState = (options: {
  * AgentExecutor. Invariant: runtime validates local registrations but does not
  * add product policy, prompt text, or context.
  */
-export const prepareRuntimeTurn = (
+export const prepareRuntimeExecution = (
   state: RuntimeState,
   request: AiRuntimeRequest,
-): PreparedRuntimeTurn => {
+): PreparedRuntimeExecution => {
   // Choose the execution engine before any provider stream can open.
   const executor = resolveAgentExecutor(state.executors, request.executorId);
 
   // Make sure the selected provider/model pair is registered.
-  const selection = { providerId: request.providerId, modelId: request.modelId };
-  const provider = resolveProvider(state.providers, selection);
+  const provider = resolveProvider(state.providers, request.providerId, request.modelId);
 
   // Keep only the tools selected for this turn.
-  const tools = selectRuntimeTools(state.tools, request.toolNames);
+  const tools = selectRuntimeToolsByName(state.tools, request.toolNames);
 
   return {
     executor,
     provider,
-    selection,
     providerRequest: createProviderRequest(request, tools, request.messages),
   };
 };

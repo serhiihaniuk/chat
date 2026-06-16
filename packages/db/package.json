@@ -47,7 +47,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run --passWithNoTests"
+    "test": "cd ../.. && vitest run packages/db/src --passWithNoTests"
   },
   "dependencies": {
     "@side-chat/shared": "0.0.0",

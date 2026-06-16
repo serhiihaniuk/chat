@@ -1,7 +1,8 @@
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
-import type { AiRuntimeMessage, RuntimeEvent } from "@side-chat/ai-runtime-contract";
+import type { RuntimeEvent } from "@side-chat/ai-runtime-contract";
 import { Effect, Ref, Stream } from "effect";
 import type { PartnerAiCoreError } from "#errors";
+import { buildModelTurnRequest } from "../model-request/build-model-turn-request.js";
 import {
   createProtocolEventAccumulator,
   recordProtocolEvent,
@@ -138,62 +139,8 @@ const createRuntimeEventStream = (
   turn: PreparedStreamChatTurn,
 ): Stream.Stream<RuntimeEvent, PartnerAiCoreError> =>
   ports.runtime
-    .streamEffect({
-      requestId: input.request.requestId,
-      assistantTurnId: turn.assistantTurnId,
-      executorId: turn.policyDecision.executorId,
-      providerId: turn.policyDecision.providerId,
-      modelId: turn.policyDecision.modelId,
-      messages: createRuntimeMessages(turn),
-      toolNames: turn.policyDecision.allowedToolNames,
-      toolScope: {
-        hostAppId: input.hostAppId,
-        workspaceId: turn.authContext.workspaceId,
-        subjectId: turn.authContext.subject.subjectId,
-        conversationId: turn.conversation.conversationId,
-        assistantTurnId: turn.assistantTurnId,
-        allowedHostCommandNames: turn.policyDecision.allowedCommandNames,
-      },
-      abortSignal: input.abortSignal,
-    })
+    .streamEffect(buildModelTurnRequest(input, turn))
     .pipe(Stream.mapError(mapUnknownRuntimeError));
-
-const createRuntimeMessages = (turn: PreparedStreamChatTurn): readonly AiRuntimeMessage[] => [
-  {
-    role: "system",
-    content: turn.policyDecision.systemInstructions,
-  },
-  ...contextBoardMessages(turn.preparedContext.contextBoard),
-  ...turn.preparedContext.runtimeMessages,
-];
-
-const contextBoardMessages = (
-  contextBoard: PreparedStreamChatTurn["preparedContext"]["contextBoard"],
-): readonly AiRuntimeMessage[] =>
-  contextBoard.sections.length > 0 ? [contextBoardToSystemMessage(contextBoard)] : [];
-
-const contextBoardToSystemMessage = (
-  contextBoard: PreparedStreamChatTurn["preparedContext"]["contextBoard"],
-): AiRuntimeMessage => ({
-  role: "system",
-  content: `Trusted context board:\n\n${renderContextBoardSections(contextBoard)}`,
-});
-
-const renderContextBoardSections = (
-  board: PreparedStreamChatTurn["preparedContext"]["contextBoard"],
-): string =>
-  board.sections
-    .toSorted(compareContextSections)
-    .map((section) => `### ${section.title}\n${section.content.trim()}`)
-    .join("\n\n");
-
-type PreparedContextSection =
-  PreparedStreamChatTurn["preparedContext"]["contextBoard"]["sections"][number];
-
-const compareContextSections = (
-  left: PreparedContextSection,
-  right: PreparedContextSection,
-): number => right.priority - left.priority;
 
 const mapRuntimeEventEffect = (
   ports: StreamChatPorts,

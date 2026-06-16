@@ -13,9 +13,9 @@ import type { RuntimeProviderRequest } from "./turn/runtime-provider-request.js"
 import type { AgentExecutor } from "./executors/agent-executor.js";
 import {
   createRuntimeState,
-  prepareRuntimeTurn,
+  prepareRuntimeExecution,
   type RuntimeState,
-} from "./turn/prepare-runtime-turn.js";
+} from "./turn/prepare-runtime-execution.js";
 
 export {
   DEFAULT_AGENT_EXECUTOR_ID,
@@ -88,15 +88,19 @@ const createRuntimeExecution = (
 ): Effect.Effect<RuntimeExecution, AiRuntimeError> =>
   Effect.gen(function* () {
     /**
-     * prepareRuntimeTurn answers the questions that must be settled before the
-     * model starts:
+     * prepareRuntimeExecution answers the questions that must be settled before
+     * the model starts:
      *
      * Which executor is allowed? Which provider/model is selected? Which
      * registered tools are the model allowed to see? The message list is
      * already final and is passed through unchanged.
      */
-    const turn = yield* attemptRuntime(() => prepareRuntimeTurn(state, request));
-    const { executor, provider, providerRequest, selection } = turn;
+    const prepared = yield* attemptRuntime(() => prepareRuntimeExecution(state, request));
+    const { executor, provider, providerRequest } = prepared;
+    const selection = {
+      providerId: providerRequest.providerId,
+      modelId: providerRequest.modelId,
+    };
     const model = yield* provider.resolveModel(selection);
     const providerOptions = provider.resolveProviderOptions
       ? yield* provider.resolveProviderOptions(selection)

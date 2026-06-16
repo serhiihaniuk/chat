@@ -19,7 +19,7 @@ Not source of truth for: product policy or browser protocol.
 
 ```txt
 agent-runtime.ts
--> turn/prepare-runtime-turn.ts
+-> turn/prepare-runtime-execution.ts
 -> executors/executor-selection.ts
 -> ai-sdk/streaming/tool-loop-agent-runner.ts
 -> packages/ai-runtime-contract/src/index.ts

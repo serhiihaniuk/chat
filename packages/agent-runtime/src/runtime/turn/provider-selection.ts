@@ -1,4 +1,4 @@
-import type { ModelProvider, ProviderSelection } from "#providers/model-provider";
+import type { ModelProvider } from "#providers/model-provider";
 import { AiRuntimeError, RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
 
 /**
@@ -37,19 +37,20 @@ export const createProviderCatalog = (providers: readonly ModelProvider[]): Prov
  */
 export const resolveProvider = (
   catalog: ProviderCatalog,
-  selection: ProviderSelection,
+  providerId: string,
+  modelId: string,
 ): ModelProvider => {
-  const provider = catalog.byId.get(selection.providerId);
+  const provider = catalog.byId.get(providerId);
   if (!provider) {
     throw new AiRuntimeError(
       RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
-      `provider ${selection.providerId} is not registered`,
+      `provider ${providerId} is not registered`,
     );
   }
-  if (!provider.modelIds.includes(selection.modelId)) {
+  if (!provider.modelIds.includes(modelId)) {
     throw new AiRuntimeError(
       RUNTIME_ERROR_CODES.MODEL_UNAVAILABLE,
-      `model ${selection.modelId} is not registered for provider ${selection.providerId}`,
+      `model ${modelId} is not registered for provider ${providerId}`,
     );
   }
   return provider;

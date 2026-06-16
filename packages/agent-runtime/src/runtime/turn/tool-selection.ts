@@ -12,7 +12,7 @@ export const createToolCatalog = (tools: readonly RuntimeTool[] | undefined): To
  * Source registration alone is not permission. Core passes the final per-turn
  * tool-name list, and runtime resolves only those app-owned executables.
  */
-export const selectRuntimeTools = (
+export const selectRuntimeToolsByName = (
   registry: ToolRegistry,
   selectedNames: readonly string[],
 ): readonly RuntimeTool[] => selectedNames.map((name) => registry.resolve(name));
