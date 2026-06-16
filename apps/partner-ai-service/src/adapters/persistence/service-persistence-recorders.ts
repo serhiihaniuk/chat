@@ -8,8 +8,17 @@ import {
   type AuthContext,
   type PreparedTurnContext,
 } from "@side-chat/partner-ai-core";
-import { toActorId, type ConversationRecord, type SidechatRepositories } from "@side-chat/db";
+import {
+  toActorId,
+  type ConversationRecord,
+  type MessageRecord,
+  type SidechatRepositories,
+} from "@side-chat/db";
 import { omitUndefinedProperties, toJsonObject, type JsonObject } from "@side-chat/shared";
+
+type PersistableMessage = ChatRequestMessage & {
+  readonly role: MessageRecord["role"];
+};
 
 export const conversationHistoryCutoffField = (
   conversation: ConversationRecord,
@@ -128,6 +137,14 @@ export const appendTurnAuditEvent = ({
     now,
   });
 
+/**
+ * Persist a message after a service adapter has assigned its Side Chat role.
+ *
+ * Browser request messages reach this helper only after `appendUserMessage`
+ * supplies `user`; assistant completion messages pass `assistant` from the turn
+ * lifecycle. Repository adapters never inspect browser request bodies to choose
+ * a role.
+ */
 export const appendMessage = ({
   repositories,
   authContext,
@@ -139,7 +156,7 @@ export const appendMessage = ({
   readonly repositories: SidechatRepositories;
   readonly authContext: AuthContext;
   readonly conversationId: string;
-  readonly message: ChatRequestMessage;
+  readonly message: PersistableMessage;
   readonly idempotencyKey: string;
   readonly now: string;
 }) =>

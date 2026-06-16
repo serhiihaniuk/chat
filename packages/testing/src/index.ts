@@ -13,7 +13,6 @@ export const buildChatStreamRequest = (content = "hello"): ChatStreamRequest => 
   requestId: "test-request-1",
   message: {
     id: "test-message-1",
-    role: "user",
     content,
   },
 });

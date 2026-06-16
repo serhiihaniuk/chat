@@ -50,7 +50,6 @@ export const createDefaultRequest = ({
     assistantProfileId: assistantProfileId === "" ? undefined : assistantProfileId,
     message: {
       id: messageId,
-      role: "user",
       content,
     },
     hostContext,

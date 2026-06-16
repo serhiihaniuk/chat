@@ -29,7 +29,7 @@ export const authContext: AuthContext = {
 export const request: ChatStreamRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId: "request_001",
-  message: { id: "message_001", role: "user", content: "hello" },
+  message: { id: "message_001", content: "hello" },
 };
 
 export const input: StreamChatInput = {

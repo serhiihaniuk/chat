@@ -5,6 +5,28 @@ import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "../events/event-
 import { toBrandedSidechatEvent } from "./sidechat-event-branding.js";
 
 const eventTypes = new Set<string>(Object.values(SIDECHAT_EVENT_TYPES));
+const BASE_EVENT_FIELDS = [
+  "protocolVersion",
+  "type",
+  "eventId",
+  "assistantTurnId",
+  "sequence",
+  "createdAt",
+] as const;
+const STARTED_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "conversationId"] as const;
+const DELTA_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "content"] as const;
+const ACTIVITY_EVENT_FIELDS = [
+  ...BASE_EVENT_FIELDS,
+  "activityId",
+  "activityKind",
+  "status",
+  "title",
+  "body",
+  "details",
+] as const;
+const COMPLETED_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "finishReason", "usage"] as const;
+const ERROR_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "code", "message", "retryable"] as const;
+const HISTORY_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "messages"] as const;
 
 /**
  * Validate one event received from or sent to a browser stream.
@@ -41,32 +63,59 @@ const parseEventEnvelope = (input: unknown): Record<string, unknown> => {
 };
 
 const validatePayload = (event: Record<string, unknown>): void => {
-  switch (event["type"]) {
-    case SIDECHAT_EVENT_TYPES.STARTED:
-      return;
-    case SIDECHAT_EVENT_TYPES.DELTA:
-      requireString(event["content"], 'event["content"]');
-      return;
-    case SIDECHAT_EVENT_TYPES.ACTIVITY:
-      validateActivityPayload(event);
-      return;
-    case SIDECHAT_EVENT_TYPES.COMPLETED:
-      requireOneOf(event["finishReason"], ["stop", "length", "aborted"], 'event["finishReason"]');
-      return;
-    case SIDECHAT_EVENT_TYPES.ERROR:
-      requireString(event["code"], 'event["code"]');
-      requireString(event["message"], 'event["message"]');
-      if (typeof event["retryable"] !== "boolean") {
-        throw new Error('event["retryable"] must be boolean');
-      }
-      return;
-    case SIDECHAT_EVENT_TYPES.HISTORY:
-      if (!Array.isArray(event["messages"])) {
-        throw new Error('event["messages"] must be an array');
-      }
-      return;
+  const validator =
+    EVENT_PAYLOAD_VALIDATORS[event["type"] as keyof typeof EVENT_PAYLOAD_VALIDATORS];
+  if (!validator) throw new Error('event["type"] is not a sidechat.v1 event');
+  validator(event);
+};
+
+const validateStartedEvent = (event: Record<string, unknown>): void => {
+  requireKnownKeys(event, STARTED_EVENT_FIELDS, "sidechat.started event");
+  if (event["conversationId"] !== undefined)
+    requireString(event["conversationId"], 'event["conversationId"]');
+};
+
+const validateDeltaEvent = (event: Record<string, unknown>): void => {
+  requireKnownKeys(event, DELTA_EVENT_FIELDS, "sidechat.delta event");
+  requireString(event["content"], 'event["content"]');
+};
+
+const validateActivityEvent = (event: Record<string, unknown>): void => {
+  requireKnownKeys(event, ACTIVITY_EVENT_FIELDS, "sidechat.activity event");
+  validateActivityPayload(event);
+};
+
+const validateCompletedEvent = (event: Record<string, unknown>): void => {
+  requireKnownKeys(event, COMPLETED_EVENT_FIELDS, "sidechat.completed event");
+  requireOneOf(event["finishReason"], ["stop", "length", "aborted"], 'event["finishReason"]');
+  if (event["usage"] !== undefined) validateUsageMetadata(event["usage"]);
+};
+
+const validateErrorEvent = (event: Record<string, unknown>): void => {
+  requireKnownKeys(event, ERROR_EVENT_FIELDS, "sidechat.error event");
+  requireString(event["code"], 'event["code"]');
+  requireString(event["message"], 'event["message"]');
+  if (typeof event["retryable"] !== "boolean") {
+    throw new Error('event["retryable"] must be boolean');
   }
 };
+
+const validateHistoryEvent = (event: Record<string, unknown>): void => {
+  requireKnownKeys(event, HISTORY_EVENT_FIELDS, "sidechat.history event");
+  if (!Array.isArray(event["messages"])) {
+    throw new Error('event["messages"] must be an array');
+  }
+  for (const message of event["messages"]) validateHistoryMessage(message);
+};
+
+const EVENT_PAYLOAD_VALIDATORS = {
+  [SIDECHAT_EVENT_TYPES.STARTED]: validateStartedEvent,
+  [SIDECHAT_EVENT_TYPES.DELTA]: validateDeltaEvent,
+  [SIDECHAT_EVENT_TYPES.ACTIVITY]: validateActivityEvent,
+  [SIDECHAT_EVENT_TYPES.COMPLETED]: validateCompletedEvent,
+  [SIDECHAT_EVENT_TYPES.ERROR]: validateErrorEvent,
+  [SIDECHAT_EVENT_TYPES.HISTORY]: validateHistoryEvent,
+} satisfies Record<string, (event: Record<string, unknown>) => void>;
 
 const validateActivityPayload = (event: Record<string, unknown>): void => {
   requireString(event["activityId"], 'event["activityId"]');
@@ -163,6 +212,26 @@ const validateHostCommandDetails = (value: unknown): void => {
   if (value["result"] !== undefined) {
     requireJsonObject(value["result"], 'event["details"]["hostCommand"]["result"]');
   }
+};
+
+const validateUsageMetadata = (value: unknown): void => {
+  if (!isRecord(value)) throw new Error('event["usage"] must be an object');
+  requireKnownKeys(value, ["inputTokens", "outputTokens", "totalTokens"], 'event["usage"]');
+  if (value["inputTokens"] !== undefined)
+    requireNonNegativeInteger(value["inputTokens"], 'event["usage"]["inputTokens"]');
+  if (value["outputTokens"] !== undefined)
+    requireNonNegativeInteger(value["outputTokens"], 'event["usage"]["outputTokens"]');
+  if (value["totalTokens"] !== undefined)
+    requireNonNegativeInteger(value["totalTokens"], 'event["usage"]["totalTokens"]');
+};
+
+const validateHistoryMessage = (value: unknown): void => {
+  if (!isRecord(value)) throw new Error('event["messages"] item must be an object');
+  requireKnownKeys(value, ["id", "role", "content", "sequence"], 'event["messages"] item');
+  requireString(value["id"], 'event["messages"][].id');
+  requireOneOf(value["role"], ["user", "assistant", "system"], 'event["messages"][].role');
+  requireString(value["content"], 'event["messages"][].content');
+  requireNonNegativeInteger(value["sequence"], 'event["messages"][].sequence');
 };
 
 const validateArray = (

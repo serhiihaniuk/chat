@@ -92,7 +92,7 @@ describe("SideChatWidget interactions", () => {
     await waitForText("Hello from the widget");
     expect(requests[0]).toMatchObject({
       assistantProfileId: "gpt-5.4-mini",
-      message: { content: "hello widget", role: "user" },
+      message: { content: "hello widget" },
     });
   });
 

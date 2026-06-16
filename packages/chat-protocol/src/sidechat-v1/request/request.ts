@@ -14,14 +14,25 @@ import {
   type RequestId,
 } from "../primitives.js";
 
-export type ChatMessageRole = "user" | "assistant" | "system";
-
+/**
+ * User-authored content submitted by the browser to start one assistant turn.
+ *
+ * The browser does not supply a role for the current message. Server-side
+ * packages assign `user` when persisting the message and when building the
+ * model-visible runtime request.
+ */
 export type ChatRequestMessage = {
   readonly id: MessageId;
-  readonly role: ChatMessageRole;
   readonly content: string;
 };
 
+/**
+ * Browser-provided page metadata attached to a request.
+ *
+ * Host context can explain where the user submitted the message, but it is
+ * reference data only. It is not proof of identity, workspace access, or
+ * trusted instruction text.
+ */
 export type HostContext = {
   readonly schemaVersion: string;
   readonly origin?: string;
@@ -30,6 +41,13 @@ export type HostContext = {
   readonly metadata?: JsonObject;
 };
 
+/**
+ * Browser request for one Side Chat user turn.
+ *
+ * This is the public `sidechat.v1` request contract. Auth, policy, persistence,
+ * role assignment, system instructions, tools, and model choices are added by
+ * server-side packages after this DTO is parsed.
+ */
 export type ChatStreamRequest = ProtocolEnvelope & {
   readonly requestId: RequestId;
   readonly conversationId?: ConversationId;
@@ -38,7 +56,16 @@ export type ChatStreamRequest = ProtocolEnvelope & {
   readonly hostContext?: HostContext;
 };
 
-const messageRoles = new Set<ChatMessageRole>(["user", "assistant", "system"]);
+const REQUEST_FIELDS = [
+  "protocolVersion",
+  "requestId",
+  "conversationId",
+  "assistantProfileId",
+  "message",
+  "hostContext",
+] as const;
+const MESSAGE_FIELDS = ["id", "content"] as const;
+const HOST_CONTEXT_FIELDS = ["schemaVersion", "origin", "url", "title", "metadata"] as const;
 
 /**
  * Validate the browser request for a new assistant turn.
@@ -49,6 +76,7 @@ const messageRoles = new Set<ChatMessageRole>(["user", "assistant", "system"]);
 export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
   try {
     if (!isRecord(input)) throw new Error("request must be an object");
+    requireKnownKeys(input, REQUEST_FIELDS, "request");
     const protocolVersion = assertProtocolVersion(input["protocolVersion"], "request");
     const requestId = toRequestId(requireString(input, "requestId", "request"));
     const message = parseMessage(input["message"]);
@@ -72,13 +100,10 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
 
 const parseMessage = (input: unknown): ChatRequestMessage => {
   if (!isRecord(input)) throw new Error("request.message must be an object");
+  requireKnownKeys(input, MESSAGE_FIELDS, "request.message");
   const id = toMessageId(requireString(input, "id", "request.message"));
   const content = requireString(input, "content", "request.message");
-  const role = input["role"];
-  if (typeof role !== "string" || !messageRoles.has(role as ChatMessageRole)) {
-    throw new Error("request.message.role must be user, assistant, or system");
-  }
-  return { id, role: role as ChatMessageRole, content };
+  return { id, content };
 };
 
 const readOptionalConversationId = (input: Record<string, unknown>): ConversationId | undefined => {
@@ -86,8 +111,6 @@ const readOptionalConversationId = (input: Record<string, unknown>): Conversatio
   return conversationId === undefined ? undefined : toConversationId(conversationId);
 };
 
-// Host context is optional page metadata from the browser. It helps explain
-// where the message came from, but it is not proof of user or workspace access.
 const parseOptionalHostContext = (input: Record<string, unknown>): HostContext | undefined => {
   if (!Object.hasOwn(input, "hostContext")) return undefined;
   return parseHostContext(input["hostContext"]);
@@ -95,6 +118,7 @@ const parseOptionalHostContext = (input: Record<string, unknown>): HostContext |
 
 const parseHostContext = (input: unknown): HostContext | undefined => {
   if (!isRecord(input)) throw new Error("request.hostContext must be an object");
+  requireKnownKeys(input, HOST_CONTEXT_FIELDS, "request.hostContext");
   const schemaVersion = requireString(input, "schemaVersion", "request.hostContext");
   const origin = readOptionalString(input, "origin", "request.hostContext");
   const url = readOptionalString(input, "url", "request.hostContext");
@@ -143,4 +167,14 @@ const isJsonValue = (value: unknown): value is JsonObject[keyof JsonObject] => {
   }
   if (Array.isArray(value)) return value.every(isJsonValue);
   return isJsonObject(value);
+};
+
+const requireKnownKeys = (
+  record: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  label: string,
+): void => {
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.includes(key)) throw new Error(`${label} has unsupported field "${key}"`);
+  }
 };

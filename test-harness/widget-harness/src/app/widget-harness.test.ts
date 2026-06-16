@@ -16,7 +16,7 @@ import {
 const request = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId: "request-1",
-  message: { id: "message-1", role: "user" as const, content: "hello" },
+  message: { id: "message-1", content: "hello" },
 };
 
 describe("widget harness modes", () => {

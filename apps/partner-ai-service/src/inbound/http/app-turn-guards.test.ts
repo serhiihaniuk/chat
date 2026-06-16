@@ -8,7 +8,7 @@ import { createPartnerAiServiceApp } from "./app.js";
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId: "request_guard_001",
-  message: { id: "message_guard_001", role: "user", content: "hello service" },
+  message: { id: "message_guard_001", content: "hello service" },
   hostContext: {
     schemaVersion: "host.v1",
     origin: "https://host.example",

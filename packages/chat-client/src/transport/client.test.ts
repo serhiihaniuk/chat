@@ -16,7 +16,6 @@ const request: ChatStreamRequest = {
   requestId: "request-1",
   message: {
     id: "message-1",
-    role: "user",
     content: "hello",
   },
 };

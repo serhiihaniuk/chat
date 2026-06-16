@@ -23,7 +23,6 @@ const firstRequest = {
   requestId: "request_history_context_001",
   message: {
     id: "message_history_context_001",
-    role: "user",
     content: "hello configured service",
   },
   hostContext: {
@@ -163,7 +162,6 @@ const followUpRequest = (conversationId: string): ChatStreamRequest => ({
   conversationId,
   message: {
     id: "message_history_context_002",
-    role: "user",
     content: "what did I say first?",
   },
 });

@@ -54,7 +54,7 @@ const authContext = {
 const request = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId: "request_context_admission_001",
-  message: { id: "message_context_admission_001", role: "user", content: "hi" },
+  message: { id: "message_context_admission_001", content: "hi" },
   hostContext: {
     schemaVersion: "host.v1",
     origin: "https://host.example",

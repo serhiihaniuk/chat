@@ -45,11 +45,14 @@ const createAppendUserMessageEffect =
   ({ authContext, conversationId, message }) =>
     Effect.tryPromise({
       try: async () => {
+        // Assign the current request role here, after protocol validation and
+        // auth. Browser DTOs carry only id/content and cannot choose persistence
+        // roles.
         const persisted = await appendMessage({
           repositories,
           authContext,
           conversationId,
-          message,
+          message: { ...message, role: "user" },
           idempotencyKey: `${message.id}:user`,
           now: authContext.issuedAt,
         });

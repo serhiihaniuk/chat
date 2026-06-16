@@ -54,7 +54,6 @@ const input: StreamChatInput = {
     requestId: "request_observe_1",
     message: {
       id: "message_001",
-      role: "user",
       content: "secret prompt should not be logged",
     },
   },

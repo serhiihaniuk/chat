@@ -11,7 +11,7 @@ import { createPartnerAiServiceApp } from "./app.js";
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId: "request_001",
-  message: { id: "message_001", role: "user", content: "hello service" },
+  message: { id: "message_001", content: "hello service" },
   hostContext: {
     schemaVersion: "host.v1",
     origin: "https://host.example",
@@ -52,7 +52,7 @@ describe("partner ai service /chat/stream persistence", () => {
     expect(new Set(conversationIds).size).toBe(2);
   });
 
-  it("persists explicit conversation state idempotently without durable host-command results", async () => {
+  it("persists explicit conversation state and assigns the request message role", async () => {
     const repositories = createMemorySidechatRepositories();
     const app = createPartnerAiServiceApp({ repositories });
     const persistedRequest = {

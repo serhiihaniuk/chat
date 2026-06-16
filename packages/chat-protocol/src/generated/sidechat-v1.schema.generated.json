@@ -13,11 +13,10 @@
     },
     "ChatRequestMessage": {
       "type": "object",
-      "required": ["id", "role", "content"],
+      "required": ["id", "content"],
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "role": { "enum": ["user", "assistant", "system"] },
         "content": { "type": "string" }
       }
     },

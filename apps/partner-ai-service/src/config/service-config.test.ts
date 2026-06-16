@@ -10,7 +10,7 @@ import {
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId: "request_config_001",
-  message: { id: "message_config_001", role: "user", content: "hello infra" },
+  message: { id: "message_config_001", content: "hello infra" },
   hostContext: {
     schemaVersion: "host.v1",
     origin: "https://host.example",

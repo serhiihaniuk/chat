@@ -36,7 +36,6 @@ describe("widget-state", () => {
       assistantProfileId: "gpt-5.4-mini",
       message: {
         id: "message_001",
-        role: "user",
         content: "hello",
       },
       hostContext: {
@@ -58,7 +57,6 @@ describe("widget-state", () => {
       requestId: "request_001",
       message: {
         id: "message_001",
-        role: "user",
         content: "hello",
       },
     });

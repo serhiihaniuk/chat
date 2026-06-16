@@ -108,6 +108,21 @@ describe("sidechat event validation", () => {
     }
   });
 
+  it("rejects event fields outside the declared event shape", () => {
+    expect(() =>
+      parseSidechatStreamEvent({
+        protocolVersion: "sidechat.v1",
+        type: SIDECHAT_EVENT_TYPES.DELTA,
+        eventId: "evt_extra",
+        assistantTurnId: "turn_001",
+        sequence: 4,
+        createdAt: "2026-05-23T13:00:00.000Z",
+        content: "hello",
+        content_text: "raw row text",
+      }),
+    ).toThrow(ProtocolValidationError);
+  });
+
   it("rejects provider-native and AI SDK UI stream shapes", () => {
     for (const providerShape of [
       { type: "text-delta", textDelta: "hello" },
@@ -127,6 +142,7 @@ describe("sidechat event validation", () => {
         assistantTurnId: "turn_001",
         sequence: 4,
         createdAt: "2026-05-23T13:00:00.000Z",
+        content: "safe text",
         content_text: "raw row text",
       },
       {
