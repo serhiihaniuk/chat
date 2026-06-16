@@ -1,11 +1,13 @@
+import {
+  OPENAI_REASONING_EFFORTS,
+  OPENAI_REASONING_SUMMARIES,
+  type OpenAIReasoningEffort,
+  type OpenAIReasoningSummary,
+} from "@side-chat/agent-runtime";
 import type { WorkspaceRef } from "@side-chat/partner-ai-core";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
-import type {
-  OpenAIReasoningEffort,
-  OpenAIReasoningSummary,
-} from "#composition/service-composition";
 import type { PartnerAiServiceOptions } from "#inbound/http/app";
 import { CAPABILITY_ENV_KEYS, createCapabilityConfigFromEnv } from "./service-capability-config.js";
 import { ServiceConfigError } from "./service-config-error.js";
@@ -237,20 +239,13 @@ const readDevToolFlag = (profile: ServiceProfile, env: ServiceEnv): boolean => {
   throw new ServiceConfigError("SIDECHAT_ENABLE_DEV_TOOLS must be true or false.");
 };
 
-const openaiReasoningEfforts = new Set<OpenAIReasoningEffort>([
-  "none",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-]);
+const openaiReasoningEfforts = new Set<string>(Object.values(OPENAI_REASONING_EFFORTS));
 
-const openaiReasoningSummaries = new Set<OpenAIReasoningSummary>(["auto", "concise", "detailed"]);
+const openaiReasoningSummaries = new Set<string>(Object.values(OPENAI_REASONING_SUMMARIES));
 
 const readOpenAIReasoningEffort = (rawEffort: string | undefined): OpenAIReasoningEffort => {
-  if (!rawEffort) return "medium";
-  if (openaiReasoningEfforts.has(rawEffort as OpenAIReasoningEffort)) {
+  if (!rawEffort) return OPENAI_REASONING_EFFORTS.MEDIUM;
+  if (openaiReasoningEfforts.has(rawEffort)) {
     return rawEffort as OpenAIReasoningEffort;
   }
   throw new ServiceConfigError(
@@ -259,8 +254,8 @@ const readOpenAIReasoningEffort = (rawEffort: string | undefined): OpenAIReasoni
 };
 
 const readOpenAIReasoningSummary = (rawSummary: string | undefined): OpenAIReasoningSummary => {
-  if (!rawSummary) return "auto";
-  if (openaiReasoningSummaries.has(rawSummary as OpenAIReasoningSummary)) {
+  if (!rawSummary) return OPENAI_REASONING_SUMMARIES.AUTO;
+  if (openaiReasoningSummaries.has(rawSummary)) {
     return rawSummary as OpenAIReasoningSummary;
   }
   throw new ServiceConfigError(

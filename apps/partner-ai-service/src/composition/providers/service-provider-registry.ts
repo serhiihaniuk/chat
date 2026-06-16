@@ -2,6 +2,8 @@ import {
   createFakeProvider,
   createOpenAIResponsesProvider,
   type ModelProvider,
+  type OpenAIReasoningEffort,
+  type OpenAIReasoningSummary,
 } from "@side-chat/agent-runtime";
 
 /**
@@ -14,17 +16,12 @@ import {
  * registry only records the declared retention and reasoning intent.
  */
 
-/** OpenAI reasoning effort carried by an OpenAI provider registration. */
-export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
-
-/** OpenAI reasoning summary visibility carried by an OpenAI provider registration. */
-export type OpenAIReasoningSummary = "auto" | "concise" | "detailed";
-
 /**
  * Reasoning policy carried by a provider registration.
  *
- * The registry records this intent so diagnostics and the Phase 10 provider
- * request hardening read one source instead of re-deriving it per call site.
+ * Reuses the agent-runtime reasoning value types so service config and the
+ * provider request preserve the same effort/summary. The registry keeps this
+ * intent in one place for diagnostics and Phase 10 request hardening.
  */
 export type ServiceReasoningPolicy = {
   readonly effort: OpenAIReasoningEffort;
@@ -37,7 +34,13 @@ export type ServiceReasoningPolicy = {
  * `no_retention` becomes `store: false` request hardening in Phase 10. Phase 3
  * only records the declared intent so the policy has one home.
  */
-export type ServiceModelRetentionPolicy = "provider_default" | "no_retention";
+export const SERVICE_MODEL_RETENTION_POLICIES = {
+  PROVIDER_DEFAULT: "provider_default",
+  NO_RETENTION: "no_retention",
+} as const;
+
+export type ServiceModelRetentionPolicy =
+  (typeof SERVICE_MODEL_RETENTION_POLICIES)[keyof typeof SERVICE_MODEL_RETENTION_POLICIES];
 
 /**
  * Service-owned declaration of one provider and the models it may serve.

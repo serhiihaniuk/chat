@@ -36,7 +36,7 @@ const customAssistant = (overrides: Partial<ServiceAssistantConfig> = {}): Servi
   displayName: "Support assistant",
   prompt: { promptId: "support_prompt", sections: [{ id: "role", content: "Help with tickets." }] },
   model: { providerId: "fake", modelId: "fake-echo" },
-  toolPolicy: { mode: "closed" },
+  toolPolicy: { mode: "closed", allowedToolNames: [] },
   safety: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
   ...overrides,
 });

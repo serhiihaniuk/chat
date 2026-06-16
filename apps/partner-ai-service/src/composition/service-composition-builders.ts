@@ -2,13 +2,16 @@ import {
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
   OPENAI_PROVIDER_ID,
+  OPENAI_REASONING_EFFORTS,
+  OPENAI_REASONING_SUMMARIES,
 } from "@side-chat/agent-runtime";
 import type { TurnGuardRegistryPort } from "@side-chat/partner-ai-core";
 
 import { createMockWebSearchRegistration } from "#adapters/tools/mock-web-search-tool";
-import type {
-  ServiceProviderRegistration,
-  ServiceProviderRegistry,
+import {
+  SERVICE_MODEL_RETENTION_POLICIES,
+  type ServiceProviderRegistration,
+  type ServiceProviderRegistry,
 } from "#composition/providers/service-provider-registry";
 import type {
   ServiceToolRegistration,
@@ -97,10 +100,10 @@ export const providerRegistrationForConfig = (
       apiKey: config.apiKey,
       baseUrl: config.baseUrl === "" ? undefined : config.baseUrl,
       fetch: config.fetch,
-      retention: "provider_default",
+      retention: SERVICE_MODEL_RETENTION_POLICIES.PROVIDER_DEFAULT,
       reasoning: {
-        effort: config.reasoningEffort ?? "medium",
-        summary: config.reasoningSummary ?? "auto",
+        effort: config.reasoningEffort ?? OPENAI_REASONING_EFFORTS.MEDIUM,
+        summary: config.reasoningSummary ?? OPENAI_REASONING_SUMMARIES.AUTO,
       },
     };
   }

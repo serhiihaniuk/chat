@@ -47,6 +47,8 @@ export const createServiceHostCapabilityManifest = ({
   activityRenderers: [],
 });
 
+// A hostAppId that does not match this manifest fails as FORBIDDEN rather than
+// reporting "not found", so the port never reveals that the manifest exists.
 export const createStaticHostCapabilityManifestPort = (
   manifest: HostCapabilityManifest,
 ): HostCapabilityManifestPort => ({
@@ -65,6 +67,11 @@ export const createStaticHostCapabilityManifestPort = (
   },
 });
 
+// Turn the host capability manifest plus the request's assistantProfileId into a
+// TurnPolicyDecision from createTurnPolicyDecision. A structurally invalid manifest
+// fails as INTERNAL_ERROR because the service shipped a broken menu, while an
+// unresolvable or forbidden profile fails as FORBIDDEN. Those two failure causes
+// stay on separate protocol codes so a caller fault is never reported as a service bug.
 export const createServiceTurnPolicyResolver = (): TurnPolicyResolverPort => ({
   resolveTurnPolicy: ({ manifest, request, manifestHash }) =>
     Effect.gen(function* () {

@@ -1,8 +1,10 @@
 import { DEFAULT_AGENT_EXECUTOR_ID } from "@side-chat/agent-runtime";
 import type {
   AssistantProfile,
+  ModelPolicy,
   OutputContract,
   ProfileId,
+  SafetyPolicy,
   ToolExposurePolicy,
 } from "@side-chat/partner-ai-core";
 import type {
@@ -14,31 +16,23 @@ import type {
 /**
  * Service-owned assistant configuration consumed by the profile registry.
  *
- * The registry validates these values and returns the core `AssistantProfile`
- * the manifest publishes, so the default assistant and adopter assistants come
- * from one path.
+ * Fields reuse the core `AssistantProfile` shapes (`ModelPolicy`,
+ * `ToolExposurePolicy`, `OutputContract`, `SafetyPolicy`) so service config and
+ * the published profile cannot drift. The registry validates these values and
+ * returns the `AssistantProfile` the manifest publishes, so the default
+ * assistant and adopter assistants come from one path. The prompt is a
+ * definition the registry builds rather than literal `systemInstructions`.
  */
-export type ServiceToolPolicyConfig = {
-  readonly mode: "closed" | "profile_allowlist";
-  readonly allowedToolNames?: readonly string[] | undefined;
-};
-
-export type ServiceAssistantSafetyConfig = {
-  readonly policyId: string;
-  readonly promptInjectionMode: "standard" | "strict";
-  readonly turnGuardIds: readonly string[];
-};
-
 export type ServiceAssistantConfig = {
   readonly profileId: string;
   readonly version: string;
   readonly displayName: string;
   readonly prompt: SystemPromptDefinition;
   readonly executorId?: string | undefined;
-  readonly model: { readonly providerId: string; readonly modelId: string };
-  readonly toolPolicy: ServiceToolPolicyConfig;
+  readonly model: ModelPolicy;
+  readonly toolPolicy: ToolExposurePolicy;
   readonly outputContract?: OutputContract | undefined;
-  readonly safety: ServiceAssistantSafetyConfig;
+  readonly safety: SafetyPolicy;
 };
 
 /**
@@ -132,14 +126,10 @@ const buildServiceProfile = (
       systemPromptId: prompt.promptId,
       systemInstructions: prompt.content,
       executorId: assistant.executorId ?? DEFAULT_AGENT_EXECUTOR_ID,
-      modelPolicy: { providerId: assistant.model.providerId, modelId: assistant.model.modelId },
-      defaultToolPolicy: toToolExposurePolicy(assistant.toolPolicy),
+      modelPolicy: assistant.model,
+      defaultToolPolicy: assistant.toolPolicy,
       outputContract: assistant.outputContract ?? { format: "markdown" },
-      safetyPolicy: {
-        policyId: assistant.safety.policyId,
-        promptInjectionMode: assistant.safety.promptInjectionMode,
-        turnGuardIds: assistant.safety.turnGuardIds,
-      },
+      safetyPolicy: assistant.safety,
     },
   };
 };
@@ -187,7 +177,7 @@ const assertToolPolicy = (
 ): void => {
   const policy = assistant.toolPolicy;
   if (policy.mode === "closed") {
-    if ((policy.allowedToolNames ?? []).length > 0) {
+    if (policy.allowedToolNames.length > 0) {
       throw new AssistantProfileRegistryError(
         `Assistant ${assistant.profileId} uses a closed tool policy but lists allowed tool names.`,
       );
@@ -195,13 +185,12 @@ const assertToolPolicy = (
     return;
   }
 
-  const allowed = policy.allowedToolNames ?? [];
-  if (allowed.length === 0) {
+  if (policy.allowedToolNames.length === 0) {
     throw new AssistantProfileRegistryError(
       `Assistant ${assistant.profileId} uses a profile_allowlist tool policy but lists no tools.`,
     );
   }
-  for (const toolName of allowed) {
+  for (const toolName of policy.allowedToolNames) {
     if (!toolNames.includes(toolName)) {
       throw new AssistantProfileRegistryError(
         `Assistant ${assistant.profileId} allows unknown tool ${toolName}.`,
@@ -222,8 +211,3 @@ const assertGuardIds = (
     }
   }
 };
-
-const toToolExposurePolicy = (policy: ServiceToolPolicyConfig): ToolExposurePolicy => ({
-  mode: policy.mode,
-  allowedToolNames: policy.mode === "profile_allowlist" ? (policy.allowedToolNames ?? []) : [],
-});

@@ -93,6 +93,7 @@ If dependencies are not installed or the shell is not on Node `24.16.0` and npm 
 11. Use final-state rewrite instead of compatibility preservation for unshipped internal shapes.
 12. Patch only high-confidence, scoped issues. Report uncertain design findings separately.
 13. Do not mention this skill inside code comments.
+14. Match the repo's type style: model enum-like string sets as `const X = {...} as const` with a derived type, not bare string-literal unions, and reuse canonical types instead of redefining similar shapes. See `TypeScript type conventions`.
 
 ## Human cognitive load budget
 
@@ -467,6 +468,16 @@ Flag docs when:
 - `packages/side-chat-widget/src/shared/ai/**` is treated as project-owned style instead of copied/vendor-style UI.
 
 When replacing docs, delete stale sources of truth in the same patch or move them to an explicit temporary planning area.
+
+## TypeScript type conventions
+
+Match the repository's existing type style. Two rules are part of this gate.
+
+1. Model closed sets of string values as a frozen object plus a derived type, not as a bare string-literal union. The repo convention is `const X = { ... } as const` with `type X = (typeof X)[keyof typeof X]`, as in `RUNTIME_EVENT_TYPES`, `CONTEXT_REDACTION_CLASSES`, and `HOST_CAPABILITY_SCHEMA_VERSIONS`. Do not introduce new `export type Foo = "a" | "b" | "c"` enum-like unions; they give callers no runtime values to iterate, compare, or build sets from, and they drift from the const the values really live in.
+
+2. Do not redefine a type that already exists. Before writing a new option, config, status, or policy shape, look for a canonical type in the owning package and reuse it. Reuse `ModelPolicy`, `SafetyPolicy`, `ToolExposurePolicy`, `OutputContract`, `ToolPolicyMode`, and the capability ids from `partner-ai-core`; reuse provider reasoning types from `agent-runtime`. A parallel shape that only renames or loosens an existing one is a `coupling-boundary`/`type-safety-risk` finding: it forces double maintenance and lets the copy drift from the source of truth.
+
+Define a genuinely new value set as a frozen object once, in the package that owns the concept, and import it elsewhere. Inline string-literal unions on a single object field are tolerated only when no named type exists and the set is local and unlikely to be reused.
 
 ## Side Chat package boundary rules to preserve
 

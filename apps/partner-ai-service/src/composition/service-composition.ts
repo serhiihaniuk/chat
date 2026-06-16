@@ -43,13 +43,13 @@ export type {
   ServiceCompositionOptions,
 } from "./service-composition-types.js";
 
+export type { OpenAIReasoningEffort, OpenAIReasoningSummary } from "@side-chat/agent-runtime";
 export {
   createServiceProviderRegistry,
+  SERVICE_MODEL_RETENTION_POLICIES,
   ServiceProviderRegistryError,
 } from "#composition/providers/service-provider-registry";
 export type {
-  OpenAIReasoningEffort,
-  OpenAIReasoningSummary,
   ServiceModelRetentionPolicy,
   ServiceProviderRegistration,
   ServiceProviderRegistryStatus,
@@ -74,8 +74,6 @@ export type {
   AssistantProfileRegistry,
   ServiceAssistantConfig,
   ServiceAssistantProfile,
-  ServiceAssistantSafetyConfig,
-  ServiceToolPolicyConfig,
 } from "#composition/assistant/assistant-profile-registry";
 export {
   createDefaultAssistantConfig,

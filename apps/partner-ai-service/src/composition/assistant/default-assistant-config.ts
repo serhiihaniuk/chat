@@ -36,6 +36,6 @@ export const createDefaultAssistantConfig = ({
   toolPolicy:
     allowedToolNames.length > 0
       ? { mode: "profile_allowlist", allowedToolNames }
-      : { mode: "closed" },
+      : { mode: "closed", allowedToolNames: [] },
   safety: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds },
 });

@@ -1,4 +1,9 @@
-import type { AgentExecutor, AgentRuntime } from "@side-chat/agent-runtime";
+import type {
+  AgentExecutor,
+  AgentRuntime,
+  OpenAIReasoningEffort,
+  OpenAIReasoningSummary,
+} from "@side-chat/agent-runtime";
 import type {
   ApprovalPolicy,
   ContextManagerPort,
@@ -14,11 +19,7 @@ import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
-import type {
-  OpenAIReasoningEffort,
-  OpenAIReasoningSummary,
-  ServiceProviderRegistryStatus,
-} from "#composition/providers/service-provider-registry";
+import type { ServiceProviderRegistryStatus } from "#composition/providers/service-provider-registry";
 import type {
   ServiceToolRegistration,
   ServiceToolRegistryStatus,
