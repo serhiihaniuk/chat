@@ -50,15 +50,15 @@ plans.
   trimming; `budgeted` means candidates can be dropped under configured limits.
 - **System prompt id**: durable profile identifier for the source of resolved
   system instructions.
-- **System instructions**: resolved prompt text passed from core to runtime for
-  one prepared assistant turn.
+- **System instructions**: resolved prompt text rendered by core into final
+  runtime messages for one prepared assistant turn.
 
 ## Request Chain
 
 - **ChatStreamRequest**: browser-facing `sidechat.v1` stream request.
 - **StreamChatInput**: product-core input assembled by the service adapter.
-- **AgentRuntimeRequest**: prepared turn request from product core into agent
-  runtime.
+- **AiRuntimeRequest**: prepared provider-neutral request from product core into
+  a runtime implementation.
 - **RuntimeProviderRequest**: provider-ready request after runtime preparation.
 - **AI SDK provider request**: private provider/options payload inside runtime.
 
@@ -111,7 +111,7 @@ plans.
 - **HTTP adapter boundary**: HTTP/Hono request becomes StreamChatInput.
 - **Product core boundary**: StreamChatInput and ports become protocol event
   stream.
-- **Runtime boundary**: AgentRuntimeRequest becomes RuntimeEvent stream.
+- **Runtime boundary**: AiRuntimeRequest becomes RuntimeEvent stream.
 - **Protocol boundary**: core event mapper emits browser-safe `sidechat.v1`.
 - **Widget boundary**: protocol events become UI message/activity state.
 - **Host bridge boundary**: widget/product host seam to host commands/context.

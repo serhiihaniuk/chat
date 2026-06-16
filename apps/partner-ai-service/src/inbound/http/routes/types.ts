@@ -1,6 +1,6 @@
 import type {
   AuthContext,
-  AgentRuntimePort,
+  AiRuntimePort,
   ContextManagerPort,
   ConversationTitleGenerationPort,
   HostCapabilityManifestPort,
@@ -20,7 +20,7 @@ export type RouteDependencies = {
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
-  readonly runtime: AgentRuntimePort;
+  readonly runtime: AiRuntimePort;
   readonly conversationTitleGeneration: ConversationTitleGenerationPort;
   readonly policies: PolicyPort;
   readonly observability?: ObservabilitySinkPort | undefined;

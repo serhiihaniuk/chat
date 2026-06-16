@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Stream } from "effect";
+import type { AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
 import { createAgentRuntime } from "#runtime/agent-runtime";
 import {
   createOpenAIResponsesProvider,
@@ -59,17 +60,20 @@ describe("createOpenAIResponsesProvider", () => {
       ],
     });
 
-    const events = await collect(
-      Stream.toAsyncIterable(
-        runtime.streamEffect({
-          requestId: "request_001",
-          assistantTurnId: "turn_001",
-          providerId: OPENAI_PROVIDER_ID,
-          modelId: "gpt-5.4-mini",
-          messages: [{ role: "user", content: "hello" }],
-        }),
-      ),
-    );
+    const request = runtimeRequest({
+      requestId: "request_001",
+      assistantTurnId: "turn_001",
+      providerId: OPENAI_PROVIDER_ID,
+      modelId: "gpt-5.4-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Use GitHub-flavored Markdown.",
+        },
+        { role: "user", content: "hello" },
+      ],
+    });
+    const events = await collect(Stream.toAsyncIterable(runtime.streamEffect(request)));
 
     expect(events.map((event) => event.type)).toEqual([
       "runtime.started",
@@ -131,19 +135,16 @@ describe("createOpenAIResponsesProvider", () => {
         }),
       ],
     });
+    const request = runtimeRequest({
+      requestId: "request_002",
+      assistantTurnId: "turn_002",
+      providerId: OPENAI_PROVIDER_ID,
+      modelId: "gpt-5.4-mini",
+      messages: [{ role: "user", content: "hello" }],
+    });
 
     await expect(
-      collect(
-        Stream.toAsyncIterable(
-          runtime.streamEffect({
-            requestId: "request_002",
-            assistantTurnId: "turn_002",
-            providerId: OPENAI_PROVIDER_ID,
-            modelId: "gpt-5.4-mini",
-            messages: [{ role: "user", content: "hello" }],
-          }),
-        ),
-      ),
+      collect(Stream.toAsyncIterable(runtime.streamEffect(request))),
     ).resolves.toMatchObject([
       { type: "runtime.started", sequence: 0 },
       {
@@ -176,3 +177,22 @@ const collect = async <T>(events: AsyncIterable<T>): Promise<T[]> => {
   for await (const event of events) collected.push(event);
   return collected;
 };
+
+const runtimeRequest = (overrides: Partial<AiRuntimeRequest>): AiRuntimeRequest => ({
+  executorId: "ai_sdk.tool_loop",
+  providerId: OPENAI_PROVIDER_ID,
+  modelId: "gpt-5.4-mini",
+  requestId: "request_default",
+  assistantTurnId: "turn_default",
+  messages: [],
+  toolNames: [],
+  toolScope: {
+    hostAppId: "host_app_001",
+    workspaceId: "workspace_001",
+    subjectId: "subject_001",
+    conversationId: "conversation_001",
+    assistantTurnId: "turn_default",
+    allowedHostCommandNames: [],
+  },
+  ...overrides,
+});

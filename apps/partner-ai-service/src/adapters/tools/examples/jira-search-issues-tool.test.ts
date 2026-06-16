@@ -1,5 +1,6 @@
 import { Effect } from "effect";
-import { RUNTIME_ERROR_CODES, type RuntimeToolContext } from "@side-chat/agent-runtime";
+import { RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
+import type { RuntimeToolContext } from "@side-chat/agent-runtime";
 import { describe, expect, it } from "vitest";
 import {
   createJiraSearchIssuesTool,
@@ -40,7 +41,6 @@ describe("jira search issues runtime tool example", () => {
       subjectId: "subject_jira_001",
       conversationId: "conversation_jira_001",
       assistantTurnId: "turn_jira_001",
-      profileId: "profile_jira_001",
     });
     expect(result).toMatchObject({
       count: 1,
@@ -117,7 +117,6 @@ const toolContext: RuntimeToolContext = {
     subjectId: "subject_jira_001",
     conversationId: "conversation_jira_001",
     assistantTurnId: "turn_jira_001",
-    profileId: "profile_jira_001",
     allowedHostCommandNames: ["host.open_ticket_panel"],
   },
 };

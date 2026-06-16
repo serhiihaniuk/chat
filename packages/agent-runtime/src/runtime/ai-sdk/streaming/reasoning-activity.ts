@@ -1,10 +1,11 @@
-import { RUNTIME_EVENT_TYPES, type RuntimeEvent } from "../../contract/runtime-event.js";
-import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
 import {
   RUNTIME_ACTIVITY_KINDS,
   RUNTIME_ACTIVITY_STATUSES,
+  RUNTIME_EVENT_TYPES,
   type RuntimeActivityStatus,
-} from "../../contract/runtime-activity.js";
+  type RuntimeEvent,
+} from "@side-chat/ai-runtime-contract";
+import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 
 /**
  * Scratch state for reasoning text that is still streaming.

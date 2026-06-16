@@ -10,11 +10,12 @@ runtime events through an agent-shaped facade.
 
 Direct `streamText` calls are not a product orchestration boundary. They may
 exist only as private implementation detail inside `packages/agent-runtime`.
-The public package surface exposes the runtime factory, provider/tool protocol
-types, profile options, and normalized runtime events.
+The public runtime surface exposes the runtime factory, provider/tool protocol
+types, and normalized runtime events. Shared request, error, stream, and event
+contracts live in `@side-chat/ai-runtime-contract`.
 
 The runtime surface is Effect-first. `streamEffect` exposes
-`Stream<RuntimeEvent, AgentRuntimeError>`. Other stream shapes are transport
+`Stream<RuntimeEvent, AiRuntimeError>`. Other stream shapes are transport
 adapter concerns and must not become package-level runtime APIs.
 
 Expected runtime failures are values in the Effect error channel. Provider,

@@ -1,7 +1,6 @@
 import type { Effect } from "effect";
 import type { LanguageModel, ToolLoopAgentSettings } from "ai";
-
-import type { AgentRuntimeError } from "#runtime/contract/runtime-error";
+import type { AiRuntimeError } from "@side-chat/ai-runtime-contract";
 
 export type ProviderSelection = {
   readonly providerId: string;
@@ -11,10 +10,10 @@ export type ProviderSelection = {
 export type ModelProvider = {
   readonly providerId: string;
   readonly modelIds: readonly string[];
-  resolveModel(selection: ProviderSelection): Effect.Effect<LanguageModel, AgentRuntimeError>;
+  resolveModel(selection: ProviderSelection): Effect.Effect<LanguageModel, AiRuntimeError>;
   resolveProviderOptions?:
     | ((
         selection: ProviderSelection,
-      ) => Effect.Effect<ToolLoopAgentSettings["providerOptions"] | undefined, AgentRuntimeError>)
+      ) => Effect.Effect<ToolLoopAgentSettings["providerOptions"] | undefined, AiRuntimeError>)
     | undefined;
 };

@@ -7,7 +7,7 @@ import {
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { AUTHORITY_DENIAL_CODES } from "#domain/authority";
@@ -58,7 +58,7 @@ describe("stream chat lifecycle and policy", () => {
     ]);
   });
 
-  it("passes resolved profile, prepared context, explicit tool allowlist, and abort signal to runtime", async () => {
+  it("passes final messages, explicit tool allowlist, and abort signal to runtime", async () => {
     const ports = createFakePorts({ authContext });
     const abortController = new AbortController();
 
@@ -70,36 +70,26 @@ describe("stream chat lifecycle and policy", () => {
       executorId: "ai_sdk.tool_loop",
       providerId: "fake",
       modelId: "fake-echo",
-      profileId: "analyst",
-      systemInstructions: "Use concise analyst language.",
-      availableToolNames: ["mock_web_search"],
+      toolNames: ["mock_web_search"],
       toolScope: {
         hostAppId: "host_app_001",
         workspaceId: "workspace_001",
         subjectId: "subject_001",
         conversationId: "conversation_001",
         assistantTurnId: "assistant_turn_001",
-        profileId: "analyst",
         allowedHostCommandNames: [],
       },
-      messages: [{ role: "user", content: "hello" }],
-      contextBoard: {
-        manifest: {
-          snapshotId: "context_manifest_001",
-          snapshotHash: "sha256:context_manifest_001",
-          includedMessageIds: [],
-          history: {
-            policyMode: "disabled",
-            messages: [],
-          },
-          budget: {
-            policyId: "deterministic_v1",
-            selectionMode: "include_all",
-          },
-        },
-      },
+      messages: [
+        { role: "system", content: "Use concise analyst language." },
+        { role: "system", content: "Trusted context board:\n\n### Current request\nhello" },
+        { role: "user", content: "hello" },
+      ],
     });
     expect(ports.runtimeRequests[0]?.abortSignal).toBe(abortController.signal);
+    expect(ports.runtimeRequests[0]).not.toHaveProperty("profileId");
+    expect(ports.runtimeRequests[0]).not.toHaveProperty("systemInstructions");
+    expect(ports.runtimeRequests[0]).not.toHaveProperty("availableToolNames");
+    expect(ports.runtimeRequests[0]).not.toHaveProperty("contextBoard");
   });
 
   it("marks started turns failed when context preparation fails", async () => {

@@ -1,4 +1,5 @@
-import { RUNTIME_ERROR_CODES, type RuntimeToolContext } from "@side-chat/agent-runtime";
+import { RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
+import type { RuntimeToolContext } from "@side-chat/agent-runtime";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { createMockWebSearchTool } from "./mock-web-search-tool.js";

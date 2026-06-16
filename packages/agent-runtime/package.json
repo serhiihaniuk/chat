@@ -26,16 +26,6 @@
       "development": "./src/runtime/*.ts",
       "default": "./dist/runtime/*.js"
     },
-    "#runtime/contract/*": {
-      "types": "./src/runtime/contract/*.ts",
-      "development": "./src/runtime/contract/*.ts",
-      "default": "./dist/runtime/contract/*.js"
-    },
-    "#runtime/contract/ids/*": {
-      "types": "./src/runtime/contract/ids/*.ts",
-      "development": "./src/runtime/contract/ids/*.ts",
-      "default": "./dist/runtime/contract/ids/*.js"
-    },
     "#testing/*": {
       "types": "./src/testing/*.ts",
       "development": "./src/testing/*.ts",
@@ -62,6 +52,7 @@
   "dependencies": {
     "@ai-sdk/openai": "3.0.65",
     "@ai-sdk/provider": "3.0.10",
+    "@side-chat/ai-runtime-contract": "0.0.0",
     "@side-chat/shared": "0.0.0",
     "ai": "6.0.191",
     "effect": "4.0.0-beta.70",

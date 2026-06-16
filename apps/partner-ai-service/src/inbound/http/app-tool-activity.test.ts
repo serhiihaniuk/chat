@@ -7,7 +7,7 @@ import {
   RUNTIME_FINISH_REASONS,
   RUNTIME_EVENT_TYPES,
   type RuntimeEvent,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
 import { Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "./app.js";
@@ -45,8 +45,9 @@ describe("partner ai service tool activity stream", () => {
     expect(response.status).toBe(200);
     const events = decodeSseEvents(await response.text());
     expect(visibleRuntimeRequests(runtimeRequests)[0]).toMatchObject({
-      messages: [{ role: "user", content: "hello service" }],
+      messages: expect.arrayContaining([{ role: "user", content: "hello service" }]),
     });
+    expect(visibleRuntimeRequests(runtimeRequests)[0]).not.toHaveProperty("contextBoard");
     expect(events.filter((event) => event.type === SIDECHAT_EVENT_TYPES.ACTIVITY)).toEqual([
       expect.objectContaining({
         type: SIDECHAT_EVENT_TYPES.ACTIVITY,

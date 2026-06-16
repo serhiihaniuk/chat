@@ -13,33 +13,33 @@ browser form submit
 -> HTTP adapter validation/auth
 -> StreamChatInput
 -> streamChatEffect
--> AgentRuntimeRequest
+-> AiRuntimeRequest
 -> RuntimeProviderRequest
 -> AI SDK provider request
 ```
 
 Browser requests do not carry raw system instructions, executor choices, or
 provider-native options. Service composition resolves profile system prompt ids
-into instructions, core validates the turn policy decision, and runtime receives
-one prepared turn.
+into instructions, core validates the turn policy decision, renders final
+runtime messages, and runtime receives one provider-neutral request.
 
 ## Turn Lifecycle
 
-| Order | Stage                                                                                                                                                | Owner                      | Failure behavior                                                      |
-| ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
-|     1 | Validate HTTP method, auth, and request body.                                                                                                        | service route              | HTTP/request error                                                    |
-|     2 | Prove workspace/project authority.                                                                                                                   | core                       | Pre-start rejection                                                   |
-|     3 | Record request received.                                                                                                                             | core observability         | Pre-start rejection                                                   |
-|     4 | Load and validate host capability manifest.                                                                                                          | core through port          | Pre-start rejection                                                   |
-|     5 | Resolve profile, model, tools, executor id, instructions, commands, and approval policy.                                                             | core policy                | Pre-start rejection                                                   |
-|     6 | Run profile-selected turn guards before private context, persistence, or runtime tools.                                                              | core guard port            | Pre-start rejection                                                   |
-|     7 | Ensure authorized conversation and append the user message.                                                                                          | core repository port       | Pre-start rejection                                                   |
-|     8 | Start the assistant turn record.                                                                                                                     | core lifecycle port        | Pre-start rejection, with failed turn recording after this point      |
-|     9 | Prepare context: same-conversation history, host context, tool context, and context manifest.                                                        | core context ports         | Pre-start rejection, with failed turn recording                       |
-|    10 | Record stream started and emit `sidechat.started`.                                                                                                   | core/protocol              | Streaming has begun                                                   |
-|    11 | Execute selected AgentExecutor through runtime.                                                                                                      | runtime                    | Post-start terminal `sidechat.error`                                  |
-|    12 | Map RuntimeEvents to SidechatStreamEvents.                                                                                                           | core protocol mapper       | Post-start terminal `sidechat.error`                                  |
-|    13 | Finalize terminal state, persist the assistant outcome, and optionally run core-owned post-success title generation through the runtime basic agent. | core protocol finalization | `sidechat.completed` or `sidechat.error`; title failures are observed |
+| Order | Stage                                                                                                                                                 | Owner                      | Failure behavior                                                      |
+| ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
+|     1 | Validate HTTP method, auth, and request body.                                                                                                         | service route              | HTTP/request error                                                    |
+|     2 | Prove workspace/project authority.                                                                                                                    | core                       | Pre-start rejection                                                   |
+|     3 | Record request received.                                                                                                                              | core observability         | Pre-start rejection                                                   |
+|     4 | Load and validate host capability manifest.                                                                                                           | core through port          | Pre-start rejection                                                   |
+|     5 | Resolve profile, model, tools, executor id, instructions, commands, and approval policy.                                                              | core policy                | Pre-start rejection                                                   |
+|     6 | Run profile-selected turn guards before private context, persistence, or runtime tools.                                                               | core guard port            | Pre-start rejection                                                   |
+|     7 | Ensure authorized conversation and append the user message.                                                                                           | core repository port       | Pre-start rejection                                                   |
+|     8 | Start the assistant turn record.                                                                                                                      | core lifecycle port        | Pre-start rejection, with failed turn recording after this point      |
+|     9 | Prepare context: same-conversation history, host context, tool context, and context manifest.                                                         | core context ports         | Pre-start rejection, with failed turn recording                       |
+|    10 | Record stream started and emit `sidechat.started`.                                                                                                    | core/protocol              | Streaming has begun                                                   |
+|    11 | Execute selected AgentExecutor through runtime.                                                                                                       | runtime                    | Post-start terminal `sidechat.error`                                  |
+|    12 | Map RuntimeEvents to SidechatStreamEvents.                                                                                                            | core protocol mapper       | Post-start terminal `sidechat.error`                                  |
+|    13 | Finalize terminal state, persist the assistant outcome, and optionally run core-owned post-success title generation through the neutral runtime port. | core protocol finalization | `sidechat.completed` or `sidechat.error`; title failures are observed |
 
 ## Extension Timing
 

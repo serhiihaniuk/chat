@@ -24,10 +24,11 @@ host app
 -> chat-protocol
 -> partner-ai-service
 -> partner-ai-core
+-> ai-runtime-contract
 -> agent-runtime
 -> provider and runtime tools
 
-agent-runtime RuntimeEvent
+ai-runtime-contract RuntimeEvent emitted by agent-runtime
 -> partner-ai-core SidechatStreamEvent
 -> chat-client
 -> side-chat-widget message/activity state
@@ -39,6 +40,7 @@ agent-runtime RuntimeEvent
 | ------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `apps/partner-ai-service`       | HTTP routes, env/config parsing, app adapters, service composition, SSE transport.               | Product lifecycle decisions, provider internals, widget state.        | `src/inbound/http/app.ts`, `src/composition/service-composition.ts`, `src/adapters/README.md` |
 | `packages/partner-ai-core`      | Stream-chat workflow, policy, context, capability contracts, ports, lifecycle, protocol mapping. | Hono, DB rows, provider SDKs, React.                                  | `src/application/stream-chat/README.md`, `src/application/stream-chat/stream-chat.ts`         |
+| `packages/ai-runtime-contract`  | Provider-neutral runtime request, tool scope, RuntimeEvent, error, stream, and port contracts.   | Product lifecycle, provider adapters, tools, browser protocol.        | `src/index.ts`, `README.md`                                                                   |
 | `packages/agent-runtime`        | Prepared assistant turn execution, executors, runtime tools, provider adapter, RuntimeEvents.    | Product policy, persistence, browser protocol, host-command dispatch. | `src/runtime/README.md`, `src/runtime/agent-runtime.ts`                                       |
 | `packages/chat-protocol`        | `sidechat.v1` request/event DTOs, validators, SSE codec, generated schema.                       | Runtime events, provider parts, Hono, Effect, React.                  | `src/sidechat-v1/index.ts`                                                                    |
 | `packages/chat-client`          | Browser-safe stream/resource client and SSE reader.                                              | Protocol definitions, widget state, runtime internals.                | `src/transport/client.ts`, `src/transport/sse-reader.ts`                                      |
@@ -54,6 +56,7 @@ agent-runtime RuntimeEvent
 
 - Product policy, portable capability configuration contracts, and prepared
   context stay in `partner-ai-core`.
+- Shared core-to-runtime request and event shapes stay in `ai-runtime-contract`.
 - Provider and AI SDK details stay in `agent-runtime`.
 - Browser contracts stay in `chat-protocol`, `chat-client`, `host-bridge`, and
   the widget.

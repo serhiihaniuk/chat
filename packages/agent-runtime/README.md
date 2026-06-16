@@ -12,15 +12,17 @@ browser protocol.
 - `AgentRuntime.streamEffect(request)` and `createAgentRuntime`.
 - `createBasicRuntimeAgent(runtime, defaults)` for small model-only jobs that
   reuse runtime validation without exposing tools by default.
-- Assistant profile, executor, provider/model, tool, and prompt preparation for
-  one prepared turn.
+- Executor, provider/model, and registered tool validation for one prepared
+  `AiRuntimeRequest`.
 - AgentExecutor registry/selection and the default AI SDK tool-loop executor.
-- Runtime tool protocol and normalized RuntimeEvents.
+- Runtime tool protocol and normalized RuntimeEvent emission.
 - Provider adapters and deterministic runtime test fakes.
 
 ## Does Not Own
 
 - Product authorization, approval policy, or host-command dispatch.
+- Runtime request, event, stream, and error contracts owned by
+  `@side-chat/ai-runtime-contract`.
 - Context gathering, redaction, manifests, or database writes.
 - HTTP/SSE transport.
 - Widget or `sidechat.v1` browser state.

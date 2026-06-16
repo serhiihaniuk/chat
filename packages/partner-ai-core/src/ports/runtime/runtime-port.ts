@@ -1,9 +1,10 @@
-import type { AgentRuntime } from "@side-chat/agent-runtime";
+import type { AiRuntimePort as RuntimePortContract } from "@side-chat/ai-runtime-contract";
 
 /**
- * The part of agent-runtime that core calls after a turn is prepared.
+ * The provider-neutral runtime boundary core calls after a turn is prepared.
  *
  * Core decides when to start streaming and how returned events become browser
- * events. agent-runtime owns the model/provider work.
+ * events. The app decides which concrete runtime implementation owns the
+ * model/provider work.
  */
-export type AgentRuntimePort = Pick<AgentRuntime, "streamEffect">;
+export type AiRuntimePort = RuntimePortContract;

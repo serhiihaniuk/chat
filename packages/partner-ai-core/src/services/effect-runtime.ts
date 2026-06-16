@@ -3,7 +3,7 @@ import { Context, Effect, Layer } from "effect";
 import type { PolicyPort } from "#policies/policy";
 import {
   DISABLED_CONVERSATION_TITLE_GENERATION,
-  type AgentRuntimePort,
+  type AiRuntimePort,
   type AssistantTurnLifecyclePort,
   type ClockPort,
   type ConversationTitleGenerationPort,
@@ -62,7 +62,7 @@ export class ContextManagerService extends Context.Service<
   ContextManagerPort
 >()("@side-chat/partner-ai-core/ContextManagerService") {}
 
-export class AgentRuntimeService extends Context.Service<AgentRuntimeService, AgentRuntimePort>()(
+export class AgentRuntimeService extends Context.Service<AgentRuntimeService, AiRuntimePort>()(
   "@side-chat/partner-ai-core/AgentRuntimeService",
 ) {}
 
@@ -109,7 +109,7 @@ export type PartnerAiCoreLayerInput = {
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
   readonly contextManager: ContextManagerPort;
-  readonly runtime: AgentRuntimePort;
+  readonly runtime: AiRuntimePort;
   readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;

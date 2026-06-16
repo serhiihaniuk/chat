@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { createMockWebSearchTool, MOCK_WEB_SEARCH_TOOL_NAME } from "#testing/mock-runtime-tool";
-import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
+import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import { createAiSdkToolSet } from "./ai-sdk-tool-adapter.js";
 import {
@@ -180,7 +180,6 @@ const createRequest = (): RuntimeProviderRequest => ({
     subjectId: "subject_001",
     conversationId: "conversation_001",
     assistantTurnId: "turn_001",
-    profileId: "profile_001",
     allowedHostCommandNames: ["host.open_ticket_panel"],
   },
 });

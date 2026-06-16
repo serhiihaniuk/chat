@@ -7,11 +7,13 @@ import {
 } from "ai";
 import { Effect, Stream } from "effect";
 import { omitUndefinedProperties } from "@side-chat/shared";
-
-import { AgentRuntimeError } from "../../contract/runtime-error.js";
-import { RUNTIME_ERROR_CODES, type RuntimeEvent } from "../../contract/runtime-event.js";
-import type { RuntimeProviderRequest } from "../../contract/runtime-request.js";
-import type { RuntimeEventStream } from "../../contract/runtime-stream.js";
+import {
+  AiRuntimeError,
+  RUNTIME_ERROR_CODES,
+  type AiRuntimeEventStream,
+  type RuntimeEvent,
+} from "@side-chat/ai-runtime-contract";
+import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import { createAiSdkToolSet } from "../tools/ai-sdk-tool-adapter.js";
 import {
@@ -54,7 +56,7 @@ export const runAiSdkToolLoopAgentStream = ({
   model,
   providerOptions,
   request,
-}: AiSdkToolLoopAgentRunOptions): RuntimeEventStream => {
+}: AiSdkToolLoopAgentRunOptions): AiRuntimeEventStream => {
   /**
    * Assign sequence numbers in the stream loop, not inside each mapper.
    *
@@ -70,7 +72,7 @@ const createAiSdkRuntimeEventStream = ({
   model,
   providerOptions,
   request,
-}: AiSdkToolLoopAgentRunOptions): RuntimeEventStream => {
+}: AiSdkToolLoopAgentRunOptions): AiRuntimeEventStream => {
   const openedParts = createAiSdkPartStream({ model, providerOptions, request });
   const mappedEvents = Effect.map(openedParts, (parts) =>
     mapAiSdkPartsToRuntimeEventStream(request, parts),
@@ -81,7 +83,7 @@ const createAiSdkRuntimeEventStream = ({
 const mapAiSdkPartsToRuntimeEventStream = (
   request: RuntimeProviderRequest,
   parts: AsyncIterable<TextStreamPart<ToolSet>>,
-): RuntimeEventStream =>
+): AiRuntimeEventStream =>
   // Turn AI SDK parts into runtime events. The mapping state owns sequence
   // numbers and flushes any pending reasoning row at stream end.
   Stream.fromAsyncIterable(parts, toRuntimeError).pipe(
@@ -100,14 +102,14 @@ const createAiSdkPartStream = ({
   request,
 }: AiSdkToolLoopAgentRunOptions): Effect.Effect<
   AsyncIterable<TextStreamPart<ToolSet>>,
-  AgentRuntimeError
+  AiRuntimeError
 > =>
   Effect.tryPromise({
     try: async () => {
       const tools = createAiSdkToolSet(request.tools, request);
 
       /**
-       * AI SDK receives system messages from runtime prompt rendering.
+       * AI SDK receives the final messages passed through the runtime boundary.
        *
        * `toolChoice: "auto"` is intentional: the runtime exposes capabilities,
        * but the model chooses if/when to call them. The backend must not pre-run
@@ -229,11 +231,11 @@ const createEventAppender = (state: RuntimeEventMappingState) => {
   };
 };
 
-const toRuntimeError = (error: unknown): AgentRuntimeError => {
-  if (error instanceof AgentRuntimeError) return error;
+const toRuntimeError = (error: unknown): AiRuntimeError => {
+  if (error instanceof AiRuntimeError) return error;
   // Do not pass SDK errors through as-is. Runtime callers only receive
-  // AgentRuntimeError values.
-  return new AgentRuntimeError(
+  // AiRuntimeError values.
+  return new AiRuntimeError(
     RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
     error instanceof Error ? error.message : "AI SDK agent stream failed.",
   );

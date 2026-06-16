@@ -18,12 +18,12 @@ AI SDK stream part
 ```
 
 AI SDK stream parts and provider DTOs stay private to `agent-runtime`.
-RuntimeEvents are internal server-side events. SidechatStreamEvents are the
-browser-facing contract.
+RuntimeEvent shapes live in `ai-runtime-contract` and are emitted by
+`agent-runtime`. SidechatStreamEvents are the browser-facing contract.
 
 ## Runtime Rules
 
-- `agent-runtime` receives a prepared AgentRuntimeRequest.
+- `agent-runtime` receives a prepared `AiRuntimeRequest`.
 - The selected AgentExecutor emits RuntimeEvents.
 - The default executor calls the private AI SDK adapter.
 - Other executors may use different engines but must still emit RuntimeEvents at
@@ -69,7 +69,7 @@ become separate top-level conversation messages.
 ## Files To Open
 
 - `packages/agent-runtime/src/runtime/README.md`
+- `packages/ai-runtime-contract/src/index.ts`
 - `packages/agent-runtime/src/runtime/ai-sdk/README.md`
-- `packages/agent-runtime/src/runtime/contract/runtime-event.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts`
 - `packages/chat-protocol/src/sidechat-v1/events/`

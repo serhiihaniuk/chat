@@ -29,8 +29,11 @@ execution, or widget UI.
 
 - `chat-protocol` imports are limited to browser request/message/error/usage
   DTOs and the stream-chat protocol mapper.
-- Runtime request, event, and stream contracts come from `agent-runtime`
-  through the runtime port.
+- Runtime request, event, and stream contracts come from
+  `@side-chat/ai-runtime-contract` through the runtime port.
+- Core prepares final runtime messages before calling the runtime; profiles,
+  system instructions, and context manifests do not cross that boundary as
+  separate runtime request fields.
 - Neutral JSON primitives come from `shared`, not from `chat-protocol`.
 
 ## First Files To Open

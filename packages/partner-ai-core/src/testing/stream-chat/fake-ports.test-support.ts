@@ -2,9 +2,9 @@ import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-
 import {
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
-  type AgentRuntimeRequest,
+  type AiRuntimeRequest,
   type RuntimeEvent,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
 import { Effect, Stream } from "effect";
 import type { AuthContext } from "#domain/authority";
 import {
@@ -15,7 +15,7 @@ import {
   type TurnPolicyDecision,
 } from "#domain/capabilities";
 import {
-  type AgentRuntimePort,
+  type AiRuntimePort,
   type AssistantTurnLifecyclePort,
   type ClockPort,
   DISABLED_CONVERSATION_TITLE_GENERATION,
@@ -37,7 +37,7 @@ import {
 
 type RuntimeEventFixture =
   | readonly RuntimeEvent[]
-  | ((request: AgentRuntimeRequest) => readonly RuntimeEvent[]);
+  | ((request: AiRuntimeRequest) => readonly RuntimeEvent[]);
 
 export type FakePortOptions = {
   readonly authContext?: AuthContext | undefined;
@@ -54,7 +54,7 @@ export type FakePortOptions = {
 
 export const createFakePorts = (options: FakePortOptions = {}) => {
   const calls: string[] = [];
-  const runtimeRequests: AgentRuntimeRequest[] = [];
+  const runtimeRequests: AiRuntimeRequest[] = [];
   const completedTurns: Parameters<AssistantTurnLifecyclePort["completeAssistantTurn"]>[0][] = [];
   const failedTurns: Parameters<AssistantTurnLifecyclePort["failAssistantTurn"]>[0][] = [];
   const preparedTitles: Parameters<ConversationRepositoryPort["prepareConversationTitle"]>[0][] =
@@ -234,9 +234,9 @@ const createAssistantTurnLifecyclePort = (
 
 const createRuntimePort = (
   calls: string[],
-  runtimeRequests: AgentRuntimeRequest[],
+  runtimeRequests: AiRuntimeRequest[],
   runtimeEvents: RuntimeEventFixture | undefined,
-): AgentRuntimePort => ({
+): AiRuntimePort => ({
   streamEffect: (runtimeRequest) => {
     calls.push("runtime");
     runtimeRequests.push(runtimeRequest);
@@ -246,7 +246,7 @@ const createRuntimePort = (
 
 const resolveRuntimeEvents = (
   runtimeEvents: RuntimeEventFixture | undefined,
-  runtimeRequest: AgentRuntimeRequest,
+  runtimeRequest: AiRuntimeRequest,
 ): readonly RuntimeEvent[] => {
   if (!runtimeEvents) return defaultRuntimeEvents();
   return typeof runtimeEvents === "function" ? runtimeEvents(runtimeRequest) : runtimeEvents;

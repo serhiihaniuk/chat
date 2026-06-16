@@ -3,10 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
-  type AgentExecutionRequest,
-  type AgentExecutor,
   type RuntimeEvent,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
+import { type AgentExecutionRequest, type AgentExecutor } from "@side-chat/agent-runtime";
 import {
   createJiraSearchIssuesCapability,
   createJiraSearchIssuesTool,
@@ -50,12 +49,14 @@ describe("service composition runtime tools", () => {
     const events = await collectEvents(
       Stream.toAsyncIterable(
         composition.runtime.streamEffect({
+          executorId: "ai_sdk.tool_loop",
           providerId: composition.runtimeProviderId,
           modelId: composition.runtimeModelId,
           requestId: "request_jira_registered",
           assistantTurnId: "turn_jira_registered",
           messages: [{ role: "user", content: "search jira" }],
-          availableToolNames: [JIRA_SEARCH_ISSUES_TOOL_NAME],
+          toolNames: [JIRA_SEARCH_ISSUES_TOOL_NAME],
+          toolScope: runtimeToolScope("turn_jira_registered"),
         }),
       ),
     );
@@ -80,12 +81,14 @@ describe("service composition runtime tools", () => {
       collectEvents(
         Stream.toAsyncIterable(
           composition.runtime.streamEffect({
+            executorId: "ai_sdk.tool_loop",
             providerId: composition.runtimeProviderId,
             modelId: composition.runtimeModelId,
             requestId: "request_jira_missing_runtime_tool",
             assistantTurnId: "turn_jira_missing_runtime_tool",
             messages: [{ role: "user", content: "search jira" }],
-            availableToolNames: [JIRA_SEARCH_ISSUES_TOOL_NAME],
+            toolNames: [JIRA_SEARCH_ISSUES_TOOL_NAME],
+            toolScope: runtimeToolScope("turn_jira_missing_runtime_tool"),
           }),
         ),
       ),
@@ -111,6 +114,8 @@ describe("service composition runtime tools", () => {
           requestId: "request_executor",
           assistantTurnId: "turn_executor",
           messages: [{ role: "user", content: "use fixture executor" }],
+          toolNames: [],
+          toolScope: runtimeToolScope("turn_executor"),
         }),
       ),
     );
@@ -258,6 +263,15 @@ const createDeterministicExecutor = (
 
     return Stream.fromIterable(events);
   },
+});
+
+const runtimeToolScope = (assistantTurnId: string) => ({
+  hostAppId: "host_app_001",
+  workspaceId: workspace.workspaceId,
+  subjectId: authContext.subject.subjectId,
+  conversationId: "conversation_001",
+  assistantTurnId,
+  allowedHostCommandNames: [],
 });
 
 const JIRA_CREATE_ISSUE_TOOL_NAME = "jira.create_issue";

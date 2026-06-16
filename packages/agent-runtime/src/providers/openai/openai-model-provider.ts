@@ -1,9 +1,8 @@
 import { Effect } from "effect";
 import { createOpenAI } from "@ai-sdk/openai";
 import { omitUndefinedProperties } from "@side-chat/shared";
+import { AiRuntimeError, RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
 
-import { AgentRuntimeError } from "#runtime/contract/runtime-error";
-import { RUNTIME_ERROR_CODES } from "#runtime/contract/runtime-event";
 import type { ModelProvider } from "#providers/model-provider";
 
 export const OPENAI_PROVIDER_ID = "openai" as const;
@@ -26,13 +25,13 @@ export const createOpenAIResponsesProvider = (
   options: OpenAIResponsesProviderOptions,
 ): ModelProvider => {
   if (options.apiKey.trim().length === 0) {
-    throw new AgentRuntimeError(
+    throw new AiRuntimeError(
       RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
       "OpenAI provider requires an API key.",
     );
   }
   if (options.modelIds.length === 0) {
-    throw new AgentRuntimeError(
+    throw new AiRuntimeError(
       RUNTIME_ERROR_CODES.MODEL_UNAVAILABLE,
       "OpenAI provider requires at least one allowed model id.",
     );

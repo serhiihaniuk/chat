@@ -3,7 +3,7 @@ import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import { describe, expect, it } from "vitest";
 import { createMockWebSearchTool } from "#testing/mock-runtime-tool";
 import { collectEvents, createCapturingProvider } from "#testing/agent-runtime-test-support";
-import { createAgentRuntime } from "../agent-runtime.js";
+import { createAgentRuntime, DEFAULT_AGENT_EXECUTOR_ID } from "../agent-runtime.js";
 import { createBasicRuntimeAgent } from "./basic-runtime-agent.js";
 
 describe("createBasicRuntimeAgent", () => {
@@ -14,8 +14,10 @@ describe("createBasicRuntimeAgent", () => {
       tools: [createMockWebSearchTool()],
     });
     const agent = createBasicRuntimeAgent(runtime, {
+      executorId: DEFAULT_AGENT_EXECUTOR_ID,
       providerId: "capture",
       modelId: "capture-model",
+      toolScope: basicToolScope,
       systemInstructions: "Classify the exchange without using tools.",
     });
 
@@ -44,8 +46,10 @@ describe("createBasicRuntimeAgent", () => {
       providers: [createCapturingProvider(modelCalls)],
     });
     const agent = createBasicRuntimeAgent(runtime, {
+      executorId: DEFAULT_AGENT_EXECUTOR_ID,
       providerId: "capture",
       modelId: "capture-model",
+      toolScope: basicToolScope,
       systemInstructions: "Default job instructions.",
     });
 
@@ -66,3 +70,12 @@ describe("createBasicRuntimeAgent", () => {
     });
   });
 });
+
+const basicToolScope = {
+  hostAppId: "host_app_001",
+  workspaceId: "workspace_001",
+  subjectId: "subject_001",
+  conversationId: "conversation_001",
+  assistantTurnId: "turn_basic_agent",
+  allowedHostCommandNames: [],
+} as const;

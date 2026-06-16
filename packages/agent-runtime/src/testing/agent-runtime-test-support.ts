@@ -1,12 +1,12 @@
 import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import { Effect, Stream } from "effect";
-import type { ModelProvider } from "#providers/model-provider";
-import { createScriptedLanguageModel } from "#testing/scripted-language-model";
 import {
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
   type RuntimeEvent,
-} from "#runtime/contract/runtime-event";
+} from "@side-chat/ai-runtime-contract";
+import type { ModelProvider } from "#providers/model-provider";
+import { createScriptedLanguageModel } from "#testing/scripted-language-model";
 import type { AgentExecutionRequest, AgentExecutor } from "#runtime/agent-runtime";
 
 export const createCapturingProvider = (

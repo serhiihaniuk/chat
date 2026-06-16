@@ -19,7 +19,7 @@ import {
   type RuntimeActivityToolDetails,
   type RuntimeEvent,
   type RuntimeErrorEvent,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import {
   PARTNER_AI_CORE_ERROR_CODES,

@@ -3,7 +3,7 @@ import {
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
   type RuntimeEvent,
-} from "@side-chat/agent-runtime";
+} from "@side-chat/ai-runtime-contract";
 import { SIDECHAT_EVENT_TYPES } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 import { authContext, input } from "#testing/stream-chat/fixtures.test-support";
@@ -41,19 +41,29 @@ describe("stream chat conversation title generation", () => {
     expect(ports.runtimeRequests[1]).toMatchObject({
       requestId: "request_001:conversation-title",
       assistantTurnId: "assistant_turn_001:conversation-title",
+      executorId: "ai_sdk.tool_loop",
       providerId: "fake",
       modelId: "fake-echo",
-      systemInstructions: "Return only a safe, short title.",
-      availableToolNames: [],
+      toolNames: [],
       messages: [
+        {
+          role: "system",
+          content: "Return only a safe, short title.",
+        },
         {
           role: "user",
           content: expect.stringContaining("Prepare a short conversation title"),
         },
       ],
+      toolScope: {
+        hostAppId: "host_app_001",
+        workspaceId: "workspace_001",
+        subjectId: "subject_001",
+        conversationId: "conversation_001",
+        assistantTurnId: "assistant_turn_001:conversation-title",
+        allowedHostCommandNames: [],
+      },
     });
-    expect(ports.runtimeRequests[1]?.contextBoard).toBeUndefined();
-    expect(ports.runtimeRequests[1]?.toolScope).toBeUndefined();
     expect(ports.preparedTitles[0]).toMatchObject({
       conversationId: "conversation_001",
       titleText: "Fake response",

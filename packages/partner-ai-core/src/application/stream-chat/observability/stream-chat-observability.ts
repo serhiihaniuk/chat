@@ -1,4 +1,4 @@
-import type { RuntimeEvent } from "@side-chat/agent-runtime";
+import type { RuntimeEvent } from "@side-chat/ai-runtime-contract";
 import type { Effect } from "effect";
 import type { PartnerAiCoreError } from "#errors";
 import { runtimeEventAttributes, recordStreamObservation } from "#services/stream-observability";
