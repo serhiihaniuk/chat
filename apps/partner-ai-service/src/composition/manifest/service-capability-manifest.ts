@@ -11,58 +11,41 @@ import {
   type HostCommandCapability,
   type HostCapabilityManifest,
   type HostCapabilityManifestPort,
+  type ProfileId,
   type ToolCapability,
   type TurnPolicyResolverPort,
 } from "@side-chat/partner-ai-core";
-import { DEFAULT_AGENT_EXECUTOR_ID } from "@side-chat/agent-runtime";
 import { Effect } from "effect";
 
 const LOCAL_HOST_APP_ID = "side-chat-local";
-const DEFAULT_RUNTIME_PROFILE_ID = "default";
-const DEFAULT_RUNTIME_SYSTEM_PROMPT_ID = "runtime_default_profile";
-const DEFAULT_RUNTIME_SYSTEM_INSTRUCTIONS =
-  "Render final assistant answers as GitHub-flavored Markdown. Use bullet or numbered lists when the answer contains multiple items, preserve emphasis with Markdown syntax, and keep tool payload JSON out of the visible answer unless the user explicitly asks for raw data.";
 
 // Declare what this service can offer before core chooses the turn policy.
 // The manifest is availability, not permission: validation and policy resolution
-// still decide what a single assistant turn may actually use. Tool capabilities
-// and the default allowlist both come from the service tool registry, so a
-// declared tool always has a matching executable behind it.
+// still decide what a single assistant turn may actually use. Assistant profiles
+// arrive already built by the assistant profile registry, so this factory never
+// composes prompt text or default profiles itself.
 export const createServiceHostCapabilityManifest = ({
-  providerId,
-  modelId,
+  assistantProfiles,
+  defaultProfileId,
   toolCapabilities = [],
-  allowedToolNames = [],
   hostCommands = [],
   approvalPolicies = [],
-  turnGuardIds = [],
 }: {
-  readonly providerId: string;
-  readonly modelId: string;
+  readonly assistantProfiles: readonly AssistantProfile[];
+  readonly defaultProfileId: ProfileId;
   readonly toolCapabilities?: readonly ToolCapability[] | undefined;
-  readonly allowedToolNames?: readonly string[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
   readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
-  readonly turnGuardIds?: readonly string[] | undefined;
-}): HostCapabilityManifest => {
-  const profile = createDefaultServiceAssistantProfile({
-    providerId,
-    modelId,
-    allowedToolNames,
-    turnGuardIds,
-  });
-
-  return {
-    schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
-    hostAppId: LOCAL_HOST_APP_ID,
-    defaultAssistantProfileId: profile.profileId,
-    assistantProfiles: [profile],
-    tools: toolCapabilities,
-    commands: hostCommands,
-    approvalPolicies,
-    activityRenderers: [],
-  };
-};
+}): HostCapabilityManifest => ({
+  schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
+  hostAppId: LOCAL_HOST_APP_ID,
+  defaultAssistantProfileId: defaultProfileId,
+  assistantProfiles,
+  tools: toolCapabilities,
+  commands: hostCommands,
+  approvalPolicies,
+  activityRenderers: [],
+});
 
 export const createStaticHostCapabilityManifestPort = (
   manifest: HostCapabilityManifest,
@@ -114,37 +97,3 @@ export const createServiceTurnPolicyResolver = (): TurnPolicyResolverPort => ({
       });
     }),
 });
-
-const createDefaultServiceAssistantProfile = ({
-  providerId,
-  modelId,
-  allowedToolNames,
-  turnGuardIds,
-}: {
-  readonly providerId: string;
-  readonly modelId: string;
-  readonly allowedToolNames: readonly string[];
-  readonly turnGuardIds: readonly string[];
-}): AssistantProfile => ({
-  profileId: DEFAULT_RUNTIME_PROFILE_ID,
-  version: "2026-06-13",
-  displayName: "Default assistant",
-  systemPromptId: DEFAULT_RUNTIME_SYSTEM_PROMPT_ID,
-  systemInstructions: resolveServiceSystemInstructions(DEFAULT_RUNTIME_SYSTEM_PROMPT_ID),
-  executorId: DEFAULT_AGENT_EXECUTOR_ID,
-  modelPolicy: { providerId, modelId },
-  defaultToolPolicy: {
-    mode: allowedToolNames.length > 0 ? "profile_allowlist" : "closed",
-    allowedToolNames,
-  },
-  outputContract: { format: "markdown" },
-  safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds },
-});
-
-const resolveServiceSystemInstructions = (systemPromptId: string): string => {
-  if (systemPromptId === DEFAULT_RUNTIME_SYSTEM_PROMPT_ID) {
-    return DEFAULT_RUNTIME_SYSTEM_INSTRUCTIONS;
-  }
-
-  throw new Error(`Unknown service system prompt ${systemPromptId}.`);
-};

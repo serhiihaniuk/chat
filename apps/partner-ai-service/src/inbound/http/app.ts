@@ -15,6 +15,7 @@ import {
   type PersistenceConfig,
   type RuntimeConfig,
   type RuntimeToolConfig,
+  type ServiceAssistantConfig,
   type ServiceCompositionOptions,
 } from "#composition/service-composition";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
@@ -56,6 +57,8 @@ export type PartnerAiServiceOptions = {
    * manifest entries, context budgets, health status, and selected ports.
    */
   readonly capabilities?: ServiceCapabilityConfig | undefined;
+  readonly assistants?: readonly ServiceAssistantConfig[] | undefined;
+  readonly defaultAssistantProfileId?: string | undefined;
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
   readonly workspace?: WorkspaceRef | undefined;
@@ -128,6 +131,8 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   agentRuntime: options.agentRuntime,
   conversationTitleGeneration: options.conversationTitleGeneration,
   capabilities: options.capabilities,
+  assistants: options.assistants,
+  defaultAssistantProfileId: options.defaultAssistantProfileId,
   turnGuards: options.turnGuards,
   turnGuardIds: options.turnGuardIds,
 });

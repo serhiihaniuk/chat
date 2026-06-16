@@ -78,6 +78,13 @@ plans.
   into manifest capabilities and runtime tools from one source.
 - **Service provider registry**: composition step that validates provider/model
   registrations and selects the runtime provider and default model.
+- **ServiceAssistantConfig**: explicit service configuration for one assistant
+  (prompt sections, model, tool policy, safety) that the default assistant and
+  adopter assistants share.
+- **System prompt builder**: deterministic builder that turns ordered prompt
+  sections into the built prompt id, content, section ids, and hash.
+- **Assistant profile registry**: composition step that validates assistant
+  configs and builds the manifest `AssistantProfile`s from one path.
 - **HostCommandCapability**: manifest declaration for a browser/host-app UI
   command, separate from RuntimeTool.
 - **TurnGuard**: pre-context safety check that may allow, warn, or block one

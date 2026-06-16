@@ -29,6 +29,8 @@ Not source of truth for: global vocabulary or product requirements.
 - `src/composition/manifest/service-capability-manifest.ts`
 - `src/composition/providers/service-provider-registry.ts`
 - `src/composition/tools/service-tool-registry.ts`
+- `src/composition/assistant/assistant-profile-registry.ts`
+- `src/composition/assistant/default-assistant-config.ts`
 - `src/adapters/README.md`
 - `src/config/service-config.ts`
 - `src/config/service-conversation-title-config.ts`
@@ -48,6 +50,12 @@ the runtime identity. `createServiceToolRegistry` turns each
 `ServiceToolRegistration` into both a manifest capability and the matching
 runtime executable, so a tool cannot be declared without an executable behind
 it.
+
+Assistant behavior is explicit service config. The default assistant and any
+`assistants` passed to composition build through `createAssistantProfileRegistry`,
+which validates each `ServiceAssistantConfig` against the provider, tool, and
+guard registries and uses the system prompt builder to assemble prompt text. The
+manifest factory only receives the built profiles; it owns no default prompt.
 
 The chat resource surface includes `GET /chat/conversations` for the current
 authorized workspace subject and `GET /chat/history/:conversationId` for

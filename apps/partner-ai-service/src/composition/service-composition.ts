@@ -1,9 +1,4 @@
-import {
-  createAgentRuntime,
-  FAKE_ECHO_MODEL_ID,
-  FAKE_PROVIDER_ID,
-  OPENAI_PROVIDER_ID,
-} from "@side-chat/agent-runtime";
+import { createAgentRuntime } from "@side-chat/agent-runtime";
 import {
   createMemorySidechatRepositories,
   createPostgresDrizzleSidechatRepositories,
@@ -17,18 +12,16 @@ import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/a
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
 import { createRepositoryConversationHistoryContext } from "#adapters/persistence/repository-conversation-history-context";
 import { createDefaultPolicyConfig } from "#adapters/policy/service-policy";
-import { createMockWebSearchRegistration } from "#adapters/tools/mock-web-search-tool";
 import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/service-conversation-title-config";
 import { assertProductionCapabilityStatus } from "#composition/capabilities/capability-status";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
+import { createServiceProviderRegistry } from "#composition/providers/service-provider-registry";
+import { createServiceToolRegistry } from "#composition/tools/service-tool-registry";
 import {
-  createServiceProviderRegistry,
-  type ServiceProviderRegistration,
-} from "#composition/providers/service-provider-registry";
-import {
-  createServiceToolRegistry,
-  type ServiceToolRegistration,
-} from "#composition/tools/service-tool-registry";
+  buildAssistantProfileRegistry,
+  providerRegistrationForConfig,
+  toolRegistrationsForConfig,
+} from "./service-composition-builders.js";
 import { createServiceContextManager } from "./context-manager/service-context-manager.js";
 import {
   createServiceHostCapabilityManifest,
@@ -38,8 +31,6 @@ import {
 import { createCapabilityStatusForComposition } from "#composition/capabilities/service-capability-composition";
 import type {
   PersistenceConfig,
-  RuntimeConfig,
-  RuntimeToolConfig,
   ServiceComposition,
   ServiceCompositionOptions,
 } from "./service-composition-types.js";
@@ -75,6 +66,33 @@ export type {
   ServiceToolRegistryStatus,
 } from "#composition/tools/service-tool-registry";
 
+export {
+  createAssistantProfileRegistry,
+  AssistantProfileRegistryError,
+} from "#composition/assistant/assistant-profile-registry";
+export type {
+  AssistantProfileRegistry,
+  ServiceAssistantConfig,
+  ServiceAssistantProfile,
+  ServiceAssistantSafetyConfig,
+  ServiceToolPolicyConfig,
+} from "#composition/assistant/assistant-profile-registry";
+export {
+  createDefaultAssistantConfig,
+  DEFAULT_ASSISTANT_PROFILE_ID,
+  DEFAULT_ASSISTANT_SYSTEM_PROMPT_ID,
+} from "#composition/assistant/default-assistant-config";
+export {
+  createDefaultSystemPromptBuilder,
+  SystemPromptBuilderError,
+} from "#composition/assistant/system-prompt-builder";
+export type {
+  BuiltSystemPrompt,
+  SystemPromptBuilder,
+  SystemPromptDefinition,
+  SystemPromptSection,
+} from "#composition/assistant/system-prompt-builder";
+
 /**
  * Build the service graph used by HTTP routes.
  *
@@ -109,17 +127,26 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const conversationTitleGeneration =
     options.conversationTitleGeneration ?? DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION;
 
+  // Build assistant profiles before the manifest. The default assistant and any
+  // adopter-provided assistants go through the same registry, which validates
+  // them against the provider, tool, and guard registries and builds the prompt.
+  const turnGuards = options.turnGuards ?? createNoopTurnGuardRegistry();
+  const assistantRegistry = buildAssistantProfileRegistry({
+    options,
+    providerRegistry,
+    toolRegistry,
+    turnGuards,
+  });
+
   // Publish what this service can offer to core. The manifest names available
-  // tools, commands, and guards; turn policy still chooses which of them a
+  // profiles, tools, and commands; turn policy still chooses which of them a
   // single request may use.
   const manifest = createServiceHostCapabilityManifest({
-    providerId: runtimeProviderId,
-    modelId: runtimeModelId,
+    assistantProfiles: assistantRegistry.assistantProfiles,
+    defaultProfileId: assistantRegistry.defaultProfileId,
     toolCapabilities: toolRegistry.toolCapabilities,
-    allowedToolNames: toolRegistry.defaultEnabledToolNames,
     hostCommands: runtimeConfig.hostCommands,
     approvalPolicies: runtimeConfig.approvalPolicies,
-    turnGuardIds: options.turnGuardIds,
   });
   const capabilities = createCapabilityStatusForComposition({
     capabilityConfig,
@@ -150,7 +177,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     repositories,
     hostCapabilities: createStaticHostCapabilityManifestPort(manifest),
     turnPolicies: createServiceTurnPolicyResolver(),
-    turnGuards: options.turnGuards ?? createNoopTurnGuardRegistry(),
+    turnGuards,
     contextManager: createServiceContextManager({
       historyContext,
       history: capabilityConfig.history,
@@ -162,57 +189,11 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtimeModelId,
     providerRegistryStatus: providerRegistry.status,
     toolRegistryStatus: toolRegistry.status,
+    assistantProfiles: assistantRegistry.serviceProfiles,
     persistenceLabel,
     capabilities,
   };
 };
-
-/**
- * Translate operator runtime config into one validated provider registration.
- *
- * Secrets and transport overrides stay on the registration; retention defaults
- * to the provider default until Phase 10 drives `no_retention` request
- * hardening, and reasoning defaults match the OpenAI provider adapter.
- */
-const providerRegistrationForConfig = (config: RuntimeConfig): ServiceProviderRegistration => {
-  if (config.provider === "openai") {
-    return {
-      kind: "openai",
-      providerId: OPENAI_PROVIDER_ID,
-      modelIds: config.modelIds,
-      defaultModelId: config.defaultModelId,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl === "" ? undefined : config.baseUrl,
-      fetch: config.fetch,
-      retention: "provider_default",
-      reasoning: {
-        effort: config.reasoningEffort ?? "medium",
-        summary: config.reasoningSummary ?? "auto",
-      },
-    };
-  }
-
-  const modelId = config.modelId ?? FAKE_ECHO_MODEL_ID;
-  return {
-    kind: "fake",
-    providerId: FAKE_PROVIDER_ID,
-    modelIds: [modelId],
-    defaultModelId: modelId,
-  };
-};
-
-/**
- * Collect tool registrations from config, including the local mock web search.
- *
- * The mock fixture joins the same registry path as app-owned tools, so enabling
- * it never adds a separate manifest or runtime wiring step.
- */
-const toolRegistrationsForConfig = (
-  config: RuntimeConfig & RuntimeToolConfig,
-): readonly ServiceToolRegistration[] => [
-  ...(config.enableMockWebSearch ? [createMockWebSearchRegistration()] : []),
-  ...(config.tools ?? []),
-];
 
 const createRepositoriesForPersistence = (persistence: PersistenceConfig): SidechatRepositories => {
   if (persistence.kind === "postgres") {

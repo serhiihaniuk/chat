@@ -23,6 +23,10 @@ import type {
   ServiceToolRegistration,
   ServiceToolRegistryStatus,
 } from "#composition/tools/service-tool-registry";
+import type {
+  ServiceAssistantConfig,
+  ServiceAssistantProfile,
+} from "#composition/assistant/assistant-profile-registry";
 
 /**
  * Service composition contracts for the deployable Side Chat service.
@@ -93,6 +97,7 @@ export type ServiceComposition = {
   readonly runtimeModelId: string;
   readonly providerRegistryStatus: ServiceProviderRegistryStatus;
   readonly toolRegistryStatus: ServiceToolRegistryStatus;
+  readonly assistantProfiles: readonly ServiceAssistantProfile[];
   readonly persistenceLabel: "memory" | "postgres-drizzle";
   readonly capabilities: ServiceCapabilityStatus;
 };
@@ -115,6 +120,9 @@ export type ServiceCompositionOptions = {
   readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   /** Capability declarations for implemented service context behavior. */
   readonly capabilities?: ServiceCapabilityConfig | undefined;
+  /** Explicit assistant configuration; defaults to the built-in default assistant. */
+  readonly assistants?: readonly ServiceAssistantConfig[] | undefined;
+  readonly defaultAssistantProfileId?: string | undefined;
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
 };

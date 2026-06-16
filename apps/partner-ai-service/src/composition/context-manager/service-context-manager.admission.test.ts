@@ -9,7 +9,35 @@ import {
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { createServiceHostCapabilityManifest } from "../manifest/service-capability-manifest.js";
+import { createAssistantProfileRegistry } from "../assistant/assistant-profile-registry.js";
+import {
+  createDefaultAssistantConfig,
+  DEFAULT_ASSISTANT_PROFILE_ID,
+} from "../assistant/default-assistant-config.js";
+import { createDefaultSystemPromptBuilder } from "../assistant/system-prompt-builder.js";
 import { createServiceContextManager } from "./service-context-manager.js";
+
+const defaultServiceManifest = () => {
+  const registry = createAssistantProfileRegistry({
+    assistants: [
+      createDefaultAssistantConfig({
+        providerId: "fake",
+        modelId: "fake-echo",
+        allowedToolNames: [],
+        turnGuardIds: [],
+      }),
+    ],
+    defaultProfileId: DEFAULT_ASSISTANT_PROFILE_ID,
+    promptBuilder: createDefaultSystemPromptBuilder(),
+    providers: [{ providerId: "fake", modelIds: ["fake-echo"] }],
+    toolNames: [],
+    guardIds: [],
+  });
+  return createServiceHostCapabilityManifest({
+    assistantProfiles: registry.assistantProfiles,
+    defaultProfileId: registry.defaultProfileId,
+  });
+};
 
 describe("service context manager budgeted admission", () => {
   it("keeps dropped host candidates out of the model-visible context board", async () => {
@@ -63,10 +91,7 @@ const request = {
 } as const;
 
 const createContextInput = () => {
-  const manifest = createServiceHostCapabilityManifest({
-    providerId: "fake",
-    modelId: "fake-echo",
-  });
+  const manifest = defaultServiceManifest();
   const profileResolution = resolveAssistantProfileFromManifest(manifest);
   if (!profileResolution.resolved) throw new Error(profileResolution.issue.message);
 
