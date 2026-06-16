@@ -9,7 +9,7 @@ import type { SidechatRepositories } from "@side-chat/db";
 import { Hono } from "hono";
 
 import { createServiceAuthVerifier, type ServiceAuthConfig } from "#adapters/auth/service-auth";
-import { createServicePolicyPort, type ServicePolicyConfig } from "#adapters/policy/service-policy";
+import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import {
   composePartnerAiService,
   type PersistenceConfig,
@@ -75,18 +75,17 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
   const app = new Hono<AuthContextVariables>();
   const composition = composePartnerAiService(compositionOptions(options));
   const authority = createServiceAuthVerifier(composition.auth);
-  const policies = createServicePolicyPort(composition.policies);
 
   app.use("*", requestIdMiddleware());
 
   registerHealthRoutes(app, {
     authConfig: composition.auth,
     policyConfig: composition.policies,
-    providerId: composition.runtimeProviderId,
-    modelId: composition.runtimeModelId,
-    providers: composition.providerRegistryStatus,
-    tools: composition.toolRegistryStatus,
-    persistenceLabel: composition.persistenceLabel,
+    providerId: composition.diagnostics.runtimeProviderId,
+    modelId: composition.diagnostics.runtimeModelId,
+    providers: composition.diagnostics.providerRegistryStatus,
+    tools: composition.diagnostics.toolRegistryStatus,
+    persistenceLabel: composition.diagnostics.persistenceLabel,
     capabilities: composition.capabilities,
   });
 
@@ -95,8 +94,8 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
   app.use("/usage", authContextMiddleware(authority), requireAuth());
 
   registerModelsRoute(app, composition.policies, {
-    providerId: composition.runtimeProviderId,
-    modelId: composition.runtimeModelId,
+    providerId: composition.diagnostics.runtimeProviderId,
+    modelId: composition.diagnostics.runtimeModelId,
   });
   registerChatHistoryRoutes(app, {
     repositories: composition.repositories,
@@ -105,15 +104,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
   registerChatStreamRoute(app, {
     workspace: composition.workspace,
     hostAppId: composition.hostAppId,
-    repositories: composition.repositories,
-    hostCapabilities: composition.hostCapabilities,
-    turnPolicies: composition.turnPolicies,
-    turnGuards: composition.turnGuards,
-    contextManager: composition.contextManager,
-    runtime: composition.runtime,
-    conversationTitleGeneration: composition.conversationTitleGeneration,
-    policies,
-    observability: options.observability,
+    ports: composition.ports,
   });
 
   return app;
@@ -130,6 +121,7 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   runtime: options.runtime,
   agentRuntime: options.agentRuntime,
   conversationTitleGeneration: options.conversationTitleGeneration,
+  observability: options.observability,
   capabilities: options.capabilities,
   assistants: options.assistants,
   defaultAssistantProfileId: options.defaultAssistantProfileId,

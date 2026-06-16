@@ -50,8 +50,8 @@ describe("service composition runtime tools", () => {
       Stream.toAsyncIterable(
         composition.runtime.streamEffect({
           executorId: "ai_sdk.tool_loop",
-          providerId: composition.runtimeProviderId,
-          modelId: composition.runtimeModelId,
+          providerId: composition.diagnostics.runtimeProviderId,
+          modelId: composition.diagnostics.runtimeModelId,
           requestId: "request_jira_registered",
           assistantTurnId: "turn_jira_registered",
           messages: [{ role: "user", content: "search jira" }],
@@ -67,7 +67,7 @@ describe("service composition runtime tools", () => {
     expect(manifest.assistantProfiles[0]?.defaultToolPolicy.allowedToolNames).toEqual([
       JIRA_SEARCH_ISSUES_TOOL_NAME,
     ]);
-    expect(composition.toolRegistryStatus.tools).toEqual([
+    expect(composition.diagnostics.toolRegistryStatus.tools).toEqual([
       { name: JIRA_SEARCH_ISSUES_TOOL_NAME, defaultEnabled: true, approvalPolicyIds: [] },
     ]);
     expect(events.at(-1)).toMatchObject({ type: "runtime.completed" });
@@ -84,8 +84,8 @@ describe("service composition runtime tools", () => {
       Stream.toAsyncIterable(
         composition.runtime.streamEffect({
           executorId: "ai_sdk.tool_loop",
-          providerId: composition.runtimeProviderId,
-          modelId: composition.runtimeModelId,
+          providerId: composition.diagnostics.runtimeProviderId,
+          modelId: composition.diagnostics.runtimeModelId,
           requestId: "request_mock_web_search",
           assistantTurnId: "turn_mock_web_search",
           messages: [{ role: "user", content: "search the web" }],
@@ -98,7 +98,7 @@ describe("service composition runtime tools", () => {
     // The capability reaches the manifest and the executable reaches the runtime
     // from the same registration: selecting the tool name never fails closed.
     expect(manifest.tools.map((tool) => tool.name)).toEqual([MOCK_WEB_SEARCH_TOOL_NAME]);
-    expect(composition.toolRegistryStatus.tools).toEqual([
+    expect(composition.diagnostics.toolRegistryStatus.tools).toEqual([
       { name: MOCK_WEB_SEARCH_TOOL_NAME, defaultEnabled: true, approvalPolicyIds: [] },
     ]);
     expect(events.at(-1)).toMatchObject({ type: "runtime.completed" });
@@ -118,8 +118,8 @@ describe("service composition runtime tools", () => {
       Stream.toAsyncIterable(
         composition.runtime.streamEffect({
           executorId: "service.test_executor",
-          providerId: composition.runtimeProviderId,
-          modelId: composition.runtimeModelId,
+          providerId: composition.diagnostics.runtimeProviderId,
+          modelId: composition.diagnostics.runtimeModelId,
           requestId: "request_executor",
           assistantTurnId: "turn_executor",
           messages: [{ role: "user", content: "use fixture executor" }],
@@ -228,7 +228,7 @@ describe("service composition runtime tools", () => {
 
 const loadManifest = (composition: ReturnType<typeof composePartnerAiService>) =>
   Effect.runPromise(
-    composition.hostCapabilities.loadManifest({
+    composition.ports.hostCapabilities.loadManifest({
       authContext,
       workspace,
       hostAppId: composition.hostAppId,

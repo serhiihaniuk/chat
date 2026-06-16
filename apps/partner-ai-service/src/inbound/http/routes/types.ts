@@ -1,29 +1,20 @@
 import type {
   AuthContext,
-  AiRuntimePort,
-  ContextManagerPort,
-  ConversationTitleGenerationPort,
-  HostCapabilityManifestPort,
-  ObservabilitySinkPort,
-  PolicyPort,
-  TurnGuardRegistryPort,
-  TurnPolicyResolverPort,
+  StreamChatPorts,
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
-import type { SidechatRepositories } from "@side-chat/db";
 
+/**
+ * Everything the chat-stream route needs to reach core.
+ *
+ * The route receives the fully wired `StreamChatPorts` from composition plus the
+ * request envelope (workspace and host app id). It never rebuilds policy,
+ * storage, or runtime wiring.
+ */
 export type RouteDependencies = {
   readonly workspace: WorkspaceRef;
   readonly hostAppId: string;
-  readonly repositories: SidechatRepositories;
-  readonly hostCapabilities: HostCapabilityManifestPort;
-  readonly turnPolicies: TurnPolicyResolverPort;
-  readonly turnGuards: TurnGuardRegistryPort;
-  readonly contextManager: ContextManagerPort;
-  readonly runtime: AiRuntimePort;
-  readonly conversationTitleGeneration: ConversationTitleGenerationPort;
-  readonly policies: PolicyPort;
-  readonly observability?: ObservabilitySinkPort | undefined;
+  readonly ports: StreamChatPorts;
 };
 
 export const requireContextAuth = (authContext: AuthContext | undefined) => {

@@ -1,14 +1,14 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
-import { toActorId } from "@side-chat/db";
+import { toActorId, type SidechatRepositories } from "@side-chat/db";
 import type { Hono } from "hono";
 
 import type { AuthContextVariables } from "../../middleware/auth-context.js";
 import { errorMessage, jsonError } from "../../response/protocol-errors.js";
-import { requireContextAuth, type RouteDependencies } from "../types.js";
+import { requireContextAuth } from "../types.js";
 
 export const registerChatHistoryRoutes = (
   app: Hono<AuthContextVariables>,
-  dependencies: Pick<RouteDependencies, "repositories">,
+  dependencies: { readonly repositories: SidechatRepositories },
 ) => {
   app.get("/chat/conversations", async (context) => {
     const authContext = requireContextAuth(context.get("authContext"));

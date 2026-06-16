@@ -13,8 +13,6 @@ import {
 import { Stream } from "effect";
 import type { Hono } from "hono";
 
-import { createServicePersistence } from "#adapters/persistence/service-persistence";
-import { createServicePorts } from "#composition/ports/service-ports";
 import type { AuthContextVariables } from "../../middleware/auth-context.js";
 import {
   errorMessage,
@@ -37,7 +35,6 @@ export const registerChatStreamRoute = (
 ) => {
   app.post("/chat/stream", async (context) => {
     const authContext = requireContextAuth(context.get("authContext"));
-    const persistence = createServicePersistence(dependencies.repositories);
     const parsed = await parseJsonBody(context.req.raw);
     if (!parsed.ok) return jsonError(PROTOCOL_ERROR_CODES.BAD_REQUEST, parsed.message, 400);
 
@@ -48,20 +45,7 @@ export const registerChatStreamRoute = (
       return jsonError(PROTOCOL_ERROR_CODES.BAD_REQUEST, errorMessage(error), 400);
     }
 
-    const coreLayer = createPartnerAiCoreLayer(
-      createServicePorts({
-        conversations: persistence.conversations,
-        assistantTurns: persistence.assistantTurns,
-        hostCapabilities: dependencies.hostCapabilities,
-        turnPolicies: dependencies.turnPolicies,
-        turnGuards: dependencies.turnGuards,
-        contextManager: dependencies.contextManager,
-        runtime: dependencies.runtime,
-        conversationTitleGeneration: dependencies.conversationTitleGeneration,
-        observability: dependencies.observability,
-        policies: dependencies.policies,
-      }),
-    );
+    const coreLayer = createPartnerAiCoreLayer(dependencies.ports);
 
     try {
       const eventIterator = Stream.toAsyncIterable(

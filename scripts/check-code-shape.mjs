@@ -25,6 +25,14 @@ const directoryBudgetExceptions = new Map([
       reason: "copied AI UI primitives are quarantined vendor-style source",
     },
   ],
+  [
+    "apps/partner-ai-service/src/composition/factories",
+    {
+      maxFiles: 22,
+      reason:
+        "service composition factory catalog: one factory plus its co-located test per bundle, kept flat so the composition root reads as a table of contents (see sidechat-complete-architecture/07-composition-root-and-factories.md)",
+    },
+  ],
 ]);
 
 const sourceFiles = listSourceFiles(root);
