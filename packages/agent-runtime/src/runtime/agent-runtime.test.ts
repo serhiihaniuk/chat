@@ -72,7 +72,7 @@ describe("createAgentRuntime", () => {
             assistantTurnId: "turn_final_messages",
             messages: [
               { role: "system", content: "Use concise analyst language." },
-              { role: "system", content: "Trusted context board:\n\nRisk budget is tight." },
+              { role: "system", content: "# Context Board\n\nRisk budget is tight." },
               { role: "user", content: "respond in list" },
             ],
           }),
@@ -86,7 +86,7 @@ describe("createAgentRuntime", () => {
     });
     expect(modelCalls[0]?.prompt[1]).toMatchObject({
       role: "system",
-      content: "Trusted context board:\n\nRisk budget is tight.",
+      content: "# Context Board\n\nRisk budget is tight.",
     });
     expect(modelCalls[0]?.prompt[2]).toMatchObject({
       role: "user",

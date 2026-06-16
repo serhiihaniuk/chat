@@ -166,14 +166,18 @@ export type ContextManifest = {
 /**
  * Model-visible section admitted into the prepared context board.
  *
- * Sections are ordered and prioritized before runtime execution. Metadata is
- * optional because source-specific adapter detail must not be required by the
- * runtime boundary.
+ * Sections are ordered and prioritized before runtime execution. `trustLevel`
+ * and `source` are carried so the core context-board renderer can label each
+ * section's provenance, keeping browser-supplied context visibly distinct from
+ * server-verified or system-generated context. Metadata is optional because
+ * source-specific adapter detail must not be required by the runtime boundary.
  */
 export type PreparedContextSection = {
   readonly title: string;
   readonly content: string;
   readonly priority: number;
+  readonly trustLevel: ContextTrustLevel;
+  readonly source: ContextCandidateSourceType;
   readonly metadata?: JsonObject | undefined;
 };
 

@@ -49,7 +49,7 @@ export type ContextCandidateSourceType =
 
 export const CONTEXT_TRUST_LEVELS = {
   SYSTEM: "system",
-  TRUSTED_HOST: "trusted_host",
+  SERVER_VERIFIED: "server_verified",
   USER_PROVIDED: "user_provided",
   UNTRUSTED_EXTERNAL: "untrusted_external",
   GENERATED: "generated",

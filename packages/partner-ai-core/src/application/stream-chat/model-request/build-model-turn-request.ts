@@ -1,8 +1,6 @@
 import type { AiRuntimeMessage, AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
 import type { PreparedStreamChatTurn, StreamChatInput } from "../stream-chat-types.js";
-
-type PreparedContextBoard = PreparedStreamChatTurn["preparedContext"]["contextBoard"];
-type PreparedContextSection = PreparedContextBoard["sections"][number];
+import { renderContextBoardMessage } from "./render-context-board-message.js";
 
 /**
  * Build the final provider-neutral runtime request for one assistant turn.
@@ -52,27 +50,3 @@ const buildModelMessages = (turn: PreparedStreamChatTurn): readonly AiRuntimeMes
     ...turn.preparedContext.runtimeMessages,
   ];
 };
-
-/**
- * Render the prepared context board as a single trusted-context system message.
- *
- * Returns `undefined` when the board has no sections so the turn does not emit
- * an empty context message. Sections render highest priority first.
- */
-export const renderContextBoardMessage = (
-  contextBoard: PreparedContextBoard,
-): AiRuntimeMessage | undefined =>
-  contextBoard.sections.length > 0
-    ? { role: "system", content: `Trusted context board:\n\n${renderContextBoardSections(contextBoard)}` }
-    : undefined;
-
-const renderContextBoardSections = (board: PreparedContextBoard): string =>
-  board.sections
-    .toSorted(compareContextSections)
-    .map((section) => `### ${section.title}\n${section.content.trim()}`)
-    .join("\n\n");
-
-const compareContextSections = (
-  left: PreparedContextSection,
-  right: PreparedContextSection,
-): number => right.priority - left.priority;

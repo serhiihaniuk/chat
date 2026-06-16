@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONTEXT_ADMISSION_POLICIES,
   CONTEXT_ADMISSION_SELECTION_MODES,
+  CONTEXT_CANDIDATE_SOURCE_TYPES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
   HISTORY_CONTEXT_MODES,
@@ -49,6 +50,8 @@ describe("capability substrate types", () => {
             title: "Current request",
             content: "Summarize the attached record.",
             priority: 100,
+            trustLevel: CONTEXT_TRUST_LEVELS.USER_PROVIDED,
+            source: CONTEXT_CANDIDATE_SOURCE_TYPES.CURRENT_MESSAGE,
           },
         ],
         manifest: {

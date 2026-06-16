@@ -21,6 +21,7 @@ adapters.
 | `guards/run-turn-guards.ts`                        | Pre-context guard execution and guard failure mapping.                                                                   |
 | `history/admit-conversation-history-context.ts`    | Core-owned recent conversation history selector and content-safe history manifest creation.                              |
 | `model-request/build-model-turn-request.ts`        | Final `AiRuntimeRequest` assembly: deterministic message order (system instructions, optional context board, conversation messages) plus provider/model/executor/tool selection from the turn policy decision. |
+| `model-request/render-context-board-message.ts`    | Context trust boundary: renders admitted context sections under a stable `# Context Board` header and boundary instruction so browser-supplied host context is reference data, never trusted instructions. |
 | `conversation-title/prepare-conversation-title.ts` | Post-success conversation-title lifecycle, sanitization, write-once persistence, and failure observation.                |
 | `protocol/protocol-event-stream.ts`                | Runtime event mapping, post-start terminal handling, and sequence validation.                                            |
 | `protocol/protocol-terminal-lifecycle.ts`          | Completion/failure persistence and terminal invariants.                                                                  |

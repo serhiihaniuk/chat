@@ -211,7 +211,7 @@ const createCandidate = ({
   candidateId,
   sourceType,
   sourceId: `${sourceType}_${candidateId}`,
-  trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
+  trustLevel: CONTEXT_TRUST_LEVELS.USER_PROVIDED,
   redactionClass,
   content: `content for ${candidateId}`,
   estimatedTokens: tokens,

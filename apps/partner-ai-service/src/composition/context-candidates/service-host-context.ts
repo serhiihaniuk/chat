@@ -27,7 +27,7 @@ export const createHostContextCandidates = (
       candidateId: toContextCandidateId("host_context"),
       sourceType: CONTEXT_CANDIDATE_SOURCE_TYPES.HOST_CONTEXT,
       sourceId: toContextSourceId(manifest.hostAppId),
-      trustLevel: CONTEXT_TRUST_LEVELS.TRUSTED_HOST,
+      trustLevel: CONTEXT_TRUST_LEVELS.USER_PROVIDED,
       redactionClass: CONTEXT_REDACTION_CLASSES.WORKSPACE_CONFIDENTIAL,
       content,
       estimatedTokens: estimateTokens(content),
@@ -46,6 +46,8 @@ export const createHostContextSections = (
           title: "Host context",
           content: renderHostContext(hostContext),
           priority: 80,
+          trustLevel: CONTEXT_TRUST_LEVELS.USER_PROVIDED,
+          source: CONTEXT_CANDIDATE_SOURCE_TYPES.HOST_CONTEXT,
         },
       ]
     : [];

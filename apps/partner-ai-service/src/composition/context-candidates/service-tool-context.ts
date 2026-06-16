@@ -39,6 +39,8 @@ export const createAllowedToolSections = (
             .map((toolName) => renderToolCapability(manifest, toolName))
             .join("\n"),
           priority: 70,
+          trustLevel: CONTEXT_TRUST_LEVELS.SYSTEM,
+          source: CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_CAPABILITY,
         },
       ]
     : [];

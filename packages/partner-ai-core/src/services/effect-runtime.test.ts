@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONTEXT_ADMISSION_POLICIES,
   CONTEXT_ADMISSION_SELECTION_MODES,
+  CONTEXT_CANDIDATE_SOURCE_TYPES,
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
   HOST_CAPABILITY_SCHEMA_VERSIONS,
@@ -64,6 +65,8 @@ describe("partner AI core Effect runtime layer", () => {
                   title: "Current request",
                   content: "hello",
                   priority: 100,
+                  trustLevel: CONTEXT_TRUST_LEVELS.USER_PROVIDED,
+                  source: CONTEXT_CANDIDATE_SOURCE_TYPES.CURRENT_MESSAGE,
                 },
               ],
               manifest: {
