@@ -184,7 +184,6 @@ const prepareHistoryContext = ({
 
 const createContextInput = () => {
   const manifest = createServiceHostCapabilityManifest({
-    runtimeConfig: {},
     providerId: "fake",
     modelId: "fake-echo",
   });

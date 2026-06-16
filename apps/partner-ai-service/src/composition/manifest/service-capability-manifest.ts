@@ -17,12 +17,6 @@ import {
 import { DEFAULT_AGENT_EXECUTOR_ID } from "@side-chat/agent-runtime";
 import { Effect } from "effect";
 
-import {
-  createMockWebSearchTool,
-  MOCK_WEB_SEARCH_INPUT_SCHEMA,
-  MOCK_WEB_SEARCH_TOOL_NAME,
-} from "#adapters/tools/mock-web-search-tool";
-
 const LOCAL_HOST_APP_ID = "side-chat-local";
 const DEFAULT_RUNTIME_PROFILE_ID = "default";
 const DEFAULT_RUNTIME_SYSTEM_PROMPT_ID = "runtime_default_profile";
@@ -31,32 +25,30 @@ const DEFAULT_RUNTIME_SYSTEM_INSTRUCTIONS =
 
 // Declare what this service can offer before core chooses the turn policy.
 // The manifest is availability, not permission: validation and policy resolution
-// still decide what a single assistant turn may actually use.
+// still decide what a single assistant turn may actually use. Tool capabilities
+// and the default allowlist both come from the service tool registry, so a
+// declared tool always has a matching executable behind it.
 export const createServiceHostCapabilityManifest = ({
-  runtimeConfig,
   providerId,
   modelId,
   toolCapabilities = [],
+  allowedToolNames = [],
   hostCommands = [],
   approvalPolicies = [],
   turnGuardIds = [],
 }: {
-  readonly runtimeConfig: { readonly enableMockWebSearch?: boolean | undefined };
   readonly providerId: string;
   readonly modelId: string;
   readonly toolCapabilities?: readonly ToolCapability[] | undefined;
+  readonly allowedToolNames?: readonly string[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
   readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
 }): HostCapabilityManifest => {
-  const tools = [
-    ...(runtimeConfig.enableMockWebSearch ? [createMockWebSearchCapability()] : []),
-    ...toolCapabilities,
-  ];
   const profile = createDefaultServiceAssistantProfile({
     providerId,
     modelId,
-    allowedToolNames: tools.map((tool) => tool.name),
+    allowedToolNames,
     turnGuardIds,
   });
 
@@ -65,7 +57,7 @@ export const createServiceHostCapabilityManifest = ({
     hostAppId: LOCAL_HOST_APP_ID,
     defaultAssistantProfileId: profile.profileId,
     assistantProfiles: [profile],
-    tools,
+    tools: toolCapabilities,
     commands: hostCommands,
     approvalPolicies,
     activityRenderers: [],
@@ -155,13 +147,4 @@ const resolveServiceSystemInstructions = (systemPromptId: string): string => {
   }
 
   throw new Error(`Unknown service system prompt ${systemPromptId}.`);
-};
-
-const createMockWebSearchCapability = (): ToolCapability => {
-  const tool = createMockWebSearchTool({ delayMs: 0 });
-  return {
-    name: MOCK_WEB_SEARCH_TOOL_NAME,
-    description: tool.description,
-    inputSchema: MOCK_WEB_SEARCH_INPUT_SCHEMA,
-  };
 };

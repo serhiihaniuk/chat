@@ -71,6 +71,13 @@ plans.
   executable until policy selects it and runtime has a matching RuntimeTool.
 - **RuntimeTool**: app-owned executable model-callable backend tool registered
   with agent runtime.
+- **ServiceToolRegistration**: service-composition record that supplies one
+  tool's ToolCapability and matching RuntimeTool together, so declaration and
+  execution cannot drift.
+- **Service tool registry**: composition step that turns ServiceToolRegistrations
+  into manifest capabilities and runtime tools from one source.
+- **Service provider registry**: composition step that validates provider/model
+  registrations and selects the runtime provider and default model.
 - **HostCommandCapability**: manifest declaration for a browser/host-app UI
   command, separate from RuntimeTool.
 - **TurnGuard**: pre-context safety check that may allow, warn, or block one

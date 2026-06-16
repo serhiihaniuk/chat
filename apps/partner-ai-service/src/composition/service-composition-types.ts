@@ -1,11 +1,10 @@
-import type { AgentExecutor, AgentRuntime, RuntimeTool } from "@side-chat/agent-runtime";
+import type { AgentExecutor, AgentRuntime } from "@side-chat/agent-runtime";
 import type {
   ApprovalPolicy,
   ContextManagerPort,
   ConversationTitleGenerationPort,
   HostCapabilityManifestPort,
   HostCommandCapability,
-  ToolCapability,
   TurnGuardRegistryPort,
   TurnPolicyResolverPort,
   WorkspaceRef,
@@ -15,6 +14,15 @@ import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
+import type {
+  OpenAIReasoningEffort,
+  OpenAIReasoningSummary,
+  ServiceProviderRegistryStatus,
+} from "#composition/providers/service-provider-registry";
+import type {
+  ServiceToolRegistration,
+  ServiceToolRegistryStatus,
+} from "#composition/tools/service-tool-registry";
 
 /**
  * Service composition contracts for the deployable Side Chat service.
@@ -50,21 +58,17 @@ export type RuntimeConfig =
 /**
  * Runtime capabilities that are app-owned but model-callable only after policy.
  *
- * Tool declarations feed the host capability manifest, while RuntimeTool
- * registrations feed agent-runtime execution.
+ * Each `ServiceToolRegistration` feeds both the host capability manifest and
+ * agent-runtime execution, so tool declaration and executable registration come
+ * from one source instead of two independent lists.
  */
 export type RuntimeToolConfig = {
   readonly executors?: readonly AgentExecutor[] | undefined;
   readonly enableMockWebSearch?: boolean | undefined;
-  readonly runtimeTools?: readonly RuntimeTool[] | undefined;
-  readonly toolCapabilities?: readonly ToolCapability[] | undefined;
+  readonly tools?: readonly ServiceToolRegistration[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
   readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
 };
-
-export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
-
-export type OpenAIReasoningSummary = "auto" | "concise" | "detailed";
 
 /**
  * Fully composed dependency graph consumed by HTTP routes.
@@ -87,6 +91,8 @@ export type ServiceComposition = {
   readonly conversationTitleGeneration: ConversationTitleGenerationPort;
   readonly runtimeProviderId: string;
   readonly runtimeModelId: string;
+  readonly providerRegistryStatus: ServiceProviderRegistryStatus;
+  readonly toolRegistryStatus: ServiceToolRegistryStatus;
   readonly persistenceLabel: "memory" | "postgres-drizzle";
   readonly capabilities: ServiceCapabilityStatus;
 };

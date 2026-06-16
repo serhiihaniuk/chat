@@ -7,11 +7,12 @@ import {
 } from "@side-chat/ai-runtime-contract";
 import { type AgentExecutionRequest, type AgentExecutor } from "@side-chat/agent-runtime";
 import {
-  createJiraSearchIssuesCapability,
-  createJiraSearchIssuesTool,
+  createJiraSearchIssuesRegistration,
   JIRA_SEARCH_ISSUES_TOOL_NAME,
 } from "#adapters/tools/examples/jira-search-issues-tool";
+import { MOCK_WEB_SEARCH_TOOL_NAME } from "#adapters/tools/mock-web-search-tool";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
+import { createServiceToolRegistration } from "#composition/tools/service-tool-registry";
 import { composePartnerAiService } from "./service-composition.js";
 
 const workspace = {
@@ -31,14 +32,13 @@ const authContext = {
 } as const;
 
 describe("service composition runtime tools", () => {
-  it("keeps enterprise tool declarations and executable registrations separate", async () => {
+  it("registers a tool once so the manifest capability and runtime executable share one source", async () => {
     const composition = composePartnerAiService({
       workspace,
       runtime: {
         provider: "fake",
-        toolCapabilities: [createJiraSearchIssuesCapability()],
-        runtimeTools: [
-          createJiraSearchIssuesTool({
+        tools: [
+          createJiraSearchIssuesRegistration({
             jiraClient: { searchIssues: () => Effect.succeed([]) },
           }),
         ],
@@ -61,38 +61,47 @@ describe("service composition runtime tools", () => {
       ),
     );
 
+    // Manifest sees the capability, the runtime accepts the selected executable,
+    // and diagnostics report the same single registration.
     expect(manifest.tools.map((tool) => tool.name)).toEqual([JIRA_SEARCH_ISSUES_TOOL_NAME]);
     expect(manifest.assistantProfiles[0]?.defaultToolPolicy.allowedToolNames).toEqual([
       JIRA_SEARCH_ISSUES_TOOL_NAME,
     ]);
+    expect(composition.toolRegistryStatus.tools).toEqual([
+      { name: JIRA_SEARCH_ISSUES_TOOL_NAME, defaultEnabled: true, approvalPolicyIds: [] },
+    ]);
     expect(events.at(-1)).toMatchObject({ type: "runtime.completed" });
   });
 
-  it("fails closed when a declared tool is selected but no executable is registered", async () => {
+  it("exposes the local mock web search as one complete registration when enabled", async () => {
     const composition = composePartnerAiService({
       workspace,
-      runtime: {
-        provider: "fake",
-        toolCapabilities: [createJiraSearchIssuesCapability()],
-      },
+      runtime: { provider: "fake", enableMockWebSearch: true },
     });
 
-    await expect(
-      collectEvents(
-        Stream.toAsyncIterable(
-          composition.runtime.streamEffect({
-            executorId: "ai_sdk.tool_loop",
-            providerId: composition.runtimeProviderId,
-            modelId: composition.runtimeModelId,
-            requestId: "request_jira_missing_runtime_tool",
-            assistantTurnId: "turn_jira_missing_runtime_tool",
-            messages: [{ role: "user", content: "search jira" }],
-            toolNames: [JIRA_SEARCH_ISSUES_TOOL_NAME],
-            toolScope: runtimeToolScope("turn_jira_missing_runtime_tool"),
-          }),
-        ),
+    const manifest = await loadManifest(composition);
+    const events = await collectEvents(
+      Stream.toAsyncIterable(
+        composition.runtime.streamEffect({
+          executorId: "ai_sdk.tool_loop",
+          providerId: composition.runtimeProviderId,
+          modelId: composition.runtimeModelId,
+          requestId: "request_mock_web_search",
+          assistantTurnId: "turn_mock_web_search",
+          messages: [{ role: "user", content: "search the web" }],
+          toolNames: [MOCK_WEB_SEARCH_TOOL_NAME],
+          toolScope: runtimeToolScope("turn_mock_web_search"),
+        }),
       ),
-    ).rejects.toThrow(`tool ${JIRA_SEARCH_ISSUES_TOOL_NAME} is not registered`);
+    );
+
+    // The capability reaches the manifest and the executable reaches the runtime
+    // from the same registration: selecting the tool name never fails closed.
+    expect(manifest.tools.map((tool) => tool.name)).toEqual([MOCK_WEB_SEARCH_TOOL_NAME]);
+    expect(composition.toolRegistryStatus.tools).toEqual([
+      { name: MOCK_WEB_SEARCH_TOOL_NAME, defaultEnabled: true, approvalPolicyIds: [] },
+    ]);
+    expect(events.at(-1)).toMatchObject({ type: "runtime.completed" });
   });
 
   it("injects app-owned agent executors into the runtime registry", async () => {
@@ -186,7 +195,12 @@ describe("service composition runtime tools", () => {
             capabilityNames: [JIRA_CREATE_ISSUE_TOOL_NAME],
           },
         ],
-        toolCapabilities: [createJiraSearchIssuesCapability(), jiraCreateIssueCapability],
+        tools: [
+          createJiraSearchIssuesRegistration({
+            jiraClient: { searchIssues: () => Effect.succeed([]) },
+          }),
+          jiraCreateIssueRegistration,
+        ],
       },
     });
 
@@ -276,8 +290,17 @@ const runtimeToolScope = (assistantTurnId: string) => ({
 
 const JIRA_CREATE_ISSUE_TOOL_NAME = "jira.create_issue";
 
-const jiraCreateIssueCapability = {
-  name: JIRA_CREATE_ISSUE_TOOL_NAME,
-  description: "Create a Jira issue after approval.",
-  inputSchema: { type: "object" },
-};
+const jiraCreateIssueRegistration = createServiceToolRegistration({
+  capability: {
+    name: JIRA_CREATE_ISSUE_TOOL_NAME,
+    description: "Create a Jira issue after approval.",
+    inputSchema: { type: "object" },
+  },
+  runtimeTool: {
+    name: JIRA_CREATE_ISSUE_TOOL_NAME,
+    description: "Create a Jira issue after approval.",
+    inputSchema: { type: "object" },
+    execute: () => Effect.succeed({ created: true }),
+  },
+  approvalPolicyIds: ["jira_create_issue_requires_approval"],
+});

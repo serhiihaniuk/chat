@@ -2,6 +2,10 @@ import { Effect } from "effect";
 import { AiRuntimeError, RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
 import type { RuntimeTool } from "@side-chat/agent-runtime";
 import { isRecord, type JsonObject } from "@side-chat/shared";
+import {
+  createServiceToolRegistration,
+  type ServiceToolRegistration,
+} from "#composition/tools/service-tool-registry";
 
 const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
 export const MOCK_WEB_SEARCH_TOOL_NAME = "mock_web_search";
@@ -47,6 +51,25 @@ export const createMockWebSearchTool = ({
       };
     }).pipe(Effect.mapError(toToolError)),
 });
+
+/**
+ * Bundle the mock web search capability and executable as one registration.
+ *
+ * This keeps the local/dev fixture on the single registry path: enabling it adds
+ * the manifest capability and the runtime executable together, never as two
+ * independent wiring steps.
+ */
+export const createMockWebSearchRegistration = (): ServiceToolRegistration => {
+  const runtimeTool = createMockWebSearchTool();
+  return createServiceToolRegistration({
+    capability: {
+      name: MOCK_WEB_SEARCH_TOOL_NAME,
+      description: runtimeTool.description,
+      inputSchema: MOCK_WEB_SEARCH_INPUT_SCHEMA,
+    },
+    runtimeTool,
+  });
+};
 
 const readQuery = (input: JsonObject): Effect.Effect<string, AiRuntimeError> => {
   const query = input["query"];

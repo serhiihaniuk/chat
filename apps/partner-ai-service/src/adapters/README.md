@@ -16,7 +16,7 @@ protocol contracts.
 | `observability/` | Sinks for already-redacted lifecycle records.                          | Raw provider, prompt, or tool payload logging. |
 | `persistence/`   | Service persistence port adapters over repositories.                   | Drizzle schema definitions.                    |
 | `policy/`        | Service policy adapters around product-wide allow/deny checks.         | Manifest/profile validation rules.             |
-| `tools/`         | RuntimeTool implementations and matching ToolCapability helpers.       | Host commands or widget behavior.              |
+| `tools/`         | RuntimeTool implementations exposed as one `ServiceToolRegistration`.  | Host commands or widget behavior.              |
 
 Service composition wires adapters together. Route handlers should receive
 already-composed ports and should not build app-specific tool, guard, or
@@ -26,8 +26,10 @@ host-command logic directly.
 
 - Turn guards run before conversation persistence, private context, or runtime
   execution.
-- Tool declarations and executable registrations stay separate.
-- `mock-web-search-tool.ts` is a local development/test fixture.
+- A tool's capability and executable ship as one `ServiceToolRegistration`, so
+  the manifest and runtime never need two independent lists.
+- `mock-web-search-tool.ts` is a local development/test fixture exposed through
+  `createMockWebSearchRegistration`.
 
 ## Canonical Docs
 

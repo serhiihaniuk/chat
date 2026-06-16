@@ -9,8 +9,11 @@ import {
   type RuntimeToolContext,
   type RuntimeToolScope,
 } from "@side-chat/agent-runtime";
-import type { ToolCapability } from "@side-chat/partner-ai-core";
 import { compactJsonObject, isRecord, type JsonObject } from "@side-chat/shared";
+import {
+  createServiceToolRegistration,
+  type ServiceToolRegistration,
+} from "#composition/tools/service-tool-registry";
 
 export const JIRA_SEARCH_ISSUES_TOOL_NAME = "jira.search_issues";
 
@@ -63,11 +66,26 @@ export type JiraClient = {
   ) => Effect.Effect<readonly JiraIssue[], unknown>;
 };
 
-export const createJiraSearchIssuesCapability = (): ToolCapability => ({
-  name: JIRA_SEARCH_ISSUES_TOOL_NAME,
-  description: "Search Jira issues visible to the current user.",
-  inputSchema: JIRA_SEARCH_ISSUES_INPUT_SCHEMA,
-});
+/**
+ * Bundle the Jira search capability and executable as one registration.
+ *
+ * This is the adopter pattern: one factory returns the manifest capability and
+ * the matching `RuntimeTool` together, so the declared tool always has an
+ * executable behind it.
+ */
+export const createJiraSearchIssuesRegistration = ({
+  jiraClient,
+}: {
+  readonly jiraClient: JiraClient;
+}): ServiceToolRegistration =>
+  createServiceToolRegistration({
+    capability: {
+      name: JIRA_SEARCH_ISSUES_TOOL_NAME,
+      description: "Search Jira issues visible to the current user.",
+      inputSchema: JIRA_SEARCH_ISSUES_INPUT_SCHEMA,
+    },
+    runtimeTool: createJiraSearchIssuesTool({ jiraClient }),
+  });
 
 export const createJiraSearchIssuesTool = ({
   jiraClient,

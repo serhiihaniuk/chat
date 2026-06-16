@@ -26,3 +26,5 @@ test-harness/widget-harness/vite.config.js.map
 apps/*/dist/
 packages/*/dist/
 test-harness/*/dist/
+
+sidechat-complete-architecture/

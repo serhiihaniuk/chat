@@ -81,6 +81,8 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     policyConfig: composition.policies,
     providerId: composition.runtimeProviderId,
     modelId: composition.runtimeModelId,
+    providers: composition.providerRegistryStatus,
+    tools: composition.toolRegistryStatus,
     persistenceLabel: composition.persistenceLabel,
     capabilities: composition.capabilities,
   });

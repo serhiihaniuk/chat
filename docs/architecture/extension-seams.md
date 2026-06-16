@@ -21,10 +21,19 @@ RuntimeTools that also have executable registrations. Host commands remain
 browser/host-app interactions unless the service separately implements a backend
 tool.
 
+The service binds declaration and execution in one `ServiceToolRegistration`.
+`apps/partner-ai-service` composition runs registrations through
+`createServiceToolRegistry`, which feeds the manifest its capabilities and feeds
+agent runtime the matching executables from the same source. A tool therefore
+cannot reach the capability manifest without supplying the `RuntimeTool` behind
+it. Providers follow the same shape: `createServiceProviderRegistry` validates
+provider/model registrations and selects the runtime identity.
+
 Service diagnostics report this separation explicitly. `apps/partner-ai-service`
 composition owns capability status for history context, context admission, and
-persistence, and `/healthz` plus `/readyz` expose only safe status fields.
-Summary history reports misconfigured until a matching implementation exists.
+persistence, plus secret-free provider and tool registry status, and `/healthz`
+plus `/readyz` expose only safe status fields. Summary history reports
+misconfigured until a matching implementation exists.
 
 Context admission status reports both the configured policy id and the actual
 selection mode. `deterministic_v1` with `budgeted` means budgets are enforced
@@ -42,11 +51,13 @@ admission before mapping those settings into core configuration and ports.
 - Runs: during runtime execution after turn policy selects the tool name.
 - Receives/returns: AI/tool input becomes `RuntimeTool.execute` input; output is
   JSON-safe runtime activity data or a runtime tool error.
-- Implementation: `apps/partner-ai-service/src/adapters/tools/`.
-- Contract: `packages/agent-runtime/src/tools/runtime-tool.ts` and
-  `packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts`.
-- Common mistake: declaring `ToolCapability` without registering a matching
-  RuntimeTool and expecting the model to see it.
+- Implementation: tool in `apps/partner-ai-service/src/adapters/tools/`, exposed
+  as a `ServiceToolRegistration` through `createServiceToolRegistration`.
+- Contract: `packages/agent-runtime/src/tools/runtime-tool.ts`,
+  `packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts`,
+  and `apps/partner-ai-service/src/composition/tools/service-tool-registry.ts`.
+- Common mistake: writing a capability and an executable as two independent
+  values instead of one registration, so the manifest and runtime drift apart.
 
 ## Host Command
 

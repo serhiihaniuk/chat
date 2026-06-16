@@ -1,12 +1,8 @@
 import {
   createAgentRuntime,
-  createFakeProvider,
-  createOpenAIResponsesProvider,
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
   OPENAI_PROVIDER_ID,
-  type AgentRuntime,
-  type ModelProvider,
 } from "@side-chat/agent-runtime";
 import {
   createMemorySidechatRepositories,
@@ -21,10 +17,18 @@ import { createDevelopmentAuthConfig, type ServiceAuthConfig } from "#adapters/a
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
 import { createRepositoryConversationHistoryContext } from "#adapters/persistence/repository-conversation-history-context";
 import { createDefaultPolicyConfig } from "#adapters/policy/service-policy";
-import { createMockWebSearchTool } from "#adapters/tools/mock-web-search-tool";
+import { createMockWebSearchRegistration } from "#adapters/tools/mock-web-search-tool";
 import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/service-conversation-title-config";
 import { assertProductionCapabilityStatus } from "#composition/capabilities/capability-status";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
+import {
+  createServiceProviderRegistry,
+  type ServiceProviderRegistration,
+} from "#composition/providers/service-provider-registry";
+import {
+  createServiceToolRegistry,
+  type ServiceToolRegistration,
+} from "#composition/tools/service-tool-registry";
 import { createServiceContextManager } from "./context-manager/service-context-manager.js";
 import {
   createServiceHostCapabilityManifest,
@@ -41,14 +45,35 @@ import type {
 } from "./service-composition-types.js";
 
 export type {
-  OpenAIReasoningEffort,
-  OpenAIReasoningSummary,
   PersistenceConfig,
   RuntimeConfig,
   RuntimeToolConfig,
   ServiceComposition,
   ServiceCompositionOptions,
 } from "./service-composition-types.js";
+
+export {
+  createServiceProviderRegistry,
+  ServiceProviderRegistryError,
+} from "#composition/providers/service-provider-registry";
+export type {
+  OpenAIReasoningEffort,
+  OpenAIReasoningSummary,
+  ServiceModelRetentionPolicy,
+  ServiceProviderRegistration,
+  ServiceProviderRegistryStatus,
+  ServiceReasoningPolicy,
+} from "#composition/providers/service-provider-registry";
+
+export {
+  createServiceToolRegistration,
+  createServiceToolRegistry,
+  ServiceToolRegistryError,
+} from "#composition/tools/service-tool-registry";
+export type {
+  ServiceToolRegistration,
+  ServiceToolRegistryStatus,
+} from "#composition/tools/service-tool-registry";
 
 /**
  * Build the service graph used by HTTP routes.
@@ -70,12 +95,17 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const persistenceLabel = persistenceLabelForRepositories(repositories);
   const capabilityConfig = options.capabilities ?? DEFAULT_SERVICE_CAPABILITY_CONFIG;
 
-  // Choose the runtime identity before building the manifest. Core later checks
-  // the manifest against these ids, so they must describe the runtime we create
-  // below or the injected runtime the caller provided.
+  // Build the provider and tool registries before the manifest. Each registry is
+  // the single source for its surface: the provider registry decides the runtime
+  // identity, and the tool registry supplies both manifest capabilities and the
+  // matching runtime executables.
   const runtimeConfig = options.runtime ?? { provider: "fake" };
-  const runtimeProviderId = providerIdForRuntime(runtimeConfig);
-  const runtimeModelId = modelIdForRuntime(runtimeConfig);
+  const providerRegistry = createServiceProviderRegistry([
+    providerRegistrationForConfig(runtimeConfig),
+  ]);
+  const toolRegistry = createServiceToolRegistry(toolRegistrationsForConfig(runtimeConfig));
+  const runtimeProviderId = providerRegistry.defaultProviderId;
+  const runtimeModelId = providerRegistry.defaultModelId;
   const conversationTitleGeneration =
     options.conversationTitleGeneration ?? DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION;
 
@@ -83,10 +113,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   // tools, commands, and guards; turn policy still chooses which of them a
   // single request may use.
   const manifest = createServiceHostCapabilityManifest({
-    runtimeConfig,
     providerId: runtimeProviderId,
     modelId: runtimeModelId,
-    toolCapabilities: runtimeConfig.toolCapabilities,
+    toolCapabilities: toolRegistry.toolCapabilities,
+    allowedToolNames: toolRegistry.defaultEnabledToolNames,
     hostCommands: runtimeConfig.hostCommands,
     approvalPolicies: runtimeConfig.approvalPolicies,
     turnGuardIds: options.turnGuardIds,
@@ -98,8 +128,14 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   assertProductionCapabilityStatus(capabilities, auth.profile);
 
   // Create the executor side of the service. Tests may inject a prepared
-  // AgentRuntime; otherwise config becomes either fake local runtime or OpenAI.
-  const runtime = options.agentRuntime ?? createRuntimeForConfig(runtimeConfig);
+  // AgentRuntime; otherwise the registries become the runtime providers and tools.
+  const runtime =
+    options.agentRuntime ??
+    createAgentRuntime({
+      executors: runtimeConfig.executors,
+      providers: providerRegistry.providers,
+      tools: toolRegistry.runtimeTools,
+    });
 
   const historyContext = createRepositoryConversationHistoryContext(repositories);
 
@@ -124,43 +160,59 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     conversationTitleGeneration,
     runtimeProviderId,
     runtimeModelId,
+    providerRegistryStatus: providerRegistry.status,
+    toolRegistryStatus: toolRegistry.status,
     persistenceLabel,
     capabilities,
   };
 };
 
-const createRuntimeForConfig = (config: RuntimeConfig & RuntimeToolConfig): AgentRuntime =>
-  createAgentRuntime({
-    executors: config.executors,
-    providers: [createProviderForRuntime(config)],
-    tools: [
-      ...(config.enableMockWebSearch ? [createMockWebSearchTool()] : []),
-      ...(config.runtimeTools ?? []),
-    ],
-  });
-
-const createProviderForRuntime = (config: RuntimeConfig): ModelProvider => {
+/**
+ * Translate operator runtime config into one validated provider registration.
+ *
+ * Secrets and transport overrides stay on the registration; retention defaults
+ * to the provider default until Phase 10 drives `no_retention` request
+ * hardening, and reasoning defaults match the OpenAI provider adapter.
+ */
+const providerRegistrationForConfig = (config: RuntimeConfig): ServiceProviderRegistration => {
   if (config.provider === "openai") {
-    return createOpenAIResponsesProvider({
-      apiKey: config.apiKey,
+    return {
+      kind: "openai",
+      providerId: OPENAI_PROVIDER_ID,
       modelIds: config.modelIds,
+      defaultModelId: config.defaultModelId,
+      apiKey: config.apiKey,
       baseUrl: config.baseUrl === "" ? undefined : config.baseUrl,
       fetch: config.fetch,
-      reasoningEffort: config.reasoningEffort,
-      reasoningSummary: config.reasoningSummary,
-    });
+      retention: "provider_default",
+      reasoning: {
+        effort: config.reasoningEffort ?? "medium",
+        summary: config.reasoningSummary ?? "auto",
+      },
+    };
   }
 
-  return createFakeProvider({
-    modelIds: [config.modelId ?? FAKE_ECHO_MODEL_ID],
-  });
+  const modelId = config.modelId ?? FAKE_ECHO_MODEL_ID;
+  return {
+    kind: "fake",
+    providerId: FAKE_PROVIDER_ID,
+    modelIds: [modelId],
+    defaultModelId: modelId,
+  };
 };
 
-const providerIdForRuntime = (config: RuntimeConfig): string =>
-  config.provider === "openai" ? OPENAI_PROVIDER_ID : FAKE_PROVIDER_ID;
-
-const modelIdForRuntime = (config: RuntimeConfig): string =>
-  config.provider === "openai" ? config.defaultModelId : (config.modelId ?? FAKE_ECHO_MODEL_ID);
+/**
+ * Collect tool registrations from config, including the local mock web search.
+ *
+ * The mock fixture joins the same registry path as app-owned tools, so enabling
+ * it never adds a separate manifest or runtime wiring step.
+ */
+const toolRegistrationsForConfig = (
+  config: RuntimeConfig & RuntimeToolConfig,
+): readonly ServiceToolRegistration[] => [
+  ...(config.enableMockWebSearch ? [createMockWebSearchRegistration()] : []),
+  ...(config.tools ?? []),
+];
 
 const createRepositoriesForPersistence = (persistence: PersistenceConfig): SidechatRepositories => {
   if (persistence.kind === "postgres") {

@@ -27,6 +27,8 @@ Not source of truth for: global vocabulary or product requirements.
 - `src/inbound/http/routes/chat/chat-stream.ts`
 - `src/composition/service-composition.ts`
 - `src/composition/manifest/service-capability-manifest.ts`
+- `src/composition/providers/service-provider-registry.ts`
+- `src/composition/tools/service-tool-registry.ts`
 - `src/adapters/README.md`
 - `src/config/service-config.ts`
 - `src/config/service-conversation-title-config.ts`
@@ -35,7 +37,17 @@ Not source of truth for: global vocabulary or product requirements.
 
 `/healthz` and `/readyz` include a safe `capabilities` object owned by service
 composition. It reports whether history context, context admission, and
-persistence are disabled, configured, or misconfigured.
+persistence are disabled, configured, or misconfigured. The same endpoints
+report secret-free `providers` and `tools` registry status: provider ids, model
+ids, default selection, and tool names with their default-enabled and approval
+policy ids. Provider secrets and tool payloads stay hidden.
+
+Provider and tool registries are the single source for those surfaces.
+`createServiceProviderRegistry` validates provider/model registrations and picks
+the runtime identity. `createServiceToolRegistry` turns each
+`ServiceToolRegistration` into both a manifest capability and the matching
+runtime executable, so a tool cannot be declared without an executable behind
+it.
 
 The chat resource surface includes `GET /chat/conversations` for the current
 authorized workspace subject and `GET /chat/history/:conversationId` for
