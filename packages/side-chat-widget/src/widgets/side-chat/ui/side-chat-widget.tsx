@@ -1,7 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useWidgetChat } from "#features/chat";
-import { WidgetConversation, WidgetError } from "#features/conversation";
+import {
+  ConversationSidebar,
+  ConversationSwitcher,
+  WidgetConversation,
+  WidgetEmptyState,
+  WidgetHeaderTitle,
+  type WidgetEmptyStateSuggestion,
+} from "#features/conversation";
 import {
   ClosedWidgetLauncher,
   ResizeHandles,
@@ -10,18 +17,10 @@ import {
   WidgetHeader,
 } from "#features/panel";
 import { WidgetFooter } from "#features/prompt";
-import { Button } from "#shared/ui/button";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxInputGroup,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxSelectTrigger,
-} from "#shared/ui/combobox";
-import { PlusIcon } from "lucide-react";
+import { SettingsView } from "#features/settings";
+import { useWidgetTheme } from "#features/theme";
+import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
+import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } from "lucide-react";
 import type { SideChatWidgetLabels, SideChatWidgetProps } from "../model/side-chat-widget.types.js";
 
 export type {
@@ -40,6 +39,23 @@ const defaultLabels = {
   title: "Workspace Assistant",
 } satisfies Required<SideChatWidgetLabels>;
 
+const EMPTY_STATE_DESCRIPTION = "I can see the page you're viewing. Ask about it, or pick a place to start.";
+const EMPTY_STATE_TITLE = "How can I help with this page?";
+
+// A small rotation so suggestion rows read as distinct actions without requiring the
+// host to supply per-action icons.
+const SUGGESTION_ICONS: readonly LucideIcon[] = [
+  FileTextIcon,
+  LightbulbIcon,
+  Code2Icon,
+  PenLineIcon,
+];
+
+// Below this panel/viewport size the conversation switcher lives in the header; above
+// it, a persistent sidebar takes over (see useIsWidePanel).
+const WIDE_PANEL_WIDTH = 720;
+const WIDE_VIEWPORT_WIDTH = 780;
+
 export const SideChatWidget = ({
   assistantProfiles = [],
   client,
@@ -47,16 +63,22 @@ export const SideChatWidget = ({
   defaultAssistantProfileId,
   defaultOpen = true,
   defaultPanelSize,
+  defaultTheme,
   hostBridge,
   labels,
   panelActions,
   quickActions = [],
+  reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
+  themeStorageKey,
 }: SideChatWidgetProps) => {
   const resolvedLabels = resolveWidgetLabels(labels);
   const initialProfileId = resolveInitialProfileId(defaultAssistantProfileId, assistantProfiles);
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId);
   const panel = useResizableWidgetPanel(defaultPanelSize);
+  const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
+  const isWide = useIsWidePanel(panel.panelSize.width);
   const selectedProfile = useMemo(
     () => assistantProfiles.find((profile) => profile.id === selectedProfileId),
     [assistantProfiles, selectedProfileId],
@@ -69,181 +91,129 @@ export const SideChatWidget = ({
     selectedProfileId,
   });
   const isBusy = isBusyStatus(chat.status);
+  const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
 
   if (!isOpen) {
-    return <ClosedWidgetLauncher label={resolvedLabels.title} onOpen={() => setIsOpen(true)} />;
+    return (
+      <ClosedWidgetLauncher
+        label={resolvedLabels.title}
+        onOpen={() => setIsOpen(true)}
+        {...theme.themeRootProps}
+      />
+    );
   }
 
   return (
     <section
       aria-label={resolvedLabels.title}
-      className="side-chat-widget-root fixed right-4 bottom-4 z-50 flex max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col rounded-lg border border-border bg-background text-foreground shadow-xl"
+      className="side-chat-widget-root fixed right-4 bottom-4 z-50 flex max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-xl"
       style={toPanelStyle(panel.panelSize, panel.panelOffset)}
+      {...theme.themeRootProps}
     >
       <ResizeHandles onResizeStart={panel.startResize} />
-      <WidgetHeader
-        actions={
-          <ConversationHistoryControls
+      {/* Sidebar is full height; the header lives inside the main column beside it. */}
+      <div className="flex min-h-0 flex-1">
+        {isWide && (
+          <ConversationSidebar
             conversations={chat.conversations}
             disabled={isBusy}
             onNewConversation={chat.startNewConversation}
             onSelectConversation={chat.selectConversation}
             selectedConversationId={chat.conversationId}
           />
-        }
-        onClose={() => {
-          panelActions?.onClose?.();
-          setIsOpen(false);
-        }}
-        title={resolvedLabels.title}
-      />
-      <WidgetConversation messages={chat.messages} />
-      <WidgetError message={chat.errorMessage} onDismiss={chat.clearError} />
-      <WidgetFooter
-        isBusy={isBusy}
-        labels={resolvedLabels}
-        messageCount={chat.messages.length}
-        messages={chat.messages}
-        onSubmitMessage={chat.submitMessage}
-        onProfileSelect={setSelectedProfileId}
-        profiles={hasProfiles ? assistantProfiles : []}
-        quickActions={quickActions}
-        selectedProfileId={selectedProfileId}
-        selectedProfileLabel={selectedProfile?.label}
-        status={chat.status}
-        stop={chat.stop}
-        usage={chat.usage}
-      />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <WidgetHeader
+            newConversationDisabled={isBusy && chat.conversationId === undefined}
+            onClose={() => {
+              panelActions?.onClose?.();
+              setIsOpen(false);
+            }}
+            onNewConversation={chat.startNewConversation}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            title={
+              isWide ? (
+                <WidgetHeaderTitle title={resolvedLabels.title} />
+              ) : (
+                <ConversationSwitcher
+                  conversations={chat.conversations}
+                  disabled={isBusy}
+                  onNewConversation={chat.startNewConversation}
+                  onSelectConversation={chat.selectConversation}
+                  selectedConversationId={chat.conversationId}
+                  title={resolvedLabels.title}
+                />
+              )
+            }
+          />
+          <WidgetConversation
+            emptyState={
+              <WidgetEmptyState
+                description={EMPTY_STATE_DESCRIPTION}
+                onSelectSuggestion={(prompt) => void chat.submitMessage(prompt)}
+                suggestions={suggestions}
+                title={EMPTY_STATE_TITLE}
+              />
+            }
+            errorMessage={chat.errorMessage}
+            isLoadingHistory={chat.isLoadingHistory}
+            messages={chat.messages}
+            onDismissError={chat.clearError}
+            onRetry={chat.retryLastMessage}
+            reasoningVisibility={reasoningVisibility}
+          />
+          <WidgetFooter
+            isBusy={isBusy}
+            labels={resolvedLabels}
+            messages={chat.messages}
+            onProfileSelect={setSelectedProfileId}
+            onSubmitMessage={chat.submitMessage}
+            profiles={hasProfiles ? assistantProfiles : []}
+            selectedProfileId={selectedProfileId}
+            selectedProfileLabel={selectedProfile?.label}
+            status={chat.status}
+            stop={chat.stop}
+            usage={chat.usage}
+          />
+        </div>
+      </div>
+      {isSettingsOpen && (
+        // Full-panel overlay (covers the sidebar + main column), matching the mock.
+        <div className="absolute inset-0 z-[65] flex flex-col bg-card">
+          <SettingsView
+            onBack={() => setIsSettingsOpen(false)}
+            onSelectTheme={theme.setTheme}
+            themeId={theme.themeId}
+          />
+        </div>
+      )}
     </section>
   );
 };
 
-const ConversationHistoryControls = ({
-  conversations,
-  disabled,
-  onNewConversation,
-  onSelectConversation,
-  selectedConversationId,
-}: {
-  readonly conversations: readonly { readonly id: string; readonly title: string }[];
-  readonly disabled: boolean;
-  readonly onNewConversation: () => void;
-  readonly onSelectConversation: (conversationId: string | undefined) => void;
-  readonly selectedConversationId: string | undefined;
-}) => {
-  const options = toConversationOptions(conversations, selectedConversationId);
-  const selectedOption = findConversationOption(options, selectedConversationId);
-  const [comboboxQuery, setComboboxQuery] = useState("");
-
-  const updateComboboxOpen = (open: boolean) => {
-    if (open) setComboboxQuery("");
-  };
-
-  const selectConversation = (option: ConversationOption | null) => {
-    setComboboxQuery("");
-    onSelectConversation(toSelectedConversationId(option));
-  };
-
-  return (
-    <div className="flex min-w-0 items-center gap-1">
-      <Combobox<ConversationOption>
-        autoHighlight
-        disabled={disabled}
-        inputValue={comboboxQuery}
-        isItemEqualToValue={hasSameConversationValue}
-        itemToStringLabel={toConversationOptionLabel}
-        itemToStringValue={toConversationOptionValue}
-        items={options}
-        onInputValueChange={setComboboxQuery}
-        onOpenChange={updateComboboxOpen}
-        onValueChange={selectConversation}
-        value={selectedOption}
-      >
-        <ComboboxSelectTrigger
-          aria-label="Select chat"
-          className="w-72 max-w-[56vw]"
-          title={selectedOption.label}
-        >
-          {selectedOption.label}
-        </ComboboxSelectTrigger>
-        <ComboboxContent align="end" className="max-w-[min(28rem,calc(100vw-2rem))]">
-          <div className="border-b border-border p-1">
-            <ComboboxInputGroup className="h-8 w-full">
-              <ComboboxInput aria-label="Search chats" placeholder="Search chats..." />
-            </ComboboxInputGroup>
-          </div>
-          <ComboboxList>
-            {(option: ConversationOption, index) => (
-              <ComboboxItem key={option.value} index={index} value={option}>
-                {option.label}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-          <ComboboxEmpty>No chats found.</ComboboxEmpty>
-        </ComboboxContent>
-      </Combobox>
-      <Button
-        aria-label="Start new chat"
-        disabled={disabled && selectedConversationId === undefined}
-        onClick={onNewConversation}
-        size="icon-sm"
-        title="Start new chat"
-        type="button"
-        variant="ghost"
-      >
-        <PlusIcon className="size-4" />
-      </Button>
-    </div>
+// Reveals the conversation sidebar only when both the panel and the host viewport
+// have room — otherwise the header switcher stays the single-column control.
+const useIsWidePanel = (panelWidth: number): boolean => {
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 0 : window.innerWidth,
   );
+
+  useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", updateViewportWidth);
+    return () => window.removeEventListener("resize", updateViewportWidth);
+  }, []);
+
+  return panelWidth >= WIDE_PANEL_WIDTH && viewportWidth > WIDE_VIEWPORT_WIDTH;
 };
 
-type ConversationOption = {
-  readonly value: string;
-  readonly label: string;
-};
-
-const toConversationOptions = (
-  conversations: readonly { readonly id: string; readonly title: string }[],
-  selectedConversationId: string | undefined,
-): readonly ConversationOption[] => {
-  const options = [
-    { value: NEW_CHAT_VALUE, label: "New chat" },
-    ...conversations.map((conversation) => ({
-      value: conversation.id,
-      label: conversation.title,
-    })),
-  ];
-
-  if (
-    !selectedConversationId ||
-    options.some((option) => option.value === selectedConversationId)
-  ) {
-    return options;
-  }
-
-  return [...options, { value: selectedConversationId, label: "Selected chat" }];
-};
-
-const findConversationOption = (
-  options: readonly ConversationOption[],
-  selectedConversationId: string | undefined,
-): ConversationOption =>
-  options.find((option) => option.value === (selectedConversationId ?? NEW_CHAT_VALUE)) ??
-  options[0]!;
-
-const toConversationOptionLabel = (option: ConversationOption): string => option.label;
-
-const toConversationOptionValue = (option: ConversationOption): string => option.value;
-
-const hasSameConversationValue = (
-  itemValue: ConversationOption,
-  selectedValue: ConversationOption,
-): boolean => itemValue.value === selectedValue.value;
-
-const toSelectedConversationId = (option: ConversationOption | null): string | undefined => {
-  if (option === null || option.value === NEW_CHAT_VALUE) return undefined;
-  return option.value;
-};
+const toEmptyStateSuggestions = (
+  quickActions: readonly { readonly id: string; readonly label: string; readonly prompt: string }[],
+): readonly WidgetEmptyStateSuggestion[] =>
+  quickActions.map((action, index) => ({
+    ...action,
+    icon: SUGGESTION_ICONS[index % SUGGESTION_ICONS.length]!,
+  }));
 
 const resolveWidgetLabels = (labels: SideChatWidgetLabels | undefined) => ({
   placeholder: labels?.placeholder ?? defaultLabels.placeholder,
@@ -257,5 +227,3 @@ const resolveInitialProfileId = (
 ): string | undefined => defaultAssistantProfileId ?? assistantProfiles.at(0)?.id;
 
 const isBusyStatus = (status: string): boolean => status === "submitted" || status === "streaming";
-
-const NEW_CHAT_VALUE = "__side_chat_new_chat__";

@@ -1,5 +1,5 @@
 import { Button } from "#shared/ui/button";
-import { XIcon } from "lucide-react";
+import { PlusIcon, SettingsIcon, XIcon } from "lucide-react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
 import type { SideChatWidgetPanelSize } from "#entities/panel";
@@ -15,6 +15,8 @@ export const toPanelStyle = (
   willChange: "transform",
 });
 
+// Invisible drag zones at the panel edges/corners — no visible chrome, matching the
+// mock. They only set the resize cursor on hover.
 const resizeHandles: readonly {
   readonly ariaLabel: string;
   readonly className: string;
@@ -23,37 +25,37 @@ const resizeHandles: readonly {
   {
     ariaLabel: "Resize assistant panel from top left",
     className:
-      "absolute top-0 left-0 z-10 size-5 cursor-nwse-resize rounded-br-md border-r border-b border-border bg-background shadow-sm hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/30 max-sm:hidden",
+      "absolute top-0 left-0 z-10 size-4 cursor-nwse-resize bg-transparent focus:outline-none max-sm:hidden",
     handle: "top-left",
   },
   {
     ariaLabel: "Resize assistant panel from top right",
     className:
-      "absolute top-0 right-0 z-10 size-5 cursor-nesw-resize rounded-bl-md border-b border-l border-border bg-background shadow-sm hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/30 max-sm:hidden",
+      "absolute top-0 right-0 z-10 size-4 cursor-nesw-resize bg-transparent focus:outline-none max-sm:hidden",
     handle: "top-right",
   },
   {
     ariaLabel: "Resize assistant panel from left edge",
     className:
-      "absolute top-6 bottom-6 left-0 z-10 w-2 cursor-ew-resize hover:bg-accent/20 focus:bg-accent/20 focus:outline-none max-sm:hidden",
+      "absolute top-4 bottom-4 left-0 z-10 w-2 cursor-ew-resize bg-transparent focus:outline-none max-sm:hidden",
     handle: "left",
   },
   {
     ariaLabel: "Resize assistant panel from right edge",
     className:
-      "absolute top-6 right-0 bottom-6 z-10 w-2 cursor-ew-resize hover:bg-accent/20 focus:bg-accent/20 focus:outline-none max-sm:hidden",
+      "absolute top-4 right-0 bottom-4 z-10 w-2 cursor-ew-resize bg-transparent focus:outline-none max-sm:hidden",
     handle: "right",
   },
   {
     ariaLabel: "Resize assistant panel height",
     className:
-      "absolute top-0 right-6 left-6 z-10 h-2 cursor-ns-resize hover:bg-accent/20 focus:bg-accent/20 focus:outline-none max-sm:hidden",
+      "absolute top-0 right-4 left-4 z-10 h-2 cursor-ns-resize bg-transparent focus:outline-none max-sm:hidden",
     handle: "top",
   },
   {
     ariaLabel: "Resize assistant panel from bottom edge",
     className:
-      "absolute right-6 bottom-0 left-6 z-10 h-2 cursor-ns-resize hover:bg-accent/20 focus:bg-accent/20 focus:outline-none max-sm:hidden",
+      "absolute right-4 bottom-0 left-4 z-10 h-2 cursor-ns-resize bg-transparent focus:outline-none max-sm:hidden",
     handle: "bottom",
   },
 ];
@@ -86,27 +88,60 @@ export const ClosedWidgetLauncher = ({
   readonly label: string;
   readonly onOpen: () => void;
 }) => (
-  <Button className="fixed right-4 bottom-4 z-50 shadow-lg" onClick={onOpen} type="button">
+  <Button className="fixed right-4 bottom-4 z-50 gap-2 shadow-lg" onClick={onOpen} type="button">
     {label}
   </Button>
 );
 
+// The leading title region is a plain title (wide mode, where the sidebar is the
+// conversation switcher) or a caller-supplied switcher control (narrow mode); both
+// carry their own agent-mark tile. Right side: settings, new chat, close.
 export const WidgetHeader = ({
-  actions,
   onClose,
+  onNewConversation,
+  newConversationDisabled = false,
+  onOpenSettings,
   title,
 }: {
-  readonly actions?: ReactNode | undefined;
   readonly onClose: () => void;
-  readonly title: string;
+  readonly onNewConversation: () => void;
+  readonly newConversationDisabled?: boolean | undefined;
+  readonly onOpenSettings: () => void;
+  readonly title: ReactNode;
 }) => (
-  <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-    <div className="min-w-0 flex-1">
-      <h2 className="truncate font-medium text-sm">{title}</h2>
-    </div>
-    {actions}
-    <Button aria-label="Close" onClick={onClose} size="icon-sm" type="button" variant="ghost">
-      <XIcon className="size-4" />
+  <header className="flex h-13 shrink-0 items-center gap-0.5 border-b border-border pr-2.5 pl-3.5">
+    <div className="flex min-w-0 flex-1 items-center">{title}</div>
+    <Button
+      aria-label="Settings"
+      className="size-8 text-muted-foreground"
+      onClick={onOpenSettings}
+      size="icon"
+      type="button"
+      variant="ghost"
+    >
+      <SettingsIcon className="size-[1.05rem]" />
+    </Button>
+    <Button
+      aria-label="Start new chat"
+      className="size-8 text-muted-foreground"
+      disabled={newConversationDisabled}
+      onClick={onNewConversation}
+      size="icon"
+      title="Start new chat"
+      type="button"
+      variant="ghost"
+    >
+      <PlusIcon className="size-[1.05rem]" />
+    </Button>
+    <Button
+      aria-label="Close"
+      className="size-8 text-muted-foreground"
+      onClick={onClose}
+      size="icon"
+      type="button"
+      variant="ghost"
+    >
+      <XIcon className="size-[1.05rem]" />
     </Button>
   </header>
 );

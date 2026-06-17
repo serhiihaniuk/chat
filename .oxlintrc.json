@@ -18,6 +18,7 @@
     "node_modules/**",
     ".omx/**",
     ".playwright-mcp/**",
+    "Shared widget code/**",
     "playwright.config.js",
     "vitest.config.js"
   ],

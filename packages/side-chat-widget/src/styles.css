@@ -10,6 +10,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Self-hosted Plus Jakarta Sans (one variable woff2 covering 200–800, latin). The
+ * URL is relative to this stylesheet so bundlers ship the font with the widget — no
+ * Google Fonts CDN, works offline. font-display: swap avoids invisible text.
+ */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("./fonts/plus-jakarta-sans/PlusJakartaSans-variable.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -19,6 +32,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-sc-canvas: var(--sc-canvas);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -68,6 +83,8 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  --success: oklch(0.6 0.13 160);
+  --sc-canvas: oklch(0.985 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -102,6 +119,8 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --success: oklch(0.72 0.15 162);
+  --sc-canvas: oklch(0.165 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -117,11 +136,195 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/*
+ * Named themes. The widget writes data-sidechat-theme on its own root element, so
+ * these custom properties are declared ON the root and re-skin both the root's own
+ * surfaces and every descendant through inheritance. Graphite is the base :root
+ * contract (no attribute). Sage/Ocean ship light-only; under a host .dark they keep
+ * their light palette (a deliberate scope decision). Base-themed popovers that the
+ * host portals outside the root keep the :root palette.
+ *
+ * The same blocks also match data-sidechat-theme-preview so the settings swatch
+ * cards render each palette in isolation (a preview never inherits the active
+ * theme), keeping previews fully tokenized with no inline styles.
+ */
+.side-chat-widget-root[data-sidechat-theme="sage"],
+[data-sidechat-theme-preview="sage"] {
+  --background: oklch(0.99 0.008 150);
+  --foreground: oklch(0.24 0.012 152);
+  --card: oklch(1 0.005 150);
+  --card-foreground: oklch(0.24 0.012 152);
+  --popover: oklch(1 0.005 150);
+  --popover-foreground: oklch(0.24 0.012 152);
+  --primary: oklch(0.5 0.085 153);
+  --primary-foreground: oklch(0.99 0.01 150);
+  --secondary: oklch(0.95 0.014 150);
+  --secondary-foreground: oklch(0.24 0.012 152);
+  --muted: oklch(0.95 0.014 150);
+  --muted-foreground: oklch(0.52 0.022 152);
+  --accent: oklch(0.95 0.014 150);
+  --accent-foreground: oklch(0.24 0.012 152);
+  --border: oklch(0.9 0.016 150);
+  --input: oklch(0.9 0.016 150);
+  --ring: oklch(0.5 0.085 153);
+  --success: oklch(0.56 0.12 158);
+  --sc-canvas: oklch(0.965 0.016 150);
+  --sidebar: oklch(0.972 0.014 150);
+  --sidebar-foreground: oklch(0.24 0.012 152);
+  --sidebar-primary: oklch(0.5 0.085 153);
+  --sidebar-primary-foreground: oklch(0.99 0.01 150);
+  --sidebar-accent: oklch(0.93 0.022 150);
+  --sidebar-accent-foreground: oklch(0.24 0.012 152);
+  --sidebar-border: oklch(0.9 0.016 150);
+  --sidebar-ring: oklch(0.5 0.085 153);
+}
+
+.side-chat-widget-root[data-sidechat-theme="ocean"],
+[data-sidechat-theme-preview="ocean"] {
+  --background: oklch(0.995 0.006 240);
+  --foreground: oklch(0.24 0.025 252);
+  --card: oklch(1 0.004 240);
+  --card-foreground: oklch(0.24 0.025 252);
+  --popover: oklch(1 0.004 240);
+  --popover-foreground: oklch(0.24 0.025 252);
+  --primary: oklch(0.52 0.15 252);
+  --primary-foreground: oklch(0.99 0.01 240);
+  --secondary: oklch(0.955 0.015 240);
+  --secondary-foreground: oklch(0.24 0.025 252);
+  --muted: oklch(0.955 0.014 240);
+  --muted-foreground: oklch(0.52 0.035 252);
+  --accent: oklch(0.955 0.016 240);
+  --accent-foreground: oklch(0.24 0.025 252);
+  --border: oklch(0.9 0.02 242);
+  --input: oklch(0.9 0.02 242);
+  --ring: oklch(0.52 0.15 252);
+  --success: oklch(0.58 0.13 160);
+  --sc-canvas: oklch(0.96 0.02 240);
+  --sidebar: oklch(0.97 0.016 240);
+  --sidebar-foreground: oklch(0.24 0.025 252);
+  --sidebar-primary: oklch(0.52 0.15 252);
+  --sidebar-primary-foreground: oklch(0.99 0.01 240);
+  --sidebar-accent: oklch(0.93 0.026 240);
+  --sidebar-accent-foreground: oklch(0.24 0.025 252);
+  --sidebar-border: oklch(0.9 0.02 242);
+  --sidebar-ring: oklch(0.52 0.15 252);
+}
+
+/*
+ * Graphite is the default theme and carries NO data-sidechat-theme attribute on the
+ * real root, so it stays responsive to the host's light/dark. This preview-only
+ * block gives the settings swatch a stable light-graphite sample.
+ */
+[data-sidechat-theme-preview="graphite"] {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --border: oklch(0.922 0 0);
+  --success: oklch(0.6 0.13 160);
+  --sc-canvas: oklch(0.985 0 0);
+}
+
 @layer base {
+  /*
+   * Plus Jakarta Sans is scoped to the widget root and its portaled popovers (menus,
+   * popovers, hover cards, dialogs render outside the root) so the widget reads in its
+   * own type without forcing the font onto the embedding host page.
+   */
+  .side-chat-widget-root,
+  [data-slot="dropdown-menu-content"],
+  [data-slot="popover-content"],
+  [data-slot="hover-card-content"],
+  [data-slot="dialog-content"] {
+    font-family:
+      "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
   .side-chat-widget-root,
   .side-chat-widget-root *,
   [data-slot="dialog-content"],
   [data-slot="dialog-content"] * {
     @apply border-border outline-ring/50;
   }
+
+  /* Native scrollbars for areas not wrapped in Base UI ScrollArea (the stick-to-bottom
+     chat log, portaled menus/popovers): slim and hover-revealed so they match the
+     ScrollArea overlay behavior — hidden when idle, shown while the area is hovered. */
+  .side-chat-widget-root *,
+  [data-slot="dropdown-menu-content"] *,
+  [data-slot="popover-content"] * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .side-chat-widget-root *:hover,
+  [data-slot="dropdown-menu-content"] *:hover,
+  [data-slot="popover-content"] *:hover {
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .side-chat-widget-root ::-webkit-scrollbar,
+  [data-slot="dropdown-menu-content"] ::-webkit-scrollbar,
+  [data-slot="popover-content"] ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .side-chat-widget-root ::-webkit-scrollbar-thumb,
+  [data-slot="dropdown-menu-content"] ::-webkit-scrollbar-thumb,
+  [data-slot="popover-content"] ::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 9999px;
+    transition: background-color 200ms ease;
+  }
+
+  .side-chat-widget-root *:hover::-webkit-scrollbar-thumb,
+  [data-slot="dropdown-menu-content"] *:hover::-webkit-scrollbar-thumb,
+  [data-slot="popover-content"] *:hover::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+  }
+
+  .side-chat-widget-root ::-webkit-scrollbar-track,
+  [data-slot="dropdown-menu-content"] ::-webkit-scrollbar-track,
+  [data-slot="popover-content"] ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/*
+ * Base UI ScrollArea overlay scrollbar. Unlayered (beats Tailwind's utility layer) and
+ * keyed on Base UI's own data attributes so it reliably fades out when idle and
+ * appears on hover or while scrolling.
+ */
+[data-slot="scroll-area-scrollbar"] {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+[data-slot="scroll-area-scrollbar"][data-hovering],
+[data-slot="scroll-area-scrollbar"][data-scrolling] {
+  opacity: 1;
+}
+
+[data-slot="scroll-area-scrollbar"][data-orientation="vertical"] {
+  width: 0.5rem;
+}
+
+[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"] {
+  height: 0.5rem;
+}
+
+/* Composer add (+) button rotates its icon into an × while its menu is open. */
+.sc-composer-add svg {
+  transition: transform 200ms ease;
+}
+
+.sc-composer-add[data-popup-open] svg {
+  transform: rotate(45deg);
 }

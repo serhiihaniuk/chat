@@ -6,10 +6,13 @@ import { cn } from "#shared/lib/cn";
 import {
   BrainIcon,
   CheckCircleIcon,
+  CheckIcon,
   ChevronDownIcon,
   CircleIcon,
   ImageIcon,
+  Loader2Icon,
   SearchIcon,
+  XIcon,
   type LucideIcon,
 } from "lucide-react";
 import { type ComponentProps, type ReactNode } from "react";
@@ -119,6 +122,8 @@ export const ChainOfThoughtStep = ({
   );
 };
 
+// Running steps spin in the accent; finished steps resolve to a success check and
+// failed steps to a destructive cross. Pending steps keep the caller's glyph.
 const StepMarker = ({
   hasTail,
   icon: Icon,
@@ -129,10 +134,23 @@ const StepMarker = ({
   readonly status: NormalizedChainOfThoughtStepStatus;
 }) => (
   <div className="flex flex-col items-center pt-1">
-    <Icon className={cn("size-3.5", statusStyles[status])} />
+    <StepMarkerIcon icon={Icon} status={status} />
     {hasTail && <span className="mt-2 h-full min-h-5 w-px bg-border" />}
   </div>
 );
+
+const StepMarkerIcon = ({
+  icon: Icon,
+  status,
+}: {
+  readonly icon: LucideIcon;
+  readonly status: NormalizedChainOfThoughtStepStatus;
+}) => {
+  if (status === "running") return <Loader2Icon className="size-3.5 animate-spin text-primary" />;
+  if (status === "completed") return <CheckIcon className="size-3.5 text-success" />;
+  if (status === "failed") return <XIcon className="size-3.5 text-destructive" />;
+  return <Icon className={cn("size-3.5", statusStyles[status])} />;
+};
 
 const StepSources = ({ sources }: { readonly sources: readonly string[] }) => {
   if (sources.length === 0) return null;

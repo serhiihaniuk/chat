@@ -37,6 +37,8 @@ export const installWidgetTestDom = (): void => {
     assignGlobal("Event", windowRef.Event);
     assignGlobal("FormData", windowRef.FormData);
     assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
+    assignGlobal("requestAnimationFrame", windowRef.requestAnimationFrame.bind(windowRef));
+    assignGlobal("cancelAnimationFrame", windowRef.cancelAnimationFrame.bind(windowRef));
     assignGlobal(
       "ResizeObserver",
       class {
@@ -45,6 +47,10 @@ export const installWidgetTestDom = (): void => {
         disconnect() {}
       },
     );
+    // Base UI's ScrollArea viewport calls Element.getAnimations(); happy-dom omits it.
+    if (typeof Reflect.get(windowRef.Element.prototype, "getAnimations") !== "function") {
+      Reflect.set(windowRef.Element.prototype, "getAnimations", () => []);
+    }
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
       "00000000-0000-4000-8000-000000000001",
     );

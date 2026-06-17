@@ -28,7 +28,7 @@ test.afterEach(async ({ page }, testInfo) => {
 test("runs the widget harness in a browser with deterministic mock streaming", async ({ page }) => {
   await page.goto("/?mode=mock-stream");
 
-  await expect(page.getByRole("heading", { name: "Workspace Assistant" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
   await page.getByLabel("Message").fill("hello browser");
   await page.getByRole("button", { name: "Send" }).click();
 
@@ -53,7 +53,8 @@ test("streams through the real widget and real backend with mocked DB and model"
   await page.getByRole("button", { name: "Send" }).click();
 
   expect((await streamResponse).status()).toBe(200);
-  await expect(page.getByText("hello e2e backend", { exact: true })).toBeVisible();
+  // Scope to the conversation log: the wide sidebar also lists the conversation title.
+  await expect(page.getByRole("log").getByText("hello e2e backend", { exact: true })).toBeVisible();
   await expect(page.getByText("Fake response: hello e2e backend")).toBeVisible({
     timeout: 15_000,
   });
@@ -63,7 +64,7 @@ test("streams through the real widget and real backend with mocked DB and model"
 
 test("renders tool activity details from the canonical activity stream", async ({ page }) => {
   await page.goto("/?mode=mock-stream&scenario=tool");
-  await expect(page.getByRole("heading", { name: "Workspace Assistant" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
 
   await page.getByLabel("Message").fill("current portfolio news");
   await page.getByRole("button", { name: "Send" }).click();
@@ -75,6 +76,9 @@ test("renders tool activity details from the canonical activity stream", async (
   await openActivityPanel(page, { timeout: 15_000 });
   const toolTrigger = page.getByRole("button", { name: /mock_web_search/u });
   await expect(toolTrigger).toBeVisible({ timeout: 15_000 });
+  // Tool rows are collapsed by default; expand to reveal the details.
+  await expect(page.getByText("Search query")).toBeHidden();
+  await toolTrigger.click();
   await expect(page.getByText("Search query")).toBeVisible();
   await expect(page.getByText("current portfolio news", { exact: true }).last()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Result", exact: true }).first()).toBeVisible({
@@ -124,6 +128,26 @@ test("shows a stream error state without arbitrary waits", async ({ page }) => {
   await expect(page.getByText("Mock stream failed")).toBeHidden();
 });
 
+test("opens the narrow conversation switcher menu without crashing", async ({ page }) => {
+  // Regression: each date-group label is a Base UI MenuGroupLabel that must sit inside a
+  // MenuGroup. Without the group, opening the menu throws and blanks the widget
+  // (afterEach asserts no page errors). A sent message seeds a conversation so a
+  // labelled group actually renders.
+  await page.setViewportSize({ height: 760, width: 460 });
+  await page.goto("/?mode=mock-stream");
+
+  await page.getByLabel("Message").fill("seed a conversation");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Mock response: seed a conversation")).toBeVisible();
+
+  await page.getByRole("button", { name: "Select chat" }).click();
+
+  // The seeded conversation renders inside its (labelled) date group without crashing.
+  await expect(page.getByRole("menuitem", { name: /seed a conversation/u })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "New chat" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
+});
+
 test("keeps the widget usable on a mobile viewport", async ({ page }) => {
   await page.setViewportSize({ height: 740, width: 390 });
   await page.goto("/?mode=mock-stream");
@@ -158,7 +182,7 @@ test("keeps prompt input context and model controls visible as anchored popovers
 
 const openLocalServiceWidget = async (page: Page) => {
   await page.goto(`/?mode=local-service&authToken=${authToken}&workspaceId=${workspaceId}`);
-  await expect(page.getByRole("heading", { name: "Workspace Assistant" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
 };
 
 const openActivityPanel = async (page: Page, options: { readonly timeout?: number } = {}) => {

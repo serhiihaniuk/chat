@@ -19,6 +19,7 @@ import {
 import { memo } from "react";
 
 import type { WidgetActivityItem, WidgetMessage } from "#entities/chat";
+import type { ReasoningVisibility } from "#entities/settings";
 import {
   readActivitySourceLabel,
   ToolActivityDetails,
@@ -28,35 +29,53 @@ import {
 // changed, not every message in the list. This works because updating a message
 // builds a new array but keeps the exact same object for every message that did
 // not change, and memo skips a row whose message object is unchanged.
-export const WidgetMessageView = memo(({ message }: { readonly message: WidgetMessage }) => {
-  const showActivity = shouldShowActivity(message);
+export const WidgetMessageView = memo(
+  ({
+    message,
+    reasoningVisibility,
+  }: {
+    readonly message: WidgetMessage;
+    readonly reasoningVisibility: ReasoningVisibility;
+  }) => {
+    const showActivity = shouldShowActivity(message);
 
-  return (
-    <Message from={message.role}>
-      <MessageContent>
-        {showActivity && <WidgetActivityTimeline message={message} />}
-        {message.content ? (
-          <MessageResponse
-            isAnimating={message.role === "assistant" && message.isStreaming === true}
-          >
-            {message.content}
-          </MessageResponse>
-        ) : (
-          message.isStreaming &&
-          !showActivity && <p className="text-muted-foreground text-sm">Thinking...</p>
-        )}
-      </MessageContent>
-    </Message>
-  );
-});
+    return (
+      <Message from={message.role}>
+        <MessageContent>
+          {showActivity && (
+            <WidgetActivityTimeline message={message} reasoningVisibility={reasoningVisibility} />
+          )}
+          {message.content ? (
+            <MessageResponse
+              isAnimating={message.role === "assistant" && message.isStreaming === true}
+            >
+              {message.content}
+            </MessageResponse>
+          ) : (
+            message.isStreaming &&
+            !showActivity && <p className="text-muted-foreground text-sm">Thinking...</p>
+          )}
+        </MessageContent>
+      </Message>
+    );
+  },
+);
 
-const WidgetActivityTimeline = ({ message }: { readonly message: WidgetMessage }) => {
+const WidgetActivityTimeline = ({
+  message,
+  reasoningVisibility,
+}: {
+  readonly message: WidgetMessage;
+  readonly reasoningVisibility: ReasoningVisibility;
+}) => {
   const duration = readActivityDuration(message);
 
   return (
     <Reasoning
       autoClose
-      defaultOpen={message.isStreaming === true}
+      // Minimal exposure keeps the timeline collapsed; detailed expands it while the
+      // turn streams. The user can always toggle it open.
+      defaultOpen={reasoningVisibility === "detailed" && message.isStreaming === true}
       isStreaming={message.isStreaming ?? false}
       {...omitUndefinedField("duration", duration)}
     >
@@ -113,7 +132,7 @@ const ToolActivityStep = ({
   const sources = tool?.sources ?? item.details?.sources ?? [];
 
   return (
-    <Collapsible className="group/tool" defaultOpen>
+    <Collapsible className="group/tool">
       <ChainOfThoughtStep
         icon={WrenchIcon}
         status={displayStatus}

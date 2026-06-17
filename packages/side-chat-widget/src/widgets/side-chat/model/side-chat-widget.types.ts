@@ -1,7 +1,11 @@
 import type { ChatClient } from "@side-chat/chat-client";
 import type { HostBridge } from "@side-chat/host-bridge";
 
+import type { ReasoningVisibility } from "#entities/settings";
 import type { SideChatWidgetPanelSize } from "#entities/panel";
+import type { WidgetThemeId } from "#entities/theme";
+
+export type { ReasoningVisibility, WidgetThemeId };
 
 export type SideChatWidgetLabels = {
   readonly placeholder?: string | undefined;
@@ -36,9 +40,14 @@ export type SideChatWidgetProps = {
   readonly defaultAssistantProfileId?: string | undefined;
   readonly defaultOpen?: boolean | undefined;
   readonly defaultPanelSize?: SideChatWidgetPanelSize | undefined;
+  readonly defaultTheme?: WidgetThemeId | undefined;
   readonly hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
   readonly initialState?: SideChatWidgetStateSnapshot | undefined;
   readonly labels?: SideChatWidgetLabels | undefined;
   readonly panelActions?: SideChatWidgetPanelActions | undefined;
   readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
+  // Host/server-configured: how much assistant reasoning the widget exposes by
+  // default. Defaults to "minimal" (collapsed). Not a user-facing setting.
+  readonly reasoningVisibility?: ReasoningVisibility | undefined;
+  readonly themeStorageKey?: string | undefined;
 };

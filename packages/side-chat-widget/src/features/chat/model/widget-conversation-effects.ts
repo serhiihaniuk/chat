@@ -1,5 +1,12 @@
 import type { ChatClient } from "@side-chat/chat-client";
-import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
 
 import { toErrorMessage, type WidgetMessage } from "#entities/chat";
 import {
@@ -17,9 +24,15 @@ export const useConversationList = (
   client: ChatClient,
   setConversations: SetWidgetConversations,
   setErrorMessage: SetWidgetError,
+  activeConversationId: string | undefined,
 ) => {
+  // Read the active id at load time (not as a useCallback dep) so loadConversations
+  // stays stable and the list refetch isn't re-triggered on every conversation switch.
+  const activeConversationIdRef = useRef(activeConversationId);
+  activeConversationIdRef.current = activeConversationId;
   const loadConversations = useCallback(
-    (signal?: AbortSignal) => loadConversationSummaries(client, setConversations, signal),
+    (signal?: AbortSignal) =>
+      loadConversationSummaries(client, setConversations, activeConversationIdRef, signal),
     [client, setConversations],
   );
 
@@ -55,6 +68,7 @@ export const useConversationHistory = (
   streamOwnedConversationRef: { readonly current: string | undefined },
   setMessages: SetWidgetMessages,
   setErrorMessage: SetWidgetError,
+  setIsLoadingHistory: Dispatch<SetStateAction<boolean>>,
 ): void => {
   useEffect(() => {
     if (
@@ -62,14 +76,24 @@ export const useConversationHistory = (
       !client.readHistory ||
       conversationId === streamOwnedConversationRef.current
     ) {
+      setIsLoadingHistory(false);
       return undefined;
     }
 
+    setIsLoadingHistory(true);
     return runAbortableLoad(
-      (signal) => loadConversationHistory(client, conversationId, setMessages, signal),
+      (signal) =>
+        loadConversationHistory(client, conversationId, setMessages, setIsLoadingHistory, signal),
       reportError(setErrorMessage),
     );
-  }, [client, conversationId, setErrorMessage, setMessages, streamOwnedConversationRef]);
+  }, [
+    client,
+    conversationId,
+    setErrorMessage,
+    setIsLoadingHistory,
+    setMessages,
+    streamOwnedConversationRef,
+  ]);
 };
 
 // One place that owns the AbortController + non-abort error routing the read
@@ -88,21 +112,43 @@ const runAbortableLoad = (
 const loadConversationSummaries = async (
   client: ChatClient,
   setConversations: SetWidgetConversations,
+  activeConversationIdRef: MutableRefObject<string | undefined>,
   signal?: AbortSignal,
 ): Promise<void> => {
   if (!client.listConversations) return;
   const result = await client.listConversations({ limit: 25, signal });
-  setConversations(result.conversations.map(toWidgetConversationSummary));
+  const summaries = result.conversations.map(toWidgetConversationSummary);
+  setConversations((current) =>
+    reconcileConversations(summaries, current, activeConversationIdRef.current),
+  );
+};
+
+// The server list is authoritative, but keep the active conversation visible if the
+// server has not caught up yet (a just-created chat) so it does not flicker out and
+// back when the post-completion refresh returns a stale list.
+const reconcileConversations = (
+  server: readonly WidgetConversationSummary[],
+  current: readonly WidgetConversationSummary[],
+  activeConversationId: string | undefined,
+): readonly WidgetConversationSummary[] => {
+  if (!activeConversationId || server.some((c) => c.id === activeConversationId)) return server;
+  const active = current.find((c) => c.id === activeConversationId);
+  return active ? [active, ...server] : server;
 };
 
 const loadConversationHistory = async (
   client: ChatClient,
   conversationId: string,
   setMessages: SetWidgetMessages,
+  setIsLoadingHistory: Dispatch<SetStateAction<boolean>>,
   signal: AbortSignal,
 ): Promise<void> => {
-  const history = await client.readHistory?.(conversationId, { limit: 100, signal });
-  if (!signal.aborted && history) setMessages([...toWidgetHistoryMessages(history)]);
+  try {
+    const history = await client.readHistory?.(conversationId, { limit: 100, signal });
+    if (!signal.aborted && history) setMessages([...toWidgetHistoryMessages(history)]);
+  } finally {
+    if (!signal.aborted) setIsLoadingHistory(false);
+  }
 };
 
 const reportError =

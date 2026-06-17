@@ -91,6 +91,21 @@ export const updateMessage = (
   update: (message: WidgetMessage) => WidgetMessage,
 ): WidgetMessage[] => messages.map((message) => (message.id === id ? update(message) : message));
 
+export const findLastUserMessage = (
+  messages: readonly WidgetMessage[],
+): WidgetMessage | undefined => {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "user") return message;
+  }
+  return undefined;
+};
+
+export const messagesBeforeMessage = (
+  messages: readonly WidgetMessage[],
+  target: WidgetMessage,
+): WidgetMessage[] => messages.slice(0, messages.lastIndexOf(target));
+
 export const toErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "Chat request failed";
 

@@ -1,7 +1,5 @@
 import { PromptInputButton } from "#shared/ai/prompt-input";
-import { cn } from "#shared/lib/cn";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "#shared/ui/hover-card";
-import { PanelTopIcon } from "lucide-react";
 
 import type { WidgetMessage, WidgetUsage } from "#entities/chat";
 
@@ -37,12 +35,7 @@ export const WidgetContextTools = ({
 }: {
   readonly messages: readonly WidgetMessage[];
   readonly usage: WidgetUsage | undefined;
-}) => (
-  <>
-    <ContextUsageControl usedCharacters={getVisibleContextCharacters(messages)} usage={usage} />
-    <PageContextIndicator />
-  </>
-);
+}) => <ContextUsageControl usedCharacters={getVisibleContextCharacters(messages)} usage={usage} />;
 
 const ContextUsageControl = ({
   usedCharacters,
@@ -56,12 +49,15 @@ const ContextUsageControl = ({
   return (
     <HoverCard closeDelay={100} openDelay={100}>
       <HoverCardTrigger
-        className="max-sm:hidden"
-        render={<PromptInputButton aria-label={`Context usage ${percent}%`} />}
+        render={
+          <PromptInputButton
+            aria-label={`Context usage ${percent}%`}
+            className="gap-1.5 px-1.5 text-muted-foreground"
+          />
+        }
       >
-        <span>Context</span>
-        <span>{percent}%</span>
         <ContextRing percent={percent} />
+        <span>{percent}%</span>
       </HoverCardTrigger>
       <HoverCardContent
         align="start"
@@ -162,34 +158,6 @@ const ContextRow = ({ label, value }: { readonly label: string; readonly value: 
     <span>{label}</span>
     <span className="font-medium text-foreground">{value}</span>
   </span>
-);
-
-const PageContextIndicator = () => (
-  <HoverCard closeDelay={100} openDelay={100}>
-    <HoverCardTrigger
-      className="shrink-0 max-sm:hidden"
-      render={<PromptInputButton aria-label="Using current page context" className="gap-1.5" />}
-    >
-      <PanelTopIcon className="size-4" />
-      <span>Page</span>
-      <span aria-hidden="true" className="size-1.5 rounded-full bg-emerald-600" />
-    </HoverCardTrigger>
-    <HoverCardContent
-      align="start"
-      className={cn("w-80 max-w-[calc(100vw-3rem)] rounded-md border border-border p-3 shadow-xl")}
-      side="top"
-      sideOffset={8}
-    >
-      <strong className="block font-medium text-foreground text-sm">Page context</strong>
-      <span className="mt-2 block leading-5 text-muted-foreground">
-        The assistant can use the current workspace surface, visible page state, active filters, and
-        selected host context.
-      </span>
-      <span className="mt-2 block rounded bg-muted p-2 text-muted-foreground text-xs leading-5">
-        It does not automatically inspect other pages or hidden browser state.
-      </span>
-    </HoverCardContent>
-  </HoverCard>
 );
 
 const estimateTokens = (characters: number): number => Math.max(0, Math.ceil(characters / 4));

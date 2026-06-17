@@ -24,12 +24,19 @@ describe("widget-frame", () => {
     expect(html).toContain("Resize assistant panel from bottom edge");
   });
 
-  it("renders an accessible close control in the header", () => {
+  it("renders accessible settings, new-chat, and close controls in the header", () => {
     const html = renderToStaticMarkup(
-      <WidgetHeader onClose={() => undefined} title="Workspace Assistant" />,
+      <WidgetHeader
+        onClose={() => undefined}
+        onNewConversation={() => undefined}
+        onOpenSettings={() => undefined}
+        title={<h2>Workspace Assistant</h2>}
+      />,
     );
 
     expect(html).toContain("Workspace Assistant");
+    expect(html).toContain('aria-label="Settings"');
+    expect(html).toContain('aria-label="Start new chat"');
     expect(html).toContain('aria-label="Close"');
   });
 });

@@ -58,7 +58,7 @@ test("persists send, history, reset, and usage through public widget and service
 
 const openPersistentWidget = async (page: Page) => {
   await page.goto(`/?mode=local-service&authToken=${authToken}&workspaceId=${workspaceId}`);
-  await expect(page.getByRole("heading", { name: "Workspace Assistant" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
 };
 
 const expectPersistentServiceHealth = async (request: APIRequestContext) => {

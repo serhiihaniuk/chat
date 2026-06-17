@@ -7,4 +7,6 @@ export type {
   SideChatWidgetProps,
   SideChatWidgetQuickAction,
   SideChatWidgetStateSnapshot,
+  ReasoningVisibility,
+  WidgetThemeId,
 } from "./model/side-chat-widget.types.js";

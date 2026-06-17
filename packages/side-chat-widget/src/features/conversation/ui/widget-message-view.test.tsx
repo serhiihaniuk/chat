@@ -10,7 +10,7 @@ import {
 import { WidgetMessageView } from "./widget-message-view.js";
 
 describe("WidgetMessageView", () => {
-  it("renders assistant content, activity, and open tool details", () => {
+  it("renders assistant content and the reasoning timeline with collapsed tool rows", () => {
     const message = createAssistantMessage({
       content: "Here is the answer.",
       isStreaming: true,
@@ -39,14 +39,17 @@ describe("WidgetMessageView", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(<WidgetMessageView message={message} />);
+    // Detailed exposure expands the timeline; tool rows stay collapsed by default.
+    const html = renderToStaticMarkup(
+      <WidgetMessageView message={message} reasoningVisibility="detailed" />,
+    );
 
     expect(html).toContain("Here is the answer.");
     expect(html).toContain("Checked portfolio context");
     expect(html).toContain("Run mock_web_search");
-    expect(html).toContain("Search query");
-    expect(html).toContain("Result");
-    expect(html).toContain("found context");
+    expect(html).toContain("View result");
+    // Tool details are collapsed by default, so the inner result is not yet rendered.
+    expect(html).not.toContain("found context");
   });
 
   it("renders activity rows in canonical stream order", () => {
@@ -81,7 +84,9 @@ describe("WidgetMessageView", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(<WidgetMessageView message={message} />);
+    const html = renderToStaticMarkup(
+      <WidgetMessageView message={message} reasoningVisibility="detailed" />,
+    );
 
     expect(html.indexOf("Searching the web")).toBeLessThan(html.indexOf("Run mock_web_search"));
     expect(html.indexOf("Run mock_web_search")).toBeLessThan(html.indexOf("Prepared final answer"));
@@ -93,6 +98,7 @@ describe("WidgetMessageView", () => {
         message={createAssistantMessage({
           content: "Common causes include:\n\n- Too much debt\n- Asset bubbles",
         })}
+        reasoningVisibility="minimal"
       />,
     );
 
@@ -112,6 +118,7 @@ describe("WidgetMessageView", () => {
           activity: { items: [] },
           isStreaming: true,
         }}
+        reasoningVisibility="minimal"
       />,
     );
 
@@ -140,6 +147,7 @@ describe("WidgetMessageView", () => {
             }),
           ],
         })}
+        reasoningVisibility="detailed"
       />,
     );
 

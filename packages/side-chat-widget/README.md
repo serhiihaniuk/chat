@@ -28,6 +28,11 @@ supports conversation listing and history reads. `conversationStorageKey`
 enables browser-local restoration of the last selected conversation shell; the
 messages themselves are hydrated through the client history route.
 
+`defaultTheme` picks the initial named theme (`graphite` | `sage` | `ocean`) and
+`themeStorageKey` enables browser-local persistence of the chosen theme. Themes
+are scoped to the widget root and never leak onto the host page; see
+`docs/architecture/widget-and-host-integration.md` (Theming And Layout).
+
 `@side-chat/side-chat-widget/testing` exports widget model projection helpers
 for harness tests. It is not a host application API.
 

@@ -429,8 +429,16 @@ async function collectConfig() {
     pick(saved, "workspaceId", process.env.WORKSPACE_ID, "workspace_local"));
   cfg.authToken = await ask("Auth bearer token",
     pick(saved, "authToken", process.env.AUTH_TOKEN, "local-compose-token"));
-  cfg.backendPort = Number(await ask("Backend port",
+  cfg.backendPort = Number(await ask(
+    `Backend port (internal; MUST differ from the widget's ${WIDGET_PORT})`,
     pick(saved, "backendPort", process.env.BACKEND_PORT, "8787"))) || 8787;
+  if (cfg.backendPort === WIDGET_PORT) {
+    // The widget owns WIDGET_PORT (8080) and is reached publicly; the backend is
+    // internal (proxied via /api). If they collide, freePort(widget) would kill
+    // the backend. Force a safe internal port instead.
+    warnLauncher(`Backend port ${WIDGET_PORT} clashes with the widget — using 8787 for the backend instead.`);
+    cfg.backendPort = 8787;
+  }
 
   // Public domain for the widget host. Blank => expose on localhost only.
   cfg.domain = await ask(

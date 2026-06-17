@@ -18,11 +18,11 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "#shared/ai/prompt-input";
-import { Suggestion, Suggestions } from "#shared/ai/suggestion";
 import { Button } from "#shared/ui/button";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useCallback } from "react";
 
+import { ComposerActions } from "./composer-actions.js";
 import { WidgetContextTools } from "./widget-context.js";
 import type { WidgetMessage, WidgetStatus, WidgetUsage } from "#entities/chat";
 
@@ -36,21 +36,13 @@ type WidgetFooterAssistantProfile = {
   readonly label: string;
 };
 
-type WidgetFooterQuickAction = {
-  readonly id: string;
-  readonly label: string;
-  readonly prompt: string;
-};
-
 export const WidgetFooter = ({
   isBusy,
   labels,
-  messageCount,
   messages,
   onSubmitMessage,
   onProfileSelect,
   profiles,
-  quickActions,
   selectedProfileId,
   selectedProfileLabel,
   status,
@@ -59,12 +51,10 @@ export const WidgetFooter = ({
 }: {
   readonly isBusy: boolean;
   readonly labels: WidgetFooterLabels;
-  readonly messageCount: number;
   readonly messages: readonly WidgetMessage[];
   readonly onSubmitMessage: (messageText: string) => Promise<void>;
   readonly onProfileSelect: (profileId: string) => void;
   readonly profiles: readonly WidgetFooterAssistantProfile[];
-  readonly quickActions: readonly WidgetFooterQuickAction[];
   readonly selectedProfileId: string | undefined;
   readonly selectedProfileLabel: string | undefined;
   readonly status: WidgetStatus;
@@ -79,22 +69,21 @@ export const WidgetFooter = ({
   );
 
   return (
-    <footer className="shrink-0 border-t border-border p-3">
-      <QuickActions
-        messageCount={messageCount}
-        onSubmitMessage={onSubmitMessage}
-        quickActions={quickActions}
-      />
-      <PromptInput className="w-full" onSubmit={submitMessage}>
+    <footer className="shrink-0 px-4 pt-2 pb-4">
+      <PromptInput className="group mx-auto w-full max-w-[44.5rem]" onSubmit={submitMessage}>
         <PromptInputBody>
           <PromptInputTextarea
             aria-label="Message"
+            className="min-h-12 py-3 text-[0.9375rem]"
             disabled={isBusy}
             placeholder={labels.placeholder}
           />
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
+            <ComposerActions />
+          </PromptInputTools>
+          <div className="flex min-w-0 items-center gap-1">
             <WidgetContextTools messages={messages} usage={usage} />
             {profiles.length > 0 && (
               <PromptModelSelector
@@ -104,12 +93,19 @@ export const WidgetFooter = ({
                 selectedProfileLabel={selectedProfileLabel}
               />
             )}
-          </PromptInputTools>
-          <PromptInputSubmit
-            aria-label={labels.send}
-            onStop={stop}
-            {...toPromptStatusProps(status)}
-          />
+            <PromptInputSubmit
+              aria-label={labels.send}
+              // Idle composer: the send button reads as disarmed (muted) until the
+              // textarea has text; while generating it keeps its armed/stop styling.
+              className={
+                status === "idle"
+                  ? "group-has-[textarea:placeholder-shown]:bg-muted group-has-[textarea:placeholder-shown]:text-muted-foreground group-has-[textarea:placeholder-shown]:shadow-none"
+                  : undefined
+              }
+              onStop={stop}
+              {...toPromptStatusProps(status)}
+            />
+          </div>
         </PromptInputFooter>
       </PromptInput>
     </footer>
@@ -154,32 +150,6 @@ const PromptModelSelector = ({
     </ModelSelectorContent>
   </ModelSelector>
 );
-
-const QuickActions = ({
-  messageCount,
-  onSubmitMessage,
-  quickActions,
-}: {
-  readonly messageCount: number;
-  readonly onSubmitMessage: (messageText: string) => Promise<void>;
-  readonly quickActions: readonly WidgetFooterQuickAction[];
-}) => {
-  if (quickActions.length === 0 || messageCount > 0) return null;
-
-  return (
-    <Suggestions className="mb-3">
-      {quickActions.map((action) => (
-        <Suggestion
-          key={action.id}
-          onClick={() => void onSubmitMessage(action.prompt)}
-          suggestion={action.prompt}
-        >
-          {action.label}
-        </Suggestion>
-      ))}
-    </Suggestions>
-  );
-};
 
 const toPromptStatusProps = (
   status: WidgetStatus,

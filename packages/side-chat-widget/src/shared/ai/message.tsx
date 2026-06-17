@@ -46,8 +46,8 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
     className={cn(
-      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
+      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-[0.9375rem]",
+      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:rounded-br-sm group-[.is-user]:bg-muted group-[.is-user]:px-[0.9375rem] group-[.is-user]:py-2.5 group-[.is-user]:text-foreground",
       "group-[.is-assistant]:w-full group-[.is-assistant]:text-foreground",
       className,
     )}
@@ -291,7 +291,10 @@ export const MessageResponse = memo(
         "w-full max-w-[80ch] text-foreground",
         "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         "[&_a]:underline [&_a]:underline-offset-4",
-        "[&_li]:leading-7 [&_ol]:list-decimal [&_ol]:ps-6 [&_p]:leading-7 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:ps-6",
+        // Compact but breathable rhythm: a modest ratio line-height and slim block /
+        // list-item spacing (we override Streamdown's own li pb-1).
+        "[&_li]:my-0.5 [&_li]:py-0 [&_li]:leading-[1.45] [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_p]:my-2 [&_p]:leading-[1.45] [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:ps-5",
+        "[&_td]:px-4 [&_td]:py-2.5 [&_th]:px-4 [&_th]:py-2.5 [&_th]:text-left [&_th]:font-medium",
         className,
       )}
       plugins={streamdownPlugins}

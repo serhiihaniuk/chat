@@ -34,6 +34,20 @@ export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarne
       placeholder: "Ask about this page",
       send: "Send",
     },
+    quickActions: [
+      { id: "summarize", label: "Summarize this page", prompt: "Summarize this page." },
+      {
+        id: "explain",
+        label: "Explain the context scope section",
+        prompt: "Explain the context scope section.",
+      },
+      {
+        id: "debounce",
+        label: "Show me a debounce helper",
+        prompt: "Show me a debounce helper.",
+      },
+      { id: "reply", label: "Draft a reply about this", prompt: "Draft a reply about this." },
+    ],
   };
 
   return {
@@ -46,10 +60,12 @@ const resolveHarnessPanelSize = (): {
   readonly height: number;
   readonly width: number;
 } => {
-  if (typeof window === "undefined") return { height: 1200, width: 1440 };
+  if (typeof window === "undefined") return { height: 1100, width: 1080 };
+  // Stay a contained floating panel (viewport minus a gutter), wide enough to reveal
+  // the conversation sidebar on a roomy host viewport.
   return {
-    height: Math.max(760, window.innerHeight - 24),
-    width: Math.max(640, window.innerWidth - 64),
+    height: Math.max(620, window.innerHeight - 32),
+    width: Math.min(Math.max(720, window.innerWidth - 32), 1080),
   };
 };
 

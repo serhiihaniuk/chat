@@ -7,6 +7,8 @@ import {
   createId,
   createWidgetChatRequest,
   createWidgetMessage,
+  findLastUserMessage,
+  messagesBeforeMessage,
   toErrorMessage,
   updateMessage,
   type WidgetMessage,
@@ -47,13 +49,20 @@ export const useWidgetChat = ({
   const [conversations, setConversations] = useState<readonly WidgetConversationSummary[]>(
     initialConversationStore.current.conversations,
   );
+  // True while a conversation hydrates so the skeleton shows (not the empty greeting).
+  const [isLoadingHistory, setIsLoadingHistory] = useState(
+    () => initialConversationStore.current.activeConversationId !== undefined,
+  );
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
   const pendingConversationTitleRef = useRef<string | undefined>(undefined);
-  // Holds the conversation id a stream established. History must not refetch this
-  // conversation (its live messages are already in state); cleared on explicit
-  // selection so switching back to it does hydrate from history.
+  // Id a stream established; history must not refetch it (live messages already set).
   const streamOwnedConversationRef = useRef<string | undefined>(undefined);
-  const loadConversations = useConversationList(client, setConversations, setErrorMessage);
+  const loadConversations = useConversationList(
+    client,
+    setConversations,
+    setErrorMessage,
+    conversationId,
+  );
   const applyStreamEvent = useWidgetStreamEventHandlers({
     hostBridge,
     loadConversations,
@@ -73,6 +82,7 @@ export const useWidgetChat = ({
     streamOwnedConversationRef,
     setMessages,
     setErrorMessage,
+    setIsLoadingHistory,
   );
 
   const submitMessage = useCallback(
@@ -149,11 +159,11 @@ export const useWidgetChat = ({
   const selectConversation = useCallback((nextConversationId: string | undefined) => {
     abortControllerRef.current?.abort();
     pendingConversationTitleRef.current = undefined;
-    // An explicit selection always wants fresh history, even back to a stream-
-    // owned conversation, so release the no-refetch guard.
+    // Explicit selection always wants fresh history, so release the no-refetch guard.
     streamOwnedConversationRef.current = undefined;
     setConversationId(nextConversationId);
     setMessages([]);
+    setIsLoadingHistory(nextConversationId !== undefined);
     setUsage(undefined);
     setErrorMessage(undefined);
     setStatus("idle");
@@ -172,12 +182,22 @@ export const useWidgetChat = ({
     setStatus(clearErrorStatus);
   }, []);
 
+  const retryLastMessage = useCallback(() => {
+    const lastUserMessage = findLastUserMessage(messages);
+    if (!lastUserMessage) return;
+    setMessages(messagesBeforeMessage(messages, lastUserMessage));
+    setErrorMessage(undefined);
+    void submitMessage(lastUserMessage.content);
+  }, [messages, submitMessage]);
+
   return {
     clearError,
     conversationId,
     conversations,
     errorMessage,
+    isLoadingHistory,
     messages,
+    retryLastMessage,
     selectConversation,
     setErrorMessage,
     status,
@@ -226,8 +246,7 @@ const useWidgetStreamEventHandlers = ({
   }, [loadConversations, setErrorMessage]);
   const recordStartedConversation = useCallback(
     (startedConversationId: string, createdAt: string) => {
-      // Mark the conversation as stream-owned before adopting its id so the
-      // history effect skips it instead of clobbering the live turn.
+      // Mark stream-owned before adopting the id so history skips it (no clobber).
       streamOwnedConversationRef.current = startedConversationId;
       setConversationId(startedConversationId);
       const fallbackTitle = pendingConversationTitleRef.current;
@@ -266,7 +285,11 @@ const appendPendingMessages =
 const completeAssistantMessageFor =
   (assistantMessageId: string): SetStateAction<WidgetMessage[]> =>
   (current) =>
-    completeAssistantMessage(current, assistantMessageId);
+    updateMessage(current, assistantMessageId, (message) => ({
+      ...message,
+      activity: completeActivityTimeline(message.activity),
+      isStreaming: false,
+    }));
 
 const reportError =
   (setErrorMessage: SetWidgetError) =>
@@ -276,16 +299,6 @@ const reportError =
 
 const isActiveRequest = (requestRef: ActiveRequestRef, abortController: AbortController): boolean =>
   requestRef.current === abortController;
-
-const completeAssistantMessage = (
-  messages: readonly WidgetMessage[],
-  assistantMessageId: string,
-): WidgetMessage[] =>
-  updateMessage(messages, assistantMessageId, (message) => ({
-    ...message,
-    activity: completeActivityTimeline(message.activity),
-    isStreaming: false,
-  }));
 
 const clearErrorStatus = (status: WidgetStatus): WidgetStatus =>
   status === "error" ? "idle" : status;

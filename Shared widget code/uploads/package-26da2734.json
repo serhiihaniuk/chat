@@ -1,0 +1,78 @@
+{
+  "name": "@side-chat/side-chat-widget",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "imports": {
+    "#entities/*": {
+      "types": "./src/entities/*/index.ts",
+      "development": "./src/entities/*/index.ts",
+      "default": "./dist/entities/*/index.js"
+    },
+    "#features/*": {
+      "types": "./src/features/*/index.ts",
+      "development": "./src/features/*/index.ts",
+      "default": "./dist/features/*/index.js"
+    },
+    "#shared/lib/*": {
+      "types": "./src/shared/lib/*.ts",
+      "development": "./src/shared/lib/*.ts",
+      "default": "./dist/shared/lib/*.js"
+    },
+    "#shared/ai/*": {
+      "types": "./src/shared/ai/*.tsx",
+      "development": "./src/shared/ai/*.tsx",
+      "default": "./dist/shared/ai/*.js"
+    },
+    "#shared/ui/*": {
+      "types": "./src/shared/ui/*.tsx",
+      "development": "./src/shared/ui/*.tsx",
+      "default": "./dist/shared/ui/*.js"
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./src/entities/chat/testing.ts",
+      "development": "./src/entities/chat/testing.ts",
+      "default": "./dist/entities/chat/testing.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "scripts": {
+    "build": "tsc -b --pretty false",
+    "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
+    "test": "cd ../.. && vitest run packages/side-chat-widget/src --passWithNoTests"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.5.0",
+    "@side-chat/chat-client": "0.0.0",
+    "@side-chat/chat-protocol": "0.0.0",
+    "@side-chat/host-bridge": "0.0.0",
+    "@side-chat/shared": "0.0.0",
+    "@streamdown/cjk": "1.0.3",
+    "@streamdown/code": "1.1.1",
+    "@streamdown/math": "1.0.2",
+    "@streamdown/mermaid": "1.0.2",
+    "ai": "6.0.191",
+    "clsx": "2.1.1",
+    "embla-carousel-react": "8.6.0",
+    "lucide-react": "1.16.0",
+    "motion": "12.40.0",
+    "nanoid": "5.1.11",
+    "shiki": "4.1.0",
+    "streamdown": "2.5.0",
+    "tailwind-merge": "3.6.0",
+    "use-stick-to-bottom": "1.1.4"
+  },
+  "peerDependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  }
+}

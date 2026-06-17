@@ -32,7 +32,7 @@ describe("widget harness modes", () => {
       workspaceId: "workspace_local",
     });
     expect(html).toContain("Workspace Assistant");
-    expect(html).toContain("No messages yet");
+    expect(html).toContain("How can I help with this page?");
   });
 
   it("creates deterministic mock stream events with host command sequencing", async () => {

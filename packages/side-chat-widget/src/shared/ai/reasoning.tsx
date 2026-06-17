@@ -129,16 +129,24 @@ export const Reasoning = memo(
     }, [isStreaming, isOpen, setIsOpen, isExplicitlyClosed]);
 
     useEffect(() => {
-      if (autoClose && hasEverStreamedRef.current && !isStreaming && isOpen && !hasAutoClosed) {
-        const timer = setTimeout(() => {
-          setIsOpen(false);
-          setHasAutoClosed(true);
-        }, AUTO_CLOSE_DELAY);
-
-        return () => clearTimeout(timer);
+      if (!autoClose || !hasEverStreamedRef.current || isStreaming || hasAutoClosed) {
+        return undefined;
       }
 
-      return undefined;
+      // Streaming has stopped. Only auto-collapse a panel that was auto-opened while
+      // streaming; if it is already closed (e.g. minimal exposure), just disarm so a
+      // later manual open by the user is not snapped shut.
+      if (!isOpen) {
+        setHasAutoClosed(true);
+        return undefined;
+      }
+
+      const timer = setTimeout(() => {
+        setIsOpen(false);
+        setHasAutoClosed(true);
+      }, AUTO_CLOSE_DELAY);
+
+      return () => clearTimeout(timer);
     }, [autoClose, isStreaming, isOpen, setIsOpen, hasAutoClosed]);
 
     const handleOpenChange = useCallback(

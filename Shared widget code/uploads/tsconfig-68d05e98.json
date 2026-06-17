@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "references": [
+    {
+      "path": "../chat-client"
+    },
+    {
+      "path": "../chat-protocol"
+    },
+    {
+      "path": "../host-bridge"
+    },
+    {
+      "path": "../shared"
+    }
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/widget-test-env.tsx"]
+}

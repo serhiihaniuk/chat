@@ -33,7 +33,9 @@ function ScrollBar({
       data-orientation={orientation}
       orientation={orientation}
       className={cn(
-        "flex touch-none p-px transition-colors select-none data-horizontal:h-2.5 data-horizontal:flex-col data-horizontal:border-t data-horizontal:border-t-transparent data-vertical:h-full data-vertical:w-2.5 data-vertical:border-l data-vertical:border-l-transparent",
+        // Size + the fade-when-idle behavior live in styles.css, keyed on Base UI's
+        // own data attributes (data-orientation / data-hovering / data-scrolling).
+        "flex touch-none select-none p-px data-horizontal:flex-col",
         className,
       )}
       {...props}

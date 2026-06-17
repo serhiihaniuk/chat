@@ -76,14 +76,19 @@ describe("SideChatWidget interactions", () => {
       yield completed();
     });
 
-    renderWidget(client, {
-      dispatchCommand: dispatchCommandImpl,
-      getContext: () =>
-        Promise.resolve({
-          schemaVersion: "test.host-context.v1",
-          collectedAt: "2026-05-23T13:00:00.000Z",
-        }),
-    });
+    renderWidget(
+      client,
+      {
+        dispatchCommand: dispatchCommandImpl,
+        getContext: () =>
+          Promise.resolve({
+            schemaVersion: "test.host-context.v1",
+            collectedAt: "2026-05-23T13:00:00.000Z",
+          }),
+      },
+      // Detailed exposure expands the timeline so the host-command result is visible.
+      "detailed",
+    );
     await submit("open record");
 
     await waitForText("component_test_applied");
@@ -114,6 +119,7 @@ describe("SideChatWidget interactions", () => {
 const renderWidget = (
   client: ChatClient,
   hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand">,
+  reasoningVisibility?: "minimal" | "detailed",
 ) =>
   mountWidget(
     <SideChatWidget
@@ -122,6 +128,7 @@ const renderWidget = (
       defaultAssistantProfileId="gpt-5.4-mini"
       labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
       {...omitUndefinedField("hostBridge", hostBridge)}
+      {...omitUndefinedField("reasoningVisibility", reasoningVisibility)}
     />,
   );
 
@@ -146,3 +153,50 @@ const neverEndingEvents = async function* (): AsyncIterable<SidechatStreamEvent>
   yield delta("still streaming");
   await new Promise(() => undefined);
 };
+
+const THEME_STORAGE_KEY = "widget-theme-store";
+
+const renderThemeWidget = () =>
+  mountWidget(
+    <SideChatWidget
+      client={fakeClient(async function* () {
+        await Promise.resolve();
+        yield started();
+        yield delta("hi");
+        yield completed();
+      })}
+      labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
+      themeStorageKey={THEME_STORAGE_KEY}
+    />,
+  );
+
+const widgetRoot = (): Element | null => document.querySelector(".side-chat-widget-root");
+
+describe("SideChatWidget settings", () => {
+  it("opens settings from the header and applies a theme to the widget root", async () => {
+    renderThemeWidget();
+
+    expect(widgetRoot()?.getAttribute("data-sidechat-theme")).toBeNull();
+
+    await clickButton("Settings");
+    expect(document.body.textContent).toContain("Sage");
+
+    await clickButton("Sage");
+
+    expect(widgetRoot()?.getAttribute("data-sidechat-theme")).toBe("sage");
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("sage");
+  });
+
+  it("keeps graphite attribute-free so it tracks the host light/dark", async () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, "ocean");
+    renderThemeWidget();
+
+    expect(widgetRoot()?.getAttribute("data-sidechat-theme")).toBe("ocean");
+
+    await clickButton("Settings");
+    await clickButton("Graphite");
+
+    expect(widgetRoot()?.getAttribute("data-sidechat-theme")).toBeNull();
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("graphite");
+  });
+});

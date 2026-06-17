@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<!--
+================================================================================
+  HANDOFF → Claude Code: migrate src/ (FSD + React + Tailwind + shadcn/AI-Elements)
+  to match this mock. This .dc.html is a self-contained PROTOTYPE of the target
+  look & behavior. Treat it as the spec, not as code to copy — port the IDEAS into
+  the real components below. It is inline-styled on purpose; do NOT introduce
+  inline styles in the real app — express everything through Tailwind + tokens.
+
+  The single most important idea: THIS WIDGET MUST BE THEME-AGNOSTIC AND EMBEDDABLE.
+  It owns zero hardcoded colors and zero hardcoded radii. Every surface reads a CSS
+  variable from the shadcn token contract you already have in src/styles.css. A host
+  app (or our own theme picker) only ever rewrites the token block — the widget
+  re-skins for free. Today the prototype's old version had a baked-in brand
+  (beige + serif + a fixed orange + literal 14px radii); that was the bug. Don't
+  reintroduce it.
+
+  --------------------------------------------------------------------------------
+  1) TOKENIZATION (the backbone) — src/styles.css
+  --------------------------------------------------------------------------------
+  You already define the right contract: --background/-foreground, --card,
+  --popover, --primary, --secondary, --muted, --accent, --border, --input, --ring,
+  --sidebar*, --destructive, and a SINGLE --radius driving --radius-sm/md/lg/xl via
+  @theme inline, plus a .dark override. Keep it. The migration is to make every
+  widget component actually CONSUME it:
+
+    • Color: audit shared/ai/* and widgets/side-chat/* for any literal hex / rgb /
+      named colors and any Tailwind palette utilities (text-zinc-500, bg-orange-*,
+      border-neutral-200, etc.). Replace with token utilities: text-muted-foreground,
+      bg-card, bg-popover, bg-muted, bg-accent, border-border, text-foreground,
+      bg-primary text-primary-foreground, ring-ring, text-destructive. The accent
+      (send button, active checks, links, the agent mark) = --primary ONLY.
+    • Radius: never rounded-[10px] / rounded-xl literals. Map to the scale ->
+      panel/popovers/composer = rounded-xl (var(--radius-xl)); cards/menu-items/
+      buttons/message bubbles = rounded-md/lg; pills/avatars = rounded-md. Because
+      they all derive from --radius, a host setting --radius:0 (sharp) or 1rem
+      (rounded) reflows the whole widget. Verify by toggling --radius on :root.
+    • Type: the widget should INHERIT the host font stack. Remove any bundled font
+      (no Newsreader/serif, no JetBrains mono import). Headings = font-semibold of
+      the inherited family; code = ui-monospace/SFMono. The prototype uses a neutral
+      system stack only because it has no host to inherit from.
+    • One "success" green is the only semantic color not in your base set (done-check
+      on tools, copied-state). Add --success (+ dark) to the token block rather than
+      hardcoding green. (Prototype: oklch(0.6 0.13 160) light / 0.72 0.15 162 dark.)
+
+  --------------------------------------------------------------------------------
+  2) THEMES — three named themes, chosen in-app (NOT a dev tweak)
+  --------------------------------------------------------------------------------
+  Themes are just additional token blocks layered on top of the base contract. Add
+  a ThemeProvider (entities/panel or a new shared/theme) that writes a class (or
+  data-theme attr) on the WIDGET ROOT (the side-chat root element, .side-chat-widget-root
+  per your styles.css base layer) and persists the choice (localStorage). Scope the
+  theme classes to the widget root so we never leak onto the host page.
+
+    Theme 1 "Graphite" = your current neutral grayscale = the base :root tokens
+                         (and .dark). No extra class needed.
+    Theme 2 "Sage"  (green-tinted neutrals, forest-green primary):
+       --background: oklch(0.99 0.008 150);  --foreground: oklch(0.24 0.012 152);
+       --card/-popover: oklch(1 0.005 150);  --primary: oklch(0.5 0.085 153);
+       --primary-foreground: oklch(0.99 0.01 150);
+       --secondary/-muted/-accent surfaces: oklch(0.95 0.014 150);
+       --muted-foreground: oklch(0.52 0.022 152);
+       --border/--input: oklch(0.9 0.016 150);  --ring: = primary;
+       --success: oklch(0.56 0.12 158);
+       --sidebar: oklch(0.972 0.014 150); --sidebar-accent: oklch(0.93 0.022 150);
+       --sidebar-border: oklch(0.9 0.016 150); (canvas behind widget: 0.965 0.016 150)
+    Theme 3 "Ocean" (blue-tinted neutrals, blue primary):
+       --background: oklch(0.995 0.006 240);  --foreground: oklch(0.24 0.025 252);
+       --card/-popover: oklch(1 0.004 240);   --primary: oklch(0.52 0.15 252);
+       --primary-foreground: oklch(0.99 0.01 240);
+       surfaces: oklch(0.955 0.014–0.016 240); --muted-foreground: oklch(0.52 0.035 252);
+       --border/--input: oklch(0.9 0.02 242);  --ring: = primary;
+       --sidebar: oklch(0.97 0.016 240); --sidebar-accent: oklch(0.93 0.026 240);
+       --sidebar-border: oklch(0.9 0.02 242); (canvas: 0.96 0.02 240)
+
+    NOTE: if you keep .dark, each non-default theme needs a dark variant too
+    (theme class × .dark). The prototype ships light-only for Sage/Ocean — decide
+    with design whether dark themed palettes are in scope before building all six.
+
+  --------------------------------------------------------------------------------
+  3) SETTINGS surface — new feature slice
+  --------------------------------------------------------------------------------
+  Add a gear button in the panel header (next to new-chat / close). It opens a full
+  Settings VIEW that overlays the panel body (not a tiny dropdown — more sections are
+  coming). Suggested slice: features/settings (ui/settings-view.tsx) reading/writing
+  the ThemeProvider. First (only, for now) section = "Theme": a vertical list of
+  selectable cards, each an INFORMATIVE preview — a mini swatch composition showing
+  that theme's canvas + surface + text bars + a primary dot — plus name, one-line
+  description, and a check on the active one. Selecting applies instantly + persists.
+  Build it so radius / density / send-on-enter / model defaults can drop in later.
+
+  --------------------------------------------------------------------------------
+  4) REASONING TIMELINE — the big behavioral change (shared/ai/*)
+  --------------------------------------------------------------------------------
+  Today tool calls render as a block OUTSIDE/below the collapsible "thinking". They
+  must live INSIDE it, interleaved sequentially as one timeline:
+      thought text → [tool call] → thought text → [tool call] → … → answer.
+  Model this as an ORDERED list of reasoning segments, each {type:'text'} or
+  {type:'tool'}, streamed in order: a thought types out, then a tool runs
+  (spinner → done check), then the next thought, etc. Map to your existing
+  primitives — reasoning.tsx (the collapsible shell + "Thinking…/Thought for Ns"
+  header with shimmer.tsx on the label), tool.tsx (per-tool row: spinner.tsx while
+  running, success check when done), and chain-of-thought.tsx if that's your
+  timeline container. Render text + tool rows as siblings in stream order inside the
+  collapsible's left-ruled body. Collapse the panel automatically once the answer
+  begins; keep it user-toggleable. The final answer (message.tsx / response markdown)
+  stays OUTSIDE the collapsible, below it.
+
+  --------------------------------------------------------------------------------
+  5) LAYOUT / RESPONSIVENESS — widgets/side-chat
+  --------------------------------------------------------------------------------
+  • The panel is ALWAYS a contained, floating, resizable card (anchored bottom-right,
+    rounded-xl, shadow, max-width/height = viewport - 32px). It must NOT snap to a
+    full-bleed docked slab on resize — remove any dock-to-edge mode.
+  • CONVERSATION SIDEBAR at a width breakpoint: when the panel is wide enough
+    (prototype: panelW >= 720 AND host viewport > ~780), reveal a persistent left
+    rail (~248px) listing New chat + recent conversations, using the --sidebar* tokens.
+    At that point the header's conversation dropdown collapses (its chevron hides) —
+    the rail becomes the switcher. Below the breakpoint it's a single column and the
+    header dropdown returns. (This is the "like other chat providers when there's room"
+    behavior.)
+  • EMPTY STATE must be a tidy, centered cluster: cap it to ~452px and center it
+    (horizontally + vertically). Don't let the greeting + suggestion rows stretch the
+    full panel width, or they look stranded in a large/tall panel. suggestion.tsx rows
+    live in this capped column.
+  • Conversation column (messages): comfortable max-width (~712px), centered;
+    user bubbles right-aligned (bg-muted), assistant content left & full-measure.
+
+  --------------------------------------------------------------------------------
+  6) MISC details worth preserving
+  --------------------------------------------------------------------------------
+  • Agent mark: a simple geometric glyph (hollow diamond + center node) that strokes/
+    fills with currentColor=var(--primary). Keep it generic — NOT a 4-point sparkle
+    (reads as a competitor's logo).
+  • Composer (prompt-input.tsx): bg-background, border-input, rounded-xl, focus ring
+    = ring-ring; +menu (attach / tools / context-scope), context % ring, model
+    selector (model-selector.tsx), and the send button = bg-primary /
+    text-primary-foreground when armed, bg-muted / text-muted-foreground when idle.
+  • Keep your AI-Elements as the source of truth for chat rendering; this migration
+    is about tokens + the timeline restructure + the sidebar/settings shells, not a
+    rewrite.
+
+  Acceptance check: flip --radius and swap the theme class on the widget root and the
+  ENTIRE widget (chat, sidebar, settings, menus, composer) re-skins with zero visual
+  leftovers. If any element doesn't move, it still has a hardcoded value — fix it.
+================================================================================
+-->
+<body>
+<x-dc>
+<helmet>
+<style>
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;}
+.sc-root{
+  --radius:0.625rem;
+  --radius-sm:calc(var(--radius) - 4px);
+  --radius-md:calc(var(--radius) - 2px);
+  --radius-lg:var(--radius);
+  --radius-xl:calc(var(--radius) + 4px);
+  --background:oklch(1 0 0);
+  --foreground:oklch(0.145 0 0);
+  --card:oklch(1 0 0);
+  --card-foreground:oklch(0.145 0 0);
+  --popover:oklch(1 0 0);
+  --popover-foreground:oklch(0.145 0 0);
+  --primary:oklch(0.205 0 0);
+  --primary-foreground:oklch(0.985 0 0);
+  --secondary:oklch(0.97 0 0);
+  --secondary-foreground:oklch(0.205 0 0);
+  --muted:oklch(0.97 0 0);
+  --muted-foreground:oklch(0.556 0 0);
+  --accent:oklch(0.97 0 0);
+  --accent-foreground:oklch(0.205 0 0);
+  --destructive:oklch(0.577 0.245 27.325);
+  --destructive-foreground:oklch(0.985 0 0);
+  --border:oklch(0.922 0 0);
+  --input:oklch(0.922 0 0);
+  --ring:oklch(0.708 0 0);
+  --success:oklch(0.6 0.13 160);
+  --sc-canvas:oklch(0.985 0 0);
+  --sidebar:oklch(0.985 0 0);
+  --sidebar-foreground:oklch(0.145 0 0);
+  --sidebar-accent:oklch(0.955 0 0);
+  --sidebar-border:oklch(0.922 0 0);
+}
+.sc-dark{
+  --background:oklch(0.145 0 0);
+  --foreground:oklch(0.985 0 0);
+  --card:oklch(0.205 0 0);
+  --card-foreground:oklch(0.985 0 0);
+  --popover:oklch(0.205 0 0);
+  --popover-foreground:oklch(0.985 0 0);
+  --primary:oklch(0.922 0 0);
+  --primary-foreground:oklch(0.205 0 0);
+  --secondary:oklch(0.269 0 0);
+  --secondary-foreground:oklch(0.985 0 0);
+  --muted:oklch(0.269 0 0);
+  --muted-foreground:oklch(0.708 0 0);
+  --accent:oklch(0.269 0 0);
+  --accent-foreground:oklch(0.985 0 0);
+  --destructive:oklch(0.704 0.191 22.216);
+  --destructive-foreground:oklch(0.985 0 0);
+  --border:oklch(1 0 0 / 12%);
+  --input:oklch(1 0 0 / 16%);
+  --ring:oklch(0.556 0 0);
+  --success:oklch(0.72 0.15 162);
+  --sc-canvas:oklch(0.165 0 0);
+  --sidebar:oklch(0.185 0 0);
+  --sidebar-foreground:oklch(0.985 0 0);
+  --sidebar-accent:oklch(0.269 0 0);
+  --sidebar-border:oklch(1 0 0 / 12%);
+}
+.sc-accent-blue{--primary:oklch(0.55 0.2 256);--primary-foreground:oklch(0.985 0 0);--ring:oklch(0.55 0.2 256);}
+.sc-accent-green{--primary:oklch(0.57 0.14 159);--primary-foreground:oklch(0.985 0 0);--ring:oklch(0.57 0.14 159);}
+.sc-accent-violet{--primary:oklch(0.54 0.22 292);--primary-foreground:oklch(0.985 0 0);--ring:oklch(0.54 0.22 292);}
+.sc-r-sharp{--radius:0rem;}
+.sc-r-rounded{--radius:1rem;}
+.sc-theme-sage{
+  --background:oklch(0.99 0.008 150);
+  --foreground:oklch(0.24 0.012 152);
+  --card:oklch(1 0.005 150);
+  --card-foreground:oklch(0.24 0.012 152);
+  --popover:oklch(1 0.005 150);
+  --popover-foreground:oklch(0.24 0.012 152);
+  --primary:oklch(0.5 0.085 153);
+  --primary-foreground:oklch(0.99 0.01 150);
+  --secondary:oklch(0.95 0.014 150);
+  --secondary-foreground:oklch(0.3 0.02 152);
+  --muted:oklch(0.955 0.014 150);
+  --muted-foreground:oklch(0.52 0.022 152);
+  --accent:oklch(0.94 0.02 150);
+  --accent-foreground:oklch(0.3 0.02 152);
+  --border:oklch(0.9 0.016 150);
+  --input:oklch(0.9 0.016 150);
+  --ring:oklch(0.5 0.085 153);
+  --success:oklch(0.56 0.12 158);
+  --sidebar:oklch(0.972 0.014 150);
+  --sidebar-foreground:oklch(0.24 0.012 152);
+  --sidebar-accent:oklch(0.93 0.022 150);
+  --sidebar-border:oklch(0.9 0.016 150);
+  --sc-canvas:oklch(0.965 0.016 150);
+}
+.sc-theme-ocean{
+  --background:oklch(0.995 0.006 240);
+  --foreground:oklch(0.24 0.025 252);
+  --card:oklch(1 0.004 240);
+  --card-foreground:oklch(0.24 0.025 252);
+  --popover:oklch(1 0.004 240);
+  --popover-foreground:oklch(0.24 0.025 252);
+  --primary:oklch(0.52 0.15 252);
+  --primary-foreground:oklch(0.99 0.01 240);
+  --secondary:oklch(0.955 0.014 240);
+  --secondary-foreground:oklch(0.3 0.03 252);
+  --muted:oklch(0.955 0.016 240);
+  --muted-foreground:oklch(0.52 0.035 252);
+  --accent:oklch(0.94 0.024 240);
+  --accent-foreground:oklch(0.3 0.03 252);
+  --border:oklch(0.9 0.02 242);
+  --input:oklch(0.9 0.02 242);
+  --ring:oklch(0.52 0.15 252);
+  --success:oklch(0.6 0.13 160);
+  --sidebar:oklch(0.97 0.016 240);
+  --sidebar-foreground:oklch(0.24 0.025 252);
+  --sidebar-accent:oklch(0.93 0.026 240);
+  --sidebar-border:oklch(0.9 0.02 242);
+  --sc-canvas:oklch(0.96 0.02 240);
+}
+@keyframes scspin{to{transform:rotate(360deg);}}
+@keyframes sccaret{0%,100%{opacity:0;}50%{opacity:1;}}
+@keyframes scshimmer{0%{background-position:120% 0;}100%{background-position:-120% 0;}}
+.sc-composer{transition:border-color .16s ease, box-shadow .16s ease;}
+.sc-composer:focus-within{border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);}
+.sc-md{color:var(--card-foreground);}
+.sc-md p{margin:0 0 12px;line-height:1.66;font-size:15px;}
+.sc-md > :last-child{margin-bottom:0;}
+.sc-md ul,.sc-md ol{margin:0 0 12px;padding-left:21px;}
+.sc-md li{margin:5px 0;line-height:1.6;font-size:15px;}
+.sc-md li::marker{color:var(--muted-foreground);}
+.sc-md strong{font-weight:600;}
+.sc-md h3{font-weight:600;font-size:18px;margin:2px 0 9px;letter-spacing:-.01em;}
+.sc-md pre{background:var(--muted);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 15px;overflow:auto;margin:0 0 12px;}
+.sc-md pre code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.6;color:var(--foreground);white-space:pre;background:none;}
+.sc-md :not(pre) > code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px 5px;color:var(--foreground);}
+.sc-md a{color:var(--primary);text-decoration:underline;text-underline-offset:2px;}
+.sc-md table{border-collapse:collapse;width:100%;margin:0 0 12px;font-size:13.5px;}
+.sc-md th,.sc-md td{border:1px solid var(--border);padding:8px 11px;text-align:left;}
+.sc-md th{background:var(--muted);font-weight:600;color:var(--foreground);}
+.sc-md td{color:var(--card-foreground);}
+.sc-scroll::-webkit-scrollbar{width:9px;}
+.sc-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:9px;border:3px solid var(--card);}
+.sc-scroll::-webkit-scrollbar-track{background:transparent;}
+</style>
+</helmet>
+<div ref="{{ setRoot }}" class="sc-root {{ themeClass }}" style="width:100%;height:100vh;position:relative;overflow:hidden;background:var(--sc-canvas);font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:var(--foreground);">
+
+  <sc-if value="{{ showHostPage }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:0;padding:56px 64px;overflow:hidden;user-select:none;pointer-events:none;">
+      <div style="max-width:560px;display:flex;flex-direction:column;gap:22px;">
+        <div style="font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted-foreground);font-weight:600;">Docs · Getting started</div>
+        <div style="font-size:38px;font-weight:600;letter-spacing:-.02em;color:var(--foreground);opacity:.45;line-height:1.12;">Workspace Assistant</div>
+        <div style="font-size:15px;line-height:1.8;color:var(--muted-foreground);max-width:480px;">A side-chat that lives next to your work. It reads the page you're on, keeps context scoped, and answers inline — no tab-switching required.</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+          <div style="height:10px;width:90%;background:var(--border);border-radius:5px;"></div>
+          <div style="height:10px;width:78%;background:var(--muted);border-radius:5px;"></div>
+          <div style="height:10px;width:85%;background:var(--border);border-radius:5px;"></div>
+          <div style="height:10px;width:60%;background:var(--muted);border-radius:5px;"></div>
+        </div>
+        <div style="font-size:22px;font-weight:600;letter-spacing:-.01em;color:var(--foreground);opacity:.4;margin-top:18px;">Context scope</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="height:10px;width:88%;background:var(--border);border-radius:5px;"></div>
+          <div style="height:10px;width:72%;background:var(--muted);border-radius:5px;"></div>
+          <div style="height:10px;width:80%;background:var(--border);border-radius:5px;"></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="{{ panelStyle }}">
+
+    <sc-if value="{{ floating }}" hint-placeholder-val="{{ true }}">
+      <button onPointerDown="{{ onResizeTL }}" aria-label="Resize" style="position:absolute;top:0;left:0;z-index:34;width:15px;height:15px;cursor:nwse-resize;background:transparent;border:none;padding:0;"></button>
+      <button onPointerDown="{{ onResizeTop }}" aria-label="Resize height" style="position:absolute;top:0;left:15px;right:14px;z-index:30;height:8px;cursor:ns-resize;background:transparent;border:none;padding:0;"></button>
+    </sc-if>
+    <button onPointerDown="{{ onResizeLeft }}" aria-label="Resize width" style="position:absolute;top:15px;bottom:14px;left:0;z-index:30;width:8px;cursor:ew-resize;background:transparent;border:none;padding:0;"></button>
+
+    <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ onCloseMenus }}" style="position:fixed;inset:0;z-index:40;"></div>
+    </sc-if>
+
+    <div style="display:flex;flex:1;min-height:0;width:100%;">
+
+      <sc-if value="{{ wide }}" hint-placeholder-val="{{ false }}">
+        <div style="width:248px;flex:none;display:flex;flex-direction:column;min-height:0;background:var(--sidebar);color:var(--sidebar-foreground);border-right:1px solid var(--sidebar-border);">
+          <div style="padding:13px 12px 8px;flex:none;">
+            <button onClick="{{ onNewChat }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:var(--sidebar-accent);border:1px solid var(--sidebar-border);padding:9px 11px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:500;color:var(--sidebar-foreground);" style-hover="filter:brightness(0.97);">
+              <span style="color:var(--primary);display:inline-flex;flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+              New chat
+            </button>
+          </div>
+          <div class="sc-scroll" style="flex:1;overflow-y:auto;padding:4px 8px 12px;min-height:0;">
+            <div style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground);padding:8px 8px 7px;font-weight:600;">Recent</div>
+            <sc-for list="{{ convoOptions }}" as="cv" hint-placeholder-count="3">
+              <button onClick="{{ cv.onClick }}" style="{{ cv.railStyle }}" style-hover="background:var(--sidebar-accent);">
+                <span style="font-size:13px;color:var(--sidebar-foreground);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">{{ cv.title }}</span>
+                <span style="font-size:11px;color:var(--muted-foreground);">{{ cv.subtitle }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;">
+
+    <!-- HEADER -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 12px 15px;border-bottom:1px solid var(--border);flex:none;">
+      <div style="position:relative;min-width:0;">
+        <button onClick="{{ onToggleConvos }}" style="display:flex;align-items:center;gap:9px;background:none;border:none;padding:4px 6px 4px 4px;margin:-4px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;min-width:0;" style-hover="background:var(--accent);">
+          <span style="width:27px;height:27px;border-radius:var(--radius-md);background:var(--accent);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex:none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--primary)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.5 L20.5 12 L12 21.5 L3.5 12 Z M12 6.2 L17.2 12 L12 17.8 L6.8 12 Z"/><circle cx="12" cy="12" r="1.7"/></svg>
+          </span>
+          <span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0;">
+            <span style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--card-foreground);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Workspace Assistant</span>
+          </span>
+          <sc-if value="{{ notWide }}" hint-placeholder-val="{{ true }}"><span style="color:var(--muted-foreground);display:inline-flex;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></sc-if>
+        </button>
+        <sc-if value="{{ menuConvos }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:42px;left:0;width:282px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:0 16px 44px rgba(0,0,0,.16);padding:6px;z-index:60;">
+            <button onClick="{{ onNewChat }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:10px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:13.5px;color:var(--popover-foreground);font-weight:500;" style-hover="background:var(--accent);">
+              <span style="color:var(--primary);display:inline-flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+              New chat
+            </button>
+            <div style="height:1px;background:var(--border);margin:5px 6px;"></div>
+            <div style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground);padding:6px 10px 7px;font-weight:600;">Recent</div>
+            <sc-for list="{{ convoOptions }}" as="cv" hint-placeholder-count="3">
+              <button onClick="{{ cv.onClick }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:none;padding:9px 10px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;" style-hover="background:var(--accent);">
+                <span style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                  <span style="font-size:13.5px;color:var(--popover-foreground);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ cv.title }}</span>
+                  <span style="font-size:11.5px;color:var(--muted-foreground);">{{ cv.subtitle }}</span>
+                </span>
+                <sc-if value="{{ cv.active }}" hint-placeholder-val="{{ false }}"><span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex:none;"></span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:3px;flex:none;">
+        <button onClick="{{ onToggleSettings }}" title="Settings" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;border-radius:var(--radius-md);cursor:pointer;color:var(--muted-foreground);" style-hover="background:var(--accent);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button onClick="{{ onNewChat }}" title="New chat" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;border-radius:var(--radius-md);cursor:pointer;color:var(--muted-foreground);" style-hover="background:var(--accent);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button title="Close" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;border-radius:var(--radius-md);cursor:pointer;color:var(--muted-foreground);" style-hover="background:var(--accent);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div ref="{{ setBody }}" class="sc-scroll" style="flex:1;overflow-y:auto;padding:22px 20px 8px;display:flex;flex-direction:column;align-items:center;">
+      <div style="width:100%;max-width:712px;flex:1;display:flex;flex-direction:column;gap:22px;">
+
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:20px;padding:6px 2px 30px;max-width:452px;width:100%;margin:0 auto;">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <span style="width:40px;height:40px;border-radius:var(--radius-md);background:var(--accent);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary)"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.5 L20.5 12 L12 21.5 L3.5 12 Z M12 6.2 L17.2 12 L12 17.8 L6.8 12 Z"/><circle cx="12" cy="12" r="1.7"/></svg>
+            </span>
+            <div style="font-size:24px;font-weight:600;letter-spacing:-.01em;color:var(--card-foreground);line-height:1.25;">How can I help with this page?</div>
+            <div style="font-size:13.5px;line-height:1.6;color:var(--muted-foreground);max-width:330px;">I can see the page you're viewing. Ask about it, or pick a place to start.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-top:2px;">
+            <sc-for list="{{ suggestions }}" as="sug" hint-placeholder-count="4">
+              <button onClick="{{ sug.onClick }}" style="display:flex;align-items:center;gap:11px;text-align:left;background:none;border:none;border-radius:var(--radius-md);padding:11px 12px;font-size:14px;color:var(--card-foreground);font-family:inherit;cursor:pointer;" style-hover="background:var(--accent);">
+                <span style="color:var(--muted-foreground);display:inline-flex;flex:none;">{{ sug.icon }}</span>
+                <span style="flex:1;">{{ sug.label }}</span>
+                <span style="color:var(--border);display:inline-flex;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-for list="{{ messages }}" as="msg" hint-placeholder-count="0">
+        <sc-if value="{{ msg.isUser }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;justify-content:flex-end;">
+            <div style="max-width:82%;background:var(--muted);color:var(--foreground);font-size:15px;line-height:1.55;padding:10px 15px;border-radius:var(--radius-lg);border-bottom-right-radius:var(--radius-sm);white-space:pre-wrap;">{{ msg.text }}</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ msg.isAssistant }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:13px;">
+
+            <sc-if value="{{ msg.showThinking }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:9px;">
+                <button onClick="{{ msg.onToggleThinking }}" style="display:flex;align-items:center;gap:7px;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;align-self:flex-start;">
+                  <span style="display:inline-flex;color:var(--primary);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5a4 4 0 0 0-3.8 5.2A3.6 3.6 0 0 0 5 14.6a3.5 3.5 0 0 0 1.4 4.7A3.4 3.4 0 0 0 12 21.4Z"/><path d="M14.5 2.5a4 4 0 0 1 3.8 5.2A3.6 3.6 0 0 1 19 14.6a3.5 3.5 0 0 1-1.4 4.7A3.4 3.4 0 0 1 12 21.4Z"/></svg></span>
+                  <span style="{{ msg.labelStyle }}">{{ msg.thinkingLabel }}</span>
+                  <span style="{{ msg.chevStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+                </button>
+                <sc-if value="{{ msg.thinkingOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-left:7px;padding-left:15px;border-left:1.5px solid var(--border);display:flex;flex-direction:column;gap:11px;">
+                    <sc-for list="{{ msg.segments }}" as="seg" hint-placeholder-count="0">
+                      <sc-if value="{{ seg.isText }}" hint-placeholder-val="{{ false }}">
+                        <div style="color:var(--muted-foreground);font-size:13px;line-height:1.66;white-space:pre-wrap;">{{ seg.text }}<sc-if value="{{ seg.showCaret }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:5px;height:13px;background:var(--muted-foreground);margin-left:1px;vertical-align:text-bottom;animation:sccaret 1s steps(1) infinite;"></span></sc-if></div>
+                      </sc-if>
+                      <sc-if value="{{ seg.isTool }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;align-items:center;gap:9px;">
+                          <span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;flex:none;">
+                            <sc-if value="{{ seg.running }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;color:var(--primary);animation:scspin .7s linear infinite;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg></span></sc-if>
+                            <sc-if value="{{ seg.done }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;color:var(--success);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></sc-if>
+                          </span>
+                          <span style="font-size:12.5px;font-weight:500;color:var(--foreground);">{{ seg.label }}</span>
+                        </div>
+                      </sc-if>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ msg.showStreamText }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:15px;line-height:1.66;color:var(--card-foreground);white-space:pre-wrap;">{{ msg.text }}<span style="display:inline-block;width:6px;height:15px;background:var(--foreground);margin-left:2px;vertical-align:text-bottom;animation:sccaret 1s steps(1) infinite;"></span></div>
+            </sc-if>
+
+            <sc-if value="{{ msg.showHtml }}" hint-placeholder-val="{{ false }}">
+              <div class="sc-md" dangerouslySetInnerHTML="{{ msg.bodyDanger }}"></div>
+            </sc-if>
+
+            <sc-if value="{{ msg.showActions }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:2px;margin-top:-3px;">
+                <button onClick="{{ msg.onCopy }}" title="Copy" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;font-size:12px;color:var(--muted-foreground);" style-hover="background:var(--accent);color:var(--foreground);">
+                  <sc-if value="{{ msg.copied }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;color:var(--success);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></sc-if>
+                  <sc-if value="{{ msg.notCopied }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span></sc-if>
+                  <span>{{ msg.copyLabel }}</span>
+                </button>
+                <button onClick="{{ msg.onRetry }}" title="Regenerate" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;font-size:12px;color:var(--muted-foreground);" style-hover="background:var(--accent);color:var(--foreground);">
+                  <span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></span>
+                  Retry
+                </button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ msg.isErrorPhase }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:11px;background:var(--muted);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px 15px;">
+                <div style="display:flex;align-items:flex-start;gap:10px;">
+                  <span style="display:inline-flex;color:color-mix(in oklch, var(--destructive) 50%, var(--muted-foreground));margin-top:1px;flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.3h.01"/></svg></span>
+                  <span style="font-size:13.5px;line-height:1.55;color:var(--foreground);">{{ msg.text }}</span>
+                </div>
+                <button onClick="{{ msg.onRetry }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;background:var(--card);border:1px solid var(--border);color:var(--foreground);font-size:12.5px;font-family:inherit;font-weight:500;padding:6px 12px;border-radius:var(--radius-md);cursor:pointer;" style-hover="background:var(--accent);">
+                  <span style="display:inline-flex;color:var(--muted-foreground);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
+                  Try again
+                </button>
+              </div>
+            </sc-if>
+
+          </div>
+        </sc-if>
+      </sc-for>
+
+      <div style="height:2px;flex:none;"></div>
+      </div>
+    </div>
+
+    <!-- COMPOSER -->
+    <div style="flex:none;padding:8px 16px 16px;">
+      <div class="sc-composer" style="border:1px solid var(--input);border-radius:var(--radius-xl);background:var(--background);box-shadow:0 1px 2px rgba(0,0,0,.04);display:flex;flex-direction:column;max-width:712px;width:100%;margin:0 auto;">
+        <textarea value="{{ input }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="Ask about this page…" rows="1" style="width:100%;border:none;outline:none;resize:none;font-family:inherit;font-size:15px;color:var(--foreground);background:transparent;line-height:1.5;padding:14px 18px 4px;min-height:46px;display:block;"></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px 9px;">
+          <div style="display:flex;align-items:center;gap:4px;min-width:0;">
+            <div style="position:relative;flex:none;">
+              <button onClick="{{ onTogglePlus }}" title="Add context & tools" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;background:var(--background);border:1px solid var(--border);border-radius:50%;cursor:pointer;color:var(--muted-foreground);flex:none;padding:0;" style-hover="background:var(--accent);">
+                <span style="{{ plusIconStyle }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+              </button>
+              <sc-if value="{{ menuPlus }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;bottom:42px;left:0;width:256px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:0 18px 48px rgba(0,0,0,.18);padding:6px;z-index:60;">
+                  <button onClick="{{ onCloseMenus }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:8px 9px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:13px;color:var(--popover-foreground);" style-hover="background:var(--accent);">
+                    <span style="display:inline-flex;color:var(--muted-foreground);flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.05-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49"/></svg></span>
+                    <span style="flex:1;">Attach file</span>
+                  </button>
+                  <button onClick="{{ onCloseMenus }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:8px 9px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:13px;color:var(--popover-foreground);" style-hover="background:var(--accent);">
+                    <span style="display:inline-flex;color:var(--muted-foreground);flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.6-3.6a2 2 0 0 0-2.8 0L6 21"/></svg></span>
+                    <span style="flex:1;">Add screenshot</span>
+                  </button>
+                  <button onClick="{{ onCloseMenus }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:8px 9px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:13px;color:var(--popover-foreground);" style-hover="background:var(--accent);">
+                    <span style="display:inline-flex;color:var(--muted-foreground);flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
+                    <span style="flex:1;">Add link</span>
+                  </button>
+                  <div style="height:1px;background:var(--border);margin:5px 6px;"></div>
+                  <div style="font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted-foreground);padding:6px 9px 5px;font-weight:600;">Tools</div>
+                  <button onClick="{{ onToggleSearch }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:8px 9px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:13px;color:var(--popover-foreground);" style-hover="background:var(--accent);">
+                    <span style="display:inline-flex;color:var(--muted-foreground);flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"/></svg></span>
+                    <span style="flex:1;">Web search</span>
+                    <span style="{{ searchTrack }}"><span style="{{ searchKnob }}"></span></span>
+                  </button>
+                  <button onClick="{{ onToggleCode }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:8px 9px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:13px;color:var(--popover-foreground);" style-hover="background:var(--accent);">
+                    <span style="display:inline-flex;color:var(--muted-foreground);flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-5-6-5"/><path d="M12 19h8"/></svg></span>
+                    <span style="flex:1;">Code interpreter</span>
+                    <span style="{{ codeTrack }}"><span style="{{ codeKnob }}"></span></span>
+                  </button>
+                  <div style="height:1px;background:var(--border);margin:5px 6px;"></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 9px 5px;">
+                    <span style="font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted-foreground);font-weight:600;">Context scope</span>
+                    <span style="width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;box-shadow:0 0 0 2.5px color-mix(in oklch, var(--success) 18%, transparent);"></span>
+                  </div>
+                  <sc-for list="{{ scopeOptions }}" as="opt" hint-placeholder-count="3">
+                    <button onClick="{{ opt.onClick }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:8px 9px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:13px;color:var(--popover-foreground);" style-hover="background:var(--accent);">
+                      <span style="display:inline-flex;color:var(--muted-foreground);flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v6h6"/></svg></span>
+                      <span style="flex:1;">{{ opt.label }}</span>
+                      <sc-if value="{{ opt.active }}" hint-placeholder-val="{{ false }}"><span style="color:var(--primary);display:inline-flex;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></sc-if>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;min-width:0;">
+            <div title="Context used" style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted-foreground);flex:none;padding-right:3px;">
+              <svg width="13" height="13" viewBox="0 0 18 18"><circle cx="9" cy="9" r="6.5" fill="none" stroke="var(--border)" stroke-width="2.4"/><circle cx="9" cy="9" r="6.5" fill="none" stroke="var(--muted-foreground)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="40.8 40.8" stroke-dashoffset="{{ ringOffset }}" transform="rotate(-90 9 9)"/></svg>
+              <span>{{ ctxPct }}%</span>
+            </div>
+            <div style="position:relative;min-width:0;">
+              <button onClick="{{ onToggleAssistant }}" style="display:flex;align-items:center;gap:5px;background:none;border:none;padding:6px 9px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:12.5px;color:var(--card-foreground);min-width:0;" style-hover="background:var(--accent);">
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:118px;">{{ assistant }}</span>
+                <span style="color:var(--muted-foreground);display:inline-flex;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg></span>
+              </button>
+              <sc-if value="{{ menuAssistant }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;bottom:42px;right:0;width:300px;max-width:calc(100vw - 32px);background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:0 18px 48px rgba(0,0,0,.18);overflow:hidden;z-index:60;">
+                  <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--border);">
+                    <span style="display:inline-flex;color:var(--muted-foreground);flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+                    <input ref="{{ setAsstSearch }}" value="{{ assistantQuery }}" onChange="{{ onAssistantSearch }}" placeholder="Search models…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:inherit;font-size:13.5px;color:var(--popover-foreground);" />
+                  </div>
+                  <div class="sc-scroll" style="max-height:236px;overflow-y:auto;padding:5px;">
+                    <sc-for list="{{ assistantOptions }}" as="opt" hint-placeholder-count="4">
+                      <button onClick="{{ opt.onClick }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:9px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;" style-hover="background:var(--accent);">
+                        <span style="width:26px;height:26px;border-radius:var(--radius-md);background:var(--muted);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex:none;color:var(--muted-foreground);">{{ opt.icon }}</span>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
+                          <span style="font-size:13.5px;color:var(--popover-foreground);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ opt.label }}</span>
+                          <span style="font-size:11.5px;color:var(--muted-foreground);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ opt.desc }}</span>
+                        </span>
+                        <sc-if value="{{ opt.active }}" hint-placeholder-val="{{ false }}"><span style="color:var(--primary);display:inline-flex;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></sc-if>
+                      </button>
+                    </sc-for>
+                    <sc-if value="{{ assistantEmpty }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:20px 9px;text-align:center;font-size:13px;color:var(--muted-foreground);">No models found.</div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+            <button onClick="{{ onSend }}" title="Send" style="{{ sendStyle }}">
+              <span style="{{ sendIconStyle }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+      </div>
+    </div>
+
+    <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:65;background:var(--card);display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 12px 12px 8px;border-bottom:1px solid var(--border);flex:none;">
+          <button onClick="{{ onToggleSettings }}" title="Back" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;border-radius:var(--radius-md);cursor:pointer;color:var(--muted-foreground);" style-hover="background:var(--accent);">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <span style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--card-foreground);">Settings</span>
+          <button onClick="{{ onToggleSettings }}" title="Close" style="margin-left:auto;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;border-radius:var(--radius-md);cursor:pointer;color:var(--muted-foreground);" style-hover="background:var(--accent);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="sc-scroll" style="flex:1;overflow-y:auto;padding:22px 20px;">
+          <div style="max-width:560px;margin:0 auto;">
+            <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground);font-weight:600;">Theme</div>
+            <div style="font-size:13px;color:var(--muted-foreground);margin-top:6px;line-height:1.55;">Pick how the assistant looks. Every surface, accent and corner follows your choice.</div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+              <sc-for list="{{ themeOptions }}" as="opt" hint-placeholder-count="3">
+                <button onClick="{{ opt.onClick }}" style="{{ opt.cardStyle }}" style-hover="border-color:var(--muted-foreground);">
+                  <div style="{{ opt.canvasStyle }}">
+                    <div style="{{ opt.surfaceStyle }}">
+                      <div style="{{ opt.barStyle }}"></div>
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
+                        <div style="{{ opt.bar2Style }}"></div>
+                        <div style="{{ opt.dotStyle }}"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:14px;font-weight:600;color:var(--card-foreground);">{{ opt.name }}</div>
+                    <div style="font-size:12.5px;color:var(--muted-foreground);margin-top:2px;line-height:1.4;">{{ opt.desc }}</div>
+                  </div>
+                  <span style="{{ opt.checkStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary-foreground)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:820},&quot;showHostPage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;radius&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Sharp&quot;,&quot;Default&quot;,&quot;Rounded&quot;],&quot;default&quot;:&quot;Default&quot;,&quot;tsType&quot;:&quot;'Sharp' | 'Default' | 'Rounded'&quot;},&quot;sendOnEnter&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const R = React;
+const ic = (d, sw) => R.createElement('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','strokeWidth':sw||1.8,strokeLinecap:'round',strokeLinejoin:'round'}, ...d.map((p,i)=>R.createElement('path',{key:i,d:p})));
+const ICONS = {
+  sparkle: ic(['M12 3v18','M3 12h18','M6.5 6.5l11 11','M17.5 6.5l-11 11'],1.5),
+  doc: ic(['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z','M14 2v6h6','M9 13h6','M9 17h4']),
+  code: ic(['m16 18 4-4-4-4','m8 6-4 4 4 4','m14.5 4-5 16']),
+  pen: ic(['M12 20h9','M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z']),
+  search: ic(['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z','m21 21-4.3-4.3']),
+  bot: ic(['M12 8V4H8','M4 8h16v12H4z','M2 14h2','M20 14h2','M9 13v2','M15 13v2'],1.7),
+  brain: ic(['M9.5 2.5a4 4 0 0 0-3.8 5.2A3.6 3.6 0 0 0 5 14.6a3.5 3.5 0 0 0 1.4 4.7A3.4 3.4 0 0 0 12 21.4Z','M14.5 2.5a4 4 0 0 1 3.8 5.2A3.6 3.6 0 0 1 19 14.6a3.5 3.5 0 0 1-1.4 4.7A3.4 3.4 0 0 1 12 21.4Z'],1.6),
+  alert: ic(['M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z','M12 9v4','M12 17h.01'])
+};
+
+const swStyle = (on)=>({
+  track: { width:'30px', height:'18px', borderRadius:'9px', background: on?'var(--primary)':'var(--input)', position:'relative', transition:'background .16s ease', flex:'none', display:'inline-block' },
+  knob: { position:'absolute', top:'2px', left: on?'14px':'2px', width:'14px', height:'14px', borderRadius:'50%', background:'oklch(0.99 0 0)', transition:'left .16s ease', boxShadow:'0 1px 2px rgba(0,0,0,.28)' }
+});
+
+const MODELS = [
+  {id:'Default assistant', desc:'Balanced · everyday help'},
+  {id:'Code helper', desc:'Tuned for engineering'},
+  {id:'Writing coach', desc:'Drafting & editing'},
+  {id:'Researcher', desc:'Deep, cited answers'}
+];
+const SCOPES = ['This page','Selection','Whole workspace'];
+const THEMES = [
+  {id:'default', name:'Graphite', desc:'Clean neutral grayscale — the default look.', canvas:'#fafafa', surface:'#ffffff', line:'#e7e7e7', primary:'#1f1f1f'},
+  {id:'sage', name:'Sage', desc:'Soft, calm green neutrals.', canvas:'#eef2ea', surface:'#ffffff', line:'#d9e0d4', primary:'#3f6b50'},
+  {id:'ocean', name:'Ocean', desc:'Cool, focused blues.', canvas:'#e9f0f8', surface:'#ffffff', line:'#d3deec', primary:'#2f6ad0'}
+];
+const SUGG = [
+  {label:'Summarize this page', flow:'summarize', icon:'doc'},
+  {label:'Explain the context scope section', flow:'default', icon:'sparkle'},
+  {label:'Show me a debounce helper', flow:'code', icon:'code'},
+  {label:'Draft a reply about this', flow:'default', icon:'pen'},
+  {label:'Retry a failed request', flow:'error', icon:'alert'}
+];
+
+const FLOWS = {
+  default: {
+    steps: [
+      {text: "Okay, they want me to slow down and be deliberate. I don't have a concrete task yet, so jumping to an answer would just be guessing. Better to surface the kinds of things they could hand me, then offer to walk through whichever one carefully."}
+    ],
+    stream: "Happy to take a more deliberate, step-by-step approach.\n\nWhat would you like me to think through? You can give me a problem, a decision, a writing task, a code or debugging issue, or even just a half-formed idea — and I'll reason it out with you.",
+    html: "<p>Happy to take a more deliberate, step-by-step approach.</p><p>What would you like me to think through? You can give me:</p><ul><li>a <strong>problem</strong> to work out</li><li>a <strong>decision</strong> to weigh</li><li>a <strong>writing task</strong></li><li>a <strong>code or debugging</strong> issue</li><li>or just a <strong>half-formed idea</strong></li></ul><p>I'll reason it out with you and show my thinking as I go.</p>"
+  },
+  summarize: {
+    steps: [
+      {text: "Let me actually look at what's on this page before I summarize anything."},
+      {tool: "Reading this page"},
+      {text: "There's an intro, a setup section, a part on context scope, and tips near the end. I'll pull the through-line rather than restate every paragraph."},
+      {tool: "Pulling out the key points"},
+      {text: "Good — that compresses down to a few skimmable bullets."}
+    ],
+    stream: "Here's the gist of this page.\n\nIt introduces the Workspace Assistant, walks through setup and how context scope works, and closes with a few usage tips.",
+    html: "<p>Here's the gist of <strong>this page</strong>:</p><ul><li>Introduces the <strong>Workspace Assistant</strong> and what it's for.</li><li>Covers <strong>setup</strong> and how <strong>context scope</strong> works.</li><li>Closes with usage tips and shortcuts.</li></ul><p>Want this as a <strong>shareable note</strong>?</p>"
+  },
+  code: {
+    steps: [
+      {text: "They want a debounce helper. Let me first check how debouncing is already done in the workspace so mine matches the conventions."},
+      {tool: "Searching the workspace"},
+      {tool: "Reading 3 files"},
+      {text: "Right — the simplest correct version is a closure holding a timer that's cleared on each call. I'll keep it tiny and framework-agnostic, then note the wait times people reach for."}
+    ],
+    stream: "Here's a small debounce helper and where it fits.\n\nIt waits until the calls stop coming, then fires once — ideal for search inputs and autosave.",
+    html: "<h3>Debounce</h3><p>A tiny, framework-agnostic helper:</p><pre><code>function debounce(fn, wait = 300) {\n  let t;\n  return (...args) =&gt; {\n    clearTimeout(t);\n    t = setTimeout(() =&gt; fn(...args), wait);\n  };\n}</code></pre><p>Wait times worth reaching for:</p><table><thead><tr><th>Use case</th><th>Wait</th></tr></thead><tbody><tr><td>Typing / search</td><td>200–300ms</td></tr><tr><td>Resize</td><td>100ms</td></tr><tr><td>Autosave</td><td>1000ms</td></tr></tbody></table><p>Drop it in your <code>utils</code> and you're set.</p>"
+  },
+  error: {
+    steps: [
+      {text: "Opening a connection to the model and sending the request. Waiting on the first response chunk…"}
+    ],
+    error: true,
+    errorText: "Couldn't reach the model — the request timed out after 30s. Your message is still here."
+  }
+};
+
+const HISTORY = {
+  c2: [
+    {id:'h1', role:'user', text:"What's left before the Q3 launch?"},
+    {id:'h2', role:'assistant', phase:'answer', seconds:3, reasonStreaming:false, reasonOpen:false, segments:[{kind:'text',text:'Let me pull the launch checklist off this page and see what is still open.'},{kind:'tool',label:'Reading this page',status:'done'},{kind:'text',text:'Two items are blocked on review; the rest are simply unstarted.'}], text:'', plain:"You're close. Remaining: QA pass on onboarding, finalize pricing copy, schedule the announcement email. Two are blocked on review.", html:"<p>You're close. Remaining items:</p><ul><li><strong>QA pass</strong> on the new onboarding flow.</li><li>Finalize <strong>pricing copy</strong> on the marketing page.</li><li>Schedule the <strong>announcement email</strong>.</li></ul><p>Two of these are blocked on review.</p>"}
+  ],
+  c3: [
+    {id:'h3', role:'user', text:'how do I debounce input?'},
+    {id:'h4', role:'assistant', phase:'answer', seconds:2, reasonStreaming:false, reasonOpen:false, segments:[{kind:'text',text:'Quick one — let me grab a canonical debounce and the usual wait times.'},{kind:'tool',label:'Searching the workspace',status:'done'}], text:'', plain:FLOWS.code.stream, html: FLOWS.code.html}
+  ]
+};
+
+class Component extends DCLogic {
+  state = {
+    panelW: 840, panelH: 760,
+    messages: [], input: '',
+    assistant: 'Default assistant', assistantQuery: '',
+    scope: 'This page', busy: false, menu: null, copiedId: null,
+    theme: 'default', settingsOpen: false,
+    tools: { search:false, code:false },
+    activeConvo: 'c1',
+    convos: [
+      {id:'c1', title:'New conversation', subtitle:'Now'},
+      {id:'c2', title:'Q3 launch checklist', subtitle:'2h ago'},
+      {id:'c3', title:'Debounce helper', subtitle:'Yesterday'}
+    ]
+  };
+
+  componentDidMount(){
+    const ds = this.props.defaultPanelSize;
+    if(ds && typeof ds.width==='number' && typeof ds.height==='number'){ this.setState({panelW:ds.width, panelH:ds.height}); }
+    this._move = (e)=>this.onResizeMove(e); this._up = ()=>this.onResizeEnd();
+    window.addEventListener('pointermove', this._move);
+    window.addEventListener('pointerup', this._up);
+    window.addEventListener('pointercancel', this._up);
+    requestAnimationFrame(()=>this.clampPanel());
+  }
+  componentWillUnmount(){
+    this.clearTimers();
+    window.removeEventListener('pointermove', this._move);
+    window.removeEventListener('pointerup', this._up);
+    window.removeEventListener('pointercancel', this._up);
+  }
+  componentDidUpdate(){ if(this.bodyEl && !this.resize){ this.bodyEl.scrollTop = this.bodyEl.scrollHeight; } }
+
+  bounds(){ const r = this.rootEl ? this.rootEl.getBoundingClientRect() : {width:1200,height:820}; return { maxW: Math.max(360, r.width-32), maxH: Math.max(420, r.height-32) }; }
+  clampPanel(){ const {maxW,maxH} = this.bounds(); this.setState(s=>({ panelW: Math.min(Math.max(s.panelW,360),maxW), panelH: Math.min(Math.max(s.panelH,420),maxH) })); }
+  startResize(handle, e){
+    if(e.button!==undefined && e.button!==0) return;
+    e.preventDefault(); e.stopPropagation();
+    try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
+    this.resize = { handle, startX:e.clientX, startY:e.clientY, startW:this.state.panelW, startH:this.state.panelH };
+    document.body.style.userSelect = 'none';
+  }
+  onResizeMove(e){
+    const r = this.resize; if(!r) return;
+    const dx = e.clientX - r.startX, dy = e.clientY - r.startY;
+    let w = r.startW, h = r.startH;
+    if(r.handle==='left' || r.handle==='top-left') w = r.startW - dx;
+    if(r.handle==='top' || r.handle==='top-left' || r.handle==='top-right') h = r.startH - dy;
+    const {maxW,maxH} = this.bounds();
+    this.setState({ panelW: Math.min(Math.max(w,360),maxW), panelH: Math.min(Math.max(h,420),maxH) });
+  }
+  onResizeEnd(){ if(this.resize){ this.resize=null; document.body.style.userSelect=''; } }
+
+  uid(){ this._n=(this._n||0)+1; return 'm'+this._n+Math.random().toString(36).slice(2,6); }
+  after(ms,fn){ const t=setTimeout(fn,ms); (this.timers||(this.timers=[])).push(t); return t; }
+  clearTimers(){ (this.timers||[]).forEach(clearTimeout); this.timers=[]; if(this.typeTimer){ clearInterval(this.typeTimer); this.typeTimer=null; } if(this.doneTimer){ clearTimeout(this.doneTimer); this.doneTimer=null; } this.streamToken=null; }
+  updateMsg(id, fn){ this.setState(s=>({messages: s.messages.map(m=>m.id===id?fn(m):m)})); }
+
+  routeFlow(t){
+    const s=(t||'').toLowerCase();
+    if(/error|fail|timeout|tim(e|ed|ing) out|crash|offline|not working|won'?t (load|work|respond)|(is|went) down|unavailable|broke/.test(s)) return 'error';
+    if(/code|debounce|debug|function|bug|snippet|throttle/.test(s)) return 'code';
+    if(/summar|tl;dr|recap|key points|overview|gist/.test(s)) return 'summarize';
+    return 'default';
+  }
+
+  send(textOverride, flowKey){
+    const raw = textOverride!=null ? textOverride : this.state.input;
+    const text = (raw||'').trim();
+    if(!text || this.state.busy) return;
+    const flow = flowKey || this.routeFlow(text);
+    this.setState(s=>({ messages:[...s.messages, {id:this.uid(), role:'user', text}], input:'', menu:null }), ()=>this.startAssistant(flow));
+  }
+
+  startAssistant(flowKey){
+    const f = FLOWS[flowKey] || FLOWS.default;
+    const id = this.uid();
+    const msg = {id, role:'assistant', phase:'reasoning', seconds:null,
+      segments:[], reasonStreaming:true, reasonOpen:true,
+      text:'', html:null, plain:f.stream||'', streaming:false,
+      retryFlow:flowKey, errorText:f.errorText, error:!!f.error};
+    this.setState(s=>({messages:[...s.messages, msg], busy:true}));
+    this._reasonStart = Date.now();
+    this.runStep(id, f, 0);
+  }
+
+  appendSegment(id, seg){ this.updateMsg(id, m=>({...m, segments:[...(m.segments||[]), seg]})); }
+  setLastText(id, slice){ this.updateMsg(id, m=>{ const segs=(m.segments||[]).slice(); if(segs.length){ segs[segs.length-1]={...segs[segs.length-1], text:slice}; } return {...m, segments:segs}; }); }
+  setLastToolStatus(id, status){ this.updateMsg(id, m=>{ const segs=(m.segments||[]).slice(); for(let k=segs.length-1;k>=0;k--){ if(segs[k].kind==='tool'){ segs[k]={...segs[k], status}; break; } } return {...m, segments:segs}; }); }
+
+  // Reasoning streams as an ordered timeline: a thought types out, a tool runs to completion,
+  // the next thought types out, and so on — all inside the foldable.
+  runStep(id, f, i){
+    const steps = f.steps || [];
+    if(i >= steps.length){ this.finishReasoning(id, f); return; }
+    const step = steps[i];
+    if(step.tool){
+      this.appendSegment(id, {kind:'tool', label:step.tool, status:'running'});
+      this.after(780, ()=>{ this.setLastToolStatus(id, 'done'); this.after(220, ()=>this.runStep(id, f, i+1)); });
+    } else {
+      this.appendSegment(id, {kind:'text', text:''});
+      this.runTypewriter(id+':s'+i, step.text||'', 11,
+        (slice)=>this.setLastText(id, slice),
+        ()=>{ this.after(180, ()=>this.runStep(id, f, i+1)); });
+    }
+  }
+
+  finishReasoning(id, f){
+    const secs = Math.max(1, Math.round((Date.now()-(this._reasonStart||Date.now()))/1000));
+    this.updateMsg(id, m=>({...m, reasonStreaming:false, seconds:secs}));
+    if(f.error){ this.after(220, ()=>this.fail(id, f)); return; }
+    this.after(640, ()=>{ this.updateMsg(id, m=>({...m, reasonOpen:false})); this.after(240, ()=>this.stream(id, f)); });
+  }
+
+  fail(id, f){ this.updateMsg(id, m=>({...m, phase:'error', text:f.errorText})); this.setState({busy:false}); }
+
+  runTypewriter(token, full, perChar, onSlice, onDone){
+    full = full||''; const start = Date.now(); const totalMs = Math.max(200, full.length*perChar);
+    this.streamToken = token;
+    if(this.typeTimer) clearInterval(this.typeTimer);
+    if(this.doneTimer) clearTimeout(this.doneTimer);
+    const finalize = ()=>{
+      if(this.streamToken!==token) return;
+      if(this.typeTimer){ clearInterval(this.typeTimer); this.typeTimer=null; }
+      if(this.doneTimer){ clearTimeout(this.doneTimer); this.doneTimer=null; }
+      this.streamToken=null; onSlice(full); onDone();
+    };
+    this.typeTimer = setInterval(()=>{
+      if(this.streamToken!==token){ clearInterval(this.typeTimer); this.typeTimer=null; return; }
+      const n = Math.min(full.length, Math.floor((Date.now()-start)/perChar));
+      onSlice(full.slice(0,n));
+      if(n>=full.length) finalize();
+    }, 33);
+    this.doneTimer = setTimeout(finalize, totalMs+80);
+  }
+
+  stream(id, f){
+    this.updateMsg(id, m=>({...m, phase:'answer', streaming:true, text:''}));
+    this.runTypewriter(id+':a', f.stream||'', 10,
+      (slice)=>this.updateMsg(id, m=>({...m, text:slice})),
+      ()=>{ this.updateMsg(id, m=>({...m, streaming:false, text:'', html:f.html})); this.setState({busy:false}); });
+  }
+
+  retry(id){
+    this.clearTimers();
+    let flowKey='default';
+    this.setState(s=>({ busy:true, messages: s.messages.map(m=>{
+      if(m.id===id){
+        flowKey = (m.retryFlow==='error') ? 'default' : (m.retryFlow||'default');
+        const f = FLOWS[flowKey] || FLOWS.default;
+        return {...m, phase:'reasoning', text:'', html:null, plain:f.stream||'', seconds:null,
+          segments:[], reasonStreaming:true, reasonOpen:true, error:!!f.error};
+      }
+      return m;
+    })}), ()=>{ this._reasonStart=Date.now(); this.runStep(id, FLOWS[flowKey] || FLOWS.default, 0); });
+  }
+
+  copyAnswer(id, plain){
+    try{ if(navigator.clipboard) navigator.clipboard.writeText(plain||''); }catch(_){}
+    this.setState({copiedId:id});
+    this.after(1300, ()=>{ if(this.state.copiedId===id) this.setState({copiedId:null}); });
+  }
+
+  toggle(name){
+    this.setState(s=>{ const open = s.menu===name?null:name; return { menu:open, assistantQuery: name==='assistant'&&open?'':s.assistantQuery }; },
+      ()=>{ if(this.state.menu==='assistant' && this.asstSearch){ try{ this.asstSearch.focus(); }catch(_){} } });
+  }
+  choose(kind, val){
+    if(kind==='assistant') this.setState({assistant:val, menu:null, assistantQuery:''});
+    else if(kind==='scope') this.setState({scope:val, menu:null});
+  }
+  toggleTool(key){ this.setState(s=>({tools:{...s.tools, [key]:!s.tools[key]}})); }
+  newChat(){ this.clearTimers(); this.setState({messages:[], busy:false, input:'', menu:null, activeConvo:'c1'}); }
+  openConvo(id){
+    this.clearTimers();
+    if(id==='c1'){ this.setState({activeConvo:id, menu:null, messages:[], busy:false}); }
+    else { this.setState({messages: JSON.parse(JSON.stringify(HISTORY[id]||[])), activeConvo:id, busy:false, menu:null}); }
+  }
+
+  renderVals(){
+    const st = this.state;
+    const showHostPage = this.props.showHostPage ?? true;
+    const sendOnEnter = this.props.sendOnEnter ?? true;
+    const theme = st.theme || 'default';
+    const radius = this.props.radius ?? 'Default';
+    const themeClass = [
+      theme==='sage' ? 'sc-theme-sage' : theme==='ocean' ? 'sc-theme-ocean' : '',
+      radius==='Sharp' ? 'sc-r-sharp' : radius==='Rounded' ? 'sc-r-rounded' : ''
+    ].filter(Boolean).join(' ');
+
+    const userCount = st.messages.filter(m=>m.role==='user').length;
+    const ctxPct = Math.min(86, 5 + userCount*9);
+    const ringOffset = (40.8*(1 - ctxPct/100)).toFixed(1);
+    const vp = this.rootEl ? this.rootEl.getBoundingClientRect() : {width:1200,height:820};
+    const wide = st.panelW >= 720 && vp.width > 780;
+    const panelStyle = {
+      position:'absolute', right:'16px', bottom:'16px', width:st.panelW+'px', height:st.panelH+'px',
+      maxWidth:'calc(100% - 32px)', maxHeight:'calc(100% - 32px)',
+      background:'var(--card)', border:'1px solid var(--border)', borderRadius:'var(--radius-xl)',
+      boxShadow:'0 24px 60px rgba(0,0,0,.18),0 4px 14px rgba(0,0,0,.07)',
+      display:'flex', flexDirection:'column', overflow:'hidden'
+    };
+    const armed = (st.input||'').trim().length>0 && !st.busy;
+    const sendBase = 'width:34px;height:34px;border-radius:var(--radius-md);border:none;display:flex;align-items:center;justify-content:center;flex:none;padding:0;transition:background .15s ease;';
+    const sendStyle = sendBase + (armed ? 'background:var(--primary);cursor:pointer;' : 'background:var(--muted);cursor:default;');
+    const sendIconStyle = 'display:inline-flex;color:' + (armed ? 'var(--primary-foreground)' : 'var(--muted-foreground)') + ';';
+
+    const messages = st.messages.map(m=>{
+      const isAssistant = m.role==='assistant';
+      const isError = m.phase==='error';
+      const reasoning = !!m.reasonStreaming;
+      const answered = isAssistant && !m.streaming && m.phase==='answer' && !!m.html;
+      const segs = (m.segments||[]);
+      const lastSeg = segs.length-1;
+      return {
+        id: m.id,
+        isUser: m.role==='user',
+        isAssistant,
+        text: m.text||'',
+        bodyDanger: m.html ? {__html:m.html} : null,
+        showStreamText: isAssistant && m.streaming,
+        showHtml: answered,
+        showActions: answered,
+        copied: st.copiedId===m.id,
+        notCopied: st.copiedId!==m.id,
+        copyLabel: st.copiedId===m.id ? 'Copied' : 'Copy',
+        isErrorPhase: isAssistant && isError,
+        showThinking: isAssistant && segs.length>0,
+        thinkingLabel: reasoning ? 'Thinking…' : (m.seconds!=null ? ('Thought for '+m.seconds+' second'+(m.seconds===1?'':'s')) : 'Thought for a few seconds'),
+        thinkingOpen: !!m.reasonOpen,
+        reasonStreaming: reasoning,
+        labelStyle: reasoning
+          ? { fontSize:'13.5px', fontWeight:500, background:'linear-gradient(90deg,var(--muted-foreground) 0%,var(--muted-foreground) 38%,var(--foreground) 50%,var(--muted-foreground) 62%,var(--muted-foreground) 100%)', backgroundSize:'220% 100%', WebkitBackgroundClip:'text', backgroundClip:'text', color:'transparent', animation:'scshimmer 1.5s linear infinite' }
+          : { fontSize:'13.5px', color:'var(--muted-foreground)' },
+        chevStyle: { display:'inline-flex', color:'var(--muted-foreground)', transform: m.reasonOpen?'rotate(180deg)':'rotate(0deg)', transition:'transform .15s ease' },
+        segments: segs.map((sg,idx)=>({
+          isText: sg.kind==='text',
+          isTool: sg.kind==='tool',
+          text: sg.text||'',
+          label: sg.label||'',
+          running: sg.status==='running',
+          done: sg.status==='done',
+          showCaret: reasoning && idx===lastSeg && sg.kind==='text'
+        })),
+        onToggleThinking: ()=>this.updateMsg(m.id, x=>({...x, reasonOpen:!x.reasonOpen})),
+        onCopy: ()=>this.copyAnswer(m.id, m.plain),
+        onRetry: ()=>this.retry(m.id)
+      };
+    });
+
+    return {
+      showHostPage, themeClass, messages,
+      isEmpty: st.messages.length===0,
+      assistant: st.assistant, scope: st.scope, input: st.input,
+      ctxPct, ringOffset, sendStyle, sendIconStyle,
+      menuOpen: st.menu!==null,
+      wide, notWide: !wide,
+      menuConvos: st.menu==='convos' && !wide, menuAssistant: st.menu==='assistant', menuPlus: st.menu==='plus',
+      settingsOpen: st.settingsOpen,
+      onToggleSettings: ()=>this.setState(s=>({settingsOpen:!s.settingsOpen, menu:null})),
+      themeOptions: THEMES.map(t=>({
+        name:t.name, desc:t.desc, active:t.id===st.theme,
+        onClick:()=>this.setState({theme:t.id}),
+        cardStyle:'display:flex;align-items:center;gap:13px;width:100%;text-align:left;padding:11px 12px;border:1.5px solid '+(t.id===st.theme?'var(--primary)':'var(--border)')+';border-radius:var(--radius-lg);background:var(--card);cursor:pointer;font-family:inherit;transition:border-color .15s ease;',
+        canvasStyle:'width:66px;height:50px;border-radius:var(--radius-md);overflow:hidden;border:1px solid '+t.line+';background:'+t.canvas+';padding:7px;flex:none;',
+        surfaceStyle:'background:'+t.surface+';border:1px solid '+t.line+';border-radius:6px;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:5px 6px;',
+        barStyle:'height:4px;width:70%;background:'+t.line+';border-radius:2px;',
+        bar2Style:'height:4px;width:42%;background:'+t.line+';border-radius:2px;',
+        dotStyle:'width:13px;height:13px;border-radius:50%;background:'+t.primary+';flex:none;',
+        checkStyle:'width:22px;height:22px;border-radius:50%;flex:none;align-items:center;justify-content:center;background:var(--primary);display:'+(t.id===st.theme?'flex':'none')+';'
+      })),
+      plusIconStyle: { display:'inline-flex', transform: st.menu==='plus'?'rotate(45deg)':'none', transition:'transform .18s ease' },
+      searchTrack: swStyle(st.tools.search).track, searchKnob: swStyle(st.tools.search).knob,
+      codeTrack: swStyle(st.tools.code).track, codeKnob: swStyle(st.tools.code).knob,
+      onTogglePlus: ()=>this.toggle('plus'),
+      onToggleSearch: ()=>this.toggleTool('search'),
+      onToggleCode: ()=>this.toggleTool('code'),
+      assistantQuery: st.assistantQuery,
+      assistantOptions: MODELS.filter(m=>m.id.toLowerCase().includes((st.assistantQuery||'').toLowerCase())).map(m=>({label:m.id, desc:m.desc, icon:ICONS.bot, active:m.id===st.assistant, onClick:()=>this.choose('assistant',m.id)})),
+      assistantEmpty: MODELS.filter(m=>m.id.toLowerCase().includes((st.assistantQuery||'').toLowerCase())).length===0,
+      scopeOptions: SCOPES.map(v=>({label:v, active:v===st.scope, onClick:()=>this.choose('scope',v)})),
+      convoOptions: st.convos.map(c=>({title:c.title, subtitle:c.subtitle, active:c.id===st.activeConvo, onClick:()=>this.openConvo(c.id), railStyle:'display:flex;flex-direction:column;gap:2px;align-items:flex-start;width:100%;text-align:left;border:none;padding:8px 10px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;margin-bottom:1px;background:'+(c.id===st.activeConvo?'var(--sidebar-accent)':'transparent')+';'})),
+      suggestions: SUGG.map(s=>({label:s.label, icon:ICONS[s.icon], onClick:()=>this.send(s.label, s.flow)})),
+      onToggleConvos: ()=>{ if(!wide) this.toggle('convos'); },
+      onToggleAssistant: ()=>this.toggle('assistant'),
+      onCloseMenus: ()=>this.setState({menu:null}),
+      onNewChat: ()=>this.newChat(),
+      onSend: ()=>this.send(),
+      onInput: (e)=>this.setState({input:e.target.value}),
+      onKey: (e)=>{ if(e.key==='Enter' && !e.shiftKey && sendOnEnter){ e.preventDefault(); this.send(); } },
+      onAssistantSearch: (e)=>this.setState({assistantQuery:e.target.value}),
+      setAsstSearch: (el)=>{ this.asstSearch = el; },
+      setBody: (el)=>{ this.bodyEl = el; },
+      setRoot: (el)=>{ this.rootEl = el; },
+      onResizeLeft: (e)=>this.startResize('left', e),
+      onResizeTop: (e)=>this.startResize('top', e),
+      onResizeTL: (e)=>this.startResize('top-left', e),
+      panelStyle, floating: true
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -3,6 +3,8 @@ export {
   createId,
   createWidgetChatRequest,
   createWidgetMessage,
+  findLastUserMessage,
+  messagesBeforeMessage,
   toErrorMessage,
   updateMessage,
 } from "./model/widget-chat.js";
