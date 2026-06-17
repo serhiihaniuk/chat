@@ -1,0 +1,38 @@
+export {
+  readWidgetConversationStore,
+  normalizeWidgetConversationTitle,
+  reconcileConversationSummaries,
+  toWidgetConversationSummary,
+  upsertStartedConversationSummary,
+  writeWidgetConversationStore,
+  type WidgetConversationStoreSnapshot,
+  type WidgetConversationSummary,
+} from "./model/widget-conversation.js";
+export {
+  useConversationQueryRepository,
+  useGetConversationHistory,
+  useGetConversations,
+  useResetConversation,
+  type RefreshConversations,
+  type RefreshConversationsInput,
+} from "./api/query/conversation-query-repository.js";
+export {
+  SIDE_CHAT_API_ERROR_CODES,
+  createSideChatApiClient,
+  SideChatApiError,
+  type ConversationSummary,
+  type FetchLike,
+  type ListConversationsOptions,
+  type ListConversationsResult,
+  type ReadHistoryOptions,
+  type ReadHistoryResult,
+  type ReadUsageOptions,
+  type RetryPolicy,
+  type ResetHistoryOptions,
+  type ResetHistoryResult,
+  type SideChatApiClient,
+  type SideChatApiClientOptions,
+  type SideChatApiErrorCode,
+  type StreamChatOptions,
+  type StreamChatResult,
+} from "./api/side-chat-api.js";

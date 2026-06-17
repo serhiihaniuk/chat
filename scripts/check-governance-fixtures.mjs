@@ -63,7 +63,7 @@ expectFailure("boundary fixture", "check-boundaries.mjs", (root) => {
 expectFailure("relative cross-package boundary fixture", "check-boundaries.mjs", (root) => {
   writeFixtureFile(
     root,
-    "packages/chat-client/src/bad.ts",
+    "packages/side-chat-widget/src/bad.ts",
     "export { value } from '../../chat-protocol/src/value.js';\n",
   );
   writeFixtureFile(root, "packages/chat-protocol/src/value.ts", "export const value = 1;\n");

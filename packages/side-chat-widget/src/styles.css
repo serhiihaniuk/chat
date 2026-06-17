@@ -57,6 +57,8 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-message-user: var(--message-user);
+  --color-message-user-foreground: var(--message-user-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -98,6 +100,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --message-user: var(--sidebar-accent);
+  --message-user-foreground: var(--sidebar-accent-foreground);
 }
 
 .dark {
@@ -134,6 +138,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --message-user: var(--sidebar-accent);
+  --message-user-foreground: var(--sidebar-accent-foreground);
 }
 
 /*
@@ -177,6 +183,8 @@
   --sidebar-accent-foreground: oklch(0.24 0.012 152);
   --sidebar-border: oklch(0.9 0.016 150);
   --sidebar-ring: oklch(0.5 0.085 153);
+  --message-user: var(--sidebar-accent);
+  --message-user-foreground: var(--sidebar-accent-foreground);
 }
 
 .side-chat-widget-root[data-sidechat-theme="ocean"],
@@ -208,6 +216,8 @@
   --sidebar-accent-foreground: oklch(0.24 0.025 252);
   --sidebar-border: oklch(0.9 0.02 242);
   --sidebar-ring: oklch(0.52 0.15 252);
+  --message-user: var(--sidebar-accent);
+  --message-user-foreground: var(--sidebar-accent-foreground);
 }
 
 /*
@@ -227,6 +237,10 @@
   --border: oklch(0.922 0 0);
   --success: oklch(0.6 0.13 160);
   --sc-canvas: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --message-user: var(--sidebar-accent);
+  --message-user-foreground: var(--sidebar-accent-foreground);
 }
 
 @layer base {
@@ -241,7 +255,12 @@
   [data-slot="hover-card-content"],
   [data-slot="dialog-content"] {
     font-family:
-      "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      "Plus Jakarta Sans",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
   }
 
   .side-chat-widget-root,

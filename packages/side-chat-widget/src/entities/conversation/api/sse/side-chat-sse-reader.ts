@@ -4,7 +4,7 @@ import {
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
 
-import { ChatClientError } from "#http/errors";
+import { SideChatApiError } from "../http/side-chat-api-error.js";
 
 export type StreamChunk = string | Uint8Array;
 
@@ -45,10 +45,10 @@ export const decodeChunkedSseStream = async function* (
   // A valid assistant stream ends cleanly after one terminal event. Leftover
   // bytes or no terminal event means the conversation is incomplete.
   if (extracted.remaining.trim().length > 0) {
-    throw new ChatClientError("malformed_stream", "SSE stream ended with an incomplete frame");
+    throw new SideChatApiError("malformed_stream", "SSE stream ended with an incomplete frame");
   }
   if (!state.terminalSeen) {
-    throw new ChatClientError("missing_terminal", "SSE stream ended before a terminal event");
+    throw new SideChatApiError("missing_terminal", "SSE stream ended before a terminal event");
   }
 };
 
@@ -99,8 +99,8 @@ const decodeFrame = function* (frame: string, state: StreamState): Iterable<Side
       yield event;
     }
   } catch (cause) {
-    if (cause instanceof ChatClientError) throw cause;
-    throw new ChatClientError("malformed_stream", "Invalid SSE frame", {
+    if (cause instanceof SideChatApiError) throw cause;
+    throw new SideChatApiError("malformed_stream", "Invalid SSE frame", {
       cause,
     });
   }
@@ -110,10 +110,10 @@ const validateIncrementalEvent = (event: SidechatStreamEvent, state: StreamState
   // Sequence order and a single terminal event are part of sidechat.v1. The
   // client rejects streams that would make later UI state ambiguous.
   if (event.sequence <= state.previousSequence) {
-    throw new ChatClientError("malformed_stream", "SSE event sequence must increase");
+    throw new SideChatApiError("malformed_stream", "SSE event sequence must increase");
   }
   if (state.terminalSeen) {
-    throw new ChatClientError("malformed_stream", "SSE event received after terminal event");
+    throw new SideChatApiError("malformed_stream", "SSE event received after terminal event");
   }
 
   state.previousSequence = event.sequence;
@@ -122,7 +122,7 @@ const validateIncrementalEvent = (event: SidechatStreamEvent, state: StreamState
 
 const assertNotAborted = (signal: AbortSignal | undefined): void => {
   if (signal?.aborted === true) {
-    throw new ChatClientError("aborted", "Chat stream was aborted", {
+    throw new SideChatApiError("aborted", "Chat stream was aborted", {
       cause: signal.reason,
     });
   }

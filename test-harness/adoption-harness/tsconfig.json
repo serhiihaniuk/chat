@@ -12,9 +12,6 @@
       "path": "../../apps/partner-ai-service"
     },
     {
-      "path": "../../packages/chat-client"
-    },
-    {
       "path": "../../packages/chat-protocol"
     },
     {

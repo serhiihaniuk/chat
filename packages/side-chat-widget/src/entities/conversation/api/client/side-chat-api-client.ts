@@ -1,106 +1,40 @@
-import {
-  parseChatStreamRequest,
-  type ChatStreamRequest,
-  type HistoryMessage,
-  type SidechatStreamEvent,
-  type UsageMetadata,
-} from "@side-chat/chat-protocol";
+import { parseChatStreamRequest, type ChatStreamRequest } from "@side-chat/chat-protocol";
 import { omitUndefinedProperties } from "@side-chat/shared";
 
-import { ChatClientError } from "#http/errors";
-import { assertNotAborted, buildPathUrl, createHttpError } from "#http/http-helpers";
+import { SideChatApiError } from "../http/side-chat-api-error.js";
+import { assertNotAborted, buildPathUrl, createHttpError } from "../http/side-chat-http-helpers.js";
 import {
   listConversationsWithFetch,
   readHistoryWithFetch,
   readUsageWithFetch,
   resetHistoryWithFetch,
-} from "#resources/resource-client";
-import { decodeChunkedSseStream, type StreamChunk } from "./sse-reader.js";
+} from "../http/side-chat-resource-client.js";
+import { decodeChunkedSseStream, type StreamChunk } from "../sse/side-chat-sse-reader.js";
+import type {
+  FetchLike,
+  RetryPolicy,
+  SideChatApiClient,
+  SideChatApiClientOptions,
+  StreamChatOptions,
+  StreamChatResult,
+} from "./side-chat-api-types.js";
 
-export type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
-
-export type RetryPolicy = {
-  readonly attempts: number;
-  readonly statuses?: readonly number[] | undefined;
-};
-
-export type ChatClientOptions = {
-  readonly baseUrl: string;
-  readonly conversationsPath?: string | undefined;
-  readonly historyPath?: string | undefined;
-  readonly streamPath?: string | undefined;
-  readonly fetch?: FetchLike | undefined;
-  readonly retry?: RetryPolicy | undefined;
-  readonly usagePath?: string | undefined;
-};
-
-export type StreamChatOptions = {
-  readonly signal?: AbortSignal | undefined;
-  readonly retry?: RetryPolicy | undefined;
-};
-
-export type StreamChatResult = {
-  readonly events: AsyncIterable<SidechatStreamEvent>;
-  readonly attempt: number;
-};
-
-export type ReadHistoryOptions = {
-  readonly limit?: number | undefined;
-  readonly signal?: AbortSignal | undefined;
-};
-
-export type ListConversationsOptions = {
-  readonly limit?: number | undefined;
-  readonly signal?: AbortSignal | undefined;
-};
-
-export type ConversationSummary = {
-  readonly conversationId: string;
-  readonly title: string;
-  readonly status: string;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  readonly lastMessageAt: string;
-};
-
-export type ListConversationsResult = {
-  readonly conversations: readonly ConversationSummary[];
-};
-
-export type ReadHistoryResult = {
-  readonly conversationId: string;
-  readonly messages: readonly HistoryMessage[];
-};
-
-export type ResetHistoryOptions = {
-  readonly signal?: AbortSignal | undefined;
-};
-
-export type ResetHistoryResult = {
-  readonly conversationId: string;
-  readonly status: string;
-};
-
-export type ReadUsageOptions = {
-  readonly signal?: AbortSignal | undefined;
-};
-
-export type ChatClient = {
-  readonly listConversations?:
-    | ((options?: ListConversationsOptions) => Promise<ListConversationsResult>)
-    | undefined;
-  readonly readHistory?:
-    | ((conversationId: string, options?: ReadHistoryOptions) => Promise<ReadHistoryResult>)
-    | undefined;
-  readonly readUsage?: ((options?: ReadUsageOptions) => Promise<UsageMetadata>) | undefined;
-  readonly resetHistory?:
-    | ((conversationId: string, options?: ResetHistoryOptions) => Promise<ResetHistoryResult>)
-    | undefined;
-  readonly streamChat: (
-    request: ChatStreamRequest,
-    options?: StreamChatOptions,
-  ) => Promise<StreamChatResult>;
-};
+export type {
+  ConversationSummary,
+  FetchLike,
+  ListConversationsOptions,
+  ListConversationsResult,
+  ReadHistoryOptions,
+  ReadHistoryResult,
+  ReadUsageOptions,
+  RetryPolicy,
+  ResetHistoryOptions,
+  ResetHistoryResult,
+  SideChatApiClient,
+  SideChatApiClientOptions,
+  StreamChatOptions,
+  StreamChatResult,
+} from "./side-chat-api-types.js";
 
 const DEFAULT_STREAM_PATH = "/chat/stream";
 // 409 is intentionally excluded: a Conflict is not safely retryable for a
@@ -110,10 +44,10 @@ const DEFAULT_RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RETRY_BASE_DELAY_MS = 300;
 const RETRY_MAX_DELAY_MS = 5_000;
 
-export const createChatClient = (options: ChatClientOptions): ChatClient => {
+export const createSideChatApiClient = (options: SideChatApiClientOptions): SideChatApiClient => {
   const transport = options.fetch ?? globalThis.fetch?.bind(globalThis);
   if (!transport) {
-    throw new ChatClientError("network_error", "Fetch is not available");
+    throw new SideChatApiError("network_error", "Fetch is not available");
   }
 
   return {
@@ -131,7 +65,7 @@ export const createChatClient = (options: ChatClientOptions): ChatClient => {
 
 const streamChatWithFetch = async (
   request: ChatStreamRequest,
-  clientOptions: ChatClientOptions,
+  clientOptions: SideChatApiClientOptions,
   streamOptions: StreamChatOptions,
   transport: FetchLike,
 ): Promise<StreamChatResult> => {
@@ -154,18 +88,18 @@ const streamChatWithFetch = async (
     attempt += 1;
   }
 
-  throw new ChatClientError("network_error", "Retry loop exhausted", {
+  throw new SideChatApiError("network_error", "Retry loop exhausted", {
     attempt: maxAttempts,
   });
 };
 
 type StreamAttemptResult =
   | { readonly ok: true; readonly value: StreamChatResult }
-  | { readonly ok: false; readonly error: ChatClientError };
+  | { readonly ok: false; readonly error: SideChatApiError };
 
 const requestStreamAttempt = async (
   request: ChatStreamRequest,
-  clientOptions: ChatClientOptions,
+  clientOptions: SideChatApiClientOptions,
   streamOptions: StreamChatOptions,
   transport: FetchLike,
   attempt: number,
@@ -191,7 +125,7 @@ const streamResultFromResponse = (
 ): StreamChatResult => {
   if (!response.ok) throw createHttpError(response.status, attempt);
   if (!response.body) {
-    throw new ChatClientError("network_error", "Streaming response body is missing", {
+    throw new SideChatApiError("network_error", "Streaming response body is missing", {
       attempt,
     });
   }
@@ -205,7 +139,7 @@ const streamResultFromResponse = (
   };
 };
 
-const buildUrl = (options: ChatClientOptions): string => {
+const buildUrl = (options: SideChatApiClientOptions): string => {
   return buildPathUrl(options.baseUrl, options.streamPath ?? DEFAULT_STREAM_PATH);
 };
 
@@ -236,7 +170,11 @@ const delayBeforeRetry = (attempt: number, signal: AbortSignal | undefined): Pro
       "abort",
       () => {
         clearTimeout(timer);
-        reject(new ChatClientError("aborted", "Chat stream was aborted", { cause: signal.reason }));
+        reject(
+          new SideChatApiError("aborted", "Chat stream was aborted", {
+            cause: signal.reason,
+          }),
+        );
       },
       { once: true },
     );
@@ -258,15 +196,15 @@ const readResponseBody = async function* (
   }
 };
 
-const toClientError = (cause: unknown, attempt: number): ChatClientError => {
-  if (cause instanceof ChatClientError) return cause;
+const toClientError = (cause: unknown, attempt: number): SideChatApiError => {
+  if (cause instanceof SideChatApiError) return cause;
   if (isAbortLikeError(cause)) {
-    return new ChatClientError("aborted", "Chat stream was aborted", {
+    return new SideChatApiError("aborted", "Chat stream was aborted", {
       cause,
       attempt,
     });
   }
-  return new ChatClientError("network_error", "Chat stream request failed", {
+  return new SideChatApiError("network_error", "Chat stream request failed", {
     cause,
     attempt,
   });
@@ -276,7 +214,7 @@ const isAbortLikeError = (cause: unknown): boolean =>
   cause instanceof DOMException && cause.name === "AbortError";
 
 const shouldRetry = (
-  error: ChatClientError,
+  error: SideChatApiError,
   retry: RetryPolicy | undefined,
   attempt: number,
   maxAttempts: number,

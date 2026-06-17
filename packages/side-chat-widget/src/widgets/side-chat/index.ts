@@ -10,3 +10,23 @@ export type {
   ReasoningVisibility,
   WidgetThemeId,
 } from "./model/side-chat-widget.types.js";
+export {
+  SIDE_CHAT_API_ERROR_CODES,
+  createSideChatApiClient,
+  SideChatApiError,
+  type ConversationSummary,
+  type FetchLike,
+  type ListConversationsOptions,
+  type ListConversationsResult,
+  type ReadHistoryOptions,
+  type ReadHistoryResult,
+  type ReadUsageOptions,
+  type RetryPolicy,
+  type ResetHistoryOptions,
+  type ResetHistoryResult,
+  type SideChatApiClient,
+  type SideChatApiClientOptions,
+  type SideChatApiErrorCode,
+  type StreamChatOptions,
+  type StreamChatResult,
+} from "#entities/conversation";

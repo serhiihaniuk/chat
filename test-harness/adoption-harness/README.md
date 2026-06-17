@@ -9,7 +9,7 @@ behavior.
 ## Owns
 
 - Vitest scenarios that prove adopter-shaped flows across service, core,
-  runtime, protocol, client, and widget state seams.
+  runtime, protocol, widget API, and widget state seams.
 - Deterministic in-process service composition for adoption checks.
 
 ## Does Not Own
@@ -26,7 +26,7 @@ No runtime API. `src/index.ts` exists only to satisfy workspace package shape.
 
 ```txt
 adopter service config -> policy/context/runtime -> sidechat.v1 events
-  -> chat-client decoding -> widget state projection
+  -> widget API decoding -> widget state projection
 ```
 
 ## Boundary Rules

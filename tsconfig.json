@@ -9,7 +9,6 @@
     { "path": "./packages/chat-protocol" },
     { "path": "./packages/partner-ai-core" },
     { "path": "./packages/agent-runtime" },
-    { "path": "./packages/chat-client" },
     { "path": "./packages/side-chat-widget" },
     { "path": "./packages/host-bridge" },
     { "path": "./packages/shared" },

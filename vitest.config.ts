@@ -9,7 +9,6 @@ export default defineConfig({
     alias: {
       "@side-chat/agent-runtime": resolve(repoRoot, "packages/agent-runtime/src/index.ts"),
       "@side-chat/partner-ai-core": resolve(repoRoot, "packages/partner-ai-core/src/index.ts"),
-      "@side-chat/chat-client": resolve(repoRoot, "packages/chat-client/src/index.ts"),
       "@side-chat/chat-protocol": resolve(repoRoot, "packages/chat-protocol/src/index.ts"),
       "@side-chat/db": resolve(repoRoot, "packages/db/src/index.ts"),
       "@side-chat/host-bridge": resolve(repoRoot, "packages/host-bridge/src/index.ts"),

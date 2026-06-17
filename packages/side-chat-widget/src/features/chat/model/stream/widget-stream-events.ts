@@ -32,7 +32,7 @@ type WidgetStreamEventActions = {
   readonly setErrorMessage: Dispatch<SetStateAction<string | undefined>>;
   readonly setUsage: Dispatch<SetStateAction<WidgetUsage | undefined>>;
   readonly onConversationStarted: (conversationId: string, createdAt: string) => void;
-  readonly onStreamCompleted: () => void;
+  readonly onStreamCompleted: () => Promise<unknown> | void;
 };
 
 export const useWidgetStreamEvents = (
@@ -132,7 +132,7 @@ const applyWidgetStreamEvent = async (
 
     case SIDECHAT_EVENT_TYPES.COMPLETED:
       actions.setUsage(event.usage);
-      actions.onStreamCompleted();
+      await actions.onStreamCompleted();
       actions.setMessages((current) =>
         completeAssistantTimeline(current, assistantMessageId, event.createdAt),
       );

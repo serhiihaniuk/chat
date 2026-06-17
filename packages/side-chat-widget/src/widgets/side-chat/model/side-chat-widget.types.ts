@@ -1,9 +1,9 @@
-import type { ChatClient } from "@side-chat/chat-client";
 import type { HostBridge } from "@side-chat/host-bridge";
 
 import type { ReasoningVisibility } from "#entities/settings";
 import type { SideChatWidgetPanelSize } from "#entities/panel";
 import type { WidgetThemeId } from "#entities/theme";
+import type { SideChatApiClient } from "#entities/conversation";
 
 export type { ReasoningVisibility, WidgetThemeId };
 
@@ -35,7 +35,7 @@ export type { SideChatWidgetPanelSize };
 
 export type SideChatWidgetProps = {
   readonly assistantProfiles?: readonly SideChatWidgetAssistantProfile[] | undefined;
-  readonly client: ChatClient;
+  readonly client: SideChatApiClient;
   readonly conversationStorageKey?: string | undefined;
   readonly defaultAssistantProfileId?: string | undefined;
   readonly defaultOpen?: boolean | undefined;

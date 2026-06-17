@@ -8,6 +8,7 @@ Not source of truth for: backend workflow or protocol definitions.
 ## Owns
 
 - Public React widget API.
+- Browser-safe API client and SSE reader used by widget consumers.
 - FSD layers for chat, conversation, prompt, panel, and shared UI.
 - Protocol event projection into widget message/activity state.
 - Host bridge usage from browser UI.
@@ -21,12 +22,14 @@ Not source of truth for: backend workflow or protocol definitions.
 
 ## Public Surface
 
-`src/index.ts` exports the side-chat widget API.
+`src/index.ts` exports the side-chat widget API, including
+`createSideChatApiClient` for service-backed consumers.
 
-The widget can render a conversation selector when the supplied chat client
-supports conversation listing and history reads. `conversationStorageKey`
-enables browser-local restoration of the last selected conversation shell; the
-messages themselves are hydrated through the client history route.
+The widget can render a conversation selector when the supplied
+`SideChatApiClient` supports conversation listing and history reads.
+`conversationStorageKey` enables browser-local restoration of the last selected
+conversation shell; messages themselves are hydrated through the client history
+route.
 
 `defaultTheme` picks the initial named theme (`graphite` | `sage` | `ocean`) and
 `themeStorageKey` enables browser-local persistence of the chosen theme. Themes
@@ -39,7 +42,7 @@ for harness tests. It is not a host application API.
 ## Main Flows
 
 ```txt
-user submit -> optimistic widget state -> chat-client stream
+user submit -> optimistic widget state -> widget API stream
   -> protocol events -> widget messages/activity
 ```
 

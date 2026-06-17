@@ -8,7 +8,6 @@ COPY .npmrc package.json package-lock.json tsconfig.json tsconfig.base.json tsco
 COPY apps/partner-ai-service/package.json apps/partner-ai-service/package.json
 COPY packages/agent-runtime/package.json packages/agent-runtime/package.json
 COPY packages/partner-ai-core/package.json packages/partner-ai-core/package.json
-COPY packages/chat-client/package.json packages/chat-client/package.json
 COPY packages/chat-protocol/package.json packages/chat-protocol/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/host-bridge/package.json packages/host-bridge/package.json

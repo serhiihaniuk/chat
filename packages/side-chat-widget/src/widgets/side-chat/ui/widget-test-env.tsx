@@ -1,4 +1,3 @@
-import type { ChatClient, ConversationSummary } from "@side-chat/chat-client";
 import {
   SIDECHAT_PROTOCOL_VERSION,
   type ChatStreamRequest,
@@ -11,6 +10,8 @@ import { Window } from "happy-dom";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
+
+import type { ConversationSummary, SideChatApiClient } from "#entities/conversation";
 
 // Shared happy-dom + React rendering harness for the SideChatWidget DOM tests in
 // this folder. Excluded from the package build (see tsconfig "exclude"); it is a
@@ -125,8 +126,8 @@ export const fakeClient = (
   createEvents: (
     request: ChatStreamRequest,
   ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
-  overrides: Partial<Pick<ChatClient, "listConversations" | "readHistory">> = {},
-): ChatClient => ({
+  overrides: Partial<Pick<SideChatApiClient, "listConversations" | "readHistory">> = {},
+): SideChatApiClient => ({
   ...overrides,
   streamChat: async (request) => ({
     attempt: 1,

@@ -9,7 +9,7 @@ import {
 } from "@side-chat/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatClient, type FetchLike } from "./client.js";
+import { createSideChatApiClient, type FetchLike } from "./side-chat-api-client.js";
 
 const request: ChatStreamRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -73,12 +73,12 @@ const streamFromText = (text: string): ReadableStream<Uint8Array> => {
   });
 };
 
-describe("createChatClient", () => {
+describe("createSideChatApiClient", () => {
   it("posts a typed protocol request and decodes stream events", async () => {
     const fetchMock = vi.fn<FetchLike>(() =>
       Promise.resolve(responseFromEvents([started(), delta(), completed()])),
     );
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
     });
@@ -110,7 +110,7 @@ describe("createChatClient", () => {
     const fetchMock = vi.fn<FetchLike>(() =>
       Promise.resolve(responseFromEvents([started(), completed()])),
     );
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "https://example.test",
       fetch: fetchMock,
     });
@@ -128,7 +128,7 @@ describe("createChatClient", () => {
     const fetchMock = vi.fn<FetchLike>(() =>
       Promise.resolve(responseFromEvents([started(), completed()])),
     );
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "https://example.test",
       fetch: fetchMock,
     });
@@ -144,7 +144,7 @@ describe("createChatClient", () => {
       .fn<FetchLike>()
       .mockResolvedValueOnce(new Response("busy", { status: 503 }))
       .mockResolvedValueOnce(responseFromEvents([started(), completed()]));
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "https://example.test",
       fetch: fetchMock,
       retry: { attempts: 2, statuses: [503] },
@@ -162,7 +162,7 @@ describe("createChatClient", () => {
     const fetchMock = vi.fn<FetchLike>(() =>
       Promise.resolve(new Response("conflict", { status: 409 })),
     );
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "https://example.test",
       fetch: fetchMock,
       retry: { attempts: 3 },
@@ -200,7 +200,7 @@ describe("createChatClient", () => {
       )
       .mockResolvedValueOnce(Response.json({ conversationId: "conversation-1", status: "reset" }))
       .mockResolvedValueOnce(Response.json({ inputTokens: 2, outputTokens: 3, totalTokens: 5 }));
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
     });
@@ -233,7 +233,7 @@ describe("createChatClient", () => {
       .mockResolvedValueOnce(new Response("no history", { status: 404 }))
       .mockResolvedValueOnce(new Response("cannot reset", { status: 409 }))
       .mockResolvedValueOnce(new Response("no usage", { status: 503 }));
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
     });
@@ -266,7 +266,7 @@ describe("createChatClient", () => {
       )
       .mockResolvedValueOnce(Response.json({ conversationId: "conversation-1" }))
       .mockResolvedValueOnce(Response.json({ totalTokens: "5" }));
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
     });

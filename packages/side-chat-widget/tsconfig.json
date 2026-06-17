@@ -9,9 +9,6 @@
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
-      "path": "../chat-client"
-    },
-    {
       "path": "../chat-protocol"
     },
     {

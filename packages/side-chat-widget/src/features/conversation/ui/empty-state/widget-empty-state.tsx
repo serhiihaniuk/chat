@@ -11,11 +11,13 @@ export type WidgetEmptyStateSuggestion = {
 // Centered greeting cluster shown before the first turn. Capped to a tidy measure so
 // it stays a neat block in a large/tall panel instead of stretching full width.
 export const WidgetEmptyState = ({
+  assistantTitle,
   description,
   onSelectSuggestion,
   suggestions,
   title,
 }: {
+  readonly assistantTitle?: string | undefined;
   readonly description: string;
   readonly onSelectSuggestion: (prompt: string) => void;
   readonly suggestions: readonly WidgetEmptyStateSuggestion[];
@@ -24,9 +26,14 @@ export const WidgetEmptyState = ({
   <div className="flex h-full w-full flex-col items-center justify-center px-2 py-6">
     <div className="flex w-full max-w-[28.25rem] flex-col gap-5">
       <div className="flex flex-col gap-3">
-        <span className="flex size-10 items-center justify-center rounded-md border border-border bg-accent">
-          <AgentMark className="size-[1.375rem] text-primary" />
-        </span>
+        {assistantTitle && (
+          <span className="flex min-w-0 items-center gap-2">
+            <AgentMark className="size-5 shrink-0 text-primary/80" />
+            <span className="truncate font-semibold text-xl text-card-foreground tracking-tight">
+              {assistantTitle}
+            </span>
+          </span>
+        )}
         <h2 className="font-semibold text-2xl text-card-foreground leading-snug tracking-tight">
           {title}
         </h2>

@@ -17,7 +17,6 @@
     "test": "cd ../.. && vitest run test-harness/adoption-harness/src"
   },
   "dependencies": {
-    "@side-chat/chat-client": "0.0.0",
     "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/db": "0.0.0",
     "@side-chat/partner-ai-core": "0.0.0",

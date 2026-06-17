@@ -22,7 +22,7 @@ const forbiddenByArea = {
     /^@ai-sdk\//,
     /^pg$/,
     /^drizzle-orm$/,
-    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|chat-client|side-chat-widget|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|side-chat-widget|db)$/,
   ],
   "packages/host-bridge": [
     /^react$/,
@@ -44,7 +44,7 @@ const forbiddenByArea = {
     /^drizzle-orm$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(agent-runtime|chat-client|side-chat-widget|db)$/,
+    /^@side-chat\/(agent-runtime|side-chat-widget|db)$/,
   ],
   "packages/ai-runtime-contract": [
     /^hono$/,
@@ -55,7 +55,7 @@ const forbiddenByArea = {
     /^drizzle-orm$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(partner-ai-core|agent-runtime|chat-protocol|chat-client|side-chat-widget|db)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|chat-protocol|side-chat-widget|db)$/,
   ],
   "packages/agent-runtime": [
     /^hono$/,
@@ -64,17 +64,7 @@ const forbiddenByArea = {
     /^react-dom$/,
     /^pg$/,
     /^drizzle-orm$/,
-    /^@side-chat\/(chat-protocol|chat-client|side-chat-widget|db)$/,
-  ],
-  "packages/chat-client": [
-    /^react$/,
-    /^react-dom$/,
-    /^effect$/,
-    /^pg$/,
-    /^drizzle-orm$/,
-    /^ai$/,
-    /^@ai-sdk\//,
-    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|side-chat-widget|db)$/,
+    /^@side-chat\/(chat-protocol|side-chat-widget|db)$/,
   ],
   "packages/side-chat-widget": [
     /^hono$/,
@@ -94,7 +84,7 @@ const forbiddenByArea = {
     /^@hono\/node-server$/,
     /^ai$/,
     /^@ai-sdk\//,
-    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|chat-protocol|chat-client|side-chat-widget)$/,
+    /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|chat-protocol|side-chat-widget)$/,
   ],
   "apps/partner-ai-service": [/^@side-chat\/side-chat-widget$/],
 };

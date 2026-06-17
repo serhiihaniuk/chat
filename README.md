@@ -5,15 +5,15 @@ Source of truth for: setup commands and the top-level package map.
 Not source of truth for: domain terms, package boundaries, or test policy.
 
 Side Chat is an adoptable enterprise assistant foundation for ordinary web
-applications. It owns the browser protocol, client, React widget, host bridge,
-deployable service composition, product core, agent runtime, service adapters,
-persistence boundary, and test harnesses.
+applications. It owns the browser protocol, React widget and browser API
+adapter, host bridge, deployable service composition, product core, agent
+runtime, service adapters, persistence boundary, and test harnesses.
 
 It does not own a consuming host application. Host apps integrate through the
 widget, host bridge, and service API.
 
 ```txt
-host app -> side-chat-widget -> chat-client -> chat-protocol
+host app -> side-chat-widget API/client -> chat-protocol
   -> partner-ai-service -> partner-ai-core -> agent-runtime -> provider/tools
 ```
 

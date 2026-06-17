@@ -1,3 +1,4 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { useWidgetChat } from "#features/chat";
@@ -21,6 +22,7 @@ import { SettingsView } from "#features/settings";
 import { useWidgetTheme } from "#features/theme";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
 import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } from "lucide-react";
+import { createSideChatWidgetQueryClient } from "../model/side-chat-query-client.js";
 import type { SideChatWidgetLabels, SideChatWidgetProps } from "../model/side-chat-widget.types.js";
 
 export type {
@@ -39,7 +41,8 @@ const defaultLabels = {
   title: "Workspace Assistant",
 } satisfies Required<SideChatWidgetLabels>;
 
-const EMPTY_STATE_DESCRIPTION = "I can see the page you're viewing. Ask about it, or pick a place to start.";
+const EMPTY_STATE_DESCRIPTION =
+  "I can see the page you're viewing. Ask about it, or pick a place to start.";
 const EMPTY_STATE_TITLE = "How can I help with this page?";
 
 // A small rotation so suggestion rows read as distinct actions without requiring the
@@ -56,7 +59,17 @@ const SUGGESTION_ICONS: readonly LucideIcon[] = [
 const WIDE_PANEL_WIDTH = 720;
 const WIDE_VIEWPORT_WIDTH = 780;
 
-export const SideChatWidget = ({
+export const SideChatWidget = (props: SideChatWidgetProps) => {
+  const [queryClient] = useState(createSideChatWidgetQueryClient);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SideChatWidgetContent {...props} />
+    </QueryClientProvider>
+  );
+};
+
+const SideChatWidgetContent = ({
   assistantProfiles = [],
   client,
   conversationStorageKey,
@@ -149,6 +162,7 @@ export const SideChatWidget = ({
           <WidgetConversation
             emptyState={
               <WidgetEmptyState
+                assistantTitle={resolvedLabels.title}
                 description={EMPTY_STATE_DESCRIPTION}
                 onSelectSuggestion={(prompt) => void chat.submitMessage(prompt)}
                 suggestions={suggestions}

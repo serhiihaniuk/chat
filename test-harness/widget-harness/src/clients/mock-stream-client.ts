@@ -1,4 +1,3 @@
-import type { ChatClient } from "@side-chat/chat-client";
 import {
   SIDECHAT_PROTOCOL_VERSION,
   type ActivityEvent,
@@ -8,11 +7,12 @@ import {
   type SidechatStreamEvent,
   type StartedEvent,
 } from "@side-chat/chat-protocol";
+import type { SideChatApiClient } from "@side-chat/side-chat-widget";
 import type { WidgetHarnessConfig } from "#config/modes";
 
 export const createMockStreamClient = (
   config?: Pick<WidgetHarnessConfig, "scenario">,
-): ChatClient => ({
+): SideChatApiClient => ({
   streamChat: (request) =>
     Promise.resolve({
       attempt: 1,

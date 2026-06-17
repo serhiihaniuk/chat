@@ -1,4 +1,3 @@
-import type { ChatClient, ConversationSummary } from "@side-chat/chat-client";
 import {
   SIDECHAT_PROTOCOL_VERSION,
   type ChatStreamRequest,
@@ -12,6 +11,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SideChatWidget } from "./side-chat-widget.js";
+import type { ConversationSummary, SideChatApiClient } from "#entities/conversation";
 
 let windowRef: Window;
 let root: Root;
@@ -104,7 +104,7 @@ describe("SideChatWidget conversation titles", () => {
 
   it("replaces the first-message title after the normal list refresh returns a generated title", async () => {
     let listCallCount = 0;
-    const listConversations = vi.fn<NonNullable<ChatClient["listConversations"]>>(() => {
+    const listConversations = vi.fn<NonNullable<SideChatApiClient["listConversations"]>>(() => {
       listCallCount += 1;
       return Promise.resolve({
         conversations: conversationSummariesForTitleRefresh(listCallCount),
@@ -128,7 +128,7 @@ describe("SideChatWidget conversation titles", () => {
   });
 });
 
-const renderWidget = (client: ChatClient) => {
+const renderWidget = (client: SideChatApiClient) => {
   act(() => {
     root.render(
       <SideChatWidget
@@ -206,8 +206,8 @@ const fakeClient = (
   createEvents: (
     request: ChatStreamRequest,
   ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
-  overrides: Partial<Pick<ChatClient, "listConversations">> = {},
-): ChatClient => ({
+  overrides: Partial<Pick<SideChatApiClient, "listConversations">> = {},
+): SideChatApiClient => ({
   ...overrides,
   streamChat: async (request) => ({
     attempt: 1,

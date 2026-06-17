@@ -39,14 +39,12 @@ const allowed = {
     "effect",
   ]),
   "@side-chat/ai-runtime-contract": new Set(["@side-chat/shared", "effect"]),
-  "@side-chat/chat-client": new Set(["@side-chat/chat-protocol", "@side-chat/shared"]),
   "@side-chat/chat-protocol": new Set(["@side-chat/shared"]),
   "@side-chat/shared": new Set(),
   "@side-chat/db": new Set(["@side-chat/shared", "@types/pg", "drizzle-kit", "drizzle-orm", "pg"]),
   "@side-chat/host-bridge": new Set(["@side-chat/chat-protocol", "@side-chat/shared"]),
   "@side-chat/side-chat-widget": new Set([
     "@base-ui/react",
-    "@side-chat/chat-client",
     "@side-chat/chat-protocol",
     "@side-chat/host-bridge",
     "@side-chat/shared",
@@ -54,6 +52,7 @@ const allowed = {
     "@streamdown/code",
     "@streamdown/math",
     "@streamdown/mermaid",
+    "@tanstack/react-query",
     "ai",
     "clsx",
     "embla-carousel-react",
@@ -69,7 +68,6 @@ const allowed = {
   ]),
   "@side-chat/testing": new Set(["@side-chat/chat-protocol"]),
   "@side-chat/adoption-harness": new Set([
-    "@side-chat/chat-client",
     "@side-chat/chat-protocol",
     "@side-chat/db",
     "@side-chat/partner-ai-core",
@@ -78,7 +76,6 @@ const allowed = {
     "effect",
   ]),
   "@side-chat/widget-harness": new Set([
-    "@side-chat/chat-client",
     "@side-chat/chat-protocol",
     "@side-chat/host-bridge",
     "@side-chat/side-chat-widget",

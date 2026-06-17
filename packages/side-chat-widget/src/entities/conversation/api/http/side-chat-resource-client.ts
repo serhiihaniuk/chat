@@ -1,10 +1,14 @@
 import type { UsageMetadata } from "@side-chat/chat-protocol";
 import { isRecord, omitUndefinedProperties } from "@side-chat/shared";
 
-import { ChatClientError } from "#http/errors";
-import { assertNotAborted, buildPathUrl, createHttpError, withSignal } from "#http/http-helpers";
+import { SideChatApiError } from "./side-chat-api-error.js";
+import {
+  assertNotAborted,
+  buildPathUrl,
+  createHttpError,
+  withSignal,
+} from "./side-chat-http-helpers.js";
 import type {
-  ChatClientOptions,
   FetchLike,
   ListConversationsOptions,
   ListConversationsResult,
@@ -13,14 +17,15 @@ import type {
   ReadUsageOptions,
   ResetHistoryOptions,
   ResetHistoryResult,
-} from "#transport/client";
+  SideChatApiClientOptions,
+} from "../client/side-chat-api-types.js";
 
 const DEFAULT_HISTORY_PATH = "/chat/history";
 const DEFAULT_CONVERSATIONS_PATH = "/chat/conversations";
 const DEFAULT_USAGE_PATH = "/usage";
 
 export const listConversationsWithFetch = async (
-  clientOptions: ChatClientOptions,
+  clientOptions: SideChatApiClientOptions,
   options: ListConversationsOptions,
   transport: FetchLike,
 ): Promise<ListConversationsResult> => {
@@ -42,7 +47,7 @@ export const listConversationsWithFetch = async (
 
 export const readHistoryWithFetch = async (
   conversationId: string,
-  clientOptions: ChatClientOptions,
+  clientOptions: SideChatApiClientOptions,
   options: ReadHistoryOptions,
   transport: FetchLike,
 ): Promise<ReadHistoryResult> => {
@@ -62,7 +67,7 @@ export const readHistoryWithFetch = async (
 
 export const resetHistoryWithFetch = async (
   conversationId: string,
-  clientOptions: ChatClientOptions,
+  clientOptions: SideChatApiClientOptions,
   options: ResetHistoryOptions,
   transport: FetchLike,
 ): Promise<ResetHistoryResult> => {
@@ -80,7 +85,7 @@ export const resetHistoryWithFetch = async (
 };
 
 export const readUsageWithFetch = async (
-  clientOptions: ChatClientOptions,
+  clientOptions: SideChatApiClientOptions,
   options: ReadUsageOptions,
   transport: FetchLike,
 ): Promise<UsageMetadata> => {
@@ -97,16 +102,16 @@ const readJson = async (response: Response, route: string): Promise<unknown> => 
   try {
     return (await response.json()) as unknown;
   } catch (cause) {
-    throw new ChatClientError("network_error", `Malformed ${route} response JSON`, { cause });
+    throw new SideChatApiError("network_error", `Malformed ${route} response JSON`, { cause });
   }
 };
 
 const normalizeHistory = (payload: unknown): ReadHistoryResult => {
   if (!isRecord(payload) || typeof payload["conversationId"] !== "string") {
-    throw new ChatClientError("network_error", "Malformed history response");
+    throw new SideChatApiError("network_error", "Malformed history response");
   }
   if (!Array.isArray(payload["messages"])) {
-    throw new ChatClientError("network_error", "Malformed history response");
+    throw new SideChatApiError("network_error", "Malformed history response");
   }
   return {
     conversationId: payload["conversationId"],
@@ -116,7 +121,7 @@ const normalizeHistory = (payload: unknown): ReadHistoryResult => {
 
 const normalizeConversationList = (payload: unknown): ListConversationsResult => {
   if (!isRecord(payload) || !Array.isArray(payload["conversations"])) {
-    throw new ChatClientError("network_error", "Malformed conversation list response");
+    throw new SideChatApiError("network_error", "Malformed conversation list response");
   }
   return {
     conversations: payload["conversations"].map(normalizeConversationSummary),
@@ -135,7 +140,7 @@ const normalizeConversationSummary = (
     typeof payload["updatedAt"] !== "string" ||
     typeof payload["lastMessageAt"] !== "string"
   ) {
-    throw new ChatClientError("network_error", "Malformed conversation list response");
+    throw new SideChatApiError("network_error", "Malformed conversation list response");
   }
   return {
     conversationId: payload["conversationId"],
@@ -155,7 +160,7 @@ const normalizeHistoryMessage = (payload: unknown): ReadHistoryResult["messages"
     typeof payload["content"] !== "string" ||
     typeof payload["sequence"] !== "number"
   ) {
-    throw new ChatClientError("network_error", "Malformed history response");
+    throw new SideChatApiError("network_error", "Malformed history response");
   }
   return {
     id: payload["id"],
@@ -167,10 +172,10 @@ const normalizeHistoryMessage = (payload: unknown): ReadHistoryResult["messages"
 
 const normalizeReset = (payload: unknown): ResetHistoryResult => {
   if (!isRecord(payload) || typeof payload["conversationId"] !== "string") {
-    throw new ChatClientError("network_error", "Malformed history reset response");
+    throw new SideChatApiError("network_error", "Malformed history reset response");
   }
   if (typeof payload["status"] !== "string") {
-    throw new ChatClientError("network_error", "Malformed history reset response");
+    throw new SideChatApiError("network_error", "Malformed history reset response");
   }
   return {
     conversationId: payload["conversationId"],
@@ -180,7 +185,7 @@ const normalizeReset = (payload: unknown): ResetHistoryResult => {
 
 const normalizeUsage = (payload: unknown): UsageMetadata => {
   if (!isRecord(payload)) {
-    throw new ChatClientError("network_error", "Malformed usage response");
+    throw new SideChatApiError("network_error", "Malformed usage response");
   }
   const inputTokens = payload["inputTokens"];
   const outputTokens = payload["outputTokens"];
@@ -190,7 +195,7 @@ const normalizeUsage = (payload: unknown): UsageMetadata => {
     !isOptionalNumber(outputTokens) ||
     !isOptionalNumber(totalTokens)
   ) {
-    throw new ChatClientError("network_error", "Malformed usage response");
+    throw new SideChatApiError("network_error", "Malformed usage response");
   }
 
   return omitUndefinedProperties({

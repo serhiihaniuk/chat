@@ -1,6 +1,6 @@
-import type { ChatClient } from "@side-chat/chat-client";
+import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
-import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useRef, useState, type SetStateAction } from "react";
 
 import {
   completeActivityTimeline,
@@ -15,17 +15,20 @@ import {
   type WidgetStatus,
   type WidgetUsage,
 } from "#entities/chat";
-import { useWidgetStreamEvents } from "./widget-stream-events.js";
 import {
   readWidgetConversationStore,
-  upsertStartedConversationSummary,
-  type WidgetConversationSummary,
-} from "./widget-conversations.js";
+  useConversationQueryRepository,
+  useGetConversationHistory,
+  useGetConversations,
+  type SideChatApiClient,
+} from "#entities/conversation";
 import {
-  useConversationHistory,
-  useConversationList,
+  useConversationHistoryMessages,
+  useConversationQueryErrors,
   usePersistConversationStore,
-} from "./widget-conversation-effects.js";
+} from "./conversation/widget-conversation-query-effects.js";
+import { refreshConversationsAfterStream } from "./conversation/widget-title-refresh.js";
+import { useWidgetStreamEventHandlers } from "./stream/widget-stream-handlers.js";
 
 export const useWidgetChat = ({
   client,
@@ -33,7 +36,7 @@ export const useWidgetChat = ({
   hostBridge,
   selectedProfileId,
 }: {
-  readonly client: ChatClient;
+  readonly client: SideChatApiClient;
   readonly conversationStorageKey: string | undefined;
   readonly hostBridge: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
   readonly selectedProfileId: string | undefined;
@@ -46,49 +49,66 @@ export const useWidgetChat = ({
   const [conversationId, setConversationId] = useState<string | undefined>(
     initialConversationStore.current.activeConversationId,
   );
-  const [conversations, setConversations] = useState<readonly WidgetConversationSummary[]>(
-    initialConversationStore.current.conversations,
-  );
-  // True while a conversation hydrates so the skeleton shows (not the empty greeting).
-  const [isLoadingHistory, setIsLoadingHistory] = useState(
-    () => initialConversationStore.current.activeConversationId !== undefined,
-  );
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
   const pendingConversationTitleRef = useRef<string | undefined>(undefined);
-  // Id a stream established; history must not refetch it (live messages already set).
+  // Id established by the current stream. History must not refetch it because
+  // the live event loop already owns those messages until the user reselects it.
   const streamOwnedConversationRef = useRef<string | undefined>(undefined);
-  const loadConversations = useConversationList(
+  const conversationsQuery = useGetConversations({
+    activeConversationId: conversationId,
     client,
-    setConversations,
-    setErrorMessage,
+    initialConversations: initialConversationStore.current.conversations,
+  });
+  const { refreshConversations, upsertStartedConversation } = useConversationQueryRepository({
+    activeConversationId: conversationId,
+    client,
+    initialConversations: initialConversationStore.current.conversations,
+  });
+  const shouldLoadHistory =
+    conversationId !== undefined &&
+    client.readHistory !== undefined &&
+    conversationId !== streamOwnedConversationRef.current;
+  const historyQuery = useGetConversationHistory({
+    client,
     conversationId,
-  );
+    enabled: shouldLoadHistory,
+  });
   const applyStreamEvent = useWidgetStreamEventHandlers({
     hostBridge,
-    loadConversations,
     pendingConversationTitleRef,
     setConversationId,
-    setConversations,
     setErrorMessage,
     setMessages,
     setStatus,
     setUsage,
     streamOwnedConversationRef,
+    upsertStartedConversation,
   });
-  usePersistConversationStore(conversationStorageKey, conversationId, conversations);
-  useConversationHistory(
-    client,
+  const conversations = conversationsQuery.data ?? [];
+  const historyMessages = useConversationHistoryMessages({
     conversationId,
-    streamOwnedConversationRef,
+    history: historyQuery.data,
     setMessages,
+    shouldLoadHistory,
+  });
+  const visibleMessages =
+    messages.length > 0 || status === "submitted" || status === "streaming"
+      ? messages
+      : (historyMessages ?? messages);
+  const isLoadingHistory = shouldLoadHistory && historyQuery.isPending && !historyQuery.data;
+
+  usePersistConversationStore({ conversationId, conversationStorageKey, conversations });
+  useConversationQueryErrors({
+    conversationsError: conversationsQuery.error,
+    historyError: historyQuery.error,
     setErrorMessage,
-    setIsLoadingHistory,
-  );
+    shouldLoadHistory,
+  });
 
   const submitMessage = useCallback(
     async (messageText: string) => {
       const trimmed = messageText.trim();
-      if (!trimmed || status === "submitted" || status === "streaming") return;
+      if (isSubmitBlocked(trimmed, status)) return;
 
       abortControllerRef.current?.abort();
       const abortController = new AbortController();
@@ -121,16 +141,25 @@ export const useWidgetChat = ({
         });
         setStatus("streaming");
 
-        for await (const event of result.events) {
-          if (abortController.signal.aborted) break;
-          await applyStreamEvent(event, assistantMessageId);
-        }
+        await consumeStreamEvents(
+          result.events,
+          abortController.signal,
+          applyStreamEvent,
+          assistantMessageId,
+        );
 
         if (!isActiveRequest(abortControllerRef, abortController)) return;
+        const activeConversationId = streamOwnedConversationRef.current ?? conversationId;
+        const fallbackTitle = pendingConversationTitleRef.current;
         pendingConversationTitleRef.current = undefined;
         setMessages(completeAssistantMessageFor(assistantMessageId));
         setStatus((current) => (current === "error" ? current : "idle"));
-        void loadConversations().catch(reportError(setErrorMessage));
+        await refreshConversationsAfterStream({
+          activeConversationId,
+          fallbackTitle,
+          refreshConversations,
+          setErrorMessage,
+        });
       } catch (error) {
         if (!isActiveRequest(abortControllerRef, abortController)) return;
         pendingConversationTitleRef.current = undefined;
@@ -149,8 +178,8 @@ export const useWidgetChat = ({
       applyStreamEvent,
       client,
       conversationId,
+      refreshConversations,
       hostBridge,
-      loadConversations,
       selectedProfileId,
       status,
     ],
@@ -163,7 +192,6 @@ export const useWidgetChat = ({
     streamOwnedConversationRef.current = undefined;
     setConversationId(nextConversationId);
     setMessages([]);
-    setIsLoadingHistory(nextConversationId !== undefined);
     setUsage(undefined);
     setErrorMessage(undefined);
     setStatus("idle");
@@ -196,7 +224,7 @@ export const useWidgetChat = ({
     conversations,
     errorMessage,
     isLoadingHistory,
-    messages,
+    messages: visibleMessages,
     retryLastMessage,
     selectConversation,
     setErrorMessage,
@@ -208,75 +236,11 @@ export const useWidgetChat = ({
   };
 };
 
-type SetWidgetError = Dispatch<SetStateAction<string | undefined>>;
-type SetWidgetConversationId = Dispatch<SetStateAction<string | undefined>>;
-type SetWidgetConversations = Dispatch<SetStateAction<readonly WidgetConversationSummary[]>>;
-type SetWidgetStatus = Dispatch<SetStateAction<WidgetStatus>>;
-type SetWidgetUsage = Dispatch<SetStateAction<WidgetUsage | undefined>>;
 type ActiveRequestRef = { readonly current: AbortController | undefined };
-type PendingConversationTitleRef = { readonly current: string | undefined };
-type MutableConversationRef = { current: string | undefined };
-type LoadConversations = (signal?: AbortSignal) => Promise<void>;
-
-const useWidgetStreamEventHandlers = ({
-  hostBridge,
-  loadConversations,
-  pendingConversationTitleRef,
-  setConversationId,
-  setConversations,
-  setErrorMessage,
-  setMessages,
-  setStatus,
-  setUsage,
-  streamOwnedConversationRef,
-}: {
-  readonly hostBridge: Pick<HostBridge, "dispatchCommand"> | undefined;
-  readonly loadConversations: LoadConversations;
-  readonly pendingConversationTitleRef: PendingConversationTitleRef;
-  readonly setConversationId: SetWidgetConversationId;
-  readonly setConversations: SetWidgetConversations;
-  readonly setErrorMessage: SetWidgetError;
-  readonly setMessages: Dispatch<SetStateAction<WidgetMessage[]>>;
-  readonly setStatus: SetWidgetStatus;
-  readonly setUsage: SetWidgetUsage;
-  readonly streamOwnedConversationRef: MutableConversationRef;
-}) => {
-  const refreshConversationsAfterCompletion = useCallback(() => {
-    void loadConversations().catch(reportError(setErrorMessage));
-  }, [loadConversations, setErrorMessage]);
-  const recordStartedConversation = useCallback(
-    (startedConversationId: string, createdAt: string) => {
-      // Mark stream-owned before adopting the id so history skips it (no clobber).
-      streamOwnedConversationRef.current = startedConversationId;
-      setConversationId(startedConversationId);
-      const fallbackTitle = pendingConversationTitleRef.current;
-      if (!fallbackTitle) return;
-      setConversations((current) =>
-        upsertStartedConversationSummary(current, {
-          conversationId: startedConversationId,
-          fallbackTitle,
-          lastMessageAt: createdAt,
-        }),
-      );
-    },
-    [pendingConversationTitleRef, setConversationId, setConversations, streamOwnedConversationRef],
-  );
-
-  return useWidgetStreamEvents(
-    {
-      onConversationStarted: recordStartedConversation,
-      onStreamCompleted: () => {
-        setStatus("idle");
-        refreshConversationsAfterCompletion();
-      },
-      setErrorMessage,
-      setMessages,
-      setStatus,
-      setUsage,
-    },
-    hostBridge,
-  );
-};
+type ApplyWidgetStreamEvent = (
+  event: SidechatStreamEvent,
+  assistantMessageId: string,
+) => Promise<void>;
 
 const appendPendingMessages =
   (userMessage: WidgetMessage, assistantMessage: WidgetMessage): SetStateAction<WidgetMessage[]> =>
@@ -291,14 +255,23 @@ const completeAssistantMessageFor =
       isStreaming: false,
     }));
 
-const reportError =
-  (setErrorMessage: SetWidgetError) =>
-  (error: unknown): void => {
-    setErrorMessage(toErrorMessage(error));
-  };
-
 const isActiveRequest = (requestRef: ActiveRequestRef, abortController: AbortController): boolean =>
   requestRef.current === abortController;
 
 const clearErrorStatus = (status: WidgetStatus): WidgetStatus =>
   status === "error" ? "idle" : status;
+
+const isSubmitBlocked = (message: string, status: WidgetStatus): boolean =>
+  !message || status === "submitted" || status === "streaming";
+
+const consumeStreamEvents = async (
+  events: AsyncIterable<SidechatStreamEvent>,
+  signal: AbortSignal,
+  applyStreamEvent: ApplyWidgetStreamEvent,
+  assistantMessageId: string,
+): Promise<void> => {
+  for await (const event of events) {
+    if (signal.aborted) break;
+    await applyStreamEvent(event, assistantMessageId);
+  }
+};

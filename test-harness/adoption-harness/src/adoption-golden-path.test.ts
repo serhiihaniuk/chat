@@ -1,4 +1,3 @@
-import { createChatClient, type FetchLike } from "@side-chat/chat-client";
 import {
   SIDECHAT_EVENT_TYPES,
   type JsonObject,
@@ -9,6 +8,7 @@ import {
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import { type TurnGuardInput, type TurnGuardRegistryPort } from "@side-chat/partner-ai-core";
 import { createPartnerAiServiceApp } from "@side-chat/partner-ai-service";
+import { createSideChatApiClient, type FetchLike } from "@side-chat/side-chat-widget";
 import {
   applyActivityEvent,
   completeActivityTimeline,
@@ -31,7 +31,7 @@ describe("golden-path adopter flow", () => {
       turnGuards: createRecordingGuardRegistry(guardInputs),
       turnGuardIds: ["adoption.prompt_guard"],
     });
-    const client = createChatClient({
+    const client = createSideChatApiClient({
       baseUrl: "http://side-chat-adoption.test",
       fetch: withLocalAuth("local-test-token", fetchFromApp(app)),
     });

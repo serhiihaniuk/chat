@@ -1,9 +1,13 @@
-import { createChatClient, type ChatClient, type FetchLike } from "@side-chat/chat-client";
+import {
+  createSideChatApiClient,
+  type FetchLike,
+  type SideChatApiClient,
+} from "@side-chat/side-chat-widget";
 
 import type { WidgetHarnessConfig } from "#config/modes";
 
-export const createLocalServiceClient = (config: WidgetHarnessConfig): ChatClient =>
-  createChatClient({
+export const createLocalServiceClient = (config: WidgetHarnessConfig): SideChatApiClient =>
+  createSideChatApiClient({
     baseUrl: resolveLocalApiBaseUrl(config.apiBaseUrl),
     fetch: withLocalAuth(config.authToken, globalThis.fetch.bind(globalThis)),
   });

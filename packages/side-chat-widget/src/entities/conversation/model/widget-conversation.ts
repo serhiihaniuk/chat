@@ -1,7 +1,6 @@
-import type { ConversationSummary, ReadHistoryResult } from "@side-chat/chat-client";
 import { isRecord } from "@side-chat/shared";
 
-import { createWidgetMessage, type WidgetMessage } from "#entities/chat";
+import type { ConversationSummary } from "../api/client/side-chat-api-types.js";
 
 export type WidgetConversationSummary = {
   readonly id: string;
@@ -28,17 +27,10 @@ export const toWidgetConversationSummary = (
   conversation: ConversationSummary,
 ): WidgetConversationSummary => ({
   id: conversation.conversationId,
-  title: trimConversationTitle(conversation.title),
+  title: normalizeWidgetConversationTitle(conversation.title),
   status: conversation.status,
   lastMessageAt: conversation.lastMessageAt,
 });
-
-export const toWidgetHistoryMessages = (history: ReadHistoryResult): readonly WidgetMessage[] =>
-  history.messages.flatMap((message) =>
-    message.role === "user" || message.role === "assistant"
-      ? [createWidgetMessage(message.id, message.role, message.content)]
-      : [],
-  );
 
 export const upsertStartedConversationSummary = (
   conversations: readonly WidgetConversationSummary[],
@@ -58,11 +50,27 @@ export const upsertStartedConversationSummary = (
 
   const summary: WidgetConversationSummary = {
     id: input.conversationId,
-    title: trimConversationTitle(input.fallbackTitle),
+    title: normalizeWidgetConversationTitle(input.fallbackTitle),
     status: "active",
     lastMessageAt: input.lastMessageAt,
   };
   return [summary, ...conversations.filter((conversation) => conversation.id !== summary.id)];
+};
+
+export const reconcileConversationSummaries = (
+  server: readonly WidgetConversationSummary[],
+  current: readonly WidgetConversationSummary[],
+  activeConversationId: string | undefined,
+): readonly WidgetConversationSummary[] => {
+  if (
+    !activeConversationId ||
+    server.some((conversation) => conversation.id === activeConversationId)
+  ) {
+    return server;
+  }
+
+  const active = current.find((conversation) => conversation.id === activeConversationId);
+  return active ? [active, ...server] : server;
 };
 
 export const readWidgetConversationStore = (
@@ -129,14 +137,14 @@ const readStoredConversation = (value: unknown): readonly WidgetConversationSumm
   return [
     {
       id: value["id"],
-      title: trimConversationTitle(value["title"]),
+      title: normalizeWidgetConversationTitle(value["title"]),
       status: value["status"],
       lastMessageAt: value["lastMessageAt"],
     },
   ];
 };
 
-const trimConversationTitle = (title: string): string => {
+export const normalizeWidgetConversationTitle = (title: string): string => {
   const normalized = title.trim().replaceAll(/\s+/gu, " ");
   if (!normalized) return DEFAULT_CONVERSATION_TITLE;
   return normalized.length > MAX_CONVERSATION_TITLE_LENGTH

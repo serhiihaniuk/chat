@@ -13,7 +13,7 @@ ownership tables.
 AI SDK stream part
 -> RuntimeEvent
 -> SidechatStreamEvent
--> chat-client decoded event
+-> widget API client decoded event
 -> widget message/activity state
 ```
 

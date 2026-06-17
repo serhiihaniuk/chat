@@ -40,7 +40,6 @@
     "test": "cd ../.. && vitest run test-harness/widget-harness/src/app/widget-harness.test.ts"
   },
   "dependencies": {
-    "@side-chat/chat-client": "0.0.0",
     "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/host-bridge": "0.0.0",
     "@side-chat/side-chat-widget": "0.0.0",

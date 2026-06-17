@@ -9,8 +9,8 @@ import {
 } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 
-import { ChatClientError } from "#http/errors";
-import { decodeChunkedSseStream, type StreamChunk } from "./sse-reader.js";
+import { SideChatApiError } from "../http/side-chat-api-error.js";
+import { decodeChunkedSseStream, type StreamChunk } from "./side-chat-sse-reader.js";
 
 const collect = async (chunks: readonly StreamChunk[]): Promise<SidechatStreamEvent[]> => {
   const events: SidechatStreamEvent[] = [];
@@ -110,6 +110,6 @@ describe("decodeChunkedSseStream", () => {
   });
 
   it("rejects streams without a terminal event", async () => {
-    await expect(collect([encodeSseEvent(started())])).rejects.toBeInstanceOf(ChatClientError);
+    await expect(collect([encodeSseEvent(started())])).rejects.toBeInstanceOf(SideChatApiError);
   });
 });

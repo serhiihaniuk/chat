@@ -1,4 +1,3 @@
-import type { ChatClient } from "@side-chat/chat-client";
 import {
   type ActivityEvent,
   type ChatStreamRequest,
@@ -8,6 +7,7 @@ import type { HostBridge } from "@side-chat/host-bridge";
 import { omitUndefinedField } from "@side-chat/shared";
 import { describe, expect, it } from "vitest";
 
+import type { SideChatApiClient } from "#entities/conversation";
 import { SideChatWidget } from "./side-chat-widget.js";
 import {
   baseEvent,
@@ -25,7 +25,7 @@ import {
 installWidgetTestDom();
 
 describe("SideChatWidget interactions", () => {
-  it("submits a message through the chat-client seam and renders streaming deltas", async () => {
+  it("submits a message through the widget API seam and renders streaming deltas", async () => {
     const requests: ChatStreamRequest[] = [];
     const client = fakeClient(async function* (request) {
       await Promise.resolve();
@@ -97,7 +97,7 @@ describe("SideChatWidget interactions", () => {
 
   it("aborts the active request from the stop control", async () => {
     const observedSignals: AbortSignal[] = [];
-    const client: ChatClient = {
+    const client: SideChatApiClient = {
       streamChat: (_request, options) => {
         if (options?.signal) observedSignals.push(options.signal);
         return Promise.resolve({
@@ -117,7 +117,7 @@ describe("SideChatWidget interactions", () => {
 });
 
 const renderWidget = (
-  client: ChatClient,
+  client: SideChatApiClient,
   hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand">,
   reasoningVisibility?: "minimal" | "detailed",
 ) =>

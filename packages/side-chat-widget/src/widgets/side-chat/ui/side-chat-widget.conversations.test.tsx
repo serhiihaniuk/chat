@@ -1,7 +1,7 @@
-import type { ChatClient } from "@side-chat/chat-client";
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
 
+import type { SideChatApiClient } from "#entities/conversation";
 import { SideChatWidget } from "./side-chat-widget.js";
 import {
   clickButton,
@@ -45,13 +45,13 @@ describe("SideChatWidget conversation history", () => {
       JSON.stringify({ activeConversationId: "conversation-2", conversations: [] }),
     );
     const requests: ChatStreamRequest[] = [];
-    const readHistory = vi.fn<NonNullable<ChatClient["readHistory"]>>((conversationId) =>
+    const readHistory = vi.fn<NonNullable<SideChatApiClient["readHistory"]>>((conversationId) =>
       Promise.resolve({
         conversationId,
         messages: selectedConversationMessages(requests.length > 0),
       }),
     );
-    const listConversations = vi.fn<NonNullable<ChatClient["listConversations"]>>(() =>
+    const listConversations = vi.fn<NonNullable<SideChatApiClient["listConversations"]>>(() =>
       Promise.resolve({
         conversations: [
           conversationSummary("conversation-1", "First chat"),
@@ -121,7 +121,7 @@ describe("SideChatWidget conversation history", () => {
     // Regression net for the history-clobber bug: a stream-owned conversation
     // already has its live messages in state, so the history effect must not
     // refetch it on the streaming -> idle transition and replace streamed text.
-    const readHistory = vi.fn<NonNullable<ChatClient["readHistory"]>>((conversationId) =>
+    const readHistory = vi.fn<NonNullable<SideChatApiClient["readHistory"]>>((conversationId) =>
       Promise.resolve({ conversationId, messages: [] }),
     );
     const client = fakeClient(
@@ -145,7 +145,7 @@ describe("SideChatWidget conversation history", () => {
   });
 });
 
-const renderWidget = (client: ChatClient) =>
+const renderWidget = (client: SideChatApiClient) =>
   mountWidget(
     <SideChatWidget
       assistantProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}

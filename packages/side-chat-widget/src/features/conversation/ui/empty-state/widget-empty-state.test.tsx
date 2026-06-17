@@ -8,15 +8,22 @@ describe("WidgetEmptyState", () => {
   it("renders the greeting and one button per suggestion", () => {
     const html = renderToStaticMarkup(
       <WidgetEmptyState
+        assistantTitle="Workspace Assistant"
         description="I can see the page you're viewing."
         onSelectSuggestion={() => undefined}
         suggestions={[
-          { icon: FileTextIcon, id: "summarize", label: "Summarize this page", prompt: "Summarize." },
+          {
+            icon: FileTextIcon,
+            id: "summarize",
+            label: "Summarize this page",
+            prompt: "Summarize.",
+          },
         ]}
         title="How can I help with this page?"
       />,
     );
 
+    expect(html).toContain("Workspace Assistant");
     expect(html).toContain("How can I help with this page?");
     expect(html).toContain("Summarize this page");
   });
