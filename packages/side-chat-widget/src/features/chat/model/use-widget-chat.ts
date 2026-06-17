@@ -49,6 +49,10 @@ export const useWidgetChat = ({
   );
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
   const pendingConversationTitleRef = useRef<string | undefined>(undefined);
+  // Holds the conversation id a stream established. History must not refetch this
+  // conversation (its live messages are already in state); cleared on explicit
+  // selection so switching back to it does hydrate from history.
+  const streamOwnedConversationRef = useRef<string | undefined>(undefined);
   const loadConversations = useConversationList(client, setConversations, setErrorMessage);
   const applyStreamEvent = useWidgetStreamEventHandlers({
     hostBridge,
@@ -60,9 +64,16 @@ export const useWidgetChat = ({
     setMessages,
     setStatus,
     setUsage,
+    streamOwnedConversationRef,
   });
   usePersistConversationStore(conversationStorageKey, conversationId, conversations);
-  useConversationHistory(client, conversationId, status, setMessages, setErrorMessage);
+  useConversationHistory(
+    client,
+    conversationId,
+    streamOwnedConversationRef,
+    setMessages,
+    setErrorMessage,
+  );
 
   const submitMessage = useCallback(
     async (messageText: string) => {
@@ -138,6 +149,9 @@ export const useWidgetChat = ({
   const selectConversation = useCallback((nextConversationId: string | undefined) => {
     abortControllerRef.current?.abort();
     pendingConversationTitleRef.current = undefined;
+    // An explicit selection always wants fresh history, even back to a stream-
+    // owned conversation, so release the no-refetch guard.
+    streamOwnedConversationRef.current = undefined;
     setConversationId(nextConversationId);
     setMessages([]);
     setUsage(undefined);
@@ -181,6 +195,7 @@ type SetWidgetStatus = Dispatch<SetStateAction<WidgetStatus>>;
 type SetWidgetUsage = Dispatch<SetStateAction<WidgetUsage | undefined>>;
 type ActiveRequestRef = { readonly current: AbortController | undefined };
 type PendingConversationTitleRef = { readonly current: string | undefined };
+type MutableConversationRef = { current: string | undefined };
 type LoadConversations = (signal?: AbortSignal) => Promise<void>;
 
 const useWidgetStreamEventHandlers = ({
@@ -193,6 +208,7 @@ const useWidgetStreamEventHandlers = ({
   setMessages,
   setStatus,
   setUsage,
+  streamOwnedConversationRef,
 }: {
   readonly hostBridge: Pick<HostBridge, "dispatchCommand"> | undefined;
   readonly loadConversations: LoadConversations;
@@ -203,12 +219,16 @@ const useWidgetStreamEventHandlers = ({
   readonly setMessages: Dispatch<SetStateAction<WidgetMessage[]>>;
   readonly setStatus: SetWidgetStatus;
   readonly setUsage: SetWidgetUsage;
+  readonly streamOwnedConversationRef: MutableConversationRef;
 }) => {
   const refreshConversationsAfterCompletion = useCallback(() => {
     void loadConversations().catch(reportError(setErrorMessage));
   }, [loadConversations, setErrorMessage]);
   const recordStartedConversation = useCallback(
     (startedConversationId: string, createdAt: string) => {
+      // Mark the conversation as stream-owned before adopting its id so the
+      // history effect skips it instead of clobbering the live turn.
+      streamOwnedConversationRef.current = startedConversationId;
       setConversationId(startedConversationId);
       const fallbackTitle = pendingConversationTitleRef.current;
       if (!fallbackTitle) return;
@@ -220,7 +240,7 @@ const useWidgetStreamEventHandlers = ({
         }),
       );
     },
-    [pendingConversationTitleRef, setConversationId, setConversations],
+    [pendingConversationTitleRef, setConversationId, setConversations, streamOwnedConversationRef],
   );
 
   return useWidgetStreamEvents(

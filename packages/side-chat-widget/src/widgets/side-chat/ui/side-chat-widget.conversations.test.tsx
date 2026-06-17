@@ -1,72 +1,22 @@
-import type { ChatClient, ConversationSummary } from "@side-chat/chat-client";
-import {
-  SIDECHAT_PROTOCOL_VERSION,
-  type ChatStreamRequest,
-  type CompletedEvent,
-  type DeltaEvent,
-  type SidechatStreamEvent,
-  type StartedEvent,
-} from "@side-chat/chat-protocol";
-import { Window } from "happy-dom";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChatClient } from "@side-chat/chat-client";
+import type { ChatStreamRequest } from "@side-chat/chat-protocol";
+import { describe, expect, it, vi } from "vitest";
+
 import { SideChatWidget } from "./side-chat-widget.js";
+import {
+  clickButton,
+  completed,
+  conversationSummary,
+  delta,
+  fakeClient,
+  installWidgetTestDom,
+  mountWidget,
+  started,
+  submit,
+  waitForText,
+} from "./widget-test-env.js";
 
-let windowRef: Window;
-let root: Root;
-let container: HTMLElement;
-let previousGlobals: [string, PropertyDescriptor | undefined][];
-
-beforeEach(() => {
-  previousGlobals = [];
-  windowRef = new Window();
-  assignGlobal("window", windowRef);
-  assignGlobal("document", windowRef.document);
-  assignGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  assignGlobal("Element", windowRef.Element);
-  assignGlobal("HTMLElement", windowRef.HTMLElement);
-  assignGlobal("HTMLButtonElement", windowRef.HTMLButtonElement);
-  assignGlobal("HTMLTextAreaElement", windowRef.HTMLTextAreaElement);
-  assignGlobal("MouseEvent", windowRef.MouseEvent);
-  assignGlobal("Event", windowRef.Event);
-  assignGlobal("FormData", windowRef.FormData);
-  assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
-  assignGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-  vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000001");
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-
-const assignGlobal = (name: string, value: unknown): void => {
-  previousGlobals.push([name, Object.getOwnPropertyDescriptor(globalThis, name)]);
-  Object.defineProperty(globalThis, name, { configurable: true, value, writable: true });
-};
-
-afterEach(() => {
-  if (root) {
-    act(() => {
-      root.unmount();
-    });
-  }
-  windowRef?.close();
-  vi.restoreAllMocks();
-  for (const [name, descriptor] of previousGlobals.slice().reverse()) {
-    if (descriptor) {
-      Object.defineProperty(globalThis, name, descriptor);
-    } else {
-      Reflect.deleteProperty(globalThis, name);
-    }
-  }
-});
+installWidgetTestDom();
 
 describe("SideChatWidget conversation history", () => {
   it("sends the server conversation id on subsequent chat requests", async () => {
@@ -166,93 +116,45 @@ describe("SideChatWidget conversation history", () => {
 
     expect(requests[0]?.conversationId).toBeUndefined();
   });
-});
 
-const renderWidget = (client: ChatClient) => {
-  act(() => {
-    root.render(
-      <SideChatWidget
-        assistantProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
-        client={client}
-        conversationStorageKey="widget-chat-store"
-        defaultAssistantProfileId="gpt-5.4-mini"
-        labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
-      />,
+  it("does not refetch history for a conversation a stream just established", async () => {
+    // Regression net for the history-clobber bug: a stream-owned conversation
+    // already has its live messages in state, so the history effect must not
+    // refetch it on the streaming -> idle transition and replace streamed text.
+    const readHistory = vi.fn<NonNullable<ChatClient["readHistory"]>>((conversationId) =>
+      Promise.resolve({ conversationId, messages: [] }),
     );
+    const client = fakeClient(
+      async function* () {
+        await Promise.resolve();
+        yield started("conversation-1");
+        yield delta("streamed answer");
+        yield completed();
+      },
+      { readHistory, listConversations: () => Promise.resolve({ conversations: [] }) },
+    );
+
+    renderWidget(client);
+    await submit("first message");
+    await waitForText("streamed answer");
+    // Flush any post-completion effects (the streaming -> idle transition).
+    await waitForText("streamed answer");
+
+    expect(readHistory).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("streamed answer");
   });
-};
+});
 
-const submit = async (message: string) => {
-  const textarea = document.querySelector("textarea");
-  if (!(textarea instanceof HTMLTextAreaElement)) throw new Error("Expected textarea.");
-
-  act(() => {
-    textarea.value = message;
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  await clickButton("Send");
-};
-
-const clickButton = async (name: string) => {
-  const button = Array.from(document.querySelectorAll("button")).find(
-    (candidate) => candidate.getAttribute("aria-label") === name || candidate.textContent === name,
+const renderWidget = (client: ChatClient) =>
+  mountWidget(
+    <SideChatWidget
+      assistantProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
+      client={client}
+      conversationStorageKey="widget-chat-store"
+      defaultAssistantProfileId="gpt-5.4-mini"
+      labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
+    />,
   );
-  if (!(button instanceof HTMLElement)) throw new Error(`Expected button ${name}.`);
-  await act(async () => {
-    button.click();
-    await Promise.resolve();
-  });
-};
-
-const waitForText = async (text: string): Promise<void> => {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() < deadline) {
-    if (document.body.textContent?.includes(text)) return;
-    await act(async () => {
-      await Promise.resolve();
-    });
-  }
-  throw new Error(`Expected document text to include ${text}.`);
-};
-
-const fakeClient = (
-  createEvents: (
-    request: ChatStreamRequest,
-  ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
-  overrides: Partial<Pick<ChatClient, "listConversations" | "readHistory">> = {},
-): ChatClient => ({
-  ...overrides,
-  streamChat: async (request) => ({
-    attempt: 1,
-    events: await createEvents(request),
-  }),
-});
-
-const baseEvent = (sequence: number) => ({
-  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-  eventId: `event-${sequence}`,
-  assistantTurnId: "turn-1",
-  sequence,
-  createdAt: "2026-05-23T13:00:00.000Z",
-});
-
-const started = (conversationId = "conversation-1"): StartedEvent => ({
-  ...baseEvent(0),
-  type: "sidechat.started",
-  conversationId,
-});
-
-const delta = (content: string): DeltaEvent => ({
-  ...baseEvent(1),
-  type: "sidechat.delta",
-  content,
-});
-
-const completed = (): CompletedEvent => ({
-  ...baseEvent(2),
-  type: "sidechat.completed",
-  finishReason: "stop",
-});
 
 const selectedConversationMessages = (includeContinuation: boolean) => [
   { id: "history-user-1", role: "user" as const, content: "selected question", sequence: 0 },
@@ -284,12 +186,3 @@ const freshConversationMessages = [
     sequence: 3,
   },
 ];
-
-const conversationSummary = (conversationId: string, title: string): ConversationSummary => ({
-  conversationId,
-  title,
-  status: "active",
-  createdAt: "2026-05-23T13:00:00.000Z",
-  updatedAt: "2026-05-23T13:00:00.000Z",
-  lastMessageAt: "2026-05-23T13:00:00.000Z",
-});

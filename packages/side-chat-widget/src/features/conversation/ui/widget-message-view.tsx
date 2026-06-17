@@ -16,6 +16,7 @@ import {
   WrenchIcon,
   type LucideIcon,
 } from "lucide-react";
+import { memo } from "react";
 
 import type { WidgetActivityItem, WidgetMessage } from "#entities/chat";
 import {
@@ -23,7 +24,11 @@ import {
   ToolActivityDetails,
 } from "./tool-activity/widget-tool-activity-details.js";
 
-export const WidgetMessageView = ({ message }: { readonly message: WidgetMessage }) => {
+// Wrapped in memo so a streaming token only re-renders the message that actually
+// changed, not every message in the list. This works because updating a message
+// builds a new array but keeps the exact same object for every message that did
+// not change, and memo skips a row whose message object is unchanged.
+export const WidgetMessageView = memo(({ message }: { readonly message: WidgetMessage }) => {
   const showActivity = shouldShowActivity(message);
 
   return (
@@ -43,7 +48,7 @@ export const WidgetMessageView = ({ message }: { readonly message: WidgetMessage
       </MessageContent>
     </Message>
   );
-};
+});
 
 const WidgetActivityTimeline = ({ message }: { readonly message: WidgetMessage }) => {
   const duration = readActivityDuration(message);

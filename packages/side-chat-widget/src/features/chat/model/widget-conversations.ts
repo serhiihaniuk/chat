@@ -1,4 +1,5 @@
 import type { ConversationSummary, ReadHistoryResult } from "@side-chat/chat-client";
+import { isRecord } from "@side-chat/shared";
 
 import { createWidgetMessage, type WidgetMessage } from "#entities/chat";
 
@@ -142,6 +143,3 @@ const trimConversationTitle = (title: string): string => {
     ? `${normalized.slice(0, MAX_CONVERSATION_TITLE_LENGTH - 1)}...`
     : normalized;
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;

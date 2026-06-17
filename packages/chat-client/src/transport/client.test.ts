@@ -93,6 +93,7 @@ describe("createChatClient", () => {
       headers: {
         accept: "text/event-stream",
         "content-type": "application/json",
+        "idempotency-key": "request-1",
       },
       body: JSON.stringify(request),
     });
@@ -155,6 +156,23 @@ describe("createChatClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.attempt).toBe(2);
     expect(events.at(-1)?.type).toBe("sidechat.completed");
+  });
+
+  it("does not retry a 409 conflict on the turn-creating stream POST", async () => {
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(new Response("conflict", { status: 409 })),
+    );
+    const client = createChatClient({
+      baseUrl: "https://example.test",
+      fetch: fetchMock,
+      retry: { attempts: 3 },
+    });
+
+    await expect(client.streamChat(request)).rejects.toMatchObject({
+      code: "http_error",
+      status: 409,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("lists conversations, reads history, resets history, and reads usage through typed routes", async () => {

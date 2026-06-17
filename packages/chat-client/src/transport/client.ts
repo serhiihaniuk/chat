@@ -103,7 +103,12 @@ export type ChatClient = {
 };
 
 const DEFAULT_STREAM_PATH = "/chat/stream";
-const DEFAULT_RETRY_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+// 409 is intentionally excluded: a Conflict is not safely retryable for a
+// turn-creating POST. The streamed turn carries an idempotency-key so the server
+// can dedupe when a retryable status (timeout / overload) is replayed.
+const DEFAULT_RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRY_BASE_DELAY_MS = 300;
+const RETRY_MAX_DELAY_MS = 5_000;
 
 export const createChatClient = (options: ChatClientOptions): ChatClient => {
   const transport = options.fetch ?? globalThis.fetch?.bind(globalThis);
@@ -145,6 +150,7 @@ const streamChatWithFetch = async (
     );
     if (result.ok) return result.value;
     if (!shouldRetry(result.error, retry, attempt, maxAttempts)) throw result.error;
+    await delayBeforeRetry(attempt, streamOptions.signal);
     attempt += 1;
   }
 
@@ -212,10 +218,30 @@ const buildRequestInit = (
     headers: {
       accept: "text/event-stream",
       "content-type": "application/json",
+      // Lets the server dedupe a replayed turn so retries never create duplicates.
+      "idempotency-key": request.requestId,
     },
     body: JSON.stringify(request),
     signal,
   });
+
+// Exponential backoff with full jitter so a fleet of clients retrying the same
+// overloaded server does not resynchronize into a thundering herd.
+const delayBeforeRetry = (attempt: number, signal: AbortSignal | undefined): Promise<void> => {
+  const ceiling = Math.min(RETRY_MAX_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+  const waitMs = Math.random() * ceiling;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, waitMs);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(new ChatClientError("aborted", "Chat stream was aborted", { cause: signal.reason }));
+      },
+      { once: true },
+    );
+  });
+};
 
 const readResponseBody = async function* (
   body: ReadableStream<Uint8Array>,

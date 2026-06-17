@@ -62,7 +62,7 @@ export const applyActivityEvent = (
   return {
     ...timeline,
     startedAt,
-    items: sortActivityItems(items),
+    items,
     activeItemId: readActiveItemId(items),
   };
 };
@@ -131,10 +131,10 @@ const sortActivityItems = (items: readonly WidgetActivityItem[]): WidgetActivity
     (left, right) => left.sequence - right.sequence || left.id.localeCompare(right.id),
   );
 
+// Expects items already sorted by sequence (the callers sort before calling).
+// The last running item in sequence order is the active timeline row.
 const readActiveItemId = (items: readonly WidgetActivityItem[]): string | undefined =>
-  sortActivityItems(items)
-    .filter((item) => item.status === ACTIVITY_STATUSES.RUNNING)
-    .at(-1)?.id;
+  items.filter((item) => item.status === ACTIVITY_STATUSES.RUNNING).at(-1)?.id;
 
 const mergeActivityDetails = (
   existing: ActivityDetails | undefined,

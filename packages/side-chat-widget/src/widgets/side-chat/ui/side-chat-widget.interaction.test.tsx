@@ -1,78 +1,28 @@
 import type { ChatClient } from "@side-chat/chat-client";
 import {
-  SIDECHAT_PROTOCOL_VERSION,
   type ActivityEvent,
   type ChatStreamRequest,
-  type CompletedEvent,
-  type DeltaEvent,
   type SidechatStreamEvent,
-  type StartedEvent,
 } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
 import { omitUndefinedField } from "@side-chat/shared";
-import { Window } from "happy-dom";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+
 import { SideChatWidget } from "./side-chat-widget.js";
+import {
+  baseEvent,
+  clickButton,
+  completed,
+  delta,
+  fakeClient,
+  installWidgetTestDom,
+  mountWidget,
+  started,
+  submit,
+  waitForText,
+} from "./widget-test-env.js";
 
-let windowRef: Window;
-let root: Root;
-let container: HTMLElement;
-let previousGlobals: [string, PropertyDescriptor | undefined][];
-
-beforeEach(() => {
-  previousGlobals = [];
-  windowRef = new Window();
-  assignGlobal("window", windowRef);
-  assignGlobal("document", windowRef.document);
-  assignGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  assignGlobal("Element", windowRef.Element);
-  assignGlobal("HTMLElement", windowRef.HTMLElement);
-  assignGlobal("HTMLTextAreaElement", windowRef.HTMLTextAreaElement);
-  assignGlobal("MouseEvent", windowRef.MouseEvent);
-  assignGlobal("Event", windowRef.Event);
-  assignGlobal("FormData", windowRef.FormData);
-  assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
-  assignGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-  vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000001");
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-
-const assignGlobal = (name: string, value: unknown): void => {
-  previousGlobals.push([name, Object.getOwnPropertyDescriptor(globalThis, name)]);
-  Object.defineProperty(globalThis, name, {
-    configurable: true,
-    value,
-    writable: true,
-  });
-};
-
-afterEach(() => {
-  if (root) {
-    act(() => {
-      root.unmount();
-    });
-  }
-  windowRef?.close();
-  vi.restoreAllMocks();
-  for (const [name, descriptor] of previousGlobals.slice().reverse()) {
-    if (descriptor) {
-      Object.defineProperty(globalThis, name, descriptor);
-    } else {
-      Reflect.deleteProperty(globalThis, name);
-    }
-  }
-});
+installWidgetTestDom();
 
 describe("SideChatWidget interactions", () => {
   it("submits a message through the chat-client seam and renders streaming deltas", async () => {
@@ -164,92 +114,16 @@ describe("SideChatWidget interactions", () => {
 const renderWidget = (
   client: ChatClient,
   hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand">,
-  options: { readonly conversationStorageKey?: string | undefined } = {},
-) => {
-  act(() => {
-    const props = {
-      assistantProfiles: [{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }],
-      client,
-      ...omitUndefinedField("conversationStorageKey", options.conversationStorageKey),
-      defaultAssistantProfileId: "gpt-5.4-mini",
-      labels: { placeholder: "Message", send: "Send", title: "Workspace Assistant" },
-      ...omitUndefinedField("hostBridge", hostBridge),
-    } satisfies Parameters<typeof SideChatWidget>[0];
-    root.render(<SideChatWidget {...props} />);
-  });
-};
-
-const submit = async (message: string) => {
-  const textarea = document.querySelector("textarea");
-  if (!(textarea instanceof HTMLTextAreaElement)) throw new Error("Expected textarea.");
-
-  act(() => {
-    textarea.value = message;
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  await clickButton("Send");
-};
-
-const clickButton = async (name: string) => {
-  const button = Array.from(document.querySelectorAll("button")).find(
-    (candidate) => candidate.getAttribute("aria-label") === name || candidate.textContent === name,
+) =>
+  mountWidget(
+    <SideChatWidget
+      assistantProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
+      client={client}
+      defaultAssistantProfileId="gpt-5.4-mini"
+      labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
+      {...omitUndefinedField("hostBridge", hostBridge)}
+    />,
   );
-  if (!(button instanceof HTMLElement)) throw new Error(`Expected button ${name}.`);
-  await act(async () => {
-    button.click();
-    await Promise.resolve();
-  });
-};
-
-const waitForText = async (text: string): Promise<void> => {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() < deadline) {
-    if (document.body.textContent?.includes(text)) return;
-    await act(async () => {
-      await Promise.resolve();
-    });
-  }
-  throw new Error(`Expected document text to include ${text}.`);
-};
-
-const fakeClient = (
-  createEvents: (
-    request: ChatStreamRequest,
-  ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
-  overrides: Partial<Pick<ChatClient, "listConversations" | "readHistory">> = {},
-): ChatClient => ({
-  ...overrides,
-  streamChat: async (request) => ({
-    attempt: 1,
-    events: await createEvents(request),
-  }),
-});
-
-const baseEvent = (sequence: number) => ({
-  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-  eventId: `event-${sequence}`,
-  assistantTurnId: "turn-1",
-  sequence,
-  createdAt: "2026-05-23T13:00:00.000Z",
-});
-
-const started = (conversationId = "conversation-1"): StartedEvent => ({
-  ...baseEvent(0),
-  type: "sidechat.started",
-  conversationId,
-});
-
-const delta = (content: string): DeltaEvent => ({
-  ...baseEvent(1),
-  type: "sidechat.delta",
-  content,
-});
-
-const completed = (): CompletedEvent => ({
-  ...baseEvent(2),
-  type: "sidechat.completed",
-  finishReason: "stop",
-});
 
 const hostCommandActivity = (): ActivityEvent => ({
   ...baseEvent(1),

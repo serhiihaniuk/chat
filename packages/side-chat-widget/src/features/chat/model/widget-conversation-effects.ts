@@ -1,7 +1,7 @@
 import type { ChatClient } from "@side-chat/chat-client";
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 
-import { toErrorMessage, type WidgetMessage, type WidgetStatus } from "#entities/chat";
+import { toErrorMessage, type WidgetMessage } from "#entities/chat";
 import {
   toWidgetConversationSummary,
   toWidgetHistoryMessages,
@@ -23,13 +23,10 @@ export const useConversationList = (
     [client, setConversations],
   );
 
-  useEffect(() => {
-    const abortController = new AbortController();
-    void loadConversations(abortController.signal).catch(
-      reportAbortableError(abortController.signal, setErrorMessage),
-    );
-    return () => abortController.abort();
-  }, [loadConversations, setErrorMessage]);
+  useEffect(
+    () => runAbortableLoad((signal) => loadConversations(signal), reportError(setErrorMessage)),
+    [loadConversations, setErrorMessage],
+  );
 
   return loadConversations;
 };
@@ -47,26 +44,45 @@ export const usePersistConversationStore = (
   }, [conversationId, conversationStorageKey, conversations]);
 };
 
+// History loads only when the user switches TO a conversation. The id a stream
+// establishes (recorded in streamOwnedConversationRef) already has live messages
+// in state, so refetching it would clobber the just-streamed turn — including the
+// activity timeline, which history does not carry. The ref is cleared on explicit
+// selection so switching back to that conversation does hydrate from history.
 export const useConversationHistory = (
   client: ChatClient,
   conversationId: string | undefined,
-  status: WidgetStatus,
+  streamOwnedConversationRef: { readonly current: string | undefined },
   setMessages: SetWidgetMessages,
   setErrorMessage: SetWidgetError,
 ): void => {
   useEffect(() => {
-    if (!conversationId || !client.readHistory || isBusyStatus(status)) return undefined;
+    if (
+      !conversationId ||
+      !client.readHistory ||
+      conversationId === streamOwnedConversationRef.current
+    ) {
+      return undefined;
+    }
 
-    const abortController = new AbortController();
-    void loadConversationHistory(
-      client,
-      conversationId,
-      setMessages,
-      setErrorMessage,
-      abortController.signal,
+    return runAbortableLoad(
+      (signal) => loadConversationHistory(client, conversationId, setMessages, signal),
+      reportError(setErrorMessage),
     );
-    return () => abortController.abort();
-  }, [client, conversationId, setErrorMessage, setMessages, status]);
+  }, [client, conversationId, setErrorMessage, setMessages, streamOwnedConversationRef]);
+};
+
+// One place that owns the AbortController + non-abort error routing the read
+// effects used to hand-roll three times over. Returns the effect cleanup.
+const runAbortableLoad = (
+  load: (signal: AbortSignal) => Promise<void>,
+  onError: (error: unknown) => void,
+): (() => void) => {
+  const controller = new AbortController();
+  void load(controller.signal).catch((error: unknown) => {
+    if (!controller.signal.aborted) onError(error);
+  });
+  return () => controller.abort();
 };
 
 const loadConversationSummaries = async (
@@ -83,22 +99,14 @@ const loadConversationHistory = async (
   client: ChatClient,
   conversationId: string,
   setMessages: SetWidgetMessages,
-  setErrorMessage: SetWidgetError,
   signal: AbortSignal,
 ): Promise<void> => {
-  try {
-    const history = await client.readHistory?.(conversationId, { limit: 100, signal });
-    if (!signal.aborted && history) setMessages([...toWidgetHistoryMessages(history)]);
-  } catch (error) {
-    if (!signal.aborted) setErrorMessage(toErrorMessage(error));
-  }
+  const history = await client.readHistory?.(conversationId, { limit: 100, signal });
+  if (!signal.aborted && history) setMessages([...toWidgetHistoryMessages(history)]);
 };
 
-const reportAbortableError =
-  (signal: AbortSignal, setErrorMessage: SetWidgetError) =>
+const reportError =
+  (setErrorMessage: SetWidgetError) =>
   (error: unknown): void => {
-    if (!signal.aborted) setErrorMessage(toErrorMessage(error));
+    setErrorMessage(toErrorMessage(error));
   };
-
-const isBusyStatus = (status: WidgetStatus): boolean =>
-  status === "submitted" || status === "streaming";
