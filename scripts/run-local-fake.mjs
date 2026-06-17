@@ -24,9 +24,9 @@
 //   --install   force `npm install` even if node_modules exists
 //   --yes       skip prompts, use env vars / defaults only
 
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import readline from "node:readline";
 import { Writable } from "node:stream";
 import process from "node:process";
@@ -48,6 +48,9 @@ const WIDGET_WORKSPACE = "@side-chat/widget-harness";
 const WIDGET_PORT = 8080;
 const WIDGET_ENDPOINT_NAME = "workbench-ui";
 const WIDGET_BIND_HOST = "0.0.0.0";
+
+// Saved answers live next to this script so re-runs remember your inputs.
+const CONFIG_FILE = path.join(__dirname, ".run-local-fake.json");
 
 // Version expectations.
 const RECOMMENDED = { node: ">=24.15.0 <25.0.0", npm: ">=11.12.0 <12.0.0" };
@@ -72,6 +75,88 @@ const color = (c, s) => `${COLORS[c] || ""}${s}${COLORS.reset}`;
 const logLauncher = (msg) => console.log(`${color("magenta", "[launcher]")} ${msg}`);
 const warnLauncher = (msg) => console.warn(`${color("yellow", "[launcher]")} ${color("yellow", msg)}`);
 const errLauncher = (msg) => console.error(`${color("red", "[launcher]")} ${color("red", msg)}`);
+
+// --------------------------------------------------------------------------
+// Saved config (remembers your answers between runs)
+// --------------------------------------------------------------------------
+function loadSaved() {
+  try {
+    const raw = readFileSync(CONFIG_FILE, "utf8");
+    const obj = JSON.parse(raw);
+    logLauncher(`Loaded saved answers from ${path.relative(ROOT, CONFIG_FILE)}.`);
+    return obj && typeof obj === "object" ? obj : {};
+  } catch {
+    return {};
+  }
+}
+function saveConfig(cfg) {
+  try {
+    writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2) + "\n");
+    // Best-effort lock-down: the file may contain the API key.
+    if (!IS_WIN) {
+      try { chmodSync(CONFIG_FILE, 0o600); } catch { /* ignore */ }
+    }
+    logLauncher(`Saved your answers to ${path.relative(ROOT, CONFIG_FILE)} (reused next run; contains the API key — keep it out of git).`);
+  } catch (e) {
+    warnLauncher(`Could not save config: ${e.message}`);
+  }
+}
+// Default precedence: saved file -> env var -> hardcoded fallback.
+function pick(saved, key, envVal, fallback) {
+  const has = Object.prototype.hasOwnProperty.call(saved, key);
+  if (has && saved[key] !== undefined && saved[key] !== "") return String(saved[key]);
+  if (envVal) return envVal;
+  return fallback;
+}
+
+// --------------------------------------------------------------------------
+// Free a TCP port by killing whatever is listening on it.
+// --------------------------------------------------------------------------
+function pidsOnPort(port) {
+  try {
+    if (IS_WIN) {
+      const out = execSync("netstat -ano -p tcp", { encoding: "utf8" });
+      const pids = new Set();
+      for (const line of out.split("\n")) {
+        if (line.includes(`:${port} `) && /LISTENING/i.test(line)) {
+          const pid = line.trim().split(/\s+/).pop();
+          if (/^\d+$/.test(pid)) pids.add(pid);
+        }
+      }
+      return [...pids];
+    }
+    // POSIX: prefer lsof, fall back to fuser.
+    try {
+      const out = execSync(`lsof -ti tcp:${port} -sTCP:LISTEN 2>/dev/null`, { encoding: "utf8" });
+      return out.split("\n").map((s) => s.trim()).filter(Boolean);
+    } catch {
+      try {
+        const out = execSync(`fuser ${port}/tcp 2>/dev/null`, { encoding: "utf8" });
+        return out.trim().split(/\s+/).filter(Boolean);
+      } catch {
+        return [];
+      }
+    }
+  } catch {
+    return [];
+  }
+}
+function freePort(port, label) {
+  const self = String(process.pid);
+  const pids = pidsOnPort(port).filter((p) => p !== self);
+  if (!pids.length) return;
+  warnLauncher(`Port ${port} (${label}) is busy — killing PID(s) ${pids.join(", ")}.`);
+  for (const pid of pids) {
+    try {
+      if (IS_WIN) execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore" });
+      else process.kill(Number(pid), "SIGKILL");
+    } catch (e) {
+      warnLauncher(`Could not kill PID ${pid}: ${e.message}`);
+    }
+  }
+  // Give the OS a moment to release the socket before strictPort binds.
+  try { execSync(IS_WIN ? "ping 127.0.0.1 -n 2 >NUL" : "sleep 0.7", { stdio: "ignore" }); } catch { /* ignore */ }
+}
 
 // --------------------------------------------------------------------------
 // Interactive prompts (mutable-output trick so the API key can be masked)
@@ -308,15 +393,16 @@ async function waitForHealth(port, { timeoutMs = 60000, intervalMs = 500 } = {})
 // Collect config interactively
 // --------------------------------------------------------------------------
 async function collectConfig() {
+  const saved = loadSaved();
   openPrompts();
-  if (SKIP_PROMPTS) logLauncher("Non-interactive (--yes or no TTY): using env vars / defaults.");
+  if (SKIP_PROMPTS) logLauncher("Non-interactive (--yes or no TTY): using saved file / env / defaults.");
   else console.log(color("bold", "\nConfigure this run (press Enter to accept the [default]):\n"));
 
   const cfg = {};
 
   // Provider
-  const providerDefault = process.env.SIDECHAT_PROVIDER || "openai";
-  let provider = (await ask("Provider [fake/openai]", providerDefault)).toLowerCase();
+  let provider = (await ask("Provider [fake/openai]",
+    pick(saved, "provider", process.env.SIDECHAT_PROVIDER, "openai"))).toLowerCase();
   if (provider !== "fake" && provider !== "openai") {
     warnLauncher(`Unknown provider "${provider}", using "openai".`);
     provider = "openai";
@@ -324,32 +410,37 @@ async function collectConfig() {
   cfg.provider = provider;
 
   if (provider === "openai") {
-    cfg.apiKey = await askSecret("OpenAI API key", process.env.SIDECHAT_OPENAI_API_KEY || "");
+    const savedKey = pick(saved, "apiKey", process.env.SIDECHAT_OPENAI_API_KEY, "");
+    cfg.apiKey = await askSecret("API key", savedKey);
     while (!cfg.apiKey) {
       errLauncher("API key is required for the real model.");
-      cfg.apiKey = await askSecret("OpenAI API key", "");
+      cfg.apiKey = await askSecret("API key", "");
       if (SKIP_PROMPTS) break;
     }
     cfg.models = await ask("Allowed models (comma-separated, first is default)",
-      process.env.SIDECHAT_ALLOWED_MODELS || "gpt-5.4-mini");
+      pick(saved, "models", process.env.SIDECHAT_ALLOWED_MODELS, "gpt-5.4-mini"));
     cfg.baseUrl = await ask(
       "API base URL — OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
-      process.env.SIDECHAT_OPENAI_BASE_URL || "",
+      pick(saved, "baseUrl", process.env.SIDECHAT_OPENAI_BASE_URL, ""),
     );
   }
 
-  cfg.workspaceId = await ask("Workspace ID", process.env.WORKSPACE_ID || "workspace_local");
-  cfg.authToken = await ask("Auth bearer token", process.env.AUTH_TOKEN || "local-compose-token");
-  cfg.backendPort = Number(await ask("Backend port", process.env.BACKEND_PORT || "8787")) || 8787;
+  cfg.workspaceId = await ask("Workspace ID",
+    pick(saved, "workspaceId", process.env.WORKSPACE_ID, "workspace_local"));
+  cfg.authToken = await ask("Auth bearer token",
+    pick(saved, "authToken", process.env.AUTH_TOKEN, "local-compose-token"));
+  cfg.backendPort = Number(await ask("Backend port",
+    pick(saved, "backendPort", process.env.BACKEND_PORT, "8787"))) || 8787;
 
   // Public domain for the widget host. Blank => expose on localhost only.
   cfg.domain = await ask(
     "Public domain for the widget (blank = localhost only).\n" +
       `  Public host becomes: <workspaceId>-${WIDGET_ENDPOINT_NAME}-${WIDGET_PORT}.<domain>\n  domain`,
-    process.env.SIDECHAT_PUBLIC_DOMAIN || "",
+    pick(saved, "domain", process.env.SIDECHAT_PUBLIC_DOMAIN, ""),
   );
 
   closePrompts();
+  saveConfig(cfg);
   return cfg;
 }
 
@@ -388,6 +479,7 @@ async function main() {
     logLauncher(`Provider: openai (models: ${cfg.models}). Persistence: in-memory.`);
   }
 
+  freePort(cfg.backendPort, "backend");
   spawnDevServer({ name: "backend", labelColor: "cyan", workspace: BACKEND_WORKSPACE, env: backendEnv });
 
   const healthy = await waitForHealth(cfg.backendPort);
@@ -402,6 +494,7 @@ async function main() {
   };
   if (publicHost) widgetEnv.__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS = publicHost;
 
+  freePort(WIDGET_PORT, "widget");
   spawnDevServer({
     name: "widget",
     labelColor: "blue",
