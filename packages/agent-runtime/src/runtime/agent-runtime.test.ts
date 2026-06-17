@@ -8,7 +8,11 @@ import {
   FAKE_PROVIDER_ID,
 } from "#providers/fake/fake-model-provider";
 import { createMockWebSearchTool, MOCK_WEB_SEARCH_TOOL_NAME } from "#testing/mock-runtime-tool";
-import { collectEvents, createCapturingProvider } from "#testing/agent-runtime-test-support";
+import {
+  collectEvents,
+  createCapturingProvider,
+  createContentFilterProvider,
+} from "#testing/agent-runtime-test-support";
 import { createAgentRuntime, DEFAULT_AGENT_EXECUTOR_ID } from "./agent-runtime.js";
 
 describe("createAgentRuntime", () => {
@@ -33,6 +37,33 @@ describe("createAgentRuntime", () => {
     expect(events[0]?.type).toBe("runtime.started");
     expect(events.at(-1)?.type).toBe("runtime.completed");
     expect(events.every((event) => event.requestId === "req_001")).toBe(true);
+  });
+
+  it("maps a provider content-filter stop to a runtime blocked terminal", async () => {
+    const runtime = createAgentRuntime({
+      providers: [createContentFilterProvider()],
+    });
+
+    const events = await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          runtimeRequest({
+            providerId: "content-filter",
+            modelId: "content-filter-model",
+            requestId: "req_blocked",
+            assistantTurnId: "turn_blocked",
+            messages: [{ role: "user", content: "trigger the filter" }],
+          }),
+        ),
+      ),
+    );
+
+    // Content filtering is a distinct safety terminal, never a completion.
+    expect(events.at(-1)).toMatchObject({
+      type: "runtime.blocked",
+      reason: "content_filter",
+    });
+    expect(events.some((event) => event.type === "runtime.completed")).toBe(false);
   });
 
   it("exposes an Effect stream as the first-class runtime surface", async () => {

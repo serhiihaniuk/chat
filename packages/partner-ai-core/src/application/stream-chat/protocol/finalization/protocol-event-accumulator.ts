@@ -1,8 +1,11 @@
 import {
+  isTerminalEvent,
+  PROTOCOL_ERROR_CODES,
   SIDECHAT_EVENT_TYPES,
   type CompletedEvent,
   type ProtocolErrorCode,
   type SidechatStreamEvent,
+  type TerminalEvent,
 } from "@side-chat/chat-protocol";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
@@ -20,11 +23,6 @@ import {
  * into a private content log.
  */
 
-type ProtocolTerminalEvent = Extract<
-  SidechatStreamEvent,
-  { readonly type: typeof SIDECHAT_EVENT_TYPES.COMPLETED | typeof SIDECHAT_EVENT_TYPES.ERROR }
->;
-
 /**
  * Minimal mutable summary of emitted `sidechat.v1` events.
  *
@@ -35,7 +33,7 @@ type ProtocolTerminalEvent = Extract<
 export type ProtocolEventAccumulator = {
   readonly eventCount: number;
   readonly terminalCount: number;
-  readonly terminalEvent?: ProtocolTerminalEvent | undefined;
+  readonly terminalEvent?: TerminalEvent | undefined;
   readonly completedEvent?: CompletedEvent | undefined;
   readonly assistantContent: string;
   readonly invalidReason?: string | undefined;
@@ -87,12 +85,22 @@ export const validateProtocolAccumulator = (accumulator: ProtocolEventAccumulato
   if (reason) throw invalidRuntimeSequence(reason);
 };
 
+/**
+ * Map the terminal event to the durable failure code, or `undefined` when the
+ * turn completed successfully.
+ *
+ * A blocked (safety-filtered) terminal is a failed turn, not a completion: it
+ * persists as `provider_failed` so a filtered turn is never saved as a finished
+ * answer. The browser still receives the distinct `sidechat.blocked` event.
+ */
 export const protocolTerminalErrorCode = (
   accumulator: ProtocolEventAccumulator,
-): ProtocolErrorCode | undefined =>
-  accumulator.terminalEvent?.type === SIDECHAT_EVENT_TYPES.ERROR
-    ? accumulator.terminalEvent.code
-    : undefined;
+): ProtocolErrorCode | undefined => {
+  const terminal = accumulator.terminalEvent;
+  if (terminal?.type === SIDECHAT_EVENT_TYPES.ERROR) return terminal.code;
+  if (terminal?.type === SIDECHAT_EVENT_TYPES.BLOCKED) return PROTOCOL_ERROR_CODES.PROVIDER_FAILED;
+  return undefined;
+};
 
 const invalidReasonForNextEvent = (
   accumulator: ProtocolEventAccumulator,
@@ -129,9 +137,6 @@ const appendAssistantContent = (content: string, event: SidechatStreamEvent): st
 
 const isCompletedEvent = (event: SidechatStreamEvent): event is CompletedEvent =>
   event.type === SIDECHAT_EVENT_TYPES.COMPLETED;
-
-const isTerminalEvent = (event: SidechatStreamEvent): event is ProtocolTerminalEvent =>
-  event.type === SIDECHAT_EVENT_TYPES.COMPLETED || event.type === SIDECHAT_EVENT_TYPES.ERROR;
 
 const invalidRuntimeSequence = (message: string): PartnerAiCoreError =>
   new PartnerAiCoreError(

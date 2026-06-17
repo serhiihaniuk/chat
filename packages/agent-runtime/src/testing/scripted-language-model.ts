@@ -1,17 +1,25 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
+  LanguageModelV3FinishReason,
   LanguageModelV3GenerateResult,
   LanguageModelV3StreamPart,
   LanguageModelV3StreamResult,
   LanguageModelV3Usage,
 } from "@ai-sdk/provider";
 
+type ScriptedFinishReason = LanguageModelV3FinishReason["unified"];
+
+const STOP_FINISH_REASON: ScriptedFinishReason = "stop";
+
 export type ScriptedLanguageModelOptions = {
   readonly providerId: string;
   readonly modelId: string;
   readonly reasoning?: string | ((options: LanguageModelV3CallOptions) => string);
   readonly text?: string | ((options: LanguageModelV3CallOptions) => string);
+  // Lets a test drive a non-stop provider stop, e.g. "content-filter" to exercise
+  // safety-stop mapping. Defaults to a normal stop.
+  readonly finishReason?: ScriptedFinishReason | undefined;
   readonly onStreamCall?: (options: LanguageModelV3CallOptions) => void;
 };
 
@@ -21,13 +29,16 @@ export const createScriptedLanguageModel = ({
   providerId,
   reasoning,
   text = "Scripted response.",
+  finishReason = STOP_FINISH_REASON,
 }: ScriptedLanguageModelOptions): LanguageModelV3 => ({
   specificationVersion: "v3",
   provider: providerId,
   modelId,
   supportedUrls: {},
   doGenerate: (options) =>
-    Promise.resolve(createGenerateResult(readText(text, options), countInputTokens(options))),
+    Promise.resolve(
+      createGenerateResult(readText(text, options), countInputTokens(options), finishReason),
+    ),
   doStream: (options) => {
     onStreamCall?.(options);
     return Promise.resolve(
@@ -35,6 +46,7 @@ export const createScriptedLanguageModel = ({
         inputTokenCount: countInputTokens(options),
         reasoning: reasoning ? readText(reasoning, options) : undefined,
         text: readText(text, options),
+        finishReason,
       }),
     );
   },
@@ -43,9 +55,10 @@ export const createScriptedLanguageModel = ({
 const createGenerateResult = (
   text: string,
   inputTokenCount: number,
+  finishReason: ScriptedFinishReason,
 ): LanguageModelV3GenerateResult => ({
   content: [{ type: "text", text }],
-  finishReason: { unified: "stop", raw: "stop" },
+  finishReason: { unified: finishReason, raw: finishReason },
   usage: createUsage(text, inputTokenCount),
   warnings: [],
 });
@@ -54,10 +67,12 @@ const createStreamResult = ({
   inputTokenCount,
   reasoning,
   text,
+  finishReason,
 }: {
   readonly inputTokenCount: number;
   readonly reasoning?: string | undefined;
   readonly text: string;
+  readonly finishReason: ScriptedFinishReason;
 }): LanguageModelV3StreamResult => ({
   stream: new ReadableStream<LanguageModelV3StreamPart>({
     start(controller) {
@@ -74,7 +89,7 @@ const createStreamResult = ({
       controller.enqueue({ type: "text-end", id: "text_1" });
       controller.enqueue({
         type: "finish",
-        finishReason: { unified: "stop", raw: "stop" },
+        finishReason: { unified: finishReason, raw: finishReason },
         usage: createUsage(text, inputTokenCount),
       });
       controller.close();

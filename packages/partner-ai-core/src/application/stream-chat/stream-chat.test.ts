@@ -4,6 +4,7 @@ import {
   validateSidechatEventSequence,
 } from "@side-chat/chat-protocol";
 import {
+  RUNTIME_BLOCKED_REASONS,
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
@@ -252,7 +253,7 @@ describe("stream chat runtime terminal mapping", () => {
     expect(events.map((event) => event.sequence)).toEqual([0, 1, 2]);
   });
 
-  it("fails started turns when the runtime emits more than one terminal event", async () => {
+  it("drops a second runtime terminal so the browser keeps exactly one terminal", async () => {
     const ports = createFakePorts({
       authContext,
       runtimeEvents: [
@@ -275,16 +276,52 @@ describe("stream chat runtime terminal mapping", () => {
       ],
     });
 
-    await expect(collect(runStreamChat(input, ports))).rejects.toMatchObject({
-      code: PARTNER_AI_CORE_ERROR_CODES.INVALID_RUNTIME_SEQUENCE,
-      protocolCode: PROTOCOL_ERROR_CODES.MALFORMED_STREAM,
-      message: expect.stringContaining("Expected exactly one terminal event"),
+    const events = await collect(runStreamChat(input, ports));
+
+    // The state machine rejects the late error after the completed terminal, so
+    // the browser stream stays valid by construction: exactly one terminal, and
+    // the turn is recorded from the legitimate completion.
+    expect(events.filter(isTerminalEvent)).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
+    expect(events.some((event) => event.type === SIDECHAT_EVENT_TYPES.ERROR)).toBe(false);
+    expect(ports.failedTurns).toEqual([]);
+    expect(ports.completedTurns).toHaveLength(1);
+  });
+
+  it("maps a runtime blocked event to a sidechat.blocked safety terminal", async () => {
+    const ports = createFakePorts({
+      authContext,
+      runtimeEvents: [
+        {
+          type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
+          requestId: "request_001",
+          assistantTurnId: "assistant_turn_001",
+          sequence: 0,
+          content: "partial answer",
+        },
+        {
+          type: RUNTIME_EVENT_TYPES.BLOCKED,
+          requestId: "request_001",
+          assistantTurnId: "assistant_turn_001",
+          sequence: 1,
+          reason: RUNTIME_BLOCKED_REASONS.CONTENT_FILTER,
+          publicMessage: "The assistant cannot complete this response because it was blocked.",
+        },
+      ],
     });
+
+    const events = await collect(runStreamChat(input, ports));
+
+    // Content filtering is a distinct safety terminal, never a completion.
+    expect(events.at(-1)).toMatchObject({
+      type: SIDECHAT_EVENT_TYPES.BLOCKED,
+      reason: "content_filter",
+    });
+    expect(events.filter(isTerminalEvent)).toHaveLength(1);
+    expect(events.some((event) => event.type === SIDECHAT_EVENT_TYPES.COMPLETED)).toBe(false);
+    // A filtered turn is not persisted as a completed answer.
     expect(ports.completedTurns).toEqual([]);
-    expect(ports.failedTurns[0]).toMatchObject({
-      status: "provider_failed",
-      errorCode: PROTOCOL_ERROR_CODES.MALFORMED_STREAM,
-    });
+    expect(ports.failedTurns[0]).toMatchObject({ status: "provider_failed" });
   });
 
   it("maps runtime failures to a stable terminal protocol error", async () => {

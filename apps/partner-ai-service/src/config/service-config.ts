@@ -253,8 +253,12 @@ const readOpenAIReasoningEffort = (rawEffort: string | undefined): OpenAIReasoni
   );
 };
 
-const readOpenAIReasoningSummary = (rawSummary: string | undefined): OpenAIReasoningSummary => {
-  if (!rawSummary) return OPENAI_REASONING_SUMMARIES.AUTO;
+const readOpenAIReasoningSummary = (
+  rawSummary: string | undefined,
+): OpenAIReasoningSummary | undefined => {
+  // Reasoning summaries are hidden by default: an unset env omits the summary so
+  // the provider never requests one unless the operator opts in.
+  if (!rawSummary) return undefined;
   if (openaiReasoningSummaries.has(rawSummary)) {
     return rawSummary as OpenAIReasoningSummary;
   }

@@ -7,13 +7,18 @@ import {
   createProtocolEventAccumulator,
   recordProtocolEvent,
   type ProtocolEventAccumulator,
-} from "./protocol-event-accumulator.js";
+} from "./finalization/protocol-event-accumulator.js";
+import {
+  advanceProtocolStream,
+  createProtocolStreamState,
+  type ProtocolStreamState,
+} from "./protocol-stream-state-machine.js";
 import {
   createErrorEvent,
   mapRuntimeEvent,
   mapUnknownRuntimeError,
 } from "./runtime-event-mapper.js";
-import { finalizeProtocolStream } from "./protocol-terminal-lifecycle.js";
+import { finalizeProtocolStream } from "./finalization/protocol-terminal-lifecycle.js";
 import {
   recordRuntimeEventObservation,
   recordStreamObservationEffect,
@@ -44,32 +49,44 @@ export const createProtocolEventStream = (
     // sequence numbers are internal and may include dropped lifecycle events.
     const nextProtocolSequence = yield* Ref.make(1);
 
-    return createStartedProtocolStream(ports, input, turn, accumulator, nextProtocolSequence);
+    // The state machine gates emission so the browser never sees a second start,
+    // a second terminal, or any event after a terminal.
+    const streamState = yield* Ref.make(createProtocolStreamState());
+
+    return createStartedProtocolStream({
+      ports,
+      input,
+      turn,
+      accumulator,
+      nextProtocolSequence,
+      streamState,
+    });
   });
 
   return Stream.unwrap(protocolStream);
 };
 
+type ProtocolStreamRefs = {
+  readonly ports: StreamChatPorts;
+  readonly input: StreamChatInput;
+  readonly turn: PreparedStreamChatTurn;
+  readonly accumulator: Ref.Ref<ProtocolEventAccumulator>;
+  readonly nextProtocolSequence: Ref.Ref<number>;
+  readonly streamState: Ref.Ref<ProtocolStreamState>;
+};
+
 const createStartedProtocolStream = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-  accumulator: Ref.Ref<ProtocolEventAccumulator>,
-  nextProtocolSequence: Ref.Ref<number>,
+  refs: ProtocolStreamRefs,
 ): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> => {
+  const { ports, input, turn, accumulator } = refs;
+
   // Emit the product start marker only after all pre-start persistence/context
   // work has succeeded.
-  const started = Stream.fromEffect(emitStartedEvent(ports, input, turn, accumulator));
+  const started = Stream.fromEffect(emitStartedEvent(refs));
 
   // Runtime/provider failures are caught in this segment and converted to the
   // single terminal protocol error required after the stream has started.
-  const runtimeEvents = createObservedRuntimeEventStream(
-    ports,
-    input,
-    turn,
-    accumulator,
-    nextProtocolSequence,
-  );
+  const runtimeEvents = createObservedRuntimeEventStream(refs);
 
   // Finalization runs after runtime exhaustion or terminal error emission and
   // persists the durable assistant-turn outcome.
@@ -91,20 +108,21 @@ const concatProtocolStreamSegments = ({
 }: ProtocolStreamSegments): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
   Stream.concat(started, Stream.concat(runtimeEvents, finalized));
 
-const emitStartedEvent = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-  accumulator: Ref.Ref<ProtocolEventAccumulator>,
-): Effect.Effect<SidechatStreamEvent> =>
-  rememberEvent(accumulator, {
-    protocolVersion: input.request.protocolVersion,
-    type: SIDECHAT_EVENT_TYPES.STARTED,
-    eventId: ports.ids.nextEventId(),
-    assistantTurnId: turn.assistantTurnId,
-    sequence: 0,
-    createdAt: ports.clock.now(),
-    conversationId: turn.conversation.conversationId,
+const emitStartedEvent = (refs: ProtocolStreamRefs): Effect.Effect<SidechatStreamEvent> =>
+  Effect.gen(function* () {
+    const { ports, input, turn } = refs;
+    const started: SidechatStreamEvent = {
+      protocolVersion: input.request.protocolVersion,
+      type: SIDECHAT_EVENT_TYPES.STARTED,
+      eventId: ports.ids.nextEventId(),
+      assistantTurnId: turn.assistantTurnId,
+      sequence: 0,
+      createdAt: ports.clock.now(),
+      conversationId: turn.conversation.conversationId,
+    };
+    // Commit the idle -> started transition; from idle this is always accepted.
+    yield* acceptStreamTransition(refs.streamState, started);
+    return yield* rememberEvent(refs.accumulator, started);
   });
 
 /**
@@ -115,69 +133,61 @@ const emitStartedEvent = (
  * because `sidechat.started` has already been emitted.
  */
 const createObservedRuntimeEventStream = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-  accumulator: Ref.Ref<ProtocolEventAccumulator>,
-  nextProtocolSequence: Ref.Ref<number>,
+  refs: ProtocolStreamRefs,
 ): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
-  createRuntimeEventStream(ports, input, turn).pipe(
-    Stream.mapEffect((runtimeEvent) =>
-      mapRuntimeEventEffect(ports, input, turn, accumulator, nextProtocolSequence, runtimeEvent),
-    ),
+  createRuntimeEventStream(refs).pipe(
+    Stream.mapEffect((runtimeEvent) => mapRuntimeEventEffect(refs, runtimeEvent)),
     Stream.flatMap((event) => (event ? Stream.succeed(event) : Stream.empty)),
     Stream.catch((error) =>
-      Stream.fromEffect(
-        emitRuntimeFailureEvent(ports, input, turn, accumulator, nextProtocolSequence, error),
+      Stream.fromEffect(emitRuntimeFailureEvent(refs, error)).pipe(
+        Stream.flatMap((event) => (event ? Stream.succeed(event) : Stream.empty)),
       ),
     ),
   );
 
 const createRuntimeEventStream = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
+  refs: ProtocolStreamRefs,
 ): Stream.Stream<RuntimeEvent, PartnerAiCoreError> =>
-  ports.runtime
-    .streamEffect(buildModelTurnRequest(input, turn))
+  refs.ports.runtime
+    .streamEffect(buildModelTurnRequest(refs.input, refs.turn))
     .pipe(Stream.mapError(mapUnknownRuntimeError));
 
 const mapRuntimeEventEffect = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-  accumulator: Ref.Ref<ProtocolEventAccumulator>,
-  nextProtocolSequence: Ref.Ref<number>,
+  refs: ProtocolStreamRefs,
   runtimeEvent: RuntimeEvent,
 ): Effect.Effect<SidechatStreamEvent | undefined, PartnerAiCoreError> =>
   Effect.gen(function* () {
     // Observe before mapping because some runtime lifecycle events are not
     // browser-visible but still matter for server diagnostics.
-    yield* recordRuntimeEventObservation(ports, turn, runtimeEvent);
-    const sequence = yield* Ref.get(nextProtocolSequence);
-    const event = mapRuntimeEvent(runtimeEvent, input.request, ports, sequence);
+    yield* recordRuntimeEventObservation(refs.ports, refs.turn, runtimeEvent);
+    const sequence = yield* Ref.get(refs.nextProtocolSequence);
+    const event = mapRuntimeEvent(runtimeEvent, refs.input.request, refs.ports, sequence);
     if (!event) return undefined;
 
+    // The state machine drops any event the browser contract forbids (a second
+    // terminal, anything after a terminal) without consuming a sequence number.
+    const accepted = yield* acceptStreamTransition(refs.streamState, event);
+    if (!accepted) return undefined;
+
     // Advance protocol sequence only for events that cross the browser contract.
-    yield* Ref.set(nextProtocolSequence, sequence + 1);
-    return yield* rememberEvent(accumulator, event);
+    yield* Ref.set(refs.nextProtocolSequence, sequence + 1);
+    return yield* rememberEvent(refs.accumulator, event);
   });
 
 /**
  * Emit the final error event after streaming has already started.
  *
  * Before `sidechat.started`, a failure rejects the request. After it, the
- * browser needs `sidechat.error` so the UI can close the turn cleanly.
+ * browser needs `sidechat.error` so the UI can close the turn cleanly. A failure
+ * that arrives after a terminal was already emitted is dropped by the state
+ * machine so the stream keeps exactly one terminal.
  */
 const emitRuntimeFailureEvent = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-  accumulator: Ref.Ref<ProtocolEventAccumulator>,
-  nextProtocolSequence: Ref.Ref<number>,
+  refs: ProtocolStreamRefs,
   error: PartnerAiCoreError,
-): Effect.Effect<SidechatStreamEvent, PartnerAiCoreError> =>
+): Effect.Effect<SidechatStreamEvent | undefined, PartnerAiCoreError> =>
   Effect.gen(function* () {
+    const { ports, input, turn } = refs;
     yield* recordStreamObservationEffect(ports.observability, {
       correlation: turn.correlation,
       lifecycleState: "failed",
@@ -192,11 +202,29 @@ const emitRuntimeFailureEvent = (
         message: error.message,
       },
     });
-    const sequence = yield* Ref.get(nextProtocolSequence);
-    return yield* rememberEvent(
-      accumulator,
-      createErrorEvent(input, turn.assistantTurnId, sequence, ports, error),
-    );
+    const sequence = yield* Ref.get(refs.nextProtocolSequence);
+    const event = createErrorEvent(input, turn.assistantTurnId, sequence, ports, error);
+    const accepted = yield* acceptStreamTransition(refs.streamState, event);
+    if (!accepted) return undefined;
+    return yield* rememberEvent(refs.accumulator, event);
+  });
+
+/**
+ * Commit the state-machine transition for one candidate browser event.
+ *
+ * Returns whether the event may be emitted. A rejected transition leaves the
+ * committed state unchanged so the offending event is simply dropped.
+ */
+const acceptStreamTransition = (
+  streamState: Ref.Ref<ProtocolStreamState>,
+  event: SidechatStreamEvent,
+): Effect.Effect<boolean> =>
+  Effect.gen(function* () {
+    const state = yield* Ref.get(streamState);
+    const transition = advanceProtocolStream(state, event);
+    if (!transition.ok) return false;
+    yield* Ref.set(streamState, transition.state);
+    return true;
   });
 
 const rememberEvent = (

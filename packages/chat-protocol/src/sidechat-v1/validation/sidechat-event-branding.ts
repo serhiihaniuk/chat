@@ -29,6 +29,7 @@ import {
   readActivityKind,
   readActivityStatus,
   readArray,
+  readBlockedReason,
   readBoolean,
   readEventType,
   readFinishReason,
@@ -69,6 +70,13 @@ export const toBrandedSidechatEvent = (event: Record<string, unknown>): Sidechat
         code: readProtocolErrorCode(event["code"]),
         message: readString(event["message"], 'event["message"]'),
         retryable: readBoolean(event["retryable"], 'event["retryable"]'),
+      };
+    case SIDECHAT_EVENT_TYPES.BLOCKED:
+      return {
+        ...base,
+        type: SIDECHAT_EVENT_TYPES.BLOCKED,
+        reason: readBlockedReason(event["reason"]),
+        publicMessage: readString(event["publicMessage"], 'event["publicMessage"]'),
       };
     case SIDECHAT_EVENT_TYPES.HISTORY:
       return {

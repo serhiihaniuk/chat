@@ -52,8 +52,10 @@ export type OpenAIReasoningSummary =
  *
  * At this boundary `baseUrl` becomes the AI SDK `baseURL`, and the secret
  * `apiKey` stays hidden inside `createOpenAI` so it never travels with the
- * returned provider. `reasoningEffort`/`reasoningSummary` become AI SDK
- * `providerOptions.openai`, defaulted to MEDIUM/AUTO when the caller omits them.
+ * returned provider. Every request sends `store: false` so OpenAI does not retain
+ * the prompt or response. `reasoningEffort` defaults to MEDIUM; `reasoningSummary`
+ * is omitted unless the caller explicitly opts in, so no reasoning summary is
+ * requested by default.
  */
 export const createOpenAIResponsesProvider = (
   options: OpenAIResponsesProviderOptions,
@@ -85,10 +87,14 @@ export const createOpenAIResponsesProvider = (
     resolveModel: (selection) => Effect.succeed(openai.responses(selection.modelId)),
     resolveProviderOptions: () =>
       Effect.succeed({
-        openai: {
+        // `store: false` disables OpenAI-side retention of prompts/responses.
+        // `reasoningSummary` is only sent when explicitly configured, so the
+        // default request never asks OpenAI to produce a reasoning summary.
+        openai: omitUndefinedProperties({
+          store: false,
           reasoningEffort: options.reasoningEffort ?? OPENAI_REASONING_EFFORTS.MEDIUM,
-          reasoningSummary: options.reasoningSummary ?? OPENAI_REASONING_SUMMARIES.AUTO,
-        },
+          reasoningSummary: options.reasoningSummary,
+        }),
       }),
   };
 };

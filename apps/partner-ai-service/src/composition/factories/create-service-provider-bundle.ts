@@ -8,7 +8,6 @@ import {
   FAKE_PROVIDER_ID,
   OPENAI_PROVIDER_ID,
   OPENAI_REASONING_EFFORTS,
-  OPENAI_REASONING_SUMMARIES,
 } from "@side-chat/agent-runtime";
 
 import {
@@ -43,9 +42,9 @@ export const createServiceProviderBundle = (
 /**
  * Translate operator runtime config into one validated provider registration.
  *
- * Secrets and transport overrides stay on the registration; retention defaults
- * to the provider default until Phase 10 drives `no_retention` request
- * hardening, and reasoning defaults match the OpenAI provider adapter.
+ * Secrets and transport overrides stay on the registration; retention is
+ * `no_retention` so the OpenAI provider sends `store: false`, and the reasoning
+ * summary is omitted unless the operator explicitly configures one.
  */
 const providerRegistrationForConfig = (config: RuntimeConfig): ServiceProviderRegistration => {
   if (config.provider === "openai") {
@@ -57,10 +56,10 @@ const providerRegistrationForConfig = (config: RuntimeConfig): ServiceProviderRe
       apiKey: config.apiKey,
       baseUrl: config.baseUrl === "" ? undefined : config.baseUrl,
       fetch: config.fetch,
-      retention: SERVICE_MODEL_RETENTION_POLICIES.PROVIDER_DEFAULT,
+      retention: SERVICE_MODEL_RETENTION_POLICIES.NO_RETENTION,
       reasoning: {
         effort: config.reasoningEffort ?? OPENAI_REASONING_EFFORTS.MEDIUM,
-        summary: config.reasoningSummary ?? OPENAI_REASONING_SUMMARIES.AUTO,
+        summary: config.reasoningSummary,
       },
     };
   }

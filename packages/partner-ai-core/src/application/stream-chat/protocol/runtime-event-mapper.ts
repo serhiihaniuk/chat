@@ -95,6 +95,13 @@ export const mapRuntimeEvent = (
         message: event.message,
         retryable: event.retryable,
       };
+    case RUNTIME_EVENT_TYPES.BLOCKED:
+      return {
+        ...base,
+        type: SIDECHAT_EVENT_TYPES.BLOCKED,
+        reason: event.reason,
+        publicMessage: event.publicMessage,
+      };
   }
 };
 

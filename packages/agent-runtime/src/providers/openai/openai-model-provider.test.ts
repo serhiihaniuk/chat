@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Stream } from "effect";
 import type { AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
 import { createAgentRuntime } from "#runtime/agent-runtime";
+import { RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE } from "#runtime/ai-sdk/streaming/stream-part-mapper";
 import {
   createOpenAIResponsesProvider,
   OPENAI_PROVIDER_ID,
@@ -104,9 +105,8 @@ describe("createOpenAIResponsesProvider", () => {
     expect(calls[0]?.headers).toMatchObject({
       authorization: "Bearer test-key",
     });
-    const body = calls[0]?.body;
-    expect(typeof body).toBe("string");
-    expect(JSON.parse(body as string)).toMatchObject({
+    const parsedBody = parseRequestBody(calls[0]?.body);
+    expect(parsedBody).toMatchObject({
       model: "gpt-5.4-mini",
       input: [
         {
@@ -115,14 +115,52 @@ describe("createOpenAIResponsesProvider", () => {
         },
         { role: "user", content: [{ type: "input_text", text: "hello" }] },
       ],
-      reasoning: {
-        effort: "medium",
-        summary: "auto",
-      },
+      reasoning: { effort: "medium" },
     });
+    // OpenAI retention is disabled, and no reasoning summary is requested by default.
+    expect(parsedBody["store"]).toBe(false);
+    expect(reasoningField(parsedBody)["summary"]).toBeUndefined();
   });
 
-  it("turns provider HTTP failures into runtime errors without fallback", async () => {
+  it("sends an explicitly configured reasoning summary when one is set", async () => {
+    const calls: RequestInit[] = [];
+    const runtime = createAgentRuntime({
+      providers: [
+        createOpenAIResponsesProvider({
+          apiKey: "test-key",
+          modelIds: ["gpt-5.4-mini"],
+          reasoningSummary: "concise",
+          fetch: (_url, init) => {
+            calls.push(init ?? {});
+            return Promise.resolve(
+              new Response(
+                sse({ type: "response.completed", response: { usage: {} } }),
+                { status: 200 },
+              ),
+            );
+          },
+        }),
+      ],
+    });
+
+    await collect(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          runtimeRequest({
+            providerId: OPENAI_PROVIDER_ID,
+            modelId: "gpt-5.4-mini",
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        ),
+      ),
+    );
+
+    const parsedBody = parseRequestBody(calls[0]?.body);
+    expect(parsedBody["store"]).toBe(false);
+    expect(reasoningField(parsedBody)).toMatchObject({ effort: "medium", summary: "concise" });
+  });
+
+  it("turns provider HTTP failures into a public-safe runtime error without leaking raw text", async () => {
     const runtime = createAgentRuntime({
       providers: [
         createOpenAIResponsesProvider({
@@ -130,7 +168,9 @@ describe("createOpenAIResponsesProvider", () => {
           modelIds: ["gpt-5.4-mini"],
           fetch: (url) => {
             expect(url).toBe(OPENAI_RESPONSES_URL);
-            return Promise.resolve(new Response("nope", { status: 503 }));
+            return Promise.resolve(
+              new Response("raw provider secret detail leak", { status: 503 }),
+            );
           },
         }),
       ],
@@ -143,19 +183,20 @@ describe("createOpenAIResponsesProvider", () => {
       messages: [{ role: "user", content: "hello" }],
     });
 
-    await expect(
-      collect(Stream.toAsyncIterable(runtime.streamEffect(request))),
-    ).resolves.toMatchObject([
-      { type: "runtime.started", sequence: 0 },
-      {
-        type: "runtime.error",
-        requestId: "request_002",
-        assistantTurnId: "turn_002",
-        sequence: 1,
-        code: "provider_unavailable",
-        retryable: true,
-      },
-    ]);
+    const events = await collect(Stream.toAsyncIterable(runtime.streamEffect(request)));
+
+    expect(events[0]).toMatchObject({ type: "runtime.started", sequence: 0 });
+    const errorEvent = events.at(-1);
+    expect(errorEvent).toMatchObject({
+      type: "runtime.error",
+      code: "provider_unavailable",
+      retryable: true,
+      message: RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE,
+    });
+    // The raw provider body must never reach a browser-visible runtime error.
+    expect(errorEvent && "message" in errorEvent ? errorEvent.message : "").not.toContain(
+      "raw provider secret detail leak",
+    );
   });
 
   it("requires explicit credentials and model allowlist", () => {
@@ -167,6 +208,14 @@ describe("createOpenAIResponsesProvider", () => {
     );
   });
 });
+
+const parseRequestBody = (body: RequestInit["body"]): Record<string, unknown> => {
+  expect(typeof body).toBe("string");
+  return JSON.parse(body as string) as Record<string, unknown>;
+};
+
+const reasoningField = (body: Record<string, unknown>): Record<string, unknown> =>
+  (body["reasoning"] ?? {}) as Record<string, unknown>;
 
 const sse = (payload: object): string =>
   `event: ${"type" in payload ? String(payload.type) : "message"}\n` +

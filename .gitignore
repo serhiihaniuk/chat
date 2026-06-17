@@ -11,6 +11,7 @@ node_modules/
 dist/
 coverage/
 test-results/
+.tmp/
 *.tsbuildinfo
 playwright.config.js
 vitest.config.js

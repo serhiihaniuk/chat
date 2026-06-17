@@ -10,7 +10,11 @@ import {
 import type { ModelProvider } from "#providers/model-provider";
 import type { RuntimeTool } from "#tools/runtime-tool";
 import type { RuntimeProviderRequest } from "./turn/runtime-provider-request.js";
-import type { AgentExecutor } from "./executors/agent-executor.js";
+import type {
+  AgentExecutor,
+  ResolvedProviderModel,
+  ResolvedProviderOptions,
+} from "./executors/agent-executor.js";
 import {
   createRuntimeState,
   prepareRuntimeExecution,
@@ -40,8 +44,8 @@ export type AgentRuntimeOptions = {
 
 type RuntimeExecution = {
   readonly executor: AgentExecutor;
-  readonly model: unknown;
-  readonly providerOptions: unknown;
+  readonly model: ResolvedProviderModel;
+  readonly providerOptions: ResolvedProviderOptions;
   readonly providerRequest: RuntimeProviderRequest;
 };
 
@@ -131,10 +135,16 @@ const catchRuntimeDefects = (stream: AiRuntimeEventStream): AiRuntimeEventStream
     Stream.fail(toRuntimeError(Cause.squash(cause))),
   );
 
-const toRuntimeError = (error: unknown): AiRuntimeError => {
-  if (error instanceof AiRuntimeError) return error;
-  return new AiRuntimeError(
-    RUNTIME_ERROR_CODES.INTERNAL_ERROR,
-    error instanceof Error ? error.message : "agent runtime failed",
-  );
-};
+/**
+ * Public-safe text for an unexpected runtime defect.
+ *
+ * Raw defect/stack messages can expose internals, so the browser only ever sees
+ * this stable message; the runtime error code carries the machine-readable cause.
+ */
+const RUNTIME_INTERNAL_ERROR_PUBLIC_MESSAGE =
+  "The assistant could not complete this response because of an internal error.";
+
+const toRuntimeError = (error: unknown): AiRuntimeError =>
+  error instanceof AiRuntimeError
+    ? error
+    : new AiRuntimeError(RUNTIME_ERROR_CODES.INTERNAL_ERROR, RUNTIME_INTERNAL_ERROR_PUBLIC_MESSAGE);

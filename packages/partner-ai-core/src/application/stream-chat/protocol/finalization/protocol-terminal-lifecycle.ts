@@ -7,19 +7,23 @@ import {
   PartnerAiCoreError,
 } from "#errors";
 import type { AssistantTurnFailureStatus } from "#ports";
-import { STREAM_CHAT_FAILURES, mapPortFailure, mapSyncFailure } from "../errors/effect-failures.js";
+import {
+  STREAM_CHAT_FAILURES,
+  mapPortFailure,
+  mapSyncFailure,
+} from "../../errors/effect-failures.js";
 import {
   protocolTerminalErrorCode,
   validateProtocolAccumulator,
   type ProtocolEventAccumulator,
 } from "./protocol-event-accumulator.js";
-import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
-import { prepareConversationTitleAfterCompletion } from "../conversation-title/prepare-conversation-title.js";
+import { recordStreamObservationEffect } from "../../observability/stream-chat-observability.js";
+import { prepareConversationTitleAfterCompletion } from "../../conversation-title/prepare-conversation-title.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,
   StreamChatPorts,
-} from "../stream-chat-types.js";
+} from "../../stream-chat-types.js";
 
 /**
  * Persist the final result after a browser stream closes.

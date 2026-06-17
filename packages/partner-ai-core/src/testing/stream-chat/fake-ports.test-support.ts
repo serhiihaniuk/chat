@@ -1,4 +1,4 @@
-import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
+import { isTerminalEvent, type SidechatStreamEvent } from "@side-chat/chat-protocol";
 import {
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
@@ -157,8 +157,7 @@ export const collect = async <T>(items: AsyncIterable<T>): Promise<T[]> => {
   return collected;
 };
 
-export const isTerminalEvent = (event: SidechatStreamEvent): boolean =>
-  event.type === SIDECHAT_EVENT_TYPES.COMPLETED || event.type === SIDECHAT_EVENT_TYPES.ERROR;
+export { isTerminalEvent };
 
 const createIdGeneratorPort = (): IdGeneratorPort => ({
   nextConversationId: () => "conversation_001",

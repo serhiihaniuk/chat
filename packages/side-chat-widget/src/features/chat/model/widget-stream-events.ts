@@ -120,6 +120,16 @@ const applyWidgetStreamEvent = async (
       );
       return;
 
+    case SIDECHAT_EVENT_TYPES.BLOCKED:
+      // A safety stop closes the turn with the stable public message. The widget
+      // never receives the provider's raw moderation reason.
+      actions.setErrorMessage(event.publicMessage);
+      actions.setStatus("error");
+      actions.setMessages((current) =>
+        completeAssistantActivity(current, assistantMessageId, event.createdAt),
+      );
+      return;
+
     case SIDECHAT_EVENT_TYPES.COMPLETED:
       actions.setUsage(event.usage);
       actions.onStreamCompleted();

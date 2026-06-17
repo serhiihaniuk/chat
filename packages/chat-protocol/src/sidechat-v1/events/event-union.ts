@@ -18,10 +18,26 @@ export const SIDECHAT_EVENT_TYPES = {
   ACTIVITY: "sidechat.activity",
   COMPLETED: "sidechat.completed",
   ERROR: "sidechat.error",
+  BLOCKED: "sidechat.blocked",
   HISTORY: "sidechat.history",
 } as const;
 
 export type SidechatEventType = (typeof SIDECHAT_EVENT_TYPES)[keyof typeof SIDECHAT_EVENT_TYPES];
+
+/**
+ * Why a turn ended in a safety stop instead of an answer.
+ *
+ * `content_filter` is a provider moderation stop; `safety_policy` is a
+ * product/runtime safety stop. The browser shows `publicMessage`; it never
+ * receives the raw provider reason.
+ */
+export const SIDECHAT_BLOCKED_REASONS = {
+  CONTENT_FILTER: "content_filter",
+  SAFETY_POLICY: "safety_policy",
+} as const;
+
+export type SidechatBlockedReason =
+  (typeof SIDECHAT_BLOCKED_REASONS)[keyof typeof SIDECHAT_BLOCKED_REASONS];
 
 export const ACTIVITY_KINDS = {
   PROGRESS: "progress",
@@ -116,6 +132,18 @@ export type ErrorEvent = SidechatEventBase & {
   readonly retryable: boolean;
 };
 
+/**
+ * Safety-stop terminal: the turn was blocked before a usable answer completed.
+ *
+ * This is deliberately distinct from `sidechat.completed` so a filtered turn is
+ * never rendered or persisted as a finished response.
+ */
+export type BlockedEvent = SidechatEventBase & {
+  readonly type: typeof SIDECHAT_EVENT_TYPES.BLOCKED;
+  readonly reason: SidechatBlockedReason;
+  readonly publicMessage: string;
+};
+
 export type HistoryEvent = SidechatEventBase & {
   readonly type: typeof SIDECHAT_EVENT_TYPES.HISTORY;
   readonly messages: readonly HistoryMessage[];
@@ -134,7 +162,7 @@ export type UsageMetadata = {
   readonly totalTokens?: number;
 };
 
-export type TerminalEvent = CompletedEvent | ErrorEvent;
+export type TerminalEvent = CompletedEvent | ErrorEvent | BlockedEvent;
 /**
  * All event shapes a browser client can receive for one Side Chat stream.
  */
@@ -144,12 +172,15 @@ export type SidechatStreamEvent =
   | ActivityEvent
   | CompletedEvent
   | ErrorEvent
+  | BlockedEvent
   | HistoryEvent;
 
 /**
  * Tell whether this event closes the stream.
  *
- * After completed/error, another event in the same sequence is malformed.
+ * After completed/error/blocked, another event in the same sequence is malformed.
  */
 export const isTerminalEvent = (event: SidechatStreamEvent): event is TerminalEvent =>
-  event.type === SIDECHAT_EVENT_TYPES.COMPLETED || event.type === SIDECHAT_EVENT_TYPES.ERROR;
+  event.type === SIDECHAT_EVENT_TYPES.COMPLETED ||
+  event.type === SIDECHAT_EVENT_TYPES.ERROR ||
+  event.type === SIDECHAT_EVENT_TYPES.BLOCKED;

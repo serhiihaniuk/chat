@@ -8,8 +8,7 @@ import {
 import { Effect, Stream } from "effect";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import {
-  AiRuntimeError,
-  RUNTIME_ERROR_CODES,
+  type AiRuntimeError,
   type AiRuntimeEventStream,
   type RuntimeEvent,
 } from "@side-chat/ai-runtime-contract";
@@ -22,7 +21,11 @@ import {
   flushReasoningActivity,
   type ReasoningStreamState,
 } from "./reasoning-activity.js";
-import { createRuntimeStartedEvent, mapAiSdkStreamPart } from "./stream-part-mapper.js";
+import {
+  createRuntimeStartedEvent,
+  mapAiSdkStreamPart,
+  toRuntimeError,
+} from "./stream-part-mapper.js";
 import { createRuntimeToolLookup, mapAiSdkToolActivity } from "./tool-activity-mapper.js";
 
 /**
@@ -231,12 +234,3 @@ const createEventAppender = (state: RuntimeEventMappingState) => {
   };
 };
 
-const toRuntimeError = (error: unknown): AiRuntimeError => {
-  if (error instanceof AiRuntimeError) return error;
-  // Do not pass SDK errors through as-is. Runtime callers only receive
-  // AiRuntimeError values.
-  return new AiRuntimeError(
-    RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
-    error instanceof Error ? error.message : "AI SDK agent stream failed.",
-  );
-};

@@ -88,7 +88,8 @@ describe("createAgentRuntime selection failures", () => {
       ),
     ).rejects.toMatchObject({
       code: RUNTIME_ERROR_CODES.INTERNAL_ERROR,
-      message: "provider adapter exploded",
+      // The raw adapter throw text must not cross the public runtime boundary.
+      message: expect.not.stringContaining("provider adapter exploded"),
     });
   });
 });

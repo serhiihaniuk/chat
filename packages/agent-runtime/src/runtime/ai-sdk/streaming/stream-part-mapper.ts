@@ -1,6 +1,8 @@
 import type { LanguageModelUsage, TextStreamPart, ToolSet } from "ai";
 
 import {
+  AiRuntimeError,
+  RUNTIME_BLOCKED_REASONS,
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
   RUNTIME_FINISH_REASONS,
@@ -13,6 +15,40 @@ import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request
 const AI_SDK_FINISH_REASON_LENGTH = "length" as const;
 const AI_SDK_FINISH_REASON_ABORT = "abort" as const;
 const AI_SDK_FINISH_REASON_CONTENT_FILTER = "content-filter" as const;
+
+/**
+ * Browser-safe text for a provider content-filter stop.
+ *
+ * The raw provider moderation reason never leaves this package; callers only see
+ * this stable message on the blocked terminal event.
+ */
+export const RUNTIME_CONTENT_FILTER_PUBLIC_MESSAGE =
+  "The assistant cannot complete this response because it was blocked by safety filtering.";
+
+/**
+ * Browser-safe text for an unexpected provider/SDK failure.
+ *
+ * Raw provider and SDK error strings can contain request internals; the public
+ * boundary replaces them with this stable message and keeps only the runtime
+ * error code for callers to branch on.
+ */
+export const RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE =
+  "The assistant could not complete this response because of a provider error.";
+
+/**
+ * Normalize any thrown/streamed failure into a public-safe `AiRuntimeError`.
+ *
+ * Runtime-authored `AiRuntimeError`s already carry safe messages and pass
+ * through. Foreign SDK/provider errors are reduced to a stable public message so
+ * their raw text never crosses the runtime boundary.
+ */
+export const toRuntimeError = (error: unknown): AiRuntimeError =>
+  error instanceof AiRuntimeError
+    ? error
+    : new AiRuntimeError(
+        RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
+        RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE,
+      );
 
 /**
  * Emit the first event before any provider output is read.
@@ -54,6 +90,19 @@ export const mapAiSdkStreamPart = (
     };
   }
   if (part.type === "finish") {
+    // A content-filter stop is a safety terminal, not a completion. Mapping it to
+    // `runtime.blocked` keeps it from ever being persisted or shown as a finished
+    // answer.
+    if (part.finishReason === AI_SDK_FINISH_REASON_CONTENT_FILTER) {
+      return {
+        type: RUNTIME_EVENT_TYPES.BLOCKED,
+        requestId: request.requestId,
+        assistantTurnId: request.assistantTurnId,
+        sequence,
+        reason: RUNTIME_BLOCKED_REASONS.CONTENT_FILTER,
+        publicMessage: RUNTIME_CONTENT_FILTER_PUBLIC_MESSAGE,
+      };
+    }
     return {
       type: RUNTIME_EVENT_TYPES.COMPLETED,
       requestId: request.requestId,
@@ -64,13 +113,15 @@ export const mapAiSdkStreamPart = (
     };
   }
   if (part.type === "error") {
+    // The raw `part.error` may carry provider internals; the browser only gets a
+    // stable public message plus the runtime error code.
     return {
       type: RUNTIME_EVENT_TYPES.ERROR,
       requestId: request.requestId,
       assistantTurnId: request.assistantTurnId,
       sequence,
       code: RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE,
-      message: part.error instanceof Error ? part.error.message : "AI SDK agent stream failed.",
+      message: RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE,
       retryable: true,
     };
   }
@@ -80,15 +131,13 @@ export const mapAiSdkStreamPart = (
 /**
  * Runtime finish reasons are intentionally smaller than provider reasons.
  *
- * Downstream protocol/UI only needs to know whether generation stopped
- * normally, hit length, or was aborted/blocked. Provider-specific reasons stay
- * inside the runtime adapter.
+ * Downstream protocol/UI only needs to know whether generation stopped normally,
+ * hit length, or was aborted. Content filtering is not a finish reason here; it
+ * is a separate `runtime.blocked` terminal handled before this maps completion.
  */
 const mapFinishReason = (reason: string): RuntimeFinishReason => {
   if (reason === AI_SDK_FINISH_REASON_LENGTH) return RUNTIME_FINISH_REASONS.LENGTH;
-  if (reason === AI_SDK_FINISH_REASON_ABORT || reason === AI_SDK_FINISH_REASON_CONTENT_FILTER) {
-    return RUNTIME_FINISH_REASONS.ABORTED;
-  }
+  if (reason === AI_SDK_FINISH_REASON_ABORT) return RUNTIME_FINISH_REASONS.ABORTED;
   return RUNTIME_FINISH_REASONS.STOP;
 };
 

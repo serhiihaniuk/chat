@@ -73,6 +73,8 @@ export const runtimeEventAttributes = (event: RuntimeEvent): JsonObject => {
         message: safeJsonPrimitive(event.message),
         retryable: event.retryable,
       };
+    case RUNTIME_EVENT_TYPES.BLOCKED:
+      return { eventType: event.type, reason: event.reason };
   }
 };
 

@@ -25,6 +25,20 @@ export const createCapturingProvider = (
     ),
 });
 
+export const createContentFilterProvider = (): ModelProvider => ({
+  providerId: "content-filter",
+  modelIds: ["content-filter-model"],
+  resolveModel: (selection) =>
+    Effect.succeed(
+      createScriptedLanguageModel({
+        providerId: "content-filter",
+        modelId: selection.modelId,
+        text: "partial answer before the filter stop",
+        finishReason: "content-filter",
+      }),
+    ),
+});
+
 export const createThrowingProvider = (): ModelProvider => ({
   providerId: "throwing",
   modelIds: ["throwing-model"],

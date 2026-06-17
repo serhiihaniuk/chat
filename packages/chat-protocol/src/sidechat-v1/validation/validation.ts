@@ -26,6 +26,7 @@ const ACTIVITY_EVENT_FIELDS = [
 ] as const;
 const COMPLETED_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "finishReason", "usage"] as const;
 const ERROR_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "code", "message", "retryable"] as const;
+const BLOCKED_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "reason", "publicMessage"] as const;
 const HISTORY_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "messages"] as const;
 
 /**
@@ -100,6 +101,12 @@ const validateErrorEvent = (event: Record<string, unknown>): void => {
   }
 };
 
+const validateBlockedEvent = (event: Record<string, unknown>): void => {
+  requireKnownKeys(event, BLOCKED_EVENT_FIELDS, "sidechat.blocked event");
+  requireOneOf(event["reason"], ["content_filter", "safety_policy"], 'event["reason"]');
+  requireString(event["publicMessage"], 'event["publicMessage"]');
+};
+
 const validateHistoryEvent = (event: Record<string, unknown>): void => {
   requireKnownKeys(event, HISTORY_EVENT_FIELDS, "sidechat.history event");
   if (!Array.isArray(event["messages"])) {
@@ -114,6 +121,7 @@ const EVENT_PAYLOAD_VALIDATORS = {
   [SIDECHAT_EVENT_TYPES.ACTIVITY]: validateActivityEvent,
   [SIDECHAT_EVENT_TYPES.COMPLETED]: validateCompletedEvent,
   [SIDECHAT_EVENT_TYPES.ERROR]: validateErrorEvent,
+  [SIDECHAT_EVENT_TYPES.BLOCKED]: validateBlockedEvent,
   [SIDECHAT_EVENT_TYPES.HISTORY]: validateHistoryEvent,
 } satisfies Record<string, (event: Record<string, unknown>) => void>;
 

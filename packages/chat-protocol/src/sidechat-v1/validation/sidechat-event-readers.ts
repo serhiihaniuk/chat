@@ -7,10 +7,12 @@ import { isRecord, type JsonObject } from "../primitives.js";
 import {
   ACTIVITY_KINDS,
   ACTIVITY_STATUSES,
+  SIDECHAT_BLOCKED_REASONS,
   SIDECHAT_EVENT_TYPES,
   type ActivityKind,
   type ActivityStatus,
   type HistoryMessage,
+  type SidechatBlockedReason,
   type SidechatEventType,
 } from "../events/event-union.js";
 
@@ -96,10 +98,21 @@ export const readEventType = (value: unknown): SidechatEventType => {
     case SIDECHAT_EVENT_TYPES.ACTIVITY:
     case SIDECHAT_EVENT_TYPES.COMPLETED:
     case SIDECHAT_EVENT_TYPES.ERROR:
+    case SIDECHAT_EVENT_TYPES.BLOCKED:
     case SIDECHAT_EVENT_TYPES.HISTORY:
       return value;
     default:
       throw new ProtocolValidationError('event["type"] is not a sidechat.v1 event');
+  }
+};
+
+export const readBlockedReason = (value: unknown): SidechatBlockedReason => {
+  switch (value) {
+    case SIDECHAT_BLOCKED_REASONS.CONTENT_FILTER:
+    case SIDECHAT_BLOCKED_REASONS.SAFETY_POLICY:
+      return value;
+    default:
+      throw new ProtocolValidationError('event["reason"] has unsupported value');
   }
 };
 

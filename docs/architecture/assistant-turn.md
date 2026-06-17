@@ -77,5 +77,6 @@ stream outcome.
 - `packages/partner-ai-core/src/application/stream-chat/turn/prepare-stream-chat-turn.ts`
 - `packages/partner-ai-core/src/application/stream-chat/turn/turn-policy-plan.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-event-stream.ts`
-- `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-terminal-lifecycle.ts`
+- `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-stream-state-machine.ts`
+- `packages/partner-ai-core/src/application/stream-chat/protocol/finalization/protocol-terminal-lifecycle.ts`
 - `packages/partner-ai-core/src/application/stream-chat/README.md`

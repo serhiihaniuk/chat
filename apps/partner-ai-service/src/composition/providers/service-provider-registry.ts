@@ -11,9 +11,9 @@ import {
  *
  * This module turns operator-declared provider config into validated
  * registrations, the concrete `ModelProvider` list the runtime executes, and a
- * secret-free status the service exposes through diagnostics. Provider request
- * hardening (OpenAI `store: false`, hidden reasoning) lands in Phase 10; this
- * registry only records the declared retention and reasoning intent.
+ * secret-free status the service exposes through diagnostics. The OpenAI provider
+ * adapter enforces the declared retention/reasoning intent (`store: false`,
+ * omitted reasoning summary); this registry is where that intent is declared.
  */
 
 /**
@@ -21,18 +21,21 @@ import {
  *
  * Reuses the agent-runtime reasoning value types so service config and the
  * provider request preserve the same effort/summary. The registry keeps this
- * intent in one place for diagnostics and Phase 10 request hardening.
+ * intent in one place for diagnostics and the provider request.
  */
 export type ServiceReasoningPolicy = {
   readonly effort: OpenAIReasoningEffort;
-  readonly summary: OpenAIReasoningSummary;
+  // Omitted by default: a summary is only requested when an operator opts in, so
+  // reasoning stays hidden unless explicitly configured.
+  readonly summary?: OpenAIReasoningSummary | undefined;
 };
 
 /**
  * Provider retention intent carried by a provider registration.
  *
- * `no_retention` becomes `store: false` request hardening in Phase 10. Phase 3
- * only records the declared intent so the policy has one home.
+ * `no_retention` is sent to OpenAI as `store: false` by the provider adapter so
+ * prompts and responses are not retained. The registry records the declared
+ * intent so the policy has one home and shows up in diagnostics.
  */
 export const SERVICE_MODEL_RETENTION_POLICIES = {
   PROVIDER_DEFAULT: "provider_default",

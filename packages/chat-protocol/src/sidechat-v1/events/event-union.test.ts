@@ -80,6 +80,44 @@ describe("sidechat event validation", () => {
     }
   });
 
+  it("validates a sidechat.blocked safety terminal", () => {
+    const event = parseSidechatStreamEvent({
+      protocolVersion: "sidechat.v1",
+      type: SIDECHAT_EVENT_TYPES.BLOCKED,
+      eventId: "evt_blocked",
+      assistantTurnId: "turn_001",
+      sequence: 2,
+      createdAt: "2026-05-23T13:00:00.000Z",
+      reason: "content_filter",
+      publicMessage: "The assistant cannot complete this response because it was blocked.",
+    });
+
+    expect(event).toMatchObject({
+      type: SIDECHAT_EVENT_TYPES.BLOCKED,
+      reason: "content_filter",
+    });
+  });
+
+  it("rejects a sidechat.blocked event with an unknown reason or extra field", () => {
+    const blockedBase = {
+      protocolVersion: "sidechat.v1",
+      type: SIDECHAT_EVENT_TYPES.BLOCKED,
+      eventId: "evt_blocked_bad",
+      assistantTurnId: "turn_001",
+      sequence: 2,
+      createdAt: "2026-05-23T13:00:00.000Z",
+      reason: "content_filter",
+      publicMessage: "blocked",
+    };
+
+    expect(() => parseSidechatStreamEvent({ ...blockedBase, reason: "rate_limited" })).toThrow(
+      ProtocolValidationError,
+    );
+    expect(() =>
+      parseSidechatStreamEvent({ ...blockedBase, providerReason: "raw moderation detail" }),
+    ).toThrow(ProtocolValidationError);
+  });
+
   it("rejects malformed history message sequences", () => {
     const historyEvent = {
       protocolVersion: "sidechat.v1",

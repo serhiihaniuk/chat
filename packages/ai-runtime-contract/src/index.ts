@@ -1,5 +1,22 @@
 import type { Stream } from "effect";
-import { brandNumber, brandString, type Brand, type JsonObject } from "@side-chat/shared";
+import type {
+  AssistantTurnId,
+  ConversationId,
+  ExecutorId,
+  HostAppId,
+  ModelId,
+  ProviderId,
+  RequestId,
+  RuntimeActivityId,
+  RuntimeSequence,
+  SubjectId,
+  WorkspaceId,
+} from "./runtime-ids.js";
+import type {
+  RuntimeActivityDetails,
+  RuntimeActivityKind,
+  RuntimeActivityStatus,
+} from "./runtime-activity.js";
 
 /**
  * Provider-neutral runtime boundary shared by product core and runtime engines.
@@ -7,39 +24,12 @@ import { brandNumber, brandString, type Brand, type JsonObject } from "@side-cha
  * Product core sends one final model request through `AiRuntimePort`; runtime
  * implementations emit normalized RuntimeEvents and keep provider-native parts,
  * executable tools, and AI SDK details behind their own package boundary.
- * Update this file when the core-to-runtime contract changes, not when a
- * specific provider or executor changes internally.
+ * Branded ids live in `runtime-ids.ts`; update this file when the request, event,
+ * or port contract changes, not when a specific provider or executor changes.
  */
 
-export type RequestId = Brand<string, "RequestId">;
-export type AssistantTurnId = Brand<string, "AssistantTurnId">;
-export type HostAppId = Brand<string, "HostAppId">;
-export type WorkspaceId = Brand<string, "WorkspaceId">;
-export type SubjectId = Brand<string, "SubjectId">;
-export type ConversationId = Brand<string, "ConversationId">;
-export type ExecutorId = Brand<string, "ExecutorId">;
-export type ProviderId = Brand<string, "ProviderId">;
-export type ModelId = Brand<string, "ModelId">;
-export type RuntimeActivityId = Brand<string, "RuntimeActivityId">;
-export type ToolCallId = Brand<string, "ToolCallId">;
-export type RuntimeSequence = Brand<number, "RuntimeSequence">;
-
-export const toRequestId = (value: string): RequestId => brandString<"RequestId">(value);
-export const toAssistantTurnId = (value: string): AssistantTurnId =>
-  brandString<"AssistantTurnId">(value);
-export const toHostAppId = (value: string): HostAppId => brandString<"HostAppId">(value);
-export const toWorkspaceId = (value: string): WorkspaceId => brandString<"WorkspaceId">(value);
-export const toSubjectId = (value: string): SubjectId => brandString<"SubjectId">(value);
-export const toConversationId = (value: string): ConversationId =>
-  brandString<"ConversationId">(value);
-export const toExecutorId = (value: string): ExecutorId => brandString<"ExecutorId">(value);
-export const toProviderId = (value: string): ProviderId => brandString<"ProviderId">(value);
-export const toModelId = (value: string): ModelId => brandString<"ModelId">(value);
-export const toRuntimeActivityId = (value: string): RuntimeActivityId =>
-  brandString<"RuntimeActivityId">(value);
-export const toToolCallId = (value: string): ToolCallId => brandString<"ToolCallId">(value);
-export const toRuntimeSequence = (value: number): RuntimeSequence =>
-  brandNumber<"RuntimeSequence">(value);
+export * from "./runtime-ids.js";
+export * from "./runtime-activity.js";
 
 export type AiRuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
@@ -82,79 +72,31 @@ export type AiRuntimeRequest = {
   readonly abortSignal?: AbortSignal | undefined;
 };
 
-export const RUNTIME_ACTIVITY_KINDS = {
-  PROGRESS: "progress",
-  REASONING: "reasoning",
-  TOOL: "tool",
-} as const;
-
-export type RuntimeActivityKind =
-  (typeof RUNTIME_ACTIVITY_KINDS)[keyof typeof RUNTIME_ACTIVITY_KINDS];
-
-/**
- * Statuses for one visible runtime activity row.
- *
- * The same `activityId` may move from running to completed or failed. That
- * means "update this row", not "render a new assistant message".
- */
-export const RUNTIME_ACTIVITY_STATUSES = {
-  RUNNING: "running",
-  COMPLETED: "completed",
-  FAILED: "failed",
-} as const;
-
-export type RuntimeActivityStatus =
-  (typeof RUNTIME_ACTIVITY_STATUSES)[keyof typeof RUNTIME_ACTIVITY_STATUSES];
-
-export type RuntimeActivitySource = {
-  readonly label: string;
-  readonly url?: string | undefined;
-};
-
-export type RuntimeActivityImage = {
-  readonly alt: string;
-  readonly caption?: string | undefined;
-  readonly mediaType: string;
-  readonly data: string;
-};
-
-/**
- * Visible state for one tool call.
- *
- * `toolCallId` is the row identity while input, result, or error information
- * arrives. Tool exceptions are reduced to `errorCode`; callers should not
- * expect a thrown value here.
- */
-export type RuntimeActivityToolDetails = {
-  readonly toolCallId: ToolCallId;
-  readonly toolName: string;
-  readonly input?: JsonObject | undefined;
-  readonly result?: JsonObject | undefined;
-  readonly sources?: readonly RuntimeActivitySource[] | undefined;
-  readonly errorCode?: string | undefined;
-};
-
-/**
- * Optional details attached to an activity row.
- *
- * Tool input and result stay with the activity that produced them. They do not
- * become separate chat messages.
- */
-export type RuntimeActivityDetails = {
-  readonly sources?: readonly RuntimeActivitySource[] | undefined;
-  readonly images?: readonly RuntimeActivityImage[] | undefined;
-  readonly tool?: RuntimeActivityToolDetails | undefined;
-};
-
 export const RUNTIME_EVENT_TYPES = {
   STARTED: "runtime.started",
   OUTPUT_DELTA: "runtime.output_delta",
   ACTIVITY: "runtime.activity",
   COMPLETED: "runtime.completed",
   ERROR: "runtime.error",
+  BLOCKED: "runtime.blocked",
 } as const;
 
 export type RuntimeEventType = (typeof RUNTIME_EVENT_TYPES)[keyof typeof RUNTIME_EVENT_TYPES];
+
+/**
+ * Why a provider stopped a turn for safety reasons.
+ *
+ * `content_filter` is a provider content-moderation stop; `safety_policy` is a
+ * runtime/product safety stop. Both mean the user request did not complete, so
+ * they must never be encoded as ordinary completion.
+ */
+export const RUNTIME_BLOCKED_REASONS = {
+  CONTENT_FILTER: "content_filter",
+  SAFETY_POLICY: "safety_policy",
+} as const;
+
+export type RuntimeBlockedReason =
+  (typeof RUNTIME_BLOCKED_REASONS)[keyof typeof RUNTIME_BLOCKED_REASONS];
 
 /**
  * Runtime failure codes that callers can branch on.
@@ -228,14 +170,30 @@ export type RuntimeErrorEvent = RuntimeEventBase & {
   readonly retryable: boolean;
 };
 
+/**
+ * Safety stop terminal: the request did not complete because it was filtered.
+ *
+ * `publicMessage` is already browser-safe; the raw provider reason stays in the
+ * runtime/provider package and is never carried on this event.
+ */
+export type RuntimeBlockedEvent = RuntimeEventBase & {
+  readonly type: typeof RUNTIME_EVENT_TYPES.BLOCKED;
+  readonly reason: RuntimeBlockedReason;
+  readonly publicMessage: string;
+};
+
 export type RuntimeEvent =
   | RuntimeStartedEvent
   | RuntimeOutputDeltaEvent
   | RuntimeActivityEvent
   | RuntimeCompletedEvent
-  | RuntimeErrorEvent;
+  | RuntimeErrorEvent
+  | RuntimeBlockedEvent;
 
-export type RuntimeTerminalEvent = RuntimeCompletedEvent | RuntimeErrorEvent;
+export type RuntimeTerminalEvent =
+  | RuntimeCompletedEvent
+  | RuntimeErrorEvent
+  | RuntimeBlockedEvent;
 
 export type RuntimeUsage = {
   readonly inputTokens: number;
@@ -277,4 +235,6 @@ export type AiRuntimePort = {
  * Completion and error are both terminal; activity and output deltas are not.
  */
 export const isRuntimeTerminalEvent = (event: RuntimeEvent): event is RuntimeTerminalEvent =>
-  event.type === RUNTIME_EVENT_TYPES.COMPLETED || event.type === RUNTIME_EVENT_TYPES.ERROR;
+  event.type === RUNTIME_EVENT_TYPES.COMPLETED ||
+  event.type === RUNTIME_EVENT_TYPES.ERROR ||
+  event.type === RUNTIME_EVENT_TYPES.BLOCKED;
