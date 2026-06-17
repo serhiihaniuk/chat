@@ -1,39 +1,34 @@
 #!/usr/bin/env node
 // Local cross-platform launcher for the side-chat monorepo (NO Docker, NO Postgres).
 //
-// Runs the whole project locally for testing:
-//   - backend  @side-chat/partner-ai-service  (tsx + Hono)  with FAKE provider + IN-MEMORY persistence
-//   - frontend @side-chat/widget-harness       (Vite)        pointed at the backend
+// Runs the whole project locally:
+//   - backend  @side-chat/partner-ai-service  (tsx + Hono)
+//   - frontend @side-chat/widget-harness       (Vite), exposed the workbench way
 //
-// Why this script exists:
-//   server.ts does NOT read a .env file. It reads process.env synchronously at boot.
-//   Therefore every SIDECHAT_* key (and PORT) must be INJECTED into the spawned child's env.
+// This version PROMPTS you interactively for the model + exposure settings
+// (provider, API key, model, workspace, public domain, token). Anything you
+// answer can also be preset via the matching env var (then the prompt just shows
+// it as the default). In a non-interactive shell it falls back to env/defaults.
+//
+// Why injected env: server.ts reads process.env synchronously at boot (no .env
+// file), so every SIDECHAT_* key must be injected into the spawned child.
+//
+// Widget exposure is hardcoded to the workbench convention:
+//   - port 8080 (strictPort), host 0.0.0.0, endpoint name "workbench-ui"
+//   - public host = <workspaceId>-workbench-ui-8080.<domain>
+//   - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS set to that public host
 //
 // Uses only Node built-ins. No new dependencies.
 //
-// Overridable via env vars (sensible defaults):
-//   BACKEND_PORT   (default 8787)  -> injected as PORT into the backend child
-//   WIDGET_PORT    (default 5173)
-//   AUTH_TOKEN     (default local-compose-token) -> SIDECHAT_AUTH_BEARER_TOKEN AND the widget authToken
-//   WORKSPACE_ID   (default workspace_local)
-//   HOST           (default 127.0.0.1)
-//   NPM_REGISTRY   (optional) -> passed to `npm install` as --registry <url>.
-//                  If unset, npm uses your environment's .npmrc / NPM_CONFIG_REGISTRY.
-//                  The committed package-lock.json pins registry.npmjs.org URLs, but
-//                  npm 9+ rewrites them to the configured registry automatically
-//                  (replace-registry-host=npmjs), so a mirroring private registry works.
-//
-// Node/npm: the repo declares Node >=24.15 <25 and npm >=11.12 for reproducible
-//   `npm run verify`, but the app itself only needs Node >=22.12 (Vite 8 / tsx).
-//   Node 22.16 runs both dev servers. There is no engine-strict in .npmrc, so a
-//   lower Node/npm only produces EBADENGINE warnings, not a failed install.
-//
 // Flags:
 //   --install   force `npm install` even if node_modules exists
+//   --yes       skip prompts, use env vars / defaults only
 
 import { spawn } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
+import readline from "node:readline";
+import { Writable } from "node:stream";
 import process from "node:process";
 import path from "node:path";
 import os from "node:os";
@@ -49,52 +44,29 @@ const ROOT = path.resolve(__dirname, "..");
 const BACKEND_WORKSPACE = "@side-chat/partner-ai-service";
 const WIDGET_WORKSPACE = "@side-chat/widget-harness";
 
-// Two tiers of version expectation:
-//   RECOMMENDED = the repo's package.json engines pins (for reproducible verify).
-//   MIN_RUNTIME = what the dev servers actually need to run (Vite 8 / tsx).
-// Node 22.16 satisfies MIN_RUNTIME but not RECOMMENDED, so we note it and continue.
-const RECOMMENDED = {
-  node: ">=24.15.0 <25.0.0",
-  npm: ">=11.12.0 <12.0.0",
-};
-const MIN_RUNTIME = {
-  node: ">=22.12.0",
-  npm: ">=10.0.0",
-};
+// Workbench exposure convention (hardcoded, not configurable).
+const WIDGET_PORT = 8080;
+const WIDGET_ENDPOINT_NAME = "workbench-ui";
+const WIDGET_BIND_HOST = "0.0.0.0";
 
-// Optional explicit registry for `npm install` (private registry support).
+// Version expectations.
+const RECOMMENDED = { node: ">=24.15.0 <25.0.0", npm: ">=11.12.0 <12.0.0" };
+const MIN_RUNTIME = { node: ">=22.12.0", npm: ">=10.0.0" };
+
 const NPM_REGISTRY = (process.env.NPM_REGISTRY || "").trim();
-
-// Defaults grounded in verified facts:
-//   DEFAULT_SERVICE_PORT = 8787, vite port 5173, default token local-compose-token,
-//   workspace default workspace_local, harness mode default local-service.
-const HOST = process.env.HOST || "127.0.0.1";
-const BACKEND_PORT = Number(process.env.BACKEND_PORT || 8787);
-const WIDGET_PORT = Number(process.env.WIDGET_PORT || 5173);
-const AUTH_TOKEN = process.env.AUTH_TOKEN || "local-compose-token";
-const WORKSPACE_ID = process.env.WORKSPACE_ID || "workspace_local";
-
 const FORCE_INSTALL = process.argv.includes("--install");
+const SKIP_PROMPTS = process.argv.includes("--yes") || !process.stdin.isTTY;
 
 const IS_WIN = process.platform === "win32";
-// On Windows the npm executable is npm.cmd; child_process.spawn cannot exec a .cmd
-// batch file directly. Use the explicit name + shell:true. process.execPath is wrong
-// (it is the node binary, not npm).
+// On Windows npm is npm.cmd; spawn needs the explicit name + shell:true.
 const NPM = IS_WIN ? "npm.cmd" : "npm";
 
 // --------------------------------------------------------------------------
-// Tiny ANSI helpers (no dependency)
+// Tiny ANSI helpers
 // --------------------------------------------------------------------------
 const COLORS = {
-  reset: "\x1b[0m",
-  dim: "\x1b[2m",
-  red: "\x1b[31m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  blue: "\x1b[34m",
-  magenta: "\x1b[35m",
-  cyan: "\x1b[36m",
-  bold: "\x1b[1m",
+  reset: "\x1b[0m", dim: "\x1b[2m", red: "\x1b[31m", green: "\x1b[32m",
+  yellow: "\x1b[33m", blue: "\x1b[34m", magenta: "\x1b[35m", cyan: "\x1b[36m", bold: "\x1b[1m",
 };
 const color = (c, s) => `${COLORS[c] || ""}${s}${COLORS.reset}`;
 const logLauncher = (msg) => console.log(`${color("magenta", "[launcher]")} ${msg}`);
@@ -102,31 +74,76 @@ const warnLauncher = (msg) => console.warn(`${color("yellow", "[launcher]")} ${c
 const errLauncher = (msg) => console.error(`${color("red", "[launcher]")} ${color("red", msg)}`);
 
 // --------------------------------------------------------------------------
-// Semver range check (just enough for the two engines ranges ">=A <B")
+// Interactive prompts (mutable-output trick so the API key can be masked)
+// --------------------------------------------------------------------------
+let promptMuted = false;
+const mutedOut = new Writable({
+  write(chunk, _enc, cb) {
+    if (!promptMuted) process.stdout.write(chunk);
+    cb();
+  },
+});
+let rl = null;
+function openPrompts() {
+  if (SKIP_PROMPTS) return;
+  rl = readline.createInterface({ input: process.stdin, output: mutedOut, terminal: true });
+}
+function closePrompts() {
+  if (rl) rl.close();
+  rl = null;
+}
+// Plain question with a default (Enter keeps the default).
+function ask(question, def = "") {
+  if (SKIP_PROMPTS || !rl) return Promise.resolve(def);
+  const hint = def ? color("dim", ` [${def}]`) : "";
+  return new Promise((resolve) => {
+    rl.question(`${color("cyan", "?")} ${question}${hint}: `, (answer) => {
+      resolve(answer.trim() || def);
+    });
+  });
+}
+// Masked question (typed characters are not echoed).
+function askSecret(question, def = "") {
+  if (SKIP_PROMPTS || !rl) return Promise.resolve(def);
+  const hint = def ? color("dim", " [keep current]") : "";
+  process.stdout.write(`${color("cyan", "?")} ${question}${hint}: `);
+  promptMuted = true;
+  return new Promise((resolve) => {
+    rl.question("", (answer) => {
+      promptMuted = false;
+      process.stdout.write("\n");
+      resolve(answer.trim() || def);
+    });
+  });
+}
+async function askYesNo(question, defYes) {
+  const def = defYes ? "Y/n" : "y/N";
+  const a = (await ask(`${question} (${def})`, "")).toLowerCase();
+  if (!a) return defYes;
+  return a === "y" || a === "yes";
+}
+
+// --------------------------------------------------------------------------
+// Semver range check
 // --------------------------------------------------------------------------
 function parseVersion(v) {
   const m = String(v).trim().replace(/^v/, "").match(/^(\d+)\.(\d+)\.(\d+)/);
-  if (!m) return null;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
 }
 function cmpVersion(a, b) {
-  for (let i = 0; i < 3; i++) {
-    if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
-  }
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
   return 0;
 }
-// Supports comparators: >= > <= < = (space-separated, all must hold).
 function satisfies(version, range) {
   const v = parseVersion(version);
   if (!v) return false;
-  const parts = String(range).trim().split(/\s+/);
-  for (const part of parts) {
+  for (const part of String(range).trim().split(/\s+/)) {
     const m = part.match(/^(>=|<=|>|<|=)?\s*(.+)$/);
     if (!m) return false;
     const op = m[1] || "=";
-    const target = parseVersion(m[2]);
-    if (!target) return false;
-    const c = cmpVersion(v, target);
+    const t = parseVersion(m[2]);
+    if (!t) return false;
+    const c = cmpVersion(v, t);
     if (op === ">=" && !(c >= 0)) return false;
     if (op === ">" && !(c > 0)) return false;
     if (op === "<=" && !(c <= 0)) return false;
@@ -137,11 +154,10 @@ function satisfies(version, range) {
 }
 
 // --------------------------------------------------------------------------
-// Step 1: verify Node/npm versions (warn, do not hard-fail)
+// Version check (warn, do not hard-fail)
 // --------------------------------------------------------------------------
 function getNpmVersion() {
   return new Promise((resolve) => {
-    // Mirror the repo's own safe Windows invocation (cmd.exe wrapper).
     const cmd = IS_WIN
       ? { command: process.env.ComSpec || "cmd.exe", args: ["/d", "/s", "/c", "npm -v"] }
       : { command: "npm", args: ["-v"] };
@@ -152,40 +168,23 @@ function getNpmVersion() {
     child.on("close", () => resolve(out.trim() || null));
   });
 }
-
 async function verifyRuntime() {
   const nodeVersion = process.version.replace(/^v/, "");
   if (!satisfies(nodeVersion, MIN_RUNTIME.node)) {
-    warnLauncher(
-      `Node ${nodeVersion} is below the runtime minimum "${MIN_RUNTIME.node}" (Vite 8 / tsx). ` +
-        `The dev servers will likely fail to start. Please upgrade Node.`,
-    );
+    warnLauncher(`Node ${nodeVersion} is below "${MIN_RUNTIME.node}" (Vite 8 / tsx); dev servers may not start.`);
   } else if (!satisfies(nodeVersion, RECOMMENDED.node)) {
-    logLauncher(
-      `Node ${nodeVersion} runs the app fine. (Repo pins ${RECOMMENDED.node} only for reproducible \`npm run verify\`.)`,
-    );
+    logLauncher(`Node ${nodeVersion} runs the app fine. (Repo pins ${RECOMMENDED.node} for \`npm run verify\` only.)`);
   } else {
-    logLauncher(`Node ${nodeVersion} OK (recommended ${RECOMMENDED.node})`);
+    logLauncher(`Node ${nodeVersion} OK.`);
   }
-
   const npmVersion = await getNpmVersion();
-  if (!npmVersion) {
-    warnLauncher("Could not determine npm version. Is npm on PATH?");
-  } else if (!satisfies(npmVersion, MIN_RUNTIME.npm)) {
-    warnLauncher(
-      `npm ${npmVersion} is quite old; install may misbehave. Recommended ${RECOMMENDED.npm}.`,
-    );
-  } else if (!satisfies(npmVersion, RECOMMENDED.npm)) {
-    logLauncher(
-      `npm ${npmVersion} is fine for install. (Repo pins ${RECOMMENDED.npm} for verify; no engine-strict, so this only warns.)`,
-    );
-  } else {
-    logLauncher(`npm ${npmVersion} OK (recommended ${RECOMMENDED.npm})`);
-  }
+  if (!npmVersion) warnLauncher("Could not determine npm version. Is npm on PATH?");
+  else if (!satisfies(npmVersion, MIN_RUNTIME.npm)) warnLauncher(`npm ${npmVersion} is very old; install may misbehave.`);
+  else logLauncher(`npm ${npmVersion} OK.`);
 }
 
 // --------------------------------------------------------------------------
-// Step 2: npm install (once, unless --install)
+// npm install
 // --------------------------------------------------------------------------
 function runNpmInstall() {
   return new Promise((resolve, reject) => {
@@ -197,36 +196,21 @@ function runNpmInstall() {
       logLauncher("Using registry from your environment (.npmrc / NPM_CONFIG_REGISTRY).");
     }
     logLauncher("Running `npm install` at repo root...");
-    const child = spawn(NPM, args, {
-      cwd: ROOT,
-      stdio: "inherit",
-      shell: IS_WIN,
-    });
+    const child = spawn(NPM, args, { cwd: ROOT, stdio: "inherit", shell: IS_WIN });
     child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`npm install exited with code ${code}`));
-    });
+    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`npm install exited ${code}`))));
   });
 }
-
 async function ensureInstalled() {
   const hasNodeModules = existsSync(path.join(ROOT, "node_modules"));
-  if (FORCE_INSTALL) {
-    logLauncher("--install flag passed; forcing install.");
-    await runNpmInstall();
-  } else if (!hasNodeModules) {
-    logLauncher("node_modules not found; installing.");
-    await runNpmInstall();
-  } else {
-    logLauncher("node_modules present; skipping install (pass --install to force).");
-  }
+  if (FORCE_INSTALL) { logLauncher("--install: forcing install."); await runNpmInstall(); }
+  else if (!hasNodeModules) { logLauncher("node_modules missing; installing."); await runNpmInstall(); }
+  else logLauncher("node_modules present; skipping install (use --install to force).");
 }
 
 // --------------------------------------------------------------------------
 // Child process management
 // --------------------------------------------------------------------------
-/** @type {{ name: string, child: import("node:child_process").ChildProcess }[]} */
 const children = [];
 let shuttingDown = false;
 
@@ -238,23 +222,18 @@ function prefixStream(stream, label, labelColor, isErr) {
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
     for (const line of lines) {
-      const tag = color(labelColor, `[${label}]`);
-      const out = isErr ? `${tag} ${line}` : `${tag} ${line}`;
-      if (isErr) process.stderr.write(out + "\n");
-      else process.stdout.write(out + "\n");
+      const out = `${color(labelColor, `[${label}]`)} ${line}\n`;
+      (isErr ? process.stderr : process.stdout).write(out);
     }
   });
   stream.on("end", () => {
-    if (buffer.length) {
-      const tag = color(labelColor, `[${label}]`);
-      if (isErr) process.stderr.write(`${tag} ${buffer}\n`);
-      else process.stdout.write(`${tag} ${buffer}\n`);
-    }
+    if (buffer.length) (isErr ? process.stderr : process.stdout).write(`${color(labelColor, `[${label}]`)} ${buffer}\n`);
   });
 }
 
-function spawnDevServer({ name, labelColor, workspace, env }) {
+function spawnDevServer({ name, labelColor, workspace, env, extraArgs = [] }) {
   const args = ["run", "dev", "--workspace", workspace];
+  if (extraArgs.length) args.push("--", ...extraArgs);
   logLauncher(`Starting ${color(labelColor, name)}: ${NPM} ${args.join(" ")}`);
   const child = spawn(NPM, args, {
     cwd: ROOT,
@@ -264,10 +243,7 @@ function spawnDevServer({ name, labelColor, workspace, env }) {
   });
   prefixStream(child.stdout, name, labelColor, false);
   prefixStream(child.stderr, name, labelColor, true);
-  child.on("error", (e) => {
-    errLauncher(`${name} failed to spawn: ${e.message}`);
-    shutdown(1);
-  });
+  child.on("error", (e) => { errLauncher(`${name} failed to spawn: ${e.message}`); shutdown(1); });
   child.on("close", (code, signal) => {
     if (shuttingDown) return;
     errLauncher(`${name} exited unexpectedly (code=${code} signal=${signal}). Shutting down.`);
@@ -277,91 +253,104 @@ function spawnDevServer({ name, labelColor, workspace, env }) {
   return child;
 }
 
-// Kill the whole process tree cross-platform. On Windows, npm spawns a tree of
-// child processes (cmd -> npm -> tsx/vite); a plain child.kill() leaves orphans,
-// so use `taskkill /T` to kill the tree by PID.
-function killChild({ name, child }) {
+function killChild({ child }) {
   if (!child.pid || child.exitCode !== null || child.signalCode !== null) return;
   if (IS_WIN) {
-    try {
-      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
-    } catch {
-      try {
-        child.kill();
-      } catch {
-        /* ignore */
-      }
-    }
+    try { spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" }); }
+    catch { try { child.kill(); } catch { /* ignore */ } }
   } else {
-    try {
-      child.kill("SIGTERM");
-    } catch {
-      /* ignore */
-    }
+    try { child.kill("SIGTERM"); } catch { /* ignore */ }
   }
 }
-
 function shutdown(exitCode) {
   if (shuttingDown) return;
   shuttingDown = true;
+  closePrompts();
   logLauncher("Shutting down child processes...");
   for (const entry of children) killChild(entry);
-  // Give children a moment to die, then exit.
   setTimeout(() => process.exit(exitCode ?? 0), 1500);
 }
-
 for (const sig of ["SIGINT", "SIGTERM"]) {
-  process.on(sig, () => {
-    logLauncher(`Received ${sig}.`);
-    shutdown(0);
-  });
+  process.on(sig, () => { logLauncher(`Received ${sig}.`); shutdown(0); });
 }
 
 // --------------------------------------------------------------------------
-// Wait for backend /healthz to report ok
+// Wait for backend /healthz
 // --------------------------------------------------------------------------
-function probeHealth() {
+function probeHealth(port) {
   return new Promise((resolve) => {
-    const req = httpRequest(
-      { host: HOST, port: BACKEND_PORT, path: "/healthz", method: "GET", timeout: 2000 },
-      (res) => {
-        let body = "";
-        res.setEncoding("utf8");
-        res.on("data", (c) => (body += c));
-        res.on("end", () => {
-          if (res.statusCode !== 200) return resolve(false);
-          try {
-            const json = JSON.parse(body);
-            resolve(json && json.status === "ok");
-          } catch {
-            resolve(false);
-          }
-        });
-      },
-    );
-    req.on("error", () => resolve(false));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(false);
+    const req = httpRequest({ host: "127.0.0.1", port, path: "/healthz", method: "GET", timeout: 2000 }, (res) => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (c) => (body += c));
+      res.on("end", () => {
+        if (res.statusCode !== 200) return resolve(false);
+        try { const j = JSON.parse(body); resolve(j && j.status === "ok"); } catch { resolve(false); }
+      });
     });
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => { req.destroy(); resolve(false); });
     req.end();
   });
 }
-
-async function waitForHealth({ timeoutMs = 60000, intervalMs = 500 } = {}) {
+async function waitForHealth(port, { timeoutMs = 60000, intervalMs = 500 } = {}) {
   const start = Date.now();
-  logLauncher(`Waiting for backend health at http://${HOST}:${BACKEND_PORT}/healthz ...`);
-  // small initial delay so the first attempts don't all hit a not-yet-listening port
+  logLauncher(`Waiting for backend health at http://127.0.0.1:${port}/healthz ...`);
   while (Date.now() - start < timeoutMs) {
     if (shuttingDown) return false;
-    const ok = await probeHealth();
-    if (ok) {
-      logLauncher(color("green", "Backend healthz reported ok."));
-      return true;
-    }
+    if (await probeHealth(port)) { logLauncher(color("green", "Backend healthz reported ok.")); return true; }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   return false;
+}
+
+// --------------------------------------------------------------------------
+// Collect config interactively
+// --------------------------------------------------------------------------
+async function collectConfig() {
+  openPrompts();
+  if (SKIP_PROMPTS) logLauncher("Non-interactive (--yes or no TTY): using env vars / defaults.");
+  else console.log(color("bold", "\nConfigure this run (press Enter to accept the [default]):\n"));
+
+  const cfg = {};
+
+  // Provider
+  const providerDefault = process.env.SIDECHAT_PROVIDER || "openai";
+  let provider = (await ask("Provider [fake/openai]", providerDefault)).toLowerCase();
+  if (provider !== "fake" && provider !== "openai") {
+    warnLauncher(`Unknown provider "${provider}", using "openai".`);
+    provider = "openai";
+  }
+  cfg.provider = provider;
+
+  if (provider === "openai") {
+    cfg.apiKey = await askSecret("OpenAI API key", process.env.SIDECHAT_OPENAI_API_KEY || "");
+    while (!cfg.apiKey) {
+      errLauncher("API key is required for the real model.");
+      cfg.apiKey = await askSecret("OpenAI API key", "");
+      if (SKIP_PROMPTS) break;
+    }
+    cfg.models = await ask("Allowed models (comma-separated, first is default)",
+      process.env.SIDECHAT_ALLOWED_MODELS || "gpt-5.4-mini");
+    cfg.baseUrl = await ask(
+      "API base URL — OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
+      process.env.SIDECHAT_OPENAI_BASE_URL || "",
+    );
+  }
+
+  cfg.workspaceId = await ask("Workspace ID", process.env.WORKSPACE_ID || "workspace_local");
+  cfg.authToken = await ask("Auth bearer token", process.env.AUTH_TOKEN || "local-compose-token");
+  cfg.backendPort = Number(await ask("Backend port", process.env.BACKEND_PORT || "8787")) || 8787;
+
+  // Public domain for the widget host. Blank => expose on localhost only.
+  cfg.domain = await ask(
+    "Public domain for the widget (blank = localhost only).\n" +
+      `  Public host becomes: <workspaceId>-${WIDGET_ENDPOINT_NAME}-${WIDGET_PORT}.<domain>\n  domain`,
+    process.env.SIDECHAT_PUBLIC_DOMAIN || "",
+  );
+
+  closePrompts();
+  return cfg;
 }
 
 // --------------------------------------------------------------------------
@@ -374,68 +363,71 @@ async function main() {
   await verifyRuntime();
   await ensureInstalled();
 
-  // Backend env. server.ts reads process.env synchronously (no .env loading),
-  // so everything must be injected here.
-  //   PORT                       -> backend listen port (NOT a SIDECHAT_ var)
-  //   SIDECHAT_PROFILE           -> development (fake provider allowed, memory persistence default)
-  //   SIDECHAT_PROVIDER          -> fake
-  //   SIDECHAT_AUTH_BEARER_TOKEN -> bearer token the harness must present
-  //   (no SIDECHAT_DATABASE_URL  -> persistence defaults to in-memory)
+  const cfg = await collectConfig();
+
+  // ---- Backend env (server.ts reads process.env at boot; inject everything) ----
+  // Stay on the development profile so in-memory persistence works with no DB.
   const backendEnv = {
-    PORT: String(BACKEND_PORT),
-    SIDECHAT_PROFILE: "development",
-    SIDECHAT_PROVIDER: "fake",
-    SIDECHAT_POLICY_MODE: "allow_all",
-    SIDECHAT_AUTH_BEARER_TOKEN: AUTH_TOKEN,
+    PORT: String(cfg.backendPort),
+    SIDECHAT_PROFILE: process.env.SIDECHAT_PROFILE || "development",
+    SIDECHAT_POLICY_MODE: process.env.SIDECHAT_POLICY_MODE || "allow_all",
+    SIDECHAT_AUTH_BEARER_TOKEN: cfg.authToken,
+    SIDECHAT_PROVIDER: cfg.provider,
   };
-  // Defensive: ensure no inherited DATABASE_URL forces Postgres.
-  delete process.env.SIDECHAT_DATABASE_URL;
-
-  spawnDevServer({
-    name: "backend",
-    labelColor: "cyan",
-    workspace: BACKEND_WORKSPACE,
-    env: backendEnv,
-  });
-
-  const healthy = await waitForHealth();
-  if (!healthy) {
-    errLauncher("Backend did not become healthy in time. Aborting.");
-    shutdown(1);
-    return;
+  if (cfg.provider === "fake") {
+    delete process.env.SIDECHAT_DATABASE_URL; // keep memory persistence
+    logLauncher("Provider: fake (echo model).");
+  } else {
+    backendEnv.SIDECHAT_OPENAI_API_KEY = cfg.apiKey;
+    backendEnv.SIDECHAT_ALLOWED_MODELS = cfg.models;
+    if (cfg.baseUrl) backendEnv.SIDECHAT_OPENAI_BASE_URL = cfg.baseUrl;
+    if (process.env.SIDECHAT_OPENAI_REASONING_EFFORT)
+      backendEnv.SIDECHAT_OPENAI_REASONING_EFFORT = process.env.SIDECHAT_OPENAI_REASONING_EFFORT;
+    if (process.env.SIDECHAT_OPENAI_REASONING_SUMMARY)
+      backendEnv.SIDECHAT_OPENAI_REASONING_SUMMARY = process.env.SIDECHAT_OPENAI_REASONING_SUMMARY;
+    logLauncher(`Provider: openai (models: ${cfg.models}). Persistence: in-memory.`);
   }
 
-  // Widget env. The only harness-specific env var is the proxy target; point it
-  // at the actual backend port.
+  spawnDevServer({ name: "backend", labelColor: "cyan", workspace: BACKEND_WORKSPACE, env: backendEnv });
+
+  const healthy = await waitForHealth(cfg.backendPort);
+  if (!healthy) { errLauncher("Backend did not become healthy in time. Aborting."); shutdown(1); return; }
+
+  // ---- Widget exposure (workbench convention) ----
+  const publicHost = cfg.domain
+    ? `${cfg.workspaceId}-${WIDGET_ENDPOINT_NAME}-${WIDGET_PORT}.${cfg.domain}`
+    : "";
   const widgetEnv = {
-    SIDECHAT_WIDGET_HARNESS_API_TARGET: `http://${HOST}:${BACKEND_PORT}`,
+    SIDECHAT_WIDGET_HARNESS_API_TARGET: `http://127.0.0.1:${cfg.backendPort}`,
   };
+  if (publicHost) widgetEnv.__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS = publicHost;
 
   spawnDevServer({
     name: "widget",
     labelColor: "blue",
     workspace: WIDGET_WORKSPACE,
     env: widgetEnv,
+    extraArgs: ["--host", WIDGET_BIND_HOST, "--port", String(WIDGET_PORT), "--strictPort"],
   });
 
-  // The harness sends `Authorization: Bearer <authToken>`, which the backend
-  // validates against SIDECHAT_AUTH_BEARER_TOKEN -> authToken MUST equal AUTH_TOKEN.
+  const base = publicHost ? `https://${publicHost}` : `http://127.0.0.1:${WIDGET_PORT}`;
   const widgetUrl =
-    `http://${HOST}:${WIDGET_PORT}/?mode=local-service` +
-    `&authToken=${encodeURIComponent(AUTH_TOKEN)}` +
-    `&workspaceId=${encodeURIComponent(WORKSPACE_ID)}`;
+    `${base}/?mode=local-service` +
+    `&authToken=${encodeURIComponent(cfg.authToken)}` +
+    `&workspaceId=${encodeURIComponent(cfg.workspaceId)}`;
 
-  // Give Vite a moment to bind before printing the banner.
   setTimeout(() => {
     if (shuttingDown) return;
     const line = "=".repeat(72);
     console.log("\n" + color("green", line));
-    console.log(color("bold", "  Side-chat local (fake provider + in-memory persistence) is ready"));
+    console.log(color("bold", `  Side-chat local (${cfg.provider} provider + in-memory persistence) is ready`));
     console.log(color("green", line));
-    console.log(`  Backend (healthz): ${color("cyan", `http://${HOST}:${BACKEND_PORT}/healthz`)}`);
-    console.log(`  Bearer token:      ${color("dim", AUTH_TOKEN)}`);
+    console.log(`  Backend (healthz): ${color("cyan", `http://127.0.0.1:${cfg.backendPort}/healthz`)}`);
+    console.log(`  Widget bind:       ${color("dim", `${WIDGET_BIND_HOST}:${WIDGET_PORT} (strictPort)`)}`);
+    if (publicHost) console.log(`  Public host:       ${color("dim", publicHost)}`);
+    console.log(`  Bearer token:      ${color("dim", cfg.authToken)}`);
     console.log("");
-    console.log(`  ${color("bold", "Open this URL to talk to the local fake backend:")}`);
+    console.log(`  ${color("bold", "Open this URL:")}`);
     console.log(`  ${color("yellow", widgetUrl)}`);
     console.log(color("green", line));
     console.log(color("dim", "  Press Ctrl+C to stop both servers."));
@@ -443,7 +435,4 @@ async function main() {
   }, 2500);
 }
 
-main().catch((e) => {
-  errLauncher(e?.stack || String(e));
-  shutdown(1);
-});
+main().catch((e) => { errLauncher(e?.stack || String(e)); shutdown(1); });
