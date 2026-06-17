@@ -1,7 +1,5 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
-import { createPartnerAiServiceOptionsFromEnv } from "#config/service-config";
 import { createPartnerAiServiceApp } from "../../app.js";
 
 describe("partner ai service capability diagnostics", () => {
@@ -43,47 +41,6 @@ describe("partner ai service capability diagnostics", () => {
         },
       },
     });
-  });
-
-  it("reports unsupported summary history as misconfigured", async () => {
-    const response = await createPartnerAiServiceApp(
-      createPartnerAiServiceOptionsFromEnv({
-        SIDECHAT_HISTORY_MODE: "recent_plus_summary",
-      }),
-    ).request("/readyz");
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      capabilities: {
-        history: {
-          state: "misconfigured",
-          adapterId: "missing-history-summary-generator",
-          policyId: "recent_plus_summary",
-          safeForProduction: false,
-        },
-        contextAdmission: {
-          state: "configured",
-          policyId: "deterministic_v1",
-          selectionMode: "budgeted",
-        },
-      },
-    });
-  });
-
-  it("rejects production-profile summary history until the adapter exists", () => {
-    expect(() =>
-      createPartnerAiServiceApp({
-        auth: productionAuth,
-        persistence: productionPersistence,
-        capabilities: {
-          ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
-          history: {
-            ...DEFAULT_SERVICE_CAPABILITY_CONFIG.history,
-            mode: "recent_plus_summary",
-          },
-        },
-      }),
-    ).toThrow("Production profile requires concrete adapters for enabled capabilities: history.");
   });
 
   it("omits secrets and private adapter details from diagnostics", async () => {
@@ -134,9 +91,4 @@ const productionAuth = {
     tenantId: "tenant_prod",
     workspaceId: "workspace_prod",
   },
-};
-
-const productionPersistence = {
-  kind: "postgres" as const,
-  databaseUrl: "postgres://sidechat:sidechat@localhost/sidechat",
 };

@@ -37,7 +37,6 @@ export type HostCapabilitySchemaVersion =
 export const CONTEXT_CANDIDATE_SOURCE_TYPES = {
   CURRENT_MESSAGE: "current_message",
   CONVERSATION_HISTORY: "conversation_history",
-  CONVERSATION_SUMMARY: "conversation_summary",
   HOST_CONTEXT: "host_context",
   ASSISTANT_PROFILE: "assistant_profile",
   TOOL_CAPABILITY: "tool_capability",

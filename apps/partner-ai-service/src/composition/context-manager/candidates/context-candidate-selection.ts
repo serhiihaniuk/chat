@@ -208,7 +208,6 @@ const sourceRank = (sourceType: ContextCandidateSourceType): number => {
     case CONTEXT_CANDIDATE_SOURCE_TYPES.HOST_CONTEXT:
       return 10;
     case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_HISTORY:
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_SUMMARY:
       return 15;
     case CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_CAPABILITY:
     case CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_RESULT:
@@ -225,7 +224,6 @@ const sourceBudgetKeyForCandidate = (candidate: ContextCandidate): SourceBudgetK
     case CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_RESULT:
       return undefined;
     case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_HISTORY:
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.CONVERSATION_SUMMARY:
       return "history";
   }
 };

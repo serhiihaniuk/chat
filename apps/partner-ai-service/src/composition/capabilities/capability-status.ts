@@ -7,7 +7,6 @@ import {
   createContextAdmissionStatus,
   createHistoryStatus,
   createPersistenceStatus,
-  CAPABILITY_STATES,
   type CapabilityState,
 } from "./capability-status-builders.js";
 
@@ -54,15 +53,6 @@ export type ServiceCapabilityStatusInput = {
   readonly persistenceKind: "memory" | "postgres";
 };
 
-export class ServiceCapabilityConfigurationError extends Error {
-  readonly code = "service_capability_misconfigured";
-
-  constructor(message: string) {
-    super(message);
-    this.name = "ServiceCapabilityConfigurationError";
-  }
-}
-
 export const createServiceCapabilityStatus = (
   input: ServiceCapabilityStatusInput,
 ): ServiceCapabilityStatus => ({
@@ -70,28 +60,3 @@ export const createServiceCapabilityStatus = (
   contextAdmission: createContextAdmissionStatus(input.contextAdmission),
   persistence: createPersistenceStatus(input.persistenceKind),
 });
-
-/**
- * Fail production boot when a model-visible capability is only declared.
- *
- * Production may expose summary history only after a concrete implementation
- * exists. Misconfigured declarations remain limited to local and test profiles,
- * before any route can accept traffic.
- */
-export const assertProductionCapabilityStatus = (
-  status: ServiceCapabilityStatus,
-  authProfile: "development" | "production",
-) => {
-  if (authProfile === "development") return;
-
-  const unsafeEnabledCapabilities = [status.history].filter(
-    (capability) => capability.state === CAPABILITY_STATES.MISCONFIGURED,
-  );
-  if (unsafeEnabledCapabilities.length === 0) return;
-
-  throw new ServiceCapabilityConfigurationError(
-    `Production profile requires concrete adapters for enabled capabilities: ${unsafeEnabledCapabilities
-      .map((capability) => capability.capability)
-      .join(", ")}.`,
-  );
-};

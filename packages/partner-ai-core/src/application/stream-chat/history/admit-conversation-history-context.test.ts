@@ -64,10 +64,10 @@ describe("admitConversationHistoryContext", () => {
     ]);
   });
 
-  it("admits no messages for unsupported summary history mode", () => {
+  it("admits no messages when history is disabled", () => {
     const admission = admitConversationHistoryContext({
       config: {
-        mode: HISTORY_CONTEXT_MODES.RECENT_PLUS_SUMMARY,
+        mode: HISTORY_CONTEXT_MODES.DISABLED,
         maxMessages: 6,
         maxTokens: 100,
       },
@@ -77,7 +77,7 @@ describe("admitConversationHistoryContext", () => {
     expect(admission).toEqual({
       admittedMessages: [],
       manifest: {
-        policyMode: "recent_plus_summary",
+        policyMode: "disabled",
         consideredMessageCount: 0,
         admittedMessageCount: 0,
         droppedMessageCount: 0,

@@ -3,7 +3,6 @@
 // Does not own: assistant prompts, tool execution, or per-turn policy decisions
 // (the resolver only turns the manifest plus a request into a decision).
 
-import { assertProductionCapabilityStatus } from "#composition/capabilities/capability-status";
 import { createCapabilityStatusForComposition } from "#composition/capabilities/service-capability-composition";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import {
@@ -14,26 +13,20 @@ import {
 import type { AssistantProfileRegistry } from "#composition/assistant/assistant-profile-registry";
 import type { ServiceToolRegistry } from "#composition/tools/service-tool-registry";
 import type { ServiceCompositionOptions } from "../service-composition-types.js";
-import type {
-  ServiceCapabilityBundle,
-  ServicePersistenceBundle,
-  ServiceSecurityBundle,
-} from "./bundle-types.js";
+import type { ServiceCapabilityBundle, ServicePersistenceBundle } from "./bundle-types.js";
 
 export type ServiceCapabilityBundleInput = {
   readonly assistants: AssistantProfileRegistry;
   readonly tools: ServiceToolRegistry;
   readonly persistence: ServicePersistenceBundle;
-  readonly security: ServiceSecurityBundle;
 };
 
 /**
- * Publish what this service can offer and fail closed on unsafe production.
+ * Publish what this service can offer to the stream-chat workflow.
  *
  * The manifest names available profiles, tools, and commands; turn policy still
  * chooses which of them a single request may use. Capability status is rebuilt
- * into secret-free diagnostics, and production boot fails if a model-visible
- * capability is only declared rather than implemented.
+ * into secret-free diagnostics before routes expose readiness.
  */
 export const createServiceCapabilityBundle = (
   options: ServiceCompositionOptions,
@@ -52,9 +45,9 @@ export const createServiceCapabilityBundle = (
 
   const capabilityStatus = createCapabilityStatusForComposition({
     capabilityConfig,
-    persistenceKind: input.persistence.persistenceLabel === "postgres-drizzle" ? "postgres" : "memory",
+    persistenceKind:
+      input.persistence.persistenceLabel === "postgres-drizzle" ? "postgres" : "memory",
   });
-  assertProductionCapabilityStatus(capabilityStatus, input.security.auth.profile);
 
   return {
     manifest,

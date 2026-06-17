@@ -3,7 +3,6 @@ type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
 export const HISTORY_CONTEXT_MODES = {
   DISABLED: "disabled",
   RECENT_MESSAGES: "recent_messages",
-  RECENT_PLUS_SUMMARY: "recent_plus_summary",
 } as const;
 
 export type HistoryContextMode = ObjectValue<typeof HISTORY_CONTEXT_MODES>;
@@ -18,8 +17,8 @@ export type ContextAdmissionPolicy = ObjectValue<typeof CONTEXT_ADMISSION_POLICI
  * Conversation-history behavior for context preparation.
  *
  * A service with conversation state uses this to decide whether prior messages
- * can be considered before model execution. Future modes may be parsed before
- * every mode has a concrete reader.
+ * can be considered before model execution. Only modes with concrete runtime
+ * behavior belong in this contract.
  */
 export type HistoryContextConfig = {
   /** Chooses whether prior messages are excluded or made available for admission. */

@@ -18,7 +18,6 @@ type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
 export const CAPABILITY_STATES = {
   CONFIGURED: "configured",
   DISABLED: "disabled",
-  MISCONFIGURED: "misconfigured",
 } as const;
 
 export type CapabilityState = ObjectValue<typeof CAPABILITY_STATES>;
@@ -32,18 +31,6 @@ export const createHistoryStatus = (config: HistoryContextConfig): CapabilitySta
       policyId: config.mode,
       reason: "history context is disabled for the active service configuration",
       safeForProduction: true,
-    };
-  }
-
-  if (config.mode === HISTORY_CONTEXT_MODES.RECENT_PLUS_SUMMARY) {
-    return {
-      capability: "history",
-      state: CAPABILITY_STATES.MISCONFIGURED,
-      adapterId: "missing-history-summary-generator",
-      policyId: config.mode,
-      reason:
-        "recent_plus_summary requires history summarization, which is not implemented yet; use recent_messages for current history context",
-      safeForProduction: false,
     };
   }
 

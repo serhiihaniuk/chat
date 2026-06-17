@@ -1,10 +1,7 @@
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/service-conversation-title-config";
-import type {
-  ServicePersistenceBundle,
-  ServiceSecurityBundle,
-} from "./bundle-types.js";
+import type { ServicePersistenceBundle, ServiceSecurityBundle } from "./bundle-types.js";
 import { createServiceAssistantBundle } from "./create-service-assistant-bundle.js";
 import { createServiceCapabilityBundle } from "./create-service-capability-bundle.js";
 import { createServiceContextBundle } from "./create-service-context-bundle.js";
@@ -26,11 +23,16 @@ const buildDeps = (security: ServiceSecurityBundle) => {
   const tools = createServiceToolBundle({ workspace });
   const assistants = createServiceAssistantBundle(
     { workspace },
-    { providers: providers.registry, tools: tools.registry, turnGuardIds: [], registeredGuardIds: [] },
+    {
+      providers: providers.registry,
+      tools: tools.registry,
+      turnGuardIds: [],
+      registeredGuardIds: [],
+    },
   );
   const capabilities = createServiceCapabilityBundle(
     { workspace },
-    { assistants: assistants.registry, tools: tools.registry, persistence, security },
+    { assistants: assistants.registry, tools: tools.registry, persistence },
   );
   const context = createServiceContextBundle({ workspace }, { repositories });
   const runtime = createServiceRuntimeBundle({ workspace }, { providers, tools });

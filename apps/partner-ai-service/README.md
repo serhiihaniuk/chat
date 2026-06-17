@@ -39,8 +39,8 @@ Not source of truth for: global vocabulary or product requirements.
 
 `/healthz` and `/readyz` include a safe `capabilities` object owned by service
 composition. It reports whether history context, context admission, and
-persistence are disabled, configured, or misconfigured. The same endpoints
-report secret-free `providers` and `tools` registry status: provider ids, model
+persistence are disabled or configured. The same endpoints report secret-free
+`providers` and `tools` registry status: provider ids, model
 ids, default selection, and tool names with their default-enabled and approval
 policy ids. Provider secrets and tool payloads stay hidden.
 
@@ -70,9 +70,7 @@ Default local boot is honest about the current app shape:
 
 - prior conversation history is disabled by default; `recent_messages` admits
   authorized same-conversation user/assistant messages before the current user
-  message, and reset starts a new history boundary; `recent_plus_summary` is
-  parsed for the future summary lane but reports misconfigured until summary
-  generation exists;
+  message, and reset starts a new history boundary;
 - context admission enforces deterministic token budgets before optional
   context reaches runtime;
 - in-memory repositories are process-local and not durable.
@@ -88,9 +86,8 @@ Persistence diagnostics are derived from the composed repository adapter. A
 in-memory repositories report `persistence: memory` and remain explicitly
 non-production-safe because they reset with the process.
 
-Production-profile composition rejects summary history until the matching
-implementation exists. Diagnostics never include secrets, connection strings,
-provider requests, or private context-board content.
+Diagnostics never include secrets, connection strings, provider requests, or
+private context-board content.
 
 ## Capability Configuration
 
@@ -102,7 +99,7 @@ Local defaults are explicit and fail closed:
 
 | Env key                                   | Local default      | Meaning                                                           |
 | ----------------------------------------- | ------------------ | ----------------------------------------------------------------- |
-| `SIDECHAT_HISTORY_MODE`                   | `disabled`         | `disabled`, `recent_messages`, or future `recent_plus_summary`.   |
+| `SIDECHAT_HISTORY_MODE`                   | `disabled`         | `disabled` or `recent_messages`.                                  |
 | `SIDECHAT_HISTORY_MAX_MESSAGES`           | `12`               | Maximum same-conversation messages admitted into runtime context. |
 | `SIDECHAT_HISTORY_MAX_TOKENS`             | `4000`             | Approximate token budget for admitted conversation history.       |
 | `SIDECHAT_CONTEXT_ADMISSION_POLICY`       | `deterministic_v1` | Recorded context admission policy id.                             |
@@ -118,8 +115,8 @@ npm run dev --workspace @side-chat/partner-ai-service
 ```
 
 History reports the repository-backed context adapter when `recent_messages` is
-enabled. `recent_plus_summary` reports `missing-history-summary-generator` and
-is not production-safe until summary generation is implemented.
+enabled. Longer-history summarization is tracked as deferred product work in
+`docs/product/todo.md`.
 
 ## Verify
 

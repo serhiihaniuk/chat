@@ -10,10 +10,7 @@ import { createServiceRuntimeBundle } from "./factories/create-service-runtime-b
 import { createServiceSecurityPorts } from "./factories/create-service-security-ports.js";
 import { createServiceToolBundle } from "./factories/create-service-tool-bundle.js";
 import { createStreamChatPorts } from "./factories/create-stream-chat-ports.js";
-import type {
-  ServiceComposition,
-  ServiceCompositionOptions,
-} from "./service-composition-types.js";
+import type { ServiceComposition, ServiceCompositionOptions } from "./service-composition-types.js";
 
 export type {
   PersistenceConfig,
@@ -97,7 +94,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     assistants: assistants.registry,
     tools: tools.registry,
     persistence,
-    security,
   });
   const context = createServiceContextBundle(options, {
     repositories: persistence.repositories,

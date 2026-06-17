@@ -32,8 +32,7 @@ provider/model registrations and selects the runtime identity.
 Service diagnostics report this separation explicitly. `apps/partner-ai-service`
 composition owns capability status for history context, context admission, and
 persistence, plus secret-free provider and tool registry status, and `/healthz`
-plus `/readyz` expose only safe status fields. Summary history reports
-misconfigured until a matching implementation exists.
+plus `/readyz` expose only safe status fields.
 
 Context admission status reports both the configured policy id and the actual
 selection mode. `deterministic_v1` with `budgeted` means budgets are enforced

@@ -1,11 +1,6 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { ServiceCapabilityConfigurationError } from "#composition/capabilities/capability-status";
-import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
-import type {
-  ServicePersistenceBundle,
-  ServiceSecurityBundle,
-} from "./bundle-types.js";
+import type { ServicePersistenceBundle } from "./bundle-types.js";
 import { createServiceAssistantBundle } from "./create-service-assistant-bundle.js";
 import { createServiceCapabilityBundle } from "./create-service-capability-bundle.js";
 import { createServiceProviderBundle } from "./create-service-provider-bundle.js";
@@ -24,19 +19,19 @@ const authContext = {
   issuedAt: "2026-06-16T00:00:00.000Z",
 } as const;
 
-const buildInput = (security: ServiceSecurityBundle, persistence: ServicePersistenceBundle) => {
+const buildInput = (persistence: ServicePersistenceBundle) => {
   const providers = createServiceProviderBundle({ workspace });
   const tools = createServiceToolBundle({ workspace });
   const assistants = createServiceAssistantBundle(
     { workspace },
-    { providers: providers.registry, tools: tools.registry, turnGuardIds: [], registeredGuardIds: [] },
+    {
+      providers: providers.registry,
+      tools: tools.registry,
+      turnGuardIds: [],
+      registeredGuardIds: [],
+    },
   );
-  return { assistants: assistants.registry, tools: tools.registry, persistence, security };
-};
-
-const developmentSecurity: ServiceSecurityBundle = {
-  auth: { profile: "development", workspace },
-  policies: { profile: "development", mode: "allow_all" },
+  return { assistants: assistants.registry, tools: tools.registry, persistence };
 };
 
 const memoryPersistence: ServicePersistenceBundle = {
@@ -47,10 +42,7 @@ const memoryPersistence: ServicePersistenceBundle = {
 
 describe("createServiceCapabilityBundle", () => {
   it("publishes a manifest the manifest port resolves under the matching host app id", async () => {
-    const bundle = createServiceCapabilityBundle(
-      { workspace },
-      buildInput(developmentSecurity, memoryPersistence),
-    );
+    const bundle = createServiceCapabilityBundle({ workspace }, buildInput(memoryPersistence));
 
     const loaded = await Effect.runPromise(
       bundle.manifestPort.loadManifest({
@@ -64,23 +56,27 @@ describe("createServiceCapabilityBundle", () => {
     expect(bundle.capabilityStatus.persistence.adapterId).toBe("memory-sidechat-repositories");
   });
 
-  it("fails closed in production when a model-visible capability is only declared", () => {
-    const productionSecurity: ServiceSecurityBundle = {
-      auth: { profile: "production", workspace },
-      policies: { profile: "production", mode: "fail_closed" },
-    };
-
-    expect(() =>
-      createServiceCapabilityBundle(
-        {
-          workspace,
-          capabilities: {
-            ...DEFAULT_SERVICE_CAPABILITY_CONFIG,
-            history: { mode: "recent_plus_summary", maxMessages: 6, maxTokens: 900 },
+  it("publishes configured history status", () => {
+    const bundle = createServiceCapabilityBundle(
+      {
+        workspace,
+        capabilities: {
+          history: { mode: "recent_messages", maxMessages: 6, maxTokens: 900 },
+          contextAdmission: {
+            policyId: "deterministic_v1",
+            maxInputTokens: 24_000,
+            reservedOutputTokens: 4_000,
+            maxHistoryTokens: 4_000,
           },
         },
-        buildInput(productionSecurity, memoryPersistence),
-      ),
-    ).toThrow(ServiceCapabilityConfigurationError);
+      },
+      buildInput(memoryPersistence),
+    );
+
+    expect(bundle.capabilityStatus.history).toMatchObject({
+      state: "configured",
+      policyId: "recent_messages",
+      safeForProduction: true,
+    });
   });
 });

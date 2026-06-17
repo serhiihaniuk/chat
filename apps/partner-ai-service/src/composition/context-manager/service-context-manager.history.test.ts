@@ -162,24 +162,6 @@ describe("service context manager conversation history", () => {
     });
   });
 
-  it("does not read history for unsupported summary mode", async () => {
-    const historyInputs: Parameters<
-      ConversationHistoryContextPort["readConversationHistory"]
-    >[0][] = [];
-    const preparedContext = await prepareHistoryContext({
-      calls: historyInputs,
-      mode: "recent_plus_summary",
-      messages: [createHistoryMessage("message_history_001", 0, "user", "hidden")],
-    });
-
-    expect(historyInputs).toEqual([]);
-    expect(preparedContext.runtimeMessages).toEqual([{ role: "user", content: "find docs" }]);
-    expect(preparedContext.history).toMatchObject({
-      policyMode: "recent_plus_summary",
-      admittedMessageCount: 0,
-    });
-  });
-
   it("guards against a history adapter returning the current user message", async () => {
     const preparedContext = await prepareHistoryContext({
       messages: [createHistoryMessage("message_record_context_001", 2, "user", "find docs")],
@@ -198,7 +180,7 @@ const prepareHistoryContext = ({
   maxTokens = 100,
 }: {
   readonly calls?: Parameters<ConversationHistoryContextPort["readConversationHistory"]>[0][];
-  readonly mode?: "disabled" | "recent_messages" | "recent_plus_summary";
+  readonly mode?: "disabled" | "recent_messages";
   readonly messages: readonly PreparedHistoryMessage[];
   readonly maxMessages?: number;
   readonly maxTokens?: number;

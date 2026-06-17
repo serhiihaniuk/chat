@@ -157,13 +157,18 @@ describe("partner ai service env config", () => {
     });
   });
 
-  it("rejects ambiguous capability env config", () => {
+  it("rejects unsupported capability env config", () => {
     expect(() =>
       createPartnerAiServiceOptionsFromEnv({
         SIDECHAT_CONTEXT_MAX_INPUT_TOKENS: "1000",
         SIDECHAT_CONTEXT_RESERVED_OUTPUT_TOKENS: "1000",
       }),
     ).toThrow("SIDECHAT_CONTEXT_RESERVED_OUTPUT_TOKENS");
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_HISTORY_MODE: "summary_history",
+      }),
+    ).toThrow("SIDECHAT_HISTORY_MODE");
   });
 
   it("rejects unsupported OpenAI reasoning options", () => {
