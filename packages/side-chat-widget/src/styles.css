@@ -63,7 +63,47 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* §2.4 / §5.3 — type scale, each paired with its line-height so rhythm can't drift */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.4;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.55;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.6;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 1.25;
+
+  /* leading the user bubble asks for explicitly (§9.6) — registered, never leading-[1.55] */
+  --leading-message: 1.55;
+
+  /* §5.5 — elevation */
+  --shadow-card: 0 1px 2px 0 oklch(0 0 0 / 0.05), 0 1px 3px 0 oklch(0 0 0 / 0.08);
+  --shadow-popover: 0 4px 12px -2px oklch(0 0 0 / 0.12), 0 2px 6px -2px oklch(0 0 0 / 0.08);
+  --shadow-panel: 0 12px 32px -8px oklch(0 0 0 / 0.2), 0 4px 12px -4px oklch(0 0 0 / 0.12);
 }
+
+/* §2.5 / §4 — Base UI state registered ONCE as bracket-free variants (used everywhere). */
+@custom-variant highlighted (&[data-highlighted]); /* pointer OR keyboard active item */
+@custom-variant selected (&[data-selected]);
+@custom-variant pressed (&[data-pressed]);
+@custom-variant checked (&[data-checked]);
+@custom-variant unchecked (&[data-unchecked]);
+@custom-variant popupopen (&[data-popup-open]); /* trigger whose popup is open */
+@custom-variant panelopen (&[data-panel-open]); /* collapsible trigger */
+@custom-variant uiopen (&[data-open]); /* open popup/panel (avoid clashing `open:`) */
+@custom-variant uidisabled (&[data-disabled]); /* avoid clashing built-in `disabled:` */
+@custom-variant invalid (&[data-invalid]);
+@custom-variant scrolling (&[data-scrolling]);
+@custom-variant hovering (&[data-hovering]);
+@custom-variant starting (&[data-starting-style]);
+@custom-variant ending (&[data-ending-style]);
 
 :root {
   --radius: 0.625rem;
@@ -102,6 +142,141 @@
   --sidebar-ring: oklch(0.708 0 0);
   --message-user: var(--sidebar-accent);
   --message-user-foreground: var(--sidebar-accent-foreground);
+}
+
+/*
+ * Tier-2 component tokens live on the widget ROOT, not :root. The named-theme
+ * overrides (sage/ocean) apply to this same element, so an alias like
+ * `--switch-track-on: var(--primary)` re-substitutes the themed --primary here.
+ * Declared on :root they would be frozen to the graphite tier-1 values and inherit
+ * that frozen value down — named themes and host .dark could then never re-skin the
+ * hook classes that read them. This is exactly the §12.3 re-skin contract.
+ */
+.side-chat-widget-root {
+  /* ── runtime motion ───────────────────────────────────────────────── */
+  --dur: 200ms;
+
+  /* ── tier 1 radius aliases; local so the showcase --radius scrub re-skins descendants. ─ */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* ── §5.4 semantic sizes (consumed by the @utility size wrappers below) ─ */
+  --size-sidebar: 15.5rem;
+  --size-menu: 17.625rem;
+  --size-measure-message: 44.5rem;
+  --size-measure-empty: 28.25rem;
+  --size-header: 3.25rem;
+  --size-control: 2rem;
+  --size-touch: 2.75rem;
+
+  /* ── TIER 2 component tokens — each an alias of a tier-1 value or a calc()
+        over --spacing, never a raw literal except the sub-grid cases (§2.3). ─ */
+
+  /* Switch (§7.1 / §8.1) */
+  --switch-w: 1.875rem;
+  --switch-h: 1.125rem;
+  --switch-knob-size: 0.875rem;
+  --switch-inset: 2px;
+  --switch-knob-fill: oklch(0.99 0 0);
+  --switch-track-on: var(--primary);
+  --switch-track-off: var(--input);
+
+  /* Media / avatar (§8.5) */
+  --media-size: 1.625rem;
+  --media-radius: var(--radius-md);
+  --media-fill: var(--muted);
+  --media-border: var(--border);
+  --media-fg: var(--muted-foreground);
+
+  /* Field (§8.6) */
+  --field-bg: var(--background);
+  --field-border: var(--input);
+  --field-radius: var(--radius-md);
+  --field-px: calc(var(--spacing) * 3);
+  --field-py: calc(var(--spacing) * 2.5);
+
+  /* Segmented (§8.8) */
+  --seg-pad: 3px;
+  --seg-radius: var(--radius-md);
+  --seg-item-radius: calc(var(--radius-md) - 3px);
+
+  /* Scroll area (§8.3) */
+  --scrollarea-w: 0.5rem;
+  --scrollarea-thumb: var(--border);
+
+  /* Menu / Popover (§8.2) */
+  --menu-bg: var(--popover);
+  --menu-fg: var(--popover-foreground);
+  --menu-border: var(--border);
+  --menu-radius: var(--radius-xl);
+  --menu-shadow: var(--shadow-popover);
+  --menu-pad: calc(var(--spacing) * 1.5);
+  --menu-item-radius: var(--radius-md);
+  --menu-item-px: calc(var(--spacing) * 2.5);
+  --menu-item-py: calc(var(--spacing) * 2);
+  --menu-item-bg-hover: var(--accent);
+  --menu-item-check: var(--primary);
+  --menu-section-label: var(--muted-foreground);
+
+  /* Message bubble padding (§7.2 / §9.6) — colour is tier-1 message-user */
+  --message-user-px: calc(var(--spacing) * 3.5);
+  --message-user-py: calc(var(--spacing) * 2.5);
+
+  /* Conversation / grouping (§9.1 / §9.2) — values per design_widget.html token table */
+  --convo-indicator: var(--primary);
+  --convo-item-bg-active: var(--sidebar-accent);
+  --convo-item-bg-hover: var(--sidebar-accent);
+  --convo-item-radius: var(--radius-md);
+  --convo-title-fg: var(--sidebar-foreground);
+  --convo-subtitle-fg: var(--muted-foreground);
+  --group-label-size: var(--text-2xs);
+  --group-label-fg: var(--muted-foreground);
+  --rail-group-gap: calc(var(--spacing) * 2);
+  --rail-list-gap: 1px;
+  --rail-border: var(--sidebar-border);
+
+  /* Settings (section 9.11) */
+  --settings-nav-w: 9.5rem;
+  --settings-nav-bg: var(--sidebar);
+  --settings-nav-border: var(--sidebar-border);
+  --settings-content-pad: calc(var(--spacing) * 5);
+  --settings-item-active-bg: var(--sidebar-accent);
+  --settings-item-fg: var(--sidebar-foreground);
+  --settings-item-px: calc(var(--spacing) * 2.5);
+  --settings-item-py: calc(var(--spacing) * 2);
+  --settings-item-radius: var(--radius-md);
+  --settings-label-size: var(--text-sm);
+  --settings-label-fg: var(--foreground);
+  --settings-hint-fg: var(--muted-foreground);
+  --settings-field-bg: var(--field-bg);
+  --settings-field-border: var(--field-border);
+  --settings-field-radius: var(--field-radius);
+  --settings-accent-default: oklch(0.205 0 0);
+  --settings-accent-blue: oklch(0.55 0.2 256);
+  --settings-accent-green: oklch(0.57 0.14 159);
+  --settings-accent-violet: oklch(0.54 0.22 292);
+  --settings-accent-orange: oklch(0.62 0.19 41);
+
+  /* Agent mark tile (§9.12 header) — 27px, accent fill, primary glyph */
+  --agent-mark-size: 1.6875rem;
+  --agent-mark-bg: var(--accent);
+  --agent-mark-fg: var(--primary);
+  --agent-mark-border: var(--border);
+  --agent-mark-radius: var(--radius-md);
+
+  /* Header (§9.12) */
+  --header-title-size: var(--text-md);
+
+  /* Composer context ring (§9.5) — a subtle grey meter, not a bold primary arc */
+  --context-ring-track: var(--border);
+  --context-ring-indicator: var(--muted-foreground);
+
+  /* Shell / header / rail (§9.12) */
+  --header-h: var(--size-header);
+  --header-px: calc(var(--spacing) * 4);
+  --rail-newchat-h: var(--header-h);
 }
 
 .dark {
@@ -243,6 +418,24 @@
   --message-user-foreground: var(--sidebar-accent-foreground);
 }
 
+[data-sidechat-theme-preview="dark"] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --success: oklch(0.72 0.15 162);
+  --sc-canvas: oklch(0.165 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --message-user: var(--sidebar-accent);
+  --message-user-foreground: var(--sidebar-accent-foreground);
+}
+
 @layer base {
   /*
    * Plus Jakarta Sans is scoped to the widget root and its portaled popovers (menus,
@@ -253,7 +446,10 @@
   [data-slot="dropdown-menu-content"],
   [data-slot="popover-content"],
   [data-slot="hover-card-content"],
-  [data-slot="dialog-content"] {
+  [data-slot="dialog-content"],
+  [data-slot="select-content"],
+  [data-slot="combobox-content"],
+  [data-slot="tooltip-content"] {
     font-family:
       "Plus Jakarta Sans",
       ui-sans-serif,
@@ -316,34 +512,492 @@
   }
 }
 
+/* ============================================================================
+   §5.4 — named size utilities. The `--size-*` namespace does not auto-generate
+   w-/h-/size- utilities in Tailwind v4, so each ledger size is a thin @utility
+   wrapper reading its custom property. Component code uses the utility name.
+   ============================================================================ */
+@utility w-sidebar {
+  width: var(--size-sidebar);
+}
+@utility w-menu {
+  width: var(--size-menu);
+}
+@utility h-header {
+  height: var(--size-header);
+}
+@utility size-control {
+  width: var(--size-control);
+  height: var(--size-control);
+}
+@utility size-touch {
+  width: var(--size-touch);
+  height: var(--size-touch);
+}
+@utility max-w-measure-message {
+  max-width: var(--size-measure-message);
+}
+@utility max-w-measure-empty {
+  max-width: var(--size-measure-empty);
+}
+
+/* ============================================================================
+   §6 — irreducible CSS layer. Every entry here is a calc()-derived value, a
+   portaled element not rendered directly, or a runtime var — never a value a
+   utility could express. This is the CLOSED list; components add nothing here.
+   ============================================================================ */
+
+/* Switch (§8.1) — thumb travel is calc(track − knob − 2·inset), not track height */
+@utility sc-switch-root {
+  @apply relative shrink-0 cursor-pointer rounded-full border-0 transition-colors;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  padding: var(--switch-inset);
+  background: var(--switch-track-off);
+  &[data-checked] {
+    background: var(--switch-track-on);
+  }
+  &[data-disabled] {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+@utility sc-switch-thumb {
+  @apply block rounded-full;
+  width: var(--switch-knob-size);
+  height: var(--switch-knob-size);
+  background: var(--switch-knob-fill);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
+  translate: 0;
+  transition: translate var(--dur) var(--ease-out);
+}
+[data-checked] > .sc-switch-thumb {
+  translate: calc(var(--switch-w) - var(--switch-knob-size) - (2 * var(--switch-inset)));
+}
+
+/* Media / avatar (§8.5) — single-source the size so every avatar resizes at once */
+@utility sc-media {
+  @apply flex shrink-0 items-center justify-center overflow-hidden;
+  width: var(--media-size);
+  height: var(--media-size);
+  border-radius: var(--media-radius);
+  background: var(--media-fill);
+  border: 1px solid var(--media-border);
+  color: var(--media-fg);
+}
+
+/* Agent mark (§9.12) — the header brand tile; 27px, accent fill, primary diamond.
+   A dedicated tile (not sc-media): its bg is --accent and size is 27px, per the
+   design_widget.html --agent-mark-* token table. */
+@utility sc-agent-mark {
+  @apply flex shrink-0 items-center justify-center;
+  width: var(--agent-mark-size);
+  height: var(--agent-mark-size);
+  border-radius: var(--agent-mark-radius);
+  background: var(--agent-mark-bg);
+  border: 1px solid var(--agent-mark-border);
+  color: var(--agent-mark-fg);
+}
+
+/* Icon button (§8.7) — needs --size-control + the popupopen reaction */
+@utility sc-icon-btn {
+  @apply inline-flex items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground cursor-pointer hover:bg-accent;
+  width: var(--size-control);
+  height: var(--size-control);
+  &[data-popup-open] {
+    background: var(--accent);
+  }
+}
+
+/* Segmented track (§8.8) — the only place the 3px inset lives */
+@utility sc-seg {
+  @apply flex bg-muted;
+  border-radius: var(--seg-radius);
+  gap: var(--seg-pad);
+  padding: var(--seg-pad);
+}
+
+/* Combobox empty state (§8.11). Base UI keeps this element mounted as an aria-live
+   region even when there ARE matches (its children are just removed), so collapse it
+   to nothing while empty — otherwise its py-6 padding reserves a blank 48px gap. */
+@utility sc-combo-empty {
+  @apply px-2.5 py-6 text-center text-sm text-muted-foreground;
+  &:empty {
+    display: none;
+  }
+}
+
+/* Collapsible panel (§8.15) — height animates from Base UI's exposed var, no JS measure */
+@utility sc-collapsible-panel {
+  @apply overflow-hidden border-l-2 border-border;
+  height: var(--collapsible-panel-height);
+  transition: height var(--dur) var(--ease-out);
+}
+
+/* Composer (§9.5) — focus ring on the shell, + rotates to ×, send arms */
+@utility sc-composer {
+  @apply flex flex-col rounded-xl border border-input bg-background shadow-card;
+  &:focus-within {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
+  }
+}
+@utility sc-composer-add {
+  @apply inline-flex items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground cursor-pointer hover:bg-accent;
+  width: var(--size-control);
+  height: var(--size-control);
+  & svg {
+    transition: transform var(--dur) var(--ease-out);
+  }
+  &[data-popup-open] {
+    background: var(--accent);
+  }
+  &[data-popup-open] svg {
+    transform: rotate(45deg);
+  }
+}
+@utility sc-send {
+  @apply inline-flex size-8 items-center justify-center rounded-md border-0 bg-muted text-muted-foreground;
+  transition: background var(--dur) var(--ease-out);
+  &[data-armed] {
+    @apply bg-primary text-primary-foreground cursor-pointer;
+  }
+}
+
+/* Message actions (§9.7) — Copied is a transient state swap on the same button */
+@utility sc-action {
+  @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground bg-transparent hover:bg-accent cursor-pointer;
+  &[data-copied] {
+    @apply text-success;
+  }
+}
+
+/* Error glyph (§9.10 / §7.6) — destructive mixed into muted; no phantom -foreground */
+@utility sc-error-glyph {
+  color: color-mix(in oklch, var(--destructive) 60%, var(--muted-foreground));
+}
+
+/* Context ring (§9.5) — SVG stroke; the % drives stroke-dashoffset inline */
+@utility sc-context-ring {
+  & .sc-context-ring-track {
+    stroke: var(--context-ring-track);
+  }
+  & .sc-context-ring-indicator {
+    stroke: var(--context-ring-indicator);
+    transition: stroke-dashoffset var(--dur) var(--ease-out);
+  }
+}
+
+@layer components {
+  .sc-settings-frame {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sc-settings-frame-wide {
+    max-width: 35rem;
+    height: 21.25rem;
+    margin-inline: auto;
+  }
+
+  .sc-settings-frame-narrow {
+    width: 18.75rem;
+    height: 22.5rem;
+  }
+
+  .sc-settings-header {
+    height: var(--header-h);
+    flex: none;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--spacing) * 2);
+    padding: 0 calc(var(--spacing) * 2) 0 calc(var(--spacing) * 3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sc-settings-header-title {
+    flex: 1;
+    font-size: var(--header-title-size);
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--foreground);
+  }
+
+  .sc-settings-header-icon {
+    width: var(--size-control);
+    height: var(--size-control);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    color: var(--muted-foreground);
+  }
+
+  .sc-settings-theme-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--card);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color var(--dur) var(--ease);
+  }
+
+  .sc-settings-theme-card[aria-pressed="true"] {
+    border-color: var(--primary);
+  }
+
+  .sc-settings-theme-chip {
+    width: 30px;
+    height: 22px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    flex: none;
+  }
+
+  .sc-settings-theme-chip[data-theme="graphite"] {
+    background: oklch(0.985 0 0);
+    border-color: oklch(0.9 0 0);
+  }
+
+  .sc-settings-theme-chip[data-theme="sage"] {
+    background: oklch(0.965 0.016 150);
+    border-color: oklch(0.9 0.016 150);
+  }
+
+  .sc-settings-theme-chip[data-theme="ocean"] {
+    background: oklch(0.96 0.02 240);
+    border-color: oklch(0.9 0.02 242);
+  }
+
+  .sc-settings-theme-chip[data-theme="dark"] {
+    background: oklch(0.205 0 0);
+    border-color: oklch(1 0 0 / 14%);
+  }
+
+  .sc-settings-theme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .sc-settings-theme-list[data-wide="true"] {
+    margin-top: 9px;
+  }
+
+  .sc-settings-accent-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    outline: 1px solid var(--border);
+    cursor: pointer;
+    padding: 0;
+    box-shadow: 0 0 0 2px var(--card) inset;
+    transition: border-color var(--dur) var(--ease);
+  }
+
+  .sc-settings-accent-swatch[aria-pressed="true"] {
+    border-color: var(--foreground);
+  }
+
+  .sc-settings-accent-swatch[data-accent="default"] {
+    background: var(--settings-accent-default);
+  }
+
+  .sc-settings-accent-swatch[data-accent="blue"] {
+    background: var(--settings-accent-blue);
+  }
+
+  .sc-settings-accent-swatch[data-accent="green"] {
+    background: var(--settings-accent-green);
+  }
+
+  .sc-settings-accent-swatch[data-accent="violet"] {
+    background: var(--settings-accent-violet);
+  }
+
+  .sc-settings-accent-swatch[data-accent="orange"] {
+    background: var(--settings-accent-orange);
+  }
+
+  .sc-settings-select-trigger {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 11px;
+    border: 1px solid var(--settings-field-border);
+    background: var(--settings-field-bg);
+    border-radius: var(--settings-field-radius);
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--foreground);
+  }
+
+  .sc-settings-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px;
+    border-radius: var(--menu-item-radius);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .sc-settings-menu-row[data-highlighted],
+  .sc-settings-menu-row[data-selected] {
+    background: var(--menu-item-bg-hover);
+  }
+
+  .sc-settings-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 9px;
+    border: 1px solid var(--settings-field-border);
+    background: var(--settings-field-bg);
+    border-radius: var(--settings-field-radius);
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--foreground);
+    resize: none;
+    min-height: 88px;
+    outline: none;
+  }
+
+  .sc-settings-textarea[data-narrow="true"] {
+    min-height: 84px;
+  }
+
+  .sc-settings-switch-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+}
+
+/* Shell · panel / header / rail (§9.12) — the alignment contract lives in these tokens */
+@utility sc-panel {
+  @apply absolute right-4 bottom-4 flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-panel;
+  max-width: calc(100% - 2rem);
+  max-height: calc(100% - 2rem);
+}
+@utility sc-header {
+  @apply flex shrink-0 items-center justify-between border-b border-border;
+  box-sizing: border-box;
+  height: var(--header-h);
+  padding-inline: var(--header-px);
+}
+@utility sc-rail {
+  @apply flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground;
+  width: var(--size-sidebar);
+}
+@utility sc-rail-newchat {
+  @apply flex shrink-0 items-center;
+  box-sizing: border-box;
+  height: var(--rail-newchat-h);
+  padding-inline: var(--header-px);
+}
+
+/* Markdown (§10) — styles Streamdown's owned DOM; tokens first, no one-off colour */
+@utility sc-markdown {
+  & :where(p) {
+    @apply my-3 first:mt-0 last:mb-0;
+  }
+  & :where(a) {
+    @apply text-primary underline underline-offset-2;
+  }
+  & :where(code):not(:where(pre *)) {
+    @apply rounded-sm border border-border bg-muted px-1 py-0.5 text-sm;
+  }
+  & :where(pre) {
+    @apply my-3 overflow-x-auto rounded-md border border-border bg-muted p-3 text-sm;
+  }
+  & :where(ul) {
+    @apply my-3 list-disc pl-5;
+  }
+  & :where(ol) {
+    @apply my-3 list-decimal pl-5;
+  }
+  & :where(li) {
+    @apply my-1;
+  }
+  & :where(h1, h2, h3, h4) {
+    @apply mt-4 mb-2 font-semibold first:mt-0;
+  }
+  & :where(blockquote) {
+    @apply my-3 border-l-2 border-border pl-3 text-muted-foreground;
+  }
+  & :where(table) {
+    @apply my-3 w-full text-sm;
+  }
+  & :where(th, td) {
+    @apply border border-border px-2 py-1 text-left;
+  }
+}
+
+/* ============================================================================
+   Portaled popups (§8.2 / §8.10 / §8.11). They live outside .side-chat-widget-root
+   in the DOM even when portaled into it, carry --transform-origin for the
+   enter/exit, and are unlayered so they beat Tailwind's utility layer.
+   ============================================================================ */
+[data-slot="dropdown-menu-content"],
+[data-slot="popover-content"],
+[data-slot="select-content"],
+[data-slot="combobox-content"] {
+  @apply rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-popover;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--dur) var(--ease-out),
+    scale var(--dur) var(--ease-out);
+}
+[data-slot="dropdown-menu-content"][data-starting-style],
+[data-slot="dropdown-menu-content"][data-ending-style],
+[data-slot="popover-content"][data-starting-style],
+[data-slot="popover-content"][data-ending-style],
+[data-slot="select-content"][data-starting-style],
+[data-slot="select-content"][data-ending-style],
+[data-slot="combobox-content"][data-starting-style],
+[data-slot="combobox-content"][data-ending-style] {
+  opacity: 0;
+  scale: 0.97;
+}
+
 /*
- * Base UI ScrollArea overlay scrollbar. Unlayered (beats Tailwind's utility layer) and
- * keyed on Base UI's own data attributes so it reliably fades out when idle and
- * appears on hover or while scrolling.
+ * Base UI ScrollArea overlay scrollbar (§8.3). Unlayered and keyed on Base UI's
+ * own data attributes so it fades out when idle and appears on hover/scroll.
  */
 [data-slot="scroll-area-scrollbar"] {
   opacity: 0;
   transition: opacity 200ms ease;
 }
-
 [data-slot="scroll-area-scrollbar"][data-hovering],
 [data-slot="scroll-area-scrollbar"][data-scrolling] {
   opacity: 1;
 }
-
 [data-slot="scroll-area-scrollbar"][data-orientation="vertical"] {
-  width: 0.5rem;
+  width: var(--scrollarea-w);
 }
-
 [data-slot="scroll-area-scrollbar"][data-orientation="horizontal"] {
-  height: 0.5rem;
+  height: var(--scrollarea-w);
 }
-
-/* Composer add (+) button rotates its icon into an × while its menu is open. */
-.sc-composer-add svg {
-  transition: transform 200ms ease;
-}
-
-.sc-composer-add[data-popup-open] svg {
-  transform: rotate(45deg);
+[data-slot="scroll-area-thumb"] {
+  flex: 1;
+  border-radius: 999px;
+  background: var(--scrollarea-thumb);
 }
