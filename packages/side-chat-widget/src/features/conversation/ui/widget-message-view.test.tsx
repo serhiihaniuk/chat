@@ -10,7 +10,7 @@ import {
 import { WidgetMessageView } from "./widget-message-view.js";
 
 describe("WidgetMessageView", () => {
-  it("renders assistant content and the reasoning timeline with collapsed tool rows", () => {
+  it("renders assistant content and the reasoning timeline with compact tool rows", () => {
     const message = createAssistantMessage({
       content: "Here is the answer.",
       isStreaming: true,
@@ -39,7 +39,7 @@ describe("WidgetMessageView", () => {
       ],
     });
 
-    // Detailed exposure expands the timeline; tool rows stay collapsed by default.
+    // Detailed exposure expands the rebuilt reasoning trace; tool rows stay compact.
     const html = renderToStaticMarkup(
       <WidgetMessageView message={message} reasoningVisibility="detailed" />,
     );
@@ -47,8 +47,9 @@ describe("WidgetMessageView", () => {
     expect(html).toContain("Here is the answer.");
     expect(html).toContain("Checked portfolio context");
     expect(html).toContain("Run mock_web_search");
-    expect(html).toContain("View result");
-    // Tool details are collapsed by default, so the inner result is not yet rendered.
+    expect(html).toContain('data-slot="tool-row"');
+    expect(html).toContain('data-state="success"');
+    // The rebuilt tool row does not expose the old expandable result payload.
     expect(html).not.toContain("found context");
   });
 
@@ -125,7 +126,7 @@ describe("WidgetMessageView", () => {
     expect(html).toContain("Thinking");
   });
 
-  it("renders failed host commands as activity output", () => {
+  it("renders failed host commands as compact error tool rows", () => {
     const html = renderToStaticMarkup(
       <WidgetMessageView
         message={createAssistantMessage({
@@ -152,8 +153,8 @@ describe("WidgetMessageView", () => {
     );
 
     expect(html).toContain("Open resource");
-    expect(html).toContain("Error");
-    expect(html).toContain("host_command_failed");
+    expect(html).toContain('data-state="error"');
+    expect(html).not.toContain("host_command_failed");
   });
 });
 

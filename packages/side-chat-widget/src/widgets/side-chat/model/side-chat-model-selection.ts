@@ -1,4 +1,8 @@
-import type { ChatModelPreference, ChatReasoningEffort } from "@side-chat/chat-protocol";
+import {
+  CHAT_REASONING_EFFORTS,
+  type ChatModelPreference,
+  type ChatReasoningEffort,
+} from "@side-chat/chat-protocol";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import {
   useCallback,
@@ -15,6 +19,12 @@ import {
   type SideChatApiClient,
 } from "#entities/conversation";
 import type { SideChatWidgetAssistantProfile } from "./side-chat-widget.types.js";
+
+const WIDGET_REASONING_EFFORTS = [
+  CHAT_REASONING_EFFORTS.LOW,
+  CHAT_REASONING_EFFORTS.MEDIUM,
+  CHAT_REASONING_EFFORTS.HIGH,
+] as const satisfies readonly ChatReasoningEffort[];
 
 type WidgetModelSelectionInput = {
   readonly assistantProfiles: readonly SideChatWidgetAssistantProfile[];
@@ -82,7 +92,7 @@ export const useWidgetModelSelection = ({
 
   return {
     footerModels,
-    reasoningEfforts: selectedBackendModel?.reasoning?.efforts ?? [],
+    reasoningEfforts: selectableReasoningEfforts(selectedBackendModel),
     selectedFooterModelKey,
     selectedModel: toChatModelPreference(selectedBackendModel, selectedReasoningEffort),
     selectedModelLabel: selectedFooterModel?.label,
@@ -129,12 +139,25 @@ const resolveReasoningEffort = (
   selectedBackendModel: ModelCatalogOption | undefined,
   currentEffort: ChatReasoningEffort | undefined,
 ): ChatReasoningEffort | undefined => {
-  const reasoning = selectedBackendModel?.reasoning;
-  if (!reasoning) return undefined;
-  return currentEffort && reasoning.efforts.includes(currentEffort)
-    ? currentEffort
-    : reasoning.defaultEffort;
+  const selectableEfforts = selectableReasoningEfforts(selectedBackendModel);
+  if (selectableEfforts.length === 0) return undefined;
+  if (currentEffort && selectableEfforts.includes(currentEffort)) return currentEffort;
+  const defaultEffort = selectedBackendModel?.reasoning?.defaultEffort;
+  if (defaultEffort && selectableEfforts.includes(defaultEffort)) {
+    return defaultEffort;
+  }
+  if (selectableEfforts.includes(CHAT_REASONING_EFFORTS.MEDIUM)) {
+    return CHAT_REASONING_EFFORTS.MEDIUM;
+  }
+  return selectableEfforts[0];
 };
+
+const selectableReasoningEfforts = (
+  selectedBackendModel: ModelCatalogOption | undefined,
+): readonly ChatReasoningEffort[] =>
+  WIDGET_REASONING_EFFORTS.filter((effort) =>
+    selectedBackendModel?.reasoning?.efforts.includes(effort),
+  );
 
 const modelKey = (model: Pick<ModelCatalogOption, "providerId" | "modelId">): string =>
   `${model.providerId}/${model.modelId}`;

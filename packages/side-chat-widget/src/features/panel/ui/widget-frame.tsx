@@ -1,4 +1,4 @@
-import { Button } from "#shared/ui/button";
+import { Button, IconButton } from "#shared/ui/button";
 import { PlusIcon, SettingsIcon, XIcon } from "lucide-react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
@@ -109,39 +109,22 @@ export const WidgetHeader = ({
   readonly onOpenSettings: () => void;
   readonly title: ReactNode;
 }) => (
-  <header className="flex h-13 shrink-0 items-center gap-0.5 border-b border-border pr-2.5 pl-3.5">
+  <header className="sc-header">
     <div className="flex min-w-0 flex-1 items-center">{title}</div>
-    <Button
-      aria-label="Settings"
-      className="size-8 text-muted-foreground"
-      onClick={onOpenSettings}
-      size="icon"
-      type="button"
-      variant="ghost"
-    >
-      <SettingsIcon className="size-[1.05rem]" />
-    </Button>
-    <Button
+    <IconButton aria-label="Settings" onClick={onOpenSettings} type="button">
+      <SettingsIcon className="size-4" />
+    </IconButton>
+    <IconButton
       aria-label="Start new chat"
-      className="size-8 text-muted-foreground"
       disabled={newConversationDisabled}
       onClick={onNewConversation}
-      size="icon"
       title="Start new chat"
       type="button"
-      variant="ghost"
     >
-      <PlusIcon className="size-[1.05rem]" />
-    </Button>
-    <Button
-      aria-label="Close"
-      className="size-8 text-muted-foreground"
-      onClick={onClose}
-      size="icon"
-      type="button"
-      variant="ghost"
-    >
-      <XIcon className="size-[1.05rem]" />
-    </Button>
+      <PlusIcon className="size-4" />
+    </IconButton>
+    <IconButton aria-label="Close" onClick={onClose} type="button">
+      <XIcon className="size-4" />
+    </IconButton>
   </header>
 );

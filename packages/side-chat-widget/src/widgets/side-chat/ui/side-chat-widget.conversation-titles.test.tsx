@@ -1,69 +1,18 @@
-import {
-  SIDECHAT_PROTOCOL_VERSION,
-  type ChatStreamRequest,
-  type CompletedEvent,
-  type DeltaEvent,
-  type SidechatStreamEvent,
-  type StartedEvent,
-} from "@side-chat/chat-protocol";
-import { Window } from "happy-dom";
 import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SideChatWidget } from "./side-chat-widget.js";
 import type { ConversationSummary, SideChatApiClient } from "#entities/conversation";
+import {
+  completed,
+  conversationSummary,
+  delta,
+  fakeClient,
+  installWidgetTestDom,
+  mountWidget,
+  started,
+} from "./widget-test-env.js";
 
-let windowRef: Window;
-let root: Root;
-let container: HTMLElement;
-let previousGlobals: [string, PropertyDescriptor | undefined][];
-
-beforeEach(() => {
-  previousGlobals = [];
-  windowRef = new Window();
-  assignGlobal("window", windowRef);
-  assignGlobal("document", windowRef.document);
-  assignGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  assignGlobal("Element", windowRef.Element);
-  assignGlobal("HTMLElement", windowRef.HTMLElement);
-  assignGlobal("HTMLButtonElement", windowRef.HTMLButtonElement);
-  assignGlobal("HTMLTextAreaElement", windowRef.HTMLTextAreaElement);
-  assignGlobal("MouseEvent", windowRef.MouseEvent);
-  assignGlobal("Event", windowRef.Event);
-  assignGlobal("FormData", windowRef.FormData);
-  assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
-  assignGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-  vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000001");
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-
-const assignGlobal = (name: string, value: unknown): void => {
-  previousGlobals.push([name, Object.getOwnPropertyDescriptor(globalThis, name)]);
-  Object.defineProperty(globalThis, name, { configurable: true, value, writable: true });
-};
-
-afterEach(() => {
-  if (root) {
-    act(() => {
-      root.unmount();
-    });
-  }
-  windowRef?.close();
-  vi.restoreAllMocks();
-  for (const [name, descriptor] of previousGlobals.slice().reverse()) {
-    if (descriptor) Object.defineProperty(globalThis, name, descriptor);
-    else Reflect.deleteProperty(globalThis, name);
-  }
-});
+installWidgetTestDom();
 
 describe("SideChatWidget conversation titles", () => {
   it("uses the first submitted message as the new chat title until the list refreshes", async () => {
@@ -129,17 +78,15 @@ describe("SideChatWidget conversation titles", () => {
 });
 
 const renderWidget = (client: SideChatApiClient) => {
-  act(() => {
-    root.render(
-      <SideChatWidget
-        assistantProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
-        client={client}
-        conversationStorageKey="widget-chat-store"
-        defaultAssistantProfileId="gpt-5.4-mini"
-        labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
-      />,
-    );
-  });
+  mountWidget(
+    <SideChatWidget
+      assistantProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
+      client={client}
+      conversationStorageKey="widget-chat-store"
+      defaultAssistantProfileId="gpt-5.4-mini"
+      labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
+    />,
+  );
 };
 
 const submit = async (message: string) => {
@@ -201,54 +148,6 @@ const waitForSendEnabled = async (): Promise<void> => {
   }
   throw new Error("Expected send button to be enabled.");
 };
-
-const fakeClient = (
-  createEvents: (
-    request: ChatStreamRequest,
-  ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
-  overrides: Partial<Pick<SideChatApiClient, "listConversations">> = {},
-): SideChatApiClient => ({
-  ...overrides,
-  streamChat: async (request) => ({
-    attempt: 1,
-    events: await createEvents(request),
-  }),
-});
-
-const baseEvent = (sequence: number) => ({
-  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-  eventId: `event-${sequence}`,
-  assistantTurnId: "turn-1",
-  sequence,
-  createdAt: "2026-05-23T13:00:00.000Z",
-});
-
-const started = (conversationId = "conversation-1"): StartedEvent => ({
-  ...baseEvent(0),
-  type: "sidechat.started",
-  conversationId,
-});
-
-const delta = (content: string): DeltaEvent => ({
-  ...baseEvent(1),
-  type: "sidechat.delta",
-  content,
-});
-
-const completed = (): CompletedEvent => ({
-  ...baseEvent(2),
-  type: "sidechat.completed",
-  finishReason: "stop",
-});
-
-const conversationSummary = (conversationId: string, title: string): ConversationSummary => ({
-  conversationId,
-  title,
-  status: "active",
-  createdAt: "2026-05-23T13:00:00.000Z",
-  updatedAt: "2026-05-23T13:00:00.000Z",
-  lastMessageAt: "2026-05-23T13:00:00.000Z",
-});
 
 const conversationSummariesForTitleRefresh = (
   listCallCount: number,

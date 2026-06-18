@@ -27,7 +27,7 @@ export function Segmented({
   className,
   stacked = false,
 }: {
-  items: SegmentedItem[];
+  items: readonly SegmentedItem[];
   value: string;
   onValueChange: (v: string) => void;
   className?: string;

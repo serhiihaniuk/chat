@@ -8,6 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type SetStateAction,
 } from "react";
+import { omitUndefinedProperties } from "@side-chat/shared";
 
 import type { SideChatWidgetPanelSize } from "#entities/panel";
 import {
@@ -18,14 +19,29 @@ import {
   getResizeCursor,
   type PanelOffset,
   type PanelSize,
+  type ResizeCalculationInput,
   type ResizeHandle,
+  type ViewportSize,
 } from "./widget-resize-calculation.js";
+import {
+  applyPanelStyle,
+  cancelResizeFrameId,
+  readOptionalResizePoint,
+  readResizePoint,
+  readViewportSize,
+  requestResizeFrame,
+  type ResizedPanel,
+  type ResizePoint,
+} from "./widget-resize-dom.js";
 
 export { calculateResizedPanel };
 export type { ResizeHandle };
 
 type ResizeSession = {
+  animationFrame: number | undefined;
   readonly handle: ResizeHandle;
+  readonly panelElement: HTMLElement;
+  pendingPoint: ResizePoint | undefined;
   readonly pointerId: number;
   readonly startHeight: number;
   readonly startOffset: PanelOffset;
@@ -33,7 +49,9 @@ type ResizeSession = {
   readonly startX: number;
   readonly startY: number;
   readonly target: HTMLElement;
+  readonly viewport: ViewportSize | undefined;
   hasDragged: boolean;
+  latestPanel: ResizedPanel | undefined;
 };
 
 export const useResizableWidgetPanel = (defaultPanelSize: SideChatWidgetPanelSize | undefined) => {
@@ -49,14 +67,20 @@ export const useResizableWidgetPanel = (defaultPanelSize: SideChatWidgetPanelSiz
   const startResize = useCallback(
     (handle: ResizeHandle, event: ReactPointerEvent<HTMLButtonElement>) => {
       if (event.button !== 0) return;
+      const panelElement = event.currentTarget.closest(".side-chat-widget-root");
+      if (!(panelElement instanceof HTMLElement)) return;
 
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
 
       resizeRef.current = {
+        animationFrame: undefined,
         handle,
         hasDragged: false,
+        latestPanel: undefined,
+        panelElement,
+        pendingPoint: undefined,
         pointerId: event.pointerId,
         startHeight: panelSizeRef.current.height,
         startOffset: panelOffsetRef.current,
@@ -64,6 +88,7 @@ export const useResizableWidgetPanel = (defaultPanelSize: SideChatWidgetPanelSiz
         startX: event.clientX,
         startY: event.clientY,
         target: event.currentTarget,
+        viewport: readViewportSize(),
       };
     },
     [panelOffsetRef, panelSizeRef],
@@ -95,21 +120,11 @@ const useResizeDragEvents = (
       if (!resize) return;
       if (!activateResizeAfterDragThreshold(resize, event)) return;
 
-      const next = calculateResizedPanel({
-        currentX: event.clientX,
-        currentY: event.clientY,
-        handle: resize.handle,
-        startHeight: resize.startHeight,
-        startOffset: resize.startOffset,
-        startWidth: resize.startWidth,
-        startX: resize.startX,
-        startY: resize.startY,
-      });
-
-      setPanelSize(next.panelSize);
-      setPanelOffset(next.panelOffset);
+      resize.pendingPoint = readResizePoint(event);
+      scheduleResizeFrame(resize);
     };
-    const stopResize = () => releaseResizeSession(resizeRef);
+    const stopResize = (event?: Event) =>
+      releaseResizeSession(resizeRef, setPanelSize, setPanelOffset, readOptionalResizePoint(event));
 
     window.addEventListener("pointermove", resizePanel);
     window.addEventListener("pointerup", stopResize);
@@ -156,14 +171,70 @@ const activateResizeAfterDragThreshold = (resize: ResizeSession, event: PointerE
   return true;
 };
 
-const releaseResizeSession = (resizeRef: MutableRefObject<ResizeSession | null>): void => {
+const releaseResizeSession = (
+  resizeRef: MutableRefObject<ResizeSession | null>,
+  setPanelSize: Dispatch<SetStateAction<PanelSize>>,
+  setPanelOffset: Dispatch<SetStateAction<PanelOffset>>,
+  releasePoint?: ResizePoint,
+): void => {
   const resize = resizeRef.current;
+  if (resize) {
+    applyPendingResize(resize, releasePoint);
+    cancelResizeFrame(resize);
+  }
   try {
     resize?.target.releasePointerCapture(resize.pointerId);
   } catch {
     // Pointer capture may already be released by the browser.
   }
+  if (resize?.latestPanel) {
+    setPanelSize(resize.latestPanel.panelSize);
+    setPanelOffset(resize.latestPanel.panelOffset);
+  }
   resizeRef.current = null;
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
+};
+
+const createResizeCalculationInput = (
+  resize: ResizeSession,
+  point: ResizePoint,
+): ResizeCalculationInput =>
+  omitUndefinedProperties({
+    currentX: point.currentX,
+    currentY: point.currentY,
+    handle: resize.handle,
+    startHeight: resize.startHeight,
+    startOffset: resize.startOffset,
+    startWidth: resize.startWidth,
+    startX: resize.startX,
+    startY: resize.startY,
+    viewport: resize.viewport,
+  });
+
+// Dragging can fire more often than React can cheaply re-render the full widget
+// tree. During the drag, update only the panel element's geometry; React state is
+// synchronized once on release so other UI decisions see the final size.
+const scheduleResizeFrame = (resize: ResizeSession): void => {
+  if (resize.animationFrame !== undefined) return;
+  resize.animationFrame = requestResizeFrame(() => {
+    resize.animationFrame = undefined;
+    applyPendingResize(resize);
+  });
+};
+
+const applyPendingResize = (resize: ResizeSession, releasePoint?: ResizePoint): void => {
+  const point = releasePoint ?? resize.pendingPoint;
+  resize.pendingPoint = undefined;
+  if (!point) return;
+
+  const next = calculateResizedPanel(createResizeCalculationInput(resize, point));
+  resize.latestPanel = next;
+  applyPanelStyle(resize.panelElement, next);
+};
+
+const cancelResizeFrame = (resize: ResizeSession): void => {
+  if (resize.animationFrame === undefined) return;
+  cancelResizeFrameId(resize.animationFrame);
+  resize.animationFrame = undefined;
 };

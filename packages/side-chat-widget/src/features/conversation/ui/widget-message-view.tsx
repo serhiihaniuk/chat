@@ -1,34 +1,14 @@
-import {
-  ChainOfThoughtImage,
-  ChainOfThoughtContent,
-  ChainOfThoughtStep,
-} from "#shared/ai/chain-of-thought";
-import { Message, MessageContent, MessageResponse } from "#shared/ai/message";
-import { Reasoning, ReasoningContent, ReasoningTrigger } from "#shared/ai/reasoning";
-import { ToolInput, ToolOutput } from "#shared/ai/tool";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#shared/ui/collapsible";
-import { omitUndefinedField } from "@side-chat/shared";
-import {
-  BrainIcon,
-  ChevronDownIcon,
-  CommandIcon,
-  SearchIcon,
-  WrenchIcon,
-  type LucideIcon,
-} from "lucide-react";
-import { memo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 
 import type { WidgetActivityItem, WidgetMessage } from "#entities/chat";
 import type { ReasoningVisibility } from "#entities/settings";
-import {
-  readActivitySourceLabel,
-  ToolActivityDetails,
-} from "./tool-activity/widget-tool-activity-details.js";
+import { Message } from "#shared/ui/message";
+import { Reasoning, type ReasoningItem } from "#shared/ui/reasoning";
+import type { ToolState } from "#shared/ui/tool-row";
 
 // Wrapped in memo so a streaming token only re-renders the message that actually
 // changed, not every message in the list. This works because updating a message
-// builds a new array but keeps the exact same object for every message that did
-// not change, and memo skips a row whose message object is unchanged.
+// builds a new array but keeps the exact same object for every unchanged message.
 export const WidgetMessageView = memo(
   ({
     message,
@@ -38,25 +18,20 @@ export const WidgetMessageView = memo(
     readonly reasoningVisibility: ReasoningVisibility;
   }) => {
     const showActivity = shouldShowActivity(message);
+    const mode = message.isStreaming === true ? "streaming" : "static";
 
     return (
-      <Message from={message.role}>
-        <MessageContent>
-          {showActivity && (
-            <WidgetActivityTimeline message={message} reasoningVisibility={reasoningVisibility} />
-          )}
-          {message.content ? (
-            <MessageResponse
-              isAnimating={message.role === "assistant" && message.isStreaming === true}
-            >
-              {message.content}
-            </MessageResponse>
-          ) : (
-            message.isStreaming &&
-            !showActivity && <p className="text-muted-foreground text-sm">Thinking...</p>
-          )}
-        </MessageContent>
-      </Message>
+      <div className="flex w-full flex-col gap-2">
+        {showActivity && (
+          <WidgetActivityTimeline message={message} reasoningVisibility={reasoningVisibility} />
+        )}
+        {message.content ? (
+          <Message mode={mode} role={message.role} text={message.content} />
+        ) : (
+          message.isStreaming === true &&
+          !showActivity && <Message mode="streaming" role="assistant" text="Thinking..." />
+        )}
+      </div>
     );
   },
 );
@@ -68,172 +43,69 @@ const WidgetActivityTimeline = ({
   readonly message: WidgetMessage;
   readonly reasoningVisibility: ReasoningVisibility;
 }) => {
+  const [open, setOpen] = useState(
+    () => reasoningVisibility === "detailed" && message.isStreaming === true,
+  );
   const duration = readActivityDuration(message);
+  const items = useMemo(() => toReasoningItems(message), [message]);
+  const label = readReasoningLabel(message, duration);
+
+  useEffect(() => {
+    if (reasoningVisibility === "detailed" && message.isStreaming === true) {
+      setOpen(true);
+    }
+  }, [message.isStreaming, reasoningVisibility]);
+
+  useEffect(() => {
+    if (message.isStreaming !== true && message.content) setOpen(false);
+  }, [message.content, message.isStreaming]);
 
   return (
     <Reasoning
-      autoClose
-      // Minimal exposure keeps the timeline collapsed; detailed expands it while the
-      // turn streams. The user can always toggle it open.
-      defaultOpen={reasoningVisibility === "detailed" && message.isStreaming === true}
-      isStreaming={message.isStreaming ?? false}
-      {...omitUndefinedField("duration", duration)}
-    >
-      <ReasoningTrigger />
-      <ReasoningContent>
-        <ChainOfThoughtContent>
-          {message.activity.items.map((item) => (
-            <ActivityRow
-              isActive={message.activity.activeItemId === item.id}
-              item={item}
-              key={item.id}
-            />
-          ))}
-        </ChainOfThoughtContent>
-      </ReasoningContent>
-    </Reasoning>
+      items={items}
+      label={label}
+      onOpenChange={setOpen}
+      open={open}
+      thinking={message.isStreaming === true}
+    />
   );
 };
 
-const ActivityRow = ({
-  isActive,
-  item,
-}: {
-  readonly isActive: boolean;
-  readonly item: WidgetActivityItem;
-}) => {
-  const displayStatus = toActivityDisplayStatus(item, isActive);
-  if (item.kind === "tool") return <ToolActivityStep displayStatus={displayStatus} item={item} />;
-  if (item.kind === "host_command") {
-    return <HostCommandActivityStep displayStatus={displayStatus} item={item} />;
-  }
+const toReasoningItems = (message: WidgetMessage): readonly ReasoningItem[] =>
+  message.activity.items.map((item) => {
+    if (item.kind === "tool" || item.kind === "host_command") {
+      return {
+        id: item.id,
+        kind: "tool",
+        name: item.title,
+        state: toToolState(item, message.activity.activeItemId === item.id),
+      };
+    }
 
-  return (
-    <ChainOfThoughtStep
-      description={item.body ? <MessageResponse>{item.body}</MessageResponse> : undefined}
-      icon={activityIcon(item)}
-      sources={item.details?.sources?.map(readActivitySourceLabel) ?? []}
-      status={displayStatus}
-      title={item.title}
-    >
-      <ActivityImages item={item} />
-    </ChainOfThoughtStep>
-  );
-};
+    return {
+      id: item.id,
+      kind: "thought",
+      text: readThoughtText(item),
+    };
+  });
 
-const ToolActivityStep = ({
-  displayStatus,
-  item,
-}: {
-  readonly displayStatus: ChainOfThoughtStepStatus;
-  readonly item: WidgetActivityItem;
-}) => {
-  const tool = item.details?.tool;
-  const sources = tool?.sources ?? item.details?.sources ?? [];
-
-  return (
-    <Collapsible className="group/tool">
-      <ChainOfThoughtStep
-        icon={WrenchIcon}
-        status={displayStatus}
-        title={
-          <CollapsibleTrigger className="flex w-full items-center gap-3 rounded-sm text-left transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-            <span className="min-w-0 flex-1 truncate">{item.title}</span>
-            <span className="rounded border border-border px-1.5 py-0.5 font-medium text-[0.6875rem] text-muted-foreground uppercase tracking-wide group-data-[state=open]/tool:text-foreground">
-              {readToolActionLabel(item, displayStatus)}
-            </span>
-            <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/tool:rotate-180" />
-          </CollapsibleTrigger>
-        }
-      >
-        <CollapsibleContent className="space-y-3">
-          <ToolActivityDetails item={item} sources={sources} />
-        </CollapsibleContent>
-      </ChainOfThoughtStep>
-    </Collapsible>
-  );
-};
-
-const HostCommandActivityStep = ({
-  displayStatus,
-  item,
-}: {
-  readonly displayStatus: ChainOfThoughtStepStatus;
-  readonly item: WidgetActivityItem;
-}) => {
-  const hostCommand = item.details?.hostCommand;
-  return (
-    <ChainOfThoughtStep
-      description={item.body ? <MessageResponse>{item.body}</MessageResponse> : undefined}
-      icon={CommandIcon}
-      status={displayStatus}
-      title={item.title}
-    >
-      {hostCommand && (
-        <div className="space-y-3">
-          <ToolInput input={hostCommand.payload} />
-          <ToolOutput
-            output={hostCommand.result}
-            {...omitUndefinedField(
-              "errorText",
-              item.status === "failed" ? "host_command_failed" : undefined,
-            )}
-          />
-        </div>
-      )}
-    </ChainOfThoughtStep>
-  );
-};
-
-const ActivityImages = ({ item }: { readonly item: WidgetActivityItem }) => {
-  const images = item.details?.images ?? [];
-  if (images.length === 0) return null;
-
-  return images.map((image) => (
-    <ChainOfThoughtImage caption={image.caption} key={`${image.mediaType}:${image.alt}`}>
-      <img
-        alt={image.alt}
-        className="aspect-square h-[150px] rounded-md border object-cover"
-        src={`data:${image.mediaType};base64,${image.data}`}
-      />
-    </ChainOfThoughtImage>
-  ));
-};
+const readThoughtText = (item: WidgetActivityItem): string =>
+  item.body ? `${item.title}: ${item.body}` : item.title;
 
 const shouldShowActivity = (message: WidgetMessage): boolean =>
   message.role === "assistant" &&
   (message.isStreaming === true || message.activity.items.length > 0);
 
-const activityIcon = (item: WidgetActivityItem): LucideIcon => {
-  if (item.kind === "progress") return SearchIcon;
-  return BrainIcon;
+const toToolState = (item: WidgetActivityItem, isActive: boolean): ToolState => {
+  if (item.status === "running" && isActive) return "running";
+  if (item.status === "failed") return "error";
+  return "success";
 };
 
-type ChainOfThoughtStepStatus = "running" | "completed" | "failed";
-
-const toActivityDisplayStatus = (
-  item: WidgetActivityItem,
-  isActive: boolean,
-): ChainOfThoughtStepStatus => {
-  if (item.status === "running" && !isActive) return "completed";
-  return toStepStatus(item.status);
-};
-
-const toStepStatus = (status: WidgetActivityItem["status"]): ChainOfThoughtStepStatus => {
-  if (status === "running") return "running";
-  if (status === "failed") return "failed";
-  return "completed";
-};
-
-const readToolActionLabel = (
-  item: WidgetActivityItem,
-  displayStatus: ChainOfThoughtStepStatus,
-): string => {
-  const tool = item.details?.tool;
-  if (displayStatus === "running") return "Running";
-  if (item.status === "failed" || tool?.errorCode) return "View error";
-  if (tool?.result) return "View result";
-  return "View details";
+const readReasoningLabel = (message: WidgetMessage, duration: number | undefined): string => {
+  if (message.isStreaming === true) return "Thinking...";
+  if (duration) return `Thought for ${duration}s`;
+  return "Thought process";
 };
 
 const readActivityDuration = (message: WidgetMessage): number | undefined => {

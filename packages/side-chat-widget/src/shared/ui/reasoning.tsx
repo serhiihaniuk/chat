@@ -20,12 +20,12 @@ import { Collapsible } from "@base-ui/react/collapsible";
 import { Brain, ChevronDown } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
-import { ToolRow } from "#shared/ui/tool-row";
+import { ToolRow, type ToolState } from "#shared/ui/tool-row";
 
 /** One entry in the trace: either a plain thought line or a tool invocation. */
 export type ReasoningItem =
   | { kind: "thought"; id: string; text: string }
-  | { kind: "tool"; id: string; name: string; state: "running" | "success" | "error" };
+  | { kind: "tool"; id: string; name: string; state: ToolState };
 
 export function Reasoning({
   items,
@@ -34,7 +34,7 @@ export function Reasoning({
   open,
   onOpenChange,
 }: {
-  items: ReasoningItem[];
+  items: readonly ReasoningItem[];
   label: string;
   thinking?: boolean;
   open: boolean;
@@ -77,12 +77,7 @@ export function ReasoningSection(): ReactElement {
 
   return (
     <div className="flex flex-col gap-4">
-      <Reasoning
-        items={TRACE}
-        label="Thought for 4s"
-        open={open}
-        onOpenChange={setOpen}
-      />
+      <Reasoning items={TRACE} label="Thought for 4s" open={open} onOpenChange={setOpen} />
 
       <button
         type="button"

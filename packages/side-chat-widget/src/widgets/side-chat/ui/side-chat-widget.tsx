@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useWidgetChat } from "#features/chat";
 import {
@@ -21,6 +21,7 @@ import { WidgetFooter } from "#features/prompt";
 import { SettingsView } from "#features/settings";
 import { useWidgetTheme } from "#features/theme";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
+import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } from "lucide-react";
 import { useWidgetModelSelection } from "../model/side-chat-model-selection.js";
 import { createSideChatWidgetQueryClient } from "../model/side-chat-query-client.js";
@@ -55,11 +56,6 @@ const SUGGESTION_ICONS: readonly LucideIcon[] = [
   PenLineIcon,
 ];
 
-// Below this panel/viewport size the conversation switcher lives in the header; above
-// it, a persistent sidebar takes over (see useIsWidePanel).
-const WIDE_PANEL_WIDTH = 720;
-const WIDE_VIEWPORT_WIDTH = 780;
-
 export const SideChatWidget = (props: SideChatWidgetProps) => {
   const [queryClient] = useState(createSideChatWidgetQueryClient);
 
@@ -92,11 +88,6 @@ const SideChatWidgetContent = ({
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId);
   const panel = useResizableWidgetPanel(defaultPanelSize);
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
-  const isWide = useIsWidePanel(panel.panelSize.width);
-  const selectedProfile = useMemo(
-    () => assistantProfiles.find((profile) => profile.id === selectedProfileId),
-    [assistantProfiles, selectedProfileId],
-  );
   const modelSelection = useWidgetModelSelection({
     assistantProfiles,
     client,
@@ -115,33 +106,31 @@ const SideChatWidgetContent = ({
 
   if (!isOpen) {
     return (
-      <ClosedWidgetLauncher
-        label={resolvedLabels.title}
-        onOpen={() => setIsOpen(true)}
-        {...theme.themeRootProps}
-      />
+      <SideChatWidgetRoot theme={theme.themeId}>
+        <ClosedWidgetLauncher label={resolvedLabels.title} onOpen={() => setIsOpen(true)} />
+      </SideChatWidgetRoot>
     );
   }
 
   return (
-    <section
+    <SideChatWidgetRoot
       aria-label={resolvedLabels.title}
-      className="side-chat-widget-root fixed right-4 bottom-4 z-50 flex max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-xl"
+      className="sc-widget-panel fixed right-4 bottom-4 z-50 flex max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-panel"
+      role="region"
       style={toPanelStyle(panel.panelSize, panel.panelOffset)}
-      {...theme.themeRootProps}
+      theme={theme.themeId}
     >
       <ResizeHandles onResizeStart={panel.startResize} />
       {/* Sidebar is full height; the header lives inside the main column beside it. */}
       <div className="flex min-h-0 flex-1">
-        {isWide && (
+        <div className="sc-wide-slot min-h-0 shrink-0">
           <ConversationSidebar
             conversations={chat.conversations}
-            disabled={isBusy}
             onNewConversation={chat.startNewConversation}
             onSelectConversation={chat.selectConversation}
             selectedConversationId={chat.conversationId}
           />
-        )}
+        </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <WidgetHeader
             newConversationDisabled={isBusy && chat.conversationId === undefined}
@@ -152,18 +141,21 @@ const SideChatWidgetContent = ({
             onNewConversation={chat.startNewConversation}
             onOpenSettings={() => setIsSettingsOpen(true)}
             title={
-              isWide ? (
-                <WidgetHeaderTitle title={resolvedLabels.title} />
-              ) : (
-                <ConversationSwitcher
-                  conversations={chat.conversations}
-                  disabled={isBusy}
-                  onNewConversation={chat.startNewConversation}
-                  onSelectConversation={chat.selectConversation}
-                  selectedConversationId={chat.conversationId}
-                  title={resolvedLabels.title}
-                />
-              )
+              <>
+                <span className="sc-wide-slot min-w-0">
+                  <WidgetHeaderTitle title={resolvedLabels.title} />
+                </span>
+                <span className="sc-narrow-slot min-w-0">
+                  <ConversationSwitcher
+                    conversations={chat.conversations}
+                    disabled={isBusy}
+                    onNewConversation={chat.startNewConversation}
+                    onSelectConversation={chat.selectConversation}
+                    selectedConversationId={chat.conversationId}
+                    title={resolvedLabels.title}
+                  />
+                </span>
+              </>
             }
           />
           <WidgetConversation
@@ -179,7 +171,6 @@ const SideChatWidgetContent = ({
             errorMessage={chat.errorMessage}
             isLoadingHistory={chat.isLoadingHistory}
             messages={chat.messages}
-            onDismissError={chat.clearError}
             onRetry={chat.retryLastMessage}
             reasoningVisibility={reasoningVisibility}
           />
@@ -193,11 +184,9 @@ const SideChatWidgetContent = ({
             onSubmitMessage={chat.submitMessage}
             reasoningEfforts={modelSelection.reasoningEfforts}
             selectedModelKey={modelSelection.selectedFooterModelKey}
-            selectedModelLabel={modelSelection.selectedModelLabel ?? selectedProfile?.label}
             selectedReasoningEffort={modelSelection.selectedReasoningEffort}
             status={chat.status}
             stop={chat.stop}
-            usage={chat.usage}
           />
         </div>
       </div>
@@ -211,24 +200,8 @@ const SideChatWidgetContent = ({
           />
         </div>
       )}
-    </section>
+    </SideChatWidgetRoot>
   );
-};
-
-// Reveals the conversation sidebar only when both the panel and the host viewport
-// have room - otherwise the header switcher stays the single-column control.
-const useIsWidePanel = (panelWidth: number): boolean => {
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window === "undefined" ? 0 : window.innerWidth,
-  );
-
-  useEffect(() => {
-    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
-    window.addEventListener("resize", updateViewportWidth);
-    return () => window.removeEventListener("resize", updateViewportWidth);
-  }, []);
-
-  return panelWidth >= WIDE_PANEL_WIDTH && viewportWidth > WIDE_VIEWPORT_WIDTH;
 };
 
 const toEmptyStateSuggestions = (

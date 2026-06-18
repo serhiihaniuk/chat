@@ -1,5 +1,6 @@
 import {
   type ActivityEvent,
+  CHAT_REASONING_EFFORTS,
   type ChatStreamRequest,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
@@ -46,18 +47,18 @@ describe("SideChatWidget interactions", () => {
     });
   });
 
-  it("shows and dismisses a visible error when the chat client rejects", async () => {
+  it("shows a retryable visible error when the chat client rejects", async () => {
     const client = fakeClient(() => Promise.reject(new Error("stream exploded")));
 
     renderWidget(client);
     await submit("please fail");
 
     await waitForText("stream exploded");
-    await clickButton("Dismiss error");
-    expect(document.body.textContent).not.toContain("stream exploded");
+    await waitForText("Try again");
+    expect(document.body.textContent).toContain("Try again");
   });
 
-  it("dispatches host-command activity through the host bridge and renders the local result", async () => {
+  it("dispatches host-command activity through the host bridge and renders the compact activity row", async () => {
     let dispatchCount = 0;
     const dispatchCommandImpl: NonNullable<HostBridge["dispatchCommand"]> = () => {
       dispatchCount += 1;
@@ -86,12 +87,12 @@ describe("SideChatWidget interactions", () => {
             collectedAt: "2026-05-23T13:00:00.000Z",
           }),
       },
-      // Detailed exposure expands the timeline so the host-command result is visible.
+      // Detailed exposure expands the rebuilt reasoning trace while the turn streams.
       "detailed",
     );
     await submit("open record");
 
-    await waitForText("component_test_applied");
+    await waitForText("Open resource");
     expect(dispatchCount).toBe(1);
   });
 
@@ -115,7 +116,7 @@ describe("SideChatWidget interactions", () => {
     expect(observedSignals[0]?.aborted).toBe(true);
   });
 
-  it("submits the backend default model and reasoning effort from the catalog", async () => {
+  it("submits a widget-supported reasoning effort from the backend catalog", async () => {
     const requests: ChatStreamRequest[] = [];
     const client = fakeClient(
       async function* (request) {
@@ -137,7 +138,10 @@ describe("SideChatWidget interactions", () => {
                 maxOutputTokens: 128_000,
                 default: true,
                 available: true,
-                reasoning: { defaultEffort: "medium", efforts: ["low", "medium", "high"] },
+                reasoning: {
+                  defaultEffort: CHAT_REASONING_EFFORTS.XHIGH,
+                  efforts: Object.values(CHAT_REASONING_EFFORTS),
+                },
               },
               {
                 providerId: "openai",
@@ -146,7 +150,10 @@ describe("SideChatWidget interactions", () => {
                 contextWindowTokens: 1_000_000,
                 default: false,
                 available: true,
-                reasoning: { defaultEffort: "medium", efforts: ["low", "medium", "high"] },
+                reasoning: {
+                  defaultEffort: CHAT_REASONING_EFFORTS.XHIGH,
+                  efforts: Object.values(CHAT_REASONING_EFFORTS),
+                },
               },
             ],
           }),
@@ -163,7 +170,7 @@ describe("SideChatWidget interactions", () => {
       model: {
         providerId: "openai",
         modelId: "gpt-5.4-mini",
-        reasoningEffort: "medium",
+        reasoningEffort: CHAT_REASONING_EFFORTS.MEDIUM,
       },
       message: { content: "use the configured model" },
     });

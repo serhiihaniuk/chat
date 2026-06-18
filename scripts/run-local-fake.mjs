@@ -68,12 +68,20 @@ const NPM = IS_WIN ? "npm.cmd" : "npm";
 // Tiny ANSI helpers
 // --------------------------------------------------------------------------
 const COLORS = {
-  reset: "\x1b[0m", dim: "\x1b[2m", red: "\x1b[31m", green: "\x1b[32m",
-  yellow: "\x1b[33m", blue: "\x1b[34m", magenta: "\x1b[35m", cyan: "\x1b[36m", bold: "\x1b[1m",
+  reset: "\x1b[0m",
+  dim: "\x1b[2m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+  bold: "\x1b[1m",
 };
 const color = (c, s) => `${COLORS[c] || ""}${s}${COLORS.reset}`;
 const logLauncher = (msg) => console.log(`${color("magenta", "[launcher]")} ${msg}`);
-const warnLauncher = (msg) => console.warn(`${color("yellow", "[launcher]")} ${color("yellow", msg)}`);
+const warnLauncher = (msg) =>
+  console.warn(`${color("yellow", "[launcher]")} ${color("yellow", msg)}`);
 const errLauncher = (msg) => console.error(`${color("red", "[launcher]")} ${color("red", msg)}`);
 
 // --------------------------------------------------------------------------
@@ -94,9 +102,15 @@ function saveConfig(cfg) {
     writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2) + "\n");
     // Best-effort lock-down: the file may contain the API key.
     if (!IS_WIN) {
-      try { chmodSync(CONFIG_FILE, 0o600); } catch { /* ignore */ }
+      try {
+        chmodSync(CONFIG_FILE, 0o600);
+      } catch {
+        /* ignore */
+      }
     }
-    logLauncher(`Saved your answers to ${path.relative(ROOT, CONFIG_FILE)} (reused next run; contains the API key — keep it out of git).`);
+    logLauncher(
+      `Saved your answers to ${path.relative(ROOT, CONFIG_FILE)} (reused next run; contains the API key — keep it out of git).`,
+    );
   } catch (e) {
     warnLauncher(`Could not save config: ${e.message}`);
   }
@@ -114,29 +128,29 @@ function pick(saved, key, envVal, fallback) {
 // --------------------------------------------------------------------------
 function pidsOnPort(port) {
   try {
-    if (IS_WIN) {
-      const out = execSync("netstat -ano -p tcp", { encoding: "utf8" });
-      const pids = new Set();
-      for (const line of out.split("\n")) {
-        if (line.includes(`:${port} `) && /LISTENING/i.test(line)) {
-          const pid = line.trim().split(/\s+/).pop();
-          if (/^\d+$/.test(pid)) pids.add(pid);
-        }
-      }
-      return [...pids];
-    }
-    // POSIX: prefer lsof, fall back to fuser.
-    try {
-      const out = execSync(`lsof -ti tcp:${port} -sTCP:LISTEN 2>/dev/null`, { encoding: "utf8" });
-      return out.split("\n").map((s) => s.trim()).filter(Boolean);
-    } catch {
-      try {
-        const out = execSync(`fuser ${port}/tcp 2>/dev/null`, { encoding: "utf8" });
-        return out.trim().split(/\s+/).filter(Boolean);
-      } catch {
-        return [];
-      }
-    }
+    return IS_WIN ? pidsOnWindowsPort(port) : pidsOnPosixPort(port);
+  } catch {
+    return [];
+  }
+}
+function pidsOnWindowsPort(port) {
+  const out = execSync("netstat -ano -p tcp", { encoding: "utf8" });
+  const pids = new Set();
+  for (const line of out.split("\n")) {
+    if (!line.includes(`:${port} `) || !/LISTENING/i.test(line)) continue;
+    const pid = line.trim().split(/\s+/).pop();
+    if (/^\d+$/.test(pid)) pids.add(pid);
+  }
+  return [...pids];
+}
+function pidsOnPosixPort(port) {
+  const lsofPids = pidsFromCommand(`lsof -ti tcp:${port} -sTCP:LISTEN 2>/dev/null`);
+  return lsofPids.length ? lsofPids : pidsFromCommand(`fuser ${port}/tcp 2>/dev/null`);
+}
+function pidsFromCommand(command) {
+  try {
+    const out = execSync(command, { encoding: "utf8" });
+    return out.trim().split(/\s+/).filter(Boolean);
   } catch {
     return [];
   }
@@ -155,7 +169,11 @@ function freePort(port, label) {
     }
   }
   // Give the OS a moment to release the socket before strictPort binds.
-  try { execSync(IS_WIN ? "ping 127.0.0.1 -n 2 >NUL" : "sleep 0.7", { stdio: "ignore" }); } catch { /* ignore */ }
+  try {
+    execSync(IS_WIN ? "ping 127.0.0.1 -n 2 >NUL" : "sleep 0.7", { stdio: "ignore" });
+  } catch {
+    /* ignore */
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -201,18 +219,14 @@ function askSecret(question, def = "") {
     });
   });
 }
-async function askYesNo(question, defYes) {
-  const def = defYes ? "Y/n" : "y/N";
-  const a = (await ask(`${question} (${def})`, "")).toLowerCase();
-  if (!a) return defYes;
-  return a === "y" || a === "yes";
-}
-
 // --------------------------------------------------------------------------
 // Semver range check
 // --------------------------------------------------------------------------
 function parseVersion(v) {
-  const m = String(v).trim().replace(/^v/, "").match(/^(\d+)\.(\d+)\.(\d+)/);
+  const m = String(v)
+    .trim()
+    .replace(/^v/, "")
+    .match(/^(\d+)\.(\d+)\.(\d+)/);
   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
 }
 function cmpVersion(a, b) {
@@ -222,20 +236,36 @@ function cmpVersion(a, b) {
 function satisfies(version, range) {
   const v = parseVersion(version);
   if (!v) return false;
-  for (const part of String(range).trim().split(/\s+/)) {
-    const m = part.match(/^(>=|<=|>|<|=)?\s*(.+)$/);
-    if (!m) return false;
-    const op = m[1] || "=";
-    const t = parseVersion(m[2]);
-    if (!t) return false;
-    const c = cmpVersion(v, t);
-    if (op === ">=" && !(c >= 0)) return false;
-    if (op === ">" && !(c > 0)) return false;
-    if (op === "<=" && !(c <= 0)) return false;
-    if (op === "<" && !(c < 0)) return false;
-    if (op === "=" && c !== 0) return false;
+  return String(range)
+    .trim()
+    .split(/\s+/)
+    .every((part) => satisfiesComparator(v, part));
+}
+function satisfiesComparator(version, part) {
+  const comparator = readComparator(part);
+  if (!comparator) return false;
+  return compareByOperator(cmpVersion(version, comparator.version), comparator.operator);
+}
+function readComparator(part) {
+  const match = part.match(/^(>=|<=|>|<|=)?\s*(.+)$/);
+  const parsedVersion = match ? parseVersion(match[2]) : null;
+  if (!match || !parsedVersion) return null;
+  return { operator: match[1] || "=", version: parsedVersion };
+}
+function compareByOperator(comparison, operator) {
+  switch (operator) {
+    case ">=":
+      return comparison >= 0;
+    case ">":
+      return comparison > 0;
+    case "<=":
+      return comparison <= 0;
+    case "<":
+      return comparison < 0;
+    case "=":
+      return comparison === 0;
   }
-  return true;
+  return false;
 }
 
 // --------------------------------------------------------------------------
@@ -256,15 +286,20 @@ function getNpmVersion() {
 async function verifyRuntime() {
   const nodeVersion = process.version.replace(/^v/, "");
   if (!satisfies(nodeVersion, MIN_RUNTIME.node)) {
-    warnLauncher(`Node ${nodeVersion} is below "${MIN_RUNTIME.node}" (Vite 8 / tsx); dev servers may not start.`);
+    warnLauncher(
+      `Node ${nodeVersion} is below "${MIN_RUNTIME.node}" (Vite 8 / tsx); dev servers may not start.`,
+    );
   } else if (!satisfies(nodeVersion, RECOMMENDED.node)) {
-    logLauncher(`Node ${nodeVersion} runs the app fine. (Repo pins ${RECOMMENDED.node} for \`npm run verify\` only.)`);
+    logLauncher(
+      `Node ${nodeVersion} runs the app fine. (Repo pins ${RECOMMENDED.node} for \`npm run verify\` only.)`,
+    );
   } else {
     logLauncher(`Node ${nodeVersion} OK.`);
   }
   const npmVersion = await getNpmVersion();
   if (!npmVersion) warnLauncher("Could not determine npm version. Is npm on PATH?");
-  else if (!satisfies(npmVersion, MIN_RUNTIME.npm)) warnLauncher(`npm ${npmVersion} is very old; install may misbehave.`);
+  else if (!satisfies(npmVersion, MIN_RUNTIME.npm))
+    warnLauncher(`npm ${npmVersion} is very old; install may misbehave.`);
   else logLauncher(`npm ${npmVersion} OK.`);
 }
 
@@ -283,14 +318,20 @@ function runNpmInstall() {
     logLauncher("Running `npm install` at repo root...");
     const child = spawn(NPM, args, { cwd: ROOT, stdio: "inherit", shell: IS_WIN });
     child.on("error", reject);
-    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`npm install exited ${code}`))));
+    child.on("close", (code) =>
+      code === 0 ? resolve() : reject(new Error(`npm install exited ${code}`)),
+    );
   });
 }
 async function ensureInstalled() {
   const hasNodeModules = existsSync(path.join(ROOT, "node_modules"));
-  if (FORCE_INSTALL) { logLauncher("--install: forcing install."); await runNpmInstall(); }
-  else if (!hasNodeModules) { logLauncher("node_modules missing; installing."); await runNpmInstall(); }
-  else logLauncher("node_modules present; skipping install (use --install to force).");
+  if (FORCE_INSTALL) {
+    logLauncher("--install: forcing install.");
+    await runNpmInstall();
+  } else if (!hasNodeModules) {
+    logLauncher("node_modules missing; installing.");
+    await runNpmInstall();
+  } else logLauncher("node_modules present; skipping install (use --install to force).");
 }
 
 // --------------------------------------------------------------------------
@@ -312,7 +353,10 @@ function prefixStream(stream, label, labelColor, isErr) {
     }
   });
   stream.on("end", () => {
-    if (buffer.length) (isErr ? process.stderr : process.stdout).write(`${color(labelColor, `[${label}]`)} ${buffer}\n`);
+    if (buffer.length)
+      (isErr ? process.stderr : process.stdout).write(
+        `${color(labelColor, `[${label}]`)} ${buffer}\n`,
+      );
   });
 }
 
@@ -328,7 +372,10 @@ function spawnDevServer({ name, labelColor, workspace, env, extraArgs = [] }) {
   });
   prefixStream(child.stdout, name, labelColor, false);
   prefixStream(child.stderr, name, labelColor, true);
-  child.on("error", (e) => { errLauncher(`${name} failed to spawn: ${e.message}`); shutdown(1); });
+  child.on("error", (e) => {
+    errLauncher(`${name} failed to spawn: ${e.message}`);
+    shutdown(1);
+  });
   child.on("close", (code, signal) => {
     if (shuttingDown) return;
     errLauncher(`${name} exited unexpectedly (code=${code} signal=${signal}). Shutting down.`);
@@ -341,10 +388,21 @@ function spawnDevServer({ name, labelColor, workspace, env, extraArgs = [] }) {
 function killChild({ child }) {
   if (!child.pid || child.exitCode !== null || child.signalCode !== null) return;
   if (IS_WIN) {
-    try { spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" }); }
-    catch { try { child.kill(); } catch { /* ignore */ } }
+    try {
+      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    } catch {
+      try {
+        child.kill();
+      } catch {
+        /* ignore */
+      }
+    }
   } else {
-    try { child.kill("SIGTERM"); } catch { /* ignore */ }
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      /* ignore */
+    }
   }
 }
 function shutdown(exitCode) {
@@ -356,7 +414,10 @@ function shutdown(exitCode) {
   setTimeout(() => process.exit(exitCode ?? 0), 1500);
 }
 for (const sig of ["SIGINT", "SIGTERM"]) {
-  process.on(sig, () => { logLauncher(`Received ${sig}.`); shutdown(0); });
+  process.on(sig, () => {
+    logLauncher(`Received ${sig}.`);
+    shutdown(0);
+  });
 }
 
 // --------------------------------------------------------------------------
@@ -364,17 +425,28 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
 // --------------------------------------------------------------------------
 function probeHealth(port) {
   return new Promise((resolve) => {
-    const req = httpRequest({ host: "127.0.0.1", port, path: "/healthz", method: "GET", timeout: 2000 }, (res) => {
-      let body = "";
-      res.setEncoding("utf8");
-      res.on("data", (c) => (body += c));
-      res.on("end", () => {
-        if (res.statusCode !== 200) return resolve(false);
-        try { const j = JSON.parse(body); resolve(j && j.status === "ok"); } catch { resolve(false); }
-      });
-    });
+    const req = httpRequest(
+      { host: "127.0.0.1", port, path: "/healthz", method: "GET", timeout: 2000 },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (c) => (body += c));
+        res.on("end", () => {
+          if (res.statusCode !== 200) return resolve(false);
+          try {
+            const j = JSON.parse(body);
+            resolve(j && j.status === "ok");
+          } catch {
+            resolve(false);
+          }
+        });
+      },
+    );
     req.on("error", () => resolve(false));
-    req.on("timeout", () => { req.destroy(); resolve(false); });
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
     req.end();
   });
 }
@@ -383,7 +455,10 @@ async function waitForHealth(port, { timeoutMs = 60000, intervalMs = 500 } = {})
   logLauncher(`Waiting for backend health at http://127.0.0.1:${port}/healthz ...`);
   while (Date.now() - start < timeoutMs) {
     if (shuttingDown) return false;
-    if (await probeHealth(port)) { logLauncher(color("green", "Backend healthz reported ok.")); return true; }
+    if (await probeHealth(port)) {
+      logLauncher(color("green", "Backend healthz reported ok."));
+      return true;
+    }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   return false;
@@ -395,14 +470,19 @@ async function waitForHealth(port, { timeoutMs = 60000, intervalMs = 500 } = {})
 async function collectConfig() {
   const saved = loadSaved();
   openPrompts();
-  if (SKIP_PROMPTS) logLauncher("Non-interactive (--yes or no TTY): using saved file / env / defaults.");
+  if (SKIP_PROMPTS)
+    logLauncher("Non-interactive (--yes or no TTY): using saved file / env / defaults.");
   else console.log(color("bold", "\nConfigure this run (press Enter to accept the [default]):\n"));
 
   const cfg = {};
 
   // Provider
-  let provider = (await ask("Provider [fake/openai]",
-    pick(saved, "provider", process.env.SIDECHAT_PROVIDER, "openai"))).toLowerCase();
+  let provider = (
+    await ask(
+      "Provider [fake/openai]",
+      pick(saved, "provider", process.env.SIDECHAT_PROVIDER, "openai"),
+    )
+  ).toLowerCase();
   if (provider !== "fake" && provider !== "openai") {
     warnLauncher(`Unknown provider "${provider}", using "openai".`);
     provider = "openai";
@@ -417,26 +497,38 @@ async function collectConfig() {
       cfg.apiKey = await askSecret("API key", "");
       if (SKIP_PROMPTS) break;
     }
-    cfg.models = await ask("Allowed models (comma-separated, first is default)",
-      pick(saved, "models", process.env.SIDECHAT_ALLOWED_MODELS, "gpt-5.4-mini"));
+    cfg.models = await ask(
+      "Allowed models (comma-separated, first is default)",
+      pick(saved, "models", process.env.SIDECHAT_ALLOWED_MODELS, "gpt-5.4-mini"),
+    );
     cfg.baseUrl = await ask(
       "API base URL — OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
       pick(saved, "baseUrl", process.env.SIDECHAT_OPENAI_BASE_URL, ""),
     );
   }
 
-  cfg.workspaceId = await ask("Workspace ID",
-    pick(saved, "workspaceId", process.env.WORKSPACE_ID, "workspace_local"));
-  cfg.authToken = await ask("Auth bearer token",
-    pick(saved, "authToken", process.env.AUTH_TOKEN, "local-compose-token"));
-  cfg.backendPort = Number(await ask(
-    `Backend port (internal; MUST differ from the widget's ${WIDGET_PORT})`,
-    pick(saved, "backendPort", process.env.BACKEND_PORT, "8787"))) || 8787;
+  cfg.workspaceId = await ask(
+    "Workspace ID",
+    pick(saved, "workspaceId", process.env.WORKSPACE_ID, "workspace_local"),
+  );
+  cfg.authToken = await ask(
+    "Auth bearer token",
+    pick(saved, "authToken", process.env.AUTH_TOKEN, "local-compose-token"),
+  );
+  cfg.backendPort =
+    Number(
+      await ask(
+        `Backend port (internal; MUST differ from the widget's ${WIDGET_PORT})`,
+        pick(saved, "backendPort", process.env.BACKEND_PORT, "8787"),
+      ),
+    ) || 8787;
   if (cfg.backendPort === WIDGET_PORT) {
     // The widget owns WIDGET_PORT (8080) and is reached publicly; the backend is
     // internal (proxied via /api). If they collide, freePort(widget) would kill
     // the backend. Force a safe internal port instead.
-    warnLauncher(`Backend port ${WIDGET_PORT} clashes with the widget — using 8787 for the backend instead.`);
+    warnLauncher(
+      `Backend port ${WIDGET_PORT} clashes with the widget — using 8787 for the backend instead.`,
+    );
     cfg.backendPort = 8787;
   }
 
@@ -488,10 +580,19 @@ async function main() {
   }
 
   freePort(cfg.backendPort, "backend");
-  spawnDevServer({ name: "backend", labelColor: "cyan", workspace: BACKEND_WORKSPACE, env: backendEnv });
+  spawnDevServer({
+    name: "backend",
+    labelColor: "cyan",
+    workspace: BACKEND_WORKSPACE,
+    env: backendEnv,
+  });
 
   const healthy = await waitForHealth(cfg.backendPort);
-  if (!healthy) { errLauncher("Backend did not become healthy in time. Aborting."); shutdown(1); return; }
+  if (!healthy) {
+    errLauncher("Backend did not become healthy in time. Aborting.");
+    shutdown(1);
+    return;
+  }
 
   // ---- Widget exposure (workbench convention) ----
   const publicHost = cfg.domain
@@ -521,10 +622,19 @@ async function main() {
     if (shuttingDown) return;
     const line = "=".repeat(72);
     console.log("\n" + color("green", line));
-    console.log(color("bold", `  Side-chat local (${cfg.provider} provider + in-memory persistence) is ready`));
+    console.log(
+      color(
+        "bold",
+        `  Side-chat local (${cfg.provider} provider + in-memory persistence) is ready`,
+      ),
+    );
     console.log(color("green", line));
-    console.log(`  Backend (healthz): ${color("cyan", `http://127.0.0.1:${cfg.backendPort}/healthz`)}`);
-    console.log(`  Widget bind:       ${color("dim", `${WIDGET_BIND_HOST}:${WIDGET_PORT} (strictPort)`)}`);
+    console.log(
+      `  Backend (healthz): ${color("cyan", `http://127.0.0.1:${cfg.backendPort}/healthz`)}`,
+    );
+    console.log(
+      `  Widget bind:       ${color("dim", `${WIDGET_BIND_HOST}:${WIDGET_PORT} (strictPort)`)}`,
+    );
     if (publicHost) console.log(`  Public host:       ${color("dim", publicHost)}`);
     console.log(`  Bearer token:      ${color("dim", cfg.authToken)}`);
     console.log("");
@@ -536,4 +646,7 @@ async function main() {
   }, 2500);
 }
 
-main().catch((e) => { errLauncher(e?.stack || String(e)); shutdown(1); });
+main().catch((e) => {
+  errLauncher(e?.stack || String(e));
+  shutdown(1);
+});

@@ -78,6 +78,7 @@ export function ComponentShowcase() {
       }
 
       copyWidgetStylesIntoFrame(frameDocument);
+      installShowcaseChromeStyles(frameDocument);
       setTargets(createInjectionTargets(frameDocument));
     }, 100);
   }, []);
@@ -128,6 +129,45 @@ function copyWidgetStylesIntoFrame(frameDocument: Document) {
       frameDocument.head.appendChild(clone);
     }
   });
+}
+
+function installShowcaseChromeStyles(frameDocument: Document) {
+  const style = frameDocument.createElement("style");
+  style.dataset["sidechatCopiedStyle"] = "true";
+  style.textContent = `
+    .ds-root nav {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklch, var(--pg-muted) 28%, transparent) transparent;
+    }
+
+    .ds-root nav::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    .ds-root nav::-webkit-scrollbar-button {
+      width: 0;
+      height: 0;
+      display: none;
+    }
+
+    .ds-root nav::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .ds-root nav::-webkit-scrollbar-thumb {
+      background-color: transparent;
+      background-clip: padding-box;
+      border: 3px solid transparent;
+      border-radius: 999px;
+    }
+
+    .ds-root nav:hover::-webkit-scrollbar-thumb,
+    .ds-root nav:focus-within::-webkit-scrollbar-thumb {
+      background-color: color-mix(in oklch, var(--pg-muted) 34%, transparent);
+    }
+  `;
+  frameDocument.head.appendChild(style);
 }
 
 function createInjectionTargets(frameDocument: Document): readonly InjectionTarget[] {

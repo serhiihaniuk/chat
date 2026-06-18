@@ -7,8 +7,7 @@
  * screen readers) rather than a faked class. The trailing dot is pre-rendered at
  * `opacity-0` so toggling selection never reflows the row.
  */
-import type { ReactElement } from "react";
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 
 import { cn } from "#shared/lib/cn";
 
@@ -20,13 +19,13 @@ export function ConversationItem({
 }: {
   title: string;
   when: string;
-  active?: boolean;
-  onSelect?: () => void;
+  active?: boolean | undefined;
+  onSelect?: (() => void) | undefined;
 }): ReactElement {
   return (
     <button
       type="button"
-      aria-current={active || undefined}
+      aria-current={active === true ? true : undefined}
       onClick={onSelect}
       className={cn(
         "flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-left",

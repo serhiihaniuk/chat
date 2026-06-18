@@ -1,30 +1,8 @@
-import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-} from "#shared/ai/model-selector";
-import {
-  PromptInput,
-  type PromptInputMessage,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-} from "#shared/ai/prompt-input";
-import { Button } from "#shared/ui/button";
-import { BrainCircuitIcon, CheckIcon, ChevronsUpDownIcon } from "lucide-react";
-import { useCallback } from "react";
+import { BrainCircuitIcon, GaugeIcon, SparklesIcon, type LucideIcon } from "lucide-react";
 
-import { ComposerActions } from "./composer-actions.js";
-import { WidgetContextTools } from "./widget-context.js";
-import type { WidgetMessage, WidgetStatus, WidgetUsage } from "#entities/chat";
+import type { WidgetMessage, WidgetStatus } from "#entities/chat";
+import { Composer } from "#shared/ui/composer";
+import { ModelSelector, type Model, type ThinkingLevel } from "#shared/ui/model-selector";
 import type { ChatReasoningEffort } from "@side-chat/chat-protocol";
 
 type WidgetFooterLabels = {
@@ -41,171 +19,115 @@ export const WidgetFooter = ({
   isBusy,
   labels,
   messages,
+  models,
+  onModelSelect,
+  onReasoningEffortSelect,
   onSubmitMessage,
+  reasoningEfforts,
+  selectedModelKey,
+  selectedReasoningEffort,
+  status,
+  stop,
+}: {
+  readonly isBusy: boolean;
+  readonly labels: WidgetFooterLabels;
+  readonly messages: readonly WidgetMessage[];
+  readonly models: readonly WidgetFooterModel[];
+  readonly onModelSelect: (modelKey: string) => void;
+  readonly onReasoningEffortSelect: (effort: ChatReasoningEffort) => void;
+  readonly onSubmitMessage: (messageText: string) => Promise<void>;
+  readonly reasoningEfforts: readonly ChatReasoningEffort[];
+  readonly selectedModelKey: string | undefined;
+  readonly selectedReasoningEffort: ChatReasoningEffort | undefined;
+  readonly status: WidgetStatus;
+  readonly stop: () => void;
+}) => (
+  <footer className="shrink-0 px-3 pb-3">
+    <Composer
+      className="mx-auto w-full max-w-measure-message"
+      contextPercent={estimateVisibleContextPercent(messages)}
+      disabled={isBusy}
+      modelSelector={
+        models.length > 0 ? (
+          <PromptModelSelector
+            models={models}
+            onModelSelect={onModelSelect}
+            onReasoningEffortSelect={onReasoningEffortSelect}
+            reasoningEfforts={reasoningEfforts}
+            selectedModelKey={selectedModelKey}
+            selectedReasoningEffort={selectedReasoningEffort}
+          />
+        ) : null
+      }
+      onStop={stop}
+      onSubmit={onSubmitMessage}
+      placeholder={labels.placeholder}
+      sendLabel={labels.send}
+      status={status}
+    />
+  </footer>
+);
+
+const PromptModelSelector = ({
   models,
   onModelSelect,
   onReasoningEffortSelect,
   reasoningEfforts,
   selectedModelKey,
-  selectedModelLabel,
   selectedReasoningEffort,
-  status,
-  stop,
-  usage,
 }: {
-  readonly isBusy: boolean;
-  readonly labels: WidgetFooterLabels;
-  readonly messages: readonly WidgetMessage[];
-  readonly onSubmitMessage: (messageText: string) => Promise<void>;
   readonly models: readonly WidgetFooterModel[];
   readonly onModelSelect: (modelKey: string) => void;
   readonly onReasoningEffortSelect: (effort: ChatReasoningEffort) => void;
   readonly reasoningEfforts: readonly ChatReasoningEffort[];
   readonly selectedModelKey: string | undefined;
-  readonly selectedModelLabel: string | undefined;
   readonly selectedReasoningEffort: ChatReasoningEffort | undefined;
-  readonly status: WidgetStatus;
-  readonly stop: () => void;
-  readonly usage: WidgetUsage | undefined;
-}) => {
-  const submitMessage = useCallback(
-    (message: PromptInputMessage) => {
-      void onSubmitMessage(message.text);
-    },
-    [onSubmitMessage],
-  );
+}) => (
+  <ModelSelector
+    models={models.map(toModelSelectorModel)}
+    onThinkingChange={(effortId) => {
+      const effort = reasoningEfforts.find((candidate) => candidate === effortId);
+      if (effort) onReasoningEffortSelect(effort);
+    }}
+    onValueChange={onModelSelect}
+    thinkingLevels={toThinkingLevels(reasoningEfforts)}
+    thinkingValue={selectedReasoningEffort}
+    value={selectedModelKey}
+  />
+);
 
-  return (
-    <footer className="shrink-0 px-4 pt-2 pb-4">
-      <PromptInput className="group mx-auto w-full max-w-[44.5rem]" onSubmit={submitMessage}>
-        <PromptInputBody>
-          <PromptInputTextarea
-            aria-label="Message"
-            className="min-h-12 py-3 text-[0.9375rem]"
-            disabled={isBusy}
-            placeholder={labels.placeholder}
-          />
-        </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
-            <ComposerActions />
-          </PromptInputTools>
-          <div className="flex min-w-0 items-center gap-1">
-            <WidgetContextTools messages={messages} usage={usage} />
-            {reasoningEfforts.length > 1 && selectedReasoningEffort && (
-              <PromptReasoningSelector
-                efforts={reasoningEfforts}
-                onSelect={onReasoningEffortSelect}
-                selectedEffort={selectedReasoningEffort}
-              />
-            )}
-            {models.length > 0 && (
-              <PromptModelSelector
-                models={models}
-                onSelect={onModelSelect}
-                selectedModelKey={selectedModelKey}
-                selectedModelLabel={selectedModelLabel}
-              />
-            )}
-            <PromptInputSubmit
-              aria-label={labels.send}
-              // Idle composer: the send button reads as disarmed (muted) until the
-              // textarea has text; while generating it keeps its armed/stop styling.
-              className={
-                status === "idle"
-                  ? "group-has-[textarea:placeholder-shown]:bg-muted group-has-[textarea:placeholder-shown]:text-muted-foreground group-has-[textarea:placeholder-shown]:shadow-none"
-                  : undefined
-              }
-              onStop={stop}
-              {...toPromptStatusProps(status)}
-            />
-          </div>
-        </PromptInputFooter>
-      </PromptInput>
-    </footer>
-  );
+const toModelSelectorModel = (model: WidgetFooterModel): Model => ({
+  id: model.key,
+  name: model.label,
+  desc: model.key,
+  icon: <SparklesIcon className="size-4" />,
+});
+
+const toThinkingLevels = (efforts: readonly ChatReasoningEffort[]): readonly ThinkingLevel[] =>
+  efforts.map((effort) => ({
+    id: effort,
+    label: formatReasoningEffort(effort),
+    desc: describeReasoningEffort(effort),
+    Icon: iconForReasoningEffort(effort),
+  }));
+
+const iconForReasoningEffort = (effort: ChatReasoningEffort): LucideIcon => {
+  if (effort === "high") return BrainCircuitIcon;
+  if (effort === "medium") return GaugeIcon;
+  return SparklesIcon;
 };
 
-const PromptModelSelector = ({
-  models,
-  onSelect,
-  selectedModelKey,
-  selectedModelLabel,
-}: {
-  readonly models: readonly WidgetFooterModel[];
-  readonly onSelect: (modelKey: string) => void;
-  readonly selectedModelKey: string | undefined;
-  readonly selectedModelLabel: string | undefined;
-}) => (
-  <ModelSelector>
-    <ModelSelectorTrigger
-      render={<Button aria-label="Select model" size="sm" type="button" variant="ghost" />}
-    >
-      <span className="max-w-28 truncate">{selectedModelLabel ?? "Model"}</span>
-      <ChevronsUpDownIcon className="size-3.5" />
-    </ModelSelectorTrigger>
-    <ModelSelectorContent>
-      <ModelSelectorInput placeholder="Search models..." />
-      <ModelSelectorList>
-        <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-        <ModelSelectorGroup>
-          {models.map((model) => (
-            <ModelSelectorItem
-              key={model.key}
-              onSelect={() => onSelect(model.key)}
-              value={`${model.label} ${model.key}`}
-            >
-              <ModelSelectorName>{model.label}</ModelSelectorName>
-              {model.key === selectedModelKey && <CheckIcon className="size-4" />}
-            </ModelSelectorItem>
-          ))}
-        </ModelSelectorGroup>
-      </ModelSelectorList>
-    </ModelSelectorContent>
-  </ModelSelector>
-);
-
-const PromptReasoningSelector = ({
-  efforts,
-  onSelect,
-  selectedEffort,
-}: {
-  readonly efforts: readonly ChatReasoningEffort[];
-  readonly onSelect: (effort: ChatReasoningEffort) => void;
-  readonly selectedEffort: ChatReasoningEffort;
-}) => (
-  <ModelSelector>
-    <ModelSelectorTrigger
-      render={
-        <Button aria-label="Select reasoning effort" size="sm" type="button" variant="ghost" />
-      }
-    >
-      <BrainCircuitIcon className="size-3.5" />
-      <span className="max-w-20 truncate">{formatReasoningEffort(selectedEffort)}</span>
-      <ChevronsUpDownIcon className="size-3.5" />
-    </ModelSelectorTrigger>
-    <ModelSelectorContent title="Reasoning Effort">
-      <ModelSelectorList>
-        <ModelSelectorGroup>
-          {efforts.map((effort) => (
-            <ModelSelectorItem key={effort} onSelect={() => onSelect(effort)} value={effort}>
-              <ModelSelectorName>{formatReasoningEffort(effort)}</ModelSelectorName>
-              {effort === selectedEffort && <CheckIcon className="size-4" />}
-            </ModelSelectorItem>
-          ))}
-        </ModelSelectorGroup>
-      </ModelSelectorList>
-    </ModelSelectorContent>
-  </ModelSelector>
-);
+const describeReasoningEffort = (effort: ChatReasoningEffort): string => {
+  if (effort === "low") return "Light reasoning";
+  if (effort === "medium") return "Balanced reasoning";
+  return "Deeper reasoning";
+};
 
 const formatReasoningEffort = (effort: ChatReasoningEffort): string =>
-  effort === "xhigh" ? "X-high" : `${effort[0]?.toUpperCase()}${effort.slice(1)}`;
+  `${effort[0]?.toUpperCase()}${effort.slice(1)}`;
 
-const toPromptStatusProps = (
-  status: WidgetStatus,
-): { readonly status?: "submitted" | "streaming" } => {
-  if (status === "submitted") return { status: "submitted" };
-  if (status === "streaming") return { status: "streaming" };
-  return {};
+const estimateVisibleContextPercent = (messages: readonly WidgetMessage[]): number => {
+  const visibleCharacters = messages.reduce((sum, message) => sum + message.content.length, 0);
+  if (visibleCharacters === 0) return 0;
+  return Math.min(100, Math.max(6, Math.round(visibleCharacters / 48)));
 };

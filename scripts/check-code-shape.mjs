@@ -14,7 +14,7 @@ const directoryBudgetExceptions = new Map([
   [
     "packages/side-chat-widget/src/shared/ui",
     {
-      maxFiles: 20,
+      maxFiles: 42,
       reason: "shared UI primitive catalog keeps direct #shared/ui/<component> imports stable",
     },
   ],

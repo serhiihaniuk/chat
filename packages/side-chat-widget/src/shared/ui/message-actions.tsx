@@ -22,9 +22,12 @@ export function MessageActions({
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   function handleCopy() {
     onCopy?.();
@@ -35,7 +38,7 @@ export function MessageActions({
 
   return (
     <div className="flex items-center gap-1">
-      <button className="sc-action" data-copied={copied || undefined} onClick={handleCopy}>
+      <button className="sc-action" data-copied={copied ? true : undefined} onClick={handleCopy}>
         {copied ? (
           <>
             <Check /> Copied
@@ -57,8 +60,8 @@ export function MessageActionsSection(): ReactElement {
   return (
     <div className="flex flex-col gap-2">
       <div className="sc-markdown max-w-measure-message text-md">
-        Yes — you can pass a custom <code>container</code> to keep popups inside the
-        themed root. That preserves both the tokens and the font.
+        Yes — you can pass a custom <code>container</code> to keep popups inside the themed root.
+        That preserves both the tokens and the font.
       </div>
       <MessageActions />
     </div>

@@ -37,7 +37,7 @@ for (const file of listSourceFiles(root)) {
 
   if (!from) {
     errors.push(
-      `${file}: widget source must live under app, widgets, features, entities, or shared`,
+      `${file}: widget source must live under app, widgets, features, entities, shared, or showcase`,
     );
     continue;
   }
@@ -113,7 +113,7 @@ function classifyWidgetPath(path) {
 }
 
 function classifyLayerAndSlice(layer, slice) {
-  if (layer === "app" || layer === "shared") return { layer };
+  if (layer === "app" || layer === "shared" || layer === "showcase") return { layer };
   if (layer === "widgets" || layer === "features" || layer === "entities") {
     return slice ? { layer, slice } : undefined;
   }
@@ -126,6 +126,7 @@ function validateLayerImport(file, from, target, specifier) {
 
   switch (from.layer) {
     case "app":
+    case "showcase":
       return undefined;
     case "widgets":
     case "features":
@@ -175,6 +176,7 @@ function validateSharedImport(file, target, specifier) {
 function layerRank(layer) {
   switch (layer) {
     case "app":
+    case "showcase":
       return 4;
     case "widgets":
       return 3;

@@ -17,7 +17,7 @@
  * render the popup nowhere. Storing the element in state re-renders consumers once it
  * is attached, so every popup that opens later receives the live root element.
  */
-import { createContext, use, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, use, useState, type ComponentPropsWithoutRef } from "react";
 
 import { cn } from "#shared/lib/cn";
 
@@ -33,21 +33,18 @@ export function usePortalContainer(): HTMLElement | null {
 export function SideChatWidgetRoot({
   theme = "graphite",
   className,
-  style,
   children,
-}: {
+  ...props
+}: ComponentPropsWithoutRef<"div"> & {
   theme?: ThemeName;
-  className?: string;
-  style?: CSSProperties;
-  children: ReactNode;
 }) {
   const [container, setContainer] = useState<HTMLElement | null>(null);
   return (
     <div
       ref={setContainer}
       className={cn("side-chat-widget-root", className)}
-      style={style}
       data-sidechat-theme={theme === "graphite" ? undefined : theme}
+      {...props}
     >
       <PortalContainerContext.Provider value={container}>
         {children}

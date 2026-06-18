@@ -35,8 +35,7 @@ import { usePortalContainer } from "#shared/ui/widget-root";
  * for a Base UI item, `hover:bg-accent aria-[current=true]:bg-sidebar-accent`
  * for a standalone button).
  */
-export const rowBaseClass =
-  "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left";
+export const rowBaseClass = "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left";
 
 type Model = { id: string; name: string; desc: string; icon: ReactElement };
 
@@ -86,10 +85,7 @@ export function RowSection(): ReactElement {
           As a Base UI item (highlighted / selected)
         </div>
 
-        <Select.Root
-          value={model}
-          onValueChange={(value) => setModel(value ?? model)}
-        >
+        <Select.Root value={model} onValueChange={(value) => setModel(value ?? model)}>
           <Select.Trigger className="flex h-header w-full items-center justify-between gap-2 rounded-md border border-input px-2.5 text-sm text-foreground">
             <Select.Value className="truncate" />
             <Select.Icon
@@ -99,10 +95,7 @@ export function RowSection(): ReactElement {
 
           <Select.Portal container={container}>
             <Select.Positioner side="bottom" align="start" sideOffset={6}>
-              <Select.Popup
-                data-slot="select-content"
-                className="w-menu min-w-0 p-1"
-              >
+              <Select.Popup data-slot="select-content" className="w-menu min-w-0 p-1">
                 <Select.List>
                   {MODELS.map((m) => (
                     <Select.Item
@@ -115,9 +108,7 @@ export function RowSection(): ReactElement {
                         <Select.ItemText className="truncate text-sm font-medium text-foreground">
                           {m.name}
                         </Select.ItemText>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {m.desc}
-                        </span>
+                        <span className="truncate text-xs text-muted-foreground">{m.desc}</span>
                       </span>
                       <Select.ItemIndicator className="ml-auto flex shrink-0 text-primary opacity-0 selected:opacity-100">
                         <Check className="size-4" />
@@ -142,20 +133,13 @@ export function RowSection(): ReactElement {
             <button
               key={c.id}
               type="button"
-              aria-current={c.id === activeId || undefined}
+              aria-current={c.id === activeId ? true : undefined}
               onClick={() => setActiveId(c.id)}
-              className={cn(
-                rowBaseClass,
-                "hover:bg-accent aria-[current=true]:bg-sidebar-accent",
-              )}
+              className={cn(rowBaseClass, "hover:bg-accent aria-[current=true]:bg-sidebar-accent")}
             >
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium text-foreground">
-                  {c.title}
-                </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {c.when}
-                </span>
+                <span className="truncate text-sm font-medium text-foreground">{c.title}</span>
+                <span className="truncate text-xs text-muted-foreground">{c.when}</span>
               </span>
               <span className="ml-auto size-1.5 shrink-0 rounded-full bg-primary opacity-0 aria-[current=true]:opacity-100" />
             </button>

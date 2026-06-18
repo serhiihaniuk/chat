@@ -898,6 +898,30 @@
 }
 
 /* Shell · panel / header / rail (§9.12) — the alignment contract lives in these tokens */
+.sc-widget-panel {
+  container: side-chat-widget / inline-size;
+}
+
+.sc-wide-slot {
+  display: none;
+}
+
+.sc-narrow-slot {
+  display: flex;
+}
+
+@media (min-width: 48.75rem) {
+  @container side-chat-widget (min-width: 45rem) {
+    .sc-widget-panel .sc-wide-slot {
+      display: flex;
+    }
+
+    .sc-widget-panel .sc-narrow-slot {
+      display: none;
+    }
+  }
+}
+
 @utility sc-panel {
   @apply absolute right-4 bottom-4 flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-panel;
   max-width: calc(100% - 2rem);

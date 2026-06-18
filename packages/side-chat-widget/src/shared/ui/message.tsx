@@ -20,17 +20,16 @@ import { MarkdownContent } from "#shared/ai/markdown-content";
 export type MessageRole = "user" | "assistant";
 
 export function Message({
+  mode = "static",
   role,
   text,
 }: {
+  mode?: "static" | "streaming";
   role: MessageRole;
   text: string;
 }): ReactElement {
   return (
-    <div
-      data-from={role}
-      className="data-[from=user]:flex data-[from=user]:justify-end"
-    >
+    <div data-from={role} className="data-[from=user]:flex data-[from=user]:justify-end">
       {role === "user" ? (
         <div
           className="w-fit rounded-lg rounded-br-sm bg-message-user text-message-user-foreground px-3.5 py-2.5 text-md leading-message"
@@ -40,7 +39,7 @@ export function Message({
         </div>
       ) : (
         <div className="sc-markdown max-w-measure-message text-md">
-          <MarkdownContent>{text}</MarkdownContent>
+          <MarkdownContent mode={mode}>{text}</MarkdownContent>
         </div>
       )}
     </div>
@@ -59,7 +58,8 @@ const ASSISTANT_1 = `Use the \`useMemo\` hook — it caches the result between r
 - Reach for it when the computation is genuinely expensive
 - For functions you pass as props, prefer \`useCallback\``;
 
-const USER_2 = "And what about a really long message that needs to wrap before it touches the edge of the column?";
+const USER_2 =
+  "And what about a really long message that needs to wrap before it touches the edge of the column?";
 
 const ASSISTANT_2 = `Long user turns cap at **82%** of the column width, so they always wrap a little before the edge instead of filling the whole row.`;
 

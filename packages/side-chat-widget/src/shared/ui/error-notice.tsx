@@ -8,8 +8,7 @@
  * <button>, so `hover:`/`focus-visible:` are allowed here (gate G4 forbids those
  * only on Base UI parts); pressing it re-runs the same turn.
  */
-import type { ReactElement } from "react";
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { RotateCcw, TriangleAlert } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";

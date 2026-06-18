@@ -1,4 +1,5 @@
 import { AgentMark } from "#shared/ui/agent-mark";
+import { Button } from "#shared/ui/button";
 import { ChevronRightIcon, type LucideIcon } from "lucide-react";
 
 export type WidgetEmptyStateSuggestion = {
@@ -45,15 +46,16 @@ export const WidgetEmptyState = ({
         <ul className="flex flex-col gap-0.5">
           {suggestions.map((suggestion) => (
             <li key={suggestion.id}>
-              <button
-                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-sm text-card-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              <Button
+                className="w-full justify-start gap-2.5 px-3 py-2.5 text-left text-card-foreground"
                 onClick={() => onSelectSuggestion(suggestion.prompt)}
                 type="button"
+                variant="ghost"
               >
                 <suggestion.icon className="size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate">{suggestion.label}</span>
                 <ChevronRightIcon className="size-[0.9375rem] shrink-0 text-border" />
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

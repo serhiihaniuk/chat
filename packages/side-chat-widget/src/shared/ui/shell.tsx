@@ -144,9 +144,9 @@ export function SidebarRail(): ReactElement {
                   {bucket.items.map((conversation) => (
                     <ConversationItem
                       key={conversation.id}
+                      active={conversation.active}
                       title={conversation.title}
                       when={conversation.when}
-                      {...(conversation.active ? { active: true } : {})}
                     />
                   ))}
                 </section>

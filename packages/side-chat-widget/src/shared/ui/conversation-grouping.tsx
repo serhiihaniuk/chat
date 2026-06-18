@@ -7,8 +7,7 @@
  * heading), and items are newest-first within a bucket. Buckets are separated by
  * `--rail-group-gap`. No Base UI parts — plain layout around §9.1.
  */
-import type { ReactElement } from "react";
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 
 import { ConversationItem } from "#shared/ui/conversation-item";
 
@@ -30,9 +29,9 @@ export function ConversationGrouping({
   activeId,
   onSelect,
 }: {
-  buckets: Bucket[];
-  activeId?: string;
-  onSelect?: (id: string) => void;
+  buckets: readonly Bucket[];
+  activeId?: string | undefined;
+  onSelect?: ((id: string) => void) | undefined;
 }): ReactElement {
   return (
     <div className="flex flex-col" style={{ gap: "var(--rail-group-gap)" }}>
@@ -67,7 +66,12 @@ const BUCKETS: Bucket[] = [
     label: "Recent",
     items: [
       { id: "1", title: "Refactor the turn reducer keystone", when: "2 minutes ago", updatedAt: 5 },
-      { id: "2", title: "Scoped token approach for widget themes", when: "1 hour ago", updatedAt: 4 },
+      {
+        id: "2",
+        title: "Scoped token approach for widget themes",
+        when: "1 hour ago",
+        updatedAt: 4,
+      },
       { id: "3", title: "Greenfield widget design direction", when: "Today", updatedAt: 3 },
     ],
   },
