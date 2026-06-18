@@ -43,6 +43,11 @@
       "development": "./src/entities/chat/testing.ts",
       "default": "./dist/entities/chat/testing.js"
     },
+    "./showcase": {
+      "types": "./src/showcase/showcase.tsx",
+      "development": "./src/showcase/showcase.tsx",
+      "default": "./dist/showcase/showcase.js"
+    },
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

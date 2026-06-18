@@ -1,52 +1,68 @@
-﻿import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+/**
+ * §8.13 — Tooltip.
+ *
+ * Built from Base UI `Tooltip`. Replaces the native `title` attribute on header
+ * icon buttons (Settings / New chat / Close). No dedicated palette — the popup
+ * inherits the menu colours via the `tooltip-content` slot (--popover-*).
+ *
+ * One `Tooltip.Provider` near the root sets a shared open delay; every icon
+ * button that lacks a visible label needs a tooltip + `aria-label`.
+ */
+import { Tooltip } from "@base-ui/react/tooltip";
+import { Plus, Settings, X } from "lucide-react";
+import type { ReactElement, ReactNode } from "react";
 
-import { cn } from "#shared/lib/cn";
+import { usePortalContainer } from "#shared/ui/widget-root";
 
-function TooltipProvider({ delay = 0, ...props }: TooltipPrimitive.Provider.Props) {
-  return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
-}
+const TOOLTIP_POPUP_CLASS =
+  "rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground border border-border shadow-popover starting:opacity-0 ending:opacity-0";
 
-function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
-}
-
-function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
-}
-
-function TooltipContent({
-  className,
-  side = "top",
-  sideOffset = 4,
-  align = "center",
-  alignOffset = 0,
+/** A single labelled icon-button + its tooltip. Trigger is a plain `sc-icon-btn`. */
+function TooltipIconButton({
+  label,
+  container,
   children,
-  ...props
-}: TooltipPrimitive.Popup.Props &
-  Pick<TooltipPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
+}: {
+  label: string;
+  container: HTMLElement | null;
+  children: ReactNode;
+}) {
   return (
-    <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Positioner
-        align={align}
-        alignOffset={alignOffset}
-        side={side}
-        sideOffset={sideOffset}
-        className="isolate z-50"
-      >
-        <TooltipPrimitive.Popup
-          data-slot="tooltip-content"
-          className={cn(
-            "z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background has-data-[slot=kbd]:pr-1.5 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-            className,
-          )}
-          {...props}
-        >
-          {children}
-          <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground data-[side=bottom]:top-1 data-[side=inline-end]:top-1/2! data-[side=inline-end]:-left-1 data-[side=inline-end]:-translate-y-1/2 data-[side=inline-start]:top-1/2! data-[side=inline-start]:-right-1 data-[side=inline-start]:-translate-y-1/2 data-[side=left]:top-1/2! data-[side=left]:-right-1 data-[side=left]:-translate-y-1/2 data-[side=right]:top-1/2! data-[side=right]:-left-1 data-[side=right]:-translate-y-1/2 data-[side=top]:-bottom-2.5" />
-        </TooltipPrimitive.Popup>
-      </TooltipPrimitive.Positioner>
-    </TooltipPrimitive.Portal>
+    <Tooltip.Root>
+      <Tooltip.Trigger
+        render={
+          <button type="button" className="sc-icon-btn" aria-label={label}>
+            {children}
+          </button>
+        }
+      />
+      <Tooltip.Portal container={container}>
+        <Tooltip.Positioner sideOffset={6}>
+          <Tooltip.Popup data-slot="tooltip-content" className={TOOLTIP_POPUP_CLASS}>
+            {label}
+          </Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   );
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
+export function TooltipSection(): ReactElement {
+  const container = usePortalContainer();
+
+  return (
+    <Tooltip.Provider delay={500}>
+      <div className="flex items-center gap-1">
+        <TooltipIconButton label="Settings" container={container}>
+          <Settings className="size-4" />
+        </TooltipIconButton>
+        <TooltipIconButton label="New chat" container={container}>
+          <Plus className="size-4" />
+        </TooltipIconButton>
+        <TooltipIconButton label="Close" container={container}>
+          <X className="size-4" />
+        </TooltipIconButton>
+      </div>
+    </Tooltip.Provider>
+  );
+}

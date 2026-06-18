@@ -1,55 +1,81 @@
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
+/**
+ * §8.12 — Badge & Suggestion (plain markup, no Base UI).
+ *
+ * Badge   = a NON-interactive status pill (<span>). No hover/focus affordance —
+ *           it conveys state, it is not actionable.
+ * Suggestion = an interactive chip (<button>) — a Row in pill form. Real button,
+ *           keyboard-focusable; `hover:` is allowed here because it IS interactive.
+ *
+ * These two must never be merged: a status pill that is focusable lies to the user,
+ * and a suggestion that is a <span> is invisible to the keyboard.
+ */
+import type { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { cn } from "#shared/lib/cn";
-
-const BADGE_BASE_CLASS =
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!";
-
-const BADGE_VARIANT_CLASS = {
-  default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
-  secondary: "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
-  destructive:
-    "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
-  outline: "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
-  ghost: "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-  link: "text-primary underline-offset-4 hover:underline",
-} as const;
-
-type BadgeVariant = keyof typeof BADGE_VARIANT_CLASS;
-
-function badgeVariants({
-  variant = "default",
-  className,
-}: {
-  variant?: BadgeVariant;
-  className?: string | undefined;
-} = {}) {
-  return cn(BADGE_BASE_CLASS, BADGE_VARIANT_CLASS[variant], className);
-}
+import { Sparkles, MessageSquare, TriangleAlert } from "lucide-react";
 
 function Badge({
   className,
-  variant = "default",
-  render,
   ...props
-}: useRender.ComponentProps<"span"> & {
-  variant?: BadgeVariant;
-}) {
-  return useRender({
-    defaultTagName: "span",
-    props: mergeProps<"span">(
-      {
-        className: cn(badgeVariants({ variant }), className),
-      },
-      props,
-    ),
-    render,
-    state: {
-      slot: "badge",
-      variant,
-    },
-  });
+}: ComponentPropsWithoutRef<"span">): ReactElement {
+  return (
+    <span
+      data-slot="badge"
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2 py-0.5 text-2xs font-semibold text-muted-foreground",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
-export { Badge, badgeVariants };
+function Suggestion({
+  className,
+  type = "button",
+  ...props
+}: ComponentPropsWithoutRef<"button">): ReactElement {
+  return (
+    <button
+      type={type}
+      data-slot="suggestion"
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-accent",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function BadgeSection(): ReactElement {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge>Beta</Badge>
+        <Badge>New</Badge>
+        <Badge>
+          <Sparkles className="size-3" />
+          Pro
+        </Badge>
+        <Badge>
+          <TriangleAlert className="size-3" />
+          Deprecated
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Suggestion>
+          <Sparkles className="size-4" />
+          Summarize this page
+        </Suggestion>
+        <Suggestion>
+          <MessageSquare className="size-4" />
+          Draft a reply
+        </Suggestion>
+      </div>
+    </div>
+  );
+}
+
+export { Badge, Suggestion };

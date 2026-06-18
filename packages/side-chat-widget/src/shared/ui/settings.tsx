@@ -448,20 +448,5 @@ function SettingsFrame({ wide, className }: { wide: boolean; className?: string 
 }
 
 export function SettingsSection(): ReactElement {
-  return (
-    <div className="flex w-full flex-col gap-4">
-      <div className="rounded-xl border border-border bg-muted/40 p-6">
-        <SettingsFrame wide className="sc-settings-frame-wide" />
-      </div>
-
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="flex-none">
-          <div className="mb-2 text-xs font-medium text-muted-foreground">
-            Narrow - panel &lt; 420px
-          </div>
-          <SettingsFrame wide={false} className="sc-settings-frame-narrow" />
-        </div>
-      </div>
-    </div>
-  );
+  return <SettingsFrame wide className="sc-settings-frame-wide" />;
 }

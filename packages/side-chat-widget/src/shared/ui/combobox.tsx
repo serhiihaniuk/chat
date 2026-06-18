@@ -1,153 +1,105 @@
-import * as React from "react";
-import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
+/**
+ * §8.11 — Combobox (the searchable selector).
+ *
+ * The only primitive with a filter input. Filtering, highlight, and empty-state are
+ * built into Base UI `Combobox`, so there is no manual query state: the built-in fuzzy
+ * filter sets `highlighted:` on the match and `Combobox.Empty` renders the no-results
+ * row. Rows reuse the Row + Media patterns (§8.4 / §8.5). The popup is portaled into the
+ * widget root via `container={container}` (G5) and skinned through the
+ * `data-slot="combobox-content"` CSS layer.
+ *
+ * Consumers drive Base UI `Combobox` directly with these conventions; the file ships the
+ * `ComboboxSection` demo (a searchable model selector) as the 1:1 contract reference.
+ */
+import { useState, type ReactElement } from "react";
+import { Combobox } from "@base-ui/react/combobox";
+import { Check, ChevronDown, Search, Sparkles, Brain, Wrench, Globe } from "lucide-react";
 
-import { cn } from "#shared/lib/cn";
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import { usePortalContainer } from "#shared/ui/widget-root";
 
-const Combobox = ComboboxPrimitive.Root;
-
-function ComboboxInputGroup({ className, ...props }: ComboboxPrimitive.InputGroup.Props) {
-  return (
-    <ComboboxPrimitive.InputGroup
-      data-slot="combobox-input-group"
-      className={cn(
-        "flex h-7 min-w-0 items-center rounded-md border border-input bg-background text-xs outline-none transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40 data-disabled:opacity-50",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-function ComboboxInput({ className, ...props }: ComboboxPrimitive.Input.Props) {
-  return (
-    <ComboboxPrimitive.Input
-      data-slot="combobox-input"
-      className={cn(
-        "min-w-0 flex-1 bg-transparent px-2 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-function ComboboxTrigger({ className, ...props }: ComboboxPrimitive.Trigger.Props) {
-  return (
-    <ComboboxPrimitive.Trigger
-      data-slot="combobox-trigger"
-      className={cn(
-        "flex h-full shrink-0 items-center px-1.5 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground disabled:cursor-not-allowed",
-        className,
-      )}
-      {...props}
-    >
-      <ChevronDownIcon className="size-3.5" />
-    </ComboboxPrimitive.Trigger>
-  );
-}
-
-function ComboboxSelectTrigger({ className, children, ...props }: ComboboxPrimitive.Trigger.Props) {
-  return (
-    <ComboboxPrimitive.Trigger
-      data-slot="combobox-select-trigger"
-      className={cn(
-        "flex h-7 min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-2 text-left text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50 data-placeholder:text-muted-foreground",
-        className,
-      )}
-      {...props}
-    >
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-      <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-    </ComboboxPrimitive.Trigger>
-  );
-}
-
-function ComboboxContent({
-  className,
-  children,
-  side = "bottom",
-  sideOffset = 4,
-  align = "center",
-  alignOffset = 0,
-  ...props
-}: ComboboxPrimitive.Popup.Props &
-  Pick<ComboboxPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
-  return (
-    <ComboboxPrimitive.Portal>
-      <ComboboxPrimitive.Positioner
-        side={side}
-        sideOffset={sideOffset}
-        align={align}
-        alignOffset={alignOffset}
-        className="isolate z-50"
-      >
-        <ComboboxPrimitive.Popup
-          data-slot="combobox-content"
-          className={cn(
-            "relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-44 overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-            className,
-          )}
-          {...props}
-        >
-          {children}
-        </ComboboxPrimitive.Popup>
-      </ComboboxPrimitive.Positioner>
-    </ComboboxPrimitive.Portal>
-  );
-}
-
-function ComboboxList({ className, ...props }: ComboboxPrimitive.List.Props) {
-  return (
-    <ComboboxPrimitive.List
-      data-slot="combobox-list"
-      className={cn("max-h-72 overflow-y-auto p-1 outline-none", className)}
-      {...props}
-    />
-  );
-}
-
-function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.Props) {
-  return (
-    <ComboboxPrimitive.Item
-      data-slot="combobox-item"
-      className={cn(
-        "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-accent data-highlighted:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
-      {...props}
-    >
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-      <ComboboxPrimitive.ItemIndicator
-        keepMounted
-        className="pointer-events-none absolute right-2 flex size-4 items-center justify-center opacity-0 data-selected:opacity-100"
-      >
-        <CheckIcon className="pointer-events-none" />
-      </ComboboxPrimitive.ItemIndicator>
-    </ComboboxPrimitive.Item>
-  );
-}
-
-function ComboboxEmpty({ className, children, ...props }: ComboboxPrimitive.Empty.Props) {
-  return (
-    <ComboboxPrimitive.Empty
-      data-slot="combobox-empty"
-      className={cn("text-center text-muted-foreground text-sm", className)}
-      {...props}
-    >
-      <span className="block px-2 py-6">{children}</span>
-    </ComboboxPrimitive.Empty>
-  );
-}
-
-export {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxInputGroup,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxSelectTrigger,
-  ComboboxTrigger,
+type Model = {
+  id: string;
+  name: string;
+  desc: string;
+  icon: ReactElement;
 };
+
+const MODELS = [
+  { id: "sonnet", name: "Claude Sonnet", desc: "Balanced — everyday tasks", icon: <Sparkles className="size-4" /> },
+  { id: "opus", name: "Claude Opus", desc: "Deepest reasoning, slower", icon: <Brain className="size-4" /> },
+  { id: "haiku", name: "Claude Haiku", desc: "Fastest, lightweight", icon: <Sparkles className="size-4" /> },
+  { id: "tools", name: "Agent (tools)", desc: "Calls tools and APIs", icon: <Wrench className="size-4" /> },
+  { id: "web", name: "Web-grounded", desc: "Answers with live search", icon: <Globe className="size-4" /> },
+  { id: "mini", name: "Mini", desc: "Tiny, on-device drafts", icon: <Sparkles className="size-4" /> },
+] satisfies readonly Model[];
+
+export function ComboboxSection(): ReactElement {
+  const container = usePortalContainer();
+  const [model, setModel] = useState<Model | null>(() => MODELS[0] ?? null);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Combobox.Root
+        items={MODELS}
+        value={model}
+        onValueChange={setModel}
+        itemToStringLabel={(m: Model | null) => m?.name ?? ""}
+        isItemEqualToValue={(a: Model | null, b: Model | null) => a?.id === b?.id}
+        defaultOpen
+      >
+        <Combobox.Trigger className="sc-icon-btn w-full justify-between gap-1.5 px-3">
+          <Combobox.Value>
+            {(value: Model | null) => (
+              <span className="flex items-center gap-2.5 truncate">
+                <span className="sc-media">{value?.icon ?? <Sparkles className="size-4" />}</span>
+                <span className="truncate text-sm font-medium text-foreground">
+                  {value?.name ?? "Select model"}
+                </span>
+              </span>
+            )}
+          </Combobox.Value>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+        </Combobox.Trigger>
+
+        <Combobox.Portal container={container}>
+          <Combobox.Positioner side="bottom" align="start" sideOffset={8}>
+            <Combobox.Popup data-slot="combobox-content" className="w-menu max-w-full">
+              <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
+                <Search className="size-4 shrink-0 text-muted-foreground" />
+                <Combobox.Input
+                  placeholder="Search models…"
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+
+              <Combobox.Empty className="sc-combo-empty">No models found.</Combobox.Empty>
+
+              <Combobox.List className="max-h-64 overflow-auto p-1">
+                {(m: Model) => (
+                  <Combobox.Item
+                    key={m.id}
+                    value={m}
+                    className="flex items-center gap-2.5 rounded-md px-2.5 py-2 highlighted:bg-accent"
+                  >
+                    <span className="sc-media">{m.icon}</span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm font-medium text-foreground">{m.name}</span>
+                      <span className="truncate text-xs text-muted-foreground">{m.desc}</span>
+                    </span>
+                    <Combobox.ItemIndicator className="ml-auto opacity-0 text-primary selected:opacity-100">
+                      <Check className="size-4" />
+                    </Combobox.ItemIndicator>
+                  </Combobox.Item>
+                )}
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+
+      <p className="text-xs text-muted-foreground">
+        Selected: <span className="font-medium text-foreground">{model?.name ?? "none"}</span>
+      </p>
+    </div>
+  );
+}

@@ -1,51 +1,63 @@
-﻿import * as React from "react";
+/**
+ * §8.3 — Scroll area (bounded panels only, never the chat log).
+ *
+ * Base UI ScrollArea with an overlay scrollbar. The fade-when-idle behaviour lives
+ * entirely in styles.css, keyed on Base UI's own data attributes on the scrollbar
+ * (data-orientation / data-hovering / data-scrolling) — nothing drives it from JSX.
+ * The `data-slot` hooks on the scrollbar + thumb carry that overlay styling.
+ */
+import { type ReactElement, type ReactNode } from "react";
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 
 import { cn } from "#shared/lib/cn";
 
-function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.Props) {
+/**
+ * Wraps a bounded, scrollable region. `className` styles the Viewport (the scrolling
+ * surface) so callers can give it a border / radius / padding. Renders the full
+ * Root > Viewport > Scrollbar > Thumb tree with a vertical overlay scrollbar.
+ */
+function ScrollArea({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}): ReactElement {
   return (
-    <ScrollAreaPrimitive.Root
-      data-slot="scroll-area"
-      className={cn("relative", className)}
-      {...props}
-    >
-      <ScrollAreaPrimitive.Viewport
-        data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
-      >
+    <ScrollAreaPrimitive.Root className="relative size-full">
+      <ScrollAreaPrimitive.Viewport className={cn("size-full outline-none", className)}>
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
-      <ScrollAreaPrimitive.Corner />
+      <ScrollAreaPrimitive.Scrollbar
+        data-slot="scroll-area-scrollbar"
+        orientation="vertical"
+        className="flex touch-none select-none p-px"
+      >
+        <ScrollAreaPrimitive.Thumb
+          data-slot="scroll-area-thumb"
+          className="relative flex-1 rounded-full bg-border"
+        />
+      </ScrollAreaPrimitive.Scrollbar>
     </ScrollAreaPrimitive.Root>
   );
 }
 
-function ScrollBar({
-  className,
-  orientation = "vertical",
-  ...props
-}: ScrollAreaPrimitive.Scrollbar.Props) {
+export { ScrollArea };
+
+const ROWS = Array.from({ length: 20 }, (_, i) => `Scrollable row ${i + 1}`);
+
+export function ScrollAreaSection(): ReactElement {
   return (
-    <ScrollAreaPrimitive.Scrollbar
-      data-slot="scroll-area-scrollbar"
-      data-orientation={orientation}
-      orientation={orientation}
-      className={cn(
-        // Size + the fade-when-idle behavior live in styles.css, keyed on Base UI's
-        // own data attributes (data-orientation / data-hovering / data-scrolling).
-        "flex touch-none select-none p-px data-horizontal:flex-col",
-        className,
-      )}
-      {...props}
-    >
-      <ScrollAreaPrimitive.Thumb
-        data-slot="scroll-area-thumb"
-        className="relative flex-1 rounded-full bg-border"
-      />
-    </ScrollAreaPrimitive.Scrollbar>
+    <div className="flex h-48 flex-col">
+      <ScrollArea className="rounded-lg border border-border">
+        <div className="flex flex-col gap-2 p-3">
+          {ROWS.map((row) => (
+            <p key={row} className="text-sm text-muted-foreground">
+              {row}
+            </p>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
-
-export { ScrollArea, ScrollBar };

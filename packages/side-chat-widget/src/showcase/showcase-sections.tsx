@@ -29,7 +29,7 @@ import { SegmentedSection } from "#shared/ui/segmented";
 import { SelectSection } from "#shared/ui/select";
 import { SeparatorSection } from "#shared/ui/separator";
 import { SettingsSection } from "#shared/ui/settings";
-import { ShellSection } from "#shared/ui/shell";
+import { ShellSection, SidebarRailSection } from "#shared/ui/shell";
 import { SwitchSection } from "#shared/ui/switch";
 import { TabsSection } from "#shared/ui/tabs";
 import { ToolRowSection } from "#shared/ui/tool-row";
@@ -80,6 +80,12 @@ export const sections: readonly ShowcaseSection[] = [
     title: "Section 9.12 - Shell / Rail / Header",
     kind: "composition",
     node: <ShellSection />,
+  },
+  {
+    id: "sidebar-rail",
+    title: "Section 9.12 - Sidebar rail",
+    kind: "composition",
+    node: <SidebarRailSection />,
   },
   {
     id: "conversation-item",

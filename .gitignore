@@ -23,7 +23,7 @@ test-harness/widget-harness/vite.config.d.ts
 test-harness/widget-harness/vite.config.d.ts.map
 test-harness/widget-harness/vite.config.js
 test-harness/widget-harness/vite.config.js.map
-
+.codex/
 apps/*/dist/
 packages/*/dist/
 test-harness/*/dist/

@@ -156,6 +156,12 @@
   /* ── runtime motion ───────────────────────────────────────────────── */
   --dur: 200ms;
 
+  /* The design-system density control mutates --space-unit; Tailwind v4 spacing
+     utilities and widget tier-2 spacing tokens read --spacing. Bridge the two so
+     the showcase density slider re-skins real components without a discrete
+     --space-N scale in implementation code. */
+  --spacing: var(--space-unit, 0.25rem);
+
   /* ── tier 1 radius aliases; local so the showcase --radius scrub re-skins descendants. ─ */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -742,8 +748,8 @@
   .sc-settings-theme-card {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
+    gap: calc(var(--spacing) * 2.5);
+    padding: calc(var(--spacing) * 2) calc(var(--spacing) * 2.5);
     border: 1.5px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--card);
@@ -790,11 +796,11 @@
   .sc-settings-theme-list {
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: calc(var(--spacing) * 1.75);
   }
 
   .sc-settings-theme-list[data-wide="true"] {
-    margin-top: 9px;
+    margin-top: calc(var(--spacing) * 2.25);
   }
 
   .sc-settings-accent-swatch {
@@ -836,10 +842,10 @@
   .sc-settings-select-trigger {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: calc(var(--spacing) * 2.25);
     width: 100%;
     box-sizing: border-box;
-    padding: 9px 11px;
+    padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 2.75);
     border: 1px solid var(--settings-field-border);
     background: var(--settings-field-bg);
     border-radius: var(--settings-field-radius);
@@ -851,8 +857,8 @@
   .sc-settings-menu-row {
     display: flex;
     align-items: center;
-    gap: 11px;
-    padding: 9px;
+    gap: calc(var(--spacing) * 2.75);
+    padding: calc(var(--spacing) * 2.25);
     border-radius: var(--menu-item-radius);
     cursor: pointer;
     font-family: inherit;
@@ -866,11 +872,11 @@
   .sc-settings-textarea {
     width: 100%;
     box-sizing: border-box;
-    margin-top: 9px;
+    margin-top: calc(var(--spacing) * 2.25);
     border: 1px solid var(--settings-field-border);
     background: var(--settings-field-bg);
     border-radius: var(--settings-field-radius);
-    padding: 10px 12px;
+    padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
     font-family: inherit;
     font-size: var(--text-sm);
     line-height: 1.55;
@@ -887,7 +893,7 @@
   .sc-settings-switch-row {
     display: flex;
     align-items: center;
-    gap: 11px;
+    gap: calc(var(--spacing) * 2.75);
   }
 }
 
@@ -904,7 +910,7 @@
   padding-inline: var(--header-px);
 }
 @utility sc-rail {
-  @apply flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground;
+  @apply flex h-full min-h-0 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground;
   width: var(--size-sidebar);
 }
 @utility sc-rail-newchat {
