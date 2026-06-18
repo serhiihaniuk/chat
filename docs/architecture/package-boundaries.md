@@ -23,8 +23,13 @@ requirements.
 ## Data Rules
 
 - Hono objects become `StreamChatInput` at the HTTP adapter boundary.
+- Service composition owns the model catalog: configured provider/model ids,
+  context-window metadata, and selectable reasoning efforts. The widget reads
+  the catalog and core validates the resulting per-turn preference.
 - Core turns policy instructions, trusted context, and chat history into final
   `AiRuntimeRequest.messages` before crossing the runtime port.
+- Core may carry provider-neutral reasoning on `AiRuntimeRequest`; provider
+  adapters translate that to SDK-specific options inside runtime.
 - AI SDK stream parts become provider-neutral RuntimeEvents inside
   `agent-runtime`; the event shape lives in `ai-runtime-contract`.
 - RuntimeEvents become browser-safe SidechatStreamEvents in `partner-ai-core`.

@@ -19,8 +19,9 @@ browser form submit
 ```
 
 Browser requests do not carry raw system instructions, executor choices, or
-provider-native options. Service composition resolves profile system prompt ids
-into instructions, core validates the turn policy decision, renders final
+provider-native options. They may carry a model preference learned from the
+backend model catalog. Service composition resolves profile system prompt ids
+into instructions, core validates profile/model/reasoning policy, renders final
 runtime messages, and runtime receives one provider-neutral request.
 
 ## Turn Lifecycle
@@ -31,7 +32,7 @@ runtime messages, and runtime receives one provider-neutral request.
 |     2 | Prove workspace/project authority.                                                                                                                    | core                       | Pre-start rejection                                                   |
 |     3 | Record request received.                                                                                                                              | core observability         | Pre-start rejection                                                   |
 |     4 | Load and validate host capability manifest.                                                                                                           | core through port          | Pre-start rejection                                                   |
-|     5 | Resolve profile, model, tools, executor id, instructions, commands, and approval policy.                                                              | core policy                | Pre-start rejection                                                   |
+|     5 | Resolve profile, backend-validated model/reasoning, tools, executor id, instructions, commands, and approval policy.                                  | core policy                | Pre-start rejection                                                   |
 |     6 | Run profile-selected turn guards before private context, persistence, or runtime tools.                                                               | core guard port            | Pre-start rejection                                                   |
 |     7 | Ensure authorized conversation and append the user message.                                                                                           | core repository port       | Pre-start rejection                                                   |
 |     8 | Start the assistant turn record.                                                                                                                      | core lifecycle port        | Pre-start rejection, with failed turn recording after this point      |
@@ -49,6 +50,9 @@ runtime messages, and runtime receives one provider-neutral request.
   `sidechat.started` and uses the policy-allowed conversation.
 - Runtime executor selection is part of the turn policy decision. The model does
   not choose an executor.
+- Model and reasoning selection is validated before persistence or runtime. The
+  widget can request only ids from `/models`; core still fails closed if the
+  provider, model, assistant profile, or reasoning effort is not allowed.
 - Runtime tools are exposed only after policy allows their names and runtime can
   resolve matching executable registrations.
 - Conversation title generation runs only after successful assistant output for

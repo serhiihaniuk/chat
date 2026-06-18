@@ -1,4 +1,4 @@
-import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
+import type { ChatModelPreference, SidechatStreamEvent } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
 import { useCallback, useRef, useState, type SetStateAction } from "react";
 
@@ -35,10 +35,12 @@ export const useWidgetChat = ({
   conversationStorageKey,
   hostBridge,
   selectedProfileId,
+  selectedModel,
 }: {
   readonly client: SideChatApiClient;
   readonly conversationStorageKey: string | undefined;
   readonly hostBridge: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
+  readonly selectedModel: ChatModelPreference | undefined;
   readonly selectedProfileId: string | undefined;
 }) => {
   const initialConversationStore = useRef(readWidgetConversationStore(conversationStorageKey));
@@ -133,6 +135,7 @@ export const useWidgetChat = ({
           hostContext,
           message: trimmed,
           messageId: userMessageId,
+          model: selectedModel,
           requestId,
         });
 
@@ -181,6 +184,7 @@ export const useWidgetChat = ({
       refreshConversations,
       hostBridge,
       selectedProfileId,
+      selectedModel,
       status,
     ],
   );

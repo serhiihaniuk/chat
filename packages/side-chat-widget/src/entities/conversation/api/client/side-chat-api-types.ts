@@ -1,4 +1,5 @@
 import type {
+  ChatReasoningEffort,
   ChatStreamRequest,
   HistoryMessage,
   SidechatStreamEvent,
@@ -31,6 +32,7 @@ export type SideChatApiClientOptions = {
   readonly baseUrl: string;
   readonly conversationsPath?: string | undefined;
   readonly historyPath?: string | undefined;
+  readonly modelsPath?: string | undefined;
   readonly streamPath?: string | undefined;
   readonly fetch?: FetchLike | undefined;
   readonly retry?: RetryPolicy | undefined;
@@ -88,6 +90,32 @@ export type ListConversationsResult = {
   readonly conversations: readonly ConversationSummary[];
 };
 
+export type ModelCatalogReasoning = {
+  readonly defaultEffort: ChatReasoningEffort;
+  readonly efforts: readonly ChatReasoningEffort[];
+};
+
+export type ModelCatalogOption = {
+  readonly providerId: string;
+  readonly modelId: string;
+  readonly displayName: string;
+  readonly contextWindowTokens?: number | undefined;
+  readonly maxOutputTokens?: number | undefined;
+  readonly default: boolean;
+  readonly available: boolean;
+  readonly reasoning?: ModelCatalogReasoning | undefined;
+};
+
+export type ListModelsResult = {
+  readonly defaultModel?: { readonly providerId: string; readonly modelId: string } | undefined;
+  readonly models: readonly ModelCatalogOption[];
+};
+
+/** Cancellation control for reading backend-configured model options. */
+export type ListModelsOptions = {
+  readonly signal?: AbortSignal | undefined;
+};
+
 /** Stored transcript returned for a selected conversation. */
 export type ReadHistoryResult = {
   readonly conversationId: string;
@@ -119,6 +147,7 @@ export type ReadUsageOptions = {
  * they support without leaking transport internals into React state code.
  */
 export type SideChatApiClient = {
+  readonly listModels?: ((options?: ListModelsOptions) => Promise<ListModelsResult>) | undefined;
   readonly listConversations?:
     | ((options?: ListConversationsOptions) => Promise<ListConversationsResult>)
     | undefined;

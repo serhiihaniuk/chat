@@ -73,17 +73,28 @@ const profileVersionIssues = (
 const profileModelIssues = (
   profile: AssistantProfile,
   decision: TurnPolicyDecision,
-): readonly HostCapabilityValidationIssue[] =>
-  decision.providerId === profile.modelPolicy.providerId &&
-  decision.modelId === profile.modelPolicy.modelId
-    ? []
-    : [
-        {
-          code: HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MODEL_POLICY_MISMATCH,
-          path: "modelPolicy",
-          message: `Turn policy model ${decision.providerId}/${decision.modelId} does not match profile ${profile.modelPolicy.providerId}/${profile.modelPolicy.modelId}.`,
-        },
-      ];
+): readonly HostCapabilityValidationIssue[] => {
+  if (decision.providerId !== profile.modelPolicy.providerId) {
+    return [
+      {
+        code: HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MODEL_POLICY_MISMATCH,
+        path: "modelPolicy.providerId",
+        message: `Turn policy provider ${decision.providerId} does not match profile ${profile.modelPolicy.providerId}.`,
+      },
+    ];
+  }
+
+  const allowedModelIds = profile.modelPolicy.allowedModelIds ?? [profile.modelPolicy.modelId];
+  if (allowedModelIds.includes(decision.modelId)) return [];
+
+  return [
+    {
+      code: HOST_CAPABILITY_VALIDATION_CODES.PROFILE_MODEL_POLICY_MISMATCH,
+      path: "modelPolicy.modelId",
+      message: `Turn policy model ${decision.modelId} is not allowed by profile ${profile.profileId}.`,
+    },
+  ];
+};
 
 const profileInstructionsIssues = (
   profile: AssistantProfile,

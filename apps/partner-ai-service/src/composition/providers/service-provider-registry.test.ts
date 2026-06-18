@@ -31,9 +31,7 @@ describe("createServiceProviderRegistry", () => {
 
   it("rejects duplicate model ids within one provider", () => {
     expect(() =>
-      createServiceProviderRegistry([
-        fakeRegistration({ modelIds: ["fake-echo", "fake-echo"] }),
-      ]),
+      createServiceProviderRegistry([fakeRegistration({ modelIds: ["fake-echo", "fake-echo"] })]),
     ).toThrow("Duplicate model id fake-echo in provider fake.");
   });
 
@@ -55,7 +53,7 @@ describe("createServiceProviderRegistry", () => {
         apiKey: "sk-secret-key",
         baseUrl: "https://secret-provider.example/v1",
         retention: "provider_default",
-        reasoning: { effort: "medium", summary: "auto" },
+        reasoning: { effort: "medium", summary: "auto", allowedEfforts: ["low", "medium", "high"] },
       },
     ]);
 
@@ -67,7 +65,11 @@ describe("createServiceProviderRegistry", () => {
       modelIds: ["gpt-5.4-mini", "gpt-5.4"],
       defaultModelId: "gpt-5.4-mini",
       retention: "provider_default",
-      reasoning: { effort: "medium", summary: "auto" },
+      models: [
+        { modelId: "gpt-5.4-mini", displayName: "gpt-5.4-mini" },
+        { modelId: "gpt-5.4", displayName: "gpt-5.4" },
+      ],
+      reasoning: { effort: "medium", summary: "auto", allowedEfforts: ["low", "medium", "high"] },
     });
 
     const statusText = JSON.stringify(registry.status);

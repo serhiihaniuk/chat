@@ -13,6 +13,7 @@ import type { ReadHistoryResult, SideChatApiClient } from "../client/side-chat-a
 const CONVERSATION_LIST_LIMIT = 25;
 const CONVERSATION_HISTORY_LIMIT = 100;
 const CONVERSATION_QUERY_ROOT = ["sidechat-widget", "conversation"] as const;
+const MODEL_CATALOG_QUERY_ROOT = ["sidechat-widget", "models"] as const;
 
 const conversationQueryKeys = {
   lists: () => [...CONVERSATION_QUERY_ROOT, "list"] as const,
@@ -36,6 +37,10 @@ type UseGetConversationHistoryInput = {
   readonly client: SideChatApiClient;
   readonly conversationId: string | undefined;
   readonly enabled: boolean;
+};
+
+type UseGetModelCatalogInput = {
+  readonly client: SideChatApiClient;
 };
 
 type ResetConversationInput = {
@@ -101,6 +106,14 @@ export const useGetConversationHistory = ({
     enabled: enabled && conversationId !== undefined && client.readHistory !== undefined,
   });
 
+export const useGetModelCatalog = ({ client }: UseGetModelCatalogInput) =>
+  useQuery({
+    queryKey: MODEL_CATALOG_QUERY_ROOT,
+    queryFn: ({ signal }) => readModelCatalog(client, signal),
+    enabled: client.listModels !== undefined,
+    staleTime: 60_000,
+  });
+
 export const useResetConversation = (client: SideChatApiClient) => {
   const queryClient = useQueryClient();
 
@@ -114,6 +127,17 @@ export const useResetConversation = (client: SideChatApiClient) => {
       ]);
     },
   });
+};
+
+const readModelCatalog = async (
+  client: SideChatApiClient,
+  signal: AbortSignal,
+): Promise<Awaited<ReturnType<NonNullable<SideChatApiClient["listModels"]>>>> => {
+  if (!client.listModels) {
+    throw new SideChatApiError("network_error", "Model catalog is not available");
+  }
+
+  return client.listModels({ signal });
 };
 
 export const useConversationQueryRepository = ({

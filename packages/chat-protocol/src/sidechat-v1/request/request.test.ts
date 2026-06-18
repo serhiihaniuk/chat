@@ -22,6 +22,25 @@ describe("parseChatStreamRequest", () => {
     expect(request.hostContext?.schemaVersion).toBe("host.v1");
   });
 
+  it("accepts a backend model preference with reasoning effort", () => {
+    const request = parseChatStreamRequest({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      requestId: "req_001",
+      model: {
+        providerId: "openai",
+        modelId: "gpt-5.5-mini",
+        reasoningEffort: "high",
+      },
+      message: { id: "msg_001", content: "Explain this" },
+    });
+
+    expect(request.model).toEqual({
+      providerId: "openai",
+      modelId: "gpt-5.5-mini",
+      reasoningEffort: "high",
+    });
+  });
+
   it("accepts a request without optional fields", () => {
     const request = parseChatStreamRequest({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -71,6 +90,36 @@ describe("parseChatStreamRequest", () => {
         protocolVersion: SIDECHAT_PROTOCOL_VERSION,
         requestId: "req_001",
         message: { id: "msg_001", content: "Hello", sequence: 1 },
+      }),
+    ).toThrow(ProtocolValidationError);
+  });
+
+  it("rejects unknown model fields", () => {
+    expect(() =>
+      parseChatStreamRequest({
+        protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+        requestId: "req_001",
+        model: {
+          providerId: "openai",
+          modelId: "gpt-5.5-mini",
+          temperature: 0.2,
+        },
+        message: { id: "msg_001", content: "Hello" },
+      }),
+    ).toThrow(ProtocolValidationError);
+  });
+
+  it("rejects unsupported model reasoning effort", () => {
+    expect(() =>
+      parseChatStreamRequest({
+        protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+        requestId: "req_001",
+        model: {
+          providerId: "openai",
+          modelId: "gpt-5.5-mini",
+          reasoningEffort: "extreme",
+        },
+        message: { id: "msg_001", content: "Hello" },
       }),
     ).toThrow(ProtocolValidationError);
   });

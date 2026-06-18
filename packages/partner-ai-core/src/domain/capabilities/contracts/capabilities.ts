@@ -77,7 +77,16 @@ export type OutputContract = {
 
 export type ModelPolicy = {
   readonly providerId: ProviderId;
+  /** Default model used when the request does not choose one. */
   readonly modelId: ModelId;
+  /** Backend model ids this profile may switch between for a turn. */
+  readonly allowedModelIds?: readonly ModelId[] | undefined;
+};
+
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export type ReasoningPolicy = {
+  readonly effort: ReasoningEffort;
 };
 
 export type ToolExposurePolicy = {
@@ -95,8 +104,9 @@ export type SafetyPolicy = {
  * Versioned assistant policy registered by a host capability manifest.
  *
  * Core resolves exactly one profile per assistant turn. Provider/model, default
- * tools, output, and safety policy flow from that profile; callers must not
- * treat request-level model ids as a second selection path.
+ * tools, output, and safety policy flow from that profile. Request-level model
+ * preferences are only honored when backend policy resolves them to a model id
+ * listed in `modelPolicy.allowedModelIds`.
  */
 export type AssistantProfile = {
   readonly profileId: ProfileId;
@@ -202,6 +212,7 @@ export type TurnPolicyDecision = {
   readonly executorId: ExecutorId;
   readonly providerId: ProviderId;
   readonly modelId: ModelId;
+  readonly reasoning?: ReasoningPolicy | undefined;
   readonly allowedToolNames: readonly string[];
   readonly allowedCommandNames: readonly string[];
   readonly approvalRequirements: readonly ApprovalRequirement[];
@@ -212,4 +223,5 @@ export type TurnPolicyResolutionInput = {
   readonly manifest: HostCapabilityManifest;
   readonly profile: AssistantProfile;
   readonly manifestHash: ManifestHash;
+  readonly modelSelection?: ModelPolicy & { readonly reasoning?: ReasoningPolicy | undefined };
 };

@@ -24,6 +24,8 @@ RuntimeEvent shapes live in `ai-runtime-contract` and are emitted by
 ## Runtime Rules
 
 - `agent-runtime` receives a prepared `AiRuntimeRequest`.
+- `AiRuntimeRequest.reasoning` is provider-neutral. Provider adapters translate
+  it to private SDK options and choose defaults when core does not select one.
 - The selected AgentExecutor emits RuntimeEvents.
 - The default executor calls the private AI SDK adapter.
 - Other executors may use different engines but must still emit RuntimeEvents at
@@ -34,7 +36,9 @@ RuntimeEvent shapes live in `ai-runtime-contract` and are emitted by
 ## Protocol Rules
 
 - `chat-protocol` owns `sidechat.v1` request/event DTOs, constants, validators,
-  ordering checks, SSE codec, and generated schema.
+  ordering checks, SSE codec, and generated schema. A request model preference
+  names provider/model ids and reasoning effort only; it never carries
+  provider-native options.
 - Core maps RuntimeEvents to SidechatStreamEvents.
 - The browser never receives provider-native parts, RuntimeEvents, Effect
   values, DB rows, Hono objects, or raw provider errors.

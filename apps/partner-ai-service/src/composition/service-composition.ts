@@ -15,6 +15,7 @@ import type { ServiceComposition, ServiceCompositionOptions } from "./service-co
 export type {
   PersistenceConfig,
   RuntimeConfig,
+  RuntimeModelMetadata,
   RuntimeToolConfig,
   ServiceComposition,
   ServiceCompositionOptions,
@@ -92,6 +93,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   });
   const capabilities = createServiceCapabilityBundle(options, {
     assistants: assistants.registry,
+    providers: providers.registry,
     tools: tools.registry,
     persistence,
   });

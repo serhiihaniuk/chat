@@ -40,9 +40,15 @@ Not source of truth for: global vocabulary or product requirements.
 `/healthz` and `/readyz` include a safe `capabilities` object owned by service
 composition. It reports whether history context, context admission, and
 persistence are disabled or configured. The same endpoints report secret-free
-`providers` and `tools` registry status: provider ids, model
-ids, default selection, and tool names with their default-enabled and approval
-policy ids. Provider secrets and tool payloads stay hidden.
+`providers` and `tools` registry status: provider ids, model ids, default
+selection, model metadata, reasoning policy, and tool names with their
+default-enabled and approval policy ids. Provider secrets and tool payloads
+stay hidden.
+
+`GET /models` exposes the browser-safe model catalog derived from the provider
+registry: provider/model ids, display names, context windows, output limits,
+availability, default selection, and selectable reasoning efforts. It never
+exposes provider secrets, base URLs, or provider-native request options.
 
 Provider and tool registries are the single source for those surfaces.
 `createServiceProviderRegistry` validates provider/model registrations and picks
@@ -106,6 +112,11 @@ Local defaults are explicit and fail closed:
 | `SIDECHAT_CONTEXT_MAX_INPUT_TOKENS`       | `24000`            | Recorded model input budget.                                      |
 | `SIDECHAT_CONTEXT_RESERVED_OUTPUT_TOKENS` | `4000`             | Reserved output budget; must be below max input tokens.           |
 | `SIDECHAT_CONTEXT_MAX_HISTORY_TOKENS`     | `4000`             | Recorded per-source history budget.                               |
+| `SIDECHAT_PROVIDER`                       | `fake`             | `fake` or `openai`; production requires `openai`.                 |
+| `SIDECHAT_ALLOWED_MODELS`                 | none               | Comma-separated runtime model ids; required for OpenAI.           |
+| `SIDECHAT_MODEL_CONTEXT_WINDOWS`          | known models only  | Comma-separated `modelId:tokens` overrides for catalog display.   |
+| `SIDECHAT_OPENAI_REASONING_EFFORT`        | `medium`           | Default OpenAI reasoning effort when a turn does not select one.  |
+| `SIDECHAT_OPENAI_REASONING_EFFORTS`       | all runtime values | Comma-separated reasoning efforts exposed in the model catalog.   |
 
 Example local path that enables recent conversation history:
 
@@ -117,6 +128,17 @@ npm run dev --workspace @side-chat/partner-ai-service
 History reports the repository-backed context adapter when `recent_messages` is
 enabled. Longer-history summarization is tracked as deferred product work in
 `docs/product/todo.md`.
+
+Example OpenAI catalog with two selectable models:
+
+```sh
+SIDECHAT_PROVIDER=openai \
+SIDECHAT_ALLOWED_MODELS=gpt-5.4-mini,gpt-5.5-mini \
+SIDECHAT_MODEL_CONTEXT_WINDOWS=gpt-5.5-mini:1000000 \
+SIDECHAT_OPENAI_REASONING_EFFORT=medium \
+SIDECHAT_OPENAI_REASONING_EFFORTS=low,medium,high \
+npm run dev --workspace @side-chat/partner-ai-service
+```
 
 ## Verify
 

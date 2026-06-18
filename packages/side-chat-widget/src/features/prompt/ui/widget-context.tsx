@@ -1,32 +1,30 @@
 import { PromptInputButton } from "#shared/ai/prompt-input";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "#shared/ui/hover-card";
+import { FileTextIcon } from "lucide-react";
 
 import type { WidgetMessage, WidgetUsage } from "#entities/chat";
 
-const recentContextMessageLimit = 12;
-const recentContextMessageCharacters = 1200;
-const recentContextTotalCharacters = 6000;
+const recentChatMessageLimit = 12;
+const recentChatMessageCharacters = 1200;
+const recentChatTotalCharacters = 6000;
 
 const compactNumber = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
   notation: "compact",
 });
 
-export const getVisibleContextCharacters = (messages: readonly WidgetMessage[]): number => {
+export const getVisibleChatCharacters = (messages: readonly WidgetMessage[]): number => {
   const formattedLength = messages
     .filter((message) => message.role === "user" || message.role === "assistant")
-    .slice(-recentContextMessageLimit)
+    .slice(-recentChatMessageLimit)
     .reduce((total, message) => {
       const normalized = message.content.replace(/\s+/g, " ").trim();
       return (
-        total +
-        message.role.length +
-        2 +
-        Math.min(normalized.length, recentContextMessageCharacters)
+        total + message.role.length + 2 + Math.min(normalized.length, recentChatMessageCharacters)
       );
     }, 0);
 
-  return Math.min(formattedLength, recentContextTotalCharacters);
+  return Math.min(formattedLength, recentChatTotalCharacters);
 };
 
 export const WidgetContextTools = ({
@@ -35,29 +33,29 @@ export const WidgetContextTools = ({
 }: {
   readonly messages: readonly WidgetMessage[];
   readonly usage: WidgetUsage | undefined;
-}) => <ContextUsageControl usedCharacters={getVisibleContextCharacters(messages)} usage={usage} />;
+}) => <ChatSizeControl usedCharacters={getVisibleChatCharacters(messages)} usage={usage} />;
 
-const ContextUsageControl = ({
+const ChatSizeControl = ({
   usedCharacters,
   usage,
 }: {
   readonly usedCharacters: number;
   readonly usage: WidgetUsage | undefined;
 }) => {
-  const percent = Math.min(100, Math.round((usedCharacters / recentContextTotalCharacters) * 100));
+  const estimatedTokens = estimateTokens(usedCharacters);
 
   return (
     <HoverCard closeDelay={100} openDelay={100}>
       <HoverCardTrigger
         render={
           <PromptInputButton
-            aria-label={`Context usage ${percent}%`}
+            aria-label="Chat size estimate"
             className="gap-1.5 px-1.5 text-muted-foreground"
           />
         }
       >
-        <ContextRing percent={percent} />
-        <span>{percent}%</span>
+        <FileTextIcon aria-hidden="true" className="size-4" />
+        <span>Chat size</span>
       </HoverCardTrigger>
       <HoverCardContent
         align="start"
@@ -66,75 +64,42 @@ const ContextUsageControl = ({
         sideOffset={8}
       >
         <span className="flex items-center justify-between gap-3">
-          <strong className="font-medium text-foreground text-sm">Context usage</strong>
-          <span className="font-medium text-muted-foreground">{percent}%</span>
+          <strong className="font-medium text-foreground text-sm">Chat size estimate</strong>
+          <span className="font-medium text-muted-foreground">
+            ~{compactNumber.format(estimatedTokens)} tokens
+          </span>
         </span>
-        <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
-          <span
-            className="block h-full rounded-full bg-foreground"
-            style={{ width: `${percent}%` }}
-          />
-        </span>
-        <ContextUsageRows usedCharacters={usedCharacters} usage={usage} />
+        <ChatSizeRows
+          estimatedTokens={estimatedTokens}
+          usedCharacters={usedCharacters}
+          usage={usage}
+        />
         <span className="mt-3 block rounded bg-muted px-2 py-1.5 text-muted-foreground text-xs">
-          Estimate only: this meter counts recent visible chat text. The service separately applies
-          backend token budgets before each model call.
+          Local estimate only. This is not the selected model's context window; the service applies
+          backend context budgets before each model call.
         </span>
       </HoverCardContent>
     </HoverCard>
   );
 };
 
-const ContextRing = ({ percent }: { readonly percent: number }) => {
-  const radius = 8;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference - (percent / 100) * circumference;
-
-  return (
-    <svg aria-hidden="true" className="size-4 -rotate-90" viewBox="0 0 20 20">
-      <circle
-        cx="10"
-        cy="10"
-        fill="none"
-        r={radius}
-        stroke="currentColor"
-        strokeOpacity="0.25"
-        strokeWidth="2"
-      />
-      <circle
-        cx="10"
-        cy="10"
-        fill="none"
-        r={radius}
-        stroke="currentColor"
-        strokeDasharray={circumference}
-        strokeDashoffset={dashOffset}
-        strokeLinecap="round"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-};
-
-const ContextUsageRows = ({
+const ChatSizeRows = ({
+  estimatedTokens,
   usedCharacters,
   usage,
 }: {
+  readonly estimatedTokens: number;
   readonly usedCharacters: number;
   readonly usage: WidgetUsage | undefined;
 }) => (
   <span className="mt-3 grid gap-2">
     <ContextRow
-      label="Visible chat text"
-      value={`${compactNumber.format(usedCharacters)} / ${compactNumber.format(
-        recentContextTotalCharacters,
-      )} chars`}
+      label="Recent visible text"
+      value={`${compactNumber.format(usedCharacters)} chars`}
     />
     <ContextRow
-      label="Approx. chat tokens"
-      value={`${compactNumber.format(
-        estimateTokens(usedCharacters),
-      )} / ${compactNumber.format(estimateTokens(recentContextTotalCharacters))}`}
+      label="Approx. visible tokens"
+      value={`~${compactNumber.format(estimatedTokens)}`}
     />
     <ContextRow
       label="Last turn tokens"

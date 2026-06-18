@@ -139,6 +139,50 @@ describe("createSideChatApiClient", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("reads the backend model catalog with reasoning and context metadata", async () => {
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(
+        Response.json({
+          protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+          defaultModel: { providerId: "openai", modelId: "gpt-5.4-mini" },
+          models: [
+            {
+              providerId: "openai",
+              modelId: "gpt-5.4-mini",
+              displayName: "GPT-5.4 mini",
+              contextWindowTokens: 400_000,
+              maxOutputTokens: 128_000,
+              default: true,
+              available: true,
+              reasoning: { defaultEffort: "medium", efforts: ["low", "medium", "high"] },
+            },
+          ],
+        }),
+      ),
+    );
+    const client = createSideChatApiClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    await expect(client.listModels?.()).resolves.toEqual({
+      defaultModel: { providerId: "openai", modelId: "gpt-5.4-mini" },
+      models: [
+        {
+          providerId: "openai",
+          modelId: "gpt-5.4-mini",
+          displayName: "GPT-5.4 mini",
+          contextWindowTokens: 400_000,
+          maxOutputTokens: 128_000,
+          default: true,
+          available: true,
+          reasoning: { defaultEffort: "medium", efforts: ["low", "medium", "high"] },
+        },
+      ],
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://assistant.example.test/models");
+  });
+
   it("retries configured status failures before streaming", async () => {
     const fetchMock = vi
       .fn<FetchLike>()

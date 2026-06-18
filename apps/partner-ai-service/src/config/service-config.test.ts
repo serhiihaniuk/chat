@@ -117,17 +117,33 @@ describe("partner ai service env config", () => {
       createPartnerAiServiceOptionsFromEnv({
         SIDECHAT_PROVIDER: "openai",
         SIDECHAT_OPENAI_API_KEY: "key_123",
-        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini,gpt-5.5-mini",
+        SIDECHAT_MODEL_CONTEXT_WINDOWS: "gpt-5.5-mini:1000000",
         SIDECHAT_OPENAI_REASONING_EFFORT: "medium",
+        SIDECHAT_OPENAI_REASONING_EFFORTS: "low,medium,high",
         SIDECHAT_OPENAI_REASONING_SUMMARY: "auto",
       }).runtime,
     ).toMatchObject({
       provider: "openai",
       apiKey: "key_123",
-      modelIds: ["gpt-5.4-mini"],
+      modelIds: ["gpt-5.4-mini", "gpt-5.5-mini"],
       defaultModelId: "gpt-5.4-mini",
+      modelMetadata: [
+        {
+          modelId: "gpt-5.4-mini",
+          displayName: "GPT-5.4 mini",
+          contextWindowTokens: 400_000,
+          maxOutputTokens: 128_000,
+        },
+        {
+          modelId: "gpt-5.5-mini",
+          displayName: "GPT-5.5 mini",
+          contextWindowTokens: 1_000_000,
+        },
+      ],
       enableMockWebSearch: true,
       reasoningEffort: "medium",
+      reasoningEfforts: ["low", "medium", "high"],
       reasoningSummary: "auto",
     });
   });
@@ -188,6 +204,26 @@ describe("partner ai service env config", () => {
         SIDECHAT_OPENAI_REASONING_SUMMARY: "verbose",
       }),
     ).toThrow("SIDECHAT_OPENAI_REASONING_SUMMARY");
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROVIDER: "openai",
+        SIDECHAT_OPENAI_API_KEY: "key_123",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini",
+        SIDECHAT_OPENAI_REASONING_EFFORT: "high",
+        SIDECHAT_OPENAI_REASONING_EFFORTS: "low,medium",
+      }),
+    ).toThrow("SIDECHAT_OPENAI_REASONING_EFFORT must be included");
+  });
+
+  it("rejects malformed model context window env config", () => {
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_PROVIDER: "openai",
+        SIDECHAT_OPENAI_API_KEY: "key_123",
+        SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini",
+        SIDECHAT_MODEL_CONTEXT_WINDOWS: "gpt-5.4-mini:not-a-number",
+      }),
+    ).toThrow("SIDECHAT_MODEL_CONTEXT_WINDOWS");
   });
 
   it("rejects OpenAI provider config without credentials or allowed models", () => {

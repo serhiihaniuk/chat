@@ -1,10 +1,11 @@
 import type { Effect } from "effect";
 import type { LanguageModel, ToolLoopAgentSettings } from "ai";
-import type { AiRuntimeError } from "@side-chat/ai-runtime-contract";
+import type { AiRuntimeError, RuntimeReasoningPolicy } from "@side-chat/ai-runtime-contract";
 
 export type ProviderSelection = {
   readonly providerId: string;
   readonly modelId: string;
+  readonly reasoning?: RuntimeReasoningPolicy | undefined;
 };
 
 export type ModelProvider = {

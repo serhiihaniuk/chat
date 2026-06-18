@@ -31,7 +31,12 @@ const buildInput = (persistence: ServicePersistenceBundle) => {
       registeredGuardIds: [],
     },
   );
-  return { assistants: assistants.registry, tools: tools.registry, persistence };
+  return {
+    assistants: assistants.registry,
+    providers: providers.registry,
+    tools: tools.registry,
+    persistence,
+  };
 };
 
 const memoryPersistence: ServicePersistenceBundle = {

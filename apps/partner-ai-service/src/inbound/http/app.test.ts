@@ -30,6 +30,7 @@ describe("partner ai service /chat/stream", () => {
       (await app.request("/models", { headers: authHeaders })).json(),
     ).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      defaultModel: { providerId: "fake", modelId: "fake-echo" },
       models: [{ providerId: "fake", modelId: "fake-echo" }],
     });
 

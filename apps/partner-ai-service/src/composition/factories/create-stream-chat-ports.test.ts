@@ -32,7 +32,12 @@ const buildDeps = (security: ServiceSecurityBundle) => {
   );
   const capabilities = createServiceCapabilityBundle(
     { workspace },
-    { assistants: assistants.registry, tools: tools.registry, persistence },
+    {
+      assistants: assistants.registry,
+      providers: providers.registry,
+      tools: tools.registry,
+      persistence,
+    },
   );
   const context = createServiceContextBundle({ workspace }, { repositories });
   const runtime = createServiceRuntimeBundle({ workspace }, { providers, tools });

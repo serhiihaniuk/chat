@@ -22,6 +22,7 @@ import { SettingsView } from "#features/settings";
 import { useWidgetTheme } from "#features/theme";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
 import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } from "lucide-react";
+import { useWidgetModelSelection } from "../model/side-chat-model-selection.js";
 import { createSideChatWidgetQueryClient } from "../model/side-chat-query-client.js";
 import type { SideChatWidgetLabels, SideChatWidgetProps } from "../model/side-chat-widget.types.js";
 
@@ -96,11 +97,17 @@ const SideChatWidgetContent = ({
     () => assistantProfiles.find((profile) => profile.id === selectedProfileId),
     [assistantProfiles, selectedProfileId],
   );
-  const hasProfiles = assistantProfiles.length > 0;
+  const modelSelection = useWidgetModelSelection({
+    assistantProfiles,
+    client,
+    selectedProfileId,
+    setSelectedProfileId,
+  });
   const chat = useWidgetChat({
     client,
     conversationStorageKey,
     hostBridge,
+    selectedModel: modelSelection.selectedModel,
     selectedProfileId,
   });
   const isBusy = isBusyStatus(chat.status);
@@ -180,11 +187,14 @@ const SideChatWidgetContent = ({
             isBusy={isBusy}
             labels={resolvedLabels}
             messages={chat.messages}
-            onProfileSelect={setSelectedProfileId}
+            models={modelSelection.footerModels}
+            onModelSelect={modelSelection.selectFooterModel}
+            onReasoningEffortSelect={modelSelection.setSelectedReasoningEffort}
             onSubmitMessage={chat.submitMessage}
-            profiles={hasProfiles ? assistantProfiles : []}
-            selectedProfileId={selectedProfileId}
-            selectedProfileLabel={selectedProfile?.label}
+            reasoningEfforts={modelSelection.reasoningEfforts}
+            selectedModelKey={modelSelection.selectedFooterModelKey}
+            selectedModelLabel={modelSelection.selectedModelLabel ?? selectedProfile?.label}
+            selectedReasoningEffort={modelSelection.selectedReasoningEffort}
             status={chat.status}
             stop={chat.stop}
             usage={chat.usage}
@@ -206,7 +216,7 @@ const SideChatWidgetContent = ({
 };
 
 // Reveals the conversation sidebar only when both the panel and the host viewport
-// have room — otherwise the header switcher stays the single-column control.
+// have room - otherwise the header switcher stays the single-column control.
 const useIsWidePanel = (panelWidth: number): boolean => {
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 0 : window.innerWidth,

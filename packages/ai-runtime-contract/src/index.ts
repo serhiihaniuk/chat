@@ -21,9 +21,9 @@ import type {
 /**
  * Provider-neutral runtime boundary shared by product core and runtime engines.
  *
- * Product core sends one final model request through `AiRuntimePort`; runtime
- * implementations emit normalized RuntimeEvents and keep provider-native parts,
- * executable tools, and AI SDK details behind their own package boundary.
+ * Product core sends one final model request through `AiRuntimePort`. The
+ * runtime boundary emits normalized RuntimeEvents and hides provider-native
+ * parts, executable tools, and AI SDK details behind their own package boundary.
  * Branded ids live in `runtime-ids.ts`; update this file when the request, event,
  * or port contract changes, not when a specific provider or executor changes.
  */
@@ -34,6 +34,29 @@ export * from "./runtime-activity.js";
 export type AiRuntimeMessage = {
   readonly role: "user" | "assistant" | "system";
   readonly content: string;
+};
+
+export const RUNTIME_REASONING_EFFORTS = {
+  NONE: "none",
+  MINIMAL: "minimal",
+  LOW: "low",
+  MEDIUM: "medium",
+  HIGH: "high",
+  XHIGH: "xhigh",
+} as const;
+
+export type RuntimeReasoningEffort =
+  (typeof RUNTIME_REASONING_EFFORTS)[keyof typeof RUNTIME_REASONING_EFFORTS];
+
+/**
+ * Provider-neutral reasoning request selected before runtime execution.
+ *
+ * Core may pass this when a turn chooses a backend-allowed reasoning effort.
+ * Provider adapters decide how to translate the effort into their SDK options;
+ * provider-native option names stay outside this contract.
+ */
+export type RuntimeReasoningPolicy = {
+  readonly effort: RuntimeReasoningEffort;
 };
 
 /**
@@ -66,6 +89,7 @@ export type AiRuntimeRequest = {
   readonly executorId: ExecutorId;
   readonly providerId: ProviderId;
   readonly modelId: ModelId;
+  readonly reasoning?: RuntimeReasoningPolicy | undefined;
   readonly messages: readonly AiRuntimeMessage[];
   readonly toolNames: readonly string[];
   readonly toolScope: AiToolScope;
@@ -88,7 +112,7 @@ export type RuntimeEventType = (typeof RUNTIME_EVENT_TYPES)[keyof typeof RUNTIME
  *
  * `content_filter` is a provider content-moderation stop; `safety_policy` is a
  * runtime/product safety stop. Both mean the user request did not complete, so
- * they must never be encoded as ordinary completion.
+ * preserve them as blocked terminals instead of ordinary completion.
  */
 export const RUNTIME_BLOCKED_REASONS = {
   CONTENT_FILTER: "content_filter",
@@ -173,8 +197,8 @@ export type RuntimeErrorEvent = RuntimeEventBase & {
 /**
  * Safety stop terminal: the request did not complete because it was filtered.
  *
- * `publicMessage` is already browser-safe; the raw provider reason stays in the
- * runtime/provider package and is never carried on this event.
+ * `publicMessage` is already browser-safe; this event hides the raw provider
+ * reason inside the runtime/provider package.
  */
 export type RuntimeBlockedEvent = RuntimeEventBase & {
   readonly type: typeof RUNTIME_EVENT_TYPES.BLOCKED;
@@ -190,10 +214,7 @@ export type RuntimeEvent =
   | RuntimeErrorEvent
   | RuntimeBlockedEvent;
 
-export type RuntimeTerminalEvent =
-  | RuntimeCompletedEvent
-  | RuntimeErrorEvent
-  | RuntimeBlockedEvent;
+export type RuntimeTerminalEvent = RuntimeCompletedEvent | RuntimeErrorEvent | RuntimeBlockedEvent;
 
 export type RuntimeUsage = {
   readonly inputTokens: number;

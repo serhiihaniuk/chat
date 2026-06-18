@@ -1,7 +1,12 @@
 import { Effect } from "effect";
 import { createOpenAI } from "@ai-sdk/openai";
 import { omitUndefinedProperties } from "@side-chat/shared";
-import { AiRuntimeError, RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
+import {
+  AiRuntimeError,
+  RUNTIME_ERROR_CODES,
+  RUNTIME_REASONING_EFFORTS,
+  type RuntimeReasoningEffort,
+} from "@side-chat/ai-runtime-contract";
 
 import type { ModelProvider } from "#providers/model-provider";
 
@@ -26,17 +31,9 @@ export type OpenAIResponsesProviderOptions = {
   readonly reasoningSummary?: OpenAIReasoningSummary | undefined;
 };
 
-export const OPENAI_REASONING_EFFORTS = {
-  NONE: "none",
-  MINIMAL: "minimal",
-  LOW: "low",
-  MEDIUM: "medium",
-  HIGH: "high",
-  XHIGH: "xhigh",
-} as const;
+export const OPENAI_REASONING_EFFORTS = RUNTIME_REASONING_EFFORTS;
 
-export type OpenAIReasoningEffort =
-  (typeof OPENAI_REASONING_EFFORTS)[keyof typeof OPENAI_REASONING_EFFORTS];
+export type OpenAIReasoningEffort = RuntimeReasoningEffort;
 
 export const OPENAI_REASONING_SUMMARIES = {
   AUTO: "auto",
@@ -85,14 +82,17 @@ export const createOpenAIResponsesProvider = (
     providerId: OPENAI_PROVIDER_ID,
     modelIds: options.modelIds,
     resolveModel: (selection) => Effect.succeed(openai.responses(selection.modelId)),
-    resolveProviderOptions: () =>
+    resolveProviderOptions: (selection) =>
       Effect.succeed({
         // `store: false` disables OpenAI-side retention of prompts/responses.
         // `reasoningSummary` is only sent when explicitly configured, so the
         // default request never asks OpenAI to produce a reasoning summary.
         openai: omitUndefinedProperties({
           store: false,
-          reasoningEffort: options.reasoningEffort ?? OPENAI_REASONING_EFFORTS.MEDIUM,
+          reasoningEffort:
+            selection.reasoning?.effort ??
+            options.reasoningEffort ??
+            OPENAI_REASONING_EFFORTS.MEDIUM,
           reasoningSummary: options.reasoningSummary,
         }),
       }),

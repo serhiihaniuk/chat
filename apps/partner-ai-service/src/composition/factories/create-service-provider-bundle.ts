@@ -53,12 +53,14 @@ const providerRegistrationForConfig = (config: RuntimeConfig): ServiceProviderRe
       providerId: OPENAI_PROVIDER_ID,
       modelIds: config.modelIds,
       defaultModelId: config.defaultModelId,
+      modelMetadata: config.modelMetadata,
       apiKey: config.apiKey,
       baseUrl: config.baseUrl === "" ? undefined : config.baseUrl,
       fetch: config.fetch,
       retention: SERVICE_MODEL_RETENTION_POLICIES.NO_RETENTION,
       reasoning: {
         effort: config.reasoningEffort ?? OPENAI_REASONING_EFFORTS.MEDIUM,
+        allowedEfforts: config.reasoningEfforts ?? Object.values(OPENAI_REASONING_EFFORTS),
         summary: config.reasoningSummary,
       },
     };

@@ -11,11 +11,14 @@ import {
   type HostCommandCapability,
   type HostCapabilityManifest,
   type HostCapabilityManifestPort,
+  type ModelPolicy,
   type ProfileId,
+  type ReasoningEffort,
   type ToolCapability,
   type TurnPolicyResolverPort,
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
+import type { ServiceProviderStatus } from "#composition/providers/service-provider-registry";
 
 const LOCAL_HOST_APP_ID = "side-chat-local";
 
@@ -72,7 +75,11 @@ export const createStaticHostCapabilityManifestPort = (
 // fails as INTERNAL_ERROR because the service shipped a broken menu, while an
 // unresolvable or forbidden profile fails as FORBIDDEN. Those two failure causes
 // stay on separate protocol codes so a caller fault is never reported as a service bug.
-export const createServiceTurnPolicyResolver = (): TurnPolicyResolverPort => ({
+export const createServiceTurnPolicyResolver = ({
+  providers,
+}: {
+  readonly providers: readonly ServiceProviderStatus[];
+}): TurnPolicyResolverPort => ({
   resolveTurnPolicy: ({ manifest, request, manifestHash }) =>
     Effect.gen(function* () {
       const validation = validateHostCapabilityManifest(manifest);
@@ -97,10 +104,98 @@ export const createServiceTurnPolicyResolver = (): TurnPolicyResolverPort => ({
         );
       }
 
+      const modelSelection = yield* resolveModelSelection({
+        profile: resolution.profile,
+        providers,
+        requestModel: request.model,
+      });
+
       return createTurnPolicyDecision({
         manifest,
         profile: resolution.profile,
         manifestHash,
+        modelSelection,
       });
     }),
 });
+
+type RequestedModel = {
+  readonly providerId: string;
+  readonly modelId: string;
+  readonly reasoningEffort?: ReasoningEffort | undefined;
+};
+
+type ResolveModelSelectionInput = {
+  readonly profile: AssistantProfile;
+  readonly providers: readonly ServiceProviderStatus[];
+  readonly requestModel: RequestedModel | undefined;
+};
+
+const resolveModelSelection = ({
+  profile,
+  providers,
+  requestModel,
+}: ResolveModelSelectionInput): Effect.Effect<
+  ModelPolicy & { readonly reasoning?: { readonly effort: ReasoningEffort } | undefined },
+  PartnerAiCoreError
+> => {
+  const defaultModel = profile.modelPolicy;
+  const selection = requestModel ?? {
+    providerId: defaultModel.providerId,
+    modelId: defaultModel.modelId,
+  };
+  const provider = providers.find((candidate) => candidate.providerId === selection.providerId);
+  if (!provider) return failForbidden(`Provider ${selection.providerId} is not registered.`);
+  if (!provider.modelIds.includes(selection.modelId)) {
+    return failForbidden(
+      `Model ${selection.modelId} is not registered for provider ${provider.providerId}.`,
+    );
+  }
+  if (!isProfileAllowedModel(profile.modelPolicy, selection)) {
+    return failForbidden(
+      `Model ${selection.modelId} is not allowed for assistant profile ${profile.profileId}.`,
+    );
+  }
+
+  const reasoning = resolveReasoningSelection(provider, selection.reasoningEffort);
+  if (reasoning instanceof PartnerAiCoreError) return Effect.fail(reasoning);
+
+  return Effect.succeed({
+    providerId: selection.providerId,
+    modelId: selection.modelId,
+    allowedModelIds: profile.modelPolicy.allowedModelIds,
+    reasoning,
+  });
+};
+
+const isProfileAllowedModel = (modelPolicy: ModelPolicy, selection: RequestedModel): boolean => {
+  if (selection.providerId !== modelPolicy.providerId) return false;
+  return (modelPolicy.allowedModelIds ?? [modelPolicy.modelId]).includes(selection.modelId);
+};
+
+const resolveReasoningSelection = (
+  provider: ServiceProviderStatus,
+  requestedEffort: ReasoningEffort | undefined,
+): { readonly effort: ReasoningEffort } | undefined | PartnerAiCoreError => {
+  if (!provider.reasoning)
+    return requestedEffort
+      ? forbiddenError("Reasoning effort is not configurable for this provider.")
+      : undefined;
+
+  const effort = requestedEffort ?? provider.reasoning.effort;
+  if (provider.reasoning.allowedEfforts.includes(effort)) return { effort };
+
+  return forbiddenError(
+    `Reasoning effort ${effort} is not allowed for provider ${provider.providerId}.`,
+  );
+};
+
+const failForbidden = (message: string): Effect.Effect<never, PartnerAiCoreError> =>
+  Effect.fail(forbiddenError(message));
+
+const forbiddenError = (message: string): PartnerAiCoreError =>
+  new PartnerAiCoreError(
+    PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
+    message,
+    PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.FORBIDDEN,
+  );

@@ -24,10 +24,20 @@ import {
  * intent in one place for diagnostics and the provider request.
  */
 export type ServiceReasoningPolicy = {
+  /** Default effort used when a turn does not request one. */
   readonly effort: OpenAIReasoningEffort;
+  /** Efforts the backend permits a browser request to select. */
+  readonly allowedEfforts: readonly OpenAIReasoningEffort[];
   // Omitted by default: a summary is only requested when an operator opts in, so
   // reasoning stays hidden unless explicitly configured.
   readonly summary?: OpenAIReasoningSummary | undefined;
+};
+
+export type ServiceModelMetadata = {
+  readonly modelId: string;
+  readonly displayName: string;
+  readonly contextWindowTokens?: number | undefined;
+  readonly maxOutputTokens?: number | undefined;
 };
 
 /**
@@ -64,6 +74,7 @@ export type ServiceProviderRegistration =
       readonly providerId: string;
       readonly modelIds: readonly string[];
       readonly defaultModelId: string;
+      readonly modelMetadata?: readonly ServiceModelMetadata[] | undefined;
       readonly apiKey: string;
       readonly baseUrl?: string | undefined;
       readonly fetch?: typeof fetch | undefined;
@@ -76,6 +87,7 @@ export type ServiceProviderStatus = {
   readonly providerId: string;
   readonly modelIds: readonly string[];
   readonly defaultModelId: string;
+  readonly models: readonly ServiceModelMetadata[];
   readonly retention?: ServiceModelRetentionPolicy;
   readonly reasoning?: ServiceReasoningPolicy;
 };
@@ -126,6 +138,8 @@ export const createServiceProviderRegistry = (
     assertUniqueProviderId(seenProviderIds, registration.providerId);
     assertUniqueModelIds(registration);
     assertDefaultModelMembership(registration);
+    assertModelMetadataMembership(registration);
+    assertReasoningPolicy(registration);
   }
 
   const defaultRegistration = registrations[0] as ServiceProviderRegistration;
@@ -174,6 +188,33 @@ const assertDefaultModelMembership = (registration: ServiceProviderRegistration)
   );
 };
 
+const assertModelMetadataMembership = (registration: ServiceProviderRegistration): void => {
+  const metadata = registration.kind === "openai" ? registration.modelMetadata : undefined;
+  if (!metadata) return;
+
+  for (const model of metadata) {
+    if (registration.modelIds.includes(model.modelId)) continue;
+
+    throw new ServiceProviderRegistryError(
+      `Model metadata references unknown model ${model.modelId} for provider ${registration.providerId}.`,
+    );
+  }
+};
+
+const assertReasoningPolicy = (registration: ServiceProviderRegistration): void => {
+  if (registration.kind !== "openai") return;
+  if (registration.reasoning.allowedEfforts.length === 0) {
+    throw new ServiceProviderRegistryError(
+      `Provider ${registration.providerId} requires at least one allowed reasoning effort.`,
+    );
+  }
+  if (registration.reasoning.allowedEfforts.includes(registration.reasoning.effort)) return;
+
+  throw new ServiceProviderRegistryError(
+    `Default reasoning effort ${registration.reasoning.effort} is not allowed for provider ${registration.providerId}.`,
+  );
+};
+
 const createModelProvider = (registration: ServiceProviderRegistration): ModelProvider => {
   if (registration.kind === "openai") {
     return createOpenAIResponsesProvider({
@@ -197,9 +238,20 @@ const toProviderStatus = (registration: ServiceProviderRegistration): ServicePro
     providerId: registration.providerId,
     modelIds: registration.modelIds,
     defaultModelId: registration.defaultModelId,
+    models: normalizeModelMetadata(registration),
   };
   if (registration.kind === "openai") {
     return { ...base, retention: registration.retention, reasoning: registration.reasoning };
   }
   return base;
+};
+
+const normalizeModelMetadata = (
+  registration: ServiceProviderRegistration,
+): readonly ServiceModelMetadata[] => {
+  const metadata = registration.kind === "openai" ? registration.modelMetadata : undefined;
+  return registration.modelIds.map((modelId) => {
+    const configured = metadata?.find((model) => model.modelId === modelId);
+    return configured ?? { modelId, displayName: modelId };
+  });
 };

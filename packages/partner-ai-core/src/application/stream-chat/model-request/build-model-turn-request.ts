@@ -21,6 +21,7 @@ export const buildModelTurnRequest = (
   executorId: turn.policyDecision.executorId,
   providerId: turn.policyDecision.providerId,
   modelId: turn.policyDecision.modelId,
+  reasoning: turn.policyDecision.reasoning,
   messages: buildModelMessages(turn),
   toolNames: turn.policyDecision.allowedToolNames,
   toolScope: {

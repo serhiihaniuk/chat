@@ -96,6 +96,7 @@ export const createTurnPolicyDecision = ({
   manifest,
   profile,
   manifestHash,
+  modelSelection,
 }: TurnPolicyResolutionInput): TurnPolicyDecision => {
   // Host commands are registered in the manifest but are not selected for a
   // turn here yet. When command execution is wired, this is the place that must
@@ -111,8 +112,9 @@ export const createTurnPolicyDecision = ({
     profileVersion: profile.version,
     systemInstructions: profile.systemInstructions,
     executorId: profile.executorId,
-    providerId: profile.modelPolicy.providerId,
-    modelId: profile.modelPolicy.modelId,
+    providerId: modelSelection?.providerId ?? profile.modelPolicy.providerId,
+    modelId: modelSelection?.modelId ?? profile.modelPolicy.modelId,
+    reasoning: modelSelection?.reasoning,
     allowedToolNames: profile.defaultToolPolicy.allowedToolNames,
     allowedCommandNames,
     approvalRequirements: approvalRequirementsForSelectedCapabilities(

@@ -1,5 +1,6 @@
 import {
   SIDECHAT_PROTOCOL_VERSION,
+  type ChatModelPreference,
   type ChatStreamRequest,
   type HostContext,
   type UsageMetadata,
@@ -25,6 +26,7 @@ export type WidgetChatRequestInput = {
   readonly hostContext: HostContext | undefined;
   readonly message: string;
   readonly messageId: string;
+  readonly model?: ChatModelPreference | undefined;
   readonly requestId: string;
 };
 
@@ -34,6 +36,7 @@ export const createDefaultRequest = ({
   content,
   hostContext,
   messageId,
+  model,
   requestId,
 }: {
   readonly assistantProfileId?: string | undefined;
@@ -41,6 +44,7 @@ export const createDefaultRequest = ({
   readonly content: string;
   readonly hostContext?: HostContext | undefined;
   readonly messageId: string;
+  readonly model?: ChatModelPreference | undefined;
   readonly requestId: string;
 }): ChatStreamRequest =>
   omitUndefinedProperties({
@@ -48,6 +52,7 @@ export const createDefaultRequest = ({
     requestId,
     conversationId: conversationId === "" ? undefined : conversationId,
     assistantProfileId: assistantProfileId === "" ? undefined : assistantProfileId,
+    model,
     message: {
       id: messageId,
       content,
@@ -61,6 +66,7 @@ export const createWidgetChatRequest = ({
   hostContext,
   message,
   messageId,
+  model,
   requestId,
 }: WidgetChatRequestInput): ChatStreamRequest =>
   createDefaultRequest({
@@ -70,6 +76,7 @@ export const createWidgetChatRequest = ({
     assistantProfileId,
     conversationId,
     hostContext,
+    model,
   });
 
 export const createWidgetMessage = (

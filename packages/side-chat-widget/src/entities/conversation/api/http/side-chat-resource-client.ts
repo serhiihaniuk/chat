@@ -8,10 +8,13 @@ import {
   createHttpError,
   withSignal,
 } from "./side-chat-http-helpers.js";
+import { normalizeModelCatalog } from "./side-chat-model-catalog-normalizer.js";
 import type {
   FetchLike,
   ListConversationsOptions,
   ListConversationsResult,
+  ListModelsOptions,
+  ListModelsResult,
   ReadHistoryOptions,
   ReadHistoryResult,
   ReadUsageOptions,
@@ -22,6 +25,7 @@ import type {
 
 const DEFAULT_HISTORY_PATH = "/chat/history";
 const DEFAULT_CONVERSATIONS_PATH = "/chat/conversations";
+const DEFAULT_MODELS_PATH = "/models";
 const DEFAULT_USAGE_PATH = "/usage";
 
 export const listConversationsWithFetch = async (
@@ -43,6 +47,20 @@ export const listConversationsWithFetch = async (
   const response = await transport(url, withSignal(options.signal));
   if (!response.ok) throw createHttpError(response.status, 1);
   return normalizeConversationList(await readJson(response, "conversation list"));
+};
+
+export const listModelsWithFetch = async (
+  clientOptions: SideChatApiClientOptions,
+  options: ListModelsOptions,
+  transport: FetchLike,
+): Promise<ListModelsResult> => {
+  assertNotAborted(options.signal);
+  const response = await transport(
+    buildPathUrl(clientOptions.baseUrl, clientOptions.modelsPath ?? DEFAULT_MODELS_PATH),
+    withSignal(options.signal),
+  );
+  if (!response.ok) throw createHttpError(response.status, 1);
+  return normalizeModelCatalog(await readJson(response, "models"));
 };
 
 export const readHistoryWithFetch = async (

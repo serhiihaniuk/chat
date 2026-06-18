@@ -159,17 +159,17 @@ test("keeps the widget usable on a mobile viewport", async ({ page }) => {
   await expectElementWithinViewport(page, page.getByRole("button", { name: "Send" }));
 });
 
-test("keeps prompt input context and model controls visible as anchored popovers", async ({
+test("keeps prompt input chat-size and model controls visible as anchored popovers", async ({
   page,
 }) => {
   await page.setViewportSize({ height: 486, width: 864 });
   await page.goto("/?mode=mock-stream");
 
-  const contextButton = page.getByRole("button", { name: /Context usage/u });
+  const contextButton = page.getByRole("button", { name: "Chat size estimate" });
   await expect(contextButton).toBeVisible();
   await contextButton.hover();
 
-  const contextDetails = page.getByText(/Estimate only: this meter counts/u);
+  const contextDetails = page.getByText(/not the selected model's context window/u);
   await expect(contextDetails).toBeVisible();
   await expectElementWithinViewport(page, contextDetails);
 

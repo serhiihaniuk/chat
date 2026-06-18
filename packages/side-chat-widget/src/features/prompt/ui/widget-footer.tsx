@@ -19,20 +19,21 @@ import {
   PromptInputTools,
 } from "#shared/ai/prompt-input";
 import { Button } from "#shared/ui/button";
-import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
+import { BrainCircuitIcon, CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useCallback } from "react";
 
 import { ComposerActions } from "./composer-actions.js";
 import { WidgetContextTools } from "./widget-context.js";
 import type { WidgetMessage, WidgetStatus, WidgetUsage } from "#entities/chat";
+import type { ChatReasoningEffort } from "@side-chat/chat-protocol";
 
 type WidgetFooterLabels = {
   readonly placeholder: string;
   readonly send: string;
 };
 
-type WidgetFooterAssistantProfile = {
-  readonly id: string;
+type WidgetFooterModel = {
+  readonly key: string;
   readonly label: string;
 };
 
@@ -41,10 +42,13 @@ export const WidgetFooter = ({
   labels,
   messages,
   onSubmitMessage,
-  onProfileSelect,
-  profiles,
-  selectedProfileId,
-  selectedProfileLabel,
+  models,
+  onModelSelect,
+  onReasoningEffortSelect,
+  reasoningEfforts,
+  selectedModelKey,
+  selectedModelLabel,
+  selectedReasoningEffort,
   status,
   stop,
   usage,
@@ -53,10 +57,13 @@ export const WidgetFooter = ({
   readonly labels: WidgetFooterLabels;
   readonly messages: readonly WidgetMessage[];
   readonly onSubmitMessage: (messageText: string) => Promise<void>;
-  readonly onProfileSelect: (profileId: string) => void;
-  readonly profiles: readonly WidgetFooterAssistantProfile[];
-  readonly selectedProfileId: string | undefined;
-  readonly selectedProfileLabel: string | undefined;
+  readonly models: readonly WidgetFooterModel[];
+  readonly onModelSelect: (modelKey: string) => void;
+  readonly onReasoningEffortSelect: (effort: ChatReasoningEffort) => void;
+  readonly reasoningEfforts: readonly ChatReasoningEffort[];
+  readonly selectedModelKey: string | undefined;
+  readonly selectedModelLabel: string | undefined;
+  readonly selectedReasoningEffort: ChatReasoningEffort | undefined;
   readonly status: WidgetStatus;
   readonly stop: () => void;
   readonly usage: WidgetUsage | undefined;
@@ -85,12 +92,19 @@ export const WidgetFooter = ({
           </PromptInputTools>
           <div className="flex min-w-0 items-center gap-1">
             <WidgetContextTools messages={messages} usage={usage} />
-            {profiles.length > 0 && (
+            {reasoningEfforts.length > 1 && selectedReasoningEffort && (
+              <PromptReasoningSelector
+                efforts={reasoningEfforts}
+                onSelect={onReasoningEffortSelect}
+                selectedEffort={selectedReasoningEffort}
+              />
+            )}
+            {models.length > 0 && (
               <PromptModelSelector
-                onSelect={onProfileSelect}
-                profiles={profiles}
-                selectedProfileId={selectedProfileId}
-                selectedProfileLabel={selectedProfileLabel}
+                models={models}
+                onSelect={onModelSelect}
+                selectedModelKey={selectedModelKey}
+                selectedModelLabel={selectedModelLabel}
               />
             )}
             <PromptInputSubmit
@@ -113,21 +127,21 @@ export const WidgetFooter = ({
 };
 
 const PromptModelSelector = ({
+  models,
   onSelect,
-  profiles,
-  selectedProfileId,
-  selectedProfileLabel,
+  selectedModelKey,
+  selectedModelLabel,
 }: {
-  readonly onSelect: (profileId: string) => void;
-  readonly profiles: readonly WidgetFooterAssistantProfile[];
-  readonly selectedProfileId: string | undefined;
-  readonly selectedProfileLabel: string | undefined;
+  readonly models: readonly WidgetFooterModel[];
+  readonly onSelect: (modelKey: string) => void;
+  readonly selectedModelKey: string | undefined;
+  readonly selectedModelLabel: string | undefined;
 }) => (
   <ModelSelector>
     <ModelSelectorTrigger
       render={<Button aria-label="Select model" size="sm" type="button" variant="ghost" />}
     >
-      <span className="max-w-32 truncate">{selectedProfileLabel ?? "Model"}</span>
+      <span className="max-w-28 truncate">{selectedModelLabel ?? "Model"}</span>
       <ChevronsUpDownIcon className="size-3.5" />
     </ModelSelectorTrigger>
     <ModelSelectorContent>
@@ -135,14 +149,14 @@ const PromptModelSelector = ({
       <ModelSelectorList>
         <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
         <ModelSelectorGroup>
-          {profiles.map((profile) => (
+          {models.map((model) => (
             <ModelSelectorItem
-              key={profile.id}
-              onSelect={() => onSelect(profile.id)}
-              value={`${profile.label} ${profile.id}`}
+              key={model.key}
+              onSelect={() => onSelect(model.key)}
+              value={`${model.label} ${model.key}`}
             >
-              <ModelSelectorName>{profile.label}</ModelSelectorName>
-              {profile.id === selectedProfileId && <CheckIcon className="size-4" />}
+              <ModelSelectorName>{model.label}</ModelSelectorName>
+              {model.key === selectedModelKey && <CheckIcon className="size-4" />}
             </ModelSelectorItem>
           ))}
         </ModelSelectorGroup>
@@ -150,6 +164,43 @@ const PromptModelSelector = ({
     </ModelSelectorContent>
   </ModelSelector>
 );
+
+const PromptReasoningSelector = ({
+  efforts,
+  onSelect,
+  selectedEffort,
+}: {
+  readonly efforts: readonly ChatReasoningEffort[];
+  readonly onSelect: (effort: ChatReasoningEffort) => void;
+  readonly selectedEffort: ChatReasoningEffort;
+}) => (
+  <ModelSelector>
+    <ModelSelectorTrigger
+      render={
+        <Button aria-label="Select reasoning effort" size="sm" type="button" variant="ghost" />
+      }
+    >
+      <BrainCircuitIcon className="size-3.5" />
+      <span className="max-w-20 truncate">{formatReasoningEffort(selectedEffort)}</span>
+      <ChevronsUpDownIcon className="size-3.5" />
+    </ModelSelectorTrigger>
+    <ModelSelectorContent title="Reasoning Effort">
+      <ModelSelectorList>
+        <ModelSelectorGroup>
+          {efforts.map((effort) => (
+            <ModelSelectorItem key={effort} onSelect={() => onSelect(effort)} value={effort}>
+              <ModelSelectorName>{formatReasoningEffort(effort)}</ModelSelectorName>
+              {effort === selectedEffort && <CheckIcon className="size-4" />}
+            </ModelSelectorItem>
+          ))}
+        </ModelSelectorGroup>
+      </ModelSelectorList>
+    </ModelSelectorContent>
+  </ModelSelector>
+);
+
+const formatReasoningEffort = (effort: ChatReasoningEffort): string =>
+  effort === "xhigh" ? "X-high" : `${effort[0]?.toUpperCase()}${effort.slice(1)}`;
 
 const toPromptStatusProps = (
   status: WidgetStatus,

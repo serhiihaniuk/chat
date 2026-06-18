@@ -43,6 +43,17 @@ plans.
   turn.
 - **Turn plan**: per-turn decision selecting profile, model, tools, commands,
   guards, approvals, executor id, and instructions.
+- **Model catalog**: backend-published list of provider/model ids, display
+  names, context windows, and selectable reasoning efforts. The widget reads it;
+  the browser does not invent available models.
+- **Model preference**: optional `ChatStreamRequest.model` selection for one
+  turn. It is a user preference until service/core validates it against the
+  model catalog and assistant profile policy.
+- **Reasoning effort**: backend-configured model setting selected per turn and
+  carried as provider-neutral reasoning policy into runtime.
+- **Context window**: model input capacity published from backend metadata. It
+  is catalog information, not the footer chat-size estimate or a context
+  admission budget.
 - **Prepared context**: context snapshot/messages prepared before runtime
   execution. Do not use prompt for the full prepared context.
 - **Context admission selection mode**: behavior actually used by the context
@@ -55,7 +66,8 @@ plans.
 
 ## Request Chain
 
-- **ChatStreamRequest**: browser-facing `sidechat.v1` stream request.
+- **ChatStreamRequest**: browser-facing `sidechat.v1` stream request. It may
+  carry a model preference, but not provider-native options.
 - **StreamChatInput**: product-core input assembled by the service adapter.
 - **AiRuntimeRequest**: prepared provider-neutral request from product core into
   a runtime implementation.

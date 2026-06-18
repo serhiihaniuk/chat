@@ -34,7 +34,15 @@ export const installWidgetTestDom = (): void => {
     assignGlobal("HTMLElement", windowRef.HTMLElement);
     assignGlobal("HTMLButtonElement", windowRef.HTMLButtonElement);
     assignGlobal("HTMLTextAreaElement", windowRef.HTMLTextAreaElement);
+    assignGlobal("Document", windowRef.Document);
+    assignGlobal("DOMRect", windowRef.DOMRect);
+    assignGlobal("DOMRectReadOnly", windowRef.DOMRectReadOnly);
+    assignGlobal("IntersectionObserver", windowRef.IntersectionObserver);
     assignGlobal("MouseEvent", windowRef.MouseEvent);
+    assignGlobal("MutationObserver", windowRef.MutationObserver);
+    assignGlobal("Node", windowRef.Node);
+    assignGlobal("PointerEvent", windowRef.PointerEvent);
+    assignGlobal("SVGElement", windowRef.SVGElement);
     assignGlobal("Event", windowRef.Event);
     assignGlobal("FormData", windowRef.FormData);
     assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
@@ -106,9 +114,17 @@ export const clickButton = async (name: string): Promise<void> => {
   );
   if (!(button instanceof HTMLElement)) throw new Error(`Expected button ${name}.`);
   await act(async () => {
-    button.click();
+    pressElement(button);
     await Promise.resolve();
   });
+};
+
+const pressElement = (element: HTMLElement): void => {
+  element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+  element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+  element.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true }));
+  element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
+  element.click();
 };
 
 export const waitForText = async (text: string): Promise<void> => {
@@ -126,7 +142,9 @@ export const fakeClient = (
   createEvents: (
     request: ChatStreamRequest,
   ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
-  overrides: Partial<Pick<SideChatApiClient, "listConversations" | "readHistory">> = {},
+  overrides: Partial<
+    Pick<SideChatApiClient, "listConversations" | "listModels" | "readHistory">
+  > = {},
 ): SideChatApiClient => ({
   ...overrides,
   streamChat: async (request) => ({

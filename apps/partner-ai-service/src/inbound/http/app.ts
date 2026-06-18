@@ -93,10 +93,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
   app.use("/chat/*", authContextMiddleware(authority), requireAuth());
   app.use("/usage", authContextMiddleware(authority), requireAuth());
 
-  registerModelsRoute(app, composition.policies, {
-    providerId: composition.diagnostics.runtimeProviderId,
-    modelId: composition.diagnostics.runtimeModelId,
-  });
+  registerModelsRoute(app, composition.policies, composition.diagnostics.providerRegistryStatus);
   registerChatHistoryRoutes(app, {
     repositories: composition.repositories,
   });

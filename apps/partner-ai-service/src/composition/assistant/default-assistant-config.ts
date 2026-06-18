@@ -16,11 +16,13 @@ const DEFAULT_OUTPUT_FORMATTING_SECTION =
 
 export const createDefaultAssistantConfig = ({
   providerId,
+  allowedModelIds,
   modelId,
   allowedToolNames,
   turnGuardIds,
 }: {
   readonly providerId: string;
+  readonly allowedModelIds?: readonly string[] | undefined;
   readonly modelId: string;
   readonly allowedToolNames: readonly string[];
   readonly turnGuardIds: readonly string[];
@@ -32,7 +34,7 @@ export const createDefaultAssistantConfig = ({
     promptId: DEFAULT_ASSISTANT_SYSTEM_PROMPT_ID,
     sections: [{ id: "output_formatting", content: DEFAULT_OUTPUT_FORMATTING_SECTION }],
   },
-  model: { providerId, modelId },
+  model: { providerId, modelId, allowedModelIds },
   toolPolicy:
     allowedToolNames.length > 0
       ? { mode: "profile_allowlist", allowedToolNames }

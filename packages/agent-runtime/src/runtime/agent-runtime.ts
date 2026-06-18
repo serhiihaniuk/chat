@@ -104,6 +104,7 @@ const createRuntimeExecution = (
     const selection = {
       providerId: providerRequest.providerId,
       modelId: providerRequest.modelId,
+      reasoning: request.reasoning,
     };
     const model = yield* provider.resolveModel(selection);
     const providerOptions = provider.resolveProviderOptions

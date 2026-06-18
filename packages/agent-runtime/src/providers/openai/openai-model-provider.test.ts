@@ -133,10 +133,9 @@ describe("createOpenAIResponsesProvider", () => {
           fetch: (_url, init) => {
             calls.push(init ?? {});
             return Promise.resolve(
-              new Response(
-                sse({ type: "response.completed", response: { usage: {} } }),
-                { status: 200 },
-              ),
+              new Response(sse({ type: "response.completed", response: { usage: {} } }), {
+                status: 200,
+              }),
             );
           },
         }),
@@ -158,6 +157,42 @@ describe("createOpenAIResponsesProvider", () => {
     const parsedBody = parseRequestBody(calls[0]?.body);
     expect(parsedBody["store"]).toBe(false);
     expect(reasoningField(parsedBody)).toMatchObject({ effort: "medium", summary: "concise" });
+  });
+
+  it("lets a runtime reasoning selection override the provider default effort", async () => {
+    const calls: RequestInit[] = [];
+    const runtime = createAgentRuntime({
+      providers: [
+        createOpenAIResponsesProvider({
+          apiKey: "test-key",
+          modelIds: ["gpt-5.4-mini"],
+          reasoningEffort: "medium",
+          fetch: (_url, init) => {
+            calls.push(init ?? {});
+            return Promise.resolve(
+              new Response(sse({ type: "response.completed", response: { usage: {} } }), {
+                status: 200,
+              }),
+            );
+          },
+        }),
+      ],
+    });
+
+    await collect(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          runtimeRequest({
+            providerId: OPENAI_PROVIDER_ID,
+            modelId: "gpt-5.4-mini",
+            reasoning: { effort: "high" },
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        ),
+      ),
+    );
+
+    expect(reasoningField(parseRequestBody(calls[0]?.body))).toMatchObject({ effort: "high" });
   });
 
   it("turns provider HTTP failures into a public-safe runtime error without leaking raw text", async () => {

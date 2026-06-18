@@ -40,6 +40,9 @@ export const createServiceAssistantBundle = (
     createDefaultAssistantConfig({
       providerId: input.providers.defaultProviderId,
       modelId: input.providers.defaultModelId,
+      allowedModelIds: input.providers.status.providers.find(
+        (provider) => provider.providerId === input.providers.defaultProviderId,
+      )?.modelIds ?? [input.providers.defaultModelId],
       allowedToolNames: input.tools.defaultEnabledToolNames,
       turnGuardIds: input.turnGuardIds,
     }),

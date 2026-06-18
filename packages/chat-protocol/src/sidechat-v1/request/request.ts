@@ -41,17 +41,43 @@ export type HostContext = {
   readonly metadata?: JsonObject;
 };
 
+export const CHAT_REASONING_EFFORTS = {
+  NONE: "none",
+  MINIMAL: "minimal",
+  LOW: "low",
+  MEDIUM: "medium",
+  HIGH: "high",
+  XHIGH: "xhigh",
+} as const;
+
+export type ChatReasoningEffort =
+  (typeof CHAT_REASONING_EFFORTS)[keyof typeof CHAT_REASONING_EFFORTS];
+
+/**
+ * Browser-requested model preference for one assistant turn.
+ *
+ * The service must validate this against its backend model catalog before core
+ * builds a runtime request. The browser never sends provider-native options or
+ * credentials, only the ids and reasoning effort it learned from `/models`.
+ */
+export type ChatModelPreference = {
+  readonly providerId: string;
+  readonly modelId: string;
+  readonly reasoningEffort?: ChatReasoningEffort | undefined;
+};
+
 /**
  * Browser request for one Side Chat user turn.
  *
  * This is the public `sidechat.v1` request contract. Auth, policy, persistence,
- * role assignment, system instructions, tools, and model choices are added by
- * server-side packages after this DTO is parsed.
+ * role assignment, system instructions, tools, and model validation are added
+ * by server-side packages after this DTO is parsed.
  */
 export type ChatStreamRequest = ProtocolEnvelope & {
   readonly requestId: RequestId;
   readonly conversationId?: ConversationId;
   readonly assistantProfileId?: string;
+  readonly model?: ChatModelPreference;
   readonly message: ChatRequestMessage;
   readonly hostContext?: HostContext;
 };
@@ -61,11 +87,14 @@ const REQUEST_FIELDS = [
   "requestId",
   "conversationId",
   "assistantProfileId",
+  "model",
   "message",
   "hostContext",
 ] as const;
 const MESSAGE_FIELDS = ["id", "content"] as const;
+const MODEL_FIELDS = ["providerId", "modelId", "reasoningEffort"] as const;
 const HOST_CONTEXT_FIELDS = ["schemaVersion", "origin", "url", "title", "metadata"] as const;
+const reasoningEfforts = new Set<string>(Object.values(CHAT_REASONING_EFFORTS));
 
 /**
  * Validate the browser request for a new assistant turn.
@@ -82,6 +111,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
     const message = parseMessage(input["message"]);
     const conversationId = readOptionalConversationId(input);
     const assistantProfileId = readOptionalString(input, "assistantProfileId", "request");
+    const model = parseOptionalModelPreference(input);
     const hostContext = parseOptionalHostContext(input);
 
     return omitUndefinedProperties({
@@ -89,6 +119,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
       requestId,
       conversationId,
       assistantProfileId,
+      model,
       message,
       hostContext,
     });
@@ -104,6 +135,31 @@ const parseMessage = (input: unknown): ChatRequestMessage => {
   const id = toMessageId(requireString(input, "id", "request.message"));
   const content = requireString(input, "content", "request.message");
   return { id, content };
+};
+
+const parseOptionalModelPreference = (
+  input: Record<string, unknown>,
+): ChatModelPreference | undefined => {
+  if (!Object.hasOwn(input, "model")) return undefined;
+  return parseModelPreference(input["model"]);
+};
+
+const parseModelPreference = (input: unknown): ChatModelPreference => {
+  if (!isRecord(input)) throw new Error("request.model must be an object");
+  requireKnownKeys(input, MODEL_FIELDS, "request.model");
+  const providerId = requireString(input, "providerId", "request.model");
+  const modelId = requireString(input, "modelId", "request.model");
+  const reasoningEffort = readOptionalReasoningEffort(input);
+  return omitUndefinedProperties({ providerId, modelId, reasoningEffort });
+};
+
+const readOptionalReasoningEffort = (
+  input: Record<string, unknown>,
+): ChatReasoningEffort | undefined => {
+  const value = readOptionalString(input, "reasoningEffort", "request.model");
+  if (value === undefined) return undefined;
+  if (reasoningEfforts.has(value)) return value as ChatReasoningEffort;
+  throw new Error("request.model.reasoningEffort is not supported");
 };
 
 const readOptionalConversationId = (input: Record<string, unknown>): ConversationId | undefined => {

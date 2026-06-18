@@ -7,6 +7,7 @@ import {
   validateTurnPolicyDecision,
 } from "../capabilities.js";
 import {
+  createAssistantProfile,
   createManifest,
   createTool,
   turnPolicyIssueCodes,
@@ -54,6 +55,31 @@ describe("turn policy validation", () => {
     expect(turnPolicyIssueCodes(validation)).toEqual([
       HOST_CAPABILITY_VALIDATION_CODES.PROFILE_EXECUTOR_POLICY_MISMATCH,
     ]);
+  });
+
+  it("allows turn policies to select a profile-allowed backend model", () => {
+    const analyst = createAssistantProfile({
+      modelPolicy: {
+        providerId: "fake",
+        modelId: "fake-echo",
+        allowedModelIds: ["fake-echo", "fake-large"],
+      },
+    });
+    const manifest = createManifest({ assistantProfiles: [analyst] });
+    const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+    if (!resolution.resolved) return;
+    const decision = {
+      ...createTurnPolicyDecision({
+        manifest,
+        profile: resolution.profile,
+        manifestHash: hashHostCapabilityManifest(manifest),
+      }),
+      modelId: "fake-large",
+    };
+
+    expect(validateTurnPolicyDecision(manifest, resolution.profile, decision)).toMatchObject({
+      valid: true,
+    });
   });
 
   it("rejects turn policies that replace resolved profile instructions", () => {

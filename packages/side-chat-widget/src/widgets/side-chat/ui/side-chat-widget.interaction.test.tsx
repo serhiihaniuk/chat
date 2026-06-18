@@ -114,6 +114,60 @@ describe("SideChatWidget interactions", () => {
 
     expect(observedSignals[0]?.aborted).toBe(true);
   });
+
+  it("submits the backend default model and reasoning effort from the catalog", async () => {
+    const requests: ChatStreamRequest[] = [];
+    const client = fakeClient(
+      async function* (request) {
+        await Promise.resolve();
+        requests.push(request);
+        yield started();
+        yield completed();
+      },
+      {
+        listModels: () =>
+          Promise.resolve({
+            defaultModel: { providerId: "openai", modelId: "gpt-5.4-mini" },
+            models: [
+              {
+                providerId: "openai",
+                modelId: "gpt-5.4-mini",
+                displayName: "GPT-5.4 mini",
+                contextWindowTokens: 400_000,
+                maxOutputTokens: 128_000,
+                default: true,
+                available: true,
+                reasoning: { defaultEffort: "medium", efforts: ["low", "medium", "high"] },
+              },
+              {
+                providerId: "openai",
+                modelId: "gpt-5.5-mini",
+                displayName: "GPT-5.5 mini",
+                contextWindowTokens: 1_000_000,
+                default: false,
+                available: true,
+                reasoning: { defaultEffort: "medium", efforts: ["low", "medium", "high"] },
+              },
+            ],
+          }),
+      },
+    );
+
+    renderWidget(client);
+    await waitForText("GPT-5.4 mini");
+    await waitForText("Medium");
+    expect(document.body.textContent).not.toContain("ctx");
+    await submit("use the configured model");
+
+    expect(requests[0]).toMatchObject({
+      model: {
+        providerId: "openai",
+        modelId: "gpt-5.4-mini",
+        reasoningEffort: "medium",
+      },
+      message: { content: "use the configured model" },
+    });
+  });
 });
 
 const renderWidget = (

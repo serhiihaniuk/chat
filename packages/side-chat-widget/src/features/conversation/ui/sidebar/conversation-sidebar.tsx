@@ -84,14 +84,7 @@ const ConversationRow = ({
     onClick={() => onSelect(conversation.id)}
     type="button"
   >
-    <span
-      className={cn(
-        "truncate text-[0.8125rem]",
-        isActive ? "font-medium text-sidebar-foreground" : "text-sidebar-foreground/90",
-      )}
-    >
-      {conversation.title}
-    </span>
+    <span className="truncate text-[0.8125rem] text-sidebar-foreground">{conversation.title}</span>
     <span className="truncate text-[0.6875rem] text-muted-foreground">
       {formatRelativeTime(conversation.lastMessageAt)}
     </span>

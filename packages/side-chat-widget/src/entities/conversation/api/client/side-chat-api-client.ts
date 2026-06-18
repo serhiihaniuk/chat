@@ -5,6 +5,7 @@ import { SideChatApiError } from "../http/side-chat-api-error.js";
 import { assertNotAborted, buildPathUrl, createHttpError } from "../http/side-chat-http-helpers.js";
 import {
   listConversationsWithFetch,
+  listModelsWithFetch,
   readHistoryWithFetch,
   readUsageWithFetch,
   resetHistoryWithFetch,
@@ -24,6 +25,10 @@ export type {
   FetchLike,
   ListConversationsOptions,
   ListConversationsResult,
+  ListModelsOptions,
+  ListModelsResult,
+  ModelCatalogOption,
+  ModelCatalogReasoning,
   ReadHistoryOptions,
   ReadHistoryResult,
   ReadUsageOptions,
@@ -51,6 +56,7 @@ export const createSideChatApiClient = (options: SideChatApiClientOptions): Side
   }
 
   return {
+    listModels: (modelOptions = {}) => listModelsWithFetch(options, modelOptions, transport),
     listConversations: (listOptions = {}) =>
       listConversationsWithFetch(options, listOptions, transport),
     readHistory: (conversationId, readOptions = {}) =>

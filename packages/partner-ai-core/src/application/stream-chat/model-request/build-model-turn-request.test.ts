@@ -91,7 +91,9 @@ describe("buildModelTurnRequest", () => {
       { role: "system", content: "Use concise analyst language." },
       { role: "user", content: "hello" },
     ]);
-    expect(renderContextBoardMessage(turnWithoutBoard.preparedContext.contextBoard)).toBeUndefined();
+    expect(
+      renderContextBoardMessage(turnWithoutBoard.preparedContext.contextBoard),
+    ).toBeUndefined();
   });
 
   it("carries provider, model, executor, and tool selection from the turn policy decision", () => {
@@ -102,6 +104,19 @@ describe("buildModelTurnRequest", () => {
     expect(request.providerId).toBe(turn.policyDecision.providerId);
     expect(request.modelId).toBe(turn.policyDecision.modelId);
     expect(request.toolNames).toEqual(turn.policyDecision.allowedToolNames);
+  });
+
+  it("carries selected reasoning effort from the turn policy decision", () => {
+    const turn = createPreparedTurn();
+    const request = buildModelTurnRequest(input, {
+      ...turn,
+      policyDecision: {
+        ...turn.policyDecision,
+        reasoning: { effort: "high" },
+      },
+    });
+
+    expect(request.reasoning).toEqual({ effort: "high" });
   });
 
   it("exposes no context board or profile fields on the runtime request", () => {

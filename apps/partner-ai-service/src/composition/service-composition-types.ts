@@ -35,6 +35,13 @@ export type PersistenceConfig =
   | { readonly kind: "memory" }
   | { readonly kind: "postgres"; readonly databaseUrl: string };
 
+export type RuntimeModelMetadata = {
+  readonly modelId: string;
+  readonly displayName: string;
+  readonly contextWindowTokens?: number | undefined;
+  readonly maxOutputTokens?: number | undefined;
+};
+
 /**
  * Runtime provider declaration accepted by service composition.
  *
@@ -48,9 +55,11 @@ export type RuntimeConfig =
       readonly apiKey: string;
       readonly modelIds: readonly string[];
       readonly defaultModelId: string;
+      readonly modelMetadata?: readonly RuntimeModelMetadata[] | undefined;
       readonly baseUrl?: string | undefined;
       readonly fetch?: typeof fetch | undefined;
       readonly reasoningEffort?: OpenAIReasoningEffort | undefined;
+      readonly reasoningEfforts?: readonly OpenAIReasoningEffort[] | undefined;
       readonly reasoningSummary?: OpenAIReasoningSummary | undefined;
     };
 

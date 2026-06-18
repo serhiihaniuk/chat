@@ -11,12 +11,14 @@ import {
   createStaticHostCapabilityManifestPort,
 } from "#composition/manifest/service-capability-manifest";
 import type { AssistantProfileRegistry } from "#composition/assistant/assistant-profile-registry";
+import type { ServiceProviderRegistry } from "#composition/providers/service-provider-registry";
 import type { ServiceToolRegistry } from "#composition/tools/service-tool-registry";
 import type { ServiceCompositionOptions } from "../service-composition-types.js";
 import type { ServiceCapabilityBundle, ServicePersistenceBundle } from "./bundle-types.js";
 
 export type ServiceCapabilityBundleInput = {
   readonly assistants: AssistantProfileRegistry;
+  readonly providers: ServiceProviderRegistry;
   readonly tools: ServiceToolRegistry;
   readonly persistence: ServicePersistenceBundle;
 };
@@ -52,7 +54,9 @@ export const createServiceCapabilityBundle = (
   return {
     manifest,
     manifestPort: createStaticHostCapabilityManifestPort(manifest),
-    turnPolicyResolver: createServiceTurnPolicyResolver(),
+    turnPolicyResolver: createServiceTurnPolicyResolver({
+      providers: input.providers.status.providers,
+    }),
     capabilityStatus,
   };
 };

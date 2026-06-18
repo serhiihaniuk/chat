@@ -18,7 +18,7 @@ import {
 } from "./widget-chat.js";
 
 describe("widget-state", () => {
-  it("creates protocol requests with optional profile and host context", () => {
+  it("creates protocol requests with optional profile, host context, and model preference", () => {
     const request = createDefaultRequest({
       assistantProfileId: "gpt-5.4-mini",
       content: "hello",
@@ -27,6 +27,11 @@ describe("widget-state", () => {
         title: "Portfolio",
       },
       messageId: "message_001",
+      model: {
+        providerId: "openai",
+        modelId: "gpt-5.5-mini",
+        reasoningEffort: "high",
+      },
       requestId: "request_001",
     });
 
@@ -34,6 +39,11 @@ describe("widget-state", () => {
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       requestId: "request_001",
       assistantProfileId: "gpt-5.4-mini",
+      model: {
+        providerId: "openai",
+        modelId: "gpt-5.5-mini",
+        reasoningEffort: "high",
+      },
       message: {
         id: "message_001",
         content: "hello",

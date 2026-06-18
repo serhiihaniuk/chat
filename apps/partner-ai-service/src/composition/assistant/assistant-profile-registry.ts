@@ -96,7 +96,9 @@ export const createAssistantProfileRegistry = (
   assertUniqueProfileIds(input.assistants);
   assertDefaultProfilePresent(input);
 
-  const serviceProfiles = input.assistants.map((assistant) => buildServiceProfile(assistant, input));
+  const serviceProfiles = input.assistants.map((assistant) =>
+    buildServiceProfile(assistant, input),
+  );
   const defaultProfile = serviceProfiles.find(
     (serviceProfile) => serviceProfile.profile.profileId === input.defaultProfileId,
   ) as ServiceAssistantProfile;
@@ -158,7 +160,9 @@ const assertModel = (
   assistant: ServiceAssistantConfig,
   providers: readonly AssistantProfileRegistryProvider[],
 ): void => {
-  const provider = providers.find((candidate) => candidate.providerId === assistant.model.providerId);
+  const provider = providers.find(
+    (candidate) => candidate.providerId === assistant.model.providerId,
+  );
   if (!provider) {
     throw new AssistantProfileRegistryError(
       `Assistant ${assistant.profileId} references unknown provider ${assistant.model.providerId}.`,
@@ -167,6 +171,14 @@ const assertModel = (
   if (!provider.modelIds.includes(assistant.model.modelId)) {
     throw new AssistantProfileRegistryError(
       `Assistant ${assistant.profileId} references unknown model ${assistant.model.modelId} for provider ${assistant.model.providerId}.`,
+    );
+  }
+
+  for (const modelId of assistant.model.allowedModelIds ?? []) {
+    if (provider.modelIds.includes(modelId)) continue;
+
+    throw new AssistantProfileRegistryError(
+      `Assistant ${assistant.profileId} allows unknown model ${modelId} for provider ${assistant.model.providerId}.`,
     );
   }
 };
@@ -199,10 +211,7 @@ const assertToolPolicy = (
   }
 };
 
-const assertGuardIds = (
-  assistant: ServiceAssistantConfig,
-  guardIds: readonly string[],
-): void => {
+const assertGuardIds = (assistant: ServiceAssistantConfig, guardIds: readonly string[]): void => {
   for (const turnGuardId of assistant.safety.turnGuardIds) {
     if (!guardIds.includes(turnGuardId)) {
       throw new AssistantProfileRegistryError(

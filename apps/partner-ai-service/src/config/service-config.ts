@@ -1,9 +1,3 @@
-import {
-  OPENAI_REASONING_EFFORTS,
-  OPENAI_REASONING_SUMMARIES,
-  type OpenAIReasoningEffort,
-  type OpenAIReasoningSummary,
-} from "@side-chat/agent-runtime";
 import type { WorkspaceRef } from "@side-chat/partner-ai-core";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
@@ -11,6 +5,12 @@ import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { PartnerAiServiceOptions } from "#inbound/http/app";
 import { CAPABILITY_ENV_KEYS, createCapabilityConfigFromEnv } from "./service-capability-config.js";
 import { ServiceConfigError } from "./service-config-error.js";
+import { createModelMetadata } from "./model-catalog/service-model-metadata-config.js";
+import {
+  readOpenAIReasoningEffort,
+  readOpenAIReasoningEfforts,
+  readOpenAIReasoningSummary,
+} from "./model-catalog/service-openai-reasoning-config.js";
 
 export { ServiceConfigError } from "./service-config-error.js";
 
@@ -27,9 +27,11 @@ export const SERVICE_ENV_KEYS = {
   authBearerToken: "SIDECHAT_AUTH_BEARER_TOKEN",
   ...CAPABILITY_ENV_KEYS,
   databaseUrl: "SIDECHAT_DATABASE_URL",
+  modelContextWindows: "SIDECHAT_MODEL_CONTEXT_WINDOWS",
   openaiApiKey: "SIDECHAT_OPENAI_API_KEY",
   openaiBaseUrl: "SIDECHAT_OPENAI_BASE_URL",
   openaiReasoningEffort: "SIDECHAT_OPENAI_REASONING_EFFORT",
+  openaiReasoningEfforts: "SIDECHAT_OPENAI_REASONING_EFFORTS",
   openaiReasoningSummary: "SIDECHAT_OPENAI_REASONING_SUMMARY",
   policyMode: "SIDECHAT_POLICY_MODE",
   profile: "SIDECHAT_PROFILE",
@@ -209,15 +211,21 @@ const createRuntimeConfig = (
   }
 
   const baseUrl = envValue(env, SERVICE_ENV_KEYS.openaiBaseUrl);
+  const reasoningEffort = readOpenAIReasoningEffort(
+    envValue(env, SERVICE_ENV_KEYS.openaiReasoningEffort),
+  );
   return omitUndefinedProperties({
     provider: "openai",
     apiKey,
     modelIds,
     defaultModelId: modelIds[0] as string,
+    modelMetadata: createModelMetadata(modelIds, env),
     enableMockWebSearch,
     baseUrl,
-    reasoningEffort: readOpenAIReasoningEffort(
-      envValue(env, SERVICE_ENV_KEYS.openaiReasoningEffort),
+    reasoningEffort,
+    reasoningEfforts: readOpenAIReasoningEfforts(
+      envValue(env, SERVICE_ENV_KEYS.openaiReasoningEfforts),
+      reasoningEffort,
     ),
     reasoningSummary: readOpenAIReasoningSummary(
       envValue(env, SERVICE_ENV_KEYS.openaiReasoningSummary),
@@ -237,34 +245,6 @@ const readDevToolFlag = (profile: ServiceProfile, env: ServiceEnv): boolean => {
   if (rawFlag === "true") return true;
   if (rawFlag === "false") return false;
   throw new ServiceConfigError("SIDECHAT_ENABLE_DEV_TOOLS must be true or false.");
-};
-
-const openaiReasoningEfforts = new Set<string>(Object.values(OPENAI_REASONING_EFFORTS));
-
-const openaiReasoningSummaries = new Set<string>(Object.values(OPENAI_REASONING_SUMMARIES));
-
-const readOpenAIReasoningEffort = (rawEffort: string | undefined): OpenAIReasoningEffort => {
-  if (!rawEffort) return OPENAI_REASONING_EFFORTS.MEDIUM;
-  if (openaiReasoningEfforts.has(rawEffort)) {
-    return rawEffort as OpenAIReasoningEffort;
-  }
-  throw new ServiceConfigError(
-    "SIDECHAT_OPENAI_REASONING_EFFORT must be none, minimal, low, medium, high, or xhigh.",
-  );
-};
-
-const readOpenAIReasoningSummary = (
-  rawSummary: string | undefined,
-): OpenAIReasoningSummary | undefined => {
-  // Reasoning summaries are hidden by default: an unset env omits the summary so
-  // the provider never requests one unless the operator opts in.
-  if (!rawSummary) return undefined;
-  if (openaiReasoningSummaries.has(rawSummary)) {
-    return rawSummary as OpenAIReasoningSummary;
-  }
-  throw new ServiceConfigError(
-    "SIDECHAT_OPENAI_REASONING_SUMMARY must be auto, concise, or detailed.",
-  );
 };
 
 const normalizeBearerToken = (token: string): string =>
