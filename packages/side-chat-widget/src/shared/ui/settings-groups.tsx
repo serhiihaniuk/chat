@@ -8,7 +8,7 @@ import { GeneralGroup, type ModelOption } from "#shared/ui/settings-general";
 
 export { DEFAULT_MODEL, type ModelOption } from "#shared/ui/settings-general";
 
-export type ThemePreview = "graphite" | "sage" | "ocean" | "dark";
+export type ThemePreview = "graphite" | "sapphire" | "sage" | "ocean";
 
 type ThemeOption = {
   readonly description: string;
@@ -17,10 +17,10 @@ type ThemeOption = {
 };
 
 const THEMES: readonly ThemeOption[] = [
-  { id: "graphite", name: "Graphite", description: "Neutral grayscale" },
-  { id: "sage", name: "Sage", description: "Green-tinted" },
-  { id: "ocean", name: "Ocean", description: "Blue-tinted" },
-  { id: "dark", name: "Dark", description: "Graphite, inverted" },
+  { id: "graphite", name: "Graphite", description: "Cool charcoal" },
+  { id: "sapphire", name: "Sapphire", description: "Deep navy" },
+  { id: "sage", name: "Sage", description: "Deep emerald" },
+  { id: "ocean", name: "Ocean", description: "Calm blue" },
 ];
 
 export type AccentOption = {

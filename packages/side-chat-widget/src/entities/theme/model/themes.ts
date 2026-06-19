@@ -1,8 +1,9 @@
-// Named widget themes. Graphite is the default and carries no root attribute, so it
-// tracks the host's light/dark. Sage and Ocean are light-only token blocks scoped to
-// the widget root (see styles.css). The list drives the settings theme picker.
+// Named widget themes — four light palettes, no dark mode. Graphite is the default
+// and carries no root attribute (its tokens live on :root); Sapphire, Sage, and Ocean
+// are token blocks scoped to the widget root via data-sidechat-theme (see styles.css).
+// The list drives the settings theme picker.
 
-export const WIDGET_THEME_IDS = ["graphite", "sage", "ocean"] as const;
+export const WIDGET_THEME_IDS = ["graphite", "sapphire", "sage", "ocean"] as const;
 
 export type WidgetThemeId = (typeof WIDGET_THEME_IDS)[number];
 
@@ -18,17 +19,22 @@ export const WIDGET_THEMES: readonly WidgetTheme[] = [
   {
     id: "graphite",
     name: "Graphite",
-    description: "Clean neutral grayscale — the default look.",
+    description: "Cool charcoal — the default look.",
+  },
+  {
+    id: "sapphire",
+    name: "Sapphire",
+    description: "Deep navy.",
   },
   {
     id: "sage",
     name: "Sage",
-    description: "Soft, calm green neutrals.",
+    description: "Deep emerald.",
   },
   {
     id: "ocean",
     name: "Ocean",
-    description: "Cool, focused blues.",
+    description: "Calm blue.",
   },
 ];
 

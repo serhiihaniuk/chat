@@ -21,7 +21,7 @@ import { SideChatWidgetRoot, type ThemeName } from "#shared/ui/widget-root";
 import { sections, type ShowcaseSection } from "../showcase-sections.js";
 import { tokensForComponent } from "./design-tokens.js";
 
-const THEMES: readonly ThemeName[] = ["graphite", "sage", "ocean"];
+const THEMES: readonly ThemeName[] = ["graphite", "sapphire", "sage", "ocean"];
 const CORNERS = [
   { id: "Sharp", value: "0rem" },
   { id: "Default", value: "0.625rem" },

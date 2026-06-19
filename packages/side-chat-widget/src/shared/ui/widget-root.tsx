@@ -21,7 +21,7 @@ import { createContext, use, useState, type ComponentPropsWithoutRef } from "rea
 
 import { cn } from "#shared/lib/cn";
 
-export type ThemeName = "graphite" | "sage" | "ocean";
+export type ThemeName = "graphite" | "sapphire" | "sage" | "ocean";
 
 const PortalContainerContext = createContext<HTMLElement | null>(null);
 

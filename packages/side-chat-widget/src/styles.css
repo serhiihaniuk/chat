@@ -107,39 +107,40 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: oklch(0.994 0.003 264);
+  --foreground: oklch(0.22 0.018 264);
+  --card: oklch(1 0.002 264);
+  --card-foreground: oklch(0.22 0.018 264);
+  --popover: oklch(1 0.002 264);
+  --popover-foreground: oklch(0.22 0.018 264);
+  --primary: oklch(0.26 0.028 264);
+  --primary-foreground: oklch(0.985 0.002 264);
+  --secondary: oklch(0.96 0.006 264);
+  --secondary-foreground: oklch(0.27 0.026 264);
+  --muted: oklch(0.96 0.006 264);
+  --muted-foreground: oklch(0.5 0.02 264);
+  --accent: oklch(0.955 0.008 264);
+  --accent-foreground: oklch(0.27 0.026 264);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.91 0.009 264);
+  --input: oklch(0.91 0.009 264);
+  --ring: oklch(0.55 0.03 264);
   --success: oklch(0.6 0.13 160);
-  --sc-canvas: oklch(0.985 0 0);
+  --sc-canvas: oklch(0.978 0.004 264);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.978 0.004 264);
+  --sidebar-foreground: oklch(0.22 0.018 264);
+  --sidebar-primary: oklch(0.26 0.028 264);
+  --sidebar-primary-foreground: oklch(0.985 0.002 264);
+  --sidebar-accent: oklch(0.95 0.008 264);
+  --sidebar-accent-foreground: oklch(0.27 0.026 264);
+  --sidebar-border: oklch(0.91 0.009 264);
+  --sidebar-ring: oklch(0.55 0.03 264);
   --message-user: var(--sidebar-accent);
   --message-user-foreground: var(--sidebar-accent-foreground);
 }
@@ -328,43 +329,74 @@
  * Named themes. The widget writes data-sidechat-theme on its own root element, so
  * these custom properties are declared ON the root and re-skin both the root's own
  * surfaces and every descendant through inheritance. Graphite is the base :root
- * contract (no attribute). Sage/Ocean ship light-only; under a host .dark they keep
- * their light palette (a deliberate scope decision). Base-themed popovers that the
- * host portals outside the root keep the :root palette.
- *
- * The same blocks also match data-sidechat-theme-preview so the settings swatch
- * cards render each palette in isolation (a preview never inherits the active
- * theme), keeping previews fully tokenized with no inline styles.
+ * contract (no attribute); Sapphire, Sage, and Ocean are light Tier-2 overrides
+ * scoped to the root. All four are light-only — there is no dark mode. Base-themed
+ * popovers the host portals outside the root keep the :root palette.
  */
+.side-chat-widget-root[data-sidechat-theme="sapphire"],
+[data-sidechat-theme-preview="sapphire"] {
+  --background: oklch(0.99 0.008 262);
+  --foreground: oklch(0.23 0.04 264);
+  --card: oklch(1 0.005 262);
+  --card-foreground: oklch(0.23 0.04 264);
+  --popover: oklch(1 0.005 262);
+  --popover-foreground: oklch(0.23 0.04 264);
+  --primary: oklch(0.42 0.14 264);
+  --primary-foreground: oklch(0.99 0.01 262);
+  --secondary: oklch(0.955 0.018 262);
+  --secondary-foreground: oklch(0.23 0.04 264);
+  --muted: oklch(0.955 0.016 262);
+  --muted-foreground: oklch(0.48 0.045 264);
+  --accent: oklch(0.93 0.03 262);
+  --accent-foreground: oklch(0.23 0.04 264);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.89 0.026 262);
+  --input: oklch(0.89 0.026 262);
+  --ring: oklch(0.42 0.14 264);
+  --success: oklch(0.56 0.13 162);
+  --sc-canvas: oklch(0.96 0.024 262);
+  --sidebar: oklch(0.965 0.022 262);
+  --sidebar-foreground: oklch(0.23 0.04 264);
+  --sidebar-primary: oklch(0.42 0.14 264);
+  --sidebar-primary-foreground: oklch(0.99 0.01 262);
+  --sidebar-accent: oklch(0.92 0.034 262);
+  --sidebar-accent-foreground: oklch(0.23 0.04 264);
+  --sidebar-border: oklch(0.89 0.026 262);
+  --sidebar-ring: oklch(0.42 0.14 264);
+  --message-user: var(--sidebar-accent);
+  --message-user-foreground: var(--sidebar-accent-foreground);
+}
+
 .side-chat-widget-root[data-sidechat-theme="sage"],
 [data-sidechat-theme-preview="sage"] {
-  --background: oklch(0.99 0.008 150);
-  --foreground: oklch(0.24 0.012 152);
-  --card: oklch(1 0.005 150);
-  --card-foreground: oklch(0.24 0.012 152);
-  --popover: oklch(1 0.005 150);
-  --popover-foreground: oklch(0.24 0.012 152);
-  --primary: oklch(0.5 0.085 153);
-  --primary-foreground: oklch(0.99 0.01 150);
-  --secondary: oklch(0.95 0.014 150);
-  --secondary-foreground: oklch(0.24 0.012 152);
-  --muted: oklch(0.95 0.014 150);
-  --muted-foreground: oklch(0.52 0.022 152);
-  --accent: oklch(0.95 0.014 150);
-  --accent-foreground: oklch(0.24 0.012 152);
-  --border: oklch(0.9 0.016 150);
-  --input: oklch(0.9 0.016 150);
-  --ring: oklch(0.5 0.085 153);
-  --success: oklch(0.56 0.12 158);
-  --sc-canvas: oklch(0.965 0.016 150);
-  --sidebar: oklch(0.972 0.014 150);
-  --sidebar-foreground: oklch(0.24 0.012 152);
-  --sidebar-primary: oklch(0.5 0.085 153);
-  --sidebar-primary-foreground: oklch(0.99 0.01 150);
-  --sidebar-accent: oklch(0.93 0.022 150);
-  --sidebar-accent-foreground: oklch(0.24 0.012 152);
-  --sidebar-border: oklch(0.9 0.016 150);
-  --sidebar-ring: oklch(0.5 0.085 153);
+  --background: oklch(0.99 0.009 156);
+  --foreground: oklch(0.23 0.035 158);
+  --card: oklch(1 0.005 156);
+  --card-foreground: oklch(0.23 0.035 158);
+  --popover: oklch(1 0.005 156);
+  --popover-foreground: oklch(0.23 0.035 158);
+  --primary: oklch(0.42 0.105 158);
+  --primary-foreground: oklch(0.99 0.01 156);
+  --secondary: oklch(0.955 0.018 156);
+  --secondary-foreground: oklch(0.23 0.035 158);
+  --muted: oklch(0.955 0.016 156);
+  --muted-foreground: oklch(0.47 0.04 158);
+  --accent: oklch(0.93 0.03 156);
+  --accent-foreground: oklch(0.23 0.035 158);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.89 0.026 156);
+  --input: oklch(0.89 0.026 156);
+  --ring: oklch(0.42 0.105 158);
+  --success: oklch(0.56 0.13 162);
+  --sc-canvas: oklch(0.96 0.024 156);
+  --sidebar: oklch(0.965 0.022 156);
+  --sidebar-foreground: oklch(0.23 0.035 158);
+  --sidebar-primary: oklch(0.42 0.105 158);
+  --sidebar-primary-foreground: oklch(0.99 0.01 156);
+  --sidebar-accent: oklch(0.92 0.034 156);
+  --sidebar-accent-foreground: oklch(0.23 0.035 158);
+  --sidebar-border: oklch(0.89 0.026 156);
+  --sidebar-ring: oklch(0.42 0.105 158);
   --message-user: var(--sidebar-accent);
   --message-user-foreground: var(--sidebar-accent-foreground);
 }
@@ -383,8 +415,9 @@
   --secondary-foreground: oklch(0.24 0.025 252);
   --muted: oklch(0.955 0.014 240);
   --muted-foreground: oklch(0.52 0.035 252);
-  --accent: oklch(0.955 0.016 240);
+  --accent: oklch(0.94 0.024 240);
   --accent-foreground: oklch(0.24 0.025 252);
+  --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.9 0.02 242);
   --input: oklch(0.9 0.02 242);
   --ring: oklch(0.52 0.15 252);
@@ -408,37 +441,19 @@
  * block gives the settings swatch a stable light-graphite sample.
  */
 [data-sidechat-theme-preview="graphite"] {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --border: oklch(0.922 0 0);
+  --background: oklch(0.994 0.003 264);
+  --foreground: oklch(0.22 0.018 264);
+  --card: oklch(1 0.002 264);
+  --card-foreground: oklch(0.22 0.018 264);
+  --primary: oklch(0.26 0.028 264);
+  --primary-foreground: oklch(0.985 0.002 264);
+  --muted: oklch(0.96 0.006 264);
+  --muted-foreground: oklch(0.5 0.02 264);
+  --border: oklch(0.91 0.009 264);
   --success: oklch(0.6 0.13 160);
-  --sc-canvas: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --message-user: var(--sidebar-accent);
-  --message-user-foreground: var(--sidebar-accent-foreground);
-}
-
-[data-sidechat-theme-preview="dark"] {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --border: oklch(1 0 0 / 12%);
-  --success: oklch(0.72 0.15 162);
-  --sc-canvas: oklch(0.165 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sc-canvas: oklch(0.978 0.004 264);
+  --sidebar-accent: oklch(0.95 0.008 264);
+  --sidebar-accent-foreground: oklch(0.27 0.026 264);
   --message-user: var(--sidebar-accent);
   --message-user-foreground: var(--sidebar-accent-foreground);
 }
@@ -810,23 +825,19 @@
   }
 
   .sc-settings-theme-chip[data-theme="graphite"] {
-    background: oklch(0.985 0 0);
-    border-color: oklch(0.9 0 0);
+    background: oklch(0.26 0.028 264);
+  }
+
+  .sc-settings-theme-chip[data-theme="sapphire"] {
+    background: oklch(0.42 0.14 264);
   }
 
   .sc-settings-theme-chip[data-theme="sage"] {
-    background: oklch(0.965 0.016 150);
-    border-color: oklch(0.9 0.016 150);
+    background: oklch(0.42 0.105 158);
   }
 
   .sc-settings-theme-chip[data-theme="ocean"] {
-    background: oklch(0.96 0.02 240);
-    border-color: oklch(0.9 0.02 242);
-  }
-
-  .sc-settings-theme-chip[data-theme="dark"] {
-    background: oklch(0.205 0 0);
-    border-color: oklch(1 0 0 / 14%);
+    background: oklch(0.52 0.15 252);
   }
 
   .sc-settings-theme-list {
