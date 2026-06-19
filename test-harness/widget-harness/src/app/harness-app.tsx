@@ -1,4 +1,4 @@
-import { createElement, type ReactElement } from "react";
+import { createElement, useEffect, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 
 import { SideChatWidget, type SideChatWidgetProps } from "@side-chat/side-chat-widget";
@@ -6,9 +6,39 @@ import { SideChatWidget, type SideChatWidgetProps } from "@side-chat/side-chat-w
 import { createHarnessHostBridge } from "#host/fake-host-bridge";
 import { createLocalServiceClient } from "#clients/local-service-client";
 import { createMockStreamClient } from "#clients/mock-stream-client";
-import { parseWidgetHarnessConfig, type WidgetHarnessConfig } from "#config/modes";
+import {
+  parseWidgetHarnessConfig,
+  WIDGET_HARNESS_OPEN_CONTROLS,
+  type WidgetHarnessConfig,
+} from "#config/modes";
 
 const SERVICE_DEFAULT_ASSISTANT_PROFILE_ID = "default";
+const SET_OPEN_MESSAGE_TYPE = "sidechat.widget.setOpen";
+const OPEN_CHANGE_MESSAGE_TYPE = "sidechat.widget.openChange";
+
+/**
+ * Host-to-frame command for the local iframe harness.
+ *
+ * A Workbench page sends this message to the iframe window after its own button
+ * changes desired panel state. The iframe only receives the boolean decision;
+ * host auth, routing, and button UI remain outside the frame.
+ */
+export type WidgetHarnessSetOpenMessage = {
+  readonly type: typeof SET_OPEN_MESSAGE_TYPE;
+  readonly open: boolean;
+};
+
+/**
+ * Frame-to-host request emitted when Side Chat chrome asks to close or open.
+ *
+ * The parent page decides whether to accept the request and, if accepted, sends
+ * `WidgetHarnessSetOpenMessage` back. This keeps the host app as the visible
+ * source of truth for iframe open state.
+ */
+export type WidgetHarnessOpenChangeMessage = {
+  readonly type: typeof OPEN_CHANGE_MESSAGE_TYPE;
+  readonly open: boolean;
+};
 
 export type WidgetHarnessApp = {
   readonly config: WidgetHarnessConfig;
@@ -16,6 +46,49 @@ export type WidgetHarnessApp = {
 };
 
 export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarnessApp => {
+  return {
+    config,
+    element: createElement(WidgetHarnessFrame, { config }),
+  };
+};
+
+const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }) => {
+  const [hostOpen, setHostOpen] = useState(config.defaultOpen);
+  const hostControlled = config.openControl === WIDGET_HARNESS_OPEN_CONTROLS.HOST;
+
+  useEffect(() => {
+    if (!hostControlled) return undefined;
+
+    const receiveHostControl = (event: MessageEvent<unknown>) => {
+      if (event.origin !== window.location.origin) return;
+      const message = event.data;
+      if (isSetOpenMessage(message)) setHostOpen(message.open);
+    };
+
+    window.addEventListener("message", receiveHostControl);
+    return () => window.removeEventListener("message", receiveHostControl);
+  }, [hostControlled]);
+
+  const props = createWidgetHarnessProps(config);
+  if (!hostControlled) return createElement(SideChatWidget, props);
+
+  return createElement(SideChatWidget, {
+    ...props,
+    onOpenChange: (open: boolean) => {
+      window.parent.postMessage({ type: OPEN_CHANGE_MESSAGE_TYPE, open }, window.location.origin);
+    },
+    open: hostOpen,
+    renderClosedLauncher: false,
+  });
+};
+
+const isSetOpenMessage = (message: unknown): message is WidgetHarnessSetOpenMessage => {
+  if (typeof message !== "object" || message === null) return false;
+  const candidate = message as { readonly open?: unknown; readonly type?: unknown };
+  return candidate.type === SET_OPEN_MESSAGE_TYPE && typeof candidate.open === "boolean";
+};
+
+const createWidgetHarnessProps = (config: WidgetHarnessConfig): SideChatWidgetProps => {
   const hostBridge = createHarnessHostBridge(config);
   const client =
     config.mode === "local-service"
@@ -26,7 +99,7 @@ export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarne
     client,
     conversationStorageKey: `side-chat-widget:${config.workspaceId}:conversations`,
     defaultAssistantProfileId: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID,
-    defaultOpen: true,
+    defaultOpen: config.defaultOpen,
     defaultPanelSize: resolveHarnessPanelSize(),
     hostBridge,
     labels: {
@@ -49,11 +122,7 @@ export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarne
       { id: "reply", label: "Draft a reply about this", prompt: "Draft a reply about this." },
     ],
   };
-
-  return {
-    config,
-    element: createElement(SideChatWidget, props),
-  };
+  return props;
 };
 
 const resolveHarnessPanelSize = (): {

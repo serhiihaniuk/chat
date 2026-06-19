@@ -70,16 +70,24 @@ const SideChatWidgetContent = ({
   defaultTheme,
   hostBridge,
   labels,
+  onOpenChange,
+  open,
   panelActions,
   quickActions = [],
+  renderClosedLauncher = true,
   reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
   themeStorageKey,
 }: SideChatWidgetProps) => {
   const resolvedLabels = resolveWidgetLabels(labels);
   const initialProfileId = resolveInitialProfileId(defaultAssistantProfileId, assistantProfiles);
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId);
+  const isOpen = open ?? uncontrolledOpen;
+  const requestOpenChange = (nextOpen: boolean) => {
+    if (open === undefined) setUncontrolledOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  };
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
   const appearance = useWidgetAppearance();
   const modelSelection = useWidgetModelSelection({
@@ -98,13 +106,14 @@ const SideChatWidgetContent = ({
   const isBusy = isBusyStatus(chat.status);
   const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
 
-  if (!isOpen) {
+  if (!isOpen && renderClosedLauncher) {
     return (
       <SideChatWidgetRoot theme={theme.themeId}>
-        <ClosedWidgetLauncher label={resolvedLabels.title} onOpen={() => setIsOpen(true)} />
+        <ClosedWidgetLauncher label={resolvedLabels.title} onOpen={() => requestOpenChange(true)} />
       </SideChatWidgetRoot>
     );
   }
+  if (!isOpen) return null;
 
   return (
     <ResizablePanel
@@ -131,7 +140,7 @@ const SideChatWidgetContent = ({
             newConversationDisabled={isBusy && chat.conversationId === undefined}
             onClose={() => {
               panelActions?.onClose?.();
-              setIsOpen(false);
+              requestOpenChange(false);
             }}
             onNewConversation={chat.startNewConversation}
             onOpenSettings={() => setIsSettingsOpen(true)}

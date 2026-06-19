@@ -116,6 +116,36 @@ describe("SideChatWidget interactions", () => {
     expect(observedSignals[0]?.aborted).toBe(true);
   });
 
+  it("lets a host own open state and suppress the internal launcher", async () => {
+    const requestedOpenStates: boolean[] = [];
+    const client = fakeClient(async function* () {
+      await Promise.resolve();
+      yield started();
+      yield completed();
+    });
+    const renderControlled = (open: boolean) =>
+      mountWidget(
+        <SideChatWidget
+          client={client}
+          labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
+          onOpenChange={(nextOpen) => requestedOpenStates.push(nextOpen)}
+          open={open}
+          renderClosedLauncher={false}
+        />,
+      );
+
+    renderControlled(false);
+    expect(document.body.textContent).not.toContain("Workspace Assistant");
+    expect(document.querySelector("button")).toBeNull();
+
+    renderControlled(true);
+    await waitForText("Workspace Assistant");
+    await clickButton("Close");
+
+    expect(requestedOpenStates).toEqual([false]);
+    expect(document.body.textContent).toContain("Workspace Assistant");
+  });
+
   it("submits a widget-supported reasoning effort from the backend catalog", async () => {
     const requests: ChatStreamRequest[] = [];
     const client = fakeClient(

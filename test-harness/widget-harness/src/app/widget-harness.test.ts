@@ -29,10 +29,24 @@ describe("widget harness modes", () => {
       mode: "local-service",
       apiBaseUrl: "/api",
       authToken: "local-compose-token",
+      defaultOpen: true,
+      openControl: "widget",
       workspaceId: "workspace_local",
     });
     expect(html).toContain("Workspace Assistant");
     expect(html).toContain("How can I help with this page?");
+  });
+
+  it("configures host-controlled iframe open state from query params", () => {
+    const config = parseWidgetHarnessConfig("?openControl=host&open=false");
+    const app = createWidgetHarnessApp(config);
+    const html = renderToStaticMarkup(app.element);
+
+    expect(config).toMatchObject({
+      defaultOpen: false,
+      openControl: "host",
+    });
+    expect(html).not.toContain("Workspace Assistant");
   });
 
   it("creates deterministic mock stream events with host command sequencing", async () => {

@@ -1,9 +1,25 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "playwright/test";
 
-const serviceBaseUrl = "http://127.0.0.1:3101";
+const servicePort = readPortEnv("SIDECHAT_E2E_SERVICE_PORT", 3101);
+const widgetPort = readPortEnv("SIDECHAT_E2E_WIDGET_PORT", 5174);
+const serviceBaseUrl = `http://127.0.0.1:${servicePort}`;
+const widgetBaseUrl = `http://127.0.0.1:${widgetPort}`;
+const widgetFramePath = "/side-chat-frame/";
 const authToken = "local-compose-token";
 const workspaceId = "workspace_e2e";
 const pageErrorLog = new WeakMap<Page, string[]>();
+
+function readPortEnv(name: string, fallback: number): number {
+  const value = process.env[name];
+  if (!value) return fallback;
+
+  const port = Number(value);
+  if (Number.isInteger(port) && port > 0 && port <= 65535) return port;
+
+  throw new Error(`Invalid ${name} value: ${value}`);
+}
+
+const widgetAppUrl = (query: string): string => `${widgetFramePath}${query}`;
 
 test.beforeEach(({ page }) => {
   const pageErrors: string[] = [];
@@ -26,7 +42,7 @@ test.afterEach(async ({ page }, testInfo) => {
 });
 
 test("runs the widget harness in a browser with deterministic mock streaming", async ({ page }) => {
-  await page.goto("/?mode=mock-stream");
+  await page.goto(widgetAppUrl("?mode=mock-stream"));
 
   await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
   await page.getByLabel("Message").fill("hello browser");
@@ -62,8 +78,48 @@ test("streams through the real widget and real backend with mocked DB and model"
   await expectUsageWasRecorded(request);
 });
 
+test("streams from the local service while embedded in an iframe", async ({ page, request }) => {
+  await expectServiceHealth(request);
+  await page.setViewportSize({ height: 960, width: 1400 });
+  await page.goto(
+    `${widgetFramePath}workbench-embed.html?authToken=${encodeURIComponent(authToken)}` +
+      `&workspaceId=${encodeURIComponent(workspaceId)}` +
+      `&apiBaseUrl=${encodeURIComponent("/api")}` +
+      `&framePath=${encodeURIComponent(widgetFramePath)}`,
+  );
+  const iframe = page.locator('iframe[title="Workspace Assistant"]');
+  const frameSrc = await iframe.getAttribute("src");
+  expect(new URL(frameSrc ?? "", widgetBaseUrl).origin).toBe(widgetBaseUrl);
+  expect(new URL(frameSrc ?? "", widgetBaseUrl).pathname).toBe(widgetFramePath);
+
+  await page.getByRole("button", { name: "Open assistant" }).click();
+
+  const frame = page.frameLocator('iframe[title="Workspace Assistant"]');
+  await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
+
+  const streamResponse = page.waitForResponse((response) =>
+    response.url().includes("/api/chat/stream"),
+  );
+
+  await frame.getByLabel("Message").fill("hello iframe backend");
+  await frame.getByRole("button", { name: "Send" }).click();
+
+  expect((await streamResponse).status()).toBe(200);
+  await expect(
+    frame.getByRole("log").getByText("hello iframe backend", { exact: true }),
+  ).toBeVisible();
+  await expect(frame.getByText("Fake response: hello iframe backend")).toBeVisible({
+    timeout: 15_000,
+  });
+  await expectUsageWasRecorded(request);
+
+  await frame.getByRole("button", { name: "Close" }).click();
+  await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open assistant" })).toBeVisible();
+});
+
 test("renders tool activity details from the canonical activity stream", async ({ page }) => {
-  await page.goto("/?mode=mock-stream&scenario=tool");
+  await page.goto(widgetAppUrl("?mode=mock-stream&scenario=tool"));
   await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
 
   await page.getByLabel("Message").fill("current portfolio news");
@@ -94,7 +150,7 @@ test("renders tool activity details from the canonical activity stream", async (
 });
 
 test("renders a failed host-command result from the mock harness", async ({ page }) => {
-  await page.goto("/?mode=mock-stream&scenario=failed-host-command");
+  await page.goto(widgetAppUrl("?mode=mock-stream&scenario=failed-host-command"));
 
   await page.getByLabel("Message").fill("open the linked record");
   await page.getByRole("button", { name: "Send" }).click();
@@ -105,7 +161,9 @@ test("renders a failed host-command result from the mock harness", async ({ page
 });
 
 test("sends assistant profile and host context through public widget seams", async ({ page }) => {
-  await page.goto("/?mode=mock-stream&scenario=echo-request&workspaceId=workspace_context_a");
+  await page.goto(
+    widgetAppUrl("?mode=mock-stream&scenario=echo-request&workspaceId=workspace_context_a"),
+  );
 
   await page.getByLabel("Message").fill("echo request metadata");
   await page.getByRole("button", { name: "Send" }).click();
@@ -118,7 +176,7 @@ test("sends assistant profile and host context through public widget seams", asy
 });
 
 test("shows a stream error state without arbitrary waits", async ({ page }) => {
-  await page.goto("/?mode=mock-stream&scenario=error");
+  await page.goto(widgetAppUrl("?mode=mock-stream&scenario=error"));
 
   await page.getByLabel("Message").fill("trigger mock failure");
   await page.getByRole("button", { name: "Send" }).click();
@@ -134,7 +192,7 @@ test("opens the narrow conversation switcher menu without crashing", async ({ pa
   // (afterEach asserts no page errors). A sent message seeds a conversation so a
   // labelled group actually renders.
   await page.setViewportSize({ height: 760, width: 460 });
-  await page.goto("/?mode=mock-stream");
+  await page.goto(widgetAppUrl("?mode=mock-stream"));
 
   await page.getByLabel("Message").fill("seed a conversation");
   await page.getByRole("button", { name: "Send" }).click();
@@ -150,7 +208,7 @@ test("opens the narrow conversation switcher menu without crashing", async ({ pa
 
 test("keeps the widget usable on a mobile viewport", async ({ page }) => {
   await page.setViewportSize({ height: 740, width: 390 });
-  await page.goto("/?mode=mock-stream");
+  await page.goto(widgetAppUrl("?mode=mock-stream"));
 
   const widget = page.getByRole("region", { name: "Workspace Assistant" });
   await expect(widget).toBeVisible();
@@ -163,7 +221,7 @@ test("keeps prompt input chat-size and model controls visible as anchored popove
   page,
 }) => {
   await page.setViewportSize({ height: 486, width: 864 });
-  await page.goto("/?mode=mock-stream");
+  await page.goto(widgetAppUrl("?mode=mock-stream"));
 
   const contextButton = page.getByRole("button", { name: "Chat size estimate" });
   await expect(contextButton).toBeVisible();
@@ -181,7 +239,12 @@ test("keeps prompt input chat-size and model controls visible as anchored popove
 });
 
 const openLocalServiceWidget = async (page: Page) => {
-  await page.goto(`/?mode=local-service&authToken=${authToken}&workspaceId=${workspaceId}`);
+  await page.goto(
+    widgetAppUrl(
+      `?mode=local-service&authToken=${encodeURIComponent(authToken)}` +
+        `&workspaceId=${encodeURIComponent(workspaceId)}`,
+    ),
+  );
   await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
 };
 

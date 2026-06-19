@@ -38,14 +38,37 @@ export type SideChatWidgetProps = {
   readonly client: SideChatApiClient;
   readonly conversationStorageKey?: string | undefined;
   readonly defaultAssistantProfileId?: string | undefined;
+  /**
+   * Initial panel state for the widget-owned launcher flow.
+   *
+   * Host-controlled iframe integrations should pass `open` instead. In that
+   * mode this value is ignored after mount, and the host owns every visible
+   * open/closed transition.
+   */
   readonly defaultOpen?: boolean | undefined;
   readonly defaultPanelSize?: SideChatWidgetPanelSize | undefined;
   readonly defaultTheme?: WidgetThemeId | undefined;
   readonly hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
   readonly initialState?: SideChatWidgetStateSnapshot | undefined;
   readonly labels?: SideChatWidgetLabels | undefined;
+  readonly onOpenChange?: ((open: boolean) => void) | undefined;
+  /**
+   * Controlled panel state supplied by the host embedding surface.
+   *
+   * When present, close/open controls only request changes through
+   * `onOpenChange`; callers must pass the next `open` value back. This lets an
+   * iframe host render its own launcher button outside the Side Chat frame.
+   */
+  readonly open?: boolean | undefined;
   readonly panelActions?: SideChatWidgetPanelActions | undefined;
   readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
+  /**
+   * Whether Side Chat renders its internal closed-state launcher.
+   *
+   * Host iframe integrations usually set this to `false` because the host app
+   * owns the button that opens and closes the frame.
+   */
+  readonly renderClosedLauncher?: boolean | undefined;
   // Host/server-configured: how much assistant reasoning the widget exposes by
   // default. Defaults to "minimal" (collapsed). Not a user-facing setting.
   readonly reasoningVisibility?: ReasoningVisibility | undefined;

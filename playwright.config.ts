@@ -1,11 +1,21 @@
 import { defineConfig } from "playwright/test";
 
-const widgetPort = 5174;
-const servicePort = 3101;
+const widgetPort = readPortEnv("SIDECHAT_E2E_WIDGET_PORT", 5174);
+const servicePort = readPortEnv("SIDECHAT_E2E_SERVICE_PORT", 3101);
 const serviceBaseUrl = `http://127.0.0.1:${servicePort}`;
 const widgetBaseUrl = `http://127.0.0.1:${widgetPort}`;
 const authToken = "local-compose-token";
 const workspaceId = "workspace_e2e";
+
+function readPortEnv(name: string, fallback: number): number {
+  const value = process.env[name];
+  if (!value) return fallback;
+
+  const port = Number(value);
+  if (Number.isInteger(port) && port > 0 && port <= 65535) return port;
+
+  throw new Error(`Invalid ${name} value: ${value}`);
+}
 
 export default defineConfig({
   testDir: "test-harness/widget-harness/e2e",
@@ -40,6 +50,7 @@ export default defineConfig({
     {
       command: `npm --workspace @side-chat/widget-harness run dev -- --host 127.0.0.1 --port ${widgetPort}`,
       env: {
+        SIDECHAT_WIDGET_HARNESS_BASE_PATH: "/side-chat-frame/",
         SIDECHAT_WIDGET_HARNESS_API_TARGET: serviceBaseUrl,
       },
       reuseExistingServer: false,

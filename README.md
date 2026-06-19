@@ -27,6 +27,7 @@ host app -> side-chat-widget API/client -> chat-protocol
 | Assistant turn lifecycle | `docs/architecture/assistant-turn.md`     |
 | Extension seams          | `docs/architecture/extension-seams.md`    |
 | Boundary rules           | `docs/architecture/package-boundaries.md` |
+| Iframe embedding         | `docs/operations/embed-widget-iframe.md`  |
 | Verification commands    | `docs/operations/verification.md`         |
 | Agent rules              | `AGENTS.md`                               |
 
@@ -37,6 +38,14 @@ npm install
 npm run dev --workspace @side-chat/partner-ai-service
 npm run dev --workspace @side-chat/widget-harness -- --host 127.0.0.1
 ```
+
+For a no-Docker iframe stack with in-memory persistence, use:
+
+```sh
+SIDECHAT_PROVIDER=fake SIDECHAT_WIDGET_PORT=5174 SIDECHAT_WIDGET_FRAME_PATH=/side-chat-frame node scripts/run-local-fake.mjs --yes
+```
+
+Keep port `8080` for the real host Workbench app.
 
 Open the harness with:
 

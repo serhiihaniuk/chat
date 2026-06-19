@@ -19,21 +19,21 @@ shared/lib
 shared/ai
 ```
 
-| Layer                   | Owns                                                                 |
-| ----------------------- | ------------------------------------------------------------------- |
-| `widgets/side-chat`     | Public composite widget, wide/narrow layout, and view composition.  |
-| `features/chat`         | Chat submission, stream consumption, visible turn state.            |
+| Layer                   | Owns                                                                  |
+| ----------------------- | --------------------------------------------------------------------- |
+| `widgets/side-chat`     | Public composite widget, wide/narrow layout, and view composition.    |
+| `features/chat`         | Chat submission, stream consumption, visible turn state.              |
 | `features/conversation` | Conversation switcher, wide-mode sidebar, empty state, and rendering. |
-| `features/panel`        | Panel open, close, resize, and header chrome.                       |
-| `features/prompt`       | Prompt input and composer behavior.                                 |
-| `features/settings`     | Settings view overlay (theme picker today).                         |
-| `features/theme`        | Theme selection state and widget-root theme attribute.              |
-| `entities/chat`         | Protocol-backed message and activity state.                         |
-| `entities/panel`        | Panel model helpers.                                                 |
-| `entities/theme`        | Theme metadata and ids shared by features.                          |
-| `shared/ui`             | Project-owned reusable primitives.                                  |
-| `shared/lib`            | Browser-safe utilities.                                             |
-| `shared/ai`             | Copied/vendor-style visual primitives only.                         |
+| `features/panel`        | Panel open, close, resize, and header chrome.                         |
+| `features/prompt`       | Prompt input and composer behavior.                                   |
+| `features/settings`     | Settings view overlay (theme picker today).                           |
+| `features/theme`        | Theme selection state and widget-root theme attribute.                |
+| `entities/chat`         | Protocol-backed message and activity state.                           |
+| `entities/panel`        | Panel model helpers.                                                  |
+| `entities/theme`        | Theme metadata and ids shared by features.                            |
+| `shared/ui`             | Project-owned reusable primitives.                                    |
+| `shared/lib`            | Browser-safe utilities.                                               |
+| `shared/ai`             | Copied/vendor-style visual primitives only.                           |
 
 ## Protocol To UI
 
@@ -75,6 +75,9 @@ Host commands are UI/host-app interactions, not backend RuntimeTools by default.
 If the same business action also needs a model-callable backend tool, implement
 a separate RuntimeTool with its own manifest declaration, approval policy, and
 runtime registration.
+
+For iframe embedding and the local no-Docker Workbench stack, use
+`docs/operations/embed-widget-iframe.md`.
 
 ## Copied UI Quarantine
 

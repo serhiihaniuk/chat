@@ -36,6 +36,10 @@ route.
 are scoped to the widget root and never leak onto the host page; see
 `docs/architecture/widget-and-host-integration.md` (Theming And Layout).
 
+`open` and `onOpenChange` let a host app own iframe open/closed state. Pair them
+with `renderClosedLauncher={false}` when the host renders its own launcher
+button outside the Side Chat frame.
+
 `@side-chat/side-chat-widget/testing` exports widget model projection helpers
 for harness tests. It is not a host application API.
 

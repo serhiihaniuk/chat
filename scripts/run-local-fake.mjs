@@ -3,20 +3,23 @@
 //
 // Runs the whole project locally:
 //   - backend  @side-chat/partner-ai-service  (tsx + Hono)
-//   - frontend @side-chat/widget-harness       (Vite), exposed the workbench way
+//   - iframe app @side-chat/widget-harness     (Vite), embedded by a workbench
 //
-// This version PROMPTS you interactively for the model + exposure settings
-// (provider, API key, model, workspace, public domain, token). Anything you
-// answer can also be preset via the matching env var (then the prompt just shows
-// it as the default). In a non-interactive shell it falls back to env/defaults.
+// This version PROMPTS you interactively for the model/runtime settings
+// (provider, API key, model, workspace, token, backend port, widget port).
+// Anything you answer can also be preset via the matching env var (then the
+// prompt just shows it as the default). In a non-interactive shell it falls back
+// to env/defaults.
 //
 // Why injected env: server.ts reads process.env synchronously at boot (no .env
 // file), so every SIDECHAT_* key must be injected into the spawned child.
 //
-// Widget exposure is hardcoded to the workbench convention:
-//   - port 8080 (strictPort), host 0.0.0.0, endpoint name "workbench-ui"
-//   - public host = <workspaceId>-workbench-ui-8080.<domain>
-//   - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS set to that public host
+// Widget exposure follows the workbench convention without taking over the
+// workbench app:
+//   - default widget port 5174 (strictPort), host 0.0.0.0
+//   - default frame proxy path "/side-chat-frame/" on the workbench origin
+//   - endpoint name "side-chat-widget" by default
+//   - port 8080 is reserved for the real workbench host app
 //
 // Uses only Node built-ins. No new dependencies.
 //
@@ -44,10 +47,12 @@ const ROOT = path.resolve(__dirname, "..");
 const BACKEND_WORKSPACE = "@side-chat/partner-ai-service";
 const WIDGET_WORKSPACE = "@side-chat/widget-harness";
 
-// Workbench exposure convention (hardcoded, not configurable).
-const WIDGET_PORT = 8080;
-const WIDGET_ENDPOINT_NAME = "workbench-ui";
-const WIDGET_BIND_HOST = "0.0.0.0";
+const DEFAULT_BACKEND_PORT = 8787;
+const DEFAULT_WIDGET_PORT = 5174;
+const DEFAULT_WIDGET_ENDPOINT_NAME = "side-chat-widget";
+const DEFAULT_WIDGET_BIND_HOST = "0.0.0.0";
+const DEFAULT_WIDGET_FRAME_PATH = "/side-chat-frame";
+const WORKBENCH_RESERVED_PORT = 8080;
 
 // Saved answers live next to this script so re-runs remember your inputs.
 const CONFIG_FILE = path.join(__dirname, ".run-local-fake.json");
@@ -109,7 +114,7 @@ function saveConfig(cfg) {
       }
     }
     logLauncher(
-      `Saved your answers to ${path.relative(ROOT, CONFIG_FILE)} (reused next run; contains the API key — keep it out of git).`,
+      `Saved your answers to ${path.relative(ROOT, CONFIG_FILE)} (reused next run; contains the API key - keep it out of git).`,
     );
   } catch (e) {
     warnLauncher(`Could not save config: ${e.message}`);
@@ -121,6 +126,29 @@ function pick(saved, key, envVal, fallback) {
   if (has && saved[key] !== undefined && saved[key] !== "") return String(saved[key]);
   if (envVal) return envVal;
   return fallback;
+}
+function readPort(value, fallback, label) {
+  const port = Number(value);
+  if (Number.isInteger(port) && port > 0 && port <= 65535) return port;
+  warnLauncher(`Invalid ${label} "${value}", using ${fallback}.`);
+  return fallback;
+}
+function readEnvValue(...names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  return "";
+}
+function normalizeFramePath(value) {
+  const trimmed = String(value || DEFAULT_WIDGET_FRAME_PATH).trim();
+  if (!trimmed || trimmed === "/") return "/";
+
+  const withoutEdges = trimmed.replace(/^\/+/u, "").replace(/\/+$/u, "");
+  return `/${withoutEdges}`;
+}
+function frameBasePath(framePath) {
+  return framePath === "/" ? "/" : `${framePath}/`;
 }
 
 // --------------------------------------------------------------------------
@@ -159,7 +187,7 @@ function freePort(port, label) {
   const self = String(process.pid);
   const pids = pidsOnPort(port).filter((p) => p !== self);
   if (!pids.length) return;
-  warnLauncher(`Port ${port} (${label}) is busy — killing PID(s) ${pids.join(", ")}.`);
+  warnLauncher(`Port ${port} (${label}) is busy - killing PID(s) ${pids.join(", ")}.`);
   for (const pid of pids) {
     try {
       if (IS_WIN) execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore" });
@@ -385,6 +413,39 @@ function spawnDevServer({ name, labelColor, workspace, env, extraArgs = [] }) {
   return child;
 }
 
+function deriveDevpodDomain() {
+  const proxyUri = process.env.VSCODE_PROXY_URI;
+  if (!proxyUri) return "";
+
+  try {
+    const proxyHost = new URL(proxyUri).hostname;
+    const workspaceId = process.env.DEVWORKSPACE_ID || process.env.DEVWORKSPACE_NAME || "";
+
+    if (workspaceId) {
+      const knownPrefix = `${workspaceId}-vscode-latest-50001.`;
+      if (proxyHost.startsWith(knownPrefix)) return proxyHost.slice(knownPrefix.length);
+    }
+
+    const firstDotIndex = proxyHost.indexOf(".");
+    return firstDotIndex > -1 ? proxyHost.slice(firstDotIndex + 1) : "";
+  } catch {
+    return "";
+  }
+}
+
+function deriveWidgetPublicHost(endpointName, port) {
+  const explicitHost = readEnvValue("SIDECHAT_WIDGET_PUBLIC_HOST", "WIDGET_PUBLIC_HOST")
+    .replace(/^https?:\/\//u, "")
+    .replace(/\/$/u, "");
+  if (explicitHost) return explicitHost;
+
+  const workspaceId = process.env.DEVWORKSPACE_ID || process.env.DEVWORKSPACE_NAME || "";
+  const domain = readEnvValue("SIDECHAT_PUBLIC_DOMAIN") || deriveDevpodDomain();
+  if (!workspaceId || !domain) return "";
+
+  return `${workspaceId}-${endpointName}-${port}.${domain}`;
+}
+
 function killChild({ child }) {
   if (!child.pid || child.exitCode !== null || child.signalCode !== null) return;
   if (IS_WIN) {
@@ -502,7 +563,7 @@ async function collectConfig() {
       pick(saved, "models", process.env.SIDECHAT_ALLOWED_MODELS, "gpt-5.4-mini"),
     );
     cfg.baseUrl = await ask(
-      "API base URL — OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
+      "API base URL - OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
       pick(saved, "baseUrl", process.env.SIDECHAT_OPENAI_BASE_URL, ""),
     );
   }
@@ -515,28 +576,66 @@ async function collectConfig() {
     "Auth bearer token",
     pick(saved, "authToken", process.env.AUTH_TOKEN, "local-compose-token"),
   );
-  cfg.backendPort =
-    Number(
-      await ask(
-        `Backend port (internal; MUST differ from the widget's ${WIDGET_PORT})`,
-        pick(saved, "backendPort", process.env.BACKEND_PORT, "8787"),
+  cfg.backendPort = readPort(
+    await ask(
+      "Backend port (internal service)",
+      pick(saved, "backendPort", process.env.BACKEND_PORT, String(DEFAULT_BACKEND_PORT)),
+    ),
+    DEFAULT_BACKEND_PORT,
+    "backend port",
+  );
+
+  cfg.widgetPort = readPort(
+    await ask(
+      "Widget iframe port (real workbench owns 8080)",
+      pick(
+        saved,
+        "widgetPort",
+        readEnvValue("SIDECHAT_WIDGET_PORT", "WIDGET_PORT"),
+        String(DEFAULT_WIDGET_PORT),
       ),
-    ) || 8787;
-  if (cfg.backendPort === WIDGET_PORT) {
-    // The widget owns WIDGET_PORT (8080) and is reached publicly; the backend is
-    // internal (proxied via /api). If they collide, freePort(widget) would kill
-    // the backend. Force a safe internal port instead.
+    ),
+    DEFAULT_WIDGET_PORT,
+    "widget port",
+  );
+  if (cfg.widgetPort === WORKBENCH_RESERVED_PORT) {
     warnLauncher(
-      `Backend port ${WIDGET_PORT} clashes with the widget — using 8787 for the backend instead.`,
+      `Port ${WORKBENCH_RESERVED_PORT} is reserved for the real workbench; using ${DEFAULT_WIDGET_PORT} for the widget instead.`,
     );
-    cfg.backendPort = 8787;
+    cfg.widgetPort = DEFAULT_WIDGET_PORT;
+  }
+  if (cfg.backendPort === cfg.widgetPort) {
+    const fallbackBackendPort =
+      cfg.widgetPort === DEFAULT_BACKEND_PORT ? DEFAULT_BACKEND_PORT + 1 : DEFAULT_BACKEND_PORT;
+    warnLauncher(
+      `Backend port ${cfg.backendPort} clashes with the widget; using ${fallbackBackendPort} for the backend instead.`,
+    );
+    cfg.backendPort = fallbackBackendPort;
   }
 
-  // Public domain for the widget host. Blank => expose on localhost only.
-  cfg.domain = await ask(
-    "Public domain for the widget (blank = localhost only).\n" +
-      `  Public host becomes: <workspaceId>-${WIDGET_ENDPOINT_NAME}-${WIDGET_PORT}.<domain>\n  domain`,
-    pick(saved, "domain", process.env.SIDECHAT_PUBLIC_DOMAIN, ""),
+  cfg.widgetEndpointName = await ask(
+    "Widget endpoint name",
+    pick(
+      saved,
+      "widgetEndpointName",
+      readEnvValue("SIDECHAT_WIDGET_ENDPOINT_NAME", "WIDGET_ENDPOINT_NAME"),
+      DEFAULT_WIDGET_ENDPOINT_NAME,
+    ),
+  );
+  cfg.widgetBindHost = await ask(
+    "Widget bind host",
+    pick(saved, "widgetBindHost", process.env.SIDECHAT_WIDGET_BIND_HOST, DEFAULT_WIDGET_BIND_HOST),
+  );
+  cfg.widgetFramePath = normalizeFramePath(
+    await ask(
+      "Workbench frame proxy path",
+      pick(
+        saved,
+        "widgetFramePath",
+        process.env.SIDECHAT_WIDGET_FRAME_PATH,
+        DEFAULT_WIDGET_FRAME_PATH,
+      ),
+    ),
   );
 
   closePrompts();
@@ -594,29 +693,34 @@ async function main() {
     return;
   }
 
-  // ---- Widget exposure (workbench convention) ----
-  const publicHost = cfg.domain
-    ? `${cfg.workspaceId}-${WIDGET_ENDPOINT_NAME}-${WIDGET_PORT}.${cfg.domain}`
-    : "";
+  // ---- Widget iframe app exposure ----
+  const publicHost = deriveWidgetPublicHost(cfg.widgetEndpointName, cfg.widgetPort);
+  const widgetFrameBasePath = frameBasePath(cfg.widgetFramePath);
   const widgetEnv = {
     SIDECHAT_WIDGET_HARNESS_API_TARGET: `http://127.0.0.1:${cfg.backendPort}`,
+    SIDECHAT_WIDGET_HARNESS_BASE_PATH: widgetFrameBasePath,
   };
   if (publicHost) widgetEnv.__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS = publicHost;
 
-  freePort(WIDGET_PORT, "widget");
+  freePort(cfg.widgetPort, "widget");
   spawnDevServer({
     name: "widget",
     labelColor: "blue",
     workspace: WIDGET_WORKSPACE,
     env: widgetEnv,
-    extraArgs: ["--host", WIDGET_BIND_HOST, "--port", String(WIDGET_PORT), "--strictPort"],
+    extraArgs: ["--host", cfg.widgetBindHost, "--port", String(cfg.widgetPort), "--strictPort"],
   });
 
-  const base = publicHost ? `https://${publicHost}` : `http://127.0.0.1:${WIDGET_PORT}`;
+  const base = publicHost ? `https://${publicHost}` : `http://127.0.0.1:${cfg.widgetPort}`;
   const widgetUrl =
-    `${base}/?mode=local-service` +
+    `${base}${widgetFrameBasePath}?mode=local-service` +
     `&authToken=${encodeURIComponent(cfg.authToken)}` +
     `&workspaceId=${encodeURIComponent(cfg.workspaceId)}`;
+  const workbenchFrameSrc =
+    `${widgetFrameBasePath}?mode=local-service` +
+    `&workspaceId=${encodeURIComponent(cfg.workspaceId)}` +
+    `&apiBaseUrl=${encodeURIComponent("/side-chat-api")}` +
+    `&openControl=host&open=false`;
 
   setTimeout(() => {
     if (shuttingDown) return;
@@ -633,13 +737,20 @@ async function main() {
       `  Backend (healthz): ${color("cyan", `http://127.0.0.1:${cfg.backendPort}/healthz`)}`,
     );
     console.log(
-      `  Widget bind:       ${color("dim", `${WIDGET_BIND_HOST}:${WIDGET_PORT} (strictPort)`)}`,
+      `  Widget bind:       ${color("dim", `${cfg.widgetBindHost}:${cfg.widgetPort} (strictPort)`)}`,
     );
     if (publicHost) console.log(`  Public host:       ${color("dim", publicHost)}`);
+    console.log(`  Frame proxy path:  ${color("dim", cfg.widgetFramePath)}`);
+    console.log(
+      `  Workbench port:    ${color("dim", `${WORKBENCH_RESERVED_PORT} remains reserved for the host app`)}`,
+    );
     console.log(`  Bearer token:      ${color("dim", cfg.authToken)}`);
     console.log("");
     console.log(`  ${color("bold", "Open this URL:")}`);
     console.log(`  ${color("yellow", widgetUrl)}`);
+    console.log("");
+    console.log(`  ${color("bold", "Workbench iframe src:")}`);
+    console.log(`  ${color("yellow", workbenchFrameSrc)}`);
     console.log(color("green", line));
     console.log(color("dim", "  Press Ctrl+C to stop both servers."));
     console.log(color("green", line) + "\n");
