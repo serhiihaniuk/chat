@@ -45,7 +45,8 @@ For a no-Docker iframe stack with in-memory persistence, use:
 SIDECHAT_PROVIDER=fake SIDECHAT_WIDGET_PORT=5174 SIDECHAT_WIDGET_FRAME_PATH=/side-chat-frame node scripts/run-local-fake.mjs --yes
 ```
 
-Keep port `8080` for the real host Workbench app.
+Keep port `8080` for the real host Workbench app. The fake launcher preloads a
+few demo conversations unless `SIDECHAT_DEMO_SEED_CONVERSATIONS=false`.
 
 Open the harness with:
 

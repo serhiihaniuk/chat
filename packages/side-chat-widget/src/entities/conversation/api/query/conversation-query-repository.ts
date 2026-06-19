@@ -92,6 +92,7 @@ export const useGetConversations = ({
     },
     enabled: client.listConversations !== undefined,
     initialData: initialConversations,
+    initialDataUpdatedAt: 0,
   });
 };
 

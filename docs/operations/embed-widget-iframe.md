@@ -34,6 +34,12 @@ The launcher exposes:
 | Iframe app | `http://127.0.0.1:5174` | Vite widget harness that renders `SideChatWidget`.        |
 | Workbench  | `http://127.0.0.1:8080` | Real host app that owns the embedding page.               |
 
+When `SIDECHAT_PROVIDER=fake`, the launcher sets
+`SIDECHAT_DEMO_SEED_CONVERSATIONS=true` by default. The service preloads a few
+in-memory showcase chats through the normal persistence repositories, so the
+conversation list and history routes look populated during a demo. Set
+`SIDECHAT_DEMO_SEED_CONVERSATIONS=false` before launching to start empty.
+
 The browser should load Side Chat through the Workbench origin. The widget
 process is only the proxy target.
 

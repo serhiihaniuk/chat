@@ -666,6 +666,8 @@ async function main() {
   };
   if (cfg.provider === "fake") {
     delete process.env.SIDECHAT_DATABASE_URL; // keep memory persistence
+    backendEnv.SIDECHAT_DEMO_SEED_CONVERSATIONS =
+      process.env.SIDECHAT_DEMO_SEED_CONVERSATIONS ?? "true";
     logLauncher("Provider: fake (echo model).");
   } else {
     backendEnv.SIDECHAT_OPENAI_API_KEY = cfg.apiKey;

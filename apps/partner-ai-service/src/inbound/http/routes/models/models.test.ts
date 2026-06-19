@@ -1,4 +1,8 @@
-import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION, decodeSseEvents } from "@side-chat/chat-protocol";
+import {
+  SIDECHAT_EVENT_TYPES,
+  SIDECHAT_PROTOCOL_VERSION,
+  decodeSseEvents,
+} from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 
 import { createPartnerAiServiceApp, type PartnerAiServiceOptions } from "../../app.js";
@@ -10,6 +14,28 @@ const validRequest = {
 };
 
 describe("partner ai service model catalog", () => {
+  it("exposes fake demo thinking levels in the local model catalog", async () => {
+    const response = await createPartnerAiServiceApp().request("/models", {
+      headers: { authorization: "Bearer local-test-token" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      defaultModel: { providerId: "fake", modelId: "fake-echo" },
+      models: [
+        {
+          providerId: "fake",
+          modelId: "fake-echo",
+          displayName: "fake-echo",
+          default: true,
+          available: true,
+          reasoning: { defaultEffort: "medium", efforts: ["low", "medium", "high"] },
+        },
+      ],
+    });
+  });
+
   it("exposes the configured backend model catalog with reasoning and context windows", async () => {
     const response = await createPartnerAiServiceApp({
       runtime: openAiRuntimeOptions(),

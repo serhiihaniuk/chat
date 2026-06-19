@@ -1,11 +1,26 @@
 import { Effect } from "effect";
 import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
+import {
+  RUNTIME_REASONING_EFFORTS,
+  type RuntimeReasoningEffort,
+} from "@side-chat/ai-runtime-contract";
+import { omitUndefinedProperties } from "@side-chat/shared";
 
 import type { ModelProvider } from "#providers/model-provider";
 import { createScriptedLanguageModel } from "#testing/scripted-language-model";
 
 export const FAKE_PROVIDER_ID = "fake" as const;
 export const FAKE_ECHO_MODEL_ID = "fake-echo" as const;
+export const FAKE_REASONING_EFFORTS = {
+  LOW: RUNTIME_REASONING_EFFORTS.LOW,
+  MEDIUM: RUNTIME_REASONING_EFFORTS.MEDIUM,
+  HIGH: RUNTIME_REASONING_EFFORTS.HIGH,
+} as const;
+
+export type FakeReasoningEffort =
+  (typeof FAKE_REASONING_EFFORTS)[keyof typeof FAKE_REASONING_EFFORTS];
+
+export const DEFAULT_FAKE_REASONING_EFFORT = FAKE_REASONING_EFFORTS.MEDIUM;
 
 export type FakeProviderOptions = {
   readonly providerId?: string | undefined;
@@ -19,19 +34,29 @@ export const createFakeProvider = (options: FakeProviderOptions = {}): ModelProv
   return {
     providerId,
     modelIds,
-    resolveModel: (selection) =>
-      Effect.succeed(
-        createScriptedLanguageModel({
-          providerId,
-          modelId: selection.modelId,
-          reasoning: "**Selected deterministic echo script**",
-          text: createDeterministicEchoText,
-        }),
-      ),
+    resolveModel: (selection) => {
+      const effort = selection.reasoning?.effort ?? DEFAULT_FAKE_REASONING_EFFORT;
+      const reasoning = createDemoReasoningText(effort);
+      const text = (callOptions: LanguageModelV3CallOptions) =>
+        createDeterministicFakeText(callOptions, effort);
+      return Effect.succeed(
+        createScriptedLanguageModel(
+          omitUndefinedProperties({
+            providerId,
+            modelId: selection.modelId,
+            text,
+            reasoning,
+          }),
+        ),
+      );
+    },
   };
 };
 
-const createDeterministicEchoText = (options: LanguageModelV3CallOptions): string => {
+const createDeterministicFakeText = (
+  options: LanguageModelV3CallOptions,
+  effort: RuntimeReasoningEffort,
+): string => {
   const userText = lastUserText(options);
   const title = createDeterministicTitle(userText);
   if (title) return title;
@@ -39,7 +64,60 @@ const createDeterministicEchoText = (options: LanguageModelV3CallOptions): strin
   const codename = findPriorProjectCodename(options, userText);
   if (codename) return `Your project codename is ${codename}.`;
 
+  const canned = createShowcaseAnswer(userText, effort);
+  if (canned) return canned;
+
   return userText.length > 0 ? `Fake response: ${userText}` : "Fake response.";
+};
+
+const createDemoReasoningText = (effort: RuntimeReasoningEffort): string | undefined => {
+  const level = normalizeReasoningEffort(effort);
+  if (level === undefined) return undefined;
+
+  const body = {
+    [FAKE_REASONING_EFFORTS.LOW]:
+      "Read the latest message, pick the deterministic demo answer, and keep the response short.",
+    [FAKE_REASONING_EFFORTS.MEDIUM]:
+      "Read the latest message, check useful prior chat context, and choose a concise showcase answer.",
+    [FAKE_REASONING_EFFORTS.HIGH]:
+      "Read the latest message, compare it with prior context, preserve deterministic demo behavior, and explain the next useful step clearly.",
+  }[level];
+
+  return `**Thinking (${level})** ${body}`;
+};
+
+const createShowcaseAnswer = (
+  userText: string,
+  effort: RuntimeReasoningEffort,
+): string | undefined => {
+  if (/\b(what is your mission|mission)\b/iu.test(userText)) {
+    return "My mission is to sit inside the workspace, keep context close, and help turn host-app state into concrete next steps.";
+  }
+  if (/\b(what tools do you have|tools)\b/iu.test(userText)) {
+    return "In this fake demo I can show model selection, thinking levels, conversation history, iframe open-state control, and deterministic local tool activity without calling a real model.";
+  }
+  if (/\b(thinking|reasoning|think)\b/iu.test(userText)) {
+    return `This fake provider is using ${formatReasoningEffort(effort)} thinking, so the activity row changes while the rest of the app still streams through the real runtime path.`;
+  }
+  return undefined;
+};
+
+const normalizeReasoningEffort = (
+  effort: RuntimeReasoningEffort,
+): FakeReasoningEffort | undefined => {
+  if (effort === RUNTIME_REASONING_EFFORTS.NONE) return undefined;
+  if (effort === RUNTIME_REASONING_EFFORTS.HIGH || effort === RUNTIME_REASONING_EFFORTS.XHIGH) {
+    return FAKE_REASONING_EFFORTS.HIGH;
+  }
+  if (effort === RUNTIME_REASONING_EFFORTS.LOW || effort === RUNTIME_REASONING_EFFORTS.MINIMAL) {
+    return FAKE_REASONING_EFFORTS.LOW;
+  }
+  return FAKE_REASONING_EFFORTS.MEDIUM;
+};
+
+const formatReasoningEffort = (effort: RuntimeReasoningEffort): string => {
+  const normalized = normalizeReasoningEffort(effort);
+  return normalized ?? "no";
 };
 
 const createDeterministicTitle = (userText: string): string | undefined => {

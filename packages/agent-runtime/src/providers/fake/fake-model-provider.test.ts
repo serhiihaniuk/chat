@@ -22,7 +22,7 @@ describe("createFakeProvider", () => {
     expect(events[1]).toMatchObject({
       type: "runtime.activity",
       activityKind: "reasoning",
-      title: "Selected deterministic echo script",
+      title: "Thinking (medium)",
     });
     expect(events.filter((event) => event.type === "runtime.activity")).toHaveLength(2);
     expect(
@@ -56,6 +56,34 @@ describe("createFakeProvider", () => {
     const events = await collectEvents(Stream.toAsyncIterable(runtime.streamEffect(request)));
 
     expect(events.filter(isRuntimeTerminalEvent)).toHaveLength(1);
+  });
+
+  it("varies demo reasoning activity by selected effort", async () => {
+    const runtime = createAgentRuntime({
+      providers: [createFakeProvider()],
+    });
+    const request = runtimeRequest({
+      requestId: "req_reasoning",
+      assistantTurnId: "turn_reasoning",
+      providerId: FAKE_PROVIDER_ID,
+      modelId: FAKE_ECHO_MODEL_ID,
+      reasoning: { effort: "high" },
+      messages: [{ role: "user", content: "show thinking levels" }],
+    });
+    const events = await collectEvents(Stream.toAsyncIterable(runtime.streamEffect(request)));
+
+    expect(events[1]).toMatchObject({
+      type: "runtime.activity",
+      activityKind: "reasoning",
+      title: "Thinking (high)",
+      body: expect.stringContaining("prior context"),
+    });
+    expect(
+      events
+        .filter((event) => event.type === "runtime.output_delta")
+        .map((event) => event.content)
+        .join(""),
+    ).toContain("using high thinking");
   });
 
   it("answers the deterministic codename follow-up from prior runtime messages", async () => {

@@ -1,10 +1,26 @@
 import { serve } from "@hono/node-server";
-import { createPartnerAiServiceOptionsFromEnv, readServicePort } from "./config/service-config.js";
+import {
+  createPartnerAiServiceOptionsFromEnv,
+  readDemoSeedConversations,
+  readServicePort,
+} from "./config/service-config.js";
+import { withDemoSeededConversations } from "./demo/demo-conversation-seed.js";
 import { createPartnerAiServiceApp } from "./inbound/http/app.js";
 
-const app = createPartnerAiServiceApp(createPartnerAiServiceOptionsFromEnv());
+const main = async (): Promise<void> => {
+  const options = createPartnerAiServiceOptionsFromEnv();
+  const seededOptions = readDemoSeedConversations()
+    ? await withDemoSeededConversations(options)
+    : options;
+  const app = createPartnerAiServiceApp(seededOptions);
 
-serve({
-  fetch: app.fetch,
-  port: readServicePort(),
+  serve({
+    fetch: app.fetch,
+    port: readServicePort(),
+  });
+};
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
 });

@@ -2,9 +2,9 @@ import {
   createFakeProvider,
   createOpenAIResponsesProvider,
   type ModelProvider,
-  type OpenAIReasoningEffort,
   type OpenAIReasoningSummary,
 } from "@side-chat/agent-runtime";
+import type { RuntimeReasoningEffort } from "@side-chat/ai-runtime-contract";
 
 /**
  * One source of truth for provider/model registration in service composition.
@@ -25,9 +25,9 @@ import {
  */
 export type ServiceReasoningPolicy = {
   /** Default effort used when a turn does not request one. */
-  readonly effort: OpenAIReasoningEffort;
+  readonly effort: RuntimeReasoningEffort;
   /** Efforts the backend permits a browser request to select. */
-  readonly allowedEfforts: readonly OpenAIReasoningEffort[];
+  readonly allowedEfforts: readonly RuntimeReasoningEffort[];
   // Omitted by default: a summary is only requested when an operator opts in, so
   // reasoning stays hidden unless explicitly configured.
   readonly summary?: OpenAIReasoningSummary | undefined;
@@ -68,6 +68,7 @@ export type ServiceProviderRegistration =
       readonly providerId: string;
       readonly modelIds: readonly string[];
       readonly defaultModelId: string;
+      readonly reasoning?: ServiceReasoningPolicy | undefined;
     }
   | {
       readonly kind: "openai";
@@ -202,7 +203,7 @@ const assertModelMetadataMembership = (registration: ServiceProviderRegistration
 };
 
 const assertReasoningPolicy = (registration: ServiceProviderRegistration): void => {
-  if (registration.kind !== "openai") return;
+  if (!registration.reasoning) return;
   if (registration.reasoning.allowedEfforts.length === 0) {
     throw new ServiceProviderRegistryError(
       `Provider ${registration.providerId} requires at least one allowed reasoning effort.`,
@@ -243,7 +244,7 @@ const toProviderStatus = (registration: ServiceProviderRegistration): ServicePro
   if (registration.kind === "openai") {
     return { ...base, retention: registration.retention, reasoning: registration.reasoning };
   }
-  return base;
+  return registration.reasoning ? { ...base, reasoning: registration.reasoning } : base;
 };
 
 const normalizeModelMetadata = (

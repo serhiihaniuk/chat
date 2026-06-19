@@ -27,6 +27,7 @@ export const SERVICE_ENV_KEYS = {
   authBearerToken: "SIDECHAT_AUTH_BEARER_TOKEN",
   ...CAPABILITY_ENV_KEYS,
   databaseUrl: "SIDECHAT_DATABASE_URL",
+  demoSeedConversations: "SIDECHAT_DEMO_SEED_CONVERSATIONS",
   modelContextWindows: "SIDECHAT_MODEL_CONTEXT_WINDOWS",
   openaiApiKey: "SIDECHAT_OPENAI_API_KEY",
   openaiBaseUrl: "SIDECHAT_OPENAI_BASE_URL",
@@ -87,6 +88,9 @@ export const readServicePort = (env: ServiceEnv = process.env): number => {
   }
   return port;
 };
+
+export const readDemoSeedConversations = (env: ServiceEnv = process.env): boolean =>
+  readBooleanFlag(envValue(env, SERVICE_ENV_KEYS.demoSeedConversations), false);
 
 const readWorkspace = (env: ServiceEnv): WorkspaceRef => ({
   tenantId: envValue(env, SERVICE_ENV_KEYS.tenantId) ?? DEFAULT_TENANT_ID,
@@ -245,6 +249,13 @@ const readDevToolFlag = (profile: ServiceProfile, env: ServiceEnv): boolean => {
   if (rawFlag === "true") return true;
   if (rawFlag === "false") return false;
   throw new ServiceConfigError("SIDECHAT_ENABLE_DEV_TOOLS must be true or false.");
+};
+
+const readBooleanFlag = (rawFlag: string | undefined, fallback: boolean): boolean => {
+  if (!rawFlag) return fallback;
+  if (rawFlag === "true") return true;
+  if (rawFlag === "false") return false;
+  throw new ServiceConfigError("Boolean service flags must be true or false.");
 };
 
 const normalizeBearerToken = (token: string): string =>

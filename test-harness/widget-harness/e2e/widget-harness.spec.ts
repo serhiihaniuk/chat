@@ -78,6 +78,22 @@ test("streams through the real widget and real backend with mocked DB and model"
   await expectUsageWasRecorded(request);
 });
 
+test("shows fake demo thinking levels and seeded conversations", async ({ page, request }) => {
+  await expectServiceHealth(request);
+  await expectFakeThinkingCatalog(request);
+  await expectSeededConversations(request);
+  await openLocalServiceWidget(page);
+
+  await expect(page.getByText("Medium")).toBeVisible();
+  await expect(page.getByText("Assistant Mission Overview")).toBeVisible();
+  await page.getByText("Thinking levels demo").click();
+
+  await expect(
+    page.getByRole("log").getByText("Show how fake thinking levels work."),
+  ).toBeVisible();
+  await expect(page.getByText(/Pick low, medium, or high/u)).toBeVisible();
+});
+
 test("streams from the local service while embedded in an iframe", async ({ page, request }) => {
   await expectServiceHealth(request);
   await page.setViewportSize({ height: 960, width: 1400 });
@@ -285,6 +301,41 @@ const expectUsageWasRecorded = async (request: APIRequestContext) => {
   };
   expect(typeof usage.totalTokens).toBe("number");
   expect(usage.totalTokens).toBeGreaterThan(0);
+};
+
+const expectFakeThinkingCatalog = async (request: APIRequestContext) => {
+  const response = await request.get(`${serviceBaseUrl}/models`, {
+    headers: { authorization: `Bearer ${authToken}` },
+  });
+  expect(response.ok()).toBe(true);
+  const catalog = (await response.json()) as {
+    readonly models?: readonly {
+      readonly modelId?: unknown;
+      readonly providerId?: unknown;
+      readonly reasoning?: unknown;
+    }[];
+  };
+  expect(catalog.models?.[0]).toMatchObject({
+    providerId: "fake",
+    modelId: "fake-echo",
+    reasoning: {
+      defaultEffort: "medium",
+      efforts: ["low", "medium", "high"],
+    },
+  });
+};
+
+const expectSeededConversations = async (request: APIRequestContext) => {
+  const response = await request.get(`${serviceBaseUrl}/chat/conversations`, {
+    headers: { authorization: `Bearer ${authToken}` },
+  });
+  expect(response.ok()).toBe(true);
+  const list = (await response.json()) as {
+    readonly conversations?: readonly { readonly title?: unknown }[];
+  };
+  expect(list.conversations?.map((conversation) => conversation.title)).toContain(
+    "Assistant Mission Overview",
+  );
 };
 
 const expectElementWithinViewport = async (page: Page, locator: Locator) => {

@@ -4,8 +4,10 @@
 // model selection, or provider request hardening (Phase 10).
 
 import {
+  DEFAULT_FAKE_REASONING_EFFORT,
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
+  FAKE_REASONING_EFFORTS,
   OPENAI_PROVIDER_ID,
   OPENAI_REASONING_EFFORTS,
 } from "@side-chat/agent-runtime";
@@ -72,5 +74,9 @@ const providerRegistrationForConfig = (config: RuntimeConfig): ServiceProviderRe
     providerId: FAKE_PROVIDER_ID,
     modelIds: [modelId],
     defaultModelId: modelId,
+    reasoning: {
+      effort: DEFAULT_FAKE_REASONING_EFFORT,
+      allowedEfforts: Object.values(FAKE_REASONING_EFFORTS),
+    },
   };
 };

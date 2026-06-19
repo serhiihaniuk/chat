@@ -80,6 +80,27 @@ describe("SideChatWidget conversation history", () => {
     expect(requests[0]?.conversationId).toBe("conversation-2");
   });
 
+  it("loads server conversations immediately when the browser store is empty", async () => {
+    const listConversations = vi.fn<NonNullable<SideChatApiClient["listConversations"]>>(() =>
+      Promise.resolve({
+        conversations: [conversationSummary("conversation-1", "Seeded demo chat")],
+      }),
+    );
+    const client = fakeClient(
+      async function* () {
+        await Promise.resolve();
+        yield started();
+        yield completed();
+      },
+      { listConversations },
+    );
+
+    renderWidget(client);
+    await waitForText("Seeded demo chat");
+
+    expect(listConversations).toHaveBeenCalled();
+  });
+
   it("starts a fresh chat from a selected conversation", async () => {
     window.localStorage.setItem(
       "widget-chat-store",

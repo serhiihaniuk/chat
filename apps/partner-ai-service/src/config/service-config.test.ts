@@ -4,6 +4,7 @@ import { createPartnerAiServiceApp } from "#inbound/http/app";
 import {
   ServiceConfigError,
   createPartnerAiServiceOptionsFromEnv,
+  readDemoSeedConversations,
   readServicePort,
 } from "./service-config.js";
 
@@ -110,6 +111,15 @@ describe("partner ai service env config", () => {
     ).toThrow(ServiceConfigError);
     expect(() => readServicePort({ PORT: "abc" })).toThrow(ServiceConfigError);
     expect(readServicePort({ PORT: "8788" })).toBe(8788);
+  });
+
+  it("parses demo conversation seeding as an explicit local opt-in", () => {
+    expect(readDemoSeedConversations({})).toBe(false);
+    expect(readDemoSeedConversations({ SIDECHAT_DEMO_SEED_CONVERSATIONS: "true" })).toBe(true);
+    expect(readDemoSeedConversations({ SIDECHAT_DEMO_SEED_CONVERSATIONS: "false" })).toBe(false);
+    expect(() =>
+      readDemoSeedConversations({ SIDECHAT_DEMO_SEED_CONVERSATIONS: "sometimes" }),
+    ).toThrow(ServiceConfigError);
   });
 
   it("maps OpenAI env to runtime provider config", () => {
