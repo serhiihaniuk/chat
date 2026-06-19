@@ -93,7 +93,7 @@ describe("golden-path adopter flow", () => {
           expect.objectContaining({
             kind: "reasoning",
             status: "completed",
-            title: "Selected deterministic echo script",
+            title: "Thinking (medium)",
           }),
         ],
       },

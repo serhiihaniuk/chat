@@ -128,7 +128,7 @@ describe("partner ai service /chat/stream", () => {
       expect.objectContaining({
         type: SIDECHAT_EVENT_TYPES.ACTIVITY,
         activityKind: "reasoning",
-        title: "Selected deterministic echo script",
+        title: "Thinking (medium)",
       }),
     );
   });

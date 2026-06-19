@@ -78,6 +78,30 @@ test("streams through the real widget and real backend with mocked DB and model"
   await expectUsageWasRecorded(request);
 });
 
+test("showcases the fake provider with slow markdown and local tool activity", async ({
+  page,
+  request,
+}) => {
+  await expectServiceHealth(request);
+  await openLocalServiceWidget(page);
+
+  await page.getByLabel("Message").fill("tool");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(page.getByRole("heading", { name: "Tool-Backed Showcase" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText("Runtime surface")).toBeVisible();
+  await expect(page.getByText(/Use this during the demo/u)).toBeVisible();
+
+  await openActivityPanel(page, { timeout: 30_000 });
+  await expect(page.getByText("Run mock_web_search")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText(/"query": "Side Chat demo briefing: tool"/u)).toBeVisible();
+  await expect(page.getByText(/Mocked web search found/u)).toBeVisible();
+  await expect(page.getByLabel("Message")).toBeEnabled({ timeout: 30_000 });
+  await expectUsageWasRecorded(request);
+});
+
 test("shows fake demo thinking levels and seeded conversations", async ({ page, request }) => {
   await expectServiceHealth(request);
   await expectFakeThinkingCatalog(request);

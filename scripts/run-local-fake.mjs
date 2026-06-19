@@ -537,16 +537,16 @@ async function collectConfig() {
 
   const cfg = {};
 
-  // Provider
+  // Provider. This launcher is the one-command demo path, so fake is the default.
   let provider = (
     await ask(
       "Provider [fake/openai]",
-      pick(saved, "provider", process.env.SIDECHAT_PROVIDER, "openai"),
+      pick(saved, "provider", process.env.SIDECHAT_PROVIDER, "fake"),
     )
   ).toLowerCase();
   if (provider !== "fake" && provider !== "openai") {
-    warnLauncher(`Unknown provider "${provider}", using "openai".`);
-    provider = "openai";
+    warnLauncher(`Unknown provider "${provider}", using "fake".`);
+    provider = "fake";
   }
   cfg.provider = provider;
 
@@ -663,12 +663,14 @@ async function main() {
     SIDECHAT_POLICY_MODE: process.env.SIDECHAT_POLICY_MODE || "allow_all",
     SIDECHAT_AUTH_BEARER_TOKEN: cfg.authToken,
     SIDECHAT_PROVIDER: cfg.provider,
+    SIDECHAT_WORKSPACE_ID: cfg.workspaceId,
   };
   if (cfg.provider === "fake") {
     delete process.env.SIDECHAT_DATABASE_URL; // keep memory persistence
     backendEnv.SIDECHAT_DEMO_SEED_CONVERSATIONS =
       process.env.SIDECHAT_DEMO_SEED_CONVERSATIONS ?? "true";
-    logLauncher("Provider: fake (echo model).");
+    backendEnv.SIDECHAT_ENABLE_DEV_TOOLS = process.env.SIDECHAT_ENABLE_DEV_TOOLS ?? "true";
+    logLauncher("Provider: fake showcase model with local mock tools.");
   } else {
     backendEnv.SIDECHAT_OPENAI_API_KEY = cfg.apiKey;
     backendEnv.SIDECHAT_ALLOWED_MODELS = cfg.models;
@@ -753,6 +755,14 @@ async function main() {
     console.log("");
     console.log(`  ${color("bold", "Workbench iframe src:")}`);
     console.log(`  ${color("yellow", workbenchFrameSrc)}`);
+    if (cfg.provider === "fake") {
+      console.log("");
+      console.log(`  ${color("bold", "Demo prompts:")}`);
+      console.log(`  ${color("yellow", "hello")}  ${color("dim", "markdown + slow streaming")}`);
+      console.log(
+        `  ${color("yellow", "tool")}   ${color("dim", "thinking + mock_web_search + markdown")}`,
+      );
+    }
     console.log(color("green", line));
     console.log(color("dim", "  Press Ctrl+C to stop both servers."));
     console.log(color("green", line) + "\n");

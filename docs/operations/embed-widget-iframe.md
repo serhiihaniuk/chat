@@ -15,11 +15,6 @@ the service with in-memory persistence and starts the widget harness as the
 iframe app.
 
 ```powershell
-$env:SIDECHAT_PROVIDER = "fake"
-$env:BACKEND_PORT = "8787"
-$env:SIDECHAT_WIDGET_PORT = "5174"
-$env:SIDECHAT_WIDGET_ENDPOINT_NAME = "side-chat-widget"
-$env:SIDECHAT_WIDGET_FRAME_PATH = "/side-chat-frame"
 node scripts/run-local-fake.mjs --yes
 ```
 
@@ -35,10 +30,17 @@ The launcher exposes:
 | Workbench  | `http://127.0.0.1:8080` | Real host app that owns the embedding page.               |
 
 When `SIDECHAT_PROVIDER=fake`, the launcher sets
-`SIDECHAT_DEMO_SEED_CONVERSATIONS=true` by default. The service preloads a few
-in-memory showcase chats through the normal persistence repositories, so the
-conversation list and history routes look populated during a demo. Set
-`SIDECHAT_DEMO_SEED_CONVERSATIONS=false` before launching to start empty.
+`SIDECHAT_DEMO_SEED_CONVERSATIONS=true` and `SIDECHAT_ENABLE_DEV_TOOLS=true` by
+default. The service preloads a few in-memory showcase chats through the normal
+persistence repositories, and exposes the deterministic `mock_web_search` tool,
+so the conversation list, activity panel, and history routes look populated
+during a demo. Set `SIDECHAT_DEMO_SEED_CONVERSATIONS=false` before launching to
+start empty.
+
+For the fake demo, send `hello` to show slow markdown streaming and send `tool`
+to show thinking, `mock_web_search` activity, source details, and a markdown
+final answer. Both prompts still use the normal core, AI runtime, service, and
+widget paths.
 
 The browser should load Side Chat through the Workbench origin. The widget
 process is only the proxy target.

@@ -42,16 +42,17 @@ npm run dev --workspace @side-chat/widget-harness -- --host 127.0.0.1
 For a no-Docker iframe stack with in-memory persistence, use:
 
 ```sh
-SIDECHAT_PROVIDER=fake SIDECHAT_WIDGET_PORT=5174 SIDECHAT_WIDGET_FRAME_PATH=/side-chat-frame node scripts/run-local-fake.mjs --yes
+node scripts/run-local-fake.mjs --yes
 ```
 
-Keep port `8080` for the real host Workbench app. The fake launcher preloads a
-few demo conversations unless `SIDECHAT_DEMO_SEED_CONVERSATIONS=false`.
+Keep port `8080` for the real host Workbench app. The fake launcher defaults to
+the fake provider, local mock tools, in-memory persistence, and a few seeded
+demo conversations unless `SIDECHAT_DEMO_SEED_CONVERSATIONS=false`.
 
 Open the harness with:
 
 ```txt
-http://127.0.0.1:5173/?mode=local-service&authToken=local-compose-token&workspaceId=workspace_local
+http://127.0.0.1:5174/side-chat-frame/?mode=local-service&authToken=local-compose-token&workspaceId=workspace_local
 ```
 
 Do not put secret values in docs or committed examples. Local service settings
