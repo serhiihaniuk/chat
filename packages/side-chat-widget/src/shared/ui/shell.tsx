@@ -1,26 +1,19 @@
 /**
- * §9.12 — Shell · Rail · Header (the alignment contract).
+ * Shell composition for the floating widget panel.
  *
- * Composes the whole kit into the floating widget panel. The alignment contract is
- * carried entirely by shared tokens read in the hook classes (already in styles.css):
- *   • sc-panel        — absolute bottom-right, clipped by --radius-xl, max viewport−32px.
- *   • sc-header       — height --header-h, the divider lives on its bottom border.
- *   • sc-rail         — width --size-sidebar, no header of its own.
- *   • sc-rail-newchat — height --rail-newchat-h (== --header-h), so "New chat" and the
- *                       header title share one Y and the divider is continuous at y=--header-h.
- *
- * Scroll model: the rail uses Base UI ScrollArea (§8.3); the chat log uses NATIVE
- * stick-to-bottom scrolling (`flex-1 overflow-y-auto`) — never a ScrollArea (§7.8).
+ * The shell owns the two-column demo layout: conversation rail, header, native
+ * scrolling message log, and composer. Floating chrome and drag resize belong to
+ * the panel feature in the live widget, so this showcase stays static.
  */
-import { type CSSProperties, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import { Plus, Settings, X } from "lucide-react";
 
-import { cn } from "#shared/lib/cn";
-import { ScrollArea } from "#shared/ui/scroll-area";
+import { AgentMark } from "#shared/ui/agent-mark";
 import { IconButton } from "#shared/ui/button";
+import { Composer } from "#shared/ui/composer";
 import { ConversationItem } from "#shared/ui/conversation-item";
 import { Message } from "#shared/ui/message";
-import { Composer } from "#shared/ui/composer";
+import { ScrollArea } from "#shared/ui/scroll-area";
 
 type Convo = { id: string; title: string; when: string; active?: boolean };
 type Bucket = { id: string; label: string; items: Convo[] };
@@ -54,66 +47,46 @@ const THREAD: { id: string; role: "user" | "assistant"; text: string }[] = [
   {
     id: "m2",
     role: "assistant",
-    text: "I can summarize it, but I don't have the page open yet — open it and I'll pull the key points.",
+    text: "I can summarize it, but I do not have the page open yet. Open it and I will pull the key points.",
   },
 ];
 
-export function Shell({
-  className,
-  style,
-}: {
-  className?: string;
-  style?: CSSProperties;
-} = {}): ReactElement {
+export function Shell(): ReactElement {
   return (
-    <div className={cn("sc-panel w-full max-w-measure-message", className)} style={style}>
-      <div className="flex min-h-0 flex-1">
-        <SidebarRail />
+    <div className="flex min-h-0 flex-1">
+      <SidebarRail />
 
-        {/* ── Main column: header + native-scroll chat log + composer ── */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sc-header">
-            {/* agent mark (hollow diamond + center node) + assistant title */}
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="sc-agent-mark">
-                <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
-                  <path
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    d="M12 2.5 L20.5 12 L12 21.5 L3.5 12 Z M12 6.2 L17.2 12 L12 17.8 L6.8 12 Z"
-                  />
-                  <circle cx="12" cy="12" r="1.7" />
-                </svg>
-              </span>
-              <span className="truncate text-md font-semibold text-foreground">
-                Workspace Assistant
-              </span>
-            </div>
-            <div className="flex shrink-0 items-center gap-0.5">
-              <IconButton aria-label="Settings">
-                <Settings className="size-4" />
-              </IconButton>
-              <IconButton aria-label="New chat">
-                <Plus className="size-4" />
-              </IconButton>
-              <IconButton aria-label="Close">
-                <X className="size-4" />
-              </IconButton>
-            </div>
-          </header>
-
-          {/* chat log — NATIVE stick-to-bottom scroll, never a ScrollArea (§7.8) */}
-          <div className="flex-1 overflow-y-auto px-4 py-4">
-            <div className="mx-auto flex max-w-measure-message flex-col gap-4">
-              {THREAD.map((m) => (
-                <Message key={m.id} role={m.role} text={m.text} />
-              ))}
-            </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sc-header">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <AgentMark className="size-4 shrink-0 text-primary" />
+            <span className="truncate text-md font-semibold text-foreground">
+              Workspace Assistant
+            </span>
           </div>
-
-          <div className="shrink-0 px-3 pb-3">
-            <Composer placeholder="Ask about this page…" />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <IconButton aria-label="Settings">
+              <Settings className="size-4" />
+            </IconButton>
+            <IconButton aria-label="New chat">
+              <Plus className="size-4" />
+            </IconButton>
+            <IconButton aria-label="Close">
+              <X className="size-4" />
+            </IconButton>
           </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="mx-auto flex max-w-measure-message flex-col gap-4">
+            {THREAD.map((message) => (
+              <Message key={message.id} role={message.role} text={message.text} />
+            ))}
+          </div>
+        </div>
+
+        <div className="shrink-0 px-3 pb-3">
+          <Composer placeholder="Ask about this page..." />
         </div>
       </div>
     </div>
@@ -161,17 +134,16 @@ export function SidebarRail(): ReactElement {
 
 export function ShellSection(): ReactElement {
   return (
-    <div className="flex justify-center">
-      <Shell
-        style={{
-          position: "relative",
-          right: "auto",
-          bottom: "auto",
-          height: "284px",
-          maxWidth: "560px",
-          margin: "0 auto",
-        }}
-      />
+    <div
+      className="relative overflow-hidden rounded-lg border border-border bg-sc-canvas"
+      style={{ height: "440px" }}
+    >
+      <div
+        className="sc-widget-panel absolute right-4 bottom-4 z-0 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-panel"
+        style={{ width: "520px", height: "360px" }}
+      >
+        <Shell />
+      </div>
     </div>
   );
 }

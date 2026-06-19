@@ -1,5 +1,5 @@
 /**
- * §9.5 - Composer.
+ * Section 9.5 - Composer.
  *
  * The input shell: a Field textarea over a controls row (Tools menu + decorative
  * context ring + Model selector slot + send). The focus ring lives on the shell
@@ -106,13 +106,14 @@ export function Composer({
   return (
     <Field.Root className={cn("sc-composer", className)}>
       <Field.Control
+        aria-label="Message"
         className="w-full resize-none bg-transparent px-3.5 py-3 text-md outline-none placeholder:text-muted-foreground"
         disabled={disabled || isBusy}
         onChange={(event) => setText(event.target.value)}
         onInput={(event) => setText(event.currentTarget.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        render={<textarea rows={1} />}
+        render={<textarea rows={3} />}
         value={text}
       />
       <div className="flex items-center gap-1.5 px-2 pb-2">
@@ -208,7 +209,6 @@ const submitOnEnter = ({
 
 export function ComposerSection(): ReactElement {
   const [armedText, setArmedText] = useState("Summarise the attached spec");
-  const [sendOnEnter, setSendOnEnter] = useState(true);
 
   return (
     <div className="flex w-full max-w-measure-message flex-col gap-6">
@@ -223,17 +223,8 @@ export function ComposerSection(): ReactElement {
           contextPercent={78}
           onSubmit={() => setArmedText("")}
           onValueChange={setArmedText}
-          sendOnEnter={sendOnEnter}
           value={armedText}
         />
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <input
-            checked={sendOnEnter}
-            onChange={(event) => setSendOnEnter(event.target.checked)}
-            type="checkbox"
-          />
-          Send on Enter (Shift+Enter for newline)
-        </label>
       </div>
     </div>
   );

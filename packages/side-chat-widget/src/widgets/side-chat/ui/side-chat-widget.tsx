@@ -10,16 +10,10 @@ import {
   WidgetHeaderTitle,
   type WidgetEmptyStateSuggestion,
 } from "#features/conversation";
-import {
-  ClosedWidgetLauncher,
-  ResizeHandles,
-  toPanelStyle,
-  useResizableWidgetPanel,
-  WidgetHeader,
-} from "#features/panel";
+import { ClosedWidgetLauncher, ResizablePanel, WidgetHeader } from "#features/panel";
 import { WidgetFooter } from "#features/prompt";
 import { SettingsView } from "#features/settings";
-import { useWidgetTheme } from "#features/theme";
+import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } from "lucide-react";
@@ -86,8 +80,8 @@ const SideChatWidgetContent = ({
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId);
-  const panel = useResizableWidgetPanel(defaultPanelSize);
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
+  const appearance = useWidgetAppearance();
   const modelSelection = useWidgetModelSelection({
     assistantProfiles,
     client,
@@ -113,14 +107,15 @@ const SideChatWidgetContent = ({
   }
 
   return (
-    <SideChatWidgetRoot
+    <ResizablePanel
+      anchor="fixed"
       aria-label={resolvedLabels.title}
-      className="sc-widget-panel fixed right-4 bottom-4 z-50 flex max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-panel"
+      data-sidechat-accent={appearance.appearanceRootProps["data-sidechat-accent"]}
+      defaultSize={defaultPanelSize}
       role="region"
-      style={toPanelStyle(panel.panelSize, panel.panelOffset)}
+      style={appearance.appearanceRootProps.style}
       theme={theme.themeId}
     >
-      <ResizeHandles onResizeStart={panel.startResize} />
       {/* Sidebar is full height; the header lives inside the main column beside it. */}
       <div className="flex min-h-0 flex-1">
         <div className="sc-wide-slot min-h-0 shrink-0">
@@ -194,13 +189,19 @@ const SideChatWidgetContent = ({
         // Full-panel overlay (covers the sidebar + main column), matching the mock.
         <div className="absolute inset-0 z-[65] flex flex-col bg-card">
           <SettingsView
+            accent={appearance.accent}
+            corners={appearance.corners}
+            density={appearance.density}
+            onAccentChange={appearance.setAccent}
             onBack={() => setIsSettingsOpen(false)}
+            onCornersChange={appearance.setCorners}
+            onDensityChange={appearance.setDensity}
             onSelectTheme={theme.setTheme}
             themeId={theme.themeId}
           />
         </div>
       )}
-    </SideChatWidgetRoot>
+    </ResizablePanel>
   );
 };
 

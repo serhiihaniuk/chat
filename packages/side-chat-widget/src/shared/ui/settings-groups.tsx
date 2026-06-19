@@ -45,7 +45,7 @@ const CORNER_ITEMS: readonly SegmentedItem[] = [
 const DENSITY_ITEMS: readonly SegmentedItem[] = [
   { id: "compact", label: "Compact" },
   { id: "cozy", label: "Cozy" },
-  { id: "roomy", label: "Roomy" },
+  { id: "comfortable", label: "Comfortable" },
 ];
 
 const SETTINGS_LABEL_CLASS =
@@ -60,6 +60,7 @@ export type SettingsGroup = {
 
 export type SettingsState = {
   readonly accent: AccentOption["id"];
+  readonly availableThemes?: readonly ThemePreview[] | undefined;
   readonly corners: string;
   readonly density: string;
   readonly instructions: string;
@@ -87,6 +88,7 @@ function ThemeSwatch({
   return (
     <button
       type="button"
+      aria-label={option.name}
       aria-pressed={selected}
       onClick={onSelect}
       className="sc-settings-theme-card"
@@ -132,6 +134,7 @@ function AccentSwatches({
 
 function ThemeGroup({
   accent,
+  availableThemes,
   corners,
   density,
   narrow,
@@ -142,6 +145,7 @@ function ThemeGroup({
   theme,
 }: {
   readonly accent: AccentOption["id"];
+  readonly availableThemes?: readonly ThemePreview[] | undefined;
   readonly corners: string;
   readonly density: string;
   readonly narrow: boolean;
@@ -151,12 +155,16 @@ function ThemeGroup({
   readonly onThemeChange: (next: ThemePreview) => void;
   readonly theme: ThemePreview;
 }): ReactElement {
+  const themes = availableThemes
+    ? THEMES.filter((option) => availableThemes.includes(option.id))
+    : THEMES;
+
   return (
     <div className={cn("flex flex-col", narrow ? "gap-4" : "gap-4.5")}>
       <div>
         {narrow ? null : <div className={SETTINGS_LABEL_CLASS}>Theme</div>}
         <div className="sc-settings-theme-list" data-wide={narrow ? undefined : "true"}>
-          {THEMES.map((option) => (
+          {themes.map((option) => (
             <ThemeSwatch
               key={option.id}
               option={option}
@@ -197,6 +205,7 @@ function ThemeGroup({
 
 export const createSettingsGroups = ({
   accent,
+  availableThemes,
   corners,
   density,
   instructions,
@@ -219,6 +228,7 @@ export const createSettingsGroups = ({
       <ThemeGroup
         theme={theme}
         onThemeChange={onThemeChange}
+        availableThemes={availableThemes}
         accent={accent}
         onAccentChange={onAccentChange}
         corners={corners}

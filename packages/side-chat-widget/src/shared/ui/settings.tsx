@@ -6,7 +6,7 @@
  * Select. Theme rows, accent swatches, field shells, and panel spacing follow the
  * design_widget.html Settings source before any live measurement.
  */
-import { useState, type ReactElement } from "react";
+import { useCallback, useState, type CSSProperties, type ReactElement } from "react";
 
 import { Select } from "@base-ui/react/select";
 import { Tabs } from "@base-ui/react/tabs";
@@ -27,18 +27,106 @@ import { usePortalContainer } from "#shared/ui/widget-root";
 const TAB_CLASS =
   "flex w-full cursor-pointer items-center gap-2 border-0 bg-transparent text-left text-sm font-medium text-(--settings-item-fg) selected:bg-(--settings-item-active-bg) px-(--settings-item-px) py-(--settings-item-py) rounded-(--settings-item-radius)";
 
-export function SettingsPanel({ wide = true }: { wide?: boolean }): ReactElement {
+// Corners and density re-skin the live surface by mutating the same tokens every
+// component reads: --radius and --space-unit. styles.css bridges --space-unit into
+// --spacing, so density changes flow through the normal spacing scale.
+const CORNER_RADIUS: Record<string, string> = {
+  sharp: "0rem",
+  default: "0.625rem",
+  rounded: "1rem",
+};
+const DENSITY_UNIT: Record<string, string> = {
+  compact: "0.1875rem",
+  cozy: "0.25rem",
+  comfortable: "0.3125rem",
+};
+
+const appearanceStyle = (corners: string, density: string): CSSProperties =>
+  ({
+    "--radius": CORNER_RADIUS[corners] ?? CORNER_RADIUS["default"],
+    "--space-unit": DENSITY_UNIT[density] ?? DENSITY_UNIT["cozy"],
+  }) as CSSProperties;
+
+type SettingsPanelProps = {
+  /**
+   * Controlled appearance lets the real widget pass persisted state, while the
+   * standalone showcase can fall back to local state.
+   */
+  theme?: ThemePreview;
+  themeOptions?: readonly ThemePreview[] | undefined;
+  onThemeChange?: (next: ThemePreview) => void;
+  accent?: AccentOption["id"];
+  onAccentChange?: (next: AccentOption["id"]) => void;
+  corners?: string;
+  onCornersChange?: (next: string) => void;
+  density?: string;
+  onDensityChange?: (next: string) => void;
+  /**
+   * False means an outer widget root already applies accent, radius, and density.
+   */
+  applyAppearance?: boolean;
+};
+
+const useControlledValue = <Value,>(
+  controlledValue: Value | undefined,
+  onChange: ((next: Value) => void) | undefined,
+  fallback: Value,
+): readonly [Value, (next: Value) => void] => {
+  const [localValue, setLocalValue] = useState(fallback);
+  const setValue = useCallback(
+    (next: Value): void => {
+      if (onChange) {
+        onChange(next);
+        return;
+      }
+      setLocalValue(next);
+    },
+    [onChange],
+  );
+  return [controlledValue ?? localValue, setValue];
+};
+
+const appliedAccent = (
+  applyAppearance: boolean,
+  accent: AccentOption["id"],
+): AccentOption["id"] | undefined => {
+  if (!applyAppearance || accent === "default") return undefined;
+  return accent;
+};
+
+const appliedAppearanceStyle = (
+  applyAppearance: boolean,
+  corners: string,
+  density: string,
+): CSSProperties | undefined => {
+  if (!applyAppearance) return undefined;
+  return appearanceStyle(corners, density);
+};
+
+export function SettingsPanel({
+  theme: themeProp,
+  themeOptions,
+  onThemeChange,
+  accent: accentProp,
+  onAccentChange,
+  corners: cornersProp,
+  onCornersChange,
+  density: densityProp,
+  onDensityChange,
+  applyAppearance = true,
+}: SettingsPanelProps): ReactElement {
   const [group, setGroup] = useState("theme");
-  const [theme, setTheme] = useState<ThemePreview>("graphite");
-  const [accent, setAccent] = useState<AccentOption["id"]>("default");
-  const [corners, setCorners] = useState("default");
-  const [density, setDensity] = useState("cozy");
+  const [theme, setTheme] = useControlledValue(themeProp, onThemeChange, "graphite");
+  const [accent, setAccent] = useControlledValue(accentProp, onAccentChange, "default");
+  const [corners, setCorners] = useControlledValue(cornersProp, onCornersChange, "default");
+  const [density, setDensity] = useControlledValue(densityProp, onDensityChange, "cozy");
   const [instructions, setInstructions] = useState("");
   const [sendOnEnter, setSendOnEnter] = useState(true);
   const [model, setModel] = useState<ModelOption>(DEFAULT_MODEL);
 
   const groups = createSettingsGroups({
     accent,
+    availableThemes: themeOptions,
     corners,
     density,
     instructions,
@@ -62,14 +150,17 @@ export function SettingsPanel({ wide = true }: { wide?: boolean }): ReactElement
     <Tabs.Root
       value={group}
       onValueChange={selectGroup}
-      className={cn("min-h-0 flex-1 overflow-hidden", wide ? "flex" : "flex flex-col p-3")}
+      className="sc-settings-root"
+      data-sidechat-accent={appliedAccent(applyAppearance, accent)}
+      style={appliedAppearanceStyle(applyAppearance, corners, density)}
     >
-      {wide ? (
-        <WideSettingsNav groups={groups} />
-      ) : (
+      {/* Both navigators render; the side-chat-widget container query shows either
+          the rail or the top Select using the same breakpoint as the shell. */}
+      <WideSettingsNav groups={groups} />
+      <div className="sc-settings-narrow shrink-0 border-b border-(--settings-nav-border) p-3">
         <NarrowSettingsSelect active={active} groups={groups} onGroupChange={setGroup} />
-      )}
-      <SettingsPanels groups={groups} wide={wide} />
+      </div>
+      <SettingsPanels groups={groups} />
     </Tabs.Root>
   );
 }
@@ -82,7 +173,7 @@ const WideSettingsNav = ({
 }: {
   readonly groups: readonly SettingsGroup[];
 }): ReactElement => (
-  <Tabs.List className="flex w-(--settings-nav-w) shrink-0 flex-col gap-0.5 border-r border-(--settings-nav-border) bg-(--settings-nav-bg) px-2 py-2.5">
+  <Tabs.List className="sc-settings-wide w-(--settings-nav-w) shrink-0 flex-col gap-0.5 border-r border-(--settings-nav-border) bg-(--settings-nav-bg) px-2 py-2.5">
     {groups.map((group) => (
       <Tabs.Tab key={group.id} value={group.id} className={TAB_CLASS}>
         <group.Icon className="shrink-0 text-muted-foreground" size={15} strokeWidth={1.8} />
@@ -147,27 +238,21 @@ const NarrowSettingsSelect = ({
 
 const SettingsPanels = ({
   groups,
-  wide,
 }: {
   readonly groups: readonly SettingsGroup[];
-  readonly wide: boolean;
 }): ReactElement => (
   <>
     {groups.map((group) => (
-      <Tabs.Panel
-        key={group.id}
-        value={group.id}
-        className={cn("min-w-0 flex-1", wide ? "relative" : "relative mt-3")}
-      >
-        <ScrollArea className={cn("absolute inset-0", wide ? "p-(--settings-content-pad)" : "")}>
-          {group.render(!wide)}
+      <Tabs.Panel key={group.id} value={group.id} className="relative min-w-0 flex-1">
+        <ScrollArea className="absolute inset-0 p-(--settings-content-pad)">
+          {group.render(false)}
         </ScrollArea>
       </Tabs.Panel>
     ))}
   </>
 );
 
-function SettingsFrame({ wide, className }: { wide: boolean; className?: string }): ReactElement {
+function SettingsFrame({ className }: { className?: string }): ReactElement {
   return (
     <div className={cn("sc-settings-frame", className)}>
       <div className="sc-settings-header">
@@ -190,11 +275,11 @@ function SettingsFrame({ wide, className }: { wide: boolean; className?: string 
           <X size={18} strokeWidth={1.8} />
         </span>
       </div>
-      <SettingsPanel wide={wide} />
+      <SettingsPanel />
     </div>
   );
 }
 
 export function SettingsSection(): ReactElement {
-  return <SettingsFrame wide className="sc-settings-frame-wide" />;
+  return <SettingsFrame className="sc-settings-frame-wide" />;
 }

@@ -31,7 +31,7 @@ export const WidgetConversation = ({
   const showEmptyState = isEmpty && !isLoadingHistory;
 
   return (
-    <Conversation aria-label="Conversation messages">
+    <Conversation aria-label="Conversation feed">
       <ConversationContent
         className="mx-auto min-h-full w-full max-w-measure-message gap-4 px-4 pt-4 pb-8"
         scrollClassName="size-full"

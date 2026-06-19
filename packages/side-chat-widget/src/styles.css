@@ -244,7 +244,8 @@
   --rail-border: var(--sidebar-border);
 
   /* Settings (section 9.11) */
-  --settings-nav-w: 9.5rem;
+  /* Settings group rail shares the chat conversation rail's width as one token. */
+  --settings-nav-w: var(--size-sidebar);
   --settings-nav-bg: var(--sidebar);
   --settings-nav-border: var(--sidebar-border);
   --settings-content-pad: calc(var(--spacing) * 5);
@@ -694,6 +695,38 @@
   }
 }
 
+/*
+ * Accent overrides the brand color (--primary / --ring / --sidebar-primary) when
+ * data-sidechat-accent is set, exactly as the design does. Two selectors: the bare
+ * attribute (so the settings preview re-skins its own subtree) and the root-scoped one
+ * (specificity 0,2,0 so it beats a named theme's --primary on the same root). `default`
+ * sets no attribute and therefore keeps the active theme's brand colour.
+ */
+[data-sidechat-accent="blue"],
+.side-chat-widget-root[data-sidechat-accent="blue"] {
+  --primary: var(--settings-accent-blue);
+  --ring: var(--settings-accent-blue);
+  --sidebar-primary: var(--settings-accent-blue);
+}
+[data-sidechat-accent="green"],
+.side-chat-widget-root[data-sidechat-accent="green"] {
+  --primary: var(--settings-accent-green);
+  --ring: var(--settings-accent-green);
+  --sidebar-primary: var(--settings-accent-green);
+}
+[data-sidechat-accent="violet"],
+.side-chat-widget-root[data-sidechat-accent="violet"] {
+  --primary: var(--settings-accent-violet);
+  --ring: var(--settings-accent-violet);
+  --sidebar-primary: var(--settings-accent-violet);
+}
+[data-sidechat-accent="orange"],
+.side-chat-widget-root[data-sidechat-accent="orange"] {
+  --primary: var(--settings-accent-orange);
+  --ring: var(--settings-accent-orange);
+  --sidebar-primary: var(--settings-accent-orange);
+}
+
 @layer components {
   .sc-settings-frame {
     background: var(--card);
@@ -703,10 +736,13 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    /* Stand in for the widget panel as the responsive container in the showcase, so
+       the settings nav flips rail/select on its own width with the shell query. */
+    container: side-chat-widget / inline-size;
   }
 
   .sc-settings-frame-wide {
-    max-width: 35rem;
+    max-width: 48rem;
     height: 21.25rem;
     margin-inline: auto;
   }
@@ -897,7 +933,7 @@
   }
 }
 
-/* Shell · panel / header / rail (§9.12) — the alignment contract lives in these tokens */
+/* Shell panel, header, and rail: the alignment contract lives in these tokens. */
 .sc-widget-panel {
   container: side-chat-widget / inline-size;
 }
@@ -917,6 +953,37 @@
     }
 
     .sc-widget-panel .sc-narrow-slot {
+      display: none;
+    }
+  }
+}
+
+/* Settings nav: rail (wide) or top-select (narrow), driven by the same
+   side-chat-widget container query as the shell sidebar. The settings root is a
+   descendant of the container (the panel in the widget, the frame in the showcase), so
+   it flips with that width. */
+.sc-settings-root {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sc-settings-wide {
+  display: none;
+}
+.sc-settings-narrow {
+  display: flex;
+}
+@media (min-width: 48.75rem) {
+  @container side-chat-widget (min-width: 45rem) {
+    .sc-settings-root {
+      flex-direction: row;
+    }
+    .sc-settings-wide {
+      display: flex;
+    }
+    .sc-settings-narrow {
       display: none;
     }
   }

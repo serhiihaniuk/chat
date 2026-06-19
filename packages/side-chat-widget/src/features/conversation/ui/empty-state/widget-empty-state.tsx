@@ -25,7 +25,7 @@ export const WidgetEmptyState = ({
   readonly title: string;
 }) => (
   <div className="flex h-full w-full flex-col items-center justify-center px-2 py-6">
-    <div className="flex w-full max-w-[28.25rem] flex-col gap-5">
+    <div className="flex w-full max-w-measure-empty flex-col gap-5">
       <div className="flex flex-col gap-3">
         {assistantTitle && (
           <span className="flex min-w-0 items-center gap-2">
@@ -38,7 +38,10 @@ export const WidgetEmptyState = ({
         <h2 className="font-semibold text-2xl text-card-foreground leading-snug tracking-tight">
           {title}
         </h2>
-        <p className="max-w-[20.625rem] text-[0.84rem] text-muted-foreground leading-relaxed">
+        <p
+          className="text-base text-muted-foreground leading-relaxed"
+          style={{ maxWidth: "20.625rem" }}
+        >
           {description}
         </p>
       </div>
@@ -54,7 +57,7 @@ export const WidgetEmptyState = ({
               >
                 <suggestion.icon className="size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate">{suggestion.label}</span>
-                <ChevronRightIcon className="size-[0.9375rem] shrink-0 text-border" />
+                <ChevronRightIcon className="shrink-0 text-border" size={15} />
               </Button>
             </li>
           ))}

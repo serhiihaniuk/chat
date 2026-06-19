@@ -12,7 +12,7 @@ export const WidgetHeaderTitle = ({
 }) => (
   <span className="flex min-w-0 items-center gap-1.5">
     <AgentMark className="size-4 shrink-0 text-primary/80" />
-    <span className="truncate font-semibold text-[0.9375rem] text-card-foreground tracking-tight">
+    <span className="truncate font-semibold text-md text-card-foreground tracking-tight">
       {title}
     </span>
     {showChevron && <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />}
