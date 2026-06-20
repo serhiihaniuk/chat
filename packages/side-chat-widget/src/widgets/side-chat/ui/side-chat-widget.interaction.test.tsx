@@ -42,7 +42,7 @@ describe("SideChatWidget interactions", () => {
 
     await waitForText("Hello from the widget");
     expect(requests[0]).toMatchObject({
-      assistantProfileId: "gpt-5.4-mini",
+      turnProfileId: "gpt-5.4-mini",
       message: { content: "hello widget" },
     });
   });
@@ -214,9 +214,9 @@ const renderWidget = (
 ) =>
   mountWidget(
     <SideChatWidget
-      assistantProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
+      turnProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
       client={client}
-      defaultAssistantProfileId="gpt-5.4-mini"
+      defaultTurnProfileId="gpt-5.4-mini"
       labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
       {...omitUndefinedField("hostBridge", hostBridge)}
       {...omitUndefinedField("reasoningVisibility", reasoningVisibility)}

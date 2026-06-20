@@ -1,6 +1,6 @@
 export { SideChatWidget } from "./ui/side-chat-widget.js";
 export type {
-  SideChatWidgetAssistantProfile,
+  SideChatWidgetTurnProfile,
   SideChatWidgetLabels,
   SideChatWidgetPanelActions,
   SideChatWidgetPanelSize,

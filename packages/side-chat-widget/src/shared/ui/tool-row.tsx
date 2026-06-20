@@ -27,13 +27,7 @@ function ToolGlyph({ state }: { state: ToolState }): ReactElement {
   return <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />;
 }
 
-function ToolRow({
-  name,
-  state,
-}: {
-  name: string;
-  state: ToolState;
-}): ReactElement {
+function ToolRow({ name, state }: { name: string; state: ToolState }): ReactElement {
   return (
     <div data-slot="tool-row" data-state={state} className="flex items-center gap-2">
       <ToolGlyph state={state} />

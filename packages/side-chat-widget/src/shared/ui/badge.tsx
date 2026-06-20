@@ -14,10 +14,7 @@ import type { ComponentPropsWithoutRef, ReactElement } from "react";
 import { cn } from "#shared/lib/cn";
 import { Sparkles, MessageSquare, TriangleAlert } from "lucide-react";
 
-function Badge({
-  className,
-  ...props
-}: ComponentPropsWithoutRef<"span">): ReactElement {
+function Badge({ className, ...props }: ComponentPropsWithoutRef<"span">): ReactElement {
   return (
     <span
       data-slot="badge"

@@ -4,17 +4,16 @@ import type { RuntimeTool } from "@side-chat/agent-runtime";
 /**
  * One source of truth for tool declaration and executable registration.
  *
- * A `ServiceToolRegistration` supplies both the manifest `ToolCapability` and
- * the executable `RuntimeTool` for one tool name. Composition feeds the
- * registry capabilities into the manifest and the registry runtime tools into
- * agent runtime, so a tool can never be declared to the model without a matching
- * executable behind it.
+ * One registration becomes two downstream targets: the manifest
+ * `ToolCapability` and the executable `RuntimeTool`. Composition keeps those
+ * targets from the same source so a tool can never be declared to the model
+ * without a matching executable behind it.
  */
 export type ServiceToolRegistration = {
   readonly name: string;
   readonly capability: ToolCapability;
   readonly runtimeTool: RuntimeTool;
-  /** Whether the default assistant profile allows this tool without extra policy. */
+  /** Whether the default profile includes this name before request checks run. */
   readonly defaultEnabled: boolean;
   /** Approval policy ids that gate this tool; reported in diagnostics. */
   readonly approvalPolicyIds: readonly string[];

@@ -3,11 +3,11 @@ import {
   HOST_CAPABILITY_VALIDATION_CODES,
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
-  resolveAssistantProfileFromManifest,
+  resolveTurnProfileFromManifest,
   validateTurnPolicyDecision,
 } from "../capabilities.js";
 import {
-  createAssistantProfile,
+  createTurnProfile,
   createManifest,
   createTool,
   turnPolicyIssueCodes,
@@ -16,7 +16,7 @@ import {
 describe("turn policy validation", () => {
   it("rejects turn policies that expose capabilities outside the resolved profile", () => {
     const manifest = createManifest();
-    const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+    const resolution = resolveTurnProfileFromManifest(manifest, "analyst");
     if (!resolution.resolved) return;
     const decision = {
       ...createTurnPolicyDecision({
@@ -39,7 +39,7 @@ describe("turn policy validation", () => {
 
   it("rejects turn policies that switch executors outside the resolved profile", () => {
     const manifest = createManifest();
-    const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+    const resolution = resolveTurnProfileFromManifest(manifest, "analyst");
     if (!resolution.resolved) return;
     const decision = {
       ...createTurnPolicyDecision({
@@ -58,15 +58,15 @@ describe("turn policy validation", () => {
   });
 
   it("allows turn policies to select a profile-allowed backend model", () => {
-    const analyst = createAssistantProfile({
+    const analyst = createTurnProfile({
       modelPolicy: {
         providerId: "fake",
         modelId: "fake-echo",
         allowedModelIds: ["fake-echo", "fake-large"],
       },
     });
-    const manifest = createManifest({ assistantProfiles: [analyst] });
-    const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+    const manifest = createManifest({ turnProfiles: [analyst] });
+    const resolution = resolveTurnProfileFromManifest(manifest, "analyst");
     if (!resolution.resolved) return;
     const decision = {
       ...createTurnPolicyDecision({
@@ -84,7 +84,7 @@ describe("turn policy validation", () => {
 
   it("rejects turn policies that replace resolved profile instructions", () => {
     const manifest = createManifest();
-    const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+    const resolution = resolveTurnProfileFromManifest(manifest, "analyst");
     if (!resolution.resolved) return;
     const decision = {
       ...createTurnPolicyDecision({
@@ -106,7 +106,7 @@ describe("turn policy validation", () => {
     const manifest = createManifest({
       tools: [createTool("mock_web_search"), createTool("admin_lookup")],
     });
-    const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+    const resolution = resolveTurnProfileFromManifest(manifest, "analyst");
     if (!resolution.resolved) return;
     const decision = {
       ...createTurnPolicyDecision({

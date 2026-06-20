@@ -9,7 +9,7 @@ import {
   HOST_CAPABILITY_SCHEMA_VERSIONS,
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
-  type AssistantProfile,
+  type TurnProfile,
   type HostCapabilityManifest,
 } from "#domain/capabilities";
 
@@ -126,7 +126,7 @@ describe("partner AI core Effect runtime layer", () => {
   });
 });
 
-const profile: AssistantProfile = {
+const profile: TurnProfile = {
   profileId: "analyst",
   version: "2026-06-13",
   displayName: "Analyst",
@@ -142,8 +142,8 @@ const profile: AssistantProfile = {
 const manifest: HostCapabilityManifest = {
   schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
   hostAppId: "host-app-1",
-  defaultAssistantProfileId: profile.profileId,
-  assistantProfiles: [profile],
+  defaultTurnProfileId: profile.profileId,
+  turnProfiles: [profile],
   tools: [],
   commands: [],
   approvalPolicies: [],

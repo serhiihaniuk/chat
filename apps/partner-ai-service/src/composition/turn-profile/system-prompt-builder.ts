@@ -1,12 +1,12 @@
 import { hashCanonicalJson } from "@side-chat/partner-ai-core";
 
 /**
- * Deterministic system prompt assembly for service assistant configuration.
+ * Deterministic system prompt assembly for service turn profile configuration.
  *
  * A `SystemPromptDefinition` lists ordered named sections; the builder turns it
  * into the final prompt content, the ordered section ids, and a stable hash. The
- * built result is what an assistant profile carries as its system instructions,
- * so prompt text is explicit configuration instead of a hidden constant.
+ * built result is what a turn profile carries as its system instructions, so
+ * prompt text is explicit configuration instead of a hidden constant.
  */
 export type SystemPromptSection = {
   readonly id: string;

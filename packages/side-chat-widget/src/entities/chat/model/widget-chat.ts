@@ -21,7 +21,7 @@ export type WidgetMessage = {
 };
 
 export type WidgetChatRequestInput = {
-  readonly assistantProfileId: string | undefined;
+  readonly turnProfileId: string | undefined;
   readonly conversationId: string | undefined;
   readonly hostContext: HostContext | undefined;
   readonly message: string;
@@ -31,7 +31,7 @@ export type WidgetChatRequestInput = {
 };
 
 export const createDefaultRequest = ({
-  assistantProfileId,
+  turnProfileId,
   conversationId,
   content,
   hostContext,
@@ -39,7 +39,7 @@ export const createDefaultRequest = ({
   model,
   requestId,
 }: {
-  readonly assistantProfileId?: string | undefined;
+  readonly turnProfileId?: string | undefined;
   readonly conversationId?: string | undefined;
   readonly content: string;
   readonly hostContext?: HostContext | undefined;
@@ -51,7 +51,7 @@ export const createDefaultRequest = ({
     protocolVersion: SIDECHAT_PROTOCOL_VERSION,
     requestId,
     conversationId: conversationId === "" ? undefined : conversationId,
-    assistantProfileId: assistantProfileId === "" ? undefined : assistantProfileId,
+    turnProfileId: turnProfileId === "" ? undefined : turnProfileId,
     model,
     message: {
       id: messageId,
@@ -61,7 +61,7 @@ export const createDefaultRequest = ({
   });
 
 export const createWidgetChatRequest = ({
-  assistantProfileId,
+  turnProfileId,
   conversationId,
   hostContext,
   message,
@@ -73,7 +73,7 @@ export const createWidgetChatRequest = ({
     content: message,
     messageId,
     requestId,
-    assistantProfileId,
+    turnProfileId,
     conversationId,
     hostContext,
     model,

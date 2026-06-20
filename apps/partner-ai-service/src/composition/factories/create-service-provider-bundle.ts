@@ -1,36 +1,27 @@
 // Owns: translating operator runtime config into one validated provider
 // registration and building the provider registry/runtime providers.
-// Does not own: the AgentRuntime (built in createServiceRuntimeBundle), assistant
-// model selection, or provider request hardening (Phase 10).
-
-import {
-  DEFAULT_FAKE_REASONING_EFFORT,
-  FAKE_ECHO_MODEL_ID,
-  FAKE_PROVIDER_ID,
-  FAKE_REASONING_EFFORTS,
-  OPENAI_PROVIDER_ID,
-  OPENAI_REASONING_EFFORTS,
-} from "@side-chat/agent-runtime";
+// Does not own: the AgentRuntime (built in createServiceRuntimeBundle), turn
+// profile model selection, or provider request hardening.
 
 import {
   createServiceProviderRegistry,
-  SERVICE_MODEL_RETENTION_POLICIES,
   type ServiceProviderRegistration,
 } from "#composition/providers/service-provider-registry";
+import { DEFAULT_OPENAI_RETENTION_POLICY, PROVIDERS } from "#config/catalog/providers";
 import type { RuntimeConfig, ServiceCompositionOptions } from "../service-composition-types.js";
 import type { ServiceProviderBundle } from "./bundle-types.js";
 
 /**
  * Build the provider registry and runtime provider list from runtime config.
  *
- * The registry validates provider/model ids before assistant profiles are
- * built, so an assistant can never reference a provider or model the runtime
+ * The registry validates provider/model ids before turn profiles are
+ * built, so a turn profile can never reference a provider or model the runtime
  * cannot serve. Secrets and transport overrides stay inside the registration.
  */
 export const createServiceProviderBundle = (
   options: ServiceCompositionOptions,
 ): ServiceProviderBundle => {
-  const runtimeConfig = options.runtime ?? { provider: "fake" };
+  const runtimeConfig = options.runtime ?? { provider: PROVIDERS.FAKE.KIND };
   const registry = createServiceProviderRegistry([providerRegistrationForConfig(runtimeConfig)]);
 
   return {
@@ -49,34 +40,38 @@ export const createServiceProviderBundle = (
  * summary is omitted unless the operator explicitly configures one.
  */
 const providerRegistrationForConfig = (config: RuntimeConfig): ServiceProviderRegistration => {
-  if (config.provider === "openai") {
+  if (config.provider === PROVIDERS.OPENAI.KIND) {
     return {
-      kind: "openai",
-      providerId: OPENAI_PROVIDER_ID,
+      kind: PROVIDERS.OPENAI.KIND,
+      providerId: PROVIDERS.OPENAI.PROVIDER_ID,
       modelIds: config.modelIds,
       defaultModelId: config.defaultModelId,
       modelMetadata: config.modelMetadata,
       apiKey: config.apiKey,
       baseUrl: config.baseUrl === "" ? undefined : config.baseUrl,
       fetch: config.fetch,
-      retention: SERVICE_MODEL_RETENTION_POLICIES.NO_RETENTION,
+      retention: DEFAULT_OPENAI_RETENTION_POLICY,
       reasoning: {
-        effort: config.reasoningEffort ?? OPENAI_REASONING_EFFORTS.MEDIUM,
-        allowedEfforts: config.reasoningEfforts ?? Object.values(OPENAI_REASONING_EFFORTS),
+        effort:
+          config.reasoningEffort ?? PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.DEFAULT_REASONING_EFFORT,
+        allowedEfforts:
+          config.reasoningEfforts ??
+          PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.SUPPORTED_REASONING_EFFORTS,
         summary: config.reasoningSummary,
       },
     };
   }
 
-  const modelId = config.modelId ?? FAKE_ECHO_MODEL_ID;
+  const modelId = config.modelId ?? PROVIDERS.FAKE.MODELS.FAKE_ECHO.MODEL_ID;
   return {
-    kind: "fake",
-    providerId: FAKE_PROVIDER_ID,
+    kind: PROVIDERS.FAKE.KIND,
+    providerId: PROVIDERS.FAKE.PROVIDER_ID,
     modelIds: [modelId],
     defaultModelId: modelId,
+    modelMetadata: config.modelMetadata,
     reasoning: {
-      effort: DEFAULT_FAKE_REASONING_EFFORT,
-      allowedEfforts: Object.values(FAKE_REASONING_EFFORTS),
+      effort: PROVIDERS.FAKE.MODELS.FAKE_ECHO.DEFAULT_REASONING_EFFORT,
+      allowedEfforts: PROVIDERS.FAKE.MODELS.FAKE_ECHO.SUPPORTED_REASONING_EFFORTS,
     },
   };
 };

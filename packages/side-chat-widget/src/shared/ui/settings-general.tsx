@@ -13,7 +13,7 @@ export type ModelOption = {
   readonly name: string;
 };
 
-export const DEFAULT_MODEL: ModelOption = { id: "default", name: "Default assistant" };
+export const DEFAULT_MODEL: ModelOption = { id: "default", name: "Default model" };
 
 const MODELS: readonly ModelOption[] = [
   DEFAULT_MODEL,

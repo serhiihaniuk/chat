@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { ServicePersistenceBundle } from "./bundle-types.js";
-import { createServiceAssistantBundle } from "./create-service-assistant-bundle.js";
+import { createServiceTurnProfileBundle } from "./create-service-turn-profile-bundle.js";
 import { createServiceCapabilityBundle } from "./create-service-capability-bundle.js";
 import { createServiceProviderBundle } from "./create-service-provider-bundle.js";
 import { createServiceToolBundle } from "./create-service-tool-bundle.js";
@@ -22,7 +22,7 @@ const authContext = {
 const buildInput = (persistence: ServicePersistenceBundle) => {
   const providers = createServiceProviderBundle({ workspace });
   const tools = createServiceToolBundle({ workspace });
-  const assistants = createServiceAssistantBundle(
+  const turnProfiles = createServiceTurnProfileBundle(
     { workspace },
     {
       providers: providers.registry,
@@ -32,7 +32,7 @@ const buildInput = (persistence: ServicePersistenceBundle) => {
     },
   );
   return {
-    assistants: assistants.registry,
+    turnProfiles: turnProfiles.registry,
     providers: providers.registry,
     tools: tools.registry,
     persistence,

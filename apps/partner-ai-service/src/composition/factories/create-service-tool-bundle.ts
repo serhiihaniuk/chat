@@ -8,6 +8,7 @@ import {
   createServiceToolRegistry,
   type ServiceToolRegistration,
 } from "#composition/tools/service-tool-registry";
+import { PROVIDERS } from "#config/catalog/providers";
 import type {
   RuntimeConfig,
   RuntimeToolConfig,
@@ -23,7 +24,7 @@ import type { ServiceToolBundle } from "./bundle-types.js";
  * without a matching executable behind it.
  */
 export const createServiceToolBundle = (options: ServiceCompositionOptions): ServiceToolBundle => {
-  const runtimeConfig = options.runtime ?? { provider: "fake" };
+  const runtimeConfig = options.runtime ?? { provider: PROVIDERS.FAKE.KIND };
   const registry = createServiceToolRegistry(toolRegistrationsForConfig(runtimeConfig));
 
   return {

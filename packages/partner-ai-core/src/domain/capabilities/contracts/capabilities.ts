@@ -15,6 +15,8 @@ import type { HostCapabilityValidationCode } from "./validation/capability-valid
 export * from "./ids/capability-ids.js";
 export * from "./validation/capability-validation-codes.js";
 
+type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
+
 /**
  * Portable host capability declarations that core policy can reason about.
  *
@@ -38,7 +40,7 @@ export const CONTEXT_CANDIDATE_SOURCE_TYPES = {
   CURRENT_MESSAGE: "current_message",
   CONVERSATION_HISTORY: "conversation_history",
   HOST_CONTEXT: "host_context",
-  ASSISTANT_PROFILE: "assistant_profile",
+  TURN_PROFILE: "turn_profile",
   TOOL_CAPABILITY: "tool_capability",
   TOOL_RESULT: "tool_result",
 } as const;
@@ -66,12 +68,31 @@ export const CONTEXT_REDACTION_CLASSES = {
 export type ContextRedactionClass =
   (typeof CONTEXT_REDACTION_CLASSES)[keyof typeof CONTEXT_REDACTION_CLASSES];
 
-export type ToolPolicyMode = "closed" | "profile_allowlist";
+export const TOOL_POLICY_MODES = {
+  CLOSED: "closed",
+  PROFILE_ALLOWLIST: "profile_allowlist",
+} as const;
 
-export type ApprovalMode = "never" | "on_request" | "always";
+export type ToolPolicyMode = ObjectValue<typeof TOOL_POLICY_MODES>;
+
+export const APPROVAL_MODES = {
+  NEVER: "never",
+  ON_REQUEST: "on_request",
+  ALWAYS: "always",
+} as const;
+
+export type ApprovalMode = ObjectValue<typeof APPROVAL_MODES>;
+
+export const OUTPUT_FORMATS = {
+  MARKDOWN: "markdown",
+  JSON: "json",
+  TEXT: "text",
+} as const;
+
+export type OutputFormat = ObjectValue<typeof OUTPUT_FORMATS>;
 
 export type OutputContract = {
-  readonly format: "markdown" | "json" | "text";
+  readonly format: OutputFormat;
   readonly schema?: JsonObject | undefined;
 };
 
@@ -94,21 +115,28 @@ export type ToolExposurePolicy = {
   readonly allowedToolNames: readonly string[];
 };
 
+export const PROMPT_INJECTION_MODES = {
+  STANDARD: "standard",
+  STRICT: "strict",
+} as const;
+
+export type PromptInjectionMode = ObjectValue<typeof PROMPT_INJECTION_MODES>;
+
 export type SafetyPolicy = {
   readonly policyId: PolicyId;
-  readonly promptInjectionMode: "standard" | "strict";
+  readonly promptInjectionMode: PromptInjectionMode;
   readonly turnGuardIds: readonly string[];
 };
 
 /**
- * Versioned assistant policy registered by a host capability manifest.
+ * Versioned turn setup registered by a host capability manifest.
  *
  * Core resolves exactly one profile per assistant turn. Provider/model, default
  * tools, output, and safety policy flow from that profile. Request-level model
  * preferences are only honored when backend policy resolves them to a model id
  * listed in `modelPolicy.allowedModelIds`.
  */
-export type AssistantProfile = {
+export type TurnProfile = {
   readonly profileId: ProfileId;
   readonly version: string;
   readonly displayName: string;
@@ -167,8 +195,8 @@ export type ActivityRendererCapability = {
 export type HostCapabilityManifest = {
   readonly schemaVersion: string;
   readonly hostAppId: HostAppId;
-  readonly defaultAssistantProfileId: ProfileId;
-  readonly assistantProfiles: readonly AssistantProfile[];
+  readonly defaultTurnProfileId: ProfileId;
+  readonly turnProfiles: readonly TurnProfile[];
   readonly tools: readonly ToolCapability[];
   readonly commands: readonly HostCommandCapability[];
   readonly approvalPolicies: readonly ApprovalPolicy[];
@@ -189,8 +217,8 @@ export type TurnPolicyValidationResult =
   | { readonly valid: true; readonly decision: TurnPolicyDecision }
   | { readonly valid: false; readonly issues: readonly HostCapabilityValidationIssue[] };
 
-export type AssistantProfileResolution =
-  | { readonly resolved: true; readonly profile: AssistantProfile }
+export type TurnProfileResolution =
+  | { readonly resolved: true; readonly profile: TurnProfile }
   | { readonly resolved: false; readonly issue: HostCapabilityValidationIssue };
 
 export type ApprovalRequirement = {
@@ -221,7 +249,7 @@ export type TurnPolicyDecision = {
 
 export type TurnPolicyResolutionInput = {
   readonly manifest: HostCapabilityManifest;
-  readonly profile: AssistantProfile;
+  readonly profile: TurnProfile;
   readonly manifestHash: ManifestHash;
   readonly modelSelection?: ModelPolicy & { readonly reasoning?: ReasoningPolicy | undefined };
 };

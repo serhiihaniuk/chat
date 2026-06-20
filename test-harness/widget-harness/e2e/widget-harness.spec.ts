@@ -227,7 +227,7 @@ test("renders a failed host-command result from the mock harness", async ({ page
   await expect(page.getByText(/harness_command_failed/u)).toBeVisible();
 });
 
-test("sends assistant profile and host context through public widget seams", async ({ page }) => {
+test("sends turn profile and host context through public widget seams", async ({ page }) => {
   await page.goto(
     widgetAppUrl("?mode=mock-stream&scenario=echo-request&workspaceId=workspace_context_a"),
   );

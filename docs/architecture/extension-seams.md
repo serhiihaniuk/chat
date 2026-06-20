@@ -71,7 +71,7 @@ admission before mapping those settings into core configuration and ports.
 
 ## Turn Guard
 
-- What it is: prompt/security check selected by the assistant profile.
+- What it is: prompt/security check selected by the turn profile.
 - Runs: before conversation persistence, private context, or runtime tools.
 - Receives/returns: minimal turn/profile input and allow, warn, or block.
 - Implementation: `apps/partner-ai-service/src/adapters/guards/`.

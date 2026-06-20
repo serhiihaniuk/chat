@@ -1,8 +1,8 @@
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/service-conversation-title-config";
+import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/sidechat-config/conversation-title";
 import type { ServicePersistenceBundle, ServiceSecurityBundle } from "./bundle-types.js";
-import { createServiceAssistantBundle } from "./create-service-assistant-bundle.js";
+import { createServiceTurnProfileBundle } from "./create-service-turn-profile-bundle.js";
 import { createServiceCapabilityBundle } from "./create-service-capability-bundle.js";
 import { createServiceContextBundle } from "./create-service-context-bundle.js";
 import { createServiceProviderBundle } from "./create-service-provider-bundle.js";
@@ -21,7 +21,7 @@ const buildDeps = (security: ServiceSecurityBundle) => {
   };
   const providers = createServiceProviderBundle({ workspace });
   const tools = createServiceToolBundle({ workspace });
-  const assistants = createServiceAssistantBundle(
+  const turnProfiles = createServiceTurnProfileBundle(
     { workspace },
     {
       providers: providers.registry,
@@ -33,7 +33,7 @@ const buildDeps = (security: ServiceSecurityBundle) => {
   const capabilities = createServiceCapabilityBundle(
     { workspace },
     {
-      assistants: assistants.registry,
+      turnProfiles: turnProfiles.registry,
       providers: providers.registry,
       tools: tools.registry,
       persistence,

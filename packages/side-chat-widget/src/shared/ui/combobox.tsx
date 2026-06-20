@@ -25,12 +25,42 @@ type Model = {
 };
 
 const MODELS = [
-  { id: "sonnet", name: "Claude Sonnet", desc: "Balanced — everyday tasks", icon: <Sparkles className="size-4" /> },
-  { id: "opus", name: "Claude Opus", desc: "Deepest reasoning, slower", icon: <Brain className="size-4" /> },
-  { id: "haiku", name: "Claude Haiku", desc: "Fastest, lightweight", icon: <Sparkles className="size-4" /> },
-  { id: "tools", name: "Agent (tools)", desc: "Calls tools and APIs", icon: <Wrench className="size-4" /> },
-  { id: "web", name: "Web-grounded", desc: "Answers with live search", icon: <Globe className="size-4" /> },
-  { id: "mini", name: "Mini", desc: "Tiny, on-device drafts", icon: <Sparkles className="size-4" /> },
+  {
+    id: "sonnet",
+    name: "Claude Sonnet",
+    desc: "Balanced — everyday tasks",
+    icon: <Sparkles className="size-4" />,
+  },
+  {
+    id: "opus",
+    name: "Claude Opus",
+    desc: "Deepest reasoning, slower",
+    icon: <Brain className="size-4" />,
+  },
+  {
+    id: "haiku",
+    name: "Claude Haiku",
+    desc: "Fastest, lightweight",
+    icon: <Sparkles className="size-4" />,
+  },
+  {
+    id: "tools",
+    name: "Agent (tools)",
+    desc: "Calls tools and APIs",
+    icon: <Wrench className="size-4" />,
+  },
+  {
+    id: "web",
+    name: "Web-grounded",
+    desc: "Answers with live search",
+    icon: <Globe className="size-4" />,
+  },
+  {
+    id: "mini",
+    name: "Mini",
+    desc: "Tiny, on-device drafts",
+    icon: <Sparkles className="size-4" />,
+  },
 ] satisfies readonly Model[];
 
 export function ComboboxSection(): ReactElement {

@@ -1,6 +1,6 @@
 # Service Composition
 
-Read this when: wiring the deployable service, adding a provider/tool/assistant,
+Read this when: wiring the deployable service, adding a provider/tool/turn profile,
 or changing what HTTP routes receive.
 Source of truth for: how configuration becomes the ports, runtime, manifest, and
 diagnostics the service exposes.
@@ -11,7 +11,7 @@ protocol contracts.
 
 - The single composition root `composePartnerAiService(options)`.
 - The named factories that each turn config into one typed bundle.
-- Provider, tool, and assistant registries and their validation.
+- Provider, tool, and turn-profile registries and their validation.
 - The host capability manifest, turn policy resolver, and capability status.
 - The per-turn context manager and conversation history context port.
 - The final `StreamChatPorts` object handed to HTTP routes and secret-free
@@ -37,7 +37,7 @@ protocol contracts.
   - `create-service-persistence-bundle.ts` → persistence config + repositories
   - `create-service-provider-bundle.ts` → provider registry + runtime providers
   - `create-service-tool-bundle.ts` → tool registry + runtime tools
-  - `create-service-assistant-bundle.ts` → assistant profiles + prompts
+  - `create-service-turn-profile-bundle.ts` → turn profiles + prompts
   - `create-service-capability-bundle.ts` → manifest, manifest port, turn policy
     resolver, capability status
   - `create-service-context-bundle.ts` → history context + context manager
@@ -45,7 +45,7 @@ protocol contracts.
   - `create-stream-chat-ports.ts` → the final `StreamChatPorts`
   - `create-service-diagnostics.ts` → secret-free health/models diagnostics
   - `bundle-types.ts` → the bundle and diagnostics types
-- `providers/`, `tools/`, `assistant/`, `manifest/`, `capabilities/`,
+- `providers/`, `tools/`, `turn-profile/`, `manifest/`, `capabilities/`,
   `context-manager/` — the registries and adapters the factories assemble.
 
 `ServiceComposition` is:
@@ -57,13 +57,12 @@ ports, capabilities, diagnostics }`. The chat-stream route consumes
 ## Common change recipes
 
 - Add a provider: register it in `providers/`, then it flows through
-  `create-service-provider-bundle.ts`. See
-  `docs/architecture/add-a-model-provider.md`.
+  `create-service-provider-bundle.ts`.
 - Add a runtime tool: ship capability + executor as one `ServiceToolRegistration`
-  in `tools/`. See `docs/architecture/add-a-runtime-tool.md`.
-- Add an assistant profile: add a `ServiceAssistantConfig`; it validates through
-  `create-service-assistant-bundle.ts`. See
-  `docs/architecture/add-an-assistant-profile.md`.
+  in `tools/`.
+- Add a turn profile: add a `ServiceTurnProfileConfig`; it validates through
+  `create-service-turn-profile-bundle.ts`. The broader migration path lives in
+  `docs/product/human-readable-service-config-plan.md`.
 - Change what routes receive: edit the relevant factory and `StreamChatPorts`
   assembly, not the route files.
 
@@ -71,5 +70,5 @@ ports, capabilities, diagnostics }`. The chat-stream route consumes
 
 - `service-composition.test.ts`, `service-composition.persistence.test.ts`.
 - The per-factory tests under `factories/*.test.ts` (success + invariant).
-- The registry tests in `providers/`, `tools/`, `assistant/`, and
+- The registry tests in `providers/`, `tools/`, `turn-profile/`, and
   `context-manager/`.

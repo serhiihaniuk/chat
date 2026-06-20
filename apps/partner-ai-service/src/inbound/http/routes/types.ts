@@ -1,8 +1,4 @@
-import type {
-  AuthContext,
-  StreamChatPorts,
-  WorkspaceRef,
-} from "@side-chat/partner-ai-core";
+import type { AuthContext, StreamChatPorts, WorkspaceRef } from "@side-chat/partner-ai-core";
 
 /**
  * Everything the chat-stream route needs to reach core.

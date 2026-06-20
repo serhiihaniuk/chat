@@ -32,6 +32,19 @@
         "metadata": { "$ref": "#/$defs/JsonObject" }
       }
     },
+    "ChatReasoningEffort": {
+      "enum": ["none", "minimal", "low", "medium", "high", "xhigh"]
+    },
+    "ChatModelPreference": {
+      "type": "object",
+      "required": ["providerId", "modelId"],
+      "additionalProperties": false,
+      "properties": {
+        "providerId": { "type": "string", "minLength": 1 },
+        "modelId": { "type": "string", "minLength": 1 },
+        "reasoningEffort": { "$ref": "#/$defs/ChatReasoningEffort" }
+      }
+    },
     "ChatStreamRequest": {
       "type": "object",
       "required": ["protocolVersion", "requestId", "message"],
@@ -40,7 +53,8 @@
         "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
         "requestId": { "type": "string", "minLength": 1 },
         "conversationId": { "type": "string" },
-        "assistantProfileId": { "type": "string" },
+        "turnProfileId": { "type": "string" },
+        "model": { "$ref": "#/$defs/ChatModelPreference" },
         "message": { "$ref": "#/$defs/ChatRequestMessage" },
         "hostContext": { "$ref": "#/$defs/HostContext" }
       }

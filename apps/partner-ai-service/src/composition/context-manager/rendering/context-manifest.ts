@@ -2,7 +2,7 @@ import {
   hashCanonicalJson,
   toContextManifestHash,
   toContextManifestId,
-  type AssistantProfile,
+  type TurnProfile,
   type ContextManifest,
   type HistoryContextManifest,
   type PreparedContextSection,
@@ -20,7 +20,7 @@ export const createPreparedContextManifest = ({
   createdAt,
 }: {
   readonly requestId: string;
-  readonly profile: AssistantProfile;
+  readonly profile: TurnProfile;
   readonly policyDecision: TurnPolicyDecision;
   readonly sections: readonly PreparedContextSection[];
   readonly admission: ContextAdmission;

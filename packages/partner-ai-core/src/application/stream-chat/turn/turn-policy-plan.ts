@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import {
   hashHostCapabilityManifest,
-  resolveAssistantProfileFromManifest,
+  resolveTurnProfileFromManifest,
   validateHostCapabilityManifest,
   validateTurnPolicyDecision,
-  type AssistantProfile,
+  type TurnProfile,
   type HostCapabilityManifest,
   type TurnPolicyDecision,
 } from "#domain/capabilities";
@@ -23,7 +23,7 @@ export type ResolvedTurnPlan = {
   readonly manifest: HostCapabilityManifest;
   readonly manifestHash: string;
   readonly policyDecision: TurnPolicyDecision;
-  readonly profile: AssistantProfile;
+  readonly profile: TurnProfile;
 };
 
 /**
@@ -119,8 +119,8 @@ const loadValidatedManifest = (
 const resolvePolicyProfile = (
   manifest: HostCapabilityManifest,
   profileId: string,
-): Effect.Effect<AssistantProfile, PartnerAiCoreErrorType> => {
-  const resolution = resolveAssistantProfileFromManifest(manifest, profileId);
+): Effect.Effect<TurnProfile, PartnerAiCoreErrorType> => {
+  const resolution = resolveTurnProfileFromManifest(manifest, profileId);
   if (resolution.resolved) return Effect.succeed(resolution.profile);
 
   return Effect.fail(

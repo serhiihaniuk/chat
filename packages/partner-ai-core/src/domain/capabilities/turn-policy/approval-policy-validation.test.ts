@@ -6,7 +6,7 @@ import {
   hashHostCapabilityManifest,
   validateHostCapabilityManifest,
   validateTurnPolicyDecision,
-  type AssistantProfile,
+  type TurnProfile,
   type HostCapabilityManifest,
   type TurnPolicyDecision,
 } from "../../capabilities.js";
@@ -72,9 +72,9 @@ describe("host capability approval policy validation", () => {
 
 describe("turn policy approval requirements", () => {
   it("adds approval only for selected capabilities", () => {
-    const profile = createAssistantProfile({ allowedToolNames: ["jira.create_issue"] });
+    const profile = createTurnProfile({ allowedToolNames: ["jira.create_issue"] });
     const manifest = createManifest({
-      assistantProfiles: [profile],
+      turnProfiles: [profile],
       tools: [createTool("jira.search_issues"), createTool("jira.create_issue")],
       approvalPolicies: [
         createApprovalPolicy("jira_create_issue_requires_approval", ["jira.create_issue"]),
@@ -91,8 +91,8 @@ describe("turn policy approval requirements", () => {
   });
 
   it("accepts selected host command approval requirements from custom policy resolvers", () => {
-    const profile = createAssistantProfile({ allowedToolNames: [] });
-    const manifest = createManifest({ assistantProfiles: [profile] });
+    const profile = createTurnProfile({ allowedToolNames: [] });
+    const manifest = createManifest({ turnProfiles: [profile] });
     const decision = {
       ...createDecision(manifest, profile),
       allowedCommandNames: ["host.open_ticket_panel"],
@@ -103,9 +103,9 @@ describe("turn policy approval requirements", () => {
   });
 
   it("fails when selected capabilities are missing required approval", () => {
-    const profile = createAssistantProfile({ allowedToolNames: ["jira.create_issue"] });
+    const profile = createTurnProfile({ allowedToolNames: ["jira.create_issue"] });
     const manifest = createManifest({
-      assistantProfiles: [profile],
+      turnProfiles: [profile],
       tools: [createTool("jira.create_issue")],
       approvalPolicies: [
         createApprovalPolicy("jira_create_issue_requires_approval", ["jira.create_issue"]),
@@ -122,9 +122,9 @@ describe("turn policy approval requirements", () => {
   });
 
   it("fails on unknown or unselected approval requirements", () => {
-    const profile = createAssistantProfile({ allowedToolNames: ["jira.search_issues"] });
+    const profile = createTurnProfile({ allowedToolNames: ["jira.search_issues"] });
     const manifest = createManifest({
-      assistantProfiles: [profile],
+      turnProfiles: [profile],
       tools: [createTool("jira.search_issues"), createTool("jira.create_issue")],
       approvalPolicies: [
         createApprovalPolicy("jira_create_issue_requires_approval", ["jira.create_issue"]),
@@ -147,9 +147,9 @@ describe("turn policy approval requirements", () => {
   });
 
   it("fails when approval requirement mode differs from manifest policy", () => {
-    const profile = createAssistantProfile({ allowedToolNames: ["jira.create_issue"] });
+    const profile = createTurnProfile({ allowedToolNames: ["jira.create_issue"] });
     const manifest = createManifest({
-      assistantProfiles: [profile],
+      turnProfiles: [profile],
       tools: [createTool("jira.create_issue")],
       approvalPolicies: [
         createApprovalPolicy("jira_create_issue_requires_approval", ["jira.create_issue"]),
@@ -169,13 +169,13 @@ describe("turn policy approval requirements", () => {
 const createManifest = (
   overrides: Partial<HostCapabilityManifest> = {},
 ): HostCapabilityManifest => {
-  const analyst = createAssistantProfile();
+  const analyst = createTurnProfile();
 
   return {
     schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
     hostAppId: "host_app_approval_validation",
-    defaultAssistantProfileId: analyst.profileId,
-    assistantProfiles: [analyst],
+    defaultTurnProfileId: analyst.profileId,
+    turnProfiles: [analyst],
     tools: [createTool("jira.search_issues")],
     commands: [createHostCommand("host.open_ticket_panel")],
     approvalPolicies: [
@@ -186,11 +186,11 @@ const createManifest = (
   };
 };
 
-const createAssistantProfile = ({
+const createTurnProfile = ({
   allowedToolNames = ["jira.search_issues"],
 }: {
   readonly allowedToolNames?: readonly string[];
-} = {}): AssistantProfile => ({
+} = {}): TurnProfile => ({
   profileId: "analyst",
   version: "2026-06-13",
   displayName: "Analyst",
@@ -235,7 +235,7 @@ const turnPolicyIssueCodes = (
 
 const createDecision = (
   manifest: HostCapabilityManifest,
-  profile: AssistantProfile,
+  profile: TurnProfile,
 ): TurnPolicyDecision =>
   createTurnPolicyDecision({
     manifest,

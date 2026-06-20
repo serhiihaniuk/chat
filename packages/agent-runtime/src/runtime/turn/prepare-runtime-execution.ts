@@ -13,11 +13,7 @@ import {
   resolveProvider,
   type ProviderCatalog,
 } from "./provider-selection.js";
-import {
-  createToolCatalog,
-  selectRuntimeToolsByName,
-  type ToolCatalog,
-} from "./tool-selection.js";
+import { createToolCatalog, selectRuntimeToolsByName, type ToolCatalog } from "./tool-selection.js";
 
 /**
  * RuntimeState is the indexed copy of what the app injected at startup.

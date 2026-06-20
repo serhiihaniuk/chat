@@ -73,9 +73,7 @@ export function SelectSection(): ReactElement {
         </Select.Portal>
       </Select.Root>
 
-      <span className="text-2xs text-muted-foreground">
-        Selected: {model.name}
-      </span>
+      <span className="text-2xs text-muted-foreground">Selected: {model.name}</span>
     </div>
   );
 }

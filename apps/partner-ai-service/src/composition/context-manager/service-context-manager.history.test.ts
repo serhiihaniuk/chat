@@ -2,39 +2,39 @@ import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import {
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
-  resolveAssistantProfileFromManifest,
+  resolveTurnProfileFromManifest,
   type ConversationHistoryContextPort,
   type PreparedHistoryMessage,
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { createServiceHostCapabilityManifest } from "../manifest/service-capability-manifest.js";
-import { createAssistantProfileRegistry } from "../assistant/assistant-profile-registry.js";
+import { createTurnProfileRegistry } from "../turn-profile/turn-profile-registry.js";
 import {
-  createDefaultAssistantConfig,
-  DEFAULT_ASSISTANT_PROFILE_ID,
-} from "../assistant/default-assistant-config.js";
-import { createDefaultSystemPromptBuilder } from "../assistant/system-prompt-builder.js";
+  createDefaultTurnProfileConfig,
+  DEFAULT_TURN_PROFILE_ID,
+} from "../turn-profile/default-turn-profile-config.js";
+import { createDefaultSystemPromptBuilder } from "../turn-profile/system-prompt-builder.js";
 import { createServiceContextManager } from "./service-context-manager.js";
 
 const defaultServiceManifest = () => {
-  const registry = createAssistantProfileRegistry({
-    assistants: [
-      createDefaultAssistantConfig({
+  const registry = createTurnProfileRegistry({
+    turnProfiles: [
+      createDefaultTurnProfileConfig({
         providerId: "fake",
         modelId: "fake-echo",
         allowedToolNames: [],
         turnGuardIds: [],
       }),
     ],
-    defaultProfileId: DEFAULT_ASSISTANT_PROFILE_ID,
+    defaultProfileId: DEFAULT_TURN_PROFILE_ID,
     promptBuilder: createDefaultSystemPromptBuilder(),
     providers: [{ providerId: "fake", modelIds: ["fake-echo"] }],
     toolNames: [],
     guardIds: [],
   });
   return createServiceHostCapabilityManifest({
-    assistantProfiles: registry.assistantProfiles,
+    turnProfiles: registry.turnProfiles,
     defaultProfileId: registry.defaultProfileId,
   });
 };
@@ -194,7 +194,7 @@ const prepareHistoryContext = ({
 
 const createContextInput = () => {
   const manifest = defaultServiceManifest();
-  const profileResolution = resolveAssistantProfileFromManifest(manifest);
+  const profileResolution = resolveTurnProfileFromManifest(manifest);
   if (!profileResolution.resolved) throw new Error(profileResolution.issue.message);
 
   return {

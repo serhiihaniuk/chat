@@ -18,7 +18,7 @@ import {
   type ModelCatalogOption,
   type SideChatApiClient,
 } from "#entities/conversation";
-import type { SideChatWidgetAssistantProfile } from "./side-chat-widget.types.js";
+import type { SideChatWidgetTurnProfile } from "./side-chat-widget.types.js";
 
 const WIDGET_REASONING_EFFORTS = [
   CHAT_REASONING_EFFORTS.LOW,
@@ -27,7 +27,7 @@ const WIDGET_REASONING_EFFORTS = [
 ] as const satisfies readonly ChatReasoningEffort[];
 
 type WidgetModelSelectionInput = {
-  readonly assistantProfiles: readonly SideChatWidgetAssistantProfile[];
+  readonly turnProfiles: readonly SideChatWidgetTurnProfile[];
   readonly client: SideChatApiClient;
   readonly selectedProfileId: string | undefined;
   readonly setSelectedProfileId: Dispatch<SetStateAction<string | undefined>>;
@@ -39,7 +39,7 @@ export type WidgetFooterModelOption = {
 };
 
 export const useWidgetModelSelection = ({
-  assistantProfiles,
+  turnProfiles,
   client,
   selectedProfileId,
   setSelectedProfileId,
@@ -58,8 +58,8 @@ export const useWidgetModelSelection = ({
     [backendModels, selectedModelKey],
   );
   const footerModels = useMemo(
-    () => resolveFooterModels(backendModels, assistantProfiles),
-    [assistantProfiles, backendModels],
+    () => resolveFooterModels(backendModels, turnProfiles),
+    [turnProfiles, backendModels],
   );
   const selectedFooterModelKey = resolveSelectedFooterModelKey(
     backendModels,
@@ -113,11 +113,9 @@ const findBackendModel = (
 
 const resolveFooterModels = (
   backendModels: readonly ModelCatalogOption[],
-  assistantProfiles: readonly SideChatWidgetAssistantProfile[],
+  turnProfiles: readonly SideChatWidgetTurnProfile[],
 ): readonly WidgetFooterModelOption[] =>
-  backendModels.length > 0
-    ? backendModels.map(toFooterModel)
-    : assistantProfiles.map(toFallbackModel);
+  backendModels.length > 0 ? backendModels.map(toFooterModel) : turnProfiles.map(toFallbackModel);
 
 const resolveSelectedFooterModelKey = (
   backendModels: readonly ModelCatalogOption[],
@@ -179,7 +177,7 @@ const toFooterModel = (model: ModelCatalogOption): WidgetFooterModelOption => ({
   label: model.displayName,
 });
 
-const toFallbackModel = (profile: SideChatWidgetAssistantProfile): WidgetFooterModelOption => ({
+const toFallbackModel = (profile: SideChatWidgetTurnProfile): WidgetFooterModelOption => ({
   key: profile.id,
   label: profile.label,
 });

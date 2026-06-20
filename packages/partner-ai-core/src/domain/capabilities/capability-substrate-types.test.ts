@@ -10,16 +10,16 @@ import {
   type CapabilityConfig,
   type PreparedTurnContext,
 } from "../capabilities.js";
-import { createAssistantProfile, createManifest } from "#testing/capabilities/manifest-fixtures";
+import { createTurnProfile, createManifest } from "#testing/capabilities/manifest-fixtures";
 
 describe("capability substrate types", () => {
   it("models prepared context without infrastructure types", () => {
     const prepared = {
       contextId: "context_001",
-      profile: createAssistantProfile(),
+      profile: createTurnProfile(),
       policyDecision: createTurnPolicyDecision({
         manifest: createManifest(),
-        profile: createAssistantProfile(),
+        profile: createTurnProfile(),
         manifestHash: "sha256:manifest_001",
       }),
       history: {

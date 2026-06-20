@@ -76,7 +76,7 @@ export type ChatModelPreference = {
 export type ChatStreamRequest = ProtocolEnvelope & {
   readonly requestId: RequestId;
   readonly conversationId?: ConversationId;
-  readonly assistantProfileId?: string;
+  readonly turnProfileId?: string;
   readonly model?: ChatModelPreference;
   readonly message: ChatRequestMessage;
   readonly hostContext?: HostContext;
@@ -86,7 +86,7 @@ const REQUEST_FIELDS = [
   "protocolVersion",
   "requestId",
   "conversationId",
-  "assistantProfileId",
+  "turnProfileId",
   "model",
   "message",
   "hostContext",
@@ -110,7 +110,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
     const requestId = toRequestId(requireString(input, "requestId", "request"));
     const message = parseMessage(input["message"]);
     const conversationId = readOptionalConversationId(input);
-    const assistantProfileId = readOptionalString(input, "assistantProfileId", "request");
+    const turnProfileId = readOptionalString(input, "turnProfileId", "request");
     const model = parseOptionalModelPreference(input);
     const hostContext = parseOptionalHostContext(input);
 
@@ -118,7 +118,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
       protocolVersion,
       requestId,
       conversationId,
-      assistantProfileId,
+      turnProfileId,
       model,
       message,
       hostContext,

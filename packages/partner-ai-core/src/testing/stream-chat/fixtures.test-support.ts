@@ -7,8 +7,8 @@ import {
   CONTEXT_REDACTION_CLASSES,
   CONTEXT_TRUST_LEVELS,
   HOST_CAPABILITY_SCHEMA_VERSIONS,
-  resolveAssistantProfileFromManifest,
-  type AssistantProfile,
+  resolveTurnProfileFromManifest,
+  type TurnProfile,
   type HostCapabilityManifest,
   type PreparedTurnContext,
   type TurnPolicyDecision,
@@ -43,8 +43,8 @@ export const input: StreamChatInput = {
 export const createManifest = (): HostCapabilityManifest => ({
   schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
   hostAppId: "host_app_001",
-  defaultAssistantProfileId: "analyst",
-  assistantProfiles: [createProfile()],
+  defaultTurnProfileId: "analyst",
+  turnProfiles: [createProfile()],
   tools: [
     {
       name: "mock_web_search",
@@ -57,8 +57,8 @@ export const createManifest = (): HostCapabilityManifest => ({
   activityRenderers: [],
 });
 
-export const resolveTestProfile = (manifest: HostCapabilityManifest): AssistantProfile => {
-  const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+export const resolveTestProfile = (manifest: HostCapabilityManifest): TurnProfile => {
+  const resolution = resolveTurnProfileFromManifest(manifest, "analyst");
   if (!resolution.resolved) {
     throw new Error(resolution.issue.message);
   }
@@ -66,7 +66,7 @@ export const resolveTestProfile = (manifest: HostCapabilityManifest): AssistantP
 };
 
 export const createPreparedContext = (
-  profile: AssistantProfile,
+  profile: TurnProfile,
   policyDecision: TurnPolicyDecision,
 ): PreparedTurnContext => ({
   contextId: "context_001",
@@ -144,7 +144,7 @@ export const createPreparedContext = (
   },
 });
 
-const createProfile = (): AssistantProfile => ({
+const createProfile = (): TurnProfile => ({
   profileId: "analyst",
   version: "2026-06-13",
   displayName: "Analyst",

@@ -25,8 +25,8 @@ export const useWidgetTheme = ({
   readonly defaultTheme: WidgetThemeId | undefined;
   readonly storageKey: string | undefined;
 }): WidgetThemeController => {
-  const [themeId, setThemeId] = useState<WidgetThemeId>(() =>
-    readStoredTheme(storageKey) ?? defaultTheme ?? DEFAULT_WIDGET_THEME_ID,
+  const [themeId, setThemeId] = useState<WidgetThemeId>(
+    () => readStoredTheme(storageKey) ?? defaultTheme ?? DEFAULT_WIDGET_THEME_ID,
   );
 
   const setTheme = useCallback(
@@ -40,8 +40,7 @@ export const useWidgetTheme = ({
   return {
     themeId,
     setTheme,
-    themeRootProps:
-      themeId === DEFAULT_WIDGET_THEME_ID ? {} : { "data-sidechat-theme": themeId },
+    themeRootProps: themeId === DEFAULT_WIDGET_THEME_ID ? {} : { "data-sidechat-theme": themeId },
   };
 };
 

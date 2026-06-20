@@ -14,10 +14,10 @@ import type { SidechatRepositories } from "@side-chat/db";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type {
-  AssistantProfileRegistry,
-  ServiceAssistantProfile,
-} from "#composition/assistant/assistant-profile-registry";
-import type { SystemPromptBuilder } from "#composition/assistant/system-prompt-builder";
+  TurnProfileRegistry,
+  ServiceTurnProfile,
+} from "#composition/turn-profile/turn-profile-registry";
+import type { SystemPromptBuilder } from "#composition/turn-profile/system-prompt-builder";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
 import type { ServiceProviderRegistry } from "#composition/providers/service-provider-registry";
 import type { ServiceToolRegistry } from "#composition/tools/service-tool-registry";
@@ -61,10 +61,10 @@ export type ServiceToolBundle = {
   readonly toolCapabilities: readonly ToolCapability[];
 };
 
-/** Assistant profile registry, default profile id, and the prompt builder. */
-export type ServiceAssistantBundle = {
-  readonly registry: AssistantProfileRegistry;
-  readonly defaultAssistantProfileId: string;
+/** Turn profile registry, default profile id, and the prompt builder. */
+export type ServiceTurnProfileBundle = {
+  readonly registry: TurnProfileRegistry;
+  readonly defaultTurnProfileId: string;
   readonly promptBuilder: SystemPromptBuilder;
 };
 
@@ -105,6 +105,6 @@ export type ServiceDiagnostics = {
   readonly runtimeModelId: string;
   readonly providerRegistryStatus: ServiceProviderRegistry["status"];
   readonly toolRegistryStatus: ServiceToolRegistry["status"];
-  readonly assistantProfiles: readonly ServiceAssistantProfile[];
+  readonly turnProfiles: readonly ServiceTurnProfile[];
   readonly persistenceLabel: "memory" | "postgres-drizzle";
 };

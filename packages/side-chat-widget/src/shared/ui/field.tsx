@@ -22,9 +22,7 @@ const ERROR_CLASS = "text-xs text-destructive";
 
 export function FieldSection(): ReactElement {
   const [instructions, setInstructions] = useState("");
-  const [bio, setBio] = useState(
-    "Reply concisely and prefer bullet points when listing options.",
-  );
+  const [bio, setBio] = useState("Reply concisely and prefer bullet points when listing options.");
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -55,11 +53,7 @@ export function FieldSection(): ReactElement {
       </Field.Root>
 
       {/* Invalid state — destructive border + error text */}
-      <Field.Root
-        invalid
-        className="flex flex-col gap-2"
-        data-slot="field-invalid-demo"
-      >
+      <Field.Root invalid className="flex flex-col gap-2" data-slot="field-invalid-demo">
         <Field.Label className={LABEL_CLASS}>Display name</Field.Label>
         <Field.Control
           defaultValue=""

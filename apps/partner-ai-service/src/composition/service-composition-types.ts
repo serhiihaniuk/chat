@@ -20,7 +20,7 @@ import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
 import type { ServiceToolRegistration } from "#composition/tools/service-tool-registry";
-import type { ServiceAssistantConfig } from "#composition/assistant/assistant-profile-registry";
+import type { ServiceTurnProfileConfig } from "#composition/turn-profile/turn-profile-registry";
 import type { ServiceDiagnostics } from "./factories/bundle-types.js";
 
 /**
@@ -49,7 +49,11 @@ export type RuntimeModelMetadata = {
  * and HTTP routes receive only runtime ids and the prepared AgentRuntime port.
  */
 export type RuntimeConfig =
-  | { readonly provider: "fake"; readonly modelId?: string | undefined }
+  | {
+      readonly provider: "fake";
+      readonly modelId?: string | undefined;
+      readonly modelMetadata?: readonly RuntimeModelMetadata[] | undefined;
+    }
   | {
       readonly provider: "openai";
       readonly apiKey: string;
@@ -118,9 +122,9 @@ export type ServiceCompositionOptions = {
   readonly observability?: ObservabilitySinkPort | undefined;
   /** Capability declarations for implemented service context behavior. */
   readonly capabilities?: ServiceCapabilityConfig | undefined;
-  /** Explicit assistant configuration; defaults to the built-in default assistant. */
-  readonly assistants?: readonly ServiceAssistantConfig[] | undefined;
-  readonly defaultAssistantProfileId?: string | undefined;
+  /** Explicit turn profile configuration; defaults to the built-in default profile. */
+  readonly turnProfiles?: readonly ServiceTurnProfileConfig[] | undefined;
+  readonly defaultTurnProfileId?: string | undefined;
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
 };

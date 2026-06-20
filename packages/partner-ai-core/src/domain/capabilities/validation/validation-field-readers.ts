@@ -1,11 +1,11 @@
 import type {
   ApprovalPolicy,
-  AssistantProfile,
+  TurnProfile,
   HostCommandCapability,
   ToolCapability,
 } from "../contracts/capabilities.js";
 
-export const readAssistantProfileId = (profile: AssistantProfile): string => profile.profileId;
+export const readTurnProfileId = (profile: TurnProfile): string => profile.profileId;
 
 export const readToolCapabilityName = (tool: ToolCapability): string => tool.name;
 

@@ -155,7 +155,7 @@ const createGuardedManifest = (...turnGuardIds: readonly string[]) => {
 
   return {
     ...manifest,
-    assistantProfiles: [
+    turnProfiles: [
       {
         ...profile,
         safetyPolicy: { ...profile.safetyPolicy, turnGuardIds },

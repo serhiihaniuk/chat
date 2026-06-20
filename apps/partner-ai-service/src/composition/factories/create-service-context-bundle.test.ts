@@ -37,7 +37,11 @@ describe("createServiceContextBundle", () => {
       bundle.historyContext.readConversationHistory({
         authContext,
         workspace,
-        conversation: { ...workspace, conversationId: "conversation_1", historyCutoffSequenceIndex: 0 },
+        conversation: {
+          ...workspace,
+          conversationId: "conversation_1",
+          historyCutoffSequenceIndex: 0,
+        },
         currentUserMessage: {
           ...workspace,
           conversationId: "conversation_1",

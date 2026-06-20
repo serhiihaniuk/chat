@@ -36,7 +36,7 @@ describe("golden-path adopter flow", () => {
       fetch: withLocalAuth("local-test-token", fetchFromApp(app)),
     });
     const request = createWidgetChatRequest({
-      assistantProfileId: undefined,
+      turnProfileId: undefined,
       conversationId: undefined,
       hostContext: {
         schemaVersion: "adoption-harness.host-context.v1",

@@ -169,10 +169,10 @@ describe("SideChatWidget conversation history", () => {
 const renderWidget = (client: SideChatApiClient) =>
   mountWidget(
     <SideChatWidget
-      assistantProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
+      turnProfiles={[{ id: "gpt-5.4-mini", label: "GPT-5.4 mini" }]}
       client={client}
       conversationStorageKey="widget-chat-store"
-      defaultAssistantProfileId="gpt-5.4-mini"
+      defaultTurnProfileId="gpt-5.4-mini"
       labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
     />,
   );

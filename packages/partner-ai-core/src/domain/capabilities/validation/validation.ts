@@ -1,7 +1,7 @@
 import {
   HOST_CAPABILITY_SCHEMA_VERSIONS,
   HOST_CAPABILITY_VALIDATION_CODES,
-  type AssistantProfileResolution,
+  type TurnProfileResolution,
   type HostCapabilityManifest,
   type HostCapabilityValidationIssue,
   type HostCapabilityValidationResult,
@@ -14,7 +14,7 @@ import {
 } from "../turn-policy/turn-policy-approval-validation.js";
 import {
   readApprovalPolicyId,
-  readAssistantProfileId,
+  readTurnProfileId,
   readHostCommandName,
   readToolCapabilityName,
 } from "./validation-field-readers.js";
@@ -35,10 +35,10 @@ export const validateHostCapabilityManifest = (
 
   issues.push(
     ...duplicateValueIssues(
-      manifest.assistantProfiles.map(readAssistantProfileId),
-      "assistantProfiles",
+      manifest.turnProfiles.map(readTurnProfileId),
+      "turnProfiles",
       HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_PROFILE_ID,
-      "assistant profile id",
+      "turn profile id",
     ),
     ...duplicateValueIssues(
       manifest.tools.map(readToolCapabilityName),
@@ -60,24 +60,24 @@ export const validateHostCapabilityManifest = (
     ),
   );
 
-  const profileIds = new Set(manifest.assistantProfiles.map(readAssistantProfileId));
+  const profileIds = new Set(manifest.turnProfiles.map(readTurnProfileId));
   const toolNames = new Set(manifest.tools.map(readToolCapabilityName));
   const commandNames = new Set(manifest.commands.map(readHostCommandName));
 
   issues.push(
     ...validateDefaultProfileReference(manifest, profileIds),
-    ...validateAssistantProfileReferences(manifest, toolNames),
+    ...validateTurnProfileReferences(manifest, toolNames),
     ...validateApprovalPolicyReferences(manifest, toolNames, commandNames),
   );
 
   return issues.length === 0 ? { valid: true, manifest } : { valid: false, issues };
 };
 
-export const resolveAssistantProfileFromManifest = (
+export const resolveTurnProfileFromManifest = (
   manifest: HostCapabilityManifest,
-  requestedProfileId: string | undefined = manifest.defaultAssistantProfileId,
-): AssistantProfileResolution => {
-  const profile = manifest.assistantProfiles.find(
+  requestedProfileId: string | undefined = manifest.defaultTurnProfileId,
+): TurnProfileResolution => {
+  const profile = manifest.turnProfiles.find(
     (candidate) => candidate.profileId === requestedProfileId,
   );
   if (profile) return { resolved: true, profile };
@@ -86,8 +86,8 @@ export const resolveAssistantProfileFromManifest = (
     resolved: false,
     issue: {
       code: HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_PROFILE_REFERENCE,
-      path: "assistantProfileId",
-      message: `Assistant profile ${requestedProfileId} is not registered.`,
+      path: "turnProfileId",
+      message: `Turn profile ${requestedProfileId} is not registered.`,
     },
   };
 };
@@ -129,26 +129,26 @@ const validateDefaultProfileReference = (
   manifest: HostCapabilityManifest,
   profileIds: ReadonlySet<string>,
 ): readonly HostCapabilityValidationIssue[] =>
-  profileIds.has(manifest.defaultAssistantProfileId)
+  profileIds.has(manifest.defaultTurnProfileId)
     ? []
     : [
         {
           code: HOST_CAPABILITY_VALIDATION_CODES.MISSING_DEFAULT_PROFILE,
-          path: "defaultAssistantProfileId",
-          message: `Default assistant profile ${manifest.defaultAssistantProfileId} is not registered.`,
+          path: "defaultTurnProfileId",
+          message: `Default turn profile ${manifest.defaultTurnProfileId} is not registered.`,
         },
       ];
 
-const validateAssistantProfileReferences = (
+const validateTurnProfileReferences = (
   manifest: HostCapabilityManifest,
   toolNames: ReadonlySet<string>,
 ): readonly HostCapabilityValidationIssue[] =>
-  manifest.assistantProfiles.flatMap((profile, profileIndex) =>
+  manifest.turnProfiles.flatMap((profile, profileIndex) =>
     unknownValueIssues(
       profile.defaultToolPolicy.allowedToolNames,
       toolNames,
-      `assistantProfiles[${profileIndex}].defaultToolPolicy.allowedToolNames`,
+      `turnProfiles[${profileIndex}].defaultToolPolicy.allowedToolNames`,
       HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
-      (toolName) => `Assistant profile ${profile.profileId} references unknown tool ${toolName}.`,
+      (toolName) => `Turn profile ${profile.profileId} references unknown tool ${toolName}.`,
     ),
   );

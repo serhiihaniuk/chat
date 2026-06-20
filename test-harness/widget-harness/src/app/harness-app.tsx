@@ -12,7 +12,7 @@ import {
   type WidgetHarnessConfig,
 } from "#config/modes";
 
-const SERVICE_DEFAULT_ASSISTANT_PROFILE_ID = "default";
+const SERVICE_DEFAULT_TURN_PROFILE_ID = "default";
 const SET_OPEN_MESSAGE_TYPE = "sidechat.widget.setOpen";
 const OPEN_CHANGE_MESSAGE_TYPE = "sidechat.widget.openChange";
 const READY_MESSAGE_TYPE = "sidechat.widget.ready";
@@ -101,10 +101,10 @@ const createWidgetHarnessProps = (config: WidgetHarnessConfig): SideChatWidgetPr
       ? createLocalServiceClient(config)
       : createMockStreamClient(config);
   const props: SideChatWidgetProps = {
-    assistantProfiles: [{ id: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID, label: "Default assistant" }],
+    turnProfiles: [{ id: SERVICE_DEFAULT_TURN_PROFILE_ID, label: "Default profile" }],
     client,
     conversationStorageKey: `side-chat-widget:${config.workspaceId}:conversations`,
-    defaultAssistantProfileId: SERVICE_DEFAULT_ASSISTANT_PROFILE_ID,
+    defaultTurnProfileId: SERVICE_DEFAULT_TURN_PROFILE_ID,
     defaultOpen: config.defaultOpen,
     defaultPanelSize: resolveHarnessPanelSize(),
     hostBridge,

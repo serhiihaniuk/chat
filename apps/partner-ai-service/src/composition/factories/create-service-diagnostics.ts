@@ -3,7 +3,7 @@
 // re-presents labels and status already produced by the other factories.
 
 import type {
-  ServiceAssistantBundle,
+  ServiceTurnProfileBundle,
   ServiceDiagnostics,
   ServicePersistenceBundle,
   ServiceProviderBundle,
@@ -14,7 +14,7 @@ export type ServiceDiagnosticsInput = {
   readonly persistence: ServicePersistenceBundle;
   readonly providers: ServiceProviderBundle;
   readonly tools: ServiceToolBundle;
-  readonly assistants: ServiceAssistantBundle;
+  readonly turnProfiles: ServiceTurnProfileBundle;
 };
 
 /**
@@ -29,6 +29,6 @@ export const createServiceDiagnostics = (input: ServiceDiagnosticsInput): Servic
   runtimeModelId: input.providers.defaultModelId,
   providerRegistryStatus: input.providers.registry.status,
   toolRegistryStatus: input.tools.registry.status,
-  assistantProfiles: input.assistants.registry.serviceProfiles,
+  turnProfiles: input.turnProfiles.registry.serviceProfiles,
   persistenceLabel: input.persistence.persistenceLabel,
 });

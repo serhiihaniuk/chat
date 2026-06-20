@@ -1,20 +1,18 @@
-import {
-  OPENAI_REASONING_EFFORTS,
-  OPENAI_REASONING_SUMMARIES,
-  type OpenAIReasoningEffort,
-  type OpenAIReasoningSummary,
-} from "@side-chat/agent-runtime";
+import { type OpenAIReasoningEffort, type OpenAIReasoningSummary } from "@side-chat/agent-runtime";
 
+import { PROVIDERS } from "#config/catalog/providers";
 import { ServiceConfigError } from "../service-config-error.js";
 
-const openaiReasoningEfforts = new Set<string>(Object.values(OPENAI_REASONING_EFFORTS));
+const defaultOpenAIModel = PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI;
 
-const openaiReasoningSummaries = new Set<string>(Object.values(OPENAI_REASONING_SUMMARIES));
+const openaiReasoningEfforts = new Set<string>(defaultOpenAIModel.SUPPORTED_REASONING_EFFORTS);
 
-export const readOpenAIReasoningEffort = (
-  rawEffort: string | undefined,
-): OpenAIReasoningEffort => {
-  if (!rawEffort) return OPENAI_REASONING_EFFORTS.MEDIUM;
+const openaiReasoningSummaries = new Set<string>(
+  Object.values(PROVIDERS.OPENAI.REASONING_SUMMARIES),
+);
+
+export const readOpenAIReasoningEffort = (rawEffort: string | undefined): OpenAIReasoningEffort => {
+  if (!rawEffort) return defaultOpenAIModel.DEFAULT_REASONING_EFFORT;
   if (openaiReasoningEfforts.has(rawEffort)) {
     return rawEffort as OpenAIReasoningEffort;
   }
@@ -35,7 +33,7 @@ export const readOpenAIReasoningEfforts = (
           .filter(Boolean)
           .map(readOpenAIReasoningEffort),
       )
-    : (Object.values(OPENAI_REASONING_EFFORTS) as OpenAIReasoningEffort[]);
+    : defaultOpenAIModel.SUPPORTED_REASONING_EFFORTS;
 
   if (efforts.length === 0) {
     throw new ServiceConfigError("SIDECHAT_OPENAI_REASONING_EFFORTS must not be empty.");

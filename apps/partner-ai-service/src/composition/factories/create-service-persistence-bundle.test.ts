@@ -65,7 +65,11 @@ describe("createServicePersistenceBundle", () => {
     };
 
     const bundle = createServicePersistenceBundle(
-      { workspace, persistence: { kind: "postgres", databaseUrl: "postgres://local/db" }, repositories },
+      {
+        workspace,
+        persistence: { kind: "postgres", databaseUrl: "postgres://local/db" },
+        repositories,
+      },
       developmentSecurity,
     );
 

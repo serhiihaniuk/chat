@@ -48,7 +48,11 @@ export type ConversationGroup = {
 // Buckets, newest first, mirroring chat-app session lists. Conversations arrive
 // already ordered newest-first, so each one drops into its bucket in order. The most
 // recent bucket stays labelled "Recent"; per-item relative time is shown separately.
-const GROUP_DEFINITIONS: readonly { readonly id: string; readonly label: string; readonly maxAgeDays: number }[] = [
+const GROUP_DEFINITIONS: readonly {
+  readonly id: string;
+  readonly label: string;
+  readonly maxAgeDays: number;
+}[] = [
   { id: "recent", label: "Recent", maxAgeDays: 0 },
   { id: "yesterday", label: "Yesterday", maxAgeDays: 1 },
   { id: "week", label: "Previous 7 days", maxAgeDays: 7 },

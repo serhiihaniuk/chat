@@ -52,7 +52,7 @@ runtime messages, and runtime receives one provider-neutral request.
   not choose an executor.
 - Model and reasoning selection is validated before persistence or runtime. The
   widget can request only ids from `/models`; core still fails closed if the
-  provider, model, assistant profile, or reasoning effort is not allowed.
+  provider, model, turn profile, or reasoning effort is not allowed.
 - Runtime tools are exposed only after policy allows their names and runtime can
   resolve matching executable registrations.
 - Conversation title generation runs only after successful assistant output for

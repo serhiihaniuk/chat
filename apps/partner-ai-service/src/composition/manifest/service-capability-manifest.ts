@@ -4,9 +4,9 @@ import {
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
   createTurnPolicyDecision,
-  resolveAssistantProfileFromManifest,
+  resolveTurnProfileFromManifest,
   validateHostCapabilityManifest,
-  type AssistantProfile,
+  type TurnProfile,
   type ApprovalPolicy,
   type HostCommandCapability,
   type HostCapabilityManifest,
@@ -24,17 +24,17 @@ const LOCAL_HOST_APP_ID = "side-chat-local";
 
 // Declare what this service can offer before core chooses the turn policy.
 // The manifest is availability, not permission: validation and policy resolution
-// still decide what a single assistant turn may actually use. Assistant profiles
-// arrive already built by the assistant profile registry, so this factory never
+// still decide what a single assistant turn may actually use. Turn profiles
+// arrive already built by the turn profile registry, so this factory never
 // composes prompt text or default profiles itself.
 export const createServiceHostCapabilityManifest = ({
-  assistantProfiles,
+  turnProfiles,
   defaultProfileId,
   toolCapabilities = [],
   hostCommands = [],
   approvalPolicies = [],
 }: {
-  readonly assistantProfiles: readonly AssistantProfile[];
+  readonly turnProfiles: readonly TurnProfile[];
   readonly defaultProfileId: ProfileId;
   readonly toolCapabilities?: readonly ToolCapability[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
@@ -42,8 +42,8 @@ export const createServiceHostCapabilityManifest = ({
 }): HostCapabilityManifest => ({
   schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
   hostAppId: LOCAL_HOST_APP_ID,
-  defaultAssistantProfileId: defaultProfileId,
-  assistantProfiles,
+  defaultTurnProfileId: defaultProfileId,
+  turnProfiles,
   tools: toolCapabilities,
   commands: hostCommands,
   approvalPolicies,
@@ -70,7 +70,7 @@ export const createStaticHostCapabilityManifestPort = (
   },
 });
 
-// Turn the host capability manifest plus the request's assistantProfileId into a
+// Turn the host capability manifest plus the request's turnProfileId into a
 // TurnPolicyDecision from createTurnPolicyDecision. A structurally invalid manifest
 // fails as INTERNAL_ERROR because the service shipped a broken menu, while an
 // unresolvable or forbidden profile fails as FORBIDDEN. Those two failure causes
@@ -93,7 +93,7 @@ export const createServiceTurnPolicyResolver = ({
         );
       }
 
-      const resolution = resolveAssistantProfileFromManifest(manifest, request.assistantProfileId);
+      const resolution = resolveTurnProfileFromManifest(manifest, request.turnProfileId);
       if (!resolution.resolved) {
         return yield* Effect.fail(
           new PartnerAiCoreError(
@@ -126,7 +126,7 @@ type RequestedModel = {
 };
 
 type ResolveModelSelectionInput = {
-  readonly profile: AssistantProfile;
+  readonly profile: TurnProfile;
   readonly providers: readonly ServiceProviderStatus[];
   readonly requestModel: RequestedModel | undefined;
 };
@@ -153,7 +153,7 @@ const resolveModelSelection = ({
   }
   if (!isProfileAllowedModel(profile.modelPolicy, selection)) {
     return failForbidden(
-      `Model ${selection.modelId} is not allowed for assistant profile ${profile.profileId}.`,
+      `Model ${selection.modelId} is not allowed for turn profile ${profile.profileId}.`,
     );
   }
 

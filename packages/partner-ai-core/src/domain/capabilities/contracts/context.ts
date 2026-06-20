@@ -1,6 +1,6 @@
 import { brandString, type Brand, type JsonObject } from "@side-chat/shared";
 import type {
-  AssistantProfile,
+  TurnProfile,
   ContextCandidateSourceType,
   ContextRedactionClass,
   ContextTrustLevel,
@@ -260,7 +260,7 @@ export type PreparedRuntimeMessage = {
  */
 export type PreparedTurnContext = {
   readonly contextId: ContextId;
-  readonly profile: AssistantProfile;
+  readonly profile: TurnProfile;
   readonly policyDecision: TurnPolicyDecision;
   readonly history: HistoryContextManifest;
   readonly candidates: readonly ContextCandidate[];

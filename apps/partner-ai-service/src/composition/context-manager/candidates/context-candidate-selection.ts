@@ -203,7 +203,7 @@ const compareOptionalCandidates = (left: ContextCandidate, right: ContextCandida
 const sourceRank = (sourceType: ContextCandidateSourceType): number => {
   switch (sourceType) {
     case CONTEXT_CANDIDATE_SOURCE_TYPES.CURRENT_MESSAGE:
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.ASSISTANT_PROFILE:
+    case CONTEXT_CANDIDATE_SOURCE_TYPES.TURN_PROFILE:
       return 0;
     case CONTEXT_CANDIDATE_SOURCE_TYPES.HOST_CONTEXT:
       return 10;
@@ -218,7 +218,7 @@ const sourceRank = (sourceType: ContextCandidateSourceType): number => {
 const sourceBudgetKeyForCandidate = (candidate: ContextCandidate): SourceBudgetKey | undefined => {
   switch (candidate.sourceType) {
     case CONTEXT_CANDIDATE_SOURCE_TYPES.CURRENT_MESSAGE:
-    case CONTEXT_CANDIDATE_SOURCE_TYPES.ASSISTANT_PROFILE:
+    case CONTEXT_CANDIDATE_SOURCE_TYPES.TURN_PROFILE:
     case CONTEXT_CANDIDATE_SOURCE_TYPES.HOST_CONTEXT:
     case CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_CAPABILITY:
     case CONTEXT_CANDIDATE_SOURCE_TYPES.TOOL_RESULT:

@@ -1,6 +1,6 @@
 import {
   HOST_CAPABILITY_SCHEMA_VERSIONS,
-  type AssistantProfile,
+  type TurnProfile,
   type HostCapabilityManifest,
 } from "#domain/capabilities";
 
@@ -11,13 +11,13 @@ type ValidationWithIssueCodes =
 export const createManifest = (
   overrides: Partial<HostCapabilityManifest> = {},
 ): HostCapabilityManifest => {
-  const analyst = createAssistantProfile();
+  const analyst = createTurnProfile();
 
   return {
     schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
     hostAppId: "host_app_001",
-    defaultAssistantProfileId: analyst.profileId,
-    assistantProfiles: [analyst],
+    defaultTurnProfileId: analyst.profileId,
+    turnProfiles: [analyst],
     tools: [createTool("mock_web_search")],
     commands: [createHostCommand("open_record")],
     approvalPolicies: [createApprovalPolicy("host_commands_require_review", ["open_record"])],
@@ -26,9 +26,7 @@ export const createManifest = (
   };
 };
 
-export const createAssistantProfile = (
-  overrides: Partial<AssistantProfile> = {},
-): AssistantProfile => ({
+export const createTurnProfile = (overrides: Partial<TurnProfile> = {}): TurnProfile => ({
   profileId: "analyst",
   version: "2026-06-13",
   displayName: "Analyst",

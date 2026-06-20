@@ -68,6 +68,7 @@ export type ServiceProviderRegistration =
       readonly providerId: string;
       readonly modelIds: readonly string[];
       readonly defaultModelId: string;
+      readonly modelMetadata?: readonly ServiceModelMetadata[] | undefined;
       readonly reasoning?: ServiceReasoningPolicy | undefined;
     }
   | {
@@ -190,7 +191,7 @@ const assertDefaultModelMembership = (registration: ServiceProviderRegistration)
 };
 
 const assertModelMetadataMembership = (registration: ServiceProviderRegistration): void => {
-  const metadata = registration.kind === "openai" ? registration.modelMetadata : undefined;
+  const metadata = registration.modelMetadata;
   if (!metadata) return;
 
   for (const model of metadata) {
@@ -250,7 +251,7 @@ const toProviderStatus = (registration: ServiceProviderRegistration): ServicePro
 const normalizeModelMetadata = (
   registration: ServiceProviderRegistration,
 ): readonly ServiceModelMetadata[] => {
-  const metadata = registration.kind === "openai" ? registration.modelMetadata : undefined;
+  const metadata = registration.modelMetadata;
   return registration.modelIds.map((modelId) => {
     const configured = metadata?.find((model) => model.modelId === modelId);
     return configured ?? { modelId, displayName: modelId };

@@ -1,6 +1,6 @@
 import {
   HOST_CAPABILITY_VALIDATION_CODES,
-  type AssistantProfile,
+  type TurnProfile,
   type HostCapabilityManifest,
   type HostCapabilityValidationCode,
   type HostCapabilityValidationIssue,
@@ -16,7 +16,7 @@ import {
 
 export const validateTurnPolicyDecision = (
   manifest: HostCapabilityManifest,
-  profile: AssistantProfile,
+  profile: TurnProfile,
   decision: TurnPolicyDecision,
 ): TurnPolicyValidationResult => {
   const manifestReferences = readManifestTurnPolicyReferences(manifest);
@@ -32,7 +32,7 @@ export const validateTurnPolicyDecision = (
 };
 
 const profileIdentityIssues = (
-  profile: AssistantProfile,
+  profile: TurnProfile,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] => [
   ...profileIdIssues(profile, decision),
@@ -43,7 +43,7 @@ const profileIdentityIssues = (
 ];
 
 const profileIdIssues = (
-  profile: AssistantProfile,
+  profile: TurnProfile,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   decision.profileId === profile.profileId
@@ -57,7 +57,7 @@ const profileIdIssues = (
       ];
 
 const profileVersionIssues = (
-  profile: AssistantProfile,
+  profile: TurnProfile,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   decision.profileVersion === profile.version
@@ -71,7 +71,7 @@ const profileVersionIssues = (
       ];
 
 const profileModelIssues = (
-  profile: AssistantProfile,
+  profile: TurnProfile,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] => {
   if (decision.providerId !== profile.modelPolicy.providerId) {
@@ -97,7 +97,7 @@ const profileModelIssues = (
 };
 
 const profileInstructionsIssues = (
-  profile: AssistantProfile,
+  profile: TurnProfile,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   decision.systemInstructions === profile.systemInstructions
@@ -111,7 +111,7 @@ const profileInstructionsIssues = (
       ];
 
 const profileExecutorIssues = (
-  profile: AssistantProfile,
+  profile: TurnProfile,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   decision.executorId === profile.executorId
@@ -149,7 +149,7 @@ const manifestCommandIssues = (
   );
 
 const profileToolIssues = (
-  profile: AssistantProfile,
+  profile: TurnProfile,
   decision: TurnPolicyDecision,
 ): readonly HostCapabilityValidationIssue[] =>
   unknownValueIssues(

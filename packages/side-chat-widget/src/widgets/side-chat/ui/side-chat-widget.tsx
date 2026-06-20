@@ -22,7 +22,7 @@ import { createSideChatWidgetQueryClient } from "../model/side-chat-query-client
 import type { SideChatWidgetLabels, SideChatWidgetProps } from "../model/side-chat-widget.types.js";
 
 export type {
-  SideChatWidgetAssistantProfile,
+  SideChatWidgetTurnProfile,
   SideChatWidgetLabels,
   SideChatWidgetPanelActions,
   SideChatWidgetPanelSize,
@@ -61,10 +61,10 @@ export const SideChatWidget = (props: SideChatWidgetProps) => {
 };
 
 const SideChatWidgetContent = ({
-  assistantProfiles = [],
+  turnProfiles = [],
   client,
   conversationStorageKey,
-  defaultAssistantProfileId,
+  defaultTurnProfileId,
   defaultOpen = true,
   defaultPanelSize,
   defaultTheme,
@@ -79,7 +79,7 @@ const SideChatWidgetContent = ({
   themeStorageKey,
 }: SideChatWidgetProps) => {
   const resolvedLabels = resolveWidgetLabels(labels);
-  const initialProfileId = resolveInitialProfileId(defaultAssistantProfileId, assistantProfiles);
+  const initialProfileId = resolveInitialProfileId(defaultTurnProfileId, turnProfiles);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [rememberedPanelSize, setRememberedPanelSize] = useState(defaultPanelSize);
@@ -92,7 +92,7 @@ const SideChatWidgetContent = ({
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
   const appearance = useWidgetAppearance();
   const modelSelection = useWidgetModelSelection({
-    assistantProfiles,
+    turnProfiles,
     client,
     selectedProfileId,
     setSelectedProfileId,
@@ -231,8 +231,8 @@ const resolveWidgetLabels = (labels: SideChatWidgetLabels | undefined) => ({
 });
 
 const resolveInitialProfileId = (
-  defaultAssistantProfileId: string | undefined,
-  assistantProfiles: readonly { readonly id: string }[],
-): string | undefined => defaultAssistantProfileId ?? assistantProfiles.at(0)?.id;
+  defaultTurnProfileId: string | undefined,
+  turnProfiles: readonly { readonly id: string }[],
+): string | undefined => defaultTurnProfileId ?? turnProfiles.at(0)?.id;
 
 const isBusyStatus = (status: string): boolean => status === "submitted" || status === "streaming";

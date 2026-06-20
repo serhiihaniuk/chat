@@ -6,6 +6,11 @@
   "main": "./dist/index.js",
   "types": "./src/index.ts",
   "imports": {
+    "#sidechat-config": {
+      "types": "./sidechat.config.ts",
+      "development": "./sidechat.config.ts",
+      "default": "./sidechat.config.ts"
+    },
     "#adapters/*": {
       "types": "./src/adapters/*.ts",
       "development": "./src/adapters/*.ts",

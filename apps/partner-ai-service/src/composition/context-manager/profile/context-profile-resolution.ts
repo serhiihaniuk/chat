@@ -2,8 +2,8 @@ import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
-  resolveAssistantProfileFromManifest,
-  type AssistantProfile,
+  resolveTurnProfileFromManifest,
+  type TurnProfile,
   type HostCapabilityManifest,
   type TurnPolicyDecision,
 } from "@side-chat/partner-ai-core";
@@ -12,8 +12,8 @@ import { Effect } from "effect";
 export const resolveContextProfile = (
   manifest: HostCapabilityManifest,
   policyDecision: TurnPolicyDecision,
-): Effect.Effect<AssistantProfile, PartnerAiCoreError> => {
-  const resolution = resolveAssistantProfileFromManifest(manifest, policyDecision.profileId);
+): Effect.Effect<TurnProfile, PartnerAiCoreError> => {
+  const resolution = resolveTurnProfileFromManifest(manifest, policyDecision.profileId);
   if (resolution.resolved) return Effect.succeed(resolution.profile);
 
   // At this point policy already selected the profile id. If the manifest no

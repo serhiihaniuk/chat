@@ -17,8 +17,8 @@ import {
   HOST_CAPABILITY_SCHEMA_VERSIONS,
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
-  resolveAssistantProfileFromManifest,
-  type AssistantProfile,
+  resolveTurnProfileFromManifest,
+  type TurnProfile,
   type HostCapabilityManifest,
 } from "#domain/capabilities";
 import {
@@ -313,15 +313,15 @@ const createObservedPorts = (
 const createManifest = (): HostCapabilityManifest => ({
   schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
   hostAppId: "host_app_001",
-  defaultAssistantProfileId: "analyst",
-  assistantProfiles: [createProfile()],
+  defaultTurnProfileId: "analyst",
+  turnProfiles: [createProfile()],
   tools: [],
   commands: [],
   approvalPolicies: [],
   activityRenderers: [],
 });
 
-const createProfile = (): AssistantProfile => ({
+const createProfile = (): TurnProfile => ({
   profileId: "analyst",
   version: "2026-06-13",
   displayName: "Analyst",
@@ -334,8 +334,8 @@ const createProfile = (): AssistantProfile => ({
   safetyPolicy: { policyId: "standard", promptInjectionMode: "standard", turnGuardIds: [] },
 });
 
-const resolveProfile = (manifest: HostCapabilityManifest): AssistantProfile => {
-  const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+const resolveProfile = (manifest: HostCapabilityManifest): TurnProfile => {
+  const resolution = resolveTurnProfileFromManifest(manifest, "analyst");
   if (!resolution.resolved) {
     throw new Error(resolution.issue.message);
   }

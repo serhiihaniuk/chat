@@ -4,7 +4,15 @@
     {
       "name": "widget-harness",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--workspace", "@side-chat/widget-harness", "run", "dev", "--", "--host", "127.0.0.1"],
+      "runtimeArgs": [
+        "--workspace",
+        "@side-chat/widget-harness",
+        "run",
+        "dev",
+        "--",
+        "--host",
+        "127.0.0.1"
+      ],
       "port": 5173
     }
   ]

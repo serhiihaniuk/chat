@@ -64,7 +64,7 @@ describe("service composition runtime tools", () => {
     // Manifest sees the capability, the runtime accepts the selected executable,
     // and diagnostics report the same single registration.
     expect(manifest.tools.map((tool) => tool.name)).toEqual([JIRA_SEARCH_ISSUES_TOOL_NAME]);
-    expect(manifest.assistantProfiles[0]?.defaultToolPolicy.allowedToolNames).toEqual([
+    expect(manifest.turnProfiles[0]?.defaultToolPolicy.allowedToolNames).toEqual([
       JIRA_SEARCH_ISSUES_TOOL_NAME,
     ]);
     expect(composition.diagnostics.toolRegistryStatus.tools).toEqual([
@@ -153,7 +153,7 @@ describe("service composition runtime tools", () => {
 
     const manifest = await loadManifest(composition);
 
-    expect(manifest.assistantProfiles).toHaveLength(1);
+    expect(manifest.turnProfiles).toHaveLength(1);
     expect(composition.capabilities).toMatchObject({
       history: { state: "configured", policyId: "recent_messages" },
       contextAdmission: {
@@ -169,7 +169,7 @@ describe("service composition runtime tools", () => {
 
     const manifest = await loadManifest(composition);
 
-    expect(manifest.assistantProfiles[0]).toMatchObject({
+    expect(manifest.turnProfiles[0]).toMatchObject({
       systemPromptId: "runtime_default_profile",
       systemInstructions: expect.stringContaining("GitHub-flavored Markdown"),
     });

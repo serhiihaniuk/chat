@@ -1,23 +1,24 @@
-// Owns: building the host capability manifest from assistant/tool/provider
+// Owns: building the host capability manifest from turn-profile/tool/provider
 // outputs, the manifest port, the turn policy resolver, and capability status.
-// Does not own: assistant prompts, tool execution, or per-turn policy decisions
+// Does not own: prompt text, tool execution, or per-turn policy decisions
 // (the resolver only turns the manifest plus a request into a decision).
 
 import { createCapabilityStatusForComposition } from "#composition/capabilities/service-capability-composition";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
+import { PROVIDERS } from "#config/catalog/providers";
 import {
   createServiceHostCapabilityManifest,
   createServiceTurnPolicyResolver,
   createStaticHostCapabilityManifestPort,
 } from "#composition/manifest/service-capability-manifest";
-import type { AssistantProfileRegistry } from "#composition/assistant/assistant-profile-registry";
+import type { TurnProfileRegistry } from "#composition/turn-profile/turn-profile-registry";
 import type { ServiceProviderRegistry } from "#composition/providers/service-provider-registry";
 import type { ServiceToolRegistry } from "#composition/tools/service-tool-registry";
 import type { ServiceCompositionOptions } from "../service-composition-types.js";
 import type { ServiceCapabilityBundle, ServicePersistenceBundle } from "./bundle-types.js";
 
 export type ServiceCapabilityBundleInput = {
-  readonly assistants: AssistantProfileRegistry;
+  readonly turnProfiles: TurnProfileRegistry;
   readonly providers: ServiceProviderRegistry;
   readonly tools: ServiceToolRegistry;
   readonly persistence: ServicePersistenceBundle;
@@ -34,12 +35,12 @@ export const createServiceCapabilityBundle = (
   options: ServiceCompositionOptions,
   input: ServiceCapabilityBundleInput,
 ): ServiceCapabilityBundle => {
-  const runtimeConfig = options.runtime ?? { provider: "fake" };
+  const runtimeConfig = options.runtime ?? { provider: PROVIDERS.FAKE.KIND };
   const capabilityConfig = options.capabilities ?? DEFAULT_SERVICE_CAPABILITY_CONFIG;
 
   const manifest = createServiceHostCapabilityManifest({
-    assistantProfiles: input.assistants.assistantProfiles,
-    defaultProfileId: input.assistants.defaultProfileId,
+    turnProfiles: input.turnProfiles.turnProfiles,
+    defaultProfileId: input.turnProfiles.defaultProfileId,
     toolCapabilities: input.tools.toolCapabilities,
     hostCommands: runtimeConfig.hostCommands,
     approvalPolicies: runtimeConfig.approvalPolicies,

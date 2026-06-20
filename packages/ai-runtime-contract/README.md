@@ -21,7 +21,7 @@ prompt builders, product policy, persistence, or browser protocol events.
 
 - Runtime tool execution, tool registries, provider/model adapters, or AI SDK
   stream-part mapping.
-- Assistant profile resolution, prompt rendering, context gathering, turn
+- Turn profile resolution, prompt rendering, context gathering, turn
   guards, host-command dispatch, or persistence.
 - `sidechat.v1` browser DTOs or protocol sequence validation.
 

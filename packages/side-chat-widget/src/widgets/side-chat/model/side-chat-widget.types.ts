@@ -26,7 +26,7 @@ export type SideChatWidgetQuickAction = {
 
 export type SideChatWidgetStateSnapshot = Record<string, never>;
 
-export type SideChatWidgetAssistantProfile = {
+export type SideChatWidgetTurnProfile = {
   readonly id: string;
   readonly label: string;
 };
@@ -34,10 +34,10 @@ export type SideChatWidgetAssistantProfile = {
 export type { SideChatWidgetPanelSize };
 
 export type SideChatWidgetProps = {
-  readonly assistantProfiles?: readonly SideChatWidgetAssistantProfile[] | undefined;
+  readonly turnProfiles?: readonly SideChatWidgetTurnProfile[] | undefined;
   readonly client: SideChatApiClient;
   readonly conversationStorageKey?: string | undefined;
-  readonly defaultAssistantProfileId?: string | undefined;
+  readonly defaultTurnProfileId?: string | undefined;
   /**
    * Initial panel state for the widget-owned launcher flow.
    *

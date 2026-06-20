@@ -45,11 +45,7 @@ export function MediaSection(): ReactElement {
         <Wrench className="size-4" />
       </Media>
       <Media>
-        <img
-          src={PLACEHOLDER_SVG}
-          alt="avatar"
-          className="size-full object-cover"
-        />
+        <img src={PLACEHOLDER_SVG} alt="avatar" className="size-full object-cover" />
       </Media>
     </div>
   );

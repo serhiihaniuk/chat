@@ -233,4 +233,3 @@ const createEventAppender = (state: RuntimeEventMappingState) => {
     },
   };
 };
-

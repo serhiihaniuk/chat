@@ -1,6 +1,6 @@
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
-import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/service-conversation-title-config";
-import { createServiceAssistantBundle } from "./factories/create-service-assistant-bundle.js";
+import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/sidechat-config/conversation-title";
+import { createServiceTurnProfileBundle } from "./factories/create-service-turn-profile-bundle.js";
 import { createServiceCapabilityBundle } from "./factories/create-service-capability-bundle.js";
 import { createServiceContextBundle } from "./factories/create-service-context-bundle.js";
 import { createServiceDiagnostics } from "./factories/create-service-diagnostics.js";
@@ -45,29 +45,29 @@ export type {
 } from "#composition/tools/service-tool-registry";
 
 export {
-  createAssistantProfileRegistry,
-  AssistantProfileRegistryError,
-} from "#composition/assistant/assistant-profile-registry";
+  createTurnProfileRegistry,
+  TurnProfileRegistryError,
+} from "#composition/turn-profile/turn-profile-registry";
 export type {
-  AssistantProfileRegistry,
-  ServiceAssistantConfig,
-  ServiceAssistantProfile,
-} from "#composition/assistant/assistant-profile-registry";
+  TurnProfileRegistry,
+  ServiceTurnProfileConfig,
+  ServiceTurnProfile,
+} from "#composition/turn-profile/turn-profile-registry";
 export {
-  createDefaultAssistantConfig,
-  DEFAULT_ASSISTANT_PROFILE_ID,
-  DEFAULT_ASSISTANT_SYSTEM_PROMPT_ID,
-} from "#composition/assistant/default-assistant-config";
+  createDefaultTurnProfileConfig,
+  DEFAULT_TURN_PROFILE_ID,
+  DEFAULT_TURN_PROFILE_SYSTEM_PROMPT_ID,
+} from "#composition/turn-profile/default-turn-profile-config";
 export {
   createDefaultSystemPromptBuilder,
   SystemPromptBuilderError,
-} from "#composition/assistant/system-prompt-builder";
+} from "#composition/turn-profile/system-prompt-builder";
 export type {
   BuiltSystemPrompt,
   SystemPromptBuilder,
   SystemPromptDefinition,
   SystemPromptSection,
-} from "#composition/assistant/system-prompt-builder";
+} from "#composition/turn-profile/system-prompt-builder";
 
 /**
  * Build the service graph used by HTTP routes.
@@ -85,14 +85,14 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const persistence = createServicePersistenceBundle(options, security);
   const providers = createServiceProviderBundle(options);
   const tools = createServiceToolBundle(options);
-  const assistants = createServiceAssistantBundle(options, {
+  const turnProfiles = createServiceTurnProfileBundle(options, {
     providers: providers.registry,
     tools: tools.registry,
     turnGuardIds: options.turnGuardIds ?? [],
     registeredGuardIds: turnGuards.guards.map((guard) => guard.guardId),
   });
   const capabilities = createServiceCapabilityBundle(options, {
-    assistants: assistants.registry,
+    turnProfiles: turnProfiles.registry,
     providers: providers.registry,
     tools: tools.registry,
     persistence,
@@ -127,7 +127,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
       persistence,
       providers,
       tools,
-      assistants,
+      turnProfiles,
     }),
   };
 };

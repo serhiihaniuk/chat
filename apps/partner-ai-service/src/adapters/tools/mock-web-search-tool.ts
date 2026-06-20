@@ -7,8 +7,10 @@ import {
   type ServiceToolRegistration,
 } from "#composition/tools/service-tool-registry";
 
-const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
+export const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
 export const MOCK_WEB_SEARCH_TOOL_NAME = "mock_web_search";
+export const MOCK_WEB_SEARCH_TOOL_DESCRIPTION =
+  "Search the web for recent or external information. Use this when the user asks to search, look up current information, or find sources outside the conversation.";
 export const MOCK_WEB_SEARCH_INPUT_SCHEMA = {
   type: "object",
   properties: {
@@ -24,12 +26,13 @@ export const MOCK_WEB_SEARCH_INPUT_SCHEMA = {
 // Local/dev tool fixture. It is deterministic and never calls the external web.
 export const createMockWebSearchTool = ({
   delayMs = DEFAULT_MOCK_WEB_SEARCH_DELAY_MS,
+  description = MOCK_WEB_SEARCH_TOOL_DESCRIPTION,
 }: {
   readonly delayMs?: number;
+  readonly description?: string;
 } = {}): RuntimeTool => ({
   name: MOCK_WEB_SEARCH_TOOL_NAME,
-  description:
-    "Search the web for recent or external information. Use this when the user asks to search, look up current information, or find sources outside the conversation.",
+  description,
   inputSchema: MOCK_WEB_SEARCH_INPUT_SCHEMA,
   readSources: (result) => readSources(result),
   execute: (input) =>
@@ -59,8 +62,18 @@ export const createMockWebSearchTool = ({
  * the manifest capability and the runtime executable together, never as two
  * independent wiring steps.
  */
-export const createMockWebSearchRegistration = (): ServiceToolRegistration => {
-  const runtimeTool = createMockWebSearchTool();
+export const createMockWebSearchRegistration = ({
+  delayMs = DEFAULT_MOCK_WEB_SEARCH_DELAY_MS,
+  description = MOCK_WEB_SEARCH_TOOL_DESCRIPTION,
+  defaultEnabled = true,
+  approvalPolicyIds = [],
+}: {
+  readonly delayMs?: number;
+  readonly description?: string;
+  readonly defaultEnabled?: boolean;
+  readonly approvalPolicyIds?: readonly string[];
+} = {}): ServiceToolRegistration => {
+  const runtimeTool = createMockWebSearchTool({ delayMs, description });
   return createServiceToolRegistration({
     capability: {
       name: MOCK_WEB_SEARCH_TOOL_NAME,
@@ -68,6 +81,8 @@ export const createMockWebSearchRegistration = (): ServiceToolRegistration => {
       inputSchema: MOCK_WEB_SEARCH_INPUT_SCHEMA,
     },
     runtimeTool,
+    defaultEnabled,
+    approvalPolicyIds,
   });
 };
 

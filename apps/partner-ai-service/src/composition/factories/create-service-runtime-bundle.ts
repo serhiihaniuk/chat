@@ -1,9 +1,10 @@
 // Owns: building the AgentRuntime from the provider and tool bundles, or using
 // an injected runtime for tests.
-// Does not own: assistant profiles (the runtime has none), provider/model
+// Does not own: turn profiles (the runtime has none), provider/model
 // selection (validated in the provider bundle), or tool exposure policy.
 
 import { createAgentRuntime } from "@side-chat/agent-runtime";
+import { PROVIDERS } from "#config/catalog/providers";
 import type { ServiceCompositionOptions } from "../service-composition-types.js";
 import type {
   ServiceProviderBundle,
@@ -21,7 +22,7 @@ export type ServiceRuntimeBundleInput = {
  *
  * Tests may inject a prepared AgentRuntime; otherwise the validated provider
  * and tool registries become the runtime providers and tools. The runtime
- * receives executables only, never assistant profiles.
+ * receives executables only, never turn profiles.
  */
 export const createServiceRuntimeBundle = (
   options: ServiceCompositionOptions,
@@ -31,7 +32,7 @@ export const createServiceRuntimeBundle = (
     return { runtime: options.agentRuntime };
   }
 
-  const runtimeConfig = options.runtime ?? { provider: "fake" };
+  const runtimeConfig = options.runtime ?? { provider: PROVIDERS.FAKE.KIND };
   return {
     runtime: createAgentRuntime({
       executors: runtimeConfig.executors,

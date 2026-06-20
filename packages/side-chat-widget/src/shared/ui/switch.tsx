@@ -15,10 +15,7 @@ import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
 
 import { cn } from "#shared/lib/cn";
 
-export function Switch({
-  className,
-  ...props
-}: SwitchPrimitive.Root.Props): ReactElement {
+export function Switch({ className, ...props }: SwitchPrimitive.Root.Props): ReactElement {
   return (
     <SwitchPrimitive.Root className={cn("sc-switch-root", className)} {...props}>
       <SwitchPrimitive.Thumb className="sc-switch-thumb" />
@@ -33,7 +30,11 @@ export function SwitchSection(): ReactElement {
   // Each labelled row is its own Field.Root — Base UI requires Field parts to live
   // inside a Field.Root, and the Root wires the Label→control association for us.
   const rows = [
-    { title: "Send on Enter", hint: "Shift+Enter inserts a newline", control: <Switch defaultChecked /> },
+    {
+      title: "Send on Enter",
+      hint: "Shift+Enter inserts a newline",
+      control: <Switch defaultChecked />,
+    },
     { title: "Stream responses", hint: "Render tokens as they arrive", control: <Switch /> },
     { title: "Web search", hint: "Unavailable on this model", control: <Switch disabled /> },
   ];

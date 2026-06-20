@@ -130,7 +130,7 @@ export const useWidgetChat = ({
       try {
         const hostContext = await hostBridge?.getContext({ requestId });
         const request = createWidgetChatRequest({
-          assistantProfileId: selectedProfileId,
+          turnProfileId: selectedProfileId,
           conversationId,
           hostContext,
           message: trimmed,

@@ -29,11 +29,14 @@ Not source of truth for: global vocabulary or product requirements.
 - `src/composition/manifest/service-capability-manifest.ts`
 - `src/composition/providers/service-provider-registry.ts`
 - `src/composition/tools/service-tool-registry.ts`
-- `src/composition/assistant/assistant-profile-registry.ts`
-- `src/composition/assistant/default-assistant-config.ts`
+- `src/composition/turn-profile/turn-profile-registry.ts`
+- `src/composition/turn-profile/default-turn-profile-config.ts`
 - `src/adapters/README.md`
+- `sidechat.config.ts`
+- `src/config/sidechat-config.ts`
+- `src/config/catalog/index.ts`
 - `src/config/service-config.ts`
-- `src/config/service-conversation-title-config.ts`
+- `src/config/sidechat-config/conversation-title.ts`
 
 ## Capability Diagnostics
 
@@ -57,9 +60,9 @@ the runtime identity. `createServiceToolRegistry` turns each
 runtime executable, so a tool cannot be declared without an executable behind
 it.
 
-Assistant behavior is explicit service config. The default assistant and any
-`assistants` passed to composition build through `createAssistantProfileRegistry`,
-which validates each `ServiceAssistantConfig` against the provider, tool, and
+Turn behavior is explicit service config. The default turn profile and any
+`turnProfiles` passed to composition build through `createTurnProfileRegistry`,
+which validates each `ServiceTurnProfileConfig` against the provider, tool, and
 guard registries and uses the system prompt builder to assemble prompt text. The
 manifest factory only receives the built profiles; it owns no default prompt.
 
@@ -98,45 +101,89 @@ private context-board content.
 ## Capability Configuration
 
 `partner-ai-core` owns the portable capability configuration contract used by
-policy and context preparation. This service parses `SIDECHAT_*` environment
-values for the implemented RC capabilities.
+policy and context preparation. The service-readable product behavior now starts
+in `sidechat.config.ts`: enabled models, per-model reasoning options, default
+executor, tool microconfigs, request policy, turn profile prompt/output/safety,
+context budgets, and auxiliary model jobs live there as imported catalog values
+plus human-authored prompt text.
 
-Local defaults are explicit and fail closed:
+`src/config/sidechat-config.ts` owns the typed `defineSideChatConfig(...)`
+helper, `readEnv(...)` env-reference helpers, the optional config module loader,
+and the adapter that turns the readable config plus secret/process env into
+`PartnerAiServiceOptions`. `npm run dev --workspace
+@side-chat/partner-ai-service` uses the normal `src/server.ts` boot path and
+loads the default export from `sidechat.config.ts`. `SIDECHAT_CONFIG_PATH`
+remains an explicit override for loading another config file, and `SIDECHAT_CONFIG`
+can select a named export only when that module intentionally exports a
+registry. The checked-in project config is one production OpenAI config object,
+not a local/openai switchboard. The older `src/config/service-config.ts` env
+parser remains during migration as the fallback when no config module can be
+loaded and for existing deployment tests.
 
-| Env key                                   | Local default      | Meaning                                                           |
-| ----------------------------------------- | ------------------ | ----------------------------------------------------------------- |
-| `SIDECHAT_HISTORY_MODE`                   | `disabled`         | `disabled` or `recent_messages`.                                  |
-| `SIDECHAT_HISTORY_MAX_MESSAGES`           | `12`               | Maximum same-conversation messages admitted into runtime context. |
-| `SIDECHAT_HISTORY_MAX_TOKENS`             | `4000`             | Approximate token budget for admitted conversation history.       |
-| `SIDECHAT_CONTEXT_ADMISSION_POLICY`       | `deterministic_v1` | Recorded context admission policy id.                             |
-| `SIDECHAT_CONTEXT_MAX_INPUT_TOKENS`       | `24000`            | Recorded model input budget.                                      |
-| `SIDECHAT_CONTEXT_RESERVED_OUTPUT_TOKENS` | `4000`             | Reserved output budget; must be below max input tokens.           |
-| `SIDECHAT_CONTEXT_MAX_HISTORY_TOKENS`     | `4000`             | Recorded per-source history budget.                               |
-| `SIDECHAT_PROVIDER`                       | `fake`             | `fake` or `openai`; production requires `openai`.                 |
-| `SIDECHAT_ALLOWED_MODELS`                 | none               | Comma-separated runtime model ids; required for OpenAI.           |
-| `SIDECHAT_MODEL_CONTEXT_WINDOWS`          | known models only  | Comma-separated `modelId:tokens` overrides for catalog display.   |
-| `SIDECHAT_OPENAI_REASONING_EFFORT`        | `medium`           | Default OpenAI reasoning effort when a turn does not select one.  |
-| `SIDECHAT_OPENAI_REASONING_EFFORTS`       | all runtime values | Comma-separated reasoning efforts exposed in the model catalog.   |
+`src/config/catalog/` is the importable catalog for service-readable config
+values. It names provider ids, model ids, per-model reasoning options, model
+metadata, executor ids, default tool descriptors, and auxiliary model jobs such
+as conversation-title generation. The catalog points at implemented providers,
+executors, and tool adapters; it does not register host commands or turn guards
+when the service has no built-in implementation for them.
+
+The checked-in production config is explicit and fail closed:
+
+| Config field                                    | Production value                        | Meaning                                                           |
+| ----------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| `environment.profile`                           | `SERVICE_PROFILES.PRODUCTION`           | Deployment posture used by auth, policy, and persistence.         |
+| `models.provider.kind`                          | `PROVIDERS.OPENAI.KIND`                 | Runtime provider adapter.                                         |
+| `models.availableModels`                        | GPT-5.4 mini and GPT-5.5                | Enabled backend model list published to the widget.               |
+| `models.availableModels[].reasoning.options`    | low, medium, high                       | Reasoning efforts the widget may offer for each enabled model.    |
+| `tools.availableTools`                          | `TOOLS.MOCK_WEB_SEARCH`                 | Configured backend tool registration.                             |
+| `chat.turnProfile.systemInstructions`           | Markdown output instruction fragments   | Prompt text used for the default assistant turn.                  |
+| `chat.turnProfile.executor`                     | `EXECUTORS.AI_SDK_TOOL_LOOP`            | Runtime executor id published in the turn profile.                |
+| `requestPolicy.mode`                            | `REQUEST_POLICY_MODES.CONFIGURED`       | Requests are checked against configured model entitlements.       |
+| `context.history.mode`                          | `HISTORY_CONTEXT_MODES.RECENT_MESSAGES` | Recent same-conversation messages are admitted into context.      |
+| `context.history.maxMessages`                   | `12`                                    | Maximum same-conversation messages admitted into runtime context. |
+| `context.contextAdmission.maxInputTokens`       | `24000`                                 | Recorded model input budget.                                      |
+| `context.contextAdmission.reservedOutputTokens` | `4000`                                  | Reserved output budget; must be below max input tokens.           |
+| `context.contextAdmission.maxHistoryTokens`     | `4000`                                  | Recorded per-source history budget.                               |
+| `auxiliaryModelJobs.availableJobs`              | conversation title enabled              | Prompt/config for auxiliary model jobs outside the main turn.     |
+
+Env references are visible in `sidechat.config.ts`. The `environment` block
+declares process/deployment inputs such as `PORT`, `SIDECHAT_PROFILE`,
+`SIDECHAT_AUTH_BEARER_TOKEN`, `SIDECHAT_DATABASE_URL`,
+`SIDECHAT_DEMO_SEED_CONVERSATIONS`, `SIDECHAT_TENANT_ID`, and
+`SIDECHAT_WORKSPACE_ID`. Provider-specific connection values live beside the
+model provider config; the OpenAI config declares `SIDECHAT_OPENAI_API_KEY` and
+optional `SIDECHAT_OPENAI_BASE_URL` through
+`models.provider.connection`.
 
 Example local path that enables recent conversation history:
 
-```sh
-SIDECHAT_HISTORY_MODE=recent_messages \
-npm run dev --workspace @side-chat/partner-ai-service
+```ts
+// sidechat.config.ts
+context: {
+  history: {
+    mode: HISTORY_CONTEXT_MODES.RECENT_MESSAGES,
+    maxMessages: 12,
+    maxTokens: 4_000,
+  },
+  contextAdmission: {
+    policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
+    maxInputTokens: 24_000,
+    reservedOutputTokens: 4_000,
+    maxHistoryTokens: 4_000,
+  },
+}
 ```
 
 History reports the repository-backed context adapter when `recent_messages` is
 enabled. Longer-history summarization is tracked as deferred product work in
 `docs/product/todo.md`.
 
-Example OpenAI catalog with two selectable models:
+Example OpenAI boot path: provide the env values declared by the default config.
 
 ```sh
-SIDECHAT_PROVIDER=openai \
-SIDECHAT_ALLOWED_MODELS=gpt-5.4-mini,gpt-5.5-mini \
-SIDECHAT_MODEL_CONTEXT_WINDOWS=gpt-5.5-mini:1000000 \
-SIDECHAT_OPENAI_REASONING_EFFORT=medium \
-SIDECHAT_OPENAI_REASONING_EFFORTS=low,medium,high \
+SIDECHAT_OPENAI_API_KEY=... \
+SIDECHAT_AUTH_BEARER_TOKEN=... \
+SIDECHAT_DATABASE_URL=... \
 npm run dev --workspace @side-chat/partner-ai-service
 ```
 

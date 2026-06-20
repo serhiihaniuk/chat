@@ -1,6 +1,6 @@
 // Owns: the conversation history context port and the context manager that
 // selects and budgets per-turn context.
-// Does not own: the system prompt (assistant bundle owns it), context trust
+// Does not own: the system prompt (turn profile bundle owns it), context trust
 // labels (host context is always admitted as user-provided), or persistence.
 
 import { createRepositoryConversationHistoryContext } from "#adapters/persistence/repository-conversation-history-context";

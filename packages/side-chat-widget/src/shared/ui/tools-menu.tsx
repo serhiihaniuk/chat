@@ -21,8 +21,7 @@ import { cn } from "#shared/lib/cn";
 import { Switch } from "#shared/ui/switch";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
-const ITEM_CLASS =
-  "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent";
+const ITEM_CLASS = "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent";
 const LABEL_CLASS =
   "px-2.5 pt-1.5 pb-1 text-2xs font-bold uppercase tracking-wider text-muted-foreground";
 
@@ -30,8 +29,16 @@ type ToolKey = "web-search" | "code-tools";
 type Scope = "page" | "selection" | "workspace";
 
 const TOOLS: ReadonlyArray<{ key: ToolKey; label: string; icon: ReactElement }> = [
-  { key: "web-search", label: "Web search", icon: <Globe className="size-4 text-muted-foreground" /> },
-  { key: "code-tools", label: "Code tools", icon: <Wrench className="size-4 text-muted-foreground" /> },
+  {
+    key: "web-search",
+    label: "Web search",
+    icon: <Globe className="size-4 text-muted-foreground" />,
+  },
+  {
+    key: "code-tools",
+    label: "Code tools",
+    icon: <Wrench className="size-4 text-muted-foreground" />,
+  },
 ];
 
 const SCOPES: ReadonlyArray<{ value: Scope; label: string }> = [
@@ -73,9 +80,7 @@ export function ToolsMenu(): ReactElement {
                 <Menu.CheckboxItem
                   key={key}
                   checked={tools[key]}
-                  onCheckedChange={(checked) =>
-                    setTools((prev) => ({ ...prev, [key]: checked }))
-                  }
+                  onCheckedChange={(checked) => setTools((prev) => ({ ...prev, [key]: checked }))}
                   closeOnClick={false}
                   className={ITEM_CLASS}
                 >
@@ -91,10 +96,7 @@ export function ToolsMenu(): ReactElement {
 
             <Menu.Group>
               <Menu.GroupLabel className={LABEL_CLASS}>Context scope</Menu.GroupLabel>
-              <Menu.RadioGroup
-                value={scope}
-                onValueChange={(value) => setScope(value as Scope)}
-              >
+              <Menu.RadioGroup value={scope} onValueChange={(value) => setScope(value as Scope)}>
                 {SCOPES.map(({ value, label }) => (
                   <Menu.RadioItem
                     key={value}
@@ -123,8 +125,8 @@ export function ToolsMenuSection(): ReactElement {
     <div className="flex flex-col items-start gap-3 p-4">
       <ToolsMenu />
       <p className={cn("text-xs text-muted-foreground")}>
-        Click the <span className="font-semibold text-foreground">+</span> to open the
-        tools menu — toggle a tool or pick a context scope.
+        Click the <span className="font-semibold text-foreground">+</span> to open the tools menu —
+        toggle a tool or pick a context scope.
       </p>
     </div>
   );

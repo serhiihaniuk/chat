@@ -3,12 +3,12 @@ import {
   HOST_CAPABILITY_VALIDATION_CODES,
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
-  resolveAssistantProfileFromManifest,
+  resolveTurnProfileFromManifest,
   validateHostCapabilityManifest,
   validateTurnPolicyDecision,
 } from "../capabilities.js";
 import {
-  createAssistantProfile,
+  createTurnProfile,
   createManifest,
   createTool,
   issueCodes,
@@ -21,7 +21,7 @@ describe("host capability manifest contract", () => {
 
     expect(validation.valid).toBe(true);
 
-    const resolution = resolveAssistantProfileFromManifest(manifest, "analyst");
+    const resolution = resolveTurnProfileFromManifest(manifest, "analyst");
     expect(resolution.resolved).toBe(true);
     if (!resolution.resolved) return;
 
@@ -76,7 +76,7 @@ describe("host capability manifest contract", () => {
 
   it("fails closed when the default profile id is not registered", () => {
     const validation = validateHostCapabilityManifest(
-      createManifest({ defaultAssistantProfileId: "missing_profile" }),
+      createManifest({ defaultTurnProfileId: "missing_profile" }),
     );
 
     expect(issueCodes(validation)).toContain(
@@ -85,7 +85,7 @@ describe("host capability manifest contract", () => {
   });
 
   it("fails closed when profiles reference missing tools", () => {
-    const analyst = createAssistantProfile({
+    const analyst = createTurnProfile({
       defaultToolPolicy: {
         mode: "profile_allowlist",
         allowedToolNames: ["missing_tool"],
@@ -93,7 +93,7 @@ describe("host capability manifest contract", () => {
     });
     const validation = validateHostCapabilityManifest(
       createManifest({
-        assistantProfiles: [analyst],
+        turnProfiles: [analyst],
       }),
     );
 

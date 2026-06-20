@@ -20,7 +20,7 @@ import {
 describe("widget-state", () => {
   it("creates protocol requests with optional profile, host context, and model preference", () => {
     const request = createDefaultRequest({
-      assistantProfileId: "gpt-5.4-mini",
+      turnProfileId: "gpt-5.4-mini",
       content: "hello",
       hostContext: {
         schemaVersion: "widget-harness.host-context.v1",
@@ -38,7 +38,7 @@ describe("widget-state", () => {
     expect(request).toEqual({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       requestId: "request_001",
-      assistantProfileId: "gpt-5.4-mini",
+      turnProfileId: "gpt-5.4-mini",
       model: {
         providerId: "openai",
         modelId: "gpt-5.5-mini",

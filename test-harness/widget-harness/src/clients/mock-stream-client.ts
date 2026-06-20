@@ -66,7 +66,7 @@ export const createMockEvents = (
       : "unknown-workspace";
   const responseContent =
     scenario === "echo-request"
-      ? `Mock response: ${request.message.content} model=${request.assistantProfileId ?? "none"} workspace=${workspaceId}`
+      ? `Mock response: ${request.message.content} model=${request.turnProfileId ?? "none"} workspace=${workspaceId}`
       : `Mock response: ${request.message.content}`;
 
   return [
