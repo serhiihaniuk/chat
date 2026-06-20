@@ -35,6 +35,7 @@ export type ResizeSession = {
 };
 
 export type SessionRef = MutableRefObject<ResizeSession | null>;
+export type CommitPanelSize = (size: ResizablePanelSize) => void;
 
 const MIN: ResizablePanelSize = { width: 360, height: 420 };
 const GUTTER = 32;
@@ -189,7 +190,7 @@ const activateDragSession = (active: ResizeSession, event: PointerEvent): boolea
 
 const releaseResizeSession = (
   session: SessionRef,
-  setSize: Dispatch<SetStateAction<ResizablePanelSize>>,
+  commitSize: CommitPanelSize,
   setOffset: Dispatch<SetStateAction<Offset>>,
 ): void => {
   const active = session.current;
@@ -202,7 +203,7 @@ const releaseResizeSession = (
     /* Pointer capture may already be released by the browser. */
   }
   if (active.latest) {
-    setSize(active.latest.size);
+    commitSize(active.latest.size);
     setOffset(active.latest.offset);
   }
   session.current = null;
@@ -212,7 +213,7 @@ const releaseResizeSession = (
 
 export const usePanelResizeEvents = (
   session: SessionRef,
-  setSize: Dispatch<SetStateAction<ResizablePanelSize>>,
+  commitSize: CommitPanelSize,
   setOffset: Dispatch<SetStateAction<Offset>>,
 ): void => {
   useEffect(() => {
@@ -223,7 +224,7 @@ export const usePanelResizeEvents = (
       active.pending = { x: event.clientX, y: event.clientY };
       if (active.frame === undefined) active.frame = window.requestAnimationFrame(apply);
     };
-    const stop = (): void => releaseResizeSession(session, setSize, setOffset);
+    const stop = (): void => releaseResizeSession(session, commitSize, setOffset);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", stop);
     window.addEventListener("pointercancel", stop);
@@ -235,5 +236,5 @@ export const usePanelResizeEvents = (
       window.removeEventListener("blur", stop);
       stop();
     };
-  }, [session, setOffset, setSize]);
+  }, [session, commitSize, setOffset]);
 };

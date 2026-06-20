@@ -1,9 +1,16 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from "playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type FrameLocator,
+  type Locator,
+  type Page,
+} from "playwright/test";
 
 const servicePort = readPortEnv("SIDECHAT_E2E_SERVICE_PORT", 3101);
-const widgetPort = readPortEnv("SIDECHAT_E2E_WIDGET_PORT", 5174);
+const hostPort = readPortEnv("SIDECHAT_E2E_HOST_PORT", 5180);
 const serviceBaseUrl = `http://127.0.0.1:${servicePort}`;
-const widgetBaseUrl = `http://127.0.0.1:${widgetPort}`;
+const hostBaseUrl = `http://127.0.0.1:${hostPort}`;
 const widgetFramePath = "/side-chat-frame/";
 const authToken = "local-compose-token";
 const workspaceId = "workspace_e2e";
@@ -62,7 +69,7 @@ test("streams through the real widget and real backend with mocked DB and model"
   await openLocalServiceWidget(page);
 
   const streamResponse = page.waitForResponse((response) =>
-    response.url().includes("/api/chat/stream"),
+    response.url().includes("/side-chat-api/chat/stream"),
   );
 
   await page.getByLabel("Message").fill("hello e2e backend");
@@ -120,25 +127,36 @@ test("shows fake demo thinking levels and seeded conversations", async ({ page, 
 
 test("streams from the local service while embedded in an iframe", async ({ page, request }) => {
   await expectServiceHealth(request);
-  await page.setViewportSize({ height: 960, width: 1400 });
+  await page.setViewportSize({ height: 1200, width: 1400 });
   await page.goto(
-    `${widgetFramePath}workbench-embed.html?authToken=${encodeURIComponent(authToken)}` +
+    `/workbench-embed.html?authToken=${encodeURIComponent(authToken)}` +
       `&workspaceId=${encodeURIComponent(workspaceId)}` +
-      `&apiBaseUrl=${encodeURIComponent("/api")}` +
+      `&apiBaseUrl=${encodeURIComponent("/side-chat-api")}` +
       `&framePath=${encodeURIComponent(widgetFramePath)}`,
   );
   const iframe = page.locator('iframe[title="Workspace Assistant"]');
   const frameSrc = await iframe.getAttribute("src");
-  expect(new URL(frameSrc ?? "", widgetBaseUrl).origin).toBe(widgetBaseUrl);
-  expect(new URL(frameSrc ?? "", widgetBaseUrl).pathname).toBe(widgetFramePath);
+  expect(new URL(frameSrc ?? "", hostBaseUrl).origin).toBe(hostBaseUrl);
+  expect(new URL(frameSrc ?? "", hostBaseUrl).pathname).toBe(widgetFramePath);
+  await expect(iframe).toBeHidden();
+  const hostOpenButton = page.getByRole("button", { name: "Open assistant" });
+  await expect(hostOpenButton).toHaveAttribute("aria-expanded", "false");
+  await expectElementDockedBottomRight(page, hostOpenButton, { bottom: 16, right: 16 });
 
-  await page.getByRole("button", { name: "Open assistant" }).click();
+  await hostOpenButton.click();
+  await expect(iframe).toBeVisible();
+  await expectElementDockedBottomRight(page, iframe, { bottom: 64, right: 16 });
+  await expectElementHeight(iframe, 1080);
+  const hostCloseButton = page.getByRole("button", { name: "Close assistant" });
+  await expect(hostCloseButton).toHaveAttribute("aria-expanded", "true");
+  await expectElementDockedBottomRight(page, hostCloseButton, { bottom: 16, right: 16 });
 
   const frame = page.frameLocator('iframe[title="Workspace Assistant"]');
   await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
+  const resizedPanelWidth = await resizePanelFromLeftEdge(page, frame, 72);
 
   const streamResponse = page.waitForResponse((response) =>
-    response.url().includes("/api/chat/stream"),
+    response.url().includes("/side-chat-api/chat/stream"),
   );
 
   await frame.getByLabel("Message").fill("hello iframe backend");
@@ -153,9 +171,18 @@ test("streams from the local service while embedded in an iframe", async ({ page
   });
   await expectUsageWasRecorded(request);
 
-  await frame.getByRole("button", { name: "Close" }).click();
+  await hostCloseButton.click();
+  await expect(iframe).toBeHidden();
   await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Open assistant" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open assistant" })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+
+  await page.getByRole("button", { name: "Open assistant" }).click();
+  await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
+  const reopenedBox = await readBox(frame.getByRole("region", { name: "Workspace Assistant" }));
+  expect(Math.abs(reopenedBox.width - resizedPanelWidth)).toBeLessThanOrEqual(2);
 });
 
 test("renders tool activity details from the canonical activity stream", async ({ page }) => {
@@ -373,4 +400,59 @@ const expectElementWithinViewport = async (page: Page, locator: Locator) => {
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+};
+
+const resizePanelFromLeftEdge = async (
+  page: Page,
+  frame: FrameLocator,
+  distance: number,
+): Promise<number> => {
+  const panel = frame.getByRole("region", { name: "Workspace Assistant" });
+  const before = await readBox(panel);
+  const handle = await readBox(frame.getByRole("button", { name: "Resize panel from left edge" }));
+  const startX = handle.x + handle.width / 2;
+  const startY = handle.y + handle.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX - distance, startY, { steps: 4 });
+  await page.mouse.up();
+
+  const after = await readBox(panel);
+  expect(after.width).toBeGreaterThan(before.width + distance / 2);
+  return after.width;
+};
+
+const readBox = async (
+  locator: Locator,
+): Promise<{
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}> => {
+  const box = await locator.boundingBox();
+  if (box === null) throw new Error("Expected element to have a bounding box.");
+  return box;
+};
+
+const expectElementDockedBottomRight = async (
+  page: Page,
+  locator: Locator,
+  expected: { readonly bottom: number; readonly right: number },
+) => {
+  const viewport = page.viewportSize();
+  if (viewport === null) throw new Error("Expected page viewport to be available.");
+
+  const box = await locator.boundingBox();
+  if (box === null) throw new Error("Expected element to have a bounding box.");
+
+  const actualRight = viewport.width - (box.x + box.width);
+  const actualBottom = viewport.height - (box.y + box.height);
+  expect(Math.abs(actualRight - expected.right)).toBeLessThanOrEqual(2);
+  expect(Math.abs(actualBottom - expected.bottom)).toBeLessThanOrEqual(2);
+};
+
+const expectElementHeight = async (locator: Locator, expectedHeight: number): Promise<void> => {
+  const box = await readBox(locator);
+  expect(Math.abs(box.height - expectedHeight)).toBeLessThanOrEqual(2);
 };

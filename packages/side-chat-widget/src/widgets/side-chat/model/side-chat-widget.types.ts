@@ -69,8 +69,10 @@ export type SideChatWidgetProps = {
    * owns the button that opens and closes the frame.
    */
   readonly renderClosedLauncher?: boolean | undefined;
-  // Host/server-configured: how much assistant reasoning the widget exposes by
-  // default. Defaults to "minimal" (collapsed). Not a user-facing setting.
+  // Host/server-configured: live thinking opens while streaming only after the
+  // stream emits an activity trace; completed reasoning defaults to collapsed
+  // for "minimal" and expanded for "detailed". Defaults to "minimal". Not a
+  // user-facing setting.
   readonly reasoningVisibility?: ReasoningVisibility | undefined;
   readonly themeStorageKey?: string | undefined;
 };

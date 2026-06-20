@@ -27,7 +27,7 @@ The launcher exposes:
 | ---------- | ----------------------- | --------------------------------------------------------- |
 | Service    | `http://127.0.0.1:8787` | Hono API, fake or OpenAI provider, in-memory persistence. |
 | Iframe app | `http://127.0.0.1:5174` | Vite widget harness that renders `SideChatWidget`.        |
-| Workbench  | `http://127.0.0.1:8080` | Real host app that owns the embedding page.               |
+| Host page  | `http://127.0.0.1:8080` | Local Workbench-style page that proxies UI and API.       |
 
 When `SIDECHAT_PROVIDER=fake`, the launcher sets
 `SIDECHAT_DEMO_SEED_CONVERSATIONS=true` and `SIDECHAT_ENABLE_DEV_TOOLS=true` by
@@ -45,6 +45,12 @@ widget paths.
 The browser should load Side Chat through the Workbench origin. The widget
 process is only the proxy target.
 
+For local runs, the launcher prints an embedded host page served from the local
+host origin at `workbench-embed.html`. Open that page first; it owns the visible
+open/close button, proxies `/side-chat-frame` to the widget UI, proxies
+`/side-chat-api` to the service, and embeds the Side Chat iframe. The raw iframe
+app URL is useful only for debugging the frame contents directly.
+
 ## Workbench Proxy
 
 Configure the real Workbench Vite app to proxy both the iframe app and the
@@ -59,7 +65,6 @@ export default defineConfig({
         target: "http://127.0.0.1:5174",
         changeOrigin: true,
         ws: true,
-        rewrite: (path) => path.replace(/^\/side-chat-frame/u, ""),
       },
       "/side-chat-api": {
         target: "http://127.0.0.1:8787",
@@ -74,21 +79,59 @@ export default defineConfig({
 The launcher sets `SIDECHAT_WIDGET_HARNESS_BASE_PATH=/side-chat-frame/` for the
 widget Vite app. Keep that base path aligned with the Workbench
 `/side-chat-frame` proxy path, otherwise Vite module and asset URLs will escape
-the proxy.
+the proxy. Because the iframe app is already served with that base path, forward
+the `/side-chat-frame` prefix to the widget target unchanged. Strip only the API
+proxy prefix before forwarding to the backend service root.
+
+The widget harness also has a local host config at
+`test-harness/widget-harness/vite.host.config.ts` for the no-Docker launcher and
+browser tests. That host config is intentionally separate from the widget
+iframe-app config: the host config owns both proxies, while the widget config is
+only the proxy target.
 
 ## Iframe Markup
 
 The host app embeds the same-origin Workbench path:
 
 ```html
-<button id="side-chat-toggle" type="button">Open assistant</button>
+<button id="side-chat-toggle" type="button" aria-controls="side-chat-frame" aria-expanded="false">
+  Open assistant
+</button>
 <iframe
+  id="side-chat-frame"
   title="Workspace Assistant"
   src="/side-chat-frame/?mode=local-service&workspaceId=<workspace-id>&authToken=<local-token>&apiBaseUrl=/side-chat-api&openControl=host&open=false"
-  style="width: 100%; height: 100%; border: 0"
   allow="clipboard-write"
   referrerpolicy="strict-origin-when-cross-origin"
+  hidden
 ></iframe>
+```
+
+Dock the host button in the bottom-right corner, outside the iframe, and place
+the iframe above it:
+
+```css
+#side-chat-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+}
+
+#side-chat-frame {
+  position: fixed;
+  right: 16px;
+  bottom: 64px;
+  z-index: 10;
+  width: min(1200px, calc(100vw - 32px));
+  height: min(90vh, calc(100vh - 80px));
+  min-height: min(620px, calc(100vh - 80px));
+  border: 0;
+}
+
+#side-chat-frame[hidden] {
+  display: none;
+}
 ```
 
 The host owns the visible open/closed state. Send `sidechat.widget.setOpen` to
@@ -105,7 +148,11 @@ const sendOpenState = () => {
     { type: "sidechat.widget.setOpen", open },
     window.location.origin,
   );
-  if (button) button.textContent = open ? "Close assistant" : "Open assistant";
+  if (frame) frame.hidden = !open;
+  if (button) {
+    button.textContent = open ? "Close assistant" : "Open assistant";
+    button.setAttribute("aria-expanded", String(open));
+  }
 };
 
 button?.addEventListener("click", () => {
@@ -126,6 +173,22 @@ For the local harness, `authToken` is the bearer token configured in the
 launcher. Do not use query-string tokens as a production auth design; production
 hosts should mint a short-lived frame session or rely on the host's own auth
 boundary.
+
+## Resize Boundary
+
+Side Chat's resize handles resize the widget panel **inside** the iframe. They
+do not resize the host iframe element. The host page must give the iframe a
+large fixed viewport, such as the bottom-right dock above, because iframe
+contents cannot draw outside the iframe's rectangle.
+
+If the widget appears not to resize in a host app, check the host CSS first:
+
+- Do not size the iframe to the closed launcher or to the current panel content.
+- Do not put the iframe inside a small `overflow: hidden` container.
+- Do not apply `pointer-events: none`, transforms, or scaling to the iframe.
+- Keep the iframe visible while open; hide it only when the host state is closed.
+- If the host wants the outer iframe itself to be user-resizable, implement that
+  as host-page behavior separately from the Side Chat panel resize handles.
 
 ## Verification
 

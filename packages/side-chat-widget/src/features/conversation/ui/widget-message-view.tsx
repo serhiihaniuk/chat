@@ -1,3 +1,4 @@
+import { ACTIVITY_KINDS } from "@side-chat/chat-protocol";
 import { memo, useEffect, useMemo, useState } from "react";
 
 import type { WidgetActivityItem, WidgetMessage } from "#entities/chat";
@@ -43,22 +44,27 @@ const WidgetActivityTimeline = ({
   readonly message: WidgetMessage;
   readonly reasoningVisibility: ReasoningVisibility;
 }) => {
-  const [open, setOpen] = useState(
-    () => reasoningVisibility === "detailed" && message.isStreaming === true,
-  );
+  const shouldOpenByDefault = shouldOpenActivityByDefault(message.isStreaming, reasoningVisibility);
+  const [open, setOpen] = useState(shouldOpenByDefault);
   const duration = readActivityDuration(message);
   const items = useMemo(() => toReasoningItems(message), [message]);
   const label = readReasoningLabel(message, duration);
 
   useEffect(() => {
-    if (reasoningVisibility === "detailed" && message.isStreaming === true) {
+    if (shouldOpenByDefault) {
       setOpen(true);
     }
-  }, [message.isStreaming, reasoningVisibility]);
+  }, [shouldOpenByDefault]);
 
   useEffect(() => {
-    if (message.isStreaming !== true && message.content) setOpen(false);
-  }, [message.content, message.isStreaming]);
+    if (shouldOpenByDefault) {
+      return;
+    }
+
+    if (message.content) {
+      setOpen(false);
+    }
+  }, [message.content, shouldOpenByDefault]);
 
   return (
     <Reasoning
@@ -73,7 +79,7 @@ const WidgetActivityTimeline = ({
 
 const toReasoningItems = (message: WidgetMessage): readonly ReasoningItem[] =>
   message.activity.items.map((item) => {
-    if (item.kind === "tool" || item.kind === "host_command") {
+    if (item.kind === ACTIVITY_KINDS.TOOL || item.kind === ACTIVITY_KINDS.HOST_COMMAND) {
       return {
         id: item.id,
         kind: "tool",
@@ -93,8 +99,12 @@ const readThoughtText = (item: WidgetActivityItem): string =>
   item.body ? `${item.title}: ${item.body}` : item.title;
 
 const shouldShowActivity = (message: WidgetMessage): boolean =>
-  message.role === "assistant" &&
-  (message.isStreaming === true || message.activity.items.length > 0);
+  message.role === "assistant" && message.activity.items.length > 0;
+
+const shouldOpenActivityByDefault = (
+  isStreaming: boolean | undefined,
+  reasoningVisibility: ReasoningVisibility,
+): boolean => isStreaming === true || reasoningVisibility === "detailed";
 
 const toToolState = (item: WidgetActivityItem, isActive: boolean): ToolState => {
   if (item.status === "running" && isActive) return "running";

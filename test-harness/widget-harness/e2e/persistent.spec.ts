@@ -12,7 +12,7 @@ test("persists send, history, reset, and usage through public widget and service
   await openPersistentWidget(page);
 
   const streamResponse = page.waitForResponse((response) =>
-    response.url().includes("/api/chat/stream"),
+    response.url().includes("/side-chat-api/chat/stream"),
   );
   await page.getByLabel("Message").fill("My project codename is Blue Lynx.");
   await page.getByRole("button", { name: "Send" }).click();
@@ -25,7 +25,7 @@ test("persists send, history, reset, and usage through public widget and service
   });
 
   const followUpResponse = page.waitForResponse((response) =>
-    response.url().includes("/api/chat/stream"),
+    response.url().includes("/side-chat-api/chat/stream"),
   );
   await page.getByLabel("Message").fill("What is my project codename?");
   await page.getByRole("button", { name: "Send" }).click();

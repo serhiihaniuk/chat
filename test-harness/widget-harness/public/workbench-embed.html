@@ -21,25 +21,50 @@
       }
 
       button {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 20;
         border: 1px solid #d4d4d8;
         border-radius: 6px;
         background: #fff;
         padding: 8px 12px;
+        box-shadow: 0 10px 30px rgb(15 23 42 / 0.16);
       }
 
       iframe {
+        position: fixed;
+        right: 16px;
+        bottom: 64px;
+        z-index: 10;
         display: block;
         width: min(1200px, calc(100vw - 32px));
-        height: min(900px, calc(100vh - 72px));
-        min-height: 620px;
+        height: min(90vh, calc(100vh - 80px));
+        min-height: min(620px, calc(100vh - 80px));
         border: 0;
+      }
+
+      iframe[hidden] {
+        display: none;
       }
     </style>
   </head>
   <body>
     <main>
-      <button id="assistant-toggle" type="button">Open assistant</button>
-      <iframe title="Workspace Assistant" allow="clipboard-write"></iframe>
+      <button
+        id="assistant-toggle"
+        type="button"
+        aria-controls="assistant-frame"
+        aria-expanded="false"
+      >
+        Open assistant
+      </button>
+      <iframe
+        id="assistant-frame"
+        title="Workspace Assistant"
+        allow="clipboard-write"
+        hidden
+      ></iframe>
     </main>
     <script type="module">
       const SET_OPEN_MESSAGE_TYPE = "sidechat.widget.setOpen";
@@ -47,16 +72,16 @@
       const params = new URLSearchParams(window.location.search);
       const frame = document.querySelector("iframe");
       const button = document.querySelector("#assistant-toggle");
-      let open = false;
+      let open = params.get("open") === "true";
 
       const framePath = params.get("framePath") ?? "/side-chat-frame/";
       const frameUrl = new URL(framePath, window.location.origin);
       frameUrl.searchParams.set("mode", "local-service");
       frameUrl.searchParams.set("workspaceId", params.get("workspaceId") ?? "workspace_e2e");
       frameUrl.searchParams.set("authToken", params.get("authToken") ?? "local-compose-token");
-      frameUrl.searchParams.set("apiBaseUrl", params.get("apiBaseUrl") ?? "/api");
+      frameUrl.searchParams.set("apiBaseUrl", params.get("apiBaseUrl") ?? "/side-chat-api");
       frameUrl.searchParams.set("openControl", "host");
-      frameUrl.searchParams.set("open", "false");
+      frameUrl.searchParams.set("open", String(open));
       frame.src = frameUrl.toString();
 
       const sendOpenState = () => {
@@ -64,6 +89,8 @@
           { type: SET_OPEN_MESSAGE_TYPE, open },
           window.location.origin,
         );
+        frame.hidden = !open;
+        button.setAttribute("aria-expanded", String(open));
         button.textContent = open ? "Close assistant" : "Open assistant";
       };
 

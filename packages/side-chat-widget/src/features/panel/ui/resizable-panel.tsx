@@ -73,6 +73,7 @@ export function ResizablePanel({
   defaultSize,
   theme = "graphite",
   className,
+  onSizeChange,
   style,
   children,
   ...rootProps
@@ -81,6 +82,7 @@ export function ResizablePanel({
   defaultSize?: ResizablePanelSize | undefined;
   theme?: ThemeName;
   className?: string;
+  onSizeChange?: ((size: ResizablePanelSize) => void) | undefined;
   style?: CSSProperties;
   children: ReactNode;
 } & Omit<React.ComponentPropsWithoutRef<"div">, "style" | "className" | "children">) {
@@ -89,7 +91,14 @@ export function ResizablePanel({
   );
   const [offset, setOffset] = useState<Offset>({ x: 0, y: 0 });
   const session = useRef<ResizeSession | null>(null);
-  usePanelResizeEvents(session, setSize, setOffset);
+  const commitSize = useCallback(
+    (nextSize: ResizablePanelSize): void => {
+      setSize(nextSize);
+      onSizeChange?.(nextSize);
+    },
+    [onSizeChange],
+  );
+  usePanelResizeEvents(session, commitSize, setOffset);
 
   const startResize = useCallback(
     (handle: ResizeHandle, event: ReactPointerEvent<HTMLButtonElement>): void => {

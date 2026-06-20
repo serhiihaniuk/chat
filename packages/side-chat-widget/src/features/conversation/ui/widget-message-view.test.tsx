@@ -124,6 +124,104 @@ describe("WidgetMessageView", () => {
     );
 
     expect(html).toContain("Thinking");
+    expect(html).not.toContain("rotate-180");
+  });
+
+  it("opens live activity after the stream emits a trace", () => {
+    const html = renderToStaticMarkup(
+      <WidgetMessageView
+        message={createAssistantMessage({
+          isStreaming: true,
+          activityEvents: [
+            createActivity({
+              activityId: "reasoning_001",
+              activityKind: "reasoning",
+              sequence: 1,
+              title: "Checking context",
+            }),
+          ],
+        })}
+        reasoningVisibility="minimal"
+      />,
+    );
+
+    expect(html).toContain("Thinking...");
+    expect(html).toContain("Checking context");
+    expect(html).toContain("rotate-180");
+  });
+
+  it("opens live tool activity even with minimal reasoning visibility", () => {
+    const html = renderToStaticMarkup(
+      <WidgetMessageView
+        message={createAssistantMessage({
+          isStreaming: true,
+          activityEvents: [
+            createActivity({
+              activityId: "tool_call_001",
+              activityKind: "tool",
+              sequence: 1,
+              title: "Run mock_web_search",
+              details: {
+                tool: {
+                  toolCallId: "tool_call_001",
+                  toolName: "mock_web_search",
+                  input: { query: "search web" },
+                },
+              },
+            }),
+          ],
+        })}
+        reasoningVisibility="minimal"
+      />,
+    );
+
+    expect(html).toContain("Thinking...");
+    expect(html).toContain("Run mock_web_search");
+    expect(html).toContain("rotate-180");
+  });
+
+  it("keeps completed minimal reasoning collapsed by default", () => {
+    const html = renderToStaticMarkup(
+      <WidgetMessageView
+        message={createAssistantMessage({
+          content: "Done.",
+          activityEvents: [
+            createActivity({
+              activityId: "reasoning_001",
+              activityKind: "reasoning",
+              sequence: 1,
+              title: "Checked context",
+            }),
+          ],
+        })}
+        reasoningVisibility="minimal"
+      />,
+    );
+
+    expect(html).toContain("Thought process");
+    expect(html).not.toContain("rotate-180");
+  });
+
+  it("keeps completed detailed reasoning expanded by default", () => {
+    const html = renderToStaticMarkup(
+      <WidgetMessageView
+        message={createAssistantMessage({
+          content: "Done.",
+          activityEvents: [
+            createActivity({
+              activityId: "reasoning_001",
+              activityKind: "reasoning",
+              sequence: 1,
+              title: "Checked context",
+            }),
+          ],
+        })}
+        reasoningVisibility="detailed"
+      />,
+    );
+
+    expect(html).toContain("Thought process");
+    expect(html).toContain("rotate-180");
   });
 
   it("renders failed host commands as compact error tool rows", () => {
@@ -133,9 +231,15 @@ describe("WidgetMessageView", () => {
           isStreaming: true,
           activityEvents: [
             createActivity({
+              activityId: "reasoning_001",
+              activityKind: "reasoning",
+              sequence: 1,
+              title: "Checking host context",
+            }),
+            createActivity({
               activityId: "command_001",
               activityKind: "host_command",
-              sequence: 1,
+              sequence: 2,
               status: "failed",
               title: "Open resource",
               details: {

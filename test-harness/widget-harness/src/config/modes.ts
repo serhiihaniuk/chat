@@ -22,7 +22,7 @@ export type WidgetHarnessConfig = {
   readonly workspaceId: string;
 };
 
-const DEFAULT_API_BASE_URL = "/api";
+const DEFAULT_API_BASE_URL = "/side-chat-api";
 const DEFAULT_AUTH_TOKEN = "local-compose-token";
 const DEFAULT_WORKSPACE_ID = "workspace_local";
 

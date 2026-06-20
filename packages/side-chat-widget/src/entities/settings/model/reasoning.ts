@@ -1,7 +1,8 @@
 // How much of the assistant's reasoning the widget exposes by default. This is a
-// host/server-configured option (not a user-facing UI toggle): "minimal" keeps the
-// reasoning timeline collapsed (just the "Thought for Ns" summary); "detailed"
-// expands it while the turn streams.
+// host/server-configured option (not a user-facing UI toggle): live thinking opens
+// while a turn streams only after the stream emits an activity trace; after
+// completion, "minimal" collapses to the summary and "detailed" keeps the
+// reasoning timeline expanded.
 
 export const REASONING_VISIBILITY_LEVELS = ["minimal", "detailed"] as const;
 

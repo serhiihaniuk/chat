@@ -1,8 +1,10 @@
 import { defineConfig } from "playwright/test";
 
 const widgetPort = readPortEnv("SIDECHAT_E2E_WIDGET_PORT", 5174);
+const hostPort = readPortEnv("SIDECHAT_E2E_HOST_PORT", 5180);
 const servicePort = readPortEnv("SIDECHAT_E2E_SERVICE_PORT", 3101);
 const serviceBaseUrl = `http://127.0.0.1:${servicePort}`;
+const hostBaseUrl = `http://127.0.0.1:${hostPort}`;
 const widgetBaseUrl = `http://127.0.0.1:${widgetPort}`;
 const authToken = "local-compose-token";
 const workspaceId = "workspace_e2e";
@@ -24,7 +26,7 @@ export default defineConfig({
   fullyParallel: false,
   reporter: "list",
   use: {
-    baseURL: widgetBaseUrl,
+    baseURL: hostBaseUrl,
     trace: "on-first-retry",
   },
   webServer: [
@@ -58,9 +60,21 @@ export default defineConfig({
       timeout: 120_000,
       url: widgetBaseUrl,
     },
+    {
+      command: `npm --workspace @side-chat/widget-harness run dev -- --config vite.host.config.ts --host 127.0.0.1 --port ${hostPort} --strictPort`,
+      env: {
+        SIDECHAT_WIDGET_HOST_API_TARGET: serviceBaseUrl,
+        SIDECHAT_WIDGET_HOST_FRAME_PATH: "/side-chat-frame",
+        SIDECHAT_WIDGET_HOST_UI_TARGET: widgetBaseUrl,
+      },
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: `${hostBaseUrl}/workbench-embed.html`,
+    },
   ],
   metadata: {
     authToken,
+    hostBaseUrl,
     serviceBaseUrl,
     workspaceId,
   },

@@ -8,6 +8,7 @@ Not source of truth for: production host app behavior.
 ## Owns
 
 - Vite app for widget development.
+- Vite host proxy for local iframe embedding scenarios.
 - Mock-stream and local-service harness modes.
 - Fake host bridge behavior for browser scenarios.
 - Playwright-visible harness pages.
@@ -27,6 +28,7 @@ Harness app entrypoint, browser mode selection, and E2E scenarios.
 
 ```txt
 harness mode -> widget props/client/host bridge -> visible browser scenario
+host proxy -> /side-chat-frame iframe UI + /side-chat-api service API
 ```
 
 ## Boundary Rules

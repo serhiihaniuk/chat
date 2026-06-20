@@ -82,6 +82,7 @@ const SideChatWidgetContent = ({
   const initialProfileId = resolveInitialProfileId(defaultAssistantProfileId, assistantProfiles);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [rememberedPanelSize, setRememberedPanelSize] = useState(defaultPanelSize);
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId);
   const isOpen = open ?? uncontrolledOpen;
   const requestOpenChange = (nextOpen: boolean) => {
@@ -120,7 +121,8 @@ const SideChatWidgetContent = ({
       anchor="fixed"
       aria-label={resolvedLabels.title}
       data-sidechat-accent={appearance.appearanceRootProps["data-sidechat-accent"]}
-      defaultSize={defaultPanelSize}
+      defaultSize={rememberedPanelSize}
+      onSizeChange={setRememberedPanelSize}
       role="region"
       style={appearance.appearanceRootProps.style}
       theme={theme.themeId}

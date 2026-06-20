@@ -27,7 +27,7 @@ describe("widget harness modes", () => {
 
     expect(config).toMatchObject({
       mode: "local-service",
-      apiBaseUrl: "/api",
+      apiBaseUrl: "/side-chat-api",
       authToken: "local-compose-token",
       defaultOpen: true,
       openControl: "widget",
@@ -92,7 +92,7 @@ describe("widget harness modes", () => {
       ),
     ).toHaveProperty("streamChat");
     expect(resolveLocalApiBaseUrl(parseWidgetHarnessConfig("?mode=local-service").apiBaseUrl)).toBe(
-      "http://127.0.0.1:5173/api",
+      "http://127.0.0.1:5173/side-chat-api",
     );
     expect(resolveLocalApiBaseUrl("http://localhost:3100")).toBe("http://localhost:3100");
     expect(seenInputs).toContain("http://localhost:3100/chat/stream");
