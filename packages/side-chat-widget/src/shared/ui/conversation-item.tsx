@@ -10,6 +10,7 @@
 import { useState, type ReactElement } from "react";
 
 import { cn } from "#shared/lib/cn";
+import { rowBaseClass } from "#shared/ui/row";
 
 export function ConversationItem({
   title,
@@ -27,10 +28,7 @@ export function ConversationItem({
       type="button"
       aria-current={active === true ? true : undefined}
       onClick={onSelect}
-      className={cn(
-        "flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-left",
-        "hover:bg-sidebar-accent aria-[current=true]:bg-sidebar-accent",
-      )}
+      className={cn(rowBaseClass, "hover:bg-sidebar-accent aria-[current=true]:bg-sidebar-accent")}
     >
       <span className="flex flex-col min-w-0 gap-0.5">
         <span className="truncate text-sm font-medium text-sidebar-foreground">{title}</span>

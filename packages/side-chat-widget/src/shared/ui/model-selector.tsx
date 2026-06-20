@@ -13,7 +13,9 @@ import {
   Zap,
 } from "lucide-react";
 
+import { cn } from "#shared/lib/cn";
 import { Media } from "#shared/ui/media";
+import { rowBaseClass } from "#shared/ui/row";
 import { Segmented, type SegmentedItem } from "#shared/ui/segmented";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
@@ -184,7 +186,7 @@ const ModelOptions = (): ReactElement => (
   <Combobox.List className="max-h-64 overflow-auto p-1">
     {(candidate: Model) => (
       <Combobox.Item
-        className="flex items-center gap-2.5 rounded-md px-2.5 py-2 highlighted:bg-accent"
+        className={cn(rowBaseClass, "highlighted:bg-accent")}
         key={candidate.id}
         value={candidate}
       >

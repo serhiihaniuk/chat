@@ -659,7 +659,8 @@
 /* Composer (§9.5) — focus ring on the shell, + rotates to ×, send arms */
 @utility sc-composer {
   @apply flex flex-col rounded-xl border border-input bg-background shadow-card;
-  &:focus-within {
+  &:focus-within,
+  &:has([data-popup-open]) {
     border-color: var(--ring);
     box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
   }

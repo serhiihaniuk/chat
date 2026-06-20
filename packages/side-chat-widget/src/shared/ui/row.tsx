@@ -35,7 +35,8 @@ import { usePortalContainer } from "#shared/ui/widget-root";
  * for a Base UI item, `hover:bg-accent aria-[current=true]:bg-sidebar-accent`
  * for a standalone button).
  */
-export const rowBaseClass = "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left";
+export const rowBaseClass =
+  "flex w-full cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 text-left";
 
 type Model = { id: string; name: string; desc: string; icon: ReactElement };
 
