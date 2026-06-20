@@ -13,8 +13,7 @@ import { Field } from "@base-ui/react/field";
 
 import { cn } from "#shared/lib/cn";
 
-const CONTROL_CLASS =
-  "w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-md text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 invalid:border-destructive";
+const CONTROL_CLASS = "sc-field text-md";
 
 const LABEL_CLASS = "text-sm font-semibold text-foreground";
 const DESCRIPTION_CLASS = "text-xs text-muted-foreground";

@@ -1,0 +1,41 @@
+---
+title: Side Chat Design System
+description: The tokens, foundations, and components behind the Side Chat widget — documented with live, real components.
+---
+
+This is the design system for the **Side Chat** widget. Every demo on these pages renders
+the **real components** from `@side-chat/side-chat-widget` — not screenshots or
+reimplementations — so what you see is exactly what ships.
+
+Use the **Theme / Mode / Corners / Density** control on component pages to re-skin every demo
+at once. It drives the real widget tokens, so it doubles as a live test of the re-skin contract.
+
+## How it is organized
+
+<Cards>
+  <Card title="Foundations" href="/docs/foundations/architecture" description="Token architecture, color, themes, type, spacing, and sizing." />
+  <Card title="Primitives" href="/docs/primitives/button" description="The low-level building blocks: buttons, toggles, segmented controls." />
+</Cards>
+
+## Token architecture
+
+The system is three tiers. Each tier only ever references the tier above it, so a single
+change at the top re-skins everything below.
+
+| Tier | Name | Example | Lives on |
+| --- | --- | --- | --- |
+| 1 | **Primitive** | `--primary`, `--background`, `--radius` | `:root` (host light/dark + named themes) |
+| 2 | **Semantic / component** | `--switch-track-on: var(--primary)` | `.side-chat-widget-root` |
+| 3 | **Hook classes** | `.sc-switch-root { background: var(--switch-track-off) }` | component CSS |
+
+Because the tier-2 tokens live on the widget root (not `:root`), a theme attribute on that
+root — `data-sidechat-theme="sage"` — re-substitutes the tier-1 values and every component
+re-skins through inheritance. That is the whole contract, and it is what the controls above
+exercise live.
+
+## Built on Base UI
+
+Interactive primitives (menus, selects, switches, tabs, tooltips, dialogs) are thin wrappers
+over [Base UI](https://base-ui.com). State is exposed as data attributes
+(`[data-checked]`, `[data-highlighted]`, …) and consumed in the CSS layer as named Tailwind
+variants (`checked:`, `highlighted:`) — never `:hover` on a Base UI part.

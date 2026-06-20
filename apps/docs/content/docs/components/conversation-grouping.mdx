@@ -1,0 +1,44 @@
+---
+title: Conversation grouping
+description: Sidebar conversation items bucketed by last activity into Recent, This week, and Older sections.
+---
+
+import { ConversationGroupingDemo } from '@/components/demos/conversation-grouping';
+
+Conversation grouping buckets [conversation items](/docs/components/conversation-item) by last-activity into **Recent**, **This week**, and **Older**, each bucket a `<section>` under a `--group-label-*` overline. Bucketing keys off `updatedAt` (not creation), and items render newest-first within a bucket. An empty bucket renders nothing — no orphan heading — and buckets are separated by `--rail-group-gap`. It uses no Base UI parts: plain layout wrapped around the conversation item.
+
+<DesignControls />
+
+<Preview>
+  <ConversationGroupingDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { useState } from 'react';
+import { ConversationGrouping } from '@side-chat/side-chat-widget/ui/conversation-grouping';
+
+const buckets = [
+  {
+    id: 'recent',
+    label: 'Recent',
+    items: [{ id: '1', title: 'Scoped token approach', when: '2 minutes ago', updatedAt: 6 }],
+  },
+  { id: 'week', label: 'This week', items: [] }, // empty → renders nothing
+  {
+    id: 'older',
+    label: 'Older',
+    items: [{ id: '5', title: 'Rollout gaps', when: '2 weeks ago', updatedAt: 2 }],
+  },
+];
+
+function Rail() {
+  const [activeId, setActiveId] = useState('1');
+  return <ConversationGrouping buckets={buckets} activeId={activeId} onSelect={setActiveId} />;
+}
+```
+
+## Tokens
+
+<TokenTable group="conversation-grouping" />

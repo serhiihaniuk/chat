@@ -1,0 +1,31 @@
+---
+title: Typography
+description: One paired type scale and two self-hosted fonts.
+---
+
+The UI is set in **Plus Jakarta Sans** (self-hosted, weights 200–800); code is **JetBrains
+Mono**. Every size in the scale is paired with a line-height so vertical rhythm can't drift.
+
+Settings can swap the widget root to the System stack or an IBM Plex Sans stack when that
+font is available on the host system; the fallback remains self-hosted Jakarta.
+
+<DesignControls />
+
+<Preview>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', color: 'var(--foreground)' }}>
+    <span style={{ fontSize: 'var(--text-xl)', lineHeight: 'var(--text-xl--line-height)', fontWeight: 600 }}>Section heading · text-xl</span>
+    <span style={{ fontSize: 'var(--text-lg)', lineHeight: 'var(--text-lg--line-height)', fontWeight: 600 }}>Empty-state heading · text-lg</span>
+    <span style={{ fontSize: 'var(--text-md)', lineHeight: 'var(--text-md--line-height)' }}>Message body · text-md</span>
+    <span style={{ fontSize: 'var(--text-base)' }}>Default body / button · text-base</span>
+    <span style={{ fontSize: 'var(--text-sm)' }}>Field text, labels, row titles · text-sm</span>
+    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--muted-foreground)' }}>Hints, subtitles, badges · text-xs</span>
+    <span style={{ fontSize: 'var(--text-2xs)', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Overline label · text-2xs</span>
+  </div>
+</Preview>
+
+## The scale
+
+<TokenTable group="typography" />
+
+Weights are limited to `--weight-normal` (400), `--weight-medium` (500), and
+`--weight-semibold` (600). Headings use semibold; nothing is bolder.

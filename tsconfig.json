@@ -4,6 +4,7 @@
   },
   "files": ["vitest.config.ts", "playwright.config.ts"],
   "references": [
+    { "path": "./apps/docs" },
     { "path": "./apps/partner-ai-service" },
     { "path": "./packages/ai-runtime-contract" },
     { "path": "./packages/chat-protocol" },

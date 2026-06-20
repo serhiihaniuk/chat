@@ -11,22 +11,34 @@ export const SettingsView = ({
   accent,
   corners,
   density,
+  elevation,
   onAccentChange,
   onBack,
   onCornersChange,
   onDensityChange,
+  onElevationChange,
   onSelectTheme,
+  onTextSizeChange,
+  onTypefaceChange,
+  textSize,
   themeId,
+  typeface,
 }: {
   readonly accent: AccentOption["id"];
   readonly corners: string;
   readonly density: string;
+  readonly elevation: string;
   readonly onAccentChange: (next: string) => void;
   readonly onBack: () => void;
   readonly onCornersChange: (next: string) => void;
   readonly onDensityChange: (next: string) => void;
+  readonly onElevationChange: (next: string) => void;
   readonly onSelectTheme: (themeId: WidgetThemeId) => void;
+  readonly onTextSizeChange: (next: string) => void;
+  readonly onTypefaceChange: (next: string) => void;
+  readonly textSize: string;
   readonly themeId: WidgetThemeId;
+  readonly typeface: string;
 }) => (
   <div className="flex min-h-0 flex-1 flex-col">
     <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
@@ -40,14 +52,20 @@ export const SettingsView = ({
       applyAppearance={false}
       corners={corners}
       density={density}
+      elevation={elevation}
       onAccentChange={onAccentChange}
       onCornersChange={onCornersChange}
       onDensityChange={onDensityChange}
+      onElevationChange={onElevationChange}
+      onTextSizeChange={onTextSizeChange}
       onThemeChange={(next) => {
         if (isWidgetThemeId(next)) onSelectTheme(next);
       }}
+      onTypefaceChange={onTypefaceChange}
+      textSize={textSize}
       theme={themeId}
       themeOptions={WIDGET_THEME_IDS}
+      typeface={typeface}
     />
   </div>
 );

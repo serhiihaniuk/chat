@@ -9,4 +9,7 @@ export {
   type WidgetAppearanceController,
   type WidgetCornersId,
   type WidgetDensityId,
+  type WidgetElevationId,
+  type WidgetTextSizeId,
+  type WidgetTypefaceId,
 } from "./model/use-widget-appearance.js";

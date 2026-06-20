@@ -26,8 +26,8 @@ shared/ai
 | `features/conversation` | Conversation switcher, wide-mode sidebar, empty state, and rendering. |
 | `features/panel`        | Panel open, close, resize, and header chrome.                         |
 | `features/prompt`       | Prompt input and composer behavior.                                   |
-| `features/settings`     | Settings view overlay (theme picker today).                           |
-| `features/theme`        | Theme selection state and widget-root theme attribute.                |
+| `features/settings`     | Settings view overlay for theme and appearance controls.              |
+| `features/theme`        | Theme and appearance state written to the widget root.                |
 | `entities/chat`         | Protocol-backed message and activity state.                           |
 | `entities/panel`        | Panel model helpers.                                                  |
 | `entities/theme`        | Theme metadata and ids shared by features.                            |
@@ -48,8 +48,10 @@ service implementation details.
 
 The widget is theme-agnostic. Every surface reads a shadcn token (`bg-card`,
 `text-muted-foreground`, `border-border`, `bg-primary`, `bg-success`, the
-`--sidebar*` group) and a single `--radius` scale; the widget owns no hardcoded
-colors or radii. Base and dark tokens live on `:root`/`.dark` in `src/styles.css`.
+`--sidebar*` group), the shared radius scale, the shared type scale, and the
+registered shadow tokens; the widget owns no hardcoded colors, radii, text sizes,
+or elevation values. Base and dark tokens live on `:root`/`.dark` in
+`src/styles.css`.
 
 Named themes (Graphite, Sage, Ocean) are extra token blocks. `features/theme`
 writes `data-sidechat-theme` on the widget root element, so a theme re-skins the
@@ -58,10 +60,19 @@ Graphite is the default and carries no attribute, so it tracks the host's
 light/dark; Sage and Ocean ship light-only. The theme choice persists to
 `localStorage` under `themeStorageKey`.
 
+`features/theme` also owns widget appearance settings on top of the named theme:
+accent, corners, density, text size, typeface, and elevation. Those settings
+persist under `side-chat-widget:appearance` and apply by writing
+`data-sidechat-accent` plus root custom properties (`--radius`, `--space-unit`,
+`--text-*`, `--font-widget`, and `--shadow-*`) onto `.side-chat-widget-root`.
+
 The widget self-hosts **Plus Jakarta Sans** (one variable `woff2`, 200–800, under
 `src/fonts/`, referenced by a relative `@font-face` URL so bundlers ship it — no CDN,
 works offline). The font is scoped to the widget root and its portaled popovers, so
 it never overrides the embedding host page's own typography.
+
+The `--font-widget` variable is scoped to the widget root and portaled popovers;
+changing typeface in settings does not override the embedding host page's typography.
 
 The panel is always a contained floating card (never full-bleed). At a width
 breakpoint it reveals a persistent conversation sidebar (`--sidebar*` tokens) and

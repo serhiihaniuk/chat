@@ -1,0 +1,35 @@
+---
+title: Collapsible
+description: A foldable panel whose height animates from Base UI's exposed height var.
+---
+
+import { CollapsibleDemo } from '@/components/demos/collapsible';
+
+Collapsible is a thin fold over Base UI `Collapsible` (Root → Trigger → Panel), which owns the
+open/close and height-animation contract. The panel animates from Base UI's exposed
+`--collapsible-panel-height` through the `sc-collapsible-panel` hook class — never a JS
+`scrollHeight` measure. A controlled `open` lets a parent (e.g. the Reasoning fold) auto-collapse
+when the answer starts, and the chevron rotates via the `panelopen:` variant.
+
+<DesignControls />
+
+<Preview>
+  <CollapsibleDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { Collapsible } from '@side-chat/side-chat-widget/ui/collapsible';
+
+<Collapsible open={open} onOpenChange={setOpen} label="Reasoning">
+  <p>Reading the conversation context.</p>
+</Collapsible>
+```
+
+Leave `open`/`onOpenChange` off for an uncontrolled fold; pass them to let a parent drive the
+state. The panel border and height transition live entirely in the `sc-collapsible-panel` class.
+
+## Tokens
+
+<TokenTable group="collapsible" />

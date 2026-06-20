@@ -19,6 +19,7 @@
     ".omx/**",
     ".playwright-mcp/**",
     "Shared widget code/**",
+    "apps/docs/**",
     "playwright.config.js",
     "vitest.config.js"
   ],

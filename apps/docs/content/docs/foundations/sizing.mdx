@@ -1,0 +1,14 @@
+---
+title: Sizing
+description: Named sizes for the few fixed dimensions that aren't spacing multiples.
+---
+
+A handful of dimensions are fixed by layout, not by the density lever — rail width, menu
+width, the reading measure, control hit-areas. Each is a named token so it's defined once and
+used everywhere.
+
+<TokenTable group="sizing" />
+
+The two **measure** tokens cap line length: messages wrap at `--size-measure-message`
+(44.5rem) and the empty-state cluster at `--size-measure-empty` (28.25rem), so text never runs
+full-bleed regardless of panel width.

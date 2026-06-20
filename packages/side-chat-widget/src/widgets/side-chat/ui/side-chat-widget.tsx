@@ -109,7 +109,11 @@ const SideChatWidgetContent = ({
 
   if (!isOpen && renderClosedLauncher) {
     return (
-      <SideChatWidgetRoot theme={theme.themeId}>
+      <SideChatWidgetRoot
+        data-sidechat-accent={appearance.appearanceRootProps["data-sidechat-accent"]}
+        style={appearance.appearanceRootProps.style}
+        theme={theme.themeId}
+      >
         <ClosedWidgetLauncher label={resolvedLabels.title} onOpen={() => requestOpenChange(true)} />
       </SideChatWidgetRoot>
     );
@@ -203,12 +207,18 @@ const SideChatWidgetContent = ({
             accent={appearance.accent}
             corners={appearance.corners}
             density={appearance.density}
+            elevation={appearance.elevation}
             onAccentChange={appearance.setAccent}
             onBack={() => setIsSettingsOpen(false)}
             onCornersChange={appearance.setCorners}
             onDensityChange={appearance.setDensity}
+            onElevationChange={appearance.setElevation}
             onSelectTheme={theme.setTheme}
+            onTextSizeChange={appearance.setTextSize}
+            onTypefaceChange={appearance.setTypeface}
+            textSize={appearance.textSize}
             themeId={theme.themeId}
+            typeface={appearance.typeface}
           />
         </div>
       )}

@@ -21,9 +21,9 @@ export const ConversationSidebar = ({
   readonly selectedConversationId: string | undefined;
 }) => (
   <nav aria-label="Conversations" className="sc-rail">
-    <div className="sc-rail-newchat border-b border-sidebar-border">
+    <div className="sc-rail-newchat border-b border-border">
       <Button
-        className="w-full justify-start gap-2 border-sidebar-border bg-sidebar-accent px-2.5 py-2 text-left text-sidebar-foreground"
+        className="w-full justify-start gap-2 px-2.5 py-2 text-left"
         onClick={onNewConversation}
         type="button"
         variant="secondary"

@@ -1,0 +1,46 @@
+---
+title: Conversation item
+description: A single selectable conversation entry in the sidebar list.
+---
+
+import { ConversationItemDemo } from '@/components/demos/conversation-item';
+
+The standalone `<button>` form of Row: a single selectable conversation entry in the
+sidebar list. It is a plain button rather than a Base UI part, so it may use `hover:` and
+expresses its own selected state through the semantic `aria-current="true"` (announced by
+screen readers) instead of a faked class.
+
+Hover reads `--convo-item-bg-hover`, active reads `--convo-item-bg-active`, and both alias
+the shared row Accent surface path. The anatomy is a `min-w-0` title column with a
+`truncate` title and subtitle, plus a trailing dot. That dot is always in the DOM at
+`opacity-0` and only revealed by selection, so toggling the active row never reflows the
+list.
+
+<DesignControls />
+
+<Preview>
+  <ConversationItemDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { useState } from 'react';
+import { ConversationItem } from '@side-chat/side-chat-widget/ui/conversation-item';
+
+function ConversationList() {
+  const [activeId, setActiveId] = useState('1');
+  return (
+    <ConversationItem
+      title="Refactor the turn reducer keystone"
+      when="2 minutes ago"
+      active={activeId === '1'}
+      onSelect={() => setActiveId('1')}
+    />
+  );
+}
+```
+
+## Tokens
+
+<TokenTable group="conversation-item" />

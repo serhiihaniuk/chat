@@ -1,0 +1,32 @@
+---
+title: Shell, rail & header
+description: The two-column panel composition - conversation rail, header, native scrolling message log, and composer.
+---
+
+import { ShellDemo } from '@/components/demos/shell';
+
+The shell owns the floating panel's two-column layout: a `SidebarRail` of grouped conversations beside a column holding the `sc-header`, a natively scrolling message log capped at `--size-measure-message`, and the `Composer`. The rail's "New chat" zone aligns to the header via the shared `--rail-newchat-h` / `--header-h` height, and the visible control inside that zone is the shared `Button` primitive with `variant="secondary"` (`--secondary`, `--border`, hover `--accent`, focus `--ring`). Floating chrome and drag-resize belong to the live panel feature, so this composition stays static - it just assembles the real primitives in their intended frame.
+
+<DesignControls />
+
+<Preview>
+  <ShellDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { Shell, SidebarRail } from '@side-chat/side-chat-widget/ui/shell';
+
+// The full panel body - rail + header + message log + composer.
+<div className="sc-widget-panel">
+  <Shell />
+</div>
+
+// Or compose the rail on its own.
+<SidebarRail />
+```
+
+## Tokens
+
+<TokenTable group="shell" />

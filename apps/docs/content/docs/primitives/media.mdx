@@ -1,0 +1,30 @@
+---
+title: Media (avatar)
+description: A fixed-size square leading graphic for initials, a glyph, or a cover image.
+---
+
+import { MediaDemo } from '@/components/demos/media';
+
+`Media` is a fixed-size square leading graphic. The `sc-media` hook class owns the size, radius, background, border, and foreground — driven by the `--media-*` tokens — plus centering, so the component never sets colour or dimensions itself. Children may be 1–2 initials, a lucide glyph, or an `<img className="size-full object-cover">` that fills the square. Because the size is single-sourced from `--media-size`, every avatar resizes together.
+
+<DesignControls />
+
+<Preview>
+  <MediaDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { Media } from '@side-chat/side-chat-widget/ui/media';
+
+<Media>AB</Media>
+<Media><Sparkles size={16} /></Media>
+<Media>
+  <img src={src} alt="avatar" className="size-full object-cover" />
+</Media>
+```
+
+## Tokens
+
+<TokenTable group="media" />

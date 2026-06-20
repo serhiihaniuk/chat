@@ -1,11 +1,3 @@
-/**
- * Settings (responsive).
- *
- * One group state drives both navigators and the same Tabs.Panel set. Wide uses a
- * left rail; narrow keeps Tabs.Root mounted but swaps the navigator to a top
- * Select. Theme rows, accent swatches, field shells, and panel spacing follow the
- * design_widget.html Settings source before any live measurement.
- */
 import { useCallback, useState, type CSSProperties, type ReactElement } from "react";
 
 import { Select } from "@base-ui/react/select";
@@ -13,6 +5,7 @@ import { Tabs } from "@base-ui/react/tabs";
 import { Check, ChevronDown, Menu, X } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
+import { widgetAppearanceStyle } from "#shared/lib/widget-appearance-style";
 import { ScrollArea } from "#shared/ui/scroll-area";
 import {
   createSettingsGroups,
@@ -26,26 +19,6 @@ import { usePortalContainer } from "#shared/ui/widget-root";
 
 const TAB_CLASS =
   "flex w-full cursor-pointer items-center gap-2 border-0 bg-transparent text-left text-sm font-medium text-(--settings-item-fg) selected:bg-(--settings-item-active-bg) px-(--settings-item-px) py-(--settings-item-py) rounded-(--settings-item-radius)";
-
-// Corners and density re-skin the live surface by mutating the same tokens every
-// component reads: --radius and --space-unit. styles.css bridges --space-unit into
-// --spacing, so density changes flow through the normal spacing scale.
-const CORNER_RADIUS: Record<string, string> = {
-  sharp: "0rem",
-  default: "0.625rem",
-  rounded: "1rem",
-};
-const DENSITY_UNIT: Record<string, string> = {
-  compact: "0.1875rem",
-  cozy: "0.25rem",
-  comfortable: "0.3125rem",
-};
-
-const appearanceStyle = (corners: string, density: string): CSSProperties =>
-  ({
-    "--radius": CORNER_RADIUS[corners] ?? CORNER_RADIUS["default"],
-    "--space-unit": DENSITY_UNIT[density] ?? DENSITY_UNIT["cozy"],
-  }) as CSSProperties;
 
 type SettingsPanelProps = {
   /**
@@ -61,8 +34,14 @@ type SettingsPanelProps = {
   onCornersChange?: (next: string) => void;
   density?: string;
   onDensityChange?: (next: string) => void;
+  elevation?: string;
+  onElevationChange?: (next: string) => void;
+  textSize?: string;
+  onTextSizeChange?: (next: string) => void;
+  typeface?: string;
+  onTypefaceChange?: (next: string) => void;
   /**
-   * False means an outer widget root already applies accent, radius, and density.
+   * False means an outer widget root already applies the appearance tokens.
    */
   applyAppearance?: boolean;
 };
@@ -98,9 +77,18 @@ const appliedAppearanceStyle = (
   applyAppearance: boolean,
   corners: string,
   density: string,
+  textSize: string,
+  typeface: string,
+  elevation: string,
 ): CSSProperties | undefined => {
   if (!applyAppearance) return undefined;
-  return appearanceStyle(corners, density);
+  return widgetAppearanceStyle({
+    corners,
+    density,
+    elevation,
+    textSize,
+    typeface,
+  }) as CSSProperties;
 };
 
 export function SettingsPanel({
@@ -113,6 +101,12 @@ export function SettingsPanel({
   onCornersChange,
   density: densityProp,
   onDensityChange,
+  elevation: elevationProp,
+  onElevationChange,
+  textSize: textSizeProp,
+  onTextSizeChange,
+  typeface: typefaceProp,
+  onTypefaceChange,
   applyAppearance = true,
 }: SettingsPanelProps): ReactElement {
   const [group, setGroup] = useState("theme");
@@ -120,6 +114,9 @@ export function SettingsPanel({
   const [accent, setAccent] = useControlledValue(accentProp, onAccentChange, "default");
   const [corners, setCorners] = useControlledValue(cornersProp, onCornersChange, "default");
   const [density, setDensity] = useControlledValue(densityProp, onDensityChange, "cozy");
+  const [elevation, setElevation] = useControlledValue(elevationProp, onElevationChange, "soft");
+  const [textSize, setTextSize] = useControlledValue(textSizeProp, onTextSizeChange, "default");
+  const [typeface, setTypeface] = useControlledValue(typefaceProp, onTypefaceChange, "jakarta");
   const [instructions, setInstructions] = useState("");
   const [sendOnEnter, setSendOnEnter] = useState(true);
   const [model, setModel] = useState<ModelOption>(DEFAULT_MODEL);
@@ -129,17 +126,23 @@ export function SettingsPanel({
     availableThemes: themeOptions,
     corners,
     density,
+    elevation,
     instructions,
     model,
     onAccentChange: setAccent,
     onCornersChange: setCorners,
     onDensityChange: setDensity,
+    onElevationChange: setElevation,
     onInstructionsChange: setInstructions,
     onModelChange: setModel,
     onSendOnEnterChange: setSendOnEnter,
+    onTextSizeChange: setTextSize,
     onThemeChange: setTheme,
+    onTypefaceChange: setTypeface,
     sendOnEnter,
+    textSize,
     theme,
+    typeface,
   });
   const active = findActiveGroup(groups, group);
   const selectGroup = (next: string | number | null): void => {
@@ -152,7 +155,14 @@ export function SettingsPanel({
       onValueChange={selectGroup}
       className="sc-settings-root"
       data-sidechat-accent={appliedAccent(applyAppearance, accent)}
-      style={appliedAppearanceStyle(applyAppearance, corners, density)}
+      style={appliedAppearanceStyle(
+        applyAppearance,
+        corners,
+        density,
+        textSize,
+        typeface,
+        elevation,
+      )}
     >
       {/* Both navigators render; the side-chat-widget container query shows either
           the rail or the top Select using the same breakpoint as the shell. */}

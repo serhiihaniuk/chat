@@ -1,0 +1,34 @@
+---
+title: Composer
+description: The input shell — a textarea over a controls row with tools, context ring, model selector, and an arming send button.
+---
+
+import { ComposerDemo } from '@/components/demos/composer';
+
+The Composer is the message input shell. A Base UI `Field` textarea sits over a controls row that hosts the `ToolsMenu` (`+`), a decorative context ring, a model selector slot, and the send button. The focus ring lives on the whole surface via `sc-composer` (`:focus-within`), never on the raw textarea, so tabbing into the field lights the entire shell. Send is a single button that swaps idle / armed / stop through the `data-armed` state on the `sc-send` hook class — it shows an `ArrowUp` while composing and a `Square` while a response is `submitted` or `streaming`.
+
+<DesignControls />
+
+<Preview>
+  <ComposerDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { Composer } from '@side-chat/side-chat-widget/ui/composer';
+
+<Composer
+  contextPercent={78}
+  placeholder="Message Side Chat..."
+  status="idle"
+  onSubmit={(text) => send(text)}
+  onStop={() => abort()}
+/>;
+```
+
+Leave `modelSelector` unset to use the built-in `ModelSelector`, or pass your own node to swap the slot. Control the value with `value` + `onValueChange`, or let it manage its own text via `defaultValue`.
+
+## Tokens
+
+<TokenTable group="composer" />

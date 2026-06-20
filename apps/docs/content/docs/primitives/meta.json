@@ -1,0 +1,20 @@
+{
+  "title": "Primitives",
+  "pages": [
+    "row",
+    "media",
+    "field",
+    "button",
+    "toggle",
+    "segmented",
+    "tabs",
+    "select",
+    "combobox",
+    "menu",
+    "tooltip",
+    "badge",
+    "scroll-area",
+    "separator",
+    "collapsible"
+  ]
+}

@@ -186,7 +186,7 @@ const ModelOptions = (): ReactElement => (
   <Combobox.List className="max-h-64 overflow-auto p-1">
     {(candidate: Model) => (
       <Combobox.Item
-        className={cn(rowBaseClass, "highlighted:bg-accent")}
+        className={cn(rowBaseClass, "highlighted:bg-(--row-bg-hover)")}
         key={candidate.id}
         value={candidate}
       >

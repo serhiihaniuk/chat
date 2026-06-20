@@ -1,0 +1,47 @@
+---
+title: Menu & popover
+description: A portaled dropdown built directly on Base UI Menu, with action, group, and checkbox items.
+---
+
+import { MenuDemo } from '@/components/demos/menu';
+
+Menu is built directly on Base UI `Menu` — consumers compose the parts themselves
+(`Menu.Trigger`, `Menu.Positioner`, `Menu.Popup`, `Menu.Item`, `Menu.CheckboxItem`),
+and the only shared affordance is the `MenuSection` showcase. The popup's surface —
+border, `bg-popover`, `shadow-popover`, `transform-origin`, and the enter/exit
+scale+fade — is owned entirely by `styles.css` through the `data-slot="dropdown-menu-content"`
+contract, so the JSX never re-declares colour or shadow on the popup; it only tags the slot.
+Active rows (pointer or keyboard) react through the `highlighted:` variant, and checkbox
+items pass `closeOnClick={false}` so toggling keeps the menu open.
+
+<DesignControls />
+
+<Preview>
+  <MenuDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { Menu } from '@base-ui/react/menu';
+import { usePortalContainer } from '#shared/ui/widget-root';
+
+const container = usePortalContainer();
+
+<Menu.Root>
+  <Menu.Trigger className="sc-icon-btn">
+    <Wrench className="size-4" />
+  </Menu.Trigger>
+  <Menu.Portal container={container}>
+    <Menu.Positioner side="bottom" align="start" sideOffset={6}>
+      <Menu.Popup data-slot="dropdown-menu-content" className="w-menu">
+        <Menu.Item className="...highlighted:bg-accent">Attach file</Menu.Item>
+      </Menu.Popup>
+    </Menu.Positioner>
+  </Menu.Portal>
+</Menu.Root>
+```
+
+## Tokens
+
+<TokenTable group="menu" />

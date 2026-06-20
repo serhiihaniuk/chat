@@ -30,7 +30,7 @@ const CORNERS = [
 const DENSITY = [
   { id: "Compact", value: "0.1875rem" },
   { id: "Cozy", value: "0.25rem" },
-  { id: "Comfortable", value: "0.3125rem" },
+  { id: "Roomy", value: "0.3125rem" },
 ] as const;
 
 function readHashRoute(fallbackId: string): string {

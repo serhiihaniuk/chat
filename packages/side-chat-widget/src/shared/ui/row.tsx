@@ -9,8 +9,8 @@
  *      `Combobox.Item` — active state via `highlighted:` (pointer OR keyboard),
  *      the trailing check via `selected:` on the part's ItemIndicator.
  *   B) As a standalone `<button>` (the conversation row) — active state via the
- *      semantic `aria-current="true"`, surfaced with `hover:bg-accent` +
- *      `aria-[current=true]:bg-sidebar-accent` and a trailing dot.
+ *      semantic `aria-current="true"`, surfaced with the row hover/active
+ *      surface tokens and a trailing dot.
  *
  * Two rules are load-bearing in both forms:
  *   - TRUNCATION: the title column carries `min-w-0` AND the text carries
@@ -31,12 +31,12 @@ import { usePortalContainer } from "#shared/ui/widget-root";
 
 /**
  * The shared Row layout — leading media, a min-w-0 title column, a trailing
- * indicator. Append the form-specific state variant (`highlighted:bg-accent`
- * for a Base UI item, `hover:bg-accent aria-[current=true]:bg-sidebar-accent`
+ * indicator. Append the form-specific state variant (`highlighted:bg-(--row-bg-hover)`
+ * for a Base UI item, `hover:bg-(--row-bg-hover) aria-[current=true]:bg-(--row-bg-active)`
  * for a standalone button).
  */
 export const rowBaseClass =
-  "flex w-full cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 text-left";
+  "flex w-full cursor-pointer select-none items-center gap-(--row-gap) rounded-(--row-radius) px-(--row-px) py-(--row-py) text-left";
 
 type Model = { id: string; name: string; desc: string; icon: ReactElement };
 
@@ -102,7 +102,7 @@ export function RowSection(): ReactElement {
                     <Select.Item
                       key={m.id}
                       value={m.id}
-                      className={cn(rowBaseClass, "highlighted:bg-accent")}
+                      className={cn(rowBaseClass, "highlighted:bg-(--row-bg-hover)")}
                     >
                       <span className="sc-media">{m.icon}</span>
                       <span className="flex min-w-0 flex-col">
@@ -136,7 +136,10 @@ export function RowSection(): ReactElement {
               type="button"
               aria-current={c.id === activeId ? true : undefined}
               onClick={() => setActiveId(c.id)}
-              className={cn(rowBaseClass, "hover:bg-accent aria-[current=true]:bg-sidebar-accent")}
+              className={cn(
+                rowBaseClass,
+                "hover:bg-(--row-bg-hover) aria-[current=true]:bg-(--row-bg-active)",
+              )}
             >
               <span className="flex min-w-0 flex-col">
                 <span className="truncate text-sm font-medium text-foreground">{c.title}</span>

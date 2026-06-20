@@ -59,10 +59,10 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-message-user: var(--message-user);
   --color-message-user-foreground: var(--message-user-foreground);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) * 1.4);
 
   /* §2.4 / §5.3 — type scale, each paired with its line-height so rhythm can't drift */
   --text-2xs: 0.6875rem;
@@ -115,8 +115,8 @@
   --popover-foreground: oklch(0.22 0.018 264);
   --primary: oklch(0.26 0.028 264);
   --primary-foreground: oklch(0.985 0.002 264);
-  --secondary: oklch(0.96 0.006 264);
-  --secondary-foreground: oklch(0.27 0.026 264);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
   --muted: oklch(0.96 0.006 264);
   --muted-foreground: oklch(0.5 0.02 264);
   --accent: oklch(0.955 0.008 264);
@@ -141,8 +141,10 @@
   --sidebar-accent-foreground: oklch(0.27 0.026 264);
   --sidebar-border: oklch(0.91 0.009 264);
   --sidebar-ring: oklch(0.55 0.03 264);
-  --message-user: var(--sidebar-accent);
-  --message-user-foreground: var(--sidebar-accent-foreground);
+  --row-bg-hover: var(--accent);
+  --row-bg-active: var(--accent);
+  --message-user: var(--row-bg-active, var(--accent));
+  --message-user-foreground: var(--foreground);
 }
 
 /*
@@ -162,12 +164,14 @@
      the showcase density slider re-skins real components without a discrete
      --space-N scale in implementation code. */
   --spacing: var(--space-unit, 0.25rem);
+  --font-widget:
+    "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* ── tier 1 radius aliases; local so the showcase --radius scrub re-skins descendants. ─ */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) * 1.4);
 
   /* ── §5.4 semantic sizes (consumed by the @utility size wrappers below) ─ */
   --size-sidebar: 15.5rem;
@@ -227,14 +231,24 @@
   --menu-item-check: var(--primary);
   --menu-section-label: var(--muted-foreground);
 
-  /* Message bubble padding (§7.2 / §9.6) — colour is tier-1 message-user */
+  /* Row (section 8.4) */
+  --row-px: calc(var(--spacing) * 2.5);
+  --row-py: calc(var(--spacing) * 2);
+  --row-gap: calc(var(--spacing) * 2.5);
+  --row-radius: var(--radius-md);
+  --row-bg-hover: var(--accent);
+  --row-bg-active: var(--accent);
+
+  /* Message bubble padding (§7.2 / §9.6) — color aliases to the shared active row surface. */
+  --message-user: var(--row-bg-active, var(--accent));
+  --message-user-foreground: var(--foreground);
   --message-user-px: calc(var(--spacing) * 3.5);
   --message-user-py: calc(var(--spacing) * 2.5);
 
   /* Conversation / grouping (§9.1 / §9.2) — values per design_widget.html token table */
   --convo-indicator: var(--primary);
-  --convo-item-bg-active: var(--sidebar-accent);
-  --convo-item-bg-hover: var(--sidebar-accent);
+  --convo-item-bg-active: var(--row-bg-active);
+  --convo-item-bg-hover: var(--row-bg-hover);
   --convo-item-radius: var(--radius-md);
   --convo-title-fg: var(--sidebar-foreground);
   --convo-subtitle-fg: var(--muted-foreground);
@@ -296,8 +310,8 @@
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.269 0 0);
@@ -321,8 +335,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-  --message-user: var(--sidebar-accent);
-  --message-user-foreground: var(--sidebar-accent-foreground);
+  --row-bg-hover: var(--accent);
+  --row-bg-active: var(--accent);
+  --message-user: var(--row-bg-active, var(--accent));
+  --message-user-foreground: var(--foreground);
 }
 
 /*
@@ -343,8 +359,8 @@
   --popover-foreground: oklch(0.23 0.04 264);
   --primary: oklch(0.42 0.14 264);
   --primary-foreground: oklch(0.99 0.01 262);
-  --secondary: oklch(0.955 0.018 262);
-  --secondary-foreground: oklch(0.23 0.04 264);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
   --muted: oklch(0.955 0.016 262);
   --muted-foreground: oklch(0.48 0.045 264);
   --accent: oklch(0.93 0.03 262);
@@ -363,8 +379,10 @@
   --sidebar-accent-foreground: oklch(0.23 0.04 264);
   --sidebar-border: oklch(0.89 0.026 262);
   --sidebar-ring: oklch(0.42 0.14 264);
-  --message-user: var(--sidebar-accent);
-  --message-user-foreground: var(--sidebar-accent-foreground);
+  --row-bg-hover: var(--accent);
+  --row-bg-active: var(--accent);
+  --message-user: var(--row-bg-active, var(--accent));
+  --message-user-foreground: var(--foreground);
 }
 
 .side-chat-widget-root[data-sidechat-theme="sage"],
@@ -377,8 +395,8 @@
   --popover-foreground: oklch(0.23 0.035 158);
   --primary: oklch(0.42 0.105 158);
   --primary-foreground: oklch(0.99 0.01 156);
-  --secondary: oklch(0.955 0.018 156);
-  --secondary-foreground: oklch(0.23 0.035 158);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
   --muted: oklch(0.955 0.016 156);
   --muted-foreground: oklch(0.47 0.04 158);
   --accent: oklch(0.93 0.03 156);
@@ -397,8 +415,10 @@
   --sidebar-accent-foreground: oklch(0.23 0.035 158);
   --sidebar-border: oklch(0.89 0.026 156);
   --sidebar-ring: oklch(0.42 0.105 158);
-  --message-user: var(--sidebar-accent);
-  --message-user-foreground: var(--sidebar-accent-foreground);
+  --row-bg-hover: var(--accent);
+  --row-bg-active: var(--accent);
+  --message-user: var(--row-bg-active, var(--accent));
+  --message-user-foreground: var(--foreground);
 }
 
 .side-chat-widget-root[data-sidechat-theme="ocean"],
@@ -411,8 +431,8 @@
   --popover-foreground: oklch(0.24 0.025 252);
   --primary: oklch(0.52 0.15 252);
   --primary-foreground: oklch(0.99 0.01 240);
-  --secondary: oklch(0.955 0.015 240);
-  --secondary-foreground: oklch(0.24 0.025 252);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
   --muted: oklch(0.955 0.014 240);
   --muted-foreground: oklch(0.52 0.035 252);
   --accent: oklch(0.94 0.024 240);
@@ -431,8 +451,10 @@
   --sidebar-accent-foreground: oklch(0.24 0.025 252);
   --sidebar-border: oklch(0.9 0.02 242);
   --sidebar-ring: oklch(0.52 0.15 252);
-  --message-user: var(--sidebar-accent);
-  --message-user-foreground: var(--sidebar-accent-foreground);
+  --row-bg-hover: var(--accent);
+  --row-bg-active: var(--accent);
+  --message-user: var(--row-bg-active, var(--accent));
+  --message-user-foreground: var(--foreground);
 }
 
 /*
@@ -454,8 +476,10 @@
   --sc-canvas: oklch(0.978 0.004 264);
   --sidebar-accent: oklch(0.95 0.008 264);
   --sidebar-accent-foreground: oklch(0.27 0.026 264);
-  --message-user: var(--sidebar-accent);
-  --message-user-foreground: var(--sidebar-accent-foreground);
+  --row-bg-hover: var(--accent);
+  --row-bg-active: var(--accent);
+  --message-user: var(--row-bg-active, var(--accent));
+  --message-user-foreground: var(--foreground);
 }
 
 @layer base {
@@ -472,13 +496,15 @@
   [data-slot="select-content"],
   [data-slot="combobox-content"],
   [data-slot="tooltip-content"] {
-    font-family:
+    font-family: var(
+      --font-widget,
       "Plus Jakarta Sans",
       ui-sans-serif,
       system-ui,
       -apple-system,
       "Segoe UI",
-      sans-serif;
+      sans-serif
+    );
   }
 
   .side-chat-widget-root,
@@ -637,6 +663,32 @@
   border-radius: var(--seg-radius);
   gap: var(--seg-pad);
   padding: var(--seg-pad);
+}
+
+/* Text field / input / textarea (§8.6) — every form control reads its --field-* tokens,
+   so one change re-skins them all. Radius is --field-radius (= --radius-md, the app-core
+   control radius), never a one-off rounded-xl/rounded-lg. */
+@utility sc-field {
+  @apply w-full text-foreground outline-none transition-colors;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  padding: var(--field-py) var(--field-px);
+  &::placeholder {
+    color: var(--muted-foreground);
+  }
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
+  }
+  &[data-invalid],
+  &[aria-invalid="true"] {
+    border-color: var(--destructive);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 /* Combobox empty state (§8.11). Base UI keeps this element mounted as an aria-live
@@ -1013,7 +1065,8 @@
   padding-inline: var(--header-px);
 }
 @utility sc-rail {
-  @apply flex h-full min-h-0 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground;
+  @apply flex h-full min-h-0 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground;
+  border-color: var(--rail-border);
   width: var(--size-sidebar);
 }
 @utility sc-rail-newchat {

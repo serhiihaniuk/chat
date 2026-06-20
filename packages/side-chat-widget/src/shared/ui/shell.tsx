@@ -9,7 +9,7 @@ import { type ReactElement } from "react";
 import { Plus, Settings, X } from "lucide-react";
 
 import { AgentMark } from "#shared/ui/agent-mark";
-import { IconButton } from "#shared/ui/button";
+import { Button, IconButton } from "#shared/ui/button";
 import { Composer } from "#shared/ui/composer";
 import { ConversationItem } from "#shared/ui/conversation-item";
 import { Message } from "#shared/ui/message";
@@ -96,14 +96,15 @@ export function Shell(): ReactElement {
 export function SidebarRail(): ReactElement {
   return (
     <aside className="sc-rail">
-      <div className="sc-rail-newchat border-b border-sidebar-border">
-        <button
+      <div className="sc-rail-newchat border-b border-border">
+        <Button
           type="button"
-          className="flex w-full items-center gap-2 rounded-md border border-sidebar-border bg-sidebar-accent px-2.5 py-2 text-left text-sm font-medium text-sidebar-foreground"
+          className="w-full justify-start gap-2 px-2.5 py-2 text-left"
+          variant="secondary"
         >
           <Plus className="size-4 text-primary" />
           New chat
-        </button>
+        </Button>
       </div>
       <div className="min-h-0 flex-1">
         <ScrollArea className="px-2 pb-2">
@@ -151,7 +152,7 @@ export function ShellSection(): ReactElement {
 export function SidebarRailSection(): ReactElement {
   return (
     <div className="flex justify-center" style={{ height: "300px" }}>
-      <div className="h-full overflow-hidden rounded-lg border border-sidebar-border">
+      <div className="h-full overflow-hidden rounded-lg border border-border">
         <SidebarRail />
       </div>
     </div>

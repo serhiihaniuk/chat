@@ -61,7 +61,7 @@ agent can invent a value that silently diverges from another agent's component).
 
 - **Determinism:** two agents building two components reach pixel-identical spacing/colour
   because both resolved the same token, not their own guess.
-- **One-knob theming:** the acceptance test (§12.3) — flip `--radius` and
+- **One-knob theming:** the acceptance test (§12.3) — flip `--radius`, `--space-unit`, and
   `data-sidechat-theme` — passes only if no literal slipped through. The test _is_ the proof
   the gates held.
 - **Reviewability:** a reviewer runs five greps, not a design critique.
@@ -92,7 +92,8 @@ TIER 3 — component code                (the .tsx)     → utilities + named st
 - A component **may use** tier-1 utilities (because they are registered, §5) and its **own**
   tier-2 hook classes (§6).
 - A component **may never** declare a tier-2 token another component owns, and **may never**
-  reach past a hook class to inline a tier-2 token in JSX (`bg-[var(--row-bg)]` trips G1).
+  invent raw arbitrary values in JSX. For declared state tokens, use Tailwind's
+  custom-property shorthand (`bg-(--row-bg-hover)`) so the token contract stays visible.
 
 ## 2.2 — Token resolution order (mandatory precedence — stop at the first that exists)
 
@@ -150,9 +151,10 @@ This is a **Tailwind v4, utility-first** codebase. Styling is expressed in this 
 1. **Utilities in JSX** for every static value — `rounded-md px-2.5 py-2 bg-popover
 text-popover-foreground shadow-popover`. All of these resolve to §5 ledger rows.
 2. **Named `@custom-variant`s for Base UI state** — `highlighted:bg-accent`,
-   `checked:bg-switch-on`, `popupopen:bg-accent`. These are declared once in `styles.css`
-   (§4) so JSX never needs a `data-[checked]:` **bracket** (which would trip G1). The named
-   variant is the _only_ legal way to style a Base UI state.
+   `checked:bg-primary`, `popupopen:bg-accent`. These are declared once in `styles.css`
+   (§4) so JSX never needs a `data-[checked]:` **bracket** (which would trip G1). A hook class
+   may own a state token when the value is calc-derived or token-only, such as Switch using
+   `sc-switch-root` for `--switch-track-on` / `--switch-track-off`.
 3. **A thin CSS layer — only for the irreducible cases utilities cannot express** (§6):
    a value derived with `calc()` (the switch thumb travel), a portaled element you don't
    render directly (`[data-slot="scroll-area-scrollbar"]`), a runtime var
@@ -229,12 +231,14 @@ The portaled popup roots also re-assert the widget font in `@layer base` (they l
 [data-slot="popover-content"],
 [data-slot="hover-card-content"],
 [data-slot="dialog-content"] {
-  font-family:
+  font-family: var(
+    --font-widget,
     "Plus Jakarta Sans",
     ui-sans-serif,
     system-ui,
     -apple-system,
-    sans-serif;
+    sans-serif
+  );
 }
 ```
 
@@ -316,17 +320,17 @@ If you cannot point to the row, the utility does not exist — use a hook class 
 --color-border  --color-input  --color-ring
 --color-sidebar / -foreground / -primary / -primary-foreground
        / -accent / -accent-foreground / -border / -ring
---color-message-user / -foreground         (= sidebar-accent; see §7.2)
+--color-message-user / -foreground         (= row-bg-active, fallback accent / foreground; see §7.2)
 --color-chart-1 … --color-chart-5
 ```
 
 ## 5.2 — Radius
 
 ```
---radius-sm → rounded-sm   (calc(var(--radius) - 4px))
---radius-md → rounded-md   (calc(var(--radius) - 2px))
+--radius-sm → rounded-sm   (calc(var(--radius) * 0.6))
+--radius-md → rounded-md   (calc(var(--radius) * 0.8))
 --radius-lg → rounded-lg   (var(--radius))
---radius-xl → rounded-xl   (calc(var(--radius) + 4px))
+--radius-xl → rounded-xl   (calc(var(--radius) * 1.4))
 ```
 
 ## 5.3 — Type (with paired leading, §2.4)
@@ -334,6 +338,9 @@ If you cannot point to the row, the utility does not exist — use a hook class 
 ```
 --text-2xs … --text-xl     → text-2xs … text-xl
 ```
+
+`--font-widget` is the widget-root typeface variable. It is not a utility; it scopes the
+settings typeface choice to `.side-chat-widget-root` and its portaled popovers.
 
 ## 5.4 — Semantic sizes (`w-/h-/size-/min-/max-`)
 
@@ -385,10 +392,10 @@ violation as inventing a utility (G3).
 | Markdown        | `.sc-markdown` + `data-streamdown` child selectors                     | styles Streamdown's portaled/owned DOM              |
 
 Everything else — Row, Media, Field, Button, Segmented, Tabs, Badge, Message bubble,
-Reasoning, Settings, Shell — is **utilities + variants in JSX**, no CSS-layer entry. (Tier-2
-tokens like `--row-*` are consumed by registering them as `@theme` utilities where a component
-needs independent tuning, or read inside one of the `@utility` entries above; they never
-appear as `bg-[var(--row-bg)]` in JSX.)
+Reasoning, Settings, Shell — is **utilities + variants in JSX**, no CSS-layer entry. Tier-2
+state tokens such as `--row-bg-hover` may appear through Tailwind's custom-property shorthand
+(`bg-(--row-bg-hover)`), while component tokens that need structural CSS are read inside one
+of the `@utility` entries above.
 
 ---
 
@@ -422,10 +429,10 @@ height. And the knob's _size_ needs its own token; do not overload the _fill_ to
 
 ### 7.2 `--message-user-*` has one source of truth
 
-The user bubble is `var(--sidebar-accent)` / `var(--sidebar-accent-foreground)`, surfaced as
-the registered utilities `bg-message-user` / `text-message-user-foreground`. Do **not** map it
-to `--muted`, and do **not** ship two definitions. Tier-2 `--message-user-px/py` (padding)
-remain hook-class-only.
+The user bubble is `var(--row-bg-active, var(--accent))` / `var(--foreground)`, surfaced as
+the registered utilities `bg-message-user` / `text-message-user-foreground`. Do **not** map
+it directly to `--sidebar-accent` or `--muted`, and do **not** ship two unrelated
+definitions. Tier-2 `--message-user-px/py` (padding) remain hook-class-only.
 
 ### 7.3 A utility is real only if it is in the §5 ledger
 
@@ -648,8 +655,8 @@ own file with the Part-A preamble prepended.
   plain `<button>` when standalone (conversation item). **Use for:** every selectable line —
   conversation, model, menu, settings-nav. This is the single most reused primitive.
 - **Owns:** nothing new — Row is pure utilities. (Surface colours come from tier-1 roles.)
-- **Consumes:** `--accent`, `--sidebar-accent`, `--foreground`, `--muted-foreground`,
-  `--primary`, `--radius-md`, `--spacing`, type roles.
+- **Consumes:** `--row-bg-hover`, `--row-bg-active`, `--foreground`, `--muted-foreground`,
+  `--primary`, `--row-radius`, `--row-px`, `--row-py`, `--row-gap`, type roles.
 - **Base UI parts:** none of its own — it is the `className` you put on the parent's `Item`,
   or a bare `<button>`. Anatomy (slots): `[leading media?] [title + optional subtitle] [trailing
 check/indicator?]`.
@@ -663,7 +670,7 @@ check/indicator?]`.
 <Select.Item
   value={m}
   className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md
-                                   text-left highlighted:bg-accent"
+                                   text-left highlighted:bg-(--row-bg-hover)"
 >
   <Avatar className="sc-media" /> {/* optional leading media */}
   <span className="flex min-w-0 flex-col">
@@ -681,7 +688,7 @@ check/indicator?]`.
 <button
   aria-current={id === activeId || undefined}
   className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-left
-             hover:bg-accent aria-[current=true]:bg-sidebar-accent"
+             hover:bg-(--row-bg-hover) aria-[current=true]:bg-(--row-bg-active)"
 >
   <span className="flex min-w-0 flex-col">
     <span className="truncate text-sm font-medium text-foreground">{title}</span>
@@ -695,9 +702,9 @@ check/indicator?]`.
   `truncate` on the text, or the row pushes the panel wider. The trailing indicator is always
   present in the DOM at `opacity-0` and only revealed by state, so rows don't reflow when
   selection moves. Leading media is optional (model rows have it, menu items usually don't).
-- **Easy to miss:** conversation, model and menu rows are the SAME primitive with different
-  surface tokens (`bg-accent` in a popover vs `bg-sidebar-accent` in the rail) — do not write
-  three different row components. `aria-current` is semantic (screen readers announce it); do
+- **Easy to miss:** conversation, model and menu rows are the SAME primitive with the shared
+  row state tokens (`--row-bg-hover` / `--row-bg-active`) — do not write three different row
+  components. `aria-current` is semantic (screen readers announce it); do
   not fake the active state with a class alone.
 - **Done:** ☐ G1–G6 ☐ title `min-w-0 truncate` ☐ active via `highlighted:`/`aria-current`, not
   `:hover` alone on a Base UI item ☐ indicator pre-rendered at `opacity-0` ☐ re-skins (§12.3).
@@ -785,7 +792,9 @@ sc-icon-btn` (it needs `--size-control` and the `popupopen:` reaction).
 <button className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2
                    text-sm font-medium bg-primary text-primary-foreground
                    focus-visible:outline-2 focus-visible:outline-ring">Send feedback</button>
-<button className="… bg-card text-foreground border border-border hover:bg-accent">Cancel</button>
+<button className="… bg-secondary text-secondary-foreground border border-border hover:bg-accent">
+  Cancel
+</button>
 <button className="… bg-transparent text-muted-foreground hover:bg-accent">Retry</button>
 
 {/* icon button — used as a Menu/Tooltip trigger */}
@@ -1139,22 +1148,26 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 ## 9.1 — Conversation item
 
 - **Built from:** Row (standalone `<button>` form) + Text roles.
-- **Owns:** `--convo-indicator` (`var(--primary)`). Everything else is Row.
+- **Owns:** `--convo-item-radius`, `--convo-indicator`, `--convo-title-fg`,
+  `--convo-subtitle-fg`, and `--convo-item-bg-*` aliases to the shared row active/hover surfaces.
 - **Base UI parts:** none — a plain `<button>` (the Row primitive).
-- **State:** `aria-current="true"` → `bg-sidebar-accent` fill + trailing dot; `hover:bg-accent`.
+- **State:** `aria-current="true"` → `--convo-item-bg-active` fill + trailing dot;
+  hover → `--convo-item-bg-hover`. Both alias the shared row accent surface.
 - **Scroll:** lives inside the rail's `ScrollArea` (§8.3), never its own scroller.
 
 ```tsx
 <button
   aria-current={id === activeId || undefined}
-  className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-left
-             hover:bg-accent aria-[current=true]:bg-sidebar-accent"
+  className="flex items-center gap-(--row-gap) w-full px-(--row-px) py-(--row-py)
+             rounded-(--convo-item-radius) text-left
+             hover:bg-(--convo-item-bg-hover)
+             aria-[current=true]:bg-(--convo-item-bg-active)"
 >
   <span className="flex min-w-0 flex-col">
-    <span className="truncate text-sm font-medium text-foreground">{title}</span>
-    <span className="truncate text-xs text-muted-foreground">{relativeTime(updatedAt)}</span>
+    <span className="truncate text-sm font-medium text-(--convo-title-fg)">{title}</span>
+    <span className="truncate text-xs text-(--convo-subtitle-fg)">{relativeTime(updatedAt)}</span>
   </span>
-  <span className="ml-auto size-1.5 rounded-full bg-primary opacity-0 aria-[current=true]:opacity-100" />
+  <span className="ml-auto size-1.5 rounded-full bg-(--convo-indicator) opacity-0 aria-[current=true]:opacity-100" />
 </button>
 ```
 
@@ -1298,8 +1311,9 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 <div data-from={role} className="data-[from=user]:flex data-[from=user]:justify-end">
   {role === "user" ? (
     <div
-      className="max-w-[82%] rounded-lg rounded-br-sm bg-message-user text-message-user-foreground
-                    px-3.5 py-2.5 text-md leading-[1.55]"
+      className="w-fit rounded-lg rounded-br-sm bg-message-user text-message-user-foreground
+                    px-3.5 py-2.5 text-md leading-message"
+      style={{ maxWidth: "82%" }}
     >
       {text}
     </div>
@@ -1313,7 +1327,7 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 
 - **Behavior:** user = right-aligned bubble with one squared tail corner (`rounded-lg` +
   `rounded-br-sm`), `bg-message-user`. Assistant = full-measure left, **no bubble**, markdown.
-  Both cap at `max-w-measure-message` and centre in the column.
+  The user bubble caps at 82% via inline style; the assistant caps at `max-w-measure-message`.
 - **Easy to miss:** assistant content is markdown (§10), never plain text; the squared tail is a
   single corner override, not a different radius everywhere.
 - **Done:** ☐ G1–G6 ☐ user bubble + one squared corner ☐ assistant via MarkdownContent ☐ both
@@ -1395,9 +1409,9 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
   <AlertIcon className="sc-error-glyph" />
   <div className="flex-1 min-w-0">
     <p className="text-sm text-foreground">Something went wrong.</p>
-    <button className="mt-2 … bg-card border border-border hover:bg-accent" onClick={retry}>
+    <Button variant="secondary" size="sm" className="mt-2" onClick={retry}>
       Try again
-    </button>
+    </Button>
   </div>
 </div>
 ```
@@ -1446,22 +1460,27 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 
 - **Behavior:** both navigators render from ONE `GROUPS` array and write the same `group` state
   → content never forks. Groups: **Theme** (swatch cards via `data-sidechat-theme-preview`),
-  **General** (Custom instructions Field, Send-on-Enter Switch, Default-model Select). The
+  accent swatches, corners, density, text size, typeface, elevation; **General** (Custom
+  instructions Field, Send-on-Enter Switch, Default-model Select). The
   settings body scrolls via `ScrollArea`. The narrow layout is the wide layout with the nav
   collapsed to a Select — not a different screen.
 - **Easy to miss:** keep `Tabs.Root` mounted in narrow (it owns the panels); only the navigator
   swaps. Adding a group = one array entry, appears in both layouts.
-- **Done:** ☐ G1–G6 ☐ one `GROUPS` array drives both navigators ☐ panels never forked ☐ body =
-  ScrollArea ☐ re-skins.
+- **Done:** ☐ G1–G6 ☐ one `GROUPS` array drives both navigators ☐ panels never forked ☐
+  appearance controls mutate root tokens ☐ body = ScrollArea ☐ re-skins.
 
 ## 9.12 — Shell · Rail · Header (the alignment contract)
 
-- **Built from:** every primitive/component above.
+- **Built from:** every primitive/component above, including Button (§8.7) for the rail
+  "New chat" control.
 - **Owns:** `--panel-*`, `--header-h` (= `--size-header`), `--rail-newchat-h` (= `--header-h`),
   `--rail-group-gap`.
 - **CSS-layer:** `@utility sc-panel`, `@utility sc-header`, `@utility sc-rail`,
   `@utility sc-rail-newchat` (layout + `--header-h` reads).
 - **Scroll:** rail = `ScrollArea`; **chat log = native stick-to-bottom** (§7.8), never a ScrollArea.
+- **New chat:** `sc-rail-newchat` is only the alignment zone. The visible control inside it
+  is the shared `Button` primitive with `variant="secondary"`: fill `--secondary`, text
+  `--secondary-foreground`, border `--border`, hover `--accent`, focus `--ring`.
 
 **The alignment contract — 4 numbered rules (this is where AIs drift):**
 
@@ -1488,7 +1507,8 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
   padding-inline: var(--header-px);
 }
 @utility sc-rail {
-  @apply flex flex-col shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border;
+  @apply flex flex-col shrink-0 bg-sidebar text-sidebar-foreground border-r;
+  border-color: var(--rail-border);
   width: var(--size-sidebar);
 }
 @utility sc-rail-newchat {
@@ -1499,8 +1519,9 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 ```
 
 - **Easy to miss:** rules 1–2 are the “blue alignment” AIs get wrong — both come from the
-  single `--header-h` token shared by header and rail New-chat zone. The chat log must NOT be a
-  ScrollArea or stick-to-bottom breaks (§7.8).
+  single `--header-h` token shared by header and rail New-chat zone. Do not style the New-chat
+  control as a bespoke rail row; use Button secondary. The chat log must NOT be a ScrollArea or
+  stick-to-bottom breaks (§7.8).
 - **Done:** ☐ G1–G6 ☐ `--rail-newchat-h == --header-h` ☐ continuous divider at `--header-h` ☐
   rail hides → header Menu switcher under breakpoint ☐ chat log native scroll ☐ re-skins.
 
@@ -1589,10 +1610,11 @@ B8. Definition of done (below)
 
 ## 12.3 — Acceptance test (verbatim in every file)
 
-> In devtools, set `--radius: 0` then `--radius: 1rem`, and swap `data-sidechat-theme` between
-> unset / `sage` / `ocean` on `.side-chat-widget-root`. The component must re-skin **completely**
-> with zero leftovers. Any element that does not move still holds a hardcoded value — that is
-> the bug. Then run the five gate greps (§1.1) over the component file; all must return empty.
+> In devtools, set `--radius: 0` then `--radius: 1rem`, set `--space-unit: 0.1875rem` then
+> `--space-unit: 0.3125rem`, and swap `data-sidechat-theme` between unset / `sage` / `ocean` on
+> `.side-chat-widget-root`. The component must re-skin **completely** with zero leftovers. Any
+> element that does not move still holds a hardcoded value — that is the bug. Then run the five
+> gate greps (§1.1) over the component file; all must return empty.
 
 ## 12.4 — Definition of done (component-scoped, in every Part B)
 

@@ -1,0 +1,34 @@
+---
+title: Badge & suggestion
+description: A non-interactive status pill and its interactive chip sibling — two pills the contract keeps separate.
+---
+
+import { BadgeDemo } from '@/components/demos/badge';
+
+These are two pill shapes that must never be merged. `Badge` is a non-interactive status pill rendered as a `<span>` — it conveys state, so it carries no hover or focus affordance: a status pill that is focusable lies to the user. `Suggestion` is an interactive chip rendered as a real `<button>` — keyboard-focusable, and `hover:bg-accent` is allowed precisely because it *is* actionable. Both are plain markup (no Base UI): `Badge` reads `--muted` / `--border` / `--muted-foreground` at `text-2xs`, while `Suggestion` sits on `--card` and brightens to `--accent` on hover.
+
+<DesignControls />
+
+<Preview>
+  <BadgeDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { Badge, Suggestion } from '@side-chat/side-chat-widget/ui/badge';
+
+<Badge>
+  <Sparkles size={12} />
+  Pro
+</Badge>
+
+<Suggestion onClick={() => send('Summarize this page')}>
+  <Sparkles size={16} />
+  Summarize this page
+</Suggestion>
+```
+
+## Tokens
+
+<TokenTable group="badge" />

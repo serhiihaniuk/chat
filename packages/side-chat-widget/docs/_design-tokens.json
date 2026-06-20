@@ -91,7 +91,7 @@
   },
   {
     "t": "--message-user-bg",
-    "v": "var(--muted)",
+    "v": "var(--row-bg-active, var(--accent))",
     "p": "background",
     "c": "User bubble fill"
   },
@@ -517,7 +517,7 @@
   },
   {
     "t": "--seg-item-radius",
-    "v": "calc(--radius-md - 3px)",
+    "v": "calc(var(--radius-md) - 3px)",
     "p": "border-radius",
     "c": "Level pill corner"
   },
@@ -553,13 +553,13 @@
   },
   {
     "t": "--rail-item-bg-active",
-    "v": "var(--sidebar-accent)",
+    "v": "var(--row-bg-active)",
     "p": "background",
     "c": "Active row fill"
   },
   {
     "t": "--rail-item-bg-hover",
-    "v": "var(--sidebar-accent)",
+    "v": "var(--row-bg-hover)",
     "p": "background",
     "c": "Hover row fill"
   },
@@ -811,13 +811,13 @@
   },
   {
     "t": "--convo-item-bg-active",
-    "v": "var(--sidebar-accent)",
+    "v": "var(--row-bg-active)",
     "p": "background",
     "c": "Selected row fill"
   },
   {
     "t": "--convo-item-bg-hover",
-    "v": "var(--sidebar-accent)",
+    "v": "var(--row-bg-hover)",
     "p": "background",
     "c": "Hover row fill"
   },
@@ -991,9 +991,15 @@
   },
   {
     "t": "--error-btn-bg",
-    "v": "var(--card)",
+    "v": "var(--secondary)",
     "p": "background",
-    "c": "Retry button fill"
+    "c": "Retry secondary button fill"
+  },
+  {
+    "t": "--error-btn-fg",
+    "v": "var(--secondary-foreground)",
+    "p": "color",
+    "c": "Retry secondary button text"
   },
   {
     "t": "--error-btn-border",

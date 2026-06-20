@@ -1,0 +1,28 @@
+---
+title: Tools menu
+description: The composer's plus-button popover for attaching context, toggling tools, and picking a context scope.
+---
+
+import { ToolsMenuDemo } from '@/components/demos/tools-menu';
+
+The tools menu is a composition only — every row is an existing primitive on Base UI `Menu`. The trigger is the composer `+` button (`sc-composer-add`), whose glyph rotates `+`→`×` when the popup opens. The popup carries `data-slot="dropdown-menu-content"`, so its surface — border, `bg-popover`, `shadow-popover`, and enter/exit transition — is owned by `styles.css` via the `--menu-*` tokens. Tool rows are `Menu.CheckboxItem`s with a presentational `Switch` (the item owns focus and keyboard), and the context scope is a `Menu.RadioGroup` rendering a `RadioItemIndicator` check on the active row.
+
+<DesignControls />
+
+<Preview>
+  <ToolsMenuDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { ToolsMenu } from '@side-chat/side-chat-widget/ui/tools-menu';
+
+<ToolsMenu />
+```
+
+`ToolsMenu` is self-contained: it owns its tool-toggle and scope state and reads the portal container from the surrounding widget root, so it mounts the popup into the widget's shadow tree. Only one popover is open at a time (Base UI).
+
+## Tokens
+
+<TokenTable group="tools-menu" />

@@ -4,3 +4,8 @@ node_modules/
 dist/
 coverage/
 docs/architecture/production-system-design.md
+.codex/
+.claude/
+.codex-run/
+.omx/
+.tmp/

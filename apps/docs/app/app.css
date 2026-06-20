@@ -1,0 +1,41 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+.theme-controls-layout {
+  min-height: 100vh;
+  width: 100%;
+}
+
+.theme-controls-content,
+.theme-controls-sidebar {
+  min-width: 0;
+}
+
+.theme-controls-sidebar {
+  height: 80vh;
+}
+
+@media (min-width: 1024px) {
+  .theme-controls-layout--open {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 23rem);
+    align-items: start;
+  }
+
+  .theme-controls-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+}

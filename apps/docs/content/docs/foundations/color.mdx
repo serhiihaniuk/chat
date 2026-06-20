@@ -1,0 +1,28 @@
+---
+title: Color
+description: The tier-1 palette, in OKLCH, shown live so it re-skins with the controls.
+---
+
+import { ColorSwatches } from "@/components/demos";
+
+Colour is the tier-1 palette. Everything else aliases these. All values are authored in
+**OKLCH** so lightness stays perceptually even across themes. The swatches below are live —
+change the **Theme** or **Mode** in the control bar and watch them re-skin.
+The configurator resolves the active theme in the browser, so rows without overrides show
+the current theme value instead of a static fallback.
+
+<DesignControls />
+
+<Preview>
+  <ColorSwatches />
+</Preview>
+
+## The palette
+
+<TokenTable group="color" />
+
+Surfaces step from `--background` (the panel base) to `--card` and `--sc-canvas` (the
+conversation canvas behind messages). Text uses `--foreground` and `--muted-foreground`.
+`--primary` is the one saturated accent — it fills primary actions, the switch-on track, and
+active indicators. `--border` handles general dividers and cards, while `--sidebar-border`
+feeds the rail seam through `--rail-border`.

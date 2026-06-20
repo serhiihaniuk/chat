@@ -10,7 +10,9 @@
 import { useState, type ReactElement } from "react";
 
 import { cn } from "#shared/lib/cn";
-import { rowBaseClass } from "#shared/ui/row";
+
+const conversationItemClass =
+  "flex w-full cursor-pointer select-none items-center gap-(--row-gap) rounded-(--convo-item-radius) px-(--row-px) py-(--row-py) text-left";
 
 export function ConversationItem({
   title,
@@ -28,13 +30,16 @@ export function ConversationItem({
       type="button"
       aria-current={active === true ? true : undefined}
       onClick={onSelect}
-      className={cn(rowBaseClass, "hover:bg-sidebar-accent aria-[current=true]:bg-sidebar-accent")}
+      className={cn(
+        conversationItemClass,
+        "hover:bg-(--convo-item-bg-hover) aria-[current=true]:bg-(--convo-item-bg-active)",
+      )}
     >
       <span className="flex flex-col min-w-0 gap-0.5">
-        <span className="truncate text-sm font-medium text-sidebar-foreground">{title}</span>
-        <span className="truncate text-xs text-muted-foreground">{when}</span>
+        <span className="truncate text-sm font-medium text-(--convo-title-fg)">{title}</span>
+        <span className="truncate text-xs text-(--convo-subtitle-fg)">{when}</span>
       </span>
-      <span className="ml-auto size-1.5 rounded-full bg-primary opacity-0 aria-[current=true]:opacity-100" />
+      <span className="ml-auto size-1.5 rounded-full bg-(--convo-indicator) opacity-0 aria-[current=true]:opacity-100" />
     </button>
   );
 }

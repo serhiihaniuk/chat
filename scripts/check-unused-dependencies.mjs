@@ -48,6 +48,21 @@ const allowedUnusedDependencies = new Map([
     "@side-chat/side-chat-widget:react-dom",
     "Widget declares React DOM as a peer for host applications but does not import it directly.",
   ],
+  [
+    "@side-chat/docs:@types/mdx",
+    "Docs MDX component typing is provided through the virtual mdx/types module.",
+  ],
+  [
+    "@side-chat/docs:@react-router/node",
+    "React Router dev/build default server runtime loads this package when the docs app has no custom server entry.",
+  ],
+  [
+    "@side-chat/docs:isbot",
+    "React Router node runtime uses this SSR crawler dependency through its generated server entry.",
+  ],
+  ["@side-chat/docs:oxlint", "Package-local lint script invokes the oxlint CLI."],
+  ["@side-chat/docs:serve", "Package-local start script serves the built docs output."],
+  ["@side-chat/docs:typescript", "Package-local typecheck script invokes tsc."],
 ]);
 
 const sourceFiles = listFiles(root).filter(
@@ -79,7 +94,7 @@ for (const packageJsonPath of listWorkspacePackageJsons(root)) {
     if (allowedUnusedDependencies.has(`${packageJson.name}:${dependency}`)) {
       continue;
     }
-    if (!sourceText.includes(`"${dependency}`)) {
+    if (!sourceText.includes(`"${dependency}`) && !sourceText.includes(`'${dependency}`)) {
       errors.push(`${packageJsonPath}: dependency ${dependency} is unused`);
     }
   }

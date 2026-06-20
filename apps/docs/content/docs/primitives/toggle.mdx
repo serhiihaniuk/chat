@@ -1,0 +1,33 @@
+---
+title: Toggle
+description: A binary switch built on Base UI, with calc-derived knob travel.
+---
+
+import { SwitchDemo } from '@/components/demos';
+
+The toggle is a thin wrapper over Base UI `Switch` (Root → Thumb). All chrome lives in two
+hook classes; the thumb travel is a `calc()` from `--switch-inset` + `--switch-knob-size`, not
+hand-tuned. State is exposed as `[data-checked]` / `[data-unchecked]` / `[data-disabled]` and
+consumed entirely in CSS — the JSX never writes `:checked`.
+
+<DesignControls />
+
+<Preview>
+  <SwitchDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { Switch } from '@side-chat/side-chat-widget/ui/switch';
+
+<Switch defaultChecked />        {/* uncontrolled */}
+<Switch checked={on} onCheckedChange={setOn} />  {/* controlled */}
+<Switch disabled />
+```
+
+Wrap it in a Base UI `Field.Label` for an accessible name — no `htmlFor`/`id` plumbing needed.
+
+## Tokens
+
+<TokenTable group="switch" />

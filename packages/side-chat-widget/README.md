@@ -36,6 +36,11 @@ route.
 are scoped to the widget root and never leak onto the host page; see
 `docs/architecture/widget-and-host-integration.md` (Theming And Layout).
 
+The built-in settings view also persists appearance controls under
+`side-chat-widget:appearance`: accent, corners, density, text size, typeface, and
+elevation. These controls re-skin the widget root by writing shared token
+overrides, not component-local styles.
+
 `open` and `onOpenChange` let a host app own iframe open/closed state. Pair them
 with `renderClosedLauncher={false}` when the host renders its own launcher
 button outside the Side Chat frame.

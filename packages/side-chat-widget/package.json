@@ -53,6 +53,16 @@
       "development": "./src/showcase/docs/docs-app.tsx",
       "default": "./dist/showcase/docs/docs-app.js"
     },
+    "./ui/*": {
+      "types": "./src/shared/ui/*.tsx",
+      "development": "./src/shared/ui/*.tsx",
+      "default": "./dist/shared/ui/*.js"
+    },
+    "./ai/*": {
+      "types": "./src/shared/ai/*.tsx",
+      "development": "./src/shared/ai/*.tsx",
+      "default": "./dist/shared/ai/*.js"
+    },
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

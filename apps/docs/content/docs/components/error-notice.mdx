@@ -1,0 +1,29 @@
+---
+title: Error state
+description: A failed turn shown on a muted surface, with the only red reserved for the leading glyph.
+---
+
+import { ErrorDemo } from '@/components/demos/error-notice';
+
+The error notice marks a turn that failed to complete. It sits on a `--muted` surface inside a `--border` outline - never a full-red panel. The only destructive color is the leading `TriangleAlert` glyph, tinted through the `sc-error-glyph` hook (`--destructive` mixed into `--muted-foreground`, since there is no destructive-foreground). Body copy stays tier-1 `--foreground`. When an `onRetry` handler is supplied, the shared secondary "Try again" button appears on `--secondary`, which aliases `--muted`; hover still reads `--accent`, and pressing it re-runs the same turn.
+
+<DesignControls />
+
+<Preview>
+  <ErrorDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { ErrorNotice } from '@side-chat/side-chat-widget/ui/error-notice';
+
+<ErrorNotice
+  message="The model failed to respond. Check your connection and try again."
+  onRetry={() => regenerate()}
+/>
+```
+
+## Tokens
+
+<TokenTable group="error-notice" />
