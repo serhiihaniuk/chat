@@ -15,6 +15,7 @@ import {
 const SERVICE_DEFAULT_ASSISTANT_PROFILE_ID = "default";
 const SET_OPEN_MESSAGE_TYPE = "sidechat.widget.setOpen";
 const OPEN_CHANGE_MESSAGE_TYPE = "sidechat.widget.openChange";
+const READY_MESSAGE_TYPE = "sidechat.widget.ready";
 
 /**
  * Host-to-frame command for the local iframe harness.
@@ -38,6 +39,10 @@ export type WidgetHarnessSetOpenMessage = {
 export type WidgetHarnessOpenChangeMessage = {
   readonly type: typeof OPEN_CHANGE_MESSAGE_TYPE;
   readonly open: boolean;
+};
+
+export type WidgetHarnessReadyMessage = {
+  readonly type: typeof READY_MESSAGE_TYPE;
 };
 
 export type WidgetHarnessApp = {
@@ -66,6 +71,7 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
     };
 
     window.addEventListener("message", receiveHostControl);
+    window.parent.postMessage({ type: READY_MESSAGE_TYPE }, window.location.origin);
     return () => window.removeEventListener("message", receiveHostControl);
   }, [hostControlled]);
 

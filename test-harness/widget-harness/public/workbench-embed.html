@@ -69,6 +69,7 @@
     <script type="module">
       const SET_OPEN_MESSAGE_TYPE = "sidechat.widget.setOpen";
       const OPEN_CHANGE_MESSAGE_TYPE = "sidechat.widget.openChange";
+      const READY_MESSAGE_TYPE = "sidechat.widget.ready";
       const params = new URLSearchParams(window.location.search);
       const frame = document.querySelector("iframe");
       const button = document.querySelector("#assistant-toggle");
@@ -102,6 +103,10 @@
       frame.addEventListener("load", sendOpenState);
       window.addEventListener("message", (event) => {
         if (event.origin !== window.location.origin) return;
+        if (event.data?.type === READY_MESSAGE_TYPE) {
+          sendOpenState();
+          return;
+        }
         if (event.data?.type !== OPEN_CHANGE_MESSAGE_TYPE) return;
         open = event.data.open;
         sendOpenState();

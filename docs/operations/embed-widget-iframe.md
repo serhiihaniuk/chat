@@ -139,6 +139,8 @@ the iframe whenever the host button changes state, and listen for
 `sidechat.widget.openChange` when Side Chat chrome requests a close:
 
 ```ts
+const READY_MESSAGE_TYPE = "sidechat.widget.ready";
+const OPEN_CHANGE_MESSAGE_TYPE = "sidechat.widget.openChange";
 const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Workspace Assistant"]');
 const button = document.querySelector<HTMLButtonElement>("#side-chat-toggle");
 let open = false;
@@ -163,7 +165,11 @@ button?.addEventListener("click", () => {
 frame?.addEventListener("load", sendOpenState);
 window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin) return;
-  if (event.data?.type !== "sidechat.widget.openChange") return;
+  if (event.data?.type === READY_MESSAGE_TYPE) {
+    sendOpenState();
+    return;
+  }
+  if (event.data?.type !== OPEN_CHANGE_MESSAGE_TYPE) return;
   open = event.data.open;
   sendOpenState();
 });
