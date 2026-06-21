@@ -85,6 +85,8 @@ export type AssistantTurnRecord = TenantScopedRecord &
     readonly errorCode?: string;
     readonly startedAt: string;
     readonly completedAt?: string;
+    /** Durable cancel intent timestamp; set once a cancel is requested. */
+    readonly cancelRequestedAt?: string;
   };
 
 /**

@@ -30,6 +30,7 @@ import {
   type ObservabilityRecord,
 } from "./observability.js";
 import {
+  DISABLED_CONVERSATION_TITLE_GENERATION,
   type AiRuntimePort,
   type ClockPort,
   type ConversationRepositoryPort,
@@ -244,6 +245,7 @@ const createObservedPorts = (
     conversations,
     assistantTurns,
     turnEventLog: createTurnEventLogPort(),
+    conversationTitleGeneration: DISABLED_CONVERSATION_TITLE_GENERATION,
     hostCapabilities: { loadManifest: () => Effect.succeed(manifest) },
     turnPolicies: { resolveTurnPolicy: () => Effect.succeed(policyDecision) },
     contextManager: {

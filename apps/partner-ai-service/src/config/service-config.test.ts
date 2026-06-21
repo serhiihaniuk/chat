@@ -1,6 +1,7 @@
-import { decodeSseEvents, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "#inbound/http/app";
+import { runTurnStream } from "#testing/turn-stream/turn-stream-harness.test-support";
 import {
   ServiceConfigError,
   createPartnerAiServiceOptionsFromEnv,
@@ -23,6 +24,7 @@ describe("partner ai service env config", () => {
     const app = createPartnerAiServiceApp(
       createPartnerAiServiceOptionsFromEnv({
         SIDECHAT_AUTH_BEARER_TOKEN: "local-compose-token",
+        SIDECHAT_SAFETY_POLL_INTERVAL_MS: "10",
       }),
     );
 
@@ -39,18 +41,8 @@ describe("partner ai service env config", () => {
       hostCommandResults: "disabled",
     });
 
-    const stream = await app.request("/chat/stream", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-compose-token",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(validRequest),
-    });
-
-    expect(stream.status).toBe(200);
-    const events = decodeSseEvents(await stream.text());
-    expect(events.at(-1)).toMatchObject({ type: "sidechat.completed" });
+    const { events } = await runTurnStream(app, validRequest, "Bearer local-compose-token");
+    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
   });
 
   it("maps production env to explicit auth and configured model policy", async () => {

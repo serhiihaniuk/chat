@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 
 import { assistantTurns, turnContextSnapshots, usageRecords } from "#drizzle/schema";
+import { TURN_CANCEL_NOTIFY_CHANNEL } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
@@ -11,6 +12,11 @@ import {
   toUsageRecord,
 } from "./records.js";
 import { appendTurnEvent, maxTurnEventSequence, readTurnEventsAfter } from "./turn-events.js";
+import {
+  findActiveAssistantTurn,
+  findAssistantTurn,
+  findAssistantTurnByRequest,
+} from "./turn-lookups.js";
 import { one, optional, result } from "../../repository-utils.js";
 
 export const createPostgresDrizzleTurnRepository = ({
@@ -29,6 +35,7 @@ export const createPostgresDrizzleTurnRepository = ({
   | "recordTurnContextSnapshot"
   | "recordUsage"
   | "readUsageSummary"
+  | "requestTurnCancellation"
   | "startAssistantTurn"
 > => ({
   startAssistantTurn: async (command) => {
@@ -168,53 +175,40 @@ export const createPostgresDrizzleTurnRepository = ({
       one(rows, "invalid_transition", "Assistant turn was not running."),
     );
   },
+  requestTurnCancellation: async (command) =>
+    db.transaction(async (transaction) => {
+      // CAS to running: only a live turn can be cancelled, so a finished or
+      // unknown turn returns no row and the cancel is a durable no-op. A repeat
+      // cancel of an already-cancelled-but-still-running turn re-stamps the intent
+      // and re-notifies, which is harmless (the owner interrupts idempotently).
+      const rows = await transaction
+        .update(assistantTurns)
+        .set({ cancelRequestedAt: command.now })
+        .where(
+          and(
+            eq(assistantTurns.workspaceId, command.workspaceId),
+            eq(assistantTurns.assistantTurnId, command.assistantTurnId),
+            eq(assistantTurns.status, "running"),
+          ),
+        )
+        .returning({ assistantTurnId: assistantTurns.assistantTurnId });
+      if (!rows[0]) return { cancelRequested: false };
+
+      // Notify only inside the same transaction as the intent write, so the
+      // signal fires on commit and never races ahead of the durable state.
+      await transaction.execute(
+        sql`select pg_notify(${TURN_CANCEL_NOTIFY_CHANNEL}, ${JSON.stringify({
+          assistantTurnId: command.assistantTurnId,
+        })})`,
+      );
+      return { cancelRequested: true };
+    }),
   appendTurnEvent: appendTurnEvent(db),
   readTurnEventsAfter: readTurnEventsAfter(db),
   maxTurnEventSequence: maxTurnEventSequence(db),
-  findAssistantTurn: async (command) => {
-    const rows = await db
-      .select()
-      .from(assistantTurns)
-      .where(
-        and(
-          eq(assistantTurns.workspaceId, command.workspaceId),
-          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
-        ),
-      )
-      .limit(1);
-    return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
-  },
-  findAssistantTurnByRequest: async (command) => {
-    const rows = await db
-      .select()
-      .from(assistantTurns)
-      .where(
-        and(
-          eq(assistantTurns.workspaceId, command.workspaceId),
-          eq(assistantTurns.requestId, command.requestId),
-        ),
-      )
-      .limit(1);
-    return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
-  },
-  findActiveAssistantTurn: async (command) => {
-    // The most recently started running turn is the one a reconnect resumes; a
-    // conversation should only ever have one, but ordering keeps this stable.
-    const rows = await db
-      .select()
-      .from(assistantTurns)
-      .where(
-        and(
-          eq(assistantTurns.workspaceId, command.workspaceId),
-          eq(assistantTurns.subjectId, command.subjectId),
-          eq(assistantTurns.conversationId, command.conversationId),
-          eq(assistantTurns.status, "running"),
-        ),
-      )
-      .orderBy(sql`${assistantTurns.startedAt} desc`)
-      .limit(1);
-    return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
-  },
+  findAssistantTurn: findAssistantTurn(db),
+  findAssistantTurnByRequest: findAssistantTurnByRequest(db),
+  findActiveAssistantTurn: findActiveAssistantTurn(db),
   recordUsage: async (command) => {
     const inserted = await db
       .insert(usageRecords)

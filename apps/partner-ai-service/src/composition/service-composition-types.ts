@@ -17,6 +17,7 @@ import type {
 import type { SidechatRepositories } from "@side-chat/db";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
+import type { TurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
@@ -117,6 +118,10 @@ export type ServiceComposition = {
   readonly turnRunner: TurnRunner;
   /** Per-instance live fan-out of durable turn events to local subscribers. */
   readonly dispatcher: TurnEventDispatcher;
+  /** Per-instance reaction to cross-instance cancel intent; interrupts owned fibers. */
+  readonly cancelDispatcher: TurnCancelDispatcher;
+  /** Resolved per-subscriber reconcile cadence for the subscription stream. */
+  readonly safetyPollIntervalMs: number;
   readonly capabilities: ServiceCapabilityStatus;
   readonly diagnostics: ServiceDiagnostics;
 };

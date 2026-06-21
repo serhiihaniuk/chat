@@ -9,8 +9,10 @@ import { Effect, Stream } from "effect";
 import {
   type AiRuntimePort,
   type AssistantTurnLifecyclePort,
+  type AssistantTurnStatus,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
+  type TurnControlState,
   type TurnEventLogPort,
 } from "#ports";
 
@@ -62,10 +64,23 @@ export const createConversationRepositoryPort = (
   },
 });
 
+/**
+ * Mutable control state the fake lifecycle port exposes to `readTurnControlState`.
+ *
+ * `status` mirrors the durable turn status (flipped by complete/fail so the
+ * abnormal finalizer's running-guard skip can be exercised), and `cancelRequested`
+ * lets a test seed durable cancel intent so an interrupt is classified honestly.
+ */
+export type FakeTurnControlState = {
+  status: AssistantTurnStatus;
+  cancelRequested: boolean;
+};
+
 export const createAssistantTurnLifecyclePort = (
   calls: string[],
   completedTurns: Parameters<AssistantTurnLifecyclePort["completeAssistantTurn"]>[0][],
   failedTurns: Parameters<AssistantTurnLifecyclePort["failAssistantTurn"]>[0][],
+  controlState: FakeTurnControlState = { status: "running", cancelRequested: false },
 ): AssistantTurnLifecyclePort => ({
   startAssistantTurn: () => {
     calls.push("startAssistantTurn");
@@ -85,12 +100,21 @@ export const createAssistantTurnLifecyclePort = (
   completeAssistantTurn: (turn) => {
     calls.push("completeAssistantTurn");
     completedTurns.push(turn);
+    controlState.status = "completed";
     return Effect.succeed(undefined);
   },
   failAssistantTurn: (turn) => {
     calls.push("failAssistantTurn");
     failedTurns.push(turn);
+    controlState.status = turn.status;
     return Effect.succeed(undefined);
+  },
+  readTurnControlState: (): Effect.Effect<TurnControlState | undefined> => {
+    calls.push("readTurnControlState");
+    return Effect.succeed({
+      status: controlState.status,
+      cancelRequested: controlState.cancelRequested,
+    });
   },
 });
 

@@ -1,10 +1,12 @@
 import {
   PROTOCOL_ERROR_CODES,
   SIDECHAT_EVENT_TYPES,
+  type ProtocolErrorCode,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-import { Effect, Exit, type Ref } from "effect";
+import { Cause, Effect, Exit, type Ref } from "effect";
 import type { PartnerAiCoreError } from "#errors";
+import type { AssistantTurnFailureStatus, TurnControlState } from "#ports";
 import { STREAM_CHAT_FAILURES, mapPortFailure } from "../../errors/effect-failures.js";
 import { finalizeProtocolStream } from "./protocol-terminal-lifecycle.js";
 import type { ProtocolEventAccumulator } from "./protocol-event-accumulator.js";
@@ -18,10 +20,21 @@ import type {
  * Public message carried by the synthetic terminal an abnormal exit appends.
  *
  * The browser sees this when generation ended without its own terminal: a user
- * cancel, a fiber interrupt, a shutdown, or a defect in the drain. It is the
- * one terminal those paths produce, so a reconnect can close the turn cleanly.
+ * cancel, a shutdown/fence interrupt, or a defect in the drain. It is deliberately
+ * neutral across those abnormal causes — the machine-readable `code` carries the
+ * distinction, while this stable message stays the contract a reconnecting client
+ * renders.
  */
 const ABORTED_TERMINAL_MESSAGE = "The assistant turn was stopped before it finished.";
+
+/**
+ * How one abnormal exit is terminalized: the durable failure status plus the
+ * protocol code stamped on both the synthetic terminal event and the turn record.
+ */
+type AbnormalTerminal = {
+  readonly status: AssistantTurnFailureStatus;
+  readonly code: ProtocolErrorCode;
+};
 
 /**
  * Finalize one server-owned generation regardless of how its fiber exited.
@@ -35,13 +48,14 @@ const ABORTED_TERMINAL_MESSAGE = "The assistant turn was stopped before it finis
  *   (`completed`/`error`/`blocked`) and the drain already appended it, so we only
  *   write the durable assistant-turn status from the accumulator.
  * - An abnormal exit (interrupt, shutdown, defect, or an event-log write failure)
- *   left no terminal, so we append a synthetic `sidechat.error(aborted)` at
- *   `maxSequence + 1` and record the turn as `user_aborted`.
+ *   left no terminal, so we classify it honestly from the exit cause plus the
+ *   durable cancel intent and append the one synthetic terminal that path owns.
  *
  * The synthetic append is guarded by the partial-unique terminal index
  * (`ON CONFLICT DO NOTHING` in the adapter), so even a terminal that landed
  * concurrently can never be duplicated. The durable status write rides the
- * existing running-guard, so only the first transition wins.
+ * running-guard and is skipped once a real terminal already won, so only the
+ * first transition wins.
  */
 export const finalizeTurnGeneration = <A>(
   ports: StreamChatPorts,
@@ -52,52 +66,112 @@ export const finalizeTurnGeneration = <A>(
 ): Effect.Effect<void, PartnerAiCoreError> =>
   Exit.isSuccess(exit)
     ? finalizeProtocolStream(ports, input, turn, accumulator)
-    : finalizeAbortedTurnGeneration(ports, input, turn);
+    : finalizeAbortedTurnGeneration(ports, input, turn, exit.cause);
 
 /**
  * Finalize a generation that ended without emitting its own terminal.
  *
- * The synthetic terminal append conflicts on the partial-unique terminal index,
- * so it can never duplicate a terminal that landed concurrently. The durable
- * status transition rides the running-guard, so only the first transition wins.
- * Both steps are therefore safe even though this path owns the abnormal exit.
+ * The exit cause and the durable cancel intent decide the honest terminal: a
+ * user cancel, an external interrupt (shutdown/fence), or a defect each map to a
+ * different status and code. The synthetic terminal append conflicts on the
+ * partial-unique terminal index, so it can never duplicate a terminal that landed
+ * concurrently; the durable status write is guarded so only the first transition
+ * wins. Both steps are therefore safe even though this path owns the abnormal exit.
  */
 const finalizeAbortedTurnGeneration = (
   ports: StreamChatPorts,
   input: StreamChatInput,
   turn: PreparedStreamChatTurn,
+  cause: Cause.Cause<PartnerAiCoreError>,
 ): Effect.Effect<void, PartnerAiCoreError> =>
   Effect.gen(function* () {
+    // Read the durable control state first: it tells us whether a cancel was
+    // actually requested (interrupt classification) and whether a real terminal
+    // already won the running-guard (so we skip the status write).
+    const controlState = yield* readTurnControlState(ports, turn);
+    const terminal = classifyAbnormalTerminal(cause, controlState);
+
     // Append the one terminal the abnormal path owns, after any events the drain
     // already wrote, so a reconnecting browser still closes the turn.
-    yield* appendSyntheticAbortedTerminal(ports, input, turn);
+    yield* appendSyntheticTerminal(ports, input, turn, terminal.code);
 
-    // Record the durable failure as a user abort: an interrupt is a cancel, and
-    // for any other abnormal exit the browser already saw an aborted terminal.
-    yield* mapPortFailure(
-      ports.assistantTurns.failAssistantTurn({
-        authContext: turn.authContext,
-        assistantTurnId: turn.assistantTurnId,
-        status: "user_aborted",
-        errorCode: PROTOCOL_ERROR_CODES.ABORTED,
-        now: ports.clock.now(),
-      }),
-      STREAM_CHAT_FAILURES.PERSISTENCE,
-    );
+    // Record the durable failure only while the turn is still running. Once a
+    // real terminal has transitioned the status, the running-guard would reject
+    // this write, so skipping keeps the invariant of exactly one status change.
+    if (isStillRunning(controlState)) {
+      yield* failTurn(ports, turn, terminal);
+    }
   });
 
 /**
- * Append the synthetic aborted terminal at `maxSequence + 1`.
+ * Classify an abnormal exit into its honest durable terminal.
+ *
+ * - Interrupt with durable cancel intent: a real user cancel -> `user_aborted`.
+ * - Interrupt without cancel intent: a shutdown or lease-fence stop the user did
+ *   not ask for -> `provider_failed` with a timeout-style code, since generation
+ *   was cut off rather than failing on its own.
+ * - Any non-interrupt abnormal exit (a defect or an event-log append failure) ->
+ *   `provider_failed`, the closest terminal for generation that could not finish.
+ */
+const classifyAbnormalTerminal = (
+  cause: Cause.Cause<PartnerAiCoreError>,
+  controlState: TurnControlState | undefined,
+): AbnormalTerminal => {
+  if (!Cause.hasInterrupts(cause)) {
+    return { status: "provider_failed", code: PROTOCOL_ERROR_CODES.PROVIDER_FAILED };
+  }
+  if (controlState?.cancelRequested) {
+    return { status: "user_aborted", code: PROTOCOL_ERROR_CODES.ABORTED };
+  }
+  return { status: "provider_failed", code: PROTOCOL_ERROR_CODES.TIMEOUT };
+};
+
+const isStillRunning = (controlState: TurnControlState | undefined): boolean =>
+  // A missing read defaults to attempting the write: the repository running-guard
+  // is the hard backstop, so a transient read miss never strands the turn.
+  controlState === undefined || controlState.status === "running";
+
+const readTurnControlState = (
+  ports: StreamChatPorts,
+  turn: PreparedStreamChatTurn,
+): Effect.Effect<TurnControlState | undefined, PartnerAiCoreError> =>
+  mapPortFailure(
+    ports.assistantTurns.readTurnControlState({
+      authContext: turn.authContext,
+      assistantTurnId: turn.assistantTurnId,
+    }),
+    STREAM_CHAT_FAILURES.PERSISTENCE,
+  );
+
+const failTurn = (
+  ports: StreamChatPorts,
+  turn: PreparedStreamChatTurn,
+  terminal: AbnormalTerminal,
+): Effect.Effect<void, PartnerAiCoreError> =>
+  mapPortFailure(
+    ports.assistantTurns.failAssistantTurn({
+      authContext: turn.authContext,
+      assistantTurnId: turn.assistantTurnId,
+      status: terminal.status,
+      errorCode: terminal.code,
+      now: ports.clock.now(),
+    }),
+    STREAM_CHAT_FAILURES.PERSISTENCE,
+  );
+
+/**
+ * Append the synthetic terminal at `maxSequence + 1`.
  *
  * The append goes through the event-log port, which `ON CONFLICT DO NOTHING`s on
  * the partial-unique terminal index. So if a real terminal already landed (a
  * race between the stream emitting one and the fiber being interrupted), this is
  * a durable no-op and the turn keeps exactly one terminal.
  */
-const appendSyntheticAbortedTerminal = (
+const appendSyntheticTerminal = (
   ports: StreamChatPorts,
   input: StreamChatInput,
   turn: PreparedStreamChatTurn,
+  code: ProtocolErrorCode,
 ): Effect.Effect<void, PartnerAiCoreError> =>
   Effect.gen(function* () {
     const maxSequence = yield* mapPortFailure(
@@ -108,7 +182,7 @@ const appendSyntheticAbortedTerminal = (
       STREAM_CHAT_FAILURES.PERSISTENCE,
     );
 
-    const terminal = createAbortedTerminalEvent(ports, input, turn, (maxSequence ?? -1) + 1);
+    const terminal = createAbortedTerminalEvent(ports, input, turn, (maxSequence ?? -1) + 1, code);
     yield* mapPortFailure(
       ports.turnEventLog.appendEvent({
         authContext: turn.authContext,
@@ -124,6 +198,7 @@ const createAbortedTerminalEvent = (
   input: StreamChatInput,
   turn: PreparedStreamChatTurn,
   sequence: number,
+  code: ProtocolErrorCode,
 ): SidechatStreamEvent => ({
   protocolVersion: input.request.protocolVersion,
   type: SIDECHAT_EVENT_TYPES.ERROR,
@@ -131,7 +206,7 @@ const createAbortedTerminalEvent = (
   assistantTurnId: turn.assistantTurnId,
   sequence,
   createdAt: ports.clock.now(),
-  code: PROTOCOL_ERROR_CODES.ABORTED,
+  code,
   message: ABORTED_TERMINAL_MESSAGE,
   retryable: false,
 });

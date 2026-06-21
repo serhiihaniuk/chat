@@ -125,6 +125,32 @@ describe("createAgentRuntime", () => {
     });
   });
 
+  it("forwards the request abort signal into the AI SDK model call", async () => {
+    // Statically confirms the real adapter path threads `request.abortSignal`
+    // through `agent.stream` down to the provider `doStream` options, so an Effect
+    // interruption upstream (which aborts that signal) stops the provider call.
+    const modelCalls: LanguageModelV3CallOptions[] = [];
+    const abortController = new AbortController();
+    const runtime = createAgentRuntime({
+      providers: [createCapturingProvider(modelCalls)],
+    });
+
+    await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          runtimeRequest({
+            requestId: "req_abort_signal",
+            assistantTurnId: "turn_abort_signal",
+            messages: [{ role: "user", content: "hello" }],
+            abortSignal: abortController.signal,
+          }),
+        ),
+      ),
+    );
+
+    expect(modelCalls[0]?.abortSignal).toBe(abortController.signal);
+  });
+
   it("selects app-owned tools without executing them before the model chooses them", async () => {
     const modelCalls: LanguageModelV3CallOptions[] = [];
     const tool = {

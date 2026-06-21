@@ -72,3 +72,15 @@ export const DEFAULT_OUTPUT_CONTRACT = {
 export const DEFAULT_TOOL_POLICY = {
   CLOSED: { mode: TOOL_POLICY_MODES.CLOSED, allowedToolNames: [] },
 } as const;
+
+/**
+ * Default resumable-streaming operator tunables.
+ *
+ * `SAFETY_POLL_INTERVAL_MS` is the per-subscriber reconcile cadence — a
+ * low-frequency backstop for a missed Postgres `NOTIFY`. It is deliberately
+ * slower than the notify path so the poll adds little load while still bounding
+ * how long a dropped signal can stall a live subscriber.
+ */
+export const RESUMABILITY_DEFAULTS = {
+  SAFETY_POLL_INTERVAL_MS: 2_000,
+} as const;

@@ -34,7 +34,7 @@ describe("partner ai service turn guards", () => {
           ),
         ],
       },
-    }).request("/chat/stream", {
+    }).request("/chat/runs", {
       method: "POST",
       headers: {
         authorization: "Bearer local-test-token",
@@ -61,7 +61,7 @@ describe("partner ai service turn guards", () => {
       turnGuards: {
         guards: [createTurnGuard(() => Effect.fail(new Error("classifier unavailable")))],
       },
-    }).request("/chat/stream", {
+    }).request("/chat/runs", {
       method: "POST",
       headers: {
         authorization: "Bearer local-test-token",

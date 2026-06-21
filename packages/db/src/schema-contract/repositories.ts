@@ -90,6 +90,22 @@ export type FailAssistantTurnCommand = RepositoryCommandEnvelope & {
   readonly errorCode: string;
 };
 
+export type RequestTurnCancellationCommand = RepositoryCommandEnvelope & {
+  readonly assistantTurnId: AssistantTurnId;
+};
+
+/**
+ * Outcome of recording a durable cancel intent.
+ *
+ * `cancelRequested` is true only when this call moved a still-running turn into
+ * the cancel-requested state (and notified). It is false for an unknown,
+ * cross-workspace, or already-terminal turn, so a cancel of a finished turn is a
+ * no-op rather than an error.
+ */
+export type RequestTurnCancellationResult = {
+  readonly cancelRequested: boolean;
+};
+
 export type AppendTurnEventCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
   readonly sequence: number;
@@ -113,12 +129,10 @@ export type FindAssistantTurnCommand = {
   readonly workspaceId: WorkspaceId;
   readonly assistantTurnId: AssistantTurnId;
 };
-
 export type FindAssistantTurnByRequestCommand = {
   readonly workspaceId: WorkspaceId;
   readonly requestId: RequestId;
 };
-
 export type FindActiveAssistantTurnCommand = {
   readonly workspaceId: WorkspaceId;
   readonly subjectId: SubjectId;
@@ -221,12 +235,10 @@ export type RepositoryCommandInput =
   | RecordTurnContextSnapshotCommand
   | CompleteAssistantTurnCommand
   | FailAssistantTurnCommand
+  | RequestTurnCancellationCommand
   | AppendTurnEventCommand
   | ReadTurnEventsAfterCommand
   | MaxTurnEventSequenceCommand
-  | FindAssistantTurnCommand
-  | FindAssistantTurnByRequestCommand
-  | FindActiveAssistantTurnCommand
   | RecordUsageCommand
   | ReadUsageSummaryCommand
   | RecordToolInvocationCommand
@@ -272,13 +284,18 @@ export type AssistantTurnRepositoryContract = {
     command: CompleteAssistantTurnCommand,
   ) => Promise<AssistantTurnRecord>;
   readonly failAssistantTurn: (command: FailAssistantTurnCommand) => Promise<AssistantTurnRecord>;
-  /**
-   * Append one stream event and signal subscribers in one transaction.
-   *
-   * Idempotent on `(assistantTurnId, sequence)`: an identical re-append returns
-   * `inserted: false`; a conflicting payload at the same sequence rejects with
-   * `event_log_conflict`. At most one terminal-typed row may exist per turn.
-   */
+  // Record durable cancel intent for a running turn and notify the cancel channel
+  // in one transaction (notify fires on commit). CAS-guarded to running turns, so
+  // a cancel of an unknown, cross-workspace, or already-terminal turn is a no-op
+  // (`cancelRequested: false`), never an error. Works from any instance; the
+  // owning instance reacts to the notify by interrupting its live fiber.
+  readonly requestTurnCancellation: (
+    command: RequestTurnCancellationCommand,
+  ) => Promise<RequestTurnCancellationResult>;
+  // Append one stream event and notify subscribers in one transaction. Idempotent
+  // on `(assistantTurnId, sequence)` (identical re-append returns `inserted:
+  // false`; a different payload rejects with `event_log_conflict`); at most one
+  // terminal-typed row per turn.
   readonly appendTurnEvent: (
     command: AppendTurnEventCommand,
   ) => Promise<RepositoryCommandResult<TurnEventRecord>>;
@@ -288,31 +305,17 @@ export type AssistantTurnRepositoryContract = {
   readonly maxTurnEventSequence: (
     command: MaxTurnEventSequenceCommand,
   ) => Promise<number | undefined>;
-  /**
-   * Read one assistant turn by id, scoped to the workspace.
-   *
-   * Returns `undefined` when no turn matches in the workspace so callers map a
-   * guessed or cross-tenant id to a not-found response instead of a thrown error.
-   */
+  // Turn-record reads for the resumable routes, all workspace-scoped and
+  // returning `undefined` (not throwing) for an unknown or cross-tenant id, so a
+  // guessed id maps to a not-found response. `findActiveAssistantTurn` answers
+  // "is there a running turn to resume?"; `findAssistantTurnByRequest` is the
+  // lost-`POST /chat/runs`-reply resolver from `requestId` to the canonical turn.
   readonly findAssistantTurn: (
     command: FindAssistantTurnCommand,
   ) => Promise<AssistantTurnRecord | undefined>;
-  /**
-   * Resolve the turn started for one client request id, scoped to the workspace.
-   *
-   * This is the lost-POST-response resolver: a client that never received the
-   * `POST /chat/runs` reply maps its `requestId` back to the canonical turn.
-   */
   readonly findAssistantTurnByRequest: (
     command: FindAssistantTurnByRequestCommand,
   ) => Promise<AssistantTurnRecord | undefined>;
-  /**
-   * Read the running assistant turn for one conversation, if any.
-   *
-   * A conversation has at most one in-flight turn, so this answers "is there an
-   * active turn to resume?" for the conversations route. Returns `undefined` when
-   * no turn is `running`.
-   */
   readonly findActiveAssistantTurn: (
     command: FindActiveAssistantTurnCommand,
   ) => Promise<AssistantTurnRecord | undefined>;

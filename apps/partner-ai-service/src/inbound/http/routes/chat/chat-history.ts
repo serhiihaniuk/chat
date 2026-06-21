@@ -60,6 +60,43 @@ export const registerChatHistoryRoutes = (
     }
   });
 
+  // One conversation's history plus its active turn, so a reconnecting client can
+  // both render past messages and resume an in-flight turn from one read.
+  app.get("/chat/conversations/:conversationId", async (context) => {
+    const authContext = requireContextAuth(context.get("authContext"));
+    const conversationId = context.req.param("conversationId");
+    const limit = readPositiveInteger(context.req.query("limit"), 50);
+
+    try {
+      const messages = await dependencies.repositories.readConversationHistory({
+        workspaceId: authContext.workspaceId,
+        subjectId: authContext.subject.subjectId,
+        conversationId,
+        limit,
+      });
+      const activeTurn = await dependencies.repositories.findActiveAssistantTurn({
+        workspaceId: authContext.workspaceId,
+        subjectId: authContext.subject.subjectId,
+        conversationId,
+      });
+      return context.json({
+        protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+        conversationId,
+        messages: messages.map((message) => ({
+          id: message.messageId,
+          role: message.role,
+          content: message.contentText,
+          sequence: message.sequenceIndex,
+        })),
+        activeTurn: activeTurn
+          ? { assistantTurnId: activeTurn.assistantTurnId, status: activeTurn.status }
+          : null,
+      });
+    } catch (error) {
+      return jsonError("not_found", errorMessage(error), 404);
+    }
+  });
+
   app.delete("/chat/history/:conversationId", async (context) => {
     const authContext = requireContextAuth(context.get("authContext"));
     const conversationId = context.req.param("conversationId");

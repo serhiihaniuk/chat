@@ -11,6 +11,7 @@ import {
   HISTORY_CONTEXT_MODES,
   OUTPUT_FORMATS,
   REQUEST_POLICY_MODES,
+  RESUMABILITY_DEFAULTS,
   SAFETY_POLICIES,
   SERVICE_PROFILES,
   TOOL_DEFAULT_EXPOSURE,
@@ -183,6 +184,13 @@ const sideChatConfig = defineSideChatConfig({
         prompt: AUXILIARY_JOBS.CONVERSATION_TITLE.DEFAULT_PROMPT,
       },
     ],
+  },
+  resumability: {
+    safetyPollInterval: readEnv.number(SERVICE_ENV_KEYS.safetyPollIntervalMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS,
+      description:
+        "Per-subscriber reconcile-poll interval (ms) backstopping a missed Postgres NOTIFY.",
+    }),
   },
 } satisfies SideChatConfig);
 

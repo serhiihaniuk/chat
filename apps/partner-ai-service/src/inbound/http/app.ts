@@ -13,6 +13,7 @@ import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import {
   composePartnerAiService,
   type PersistenceConfig,
+  type ResumabilityConfig,
   type RuntimeConfig,
   type RuntimeToolConfig,
   type ServiceTurnProfileConfig,
@@ -24,7 +25,7 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAuth } from "./middleware/require-auth.js";
 import { registerChatHistoryRoutes } from "./routes/chat/chat-history.js";
 import { registerChatRunsRoute } from "./routes/chat/runs/chat-runs.js";
-import { registerChatStreamRoute } from "./routes/chat/chat-stream.js";
+import { registerChatTurnRoutes } from "./routes/chat/turns/chat-turns.js";
 import { registerChatUsageRoute } from "./routes/chat/chat-usage.js";
 import { registerHealthRoutes } from "./routes/health/health.js";
 import { registerModelsRoute } from "./routes/models/models.js";
@@ -63,6 +64,8 @@ export type PartnerAiServiceOptions = {
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
   readonly workspace?: WorkspaceRef | undefined;
+  /** Resumable-streaming tunables; composition falls back to catalog defaults. */
+  readonly resumability?: ResumabilityConfig | undefined;
 };
 
 /**
@@ -100,12 +103,19 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     clock: composition.ports.clock,
   });
   registerChatUsageRoute(app, composition.repositories);
-  registerChatStreamRoute(app, {
-    workspace: composition.workspace,
-    hostAppId: composition.hostAppId,
-    ports: composition.ports,
-  });
+  // Start one turn (forks generation) ...
   registerChatRunsRoute(app, { turnRunner: composition.turnRunner });
+  // ... then resolve, read status, subscribe to its durable event stream, and
+  // cancel it. Composition already started the per-instance cancel listener
+  // (`cancelDispatcher`) that interrupts an owned fiber when a cancel lands on
+  // any instance; the cancel route only writes durable intent + notify.
+  registerChatTurnRoutes(app, {
+    repositories: composition.repositories,
+    ports: composition.ports,
+    dispatcher: composition.dispatcher,
+    runner: composition.turnRunner,
+    safetyPollIntervalMs: composition.safetyPollIntervalMs,
+  });
 
   return app;
 };
@@ -127,4 +137,5 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   defaultTurnProfileId: options.defaultTurnProfileId,
   turnGuards: options.turnGuards,
   turnGuardIds: options.turnGuardIds,
+  resumability: options.resumability,
 });

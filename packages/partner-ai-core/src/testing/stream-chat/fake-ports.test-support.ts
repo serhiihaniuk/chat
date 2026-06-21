@@ -34,6 +34,7 @@ import {
   createIdGeneratorPort,
   createRuntimePort,
   createTurnEventLogPort,
+  type FakeTurnControlState,
   type RuntimeEventFixture,
 } from "./fake-port-builders.test-support.js";
 
@@ -48,6 +49,8 @@ export type FakePortOptions = {
   readonly contextManager?: ContextManagerPort | undefined;
   readonly preparedContext?: PreparedTurnContext | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
+  /** Seeds the durable control state `readTurnControlState` returns (cancel intent). */
+  readonly turnControlState?: FakeTurnControlState | undefined;
 };
 
 export const createFakePorts = (options: FakePortOptions = {}) => {
@@ -78,7 +81,16 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     appendedUserMessages,
     preparedTitles,
   );
-  const assistantTurns = createAssistantTurnLifecyclePort(calls, completedTurns, failedTurns);
+  const turnControlState = options.turnControlState ?? {
+    status: "running" as const,
+    cancelRequested: false,
+  };
+  const assistantTurns = createAssistantTurnLifecyclePort(
+    calls,
+    completedTurns,
+    failedTurns,
+    turnControlState,
+  );
   const runtime = createRuntimePort(calls, runtimeRequests, options.runtimeEvents);
   const appendedEvents: SidechatStreamEvent[] = [];
   const turnEventLog = createTurnEventLogPort(calls, appendedEvents);
@@ -92,6 +104,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     appendedUserMessages,
     preparedTitles,
     appendedEvents,
+    turnControlState,
     assistantTurns,
     turnEventLog,
     hostCapabilities: {

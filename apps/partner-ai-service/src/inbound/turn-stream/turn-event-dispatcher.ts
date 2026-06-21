@@ -88,8 +88,7 @@ export const createTurnEventDispatcher = (
   const subscribe = (input: {
     readonly assistantTurnId: string;
     readonly authContext: AuthContext;
-  }): Promise<TurnEventSubscription> =>
-    Effect.runPromise(registerSubscriber(fanouts, input));
+  }): Promise<TurnEventSubscription> => Effect.runPromise(registerSubscriber(fanouts, input));
 
   const shutdown = (): Promise<void> =>
     Effect.runPromise(Scope.close(scope, Exit.succeed(undefined)));

@@ -74,9 +74,12 @@ describe("server-owned turn runner", () => {
     expect(started.conversationId).toBe(turn.conversationId);
   });
 
-  it("finalizes a forced interruption as user_aborted with one synthetic aborted terminal", async () => {
+  it("finalizes a bare interrupt without cancel intent as a non-user provider failure", async () => {
     // A runtime that emits a delta then never terminates keeps the fiber alive
-    // until it is interrupted, so onExit owns the terminal.
+    // until it is interrupted, so onExit owns the terminal. A bare
+    // `interruptTurn` (no durable cancel intent) is a shutdown/fence-style stop,
+    // not a user abort, so it terminalizes honestly as provider_failed. A real
+    // user cancel writes intent first and is covered by the cancel route tests.
     const harness = createRunnerHarness({ runtime: blockingRuntime() });
 
     const started = await harness.runner.start({
@@ -93,13 +96,37 @@ describe("server-owned turn runner", () => {
     expect(terminal.type).toBe("error");
     expect(eventOf(terminal)).toMatchObject({
       type: SIDECHAT_EVENT_TYPES.ERROR,
-      code: PROTOCOL_ERROR_CODES.ABORTED,
+      code: PROTOCOL_ERROR_CODES.TIMEOUT,
       sequence: lastNonTerminalSequence(events) + 1,
     });
 
     const turn = requireTurn(harness.repositories, started.assistantTurnId);
-    expect(turn.status).toBe("user_aborted");
-    expect(turn.errorCode).toBe(PROTOCOL_ERROR_CODES.ABORTED);
+    expect(turn.status).toBe("provider_failed");
+    expect(turn.errorCode).toBe(PROTOCOL_ERROR_CODES.TIMEOUT);
+  });
+
+  it("aborts the in-flight provider call when the generation fiber is interrupted", async () => {
+    // The runtime captures the abort signal core threads into the request and then
+    // blocks, so the fiber stays alive until interrupted. Interruption must abort
+    // that captured signal, proving generation (and billing) stops, not just the
+    // socket.
+    const capture: { signal?: AbortSignal } = {};
+    const harness = createRunnerHarness({ runtime: abortObservingRuntime(capture) });
+
+    const started = await harness.runner.start({
+      request: chatRequest(),
+      authContext: AUTH_CONTEXT,
+    });
+
+    // The provider received a live (not-yet-aborted) signal once streaming opened.
+    await expect.poll(() => capture.signal !== undefined).toBe(true);
+    expect(capture.signal?.aborted).toBe(false);
+
+    await harness.runner.interruptTurn(started.assistantTurnId);
+    await harness.runner.awaitTurn(started.assistantTurnId);
+
+    // Interrupting the fiber aborted the provider's signal.
+    expect(capture.signal?.aborted).toBe(true);
   });
 
   it("is idempotent on requestId: a repeated start resolves to the same turn without a second generation", async () => {
@@ -120,7 +147,7 @@ describe("server-owned turn runner", () => {
     expect(mainGenerationRequests(harness.runtimeRequests)).toHaveLength(1);
   });
 
-  it("interrupts in-flight generation on shutdown and finalizes it as aborted", async () => {
+  it("interrupts in-flight generation on shutdown and finalizes it as a non-user terminal", async () => {
     const harness = createRunnerHarness({ runtime: blockingRuntime() });
 
     const started = await harness.runner.start({
@@ -131,10 +158,15 @@ describe("server-owned turn runner", () => {
     await harness.runner.awaitTurn(started.assistantTurnId);
 
     // Closing the runner scope interrupted the fiber, so onExit still owned the
-    // one terminal and the durable abort status.
+    // one terminal. Shutdown is not a user cancel (no durable intent), so the
+    // honest durable status is provider_failed, not user_aborted. The onExit
+    // finalizer settles just after the interrupted fiber detaches, so poll the
+    // durable status rather than reading a single snapshot.
+    await expect
+      .poll(() => requireTurn(harness.repositories, started.assistantTurnId).status)
+      .toBe("provider_failed");
     const events = await readTurnEvents(harness.repositories, started.assistantTurnId);
     expect(events.filter((event) => isTerminalEvent(eventOf(event)))).toHaveLength(1);
-    expect(requireTurn(harness.repositories, started.assistantTurnId).status).toBe("user_aborted");
   });
 });
 
@@ -179,6 +211,16 @@ const blockingRuntime = (): AiRuntimePort => ({
       ]),
       Stream.never,
     ),
+});
+
+// Captures the abort signal core threads into the runtime request, then blocks so
+// the fiber stays alive until interrupted. Mirrors how the real AI SDK adapter
+// receives `request.abortSignal` and ties it to the in-flight provider call.
+const abortObservingRuntime = (capture: { signal?: AbortSignal }): AiRuntimePort => ({
+  streamEffect: (request) => {
+    capture.signal = request.abortSignal;
+    return Stream.concat(Stream.fromIterable([startedRuntimeEvent(request)]), Stream.never);
+  },
 });
 
 const startedRuntimeEvent = (request: AiRuntimeRequest): RuntimeEvent => ({

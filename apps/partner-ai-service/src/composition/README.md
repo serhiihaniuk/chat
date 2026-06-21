@@ -50,7 +50,9 @@ protocol contracts.
 
 `ServiceComposition` is:
 `{ workspace, hostAppId, auth, policies, persistence, repositories, runtime,
-ports, capabilities, diagnostics }`. The chat-stream route consumes
+ports, turnRunner, dispatcher, safetyPollIntervalMs, capabilities, diagnostics }`.
+The runs route starts a turn through `composition.turnRunner`; the turn-stream
+route subscribes through `composition.dispatcher` (+ `safetyPollIntervalMs`) and
 `composition.ports`; health and models read `composition.diagnostics` and
 `composition.capabilities`.
 

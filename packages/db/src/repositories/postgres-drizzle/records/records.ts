@@ -80,6 +80,7 @@ export const toAssistantTurnRecord = (
   ...omitNullishField("errorCode", row.errorCode),
   startedAt: row.startedAt,
   ...omitNullishField("completedAt", row.completedAt),
+  ...omitNullishField("cancelRequestedAt", row.cancelRequestedAt),
   createdAt: row.startedAt,
   updatedAt: row.completedAt ?? row.startedAt,
 });

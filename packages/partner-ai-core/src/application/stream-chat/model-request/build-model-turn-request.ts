@@ -11,6 +11,11 @@ import { renderContextBoardMessage } from "./render-context-board-message.js";
  * Invariant: core is the only place that assembles final model messages, so the
  * runtime receives `messages` as-is and can never prepend system instructions,
  * a context board, or the current user message.
+ *
+ * The generation `abortSignal` is intentionally not set here: the server-owned
+ * runner is decoupled from any caller signal, so provider abort is driven by
+ * fiber interruption and the signal is applied at the single open-stream call
+ * site (`protocol-event-stream.ts`).
  */
 export const buildModelTurnRequest = (
   input: StreamChatInput,
@@ -32,7 +37,6 @@ export const buildModelTurnRequest = (
     assistantTurnId: turn.assistantTurnId,
     allowedHostCommandNames: turn.policyDecision.allowedCommandNames,
   },
-  abortSignal: input.abortSignal,
 });
 
 /**

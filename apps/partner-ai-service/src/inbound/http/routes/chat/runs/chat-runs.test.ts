@@ -5,12 +5,7 @@ import {
   type AiRuntimeRequest,
   type RuntimeEvent,
 } from "@side-chat/ai-runtime-contract";
-import {
-  SIDECHAT_EVENT_TYPES,
-  SIDECHAT_PROTOCOL_VERSION,
-  decodeSseEvents,
-  type ChatStreamRequest,
-} from "@side-chat/chat-protocol";
+import { SIDECHAT_PROTOCOL_VERSION, type ChatStreamRequest } from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
 import { Stream } from "effect";
 import { describe, expect, it, vi } from "vitest";
@@ -80,28 +75,6 @@ describe("POST /chat/runs", () => {
     const body = (await response.json()) as Record<string, unknown>;
     expect(body["code"]).toBe("bad_request");
     expect(harness.repositories.snapshot().assistantTurns).toHaveLength(0);
-  });
-});
-
-describe("POST /chat/stream finalization is not regressed", () => {
-  it("still completes the SSE stream and persists a completed assistant turn", async () => {
-    const harness = createRouteHarness();
-
-    const response = await harness.app.request("/chat/stream", {
-      method: "POST",
-      headers: { ...AUTH_HEADER, "content-type": "application/json" },
-      body: JSON.stringify(runRequest({ requestId: "request_stream_regression_001" })),
-    });
-    expect(response.status).toBe(200);
-
-    const events = decodeSseEvents(await response.text());
-    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
-
-    // The response-owned path still writes the durable terminal via its tail drain.
-    const completed = harness.repositories
-      .snapshot()
-      .assistantTurns.find((turn) => turn.requestId === "request_stream_regression_001");
-    expect(completed?.status).toBe("completed");
   });
 });
 

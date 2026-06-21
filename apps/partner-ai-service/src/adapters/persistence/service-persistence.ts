@@ -32,6 +32,7 @@ const createAssistantTurnPersistence = (
   recordContextSnapshot: createRecordContextSnapshotEffect(repositories),
   completeAssistantTurn: createCompleteAssistantTurnEffect(repositories),
   failAssistantTurn: createFailAssistantTurnEffect(repositories),
+  readTurnControlState: createReadTurnControlStateEffect(repositories),
 });
 
 const createStartAssistantTurnEffect =
@@ -168,3 +169,21 @@ const createFailAssistantTurnEffect =
         }),
       catch: (error) => error,
     }).pipe(Effect.asVoid);
+
+const createReadTurnControlStateEffect =
+  (repositories: SidechatRepositories): AssistantTurnLifecyclePort["readTurnControlState"] =>
+  ({ authContext, assistantTurnId }) =>
+    Effect.tryPromise({
+      try: async () => {
+        // The workspace-scoped turn read already returns `undefined` for an
+        // unknown or cross-workspace id, and now carries the durable cancel
+        // intent, so finalize can classify the exit without a second query.
+        const turn = await repositories.findAssistantTurn({
+          workspaceId: authContext.workspaceId,
+          assistantTurnId,
+        });
+        if (!turn) return undefined;
+        return { status: turn.status, cancelRequested: turn.cancelRequestedAt !== undefined };
+      },
+      catch: (error) => error,
+    });

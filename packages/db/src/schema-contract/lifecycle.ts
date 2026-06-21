@@ -89,3 +89,15 @@ export const isTurnEventTerminalType = (type: string): type is TurnEventTerminal
  * `notifyChannel` config tunable defaults to this value.
  */
 export const TURN_EVENTS_NOTIFY_CHANNEL = "turn_events";
+
+/**
+ * Postgres `LISTEN/NOTIFY` channel a durable cancel intent signals on.
+ *
+ * A cancel can land on any instance, but only the instance that owns the live
+ * generation fiber can interrupt it. `requestTurnCancellation` writes the durable
+ * intent and notifies this channel in one transaction; every instance listens,
+ * and the owning one interrupts its fiber while non-owners no-op. The payload is
+ * just `{ assistantTurnId }` — the durable `cancel_requested_at` column is the
+ * source of truth, so a missed signal still terminalizes via the reaper.
+ */
+export const TURN_CANCEL_NOTIFY_CHANNEL = "turn_cancel";

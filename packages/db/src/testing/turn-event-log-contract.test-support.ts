@@ -173,5 +173,80 @@ export const turnEventLogRepositoryContract = (
         await closeIfNeeded(repositories);
       }
     });
+
+    it("records durable cancel intent for a running turn and no-ops once terminal", async () => {
+      const repositories = createRepositories();
+      const scope = nextScope();
+      try {
+        const turn = await startTurn(repositories, scope);
+
+        // A running turn accepts the cancel intent and exposes it on the record.
+        await expect(
+          repositories.requestTurnCancellation({
+            workspaceId: workspaceId(scope),
+            assistantTurnId: turn.assistantTurnId,
+            now,
+          }),
+        ).resolves.toEqual({ cancelRequested: true });
+        await expect(
+          repositories.findAssistantTurn({
+            workspaceId: workspaceId(scope),
+            assistantTurnId: turn.assistantTurnId,
+          }),
+        ).resolves.toMatchObject({ status: "running", cancelRequestedAt: now });
+
+        // Once the turn is terminal the running-guard makes a cancel a no-op.
+        await repositories.failAssistantTurn({
+          workspaceId: workspaceId(scope),
+          assistantTurnId: turn.assistantTurnId,
+          status: "user_aborted",
+          errorCode: "aborted",
+          now,
+        });
+        await expect(
+          repositories.requestTurnCancellation({
+            workspaceId: workspaceId(scope),
+            assistantTurnId: turn.assistantTurnId,
+            now,
+          }),
+        ).resolves.toEqual({ cancelRequested: false });
+      } finally {
+        await closeIfNeeded(repositories);
+      }
+    });
+
+    it("does not cancel an unknown or cross-workspace turn", async () => {
+      const repositories = createRepositories();
+      const scope = nextScope();
+      try {
+        const turn = await startTurn(repositories, scope);
+
+        // Unknown id: nothing matches the CAS, so it is a durable no-op.
+        await expect(
+          repositories.requestTurnCancellation({
+            workspaceId: workspaceId(scope),
+            assistantTurnId: "assistant_turn_missing" as never,
+            now,
+          }),
+        ).resolves.toEqual({ cancelRequested: false });
+
+        // Cross-workspace id: the workspace clause excludes it, so a guessed id
+        // from another tenant cannot cancel another workspace's turn.
+        await expect(
+          repositories.requestTurnCancellation({
+            workspaceId: "other_workspace" as never,
+            assistantTurnId: turn.assistantTurnId,
+            now,
+          }),
+        ).resolves.toEqual({ cancelRequested: false });
+        const unchanged = await repositories.findAssistantTurn({
+          workspaceId: workspaceId(scope),
+          assistantTurnId: turn.assistantTurnId,
+        });
+        expect(unchanged?.cancelRequestedAt).toBeUndefined();
+      } finally {
+        await closeIfNeeded(repositories);
+      }
+    });
   });
 };

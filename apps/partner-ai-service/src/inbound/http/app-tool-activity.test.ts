@@ -1,8 +1,4 @@
-import {
-  SIDECHAT_EVENT_TYPES,
-  SIDECHAT_PROTOCOL_VERSION,
-  decodeSseEvents,
-} from "@side-chat/chat-protocol";
+import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import {
   RUNTIME_FINISH_REASONS,
   RUNTIME_EVENT_TYPES,
@@ -11,6 +7,10 @@ import {
 import { Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import { createPartnerAiServiceApp } from "./app.js";
+import {
+  TEST_SAFETY_POLL_INTERVAL_MS,
+  runTurnStream,
+} from "#testing/turn-stream/turn-stream-harness.test-support";
 
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -26,24 +26,19 @@ describe("partner ai service tool activity stream", () => {
   it("maps service runtime tool activity into ordered protocol activity rows", async () => {
     const runtimeEvents = createToolRuntimeEvents("request_001", "assistant_turn_001");
     const runtimeRequests: unknown[] = [];
-    const response = await createPartnerAiServiceApp({
-      agentRuntime: {
-        streamEffect: (request) => {
-          runtimeRequests.push(request);
-          return Stream.fromIterable(runtimeEvents);
+    const { events } = await runTurnStream(
+      createPartnerAiServiceApp({
+        resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
+        agentRuntime: {
+          streamEffect: (request) => {
+            runtimeRequests.push(request);
+            return Stream.fromIterable(runtimeEvents);
+          },
         },
-      },
-    }).request("/chat/stream", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(validRequest),
-    });
+      }),
+      validRequest,
+    );
 
-    expect(response.status).toBe(200);
-    const events = decodeSseEvents(await response.text());
     expect(visibleRuntimeRequests(runtimeRequests)[0]).toMatchObject({
       messages: expect.arrayContaining([{ role: "user", content: "hello service" }]),
     });

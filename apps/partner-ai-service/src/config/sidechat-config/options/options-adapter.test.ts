@@ -1,7 +1,8 @@
-import { decodeSseEvents, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 import sideChatConfig from "#sidechat-config";
 import { createPartnerAiServiceApp } from "#inbound/http/app";
+import { runTurnStream } from "#testing/turn-stream/turn-stream-harness.test-support";
 import { EXECUTORS } from "#config/catalog/capabilities/executors";
 import { TOOLS } from "#config/catalog/capabilities/tools";
 import {
@@ -118,21 +119,12 @@ describe("sidechat.config.ts", () => {
     const app = createPartnerAiServiceApp(
       createPartnerAiServiceOptionsFromConfig(createTestFakeConfig(), {
         [SERVICE_ENV_KEYS.authBearerToken]: "local-config-token",
+        [SERVICE_ENV_KEYS.safetyPollIntervalMs]: "10",
       }),
     );
 
-    const stream = await app.request("/chat/stream", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-config-token",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(validRequest),
-    });
-
-    expect(stream.status).toBe(200);
-    const events = decodeSseEvents(await stream.text());
-    expect(events.at(-1)).toMatchObject({ type: "sidechat.completed" });
+    const { events } = await runTurnStream(app, validRequest, "Bearer local-config-token");
+    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
   });
 
   it("builds OpenAI runtime options from config plus secret env only", () => {

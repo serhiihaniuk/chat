@@ -66,4 +66,23 @@ export type AssistantTurnLifecyclePort = {
     readonly errorCode: ProtocolErrorCode;
     readonly now: string;
   }) => Effect.Effect<void, unknown>;
+  /**
+   * Read the control state finalize needs to terminalize a turn honestly.
+   *
+   * `status` is the durable turn status (so the abnormal finalizer can skip the
+   * status write once a real terminal already won the running-guard), and
+   * `cancelRequested` reflects the durable cancel intent (so an interrupt is
+   * classified as a user abort only when a cancel was actually requested).
+   * Returns `undefined` for an unknown or cross-workspace turn.
+   */
+  readonly readTurnControlState: (input: {
+    readonly authContext: AuthContext;
+    readonly assistantTurnId: string;
+  }) => Effect.Effect<TurnControlState | undefined, unknown>;
+};
+
+/** Durable control facts an abnormal finalize reads to terminalize honestly. */
+export type TurnControlState = {
+  readonly status: AssistantTurnStatus;
+  readonly cancelRequested: boolean;
 };

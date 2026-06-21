@@ -3,6 +3,7 @@ import { omitUndefinedProperties } from "@side-chat/shared";
 import { createMockWebSearchRegistration } from "#adapters/tools/mock-web-search-tool";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type {
+  ResumabilityConfig,
   RuntimeModelMetadata,
   RuntimeToolConfig,
 } from "#composition/service-composition-types";
@@ -13,6 +14,7 @@ import { AUXILIARY_JOBS } from "../../catalog/capabilities/auxiliary-jobs.js";
 import {
   CONFIG_IDS,
   REQUEST_POLICY_MODES,
+  RESUMABILITY_DEFAULTS,
   SERVICE_PROFILES,
   TOOL_DEFAULT_EXPOSURE,
 } from "../../catalog/config-values.js";
@@ -21,6 +23,7 @@ import { ServiceConfigError } from "../../service-config-error.js";
 import {
   createAuthConfig,
   createPersistenceConfig,
+  readNumberEnvReference,
   readRequiredStringEnvReference,
   readServiceProfile,
   readStringEnvReference,
@@ -76,8 +79,15 @@ export const createPartnerAiServiceOptionsFromConfig = (
     turnProfiles: [createTurnProfileConfig(providerKind, config)],
     defaultTurnProfileId: config.chat.turnProfile.id,
     turnGuardIds: config.chat.turnProfile.safety.turnGuardIds,
+    resumability: createResumabilityConfig(config, env),
   });
 };
+
+const createResumabilityConfig = (config: SideChatConfig, env: ServiceEnv): ResumabilityConfig => ({
+  safetyPollIntervalMs:
+    readNumberEnvReference(env, config.resumability.safetyPollInterval) ??
+    RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS,
+});
 
 const createRuntimeConfig = (
   profile: ServiceProfile,

@@ -59,9 +59,11 @@ Dense boundary comments should name source, target, hidden detail, and invariant
 
 Core/server workflows are Effect-first:
 
-- `packages/partner-ai-core` exposes `streamChatEffect(input)`.
+- `packages/partner-ai-core` exposes `prepareStreamChatTurn(input)` +
+  `runTurnGeneration(...)` (the server-owned streaming path).
 - `packages/agent-runtime` exposes `streamEffect(request)`.
-- Promise and `AsyncIterable` conversions belong at transport edges.
+- Promise, `ReadableStream`, and `AsyncIterable` conversions belong at transport
+  edges.
 - Expected Effect failures use `Effect.fail`, `Effect.try`, or
   `Effect.tryPromise`; raw `throw` is a defect.
 

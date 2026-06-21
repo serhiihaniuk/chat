@@ -6,6 +6,7 @@ import type { PartnerAiServiceOptions } from "#inbound/http/app";
 import {
   PROVIDERS,
   REQUEST_POLICY_MODES,
+  RESUMABILITY_DEFAULTS,
   SERVICE_PROFILES,
   type RequestPolicyMode,
   type ServiceProfileValue,
@@ -24,10 +25,10 @@ export { ServiceConfigError } from "./service-config-error.js";
 /**
  * Environment-to-service adapter for deployable Side Chat configuration.
  *
- * This file reads `SIDECHAT_*` process settings into HTTP, auth, policy,
- * persistence, runtime, and capability options consumed by app composition.
- * It validates operator intent and secret presence, but it does not open
- * providers, choose database clients, or build model-visible context.
+ * Reads `SIDECHAT_*` process settings into HTTP, auth, policy, persistence,
+ * runtime, and capability options for composition. It validates operator intent
+ * and secret presence, but does not open providers, choose database clients, or
+ * build model-visible context.
  */
 export const SERVICE_ENV_KEYS = {
   allowedModels: "SIDECHAT_ALLOWED_MODELS",
@@ -44,6 +45,7 @@ export const SERVICE_ENV_KEYS = {
   policyMode: "SIDECHAT_POLICY_MODE",
   port: "PORT",
   profile: "SIDECHAT_PROFILE",
+  safetyPollIntervalMs: "SIDECHAT_SAFETY_POLL_INTERVAL_MS",
   provider: "SIDECHAT_PROVIDER",
   enableDevTools: "SIDECHAT_ENABLE_DEV_TOOLS",
   tenantId: "SIDECHAT_TENANT_ID",
@@ -80,7 +82,16 @@ export const createPartnerAiServiceOptionsFromEnv = (
     runtime: createRuntimeConfig(profile, env),
     capabilities,
     persistence,
+    resumability: { safetyPollIntervalMs: readSafetyPollInterval(env) },
   });
+};
+
+const readSafetyPollInterval = (env: ServiceEnv): number => {
+  const rawValue = envValue(env, SERVICE_ENV_KEYS.safetyPollIntervalMs);
+  if (!rawValue) return RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS;
+  const parsed = Number(rawValue);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  throw new ServiceConfigError("SIDECHAT_SAFETY_POLL_INTERVAL_MS must be a positive number.");
 };
 
 export const readServicePort = (env: ServiceEnv = process.env): number => {
@@ -100,13 +111,9 @@ export const readServicePort = (env: ServiceEnv = process.env): number => {
 export const readDemoSeedConversations = (env: ServiceEnv = process.env): boolean =>
   readBooleanFlag(envValue(env, SERVICE_ENV_KEYS.demoSeedConversations), false);
 
-/**
- * Resolve the Postgres connection string from the single config-owned env key.
- *
- * The service is the one source of truth for the database connection
- * (`SERVICE_ENV_KEYS.databaseUrl`). Tooling resolves it here and passes it down
- * to the persistence apply step rather than re-reading the env contract.
- */
+// The service is the single source of truth for the database connection
+// (`SERVICE_ENV_KEYS.databaseUrl`); tooling resolves it here instead of
+// re-reading the env contract.
 export const readDatabaseUrl = (env: ServiceEnv = process.env): string | undefined =>
   envValue(env, SERVICE_ENV_KEYS.databaseUrl);
 
@@ -161,9 +168,8 @@ const createPersistenceConfig = (
   profile: ServiceProfile,
   env: ServiceEnv,
 ): PartnerAiServiceOptions["persistence"] => {
-  // Env declares the persistence mode by providing a database URL. The database
-  // client is opened later by composition so config parsing stays side-effect
-  // free and production can fail before routes are registered.
+  // Env declares the persistence mode by providing a database URL; composition
+  // opens the client later, so config parsing stays side-effect free.
   const databaseUrl = envValue(env, SERVICE_ENV_KEYS.databaseUrl);
   if (databaseUrl) return { kind: "postgres", databaseUrl };
   if (profile === SERVICE_PROFILES.PRODUCTION) {

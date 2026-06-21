@@ -24,7 +24,10 @@ Not source of truth for: global vocabulary or product requirements.
 ## First Files To Open
 
 - `src/inbound/http/app.ts`
-- `src/inbound/http/routes/chat/chat-stream.ts`
+- `src/inbound/http/routes/chat/runs/chat-runs.ts`
+- `src/inbound/http/routes/chat/turns/chat-turns.ts`
+- `src/inbound/turn-stream/turn-event-dispatcher.ts`
+- `src/inbound/turn-stream/turn-cancel-dispatcher.ts`
 - `src/composition/service-composition.ts`
 - `src/composition/manifest/service-capability-manifest.ts`
 - `src/composition/providers/service-provider-registry.ts`

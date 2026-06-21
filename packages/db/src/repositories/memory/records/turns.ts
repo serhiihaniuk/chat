@@ -8,6 +8,11 @@ import {
 } from "#schema-contract";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import { requireSubjectConversation, type MemoryRepositoryContext } from "./conversations.js";
+import {
+  findMemoryActiveAssistantTurn,
+  findMemoryAssistantTurn,
+  findMemoryAssistantTurnByRequest,
+} from "./turn-lookups.js";
 import { requireMemoryWorkspaceTurn, type MemoryStore, updateTurn } from "../store/store.js";
 import { DbRepositoryError } from "../../errors.js";
 import { jsonValueEquals, result } from "../../repository-utils.js";
@@ -21,6 +26,7 @@ export const createMemoryAssistantTurnRepository = ({
   | "recordTurnContextSnapshot"
   | "completeAssistantTurn"
   | "failAssistantTurn"
+  | "requestTurnCancellation"
   | "appendTurnEvent"
   | "readTurnEventsAfter"
   | "maxTurnEventSequence"
@@ -32,6 +38,7 @@ export const createMemoryAssistantTurnRepository = ({
   recordTurnContextSnapshot: recordMemoryTurnContextSnapshot({ ids, store }),
   completeAssistantTurn: completeMemoryAssistantTurn({ ids, store }),
   failAssistantTurn: failMemoryAssistantTurn({ ids, store }),
+  requestTurnCancellation: requestMemoryTurnCancellation({ ids, store }),
   appendTurnEvent: appendMemoryTurnEvent({ ids, store }),
   readTurnEventsAfter: readMemoryTurnEventsAfter({ ids, store }),
   maxTurnEventSequence: maxMemoryTurnEventSequence({ ids, store }),
@@ -134,6 +141,36 @@ const failMemoryAssistantTurn =
       }),
     );
 
+/**
+ * Mirror the postgres cancel-intent CAS for the memory adapter.
+ *
+ * Only a running turn in the same workspace transitions; an unknown,
+ * cross-workspace, or already-terminal turn is a durable no-op so the shared
+ * contract test holds. Memory has no `pg_notify`, so the in-process runner is
+ * interrupted directly by the cancel route instead of through a listener.
+ */
+const requestMemoryTurnCancellation =
+  ({
+    store,
+  }: MemoryRepositoryContext): AssistantTurnRepositoryContract["requestTurnCancellation"] =>
+  async (command) => {
+    await Promise.resolve();
+    const turn = store.assistantTurns.find(
+      (candidate) =>
+        candidate.workspaceId === command.workspaceId &&
+        candidate.assistantTurnId === command.assistantTurnId,
+    );
+    if (!turn || turn.status !== "running") return { cancelRequested: false };
+
+    const index = store.assistantTurns.indexOf(turn);
+    store.assistantTurns[index] = {
+      ...turn,
+      cancelRequestedAt: command.now,
+      updatedAt: command.now,
+    };
+    return { cancelRequested: true };
+  };
+
 const appendMemoryTurnEvent =
   ({ store }: MemoryRepositoryContext): AssistantTurnRepositoryContract["appendTurnEvent"] =>
   async (command) => {
@@ -194,45 +231,6 @@ const maxMemoryTurnEventSequence =
       .filter((event) => event.assistantTurnId === command.assistantTurnId)
       .map((event) => event.sequence);
     return sequences.length === 0 ? undefined : Math.max(...sequences);
-  };
-
-type MemoryStoreContext = Pick<MemoryRepositoryContext, "store">;
-
-const findMemoryAssistantTurn =
-  ({ store }: MemoryStoreContext): AssistantTurnRepositoryContract["findAssistantTurn"] =>
-  async (command) => {
-    await Promise.resolve();
-    return store.assistantTurns.find(
-      (turn) =>
-        turn.workspaceId === command.workspaceId &&
-        turn.assistantTurnId === command.assistantTurnId,
-    );
-  };
-
-const findMemoryAssistantTurnByRequest =
-  ({ store }: MemoryStoreContext): AssistantTurnRepositoryContract["findAssistantTurnByRequest"] =>
-  async (command) => {
-    await Promise.resolve();
-    return store.assistantTurns.find(
-      (turn) => turn.workspaceId === command.workspaceId && turn.requestId === command.requestId,
-    );
-  };
-
-const findMemoryActiveAssistantTurn =
-  ({ store }: MemoryStoreContext): AssistantTurnRepositoryContract["findActiveAssistantTurn"] =>
-  async (command) => {
-    await Promise.resolve();
-    // Latest started running turn mirrors the postgres ordering, so a conversation
-    // with a single in-flight turn resolves the same across adapters.
-    return store.assistantTurns
-      .filter(
-        (turn) =>
-          turn.workspaceId === command.workspaceId &&
-          turn.subjectId === command.subjectId &&
-          turn.conversationId === command.conversationId &&
-          turn.status === "running",
-      )
-      .sort((left, right) => (left.startedAt < right.startedAt ? 1 : -1))[0];
   };
 
 /**

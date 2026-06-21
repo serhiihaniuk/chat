@@ -2,13 +2,16 @@ import {
   PROTOCOL_ERROR_CODES,
   SIDECHAT_EVENT_TYPES,
   SIDECHAT_PROTOCOL_VERSION,
-  decodeSseEvents,
 } from "@side-chat/chat-protocol";
 import type { ObservabilityRecord } from "@side-chat/partner-ai-core";
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp } from "./app.js";
+import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "./app.js";
+import {
+  TEST_SAFETY_POLL_INTERVAL_MS,
+  runTurnStream,
+} from "#testing/turn-stream/turn-stream-harness.test-support";
 
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -21,10 +24,20 @@ const validRequest = {
   },
 };
 
-describe("partner ai service /chat/stream", () => {
+const authHeaders = { authorization: "Bearer local-test-token" } as const;
+const jsonHeaders = { ...authHeaders, "content-type": "application/json" } as const;
+
+const createApp = (
+  options: Parameters<typeof createPartnerAiServiceApp>[0] = {},
+): PartnerAiServiceApp =>
+  createPartnerAiServiceApp({
+    resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
+    ...options,
+  });
+
+describe("partner ai service streaming path", () => {
   it("exposes day-one model, history, and usage routes", async () => {
-    const app = createPartnerAiServiceApp();
-    const authHeaders = { authorization: "Bearer local-test-token" };
+    const app = createApp();
 
     await expect(
       (await app.request("/models", { headers: authHeaders })).json(),
@@ -34,36 +47,14 @@ describe("partner ai service /chat/stream", () => {
       models: [{ providerId: "fake", modelId: "fake-echo" }],
     });
 
-    const stream = await app.request("/chat/stream", {
-      method: "POST",
-      headers: {
-        ...authHeaders,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(validRequest),
-    });
-    const streamedEvents = decodeSseEvents(await stream.text());
-    const conversationId = streamedEvents.find(
-      (event) => event.type === SIDECHAT_EVENT_TYPES.STARTED,
-    )?.conversationId;
+    const { conversationId } = await runTurnStream(app, validRequest);
+
+    // The browser-visible terminal arrives before the onExit finalizer runs the
+    // post-success title job, so poll until the durable title is generated.
+    await expect.poll(() => readConversationTitle(app, conversationId)).toBe("Service greeting");
 
     await expect(
-      (
-        await app.request("/chat/conversations?limit=10", {
-          headers: authHeaders,
-        })
-      ).json(),
-    ).resolves.toMatchObject({
-      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      conversations: [{ conversationId, title: "Service greeting" }],
-    });
-
-    await expect(
-      (
-        await app.request(`/chat/history/${conversationId}`, {
-          headers: authHeaders,
-        })
-      ).json(),
+      (await app.request(`/chat/history/${conversationId}`, { headers: authHeaders })).json(),
     ).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       conversationId,
@@ -83,19 +74,9 @@ describe("partner ai service /chat/stream", () => {
     });
   });
 
-  it("returns sidechat.v1 SSE for authorized requests", async () => {
-    const response = await createPartnerAiServiceApp().request("/chat/stream", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(validRequest),
-    });
+  it("replays sidechat.v1 events from the durable log for authorized requests", async () => {
+    const { events } = await runTurnStream(createApp(), validRequest);
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toContain("text/event-stream");
-    const events = decodeSseEvents(await response.text());
     expect(events.map((event) => event.type)).toEqual(
       expect.arrayContaining([
         SIDECHAT_EVENT_TYPES.STARTED,
@@ -104,26 +85,16 @@ describe("partner ai service /chat/stream", () => {
         SIDECHAT_EVENT_TYPES.COMPLETED,
       ]),
     );
+    expect(events.at(0)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.STARTED, sequence: 0 });
     expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
   });
 
   it("streams through the runtime configured by service composition", async () => {
-    const response = await createPartnerAiServiceApp({
-      runtime: {
-        provider: "fake",
-        modelId: "fake-custom",
-      },
-    }).request("/chat/stream", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(validRequest),
-    });
+    const { events } = await runTurnStream(
+      createApp({ runtime: { provider: "fake", modelId: "fake-custom" } }),
+      validRequest,
+    );
 
-    expect(response.status).toBe(200);
-    const events = decodeSseEvents(await response.text());
     expect(events).toContainEqual(
       expect.objectContaining({
         type: SIDECHAT_EVENT_TYPES.ACTIVITY,
@@ -135,23 +106,11 @@ describe("partner ai service /chat/stream", () => {
 
   it("persists provider/model ids from the composed runtime", async () => {
     const repositories = createMemorySidechatRepositories();
-    const response = await createPartnerAiServiceApp({
-      repositories,
-      runtime: {
-        provider: "fake",
-        modelId: "fake-custom",
-      },
-    }).request("/chat/stream", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(validRequest),
-    });
+    await runTurnStream(
+      createApp({ repositories, runtime: { provider: "fake", modelId: "fake-custom" } }),
+      validRequest,
+    );
 
-    expect(response.status).toBe(200);
-    await response.text();
     expect(repositories.snapshot().assistantTurns[0]).toMatchObject({
       runtimeProfile: "default",
       modelProvider: "fake",
@@ -160,12 +119,9 @@ describe("partner ai service /chat/stream", () => {
   });
 
   it("maps malformed requests to stable bad_request errors", async () => {
-    const response = await createPartnerAiServiceApp().request("/chat/stream", {
+    const response = await createApp().request("/chat/runs", {
       method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-      },
+      headers: jsonHeaders,
       body: JSON.stringify({ protocolVersion: "sidechat.v2" }),
     });
 
@@ -178,12 +134,9 @@ describe("partner ai service /chat/stream", () => {
   });
 
   it("maps invalid JSON bodies to stable bad_request errors", async () => {
-    const response = await createPartnerAiServiceApp().request("/chat/stream", {
+    const response = await createApp().request("/chat/runs", {
       method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-      },
+      headers: jsonHeaders,
       body: "{",
     });
 
@@ -196,8 +149,18 @@ describe("partner ai service /chat/stream", () => {
     });
   });
 
+  it("proves the response-owned POST /chat/stream path is gone", async () => {
+    const response = await createApp().request("/chat/stream", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(validRequest),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
   it("fails closed for unauthenticated history and usage routes", async () => {
-    const app = createPartnerAiServiceApp();
+    const app = createApp();
 
     const conversations = await app.request("/chat/conversations");
     const history = await app.request("/chat/history/conversation_1");
@@ -210,30 +173,11 @@ describe("partner ai service /chat/stream", () => {
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
     });
-    await expect(history.json()).resolves.toMatchObject({
-      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
-    });
-    await expect(usage.json()).resolves.toMatchObject({
-      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
-    });
   });
 
   it("resets conversation history through the public route", async () => {
-    const app = createPartnerAiServiceApp();
-    const authHeaders = { authorization: "Bearer local-test-token" };
-    const stream = await app.request("/chat/stream", {
-      method: "POST",
-      headers: {
-        ...authHeaders,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(validRequest),
-    });
-    const conversationId = decodeSseEvents(await stream.text()).find(
-      (event) => event.type === SIDECHAT_EVENT_TYPES.STARTED,
-    )?.conversationId;
+    const app = createApp();
+    const { conversationId } = await runTurnStream(app, validRequest);
 
     const reset = await app.request(`/chat/history/${conversationId}`, {
       method: "DELETE",
@@ -248,11 +192,7 @@ describe("partner ai service /chat/stream", () => {
     });
 
     await expect(
-      (
-        await app.request(`/chat/history/${conversationId}`, {
-          headers: authHeaders,
-        })
-      ).json(),
+      (await app.request(`/chat/history/${conversationId}`, { headers: authHeaders })).json(),
     ).resolves.toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       conversationId,
@@ -261,7 +201,7 @@ describe("partner ai service /chat/stream", () => {
   });
 
   it("fails closed when normalized auth cannot be extracted", async () => {
-    const response = await createPartnerAiServiceApp().request("/chat/stream", {
+    const response = await createApp().request("/chat/runs", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(validRequest),
@@ -281,10 +221,7 @@ describe("partner ai service /chat/stream", () => {
         persistence: productionPersistence,
         auth: {
           profile: "production",
-          workspace: {
-            tenantId: "tenant_local",
-            workspaceId: "workspace_local",
-          },
+          workspace: { tenantId: "tenant_local", workspaceId: "workspace_local" },
         },
       }),
     ).toThrow("Production auth requires");
@@ -297,10 +234,7 @@ describe("partner ai service /chat/stream", () => {
         auth: {
           profile: "production",
           trustedBearerToken: "Bearer local-test-token",
-          workspace: {
-            tenantId: "tenant_local",
-            workspaceId: "workspace_local",
-          },
+          workspace: { tenantId: "tenant_local", workspaceId: "workspace_local" },
         },
       }),
     ).toThrow("Development static auth cannot");
@@ -308,26 +242,17 @@ describe("partner ai service /chat/stream", () => {
 
   it("denies cross-tenant production auth before persistence or model work", async () => {
     const repositories = createMemorySidechatRepositories();
-    const response = await createPartnerAiServiceApp({
+    const response = await createApp({
       repositories,
-      workspace: {
-        tenantId: "tenant_expected",
-        workspaceId: "workspace_expected",
-      },
+      workspace: { tenantId: "tenant_expected", workspaceId: "workspace_expected" },
       auth: {
         profile: "production",
         trustedBearerToken: "Bearer production-token",
-        workspace: {
-          tenantId: "tenant_other",
-          workspaceId: "workspace_expected",
-        },
+        workspace: { tenantId: "tenant_other", workspaceId: "workspace_expected" },
       },
-    }).request("/chat/stream", {
+    }).request("/chat/runs", {
       method: "POST",
-      headers: {
-        authorization: "Bearer production-token",
-        "content-type": "application/json",
-      },
+      headers: { authorization: "Bearer production-token", "content-type": "application/json" },
       body: JSON.stringify(validRequest),
     });
 
@@ -347,10 +272,7 @@ describe("partner ai service /chat/stream", () => {
         auth: {
           profile: "production",
           trustedBearerToken: "Bearer production-token",
-          workspace: {
-            tenantId: "tenant_local",
-            workspaceId: "workspace_local",
-          },
+          workspace: { tenantId: "tenant_local", workspaceId: "workspace_local" },
         },
         policies: { profile: "production", mode: "allow_all" },
       }),
@@ -359,27 +281,17 @@ describe("partner ai service /chat/stream", () => {
 
   it("maps production model policy denials before persistence or model work", async () => {
     const repositories = createMemorySidechatRepositories();
-    const response = await createPartnerAiServiceApp({
+    const response = await createApp({
       repositories,
       auth: {
         profile: "production",
         trustedBearerToken: "Bearer production-token",
-        workspace: {
-          tenantId: "tenant_local",
-          workspaceId: "workspace_local",
-        },
+        workspace: { tenantId: "tenant_local", workspaceId: "workspace_local" },
       },
-      policies: {
-        profile: "production",
-        mode: "configured",
-        allowedModels: [],
-      },
-    }).request("/chat/stream", {
+      policies: { profile: "production", mode: "configured", allowedModels: [] },
+    }).request("/chat/runs", {
       method: "POST",
-      headers: {
-        authorization: "Bearer production-token",
-        "content-type": "application/json",
-      },
+      headers: { authorization: "Bearer production-token", "content-type": "application/json" },
       body: JSON.stringify(validRequest),
     });
 
@@ -399,28 +311,37 @@ describe("partner ai service /chat/stream", () => {
 
   it("passes request trace correlation into stream observability", async () => {
     const records: ObservabilityRecord[] = [];
-    const response = await createPartnerAiServiceApp({
-      observability: {
-        record: (record) => Effect.sync(() => records.push(record)),
-      },
-    }).request("/chat/stream", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-        "x-trace-id": "trace-service-1",
-      },
-      body: JSON.stringify(validRequest),
+    const app = createApp({
+      observability: { record: (record) => Effect.sync(() => records.push(record)) },
     });
 
+    const response = await app.request("/chat/runs", {
+      method: "POST",
+      headers: { ...jsonHeaders, "x-trace-id": "trace-service-1" },
+      body: JSON.stringify(validRequest),
+    });
     expect(response.status).toBe(200);
-    await response.text();
-    expect(records.map((record) => record.lifecycleState)).toEqual(
-      expect.arrayContaining(["received", "started", "runtime_event", "completed"]),
-    );
+
+    // The completed observation is recorded by the onExit finalizer, after the
+    // browser terminal, so poll the captured records until it lands.
+    await expect
+      .poll(() => records.map((record) => record.lifecycleState))
+      .toEqual(expect.arrayContaining(["received", "started", "runtime_event", "completed"]));
     expect(records.every((record) => record.traceId === "trace-service-1")).toBe(true);
   });
 });
+
+/** Read one conversation's current title through the list route. */
+const readConversationTitle = async (
+  app: PartnerAiServiceApp,
+  conversationId: string,
+): Promise<string | undefined> => {
+  const response = await app.request("/chat/conversations?limit=10", { headers: authHeaders });
+  const body = (await response.json()) as {
+    readonly conversations: readonly { readonly conversationId: string; readonly title: string }[];
+  };
+  return body.conversations.find((entry) => entry.conversationId === conversationId)?.title;
+};
 
 const productionPersistence = {
   kind: "postgres" as const,

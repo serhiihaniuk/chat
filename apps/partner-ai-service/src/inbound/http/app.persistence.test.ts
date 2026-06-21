@@ -1,12 +1,13 @@
-import {
-  SIDECHAT_EVENT_TYPES,
-  SIDECHAT_PROTOCOL_VERSION,
-  decodeSseEvents,
-} from "@side-chat/chat-protocol";
-import { createMemorySidechatRepositories } from "@side-chat/db";
+import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
 import { hashCanonicalJson } from "@side-chat/partner-ai-core";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp } from "./app.js";
+import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "./app.js";
+import {
+  TEST_SAFETY_POLL_INTERVAL_MS,
+  runTurnStream,
+  startedConversationId,
+} from "#testing/turn-stream/turn-stream-harness.test-support";
 
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -19,31 +20,29 @@ const validRequest = {
   },
 };
 
-describe("partner ai service /chat/stream persistence", () => {
+const authHeaders = { authorization: "Bearer local-test-token" } as const;
+
+const createApp = (repositories: MemorySidechatRepositories): PartnerAiServiceApp =>
+  createPartnerAiServiceApp({
+    repositories,
+    resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
+  });
+
+describe("partner ai service streaming persistence", () => {
   it("creates distinct conversations for separate fresh stream requests", async () => {
     const repositories = createMemorySidechatRepositories();
-    const app = createPartnerAiServiceApp({ repositories });
-    const postFreshRequest = (requestId: string, messageId: string) =>
-      app.request("/chat/stream", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer local-test-token",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          ...validRequest,
-          requestId,
-          message: { ...validRequest.message, id: messageId },
-        }),
-      });
+    const app = createApp(repositories);
 
-    const first = await postFreshRequest("request_001", "message_001");
-    const second = await postFreshRequest("request_002", "message_002");
-
-    expect(first.status).toBe(200);
-    expect(second.status).toBe(200);
-    await first.text();
-    await second.text();
+    await runTurnStream(app, {
+      ...validRequest,
+      requestId: "request_001",
+      message: { id: "message_001", content: "hello service" },
+    });
+    await runTurnStream(app, {
+      ...validRequest,
+      requestId: "request_002",
+      message: { id: "message_002", content: "hello service" },
+    });
 
     const conversationIds = repositories
       .snapshot()
@@ -54,28 +53,16 @@ describe("partner ai service /chat/stream persistence", () => {
 
   it("persists explicit conversation state and assigns the request message role", async () => {
     const repositories = createMemorySidechatRepositories();
-    const app = createPartnerAiServiceApp({ repositories });
-    const persistedRequest = {
-      ...validRequest,
-      conversationId: "conversation_explicit_1",
-    };
-    const postValidRequest = () =>
-      app.request("/chat/stream", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer local-test-token",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(persistedRequest),
-      });
-    const expectSuccessfulStream = async () => {
-      const response = await postValidRequest();
-      expect(response.status).toBe(200);
-      await response.text();
-    };
+    const app = createApp(repositories);
+    const persistedRequest = { ...validRequest, conversationId: "conversation_explicit_1" };
 
-    await expectSuccessfulStream();
-    await expectSuccessfulStream();
+    // The same request id is idempotent: the second run returns the existing turn
+    // without forking a second generation, so durable state stays single.
+    await runTurnStream(app, persistedRequest);
+    await waitForCompletedTurn(repositories, persistedRequest.requestId);
+    await runTurnStream(app, persistedRequest);
+    await waitForCompletedTurn(repositories, persistedRequest.requestId);
+    await waitForGeneratedTitle(repositories);
 
     const snapshot = repositories.snapshot();
     expect(snapshot.conversations).toHaveLength(1);
@@ -120,23 +107,14 @@ describe("partner ai service /chat/stream persistence", () => {
 
   it("reads persisted history through a fresh app composition and honors reset boundaries", async () => {
     const repositories = createMemorySidechatRepositories();
-    const firstApp = createPartnerAiServiceApp({ repositories });
-
-    const stream = await firstApp.request("/chat/stream", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(validRequest),
-    });
-    const conversationId = readStartedConversationId(await stream.text());
-    const restartedApp = createPartnerAiServiceApp({ repositories });
+    const { events } = await runTurnStream(createApp(repositories), validRequest);
+    const conversationId = startedConversationId(events);
+    const restartedApp = createApp(repositories);
 
     await expect((await restartedApp.request("/healthz")).json()).resolves.toMatchObject({
       persistence: "memory",
       capabilities: {
-        persistence: {
-          adapterId: "memory-sidechat-repositories",
-          safeForProduction: false,
-        },
+        persistence: { adapterId: "memory-sidechat-repositories", safeForProduction: false },
       },
     });
     await expect(readHistory(restartedApp, conversationId)).resolves.toEqual([
@@ -146,35 +124,43 @@ describe("partner ai service /chat/stream persistence", () => {
 
     const reset = await restartedApp.request(`/chat/history/${conversationId}`, {
       method: "DELETE",
-      headers: authHeaders(),
+      headers: authHeaders,
     });
     expect(reset.status).toBe(200);
     await expect(readHistory(restartedApp, conversationId)).resolves.toEqual([]);
   });
 });
 
-const authHeaders = () => ({
-  authorization: "Bearer local-test-token",
-  "content-type": "application/json",
-});
+/**
+ * Poll until the forked generation has recorded a completed turn.
+ *
+ * The browser terminal arrives before the onExit finalizer writes the durable
+ * status, so durable-state assertions wait on the repository, not the stream.
+ */
+const waitForCompletedTurn = async (
+  repositories: MemorySidechatRepositories,
+  requestId: string,
+): Promise<void> => {
+  await expect
+    .poll(
+      () =>
+        repositories.snapshot().assistantTurns.find((turn) => turn.requestId === requestId)?.status,
+    )
+    .toBe("completed");
+};
 
-const readStartedConversationId = (body: string): string => {
-  const started = decodeSseEvents(body).find(
-    (event) => event.type === SIDECHAT_EVENT_TYPES.STARTED,
-  );
-  if (!started || !("conversationId" in started) || !started.conversationId) {
-    throw new Error("Expected stream to include a started event with conversationId.");
-  }
-  return started.conversationId;
+/** Poll until the post-success title job has written a generated title. */
+const waitForGeneratedTitle = async (repositories: MemorySidechatRepositories): Promise<void> => {
+  await expect
+    .poll(() => repositories.snapshot().conversations[0]?.titleText)
+    .toBe("Service greeting");
 };
 
 const readHistory = async (
-  app: ReturnType<typeof createPartnerAiServiceApp>,
+  app: PartnerAiServiceApp,
   conversationId: string,
 ): Promise<readonly string[]> => {
-  const response = await app.request(`/chat/history/${conversationId}`, {
-    headers: authHeaders(),
-  });
+  const response = await app.request(`/chat/history/${conversationId}`, { headers: authHeaders });
   expect(response.status).toBe(200);
   const history = (await response.json()) as {
     readonly messages: readonly { readonly content: string }[];

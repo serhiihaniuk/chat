@@ -30,6 +30,11 @@
       "types": "./src/inbound/*.ts",
       "development": "./src/inbound/*.ts",
       "default": "./dist/inbound/*.js"
+    },
+    "#testing/*": {
+      "types": "./src/testing/*.ts",
+      "development": "./src/testing/*.ts",
+      "default": "./dist/testing/*.js"
     }
   },
   "exports": {

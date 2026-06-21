@@ -271,6 +271,16 @@ export type SideChatConfig = {
     /** Configured auxiliary jobs such as conversation-title generation. */
     readonly availableJobs: readonly SideChatAuxiliaryModelJobConfig[];
   };
+  /** Operator tunables for resumable server-owned streaming. */
+  readonly resumability: SideChatResumabilityConfig;
+};
+
+// Operator tunables for resumable streaming (deployment knobs, not assistant
+// behavior). `safetyPollInterval` is the per-subscriber reconcile cadence (ms)
+// backstopping a missed Postgres `NOTIFY`. Later steps add lease/reaper tunables
+// here; the `NOTIFY` channel stays a db-level constant, not config.
+export type SideChatResumabilityConfig = {
+  readonly safetyPollInterval: SideChatNumberEnvReference;
 };
 
 /**

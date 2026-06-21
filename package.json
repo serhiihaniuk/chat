@@ -17,7 +17,7 @@
     "lint": "npm run lint:oxlint && npm run lint:custom",
     "typecheck": "tsc --noEmit --pretty false -p tsconfig.check.json",
     "test": "vitest run",
-    "test:db:integration": "vitest run packages/db/src/repositories/postgres-drizzle.integration.test.ts",
+    "test:db:integration": "vitest run packages/db/src/repositories/postgres-drizzle/index.integration.test.ts",
     "test:db:container": "node scripts/run-db-container-tests.mjs",
     "test:db:local": "npm run test:db:container",
     "db:generate": "npm run db:generate --workspace @side-chat/db",

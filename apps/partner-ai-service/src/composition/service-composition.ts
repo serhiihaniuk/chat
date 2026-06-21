@@ -1,4 +1,13 @@
+import {
+  createPostgresTurnCancelNotificationSource,
+  createPostgresTurnEventNotificationSource,
+  NOOP_TURN_CANCEL_NOTIFICATION_SOURCE,
+  NOOP_TURN_EVENT_NOTIFICATION_SOURCE,
+  type TurnCancelNotificationSource,
+  type TurnEventNotificationSource,
+} from "@side-chat/db";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
+import { RESUMABILITY_DEFAULTS } from "#config/catalog/config-values";
 import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/sidechat-config/conversation-title";
 import { createServiceTurnProfileBundle } from "./factories/create-service-turn-profile-bundle.js";
 import { createServiceCapabilityBundle } from "./factories/create-service-capability-bundle.js";
@@ -11,10 +20,17 @@ import { createServiceSecurityPorts } from "./factories/create-service-security-
 import { createServiceToolBundle } from "./factories/create-service-tool-bundle.js";
 import { createStreamChatPorts } from "./factories/create-stream-chat-ports.js";
 import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
-import type { ServiceComposition, ServiceCompositionOptions } from "./service-composition-types.js";
+import { createTurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
+import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
+import type {
+  PersistenceConfig,
+  ServiceComposition,
+  ServiceCompositionOptions,
+} from "./service-composition-types.js";
 
 export type {
   PersistenceConfig,
+  ResumabilityConfig,
   RuntimeConfig,
   RuntimeModelMetadata,
   RuntimeToolConfig,
@@ -120,6 +136,22 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     ports: streamChat.ports,
   });
 
+  // The dispatcher is the local subscribe half of the resumable transport: it
+  // consumes the db notification source (the only LISTEN connection) and fans
+  // durable events out to per-instance SSE subscribers.
+  const dispatcher = createTurnEventDispatcher({
+    ports: streamChat.ports,
+    notificationSource: createNotificationSource(persistence.persistence),
+  });
+
+  // The cancel dispatcher is the cross-instance half of cancel: it consumes the
+  // db cancel notification source and interrupts the local generation fiber when
+  // this instance owns the named turn (a no-op otherwise).
+  const cancelDispatcher = createTurnCancelDispatcher({
+    runner: turnRunner,
+    notificationSource: createCancelNotificationSource(persistence.persistence),
+  });
+
   return {
     workspace: options.workspace,
     hostAppId: capabilities.manifest.hostAppId,
@@ -130,6 +162,8 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtime: runtime.runtime,
     ports: streamChat.ports,
     turnRunner,
+    dispatcher,
+    cancelDispatcher,
     capabilities: capabilities.capabilityStatus,
     diagnostics: createServiceDiagnostics({
       persistence,
@@ -137,5 +171,36 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
       tools,
       turnProfiles,
     }),
+    safetyPollIntervalMs:
+      options.resumability?.safetyPollIntervalMs ?? RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS,
   };
 };
+
+/**
+ * Build the per-instance turn-event notification source for the dispatcher.
+ *
+ * Postgres persistence gets the dedicated `LISTEN` connection (the only one in
+ * the system), reusing the same config-owned database URL. Memory persistence has
+ * no cross-process wake signal, so it uses the no-op source and the subscriber
+ * safety poll drives delivery from the in-memory log.
+ */
+const createNotificationSource = (persistence: PersistenceConfig): TurnEventNotificationSource =>
+  persistence.kind === "postgres"
+    ? createPostgresTurnEventNotificationSource(persistence.databaseUrl)
+    : NOOP_TURN_EVENT_NOTIFICATION_SOURCE;
+
+/**
+ * Build the per-instance cancel notification source for the cancel dispatcher.
+ *
+ * Postgres persistence gets its own dedicated cancel `LISTEN` connection so a
+ * cancel requested on another instance can interrupt the owning fiber. Memory
+ * persistence has no cross-process wake signal, so it uses the no-op source; a
+ * memory-backed cancel still interrupts in-process through the cancel route's
+ * direct runner call.
+ */
+const createCancelNotificationSource = (
+  persistence: PersistenceConfig,
+): TurnCancelNotificationSource =>
+  persistence.kind === "postgres"
+    ? createPostgresTurnCancelNotificationSource(persistence.databaseUrl)
+    : NOOP_TURN_CANCEL_NOTIFICATION_SOURCE;

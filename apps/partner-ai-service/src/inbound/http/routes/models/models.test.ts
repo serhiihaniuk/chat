@@ -1,11 +1,11 @@
-import {
-  SIDECHAT_EVENT_TYPES,
-  SIDECHAT_PROTOCOL_VERSION,
-  decodeSseEvents,
-} from "@side-chat/chat-protocol";
+import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 
 import { createPartnerAiServiceApp, type PartnerAiServiceOptions } from "../../app.js";
+import {
+  TEST_SAFETY_POLL_INTERVAL_MS,
+  runTurnStream,
+} from "#testing/turn-stream/turn-stream-harness.test-support";
 
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -72,6 +72,7 @@ describe("partner ai service model catalog", () => {
   it("sends the request-selected backend model and reasoning effort to runtime", async () => {
     const providerCalls: RequestInit[] = [];
     const app = createPartnerAiServiceApp({
+      resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
       runtime: openAiRuntimeOptions({
         fetch: (_url, init) => {
           providerCalls.push(init ?? {});
@@ -84,26 +85,12 @@ describe("partner ai service model catalog", () => {
       }),
     });
 
-    const response = await app.request("/chat/stream", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        ...validRequest,
-        model: {
-          providerId: "openai",
-          modelId: "gpt-5.5-mini",
-          reasoningEffort: "high",
-        },
-      }),
+    const { events } = await runTurnStream(app, {
+      ...validRequest,
+      model: { providerId: "openai", modelId: "gpt-5.5-mini", reasoningEffort: "high" },
     });
 
-    expect(response.status).toBe(200);
-    expect(decodeSseEvents(await response.text()).at(-1)).toMatchObject({
-      type: SIDECHAT_EVENT_TYPES.COMPLETED,
-    });
+    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
     expect(parseProviderRequestBody(providerCalls[0]?.body)).toMatchObject({
       model: "gpt-5.5-mini",
       reasoning: { effort: "high" },

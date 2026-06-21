@@ -1,5 +1,7 @@
 import {
   SIDECHAT_EVENT_TYPES,
+  decodeSseEvents,
+  type ChatStreamRequest,
   type JsonObject,
   type JsonValue,
   type SidechatStreamEvent,
@@ -7,8 +9,7 @@ import {
 } from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import { type TurnGuardInput, type TurnGuardRegistryPort } from "@side-chat/partner-ai-core";
-import { createPartnerAiServiceApp } from "@side-chat/partner-ai-service";
-import { createSideChatApiClient, type FetchLike } from "@side-chat/side-chat-widget";
+import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "@side-chat/partner-ai-service";
 import {
   applyActivityEvent,
   completeActivityTimeline,
@@ -30,10 +31,8 @@ describe("golden-path adopter flow", () => {
       runtime: { provider: "fake", enableMockWebSearch: true },
       turnGuards: createRecordingGuardRegistry(guardInputs),
       turnGuardIds: ["adoption.prompt_guard"],
-    });
-    const client = createSideChatApiClient({
-      baseUrl: "http://side-chat-adoption.test",
-      fetch: withLocalAuth("local-test-token", fetchFromApp(app)),
+      // Memory persistence has no NOTIFY; a short poll keeps the subscriber prompt.
+      resumability: { safetyPollIntervalMs: 10 },
     });
     const request = createWidgetChatRequest({
       turnProfileId: undefined,
@@ -48,7 +47,11 @@ describe("golden-path adopter flow", () => {
       requestId: "request_adoption_001",
     });
 
-    const events = await collectEvents((await client.streamChat(request)).events);
+    // Drive the server-owned streaming path end to end: start the turn, then
+    // replay + tail its durable event log as SSE. The widget transport client is
+    // migrated separately; this harness validates the service flow plus the
+    // widget state projection over the emitted protocol events.
+    const events = await runTurnStream(app, request);
     const widgetState = projectEventsIntoWidgetState(
       request.message.id,
       request.message.content,
@@ -108,38 +111,33 @@ type WidgetProjectedState = {
   readonly usage?: UsageMetadata;
 };
 
-const fetchFromApp =
-  (app: ReturnType<typeof createPartnerAiServiceApp>): FetchLike =>
-  (input, init = {}) => {
-    const url = input instanceof Request ? input.url : input.toString();
-    const path = `${new URL(url).pathname}${new URL(url).search}`;
-    return Promise.resolve(app.request(path, input instanceof Request ? input : init));
-  };
+const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
 
-const withLocalAuth =
-  (authToken: string, fetchLike: FetchLike): FetchLike =>
-  (input, init = {}) =>
-    fetchLike(input, {
-      ...init,
-      headers: {
-        ...readHeaders(init.headers),
-        authorization: `Bearer ${authToken}`,
-      },
-    });
-
-const readHeaders = (headers: HeadersInit | undefined): Record<string, string> => {
-  if (!headers) return {};
-  if (headers instanceof Headers) return Object.fromEntries(headers.entries());
-  if (Array.isArray(headers)) return Object.fromEntries(headers);
-  return headers;
-};
-
-const collectEvents = async (
-  events: AsyncIterable<SidechatStreamEvent>,
+/**
+ * Start one turn, then replay + tail its durable event log as SSE.
+ *
+ * This is the new single streaming path: `POST /chat/runs` to start generation
+ * off the request, then `GET /chat/turns/:id/stream?after=-1` to subscribe. The
+ * decoded events are exactly what a browser subscriber receives.
+ */
+const runTurnStream = async (
+  app: PartnerAiServiceApp,
+  request: ChatStreamRequest,
 ): Promise<readonly SidechatStreamEvent[]> => {
-  const collected: SidechatStreamEvent[] = [];
-  for await (const event of events) collected.push(event);
-  return collected;
+  const runResponse = await app.request("/chat/runs", {
+    method: "POST",
+    headers: { ...AUTH_HEADER, "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  expect(runResponse.status).toBe(200);
+  const assistantTurnId = ((await runResponse.json()) as { assistantTurnId: string })
+    .assistantTurnId;
+
+  const streamResponse = await app.request(`/chat/turns/${assistantTurnId}/stream?after=-1`, {
+    headers: AUTH_HEADER,
+  });
+  expect(streamResponse.status).toBe(200);
+  return decodeSseEvents(await streamResponse.text());
 };
 
 const projectEventsIntoWidgetState = (

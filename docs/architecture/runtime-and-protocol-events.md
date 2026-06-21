@@ -60,9 +60,11 @@ become separate top-level conversation messages.
 
 ## Effect And Stream Style
 
-- Core and runtime APIs are Effect-first: `streamChatEffect(input)` and
+- Core and runtime APIs are Effect-first: `prepareStreamChatTurn(...)` +
+  `runTurnGeneration(...)` (the server-owned streaming path) and
   `streamEffect(request)`.
-- Promise and `AsyncIterable` conversions belong at transport edges.
+- Promise, `ReadableStream`, and `AsyncIterable` conversions belong at transport
+  edges.
 - Expected failures use `Effect.fail`, `Effect.try`, or `Effect.tryPromise`.
 - A raw `throw` is a defect, not product control flow.
 - Prefer named stages over nested `Effect.map`, `Effect.flatMap`,

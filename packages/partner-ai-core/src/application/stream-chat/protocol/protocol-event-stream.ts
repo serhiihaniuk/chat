@@ -1,5 +1,5 @@
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
-import type { RuntimeEvent } from "@side-chat/ai-runtime-contract";
+import type { AiRuntimeRequest, RuntimeEvent } from "@side-chat/ai-runtime-contract";
 import { Effect, Ref, Stream } from "effect";
 import type { PartnerAiCoreError } from "#errors";
 import { buildModelTurnRequest } from "../model-request/build-model-turn-request.js";
@@ -145,12 +145,38 @@ const createObservedRuntimeEventStream = (
     ),
   );
 
+/**
+ * Open the runtime event stream with provider abort tied to fiber interruption.
+ *
+ * The server runner forks generation without a browser abort signal, so the only
+ * thing that should stop the in-flight provider call is interruption of this
+ * fiber (a cross-instance cancel via `FiberMap.remove`, or shutdown). We thread an
+ * `AbortController` signal into the runtime request and abort it from a stream
+ * finalizer: `Stream.ensuring` runs on every termination — interrupt, error, and
+ * normal completion alike — so interruption propagates all the way to the AI SDK
+ * call and stops generation and billing, not just the socket. Aborting after a
+ * normal finish is a harmless no-op.
+ */
 const createRuntimeEventStream = (
   refs: ProtocolStreamRefs,
-): Stream.Stream<RuntimeEvent, PartnerAiCoreError> =>
-  refs.ports.runtime
-    .streamEffect(buildModelTurnRequest(refs.input, refs.turn))
-    .pipe(Stream.mapError(mapUnknownRuntimeError));
+): Stream.Stream<RuntimeEvent, PartnerAiCoreError> => {
+  const abortController = new AbortController();
+  const request = abortableRuntimeRequest(refs, abortController.signal);
+  return refs.ports.runtime
+    .streamEffect(request)
+    .pipe(
+      Stream.mapError(mapUnknownRuntimeError),
+      Stream.ensuring(Effect.sync(() => abortController.abort())),
+    );
+};
+
+const abortableRuntimeRequest = (
+  refs: ProtocolStreamRefs,
+  abortSignal: AbortSignal,
+): AiRuntimeRequest => ({
+  ...buildModelTurnRequest(refs.input, refs.turn),
+  abortSignal,
+});
 
 const mapRuntimeEventEffect = (
   refs: ProtocolStreamRefs,

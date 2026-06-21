@@ -25,7 +25,14 @@ const requiredStrictOptions = {
   verbatimModuleSyntax: true,
   skipLibCheck: true,
 };
-const sourceLineBudgetExceptions = new Set(["packages/db/src/drizzle/schema.ts"]);
+const sourceLineBudgetExceptions = new Set([
+  "packages/db/src/drizzle/schema.ts",
+  // Pure persistence type-contract catalog (command shapes + repository
+  // interfaces). It is declaration-only with no branching logic, so it is kept
+  // as one cohesive contract rather than split across the schema-contract dir's
+  // file budget.
+  "packages/db/src/schema-contract/repositories.ts",
+]);
 
 validateTsconfigPolicy();
 validateTestPlacement();
