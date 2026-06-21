@@ -109,7 +109,7 @@ export function ComboboxSection(): ReactElement {
                   <Combobox.Item
                     key={m.id}
                     value={m}
-                    className="flex items-center gap-2.5 rounded-md px-2.5 py-2 highlighted:bg-accent"
+                    className="flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 highlighted:bg-accent"
                   >
                     <span className="sc-media">{m.icon}</span>
                     <span className="flex min-w-0 flex-col">

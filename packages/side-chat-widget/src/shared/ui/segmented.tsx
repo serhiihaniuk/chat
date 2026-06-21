@@ -46,7 +46,7 @@ export function Segmented({
           value={id}
           aria-label={label}
           className={cn(
-            "flex flex-1 cursor-pointer items-center justify-center rounded-sm px-1.5 text-xs font-medium text-muted-foreground pressed:bg-background pressed:text-foreground pressed:shadow-card",
+            "flex flex-1 cursor-pointer items-center justify-center rounded-sm px-1.5 text-xs font-medium text-muted-foreground pressed:bg-background pressed:text-foreground pressed:shadow-(--shadow-card)",
             stacked ? "flex-col gap-1 py-2" : "gap-1.5 py-1.5",
           )}
         >

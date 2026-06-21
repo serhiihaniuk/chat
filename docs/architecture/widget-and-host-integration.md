@@ -26,7 +26,7 @@ shared/ai
 | `features/conversation` | Conversation switcher, wide-mode sidebar, empty state, and rendering. |
 | `features/panel`        | Panel open, close, resize, and header chrome.                         |
 | `features/prompt`       | Prompt input and composer behavior.                                   |
-| `features/settings`     | Settings view overlay for theme and appearance controls.              |
+| `features/settings`     | In-panel settings view for theme and appearance controls.             |
 | `features/theme`        | Theme and appearance state written to the widget root.                |
 | `entities/chat`         | Protocol-backed message and activity state.                           |
 | `entities/panel`        | Panel model helpers.                                                  |
@@ -53,12 +53,20 @@ registered shadow tokens; the widget owns no hardcoded colors, radii, text sizes
 or elevation values. Base and dark tokens live on `:root`/`.dark` in
 `src/styles.css`.
 
-Named themes (Graphite, Sage, Ocean) are extra token blocks. `features/theme`
-writes `data-sidechat-theme` on the widget root element, so a theme re-skins the
-root and its descendants through inheritance and never leaks onto the host page.
-Graphite is the default and carries no attribute, so it tracks the host's
-light/dark; Sage and Ocean ship light-only. The theme choice persists to
-`localStorage` under `themeStorageKey`.
+Shadow tokens are registered in Tailwind's `--shadow-*` namespace. Runtime
+elevation consumers use Tailwind v4's CSS-variable shorthand
+(`shadow-(--shadow-card)`, `shadow-(--shadow-popover)`,
+`shadow-(--shadow-panel)`) instead of the named `shadow-card` utility, because
+the named utility compiles the default theme value into the rule. The shorthand
+keeps panel, composer, menu, tooltip, and segmented-control elevation tied to
+the root token that settings mutates.
+
+Named themes (Graphite, Sapphire, Sage, Ocean) are extra token blocks.
+`features/theme` writes `data-sidechat-theme` on the widget root element, so a
+theme re-skins the root and its descendants through inheritance and never leaks
+onto the host page. Graphite is the default and carries no attribute, so it
+tracks the host's light/dark; Sapphire, Sage, and Ocean ship light-only. The
+theme choice persists to `localStorage` under `themeStorageKey`.
 
 `features/theme` also owns widget appearance settings on top of the named theme:
 accent, corners, density, text size, typeface, and elevation. Those settings
@@ -66,10 +74,11 @@ persist under `side-chat-widget:appearance` and apply by writing
 `data-sidechat-accent` plus root custom properties (`--radius`, `--space-unit`,
 `--text-*`, `--font-widget`, and `--shadow-*`) onto `.side-chat-widget-root`.
 
-The widget self-hosts **Plus Jakarta Sans** (one variable `woff2`, 200–800, under
-`src/fonts/`, referenced by a relative `@font-face` URL so bundlers ship it — no CDN,
-works offline). The font is scoped to the widget root and its portaled popovers, so
-it never overrides the embedding host page's own typography.
+The widget self-hosts the three settings typefaces under `src/fonts/`: **Plus
+Jakarta Sans**, **DM Sans**, and **Instrument Sans**. Each `@font-face` uses a
+relative URL so bundlers ship the fonts with the widget — no CDN, works offline.
+The fonts are scoped to the widget root and its portaled popovers, so they never
+override the embedding host page's own typography.
 
 The `--font-widget` variable is scoped to the widget root and portaled popovers;
 changing typeface in settings does not override the embedding host page's typography.
@@ -77,6 +86,11 @@ changing typeface in settings does not override the embedding host page's typogr
 The panel is always a contained floating card (never full-bleed). At a width
 breakpoint it reveals a persistent conversation sidebar (`--sidebar*` tokens) and
 hides the header conversation switcher; below it, the header switcher returns.
+Opening settings swaps the chat view inside this same panel frame rather than
+mounting a second floating surface. The settings group rail shares the chat rail
+width, breakpoint, and two-line row active/hover styling tokens, while narrow settings use the same main-column header. The
+settings body is centered in the same `max-w-measure-message` reading column as
+chat messages and the composer.
 
 ## Host Bridge
 

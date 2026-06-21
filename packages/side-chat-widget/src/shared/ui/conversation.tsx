@@ -108,7 +108,7 @@ export const ConversationScrollButton = ({
     <Button
       aria-label={ariaLabel}
       className={cn(
-        "absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full shadow-card",
+        "absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full shadow-(--shadow-card)",
         className,
       )}
       onClick={handleClick}

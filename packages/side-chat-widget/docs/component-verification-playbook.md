@@ -32,7 +32,7 @@ not just a picture — it is written **for you, the AI**. It contains, for every
    This tells you **precisely** which token drives every property. The New-chat button
    uses the shared secondary Button: `background: --secondary` (= muted), `border: --border`,
    `hover: --accent`, `focus: --ring`, `radius: --radius-md`, **no shadow**. If you build it with
-   `bg-card shadow-card rounded-lg`, you are wrong — full stop.
+   `bg-card shadow-(--shadow-card) rounded-lg`, you are wrong — full stop.
 
 2. **Token documentation tables** — JS objects of the form
 
@@ -103,8 +103,8 @@ state claim.
 6. **Fix tokens first, then markup.** A drifted value is usually one wrong token, not
    ten wrong utilities.
 7. **Verify in the harness preview** (`vite` on :5173, the showcase): reload, screenshot,
-   re-measure, and run the §12.3 re-skin test (swap `data-sidechat-theme` graphite/sage/
-   ocean + scrub `--radius`) — everything must re-skin with zero leftovers.
+   re-measure, and run the §12.3 re-skin test (swap `data-sidechat-theme` graphite/sapphire/
+   sage/ocean + scrub `--radius`) — everything must re-skin with zero leftovers.
 
 ---
 
@@ -135,12 +135,13 @@ CSS-first:
   `--text-*`, or `--font-weight-*`.
 - Component semantic tokens such as `--settings-*`, `--convo-*`, `--agent-mark-*`, and
   `--tool-*` are ordinary CSS variables. They should live in the widget/theme scope and
-  resolve to the exact design value.
+  resolve to the exact design value. Settings row active, hover, title, description, and
+  indicator tokens intentionally alias the conversation row tokens.
 - To use one of those variables in JSX, prefer Tailwind v4's parenthesized CSS-variable
   value syntax on the standard utility: `w-(--settings-nav-w)`,
   `bg-(--settings-nav-bg)`, `border-(--settings-nav-border)`,
   `rounded-(--settings-item-radius)`, `px-(--settings-item-px)`,
-  `py-(--settings-item-py)`, `text-(--settings-label-fg)`.
+  `py-(--settings-item-py)`, `text-(--settings-item-title-fg)`.
 - Use `@utility` only when Tailwind has no existing utility shape for the property or
   when the style needs selector/nesting behavior that cannot be expressed by normal
   utilities and variants.
@@ -215,7 +216,7 @@ proves the ones that aren't).
 | Context ring (§9.5)       | `size-control` (32px), `--primary` stroke               | 18px (`viewBox 0 0 18 18`, r 6.5, stroke 2.4), `--context-ring-indicator` = **muted-foreground**                                                                                   |
 | Tool row (§9.9)           | tool name in a muted **Badge** + wrench, glyph on right | **no pill/wrench**; glyph LEFT; name plain text `--tool-label-fg` (foreground), `--tool-label-size`; spinner `--tool-running-fg` (primary), check `--tool-done-fg` (success)       |
 | Model selector (§9.4)     | horizontal thinking seg; auto-width popup (reflowed)    | **vertical/stacked** seg (icon over label); fixed **`--size-menu`** width; THINKING header echoes selected level desc; "● Using {model} · {level} thinking" footer                 |
-| New-chat button (§9.12)   | `bg-card`, `shadow-card`, `rounded-lg`                  | shared Button primitive, `variant="secondary"`: `--secondary` -> `--muted`, `border --border`, hover `--accent`, focus `--ring`, `radius-md`, **no shadow**, **primary** plus icon |
+| New-chat button (§9.12)   | `bg-card`, `shadow-(--shadow-card)`, `rounded-lg`       | shared Button primitive, `variant="secondary"`: `--secondary` -> `--muted`, `border --border`, hover `--accent`, focus `--ring`, `radius-md`, **no shadow**, **primary** plus icon |
 | Agent mark (§9.12)        | `sc-media` (26px, muted bg), no center node             | dedicated `--agent-mark-*` tile (27px, **accent** bg), hollow diamond **+ center node** `<circle r=1.7>`                                                                           |
 | Header title (§9.12)      | `text-sm`                                               | `--header-title-size` = **text-md**                                                                                                                                                |
 | Rail group gap (§9.2)     | 16px                                                    | `--rail-group-gap` = **8px**                                                                                                                                                       |

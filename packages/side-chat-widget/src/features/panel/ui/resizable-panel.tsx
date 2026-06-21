@@ -116,7 +116,7 @@ export function ResizablePanel({
   return (
     <SideChatWidgetRoot
       className={cn(
-        "sc-widget-panel z-50 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-panel",
+        "sc-widget-panel z-50 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-(--shadow-panel)",
         anchor === "fixed" ? "fixed right-4 bottom-4" : "absolute right-4 bottom-4",
         className,
       )}

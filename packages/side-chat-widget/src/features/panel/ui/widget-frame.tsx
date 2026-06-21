@@ -9,7 +9,11 @@ export const ClosedWidgetLauncher = ({
   readonly label: string;
   readonly onOpen: () => void;
 }) => (
-  <Button className="fixed right-4 bottom-4 z-50 gap-2 shadow-panel" onClick={onOpen} type="button">
+  <Button
+    className="fixed right-4 bottom-4 z-50 gap-2 shadow-(--shadow-panel)"
+    onClick={onOpen}
+    type="button"
+  >
     {label}
   </Button>
 );

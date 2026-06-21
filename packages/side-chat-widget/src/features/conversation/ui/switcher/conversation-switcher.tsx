@@ -43,7 +43,7 @@ export const ConversationSwitcher = ({
         <Menu.Positioner align="start" side="bottom" sideOffset={8}>
           <Menu.Popup data-slot="dropdown-menu-content" className="w-menu max-w-full">
             <Menu.Item
-              className="flex items-center gap-2.5 rounded-md p-2.5 text-sm font-medium highlighted:bg-accent"
+              className="flex cursor-pointer select-none items-center gap-2.5 rounded-md p-2.5 text-sm font-medium highlighted:bg-accent"
               onClick={onNewConversation}
             >
               <PlusIcon className="size-4 text-primary" />
@@ -88,7 +88,7 @@ const SwitcherItem = ({
   readonly onSelect: (conversationId: string | undefined) => void;
 }) => (
   <Menu.Item
-    className="flex items-center justify-between gap-2 rounded-md px-2.5 py-2 highlighted:bg-accent"
+    className="flex cursor-pointer select-none items-center justify-between gap-2 rounded-md px-2.5 py-2 highlighted:bg-accent"
     onClick={() => onSelect(conversation.id)}
   >
     <span className="flex min-w-0 flex-col gap-0.5">

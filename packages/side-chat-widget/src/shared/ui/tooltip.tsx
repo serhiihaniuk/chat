@@ -15,7 +15,7 @@ import type { ReactElement, ReactNode } from "react";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
 const TOOLTIP_POPUP_CLASS =
-  "rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground border border-border shadow-popover starting:opacity-0 ending:opacity-0";
+  "rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground border border-border shadow-(--shadow-popover) starting:opacity-0 ending:opacity-0";
 
 /** A single labelled icon-button + its tooltip. Trigger is a plain `sc-icon-btn`. */
 function TooltipIconButton({

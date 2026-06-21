@@ -73,7 +73,7 @@ agent can invent a value that silently diverges from another agent's component).
 ## 2.1 — Three tiers (and which tier a component may touch)
 
 ```
-TIER 1 — @theme inline scales         (styles.css)   → GENERATE Tailwind utilities
+TIER 1 — Tailwind @theme scales       (styles.css)   → GENERATE Tailwind utilities
    colour roles, radius, type, size, shadow, ease
    e.g. --color-primary, --radius-md, --text-sm, --size-sidebar, --shadow-popover
         ↓ referenced by
@@ -149,7 +149,7 @@ leading states it via a registered `leading-*` utility — never an arbitrary `l
 This is a **Tailwind v4, utility-first** codebase. Styling is expressed in this order:
 
 1. **Utilities in JSX** for every static value — `rounded-md px-2.5 py-2 bg-popover
-text-popover-foreground shadow-popover`. All of these resolve to §5 ledger rows.
+text-popover-foreground shadow-(--shadow-popover)`. All of these resolve to §5 ledger rows.
 2. **Named `@custom-variant`s for Base UI state** — `highlighted:bg-accent`,
    `checked:bg-primary`, `popupopen:bg-accent`. These are declared once in `styles.css`
    (§4) so JSX never needs a `data-[checked]:` **bracket** (which would trip G1). A hook class
@@ -208,7 +208,8 @@ function SideChatWidgetRoot({ theme, children }: { theme: ThemeName; children: R
 ```
 
 - Tier-1/tier-2 tokens are declared on `.side-chat-widget-root` and the theme blocks
-  (`[data-sidechat-theme="sage"]`, `…="ocean"`). Theming is pure inheritance — no JS recolour.
+  (`[data-sidechat-theme="sapphire"]`, `…="sage"`, `…="ocean"`). Theming is pure
+  inheritance — no JS recolour.
 - **Graphite carries no attribute** so it tracks the host's `.dark`. Named themes are
   light-only by deliberate scope.
 
@@ -297,11 +298,15 @@ popup's exposed `--transform-origin`; size them from the exposed `--available-he
 # §5 — Registration ledger _(Part A — verbatim in every file)_
 
 This is the **allow-list G3 checks against.** A `bg-* / text-* / rounded-* / size-* / shadow-*
-/ ease-*` utility is part of the API **only if** its `@theme inline` alias is in this ledger.
+/ ease-*` utility is part of the API **only if** its Tailwind v4 theme alias is in this ledger.
 If you cannot point to the row, the utility does not exist — use a hook class (§6).
 
-> Maintainers: this ledger is generated from the real `@theme inline` block. When you add a
-> tier-1 alias, add its row here in the same change, or the gate and reality diverge.
+> Maintainers: this ledger is generated from the real Tailwind theme blocks in
+> `styles.css`. Most aliases live in `@theme inline`; mutable `--shadow-*` elevation aliases
+> are registered in the Tailwind shadow namespace and consumed with Tailwind v4's
+> `shadow-(--shadow-*)` CSS-variable shorthand so they read the root token at runtime. When
+> you add a tier-1 alias, add its row here in the same change, or the gate and reality
+> diverge.
 
 ## 5.1 — Colour utilities (`bg-/text-/border-/ring-/fill-/stroke-…`)
 
@@ -340,7 +345,9 @@ If you cannot point to the row, the utility does not exist — use a hook class 
 ```
 
 `--font-widget` is the widget-root typeface variable. It is not a utility; it scopes the
-settings typeface choice to `.side-chat-widget-root` and its portaled popovers.
+settings typeface choice to `.side-chat-widget-root` and its portaled popovers. The settings
+choices are **Plus Jakarta Sans**, **DM Sans**, and **Instrument Sans**, all served from local
+`src/fonts/` files rather than a font CDN.
 
 ## 5.4 — Semantic sizes (`w-/h-/size-/min-/max-`)
 
@@ -357,11 +364,18 @@ settings typeface choice to `.side-chat-widget-root` and its portaled popovers.
 ## 5.5 — Elevation & motion
 
 ```
---shadow-card     → shadow-card
---shadow-popover  → shadow-popover
---shadow-panel    → shadow-panel
+--shadow-card     → shadow-(--shadow-card)
+--shadow-popover  → shadow-(--shadow-popover)
+--shadow-panel    → shadow-(--shadow-panel)
 --ease-out        → ease-out
 ```
+
+`--shadow-*` is the one tier-1 group that must be consumed through Tailwind v4's
+CSS-variable shadow shorthand: the settings elevation control mutates those variables on
+`.side-chat-widget-root`, and every component that uses
+`shadow-(--shadow-card)`, `shadow-(--shadow-popover)`, or `shadow-(--shadow-panel)` must see
+that runtime value. The **Flat** elevation value is Tailwind's zero-shadow shape
+(`0 0 #0000`), not `none`, so rings and composed shadows remain valid.
 
 **Anything not above is unregistered.** Notable non-utilities (use a hook class): every
 tier-2 component token (`--row-*`, `--switch-*`, `--seg-*`, `--menu-*`, `--field-*`,
@@ -484,7 +498,7 @@ own file with the Part-A preamble prepended.
 
 ## 8.1 — Switch (Toggle primitive)
 
-- **Build from:** Base UI `Switch`. **Use for:** booleans — Send-on-Enter, tool toggles.
+- **Build from:** Base UI `Switch`. **Use for:** booleans — Send with Ctrl+Enter, tool toggles.
 - **Owns:** `--switch-w`, `--switch-h`, `--switch-knob-size`, `--switch-inset`,
   `--switch-knob-fill`, `--switch-track-on`, `--switch-track-off`.
 - **Consumes (do not redefine):** `--primary`, `--input`, `--foreground`, `--ease-out`,
@@ -498,8 +512,10 @@ own file with the Part-A preamble prepended.
 ```tsx
 <Field.Label className="flex items-center justify-between gap-3">
   <span className="flex flex-col">
-    <span className="text-sm font-semibold text-foreground">Send on Enter</span>
-    <span className="text-xs text-muted-foreground">Shift+Enter inserts a newline</span>
+    <span className="text-sm font-semibold text-foreground">Send with Ctrl+Enter</span>
+    <span className="text-xs text-muted-foreground">
+      Use Ctrl+Enter to send; Enter adds a newline
+    </span>
   </span>
   <Switch.Root className="sc-switch-root">
     <Switch.Thumb className="sc-switch-thumb" />
@@ -561,7 +577,8 @@ own file with the Part-A preamble prepended.
   `[data-ending-style]`; item `[data-highlighted]`.
 - **Styling:** popup = CSS-layer rule on `[data-slot="dropdown-menu-content"]` (portaled +
   `--transform-origin`); **items, separators and labels are plain utilities in JSX** with the
-  `highlighted:` variant. No per-item hook class.
+  `highlighted:` variant. Interactive rows also carry `cursor-pointer select-none` so they
+  never expose a text-edit cursor. No per-item hook class.
 
 ```tsx
 <Menu.Root>
@@ -569,14 +586,16 @@ own file with the Part-A preamble prepended.
   <Menu.Portal container={rootRef.current}>
     <Menu.Positioner side="top" align="start" sideOffset={8}>
       <Menu.Popup data-slot="dropdown-menu-content">
-        <Menu.Item className="rounded-md px-2.5 py-2 highlighted:bg-accent">Attach file</Menu.Item>
+        <Menu.Item className="cursor-pointer select-none rounded-md px-2.5 py-2 highlighted:bg-accent">
+          Attach file
+        </Menu.Item>
         <Menu.Separator className="my-1.5 h-px bg-border" />
         <Menu.Group>
           <Menu.GroupLabel className="px-2.5 pt-1.5 pb-1 text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Tools
           </Menu.GroupLabel>
           <Menu.CheckboxItem
-            className="flex items-center justify-between rounded-md px-2.5 py-2 highlighted:bg-accent"
+            className="flex cursor-pointer select-none items-center justify-between rounded-md px-2.5 py-2 highlighted:bg-accent"
             checked={web}
             onCheckedChange={setWeb}
           >
@@ -595,7 +614,7 @@ own file with the Part-A preamble prepended.
 ```css
 /* styles.css — portaled popup (transform-origin + enter/exit can't be a utility) */
 [data-slot="dropdown-menu-content"] {
-  @apply rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-popover;
+  @apply rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-(--shadow-popover);
   transform-origin: var(--transform-origin);
   transition:
     opacity var(--dur) var(--ease-out),
@@ -841,7 +860,7 @@ sc-icon-btn` (it needs `--size-control` and the `popupopen:` reaction).
       aria-label={l.label}
       className="flex-1 flex items-center justify-center gap-1.5 rounded-sm px-1.5 py-1.5
                  text-xs font-medium text-muted-foreground cursor-pointer
-                 pressed:bg-background pressed:text-foreground pressed:shadow-card"
+                 pressed:bg-background pressed:text-foreground pressed:shadow-(--shadow-card)"
     >
       <l.Icon /> {l.label}
     </Toggle>
@@ -868,8 +887,9 @@ sc-icon-btn` (it needs `--size-control` and the `popupopen:` reaction).
 
 ## 8.9 — Tabs
 
-- **Build from:** Base UI `Tabs`. **Use for:** the Settings group navigator (wide layout) and
-  any real tab→panel relationship. Distinct from Segmented: Tabs owns **panels**.
+- **Build from:** Base UI `Tabs`. **Use for:** real tab→panel relationships, including the
+  Settings group navigator. Distinct from Segmented: Tabs owns **panels**; Settings applies
+  the two-line row treatment in §9.11.
 - **Consumes:** `--sidebar-accent`, `--foreground`, `--muted-foreground`, `--radius-md`.
 - **Base UI parts:** `Tabs.Root` (`value`/`onValueChange`) → `Tabs.List` → `Tabs.Tab` × n;
   `Tabs.Panel` × n (siblings of List, keyed by the same values).
@@ -906,8 +926,9 @@ sc-icon-btn` (it needs `--size-control` and the `popupopen:` reaction).
 
 ## 8.10 — Select
 
-- **Build from:** Base UI `Select`. **Use for:** a non-searchable dropdown — the Default-model
-  field in Settings. If a search field is present, it is a **Combobox** (§8.11), never a Select.
+- **Build from:** Base UI `Select`. **Use for:** a non-searchable dropdown, including the
+  narrow Settings group navigator. If a search field is present, it is a **Combobox** (§8.11),
+  never a Select.
 - **Consumes:** `--menu-*` family via the `select-content` slot (shared with Menu), `--accent`,
   `--primary`, type roles, `--radius-md`.
 - **Base UI parts:** `Select.Root` (`items`/`value`/`onValueChange`) → `Select.Trigger`
@@ -932,7 +953,7 @@ sc-icon-btn` (it needs `--size-control` and the `popupopen:` reaction).
             <Select.Item
               key={m.id}
               value={m}
-              className="flex items-center gap-2.5 px-2.5 py-2 rounded-md highlighted:bg-accent"
+              className="flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 highlighted:bg-accent"
             >
               <Select.ItemText>{m.name}</Select.ItemText>
               <Select.ItemIndicator className="ml-auto opacity-0 selected:opacity-100 text-primary">
@@ -986,7 +1007,7 @@ sc-icon-btn` (it needs `--size-control` and the `popupopen:` reaction).
             <Combobox.Item
               key={m.id}
               value={m}
-              className="flex items-center gap-2.5 px-2.5 py-2 rounded-md highlighted:bg-accent"
+              className="flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 highlighted:bg-accent"
             >
               <span className="sc-media">{m.icon}</span>
               <span className="flex min-w-0 flex-col">
@@ -1077,7 +1098,7 @@ sc-icon-btn` (it needs `--size-control` and the `popupopen:` reaction).
       <Tooltip.Positioner sideOffset={6}>
         <Tooltip.Popup
           data-slot="tooltip-content"
-          className="rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground border border-border shadow-popover
+          className="rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground border border-border shadow-(--shadow-popover)
                      starting:opacity-0 ending:opacity-0"
         >
           Settings
@@ -1216,6 +1237,8 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
   items `highlighted:`; checkbox `checked:`.
 - **Behavior:** a composition only — every row is an existing primitive. One popover open at a
   time (Base UI). Tool rows carry a Switch; context-scope rows carry a check (`ItemIndicator`).
+  Rows are clickable and non-selectable (`cursor-pointer select-none`) in addition to
+  `highlighted:`.
 - **Done:** ☐ G1–G6 ☐ Portal→root ☐ no new tokens ☐ items `highlighted:`, toggles `checked:` ☐ re-skins.
 
 ## 9.4 — Model selector
@@ -1268,7 +1291,7 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 
 ```css
 @utility sc-composer {
-  @apply flex flex-col rounded-xl border border-input bg-background shadow-card;
+  @apply flex flex-col rounded-xl border border-input bg-background shadow-(--shadow-card);
   &:focus-within {
     border-color: var(--ring);
     box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
@@ -1429,41 +1452,73 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 ## 9.11 — Settings (responsive)
 
 - **Built from:** Tabs ↔ Select (one group state) + Field + Switch + Segmented + ScrollArea.
-- **Owns:** `--settings-*` (nav width, gaps).
+- **Owns:** `--settings-*` (nav width, gaps). `--settings-nav-w` aliases
+  `--size-sidebar` so the live settings rail occupies the same column as the chat rail.
+- **Theme selector component:** `ThemePreviewCard`
+  (`src/shared/ui/settings/theme-preview-card.tsx`) owns the card anatomy: preview band,
+  mini panel, text block, and pressed state. `ThemeGroup` only supplies the ordered theme
+  options, two-column wide grid, and state callbacks.
 - **Base UI parts:** `Tabs.Root` stays mounted in **both** layouts; **wide** renders
   `Tabs.List` as a left rail, **narrow** swaps it for a `Select` bound to the same `value`;
   `Tabs.Panel` per group is identical in both.
-- **State:** tab `selected:`; field/switch/segmented per their primitives.
+- **State:** tab selection writes the current group; the wide rail also marks
+  `data-active="true"` so the row uses the same active fill/dot contract as
+  conversation rows. Field/switch/segmented per their primitives.
 
 ```tsx
-<Tabs.Root value={group} onValueChange={setGroup} className="flex gap-4">
+<Tabs.Root value={group} onValueChange={setGroup} className="sc-settings-root">
   {wide ? (
-    <Tabs.List className="flex flex-col gap-1 w-44 shrink-0">
-      {GROUPS.map((g) => (
-        <Tabs.Tab key={g.id} value={g.id} className="… selected:bg-sidebar-accent">
-          {g.label}
-        </Tabs.Tab>
-      ))}
-    </Tabs.List>
+    <div className="w-(--settings-nav-w) border-r border-(--settings-nav-border)">
+      <div className="sc-rail-newchat border-b border-(--settings-nav-border)">…</div>
+      <Tabs.List className="flex flex-col gap-0.5 px-2 py-2.5">
+        {GROUPS.map((g) => (
+          <Tabs.Tab
+            key={g.id}
+            value={g.id}
+            data-active={g.id === group ? "true" : undefined}
+            className="… hover:bg-(--settings-item-hover-bg) data-[active=true]:bg-(--settings-item-active-bg)"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="truncate text-sm font-medium text-(--settings-item-title-fg)">
+                {g.label}
+              </span>
+              <span className="truncate text-xs text-(--settings-item-desc-fg)">
+                {g.description}
+              </span>
+            </span>
+            <span className="size-1.5 rounded-full bg-(--settings-item-indicator)" />
+          </Tabs.Tab>
+        ))}
+      </Tabs.List>
+    </div>
   ) : (
     <Select.Root value={group} onValueChange={setGroup}>
       {/* same state, narrow */}…
     </Select.Root>
   )}
-  {GROUPS.map((g) => (
-    <Tabs.Panel key={g.id} value={g.id} className="flex-1 min-w-0">
-      {g.render()}
-    </Tabs.Panel>
-  ))}
+  <div className="flex min-w-0 flex-1 flex-col">
+    <header className="sc-header">…</header>
+    {GROUPS.map((g) => (
+      <Tabs.Panel key={g.id} value={g.id} className="flex-1 min-w-0">
+        <div className="mx-auto w-full max-w-measure-message">{g.render()}</div>
+      </Tabs.Panel>
+    ))}
+  </div>
 </Tabs.Root>
 ```
 
 - **Behavior:** both navigators render from ONE `GROUPS` array and write the same `group` state
-  → content never forks. Groups: **Theme** (swatch cards via `data-sidechat-theme-preview`),
-  accent swatches, corners, density, text size, typeface, elevation; **General** (Custom
-  instructions Field, Send-on-Enter Switch, Default-model Select). The
-  settings body scrolls via `ScrollArea`. The narrow layout is the wide layout with the nav
-  collapsed to a Select — not a different screen.
+  → content never forks. Groups: **Theme** (`ThemePreviewCard` selector cards in a
+  two-column wide grid; each preview band uses `data-sidechat-theme-preview` and consumes
+  `--sc-canvas`, `--card`, `--border`, `--muted`, and `--primary` in that isolated theme
+  scope), accent swatches, corners, density, text size, typeface, elevation; **General**
+  (one Send with Ctrl+Enter Switch row). The wide settings rail renders each group as the same
+  two-line row pattern as conversation selection: title, short description, active fill, active
+  dot. The
+  settings body scrolls via `ScrollArea` and centers content in the same
+  `max-w-measure-message` column as chat. The narrow layout is the wide layout with the nav
+  collapsed to a Select — not a different screen. In the live widget, settings replaces the
+  chat view inside the same `.sc-widget-panel` instead of mounting a second panel or overlay.
 - **Easy to miss:** keep `Tabs.Root` mounted in narrow (it owns the panels); only the navigator
   swaps. Adding a group = one array entry, appears in both layouts.
 - **Done:** ☐ G1–G6 ☐ one `GROUPS` array drives both navigators ☐ panels never forked ☐
@@ -1497,7 +1552,7 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 ```css
 @utility sc-panel {
   @apply absolute bottom-4 right-4 flex flex-col overflow-hidden rounded-xl border border-border
-         bg-card shadow-panel;
+         bg-card shadow-(--shadow-panel);
   max-width: calc(100% - 2rem);
   max-height: calc(100% - 2rem);
 }
@@ -1545,8 +1600,8 @@ underline-offset-2`; tables keep `overflow-x-auto`; fenced blocks stay inside St
   the overflow container + header-cell scope; a replaced `a` must preserve safe external-link
   behavior.
 - **Showcase = regression test:** one page rendering every primitive + rich wrapper, across
-  desktop/mobile × light/dark/sage/ocean, with streaming/incomplete fixtures (half-written
-  fence/table → repair, no reflow). Driven by the same `MarkdownContent`.
+  desktop/mobile × graphite/dark/sapphire/sage/ocean, with streaming/incomplete fixtures
+  (half-written fence/table → repair, no reflow). Driven by the same `MarkdownContent`.
 
 ---
 
@@ -1636,8 +1691,8 @@ B8. Definition of done (below)
 1. **Fix the bugs first (§7):** switch travel + knob-size token (7.1), single message-user
    source (7.2), utility over-promise (7.3), no token re-declaration (7.4), no `destructive-
 foreground` (7.6), **one** spacing system (7.7), chat log ≠ ScrollArea (7.8).
-2. **Generate the ledger (§5) from the real `@theme inline` block** — it is the allow-list G3
-   checks. Keep ledger and `@theme` in sync in the same change.
+2. **Generate the ledger (§5) from the real Tailwind theme blocks** — it is the allow-list G3
+   checks. Keep ledger and `@theme`/`@theme inline` in sync in the same change.
 3. **Prepend Part A (§1–§6) verbatim to every per-component file**; fill Part B from §8/§9. A
    file is correct only if it is buildable in isolation.
 4. **Ship the five gates (§1.1) and the acceptance test (§12.3) in every file.** Strictness is

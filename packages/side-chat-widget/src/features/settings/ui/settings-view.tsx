@@ -4,9 +4,8 @@ import { SettingsPanel } from "#shared/ui/settings";
 import type { AccentOption } from "#shared/ui/settings-groups";
 import { ChevronLeftIcon } from "lucide-react";
 
-// Full-panel settings uses the shared SettingsPanel but keeps ownership of widget
-// appearance in features/theme. The overlay sits inside .sc-widget-panel, so the
-// wide/narrow settings nav follows the same container query as the chat sidebar.
+// Settings is an in-panel view, not a new floating frame: it borrows the chat
+// shell's sidebar/header rhythm while keeping appearance ownership in features/theme.
 export const SettingsView = ({
   accent,
   corners,
@@ -40,32 +39,60 @@ export const SettingsView = ({
   readonly themeId: WidgetThemeId;
   readonly typeface: string;
 }) => (
-  <div className="flex min-h-0 flex-1 flex-col">
-    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-      <Button aria-label="Back" onClick={onBack} size="icon-sm" type="button" variant="ghost">
-        <ChevronLeftIcon className="size-4" />
-      </Button>
-      <h3 className="font-medium text-sm">Settings</h3>
+  <SettingsPanel
+    accent={accent}
+    applyAppearance={false}
+    corners={corners}
+    density={density}
+    elevation={elevation}
+    header={<SettingsHeader onBack={onBack} />}
+    onAccentChange={onAccentChange}
+    onCornersChange={onCornersChange}
+    onDensityChange={onDensityChange}
+    onElevationChange={onElevationChange}
+    onTextSizeChange={onTextSizeChange}
+    onThemeChange={(next) => {
+      if (isWidgetThemeId(next)) onSelectTheme(next);
+    }}
+    onTypefaceChange={onTypefaceChange}
+    railHeader={<SettingsRailHeader onBack={onBack} />}
+    textSize={textSize}
+    theme={themeId}
+    themeOptions={WIDGET_THEME_IDS}
+    typeface={typeface}
+  />
+);
+
+const SettingsHeader = ({ onBack }: { readonly onBack: () => void }) => (
+  <header className="sc-header">
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="sc-narrow-slot">
+        <Button
+          aria-label="Back to chat"
+          onClick={onBack}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <ChevronLeftIcon className="size-4" />
+        </Button>
+      </span>
+      <h3 className="truncate text-md font-semibold text-foreground">Settings</h3>
     </div>
-    <SettingsPanel
-      accent={accent}
-      applyAppearance={false}
-      corners={corners}
-      density={density}
-      elevation={elevation}
-      onAccentChange={onAccentChange}
-      onCornersChange={onCornersChange}
-      onDensityChange={onDensityChange}
-      onElevationChange={onElevationChange}
-      onTextSizeChange={onTextSizeChange}
-      onThemeChange={(next) => {
-        if (isWidgetThemeId(next)) onSelectTheme(next);
-      }}
-      onTypefaceChange={onTypefaceChange}
-      textSize={textSize}
-      theme={themeId}
-      themeOptions={WIDGET_THEME_IDS}
-      typeface={typeface}
-    />
+  </header>
+);
+
+const SettingsRailHeader = ({ onBack }: { readonly onBack: () => void }) => (
+  <div className="sc-rail-newchat border-b border-(--settings-nav-border)">
+    <Button
+      aria-label="Back to chat"
+      className="w-full justify-start gap-2 px-2.5 py-2 text-left"
+      onClick={onBack}
+      type="button"
+      variant="secondary"
+    >
+      <ChevronLeftIcon className="size-4 text-primary" />
+      Back to chat
+    </Button>
   </div>
 );

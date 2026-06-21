@@ -140,7 +140,7 @@ export function ShellSection(): ReactElement {
       style={{ height: "440px" }}
     >
       <div
-        className="sc-widget-panel absolute right-4 bottom-4 z-0 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-panel"
+        className="sc-widget-panel absolute right-4 bottom-4 z-0 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-(--shadow-panel)"
         style={{ width: "520px", height: "360px" }}
       >
         <Shell />

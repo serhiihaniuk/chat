@@ -3,7 +3,7 @@
  *
  * A composition only: every row is an existing primitive. Built on Base UI `Menu`
  * with `data-slot="dropdown-menu-content"` on the popup (so the surface — border,
- * `bg-popover`, `shadow-popover`, enter/exit transition — is owned by styles.css),
+ * `bg-popover`, `shadow-(--shadow-popover)`, enter/exit transition — is owned by styles.css),
  * plus the `Switch` primitive (§8.1) for tool toggles and `Menu.Separator` between
  * regions. No new surface tokens: the popup reuses `--menu-*`, the switch `--switch-*`.
  *
@@ -21,7 +21,8 @@ import { cn } from "#shared/lib/cn";
 import { Switch } from "#shared/ui/switch";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
-const ITEM_CLASS = "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent";
+const ITEM_CLASS =
+  "flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent";
 const LABEL_CLASS =
   "px-2.5 pt-1.5 pb-1 text-2xs font-bold uppercase tracking-wider text-muted-foreground";
 

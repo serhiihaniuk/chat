@@ -1,23 +1,37 @@
 import type { ReactElement } from "react";
 
-import { Check } from "lucide-react";
-
 import { cn } from "#shared/lib/cn";
 import { Segmented, type SegmentedItem } from "#shared/ui/segmented";
+import {
+  THEME_PREVIEW_IDS,
+  ThemePreviewCard,
+  type ThemePreview,
+  type ThemePreviewOption,
+} from "./theme-preview-card.js";
 
-export type ThemePreview = "graphite" | "sapphire" | "sage" | "ocean";
+export type { ThemePreview } from "./theme-preview-card.js";
 
-type ThemeOption = {
-  readonly description: string;
-  readonly id: ThemePreview;
-  readonly name: string;
-};
-
-const THEMES: readonly ThemeOption[] = [
-  { id: "graphite", name: "Graphite", description: "Cool charcoal" },
-  { id: "sapphire", name: "Sapphire", description: "Deep navy" },
-  { id: "sage", name: "Sage", description: "Deep emerald" },
-  { id: "ocean", name: "Ocean", description: "Calm blue" },
+const THEMES: readonly ThemePreviewOption[] = [
+  {
+    id: THEME_PREVIEW_IDS.GRAPHITE,
+    name: "Graphite",
+    description: "Cool charcoal, premium neutral.",
+  },
+  {
+    id: THEME_PREVIEW_IDS.SAGE,
+    name: "Sage",
+    description: "Deep emerald, premium green.",
+  },
+  {
+    id: THEME_PREVIEW_IDS.OCEAN,
+    name: "Ocean",
+    description: "Blue neutrals, blue primary.",
+  },
+  {
+    id: THEME_PREVIEW_IDS.SAPPHIRE,
+    name: "Sapphire",
+    description: "Deep navy, premium banking.",
+  },
 ];
 
 export type AccentOption = {
@@ -52,9 +66,9 @@ const TEXT_SIZE_ITEMS: readonly SegmentedItem[] = [
 ];
 
 const TYPEFACE_ITEMS: readonly SegmentedItem[] = [
-  { id: "jakarta", label: "Jakarta" },
-  { id: "ibm-plex", label: "IBM Plex" },
-  { id: "system", label: "System" },
+  { id: "plus-jakarta", label: "Plus Jakarta Sans" },
+  { id: "dm-sans", label: "DM Sans" },
+  { id: "instrument-sans", label: "Instrument Sans" },
 ];
 
 const ELEVATION_ITEMS: readonly SegmentedItem[] = [
@@ -65,37 +79,6 @@ const ELEVATION_ITEMS: readonly SegmentedItem[] = [
 
 const SETTINGS_LABEL_CLASS =
   "text-(length:--settings-label-size) font-semibold text-(--settings-label-fg)";
-
-function ThemeSwatch({
-  onSelect,
-  option,
-  selected,
-}: {
-  readonly onSelect: () => void;
-  readonly option: ThemeOption;
-  readonly selected: boolean;
-}): ReactElement {
-  return (
-    <button
-      type="button"
-      aria-label={option.name}
-      aria-pressed={selected}
-      onClick={onSelect}
-      className="sc-settings-theme-card"
-    >
-      <span className="sc-settings-theme-chip" data-theme={option.id} />
-      <span className="flex min-w-0 flex-1 flex-col gap-px">
-        <span className="text-sm font-medium text-card-foreground">{option.name}</span>
-        <span className="text-xs text-muted-foreground">{option.description}</span>
-      </span>
-      {selected ? (
-        <span className="inline-flex shrink-0 text-primary">
-          <Check className="size-4" strokeWidth={2.4} />
-        </span>
-      ) : null}
-    </button>
-  );
-}
 
 function AccentSwatches({
   accent,
@@ -186,7 +169,7 @@ export function ThemeGroup({
         {narrow ? null : <div className={SETTINGS_LABEL_CLASS}>Theme</div>}
         <div className="sc-settings-theme-list" data-wide={narrow ? undefined : "true"}>
           {themes.map((option) => (
-            <ThemeSwatch
+            <ThemePreviewCard
               key={option.id}
               option={option}
               selected={theme === option.id}

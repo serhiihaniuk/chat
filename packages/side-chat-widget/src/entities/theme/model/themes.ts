@@ -19,22 +19,22 @@ export const WIDGET_THEMES: readonly WidgetTheme[] = [
   {
     id: "graphite",
     name: "Graphite",
-    description: "Cool charcoal — the default look.",
+    description: "Cool charcoal, premium neutral.",
   },
   {
     id: "sapphire",
     name: "Sapphire",
-    description: "Deep navy.",
+    description: "Deep navy, premium banking.",
   },
   {
     id: "sage",
     name: "Sage",
-    description: "Deep emerald.",
+    description: "Deep emerald, premium green.",
   },
   {
     id: "ocean",
     name: "Ocean",
-    description: "Calm blue.",
+    description: "Blue neutrals, blue primary.",
   },
 ];
 

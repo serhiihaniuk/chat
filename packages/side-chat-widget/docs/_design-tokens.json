@@ -1075,9 +1075,9 @@
   },
   {
     "t": "--settings-nav-w",
-    "v": "9.5rem",
+    "v": "var(--size-sidebar)",
     "p": "width",
-    "c": "Group rail width (wide)"
+    "c": "Group rail width; matches chat rail"
   },
   {
     "t": "--settings-nav-bg",
@@ -1093,9 +1093,33 @@
   },
   {
     "t": "--settings-item-active-bg",
-    "v": "var(--sidebar-accent)",
+    "v": "var(--convo-item-bg-active)",
     "p": "background",
     "c": "Active group row"
+  },
+  {
+    "t": "--settings-item-hover-bg",
+    "v": "var(--convo-item-bg-hover)",
+    "p": "background",
+    "c": "Hover group row"
+  },
+  {
+    "t": "--settings-item-title-fg",
+    "v": "var(--convo-title-fg)",
+    "p": "color",
+    "c": "Group row title"
+  },
+  {
+    "t": "--settings-item-desc-fg",
+    "v": "var(--convo-subtitle-fg)",
+    "p": "color",
+    "c": "Group row description"
+  },
+  {
+    "t": "--settings-item-indicator",
+    "v": "var(--convo-indicator)",
+    "p": "background",
+    "c": "Active group dot"
   },
   {
     "t": "--settings-item-px",

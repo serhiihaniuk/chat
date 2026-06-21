@@ -31,9 +31,9 @@ export function SwitchSection(): ReactElement {
   // inside a Field.Root, and the Root wires the Label→control association for us.
   const rows = [
     {
-      title: "Send on Enter",
-      hint: "Shift+Enter inserts a newline",
-      control: <Switch defaultChecked />,
+      title: "Send with Ctrl+Enter",
+      hint: "Enter adds a newline",
+      control: <Switch />,
     },
     { title: "Stream responses", hint: "Render tokens as they arrive", control: <Switch /> },
     { title: "Web search", hint: "Unavailable on this model", control: <Switch disabled /> },

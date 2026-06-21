@@ -39,9 +39,9 @@ export const WIDGET_TEXT_SIZE_IDS = {
 export type WidgetTextSizeId = (typeof WIDGET_TEXT_SIZE_IDS)[keyof typeof WIDGET_TEXT_SIZE_IDS];
 
 export const WIDGET_TYPEFACE_IDS = {
-  JAKARTA: "jakarta",
-  IBM_PLEX: "ibm-plex",
-  SYSTEM: "system",
+  PLUS_JAKARTA: "plus-jakarta",
+  DM_SANS: "dm-sans",
+  INSTRUMENT_SANS: "instrument-sans",
 } as const;
 export type WidgetTypefaceId = (typeof WIDGET_TYPEFACE_IDS)[keyof typeof WIDGET_TYPEFACE_IDS];
 
@@ -99,16 +99,18 @@ const TEXT_SCALE: Record<WidgetTextSizeId, Record<string, string>> = {
   },
 };
 const TYPEFACE_FAMILY: Record<WidgetTypefaceId, string> = {
-  jakarta: '"Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-  "ibm-plex":
-    '"IBM Plex Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-  system: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  "plus-jakarta":
+    '"Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  "dm-sans":
+    '"DM Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  "instrument-sans":
+    '"Instrument Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
 };
 const ELEVATION_SHADOWS: Record<WidgetElevationId, Record<string, string>> = {
   flat: {
-    "--shadow-card": "none",
-    "--shadow-popover": "none",
-    "--shadow-panel": "none",
+    "--shadow-card": "0 0 #0000",
+    "--shadow-popover": "0 0 #0000",
+    "--shadow-panel": "0 0 #0000",
   },
   soft: {
     "--shadow-card": "0 1px 2px 0 oklch(0 0 0 / 0.05), 0 1px 3px 0 oklch(0 0 0 / 0.08)",
@@ -215,7 +217,7 @@ const DEFAULTS: WidgetAppearanceState = {
   density: WIDGET_DENSITY_IDS.COZY,
   elevation: WIDGET_ELEVATION_IDS.SOFT,
   textSize: WIDGET_TEXT_SIZE_IDS.DEFAULT,
-  typeface: WIDGET_TYPEFACE_IDS.JAKARTA,
+  typeface: WIDGET_TYPEFACE_IDS.PLUS_JAKARTA,
 };
 
 const isOneOf = <Value extends string>(list: readonly Value[], value: unknown): value is Value =>
@@ -237,7 +239,7 @@ const readStored = (storageKey: string | undefined): WidgetAppearanceState => {
         ? record["elevation"]
         : DEFAULTS.elevation,
       textSize: isOneOf(TEXT_SIZES, record["textSize"]) ? record["textSize"] : DEFAULTS.textSize,
-      typeface: isOneOf(TYPEFACES, record["typeface"]) ? record["typeface"] : DEFAULTS.typeface,
+      typeface: readTypeface(record["typeface"]),
     };
   } catch {
     return DEFAULTS;
@@ -247,6 +249,11 @@ const readStored = (storageKey: string | undefined): WidgetAppearanceState => {
 const readDensity = (value: unknown): WidgetDensityId => {
   if (value === "comfortable") return WIDGET_DENSITY_IDS.ROOMY;
   return isOneOf(DENSITIES, value) ? value : DEFAULTS.density;
+};
+
+const readTypeface = (value: unknown): WidgetTypefaceId => {
+  if (value === "jakarta") return WIDGET_TYPEFACE_IDS.PLUS_JAKARTA;
+  return isOneOf(TYPEFACES, value) ? value : DEFAULTS.typeface;
 };
 
 const writeStored = (storageKey: string | undefined, state: WidgetAppearanceState): void => {

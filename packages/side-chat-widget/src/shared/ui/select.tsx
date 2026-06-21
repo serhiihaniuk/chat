@@ -1,8 +1,9 @@
 /**
  * §8.10 — Select (non-searchable dropdown).
  *
- * Built from Base UI `Select`. This is the Default-model field in Settings: a plain
- * value picker with NO search field (a search field would make it a Combobox, §8.11).
+ * Built from Base UI `Select`. This is the plain non-searchable picker pattern; the
+ * narrow Settings navigator also uses Select for group switching. A search field would
+ * make it a Combobox, §8.11.
  *
  * Part tree (contract): Select.Root (items/value/onValueChange) → Select.Trigger
  * (Select.Value + Select.Icon) → Select.Portal(container) → Select.Positioner →
@@ -59,7 +60,7 @@ export function SelectSection(): ReactElement {
                   <Select.Item
                     key={m.id}
                     value={m}
-                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-md highlighted:bg-accent"
+                    className="flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 highlighted:bg-accent"
                   >
                     <Select.ItemText>{m.name}</Select.ItemText>
                     <Select.ItemIndicator className="ml-auto opacity-0 selected:opacity-100 text-primary">

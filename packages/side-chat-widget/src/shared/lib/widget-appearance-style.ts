@@ -38,16 +38,18 @@ const TEXT_SCALE: Record<string, Record<string, string>> = {
   },
 };
 const TYPEFACE_FAMILY: Record<string, string> = {
-  jakarta: '"Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-  "ibm-plex":
-    '"IBM Plex Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-  system: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  "plus-jakarta":
+    '"Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  "dm-sans":
+    '"DM Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  "instrument-sans":
+    '"Instrument Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
 };
 const ELEVATION_SHADOWS: Record<string, Record<string, string>> = {
   flat: {
-    "--shadow-card": "none",
-    "--shadow-popover": "none",
-    "--shadow-panel": "none",
+    "--shadow-card": "0 0 #0000",
+    "--shadow-popover": "0 0 #0000",
+    "--shadow-panel": "0 0 #0000",
   },
   soft: {
     "--shadow-card": "0 1px 2px 0 oklch(0 0 0 / 0.05), 0 1px 3px 0 oklch(0 0 0 / 0.08)",
@@ -76,7 +78,7 @@ export const widgetAppearanceStyle = ({
 }): Record<string, string> => ({
   "--radius": CORNER_RADIUS[corners] ?? CORNER_RADIUS["default"]!,
   "--space-unit": DENSITY_UNIT[density] ?? DENSITY_UNIT["cozy"]!,
-  "--font-widget": TYPEFACE_FAMILY[typeface] ?? TYPEFACE_FAMILY["jakarta"]!,
+  "--font-widget": TYPEFACE_FAMILY[typeface] ?? TYPEFACE_FAMILY["plus-jakarta"]!,
   ...(TEXT_SCALE[textSize] ?? TEXT_SCALE["default"]!),
   ...(ELEVATION_SHADOWS[elevation] ?? ELEVATION_SHADOWS["soft"]!),
 });

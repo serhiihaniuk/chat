@@ -68,7 +68,7 @@ const sideChatConfig = defineSideChatConfig({
         }),
       },
       reasoning: {
-        summary: PROVIDERS.OPENAI.REASONING_SUMMARIES.AUTO,
+        summary: PROVIDERS.OPENAI.REASONING_SUMMARIES.CONCISE,
       },
     },
     default: {

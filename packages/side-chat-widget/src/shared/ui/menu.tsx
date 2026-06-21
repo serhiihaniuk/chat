@@ -6,7 +6,7 @@
  * `Menu` from "@base-ui/react/menu" and tag their `Menu.Popup` with
  * `data-slot="dropdown-menu-content"` to inherit the portaled-popup contract.
  *
- * The popup's surface (border, bg-popover, shadow-popover, transform-origin,
+ * The popup's surface (border, bg-popover, shadow-(--shadow-popover), transform-origin,
  * enter/exit scale+fade) is owned entirely by styles.css via that data-slot, so
  * JSX never re-declares colour/shadow on the popup — it only sets the slot.
  */
@@ -32,7 +32,7 @@ export function MenuSection(): ReactElement {
         <Menu.Portal container={container}>
           <Menu.Positioner side="bottom" align="start" sideOffset={6}>
             <Menu.Popup data-slot="dropdown-menu-content" className="w-menu">
-              <Menu.Item className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent">
+              <Menu.Item className="flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent">
                 <Paperclip className="size-4 text-muted-foreground" />
                 Attach file
               </Menu.Item>
@@ -48,7 +48,7 @@ export function MenuSection(): ReactElement {
                   checked={webSearch}
                   onCheckedChange={setWebSearch}
                   closeOnClick={false}
-                  className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent"
+                  className="flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent"
                 >
                   <Globe className="size-4 text-muted-foreground" />
                   <span className="flex-1">Web search</span>
@@ -61,7 +61,7 @@ export function MenuSection(): ReactElement {
                   checked={codeTools}
                   onCheckedChange={setCodeTools}
                   closeOnClick={false}
-                  className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent"
+                  className="flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 text-sm highlighted:bg-accent"
                 >
                   <Wrench className="size-4 text-muted-foreground" />
                   <span className="flex-1">Code tools</span>

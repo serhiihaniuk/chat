@@ -31,6 +31,7 @@ const renderThemeWidget = () =>
   );
 
 const widgetRoot = (): Element | null => document.querySelector(".side-chat-widget-root");
+const widgetPanel = (): Element | null => document.querySelector(".sc-widget-panel");
 
 describe("SideChatWidget settings", () => {
   it("opens settings from the header and applies a theme to the widget root", async () => {
@@ -45,6 +46,58 @@ describe("SideChatWidget settings", () => {
 
     expect(widgetRoot()?.getAttribute("data-sidechat-theme")).toBe("sage");
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("sage");
+  });
+
+  it("opens settings inside the existing chat panel container", async () => {
+    renderThemeWidget();
+
+    await clickButton("Settings");
+
+    const panel = widgetPanel();
+    expect(panel?.querySelector(":scope > .sc-settings-root")).not.toBeNull();
+    expect(panel?.querySelector(".sc-rail-newchat")).not.toBeNull();
+    expect(panel?.querySelector(".sc-header")).not.toBeNull();
+    expect(panel?.querySelector(".sc-settings-root .max-w-measure-message")).not.toBeNull();
+    expect(panel?.querySelector(":scope > .absolute.inset-0")).toBeNull();
+  });
+
+  it("uses conversation-row styling for settings groups and keeps General to the Ctrl+Enter setting", async () => {
+    renderThemeWidget();
+
+    await clickButton("Settings");
+
+    const themeTab = document.querySelector('button[aria-label="Theme"]');
+    expect(themeTab?.getAttribute("data-active")).toBe("true");
+    expect(themeTab?.textContent).toContain("Appearance controls");
+
+    await clickButton("General");
+
+    const generalTab = document.querySelector('button[aria-label="General"]');
+    expect(generalTab?.getAttribute("data-active")).toBe("true");
+    expect(generalTab?.textContent).toContain("Keyboard shortcut");
+    expect(document.body.textContent).toContain("Send with Ctrl+Enter");
+    expect(document.body.textContent).not.toContain("Custom instructions");
+    expect(document.body.textContent).not.toContain("Default model");
+  });
+
+  it("offers only the locally served widget typefaces", async () => {
+    renderThemeWidget();
+
+    await clickButton("Settings");
+
+    expect(document.body.textContent).toContain("Plus Jakarta Sans");
+    expect(document.body.textContent).toContain("DM Sans");
+    expect(document.body.textContent).toContain("Instrument Sans");
+    expect(document.body.textContent).not.toContain("IBM Plex");
+  });
+
+  it("maps legacy Jakarta storage to the local Plus Jakarta Sans typeface", () => {
+    window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({ typeface: "jakarta" }));
+    renderThemeWidget();
+
+    const root = widgetRoot();
+    if (!(root instanceof HTMLElement)) throw new Error("Expected widget root.");
+    expect(root.style.getPropertyValue("--font-widget")).toContain("Plus Jakarta Sans");
   });
 
   it("keeps graphite attribute-free so it tracks the host light/dark", async () => {
@@ -67,7 +120,7 @@ describe("SideChatWidget settings", () => {
     await clickButton("Blue");
     await clickButton("Roomy");
     await clickButton("Large");
-    await clickButton("IBM Plex");
+    await clickButton("Instrument Sans");
     await clickButton("Flat");
 
     const root = widgetRoot();
@@ -76,14 +129,14 @@ describe("SideChatWidget settings", () => {
     expect(root.getAttribute("data-sidechat-accent")).toBe("blue");
     expect(rootStyle.getPropertyValue("--space-unit")).toBe("0.3125rem");
     expect(rootStyle.getPropertyValue("--text-md")).toBe("1rem");
-    expect(rootStyle.getPropertyValue("--font-widget")).toContain("IBM Plex Sans");
-    expect(rootStyle.getPropertyValue("--shadow-panel")).toBe("none");
+    expect(rootStyle.getPropertyValue("--font-widget")).toContain("Instrument Sans");
+    expect(rootStyle.getPropertyValue("--shadow-panel")).toBe("0 0 #0000");
     expect(JSON.parse(window.localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? "{}")).toMatchObject({
       accent: "blue",
       density: "roomy",
       elevation: "flat",
       textSize: "large",
-      typeface: "ibm-plex",
+      typeface: "instrument-sans",
     });
   });
 });

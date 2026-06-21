@@ -131,95 +131,93 @@ const SideChatWidgetContent = ({
       style={appearance.appearanceRootProps.style}
       theme={theme.themeId}
     >
-      {/* Sidebar is full height; the header lives inside the main column beside it. */}
-      <div className="flex min-h-0 flex-1">
-        <div className="sc-wide-slot min-h-0 shrink-0">
-          <ConversationSidebar
-            conversations={chat.conversations}
-            onNewConversation={chat.startNewConversation}
-            onSelectConversation={chat.selectConversation}
-            selectedConversationId={chat.conversationId}
-          />
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <WidgetHeader
-            newConversationDisabled={isBusy && chat.conversationId === undefined}
-            onClose={() => {
-              panelActions?.onClose?.();
-              requestOpenChange(false);
-            }}
-            onNewConversation={chat.startNewConversation}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            title={
-              <>
-                <span className="sc-wide-slot min-w-0">
-                  <WidgetHeaderTitle title={resolvedLabels.title} />
-                </span>
-                <span className="sc-narrow-slot min-w-0">
-                  <ConversationSwitcher
-                    conversations={chat.conversations}
-                    disabled={isBusy}
-                    onNewConversation={chat.startNewConversation}
-                    onSelectConversation={chat.selectConversation}
-                    selectedConversationId={chat.conversationId}
-                    title={resolvedLabels.title}
-                  />
-                </span>
-              </>
-            }
-          />
-          <WidgetConversation
-            emptyState={
-              <WidgetEmptyState
-                assistantTitle={resolvedLabels.title}
-                description={EMPTY_STATE_DESCRIPTION}
-                onSelectSuggestion={(prompt) => void chat.submitMessage(prompt)}
-                suggestions={suggestions}
-                title={EMPTY_STATE_TITLE}
-              />
-            }
-            errorMessage={chat.errorMessage}
-            isLoadingHistory={chat.isLoadingHistory}
-            messages={chat.messages}
-            onRetry={chat.retryLastMessage}
-            reasoningVisibility={reasoningVisibility}
-          />
-          <WidgetFooter
-            isBusy={isBusy}
-            labels={resolvedLabels}
-            messages={chat.messages}
-            models={modelSelection.footerModels}
-            onModelSelect={modelSelection.selectFooterModel}
-            onReasoningEffortSelect={modelSelection.setSelectedReasoningEffort}
-            onSubmitMessage={chat.submitMessage}
-            reasoningEfforts={modelSelection.reasoningEfforts}
-            selectedModelKey={modelSelection.selectedFooterModelKey}
-            selectedReasoningEffort={modelSelection.selectedReasoningEffort}
-            status={chat.status}
-            stop={chat.stop}
-          />
-        </div>
-      </div>
-      {isSettingsOpen && (
-        // Full-panel overlay (covers the sidebar + main column), matching the mock.
-        <div className="absolute inset-0 z-[65] flex flex-col bg-card">
-          <SettingsView
-            accent={appearance.accent}
-            corners={appearance.corners}
-            density={appearance.density}
-            elevation={appearance.elevation}
-            onAccentChange={appearance.setAccent}
-            onBack={() => setIsSettingsOpen(false)}
-            onCornersChange={appearance.setCorners}
-            onDensityChange={appearance.setDensity}
-            onElevationChange={appearance.setElevation}
-            onSelectTheme={theme.setTheme}
-            onTextSizeChange={appearance.setTextSize}
-            onTypefaceChange={appearance.setTypeface}
-            textSize={appearance.textSize}
-            themeId={theme.themeId}
-            typeface={appearance.typeface}
-          />
+      {isSettingsOpen ? (
+        <SettingsView
+          accent={appearance.accent}
+          corners={appearance.corners}
+          density={appearance.density}
+          elevation={appearance.elevation}
+          onAccentChange={appearance.setAccent}
+          onBack={() => setIsSettingsOpen(false)}
+          onCornersChange={appearance.setCorners}
+          onDensityChange={appearance.setDensity}
+          onElevationChange={appearance.setElevation}
+          onSelectTheme={theme.setTheme}
+          onTextSizeChange={appearance.setTextSize}
+          onTypefaceChange={appearance.setTypeface}
+          textSize={appearance.textSize}
+          themeId={theme.themeId}
+          typeface={appearance.typeface}
+        />
+      ) : (
+        // Sidebar is full height; the header lives inside the main column beside it.
+        <div className="flex min-h-0 flex-1">
+          <div className="sc-wide-slot min-h-0 shrink-0">
+            <ConversationSidebar
+              conversations={chat.conversations}
+              onNewConversation={chat.startNewConversation}
+              onSelectConversation={chat.selectConversation}
+              selectedConversationId={chat.conversationId}
+            />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <WidgetHeader
+              newConversationDisabled={isBusy && chat.conversationId === undefined}
+              onClose={() => {
+                panelActions?.onClose?.();
+                requestOpenChange(false);
+              }}
+              onNewConversation={chat.startNewConversation}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              title={
+                <>
+                  <span className="sc-wide-slot min-w-0">
+                    <WidgetHeaderTitle title={resolvedLabels.title} />
+                  </span>
+                  <span className="sc-narrow-slot min-w-0">
+                    <ConversationSwitcher
+                      conversations={chat.conversations}
+                      disabled={isBusy}
+                      onNewConversation={chat.startNewConversation}
+                      onSelectConversation={chat.selectConversation}
+                      selectedConversationId={chat.conversationId}
+                      title={resolvedLabels.title}
+                    />
+                  </span>
+                </>
+              }
+            />
+            <WidgetConversation
+              emptyState={
+                <WidgetEmptyState
+                  assistantTitle={resolvedLabels.title}
+                  description={EMPTY_STATE_DESCRIPTION}
+                  onSelectSuggestion={(prompt) => void chat.submitMessage(prompt)}
+                  suggestions={suggestions}
+                  title={EMPTY_STATE_TITLE}
+                />
+              }
+              errorMessage={chat.errorMessage}
+              isLoadingHistory={chat.isLoadingHistory}
+              messages={chat.messages}
+              onRetry={chat.retryLastMessage}
+              reasoningVisibility={reasoningVisibility}
+            />
+            <WidgetFooter
+              isBusy={isBusy}
+              labels={resolvedLabels}
+              messages={chat.messages}
+              models={modelSelection.footerModels}
+              onModelSelect={modelSelection.selectFooterModel}
+              onReasoningEffortSelect={modelSelection.setSelectedReasoningEffort}
+              onSubmitMessage={chat.submitMessage}
+              reasoningEfforts={modelSelection.reasoningEfforts}
+              selectedModelKey={modelSelection.selectedFooterModelKey}
+              selectedReasoningEffort={modelSelection.selectedReasoningEffort}
+              status={chat.status}
+              stop={chat.stop}
+            />
+          </div>
         </div>
       )}
     </ResizablePanel>
