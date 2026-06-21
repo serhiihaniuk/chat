@@ -29,12 +29,25 @@ export const WidgetMessageView = memo(
         {message.content ? (
           <Message mode={mode} role={message.role} text={message.content} />
         ) : (
-          message.isStreaming === true &&
-          !showActivity && <Message mode="streaming" role="assistant" text="Thinking..." />
+          message.isStreaming === true && !showActivity && <WidgetPendingActivityTimeline />
         )}
       </div>
     );
   },
+);
+
+const PENDING_ACTIVITY_ITEMS: readonly ReasoningItem[] = [
+  { id: "pending-reasoning", kind: "thought", text: "Preparing the response." },
+];
+
+const WidgetPendingActivityTimeline = () => (
+  <Reasoning
+    items={PENDING_ACTIVITY_ITEMS}
+    label="Thinking..."
+    onOpenChange={() => undefined}
+    open
+    thinking
+  />
 );
 
 const WidgetActivityTimeline = ({

@@ -174,6 +174,7 @@ describe("sidechat.config.ts", () => {
         PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
         PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.HIGH,
       ],
+      reasoningSummary: PROVIDERS.OPENAI.REASONING_SUMMARIES.AUTO,
     });
   });
 

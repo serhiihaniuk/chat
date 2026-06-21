@@ -109,7 +109,7 @@ describe("WidgetMessageView", () => {
     expect(html).toContain("Asset bubbles");
   });
 
-  it("renders a streaming thinking trigger when no assistant text is available", () => {
+  it("renders the live reasoning fold before activity events arrive", () => {
     const html = renderToStaticMarkup(
       <WidgetMessageView
         message={{
@@ -124,7 +124,8 @@ describe("WidgetMessageView", () => {
     );
 
     expect(html).toContain("Thinking");
-    expect(html).not.toContain("rotate-180");
+    expect(html).toContain("Preparing the response.");
+    expect(html).toContain("rotate-180");
   });
 
   it("opens live activity after the stream emits a trace", () => {

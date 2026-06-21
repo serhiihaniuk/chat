@@ -102,10 +102,10 @@ private context-board content.
 
 `partner-ai-core` owns the portable capability configuration contract used by
 policy and context preparation. The service-readable product behavior now starts
-in `sidechat.config.ts`: enabled models, per-model reasoning options, default
-executor, tool microconfigs, request policy, turn profile prompt/output/safety,
-context budgets, and auxiliary model jobs live there as imported catalog values
-plus human-authored prompt text.
+in `sidechat.config.ts`: enabled models, provider reasoning summary, per-model
+reasoning options, default executor, tool microconfigs, request policy, turn
+profile prompt/output/safety, context budgets, and auxiliary model jobs live
+there as imported catalog values plus human-authored prompt text.
 
 `src/config/sidechat-config.ts` owns the typed `defineSideChatConfig(...)`
 helper, `readEnv(...)` env-reference helpers, the optional config module loader,
@@ -133,6 +133,7 @@ The checked-in production config is explicit and fail closed:
 | ----------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
 | `environment.profile`                           | `SERVICE_PROFILES.PRODUCTION`           | Deployment posture used by auth, policy, and persistence.         |
 | `models.provider.kind`                          | `PROVIDERS.OPENAI.KIND`                 | Runtime provider adapter.                                         |
+| `models.provider.reasoning.summary`             | `auto`                                  | Requests provider reasoning summaries for visible activity rows.  |
 | `models.availableModels`                        | GPT-5.4 mini and GPT-5.5                | Enabled backend model list published to the widget.               |
 | `models.availableModels[].reasoning.options`    | low, medium, high                       | Reasoning efforts the widget may offer for each enabled model.    |
 | `tools.availableTools`                          | `TOOLS.MOCK_WEB_SEARCH`                 | Configured backend tool registration.                             |

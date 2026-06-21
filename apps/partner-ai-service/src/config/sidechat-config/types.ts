@@ -109,6 +109,12 @@ export type SideChatOpenAIProviderConnectionConfig = {
     /** Optional OpenAI-compatible endpoint override such as a gateway URL. */
     readonly endpoint?: SideChatStringEnvReference | undefined;
   };
+  readonly reasoning?: {
+    /** Provider summary mode for visible reasoning activity; omission keeps summaries hidden. */
+    readonly summary?:
+      | (typeof PROVIDERS.OPENAI.REASONING_SUMMARIES)[keyof typeof PROVIDERS.OPENAI.REASONING_SUMMARIES]
+      | undefined;
+  };
 };
 
 /**

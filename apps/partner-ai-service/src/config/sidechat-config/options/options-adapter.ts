@@ -121,6 +121,7 @@ const createRuntimeConfig = (
       : undefined,
     reasoningEffort: config.models.default.reasoning,
     reasoningEfforts: defaultModel.reasoning.options,
+    reasoningSummary: provider.reasoning?.summary,
     ...toolConfig,
   });
 };

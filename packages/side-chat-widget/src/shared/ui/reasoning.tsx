@@ -49,7 +49,7 @@ export function Reasoning({
         <span className={cn(thinking && "animate-pulse")}>{label}</span>
         <ChevronDown className={cn("size-4 transition-transform ease-out", open && "rotate-180")} />
       </Collapsible.Trigger>
-      <Collapsible.Panel className="sc-collapsible-panel">
+      <Collapsible.Panel className="sc-collapsible-panel ml-2">
         <div className="flex flex-col gap-2.5 py-2 pl-3.5">
           {items.map((item) =>
             item.kind === "thought" ? (

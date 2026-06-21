@@ -67,6 +67,9 @@ const sideChatConfig = defineSideChatConfig({
           description: "Optional OpenAI-compatible endpoint override, such as a gateway URL.",
         }),
       },
+      reasoning: {
+        summary: PROVIDERS.OPENAI.REASONING_SUMMARIES.AUTO,
+      },
     },
     default: {
       model: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI,
