@@ -75,6 +75,28 @@ half-opening a browser stream.
 Conversation title failures are observable side effects, not a second terminal
 stream outcome.
 
+## Server-Owned Generation
+
+Stages 1-9 are pre-start (`prepareStreamChatTurn`); stages 10-13 are post-start
+(the protocol event stream). The two are independently callable so the service
+can run pre-start synchronously and then run post-start on a server-owned fiber
+that is not tied to the browser connection.
+
+`POST /chat/runs` runs pre-start synchronously and returns the turn identity as
+JSON; a pre-start failure is the documented setup rejection. The service runner
+then forks `runTurnGeneration` into its own scope, draining each post-start
+`SidechatStreamEvent` to the durable event log. Finalization is owned by
+`Effect.onExit`, so terminal ownership is exact across every exit:
+
+- a normal terminal (`completed`/`error`/`blocked`) is emitted by the stream and
+  appended by the drain, and finalize only writes the durable turn status;
+- an abnormal exit (interrupt, shutdown, defect) appends one synthetic
+  `sidechat.error(aborted)` at `maxSequence + 1`, guarded by the partial-unique
+  terminal index so a turn can never have two terminals.
+
+`POST /chat/stream` keeps the response-owned shape until it is removed: the same
+post-start stream runs for one HTTP response and finalizes on its tail drain.
+
 ## Files To Open
 
 - `packages/partner-ai-core/src/application/stream-chat/stream-chat.ts`
@@ -82,5 +104,8 @@ stream outcome.
 - `packages/partner-ai-core/src/application/stream-chat/turn/turn-policy-plan.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-event-stream.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-stream-state-machine.ts`
+- `packages/partner-ai-core/src/application/stream-chat/protocol/run-turn-generation.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/finalization/protocol-terminal-lifecycle.ts`
+- `packages/partner-ai-core/src/application/stream-chat/protocol/finalization/finalize-turn-generation.ts`
+- `apps/partner-ai-service/src/inbound/turn-runner/turn-runner.ts`
 - `packages/partner-ai-core/src/application/stream-chat/README.md`

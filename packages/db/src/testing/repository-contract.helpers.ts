@@ -41,6 +41,33 @@ export const readConversationHistory = (
     limit: 10,
   });
 
+/**
+ * Create a conversation, user message, and a running assistant turn.
+ *
+ * Turn-event tests need a real turn to anchor the log to, since the event rows
+ * are scoped through the turn's workspace.
+ */
+export const startTurn = async (repositories: SidechatRepositories, scope: string) => {
+  const conversation = await createConversation(repositories, scope);
+  const userMessage = await appendUserMessage(repositories, scope, conversation.conversationId);
+  const turn = await repositories.startAssistantTurn({
+    workspaceId: workspaceId(scope),
+    subjectId: subjectId(scope),
+    actorId: actorId(scope),
+    requestId: "request_1",
+    conversationId: conversation.conversationId,
+    userMessageId: userMessage.record.messageId,
+    runtimeProfile: "fake",
+    systemPromptVersion: "system_v1",
+    contextStrategyVersion: "context_v1",
+    toolRegistryVersion: "tools_v1",
+    modelProvider: "fake",
+    modelId: "fake-model",
+    now,
+  });
+  return turn.record;
+};
+
 export const workspaceId = (scope: string) => `workspace_${scope}`;
 export const subjectId = (scope: string) => `subject_${scope}`;
 export const actorId = (scope: string) => `actor_${scope}`;

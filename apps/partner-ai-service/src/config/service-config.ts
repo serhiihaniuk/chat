@@ -100,6 +100,16 @@ export const readServicePort = (env: ServiceEnv = process.env): number => {
 export const readDemoSeedConversations = (env: ServiceEnv = process.env): boolean =>
   readBooleanFlag(envValue(env, SERVICE_ENV_KEYS.demoSeedConversations), false);
 
+/**
+ * Resolve the Postgres connection string from the single config-owned env key.
+ *
+ * The service is the one source of truth for the database connection
+ * (`SERVICE_ENV_KEYS.databaseUrl`). Tooling resolves it here and passes it down
+ * to the persistence apply step rather than re-reading the env contract.
+ */
+export const readDatabaseUrl = (env: ServiceEnv = process.env): string | undefined =>
+  envValue(env, SERVICE_ENV_KEYS.databaseUrl);
+
 const readWorkspace = (env: ServiceEnv): WorkspaceRef => ({
   tenantId: envValue(env, SERVICE_ENV_KEYS.tenantId) ?? DEFAULT_TENANT_ID,
   workspaceId: envValue(env, SERVICE_ENV_KEYS.workspaceId) ?? DEFAULT_WORKSPACE_ID,

@@ -4,23 +4,28 @@ import { assistantTurns, turnContextSnapshots, usageRecords } from "#drizzle/sch
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
-  one,
-  optional,
   requireRunningTurn,
   requireSubjectConversation,
   toAssistantTurnRecord,
   toContextSnapshotRecord,
   toUsageRecord,
 } from "./records.js";
-import { result } from "../../repository-utils.js";
+import { appendTurnEvent, maxTurnEventSequence, readTurnEventsAfter } from "./turn-events.js";
+import { one, optional, result } from "../../repository-utils.js";
 
 export const createPostgresDrizzleTurnRepository = ({
   db,
   ids,
 }: PostgresDrizzleRepositoryContext): Pick<
   SidechatRepositories,
+  | "appendTurnEvent"
   | "completeAssistantTurn"
   | "failAssistantTurn"
+  | "findActiveAssistantTurn"
+  | "findAssistantTurn"
+  | "findAssistantTurnByRequest"
+  | "maxTurnEventSequence"
+  | "readTurnEventsAfter"
   | "recordTurnContextSnapshot"
   | "recordUsage"
   | "readUsageSummary"
@@ -162,6 +167,53 @@ export const createPostgresDrizzleTurnRepository = ({
     return toAssistantTurnRecord(
       one(rows, "invalid_transition", "Assistant turn was not running."),
     );
+  },
+  appendTurnEvent: appendTurnEvent(db),
+  readTurnEventsAfter: readTurnEventsAfter(db),
+  maxTurnEventSequence: maxTurnEventSequence(db),
+  findAssistantTurn: async (command) => {
+    const rows = await db
+      .select()
+      .from(assistantTurns)
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
+        ),
+      )
+      .limit(1);
+    return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
+  },
+  findAssistantTurnByRequest: async (command) => {
+    const rows = await db
+      .select()
+      .from(assistantTurns)
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.requestId, command.requestId),
+        ),
+      )
+      .limit(1);
+    return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
+  },
+  findActiveAssistantTurn: async (command) => {
+    // The most recently started running turn is the one a reconnect resumes; a
+    // conversation should only ever have one, but ordering keeps this stable.
+    const rows = await db
+      .select()
+      .from(assistantTurns)
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.subjectId, command.subjectId),
+          eq(assistantTurns.conversationId, command.conversationId),
+          eq(assistantTurns.status, "running"),
+        ),
+      )
+      .orderBy(sql`${assistantTurns.startedAt} desc`)
+      .limit(1);
+    return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
   },
   recordUsage: async (command) => {
     const inserted = await db

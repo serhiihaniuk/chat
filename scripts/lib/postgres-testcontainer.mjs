@@ -1,11 +1,8 @@
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { Pool } from "pg";
 import { GenericContainer, Wait } from "testcontainers";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+import { applySidechatSchema } from "./apply-sidechat-schema.mjs";
+
 const POSTGRES_IMAGE = "postgres:16.10-alpine";
 const database = "sidechat";
 const username = "sidechat";
@@ -53,14 +50,6 @@ const waitForPostgres = async (connectionString) => {
   throw lastError ?? new Error("Timed out waiting for Postgres.");
 };
 
-export const applySidechatMigrations = async (connectionString) => {
-  const pool = new Pool({ connectionString });
-  const migrationPath = resolve(repoRoot, "packages/db/migrations/0000_side_chat_day_one.sql");
-
-  try {
-    await pool.query("DROP SCHEMA IF EXISTS sidechat CASCADE");
-    await pool.query(await readFile(migrationPath, "utf8"));
-  } finally {
-    await pool.end();
-  }
-};
+// Rebuild the schema from the generated migration + role grants. Kept under the
+// historical name so the container test runner imports a stable entry point.
+export const applySidechatMigrations = (connectionString) => applySidechatSchema(connectionString);

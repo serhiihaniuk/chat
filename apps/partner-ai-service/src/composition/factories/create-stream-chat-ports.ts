@@ -15,6 +15,7 @@ import {
 
 import { createServicePolicyPort } from "#adapters/policy/service-policy";
 import { createServicePersistence } from "#adapters/persistence/service-persistence";
+import { createServiceTurnEventLog } from "#adapters/persistence/turn-events/turn-event-log";
 import type {
   ServiceCapabilityBundle,
   ServiceContextBundle,
@@ -49,6 +50,7 @@ export const createStreamChatPorts = (input: StreamChatPortsInput): StreamChatPo
   const ports: StreamChatPorts = {
     conversations: persistence.conversations,
     assistantTurns: persistence.assistantTurns,
+    turnEventLog: createServiceTurnEventLog(input.persistence.repositories),
     hostCapabilities: input.capabilities.manifestPort,
     turnPolicies: input.capabilities.turnPolicyResolver,
     turnGuards: input.turnGuards,

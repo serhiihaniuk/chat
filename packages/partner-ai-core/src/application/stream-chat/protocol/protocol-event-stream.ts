@@ -18,7 +18,6 @@ import {
   mapRuntimeEvent,
   mapUnknownRuntimeError,
 } from "./runtime-event-mapper.js";
-import { finalizeProtocolStream } from "./finalization/protocol-terminal-lifecycle.js";
 import {
   recordRuntimeEventObservation,
   recordStreamObservationEffect,
@@ -30,43 +29,16 @@ import type {
 } from "../stream-chat-types.js";
 
 /**
- * Build the browser-facing stream after preflight work has succeeded.
+ * Mutable bookkeeping shared by the post-start stream and its finalizer.
  *
- * From this point on, runtime failures become terminal protocol events. That
- * keeps the SSE contract stable: once `sidechat.started` is emitted, consumers
- * should finish with exactly one `sidechat.completed` or `sidechat.error`.
+ * The accumulator keeps only finalization facts; the sequence and state-machine
+ * refs gate the browser contract. A caller creates these once, builds the
+ * post-start stream from them, then finalizes against the same accumulator after
+ * the stream is drained. Sharing the refs is why finalization is no longer a
+ * stream-tail segment: both the response-owned path and the server-owned runner
+ * read the same accumulated terminal facts.
  */
-export const createProtocolEventStream = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> => {
-  const protocolStream = Effect.gen(function* () {
-    // The accumulator keeps only finalization facts, never the whole event log.
-    const accumulator = yield* Ref.make(createProtocolEventAccumulator());
-
-    // Core owns browser sequence numbers after `sidechat.started`; runtime
-    // sequence numbers are internal and may include dropped lifecycle events.
-    const nextProtocolSequence = yield* Ref.make(1);
-
-    // The state machine gates emission so the browser never sees a second start,
-    // a second terminal, or any event after a terminal.
-    const streamState = yield* Ref.make(createProtocolStreamState());
-
-    return createStartedProtocolStream({
-      ports,
-      input,
-      turn,
-      accumulator,
-      nextProtocolSequence,
-      streamState,
-    });
-  });
-
-  return Stream.unwrap(protocolStream);
-};
-
-type ProtocolStreamRefs = {
+export type ProtocolStreamRefs = {
   readonly ports: StreamChatPorts;
   readonly input: StreamChatInput;
   readonly turn: PreparedStreamChatTurn;
@@ -75,11 +47,56 @@ type ProtocolStreamRefs = {
   readonly streamState: Ref.Ref<ProtocolStreamState>;
 };
 
-const createStartedProtocolStream = (
+/**
+ * Allocate the per-turn refs the post-start stream and finalizer share.
+ *
+ * Core owns browser sequence numbers after `sidechat.started`; runtime sequence
+ * numbers are internal and may include dropped lifecycle events. The state
+ * machine gates emission so the browser never sees a second start, a second
+ * terminal, or any event after a terminal.
+ */
+export const createProtocolStreamRefs = (
+  ports: StreamChatPorts,
+  input: StreamChatInput,
+  turn: PreparedStreamChatTurn,
+): Effect.Effect<ProtocolStreamRefs> =>
+  Effect.gen(function* () {
+    const accumulator = yield* Ref.make(createProtocolEventAccumulator());
+    const nextProtocolSequence = yield* Ref.make(1);
+    const streamState = yield* Ref.make(createProtocolStreamState());
+    return { ports, input, turn, accumulator, nextProtocolSequence, streamState };
+  });
+
+/**
+ * Build the browser-facing post-start stream after preflight work has succeeded.
+ *
+ * From this point on, runtime failures become terminal protocol events. That
+ * keeps the SSE contract stable: once `sidechat.started` is emitted, consumers
+ * should finish with exactly one `sidechat.completed` or `sidechat.error`.
+ *
+ * This stream is finalization-free on purpose. Durable terminal persistence is
+ * owned by the caller (`streamChatEffect`'s tail drain or the server runner's
+ * `onExit`), reading the shared accumulator after the stream is exhausted.
+ */
+export const createProtocolEventStream = (
+  ports: StreamChatPorts,
+  input: StreamChatInput,
+  turn: PreparedStreamChatTurn,
+): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
+  Stream.unwrap(
+    Effect.map(createProtocolStreamRefs(ports, input, turn), createStartedProtocolStream),
+  );
+
+/**
+ * Build the post-start stream from already-allocated refs.
+ *
+ * Use this when the caller needs the same accumulator both inside the stream and
+ * in an out-of-band finalizer (the server-owned runner). Plain consumers should
+ * call `createProtocolEventStream`, which allocates refs for them.
+ */
+export const createStartedProtocolStream = (
   refs: ProtocolStreamRefs,
 ): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> => {
-  const { ports, input, turn, accumulator } = refs;
-
   // Emit the product start marker only after all pre-start persistence/context
   // work has succeeded.
   const started = Stream.fromEffect(emitStartedEvent(refs));
@@ -88,25 +105,8 @@ const createStartedProtocolStream = (
   // single terminal protocol error required after the stream has started.
   const runtimeEvents = createObservedRuntimeEventStream(refs);
 
-  // Finalization runs after runtime exhaustion or terminal error emission and
-  // persists the durable assistant-turn outcome.
-  const finalized = Stream.fromEffectDrain(finalizeProtocolStream(ports, input, turn, accumulator));
-
-  return concatProtocolStreamSegments({ started, runtimeEvents, finalized });
+  return Stream.concat(started, runtimeEvents);
 };
-
-type ProtocolStreamSegments = {
-  readonly started: Stream.Stream<SidechatStreamEvent, PartnerAiCoreError>;
-  readonly runtimeEvents: Stream.Stream<SidechatStreamEvent, PartnerAiCoreError>;
-  readonly finalized: Stream.Stream<never, PartnerAiCoreError>;
-};
-
-const concatProtocolStreamSegments = ({
-  started,
-  runtimeEvents,
-  finalized,
-}: ProtocolStreamSegments): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
-  Stream.concat(started, Stream.concat(runtimeEvents, finalized));
 
 const emitStartedEvent = (refs: ProtocolStreamRefs): Effect.Effect<SidechatStreamEvent> =>
   Effect.gen(function* () {

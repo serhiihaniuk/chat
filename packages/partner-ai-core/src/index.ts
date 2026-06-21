@@ -1,4 +1,11 @@
-export * from "./application/stream-chat/stream-chat.js";
+export type {
+  PreparedStreamChatTurn,
+  StreamChatInput,
+  StreamChatPorts,
+} from "./application/stream-chat/stream-chat-types.js";
+export { prepareStreamChatTurn } from "./application/stream-chat/turn/prepare-stream-chat-turn.js";
+export { runTurnGeneration } from "./application/stream-chat/protocol/run-turn-generation.js";
+export { createProtocolEventStream } from "./application/stream-chat/protocol/protocol-event-stream.js";
 export * from "./application/stream-chat/history/admit-conversation-history-context.js";
 export * from "./domain/authority.js";
 export * from "./domain/capabilities.js";

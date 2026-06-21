@@ -1,11 +1,6 @@
 import { isTerminalEvent, type SidechatStreamEvent } from "@side-chat/chat-protocol";
-import {
-  RUNTIME_EVENT_TYPES,
-  RUNTIME_FINISH_REASONS,
-  type AiRuntimeRequest,
-  type RuntimeEvent,
-} from "@side-chat/ai-runtime-contract";
-import { Effect, Stream } from "effect";
+import type { AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
+import { Effect } from "effect";
 import type { AuthContext } from "#domain/authority";
 import {
   createTurnPolicyDecision,
@@ -15,29 +10,32 @@ import {
   type TurnPolicyDecision,
 } from "#domain/capabilities";
 import {
-  type AiRuntimePort,
   type AssistantTurnLifecyclePort,
   type ClockPort,
   DISABLED_CONVERSATION_TITLE_GENERATION,
   type ConversationTitleGenerationPort,
   type ContextManagerPort,
   type ConversationRepositoryPort,
-  type IdGeneratorPort,
   type TurnGuardRegistryPort,
 } from "#ports";
 import type { PolicyEvaluationInput, PolicyPort } from "#policies/policy";
-import { createPartnerAiCoreLayer } from "#services/effect-runtime";
 import type { ObservabilitySinkPort } from "#services/observability";
-import { streamChatEffect, type StreamChatInput } from "#application/stream-chat/stream-chat";
+import { prepareStreamChatTurn } from "#application/stream-chat/turn/prepare-stream-chat-turn";
+import { runTurnGeneration } from "#application/stream-chat/protocol/run-turn-generation";
+import type { StreamChatInput, StreamChatPorts } from "#application/stream-chat/stream-chat-types";
 import {
   createManifest,
   createPreparedContext,
   resolveTestProfile,
 } from "./fixtures.test-support.js";
-
-type RuntimeEventFixture =
-  | readonly RuntimeEvent[]
-  | ((request: AiRuntimeRequest) => readonly RuntimeEvent[]);
+import {
+  createAssistantTurnLifecyclePort,
+  createConversationRepositoryPort,
+  createIdGeneratorPort,
+  createRuntimePort,
+  createTurnEventLogPort,
+  type RuntimeEventFixture,
+} from "./fake-port-builders.test-support.js";
 
 export type FakePortOptions = {
   readonly authContext?: AuthContext | undefined;
@@ -57,6 +55,9 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
   const runtimeRequests: AiRuntimeRequest[] = [];
   const completedTurns: Parameters<AssistantTurnLifecyclePort["completeAssistantTurn"]>[0][] = [];
   const failedTurns: Parameters<AssistantTurnLifecyclePort["failAssistantTurn"]>[0][] = [];
+  const ensuredConversations: Parameters<ConversationRepositoryPort["ensureConversation"]>[0][] =
+    [];
+  const appendedUserMessages: Parameters<ConversationRepositoryPort["appendUserMessage"]>[0][] = [];
   const preparedTitles: Parameters<ConversationRepositoryPort["prepareConversationTitle"]>[0][] =
     [];
   const manifest = options.manifest ?? createManifest();
@@ -71,17 +72,28 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
   const preparedContext = options.preparedContext ?? createPreparedContext(profile, policyDecision);
   const clock: ClockPort = { now: () => "2026-05-23T13:00:00.000Z" };
   const ids = createIdGeneratorPort();
-  const conversations = createConversationRepositoryPort(calls, preparedTitles);
+  const conversations = createConversationRepositoryPort(
+    calls,
+    ensuredConversations,
+    appendedUserMessages,
+    preparedTitles,
+  );
   const assistantTurns = createAssistantTurnLifecyclePort(calls, completedTurns, failedTurns);
   const runtime = createRuntimePort(calls, runtimeRequests, options.runtimeEvents);
+  const appendedEvents: SidechatStreamEvent[] = [];
+  const turnEventLog = createTurnEventLogPort(calls, appendedEvents);
 
   return {
     calls,
     runtimeRequests,
     completedTurns,
     failedTurns,
+    ensuredConversations,
+    appendedUserMessages,
     preparedTitles,
+    appendedEvents,
     assistantTurns,
+    turnEventLog,
     hostCapabilities: {
       loadManifest: () => {
         calls.push("hostCapabilities");
@@ -126,30 +138,52 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
   };
 };
 
+/**
+ * Run one turn through the server-owned path and replay its durable events.
+ *
+ * This drives the same shape the service runner uses: pre-start synchronously
+ * (`prepareStreamChatTurn`), then `runTurnGeneration`, which drains the post-start
+ * stream into the event log and finalizes via `onExit`. The events a browser
+ * would receive are then read back from the log with the `after = -1` convention.
+ *
+ * A pre-start failure rejects (the turn never started), matching how the route
+ * returns a JSON setup error. A post-start runtime failure does not reject: it is
+ * mapped to a terminal `sidechat.error` in the log, exactly as a subscriber sees.
+ */
 export const runStreamChat = (
   streamInput: StreamChatInput,
   ports: ReturnType<typeof createFakePorts>,
 ): AsyncIterable<SidechatStreamEvent> =>
-  Stream.toAsyncIterable(
-    streamChatEffect(streamInput).pipe(
-      Stream.provide(
-        createPartnerAiCoreLayer({
-          conversations: ports.conversations,
-          hostCapabilities: ports.hostCapabilities,
-          assistantTurns: ports.assistantTurns,
-          turnPolicies: ports.turnPolicies,
-          turnGuards: ports.turnGuards,
-          contextManager: ports.contextManager,
-          runtime: ports.runtime,
-          conversationTitleGeneration: ports.conversationTitleGeneration,
-          clock: ports.clock,
-          ids: ports.ids,
-          policies: ports.policies,
-          observability: ports.observability,
-        }),
-      ),
-    ),
-  );
+  effectToAsyncIterable(runTurnToEventLog(streamInput, ports));
+
+const runTurnToEventLog = (
+  streamInput: StreamChatInput,
+  ports: StreamChatPorts,
+): Effect.Effect<readonly SidechatStreamEvent[], unknown> =>
+  Effect.gen(function* () {
+    const turn = yield* prepareStreamChatTurn(ports, streamInput);
+    yield* runTurnGeneration(ports, streamInput, turn);
+    return yield* ports.turnEventLog.readEventsAfter({
+      authContext: turn.authContext,
+      assistantTurnId: turn.assistantTurnId,
+      after: -1,
+    });
+  });
+
+/**
+ * Adapt a one-shot Effect of events into the `AsyncIterable` the tests collect.
+ *
+ * The whole turn is run once; a failure surfaces on the first `next()` so
+ * `collect` rejects for pre-start setup errors just like the old stream did.
+ */
+const effectToAsyncIterable = (
+  effect: Effect.Effect<readonly SidechatStreamEvent[], unknown>,
+): AsyncIterable<SidechatStreamEvent> => ({
+  async *[Symbol.asyncIterator]() {
+    const events = await Effect.runPromise(effect);
+    yield* events;
+  },
+});
 
 export const collect = async <T>(items: AsyncIterable<T>): Promise<T[]> => {
   const collected: T[] = [];
@@ -158,123 +192,3 @@ export const collect = async <T>(items: AsyncIterable<T>): Promise<T[]> => {
 };
 
 export { isTerminalEvent };
-
-const createIdGeneratorPort = (): IdGeneratorPort => ({
-  nextConversationId: () => "conversation_001",
-  nextEventId: (() => {
-    let index = 0;
-    return () => {
-      index += 1;
-      return `event_${index.toString().padStart(3, "0")}`;
-    };
-  })(),
-});
-
-const createConversationRepositoryPort = (
-  calls: string[],
-  preparedTitles: Parameters<ConversationRepositoryPort["prepareConversationTitle"]>[0][],
-): ConversationRepositoryPort => ({
-  ensureConversation: ({ authContext: context, fallbackConversationId }) => {
-    calls.push("ensureConversation");
-    return Effect.succeed({
-      tenantId: context.tenantId,
-      workspaceId: context.workspaceId,
-      conversationId: fallbackConversationId,
-    });
-  },
-  appendUserMessage: () => {
-    calls.push("appendUserMessage");
-    return Effect.succeed({
-      tenantId: "tenant_001",
-      workspaceId: "workspace_001",
-      conversationId: "conversation_001",
-      messageId: "message_record_001",
-      sequenceIndex: 0,
-    });
-  },
-  prepareConversationTitle: (titleInput) => {
-    calls.push("prepareConversationTitle");
-    preparedTitles.push(titleInput);
-    return Effect.succeed(undefined);
-  },
-});
-
-const createAssistantTurnLifecyclePort = (
-  calls: string[],
-  completedTurns: Parameters<AssistantTurnLifecyclePort["completeAssistantTurn"]>[0][],
-  failedTurns: Parameters<AssistantTurnLifecyclePort["failAssistantTurn"]>[0][],
-): AssistantTurnLifecyclePort => ({
-  startAssistantTurn: () => {
-    calls.push("startAssistantTurn");
-    return Effect.succeed({
-      tenantId: "tenant_001",
-      workspaceId: "workspace_001",
-      conversationId: "conversation_001",
-      assistantTurnId: "assistant_turn_001",
-      status: "running",
-      inserted: true,
-    });
-  },
-  recordContextSnapshot: () => {
-    calls.push("recordContextSnapshot");
-    return Effect.succeed(undefined);
-  },
-  completeAssistantTurn: (turn) => {
-    calls.push("completeAssistantTurn");
-    completedTurns.push(turn);
-    return Effect.succeed(undefined);
-  },
-  failAssistantTurn: (turn) => {
-    calls.push("failAssistantTurn");
-    failedTurns.push(turn);
-    return Effect.succeed(undefined);
-  },
-});
-
-const createRuntimePort = (
-  calls: string[],
-  runtimeRequests: AiRuntimeRequest[],
-  runtimeEvents: RuntimeEventFixture | undefined,
-): AiRuntimePort => ({
-  streamEffect: (runtimeRequest) => {
-    calls.push("runtime");
-    runtimeRequests.push(runtimeRequest);
-    return Stream.fromIterable(resolveRuntimeEvents(runtimeEvents, runtimeRequest));
-  },
-});
-
-const resolveRuntimeEvents = (
-  runtimeEvents: RuntimeEventFixture | undefined,
-  runtimeRequest: AiRuntimeRequest,
-): readonly RuntimeEvent[] => {
-  if (!runtimeEvents) return defaultRuntimeEvents();
-  return typeof runtimeEvents === "function" ? runtimeEvents(runtimeRequest) : runtimeEvents;
-};
-
-const defaultRuntimeEvents = (): readonly RuntimeEvent[] => [
-  {
-    type: RUNTIME_EVENT_TYPES.ACTIVITY,
-    requestId: "request_001",
-    assistantTurnId: "assistant_turn_001",
-    sequence: 0,
-    activityId: "activity_001",
-    activityKind: "reasoning",
-    status: "completed",
-    title: "Fake runtime selected deterministic response",
-  },
-  {
-    type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
-    requestId: "request_001",
-    assistantTurnId: "assistant_turn_001",
-    sequence: 1,
-    content: "Fake response",
-  },
-  {
-    type: RUNTIME_EVENT_TYPES.COMPLETED,
-    requestId: "request_001",
-    assistantTurnId: "assistant_turn_001",
-    sequence: 2,
-    finishReason: RUNTIME_FINISH_REASONS.STOP,
-    usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
-  },
-];

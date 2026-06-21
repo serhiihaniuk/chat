@@ -44,6 +44,11 @@ describe("partner AI core Effect runtime layer", () => {
         completeAssistantTurn: () => Effect.succeed(undefined),
         failAssistantTurn: () => Effect.succeed(undefined),
       },
+      turnEventLog: {
+        appendEvent: () => Effect.succeed(undefined),
+        readEventsAfter: () => Effect.succeed([]),
+        maxSequence: () => Effect.succeed(undefined),
+      },
       hostCapabilities: {
         loadManifest: () => Effect.succeed(manifest),
       },

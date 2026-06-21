@@ -1,0 +1,172 @@
+import type { AuthContext, StreamChatPorts } from "@side-chat/partner-ai-core";
+import { isTerminalEvent, type SidechatStreamEvent } from "@side-chat/chat-protocol";
+import { Duration, Effect, Ref, Schedule, type Scope, Stream } from "effect";
+
+import type { TurnEventDispatcher, TurnEventSubscription } from "./turn-event-dispatcher.js";
+
+export type TurnSubscriptionInput = {
+  readonly assistantTurnId: string;
+  readonly authContext: AuthContext;
+  /** Replay offset: emit events with `sequence > after`; `-1` replays the whole turn. */
+  readonly after: number;
+};
+
+export type TurnSubscriptionDependencies = {
+  readonly dispatcher: TurnEventDispatcher;
+  readonly ports: StreamChatPorts;
+  readonly safetyPollIntervalMs: number;
+};
+
+/**
+ * Build one subscriber's replay-plus-tail stream over the durable turn-event log.
+ *
+ * This is the single live transport the SSE route serves. It follows the
+ * resumability contract exactly:
+ *
+ * 1. register with the dispatcher first, so no fan-out is missed during replay;
+ * 2. replay `readEventsAfter(after)` from the durable log, tracking the high
+ *    sequence already emitted;
+ * 3. tail live events — dispatcher fan-out plus a low-frequency safety poll —
+ *    filtered to `sequence > maxEmitted`, so replay and tail never duplicate;
+ * 4. end at the first terminal event (`takeUntil(isTerminal)`).
+ *
+ * A turn that is already terminal in the log replays its terminal and ends at
+ * step 4 without ever needing the tail. The durable log is the source of truth;
+ * the dispatcher and poll only decide *when* to read. `Stream.unwrap` runs the
+ * builder in the stream's own scope, so the result has no service requirements
+ * and the route converts it straight to a `ReadableStream`.
+ */
+export const createTurnSubscriptionStream = (
+  dependencies: TurnSubscriptionDependencies,
+  input: TurnSubscriptionInput,
+): Stream.Stream<SidechatStreamEvent> => Stream.unwrap(openSubscriptionStream(dependencies, input));
+
+/**
+ * Acquire the subscription and assemble its replay-then-tail stream.
+ *
+ * The subscription is acquired with `Effect.acquireRelease`, so the dispatcher
+ * registration is released exactly when the stream's scope closes — on the
+ * terminal event, on an error, or when the HTTP response cancels. Releasing only
+ * unsubscribes this local subscriber; it never touches the generation fiber.
+ */
+const openSubscriptionStream = (
+  dependencies: TurnSubscriptionDependencies,
+  input: TurnSubscriptionInput,
+): Effect.Effect<Stream.Stream<SidechatStreamEvent>, never, Scope.Scope> =>
+  Effect.gen(function* () {
+    const subscription = yield* acquireSubscription(dependencies.dispatcher, input);
+    const maxEmitted = yield* Ref.make(input.after);
+
+    const replayStream = yield* gatedReplayStream(dependencies.ports, input, maxEmitted);
+    const liveStream = tailLiveEvents(dependencies, input, subscription, maxEmitted);
+
+    return Stream.concat(replayStream, liveStream).pipe(Stream.takeUntil(isTerminalEvent));
+  });
+
+/**
+ * Register with the dispatcher as a scoped resource.
+ *
+ * Registering is the acquire and `release` is the finalizer, so the local
+ * subscriber is always removed when the stream ends however it ends.
+ */
+const acquireSubscription = (
+  dispatcher: TurnEventDispatcher,
+  input: TurnSubscriptionInput,
+): Effect.Effect<TurnEventSubscription, never, Scope.Scope> =>
+  Effect.acquireRelease(
+    Effect.promise(() =>
+      dispatcher.subscribe({
+        assistantTurnId: input.assistantTurnId,
+        authContext: input.authContext,
+      }),
+    ),
+    (subscription) => Effect.promise(() => subscription.release()),
+  );
+
+/**
+ * Read the replay rows once and advance the high-water mark past them.
+ *
+ * Reading replay once lets the tail's `sequence > maxEmitted` gate dedupe any
+ * overlap between the replayed rows and events the dispatcher fans out while the
+ * subscriber is registering.
+ */
+const gatedReplayStream = (
+  ports: StreamChatPorts,
+  input: TurnSubscriptionInput,
+  maxEmitted: Ref.Ref<number>,
+): Effect.Effect<Stream.Stream<SidechatStreamEvent>> =>
+  Effect.gen(function* () {
+    const replay = yield* readEventsAfter(ports, input, input.after);
+    for (const event of replay) {
+      yield* Ref.update(maxEmitted, (current) => Math.max(current, event.sequence));
+    }
+    return Stream.fromIterable(replay);
+  });
+
+/**
+ * Tail live events from the dispatcher fan-out plus the safety poll.
+ *
+ * Both sources feed one `sequence > maxEmitted` gate, so the durable log stays
+ * the source of truth: the fan-out makes delivery low-latency, and the poll is
+ * the missed-notify backstop. The gate is atomic per event, so an event arriving
+ * on both paths is emitted exactly once.
+ */
+const tailLiveEvents = (
+  dependencies: TurnSubscriptionDependencies,
+  input: TurnSubscriptionInput,
+  subscription: TurnEventSubscription,
+  maxEmitted: Ref.Ref<number>,
+): Stream.Stream<SidechatStreamEvent> => {
+  const fannedOut = Stream.fromQueue(subscription.events);
+  const polled = safetyPollStream(dependencies, input, maxEmitted);
+  return Stream.merge(fannedOut, polled).pipe(
+    Stream.filterEffect((event) => emitIfNew(maxEmitted, event)),
+  );
+};
+
+/**
+ * Periodically re-read the durable log as a missed-notify backstop.
+ *
+ * Each tick reads everything after the current high-water mark and flattens it
+ * into the live stream, where the shared gate drops anything already emitted. This
+ * makes a dropped `NOTIFY` or a fan-out queue overflow self-healing while keeping
+ * each poll read small.
+ */
+const safetyPollStream = (
+  dependencies: TurnSubscriptionDependencies,
+  input: TurnSubscriptionInput,
+  maxEmitted: Ref.Ref<number>,
+): Stream.Stream<SidechatStreamEvent> =>
+  Stream.fromSchedule(Schedule.spaced(Duration.millis(dependencies.safetyPollIntervalMs))).pipe(
+    Stream.mapEffect(() => Ref.get(maxEmitted)),
+    Stream.mapEffect((after) => readEventsAfter(dependencies.ports, input, after)),
+    Stream.flatMap((events) => Stream.fromIterable(events)),
+  );
+
+const readEventsAfter = (
+  ports: StreamChatPorts,
+  input: TurnSubscriptionInput,
+  after: number,
+): Effect.Effect<readonly SidechatStreamEvent[]> =>
+  ports.turnEventLog
+    .readEventsAfter({
+      authContext: input.authContext,
+      assistantTurnId: input.assistantTurnId,
+      after,
+    })
+    .pipe(Effect.catchCause(() => Effect.succeed([] as readonly SidechatStreamEvent[])));
+
+/**
+ * Emit one candidate event only if it advances the high-water mark.
+ *
+ * `Ref.modify` makes the compare-and-set atomic for the single consuming fiber,
+ * so replay, fan-out, and poll can race the same sequence and it is still emitted
+ * exactly once.
+ */
+const emitIfNew = (
+  maxEmitted: Ref.Ref<number>,
+  event: SidechatStreamEvent,
+): Effect.Effect<boolean> =>
+  Ref.modify(maxEmitted, (current) =>
+    event.sequence > current ? [true, event.sequence] : [false, current],
+  );

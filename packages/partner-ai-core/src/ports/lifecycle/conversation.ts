@@ -20,11 +20,15 @@ export type ConversationRepositoryPort = {
     readonly authContext: AuthContext;
     readonly requestedConversationId?: string | undefined;
     readonly fallbackConversationId: string;
+    /** Record clock sourced from the caller's clock port, not from auth evidence. */
+    readonly now: string;
   }) => Effect.Effect<ConversationRef, unknown>;
   readonly appendUserMessage: (input: {
     readonly authContext: AuthContext;
     readonly conversationId: string;
     readonly message: ChatRequestMessage;
+    /** Record clock sourced from the caller's clock port, not from auth evidence. */
+    readonly now: string;
   }) => Effect.Effect<MessageRef, unknown>;
   readonly prepareConversationTitle: (input: {
     readonly authContext: AuthContext;

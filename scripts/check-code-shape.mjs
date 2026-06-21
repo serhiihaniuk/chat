@@ -33,6 +33,14 @@ const directoryBudgetExceptions = new Map([
         "service composition factory catalog: one factory plus its co-located test per bundle, kept flat so the composition root reads as a table of contents (see sidechat-complete-architecture/07-composition-root-and-factories.md)",
     },
   ],
+  [
+    "packages/db/src/repositories/postgres-drizzle/records",
+    {
+      maxFiles: 6,
+      reason:
+        "turn-event-log writes (append/notify, terminal guard, PK-conflict reconcile) are split into turn-events.ts so turns.ts stays within the source-line budget and each file keeps one record responsibility",
+    },
+  ],
 ]);
 
 const sourceFiles = listSourceFiles(root);

@@ -6,12 +6,11 @@ import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
   buildHistoryWhere,
-  one,
   requireSubjectConversation,
   toConversationRecord,
   toMessageRecord,
 } from "./records.js";
-import { result } from "../../repository-utils.js";
+import { one, result } from "../../repository-utils.js";
 
 export const createPostgresDrizzleConversationRepository = ({
   db,

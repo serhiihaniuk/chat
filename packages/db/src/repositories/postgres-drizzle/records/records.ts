@@ -11,6 +11,7 @@ import {
   type sidechatTables,
   type toolInvocations,
   type turnContextSnapshots,
+  type turnEvents,
   type usageRecords,
 } from "#drizzle/schema";
 import type {
@@ -21,22 +22,12 @@ import type {
   HostCommandResultRecord,
   MessageRecord,
   ToolInvocationRecord,
+  TurnEventRecord,
+  TurnEventType,
   UsageRecord,
 } from "#schema-contract";
 import { DbRepositoryError } from "../../errors.js";
-
-export const optional = <Value>(value: Value | null | undefined): Value | undefined =>
-  value === null || value === undefined ? undefined : value;
-
-export const one = <RecordType>(
-  rows: readonly RecordType[],
-  code: DbRepositoryError["code"],
-  message: string,
-): RecordType => {
-  const row = rows[0];
-  if (!row) throw new DbRepositoryError(code, message);
-  return row;
-};
+import { one } from "../../repository-utils.js";
 
 export const toConversationRecord = (
   row: typeof conversations.$inferSelect,
@@ -91,6 +82,14 @@ export const toAssistantTurnRecord = (
   ...omitNullishField("completedAt", row.completedAt),
   createdAt: row.startedAt,
   updatedAt: row.completedAt ?? row.startedAt,
+});
+
+export const toTurnEventRecord = (row: typeof turnEvents.$inferSelect): TurnEventRecord => ({
+  assistantTurnId: row.assistantTurnId,
+  sequence: row.sequence,
+  type: row.type as TurnEventType,
+  payloadJson: row.payloadJson,
+  createdAt: row.createdAt,
 });
 
 export const toContextSnapshotRecord = (
@@ -216,6 +215,33 @@ export const requireSubjectConversation = async (
   }
   return conversation;
 };
+
+/**
+ * Prove a turn belongs to the workspace before its event log is touched.
+ *
+ * `turn_events` rows are not workspace-stamped, so the only tenant boundary for
+ * the log is this lookup. Append/read/max all gate on it so a guessed turn id
+ * from another workspace fails closed.
+ */
+export const requireWorkspaceTurn = async (
+  db: NodePgDatabase<typeof sidechatTables>,
+  workspaceId: string,
+  assistantTurnId: string,
+): Promise<typeof assistantTurns.$inferSelect> =>
+  one(
+    await db
+      .select()
+      .from(assistantTurns)
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, workspaceId),
+          eq(assistantTurns.assistantTurnId, assistantTurnId),
+        ),
+      )
+      .limit(1),
+    "record_not_found",
+    "Assistant turn does not exist in the requested workspace.",
+  );
 
 export const requireRunningTurn = async (
   db: NodePgDatabase<typeof sidechatTables>,

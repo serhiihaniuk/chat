@@ -13,7 +13,7 @@ import {
   type PreparedTurnContext,
   type TurnPolicyDecision,
 } from "#domain/capabilities";
-import type { StreamChatInput } from "#application/stream-chat/stream-chat";
+import type { StreamChatInput } from "#application/stream-chat/stream-chat-types";
 
 export const authContext: AuthContext = {
   tenantId: "tenant_001",

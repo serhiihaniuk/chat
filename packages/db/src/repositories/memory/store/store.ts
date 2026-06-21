@@ -9,6 +9,7 @@ import type {
   MessageRecord,
   RecordUsageCommand,
   ToolInvocationRecord,
+  TurnEventRecord,
   UsageRecord,
 } from "#schema-contract";
 import { DbRepositoryError } from "../../errors.js";
@@ -17,6 +18,7 @@ export type MemoryStore = {
   readonly conversations: ConversationRecord[];
   readonly messages: MessageRecord[];
   readonly assistantTurns: AssistantTurnRecord[];
+  readonly turnEvents: TurnEventRecord[];
   readonly contextSnapshots: ContextSnapshotRecord[];
   readonly usageRecords: UsageRecord[];
   readonly toolInvocations: ToolInvocationRecord[];
@@ -28,6 +30,7 @@ export type MemoryStoreSnapshot = {
   readonly conversations: readonly ConversationRecord[];
   readonly messages: readonly MessageRecord[];
   readonly assistantTurns: readonly AssistantTurnRecord[];
+  readonly turnEvents: readonly TurnEventRecord[];
   readonly contextSnapshots: readonly ContextSnapshotRecord[];
   readonly usageRecords: readonly UsageRecord[];
   readonly toolInvocations: readonly ToolInvocationRecord[];
@@ -39,6 +42,7 @@ export const createMemoryStore = (): MemoryStore => ({
   conversations: [],
   messages: [],
   assistantTurns: [],
+  turnEvents: [],
   contextSnapshots: [],
   usageRecords: [],
   toolInvocations: [],
@@ -50,6 +54,7 @@ export const snapshotMemoryStore = (store: MemoryStore): MemoryStoreSnapshot => 
   conversations: [...store.conversations],
   messages: [...store.messages],
   assistantTurns: [...store.assistantTurns],
+  turnEvents: [...store.turnEvents],
   contextSnapshots: [...store.contextSnapshots],
   usageRecords: [...store.usageRecords],
   toolInvocations: [...store.toolInvocations],
@@ -103,4 +108,28 @@ export const upsertAt = <RecordType>(
   } else {
     records.push(record);
   }
+};
+
+/**
+ * Prove a turn belongs to the workspace before its event log is touched.
+ *
+ * Mirrors the postgres `requireWorkspaceTurn` gate: turn-event rows are scoped
+ * only through their turn, so a turn id from another workspace fails closed.
+ */
+export const requireMemoryWorkspaceTurn = (
+  store: MemoryStore,
+  workspaceId: string,
+  assistantTurnId: string,
+): AssistantTurnRecord => {
+  const turn = store.assistantTurns.find(
+    (candidate) =>
+      candidate.workspaceId === workspaceId && candidate.assistantTurnId === assistantTurnId,
+  );
+  if (!turn) {
+    throw new DbRepositoryError(
+      "record_not_found",
+      "Assistant turn does not exist in the requested workspace.",
+    );
+  }
+  return turn;
 };

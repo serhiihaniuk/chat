@@ -8,6 +8,8 @@ import { createPostgresDrizzleInteractionRepository } from "./records/interactio
 import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
 import { createRandomIdGenerator } from "../repository-utils.js";
 
+export { createPostgresTurnEventNotificationSource } from "./notifications/turn-event-notification-source.js";
+
 export type PostgresDrizzleRepositoryOptions = {
   readonly connectionString: string;
 };

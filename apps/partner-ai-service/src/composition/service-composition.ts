@@ -10,6 +10,7 @@ import { createServiceRuntimeBundle } from "./factories/create-service-runtime-b
 import { createServiceSecurityPorts } from "./factories/create-service-security-ports.js";
 import { createServiceToolBundle } from "./factories/create-service-tool-bundle.js";
 import { createStreamChatPorts } from "./factories/create-stream-chat-ports.js";
+import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { ServiceComposition, ServiceCompositionOptions } from "./service-composition-types.js";
 
 export type {
@@ -113,6 +114,12 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     observability: options.observability,
   });
 
+  const turnRunner = createTurnRunner({
+    workspace: options.workspace,
+    hostAppId: capabilities.manifest.hostAppId,
+    ports: streamChat.ports,
+  });
+
   return {
     workspace: options.workspace,
     hostAppId: capabilities.manifest.hostAppId,
@@ -122,6 +129,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     repositories: persistence.repositories,
     runtime: runtime.runtime,
     ports: streamChat.ports,
+    turnRunner,
     capabilities: capabilities.capabilityStatus,
     diagnostics: createServiceDiagnostics({
       persistence,

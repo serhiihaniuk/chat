@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createTurnPolicyDecision, hashHostCapabilityManifest } from "#domain/capabilities";
-import type { PreparedStreamChatTurn } from "#application/stream-chat/stream-chat";
+import type { PreparedStreamChatTurn } from "#application/stream-chat/stream-chat-types";
 import {
   authContext,
   createManifest,

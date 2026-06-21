@@ -9,7 +9,8 @@ execution, or widget UI.
 
 ## Owns
 
-- `streamChatEffect(input)` and `createPartnerAiCoreLayer(...)`.
+- `prepareStreamChatTurn(...)` + `runTurnGeneration(...)` (the server-owned
+  streaming path) and `createPartnerAiCoreLayer(...)`.
 - Product authorization, policy, context, turn lifecycle, and protocol mapping.
 - Post-success conversation title generation timing, admitted inputs,
   sanitization, persistence call, and failure isolation.

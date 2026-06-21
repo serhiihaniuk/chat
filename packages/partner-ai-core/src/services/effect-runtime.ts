@@ -11,6 +11,7 @@ import {
   type ConversationRepositoryPort,
   type HostCapabilityManifestPort,
   type IdGeneratorPort,
+  type TurnEventLogPort,
   type TurnGuardRegistryPort,
   type TurnPolicyResolverPort,
 } from "#ports";
@@ -41,6 +42,10 @@ export class AssistantTurnLifecycleService extends Context.Service<
   AssistantTurnLifecycleService,
   AssistantTurnLifecyclePort
 >()("@side-chat/partner-ai-core/AssistantTurnLifecycleService") {}
+
+export class TurnEventLogService extends Context.Service<TurnEventLogService, TurnEventLogPort>()(
+  "@side-chat/partner-ai-core/TurnEventLogService",
+) {}
 
 export class HostCapabilityManifestService extends Context.Service<
   HostCapabilityManifestService,
@@ -91,6 +96,7 @@ export class ObservabilityService extends Context.Service<
 export type PartnerAiCoreServices =
   | ConversationRepositoryService
   | AssistantTurnLifecycleService
+  | TurnEventLogService
   | HostCapabilityManifestService
   | TurnPolicyResolverService
   | TurnGuardRegistryService
@@ -105,6 +111,7 @@ export type PartnerAiCoreServices =
 export type PartnerAiCoreLayerInput = {
   readonly conversations: ConversationRepositoryPort;
   readonly assistantTurns: AssistantTurnLifecyclePort;
+  readonly turnEventLog: TurnEventLogPort;
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;
@@ -129,6 +136,7 @@ export const createPartnerAiCoreLayer = (
   Layer.mergeAll(
     Layer.succeed(ConversationRepositoryService, input.conversations),
     Layer.succeed(AssistantTurnLifecycleService, input.assistantTurns),
+    Layer.succeed(TurnEventLogService, input.turnEventLog),
     Layer.succeed(HostCapabilityManifestService, input.hostCapabilities),
     Layer.succeed(TurnPolicyResolverService, input.turnPolicies),
     Layer.succeed(TurnGuardRegistryService, input.turnGuards),
@@ -155,6 +163,7 @@ export const partnerAiCoreServicesEffect = Effect.gen(function* () {
   return {
     conversations: yield* ConversationRepositoryService,
     assistantTurns: yield* AssistantTurnLifecycleService,
+    turnEventLog: yield* TurnEventLogService,
     hostCapabilities: yield* HostCapabilityManifestService,
     turnPolicies: yield* TurnPolicyResolverService,
     turnGuards: yield* TurnGuardRegistryService,

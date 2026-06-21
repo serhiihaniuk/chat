@@ -5,8 +5,16 @@ import { describe, expect, it } from "vitest";
 
 import { sidechatTables } from "./schema.js";
 
-const migration = readFileSync(
-  new URL("../../migrations/0000_side_chat_day_one.sql", import.meta.url),
+const migrationsDir = new URL("../../migrations/", import.meta.url);
+const journal = JSON.parse(readFileSync(new URL("meta/_journal.json", migrationsDir), "utf8"));
+const migration = journal.entries
+  .slice()
+  .sort((left: { idx: number }, right: { idx: number }) => left.idx - right.idx)
+  .map((entry: { tag: string }) => readFileSync(new URL(`${entry.tag}.sql`, migrationsDir), "utf8"))
+  .join("\n")
+  .replaceAll("\r\n", "\n");
+const grants = readFileSync(
+  new URL("../../sql/runtime-role-grants.sql", import.meta.url),
   "utf8",
 ).replaceAll("\r\n", "\n");
 
@@ -16,6 +24,7 @@ describe("sidechat drizzle schema and migration", () => {
       "conversations",
       "messages",
       "assistantTurns",
+      "turnEvents",
       "turnContextSnapshots",
       "usageRecords",
       "toolInvocations",
@@ -24,21 +33,38 @@ describe("sidechat drizzle schema and migration", () => {
     ]);
   });
 
-  it("creates the dedicated schema without PostgreSQL enum lifecycle types", () => {
-    expect(migration).toContain("CREATE SCHEMA IF NOT EXISTS sidechat");
+  it("generates table DDL without PostgreSQL enum lifecycle types", () => {
     expect(migration).not.toMatch(/CREATE TYPE .* AS ENUM/u);
-    expect(migration).toContain("CHECK (status IN ('active', 'archived', 'reset'))");
-    expect(migration).toContain("sidechat.host_command_results");
+    expect(migration).toContain('"sidechat"."host_command_results"');
+    expect(migration).toContain("status in ('active', 'archived', 'reset')");
   });
 
-  it("defines runtime least privilege without schema DDL grants", () => {
-    expect(migration).toContain("CREATE ROLE sidechat_runtime NOLOGIN");
-    expect(migration).toContain("GRANT USAGE ON SCHEMA sidechat TO sidechat_runtime");
+  it("creates the durable turn-event log with a single-terminal guard", () => {
+    expect(migration).toContain('"sidechat"."turn_events"');
+    expect(migration).toMatch(/PRIMARY KEY\s*\(\s*"assistant_turn_id"\s*,\s*"sequence"\s*\)/u);
     expect(migration).toContain(
-      "GRANT SELECT, INSERT, UPDATE, DELETE\n  ON ALL TABLES IN SCHEMA sidechat\n  TO sidechat_runtime",
+      "type in ('started', 'delta', 'activity', 'completed', 'error', 'blocked', 'history')",
     );
-    expect(migration).not.toMatch(
-      /GRANT\s+(?:USAGE,\s*)?CREATE\s+ON\s+SCHEMA\s+sidechat\s+TO\s+sidechat_runtime/iu,
+    expect(migration).toMatch(
+      /CREATE UNIQUE INDEX "turn_events_one_terminal".*WHERE type in \('completed', 'error', 'blocked'\)/su,
     );
+  });
+
+  it("adds resumable-streaming lease and cancel columns to assistant turns", () => {
+    expect(migration).toContain('"owner_instance_id" text');
+    expect(migration).toContain('"lease_expires_at" timestamp with time zone');
+    expect(migration).toContain('"lease_epoch" integer DEFAULT 0 NOT NULL');
+    expect(migration).toContain('"cancel_requested_at" timestamp with time zone');
+    expect(migration).toContain('"request_fingerprint" text');
+  });
+
+  it("keeps runtime least privilege in the durable role grants", () => {
+    expect(grants).toContain("CREATE ROLE sidechat_runtime NOLOGIN");
+    expect(grants).toContain("GRANT USAGE ON SCHEMA sidechat TO sidechat_runtime");
+    expect(grants).toMatch(
+      /GRANT SELECT, INSERT, UPDATE, DELETE\n {2}ON ALL TABLES IN SCHEMA sidechat\n {2}TO sidechat_runtime/u,
+    );
+    // Runtime must never receive CREATE on the schema.
+    expect(grants).not.toMatch(/GRANT[^;]*\bCREATE\b[^;]*TO sidechat_runtime/u);
   });
 });

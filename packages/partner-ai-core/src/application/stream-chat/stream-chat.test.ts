@@ -45,6 +45,8 @@ describe("stream chat lifecycle and policy", () => {
       SIDECHAT_EVENT_TYPES.COMPLETED,
     );
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
+    // The server-owned path appends each emitted event to the durable log before
+    // the onExit finalizer writes the completed turn status.
     expect(ports.calls).toEqual([
       "hostCapabilities",
       "turnPolicy",
@@ -55,8 +57,27 @@ describe("stream chat lifecycle and policy", () => {
       "contextManager",
       "recordContextSnapshot",
       "runtime",
+      "appendTurnEvent",
+      "appendTurnEvent",
+      "appendTurnEvent",
+      "appendTurnEvent",
       "completeAssistantTurn",
     ]);
+  });
+
+  it("stamps conversation and user-message persistence with the clock, not auth issuedAt", async () => {
+    // issuedAt is auth evidence with a future value here; the record clock must
+    // still come from ports.clock.now(), proving the two are never conflated.
+    const authContextWithFutureIssuedAt = { ...authContext, issuedAt: "2099-01-01T00:00:00.000Z" };
+    const ports = createFakePorts({ authContext: authContextWithFutureIssuedAt });
+    const clockNow = ports.clock.now();
+
+    await collect(runStreamChat({ ...input, authContext: authContextWithFutureIssuedAt }, ports));
+
+    expect(ports.ensuredConversations[0]?.now).toBe(clockNow);
+    expect(ports.appendedUserMessages[0]?.now).toBe(clockNow);
+    expect(ports.ensuredConversations[0]?.now).not.toBe(authContextWithFutureIssuedAt.issuedAt);
+    expect(ports.appendedUserMessages[0]?.now).not.toBe(authContextWithFutureIssuedAt.issuedAt);
   });
 
   it("passes final messages, explicit tool allowlist, and abort signal to runtime", async () => {

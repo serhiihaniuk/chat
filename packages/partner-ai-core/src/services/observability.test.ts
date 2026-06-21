@@ -2,6 +2,7 @@ import {
   PROTOCOL_ERROR_CODES,
   SIDECHAT_EVENT_TYPES,
   SIDECHAT_PROTOCOL_VERSION,
+  type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
 import {
   RUNTIME_ERROR_CODES,
@@ -10,6 +11,8 @@ import {
 } from "@side-chat/ai-runtime-contract";
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
+import { prepareStreamChatTurn } from "#application/stream-chat/turn/prepare-stream-chat-turn";
+import { runTurnGeneration } from "#application/stream-chat/protocol/run-turn-generation";
 import type { AuthContext } from "#domain/authority";
 import {
   CONTEXT_ADMISSION_POLICIES,
@@ -31,9 +34,9 @@ import {
   type ClockPort,
   type ConversationRepositoryPort,
   type IdGeneratorPort,
+  type TurnEventLogPort,
 } from "#ports";
-import { streamChatEffect, type StreamChatInput } from "#application/stream-chat/stream-chat";
-import { createPartnerAiCoreLayer } from "./effect-runtime.js";
+import type { StreamChatInput, StreamChatPorts } from "#application/stream-chat/stream-chat-types";
 
 const authContext: AuthContext = {
   tenantId: "tenant_001",
@@ -120,27 +123,7 @@ describe("observability redaction and correlation", () => {
       },
     ]);
 
-    const events = await collect(
-      Stream.toAsyncIterable(
-        streamChatEffect(input).pipe(
-          Stream.provide(
-            createPartnerAiCoreLayer({
-              conversations: ports.conversations,
-              assistantTurns: ports.assistantTurns,
-              hostCapabilities: ports.hostCapabilities,
-              turnPolicies: ports.turnPolicies,
-              contextManager: ports.contextManager,
-              runtime: ports.runtime,
-              clock: ports.clock,
-              ids: ports.ids,
-              policies: ports.policies,
-              turnGuards: { guards: [] },
-              observability: ports.observability,
-            }),
-          ),
-        ),
-      ),
-    );
+    const events = await runObservedTurn(input, { ...ports, turnGuards: { guards: [] } });
 
     expect(events.at(-1)).toMatchObject({
       type: SIDECHAT_EVENT_TYPES.ERROR,
@@ -191,7 +174,10 @@ describe("observability redaction and correlation", () => {
     expect(records.at(-1)).toMatchObject({
       lifecycleState: "failed",
       errorCode: PROTOCOL_ERROR_CODES.TIMEOUT,
-      latencyMs: 110,
+      // 13 stepping-clock reads (10ms each) elapse before the failed observation,
+      // including the conversation and user-message record clocks sourced from
+      // ports.clock.now() rather than from auth issuedAt.
+      latencyMs: 130,
       attributes: { eventCount: 3 },
     });
   });
@@ -257,6 +243,7 @@ const createObservedPorts = (
   return {
     conversations,
     assistantTurns,
+    turnEventLog: createTurnEventLogPort(),
     hostCapabilities: { loadManifest: () => Effect.succeed(manifest) },
     turnPolicies: { resolveTurnPolicy: () => Effect.succeed(policyDecision) },
     contextManager: {
@@ -351,6 +338,31 @@ const emptyHistoryManifest = {
   messages: [],
 };
 
+// In-memory turn-event log: observability assertions never read it back, so the
+// port only needs to satisfy the layer with the same `sequence > after` reads as
+// the durable adapter.
+const createTurnEventLogPort = (): TurnEventLogPort => {
+  const appendedEvents: SidechatStreamEvent[] = [];
+  return {
+    appendEvent: ({ event }) =>
+      Effect.sync(() => {
+        appendedEvents.push(event);
+      }),
+    readEventsAfter: ({ after }) =>
+      Effect.succeed(
+        appendedEvents
+          .filter((event) => event.sequence > after)
+          .sort((left, right) => left.sequence - right.sequence),
+      ),
+    maxSequence: () =>
+      Effect.succeed(
+        appendedEvents.length === 0
+          ? undefined
+          : Math.max(...appendedEvents.map((event) => event.sequence)),
+      ),
+  };
+};
+
 const createSteppingClock = (): ClockPort => {
   let tick = -1;
   return {
@@ -361,8 +373,26 @@ const createSteppingClock = (): ClockPort => {
   };
 };
 
-const collect = async <T>(items: AsyncIterable<T>): Promise<T[]> => {
-  const collected: T[] = [];
-  for await (const item of items) collected.push(item);
-  return collected;
-};
+/**
+ * Run one turn through the server-owned path and read its durable events back.
+ *
+ * Observability is a side effect of `runTurnGeneration`: pre-start records the
+ * received/started observations, the post-start stream records runtime events,
+ * and `onExit` records the terminal (`failed` here). Reading the log back proves
+ * the browser-visible events match what was observed.
+ */
+const runObservedTurn = (
+  streamInput: StreamChatInput,
+  ports: StreamChatPorts,
+): Promise<readonly SidechatStreamEvent[]> =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const turn = yield* prepareStreamChatTurn(ports, streamInput);
+      yield* runTurnGeneration(ports, streamInput, turn);
+      return yield* ports.turnEventLog.readEventsAfter({
+        authContext: turn.authContext,
+        assistantTurnId: turn.assistantTurnId,
+        after: -1,
+      });
+    }),
+  );

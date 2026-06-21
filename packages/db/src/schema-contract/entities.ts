@@ -28,6 +28,7 @@ import type {
   HostCommandResultStatus,
   MessageRole,
   ToolInvocationStatus,
+  TurnEventType,
 } from "./lifecycle.js";
 
 export type TenantScopedRecord = {
@@ -85,6 +86,22 @@ export type AssistantTurnRecord = TenantScopedRecord &
     readonly startedAt: string;
     readonly completedAt?: string;
   };
+
+/**
+ * One immutable row in a turn's durable event log.
+ *
+ * Unlike the other records this is append-only and not workspace-stamped: the
+ * row is scoped transitively through its `assistantTurnId`, and `payloadJson`
+ * holds the browser-facing stream event verbatim. There is no `updatedAt`
+ * because events are never mutated after they are written.
+ */
+export type TurnEventRecord = {
+  readonly assistantTurnId: AssistantTurnId;
+  readonly sequence: number;
+  readonly type: TurnEventType;
+  readonly payloadJson: JsonObject;
+  readonly createdAt: string;
+};
 
 export type ContextSnapshotRecord = TenantScopedRecord &
   VersionedRecord & {

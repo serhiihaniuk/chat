@@ -105,6 +105,7 @@ export const ensureAuthorizedConversation = (
         authContext,
         requestedConversationId: input.request.conversationId,
         fallbackConversationId: ports.ids.nextConversationId(),
+        now: ports.clock.now(),
       }),
       STREAM_CHAT_FAILURES.PERSISTENCE,
     );
@@ -127,6 +128,7 @@ export const appendUserMessage = (
       authContext,
       conversationId: conversation.conversationId,
       message: input.request.message,
+      now: ports.clock.now(),
     }),
     STREAM_CHAT_FAILURES.PERSISTENCE,
   );

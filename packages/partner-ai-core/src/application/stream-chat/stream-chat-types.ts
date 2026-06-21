@@ -13,6 +13,7 @@ import type {
   HostCapabilityManifestPort,
   IdGeneratorPort,
   MessageRef,
+  TurnEventLogPort,
   TurnGuardDecision,
   TurnGuardRegistryPort,
   TurnPolicyResolverPort,
@@ -46,6 +47,7 @@ export type StreamChatInput = {
 export type StreamChatPorts = {
   readonly conversations: ConversationRepositoryPort;
   readonly assistantTurns: AssistantTurnLifecyclePort;
+  readonly turnEventLog: TurnEventLogPort;
   readonly hostCapabilities: HostCapabilityManifestPort;
   readonly turnPolicies: TurnPolicyResolverPort;
   readonly turnGuards: TurnGuardRegistryPort;

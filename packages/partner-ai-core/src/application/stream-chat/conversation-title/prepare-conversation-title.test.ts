@@ -24,6 +24,8 @@ describe("stream chat conversation title generation", () => {
     const events = await collect(runStreamChat(input, ports));
 
     expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
+    // The server-owned path appends each emitted event to the durable log before
+    // the onExit finalizer completes the turn and runs the title job.
     expect(ports.calls).toEqual([
       "hostCapabilities",
       "turnPolicy",
@@ -34,6 +36,10 @@ describe("stream chat conversation title generation", () => {
       "contextManager",
       "recordContextSnapshot",
       "runtime",
+      "appendTurnEvent",
+      "appendTurnEvent",
+      "appendTurnEvent",
+      "appendTurnEvent",
       "completeAssistantTurn",
       "runtime",
       "prepareConversationTitle",

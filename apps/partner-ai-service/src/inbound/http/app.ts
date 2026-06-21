@@ -23,6 +23,7 @@ import { authContextMiddleware, type AuthContextVariables } from "./middleware/a
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAuth } from "./middleware/require-auth.js";
 import { registerChatHistoryRoutes } from "./routes/chat/chat-history.js";
+import { registerChatRunsRoute } from "./routes/chat/runs/chat-runs.js";
 import { registerChatStreamRoute } from "./routes/chat/chat-stream.js";
 import { registerChatUsageRoute } from "./routes/chat/chat-usage.js";
 import { registerHealthRoutes } from "./routes/health/health.js";
@@ -96,6 +97,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
   registerModelsRoute(app, composition.policies, composition.diagnostics.providerRegistryStatus);
   registerChatHistoryRoutes(app, {
     repositories: composition.repositories,
+    clock: composition.ports.clock,
   });
   registerChatUsageRoute(app, composition.repositories);
   registerChatStreamRoute(app, {
@@ -103,6 +105,7 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     hostAppId: composition.hostAppId,
     ports: composition.ports,
   });
+  registerChatRunsRoute(app, { turnRunner: composition.turnRunner });
 
   return app;
 };

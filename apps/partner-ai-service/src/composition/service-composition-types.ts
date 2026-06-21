@@ -15,6 +15,8 @@ import type {
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
+import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
+import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
@@ -34,6 +36,18 @@ import type { ServiceDiagnostics } from "./factories/bundle-types.js";
 export type PersistenceConfig =
   | { readonly kind: "memory" }
   | { readonly kind: "postgres"; readonly databaseUrl: string };
+
+/**
+ * Operator tunables for resumable streaming, resolved through config (not literals).
+ *
+ * `safetyPollIntervalMs` is the per-subscriber reconcile cadence: a low-frequency
+ * backstop that re-reads the durable log so a missed Postgres `NOTIFY` (or a
+ * listener reconnect) still advances a live subscriber. Later resumability steps
+ * add lease/heartbeat/reaper tunables to this same section.
+ */
+export type ResumabilityConfig = {
+  readonly safetyPollIntervalMs: number;
+};
 
 export type RuntimeModelMetadata = {
   readonly modelId: string;
@@ -99,6 +113,10 @@ export type ServiceComposition = {
   readonly repositories: SidechatRepositories;
   readonly runtime: AiRuntimePort;
   readonly ports: StreamChatPorts;
+  /** Server-owned generation runner that outlives any one HTTP request. */
+  readonly turnRunner: TurnRunner;
+  /** Per-instance live fan-out of durable turn events to local subscribers. */
+  readonly dispatcher: TurnEventDispatcher;
   readonly capabilities: ServiceCapabilityStatus;
   readonly diagnostics: ServiceDiagnostics;
 };
@@ -127,4 +145,6 @@ export type ServiceCompositionOptions = {
   readonly defaultTurnProfileId?: string | undefined;
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
+  /** Resumable-streaming tunables; defaults to the catalog values when omitted. */
+  readonly resumability?: ResumabilityConfig | undefined;
 };

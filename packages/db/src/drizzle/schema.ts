@@ -6,6 +6,7 @@ import {
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -17,6 +18,8 @@ import {
   HOST_COMMAND_RESULT_STATUSES,
   MESSAGE_ROLES,
   TOOL_INVOCATION_STATUSES,
+  TURN_EVENT_TERMINAL_TYPES,
+  TURN_EVENT_TYPES,
 } from "#schema-contract";
 
 const sidechat = pgSchema("sidechat");
@@ -117,11 +120,50 @@ export const assistantTurns = sidechat.table(
       mode: "string",
       withTimezone: true,
     }),
+    // Resumable-streaming ownership: the instance generating this turn, its lease
+    // window, and the fencing epoch the heartbeat/reaper compare-and-set against.
+    ownerInstanceId: text("owner_instance_id"),
+    leaseExpiresAt: timestamp("lease_expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    leaseEpoch: integer("lease_epoch").notNull().default(0),
+    // Durable cancel intent, honored even when no live owner fiber exists.
+    cancelRequestedAt: timestamp("cancel_requested_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    // Hash of the canonical request + scope, used to detect request-id reuse.
+    requestFingerprint: text("request_fingerprint"),
   },
   (table) => [
     uniqueIndex("assistant_turns_workspace_request_uq").on(table.workspaceId, table.requestId),
     index("assistant_turns_conversation_started_idx").on(table.conversationId, table.startedAt),
     check("assistant_turns_status_check", inList("status", ASSISTANT_TURN_STATUSES)),
+  ],
+);
+
+export const turnEvents = sidechat.table(
+  "turn_events",
+  {
+    assistantTurnId: text("assistant_turn_id")
+      .notNull()
+      .references(() => assistantTurns.assistantTurnId),
+    sequence: integer("sequence").notNull(),
+    type: text("type").notNull(),
+    payloadJson: jsonb("payload_json").$type<JsonObject>().notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    // The browser sequence is dense and gap-free per turn, so (turn, sequence)
+    // is the natural append key and the idempotency target.
+    primaryKey({ columns: [table.assistantTurnId, table.sequence] }),
+    // At most one terminal row per turn across the stream, finalize, and reaper
+    // append paths. The synthetic-terminal append relies on this to stay unique.
+    uniqueIndex("turn_events_one_terminal")
+      .on(table.assistantTurnId)
+      .where(inList("type", TURN_EVENT_TERMINAL_TYPES)),
+    check("turn_events_type_check", inList("type", TURN_EVENT_TYPES)),
   ],
 );
 
@@ -254,6 +296,7 @@ export const sidechatTables = {
   conversations,
   messages,
   assistantTurns,
+  turnEvents,
   turnContextSnapshots,
   usageRecords,
   toolInvocations,

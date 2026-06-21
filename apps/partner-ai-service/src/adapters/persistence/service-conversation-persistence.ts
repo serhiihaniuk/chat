@@ -17,7 +17,7 @@ export const createConversationPersistence = (
 
 const createEnsureConversationEffect =
   (repositories: SidechatRepositories): ConversationRepositoryPort["ensureConversation"] =>
-  ({ authContext, requestedConversationId, fallbackConversationId }) =>
+  ({ authContext, requestedConversationId, fallbackConversationId, now }) =>
     Effect.tryPromise({
       try: async () => {
         const conversationId = requestedConversationId ?? fallbackConversationId;
@@ -27,7 +27,7 @@ const createEnsureConversationEffect =
           actorId: toActorId(authContext.actor.subjectId),
           conversationId,
           conversationKey: conversationId,
-          now: authContext.issuedAt,
+          now,
         });
         return {
           tenantId: authContext.tenantId,
@@ -42,7 +42,7 @@ const createEnsureConversationEffect =
 
 const createAppendUserMessageEffect =
   (repositories: SidechatRepositories): ConversationRepositoryPort["appendUserMessage"] =>
-  ({ authContext, conversationId, message }) =>
+  ({ authContext, conversationId, message, now }) =>
     Effect.tryPromise({
       try: async () => {
         // Assign the current request role here, after protocol validation and
@@ -54,7 +54,7 @@ const createAppendUserMessageEffect =
           conversationId,
           message: { ...message, role: "user" },
           idempotencyKey: `${message.id}:user`,
-          now: authContext.issuedAt,
+          now,
         });
         return {
           tenantId: authContext.tenantId,

@@ -58,11 +58,17 @@ export const createServiceAuthVerifier = (config: ServiceAuthConfig): ServiceAut
     resolveAuthContext: (input) =>
       Promise.resolve(
         input.bearerToken === trustedToken
-          ? toAuthContext(config, input.hostContext?.origin)
+          ? toAuthContext(config, input.hostContext?.origin, issuedAtForConfig(config))
           : undefined,
       ),
   };
 };
+
+// The static-token authority "issues" the context when it verifies the token, so
+// the authentic issue time is verification time unless a profile pins one. This
+// is auth evidence only; record clocks come from the core clock port, never here.
+const issuedAtForConfig = (config: ServiceAuthConfig): string =>
+  config.issuedAt ?? new Date().toISOString();
 
 const tokenForConfig = (config: ServiceAuthConfig): string => {
   if (config.profile === "development") {
@@ -84,7 +90,11 @@ const tokenForConfig = (config: ServiceAuthConfig): string => {
   return config.trustedBearerToken;
 };
 
-const toAuthContext = (config: ServiceAuthConfig, hostOrigin: string | undefined): AuthContext => {
+const toAuthContext = (
+  config: ServiceAuthConfig,
+  hostOrigin: string | undefined,
+  issuedAt: string,
+): AuthContext => {
   const subject = config.subject ?? {
     subjectId: `${config.workspace.workspaceId}:subject`,
     userId: `${config.workspace.workspaceId}:user`,
@@ -97,6 +107,6 @@ const toAuthContext = (config: ServiceAuthConfig, hostOrigin: string | undefined
     scopes: ["conversation:read", "conversation:write", "message:write"],
     source: config.profile === "production" ? "signed_service_token" : "test_authority",
     hostOrigin: hostOrigin === "" ? undefined : hostOrigin,
-    issuedAt: config.issuedAt ?? "2026-05-23T13:00:00.000Z",
+    issuedAt,
   };
 };

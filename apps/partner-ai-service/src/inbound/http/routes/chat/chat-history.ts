@@ -1,5 +1,6 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { toActorId, type SidechatRepositories } from "@side-chat/db";
+import type { ClockPort } from "@side-chat/partner-ai-core";
 import type { Hono } from "hono";
 
 import type { AuthContextVariables } from "../../middleware/auth-context.js";
@@ -8,7 +9,7 @@ import { requireContextAuth } from "../types.js";
 
 export const registerChatHistoryRoutes = (
   app: Hono<AuthContextVariables>,
-  dependencies: { readonly repositories: SidechatRepositories },
+  dependencies: { readonly repositories: SidechatRepositories; readonly clock: ClockPort },
 ) => {
   app.get("/chat/conversations", async (context) => {
     const authContext = requireContextAuth(context.get("authContext"));
@@ -70,7 +71,7 @@ export const registerChatHistoryRoutes = (
         actorId: toActorId(authContext.actor.subjectId),
         conversationId,
         requestId: `reset:${conversationId}`,
-        now: authContext.issuedAt,
+        now: dependencies.clock.now(),
       });
       return context.json({
         protocolVersion: SIDECHAT_PROTOCOL_VERSION,
