@@ -49,9 +49,10 @@ Dependency direction matters. Runtime provider code, Hono, Drizzle, Postgres, Ef
 - `packages/side-chat-widget`: React widget and UI system.
 - `packages/testing`: shared test builders and protocol helpers.
 - `test-harness/widget-harness`: Vite harness and Playwright specs.
+- `test-harness/adoption-harness`: harness exercising host-app adoption/integration of the widget.
 - `docs/architecture`: source-of-truth design notes.
 - `docs/adr`: accepted architecture decisions.
-- `docs/testing`: test-harness and verification notes.
+- `docs/operations`: test-harness and verification notes (e.g. `verification.md`).
 - `scripts`: custom governance checks used by `npm run verify`.
 
 ## Testing stack

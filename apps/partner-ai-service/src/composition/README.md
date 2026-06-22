@@ -50,11 +50,15 @@ protocol contracts.
 
 `ServiceComposition` is:
 `{ workspace, hostAppId, auth, policies, persistence, repositories, runtime,
-ports, turnRunner, dispatcher, safetyPollIntervalMs, capabilities, diagnostics }`.
+ports, turnRunner, dispatcher, cancelDispatcher, activityDispatcher, reaper,
+pruner, observability?, safetyPollIntervalMs, capabilities, diagnostics, shutdown }`.
 The runs route starts a turn through `composition.turnRunner`; the turn-stream
 route subscribes through `composition.dispatcher` (+ `safetyPollIntervalMs`) and
-`composition.ports`; health and models read `composition.diagnostics` and
-`composition.capabilities`.
+`composition.ports`; the activity route subscribes through
+`composition.activityDispatcher`; health and models read `composition.diagnostics`
+and `composition.capabilities`. The cancel dispatcher, reaper (stale lease
+terminalizer), and pruner (`turn_events` retention) are background owners that
+`composition.shutdown` tears down with the dispatchers.
 
 ## Common change recipes
 

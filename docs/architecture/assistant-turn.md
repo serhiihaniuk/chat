@@ -18,6 +18,11 @@ browser form submit
 -> AI SDK provider request
 ```
 
+This chain is the pre-start half of the two-call flow: `POST /chat/runs` runs it
+synchronously, then the service forks generation onto a server-owned fiber that a
+client streams over `GET /chat/turns/:assistantTurnId/stream`. See
+[Server-Owned Generation](#server-owned-generation) for the full model.
+
 Browser requests do not carry raw system instructions, executor choices, or
 provider-native options. They may carry a model preference learned from the
 backend model catalog. Service composition resolves profile system prompt ids
@@ -214,6 +219,7 @@ and `prunerInterval` to the same section. No durations or limits are hardcoded.
 - `apps/partner-ai-service/src/inbound/turn-stream/turn-cancel-dispatcher.ts`
 - `apps/partner-ai-service/src/inbound/turn-stream/turn-subscription-stream.ts`
 - `apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts`
-- `packages/db/src/repositories/turn-event-notifications.ts`
-- `packages/db/src/repositories/turn-cancel-notifications.ts`
+- `packages/db/src/repositories/notifications/turn-event-notifications.ts`
+- `packages/db/src/repositories/notifications/turn-cancel-notifications.ts`
+- `packages/db/src/repositories/notifications/turn-activity-notifications.ts`
 - `packages/partner-ai-core/src/application/stream-chat/README.md`

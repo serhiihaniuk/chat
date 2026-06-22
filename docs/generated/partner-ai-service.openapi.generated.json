@@ -1,40 +1,36 @@
 {
-  "_generatedFrom": "Generated from: apps/partner-ai-service/src/inbound/http/routes.ts and packages/chat-protocol/src/sidechat-v1/*.ts",
+  "_generatedFrom": "Generated from: apps/partner-ai-service/src/inbound/http/app.ts and src/inbound/http/routes/chat/**, plus packages/chat-protocol/src/sidechat-v1/*.ts. Hand-maintained until a generator is wired; per ADR 0004, update this artifact in the same change as any route or protocol change.",
   "openapi": "3.1.0",
   "info": {
     "title": "Side Chat Partner AI Service",
-    "version": "0.0.0"
+    "version": "0.0.0",
+    "description": "Resumable, server-owned chat. A turn is created by POST /chat/runs (identity returned as JSON; generation is forked off the request) and then streamed or replayed by GET /chat/turns/{assistantTurnId}/stream. GET /chat/activity is a separate subject-scoped lifecycle stream. See docs/architecture/assistant-turn.md."
   },
   "paths": {
     "/healthz": {
       "get": {
         "operationId": "getHealth",
-        "responses": {
-          "200": { "description": "Service health" }
-        }
+        "responses": { "200": { "description": "Service health" } }
       }
     },
     "/readyz": {
       "get": {
         "operationId": "getReadiness",
-        "responses": {
-          "200": { "description": "Service readiness" }
-        }
+        "responses": { "200": { "description": "Service readiness" } }
       }
     },
     "/models": {
       "get": {
         "operationId": "listModels",
         "responses": {
-          "200": {
-            "description": "Available assistant models for the workspace"
-          }
+          "200": { "description": "Available assistant models for the workspace" }
         }
       }
     },
-    "/chat/stream": {
+    "/chat/runs": {
       "post": {
-        "operationId": "streamChat",
+        "operationId": "createRun",
+        "description": "Create one assistant turn. Pre-start runs synchronously; generation is then forked server-side and runs to a durable terminal regardless of this connection. Returns the turn identity as JSON (never SSE); stream or replay it with GET /chat/turns/{assistantTurnId}/stream.",
         "requestBody": {
           "required": true,
           "content": {
@@ -47,17 +43,130 @@
         },
         "responses": {
           "200": {
-            "description": "Sidechat v1 server-sent event stream",
-            "content": {
-              "text/event-stream": {
-                "schema": { "type": "string" }
-              }
-            }
+            "description": "Turn identity { protocolVersion, requestId, assistantTurnId, conversationId, status }",
+            "content": { "application/json": { "schema": { "type": "object" } } }
           },
           "400": { "description": "Bad request" },
           "401": { "description": "Unauthorized" },
           "403": { "description": "Forbidden" },
           "500": { "description": "Internal error" }
+        }
+      }
+    },
+    "/chat/runs/{requestId}": {
+      "get": {
+        "operationId": "resolveRun",
+        "description": "Resolve a lost POST /chat/runs reply: map a client request id back to its assistant turn.",
+        "parameters": [
+          { "name": "requestId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "{ assistantTurnId, status }" },
+          "404": { "description": "Unknown request id" }
+        }
+      }
+    },
+    "/chat/turns/{assistantTurnId}": {
+      "get": {
+        "operationId": "getTurnStatus",
+        "description": "Read one turn's current status.",
+        "parameters": [
+          {
+            "name": "assistantTurnId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "{ assistantTurnId, conversationId, requestId, status }" },
+          "404": { "description": "Unknown turn" }
+        }
+      }
+    },
+    "/chat/turns/{assistantTurnId}/stream": {
+      "get": {
+        "operationId": "streamTurn",
+        "description": "Subscribe to (and replay) one turn's durable sidechat.v1 event log as Server-Sent Events. Emits events with sequence > after and ends at the terminal event.",
+        "parameters": [
+          {
+            "name": "assistantTurnId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "description": "Replay offset; emit events with sequence > after. Default -1 replays the whole turn.",
+            "schema": { "type": "integer", "default": -1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "sidechat.v1 server-sent event stream",
+            "content": { "text/event-stream": { "schema": { "type": "string" } } }
+          },
+          "404": {
+            "description": "replay_expired (the durable log was pruned) or unknown turn; fall back to conversation history"
+          }
+        }
+      }
+    },
+    "/chat/turns/{assistantTurnId}/cancel": {
+      "post": {
+        "operationId": "cancelTurn",
+        "description": "Request cancellation of one turn. Writes a durable intent and notifies; the owning instance interrupts generation. CAS-acks an already-finished or unknown turn as not cancelled.",
+        "parameters": [
+          {
+            "name": "assistantTurnId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "{ assistantTurnId, cancelRequested }" } }
+      }
+    },
+    "/chat/activity": {
+      "get": {
+        "operationId": "streamActivity",
+        "description": "Subject-scoped turn-lifecycle stream (Server-Sent Events of type sidechat.turn-activity): a snapshot of currently-running turns on connect, then live transitions. Drives the sidebar 'generating' indicator across conversations.",
+        "responses": {
+          "200": {
+            "description": "sidechat.turn-activity server-sent event stream",
+            "content": { "text/event-stream": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "/chat/conversations": {
+      "get": {
+        "operationId": "listConversations",
+        "description": "List the subject's conversations for the switcher/sidebar.",
+        "parameters": [
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Conversation summaries" } }
+      }
+    },
+    "/chat/conversations/{conversationId}": {
+      "get": {
+        "operationId": "readConversation",
+        "description": "Read one conversation's stored history plus its active turn (if any), so a reconnecting client can render past messages and resume an in-flight turn from one read.",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "{ conversationId, messages, activeTurn? }" },
+          "404": { "description": "Unknown conversation" }
         }
       }
     },
@@ -72,9 +181,7 @@
             "schema": { "type": "string" }
           }
         ],
-        "responses": {
-          "200": { "description": "Conversation message history" }
-        }
+        "responses": { "200": { "description": "Conversation message history" } }
       },
       "delete": {
         "operationId": "resetChatHistory",
@@ -86,17 +193,13 @@
             "schema": { "type": "string" }
           }
         ],
-        "responses": {
-          "200": { "description": "Conversation reset result" }
-        }
+        "responses": { "200": { "description": "Conversation reset result" } }
       }
     },
     "/usage": {
       "get": {
         "operationId": "readUsageSummary",
-        "responses": {
-          "200": { "description": "Workspace usage summary" }
-        }
+        "responses": { "200": { "description": "Workspace usage summary" } }
       }
     }
   }

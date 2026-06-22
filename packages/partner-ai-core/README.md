@@ -40,7 +40,7 @@ execution, or widget UI.
 ## First Files To Open
 
 - `src/application/stream-chat/README.md`
-- `src/application/stream-chat/stream-chat.ts`
+- `src/application/stream-chat/protocol/run-turn-generation.ts`
 - `src/application/stream-chat/turn/prepare-stream-chat-turn.ts`
 - `src/application/stream-chat/turn/turn-policy-plan.ts`
 - `src/application/stream-chat/protocol/protocol-event-stream.ts`

@@ -34,6 +34,8 @@ Write for a lower-context human maintainer, not for AI working memory.
 - Keep nesting to 2 levels when practical; 4 is the outer wall.
 - Prefer named lifecycle stages over clever nested expressions.
 
+quality gate skills are located in .agents/skills folder
+
 ## Documentation Rule
 
 Docs are part of the quality gate. Canonical terms live in

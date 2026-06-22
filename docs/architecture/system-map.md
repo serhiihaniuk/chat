@@ -35,18 +35,36 @@ ai-runtime-contract RuntimeEvent emitted by agent-runtime
 -> side-chat-widget message/activity state
 ```
 
+## Streaming Model
+
+Streaming is resumable and server-owned, not one linear response. A turn runs in
+two HTTP calls so generation outlives any one connection:
+
+1. `POST /chat/runs` runs pre-start synchronously and returns the turn identity as
+   JSON (`{protocolVersion, requestId, assistantTurnId, conversationId, status}`).
+   The service then forks generation onto a server-owned fiber.
+2. `GET /chat/turns/:assistantTurnId/stream?after=<seq>` opens an SSE stream that
+   replays the durable log from `after` and tails live events to the terminal one.
+
+The durable `turn_events` log is the source of truth; the browser is only a
+subscriber, so a reconnect resumes the same turn. `GET /chat/activity` is a
+separate subject-scoped SSE stream that pushes turn lifecycle across
+conversations, so the sidebar shows a live "generating" dot even on chats that
+are not open. For the full lifecycle, ownership, and recovery rules, see
+`docs/architecture/assistant-turn.md`.
+
 ## Package Map
 
 | Package                         | Owns                                                                                                                     | Must not own                                                          | First files to open                                                                           |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `apps/partner-ai-service`       | HTTP routes, env/config parsing, app adapters, service composition, SSE transport.                                       | Product lifecycle decisions, provider internals, widget state.        | `src/inbound/http/app.ts`, `src/composition/service-composition.ts`, `src/adapters/README.md` |
+| `apps/partner-ai-service`       | HTTP routes, env/config parsing, app adapters, service composition, SSE transport, the server-owned turn runner (`FiberMap` by `assistantTurnId`), the event/cancel/activity dispatchers, and the reaper and pruner. | Product lifecycle decisions, provider internals, widget state.        | `src/inbound/http/app.ts`, `src/inbound/turn-runner/turn-runner.ts`, `src/composition/service-composition.ts` |
 | `packages/partner-ai-core`      | Stream-chat workflow, policy, context, capability contracts, ports, lifecycle, protocol mapping.                         | Hono, DB rows, provider SDKs, React.                                  | `src/application/stream-chat/README.md`, `src/application/stream-chat/protocol/run-turn-generation.ts` |
 | `packages/ai-runtime-contract`  | Provider-neutral runtime request, tool scope, RuntimeEvent, error, stream, and port contracts.                           | Product lifecycle, provider adapters, tools, browser protocol.        | `src/index.ts`, `README.md`                                                                   |
 | `packages/agent-runtime`        | Prepared assistant turn execution, executors, runtime tools, provider adapter, RuntimeEvents.                            | Product policy, persistence, browser protocol, host-command dispatch. | `src/runtime/README.md`, `src/runtime/agent-runtime.ts`                                       |
 | `packages/chat-protocol`        | `sidechat.v1` request/event DTOs, validators, SSE codec, generated schema.                                               | Runtime events, provider parts, Hono, Effect, React.                  | `src/sidechat-v1/index.ts`                                                                    |
-| `packages/side-chat-widget`     | React widget, browser-safe API client/SSE reader, query repository, FSD layers, protocol-to-UI state, host bridge usage. | Effect, provider SDKs, DB rows, service internals.                    | `src/widgets/side-chat/`, `src/entities/conversation/api/`, `src/entities/conversation/`      |
+| `packages/side-chat-widget`     | React widget, browser-safe API client/SSE reader, query repository, FSD layers, protocol-to-UI state, host bridge usage. | Effect, provider SDKs, DB rows, service internals.                    | `src/widgets/side-chat/`, `src/features/chat/model/run/widget-run-store.ts`, `src/entities/conversation/api/`, `src/entities/conversation/` |
 | `packages/host-bridge`          | Browser host context and host-command dispatch seam.                                                                     | RuntimeTool execution, backend persistence, service routes.           | `src/bridge/bridge.ts`, `src/commands/`                                                       |
-| `packages/db`                   | Persistence schema, repository contracts, adapters, in-memory repositories.                                              | Product use cases, Hono routes, runtime execution, widget state.      | `src/schema-contract/`, `src/repositories/`                                                   |
+| `packages/db`                   | Persistence schema, repository contracts, adapters, in-memory repositories, and the dedicated `LISTEN/NOTIFY` connection and notification source. | Product use cases, Hono routes, runtime execution, widget state.      | `src/schema-contract/`, `src/repositories/`                                                   |
 | `packages/shared`               | Domain-neutral TypeScript helpers.                                                                                       | Product, protocol, runtime, widget, or persistence ownership.         | `src/index.ts`                                                                                |
 | `packages/testing`              | Shared test-only helpers.                                                                                                | Production behavior or package-specific business fixtures.            | `src/index.ts`                                                                                |
 | `test-harness/adoption-harness` | Cross-package adopter golden-path tests.                                                                                 | Production deployment or browser-only harness behavior.               | `src/adoption-golden-path.test.ts`                                                            |

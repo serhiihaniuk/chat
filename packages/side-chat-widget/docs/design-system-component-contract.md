@@ -380,8 +380,8 @@ that runtime value. The **Flat** elevation value is Tailwind's zero-shadow shape
 **Anything not above is unregistered.** Notable non-utilities (use a hook class): every
 tier-2 component token (`--row-*`, `--switch-*`, `--seg-*`, `--menu-*`, `--field-*`,
 `--scrollarea-*`, `--message-user-px/py`, `--reason-*`, `--settings-*`, `--suggestion-*`,
-`--context-ring-*`, `--convo-indicator`). These are tier-2 by design and never generate
-utilities.
+`--context-ring-*`, `--convo-indicator`, `--convo-running-indicator`). These are tier-2 by
+design and never generate utilities.
 
 ---
 
@@ -1169,11 +1169,17 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
 ## 9.1 — Conversation item
 
 - **Built from:** Row (standalone `<button>` form) + Text roles.
-- **Owns:** `--convo-item-radius`, `--convo-indicator`, `--convo-title-fg`,
-  `--convo-subtitle-fg`, and `--convo-item-bg-*` aliases to the shared row active/hover surfaces.
+- **Owns:** `--convo-item-radius`, `--convo-indicator`, `--convo-running-indicator`,
+  `--convo-title-fg`, `--convo-subtitle-fg`, and `--convo-item-bg-*` aliases to the shared
+  row active/hover surfaces.
 - **Base UI parts:** none — a plain `<button>` (the Row primitive).
-- **State:** `aria-current="true"` → `--convo-item-bg-active` fill + trailing dot;
-  hover → `--convo-item-bg-hover`. Both alias the shared row accent surface.
+- **Props:** `active` drives selection; `running` (optional) marks a live turn.
+- **State:** three trailing-dot states, all the same `size-1.5` so the row never reflows:
+  (1) `aria-current="true"` → `--convo-item-bg-active` fill + solid `--convo-indicator`
+  selection dot; (2) hover → `--convo-item-bg-hover`; (3) `running` → a pulsing
+  `--convo-running-indicator` dot (`animate-pulse`, `aria-label="Generating"`) shown
+  regardless of selection, replacing the selection dot while the turn streams. Active/hover
+  surfaces alias the shared row accent surface.
 - **Scroll:** lives inside the rail's `ScrollArea` (§8.3), never its own scroller.
 
 ```tsx
@@ -1188,13 +1194,19 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
     <span className="truncate text-sm font-medium text-(--convo-title-fg)">{title}</span>
     <span className="truncate text-xs text-(--convo-subtitle-fg)">{relativeTime(updatedAt)}</span>
   </span>
-  <span className="ml-auto size-1.5 rounded-full bg-(--convo-indicator) opacity-0 aria-[current=true]:opacity-100" />
+  {running ? (
+    <span aria-label="Generating"
+      className="ml-auto size-1.5 shrink-0 animate-pulse rounded-full bg-(--convo-running-indicator)" />
+  ) : (
+    <span className="ml-auto size-1.5 shrink-0 rounded-full bg-(--convo-indicator) opacity-0 aria-[current=true]:opacity-100" />
+  )}
 </button>
 ```
 
 - **Behavior:** title truncates (`min-w-0 truncate`); subtitle is a relative timestamp. The
-  active dot is pre-rendered at `opacity-0` so rows don't reflow on selection.
-- **Done:** ☐ G1–G6 ☐ active via `aria-current` ☐ truncation ☐ inside rail ScrollArea ☐ re-skins.
+  selection dot is pre-rendered at `opacity-0` and the running dot is the same size, so rows
+  don't reflow on selection or when a turn starts/stops.
+- **Done:** ☐ G1–G6 ☐ active via `aria-current` ☐ `running` → pulsing Generating dot ☐ truncation ☐ inside rail ScrollArea ☐ re-skins.
 
 ## 9.2 — Conversation grouping
 

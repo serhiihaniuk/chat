@@ -6,15 +6,15 @@ Not source of truth for: provider policy, product policy, or protocol events.
 
 ## Files
 
-| File                        | Owns                                                                |
-| --------------------------- | ------------------------------------------------------------------- |
-| `tool-loop-agent-runner.ts` | Opens ToolLoopAgent for the default executor and preserves order.   |
-| `ai-sdk-tool-adapter.ts`    | Converts RuntimeTool into an AI SDK tool callback.                  |
-| `runtime-tool-executor.ts`  | Runs RuntimeTool Effects with abort and timeout handling.           |
-| `tool-activity-mapper.ts`   | Maps AI SDK tool parts into one runtime activity row per tool call. |
-| `reasoning-activity.ts`     | Buffers reasoning deltas into one safe activity row.                |
-| `stream-part-mapper.ts`     | Maps text, finish, started, and error parts.                        |
-| `json-value.ts`             | Normalizes unknown tool input/output into JSON-safe values.         |
+| File                                 | Owns                                                                |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| `streaming/tool-loop-agent-runner.ts` | Opens ToolLoopAgent for the default executor and preserves order.   |
+| `streaming/tool-activity-mapper.ts`   | Maps AI SDK tool parts into one runtime activity row per tool call. |
+| `streaming/reasoning-activity.ts`     | Buffers reasoning deltas into one safe activity row.                |
+| `streaming/stream-part-mapper.ts`     | Maps text, finish, started, and error parts.                        |
+| `tools/ai-sdk-tool-adapter.ts`        | Converts RuntimeTool into an AI SDK tool callback.                  |
+| `tools/runtime-tool-executor.ts`      | Runs RuntimeTool Effects with abort and timeout handling.           |
+| `tools/json-value.ts`                 | Normalizes unknown tool input/output into JSON-safe values.         |
 
 ## Boundary Rules
 

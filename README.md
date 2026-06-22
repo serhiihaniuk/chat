@@ -27,6 +27,8 @@ host app -> side-chat-widget API/client -> chat-protocol
 | Assistant turn lifecycle | `docs/architecture/assistant-turn.md`     |
 | Extension seams          | `docs/architecture/extension-seams.md`    |
 | Boundary rules           | `docs/architecture/package-boundaries.md` |
+| Runtime & protocol events | `docs/architecture/runtime-and-protocol-events.md` |
+| Widget & host integration | `docs/architecture/widget-and-host-integration.md` |
 | Iframe embedding         | `docs/operations/embed-widget-iframe.md`  |
 | Verification commands    | `docs/operations/verification.md`         |
 | Agent rules              | `AGENTS.md`                               |

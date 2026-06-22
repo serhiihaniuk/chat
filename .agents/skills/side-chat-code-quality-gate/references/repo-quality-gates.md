@@ -6,8 +6,8 @@ This reference captures the project-specific checks discovered from the uploaded
 
 - npm workspaces only.
 - Root package manager: `npm@11.15.0`.
-- Node engine: `24.16.0`.
-- `.nvmrc` must match the Node engine.
+- Node engine: `package.json` `engines.node` is the range `>=24.15.0 <25.0.0` (npm `>=11.12.0 <12.0.0`); `.nvmrc` pins the exact `24.16.0` used for development/CI.
+- `.nvmrc` must satisfy the Node engine range.
 - `scripts/check-runtime-pins.mjs` fails when the running Node/npm versions do not match the pinned versions.
 
 ## Root scripts
@@ -82,7 +82,7 @@ Workspace `tsconfig.json` files must enable composite project references. Root `
 
 ## Custom governance checks
 
-`npm run lint:custom` runs these scripts in order:
+`npm run lint:custom` runs these 15 scripts in order:
 
 1. `check-runtime-pins.mjs`
 2. `check-version-pins.mjs`
@@ -93,10 +93,12 @@ Workspace `tsconfig.json` files must enable composite project references. Root `
 7. `check-widget-layers.mjs`
 8. `check-runtime-boundaries.mjs`
 9. `check-outbound-rules.mjs`
-10. `check-code-shape.mjs`
-11. `check-source-governance.mjs`
-12. `check-generated-artifacts.mjs`
-13. `check-governance-fixtures.mjs`
+10. `check-undefined-optional-contracts.mjs`
+11. `check-code-shape.mjs`
+12. `check-source-governance.mjs`
+13. `check-human-readability.mjs`
+14. `check-generated-artifacts.mjs`
+15. `check-governance-fixtures.mjs`
 
 ## Code shape budgets
 
@@ -104,19 +106,21 @@ From `scripts/check-code-shape.mjs`:
 
 - cognitive complexity max: 12
 - production function-like blocks per file max: 28
-- production files per directory max: 12
+- production files per directory max: 5
 - nested functions max: 8
 - `*.test-support.*` files must live under `src/testing/**`
 
-Known shape budget exceptions:
+Per-file shape budgets are skipped for copied AI UI primitives under
+`packages/side-chat-widget/src/shared/ai/` (the `COPIED_SHARED_AI_PREFIX`),
+which are quarantined vendor-style source governed by a directory budget instead.
 
-- `packages/side-chat-widget/src/shared/ai/code-block.tsx`
-- `packages/side-chat-widget/src/shared/ai/message.tsx`
-- `packages/side-chat-widget/src/shared/ai/prompt-input.tsx`
+Known directory budget exceptions (`directoryBudgetExceptions`):
 
-Known directory budget exception:
-
-- `packages/side-chat-widget/src/shared/ui` allows 20 files because shared UI primitive imports must stay stable.
+- `packages/side-chat-widget/src/shared/ui` allows 43 files: shared UI primitive catalog keeps direct `#shared/ui/<component>` imports stable, plus a co-located test for the conversation item's running indicator.
+- `packages/side-chat-widget/src/shared/ai` allows 12 files: copied AI UI primitives are quarantined vendor-style source.
+- `apps/partner-ai-service/src/composition/factories` allows 22 files: service composition factory catalog (one factory plus its co-located test per bundle), kept flat so the composition root reads as a table of contents.
+- `packages/db/src/repositories/postgres-drizzle/records` allows 9 files: turn record work split by responsibility (turn-events, turn-lookups, turn-lease, usage) so `turns.ts` stays within budget.
+- `packages/db/src/repositories/memory/records` allows 8 files: the memory adapter mirrors the postgres records split (turn-events, turn-lookups, turn-lease) so `turns.ts` stays within budget.
 
 ## Source governance budgets
 
@@ -128,12 +132,13 @@ From `scripts/check-source-governance.mjs`:
 - local `class ToolLoopAgent` is forbidden because it shadows the AI SDK export
 - generated build/test artifacts must not be tracked
 
-Line budget exceptions:
+Line budget exceptions (`sourceLineBudgetExceptions`):
 
 - `packages/db/src/drizzle/schema.ts`
-- `packages/side-chat-widget/src/shared/ai/code-block.tsx`
-- `packages/side-chat-widget/src/shared/ai/message.tsx`
-- `packages/side-chat-widget/src/shared/ai/prompt-input.tsx`
+- `packages/db/src/schema-contract/repositories.ts`
+
+(Copied AI UI primitives under `packages/side-chat-widget/src/shared/ai/` are also
+exempt from the line budget via the `COPIED_SHARED_AI_PREFIX` skip, not this set.)
 
 Exceptions are not invitations to add more complexity. Treat them as legacy/third-party-derived areas to improve carefully.
 

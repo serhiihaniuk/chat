@@ -45,7 +45,8 @@ plans.
 - **Stream chat turn**: product workflow that prepares and streams one assistant
   turn.
 - **Turn plan**: per-turn decision selecting profile, model, tools, commands,
-  guards, approvals, executor id, and instructions.
+  guards, approvals, executor id, and instructions. "Turn policy decision" in
+  `docs/architecture/assistant-turn.md` is an alias for the same decision.
 - **Model catalog**: backend-published list of provider/model ids, display
   names, context windows, and selectable reasoning efforts. The widget reads it;
   the browser does not invent available models.
@@ -125,7 +126,13 @@ plans.
 - **RuntimeActivityDetails**: provider-neutral activity details mapped by core to
   browser-safe activity details.
 - **SidechatStreamEvent**: browser-facing `sidechat.v1` stream event.
-- **Activity event**: visible progress, tool, reasoning, or host-command row.
+- **Activity event**: visible progress, tool, reasoning, or host-command row
+  *inside* one turn's stream.
+- **Turn activity event**: cross-conversation turn-lifecycle signal (wire type
+  `sidechat.turn-activity`) carried on the `GET /chat/activity` stream so the
+  sidebar can show a live "generating" dot per running conversation. It is
+  distinct from the in-turn **Activity event**: it reports that a turn is running
+  or finished, not what the turn is doing.
 - **Widget message**: client-side message state rendered by the widget.
 - **Widget activity item**: client-side activity timeline row derived from
   protocol activity events.
@@ -146,6 +153,38 @@ plans.
 - **Host bridge boundary**: widget/product host seam to host commands/context.
 - **Database boundary**: product ports become persistence records.
 - **Copied UI primitive**: external visual component under widget `shared/ai`.
+
+## Resumable Streaming
+
+These terms describe the server-owned, resumable streaming model. Use
+`docs/architecture/assistant-turn.md` for the lifecycle order.
+
+- **Durable turn-event log**: append-only, per-turn ordered log (`turn_events`
+  table) that is the source of truth for a turn's events. The stream replays from
+  it; the browser is only a subscriber.
+- **Server-owned generation**: a turn runs on a service-owned fiber (the **turn
+  runner**) forked off the request, so generation outlives any one connection. It
+  is not tied to the browser that started it.
+- **Turn runner**: per-instance service component that forks generation and tracks
+  live turns in a `FiberMap` keyed by `assistantTurnId`.
+- **Replay offset (`after`)**: stream cursor. `GET /chat/turns/:id/stream?after=<seq>`
+  emits `sequence > after`; default `-1` and `sidechat.started` is sequence 0.
+- **Owner lease (fencing, `lease_epoch`)**: compare-and-set claim on
+  `assistant_turns` (`owner_instance_id`, `lease_epoch`, `lease_expires_at`) that
+  binds one running turn to one owning instance. A renew that matches no row means
+  the owner was **fenced** (a new owner or the reaper advanced the epoch), so it
+  self-interrupts. Prevents two instances generating the same turn.
+- **Reaper**: per-instance background sweep that terminalizes running turns whose
+  lease expired, fencing the dead or stalled owner.
+- **Pruner**: per-instance background sweep that deletes the event rows of old
+  terminal turns past retention. The consolidated turn record and assistant
+  message survive, so a pruned turn still resolves.
+- **`replay_expired`**: transport-level error (HTTP 404) returned when a terminal
+  turn's log can no longer replay because pruning removed the requested range. The
+  widget then reads conversation history and clears the run.
+- **`requestId`**: idempotency and resolver key for one submission; a repeat
+  returns the existing turn. Resolve it with `GET /chat/runs/:requestId`. Contrast
+  **`assistantTurnId`**, the canonical key for streaming, status, and cancel.
 
 ## Names To Avoid In Larger Scopes
 

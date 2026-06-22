@@ -23,16 +23,20 @@ Not source of truth for: backend workflow or protocol definitions.
 ## Public Surface
 
 `src/index.ts` exports the side-chat widget API, including
-`createSideChatApiClient` for service-backed consumers.
+`createSideChatApiClient` for service-backed consumers. `SideChatApiClient` drives
+the resumable run/turn flow through `createRun`, `subscribeTurn`, `resolveRun`,
+`getTurnStatus`, `cancelTurn`, and `subscribeActivity`, plus optional conversation
+list/history reads.
 
 The widget can render a conversation selector when the supplied
 `SideChatApiClient` supports conversation listing and history reads.
 `conversationStorageKey` enables browser-local restoration of the last selected
-conversation shell; messages themselves are hydrated through the client history
-route.
+conversation shell. The conversation list and history hydrate through TanStack
+Query (`entities/conversation/api/query/`), not the live turn stream.
 
-`defaultTheme` picks the initial named theme (`graphite` | `sage` | `ocean`) and
-`themeStorageKey` enables browser-local persistence of the chosen theme. Themes
+`defaultTheme` picks the initial named theme (`graphite` | `sapphire` | `sage` |
+`ocean`) and `themeStorageKey` enables browser-local persistence of the chosen
+theme. Themes
 are scoped to the widget root and never leak onto the host page; see
 `docs/architecture/widget-and-host-integration.md` (Theming And Layout).
 
@@ -51,8 +55,12 @@ for harness tests. It is not a host application API.
 ## Main Flows
 
 ```txt
-user submit -> optimistic widget state -> widget API stream
+user submit -> optimistic widget state -> createRun -> subscribeTurn (resumable)
   -> protocol events -> widget messages/activity
+reconnect (visibility/online/reload) -> subscribeTurn from last sequence
+  (features/chat/model/reconnect/)
+subscribeActivity -> running conversation ids -> sidebar "generating" dot
+  (features/chat/model/activity/use-activity-stream.ts)
 ```
 
 ## Boundary Rules

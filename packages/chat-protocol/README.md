@@ -10,6 +10,11 @@ Not source of truth for: runtime events or widget state.
 - Browser-facing `sidechat.v1` DTOs.
 - Protocol constants and validators.
 - SSE encode/decode helpers.
+- `TurnActivityEvent` (type `sidechat.turn-activity`) and its codec
+  (`encodeTurnActivitySseEvent` / `decodeTurnActivitySseEvents` in
+  `sidechat-v1/codec/activity-sse-codec.ts`). This is the cross-conversation turn
+  lifecycle event carried on the subject-scoped activity stream, distinct from the
+  in-turn `ActivityEvent` (`sidechat.activity`, reasoning/tool steps inside one turn).
 - Generated JSON Schema and protocol tests.
 
 ## Does Not Own
@@ -21,7 +26,8 @@ Not source of truth for: runtime events or widget state.
 
 ## Public Surface
 
-Protocol types, constants, validators, sequence checks, and SSE codec helpers.
+Protocol types, constants, validators, sequence checks, and SSE codec helpers,
+including the `TurnActivityEvent` type and its activity SSE codec.
 
 ## Main Flows
 

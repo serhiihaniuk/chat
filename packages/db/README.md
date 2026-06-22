@@ -8,8 +8,22 @@ Not source of truth for: product workflow or protocol events.
 
 ## Owns
 
-- Drizzle/Postgres schema and adapters.
-- Repository contracts and memory repositories for tests/local development.
+- The durable `turn_events` append log behind resumable streaming: `appendTurnEvent`
+  guards against writing past a terminal event, fires Postgres `NOTIFY` on commit,
+  and reconciles primary-key conflicts idempotently (same `(turn, sequence)` payload
+  returns the existing row; a divergent one raises `event_log_conflict`).
+- Postgres `LISTEN/NOTIFY` fan-out over channels `turn_events`, `turn_cancel`, and
+  `turn_activity` (no Redis). A dedicated `LISTEN` connection per channel, opened
+  outside the query pool, bridges notifications into the runtime through the
+  `createPostgresTurn{Event,Cancel,Activity}NotificationSource` factories (with NOOP
+  variants for memory/local paths).
+- The turn-record read/write and lease surface that fences turn ownership across
+  instances: `readTurnEventsAfter`, `findActiveAssistantTurn`,
+  `listActiveAssistantTurns`, `requestTurnCancellation`, `pruneTurnEventsBefore`, and
+  the compare-and-set lease operations `acquireTurnLease` / `renewTurnLease` /
+  `reapExpiredTurns`.
+- Drizzle/Postgres schema, the postgres-drizzle adapter, and memory repositories for
+  tests/local development.
 - Persistence integration tests and schema governance.
 
 ## Does Not Own
@@ -21,13 +35,19 @@ Not source of truth for: product workflow or protocol events.
 
 ## Public Surface
 
-Repository interfaces, adapter factories, schema exports, and test helpers where
-explicitly exported.
+Repository contracts (see `src/schema-contract/repositories.ts`, including
+`AssistantTurnRepositoryContract`), the adapter factories
+`createPostgresDrizzleSidechatRepositories` and `createMemorySidechatRepositories`,
+the notification-source factories and their NOOP variants (`src/repositories/index.ts`),
+schema exports, and test helpers where explicitly exported. Channel constants live in
+`src/schema-contract/lifecycle.ts`.
 
 ## Main Flows
 
 ```txt
-product/service port call -> repository adapter -> persistence record
+service port call -> repository adapter -> persistence record
+appendTurnEvent (terminal guard, PK reconcile) -> Postgres NOTIFY
+LISTEN connection -> notification source -> dispatcher fan-out
 ```
 
 ## Boundary Rules
@@ -40,6 +60,13 @@ product/service port call -> repository adapter -> persistence record
 - Do not import Hono, React, widget code, agent runtime internals, or partner
   core use cases.
 
+## Tooling
+
+- `npm run db:generate` regenerates the single Drizzle migration from `schema.ts`.
+- `npm run db:reset` rebuilds the local database.
+- Least-privilege runtime grants live in `packages/db/sql/runtime-role-grants.sql`,
+  applied after migrations.
+
 ## Tests
 
 - Repository contract tests under `src`.
@@ -47,6 +74,7 @@ product/service port call -> repository adapter -> persistence record
 
 ## Canonical Docs
 
+- `docs/domain/vocabulary.md`
 - `docs/architecture/system-map.md`
 - `docs/architecture/package-boundaries.md`
 - `docs/operations/verification.md`

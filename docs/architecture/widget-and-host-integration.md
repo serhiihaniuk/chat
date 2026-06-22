@@ -28,8 +28,10 @@ shared/ai
 | `features/prompt`       | Prompt input and composer behavior.                                   |
 | `features/settings`     | In-panel settings view for theme and appearance controls.             |
 | `features/theme`        | Theme and appearance state written to the widget root.                |
+| `entities/conversation` | API/SSE client, run client, and conversation query repository.        |
 | `entities/chat`         | Protocol-backed message and activity state.                           |
 | `entities/panel`        | Panel model helpers.                                                  |
+| `entities/settings`     | Settings metadata shared by features, such as reasoning visibility.   |
 | `entities/theme`        | Theme metadata and ids shared by features.                            |
 | `shared/ui`             | Project-owned reusable primitives.                                    |
 | `shared/lib`            | Browser-safe utilities.                                               |
@@ -40,6 +42,13 @@ shared/ai
 Protocol events enter through chat feature/model code. State code maps source
 SidechatStreamEvents into target widget messages and activity items. Rendering
 components should receive already-shaped view state.
+
+The widget tracks a server-owned run, not a single socket. `features/chat/model/run`
+holds a module-level run store (`widget-run-store.ts`) that survives remounts and
+pane switches and applies the ordered event log through a pure reducer. Because
+generation is durable, `features/chat/model/reconnect` resubscribes after a drop
+using the `after` cursor, and `features/chat/model/activity` consumes the
+`/chat/activity` stream to drive the sidebar "generating" dots.
 
 The widget must not import Effect, Hono, DB, provider SDKs, runtime internals, or
 service implementation details.

@@ -33,6 +33,26 @@ packages/testing
   shared test utilities only; production source must not import it
 ```
 
+## Resumable streaming and activity surface
+
+Turns are server-owned and resumable. Ownership splits as follows:
+
+- `apps/partner-ai-service/src/inbound/turn-runner` — `TurnRunner` drives one prepared turn to completion independently of any subscriber, appending events to the durable log.
+- `apps/partner-ai-service/src/inbound/turn-stream` — the event/cancel/activity dispatchers (`turn-event-dispatcher.ts`, `turn-cancel-dispatcher.ts`, `activity/turn-activity-dispatcher.ts`) and the subscription streams (`turn-subscription-stream.ts`, `activity/activity-subscription-stream.ts`) that fan durable + live signals out to SSE subscribers.
+
+Two-call HTTP flow (replaces the old response-owned `POST /chat/stream`):
+
+- `POST /chat/runs` — start (or resume) a turn; returns the assistant turn id.
+- `GET /chat/turns/:id/stream` — subscribe to that turn's event stream (resumable via `?after=`).
+- `GET /chat/activity` — workspace-level live "generating" activity feed for the sidebar.
+
+Durability and signalling live in `packages/db`:
+
+- durable `turn_events` table is the event log (one terminal event enforced by `turn_events_one_terminal`).
+- Postgres `LISTEN/NOTIFY` channels `turn_events`, `turn_cancel`, `turn_activity` (`schema-contract/lifecycle.ts`) carry cross-instance signals; no Redis.
+
+Widget side, the run model lives in `packages/side-chat-widget/src/features/chat/model/{run,reconnect,subscription,activity,conversation}`.
+
 ## Things that must not leak
 
 - AI SDK provider-native parts outside `agent-runtime`.

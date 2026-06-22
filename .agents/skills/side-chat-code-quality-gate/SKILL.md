@@ -1,7 +1,7 @@
 ---
 name: side-chat-code-quality-gate
 description: Review, write, refactor, or gate Side Chat TypeScript, React, Node, docs, READMEs, architecture notes, comments, tests, and custom governance for human-level cognitive load, readability, cognitive complexity, AI SDK/Effect clarity, useful comments, Oxlint/Oxfmt/TypeScript/Vitest/custom governance, package boundaries, UI quality, service quality, and maintainability. Use for hard-to-understand code or docs, oversized functions/files, unclear runtime/provider/protocol/tool terms, comments that assume too much context, AI-generated code review, code smells, quality gates, or repo-wide audits. Do not use for testing-only design tasks; use side-chat-testing-architecture for tests.
-compatibility: Codex CLI, Codex IDE extension, Codex app; instruction-first skill with optional local Python hotspot scan; no network required.
+compatibility: Codex CLI, Codex IDE extension, Codex app; instruction-first skill; no network required.
 metadata:
   version: "1.2.1"
   project: "Side Chat"
@@ -557,23 +557,11 @@ remaining dense files or risks:
 
 1. Read repo context and package scripts.
 2. Inspect current tool gates: `.oxlintrc.json`, `.oxfmtrc.json`, `tsconfig*.json`, `vitest.config.ts`, `playwright*.config.ts`, and `scripts/run-custom-lints.mjs`.
-3. Generate hotspot inventory. Use `scripts/side_chat_quality_snapshot.py` from this skill if helpful.
+3. Generate a hotspot inventory by hand: use `git diff --stat`, ripgrep, and the Oxlint and `lint:custom` output to surface changed, oversized, high-complexity, or boundary-crossing files.
 4. Prioritize changed files, tool failures, high-complexity functions, AI SDK/Effect-heavy files, protocol mappers, widget state/effect code, and boundary-crossing adapters.
 5. Inspect top hotspots manually.
 6. Separate must-fix gate failures from readability improvement opportunities.
 7. Recommend a sequence: quick safe refactors, comment/context bridges, larger structural changes, and verification commands.
-
-## Optional hotspot scan
-
-This skill includes a dependency-free Python scanner:
-
-```sh
-python .agents/skills/side-chat-code-quality-gate/scripts/side_chat_quality_snapshot.py . \
-  --markdown /tmp/side-chat-quality.md \
-  --json /tmp/side-chat-quality.json
-```
-
-Use it as triage only. It does not replace Oxlint, TypeScript, tests, custom lints, or manual review.
 
 ## When to read references
 

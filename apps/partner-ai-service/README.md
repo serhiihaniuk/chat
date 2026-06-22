@@ -28,6 +28,7 @@ Not source of truth for: global vocabulary or product requirements.
 - `src/inbound/http/routes/chat/turns/chat-turns.ts`
 - `src/inbound/turn-stream/turn-event-dispatcher.ts`
 - `src/inbound/turn-stream/turn-cancel-dispatcher.ts`
+- `src/inbound/turn-stream/activity/turn-activity-dispatcher.ts`
 - `src/composition/service-composition.ts`
 - `src/composition/manifest/service-capability-manifest.ts`
 - `src/composition/providers/service-provider-registry.ts`
@@ -71,7 +72,9 @@ manifest factory only receives the built profiles; it owns no default prompt.
 
 The chat resource surface includes `GET /chat/conversations` for the current
 authorized workspace subject and `GET /chat/history/:conversationId` for
-hydrating a selected conversation. Service composition owns the conversation
+hydrating a selected conversation. `GET /chat/activity` opens a subject-scoped SSE
+stream of `sidechat.turn-activity` events so the widget can light a "generating"
+dot on conversations the user is not currently viewing. Service composition owns the conversation
 title prompt/config. Core runs that config through a no-tools runtime basic
 agent after the first successful turn, sanitizes the output, and stores the
 title once; older records with no stored title still fall back to safe

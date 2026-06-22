@@ -6,6 +6,13 @@ Source of truth for: the staged migration plan until the config is implemented.
 Not source of truth for: current runtime behavior, accepted ADRs, or provider
 adapter internals.
 
+> **Status:** Partially implemented. The typed config exists and is the default
+> boot path — `apps/partner-ai-service/sidechat.config.ts` loaded by
+> `src/config/sidechat-config.ts`. The early phases (config catalog, options
+> adapter, config-driven boot) shipped; later phases (removing the remaining
+> environment-variable fallbacks) are still open. For current behavior, read the
+> config file and `docs/architecture/`, not this plan.
+
 ## Goal
 
 Side Chat should have one readable service config that answers these questions

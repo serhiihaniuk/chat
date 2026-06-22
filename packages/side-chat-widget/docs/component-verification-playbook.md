@@ -166,9 +166,11 @@ inside the themed widget root.
 - **Start it with the preview tooling** (`preview_start`, name `widget-harness`) — never
   `npm`/Bash for the server. If port 5173 is held by a **stale Vite**, stop that process
   and restart under preview management so the `preview_*` tools can attach.
-- **The toolbar has live re-skin controls**: Graphite/Sage/Ocean theme, Light/Dark, and a
-  `--radius` slider. That IS the §12.3 acceptance test — flip them and confirm the
-  component re-skins completely with zero leftovers.
+- **The toolbar has live re-skin controls**: the four named light themes
+  (Graphite/Sapphire/Sage/Ocean) and a `--radius` slider. That IS the §12.3 acceptance
+  test — flip them and confirm the component re-skins completely with zero leftovers.
+  (There is no dark mode: the design is light-only by the locked theme decision; see §3
+  and §12.3.)
 
 **How to drive it (`preview_*` tools):**
 
