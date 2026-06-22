@@ -24,7 +24,7 @@ import type { AuthContext, WorkspaceRef } from "@side-chat/partner-ai-core";
 import { Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { composePartnerAiService } from "#composition/service-composition";
+import { composePartnerAiService, type ResumabilityConfig } from "#composition/service-composition";
 import type { TurnRunner } from "./turn-runner.js";
 
 const WORKSPACE: WorkspaceRef = { tenantId: "tenant_runner", workspaceId: "workspace_runner" };
@@ -86,6 +86,13 @@ describe("server-owned turn runner", () => {
       request: chatRequest(),
       authContext: AUTH_CONTEXT,
     });
+    // Wait until the partial events have been drained to the log so the interrupt
+    // lands mid-stream; the synthetic terminal then sits after them, not at 0.
+    await expect
+      .poll(() =>
+        readTurnEvents(harness.repositories, started.assistantTurnId).then((e) => e.length),
+      )
+      .toBeGreaterThanOrEqual(2);
     await harness.runner.interruptTurn(started.assistantTurnId);
     await harness.runner.awaitTurn(started.assistantTurnId);
 
@@ -110,7 +117,7 @@ describe("server-owned turn runner", () => {
     // blocks, so the fiber stays alive until interrupted. Interruption must abort
     // that captured signal, proving generation (and billing) stops, not just the
     // socket.
-    const capture: { signal?: AbortSignal } = {};
+    const capture: { signal?: AbortSignal | undefined } = {};
     const harness = createRunnerHarness({ runtime: abortObservingRuntime(capture) });
 
     const started = await harness.runner.start({
@@ -168,25 +175,116 @@ describe("server-owned turn runner", () => {
     const events = await readTurnEvents(harness.repositories, started.assistantTurnId);
     expect(events.filter((event) => isTerminalEvent(eventOf(event)))).toHaveLength(1);
   });
+
+  it("heartbeats the owner lease while generation runs", async () => {
+    // A blocking runtime keeps the fiber alive so the heartbeat keeps renewing the
+    // lease. The renew is epoch-scoped, so a live owner advances its expiry without
+    // changing the epoch it acquired.
+    const harness = createRunnerHarness({ runtime: blockingRuntime(), resumability: FAST_LEASE });
+
+    const started = await harness.runner.start({
+      request: chatRequest(),
+      authContext: AUTH_CONTEXT,
+    });
+
+    // The lease is claimed at epoch 1; the owner keeps renewing it (so its expiry
+    // keeps moving forward) without the epoch drifting.
+    await expect
+      .poll(() => requireTurn(harness.repositories, started.assistantTurnId).ownerInstanceId)
+      .toBe(FAST_LEASE.instanceId);
+    const firstExpiry = requireTurn(harness.repositories, started.assistantTurnId).leaseExpiresAt;
+    await expect
+      .poll(() => requireTurn(harness.repositories, started.assistantTurnId).leaseExpiresAt)
+      .not.toBe(firstExpiry);
+    expect(requireTurn(harness.repositories, started.assistantTurnId).leaseEpoch).toBe(1);
+    expect(requireTurn(harness.repositories, started.assistantTurnId).status).toBe("running");
+
+    await harness.shutdown();
+  });
+
+  it("self-interrupts and finalizes when its lease is fenced underneath it", async () => {
+    // While the owner generates, a competing acquire steals the lease and bumps the
+    // epoch. The owner's next heartbeat renew fails (it holds a stale epoch), so it
+    // interrupts its own generation and finalizes — a fence is a non-user stop, so
+    // the honest terminal is provider_failed/timeout, not user_aborted.
+    const harness = createRunnerHarness({ runtime: blockingRuntime(), resumability: FAST_LEASE });
+
+    const started = await harness.runner.start({
+      request: chatRequest(),
+      authContext: AUTH_CONTEXT,
+    });
+    await expect
+      .poll(() => requireTurn(harness.repositories, started.assistantTurnId).ownerInstanceId)
+      .toBe(FAST_LEASE.instanceId);
+
+    // A different instance steals the lease, fencing the running owner.
+    await harness.repositories.acquireTurnLease({
+      workspaceId: WORKSPACE.workspaceId,
+      assistantTurnId: started.assistantTurnId,
+      ownerInstanceId: "instance_thief",
+      leaseTtlMs: 60_000,
+      now: new Date().toISOString(),
+    });
+
+    // The fenced owner stops its own generation and finalizes it as a non-user
+    // provider failure (the steal left no cancel intent).
+    await expect
+      .poll(() => requireTurn(harness.repositories, started.assistantTurnId).status)
+      .toBe("provider_failed");
+    const events = await readTurnEvents(harness.repositories, started.assistantTurnId);
+    const terminals = events.filter((event) => isTerminalEvent(eventOf(event)));
+    expect(terminals).toHaveLength(1);
+    expect(eventOf(requireOnly(terminals))).toMatchObject({
+      type: SIDECHAT_EVENT_TYPES.ERROR,
+      code: PROTOCOL_ERROR_CODES.TIMEOUT,
+    });
+
+    await harness.shutdown();
+  });
 });
 
 type RunnerHarness = {
   readonly runner: TurnRunner;
   readonly repositories: MemorySidechatRepositories;
   readonly runtimeRequests: readonly AiRuntimeRequest[];
+  /** Stop every composed background owner (runner, reaper, listeners) for cleanup. */
+  readonly shutdown: () => Promise<void>;
 };
 
-const createRunnerHarness = ({
-  runtime,
-}: { readonly runtime?: AiRuntimePort | undefined } = {}): RunnerHarness => {
+type HarnessOptions = {
+  readonly runtime?: AiRuntimePort | undefined;
+  readonly resumability?: ResumabilityConfig | undefined;
+};
+
+const createRunnerHarness = ({ runtime, resumability }: HarnessOptions = {}): RunnerHarness => {
   const repositories = createMemorySidechatRepositories();
   const runtimeRequests: AiRuntimeRequest[] = [];
   const composition = composePartnerAiService({
     workspace: WORKSPACE,
     repositories,
     agentRuntime: runtime ?? completedRuntime(runtimeRequests),
+    resumability,
   });
-  return { runner: composition.turnRunner, repositories, runtimeRequests };
+  return {
+    runner: composition.turnRunner,
+    repositories,
+    runtimeRequests,
+    shutdown: composition.shutdown,
+  };
+};
+
+// A fast lease so the heartbeat fires within a test: the owner renews every few
+// ms and a fence is observed almost immediately after the epoch is bumped.
+const FAST_LEASE: ResumabilityConfig = {
+  safetyPollIntervalMs: 1_000,
+  instanceId: "instance_runner_owner",
+  leaseTtlMs: 1_000,
+  heartbeatIntervalMs: 20,
+  reaperIntervalMs: 1_000,
+  reaperBatchLimit: 50,
+  turnEventRetentionMs: 60_000,
+  prunerIntervalMs: 1_000,
+  prunerBatchLimit: 100,
 };
 
 const completedRuntime = (runtimeRequests: AiRuntimeRequest[]): AiRuntimePort => ({
@@ -216,7 +314,7 @@ const blockingRuntime = (): AiRuntimePort => ({
 // Captures the abort signal core threads into the runtime request, then blocks so
 // the fiber stays alive until interrupted. Mirrors how the real AI SDK adapter
 // receives `request.abortSignal` and ties it to the in-flight provider call.
-const abortObservingRuntime = (capture: { signal?: AbortSignal }): AiRuntimePort => ({
+const abortObservingRuntime = (capture: { signal?: AbortSignal | undefined }): AiRuntimePort => ({
   streamEffect: (request) => {
     capture.signal = request.abortSignal;
     return Stream.concat(Stream.fromIterable([startedRuntimeEvent(request)]), Stream.never);

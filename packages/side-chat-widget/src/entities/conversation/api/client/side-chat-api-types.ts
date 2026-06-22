@@ -11,9 +11,10 @@ export type FetchLike = (input: string | URL | Request, init?: RequestInit) => P
 /**
  * Retry policy for widget-owned HTTP calls that can be safely replayed.
  *
- * Stream retries rely on the request idempotency key sent with `streamChat`;
- * callers may narrow the retryable HTTP statuses, but 409 is excluded from the
- * default policy because a conflicting turn-creating POST is not replay-safe.
+ * The turn-creating POST relies on the request idempotency key sent with
+ * `createRun`; callers may narrow the retryable HTTP statuses, but 409 is
+ * excluded from the default policy because a conflicting create is not
+ * replay-safe.
  */
 export type RetryPolicy = {
   readonly attempts: number;
@@ -24,37 +25,81 @@ export type RetryPolicy = {
  * Browser API wiring for the embedded widget.
  *
  * The widget owns these HTTP paths because they only serve the widget shell:
- * conversation lists, history, usage, reset, and live chat streaming. The
- * client returns Side Chat protocol/domain shapes and hides fetch mechanics,
- * raw response payloads, and transport-specific errors behind `SideChatApiError`.
+ * conversation lists, history, usage, reset, and the resumable two-call chat
+ * flow (create a run, then subscribe to its turn). The client returns Side Chat
+ * protocol/domain shapes and hides fetch mechanics, raw response payloads, and
+ * transport-specific errors behind `SideChatApiError`.
  */
 export type SideChatApiClientOptions = {
   readonly baseUrl: string;
   readonly conversationsPath?: string | undefined;
   readonly historyPath?: string | undefined;
   readonly modelsPath?: string | undefined;
-  readonly streamPath?: string | undefined;
+  readonly runsPath?: string | undefined;
+  readonly turnsPath?: string | undefined;
   readonly fetch?: FetchLike | undefined;
   readonly retry?: RetryPolicy | undefined;
   readonly usagePath?: string | undefined;
 };
 
-/** Per-request controls for one live assistant stream. */
-export type StreamChatOptions = {
+/** Cancellation/retry controls for creating one assistant run. */
+export type CreateRunOptions = {
   readonly signal?: AbortSignal | undefined;
   readonly retry?: RetryPolicy | undefined;
 };
 
 /**
- * Open stream returned after the HTTP response is accepted.
+ * Identity returned the moment a run is accepted by `POST /chat/runs`.
+ *
+ * `assistantTurnId` is the canonical key for streaming, status, and cancel;
+ * `requestId` stays the idempotency/resolver key. The status is the server's
+ * turn status string and should not be treated as a closed client enum.
+ */
+export type CreateRunResult = {
+  readonly requestId: string;
+  readonly assistantTurnId: string;
+  readonly conversationId: string;
+  readonly status: string;
+};
+
+/** Per-request controls for subscribing to one assistant turn stream. */
+export type SubscribeTurnOptions = {
+  /** Replay offset: events with `sequence > after` are returned. Defaults to -1. */
+  readonly after?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
+};
+
+/**
+ * Open stream returned after the SSE response is accepted.
  *
  * The async iterable yields validated `sidechat.v1` events in sequence. It may
  * still fail while being consumed if the server sends malformed frames, omits a
- * terminal event, or the caller aborts the request.
+ * terminal event, or the caller aborts the request. A stream that cannot replay
+ * (the durable log was pruned, or the turn is gone) is reported as a
+ * `replay_expired` `SideChatApiError` before any event is yielded.
  */
-export type StreamChatResult = {
+export type SubscribeTurnResult = {
   readonly events: AsyncIterable<SidechatStreamEvent>;
-  readonly attempt: number;
+};
+
+/** Resolver result mapping a lost `requestId` back to its turn. */
+export type ResolveRunResult = {
+  readonly assistantTurnId: string;
+  readonly status: string;
+};
+
+/** Turn status snapshot read by id. */
+export type TurnStatusResult = {
+  readonly assistantTurnId: string;
+  readonly conversationId: string;
+  readonly requestId: string;
+  readonly status: string;
+};
+
+/** Acknowledgement returned after requesting a turn cancellation. */
+export type CancelTurnResult = {
+  readonly assistantTurnId: string;
+  readonly cancelRequested: boolean;
 };
 
 /** Query controls for reading one stored conversation. */
@@ -116,10 +161,22 @@ export type ListModelsOptions = {
   readonly signal?: AbortSignal | undefined;
 };
 
-/** Stored transcript returned for a selected conversation. */
+/**
+ * Active turn pointer the server returns alongside a conversation history read.
+ *
+ * Present when a turn is still running for the conversation, so a reconnecting
+ * client can resume an in-flight turn from the same read that loaded history.
+ */
+export type ActiveTurnSummary = {
+  readonly assistantTurnId: string;
+  readonly status: string;
+};
+
+/** Stored transcript returned for a selected conversation, plus any active turn. */
 export type ReadHistoryResult = {
   readonly conversationId: string;
   readonly messages: readonly HistoryMessage[];
+  readonly activeTurn?: ActiveTurnSummary | undefined;
 };
 
 /** Cancellation control for deleting a stored conversation history. */
@@ -141,10 +198,11 @@ export type ReadUsageOptions = {
 /**
  * Widget-facing repository over the Side Chat service HTTP API.
  *
- * Regular resources use request/response methods; only `streamChat` exposes an
- * async iterable because assistant turns arrive as ordered protocol events.
- * Optional methods let tests or constrained hosts provide only the capabilities
- * they support without leaking transport internals into React state code.
+ * Chat uses the resumable two-call flow: `createRun` posts the turn identity,
+ * then `subscribeTurn` streams (and replays) ordered protocol events. The other
+ * methods are request/response. Optional methods let tests or constrained hosts
+ * provide only the capabilities they support without leaking transport internals
+ * into React state code.
  */
 export type SideChatApiClient = {
   readonly listModels?: ((options?: ListModelsOptions) => Promise<ListModelsResult>) | undefined;
@@ -158,8 +216,21 @@ export type SideChatApiClient = {
   readonly resetHistory?:
     | ((conversationId: string, options?: ResetHistoryOptions) => Promise<ResetHistoryResult>)
     | undefined;
-  readonly streamChat: (
+  readonly createRun: (
     request: ChatStreamRequest,
-    options?: StreamChatOptions,
-  ) => Promise<StreamChatResult>;
+    options?: CreateRunOptions,
+  ) => Promise<CreateRunResult>;
+  readonly subscribeTurn: (
+    assistantTurnId: string,
+    options?: SubscribeTurnOptions,
+  ) => Promise<SubscribeTurnResult>;
+  readonly resolveRun: (requestId: string, options?: CreateRunOptions) => Promise<ResolveRunResult>;
+  readonly getTurnStatus: (
+    assistantTurnId: string,
+    options?: CreateRunOptions,
+  ) => Promise<TurnStatusResult>;
+  readonly cancelTurn: (
+    assistantTurnId: string,
+    options?: CreateRunOptions,
+  ) => Promise<CancelTurnResult>;
 };

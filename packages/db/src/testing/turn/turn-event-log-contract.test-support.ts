@@ -7,14 +7,15 @@ import {
   startTurn,
   subjectId,
   workspaceId,
-} from "./repository-contract.helpers.js";
+} from "../repository-contract.helpers.js";
 
 export const turnEventLogRepositoryContract = (
   label: string,
   createRepositories: () => SidechatRepositories,
 ) => {
   let scopeCounter = 0;
-  const nextScope = () => `${label.replace(/\W+/gu, "_")}_events_${++scopeCounter}`;
+  const nextScope = () =>
+    `${label.replace(/\W+/gu, "_")}_events_${++scopeCounter}`;
 
   describe("durable turn-event log contract", () => {
     it("appends, replays, and de-duplicates the durable turn-event log", async () => {
@@ -36,7 +37,10 @@ export const turnEventLogRepositoryContract = (
             now,
           });
 
-        const started = await appendEvent(0, "started", { type: "sidechat.started", sequence: 0 });
+        const started = await appendEvent(0, "started", {
+          type: "sidechat.started",
+          sequence: 0,
+        });
         const firstDelta = await appendEvent(1, "delta", { content: "he" });
         await appendEvent(2, "delta", { content: "llo" });
 
@@ -55,7 +59,11 @@ export const turnEventLogRepositoryContract = (
         });
 
         expect(fromStart.map((event) => event.sequence)).toEqual([0, 1, 2]);
-        expect(fromStart.map((event) => event.type)).toEqual(["started", "delta", "delta"]);
+        expect(fromStart.map((event) => event.type)).toEqual([
+          "started",
+          "delta",
+          "delta",
+        ]);
         expect(afterStart.map((event) => event.sequence)).toEqual([1, 2]);
         await expect(
           repositories.maxTurnEventSequence({
@@ -76,14 +84,20 @@ export const turnEventLogRepositoryContract = (
         ).resolves.toBe(2);
 
         // A different payload at an existing sequence is durable-log corruption.
-        await expect(appendEvent(1, "delta", { content: "DIFFERENT" })).rejects.toMatchObject({
+        await expect(
+          appendEvent(1, "delta", { content: "DIFFERENT" }),
+        ).rejects.toMatchObject({
           code: "event_log_conflict",
         });
 
         // Exactly one terminal event may exist, across any sequence.
-        const completed = await appendEvent(3, "completed", { finishReason: "stop" });
+        const completed = await appendEvent(3, "completed", {
+          finishReason: "stop",
+        });
         expect(completed.inserted).toBe(true);
-        await expect(appendEvent(4, "error", { code: "internal" })).rejects.toMatchObject({
+        await expect(
+          appendEvent(4, "error", { code: "internal" }),
+        ).rejects.toMatchObject({
           code: "event_log_conflict",
         });
       } finally {
@@ -129,7 +143,10 @@ export const turnEventLogRepositoryContract = (
             workspaceId: workspaceId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
-        ).resolves.toMatchObject({ assistantTurnId: turn.assistantTurnId, status: "running" });
+        ).resolves.toMatchObject({
+          assistantTurnId: turn.assistantTurnId,
+          status: "running",
+        });
         await expect(
           repositories.findAssistantTurnByRequest({
             workspaceId: workspaceId(scope),

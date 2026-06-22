@@ -5,6 +5,7 @@ import {
   type PreparedStreamChatTurn,
   type StreamChatInput,
   type StreamChatPorts,
+  type TurnLeaseSettings,
   type WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
@@ -61,6 +62,8 @@ export type TurnRunnerDependencies = {
   readonly workspace: WorkspaceRef;
   readonly hostAppId: string;
   readonly ports: StreamChatPorts;
+  /** Owner-lease tunables; the forked generation heartbeats and fences on these. */
+  readonly lease: TurnLeaseSettings;
 };
 
 /**
@@ -109,12 +112,13 @@ export const createTurnRunner = (dependencies: TurnRunnerDependencies): TurnRunn
 };
 
 /**
- * Fork post-start generation into the service scope.
+ * Fork post-start generation into the service scope, under an owner lease.
  *
  * `FiberMap.run` forks with the runner's captured runtime and registers the
  * fiber under the turn id, so the generation survives the request that started
- * it. We do not await the fiber: `start` returns as soon as generation is
- * accepted.
+ * it. `runTurnGeneration` claims and heartbeats the lease internally (and
+ * self-interrupts if fenced) under the same `onExit` that finalizes the turn. We
+ * do not await the fiber: `start` returns as soon as generation is accepted.
  */
 const forkGeneration = (
   dependencies: TurnRunnerDependencies,
@@ -126,7 +130,12 @@ const forkGeneration = (
     FiberMap.run(
       fibers,
       turn.assistantTurnId,
-      runTurnGeneration(dependencies.ports, streamInput(dependencies, input), turn),
+      runTurnGeneration(
+        dependencies.ports,
+        streamInput(dependencies, input),
+        turn,
+        dependencies.lease,
+      ),
     ),
   );
 };

@@ -3,7 +3,6 @@ import { omitUndefinedProperties } from "@side-chat/shared";
 import { createMockWebSearchRegistration } from "#adapters/tools/mock-web-search-tool";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type {
-  ResumabilityConfig,
   RuntimeModelMetadata,
   RuntimeToolConfig,
 } from "#composition/service-composition-types";
@@ -14,7 +13,6 @@ import { AUXILIARY_JOBS } from "../../catalog/capabilities/auxiliary-jobs.js";
 import {
   CONFIG_IDS,
   REQUEST_POLICY_MODES,
-  RESUMABILITY_DEFAULTS,
   SERVICE_PROFILES,
   TOOL_DEFAULT_EXPOSURE,
 } from "../../catalog/config-values.js";
@@ -23,12 +21,12 @@ import { ServiceConfigError } from "../../service-config-error.js";
 import {
   createAuthConfig,
   createPersistenceConfig,
-  readNumberEnvReference,
   readRequiredStringEnvReference,
   readServiceProfile,
   readStringEnvReference,
   readWorkspace,
 } from "../environment.js";
+import { createResumabilityConfig } from "./resumability-options.js";
 import type {
   ServiceEnv,
   ServiceProfile,
@@ -44,7 +42,10 @@ import {
   validateSideChatConfig,
 } from "../validation.js";
 
-export { readSideChatConfigPort, readSideChatDemoSeedConversations } from "../environment.js";
+export {
+  readSideChatConfigPort,
+  readSideChatDemoSeedConversations,
+} from "../environment.js";
 
 /**
  * Build deployable service options from the readable Side Chat config.
@@ -61,7 +62,9 @@ export const createPartnerAiServiceOptionsFromConfig = (
   validateSideChatConfig(config);
 
   const workspace = readWorkspace(config.environment, env);
-  const profile = readServiceProfile(readStringEnvReference(env, config.environment.profile));
+  const profile = readServiceProfile(
+    readStringEnvReference(env, config.environment.profile),
+  );
   const providerKind = readProviderKindForConfig(config);
 
   return omitUndefinedProperties({
@@ -74,7 +77,11 @@ export const createPartnerAiServiceOptionsFromConfig = (
     policies: createPolicyConfig(profile, config),
     runtime: createRuntimeConfig(profile, providerKind, config, env),
     capabilities: config.context,
-    persistence: createPersistenceConfig(profile, env, config.environment.databaseUrl),
+    persistence: createPersistenceConfig(
+      profile,
+      env,
+      config.environment.databaseUrl,
+    ),
     conversationTitleGeneration: createConversationTitleGeneration(config),
     turnProfiles: [createTurnProfileConfig(providerKind, config)],
     defaultTurnProfileId: config.chat.turnProfile.id,
@@ -82,12 +89,6 @@ export const createPartnerAiServiceOptionsFromConfig = (
     resumability: createResumabilityConfig(config, env),
   });
 };
-
-const createResumabilityConfig = (config: SideChatConfig, env: ServiceEnv): ResumabilityConfig => ({
-  safetyPollIntervalMs:
-    readNumberEnvReference(env, config.resumability.safetyPollInterval) ??
-    RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS,
-});
 
 const createRuntimeConfig = (
   profile: ServiceProfile,
@@ -123,7 +124,9 @@ const createRuntimeConfig = (
   return omitUndefinedProperties({
     provider: PROVIDERS.OPENAI.KIND,
     apiKey,
-    modelIds: config.models.availableModels.map((entry) => entry.model.MODEL_ID),
+    modelIds: config.models.availableModels.map(
+      (entry) => entry.model.MODEL_ID,
+    ),
     defaultModelId,
     modelMetadata: createRuntimeModelMetadata(config.models.availableModels),
     baseUrl: provider.connection.endpoint
@@ -142,9 +145,12 @@ const readOpenAIProviderConfig = (
   SideChatConfig["models"]["provider"],
   { readonly kind: typeof PROVIDERS.OPENAI.KIND }
 > => {
-  if (config.models.provider.kind === PROVIDERS.OPENAI.KIND) return config.models.provider;
+  if (config.models.provider.kind === PROVIDERS.OPENAI.KIND)
+    return config.models.provider;
 
-  throw new ServiceConfigError("OpenAI models require an OpenAI provider connection config.");
+  throw new ServiceConfigError(
+    "OpenAI models require an OpenAI provider connection config.",
+  );
 };
 
 const createRuntimeToolConfig = (
@@ -162,7 +168,8 @@ const createToolRegistrations = (
   const registrations = configuredTools.map((toolConfig) =>
     createMockWebSearchRegistration({
       description: toolConfig.modelPrompt.usageInstructions,
-      defaultEnabled: toolConfig.exposure.defaultMode === TOOL_DEFAULT_EXPOSURE.ENABLED,
+      defaultEnabled:
+        toolConfig.exposure.defaultMode === TOOL_DEFAULT_EXPOSURE.ENABLED,
       approvalPolicyIds: toolConfig.exposure.approvalPolicyIds,
       ...omitUndefinedProperties({
         delayMs: toolConfig.parameters.delayMs,
@@ -188,7 +195,9 @@ const createPolicyConfig = (
   }
 
   if (mode === REQUEST_POLICY_MODES.ALLOW_ALL) {
-    throw new ServiceConfigError("Production sidechat.config.ts cannot use allow_all policy.");
+    throw new ServiceConfigError(
+      "Production sidechat.config.ts cannot use allow_all policy.",
+    );
   }
 
   return omitUndefinedProperties({
@@ -227,7 +236,9 @@ const createTurnProfileConfig = (
           ? PROVIDERS.FAKE.PROVIDER_ID
           : PROVIDERS.OPENAI.PROVIDER_ID,
       modelId: config.models.default.model.MODEL_ID,
-      allowedModelIds: config.models.availableModels.map((entry) => entry.model.MODEL_ID),
+      allowedModelIds: config.models.availableModels.map(
+        (entry) => entry.model.MODEL_ID,
+      ),
     },
     outputContract: profile.output,
     toolPolicy: {
@@ -246,7 +257,8 @@ const createConversationTitleGeneration = (
   config: SideChatConfig,
 ): ConversationTitleGenerationPort => {
   const job = config.auxiliaryModelJobs.availableJobs.find(
-    (candidate) => candidate.job.JOB_ID === AUXILIARY_JOBS.CONVERSATION_TITLE.JOB_ID,
+    (candidate) =>
+      candidate.job.JOB_ID === AUXILIARY_JOBS.CONVERSATION_TITLE.JOB_ID,
   );
   if (!job || job.mode === AUXILIARY_JOBS.CONVERSATION_TITLE.MODES.DISABLED) {
     return { mode: AUXILIARY_JOBS.CONVERSATION_TITLE.MODES.DISABLED };
@@ -270,5 +282,6 @@ const createRuntimeModelMetadata = (
     }),
   );
 
-const nonEmpty = <Value>(values: readonly Value[]): readonly Value[] | undefined =>
-  values.length > 0 ? values : undefined;
+const nonEmpty = <Value>(
+  values: readonly Value[],
+): readonly Value[] | undefined => (values.length > 0 ? values : undefined);

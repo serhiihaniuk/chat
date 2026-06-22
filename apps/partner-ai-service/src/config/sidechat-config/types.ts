@@ -18,7 +18,10 @@ import type {
 import type { RuntimeReasoningEffort } from "@side-chat/ai-runtime-contract";
 import type { JsonObject } from "@side-chat/shared";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
-import type { AUXILIARY_JOBS, AuxiliaryJobMode } from "../catalog/capabilities/auxiliary-jobs.js";
+import type {
+  AUXILIARY_JOBS,
+  AuxiliaryJobMode,
+} from "../catalog/capabilities/auxiliary-jobs.js";
 import type { PROVIDERS } from "../catalog/providers.js";
 import type {
   RequestPolicyMode,
@@ -30,6 +33,7 @@ import type {
   SideChatNumberEnvReference,
   SideChatStringEnvReference,
 } from "./env-references.js";
+import type { SideChatResumabilityConfig } from "./contracts/resumability-config-types.js";
 
 export type ServiceEnv = Readonly<Record<string, string | undefined>>;
 export type ServiceProfile = ServiceProfileValue;
@@ -149,7 +153,9 @@ export type SideChatToolDescriptor = {
   readonly INPUT_SCHEMA: JsonObject;
 };
 
-export type SideChatToolConfig<Tool extends SideChatToolDescriptor = SideChatToolDescriptor> = {
+export type SideChatToolConfig<
+  Tool extends SideChatToolDescriptor = SideChatToolDescriptor,
+> = {
   /** Imported tool descriptor from `TOOLS`. */
   readonly tool: Tool;
   /** Prompt text that teaches the model when this tool is useful. */
@@ -275,14 +281,6 @@ export type SideChatConfig = {
   readonly resumability: SideChatResumabilityConfig;
 };
 
-// Operator tunables for resumable streaming (deployment knobs, not assistant
-// behavior). `safetyPollInterval` is the per-subscriber reconcile cadence (ms)
-// backstopping a missed Postgres `NOTIFY`. Later steps add lease/reaper tunables
-// here; the `NOTIFY` channel stays a db-level constant, not config.
-export type SideChatResumabilityConfig = {
-  readonly safetyPollInterval: SideChatNumberEnvReference;
-};
-
 /**
  * Preserve literal config values while checking the readable service shape.
  *
@@ -290,5 +288,6 @@ export type SideChatResumabilityConfig = {
  * ids should arrive from catalog imports. Runtime validation later checks
  * cross-field relationships such as default model membership and tool exposure.
  */
-export const defineSideChatConfig = <const Config extends SideChatConfig>(config: Config): Config =>
-  config;
+export const defineSideChatConfig = <const Config extends SideChatConfig>(
+  config: Config,
+): Config => config;

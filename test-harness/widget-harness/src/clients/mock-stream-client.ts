@@ -10,24 +10,97 @@ import {
 import type { SideChatApiClient } from "@side-chat/side-chat-widget";
 import type { WidgetHarnessConfig } from "#config/modes";
 
+type MockRun = {
+  readonly requestId: string;
+  readonly conversationId: string;
+  readonly events: readonly SidechatStreamEvent[];
+  cancelled: boolean;
+};
+
+/**
+ * Deterministic in-memory client over the resumable two-call flow.
+ *
+ * `createRun` records the run's event script keyed by its turn id; `subscribeTurn`
+ * replays events with `sequence > after`, so a remount/reconnect resumes from the
+ * last seen sequence without duplicating already-applied events. `cancelTurn`
+ * flips the run to cancelled. State lives per client instance, mirroring how a
+ * single browser session resumes its own in-flight turn.
+ */
 export const createMockStreamClient = (
   config?: Pick<WidgetHarnessConfig, "scenario">,
-): SideChatApiClient => ({
-  streamChat: (request) =>
-    Promise.resolve({
-      attempt: 1,
-      events: mockStreamEvents(request, config?.scenario ?? "default"),
-    }),
-});
+): SideChatApiClient => {
+  const runs = new Map<string, MockRun>();
+  const scenario = config?.scenario ?? "default";
 
-const mockStreamEvents = async function* (
-  request: ChatStreamRequest,
-  scenario: WidgetHarnessConfig["scenario"],
+  return {
+    createRun: (request) => {
+      const assistantTurnId = `turn-${request.requestId}`;
+      const events = createMockEvents(request, scenario);
+      runs.set(assistantTurnId, {
+        requestId: request.requestId,
+        conversationId: startedConversationId(events),
+        events,
+        cancelled: false,
+      });
+      return Promise.resolve({
+        requestId: request.requestId,
+        assistantTurnId,
+        conversationId: startedConversationId(events),
+        status: "running",
+      });
+    },
+    subscribeTurn: (assistantTurnId, options) => {
+      const run = runs.get(assistantTurnId);
+      if (!run) throw new Error(`Unknown mock turn ${assistantTurnId}`);
+      return Promise.resolve({ events: replayMockEvents(run, options?.after ?? -1) });
+    },
+    resolveRun: (requestId) => {
+      const run = findRunByRequest(runs, requestId);
+      return Promise.resolve({
+        assistantTurnId: `turn-${requestId}`,
+        status: run?.cancelled ? "cancelled" : "running",
+      });
+    },
+    getTurnStatus: (assistantTurnId) => {
+      const run = runs.get(assistantTurnId);
+      return Promise.resolve({
+        assistantTurnId,
+        conversationId: run?.conversationId ?? "mock-conversation",
+        requestId: run?.requestId ?? assistantTurnId.replace(/^turn-/u, ""),
+        status: run?.cancelled ? "cancelled" : "running",
+      });
+    },
+    cancelTurn: (assistantTurnId) => {
+      const run = runs.get(assistantTurnId);
+      if (run) run.cancelled = true;
+      return Promise.resolve({ assistantTurnId, cancelRequested: run !== undefined });
+    },
+  };
+};
+
+const replayMockEvents = async function* (
+  run: MockRun,
+  after: number,
 ): AsyncIterable<SidechatStreamEvent> {
-  for (const event of createMockEvents(request, scenario)) {
+  for (const event of run.events) {
+    if (event.sequence <= after) continue;
     await Promise.resolve();
     yield event;
   }
+};
+
+const findRunByRequest = (runs: Map<string, MockRun>, requestId: string): MockRun | undefined => {
+  for (const run of runs.values()) {
+    if (run.requestId === requestId) return run;
+  }
+  return undefined;
+};
+
+const startedConversationId = (events: readonly SidechatStreamEvent[]): string => {
+  const started = events.find((event) => event.type === "sidechat.started");
+  return started && "conversationId" in started && started.conversationId
+    ? started.conversationId
+    : "mock-conversation";
 };
 
 export const createMockEvents = (

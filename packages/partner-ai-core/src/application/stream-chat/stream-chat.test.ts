@@ -45,8 +45,9 @@ describe("stream chat lifecycle and policy", () => {
       SIDECHAT_EVENT_TYPES.COMPLETED,
     );
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
-    // The server-owned path appends each emitted event to the durable log before
-    // the onExit finalizer writes the completed turn status.
+    // The server-owned path claims the owner lease as the drain starts, appends
+    // each emitted event to the durable log, then the onExit finalizer writes the
+    // completed turn status.
     expect(ports.calls).toEqual([
       "hostCapabilities",
       "turnPolicy",
@@ -57,6 +58,7 @@ describe("stream chat lifecycle and policy", () => {
       "contextManager",
       "recordContextSnapshot",
       "runtime",
+      "acquireTurnLease",
       "appendTurnEvent",
       "appendTurnEvent",
       "appendTurnEvent",

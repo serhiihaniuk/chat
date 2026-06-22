@@ -1,6 +1,7 @@
 import {
   PROTOCOL_ERROR_CODES,
   SIDECHAT_PROTOCOL_VERSION,
+  TRANSPORT_ERROR_CODES,
   type ProtocolErrorCode,
 } from "@side-chat/chat-protocol";
 
@@ -13,6 +14,28 @@ export const jsonError = (
   Response.json(
     { protocolVersion: SIDECHAT_PROTOCOL_VERSION, code, message, retryable },
     { status },
+  );
+
+/** HTTP status the widget maps to `replay_expired` before any SSE frame. */
+const REPLAY_EXPIRED_STATUS = 404;
+
+/**
+ * Return the transport-level `replay_expired` JSON error before opening SSE.
+ *
+ * Emitted when a turn's durable log has been pruned past the requested replay
+ * offset. The status is 404 because the widget's stream client maps a 404 stream
+ * open to `replay_expired` and falls back to conversation history; the distinct
+ * `code` lets operators tell a pruned-log replay from a genuine unknown turn.
+ */
+export const replayExpiredError = (message: string): Response =>
+  Response.json(
+    {
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      code: TRANSPORT_ERROR_CODES.REPLAY_EXPIRED,
+      message,
+      retryable: false,
+    },
+    { status: REPLAY_EXPIRED_STATUS },
   );
 
 export const errorMessage = (error: unknown): string =>

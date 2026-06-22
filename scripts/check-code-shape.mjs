@@ -36,17 +36,17 @@ const directoryBudgetExceptions = new Map([
   [
     "packages/db/src/repositories/postgres-drizzle/records",
     {
-      maxFiles: 7,
+      maxFiles: 8,
       reason:
-        "turn record reads are split by responsibility: turn-events.ts owns the durable event log (append/notify, terminal guard, PK-conflict reconcile) and turn-lookups.ts owns turn-record reads (by id, by request, active turn) for the resumable subscribe routes, so turns.ts stays within the source-line and nested-function budgets",
+        "turn record work is split by responsibility: turn-events.ts owns the durable event log (append/notify, terminal guard, PK-conflict reconcile), turn-lookups.ts owns turn-record reads (by id, by request, active turn), and turn-lease.ts owns the owner-lease fencing CAS (acquire/renew/reap) for crash recovery, so turns.ts stays within the source-line and nested-function budgets",
     },
   ],
   [
     "packages/db/src/repositories/memory/records",
     {
-      maxFiles: 6,
+      maxFiles: 8,
       reason:
-        "the memory adapter mirrors the postgres records split: turn-lookups.ts holds the turn-record reads (by id, by request, active turn) so turns.ts stays within the per-file function-count budget",
+        "the memory adapter mirrors the postgres records split: turn-events.ts owns the durable event log (append/terminal guard, idempotent re-append), turn-lookups.ts owns the turn-record reads (by id, by request, active turn), and turn-lease.ts mirrors the owner-lease fencing CAS (acquire/renew/reap) so turns.ts stays within the per-file function-count budget",
     },
   ],
 ]);

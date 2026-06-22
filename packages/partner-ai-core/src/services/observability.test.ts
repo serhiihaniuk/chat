@@ -13,6 +13,7 @@ import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import { prepareStreamChatTurn } from "#application/stream-chat/turn/prepare-stream-chat-turn";
 import { runTurnGeneration } from "#application/stream-chat/protocol/run-turn-generation";
+import { TEST_TURN_LEASE } from "#testing/stream-chat/fake-ports.test-support";
 import type { AuthContext } from "#domain/authority";
 import {
   CONTEXT_ADMISSION_POLICIES,
@@ -175,10 +176,11 @@ describe("observability redaction and correlation", () => {
     expect(records.at(-1)).toMatchObject({
       lifecycleState: "failed",
       errorCode: PROTOCOL_ERROR_CODES.TIMEOUT,
-      // 13 stepping-clock reads (10ms each) elapse before the failed observation,
-      // including the conversation and user-message record clocks sourced from
-      // ports.clock.now() rather than from auth issuedAt.
-      latencyMs: 130,
+      // 14 stepping-clock reads (10ms each) elapse before the failed observation,
+      // including the conversation and user-message record clocks and the one
+      // owner-lease acquire read, all sourced from ports.clock.now() rather than
+      // from auth issuedAt.
+      latencyMs: 140,
       attributes: { eventCount: 3 },
     });
   });
@@ -226,6 +228,10 @@ const createObservedPorts = (
     recordContextSnapshot: () => Effect.succeed(undefined),
     completeAssistantTurn: () => Effect.succeed(undefined),
     failAssistantTurn: () => Effect.succeed(undefined),
+    readTurnControlState: () =>
+      Effect.succeed({ status: "running" as const, cancelRequested: false }),
+    acquireTurnLease: () => Effect.succeed({ acquired: true, leaseEpoch: 1 }),
+    renewTurnLease: () => Effect.succeed({ renewed: true }),
   };
   const runtime: AiRuntimePort = {
     streamEffect: () => Stream.fromIterable(runtimeEvents),
@@ -390,7 +396,7 @@ const runObservedTurn = (
   Effect.runPromise(
     Effect.gen(function* () {
       const turn = yield* prepareStreamChatTurn(ports, streamInput);
-      yield* runTurnGeneration(ports, streamInput, turn);
+      yield* runTurnGeneration(ports, streamInput, turn, TEST_TURN_LEASE);
       return yield* ports.turnEventLog.readEventsAfter({
         authContext: turn.authContext,
         assistantTurnId: turn.assistantTurnId,

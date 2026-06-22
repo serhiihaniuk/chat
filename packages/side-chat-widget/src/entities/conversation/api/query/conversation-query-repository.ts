@@ -176,10 +176,23 @@ export const useConversationQueryRepository = ({
     },
     [queryClient],
   );
+  // Force a fresh read of one conversation's transcript. Used after a reload when a
+  // turn finished while away: the cached history may have been fetched mid-flight
+  // (before the assistant message committed), so the final answer needs a refetch.
+  const refreshHistory = useCallback(
+    (conversationId: string | undefined): void => {
+      if (!conversationId) return;
+      void queryClient.invalidateQueries({
+        queryKey: conversationQueryKeys.history(conversationId),
+      });
+    },
+    [queryClient],
+  );
 
   return {
     refreshConversations,
     upsertStartedConversation,
+    refreshHistory,
   };
 };
 

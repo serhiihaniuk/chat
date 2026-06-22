@@ -8,19 +8,25 @@ import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
 import { Hono } from "hono";
 
-import { createServiceAuthVerifier, type ServiceAuthConfig } from "#adapters/auth/service-auth";
+import {
+  createServiceAuthVerifier,
+  type ServiceAuthConfig,
+} from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import {
   composePartnerAiService,
   type PersistenceConfig,
-  type ResumabilityConfig,
+  type ResumabilityOptions,
   type RuntimeConfig,
   type RuntimeToolConfig,
   type ServiceTurnProfileConfig,
   type ServiceCompositionOptions,
 } from "#composition/service-composition";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
-import { authContextMiddleware, type AuthContextVariables } from "./middleware/auth-context.js";
+import {
+  authContextMiddleware,
+  type AuthContextVariables,
+} from "./middleware/auth-context.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAuth } from "./middleware/require-auth.js";
 import { registerChatHistoryRoutes } from "./routes/chat/chat-history.js";
@@ -51,7 +57,9 @@ export type PartnerAiServiceOptions = {
   readonly persistence?: PersistenceConfig | undefined;
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
   readonly agentRuntime?: AgentRuntime | undefined;
-  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
+  readonly conversationTitleGeneration?:
+    | ConversationTitleGenerationPort
+    | undefined;
   /**
    * Capability declarations forwarded to service composition.
    *
@@ -65,17 +73,31 @@ export type PartnerAiServiceOptions = {
   readonly turnGuardIds?: readonly string[] | undefined;
   readonly workspace?: WorkspaceRef | undefined;
   /** Resumable-streaming tunables; composition falls back to catalog defaults. */
-  readonly resumability?: ResumabilityConfig | undefined;
+  readonly resumability?: ResumabilityOptions | undefined;
 };
 
 /**
- * Create the Hono app for the service.
+ * A composed service: the Hono app plus its background-lifecycle shutdown.
+ *
+ * `shutdown` stops the generation runner, reaper, and `LISTEN` dispatchers the
+ * composition started, so a long-running host (the Node server) can drain
+ * cleanly on SIGTERM. Tests that only exercise HTTP use {@link createPartnerAiServiceApp}.
+ */
+export type PartnerAiService = {
+  readonly app: PartnerAiServiceApp;
+  readonly shutdown: () => Promise<void>;
+};
+
+/**
+ * Create the service: composition, routes, and a background-lifecycle shutdown.
  *
  * This is where routes receive already-built dependencies. Route files should
  * parse requests and write responses, not rebuild policy, storage, or runtime
  * wiring.
  */
-export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {}) => {
+export const createPartnerAiService = (
+  options: PartnerAiServiceOptions = {},
+): PartnerAiService => {
   const app = new Hono<AuthContextVariables>();
   const composition = composePartnerAiService(compositionOptions(options));
   const authority = createServiceAuthVerifier(composition.auth);
@@ -97,7 +119,11 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
   app.use("/chat/*", authContextMiddleware(authority), requireAuth());
   app.use("/usage", authContextMiddleware(authority), requireAuth());
 
-  registerModelsRoute(app, composition.policies, composition.diagnostics.providerRegistryStatus);
+  registerModelsRoute(
+    app,
+    composition.policies,
+    composition.diagnostics.providerRegistryStatus,
+  );
   registerChatHistoryRoutes(app, {
     repositories: composition.repositories,
     clock: composition.ports.clock,
@@ -115,14 +141,28 @@ export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions = {})
     dispatcher: composition.dispatcher,
     runner: composition.turnRunner,
     safetyPollIntervalMs: composition.safetyPollIntervalMs,
+    observability: composition.observability,
   });
 
-  return app;
+  return { app, shutdown: composition.shutdown };
 };
 
-export type PartnerAiServiceApp = ReturnType<typeof createPartnerAiServiceApp>;
+export type PartnerAiServiceApp = Hono<AuthContextVariables>;
 
-const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositionOptions => ({
+/**
+ * Create just the Hono app, discarding the background-lifecycle shutdown.
+ *
+ * This is the convenience entry for HTTP tests and embedding contexts that do not
+ * own process lifecycle; the long-running server uses {@link createPartnerAiService}
+ * so it can shut the runner, reaper, and listeners down on SIGTERM.
+ */
+export const createPartnerAiServiceApp = (
+  options: PartnerAiServiceOptions = {},
+): PartnerAiServiceApp => createPartnerAiService(options).app;
+
+const compositionOptions = (
+  options: PartnerAiServiceOptions,
+): ServiceCompositionOptions => ({
   workspace: options.workspace ?? DEFAULT_WORKSPACE,
   auth: options.auth,
   policies: options.policies,

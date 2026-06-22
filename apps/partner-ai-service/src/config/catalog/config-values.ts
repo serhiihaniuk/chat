@@ -61,7 +61,10 @@ export const SAFETY_POLICIES = {
     ID: "standard",
     LABEL: "Standard safety policy",
     DEFAULT_PROMPT_INJECTION_MODE: PROMPT_INJECTION_MODES.STANDARD,
-    PROMPT_INJECTION_OPTIONS: [PROMPT_INJECTION_MODES.STANDARD, PROMPT_INJECTION_MODES.STRICT],
+    PROMPT_INJECTION_OPTIONS: [
+      PROMPT_INJECTION_MODES.STANDARD,
+      PROMPT_INJECTION_MODES.STRICT,
+    ],
   },
 } as const;
 
@@ -80,7 +83,38 @@ export const DEFAULT_TOOL_POLICY = {
  * low-frequency backstop for a missed Postgres `NOTIFY`. It is deliberately
  * slower than the notify path so the poll adds little load while still bounding
  * how long a dropped signal can stall a live subscriber.
+ *
+ * The lease tunables fence dead or slow owners. `LEASE_TTL_MS` is how long an
+ * owner's claim stays valid; `HEARTBEAT_INTERVAL_MS` is comfortably under it so a
+ * live owner renews several times before expiry; `REAPER_INTERVAL_MS` is how often
+ * an instance sweeps expired-lease running turns. `REAPER_BATCH_LIMIT` bounds one
+ * sweep so a backlog drains over several passes instead of one large transaction.
+ *
+ * The retention tunables keep the durable `turn_events` log from growing without
+ * bound. `TURN_EVENT_RETENTION_MS` is how long a terminal turn keeps its event
+ * rows after `completed_at` before the pruner deletes them (the consolidated turn
+ * record and assistant message stay); `PRUNER_INTERVAL_MS` is the sweep cadence;
+ * `PRUNER_BATCH_LIMIT` bounds one sweep so a backlog drains over several passes.
+ * Retention defaults to a day so a normal reconnect still replays from the log and
+ * only long-abandoned turns fall back to conversation history.
  */
 export const RESUMABILITY_DEFAULTS = {
   SAFETY_POLL_INTERVAL_MS: 2_000,
+  LEASE_TTL_MS: 30_000,
+  HEARTBEAT_INTERVAL_MS: 10_000,
+  REAPER_INTERVAL_MS: 15_000,
+  REAPER_BATCH_LIMIT: 100,
+  TURN_EVENT_RETENTION_MS: 86_400_000,
+  PRUNER_INTERVAL_MS: 3_600_000,
+  PRUNER_BATCH_LIMIT: 100,
 } as const;
+
+/**
+ * Stable per-process owner identity written to `owner_instance_id`.
+ *
+ * A real deployment sets `SIDECHAT_INSTANCE_ID` per replica (e.g. the pod name) so
+ * lease ownership is attributable and fencing works across instances. The dev
+ * default is unique per process so a single local instance still owns its leases
+ * without collision after a restart.
+ */
+export const DEFAULT_INSTANCE_ID = `instance_local_${process.pid}`;

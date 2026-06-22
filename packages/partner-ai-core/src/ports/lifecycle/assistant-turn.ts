@@ -79,6 +79,47 @@ export type AssistantTurnLifecyclePort = {
     readonly authContext: AuthContext;
     readonly assistantTurnId: string;
   }) => Effect.Effect<TurnControlState | undefined, unknown>;
+  /**
+   * Claim the owner lease for a running turn before generation streams.
+   *
+   * Compare-and-set: it takes ownership, bumps the fencing epoch, and sets the
+   * lease window. The returned epoch is what the heartbeat must echo on every
+   * `renewTurnLease`. `acquired` is false for a turn that is no longer running, so
+   * the runner can stop instead of generating a turn it does not own.
+   */
+  readonly acquireTurnLease: (input: {
+    readonly authContext: AuthContext;
+    readonly assistantTurnId: string;
+    readonly ownerInstanceId: string;
+    readonly leaseTtlMs: number;
+    readonly now: string;
+  }) => Effect.Effect<TurnLeaseClaim, unknown>;
+  /**
+   * Renew the owner lease from the heartbeat, scoped to the held epoch.
+   *
+   * `renewed: false` means the owner was fenced (the epoch advanced underneath
+   * it), so the heartbeat must interrupt its generation so a stale owner never
+   * double-writes the turn.
+   */
+  readonly renewTurnLease: (input: {
+    readonly authContext: AuthContext;
+    readonly assistantTurnId: string;
+    readonly ownerInstanceId: string;
+    readonly leaseEpoch: number;
+    readonly leaseTtlMs: number;
+    readonly now: string;
+  }) => Effect.Effect<TurnLeaseRenewal, unknown>;
+};
+
+/** Outcome of claiming the owner lease, carrying the epoch the heartbeat echoes. */
+export type TurnLeaseClaim = {
+  readonly acquired: boolean;
+  readonly leaseEpoch: number;
+};
+
+/** Outcome of one heartbeat renewal; `renewed: false` means the owner was fenced. */
+export type TurnLeaseRenewal = {
+  readonly renewed: boolean;
 };
 
 /** Durable control facts an abnormal finalize reads to terminalize honestly. */

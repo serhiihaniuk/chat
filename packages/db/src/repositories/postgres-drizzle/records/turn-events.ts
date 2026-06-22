@@ -1,7 +1,11 @@
-import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import { turnEvents, type sidechatTables } from "#drizzle/schema";
+import {
+  assistantTurns,
+  turnEvents,
+  type sidechatTables,
+} from "#drizzle/schema";
 import {
   isTurnEventTerminalType,
   TURN_EVENT_TERMINAL_TYPES,
@@ -21,7 +25,11 @@ export const appendTurnEvent =
   async (command) => {
     // Stage 1: prove the turn is in this workspace and a second terminal is not
     // being introduced before we attempt the durable write.
-    await requireWorkspaceTurn(db, command.workspaceId, command.assistantTurnId);
+    await requireWorkspaceTurn(
+      db,
+      command.workspaceId,
+      command.assistantTurnId,
+    );
     await rejectSecondTerminal(db, command);
 
     // Stage 2: insert and notify atomically; NOTIFY fires only on commit.
@@ -36,7 +44,11 @@ export const appendTurnEvent =
 export const readTurnEventsAfter =
   (db: TurnEventDb): SidechatRepositories["readTurnEventsAfter"] =>
   async (command) => {
-    await requireWorkspaceTurn(db, command.workspaceId, command.assistantTurnId);
+    await requireWorkspaceTurn(
+      db,
+      command.workspaceId,
+      command.assistantTurnId,
+    );
     const rows = await db
       .select()
       .from(turnEvents)
@@ -53,13 +65,75 @@ export const readTurnEventsAfter =
 export const maxTurnEventSequence =
   (db: TurnEventDb): SidechatRepositories["maxTurnEventSequence"] =>
   async (command) => {
-    await requireWorkspaceTurn(db, command.workspaceId, command.assistantTurnId);
+    await requireWorkspaceTurn(
+      db,
+      command.workspaceId,
+      command.assistantTurnId,
+    );
     const [row] = await db
       .select({ value: sql<number | null>`max(${turnEvents.sequence})` })
       .from(turnEvents)
       .where(eq(turnEvents.assistantTurnId, command.assistantTurnId));
-    return row?.value === null || row?.value === undefined ? undefined : Number(row.value);
+    return row?.value === null || row?.value === undefined
+      ? undefined
+      : Number(row.value);
   };
+
+export const minTurnEventSequence =
+  (db: TurnEventDb): SidechatRepositories["minTurnEventSequence"] =>
+  async (command) => {
+    await requireWorkspaceTurn(
+      db,
+      command.workspaceId,
+      command.assistantTurnId,
+    );
+    const [row] = await db
+      .select({ value: sql<number | null>`min(${turnEvents.sequence})` })
+      .from(turnEvents)
+      .where(eq(turnEvents.assistantTurnId, command.assistantTurnId));
+    return row?.value === null || row?.value === undefined
+      ? undefined
+      : Number(row.value);
+  };
+
+/**
+ * Delete the durable event log of long-terminal turns (retention/pruning).
+ *
+ * A terminal turn (status no longer `running`) keeps the consolidated assistant
+ * message and turn record forever; only its now-redundant `turn_events` rows are
+ * retention-bounded. This deletes the rows of every terminal turn completed before
+ * the cutoff, bounding one sweep by selecting at most `limit` such turns first so a
+ * backlog drains over several passes instead of one unbounded delete. A pruned turn
+ * still resolves and falls back to conversation history on resume.
+ */
+export const pruneTurnEventsBefore =
+  (db: TurnEventDb): SidechatRepositories["pruneTurnEventsBefore"] =>
+  async (command) => {
+    const deleted = await db
+      .delete(turnEvents)
+      .where(
+        sql`${turnEvents.assistantTurnId} in ${prunableTurnIds(command.completedBefore, command.limit)}`,
+      )
+      .returning({ assistantTurnId: turnEvents.assistantTurnId });
+
+    return {
+      prunedTurns: new Set(deleted.map((row) => row.assistantTurnId)).size,
+      deletedEvents: deleted.length,
+    };
+  };
+
+/**
+ * Select up to `limit` terminal turns whose retention window has elapsed.
+ *
+ * A turn is prunable when it is no longer `running` (so the durable status and the
+ * consolidated message already won) and its `completed_at` is before the cutoff.
+ * Bounding the turn set here is what keeps each delete batched.
+ */
+const prunableTurnIds = (completedBefore: string, limit: number) =>
+  sql`(select ${assistantTurns.assistantTurnId} from ${assistantTurns} where ${and(
+    ne(assistantTurns.status, "running"),
+    lt(assistantTurns.completedAt, completedBefore),
+  )} limit ${limit})`;
 
 /**
  * Guard the one-terminal invariant before a terminal append.
@@ -109,7 +183,9 @@ const insertTurnEventWithNotify = (
         payloadJson: command.payloadJson,
         createdAt: command.now,
       })
-      .onConflictDoNothing({ target: [turnEvents.assistantTurnId, turnEvents.sequence] })
+      .onConflictDoNothing({
+        target: [turnEvents.assistantTurnId, turnEvents.sequence],
+      })
       .returning();
     if (!row) return undefined;
     await transaction.execute(

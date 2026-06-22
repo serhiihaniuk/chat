@@ -7,6 +7,7 @@ import {
   recordMemoryToolInvocation,
 } from "./records/interactions.js";
 import { createMemoryAssistantTurnRepository } from "./records/turns.js";
+import { createMemoryTurnLeaseRepository } from "./records/turn-lease.js";
 import { createMemoryUsageRepository } from "./records/usage.js";
 import { createIdGenerator } from "../repository-utils.js";
 
@@ -31,6 +32,7 @@ export const createMemorySidechatRepositories = (
     snapshot: () => snapshotMemoryStore(store),
     ...createMemoryConversationRepository(context),
     ...createMemoryAssistantTurnRepository(context),
+    ...createMemoryTurnLeaseRepository(context),
     ...createMemoryUsageRepository(context),
     recordToolInvocation: (command) => recordMemoryToolInvocation(command, store, ids),
     recordHostCommandResult: (command) => recordMemoryHostCommandResult(command, store, ids),

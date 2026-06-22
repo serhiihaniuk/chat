@@ -6,7 +6,7 @@ import {
   parseTurnEventNotification,
   type TurnEventNotification,
   type TurnEventNotificationSource,
-} from "../../turn-event-notifications.js";
+} from "../../notifications/turn-event-notifications.js";
 
 /**
  * Build the per-instance Postgres `LISTEN` notification source.

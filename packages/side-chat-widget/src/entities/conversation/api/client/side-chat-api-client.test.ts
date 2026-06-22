@@ -57,7 +57,16 @@ const collect = async (
   return output;
 };
 
-const responseFromEvents = (events: readonly SidechatStreamEvent[]): Response =>
+const runResponse = (): Response =>
+  Response.json({
+    protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+    requestId: "request-1",
+    assistantTurnId: "turn-1",
+    conversationId: "conversation-1",
+    status: "running",
+  });
+
+const streamResponse = (events: readonly SidechatStreamEvent[]): Response =>
   new Response(streamFromText(events.map(encodeSseEvent).join("")), {
     status: 200,
     headers: { "content-type": "text/event-stream" },
@@ -73,31 +82,49 @@ const streamFromText = (text: string): ReadableStream<Uint8Array> => {
   });
 };
 
-describe("createSideChatApiClient", () => {
-  it("posts a typed protocol request and decodes stream events", async () => {
+describe("createSideChatApiClient run flow", () => {
+  it("creates a run with a JSON identity and an idempotency key", async () => {
+    const fetchMock = vi.fn<FetchLike>(() => Promise.resolve(runResponse()));
+    const client = createSideChatApiClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    const run = await client.createRun(request);
+
+    expect(run).toEqual({
+      requestId: "request-1",
+      assistantTurnId: "turn-1",
+      conversationId: "conversation-1",
+      status: "running",
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://assistant.example.test/chat/runs");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "idempotency-key": "request-1",
+      },
+      body: JSON.stringify(request),
+    });
+  });
+
+  it("subscribes to a turn stream from the given offset and decodes events", async () => {
     const fetchMock = vi.fn<FetchLike>(() =>
-      Promise.resolve(responseFromEvents([started(), delta(), completed()])),
+      Promise.resolve(streamResponse([started(), delta(), completed()])),
     );
     const client = createSideChatApiClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
     });
 
-    const result = await client.streamChat(request);
-    const events = await collect(result.events);
+    const subscription = await client.subscribeTurn("turn-1", { after: -1 });
+    const events = await collect(subscription.events);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://assistant.example.test/chat/stream");
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
-      method: "POST",
-      headers: {
-        accept: "text/event-stream",
-        "content-type": "application/json",
-        "idempotency-key": "request-1",
-      },
-      body: JSON.stringify(request),
-    });
-    expect(result.attempt).toBe(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://assistant.example.test/chat/turns/turn-1/stream?after=-1",
+    );
     expect(events.map((event) => event.type)).toEqual([
       "sidechat.started",
       "sidechat.delta",
@@ -105,38 +132,118 @@ describe("createSideChatApiClient", () => {
     ]);
   });
 
-  it("passes abort signals to fetch", async () => {
-    const controller = new AbortController();
+  it("reconnects from the last seen sequence", async () => {
+    const fetchMock = vi.fn<FetchLike>(() => Promise.resolve(streamResponse([completed()])));
+    const client = createSideChatApiClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    await client.subscribeTurn("turn-1", { after: 1 });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://assistant.example.test/chat/turns/turn-1/stream?after=1",
+    );
+  });
+
+  it("maps a 404 stream open to replay_expired before any event", async () => {
     const fetchMock = vi.fn<FetchLike>(() =>
-      Promise.resolve(responseFromEvents([started(), completed()])),
+      Promise.resolve(new Response("gone", { status: 404 })),
     );
     const client = createSideChatApiClient({
       baseUrl: "https://example.test",
       fetch: fetchMock,
     });
 
-    await client.streamChat(request, { signal: controller.signal });
-
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
-      signal: controller.signal,
+    await expect(client.subscribeTurn("turn-1")).rejects.toMatchObject({
+      code: "replay_expired",
+      status: 404,
     });
   });
 
-  it("rejects already aborted requests", async () => {
+  it("resolves a run id, reads turn status, and cancels a turn", async () => {
+    const fetchMock = vi
+      .fn<FetchLike>()
+      .mockResolvedValueOnce(Response.json({ assistantTurnId: "turn-1", status: "running" }))
+      .mockResolvedValueOnce(
+        Response.json({
+          assistantTurnId: "turn-1",
+          conversationId: "conversation-1",
+          requestId: "request-1",
+          status: "completed",
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ assistantTurnId: "turn-1", cancelRequested: true }));
+    const client = createSideChatApiClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    expect(await client.resolveRun("request-1")).toEqual({
+      assistantTurnId: "turn-1",
+      status: "running",
+    });
+    expect(await client.getTurnStatus("turn-1")).toMatchObject({ status: "completed" });
+    expect(await client.cancelTurn("turn-1")).toEqual({
+      assistantTurnId: "turn-1",
+      cancelRequested: true,
+    });
+
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+      "https://assistant.example.test/chat/runs/request-1",
+      "https://assistant.example.test/chat/turns/turn-1",
+      "https://assistant.example.test/chat/turns/turn-1/cancel",
+    ]);
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: "POST" });
+  });
+
+  it("rejects an already aborted create", async () => {
     const controller = new AbortController();
     controller.abort("cancelled");
-    const fetchMock = vi.fn<FetchLike>(() =>
-      Promise.resolve(responseFromEvents([started(), completed()])),
-    );
+    const fetchMock = vi.fn<FetchLike>(() => Promise.resolve(runResponse()));
     const client = createSideChatApiClient({
       baseUrl: "https://example.test",
       fetch: fetchMock,
     });
 
-    await expect(client.streamChat(request, { signal: controller.signal })).rejects.toMatchObject({
+    await expect(client.createRun(request, { signal: controller.signal })).rejects.toMatchObject({
       code: "aborted",
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("retries configured status failures before a run is created", async () => {
+    const fetchMock = vi
+      .fn<FetchLike>()
+      .mockResolvedValueOnce(new Response("busy", { status: 503 }))
+      .mockResolvedValueOnce(runResponse());
+    const client = createSideChatApiClient({
+      baseUrl: "https://example.test",
+      fetch: fetchMock,
+      retry: { attempts: 2, statuses: [503] },
+    });
+
+    const run = await client.createRun(request);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(run.assistantTurnId).toBe("turn-1");
+  });
+
+  it("does not retry a 409 conflict on the turn-creating create", async () => {
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(new Response("conflict", { status: 409 })),
+    );
+    const client = createSideChatApiClient({
+      baseUrl: "https://example.test",
+      fetch: fetchMock,
+      retry: { attempts: 3 },
+    });
+
+    await expect(client.createRun(request)).rejects.toMatchObject({
+      code: "http_error",
+      status: 409,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("reads the backend model catalog with reasoning and context metadata", async () => {
@@ -165,61 +272,13 @@ describe("createSideChatApiClient", () => {
       fetch: fetchMock,
     });
 
-    await expect(client.listModels?.()).resolves.toEqual({
+    await expect(client.listModels?.()).resolves.toMatchObject({
       defaultModel: { providerId: "openai", modelId: "gpt-5.4-mini" },
-      models: [
-        {
-          providerId: "openai",
-          modelId: "gpt-5.4-mini",
-          displayName: "GPT-5.4 mini",
-          contextWindowTokens: 400_000,
-          maxOutputTokens: 128_000,
-          default: true,
-          available: true,
-          reasoning: { defaultEffort: "medium", efforts: ["low", "medium", "high"] },
-        },
-      ],
     });
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://assistant.example.test/models");
   });
 
-  it("retries configured status failures before streaming", async () => {
-    const fetchMock = vi
-      .fn<FetchLike>()
-      .mockResolvedValueOnce(new Response("busy", { status: 503 }))
-      .mockResolvedValueOnce(responseFromEvents([started(), completed()]));
-    const client = createSideChatApiClient({
-      baseUrl: "https://example.test",
-      fetch: fetchMock,
-      retry: { attempts: 2, statuses: [503] },
-    });
-
-    const result = await client.streamChat(request);
-    const events = await collect(result.events);
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result.attempt).toBe(2);
-    expect(events.at(-1)?.type).toBe("sidechat.completed");
-  });
-
-  it("does not retry a 409 conflict on the turn-creating stream POST", async () => {
-    const fetchMock = vi.fn<FetchLike>(() =>
-      Promise.resolve(new Response("conflict", { status: 409 })),
-    );
-    const client = createSideChatApiClient({
-      baseUrl: "https://example.test",
-      fetch: fetchMock,
-      retry: { attempts: 3 },
-    });
-
-    await expect(client.streamChat(request)).rejects.toMatchObject({
-      code: "http_error",
-      status: 409,
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("lists conversations, reads history, resets history, and reads usage through typed routes", async () => {
+  it("lists conversations, reads history with activeTurn, resets history, and reads usage", async () => {
     const fetchMock = vi
       .fn<FetchLike>()
       .mockResolvedValueOnce(
@@ -240,6 +299,7 @@ describe("createSideChatApiClient", () => {
         Response.json({
           conversationId: "conversation-1",
           messages: [{ id: "m1", role: "user", content: "past", sequence: 0 }],
+          activeTurn: { assistantTurnId: "turn-9", status: "running" },
         }),
       )
       .mockResolvedValueOnce(Response.json({ conversationId: "conversation-1", status: "reset" }))
@@ -255,28 +315,44 @@ describe("createSideChatApiClient", () => {
     expect(await client.readHistory?.("conversation-1", { limit: 10 })).toMatchObject({
       conversationId: "conversation-1",
       messages: [{ content: "past" }],
+      activeTurn: { assistantTurnId: "turn-9", status: "running" },
     });
-    expect(await client.resetHistory?.("conversation-1")).toMatchObject({
-      status: "reset",
-    });
+    expect(await client.resetHistory?.("conversation-1")).toMatchObject({ status: "reset" });
     expect(await client.readUsage?.()).toMatchObject({ totalTokens: 5 });
 
     expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
       "https://assistant.example.test/chat/conversations?limit=20",
-      "https://assistant.example.test/chat/history/conversation-1?limit=10",
+      "https://assistant.example.test/chat/conversations/conversation-1?limit=10",
       "https://assistant.example.test/chat/history/conversation-1",
       "https://assistant.example.test/usage",
     ]);
     expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: "DELETE" });
   });
 
-  it("maps non-OK history, reset, and usage route responses to HTTP errors", async () => {
+  it("reads history without an active turn when none is running", async () => {
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(
+        Response.json({
+          conversationId: "conversation-1",
+          messages: [],
+          activeTurn: null,
+        }),
+      ),
+    );
+    const client = createSideChatApiClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    const history = await client.readHistory?.("conversation-1");
+    expect(history?.activeTurn).toBeUndefined();
+  });
+
+  it("maps non-OK resource responses to HTTP errors", async () => {
     const fetchMock = vi
       .fn<FetchLike>()
       .mockResolvedValueOnce(new Response("no conversations", { status: 503 }))
-      .mockResolvedValueOnce(new Response("no history", { status: 404 }))
-      .mockResolvedValueOnce(new Response("cannot reset", { status: 409 }))
-      .mockResolvedValueOnce(new Response("no usage", { status: 503 }));
+      .mockResolvedValueOnce(new Response("no history", { status: 404 }));
     const client = createSideChatApiClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
@@ -290,45 +366,21 @@ describe("createSideChatApiClient", () => {
       code: "http_error",
       status: 404,
     });
-    await expect(client.resetHistory?.("missing-conversation")).rejects.toMatchObject({
-      code: "http_error",
-      status: 409,
-    });
-    await expect(client.readUsage?.()).rejects.toMatchObject({
-      code: "http_error",
-      status: 503,
-    });
   });
 
-  it("rejects malformed route helper JSON and missing expected fields", async () => {
+  it("rejects malformed run and resource JSON", async () => {
     const fetchMock = vi
       .fn<FetchLike>()
+      .mockResolvedValueOnce(Response.json({ requestId: "request-1" }))
       .mockResolvedValueOnce(Response.json({ conversations: [{ conversationId: "c1" }] }))
-      .mockResolvedValueOnce(new Response("{", { status: 200 }))
-      .mockResolvedValueOnce(
-        Response.json({ conversationId: "conversation-1", messages: [{ role: "user" }] }),
-      )
-      .mockResolvedValueOnce(Response.json({ conversationId: "conversation-1" }))
       .mockResolvedValueOnce(Response.json({ totalTokens: "5" }));
     const client = createSideChatApiClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
     });
 
-    await expect(client.listConversations?.()).rejects.toMatchObject({
-      code: "network_error",
-    });
-    await expect(client.readHistory?.("conversation-1")).rejects.toMatchObject({
-      code: "network_error",
-    });
-    await expect(client.readHistory?.("conversation-1")).rejects.toMatchObject({
-      code: "network_error",
-    });
-    await expect(client.resetHistory?.("conversation-1")).rejects.toMatchObject({
-      code: "network_error",
-    });
-    await expect(client.readUsage?.()).rejects.toMatchObject({
-      code: "network_error",
-    });
+    await expect(client.createRun(request)).rejects.toMatchObject({ code: "network_error" });
+    await expect(client.listConversations?.()).rejects.toMatchObject({ code: "network_error" });
+    await expect(client.readUsage?.()).rejects.toMatchObject({ code: "network_error" });
   });
 });

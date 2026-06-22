@@ -11,6 +11,10 @@ import {
   recordContextSnapshot,
   recordUsage,
 } from "./service-persistence-recorders.js";
+import {
+  createAcquireTurnLeaseEffect,
+  createRenewTurnLeaseEffect,
+} from "./lease/service-turn-lease.js";
 import { createConversationPersistence } from "./service-conversation-persistence.js";
 
 export type ServicePersistence = {
@@ -33,6 +37,8 @@ const createAssistantTurnPersistence = (
   completeAssistantTurn: createCompleteAssistantTurnEffect(repositories),
   failAssistantTurn: createFailAssistantTurnEffect(repositories),
   readTurnControlState: createReadTurnControlStateEffect(repositories),
+  acquireTurnLease: createAcquireTurnLeaseEffect(repositories),
+  renewTurnLease: createRenewTurnLeaseEffect(repositories),
 });
 
 const createStartAssistantTurnEffect =

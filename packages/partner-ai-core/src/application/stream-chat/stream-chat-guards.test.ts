@@ -50,6 +50,7 @@ describe("stream chat turn guards", () => {
       "contextManager",
       "recordContextSnapshot",
       "runtime",
+      "acquireTurnLease",
       "appendTurnEvent",
       "appendTurnEvent",
       "appendTurnEvent",

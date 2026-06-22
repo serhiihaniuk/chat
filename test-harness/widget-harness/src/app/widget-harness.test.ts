@@ -49,14 +49,20 @@ describe("widget harness modes", () => {
     expect(html).not.toContain("Workspace Assistant");
   });
 
-  it("creates deterministic mock stream events with host command sequencing", async () => {
+  it("creates deterministic mock stream events through the two-call flow", async () => {
     const events = createMockEvents(request);
     const streamed = [];
     const client = createMockStreamClient();
-    const result = await client.streamChat(request);
+    const run = await client.createRun(request);
+    const subscription = await client.subscribeTurn(run.assistantTurnId);
 
-    for await (const event of result.events) streamed.push(event.type);
+    for await (const event of subscription.events) streamed.push(event.type);
 
+    expect(run).toMatchObject({
+      requestId: "request-1",
+      assistantTurnId: "turn-request-1",
+      status: "running",
+    });
     expect(events.map((event) => event.type)).toEqual([
       "sidechat.started",
       "sidechat.activity",
@@ -65,6 +71,18 @@ describe("widget harness modes", () => {
       "sidechat.completed",
     ]);
     expect(streamed).toEqual(events.map((event) => event.type));
+  });
+
+  it("replays only events after the reconnect offset", async () => {
+    const client = createMockStreamClient();
+    const run = await client.createRun(request);
+    const subscription = await client.subscribeTurn(run.assistantTurnId, { after: 1 });
+
+    const sequences = [];
+    for await (const event of subscription.events) sequences.push(event.sequence);
+
+    // Default script is started(0), reasoning(1), delta(2), host-command(3), completed(4).
+    expect(sequences).toEqual([2, 3, 4]);
   });
 
   it("configures local service mode with auth-wrapped fetch", async () => {
@@ -77,26 +95,26 @@ describe("widget harness modes", () => {
     };
     const fetchWithAuth = withLocalAuth("local-test-token", fetchLike);
 
-    await fetchWithAuth("http://localhost:3100/chat/stream", {
+    await fetchWithAuth("http://localhost:3100/chat/runs", {
       method: "POST",
-      headers: { accept: "text/event-stream" },
+      headers: { accept: "application/json" },
     });
 
     expect(seenHeaders).toEqual([
-      { accept: "text/event-stream", authorization: "Bearer local-test-token" },
+      { accept: "application/json", authorization: "Bearer local-test-token" },
     ]);
 
     expect(
       createLocalServiceClient(
         parseWidgetHarnessConfig("?mode=local-service&apiBaseUrl=http://localhost:3100"),
       ),
-    ).toHaveProperty("streamChat");
+    ).toHaveProperty("createRun");
     expect(resolveLocalApiBaseUrl(parseWidgetHarnessConfig("?mode=local-service").apiBaseUrl)).toBe(
       "http://127.0.0.1:5173/side-chat-api",
     );
     expect(resolveLocalApiBaseUrl("http://localhost:3100")).toBe("http://localhost:3100");
-    expect(seenInputs).toContain("http://localhost:3100/chat/stream");
-    expect(seenInputs).not.toContain("/api/chat/stream");
+    expect(seenInputs).toContain("http://localhost:3100/chat/runs");
+    expect(seenInputs).not.toContain("/api/chat/runs");
   });
 
   it("keeps host command results as harness-local records", async () => {

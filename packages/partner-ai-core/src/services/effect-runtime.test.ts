@@ -43,6 +43,9 @@ describe("partner AI core Effect runtime layer", () => {
         recordContextSnapshot: () => Effect.succeed(undefined),
         completeAssistantTurn: () => Effect.succeed(undefined),
         failAssistantTurn: () => Effect.succeed(undefined),
+        readTurnControlState: () => Effect.succeed({ status: "running", cancelRequested: false }),
+        acquireTurnLease: () => Effect.succeed({ acquired: true, leaseEpoch: 1 }),
+        renewTurnLease: () => Effect.succeed({ renewed: true }),
       },
       turnEventLog: {
         appendEvent: () => Effect.succeed(undefined),

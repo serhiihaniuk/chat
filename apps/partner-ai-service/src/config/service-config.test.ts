@@ -1,5 +1,9 @@
-import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import {
+  SIDECHAT_EVENT_TYPES,
+  SIDECHAT_PROTOCOL_VERSION,
+} from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
+import { RESUMABILITY_DEFAULTS } from "#config/catalog/config-values";
 import { createPartnerAiServiceApp } from "#inbound/http/app";
 import { runTurnStream } from "#testing/turn-stream/turn-stream-harness.test-support";
 import {
@@ -41,8 +45,14 @@ describe("partner ai service env config", () => {
       hostCommandResults: "disabled",
     });
 
-    const { events } = await runTurnStream(app, validRequest, "Bearer local-compose-token");
-    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
+    const { events } = await runTurnStream(
+      app,
+      validRequest,
+      "Bearer local-compose-token",
+    );
+    expect(events.at(-1)).toMatchObject({
+      type: SIDECHAT_EVENT_TYPES.COMPLETED,
+    });
   });
 
   it("maps production env to explicit auth and configured model policy", async () => {
@@ -56,7 +66,8 @@ describe("partner ai service env config", () => {
         SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini,other-model",
         SIDECHAT_TENANT_ID: "tenant_prod",
         SIDECHAT_WORKSPACE_ID: "workspace_prod",
-        SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
+        SIDECHAT_DATABASE_URL:
+          "postgres://sidechat:sidechat@localhost/sidechat",
       }),
     );
 
@@ -73,14 +84,16 @@ describe("partner ai service env config", () => {
     expect(() =>
       createPartnerAiServiceOptionsFromEnv({
         SIDECHAT_PROFILE: "production",
-        SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
+        SIDECHAT_DATABASE_URL:
+          "postgres://sidechat:sidechat@localhost/sidechat",
       }),
     ).toThrow("SIDECHAT_PROVIDER=openai");
     expect(() =>
       createPartnerAiServiceOptionsFromEnv({
         SIDECHAT_PROFILE: "production",
         SIDECHAT_PROVIDER: "fake",
-        SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
+        SIDECHAT_DATABASE_URL:
+          "postgres://sidechat:sidechat@localhost/sidechat",
       }),
     ).toThrow("SIDECHAT_PROVIDER=openai");
     expect(() =>
@@ -89,7 +102,8 @@ describe("partner ai service env config", () => {
         SIDECHAT_PROVIDER: "openai",
         SIDECHAT_OPENAI_API_KEY: "key_123",
         SIDECHAT_ALLOWED_MODELS: "gpt-5.4-mini",
-        SIDECHAT_DATABASE_URL: "postgres://sidechat:sidechat@localhost/sidechat",
+        SIDECHAT_DATABASE_URL:
+          "postgres://sidechat:sidechat@localhost/sidechat",
         SIDECHAT_ENABLE_DEV_TOOLS: "true",
       }),
     ).toThrow("SIDECHAT_ENABLE_DEV_TOOLS");
@@ -107,10 +121,16 @@ describe("partner ai service env config", () => {
 
   it("parses demo conversation seeding as an explicit local opt-in", () => {
     expect(readDemoSeedConversations({})).toBe(false);
-    expect(readDemoSeedConversations({ SIDECHAT_DEMO_SEED_CONVERSATIONS: "true" })).toBe(true);
-    expect(readDemoSeedConversations({ SIDECHAT_DEMO_SEED_CONVERSATIONS: "false" })).toBe(false);
+    expect(
+      readDemoSeedConversations({ SIDECHAT_DEMO_SEED_CONVERSATIONS: "true" }),
+    ).toBe(true);
+    expect(
+      readDemoSeedConversations({ SIDECHAT_DEMO_SEED_CONVERSATIONS: "false" }),
+    ).toBe(false);
     expect(() =>
-      readDemoSeedConversations({ SIDECHAT_DEMO_SEED_CONVERSATIONS: "sometimes" }),
+      readDemoSeedConversations({
+        SIDECHAT_DEMO_SEED_CONVERSATIONS: "sometimes",
+      }),
     ).toThrow(ServiceConfigError);
   });
 
@@ -173,6 +193,53 @@ describe("partner ai service env config", () => {
         maxHistoryTokens: 1500,
       },
     });
+  });
+
+  it("resolves resumability lease and retention tunables from env with safe defaults", () => {
+    const overridden = createPartnerAiServiceOptionsFromEnv({
+      SIDECHAT_INSTANCE_ID: "instance_pod_7",
+      SIDECHAT_LEASE_TTL_MS: "45000",
+      SIDECHAT_HEARTBEAT_INTERVAL_MS: "12000",
+      SIDECHAT_REAPER_INTERVAL_MS: "20000",
+      SIDECHAT_REAPER_BATCH_LIMIT: "25",
+      SIDECHAT_TURN_EVENT_RETENTION_MS: "60000",
+      SIDECHAT_PRUNER_INTERVAL_MS: "30000",
+    });
+    expect(overridden.resumability).toMatchObject({
+      instanceId: "instance_pod_7",
+      leaseTtlMs: 45000,
+      heartbeatIntervalMs: 12000,
+      reaperIntervalMs: 20000,
+      reaperBatchLimit: 25,
+      turnEventRetentionMs: 60000,
+      prunerIntervalMs: 30000,
+    });
+
+    // Absent env falls back to the catalog defaults, with a stable per-process id.
+    const defaults = createPartnerAiServiceOptionsFromEnv({});
+    expect(defaults.resumability).toMatchObject({
+      leaseTtlMs: RESUMABILITY_DEFAULTS.LEASE_TTL_MS,
+      heartbeatIntervalMs: RESUMABILITY_DEFAULTS.HEARTBEAT_INTERVAL_MS,
+      reaperIntervalMs: RESUMABILITY_DEFAULTS.REAPER_INTERVAL_MS,
+      reaperBatchLimit: RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
+      turnEventRetentionMs: RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
+      prunerIntervalMs: RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
+    });
+    expect(defaults.resumability?.instanceId).toBeTruthy();
+  });
+
+  it("rejects a non-positive resumability duration", () => {
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({ SIDECHAT_LEASE_TTL_MS: "0" }),
+    ).toThrow("SIDECHAT_LEASE_TTL_MS");
+  });
+
+  it("rejects a non-positive reaper batch limit", () => {
+    expect(() =>
+      createPartnerAiServiceOptionsFromEnv({
+        SIDECHAT_REAPER_BATCH_LIMIT: "0",
+      }),
+    ).toThrow("SIDECHAT_REAPER_BATCH_LIMIT");
   });
 
   it("rejects unsupported capability env config", () => {

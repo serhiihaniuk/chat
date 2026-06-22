@@ -12,6 +12,21 @@ export const result = <RecordType>(
 export const optional = <Value>(value: Value | null | undefined): Value | undefined =>
   value === null || value === undefined ? undefined : value;
 
+/**
+ * Normalize a `timestamptz` string column to canonical ISO-8601.
+ *
+ * Drizzle's `mode:"string"` timestamp returns the raw node-postgres value
+ * (`2026-05-23 13:00:00+00`: space separator, offset suffix, no milliseconds),
+ * while the memory adapter echoes the ISO `now` it was handed. Routing every
+ * postgres timestamp read through here makes both adapters return the same ISO
+ * string so the shared repository contract holds byte-for-byte.
+ */
+export const isoTimestamp = (value: string): string => new Date(value).toISOString();
+
+/** Normalize a nullable `timestamptz` column, preserving the absent gap. */
+export const optionalIsoTimestamp = (value: string | null | undefined): string | undefined =>
+  value === null || value === undefined ? undefined : isoTimestamp(value);
+
 /** Take the single expected row or fail with the typed repository error. */
 export const one = <RecordType>(
   rows: readonly RecordType[],

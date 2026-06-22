@@ -87,6 +87,12 @@ export type AssistantTurnRecord = TenantScopedRecord &
     readonly completedAt?: string;
     /** Durable cancel intent timestamp; set once a cancel is requested. */
     readonly cancelRequestedAt?: string;
+    /** Instance currently leasing generation of this turn, if any. */
+    readonly ownerInstanceId?: string;
+    /** Lease expiry; the reaper terminalizes a running turn past this instant. */
+    readonly leaseExpiresAt?: string;
+    /** Monotonic fencing token bumped on every acquire/reap so stale owners stop. */
+    readonly leaseEpoch: number;
   };
 
 /**

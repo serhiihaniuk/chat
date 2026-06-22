@@ -7,7 +7,6 @@ import {
   type TurnEventNotificationSource,
 } from "@side-chat/db";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
-import { RESUMABILITY_DEFAULTS } from "#config/catalog/config-values";
 import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/sidechat-config/conversation-title";
 import { createServiceTurnProfileBundle } from "./factories/create-service-turn-profile-bundle.js";
 import { createServiceCapabilityBundle } from "./factories/create-service-capability-bundle.js";
@@ -20,8 +19,11 @@ import { createServiceSecurityPorts } from "./factories/create-service-security-
 import { createServiceToolBundle } from "./factories/create-service-tool-bundle.js";
 import { createStreamChatPorts } from "./factories/create-stream-chat-ports.js";
 import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
+import { createTurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
+import { createTurnPruner } from "#inbound/turn-runner/maintenance/turn-pruner";
 import { createTurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
+import { resolveResumabilityConfig } from "./resumability-resolution.js";
 import type {
   PersistenceConfig,
   ServiceComposition,
@@ -31,6 +33,7 @@ import type {
 export type {
   PersistenceConfig,
   ResumabilityConfig,
+  ResumabilityOptions,
   RuntimeConfig,
   RuntimeModelMetadata,
   RuntimeToolConfig,
@@ -38,7 +41,10 @@ export type {
   ServiceCompositionOptions,
 } from "./service-composition-types.js";
 
-export type { OpenAIReasoningEffort, OpenAIReasoningSummary } from "@side-chat/agent-runtime";
+export type {
+  OpenAIReasoningEffort,
+  OpenAIReasoningSummary,
+} from "@side-chat/agent-runtime";
 export {
   createServiceProviderRegistry,
   SERVICE_MODEL_RETENTION_POLICIES,
@@ -95,7 +101,9 @@ export type {
  * assemble core, runtime, and DB. Production call sites should pass explicit
  * adapters instead of relying on the development fallbacks each factory owns.
  */
-export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
+export const composePartnerAiService = (
+  options: ServiceCompositionOptions,
+): ServiceComposition => {
   const turnGuards = options.turnGuards ?? createNoopTurnGuardRegistry();
 
   const security = createServiceSecurityPorts(options);
@@ -126,14 +134,23 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     security,
     turnGuards,
     titleGeneration:
-      options.conversationTitleGeneration ?? DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION,
+      options.conversationTitleGeneration ??
+      DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION,
     observability: options.observability,
   });
+
+  const resumability = resolveResumabilityConfig(options.resumability);
 
   const turnRunner = createTurnRunner({
     workspace: options.workspace,
     hostAppId: capabilities.manifest.hostAppId,
     ports: streamChat.ports,
+    // The forked generation heartbeats this lease and self-interrupts if fenced.
+    lease: {
+      instanceId: resumability.instanceId,
+      leaseTtlMs: resumability.leaseTtlMs,
+      heartbeatIntervalMs: resumability.heartbeatIntervalMs,
+    },
   });
 
   // The dispatcher is the local subscribe half of the resumable transport: it
@@ -142,6 +159,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const dispatcher = createTurnEventDispatcher({
     ports: streamChat.ports,
     notificationSource: createNotificationSource(persistence.persistence),
+    observability: options.observability,
   });
 
   // The cancel dispatcher is the cross-instance half of cancel: it consumes the
@@ -150,6 +168,31 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const cancelDispatcher = createTurnCancelDispatcher({
     runner: turnRunner,
     notificationSource: createCancelNotificationSource(persistence.persistence),
+  });
+
+  // The reaper is the dead/slow-owner backstop: on a fixed cadence it
+  // terminalizes running turns whose lease expired (fencing the old owner) and
+  // appends one synthetic terminal each, so a crashed instance's turns still reach
+  // a durable terminal and close their subscribers.
+  const reaper = createTurnReaper({
+    repositories: persistence.repositories,
+    clock: streamChat.ports.clock,
+    ids: streamChat.ports.ids,
+    reaperIntervalMs: resumability.reaperIntervalMs,
+    batchLimit: resumability.reaperBatchLimit,
+    observability: options.observability,
+  });
+
+  // The pruner is the turn_events retention backstop: on a fixed cadence it deletes
+  // the now-redundant event log of long-terminal turns, keeping the consolidated
+  // turn record and assistant message. A pruned turn falls back to conversation
+  // history on resume (the stream route returns replay_expired).
+  const pruner = createTurnPruner({
+    repositories: persistence.repositories,
+    clock: streamChat.ports.clock,
+    retentionMs: resumability.turnEventRetentionMs,
+    prunerIntervalMs: resumability.prunerIntervalMs,
+    batchLimit: resumability.prunerBatchLimit,
   });
 
   return {
@@ -164,6 +207,9 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     turnRunner,
     dispatcher,
     cancelDispatcher,
+    reaper,
+    pruner,
+    observability: options.observability,
     capabilities: capabilities.capabilityStatus,
     diagnostics: createServiceDiagnostics({
       persistence,
@@ -171,8 +217,18 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
       tools,
       turnProfiles,
     }),
-    safetyPollIntervalMs:
-      options.resumability?.safetyPollIntervalMs ?? RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS,
+    safetyPollIntervalMs: resumability.safetyPollIntervalMs,
+    // Interrupt generation first so its onExit finalizes each turn, then tear down
+    // the recurring reaper/pruner sweeps and the two LISTEN dispatchers.
+    shutdown: async () => {
+      await turnRunner.shutdown();
+      await Promise.all([
+        reaper.shutdown(),
+        pruner.shutdown(),
+        cancelDispatcher.shutdown(),
+        dispatcher.shutdown(),
+      ]);
+    },
   };
 };
 
@@ -184,7 +240,9 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
  * no cross-process wake signal, so it uses the no-op source and the subscriber
  * safety poll drives delivery from the in-memory log.
  */
-const createNotificationSource = (persistence: PersistenceConfig): TurnEventNotificationSource =>
+const createNotificationSource = (
+  persistence: PersistenceConfig,
+): TurnEventNotificationSource =>
   persistence.kind === "postgres"
     ? createPostgresTurnEventNotificationSource(persistence.databaseUrl)
     : NOOP_TURN_EVENT_NOTIFICATION_SOURCE;

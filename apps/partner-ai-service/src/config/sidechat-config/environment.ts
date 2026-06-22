@@ -15,7 +15,7 @@ import {
   DEFAULT_SERVICE_PORT,
   DEFAULT_TENANT_ID,
   DEFAULT_WORKSPACE_ID,
-} from "../service-config.js";
+} from "../env/service-env-contract.js";
 import { ServiceConfigError } from "../service-config-error.js";
 import type {
   ServiceEnv,

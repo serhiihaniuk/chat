@@ -36,6 +36,7 @@ describe("stream chat conversation title generation", () => {
       "contextManager",
       "recordContextSnapshot",
       "runtime",
+      "acquireTurnLease",
       "appendTurnEvent",
       "appendTurnEvent",
       "appendTurnEvent",

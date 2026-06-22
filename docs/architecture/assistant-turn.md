@@ -126,6 +126,31 @@ different instance — both read the same log.
 Replay offset is one convention everywhere: `after=<lastSeenSequence>`, default
 `-1`, returning `sequence > after`; `sidechat.started` is sequence 0.
 
+## Retention and Replay Expiry
+
+The durable `turn_events` log is bounded by retention so it cannot grow forever.
+A per-instance background pruner (`@side-chat/db` `pruneTurnEventsBefore`) deletes
+the event rows of terminal turns whose `completed_at` is older than
+`resumability.turnEventRetention`, on the `resumability.prunerInterval` cadence and
+bounded per pass. The consolidated turn record and the assistant message are never
+pruned — only the now-redundant event log — so a pruned turn still resolves.
+
+Because a pruned turn can no longer replay, the stream route fails closed before
+opening SSE: when a turn is terminal and the smallest retained sequence is past the
+requested `after + 1` (a gap, or the whole log gone), it returns the transport-level
+`replay_expired` JSON error with HTTP 404. The widget maps that 404 to
+`replay_expired`, reads `GET /chat/conversations/:id` for history, and clears the
+run. A running turn never returns `replay_expired` — its tail still delivers events.
+
+## Resumable Lifecycle Observability
+
+The service records the resumable transport lifecycle through the same
+`ObservabilitySinkPort` the core turn workflow uses (no separate metrics
+framework): subscriber attach/detach with the live per-instance subscriber count,
+replay served vs `replay_expired`, reaper reaps with count and reason, cross-instance
+cancel with its outcome, and run duration on terminal. These are best-effort
+telemetry — a sink failure never faults a subscriber stream, a reap, or a cancel.
+
 ## Cross-Instance Cancel
 
 Cancel is durable intent plus interruption, never an in-fiber race.
@@ -142,6 +167,34 @@ durable intent, which the reaper later terminalizes. The cancel route also
 interrupts the local fiber directly, so a single-instance (and the notify-less
 memory) deployment cancels without waiting on the listener.
 
+## Owner Lease and Recovery
+
+Generation runs under an owner lease so a crashed or stalled instance cannot
+strand a turn `running` forever. All lease state is compare-and-set on
+`assistant_turns` (`owner_instance_id`, `lease_epoch`, `lease_expires_at`), owned
+by `@side-chat/db`; the durations, batch size, and the per-process `instanceId` are
+config-driven through `resumability` (`leaseTtl`, `heartbeatInterval`,
+`reaperInterval`, `reaperBatchLimit`). Retention/pruning adds `turnEventRetention`
+and `prunerInterval` to the same section. No durations or limits are hardcoded.
+
+- **Acquire + heartbeat.** Inside `runTurnGeneration`'s `onExit`, the fiber claims
+  the lease (bumping the epoch) before the drain and then renews it every
+  `heartbeatInterval`, epoch-scoped. Because the lease logic sits inside that
+  `onExit`, even an interrupt during acquisition still finalizes the turn. If a
+  renew matches no row the owner has been **fenced** (a new owner or the reaper
+  advanced the epoch), so the heartbeat self-interrupts the generation; the
+  abnormal finalize records a non-user `provider_failed`/`timeout`.
+- **Reaper.** Each instance runs one background sweep every `reaperInterval` that
+  CAS-terminalizes running turns whose lease expired — `user_aborted` when a cancel
+  was requested, else `provider_failed` (`timeout`) — bumping the epoch to fence
+  the dead/slow owner, and appends exactly one synthetic terminal per reaped turn
+  (partial-unique-terminal guarded). The running-guard CAS plus that index mean two
+  concurrent passes never double-terminalize.
+- **Clean shutdown.** Composition exposes one `shutdown()` that interrupts the
+  generation runner (each turn finalizes via its `onExit`) and then tears down the
+  reaper sweep, the pruner sweep, and the two `LISTEN` dispatchers; the Node server
+  runs it on SIGTERM/SIGINT so no timer or DB connection is left dangling.
+
 ## Files To Open
 
 - `packages/partner-ai-core/src/application/stream-chat/turn/prepare-stream-chat-turn.ts`
@@ -149,9 +202,14 @@ memory) deployment cancels without waiting on the listener.
 - `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-event-stream.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-stream-state-machine.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/run-turn-generation.ts`
+- `packages/partner-ai-core/src/application/stream-chat/protocol/lease/turn-lease-heartbeat.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/finalization/protocol-terminal-lifecycle.ts`
 - `packages/partner-ai-core/src/application/stream-chat/protocol/finalization/finalize-turn-generation.ts`
 - `apps/partner-ai-service/src/inbound/turn-runner/turn-runner.ts`
+- `apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-reaper.ts`
+- `apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-pruner.ts`
+- `apps/partner-ai-service/src/inbound/turn-stream/turn-observability.ts`
+- `packages/db/src/repositories/postgres-drizzle/records/turn-lease.ts`
 - `apps/partner-ai-service/src/inbound/turn-stream/turn-event-dispatcher.ts`
 - `apps/partner-ai-service/src/inbound/turn-stream/turn-cancel-dispatcher.ts`
 - `apps/partner-ai-service/src/inbound/turn-stream/turn-subscription-stream.ts`

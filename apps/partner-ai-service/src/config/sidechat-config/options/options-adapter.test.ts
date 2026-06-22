@@ -1,4 +1,7 @@
-import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import {
+  SIDECHAT_EVENT_TYPES,
+  SIDECHAT_PROTOCOL_VERSION,
+} from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 import sideChatConfig from "#sidechat-config";
 import { createPartnerAiServiceApp } from "#inbound/http/app";
@@ -8,6 +11,7 @@ import { TOOLS } from "#config/catalog/capabilities/tools";
 import {
   HISTORY_CONTEXT_MODES,
   REQUEST_POLICY_MODES,
+  RESUMABILITY_DEFAULTS,
   SERVICE_PROFILES,
 } from "#config/catalog/config-values";
 import { PROVIDERS } from "#config/catalog/providers";
@@ -33,7 +37,8 @@ describe("sidechat.config.ts", () => {
   it("boots the production OpenAI service from the readable config", async () => {
     const options = createPartnerAiServiceOptionsFromConfig(sideChatConfig, {
       [SERVICE_ENV_KEYS.authBearerToken]: "prod-config-token",
-      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.databaseUrl]:
+        "postgres://sidechat:sidechat@localhost/sidechat",
       [PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY]: "key_123",
     });
     expect(options.runtime).toMatchObject({
@@ -88,7 +93,8 @@ describe("sidechat.config.ts", () => {
           default: true,
           available: true,
           reasoning: {
-            defaultEffort: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
+            defaultEffort:
+              PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
             efforts: [
               PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.LOW,
               PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
@@ -123,14 +129,55 @@ describe("sidechat.config.ts", () => {
       }),
     );
 
-    const { events } = await runTurnStream(app, validRequest, "Bearer local-config-token");
-    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
+    const { events } = await runTurnStream(
+      app,
+      validRequest,
+      "Bearer local-config-token",
+    );
+    expect(events.at(-1)).toMatchObject({
+      type: SIDECHAT_EVENT_TYPES.COMPLETED,
+    });
+  });
+
+  it("resolves resumability retention and batch knobs from the readable config", () => {
+    const baseEnv = {
+      [PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY]: "key_123",
+      [SERVICE_ENV_KEYS.databaseUrl]:
+        "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
+    } as const;
+
+    // Defaults come from RESUMABILITY_DEFAULTS via the config's readEnv declarations.
+    const defaults = createPartnerAiServiceOptionsFromConfig(
+      sideChatConfig,
+      baseEnv,
+    );
+    expect(defaults.resumability).toMatchObject({
+      reaperBatchLimit: RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
+      turnEventRetentionMs: RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
+      prunerIntervalMs: RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
+      prunerBatchLimit: RESUMABILITY_DEFAULTS.PRUNER_BATCH_LIMIT,
+    });
+
+    // Env overrides flow through the same readable-config resolver.
+    const overridden = createPartnerAiServiceOptionsFromConfig(sideChatConfig, {
+      ...baseEnv,
+      [SERVICE_ENV_KEYS.reaperBatchLimit]: "25",
+      [SERVICE_ENV_KEYS.turnEventRetentionMs]: "60000",
+      [SERVICE_ENV_KEYS.prunerIntervalMs]: "30000",
+    });
+    expect(overridden.resumability).toMatchObject({
+      reaperBatchLimit: 25,
+      turnEventRetentionMs: 60000,
+      prunerIntervalMs: 30000,
+    });
   });
 
   it("builds OpenAI runtime options from config plus secret env only", () => {
     const options = createPartnerAiServiceOptionsFromConfig(sideChatConfig, {
       [PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY]: "key_123",
-      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.databaseUrl]:
+        "postgres://sidechat:sidechat@localhost/sidechat",
       [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
     });
 
@@ -150,13 +197,16 @@ describe("sidechat.config.ts", () => {
         {
           modelId: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MODEL_ID,
           displayName: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.DISPLAY_NAME,
-          contextWindowTokens: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.CONTEXT_WINDOW_TOKENS,
-          maxOutputTokens: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MAX_OUTPUT_TOKENS,
+          contextWindowTokens:
+            PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.CONTEXT_WINDOW_TOKENS,
+          maxOutputTokens:
+            PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MAX_OUTPUT_TOKENS,
         },
         {
           modelId: PROVIDERS.OPENAI.MODELS.GPT_5_5.MODEL_ID,
           displayName: PROVIDERS.OPENAI.MODELS.GPT_5_5.DISPLAY_NAME,
-          contextWindowTokens: PROVIDERS.OPENAI.MODELS.GPT_5_5.CONTEXT_WINDOW_TOKENS,
+          contextWindowTokens:
+            PROVIDERS.OPENAI.MODELS.GPT_5_5.CONTEXT_WINDOW_TOKENS,
           maxOutputTokens: PROVIDERS.OPENAI.MODELS.GPT_5_5.MAX_OUTPUT_TOKENS,
         },
       ],
@@ -185,12 +235,16 @@ describe("sidechat.config.ts", () => {
       },
     });
 
-    const options = createPartnerAiServiceOptionsFromConfig(configWithCustomProviderEnv, {
-      CUSTOM_OPENAI_API_KEY: "custom_key",
-      CUSTOM_OPENAI_ENDPOINT: "https://gateway.example/openai/v1",
-      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
-      [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
-    });
+    const options = createPartnerAiServiceOptionsFromConfig(
+      configWithCustomProviderEnv,
+      {
+        CUSTOM_OPENAI_API_KEY: "custom_key",
+        CUSTOM_OPENAI_ENDPOINT: "https://gateway.example/openai/v1",
+        [SERVICE_ENV_KEYS.databaseUrl]:
+          "postgres://sidechat:sidechat@localhost/sidechat",
+        [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
+      },
+    );
 
     expect(options.runtime).toMatchObject({
       provider: PROVIDERS.OPENAI.KIND,
@@ -202,7 +256,8 @@ describe("sidechat.config.ts", () => {
   it("rejects OpenAI config without the secret env value", () => {
     expect(() =>
       createPartnerAiServiceOptionsFromConfig(sideChatConfig, {
-        [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
+        [SERVICE_ENV_KEYS.databaseUrl]:
+          "postgres://sidechat:sidechat@localhost/sidechat",
         [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
       }),
     ).toThrow("SIDECHAT_OPENAI_API_KEY is required");
@@ -219,9 +274,9 @@ describe("sidechat.config.ts", () => {
       },
     });
 
-    expect(() => createPartnerAiServiceOptionsFromConfig(brokenConfig, {})).toThrow(
-      "Request policy references model",
-    );
+    expect(() =>
+      createPartnerAiServiceOptionsFromConfig(brokenConfig, {}),
+    ).toThrow("Request policy references model");
   });
 });
 
@@ -230,9 +285,15 @@ const createTestFakeConfig = () =>
     ...sideChatConfig,
     environment: {
       ...sideChatConfig.environment,
-      profile: readEnv(SERVICE_ENV_KEYS.profile, { defaultValue: SERVICE_PROFILES.DEVELOPMENT }),
-      authBearerToken: readEnv.secret(SERVICE_ENV_KEYS.authBearerToken, { required: false }),
-      databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.databaseUrl, { required: false }),
+      profile: readEnv(SERVICE_ENV_KEYS.profile, {
+        defaultValue: SERVICE_PROFILES.DEVELOPMENT,
+      }),
+      authBearerToken: readEnv.secret(SERVICE_ENV_KEYS.authBearerToken, {
+        required: false,
+      }),
+      databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.databaseUrl, {
+        required: false,
+      }),
     },
     models: {
       provider: { kind: PROVIDERS.FAKE.KIND },
@@ -251,7 +312,9 @@ const createTestFakeConfig = () =>
               PROVIDERS.FAKE.MODELS.FAKE_ECHO.REASONING.HIGH,
             ],
           },
-        } satisfies SideChatConfiguredModel<typeof PROVIDERS.FAKE.MODELS.FAKE_ECHO>,
+        } satisfies SideChatConfiguredModel<
+          typeof PROVIDERS.FAKE.MODELS.FAKE_ECHO
+        >,
       ],
     },
     requestPolicy: {

@@ -11,7 +11,7 @@ import {
   readServicePort,
 } from "./config/service-config.js";
 import { withDemoSeededConversations } from "./demo/demo-conversation-seed.js";
-import { createPartnerAiServiceApp, type PartnerAiServiceOptions } from "./inbound/http/app.js";
+import { createPartnerAiService, type PartnerAiServiceOptions } from "./inbound/http/app.js";
 
 type ServiceBootConfig = {
   readonly options: PartnerAiServiceOptions;
@@ -24,12 +24,39 @@ const main = async (): Promise<void> => {
   const seededOptions = bootConfig.seedDemoConversations
     ? await withDemoSeededConversations(bootConfig.options)
     : bootConfig.options;
-  const app = createPartnerAiServiceApp(seededOptions);
+  const service = createPartnerAiService(seededOptions);
 
-  serve({
-    fetch: app.fetch,
+  const server = serve({
+    fetch: service.app.fetch,
     port: bootConfig.port,
   });
+
+  installGracefulShutdown(server, service.shutdown);
+};
+
+/**
+ * Drain background owners (runner, reaper, listeners) before the process exits.
+ *
+ * On the first SIGTERM/SIGINT we stop accepting connections and then run the
+ * composition shutdown, which interrupts in-flight generation (each turn
+ * finalizes through its `onExit`) and tears down the reaper and `LISTEN`
+ * dispatchers, so no timer or DB connection is left dangling.
+ */
+const installGracefulShutdown = (
+  server: { readonly close: () => void },
+  shutdown: () => Promise<void>,
+): void => {
+  let shuttingDown = false;
+  const drain = (signal: NodeJS.Signals): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    server.close();
+    shutdown()
+      .catch((error) => console.error(error))
+      .finally(() => process.kill(process.pid, signal));
+  };
+  process.once("SIGTERM", drain);
+  process.once("SIGINT", drain);
 };
 
 const createBootConfig = async (): Promise<ServiceBootConfig> => {

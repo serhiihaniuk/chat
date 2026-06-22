@@ -8,6 +8,7 @@ import {
 import {
   CONFIG_IDS,
   CONTEXT_ADMISSION_POLICIES,
+  DEFAULT_INSTANCE_ID,
   HISTORY_CONTEXT_MODES,
   OUTPUT_FORMATS,
   REQUEST_POLICY_MODES,
@@ -36,18 +37,24 @@ const sideChatConfig = defineSideChatConfig({
     }),
     profile: readEnv(SERVICE_ENV_KEYS.profile, {
       defaultValue: SERVICE_PROFILES.PRODUCTION,
-      description: "Deployment posture used by auth, policy, and persistence adapters.",
+      description:
+        "Deployment posture used by auth, policy, and persistence adapters.",
     }),
     authBearerToken: readEnv.secret(SERVICE_ENV_KEYS.authBearerToken, {
-      description: "Trusted bearer token accepted by the production service auth adapter.",
+      description:
+        "Trusted bearer token accepted by the production service auth adapter.",
     }),
     databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.databaseUrl, {
       description: "Postgres URL used by durable production persistence.",
     }),
-    demoSeedConversations: readEnv.boolean(SERVICE_ENV_KEYS.demoSeedConversations, {
-      defaultValue: false,
-      description: "Whether local boot seeds deterministic demo conversations.",
-    }),
+    demoSeedConversations: readEnv.boolean(
+      SERVICE_ENV_KEYS.demoSeedConversations,
+      {
+        defaultValue: false,
+        description:
+          "Whether local boot seeds deterministic demo conversations.",
+      },
+    ),
     tenantId: readEnv(SERVICE_ENV_KEYS.tenantId, {
       defaultValue: DEFAULT_TENANT_ID,
       description: "Default workspace tenant id used by service adapters.",
@@ -62,11 +69,16 @@ const sideChatConfig = defineSideChatConfig({
       kind: PROVIDERS.OPENAI.KIND,
       connection: {
         apiKey: readEnv.secret(PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY, {
-          description: "Secret API key for the OpenAI-compatible Responses provider.",
+          description:
+            "Secret API key for the OpenAI-compatible Responses provider.",
         }),
-        endpoint: readEnv.optional(PROVIDERS.OPENAI.TRANSPORT_ENV_KEYS.BASE_URL, {
-          description: "Optional OpenAI-compatible endpoint override, such as a gateway URL.",
-        }),
+        endpoint: readEnv.optional(
+          PROVIDERS.OPENAI.TRANSPORT_ENV_KEYS.BASE_URL,
+          {
+            description:
+              "Optional OpenAI-compatible endpoint override, such as a gateway URL.",
+          },
+        ),
       },
       reasoning: {
         summary: PROVIDERS.OPENAI.REASONING_SUMMARIES.CONCISE,
@@ -75,7 +87,9 @@ const sideChatConfig = defineSideChatConfig({
     default: {
       model: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI,
       reasoning: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
-    } satisfies SideChatDefaultModel<typeof PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI>,
+    } satisfies SideChatDefaultModel<
+      typeof PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI
+    >,
     availableModels: [
       {
         model: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI,
@@ -87,7 +101,9 @@ const sideChatConfig = defineSideChatConfig({
             PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.HIGH,
           ],
         },
-      } satisfies SideChatConfiguredModel<typeof PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI>,
+      } satisfies SideChatConfiguredModel<
+        typeof PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI
+      >,
       {
         model: PROVIDERS.OPENAI.MODELS.GPT_5_5,
         reasoning: {
@@ -98,7 +114,9 @@ const sideChatConfig = defineSideChatConfig({
             PROVIDERS.OPENAI.MODELS.GPT_5_5.REASONING.HIGH,
           ],
         },
-      } satisfies SideChatConfiguredModel<typeof PROVIDERS.OPENAI.MODELS.GPT_5_5>,
+      } satisfies SideChatConfiguredModel<
+        typeof PROVIDERS.OPENAI.MODELS.GPT_5_5
+      >,
     ],
   },
   executors: {
@@ -110,7 +128,8 @@ const sideChatConfig = defineSideChatConfig({
       {
         tool: TOOLS.MOCK_WEB_SEARCH,
         modelPrompt: {
-          usageInstructions: TOOLS.MOCK_WEB_SEARCH.MODEL_PROMPT.USAGE_INSTRUCTIONS,
+          usageInstructions:
+            TOOLS.MOCK_WEB_SEARCH.MODEL_PROMPT.USAGE_INSTRUCTIONS,
         },
         parameters: {
           delayMs: TOOLS.MOCK_WEB_SEARCH.PARAMETERS.DEFAULT_DELAY_MS,
@@ -158,7 +177,8 @@ const sideChatConfig = defineSideChatConfig({
       },
       safety: {
         policyId: SAFETY_POLICIES.STANDARD.ID,
-        promptInjectionMode: SAFETY_POLICIES.STANDARD.DEFAULT_PROMPT_INJECTION_MODE,
+        promptInjectionMode:
+          SAFETY_POLICIES.STANDARD.DEFAULT_PROMPT_INJECTION_MODE,
         turnGuardIds: [],
       },
     },
@@ -190,6 +210,41 @@ const sideChatConfig = defineSideChatConfig({
       defaultValue: RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS,
       description:
         "Per-subscriber reconcile-poll interval (ms) backstopping a missed Postgres NOTIFY.",
+    }),
+    instanceId: readEnv(SERVICE_ENV_KEYS.instanceId, {
+      defaultValue: DEFAULT_INSTANCE_ID,
+      description:
+        "Stable per-process owner id written to owner_instance_id; set per replica in production.",
+    }),
+    leaseTtl: readEnv.number(SERVICE_ENV_KEYS.leaseTtlMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.LEASE_TTL_MS,
+      description:
+        "Owner lease window (ms); the reaper terminalizes a running turn past it.",
+    }),
+    heartbeatInterval: readEnv.number(SERVICE_ENV_KEYS.heartbeatIntervalMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.HEARTBEAT_INTERVAL_MS,
+      description:
+        "Owner lease renew cadence (ms); kept comfortably under the lease window.",
+    }),
+    reaperInterval: readEnv.number(SERVICE_ENV_KEYS.reaperIntervalMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.REAPER_INTERVAL_MS,
+      description:
+        "How often (ms) this instance sweeps expired-lease running turns.",
+    }),
+    reaperBatchLimit: readEnv.number(SERVICE_ENV_KEYS.reaperBatchLimit, {
+      defaultValue: RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
+      description:
+        "Max running turns one reaper sweep terminalizes, so a backlog drains gradually.",
+    }),
+    turnEventRetention: readEnv.number(SERVICE_ENV_KEYS.turnEventRetentionMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
+      description:
+        "How long (ms) a terminal turn keeps its turn_events after completion before pruning.",
+    }),
+    prunerInterval: readEnv.number(SERVICE_ENV_KEYS.prunerIntervalMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
+      description:
+        "How often (ms) this instance prunes turn_events of long-terminal turns.",
     }),
   },
 } satisfies SideChatConfig);

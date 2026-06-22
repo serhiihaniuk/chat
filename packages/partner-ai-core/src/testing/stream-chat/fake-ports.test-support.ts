@@ -21,7 +21,10 @@ import {
 import type { PolicyEvaluationInput, PolicyPort } from "#policies/policy";
 import type { ObservabilitySinkPort } from "#services/observability";
 import { prepareStreamChatTurn } from "#application/stream-chat/turn/prepare-stream-chat-turn";
-import { runTurnGeneration } from "#application/stream-chat/protocol/run-turn-generation";
+import {
+  runTurnGeneration,
+  type TurnLeaseSettings,
+} from "#application/stream-chat/protocol/run-turn-generation";
 import type { StreamChatInput, StreamChatPorts } from "#application/stream-chat/stream-chat-types";
 import {
   createManifest,
@@ -169,13 +172,24 @@ export const runStreamChat = (
 ): AsyncIterable<SidechatStreamEvent> =>
   effectToAsyncIterable(runTurnToEventLog(streamInput, ports));
 
+/**
+ * Lease settings for core tests: the heartbeat interval is far longer than any
+ * test run, so the lease is claimed once but never renews or fences. Fencing
+ * behavior is exercised by the service runner tests, which control the clock.
+ */
+export const TEST_TURN_LEASE: TurnLeaseSettings = {
+  instanceId: "instance_test",
+  leaseTtlMs: 600_000,
+  heartbeatIntervalMs: 600_000,
+};
+
 const runTurnToEventLog = (
   streamInput: StreamChatInput,
   ports: StreamChatPorts,
 ): Effect.Effect<readonly SidechatStreamEvent[], unknown> =>
   Effect.gen(function* () {
     const turn = yield* prepareStreamChatTurn(ports, streamInput);
-    yield* runTurnGeneration(ports, streamInput, turn);
+    yield* runTurnGeneration(ports, streamInput, turn, TEST_TURN_LEASE);
     return yield* ports.turnEventLog.readEventsAfter({
       authContext: turn.authContext,
       assistantTurnId: turn.assistantTurnId,

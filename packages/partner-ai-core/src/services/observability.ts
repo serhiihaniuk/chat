@@ -20,7 +20,17 @@ export type ObservabilityLifecycleState =
   | "started"
   | "runtime_event"
   | "completed"
-  | "failed";
+  | "failed"
+  // Resumable-streaming lifecycle, recorded by the service transport (not the core
+  // turn workflow) so operators can see subscriber churn, replay outcomes, reaps,
+  // cancels, and run duration on terminal across instances.
+  | "subscriber_attached"
+  | "subscriber_detached"
+  | "replay_served"
+  | "replay_expired"
+  | "turn_reaped"
+  | "turn_cancelled"
+  | "run_finished";
 
 /**
  * Redacted lifecycle observation for one stream-chat turn.
@@ -42,7 +52,9 @@ export type ObservabilityRecord = RequestCorrelation & {
 
 /** Telemetry adapter supplied by service composition. */
 export type ObservabilitySinkPort = {
-  readonly record: (record: ObservabilityRecord) => Effect.Effect<void, unknown>;
+  readonly record: (
+    record: ObservabilityRecord,
+  ) => Effect.Effect<void, unknown>;
 };
 
 /**
@@ -84,7 +96,9 @@ const SENSITIVE_KEY_PARTS = [
 
 const REDACTED = "[redacted]";
 
-export const createRequestCorrelation = (input: TraceCorrelationInput): RequestCorrelation => ({
+export const createRequestCorrelation = (
+  input: TraceCorrelationInput,
+): RequestCorrelation => ({
   requestId: input.requestId,
   traceId: input.traceId ?? `trace_${input.requestId}`,
 });
@@ -96,7 +110,8 @@ export const createRequestCorrelation = (input: TraceCorrelationInput): RequestC
  * private values under harmless-looking keys because this is a safety net, not
  * a semantic data-loss-prevention engine.
  */
-export const redactAttributes = (attributes: JsonObject): JsonObject => redactObject(attributes);
+export const redactAttributes = (attributes: JsonObject): JsonObject =>
+  redactObject(attributes);
 
 /**
  * Normalize unknown values into JSON primitives for diagnostic attributes.
@@ -132,5 +147,7 @@ const isJsonObject = (value: JsonValue): value is JsonObject =>
 
 const isSensitiveKey = (key: string): boolean => {
   const normalized = key.toLowerCase();
-  return SENSITIVE_KEY_PARTS.some((part) => normalized.includes(part.toLowerCase()));
+  return SENSITIVE_KEY_PARTS.some((part) =>
+    normalized.includes(part.toLowerCase()),
+  );
 };

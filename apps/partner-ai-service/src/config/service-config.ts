@@ -6,13 +6,21 @@ import type { PartnerAiServiceOptions } from "#inbound/http/app";
 import {
   PROVIDERS,
   REQUEST_POLICY_MODES,
-  RESUMABILITY_DEFAULTS,
   SERVICE_PROFILES,
   type RequestPolicyMode,
   type ServiceProfileValue,
 } from "./catalog/index.js";
-import { CAPABILITY_ENV_KEYS, createCapabilityConfigFromEnv } from "./service-capability-config.js";
+import { createCapabilityConfigFromEnv } from "./service-capability-config.js";
+import { createResumabilityConfigFromEnv } from "./env/service-resumability-config.js";
 import { ServiceConfigError } from "./service-config-error.js";
+import {
+  DEFAULT_SERVICE_PORT,
+  DEFAULT_TENANT_ID,
+  DEFAULT_WORKSPACE_ID,
+  SERVICE_ENV_KEYS,
+  envValue,
+  type ServiceEnv,
+} from "./env/service-env-contract.js";
 import { createModelMetadata } from "./model-catalog/service-model-metadata-config.js";
 import {
   readOpenAIReasoningEffort,
@@ -21,6 +29,14 @@ import {
 } from "./model-catalog/service-openai-reasoning-config.js";
 
 export { ServiceConfigError } from "./service-config-error.js";
+// Re-export the env contract so existing `#config/service-config` importers (auth,
+// demo seed, tests) keep one entrypoint while the keys live in a cycle-free leaf.
+export {
+  DEFAULT_SERVICE_PORT,
+  DEFAULT_TENANT_ID,
+  DEFAULT_WORKSPACE_ID,
+  SERVICE_ENV_KEYS,
+} from "./env/service-env-contract.js";
 
 /**
  * Environment-to-service adapter for deployable Side Chat configuration.
@@ -28,35 +44,9 @@ export { ServiceConfigError } from "./service-config-error.js";
  * Reads `SIDECHAT_*` process settings into HTTP, auth, policy, persistence,
  * runtime, and capability options for composition. It validates operator intent
  * and secret presence, but does not open providers, choose database clients, or
- * build model-visible context.
+ * build model-visible context. The env key names and defaults live in
+ * `service-env-contract.ts`.
  */
-export const SERVICE_ENV_KEYS = {
-  allowedModels: "SIDECHAT_ALLOWED_MODELS",
-  authBearerToken: "SIDECHAT_AUTH_BEARER_TOKEN",
-  ...CAPABILITY_ENV_KEYS,
-  databaseUrl: "SIDECHAT_DATABASE_URL",
-  demoSeedConversations: "SIDECHAT_DEMO_SEED_CONVERSATIONS",
-  modelContextWindows: "SIDECHAT_MODEL_CONTEXT_WINDOWS",
-  openaiApiKey: PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY,
-  openaiBaseUrl: PROVIDERS.OPENAI.TRANSPORT_ENV_KEYS.BASE_URL,
-  openaiReasoningEffort: "SIDECHAT_OPENAI_REASONING_EFFORT",
-  openaiReasoningEfforts: "SIDECHAT_OPENAI_REASONING_EFFORTS",
-  openaiReasoningSummary: "SIDECHAT_OPENAI_REASONING_SUMMARY",
-  policyMode: "SIDECHAT_POLICY_MODE",
-  port: "PORT",
-  profile: "SIDECHAT_PROFILE",
-  safetyPollIntervalMs: "SIDECHAT_SAFETY_POLL_INTERVAL_MS",
-  provider: "SIDECHAT_PROVIDER",
-  enableDevTools: "SIDECHAT_ENABLE_DEV_TOOLS",
-  tenantId: "SIDECHAT_TENANT_ID",
-  workspaceId: "SIDECHAT_WORKSPACE_ID",
-} as const;
-
-export const DEFAULT_SERVICE_PORT = 8787;
-export const DEFAULT_TENANT_ID = "tenant_local";
-export const DEFAULT_WORKSPACE_ID = "workspace_local";
-
-type ServiceEnv = Readonly<Record<string, string | undefined>>;
 type ServiceProfile = ServiceProfileValue;
 type PolicyMode = RequestPolicyMode;
 
@@ -82,16 +72,8 @@ export const createPartnerAiServiceOptionsFromEnv = (
     runtime: createRuntimeConfig(profile, env),
     capabilities,
     persistence,
-    resumability: { safetyPollIntervalMs: readSafetyPollInterval(env) },
+    resumability: createResumabilityConfigFromEnv(env),
   });
-};
-
-const readSafetyPollInterval = (env: ServiceEnv): number => {
-  const rawValue = envValue(env, SERVICE_ENV_KEYS.safetyPollIntervalMs);
-  if (!rawValue) return RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS;
-  const parsed = Number(rawValue);
-  if (Number.isFinite(parsed) && parsed > 0) return parsed;
-  throw new ServiceConfigError("SIDECHAT_SAFETY_POLL_INTERVAL_MS must be a positive number.");
 };
 
 export const readServicePort = (env: ServiceEnv = process.env): number => {
@@ -292,8 +274,3 @@ const readBooleanFlag = (rawFlag: string | undefined, fallback: boolean): boolea
 
 const normalizeBearerToken = (token: string): string =>
   token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-
-const envValue = (env: ServiceEnv, key: string): string | undefined => {
-  const value = env[key]?.trim();
-  return value ? value : undefined;
-};

@@ -6,7 +6,7 @@ import {
   parseTurnCancelNotification,
   type TurnCancelNotification,
   type TurnCancelNotificationSource,
-} from "../../turn-cancel-notifications.js";
+} from "../../notifications/turn-cancel-notifications.js";
 
 /**
  * Build the per-instance Postgres `LISTEN` source for durable cancel intent.

@@ -1,7 +1,12 @@
-import type { AuthContext, StreamChatPorts } from "@side-chat/partner-ai-core";
+import type {
+  AuthContext,
+  ObservabilitySinkPort,
+  StreamChatPorts,
+} from "@side-chat/partner-ai-core";
 import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
 import type { TurnEventNotificationSource } from "@side-chat/db";
 import { Effect, Exit, Queue, Scope, Stream } from "effect";
+import { recordResumableObservation } from "./turn-observability.js";
 
 /**
  * Local fan-out capacity per subscriber before the queue starts dropping.
@@ -55,6 +60,8 @@ export type TurnEventDispatcher = {
 export type TurnEventDispatcherDependencies = {
   readonly ports: StreamChatPorts;
   readonly notificationSource: TurnEventNotificationSource;
+  /** Optional telemetry sink; subscriber attach/detach and live count are recorded. */
+  readonly observability?: ObservabilitySinkPort | undefined;
 };
 
 /**
@@ -88,7 +95,8 @@ export const createTurnEventDispatcher = (
   const subscribe = (input: {
     readonly assistantTurnId: string;
     readonly authContext: AuthContext;
-  }): Promise<TurnEventSubscription> => Effect.runPromise(registerSubscriber(fanouts, input));
+  }): Promise<TurnEventSubscription> =>
+    Effect.runPromise(registerSubscriber(fanouts, dependencies, input));
 
   const shutdown = (): Promise<void> =>
     Effect.runPromise(Scope.close(scope, Exit.succeed(undefined)));
@@ -109,8 +117,10 @@ const startNotificationListener = (
   fanouts: Map<string, TurnFanout>,
   dependencies: TurnEventDispatcherDependencies,
 ): void => {
-  const drain = Stream.runForEach(dependencies.notificationSource.notifications, (notification) =>
-    reconcileTurn(fanouts, dependencies.ports, notification.assistantTurnId),
+  const drain = Stream.runForEach(
+    dependencies.notificationSource.notifications,
+    (notification) =>
+      reconcileTurn(fanouts, dependencies.ports, notification.assistantTurnId),
   );
   Effect.runSync(Effect.forkIn(drain, scope));
 };
@@ -124,16 +134,41 @@ const startNotificationListener = (
  */
 const registerSubscriber = (
   fanouts: Map<string, TurnFanout>,
-  input: { readonly assistantTurnId: string; readonly authContext: AuthContext },
+  dependencies: TurnEventDispatcherDependencies,
+  input: {
+    readonly assistantTurnId: string;
+    readonly authContext: AuthContext;
+  },
 ): Effect.Effect<TurnEventSubscription> =>
   Effect.gen(function* () {
-    const queue = yield* Queue.dropping<SidechatStreamEvent>(SUBSCRIBER_QUEUE_CAPACITY);
-    const fanout = ensureFanout(fanouts, input.assistantTurnId, input.authContext);
+    const queue = yield* Queue.dropping<SidechatStreamEvent>(
+      SUBSCRIBER_QUEUE_CAPACITY,
+    );
+    const fanout = ensureFanout(
+      fanouts,
+      input.assistantTurnId,
+      input.authContext,
+    );
     fanout.subscribers.add(queue);
+
+    yield* recordSubscriberChange(
+      dependencies,
+      input.assistantTurnId,
+      "subscriber_attached",
+      fanout,
+    );
 
     return {
       events: queue,
-      release: () => Effect.runPromise(releaseSubscriber(fanouts, input.assistantTurnId, queue)),
+      release: () =>
+        Effect.runPromise(
+          releaseSubscriber(
+            fanouts,
+            dependencies,
+            input.assistantTurnId,
+            queue,
+          ),
+        ),
     };
   });
 
@@ -145,7 +180,11 @@ const ensureFanout = (
   const existing = fanouts.get(assistantTurnId);
   if (existing) return existing;
 
-  const created: TurnFanout = { authContext, highWaterMark: -1, subscribers: new Set() };
+  const created: TurnFanout = {
+    authContext,
+    highWaterMark: -1,
+    subscribers: new Set(),
+  };
   fanouts.set(assistantTurnId, created);
   return created;
 };
@@ -159,6 +198,7 @@ const ensureFanout = (
  */
 const releaseSubscriber = (
   fanouts: Map<string, TurnFanout>,
+  dependencies: TurnEventDispatcherDependencies,
   assistantTurnId: string,
   queue: Queue.Queue<SidechatStreamEvent>,
 ): Effect.Effect<void> =>
@@ -166,9 +206,37 @@ const releaseSubscriber = (
     const fanout = fanouts.get(assistantTurnId);
     if (fanout) {
       fanout.subscribers.delete(queue);
+      yield* recordSubscriberChange(
+        dependencies,
+        assistantTurnId,
+        "subscriber_detached",
+        fanout,
+      );
       if (fanout.subscribers.size === 0) fanouts.delete(assistantTurnId);
     }
     yield* Queue.shutdown(queue);
+  });
+
+/**
+ * Record one subscriber attach/detach with the resulting live subscriber count.
+ *
+ * The count is the per-instance live fan-out size after the change, so operators
+ * can watch subscriber churn per turn. Telemetry is best-effort: the recorder
+ * swallows sink failures, so this never affects subscribe/release control flow.
+ */
+const recordSubscriberChange = (
+  dependencies: TurnEventDispatcherDependencies,
+  assistantTurnId: string,
+  lifecycleState: "subscriber_attached" | "subscriber_detached",
+  fanout: TurnFanout,
+): Effect.Effect<void> =>
+  recordResumableObservation({
+    sink: dependencies.observability,
+    lifecycleState,
+    assistantTurnId,
+    requestId: assistantTurnId,
+    now: dependencies.ports.clock.now(),
+    attributes: { subscriberCount: fanout.subscribers.size },
   });
 
 /**
@@ -206,9 +274,16 @@ const readNewEvents = (
       assistantTurnId,
       after: fanout.highWaterMark,
     })
-    .pipe(Effect.catchCause(() => Effect.succeed([] as readonly SidechatStreamEvent[])));
+    .pipe(
+      Effect.catchCause(() =>
+        Effect.succeed([] as readonly SidechatStreamEvent[]),
+      ),
+    );
 
-const offerToSubscribers = (fanout: TurnFanout, event: SidechatStreamEvent): void => {
+const offerToSubscribers = (
+  fanout: TurnFanout,
+  event: SidechatStreamEvent,
+): void => {
   for (const queue of fanout.subscribers) {
     // Non-blocking: a full (lagging) subscriber drops the signal and re-syncs
     // from the durable log on its next safety poll.

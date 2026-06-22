@@ -70,9 +70,15 @@ export const readHistoryWithFetch = async (
   transport: FetchLike,
 ): Promise<ReadHistoryResult> => {
   assertNotAborted(options.signal);
+  // Read the single-conversation route so history arrives with the server's
+  // activeTurn pointer, letting a reconnecting client resume an in-flight turn
+  // from the same read that loaded past messages.
   const url = new URL(
     encodeURIComponent(conversationId),
-    `${buildPathUrl(clientOptions.baseUrl, clientOptions.historyPath ?? DEFAULT_HISTORY_PATH)}/`,
+    `${buildPathUrl(
+      clientOptions.baseUrl,
+      clientOptions.conversationsPath ?? DEFAULT_CONVERSATIONS_PATH,
+    )}/`,
   );
   if (options.limit !== undefined) {
     url.searchParams.set("limit", String(options.limit));
@@ -131,10 +137,25 @@ const normalizeHistory = (payload: unknown): ReadHistoryResult => {
   if (!Array.isArray(payload["messages"])) {
     throw new SideChatApiError("network_error", "Malformed history response");
   }
-  return {
+  return omitUndefinedProperties({
     conversationId: payload["conversationId"],
     messages: payload["messages"].map(normalizeHistoryMessage),
-  };
+    activeTurn: normalizeActiveTurn(payload["activeTurn"]),
+  });
+};
+
+// `activeTurn` is null/absent when no turn is in flight. A present pointer must
+// carry the turn id + status so a reconnecting client can resume it.
+const normalizeActiveTurn = (payload: unknown): ReadHistoryResult["activeTurn"] => {
+  if (payload === null || payload === undefined) return undefined;
+  if (
+    !isRecord(payload) ||
+    typeof payload["assistantTurnId"] !== "string" ||
+    typeof payload["status"] !== "string"
+  ) {
+    throw new SideChatApiError("network_error", "Malformed history response");
+  }
+  return { assistantTurnId: payload["assistantTurnId"], status: payload["status"] };
 };
 
 const normalizeConversationList = (payload: unknown): ListConversationsResult => {

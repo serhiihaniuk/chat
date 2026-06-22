@@ -32,9 +32,9 @@ describe("SideChatWidget interactions", () => {
       await Promise.resolve();
       requests.push(request);
       yield started();
-      yield delta("Hello ");
-      yield delta("from the widget");
-      yield completed();
+      yield delta("Hello ", 1);
+      yield delta("from the widget", 2);
+      yield completed(3);
     });
 
     renderWidget(client);
@@ -96,24 +96,38 @@ describe("SideChatWidget interactions", () => {
     expect(dispatchCount).toBe(1);
   });
 
-  it("aborts the active request from the stop control", async () => {
-    const observedSignals: AbortSignal[] = [];
+  it("cancels the live turn from the stop control", async () => {
+    const cancelledTurnIds: string[] = [];
     const client: SideChatApiClient = {
-      streamChat: (_request, options) => {
-        if (options?.signal) observedSignals.push(options.signal);
-        return Promise.resolve({
-          attempt: 1,
-          events: neverEndingEvents(),
-        });
+      createRun: (request) =>
+        Promise.resolve({
+          requestId: request.requestId,
+          assistantTurnId: "turn-1",
+          conversationId: "conversation-1",
+          status: "running",
+        }),
+      subscribeTurn: () => Promise.resolve({ events: neverEndingEvents() }),
+      resolveRun: () => Promise.resolve({ assistantTurnId: "turn-1", status: "running" }),
+      getTurnStatus: () =>
+        Promise.resolve({
+          assistantTurnId: "turn-1",
+          conversationId: "conversation-1",
+          requestId: "request-1",
+          status: "running",
+        }),
+      cancelTurn: (assistantTurnId) => {
+        cancelledTurnIds.push(assistantTurnId);
+        return Promise.resolve({ assistantTurnId, cancelRequested: true });
       },
     };
 
     renderWidget(client);
     await submit("keep streaming");
     await waitForText("keep streaming");
+    // The composer swaps Send for a stop control while busy; pressing it cancels.
     await clickButton("Send");
 
-    expect(observedSignals[0]?.aborted).toBe(true);
+    expect(cancelledTurnIds).toEqual(["turn-1"]);
   });
 
   it("lets a host own open state and suppress the internal launcher", async () => {

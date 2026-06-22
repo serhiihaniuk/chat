@@ -4,6 +4,9 @@ export const SIDE_CHAT_API_ERROR_CODES = {
   ABORTED: "aborted",
   MALFORMED_STREAM: "malformed_stream",
   MISSING_TERMINAL: "missing_terminal",
+  // The turn's durable log can no longer be replayed (pruned, or the turn is
+  // gone). Callers fall back to conversation history and clear the active run.
+  REPLAY_EXPIRED: "replay_expired",
 } as const;
 
 export type SideChatApiErrorCode =

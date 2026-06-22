@@ -28,6 +28,11 @@ function readPortEnv(name: string, fallback: number): number {
 
 const widgetAppUrl = (query: string): string => `${widgetFramePath}${query}`;
 
+// The resumable flow streams over GET /chat/turns/:id/stream (POST /chat/runs only
+// returns JSON identity), so the SSE response to wait for matches that route.
+const isTurnStreamResponse = (url: string): boolean =>
+  /\/side-chat-api\/chat\/turns\/[^/]+\/stream/u.test(url);
+
 test.beforeEach(({ page }) => {
   const pageErrors: string[] = [];
   pageErrorLog.set(page, pageErrors);
@@ -68,9 +73,7 @@ test("streams through the real widget and real backend with mocked DB and model"
   await expectServiceHealth(request);
   await openLocalServiceWidget(page);
 
-  const streamResponse = page.waitForResponse((response) =>
-    response.url().includes("/side-chat-api/chat/stream"),
-  );
+  const streamResponse = page.waitForResponse((response) => isTurnStreamResponse(response.url()));
 
   await page.getByLabel("Message").fill("hello e2e backend");
   await page.getByRole("button", { name: "Send" }).click();
@@ -155,9 +158,7 @@ test("streams from the local service while embedded in an iframe", async ({ page
   await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
   const resizedPanelWidth = await resizePanelFromLeftEdge(page, frame, 72);
 
-  const streamResponse = page.waitForResponse((response) =>
-    response.url().includes("/side-chat-api/chat/stream"),
-  );
+  const streamResponse = page.waitForResponse((response) => isTurnStreamResponse(response.url()));
 
   await frame.getByLabel("Message").fill("hello iframe backend");
   await frame.getByRole("button", { name: "Send" }).click();

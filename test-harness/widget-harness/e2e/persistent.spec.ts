@@ -11,25 +11,15 @@ test("persists send, history, reset, and usage through public widget and service
   await expectPersistentServiceHealth(request);
   await openPersistentWidget(page);
 
-  const streamResponse = page.waitForResponse((response) =>
-    response.url().includes("/side-chat-api/chat/stream"),
-  );
-  await page.getByLabel("Message").fill("My project codename is Blue Lynx.");
-  await page.getByRole("button", { name: "Send" }).click();
-  const streamBody = await (await streamResponse).text();
-  const conversationId = readConversationId(streamBody);
-  const totalTokens = readTotalTokens(streamBody);
-  expect(totalTokens).toBeGreaterThan(0);
+  const firstTurn = await sendAndReadTurn(page, "My project codename is Blue Lynx.");
+  const conversationId = firstTurn.conversationId;
+  expect(firstTurn.totalTokens).toBeGreaterThan(0);
   await expect(page.getByText("Fake response: My project codename is Blue Lynx.")).toBeVisible({
     timeout: 15_000,
   });
 
-  const followUpResponse = page.waitForResponse((response) =>
-    response.url().includes("/side-chat-api/chat/stream"),
-  );
-  await page.getByLabel("Message").fill("What is my project codename?");
-  await page.getByRole("button", { name: "Send" }).click();
-  const followUpTokens = readTotalTokens(await (await followUpResponse).text());
+  const followUp = await sendAndReadTurn(page, "What is my project codename?");
+  const followUpTokens = followUp.totalTokens;
   await expect(page.getByText("Your project codename is Blue Lynx.")).toBeVisible({
     timeout: 15_000,
   });
@@ -41,7 +31,7 @@ test("persists send, history, reset, and usage through public widget and service
     "What is my project codename?",
     "Your project codename is Blue Lynx.",
   ]);
-  await expectPersistentUsage(request, totalTokens + followUpTokens);
+  await expectPersistentUsage(request, firstTurn.totalTokens + followUpTokens);
 
   const reset = await request.delete(`${serviceBaseUrl}/chat/history/${conversationId}`, {
     headers: authHeaders(),
@@ -71,16 +61,42 @@ const expectPersistentServiceHealth = async (request: APIRequestContext) => {
   });
 };
 
+/**
+ * Send one message and read its turn identity + usage from the resumable flow.
+ *
+ * `POST /chat/runs` returns the conversation id as JSON; the usage total arrives
+ * on the `completed` event in the `GET /chat/turns/:id/stream` SSE body. Waiting
+ * on both responses mirrors how the widget drives a turn.
+ */
+const sendAndReadTurn = async (
+  page: Page,
+  message: string,
+): Promise<{ readonly conversationId: string; readonly totalTokens: number }> => {
+  const runResponse = page.waitForResponse((response) =>
+    response.url().includes("/side-chat-api/chat/runs"),
+  );
+  const streamResponse = page.waitForResponse((response) =>
+    /\/side-chat-api\/chat\/turns\/[^/]+\/stream/u.test(response.url()),
+  );
+
+  await page.getByLabel("Message").fill(message);
+  await page.getByRole("button", { name: "Send" }).click();
+
+  const conversationId = readConversationId(await (await runResponse).text());
+  const totalTokens = readTotalTokens(await (await streamResponse).text());
+  return { conversationId, totalTokens };
+};
+
 const readConversationId = (body: string): string => {
   const match = /"conversationId":"([^"]+)"/u.exec(body);
-  if (!match?.[1]) throw new Error("Expected stream to include a conversation id.");
+  if (!match?.[1]) throw new Error("Expected the run response to include a conversation id.");
   return match[1];
 };
 
 const readTotalTokens = (body: string): number => {
   const match = /"totalTokens":(?<totalTokens>\d+)/u.exec(body);
   if (!match?.groups?.["totalTokens"]) {
-    throw new Error("Expected stream to include usage total tokens.");
+    throw new Error("Expected the turn stream to include usage total tokens.");
   }
   return Number(match.groups["totalTokens"]);
 };

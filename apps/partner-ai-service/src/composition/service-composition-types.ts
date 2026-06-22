@@ -16,6 +16,8 @@ import type {
 } from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
+import type { TurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
+import type { TurnPruner } from "#inbound/turn-runner/maintenance/turn-pruner";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import type { TurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
@@ -43,11 +45,50 @@ export type PersistenceConfig =
  *
  * `safetyPollIntervalMs` is the per-subscriber reconcile cadence: a low-frequency
  * backstop that re-reads the durable log so a missed Postgres `NOTIFY` (or a
- * listener reconnect) still advances a live subscriber. Later resumability steps
- * add lease/heartbeat/reaper tunables to this same section.
+ * listener reconnect) still advances a live subscriber.
+ *
+ * The lease fields drive owner-lease fencing: `instanceId` identifies this
+ * process as a lease owner; `leaseTtlMs`/`heartbeatIntervalMs` size the lease
+ * window and the renew cadence under it; `reaperIntervalMs`/`reaperBatchLimit` are
+ * how often this instance sweeps expired-lease running turns and how many it
+ * terminalizes per pass to fence dead or slow owners.
+ *
+ * The retention fields drive `turn_events` pruning: `turnEventRetentionMs` is how
+ * long a terminal turn keeps its event rows after completion, `prunerIntervalMs`
+ * is the sweep cadence, and `prunerBatchLimit` bounds one sweep so a backlog
+ * drains over several passes. The turn record and assistant message are never
+ * pruned — only the now-redundant event log.
  */
 export type ResumabilityConfig = {
   readonly safetyPollIntervalMs: number;
+  readonly instanceId: string;
+  readonly leaseTtlMs: number;
+  readonly heartbeatIntervalMs: number;
+  readonly reaperIntervalMs: number;
+  readonly reaperBatchLimit: number;
+  readonly turnEventRetentionMs: number;
+  readonly prunerIntervalMs: number;
+  readonly prunerBatchLimit: number;
+};
+
+/**
+ * Caller-supplied resumability overrides; every field is optional.
+ *
+ * Composition resolves this into a full {@link ResumabilityConfig}, defaulting
+ * each omitted field to its catalog value. A caller that only tunes one knob
+ * (e.g. a test shortening `safetyPollIntervalMs`) supplies just that field and
+ * inherits the lease defaults, instead of having to restate the whole contract.
+ */
+export type ResumabilityOptions = {
+  readonly safetyPollIntervalMs?: number | undefined;
+  readonly instanceId?: string | undefined;
+  readonly leaseTtlMs?: number | undefined;
+  readonly heartbeatIntervalMs?: number | undefined;
+  readonly reaperIntervalMs?: number | undefined;
+  readonly reaperBatchLimit?: number | undefined;
+  readonly turnEventRetentionMs?: number | undefined;
+  readonly prunerIntervalMs?: number | undefined;
+  readonly prunerBatchLimit?: number | undefined;
 };
 
 export type RuntimeModelMetadata = {
@@ -120,10 +161,24 @@ export type ServiceComposition = {
   readonly dispatcher: TurnEventDispatcher;
   /** Per-instance reaction to cross-instance cancel intent; interrupts owned fibers. */
   readonly cancelDispatcher: TurnCancelDispatcher;
+  /** Per-instance background terminalizer for dead/slow-owner lease recovery. */
+  readonly reaper: TurnReaper;
+  /** Per-instance background pruner enforcing turn_events retention. */
+  readonly pruner: TurnPruner;
+  /** Optional telemetry sink shared with routes for resumable lifecycle records. */
+  readonly observability?: ObservabilitySinkPort | undefined;
   /** Resolved per-subscriber reconcile cadence for the subscription stream. */
   readonly safetyPollIntervalMs: number;
   readonly capabilities: ServiceCapabilityStatus;
   readonly diagnostics: ServiceDiagnostics;
+  /**
+   * Stop every background owner of a scope/timer/listener for clean shutdown.
+   *
+   * Interrupts in-flight generation (each fiber's `onExit` finalizes it), then
+   * tears down the reaper and pruner sweeps, the cancel listener, and the event
+   * listener, so a SIGTERM leaves no running timers or open `LISTEN` connections.
+   */
+  readonly shutdown: () => Promise<void>;
 };
 
 /**
@@ -141,7 +196,9 @@ export type ServiceCompositionOptions = {
   readonly repositories?: SidechatRepositories | undefined;
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
   readonly agentRuntime?: AgentRuntime | undefined;
-  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
+  readonly conversationTitleGeneration?:
+    | ConversationTitleGenerationPort
+    | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
   /** Capability declarations for implemented service context behavior. */
   readonly capabilities?: ServiceCapabilityConfig | undefined;
@@ -150,6 +207,6 @@ export type ServiceCompositionOptions = {
   readonly defaultTurnProfileId?: string | undefined;
   readonly turnGuards?: TurnGuardRegistryPort | undefined;
   readonly turnGuardIds?: readonly string[] | undefined;
-  /** Resumable-streaming tunables; defaults to the catalog values when omitted. */
-  readonly resumability?: ResumabilityConfig | undefined;
+  /** Resumable-streaming tunables; each omitted field defaults to its catalog value. */
+  readonly resumability?: ResumabilityOptions | undefined;
 };

@@ -1,16 +1,10 @@
-import {
-  SIDECHAT_PROTOCOL_VERSION,
-  type ChatStreamRequest,
-  type CompletedEvent,
-  type DeltaEvent,
-  type SidechatStreamEvent,
-  type StartedEvent,
-} from "@side-chat/chat-protocol";
+import type { ChatStreamRequest, SidechatStreamEvent } from "@side-chat/chat-protocol";
 import { Window } from "happy-dom";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
 
+import { resetWidgetRunStores } from "#features/chat";
 import type { ConversationSummary, SideChatApiClient } from "#entities/conversation";
 
 // Shared happy-dom + React rendering harness for the SideChatWidget DOM tests in
@@ -74,6 +68,9 @@ export const installWidgetTestDom = (): void => {
         root.unmount();
       });
     }
+    // The run store is module-level (it must survive component remounts), so reset
+    // it between tests or a leftover run leaks into the next case's anonymous store.
+    resetWidgetRunStores();
     windowRef?.close();
     vi.restoreAllMocks();
     for (const [name, descriptor] of previousGlobals.slice().reverse()) {
@@ -138,6 +135,14 @@ export const waitForText = async (text: string): Promise<void> => {
   throw new Error(`Expected document text to include ${text}.`);
 };
 
+/**
+ * Build a fake widget client over the resumable two-call flow.
+ *
+ * `createRun` records the request and returns a fixed turn identity (matching the
+ * fixture `started` event); `subscribeTurn` replays the events `createEvents`
+ * produces for that request. A rejecting `createEvents` surfaces at stream open,
+ * exactly where a real subscribe failure would.
+ */
 export const fakeClient = (
   createEvents: (
     request: ChatStreamRequest,
@@ -145,39 +150,48 @@ export const fakeClient = (
   overrides: Partial<
     Pick<SideChatApiClient, "listConversations" | "listModels" | "readHistory">
   > = {},
-): SideChatApiClient => ({
-  ...overrides,
-  streamChat: async (request) => ({
-    attempt: 1,
-    events: await createEvents(request),
-  }),
-});
+): SideChatApiClient => {
+  // A counter keeps each created run's turn id distinct even though the test env
+  // mocks crypto.randomUUID to a constant request id, so the controller does not
+  // dedupe a second turn's subscription against the first.
+  const runs = new Map<string, ChatStreamRequest>();
+  let counter = 0;
 
-export const baseEvent = (sequence: number) => ({
-  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-  eventId: `event-${sequence}`,
-  assistantTurnId: "turn-1",
-  sequence,
-  createdAt: "2026-05-23T13:00:00.000Z",
-});
+  return {
+    ...overrides,
+    createRun: (request) => {
+      counter += 1;
+      const assistantTurnId = `turn-${counter}`;
+      runs.set(assistantTurnId, request);
+      return Promise.resolve({
+        requestId: request.requestId,
+        assistantTurnId,
+        conversationId: "conversation-1",
+        status: "running",
+      });
+    },
+    subscribeTurn: async (assistantTurnId) => {
+      const request = runs.get(assistantTurnId);
+      if (!request) throw new Error(`Expected createRun before subscribeTurn ${assistantTurnId}.`);
+      return { events: await createEvents(request) };
+    },
+    resolveRun: () => Promise.resolve({ assistantTurnId: `turn-${counter}`, status: "running" }),
+    getTurnStatus: (assistantTurnId) =>
+      Promise.resolve({
+        assistantTurnId,
+        conversationId: "conversation-1",
+        requestId: runs.get(assistantTurnId)?.requestId ?? "request-1",
+        status: "running",
+      }),
+    cancelTurn: (assistantTurnId) => Promise.resolve({ assistantTurnId, cancelRequested: true }),
+  };
+};
 
-export const started = (conversationId = "conversation-1"): StartedEvent => ({
-  ...baseEvent(0),
-  type: "sidechat.started",
-  conversationId,
-});
-
-export const delta = (content: string): DeltaEvent => ({
-  ...baseEvent(1),
-  type: "sidechat.delta",
-  content,
-});
-
-export const completed = (): CompletedEvent => ({
-  ...baseEvent(2),
-  type: "sidechat.completed",
-  finishReason: "stop",
-});
+// Protocol event builders live with the chat entity test fixtures; re-export them
+// here so existing DOM test imports stay stable. Sourced through the package-private
+// chat barrel so the re-export does not cross the widgets -> entities layer with a
+// relative path.
+export { baseEvent, completed, delta, started } from "#entities/chat";
 
 export const conversationSummary = (
   conversationId: string,

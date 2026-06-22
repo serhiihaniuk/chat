@@ -116,6 +116,16 @@ export const createAssistantTurnLifecyclePort = (
       cancelRequested: controlState.cancelRequested,
     });
   },
+  acquireTurnLease: () => {
+    calls.push("acquireTurnLease");
+    // The fake never fences: core stream tests do not exercise the lease, which
+    // the service runner owns; they only need the port to resolve.
+    return Effect.succeed({ acquired: true, leaseEpoch: 1 });
+  },
+  renewTurnLease: () => {
+    calls.push("renewTurnLease");
+    return Effect.succeed({ renewed: true });
+  },
 });
 
 /**

@@ -1,6 +1,10 @@
 export { createSideChatApiClient } from "./client/side-chat-api-client.js";
 export type {
+  ActiveTurnSummary,
+  CancelTurnResult,
   ConversationSummary,
+  CreateRunOptions,
+  CreateRunResult,
   FetchLike,
   ListConversationsOptions,
   ListConversationsResult,
@@ -11,13 +15,15 @@ export type {
   ReadHistoryOptions,
   ReadHistoryResult,
   ReadUsageOptions,
+  ResolveRunResult,
   RetryPolicy,
   ResetHistoryOptions,
   ResetHistoryResult,
   SideChatApiClient,
   SideChatApiClientOptions,
-  StreamChatOptions,
-  StreamChatResult,
+  SubscribeTurnOptions,
+  SubscribeTurnResult,
+  TurnStatusResult,
 } from "./client/side-chat-api-types.js";
 export {
   SIDE_CHAT_API_ERROR_CODES,

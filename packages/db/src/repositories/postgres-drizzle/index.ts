@@ -6,6 +6,7 @@ import { REPOSITORY_ADAPTER_KINDS, type SidechatRepositories } from "../contract
 import { createPostgresDrizzleConversationRepository } from "./records/conversations.js";
 import { createPostgresDrizzleInteractionRepository } from "./records/interactions.js";
 import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
+import { createPostgresTurnLeaseRepository } from "./records/turn-lease.js";
 import { createRandomIdGenerator } from "../repository-utils.js";
 
 export { createPostgresTurnEventNotificationSource } from "./notifications/turn-event-notification-source.js";
@@ -36,6 +37,7 @@ export const createPostgresDrizzleSidechatRepositories = (
     close: () => pool.end(),
     ...createPostgresDrizzleConversationRepository(context),
     ...createPostgresDrizzleTurnRepository(context),
+    ...createPostgresTurnLeaseRepository(context.db),
     ...createPostgresDrizzleInteractionRepository(context),
   };
 };

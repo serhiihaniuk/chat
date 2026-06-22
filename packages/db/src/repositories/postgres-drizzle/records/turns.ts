@@ -1,6 +1,10 @@
 import { and, eq, sql } from "drizzle-orm";
 
-import { assistantTurns, turnContextSnapshots, usageRecords } from "#drizzle/schema";
+import {
+  assistantTurns,
+  turnContextSnapshots,
+  usageRecords,
+} from "#drizzle/schema";
 import { TURN_CANCEL_NOTIFY_CHANNEL } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
@@ -11,7 +15,13 @@ import {
   toContextSnapshotRecord,
   toUsageRecord,
 } from "./records.js";
-import { appendTurnEvent, maxTurnEventSequence, readTurnEventsAfter } from "./turn-events.js";
+import {
+  appendTurnEvent,
+  maxTurnEventSequence,
+  minTurnEventSequence,
+  pruneTurnEventsBefore,
+  readTurnEventsAfter,
+} from "./turn-events.js";
 import {
   findActiveAssistantTurn,
   findAssistantTurn,
@@ -31,6 +41,8 @@ export const createPostgresDrizzleTurnRepository = ({
   | "findAssistantTurn"
   | "findAssistantTurnByRequest"
   | "maxTurnEventSequence"
+  | "minTurnEventSequence"
+  | "pruneTurnEventsBefore"
   | "readTurnEventsAfter"
   | "recordTurnContextSnapshot"
   | "recordUsage"
@@ -206,6 +218,8 @@ export const createPostgresDrizzleTurnRepository = ({
   appendTurnEvent: appendTurnEvent(db),
   readTurnEventsAfter: readTurnEventsAfter(db),
   maxTurnEventSequence: maxTurnEventSequence(db),
+  minTurnEventSequence: minTurnEventSequence(db),
+  pruneTurnEventsBefore: pruneTurnEventsBefore(db),
   findAssistantTurn: findAssistantTurn(db),
   findAssistantTurnByRequest: findAssistantTurnByRequest(db),
   findActiveAssistantTurn: findActiveAssistantTurn(db),
@@ -247,7 +261,11 @@ export const createPostgresDrizzleTurnRepository = ({
       .limit(1);
     return result(
       toUsageRecord(
-        one(existing, "record_not_found", "Usage conflict did not return an existing record."),
+        one(
+          existing,
+          "record_not_found",
+          "Usage conflict did not return an existing record.",
+        ),
       ),
       false,
     );

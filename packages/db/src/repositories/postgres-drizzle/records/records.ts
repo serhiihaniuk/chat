@@ -27,7 +27,7 @@ import type {
   UsageRecord,
 } from "#schema-contract";
 import { DbRepositoryError } from "../../errors.js";
-import { one } from "../../repository-utils.js";
+import { isoTimestamp, one, optionalIsoTimestamp } from "../../repository-utils.js";
 
 export const toConversationRecord = (
   row: typeof conversations.$inferSelect,
@@ -40,9 +40,9 @@ export const toConversationRecord = (
   ...omitNullishField("titleText", row.titleText),
   createdByActorId: row.createdByActorId,
   ...omitNullishField("historyCutoffSequenceIndex", row.historyCutoffSequenceIndex),
-  createdAt: row.createdAt,
-  updatedAt: row.updatedAt,
-  lastMessageAt: row.lastMessageAt,
+  createdAt: isoTimestamp(row.createdAt),
+  updatedAt: isoTimestamp(row.updatedAt),
+  lastMessageAt: isoTimestamp(row.lastMessageAt),
 });
 
 export const toMessageRecord = (row: typeof messages.$inferSelect): MessageRecord => ({
@@ -54,8 +54,8 @@ export const toMessageRecord = (row: typeof messages.$inferSelect): MessageRecor
   metadataJson: row.metadataJson,
   sequenceIndex: row.sequenceIndex,
   ...omitNullishField("idempotencyKey", row.idempotencyKey),
-  createdAt: row.createdAt,
-  updatedAt: row.createdAt,
+  createdAt: isoTimestamp(row.createdAt),
+  updatedAt: isoTimestamp(row.createdAt),
 });
 
 export const toAssistantTurnRecord = (
@@ -78,11 +78,14 @@ export const toAssistantTurnRecord = (
   status: row.status as AssistantTurnRecord["status"],
   ...omitNullishField("finishReason", row.finishReason),
   ...omitNullishField("errorCode", row.errorCode),
-  startedAt: row.startedAt,
-  ...omitNullishField("completedAt", row.completedAt),
-  ...omitNullishField("cancelRequestedAt", row.cancelRequestedAt),
-  createdAt: row.startedAt,
-  updatedAt: row.completedAt ?? row.startedAt,
+  startedAt: isoTimestamp(row.startedAt),
+  ...omitNullishField("completedAt", optionalIsoTimestamp(row.completedAt)),
+  ...omitNullishField("cancelRequestedAt", optionalIsoTimestamp(row.cancelRequestedAt)),
+  ...omitNullishField("ownerInstanceId", row.ownerInstanceId),
+  ...omitNullishField("leaseExpiresAt", optionalIsoTimestamp(row.leaseExpiresAt)),
+  leaseEpoch: row.leaseEpoch,
+  createdAt: isoTimestamp(row.startedAt),
+  updatedAt: isoTimestamp(row.completedAt ?? row.startedAt),
 });
 
 export const toTurnEventRecord = (row: typeof turnEvents.$inferSelect): TurnEventRecord => ({
@@ -90,7 +93,7 @@ export const toTurnEventRecord = (row: typeof turnEvents.$inferSelect): TurnEven
   sequence: row.sequence,
   type: row.type as TurnEventType,
   payloadJson: row.payloadJson,
-  createdAt: row.createdAt,
+  createdAt: isoTimestamp(row.createdAt),
 });
 
 export const toContextSnapshotRecord = (
@@ -104,8 +107,8 @@ export const toContextSnapshotRecord = (
   hostContextHash: row.hostContextHash,
   capabilitiesHash: row.capabilitiesHash,
   contextRedactedJson: row.contextRedactedJson,
-  createdAt: row.createdAt,
-  updatedAt: row.createdAt,
+  createdAt: isoTimestamp(row.createdAt),
+  updatedAt: isoTimestamp(row.createdAt),
 });
 
 export const toUsageRecord = (row: typeof usageRecords.$inferSelect): UsageRecord => ({
@@ -122,8 +125,8 @@ export const toUsageRecord = (row: typeof usageRecords.$inferSelect): UsageRecor
   cachedInputTokens: row.cachedInputTokens,
   totalTokens: row.totalTokens,
   costUnits: row.costUnits,
-  createdAt: row.createdAt,
-  updatedAt: row.createdAt,
+  createdAt: isoTimestamp(row.createdAt),
+  updatedAt: isoTimestamp(row.createdAt),
 });
 
 export const toToolInvocationRecord = (
@@ -141,10 +144,10 @@ export const toToolInvocationRecord = (
   inputRedactedJson: row.inputRedactedJson,
   ...omitNullishField("outputRedactedJson", row.outputRedactedJson),
   ...omitNullishField("errorCode", row.errorCode),
-  startedAt: row.startedAt,
-  ...omitNullishField("completedAt", row.completedAt),
-  createdAt: row.startedAt,
-  updatedAt: row.completedAt ?? row.startedAt,
+  startedAt: isoTimestamp(row.startedAt),
+  ...omitNullishField("completedAt", optionalIsoTimestamp(row.completedAt)),
+  createdAt: isoTimestamp(row.startedAt),
+  updatedAt: isoTimestamp(row.completedAt ?? row.startedAt),
 });
 
 export const toHostCommandResultRecord = (
@@ -160,9 +163,9 @@ export const toHostCommandResultRecord = (
   resultCode: row.resultCode,
   commandRedactedJson: row.commandRedactedJson,
   ...omitNullishField("resultRedactedJson", row.resultRedactedJson),
-  createdAt: row.createdAt,
-  updatedAt: row.resolvedAt ?? row.createdAt,
-  ...omitNullishField("resolvedAt", row.resolvedAt),
+  createdAt: isoTimestamp(row.createdAt),
+  updatedAt: isoTimestamp(row.resolvedAt ?? row.createdAt),
+  ...omitNullishField("resolvedAt", optionalIsoTimestamp(row.resolvedAt)),
 });
 
 export const toAuditEventRecord = (row: typeof auditEvents.$inferSelect): AuditEventRecord => ({
@@ -175,8 +178,8 @@ export const toAuditEventRecord = (row: typeof auditEvents.$inferSelect): AuditE
   targetId: row.targetId,
   metadataJson: row.metadataJson,
   requestId: row.requestId,
-  createdAt: row.createdAt,
-  updatedAt: row.createdAt,
+  createdAt: isoTimestamp(row.createdAt),
+  updatedAt: isoTimestamp(row.createdAt),
 });
 
 const requireConversation = async (

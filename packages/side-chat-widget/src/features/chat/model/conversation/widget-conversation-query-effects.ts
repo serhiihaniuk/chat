@@ -8,7 +8,6 @@ import {
 } from "#entities/conversation";
 import { toWidgetHistoryMessages } from "./widget-conversations.js";
 
-type SetWidgetMessages = Dispatch<SetStateAction<WidgetMessage[]>>;
 type SetWidgetError = Dispatch<SetStateAction<string | undefined>>;
 
 export const usePersistConversationStore = ({
@@ -48,26 +47,26 @@ export const useConversationQueryErrors = ({
   }, [historyError, setErrorMessage, shouldLoadHistory]);
 };
 
+/**
+ * Derive the displayed transcript for a selected conversation from its history.
+ *
+ * Pure projection: the live run owns messages while it is visible, so this only
+ * supplies the stored transcript when no run is shown. It returns `undefined`
+ * until the matching conversation's history has loaded so callers can fall back
+ * to an empty list rather than flashing a stale conversation.
+ */
 export const useConversationHistoryMessages = ({
   conversationId,
   history,
-  setMessages,
   shouldLoadHistory,
 }: {
   readonly conversationId: string | undefined;
   readonly history: ReadHistoryResult | undefined;
-  readonly setMessages: SetWidgetMessages;
   readonly shouldLoadHistory: boolean;
-}): readonly WidgetMessage[] | undefined => {
-  const historyMessages = useMemo(
-    () => (history ? [...toWidgetHistoryMessages(history)] : undefined),
-    [history],
-  );
-
-  useEffect(() => {
-    if (!shouldLoadHistory || !history || history.conversationId !== conversationId) return;
-    setMessages([...toWidgetHistoryMessages(history)]);
-  }, [conversationId, history, setMessages, shouldLoadHistory]);
-
-  return historyMessages;
-};
+}): readonly WidgetMessage[] | undefined =>
+  useMemo(() => {
+    if (!shouldLoadHistory || !history || history.conversationId !== conversationId) {
+      return undefined;
+    }
+    return [...toWidgetHistoryMessages(history)];
+  }, [conversationId, history, shouldLoadHistory]);
