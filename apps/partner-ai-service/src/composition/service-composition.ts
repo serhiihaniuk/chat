@@ -1,8 +1,11 @@
 import {
+  createPostgresTurnActivityNotificationSource,
   createPostgresTurnCancelNotificationSource,
   createPostgresTurnEventNotificationSource,
+  NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE,
   NOOP_TURN_CANCEL_NOTIFICATION_SOURCE,
   NOOP_TURN_EVENT_NOTIFICATION_SOURCE,
+  type TurnActivityNotificationSource,
   type TurnCancelNotificationSource,
   type TurnEventNotificationSource,
 } from "@side-chat/db";
@@ -23,6 +26,7 @@ import { createTurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import { createTurnPruner } from "#inbound/turn-runner/maintenance/turn-pruner";
 import { createTurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
+import { createTurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
 import { resolveResumabilityConfig } from "./resumability-resolution.js";
 import type {
   PersistenceConfig,
@@ -170,6 +174,14 @@ export const composePartnerAiService = (
     notificationSource: createCancelNotificationSource(persistence.persistence),
   });
 
+  // The activity dispatcher fans subject-scoped turn lifecycle out to the
+  // `/chat/activity` SSE subscribers, so the sidebar shows a live "generating" dot
+  // on every conversation with an in-flight turn. The notification carries the
+  // full event, so this never reads the durable log.
+  const activityDispatcher = createTurnActivityDispatcher({
+    notificationSource: createActivityNotificationSource(persistence.persistence),
+  });
+
   // The reaper is the dead/slow-owner backstop: on a fixed cadence it
   // terminalizes running turns whose lease expired (fencing the old owner) and
   // appends one synthetic terminal each, so a crashed instance's turns still reach
@@ -207,6 +219,7 @@ export const composePartnerAiService = (
     turnRunner,
     dispatcher,
     cancelDispatcher,
+    activityDispatcher,
     reaper,
     pruner,
     observability: options.observability,
@@ -226,6 +239,7 @@ export const composePartnerAiService = (
         reaper.shutdown(),
         pruner.shutdown(),
         cancelDispatcher.shutdown(),
+        activityDispatcher.shutdown(),
         dispatcher.shutdown(),
       ]);
     },
@@ -262,3 +276,18 @@ const createCancelNotificationSource = (
   persistence.kind === "postgres"
     ? createPostgresTurnCancelNotificationSource(persistence.databaseUrl)
     : NOOP_TURN_CANCEL_NOTIFICATION_SOURCE;
+
+/**
+ * Build the per-instance turn-activity notification source for the dispatcher.
+ *
+ * Postgres persistence gets its own dedicated activity `LISTEN` connection. Memory
+ * persistence has no cross-process wake signal, so it uses the no-op source: the
+ * activity stream still serves its snapshot on connect, it just receives no live
+ * transitions (mirrors the turn-event memory source).
+ */
+const createActivityNotificationSource = (
+  persistence: PersistenceConfig,
+): TurnActivityNotificationSource =>
+  persistence.kind === "postgres"
+    ? createPostgresTurnActivityNotificationSource(persistence.databaseUrl)
+    : NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE;

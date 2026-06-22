@@ -16,6 +16,7 @@ type Conversation = {
   title: string;
   when: string;
   updatedAt: number;
+  running?: boolean | undefined;
 };
 
 type Bucket = {
@@ -50,6 +51,7 @@ export function ConversationGrouping({
                   title={conversation.title}
                   when={conversation.when}
                   active={conversation.id === activeId}
+                  running={conversation.running}
                   onSelect={() => onSelect?.(conversation.id)}
                 />
               ))}

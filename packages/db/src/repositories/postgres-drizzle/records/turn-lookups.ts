@@ -70,3 +70,26 @@ export const findActiveAssistantTurn =
       .limit(1);
     return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
   };
+
+/**
+ * Read every running turn for a subject, across all conversations.
+ *
+ * Powers the activity stream's snapshot on connect: one entry per conversation
+ * with an in-flight turn. Ordered by start so the snapshot is stable.
+ */
+export const listActiveAssistantTurns =
+  (db: TurnLookupDb): SidechatRepositories["listActiveAssistantTurns"] =>
+  async (command) => {
+    const rows = await db
+      .select()
+      .from(assistantTurns)
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.subjectId, command.subjectId),
+          eq(assistantTurns.status, "running"),
+        ),
+      )
+      .orderBy(desc(assistantTurns.startedAt));
+    return rows.map(toAssistantTurnRecord);
+  };

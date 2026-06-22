@@ -70,3 +70,35 @@ export const useConversationHistoryMessages = ({
     }
     return [...toWidgetHistoryMessages(history)];
   }, [conversationId, history, shouldLoadHistory]);
+
+/**
+ * Resume an in-flight turn the server reports on a history read.
+ *
+ * `activeTurn` is the authoritative, marker-independent resume signal: when a
+ * history read says a turn is still running, reconnect to it (seed the loaded
+ * transcript + replay the durable log). This covers a fresh device or a missing/
+ * stale local marker. The controller no-ops when a run is already tracked, so this
+ * never competes with the marker resume or an in-session stream.
+ */
+export const useResumeActiveTurn = ({
+  history,
+  historyMessages,
+  resumeActiveTurn,
+}: {
+  readonly history: ReadHistoryResult | undefined;
+  readonly historyMessages: readonly WidgetMessage[] | undefined;
+  readonly resumeActiveTurn: (input: {
+    readonly conversationId: string | undefined;
+    readonly assistantTurnId: string;
+    readonly seedMessages: readonly WidgetMessage[];
+  }) => void;
+}): void => {
+  const conversationId = history?.conversationId;
+  const assistantTurnId = history?.activeTurn?.assistantTurnId;
+  const isRunning = history?.activeTurn?.status === "running";
+
+  useEffect(() => {
+    if (!isRunning || !assistantTurnId) return;
+    resumeActiveTurn({ conversationId, assistantTurnId, seedMessages: historyMessages ?? [] });
+  }, [assistantTurnId, conversationId, historyMessages, isRunning, resumeActiveTurn]);
+};

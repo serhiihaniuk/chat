@@ -20,6 +20,7 @@ import type { TurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import type { TurnPruner } from "#inbound/turn-runner/maintenance/turn-pruner";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import type { TurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
+import type { TurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
@@ -161,6 +162,8 @@ export type ServiceComposition = {
   readonly dispatcher: TurnEventDispatcher;
   /** Per-instance reaction to cross-instance cancel intent; interrupts owned fibers. */
   readonly cancelDispatcher: TurnCancelDispatcher;
+  /** Per-instance fan-out of subject turn lifecycle to activity-stream subscribers. */
+  readonly activityDispatcher: TurnActivityDispatcher;
   /** Per-instance background terminalizer for dead/slow-owner lease recovery. */
   readonly reaper: TurnReaper;
   /** Per-instance background pruner enforcing turn_events retention. */

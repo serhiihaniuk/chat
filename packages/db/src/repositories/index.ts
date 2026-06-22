@@ -13,6 +13,7 @@ export {
 export type { MemoryStoreSnapshot } from "./memory/store/store.js";
 export {
   createPostgresDrizzleSidechatRepositories,
+  createPostgresTurnActivityNotificationSource,
   createPostgresTurnCancelNotificationSource,
   createPostgresTurnEventNotificationSource,
   type PostgresDrizzleRepositoryOptions,
@@ -30,3 +31,9 @@ export {
   type TurnCancelNotification,
   type TurnCancelNotificationSource,
 } from "./notifications/turn-cancel-notifications.js";
+export {
+  NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE,
+  parseTurnActivityNotification,
+  type TurnActivityNotification,
+  type TurnActivityNotificationSource,
+} from "./notifications/turn-activity-notifications.js";

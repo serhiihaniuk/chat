@@ -158,6 +158,7 @@ const SideChatWidgetContent = ({
               onNewConversation={chat.startNewConversation}
               onSelectConversation={chat.selectConversation}
               selectedConversationId={chat.conversationId}
+              runningConversationIds={chat.runningConversationIds}
             />
           </div>
           <div className="flex min-w-0 flex-1 flex-col">
@@ -181,6 +182,7 @@ const SideChatWidgetContent = ({
                       onNewConversation={chat.startNewConversation}
                       onSelectConversation={chat.selectConversation}
                       selectedConversationId={chat.conversationId}
+                      runningConversationIds={chat.runningConversationIds}
                       title={resolvedLabels.title}
                     />
                   </span>

@@ -14,7 +14,9 @@ import {
   useConversationHistoryMessages,
   useConversationQueryErrors,
   usePersistConversationStore,
+  useResumeActiveTurn,
 } from "./conversation/widget-conversation-query-effects.js";
+import { useActivityStream } from "./activity/use-activity-stream.js";
 import { useReconnectTriggers } from "./reconnect/widget-reconnect-triggers.js";
 import { useWidgetRunController } from "./reconnect/widget-run-controller.js";
 import { useWidgetChatActions } from "./use-widget-chat-actions.js";
@@ -111,6 +113,20 @@ export const useWidgetChat = ({
     upsertStartedConversation,
   });
   useReconnectTriggers(controller.reconnect);
+  // The server reports an in-flight turn on the history read; resume it even when
+  // no local marker exists (fresh device, cleared storage, or a stale marker).
+  useResumeActiveTurn({
+    history: historyQuery.data,
+    historyMessages,
+    resumeActiveTurn: controller.resumeFromHistory,
+  });
+  // Live turn lifecycle for every conversation, so the sidebar shows a "generating"
+  // dot on chats with an in-flight turn — even ones not open. Refresh the list on
+  // each (re)connect so a chat started elsewhere appears with its dot.
+  const runningConversationIds = useActivityStream({
+    client,
+    onConnected: () => void refreshConversations(),
+  });
 
   const actions = useWidgetChatActions({
     controller,
@@ -135,6 +151,7 @@ export const useWidgetChat = ({
     isLoadingHistory,
     messages: visibleMessages,
     retryLastMessage: actions.retryLastMessage,
+    runningConversationIds,
     selectConversation: actions.selectConversation,
     setErrorMessage,
     status,

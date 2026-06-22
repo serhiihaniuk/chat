@@ -29,6 +29,7 @@ import {
 } from "./middleware/auth-context.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAuth } from "./middleware/require-auth.js";
+import { registerActivityRoutes } from "./routes/chat/activity/activity.js";
 import { registerChatHistoryRoutes } from "./routes/chat/chat-history.js";
 import { registerChatRunsRoute } from "./routes/chat/runs/chat-runs.js";
 import { registerChatTurnRoutes } from "./routes/chat/turns/chat-turns.js";
@@ -142,6 +143,12 @@ export const createPartnerAiService = (
     runner: composition.turnRunner,
     safetyPollIntervalMs: composition.safetyPollIntervalMs,
     observability: composition.observability,
+  });
+  // Subject-scoped live turn lifecycle, so the sidebar shows a "generating" dot on
+  // every conversation with an in-flight turn — even ones not open.
+  registerActivityRoutes(app, {
+    repositories: composition.repositories,
+    dispatcher: composition.activityDispatcher,
   });
 
   return { app, shutdown: composition.shutdown };

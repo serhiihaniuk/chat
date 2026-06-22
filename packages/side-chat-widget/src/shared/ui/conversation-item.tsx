@@ -18,11 +18,13 @@ export function ConversationItem({
   title,
   when,
   active,
+  running,
   onSelect,
 }: {
   title: string;
   when: string;
   active?: boolean | undefined;
+  running?: boolean | undefined;
   onSelect?: (() => void) | undefined;
 }): ReactElement {
   return (
@@ -39,7 +41,16 @@ export function ConversationItem({
         <span className="truncate text-sm font-medium text-(--convo-title-fg)">{title}</span>
         <span className="truncate text-xs text-(--convo-subtitle-fg)">{when}</span>
       </span>
-      <span className="ml-auto size-1.5 rounded-full bg-(--convo-indicator) opacity-0 aria-[current=true]:opacity-100" />
+      {running === true ? (
+        // Live turn: a pulsing dot, shown regardless of selection. Same size as the
+        // selection dot so toggling it never reflows the row.
+        <span
+          aria-label="Generating"
+          className="ml-auto size-1.5 shrink-0 animate-pulse rounded-full bg-(--convo-running-indicator)"
+        />
+      ) : (
+        <span className="ml-auto size-1.5 shrink-0 rounded-full bg-(--convo-indicator) opacity-0 aria-[current=true]:opacity-100" />
+      )}
     </button>
   );
 }

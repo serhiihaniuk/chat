@@ -225,6 +225,11 @@ export type FindActiveAssistantTurnCommand = {
   readonly conversationId: ConversationId;
 };
 
+export type ListActiveAssistantTurnsCommand = {
+  readonly workspaceId: WorkspaceId;
+  readonly subjectId: SubjectId;
+};
+
 export type RecordUsageCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
   readonly runtimeStepIndex: number;
@@ -447,6 +452,11 @@ export type AssistantTurnRepositoryContract = {
   readonly findActiveAssistantTurn: (
     command: FindActiveAssistantTurnCommand,
   ) => Promise<AssistantTurnRecord | undefined>;
+  // Every running turn for a subject across conversations. Powers the activity
+  // stream's snapshot on connect (one entry per conversation with a live turn).
+  readonly listActiveAssistantTurns: (
+    command: ListActiveAssistantTurnsCommand,
+  ) => Promise<readonly AssistantTurnRecord[]>;
   readonly recordUsage: (
     command: RecordUsageCommand,
   ) => Promise<RepositoryCommandResult<UsageRecord>>;

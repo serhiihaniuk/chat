@@ -101,3 +101,16 @@ export const TURN_EVENTS_NOTIFY_CHANNEL = "turn_events";
  * source of truth, so a missed signal still terminalizes via the reaper.
  */
 export const TURN_CANCEL_NOTIFY_CHANNEL = "turn_cancel";
+
+/**
+ * Postgres `LISTEN/NOTIFY` channel for subject-scoped turn lifecycle.
+ *
+ * A turn becoming `running` (start) or reaching a terminal status (finish) signals
+ * this channel in the same transaction as the status write, so the per-instance
+ * activity dispatcher can push a live "generating" indicator to every conversation
+ * in a subject's sidebar — even chats the user is not viewing. Unlike
+ * `TURN_EVENTS_NOTIFY_CHANNEL` (keyed only by `assistantTurnId`), the payload
+ * carries the full scope `{ workspaceId, subjectId, conversationId, assistantTurnId,
+ * status }` so the dispatcher fans out by subject without a per-signal read.
+ */
+export const TURN_ACTIVITY_NOTIFY_CHANNEL = "turn_activity";

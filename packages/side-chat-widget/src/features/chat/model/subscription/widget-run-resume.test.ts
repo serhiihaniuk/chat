@@ -2,6 +2,7 @@ import { toMessageId, toProtocolSequence, type HistoryMessage } from "@side-chat
 import { Window } from "happy-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { createWidgetMessage } from "#entities/chat";
 import type { SideChatApiClient } from "#entities/conversation";
 import { readActiveRunMarker, writeActiveRunMarker } from "../reconnect/widget-run-marker.js";
 import {
@@ -10,7 +11,7 @@ import {
   type WidgetRunStore,
 } from "../run/widget-run-store.js";
 import { WIDGET_RUN_STATUSES } from "../run/widget-run-state.js";
-import { resumeRunFromMarker } from "./widget-run-resume.js";
+import { resumeFromActiveTurn, resumeRunFromMarker } from "./widget-run-resume.js";
 import type { RunLifecycleContext, SubscribeTarget } from "./widget-subscription-lifecycle.js";
 
 const STORAGE_KEY = "resume-test";
@@ -162,5 +163,33 @@ describe("resumeRunFromMarker", () => {
 
     expect(store().getSnapshot()).toBeUndefined();
     expect(targets).toEqual([]);
+  });
+});
+
+describe("resumeFromActiveTurn", () => {
+  it("seeds from the loaded transcript and replays the running turn from -1", () => {
+    // The marker-independent path: a history read reported a running activeTurn.
+    const { targets, subscribe } = captureSubscribe();
+
+    resumeFromActiveTurn(store(), subscribe, {
+      conversationId: CONVERSATION_ID,
+      assistantTurnId: TURN_ID,
+      seedMessages: [createWidgetMessage("user-1", "user", "hi")],
+    });
+
+    const run = store().getSnapshot();
+    expect(run?.status).toBe(WIDGET_RUN_STATUSES.RECONNECTING);
+    expect(run?.assistantTurnId).toBe(TURN_ID);
+    expect(run?.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
+    expect(run?.messages.at(-1)?.isStreaming).toBe(true);
+    expect(targets).toEqual([
+      {
+        requestId: `resume_${TURN_ID}`,
+        assistantTurnId: TURN_ID,
+        conversationId: CONVERSATION_ID,
+        after: -1,
+        resuming: true,
+      },
+    ]);
   });
 });

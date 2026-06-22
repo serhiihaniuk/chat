@@ -16,6 +16,7 @@ export const ConversationSwitcher = ({
   onNewConversation,
   onSelectConversation,
   selectedConversationId,
+  runningConversationIds,
   title,
 }: {
   readonly conversations: readonly ConversationSummaryView[];
@@ -23,6 +24,7 @@ export const ConversationSwitcher = ({
   readonly onNewConversation: () => void;
   readonly onSelectConversation: (conversationId: string | undefined) => void;
   readonly selectedConversationId: string | undefined;
+  readonly runningConversationIds: ReadonlySet<string>;
   readonly title: string;
 }) => {
   const container = usePortalContainer();
@@ -62,6 +64,7 @@ export const ConversationSwitcher = ({
                         <SwitcherItem
                           conversation={conversation}
                           isActive={conversation.id === selectedConversationId}
+                          isRunning={runningConversationIds.has(conversation.id)}
                           key={conversation.id}
                           onSelect={onSelectConversation}
                         />
@@ -81,10 +84,12 @@ export const ConversationSwitcher = ({
 const SwitcherItem = ({
   conversation,
   isActive,
+  isRunning,
   onSelect,
 }: {
   readonly conversation: ConversationSummaryView;
   readonly isActive: boolean;
+  readonly isRunning: boolean;
   readonly onSelect: (conversationId: string | undefined) => void;
 }) => (
   <Menu.Item
@@ -97,6 +102,25 @@ const SwitcherItem = ({
         {formatRelativeTime(conversation.lastMessageAt)}
       </span>
     </span>
-    {isActive && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}
+    <SwitcherIndicator active={isActive} running={isRunning} />
   </Menu.Item>
 );
+
+const SwitcherIndicator = ({
+  active,
+  running,
+}: {
+  readonly active: boolean;
+  readonly running: boolean;
+}) => {
+  if (running) {
+    return (
+      <span
+        aria-label="Generating"
+        className="size-1.5 shrink-0 animate-pulse rounded-full bg-(--convo-running-indicator)"
+      />
+    );
+  }
+  if (active) return <span className="size-1.5 shrink-0 rounded-full bg-primary" />;
+  return null;
+};

@@ -271,6 +271,8 @@
 
   /* Conversation / grouping (§9.1 / §9.2) — values per design_widget.html token table */
   --convo-indicator: var(--primary);
+  /* Live "generating" dot on a conversation row with an in-flight turn. */
+  --convo-running-indicator: var(--primary);
   --convo-item-bg-active: var(--row-bg-active);
   --convo-item-bg-hover: var(--row-bg-hover);
   --convo-item-radius: var(--radius-md);

@@ -45,3 +45,18 @@ export const findMemoryActiveAssistantTurn =
       )
       .sort((left, right) => (left.startedAt < right.startedAt ? 1 : -1))[0];
   };
+
+/** Every running turn for a subject across conversations (activity snapshot). */
+export const listMemoryActiveAssistantTurns =
+  ({ store }: MemoryStoreContext): AssistantTurnRepositoryContract["listActiveAssistantTurns"] =>
+  async (command) => {
+    await Promise.resolve();
+    return store.assistantTurns
+      .filter(
+        (turn) =>
+          turn.workspaceId === command.workspaceId &&
+          turn.subjectId === command.subjectId &&
+          turn.status === "running",
+      )
+      .sort((left, right) => (left.startedAt < right.startedAt ? 1 : -1));
+  };

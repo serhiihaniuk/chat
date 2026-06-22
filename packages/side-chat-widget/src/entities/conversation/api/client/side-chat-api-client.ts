@@ -12,6 +12,7 @@ import {
   getTurnStatusWithFetch,
   resolveRunWithFetch,
 } from "../run/side-chat-run-client.js";
+import { subscribeActivityWithFetch } from "../run/side-chat-activity-stream.js";
 import { subscribeTurnWithFetch } from "../run/side-chat-turn-stream.js";
 import type {
   FetchLike,
@@ -41,6 +42,8 @@ export type {
   ResetHistoryResult,
   SideChatApiClient,
   SideChatApiClientOptions,
+  SubscribeActivityOptions,
+  SubscribeActivityResult,
   SubscribeTurnOptions,
   SubscribeTurnResult,
   TurnStatusResult,
@@ -90,7 +93,7 @@ const buildRunMethods = (
   transport: FetchLike,
 ): Pick<
   SideChatApiClient,
-  "createRun" | "subscribeTurn" | "resolveRun" | "getTurnStatus" | "cancelTurn"
+  "createRun" | "subscribeTurn" | "resolveRun" | "getTurnStatus" | "cancelTurn" | "subscribeActivity"
 > => ({
   createRun: (request, runOptions = {}) =>
     createRunWithFetch(request, options, runOptions, transport),
@@ -102,4 +105,6 @@ const buildRunMethods = (
     getTurnStatusWithFetch(assistantTurnId, options, runOptions, transport),
   cancelTurn: (assistantTurnId, runOptions = {}) =>
     cancelTurnWithFetch(assistantTurnId, options, runOptions, transport),
+  subscribeActivity: (activityOptions = {}) =>
+    subscribeActivityWithFetch(options, activityOptions, transport),
 });

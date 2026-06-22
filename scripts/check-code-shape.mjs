@@ -14,8 +14,9 @@ const directoryBudgetExceptions = new Map([
   [
     "packages/side-chat-widget/src/shared/ui",
     {
-      maxFiles: 42,
-      reason: "shared UI primitive catalog keeps direct #shared/ui/<component> imports stable",
+      maxFiles: 43,
+      reason:
+        "shared UI primitive catalog keeps direct #shared/ui/<component> imports stable, plus a co-located test for the conversation item's running indicator",
     },
   ],
   [
@@ -36,9 +37,9 @@ const directoryBudgetExceptions = new Map([
   [
     "packages/db/src/repositories/postgres-drizzle/records",
     {
-      maxFiles: 8,
+      maxFiles: 9,
       reason:
-        "turn record work is split by responsibility: turn-events.ts owns the durable event log (append/notify, terminal guard, PK-conflict reconcile), turn-lookups.ts owns turn-record reads (by id, by request, active turn), and turn-lease.ts owns the owner-lease fencing CAS (acquire/renew/reap) for crash recovery, so turns.ts stays within the source-line and nested-function budgets",
+        "turn record work is split by responsibility: turn-events.ts owns the durable event log (append/notify, terminal guard, PK-conflict reconcile), turn-lookups.ts owns turn-record reads (by id, by request, active turn), turn-lease.ts owns the owner-lease fencing CAS (acquire/renew/reap) for crash recovery, and usage.ts owns token-usage recording (mirroring the memory adapter), so turns.ts stays within the source-line and nested-function budgets",
     },
   ],
   [

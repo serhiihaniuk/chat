@@ -118,3 +118,51 @@ const loadResumeHistory = async (
     return [];
   }
 };
+
+export type ResumeFromActiveTurnInput = {
+  readonly conversationId: string | undefined;
+  readonly assistantTurnId: string;
+  readonly seedMessages: readonly WidgetMessage[];
+};
+
+/**
+ * Resume the running turn a history read reported via its `activeTurn` pointer.
+ *
+ * This is the marker-independent resume path: the server itself says a turn is
+ * still running for the conversation, so it works on a fresh device or when the
+ * persisted marker is missing/stale. The loaded transcript (seedMessages) plus a
+ * fresh pending bubble is seeded, then the durable log is replayed from the start
+ * (after = -1) into that bubble. `activeTurn` is only present while running, so the
+ * transcript never already contains this turn's answer — no duplicate bubble. The
+ * caller guards against an already-tracked run before calling this.
+ */
+export const resumeFromActiveTurn = (
+  store: WidgetRunStore,
+  subscribe: (target: SubscribeTarget) => void,
+  input: ResumeFromActiveTurnInput,
+): void => {
+  const localAssistantMessageId = createId("assistant");
+  // The marker-less path has no client request id; key the run by its turn so the
+  // subscription's dispatches match and a per-turn marker can be (re)written.
+  const requestId = `resume_${input.assistantTurnId}`;
+  store.start({
+    requestId,
+    assistantTurnId: input.assistantTurnId,
+    conversationId: input.conversationId,
+    localUserMessageId: findLastUserMessage(input.seedMessages)?.id ?? createId("user"),
+    localAssistantMessageId,
+    messages: [
+      ...input.seedMessages,
+      createWidgetMessage(localAssistantMessageId, "assistant", "", true),
+    ],
+    status: WIDGET_RUN_STATUSES.RECONNECTING,
+  });
+
+  subscribe({
+    requestId,
+    assistantTurnId: input.assistantTurnId,
+    conversationId: input.conversationId,
+    after: -1,
+    resuming: true,
+  });
+};

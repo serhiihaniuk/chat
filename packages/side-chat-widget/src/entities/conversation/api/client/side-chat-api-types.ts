@@ -3,6 +3,7 @@ import type {
   ChatStreamRequest,
   HistoryMessage,
   SidechatStreamEvent,
+  TurnActivityEvent,
   UsageMetadata,
 } from "@side-chat/chat-protocol";
 
@@ -37,6 +38,7 @@ export type SideChatApiClientOptions = {
   readonly modelsPath?: string | undefined;
   readonly runsPath?: string | undefined;
   readonly turnsPath?: string | undefined;
+  readonly activityPath?: string | undefined;
   readonly fetch?: FetchLike | undefined;
   readonly retry?: RetryPolicy | undefined;
   readonly usagePath?: string | undefined;
@@ -80,6 +82,20 @@ export type SubscribeTurnOptions = {
  */
 export type SubscribeTurnResult = {
   readonly events: AsyncIterable<SidechatStreamEvent>;
+};
+
+/** Per-request controls for the subject-scoped activity stream. */
+export type SubscribeActivityOptions = {
+  readonly signal?: AbortSignal | undefined;
+};
+
+/**
+ * Open stream of subject turn lifecycle: a snapshot of currently-running turns,
+ * then live transitions. Has no terminal event — it yields until the caller
+ * aborts. Used to drive a live "generating" dot per conversation in the sidebar.
+ */
+export type SubscribeActivityResult = {
+  readonly events: AsyncIterable<TurnActivityEvent>;
 };
 
 /** Resolver result mapping a lost `requestId` back to its turn. */
@@ -233,4 +249,8 @@ export type SideChatApiClient = {
     assistantTurnId: string,
     options?: CreateRunOptions,
   ) => Promise<CancelTurnResult>;
+  /** Subject-scoped live turn lifecycle for sidebar "generating" dots. Optional. */
+  readonly subscribeActivity?:
+    | ((options?: SubscribeActivityOptions) => Promise<SubscribeActivityResult>)
+    | undefined;
 };

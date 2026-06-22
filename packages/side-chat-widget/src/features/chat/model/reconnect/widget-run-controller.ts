@@ -19,7 +19,12 @@ import {
   type StartRunInput,
   type SubscribeTarget,
 } from "../subscription/widget-subscription-lifecycle.js";
-import { resumeRunFromMarker, resumeTarget } from "../subscription/widget-run-resume.js";
+import {
+  resumeFromActiveTurn,
+  resumeRunFromMarker,
+  resumeTarget,
+  type ResumeFromActiveTurnInput,
+} from "../subscription/widget-run-resume.js";
 import { clearActiveRunMarker } from "./widget-run-marker.js";
 import type { SideChatApiClient } from "#entities/conversation";
 
@@ -32,6 +37,8 @@ export type WidgetRunController = {
   readonly startRun: (input: StartRunInput) => Promise<void>;
   /** Resume the active run (mount / visibility / online / conversation select). */
   readonly reconnect: () => void;
+  /** Resume the running turn a history read reported, when no run is tracked yet. */
+  readonly resumeFromHistory: (input: ResumeFromActiveTurnInput) => void;
   /** Cancel the live turn on the server, then render its terminal state. */
   readonly cancel: () => Promise<void>;
   /** Forget the live run locally (e.g. when switching conversations). */
@@ -103,6 +110,17 @@ export const useWidgetRunController = (input: WidgetRunControllerInput): WidgetR
     });
   }, [contextRef, store, subscribe]);
 
+  const resumeFromHistory = useCallback(
+    (input: ResumeFromActiveTurnInput) => {
+      // The server (via a history read's activeTurn) says a turn is running. Seed
+      // only when nothing is tracked yet, so this never double-seeds a run the
+      // marker resume or an in-session stream already owns.
+      if (store.getSnapshot()) return;
+      resumeFromActiveTurn(store, subscribe, input);
+    },
+    [store, subscribe],
+  );
+
   const cancel = useCallback(() => cancelRun(contextRef.current, store), [contextRef, store]);
 
   const clearRun = useCallback(() => {
@@ -111,7 +129,7 @@ export const useWidgetRunController = (input: WidgetRunControllerInput): WidgetR
     store.clear();
   }, [contextRef, store]);
 
-  return { run, startRun, reconnect, cancel, clearRun };
+  return { run, startRun, reconnect, resumeFromHistory, cancel, clearRun };
 };
 
 const useStoreSnapshot = (store: WidgetRunStore): WidgetRunState | undefined =>

@@ -4,5 +4,6 @@ export * from "./primitives.js";
 export * from "./request/request.js";
 export * from "./ordering/sequence.js";
 export * from "./codec/sse-codec.js";
+export * from "./codec/activity-sse-codec.js";
 export * from "./validation/validation.js";
 export * from "./version.js";

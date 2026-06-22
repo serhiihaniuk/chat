@@ -14,11 +14,13 @@ export const ConversationSidebar = ({
   onNewConversation,
   onSelectConversation,
   selectedConversationId,
+  runningConversationIds,
 }: {
   readonly conversations: readonly ConversationSummaryView[];
   readonly onNewConversation: () => void;
   readonly onSelectConversation: (conversationId: string | undefined) => void;
   readonly selectedConversationId: string | undefined;
+  readonly runningConversationIds: ReadonlySet<string>;
 }) => (
   <nav aria-label="Conversations" className="sc-rail">
     <div className="sc-rail-newchat border-b border-border">
@@ -36,7 +38,7 @@ export const ConversationSidebar = ({
       <ScrollArea className="px-2 pb-2">
         <ConversationGrouping
           activeId={selectedConversationId}
-          buckets={toConversationBuckets(conversations)}
+          buckets={toConversationBuckets(conversations, runningConversationIds)}
           onSelect={onSelectConversation}
         />
       </ScrollArea>
@@ -44,7 +46,10 @@ export const ConversationSidebar = ({
   </nav>
 );
 
-const toConversationBuckets = (conversations: readonly ConversationSummaryView[]) =>
+const toConversationBuckets = (
+  conversations: readonly ConversationSummaryView[],
+  runningConversationIds: ReadonlySet<string>,
+) =>
   groupConversationsByDate(conversations).map((group) => ({
     id: group.id,
     label: group.label,
@@ -53,6 +58,7 @@ const toConversationBuckets = (conversations: readonly ConversationSummaryView[]
       title: conversation.title,
       when: formatRelativeTime(conversation.lastMessageAt),
       updatedAt: readUpdatedAt(conversation.lastMessageAt),
+      running: runningConversationIds.has(conversation.id),
     })),
   }));
 
