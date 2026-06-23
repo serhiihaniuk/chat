@@ -1,0 +1,140 @@
+---
+title: Assistant Turn Lifecycle
+description: The precise lifecycle of one turn — stages, failure semantics, server-owned generation, cancellation, and crash recovery.
+---
+
+This is the reference for the order of one stream-chat assistant turn and what each failure means.
+For the same story as a narrative — with an interactive step-by-step trace — see
+[Life of a Turn](/docs/walkthrough/life-of-a-turn).
+
+Browser requests do not carry raw system instructions, executor choices, or provider-native options.
+They may carry a model preference learned from the backend model catalog. Service composition resolves
+profile prompt ids into instructions, core validates profile/model/reasoning policy, renders the final
+runtime messages, and the runtime receives one provider-neutral request.
+
+## The request chain
+
+One turn's data crosses these shapes, in order:
+
+`browser submit` → `ChatStreamRequest` → HTTP adapter validation/auth → `StreamChatInput` →
+`prepareStreamChatTurn` (pre-start) + `runTurnGeneration` (post-start) → `AiRuntimeRequest` →
+`RuntimeProviderRequest` → AI SDK provider request.
+
+That chain is the pre-start half of the two-call flow: `POST /chat/runs` runs it synchronously, then
+the service forks generation onto a server-owned fiber that a client streams over
+`GET /chat/turns/:assistantTurnId/stream`.
+
+## Turn lifecycle
+
+| Order | Stage | Owner | Failure behavior |
+| ---: | --- | --- | --- |
+| 1 | Validate HTTP method, auth, and request body | service route | HTTP/request error |
+| 2 | Prove workspace/project authority | core | Pre-start rejection |
+| 3 | Record request received | core observability | Pre-start rejection |
+| 4 | Load and validate the host capability manifest | core through port | Pre-start rejection |
+| 5 | Resolve profile, validated model/reasoning, tools, executor, instructions, commands, approval policy | core policy | Pre-start rejection |
+| 6 | Run profile-selected turn guards (before context, persistence, or tools) | core guard port | Pre-start rejection |
+| 7 | Ensure the authorized conversation and append the user message | core repository port | Pre-start rejection |
+| 8 | Start the assistant turn record | core lifecycle port | Pre-start rejection; failed turn recorded after this point |
+| 9 | Prepare context: history, host context, tool context, context manifest | core context ports | Pre-start rejection; failed turn recorded |
+| 10 | Record stream started and emit `sidechat.started` | core / protocol | Streaming has begun |
+| 11 | Execute the selected AgentExecutor through the runtime | runtime | Post-start terminal `sidechat.error` |
+| 12 | Map RuntimeEvents to SidechatStreamEvents | core protocol mapper | Post-start terminal `sidechat.error` |
+| 13 | Finalize the terminal state, persist the outcome, optionally generate a title | core finalization | `sidechat.completed`/`error`/`blocked`; title failures are observed |
+
+## The failure split
+
+The `sidechat.started` event (stage 10) is the dividing line:
+
+| Phase | Browser has seen `sidechat.started`? | Behavior |
+| --- | --- | --- |
+| Setup | No | Reject setup as a request/core error (JSON). |
+| Streaming | Yes | Emit exactly one terminal `sidechat.error`. |
+| Success | Yes | Emit exactly one terminal `sidechat.completed`. |
+
+If an assistant turn record already exists when setup fails, core records the failed turn and still
+rejects setup — preserving durable state without half-opening a browser stream. Conversation title
+failures are observable side effects, not a second terminal outcome.
+
+## Server-owned generation
+
+Stages 1–9 are pre-start (`prepareStreamChatTurn`); stages 10–13 are post-start (the protocol event
+stream). The two are independently callable, so the service runs pre-start synchronously and then runs
+post-start on a server-owned fiber that is not tied to the browser connection.
+
+`POST /chat/runs` runs pre-start and returns the turn identity as JSON; a pre-start failure is the
+setup rejection above. The service runner then forks `runTurnGeneration` into its own scope, draining
+each post-start event to the durable log. Finalization is owned by `Effect.onExit`, so terminal
+ownership is exact across every exit:
+
+- A normal terminal (`completed`/`error`/`blocked`) is emitted by the stream and appended by the
+  drain; finalize only writes the durable turn status.
+- An abnormal exit appends one synthetic terminal `sidechat.error` at `maxSequence + 1`, guarded by a
+  partial-unique terminal index so a turn can never have two terminals. Its durable status is
+  classified honestly from the exit cause plus the cancel intent:
+    - an interrupt **with** cancel intent → `user_aborted`;
+    - an interrupt **without** it (shutdown or lease-fence) → `provider_failed` (protocol code `timeout`);
+    - any non-interrupt abnormal exit → `provider_failed`.
+
+Generation is interruptible end to end: the runner forks without a browser abort signal, and core ties
+an `AbortController` to the runtime stream, so fiber interruption (a cross-instance cancel or shutdown)
+aborts the in-flight provider call — stopping generation and billing, not just the socket.
+
+## Live subscription transport
+
+The durable `turn_events` log is the source of truth; Postgres `LISTEN/NOTIFY` decides only *when* to
+read. Persistence owns the one dedicated `LISTEN` connection and surfaces a notification source. The
+service owns a per-instance dispatcher that reads new rows on each notify and fans them out to local
+subscribers, plus a per-subscriber safety reconcile-poll as a missed-notify backstop. A reconnect or
+cancel can land on any instance, so a subscriber may watch a turn generated by a different instance —
+both read the same log.
+
+Replay offset is one convention everywhere: `after=<lastSeenSequence>`, default `-1`, returning
+`sequence > after`; `sidechat.started` is sequence 0.
+
+## Retention and replay expiry
+
+A per-instance background pruner deletes the event rows of terminal turns whose `completed_at` is older
+than `resumability.turnEventRetention`. The consolidated turn record and the assistant message are
+never pruned — only the redundant event log — so a pruned turn still resolves.
+
+Because a pruned turn can no longer replay, the stream route fails closed before opening SSE: when a
+turn is terminal and the smallest retained sequence is past the requested `after + 1`, it returns the
+`replay_expired` JSON error with HTTP 404. The widget maps that to a history read
+(`GET /chat/conversations/:id`) and clears the run. A running turn never returns `replay_expired` — its
+tail still delivers events.
+
+## Cross-instance cancel
+
+Cancel is durable intent plus interruption, never an in-fiber race.
+`POST /chat/turns/:assistantTurnId/cancel` is workspace-scoped — the id is not a bearer capability. It
+works in three moves:
+
+- **Record intent.** The route sets `cancel_requested_at` (CAS-guarded to running turns) and notifies a
+  cancel channel in one transaction. Cancelling a finished, unknown, or cross-workspace turn is a no-op
+  ack.
+- **Interrupt the owner.** The cancel dispatcher reacts to the notify by interrupting the local
+  generation fiber when this instance owns the turn; non-owning instances no-op. The owner's abnormal
+  finalize then sees the interrupt plus the durable intent and terminalizes as `user_aborted`.
+- **Cover a dead owner.** A cancel with no live owner leaves only the durable intent, which the reaper
+  later terminalizes.
+
+## Owner lease and recovery
+
+Generation runs under an owner lease so a crashed or stalled instance cannot strand a turn `running`
+forever. All lease state is compare-and-set on `assistant_turns`
+(`owner_instance_id`, `lease_epoch`, `lease_expires_at`); the durations, batch size, and per-process
+`instanceId` are config-driven through `resumability`. Nothing is hardcoded.
+
+- **Acquire + heartbeat.** Inside `runTurnGeneration`'s `onExit`, the fiber claims the lease (bumping
+  the epoch) before the drain, then renews it every `heartbeatInterval`, epoch-scoped. If a renew
+  matches no row, the owner has been **fenced** (a new owner or the reaper advanced the epoch), so the
+  heartbeat self-interrupts and the abnormal finalize records `provider_failed`/`timeout`.
+- **Reaper.** Each instance runs one background sweep every `reaperInterval` that CAS-terminalizes
+  running turns whose lease expired — `user_aborted` if a cancel was requested, else `provider_failed` —
+  bumping the epoch to fence the dead owner and appending exactly one synthetic terminal per reaped
+  turn. The running-guard CAS plus the partial-unique index mean two concurrent passes never
+  double-terminalize.
+- **Clean shutdown.** One `shutdown()` interrupts the generation runner (each turn finalizes via its
+  `onExit`), then tears down the reaper, the pruner, and the two `LISTEN` dispatchers; the Node server
+  runs it on `SIGTERM`/`SIGINT`.

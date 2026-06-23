@@ -1,0 +1,15 @@
+{
+  "title": "Walkthrough",
+  "root": true,
+  "pages": [
+    "index",
+    "mental-model",
+    "vocabulary",
+    "patterns",
+    "life-of-a-turn",
+    "confusing-words",
+    "add-a-tool",
+    "navigating",
+    "glossary"
+  ]
+}

@@ -1,0 +1,273 @@
+---
+title: Confusing Words
+description: The codebase's overloaded nouns — registry, manifest, capability, policy, guard — each with the idea, the real type, and why it is its own thing.
+---
+
+This page disambiguates the codebase's overloaded nouns — treat it as your decoder ring. Each term
+gets three beats: **the idea** (plain English plus an analogy), **how it is built** (a real type or
+snippet, and how Maya's data moves through it), and **why it is separate** (the one thing that breaks
+if you fold it into something else). Watch the word `jira.search_issues` travel.
+
+Before the deep dives, hold one map in your head. Three things sound alike but are not:
+
+| Thing | Lives where | Holds | One-line job |
+| --- | --- | --- | --- |
+| **Registry** | composition only (boot) | live executables + secrets | "what physically exists in this deployment" |
+| **Manifest** | memory, per deployment | serializable declarations only | "what we advertise the model can use" |
+| **Turn policy decision** | per request | resolved fields for one turn | "what this turn is authorized to use" |
+
+That trio is the one people confuse most. The rest of this page is the supporting cast, in three
+groups: **the wiring** (Port vs adapter, Repository, Config, Factory), **the per-turn gates**
+(Capability, Assistant profile, Context candidate, Policy, Guard), and **the empty placeholder** (Noop
+adapter).
+
+## Registry
+
+**The idea.** A one-shot validator that runs at startup, checks every declaration, and hands back a
+frozen, name-indexed collection. It is not a mutable map you add to at runtime. Think of airport
+check-in done once when the terminal opens: if any passenger's name does not match their boarding
+pass, the terminal does not open at all.
+
+**How it is built.** The unit of registration pairs the thing the model sees with the thing that
+runs, and the name is taken from the runtime tool so the two halves cannot be wired under different
+keys:
+
+```ts
+export const createServiceToolRegistration = ({ capability, runtimeTool, ... }) => ({
+  name: runtimeTool.name, // canonical key
+  capability,             // what the MODEL sees (manifest)
+  runtimeTool,            // the executable (agent-runtime)
+});
+```
+
+The registry factory validates the whole list and splits it. `assertMatchingNames` is the lockstep
+gate: rename the capability to `jira.search` but leave the runtime tool as `jira.search_issues`, and
+the process throws at boot — the server never starts:
+
+```ts
+export const createServiceToolRegistry = (registrations) => {
+  const seenNames = new Set<string>();
+  for (const registration of registrations) {
+    assertMatchingNames(registration);            // capability.name === runtimeTool.name?
+    assertUniqueName(seenNames, registration.name);
+  }
+  return {
+    toolCapabilities: registrations.map((r) => r.capability), // → manifest
+    runtimeTools:     registrations.map((r) => r.runtimeTool), // → agent-runtime
+    // ...
+  };
+};
+```
+
+**Why it is separate.** A `switch (toolName)` in the request handler fails on the first real request,
+silently returning `null` on a typo. The registry fails at boot, loudly, with the broken name in the
+log — the ops team sees it in the startup line, not buried in a mid-stream user-facing error hours
+later.
+
+## Manifest
+
+**The idea.** The printed menu the deployment hands out: a static, serializable list of what
+profiles, tools, and commands exist. Built once at boot from the registries, with no executables and
+no secrets, and narrowed per turn into a turn policy decision. The diner reads the menu; the diner
+never sees the kitchen inventory.
+
+**How it is built.** A plain object. The tool entry is declaration-only — `name`, `description`,
+`inputSchema`, no `execute`:
+
+```ts
+export type ToolCapability = {
+  readonly name: string;        // 'jira.search_issues'
+  readonly description: string; // 'Search Jira issues visible to the current user.'
+  readonly inputSchema: JsonObject;
+};
+```
+
+The `toolCapabilities` array from the registry becomes `manifest.tools`. The manifest is then hashed
+(`hashHostCapabilityManifest` → canonical JSON → SHA-256), and that hash is stamped onto every turn
+record so any later drift is detectable.
+
+**Why it is separate.** The manifest is the one artifact safe to publish whole — serialized, hashed,
+and shown to the model — precisely because it aggregates only declarations. The executables and the
+secrets stay behind in the registry.
+
+## Turn policy decision
+
+**The idea.** The order ticket for one diner at one table: for this request, the chef may cook exactly
+these dishes. Even if a tool is on the menu (manifest), it is not authorized unless it is on the
+ticket.
+
+**How it is built.** A closed allowlist copied from the resolved profile, plus the manifest hash:
+
+```ts
+export type TurnPolicyDecision = {
+  readonly profileId: ProfileId;
+  readonly profileVersion: string;              // pins the decision to one profile version
+  readonly providerId: ProviderId;
+  readonly modelId: ModelId;
+  readonly systemInstructions: string;
+  readonly allowedToolNames: readonly string[]; // ['jira.search_issues']
+  readonly manifestHash: ManifestHash;
+};
+```
+
+It is cross-validated with a two-layer check: every name in `allowedToolNames` must appear in both
+`manifest.tools` and `profile.defaultToolPolicy.allowedToolNames`. A name in only one set is
+rejected. The decision is a flat copy, not a pointer into the manifest — the `manifestHash` is the
+integrity link that detects drift between when the turn was planned and when it ran.
+
+**Why it is separate.** The runtime receives only the decision — never the manifest, never the
+registries. So `jira.search_issues` cannot reach the model unless it cleared registration, manifest
+declaration, and the per-turn allowlist. A buggy policy resolver cannot grant more than the profile
+permits.
+
+## Port vs adapter
+
+**The idea.** A port is the job description ("I need something that tells the time"); an adapter is
+the hire that does it. Core writes against the description; the composition root supplies the hire.
+
+**How it is built.** The port is a TypeScript type (`ClockPort = { readonly now: () => string }`); the
+adapter is a concrete value satisfying it — a fixed-date stub in tests, `() => new Date().toISOString()`
+in production. Same for the runtime: `AiRuntimePort` is a re-export of a shared contract, so core only
+calls `.streamEffect(request)` and never knows whether OpenAI or the fake provider is behind it.
+
+**Why it is separate.** If core imported the OpenAI adapter directly, every unit test of Maya's turn
+would need a live API key, and swapping providers would mean editing core.
+
+## Repository
+
+**The idea.** A port specialized for storage. "Find a conversation and append a message" — whether
+that is a JS array or Postgres is the adapter's problem.
+
+**How it is built.** One contract, two implementations (`memory/` and `postgres-drizzle/` in
+`packages/db`). One name jump is worth flagging: core calls `ports.conversations.appendUserMessage(...)`,
+but the repository contract behind it exposes that as `appendMessage`. The Postgres implementation
+computes the next sequence index in a transaction; the memory adapter just counts the array. Core
+never knows which ran.
+
+**Why it is separate.** The split is enforced by structural typing, not inheritance — core never calls
+`new Repository()`. You can run all of Maya's turn against the memory store in a test with no database.
+
+## Config
+
+**The idea.** Raw environment values get turned into a typed options object once, at the edge, so the
+rest of the system reads fields, not `process.env`. The secret enters in one place and travels no
+further than it must.
+
+**How it is built.** A `RuntimeConfig` carries the secret (`{ provider: 'openai', apiKey, ... }`)
+inward only as far as the *private* `ServiceProviderRegistration`. The bundle the factory returns omits
+the key, and what core and the HTTP routes see — `AiRuntimePort` — has no `apiKey` field at all. So a
+`/healthz` or `/models` response physically cannot serialize the deployment key.
+
+**Why it is separate.** Untyped config read deep in the call tree means a typo in an env var surfaces
+as a crash on a live request, not a startup failure. Keeping the secret on the private registration
+makes containment structural, not something a future refactor must remember to filter.
+
+## Factory / creator
+
+**The idea.** A `create*` function that takes raw config and returns one named, pre-wired bundle. You
+ask for "the tool station" and get it already hot, not a pile of ingredients.
+
+**How it is built.** `createServiceToolBundle` returns a `ServiceToolBundle` whose two arrays —
+`runtimeTools` (→ the executor) and `toolCapabilities` (→ the manifest) — both come from one source,
+so the two sides of the tool surface cannot drift.
+
+**Why it is separate.** Without factories, the composition root becomes a 400-line function and you
+cannot test tool validation without standing up the whole service.
+
+## Capability
+
+**The idea.** The *declaration* of a tool, not the tool itself: "this tool exists and takes this
+input."
+
+**How it is built.** `ToolCapability = { name, description, inputSchema }` — no `execute`. Its matching
+executable is a separate `RuntimeTool`, tied together only by the `ServiceToolRegistration`. For Maya,
+the capability is what core policy reads to decide exposure; the `RuntimeTool` is what actually calls
+the Jira client.
+
+**Why it is separate.** A capability is decoupled from its `RuntimeTool` so the model can be shown
+*what* a tool does without ever touching the code that does it. The two are reunited only inside the
+registry, by name.
+
+## Assistant profile
+
+**The idea.** The named persona for a turn: which model, which system prompt, which tools are allowed
+by default. Config goes in, a published profile comes out.
+
+**How it is built.** A `SystemPromptBuilder` (a strategy — just a function) joins the config's prompt
+sections into the final text, and the result becomes an `AssistantProfile` with a `modelPolicy`, a
+`defaultToolPolicy` (`{ mode, allowedToolNames }`), and a `safetyPolicy`. For Maya, the profile's
+`defaultToolPolicy.allowedToolNames` is the upstream allowlist that `jira.search_issues` must be in
+before the turn decision can include it.
+
+**Why it is separate.** The profile is published in the manifest as data; the prompt builder and the
+model credentials stay in the registry. The model never gets the builder, only the built text.
+
+## Context candidate
+
+**The idea.** A piece of context that *might* go into the model's window — Maya's message, prior
+history, the dashboard page metadata. It becomes model-visible only after admission.
+
+**How it is built.** Each candidate carries provenance and a trust label before any budgeting:
+`{ sourceType, trustLevel, content, estimatedTokens, priority, ... }`. Admission fits candidates into
+the token budget, dropping some with a stable `dropReason`. Maya's dashboard page context arrives
+tagged `untrusted_external`, so when it renders into the context board the model is told it is
+reference data, not instructions.
+
+**Why it is separate.** Trust and token cost are decided before the text reaches the model, so a
+malicious page title cannot smuggle itself in as a system instruction.
+
+## Policy
+
+**The idea.** The final business gate: rate limits, entitlements, model availability. "Is Maya allowed
+to do this right now?"
+
+**How it is built.** A port returning a grant or a denial; a denial carries a `code` (e.g.
+`rate_limit_exceeded`), a `protocolCode`, and a `retryable` flag, mapped to an error before any
+persistence runs.
+
+**Why it is separate.** Policy runs before conversation writes and runtime work, so a rate-limited
+Maya gets a clean rejection, not a half-created turn row.
+
+## Guard
+
+**The idea.** A pre-model safety check on the raw user text. It runs before context or tools are
+assembled, and it fails closed.
+
+**How it is built.** The guard's input is deliberately small — it sees the text, authority, profile,
+and safety policy, but not the prepared context or tool schemas:
+
+```ts
+export type TurnGuardInput = {
+  readonly userMessage: string;     // "show me my open Jira tickets"
+  readonly authContext: AuthContext;
+  readonly profileId: string;
+  readonly safetyPolicyId: string;
+  // no preparedContext, no tools — by design
+};
+```
+
+A guard returns `allow`, `allow_with_warning`, or `block`; a `block` fails the whole turn. Fail-closed:
+if a profile names a guard id missing from the registry, the turn is rejected rather than run
+unguarded.
+
+**Why it is separate.** If guards ran after context preparation, a prompt-injection payload would
+already have been handed the system prompt and tool names it needs to craft a better attack. The
+narrow input shape enforces the ordering structurally.
+
+## Noop adapter
+
+**The idea.** A real adapter that does nothing — an empty implementation that satisfies the port so
+the system runs without the real thing wired in.
+
+**How it is built.** The turn-guard registry's noop is literally an empty list:
+
+```ts
+export const createNoopTurnGuardRegistry = (): TurnGuardRegistryPort => ({ guards: [] });
+```
+
+The guard loop in core iterates zero entries and allows every turn. The file comment is explicit that
+real deployments must replace it — so in the current build, no content-safety check runs before the
+model.
+
+**Why it is separate.** Because it is an adapter, not an `if (env === 'dev')` branch in core, swapping
+in a real content-safety guard is a one-line change at the composition root — core never changes.

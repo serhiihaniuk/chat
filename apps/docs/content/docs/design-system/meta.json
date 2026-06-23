@@ -1,0 +1,5 @@
+{
+  "title": "Design System",
+  "root": true,
+  "pages": ["index", "foundations", "primitives", "components"]
+}

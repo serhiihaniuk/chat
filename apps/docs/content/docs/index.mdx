@@ -1,41 +1,17 @@
 ---
-title: Side Chat Design System
-description: The tokens, foundations, and components behind the Side Chat widget — documented with live, real components.
+title: Side Chat
+description: Documentation for the Side Chat embeddable AI assistant — the design system, the system design, and a guided walkthrough.
 ---
 
-This is the design system for the **Side Chat** widget. Every demo on these pages renders
-the **real components** from `@side-chat/side-chat-widget` — not screenshots or
-reimplementations — so what you see is exactly what ships.
-
-Use the **Theme / Mode / Corners / Density** control on component pages to re-skin every demo
-at once. It drives the real widget tokens, so it doubles as a live test of the re-skin contract.
-
-## How it is organized
+**Side Chat** is a self-contained AI chat assistant that a company embeds into its existing web
+app. These docs are split into three sections:
 
 <Cards>
-  <Card title="Foundations" href="/docs/foundations/architecture" description="Token architecture, color, themes, type, spacing, and sizing." />
-  <Card title="Primitives" href="/docs/primitives/button" description="The low-level building blocks: buttons, toggles, segmented controls." />
+  <Card title="Design System" href="/docs/design-system" description="Tokens, foundations, primitives, and components — documented with live, real widget components." />
+  <Card title="System Design" href="/docs/system-design" description="How the system is built: the layered architecture, the resumable turn model, and the package map." />
+  <Card title="Walkthrough" href="/docs/walkthrough" description="A plain-English, example-first tour of how a message becomes a streamed answer — for engineers new to AI agents." />
 </Cards>
 
-## Token architecture
-
-The system is three tiers. Each tier only ever references the tier above it, so a single
-change at the top re-skins everything below.
-
-| Tier | Name | Example | Lives on |
-| --- | --- | --- | --- |
-| 1 | **Primitive** | `--primary`, `--background`, `--radius` | `:root` (host light/dark + named themes) |
-| 2 | **Semantic / component** | `--switch-track-on: var(--primary)` | `.side-chat-widget-root` |
-| 3 | **Hook classes** | `.sc-switch-root { background: var(--switch-track-off) }` | component CSS |
-
-Because the tier-2 tokens live on the widget root (not `:root`), a theme attribute on that
-root — `data-sidechat-theme="sage"` — re-substitutes the tier-1 values and every component
-re-skins through inheritance. That is the whole contract, and it is what the controls above
-exercise live.
-
-## Built on Base UI
-
-Interactive primitives (menus, selects, switches, tabs, tooltips, dialogs) are thin wrappers
-over [Base UI](https://base-ui.com). State is exposed as data attributes
-(`[data-checked]`, `[data-highlighted]`, …) and consumed in the CSS layer as named Tailwind
-variants (`checked:`, `highlighted:`) — never `:hover` on a Base UI part.
+New to the codebase? Start with the [Walkthrough](/docs/walkthrough). Building UI? The
+[Design System](/docs/design-system) renders every component live. Need the architecture? See
+[System Design](/docs/system-design).

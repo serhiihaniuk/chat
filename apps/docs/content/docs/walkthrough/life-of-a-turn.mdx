@@ -1,0 +1,128 @@
+---
+title: Life of a Turn
+description: One message — "show me my open Jira tickets" — traced from the browser to a durable, resumable answer.
+---
+
+Maya types "show me my open Jira tickets" and presses enter. What follows is **one turn**, and it
+is the most important thing to understand in this codebase. If you picture it as a single request
+that streams an answer back, you will misread half the system. A turn is actually **two HTTP calls
+plus a server-owned fiber** — an Effect fiber is a lightweight thread, and this one outlives both
+calls. That shape is what lets Maya reload the page mid-answer and rejoin the same turn.
+
+The 16 hops of one turn are listed below; the four phases that follow explain the *why* behind each.
+
+| # | Phase | Layer | Step | Code | What it does |
+| --- | --- | --- | --- | --- | --- |
+| 01 | Pre-start | Service | Parse & brand the request | `POST /chat/runs` | Validate the ChatStreamRequest JSON and brand its ids; malformed input is rejected here as a JSON error. |
+| 02 | Pre-start | Core | Authorize the subject | `assertWorkspaceAuthority()` | Confirm the caller may act in this workspace and conversation before anything else runs. |
+| 03 | Pre-start | Core | Resolve the turn plan | `resolveAllowedTurnPlan()` | Pick the assistant profile, model policy, and tool allowlist that govern this turn. |
+| 04 | Pre-start | Core | Guard the input | `runSelectedTurnGuards()` | Run turn guards on the raw text — before any context or model call exists. |
+| 05 | Pre-start | DB | Ensure conversation & append message | `appendMessage()` | Upsert the conversation, then persist the user's message with role `user`. |
+| 06 | Pre-start | DB | Start the assistant turn | `startAssistantTurn()` | Insert the `assistant_turns` row as `running`, idempotent on requestId — the turn is now durable. |
+| 07 | Pre-start | Core | Prepare context | `prepareTurnContext()` | Assemble the model-ready message list within the token budget. |
+| 08 | Pre-start | Core | Emit started (sequence 0) | `emitStartedEvent()` | Record the first protocol event — the fence between pre-start (sync, JSON errors) and generation. |
+| 09 | Pre-start | Service | Fork generation onto a fiber | `FiberMap.run()` | Detach generation onto a server-owned fiber keyed by assistantTurnId; it runs to a terminal even if the browser disconnects. |
+| 10 | Pre-start | Service | Return the turn identity | `→ JSON identity` | Respond 200 with `{ assistantTurnId, conversationId, requestId, status: 'running' }` — never SSE. |
+| 11 | Generation | Core | Acquire the owner lease + heartbeat | `drainUnderOwnerLease()` | CAS this instance as owner with a lease epoch; a heartbeat renews it and self-interrupts if fenced. |
+| 12 | Generation | Runtime | Run the tool loop | `ToolLoopAgent` | Stream RuntimeEvents from the provider — deltas, reasoning, and tool calls — feeding each tool result back to the model. |
+| 13 | Generation | Core | Map runtime events → protocol events | `mapRuntimeEvent()` | Convert each RuntimeEvent into a sidechat.v1 event with a sequence number; the state machine rejects illegal transitions. |
+| 14 | Generation | DB | Append each event to the durable log | `appendStreamEvent()` | Insert every event into `turn_events`, then pg_notify. The log — not the connection — is the source of truth. |
+| 15 | Stream | Service | Subscribe: replay, then tail | `createTurnSubscriptionStream()` | Replay the durable log from a sequence offset, tail live events as SSE, and end at the terminal event; a reconnect resumes here. |
+| 16 | Finalize | Core | Finalize & persist the terminal | `onExit → finalize` | Complete or fail the turn and append a conflict-free synthetic terminal if the fiber died mid-flight; the reaper backstops a dead instance. |
+
+## Two calls, not one
+
+The browser never holds the turn open. It makes two separate calls:
+
+1. **`POST /chat/runs`** sends Maya's text, runs the synchronous setup, **forks generation onto a
+   server-owned fiber**, and returns the turn's identity as JSON — not a stream.
+2. **`GET /chat/turns/:assistantTurnId/stream`** opens the SSE connection that *watches* the turn.
+
+The turn runs on the server regardless of whether anyone is watching. The browser is a subscriber,
+not the owner. Every other guarantee in this section follows from that one decision.
+
+## Pre-start: the synchronous spine
+
+Steps 1–10 all run **inside `POST /chat/runs`**, in order, on the request. If any of them fail,
+Maya gets a JSON error and no turn is created — nothing half-started leaks out.
+
+Two of these steps carry most of the weight:
+
+- **Start the assistant turn (step 6)** is the moment the turn becomes *durable*. The
+  `assistant_turns` row is written as `running`, keyed idempotently on `requestId`, so a retried
+  `POST` resolves to the same turn instead of starting a second one.
+- **Append the user message (step 5)** is where the trust boundary bites. The server assigns
+  `role: 'user'` to Maya's text itself; the browser never gets to set a role. The system prompt and
+  the tool allowlist were chosen by the profile in step 3, not by her request.
+
+Pre-start ends by emitting the `started` event (sequence 0), forking generation, and returning the
+identity. That `started` event is the fence: before it, failures are synchronous JSON errors; after
+it, the turn is live and every outcome is a durable protocol event.
+
+## The hand-off: why a fiber
+
+Step 9 is the hinge. `FiberMap.run(fibers, assistantTurnId, …)` detaches generation onto a fiber
+keyed by the turn's id, running in the **service scope** rather than the request scope. The `POST`
+then returns immediately with `{ assistantTurnId, conversationId, requestId, status: 'running' }`.
+
+Because generation lives on that fiber and not inside the HTTP response, Maya's connection is now
+irrelevant to whether the answer gets produced. She can close the panel, reload, or lose her
+network — the model keeps generating and the results keep landing in the durable log.
+
+## Generation: on the fiber, owned by one instance
+
+The fiber does four things, repeatedly, until the model is done:
+
+- **Acquire an owner lease, then heartbeat it (step 11).** A compare-and-swap claims the turn for
+  this server instance and stamps a lease epoch; a heartbeat renews it. If the reaper or a new owner
+  bumps the epoch, the heartbeat self-interrupts — so exactly one instance ever writes a turn's
+  events, even across restarts and deploys.
+- **Run the tool loop (step 12).** The runtime streams `RuntimeEvent`s from the provider: text
+  deltas, reasoning, and the `jira.search_issues` tool call, whose result is fed back to the model.
+- **Map each event to the protocol (step 13).** A `RuntimeEvent` becomes a `sidechat.v1` event with
+  the next sequence number. A small state machine rejects illegal transitions, so a turn can never
+  emit two terminals or an event after one.
+- **Append to the durable log (step 14).** Every event is written to `turn_events`, then
+  `pg_notify` wakes any listeners. The log is the source of truth; the live notification is only a
+  latency optimization.
+
+## Stream: replay, then tail
+
+`GET /chat/turns/:assistantTurnId/stream?after=<seq>` (step 15) serves the answer to the browser,
+and it is built for reconnection:
+
+- It **replays** every `turn_events` row past `after`, so a fresh subscriber catches up from the
+  beginning (`after=-1`) and a reconnecting one resumes from its last seen sequence.
+- It then **tails** live events — merging the dispatcher's fan-out with a periodic safety poll — and
+  **ends at the first terminal event**.
+- If the log was pruned past `after`, the route answers `replay_expired`, and the client falls back
+  to reading conversation history instead.
+
+Reconnecting is therefore not a special case. The browser just opens the same `GET` again with
+`after` set to the last sequence it saw.
+
+## Finalize: the turn always ends
+
+Generation is wrapped in `Effect.onExit` (step 16), so the turn reaches a terminal **no matter how
+the fiber exits**. The `onExit` handler:
+
+- On success, writes `completed` with the assistant message and token usage.
+- On interrupt or provider failure, appends a **conflict-free synthetic terminal** (a partial unique
+  index guarantees exactly one terminal per turn) and records the honest status: `user_aborted` for a
+  requested cancel, otherwise `provider_failed`.
+
+Three background mechanisms back this up:
+
+- **The reaper** sweeps for turns whose lease expired — a crashed owner — and terminalizes them, so
+  no turn is stuck `running` forever.
+- **The pruner** deletes old `turn_events` rows past the retention window; the turn record and its
+  final message stay.
+- **Cancellation** is a durable intent plus a notify: `POST …/cancel` flags the turn and signals the
+  owning instance to interrupt the fiber, which finalizes as `user_aborted`.
+
+<Callout title="What survives a disconnect">
+Because the turn is a server-owned fiber writing to a durable log, and it always finalizes through
+`onExit` with the reaper as a backstop, every interruption has a defined outcome: a browser reload
+or lost connection just re-subscribes with `after`; a server crash mid-turn is reaped and
+terminalized; and the answer is produced exactly once regardless of who is watching.
+</Callout>

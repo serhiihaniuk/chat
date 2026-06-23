@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "dev": "react-router dev",
+    "dev": "react-router dev --port 4111",
     "build": "react-router build",
     "start": "serve ./build/client --config serve.json",
     "typecheck": "react-router typegen && fumadocs-mdx && tsc --noEmit",

@@ -1,4 +1,4 @@
 {
   "title": "Side Chat",
-  "pages": ["index", "foundations", "primitives", "components"]
+  "pages": ["index", "design-system", "system-design", "walkthrough"]
 }

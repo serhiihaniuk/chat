@@ -4,6 +4,8 @@ import type { MDXComponents } from "mdx/types";
 import { DesignControls } from "./design-controls";
 import { Preview } from "./preview";
 import { TokenTable } from "./token-table";
+import { TurnExplorer } from "./turn-explorer";
+import { TurnTrace } from "./turn-trace";
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
@@ -11,6 +13,8 @@ export function getMDXComponents(components?: MDXComponents) {
     Preview,
     TokenTable,
     DesignControls,
+    TurnTrace,
+    TurnExplorer,
     ...components,
   } satisfies MDXComponents;
 }

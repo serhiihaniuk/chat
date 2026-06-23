@@ -1,0 +1,51 @@
+---
+title: Package Boundaries
+description: What each boundary owns, what it may and must not import, and the data transformations that happen at each seam.
+---
+
+Read this when a change crosses packages, protocols, runtime, persistence, or the widget. This is the
+source of truth for import and data boundaries; for package *identity* and entry files, see the
+[System Design overview](/docs/system-design).
+
+## Boundaries
+
+| Boundary | Owns | May import | Must not import |
+| --- | --- | --- | --- |
+| **Public protocol** | Browser-facing `sidechat.v1` DTOs, constants, validators, sequence checks, SSE codec | Validation helpers, domain-neutral primitives | React, Hono, Effect, DB, AI SDK, runtime internals |
+| **AI runtime contract** | Provider-neutral `AiRuntimeRequest`, tool scope, `RuntimeEvent`, error, stream, and port contracts | `shared`, Effect types | Product core, runtime implementation, Hono, DB, React, AI SDK |
+| **Runtime** | Prepared turn execution, model-only agents, executor registry, runtime tools, provider adapter, `RuntimeEvent`s | `ai-runtime-contract`, `shared`, Effect, AI SDK inside adapter folders | Product authorization, DB rows, Hono, React, protocol DTOs |
+| **Core workflow** | Authorization, turn policy, context, capability contracts, ports, lifecycle, title timing/safety, protocol mapping | `ai-runtime-contract`, `chat-protocol`, `shared`, Effect | Hono, Drizzle/Postgres, provider SDKs, React, widget state, `agent-runtime` |
+| **Service adapter** | HTTP/Hono, auth/env parsing, concrete ports, app adapters, composition, SSE transport | Core, runtime providers, DB adapters, protocol, Hono | Widget internals, copied UI, product lifecycle ownership |
+| **Widget / UI** | React widget, browser-safe API client/SSE reader, FSD layers, protocol-to-UI projection, host-bridge usage | `chat-protocol`, `host-bridge`, React, React Query, UI libraries | Effect, provider DTOs, Hono, DB rows, runtime/service internals |
+| **Host bridge** | Browser seam for host context and host commands | `chat-protocol`, browser-safe shared utilities | Runtime tools, DB, service, provider internals, widget internals |
+| **Persistence** | Schema, repository contracts, Drizzle/Postgres + in-memory adapters, the dedicated `LISTEN/NOTIFY` connection and notification source | `shared`, Drizzle/Postgres, Effect (Stream), package-local test helpers | Hono, React, widget, runtime internals, core use cases |
+| **Shared primitives** | Truly domain-neutral helpers | Minimal TypeScript-only dependencies | Product workflow, provider details, DB, Hono, React |
+
+## Data rules
+
+Each boundary is also a transformation. Data changes shape as it crosses, and never travels in a
+foreign shape:
+
+- Hono objects become `StreamChatInput` at the HTTP adapter boundary.
+- Service composition owns the model catalog (provider/model ids, context-window metadata, selectable
+  reasoning efforts). The widget reads the catalog; core validates the resulting per-turn preference.
+- Core turns policy instructions, trusted context, and chat history into the final
+  `AiRuntimeRequest.messages` before crossing the runtime port.
+- Core may carry provider-neutral reasoning on `AiRuntimeRequest`; provider adapters translate it to
+  SDK-specific options inside the runtime.
+- AI SDK stream parts become provider-neutral `RuntimeEvent`s inside `agent-runtime`; the shape lives
+  in `ai-runtime-contract`.
+- `RuntimeEvent`s become browser-safe `SidechatStreamEvent`s in `partner-ai-core`.
+- Drizzle/Postgres records stay behind repository adapters.
+- Widget message and activity state is derived only from protocol events and host-bridge messages.
+
+## How the boundaries are enforced
+
+These are not honor-system rules — custom lint scripts fail the build when an import crosses a
+forbidden edge:
+
+- `scripts/check-boundaries.mjs`
+- `scripts/check-runtime-boundaries.mjs`
+- `scripts/check-widget-layers.mjs`
+- `scripts/check-package-exports.mjs`
+- `scripts/check-human-readability.mjs`

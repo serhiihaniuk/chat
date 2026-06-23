@@ -1,0 +1,65 @@
+---
+title: Protocol & Runtime Events
+description: How a provider stream part becomes a RuntimeEvent, then a sidechat.v1 protocol event, then widget state — and the rules that keep each layer's shapes private.
+---
+
+This is the reference for private provider events, RuntimeEvents, protocol events, and the streaming
+style. It is *not* the source of truth for product policy or UI rendering.
+
+## The event chain
+
+A single piece of model output crosses four shapes on its way to the screen:
+
+AI SDK stream part → `RuntimeEvent` → `SidechatStreamEvent` → widget API-client decoded event →
+widget message/activity state.
+
+AI SDK stream parts and provider DTOs stay private to `agent-runtime`. `RuntimeEvent` shapes live in
+`ai-runtime-contract` and are emitted by `agent-runtime`. `SidechatStreamEvent`s are the
+browser-facing contract in `chat-protocol`.
+
+## Runtime rules
+
+- `agent-runtime` receives a prepared `AiRuntimeRequest`.
+- `AiRuntimeRequest.reasoning` is provider-neutral; provider adapters translate it to private SDK
+  options and choose defaults when core does not select one.
+- The selected `AgentExecutor` emits `RuntimeEvent`s. The default executor calls the private AI SDK
+  adapter; other executors may use different engines but must still emit `RuntimeEvent`s at the
+  boundary.
+- The runtime does not decide product authorization, approval policy, host-command dispatch,
+  persistence, or context access.
+
+## Protocol rules
+
+- `chat-protocol` owns the `sidechat.v1` request/event DTOs, constants, validators, ordering checks,
+  SSE codec, and generated schema. A request model preference names provider/model ids and reasoning
+  effort only — never provider-native options.
+- Core maps `RuntimeEvent`s to `SidechatStreamEvent`s.
+- The browser never receives provider-native parts, `RuntimeEvent`s, Effect values, DB rows, Hono
+  objects, or raw provider errors.
+- Protocol event strings come from centralized constants.
+
+For the full import/data boundary table these rules summarize, see
+[Package Boundaries](/docs/system-design/package-boundaries).
+
+## Tool and activity lifecycle
+
+A tool call surfaces to the UI as activity, never as a separate message:
+
+model emits a tool call → the `RuntimeTool` executes → a tool result or tool error → a runtime activity
+event → a protocol activity event → a widget activity item.
+
+Tool input, output, error, and sources stay inside the activity details — they do not become separate
+top-level conversation messages. (For the worked end-to-end example, see
+[Add a Tool](/docs/walkthrough/add-a-tool).)
+
+## Effect & Stream style
+
+The core and runtime APIs are Effect-first; Promise, `ReadableStream`, and `AsyncIterable` conversions
+belong only at the transport edges.
+
+- The streaming path is `prepareStreamChatTurn(...)` + `runTurnGeneration(...)` in core, and
+  `streamEffect(request)` at the runtime port.
+- Expected failures use `Effect.fail`, `Effect.try`, or `Effect.tryPromise`. A raw `throw` is a defect,
+  not product control flow.
+- Prefer named stages over nested `Effect.map` / `Effect.flatMap` / `Stream.unwrap` / object-spread /
+  callback chains.
