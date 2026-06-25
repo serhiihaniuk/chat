@@ -1,3 +1,4 @@
+export * from "./providers/azure/azure-openai-model-provider.js";
 export * from "./providers/fake/fake-model-provider.js";
 export * from "./providers/model-provider.js";
 export * from "./providers/openai/openai-model-provider.js";

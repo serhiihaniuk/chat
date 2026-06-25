@@ -10,11 +10,15 @@ import type {
   SideChatToolConfig,
 } from "./types.js";
 
-export type ConfigProviderKind = typeof PROVIDERS.FAKE.KIND | typeof PROVIDERS.OPENAI.KIND;
+export type ConfigProviderKind =
+  | typeof PROVIDERS.FAKE.KIND
+  | typeof PROVIDERS.OPENAI.KIND
+  | typeof PROVIDERS.AZURE.KIND;
 
 export const validateSideChatConfig = (config: SideChatConfig): void => {
   assertAvailableModels(config);
   assertConfiguredProviderMatchesModels(config);
+  assertAzureDeployments(config);
   assertCurrentRuntimeReasoningShape(config);
   assertRequestPolicyModels(config);
   assertExecutors(config);
@@ -54,7 +58,11 @@ const assertAvailableModels = (config: SideChatConfig): void => {
 
   const seenModelIds = new Set<string>();
   for (const entry of config.models.availableModels) {
-    assertUniqueModelId(entry.model.MODEL_ID, seenModelIds);
+    const modelId = entry.model.MODEL_ID;
+    if (seenModelIds.has(modelId)) {
+      throw new ServiceConfigError(`Duplicate model ${modelId} in sidechat.config.ts.`);
+    }
+    seenModelIds.add(modelId);
     assertReasoningConfig(entry);
   }
 
@@ -64,13 +72,6 @@ const assertAvailableModels = (config: SideChatConfig): void => {
       `Default reasoning effort for ${config.models.default.model.MODEL_ID} must match its configured model entry.`,
     );
   }
-};
-
-const assertUniqueModelId = (modelId: string, seenModelIds: Set<string>): void => {
-  if (seenModelIds.has(modelId)) {
-    throw new ServiceConfigError(`Duplicate model ${modelId} in sidechat.config.ts.`);
-  }
-  seenModelIds.add(modelId);
 };
 
 const assertReasoningConfig = (entry: SideChatConfiguredModel<SideChatModelDescriptor>): void => {
@@ -99,6 +100,19 @@ const assertConfiguredProviderMatchesModels = (config: SideChatConfig): void => 
   throw new ServiceConfigError(
     `Configured provider ${config.models.provider.kind} does not match enabled ${modelProviderKind} models.`,
   );
+};
+
+const assertAzureDeployments = (config: SideChatConfig): void => {
+  if (config.models.provider.kind !== PROVIDERS.AZURE.KIND) return;
+
+  const deployments = config.models.provider.connection.deployments;
+  for (const entry of config.models.availableModels) {
+    if (entry.model.MODEL_ID in deployments) continue;
+
+    throw new ServiceConfigError(
+      `Azure model ${entry.model.MODEL_ID} is missing a deployment in the provider connection.`,
+    );
+  }
 };
 
 const assertCurrentRuntimeReasoningShape = (config: SideChatConfig): void => {
@@ -242,6 +256,7 @@ const providerKindForModel = (
   const modelId = modelConfig.model.MODEL_ID;
   if (fakeModelIds.has(modelId)) return PROVIDERS.FAKE.KIND;
   if (openAIModelIds.has(modelId)) return PROVIDERS.OPENAI.KIND;
+  if (azureModelIds.has(modelId)) return PROVIDERS.AZURE.KIND;
 
   throw new ServiceConfigError(`Model ${modelId} is not declared in the provider catalog.`);
 };
@@ -254,4 +269,7 @@ const fakeModelIds: ReadonlySet<string> = new Set(
 );
 const openAIModelIds: ReadonlySet<string> = new Set(
   Object.values(PROVIDERS.OPENAI.MODELS).map((model) => model.MODEL_ID),
+);
+const azureModelIds: ReadonlySet<string> = new Set(
+  Object.values(PROVIDERS.AZURE.MODELS).map((model) => model.MODEL_ID),
 );

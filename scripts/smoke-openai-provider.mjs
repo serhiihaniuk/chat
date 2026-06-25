@@ -19,12 +19,15 @@ const app = createPartnerAiServiceApp(
   }),
 );
 
-const response = await app.request("/chat/stream", {
+const authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+
+// Two-call resumable flow: POST /chat/runs starts the server-owned turn and
+// returns its identity as JSON, then GET /chat/turns/:id/stream replays and tails
+// the durable event log as SSE. This replaced the removed response-owned
+// POST /chat/stream.
+const runResponse = await app.request("/chat/runs", {
   method: "POST",
-  headers: {
-    authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
-    "content-type": "application/json",
-  },
+  headers: { authorization, "content-type": "application/json" },
   body: JSON.stringify({
     protocolVersion: SIDECHAT_PROTOCOL_VERSION,
     requestId: `request_live_${Date.now()}`,
@@ -40,11 +43,21 @@ const response = await app.request("/chat/stream", {
   }),
 });
 
-if (!response.ok) {
-  throw new Error(`Live provider smoke failed with HTTP ${response.status}.`);
+if (!runResponse.ok) {
+  throw new Error(`Live provider smoke failed to start with HTTP ${runResponse.status}.`);
 }
 
-const body = await response.text();
+const { assistantTurnId } = await runResponse.json();
+
+const streamResponse = await app.request(`/chat/turns/${assistantTurnId}/stream?after=-1`, {
+  headers: { authorization },
+});
+
+if (!streamResponse.ok) {
+  throw new Error(`Live provider smoke stream failed with HTTP ${streamResponse.status}.`);
+}
+
+const body = await streamResponse.text();
 if (!body.includes("sidechat.completed")) {
   throw new Error("Live provider smoke did not complete a sidechat stream.");
 }

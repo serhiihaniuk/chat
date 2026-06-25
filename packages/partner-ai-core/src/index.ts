@@ -8,7 +8,6 @@ export {
   runTurnGeneration,
   type TurnLeaseSettings,
 } from "./application/stream-chat/protocol/run-turn-generation.js";
-export { createProtocolEventStream } from "./application/stream-chat/protocol/protocol-event-stream.js";
 export * from "./application/stream-chat/history/admit-conversation-history-context.js";
 export * from "./domain/authority.js";
 export * from "./domain/capabilities.js";

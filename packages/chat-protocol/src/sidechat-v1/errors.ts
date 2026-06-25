@@ -15,8 +15,7 @@ export const PROTOCOL_ERROR_CODES = {
   UNSUPPORTED_PROTOCOL: "unsupported_protocol",
 } as const;
 
-export type ProtocolErrorCode =
-  (typeof PROTOCOL_ERROR_CODES)[keyof typeof PROTOCOL_ERROR_CODES];
+export type ProtocolErrorCode = (typeof PROTOCOL_ERROR_CODES)[keyof typeof PROTOCOL_ERROR_CODES];
 
 /**
  * Transport-level error codes returned as JSON before any SSE frame.
@@ -32,8 +31,7 @@ export const TRANSPORT_ERROR_CODES = {
   REPLAY_EXPIRED: "replay_expired",
 } as const;
 
-export type TransportErrorCode =
-  (typeof TRANSPORT_ERROR_CODES)[keyof typeof TRANSPORT_ERROR_CODES];
+export type TransportErrorCode = (typeof TRANSPORT_ERROR_CODES)[keyof typeof TRANSPORT_ERROR_CODES];
 
 export class ProtocolValidationError extends Error {
   readonly code = PROTOCOL_ERROR_CODES.BAD_REQUEST;

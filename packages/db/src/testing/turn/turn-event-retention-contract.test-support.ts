@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SidechatRepositories } from "#repositories/contract";
-import {
-  closeIfNeeded,
-  now,
-  startTurn,
-  workspaceId,
-} from "../repository-contract.helpers.js";
+import { closeIfNeeded, now, startTurn, workspaceId } from "../repository-contract.helpers.js";
 
 // A fixed completion instant plus a cutoff after it makes "the retention window
 // elapsed" deterministic for the prune contract, independent of wall-clock time.
@@ -26,8 +21,7 @@ export const turnEventRetentionContract = (
   createRepositories: () => SidechatRepositories,
 ) => {
   let scopeCounter = 0;
-  const nextScope = () =>
-    `${label.replace(/\W+/gu, "_")}_retention_${++scopeCounter}`;
+  const nextScope = () => `${label.replace(/\W+/gu, "_")}_retention_${++scopeCounter}`;
 
   describe("turn-event retention contract", () => {
     it("prunes a long-terminal turn's events while keeping the turn record", async () => {

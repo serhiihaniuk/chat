@@ -28,8 +28,7 @@ npx -p node@24.16.0 -p npm@11.15.0 npm run verify
 
 | Script                          | Catches                                         |
 | ------------------------------- | ----------------------------------------------- |
-| `check-runtime-pins.mjs`        | Node/npm supported-runtime drift.               |
-| `check-version-pins.mjs`        | Dependency version ranges.                      |
+| `check-version-pins.mjs`        | Dependency version pins and lockfile presence.  |
 | `check-dependency-policy.mjs`   | Disallowed dependencies.                        |
 | `check-unused-dependencies.mjs` | Declared but unused packages.                   |
 | `check-package-exports.mjs`     | Package export contract drift.                  |

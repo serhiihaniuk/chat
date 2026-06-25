@@ -24,6 +24,7 @@ const allowed = {
     "hono",
   ]),
   "@side-chat/agent-runtime": new Set([
+    "@ai-sdk/azure",
     "@ai-sdk/openai",
     "@ai-sdk/provider",
     "@side-chat/ai-runtime-contract",

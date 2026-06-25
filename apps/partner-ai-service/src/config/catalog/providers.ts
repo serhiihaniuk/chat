@@ -1,4 +1,6 @@
 import {
+  AZURE_OPENAI_PROVIDER_ID,
+  AZURE_OPENAI_REASONING_EFFORTS,
   DEFAULT_FAKE_REASONING_EFFORT,
   FAKE_ECHO_MODEL_ID,
   FAKE_PROVIDER_ID,
@@ -28,6 +30,7 @@ type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
 export const PROVIDER_KINDS = {
   FAKE: "fake",
   OPENAI: "openai",
+  AZURE: "azure",
 } as const;
 
 export type ProviderKind = ObjectValue<typeof PROVIDER_KINDS>;
@@ -68,6 +71,24 @@ const OPENAI_MODELS = {
   },
 } as const;
 
+// Azure deployments are non-reasoning chat models by default (e.g. gpt-4o), so the
+// only safe reasoning option is "none"; the adapter omits any reasoning effort.
+const AZURE_REASONING_OPTIONS = [
+  AZURE_OPENAI_REASONING_EFFORTS.NONE,
+] as const satisfies readonly OpenAIReasoningEffort[];
+
+const AZURE_MODELS = {
+  GPT_4O: {
+    MODEL_ID: "gpt-4o",
+    DISPLAY_NAME: "GPT-4o (Azure)",
+    CONTEXT_WINDOW_TOKENS: 128_000,
+    MAX_OUTPUT_TOKENS: 16_384,
+    REASONING: AZURE_OPENAI_REASONING_EFFORTS,
+    DEFAULT_REASONING_EFFORT: AZURE_OPENAI_REASONING_EFFORTS.NONE,
+    SUPPORTED_REASONING_EFFORTS: AZURE_REASONING_OPTIONS,
+  },
+} as const;
+
 export const PROVIDERS = {
   FAKE: {
     KIND: PROVIDER_KINDS.FAKE,
@@ -95,6 +116,21 @@ export const PROVIDERS = {
     REASONING_SUMMARIES: OPENAI_REASONING_SUMMARIES,
     MODELS: OPENAI_MODELS,
   },
+  AZURE: {
+    KIND: PROVIDER_KINDS.AZURE,
+    PROVIDER_ID: AZURE_OPENAI_PROVIDER_ID,
+    SECRET_ENV_KEYS: {
+      API_KEY: "SIDECHAT_AZURE_OPENAI_API_KEY",
+    },
+    TRANSPORT_ENV_KEYS: {
+      ENDPOINT: "SIDECHAT_AZURE_OPENAI_ENDPOINT",
+      API_VERSION: "SIDECHAT_AZURE_OPENAI_API_VERSION",
+    },
+    // Azure resources do not retain API prompts/responses the way the OpenAI
+    // Responses API does, so the provider default applies (no `store` flag).
+    DEFAULT_RETENTION: SERVICE_MODEL_RETENTION_POLICIES.PROVIDER_DEFAULT,
+    MODELS: AZURE_MODELS,
+  },
 } as const;
 
 export type OpenAIServiceModel =
@@ -115,7 +151,26 @@ export const DEFAULT_OPENAI_RETENTION_POLICY = PROVIDERS.OPENAI
 const isOpenAIModelId = (modelId: string): modelId is OpenAIModelId =>
   modelId in OPENAI_MODEL_METADATA_BY_ID;
 
-function toRuntimeModelMetadata(model: OpenAIServiceModel): RuntimeModelMetadata {
+export type AzureServiceModel =
+  (typeof PROVIDERS.AZURE.MODELS)[keyof typeof PROVIDERS.AZURE.MODELS];
+export type AzureModelId = AzureServiceModel["MODEL_ID"];
+
+export const AZURE_MODEL_METADATA_BY_ID: Readonly<Record<AzureModelId, RuntimeModelMetadata>> = {
+  [AZURE_MODELS.GPT_4O.MODEL_ID]: toRuntimeModelMetadata(AZURE_MODELS.GPT_4O),
+};
+
+export const readAzureModelMetadata = (modelId: string): RuntimeModelMetadata | undefined =>
+  isAzureModelId(modelId) ? AZURE_MODEL_METADATA_BY_ID[modelId] : undefined;
+
+const isAzureModelId = (modelId: string): modelId is AzureModelId =>
+  modelId in AZURE_MODEL_METADATA_BY_ID;
+
+function toRuntimeModelMetadata(model: {
+  readonly MODEL_ID: string;
+  readonly DISPLAY_NAME: string;
+  readonly CONTEXT_WINDOW_TOKENS?: number | undefined;
+  readonly MAX_OUTPUT_TOKENS?: number | undefined;
+}): RuntimeModelMetadata {
   return {
     modelId: model.MODEL_ID,
     displayName: model.DISPLAY_NAME,

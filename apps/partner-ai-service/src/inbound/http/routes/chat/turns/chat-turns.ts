@@ -1,7 +1,4 @@
-import {
-  PROTOCOL_ERROR_CODES,
-  SIDECHAT_PROTOCOL_VERSION,
-} from "@side-chat/chat-protocol";
+import { PROTOCOL_ERROR_CODES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import type { AssistantTurnRecord, SidechatRepositories } from "@side-chat/db";
 import type {
   AuthContext,
@@ -14,10 +11,7 @@ import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispat
 import { createTurnSubscriptionStream } from "#inbound/turn-stream/turn-subscription-stream";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { AuthContextVariables } from "../../../middleware/auth-context.js";
-import {
-  jsonError,
-  replayExpiredError,
-} from "../../../response/protocol-errors.js";
+import { jsonError, replayExpiredError } from "../../../response/protocol-errors.js";
 import { streamSseResponse } from "../../../response/sse.js";
 import { requireContextAuth } from "../../types.js";
 import {
@@ -96,9 +90,7 @@ export const registerChatTurnRoutes = (
     // replay_expired before opening SSE so the widget falls back to history.
     if (await isReplayExpired(dependencies, authContext, turn, after)) {
       recordReplayOutcome(dependencies, turn, "replay_expired", after);
-      return replayExpiredError(
-        "This turn's stream history is no longer available.",
-      );
+      return replayExpiredError("This turn's stream history is no longer available.");
     }
 
     recordReplayOutcome(dependencies, turn, "replay_served", after);
@@ -120,18 +112,16 @@ export const registerChatTurnRoutes = (
 
     // Durable intent + notify in one transaction. CAS to running, so cancelling a
     // finished or unknown turn is a no-op ack rather than an error.
-    const { cancelRequested } =
-      await dependencies.repositories.requestTurnCancellation({
-        workspaceId: authContext.workspaceId,
-        assistantTurnId,
-        now: dependencies.ports.clock.now(),
-      });
+    const { cancelRequested } = await dependencies.repositories.requestTurnCancellation({
+      workspaceId: authContext.workspaceId,
+      assistantTurnId,
+      now: dependencies.ports.clock.now(),
+    });
 
     // Interrupt the fiber if this instance owns it (no-op otherwise). The db
     // notify covers a remote owner; this makes the local owner — and the
     // notify-less memory adapter — react without waiting on the reaper.
-    if (cancelRequested)
-      await dependencies.runner.interruptTurn(assistantTurnId);
+    if (cancelRequested) await dependencies.runner.interruptTurn(assistantTurnId);
 
     // Record the cancel with its outcome so operators see cancel intent vs no-op
     // (a cancel of a finished/unknown turn reports `cancelRequested: false`).
@@ -193,11 +183,7 @@ const loadWorkspaceTurn = (
   });
 
 const notFoundTurn = (): Response =>
-  jsonError(
-    PROTOCOL_ERROR_CODES.NOT_FOUND,
-    "Assistant turn was not found.",
-    404,
-  );
+  jsonError(PROTOCOL_ERROR_CODES.NOT_FOUND, "Assistant turn was not found.", 404);
 
 const turnIdentity = (turn: AssistantTurnRecord) => ({
   assistantTurnId: turn.assistantTurnId,

@@ -120,7 +120,7 @@ call, stopping generation and billing rather than only the socket.
 ## Live Subscription Transport
 
 The durable `turn_events` log is the source of truth; Postgres `LISTEN/NOTIFY`
-decides only *when* to read. Persistence (`@side-chat/db`) owns the one dedicated
+decides only _when_ to read. Persistence (`@side-chat/db`) owns the one dedicated
 `LISTEN` connection and surfaces a notification source. The service owns a
 per-instance dispatcher that reads new rows on each notify and fans them out to
 local subscribers, plus a per-subscriber safety reconcile-poll

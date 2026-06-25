@@ -45,10 +45,7 @@ export type {
   ServiceCompositionOptions,
 } from "./service-composition-types.js";
 
-export type {
-  OpenAIReasoningEffort,
-  OpenAIReasoningSummary,
-} from "@side-chat/agent-runtime";
+export type { OpenAIReasoningEffort, OpenAIReasoningSummary } from "@side-chat/agent-runtime";
 export {
   createServiceProviderRegistry,
   SERVICE_MODEL_RETENTION_POLICIES,
@@ -105,9 +102,7 @@ export type {
  * assemble core, runtime, and DB. Production call sites should pass explicit
  * adapters instead of relying on the development fallbacks each factory owns.
  */
-export const composePartnerAiService = (
-  options: ServiceCompositionOptions,
-): ServiceComposition => {
+export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
   const turnGuards = options.turnGuards ?? createNoopTurnGuardRegistry();
 
   const security = createServiceSecurityPorts(options);
@@ -138,8 +133,7 @@ export const composePartnerAiService = (
     security,
     turnGuards,
     titleGeneration:
-      options.conversationTitleGeneration ??
-      DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION,
+      options.conversationTitleGeneration ?? DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION,
     observability: options.observability,
   });
 
@@ -254,9 +248,7 @@ export const composePartnerAiService = (
  * no cross-process wake signal, so it uses the no-op source and the subscriber
  * safety poll drives delivery from the in-memory log.
  */
-const createNotificationSource = (
-  persistence: PersistenceConfig,
-): TurnEventNotificationSource =>
+const createNotificationSource = (persistence: PersistenceConfig): TurnEventNotificationSource =>
   persistence.kind === "postgres"
     ? createPostgresTurnEventNotificationSource(persistence.databaseUrl)
     : NOOP_TURN_EVENT_NOTIFICATION_SOURCE;

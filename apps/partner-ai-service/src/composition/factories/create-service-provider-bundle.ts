@@ -62,6 +62,26 @@ const providerRegistrationForConfig = (config: RuntimeConfig): ServiceProviderRe
     };
   }
 
+  if (config.provider === PROVIDERS.AZURE.KIND) {
+    return {
+      kind: PROVIDERS.AZURE.KIND,
+      providerId: PROVIDERS.AZURE.PROVIDER_ID,
+      modelIds: config.modelIds,
+      defaultModelId: config.defaultModelId,
+      modelMetadata: config.modelMetadata,
+      apiKey: config.apiKey,
+      endpoint: config.endpoint,
+      apiVersion: config.apiVersion,
+      deploymentsByModelId: config.deploymentsByModelId,
+      fetch: config.fetch,
+      reasoning: {
+        effort: config.reasoningEffort ?? PROVIDERS.AZURE.MODELS.GPT_4O.DEFAULT_REASONING_EFFORT,
+        allowedEfforts:
+          config.reasoningEfforts ?? PROVIDERS.AZURE.MODELS.GPT_4O.SUPPORTED_REASONING_EFFORTS,
+      },
+    };
+  }
+
   const modelId = config.modelId ?? PROVIDERS.FAKE.MODELS.FAKE_ECHO.MODEL_ID;
   return {
     kind: PROVIDERS.FAKE.KIND,

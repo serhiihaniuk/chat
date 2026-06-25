@@ -1,7 +1,4 @@
-import type {
-  SideChatNumberEnvReference,
-  SideChatStringEnvReference,
-} from "../env-references.js";
+import type { SideChatNumberEnvReference, SideChatStringEnvReference } from "../env-references.js";
 
 /**
  * Operator tunables for resumable streaming, as readable-config env references.

@@ -1,11 +1,7 @@
 import { and, asc, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import {
-  assistantTurns,
-  turnEvents,
-  type sidechatTables,
-} from "#drizzle/schema";
+import { assistantTurns, turnEvents, type sidechatTables } from "#drizzle/schema";
 import {
   isTurnEventTerminalType,
   TURN_EVENT_TERMINAL_TYPES,
@@ -25,11 +21,7 @@ export const appendTurnEvent =
   async (command) => {
     // Stage 1: prove the turn is in this workspace and a second terminal is not
     // being introduced before we attempt the durable write.
-    await requireWorkspaceTurn(
-      db,
-      command.workspaceId,
-      command.assistantTurnId,
-    );
+    await requireWorkspaceTurn(db, command.workspaceId, command.assistantTurnId);
     await rejectSecondTerminal(db, command);
 
     // Stage 2: insert and notify atomically; NOTIFY fires only on commit.
@@ -44,11 +36,7 @@ export const appendTurnEvent =
 export const readTurnEventsAfter =
   (db: TurnEventDb): SidechatRepositories["readTurnEventsAfter"] =>
   async (command) => {
-    await requireWorkspaceTurn(
-      db,
-      command.workspaceId,
-      command.assistantTurnId,
-    );
+    await requireWorkspaceTurn(db, command.workspaceId, command.assistantTurnId);
     const rows = await db
       .select()
       .from(turnEvents)
@@ -65,35 +53,23 @@ export const readTurnEventsAfter =
 export const maxTurnEventSequence =
   (db: TurnEventDb): SidechatRepositories["maxTurnEventSequence"] =>
   async (command) => {
-    await requireWorkspaceTurn(
-      db,
-      command.workspaceId,
-      command.assistantTurnId,
-    );
+    await requireWorkspaceTurn(db, command.workspaceId, command.assistantTurnId);
     const [row] = await db
       .select({ value: sql<number | null>`max(${turnEvents.sequence})` })
       .from(turnEvents)
       .where(eq(turnEvents.assistantTurnId, command.assistantTurnId));
-    return row?.value === null || row?.value === undefined
-      ? undefined
-      : Number(row.value);
+    return row?.value === null || row?.value === undefined ? undefined : Number(row.value);
   };
 
 export const minTurnEventSequence =
   (db: TurnEventDb): SidechatRepositories["minTurnEventSequence"] =>
   async (command) => {
-    await requireWorkspaceTurn(
-      db,
-      command.workspaceId,
-      command.assistantTurnId,
-    );
+    await requireWorkspaceTurn(db, command.workspaceId, command.assistantTurnId);
     const [row] = await db
       .select({ value: sql<number | null>`min(${turnEvents.sequence})` })
       .from(turnEvents)
       .where(eq(turnEvents.assistantTurnId, command.assistantTurnId));
-    return row?.value === null || row?.value === undefined
-      ? undefined
-      : Number(row.value);
+    return row?.value === null || row?.value === undefined ? undefined : Number(row.value);
   };
 
 /**

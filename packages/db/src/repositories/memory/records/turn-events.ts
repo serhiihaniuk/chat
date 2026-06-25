@@ -5,29 +5,19 @@ import {
   type TurnEventRecord,
 } from "#schema-contract";
 import type { MemoryRepositoryContext } from "./conversations.js";
-import {
-  requireMemoryWorkspaceTurn,
-  type MemoryStore,
-} from "../store/store.js";
+import { requireMemoryWorkspaceTurn, type MemoryStore } from "../store/store.js";
 import { DbRepositoryError } from "../../errors.js";
 import { jsonValueEquals, result } from "../../repository-utils.js";
 
 export const appendMemoryTurnEvent =
-  ({
-    store,
-  }: MemoryRepositoryContext): AssistantTurnRepositoryContract["appendTurnEvent"] =>
+  ({ store }: MemoryRepositoryContext): AssistantTurnRepositoryContract["appendTurnEvent"] =>
   async (command) => {
     await Promise.resolve();
-    requireMemoryWorkspaceTurn(
-      store,
-      command.workspaceId,
-      command.assistantTurnId,
-    );
+    requireMemoryWorkspaceTurn(store, command.workspaceId, command.assistantTurnId);
 
     const existing = store.turnEvents.find(
       (event) =>
-        event.assistantTurnId === command.assistantTurnId &&
-        event.sequence === command.sequence,
+        event.assistantTurnId === command.assistantTurnId && event.sequence === command.sequence,
     );
     if (existing) {
       // Idempotent re-append matches; a different payload at the same sequence is
@@ -58,36 +48,23 @@ export const appendMemoryTurnEvent =
   };
 
 export const readMemoryTurnEventsAfter =
-  ({
-    store,
-  }: MemoryRepositoryContext): AssistantTurnRepositoryContract["readTurnEventsAfter"] =>
+  ({ store }: MemoryRepositoryContext): AssistantTurnRepositoryContract["readTurnEventsAfter"] =>
   async (command) => {
     await Promise.resolve();
-    requireMemoryWorkspaceTurn(
-      store,
-      command.workspaceId,
-      command.assistantTurnId,
-    );
+    requireMemoryWorkspaceTurn(store, command.workspaceId, command.assistantTurnId);
     return store.turnEvents
       .filter(
         (event) =>
-          event.assistantTurnId === command.assistantTurnId &&
-          event.sequence > command.after,
+          event.assistantTurnId === command.assistantTurnId && event.sequence > command.after,
       )
       .sort((left, right) => left.sequence - right.sequence);
   };
 
 export const maxMemoryTurnEventSequence =
-  ({
-    store,
-  }: MemoryRepositoryContext): AssistantTurnRepositoryContract["maxTurnEventSequence"] =>
+  ({ store }: MemoryRepositoryContext): AssistantTurnRepositoryContract["maxTurnEventSequence"] =>
   async (command) => {
     await Promise.resolve();
-    requireMemoryWorkspaceTurn(
-      store,
-      command.workspaceId,
-      command.assistantTurnId,
-    );
+    requireMemoryWorkspaceTurn(store, command.workspaceId, command.assistantTurnId);
     const sequences = store.turnEvents
       .filter((event) => event.assistantTurnId === command.assistantTurnId)
       .map((event) => event.sequence);
@@ -95,16 +72,10 @@ export const maxMemoryTurnEventSequence =
   };
 
 export const minMemoryTurnEventSequence =
-  ({
-    store,
-  }: MemoryRepositoryContext): AssistantTurnRepositoryContract["minTurnEventSequence"] =>
+  ({ store }: MemoryRepositoryContext): AssistantTurnRepositoryContract["minTurnEventSequence"] =>
   async (command) => {
     await Promise.resolve();
-    requireMemoryWorkspaceTurn(
-      store,
-      command.workspaceId,
-      command.assistantTurnId,
-    );
+    requireMemoryWorkspaceTurn(store, command.workspaceId, command.assistantTurnId);
     const sequences = store.turnEvents
       .filter((event) => event.assistantTurnId === command.assistantTurnId)
       .map((event) => event.sequence);
@@ -120,16 +91,10 @@ export const minMemoryTurnEventSequence =
  * contract test.
  */
 export const pruneMemoryTurnEvents =
-  ({
-    store,
-  }: MemoryRepositoryContext): AssistantTurnRepositoryContract["pruneTurnEventsBefore"] =>
+  ({ store }: MemoryRepositoryContext): AssistantTurnRepositoryContract["pruneTurnEventsBefore"] =>
   async (command) => {
     await Promise.resolve();
-    const prunableIds = prunableTurnIds(
-      store,
-      command.completedBefore,
-      command.limit,
-    );
+    const prunableIds = prunableTurnIds(store, command.completedBefore, command.limit);
     if (prunableIds.size === 0) return { prunedTurns: 0, deletedEvents: 0 };
 
     let deletedEvents = 0;
@@ -142,19 +107,14 @@ export const pruneMemoryTurnEvents =
     return { prunedTurns: prunableIds.size, deletedEvents };
   };
 
-const prunableTurnIds = (
-  store: MemoryStore,
-  completedBefore: string,
-  limit: number,
-): Set<string> =>
+const prunableTurnIds = (store: MemoryStore, completedBefore: string, limit: number): Set<string> =>
   new Set(
     store.assistantTurns
       .filter(
         (turn) =>
           turn.status !== "running" &&
           turn.completedAt !== undefined &&
-          new Date(turn.completedAt).getTime() <
-            new Date(completedBefore).getTime(),
+          new Date(turn.completedAt).getTime() < new Date(completedBefore).getTime(),
       )
       .slice(0, limit)
       .map((turn) => turn.assistantTurnId),
@@ -167,15 +127,11 @@ const prunableTurnIds = (
  * contract test holds. A matching terminal at the same sequence is handled by
  * the idempotent re-append path before this runs.
  */
-const rejectMemorySecondTerminal = (
-  store: MemoryStore,
-  command: AppendTurnEventCommand,
-): void => {
+const rejectMemorySecondTerminal = (store: MemoryStore, command: AppendTurnEventCommand): void => {
   if (!isTurnEventTerminalType(command.type)) return;
   const hasTerminal = store.turnEvents.some(
     (event) =>
-      event.assistantTurnId === command.assistantTurnId &&
-      isTurnEventTerminalType(event.type),
+      event.assistantTurnId === command.assistantTurnId && isTurnEventTerminalType(event.type),
   );
   if (hasTerminal) {
     throw new DbRepositoryError(

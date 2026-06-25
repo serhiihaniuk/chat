@@ -99,12 +99,11 @@ const verifyServiceRestartPersistence = async ({ connectionString, currentServic
   console.log("Verifying service history survives a restart...");
   await expectPersistentHealth();
   const expectedHistory = ["Persistent restart smoke", "Fake response: Persistent restart smoke"];
-  const streamBody = await postStream({
+  const conversationId = await runTurn({
     requestId: "request_persistent_restart_smoke",
     messageId: "message_persistent_restart_smoke",
     content: expectedHistory[0],
   });
-  const conversationId = readConversationId(streamBody);
   await expectHistory(conversationId, expectedHistory);
   await expectTableCountAtLeast(connectionString, "sidechat.messages", 2);
   await expectTableCountAtLeast(connectionString, "sidechat.assistant_turns", 1);
@@ -131,8 +130,13 @@ const expectPersistentHealth = async () => {
   }
 };
 
-const postStream = async ({ requestId, messageId, content }) => {
-  const response = await fetch(`${serviceBaseUrl}/chat/stream`, {
+// Two-call resumable flow: start a server-owned turn, then wait for it to reach a
+// terminal status so generation has finalized (assistant message + turn record
+// persisted) before history is asserted. The response-owned POST /chat/stream this
+// replaced finalized inside the response body; here finalization is server-owned,
+// so the status endpoint is the readiness signal.
+const runTurn = async ({ requestId, messageId, content }) => {
+  const response = await fetch(`${serviceBaseUrl}/chat/runs`, {
     method: "POST",
     headers: {
       ...authHeaders(),
@@ -148,8 +152,25 @@ const postStream = async ({ requestId, messageId, content }) => {
       },
     }),
   });
-  if (!response.ok) throw new Error(`Persistent stream smoke failed with ${response.status}.`);
-  return response.text();
+  if (!response.ok) throw new Error(`Persistent run start failed with ${response.status}.`);
+  const { assistantTurnId, conversationId } = await response.json();
+  await waitForTurnTerminal(assistantTurnId);
+  return conversationId;
+};
+
+const waitForTurnTerminal = async (assistantTurnId) => {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(`${serviceBaseUrl}/chat/turns/${assistantTurnId}`, {
+      headers: authHeaders(),
+    });
+    if (response.ok) {
+      const turn = await response.json();
+      if (turn.status && turn.status !== "running") return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Turn ${assistantTurnId} did not reach a terminal status in time.`);
 };
 
 const expectHistory = async (conversationId, expectedMessages) => {
@@ -260,12 +281,6 @@ const waitForUrl = async (url) => {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error(`Timed out waiting for ${url}`);
-};
-
-const readConversationId = (body) => {
-  const match = /"conversationId":"([^"]+)"/u.exec(body);
-  if (!match?.[1]) throw new Error("Expected stream to include a conversation id.");
-  return match[1];
 };
 
 const authHeaders = () => ({

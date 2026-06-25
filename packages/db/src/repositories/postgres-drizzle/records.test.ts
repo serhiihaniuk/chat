@@ -148,7 +148,6 @@ describe("postgres row record mappers", () => {
       leaseExpiresAt: null,
       leaseEpoch: 0,
       cancelRequestedAt: rawPgTimestamp,
-      requestFingerprint: null,
     } satisfies typeof assistantTurns.$inferSelect);
 
     // Both a primary timestamp and the optional cancel-intent column come back ISO,

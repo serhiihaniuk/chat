@@ -8,10 +8,7 @@ import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
 import { Hono } from "hono";
 
-import {
-  createServiceAuthVerifier,
-  type ServiceAuthConfig,
-} from "#adapters/auth/service-auth";
+import { createServiceAuthVerifier, type ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import {
   composePartnerAiService,
@@ -23,10 +20,7 @@ import {
   type ServiceCompositionOptions,
 } from "#composition/service-composition";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
-import {
-  authContextMiddleware,
-  type AuthContextVariables,
-} from "./middleware/auth-context.js";
+import { authContextMiddleware, type AuthContextVariables } from "./middleware/auth-context.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAuth } from "./middleware/require-auth.js";
 import { registerActivityRoutes } from "./routes/chat/activity/activity.js";
@@ -58,9 +52,7 @@ export type PartnerAiServiceOptions = {
   readonly persistence?: PersistenceConfig | undefined;
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
   readonly agentRuntime?: AgentRuntime | undefined;
-  readonly conversationTitleGeneration?:
-    | ConversationTitleGenerationPort
-    | undefined;
+  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   /**
    * Capability declarations forwarded to service composition.
    *
@@ -96,9 +88,7 @@ export type PartnerAiService = {
  * parse requests and write responses, not rebuild policy, storage, or runtime
  * wiring.
  */
-export const createPartnerAiService = (
-  options: PartnerAiServiceOptions = {},
-): PartnerAiService => {
+export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): PartnerAiService => {
   const app = new Hono<AuthContextVariables>();
   const composition = composePartnerAiService(compositionOptions(options));
   const authority = createServiceAuthVerifier(composition.auth);
@@ -120,11 +110,7 @@ export const createPartnerAiService = (
   app.use("/chat/*", authContextMiddleware(authority), requireAuth());
   app.use("/usage", authContextMiddleware(authority), requireAuth());
 
-  registerModelsRoute(
-    app,
-    composition.policies,
-    composition.diagnostics.providerRegistryStatus,
-  );
+  registerModelsRoute(app, composition.policies, composition.diagnostics.providerRegistryStatus);
   registerChatHistoryRoutes(app, {
     repositories: composition.repositories,
     clock: composition.ports.clock,
@@ -167,9 +153,7 @@ export const createPartnerAiServiceApp = (
   options: PartnerAiServiceOptions = {},
 ): PartnerAiServiceApp => createPartnerAiService(options).app;
 
-const compositionOptions = (
-  options: PartnerAiServiceOptions,
-): ServiceCompositionOptions => ({
+const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositionOptions => ({
   workspace: options.workspace ?? DEFAULT_WORKSPACE,
   auth: options.auth,
   policies: options.policies,

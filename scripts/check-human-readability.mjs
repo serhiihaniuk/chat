@@ -6,21 +6,13 @@ const root = resolveRoot();
 const errors = [];
 const warnings = [];
 
-const COPIED_SHARED_AI_PREFIX = "packages/side-chat-widget/src/shared/ai/";
 const TEMPORARY_PLAN_PREFIX = "side-chat-readability-to-9-orchestrator-plan/";
 const GENERATED_DOC_PREFIX = "docs/generated/";
 const MAX_DOC_PARAGRAPH_CHARACTERS = 620;
 const MAX_DOC_PARAGRAPH_WORDS = 105;
-const MAX_PRODUCTION_SOURCE_LINES = 300;
-const MAX_TEST_SOURCE_LINES = 450;
 
-// Declaration-only catalogs are exempt from the line budget: the generated
-// Drizzle schema and the persistence type-contract (command shapes + repository
-// interfaces), which has no branching logic and is kept as one cohesive contract.
-const LINE_BUDGET_EXEMPT_FILES = new Set([
-  "packages/db/src/drizzle/schema.ts",
-  "packages/db/src/schema-contract/repositories.ts",
-]);
+// The 300/450 source line budget is owned solely by check-source-governance.mjs;
+// this file owns documentation density and the readability heuristics below.
 
 const requiredReadableDocs = lines(`
 docs/README.md
@@ -206,28 +198,9 @@ function validateSourceReadability() {
     if (isIgnoredPath(file) || !isProjectSourceFile(file)) continue;
 
     const source = readFileSync(join(root, file), "utf8");
-    validateSourceLineBudget(file, source);
     warnInsideOutEffectOrStream(file, source);
     warnDenseConditionalSpreads(file, source);
     warnDenseArchitectureComments(file, source);
-  }
-}
-
-function validateSourceLineBudget(file, source) {
-  if (isCopiedSharedAiPrimitive(file) || LINE_BUDGET_EXEMPT_FILES.has(file)) return;
-
-  const lineCount = source.split("\n").length;
-  if (isTestLikeFile(file) && lineCount > MAX_TEST_SOURCE_LINES) {
-    errors.push(
-      `${file}: test source file exceeds ${MAX_TEST_SOURCE_LINES}-line readability budget.`,
-    );
-    return;
-  }
-  if (!isTestLikeFile(file) && lineCount > MAX_PRODUCTION_SOURCE_LINES) {
-    errors.push(
-      `${file}: production source file exceeds ${MAX_PRODUCTION_SOURCE_LINES}-line readability budget.\n` +
-        "  Readable fix: split by responsibility or document a narrow generated/schema exception.",
-    );
   }
 }
 
@@ -317,14 +290,6 @@ function isProjectSourceFile(file) {
     /\.(?:ts|tsx|js|jsx|mjs)$/u.test(file) &&
     !file.endsWith(".d.ts")
   );
-}
-
-function isTestLikeFile(file) {
-  return /\.(?:test|spec)\.(?:ts|tsx|js|jsx)$/u.test(file) || file.includes(".test-support.");
-}
-
-function isCopiedSharedAiPrimitive(file) {
-  return file.startsWith(COPIED_SHARED_AI_PREFIX);
 }
 
 function printWarnings() {

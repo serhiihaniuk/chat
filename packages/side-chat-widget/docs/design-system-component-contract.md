@@ -1195,8 +1195,10 @@ Each composition reuses primitives (§8) and adds only its own glue. Same field 
     <span className="truncate text-xs text-(--convo-subtitle-fg)">{relativeTime(updatedAt)}</span>
   </span>
   {running ? (
-    <span aria-label="Generating"
-      className="ml-auto size-1.5 shrink-0 animate-pulse rounded-full bg-(--convo-running-indicator)" />
+    <span
+      aria-label="Generating"
+      className="ml-auto size-1.5 shrink-0 animate-pulse rounded-full bg-(--convo-running-indicator)"
+    />
   ) : (
     <span className="ml-auto size-1.5 shrink-0 rounded-full bg-(--convo-indicator) opacity-0 aria-[current=true]:opacity-100" />
   )}

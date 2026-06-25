@@ -39,16 +39,13 @@ export type TurnPrunerDependencies = {
  * swallowed so one failed pass never faults the recurring fiber — the next pass
  * retries, and the durable log is unchanged (delete is all-or-nothing per pass).
  */
-export const createTurnPruner = (
-  dependencies: TurnPrunerDependencies,
-): TurnPruner => {
+export const createTurnPruner = (dependencies: TurnPrunerDependencies): TurnPruner => {
   const scope = Effect.runSync(Scope.make());
   startPeriodicSweep(scope, dependencies);
 
   return {
     sweepOnce: () => Effect.runPromise(sweepPrunableTurns(dependencies)),
-    shutdown: () =>
-      Effect.runPromise(Scope.close(scope, Exit.succeed(undefined))),
+    shutdown: () => Effect.runPromise(Scope.close(scope, Exit.succeed(undefined))),
   };
 };
 
@@ -59,10 +56,7 @@ export const createTurnPruner = (
  * so a fresh instance does not sweep before it has served traffic. The sweep is
  * wrapped so a transient failure is ignored rather than ending the schedule.
  */
-const startPeriodicSweep = (
-  scope: Scope.Scope,
-  dependencies: TurnPrunerDependencies,
-): void => {
+const startPeriodicSweep = (scope: Scope.Scope, dependencies: TurnPrunerDependencies): void => {
   const recurring = sweepPrunableTurns(dependencies).pipe(
     Effect.catchCause(() => Effect.void),
     Effect.schedule(Schedule.spaced(dependencies.prunerIntervalMs)),
@@ -77,9 +71,7 @@ const startPeriodicSweep = (
  * the retention boundary deterministically. The delete keeps the turn record and
  * assistant message; only the now-redundant event rows go.
  */
-const sweepPrunableTurns = (
-  dependencies: TurnPrunerDependencies,
-): Effect.Effect<number> =>
+const sweepPrunableTurns = (dependencies: TurnPrunerDependencies): Effect.Effect<number> =>
   Effect.gen(function* () {
     const completedBefore = retentionCutoff(dependencies);
     const pruned = yield* Effect.promise(() =>
@@ -92,6 +84,4 @@ const sweepPrunableTurns = (
   });
 
 const retentionCutoff = (dependencies: TurnPrunerDependencies): string =>
-  new Date(
-    new Date(dependencies.clock.now()).getTime() - dependencies.retentionMs,
-  ).toISOString();
+  new Date(new Date(dependencies.clock.now()).getTime() - dependencies.retentionMs).toISOString();

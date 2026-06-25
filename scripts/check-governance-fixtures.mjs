@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -231,4 +232,53 @@ expectFailure("generated artifact missing fixture", "check-generated-artifacts.m
   );
 });
 
+expectFailure("runtime boundary process.env fixture", "check-runtime-boundaries.mjs", (root) => {
+  writeFixtureFile(
+    root,
+    "packages/partner-ai-core/src/bad.ts",
+    "export const token = process.env.SECRET_TOKEN;\n",
+  );
+});
+
+expectFailure("package exports fixture", "check-package-exports.mjs", (root) => {
+  writeJson(join(root, "tsconfig.json"), { references: [] });
+  writeJson(join(root, "packages/orphan/package.json"), {
+    name: "@side-chat/orphan",
+    version: "0.0.0",
+    private: true,
+    type: "module",
+    types: "./src/index.ts",
+    scripts: { typecheck: "tsc" },
+  });
+});
+
+expectFailure("unused dependency fixture", "check-unused-dependencies.mjs", (root) => {
+  writeJson(join(root, "packages/orphan/package.json"), {
+    name: "@side-chat/orphan",
+    dependencies: { "left-pad": "1.0.0" },
+  });
+  writeFixtureFile(root, "packages/orphan/src/index.ts", "export const value = 1;\n");
+});
+
+// Meta-coverage: every governance check must be wired into the orchestrator, or it
+// silently never runs. This catches a new check-*.mjs that someone forgot to add.
+validateOrchestratorCoverage();
+
 failIfErrors(errors);
+
+function validateOrchestratorCoverage() {
+  const orchestrator = readFileSync(join(scriptDirectory, "run-custom-lints.mjs"), "utf8");
+  const wired = new Set(
+    [...orchestrator.matchAll(/"(check-[a-z-]+\.mjs)"/gu)].map((match) => match[1]),
+  );
+
+  for (const entry of readdirSync(scriptDirectory)) {
+    if (!/^check-[a-z-]+\.mjs$/u.test(entry)) continue;
+    if (wired.has(entry)) continue;
+
+    errors.push(
+      `${entry}: governance check is not wired into run-custom-lints.mjs, so it never runs.\n` +
+        "  Fix: add it to the checks list in scripts/run-custom-lints.mjs.",
+    );
+  }
+}

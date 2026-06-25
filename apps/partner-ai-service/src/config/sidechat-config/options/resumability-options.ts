@@ -1,12 +1,6 @@
 import type { ResumabilityConfig } from "#composition/service-composition-types";
-import {
-  DEFAULT_INSTANCE_ID,
-  RESUMABILITY_DEFAULTS,
-} from "../../catalog/config-values.js";
-import {
-  readNumberEnvReference,
-  readStringEnvReference,
-} from "../environment.js";
+import { DEFAULT_INSTANCE_ID, RESUMABILITY_DEFAULTS } from "../../catalog/config-values.js";
+import { readNumberEnvReference, readStringEnvReference } from "../environment.js";
 import type { ServiceEnv, SideChatConfig } from "../types.js";
 
 /**
@@ -24,39 +18,26 @@ export const createResumabilityConfig = (
   const resumability = config.resumability;
   // One numeric resolver per field keeps the override-or-default choice in a single
   // place, so adding a knob does not add another branch to this function.
-  const num = (
-    reference: Parameters<typeof readNumberEnvReference>[1],
-    fallback: number,
-  ): number => readNumberEnvReference(env, reference) ?? fallback;
+  const num = (reference: Parameters<typeof readNumberEnvReference>[1], fallback: number): number =>
+    readNumberEnvReference(env, reference) ?? fallback;
   return {
     safetyPollIntervalMs: num(
       resumability.safetyPollInterval,
       RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS,
     ),
-    instanceId:
-      readStringEnvReference(env, resumability.instanceId) ??
-      DEFAULT_INSTANCE_ID,
+    instanceId: readStringEnvReference(env, resumability.instanceId) ?? DEFAULT_INSTANCE_ID,
     leaseTtlMs: num(resumability.leaseTtl, RESUMABILITY_DEFAULTS.LEASE_TTL_MS),
     heartbeatIntervalMs: num(
       resumability.heartbeatInterval,
       RESUMABILITY_DEFAULTS.HEARTBEAT_INTERVAL_MS,
     ),
-    reaperIntervalMs: num(
-      resumability.reaperInterval,
-      RESUMABILITY_DEFAULTS.REAPER_INTERVAL_MS,
-    ),
-    reaperBatchLimit: num(
-      resumability.reaperBatchLimit,
-      RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
-    ),
+    reaperIntervalMs: num(resumability.reaperInterval, RESUMABILITY_DEFAULTS.REAPER_INTERVAL_MS),
+    reaperBatchLimit: num(resumability.reaperBatchLimit, RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT),
     turnEventRetentionMs: num(
       resumability.turnEventRetention,
       RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
     ),
-    prunerIntervalMs: num(
-      resumability.prunerInterval,
-      RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
-    ),
+    prunerIntervalMs: num(resumability.prunerInterval, RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS),
     prunerBatchLimit: RESUMABILITY_DEFAULTS.PRUNER_BATCH_LIMIT,
   };
 };

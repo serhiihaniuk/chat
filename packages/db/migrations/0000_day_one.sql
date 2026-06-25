@@ -22,7 +22,6 @@ CREATE TABLE "sidechat"."assistant_turns" (
 	"lease_expires_at" timestamp with time zone,
 	"lease_epoch" integer DEFAULT 0 NOT NULL,
 	"cancel_requested_at" timestamp with time zone,
-	"request_fingerprint" text,
 	CONSTRAINT "assistant_turns_status_check" CHECK (status in ('running', 'completed', 'user_aborted', 'timed_out', 'provider_failed', 'tool_failed', 'persistence_failed'))
 );
 --> statement-breakpoint

@@ -35,8 +35,8 @@ import type {
  * refs gate the browser contract. A caller creates these once, builds the
  * post-start stream from them, then finalizes against the same accumulator after
  * the stream is drained. Sharing the refs is why finalization is no longer a
- * stream-tail segment: both the response-owned path and the server-owned runner
- * read the same accumulated terminal facts.
+ * stream-tail segment: the server-owned runner reads the same accumulated terminal
+ * facts in its `onExit` after the stream is drained.
  */
 export type ProtocolStreamRefs = {
   readonly ports: StreamChatPorts;
@@ -68,31 +68,15 @@ export const createProtocolStreamRefs = (
   });
 
 /**
- * Build the browser-facing post-start stream after preflight work has succeeded.
+ * Build the browser-facing post-start stream from already-allocated refs.
  *
- * From this point on, runtime failures become terminal protocol events. That
- * keeps the SSE contract stable: once `sidechat.started` is emitted, consumers
- * should finish with exactly one `sidechat.completed` or `sidechat.error`.
- *
- * This stream is finalization-free on purpose. Durable terminal persistence is
- * owned by the caller (`streamChatEffect`'s tail drain or the server runner's
- * `onExit`), reading the shared accumulator after the stream is exhausted.
- */
-export const createProtocolEventStream = (
-  ports: StreamChatPorts,
-  input: StreamChatInput,
-  turn: PreparedStreamChatTurn,
-): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
-  Stream.unwrap(
-    Effect.map(createProtocolStreamRefs(ports, input, turn), createStartedProtocolStream),
-  );
-
-/**
- * Build the post-start stream from already-allocated refs.
- *
- * Use this when the caller needs the same accumulator both inside the stream and
- * in an out-of-band finalizer (the server-owned runner). Plain consumers should
- * call `createProtocolEventStream`, which allocates refs for them.
+ * The runner allocates the refs with `createProtocolStreamRefs`, drains this
+ * stream into the durable event log, and finalizes against the same accumulator in
+ * its `onExit`. From this point on runtime failures become terminal protocol
+ * events, so the SSE contract stays stable: after `sidechat.started`, a consumer
+ * sees exactly one `sidechat.completed` or `sidechat.error`. The stream is
+ * finalization-free on purpose — durable terminal persistence is the runner's
+ * `onExit`, never a stream-tail segment.
  */
 export const createStartedProtocolStream = (
   refs: ProtocolStreamRefs,
@@ -134,16 +118,29 @@ const emitStartedEvent = (refs: ProtocolStreamRefs): Effect.Effect<SidechatStrea
  */
 const createObservedRuntimeEventStream = (
   refs: ProtocolStreamRefs,
-): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
-  createRuntimeEventStream(refs).pipe(
-    Stream.mapEffect((runtimeEvent) => mapRuntimeEventEffect(refs, runtimeEvent)),
-    Stream.flatMap((event) => (event ? Stream.succeed(event) : Stream.empty)),
+): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> => {
+  const mappedEvents = Stream.mapEffect(createRuntimeEventStream(refs), (runtimeEvent) =>
+    mapRuntimeEventEffect(refs, runtimeEvent),
+  );
+  return keepEmittedEvents(mappedEvents).pipe(
     Stream.catch((error) =>
-      Stream.fromEffect(emitRuntimeFailureEvent(refs, error)).pipe(
-        Stream.flatMap((event) => (event ? Stream.succeed(event) : Stream.empty)),
-      ),
+      keepEmittedEvents(Stream.fromEffect(emitRuntimeFailureEvent(refs, error))),
     ),
   );
+};
+
+/**
+ * Keep only the events the mapper chose to emit, dropping the `undefined`s.
+ *
+ * Both the runtime mapper and the failure mapper return `undefined` for an event
+ * the browser contract forbids (a lifecycle-only runtime event, or a failure that
+ * arrives after a terminal already won). Folding both through one named step keeps
+ * that emit-or-drop rule in a single place instead of inline at each call site.
+ */
+const keepEmittedEvents = (
+  stream: Stream.Stream<SidechatStreamEvent | undefined, PartnerAiCoreError>,
+): Stream.Stream<SidechatStreamEvent, PartnerAiCoreError> =>
+  Stream.flatMap(stream, (event) => (event ? Stream.succeed(event) : Stream.empty));
 
 /**
  * Open the runtime event stream with provider abort tied to fiber interruption.

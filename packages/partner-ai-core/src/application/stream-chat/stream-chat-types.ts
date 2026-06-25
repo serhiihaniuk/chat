@@ -40,9 +40,10 @@ export type StreamChatInput = {
 /**
  * Ports needed by the stream-chat workflow.
  *
- * The native `streamChatEffect` entrypoint reads the same capabilities from an
- * Effect Layer. Keeping this type small makes it obvious which outside systems
- * the stream-chat workflow can touch.
+ * Composition binds these to real adapters through an Effect Layer
+ * (`createPartnerAiCoreLayer`) before the pre-start and runner entrypoints run.
+ * Keeping this type small makes it obvious which outside systems the stream-chat
+ * workflow can touch.
  */
 export type StreamChatPorts = {
   readonly conversations: ConversationRepositoryPort;

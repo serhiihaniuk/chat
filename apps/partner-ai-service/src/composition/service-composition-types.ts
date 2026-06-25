@@ -122,6 +122,20 @@ export type RuntimeConfig =
       readonly reasoningEffort?: OpenAIReasoningEffort | undefined;
       readonly reasoningEfforts?: readonly OpenAIReasoningEffort[] | undefined;
       readonly reasoningSummary?: OpenAIReasoningSummary | undefined;
+    }
+  | {
+      readonly provider: "azure";
+      readonly apiKey: string;
+      readonly endpoint: string;
+      readonly apiVersion?: string | undefined;
+      readonly modelIds: readonly string[];
+      readonly defaultModelId: string;
+      readonly modelMetadata?: readonly RuntimeModelMetadata[] | undefined;
+      /** Maps each enabled model id to its Azure deployment name (custom per model). */
+      readonly deploymentsByModelId: Readonly<Record<string, string>>;
+      readonly fetch?: typeof fetch | undefined;
+      readonly reasoningEffort?: OpenAIReasoningEffort | undefined;
+      readonly reasoningEfforts?: readonly OpenAIReasoningEffort[] | undefined;
     };
 
 /**
@@ -199,9 +213,7 @@ export type ServiceCompositionOptions = {
   readonly repositories?: SidechatRepositories | undefined;
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
   readonly agentRuntime?: AgentRuntime | undefined;
-  readonly conversationTitleGeneration?:
-    | ConversationTitleGenerationPort
-    | undefined;
+  readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
   /** Capability declarations for implemented service context behavior. */
   readonly capabilities?: ServiceCapabilityConfig | undefined;

@@ -47,9 +47,7 @@ describe("postgres drizzle repositories", () => {
 function requireDatabaseUrl(): string {
   const value = process.env["SIDECHAT_TEST_DATABASE_URL"];
   if (!value) {
-    throw new Error(
-      "SIDECHAT_TEST_DATABASE_URL is required for test:db:integration.",
-    );
+    throw new Error("SIDECHAT_TEST_DATABASE_URL is required for test:db:integration.");
   }
   return value;
 }

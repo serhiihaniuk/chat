@@ -6,8 +6,8 @@ Not source of truth for: provider policy, product policy, or protocol events.
 
 ## Files
 
-| File                                 | Owns                                                                |
-| ------------------------------------ | ------------------------------------------------------------------- |
+| File                                  | Owns                                                                |
+| ------------------------------------- | ------------------------------------------------------------------- |
 | `streaming/tool-loop-agent-runner.ts` | Opens ToolLoopAgent for the default executor and preserves order.   |
 | `streaming/tool-activity-mapper.ts`   | Maps AI SDK tool parts into one runtime activity row per tool call. |
 | `streaming/reasoning-activity.ts`     | Buffers reasoning deltas into one safe activity row.                |

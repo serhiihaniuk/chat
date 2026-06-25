@@ -211,6 +211,8 @@ const createRuntimeConfig = (
   if (resolvedProvider === PROVIDERS.FAKE.KIND) {
     return { provider: PROVIDERS.FAKE.KIND, enableMockWebSearch };
   }
+  // Azure is configured through the readable sidechat.config.ts (per-model
+  // deployments); the legacy env-only parser stays OpenAI/fake.
   if (resolvedProvider !== PROVIDERS.OPENAI.KIND) {
     throw new ServiceConfigError("SIDECHAT_PROVIDER must be fake or openai.");
   }

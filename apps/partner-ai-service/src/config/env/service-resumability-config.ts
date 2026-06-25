@@ -1,14 +1,7 @@
 import type { ResumabilityConfig } from "#composition/service-composition-types";
-import {
-  DEFAULT_INSTANCE_ID,
-  RESUMABILITY_DEFAULTS,
-} from "../catalog/config-values.js";
+import { DEFAULT_INSTANCE_ID, RESUMABILITY_DEFAULTS } from "../catalog/config-values.js";
 import { ServiceConfigError } from "../service-config-error.js";
-import {
-  SERVICE_ENV_KEYS,
-  envValue,
-  type ServiceEnv,
-} from "./service-env-contract.js";
+import { SERVICE_ENV_KEYS, envValue, type ServiceEnv } from "./service-env-contract.js";
 
 /**
  * Resolve the resumability tunables from raw env for the legacy env parser.
@@ -19,9 +12,7 @@ import {
  * with `service-config.ts`. Durations must be positive; `instanceId` falls back to
  * a stable per-process id so a single local instance still owns its leases.
  */
-export const createResumabilityConfigFromEnv = (
-  env: ServiceEnv,
-): ResumabilityConfig => ({
+export const createResumabilityConfigFromEnv = (env: ServiceEnv): ResumabilityConfig => ({
   safetyPollIntervalMs: readPositiveDuration(
     env,
     SERVICE_ENV_KEYS.safetyPollIntervalMs,
@@ -61,11 +52,7 @@ export const createResumabilityConfigFromEnv = (
   prunerBatchLimit: RESUMABILITY_DEFAULTS.PRUNER_BATCH_LIMIT,
 });
 
-const readPositiveDuration = (
-  env: ServiceEnv,
-  key: string,
-  fallback: number,
-): number => {
+const readPositiveDuration = (env: ServiceEnv, key: string, fallback: number): number => {
   const rawValue = envValue(env, key);
   if (!rawValue) return fallback;
   const parsed = Number(rawValue);
@@ -76,11 +63,7 @@ const readPositiveDuration = (
 // Batch limits are counts, so they must be positive integers (a fractional limit
 // is meaningless to the bounded sweep). The pruner batch limit stays a catalog
 // constant; only the reaper batch limit is env-tunable for now.
-const readPositiveInteger = (
-  env: ServiceEnv,
-  key: string,
-  fallback: number,
-): number => {
+const readPositiveInteger = (env: ServiceEnv, key: string, fallback: number): number => {
   const rawValue = envValue(env, key);
   if (!rawValue) return fallback;
   const parsed = Number(rawValue);

@@ -10,21 +10,12 @@ import {
   SIDECHAT_PROTOCOL_VERSION,
   type ChatStreamRequest,
 } from "@side-chat/chat-protocol";
-import {
-  createMemorySidechatRepositories,
-  type MemorySidechatRepositories,
-} from "@side-chat/db";
-import type {
-  ObservabilityLifecycleState,
-  ObservabilityRecord,
-} from "@side-chat/partner-ai-core";
+import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
+import type { ObservabilityLifecycleState, ObservabilityRecord } from "@side-chat/partner-ai-core";
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
-import {
-  createPartnerAiServiceApp,
-  type PartnerAiServiceApp,
-} from "../../../app.js";
+import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../app.js";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   readTurnStream,
@@ -37,9 +28,7 @@ const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
 // the test prunes its log directly (the run completes at real-time `now`).
 const FAR_FUTURE = "2999-01-01T00:00:00.000Z";
 
-const runRequest = (
-  overrides: Partial<ChatStreamRequest> = {},
-): ChatStreamRequest => ({
+const runRequest = (overrides: Partial<ChatStreamRequest> = {}): ChatStreamRequest => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
   requestId: "request_resilience_001",
   message: { id: "message_resilience_001", content: "hello resilience" },
@@ -115,18 +104,14 @@ describe("resumable lifecycle observability", () => {
     expect(states).toContain("subscriber_attached");
     expect(states).toContain("subscriber_detached");
 
-    const runFinished = records.find(
-      (record) => record.lifecycleState === "run_finished",
-    );
+    const runFinished = records.find((record) => record.lifecycleState === "run_finished");
     expect(runFinished).toMatchObject({
       assistantTurnId: started.assistantTurnId,
     });
     // Run duration is the durable startedAt -> completedAt span, so it is recorded.
     expect(runFinished?.latencyMs).toBeGreaterThanOrEqual(0);
 
-    const attached = records.find(
-      (record) => record.lifecycleState === "subscriber_attached",
-    );
+    const attached = records.find((record) => record.lifecycleState === "subscriber_attached");
     expect(attached?.attributes).toMatchObject({ subscriberCount: 1 });
   });
 
@@ -139,12 +124,9 @@ describe("resumable lifecycle observability", () => {
       limit: 10,
     });
 
-    await harness.app.request(
-      `/chat/turns/${started.assistantTurnId}/stream?after=-1`,
-      {
-        headers: AUTH_HEADER,
-      },
-    );
+    await harness.app.request(`/chat/turns/${started.assistantTurnId}/stream?after=-1`, {
+      headers: AUTH_HEADER,
+    });
 
     expect(lifecycleStates(records)).toContain("replay_expired");
   });
@@ -163,9 +145,7 @@ describe("resumable lifecycle observability", () => {
       headers: AUTH_HEADER,
     });
 
-    const cancelled = records.find(
-      (record) => record.lifecycleState === "turn_cancelled",
-    );
+    const cancelled = records.find((record) => record.lifecycleState === "turn_cancelled");
     expect(cancelled).toMatchObject({
       assistantTurnId: started.assistantTurnId,
     });
@@ -193,9 +173,7 @@ const createApp = (
     repositories,
     resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
     agentRuntime: options.agentRuntime ?? completedRuntime(),
-    ...(options.observability
-      ? { observability: options.observability as never }
-      : {}),
+    observability: options.observability as never,
   });
   // createPartnerAiServiceApp discards the shutdown; gated tests do not need a clean
   // teardown beyond releasing the gate, so a no-op keeps the harness shape uniform.
@@ -209,36 +187,27 @@ const spySink = (records: ObservabilityRecord[]) => ({
     }),
 });
 
-const lifecycleStates = (
-  records: readonly ObservabilityRecord[],
-): ObservabilityLifecycleState[] =>
+const lifecycleStates = (records: readonly ObservabilityRecord[]): ObservabilityLifecycleState[] =>
   records.map((record) => record.lifecycleState);
 
 const completedRuntime = (): AiRuntimePort => ({
-  streamEffect: (request) =>
-    Stream.fromIterable(completedRuntimeEvents(request)),
+  streamEffect: (request) => Stream.fromIterable(completedRuntimeEvents(request)),
 });
 
 const gatedRuntime = (release: Promise<void>): AiRuntimePort => ({
   streamEffect: (request) =>
     Stream.fromIterable(progressRuntimeEvents(request)).pipe(
-      Stream.concat(
-        Stream.fromEffect(Effect.promise(() => release)).pipe(Stream.drain),
-      ),
+      Stream.concat(Stream.fromEffect(Effect.promise(() => release)).pipe(Stream.drain)),
       Stream.concat(Stream.fromIterable([completedRuntimeEvent(request)])),
     ),
 });
 
-const completedRuntimeEvents = (
-  request: AiRuntimeRequest,
-): readonly RuntimeEvent[] => [
+const completedRuntimeEvents = (request: AiRuntimeRequest): readonly RuntimeEvent[] => [
   ...progressRuntimeEvents(request),
   completedRuntimeEvent(request),
 ];
 
-const progressRuntimeEvents = (
-  request: AiRuntimeRequest,
-): readonly RuntimeEvent[] => [
+const progressRuntimeEvents = (request: AiRuntimeRequest): readonly RuntimeEvent[] => [
   {
     type: RUNTIME_EVENT_TYPES.OUTPUT_DELTA,
     requestId: request.requestId,

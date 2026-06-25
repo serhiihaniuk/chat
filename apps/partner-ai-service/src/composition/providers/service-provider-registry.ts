@@ -1,4 +1,5 @@
 import {
+  createAzureOpenAIProvider,
   createFakeProvider,
   createOpenAIResponsesProvider,
   type ModelProvider,
@@ -81,6 +82,19 @@ export type ServiceProviderRegistration =
       readonly baseUrl?: string | undefined;
       readonly fetch?: typeof fetch | undefined;
       readonly retention: ServiceModelRetentionPolicy;
+      readonly reasoning: ServiceReasoningPolicy;
+    }
+  | {
+      readonly kind: "azure";
+      readonly providerId: string;
+      readonly modelIds: readonly string[];
+      readonly defaultModelId: string;
+      readonly modelMetadata?: readonly ServiceModelMetadata[] | undefined;
+      readonly apiKey: string;
+      readonly endpoint: string;
+      readonly apiVersion?: string | undefined;
+      readonly deploymentsByModelId: Readonly<Record<string, string>>;
+      readonly fetch?: typeof fetch | undefined;
       readonly reasoning: ServiceReasoningPolicy;
     };
 
@@ -226,6 +240,18 @@ const createModelProvider = (registration: ServiceProviderRegistration): ModelPr
       fetch: registration.fetch,
       reasoningEffort: registration.reasoning.effort,
       reasoningSummary: registration.reasoning.summary,
+    });
+  }
+
+  if (registration.kind === "azure") {
+    return createAzureOpenAIProvider({
+      apiKey: registration.apiKey,
+      endpoint: registration.endpoint,
+      apiVersion: registration.apiVersion,
+      modelIds: registration.modelIds,
+      deploymentsByModelId: registration.deploymentsByModelId,
+      reasoningEffort: registration.reasoning.effort,
+      fetch: registration.fetch,
     });
   }
 

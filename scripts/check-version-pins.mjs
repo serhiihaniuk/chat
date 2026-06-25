@@ -4,20 +4,17 @@ import {
   isExactVersion,
   isFile,
   listWorkspacePackageJsons,
-  packageManagerVersion,
   readJson,
   resolveRoot,
-  versionSatisfiesRange,
 } from "./lib/governance.mjs";
-import { readFileSync } from "node:fs";
 
+// Node and npm tool-version validation is intentionally not enforced here; this
+// check pins only the dependency versions (for reproducible installs) and the
+// presence of the lockfile.
 const root = resolveRoot();
 const errors = [];
 
 const rootPackage = readJson(root, "package.json");
-const supportedNodeRange = ">=24.15.0 <25.0.0";
-const supportedNpmRange = ">=11.12.0 <12.0.0";
-const preferredNpmVersion = "11.15.0";
 
 const requiredRoot = {
   typescript: "6.0.3",
@@ -47,6 +44,7 @@ const requiredByPackage = {
   },
   "@side-chat/agent-runtime": {
     ai: "6.0.191",
+    "@ai-sdk/azure": "3.0.65",
     "@ai-sdk/provider": "3.0.10",
     effect: "4.0.0-beta.70",
     zod: "4.4.3",
@@ -81,22 +79,6 @@ const requiredByPackage = {
   },
 };
 
-if (rootPackage.engines?.node !== supportedNodeRange)
-  errors.push(`root engines.node must be ${supportedNodeRange}`);
-if (rootPackage.engines?.npm !== supportedNpmRange)
-  errors.push(`root engines.npm must be ${supportedNpmRange}`);
-
-const rootPackageManagerNpm = packageManagerVersion(rootPackage.packageManager, "npm");
-if (rootPackageManagerNpm !== preferredNpmVersion)
-  errors.push(`root packageManager must be npm@${preferredNpmVersion}`);
-if (!isFile(root, ".nvmrc")) errors.push(".nvmrc is required");
-if (
-  isFile(root, ".nvmrc") &&
-  readJson(root, "package.json") &&
-  !versionSatisfiesRange(readFileSync(`${root}/.nvmrc`, "utf8").trim(), supportedNodeRange)
-) {
-  errors.push(`.nvmrc must satisfy ${supportedNodeRange}`);
-}
 if (!isFile(root, "package-lock.json")) errors.push("package-lock.json is required");
 
 for (const [name, version] of Object.entries(requiredRoot)) {

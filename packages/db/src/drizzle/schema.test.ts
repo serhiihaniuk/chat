@@ -55,7 +55,6 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).toContain('"lease_expires_at" timestamp with time zone');
     expect(migration).toContain('"lease_epoch" integer DEFAULT 0 NOT NULL');
     expect(migration).toContain('"cancel_requested_at" timestamp with time zone');
-    expect(migration).toContain('"request_fingerprint" text');
   });
 
   it("keeps runtime least privilege in the durable role grants", () => {

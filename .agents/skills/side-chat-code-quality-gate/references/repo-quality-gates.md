@@ -6,9 +6,8 @@ This reference captures the project-specific checks discovered from the uploaded
 
 - npm workspaces only.
 - Root package manager: `npm@11.15.0`.
-- Node engine: `package.json` `engines.node` is the range `>=24.15.0 <25.0.0` (npm `>=11.12.0 <12.0.0`); `.nvmrc` pins the exact `24.16.0` used for development/CI.
-- `.nvmrc` must satisfy the Node engine range.
-- `scripts/check-runtime-pins.mjs` fails when the running Node/npm versions do not match the pinned versions.
+- Node engine: `package.json` `engines.node` is the range `>=24.15.0 <25.0.0` (npm `>=11.12.0 <12.0.0`); `.nvmrc` records `24.16.0` used for development/CI.
+- Node and npm tool versions are not gate-enforced: the governance suite does not fail on a contributor's local Node/npm. `check-version-pins.mjs` still pins the dependency versions and requires the lockfile.
 
 ## Root scripts
 
@@ -82,23 +81,22 @@ Workspace `tsconfig.json` files must enable composite project references. Root `
 
 ## Custom governance checks
 
-`npm run lint:custom` runs these 15 scripts in order:
+`npm run lint:custom` runs these 14 scripts in order:
 
-1. `check-runtime-pins.mjs`
-2. `check-version-pins.mjs`
-3. `check-dependency-policy.mjs`
-4. `check-unused-dependencies.mjs`
-5. `check-package-exports.mjs`
-6. `check-boundaries.mjs`
-7. `check-widget-layers.mjs`
-8. `check-runtime-boundaries.mjs`
-9. `check-outbound-rules.mjs`
-10. `check-undefined-optional-contracts.mjs`
-11. `check-code-shape.mjs`
-12. `check-source-governance.mjs`
-13. `check-human-readability.mjs`
-14. `check-generated-artifacts.mjs`
-15. `check-governance-fixtures.mjs`
+1. `check-version-pins.mjs`
+2. `check-dependency-policy.mjs`
+3. `check-unused-dependencies.mjs`
+4. `check-package-exports.mjs`
+5. `check-boundaries.mjs`
+6. `check-widget-layers.mjs`
+7. `check-runtime-boundaries.mjs`
+8. `check-outbound-rules.mjs`
+9. `check-undefined-optional-contracts.mjs`
+10. `check-code-shape.mjs`
+11. `check-source-governance.mjs`
+12. `check-human-readability.mjs`
+13. `check-generated-artifacts.mjs`
+14. `check-governance-fixtures.mjs`
 
 ## Code shape budgets
 

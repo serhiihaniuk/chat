@@ -133,8 +133,6 @@ export const assistantTurns = sidechat.table(
       mode: "string",
       withTimezone: true,
     }),
-    // Hash of the canonical request + scope, used to detect request-id reuse.
-    requestFingerprint: text("request_fingerprint"),
   },
   (table) => [
     uniqueIndex("assistant_turns_workspace_request_uq").on(table.workspaceId, table.requestId),

@@ -18,10 +18,7 @@ import type {
 import type { RuntimeReasoningEffort } from "@side-chat/ai-runtime-contract";
 import type { JsonObject } from "@side-chat/shared";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
-import type {
-  AUXILIARY_JOBS,
-  AuxiliaryJobMode,
-} from "../catalog/capabilities/auxiliary-jobs.js";
+import type { AUXILIARY_JOBS, AuxiliaryJobMode } from "../catalog/capabilities/auxiliary-jobs.js";
 import type { PROVIDERS } from "../catalog/providers.js";
 import type {
   RequestPolicyMode,
@@ -122,16 +119,27 @@ export type SideChatOpenAIProviderConnectionConfig = {
 };
 
 /**
- * Provider connection selected for the configured model catalog.
- *
- * A single service config currently serves one provider at a time. New provider
- * adapters, such as Azure OpenAI, should add their own catalog-backed branch
- * here with the fields they actually need, for example endpoint, deployment,
- * and API version, instead of adding those fields to OpenAI models.
+ * Azure OpenAI transport: a secret `apiKey` plus env-referenced `endpoint`,
+ * `apiVersion`, and a per-model `deployment` map keyed by enabled model id.
+ */
+export type SideChatAzureProviderConnectionConfig = {
+  readonly kind: typeof PROVIDERS.AZURE.KIND;
+  readonly connection: {
+    readonly apiKey: SideChatStringEnvReference;
+    readonly endpoint: SideChatStringEnvReference;
+    readonly apiVersion: SideChatStringEnvReference;
+    readonly deployments: Readonly<Record<string, SideChatStringEnvReference>>;
+  };
+};
+
+/**
+ * Provider connection for the configured model catalog (one provider per config);
+ * each provider carries only the connection fields it needs.
  */
 export type SideChatModelProviderConfig =
   | { readonly kind: typeof PROVIDERS.FAKE.KIND }
-  | SideChatOpenAIProviderConnectionConfig;
+  | SideChatOpenAIProviderConnectionConfig
+  | SideChatAzureProviderConnectionConfig;
 
 export type SideChatExecutorDescriptor = {
   /** Stable runtime executor id registered by `agent-runtime`. */
@@ -153,9 +161,7 @@ export type SideChatToolDescriptor = {
   readonly INPUT_SCHEMA: JsonObject;
 };
 
-export type SideChatToolConfig<
-  Tool extends SideChatToolDescriptor = SideChatToolDescriptor,
-> = {
+export type SideChatToolConfig<Tool extends SideChatToolDescriptor = SideChatToolDescriptor> = {
   /** Imported tool descriptor from `TOOLS`. */
   readonly tool: Tool;
   /** Prompt text that teaches the model when this tool is useful. */
@@ -288,6 +294,5 @@ export type SideChatConfig = {
  * ids should arrive from catalog imports. Runtime validation later checks
  * cross-field relationships such as default model membership and tool exposure.
  */
-export const defineSideChatConfig = <const Config extends SideChatConfig>(
-  config: Config,
-): Config => config;
+export const defineSideChatConfig = <const Config extends SideChatConfig>(config: Config): Config =>
+  config;

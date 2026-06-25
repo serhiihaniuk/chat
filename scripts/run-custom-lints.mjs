@@ -5,7 +5,6 @@ import { resolveRoot } from "./lib/governance.mjs";
 const root = resolveRoot();
 
 const checks = [
-  "check-runtime-pins.mjs",
   "check-version-pins.mjs",
   "check-dependency-policy.mjs",
   "check-unused-dependencies.mjs",

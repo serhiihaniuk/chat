@@ -11,10 +11,7 @@ import {
   type MemorySidechatRepositories,
   type TurnEventRecord,
 } from "@side-chat/db";
-import type {
-  ObservabilityRecord,
-  WorkspaceRef,
-} from "@side-chat/partner-ai-core";
+import type { ObservabilityRecord, WorkspaceRef } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -56,8 +53,7 @@ describe("turn reaper", () => {
     // appends a second terminal.
     const secondCount = await harness.reaper.sweepOnce();
     const stillRunning =
-      secondCount === 0 ||
-      harness.requireTurn(turnId).status === "provider_failed";
+      secondCount === 0 || harness.requireTurn(turnId).status === "provider_failed";
     expect(stillRunning).toBe(true);
     expect(await harness.terminalEvents(turnId)).toHaveLength(1);
 
@@ -87,9 +83,7 @@ describe("turn reaper", () => {
 
   it("does not double-terminalize under concurrent sweeps", async () => {
     const harness = await createReaperHarness();
-    const turnId = await harness.seedExpiredLeaseTurn(
-      "request_reaper_concurrent",
-    );
+    const turnId = await harness.seedExpiredLeaseTurn("request_reaper_concurrent");
 
     // Two sweeps race over the same expired turn; the running-guard CAS lets exactly
     // one reap it, and the partial-unique terminal index keeps the log to one
@@ -119,20 +113,39 @@ describe("turn reaper", () => {
   it("records a turn_reaped observation with count and reason", async () => {
     const records: ObservabilityRecord[] = [];
     const harness = await createReaperHarness(undefined, records);
-    const turnId = await harness.seedExpiredLeaseTurn(
-      "request_reaper_observed",
-    );
+    const turnId = await harness.seedExpiredLeaseTurn("request_reaper_observed");
 
     await harness.reaper.sweepOnce();
 
-    const reaped = records.find(
-      (record) => record.lifecycleState === "turn_reaped",
-    );
+    const reaped = records.find((record) => record.lifecycleState === "turn_reaped");
     expect(reaped).toMatchObject({ assistantTurnId: turnId });
     expect(reaped?.attributes).toMatchObject({
       reapedCount: 1,
       reason: "lease_expired",
     });
+
+    await harness.shutdown();
+  });
+
+  it("isolates a terminal-append failure so the rest of the batch still closes", async () => {
+    // The reap CAS terminalizes status for the whole batch in one statement, but the
+    // synthetic-terminal append is a separate per-turn transaction. If one turn's
+    // append keeps failing, the others must still get their terminal events.
+    const flakyAppendTurnIds = new Set<string>();
+    const harness = await createReaperHarness(undefined, undefined, flakyAppendTurnIds);
+    const failingTurnId = await harness.seedExpiredLeaseTurn("request_reaper_flaky");
+    const healthyTurnId = await harness.seedExpiredLeaseTurn("request_reaper_healthy");
+    flakyAppendTurnIds.add(failingTurnId);
+
+    expect(await harness.reaper.sweepOnce()).toBe(2);
+
+    // Both turns are terminal in status (the reap CAS ran for both)...
+    expect(harness.requireTurn(failingTurnId).status).toBe("provider_failed");
+    expect(harness.requireTurn(healthyTurnId).status).toBe("provider_failed");
+    // ...but the failing turn's append is isolated, so the healthy turn still closes
+    // its durable log with exactly one terminal.
+    expect(await harness.terminalEvents(healthyTurnId)).toHaveLength(1);
+    expect(await harness.terminalEvents(failingTurnId)).toHaveLength(0);
 
     await harness.shutdown();
   });
@@ -143,17 +156,18 @@ type ReaperHarness = {
   readonly repositories: MemorySidechatRepositories;
   readonly seedExpiredLeaseTurn: (requestId: string) => Promise<string>;
   readonly requireTurn: (turnId: string) => AssistantTurnRecord;
-  readonly terminalEvents: (
-    turnId: string,
-  ) => Promise<readonly TurnEventRecord[]>;
+  readonly terminalEvents: (turnId: string) => Promise<readonly TurnEventRecord[]>;
   readonly shutdown: () => Promise<void>;
 };
 
 const createReaperHarness = async (
   resumability?: ResumabilityOptions,
   observabilityRecords?: ObservabilityRecord[],
+  flakyAppendTurnIds?: ReadonlySet<string>,
 ): Promise<ReaperHarness> => {
-  const repositories = createMemorySidechatRepositories();
+  const repositories = flakyAppendTurnIds
+    ? withFlakyTurnEventAppend(createMemorySidechatRepositories(), flakyAppendTurnIds)
+    : createMemorySidechatRepositories();
   const observability = observabilityRecords
     ? {
         record: (record: ObservabilityRecord) =>
@@ -221,9 +235,7 @@ const createReaperHarness = async (
     requireTurn: (turnId) => {
       const turn = repositories
         .snapshot()
-        .assistantTurns.find(
-          (candidate) => candidate.assistantTurnId === turnId,
-        );
+        .assistantTurns.find((candidate) => candidate.assistantTurnId === turnId);
       if (!turn) throw new Error(`Assistant turn ${turnId} was not persisted.`);
       return turn;
     },
@@ -233,20 +245,34 @@ const createReaperHarness = async (
         assistantTurnId: turnId,
         after: -1,
       });
-      return events.filter((event) =>
-        isTerminalEvent(parseSidechatStreamEvent(event.payloadJson)),
-      );
+      return events.filter((event) => isTerminalEvent(parseSidechatStreamEvent(event.payloadJson)));
     },
     shutdown: composition.shutdown,
   };
 };
 
+/**
+ * Wrap the memory repositories so a chosen turn's `appendTurnEvent` always rejects.
+ *
+ * This simulates the transient terminal-append failure the reaper must isolate: the
+ * reap CAS still terminalizes the status, but the synthetic-terminal append fails
+ * for the named turn only, so a test can prove the rest of the batch still closes.
+ */
+const withFlakyTurnEventAppend = (
+  repositories: MemorySidechatRepositories,
+  failTurnIds: ReadonlySet<string>,
+): MemorySidechatRepositories => ({
+  ...repositories,
+  appendTurnEvent: (command) =>
+    failTurnIds.has(command.assistantTurnId)
+      ? Promise.reject(new Error("simulated transient terminal-append failure"))
+      : repositories.appendTurnEvent(command),
+});
+
 // Decode a one-terminal slice and narrow it to its error variant to read the
 // durable `code`. The reaper only ever closes a turn with an error terminal, so a
 // non-error (or absent) terminal is a contract violation worth failing loudly.
-const terminalErrorCode = (
-  terminals: readonly TurnEventRecord[],
-): ProtocolErrorCode => {
+const terminalErrorCode = (terminals: readonly TurnEventRecord[]): ProtocolErrorCode => {
   const [only] = terminals;
   if (!only) throw new Error("Expected exactly one terminal event.");
   const event = parseSidechatStreamEvent(only.payloadJson);

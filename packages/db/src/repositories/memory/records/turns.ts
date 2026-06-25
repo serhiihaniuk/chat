@@ -4,10 +4,7 @@ import {
   type ContextSnapshotRecord,
 } from "#schema-contract";
 import { omitUndefinedProperties } from "@side-chat/shared";
-import {
-  requireSubjectConversation,
-  type MemoryRepositoryContext,
-} from "./conversations.js";
+import { requireSubjectConversation, type MemoryRepositoryContext } from "./conversations.js";
 import {
   appendMemoryTurnEvent,
   maxMemoryTurnEventSequence,
@@ -74,9 +71,7 @@ const startMemoryAssistantTurn =
       command.conversationId,
     );
     const existing = store.assistantTurns.find(
-      (turn) =>
-        turn.workspaceId === command.workspaceId &&
-        turn.requestId === command.requestId,
+      (turn) => turn.workspaceId === command.workspaceId && turn.requestId === command.requestId,
     );
     if (existing) return result(existing, false);
 
@@ -135,9 +130,7 @@ const recordMemoryTurnContextSnapshot =
   };
 
 const completeMemoryAssistantTurn =
-  ({
-    store,
-  }: MemoryRepositoryContext): AssistantTurnRepositoryContract["completeAssistantTurn"] =>
+  ({ store }: MemoryRepositoryContext): AssistantTurnRepositoryContract["completeAssistantTurn"] =>
   (command) =>
     Promise.resolve().then(() =>
       updateTurn(command, store, {
@@ -149,9 +142,7 @@ const completeMemoryAssistantTurn =
     );
 
 const failMemoryAssistantTurn =
-  ({
-    store,
-  }: MemoryRepositoryContext): AssistantTurnRepositoryContract["failAssistantTurn"] =>
+  ({ store }: MemoryRepositoryContext): AssistantTurnRepositoryContract["failAssistantTurn"] =>
   (command) =>
     Promise.resolve().then(() =>
       updateTurn(command, store, {

@@ -127,7 +127,7 @@ plans.
   browser-safe activity details.
 - **SidechatStreamEvent**: browser-facing `sidechat.v1` stream event.
 - **Activity event**: visible progress, tool, reasoning, or host-command row
-  *inside* one turn's stream.
+  _inside_ one turn's stream.
 - **Turn activity event**: cross-conversation turn-lifecycle signal (wire type
   `sidechat.turn-activity`) carried on the `GET /chat/activity` stream so the
   sidebar can show a live "generating" dot per running conversation. It is

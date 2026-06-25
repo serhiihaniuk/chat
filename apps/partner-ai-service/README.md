@@ -158,9 +158,11 @@ declares process/deployment inputs such as `PORT`, `SIDECHAT_PROFILE`,
 `SIDECHAT_AUTH_BEARER_TOKEN`, `SIDECHAT_DATABASE_URL`,
 `SIDECHAT_DEMO_SEED_CONVERSATIONS`, `SIDECHAT_TENANT_ID`, and
 `SIDECHAT_WORKSPACE_ID`. Provider-specific connection values live beside the
-model provider config; the OpenAI config declares `SIDECHAT_OPENAI_API_KEY` and
-optional `SIDECHAT_OPENAI_BASE_URL` through
-`models.provider.connection`.
+model provider config: the OpenAI config declares `SIDECHAT_OPENAI_API_KEY` and
+optional `SIDECHAT_OPENAI_BASE_URL`, and an Azure config declares
+`SIDECHAT_AZURE_OPENAI_API_KEY`, `SIDECHAT_AZURE_OPENAI_ENDPOINT`,
+`SIDECHAT_AZURE_OPENAI_API_VERSION`, and a per-model deployment map through
+`models.provider.connection` (see Azure OpenAI below).
 
 Example local path that enables recent conversation history:
 
@@ -189,6 +191,63 @@ Example OpenAI boot path: provide the env values declared by the default config.
 
 ```sh
 SIDECHAT_OPENAI_API_KEY=... \
+SIDECHAT_AUTH_BEARER_TOKEN=... \
+SIDECHAT_DATABASE_URL=... \
+npm run dev --workspace @side-chat/partner-ai-service
+```
+
+### Azure OpenAI
+
+Azure is a second provider alongside OpenAI. It routes by a resource endpoint, an
+`api-version`, and a per-model deployment name (which can differ from the model
+id), so its `models.provider` connection carries `endpoint`, `apiVersion`, and a
+`deployments` map keyed by enabled model id. The deployment indirection stays
+inside the runtime adapter, so the rest of the service (turn policy, `/models`,
+the widget) keeps speaking provider-neutral model ids.
+
+```ts
+// sidechat.config.ts — models block for an Azure deployment
+models: {
+  provider: {
+    kind: PROVIDERS.AZURE.KIND,
+    connection: {
+      apiKey: readEnv.secret(PROVIDERS.AZURE.SECRET_ENV_KEYS.API_KEY),
+      endpoint: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.ENDPOINT, { required: true }),
+      apiVersion: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.API_VERSION, {
+        defaultValue: "2024-12-01-preview",
+      }),
+      // Custom per model: each enabled model id maps to its Azure deployment.
+      deployments: {
+        [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID]: readEnv("SIDECHAT_AZURE_DEPLOYMENT_GPT_4O", {
+          defaultValue: "gpt-4o",
+        }),
+      },
+    },
+  },
+  default: {
+    model: PROVIDERS.AZURE.MODELS.GPT_4O,
+    reasoning: PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE,
+  },
+  availableModels: [
+    {
+      model: PROVIDERS.AZURE.MODELS.GPT_4O,
+      reasoning: {
+        default: PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE,
+        options: [PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE],
+      },
+    },
+  ],
+}
+```
+
+Boot with the declared env values (the api key is always env-sourced; the
+endpoint, api-version, and deployment names can be env or in-config defaults).
+Azure is configured through `sidechat.config.ts`; the legacy
+`service-config.ts` env parser stays OpenAI/fake.
+
+```sh
+SIDECHAT_AZURE_OPENAI_API_KEY=... \
+SIDECHAT_AZURE_OPENAI_ENDPOINT=https://<resource>.cognitiveservices.azure.com \
 SIDECHAT_AUTH_BEARER_TOKEN=... \
 SIDECHAT_DATABASE_URL=... \
 npm run dev --workspace @side-chat/partner-ai-service

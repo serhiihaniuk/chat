@@ -365,9 +365,7 @@ export type ConversationRepositoryContract = {
   readonly prepareConversationTitle: (
     command: PrepareConversationTitleCommand,
   ) => Promise<ConversationRecord>;
-  readonly resetConversation: (
-    command: ResetConversationCommand,
-  ) => Promise<ConversationRecord>;
+  readonly resetConversation: (command: ResetConversationCommand) => Promise<ConversationRecord>;
 };
 
 export type AssistantTurnRepositoryContract = {
@@ -380,9 +378,7 @@ export type AssistantTurnRepositoryContract = {
   readonly completeAssistantTurn: (
     command: CompleteAssistantTurnCommand,
   ) => Promise<AssistantTurnRecord>;
-  readonly failAssistantTurn: (
-    command: FailAssistantTurnCommand,
-  ) => Promise<AssistantTurnRecord>;
+  readonly failAssistantTurn: (command: FailAssistantTurnCommand) => Promise<AssistantTurnRecord>;
   // Record durable cancel intent for a running turn and notify the cancel channel
   // in one transaction (notify fires on commit). CAS-guarded to running turns, so
   // a cancel of an unknown, cross-workspace, or already-terminal turn is a no-op
@@ -395,24 +391,18 @@ export type AssistantTurnRepositoryContract = {
   // epoch, and extends the lease WHERE the turn is still running. The returned
   // epoch is what the owner's heartbeat must echo. A non-running/unknown turn does
   // not match, so `acquired` is false rather than an error.
-  readonly acquireTurnLease: (
-    command: AcquireTurnLeaseCommand,
-  ) => Promise<AcquireTurnLeaseResult>;
+  readonly acquireTurnLease: (command: AcquireTurnLeaseCommand) => Promise<AcquireTurnLeaseResult>;
   // Heartbeat the lease: CAS extends the expiry WHERE the turn is still running and
   // owner+epoch still match. `renewed: false` means the owner was fenced (epoch
   // advanced underneath it), so the caller must stop generation.
-  readonly renewTurnLease: (
-    command: RenewTurnLeaseCommand,
-  ) => Promise<RenewTurnLeaseResult>;
+  readonly renewTurnLease: (command: RenewTurnLeaseCommand) => Promise<RenewTurnLeaseResult>;
   // Reaper sweep: atomically terminalize every running turn whose lease expired,
   // bumping the epoch to fence its (dead or slow) owner. The status is the honest
   // terminal — `user_aborted` when a cancel was requested, else `provider_failed`.
   // Returns the reaped turns so the caller appends one synthetic terminal each;
   // two concurrent sweeps cannot both reap a turn because the running-guard CAS
   // matches only once.
-  readonly reapExpiredTurns: (
-    command: ReapExpiredTurnsCommand,
-  ) => Promise<readonly ReapedTurn[]>;
+  readonly reapExpiredTurns: (command: ReapExpiredTurnsCommand) => Promise<readonly ReapedTurn[]>;
   // Append one stream event and notify subscribers in one transaction. Idempotent
   // on `(assistantTurnId, sequence)` (identical re-append returns `inserted:
   // false`; a different payload rejects with `event_log_conflict`); at most one
@@ -460,9 +450,7 @@ export type AssistantTurnRepositoryContract = {
   readonly recordUsage: (
     command: RecordUsageCommand,
   ) => Promise<RepositoryCommandResult<UsageRecord>>;
-  readonly readUsageSummary: (
-    command: ReadUsageSummaryCommand,
-  ) => Promise<UsageSummary>;
+  readonly readUsageSummary: (command: ReadUsageSummaryCommand) => Promise<UsageSummary>;
 };
 
 export type InteractionRepositoryContract = {

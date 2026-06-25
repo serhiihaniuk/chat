@@ -93,7 +93,12 @@ const buildRunMethods = (
   transport: FetchLike,
 ): Pick<
   SideChatApiClient,
-  "createRun" | "subscribeTurn" | "resolveRun" | "getTurnStatus" | "cancelTurn" | "subscribeActivity"
+  | "createRun"
+  | "subscribeTurn"
+  | "resolveRun"
+  | "getTurnStatus"
+  | "cancelTurn"
+  | "subscribeActivity"
 > => ({
   createRun: (request, runOptions = {}) =>
     createRunWithFetch(request, options, runOptions, transport),

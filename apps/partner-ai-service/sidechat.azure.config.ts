@@ -29,21 +29,32 @@ import {
   SERVICE_ENV_KEYS,
 } from "#config/service-config";
 
-const sideChatConfig = defineSideChatConfig({
+/**
+ * Standalone Azure OpenAI + in-memory ("fake db") service config.
+ *
+ * A full self-contained `SideChatConfig` that does not reuse the default config:
+ * Azure `gpt-4o` is the model provider, and persistence is in-memory because the
+ * development profile with no `SIDECHAT_DATABASE_URL` selects the process-local
+ * repositories. Boot it by pointing `SIDECHAT_CONFIG_PATH` here and providing the
+ * Azure connection env (`SIDECHAT_AZURE_OPENAI_API_KEY` / `_ENDPOINT`).
+ */
+const sideChatAzureConfig = defineSideChatConfig({
   environment: {
     port: readEnv.number(SERVICE_ENV_KEYS.port, {
       defaultValue: DEFAULT_SERVICE_PORT,
       description: "HTTP port for the partner-ai-service Node server.",
     }),
     profile: readEnv(SERVICE_ENV_KEYS.profile, {
-      defaultValue: SERVICE_PROFILES.PRODUCTION,
-      description: "Deployment posture used by auth, policy, and persistence adapters.",
+      defaultValue: SERVICE_PROFILES.DEVELOPMENT,
+      description: "Development posture keeps persistence in memory (the fake db).",
     }),
     authBearerToken: readEnv.secret(SERVICE_ENV_KEYS.authBearerToken, {
-      description: "Trusted bearer token accepted by the production service auth adapter.",
+      required: false,
+      description: "Optional bearer token; development accepts a local token.",
     }),
     databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.databaseUrl, {
-      description: "Postgres URL used by durable production persistence.",
+      required: false,
+      description: "Left unset on purpose: absence selects in-memory persistence.",
     }),
     demoSeedConversations: readEnv.boolean(SERVICE_ENV_KEYS.demoSeedConversations, {
       defaultValue: false,
@@ -60,46 +71,40 @@ const sideChatConfig = defineSideChatConfig({
   },
   models: {
     provider: {
-      kind: PROVIDERS.OPENAI.KIND,
+      kind: PROVIDERS.AZURE.KIND,
       connection: {
-        apiKey: readEnv.secret(PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY, {
-          description: "Secret API key for the OpenAI-compatible Responses provider.",
+        apiKey: readEnv.secret(PROVIDERS.AZURE.SECRET_ENV_KEYS.API_KEY, {
+          description: "Secret Azure OpenAI API key.",
         }),
-        endpoint: readEnv.optional(PROVIDERS.OPENAI.TRANSPORT_ENV_KEYS.BASE_URL, {
-          description: "Optional OpenAI-compatible endpoint override, such as a gateway URL.",
+        endpoint: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.ENDPOINT, {
+          required: true,
+          description:
+            "Azure resource endpoint, e.g. https://<resource>.cognitiveservices.azure.com.",
         }),
-      },
-      reasoning: {
-        summary: PROVIDERS.OPENAI.REASONING_SUMMARIES.CONCISE,
+        apiVersion: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.API_VERSION, {
+          defaultValue: "2024-12-01-preview",
+          description: "Azure REST api-version sent on every request.",
+        }),
+        deployments: {
+          [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID]: readEnv("SIDECHAT_AZURE_DEPLOYMENT_GPT_4O", {
+            defaultValue: PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID,
+            description: "Azure deployment name for the gpt-4o model.",
+          }),
+        },
       },
     },
     default: {
-      model: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI,
-      reasoning: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
-    } satisfies SideChatDefaultModel<typeof PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI>,
+      model: PROVIDERS.AZURE.MODELS.GPT_4O,
+      reasoning: PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE,
+    } satisfies SideChatDefaultModel<typeof PROVIDERS.AZURE.MODELS.GPT_4O>,
     availableModels: [
       {
-        model: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI,
+        model: PROVIDERS.AZURE.MODELS.GPT_4O,
         reasoning: {
-          default: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
-          options: [
-            PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.LOW,
-            PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
-            PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.HIGH,
-          ],
+          default: PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE,
+          options: [PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE],
         },
-      } satisfies SideChatConfiguredModel<typeof PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI>,
-      {
-        model: PROVIDERS.OPENAI.MODELS.GPT_5_5,
-        reasoning: {
-          default: PROVIDERS.OPENAI.MODELS.GPT_5_5.REASONING.MEDIUM,
-          options: [
-            PROVIDERS.OPENAI.MODELS.GPT_5_5.REASONING.LOW,
-            PROVIDERS.OPENAI.MODELS.GPT_5_5.REASONING.MEDIUM,
-            PROVIDERS.OPENAI.MODELS.GPT_5_5.REASONING.HIGH,
-          ],
-        },
-      } satisfies SideChatConfiguredModel<typeof PROVIDERS.OPENAI.MODELS.GPT_5_5>,
+      } satisfies SideChatConfiguredModel<typeof PROVIDERS.AZURE.MODELS.GPT_4O>,
     ],
   },
   executors: {
@@ -132,12 +137,9 @@ const sideChatConfig = defineSideChatConfig({
     availableGuards: [],
   },
   requestPolicy: {
-    mode: REQUEST_POLICY_MODES.CONFIGURED,
+    mode: REQUEST_POLICY_MODES.ALLOW_ALL,
     modelEntitlements: {
-      modelIds: [
-        PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MODEL_ID,
-        PROVIDERS.OPENAI.MODELS.GPT_5_5.MODEL_ID,
-      ],
+      modelIds: [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID],
     },
   },
   chat: {
@@ -226,4 +228,4 @@ const sideChatConfig = defineSideChatConfig({
   },
 } satisfies SideChatConfig);
 
-export default sideChatConfig;
+export default sideChatAzureConfig;

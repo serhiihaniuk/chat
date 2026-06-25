@@ -1,7 +1,4 @@
-import {
-  createMemorySidechatRepositories,
-  type MemorySidechatRepositories,
-} from "@side-chat/db";
+import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
 import type { WorkspaceRef } from "@side-chat/partner-ai-core";
 import { describe, expect, it } from "vitest";
 
@@ -44,9 +41,7 @@ describe("turn pruner", () => {
     expect(turn?.status).toBe("completed");
     expect(turn?.assistantMessageId).toBe(seeded.assistantMessageId);
     expect(
-      snapshot.messages.some(
-        (message) => message.messageId === seeded.assistantMessageId,
-      ),
+      snapshot.messages.some((message) => message.messageId === seeded.assistantMessageId),
     ).toBe(true);
 
     await harness.shutdown();

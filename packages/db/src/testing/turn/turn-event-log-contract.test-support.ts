@@ -14,8 +14,7 @@ export const turnEventLogRepositoryContract = (
   createRepositories: () => SidechatRepositories,
 ) => {
   let scopeCounter = 0;
-  const nextScope = () =>
-    `${label.replace(/\W+/gu, "_")}_events_${++scopeCounter}`;
+  const nextScope = () => `${label.replace(/\W+/gu, "_")}_events_${++scopeCounter}`;
 
   describe("durable turn-event log contract", () => {
     it("appends, replays, and de-duplicates the durable turn-event log", async () => {
@@ -59,11 +58,7 @@ export const turnEventLogRepositoryContract = (
         });
 
         expect(fromStart.map((event) => event.sequence)).toEqual([0, 1, 2]);
-        expect(fromStart.map((event) => event.type)).toEqual([
-          "started",
-          "delta",
-          "delta",
-        ]);
+        expect(fromStart.map((event) => event.type)).toEqual(["started", "delta", "delta"]);
         expect(afterStart.map((event) => event.sequence)).toEqual([1, 2]);
         await expect(
           repositories.maxTurnEventSequence({
@@ -84,9 +79,7 @@ export const turnEventLogRepositoryContract = (
         ).resolves.toBe(2);
 
         // A different payload at an existing sequence is durable-log corruption.
-        await expect(
-          appendEvent(1, "delta", { content: "DIFFERENT" }),
-        ).rejects.toMatchObject({
+        await expect(appendEvent(1, "delta", { content: "DIFFERENT" })).rejects.toMatchObject({
           code: "event_log_conflict",
         });
 
@@ -95,9 +88,7 @@ export const turnEventLogRepositoryContract = (
           finishReason: "stop",
         });
         expect(completed.inserted).toBe(true);
-        await expect(
-          appendEvent(4, "error", { code: "internal" }),
-        ).rejects.toMatchObject({
+        await expect(appendEvent(4, "error", { code: "internal" })).rejects.toMatchObject({
           code: "event_log_conflict",
         });
       } finally {

@@ -21,8 +21,7 @@ export type ChatTurnResumabilityDependencies = {
 };
 
 /** Assistant-turn statuses that are no longer running (the durable run has ended). */
-export const isTerminalTurn = (turn: AssistantTurnRecord): boolean =>
-  turn.status !== "running";
+export const isTerminalTurn = (turn: AssistantTurnRecord): boolean => turn.status !== "running";
 
 /**
  * Detect a pruned-log gap that makes replay impossible (resumable-streaming plan).

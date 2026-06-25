@@ -52,9 +52,7 @@ export type ObservabilityRecord = RequestCorrelation & {
 
 /** Telemetry adapter supplied by service composition. */
 export type ObservabilitySinkPort = {
-  readonly record: (
-    record: ObservabilityRecord,
-  ) => Effect.Effect<void, unknown>;
+  readonly record: (record: ObservabilityRecord) => Effect.Effect<void, unknown>;
 };
 
 /**
@@ -96,9 +94,7 @@ const SENSITIVE_KEY_PARTS = [
 
 const REDACTED = "[redacted]";
 
-export const createRequestCorrelation = (
-  input: TraceCorrelationInput,
-): RequestCorrelation => ({
+export const createRequestCorrelation = (input: TraceCorrelationInput): RequestCorrelation => ({
   requestId: input.requestId,
   traceId: input.traceId ?? `trace_${input.requestId}`,
 });
@@ -110,8 +106,7 @@ export const createRequestCorrelation = (
  * private values under harmless-looking keys because this is a safety net, not
  * a semantic data-loss-prevention engine.
  */
-export const redactAttributes = (attributes: JsonObject): JsonObject =>
-  redactObject(attributes);
+export const redactAttributes = (attributes: JsonObject): JsonObject => redactObject(attributes);
 
 /**
  * Normalize unknown values into JSON primitives for diagnostic attributes.
@@ -147,7 +142,5 @@ const isJsonObject = (value: JsonValue): value is JsonObject =>
 
 const isSensitiveKey = (key: string): boolean => {
   const normalized = key.toLowerCase();
-  return SENSITIVE_KEY_PARTS.some((part) =>
-    normalized.includes(part.toLowerCase()),
-  );
+  return SENSITIVE_KEY_PARTS.some((part) => normalized.includes(part.toLowerCase()));
 };

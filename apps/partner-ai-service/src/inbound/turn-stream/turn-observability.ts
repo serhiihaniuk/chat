@@ -77,10 +77,6 @@ export const recordResumableObservation = (
  * awaiting it: telemetry must not add latency to a cancel ack or a stream open,
  * and a sink failure is already swallowed by {@link recordResumableObservation}.
  */
-export const emitResumableObservation = (
-  observation: ResumableObservation,
-): void => {
-  Effect.runPromise(recordResumableObservation(observation)).catch(
-    () => undefined,
-  );
+export const emitResumableObservation = (observation: ResumableObservation): void => {
+  Effect.runPromise(recordResumableObservation(observation)).catch(() => undefined);
 };

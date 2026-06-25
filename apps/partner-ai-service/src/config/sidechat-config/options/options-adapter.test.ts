@@ -1,7 +1,4 @@
-import {
-  SIDECHAT_EVENT_TYPES,
-  SIDECHAT_PROTOCOL_VERSION,
-} from "@side-chat/chat-protocol";
+import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 import sideChatConfig from "#sidechat-config";
 import { createPartnerAiServiceApp } from "#inbound/http/app";
@@ -37,8 +34,7 @@ describe("sidechat.config.ts", () => {
   it("boots the production OpenAI service from the readable config", async () => {
     const options = createPartnerAiServiceOptionsFromConfig(sideChatConfig, {
       [SERVICE_ENV_KEYS.authBearerToken]: "prod-config-token",
-      [SERVICE_ENV_KEYS.databaseUrl]:
-        "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
       [PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY]: "key_123",
     });
     expect(options.runtime).toMatchObject({
@@ -93,8 +89,7 @@ describe("sidechat.config.ts", () => {
           default: true,
           available: true,
           reasoning: {
-            defaultEffort:
-              PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
+            defaultEffort: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
             efforts: [
               PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.LOW,
               PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.REASONING.MEDIUM,
@@ -129,11 +124,7 @@ describe("sidechat.config.ts", () => {
       }),
     );
 
-    const { events } = await runTurnStream(
-      app,
-      validRequest,
-      "Bearer local-config-token",
-    );
+    const { events } = await runTurnStream(app, validRequest, "Bearer local-config-token");
     expect(events.at(-1)).toMatchObject({
       type: SIDECHAT_EVENT_TYPES.COMPLETED,
     });
@@ -142,16 +133,12 @@ describe("sidechat.config.ts", () => {
   it("resolves resumability retention and batch knobs from the readable config", () => {
     const baseEnv = {
       [PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY]: "key_123",
-      [SERVICE_ENV_KEYS.databaseUrl]:
-        "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
       [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
     } as const;
 
     // Defaults come from RESUMABILITY_DEFAULTS via the config's readEnv declarations.
-    const defaults = createPartnerAiServiceOptionsFromConfig(
-      sideChatConfig,
-      baseEnv,
-    );
+    const defaults = createPartnerAiServiceOptionsFromConfig(sideChatConfig, baseEnv);
     expect(defaults.resumability).toMatchObject({
       reaperBatchLimit: RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
       turnEventRetentionMs: RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
@@ -176,8 +163,7 @@ describe("sidechat.config.ts", () => {
   it("builds OpenAI runtime options from config plus secret env only", () => {
     const options = createPartnerAiServiceOptionsFromConfig(sideChatConfig, {
       [PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY]: "key_123",
-      [SERVICE_ENV_KEYS.databaseUrl]:
-        "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
       [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
     });
 
@@ -197,16 +183,13 @@ describe("sidechat.config.ts", () => {
         {
           modelId: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MODEL_ID,
           displayName: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.DISPLAY_NAME,
-          contextWindowTokens:
-            PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.CONTEXT_WINDOW_TOKENS,
-          maxOutputTokens:
-            PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MAX_OUTPUT_TOKENS,
+          contextWindowTokens: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.CONTEXT_WINDOW_TOKENS,
+          maxOutputTokens: PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MAX_OUTPUT_TOKENS,
         },
         {
           modelId: PROVIDERS.OPENAI.MODELS.GPT_5_5.MODEL_ID,
           displayName: PROVIDERS.OPENAI.MODELS.GPT_5_5.DISPLAY_NAME,
-          contextWindowTokens:
-            PROVIDERS.OPENAI.MODELS.GPT_5_5.CONTEXT_WINDOW_TOKENS,
+          contextWindowTokens: PROVIDERS.OPENAI.MODELS.GPT_5_5.CONTEXT_WINDOW_TOKENS,
           maxOutputTokens: PROVIDERS.OPENAI.MODELS.GPT_5_5.MAX_OUTPUT_TOKENS,
         },
       ],
@@ -235,16 +218,12 @@ describe("sidechat.config.ts", () => {
       },
     });
 
-    const options = createPartnerAiServiceOptionsFromConfig(
-      configWithCustomProviderEnv,
-      {
-        CUSTOM_OPENAI_API_KEY: "custom_key",
-        CUSTOM_OPENAI_ENDPOINT: "https://gateway.example/openai/v1",
-        [SERVICE_ENV_KEYS.databaseUrl]:
-          "postgres://sidechat:sidechat@localhost/sidechat",
-        [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
-      },
-    );
+    const options = createPartnerAiServiceOptionsFromConfig(configWithCustomProviderEnv, {
+      CUSTOM_OPENAI_API_KEY: "custom_key",
+      CUSTOM_OPENAI_ENDPOINT: "https://gateway.example/openai/v1",
+      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
+    });
 
     expect(options.runtime).toMatchObject({
       provider: PROVIDERS.OPENAI.KIND,
@@ -256,8 +235,7 @@ describe("sidechat.config.ts", () => {
   it("rejects OpenAI config without the secret env value", () => {
     expect(() =>
       createPartnerAiServiceOptionsFromConfig(sideChatConfig, {
-        [SERVICE_ENV_KEYS.databaseUrl]:
-          "postgres://sidechat:sidechat@localhost/sidechat",
+        [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
         [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
       }),
     ).toThrow("SIDECHAT_OPENAI_API_KEY is required");
@@ -274,11 +252,133 @@ describe("sidechat.config.ts", () => {
       },
     });
 
-    expect(() =>
-      createPartnerAiServiceOptionsFromConfig(brokenConfig, {}),
-    ).toThrow("Request policy references model");
+    expect(() => createPartnerAiServiceOptionsFromConfig(brokenConfig, {})).toThrow(
+      "Request policy references model",
+    );
+  });
+
+  it("builds an Azure service from the readable config with per-model deployments", async () => {
+    const options = createPartnerAiServiceOptionsFromConfig(createAzureConfig(), {
+      [PROVIDERS.AZURE.SECRET_ENV_KEYS.API_KEY]: "azure_key_123",
+      [PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.ENDPOINT]: "https://res.cognitiveservices.azure.com",
+      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
+    });
+
+    expect(options.runtime).toMatchObject({
+      provider: PROVIDERS.AZURE.KIND,
+      apiKey: "azure_key_123",
+      endpoint: "https://res.cognitiveservices.azure.com",
+      apiVersion: "2024-12-01-preview",
+      modelIds: [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID],
+      defaultModelId: PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID,
+      deploymentsByModelId: { [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID]: "my-gpt4o-prod" },
+    });
+    // The turn profile carries the Azure provider id, not OpenAI.
+    expect(options.turnProfiles?.[0]?.model).toMatchObject({
+      providerId: PROVIDERS.AZURE.PROVIDER_ID,
+      modelId: PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID,
+    });
+
+    // Composition builds the Azure provider and /models publishes it.
+    const app = createPartnerAiServiceApp(options);
+    const models = await app.request("/models", {
+      headers: { authorization: "Bearer prod-token" },
+    });
+    await expect(models.json()).resolves.toMatchObject({
+      defaultModel: {
+        providerId: PROVIDERS.AZURE.PROVIDER_ID,
+        modelId: PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID,
+      },
+      models: [
+        {
+          providerId: PROVIDERS.AZURE.PROVIDER_ID,
+          modelId: PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID,
+          displayName: PROVIDERS.AZURE.MODELS.GPT_4O.DISPLAY_NAME,
+        },
+      ],
+    });
+  });
+
+  it("overrides an Azure deployment name from env", () => {
+    const options = createPartnerAiServiceOptionsFromConfig(createAzureConfig(), {
+      [PROVIDERS.AZURE.SECRET_ENV_KEYS.API_KEY]: "azure_key_123",
+      [PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.ENDPOINT]: "https://res.cognitiveservices.azure.com",
+      SIDECHAT_AZURE_DEPLOYMENT_GPT_4O: "gpt4o-canary",
+      [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
+      [SERVICE_ENV_KEYS.authBearerToken]: "prod-token",
+    });
+
+    expect(options.runtime).toMatchObject({
+      deploymentsByModelId: { [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID]: "gpt4o-canary" },
+    });
+  });
+
+  it("rejects an Azure model that has no deployment in the connection", () => {
+    const missingDeployment = defineSideChatConfig({
+      ...createAzureConfig(),
+      models: {
+        ...createAzureConfig().models,
+        provider: {
+          kind: PROVIDERS.AZURE.KIND,
+          connection: {
+            apiKey: readEnv.secret(PROVIDERS.AZURE.SECRET_ENV_KEYS.API_KEY),
+            endpoint: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.ENDPOINT, { required: true }),
+            apiVersion: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.API_VERSION, {
+              defaultValue: "2024-12-01-preview",
+            }),
+            deployments: {},
+          },
+        },
+      },
+    });
+
+    expect(() => createPartnerAiServiceOptionsFromConfig(missingDeployment, {})).toThrow(
+      "is missing a deployment",
+    );
   });
 });
+
+const createAzureConfig = () =>
+  defineSideChatConfig({
+    ...sideChatConfig,
+    models: {
+      provider: {
+        kind: PROVIDERS.AZURE.KIND,
+        connection: {
+          apiKey: readEnv.secret(PROVIDERS.AZURE.SECRET_ENV_KEYS.API_KEY),
+          endpoint: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.ENDPOINT, { required: true }),
+          apiVersion: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.API_VERSION, {
+            defaultValue: "2024-12-01-preview",
+          }),
+          deployments: {
+            [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID]: readEnv("SIDECHAT_AZURE_DEPLOYMENT_GPT_4O", {
+              defaultValue: "my-gpt4o-prod",
+            }),
+          },
+        },
+      },
+      default: {
+        model: PROVIDERS.AZURE.MODELS.GPT_4O,
+        reasoning: PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE,
+      },
+      availableModels: [
+        {
+          model: PROVIDERS.AZURE.MODELS.GPT_4O,
+          reasoning: {
+            default: PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE,
+            options: [PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE],
+          },
+        } satisfies SideChatConfiguredModel<typeof PROVIDERS.AZURE.MODELS.GPT_4O>,
+      ],
+    },
+    requestPolicy: {
+      mode: REQUEST_POLICY_MODES.CONFIGURED,
+      modelEntitlements: {
+        modelIds: [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID],
+      },
+    },
+  });
 
 const createTestFakeConfig = () =>
   defineSideChatConfig({
@@ -312,9 +412,7 @@ const createTestFakeConfig = () =>
               PROVIDERS.FAKE.MODELS.FAKE_ECHO.REASONING.HIGH,
             ],
           },
-        } satisfies SideChatConfiguredModel<
-          typeof PROVIDERS.FAKE.MODELS.FAKE_ECHO
-        >,
+        } satisfies SideChatConfiguredModel<typeof PROVIDERS.FAKE.MODELS.FAKE_ECHO>,
       ],
     },
     requestPolicy: {

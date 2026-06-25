@@ -117,10 +117,8 @@ const startNotificationListener = (
   fanouts: Map<string, TurnFanout>,
   dependencies: TurnEventDispatcherDependencies,
 ): void => {
-  const drain = Stream.runForEach(
-    dependencies.notificationSource.notifications,
-    (notification) =>
-      reconcileTurn(fanouts, dependencies.ports, notification.assistantTurnId),
+  const drain = Stream.runForEach(dependencies.notificationSource.notifications, (notification) =>
+    reconcileTurn(fanouts, dependencies.ports, notification.assistantTurnId),
   );
   Effect.runSync(Effect.forkIn(drain, scope));
 };
@@ -141,14 +139,8 @@ const registerSubscriber = (
   },
 ): Effect.Effect<TurnEventSubscription> =>
   Effect.gen(function* () {
-    const queue = yield* Queue.dropping<SidechatStreamEvent>(
-      SUBSCRIBER_QUEUE_CAPACITY,
-    );
-    const fanout = ensureFanout(
-      fanouts,
-      input.assistantTurnId,
-      input.authContext,
-    );
+    const queue = yield* Queue.dropping<SidechatStreamEvent>(SUBSCRIBER_QUEUE_CAPACITY);
+    const fanout = ensureFanout(fanouts, input.assistantTurnId, input.authContext);
     fanout.subscribers.add(queue);
 
     yield* recordSubscriberChange(
@@ -161,14 +153,7 @@ const registerSubscriber = (
     return {
       events: queue,
       release: () =>
-        Effect.runPromise(
-          releaseSubscriber(
-            fanouts,
-            dependencies,
-            input.assistantTurnId,
-            queue,
-          ),
-        ),
+        Effect.runPromise(releaseSubscriber(fanouts, dependencies, input.assistantTurnId, queue)),
     };
   });
 
@@ -206,12 +191,7 @@ const releaseSubscriber = (
     const fanout = fanouts.get(assistantTurnId);
     if (fanout) {
       fanout.subscribers.delete(queue);
-      yield* recordSubscriberChange(
-        dependencies,
-        assistantTurnId,
-        "subscriber_detached",
-        fanout,
-      );
+      yield* recordSubscriberChange(dependencies, assistantTurnId, "subscriber_detached", fanout);
       if (fanout.subscribers.size === 0) fanouts.delete(assistantTurnId);
     }
     yield* Queue.shutdown(queue);
@@ -274,16 +254,9 @@ const readNewEvents = (
       assistantTurnId,
       after: fanout.highWaterMark,
     })
-    .pipe(
-      Effect.catchCause(() =>
-        Effect.succeed([] as readonly SidechatStreamEvent[]),
-      ),
-    );
+    .pipe(Effect.catchCause(() => Effect.succeed([] as readonly SidechatStreamEvent[])));
 
-const offerToSubscribers = (
-  fanout: TurnFanout,
-  event: SidechatStreamEvent,
-): void => {
+const offerToSubscribers = (fanout: TurnFanout, event: SidechatStreamEvent): void => {
   for (const queue of fanout.subscribers) {
     // Non-blocking: a full (lagging) subscriber drops the signal and re-syncs
     // from the durable log on its next safety poll.
