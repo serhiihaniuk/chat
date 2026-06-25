@@ -11,6 +11,13 @@
 // prompt just shows it as the default). In a non-interactive shell it falls back
 // to env/defaults.
 //
+// Providers:
+//   - fake    in-memory showcase model + mock tools (default; no key needed)
+//   - openai  real OpenAI-compatible models (prompts for API key + models)
+//   - azure   boots the standalone Azure + in-memory "fake db" config
+//             (sidechat.azure.config.ts) and prompts for the Azure endpoint,
+//             API key, api-version, and gpt-4o deployment name
+//
 // Why injected env: server.ts reads process.env synchronously at boot (no .env
 // file), so every SIDECHAT_* key must be injected into the spawned child.
 //
@@ -53,6 +60,13 @@ const DEFAULT_WORKBENCH_PORT = 8080;
 const DEFAULT_WIDGET_ENDPOINT_NAME = "side-chat-widget";
 const DEFAULT_WIDGET_BIND_HOST = "0.0.0.0";
 const DEFAULT_WIDGET_FRAME_PATH = "/side-chat-frame";
+
+// The azure provider boots the standalone Azure + in-memory ("fake db") config
+// instead of the default sidechat.config.ts; the server selects it via
+// SIDECHAT_CONFIG_PATH. Endpoint/key/deployment are prompted (see collectConfig).
+const AZURE_CONFIG_PATH = path.join(ROOT, "apps", "partner-ai-service", "sidechat.azure.config.ts");
+const DEFAULT_AZURE_API_VERSION = "2024-12-01-preview";
+const DEFAULT_AZURE_GPT_4O_DEPLOYMENT = "gpt-4o";
 
 // Saved answers live next to this script so re-runs remember your inputs.
 const CONFIG_FILE = path.join(__dirname, ".run-local-fake.json");
@@ -552,13 +566,14 @@ async function collectConfig() {
   const cfg = {};
 
   // Provider. This launcher is the one-command demo path, so fake is the default.
+  // azure boots the standalone Azure + in-memory config (sidechat.azure.config.ts).
   let provider = (
     await ask(
-      "Provider [fake/openai]",
+      "Provider [fake/openai/azure]",
       pick(saved, "provider", process.env.SIDECHAT_PROVIDER, "fake"),
     )
   ).toLowerCase();
-  if (provider !== "fake" && provider !== "openai") {
+  if (provider !== "fake" && provider !== "openai" && provider !== "azure") {
     warnLauncher(`Unknown provider "${provider}", using "fake".`);
     provider = "fake";
   }
@@ -579,6 +594,44 @@ async function collectConfig() {
     cfg.baseUrl = await ask(
       "API base URL - OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
       pick(saved, "baseUrl", process.env.SIDECHAT_OPENAI_BASE_URL, ""),
+    );
+  }
+
+  if (provider === "azure") {
+    // Required fields the Azure config (sidechat.azure.config.ts) reads from env.
+    const savedKey = pick(saved, "azureApiKey", process.env.SIDECHAT_AZURE_OPENAI_API_KEY, "");
+    cfg.azureApiKey = await askSecret("Azure OpenAI API key", savedKey);
+    while (!cfg.azureApiKey) {
+      errLauncher("Azure OpenAI API key is required.");
+      cfg.azureApiKey = await askSecret("Azure OpenAI API key", "");
+      if (SKIP_PROMPTS) break;
+    }
+    cfg.azureEndpoint = await ask(
+      "Azure resource endpoint, e.g. https://<resource>.cognitiveservices.azure.com",
+      pick(saved, "azureEndpoint", process.env.SIDECHAT_AZURE_OPENAI_ENDPOINT, ""),
+    );
+    while (!cfg.azureEndpoint) {
+      errLauncher("Azure resource endpoint is required.");
+      cfg.azureEndpoint = await ask("Azure resource endpoint", "");
+      if (SKIP_PROMPTS) break;
+    }
+    cfg.azureApiVersion = await ask(
+      "Azure REST api-version",
+      pick(
+        saved,
+        "azureApiVersion",
+        process.env.SIDECHAT_AZURE_OPENAI_API_VERSION,
+        DEFAULT_AZURE_API_VERSION,
+      ),
+    );
+    cfg.azureDeploymentGpt4o = await ask(
+      "Azure deployment name for gpt-4o",
+      pick(
+        saved,
+        "azureDeploymentGpt4o",
+        process.env.SIDECHAT_AZURE_DEPLOYMENT_GPT_4O,
+        DEFAULT_AZURE_GPT_4O_DEPLOYMENT,
+      ),
     );
   }
 
@@ -704,6 +757,18 @@ async function main() {
       process.env.SIDECHAT_DEMO_SEED_CONVERSATIONS ?? "true";
     backendEnv.SIDECHAT_ENABLE_DEV_TOOLS = process.env.SIDECHAT_ENABLE_DEV_TOOLS ?? "true";
     logLauncher("Provider: fake showcase model with local mock tools.");
+  } else if (cfg.provider === "azure") {
+    // Boot the standalone Azure config; its development profile + no database URL
+    // selects in-memory ("fake db") persistence, same as fake mode.
+    delete process.env.SIDECHAT_DATABASE_URL;
+    backendEnv.SIDECHAT_CONFIG_PATH = AZURE_CONFIG_PATH;
+    backendEnv.SIDECHAT_AZURE_OPENAI_API_KEY = cfg.azureApiKey;
+    backendEnv.SIDECHAT_AZURE_OPENAI_ENDPOINT = cfg.azureEndpoint;
+    backendEnv.SIDECHAT_AZURE_OPENAI_API_VERSION = cfg.azureApiVersion;
+    backendEnv.SIDECHAT_AZURE_DEPLOYMENT_GPT_4O = cfg.azureDeploymentGpt4o;
+    logLauncher(
+      `Provider: azure gpt-4o (deployment "${cfg.azureDeploymentGpt4o}") via sidechat.azure.config.ts. Persistence: in-memory.`,
+    );
   } else {
     backendEnv.SIDECHAT_OPENAI_API_KEY = cfg.apiKey;
     backendEnv.SIDECHAT_ALLOWED_MODELS = cfg.models;
