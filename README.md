@@ -30,6 +30,9 @@ host app -> side-chat-widget API/client -> chat-protocol
 | Runtime & protocol events | `docs/architecture/runtime-and-protocol-events.md` |
 | Widget & host integration | `docs/architecture/widget-and-host-integration.md` |
 | Iframe embedding          | `docs/operations/embed-widget-iframe.md`           |
+| Local development         | `docs/operations/local-development.md`             |
+| Configuration             | `docs/operations/configuration.md`                 |
+| Database tooling          | `docs/operations/database.md`                      |
 | Verification commands     | `docs/operations/verification.md`                  |
 | Agent rules               | `AGENTS.md`                                        |
 
@@ -51,14 +54,16 @@ Keep port `8080` for the real host Workbench app. The fake launcher defaults to
 the fake provider, local mock tools, in-memory persistence, and a few seeded
 demo conversations unless `SIDECHAT_DEMO_SEED_CONVERSATIONS=false`.
 
-Open the harness with:
+Open the **host page** the launcher prints, not the raw iframe. The iframe path
+below is debug-only:
 
 ```txt
 http://127.0.0.1:5174/side-chat-frame/?mode=local-service&authToken=local-compose-token&workspaceId=workspace_local
 ```
 
 Do not put secret values in docs or committed examples. Local service settings
-come from `.env`.
+are injected by the launcher; the service does not auto-load `.env` (see
+[docs/operations/local-development.md](docs/operations/local-development.md)).
 
 ## Verification
 

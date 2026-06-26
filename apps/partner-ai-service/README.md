@@ -4,12 +4,18 @@ Read this when: editing the HTTP service, adapters, or composition root.
 Source of truth for: this app's ownership, public surface, and local boundaries.
 Not source of truth for: global vocabulary or product requirements.
 
+This is the deployable Hono composition root: the one process that wires
+`@side-chat/partner-ai-core`, `@side-chat/agent-runtime`, `@side-chat/db`, and the
+enterprise adapters into a running service. It is the only app in the repo, and it
+is not a host app — it serves the widget's `sidechat.v1` API, it does not embed the
+widget. It owns the server-owned turn runner that forks a fiber per
+`assistantTurnId` and the dispatchers, reaper, and pruner around it.
+
 ## Owns
 
 - Hono HTTP routes, middleware, and SSE response conversion.
 - Auth, config, persistence, policy, provider, and tool adapters.
-- Concrete turn guard, host-command, tool, persistence, policy, and
-  observability adapter starting points.
+- The server-owned turn runner, event/cancel/activity dispatchers, reaper, and pruner.
 - Deployable service composition of core, runtime, DB, and enterprise adapters.
 - Local development/test fixtures that are explicitly enabled by config.
 
@@ -23,235 +29,21 @@ Not source of truth for: global vocabulary or product requirements.
 
 ## First Files To Open
 
-- `src/inbound/http/app.ts`
-- `src/inbound/http/routes/chat/runs/chat-runs.ts`
-- `src/inbound/http/routes/chat/turns/chat-turns.ts`
-- `src/inbound/turn-stream/turn-event-dispatcher.ts`
-- `src/inbound/turn-stream/turn-cancel-dispatcher.ts`
-- `src/inbound/turn-stream/activity/turn-activity-dispatcher.ts`
-- `src/composition/service-composition.ts`
-- `src/composition/manifest/service-capability-manifest.ts`
-- `src/composition/providers/service-provider-registry.ts`
-- `src/composition/tools/service-tool-registry.ts`
-- `src/composition/turn-profile/turn-profile-registry.ts`
-- `src/composition/turn-profile/default-turn-profile-config.ts`
-- `src/adapters/README.md`
-- `sidechat.config.ts`
-- `src/config/sidechat-config.ts`
-- `src/config/catalog/index.ts`
-- `src/config/service-config.ts`
-- `src/config/sidechat-config/conversation-title.ts`
+- `src/inbound/http/app.ts` — assembles routes and middleware into the Hono app.
+- `src/inbound/turn-runner/turn-runner.ts` — the server-owned turn runner (`FiberMap`
+  by `assistantTurnId`).
+- `src/composition/service-composition.ts` — the composition root; see
+  [`src/composition/README.md`](src/composition/README.md).
+- `sidechat.config.ts` — the typed `SideChatConfig` that declares what the service runs.
 
-## Capability Diagnostics
+## Configuration
 
-`/healthz` and `/readyz` include a safe `capabilities` object owned by service
-composition. It reports whether history context, context admission, and
-persistence are disabled or configured. The same endpoints report secret-free
-`providers` and `tools` registry status: provider ids, model ids, default
-selection, model metadata, reasoning policy, and tool names with their
-default-enabled and approval policy ids. Provider secrets and tool payloads
-stay hidden.
-
-`GET /models` exposes the browser-safe model catalog derived from the provider
-registry: provider/model ids, display names, context windows, output limits,
-availability, default selection, and selectable reasoning efforts. It never
-exposes provider secrets, base URLs, or provider-native request options.
-
-Provider and tool registries are the single source for those surfaces.
-`createServiceProviderRegistry` validates provider/model registrations and picks
-the runtime identity. `createServiceToolRegistry` turns each
-`ServiceToolRegistration` into both a manifest capability and the matching
-runtime executable, so a tool cannot be declared without an executable behind
-it.
-
-Turn behavior is explicit service config. The default turn profile and any
-`turnProfiles` passed to composition build through `createTurnProfileRegistry`,
-which validates each `ServiceTurnProfileConfig` against the provider, tool, and
-guard registries and uses the system prompt builder to assemble prompt text. The
-manifest factory only receives the built profiles; it owns no default prompt.
-
-The chat resource surface includes `GET /chat/conversations` for the current
-authorized workspace subject and `GET /chat/history/:conversationId` for
-hydrating a selected conversation. `GET /chat/activity` opens a subject-scoped SSE
-stream of `sidechat.turn-activity` events so the widget can light a "generating"
-dot on conversations the user is not currently viewing. Service composition owns the conversation
-title prompt/config. Core runs that config through a no-tools runtime basic
-agent after the first successful turn, sanitizes the output, and stores the
-title once; older records with no stored title still fall back to safe
-first-message text while listed. Both routes use repository scoping and never
-accept a caller-supplied subject id.
-
-Default local boot is honest about the current app shape:
-
-- prior conversation history is disabled by default; `recent_messages` admits
-  authorized same-conversation user/assistant messages before the current user
-  message, and reset starts a new history boundary;
-- context admission enforces deterministic token budgets before optional
-  context reaches runtime;
-- in-memory repositories are process-local and not durable.
-
-Context admission diagnostics expose the configured policy id, the actual
-selection mode, and a secret-free recorded budget. `policyId:
-deterministic_v1` with `selectionMode: budgeted` means the context manager can
-drop optional candidates under token pressure and record safe drop reasons in
-the manifest.
-
-Persistence diagnostics are derived from the composed repository adapter. A
-`SIDECHAT_DATABASE_URL` selects the Postgres/Drizzle repositories; local
-in-memory repositories report `persistence: memory` and remain explicitly
-non-production-safe because they reset with the process.
-
-Diagnostics never include secrets, connection strings, provider requests, or
-private context-board content.
-
-## Capability Configuration
-
-`partner-ai-core` owns the portable capability configuration contract used by
-policy and context preparation. The service-readable product behavior now starts
-in `sidechat.config.ts`: enabled models, provider reasoning summary, per-model
-reasoning options, default executor, tool microconfigs, request policy, turn
-profile prompt/output/safety, context budgets, and auxiliary model jobs live
-there as imported catalog values plus human-authored prompt text.
-
-`src/config/sidechat-config.ts` owns the typed `defineSideChatConfig(...)`
-helper, `readEnv(...)` env-reference helpers, the optional config module loader,
-and the adapter that turns the readable config plus secret/process env into
-`PartnerAiServiceOptions`. `npm run dev --workspace
-@side-chat/partner-ai-service` uses the normal `src/server.ts` boot path and
-loads the default export from `sidechat.config.ts`. `SIDECHAT_CONFIG_PATH`
-remains an explicit override for loading another config file, and `SIDECHAT_CONFIG`
-can select a named export only when that module intentionally exports a
-registry. The checked-in project config is one production OpenAI config object,
-not a local/openai switchboard. The older `src/config/service-config.ts` env
-parser remains during migration as the fallback when no config module can be
-loaded and for existing deployment tests.
-
-`src/config/catalog/` is the importable catalog for service-readable config
-values. It names provider ids, model ids, per-model reasoning options, model
-metadata, executor ids, default tool descriptors, and auxiliary model jobs such
-as conversation-title generation. The catalog points at implemented providers,
-executors, and tool adapters; it does not register host commands or turn guards
-when the service has no built-in implementation for them.
-
-The checked-in production config is explicit and fail closed:
-
-| Config field                                    | Production value                        | Meaning                                                           |
-| ----------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
-| `environment.profile`                           | `SERVICE_PROFILES.PRODUCTION`           | Deployment posture used by auth, policy, and persistence.         |
-| `models.provider.kind`                          | `PROVIDERS.OPENAI.KIND`                 | Runtime provider adapter.                                         |
-| `models.provider.reasoning.summary`             | `concise`                               | Requests minimal provider reasoning summaries for activity rows.  |
-| `models.availableModels`                        | GPT-5.4 mini and GPT-5.5                | Enabled backend model list published to the widget.               |
-| `models.availableModels[].reasoning.options`    | low, medium, high                       | Reasoning efforts the widget may offer for each enabled model.    |
-| `tools.availableTools`                          | `TOOLS.MOCK_WEB_SEARCH`                 | Configured backend tool registration.                             |
-| `chat.turnProfile.systemInstructions`           | Markdown output instruction fragments   | Prompt text used for the default assistant turn.                  |
-| `chat.turnProfile.executor`                     | `EXECUTORS.AI_SDK_TOOL_LOOP`            | Runtime executor id published in the turn profile.                |
-| `requestPolicy.mode`                            | `REQUEST_POLICY_MODES.CONFIGURED`       | Requests are checked against configured model entitlements.       |
-| `context.history.mode`                          | `HISTORY_CONTEXT_MODES.RECENT_MESSAGES` | Recent same-conversation messages are admitted into context.      |
-| `context.history.maxMessages`                   | `12`                                    | Maximum same-conversation messages admitted into runtime context. |
-| `context.contextAdmission.maxInputTokens`       | `24000`                                 | Recorded model input budget.                                      |
-| `context.contextAdmission.reservedOutputTokens` | `4000`                                  | Reserved output budget; must be below max input tokens.           |
-| `context.contextAdmission.maxHistoryTokens`     | `4000`                                  | Recorded per-source history budget.                               |
-| `auxiliaryModelJobs.availableJobs`              | conversation title enabled              | Prompt/config for auxiliary model jobs outside the main turn.     |
-
-Env references are visible in `sidechat.config.ts`. The `environment` block
-declares process/deployment inputs such as `PORT`, `SIDECHAT_PROFILE`,
-`SIDECHAT_AUTH_BEARER_TOKEN`, `SIDECHAT_DATABASE_URL`,
-`SIDECHAT_DEMO_SEED_CONVERSATIONS`, `SIDECHAT_TENANT_ID`, and
-`SIDECHAT_WORKSPACE_ID`. Provider-specific connection values live beside the
-model provider config: the OpenAI config declares `SIDECHAT_OPENAI_API_KEY` and
-optional `SIDECHAT_OPENAI_BASE_URL`, and an Azure config declares
-`SIDECHAT_AZURE_OPENAI_API_KEY`, `SIDECHAT_AZURE_OPENAI_ENDPOINT`,
-`SIDECHAT_AZURE_OPENAI_API_VERSION`, and a per-model deployment map through
-`models.provider.connection` (see Azure OpenAI below).
-
-Example local path that enables recent conversation history:
-
-```ts
-// sidechat.config.ts
-context: {
-  history: {
-    mode: HISTORY_CONTEXT_MODES.RECENT_MESSAGES,
-    maxMessages: 12,
-    maxTokens: 4_000,
-  },
-  contextAdmission: {
-    policyId: CONTEXT_ADMISSION_POLICIES.DETERMINISTIC_V1,
-    maxInputTokens: 24_000,
-    reservedOutputTokens: 4_000,
-    maxHistoryTokens: 4_000,
-  },
-}
-```
-
-History reports the repository-backed context adapter when `recent_messages` is
-enabled. Longer-history summarization is tracked as deferred product work in
-`docs/product/todo.md`.
-
-Example OpenAI boot path: provide the env values declared by the default config.
-
-```sh
-SIDECHAT_OPENAI_API_KEY=... \
-SIDECHAT_AUTH_BEARER_TOKEN=... \
-SIDECHAT_DATABASE_URL=... \
-npm run dev --workspace @side-chat/partner-ai-service
-```
-
-### Azure OpenAI
-
-Azure is a second provider alongside OpenAI. It routes by a resource endpoint, an
-`api-version`, and a per-model deployment name (which can differ from the model
-id), so its `models.provider` connection carries `endpoint`, `apiVersion`, and a
-`deployments` map keyed by enabled model id. The deployment indirection stays
-inside the runtime adapter, so the rest of the service (turn policy, `/models`,
-the widget) keeps speaking provider-neutral model ids.
-
-```ts
-// sidechat.config.ts — models block for an Azure deployment
-models: {
-  provider: {
-    kind: PROVIDERS.AZURE.KIND,
-    connection: {
-      apiKey: readEnv.secret(PROVIDERS.AZURE.SECRET_ENV_KEYS.API_KEY),
-      endpoint: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.ENDPOINT, { required: true }),
-      apiVersion: readEnv(PROVIDERS.AZURE.TRANSPORT_ENV_KEYS.API_VERSION, {
-        defaultValue: "2024-12-01-preview",
-      }),
-      // Custom per model: each enabled model id maps to its Azure deployment.
-      deployments: {
-        [PROVIDERS.AZURE.MODELS.GPT_4O.MODEL_ID]: readEnv("SIDECHAT_AZURE_DEPLOYMENT_GPT_4O", {
-          defaultValue: "gpt-4o",
-        }),
-      },
-    },
-  },
-  default: {
-    model: PROVIDERS.AZURE.MODELS.GPT_4O,
-    reasoning: PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE,
-  },
-  availableModels: [
-    {
-      model: PROVIDERS.AZURE.MODELS.GPT_4O,
-      reasoning: {
-        default: PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE,
-        options: [PROVIDERS.AZURE.MODELS.GPT_4O.REASONING.NONE],
-      },
-    },
-  ],
-}
-```
-
-Boot with the declared env values (the api key is always env-sourced; the
-endpoint, api-version, and deployment names can be env or in-config defaults).
-Azure is configured through `sidechat.config.ts`; the legacy
-`service-config.ts` env parser stays OpenAI/fake.
-
-```sh
-SIDECHAT_AZURE_OPENAI_API_KEY=... \
-SIDECHAT_AZURE_OPENAI_ENDPOINT=https://<resource>.cognitiveservices.azure.com \
-SIDECHAT_AUTH_BEARER_TOKEN=... \
-SIDECHAT_DATABASE_URL=... \
-npm run dev --workspace @side-chat/partner-ai-service
-```
+The service declares its entire behavior — provider, models, tools, policy, context
+budgets, resumability timers, and env references — in `sidechat.config.ts`. The
+canonical reference for that object, its keys, `readEnv`, the loader, and the Azure
+variant is [`docs/operations/configuration.md`](../../docs/operations/configuration.md).
+For how config becomes the ports, runtime, manifest, and diagnostics the routes
+receive, see [`src/composition/README.md`](src/composition/README.md).
 
 ## Verify
 

@@ -63,7 +63,7 @@
       "development": "./src/shared/ai/*.tsx",
       "default": "./dist/shared/ai/*.js"
     },
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./styles.css"
   },
   "scripts": {
     "build": "tsc -b --pretty false",

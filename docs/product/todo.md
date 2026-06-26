@@ -1,23 +1,21 @@
 # Product TODO
 
-Read this when: a capability idea is intentionally deferred.
-Source of truth for: product work that should not appear as active runtime
-configuration or public contracts yet.
-Not source of truth for: implemented behavior, package ownership, or lifecycle
-order.
+Read this when: a capability idea is intentionally deferred, or a known code gap needs tracking before it becomes a feature.
+Source of truth for: product work that should not appear as active runtime configuration or public contracts yet.
+Not source of truth for: implemented behavior, package ownership, or lifecycle order.
+
+This doc tracks work the system deliberately does not do yet. Each entry names a deferred capability or a known gap plus the prerequisites that gate it. Nothing here is configurable today; do not treat an entry as a hidden feature flag. For shipped configuration, see [the service config](../../apps/partner-ai-service/sidechat.config.ts). For event vocabulary, see [runtime-and-protocol-events.md](../architecture/runtime-and-protocol-events.md).
 
 ## Context Management
 
-- History summary context, working name `recent_plus_summary`: support long
-  conversations by admitting recent same-conversation messages and a generated
-  summary of older history. Before reintroducing this as configuration, define
-  the summary generation owner, persistence timing, refresh policy, token budget
-  accounting, health diagnostics, and tests that prove only authorized history
-  can become model-visible context.
-- Long-term memory and retrieval context: persist durable user, workspace, or
-  project facts and admit retrieved knowledge into model context. Before
-  reintroducing DB schema, capability source types, configuration, or manifests
-  for this, define the data model, write ownership, retention and deletion
-  policy, tenant/subject authorization, retrieval strategy, redaction and audit
-  behavior, token budgeting, and tests that prove only authorized memory can
-  become model-visible context.
+- History summary context, working name `recent_plus_summary`: support long conversations by admitting recent same-conversation messages plus a generated summary of older history. Before reintroducing this as configuration, define the summary generation owner, persistence timing, refresh policy, token budget accounting, health diagnostics, and tests that prove only authorized history can become model-visible context. Shipped history mode is `recent_messages` only ([sidechat.config.ts](../../apps/partner-ai-service/sidechat.config.ts)).
+- Long-term memory and retrieval context: persist durable user, workspace, or project facts and admit retrieved knowledge into model context. Before reintroducing DB schema, capability source types, configuration, or manifests, define the data model, write ownership, retention and deletion policy, tenant/subject authorization, retrieval strategy, redaction and audit behavior, token budgeting, and tests that prove only authorized memory can become model-visible context.
+
+## Configuration
+
+- Retire the legacy behavior env flags: the env-only parser still reads `SIDECHAT_POLICY_MODE`, `SIDECHAT_ALLOWED_MODELS`, `SIDECHAT_PROVIDER`, and `SIDECHAT_ENABLE_DEV_TOOLS` as a fallback when no config module loads ([service-env-contract.ts](../../apps/partner-ai-service/src/config/env/service-env-contract.ts), `service-config.ts`). This is the only open phase of the config migration. Behavior already ships from `sidechat.config.ts`; remove the parser so a single source declares behavior, leaving only secrets and deployment shape in env.
+
+## Known code gaps
+
+- `sidechat.blocked` is terminal everywhere except sequence validation and the generated schema. `event-union.ts` lists it in `TerminalEvent` and `isTerminalEvent`, but `validateSidechatEventSequence` rejects any terminal that is not `sidechat.completed` or `sidechat.error`, so it throws on a blocked turn ([sequence.ts](../../packages/chat-protocol/src/sidechat-v1/ordering/sequence.ts)).
+- The generated schema event enum also omits `sidechat.blocked` ([sidechat-v1.schema.generated.json](../../packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json)). Add it to both before relying on blocked-turn sequence checks.

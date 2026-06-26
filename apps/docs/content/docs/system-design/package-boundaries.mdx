@@ -17,6 +17,10 @@ source of truth for import and data boundaries; for package *identity* and entry
 | **Core workflow** | Authorization, turn policy, context, capability contracts, ports, lifecycle, title timing/safety, protocol mapping | `ai-runtime-contract`, `chat-protocol`, `shared`, Effect | Hono, Drizzle/Postgres, provider SDKs, React, widget state, `agent-runtime` |
 | **Service adapter** | HTTP/Hono, auth/env parsing, concrete ports, app adapters, composition, SSE transport | Core, runtime providers, DB adapters, protocol, Hono | Widget internals, copied UI, product lifecycle ownership |
 | **Widget / UI** | React widget, browser-safe API client/SSE reader, FSD layers, protocol-to-UI projection, host-bridge usage | `chat-protocol`, `host-bridge`, React, React Query, UI libraries | Effect, provider DTOs, Hono, DB rows, runtime/service internals |
+
+React Query here caches the request-response resources — the conversation list, conversation
+history, and the model catalog. It does **not** carry the live turn stream; that is the widget's own
+SSE reader, fed by protocol events.
 | **Host bridge** | Browser seam for host context and host commands | `chat-protocol`, browser-safe shared utilities | Runtime tools, DB, service, provider internals, widget internals |
 | **Persistence** | Schema, repository contracts, Drizzle/Postgres + in-memory adapters, the dedicated `LISTEN/NOTIFY` connection and notification source | `shared`, Drizzle/Postgres, Effect (Stream), package-local test helpers | Hono, React, widget, runtime internals, core use cases |
 | **Shared primitives** | Truly domain-neutral helpers | Minimal TypeScript-only dependencies | Product workflow, provider details, DB, Hono, React |

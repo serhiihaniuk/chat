@@ -4,7 +4,8 @@ description: How a provider stream part becomes a RuntimeEvent, then a sidechat.
 ---
 
 This is the reference for private provider events, RuntimeEvents, protocol events, and the streaming
-style. It is *not* the source of truth for product policy or UI rendering.
+style — the shapes a turn's output takes, and the rules that keep each layer's shapes private. It is
+*not* the source of truth for product policy or UI rendering.
 
 ## The event chain
 
@@ -13,9 +14,11 @@ A single piece of model output crosses four shapes on its way to the screen:
 AI SDK stream part → `RuntimeEvent` → `SidechatStreamEvent` → widget API-client decoded event →
 widget message/activity state.
 
-AI SDK stream parts and provider DTOs stay private to `agent-runtime`. `RuntimeEvent` shapes live in
-`ai-runtime-contract` and are emitted by `agent-runtime`. `SidechatStreamEvent`s are the
-browser-facing contract in `chat-protocol`.
+Each shape belongs to one layer and never leaks past it:
+
+- AI SDK stream parts and provider DTOs stay private to `agent-runtime`.
+- `RuntimeEvent` shapes live in `ai-runtime-contract`, emitted by `agent-runtime`.
+- `SidechatStreamEvent`s are the browser-facing contract in `chat-protocol`.
 
 ## Runtime rules
 

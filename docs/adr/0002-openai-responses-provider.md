@@ -35,17 +35,25 @@ Implementation constraints:
   product policy.
 - The fake provider remains available as an explicit deterministic test/local
   provider.
-- Local service mode may select OpenAI through `SIDECHAT_PROVIDER=openai`,
-  `SIDECHAT_OPENAI_API_KEY`, `SIDECHAT_ALLOWED_MODELS`, and reasoning env keys.
+- Provider and model selection are driven by `apps/partner-ai-service/sidechat.config.ts`
+  (the `models.provider` block), loaded at boot. The `SIDECHAT_PROVIDER` and
+  `SIDECHAT_ALLOWED_MODELS` env keys are only the legacy fallback parser, used when
+  no config module loads.
 - Unit tests mock `fetch`; no default test path requires OpenAI credentials or network.
 - OpenAI model ids are allowlisted by adapter configuration; unsupported model fallback is not attempted.
 - Requests set `store: false` by default until production data-use and retention settings are explicitly accepted.
 
+An Azure OpenAI provider adapter has since shipped alongside the OpenAI one
+(`packages/agent-runtime/src/providers/azure/azure-openai-model-provider.ts`). It
+routes by Azure resource endpoint, API version, and per-model deployment name, and
+keeps the same `ModelProvider` boundary. The active provider is whichever
+`sidechat.config.ts` selects.
+
 ## Consequences
 
 The scaffold proves model-provider switching and real provider event mapping
-without coupling service protocol shapes to OpenAI-native payloads. The current
-local OpenAI smoke path uses `gpt-5.4-mini` with medium reasoning by env
-configuration. Production rollout still needs secret injection, model allowlist
-configuration, live integration tests, provider data-use review, and operational
-runbooks before real customer traffic.
+without coupling service protocol shapes to OpenAI-native payloads. The shipped
+default boot selects OpenAI `gpt-5.4-mini` with medium reasoning from
+`sidechat.config.ts`. Production rollout still needs secret injection, model
+allowlist configuration, live integration tests, provider data-use review, and
+operational runbooks before real customer traffic.

@@ -4,8 +4,12 @@ description: How Side Chat is built — the layered architecture, the resumable 
 ---
 
 This section explains how Side Chat works under the hood: the layered architecture, the way one
-message becomes a streamed answer, and the job of each package. It is the reference companion to
-the [Walkthrough](/docs/walkthrough), which tells the same story as a narrative.
+message becomes a streamed answer, and the job of each package.
+
+These pages are the reference tier — terse, precise, and table-first. If you are new to the system,
+read the [Walkthrough](/docs/walkthrough) first; it tells the same story as a narrative, then sends
+you here for the exact contracts. Start with the four-layer shape below, then open the page that
+matches your change.
 
 ## Reference pages
 
@@ -19,8 +23,8 @@ the [Walkthrough](/docs/walkthrough), which tells the same story as a narrative.
 ## The shape: four layers, dependencies inward
 
 Side Chat is four layers wrapped around a protected center. Each layer depends only on the layer
-beneath it, and only through a typed contract — so the center never imports HTTP, a database, or
-an AI SDK:
+beneath it, and only through a typed contract. The center stays pure: it never imports HTTP, a
+database, or an AI SDK.
 
 | Layer | Package | Owns |
 | --- | --- | --- |
@@ -46,6 +50,14 @@ single connection:
 The durable `turn_events` log is the source of truth; the browser is only a subscriber, so a
 reconnect resumes the same turn. A separate `GET /chat/activity` stream pushes turn lifecycle
 across conversations, so the sidebar shows a live "generating" dot even on chats that are not open.
+
+## One turn across the layers
+
+Each step of a turn lands in the layer that owns it. Step through the map below to see the staircase
+from browser to runtime and back, or read the full sequence on the
+[Assistant Turn Lifecycle](/docs/system-design/assistant-turn) page.
+
+<TurnExplorer />
 
 ## What each package owns
 

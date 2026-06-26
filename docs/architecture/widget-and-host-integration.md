@@ -1,130 +1,110 @@
 # Widget And Host Integration
 
-Read this when: editing the React widget, host bridge, browser harness, or
-copied visual primitives.
-Source of truth for: widget layers, host-command separation, and copied UI
-quarantine.
-Not source of truth for: backend workflow, protocol term definitions, or
-provider/runtime internals.
+Read this when: editing the React widget, the host bridge, or the copied-UI quarantine.
+Source of truth for: widget Feature-Sliced layers, the live-turn data flow, the host-bridge contract, and the `shared/ai` quarantine.
+Not source of truth for: the turn lifecycle ([assistant-turn.md](assistant-turn.md)), protocol events ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)), package roles ([system-map.md](system-map.md)), or iframe embedding ([../operations/embed-widget-iframe.md](../operations/embed-widget-iframe.md)).
 
-## Widget Layers
+The browser widget lives in `packages/side-chat-widget` (a React component) and `packages/host-bridge` (the seam to the host app). The host app renders `<SideChatWidget>`, hands it an API client, and optionally a host bridge. The widget owns the chat UI; the host owns the page. This doc explains the widget's layers, how a live turn flows from the network to the screen, the host-bridge contract, and one quarantined folder of copied vendor UI.
 
-```txt
-app
-widgets/<slice>
-features/<slice>
-entities/<slice>
-shared/ui
-shared/lib
-shared/ai
-```
+## Feature-Sliced layers
 
-| Layer                   | Owns                                                                  |
-| ----------------------- | --------------------------------------------------------------------- |
-| `widgets/side-chat`     | Public composite widget, wide/narrow layout, and view composition.    |
-| `features/chat`         | Chat submission, stream consumption, visible turn state.              |
-| `features/conversation` | Conversation switcher, wide-mode sidebar, empty state, and rendering. |
-| `features/panel`        | Panel open, close, resize, and header chrome.                         |
-| `features/prompt`       | Prompt input and composer behavior.                                   |
-| `features/settings`     | In-panel settings view for theme and appearance controls.             |
-| `features/theme`        | Theme and appearance state written to the widget root.                |
-| `entities/conversation` | API/SSE client, run client, and conversation query repository.        |
-| `entities/chat`         | Protocol-backed message and activity state.                           |
-| `entities/panel`        | Panel model helpers.                                                  |
-| `entities/settings`     | Settings metadata shared by features, such as reasoning visibility.   |
-| `entities/theme`        | Theme metadata and ids shared by features.                            |
-| `shared/ui`             | Project-owned reusable primitives.                                    |
-| `shared/lib`            | Browser-safe utilities.                                               |
-| `shared/ai`             | Copied/vendor-style visual primitives only.                           |
+The widget uses Feature-Sliced Design (FSD): code sits in ranked layers, and a layer may import only from a same-or-lower rank. The public entry is `src/index.ts`, which re-exports only the widget API. There is **no `app` layer** — `src/app/` does not exist.
 
-## Protocol To UI
+| Layer | Rank | Owns | Example |
+|---|---|---|---|
+| `widgets/side-chat` | 3 | The composite root `SideChatWidget`, layout/view composition, query-client and model wiring, public props | `src/widgets/side-chat/ui/side-chat-widget.tsx` |
+| `features/chat` | 2 | Submission, run lifecycle, SSE consumption, protocol-to-state mapping, reconnect, activity sidebar | `src/features/chat/model/use-widget-chat.ts` |
+| `features/conversation` | 2 | Sidebar, switcher, empty state, message/tool rendering | `src/features/conversation/ui/` |
+| `features/panel` | 2 | Panel open/close/resize, header chrome, closed launcher | `src/features/panel/ui/` |
+| `features/prompt` | 2 | Composer/footer input | `src/features/prompt/ui/` |
+| `features/settings` | 2 | In-panel settings view | `src/features/settings/ui/` |
+| `features/theme` | 2 | Theme and appearance state written to the widget root | `src/features/theme/model/` |
+| `entities/conversation` | 1 | API client, SSE reader, run client, activity stream, TanStack Query repository | `src/entities/conversation/api/` |
+| `entities/chat` | 1 | Protocol-backed message and activity-timeline state | `src/entities/chat/model/` |
+| `entities/panel` | 1 | Panel size model | `src/entities/panel/model/` |
+| `entities/settings` | 1 | Shared settings metadata (`ReasoningVisibility`) | `src/entities/settings/model/` |
+| `entities/theme` | 1 | Theme ids and metadata (`WidgetThemeId`) | `src/entities/theme/model/` |
+| `shared/ui` | 0 | Project-owned reusable primitives | `src/shared/ui/` |
+| `shared/lib` | 0 | Browser-safe utilities | `src/shared/lib/` |
+| `shared/ai` | 0 | Quarantine: copied vendor UI, now only a Markdown wrapper | `src/shared/ai/` |
 
-Protocol events enter through chat feature/model code. State code maps source
-SidechatStreamEvents into target widget messages and activity items. Rendering
-components should receive already-shaped view state.
+### Import-direction rule
 
-The widget tracks a server-owned run, not a single socket. `features/chat/model/run`
-holds a module-level run store (`widget-run-store.ts`) that survives remounts and
-pane switches and applies the ordered event log through a pure reducer. Because
-generation is durable, `features/chat/model/reconnect` resubscribes after a drop
-using the `after` cursor, and `features/chat/model/activity` consumes the
-`/chat/activity` stream to drive the sidebar "generating" dots.
+`scripts/check-widget-layers.mjs` enforces direction by numeric rank (`layerRank`, :176). The rules:
 
-The widget must not import Effect, Hono, DB, provider SDKs, runtime internals, or
-service implementation details.
+- **Down or sideways only.** A layer imports only same-or-lower rank (`validateLayerDirection`, :143). A higher-rank import fails.
+- **No cross-slice imports.** One feature (or entity) must not reach into a sibling slice (:151-158).
+- **Entities stay narrow.** An entity imports only its own slice or `shared` (`validateEntityImport`, :163).
+- **Shared is leaf-only.** `shared` imports only `shared` and **no `@side-chat/*` product package** (:58, :171).
+- **The entry is locked.** `src/index.ts` may export only the side-chat widget (`validatePublicEntrypoint`, :72).
 
-## Theming And Layout
+Cross-slice access goes through `#`-alias barrels, declared in `package.json` (`#entities/*`, `#features/*`, `#shared/lib/*`, `#shared/ai/*`, `#shared/ui/*`). Each resolves to a slice's `index.ts`, so a deep relative import into another slice fails the check.
 
-The widget is theme-agnostic. Every surface reads a shadcn token (`bg-card`,
-`text-muted-foreground`, `border-border`, `bg-primary`, `bg-success`, the
-`--sidebar*` group), the shared radius scale, the shared type scale, and the
-registered shadow tokens; the widget owns no hardcoded colors, radii, text sizes,
-or elevation values. Base and dark tokens live on `:root`/`.dark` in
-`src/styles.css`.
+The widget is provider-free and Effect-free. It must not import `ai`, `@ai-sdk/*`, `hono`, `pg`, `drizzle-orm`, Effect, or any runtime/service internal. Its only `@side-chat/*` dependencies are `chat-protocol`, `host-bridge`, and `shared`. `scripts/check-runtime-boundaries.mjs` guards this too.
 
-Shadow tokens are registered in Tailwind's `--shadow-*` namespace. Runtime
-elevation consumers use Tailwind v4's CSS-variable shorthand
-(`shadow-(--shadow-card)`, `shadow-(--shadow-popover)`,
-`shadow-(--shadow-panel)`) instead of the named `shadow-card` utility, because
-the named utility compiles the default theme value into the rule. The shorthand
-keeps panel, composer, menu, tooltip, and segmented-control elevation tied to
-the root token that settings mutates.
+## Live-turn data flow
 
-Named themes (Graphite, Sapphire, Sage, Ocean) are extra token blocks.
-`features/theme` writes `data-sidechat-theme` on the widget root element, so a
-theme re-skins the root and its descendants through inheritance and never leaks
-onto the host page. Graphite is the default and carries no attribute, so it
-tracks the host's light/dark; Sapphire, Sage, and Ocean ship light-only. The
-theme choice persists to `localStorage` under `themeStorageKey`.
+Chat is a resumable two-call flow, not a single socket: `POST /chat/runs` returns the turn identity, then `GET /chat/turns/:assistantTurnId/stream?after=<seq>` streams events. The browser is a subscriber to a durable log, so a reconnect resumes the same turn. See [runtime-and-protocol-events.md](runtime-and-protocol-events.md) for the transport contract.
 
-`features/theme` also owns widget appearance settings on top of the named theme:
-accent, corners, density, text size, typeface, and elevation. Those settings
-persist under `side-chat-widget:appearance` and apply by writing
-`data-sidechat-accent` plus root custom properties (`--radius`, `--space-unit`,
-`--text-*`, `--font-widget`, and `--shadow-*`) onto `.side-chat-widget-root`.
+Inbound events flow through four stages, each pure or single-purpose:
 
-The widget self-hosts the three settings typefaces under `src/fonts/`: **Plus
-Jakarta Sans**, **DM Sans**, and **Instrument Sans**. Each `@font-face` uses a
-relative URL so bundlers ship the fonts with the widget — no CDN, works offline.
-The fonts are scoped to the widget root and its portaled popovers, so they never
-override the embedding host page's own typography.
+1. **SSE reader.** `decodeChunkedSseStream` (`entities/conversation/api/sse/side-chat-sse-reader.ts:18`) parses bytes into frames, decodes each via `chat-protocol`, and enforces stream invariants — increasing `sequence` and exactly one terminal event. A trailing partial frame throws `malformed_stream`; no terminal throws `missing_terminal`.
+2. **Module-level run store.** `getWidgetRunStore(key)` (`features/chat/model/run/widget-run-store.ts:81`) holds one active run per instance, keyed by `{storageKey, baseUrl}`. It lives outside React, so live-turn state survives remounts and pane switches. Stale dispatches drop when `state.requestId !== requestId` (:50); components read it through `useSyncExternalStore`.
+3. **Pure reducer.** `widgetRunReducer(state, action)` (`widget-run-reducer.ts:39`) folds each action into new state. The `event` action is the keystone: `applyEvent` is idempotent by `sequence` and ignores events once the run is terminal, so a replayed reconnect is safe.
+4. **Projection.** `projectEventOntoMessages` (`widget-run-projection.ts`) shapes the message list: `delta` appends text; `activity` folds into the message's activity timeline; `error`/`blocked`/`completed` close the assistant bubble.
 
-The `--font-widget` variable is scoped to the widget root and portaled popovers;
-changing typeface in settings does not override the embedding host page's typography.
+`useWidgetChat` (`use-widget-chat.ts:25`) is the composition root. It shows live run messages when a run is visible, else fetched history, and hands components already-shaped view state.
 
-The panel is always a contained floating card (never full-bleed). At a width
-breakpoint it reveals a persistent conversation sidebar (`--sidebar*` tokens) and
-hides the header conversation switcher; below it, the header switcher returns.
-Opening settings swaps the chat view inside this same panel frame rather than
-mounting a second floating surface. The settings group rail shares the chat rail
-width, breakpoint, and two-line row active/hover styling tokens, while narrow settings use the same main-column header. The
-settings body is centered in the same `max-w-measure-message` reading column as
-chat messages and the composer.
+### TanStack Query vs the live stream
 
-## Host Bridge
+The widget uses TanStack Query for the conversation list, history, and model catalog (`useConversationQueryRepository`, `entities/conversation/api/query/`). It does **not** use Query for the live turn — that flows through the SSE reader, the run store, and the reducer described above. Keep the two paths separate.
 
-The host bridge is the browser seam for host-provided context and host commands.
-Host commands are UI/host-app interactions, not backend RuntimeTools by default.
+### Outbound: user action to service
 
-If the same business action also needs a model-callable backend tool, implement
-a separate RuntimeTool with its own manifest declaration, approval policy, and
-runtime registration.
+A submit walks from the composer to the service:
 
-For iframe embedding and the local no-Docker Workbench stack, use
-`docs/operations/embed-widget-iframe.md`.
+1. **Submit.** `useWidgetChatActions.startTurn` (`use-widget-chat-actions.ts:69`) creates optimistic user and assistant bubbles, calls `hostBridge?.getContext({requestId})` (:78), builds the request with `createWidgetChatRequest`, then calls `controller.startRun`.
+2. **Begin run.** The controller seeds the store, calls `client.createRun` (`POST /chat/runs`), dispatches `identified` with the turn id, and writes a persisted reconnect marker.
+3. **Subscribe and drive.** `runSubscription` (`subscription/widget-run-subscription.ts:35`) opens `client.subscribeTurn`, then `consumeEvents` dispatches each event, persists its sequence, and may dispatch a host command.
+4. **Stop.** `controller.cancel` calls `client.cancelTurn` (`POST /chat/turns/:id/cancel`), then dispatches a `CANCELLED` terminal. Cancel is durable — the server acks it — not a fetch abort.
+5. **Reconnect.** Mount, tab-visibility, online, and conversation-select triggers resubscribe. An in-session reconnect resumes from the live cursor; a cold reload rebuilds from the persisted marker. Cross-conversation "generating" dots come from `client.subscribeActivity` (`GET /chat/activity`).
 
-## Copied UI Quarantine
+Idempotency is load-bearing in three places that reconnect depends on: the `createRun` `requestId` key (no forked generation), the `after` replay cursor, and the reducer's sequence dedupe.
 
-`packages/side-chat-widget/src/shared/ai/**` contains copied visual primitives.
+## Host bridge contract
 
-- Do not use these files as examples for project code style.
-- Do not add Side Chat business logic there.
-- Do not add protocol mapping, runtime knowledge, persistence, auth, service, or
-  Effect workflows there.
-- Put project behavior in `widgets`, `features`, or `entities`.
-- Put project-owned reusable primitives in `shared/ui` or `shared/lib`.
+The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **browser seam**: host context flows in, host commands flow out. Host commands are browser UI actions the host app performs — **not** backend RuntimeTools. A model-callable backend action needs a separate RuntimeTool with its own manifest, approval policy, and registration.
 
-## Related Checks
+`createHostBridge(options)` (`bridge/bridge.ts:28`) returns a `HostBridge` of `{getContext, getCapabilities, dispatchCommand}` (:16). The widget consumes a narrowed view of it.
+
+| Direction | When | Method | Where the widget calls it |
+|---|---|---|---|
+| Context in | On every submit/retry | `getContext({requestId})` returns a `HostContext` attached to the run request | `use-widget-chat-actions.ts:78` |
+| Command out | During stream consumption | `dispatchCommand(event)` runs one host-command activity event | `widget-run-subscription.ts:55` |
+
+`dispatchCommand` runs **once per `activityId`**, only when an `ACTIVITY` event is a host-command event (guard at `widget-run-subscription.ts:69`). The result always folds back into the timeline:
+
+- No bridge supplied: records a failed row with `host_bridge_unavailable` (:85).
+- Dispatcher throws: records `host_command_exception` (:92).
+- Otherwise: records the dispatcher's `HostCommandResult`.
+
+Do not add ad-hoc retry around dispatch; a failed row is the recorded outcome.
+
+## Copied-UI quarantine
+
+`src/shared/ai/` holds copied vendor-style visual primitives, today only the Markdown/Streamdown wrapper for assistant messages. Older copied primitives were retired into project-owned `shared/ui`. See its [README](../../packages/side-chat-widget/src/shared/ai/README.md).
+
+The quarantine keeps copied code swappable, so protocol, runtime, and business logic never leak into files that may be replaced wholesale. **Do not treat `shared/ai` as a style example for project code.**
+
+Do not add to `shared/ai`:
+
+- New message, composer, model, reasoning, conversation, or tool UI primitives.
+- Side Chat business logic, protocol event mapping, or runtime/provider/tool/Effect knowledge.
+- Persistence, auth, service, or host-command behavior.
+
+Put project behavior in `widgets`, `features`, or `entities`. Put project-owned reusable primitives in `shared/ui` or `shared/lib`. The layer ranks plus the `shared`-cannot-import-`@side-chat/*` rule enforce this indirectly.
+
+## Related checks
 
 - `scripts/check-widget-layers.mjs`
 - `scripts/check-runtime-boundaries.mjs`

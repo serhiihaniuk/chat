@@ -12,6 +12,4 @@ Core use cases expose Effect programs directly. The accepted chat-stream surface
 is the server-owned split `prepareStreamChatTurn(input)` (pre-start) plus
 `runTurnGeneration(...)` (post-start), with app-owned ports supplied by
 `createPartnerAiCoreLayer(...)` or passed directly. Promise, `ReadableStream`, or
-`AsyncIterable` wrappers are edge adapter concerns, not parallel core APIs. (The
-earlier response-owned `streamChatEffect` entrypoint was removed when generation
-became server-owned and resumable.)
+`AsyncIterable` wrappers are edge adapter concerns, not parallel core APIs.

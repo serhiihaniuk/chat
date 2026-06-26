@@ -15,6 +15,9 @@ Before changing code or durable docs, read:
 For stream-chat, runtime, protocol, or widget changes, also read the matching
 flow doc under `docs/architecture`.
 
+For local run, configuration, or database changes, read the matching doc under
+`docs/operations`.
+
 ## Final-State Rule
 
 This repo is pre-production. Prefer the clean final shape over compatibility

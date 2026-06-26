@@ -95,6 +95,9 @@ canonical topic in a second place — duplication is how docs drift.
 - `docs/architecture/runtime-and-protocol-events.md` — owns runtime + `sidechat.v1`
   events and the streaming/transport contract.
 - `docs/operations/verification.md` — owns gate commands.
+- `docs/operations/configuration.md` — owns the human-readable `SideChatConfig` model.
+- `docs/operations/local-development.md` — owns the no-Docker local run.
+- `docs/operations/database.md` — owns the database generate/reset tooling.
 - Package `README.md` — owns that package's local role and entry points, and links
   out for shared vocabulary, lifecycle, and boundaries.
 

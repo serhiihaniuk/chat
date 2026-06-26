@@ -62,7 +62,7 @@ sequence offset.
   serverless deployment are out of scope** — generation outlives the request and
   relies on a held `LISTEN` connection and in-process fibers.
 - `partner-ai-core` exposes the server-owned split `prepareStreamChatTurn` +
-  `runTurnGeneration`; the response-owned `streamChatEffect` was removed (ADR 0006).
+  `runTurnGeneration` (ADR 0006).
 - `db` owns the durable log, the dedicated `LISTEN/NOTIFY` connection, and the
   notification sources, behind the repository boundary (ADR 0007).
 - The subject-scoped activity stream (`GET /chat/activity`, channel `turn_activity`,

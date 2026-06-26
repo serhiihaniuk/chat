@@ -4,13 +4,14 @@ description: The precise lifecycle of one turn — stages, failure semantics, se
 ---
 
 This is the reference for the order of one stream-chat assistant turn and what each failure means.
-For the same story as a narrative — with an interactive step-by-step trace — see
-[Life of a Turn](/docs/walkthrough/life-of-a-turn).
+It assumes you know the [four-layer shape](/docs/system-design). For the same story as a narrative —
+with an interactive step-by-step trace — see [Life of a Turn](/docs/walkthrough/life-of-a-turn).
 
-Browser requests do not carry raw system instructions, executor choices, or provider-native options.
-They may carry a model preference learned from the backend model catalog. Service composition resolves
-profile prompt ids into instructions, core validates profile/model/reasoning policy, renders the final
-runtime messages, and the runtime receives one provider-neutral request.
+The browser sends almost nothing privileged. A request carries no raw system instructions, executor
+choices, or provider-native options; it may carry only a model preference drawn from the backend
+model catalog. The server fills in the rest: service composition resolves profile prompt ids into
+instructions, core validates profile/model/reasoning policy and renders the final runtime messages,
+and the runtime receives one provider-neutral request.
 
 ## The request chain
 
@@ -20,9 +21,9 @@ One turn's data crosses these shapes, in order:
 `prepareStreamChatTurn` (pre-start) + `runTurnGeneration` (post-start) → `AiRuntimeRequest` →
 `RuntimeProviderRequest` → AI SDK provider request.
 
-That chain is the pre-start half of the two-call flow: `POST /chat/runs` runs it synchronously, then
-the service forks generation onto a server-owned fiber that a client streams over
-`GET /chat/turns/:assistantTurnId/stream`.
+The chain splits across the two-call flow at `prepareStreamChatTurn`: `POST /chat/runs` runs the
+pre-start steps synchronously, then the service forks generation (`runTurnGeneration`) onto a
+server-owned fiber that a client streams over `GET /chat/turns/:assistantTurnId/stream`.
 
 ## Turn lifecycle
 

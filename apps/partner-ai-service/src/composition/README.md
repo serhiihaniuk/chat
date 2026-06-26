@@ -67,8 +67,8 @@ terminalizer), and pruner (`turn_events` retention) are background owners that
 - Add a runtime tool: ship capability + executor as one `ServiceToolRegistration`
   in `tools/`.
 - Add a turn profile: add a `ServiceTurnProfileConfig`; it validates through
-  `create-service-turn-profile-bundle.ts`. The broader migration path lives in
-  `docs/product/human-readable-service-config-plan.md`.
+  `create-service-turn-profile-bundle.ts`. The readable config that feeds it lives in
+  `docs/operations/configuration.md`.
 - Change what routes receive: edit the relevant factory and `StreamChatPorts`
   assembly, not the route files.
 

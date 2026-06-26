@@ -1,206 +1,135 @@
 # Vocabulary
 
-Read this when: a term in code, docs, tests, comments, events, or review notes
-is unclear.
-Source of truth for: canonical Side Chat terms and names to avoid.
-Not source of truth for: lifecycle order, package boundaries, or implementation
-plans.
+Read this when: a term in code, docs, tests, comments, events, or review notes is unclear and you want the one canonical name.
+Source of truth for: canonical Side Chat terms, their plain-English meaning, where each lives in code, and names to avoid.
+Not source of truth for: turn lifecycle order (see `../architecture/assistant-turn.md`), package boundaries (see `../architecture/package-boundaries.md`), or the event/streaming contract (see `../architecture/runtime-and-protocol-events.md`).
 
-## Rules
+Side Chat is an adoptable enterprise assistant foundation that a host web app embeds into its own UI. This page is the glossary: one name per concept, a one-line meaning, and the code path that defines it. Use the canonical term everywhere — code, tests, comments, and review notes.
 
-- Use the canonical term in code, docs, tests, and review notes.
-- Keep aliases local and intentional.
-- Use `docs/architecture/package-boundaries.md` for boundary rules.
-- Use `docs/architecture/assistant-turn.md` for lifecycle order.
-- Rename docs/tests/comments in the same patch when a term changes.
+When a term changes in code, rename it here and in dependent docs in the same patch. Keep aliases local and obvious. Where a topic has its own owner doc, this page links out instead of redefining it.
 
-## Product Shape
+## AI concepts
 
-- **Side Chat**: the adoptable enterprise assistant foundation owned by this
-  repo. Avoid generic chat app, demo app, or plugin framework.
-- **Adoptable assistant foundation**: ownable repo shape an enterprise team can
-  deploy and extend with app-specific assistant capabilities.
-- **Host app**: consuming web app that embeds Side Chat and owns business UI,
-  auth, domain entities, and host-specific permissions.
-- **Embedding surface**: host-app page, dashboard, portal, or internal tool
-  where Side Chat is embedded.
+The product shape, the model knobs, and the context the assistant runs on.
 
-## Core Lifecycle
+| Term | Meaning | Where it lives (code path) |
+|---|---|---|
+| Side Chat | The adoptable enterprise assistant foundation owned by this repo. | `packages/chat-protocol/src/sidechat-v1/version.ts` (`sidechat.v1`) |
+| Host app | The consuming web app that embeds Side Chat and owns its own UI, auth, and data. | `packages/ai-runtime-contract/src/runtime-ids.ts:13` (`HostAppId`) |
+| Embedding surface | The host page, portal, or internal tool where the widget is mounted. | Concept; the code handle is `HostAppId` (above) |
+| Conversation | Durable chat thread of user messages and assistant turns. | `packages/ai-runtime-contract/src/runtime-ids.ts:16` (`ConversationId`); port `packages/partner-ai-core/src/ports/lifecycle/conversation.ts` |
+| Conversation title | Display label generated once after the first successful exchange, when config enables it. | `packages/partner-ai-core/src/ports/title/conversation-title-generation.ts:8` |
+| Auxiliary model job | A service-configured model task outside the main turn, such as title generation. | `apps/partner-ai-service/src/config/catalog/capabilities/auxiliary-jobs.ts:38` (`AUXILIARY_JOBS`) |
+| Model catalog | Backend-published list of provider/model ids, display names, and selectable efforts. | Served by `apps/partner-ai-service/src/inbound/http/routes/models/models.ts:16` (`GET /models`) |
+| Model preference | Optional per-turn model choice on the request; valid only after the service checks it. | `packages/chat-protocol/src/sidechat-v1/request/request.ts:63` (`ChatModelPreference`) |
+| Reasoning effort | Per-turn, provider-neutral reasoning setting. Same six values mirror at protocol, runtime, and domain layers. | `packages/ai-runtime-contract/src/index.ts:39` (`RUNTIME_REASONING_EFFORTS`) |
+| Context window | Model input capacity from catalog metadata. Not the footer size estimate or an admission budget. | Catalog metadata (`packages/side-chat-widget/.../side-chat-api-types.ts`) |
+| Prepared context | The context snapshot and messages assembled before runtime execution. | `packages/partner-ai-core/src/domain/capabilities` (`PreparedTurnContext`) |
+| Context candidate | One scored, classified item the admission selector may keep or drop. | `packages/partner-ai-core/src/domain/capabilities/contracts/context.ts:82` (`ContextCandidate`) |
+| Context admission selection mode | What the selector actually did: `include_all` records budgets without trimming; `budgeted` may drop candidates. | `.../contracts/context.ts:50` (`ContextAdmissionSelectionMode`) |
+| System prompt id | Durable profile id naming the source of resolved instructions. | `.../contracts/ids/capability-ids.ts` (`SystemPromptId`) |
+| System instructions | Resolved prompt text that core renders into runtime messages for one turn. | `.../contracts/capabilities.ts:144` (`TurnProfile.systemInstructions`) |
 
-- **Workspace**: authorized product scope for a request. Avoid tenant unless the
-  local code is actually tenant-shaped.
-- **Project**: optional product scope associated with a conversation or request.
-- **Conversation**: durable chat thread containing user messages and assistant
-  turns. Use thread only in local UI wording.
-- **Conversation title**: durable display label generated once after the first
-  successful exchange when service config enables title generation. It is not a
-  browser protocol event or a user-authored message.
-- **Auxiliary model job**: service-configured model task that runs outside the
-  main assistant turn, such as conversation-title generation. It has its own
-  job id, mode, prompt, and safe parameters.
-- **User message**: user-submitted message persisted and displayed in a
-  conversation. Avoid broad input or prompt.
-- **Assistant turn**: one assistant response lifecycle attached to a user
-  message. Do not confuse it with one model call.
-- **Stream chat turn**: product workflow that prepares and streams one assistant
-  turn.
-- **Turn plan**: per-turn decision selecting profile, model, tools, commands,
-  guards, approvals, executor id, and instructions. "Turn policy decision" in
-  `docs/architecture/assistant-turn.md` is an alias for the same decision.
-- **Model catalog**: backend-published list of provider/model ids, display
-  names, context windows, and selectable reasoning efforts. The widget reads it;
-  the browser does not invent available models.
-- **Model preference**: optional `ChatStreamRequest.model` selection for one
-  turn. It is a user preference until service/core validates it against the
-  model catalog and turn profile policy.
-- **Reasoning effort**: backend-configured model setting selected per turn and
-  carried as provider-neutral reasoning policy into runtime.
-- **Context window**: model input capacity published from backend metadata. It
-  is catalog information, not the footer chat-size estimate or a context
-  admission budget.
-- **Prepared context**: context snapshot/messages prepared before runtime
-  execution. Do not use prompt for the full prepared context.
-- **Context admission selection mode**: behavior actually used by the context
-  manager for gathered candidates. `include_all` records budgets without
-  trimming; `budgeted` means candidates can be dropped under configured limits.
-- **System prompt id**: durable profile identifier for the source of resolved
-  system instructions.
-- **System instructions**: resolved prompt text rendered by core into final
-  runtime messages for one prepared assistant turn.
+## Turn lifecycle
 
-## Request Chain
+One user message produces one assistant turn. The service runs pre-start work synchronously, then forks generation onto a server-owned fiber. See `../architecture/assistant-turn.md` for the ordered flow.
 
-- **ChatStreamRequest**: browser-facing `sidechat.v1` stream request. It may
-  carry a model preference, but not provider-native options.
-- **StreamChatInput**: product-core input assembled by the service adapter.
-- **AiRuntimeRequest**: prepared provider-neutral request from product core into
-  a runtime implementation.
-- **RuntimeProviderRequest**: provider-ready request after runtime preparation.
-- **AI SDK provider request**: private provider/options payload inside runtime.
+| Term | Meaning | Where it lives (code path) |
+|---|---|---|
+| User message | A user-submitted message, persisted and displayed. Avoid the broad terms input and prompt. | `packages/chat-protocol/src/sidechat-v1/request/request.ts:24` (`ChatRequestMessage`) |
+| Assistant turn | One assistant-response lifecycle attached to a user message. Not the same as one model call. | `packages/ai-runtime-contract/src/runtime-ids.ts:12` (`AssistantTurnId`) |
+| Stream chat turn | The product workflow that prepares and streams one assistant turn. | `packages/partner-ai-core/src/application/stream-chat/` (directory) |
+| TurnPolicyDecision | The per-turn decision: profile, model, allowed tools/commands, approvals, executor, and instructions. | `.../contracts/capabilities.ts:236` (`TurnPolicyDecision`) |
+| ResolvedTurnPlan | The workflow value wrapping the manifest, its hash, the `TurnPolicyDecision`, and the resolved profile. | `packages/partner-ai-core/src/application/stream-chat/turn/turn-policy-plan.ts:22` |
+| Server-owned generation | The turn runs on a service fiber forked off the request, so it outlives any one connection. | `apps/partner-ai-service/src/inbound/turn-runner/turn-runner.ts:43` |
+| Turn runner | Per-instance component that forks generation and tracks live turns in a `FiberMap` keyed by `assistantTurnId`. | `apps/partner-ai-service/src/inbound/turn-runner/turn-runner.ts:51` (`TurnRunner`) |
+| Durable turn-event log | Append-only, per-turn ordered log; the source of truth for a turn's events. The browser only subscribes. | `packages/db/src/drizzle/schema.ts` (`turn_events`); port `.../ports/lifecycle/turn-event-log.ts` |
+| Replay offset (`after`) | Stream cursor. `GET /chat/turns/:assistantTurnId/stream?after=<seq>` emits `sequence > after`; `started` is sequence 0. | `apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts:78` |
+| Owner lease (fencing, `lease_epoch`) | Compare-and-set claim binding one running turn to one instance. A renew matching no row means the owner was fenced. | `.../ports/lifecycle/assistant-turn.ts:90` (`acquireTurnLease`); schema `turn_events`/`assistant_turns` |
+| Reaper | Background sweep that terminalizes lease-expired turns, fencing a dead or stalled owner. | `apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-reaper.ts:34` (`TurnReaper`) |
+| Pruner | Background sweep that deletes event rows of old terminal turns past retention; the turn still resolves. | `apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-pruner.ts` |
+| Pre-start failure | A failure before `sidechat.started`; setup is rejected as a JSON response, not a stream event. | `apps/partner-ai-service/src/inbound/http/routes/chat/runs/chat-runs.ts:88` (`mapPreStartError`) |
+| Post-start failure | A failure after `sidechat.started`; the stream emits a terminal `sidechat.error` or `sidechat.blocked`. | `packages/chat-protocol/src/sidechat-v1/events/event-union.ts:128` (`ErrorEvent`) |
 
-## Capability Terms
+## Protocol & runtime events
 
-- **Host capability manifest**: host-app declaration of possible profiles,
-  tools, commands, approval policies, and renderers.
-- **Turn profile**: versioned turn configuration selected for one turn.
-- **ToolCapability**: manifest declaration for a backend capability; not
-  executable until policy selects it and runtime has a matching RuntimeTool.
-- **RuntimeTool**: app-owned executable model-callable backend tool registered
-  with agent runtime.
-- **ServiceToolRegistration**: service-composition record that supplies one
-  tool's ToolCapability and matching RuntimeTool together, so declaration and
-  execution cannot drift.
-- **Service tool registry**: composition step that turns ServiceToolRegistrations
-  into manifest capabilities and runtime tools from one source.
-- **Service provider registry**: composition step that validates provider/model
-  registrations and selects the runtime provider and default model.
-- **ServiceTurnProfileConfig**: explicit service configuration for one turn profile
-  (prompt sections, model, tool policy, safety) that the default turn profile and
-  adopter-defined profiles share.
-- **System prompt builder**: deterministic builder that turns ordered prompt
-  sections into the built prompt id, content, section ids, and hash.
-- **Turn profile registry**: composition step that validates turn profile
-  configs and builds the manifest `TurnProfile`s from one path.
-- **HostCommandCapability**: manifest declaration for a browser/host-app UI
-  command, separate from RuntimeTool.
-- **TurnGuard**: pre-context safety check that may allow, warn, or block one
-  turn.
-- **AgentExecutor**: runtime execution engine selected for one prepared turn and
-  responsible for emitting RuntimeEvents.
-- **ApprovalPolicy**: policy requiring user or host approval before a declared
-  tool or host command is used.
+Three event vocabularies, never conflated, each lower than the last: AI-SDK stream parts (inside the runtime) become `RuntimeEvent`s (the runtime contract), which core maps to browser-facing `sidechat.v1` events.
 
-## Tool And Host Terms
+| Term | Meaning | Where it lives (code path) |
+|---|---|---|
+| AI SDK stream part | A provider/tool-loop event from the AI SDK; private to `agent-runtime`. | Mapped by `packages/agent-runtime/src/runtime/ai-sdk/streaming/stream-part-mapper.ts:78` (`mapAiSdkStreamPart`) |
+| RuntimeEvent | The normalized internal event from agent runtime. Kinds: `started`, `output_delta`, `activity`, `completed`, `error`, `blocked`. | `packages/ai-runtime-contract/src/index.ts:99` (`RUNTIME_EVENT_TYPES`); union `:209` |
+| RuntimeActivityDetails | Provider-neutral activity detail that core maps to browser-safe activity detail. | `packages/ai-runtime-contract/src/runtime-activity.ts:70` |
+| mapRuntimeEvent | The core function that maps one `RuntimeEvent` to its `sidechat.v1` event(s). | `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts:49` |
+| SidechatStreamEvent | Any `sidechat.v1` event a browser client can receive for one stream. | `packages/chat-protocol/src/sidechat-v1/events/event-union.ts:169` |
+| Activity event (`sidechat.activity`) | A progress, reasoning, tool, or host-command row *inside* one turn's stream. | `.../events/event-union.ts:112` (`ActivityEvent`) |
+| Turn activity event (`sidechat.turn-activity`) | A cross-conversation lifecycle signal on `GET /chat/activity` that powers the "generating" dot on other chats. | `.../codec/activity-sse-codec.ts:13` (`TURN_ACTIVITY_EVENT_TYPE`) |
+| Terminal event | The final event closing turn state: `completed`, `error`, or `blocked`. | `.../events/event-union.ts:165` (`TerminalEvent`); `:183` (`isTerminalEvent`) |
+| `sidechat.blocked` | A terminal safety-stop: the turn was blocked before a usable answer, kept distinct from `completed`. | `.../events/event-union.ts:141` (`BlockedEvent`); runtime `index.ts:203` (`RuntimeBlockedEvent`) |
+| `sidechat.history` / HistoryMessage | Replay payload of past messages the widget falls back to after `replay_expired`. | `.../events/event-union.ts:147` (`HistoryEvent`), `:152` (`HistoryMessage`) |
+| Tool call / result / error | The model's request to run a tool, its successful result, and its public failed shape (`errorCode`). | `packages/ai-runtime-contract/src/runtime-activity.ts:55`–`61` |
+| Host command / result | A command Side Chat sends to a host capability, and the host's returned result. | `packages/host-bridge/src/commands/command-result.ts:12` (`HostCommandResult`) |
+| Widget message / activity item | Client-side message and timeline state the widget renders from protocol events. | `packages/side-chat-widget/src/entities/chat/model/widget-chat.ts:15`; `.../model/activity.ts:15` |
+| ProtocolErrorCode | A turn-outcome code carried on a `sidechat.v1` error event (for example `provider_failed`). | `packages/chat-protocol/src/sidechat-v1/errors.ts:1` (`PROTOCOL_ERROR_CODES`) |
+| TransportErrorCode | A code for why a stream could not even open, returned as JSON before any frame. | `packages/chat-protocol/src/sidechat-v1/errors.ts:30` (`TRANSPORT_ERROR_CODES`) |
+| `replay_expired` | The one `TransportErrorCode` (HTTP 404): a pruned log can no longer replay from `after`. | `.../errors.ts:31` (`TRANSPORT_ERROR_CODES.REPLAY_EXPIRED`) |
 
-- **Tool call**: model/provider request to execute a runtime tool.
-- **Tool result**: successful result from a runtime tool.
-- **Tool error**: public failed tool activity shape, not a raw thrown value.
-- **Host command**: command sent from Side Chat to a host app capability.
-- **Host command result**: result returned by a host app after a host command.
+## Identity & authority
 
-## Event Terms
+Authority is proven, fail-closed, and checked before any persistence or model work. Host-page metadata is reference data only — it never establishes identity. See `../architecture/assistant-turn.md` for where pre-start runs these checks.
 
-- **AI SDK stream part**: provider/tool-loop event emitted by AI SDK; private to
-  `agent-runtime`.
-- **RuntimeEvent**: normalized internal event emitted by agent runtime.
-- **RuntimeActivityDetails**: provider-neutral activity details mapped by core to
-  browser-safe activity details.
-- **SidechatStreamEvent**: browser-facing `sidechat.v1` stream event.
-- **Activity event**: visible progress, tool, reasoning, or host-command row
-  _inside_ one turn's stream.
-- **Turn activity event**: cross-conversation turn-lifecycle signal (wire type
-  `sidechat.turn-activity`) carried on the `GET /chat/activity` stream so the
-  sidebar can show a live "generating" dot per running conversation. It is
-  distinct from the in-turn **Activity event**: it reports that a turn is running
-  or finished, not what the turn is doing.
-- **Widget message**: client-side message state rendered by the widget.
-- **Widget activity item**: client-side activity timeline row derived from
-  protocol activity events.
-- **Terminal event**: final browser-facing event that closes product turn state.
-- **Pre-start failure**: failure before `sidechat.started`; request setup
-  rejects.
-- **Post-start failure**: failure after `sidechat.started`; stream emits terminal
-  `sidechat.error`.
+| Term | Meaning | Where it lives (code path) |
+|---|---|---|
+| AuthContext | The proven authority object (tenant, workspace, subject, roles, scopes) that gates all protected work. | `packages/partner-ai-core/src/domain/authority.ts:48` (`AuthContext`) |
+| Tenant / TenantId | The top authorization layer above workspace. A real, load-bearing branded id; authority compares tenant first. | `packages/partner-ai-core/src/domain/authority.ts:3` (`TenantId`) |
+| Workspace / WorkspaceRef | A tenant's authorized product scope for a request: `{ tenantId, workspaceId }`. | `.../domain/authority.ts:39` (`WorkspaceRef`), `:4` (`WorkspaceId`) |
+| Subject / SubjectRef / SubjectId | The acting principal (`subjectId` + `userId`). `GET /chat/activity` is scoped per (workspace, subject). | `.../domain/authority.ts:34` (`SubjectRef`), `:5` (`SubjectId`) |
+| User / UserId | The human identity behind a subject. | `.../domain/authority.ts:6` (`UserId`) |
+| Authority denial | A fail-closed rejection with a code such as `missing_auth` or `cross_tenant_workspace`. | `.../domain/authority.ts:58` (`AuthorityDenial`), `:13` (`AUTHORITY_DENIAL_CODES`) |
+| HostContext | Browser page metadata (origin, url, title). Reference data only; never proof of identity or access. | `packages/chat-protocol/src/sidechat-v1/request/request.ts:36` (`HostContext`) |
+| `requestId` | Idempotency and resolver key for one submission; a repeat returns the existing turn. Resolve via `GET /chat/runs/:requestId`. | `packages/ai-runtime-contract/src/runtime-ids.ts:11` (`RequestId`) |
+| `assistantTurnId` | The canonical key for streaming, status, and cancel. | `packages/ai-runtime-contract/src/runtime-ids.ts:12` (`AssistantTurnId`) |
+| Branded id pattern (`Brand<>`) | Nominal ids made via `brandString`/`brandNumber`, so a raw string will not compile where an id is required. | `packages/shared/src/index.ts:10` (`Brand`), `:14` (`brandString`) |
 
-## Boundary Terms
+## Packages & boundaries
 
-- **HTTP adapter boundary**: HTTP/Hono request becomes StreamChatInput.
-- **Product core boundary**: StreamChatInput and ports become protocol event
-  stream.
-- **Runtime boundary**: AiRuntimeRequest becomes RuntimeEvent stream.
-- **Protocol boundary**: core event mapper emits browser-safe `sidechat.v1`.
-- **Widget boundary**: protocol events become UI message/activity state.
-- **Host bridge boundary**: widget/product host seam to host commands/context.
-- **Database boundary**: product ports become persistence records.
-- **Copied UI primitive**: external visual component under widget `shared/ai`.
+Four layers, dependencies pointing inward: Browser → Service → Core → Runtime. Two contract packages cross boundaries: `chat-protocol` (browser↔service) and `ai-runtime-contract` (core↔runtime). See `../architecture/package-boundaries.md` for the import rules these names enforce.
 
-## Resumable Streaming
+| Term | Meaning | Where it lives (code path) |
+|---|---|---|
+| apps/partner-ai-service | The deployable Hono composition root. The only app — not a demo or host app. | `apps/partner-ai-service/` |
+| packages/partner-ai-core | The Core layer: workflows, domain, ports. Maps `RuntimeEvent` to `sidechat.v1`. | `packages/partner-ai-core/` |
+| packages/agent-runtime | The Runtime layer: the only home for `ai` and `@ai-sdk/*`; runs one prepared turn. | `packages/agent-runtime/` |
+| packages/chat-protocol | The browser↔service contract: `sidechat.v1` requests, events, and error codes. | `packages/chat-protocol/` |
+| packages/ai-runtime-contract | The core↔runtime contract: `AiRuntimeRequest`, `RuntimeEvent`, branded ids. | `packages/ai-runtime-contract/` |
+| packages/side-chat-widget | The browser UI. Effect-free and provider-free; uses TanStack Query for list/history/catalog, but not the live stream. | `packages/side-chat-widget/` |
+| packages/host-bridge | The widget↔host seam for host commands and context. | `packages/host-bridge/` |
+| packages/db | The only home for `pg` and `drizzle-orm`; owns `turn_events` and persistence. | `packages/db/` |
+| ChatStreamRequest | The browser-facing `sidechat.v1` stream request; may carry a model preference, not provider options. | `packages/chat-protocol/src/sidechat-v1/request/request.ts:76` |
+| StreamChatInput | The product-core input the service adapter assembles from a request. | `packages/partner-ai-core/src/application/stream-chat/stream-chat-types.ts:31` |
+| AiRuntimeRequest | The provider-neutral request from core into a runtime implementation. | `packages/ai-runtime-contract/src/index.ts:86` |
+| RuntimeProviderRequest | The provider-ready request after runtime preparation. | `packages/agent-runtime/src/runtime/turn/runtime-provider-request.ts` |
+| Host capability manifest | The host's declaration of possible profiles, tools, commands, approvals, and renderers. | `.../contracts/capabilities.ts:195` (`HostCapabilityManifest`) |
+| Turn profile | A versioned per-turn configuration selected for one turn. | `.../contracts/capabilities.ts:139` (`TurnProfile`) |
+| ToolCapability vs RuntimeTool | A manifest declaration of a tool (not executable) versus the app-owned executable tool. | `.../contracts/capabilities.ts:158`; `packages/agent-runtime/src/tools/runtime-tool.ts:49` |
+| ServiceToolRegistration | The composition record binding one `ToolCapability` and its `RuntimeTool` so they cannot drift. | `apps/partner-ai-service/src/composition/tools/service-tool-registry.ts:12` |
+| AgentExecutor | The runtime engine that runs one prepared turn and emits `RuntimeEvent`s. | `packages/agent-runtime/src/runtime/executors/agent-executor.ts:38` |
+| TurnGuard | A pre-context safety check that may allow, warn, or block one turn. | `packages/partner-ai-core/src/ports/guards/turn-guard.ts` (`TurnGuardDecision`) |
+| ApprovalPolicy | A policy requiring user or host approval before a declared tool or command runs. | `.../contracts/capabilities.ts:177` (`ApprovalPolicy`) |
+| Copied UI primitive | An external visual component vendored under the widget's `shared/ai`. | `packages/side-chat-widget/src/shared/ai/` |
 
-These terms describe the server-owned, resumable streaming model. Use
-`docs/architecture/assistant-turn.md` for the lifecycle order.
+## Names to avoid
 
-- **Durable turn-event log**: append-only, per-turn ordered log (`turn_events`
-  table) that is the source of truth for a turn's events. The stream replays from
-  it; the browser is only a subscriber.
-- **Server-owned generation**: a turn runs on a service-owned fiber (the **turn
-  runner**) forked off the request, so generation outlives any one connection. It
-  is not tied to the browser that started it.
-- **Turn runner**: per-instance service component that forks generation and tracks
-  live turns in a `FiberMap` keyed by `assistantTurnId`.
-- **Replay offset (`after`)**: stream cursor. `GET /chat/turns/:id/stream?after=<seq>`
-  emits `sequence > after`; default `-1` and `sidechat.started` is sequence 0.
-- **Owner lease (fencing, `lease_epoch`)**: compare-and-set claim on
-  `assistant_turns` (`owner_instance_id`, `lease_epoch`, `lease_expires_at`) that
-  binds one running turn to one owning instance. A renew that matches no row means
-  the owner was **fenced** (a new owner or the reaper advanced the epoch), so it
-  self-interrupts. Prevents two instances generating the same turn.
-- **Reaper**: per-instance background sweep that terminalizes running turns whose
-  lease expired, fencing the dead or stalled owner.
-- **Pruner**: per-instance background sweep that deletes the event rows of old
-  terminal turns past retention. The consolidated turn record and assistant
-  message survive, so a pruned turn still resolves.
-- **`replay_expired`**: transport-level error (HTTP 404) returned when a terminal
-  turn's log can no longer replay because pruning removed the requested range. The
-  widget then reads conversation history and clears the run.
-- **`requestId`**: idempotency and resolver key for one submission; a repeat
-  returns the existing turn. Resolve it with `GET /chat/runs/:requestId`. Contrast
-  **`assistantTurnId`**, the canonical key for streaming, status, and cancel.
+Use the canonical name on the left; never drift to the right.
 
-## Names To Avoid In Larger Scopes
+| Concept | Use this | Not this |
+|---|---|---|
+| Tenant's authorized scope | Workspace (`WorkspaceRef`) | (do not avoid "tenant" — `TenantId` is a real layer above workspace) |
+| The product | Side Chat | chat app, demo app, plugin framework |
+| The embedding app | host app | host page (use "embedding surface" for the page) |
+| A user-submitted message | user message | input, prompt |
+| One assistant-response lifecycle | assistant turn | model call |
+| Full pre-runtime context | prepared context | prompt |
+| In-turn step row vs cross-conversation signal | activity event vs turn activity event | (do not merge the two) |
 
-Avoid these unless the type or tiny local scope makes the meaning obvious:
-
-```txt
-data item entry payload result context event part message request response state
-handle process map normalize build create
-```
-
-Prefer completed source-to-target names:
-
-```txt
-mapAiSdkPartToRuntimeEvents
-mapRuntimeEventToProtocolEvent
-createRuntimeProviderRequest
-applyProtocolActivityToWidgetTimeline
-recordStartedStreamTurn
-```
+Avoid these vague nouns in wide scopes unless a tiny local scope makes the meaning obvious: `data`, `item`, `entry`, `payload`, `result`, `context`, `event`, `part`, `message`, `request`, `response`, `state`, `handle`, `process`. Prefer a verb that names source and target, like `mapRuntimeEvent` or `mapAiSdkStreamPart`.
