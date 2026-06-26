@@ -1,5 +1,7 @@
 import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
 
+import { rehypeGlossary } from './app/lib/rehype-glossary';
+
 export const docs = defineDocs({
   dir: 'content/docs',
   docs: {
@@ -9,4 +11,8 @@ export const docs = defineDocs({
   },
 });
 
-export default defineConfig();
+export default defineConfig({
+  mdxOptions: {
+    rehypePlugins: (plugins) => [...plugins, rehypeGlossary],
+  },
+});
