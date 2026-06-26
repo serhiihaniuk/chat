@@ -17,6 +17,14 @@ That tiny interaction touches every part of this system — the wire format, the
 AI model, a tool call out to Jira, and a live stream back to her screen. We'll follow Maya's exact
 request through every section of this guide. When an idea feels abstract, come back to her.
 
+<Callout title="You will learn">
+- What Side Chat is, in one sentence, and the four-layer shape it takes.
+- The one rule that explains most of the design: **dependencies point inward**.
+- Why the browser sends only text, and the server owns the prompt and the roles.
+- Why Maya's request is **two** HTTP calls, not one — and what that buys her.
+- The two TypeScript things (Effect, branded types) that look scary but aren't.
+</Callout>
+
 ## What the product is
 
 Side Chat is a self-contained AI chat assistant that a company embeds into its existing web app —
@@ -67,6 +75,13 @@ Because the turn lives on the server — not inside one HTTP response — Maya c
 reload, or drop her connection, then reconnect to the **same** turn still in progress. *Life of a
 Turn* traces exactly how.
 
+<Callout type="warn" title="Pitfall">
+Don't picture the browser as the thing running the turn. Maya's panel is a **disposable
+subscriber**: it sends text, then watches a log the server owns. If she reloads mid-answer, the
+turn keeps generating on the server — her new panel just resubscribes. Treating the browser as the
+source of truth is the single biggest way to misread this system.
+</Callout>
+
 ## Two TypeScript things that aren't AI, but will confuse you on day one
 
 Defuse these now, before you open a file and panic. Neither is essential to understanding the
@@ -82,4 +97,14 @@ architecture — they're just unfamiliar machinery you'll see everywhere.
   being careful about" and move on.
 
 With Maya in mind, the four layers mapped, the two golden rules set, and those two gotchas
-defused, the rest of the guide has somewhere to stand. Next: [the words](/docs/walkthrough/vocabulary).
+defused, the rest of the guide has somewhere to stand.
+
+<Callout title="Recap">
+- Side Chat is four layers around a protected center; **dependencies point inward**.
+- The Core holds the rules and imports no infrastructure — it asks through ports.
+- The browser sends only text; the server owns the prompt, the roles, and the turn.
+- One request is two calls (`POST /chat/runs` then `GET …/stream`), which is what makes a turn survive a reload.
+- Effect is a lazy typed Promise; a branded type is just a string the compiler watches.
+</Callout>
+
+**Next:** [the words](/docs/walkthrough/vocabulary) — the exact vocabulary this guide leans on, so the next pages read without ambiguity.

@@ -9,6 +9,14 @@ that streams an answer back, you will misread half the system. A turn is actuall
 plus a server-owned fiber** — an Effect fiber is a lightweight thread, and this one outlives both
 calls. That shape is what lets Maya reload the page mid-answer and rejoin the same turn.
 
+<Callout title="You will learn">
+- Why one turn is **two HTTP calls plus a server-owned fiber**, not a single streaming request.
+- What the synchronous pre-start phase finishes before any model runs — and why its last act, the `started` event, is the fence.
+- How generation stays pinned to one owner instance while any instance can serve the stream.
+- Why the **durable log**, not the live connection, is the source of truth — so a reconnect is just a resubscribe.
+- How `Effect.onExit` plus the reaper guarantee every turn reaches a terminal exactly once.
+</Callout>
+
 The 16 hops of one turn are listed below; the four phases that follow explain the *why* behind each.
 
 | # | Phase | Layer | Step | Code | What it does |
@@ -59,6 +67,13 @@ Pre-start ends by emitting the `started` event (sequence 0), forking generation,
 identity. That `started` event is the fence: before it, failures are synchronous JSON errors; after
 it, the turn is live and every outcome is a durable protocol event.
 
+<Callout type="warn" title="Pitfall">
+Don't treat the `started` event as cosmetic. It is the boundary between two failure regimes: a
+failure in steps 1–8 is a plain JSON error and **no turn exists**, while a failure after it is a
+durable terminal event the stream will replay. Code that "handles a turn error" by watching the
+`POST` response will miss every real generation failure — those land in the log, not the HTTP reply.
+</Callout>
+
 ## The hand-off: why a fiber
 
 Step 9 is the hinge. `FiberMap.run(fibers, assistantTurnId, …)` detaches generation onto a fiber
@@ -101,6 +116,13 @@ and it is built for reconnection:
 Reconnecting is therefore not a special case. The browser just opens the same `GET` again with
 `after` set to the last sequence it saw.
 
+<Callout title="Deep dive">
+This page traces *what* the stream does. For *how* the transport works underneath — the durable
+`turn_events` log, the single-transaction append plus `pg_notify`, LISTEN/NOTIFY fan-out across
+instances, and the replay-then-tail subscription that makes reconnect free — see
+[Streaming & Reconnect](/docs/walkthrough/streaming-and-reconnect).
+</Callout>
+
 ## Finalize: the turn always ends
 
 Generation is wrapped in `Effect.onExit` (step 16), so the turn reaches a terminal **no matter how
@@ -126,3 +148,13 @@ Because the turn is a server-owned fiber writing to a durable log, and it always
 or lost connection just re-subscribes with `after`; a server crash mid-turn is reaped and
 terminalized; and the answer is produced exactly once regardless of who is watching.
 </Callout>
+
+<Callout title="Recap">
+- One turn is **two HTTP calls plus a server-owned fiber**: `POST /chat/runs` sets up and forks, `GET …/stream` watches.
+- Pre-start (steps 1–10) runs synchronously; its last act, the `started` event, fences JSON errors from durable protocol events.
+- Generation is pinned to one owner instance by a lease, but the durable `turn_events` log — not the connection — is the source of truth.
+- Every turn reaches a terminal exactly once through `Effect.onExit`, with the reaper backstopping a crashed owner.
+</Callout>
+
+Next: [Add a Tool](/docs/walkthrough/add-a-tool) builds the `jira.search_issues` tool that step 12's
+loop actually calls, end to end.

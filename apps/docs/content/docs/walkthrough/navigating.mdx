@@ -7,6 +7,14 @@ This is a field guide to the codebase: the three questions you'll actually ask, 
 path-to-layer heuristic, the rough edges, and where the tests pin behavior. It opens with the
 questions, because you usually arrive with one, not a tour request.
 
+<Callout title="You will learn">
+- Where the three things you'll hunt first actually live: the system prompt, the tool registry, and a turn's start.
+- A five-file reading order that builds understanding from the protocol outward.
+- A path-to-layer heuristic that tells you what a file does from where it sits.
+- The honest rough edges — noop guards, one real provider — that save a confused afternoon.
+- Which tests pin which behavior, so you start a change by reading its test.
+</Callout>
+
 ## The three questions you will actually ask
 
 ### "Where is the system prompt built?"
@@ -92,14 +100,20 @@ libraries, it belongs in `packages/`.
 
 A few things are deliberately rough; knowing them saves a confused afternoon.
 
-- **Guards are a noop by default.** `createNoopTurnGuardRegistry` returns `{ guards: [] }`, so the
-  default deployment does no pre-model content-safety checking unless a real registry is injected at
-  the composition root. The file comment in `adapters/guards/noop-turn-guard-registry.ts` states it
-  outright. This is the one gap most likely to surprise you.
 - **The provider surface is one real provider.** Only OpenAI is wired (plus a fake provider for
   tests). Swapping or adding a provider is an adapter + a config line, but no second real provider
   ships today.
 
+<Callout type="warn" title="Pitfall">
+**Guards are a noop by default.** `createNoopTurnGuardRegistry` returns `{ guards: [] }`, so the
+default deployment does no pre-model content-safety checking unless a real registry is injected at
+the composition root — the file comment in `adapters/guards/noop-turn-guard-registry.ts` says so
+outright. Don't read the guard step (step 4 in *Life of a Turn*) as proof that content is being
+filtered; the *seam* exists, but the default deployment fills it with a pass-through. This is the
+one gap most likely to surprise you.
+</Callout>
+
+<Callout title="Deep dive">
 A few things older docs may misdescribe — the live code is **ahead** of them:
 
 - The streaming flow is **two-call and resumable** (`POST /chat/runs` + `GET …/stream`), not a single
@@ -110,6 +124,7 @@ A few things older docs may misdescribe — the live code is **ahead** of them:
   to masquerade as `sidechat.error`.
 - The context board renders a `# Context Board` header plus a fixed boundary paragraph and stamps
   `Trust:`/`Source:` provenance on every section — trust labeling is in place.
+</Callout>
 
 ## Where the tests live and what they pin
 
@@ -134,6 +149,17 @@ Tests sit next to the code they cover (`*.test.ts`). The ones worth knowing:
 Rule of thumb: if you change a wire shape, a message order, or an allowlist rule, a test above will
 catch you — start your change by reading its test, then the code.
 
+<Callout title="Recap">
+- Three questions cover most arrivals: the system prompt builds in three files, tools register in `service-tool-registry.ts`, and a turn starts across `POST /chat/runs` + `GET …/stream`.
+- Read the five files in order — protocol, turn pipeline, tool example, composition root, runtime — each makes sense of the next.
+- A file's path tells you its layer, and arrows point inward: a `domain/` file importing an SDK is a bug.
+- Two rough edges are real: guards are a noop by default, and only OpenAI is wired.
+- Tests sit beside the code and pin the contracts; read the test before changing a wire shape or rule.
+</Callout>
+
 For the "why" behind any term here, see [Confusing Words](/docs/walkthrough/confusing-words) and the
 [Glossary](/docs/walkthrough/glossary); for the full request trace, see
 [Life of a Turn](/docs/walkthrough/life-of-a-turn).
+
+Next: keep the [Glossary](/docs/walkthrough/glossary) and [Confusing Words](/docs/walkthrough/confusing-words)
+open as a reference while you read code — they define every term used above.

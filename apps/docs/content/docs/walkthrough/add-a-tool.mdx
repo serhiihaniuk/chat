@@ -8,6 +8,14 @@ together by a shared name, registered once, then checked by several independent 
 model can touch it. Let's build the real `jira.search_issues` tool that answers Maya's "show me my
 open Jira tickets" and follow her request through every gate.
 
+<Callout title="You will learn">
+- Why every tool is split into two halves — the **capability** the model reads and the **executable** the server runs.
+- How a shared `name` constant ties the halves together, and why the registry checks it at boot.
+- How the trusted `toolScope` (Maya's `subjectId`) reaches `execute` without the model ever supplying it.
+- The four gates a tool name passes before the model can call it.
+- The one shape — four small objects — that every new tool repeats.
+</Callout>
+
 ## The idea
 
 A tool is a function you let the model call. But the model is not trusted, so you split each tool
@@ -62,9 +70,12 @@ Two things are the crux of why tools are safe:
 - **What `execute` returns.** Not raw Jira JSON — a normalized result. `toJiraSearchIssuesResult`
   flattens each issue to `{ key, summary, status, url }`.
 
+<Callout title="Deep dive">
 `readSources` is optional: on the completed result it produces protocol-safe `{ label, url }`
 metadata that the widget renders as clickable links. The runtime renders no UI — it only attaches
-data.
+data. You can skip `readSources` entirely and the tool still works; it just won't surface source
+links in the panel.
+</Callout>
 
 ## Step 2 — Write the capability (ToolCapability)
 
@@ -129,8 +140,13 @@ export const createServiceToolRegistry = (registrations) => {
 
 `assertMatchingNames` is the first gate, and it fires at boot. Rename the capability to `jira.search`
 but forget the runtime tool, and the process throws before the HTTP server accepts a connection.
-Compare that to a `switch (toolName)` handler, where the same typo surfaces only when the model calls
-the bad name on a real request — and silently returns `undefined`.
+
+<Callout type="warn" title="Pitfall">
+Resist the urge to dispatch tools with a hand-written `switch (toolName)`. There, a renamed or
+mistyped tool name compiles cleanly and surfaces only when the model calls the bad name on a real
+request — and then silently returns `undefined`. Pairing the two halves in one registration turns
+that latent bug into a **boot-time crash with the exact offending name**, before any user is served.
+</Callout>
 
 ## Step 5 — At turn time: a name-only allowlist crosses the boundary
 
@@ -225,6 +241,17 @@ Three guarantees fall out:
   the deployment's manifest and the active profile, so a tool Maya's workspace never enabled cannot
   reach the model — even if the model would love to call it.
 
+<Callout title="Recap">
+- A tool is two halves — the **capability** (what the model reads) and the **executable** (what the server runs) — joined by one shared `name`.
+- You always pair them in a single `createServiceToolRegistration`; the registry rejects a mismatch at boot.
+- The trusted `toolScope` carries Maya's `subjectId` into `execute`, so the model can never ask for another user's data.
+- Four independent gates — name match, manifest, profile, approval — must pass before the model receives the name.
+- Every new tool repeats the same four objects; the manifest, policy, request builder, and stream loop stay generic.
+</Callout>
+
 For how this tool call sits inside the full request pipeline, see
 [Life of a Turn](/docs/walkthrough/life-of-a-turn); for the deeper manifest-vs-registry distinction,
 see [Confusing Words](/docs/walkthrough/confusing-words).
+
+Next: [Navigating the Code](/docs/walkthrough/navigating) is the field guide for finding any of these
+pieces — registry, policy, runtime — in the repo on your own.

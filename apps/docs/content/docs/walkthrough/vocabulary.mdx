@@ -8,6 +8,15 @@ Each one is a small idea wearing intimidating clothes. We'll take the clothes of
 word back to Maya, our support agent, who just typed "show me my open Jira tickets" into the
 side panel.
 
+<Callout title="You will learn">
+- Why the LLM forgets everything between calls, so the server resends the whole conversation every turn.
+- What **tokens** and the **context window** are, and why everything competes for one budget.
+- That the prompt is a **message list** of **roles**, and the browser may set none of them.
+- How **streaming**, **deltas**, and **SSE** push the answer to Maya piece by piece.
+- The **tool loop**: the model can only *ask*, your code does the doing.
+- The terms you'll meet everywhere next — **provider vs model**, **turn**, **manifest**, **registry**, **profile**.
+</Callout>
+
 ## The LLM is a stateless text-predictor
 
 **The idea.** An LLM (large language model) is a function that takes text in and predicts text
@@ -223,3 +232,15 @@ Three more words appear constantly; you only need a one-line grip on each here, 
 
 Hold those three loosely for now. The one thing to carry forward: **the browser sends content;
 the server owns identity, model, roles, and tools.** Every other section builds on that split.
+
+<Callout title="Recap">
+- The LLM is stateless: the server replays the full conversation as a **message list** of **roles** every turn.
+- Everything in a call shares one **token** budget, capped by the **context window**.
+- The browser sends only `id` + `content`; the server assigns the `user` role and owns the system prompt, model, and tools.
+- The reply **streams** as **deltas** over **SSE**, each stamped with an increasing `sequence` that also serves as a resume cursor.
+- In the **tool loop** the model only *asks*; your runtime runs the tool and feeds the result back for the next pass.
+</Callout>
+
+Next, see these words wired together in real code: [Patterns in the Code](/docs/walkthrough/patterns)
+names the eight structural patterns, and [Life of a Turn](/docs/walkthrough/life-of-a-turn) traces
+Maya's message through all of them end to end.
