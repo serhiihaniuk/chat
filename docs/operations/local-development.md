@@ -1,18 +1,18 @@
 # Local development (no Docker)
 
 Read this when: you want Side Chat running on your machine with one command, no Docker and no Postgres.
-Source of truth for: the `scripts/run-local-fake.mjs` launcher — its flags, the three processes and ports, and the fake/openai/azure provider modes.
+Source of truth for: the `scripts/run-local-fake.mjs` launcher — its flags, the two processes and ports, and the fake/openai/azure provider modes.
 Not source of truth for: the `SideChatConfig` object (see [configuration.md](configuration.md)), database tooling (see [database.md](database.md)), gate commands (see [verification.md](verification.md)), or the iframe proxy contract (see [embed-widget-iframe.md](embed-widget-iframe.md)).
 
 ## Quick start
 
-Run one command from the repo root, then open the host page it prints:
+Run one command from the repo root; it starts the backend and widget for your own app to embed:
 
 ```sh
 node scripts/run-local-fake.mjs
 ```
 
-The launcher prompts for provider and ports, installs dependencies if missing, then starts three dev servers. By default it uses the **fake** provider: an in-memory showcase model, mock tools, and seeded demo chats — no API key, no database. Open the printed **host page** URL (the embedded workbench), not the raw iframe.
+The launcher prompts for provider and ports, installs dependencies if missing, then starts two dev servers (backend + widget UI). By default it uses the **fake** provider: an in-memory showcase model, mock tools, and seeded demo chats — no API key, no database. It does **not** start a host page — your own app is the host. Wire your app's dev proxy to the two servers it prints; see [embed-widget-iframe.md](embed-widget-iframe.md).
 
 ## Flags
 
@@ -25,25 +25,24 @@ The launcher prompts for provider and ports, installs dependencies if missing, t
 
 The launcher saves your answers (including any API key) to `scripts/.run-local-fake.json` (`run-local-fake.mjs:119-136`) and reuses them next run. Keep that file out of git.
 
-## The three processes
+## The two processes
 
-The launcher starts three Vite/tsx dev servers over npm workspaces (defaults at `run-local-fake.mjs:57-59`):
+The launcher starts two Vite/tsx dev servers over npm workspaces:
 
 | Process | Default URL | Role |
 | --- | --- | --- |
-| Backend service | `http://127.0.0.1:8787` | Hono API + chosen provider, in-memory persistence. Health at `/healthz`. |
-| Widget iframe app | `127.0.0.1:5174` | Vite widget harness; renders only Side Chat. `strictPort`, bind host `0.0.0.0`. |
-| Host page (workbench) | `http://127.0.0.1:8080` | Serves `workbench-embed.html`; proxies UI + API; owns the open/close button. |
+| Backend service | `http://127.0.0.1:8787` | Hono API + chosen provider. Health at `/healthz`. |
+| Widget UI | `http://127.0.0.1:5174` | Vite widget harness; renders only Side Chat under the frame path. `strictPort`, bind host `0.0.0.0`. |
 
-**Open the host page**, not the iframe app. The host page embeds the widget and owns the open/close toggle; the iframe app alone has no host chrome. The launcher prints both URLs and labels the iframe one "debug only" (`run-local-fake.mjs:880-887`).
+Your own app is the host. Proxy `/side-chat-api` to the backend and `/side-chat-frame` to the widget UI, then embed the iframe — see [embed-widget-iframe.md](embed-widget-iframe.md). The launcher prints both targets and a ready-to-paste iframe `src`.
 
 ### Port rules
 
-The widget never runs on `8080` — that port belongs to the host/workbench origin. The launcher enforces three guards:
+The widget never runs on `8080` — that port is usually your own app's. The launcher enforces these guards:
 
-- Widget port `8080` is rejected and forced back to `5174` (`run-local-fake.mjs:668-673`).
-- A backend/widget port collision auto-bumps the backend (`run-local-fake.mjs:674-681`).
-- Backend and widget ports free a busy listener by killing it (`freePort`, `run-local-fake.mjs:200-219`); the host page instead picks the next open port and never kills a running workbench (`chooseOpenPort`, `run-local-fake.mjs:220-232`).
+- Widget port `8080` is rejected and forced back to `5174`.
+- A backend/widget port collision auto-bumps the backend.
+- Both ports free a busy listener by killing it (`freePort`), so a restart binds cleanly.
 
 ## Why env is injected, not loaded
 

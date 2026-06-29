@@ -1,56 +1,62 @@
-# Embed The Widget In An Iframe
+# Embed The Widget In Your App
 
-Read this when: you embed Side Chat locally as an iframe behind a host page, or you wire the Workbench dev proxy.
-Source of truth for: local iframe embedding, the widget harness base path, and the Workbench dev proxy.
-Not source of truth for: the no-Docker launch flow (see [local-development.md](local-development.md)); widget/host-bridge architecture (see [../architecture/widget-and-host-integration.md](../architecture/widget-and-host-integration.md)); production host deployment.
+Read this when: you embed Side Chat into your own web app (the host) behind a dev proxy.
+Source of truth for: running the local servers for embedding, the dev proxy your app adds, the iframe markup, and the open/close handshake.
+Not source of truth for: the launcher's provider/database options (see [local-development.md](local-development.md)); widget/host-bridge architecture (see [../architecture/widget-and-host-integration.md](../architecture/widget-and-host-integration.md)); production host deployment.
 
-A host web app embeds Side Chat as a same-origin iframe. The host page renders the open/close button and the iframe; the iframe renders only Side Chat. The host page proxies two prefixes to the running dev servers: `/side-chat-frame` to the widget UI and `/side-chat-api` to the service. Start everything with the local launcher, then open the printed host page URL.
+Side Chat renders as a same-origin iframe inside **your** app. Your app is the host: it owns the open/close button and the iframe element, and it proxies two path prefixes to the local Side Chat servers — `/side-chat-frame` to the widget UI and `/side-chat-api` to the backend service. The launcher starts those two servers; it does **not** start a host page, because your app is the host.
 
-## Servers And Ports
-
-The launcher `scripts/run-local-fake.mjs` starts three dev servers. [local-development.md](local-development.md) owns that launch flow and the provider/seed options; this table lists only the ports the proxy targets:
-
-| Server | Default origin | Role |
-| --- | --- | --- |
-| Service | `http://127.0.0.1:8787` | Hono API; `/side-chat-api` proxy target (`run-local-fake.mjs:57`). |
-| Widget UI | `http://127.0.0.1:5174` | Vite widget harness; `/side-chat-frame` proxy target (`run-local-fake.mjs:58`, strictPort). |
-| Host page | `http://127.0.0.1:8080` | Vite host page that owns the proxies and the open/close button (`run-local-fake.mjs:59`). |
-
-Launch the stack, then open the host page (not the raw widget URL):
+## 1. Start the local servers
 
 ```powershell
-node scripts/run-local-fake.mjs --yes
+node scripts/run-local-fake.mjs
 ```
 
-Keep the host page on `8080` and the widget UI off `8080`. The launcher rejects `8080` for the widget and forces it back to `5174` (`run-local-fake.mjs:668-672`).
+This starts two dev servers (provider, database, and Azure options live in [local-development.md](local-development.md)):
 
-## Open The Example Host Page
-
-The launcher prints an embedded host page URL backed by `test-harness/widget-harness/public/workbench-embed.html`:
-
-```text
-http://127.0.0.1:8080/workbench-embed.html?authToken=local-compose-token&workspaceId=workspace_local&apiBaseUrl=/side-chat-api&framePath=/side-chat-frame/
-```
-
-Open that page first. It builds the iframe `src`, proxies `/side-chat-frame` and `/side-chat-api`, and owns the visible open/close button. The direct widget URL (`http://127.0.0.1:5174/side-chat-frame/?...`) renders the frame contents alone; use it only to debug the frame.
-
-## Workbench Dev Proxy
-
-The host page Vite config `test-harness/widget-harness/vite.host.config.ts` forwards two prefixes. The launcher passes targets through env (`run-local-fake.mjs:817-820`):
-
-| Prefix | Target env (default) | Rewrite |
+| Server | Default origin | Your app proxies it as |
 | --- | --- | --- |
-| `/side-chat-frame` | `SIDECHAT_WIDGET_HOST_UI_TARGET` (`http://127.0.0.1:5174`) | Forward unchanged; `ws: true` (`vite.host.config.ts:51-56`). |
-| `/side-chat-api` | `SIDECHAT_WIDGET_HOST_API_TARGET` (`http://127.0.0.1:8787`) | Strip the prefix, then forward to the service root (`vite.host.config.ts:57-60`). |
+| Backend service | `http://127.0.0.1:8787` | `/side-chat-api` (strip the prefix) |
+| Widget UI (Vite) | `http://127.0.0.1:5174` | `/side-chat-frame` (forward unchanged, `ws: true`) |
+
+The launcher prints both targets, the bearer token, and a ready-to-paste iframe `src`. Leave it running while you develop your host app.
+
+## 2. Add the proxy to your app
+
+The widget and your app must be same-origin, so your app proxies both prefixes to the launcher's servers. For a Vite host app, add this to your `vite.config.ts`:
+
+```ts
+// vite.config.ts (your app)
+export default defineConfig({
+  server: {
+    proxy: {
+      // Widget UI — forward unchanged so its /side-chat-frame/* asset URLs resolve.
+      "/side-chat-frame": {
+        target: "http://127.0.0.1:5174",
+        changeOrigin: true,
+        ws: true,
+      },
+      // Backend API — strip the prefix, then forward to the service root.
+      "/side-chat-api": {
+        target: "http://127.0.0.1:8787",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/side-chat-api/, ""),
+      },
+    },
+  },
+});
+```
 
 Two rules keep asset URLs inside the proxy:
 
-- **Match the base path to the frame prefix.** The launcher serves the widget under `SIDECHAT_WIDGET_HARNESS_BASE_PATH=/side-chat-frame/` (`run-local-fake.mjs:803`). The widget therefore emits `/side-chat-frame/...` module and asset URLs, so forward that prefix unchanged. Strip the prefix only on the API proxy.
-- **Reuse this host config for your own Workbench.** It already owns both proxies. The widget harness's own Vite config is the proxy target, not a host; keep them separate.
+- **Forward `/side-chat-frame` unchanged.** The launcher serves the widget under that base path, so it emits `/side-chat-frame/...` module and asset URLs. The prefix must survive; enable `ws: true` so Vite HMR works through the proxy.
+- **Strip the prefix only on `/side-chat-api`.** Keep your proxy prefix equal to the launcher's frame path (default `/side-chat-frame`).
 
-## Iframe Markup
+A non-Vite host (nginx, Express, Caddy, etc.) applies the same two rules. The reference implementation is [`test-harness/widget-harness/vite.host.config.ts`](../../test-harness/widget-harness/vite.host.config.ts).
 
-A host page embeds the same-origin frame path. The widget reads its query params in `test-harness/widget-harness/src/config/modes.ts:29-41`:
+## 3. Embed the iframe
+
+Add a toggle button and the same-origin frame to your page. The widget reads its query params in [`test-harness/widget-harness/src/config/modes.ts:29-41`](../../test-harness/widget-harness/src/config/modes.ts):
 
 ```html
 <button id="side-chat-toggle" type="button" aria-controls="side-chat-frame" aria-expanded="false">
@@ -71,8 +77,8 @@ Frame `src` query params:
 | Param | Value | Effect |
 | --- | --- | --- |
 | `mode` | `local-service` | Talk to the real service through `apiBaseUrl`. |
-| `apiBaseUrl` | `/side-chat-api` | Same-origin API prefix the host proxies. |
-| `openControl` | `host` | The host page owns open/close; the widget defers (`modes.ts:61-64`). |
+| `apiBaseUrl` | `/side-chat-api` | Same-origin API prefix your app proxies. |
+| `openControl` | `host` | Your app owns open/close; the widget defers (`modes.ts:61-64`). |
 | `open` | `false` | Initial visible state. |
 | `workspaceId` | host value | Scopes conversation storage. |
 | `authToken` | dev bearer | Local-only; see the token note below. |
@@ -91,9 +97,9 @@ Dock the button bottom-right and place the iframe above it. The iframe must keep
 #side-chat-frame[hidden] { display: none; }
 ```
 
-## Host Open/Close Handshake
+## 4. Open/close handshake
 
-The host page owns the visible state and drives the iframe with three `postMessage` types (`harness-app.tsx:16-18`):
+Your app owns the visible state and drives the iframe with three `postMessage` types (`harness-app.tsx:16-18`):
 
 | Type | Direction | Meaning |
 | --- | --- | --- |
@@ -128,11 +134,11 @@ window.addEventListener("message", (event) => {
 });
 ```
 
-`workbench-embed.html` is the reference implementation of this handshake.
+`test-harness/widget-harness/public/workbench-embed.html` is a standalone reference implementation of this exact markup + handshake — copy from it if useful.
 
-> Token note: the local `authToken` is a dev bearer (the launcher prints it; the harness default is `local-compose-token`). Do not ship query-string tokens. A production host mints a short-lived frame session or relies on its own auth boundary. Keep real secrets out of markup and URLs.
+> Token note: the local `authToken` is a dev bearer (the launcher prints it; the default is `local-compose-token`). Do not ship query-string tokens. A production host mints a short-lived frame session or relies on its own auth boundary. Keep real secrets out of markup and URLs.
 
-## Resize Boundary
+## Resize boundary
 
 Side Chat's resize handles resize the panel **inside** the iframe; they never resize the host iframe element. Give the iframe a large fixed viewport (the dock above). If the panel seems stuck, check the host CSS first:
 
@@ -142,9 +148,9 @@ Side Chat's resize handles resize the panel **inside** the iframe; they never re
 - Keep the iframe visible while open; hide it only when the host state is closed.
 - To make the outer iframe user-resizable, build that as host-page behavior, separate from the panel handles.
 
-## Verify The Embed
+## Verify the embed
 
-Run the browser lane before handing the integration to a host app. It starts the service with the fake provider and memory persistence, then checks both the direct widget page and an iframe-hosted page:
+A browser lane proves both the direct widget page and an iframe-hosted page against the fake provider with memory persistence:
 
 ```sh
 npm run test:e2e

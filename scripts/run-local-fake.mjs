@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Local cross-platform launcher for the side-chat monorepo (NO Docker, NO Postgres).
 //
-// Runs the whole project locally:
+// Runs the local Side Chat servers so YOUR OWN app can embed the widget:
 //   - backend  @side-chat/partner-ai-service  (tsx + Hono)
-//   - iframe app @side-chat/widget-harness     (Vite), embedded by a workbench
+//   - widget   @side-chat/widget-harness       (Vite), served under the frame path
 //
 // This version PROMPTS you interactively for the model/runtime settings
 // (provider, API key, model, workspace, token, backend port, widget port).
@@ -21,11 +21,11 @@
 // Why injected env: server.ts reads process.env synchronously at boot (no .env
 // file), so every SIDECHAT_* key must be injected into the spawned child.
 //
-// Widget exposure follows the workbench convention through a lightweight local
-// host page:
-//   - default host/workbench port 8080, with no kill if a real workbench is busy
+// This script does NOT start a host page. Your own app is the host: point its
+// dev proxy at the two servers above and embed the iframe (see
+// docs/operations/embed-widget-iframe.md). Widget exposure defaults:
 //   - default widget port 5174 (strictPort), host 0.0.0.0
-//   - default frame proxy path "/side-chat-frame/" on the workbench origin
+//   - default frame proxy path "/side-chat-frame/" (your app proxies it to 5174)
 //   - endpoint name "side-chat-widget" by default
 //
 // Uses only Node built-ins. No new dependencies.
@@ -216,20 +216,6 @@ function freePort(port, label) {
   } catch {
     /* ignore */
   }
-}
-function chooseOpenPort(preferredPort, label) {
-  if (!pidsOnPort(preferredPort).length) return preferredPort;
-
-  for (let candidate = preferredPort + 1; candidate <= 65535; candidate++) {
-    if (!pidsOnPort(candidate).length) {
-      warnLauncher(
-        `Port ${preferredPort} (${label}) is busy; using ${candidate} without stopping the existing process.`,
-      );
-      return candidate;
-    }
-  }
-
-  throw new Error(`No open TCP port found for ${label} after ${preferredPort}.`);
 }
 
 // --------------------------------------------------------------------------
@@ -667,7 +653,7 @@ async function collectConfig() {
   );
   if (cfg.widgetPort === DEFAULT_WORKBENCH_PORT) {
     warnLauncher(
-      `Port ${DEFAULT_WORKBENCH_PORT} is for the host/workbench origin; using ${DEFAULT_WIDGET_PORT} for the widget target instead.`,
+      `Port ${DEFAULT_WORKBENCH_PORT} is usually your own app's port; using ${DEFAULT_WIDGET_PORT} for the widget instead.`,
     );
     cfg.widgetPort = DEFAULT_WIDGET_PORT;
   }
@@ -704,26 +690,6 @@ async function collectConfig() {
       ),
     ),
   );
-  cfg.workbenchPort = readPort(
-    await ask(
-      "Host page port (proxies UI + API)",
-      pick(
-        saved,
-        "workbenchPort",
-        readEnvValue("SIDECHAT_WORKBENCH_PORT", "WORKBENCH_PORT"),
-        String(DEFAULT_WORKBENCH_PORT),
-      ),
-    ),
-    DEFAULT_WORKBENCH_PORT,
-    "host page port",
-  );
-  if (cfg.workbenchPort === cfg.backendPort || cfg.workbenchPort === cfg.widgetPort) {
-    warnLauncher(
-      `Host page port ${cfg.workbenchPort} clashes with another local Side Chat process; using ${DEFAULT_WORKBENCH_PORT}.`,
-    );
-    cfg.workbenchPort = DEFAULT_WORKBENCH_PORT;
-  }
-
   closePrompts();
   saveConfig(cfg);
   return cfg;
@@ -813,42 +779,15 @@ async function main() {
     extraArgs: ["--host", cfg.widgetBindHost, "--port", String(cfg.widgetPort), "--strictPort"],
   });
 
-  cfg.workbenchPort = chooseOpenPort(cfg.workbenchPort, "host page");
-  const hostEnv = {
-    SIDECHAT_WIDGET_HOST_API_TARGET: `http://127.0.0.1:${cfg.backendPort}`,
-    SIDECHAT_WIDGET_HOST_FRAME_PATH: cfg.widgetFramePath,
-    SIDECHAT_WIDGET_HOST_UI_TARGET: `http://127.0.0.1:${cfg.widgetPort}`,
-  };
-  spawnDevServer({
-    name: "host",
-    labelColor: "green",
-    workspace: WIDGET_WORKSPACE,
-    env: hostEnv,
-    extraArgs: [
-      "--config",
-      "vite.host.config.ts",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(cfg.workbenchPort),
-      "--strictPort",
-    ],
-  });
-
-  const hostBase = `http://127.0.0.1:${cfg.workbenchPort}`;
   const widgetBase = publicHost ? `https://${publicHost}` : `http://127.0.0.1:${cfg.widgetPort}`;
   const widgetUrl =
     `${widgetBase}${widgetFrameBasePath}?mode=local-service` +
     `&authToken=${encodeURIComponent(cfg.authToken)}` +
     `&workspaceId=${encodeURIComponent(cfg.workspaceId)}` +
     `&apiBaseUrl=${encodeURIComponent("/side-chat-api")}`;
-  const hostPageUrl =
-    `${hostBase}/workbench-embed.html` +
-    `?authToken=${encodeURIComponent(cfg.authToken)}` +
-    `&workspaceId=${encodeURIComponent(cfg.workspaceId)}` +
-    `&apiBaseUrl=${encodeURIComponent("/side-chat-api")}` +
-    `&framePath=${encodeURIComponent(widgetFrameBasePath)}`;
-  const workbenchFrameSrc =
+  // The src YOUR host page sets on the iframe: a relative path so it resolves on
+  // your app's origin, which proxies the frame path and /side-chat-api.
+  const embedFrameSrc =
     `${widgetFrameBasePath}?mode=local-service` +
     `&workspaceId=${encodeURIComponent(cfg.workspaceId)}` +
     `&authToken=${encodeURIComponent(cfg.authToken)}` +
@@ -859,35 +798,29 @@ async function main() {
     if (shuttingDown) return;
     const line = "=".repeat(72);
     console.log("\n" + color("green", line));
-    console.log(
-      color(
-        "bold",
-        `  Side-chat local (${cfg.provider} provider + in-memory persistence) is ready`,
-      ),
-    );
+    console.log(color("bold", `  Side-chat local servers (${cfg.provider} provider) are ready`));
     console.log(color("green", line));
+    console.log(`  Backend (API + healthz): ${color("cyan", `http://127.0.0.1:${cfg.backendPort}`)}`);
     console.log(
-      `  Backend (healthz): ${color("cyan", `http://127.0.0.1:${cfg.backendPort}/healthz`)}`,
+      `  Widget dev server:       ${color("cyan", `http://127.0.0.1:${cfg.widgetPort}${widgetFrameBasePath}`)}`,
     );
-    console.log(`  Host page:         ${color("dim", `${hostBase} (proxies UI + API)`)}`);
-    console.log(
-      `  Widget target:     ${color("dim", `${cfg.widgetBindHost}:${cfg.widgetPort} (strictPort)`)}`,
-    );
-    if (publicHost) console.log(`  Public host:       ${color("dim", publicHost)}`);
-    console.log(`  Frame proxy path:  ${color("dim", cfg.widgetFramePath)}`);
-    console.log(`  Bearer token:      ${color("dim", cfg.authToken)}`);
+    if (publicHost) console.log(`  Widget public host:      ${color("dim", publicHost)}`);
+    console.log(`  Bearer token:            ${color("dim", cfg.authToken)}`);
     console.log("");
-    console.log(`  ${color("bold", "Open this embedded host page:")}`);
-    console.log(`  ${color("yellow", hostPageUrl)}`);
+    console.log(`  ${color("bold", "Your app is the host. Add these to its dev proxy:")}`);
     console.log(
-      `  ${color("dim", "The open/close button lives on this host page; the iframe renders only Side Chat.")}`,
+      `  ${color("yellow", `${cfg.widgetFramePath}  ->  http://127.0.0.1:${cfg.widgetPort}`)}  ${color("dim", "(forward as-is, ws: true)")}`,
+    );
+    console.log(
+      `  ${color("yellow", `/side-chat-api      ->  http://127.0.0.1:${cfg.backendPort}`)}  ${color("dim", "(strip the prefix)")}`,
     );
     console.log("");
-    console.log(`  ${color("bold", "Direct iframe app (debug only):")}`);
+    console.log(`  ${color("bold", "Then embed the iframe on your page with this src:")}`);
+    console.log(`  ${color("yellow", embedFrameSrc)}`);
+    console.log(`  ${color("dim", "Full guide: docs/operations/embed-widget-iframe.md")}`);
+    console.log("");
+    console.log(`  ${color("bold", "Direct widget URL (debug only):")}`);
     console.log(`  ${color("yellow", widgetUrl)}`);
-    console.log("");
-    console.log(`  ${color("bold", "Workbench iframe src:")}`);
-    console.log(`  ${color("yellow", workbenchFrameSrc)}`);
     if (cfg.provider === "fake") {
       console.log("");
       console.log(`  ${color("bold", "Demo prompts:")}`);
@@ -897,7 +830,7 @@ async function main() {
       );
     }
     console.log(color("green", line));
-    console.log(color("dim", "  Press Ctrl+C to stop all local servers."));
+    console.log(color("dim", "  Press Ctrl+C to stop the local servers."));
     console.log(color("green", line) + "\n");
   }, 2500);
 }

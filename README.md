@@ -114,14 +114,17 @@ npm run dev --workspace @side-chat/partner-ai-service
 npm run dev --workspace @side-chat/widget-harness -- --host 127.0.0.1
 ```
 
-For a no-Docker iframe stack with in-memory persistence and seeded demo chats:
+Or start the backend + widget with one command (no Docker, in-memory persistence,
+seeded demo chats):
 
 ```sh
 node scripts/run-local-fake.mjs --yes
 ```
 
-Open the **host page** the launcher prints, not the raw iframe. Do not put secret
-values in docs or committed examples. See
+This starts only the two servers; **your own app is the host** — proxy `/side-chat-api`
+and `/side-chat-frame` to them and embed the iframe (see
+[docs/operations/embed-widget-iframe.md](docs/operations/embed-widget-iframe.md)). Do not
+put secret values in docs or committed examples. See
 [docs/operations/local-development.md](docs/operations/local-development.md).
 
 ## Verify
