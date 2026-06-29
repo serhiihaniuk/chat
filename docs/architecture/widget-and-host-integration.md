@@ -15,7 +15,7 @@ The widget uses Feature-Sliced Design (FSD): code sits in ranked layers, and a l
 | `widgets/side-chat` | 3 | The composite root `SideChatWidget`, layout/view composition, query-client and model wiring, public props | `src/widgets/side-chat/ui/side-chat-widget.tsx` |
 | `features/chat` | 2 | Submission, run lifecycle, SSE consumption, protocol-to-state mapping, reconnect, activity sidebar | `src/features/chat/model/use-widget-chat.ts` |
 | `features/conversation` | 2 | Sidebar, switcher, empty state, message/tool rendering | `src/features/conversation/ui/` |
-| `features/panel` | 2 | Panel open/close/resize, header chrome, closed launcher | `src/features/panel/ui/` |
+| `features/panel` | 2 | Panel open/close/resize, browser-local size persistence (`useWidgetPanelSize`), header chrome, closed launcher | `src/features/panel/ui/`, `model/use-widget-panel-size.ts` |
 | `features/prompt` | 2 | Composer/footer input | `src/features/prompt/ui/` |
 | `features/settings` | 2 | In-panel settings view | `src/features/settings/ui/` |
 | `features/theme` | 2 | Theme and appearance state written to the widget root | `src/features/theme/model/` |
@@ -67,7 +67,7 @@ A submit walks from the composer to the service:
 2. **Begin run.** The controller seeds the store, calls `client.createRun` (`POST /chat/runs`), dispatches `identified` with the turn id, and writes a persisted reconnect marker.
 3. **Subscribe and drive.** `runSubscription` (`subscription/widget-run-subscription.ts:35`) opens `client.subscribeTurn`, then `consumeEvents` dispatches each event, persists its sequence, and may dispatch a host command.
 4. **Stop.** `controller.cancel` calls `client.cancelTurn` (`POST /chat/turns/:id/cancel`), then dispatches a `CANCELLED` terminal. Cancel is durable — the server acks it — not a fetch abort.
-5. **Reconnect.** Mount, tab-visibility, online, and conversation-select triggers resubscribe. An in-session reconnect resumes from the live cursor; a cold reload rebuilds from the persisted marker. Cross-conversation "generating" dots come from `client.subscribeActivity` (`GET /chat/activity`).
+5. **Reconnect.** Mount, tab-visibility, online, and conversation-select triggers resubscribe. An in-session reconnect resumes from the live cursor; a cold reload rebuilds from the persisted marker. Cross-conversation "generating" dots come from `client.subscribeActivity` (`GET /chat/activity`). An activity event for the conversation a tab is **currently viewing** also refreshes that conversation's history (`useWidgetChat` `onEvent` → `refreshHistory`), so a turn started in another tab resumes its live stream here via the history read's `activeTurn` — the dot alone never pulls in the turn's content.
 
 Idempotency is load-bearing in three places that reconnect depends on: the `createRun` `requestId` key (no forked generation), the `after` replay cursor, and the reducer's sequence dedupe.
 

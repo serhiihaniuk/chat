@@ -104,6 +104,7 @@ const createWidgetHarnessProps = (config: WidgetHarnessConfig): SideChatWidgetPr
     turnProfiles: [{ id: SERVICE_DEFAULT_TURN_PROFILE_ID, label: "Default profile" }],
     client,
     conversationStorageKey: `side-chat-widget:${config.workspaceId}:conversations`,
+    panelSizeStorageKey: `side-chat-widget:${config.workspaceId}:panel-size`,
     defaultTurnProfileId: SERVICE_DEFAULT_TURN_PROFILE_ID,
     defaultOpen: config.defaultOpen,
     defaultPanelSize: resolveHarnessPanelSize(),

@@ -75,4 +75,10 @@ export type SideChatWidgetProps = {
   // user-facing setting.
   readonly reasoningVisibility?: ReasoningVisibility | undefined;
   readonly themeStorageKey?: string | undefined;
+  /**
+   * Browser-local key under which the resizable panel's size is persisted, so a
+   * refresh or fresh iframe load restores the size the user dragged to. Defaults
+   * to a shared key when omitted; pass a workspace-scoped key to isolate hosts.
+   */
+  readonly panelSizeStorageKey?: string | undefined;
 };

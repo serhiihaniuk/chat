@@ -3,6 +3,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+# Saved launcher answers — may contain an API key (scripts/run-local-fake.mjs).
+scripts/.run-local-fake.json
 *.log
 .codex-logs/
 .omx/

@@ -126,6 +126,16 @@ export const useWidgetChat = ({
   const runningConversationIds = useActivityStream({
     client,
     onConnected: () => void refreshConversations(),
+    // A turn started in another tab for the conversation this tab is viewing: pull
+    // the server transcript so the history read's `activeTurn` resumes the live
+    // stream here (running) or shows the final messages (terminal). Skip when a
+    // local run already owns this conversation — that includes the tab that
+    // started it, whose history query is disabled so the refetch would no-op.
+    onEvent: (event) => {
+      if (event.conversationId !== conversationId) return;
+      if (run?.conversationId === conversationId) return;
+      refreshHistory(conversationId);
+    },
   });
 
   const actions = useWidgetChatActions({

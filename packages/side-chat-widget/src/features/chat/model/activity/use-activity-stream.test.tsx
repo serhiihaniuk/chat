@@ -42,10 +42,13 @@ const streamOf = (events: readonly TurnActivityEvent[]) => ({
   })(),
 });
 
-const renderActivity = (client: Pick<SideChatApiClient, "subscribeActivity">) => {
+const renderActivity = (
+  client: Pick<SideChatApiClient, "subscribeActivity">,
+  onEvent?: (event: TurnActivityEvent) => void,
+) => {
   const ref: { current: ReadonlySet<string> } = { current: new Set() };
   const Probe = () => {
-    ref.current = useActivityStream({ client });
+    ref.current = useActivityStream({ client, onEvent });
     return null;
   };
   act(() => root.render(createElement(Probe)));
@@ -84,5 +87,25 @@ describe("useActivityStream", () => {
     await flush();
 
     expect(ref.current.size).toBe(0);
+  });
+
+  it("forwards every event to onEvent so a viewing tab can resume a turn", async () => {
+    const seen: Array<{ conversationId: string; status: string }> = [];
+    const client: Pick<SideChatApiClient, "subscribeActivity"> = {
+      subscribeActivity: () =>
+        Promise.resolve(
+          streamOf([activityEvent("c1", "running"), activityEvent("c1", "completed")]),
+        ),
+    };
+
+    renderActivity(client, (event) =>
+      seen.push({ conversationId: event.conversationId, status: event.status }),
+    );
+    await flush();
+
+    expect(seen).toEqual([
+      { conversationId: "c1", status: "running" },
+      { conversationId: "c1", status: "completed" },
+    ]);
   });
 });

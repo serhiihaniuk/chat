@@ -10,7 +10,7 @@ import {
   WidgetHeaderTitle,
   type WidgetEmptyStateSuggestion,
 } from "#features/conversation";
-import { ClosedWidgetLauncher, ResizablePanel, WidgetHeader } from "#features/panel";
+import { ClosedWidgetLauncher, ResizablePanel, useWidgetPanelSize, WidgetHeader } from "#features/panel";
 import { WidgetFooter } from "#features/prompt";
 import { SettingsView } from "#features/settings";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
@@ -73,6 +73,7 @@ const SideChatWidgetContent = ({
   onOpenChange,
   open,
   panelActions,
+  panelSizeStorageKey,
   quickActions = [],
   renderClosedLauncher = true,
   reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
@@ -82,7 +83,10 @@ const SideChatWidgetContent = ({
   const initialProfileId = resolveInitialProfileId(defaultTurnProfileId, turnProfiles);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [rememberedPanelSize, setRememberedPanelSize] = useState(defaultPanelSize);
+  const { panelSize, setPanelSize } = useWidgetPanelSize({
+    defaultPanelSize,
+    storageKey: panelSizeStorageKey,
+  });
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId);
   const isOpen = open ?? uncontrolledOpen;
   const requestOpenChange = (nextOpen: boolean) => {
@@ -125,8 +129,8 @@ const SideChatWidgetContent = ({
       anchor="fixed"
       aria-label={resolvedLabels.title}
       data-sidechat-accent={appearance.appearanceRootProps["data-sidechat-accent"]}
-      defaultSize={rememberedPanelSize}
-      onSizeChange={setRememberedPanelSize}
+      defaultSize={panelSize}
+      onSizeChange={setPanelSize}
       role="region"
       style={appearance.appearanceRootProps.style}
       theme={theme.themeId}

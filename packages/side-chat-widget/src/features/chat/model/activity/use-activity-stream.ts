@@ -13,6 +13,12 @@ type ActivityStreamInput = {
   readonly client: Pick<SideChatApiClient, "subscribeActivity">;
   /** Called on each successful (re)connect — refetch the list to close any gap. */
   readonly onConnected?: (() => void) | undefined;
+  /**
+   * Called for every snapshot/live activity event, after the running-set update.
+   * Lets a tab viewing the affected conversation resume a turn that started in
+   * another tab — the dot alone never pulls in the turn's content.
+   */
+  readonly onEvent?: ((event: TurnActivityEvent) => void) | undefined;
 };
 
 /**
@@ -27,6 +33,9 @@ type ActivityStreamInput = {
  * reconnect resets the set and re-reads the snapshot, so a turn that finished while
  * disconnected is not left stuck on), and tears down on unmount. A host whose
  * client lacks `subscribeActivity` simply gets an empty set (no dots).
+ *
+ * `onEvent` additionally forwards each event so a viewing tab can resume a turn
+ * started elsewhere; the running set itself stays the dot's only source.
  */
 export const useActivityStream = (input: ActivityStreamInput): ReadonlySet<string> => {
   const [runningIds, setRunningIds] = useState<ReadonlySet<string>>(emptySet);
@@ -37,8 +46,11 @@ export const useActivityStream = (input: ActivityStreamInput): ReadonlySet<strin
     const subscribe = inputRef.current.client.subscribeActivity;
     if (!subscribe) return;
 
-    const loop = startActivityLoop(subscribe, setRunningIds, () =>
-      inputRef.current.onConnected?.(),
+    const loop = startActivityLoop(
+      subscribe,
+      setRunningIds,
+      () => inputRef.current.onConnected?.(),
+      (event) => inputRef.current.onEvent?.(event),
     );
     const onVisible = (): void => {
       if (document.visibilityState === "visible") loop.reconnect();
@@ -69,6 +81,7 @@ const startActivityLoop = (
   subscribe: SubscribeActivity,
   setRunningIds: SetRunningIds,
   onConnected: () => void,
+  onEvent: (event: TurnActivityEvent) => void,
 ): ActivityLoop => {
   let active = true;
   let controller: AbortController | undefined;
@@ -82,6 +95,7 @@ const startActivityLoop = (
     for await (const event of events) {
       if (!active) return;
       setRunningIds((current) => applyActivity(current, event));
+      onEvent(event);
     }
   };
 
