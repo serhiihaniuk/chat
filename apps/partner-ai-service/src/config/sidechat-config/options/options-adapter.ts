@@ -178,12 +178,13 @@ const createPolicyConfig = (
 ): ServicePolicyConfig => {
   const mode = config.requestPolicy.mode;
   if (profile === SERVICE_PROFILES.DEVELOPMENT) {
-    if (mode === REQUEST_POLICY_MODES.CONFIGURED) {
-      throw new ServiceConfigError(
-        "Development sidechat.config.ts request policy supports allow_all or fail_closed only.",
-      );
-    }
-    return { profile, mode };
+    // The readable config is production-intended; development is a permissive local
+    // posture, so an entitlement-gated `configured` mode falls back to allow_all for
+    // local boot rather than failing. allow_all/fail_closed pass through unchanged.
+    return {
+      profile,
+      mode: mode === REQUEST_POLICY_MODES.CONFIGURED ? REQUEST_POLICY_MODES.ALLOW_ALL : mode,
+    };
   }
 
   if (mode === REQUEST_POLICY_MODES.ALLOW_ALL) {

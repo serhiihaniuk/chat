@@ -132,7 +132,7 @@ const sideChatConfig = defineSideChatConfig({
     availableGuards: [],
   },
   requestPolicy: {
-    mode: REQUEST_POLICY_MODES.ALLOW_ALL,
+    mode: REQUEST_POLICY_MODES.CONFIGURED,
     modelEntitlements: {
       modelIds: [
         PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MODEL_ID,
