@@ -2,7 +2,7 @@
 
 Read this when: you embed Side Chat into your own web app (the host) behind a dev proxy.
 Source of truth for: running the local servers for embedding, the dev proxy your app adds, the iframe markup, and the open/close handshake.
-Not source of truth for: the launcher's provider/database options (see [local-development.md](local-development.md)); widget/host-bridge architecture (see [../architecture/widget-and-host-integration.md](../architecture/widget-and-host-integration.md)); production host deployment.
+Not source of truth for: the launcher's provider/database options (see [local-development.md](local-development.md)); widget/host-bridge architecture (see [../architecture/widget-and-host-integration.md](../architecture/widget-and-host-integration.md)); declaring and handling host commands (see [../architecture/host-commands.md](../architecture/host-commands.md)); production host deployment.
 
 Side Chat renders as a same-origin iframe inside **your** app. Your app is the host: it owns the open/close button and the iframe element, and it proxies two path prefixes to the local Side Chat servers — `/side-chat-frame` to the widget UI and `/side-chat-api` to the backend service. The launcher starts those two servers; it does **not** start a host page, because your app is the host.
 
@@ -135,6 +135,10 @@ window.addEventListener("message", (event) => {
 ```
 
 `test-harness/widget-harness/public/workbench-embed.html` is a standalone reference implementation of this exact markup + handshake — copy from it if useful.
+
+## Host commands across the iframe
+
+To let the assistant act in your app (open a record, focus a panel), forward host commands with the same `postMessage` pattern as the open/close handshake: the iframe bridge posts `sidechat.widget.hostCommand`, your app performs the action and posts back `sidechat.widget.hostCommandResult` (matched by `commandId`). `workbench-embed.html` includes a worked example of the parent side. The full end-to-end pattern — declaring the command, both code sides, and a runnable demo — is owned by [../architecture/host-commands.md](../architecture/host-commands.md#embedding-via-iframe).
 
 > Token note: the local `authToken` is a dev bearer (the launcher prints it; the default is `local-compose-token`). Do not ship query-string tokens. A production host mints a short-lived frame session or relies on its own auth boundary. Keep real secrets out of markup and URLs.
 

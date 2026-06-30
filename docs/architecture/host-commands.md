@@ -130,11 +130,76 @@ Pass the bridge to the widget through the `hostBridge` prop:
 
 That is all the widget needs. When a `host_command` event arrives, the widget calls your `dispatchCommand` and folds the returned result into the assistant's activity timeline — `applied` shows as completed, anything else as failed. The contract and the exact fold-back rules are owned by [widget-and-host-integration.md](widget-and-host-integration.md) "Host bridge contract".
 
+This in-process prop works when the host page and the widget share one document. If you embed the widget in an **iframe**, the bridge cannot be a plain object passed across the boundary — see [Embedding via iframe](#embedding-via-iframe).
+
 ### 4. Trigger and test it
 
 The deterministic way to exercise the whole loop today is the harness mock stream. Its client emits an `open_resource` activity event on every turn ([mock-stream-client.ts](../../test-harness/widget-harness/src/clients/mock-stream-client.ts) `hostCommandEvent`), so a single message drives declare → dispatch → handle → result. Point your own command's event at the same builder to test it the same way.
 
 For a unit test, dispatch a hand-built event straight at the bridge and assert the result and the host-side effect — see the round-trip test in [widget-harness.test.ts](../../test-harness/widget-harness/src/app/widget-harness.test.ts) ("keeps host command results as harness-local records").
+
+## Embedding via iframe
+
+The `hostBridge` prop is consumed **inside** the widget. When you embed the widget in an iframe, the widget runs in the iframe's document while the host page is the **parent** window — so you cannot hand it a bridge object built in the parent. Instead, build the bridge inside the iframe and have it **forward** each command to the parent over `postMessage`; the parent performs the action and replies with the result.
+
+The round trip:
+
+1. The iframe bridge's `dispatchCommand` posts `{ type: "sidechat.widget.hostCommand", command }` to `window.parent`.
+2. The parent's `message` listener performs the host action and posts `{ type: "sidechat.widget.hostCommandResult", commandId, result }` back to the iframe.
+3. The iframe bridge matches the reply by `commandId` and resolves with a `HostCommandResult`. A missing reply times out, so the timeline never hangs.
+
+**Iframe side** — forward and await (worked example: [post-message-host-bridge.ts](../../test-harness/widget-harness/src/host/post-message-host-bridge.ts)):
+
+```ts
+const createPostMessageHostBridge = ({ context }) => ({
+  getContext: () => Promise.resolve(context),
+  dispatchCommand: (event) => {
+    const command = toHostCommand(event);
+    return new Promise((resolve) => {
+      const origin = window.location.origin;
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        controller.abort();
+        resolve(createCommandResult(command, { status: "timed_out", resultCode: "host_command_timeout" }));
+      }, 5000);
+      window.addEventListener("message", (message) => {
+        if (message.origin !== origin) return;                          // validate sender
+        const data = message.data;
+        if (data?.type !== "sidechat.widget.hostCommandResult") return;
+        if (data.commandId !== command.commandId) return;               // correlate reply
+        clearTimeout(timer);
+        controller.abort();
+        resolve(createCommandResult(command, data.result));
+      }, { signal: controller.signal });
+      window.parent.postMessage(
+        { type: "sidechat.widget.hostCommand", command },
+        origin,
+      );
+    });
+  },
+});
+```
+
+Pass it to the widget exactly like the in-process bridge: `<SideChatWidget hostBridge={createPostMessageHostBridge({ context })} />`. In the harness, `harness-app.tsx` selects this bridge whenever the widget is iframe-embedded (`openControl=host`).
+
+**Parent side** — perform the action and reply (worked example: [workbench-embed.html](../../test-harness/widget-harness/public/workbench-embed.html)):
+
+```js
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin) return;          // validate sender
+  if (event.data?.type !== "sidechat.widget.hostCommand") return;
+  const { commandId, commandName, payload } = event.data.command;
+  const result = performHostAction(commandName, payload);       // → { status, resultCode, data? }
+  frame.contentWindow.postMessage(
+    { type: "sidechat.widget.hostCommandResult", commandId, result },
+    window.location.origin,
+  );
+});
+```
+
+Three rules make this safe and reliable: **validate `event.origin`** on both sides, **correlate by `commandId`**, and **time out** when no reply arrives. `getContext` can ride the same channel if the parent owns page context; the example returns a static context for brevity.
+
+See it: with the harness running, open `http://127.0.0.1:5173/workbench-embed.html?mode=mock-stream&open=true&framePath=/`, then send a message in the iframe — the parent page's record list updates and the result folds back into the widget timeline. The proxy-based host setup (separate origins, `/side-chat-frame` + `/side-chat-api`) is in [../operations/embed-widget-iframe.md](../operations/embed-widget-iframe.md).
 
 ## How a host command is triggered
 

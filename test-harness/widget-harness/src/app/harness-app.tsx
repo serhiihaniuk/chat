@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 
 import { SideChatWidget, type SideChatWidgetProps } from "@side-chat/side-chat-widget";
 
-import { createHarnessHostBridge } from "#host/fake-host-bridge";
-import { createDemoHostSurface, type DemoHostSurface } from "#host/demo-host-surface";
+import { createHarnessHostBridge, createHarnessHostContext } from "#host/fake-host-bridge";
+import { createDemoHostSurface } from "#host/demo-host-surface";
+import { createPostMessageHostBridge } from "#host/post-message-host-bridge";
 import { DemoHostPanel } from "#app/demo-host-panel";
 import { createLocalServiceClient } from "#clients/local-service-client";
 import { createMockStreamClient } from "#clients/mock-stream-client";
@@ -78,7 +79,13 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
     return () => window.removeEventListener("message", receiveHostControl);
   }, [hostControlled]);
 
-  const props = createWidgetHarnessProps(config, demoHost);
+  // In standalone mode the host UI lives in this same app, so the bridge mutates
+  // it directly. Inside an iframe the host page is the parent window, so the
+  // bridge forwards each command across the boundary and awaits the reply.
+  const hostBridge = hostControlled
+    ? createPostMessageHostBridge({ context: createHarnessHostContext(config) })
+    : createHarnessHostBridge(config, demoHost);
+  const props = createWidgetHarnessProps(config, hostBridge);
   if (!hostControlled) {
     return createElement(
       "div",
@@ -106,9 +113,8 @@ const isSetOpenMessage = (message: unknown): message is WidgetHarnessSetOpenMess
 
 const createWidgetHarnessProps = (
   config: WidgetHarnessConfig,
-  surface: DemoHostSurface,
+  hostBridge: SideChatWidgetProps["hostBridge"],
 ): SideChatWidgetProps => {
-  const hostBridge = createHarnessHostBridge(config, surface);
   const client =
     config.mode === "local-service"
       ? createLocalServiceClient(config)
