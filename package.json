@@ -9,6 +9,7 @@
   ],
   "type": "module",
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "format": "oxfmt . --write",
     "format:check": "oxfmt . --check",
     "build": "tsc -b --pretty false",
