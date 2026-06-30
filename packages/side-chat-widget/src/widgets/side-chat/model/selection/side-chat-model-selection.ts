@@ -18,7 +18,7 @@ import {
   type ModelCatalogOption,
   type SideChatApiClient,
 } from "#entities/conversation";
-import type { SideChatWidgetTurnProfile } from "./side-chat-widget.types.js";
+import type { SideChatWidgetTurnProfile } from "../side-chat-widget.types.js";
 
 const WIDGET_REASONING_EFFORTS = [
   CHAT_REASONING_EFFORTS.LOW,

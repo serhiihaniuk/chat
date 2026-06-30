@@ -51,6 +51,36 @@ describe("parseChatStreamRequest", () => {
     });
   });
 
+  it("accepts a per-turn enabled tool-name selection", () => {
+    const request = parseChatStreamRequest({
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      requestId: "req_001",
+      message: { id: "msg_001", content: "Search the web" },
+      enabledToolNames: ["mock_web_search"],
+    });
+
+    expect(request.enabledToolNames).toEqual(["mock_web_search"]);
+  });
+
+  it("rejects a non-array or non-string enabled tool selection", () => {
+    expect(() =>
+      parseChatStreamRequest({
+        protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+        requestId: "req_001",
+        message: { id: "msg_001", content: "x" },
+        enabledToolNames: "mock_web_search",
+      }),
+    ).toThrow(ProtocolValidationError);
+    expect(() =>
+      parseChatStreamRequest({
+        protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+        requestId: "req_001",
+        message: { id: "msg_001", content: "x" },
+        enabledToolNames: [42],
+      }),
+    ).toThrow(ProtocolValidationError);
+  });
+
   it("keeps the generated schema in parity with model preferences", () => {
     const schema = readGeneratedSchema();
     const defs = readRecord(schema["$defs"], "$defs");

@@ -24,6 +24,7 @@ export type ComposerProps = {
   readonly defaultValue?: string;
   readonly disabled?: boolean;
   readonly modelSelector?: ReactNode;
+  readonly toolsMenu?: ReactNode;
   readonly onStop?: () => void;
   readonly onSubmit?: (messageText: string) => Promise<void> | void;
   readonly onValueChange?: (value: string) => void;
@@ -86,6 +87,7 @@ export function Composer({
   defaultValue = "",
   disabled = false,
   modelSelector,
+  toolsMenu,
   onStop,
   onSubmit,
   onValueChange,
@@ -99,6 +101,7 @@ export function Composer({
   const isBusy = isBusyStatus(status);
   const canSend = canSubmitText(text, disabled, isBusy);
   const selector = resolveModelSelector(modelSelector);
+  const tools = resolveToolsMenu(toolsMenu);
   const send = (): void => submitComposerText({ canSend, isBusy, onStop, onSubmit, setText, text });
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void =>
     submitOnEnter({ event, send, sendOnEnter });
@@ -117,7 +120,7 @@ export function Composer({
         value={text}
       />
       <div className="flex items-center gap-1.5 px-2 pb-2">
-        <ToolsMenu />
+        {tools}
         <ContextRing pct={contextPercent} />
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
           {selector}
@@ -167,6 +170,9 @@ const canSubmitText = (text: string, disabled: boolean, isBusy: boolean): boolea
 
 const resolveModelSelector = (modelSelector: ReactNode | undefined): ReactNode =>
   modelSelector === undefined ? <ModelSelector models={MODELS} /> : modelSelector;
+
+const resolveToolsMenu = (toolsMenu: ReactNode | undefined): ReactNode =>
+  toolsMenu === undefined ? <ToolsMenu /> : toolsMenu;
 
 const submitComposerText = ({
   canSend,

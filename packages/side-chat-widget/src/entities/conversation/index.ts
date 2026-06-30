@@ -13,6 +13,7 @@ export {
   useGetConversationHistory,
   useGetConversations,
   useGetModelCatalog,
+  useGetToolCatalog,
   useResetConversation,
   type RefreshConversations,
   type RefreshConversationsInput,
@@ -31,6 +32,8 @@ export {
   type ListConversationsResult,
   type ListModelsOptions,
   type ListModelsResult,
+  type ListToolsOptions,
+  type ListToolsResult,
   type ModelCatalogOption,
   type ModelCatalogReasoning,
   type ReadHistoryOptions,
@@ -45,5 +48,6 @@ export {
   type SideChatApiErrorCode,
   type SubscribeTurnOptions,
   type SubscribeTurnResult,
+  type ToolCatalogOption,
   type TurnStatusResult,
 } from "./api/side-chat-api.js";

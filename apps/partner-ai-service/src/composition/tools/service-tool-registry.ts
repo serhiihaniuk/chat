@@ -17,6 +17,8 @@ export type ServiceToolRegistration = {
   readonly defaultEnabled: boolean;
   /** Approval policy ids that gate this tool; reported in diagnostics. */
   readonly approvalPolicyIds: readonly string[];
+  /** Curated display label for the composer tools menu; humanized name when absent. */
+  readonly label?: string | undefined;
 };
 
 /** Secret-free tool summary exposed by service diagnostics. */
@@ -24,6 +26,20 @@ export type ServiceToolStatus = {
   readonly name: string;
   readonly defaultEnabled: boolean;
   readonly approvalPolicyIds: readonly string[];
+};
+
+/**
+ * One tool as the composer tools menu sees it, served by `GET /tools`.
+ *
+ * The label is the curated display name (humanized tool name when a
+ * registration omits one); `defaultEnabled` seeds the menu toggle. Approval and
+ * runtime detail stay out — this is a display catalog, not a policy surface.
+ */
+export type ServiceToolCatalogEntry = {
+  readonly name: string;
+  readonly label: string;
+  readonly description: string;
+  readonly defaultEnabled: boolean;
 };
 
 /** Tool registry status shape published by `/healthz` and `/readyz`. */
@@ -37,6 +53,8 @@ export type ServiceToolRegistry = {
   readonly runtimeTools: readonly RuntimeTool[];
   readonly defaultEnabledToolNames: readonly string[];
   readonly status: ServiceToolRegistryStatus;
+  /** Display catalog served by `GET /tools` for the composer tools menu. */
+  readonly catalog: readonly ServiceToolCatalogEntry[];
 };
 
 /** Composition-time failure raised when tool registrations are invalid. */
@@ -61,17 +79,20 @@ export const createServiceToolRegistration = ({
   runtimeTool,
   defaultEnabled = true,
   approvalPolicyIds = [],
+  label,
 }: {
   readonly capability: ToolCapability;
   readonly runtimeTool: RuntimeTool;
   readonly defaultEnabled?: boolean;
   readonly approvalPolicyIds?: readonly string[];
+  readonly label?: string | undefined;
 }): ServiceToolRegistration => ({
   name: runtimeTool.name,
   capability,
   runtimeTool,
   defaultEnabled,
   approvalPolicyIds,
+  label,
 });
 
 /**
@@ -96,6 +117,7 @@ export const createServiceToolRegistry = (
       .filter((registration) => registration.defaultEnabled)
       .map((registration) => registration.name),
     status: { tools: registrations.map(toToolStatus) },
+    catalog: registrations.map(toCatalogEntry),
   };
 };
 
@@ -124,3 +146,21 @@ const toToolStatus = (registration: ServiceToolRegistration): ServiceToolStatus 
   defaultEnabled: registration.defaultEnabled,
   approvalPolicyIds: registration.approvalPolicyIds,
 });
+
+const toCatalogEntry = (registration: ServiceToolRegistration): ServiceToolCatalogEntry => ({
+  name: registration.name,
+  label: registration.label ?? humanizeToolName(registration.name),
+  description: registration.capability.description,
+  defaultEnabled: registration.defaultEnabled,
+});
+
+// Fallback for a registration with no curated label: split the snake/kebab tool
+// name into words and title-case them (`mock_web_search` -> `Mock Web Search`).
+const humanizeToolName = (name: string): string => {
+  const words = name
+    .trim()
+    .split(/[\s_-]+/u)
+    .filter(Boolean);
+  if (words.length === 0) return name;
+  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+};

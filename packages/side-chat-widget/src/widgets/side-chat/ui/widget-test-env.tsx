@@ -111,17 +111,28 @@ export const clickButton = async (name: string): Promise<void> => {
   );
   if (!(button instanceof HTMLElement)) throw new Error(`Expected button ${name}.`);
   await act(async () => {
-    pressElement(button);
+    button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
+    button.click();
     await Promise.resolve();
   });
 };
 
-const pressElement = (element: HTMLElement): void => {
-  element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
-  element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
-  element.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true }));
-  element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
-  element.click();
+export const waitForButton = async (name: string): Promise<void> => {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const found = Array.from(document.querySelectorAll("button")).some(
+      (candidate) =>
+        candidate.getAttribute("aria-label") === name || candidate.textContent === name,
+    );
+    if (found) return;
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+  throw new Error(`Expected button ${name} to appear.`);
 };
 
 export const waitForText = async (text: string): Promise<void> => {
@@ -150,7 +161,7 @@ export const fakeClient = (
   overrides: Partial<
     Pick<
       SideChatApiClient,
-      "listConversations" | "listModels" | "readHistory" | "submitHostCommandResult"
+      "listConversations" | "listModels" | "listTools" | "readHistory" | "submitHostCommandResult"
     >
   > = {},
 ): SideChatApiClient => {

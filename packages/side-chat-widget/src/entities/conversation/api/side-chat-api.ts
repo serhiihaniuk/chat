@@ -10,6 +10,8 @@ export type {
   ListConversationsResult,
   ListModelsOptions,
   ListModelsResult,
+  ListToolsOptions,
+  ListToolsResult,
   ModelCatalogOption,
   ModelCatalogReasoning,
   ReadHistoryOptions,
@@ -23,6 +25,7 @@ export type {
   SideChatApiClientOptions,
   SubscribeTurnOptions,
   SubscribeTurnResult,
+  ToolCatalogOption,
   TurnStatusResult,
 } from "./client/side-chat-api-types.js";
 export {

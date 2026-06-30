@@ -28,7 +28,9 @@ export const buildModelTurnRequest = (
   modelId: turn.policyDecision.modelId,
   reasoning: turn.policyDecision.reasoning,
   messages: buildModelMessages(turn),
-  toolNames: turn.policyDecision.allowedToolNames,
+  // The runtime allowlist is the turn profile's tools, narrowed to the user's
+  // per-turn selection from the composer tools menu (request.enabledToolNames).
+  toolNames: gateToolNames(turn.policyDecision.allowedToolNames, input.request.enabledToolNames),
   toolScope: {
     hostAppId: input.hostAppId,
     workspaceId: turn.authContext.workspaceId,
@@ -41,6 +43,22 @@ export const buildModelTurnRequest = (
     hostCommands: input.request.hostCommands,
   },
 });
+
+/**
+ * Narrow the profile's tool allowlist to the user's per-turn selection.
+ *
+ * `enabledToolNames` absent → the profile default. Present → the intersection, so
+ * the composer menu can turn a profile tool off but never grant one the profile
+ * does not already allow (the profile stays the security upper bound).
+ */
+const gateToolNames = (
+  allowed: readonly string[],
+  enabled: readonly string[] | undefined,
+): readonly string[] => {
+  if (enabled === undefined) return allowed;
+  const enabledSet = new Set(enabled);
+  return allowed.filter((name) => enabledSet.has(name));
+};
 
 /**
  * Assemble the final model message list in deterministic order.

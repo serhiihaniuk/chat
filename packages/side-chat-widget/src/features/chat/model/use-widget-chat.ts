@@ -28,12 +28,14 @@ export const useWidgetChat = ({
   hostBridge,
   selectedProfileId,
   selectedModel,
+  enabledToolNames,
 }: {
   readonly client: SideChatApiClient;
   readonly conversationStorageKey: string | undefined;
   readonly hostBridge: WidgetHostBridge | undefined;
   readonly selectedModel: ChatModelPreference | undefined;
   readonly selectedProfileId: string | undefined;
+  readonly enabledToolNames: readonly string[] | undefined;
 }) => {
   const initialConversationStore = useRef(readWidgetConversationStore(conversationStorageKey));
   const [conversationId, setConversationId] = useState<string | undefined>(
@@ -144,6 +146,7 @@ export const useWidgetChat = ({
     conversationId,
     selectedProfileId,
     selectedModel,
+    enabledToolNames,
     status,
     visibleMessages,
     visibleMessagesRef,

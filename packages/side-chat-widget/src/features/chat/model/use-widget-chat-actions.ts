@@ -24,6 +24,7 @@ export type WidgetChatActionsInput = {
   readonly conversationId: string | undefined;
   readonly selectedProfileId: string | undefined;
   readonly selectedModel: ChatModelPreference | undefined;
+  readonly enabledToolNames: readonly string[] | undefined;
   readonly status: WidgetStatus;
   readonly visibleMessages: readonly WidgetMessage[];
   readonly visibleMessagesRef: MutableRefObject<readonly WidgetMessage[]>;
@@ -57,6 +58,7 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
     conversationId,
     selectedProfileId,
     selectedModel,
+    enabledToolNames,
     status,
     visibleMessages,
     visibleMessagesRef,
@@ -83,6 +85,7 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
           conversationId,
           hostContext,
           hostCommands,
+          enabledToolNames,
           message: messageText,
           messageId: ids.userMessageId,
           model: selectedModel,
@@ -96,6 +99,7 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
     [
       conversationId,
       controller,
+      enabledToolNames,
       hostBridge,
       pendingConversationTitleRef,
       selectedModel,

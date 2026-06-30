@@ -278,6 +278,52 @@ describe("createSideChatApiClient run flow", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://assistant.example.test/models");
   });
 
+  it("reads the backend tool catalog for the composer tools menu", async () => {
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(
+        Response.json({
+          protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+          tools: [
+            {
+              name: "mock_web_search",
+              label: "Mock web search",
+              description: "Search the web for recent or external information.",
+              defaultEnabled: true,
+            },
+          ],
+        }),
+      ),
+    );
+    const client = createSideChatApiClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    await expect(client.listTools?.()).resolves.toEqual({
+      tools: [
+        {
+          name: "mock_web_search",
+          label: "Mock web search",
+          description: "Search the web for recent or external information.",
+          defaultEnabled: true,
+        },
+      ],
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://assistant.example.test/tools");
+  });
+
+  it("rejects a malformed tool catalog payload", async () => {
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(Response.json({ tools: [{ name: "mock_web_search" }] })),
+    );
+    const client = createSideChatApiClient({
+      baseUrl: "https://assistant.example.test",
+      fetch: fetchMock,
+    });
+
+    await expect(client.listTools?.()).rejects.toThrow(/tools/i);
+  });
+
   it("lists conversations, reads history with activeTurn, resets history, and reads usage", async () => {
     const fetchMock = vi
       .fn<FetchLike>()

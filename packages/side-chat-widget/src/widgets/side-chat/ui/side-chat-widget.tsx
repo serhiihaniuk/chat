@@ -22,7 +22,8 @@ import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } from "lucide-react";
-import { useWidgetModelSelection } from "../model/side-chat-model-selection.js";
+import { useWidgetModelSelection } from "../model/selection/side-chat-model-selection.js";
+import { useWidgetToolSelection } from "../model/selection/side-chat-tool-selection.js";
 import { createSideChatWidgetQueryClient } from "../model/side-chat-query-client.js";
 import type { SideChatWidgetLabels, SideChatWidgetProps } from "../model/side-chat-widget.types.js";
 
@@ -106,12 +107,14 @@ const SideChatWidgetContent = ({
     selectedProfileId,
     setSelectedProfileId,
   });
+  const toolSelection = useWidgetToolSelection({ client });
   const chat = useWidgetChat({
     client,
     conversationStorageKey,
     hostBridge,
     selectedModel: modelSelection.selectedModel,
     selectedProfileId,
+    enabledToolNames: toolSelection.enabledToolNames,
   });
   const isBusy = isBusyStatus(chat.status);
   const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
@@ -223,11 +226,13 @@ const SideChatWidgetContent = ({
               onModelSelect={modelSelection.selectFooterModel}
               onReasoningEffortSelect={modelSelection.setSelectedReasoningEffort}
               onSubmitMessage={chat.submitMessage}
+              onToggleTool={toolSelection.toggleTool}
               reasoningEfforts={modelSelection.reasoningEfforts}
               selectedModelKey={modelSelection.selectedFooterModelKey}
               selectedReasoningEffort={modelSelection.selectedReasoningEffort}
               status={chat.status}
               stop={chat.stop}
+              tools={toolSelection.tools}
             />
           </div>
         </div>

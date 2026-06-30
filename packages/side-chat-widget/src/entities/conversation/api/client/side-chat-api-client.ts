@@ -2,6 +2,7 @@ import { SideChatApiError } from "../http/side-chat-api-error.js";
 import {
   listConversationsWithFetch,
   listModelsWithFetch,
+  listToolsWithFetch,
   readHistoryWithFetch,
   readUsageWithFetch,
   resetHistoryWithFetch,
@@ -78,9 +79,10 @@ const buildResourceMethods = (
   transport: FetchLike,
 ): Pick<
   SideChatApiClient,
-  "listModels" | "listConversations" | "readHistory" | "readUsage" | "resetHistory"
+  "listModels" | "listTools" | "listConversations" | "readHistory" | "readUsage" | "resetHistory"
 > => ({
   listModels: (modelOptions = {}) => listModelsWithFetch(options, modelOptions, transport),
+  listTools: (toolOptions = {}) => listToolsWithFetch(options, toolOptions, transport),
   listConversations: (listOptions = {}) =>
     listConversationsWithFetch(options, listOptions, transport),
   readHistory: (conversationId, readOptions = {}) =>

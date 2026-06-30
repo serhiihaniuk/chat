@@ -106,6 +106,34 @@ describe("buildModelTurnRequest", () => {
     expect(request.toolNames).toEqual(turn.policyDecision.allowedToolNames);
   });
 
+  it("narrows tool names to the per-turn enabled selection, intersecting the profile allowlist", () => {
+    const turn = createPreparedTurn();
+    const request = buildModelTurnRequest(
+      {
+        ...input,
+        request: {
+          ...input.request,
+          // An allowed tool plus a name the profile does not allow.
+          enabledToolNames: ["mock_web_search", "not_a_profile_tool"],
+        },
+      },
+      turn,
+    );
+
+    // The profile stays the security upper bound: the unlisted name is dropped.
+    expect(request.toolNames).toEqual(["mock_web_search"]);
+  });
+
+  it("disables every tool when the per-turn enabled selection is empty", () => {
+    const turn = createPreparedTurn();
+    const request = buildModelTurnRequest(
+      { ...input, request: { ...input.request, enabledToolNames: [] } },
+      turn,
+    );
+
+    expect(request.toolNames).toEqual([]);
+  });
+
   it("carries selected reasoning effort from the turn policy decision", () => {
     const turn = createPreparedTurn();
     const request = buildModelTurnRequest(input, {

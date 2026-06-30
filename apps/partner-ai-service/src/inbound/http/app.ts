@@ -30,6 +30,7 @@ import { registerChatTurnRoutes } from "./routes/chat/turns/chat-turns.js";
 import { registerChatUsageRoute } from "./routes/chat/chat-usage.js";
 import { registerHealthRoutes } from "./routes/health/health.js";
 import { registerModelsRoute } from "./routes/models/models.js";
+import { registerToolsRoute } from "./routes/tools/tools.js";
 
 const DEFAULT_WORKSPACE: WorkspaceRef = {
   tenantId: "tenant_local",
@@ -107,10 +108,12 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
   });
 
   app.use("/models", authContextMiddleware(authority), requireAuth());
+  app.use("/tools", authContextMiddleware(authority), requireAuth());
   app.use("/chat/*", authContextMiddleware(authority), requireAuth());
   app.use("/usage", authContextMiddleware(authority), requireAuth());
 
   registerModelsRoute(app, composition.policies, composition.diagnostics.providerRegistryStatus);
+  registerToolsRoute(app, composition.diagnostics.toolCatalog);
   registerChatHistoryRoutes(app, {
     repositories: composition.repositories,
     clock: composition.ports.clock,

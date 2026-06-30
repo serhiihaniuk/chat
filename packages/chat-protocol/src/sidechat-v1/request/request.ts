@@ -94,6 +94,8 @@ export type ChatStreamRequest = ProtocolEnvelope & {
   readonly message: ChatRequestMessage;
   readonly hostContext?: HostContext;
   readonly hostCommands?: readonly RequestHostCommand[];
+  /** Composer-selected tool subset; intersects the profile allowlist (absent = profile default, [] = no tools). */
+  readonly enabledToolNames?: readonly string[];
 };
 
 const REQUEST_FIELDS = [
@@ -105,6 +107,7 @@ const REQUEST_FIELDS = [
   "message",
   "hostContext",
   "hostCommands",
+  "enabledToolNames",
 ] as const;
 const MESSAGE_FIELDS = ["id", "content"] as const;
 const MODEL_FIELDS = ["providerId", "modelId", "reasoningEffort"] as const;
@@ -130,6 +133,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
     const model = parseOptionalModelPreference(input);
     const hostContext = parseOptionalHostContext(input);
     const hostCommands = parseOptionalHostCommands(input);
+    const enabledToolNames = parseOptionalEnabledToolNames(input);
 
     return omitUndefinedProperties({
       protocolVersion,
@@ -140,6 +144,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
       message,
       hostContext,
       hostCommands,
+      enabledToolNames,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "invalid request";
@@ -223,6 +228,18 @@ const parseHostCommand = (input: unknown): RequestHostCommand => {
   const description = requireString(input, "description", "request.hostCommands[]");
   const inputSchema = readRequiredJsonObject(input, "inputSchema", "request.hostCommands[]");
   return { commandName, description, inputSchema };
+};
+
+const parseOptionalEnabledToolNames = (
+  input: Record<string, unknown>,
+): readonly string[] | undefined => {
+  if (!Object.hasOwn(input, "enabledToolNames")) return undefined;
+  const value = input["enabledToolNames"];
+  if (!Array.isArray(value)) throw new Error("request.enabledToolNames must be an array");
+  return value.map((entry) => {
+    if (typeof entry === "string") return entry;
+    throw new Error("request.enabledToolNames must contain only strings");
+  });
 };
 
 const readRequiredJsonObject = (

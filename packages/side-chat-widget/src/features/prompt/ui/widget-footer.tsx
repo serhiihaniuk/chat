@@ -3,6 +3,7 @@ import { BrainCircuitIcon, GaugeIcon, SparklesIcon, type LucideIcon } from "luci
 import type { WidgetMessage, WidgetStatus } from "#entities/chat";
 import { Composer } from "#shared/ui/composer";
 import { ModelSelector, type Model, type ThinkingLevel } from "#shared/ui/model-selector";
+import { ToolsMenu, type ToolMenuItem } from "#shared/ui/tools-menu";
 import type { ChatReasoningEffort } from "@side-chat/chat-protocol";
 
 type WidgetFooterLabels = {
@@ -23,11 +24,13 @@ export const WidgetFooter = ({
   onModelSelect,
   onReasoningEffortSelect,
   onSubmitMessage,
+  onToggleTool,
   reasoningEfforts,
   selectedModelKey,
   selectedReasoningEffort,
   status,
   stop,
+  tools,
 }: {
   readonly isBusy: boolean;
   readonly labels: WidgetFooterLabels;
@@ -36,11 +39,13 @@ export const WidgetFooter = ({
   readonly onModelSelect: (modelKey: string) => void;
   readonly onReasoningEffortSelect: (effort: ChatReasoningEffort) => void;
   readonly onSubmitMessage: (messageText: string) => Promise<void>;
+  readonly onToggleTool: (name: string) => void;
   readonly reasoningEfforts: readonly ChatReasoningEffort[];
   readonly selectedModelKey: string | undefined;
   readonly selectedReasoningEffort: ChatReasoningEffort | undefined;
   readonly status: WidgetStatus;
   readonly stop: () => void;
+  readonly tools: readonly ToolMenuItem[];
 }) => (
   <footer className="shrink-0 px-3 pb-3">
     <Composer
@@ -64,6 +69,7 @@ export const WidgetFooter = ({
       placeholder={labels.placeholder}
       sendLabel={labels.send}
       status={status}
+      toolsMenu={tools.length > 0 ? <ToolsMenu tools={tools} onToggleTool={onToggleTool} /> : null}
     />
   </footer>
 );

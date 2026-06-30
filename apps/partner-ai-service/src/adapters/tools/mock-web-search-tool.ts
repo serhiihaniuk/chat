@@ -9,6 +9,7 @@ import {
 
 export const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
 export const MOCK_WEB_SEARCH_TOOL_NAME = "mock_web_search";
+export const MOCK_WEB_SEARCH_TOOL_LABEL = "Mock web search";
 export const MOCK_WEB_SEARCH_TOOL_DESCRIPTION =
   "Search the web for recent or external information. Use this when the user asks to search, look up current information, or find sources outside the conversation.";
 export const MOCK_WEB_SEARCH_INPUT_SCHEMA = {
@@ -67,11 +68,13 @@ export const createMockWebSearchRegistration = ({
   description = MOCK_WEB_SEARCH_TOOL_DESCRIPTION,
   defaultEnabled = true,
   approvalPolicyIds = [],
+  label = MOCK_WEB_SEARCH_TOOL_LABEL,
 }: {
   readonly delayMs?: number;
   readonly description?: string;
   readonly defaultEnabled?: boolean;
   readonly approvalPolicyIds?: readonly string[];
+  readonly label?: string;
 } = {}): ServiceToolRegistration => {
   const runtimeTool = createMockWebSearchTool({ delayMs, description });
   return createServiceToolRegistration({
@@ -83,6 +86,7 @@ export const createMockWebSearchRegistration = ({
     runtimeTool,
     defaultEnabled,
     approvalPolicyIds,
+    label,
   });
 };
 

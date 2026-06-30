@@ -72,4 +72,34 @@ describe("createServiceToolRegistry", () => {
       { name: "create", defaultEnabled: false, approvalPolicyIds: ["create_requires_approval"] },
     ]);
   });
+
+  it("builds a display catalog, preferring a curated label over a humanized fallback", () => {
+    const registry = createServiceToolRegistry([
+      createServiceToolRegistration({
+        capability: toolCapability("mock_web_search"),
+        runtimeTool: runtimeTool("mock_web_search"),
+        label: "Mock web search",
+      }),
+      createServiceToolRegistration({
+        capability: toolCapability("jira_search_issues"),
+        runtimeTool: runtimeTool("jira_search_issues"),
+        defaultEnabled: false,
+      }),
+    ]);
+
+    expect(registry.catalog).toEqual([
+      {
+        name: "mock_web_search",
+        label: "Mock web search",
+        description: "mock_web_search capability",
+        defaultEnabled: true,
+      },
+      {
+        name: "jira_search_issues",
+        label: "Jira Search Issues",
+        description: "jira_search_issues capability",
+        defaultEnabled: false,
+      },
+    ]);
+  });
 });

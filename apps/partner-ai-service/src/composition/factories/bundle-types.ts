@@ -21,7 +21,10 @@ import type {
 import type { SystemPromptBuilder } from "#composition/turn-profile/system-prompt-builder";
 import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
 import type { ServiceProviderRegistry } from "#composition/providers/service-provider-registry";
-import type { ServiceToolRegistry } from "#composition/tools/service-tool-registry";
+import type {
+  ServiceToolCatalogEntry,
+  ServiceToolRegistry,
+} from "#composition/tools/service-tool-registry";
 import type { PersistenceConfig } from "../service-composition-types.js";
 
 /**
@@ -108,6 +111,8 @@ export type ServiceDiagnostics = {
   readonly runtimeModelId: string;
   readonly providerRegistryStatus: ServiceProviderRegistry["status"];
   readonly toolRegistryStatus: ServiceToolRegistry["status"];
+  /** Display catalog served by `GET /tools` for the composer tools menu. */
+  readonly toolCatalog: readonly ServiceToolCatalogEntry[];
   readonly turnProfiles: readonly ServiceTurnProfile[];
   readonly persistenceLabel: "memory" | "postgres-drizzle";
 };

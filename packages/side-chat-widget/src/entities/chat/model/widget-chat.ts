@@ -26,6 +26,7 @@ export type WidgetChatRequestInput = {
   readonly conversationId: string | undefined;
   readonly hostContext: HostContext | undefined;
   readonly hostCommands?: readonly RequestHostCommand[] | undefined;
+  readonly enabledToolNames?: readonly string[] | undefined;
   readonly message: string;
   readonly messageId: string;
   readonly model?: ChatModelPreference | undefined;
@@ -38,6 +39,7 @@ export const createDefaultRequest = ({
   content,
   hostContext,
   hostCommands,
+  enabledToolNames,
   messageId,
   model,
   requestId,
@@ -47,6 +49,7 @@ export const createDefaultRequest = ({
   readonly content: string;
   readonly hostContext?: HostContext | undefined;
   readonly hostCommands?: readonly RequestHostCommand[] | undefined;
+  readonly enabledToolNames?: readonly string[] | undefined;
   readonly messageId: string;
   readonly model?: ChatModelPreference | undefined;
   readonly requestId: string;
@@ -63,6 +66,7 @@ export const createDefaultRequest = ({
     },
     hostContext,
     hostCommands,
+    enabledToolNames,
   });
 
 export const createWidgetChatRequest = ({
@@ -70,6 +74,7 @@ export const createWidgetChatRequest = ({
   conversationId,
   hostContext,
   hostCommands,
+  enabledToolNames,
   message,
   messageId,
   model,
@@ -83,6 +88,7 @@ export const createWidgetChatRequest = ({
     conversationId,
     hostContext,
     hostCommands,
+    enabledToolNames,
     model,
   });
 

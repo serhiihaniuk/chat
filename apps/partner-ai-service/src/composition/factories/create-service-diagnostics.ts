@@ -29,6 +29,7 @@ export const createServiceDiagnostics = (input: ServiceDiagnosticsInput): Servic
   runtimeModelId: input.providers.defaultModelId,
   providerRegistryStatus: input.providers.registry.status,
   toolRegistryStatus: input.tools.registry.status,
+  toolCatalog: input.tools.registry.catalog,
   turnProfiles: input.turnProfiles.registry.serviceProfiles,
   persistenceLabel: input.persistence.persistenceLabel,
 });

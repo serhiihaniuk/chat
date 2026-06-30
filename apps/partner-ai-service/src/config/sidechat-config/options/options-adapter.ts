@@ -161,6 +161,7 @@ const createToolRegistrations = (
   const registrations = configuredTools.map((toolConfig) =>
     createMockWebSearchRegistration({
       description: toolConfig.modelPrompt.usageInstructions,
+      label: toolConfig.tool.LABEL,
       defaultEnabled: toolConfig.exposure.defaultMode === TOOL_DEFAULT_EXPOSURE.ENABLED,
       approvalPolicyIds: toolConfig.exposure.approvalPolicyIds,
       ...omitUndefinedProperties({

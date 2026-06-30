@@ -15,17 +15,21 @@ import type {
   ListConversationsResult,
   ListModelsOptions,
   ListModelsResult,
+  ListToolsOptions,
+  ListToolsResult,
   ReadHistoryOptions,
   ReadHistoryResult,
   ReadUsageOptions,
   ResetHistoryOptions,
   ResetHistoryResult,
   SideChatApiClientOptions,
+  ToolCatalogOption,
 } from "../client/side-chat-api-types.js";
 
 const DEFAULT_HISTORY_PATH = "/chat/history";
 const DEFAULT_CONVERSATIONS_PATH = "/chat/conversations";
 const DEFAULT_MODELS_PATH = "/models";
+const DEFAULT_TOOLS_PATH = "/tools";
 const DEFAULT_USAGE_PATH = "/usage";
 
 export const listConversationsWithFetch = async (
@@ -61,6 +65,20 @@ export const listModelsWithFetch = async (
   );
   if (!response.ok) throw createHttpError(response.status, 1);
   return normalizeModelCatalog(await readJson(response, "models"));
+};
+
+export const listToolsWithFetch = async (
+  clientOptions: SideChatApiClientOptions,
+  options: ListToolsOptions,
+  transport: FetchLike,
+): Promise<ListToolsResult> => {
+  assertNotAborted(options.signal);
+  const response = await transport(
+    buildPathUrl(clientOptions.baseUrl, clientOptions.toolsPath ?? DEFAULT_TOOLS_PATH),
+    withSignal(options.signal),
+  );
+  if (!response.ok) throw createHttpError(response.status, 1);
+  return normalizeToolCatalog(await readJson(response, "tools"));
 };
 
 export const readHistoryWithFetch = async (
@@ -156,6 +174,31 @@ const normalizeActiveTurn = (payload: unknown): ReadHistoryResult["activeTurn"] 
     throw new SideChatApiError("network_error", "Malformed history response");
   }
   return { assistantTurnId: payload["assistantTurnId"], status: payload["status"] };
+};
+
+const normalizeToolCatalog = (payload: unknown): ListToolsResult => {
+  if (!isRecord(payload) || !Array.isArray(payload["tools"])) {
+    throw new SideChatApiError("network_error", "Malformed tools response");
+  }
+  return { tools: payload["tools"].map(normalizeToolOption) };
+};
+
+const normalizeToolOption = (payload: unknown): ToolCatalogOption => {
+  if (
+    !isRecord(payload) ||
+    typeof payload["name"] !== "string" ||
+    typeof payload["label"] !== "string" ||
+    typeof payload["description"] !== "string" ||
+    typeof payload["defaultEnabled"] !== "boolean"
+  ) {
+    throw new SideChatApiError("network_error", "Malformed tools response");
+  }
+  return {
+    name: payload["name"],
+    label: payload["label"],
+    description: payload["description"],
+    defaultEnabled: payload["defaultEnabled"],
+  };
 };
 
 const normalizeConversationList = (payload: unknown): ListConversationsResult => {

@@ -37,6 +37,7 @@ export type SideChatApiClientOptions = {
   readonly conversationsPath?: string | undefined;
   readonly historyPath?: string | undefined;
   readonly modelsPath?: string | undefined;
+  readonly toolsPath?: string | undefined;
   readonly runsPath?: string | undefined;
   readonly turnsPath?: string | undefined;
   readonly activityPath?: string | undefined;
@@ -190,6 +191,24 @@ export type ListModelsOptions = {
   readonly signal?: AbortSignal | undefined;
 };
 
+/** One backend tool the model can call, as the composer tools menu sees it. */
+export type ToolCatalogOption = {
+  readonly name: string;
+  readonly label: string;
+  readonly description: string;
+  /** Whether the active turn profile enables this tool by default. */
+  readonly defaultEnabled: boolean;
+};
+
+export type ListToolsResult = {
+  readonly tools: readonly ToolCatalogOption[];
+};
+
+/** Cancellation control for reading the backend tool catalog. */
+export type ListToolsOptions = {
+  readonly signal?: AbortSignal | undefined;
+};
+
 /**
  * Active turn pointer the server returns alongside a conversation history read.
  *
@@ -235,6 +254,8 @@ export type ReadUsageOptions = {
  */
 export type SideChatApiClient = {
   readonly listModels?: ((options?: ListModelsOptions) => Promise<ListModelsResult>) | undefined;
+  /** Read the backend tool catalog for the composer tools menu. Optional. */
+  readonly listTools?: ((options?: ListToolsOptions) => Promise<ListToolsResult>) | undefined;
   readonly listConversations?:
     | ((options?: ListConversationsOptions) => Promise<ListConversationsResult>)
     | undefined;
