@@ -10,7 +10,6 @@ import {
   SIDECHAT_EVENT_TYPES,
   SIDECHAT_PROTOCOL_VERSION,
   isTerminalEvent,
-  parseSidechatStreamEvent,
   type ChatStreamRequest,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
@@ -18,10 +17,9 @@ import {
   createMemorySidechatRepositories,
   type AssistantTurnRecord,
   type MemorySidechatRepositories,
-  type TurnEventRecord,
 } from "@side-chat/db";
-import type { AuthContext, WorkspaceRef } from "@side-chat/partner-ai-core";
-import { Stream } from "effect";
+import type { AuthContext, TurnEventLogPort, WorkspaceRef } from "@side-chat/partner-ai-core";
+import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { composePartnerAiService, type ResumabilityConfig } from "#composition/service-composition";
@@ -57,12 +55,12 @@ describe("server-owned turn runner", () => {
     await harness.runner.awaitTurn(started.assistantTurnId);
 
     // Every post-start event was appended to the durable log, ending in completed.
-    const events = await readTurnEvents(harness.repositories, started.assistantTurnId);
+    const events = await readTurnEvents(harness.turnEventLog, started.assistantTurnId);
     expect(events.map((event) => event.type)).toEqual([
-      "started",
-      "activity",
-      "delta",
-      "completed",
+      SIDECHAT_EVENT_TYPES.STARTED,
+      SIDECHAT_EVENT_TYPES.ACTIVITY,
+      SIDECHAT_EVENT_TYPES.DELTA,
+      SIDECHAT_EVENT_TYPES.COMPLETED,
     ]);
     expect(events.map((event) => event.sequence)).toEqual([0, 1, 2, 3]);
     expect(events.filter((event) => isTerminalEvent(eventOf(event)))).toHaveLength(1);
@@ -90,17 +88,17 @@ describe("server-owned turn runner", () => {
     // lands mid-stream; the synthetic terminal then sits after them, not at 0.
     await expect
       .poll(() =>
-        readTurnEvents(harness.repositories, started.assistantTurnId).then((e) => e.length),
+        readTurnEvents(harness.turnEventLog, started.assistantTurnId).then((e) => e.length),
       )
       .toBeGreaterThanOrEqual(2);
     await harness.runner.interruptTurn(started.assistantTurnId);
     await harness.runner.awaitTurn(started.assistantTurnId);
 
-    const events = await readTurnEvents(harness.repositories, started.assistantTurnId);
+    const events = await readTurnEvents(harness.turnEventLog, started.assistantTurnId);
     const terminals = events.filter((event) => isTerminalEvent(eventOf(event)));
     expect(terminals).toHaveLength(1);
     const terminal = requireOnly(terminals);
-    expect(terminal.type).toBe("error");
+    expect(terminal.type).toBe(SIDECHAT_EVENT_TYPES.ERROR);
     expect(eventOf(terminal)).toMatchObject({
       type: SIDECHAT_EVENT_TYPES.ERROR,
       code: PROTOCOL_ERROR_CODES.TIMEOUT,
@@ -149,7 +147,7 @@ describe("server-owned turn runner", () => {
     // The replay did not fork a second generation, so the durable log keeps the
     // single completed run with no duplicate terminal and exactly one main
     // generation runtime call (the conversation-title job is excluded).
-    const events = await readTurnEvents(harness.repositories, first.assistantTurnId);
+    const events = await readTurnEvents(harness.turnEventLog, first.assistantTurnId);
     expect(events.filter((event) => isTerminalEvent(eventOf(event)))).toHaveLength(1);
     expect(mainGenerationRequests(harness.runtimeRequests)).toHaveLength(1);
   });
@@ -172,7 +170,7 @@ describe("server-owned turn runner", () => {
     await expect
       .poll(() => requireTurn(harness.repositories, started.assistantTurnId).status)
       .toBe("provider_failed");
-    const events = await readTurnEvents(harness.repositories, started.assistantTurnId);
+    const events = await readTurnEvents(harness.turnEventLog, started.assistantTurnId);
     expect(events.filter((event) => isTerminalEvent(eventOf(event)))).toHaveLength(1);
   });
 
@@ -231,7 +229,7 @@ describe("server-owned turn runner", () => {
     await expect
       .poll(() => requireTurn(harness.repositories, started.assistantTurnId).status)
       .toBe("provider_failed");
-    const events = await readTurnEvents(harness.repositories, started.assistantTurnId);
+    const events = await readTurnEvents(harness.turnEventLog, started.assistantTurnId);
     const terminals = events.filter((event) => isTerminalEvent(eventOf(event)));
     expect(terminals).toHaveLength(1);
     expect(eventOf(requireOnly(terminals))).toMatchObject({
@@ -246,6 +244,8 @@ describe("server-owned turn runner", () => {
 type RunnerHarness = {
   readonly runner: TurnRunner;
   readonly repositories: MemorySidechatRepositories;
+  /** The in-memory registry the runner emits to; tests read live events from it. */
+  readonly turnEventLog: TurnEventLogPort;
   readonly runtimeRequests: readonly AiRuntimeRequest[];
   /** Stop every composed background owner (runner, reaper, listeners) for cleanup. */
   readonly shutdown: () => Promise<void>;
@@ -268,6 +268,7 @@ const createRunnerHarness = ({ runtime, resumability }: HarnessOptions = {}): Ru
   return {
     runner: composition.turnRunner,
     repositories,
+    turnEventLog: composition.ports.turnEventLog,
     runtimeRequests,
     shutdown: composition.shutdown,
   };
@@ -359,14 +360,12 @@ const completedRuntimeEvents = (request: AiRuntimeRequest): readonly RuntimeEven
 ];
 
 const readTurnEvents = (
-  repositories: MemorySidechatRepositories,
+  turnEventLog: TurnEventLogPort,
   assistantTurnId: string,
-): Promise<readonly TurnEventRecord[]> =>
-  repositories.readTurnEventsAfter({
-    workspaceId: WORKSPACE.workspaceId,
-    assistantTurnId,
-    after: -1,
-  });
+): Promise<readonly SidechatStreamEvent[]> =>
+  Effect.runPromise(
+    turnEventLog.readEventsAfter({ authContext: AUTH_CONTEXT, assistantTurnId, after: -1 }),
+  );
 
 // The durable assistant-turn record is read from the memory store snapshot,
 // since the repository contract exposes no by-id turn read.
@@ -390,7 +389,7 @@ const mainGenerationRequests = (
 
 // Narrow a single-element terminal slice to its sole record so its event can be
 // asserted without an index-access undefined under noUncheckedIndexedAccess.
-const requireOnly = (records: readonly TurnEventRecord[]): TurnEventRecord => {
+const requireOnly = (records: readonly SidechatStreamEvent[]): SidechatStreamEvent => {
   const [only] = records;
   if (!only) throw new Error("Expected exactly one terminal event.");
   return only;
@@ -399,10 +398,11 @@ const requireOnly = (records: readonly TurnEventRecord[]): TurnEventRecord => {
 // Decode the stored protocol-free payload back into the typed event the way the
 // persistence adapter does, so assertions read the same rehydrated union the
 // runner would hand a subscriber.
-const eventOf = (record: TurnEventRecord): SidechatStreamEvent =>
-  parseSidechatStreamEvent(record.payloadJson);
+// The in-memory registry returns parsed stream events directly (the durable
+// turn_events record wrapper is gone), so eventOf is now the identity.
+const eventOf = (event: SidechatStreamEvent): SidechatStreamEvent => event;
 
-const lastNonTerminalSequence = (events: readonly TurnEventRecord[]): number =>
+const lastNonTerminalSequence = (events: readonly SidechatStreamEvent[]): number =>
   Math.max(
     ...events.filter((event) => !isTerminalEvent(eventOf(event))).map((event) => event.sequence),
   );

@@ -51,11 +51,6 @@ const ensureTurn = (turns: TurnRegistry, assistantTurnId: string): RunningTurn =
   return created;
 };
 
-const dropIfDone = (turns: TurnRegistry, assistantTurnId: string): void => {
-  const turn = turns.get(assistantTurnId);
-  if (turn && turn.terminal && turn.subscribers.size === 0) turns.delete(assistantTurnId);
-};
-
 const appendEventTo =
   (turns: TurnRegistry): InMemoryTurnEventLog["appendEvent"] =>
   ({ assistantTurnId, event }) =>
@@ -99,7 +94,9 @@ const subscribeTo =
               Effect.gen(function* () {
                 turn.subscribers.delete(queue);
                 yield* Queue.shutdown(queue);
-                dropIfDone(turns, input.assistantTurnId);
+                // The finished-turn buffer is intentionally NOT dropped here: a late
+                // re-subscribe can still replay it. sweepFinishedTurns reclaims it when
+                // the next turn starts, which is the connection-bound "grace" window.
               }),
             ),
         } satisfies TurnEventSubscription;
@@ -113,6 +110,7 @@ export const createInMemoryTurnEventLog = (): InMemoryTurnEventLog => {
     readEventsAfter: readEventsAfterFrom(turns),
     maxSequence: maxSequenceFrom(turns),
     subscribe: subscribeTo(turns),
+    hasTurn: (assistantTurnId) => turns.has(assistantTurnId),
     shutdown: () => {
       turns.clear();
       return Promise.resolve();

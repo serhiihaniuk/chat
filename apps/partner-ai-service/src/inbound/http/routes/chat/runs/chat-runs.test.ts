@@ -5,15 +5,19 @@ import {
   type AiRuntimeRequest,
   type RuntimeEvent,
 } from "@side-chat/ai-runtime-contract";
-import { SIDECHAT_PROTOCOL_VERSION, type ChatStreamRequest } from "@side-chat/chat-protocol";
+import {
+  SIDECHAT_EVENT_TYPES,
+  SIDECHAT_PROTOCOL_VERSION,
+  type ChatStreamRequest,
+} from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
 import { Stream } from "effect";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { createPartnerAiServiceApp } from "../../../app.js";
+import { readTurnStream } from "#testing/turn-stream/turn-stream-harness.test-support";
 
 const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
-const DEFAULT_WORKSPACE_ID = "workspace_local";
 
 const runRequest = (overrides: Partial<ChatStreamRequest> = {}): ChatStreamRequest => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -39,22 +43,17 @@ describe("POST /chat/runs", () => {
     expect(typeof body["assistantTurnId"]).toBe("string");
     expect(typeof body["conversationId"]).toBe("string");
 
-    // No SSE consumes the run, yet generation finishes server-side and persists
-    // every event plus a completed assistant turn.
+    // No SSE consumed the run while it generated, yet it finishes server-side and
+    // its events remain replayable from the in-memory registry: subscribing after
+    // the fact replays started..completed before the buffer is swept.
     const assistantTurnId = body["assistantTurnId"] as string;
-    await vi.waitFor(async () => {
-      const events = await harness.repositories.readTurnEventsAfter({
-        workspaceId: DEFAULT_WORKSPACE_ID,
-        assistantTurnId,
-        after: -1,
-      });
-      expect(events.map((event) => event.type)).toEqual([
-        "started",
-        "activity",
-        "delta",
-        "completed",
-      ]);
-    });
+    const events = await readTurnStream(harness.app, assistantTurnId);
+    expect(events.map((event) => event.type)).toEqual([
+      SIDECHAT_EVENT_TYPES.STARTED,
+      SIDECHAT_EVENT_TYPES.ACTIVITY,
+      SIDECHAT_EVENT_TYPES.DELTA,
+      SIDECHAT_EVENT_TYPES.COMPLETED,
+    ]);
 
     const turn = harness.repositories
       .snapshot()

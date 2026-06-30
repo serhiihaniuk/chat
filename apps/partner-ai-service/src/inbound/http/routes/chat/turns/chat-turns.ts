@@ -15,7 +15,6 @@ import { jsonError, replayExpiredError } from "../../../response/protocol-errors
 import { streamSseResponse } from "../../../response/sse.js";
 import { requireContextAuth } from "../../types.js";
 import {
-  isReplayExpired,
   isTerminalTurn,
   recordReplayOutcome,
   recordRunFinished,
@@ -86,11 +85,14 @@ export const registerChatTurnRoutes = (
     if (!turn) return notFoundTurn();
 
     const after = readReplayOffset(context.req.query("after"));
-    // A terminal turn whose log was pruned past `after` can no longer replay: return
-    // replay_expired before opening SSE so the widget falls back to history.
-    if (await isReplayExpired(dependencies, authContext, turn, after)) {
+    // Connection-bound streaming: a finished turn that is no longer buffered in the
+    // in-memory registry cannot be streamed, so return replay_expired before opening
+    // SSE and let the widget read the final answer from conversation history. A turn
+    // still in the registry (running, or recently finished and buffered) is replayed
+    // from its buffer and tailed.
+    if (isTerminalTurn(turn) && !dependencies.dispatcher.hasTurn(turn.assistantTurnId)) {
       recordReplayOutcome(dependencies, turn, "replay_expired", after);
-      return replayExpiredError("This turn's stream history is no longer available.");
+      return replayExpiredError("This turn has finished; read it from conversation history.");
     }
 
     recordReplayOutcome(dependencies, turn, "replay_served", after);

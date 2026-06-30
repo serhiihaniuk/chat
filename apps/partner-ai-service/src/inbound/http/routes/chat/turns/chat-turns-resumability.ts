@@ -1,10 +1,6 @@
 import { PROTOCOL_ERROR_CODES } from "@side-chat/chat-protocol";
 import type { AssistantTurnRecord, SidechatRepositories } from "@side-chat/db";
-import type {
-  AuthContext,
-  ObservabilitySinkPort,
-  StreamChatPorts,
-} from "@side-chat/partner-ai-core";
+import type { ObservabilitySinkPort, StreamChatPorts } from "@side-chat/partner-ai-core";
 
 import { emitResumableObservation } from "#inbound/turn-stream/turn-observability";
 
@@ -22,31 +18,6 @@ export type ChatTurnResumabilityDependencies = {
 
 /** Assistant-turn statuses that are no longer running (the durable run has ended). */
 export const isTerminalTurn = (turn: AssistantTurnRecord): boolean => turn.status !== "running";
-
-/**
- * Detect a pruned-log gap that makes replay impossible (resumable-streaming plan).
- *
- * A turn can only `replay_expired` once it is terminal: a running turn always has
- * its log and the tail will deliver new events. For a terminal turn there is a gap
- * when the smallest retained sequence is past `after + 1` — the next event the
- * subscriber needs was pruned (or the whole log is gone) — so it must fall back to
- * conversation history rather than open a stream that can never replay.
- */
-export const isReplayExpired = async (
-  dependencies: ChatTurnResumabilityDependencies,
-  authContext: AuthContext,
-  turn: AssistantTurnRecord,
-  after: number,
-): Promise<boolean> => {
-  if (!isTerminalTurn(turn)) return false;
-  const minSequence = await dependencies.repositories.minTurnEventSequence({
-    workspaceId: authContext.workspaceId,
-    assistantTurnId: turn.assistantTurnId,
-  });
-  // No rows left at all, or the smallest retained one is past the next needed
-  // sequence: either way the requested replay offset can no longer be served.
-  return minSequence === undefined || minSequence > after + 1;
-};
 
 /**
  * Record a replay outcome (served vs expired) with its offset and turn status.

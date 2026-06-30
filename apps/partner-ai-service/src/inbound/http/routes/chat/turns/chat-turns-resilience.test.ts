@@ -24,9 +24,6 @@ import {
 } from "#testing/turn-stream/turn-stream-harness.test-support";
 
 const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
-// A cutoff far in the future, so a completed turn is always outside retention when
-// the test prunes its log directly (the run completes at real-time `now`).
-const FAR_FUTURE = "2999-01-01T00:00:00.000Z";
 
 const runRequest = (overrides: Partial<ChatStreamRequest> = {}): ChatStreamRequest => ({
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -35,17 +32,24 @@ const runRequest = (overrides: Partial<ChatStreamRequest> = {}): ChatStreamReque
   ...overrides,
 });
 
+/** Run a second turn whose first event sweeps the finished first turn from the registry. */
+const sweepRegistry = (app: PartnerAiServiceApp): Promise<unknown> =>
+  runTurnStream(
+    app,
+    runRequest({
+      requestId: "request_resilience_sweep",
+      message: { id: "message_resilience_sweep", content: "second turn" },
+    }),
+  );
+
 describe("GET /chat/turns/:assistantTurnId/stream replay_expired", () => {
-  it("returns replay_expired (404 JSON) when a terminal turn's log was pruned past after", async () => {
+  it("returns replay_expired (404 JSON) when a finished turn is no longer buffered in the registry", async () => {
     const harness = createApp();
     const started = await runTurnStream(harness.app, runRequest());
 
-    // Prune the now-terminal turn's event log; the turn record survives.
-    const pruned = await harness.repositories.pruneTurnEventsBefore({
-      completedBefore: FAR_FUTURE,
-      limit: 10,
-    });
-    expect(pruned.prunedTurns).toBe(1);
+    // A second turn sweeps the finished first turn out of the in-memory registry;
+    // the turn record survives but its live buffer is gone.
+    await sweepRegistry(harness.app);
 
     const response = await harness.app.request(
       `/chat/turns/${started.assistantTurnId}/stream?after=-1`,
@@ -91,18 +95,15 @@ describe("GET /chat/turns/:assistantTurnId/stream replay_expired", () => {
 });
 
 describe("resumable lifecycle observability", () => {
-  it("records subscriber attach/detach, replay served, and run finished", async () => {
+  it("records replay served and run finished", async () => {
     const records: ObservabilityRecord[] = [];
     const harness = createApp({ observability: spySink(records) });
     const started = await runTurnStream(harness.app, runRequest());
 
     const states = lifecycleStates(records);
-    // A completed run replayed over SSE records: replay served, run finished, and a
-    // matched subscriber attach/detach pair.
+    // A completed run replayed over SSE records replay served and run finished.
     expect(states).toContain("replay_served");
     expect(states).toContain("run_finished");
-    expect(states).toContain("subscriber_attached");
-    expect(states).toContain("subscriber_detached");
 
     const runFinished = records.find((record) => record.lifecycleState === "run_finished");
     expect(runFinished).toMatchObject({
@@ -110,19 +111,13 @@ describe("resumable lifecycle observability", () => {
     });
     // Run duration is the durable startedAt -> completedAt span, so it is recorded.
     expect(runFinished?.latencyMs).toBeGreaterThanOrEqual(0);
-
-    const attached = records.find((record) => record.lifecycleState === "subscriber_attached");
-    expect(attached?.attributes).toMatchObject({ subscriberCount: 1 });
   });
 
-  it("records replay_expired when the pruned log can no longer replay", async () => {
+  it("records replay_expired when a finished turn is no longer buffered", async () => {
     const records: ObservabilityRecord[] = [];
     const harness = createApp({ observability: spySink(records) });
     const started = await runTurnStream(harness.app, runRequest());
-    await harness.repositories.pruneTurnEventsBefore({
-      completedBefore: FAR_FUTURE,
-      limit: 10,
-    });
+    await sweepRegistry(harness.app);
 
     await harness.app.request(`/chat/turns/${started.assistantTurnId}/stream?after=-1`, {
       headers: AUTH_HEADER,
