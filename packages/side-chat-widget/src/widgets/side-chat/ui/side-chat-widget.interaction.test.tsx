@@ -70,12 +70,21 @@ describe("SideChatWidget interactions", () => {
         resolvedAt: "2026-05-23T13:00:00.000Z",
       });
     };
-    const client = fakeClient(async function* () {
-      await Promise.resolve();
-      yield started();
-      yield hostCommandActivity();
-      yield completed();
-    });
+    const submittedResults: { commandId: string; result: unknown }[] = [];
+    const client = fakeClient(
+      async function* () {
+        await Promise.resolve();
+        yield started();
+        yield hostCommandActivity();
+        yield completed();
+      },
+      {
+        submitHostCommandResult: (input) => {
+          submittedResults.push({ commandId: input.commandId, result: input.result });
+          return Promise.resolve({ settled: true });
+        },
+      },
+    );
 
     renderWidget(
       client,
@@ -94,6 +103,12 @@ describe("SideChatWidget interactions", () => {
 
     await waitForText("Open resource");
     expect(dispatchCount).toBe(1);
+    // The dispatched result is posted back so the server's awaiting tool call resolves.
+    expect(submittedResults).toHaveLength(1);
+    expect(submittedResults[0]).toMatchObject({
+      commandId: "host-command-1",
+      result: { status: "applied", resultCode: "component_test_applied" },
+    });
   });
 
   it("cancels the live turn from the stop control", async () => {
@@ -219,7 +234,6 @@ describe("SideChatWidget interactions", () => {
       message: { content: "use the configured model" },
     });
   });
-
 });
 
 const renderWidget = (

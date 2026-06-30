@@ -2,6 +2,7 @@ import type {
   ChatReasoningEffort,
   ChatStreamRequest,
   HistoryMessage,
+  JsonObject,
   SidechatStreamEvent,
   TurnActivityEvent,
   UsageMetadata,
@@ -116,6 +117,18 @@ export type TurnStatusResult = {
 export type CancelTurnResult = {
   readonly assistantTurnId: string;
   readonly cancelRequested: boolean;
+};
+
+/** Input for posting a dispatched UI (host) tool result back to the server. */
+export type SubmitHostCommandResultInput = {
+  readonly assistantTurnId: string;
+  readonly commandId: string;
+  readonly result: JsonObject;
+};
+
+/** Acknowledgement after the server settles (or rejects) a host command result. */
+export type SubmitHostCommandResultResult = {
+  readonly settled: boolean;
 };
 
 /** Query controls for reading one stored conversation. */
@@ -249,6 +262,13 @@ export type SideChatApiClient = {
     assistantTurnId: string,
     options?: CreateRunOptions,
   ) => Promise<CancelTurnResult>;
+  /** Post a dispatched UI (host) tool result so the awaiting server tool call resolves. Optional. */
+  readonly submitHostCommandResult?:
+    | ((
+        input: SubmitHostCommandResultInput,
+        options?: CreateRunOptions,
+      ) => Promise<SubmitHostCommandResultResult>)
+    | undefined;
   /** Subject-scoped live turn lifecycle for sidebar "generating" dots. Optional. */
   readonly subscribeActivity?:
     | ((options?: SubscribeActivityOptions) => Promise<SubscribeActivityResult>)

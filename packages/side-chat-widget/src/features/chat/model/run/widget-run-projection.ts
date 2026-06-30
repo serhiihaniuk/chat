@@ -107,7 +107,7 @@ const mergeHostCommandResult = (
   };
 };
 
-const toHostCommandResultJson = (result: HostCommandResult): JsonObject =>
+export const toHostCommandResultJson = (result: HostCommandResult): JsonObject =>
   toJsonObject({
     commandId: result.commandId,
     commandName: result.commandName,

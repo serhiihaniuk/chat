@@ -10,7 +10,12 @@ import {
   WidgetHeaderTitle,
   type WidgetEmptyStateSuggestion,
 } from "#features/conversation";
-import { ClosedWidgetLauncher, ResizablePanel, useWidgetPanelSize, WidgetHeader } from "#features/panel";
+import {
+  ClosedWidgetLauncher,
+  ResizablePanel,
+  useWidgetPanelSize,
+  WidgetHeader,
+} from "#features/panel";
 import { WidgetFooter } from "#features/prompt";
 import { SettingsView } from "#features/settings";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
@@ -174,6 +179,7 @@ const SideChatWidgetContent = ({
               }}
               onNewConversation={chat.startNewConversation}
               onOpenSettings={() => setIsSettingsOpen(true)}
+              onRefresh={chat.refresh}
               title={
                 <>
                   <span className="sc-wide-slot min-w-0">

@@ -4,7 +4,11 @@ import { createCommandResult, createFailedResult, type HostBridge } from "@side-
 import { toErrorMessage, toJsonObject } from "#entities/chat";
 import { SideChatApiError, type SideChatApiClient } from "#entities/conversation";
 import { runErrorMessage } from "../run/widget-run-reducer.js";
-import { isHostCommandActivityEvent, toRunHostCommand } from "../run/widget-run-projection.js";
+import {
+  isHostCommandActivityEvent,
+  toHostCommandResultJson,
+  toRunHostCommand,
+} from "../run/widget-run-projection.js";
 import type { WidgetRunStore } from "../run/widget-run-store.js";
 
 type HostBridgeRef = Pick<HostBridge, "dispatchCommand"> | undefined;
@@ -74,6 +78,35 @@ const maybeDispatchHostCommand = async (
 
   const result = await dispatchHostCommand(input.hostBridge, event);
   input.store.dispatch(input.requestId, { type: "host-command-result", event, result });
+  await submitHostCommandResult(input, event.activityId, result);
+};
+
+/**
+ * Post the dispatched result back so the server's awaiting tool call resolves.
+ *
+ * Connection-bound round-trip: the server emitted this host_command while we are
+ * streaming, so it is awaiting our result. Best-effort — a failed post (the turn
+ * already timed out, or the connection dropped) leaves the server to time out and
+ * the model to adapt; the local timeline already shows the result.
+ */
+const submitHostCommandResult = async (
+  input: RunSubscriptionInput,
+  commandId: string,
+  result: Parameters<typeof toHostCommandResultJson>[0],
+): Promise<void> => {
+  if (!input.client.submitHostCommandResult) return;
+  try {
+    await input.client.submitHostCommandResult(
+      {
+        assistantTurnId: input.assistantTurnId,
+        commandId,
+        result: toHostCommandResultJson(result),
+      },
+      { signal: input.signal },
+    );
+  } catch {
+    // Swallowed by design: see the doc comment above.
+  }
 };
 
 const dispatchHostCommand = async (

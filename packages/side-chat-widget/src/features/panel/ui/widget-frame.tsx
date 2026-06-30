@@ -1,5 +1,5 @@
 import { Button, IconButton } from "#shared/ui/button";
-import { PlusIcon, SettingsIcon, XIcon } from "lucide-react";
+import { PlusIcon, RefreshCwIcon, SettingsIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 export const ClosedWidgetLauncher = ({
@@ -25,16 +25,29 @@ export const WidgetHeader = ({
   onNewConversation,
   newConversationDisabled = false,
   onOpenSettings,
+  onRefresh,
   title,
 }: {
   readonly onClose: () => void;
   readonly onNewConversation: () => void;
   readonly newConversationDisabled?: boolean | undefined;
   readonly onOpenSettings: () => void;
+  /** Manual catch-up: re-read the current conversation from the server. */
+  readonly onRefresh?: (() => void) | undefined;
   readonly title: ReactNode;
 }) => (
   <header className="sc-header">
     <div className="flex min-w-0 flex-1 items-center">{title}</div>
+    {onRefresh ? (
+      <IconButton
+        aria-label="Refresh conversation"
+        onClick={onRefresh}
+        title="Refresh"
+        type="button"
+      >
+        <RefreshCwIcon className="size-4" />
+      </IconButton>
+    ) : null}
     <IconButton aria-label="Settings" onClick={onOpenSettings} type="button">
       <SettingsIcon className="size-4" />
     </IconButton>

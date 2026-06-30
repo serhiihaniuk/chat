@@ -148,7 +148,10 @@ export const fakeClient = (
     request: ChatStreamRequest,
   ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
   overrides: Partial<
-    Pick<SideChatApiClient, "listConversations" | "listModels" | "readHistory">
+    Pick<
+      SideChatApiClient,
+      "listConversations" | "listModels" | "readHistory" | "submitHostCommandResult"
+    >
   > = {},
 ): SideChatApiClient => {
   // A counter keeps each created run's turn id distinct even though the test env

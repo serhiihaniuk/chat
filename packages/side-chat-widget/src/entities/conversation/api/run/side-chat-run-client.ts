@@ -11,6 +11,8 @@ import type {
   FetchLike,
   ResolveRunResult,
   SideChatApiClientOptions,
+  SubmitHostCommandResultInput,
+  SubmitHostCommandResultResult,
   TurnStatusResult,
 } from "../client/side-chat-api-types.js";
 
@@ -88,6 +90,27 @@ export const cancelTurnWithFetch = async (
   return normalizeCancelTurn(await readJson(response, "cancel turn"));
 };
 
+/** Post a dispatched UI (host) tool result so the awaiting server tool call resolves. */
+export const submitHostCommandResultWithFetch = async (
+  input: SubmitHostCommandResultInput,
+  clientOptions: SideChatApiClientOptions,
+  options: CreateRunOptions,
+  transport: FetchLike,
+): Promise<SubmitHostCommandResultResult> => {
+  assertNotAborted(options.signal);
+  const response = await transport(
+    hostCommandResultUrl(clientOptions, input.assistantTurnId, input.commandId),
+    omitUndefinedProperties({
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify(input.result),
+      signal: options.signal,
+    }),
+  );
+  if (!response.ok) throw createHttpError(response.status, 1);
+  return normalizeSubmitHostCommandResult(await readJson(response, "host command result"));
+};
+
 const requestCreateRun = (
   request: ChatStreamRequest,
   clientOptions: SideChatApiClientOptions,
@@ -125,6 +148,16 @@ const turnUrl = (options: SideChatApiClientOptions, assistantTurnId: string): UR
 
 const turnCancelUrl = (options: SideChatApiClientOptions, assistantTurnId: string): URL =>
   new URL(`${encodeURIComponent(assistantTurnId)}/cancel`, `${turnsBaseUrl(options)}/`);
+
+const hostCommandResultUrl = (
+  options: SideChatApiClientOptions,
+  assistantTurnId: string,
+  commandId: string,
+): URL =>
+  new URL(
+    `${encodeURIComponent(assistantTurnId)}/host-commands/${encodeURIComponent(commandId)}/result`,
+    `${turnsBaseUrl(options)}/`,
+  );
 
 const readJson = async (response: Response, route: string): Promise<unknown> => {
   try {
@@ -193,4 +226,11 @@ const normalizeCancelTurn = (payload: unknown): CancelTurnResult => {
     assistantTurnId: payload["assistantTurnId"],
     cancelRequested: payload["cancelRequested"],
   };
+};
+
+const normalizeSubmitHostCommandResult = (payload: unknown): SubmitHostCommandResultResult => {
+  if (!isRecord(payload) || typeof payload["settled"] !== "boolean") {
+    throw new SideChatApiError("network_error", "Malformed host command result response");
+  }
+  return { settled: payload["settled"] };
 };

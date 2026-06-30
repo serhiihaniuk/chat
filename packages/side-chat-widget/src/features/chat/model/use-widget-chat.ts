@@ -160,6 +160,11 @@ export const useWidgetChat = ({
     errorMessage: liveErrorMessage,
     isLoadingHistory,
     messages: visibleMessages,
+    // Manual catch-up: re-read the current conversation from the server (the header
+    // Refresh button), now that connection-bound streaming has no auto-resume.
+    refresh: () => {
+      refreshHistory(conversationId);
+    },
     retryLastMessage: actions.retryLastMessage,
     runningConversationIds,
     selectConversation: actions.selectConversation,
