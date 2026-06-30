@@ -24,7 +24,6 @@ import { createServiceSecurityPorts } from "./factories/create-service-security-
 import { createServiceToolBundle } from "./factories/create-service-tool-bundle.js";
 import { createStreamChatPorts } from "./factories/create-stream-chat-ports.js";
 import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
-import { createTurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import { createTurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
 import { resolveResumabilityConfig } from "./resumability-resolution.js";
@@ -181,19 +180,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     notificationSource: createActivityNotificationSource(persistence.persistence),
   });
 
-  // The reaper is the dead/slow-owner backstop: on a fixed cadence it
-  // terminalizes running turns whose lease expired (fencing the old owner) and
-  // appends one synthetic terminal each, so a crashed instance's turns still reach
-  // a durable terminal and close their subscribers.
-  const reaper = createTurnReaper({
-    repositories: persistence.repositories,
-    clock: streamChat.ports.clock,
-    ids: streamChat.ports.ids,
-    reaperIntervalMs: resumability.reaperIntervalMs,
-    batchLimit: resumability.reaperBatchLimit,
-    observability: options.observability,
-  });
-
   return {
     workspace: options.workspace,
     hostAppId: capabilities.manifest.hostAppId,
@@ -208,7 +194,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     hostCommandResolver,
     cancelDispatcher,
     activityDispatcher,
-    reaper,
     observability: options.observability,
     capabilities: capabilities.capabilityStatus,
     diagnostics: createServiceDiagnostics({
@@ -219,11 +204,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     }),
     safetyPollIntervalMs: resumability.safetyPollIntervalMs,
     // Interrupt generation first so its onExit finalizes each turn, then tear down
-    // the recurring reaper/pruner sweeps and the two LISTEN dispatchers.
+    // the two LISTEN dispatchers and the in-memory event registry.
     shutdown: async () => {
       await turnRunner.shutdown();
       await Promise.all([
-        reaper.shutdown(),
         cancelDispatcher.shutdown(),
         activityDispatcher.shutdown(),
         dispatcher.shutdown(),
