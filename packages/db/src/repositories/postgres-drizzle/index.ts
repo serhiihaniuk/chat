@@ -9,7 +9,6 @@ import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
 import { createPostgresTurnLeaseRepository } from "./records/turn-lease.js";
 import { createRandomIdGenerator } from "../repository-utils.js";
 
-export { createPostgresTurnEventNotificationSource } from "./notifications/turn-event-notification-source.js";
 export { createPostgresTurnCancelNotificationSource } from "./notifications/turn-cancel-notification-source.js";
 export { createPostgresTurnActivityNotificationSource } from "./notifications/turn-activity-notification-source.js";
 

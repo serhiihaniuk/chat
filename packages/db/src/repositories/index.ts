@@ -15,16 +15,9 @@ export {
   createPostgresDrizzleSidechatRepositories,
   createPostgresTurnActivityNotificationSource,
   createPostgresTurnCancelNotificationSource,
-  createPostgresTurnEventNotificationSource,
   type PostgresDrizzleRepositoryOptions,
   type PostgresDrizzleSidechatRepositories,
 } from "./postgres-drizzle/index.js";
-export {
-  NOOP_TURN_EVENT_NOTIFICATION_SOURCE,
-  parseTurnEventNotification,
-  type TurnEventNotification,
-  type TurnEventNotificationSource,
-} from "./notifications/turn-event-notifications.js";
 export {
   NOOP_TURN_CANCEL_NOTIFICATION_SOURCE,
   parseTurnCancelNotification,

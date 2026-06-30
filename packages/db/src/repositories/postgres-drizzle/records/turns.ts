@@ -12,13 +12,6 @@ import {
   toContextSnapshotRecord,
 } from "./records.js";
 import {
-  appendTurnEvent,
-  maxTurnEventSequence,
-  minTurnEventSequence,
-  pruneTurnEventsBefore,
-  readTurnEventsAfter,
-} from "./turn-events.js";
-import {
   findActiveAssistantTurn,
   findAssistantTurn,
   findAssistantTurnByRequest,
@@ -87,17 +80,12 @@ export const createPostgresDrizzleTurnRepository = ({
   ids,
 }: PostgresDrizzleRepositoryContext): Pick<
   SidechatRepositories,
-  | "appendTurnEvent"
   | "completeAssistantTurn"
   | "failAssistantTurn"
   | "findActiveAssistantTurn"
   | "findAssistantTurn"
   | "findAssistantTurnByRequest"
   | "listActiveAssistantTurns"
-  | "maxTurnEventSequence"
-  | "minTurnEventSequence"
-  | "pruneTurnEventsBefore"
-  | "readTurnEventsAfter"
   | "recordTurnContextSnapshot"
   | "recordUsage"
   | "readUsageSummary"
@@ -269,11 +257,6 @@ export const createPostgresDrizzleTurnRepository = ({
     );
   },
   requestTurnCancellation: requestTurnCancellation(db),
-  appendTurnEvent: appendTurnEvent(db),
-  readTurnEventsAfter: readTurnEventsAfter(db),
-  maxTurnEventSequence: maxTurnEventSequence(db),
-  minTurnEventSequence: minTurnEventSequence(db),
-  pruneTurnEventsBefore: pruneTurnEventsBefore(db),
   findAssistantTurn: findAssistantTurn(db),
   findAssistantTurnByRequest: findAssistantTurnByRequest(db),
   findActiveAssistantTurn: findActiveAssistantTurn(db),

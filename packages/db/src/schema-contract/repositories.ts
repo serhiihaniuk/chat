@@ -8,7 +8,6 @@ import type {
   HostCommandResultRecord,
   MessageRecord,
   ToolInvocationRecord,
-  TurnEventRecord,
   UsageRecord,
 } from "./entities.js";
 import type {
@@ -28,7 +27,6 @@ import type {
   UserMessageId,
   WorkspaceId,
 } from "./ids/persistence-ids.js";
-import type { TurnEventType } from "./lifecycle.js";
 
 export type IdempotencyKey = {
   readonly value: string;
@@ -167,50 +165,6 @@ export type ReapedTurn = {
   readonly leaseEpoch: number;
 };
 
-export type AppendTurnEventCommand = RepositoryCommandEnvelope & {
-  readonly assistantTurnId: AssistantTurnId;
-  readonly sequence: number;
-  readonly type: TurnEventType;
-  readonly payloadJson: JsonObject;
-};
-
-export type PruneTurnEventsCommand = {
-  /** Delete the event rows of terminal turns whose `completed_at` is before this instant. */
-  readonly completedBefore: string;
-  /** Upper bound on turns pruned per pass, so one sweep cannot run unbounded. */
-  readonly limit: number;
-};
-
-/**
- * Outcome of one turn_events retention sweep.
- *
- * `prunedTurns` is how many terminal turns had their event log deleted this pass;
- * `deletedEvents` is the total rows removed. The consolidated turn record and the
- * assistant message are never touched — only the now-redundant event log — so a
- * pruned turn still resolves and falls back to conversation history on resume.
- */
-export type PruneTurnEventsResult = {
-  readonly prunedTurns: number;
-  readonly deletedEvents: number;
-};
-
-export type MinTurnEventSequenceCommand = {
-  readonly workspaceId: WorkspaceId;
-  readonly assistantTurnId: AssistantTurnId;
-};
-
-export type ReadTurnEventsAfterCommand = {
-  readonly workspaceId: WorkspaceId;
-  readonly assistantTurnId: AssistantTurnId;
-  /** Exclusive lower bound; `-1` returns the whole log from sequence 0. */
-  readonly after: number;
-};
-
-export type MaxTurnEventSequenceCommand = {
-  readonly workspaceId: WorkspaceId;
-  readonly assistantTurnId: AssistantTurnId;
-};
-
 export type FindAssistantTurnCommand = {
   readonly workspaceId: WorkspaceId;
   readonly assistantTurnId: AssistantTurnId;
@@ -329,11 +283,6 @@ export type RepositoryCommandInput =
   | RequestTurnCancellationCommand
   | AcquireTurnLeaseCommand
   | RenewTurnLeaseCommand
-  | AppendTurnEventCommand
-  | ReadTurnEventsAfterCommand
-  | MaxTurnEventSequenceCommand
-  | MinTurnEventSequenceCommand
-  | PruneTurnEventsCommand
   | RecordUsageCommand
   | ReadUsageSummaryCommand
   | RecordToolInvocationCommand
@@ -403,31 +352,6 @@ export type AssistantTurnRepositoryContract = {
   // two concurrent sweeps cannot both reap a turn because the running-guard CAS
   // matches only once.
   readonly reapExpiredTurns: (command: ReapExpiredTurnsCommand) => Promise<readonly ReapedTurn[]>;
-  // Append one stream event and notify subscribers in one transaction. Idempotent
-  // on `(assistantTurnId, sequence)` (identical re-append returns `inserted:
-  // false`; a different payload rejects with `event_log_conflict`); at most one
-  // terminal-typed row per turn.
-  readonly appendTurnEvent: (
-    command: AppendTurnEventCommand,
-  ) => Promise<RepositoryCommandResult<TurnEventRecord>>;
-  readonly readTurnEventsAfter: (
-    command: ReadTurnEventsAfterCommand,
-  ) => Promise<readonly TurnEventRecord[]>;
-  readonly maxTurnEventSequence: (
-    command: MaxTurnEventSequenceCommand,
-  ) => Promise<number | undefined>;
-  // Smallest still-stored sequence for a turn, or `undefined` when none remain.
-  // The stream route reads it to spot a pruned gap (see `isReplayExpired`).
-  readonly minTurnEventSequence: (
-    command: MinTurnEventSequenceCommand,
-  ) => Promise<number | undefined>;
-  // Retention sweep: delete the turn_events of terminal turns completed before the
-  // cutoff, keeping the consolidated turn record and assistant message. Batched and
-  // safe to run on every instance; a pruned turn falls back to conversation history
-  // on resume. Returns how many turns and rows were pruned for diagnostics.
-  readonly pruneTurnEventsBefore: (
-    command: PruneTurnEventsCommand,
-  ) => Promise<PruneTurnEventsResult>;
   // Turn-record reads for the resumable routes, all workspace-scoped and
   // returning `undefined` (not throwing) for an unknown or cross-tenant id, so a
   // guessed id maps to a not-found response. `findActiveAssistantTurn` answers

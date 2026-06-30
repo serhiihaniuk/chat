@@ -1,4 +1,3 @@
-import type { JsonObject, JsonValue } from "@side-chat/shared";
 import type { RepositoryCommandResult } from "#schema-contract";
 import { randomUUID } from "node:crypto";
 import { DbRepositoryError } from "./errors.js";
@@ -36,26 +35,6 @@ export const one = <RecordType>(
   const row = rows[0];
   if (!row) throw new DbRepositoryError(code, message);
   return row;
-};
-
-/**
- * Compare two JSON values for the turn-event idempotency check.
- *
- * Object keys are ordered before serializing because a payload round-tripped
- * through JSONB may come back with reordered keys; without this an identical
- * re-append would look like a payload conflict. Arrays keep their order.
- */
-export const jsonValueEquals = (left: JsonValue, right: JsonValue): boolean =>
-  canonicalJson(left) === canonicalJson(right);
-
-const canonicalJson = (value: JsonValue): string => {
-  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  const object = value as JsonObject;
-  const entries = Object.keys(object)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key]!)}`);
-  return `{${entries.join(",")}}`;
 };
 
 export const createIdGenerator = (prefix: string) => {

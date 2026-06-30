@@ -48,49 +48,6 @@ export const HOST_COMMAND_RESULT_STATUSES = [
 export type HostCommandResultStatus = (typeof HOST_COMMAND_RESULT_STATUSES)[number];
 
 /**
- * Durable classifier for one persisted turn-event row.
- *
- * The row payload is the browser-facing stream event; this column is the
- * protocol-free type the persistence boundary checks and indexes on. The values
- * mirror the stream event kinds without the `sidechat.` transport prefix so the
- * `db` package never imports protocol DTOs (see package-boundaries.md).
- */
-export const TURN_EVENT_TYPES = [
-  "started",
-  "delta",
-  "activity",
-  "completed",
-  "error",
-  "blocked",
-  "history",
-] as const;
-export type TurnEventType = (typeof TURN_EVENT_TYPES)[number];
-
-/**
- * The turn-event types that close a turn.
- *
- * Exactly one terminal row may exist per turn; the partial unique index
- * `turn_events_one_terminal` enforces that across the normal stream, abnormal
- * finalize, and reaper append paths.
- */
-export const TURN_EVENT_TERMINAL_TYPES = ["completed", "error", "blocked"] as const;
-export type TurnEventTerminalType = (typeof TURN_EVENT_TERMINAL_TYPES)[number];
-
-const TURN_EVENT_TERMINAL_TYPE_SET = new Set<string>(TURN_EVENT_TERMINAL_TYPES);
-
-export const isTurnEventTerminalType = (type: string): type is TurnEventTerminalType =>
-  TURN_EVENT_TERMINAL_TYPE_SET.has(type);
-
-/**
- * Postgres `LISTEN/NOTIFY` channel the event-log append signals on.
- *
- * Single-sourced with the table so the per-instance listener (added in a later
- * step) subscribes to the exact channel `appendTurnEvent` notifies. The
- * `notifyChannel` config tunable defaults to this value.
- */
-export const TURN_EVENTS_NOTIFY_CHANNEL = "turn_events";
-
-/**
  * Postgres `LISTEN/NOTIFY` channel a durable cancel intent signals on.
  *
  * A cancel can land on any instance, but only the instance that owns the live
@@ -108,9 +65,8 @@ export const TURN_CANCEL_NOTIFY_CHANNEL = "turn_cancel";
  * A turn becoming `running` (start) or reaching a terminal status (finish) signals
  * this channel in the same transaction as the status write, so the per-instance
  * activity dispatcher can push a live "generating" indicator to every conversation
- * in a subject's sidebar — even chats the user is not viewing. Unlike
- * `TURN_EVENTS_NOTIFY_CHANNEL` (keyed only by `assistantTurnId`), the payload
- * carries the full scope `{ workspaceId, subjectId, conversationId, assistantTurnId,
- * status }` so the dispatcher fans out by subject without a per-signal read.
+ * in a subject's sidebar — even chats the user is not viewing. The payload carries
+ * the full scope `{ workspaceId, subjectId, conversationId, assistantTurnId, status }`
+ * so the dispatcher fans out by subject without a per-signal read.
  */
 export const TURN_ACTIVITY_NOTIFY_CHANNEL = "turn_activity";

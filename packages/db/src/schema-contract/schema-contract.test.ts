@@ -5,8 +5,6 @@ import {
   HOST_COMMAND_RESULT_STATUSES,
   SCHEMA_ENTITY_TYPES,
   TOOL_INVOCATION_STATUSES,
-  TURN_EVENT_TERMINAL_TYPES,
-  TURN_EVENT_TYPES,
   type ActorId,
   type CreateOrGetConversationCommand,
   type ConversationRecord,
@@ -54,20 +52,6 @@ describe("db schema contract", () => {
       "failed",
       "timed_out",
     ]);
-  });
-
-  it("classifies durable turn-event rows and their terminal subset", () => {
-    expect(TURN_EVENT_TYPES).toEqual([
-      "started",
-      "delta",
-      "activity",
-      "completed",
-      "error",
-      "blocked",
-      "history",
-    ]);
-    expect(TURN_EVENT_TERMINAL_TYPES).toEqual(["completed", "error", "blocked"]);
-    expect(TURN_EVENT_TYPES).toEqual(expect.arrayContaining([...TURN_EVENT_TERMINAL_TYPES]));
   });
 
   it("requires workspace scoped records and repository idempotency", () => {

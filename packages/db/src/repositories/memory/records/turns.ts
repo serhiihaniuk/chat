@@ -6,13 +6,6 @@ import {
 import { omitUndefinedProperties } from "@side-chat/shared";
 import { requireSubjectConversation, type MemoryRepositoryContext } from "./conversations.js";
 import {
-  appendMemoryTurnEvent,
-  maxMemoryTurnEventSequence,
-  minMemoryTurnEventSequence,
-  pruneMemoryTurnEvents,
-  readMemoryTurnEventsAfter,
-} from "./turn-events.js";
-import {
   findMemoryActiveAssistantTurn,
   findMemoryAssistantTurn,
   findMemoryAssistantTurnByRequest,
@@ -31,11 +24,6 @@ export const createMemoryAssistantTurnRepository = ({
   | "completeAssistantTurn"
   | "failAssistantTurn"
   | "requestTurnCancellation"
-  | "appendTurnEvent"
-  | "readTurnEventsAfter"
-  | "maxTurnEventSequence"
-  | "minTurnEventSequence"
-  | "pruneTurnEventsBefore"
   | "findAssistantTurn"
   | "findAssistantTurnByRequest"
   | "findActiveAssistantTurn"
@@ -46,11 +34,6 @@ export const createMemoryAssistantTurnRepository = ({
   completeAssistantTurn: completeMemoryAssistantTurn({ ids, store }),
   failAssistantTurn: failMemoryAssistantTurn({ ids, store }),
   requestTurnCancellation: requestMemoryTurnCancellation({ ids, store }),
-  appendTurnEvent: appendMemoryTurnEvent({ ids, store }),
-  readTurnEventsAfter: readMemoryTurnEventsAfter({ ids, store }),
-  maxTurnEventSequence: maxMemoryTurnEventSequence({ ids, store }),
-  minTurnEventSequence: minMemoryTurnEventSequence({ ids, store }),
-  pruneTurnEventsBefore: pruneMemoryTurnEvents({ ids, store }),
   findAssistantTurn: findMemoryAssistantTurn({ store }),
   findAssistantTurnByRequest: findMemoryAssistantTurnByRequest({ store }),
   findActiveAssistantTurn: findMemoryActiveAssistantTurn({ store }),

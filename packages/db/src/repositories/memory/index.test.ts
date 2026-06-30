@@ -4,9 +4,8 @@ import { REPOSITORY_ADAPTER_KINDS } from "../contract.js";
 import { createMemorySidechatRepositories } from "./index.js";
 import { conversationListRepositoryContract } from "#testing/conversation-list-contract.test-support";
 import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
-import { turnEventLogRepositoryContract } from "#testing/turn/turn-event-log-contract.test-support";
-import { turnEventRetentionContract } from "#testing/turn/turn-event-retention-contract.test-support";
 import { turnLeaseRepositoryContract } from "#testing/turn/turn-lease-contract.test-support";
+import { turnResolutionRepositoryContract } from "#testing/turn/turn-resolution-contract.test-support";
 
 sidechatRepositoryContract("memory sidechat repositories", () =>
   createMemorySidechatRepositories({ idPrefix: "test" }),
@@ -14,10 +13,7 @@ sidechatRepositoryContract("memory sidechat repositories", () =>
 conversationListRepositoryContract("memory sidechat repositories", () =>
   createMemorySidechatRepositories({ idPrefix: "test" }),
 );
-turnEventLogRepositoryContract("memory sidechat repositories", () =>
-  createMemorySidechatRepositories({ idPrefix: "test" }),
-);
-turnEventRetentionContract("memory sidechat repositories", () =>
+turnResolutionRepositoryContract("memory sidechat repositories", () =>
   createMemorySidechatRepositories({ idPrefix: "test" }),
 );
 turnLeaseRepositoryContract("memory sidechat repositories", () =>

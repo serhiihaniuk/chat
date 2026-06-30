@@ -3,9 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createPostgresDrizzleSidechatRepositories } from "./index.js";
 import { conversationListRepositoryContract } from "#testing/conversation-list-contract.test-support";
 import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
-import { turnEventLogRepositoryContract } from "#testing/turn/turn-event-log-contract.test-support";
-import { turnEventRetentionContract } from "#testing/turn/turn-event-retention-contract.test-support";
 import { turnLeaseRepositoryContract } from "#testing/turn/turn-lease-contract.test-support";
+import { turnResolutionRepositoryContract } from "#testing/turn/turn-resolution-contract.test-support";
 
 const databaseUrl = requireDatabaseUrl();
 
@@ -20,12 +19,7 @@ describe("postgres drizzle repositories", () => {
       connectionString: databaseUrl,
     }),
   );
-  turnEventLogRepositoryContract("postgres drizzle repositories", () =>
-    createPostgresDrizzleSidechatRepositories({
-      connectionString: databaseUrl,
-    }),
-  );
-  turnEventRetentionContract("postgres drizzle repositories", () =>
+  turnResolutionRepositoryContract("postgres drizzle repositories", () =>
     createPostgresDrizzleSidechatRepositories({
       connectionString: databaseUrl,
     }),

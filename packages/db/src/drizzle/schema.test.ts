@@ -24,7 +24,6 @@ describe("sidechat drizzle schema and migration", () => {
       "conversations",
       "messages",
       "assistantTurns",
-      "turnEvents",
       "turnContextSnapshots",
       "usageRecords",
       "toolInvocations",
@@ -37,17 +36,6 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).not.toMatch(/CREATE TYPE .* AS ENUM/u);
     expect(migration).toContain('"sidechat"."host_command_results"');
     expect(migration).toContain("status in ('active', 'archived', 'reset')");
-  });
-
-  it("creates the durable turn-event log with a single-terminal guard", () => {
-    expect(migration).toContain('"sidechat"."turn_events"');
-    expect(migration).toMatch(/PRIMARY KEY\s*\(\s*"assistant_turn_id"\s*,\s*"sequence"\s*\)/u);
-    expect(migration).toContain(
-      "type in ('started', 'delta', 'activity', 'completed', 'error', 'blocked', 'history')",
-    );
-    expect(migration).toMatch(
-      /CREATE UNIQUE INDEX "turn_events_one_terminal".*WHERE type in \('completed', 'error', 'blocked'\)/su,
-    );
   });
 
   it("adds resumable-streaming lease and cancel columns to assistant turns", () => {
