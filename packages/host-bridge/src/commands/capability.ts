@@ -17,6 +17,8 @@ export type HostCommand = {
 
 export type HostCommandCapability = {
   readonly commandName: string;
+  readonly description: string;
+  readonly inputSchema: JsonObject;
   readonly resourceTypes?: readonly string[] | undefined;
 };
 

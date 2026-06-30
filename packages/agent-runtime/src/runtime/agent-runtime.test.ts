@@ -1,6 +1,7 @@
 import { Stream } from "effect";
 import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import type { AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
+import type { HostCommandResolveRequest, HostCommandResolver } from "#tools/runtime-tool";
 import { describe, expect, it } from "vitest";
 import {
   createFakeProvider,
@@ -238,6 +239,66 @@ describe("createAgentRuntime", () => {
 
     expect(modelCalls[0]?.tools).toBeUndefined();
   });
+  it("calls a UI tool by awaiting the host result, then continues the turn", async () => {
+    const resolverCalls: HostCommandResolveRequest[] = [];
+    const hostCommandResolver: HostCommandResolver = {
+      awaitResult: (request) => {
+        resolverCalls.push(request);
+        return Promise.resolve({ status: "applied", data: { ok: true } });
+      },
+    };
+    const runtime = createAgentRuntime({
+      providers: [createFakeProvider()],
+      hostCommandResolver,
+    });
+
+    const events = await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          runtimeRequest({
+            providerId: FAKE_PROVIDER_ID,
+            modelId: FAKE_ECHO_MODEL_ID,
+            requestId: "req_host_command",
+            assistantTurnId: "turn_host_command",
+            messages: [{ role: "user", content: "open the acme customer record" }],
+            toolScope: {
+              hostAppId: "host_app_001",
+              workspaceId: "workspace_001",
+              subjectId: "subject_001",
+              conversationId: "conversation_001",
+              assistantTurnId: "turn_host_command",
+              hostCommands: [
+                {
+                  commandName: "open_resource",
+                  description: "Open a record in the host app.",
+                  inputSchema: { type: "object" },
+                },
+              ],
+            },
+          }),
+        ),
+      ),
+    );
+
+    // The runtime awaited the browser result for the model's UI tool call.
+    expect(resolverCalls).toHaveLength(1);
+    expect(resolverCalls[0]).toMatchObject({
+      commandName: "open_resource",
+      payload: { resourceType: "customer", resourceId: "customer-acme" },
+    });
+
+    // It also emitted the host_command activity the browser dispatches.
+    const hostCommand = events.find(
+      (event) => event.type === "runtime.activity" && event.activityKind === "host_command",
+    );
+    expect(hostCommand).toMatchObject({
+      activityKind: "host_command",
+      details: { hostCommand: { commandName: "open_resource" } },
+    });
+
+    // The model continued after the result and the turn completed.
+    expect(events.at(-1)?.type).toBe("runtime.completed");
+  });
 });
 
 const runtimeRequest = (overrides: Partial<AiRuntimeRequest> = {}): AiRuntimeRequest => ({
@@ -254,7 +315,6 @@ const runtimeRequest = (overrides: Partial<AiRuntimeRequest> = {}): AiRuntimeReq
     subjectId: "subject_001",
     conversationId: "conversation_001",
     assistantTurnId: "turn_default",
-    allowedHostCommandNames: [],
   },
   ...overrides,
 });

@@ -8,7 +8,7 @@ import {
 } from "@side-chat/ai-runtime-contract";
 
 import type { ModelProvider } from "#providers/model-provider";
-import type { RuntimeTool } from "#tools/runtime-tool";
+import type { HostCommandResolver, RuntimeTool } from "#tools/runtime-tool";
 import type { RuntimeProviderRequest } from "./turn/runtime-provider-request.js";
 import type {
   AgentExecutor,
@@ -45,6 +45,11 @@ export type AgentRuntimeOptions = {
    * `DEFAULT_OUTPUT_DELTA_FLUSH_MS` in the runner; `0` disables batching.
    */
   readonly flushIntervalMs?: number | undefined;
+  /**
+   * Awaits browser-side results for UI (host) tool calls. The service provides
+   * this; absent (e.g. title jobs) means host commands resolve as unsupported.
+   */
+  readonly hostCommandResolver?: HostCommandResolver | undefined;
 };
 
 type RuntimeExecution = {

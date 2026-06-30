@@ -68,7 +68,6 @@ describe("stream chat conversation title generation", () => {
         subjectId: "subject_001",
         conversationId: "conversation_001",
         assistantTurnId: "assistant_turn_001:conversation-title",
-        allowedHostCommandNames: [],
       },
     });
     expect(ports.preparedTitles[0]).toMatchObject({

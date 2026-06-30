@@ -101,7 +101,6 @@ describe("stream chat lifecycle and policy", () => {
         subjectId: "subject_001",
         conversationId: "conversation_001",
         assistantTurnId: "assistant_turn_001",
-        allowedHostCommandNames: [],
       },
       messages: [
         { role: "system", content: "Use concise analyst language." },

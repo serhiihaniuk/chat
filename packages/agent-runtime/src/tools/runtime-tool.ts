@@ -54,3 +54,30 @@ export type RuntimeTool = {
   readSources?: ((result: JsonObject) => readonly RuntimeActivitySource[]) | undefined;
   execute(input: JsonObject, context: RuntimeToolContext): RuntimeToolEffect;
 };
+
+/**
+ * One UI (host) tool call awaiting its browser-side result.
+ *
+ * `commandId` is the tool-call id, so a result can be correlated back to this
+ * exact call. The payload is the model's arguments.
+ */
+export type HostCommandResolveRequest = {
+  readonly assistantTurnId: string;
+  readonly commandId: string;
+  readonly commandName: string;
+  readonly payload: JsonObject;
+  readonly abortSignal?: AbortSignal | undefined;
+};
+
+/**
+ * Resolves a UI (host) tool call by awaiting the browser's result.
+ *
+ * A host command runs in the browser, so the runtime cannot execute it directly.
+ * The service implements this port: it correlates the dispatched command by id,
+ * waits for the browser to return a result, and resolves it back here. The model
+ * then receives the returned data and continues, exactly like a backend tool.
+ * The implementation owns the timeout so the tool loop never hangs forever.
+ */
+export type HostCommandResolver = {
+  readonly awaitResult: (request: HostCommandResolveRequest) => Promise<JsonObject>;
+};

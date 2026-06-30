@@ -180,6 +180,5 @@ const createRequest = (): RuntimeProviderRequest => ({
     subjectId: "subject_001",
     conversationId: "conversation_001",
     assistantTurnId: "turn_001",
-    allowedHostCommandNames: ["host.open_ticket_panel"],
   },
 });

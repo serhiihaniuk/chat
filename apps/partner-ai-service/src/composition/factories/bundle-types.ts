@@ -13,6 +13,7 @@ import type { SidechatRepositories } from "@side-chat/db";
 
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
+import type { InMemoryTurnEventLog } from "#adapters/persistence/turn-events/in-memory-turn-event-log";
 import type {
   TurnProfileRegistry,
   ServiceTurnProfile,
@@ -90,6 +91,8 @@ export type ServiceRuntimeBundle = {
 /** The final stream-chat ports object consumed by HTTP routes. */
 export type StreamChatPortsBundle = {
   readonly ports: StreamChatPorts;
+  /** The in-memory registry backing `ports.turnEventLog`, reused as the SSE dispatcher. */
+  readonly turnEventLog: InMemoryTurnEventLog;
 };
 
 /**

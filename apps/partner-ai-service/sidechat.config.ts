@@ -20,7 +20,6 @@ import {
 } from "#config/catalog/config-values";
 import { AUXILIARY_JOBS } from "#config/catalog/capabilities/auxiliary-jobs";
 import { EXECUTORS } from "#config/catalog/capabilities/executors";
-import { HOST_COMMANDS } from "#config/catalog/capabilities/host-commands";
 import { TOOLS } from "#config/catalog/capabilities/tools";
 import { PROVIDERS } from "#config/catalog/providers";
 import {
@@ -43,7 +42,7 @@ const sideChatConfig = defineSideChatConfig({
     authBearerToken: readEnv.secret(SERVICE_ENV_KEYS.authBearerToken, {
       description: "Trusted bearer token accepted by the production service auth adapter.",
     }),
-    databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.databaseUrl, {
+    databaseUrl: readEnv.optional(SERVICE_ENV_KEYS.databaseUrl, {
       description: "Postgres URL used by durable production persistence.",
     }),
     demoSeedConversations: readEnv.boolean(SERVICE_ENV_KEYS.demoSeedConversations, {
@@ -125,7 +124,7 @@ const sideChatConfig = defineSideChatConfig({
     ],
   },
   hostCommands: {
-    availableCommands: [HOST_COMMANDS.OPEN_RESOURCE],
+    availableCommands: [],
     approvalPolicies: [],
     activityRenderers: [],
   },
@@ -133,7 +132,7 @@ const sideChatConfig = defineSideChatConfig({
     availableGuards: [],
   },
   requestPolicy: {
-    mode: REQUEST_POLICY_MODES.CONFIGURED,
+    mode: REQUEST_POLICY_MODES.ALLOW_ALL,
     modelEntitlements: {
       modelIds: [
         PROVIDERS.OPENAI.MODELS.GPT_5_4_MINI.MODEL_ID,

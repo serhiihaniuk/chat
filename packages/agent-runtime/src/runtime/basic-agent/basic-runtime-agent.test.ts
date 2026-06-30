@@ -77,5 +77,4 @@ const basicToolScope = {
   subjectId: "subject_001",
   conversationId: "conversation_001",
   assistantTurnId: "turn_basic_agent",
-  allowedHostCommandNames: [],
 } as const;

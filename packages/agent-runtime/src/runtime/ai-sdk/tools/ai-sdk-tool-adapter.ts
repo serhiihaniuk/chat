@@ -1,6 +1,7 @@
 import { jsonSchema, tool as createAiTool, type ToolExecutionOptions, type ToolSet } from "ai";
+import type { AiHostCommandDescriptor } from "@side-chat/ai-runtime-contract";
 import type { JsonObject } from "@side-chat/shared";
-import type { RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
+import type { HostCommandResolver, RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 
 import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 import { toJsonObject } from "./json-value.js";
@@ -33,6 +34,65 @@ const toAiSdkTool = (runtimeTool: RuntimeTool, request: RuntimeProviderRequest) 
         toJsonObject(input),
         createRuntimeToolContext(runtimeTool, request, options),
       ),
+  });
+
+/**
+ * Tool result returned to the model when no resolver is wired.
+ *
+ * Round-trip host commands need a {@link HostCommandResolver} to await the
+ * browser's result. Without one the tool cannot run, so the model is told it is
+ * unsupported rather than left hanging.
+ */
+const HOST_COMMAND_UNRESOLVED_RESULT: JsonObject = {
+  status: "unsupported",
+  detail: "Host command resolution is not configured on this runtime.",
+};
+
+/**
+ * Expose the host-declared commands for this turn as model-callable tools.
+ *
+ * A UI tool runs in the browser, so `execute` does not run server logic: it asks
+ * the {@link HostCommandResolver} for the browser's result and returns it to the
+ * model, exactly like a backend tool returns its result. The stream mapper turns
+ * the call into a `host_command` activity the browser dispatches.
+ */
+export const createHostCommandToolSet = (
+  hostCommands: readonly AiHostCommandDescriptor[] | undefined,
+  request: RuntimeProviderRequest,
+  resolver: HostCommandResolver | undefined,
+): ToolSet | undefined => {
+  if (!hostCommands || hostCommands.length === 0) return undefined;
+  return Object.fromEntries(
+    hostCommands.map((command) => [
+      command.commandName,
+      toHostCommandTool(command, request, resolver),
+    ]),
+  ) as ToolSet;
+};
+
+/** Names of the host commands exposed this turn, for the stream mapper's branch. */
+export const hostCommandNameSet = (
+  hostCommands: readonly AiHostCommandDescriptor[] | undefined,
+): ReadonlySet<string> => new Set((hostCommands ?? []).map((command) => command.commandName));
+
+const toHostCommandTool = (
+  command: AiHostCommandDescriptor,
+  request: RuntimeProviderRequest,
+  resolver: HostCommandResolver | undefined,
+) =>
+  createAiTool<JsonObject, JsonObject>({
+    description: command.description,
+    inputSchema: jsonSchema<JsonObject>(command.inputSchema),
+    execute: (input, options) =>
+      resolver
+        ? resolver.awaitResult({
+            assistantTurnId: request.assistantTurnId,
+            commandId: options.toolCallId,
+            commandName: command.commandName,
+            payload: toJsonObject(input),
+            abortSignal: options.abortSignal,
+          })
+        : Promise.resolve(HOST_COMMAND_UNRESOLVED_RESULT),
   });
 
 /**

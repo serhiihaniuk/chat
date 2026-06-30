@@ -34,7 +34,6 @@ export const createConversationTitleRuntimeRequest = (
       subjectId: turn.authContext.subject.subjectId,
       conversationId: turn.conversation.conversationId,
       assistantTurnId,
-      allowedHostCommandNames: [],
     },
     abortSignal: input.abortSignal,
   };

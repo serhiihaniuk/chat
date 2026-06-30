@@ -52,6 +52,10 @@ export function ModelSelector(props: ModelSelectorProps): ReactElement {
   const { model, selectModel, selectThinking, thinking, thinkingDesc, thinkingLabel } =
     useModelSelectorState(props);
   const { models, thinkingLevels = THINKING_LEVELS } = props;
+  // A model with no reasoning efforts (a non-thinking model) gets an empty
+  // `thinkingLevels`, so the whole thinking affordance disappears instead of
+  // rendering an empty segmented control and a misleading "/ thinking" label.
+  const hasThinking = thinkingLevels.length > 0;
 
   return (
     <Combobox.Root
@@ -61,9 +65,10 @@ export function ModelSelector(props: ModelSelectorProps): ReactElement {
       onValueChange={selectModel}
       value={model}
     >
-      <ModelSelectorTrigger thinkingLabel={thinkingLabel} />
+      <ModelSelectorTrigger thinkingLabel={hasThinking ? thinkingLabel : undefined} />
       <ModelSelectorPopup
         container={container}
+        hasThinking={hasThinking}
         model={model}
         onThinkingChange={selectThinking}
         thinking={thinking}
@@ -122,7 +127,7 @@ const useModelSelectorState = ({
 const ModelSelectorTrigger = ({
   thinkingLabel,
 }: {
-  readonly thinkingLabel: string;
+  readonly thinkingLabel: string | undefined;
 }): ReactElement => (
   <Combobox.Trigger className="sc-icon-btn w-auto gap-1.5 px-2">
     <Combobox.Value>
@@ -132,13 +137,16 @@ const ModelSelectorTrigger = ({
         </span>
       )}
     </Combobox.Value>
-    <span className="shrink-0 text-xs text-muted-foreground">/ {thinkingLabel}</span>
+    {thinkingLabel ? (
+      <span className="shrink-0 text-xs text-muted-foreground">/ {thinkingLabel}</span>
+    ) : null}
     <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
   </Combobox.Trigger>
 );
 
 const ModelSelectorPopup = ({
   container,
+  hasThinking,
   model,
   onThinkingChange,
   thinking,
@@ -147,6 +155,7 @@ const ModelSelectorPopup = ({
   thinkingLevels,
 }: {
   readonly container: HTMLElement | null;
+  readonly hasThinking: boolean;
   readonly model: Model | null;
   readonly onThinkingChange: (thinkingId: string) => void;
   readonly thinking: string;
@@ -160,13 +169,15 @@ const ModelSelectorPopup = ({
         <ModelSearchInput />
         <Combobox.Empty className="sc-combo-empty">No models found.</Combobox.Empty>
         <ModelOptions />
-        <ThinkingSelector
-          onThinkingChange={onThinkingChange}
-          thinking={thinking}
-          thinkingDesc={thinkingDesc}
-          thinkingLevels={thinkingLevels}
-        />
-        <ModelStatus model={model} thinkingLabel={thinkingLabel} />
+        {hasThinking ? (
+          <ThinkingSelector
+            onThinkingChange={onThinkingChange}
+            thinking={thinking}
+            thinkingDesc={thinkingDesc}
+            thinkingLevels={thinkingLevels}
+          />
+        ) : null}
+        <ModelStatus hasThinking={hasThinking} model={model} thinkingLabel={thinkingLabel} />
       </Combobox.Popup>
     </Combobox.Positioner>
   </Combobox.Portal>
@@ -226,17 +237,19 @@ const ThinkingSelector = ({
 );
 
 const ModelStatus = ({
+  hasThinking,
   model,
   thinkingLabel,
 }: {
+  readonly hasThinking: boolean;
   readonly model: Model | null;
   readonly thinkingLabel: string;
 }): ReactElement => (
   <div className="flex items-center gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
     <span className="size-1.5 shrink-0 rounded-full bg-primary" />
     <span className="min-w-0 truncate">
-      Using <span className="font-medium text-foreground">{model?.name ?? "no model"}</span> /{" "}
-      {thinkingLabel} thinking
+      Using <span className="font-medium text-foreground">{model?.name ?? "no model"}</span>
+      {hasThinking ? ` / ${thinkingLabel} thinking` : null}
     </span>
   </div>
 );

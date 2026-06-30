@@ -35,7 +35,10 @@ export const buildModelTurnRequest = (
     subjectId: turn.authContext.subject.subjectId,
     conversationId: turn.conversation.conversationId,
     assistantTurnId: turn.assistantTurnId,
-    allowedHostCommandNames: turn.policyDecision.allowedCommandNames,
+    // Host commands are host-owned and vary by page, so they ride in per turn on
+    // the request (the host declares them via the bridge) rather than from server
+    // config. Pure relay: the runtime exposes exactly what the host declared.
+    hostCommands: input.request.hostCommands,
   },
 });
 

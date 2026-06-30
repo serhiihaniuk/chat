@@ -20,7 +20,6 @@ import {
 } from "#config/catalog/config-values";
 import { AUXILIARY_JOBS } from "#config/catalog/capabilities/auxiliary-jobs";
 import { EXECUTORS } from "#config/catalog/capabilities/executors";
-import { HOST_COMMANDS } from "#config/catalog/capabilities/host-commands";
 import { TOOLS } from "#config/catalog/capabilities/tools";
 import { PROVIDERS } from "#config/catalog/providers";
 import {
@@ -130,7 +129,7 @@ const sideChatAzureConfig = defineSideChatConfig({
     ],
   },
   hostCommands: {
-    availableCommands: [HOST_COMMANDS.OPEN_RESOURCE],
+    availableCommands: [],
     approvalPolicies: [],
     activityRenderers: [],
   },

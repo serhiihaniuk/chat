@@ -23,8 +23,13 @@ import {
 const capabilities: HostCapabilities = {
   schemaVersion: "host-bridge.capabilities.v1",
   commands: [
-    { commandName: "open_resource", resourceTypes: ["document"] },
-    { commandName: "highlight_source" },
+    {
+      commandName: "open_resource",
+      description: "Open a host resource.",
+      inputSchema: { type: "object" },
+      resourceTypes: ["document"],
+    },
+    { commandName: "highlight_source", description: "Highlight a source.", inputSchema: { type: "object" } },
   ],
 };
 

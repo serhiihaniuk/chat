@@ -55,6 +55,66 @@ export const mapAiSdkToolActivity = (
   return undefined;
 };
 
+/**
+ * Identify a stream part that targets a host command rather than a server tool.
+ *
+ * Host commands are exposed to the model as tools, so they arrive as the same
+ * tool stream parts. The runner branches on this so a host-command call becomes a
+ * `host_command` activity instead of a `tool` row.
+ */
+export const isHostCommandToolPart = (
+  part: TextStreamPart<ToolSet>,
+  hostCommandNames: ReadonlySet<string>,
+): boolean => {
+  const name = toolPartName(part);
+  return name !== undefined && hostCommandNames.has(name);
+};
+
+/**
+ * Emit one `host_command` activity when the model calls a host command.
+ *
+ * Only the `tool-call` part carries the full arguments, so that is the single row
+ * the widget dispatches (once per `activityId`). Input-start, the synthetic
+ * result, and errors are skipped: completion is owned by the host bridge, not the
+ * runtime.
+ */
+export const mapAiSdkHostCommandActivity = (
+  request: RuntimeProviderRequest,
+  part: TextStreamPart<ToolSet>,
+  sequence: number,
+): RuntimeEvent | undefined => {
+  if (part.type !== AI_SDK_TOOL_PART_TYPES.CALL) return undefined;
+  return {
+    type: RUNTIME_EVENT_TYPES.ACTIVITY,
+    activityId: part.toolCallId,
+    activityKind: RUNTIME_ACTIVITY_KINDS.HOST_COMMAND,
+    requestId: request.requestId,
+    assistantTurnId: request.assistantTurnId,
+    sequence,
+    status: RUNTIME_ACTIVITY_STATUSES.RUNNING,
+    title: part.title ?? `Run ${part.toolName}`,
+    details: {
+      hostCommand: {
+        commandId: part.toolCallId,
+        commandName: part.toolName,
+        payload: toJsonObject(part.input),
+      },
+    },
+  };
+};
+
+const toolPartName = (part: TextStreamPart<ToolSet>): string | undefined => {
+  if (
+    part.type === AI_SDK_TOOL_PART_TYPES.INPUT_START ||
+    part.type === AI_SDK_TOOL_PART_TYPES.CALL ||
+    part.type === AI_SDK_TOOL_PART_TYPES.RESULT ||
+    part.type === AI_SDK_TOOL_PART_TYPES.ERROR
+  ) {
+    return part.toolName;
+  }
+  return undefined;
+};
+
 type AiSdkToolInputStartPart = Extract<
   TextStreamPart<ToolSet>,
   { type: typeof AI_SDK_TOOL_PART_TYPES.INPUT_START }

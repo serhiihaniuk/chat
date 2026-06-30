@@ -15,7 +15,7 @@ import {
 
 import { createServicePolicyPort } from "#adapters/policy/service-policy";
 import { createServicePersistence } from "#adapters/persistence/service-persistence";
-import { createServiceTurnEventLog } from "#adapters/persistence/turn-events/turn-event-log";
+import { createInMemoryTurnEventLog } from "#adapters/persistence/turn-events/in-memory-turn-event-log";
 import type {
   ServiceCapabilityBundle,
   ServiceContextBundle,
@@ -46,11 +46,14 @@ export type StreamChatPortsInput = {
  */
 export const createStreamChatPorts = (input: StreamChatPortsInput): StreamChatPortsBundle => {
   const persistence = createServicePersistence(input.persistence.repositories);
+  // Connection-bound transport: the live stream lives in this per-instance registry,
+  // not a durable log. It is also the SSE dispatcher (see service-composition).
+  const turnEventLog = createInMemoryTurnEventLog();
 
   const ports: StreamChatPorts = {
     conversations: persistence.conversations,
     assistantTurns: persistence.assistantTurns,
-    turnEventLog: createServiceTurnEventLog(input.persistence.repositories),
+    turnEventLog,
     hostCapabilities: input.capabilities.manifestPort,
     turnPolicies: input.capabilities.turnPolicyResolver,
     turnGuards: input.turnGuards,
@@ -63,7 +66,7 @@ export const createStreamChatPorts = (input: StreamChatPortsInput): StreamChatPo
     observability: input.observability,
   };
 
-  return { ports };
+  return { ports, turnEventLog };
 };
 
 const systemClock: ClockPort = {

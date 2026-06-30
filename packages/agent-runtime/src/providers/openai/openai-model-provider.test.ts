@@ -282,7 +282,6 @@ const runtimeRequest = (overrides: Partial<AiRuntimeRequest>): AiRuntimeRequest 
     subjectId: "subject_001",
     conversationId: "conversation_001",
     assistantTurnId: "turn_default",
-    allowedHostCommandNames: [],
   },
   ...overrides,
 });

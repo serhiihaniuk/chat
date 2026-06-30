@@ -13,6 +13,7 @@ export const RUNTIME_ACTIVITY_KINDS = {
   PROGRESS: "progress",
   REASONING: "reasoning",
   TOOL: "tool",
+  HOST_COMMAND: "host_command",
 } as const;
 
 export type RuntimeActivityKind =
@@ -62,6 +63,19 @@ export type RuntimeActivityToolDetails = {
 };
 
 /**
+ * Visible state for one host command the model asked the browser to run.
+ *
+ * The runtime only emits the request (id, name, args). The browser performs the
+ * action and folds its result into the client timeline; the durable runtime log
+ * keeps just this dispatch row.
+ */
+export type RuntimeActivityHostCommandDetails = {
+  readonly commandId: string;
+  readonly commandName: string;
+  readonly payload: JsonObject;
+};
+
+/**
  * Optional details attached to an activity row.
  *
  * Tool input and result stay with the activity that produced them. They do not
@@ -71,4 +85,5 @@ export type RuntimeActivityDetails = {
   readonly sources?: readonly RuntimeActivitySource[] | undefined;
   readonly images?: readonly RuntimeActivityImage[] | undefined;
   readonly tool?: RuntimeActivityToolDetails | undefined;
+  readonly hostCommand?: RuntimeActivityHostCommandDetails | undefined;
 };

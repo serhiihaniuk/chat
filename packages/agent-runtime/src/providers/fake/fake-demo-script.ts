@@ -7,6 +7,7 @@ import { isRecord, type JsonObject } from "@side-chat/shared";
 
 import type { ScriptedToolCall } from "#testing/scripted-language-model";
 import { createDeterministicTitle } from "./fake-title-script.js";
+import { createDemoHostCommandCall } from "./fake-host-command-script.js";
 
 export const FAKE_REASONING_EFFORTS = {
   LOW: RUNTIME_REASONING_EFFORTS.LOW,
@@ -66,6 +67,8 @@ export const createDemoToolCall = (
   options: LanguageModelV3CallOptions,
 ): ScriptedToolCall | undefined => {
   const userText = lastUserText(options);
+  const hostCommandCall = createDemoHostCommandCall(options, userText);
+  if (hostCommandCall) return hostCommandCall;
   if (!shouldUseDemoTool(userText) || readDemoToolResult(options)) return undefined;
   if (
     !options.tools?.some(

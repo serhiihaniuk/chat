@@ -20,7 +20,12 @@ export {
   dispatchSupportedCommand,
   type HostCommandDispatcher,
 } from "./commands/command-dispatcher.js";
-export { createHostBridge, type HostBridge, type HostBridgeOptions } from "./bridge/bridge.js";
+export {
+  createHostBridge,
+  type HostBridge,
+  type HostBridgeOptions,
+  type WidgetHostBridge,
+} from "./bridge/bridge.js";
 export {
   createStaticHostContextProvider,
   toProtocolHostContext,

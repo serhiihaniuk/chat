@@ -3,6 +3,7 @@ import {
   type ChatModelPreference,
   type ChatStreamRequest,
   type HostContext,
+  type RequestHostCommand,
   type UsageMetadata,
 } from "@side-chat/chat-protocol";
 import { omitUndefinedProperties } from "@side-chat/shared";
@@ -24,6 +25,7 @@ export type WidgetChatRequestInput = {
   readonly turnProfileId: string | undefined;
   readonly conversationId: string | undefined;
   readonly hostContext: HostContext | undefined;
+  readonly hostCommands?: readonly RequestHostCommand[] | undefined;
   readonly message: string;
   readonly messageId: string;
   readonly model?: ChatModelPreference | undefined;
@@ -35,6 +37,7 @@ export const createDefaultRequest = ({
   conversationId,
   content,
   hostContext,
+  hostCommands,
   messageId,
   model,
   requestId,
@@ -43,6 +46,7 @@ export const createDefaultRequest = ({
   readonly conversationId?: string | undefined;
   readonly content: string;
   readonly hostContext?: HostContext | undefined;
+  readonly hostCommands?: readonly RequestHostCommand[] | undefined;
   readonly messageId: string;
   readonly model?: ChatModelPreference | undefined;
   readonly requestId: string;
@@ -58,12 +62,14 @@ export const createDefaultRequest = ({
       content,
     },
     hostContext,
+    hostCommands,
   });
 
 export const createWidgetChatRequest = ({
   turnProfileId,
   conversationId,
   hostContext,
+  hostCommands,
   message,
   messageId,
   model,
@@ -76,6 +82,7 @@ export const createWidgetChatRequest = ({
     turnProfileId,
     conversationId,
     hostContext,
+    hostCommands,
     model,
   });
 

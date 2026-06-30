@@ -1,5 +1,5 @@
 import type { ChatModelPreference } from "@side-chat/chat-protocol";
-import type { HostBridge } from "@side-chat/host-bridge";
+import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import { useMemo, useRef, useState, type MutableRefObject } from "react";
 
 import { runStatusToWidgetStatus } from "./run/widget-run-state.js";
@@ -31,7 +31,7 @@ export const useWidgetChat = ({
 }: {
   readonly client: SideChatApiClient;
   readonly conversationStorageKey: string | undefined;
-  readonly hostBridge: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
+  readonly hostBridge: WidgetHostBridge | undefined;
   readonly selectedModel: ChatModelPreference | undefined;
   readonly selectedProfileId: string | undefined;
 }) => {

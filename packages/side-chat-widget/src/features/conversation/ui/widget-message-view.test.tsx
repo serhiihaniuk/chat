@@ -46,7 +46,7 @@ describe("WidgetMessageView", () => {
 
     expect(html).toContain("Here is the answer.");
     expect(html).toContain("Checked portfolio context");
-    expect(html).toContain("Run mock_web_search");
+    expect(html).toContain("Mock web search");
     expect(html).toContain('data-slot="tool-row"');
     expect(html).toContain('data-state="success"');
     // The rebuilt tool row does not expose the old expandable result payload.
@@ -89,8 +89,8 @@ describe("WidgetMessageView", () => {
       <WidgetMessageView message={message} reasoningVisibility="detailed" />,
     );
 
-    expect(html.indexOf("Searching the web")).toBeLessThan(html.indexOf("Run mock_web_search"));
-    expect(html.indexOf("Run mock_web_search")).toBeLessThan(html.indexOf("Prepared final answer"));
+    expect(html.indexOf("Searching the web")).toBeLessThan(html.indexOf("Mock web search"));
+    expect(html.indexOf("Mock web search")).toBeLessThan(html.indexOf("Prepared final answer"));
   });
 
   it("renders final assistant markdown through the message response renderer", () => {
@@ -177,7 +177,7 @@ describe("WidgetMessageView", () => {
     );
 
     expect(html).toContain("Thinking...");
-    expect(html).toContain("Run mock_web_search");
+    expect(html).toContain("Mock web search");
     expect(html).toContain("rotate-180");
   });
 

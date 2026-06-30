@@ -9,8 +9,8 @@ import {
   type WidgetMessage,
   type WidgetStatus,
 } from "#entities/chat";
-import type { ChatModelPreference } from "@side-chat/chat-protocol";
-import type { HostBridge } from "@side-chat/host-bridge";
+import type { ChatModelPreference, RequestHostCommand } from "@side-chat/chat-protocol";
+import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
 import type { WidgetRunController } from "./reconnect/widget-run-controller.js";
 
@@ -20,7 +20,7 @@ type PendingTitleRef = { current: string | undefined };
 
 export type WidgetChatActionsInput = {
   readonly controller: WidgetRunController;
-  readonly hostBridge: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
+  readonly hostBridge: WidgetHostBridge | undefined;
   readonly conversationId: string | undefined;
   readonly selectedProfileId: string | undefined;
   readonly selectedModel: ChatModelPreference | undefined;
@@ -76,11 +76,13 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
       setErrorMessage(undefined);
 
       const hostContext = await hostBridge?.getContext({ requestId: ids.requestId });
+      const hostCommands = await readHostCommands(hostBridge);
       await controller.startRun({
         request: createWidgetChatRequest({
           turnProfileId: selectedProfileId,
           conversationId,
           hostContext,
+          hostCommands,
           message: messageText,
           messageId: ids.userMessageId,
           model: selectedModel,
@@ -173,3 +175,21 @@ const createTurnIds = (): {
 
 const isSubmitBlocked = (message: string, status: WidgetStatus): boolean =>
   !message || status === "submitted" || status === "streaming";
+
+/**
+ * Ask the host which commands are available for this turn.
+ *
+ * The host owns its command set and it can vary by page, so the widget reads it
+ * per turn and forwards the model-callable definitions on the request. A host
+ * that does not declare commands simply omits `getCapabilities`.
+ */
+const readHostCommands = async (
+  hostBridge: WidgetHostBridge | undefined,
+): Promise<readonly RequestHostCommand[] | undefined> => {
+  const capabilities = await hostBridge?.getCapabilities?.();
+  return capabilities?.commands.map((command) => ({
+    commandName: command.commandName,
+    description: command.description,
+    inputSchema: command.inputSchema,
+  }));
+};

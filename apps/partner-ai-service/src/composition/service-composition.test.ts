@@ -285,7 +285,6 @@ const runtimeToolScope = (assistantTurnId: string) => ({
   subjectId: authContext.subject.subjectId,
   conversationId: "conversation_001",
   assistantTurnId,
-  allowedHostCommandNames: [],
 });
 
 const JIRA_CREATE_ISSUE_TOOL_NAME = "jira.create_issue";

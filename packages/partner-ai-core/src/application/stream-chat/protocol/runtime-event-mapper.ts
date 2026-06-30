@@ -6,9 +6,11 @@ import {
   type ActivityImage,
   type ActivitySource,
   type ActivityToolDetails,
+  type ActivityHostCommandDetails,
   type ProtocolErrorCode,
   type SidechatStreamEvent,
   toActivityId,
+  toHostCommandId,
 } from "@side-chat/chat-protocol";
 import {
   RUNTIME_ERROR_CODES,
@@ -17,6 +19,7 @@ import {
   type RuntimeActivityImage,
   type RuntimeActivitySource,
   type RuntimeActivityToolDetails,
+  type RuntimeActivityHostCommandDetails,
   type RuntimeEvent,
   type RuntimeErrorEvent,
 } from "@side-chat/ai-runtime-contract";
@@ -157,7 +160,18 @@ const mapRuntimeActivityDetails = (details: RuntimeActivityDetails): ActivityDet
     sources: details.sources?.map(mapRuntimeActivitySource),
     images: details.images?.map(mapRuntimeActivityImage),
     tool: details.tool ? mapRuntimeToolDetails(details.tool) : undefined,
+    hostCommand: details.hostCommand
+      ? mapRuntimeHostCommandDetails(details.hostCommand)
+      : undefined,
   });
+
+const mapRuntimeHostCommandDetails = (
+  hostCommand: RuntimeActivityHostCommandDetails,
+): ActivityHostCommandDetails => ({
+  commandId: toHostCommandId(hostCommand.commandId),
+  commandName: hostCommand.commandName,
+  payload: hostCommand.payload,
+});
 
 const mapRuntimeToolDetails = (tool: RuntimeActivityToolDetails): ActivityToolDetails =>
   omitUndefinedProperties({

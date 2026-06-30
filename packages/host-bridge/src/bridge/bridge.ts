@@ -19,6 +19,16 @@ export type HostBridge = {
   readonly dispatchCommand: (event: HostCommandActivityEvent) => Promise<HostCommandResult>;
 };
 
+/**
+ * The narrowed bridge view a widget consumes.
+ *
+ * `getContext` and `dispatchCommand` are required. `getCapabilities` is optional:
+ * a host implements it only when it declares host commands for the model to call,
+ * and it is read once per turn so the available command set can vary by page.
+ */
+export type WidgetHostBridge = Pick<HostBridge, "getContext" | "dispatchCommand"> &
+  Partial<Pick<HostBridge, "getCapabilities">>;
+
 export type HostBridgeOptions = {
   readonly contextProvider: HostContextProvider;
   readonly dispatcher: HostCommandDispatcher;

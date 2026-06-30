@@ -41,6 +41,19 @@ export type HostContext = {
   readonly metadata?: JsonObject;
 };
 
+/**
+ * One host command the host app declares as available for the current turn.
+ *
+ * The host owns its command set and it varies by page, so the browser sends the
+ * currently available commands per request rather than the server holding a
+ * catalog. `inputSchema` is the JSON Schema for the payload the model fills in.
+ */
+export type RequestHostCommand = {
+  readonly commandName: string;
+  readonly description: string;
+  readonly inputSchema: JsonObject;
+};
+
 export const CHAT_REASONING_EFFORTS = {
   NONE: "none",
   MINIMAL: "minimal",
@@ -80,6 +93,7 @@ export type ChatStreamRequest = ProtocolEnvelope & {
   readonly model?: ChatModelPreference;
   readonly message: ChatRequestMessage;
   readonly hostContext?: HostContext;
+  readonly hostCommands?: readonly RequestHostCommand[];
 };
 
 const REQUEST_FIELDS = [
@@ -90,10 +104,12 @@ const REQUEST_FIELDS = [
   "model",
   "message",
   "hostContext",
+  "hostCommands",
 ] as const;
 const MESSAGE_FIELDS = ["id", "content"] as const;
 const MODEL_FIELDS = ["providerId", "modelId", "reasoningEffort"] as const;
 const HOST_CONTEXT_FIELDS = ["schemaVersion", "origin", "url", "title", "metadata"] as const;
+const HOST_COMMAND_FIELDS = ["commandName", "description", "inputSchema"] as const;
 const reasoningEfforts = new Set<string>(Object.values(CHAT_REASONING_EFFORTS));
 
 /**
@@ -113,6 +129,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
     const turnProfileId = readOptionalString(input, "turnProfileId", "request");
     const model = parseOptionalModelPreference(input);
     const hostContext = parseOptionalHostContext(input);
+    const hostCommands = parseOptionalHostCommands(input);
 
     return omitUndefinedProperties({
       protocolVersion,
@@ -122,6 +139,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
       model,
       message,
       hostContext,
+      hostCommands,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "invalid request";
@@ -187,6 +205,34 @@ const parseHostContext = (input: unknown): HostContext | undefined => {
     title,
     metadata,
   });
+};
+
+const parseOptionalHostCommands = (
+  input: Record<string, unknown>,
+): readonly RequestHostCommand[] | undefined => {
+  if (!Object.hasOwn(input, "hostCommands")) return undefined;
+  const value = input["hostCommands"];
+  if (!Array.isArray(value)) throw new Error("request.hostCommands must be an array");
+  return value.map(parseHostCommand);
+};
+
+const parseHostCommand = (input: unknown): RequestHostCommand => {
+  if (!isRecord(input)) throw new Error("request.hostCommands[] must be an object");
+  requireKnownKeys(input, HOST_COMMAND_FIELDS, "request.hostCommands[]");
+  const commandName = requireString(input, "commandName", "request.hostCommands[]");
+  const description = requireString(input, "description", "request.hostCommands[]");
+  const inputSchema = readRequiredJsonObject(input, "inputSchema", "request.hostCommands[]");
+  return { commandName, description, inputSchema };
+};
+
+const readRequiredJsonObject = (
+  record: Record<string, unknown>,
+  key: string,
+  context: string,
+): JsonObject => {
+  const value = record[key];
+  if (!isJsonObject(value)) throw new Error(`${context}.${key} must be a JSON object`);
+  return value;
 };
 
 const readOptionalString = (

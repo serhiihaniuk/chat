@@ -117,6 +117,5 @@ const toolContext: RuntimeToolContext = {
     subjectId: "subject_jira_001",
     conversationId: "conversation_jira_001",
     assistantTurnId: "turn_jira_001",
-    allowedHostCommandNames: ["host.open_ticket_panel"],
   },
 };

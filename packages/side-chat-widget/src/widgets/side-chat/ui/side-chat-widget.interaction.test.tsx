@@ -219,6 +219,7 @@ describe("SideChatWidget interactions", () => {
       message: { content: "use the configured model" },
     });
   });
+
 });
 
 const renderWidget = (

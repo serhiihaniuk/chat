@@ -1,4 +1,4 @@
-import type { HostBridge } from "@side-chat/host-bridge";
+import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
 import type { ReasoningVisibility } from "#entities/settings";
 import type { SideChatWidgetPanelSize } from "#entities/panel";
@@ -48,7 +48,7 @@ export type SideChatWidgetProps = {
   readonly defaultOpen?: boolean | undefined;
   readonly defaultPanelSize?: SideChatWidgetPanelSize | undefined;
   readonly defaultTheme?: WidgetThemeId | undefined;
-  readonly hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand"> | undefined;
+  readonly hostBridge?: WidgetHostBridge | undefined;
   readonly initialState?: SideChatWidgetStateSnapshot | undefined;
   readonly labels?: SideChatWidgetLabels | undefined;
   readonly onOpenChange?: ((open: boolean) => void) | undefined;

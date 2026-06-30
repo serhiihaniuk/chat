@@ -1,13 +1,10 @@
 import {
   createPostgresTurnActivityNotificationSource,
   createPostgresTurnCancelNotificationSource,
-  createPostgresTurnEventNotificationSource,
   NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE,
   NOOP_TURN_CANCEL_NOTIFICATION_SOURCE,
-  NOOP_TURN_EVENT_NOTIFICATION_SOURCE,
   type TurnActivityNotificationSource,
   type TurnCancelNotificationSource,
-  type TurnEventNotificationSource,
 } from "@side-chat/db";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
 import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/sidechat-config/conversation-title";
@@ -24,7 +21,6 @@ import { createStreamChatPorts } from "./factories/create-stream-chat-ports.js";
 import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
 import { createTurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import { createTurnPruner } from "#inbound/turn-runner/maintenance/turn-pruner";
-import { createTurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import { createTurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
 import { resolveResumabilityConfig } from "./resumability-resolution.js";
@@ -151,14 +147,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     },
   });
 
-  // The dispatcher is the local subscribe half of the resumable transport: it
-  // consumes the db notification source (the only LISTEN connection) and fans
-  // durable events out to per-instance SSE subscribers.
-  const dispatcher = createTurnEventDispatcher({
-    ports: streamChat.ports,
-    notificationSource: createNotificationSource(persistence.persistence),
-    observability: options.observability,
-  });
+  // The dispatcher is the same per-instance in-memory registry that backs
+  // ports.turnEventLog: core appends events to it and the SSE route subscribes to
+  // it, so the live stream is a direct in-memory fan-out (no durable log, no NOTIFY).
+  const dispatcher = streamChat.turnEventLog;
 
   // The cancel dispatcher is the cross-instance half of cancel: it consumes the
   // db cancel notification source and interrupts the local generation fiber when
@@ -239,19 +231,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     },
   };
 };
-
-/**
- * Build the per-instance turn-event notification source for the dispatcher.
- *
- * Postgres persistence gets the dedicated `LISTEN` connection (the only one in
- * the system), reusing the same config-owned database URL. Memory persistence has
- * no cross-process wake signal, so it uses the no-op source and the subscriber
- * safety poll drives delivery from the in-memory log.
- */
-const createNotificationSource = (persistence: PersistenceConfig): TurnEventNotificationSource =>
-  persistence.kind === "postgres"
-    ? createPostgresTurnEventNotificationSource(persistence.databaseUrl)
-    : NOOP_TURN_EVENT_NOTIFICATION_SOURCE;
 
 /**
  * Build the per-instance cancel notification source for the cancel dispatcher.

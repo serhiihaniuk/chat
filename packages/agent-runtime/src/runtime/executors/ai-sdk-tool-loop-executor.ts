@@ -1,5 +1,6 @@
 import type { LanguageModel, ToolLoopAgentSettings } from "ai";
 
+import type { HostCommandResolver } from "#tools/runtime-tool";
 import { runAiSdkToolLoopAgentStream } from "../ai-sdk/streaming/tool-loop-agent-runner.js";
 import {
   DEFAULT_AGENT_EXECUTOR_ID,
@@ -10,6 +11,8 @@ import {
 export type AiSdkToolLoopExecutorOptions = {
   /** Text-batching window in ms passed through to the runner; `0` disables batching. */
   readonly flushIntervalMs?: number | undefined;
+  /** Awaits browser-side results for UI (host) tool calls. */
+  readonly hostCommandResolver?: HostCommandResolver | undefined;
 };
 
 export const createAiSdkToolLoopExecutor = (
@@ -21,6 +24,7 @@ export const createAiSdkToolLoopExecutor = (
     runAiSdkToolLoopAgentStream({
       ...toAiSdkToolLoopOptions(request),
       flushIntervalMs: options.flushIntervalMs,
+      hostCommandResolver: options.hostCommandResolver,
     }),
 });
 

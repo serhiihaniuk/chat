@@ -1,4 +1,5 @@
 import type { Stream } from "effect";
+import type { JsonObject } from "@side-chat/shared";
 import type {
   AssistantTurnId,
   ConversationId,
@@ -73,7 +74,20 @@ export type AiToolScope = {
   readonly subjectId: SubjectId;
   readonly conversationId: ConversationId;
   readonly assistantTurnId: AssistantTurnId;
-  readonly allowedHostCommandNames?: readonly string[] | undefined;
+  readonly hostCommands?: readonly AiHostCommandDescriptor[] | undefined;
+};
+
+/**
+ * One host command the host app declared as available for this turn.
+ *
+ * The host owns these and they vary by page, so they ride in per turn (from the
+ * request) rather than from static server config. The runtime exposes each as a
+ * model-callable tool; `inputSchema` is the JSON Schema for the command payload.
+ */
+export type AiHostCommandDescriptor = {
+  readonly commandName: string;
+  readonly description: string;
+  readonly inputSchema: JsonObject;
 };
 
 /**

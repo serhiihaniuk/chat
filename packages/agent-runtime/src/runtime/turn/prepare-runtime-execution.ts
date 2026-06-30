@@ -1,6 +1,6 @@
 import type { AiRuntimeMessage, AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
 import type { ModelProvider } from "#providers/model-provider";
-import type { RuntimeTool } from "#tools/runtime-tool";
+import type { HostCommandResolver, RuntimeTool } from "#tools/runtime-tool";
 import type { AgentExecutor } from "../executors/agent-executor.js";
 import {
   createExecutorCatalog,
@@ -45,8 +45,12 @@ export const createRuntimeState = (options: {
   readonly providers: readonly ModelProvider[];
   readonly tools?: readonly RuntimeTool[] | undefined;
   readonly flushIntervalMs?: number | undefined;
+  readonly hostCommandResolver?: HostCommandResolver | undefined;
 }): RuntimeState => ({
-  executors: createExecutorCatalog(options.executors, { flushIntervalMs: options.flushIntervalMs }),
+  executors: createExecutorCatalog(options.executors, {
+    flushIntervalMs: options.flushIntervalMs,
+    hostCommandResolver: options.hostCommandResolver,
+  }),
   providers: createProviderCatalog(options.providers),
   tools: createToolCatalog(options.tools),
 });

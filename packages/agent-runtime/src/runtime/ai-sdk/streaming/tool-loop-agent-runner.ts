@@ -13,8 +13,12 @@ import {
   type RuntimeEvent,
 } from "@side-chat/ai-runtime-contract";
 import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
-import type { RuntimeTool } from "#tools/runtime-tool";
-import { createAiSdkToolSet } from "../tools/ai-sdk-tool-adapter.js";
+import type { HostCommandResolver, RuntimeTool } from "#tools/runtime-tool";
+import {
+  createAiSdkToolSet,
+  createHostCommandToolSet,
+  hostCommandNameSet,
+} from "../tools/ai-sdk-tool-adapter.js";
 import {
   appendReasoningDelta,
   createReasoningStreamState,
@@ -30,7 +34,12 @@ import {
   coalesceTextDeltaParts,
   DEFAULT_OUTPUT_DELTA_FLUSH_MS,
 } from "./coalescing/text-delta-coalescer.js";
-import { createRuntimeToolLookup, mapAiSdkToolActivity } from "./tool-activity-mapper.js";
+import {
+  createRuntimeToolLookup,
+  isHostCommandToolPart,
+  mapAiSdkHostCommandActivity,
+  mapAiSdkToolActivity,
+} from "./tool-activity-mapper.js";
 
 /**
  * Stable trace span for the moment AI SDK opens the provider/tool-loop stream.
@@ -53,6 +62,8 @@ export type AiSdkToolLoopAgentRunOptions = {
   readonly request: RuntimeProviderRequest;
   /** Text-batching window in ms; defaults to `DEFAULT_OUTPUT_DELTA_FLUSH_MS`, `0` disables. */
   readonly flushIntervalMs?: number | undefined;
+  /** Awaits browser-side results for UI (host) tool calls; absent disables them. */
+  readonly hostCommandResolver?: HostCommandResolver | undefined;
 };
 
 /**
@@ -93,7 +104,7 @@ const mapAiSdkPartsToRuntimeEventStream = (
   // numbers and flushes any pending reasoning row at stream end.
   Stream.fromAsyncIterable(parts, toRuntimeError).pipe(
     Stream.mapAccum(
-      () => createRuntimeEventMappingState(request.tools),
+      () => createRuntimeEventMappingState(request),
       (state, part) => mapAiSdkPartToRuntimeEvents(request, state, part),
       {
         onHalt: (state) => flushReasoningOnStreamEnd(request, state),
@@ -101,18 +112,31 @@ const mapAiSdkPartsToRuntimeEventStream = (
     ),
   );
 
+const mergeToolSets = (
+  base: ToolSet | undefined,
+  extra: ToolSet | undefined,
+): ToolSet | undefined => {
+  if (!base) return extra;
+  if (!extra) return base;
+  return { ...base, ...extra };
+};
+
 const createAiSdkPartStream = ({
   model,
   providerOptions,
   request,
   flushIntervalMs,
+  hostCommandResolver,
 }: AiSdkToolLoopAgentRunOptions): Effect.Effect<
   AsyncIterable<TextStreamPart<ToolSet>>,
   AiRuntimeError
 > =>
   Effect.tryPromise({
     try: async () => {
-      const tools = createAiSdkToolSet(request.tools, request);
+      const tools = mergeToolSets(
+        createAiSdkToolSet(request.tools, request),
+        createHostCommandToolSet(request.toolScope.hostCommands, request, hostCommandResolver),
+      );
 
       /**
        * AI SDK receives the final messages passed through the runtime boundary.
@@ -167,14 +191,16 @@ type RuntimeEventMappingState = {
   readonly sequence: number;
   readonly reasoningState: ReasoningStreamState;
   readonly runtimeTools: ReadonlyMap<string, RuntimeTool>;
+  readonly hostCommandNames: ReadonlySet<string>;
 };
 
 const createRuntimeEventMappingState = (
-  runtimeTools: RuntimeProviderRequest["tools"],
+  request: RuntimeProviderRequest,
 ): RuntimeEventMappingState => ({
   sequence: 1,
   reasoningState: createReasoningStreamState(),
-  runtimeTools: createRuntimeToolLookup(runtimeTools),
+  runtimeTools: createRuntimeToolLookup(request.tools),
+  hostCommandNames: hostCommandNameSet(request.toolScope.hostCommands),
 });
 
 const mapAiSdkPartToRuntimeEvents = (
@@ -196,6 +222,16 @@ const mapAiSdkPartToRuntimeEvents = (
   }
 
   next.append(flushReasoningActivity(request, state.reasoningState, state.sequence));
+
+  /**
+   * Host commands are exposed to the model as tools, so they arrive as tool
+   * parts too. Emit one `host_command` activity (on the call part) and skip the
+   * synthetic result; the browser performs and completes the command.
+   */
+  if (isHostCommandToolPart(part, state.hostCommandNames)) {
+    next.append(mapAiSdkHostCommandActivity(request, part, next.sequence));
+    return [next.state(), next.events];
+  }
 
   /**
    * Tool parts are observed as stream parts, not as separate backend actions.

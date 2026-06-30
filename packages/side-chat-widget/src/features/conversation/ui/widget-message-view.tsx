@@ -96,7 +96,7 @@ const toReasoningItems = (message: WidgetMessage): readonly ReasoningItem[] =>
       return {
         id: item.id,
         kind: "tool",
-        name: item.title,
+        name: toolDisplayName(item),
         state: toToolState(item, message.activity.activeItemId === item.id),
       };
     }
@@ -110,6 +110,31 @@ const toReasoningItems = (message: WidgetMessage): readonly ReasoningItem[] =>
 
 const readThoughtText = (item: WidgetActivityItem): string =>
   item.body ? `${item.title}: ${item.body}` : item.title;
+
+/**
+ * Human-readable label for a tool/host-command row.
+ *
+ * Tool and host-command activities carry the technical name in their details
+ * (`open_resource`, `mock_web_search`); the trace shows the humanized form
+ * (`Open resource`, `Mock web search`) instead. Falls back to the event title
+ * when no structured name is present. A curated catalog label can override this
+ * once the tools catalog is wired.
+ */
+const toolDisplayName = (item: WidgetActivityItem): string => {
+  const toolName = item.details?.tool?.toolName ?? item.details?.hostCommand?.commandName;
+  return toolName ? humanizeToolName(toolName) : item.title;
+};
+
+const humanizeToolName = (name: string): string => {
+  const words = name.trim().split(/[\s_-]+/u).filter(Boolean);
+  if (words.length === 0) return name;
+  return words
+    .map((word, index) => (index === 0 ? capitalizeWord(word) : word.toLowerCase()))
+    .join(" ");
+};
+
+const capitalizeWord = (word: string): string =>
+  `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
 
 const shouldShowActivity = (message: WidgetMessage): boolean =>
   message.role === "assistant" && message.activity.items.length > 0;
