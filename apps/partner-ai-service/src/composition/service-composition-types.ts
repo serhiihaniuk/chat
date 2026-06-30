@@ -17,7 +17,6 @@ import type {
 import type { SidechatRepositories } from "@side-chat/db";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { TurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
-import type { TurnPruner } from "#inbound/turn-runner/maintenance/turn-pruner";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import type { ServiceHostCommandResolver } from "#adapters/host-commands/service-host-command-resolver";
 import type { TurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
@@ -185,8 +184,6 @@ export type ServiceComposition = {
   readonly activityDispatcher: TurnActivityDispatcher;
   /** Per-instance background terminalizer for dead/slow-owner lease recovery. */
   readonly reaper: TurnReaper;
-  /** Per-instance background pruner enforcing turn_events retention. */
-  readonly pruner: TurnPruner;
   /** Optional telemetry sink shared with routes for resumable lifecycle records. */
   readonly observability?: ObservabilitySinkPort | undefined;
   /** Resolved per-subscriber reconcile cadence for the subscription stream. */

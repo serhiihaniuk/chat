@@ -25,7 +25,6 @@ import { createServiceToolBundle } from "./factories/create-service-tool-bundle.
 import { createStreamChatPorts } from "./factories/create-stream-chat-ports.js";
 import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
 import { createTurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
-import { createTurnPruner } from "#inbound/turn-runner/maintenance/turn-pruner";
 import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import { createTurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
 import { resolveResumabilityConfig } from "./resumability-resolution.js";
@@ -195,18 +194,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     observability: options.observability,
   });
 
-  // The pruner is the turn_events retention backstop: on a fixed cadence it deletes
-  // the now-redundant event log of long-terminal turns, keeping the consolidated
-  // turn record and assistant message. A pruned turn falls back to conversation
-  // history on resume (the stream route returns replay_expired).
-  const pruner = createTurnPruner({
-    repositories: persistence.repositories,
-    clock: streamChat.ports.clock,
-    retentionMs: resumability.turnEventRetentionMs,
-    prunerIntervalMs: resumability.prunerIntervalMs,
-    batchLimit: resumability.prunerBatchLimit,
-  });
-
   return {
     workspace: options.workspace,
     hostAppId: capabilities.manifest.hostAppId,
@@ -222,7 +209,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     cancelDispatcher,
     activityDispatcher,
     reaper,
-    pruner,
     observability: options.observability,
     capabilities: capabilities.capabilityStatus,
     diagnostics: createServiceDiagnostics({
@@ -238,7 +224,6 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
       await turnRunner.shutdown();
       await Promise.all([
         reaper.shutdown(),
-        pruner.shutdown(),
         cancelDispatcher.shutdown(),
         activityDispatcher.shutdown(),
         dispatcher.shutdown(),
