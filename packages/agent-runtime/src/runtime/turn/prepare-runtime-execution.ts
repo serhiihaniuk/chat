@@ -44,8 +44,9 @@ export const createRuntimeState = (options: {
   readonly executors?: readonly AgentExecutor[] | undefined;
   readonly providers: readonly ModelProvider[];
   readonly tools?: readonly RuntimeTool[] | undefined;
+  readonly flushIntervalMs?: number | undefined;
 }): RuntimeState => ({
-  executors: createExecutorCatalog(options.executors),
+  executors: createExecutorCatalog(options.executors, { flushIntervalMs: options.flushIntervalMs }),
   providers: createProviderCatalog(options.providers),
   tools: createToolCatalog(options.tools),
 });

@@ -231,12 +231,12 @@ const hostCommandEvent = (assistantTurnId: string, sequence: number): ActivityEv
   activityId: "mock-command-open-resource",
   activityKind: "host_command",
   status: "running",
-  title: "Open resource",
+  title: "Open support ticket #4821",
   details: {
     hostCommand: {
       commandId: "mock-command-open-resource",
       commandName: "open_resource",
-      payload: { resourceType: "document", resourceId: "mock-doc" },
+      payload: { resourceType: "ticket", resourceId: "ticket-4821" },
     },
   },
 });

@@ -13,6 +13,8 @@ describe("createOpenAIResponsesProvider", () => {
   it("resolves an OpenAI Responses model for runtime execution", async () => {
     const calls: RequestInit[] = [];
     const runtime = createAgentRuntime({
+      // Disable text batching so this provider test asserts one delta per chunk.
+      flushIntervalMs: 0,
       providers: [
         createOpenAIResponsesProvider({
           apiKey: "test-key",
@@ -125,6 +127,8 @@ describe("createOpenAIResponsesProvider", () => {
   it("sends an explicitly configured reasoning summary when one is set", async () => {
     const calls: RequestInit[] = [];
     const runtime = createAgentRuntime({
+      // Disable text batching so this provider test asserts one delta per chunk.
+      flushIntervalMs: 0,
       providers: [
         createOpenAIResponsesProvider({
           apiKey: "test-key",
@@ -162,6 +166,8 @@ describe("createOpenAIResponsesProvider", () => {
   it("lets a runtime reasoning selection override the provider default effort", async () => {
     const calls: RequestInit[] = [];
     const runtime = createAgentRuntime({
+      // Disable text batching so this provider test asserts one delta per chunk.
+      flushIntervalMs: 0,
       providers: [
         createOpenAIResponsesProvider({
           apiKey: "test-key",

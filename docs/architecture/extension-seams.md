@@ -63,7 +63,9 @@ For per-turn policy decisions (profile, model, tools, guards, executor), provide
 
 ### Wire a host command
 
-1. Declare a `HostCommandCapability` in the host manifest.
+Full walkthrough with a runnable example: [host-commands.md](host-commands.md). In short:
+
+1. Declare a `HostCommandCapability` in `hostCommands.availableCommands` ([sidechat.config.ts](../../apps/partner-ai-service/sidechat.config.ts)). The worked example is `open_resource` ([host-commands.ts](../../apps/partner-ai-service/src/config/catalog/capabilities/host-commands.ts)).
 2. Handle the command in the host app through the bridge in `packages/host-bridge/src/`. A host command runs in the browser, not the runtime.
 3. Ship a separate `RuntimeTool` only if the backend must also perform the action.
 

@@ -26,6 +26,10 @@ import {
   mapAiSdkStreamPart,
   toRuntimeError,
 } from "./stream-part-mapper.js";
+import {
+  coalesceTextDeltaParts,
+  DEFAULT_OUTPUT_DELTA_FLUSH_MS,
+} from "./coalescing/text-delta-coalescer.js";
 import { createRuntimeToolLookup, mapAiSdkToolActivity } from "./tool-activity-mapper.js";
 
 /**
@@ -47,6 +51,8 @@ export type AiSdkToolLoopAgentRunOptions = {
   readonly model: LanguageModel;
   readonly providerOptions?: ToolLoopAgentSettings["providerOptions"] | undefined;
   readonly request: RuntimeProviderRequest;
+  /** Text-batching window in ms; defaults to `DEFAULT_OUTPUT_DELTA_FLUSH_MS`, `0` disables. */
+  readonly flushIntervalMs?: number | undefined;
 };
 
 /**
@@ -55,11 +61,9 @@ export type AiSdkToolLoopAgentRunOptions = {
  * Invariant: this is the only runtime path. Provider startup, stream errors, interruption,
  * and future tracing/retry policy all belong in this Stream pipeline.
  */
-export const runAiSdkToolLoopAgentStream = ({
-  model,
-  providerOptions,
-  request,
-}: AiSdkToolLoopAgentRunOptions): AiRuntimeEventStream => {
+export const runAiSdkToolLoopAgentStream = (
+  options: AiSdkToolLoopAgentRunOptions,
+): AiRuntimeEventStream => {
   /**
    * Assign sequence numbers in the stream loop, not inside each mapper.
    *
@@ -67,18 +71,16 @@ export const runAiSdkToolLoopAgentStream = ({
    * gives text, reasoning, tool activity, errors, and completion one shared
    * order.
    */
-  const started = Stream.succeed(createRuntimeStartedEvent(request, 0));
-  return Stream.concat(started, createAiSdkRuntimeEventStream({ model, providerOptions, request }));
+  const started = Stream.succeed(createRuntimeStartedEvent(options.request, 0));
+  return Stream.concat(started, createAiSdkRuntimeEventStream(options));
 };
 
-const createAiSdkRuntimeEventStream = ({
-  model,
-  providerOptions,
-  request,
-}: AiSdkToolLoopAgentRunOptions): AiRuntimeEventStream => {
-  const openedParts = createAiSdkPartStream({ model, providerOptions, request });
+const createAiSdkRuntimeEventStream = (
+  options: AiSdkToolLoopAgentRunOptions,
+): AiRuntimeEventStream => {
+  const openedParts = createAiSdkPartStream(options);
   const mappedEvents = Effect.map(openedParts, (parts) =>
-    mapAiSdkPartsToRuntimeEventStream(request, parts),
+    mapAiSdkPartsToRuntimeEventStream(options.request, parts),
   );
   return Stream.unwrap(mappedEvents);
 };
@@ -103,6 +105,7 @@ const createAiSdkPartStream = ({
   model,
   providerOptions,
   request,
+  flushIntervalMs,
 }: AiSdkToolLoopAgentRunOptions): Effect.Effect<
   AsyncIterable<TextStreamPart<ToolSet>>,
   AiRuntimeError
@@ -143,7 +146,10 @@ const createAiSdkPartStream = ({
           abortSignal: request.abortSignal,
         }),
       );
-      return result.fullStream;
+      return coalesceTextDeltaParts(
+        result.fullStream,
+        flushIntervalMs ?? DEFAULT_OUTPUT_DELTA_FLUSH_MS,
+      );
     },
     catch: (error) => toRuntimeError(error),
   }).pipe(

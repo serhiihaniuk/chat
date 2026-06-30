@@ -151,6 +151,8 @@ export type RuntimeToolConfig = {
   readonly tools?: readonly ServiceToolRegistration[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
   readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
+  /** Text-batching window (ms) handed to the runtime executor; `0` disables batching. */
+  readonly flushIntervalMs?: number | undefined;
 };
 
 /**

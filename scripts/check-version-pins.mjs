@@ -26,7 +26,7 @@ const requiredRoot = {
   oxlint: "1.66.0",
   "oxlint-tsgolint": "0.23.0",
   oxfmt: "0.51.0",
-  vite: "8.0.14",
+  vite: "8.1.0",
   "@vitejs/plugin-react": "6.0.2",
   tailwindcss: "4.3.0",
   testcontainers: "12.0.0",
@@ -37,7 +37,7 @@ const requiredRoot = {
 
 const requiredByPackage = {
   "@side-chat/partner-ai-service": {
-    hono: "4.12.22",
+    hono: "4.12.27",
     "@hono/node-server": "2.0.3",
     effect: "4.0.0-beta.70",
     "@effect/platform-node": "4.0.0-beta.70",
@@ -72,7 +72,7 @@ const requiredByPackage = {
   "@side-chat/widget-harness": {
     react: "19.2.6",
     "react-dom": "19.2.6",
-    vite: "8.0.14",
+    vite: "8.1.0",
     "@vitejs/plugin-react": "6.0.2",
     tailwindcss: "4.3.0",
     "@tailwindcss/vite": "4.3.0",

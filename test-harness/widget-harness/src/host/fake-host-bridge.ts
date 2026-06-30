@@ -8,6 +8,7 @@ import {
 } from "@side-chat/host-bridge";
 
 import type { WidgetHarnessConfig } from "#config/modes";
+import type { DemoHostSurface } from "#host/demo-host-surface";
 
 export type HarnessHostCommandRecord = {
   readonly commandId: string;
@@ -19,7 +20,19 @@ export type HarnessHostBridge = Pick<HostBridge, "getContext" | "dispatchCommand
   readonly commandRecords: readonly HarnessHostCommandRecord[];
 };
 
-export const createHarnessHostBridge = (config: WidgetHarnessConfig): HarnessHostBridge => {
+/**
+ * Host bridge for the harness "demo host app".
+ *
+ * `dispatchCommand` mirrors a real host integration: it performs the requested
+ * action (here, mutating the optional visible {@link DemoHostSurface}) and
+ * returns a {@link HostCommandResult} the widget folds back into the timeline.
+ * The `failed-host-command` scenario returns a failure so that path is testable;
+ * commands are also recorded so assertions can inspect the round trip.
+ */
+export const createHarnessHostBridge = (
+  config: WidgetHarnessConfig,
+  surface?: DemoHostSurface,
+): HarnessHostBridge => {
   const commandRecords: HarnessHostCommandRecord[] = [];
 
   return {
@@ -40,6 +53,10 @@ export const createHarnessHostBridge = (config: WidgetHarnessConfig): HarnessHos
         commandName: command.commandName,
         result,
       });
+      surface?.applyCommand(
+        { commandName: command.commandName, payload: command.payload },
+        { status: result.status, resultCode: result.resultCode },
+      );
       return Promise.resolve(result);
     },
   };

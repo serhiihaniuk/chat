@@ -20,6 +20,7 @@ import {
 } from "#config/catalog/config-values";
 import { AUXILIARY_JOBS } from "#config/catalog/capabilities/auxiliary-jobs";
 import { EXECUTORS } from "#config/catalog/capabilities/executors";
+import { HOST_COMMANDS } from "#config/catalog/capabilities/host-commands";
 import { TOOLS } from "#config/catalog/capabilities/tools";
 import { PROVIDERS } from "#config/catalog/providers";
 import {
@@ -129,7 +130,7 @@ const sideChatAzureConfig = defineSideChatConfig({
     ],
   },
   hostCommands: {
-    availableCommands: [],
+    availableCommands: [HOST_COMMANDS.OPEN_RESOURCE],
     approvalPolicies: [],
     activityRenderers: [],
   },
@@ -224,6 +225,11 @@ const sideChatAzureConfig = defineSideChatConfig({
     prunerInterval: readEnv.number(SERVICE_ENV_KEYS.prunerIntervalMs, {
       defaultValue: RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
       description: "How often (ms) this instance prunes turn_events of long-terminal turns.",
+    }),
+    outputDeltaFlushInterval: readEnv.number(SERVICE_ENV_KEYS.outputDeltaFlushIntervalMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,
+      description:
+        "Window (ms) to batch streamed text into one turn_events row; lower is smoother, higher writes less.",
     }),
   },
 } satisfies SideChatConfig);

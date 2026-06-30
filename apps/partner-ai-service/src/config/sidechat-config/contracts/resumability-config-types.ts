@@ -18,4 +18,8 @@ export type SideChatResumabilityConfig = {
   readonly reaperBatchLimit: SideChatNumberEnvReference;
   readonly turnEventRetention: SideChatNumberEnvReference;
   readonly prunerInterval: SideChatNumberEnvReference;
+  // Window (ms) for batching streamed text into one turn_events row before it is
+  // written + NOTIFYed; governs the durable write cadence, so it lives with the
+  // other turn_events lifecycle knobs. Resolved into the runtime executor config.
+  readonly outputDeltaFlushInterval: SideChatNumberEnvReference;
 };

@@ -40,6 +40,11 @@ export type AgentRuntimeOptions = {
   readonly executors?: readonly AgentExecutor[] | undefined;
   readonly providers: readonly ModelProvider[];
   readonly tools?: readonly RuntimeTool[] | undefined;
+  /**
+   * Window (ms) for batching streamed text into one durable delta. Defaults to
+   * `DEFAULT_OUTPUT_DELTA_FLUSH_MS` in the runner; `0` disables batching.
+   */
+  readonly flushIntervalMs?: number | undefined;
 };
 
 type RuntimeExecution = {

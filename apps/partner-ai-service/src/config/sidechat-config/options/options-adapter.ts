@@ -10,6 +10,7 @@ import { AUXILIARY_JOBS } from "../../catalog/capabilities/auxiliary-jobs.js";
 import {
   CONFIG_IDS,
   REQUEST_POLICY_MODES,
+  RESUMABILITY_DEFAULTS,
   SERVICE_PROFILES,
   TOOL_DEFAULT_EXPOSURE,
 } from "../../catalog/config-values.js";
@@ -18,6 +19,7 @@ import { ServiceConfigError } from "../../service-config-error.js";
 import {
   createAuthConfig,
   createPersistenceConfig,
+  readNumberEnvReference,
   readRequiredStringEnvReference,
   readServiceProfile,
   readStringEnvReference,
@@ -78,7 +80,7 @@ const createRuntimeConfig = (
   config: SideChatConfig,
   env: ServiceEnv,
 ): NonNullable<PartnerAiServiceOptions["runtime"]> => {
-  const toolConfig = createRuntimeToolConfig(config);
+  const toolConfig = createRuntimeToolConfig(config, env);
   const defaultModelId = config.models.default.model.MODEL_ID;
 
   if (providerKind === PROVIDERS.FAKE.KIND) {
@@ -142,11 +144,15 @@ const providerIdForKind = (providerKind: ConfigProviderKind): string => {
 
 const createRuntimeToolConfig = (
   config: SideChatConfig,
-): Pick<RuntimeToolConfig, "tools" | "hostCommands" | "approvalPolicies"> =>
+  env: ServiceEnv,
+): Pick<RuntimeToolConfig, "tools" | "hostCommands" | "approvalPolicies" | "flushIntervalMs"> =>
   omitUndefinedProperties({
     tools: createToolRegistrations(config.tools.availableTools),
     hostCommands: nonEmpty(config.hostCommands.availableCommands),
     approvalPolicies: nonEmpty(config.hostCommands.approvalPolicies),
+    flushIntervalMs:
+      readNumberEnvReference(env, config.resumability.outputDeltaFlushInterval) ??
+      RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,
   });
 
 const createToolRegistrations = (

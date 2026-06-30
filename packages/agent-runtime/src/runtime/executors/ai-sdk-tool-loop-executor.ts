@@ -7,10 +7,21 @@ import {
   type AgentExecutor,
 } from "./agent-executor.js";
 
-export const createAiSdkToolLoopExecutor = (): AgentExecutor => ({
+export type AiSdkToolLoopExecutorOptions = {
+  /** Text-batching window in ms passed through to the runner; `0` disables batching. */
+  readonly flushIntervalMs?: number | undefined;
+};
+
+export const createAiSdkToolLoopExecutor = (
+  options: AiSdkToolLoopExecutorOptions = {},
+): AgentExecutor => ({
   executorId: DEFAULT_AGENT_EXECUTOR_ID,
   description: "Runs a prepared turn through the AI SDK tool-loop agent.",
-  stream: (request) => runAiSdkToolLoopAgentStream(toAiSdkToolLoopOptions(request)),
+  stream: (request) =>
+    runAiSdkToolLoopAgentStream({
+      ...toAiSdkToolLoopOptions(request),
+      flushIntervalMs: options.flushIntervalMs,
+    }),
 });
 
 const toAiSdkToolLoopOptions = ({

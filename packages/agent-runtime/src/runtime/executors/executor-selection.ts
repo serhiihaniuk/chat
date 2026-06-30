@@ -3,7 +3,10 @@ import {
   RUNTIME_ERROR_CODES,
   type ExecutorId,
 } from "@side-chat/ai-runtime-contract";
-import { createAiSdkToolLoopExecutor } from "./ai-sdk-tool-loop-executor.js";
+import {
+  createAiSdkToolLoopExecutor,
+  type AiSdkToolLoopExecutorOptions,
+} from "./ai-sdk-tool-loop-executor.js";
 import type { AgentExecutor } from "./agent-executor.js";
 
 export type ExecutorCatalog = {
@@ -13,8 +16,9 @@ export type ExecutorCatalog = {
 
 export const createExecutorCatalog = (
   executors: readonly AgentExecutor[] | undefined,
+  builtInOptions: AiSdkToolLoopExecutorOptions = {},
 ): ExecutorCatalog => {
-  const allExecutors = [createAiSdkToolLoopExecutor(), ...(executors ?? [])];
+  const allExecutors = [createAiSdkToolLoopExecutor(builtInOptions), ...(executors ?? [])];
   const byId = new Map<string, AgentExecutor>();
 
   for (const executor of allExecutors) {

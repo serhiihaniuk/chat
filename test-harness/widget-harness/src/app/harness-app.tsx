@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { SideChatWidget, type SideChatWidgetProps } from "@side-chat/side-chat-widget";
 
 import { createHarnessHostBridge } from "#host/fake-host-bridge";
+import { createDemoHostSurface, type DemoHostSurface } from "#host/demo-host-surface";
+import { DemoHostPanel } from "#app/demo-host-panel";
 import { createLocalServiceClient } from "#clients/local-service-client";
 import { createMockStreamClient } from "#clients/mock-stream-client";
 import {
@@ -59,6 +61,7 @@ export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarne
 
 const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }) => {
   const [hostOpen, setHostOpen] = useState(config.defaultOpen);
+  const [demoHost] = useState(() => createDemoHostSurface());
   const hostControlled = config.openControl === WIDGET_HARNESS_OPEN_CONTROLS.HOST;
 
   useEffect(() => {
@@ -75,8 +78,15 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
     return () => window.removeEventListener("message", receiveHostControl);
   }, [hostControlled]);
 
-  const props = createWidgetHarnessProps(config);
-  if (!hostControlled) return createElement(SideChatWidget, props);
+  const props = createWidgetHarnessProps(config, demoHost);
+  if (!hostControlled) {
+    return createElement(
+      "div",
+      { style: { minHeight: "100vh", background: "#eef0f4" } },
+      createElement(DemoHostPanel, { surface: demoHost }),
+      createElement(SideChatWidget, props),
+    );
+  }
 
   return createElement(SideChatWidget, {
     ...props,
@@ -94,8 +104,11 @@ const isSetOpenMessage = (message: unknown): message is WidgetHarnessSetOpenMess
   return candidate.type === SET_OPEN_MESSAGE_TYPE && typeof candidate.open === "boolean";
 };
 
-const createWidgetHarnessProps = (config: WidgetHarnessConfig): SideChatWidgetProps => {
-  const hostBridge = createHarnessHostBridge(config);
+const createWidgetHarnessProps = (
+  config: WidgetHarnessConfig,
+  surface: DemoHostSurface,
+): SideChatWidgetProps => {
+  const hostBridge = createHarnessHostBridge(config, surface);
   const client =
     config.mode === "local-service"
       ? createLocalServiceClient(config)

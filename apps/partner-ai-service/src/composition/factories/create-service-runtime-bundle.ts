@@ -38,6 +38,7 @@ export const createServiceRuntimeBundle = (
       executors: runtimeConfig.executors,
       providers: input.providers.runtimeProviders,
       tools: input.tools.runtimeTools,
+      flushIntervalMs: runtimeConfig.flushIntervalMs,
     }),
   };
 };

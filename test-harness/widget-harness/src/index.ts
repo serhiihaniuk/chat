@@ -5,6 +5,11 @@ export {
   type HarnessHostCommandRecord,
 } from "./host/fake-host-bridge.js";
 export {
+  createDemoHostSurface,
+  type DemoHostState,
+  type DemoHostSurface,
+} from "./host/demo-host-surface.js";
+export {
   createWidgetHarnessApp,
   mountWidgetHarness,
   type WidgetHarnessApp,
