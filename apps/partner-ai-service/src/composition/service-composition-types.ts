@@ -19,6 +19,7 @@ import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { TurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import type { TurnPruner } from "#inbound/turn-runner/maintenance/turn-pruner";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
+import type { ServiceHostCommandResolver } from "#adapters/host-commands/service-host-command-resolver";
 import type { TurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import type { TurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
@@ -176,6 +177,8 @@ export type ServiceComposition = {
   readonly turnRunner: TurnRunner;
   /** Per-instance live fan-out of durable turn events to local subscribers. */
   readonly dispatcher: TurnEventDispatcher;
+  /** Connection-bound resolver for UI (host) tool calls; the result route settles it. */
+  readonly hostCommandResolver: ServiceHostCommandResolver;
   /** Per-instance reaction to cross-instance cancel intent; interrupts owned fibers. */
   readonly cancelDispatcher: TurnCancelDispatcher;
   /** Per-instance fan-out of subject turn lifecycle to activity-stream subscribers. */

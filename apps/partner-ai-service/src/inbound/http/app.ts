@@ -127,6 +127,7 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
     ports: composition.ports,
     dispatcher: composition.dispatcher,
     runner: composition.turnRunner,
+    hostCommandResolver: composition.hostCommandResolver,
     safetyPollIntervalMs: composition.safetyPollIntervalMs,
     observability: composition.observability,
   });

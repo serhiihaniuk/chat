@@ -1,4 +1,5 @@
 import { PROTOCOL_ERROR_CODES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import type { JsonObject } from "@side-chat/shared";
 import type { AssistantTurnRecord, SidechatRepositories } from "@side-chat/db";
 import type {
   AuthContext,
@@ -7,6 +8,7 @@ import type {
 } from "@side-chat/partner-ai-core";
 import type { Hono } from "hono";
 
+import type { ServiceHostCommandResolver } from "#adapters/host-commands/service-host-command-resolver";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import { createTurnSubscriptionStream } from "#inbound/turn-stream/turn-subscription-stream";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
@@ -29,6 +31,8 @@ export type ChatTurnRouteDependencies = {
   readonly ports: StreamChatPorts;
   readonly dispatcher: TurnEventDispatcher;
   readonly runner: TurnRunner;
+  /** Settles UI (host) tool calls with the browser's POSTed result. */
+  readonly hostCommandResolver: ServiceHostCommandResolver;
   readonly safetyPollIntervalMs: number;
   /** Optional telemetry sink for replay served/expired, cancel, and run-finished. */
   readonly observability?: ObservabilitySinkPort | undefined;
@@ -135,6 +139,59 @@ export const registerChatTurnRoutes = (
       cancelRequested,
     });
   });
+
+  // Connection-bound UI tools: the browser POSTs the result of a dispatched host
+  // command here, which settles the runtime's awaiting tool call so the model
+  // continues. The turn id is workspace-scoped, not a bearer capability.
+  app.post("/chat/turns/:assistantTurnId/host-commands/:commandId/result", async (context) => {
+    const authContext = requireContextAuth(context.get("authContext"));
+    const turn = await loadWorkspaceTurn(
+      dependencies,
+      authContext,
+      context.req.param("assistantTurnId"),
+    );
+    if (!turn) return notFoundTurn();
+
+    const result = await readHostCommandResult(context.req.raw);
+    if (!result) {
+      return jsonError(
+        PROTOCOL_ERROR_CODES.BAD_REQUEST,
+        "Request body must be a JSON object holding the host command result.",
+        400,
+      );
+    }
+
+    const settled = dependencies.hostCommandResolver.resolveResult({
+      commandId: context.req.param("commandId"),
+      result,
+    });
+    if (!settled) {
+      return jsonError(
+        PROTOCOL_ERROR_CODES.NOT_FOUND,
+        "No host command is awaiting that id (unknown, already resolved, or timed out).",
+        404,
+      );
+    }
+    return context.json({ protocolVersion: SIDECHAT_PROTOCOL_VERSION, settled: true });
+  });
+};
+
+/**
+ * Read the host command result body as a JSON object.
+ *
+ * The browser POSTs the value the model should receive; a non-object body (invalid
+ * JSON, an array, or a primitive) is rejected so the resolver only ever settles a
+ * structured result.
+ */
+const readHostCommandResult = async (request: Request): Promise<JsonObject | undefined> => {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return undefined;
+  }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return undefined;
+  return body as JsonObject;
 };
 
 /**

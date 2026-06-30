@@ -3,7 +3,7 @@
 // Does not own: turn profiles (the runtime has none), provider/model
 // selection (validated in the provider bundle), or tool exposure policy.
 
-import { createAgentRuntime } from "@side-chat/agent-runtime";
+import { createAgentRuntime, type HostCommandResolver } from "@side-chat/agent-runtime";
 import { PROVIDERS } from "#config/catalog/providers";
 import type { ServiceCompositionOptions } from "../service-composition-types.js";
 import type {
@@ -15,6 +15,8 @@ import type {
 export type ServiceRuntimeBundleInput = {
   readonly providers: ServiceProviderBundle;
   readonly tools: ServiceToolBundle;
+  /** Connection-bound resolver for UI (host) tools; threaded into the real runtime. */
+  readonly hostCommandResolver?: HostCommandResolver | undefined;
 };
 
 /**
@@ -38,6 +40,7 @@ export const createServiceRuntimeBundle = (
       executors: runtimeConfig.executors,
       providers: input.providers.runtimeProviders,
       tools: input.tools.runtimeTools,
+      hostCommandResolver: input.hostCommandResolver,
       flushIntervalMs: runtimeConfig.flushIntervalMs,
     }),
   };

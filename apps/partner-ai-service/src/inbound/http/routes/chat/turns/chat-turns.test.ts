@@ -154,6 +154,49 @@ describe("GET /chat/conversations/:id", () => {
   });
 });
 
+describe("POST /chat/turns/:assistantTurnId/host-commands/:commandId/result", () => {
+  const postResult = (app: PartnerAiServiceApp, path: string, body: string): Promise<Response> =>
+    Promise.resolve(
+      app.request(path, {
+        method: "POST",
+        headers: { ...AUTH_HEADER, "content-type": "application/json" },
+        body,
+      }),
+    );
+
+  it("returns 404 for an unknown turn", async () => {
+    const response = await postResult(
+      createApp().app,
+      "/chat/turns/assistant_turn_missing/host-commands/cmd_1/result",
+      "{}",
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("rejects a non-object result body as a bad request", async () => {
+    const app = createApp().app;
+    const started = await startRun(app, runRequest());
+    const response = await postResult(
+      app,
+      `/chat/turns/${started.assistantTurnId}/host-commands/cmd_1/result`,
+      "[]",
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 404 when no host command is awaiting the id", async () => {
+    const app = createApp().app;
+    const started = await startRun(app, runRequest());
+    const response = await postResult(
+      app,
+      `/chat/turns/${started.assistantTurnId}/host-commands/cmd_unknown/result`,
+      "{}",
+    );
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: "not_found" });
+  });
+});
+
 type RouteHarness = {
   readonly app: PartnerAiServiceApp;
   readonly repositories: MemorySidechatRepositories;

@@ -22,7 +22,17 @@ import type {
  * A turn's buffer is dropped once it is terminal and has no live subscribers, so
  * memory tracks only in-flight and actively-watched turns.
  */
-export type InMemoryTurnEventLog = TurnEventLogPort & TurnEventDispatcher;
+export type InMemoryTurnEventLog = TurnEventLogPort &
+  TurnEventDispatcher & {
+    /**
+     * Whether a live subscriber (connected client) is attached to the turn.
+     *
+     * Connection-bound UI tools use this: a host command can only run if a client
+     * is streaming the turn to dispatch it, so no subscriber means an immediate
+     * `no_connected_client` result instead of a hang.
+     */
+    readonly hasSubscribers: (assistantTurnId: string) => boolean;
+  };
 
 const SUBSCRIBER_QUEUE_CAPACITY = 256;
 
@@ -111,6 +121,7 @@ export const createInMemoryTurnEventLog = (): InMemoryTurnEventLog => {
     maxSequence: maxSequenceFrom(turns),
     subscribe: subscribeTo(turns),
     hasTurn: (assistantTurnId) => turns.has(assistantTurnId),
+    hasSubscribers: (assistantTurnId) => (turns.get(assistantTurnId)?.subscribers.size ?? 0) > 0,
     shutdown: () => {
       turns.clear();
       return Promise.resolve();

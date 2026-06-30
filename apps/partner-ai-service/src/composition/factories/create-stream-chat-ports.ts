@@ -15,7 +15,10 @@ import {
 
 import { createServicePolicyPort } from "#adapters/policy/service-policy";
 import { createServicePersistence } from "#adapters/persistence/service-persistence";
-import { createInMemoryTurnEventLog } from "#adapters/persistence/turn-events/in-memory-turn-event-log";
+import {
+  createInMemoryTurnEventLog,
+  type InMemoryTurnEventLog,
+} from "#adapters/persistence/turn-events/in-memory-turn-event-log";
 import type {
   ServiceCapabilityBundle,
   ServiceContextBundle,
@@ -32,6 +35,12 @@ export type StreamChatPortsInput = {
   readonly runtime: ServiceRuntimeBundle;
   readonly security: ServiceSecurityBundle;
   readonly turnGuards: TurnGuardRegistryPort;
+  /**
+   * The shared in-memory registry. service-composition creates it and passes it so
+   * the host-command resolver and the SSE dispatcher use the same instance; omitted
+   * (e.g. focused factory tests) it falls back to a fresh per-call registry.
+   */
+  readonly turnEventLog?: InMemoryTurnEventLog | undefined;
   readonly titleGeneration?: ConversationTitleGenerationPort | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
 };
@@ -46,9 +55,10 @@ export type StreamChatPortsInput = {
  */
 export const createStreamChatPorts = (input: StreamChatPortsInput): StreamChatPortsBundle => {
   const persistence = createServicePersistence(input.persistence.repositories);
-  // Connection-bound transport: the live stream lives in this per-instance registry,
-  // not a durable log. It is also the SSE dispatcher (see service-composition).
-  const turnEventLog = createInMemoryTurnEventLog();
+  // Connection-bound transport: the live stream lives in this per-instance registry.
+  // It is also the SSE dispatcher and backs the host-command resolver's connected-
+  // client check, so service-composition passes one shared instance.
+  const turnEventLog = input.turnEventLog ?? createInMemoryTurnEventLog();
 
   const ports: StreamChatPorts = {
     conversations: persistence.conversations,

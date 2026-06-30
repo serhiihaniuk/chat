@@ -7,6 +7,11 @@ import {
   type TurnCancelNotificationSource,
 } from "@side-chat/db";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
+import { createInMemoryTurnEventLog } from "#adapters/persistence/turn-events/in-memory-turn-event-log";
+import {
+  createServiceHostCommandResolver,
+  DEFAULT_HOST_COMMAND_RESULT_TIMEOUT_MS,
+} from "#adapters/host-commands/service-host-command-resolver";
 import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/sidechat-config/conversation-title";
 import { createServiceTurnProfileBundle } from "./factories/create-service-turn-profile-bundle.js";
 import { createServiceCapabilityBundle } from "./factories/create-service-capability-bundle.js";
@@ -120,7 +125,15 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const context = createServiceContextBundle(options, {
     repositories: persistence.repositories,
   });
-  const runtime = createServiceRuntimeBundle(options, { providers, tools });
+  // The in-memory turn-event registry is created here (not inside createStreamChatPorts)
+  // so the host-command resolver can read its live-subscriber state and the runtime is
+  // built with that resolver before the ports/dispatcher are assembled from it.
+  const turnEventLog = createInMemoryTurnEventLog();
+  const hostCommandResolver = createServiceHostCommandResolver({
+    hasConnectedClient: (assistantTurnId) => turnEventLog.hasSubscribers(assistantTurnId),
+    timeoutMs: DEFAULT_HOST_COMMAND_RESULT_TIMEOUT_MS,
+  });
+  const runtime = createServiceRuntimeBundle(options, { providers, tools, hostCommandResolver });
   const streamChat = createStreamChatPorts({
     persistence,
     capabilities,
@@ -128,6 +141,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtime,
     security,
     turnGuards,
+    turnEventLog,
     titleGeneration:
       options.conversationTitleGeneration ?? DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION,
     observability: options.observability,
@@ -204,6 +218,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     ports: streamChat.ports,
     turnRunner,
     dispatcher,
+    hostCommandResolver,
     cancelDispatcher,
     activityDispatcher,
     reaper,
