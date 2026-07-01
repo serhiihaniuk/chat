@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   ContextAdmissionBudgetError,
   createBudgetedContextAdmission,
-} from "./context-candidate-selection.js";
+} from "./context-admission.js";
 
 describe("createBudgetedContextAdmission", () => {
   it("includes every optional candidate when the configured budget has room", () => {

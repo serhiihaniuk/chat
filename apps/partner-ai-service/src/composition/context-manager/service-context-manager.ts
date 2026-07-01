@@ -1,19 +1,13 @@
-import {
-  admitConversationHistoryContext,
-  toContextId,
-  type ContextManagerPort,
-  type PreparedTurnContext,
-} from "@side-chat/partner-ai-core";
+import { type ContextManagerPort } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
-import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
-import { createContextCandidates } from "./candidates/context-candidate-creation.js";
-import { createBudgetedContextAdmission } from "./candidates/context-candidate-selection.js";
-import { resolveContextProfile } from "./profile/context-profile-resolution.js";
-import { createPreparedContextManifest } from "./rendering/context-manifest.js";
-import { createPreparedContextSections } from "./rendering/context-section-rendering.js";
-import { createRuntimeMessages } from "./rendering/runtime-message-rendering.js";
+import {
+  admitContextCandidates,
+  admitConversationHistory,
+  gatherContextSources,
+  renderPreparedTurnContext,
+  resolveContextProfile,
+} from "./context-preparation-lifecycle.js";
 import type { ServiceContextManagerOptions } from "./service-context-manager-types.js";
-import { gatherAllowedTurnContext } from "./sources/context-source-gathering.js";
 
 export type { ServiceContextManagerOptions } from "./service-context-manager-types.js";
 
@@ -24,57 +18,28 @@ export type { ServiceContextManagerOptions } from "./service-context-manager-typ
  * board and runtime chat messages. Runtime streaming has not started here, so
  * lookup, admission, and rendering failures stay pre-start failures instead of
  * partial assistant responses.
+ *
+ * The body reads as an ordered narrative; each step lives in
+ * `context-preparation-lifecycle.ts`.
  */
 export const createServiceContextManager = (
   options: ServiceContextManagerOptions,
 ): ContextManagerPort => ({
   prepareTurnContext: (input) =>
     Effect.gen(function* () {
-      // Resolve the selected profile before context work so every later record
-      // uses the same policy identity that core admitted for this turn.
-      const contextProfile = yield* resolveContextProfile(input.manifest, input.policyDecision);
+      // Resolve the profile core already admitted for this turn.
+      const profile = yield* resolveContextProfile(input);
 
-      // Gather source records under the already-admitted policy before any
-      // candidate can be rendered into the model-visible context board.
-      const gatheredContext = yield* gatherAllowedTurnContext(options, input);
+      // Read every policy-allowed source before anything becomes model-visible.
+      const sources = yield* gatherContextSources(options, input);
 
-      // Prepare candidate metadata and enforce the configured admission budget
-      // before any optional context can become model-visible.
-      const candidates = createContextCandidates(input);
-      const admission = yield* Effect.try({
-        try: () => createBudgetedContextAdmission(candidates, options.contextAdmission),
-        catch: (error) => error,
-      });
-      const historyAdmission = admitConversationHistoryContext({
-        messages: gatheredContext.historyMessages,
-        config: options.history ?? DEFAULT_SERVICE_CAPABILITY_CONFIG.history,
-        currentUserMessageId: input.currentUserMessage.messageId,
-      });
-      // Render the selected context board and chat messages separately: history
-      // can become runtime messages, while host/tool context stays in named
-      // context-board sections.
-      const sections = createPreparedContextSections(input, admission.included);
-      const manifest = createPreparedContextManifest({
-        requestId: input.request.requestId,
-        profile: contextProfile,
-        policyDecision: input.policyDecision,
-        sections,
-        admission,
-        history: historyAdmission.manifest,
-        createdAt: input.now,
-      });
-      const runtimeMessages = createRuntimeMessages(input, historyAdmission.admittedMessages);
+      // Score host/tool/message candidates and enforce the admission budget.
+      const admitted = yield* admitContextCandidates(options, input);
 
-      // Finalize the core-owned prepared context contract. Downstream runtime
-      // code receives messages and context, not service adapter records.
-      return {
-        contextId: toContextId(`context_${input.request.requestId}`),
-        profile: contextProfile,
-        policyDecision: input.policyDecision,
-        history: historyAdmission.manifest,
-        candidates,
-        runtimeMessages,
-        contextBoard: { sections, manifest },
-      } satisfies PreparedTurnContext;
+      // Select the prior messages allowed to become runtime chat messages.
+      const history = yield* admitConversationHistory(options, input, sources);
+
+      // Assemble the core-owned prepared context contract from the admitted parts.
+      return renderPreparedTurnContext(input, { profile, admitted, history });
     }),
 });
