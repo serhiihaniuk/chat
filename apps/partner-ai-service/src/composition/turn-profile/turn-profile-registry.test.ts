@@ -10,8 +10,8 @@ import {
   createDefaultTurnProfileConfig,
   DEFAULT_TURN_PROFILE_ID,
 } from "./default-turn-profile-config.js";
-import { createDefaultSystemPromptBuilder } from "./system-prompt-builder.js";
-import { createServiceHostCapabilityManifest } from "../manifest/service-capability-manifest.js";
+import { createDefaultSystemPromptBuilder } from "./prompt/system-prompt-builder.js";
+import { createServiceHostCapabilityManifest } from "../capabilities/service-capability-manifest.js";
 
 const baseInput = (
   overrides: Partial<TurnProfileRegistryInput> = {},

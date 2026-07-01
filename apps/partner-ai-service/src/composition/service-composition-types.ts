@@ -22,11 +22,11 @@ import type { TurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-disp
 import type { TurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
-import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
+import type { ServiceCapabilityStatus } from "#composition/capabilities/status/capability-status";
 import type { ServiceCapabilityConfig } from "#composition/capabilities/service-capability-settings";
 import type { ServiceToolRegistration } from "#composition/tools/service-tool-registry";
 import type { ServiceTurnProfileConfig } from "#composition/turn-profile/turn-profile-registry";
-import type { ServiceDiagnostics } from "./factories/bundle-types.js";
+import type { ServiceDiagnostics } from "./bundle-types.js";
 
 /**
  * Service composition contracts for the deployable Side Chat service.

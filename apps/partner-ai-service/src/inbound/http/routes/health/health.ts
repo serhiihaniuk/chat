@@ -3,7 +3,7 @@ import type { Hono } from "hono";
 
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
-import type { ServiceCapabilityStatus } from "#composition/capabilities/capability-status";
+import type { ServiceCapabilityStatus } from "#composition/capabilities/status/capability-status";
 import type { ServiceProviderRegistryStatus } from "#composition/providers/service-provider-registry";
 import type { ServiceToolRegistryStatus } from "#composition/tools/service-tool-registry";
 import type { AuthContextVariables } from "../../middleware/auth-context.js";

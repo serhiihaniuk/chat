@@ -13,20 +13,20 @@ import {
   DEFAULT_HOST_COMMAND_RESULT_TIMEOUT_MS,
 } from "#adapters/host-commands/service-host-command-resolver";
 import { DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION } from "#config/sidechat-config/conversation-title";
-import { createServiceTurnProfileBundle } from "./factories/create-service-turn-profile-bundle.js";
-import { createServiceCapabilityBundle } from "./factories/create-service-capability-bundle.js";
-import { createServiceContextBundle } from "./factories/create-service-context-bundle.js";
-import { createServiceDiagnostics } from "./factories/create-service-diagnostics.js";
-import { createServicePersistenceBundle } from "./factories/create-service-persistence-bundle.js";
-import { createServiceProviderBundle } from "./factories/create-service-provider-bundle.js";
-import { createServiceRuntimeBundle } from "./factories/create-service-runtime-bundle.js";
-import { createServiceSecurityPorts } from "./factories/create-service-security-ports.js";
-import { createServiceToolBundle } from "./factories/create-service-tool-bundle.js";
-import { createStreamChatPorts } from "./factories/create-stream-chat-ports.js";
+import { createServiceTurnProfileBundle } from "./turn-profile/create-service-turn-profile-bundle.js";
+import { createServiceCapabilityBundle } from "./capabilities/create-service-capability-bundle.js";
+import { createServiceContextBundle } from "./context/create-service-context-bundle.js";
+import { createServiceDiagnostics } from "./diagnostics/create-service-diagnostics.js";
+import { createServicePersistenceBundle } from "./persistence/create-service-persistence-bundle.js";
+import { createServiceProviderBundle } from "./providers/create-service-provider-bundle.js";
+import { createServiceRuntimeBundle } from "./runtime/create-service-runtime-bundle.js";
+import { createServiceSecurityPorts } from "./security/create-service-security-ports.js";
+import { createServiceToolBundle } from "./tools/create-service-tool-bundle.js";
+import { createStreamChatPorts } from "./ports/create-stream-chat-ports.js";
 import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
 import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import { createTurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
-import { resolveResumabilityConfig } from "./resumability-resolution.js";
+import { resolveResumabilityConfig } from "./runtime/resumability-resolution.js";
 import type {
   PersistenceConfig,
   ServiceComposition,
@@ -84,13 +84,13 @@ export {
 export {
   createDefaultSystemPromptBuilder,
   SystemPromptBuilderError,
-} from "#composition/turn-profile/system-prompt-builder";
+} from "#composition/turn-profile/prompt/system-prompt-builder";
 export type {
   BuiltSystemPrompt,
   SystemPromptBuilder,
   SystemPromptDefinition,
   SystemPromptSection,
-} from "#composition/turn-profile/system-prompt-builder";
+} from "#composition/turn-profile/prompt/system-prompt-builder";
 
 /**
  * Build the service graph used by HTTP routes.

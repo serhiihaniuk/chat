@@ -10,7 +10,7 @@ import type {
   BuiltSystemPrompt,
   SystemPromptBuilder,
   SystemPromptDefinition,
-} from "./system-prompt-builder.js";
+} from "./prompt/system-prompt-builder.js";
 import { DEFAULT_OUTPUT_CONTRACT, TOOL_POLICY_MODES } from "#config/catalog/config-values";
 import { EXECUTORS } from "#config/catalog/capabilities/executors";
 

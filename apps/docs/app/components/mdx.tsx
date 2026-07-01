@@ -1,6 +1,7 @@
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
 
+import { CompositionRoot } from "./composition-root";
 import { DesignControls } from "./design-controls";
 import { Glossary } from "./glossary";
 import { Preview } from "./preview";
@@ -19,6 +20,7 @@ export function getMDXComponents(components?: MDXComponents) {
     DesignControls,
     TurnTrace,
     TurnExplorer,
+    CompositionRoot,
     ...components,
   } satisfies MDXComponents;
 }

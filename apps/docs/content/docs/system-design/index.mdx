@@ -72,6 +72,16 @@ from browser to runtime and back, or read the full sequence on the
 | `packages/host-bridge` | The browser seam for host context and host commands | `src/bridge/` |
 | `packages/db` | Persistence schema, repository contracts and adapters, the `LISTEN/NOTIFY` source | `src/schema-contract/`, `src/repositories/` |
 
+## The composition root
+
+The `apps/partner-ai-service` package assembles itself in one place — the composition root under
+`src/composition/`. It is organized feature-first: `composePartnerAiService` calls each concern's
+factory in dependency order, every concern folder owns its registry/builder plus that factory (the
+wiring mirror of `adapters/`, which owns the implementations), and the bundles combine into the
+`ServiceComposition` the HTTP routes consume.
+
+<CompositionRoot />
+
 ## Invariants
 
 These hold across the system; breaking one is a design bug, not a style choice:
