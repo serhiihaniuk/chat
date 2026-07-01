@@ -6,7 +6,7 @@ Not source of truth for: the turn lifecycle ([assistant-turn.md](./assistant-tur
 
 Side Chat keeps four layers with dependencies pointing inward: Browser (`side-chat-widget`, `host-bridge`) -> Service (`apps/partner-ai-service`) -> Core (`partner-ai-core`) -> Runtime (`agent-runtime`). Two contract packages cross the seams: `chat-protocol` (browser <-> service) and `ai-runtime-contract` (core <-> runtime). Each layer owns a narrow set of dependencies; a provider SDK, `pg`, or `hono` reaching the wrong layer is a boundary break.
 
-These rules are not conventions you must remember. Fourteen scripts under `scripts/check-*.mjs` parse every import and fail CI on a violation, so the build catches the mistake before review. Run them with `npm run lint:custom`; see [verification.md](../operations/verification.md) for all gate commands.
+These rules are not conventions you must remember. Fourteen scripts under `scripts/check-*.mjs` parse every import and fail CI on a violation, so the build catches the mistake before review. Run them with `npm run lint:custom`; see [verification.md](../operations/verification.md) for all gate commands, and [ADR 0013](../adr/0013-governance-harness.md) for why governance is executable rather than conventional.
 
 ## Boundary matrix
 

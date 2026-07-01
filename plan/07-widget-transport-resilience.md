@@ -11,7 +11,7 @@ The client gives up permanently on any transport blip — the "resumable" promis
 - A zombie half-open connection never errors and never yields: status stays STREAMING, composer locked forever, and the same-turn guard blocks every reconnect (`widget-subscription-lifecycle.ts:52-64`). `fetch` streaming does not auto-recover the way `EventSource` does.
 - A CRLF pair split across chunks corrupts framing (`side-chat-sse-reader.ts:76-77` rewrites a lone trailing `\r` to `\n` → false frame boundary → `malformed_stream` → run fails).
 
-## Decided approach (ADR-0010 client contract)
+## Decided approach (ADR-0007 (docs/adr/0007-connection-bound-streaming.md) client contract)
 
 Transport failures are **reconnecting**, not terminal:
 

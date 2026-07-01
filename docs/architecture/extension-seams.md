@@ -25,7 +25,7 @@ Contract types live in `packages/*`; binding happens in `apps/partner-ai-service
 | Add a provider/model | `ServiceProviderRegistration` ([service-provider-registry.ts:66](../../apps/partner-ai-service/src/composition/providers/service-provider-registry.ts)) | `createServiceProviderRegistry` builds the concrete `ModelProvider`; first registration is the default | Bundled: declaration + transport/secret + runtime build |
 | Add a guard/policy | `TurnGuard` / `TurnGuardRegistryPort` ([turn-guard.ts:36](../../packages/partner-ai-core/src/ports/guards/turn-guard.ts)) | `options.turnGuards` ([service-composition.ts:106](../../apps/partner-ai-service/src/composition/service-composition.ts)); turn-policy resolver via [create-service-capability-bundle.ts:58](../../apps/partner-ai-service/src/composition/capabilities/create-service-capability-bundle.ts) | Injected port; decision is `allow` / `allow_with_warning` / `block` |
 | Add an executor | `AgentExecutor` ([agent-executor.ts:38](../../packages/agent-runtime/src/runtime/executors/agent-executor.ts)) | `AgentRuntimeOptions.executors`, passed by the runtime bundle | Injected port; default id `ai_sdk.tool_loop` |
-| Wire a host command | `HostCommand` / `HostCommandCapability` ([capability.ts:11](../../packages/host-bridge/src/commands/capability.ts)) | The widget + host bridge in `packages/host-bridge/src/`, NOT the runtime | Declared in the host manifest; handled in the host app |
+| Wire a host command | `HostCommandCapability` (core manifest shape, [capabilities.ts](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) + the host-bridge dispatch shapes ([capability.ts](../../packages/host-bridge/src/commands/capability.ts)) | Declare in `sidechat.config.ts`; the runtime exposes it to the model as a callable tool; handle it in the host app via `packages/host-bridge` | Declared in config; model-callable; performed in the browser ([host-commands.md](host-commands.md)) |
 | Add an observability sink | `ObservabilitySinkPort` ([observability.ts:54](../../packages/partner-ai-core/src/services/observability.ts)) | `options.observability` ([service-composition.ts:137](../../apps/partner-ai-service/src/composition/service-composition.ts)); default `NOOP_OBSERVABILITY_SINK` | Injected port; receives redacted records only |
 | Add a persistence adapter | `SidechatRepositories` + `RepositoryAdapterKind` (`@side-chat/db`) | `options.repositories` / `options.persistence`, resolved by `createServicePersistenceBundle` | Injected port; repos must declare `adapterKind` or fail closed |
 
@@ -40,6 +40,8 @@ Each seam follows the same loop: write against the contract, then register or in
 1. Implement a `RuntimeTool` under `apps/partner-ai-service/src/adapters/tools/`. Copy the worked example [jira-search-issues-tool.ts:76](../../apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts).
 2. Wrap it with `createServiceToolRegistration({ capability, runtimeTool })` so one factory returns both.
 3. Add the registration to the service's registry list. `createServiceToolRegistry` rejects any registration whose capability and tool names disagree.
+
+Known gap (fix tracked in `plan/21`): the `sidechat.config.ts` `tools` block currently accepts only `mock_web_search` — the config adapter maps every configured name to the mock registration ([options-adapter.ts](../../apps/partner-ai-service/src/config/sidechat-config/options/options-adapter.ts)). Until the registration map lands, a custom tool must be wired programmatically through `PartnerAiServiceOptions.runtime.tools`, not through the config file.
 
 ### Add a provider/model
 
@@ -61,12 +63,14 @@ For per-turn policy decisions (profile, model, tools, guards, executor), provide
 2. Add it to the runtime config `executors` list, injected via the runtime bundle.
 3. Do not expose executor ids as browser or manifest capabilities; they are runtime-internal.
 
+Need more than a custom loop — a different engine entirely, possibly remote or in another language? That is the next level up: implement `AiRuntimePort` itself. See [runtime-port.md](runtime-port.md) for the three integration levels and the remote-agent adapter pattern.
+
 ### Wire a host command
 
 Full walkthrough with a runnable example: [host-commands.md](host-commands.md). In short:
 
-1. Declare a `HostCommandCapability` in `hostCommands.availableCommands` ([sidechat.config.ts](../../apps/partner-ai-service/sidechat.config.ts)). The worked example is `open_resource` ([host-commands.ts](../../apps/partner-ai-service/src/config/catalog/capabilities/host-commands.ts)).
-2. Handle the command in the host app through the bridge in `packages/host-bridge/src/`. A host command runs in the browser, not the runtime.
+1. Declare a `HostCommandCapability` in `hostCommands.availableCommands` ([sidechat.config.ts](../../apps/partner-ai-service/sidechat.config.ts)). The worked example is `open_resource` ([host-commands.ts](../../apps/partner-ai-service/src/config/catalog/capabilities/host-commands.ts)). The runtime exposes declared commands to the model as callable tools.
+2. Handle the command in the host app through the bridge in `packages/host-bridge/src/`, and advertise it in the bridge's `getCapabilities` — the action itself runs in the browser.
 3. Ship a separate `RuntimeTool` only if the backend must also perform the action.
 
 ### Add an observability sink
@@ -83,4 +87,6 @@ Full walkthrough with a runnable example: [host-commands.md](host-commands.md). 
 
 ## Where adapters live
 
-For folder placement inside the service, see [adapters/README.md](../../apps/partner-ai-service/src/adapters/README.md). It reserves one folder per seam: `auth/`, `guards/`, `host-commands/`, `observability/`, `persistence/`, `policy/`, and `tools/`. Folders that ship implementations today are `auth/`, `guards/`, `persistence/`, `policy/`, and `tools/`; `host-commands/` and `observability/` exist but are empty. Host commands run in the browser through `packages/host-bridge/src/`; the service `host-commands/` folder is only for optional service-side dispatch helpers.
+For folder placement inside the service, see [adapters/README.md](../../apps/partner-ai-service/src/adapters/README.md). Folders that ship implementations today: `auth/`, `guards/`, `host-commands/` (the connection-bound result resolver), `persistence/` (including the in-memory turn-event registry), `policy/`, and `tools/`. The rest (`agents/`, `memory/`, `observability/`, `rag/`, `title/`) are reserved and empty.
+
+Two seams adopters ask for are not injectable yet, both tracked in `plan/`: bring-your-own auth (the `ServiceAuthVerifier` interface exists, but options accept only static-token configs — `plan/20`), and config-driven custom tools (`plan/21`, note above).

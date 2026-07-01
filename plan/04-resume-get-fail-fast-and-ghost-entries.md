@@ -12,7 +12,7 @@ Three defects in `GET /chat/turns/:id/stream` against a turn this instance doesn
 
 Also: `readReplayOffset` parses `after=` (empty string) as `0`, silently skipping seq 0, and non-numeric values as full replay (`chat-turns.ts:265-269`).
 
-## Decided approach (ADR-0010)
+## Decided approach (ADR-0007 (docs/adr/0007-connection-bound-streaming.md))
 
 - Running turn + `!dispatcher.hasTurn(assistantTurnId)` → **do not open SSE**; return a structured JSON error, e.g. `409 { error: "stream_unavailable", reason: "not_stream_owner" }`, added to the protocol's documented error responses. The client reaction (poll until terminal → history) is story 07.
 - `subscribe` must not create registry entries — subscribing to an unknown turn returns a not-found signal to the route instead of `ensureTurn`.

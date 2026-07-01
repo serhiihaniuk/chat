@@ -13,7 +13,7 @@ Two parallel config systems with subtly different semantics coexist:
 
 ## Decided approach
 
-One config system, final state (per AGENTS.md):
+One config system, final state (per AGENTS.md). The config file's design — one big, deliberately repetitive, human-readable file per variant, env declared inline via `readEnv` — is recorded in **ADR 0010** (`docs/adr/0010-readable-declarative-config.md`); this story removes the competing system, it must not "optimize" the surviving one:
 
 1. **Delete the legacy env parser** and its exclusive helpers (`service-config.ts`, `createPartnerAiServiceOptionsFromEnv`, duplicated normalizers, its tests). Anything still needed (e.g. `readServicePort` fallback pieces) moves into the sidechat-config modules.
 2. **Config load failure is fatal and loud:** `server.ts` prints the load error (file, reason) and exits non-zero. No fallback. A missing/broken `sidechat.config.ts` must never silently boot different behavior.

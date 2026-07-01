@@ -74,15 +74,17 @@ composition/
 
 `ServiceComposition` is:
 `{ workspace, hostAppId, auth, policies, persistence, repositories, runtime,
-ports, turnRunner, dispatcher, cancelDispatcher, activityDispatcher, reaper,
-pruner, observability?, safetyPollIntervalMs, capabilities, diagnostics, shutdown }`.
+ports, turnRunner, dispatcher, hostCommandResolver, cancelDispatcher,
+activityDispatcher, observability?, safetyPollIntervalMs, capabilities,
+diagnostics, shutdown }` (`service-composition-types.ts:165`).
 The runs route starts a turn through `composition.turnRunner`; the turn-stream
 route subscribes through `composition.dispatcher` (+ `safetyPollIntervalMs`) and
-`composition.ports`; the activity route subscribes through
+`composition.ports`; the host-command result route settles
+`composition.hostCommandResolver`; the activity route subscribes through
 `composition.activityDispatcher`; health and models read `composition.diagnostics`
-and `composition.capabilities`. The cancel dispatcher, reaper (stale lease
-terminalizer), and pruner (`turn_events` retention) are background owners that
-`composition.shutdown` tears down with the dispatchers.
+and `composition.capabilities`. The cancel and activity dispatchers are the
+background owners that `composition.shutdown` tears down after interrupting
+in-flight turns.
 
 ## Common change recipes
 

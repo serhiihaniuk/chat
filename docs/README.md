@@ -19,7 +19,7 @@ Pick a reading path by your skill level, then follow the ownership table.
 
 **Working in the code** — change a package, lifecycle, or boundary:
 
-- [architecture/](architecture/): system map, [assistant-turn.md](architecture/assistant-turn.md), [runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md), [package-boundaries.md](architecture/package-boundaries.md), [widget-and-host-integration.md](architecture/widget-and-host-integration.md), [extension-seams.md](architecture/extension-seams.md), [host-commands.md](architecture/host-commands.md).
+- [architecture/](architecture/): system map, [assistant-turn.md](architecture/assistant-turn.md), [runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md), [package-boundaries.md](architecture/package-boundaries.md), [widget-and-host-integration.md](architecture/widget-and-host-integration.md), [extension-seams.md](architecture/extension-seams.md), [host-commands.md](architecture/host-commands.md), [effect.md](architecture/effect.md).
 - [domain/vocabulary.md](domain/vocabulary.md): canonical terms and the synonyms to avoid.
 
 **Embedding or operating** — adopt, run, or extend Side Chat:
@@ -42,10 +42,12 @@ Each file below owns its topic. Link to it; never re-derive its content elsewher
 | [architecture/widget-and-host-integration.md](architecture/widget-and-host-integration.md) | Widget layers, host bridge, copied UI quarantine. |
 | [architecture/extension-seams.md](architecture/extension-seams.md) | Adoption seams and contract locations. |
 | [architecture/host-commands.md](architecture/host-commands.md) | Declaring, handling, and testing a host command end to end. |
+| [architecture/effect.md](architecture/effect.md) | Where Effect lives, what each role must know, house style, traps. |
+| [architecture/runtime-port.md](architecture/runtime-port.md) | The `AiRuntimePort` contract, integration levels, remote-engine adapter pattern. |
 | [operations/verification.md](operations/verification.md) | Gate commands and what each proves. |
 | [operations/local-development.md](operations/local-development.md) | Running the service and harnesses locally. |
 | [operations/configuration.md](operations/configuration.md) | The typed `sidechat.config.ts` and its tunables. |
-| [operations/database.md](operations/database.md) | Schema tooling, migrations, grants, the `turn_events` log. |
+| [operations/database.md](operations/database.md) | Schema tooling, migrations, and role grants. |
 | [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md) | Embedding the widget in a host page via iframe. |
 | [product/requirements.md](product/requirements.md) | Functional, quality, safety, and adoption requirements. |
 | [product/todo.md](product/todo.md) | Deferred product work, kept out of active config. |
@@ -57,6 +59,8 @@ vocabulary, lifecycle, and boundaries, and never owns global terms.
 ## Rendered site
 
 [apps/docs](../apps/docs) renders the docs as a site (`npm run dev` on port 4111)
-with three sections: Design System (live widget components), System Design
-(architecture and the resumable turn model), and Walkthrough (the example-first
-tour). Start newcomers on the Walkthrough.
+with sections for the Design System (live widget components), System Design
+(architecture and the turn model), the Walkthrough (the example-first tour), and
+the Vocabulary. Start newcomers on the Walkthrough. Parts of the rendered System
+Design section still describe the pre-2026-07 durable-log streaming design;
+these docs under `docs/` are the source of truth until that section is updated.

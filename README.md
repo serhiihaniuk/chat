@@ -13,8 +13,9 @@ everything else the assistant needs — runtime, tools, streaming, and protocol.
 
 - **Drop-in embeddable widget.** A React widget mounts into any host app over an
   iframe, isolated from host styles, with no framework lock-in on the host side.
-- **Resumable streaming.** Assistant turns survive reconnects, tab closes, and
-  multi-instance deploys — generation is server-owned, not tied to a socket.
+- **Server-owned streaming.** Generation runs on the server, not tied to a
+  socket: the active tab streams live, a reload reads the finished answer from
+  the database, and a user cancel genuinely aborts the provider call.
 - **Tool calling.** A built-in tool-calling loop lets the model call registered
   runtime tools, with a clean seam to add your own.
 - **Host commands.** A host bridge lets the assistant trigger actions in the host
@@ -62,10 +63,12 @@ For the whole system on one page, read
 
 These are the parts that show judgment, not just feature wiring.
 
-- **Resumable, server-owned streaming.** A turn runs in two HTTP calls so
-  generation outlives any connection. A durable `turn_events` log is the source
-  of truth; the browser is only a subscriber, so a reconnect replays then tails
-  the same turn. Multi-instance fan-out uses PostgreSQL `LISTEN/NOTIFY`, no Redis.
+- **Connection-bound, server-owned streaming.** Generation runs on a
+  server-owned fiber that outlives the socket; live events flow through an
+  in-memory per-instance registry, and Postgres holds the durable final state —
+  the claude.ai model, chosen over a durable event log for simplicity
+  (ADR [0005](docs/adr/0007-connection-bound-streaming.md)). Cross-instance
+  cancel and activity signals ride PostgreSQL `LISTEN/NOTIFY`, no Redis.
 - **Three event vocabularies, mapped once per boundary.** Provider stream parts →
   `RuntimeEvent` → `sidechat.v1`. Each conversion happens in exactly one place, so
   no layer leaks the layer beneath it.
@@ -103,7 +106,7 @@ next human maintainer rather than for the model.
 | Language  | TypeScript (strict), Node 24, Effect v4                           |
 | AI        | AI SDK 6, provider-neutral runtime, tool-calling loop            |
 | Backend   | Hono service, Drizzle ORM, PostgreSQL (`LISTEN/NOTIFY`)          |
-| Frontend  | React 19, TanStack Query, Tailwind, shadow-DOM-isolated widget   |
+| Frontend  | React 19, TanStack Query, Tailwind, iframe-isolated widget       |
 | Tooling   | oxlint, oxfmt, Vitest, Playwright, testcontainers, custom lints  |
 
 ## Run it locally
@@ -120,6 +123,10 @@ seeded demo chats):
 ```sh
 node scripts/run-local-fake.mjs --yes
 ```
+
+Known gap: the no-API-key fake mode of that launcher currently fails at boot;
+until `plan/11` lands, pick the `openai` or `azure` mode, or use `npm run dev`
+(see [docs/operations/local-development.md](docs/operations/local-development.md)).
 
 This starts only the two servers; **your own app is the host** — proxy `/side-chat-api`
 and `/side-chat-frame` to them and embed the iframe (see

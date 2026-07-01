@@ -17,5 +17,4 @@ This doc tracks work the system deliberately does not do yet. Each entry names a
 
 ## Known code gaps
 
-- `sidechat.blocked` is terminal everywhere except sequence validation and the generated schema. `event-union.ts` lists it in `TerminalEvent` and `isTerminalEvent`, but `validateSidechatEventSequence` rejects any terminal that is not `sidechat.completed` or `sidechat.error`, so it throws on a blocked turn ([sequence.ts](../../packages/chat-protocol/src/sidechat-v1/ordering/sequence.ts)).
-- The generated schema event enum also omits `sidechat.blocked` ([sidechat-v1.schema.generated.json](../../packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json)). Add it to both before relying on blocked-turn sequence checks.
+Known gaps now live in the working plan at [`plan/00-overview.md`](../../plan/00-overview.md), one story per gap with evidence and acceptance criteria — including the `sidechat.blocked` sequence/schema gap (`plan/16`), the streaming affinity and orphan-turn gaps (`plan/02`–`plan/07`), and the fake quick-start boot failure (`plan/11`). Architecture docs mark each gap inline where it bites.

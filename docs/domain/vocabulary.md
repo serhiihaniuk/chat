@@ -43,11 +43,10 @@ One user message produces one assistant turn. The service runs pre-start work sy
 | ResolvedTurnPlan | The workflow value wrapping the manifest, its hash, the `TurnPolicyDecision`, and the resolved profile. | `packages/partner-ai-core/src/application/stream-chat/turn/turn-policy-plan.ts:22` |
 | Server-owned generation | The turn runs on a service fiber forked off the request, so it outlives any one connection. | `apps/partner-ai-service/src/inbound/turn-runner/turn-runner.ts:43` |
 | Turn runner | Per-instance component that forks generation and tracks live turns in a `FiberMap` keyed by `assistantTurnId`. | `apps/partner-ai-service/src/inbound/turn-runner/turn-runner.ts:51` (`TurnRunner`) |
-| Durable turn-event log | Append-only, per-turn ordered log; the source of truth for a turn's events. The browser only subscribes. | `packages/db/src/drizzle/schema.ts` (`turn_events`); port `.../ports/lifecycle/turn-event-log.ts` |
-| Replay offset (`after`) | Stream cursor. `GET /chat/turns/:assistantTurnId/stream?after=<seq>` emits `sequence > after`; `started` is sequence 0. | `apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts:78` |
-| Owner lease (fencing, `lease_epoch`) | Compare-and-set claim binding one running turn to one instance. A renew matching no row means the owner was fenced. | `.../ports/lifecycle/assistant-turn.ts:90` (`acquireTurnLease`); schema `turn_events`/`assistant_turns` |
-| Reaper | Background sweep that terminalizes lease-expired turns, fencing a dead or stalled owner. | `apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-reaper.ts:34` (`TurnReaper`) |
-| Pruner | Background sweep that deletes event rows of old terminal turns past retention; the turn still resolves. | `apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-pruner.ts` |
+| Connection-bound streaming | The streaming model: live events exist only in the owning instance's registry; Postgres holds durable final state. | ADR `docs/adr/0007-connection-bound-streaming.md` |
+| Turn-event registry | Per-instance, in-memory buffer of one turn's mapped events; the live SSE transport. Not durable — final state comes from history. | `apps/partner-ai-service/src/adapters/persistence/turn-events/in-memory-turn-event-log.ts`; port `.../ports/lifecycle/turn-event-log.ts` |
+| Replay offset (`after`) | Stream cursor. `GET /chat/turns/:assistantTurnId/stream?after=<seq>` emits `sequence > after`; `started` is sequence 0. | `apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts:81` |
+| Owner lease (fencing, `lease_epoch`) | Compare-and-set claim binding one running turn to one instance. A renew matching no row means the owner was fenced. No sweep consumes lease expiry yet (`plan/05`). | `.../ports/lifecycle/assistant-turn.ts:90` (`acquireTurnLease`); schema `assistant_turns` |
 | Pre-start failure | A failure before `sidechat.started`; setup is rejected as a JSON response, not a stream event. | `apps/partner-ai-service/src/inbound/http/routes/chat/runs/chat-runs.ts:88` (`mapPreStartError`) |
 | Post-start failure | A failure after `sidechat.started`; the stream emits a terminal `sidechat.error` or `sidechat.blocked`. | `packages/chat-protocol/src/sidechat-v1/events/event-union.ts:128` (`ErrorEvent`) |
 
@@ -58,21 +57,22 @@ Three event vocabularies, never conflated, each lower than the last: AI-SDK stre
 | Term | Meaning | Where it lives (code path) |
 |---|---|---|
 | AI SDK stream part | A provider/tool-loop event from the AI SDK; private to `agent-runtime`. | Mapped by `packages/agent-runtime/src/runtime/ai-sdk/streaming/stream-part-mapper.ts:78` (`mapAiSdkStreamPart`) |
-| RuntimeEvent | The normalized internal event from agent runtime. Kinds: `started`, `output_delta`, `activity`, `completed`, `error`, `blocked`. | `packages/ai-runtime-contract/src/index.ts:99` (`RUNTIME_EVENT_TYPES`); union `:209` |
+| RuntimeEvent | The normalized internal event from agent runtime. Kinds: `started`, `output_delta`, `activity`, `completed`, `error`, `blocked`. | `packages/ai-runtime-contract/src/index.ts:113` (`RUNTIME_EVENT_TYPES`) |
 | RuntimeActivityDetails | Provider-neutral activity detail that core maps to browser-safe activity detail. | `packages/ai-runtime-contract/src/runtime-activity.ts:70` |
-| mapRuntimeEvent | The core function that maps one `RuntimeEvent` to its `sidechat.v1` event(s). | `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts:49` |
+| mapRuntimeEvent | The core function that maps one `RuntimeEvent` to its `sidechat.v1` event(s). | `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts:52` |
 | SidechatStreamEvent | Any `sidechat.v1` event a browser client can receive for one stream. | `packages/chat-protocol/src/sidechat-v1/events/event-union.ts:169` |
 | Activity event (`sidechat.activity`) | A progress, reasoning, tool, or host-command row *inside* one turn's stream. | `.../events/event-union.ts:112` (`ActivityEvent`) |
 | Turn activity event (`sidechat.turn-activity`) | A cross-conversation lifecycle signal on `GET /chat/activity` that powers the "generating" dot on other chats. | `.../codec/activity-sse-codec.ts:13` (`TURN_ACTIVITY_EVENT_TYPE`) |
 | Terminal event | The final event closing turn state: `completed`, `error`, or `blocked`. | `.../events/event-union.ts:165` (`TerminalEvent`); `:183` (`isTerminalEvent`) |
 | `sidechat.blocked` | A terminal safety-stop: the turn was blocked before a usable answer, kept distinct from `completed`. | `.../events/event-union.ts:141` (`BlockedEvent`); runtime `index.ts:203` (`RuntimeBlockedEvent`) |
-| `sidechat.history` / HistoryMessage | Replay payload of past messages the widget falls back to after `replay_expired`. | `.../events/event-union.ts:147` (`HistoryEvent`), `:152` (`HistoryMessage`) |
+| `sidechat.history` / HistoryMessage | Defined in the protocol but never emitted by any server code; the `replay_expired` fallback is a REST history read, not this event (`plan/35`). | `.../events/event-union.ts:147` (`HistoryEvent`), `:152` (`HistoryMessage`) |
 | Tool call / result / error | The model's request to run a tool, its successful result, and its public failed shape (`errorCode`). | `packages/ai-runtime-contract/src/runtime-activity.ts:55`–`61` |
 | Host command / result | A command Side Chat sends to a host capability, and the host's returned result. | `packages/host-bridge/src/commands/command-result.ts:12` (`HostCommandResult`) |
+| Host-command resolver | The owning instance's in-memory await for a pending host-command result: the tool loop pauses on it (30 s bound) until the result route settles it. See ADR `docs/adr/0009`. | `apps/partner-ai-service/src/adapters/host-commands/service-host-command-resolver.ts` |
 | Widget message / activity item | Client-side message and timeline state the widget renders from protocol events. | `packages/side-chat-widget/src/entities/chat/model/widget-chat.ts:15`; `.../model/activity.ts:15` |
 | ProtocolErrorCode | A turn-outcome code carried on a `sidechat.v1` error event (for example `provider_failed`). | `packages/chat-protocol/src/sidechat-v1/errors.ts:1` (`PROTOCOL_ERROR_CODES`) |
 | TransportErrorCode | A code for why a stream could not even open, returned as JSON before any frame. | `packages/chat-protocol/src/sidechat-v1/errors.ts:30` (`TRANSPORT_ERROR_CODES`) |
-| `replay_expired` | The one `TransportErrorCode` (HTTP 404): a pruned log can no longer replay from `after`. | `.../errors.ts:31` (`TRANSPORT_ERROR_CODES.REPLAY_EXPIRED`) |
+| `replay_expired` | The one `TransportErrorCode` (HTTP 404): a terminal turn swept from the registry can no longer replay from `after`. | `.../errors.ts:31` (`TRANSPORT_ERROR_CODES.REPLAY_EXPIRED`) |
 
 ## Identity & authority
 
@@ -89,7 +89,7 @@ Authority is proven, fail-closed, and checked before any persistence or model wo
 | HostContext | Browser page metadata (origin, url, title). Reference data only; never proof of identity or access. | `packages/chat-protocol/src/sidechat-v1/request/request.ts:36` (`HostContext`) |
 | `requestId` | Idempotency and resolver key for one submission; a repeat returns the existing turn. Resolve via `GET /chat/runs/:requestId`. | `packages/ai-runtime-contract/src/runtime-ids.ts:11` (`RequestId`) |
 | `assistantTurnId` | The canonical key for streaming, status, and cancel. | `packages/ai-runtime-contract/src/runtime-ids.ts:12` (`AssistantTurnId`) |
-| Branded id pattern (`Brand<>`) | Nominal ids made via `brandString`/`brandNumber`, so a raw string will not compile where an id is required. | `packages/shared/src/index.ts:10` (`Brand`), `:14` (`brandString`) |
+| Branded id pattern (`Brand<>`) | Deliberately weak nominal ids via `brandString`/`brandNumber`: mixing two different id brands will not compile, but a raw string is still assignable. | `packages/shared/src/index.ts:10` (`Brand`), `:14` (`brandString`) |
 
 ## Packages & boundaries
 
@@ -104,7 +104,7 @@ Four layers, dependencies pointing inward: Browser → Service → Core → Runt
 | packages/ai-runtime-contract | The core↔runtime contract: `AiRuntimeRequest`, `RuntimeEvent`, branded ids. | `packages/ai-runtime-contract/` |
 | packages/side-chat-widget | The browser UI. Effect-free and provider-free; uses TanStack Query for list/history/catalog, but not the live stream. | `packages/side-chat-widget/` |
 | packages/host-bridge | The widget↔host seam for host commands and context. | `packages/host-bridge/` |
-| packages/db | The only home for `pg` and `drizzle-orm`; owns `turn_events` and persistence. | `packages/db/` |
+| packages/db | The only home for `pg` and `drizzle-orm`; owns persistence and the cancel/activity notification sources. | `packages/db/` |
 | ChatStreamRequest | The browser-facing `sidechat.v1` stream request; may carry a model preference, not provider options. | `packages/chat-protocol/src/sidechat-v1/request/request.ts:76` |
 | StreamChatInput | The product-core input the service adapter assembles from a request. | `packages/partner-ai-core/src/application/stream-chat/stream-chat-types.ts:31` |
 | AiRuntimeRequest | The provider-neutral request from core into a runtime implementation. | `packages/ai-runtime-contract/src/index.ts:86` |

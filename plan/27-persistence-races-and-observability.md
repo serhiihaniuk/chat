@@ -1,6 +1,6 @@
 # 27 — Persistence races, fiber observability, fail-open telemetry
 
-**Epic:** 5 Robustness | **Priority:** P0 | **Depends on:** 05 (reaper is the backstop) | **Status:** todo
+**Epic:** 5 Robustness | **Priority:** P0 | **Depends on:** 05 (reaper is the backstop), 36 (logger + console sink) | **Status:** todo
 
 ## Problem
 
@@ -17,6 +17,8 @@
 3. **New-conversation idempotency:** derive the conversation key deterministically from `requestId` for conversationless requests so a retry converges on one conversation; return `conversationId` from the resolved turn record, not the current attempt's prepare.
 4. **Concurrent-turn policy:** reject a second run for a conversation with an active turn (`409 conversation_busy`, checked at pre-start after the idempotent turn insert resolves). Widget already self-serializes; this guards other tabs/clients. (Reject, don't queue — simplest honest behavior; the widget maps it to a notice.)
 5. Telemetry fail-open: `recordStreamObservationEffect` logs-and-continues like the title path; delete the "keep errors typed" fail-closed wiring; document on the sink port that sink failures cannot affect turns.
+   - The shipped console sink and the diagnostic logger this story logs through come from **story 36 / ADR 0011** — do 36 first (it superseded the "example sink" idea with a real dev-default sink).
+   - Record `allow_with_warning` guard decisions through the sink (today `PreparedStreamChatTurn.turnGuardDecisions` is collected and consumed by nothing — `prepare-stream-chat-turn.ts:47`); one observation per warning with the guard id in attributes.
 6. Generic 500 body ("internal error" + requestId), real message to the log only.
 
 ## Acceptance criteria

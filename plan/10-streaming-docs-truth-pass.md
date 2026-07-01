@@ -1,43 +1,62 @@
-# 10 — Streaming docs truth pass + dead config knobs
+# 10 — Post-implementation docs delta + dead knobs + stale code comments
 
-**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 02–09 (write docs to the final implemented state) | **Status:** todo
+**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 02–09 | **Status:** todo (scope reduced 2026-07-02)
 
-## Problem
+## Scope change
 
-The repo's flagship docs still teach the architecture deleted on 2026-06-30, including file paths that no longer exist. Verified stale surfaces:
+The full docs truth pass originally planned here was executed early, together
+with story 01 (see `plan/01`): ADRs rebaselined, all `docs/` architecture/
+operations/product files, both stale package READMEs, and the root README now
+describe the current connection-bound code, with known gaps flagged inline.
 
-- `README.md` — "Resumable streaming … survive reconnects, tab closes, and multi-instance deploys", "durable turn_events log is the source of truth", "LISTEN/NOTIFY fan-out, no Redis" (lines ~16-18, 66-68, 106).
-- `docs/architecture/assistant-turn.md` — durable log, reaper, pruner, "reconnect from any instance", cites deleted `turn-events.ts`/`turn-reaper.ts`/`turn-pruner.ts` by path and line (~:9, :81-133).
-- `docs/architecture/system-map.md` — streaming model section + package table rows describing the durable log and reaper/pruner (~:56-73, :82, :89).
-- `docs/domain/vocabulary.md` — durable-log terms (~:48; audit the whole file for `turn_events`, reaper, pruner).
-- `packages/db/README.md:11-24` — six deleted APIs (`appendTurnEvent`, `readTurnEventsAfter`, `pruneTurnEventsBefore`, turn-events NOTIFY channel, `createPostgresTurnEventNotificationSource`).
-- `apps/partner-ai-service/src/composition/README.md:75-85` — documents `reaper, pruner` composition keys that don't exist.
-- `docs/operations/configuration.md:29` — documents dead knobs as live.
-- Dead config surface: `turnEventRetention`, `prunerInterval` in `sidechat.config.ts:208-225` + their env keys (`service-env-contract.ts:33-36`) + `resolveResumabilityConfig` fields nothing reads. (`reaperInterval`/`reaperBatchLimit` become LIVE again in story 05 — keep those.)
-- Stale code comments: `turn-observability.ts:27-36` (`turn_reaped` type — becomes live again with story 05, verify), `turn-subscription-stream.ts:21-37` (calls the registry "the durable turn-event log"), `turn-event-dispatcher.ts` vs neighbors disagreeing.
-- Stale `dist/` outputs in `packages/db` and `packages/side-chat-widget` containing deleted modules (`dist/repositories/.../turn-events.d.ts` etc.) — confusing archaeology.
-- `docs/generated/partner-ai-service.openapi.generated.json` — verify the run/stream endpoints match the story-02 contract.
+What remains for this story is the **code-side** cleanup and the **delta** pass
+after stories 02–09 change behavior.
 
-## Decided approach
+## Remaining tasks
 
-One patch, after the Epic-1 implementation lands, rewriting every stale surface to the ADR-0010 model (connection-bound, stream-from-POST, fail-fast resume, poll fallback, reaper sweep, cancel/activity via NOTIFY). Delete the pruner/retention knobs and their plumbing. Add a short **deployment/capacity note** in `docs/operations/` (new file or a section in configuration.md): instance model (any instance serves next turn; live stream bound to the POST connection), pool sizing knob (story 26), SSE budgets, retention reality (no automatic pruning of `assistant_turns`/`usage_records`/`audit_events`; ~3.6 M rows/yr at 10 k turns/day — document, don't build).
-
-## Tasks
-
-1. Rewrite the streaming sections of the six docs above; keep the docs-gate header contract and paragraph-density limits (`npm run lint:custom` enforces).
-2. README feature bullets: replace the multi-instance-replay claim with the honest model (also fix "shadow-DOM-isolated" → iframe-isolated here if story 14 hasn't already).
-3. Delete `turnEventRetention`/`prunerInterval` end-to-end (config, env contract, resolution, types, docs).
-4. Purge/update every stale comment found by: `grep -rn "reaper\|pruner\|turn_events\|durable" apps packages --include="*.ts" | grep -vi test` — each hit either true (post story 05) or rewritten.
-5. Add a `clean` script or note so stale `dist/` gets rebuilt; delete tracked-stale outputs if any are tracked.
-6. Regenerate/fix the OpenAPI artifact for the new POST contract.
-7. Update `docs/domain/vocabulary.md`: retire durable-log terms, add "stream owner", "poll fallback", "orphan sweep" if used by the new docs.
+1. **Delete the dead config knobs** end-to-end once story 05 reconnects the
+   reaper ones: `turnEventRetention` and `prunerInterval` in
+   `apps/partner-ai-service/sidechat.config.ts` (~:208-225), their env keys in
+   `service-env-contract.ts`, and the unread fields in
+   `resumability-resolution.ts` / composition types. (`reaperInterval` and
+   `reaperBatchLimit` become live again in story 05 — keep those.) Update the
+   flagged row in `docs/operations/configuration.md` to match.
+2. **Purge stale code comments** that still assert the deleted design:
+   `grep -rn "reaper\|pruner\|turn_events\|durable" apps packages --include="*.ts" | grep -vi test`
+   — each hit must be true (post story 05) or rewritten. Known offenders:
+   `turn-cancel-notification-source.ts:22-23`, `packages/db/src/schema-contract/lifecycle.ts:56-58`,
+   `schema-contract/repositories.ts` (reaper doc block),
+   `turn-subscription-stream.ts:21-37` ("durable turn-event log"),
+   `turn-observability.ts:27-36` (`turn_reaped` — becomes live with story 05, verify).
+3. **Docs delta after 02–09:** update `assistant-turn.md` (HTTP surface section:
+   two calls → stream-from-POST), `runtime-and-protocol-events.md` (transport
+   open section + identity frame if added), `system-map.md` streaming table,
+   and remove the known-gap callouts that stories 04/05/06/07 close.
+4. **Regenerate/fix the OpenAPI artifact** (`docs/generated/partner-ai-service.openapi.generated.json`)
+   for the story-02 POST contract and any new/changed routes.
+5. **Write the capacity/deployment note** in `docs/operations/` (new file or a
+   configuration.md section): instance model (any instance serves the next
+   turn; live stream bound to the starting connection), pool sizing knob
+   (story 26), SSE connection budgets, heartbeats (story 17), and retention
+   reality (NOTHING is ever cleaned: `assistant_turns`, `messages`,
+   `usage_records` [one row per runtime step], `turn_context_snapshots`,
+   `audit_events`, and post-story-08 `host_command_results` all grow forever;
+   ~3.6 M turn rows/yr at 10 k turns/day — document, don't build). Also state
+   the deliberate non-persistence: tool/activity detail (inputs, results,
+   reasoning rows) lives only in the in-memory registry and is gone after a
+   reload — `tool_invocations` is the reserved-but-unwritten table if the
+   product ever wants persistent tool cards in history (owner decision, not
+   scheduled).
+6. Add a `clean` script (or wire into `build`) so stale `dist/` output from
+   deleted modules gets rebuilt; verify no tracked stale artifacts remain.
 
 ## Acceptance criteria
 
-- [ ] `grep -rn "turn_events" README.md docs/ packages/db/README.md` returns only historical references inside ADRs.
-- [ ] Every file path cited by assistant-turn.md exists.
+- [ ] `grep -rn "turn_events" README.md docs/ packages/db/README.md` returns only historical references inside ADRs and plan/.
+- [ ] The comment grep in task 2 returns only true statements.
+- [ ] No config key resolves into a struct nothing reads (task 1).
+- [ ] OpenAPI matches the shipped routes.
 - [ ] `npm run verify` green (docs gate + governance fixtures).
-- [ ] A newcomer reading README → system-map → assistant-turn gets only the ADR-0010 model.
 
 ## Verification
 

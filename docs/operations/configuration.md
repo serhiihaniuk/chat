@@ -6,6 +6,8 @@ Not source of truth for: gate commands (see [verification.md](verification.md)),
 
 Side Chat's runnable app, `apps/partner-ai-service`, declares its entire behavior in one typed object: `defineSideChatConfig({...}) satisfies SideChatConfig` in [`apps/partner-ai-service/sidechat.config.ts`](../../apps/partner-ai-service/sidechat.config.ts). The server loads that object at boot and builds its options from it. Process inputs (secrets, port, profile) are declared *inside* the same object as `readEnv(...)` references, so the config stays the single, readable map of what the service does. Reading `process.env` ad-hoc anywhere else fails a governance gate.
 
+The file's shape is a recorded decision, not an accident: it is one big, deliberately repetitive file per deployment variant, with no loops, factories, or shared fragments — do not "clean it up" ([ADR 0010](../adr/0010-readable-declarative-config.md)).
+
 ## The shipped config object
 
 One file, one default export: `defineSideChatConfig({...}) satisfies SideChatConfig` (`sidechat.config.ts:32`, `:227-229`). It is one production OpenAI config, not a local/openai switchboard. A second standalone file, [`sidechat.azure.config.ts`](../../apps/partner-ai-service/sidechat.azure.config.ts), holds the Azure OpenAI variant; the local launcher boots it by pointing `SIDECHAT_CONFIG_PATH` at it.
@@ -26,7 +28,7 @@ Every key below lives in `sidechat.config.ts` at the cited line. Each owns one s
 | `chat.turnProfile` | The default profile: system instructions, Markdown output, allowlisted tools, and standard safety. | `:143` |
 | `context` | History window (`recent_messages`, 12 messages / 4k tokens) and `contextAdmission` token budgets. | `:167` |
 | `auxiliaryModelJobs` | Side model jobs; ships the enabled conversation-title job. | `:180` |
-| `resumability` | Lease, heartbeat, reaper, and pruner timers plus the per-process `instanceId`. | `:189` |
+| `resumability` | Lease and heartbeat timers plus the per-process `instanceId`. Known gap: the `reaperInterval`, `reaperBatchLimit`, `turnEventRetention`, and `prunerInterval` keys still declared here configure nothing since the reaper/pruner removal — reconnection and deletion are tracked in `plan/05` and `plan/10`. | `:189` |
 
 ## Declaring process inputs with `readEnv`
 

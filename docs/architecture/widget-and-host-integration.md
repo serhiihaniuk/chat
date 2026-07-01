@@ -4,7 +4,7 @@ Read this when: editing the React widget, the host bridge, or the copied-UI quar
 Source of truth for: widget Feature-Sliced layers, the live-turn data flow, the host-bridge contract, and the `shared/ai` quarantine.
 Not source of truth for: the turn lifecycle ([assistant-turn.md](assistant-turn.md)), protocol events ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)), package roles ([system-map.md](system-map.md)), or iframe embedding ([../operations/embed-widget-iframe.md](../operations/embed-widget-iframe.md)).
 
-The browser widget lives in `packages/side-chat-widget` (a React component) and `packages/host-bridge` (the seam to the host app). The host app renders `<SideChatWidget>`, hands it an API client, and optionally a host bridge. The widget owns the chat UI; the host owns the page. This doc explains the widget's layers, how a live turn flows from the network to the screen, the host-bridge contract, and one quarantined folder of copied vendor UI.
+The browser widget lives in `packages/side-chat-widget` (a React component) and `packages/host-bridge` (the seam to the host app). The host app renders `<SideChatWidget>`, hands it an API client, and optionally a host bridge. The widget owns the chat UI; the host owns the page. This doc explains the widget's layers, how a live turn flows from the network to the screen, the host-bridge contract, and one quarantined folder of copied vendor UI. The decisions behind this shape — iframe isolation, Effect-free by gate, the reads-vs-live data split, no client merge, light themes only — are recorded in [ADR 0012](../adr/0012-widget-architecture.md).
 
 ## Feature-Sliced layers
 
@@ -44,7 +44,7 @@ The widget is provider-free and Effect-free. It must not import `ai`, `@ai-sdk/*
 
 ## Live-turn data flow
 
-Chat is a resumable two-call flow, not a single socket: `POST /chat/runs` returns the turn identity, then `GET /chat/turns/:assistantTurnId/stream?after=<seq>` streams events. The browser is a subscriber to a durable log, so a reconnect resumes the same turn. See [runtime-and-protocol-events.md](runtime-and-protocol-events.md) for the transport contract.
+Chat is a two-call flow, not a single socket: `POST /chat/runs` returns the turn identity, then `GET /chat/turns/:assistantTurnId/stream?after=<seq>` streams events. Generation is server-owned and the browser only subscribes, so an in-session reconnect to the same instance resumes the same turn; after a reload or a lost stream, the final answer comes from conversation history once the turn is terminal (connection-bound streaming, [ADR 0007](../adr/0007-connection-bound-streaming.md)). See [runtime-and-protocol-events.md](runtime-and-protocol-events.md) for the transport contract.
 
 Inbound events flow through four stages, each pure or single-purpose:
 

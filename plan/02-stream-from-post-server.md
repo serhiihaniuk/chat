@@ -6,7 +6,7 @@
 
 Starting a turn is two separate HTTP requests: `POST /chat/runs` (starts the fiber on instance A, returns identity JSON) then `GET /chat/turns/:id/stream` (SSE). Behind a round-robin LB the GET lands on a non-owner instance ~(N−1)/N of the time; that instance opens SSE against its empty in-memory registry and hangs forever — no data, no terminal, no error (`apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts:97-104`, `apps/partner-ai-service/src/inbound/turn-stream/turn-subscription-stream.ts:135-157`). Multi-instance live streaming is broken by construction with the two-call design.
 
-## Decided approach (ADR-0010)
+## Decided approach (ADR-0007 (docs/adr/0007-connection-bound-streaming.md))
 
 `POST /chat/runs` runs pre-start synchronously exactly as today (auth, policy, context admission, idempotent turn insert, fork-only-when-inserted), then instead of returning identity JSON it **opens the SSE response on the same connection** and streams the turn's events to the terminal. The connection that started the turn is attached to the owning instance by construction.
 

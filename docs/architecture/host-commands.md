@@ -16,7 +16,7 @@ Side Chat has two ways for the assistant to do more than write text. They look s
 | Runs in | The service runtime | The browser, in your host app |
 | Declared as | `ToolCapability` + a `RuntimeTool` executable | `HostCommandCapability` only |
 | Performed by | `agent-runtime` | Your `HostBridge.dispatchCommand` |
-| Result feeds | Back to the model | Back into the activity timeline |
+| Result feeds | Back to the model | Into the activity timeline, and back to the model via the result route |
 | Worked example | `jira-search-issues-tool.ts` | `open_resource` (this guide) |
 
 If an action needs both — say, persist on the server *and* move the host UI — ship a runtime tool and a host command as two registrations. Neither one implies the other.
@@ -34,10 +34,10 @@ Three small types carry a host command from config to the host app. Read them on
 The flow is one straight line:
 
 1. You **declare** the command in `sidechat.config.ts`. It rides the config into the host manifest automatically ([options-adapter.ts:151](../../apps/partner-ai-service/src/config/sidechat-config/options/options-adapter.ts) → manifest `commands`). No runtime code.
-2. During a turn, a `host_command` **activity event** arrives in the stream (who emits it is covered in [the trigger seam](#how-a-host-command-is-triggered) below).
+2. During a turn, the model calls the command and a `host_command` **activity event** arrives in the stream (see [how it is triggered](#how-a-host-command-is-triggered) below).
 3. The widget **dispatches** that event to your bridge — once per `activityId` — at `maybeDispatchHostCommand` ([widget-run-subscription.ts:55](../../packages/side-chat-widget/src/features/chat/model/subscription/widget-run-subscription.ts)).
 4. Your bridge **performs** the action and returns a `HostCommandResult`.
-5. The widget **folds** that result back into the assistant's activity timeline. A failure is a recorded row, not a retry.
+5. The widget **folds** that result into the assistant's activity timeline and **POSTs** it to the result route, which resumes the model's awaiting tool call. A failure is a recorded row, not a retry.
 
 ## The worked example
 
@@ -89,7 +89,7 @@ hostCommands: {
 
 - `commandName` is the stable id the host app matches on. Namespacing (`open_resource`, `crm.open_record`) keeps it distinct from tool names.
 - `inputSchema` is the JSON Schema for the `payload` your host app will receive.
-- `approvalMode` is `never`, `on_request`, or `always` ([ApprovalMode](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)). Anything other than `never` needs a matching entry in `approvalPolicies`.
+- `approvalMode` is `never`, `on_request`, or `always` ([ApprovalMode](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)). Anything other than `never` needs a matching entry in `approvalPolicies`. Known gap: approval modes are validated against the manifest but **not enforced at runtime** yet — do not rely on them as a security control (`plan/24`).
 
 That is the whole backend change. The command now appears in the host manifest; no runtime tool, no executor.
 
@@ -203,12 +203,72 @@ See it: with the harness running, open `http://127.0.0.1:5173/workbench-embed.ht
 
 ## How a host command is triggered
 
-A host command reaches the widget as a `host_command` activity event inside the turn stream. Two paths can produce that event, and only one is wired today:
+A host command reaches the widget as a `host_command` activity event inside the turn stream. Two paths produce that event, and both work today:
 
-- **Harness mock stream (works now).** The harness client emits the event deterministically. This is the supported way to build and test host-command handling, and it is what the worked example uses.
-- **Model-driven emission (reserved seam).** The intent is that the model, mid-turn, chooses an allowed host command and the runtime emits the event. The plumbing for the allowlist already exists: the turn policy's `allowedCommandNames` ([capabilities.ts:245](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) is passed to the runtime as `toolScope.allowedHostCommandNames` ([build-model-turn-request.ts:38](../../packages/partner-ai-core/src/application/stream-chat/model-request/build-model-turn-request.ts)). But `agent-runtime` does not yet read that scope or emit the event, so a declared command is **not** model-callable in production. Declaring, handling, and testing a host command is complete; model-triggered emission is the remaining runtime seam.
+- **Model-driven emission (production).** Core relays the declared commands to the runtime per turn ([build-model-turn-request.ts](../../packages/partner-ai-core/src/application/stream-chat/model-request/build-model-turn-request.ts)), and the runtime exposes each one to the model as a callable tool ([ai-sdk-tool-adapter.ts](../../packages/agent-runtime/src/runtime/ai-sdk/ai-sdk-tool-adapter.ts)). When the model calls one, the runner emits the `host_command` activity event ([tool-activity-mapper.ts](../../packages/agent-runtime/src/runtime/ai-sdk/streaming/tool-activity-mapper.ts)). The fake provider drives this deterministically, and `agent-runtime.test.ts` covers the round trip end to end.
+- **Harness mock stream (offline fixture).** The harness client emits the event without a model, which keeps host-side handling testable in isolation.
 
-State this honestly to adopters: register and handle your command now, and exercise it through the harness; the production trigger lands when the runtime seam is built.
+## The mid-stream result round trip
+
+This is the hardest part of host commands to understand, so read it slowly. The
+decision record behind it is
+[ADR 0009](../adr/0009-host-command-await-and-result-relay.md).
+
+The key constraint: **SSE is one-directional.** The turn stream can deliver the
+command to the browser, but nothing can travel browser-to-server on it. So the
+model's tool loop **pauses on the server** — exactly as it would for a backend
+tool — while the "execution" happens in the browser, and the result returns on
+a separate small POST. The stream goes quiet during the pause and resumes after.
+
+```txt
+model            service (owner instance)        stream        browser / host app
+  |-- calls tool --> tool loop pauses;
+  |                  resolver registers pending
+  |                  (commandId, 30 s timer)
+  |                  emit host_command activity --> event -----> widget dispatches
+  |                                                              host performs action
+  |                            <-- POST /chat/turns/:id/host-commands/:commandId/result
+  |                  resolver settles pending
+  |<-- tool result --|
+  |-- keeps generating; deltas resume on the same still-open stream
+```
+
+The pieces, in order:
+
+1. **Pause.** The model calls the command; the runtime's tool call awaits a
+   pending entry in the connection-bound resolver
+   ([service-host-command-resolver.ts](../../apps/partner-ai-service/src/adapters/host-commands/service-host-command-resolver.ts)),
+   which lives in the memory of the instance running the turn's fiber.
+2. **Deliver.** The `host_command` activity event rides the normal turn stream;
+   the widget dispatches it to your bridge once per `activityId`.
+3. **Return.** The widget POSTs the `HostCommandResult` to
+   `POST /chat/turns/:assistantTurnId/host-commands/:commandId/result` — the
+   side door, a plain HTTP request independent of the stream.
+4. **Resume.** The route settles the pending entry; the tool call resolves; the
+   result enters the model's context; generation continues.
+
+Bounds that make the pause safe — the turn can never hang on a silent host:
+
+| Situation | Resolver behavior | What the model sees |
+|---|---|---|
+| No stream subscriber connected when the tool fires | Resolves immediately | `no_connected_client` result |
+| No result within 30 seconds | Resolves on the timer | `timed_out` result |
+| Result posted twice / after settle | Second settle is a no-op | first result only |
+| User cancels mid-await | Fiber interrupt tears the await down | (turn ends `aborted`) |
+
+Failure modes worth knowing — several have fixes tracked in `plan/`:
+
+| Failure | Today | Target |
+|---|---|---|
+| Result POST lands on a non-owner instance (load balancer) | `404`; the owner times out after 30 s; the model is told `timed_out` even though the host **performed the action** | Any instance persists the result durably and `pg_notify`s the owner, which settles in milliseconds; the owner also polls the result table as a fallback (`plan/08`, ADR 0009) |
+| Stream stays silent during a long await | A proxy idle-timeout may cut the SSE | Heartbeat comments keep it alive (`plan/17`) |
+| Reload replays a completed command event | The widget re-dispatches it — the host action runs twice | Dispatch skips events whose `status` is not `running` or that carry a result (`plan/19`) |
+| Owner instance crashes mid-await | Pending entry and fiber die together; the turn strands `running` | The orphan sweep terminalizes it (`plan/05`) |
+
+One boundary to respect: this seam is built for **fast UI actions**. The await
+is in-memory and 30-seconds-bounded, so a turn cannot park on a human decision
+— do not build approval gates on it (ADR 0009 records the rejected
+durable-pause alternative, and `approvalMode` is not enforced yet — `plan/24`).
 
 ## Verify
 

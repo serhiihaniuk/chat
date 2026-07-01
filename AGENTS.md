@@ -62,7 +62,10 @@ Dense boundary comments should name source, target, hidden detail, and invariant
 
 ## Boundaries
 
-Core/server workflows are Effect-first:
+Core/server workflows are Effect-first. What each role must know, the v4 style
+rules, and the traps live in `docs/architecture/effect.md`; the decision and
+containment line in `docs/adr/0003-effect-as-core-effect-system.md`. Verify v4
+APIs against the installed d.ts, never v3 memory. The load-bearing rules:
 
 - `packages/partner-ai-core` exposes `prepareStreamChatTurn(input)` +
   `runTurnGeneration(...)` (the server-owned streaming path).

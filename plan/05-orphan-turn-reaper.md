@@ -14,13 +14,16 @@ The reaper loop was deleted (`be8303f`) but nothing replaced its job. After a ha
 
 ## Decided approach
 
+Recorded as **ADR 0008** (`docs/adr/0008-crash-recovery-lease-sweep.md`) — the full crash-recovery design this story implements the server half of; update it if implementation deviates.
+
 Reinstate a small periodic sweep (the machinery already exists; the deleted loop is in git history at `be8303f` — `turn-reaper.ts`, 219 lines with 283 lines of tests, one `git show` away):
 
 1. A maintenance fiber in service composition calls `reapExpiredTurns` every `reaperIntervalMs` with `reaperBatchLimit` (the config knobs still exist — `apps/partner-ai-service/src/config/catalog/config-values.ts:102-103` — reconnect them instead of deleting them; delete only the pruner/retention knobs in story 10).
 2. All instances may run it concurrently (`SKIP LOCKED` makes claims disjoint) — no leader election needed.
 3. Widen the predicate in BOTH adapters: expired ≡ `status='running' AND (lease_expires_at < now OR (lease_expires_at IS NULL AND started_at < now - grace))` with grace ≈ 2× lease TTL. Update the shared contract test to cover the NULL-lease case.
 4. Reaped turns get the existing classification (cancel-intent → `user_aborted`, else `provider_failed`) — already implemented.
-5. Heartbeat resilience: retry `renewTurnLease` (2–3 attempts, short backoff) before treating the lease as fenced, so one DB blip cannot kill a healthy turn.
+5. **Verify the reap emits the `turn_activity` NOTIFY** in the same transaction as the status CAS (the complete/fail/cancel paths do — `records/turns.ts`; check whether `reapExpiredTurns` does). Without it, other tabs' "generating" dots only clear on their next activity snapshot, not live.
+6. Heartbeat resilience: retry `renewTurnLease` (2–3 attempts, short backoff) before treating the lease as fenced, so one DB blip cannot kill a healthy turn.
 
 ## Tasks
 

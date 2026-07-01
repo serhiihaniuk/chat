@@ -8,22 +8,26 @@ Not source of truth for: product workflow or protocol events.
 
 ## Owns
 
-- The durable `turn_events` append log behind resumable streaming: `appendTurnEvent`
-  guards against writing past a terminal event, fires Postgres `NOTIFY` on commit,
-  and reconciles primary-key conflicts idempotently (same `(turn, sequence)` payload
-  returns the existing row; a divergent one raises `event_log_conflict`).
-- Postgres `LISTEN/NOTIFY` fan-out over channels `turn_events`, `turn_cancel`, and
-  `turn_activity` (no Redis). A dedicated `LISTEN` connection per channel, opened
-  outside the query pool, bridges notifications into the runtime through the
-  `createPostgresTurn{Event,Cancel,Activity}NotificationSource` factories (with NOOP
-  variants for memory/local paths).
-- The turn-record read/write and lease surface that fences turn ownership across
-  instances: `readTurnEventsAfter`, `findActiveAssistantTurn`,
-  `listActiveAssistantTurns`, `requestTurnCancellation`, `pruneTurnEventsBefore`, and
-  the compare-and-set lease operations `acquireTurnLease` / `renewTurnLease` /
-  `reapExpiredTurns`.
-- Drizzle/Postgres schema, the postgres-drizzle adapter, and memory repositories for
-  tests/local development.
+- The Postgres schema and repositories for durable chat state: conversations,
+  user/assistant messages, assistant-turn records and statuses, usage records,
+  context snapshots, and audit events.
+- Turn-record lifecycle operations: idempotent turn start on
+  `(workspace_id, request_id)`, running-guarded complete/fail transitions,
+  cancel intent (`requestTurnCancellation` CAS + `pg_notify` in one
+  transaction), and the compare-and-set lease operations `acquireTurnLease` /
+  `renewTurnLease` / `reapExpiredTurns` (note: no production caller sweeps
+  expired leases yet — `plan/05`).
+- Postgres `LISTEN/NOTIFY` for the two small signal channels, `turn_cancel` and
+  `turn_activity` — pokes carrying ids, never event bodies. A dedicated
+  `LISTEN` connection per channel, opened outside the query pool, bridges
+  notifications into the service through the
+  `createPostgresTurn{Cancel,Activity}NotificationSource` factories (with NOOP
+  variants for memory/local paths). Live turn *events* do not flow through this
+  package — they live in the service's in-memory registry
+  ([ADR 0007](../../docs/adr/0007-connection-bound-streaming.md)).
+- Drizzle/Postgres schema, the postgres-drizzle adapter, and memory
+  repositories for tests/local development, kept in parity by shared contract
+  test suites.
 - Persistence integration tests and schema governance.
 
 ## Does Not Own
@@ -32,6 +36,7 @@ Not source of truth for: product workflow or protocol events.
 - Hono routes.
 - Agent runtime execution.
 - Widget state.
+- The live turn-event stream (service-owned, in-memory).
 
 ## Public Surface
 
@@ -46,8 +51,8 @@ schema exports, and test helpers where explicitly exported. Channel constants li
 
 ```txt
 service port call -> repository adapter -> persistence record
-appendTurnEvent (terminal guard, PK reconcile) -> Postgres NOTIFY
-LISTEN connection -> notification source -> dispatcher fan-out
+status transition (cancel/complete/fail) -> pg_notify in the same transaction
+LISTEN connection -> notification source -> service dispatcher fan-out
 ```
 
 ## Boundary Rules
@@ -69,7 +74,7 @@ LISTEN connection -> notification source -> dispatcher fan-out
 
 ## Tests
 
-- Repository contract tests under `src`.
+- Repository contract tests under `src`, run against both adapters.
 - Container tests through `npm run test:db:container`.
 
 ## Canonical Docs

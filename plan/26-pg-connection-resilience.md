@@ -1,6 +1,6 @@
 # 26 — Postgres connection resilience + pool configuration
 
-**Epic:** 5 Robustness | **Priority:** P0 (a dropped idle connection can crash the process) | **Depends on:** — | **Status:** todo
+**Epic:** 5 Robustness | **Priority:** P0 (a dropped idle connection can crash the process) | **Depends on:** 36 (drop/reconnect logging goes through the story-36 `DiagnosticLogger`; the notification sources accept it as the optional logger param) | **Status:** todo
 
 ## Problem
 
