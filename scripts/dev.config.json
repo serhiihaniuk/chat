@@ -1,4 +1,5 @@
 {
   "backendPort": 8787,
-  "widgetPort": 5173
+  "widgetPort": 5173,
+  "usePostgres": true
 }

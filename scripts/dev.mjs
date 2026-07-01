@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 // Local dev launcher — `npm run dev`.
 //
-// Boots the full app for browser testing with the REAL model:
+// Boots the full local app with the REAL model:
+//   - database Postgres (Docker) at SIDECHAT_DATABASE_URL — started, migrated if fresh
 //   - backend  @side-chat/partner-ai-service  (tsx, drives sidechat.config.ts + .env)
 //   - widget   @side-chat/widget-harness       (Vite), proxies /side-chat-api -> backend
 //
-// What it does: free both ports, load .env (for SIDECHAT_OPENAI_API_KEY and the
-// rest of the config), start the backend, wait for /healthz, then start the widget
-// and print its URL. Ctrl-C stops both. Ports live in scripts/dev.config.json; the
-// model/provider live in apps/partner-ai-service/sidechat.config.ts. No secrets
+// What it does: free both ports; ensure the Postgres container is running (start the
+// existing one, or create + migrate a fresh one); start the backend; wait for
+// /healthz; then start the widget and print its URL. Ctrl-C stops the app servers
+// (the DB container is left running). Ports + usePostgres live in
+// scripts/dev.config.json; the model/provider live in sidechat.config.ts. No secrets
 // live in this file.
 //
 // Independent of scripts/run-local-fake.mjs (the work-env launcher). Node built-ins only.
 
-import { execSync, spawn } from "node:child_process";
+import { execFileSync, execSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import path from "node:path";
@@ -41,6 +43,12 @@ const env = {
   SIDECHAT_PROFILE: dotenv.SIDECHAT_PROFILE ?? process.env.SIDECHAT_PROFILE ?? "development",
 };
 
+// usePostgres (the default) keeps SIDECHAT_DATABASE_URL and runs the Postgres
+// container; set "usePostgres": false in dev.config.json to drop the URL and use
+// in-memory persistence instead (no Docker required).
+if (!devConfig.usePostgres) delete env.SIDECHAT_DATABASE_URL;
+const persistence = env.SIDECHAT_DATABASE_URL ? "postgres" : "in-memory";
+
 if (!env.SIDECHAT_OPENAI_API_KEY) {
   console.error(
     "[dev] Missing SIDECHAT_OPENAI_API_KEY.\n" +
@@ -63,7 +71,11 @@ async function main() {
   freePort(BACKEND_PORT);
   freePort(WIDGET_PORT);
 
-  console.log(`[dev] starting backend on :${BACKEND_PORT} (real model via sidechat.config.ts)...`);
+  if (persistence === "postgres") await ensureDatabase();
+
+  console.log(
+    `[dev] starting backend on :${BACKEND_PORT} (real model via sidechat.config.ts, ${persistence} persistence)...`,
+  );
   startWorkspaceDev("backend", "@side-chat/partner-ai-service", env);
 
   const healthy = await waitForHealth(60_000);
@@ -86,6 +98,145 @@ async function main() {
       `  ▸ Backend health: ${BACKEND_TARGET}/healthz\n` +
       `  (Ctrl-C stops both)\n`,
   );
+}
+
+// ---- Postgres (Docker) ----------------------------------------------------
+// Local dev uses the same Postgres the app expects (SIDECHAT_DATABASE_URL). We
+// start whatever container already publishes that port (the user's dev DB) or
+// create a fresh one, and only apply the schema when it is missing — the schema
+// apply is destructive (DROP SCHEMA), so an existing DB keeps its data.
+
+async function ensureDatabase() {
+  const db = parseDatabaseUrl(env.SIDECHAT_DATABASE_URL);
+  if (!db) {
+    console.error(
+      "[dev] usePostgres is true but SIDECHAT_DATABASE_URL is missing/unparseable in .env.",
+    );
+    shutdown(1);
+    return;
+  }
+  if (!dockerAvailable()) {
+    console.error(
+      "[dev] Docker is required for Postgres. Start Docker Desktop, or set\n" +
+        '      "usePostgres": false in scripts/dev.config.json to use in-memory persistence.',
+    );
+    shutdown(1);
+    return;
+  }
+
+  const container = ensurePostgresContainer(db);
+  console.log(
+    `[dev] Postgres container "${container.name}" ${container.created ? "created" : "started"} on :${db.hostPort}; waiting for readiness...`,
+  );
+  if (!(await waitForPostgres(container.name, db, 60_000))) {
+    console.error("[dev] Postgres did not become ready within 60s.");
+    shutdown(1);
+    return;
+  }
+
+  if (container.created || !schemaExists(container.name, db)) {
+    console.log("[dev]   applying database schema + role grants (db:reset)...");
+    execSync("npm run db:reset", { cwd: ROOT, env, stdio: "inherit", shell: true });
+  }
+  console.log("[dev] Postgres ready.");
+}
+
+function parseDatabaseUrl(value) {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return {
+      user: url.username,
+      password: decodeURIComponent(url.password),
+      hostPort: url.port || "5432",
+      db: url.pathname.replace(/^\//u, ""),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function dockerAvailable() {
+  try {
+    execFileSync("docker", ["version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ensurePostgresContainer(db) {
+  const existing = docker([
+    "ps",
+    "-a",
+    "--filter",
+    `publish=${db.hostPort}`,
+    "--format",
+    "{{.Names}}",
+  ])
+    .split(/\r?\n/)
+    .map((name) => name.trim())
+    .filter(Boolean)[0];
+  if (existing) {
+    docker(["start", existing], { stdio: "ignore" });
+    return { name: existing, created: false };
+  }
+  const name = "sidechat-dev-db";
+  docker(
+    [
+      "run",
+      "-d",
+      "--name",
+      name,
+      "-e",
+      `POSTGRES_USER=${db.user}`,
+      "-e",
+      `POSTGRES_PASSWORD=${db.password}`,
+      "-e",
+      `POSTGRES_DB=${db.db}`,
+      "-p",
+      `${db.hostPort}:5432`,
+      "postgres:16-alpine",
+    ],
+    { stdio: "ignore" },
+  );
+  return { name, created: true };
+}
+
+async function waitForPostgres(name, db, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      docker(["exec", name, "pg_isready", "-U", db.user, "-d", db.db], { stdio: "ignore" });
+      return true;
+    } catch {
+      await delay(1_000);
+    }
+  }
+  return false;
+}
+
+function schemaExists(name, db) {
+  try {
+    const out = docker([
+      "exec",
+      name,
+      "psql",
+      "-U",
+      db.user,
+      "-d",
+      db.db,
+      "-tAc",
+      "SELECT to_regclass('sidechat.conversations') IS NOT NULL",
+    ]);
+    return out.trim() === "t";
+  } catch {
+    return false;
+  }
+}
+
+function docker(args, opts = {}) {
+  return execFileSync("docker", args, { encoding: "utf8", ...opts });
 }
 
 function startWorkspaceDev(label, workspace, childEnv, viteArgs = []) {
