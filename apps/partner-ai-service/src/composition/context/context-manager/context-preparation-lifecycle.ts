@@ -15,6 +15,7 @@ import { Effect } from "effect";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
 import { createContextCandidates } from "./candidates/context-candidate-creation.js";
 import {
+  ContextAdmissionBudgetError,
   createBudgetedContextAdmission,
   type ContextAdmission,
 } from "./candidates/context-admission.js";
@@ -115,12 +116,17 @@ export type AdmittedContext = {
 export const admitContextCandidates = (
   options: ServiceContextManagerOptions,
   input: PrepareTurnContextInput,
-): Effect.Effect<AdmittedContext, unknown> =>
+): Effect.Effect<AdmittedContext, ContextAdmissionBudgetError> =>
   Effect.gen(function* () {
     const candidates = createContextCandidates(input);
     const admission = yield* Effect.try({
       try: () => createBudgetedContextAdmission(candidates, options.contextAdmission),
-      catch: (error) => error,
+      // The admission's only expected failure is a budget overflow; anything else
+      // is a defect, so let it die rather than masking it as a typed failure.
+      catch: (error) => {
+        if (error instanceof ContextAdmissionBudgetError) return error;
+        throw error;
+      },
     });
 
     return { candidates, admission };
