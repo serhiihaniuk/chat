@@ -30,6 +30,7 @@ export type ResumableObservation = {
     | "subscriber_detached"
     | "replay_served"
     | "replay_expired"
+    | "event_read_failed"
     | "turn_reaped"
     | "turn_cancelled"
     | "run_finished"

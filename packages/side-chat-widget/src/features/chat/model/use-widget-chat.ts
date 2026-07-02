@@ -2,7 +2,11 @@ import type { ChatModelPreference } from "@side-chat/chat-protocol";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import { useMemo, useRef, useState, type MutableRefObject } from "react";
 
-import { runStatusToWidgetStatus } from "./run/widget-run-state.js";
+import {
+  isTerminalRunStatus,
+  runStatusToWidgetStatus,
+  type WidgetRunState,
+} from "./run/widget-run-state.js";
 import {
   readWidgetConversationStore,
   useConversationQueryRepository,
@@ -73,7 +77,7 @@ export const useWidgetChat = ({
   const shouldLoadHistory =
     conversationId !== undefined &&
     client.readHistory !== undefined &&
-    conversationId !== streamOwnedConversationRef.current;
+    !runOwnsHistory(run, conversationId, streamOwnedConversationRef.current);
   const historyQuery = useGetConversationHistory({
     client,
     conversationId,
@@ -113,6 +117,8 @@ export const useWidgetChat = ({
     pendingConversationTitleRef,
     refreshConversations,
     upsertStartedConversation,
+    refreshHistory,
+    clearRun: controller.clearRun,
   });
   useReconnectTriggers(controller.reconnect);
   // The server reports an in-flight turn on the history read; resume it even when
@@ -130,13 +136,13 @@ export const useWidgetChat = ({
     onConnected: () => void refreshConversations(),
     // A turn started in another tab for the conversation this tab is viewing: pull
     // the server transcript so the history read's `activeTurn` resumes the live
-    // stream here (running) or shows the final messages (terminal). Skip when a
-    // local run already owns this conversation — that includes the tab that
-    // started it, whose history query is disabled so the refetch would no-op.
+    // stream here (running) or shows the final messages (terminal). Skip only
+    // while a local NON-terminal run owns this conversation — once the local run
+    // is terminal, the other tab's turn must show up here.
     onEvent: (event) => {
       if (event.conversationId !== conversationId) return;
-      if (run?.conversationId === conversationId) return;
-      refreshHistory(conversationId);
+      if (run?.conversationId === conversationId && !isTerminalRunStatus(run.status)) return;
+      void refreshHistory(conversationId);
     },
   });
 
@@ -166,7 +172,7 @@ export const useWidgetChat = ({
     // Manual catch-up: re-read the current conversation from the server (the header
     // Refresh button), now that connection-bound streaming has no auto-resume.
     refresh: () => {
-      refreshHistory(conversationId);
+      void refreshHistory(conversationId);
     },
     retryLastMessage: actions.retryLastMessage,
     runningConversationIds,
@@ -179,6 +185,18 @@ export const useWidgetChat = ({
     usage: visibleRun?.usage,
   };
 };
+
+// A run owns its conversation's transcript only while it is NON-terminal: the
+// moment it ends, history loading resumes so the run→history handoff (and the
+// header Refresh button) can read the committed answer from the server.
+const runOwnsHistory = (
+  run: WidgetRunState | undefined,
+  conversationId: string,
+  streamOwnedConversationId: string | undefined,
+): boolean =>
+  run !== undefined &&
+  !isTerminalRunStatus(run.status) &&
+  conversationId === streamOwnedConversationId;
 
 // A run's messages belong to the displayed conversation when their ids match, or
 // when the run has not yet been assigned a conversation (it was just started in

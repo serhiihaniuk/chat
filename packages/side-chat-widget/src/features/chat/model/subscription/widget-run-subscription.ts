@@ -3,7 +3,6 @@ import { createCommandResult, createFailedResult, type HostBridge } from "@side-
 
 import { toErrorMessage, toJsonObject } from "#entities/chat";
 import { SideChatApiError, type SideChatApiClient } from "#entities/conversation";
-import { runErrorMessage } from "../run/widget-run-reducer.js";
 import {
   isHostCommandActivityEvent,
   toHostCommandResultJson,
@@ -28,30 +27,49 @@ export type RunSubscriptionInput = {
   /** Resume cursor for the subscribe path; ignored when `events` is provided. */
   readonly after?: number | undefined;
   readonly signal: AbortSignal;
-  /** Persist the latest applied sequence so a later reconnect resumes correctly. */
-  readonly onSequence: (sequence: number) => void;
-  /** Called when the stream buffer is gone, so the caller can fall back to history. */
-  readonly onReplayExpired: () => void;
+  /** Fires per received event (the recovery watchdog's liveness signal). */
+  readonly onEvent?: (() => void) | undefined;
 };
 
 /**
- * Drive one subscription: consume the turn stream and fold events into the store.
+ * How one subscription attempt ended, for the recovery loop to act on.
+ *
+ * `ended` means the stream closed after its terminal event (the reader throws
+ * `missing_terminal` otherwise, which arrives as `error`). `aborted` reflects the
+ * attempt's own signal — the caller decides whether that was user intent (outer
+ * abort) or its watchdog cutting a wedged connection. `error` carries the raw
+ * failure for classification; nothing here decides retryability.
+ */
+export type SubscriptionAttemptOutcome =
+  | { readonly kind: "ended" }
+  | { readonly kind: "aborted" }
+  | { readonly kind: "replay-expired" }
+  | { readonly kind: "error"; readonly error: unknown };
+
+/**
+ * Drive one subscription attempt: consume the turn stream into the store.
  *
  * The stream is either the `createRun` POST body (connection-bound start) or the
  * resume GET from `after`. Idempotent by sequence (the reducer drops
- * already-applied events), so a reconnect after `after = lastSeenSequence` never
+ * already-applied events), so a reconnect from the store's cursor never
  * double-applies. Host commands are dispatched once and their result folded back
- * before later events advance the turn. A `replay_expired` open is reported to
- * the caller; an abort is swallowed; any other transport error fails the run for
- * a later reconnect.
+ * before later events advance the turn. Failures are RETURNED, not folded into
+ * the store — transport recovery owns retry/poll/fail decisions.
  */
-export const runSubscription = async (input: RunSubscriptionInput): Promise<void> => {
+export const runSubscription = async (
+  input: RunSubscriptionInput,
+): Promise<SubscriptionAttemptOutcome> => {
   try {
     const events = input.events ?? (await openResumeStream(input));
     await consumeEvents(input, events);
   } catch (error) {
-    handleSubscriptionError(input, error);
+    if (input.signal.aborted || isAbortError(error)) return { kind: "aborted" };
+    if (error instanceof SideChatApiError && error.code === "replay_expired") {
+      return { kind: "replay-expired" };
+    }
+    return { kind: "error", error };
   }
+  return input.signal.aborted ? { kind: "aborted" } : { kind: "ended" };
 };
 
 const openResumeStream = async (
@@ -70,8 +88,8 @@ const consumeEvents = async (
 ): Promise<void> => {
   for await (const event of events) {
     if (input.signal.aborted) return;
+    input.onEvent?.();
     input.store.dispatch(input.requestId, { type: "event", event });
-    input.onSequence(event.sequence);
     await maybeDispatchHostCommand(input, event);
   }
 };
@@ -142,18 +160,6 @@ const dispatchHostCommand = async (
       data: toJsonObject({ message: toErrorMessage(error) }),
     });
   }
-};
-
-const handleSubscriptionError = (input: RunSubscriptionInput, error: unknown): void => {
-  if (input.signal.aborted || isAbortError(error)) return;
-  if (error instanceof SideChatApiError && error.code === "replay_expired") {
-    input.onReplayExpired();
-    return;
-  }
-  input.store.dispatch(input.requestId, {
-    type: "stream-failed",
-    message: runErrorMessage(error),
-  });
 };
 
 const isAbortError = (error: unknown): boolean =>

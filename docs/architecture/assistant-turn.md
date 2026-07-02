@@ -84,9 +84,17 @@ every exit path: success, provider error, cancel, shutdown, and lease-fence
   or `sidechat.blocked`; the drain appends it. `finalizeTurnGeneration` then
   writes the durable turn status and assistant message.
   `finalization/finalize-turn-generation.ts`.
+- **No-terminal success.** A provider stream that just ends (no finish or error
+  part) exits the drain successfully with no terminal: finalization appends the
+  synthetic terminal first — so tailing subscribers close instead of hanging —
+  and the status write then fails the turn honestly.
 - **Abnormal exit.** No terminal reached the registry, so finalization appends
   exactly one synthetic terminal at `maxSequence + 1`, then writes the failure
   status (`finalize-turn-generation.ts:60`).
+- **Interrupt after the stream's terminal.** The stream's terminal wins: a turn
+  the user watched complete persists as completed with its assistant message —
+  the late interrupt never re-terminalizes it (the registry's terminal guard
+  also refuses any racing synthetic append).
 
 `finalize-turn-generation.ts:116` classifies the abnormal terminal honestly
 from the exit cause plus durable cancel intent:
@@ -128,19 +136,22 @@ per-instance registry
 which doubles as the SSE dispatcher (`service-composition.ts` wires one object
 as both).
 
-| Mechanism            | What it does                                                                                                                                                | Where                                             |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Replay + tail        | A subscriber registers with the dispatcher first, replays `sequence > after` from the registry, then tails live behind an exactly-once gate to the terminal | `inbound/turn-stream/turn-subscription-stream.ts` |
-| Per-subscriber queue | Each subscriber gets a bounded dropping queue; a low-frequency safety poll re-reads the registry as the missed-signal backstop                              | `in-memory-turn-event-log.ts`                     |
-| Sweep                | Terminal, unwatched turns are dropped from the registry lazily when the next turn starts on that instance                                                   | `in-memory-turn-event-log.ts`                     |
+| Mechanism            | What it does                                                                                                                                                                                                                                                                                               | Where                                             |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Replay + tail        | A subscriber registers with the dispatcher first, replays `sequence > after` from the registry, then tails live behind a DENSE gate to the terminal: only the next sequence is emitted directly, and a gap (a dropped fan-out offer) triggers a re-read of the buffer so no event is ever permanently lost | `inbound/turn-stream/turn-subscription-stream.ts` |
+| Per-subscriber queue | Each subscriber gets a bounded dropping queue; a low-frequency safety poll re-reads the registry as the missed-signal backstop                                                                                                                                                                             | `in-memory-turn-event-log.ts`                     |
+| Terminal guard       | Once a terminal is recorded a turn's log is closed: later appends are no-ops, so a synthetic terminal racing a real one can never produce a second (the old durable log's partial-unique index, kept as a registry invariant)                                                                              | `in-memory-turn-event-log.ts`                     |
+| Sweep                | Terminal, unwatched turns are dropped from the registry lazily when the next turn starts on that instance                                                                                                                                                                                                  | `in-memory-turn-event-log.ts`                     |
 
 Consequences of connection-bound transport:
 
 - **Same-instance resume works.** An in-session reconnect with
   `after=<lastSeenSequence>` replays the suffix from the registry and tails on.
 - **Cross-instance and cross-restart resume do not exist.** The registry dies
-  with the process. A client that loses its stream waits for the turn to end
-  and reads the result from conversation history.
+  with the process. The widget's transport recovery retries the same instance
+  from its cursor (bounded backoff + inactivity watchdog); when that cannot
+  work it polls turn status until the server reports the terminal, then reads
+  the result from conversation history.
 - **Non-owner requests fail fast.** A stream request for a _running_ turn that
   this instance's registry does not hold answers `409` with the transport code
   `stream_unavailable` (`reason: not_stream_owner`) instead of opening an SSE
@@ -214,8 +225,9 @@ check-then-insert — and does **not** fork a second generation, gated by
 - **Finalization is the runner's `onExit`, not a stream stage.** Durable
   terminal persistence lives in `run-turn-generation.ts`.
 - **Normal vs abnormal terminal differ.** The stream's
-  `completed`/`error`/`blocked` is appended by the drain; only an abnormal exit
-  appends the synthetic terminal.
+  `completed`/`error`/`blocked` is appended by the drain; the synthetic terminal
+  is appended only when the log would otherwise end without one (an abnormal
+  exit, or a stream that ended terminal-less).
 - **`replay_expired` is `404`, terminal-only.** A running turn never expires;
   a running turn owned elsewhere is `409 stream_unavailable`.
 - **Generation is socket-independent.** Cancelling the SSE releases the local

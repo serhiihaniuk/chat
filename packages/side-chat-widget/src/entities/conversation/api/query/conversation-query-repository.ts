@@ -67,6 +67,18 @@ export type RefreshConversations = (
 ) => Promise<readonly WidgetConversationSummary[]>;
 
 /**
+ * Force a fresh read of one conversation's transcript.
+ *
+ * Resolves with the freshly fetched history, or `undefined` when nothing fresh
+ * landed (no id, the query is not being observed, or the refetch failed) — so a
+ * caller doing a run→history handoff can keep the live run visible instead of
+ * clearing it onto stale or missing data.
+ */
+export type RefreshHistory = (
+  conversationId: string | undefined,
+) => Promise<ReadHistoryResult | undefined>;
+
+/**
  * Owns React Query access for widget conversation resources.
  *
  * Fetch/SSE details stay in the widget API client, while components and chat
@@ -200,15 +212,16 @@ export const useConversationQueryRepository = ({
     },
     [queryClient],
   );
-  // Force a fresh read of one conversation's transcript. Used after a reload when a
-  // turn finished while away: the cached history may have been fetched mid-flight
-  // (before the assistant message committed), so the final answer needs a refetch.
-  const refreshHistory = useCallback(
-    (conversationId: string | undefined): void => {
-      if (!conversationId) return;
-      void queryClient.invalidateQueries({
-        queryKey: conversationQueryKeys.history(conversationId),
-      });
+  // Force a fresh read of one conversation's transcript: after a turn finishes
+  // (run→history handoff), or after a reload when a turn finished while away.
+  // Awaiting the invalidation waits for the active query's refetch to settle.
+  const refreshHistory = useCallback<RefreshHistory>(
+    async (conversationId) => {
+      if (!conversationId) return undefined;
+      const queryKey = conversationQueryKeys.history(conversationId);
+      await queryClient.invalidateQueries({ queryKey });
+      const state = queryClient.getQueryState<ReadHistoryResult>(queryKey);
+      return state?.status === "success" ? state.data : undefined;
     },
     [queryClient],
   );

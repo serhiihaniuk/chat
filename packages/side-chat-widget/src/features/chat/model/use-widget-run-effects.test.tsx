@@ -4,7 +4,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { createWidgetMessage } from "#entities/chat";
-import type { RefreshConversations } from "#entities/conversation";
+import type {
+  ReadHistoryResult,
+  RefreshConversations,
+  RefreshHistory,
+} from "#entities/conversation";
 import { WIDGET_RUN_STATUSES, type WidgetRunState } from "./run/widget-run-state.js";
 import { useWidgetRunEffects, type WidgetRunEffectsInput } from "./use-widget-run-effects.js";
 
@@ -46,14 +50,29 @@ const buildRun = (overrides: Partial<WidgetRunState> = {}): WidgetRunState => ({
 
 const noopRefresh: RefreshConversations = () => Promise.resolve([]);
 
+const settledHistory = (conversationId = "conversation-1"): ReadHistoryResult => ({
+  conversationId,
+  messages: [],
+});
+
 type EffectsHarness = {
   readonly setConversationId: Mock<Dispatch<SetStateAction<string | undefined>>>;
+  readonly setErrorMessage: Mock<Dispatch<SetStateAction<string | undefined>>>;
+  readonly refreshHistory: Mock<RefreshHistory>;
+  readonly clearRun: Mock<() => void>;
   readonly streamOwnedConversationRef: { current: string | undefined };
   readonly render: (run: WidgetRunState | undefined) => void;
 };
 
-const renderEffects = (): EffectsHarness => {
+const renderEffects = (
+  options: { readonly refreshHistory?: RefreshHistory | undefined } = {},
+): EffectsHarness => {
   const setConversationId = vi.fn<Dispatch<SetStateAction<string | undefined>>>();
+  const setErrorMessage = vi.fn<Dispatch<SetStateAction<string | undefined>>>();
+  const refreshHistory = vi.fn<RefreshHistory>(
+    options.refreshHistory ?? (() => Promise.resolve(settledHistory())),
+  );
+  const clearRun = vi.fn<() => void>();
   const streamOwnedConversationRef = { current: undefined as string | undefined };
   const runRef: { current: WidgetRunState | undefined } = { current: undefined };
 
@@ -61,11 +80,13 @@ const renderEffects = (): EffectsHarness => {
     const input: WidgetRunEffectsInput = {
       run: runRef.current,
       setConversationId,
-      setErrorMessage: () => {},
+      setErrorMessage,
       streamOwnedConversationRef,
       pendingConversationTitleRef: { current: undefined },
       refreshConversations: noopRefresh,
       upsertStartedConversation: () => {},
+      refreshHistory,
+      clearRun,
     };
     useWidgetRunEffects(input);
     return null;
@@ -75,8 +96,18 @@ const renderEffects = (): EffectsHarness => {
     runRef.current = run;
     act(() => root.render(createElement(Probe)));
   };
-  return { setConversationId, streamOwnedConversationRef, render };
+  return {
+    setConversationId,
+    setErrorMessage,
+    refreshHistory,
+    clearRun,
+    streamOwnedConversationRef,
+    render,
+  };
 };
+
+/** Let the handoff's awaited refetch promise chain settle inside act. */
+const settleHandoff = () => act(() => Promise.resolve());
 
 describe("useAdoptStartedConversation", () => {
   it("adopts the server-assigned conversation exactly once per run", () => {
@@ -106,5 +137,85 @@ describe("useAdoptStartedConversation", () => {
     );
 
     expect(harness.setConversationId).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useHistoryHandoffAfterTerminal", () => {
+  it("refetches history on completion, then clears the run (fetch-then-clear)", async () => {
+    const harness = renderEffects();
+    harness.render(buildRun());
+    expect(harness.clearRun).not.toHaveBeenCalled();
+
+    harness.render(buildRun({ status: WIDGET_RUN_STATUSES.COMPLETED }));
+    await settleHandoff();
+
+    expect(harness.refreshHistory).toHaveBeenCalledWith("conversation-1");
+    expect(harness.clearRun).toHaveBeenCalledTimes(1);
+    expect(harness.setErrorMessage).not.toHaveBeenCalled();
+    expect(harness.streamOwnedConversationRef.current).toBeUndefined();
+  });
+
+  it("carries a failed run's error notice into shell state before clearing", async () => {
+    const harness = renderEffects();
+
+    harness.render(buildRun({ status: WIDGET_RUN_STATUSES.FAILED, errorMessage: "boom" }));
+    await settleHandoff();
+
+    expect(harness.setErrorMessage).toHaveBeenCalledWith("boom");
+    expect(harness.clearRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the run visible when no fresh history lands", async () => {
+    const harness = renderEffects({ refreshHistory: () => Promise.resolve(undefined) });
+
+    harness.render(buildRun({ status: WIDGET_RUN_STATUSES.COMPLETED }));
+    await settleHandoff();
+
+    expect(harness.clearRun).not.toHaveBeenCalled();
+  });
+
+  it("keeps a run that never got a conversation id (nothing to hand off to)", async () => {
+    const harness = renderEffects();
+
+    harness.render(buildRun({ status: WIDGET_RUN_STATUSES.FAILED, conversationId: undefined }));
+    await settleHandoff();
+
+    expect(harness.refreshHistory).not.toHaveBeenCalled();
+    expect(harness.clearRun).not.toHaveBeenCalled();
+  });
+
+  it("never clears a newer run that replaced the finishing one mid-handoff", async () => {
+    let resolveRefetch: (history: ReadHistoryResult | undefined) => void = () => {};
+    const harness = renderEffects({
+      refreshHistory: () =>
+        new Promise((resolve) => {
+          resolveRefetch = resolve;
+        }),
+    });
+    harness.render(buildRun({ status: WIDGET_RUN_STATUSES.COMPLETED }));
+
+    // A new run replaces the finishing one while its refetch is still in flight.
+    harness.render(buildRun({ requestId: "request-2" }));
+    resolveRefetch(settledHistory());
+    await settleHandoff();
+
+    expect(harness.clearRun).not.toHaveBeenCalled();
+  });
+
+  it("does not clear while the server still reports the turn running", async () => {
+    // The terminal event can beat the durable status commit; a refetch that still
+    // says "running" must not clear the run onto a transcript missing the answer.
+    const harness = renderEffects({
+      refreshHistory: () =>
+        Promise.resolve({
+          ...settledHistory(),
+          activeTurn: { assistantTurnId: "turn-1", status: "running" },
+        }),
+    });
+
+    harness.render(buildRun({ status: WIDGET_RUN_STATUSES.COMPLETED }));
+    await settleHandoff();
+
+    expect(harness.clearRun).not.toHaveBeenCalled();
   });
 });

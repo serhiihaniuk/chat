@@ -239,16 +239,24 @@ model            service (owner instance)        stream        browser / host ap
 The pieces, in order:
 
 1. **Pause.** The model calls the command; the runtime's tool call awaits a
-   pending entry in the connection-bound resolver
+   pending entry (keyed `(assistantTurnId, commandId)`) in the connection-bound
+   resolver
    ([service-host-command-resolver.ts](../../apps/partner-ai-service/src/adapters/host-commands/service-host-command-resolver.ts)),
-   which lives in the memory of the instance running the turn's fiber.
+   which lives in the memory of the instance running the turn's fiber. The
+   resolver first persists an `emitted` row in `host_command_results` — the
+   durable proof that this commandId belongs to this turn.
 2. **Deliver.** The `host_command` activity event rides the normal turn stream;
    the widget dispatches it to your bridge once per `activityId`.
 3. **Return.** The widget POSTs the `HostCommandResult` to
    `POST /chat/turns/:assistantTurnId/host-commands/:commandId/result` — the
-   side door, a plain HTTP request independent of the stream.
-4. **Resume.** The route settles the pending entry; the tool call resolves; the
-   result enters the model's context; generation continues.
+   side door, a plain HTTP request that works on **any** instance: it validates
+   against the `emitted` row (no row for this turn → 404, never a settle),
+   persists the result, and `pg_notify`s the owner in the same transaction
+   ([chat-turn-host-commands.ts](../../apps/partner-ai-service/src/inbound/http/routes/chat/turns/host-commands/chat-turn-host-commands.ts)).
+4. **Resume.** The owner settles the pending entry — directly when the POST
+   landed on it, via its result-notification listener otherwise, or via its
+   ~2 s result poll if the signal was lost; the tool call resolves; the result
+   enters the model's context; generation continues.
 
 Bounds that make the pause safe — the turn can never hang on a silent host:
 
@@ -259,14 +267,15 @@ Bounds that make the pause safe — the turn can never hang on a silent host:
 | Result posted twice / after settle                 | Second settle is a no-op             | first result only            |
 | User cancels mid-await                             | Fiber interrupt tears the await down | (turn ends `aborted`)        |
 
-Failure modes worth knowing — several have fixes tracked in `plan/`:
+Failure modes worth knowing — two still have fixes tracked in `plan/`:
 
-| Failure                                                   | Today                                                                                                              | Target                                                                                                                                                                        |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Result POST lands on a non-owner instance (load balancer) | `404`; the owner times out after 30 s; the model is told `timed_out` even though the host **performed the action** | Any instance persists the result durably and `pg_notify`s the owner, which settles in milliseconds; the owner also polls the result table as a fallback (`plan/08`, ADR 0009) |
-| Stream stays silent during a long await                   | A proxy idle-timeout may cut the SSE                                                                               | Heartbeat comments keep it alive (`plan/17`)                                                                                                                                  |
-| Reload replays a completed command event                  | The widget re-dispatches it — the host action runs twice                                                           | Dispatch skips events whose `status` is not `running` or that carry a result (`plan/19`)                                                                                      |
-| Owner instance crashes mid-await                          | Pending entry and fiber die together; the turn strands `running`                                                   | The orphan sweep terminalizes it (`plan/05`)                                                                                                                                  |
+| Failure                                                   | Behavior                                                                                                                                                                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Result POST lands on a non-owner instance (load balancer) | That instance persists the result and `pg_notify`s; the owner settles in milliseconds, or within ~2 s via its result poll if the signal was lost (ADR 0009)                      |
+| Result POSTed with a leaked commandId from another turn   | `404` — the durable `emitted` row binds the command to its turn, so a caller's own valid turn cannot settle someone else's command                                               |
+| Stream stays silent during a long await                   | A proxy idle-timeout may cut the SSE; heartbeat comments will keep it alive (`plan/17`)                                                                                          |
+| Reload replays a completed command event                  | The widget re-dispatches it — the host action runs twice; dispatch will skip non-`running` events (`plan/19`)                                                                    |
+| Owner instance crashes mid-await                          | Pending entry and fiber die together; the orphan sweep terminalizes the turn (`plan/05`). The `emitted` row stays unresolved — one small row, kept forever by design (`plan/10`) |
 
 One boundary to respect: this seam is built for **fast UI actions**. The await
 is in-memory and 30-seconds-bounded, so a turn cannot park on a human decision

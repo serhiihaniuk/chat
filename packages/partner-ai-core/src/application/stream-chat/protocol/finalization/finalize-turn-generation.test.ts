@@ -8,7 +8,11 @@ import { describe, expect, it } from "vitest";
 
 import { PARTNER_AI_CORE_ERROR_CODES, PartnerAiCoreError } from "#errors";
 import { prepareStreamChatTurn } from "#application/stream-chat/turn/prepare-stream-chat-turn";
-import { createProtocolEventAccumulator } from "#application/stream-chat/protocol/finalization/protocol-event-accumulator";
+import {
+  createProtocolEventAccumulator,
+  recordProtocolEvent,
+  type ProtocolEventAccumulator,
+} from "#application/stream-chat/protocol/finalization/protocol-event-accumulator";
 import { finalizeTurnGeneration } from "#application/stream-chat/protocol/finalization/finalize-turn-generation";
 import { input } from "#testing/stream-chat/fixtures.test-support";
 import { createFakePorts } from "#testing/stream-chat/fake-ports.test-support";
@@ -100,9 +104,101 @@ describe("abnormal turn finalization", () => {
   });
 });
 
+// The event log must always END with a terminal, on every exit shape — a stream
+// that just stops, or an interrupt racing the stream's own terminal.
+describe("terminal guarantees across exit shapes", () => {
+  it("appends a synthetic terminal when a successful drain carried no terminal", async () => {
+    // The provider stream ended cleanly without completed/error/blocked. Tailing
+    // subscribers must still see a terminal, and the status must be failed.
+    const ports = createFakePorts();
+    const state = accumulatorWith([startedEvent(0), deltaEvent(1, "partial ")]);
+
+    const exit = await runFinalize(ports, Exit.succeed(undefined), state);
+
+    expect(Exit.isSuccess(exit)).toBe(false);
+    const terminals = ports.appendedEvents.filter(
+      (event) => event.type === SIDECHAT_EVENT_TYPES.ERROR,
+    );
+    expect(terminals).toHaveLength(1);
+    expect(terminals[0]).toMatchObject({ code: PROTOCOL_ERROR_CODES.PROVIDER_FAILED });
+    expect(ports.failedTurns).toHaveLength(1);
+    expect(ports.completedTurns).toHaveLength(0);
+  });
+
+  it("lets a completed stream beat a late interrupt: no second terminal, message persisted", async () => {
+    // The user watched the answer complete; the interrupt landed a beat later.
+    // The stream's terminal wins: the turn persists as completed with its
+    // assistant message, and no synthetic aborted terminal is appended.
+    const ports = createFakePorts({
+      turnControlState: { status: "running", cancelRequested: true },
+    });
+    const state = accumulatorWith([
+      startedEvent(0),
+      deltaEvent(1, "The answer."),
+      completedEvent(2),
+    ]);
+
+    const exit = await runFinalize(ports, Exit.interrupt(1), state);
+
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(
+      ports.appendedEvents.filter((event) => event.type === SIDECHAT_EVENT_TYPES.ERROR),
+    ).toHaveLength(0);
+    expect(ports.failedTurns).toHaveLength(0);
+    expect(ports.completedTurns).toHaveLength(1);
+    expect(ports.completedTurns[0]).toMatchObject({ assistantContent: "The answer." });
+  });
+});
+
+const startedEvent = (sequence: number): SidechatStreamEvent => ({
+  protocolVersion: "sidechat.v1",
+  type: SIDECHAT_EVENT_TYPES.STARTED,
+  eventId: `evt-${sequence}`,
+  assistantTurnId: "assistant_turn_001",
+  sequence,
+  createdAt: "2026-07-02T00:00:00.000Z",
+  conversationId: "conversation_001",
+});
+
+const deltaEvent = (sequence: number, content: string): SidechatStreamEvent => ({
+  protocolVersion: "sidechat.v1",
+  type: SIDECHAT_EVENT_TYPES.DELTA,
+  eventId: `evt-${sequence}`,
+  assistantTurnId: "assistant_turn_001",
+  sequence,
+  createdAt: "2026-07-02T00:00:01.000Z",
+  content,
+});
+
+const completedEvent = (sequence: number): SidechatStreamEvent => ({
+  protocolVersion: "sidechat.v1",
+  type: SIDECHAT_EVENT_TYPES.COMPLETED,
+  eventId: `evt-${sequence}`,
+  assistantTurnId: "assistant_turn_001",
+  sequence,
+  createdAt: "2026-07-02T00:00:02.000Z",
+  finishReason: "stop",
+});
+
+const accumulatorWith = (events: readonly SidechatStreamEvent[]): ProtocolEventAccumulator =>
+  events.reduce(recordProtocolEvent, createProtocolEventAccumulator());
+
 type FinalizeResult = {
   readonly terminals: readonly SidechatStreamEvent[];
 };
+
+const runFinalize = (
+  ports: ReturnType<typeof createFakePorts>,
+  exit: Exit.Exit<unknown, PartnerAiCoreError>,
+  state: ProtocolEventAccumulator = createProtocolEventAccumulator(),
+): Promise<Exit.Exit<void, PartnerAiCoreError>> =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const turn = yield* prepareStreamChatTurn(ports, input);
+      const accumulator = yield* Ref.make(state);
+      return yield* Effect.exit(finalizeTurnGeneration(ports, input, turn, accumulator, exit));
+    }),
+  );
 
 const runAbnormalFinalize = (
   ports: ReturnType<typeof createFakePorts>,

@@ -7,7 +7,10 @@ import { runErrorMessage } from "../run/widget-run-reducer.js";
 import { WIDGET_RUN_STATUSES, type WidgetRunState } from "../run/widget-run-state.js";
 import type { WidgetRunStore } from "../run/widget-run-store.js";
 import { clearActiveRunMarker, writeActiveRunMarker } from "../reconnect/widget-run-marker.js";
-import { runSubscription } from "./widget-run-subscription.js";
+import {
+  consumeTurnStreamWithRecovery,
+  type InitialStreamAttempt,
+} from "./recovery/widget-transport-recovery.js";
 
 export type HostBridgeRef = Pick<HostBridge, "dispatchCommand"> | undefined;
 
@@ -25,14 +28,15 @@ export type RunLifecycleContext = {
   readonly conversationStorageKey: string | undefined;
   readonly onReplayExpired: (conversationId: string | undefined) => void;
   /** Refetch one conversation's stored transcript (e.g. a turn finished while away). */
-  readonly refreshHistory: (conversationId: string | undefined) => void;
+  readonly refreshHistory: (conversationId: string | undefined) => void | Promise<unknown>;
+  /** Watchdog window: no stream event for this long cuts and retries the connection. */
+  readonly inactivityTimeoutMs?: number | undefined;
 };
 
 export type SubscribeTarget = {
   readonly requestId: string;
   readonly assistantTurnId: string;
   readonly conversationId: string | undefined;
-  readonly after: number;
   readonly resuming: boolean;
 };
 
@@ -47,7 +51,9 @@ export type ActiveSubscription = {
  *
  * Returns `undefined` (no-op) when a subscription for the same turn is already
  * live, so repeated reconnect triggers (mount + visibility + select) never abort
- * a healthy stream. A different turn id aborts the old one first.
+ * a healthy stream. A different turn id aborts the old one first. A wedged
+ * same-turn connection is not this guard's problem: the recovery watchdog cuts
+ * and retries it, so "already live" can be trusted.
  */
 export const openSubscription = (
   active: ActiveSubscription,
@@ -106,10 +112,17 @@ export const beginRun = async (
     messages: startInput.messages,
   });
 
+  // The POST connection gets its own controller (linked to the caller's signal)
+  // so the recovery watchdog can cut a wedged first attempt without touching the
+  // caller's slot — an outer abort still stops everything.
+  const connection = new AbortController();
+  const unlink = forwardAbort(control.signal, connection);
+
   let run;
   try {
-    run = await context.client.createRun(startInput.request, { signal: control.signal });
+    run = await context.client.createRun(startInput.request, { signal: connection.signal });
   } catch (error) {
+    unlink();
     if (control.signal.aborted || isAbortApiError(error)) return;
     // A replayed requestId whose finished turn was already swept: the answer
     // lives in history, so fall back instead of rendering a false failure.
@@ -122,38 +135,56 @@ export const beginRun = async (
     store.dispatch(requestId, { type: "stream-failed", message: runErrorMessage(error) });
     return;
   }
+  unlink();
 
   control.onIdentified(run.assistantTurnId);
   store.dispatch(requestId, { type: "identified", assistantTurnId: run.assistantTurnId });
+  // Written exactly once per run; cleared only on a server-confirmed terminal or
+  // a replaced run — never on a transport failure, so a reload can still resume.
   writeActiveRunMarker(context.conversationStorageKey, {
     requestId,
     assistantTurnId: run.assistantTurnId,
     conversationId: run.conversationId,
-    lastSeenSequence: -1,
   });
 
-  await runSubscription({
+  await consumeTurnStreamWithRecovery({
     client: context.client,
     store,
     hostBridge: context.hostBridge,
     requestId,
     assistantTurnId: run.assistantTurnId,
-    events: run.events,
     signal: control.signal,
-    onSequence: (sequence) =>
-      writeActiveRunMarker(context.conversationStorageKey, {
-        requestId,
-        assistantTurnId: run.assistantTurnId,
-        conversationId: run.conversationId,
-        lastSeenSequence: sequence,
-      }),
+    initialAttempt: initialAttempt(run.events, connection),
+    inactivityTimeoutMs: context.inactivityTimeoutMs,
     onReplayExpired: () => {
       clearActiveRunMarker(context.conversationStorageKey);
       store.clear();
       context.onReplayExpired(run.conversationId);
     },
+    onServerTerminal: () => {
+      clearActiveRunMarker(context.conversationStorageKey);
+    },
   });
   finalizeSubscription(context, store, control.signal);
+};
+
+const initialAttempt = (
+  events: InitialStreamAttempt["events"],
+  controller: AbortController,
+): InitialStreamAttempt => ({ events, controller });
+
+const forwardAbort = (outer: AbortSignal, inner: AbortController): (() => void) => {
+  if (outer.aborted) {
+    inner.abort(outer.reason);
+    return () => undefined;
+  }
+  const forward = (): void => {
+    inner.abort(outer.reason);
+  };
+  outer.addEventListener("abort", forward);
+  return () => {
+    outer.removeEventListener("abort", forward);
+  };
 };
 
 const isAbortApiError = (error: unknown): boolean =>
@@ -163,11 +194,12 @@ const isReplayExpiredError = (error: unknown): boolean =>
   error instanceof SideChatApiError && error.code === "replay_expired";
 
 /**
- * Run one subscription end to end, keeping the marker's offset current.
+ * Tail one turn to its terminal (the resume path), with transport recovery.
  *
  * On resume the store is moved to `reconnecting` first so the UI reflects the
- * retry. When the stream ends (or fails) the marker is cleared if the run
- * reached a terminal status.
+ * retry. Recovery resumes from the store's cursor, so no offset is threaded
+ * through. When the stream ends the marker is cleared if the run reached a
+ * terminal status.
  */
 export const driveSubscription = async (
   context: RunLifecycleContext,
@@ -177,25 +209,21 @@ export const driveSubscription = async (
 ): Promise<void> => {
   if (target.resuming) store.dispatch(target.requestId, { type: "reconnect-started" });
 
-  await runSubscription({
+  await consumeTurnStreamWithRecovery({
     client: context.client,
     store,
     hostBridge: context.hostBridge,
     requestId: target.requestId,
     assistantTurnId: target.assistantTurnId,
-    after: target.after,
     signal,
-    onSequence: (sequence) =>
-      writeActiveRunMarker(context.conversationStorageKey, {
-        requestId: target.requestId,
-        assistantTurnId: target.assistantTurnId,
-        conversationId: target.conversationId,
-        lastSeenSequence: sequence,
-      }),
+    inactivityTimeoutMs: context.inactivityTimeoutMs,
     onReplayExpired: () => {
       clearActiveRunMarker(context.conversationStorageKey);
       store.clear();
       context.onReplayExpired(target.conversationId);
+    },
+    onServerTerminal: () => {
+      clearActiveRunMarker(context.conversationStorageKey);
     },
   });
 

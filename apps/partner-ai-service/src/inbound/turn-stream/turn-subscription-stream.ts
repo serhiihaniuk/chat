@@ -1,7 +1,8 @@
 import type { AuthContext, StreamChatPorts } from "@side-chat/partner-ai-core";
 import { isTerminalEvent, type SidechatStreamEvent } from "@side-chat/chat-protocol";
-import { Duration, Effect, Ref, Schedule, type Scope, Stream } from "effect";
+import { Cause, Duration, Effect, Ref, Schedule, type Scope, Stream } from "effect";
 
+import { recordResumableObservation } from "./turn-observability.js";
 import type { TurnEventDispatcher, TurnEventSubscription } from "./turn-event-dispatcher.js";
 
 export type TurnSubscriptionInput = {
@@ -19,9 +20,12 @@ export type TurnSubscriptionInput = {
   readonly replayOnly?: boolean;
 };
 
+/** The slice of the stream-chat ports the subscription transport actually reads. */
+export type TurnStreamPorts = Pick<StreamChatPorts, "turnEventLog" | "clock" | "observability">;
+
 export type TurnSubscriptionDependencies = {
   readonly dispatcher: TurnEventDispatcher;
-  readonly ports: StreamChatPorts;
+  readonly ports: TurnStreamPorts;
   readonly safetyPollIntervalMs: number;
 };
 
@@ -35,7 +39,9 @@ export type TurnSubscriptionDependencies = {
  * 2. replay `readEventsAfter(after)` from the durable log, tracking the high
  *    sequence already emitted;
  * 3. tail live events — dispatcher fan-out plus a low-frequency safety poll —
- *    filtered to `sequence > maxEmitted`, so replay and tail never duplicate;
+ *    through a DENSE gate: only `maxEmitted + 1` is emitted directly, a gap
+ *    triggers a re-read of the log suffix, so replay and tail never duplicate
+ *    and a dropped fan-out offer never becomes a permanent hole;
  * 4. end at the first terminal event (`takeUntil(isTerminal)`).
  *
  * A turn that is already terminal in the log replays its terminal and ends at
@@ -106,7 +112,7 @@ const acquireSubscription = (
  * subscriber is registering.
  */
 const gatedReplayStream = (
-  ports: StreamChatPorts,
+  ports: TurnStreamPorts,
   input: TurnSubscriptionInput,
   maxEmitted: Ref.Ref<number>,
 ): Effect.Effect<Stream.Stream<SidechatStreamEvent>> =>
@@ -121,10 +127,12 @@ const gatedReplayStream = (
 /**
  * Tail live events from the dispatcher fan-out plus the safety poll.
  *
- * Both sources feed one `sequence > maxEmitted` gate, so the durable log stays
- * the source of truth: the fan-out makes delivery low-latency, and the poll is
- * the missed-notify backstop. The gate is atomic per event, so an event arriving
- * on both paths is emitted exactly once.
+ * Both sources feed one DENSE gate, so the durable log stays the source of
+ * truth: the fan-out makes delivery low-latency, and the poll is the
+ * missed-notify backstop. The gate is applied by the single consuming fiber, so
+ * an event arriving on both paths is emitted exactly once, and a dropped
+ * fan-out offer (a slow consumer's full queue) is healed by a re-read instead
+ * of becoming a permanent hole.
  */
 const tailLiveEvents = (
   dependencies: TurnSubscriptionDependencies,
@@ -135,7 +143,8 @@ const tailLiveEvents = (
   const fannedOut = Stream.fromQueue(subscription.events);
   const polled = safetyPollStream(dependencies, input, maxEmitted);
   return Stream.merge(fannedOut, polled).pipe(
-    Stream.filterEffect((event) => emitIfNew(maxEmitted, event)),
+    Stream.mapEffect((event) => emitDense(dependencies.ports, input, maxEmitted, event)),
+    Stream.flatMap((events) => Stream.fromIterable(events)),
   );
 };
 
@@ -159,7 +168,7 @@ const safetyPollStream = (
   );
 
 const readEventsAfter = (
-  ports: StreamChatPorts,
+  ports: TurnStreamPorts,
   input: TurnSubscriptionInput,
   after: number,
 ): Effect.Effect<readonly SidechatStreamEvent[]> =>
@@ -169,19 +178,48 @@ const readEventsAfter = (
       assistantTurnId: input.assistantTurnId,
       after,
     })
-    .pipe(Effect.catchCause(() => Effect.succeed([] as readonly SidechatStreamEvent[])));
+    .pipe(
+      // An empty read keeps the stream alive (the poll retries), but the cause is
+      // recorded so a real persistence failure is never a silent empty replay.
+      Effect.catchCause((cause) =>
+        recordResumableObservation({
+          sink: ports.observability,
+          lifecycleState: "event_read_failed",
+          assistantTurnId: input.assistantTurnId,
+          requestId: input.assistantTurnId,
+          now: ports.clock.now(),
+          errorCode: "persistence_failed",
+          attributes: { cause: Cause.pretty(cause).slice(0, 500) },
+        }).pipe(Effect.as([] as readonly SidechatStreamEvent[])),
+      ),
+    );
 
 /**
- * Emit one candidate event only if it advances the high-water mark.
+ * Emit only the next DENSE sequence; heal a gap by re-reading the log.
  *
- * `Ref.modify` makes the compare-and-set atomic for the single consuming fiber,
- * so replay, fan-out, and poll can race the same sequence and it is still emitted
- * exactly once.
+ * A max-based gate would let a dropped fan-out offer (slow consumer, full queue)
+ * advance past the missing sequence forever. Instead: an already-emitted
+ * sequence is dropped, the next dense sequence is emitted directly, and a
+ * higher-than-dense sequence triggers a re-read of the durable suffix — the
+ * buffer holds every event of a live turn — which is emitted in order. If the
+ * re-read comes back empty the mark stays put, so the safety poll retries the
+ * same gap instead of skipping it.
  */
-const emitIfNew = (
+const emitDense = (
+  ports: TurnStreamPorts,
+  input: TurnSubscriptionInput,
   maxEmitted: Ref.Ref<number>,
   event: SidechatStreamEvent,
-): Effect.Effect<boolean> =>
-  Ref.modify(maxEmitted, (current) =>
-    event.sequence > current ? [true, event.sequence] : [false, current],
-  );
+): Effect.Effect<readonly SidechatStreamEvent[]> =>
+  Effect.gen(function* () {
+    const current = yield* Ref.get(maxEmitted);
+    if (event.sequence <= current) return [];
+    if (event.sequence === current + 1) {
+      yield* Ref.set(maxEmitted, event.sequence);
+      return [event];
+    }
+    const suffix = yield* readEventsAfter(ports, input, current);
+    const last = suffix.at(-1);
+    if (last) yield* Ref.set(maxEmitted, last.sequence);
+    return suffix;
+  });

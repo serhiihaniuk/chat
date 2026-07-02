@@ -3,6 +3,7 @@ import { createMemoryStore, snapshotMemoryStore, type MemoryStoreSnapshot } from
 import { createMemoryConversationRepository } from "./records/conversations.js";
 import {
   appendMemoryAuditEvent,
+  findMemoryHostCommandResult,
   recordMemoryHostCommandResult,
   recordMemoryToolInvocation,
 } from "./records/interactions.js";
@@ -36,6 +37,7 @@ export const createMemorySidechatRepositories = (
     ...createMemoryUsageRepository(context),
     recordToolInvocation: (command) => recordMemoryToolInvocation(command, store, ids),
     recordHostCommandResult: (command) => recordMemoryHostCommandResult(command, store, ids),
+    findHostCommandResult: (command) => findMemoryHostCommandResult(command, store),
     appendAuditEvent: (command) => appendMemoryAuditEvent(command, store, ids),
   };
 };

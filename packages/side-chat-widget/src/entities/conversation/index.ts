@@ -17,6 +17,7 @@ export {
   useResetConversation,
   type RefreshConversations,
   type RefreshConversationsInput,
+  type RefreshHistory,
 } from "./api/query/conversation-query-repository.js";
 export {
   SIDE_CHAT_API_ERROR_CODES,

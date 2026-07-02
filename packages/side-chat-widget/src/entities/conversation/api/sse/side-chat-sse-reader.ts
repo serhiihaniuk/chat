@@ -25,9 +25,12 @@ export const decodeChunkedSseStream = async function* (
 
   for await (const chunk of chunks) {
     assertNotAborted(options.signal);
-    buffer = normalizeNewlines(buffer + decodeChunk(chunk, decoder));
-    const extracted = extractFrames(buffer);
-    buffer = extracted.remaining;
+    buffer += decodeChunk(chunk, decoder);
+    // Hold a trailing "\r" back: it may be the first half of a "\r\n" split
+    // across chunks, and normalizing it alone would fabricate a frame boundary.
+    const holdback = buffer.endsWith("\r") ? "\r" : "";
+    const extracted = extractFrames(normalizeNewlines(holdback ? buffer.slice(0, -1) : buffer));
+    buffer = extracted.remaining + holdback;
 
     for (const frame of extracted.frames) {
       yield* decodeFrame(frame, state);

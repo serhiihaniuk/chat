@@ -79,7 +79,8 @@ export const createStreamChatPorts = (input: StreamChatPortsInput): StreamChatPo
   return { ports, turnEventLog };
 };
 
-const systemClock: ClockPort = {
+/** The default wall clock, shared with adapters composed before the ports bundle. */
+export const systemClock: ClockPort = {
   now: () => new Date().toISOString(),
 };
 

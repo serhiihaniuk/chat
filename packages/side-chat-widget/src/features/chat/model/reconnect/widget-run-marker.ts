@@ -3,16 +3,16 @@ import { isRecord } from "@side-chat/shared";
 /**
  * Lightweight pointer to a live run, persisted so a full reload can resume it.
  *
- * Only identity is stored — never message content — because the durable log on
- * the server is the source of truth for events. On mount the controller reads
- * this marker, resolves the turn id if only the request id is known, and
- * resubscribes from `lastSeenSequence`.
+ * Only identity is stored — never message content or a cursor — because the
+ * server's buffered stream is the source of truth for events and a cold resume
+ * always replays from the start (`after = -1`). Written once when the turn is
+ * identified and cleared only on a server-confirmed terminal (or a replaced
+ * run) — never on a transport failure, so a reload can still recover the turn.
  */
 export type WidgetActiveRunMarker = {
   readonly requestId: string;
   readonly assistantTurnId?: string | undefined;
   readonly conversationId?: string | undefined;
-  readonly lastSeenSequence: number;
 };
 
 const STORAGE_SUFFIX = ":active-run";
@@ -72,8 +72,6 @@ const parseMarker = (raw: string): WidgetActiveRunMarker | undefined => {
       requestId: value["requestId"],
       assistantTurnId: optionalString(value["assistantTurnId"]),
       conversationId: optionalString(value["conversationId"]),
-      lastSeenSequence:
-        typeof value["lastSeenSequence"] === "number" ? value["lastSeenSequence"] : -1,
     };
   } catch {
     return undefined;

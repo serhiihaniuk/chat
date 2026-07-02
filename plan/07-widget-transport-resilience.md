@@ -1,6 +1,19 @@
 # 07 — Widget transport resilience: retry, poll-until-terminal fallback, watchdog
 
-**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 03, 04, 06 | **Status:** todo
+**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 03, 04, 06 | **Status:** done (2026-07-02)
+
+## Delivery notes
+
+- **New recovery module** `subscription/recovery/widget-transport-recovery.ts`: `consumeTurnStreamWithRecovery` owns the whole consume-to-terminal loop for BOTH paths (`beginRun`'s POST stream and `driveSubscription`'s resume GET). `runSubscription` was reshaped into a single outcome-reporting attempt (`ended | aborted | replay-expired | error`) — it no longer dispatches `stream-failed` itself.
+- **Classification** (`classifyTransportError`): `missing_terminal`/`network_error`/5xx/watchdog-abort/unknown-thrown → retryable; `stream_unavailable` (new client error code, mapped from the plan/04 409) → straight to poll; `malformed_stream`/4xx → fatal. Retry ladder 0.5/1/2/4 s from the store's cursor (`after = lastSeenSequence`); the reducer's sequence dedupe makes overlap replays idempotent.
+- **Poll fallback**: `client.getTurnStatus` every 2 s until the server reports a terminal → dispatch the mapped terminal (`completed`→COMPLETED, `user_aborted`→CANCELLED, else FAILED with a public message) and clear the marker; the story-06 handoff effect then fetches history and clears the run. Only the SERVER's verdict fails the run — except 5 consecutive poll failures, the one local failure left.
+- **Watchdog**: each attempt runs under its own AbortController (linked to the caller's slot signal — `beginRun` now gives `createRun` a per-connection controller too, so the watchdog can cut a wedged POST). No event for `inactivityTimeoutMs` (default 45 s; knob on `WidgetRunControllerInput`/`RunLifecycleContext`) → abort the connection → attempt reports `aborted` → outer-signal-untouched means "watchdog fired" → retry. The composer can never be locked forever.
+- **Marker write-once**: written at identity, cleared only on server-confirmed terminal or replaced run — never on transport failure. The per-delta localStorage write and the marker's dead `lastSeenSequence` field are gone (cold resumes always replay from −1; live resumes read the store cursor — `SubscribeTarget.after` deleted too). Controller test proves ≤1 marker write per run.
+- **Recovery stands down** when the run settles underneath it (cancel ack, clear, replaced run) or the caller aborts — never fabricating a local failure.
+- **CRLF fix**: the SSE reader holds back a trailing `"\r"` until the next chunk instead of normalizing it into a false frame boundary; unit test splits `\r\n` across chunks.
+- **Tests**: 8 recovery unit tests (drop→resume-no-duplicates, retries-exhaust→poll→server-terminal, `stream_unavailable`→poll, fatal→no-retry, wedged→watchdog→resume, abort-mid-recovery, settled-underneath, persistent-poll-failure); a new `widget-run-controller.recovery.test.tsx` with the throwing-stream fake the story demanded (the clean-end fake remains for the manual-reconnect path) + the marker write-count test. The `.test.tsx` 450-line budget quirk (gate only recognizes `.test.ts`) forced the file split — worth folding into `plan/35`/gate cleanup.
+- **e2e**: back at the story-30 baseline (8 pass / 4 documented stale-UI). Two environment potholes en route, not code: Vite "Outdated Optimize Dep" 504s after a config change (fixed by `vite optimize` warm-up) and one Windows Node 0xC0000409 dev-server crash (not reproducible).
+- **Docs**: widget-and-host-integration.md outbound steps 2–5 rewritten to the recovery contract; assistant-turn.md connection-bound consequences; ADR 0007 landed list — the epic-1 client contract is now fully landed there.
 
 ## Problem
 

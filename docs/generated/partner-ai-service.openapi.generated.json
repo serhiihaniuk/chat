@@ -124,6 +124,41 @@
         }
       }
     },
+    "/chat/turns/{assistantTurnId}/host-commands/{commandId}/result": {
+      "post": {
+        "operationId": "submitHostCommandResult",
+        "description": "Return a dispatched UI (host) command's result so the awaiting server tool call resolves (ADR 0009). Works on any instance: the result is validated against the durable emitted row, persisted, and relayed to the owning instance. Idempotent per (assistantTurnId, commandId).",
+        "parameters": [
+          {
+            "name": "assistantTurnId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "name": "commandId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "The HostCommandResult JSON the widget dispatched (status, resultCode, data)"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ settled: true } — the result is durably recorded and relayed to the owner"
+          },
+          "400": { "description": "Body is not a JSON object" },
+          "404": {
+            "description": "Unknown turn, or no host command with that id was emitted for this turn (a leaked commandId cannot settle through a different turn)"
+          }
+        }
+      }
+    },
     "/chat/turns/{assistantTurnId}/cancel": {
       "post": {
         "operationId": "cancelTurn",

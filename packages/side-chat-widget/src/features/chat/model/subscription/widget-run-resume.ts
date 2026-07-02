@@ -12,11 +12,12 @@ import { clearActiveRunMarker, readActiveRunMarker } from "../reconnect/widget-r
 import type { RunLifecycleContext, SubscribeTarget } from "./widget-subscription-lifecycle.js";
 
 /**
- * Resolve which turn to resume and from where, using the in-memory run.
+ * Resolve which turn to resume, using the in-memory run.
  *
- * The live run has the freshest `lastSeenSequence`, so resume tails from there. A
- * run that is already terminal, or has no turn id yet, is not resumed; a cold
- * reload with an empty store is handled by `resumeRunFromMarker` instead.
+ * The resume cursor is not threaded through: transport recovery reads the run's
+ * `lastSeenSequence` from the store per attempt. A run that is already terminal,
+ * or has no turn id yet, is not resumed; a cold reload with an empty store is
+ * handled by `resumeRunFromMarker` instead.
  */
 export const resumeTarget = (store: WidgetRunStore): SubscribeTarget | undefined => {
   const run = store.getSnapshot();
@@ -25,7 +26,6 @@ export const resumeTarget = (store: WidgetRunStore): SubscribeTarget | undefined
     requestId: run.requestId,
     assistantTurnId: run.assistantTurnId,
     conversationId: run.conversationId,
-    after: run.lastSeenSequence,
     resuming: true,
   };
 };
@@ -62,7 +62,7 @@ export const resumeRunFromMarker = async (
     // fetched mid-flight (before the assistant message committed), so refetch it.
     // The terminal status guarantees the final message is now committed.
     clearActiveRunMarker(context.conversationStorageKey);
-    context.refreshHistory(marker.conversationId);
+    void context.refreshHistory(marker.conversationId);
     return;
   }
   if (store.getSnapshot()) return;
@@ -88,7 +88,6 @@ export const resumeRunFromMarker = async (
     requestId: marker.requestId,
     assistantTurnId,
     conversationId: marker.conversationId,
-    after: -1,
     resuming: true,
   });
 };
@@ -162,7 +161,6 @@ export const resumeFromActiveTurn = (
     requestId,
     assistantTurnId: input.assistantTurnId,
     conversationId: input.conversationId,
-    after: -1,
     resuming: true,
   });
 };

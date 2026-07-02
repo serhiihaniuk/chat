@@ -1,6 +1,16 @@
 # 08 — Host-command result relay (multi-instance)
 
-**Epic:** 1 Streaming | **Priority:** P1 | **Depends on:** 02 | **Status:** todo
+**Epic:** 1 Streaming | **Priority:** P1 | **Depends on:** 02 | **Status:** done (2026-07-02)
+
+## Delivery notes
+
+- **Durable emit binds command→turn:** the resolver persists an `emitted` row in the existing `host_command_results` table (first production caller of `recordHostCommandResult`) BEFORE the command reaches the browser. That row is what lets ANY instance's result route validate command-belongs-to-turn — the design gap in the story's task 3 ("route validates command-belongs-to-turn" needs durable state a non-owner can see; the `emitted` status in the schema's CHECK constraint was clearly built for this).
+- **Relay:** new `HOST_COMMAND_RESULT_NOTIFY_CHANNEL` + parser/source/NOOP modules mirroring the cancel channel; the Postgres `recordHostCommandResult` now runs in a transaction and `pg_notify`s `{assistantTurnId, commandId}` when the write carries a `resolvedAt` (a resolution, not an emit). New `findHostCommandResult` read on the contract + both adapters. Service side: `host-command-result-dispatcher.ts` (listener → read persisted row → `resolveResult`), wired + shut down in composition; notification-source factories extracted to `composition/persistence/notification-sources.ts` (composition file hit its 300-line budget).
+- **Resolver rework:** pending map keyed `(assistantTurnId, commandId)` — a leaked commandId can never settle through a different turn (`resolveResult` takes both ids); while awaiting, the owner polls the persisted result every 2 s (the missed-NOTIFY backstop, same belt-and-braces as the subscription safety poll). Fast path kept: a result POSTed to the owner settles synchronously via `resolveResult` before any relay latency.
+- **Route rework:** moved to `turns/host-commands/chat-turn-host-commands.ts` (the turns dir was at its 5-file cap): validate turn → validate `emitted` row (404 otherwise) → persist resolution (browser status constrained to the durable vocabulary, never `emitted`; off-vocabulary → `failed`) + NOTIFY in-transaction → local fast-path settle → `{settled: true}`. Reposting is an idempotent upsert.
+- **Tests:** resolver suite rewritten (emitted-row persistence; cross-turn settle rejected with honest timeout; **two resolvers over one shared memory store: a result recorded "by the other instance" settles the owner via the poll** — the multi-instance case without Docker); new route tests (persist+settled, never-emitted 404, leaked-commandId-other-turn 404 + original row untouched, off-vocabulary status→failed). The pg NOTIFY listener path needs one `test:db:container` run — Docker still unavailable (same caveat as plan/05; the pending container-test chip covers the environment).
+- **Docs:** ADR 0009 marked implemented + decision §3 rewritten to the emitted-row design; host-commands.md round-trip steps + failure table updated to shipped behavior; OpenAPI gained the (previously undocumented) result route.
+- **Note:** `commandRedactedJson` stores the model's command payload as-is — the same payload already streamed to the browser; actual redaction is `plan/20`/`plan/24` territory.
 
 ## Problem
 

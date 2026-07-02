@@ -66,6 +66,11 @@ const appendEventTo =
   ({ assistantTurnId, event }) =>
     Effect.sync(() => {
       const turn = ensureTurn(turns, assistantTurnId);
+      // Terminal guard: once a terminal is recorded the turn's log is closed, so
+      // a racing synthetic terminal (an interrupt landing just after `completed`)
+      // is a no-op — the same exactly-one-terminal contract the durable log's
+      // partial-unique index used to enforce. Finalization relies on this.
+      if (turn.terminal) return;
       const lastSequence = turn.events.at(-1)?.sequence ?? -1;
       // Idempotent on sequence: core appends in dense order, so a replayed append
       // at an already-stored sequence is a no-op.

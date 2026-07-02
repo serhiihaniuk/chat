@@ -1,6 +1,15 @@
 # 09 — Subscription gap fix + terminal guarantees
 
-**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** — | **Status:** todo
+**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** — | **Status:** done (2026-07-02)
+
+## Delivery notes
+
+- **Dense gate (`emitDense`)**: the tail emits only `maxEmitted + 1` directly; a higher sequence triggers a re-read of the buffer suffix (emitted in order, mark advanced to its end); a re-read that comes back empty leaves the mark put so the safety poll retries the SAME gap instead of skipping it. Ports narrowed to `TurnStreamPorts` (`turnEventLog`/`clock`/`observability`) — an honest contract that also made the new tests clean. Three tests: dropped-offer healed via re-read, zero-fan-out healed via poll, spurious-future-sequence never advances the mark.
+- **Success-path synthetic terminal**: `finalizeTurnGeneration` was restructured around the accumulator — a successful drain with no terminal appends the synthetic terminal FIRST (subscribers' `takeUntil` closes) and then lets validation fail the status honestly.
+- **Completed-beats-interrupt**: an abnormal exit whose accumulator already holds a terminal runs the NORMAL finalization — the turn the user watched complete persists as completed with its assistant message; no `user_aborted` overwrite, no second terminal. Test drives an interrupt with cancel intent after `completed@2` and asserts `completedTurns[0].assistantContent`.
+- **Terminal guard in the registry**: `appendEvent` refuses appends once a terminal is recorded — a silent no-op, deliberately matching the deleted durable log's `ON CONFLICT DO NOTHING` partial-unique index that `finalize`'s doc comment still assumed existed (that comment was quietly wrong since the P4 removal; now it's true again via the registry).
+- **Swallowed reads now recorded**: `readEventsAfter` failures record an `event_read_failed` observation (new `ObservabilityLifecycleState` member) with the pretty-printed cause, still returning `[]` so the poll keeps the stream alive.
+- Full `npm run verify` green; e2e baseline unchanged. Docs: assistant-turn.md finalization section (four exit shapes + terminal-guard mechanism row + newcomer trap), subscription-stream doc comments.
 
 ## Problem
 

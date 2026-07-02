@@ -7,6 +7,9 @@ export const SIDE_CHAT_API_ERROR_CODES = {
   // The turn's durable log can no longer be replayed (pruned, or the turn is
   // gone). Callers fall back to conversation history and clear the active run.
   REPLAY_EXPIRED: "replay_expired",
+  // The turn is still running but another instance owns its live stream (HTTP
+  // 409, `not_stream_owner`). Callers poll turn status until it is terminal.
+  STREAM_UNAVAILABLE: "stream_unavailable",
 } as const;
 
 export type SideChatApiErrorCode =

@@ -54,7 +54,9 @@ export type WidgetRunControllerInput = {
   /** Fall back to conversation history when a run can no longer be replayed. */
   readonly onReplayExpired: (conversationId: string | undefined) => void;
   /** Refetch one conversation's stored transcript (e.g. a turn finished while away). */
-  readonly refreshHistory: (conversationId: string | undefined) => void;
+  readonly refreshHistory: (conversationId: string | undefined) => void | Promise<unknown>;
+  /** Watchdog window: no stream event for this long cuts and retries the connection (default 45 s). */
+  readonly inactivityTimeoutMs?: number | undefined;
 };
 
 /**

@@ -1,6 +1,6 @@
 # ADR 0009: Host-Command Await And Result Relay
 
-Status: accepted 2026-07-02 (relay implementation tracked in `plan/08`)
+Status: accepted 2026-07-02; relay implemented 2026-07-02 (`plan/08`)
 
 ## Context
 
@@ -20,12 +20,12 @@ model calls open forever waiting for a browser that left.
 
 ## What it buys here
 
-| Guarantee                                     | How                                                                                                                                             | Naive alternative                                                                          |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| **A turn can never hang on a silent host.**   | Two hard bounds: no subscriber → immediate `no_connected_client`; no result in 30 s → `timed_out`. The model always receives a value.           | An unbounded await; one closed tab parks a model call forever.                             |
-| **Results survive load-balancer misrouting.** | Any instance persists the result durably and pokes the owner via `pg_notify`; the owner also polls the table as a fallback (target: `plan/08`). | A result POST that 404s on the wrong instance while the host already performed the action. |
-| **No cross-turn or cross-workspace settle.**  | Pending entries keyed `(assistantTurnId, commandId)`; the route validates the pair.                                                             | A leaked commandId settling someone else's pending call.                                   |
-| **The model hears the truth.**                | The settled result feeds the tool loop; the timeline and the model agree on what happened.                                                      | UI shows "applied" while the model was told it timed out.                                  |
+| Guarantee                                     | How                                                                                                                                   | Naive alternative                                                                          |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **A turn can never hang on a silent host.**   | Two hard bounds: no subscriber → immediate `no_connected_client`; no result in 30 s → `timed_out`. The model always receives a value. | An unbounded await; one closed tab parks a model call forever.                             |
+| **Results survive load-balancer misrouting.** | Any instance persists the result durably and pokes the owner via `pg_notify`; the owner also polls the table as a fallback.           | A result POST that 404s on the wrong instance while the host already performed the action. |
+| **No cross-turn or cross-workspace settle.**  | Pending entries keyed `(assistantTurnId, commandId)`; the route validates the pair.                                                   | A leaked commandId settling someone else's pending call.                                   |
+| **The model hears the truth.**                | The settled result feeds the tool loop; the timeline and the model agree on what happened.                                            | UI shows "applied" while the model was told it timed out.                                  |
 
 ## Decision
 
@@ -43,15 +43,16 @@ pauses (no events) during the await and resumes after settle; it never carries
 anything browser-to-server.
 
 **3. Results are relayed to the owner via the database, not instance affinity.**
-Target design (`plan/08`; today the route settles only a local pending entry and
-404s elsewhere): any instance receiving the result POST validates that the
-command belongs to that turn, **persists the result durably**, and fires
-`pg_notify` with `{assistantTurnId, commandId}` — a poke, never a payload — in
-the same transaction. The owning instance's listener reads the persisted result
-and settles its local await. A result landing on the owner settles directly
-(fast path). While awaiting, the owner also **polls the result table** at a low
-frequency, so a dropped LISTEN connection costs seconds of latency, not a
-timeout.
+When the tool loop pauses, the owner persists an `emitted` row in
+`host_command_results` — the durable proof that this commandId belongs to this
+turn. Any instance receiving the result POST validates against that row (no
+row → 404, so a leaked commandId can never settle through a different turn),
+**persists the result durably**, and fires `pg_notify` with
+`{assistantTurnId, commandId}` — a poke, never a payload — in the same
+transaction. The owning instance's listener reads the persisted result and
+settles its local await. A result landing on the owner settles directly (fast
+path). While awaiting, the owner also **polls the result table** every ~2 s, so
+a dropped LISTEN connection costs seconds of latency, not a timeout.
 
 **4. Correctness never depends on NOTIFY delivery.** The persisted row is the
 truth and the poke is a latency optimization; a lost poke degrades to the poll,

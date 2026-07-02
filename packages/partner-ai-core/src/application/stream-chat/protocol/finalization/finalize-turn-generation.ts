@@ -4,7 +4,7 @@ import {
   type ProtocolErrorCode,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-import { Cause, Effect, Exit, type Ref } from "effect";
+import { Cause, Effect, Exit, Ref } from "effect";
 import type { PartnerAiCoreError } from "#errors";
 import type { AssistantTurnFailureStatus, TurnControlState } from "#ports";
 import { STREAM_CHAT_FAILURES, mapPortFailure } from "../../errors/effect-failures.js";
@@ -42,20 +42,27 @@ type AbnormalTerminal = {
  * This is the `onExit` finalizer for the service runner. The runner forks
  * generation off the HTTP request and drains the post-start stream into the
  * event log; this function then guarantees the turn always reaches exactly one
- * durable terminal:
+ * durable terminal — as a STATUS and as an EVENT:
  *
- * - A normal exit means the post-start stream emitted its own terminal
- *   (`completed`/`error`/`blocked`) and the drain already appended it, so we only
- *   write the durable assistant-turn status from the accumulator.
- * - An abnormal exit (interrupt, shutdown, defect, or an event-log write failure)
- *   left no terminal, so we classify it honestly from the exit cause plus the
- *   durable cancel intent and append the one synthetic terminal that path owns.
+ * - A normal exit with a terminal in the accumulator persists the status the
+ *   stream's own terminal dictates.
+ * - A normal exit WITHOUT a terminal (a provider stream that just ended) first
+ *   appends the synthetic terminal, so tailing subscribers close instead of
+ *   hanging on `takeUntil`; the accumulator validation then fails the status
+ *   honestly.
+ * - An abnormal exit whose accumulator already holds a terminal means the
+ *   stream finished and the interrupt landed after it: the stream's terminal
+ *   wins — a turn the user watched complete is persisted as completed, never
+ *   re-terminalized as aborted.
+ * - Any other abnormal exit (interrupt, shutdown, defect, or an event-log write
+ *   failure) is classified honestly from the exit cause plus the durable cancel
+ *   intent, and the one synthetic terminal that path owns is appended.
  *
- * The synthetic append is guarded by the partial-unique terminal index
- * (`ON CONFLICT DO NOTHING` in the adapter), so even a terminal that landed
- * concurrently can never be duplicated. The durable status write rides the
- * running-guard and is skipped once a real terminal already won, so only the
- * first transition wins.
+ * The synthetic append can never duplicate a terminal that landed concurrently:
+ * the event-log adapter refuses appends after a terminal (the in-memory
+ * registry's terminal guard; formerly the DB's partial-unique index). The
+ * durable status write rides the running-guard, so only the first transition
+ * wins.
  */
 export const finalizeTurnGeneration = <A>(
   ports: StreamChatPorts,
@@ -64,9 +71,24 @@ export const finalizeTurnGeneration = <A>(
   accumulator: Ref.Ref<ProtocolEventAccumulator>,
   exit: Exit.Exit<A, PartnerAiCoreError>,
 ): Effect.Effect<void, PartnerAiCoreError> =>
-  Exit.isSuccess(exit)
-    ? finalizeProtocolStream(ports, input, turn, accumulator)
-    : finalizeAbortedTurnGeneration(ports, input, turn, exit.cause);
+  Effect.gen(function* () {
+    const state = yield* Ref.get(accumulator);
+    if (Exit.isSuccess(exit)) {
+      if (!state.terminalEvent) {
+        // The drain ended cleanly but the stream never carried a terminal: close
+        // the event log for subscribers before the status write fails the turn.
+        yield* appendSyntheticTerminal(ports, input, turn, PROTOCOL_ERROR_CODES.PROVIDER_FAILED);
+      }
+      return yield* finalizeProtocolStream(ports, input, turn, accumulator);
+    }
+    if (state.terminalEvent) {
+      // Interrupt after the stream's own terminal: completed (or the stream's
+      // error/blocked) beats the late interrupt, and the assistant message the
+      // user watched arrive is persisted.
+      return yield* finalizeProtocolStream(ports, input, turn, accumulator);
+    }
+    return yield* finalizeAbortedTurnGeneration(ports, input, turn, exit.cause);
+  });
 
 /**
  * Finalize a generation that ended without emitting its own terminal.

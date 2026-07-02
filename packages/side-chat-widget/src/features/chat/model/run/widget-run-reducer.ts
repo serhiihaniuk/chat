@@ -154,8 +154,9 @@ const applyTerminal = (
   };
 };
 
-// A transport error (network/malformed/missing-terminal) while consuming the
-// stream fails the run unless a terminal already landed; reconnect can retry.
+// A FATAL transport error (protocol violation, 4xx, exhausted recovery) fails
+// the run unless a terminal already landed. Retryable failures never reach this
+// action — transport recovery handles them as reconnect-started.
 const applyStreamFailed = (state: WidgetRunState, message: string): WidgetRunState => {
   if (isTerminalRunStatus(state.status)) return state;
   return {

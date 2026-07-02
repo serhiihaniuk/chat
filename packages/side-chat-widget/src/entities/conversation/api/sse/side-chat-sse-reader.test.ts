@@ -85,6 +85,24 @@ describe("decodeChunkedSseStream", () => {
     ]);
   });
 
+  it("survives a CRLF pair split across chunks without corrupting framing", async () => {
+    // A lone trailing "\r" used to be normalized to "\n" immediately; with the
+    // next chunk starting "\n" that fabricated a frame boundary mid-event and the
+    // whole stream decoded as malformed. The reader must hold the "\r" back.
+    const stream = [started(), delta(), completed()]
+      .map(encodeSseEvent)
+      .join("")
+      .replaceAll("\n", "\r\n");
+    const splitAt = stream.indexOf("\r\n", 20) + 1; // between "\r" and "\n"
+    const events = await collect([stream.slice(0, splitAt), stream.slice(splitAt)]);
+
+    expect(events.map((event) => event.type)).toEqual([
+      "sidechat.started",
+      "sidechat.delta",
+      "sidechat.completed",
+    ]);
+  });
+
   it("yields protocol terminal error events", async () => {
     const events = await collect([encodeSseEvent(started()), encodeSseEvent(terminalError())]);
 

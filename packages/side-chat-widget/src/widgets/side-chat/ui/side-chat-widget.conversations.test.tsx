@@ -138,12 +138,18 @@ describe("SideChatWidget conversation history", () => {
     expect(requests[0]?.conversationId).toBeUndefined();
   });
 
-  it("does not refetch history for a conversation a stream just established", async () => {
-    // Regression net for the history-clobber bug: a stream-owned conversation
-    // already has its live messages in state, so the history effect must not
-    // refetch it on the streaming -> idle transition and replace streamed text.
+  it("hands a finished run off to server history without losing the answer", async () => {
+    // Run→history handoff (plan/06): while streaming, history must not refetch and
+    // clobber live text; once the run is terminal, history IS refetched and takes
+    // over serving the committed transcript — with no frame losing the answer.
     const readHistory = vi.fn<NonNullable<SideChatApiClient["readHistory"]>>((conversationId) =>
-      Promise.resolve({ conversationId, messages: [] }),
+      Promise.resolve({
+        conversationId,
+        messages: [
+          { id: "history-user-1", role: "user", content: "first message", sequence: 0 },
+          { id: "history-assistant-1", role: "assistant", content: "streamed answer", sequence: 1 },
+        ],
+      }),
     );
     const client = fakeClient(
       async function* () {
@@ -158,11 +164,12 @@ describe("SideChatWidget conversation history", () => {
     renderWidget(client);
     await submit("first message");
     await waitForText("streamed answer");
-    // Flush any post-completion effects (the streaming -> idle transition).
+    // The terminal handoff refetches this conversation's transcript...
+    await vi.waitFor(() => {
+      expect(readHistory).toHaveBeenCalledWith("conversation-1", expect.any(Object));
+    });
+    // ...and the answer stays visible while history takes over serving it.
     await waitForText("streamed answer");
-
-    expect(readHistory).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain("streamed answer");
   });
 });
 

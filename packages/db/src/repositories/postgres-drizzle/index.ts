@@ -11,6 +11,7 @@ import { createRandomIdGenerator } from "../repository-utils.js";
 
 export { createPostgresTurnCancelNotificationSource } from "./notifications/turn-cancel-notification-source.js";
 export { createPostgresTurnActivityNotificationSource } from "./notifications/turn-activity-notification-source.js";
+export { createPostgresHostCommandResultNotificationSource } from "./notifications/host-command-result-notification-source.js";
 
 export type PostgresDrizzleRepositoryOptions = {
   readonly connectionString: string;

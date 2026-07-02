@@ -1,5 +1,6 @@
 import type {
   AppendAuditEventCommand,
+  FindHostCommandResultCommand,
   RecordHostCommandResultCommand,
   RecordToolInvocationCommand,
 } from "#schema-contract/repositories";
@@ -83,6 +84,19 @@ export const recordMemoryHostCommandResult = async (
   });
   upsertAt(store.hostCommandResults, existingIndex, hostCommand);
   return result(hostCommand, existingIndex < 0);
+};
+
+export const findMemoryHostCommandResult = async (
+  command: FindHostCommandResultCommand,
+  store: MemoryStore,
+): Promise<HostCommandResultRecord | undefined> => {
+  await Promise.resolve();
+  return store.hostCommandResults.find(
+    (hostCommand) =>
+      hostCommand.workspaceId === command.workspaceId &&
+      hostCommand.assistantTurnId === command.assistantTurnId &&
+      hostCommand.commandId === command.commandId,
+  );
 };
 
 export const appendMemoryAuditEvent = async (

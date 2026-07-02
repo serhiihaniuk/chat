@@ -78,5 +78,9 @@ The code is catching up to this decision; gaps and fixes are tracked in
 the server (`plan/02`), the widget's single-call client (`plan/03`), fail-fast
 non-owner streaming (`plan/04`: a running turn owned elsewhere is
 `409 stream_unavailable`, never a hanging SSE; only the owner registers turns),
-and the orphan sweep (`plan/05`, ADR 0008). Pending: client-side handoff/retry
-(`plan/06`, `plan/07`).
+the orphan sweep (`plan/05`, ADR 0008), the widget's run→history handoff
+(`plan/06`: a finished run fetches the committed transcript, then clears — the
+"refresh reads the DB" half of this model), and client-side transport
+resilience (`plan/07`: transport failures are _reconnecting_, not terminal —
+bounded same-instance retries from the cursor, an inactivity watchdog, and a
+poll-until-terminal fallback that takes only the server's verdict).

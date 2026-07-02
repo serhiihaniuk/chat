@@ -85,13 +85,12 @@ const captureSubscribe = () => {
 };
 
 describe("resumeRunFromMarker", () => {
-  it("seeds the run from history and replays the durable log from -1 for a running turn", async () => {
+  it("seeds the run from history and subscribes to the running turn", async () => {
     // A full reload keeps the marker but loses the in-memory store.
     writeActiveRunMarker(STORAGE_KEY, {
       requestId: REQUEST_ID,
       assistantTurnId: TURN_ID,
       conversationId: CONVERSATION_ID,
-      lastSeenSequence: 4,
     });
     const client = fakeClient({
       readHistory: () =>
@@ -110,13 +109,12 @@ describe("resumeRunFromMarker", () => {
     expect(run?.assistantTurnId).toBe(TURN_ID);
     expect(run?.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
     expect(run?.messages.at(-1)?.isStreaming).toBe(true);
-    // The whole durable log is replayed (after = -1), not from the marker offset.
+    // Recovery replays from the store cursor (-1 on a fresh seed); no offset here.
     expect(targets).toEqual([
       {
         requestId: REQUEST_ID,
         assistantTurnId: TURN_ID,
         conversationId: CONVERSATION_ID,
-        after: -1,
         resuming: true,
       },
     ]);
@@ -127,7 +125,6 @@ describe("resumeRunFromMarker", () => {
       requestId: REQUEST_ID,
       assistantTurnId: TURN_ID,
       conversationId: CONVERSATION_ID,
-      lastSeenSequence: 9,
     });
     // A terminal turn is shown by history; resuming it would duplicate the bubble.
     const client = fakeClient({
@@ -167,7 +164,7 @@ describe("resumeRunFromMarker", () => {
 });
 
 describe("resumeFromActiveTurn", () => {
-  it("seeds from the loaded transcript and replays the running turn from -1", () => {
+  it("seeds from the loaded transcript and subscribes to the running turn", () => {
     // The marker-independent path: a history read reported a running activeTurn.
     const { targets, subscribe } = captureSubscribe();
 
@@ -187,7 +184,6 @@ describe("resumeFromActiveTurn", () => {
         requestId: `resume_${TURN_ID}`,
         assistantTurnId: TURN_ID,
         conversationId: CONVERSATION_ID,
-        after: -1,
         resuming: true,
       },
     ]);

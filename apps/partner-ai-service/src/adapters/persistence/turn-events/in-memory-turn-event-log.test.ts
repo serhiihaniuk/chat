@@ -83,6 +83,37 @@ describe("createInMemoryTurnEventLog", () => {
     expect(log.hasSubscribers("assistant_turn_owned")).toBe(false);
   });
 
+  it("refuses appends after a terminal — exactly one terminal per turn", async () => {
+    // The old durable log's partial-unique index enforced this; the registry must
+    // too, so an interrupt racing a completed terminal can never append a second.
+    const log = createInMemoryTurnEventLog();
+    await appendEvent(log, startedEvent("assistant_turn_done"));
+    await appendEvent(log, completedEvent("assistant_turn_done"));
+
+    const lateTerminal: SidechatStreamEvent = {
+      ...completedEvent("assistant_turn_done"),
+      type: SIDECHAT_EVENT_TYPES.ERROR,
+      eventId: "evt_late",
+      sequence: 2,
+      code: "aborted",
+      message: "late synthetic terminal",
+      retryable: false,
+    };
+    await appendEvent(log, lateTerminal);
+
+    const events = await Effect.runPromise(
+      log.readEventsAfter({
+        authContext: AUTH_CONTEXT,
+        assistantTurnId: "assistant_turn_done",
+        after: -1,
+      }),
+    );
+    expect(events.map((event) => event.type)).toEqual([
+      SIDECHAT_EVENT_TYPES.STARTED,
+      SIDECHAT_EVENT_TYPES.COMPLETED,
+    ]);
+  });
+
   it("sweeps a finished unwatched turn when the next turn registers", async () => {
     const log = createInMemoryTurnEventLog();
     await appendEvent(log, startedEvent("assistant_turn_done"));

@@ -70,3 +70,17 @@ export const TURN_CANCEL_NOTIFY_CHANNEL = "turn_cancel";
  * so the dispatcher fans out by subject without a per-signal read.
  */
 export const TURN_ACTIVITY_NOTIFY_CHANNEL = "turn_activity";
+
+/**
+ * Postgres `LISTEN/NOTIFY` channel a durable host-command result signals on.
+ *
+ * A browser can POST a host-command result to any instance, but only the
+ * instance that owns the paused tool loop can settle the awaiting promise. The
+ * result route persists the browser's result and notifies this channel in one
+ * transaction; every instance listens, the owner reads the persisted row and
+ * settles, non-owners no-op. The payload is `{ assistantTurnId, commandId }` —
+ * a poke, never the result body — and the durable `host_command_results` row is
+ * the source of truth, so a missed signal only costs the owner's low-frequency
+ * result poll a couple of seconds, never correctness (ADR 0009).
+ */
+export const HOST_COMMAND_RESULT_NOTIFY_CHANNEL = "host_command_result";

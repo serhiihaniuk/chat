@@ -1,13 +1,6 @@
-import {
-  createPostgresTurnActivityNotificationSource,
-  createPostgresTurnCancelNotificationSource,
-  NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE,
-  NOOP_TURN_CANCEL_NOTIFICATION_SOURCE,
-  type TurnActivityNotificationSource,
-  type TurnCancelNotificationSource,
-} from "@side-chat/db";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
 import { createInMemoryTurnEventLog } from "#adapters/persistence/turn-events/in-memory-turn-event-log";
+import { createHostCommandResultDispatcher } from "#adapters/host-commands/host-command-result-dispatcher";
 import {
   createServiceHostCommandResolver,
   DEFAULT_HOST_COMMAND_RESULT_TIMEOUT_MS,
@@ -18,21 +11,22 @@ import { createServiceCapabilityBundle } from "./capabilities/create-service-cap
 import { createServiceContextBundle } from "./context/create-service-context-bundle.js";
 import { createServiceDiagnostics } from "./diagnostics/create-service-diagnostics.js";
 import { createServicePersistenceBundle } from "./persistence/create-service-persistence-bundle.js";
+import {
+  createActivityNotificationSource,
+  createCancelNotificationSource,
+  createHostCommandResultNotificationSource,
+} from "./persistence/notification-sources.js";
 import { createServiceProviderBundle } from "./providers/create-service-provider-bundle.js";
 import { createServiceRuntimeBundle } from "./runtime/create-service-runtime-bundle.js";
 import { createServiceSecurityPorts } from "./security/create-service-security-ports.js";
 import { createServiceToolBundle } from "./tools/create-service-tool-bundle.js";
-import { createStreamChatPorts } from "./ports/create-stream-chat-ports.js";
+import { createStreamChatPorts, systemClock } from "./ports/create-stream-chat-ports.js";
 import { createTurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
 import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import { createTurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
 import { resolveResumabilityConfig } from "./runtime/resumability-resolution.js";
-import type {
-  PersistenceConfig,
-  ServiceComposition,
-  ServiceCompositionOptions,
-} from "./service-composition-types.js";
+import type { ServiceComposition, ServiceCompositionOptions } from "./service-composition-types.js";
 
 export type {
   PersistenceConfig,
@@ -131,6 +125,12 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   const hostCommandResolver = createServiceHostCommandResolver({
     hasConnectedClient: (assistantTurnId) => turnEventLog.hasSubscribers(assistantTurnId),
     timeoutMs: DEFAULT_HOST_COMMAND_RESULT_TIMEOUT_MS,
+    // The durable half of the result relay (ADR 0009): the resolver persists the
+    // `emitted` row that binds commandId to turn, and its result poll reads the
+    // persisted answer even if the NOTIFY signal is lost.
+    repositories: persistence.repositories,
+    workspaceId: options.workspace.workspaceId,
+    clock: systemClock,
   });
   const runtime = createServiceRuntimeBundle(options, { providers, tools, hostCommandResolver });
   const streamChat = createStreamChatPorts({
@@ -194,6 +194,17 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     notificationSource: createActivityNotificationSource(persistence.persistence),
   });
 
+  // The result dispatcher is the cross-instance half of the host-command relay:
+  // a result POSTed to another instance is persisted + NOTIFYed there, and this
+  // listener settles the local paused tool loop promptly (the resolver's result
+  // poll is the missed-signal backstop).
+  const hostCommandResultDispatcher = createHostCommandResultDispatcher({
+    resolver: hostCommandResolver,
+    repositories: persistence.repositories,
+    workspaceId: options.workspace.workspaceId,
+    notificationSource: createHostCommandResultNotificationSource(persistence.persistence),
+  });
+
   return {
     workspace: options.workspace,
     hostAppId: capabilities.manifest.hostAppId,
@@ -219,46 +230,16 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     }),
     safetyPollIntervalMs: resumability.safetyPollIntervalMs,
     // Interrupt generation first so its onExit finalizes each turn, then tear down
-    // the reaper sweep, the two LISTEN dispatchers, and the in-memory event registry.
+    // the reaper sweep, the LISTEN dispatchers, and the in-memory event registry.
     shutdown: async () => {
       await turnRunner.shutdown();
       await Promise.all([
         turnReaper.shutdown(),
         cancelDispatcher.shutdown(),
         activityDispatcher.shutdown(),
+        hostCommandResultDispatcher.shutdown(),
         dispatcher.shutdown(),
       ]);
     },
   };
 };
-
-/**
- * Build the per-instance cancel notification source for the cancel dispatcher.
- *
- * Postgres persistence gets its own dedicated cancel `LISTEN` connection so a
- * cancel requested on another instance can interrupt the owning fiber. Memory
- * persistence has no cross-process wake signal, so it uses the no-op source; a
- * memory-backed cancel still interrupts in-process through the cancel route's
- * direct runner call.
- */
-const createCancelNotificationSource = (
-  persistence: PersistenceConfig,
-): TurnCancelNotificationSource =>
-  persistence.kind === "postgres"
-    ? createPostgresTurnCancelNotificationSource(persistence.databaseUrl)
-    : NOOP_TURN_CANCEL_NOTIFICATION_SOURCE;
-
-/**
- * Build the per-instance turn-activity notification source for the dispatcher.
- *
- * Postgres persistence gets its own dedicated activity `LISTEN` connection. Memory
- * persistence has no cross-process wake signal, so it uses the no-op source: the
- * activity stream still serves its snapshot on connect, it just receives no live
- * transitions (mirrors the turn-event memory source).
- */
-const createActivityNotificationSource = (
-  persistence: PersistenceConfig,
-): TurnActivityNotificationSource =>
-  persistence.kind === "postgres"
-    ? createPostgresTurnActivityNotificationSource(persistence.databaseUrl)
-    : NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE;

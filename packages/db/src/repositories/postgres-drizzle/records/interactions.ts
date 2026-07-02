@@ -1,6 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { auditEvents, hostCommandResults, toolInvocations } from "#drizzle/schema";
+import { HOST_COMMAND_RESULT_NOTIFY_CHANNEL } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
@@ -15,7 +16,7 @@ export const createPostgresDrizzleInteractionRepository = ({
   ids,
 }: PostgresDrizzleRepositoryContext): Pick<
   SidechatRepositories,
-  "appendAuditEvent" | "recordHostCommandResult" | "recordToolInvocation"
+  "appendAuditEvent" | "findHostCommandResult" | "recordHostCommandResult" | "recordToolInvocation"
 > => ({
   recordToolInvocation: async (command) => {
     const existing = await db
@@ -70,8 +71,68 @@ export const createPostgresDrizzleInteractionRepository = ({
       existing.length === 0,
     );
   },
-  recordHostCommandResult: async (command) => {
-    const existing = await db
+  // Upsert + (when the write carries a resolution) NOTIFY in one transaction, so
+  // the wake signal for the owning instance's paused tool loop fires only on
+  // commit and never races ahead of the durable result row.
+  recordHostCommandResult: async (command) =>
+    db.transaction(async (transaction) => {
+      const existing = await transaction
+        .select()
+        .from(hostCommandResults)
+        .where(
+          and(
+            eq(hostCommandResults.workspaceId, command.workspaceId),
+            eq(hostCommandResults.assistantTurnId, command.assistantTurnId),
+            eq(hostCommandResults.commandId, command.commandId),
+          ),
+        )
+        .limit(1);
+      const rows = await transaction
+        .insert(hostCommandResults)
+        .values({
+          hostCommandId: existing[0]?.hostCommandId ?? ids.next("host_command"),
+          assistantTurnId: command.assistantTurnId,
+          workspaceId: command.workspaceId,
+          commandId: command.commandId,
+          commandType: command.commandType,
+          resourceId: optional(command.resourceId),
+          status: command.status,
+          resultCode: command.resultCode,
+          commandRedactedJson: command.commandRedactedJson,
+          resultRedactedJson: optional(command.resultRedactedJson),
+          createdAt: command.now,
+          resolvedAt: optional(command.resolvedAt),
+        })
+        .onConflictDoUpdate({
+          target: [hostCommandResults.assistantTurnId, hostCommandResults.commandId],
+          set: {
+            commandType: command.commandType,
+            resourceId: optional(command.resourceId),
+            status: command.status,
+            resultCode: command.resultCode,
+            commandRedactedJson: command.commandRedactedJson,
+            resultRedactedJson: optional(command.resultRedactedJson),
+            resolvedAt: optional(command.resolvedAt),
+          },
+        })
+        .returning();
+      if (command.resolvedAt !== undefined) {
+        await transaction.execute(
+          sql`select pg_notify(${HOST_COMMAND_RESULT_NOTIFY_CHANNEL}, ${JSON.stringify({
+            assistantTurnId: command.assistantTurnId,
+            commandId: command.commandId,
+          })})`,
+        );
+      }
+      return result(
+        toHostCommandResultRecord(
+          one(rows, "record_not_found", "Host command result upsert returned no row."),
+        ),
+        existing.length === 0,
+      );
+    }),
+  findHostCommandResult: async (command) => {
+    const rows = await db
       .select()
       .from(hostCommandResults)
       .where(
@@ -82,41 +143,7 @@ export const createPostgresDrizzleInteractionRepository = ({
         ),
       )
       .limit(1);
-    const rows = await db
-      .insert(hostCommandResults)
-      .values({
-        hostCommandId: existing[0]?.hostCommandId ?? ids.next("host_command"),
-        assistantTurnId: command.assistantTurnId,
-        workspaceId: command.workspaceId,
-        commandId: command.commandId,
-        commandType: command.commandType,
-        resourceId: optional(command.resourceId),
-        status: command.status,
-        resultCode: command.resultCode,
-        commandRedactedJson: command.commandRedactedJson,
-        resultRedactedJson: optional(command.resultRedactedJson),
-        createdAt: command.now,
-        resolvedAt: optional(command.resolvedAt),
-      })
-      .onConflictDoUpdate({
-        target: [hostCommandResults.assistantTurnId, hostCommandResults.commandId],
-        set: {
-          commandType: command.commandType,
-          resourceId: optional(command.resourceId),
-          status: command.status,
-          resultCode: command.resultCode,
-          commandRedactedJson: command.commandRedactedJson,
-          resultRedactedJson: optional(command.resultRedactedJson),
-          resolvedAt: optional(command.resolvedAt),
-        },
-      })
-      .returning();
-    return result(
-      toHostCommandResultRecord(
-        one(rows, "record_not_found", "Host command result upsert returned no row."),
-      ),
-      existing.length === 0,
-    );
+    return rows[0] ? toHostCommandResultRecord(rows[0]) : undefined;
   },
   appendAuditEvent: async (command) => {
     const rows = await db
