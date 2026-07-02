@@ -10,23 +10,23 @@ The browser widget lives in `packages/side-chat-widget` (a React component) and 
 
 The widget uses Feature-Sliced Design (FSD): code sits in ranked layers, and a layer may import only from a same-or-lower rank. The public entry is `src/index.ts`, which re-exports only the widget API. There is **no `app` layer** — `src/app/` does not exist.
 
-| Layer | Rank | Owns | Example |
-|---|---|---|---|
-| `widgets/side-chat` | 3 | The composite root `SideChatWidget`, layout/view composition, query-client and model wiring, public props | `src/widgets/side-chat/ui/side-chat-widget.tsx` |
-| `features/chat` | 2 | Submission, run lifecycle, SSE consumption, protocol-to-state mapping, reconnect, activity sidebar | `src/features/chat/model/use-widget-chat.ts` |
-| `features/conversation` | 2 | Sidebar, switcher, empty state, message/tool rendering | `src/features/conversation/ui/` |
-| `features/panel` | 2 | Panel open/close/resize, browser-local size persistence (`useWidgetPanelSize`), header chrome, closed launcher | `src/features/panel/ui/`, `model/use-widget-panel-size.ts` |
-| `features/prompt` | 2 | Composer/footer input | `src/features/prompt/ui/` |
-| `features/settings` | 2 | In-panel settings view | `src/features/settings/ui/` |
-| `features/theme` | 2 | Theme and appearance state written to the widget root | `src/features/theme/model/` |
-| `entities/conversation` | 1 | API client, SSE reader, run client, activity stream, TanStack Query repository | `src/entities/conversation/api/` |
-| `entities/chat` | 1 | Protocol-backed message and activity-timeline state | `src/entities/chat/model/` |
-| `entities/panel` | 1 | Panel size model | `src/entities/panel/model/` |
-| `entities/settings` | 1 | Shared settings metadata (`ReasoningVisibility`) | `src/entities/settings/model/` |
-| `entities/theme` | 1 | Theme ids and metadata (`WidgetThemeId`) | `src/entities/theme/model/` |
-| `shared/ui` | 0 | Project-owned reusable primitives | `src/shared/ui/` |
-| `shared/lib` | 0 | Browser-safe utilities | `src/shared/lib/` |
-| `shared/ai` | 0 | Quarantine: copied vendor UI, now only a Markdown wrapper | `src/shared/ai/` |
+| Layer                   | Rank | Owns                                                                                                           | Example                                                    |
+| ----------------------- | ---- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `widgets/side-chat`     | 3    | The composite root `SideChatWidget`, layout/view composition, query-client and model wiring, public props      | `src/widgets/side-chat/ui/side-chat-widget.tsx`            |
+| `features/chat`         | 2    | Submission, run lifecycle, SSE consumption, protocol-to-state mapping, reconnect, activity sidebar             | `src/features/chat/model/use-widget-chat.ts`               |
+| `features/conversation` | 2    | Sidebar, switcher, empty state, message/tool rendering                                                         | `src/features/conversation/ui/`                            |
+| `features/panel`        | 2    | Panel open/close/resize, browser-local size persistence (`useWidgetPanelSize`), header chrome, closed launcher | `src/features/panel/ui/`, `model/use-widget-panel-size.ts` |
+| `features/prompt`       | 2    | Composer/footer input                                                                                          | `src/features/prompt/ui/`                                  |
+| `features/settings`     | 2    | In-panel settings view                                                                                         | `src/features/settings/ui/`                                |
+| `features/theme`        | 2    | Theme and appearance state written to the widget root                                                          | `src/features/theme/model/`                                |
+| `entities/conversation` | 1    | API client, SSE reader, run client, activity stream, TanStack Query repository                                 | `src/entities/conversation/api/`                           |
+| `entities/chat`         | 1    | Protocol-backed message and activity-timeline state                                                            | `src/entities/chat/model/`                                 |
+| `entities/panel`        | 1    | Panel size model                                                                                               | `src/entities/panel/model/`                                |
+| `entities/settings`     | 1    | Shared settings metadata (`ReasoningVisibility`)                                                               | `src/entities/settings/model/`                             |
+| `entities/theme`        | 1    | Theme ids and metadata (`WidgetThemeId`)                                                                       | `src/entities/theme/model/`                                |
+| `shared/ui`             | 0    | Project-owned reusable primitives                                                                              | `src/shared/ui/`                                           |
+| `shared/lib`            | 0    | Browser-safe utilities                                                                                         | `src/shared/lib/`                                          |
+| `shared/ai`             | 0    | Quarantine: copied vendor UI, now only a Markdown wrapper                                                      | `src/shared/ai/`                                           |
 
 ### Import-direction rule
 
@@ -77,10 +77,10 @@ The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **
 
 `createHostBridge(options)` (`bridge/bridge.ts:28`) returns a `HostBridge` of `{getContext, getCapabilities, dispatchCommand}` (:16). The widget consumes a narrowed view of it.
 
-| Direction | When | Method | Where the widget calls it |
-|---|---|---|---|
-| Context in | On every submit/retry | `getContext({requestId})` returns a `HostContext` attached to the run request | `use-widget-chat-actions.ts:78` |
-| Command out | During stream consumption | `dispatchCommand(event)` runs one host-command activity event | `widget-run-subscription.ts:55` |
+| Direction   | When                      | Method                                                                        | Where the widget calls it       |
+| ----------- | ------------------------- | ----------------------------------------------------------------------------- | ------------------------------- |
+| Context in  | On every submit/retry     | `getContext({requestId})` returns a `HostContext` attached to the run request | `use-widget-chat-actions.ts:78` |
+| Command out | During stream consumption | `dispatchCommand(event)` runs one host-command activity event                 | `widget-run-subscription.ts:55` |
 
 `dispatchCommand` runs **once per `activityId`**, only when an `ACTIVITY` event is a host-command event (guard at `widget-run-subscription.ts:69`). The result always folds back into the timeline:
 

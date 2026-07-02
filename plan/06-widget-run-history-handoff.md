@@ -7,7 +7,7 @@
 A finished live run never hands off to server history — the "refresh/other tabs read the final message from the DB" half of the claude.ai model is unbuilt on the client:
 
 - `runVisible` has no status check and nothing ever clears a COMPLETED/FAILED run from the store (`packages/side-chat-widget/src/features/chat/model/use-widget-chat.ts:71,88-94,186-189`) — the terminal run shadows refetched history until a full page reload.
-- The header Refresh button invalidates a query that is *disabled* while the run owns the conversation (`use-widget-chat.ts:73-76,166-170`; invalidating a disabled query is a no-op — `conversation-query-repository.ts:206-214`) — it is dead for the current conversation.
+- The header Refresh button invalidates a query that is _disabled_ while the run owns the conversation (`use-widget-chat.ts:73-76,166-170`; invalidating a disabled query is a no-op — `conversation-query-repository.ts:206-214`) — it is dead for the current conversation.
 - A turn started in another tab for the same conversation never displays: the activity `onEvent` gate returns early because the stale terminal run still "owns" the conversation (`use-widget-chat.ts:136-140`).
 
 ## Decided approach

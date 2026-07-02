@@ -25,7 +25,7 @@ descriptions — no mocking library, no import patching. See the fake ports in
 `Effect.Effect<void, PartnerAiCoreError>` on a port means: no useful return
 value, and the only expected failure is a typed core error you must handle.
 If a function can fail and its `E` is `never`, that is a claim — a rejection
-there becomes a *defect* (an escaped bug), not a handled failure.
+there becomes a _defect_ (an escaped bug), not a handled failure.
 
 **3. A fiber is a supervised thread of work.** Forking an Effect returns a
 fiber: a handle you can await, interrupt, or track. That is how a turn outlives
@@ -34,7 +34,7 @@ by `assistantTurnId` (`turn-runner.ts`), and cancel later finds exactly that
 fiber. The discipline: a fiber nobody observes fails silently, so every fork
 needs a supervisor, a join, or an exit log (`plan/27`).
 
-**4. Interruption is real cancellation.** Interrupting a fiber stops it *and*
+**4. Interruption is real cancellation.** Interrupting a fiber stops it _and_
 runs its finalizers, cascading through everything it started. The repo's cancel
 chain is this feature end-to-end: durable intent → fiber interrupt →
 `Stream.ensuring` fires an `AbortController` → the provider fetch genuinely
@@ -56,13 +56,13 @@ combinators carry the repo's hardest guarantees:
 
 ## Where it lives, where it is banned
 
-| Area | Effect? | Enforced by |
-|---|---|---|
-| `partner-ai-core`, `agent-runtime`, service inbound/composition | Yes — the home | — |
-| `packages/db` | Only the notification streams; repositories are plain `async` | package convention |
-| `ai-runtime-contract` | Types on the port signatures only | — |
-| `side-chat-widget`, `chat-protocol`, `host-bridge`, `shared` | **Banned** | `check-boundaries`, `check-dependency-policy` |
-| Transport edges (routes, SSE) | Conversion point: `Effect.runPromise`, `Stream.toReadableStream` | review + `check-outbound-rules` |
+| Area                                                            | Effect?                                                          | Enforced by                                   |
+| --------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------- |
+| `partner-ai-core`, `agent-runtime`, service inbound/composition | Yes — the home                                                   | —                                             |
+| `packages/db`                                                   | Only the notification streams; repositories are plain `async`    | package convention                            |
+| `ai-runtime-contract`                                           | Types on the port signatures only                                | —                                             |
+| `side-chat-widget`, `chat-protocol`, `host-bridge`, `shared`    | **Banned**                                                       | `check-boundaries`, `check-dependency-policy` |
+| Transport edges (routes, SSE)                                   | Conversion point: `Effect.runPromise`, `Stream.toReadableStream` | review + `check-outbound-rules`               |
 
 ## What you need to know, by role
 
@@ -72,9 +72,9 @@ gate. Effect appearing in them is a boundary break, not a learning gap.
 **Writing an adopter extension (tool, sink, logger): three functions.**
 
 ```ts
-Effect.succeed(value)                    // "here is the result"
-Effect.sync(() => console.log(x))        // run a synchronous function
-Effect.tryPromise(() => fetch(url))      // run a promise; rejection = typed failure
+Effect.succeed(value); // "here is the result"
+Effect.sync(() => console.log(x)); // run a synchronous function
+Effect.tryPromise(() => fetch(url)); // run a promise; rejection = typed failure
 ```
 
 A telemetry sink is one `Effect.sync`. A tool is one `Effect.tryPromise` (and
@@ -108,18 +108,18 @@ logger (ADR 0011) is plain sync — no Effect at all.
 ## The two error channels (surprises everyone once)
 
 A runtime consumer can receive failure two ways, and which one fires depends on
-*when* the failure happens:
+_when_ the failure happens:
 
-| Failure moment | Arrives as |
-|---|---|
+| Failure moment                                                     | Arrives as                                                  |
+| ------------------------------------------------------------------ | ----------------------------------------------------------- |
 | Before the stream opens (selection, model resolution, stream open) | An Effect **failure** (`AiRuntimeError` in the `E` channel) |
-| After the stream opens (provider emits an error part mid-turn) | A streamed **`runtime.error` event**, terminal |
+| After the stream opens (provider emits an error part mid-turn)     | A streamed **`runtime.error` event**, terminal              |
 
 Handle both when consuming `streamEffect`. Core does; a custom consumer must.
 
 ## Style rules that keep it readable
 
-The cognitive-load budget (AGENTS.md) applies *harder* to Effect code: target
+The cognitive-load budget (AGENTS.md) applies _harder_ to Effect code: target
 complexity 5-6, nesting ≤2. Prefer named lifecycle stages over clever inline
 composition — `check-human-readability.mjs` warns on inside-out
 `Stream.unwrap(Effect.gen(...))` shapes. If an Effect expression needs reading

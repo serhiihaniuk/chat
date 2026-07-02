@@ -1,6 +1,7 @@
 import {
   prepareStreamChatTurn,
   runTurnGeneration,
+  type AssistantTurnStatus,
   type AuthContext,
   type PreparedStreamChatTurn,
   type StreamChatInput,
@@ -29,14 +30,17 @@ export type StartTurnInput = {
  * Identity returned to the caller the moment a turn is accepted.
  *
  * `assistantTurnId` is the canonical key for events, status, stream, and cancel;
- * `requestId` stays the idempotency/resolver key. `status` is always `running`
- * here because generation has been accepted and forked, never awaited.
+ * `requestId` stays the idempotency/resolver key. `status` is the durable status
+ * at acceptance: `running` for a fresh turn, the stored status for an idempotent
+ * replay of an already-finished one. `inserted` is false on a replay, which also
+ * means no new generation fiber was forked.
  */
 export type StartedTurn = {
   readonly requestId: string;
   readonly assistantTurnId: string;
   readonly conversationId: string;
-  readonly status: "running";
+  readonly status: AssistantTurnStatus;
+  readonly inserted: boolean;
 };
 
 /**
@@ -161,7 +165,8 @@ const startedTurn = (turn: PreparedStreamChatTurn): StartedTurn => ({
   requestId: turn.correlation.requestId,
   assistantTurnId: turn.assistantTurnId,
   conversationId: turn.conversation.conversationId,
-  status: "running",
+  status: turn.assistantTurn.status,
+  inserted: turn.assistantTurn.inserted,
 });
 
 /**

@@ -10,12 +10,11 @@ import type { Hono } from "hono";
 
 import type { ServiceHostCommandResolver } from "#adapters/host-commands/service-host-command-resolver";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
-import { createTurnSubscriptionStream } from "#inbound/turn-stream/turn-subscription-stream";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { AuthContextVariables } from "../../../middleware/auth-context.js";
 import { jsonError, replayExpiredError } from "../../../response/protocol-errors.js";
-import { streamSseResponse } from "../../../response/sse.js";
 import { requireContextAuth } from "../../types.js";
+import { openTurnEventStream } from "../turn-stream-response.js";
 import {
   isTerminalTurn,
   recordReplayOutcome,
@@ -101,7 +100,7 @@ export const registerChatTurnRoutes = (
 
     recordReplayOutcome(dependencies, turn, "replay_served", after);
     if (isTerminalTurn(turn)) recordRunFinished(dependencies, turn);
-    return openTurnStream(dependencies, {
+    return openTurnEventStream(dependencies, {
       assistantTurnId: turn.assistantTurnId,
       requestId: turn.requestId,
       authContext,
@@ -192,37 +191,6 @@ const readHostCommandResult = async (request: Request): Promise<JsonObject | und
   }
   if (typeof body !== "object" || body === null || Array.isArray(body)) return undefined;
   return body as JsonObject;
-};
-
-/**
- * Open the SSE stream for one turn after ownership and replay are proven.
- *
- * The subscription stream registers with the dispatcher, replays from `after`,
- * tails live events, and ends at the terminal. Building the `Response` here keeps
- * the route declarative; the stream owns subscribe/unsubscribe lifecycle.
- */
-const openTurnStream = (
-  dependencies: ChatTurnRouteDependencies,
-  subscription: {
-    readonly assistantTurnId: string;
-    readonly requestId: string;
-    readonly authContext: AuthContext;
-    readonly after: number;
-  },
-): Response => {
-  const events = createTurnSubscriptionStream(
-    {
-      dispatcher: dependencies.dispatcher,
-      ports: dependencies.ports,
-      safetyPollIntervalMs: dependencies.safetyPollIntervalMs,
-    },
-    {
-      assistantTurnId: subscription.assistantTurnId,
-      authContext: subscription.authContext,
-      after: subscription.after,
-    },
-  );
-  return streamSseResponse(events, subscription.requestId);
 };
 
 /**

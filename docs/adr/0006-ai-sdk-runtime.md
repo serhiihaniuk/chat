@@ -14,12 +14,12 @@ multi-agent orchestration is an explicit non-goal, see
 
 ## What the AI SDK buys here
 
-| Capability | In this repo | Without it |
-|---|---|---|
-| **Provider neutrality where it commercially matters.** One interface over OpenAI, Azure, Anthropic, Google, and local models. | OpenAI and Azure adapters shipped, swapped via `sidechat.config.ts`; adding a provider is one adapter file ([extension-seams.md](../architecture/extension-seams.md)). | Hand-written streaming + auth + retry per provider; switching models becomes a project. |
-| **Maintained streaming/tool-loop machinery.** Typed stream parts, tool loop with step caps, abort propagation. | The tool loop, delta streams, and abort chain ride the SDK; we map its parts to our events once. | Re-implementing the least differentiated, most fiddly layer of the stack. |
-| **One type system, widget to provider call.** | The three event vocabularies are compile-checked end to end; adding an event that misses a mapping fails the build. This is also the AI-assistance harness (ADR 0003) extended to the runtime edge. | A language boundary where contracts become hand-synced JSON and drift silently. |
-| **A small, confined surface.** | We use models, streaming, and the tool loop — nothing else; all of it inside one package. | — |
+| Capability                                                                                                                    | In this repo                                                                                                                                                                                        | Without it                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Provider neutrality where it commercially matters.** One interface over OpenAI, Azure, Anthropic, Google, and local models. | OpenAI and Azure adapters shipped, swapped via `sidechat.config.ts`; adding a provider is one adapter file ([extension-seams.md](../architecture/extension-seams.md)).                              | Hand-written streaming + auth + retry per provider; switching models becomes a project. |
+| **Maintained streaming/tool-loop machinery.** Typed stream parts, tool loop with step caps, abort propagation.                | The tool loop, delta streams, and abort chain ride the SDK; we map its parts to our events once.                                                                                                    | Re-implementing the least differentiated, most fiddly layer of the stack.               |
+| **One type system, widget to provider call.**                                                                                 | The three event vocabularies are compile-checked end to end; adding an event that misses a mapping fails the build. This is also the AI-assistance harness (ADR 0003) extended to the runtime edge. | A language boundary where contracts become hand-synced JSON and drift silently.         |
+| **A small, confined surface.**                                                                                                | We use models, streaming, and the tool loop — nothing else; all of it inside one package.                                                                                                           | —                                                                                       |
 
 ## Decision
 
@@ -54,7 +54,7 @@ the AI SDK is MIT-licensed open source that runs anywhere Node runs; it has no
 coupling to Vercel hosting — Vercel is its steward the way Meta stewards React.
 Adopting React does not lock you to Meta's cloud; same relationship here.
 Second, the lock-in that actually costs money is **model-provider** lock-in,
-and the SDK is the tool that *removes* it: provider switching is config, not a
+and the SDK is the tool that _removes_ it: provider switching is config, not a
 rewrite. Third — the structural answer — this architecture treats the SDK as
 replaceable by construction: it is confined to one package behind an SDK-free
 contract, the gates fail CI on any leak, and the 2026-07-01 review verified no
@@ -73,7 +73,7 @@ runtime stack to build, deploy, hire for, and operate; the loss of the single
 type system (browser↔service↔runtime contracts become hand-synced JSON across
 a language gap); and a network hop inserted into the hardest part of the
 system, the streaming hot path. There is also an irony worth naming: LangGraph
-couples your *domain orchestration* to its framework abstractions — graphs,
+couples your _domain orchestration_ to its framework abstractions — graphs,
 checkpointers, framework types through your business logic — which is a deeper
 lock-in than a stream-mapping SDK confined to one package ever could be. And
 the door is not closed: if a Python engine is ever genuinely justified, it can

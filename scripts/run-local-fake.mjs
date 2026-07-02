@@ -565,61 +565,8 @@ async function collectConfig() {
   }
   cfg.provider = provider;
 
-  if (provider === "openai") {
-    const savedKey = pick(saved, "apiKey", process.env.SIDECHAT_OPENAI_API_KEY, "");
-    cfg.apiKey = await askSecret("API key", savedKey);
-    while (!cfg.apiKey) {
-      errLauncher("API key is required for the real model.");
-      cfg.apiKey = await askSecret("API key", "");
-      if (SKIP_PROMPTS) break;
-    }
-    cfg.models = await ask(
-      "Allowed models (comma-separated, first is default)",
-      pick(saved, "models", process.env.SIDECHAT_ALLOWED_MODELS, "gpt-5.4-mini"),
-    );
-    cfg.baseUrl = await ask(
-      "API base URL - OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
-      pick(saved, "baseUrl", process.env.SIDECHAT_OPENAI_BASE_URL, ""),
-    );
-  }
-
-  if (provider === "azure") {
-    // Required fields the Azure config (sidechat.azure.config.ts) reads from env.
-    const savedKey = pick(saved, "azureApiKey", process.env.SIDECHAT_AZURE_OPENAI_API_KEY, "");
-    cfg.azureApiKey = await askSecret("Azure OpenAI API key", savedKey);
-    while (!cfg.azureApiKey) {
-      errLauncher("Azure OpenAI API key is required.");
-      cfg.azureApiKey = await askSecret("Azure OpenAI API key", "");
-      if (SKIP_PROMPTS) break;
-    }
-    cfg.azureEndpoint = await ask(
-      "Azure resource endpoint, e.g. https://<resource>.cognitiveservices.azure.com",
-      pick(saved, "azureEndpoint", process.env.SIDECHAT_AZURE_OPENAI_ENDPOINT, ""),
-    );
-    while (!cfg.azureEndpoint) {
-      errLauncher("Azure resource endpoint is required.");
-      cfg.azureEndpoint = await ask("Azure resource endpoint", "");
-      if (SKIP_PROMPTS) break;
-    }
-    cfg.azureApiVersion = await ask(
-      "Azure REST api-version",
-      pick(
-        saved,
-        "azureApiVersion",
-        process.env.SIDECHAT_AZURE_OPENAI_API_VERSION,
-        DEFAULT_AZURE_API_VERSION,
-      ),
-    );
-    cfg.azureDeploymentGpt4o = await ask(
-      "Azure deployment name for gpt-4o",
-      pick(
-        saved,
-        "azureDeploymentGpt4o",
-        process.env.SIDECHAT_AZURE_DEPLOYMENT_GPT_4O,
-        DEFAULT_AZURE_GPT_4O_DEPLOYMENT,
-      ),
-    );
-  }
+  if (provider === "openai") await collectOpenAiConfig(cfg, saved);
+  if (provider === "azure") await collectAzureConfig(cfg, saved);
 
   cfg.workspaceId = await ask(
     "Workspace ID",
@@ -695,20 +642,73 @@ async function collectConfig() {
   return cfg;
 }
 
+/** Prompt for the openai provider's key, model allowlist, and optional endpoint. */
+async function collectOpenAiConfig(cfg, saved) {
+  const savedKey = pick(saved, "apiKey", process.env.SIDECHAT_OPENAI_API_KEY, "");
+  cfg.apiKey = await askSecret("API key", savedKey);
+  while (!cfg.apiKey) {
+    errLauncher("API key is required for the real model.");
+    cfg.apiKey = await askSecret("API key", "");
+    if (SKIP_PROMPTS) break;
+  }
+  cfg.models = await ask(
+    "Allowed models (comma-separated, first is default)",
+    pick(saved, "models", process.env.SIDECHAT_ALLOWED_MODELS, "gpt-5.4-mini"),
+  );
+  cfg.baseUrl = await ask(
+    "API base URL - OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
+    pick(saved, "baseUrl", process.env.SIDECHAT_OPENAI_BASE_URL, ""),
+  );
+}
+
+/** Prompt for the fields the Azure config (sidechat.azure.config.ts) reads from env. */
+async function collectAzureConfig(cfg, saved) {
+  const savedKey = pick(saved, "azureApiKey", process.env.SIDECHAT_AZURE_OPENAI_API_KEY, "");
+  cfg.azureApiKey = await askSecret("Azure OpenAI API key", savedKey);
+  while (!cfg.azureApiKey) {
+    errLauncher("Azure OpenAI API key is required.");
+    cfg.azureApiKey = await askSecret("Azure OpenAI API key", "");
+    if (SKIP_PROMPTS) break;
+  }
+  cfg.azureEndpoint = await ask(
+    "Azure resource endpoint, e.g. https://<resource>.cognitiveservices.azure.com",
+    pick(saved, "azureEndpoint", process.env.SIDECHAT_AZURE_OPENAI_ENDPOINT, ""),
+  );
+  while (!cfg.azureEndpoint) {
+    errLauncher("Azure resource endpoint is required.");
+    cfg.azureEndpoint = await ask("Azure resource endpoint", "");
+    if (SKIP_PROMPTS) break;
+  }
+  cfg.azureApiVersion = await ask(
+    "Azure REST api-version",
+    pick(
+      saved,
+      "azureApiVersion",
+      process.env.SIDECHAT_AZURE_OPENAI_API_VERSION,
+      DEFAULT_AZURE_API_VERSION,
+    ),
+  );
+  cfg.azureDeploymentGpt4o = await ask(
+    "Azure deployment name for gpt-4o",
+    pick(
+      saved,
+      "azureDeploymentGpt4o",
+      process.env.SIDECHAT_AZURE_DEPLOYMENT_GPT_4O,
+      DEFAULT_AZURE_GPT_4O_DEPLOYMENT,
+    ),
+  );
+}
+
 // --------------------------------------------------------------------------
 // Main
 // --------------------------------------------------------------------------
-async function main() {
-  logLauncher(`Repo root: ${ROOT}`);
-  logLauncher(`Platform: ${os.platform()} ${os.arch()}`);
 
-  await verifyRuntime();
-  await ensureInstalled();
-
-  const cfg = await collectConfig();
-
-  // ---- Backend env (server.ts reads process.env at boot; inject everything) ----
-  // Stay on the development profile so in-memory persistence works with no DB.
+/**
+ * Build the backend child env (server.ts reads process.env at boot; inject everything).
+ *
+ * Stays on the development profile so in-memory persistence works with no DB.
+ */
+function buildBackendEnv(cfg) {
   const backendEnv = {
     PORT: String(cfg.backendPort),
     SIDECHAT_PROFILE: process.env.SIDECHAT_PROFILE || "development",
@@ -745,6 +745,18 @@ async function main() {
       backendEnv.SIDECHAT_OPENAI_REASONING_SUMMARY = process.env.SIDECHAT_OPENAI_REASONING_SUMMARY;
     logLauncher(`Provider: openai (models: ${cfg.models}). Persistence: in-memory.`);
   }
+  return backendEnv;
+}
+
+async function main() {
+  logLauncher(`Repo root: ${ROOT}`);
+  logLauncher(`Platform: ${os.platform()} ${os.arch()}`);
+
+  await verifyRuntime();
+  await ensureInstalled();
+
+  const cfg = await collectConfig();
+  const backendEnv = buildBackendEnv(cfg);
 
   freePort(cfg.backendPort, "backend");
   spawnDevServer({
@@ -800,7 +812,9 @@ async function main() {
     console.log("\n" + color("green", line));
     console.log(color("bold", `  Side-chat local servers (${cfg.provider} provider) are ready`));
     console.log(color("green", line));
-    console.log(`  Backend (API + healthz): ${color("cyan", `http://127.0.0.1:${cfg.backendPort}`)}`);
+    console.log(
+      `  Backend (API + healthz): ${color("cyan", `http://127.0.0.1:${cfg.backendPort}`)}`,
+    );
     console.log(
       `  Widget dev server:       ${color("cyan", `http://127.0.0.1:${cfg.widgetPort}${widgetFrameBasePath}`)}`,
     );

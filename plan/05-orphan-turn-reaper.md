@@ -29,7 +29,7 @@ Reinstate a small periodic sweep (the machinery already exists; the deleted loop
 
 1. `git show be8303f -- apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-reaper.ts` (and its test) as the starting point; re-add under the current composition shape (`service-composition.ts` — wire like the cancel/activity dispatchers, scoped, shut down in `shutdown()`).
 2. Widen both adapters' reap predicates + the contract test (`turn-lease-contract.test-support.ts`): add "running with NULL lease past grace is reaped; within grace is not".
-3. Add heartbeat renew retry in `turn-lease-heartbeat.ts`; keep the fence semantics (a *successful* renew that reports fenced still interrupts immediately).
+3. Add heartbeat renew retry in `turn-lease-heartbeat.ts`; keep the fence semantics (a _successful_ renew that reports fenced still interrupts immediately).
 4. Update stale comments that currently promise a reaper that doesn't exist (`turn-cancel-notification-source.ts:22-23`, `packages/db/src/schema-contract/lifecycle.ts:56-58`, `schema-contract/repositories.ts:147-166`) — they become true again; verify wording matches the new sweep.
 5. Memory-adapter parity: the sweep must run against in-memory persistence too (dev profile), same interval.
 

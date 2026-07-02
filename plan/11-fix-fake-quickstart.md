@@ -10,7 +10,7 @@ The README's advertised no-API-key first command crashes at boot:
 - `server.ts` boots config-first: `loadSelectedSideChatConfig()` imports `apps/partner-ai-service/sidechat.config.ts`, which declares **OpenAI models only** (`sidechat.config.ts:61-104`).
 - `readProviderKindForConfig` derives the provider from the declared models — `SIDECHAT_PROVIDER` is ignored by this path (`config/sidechat-config/validation.ts:31-40`).
 - `createRuntimeConfig` then requires the key unconditionally (`options/options-adapter.ts:104-109`). Reproduced: `BOOT FAILS: SIDECHAT_OPENAI_API_KEY is required when sidechat.config.ts enables OpenAI models.`
-- The legacy env parser that understands `fake` is only reached if the config *import* fails (`selection/config-selection.ts:41-58`).
+- The legacy env parser that understands `fake` is only reached if the config _import_ fails (`selection/config-selection.ts:41-58`).
 
 An Azure sibling already solves this correctly: azure mode boots a standalone config via `SIDECHAT_CONFIG_PATH` (`run-local-fake.mjs:730`).
 

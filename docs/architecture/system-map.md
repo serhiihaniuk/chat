@@ -21,12 +21,12 @@ Dependencies point inward; each layer knows only the contract beside it. Two
 contract packages cross the boundaries: `chat-protocol` (browser to service) and
 `ai-runtime-contract` (core to runtime).
 
-| Layer | Packages | Role |
-|---|---|---|
-| Browser | `side-chat-widget`, `host-bridge` | Render chat; seam to host UI, auth, and commands. |
-| Service | `apps/partner-ai-service` | Hono composition root: routes, SSE transport, server-owned turn runner. |
-| Core | `partner-ai-core` | Product workflow, policy, and the `RuntimeEvent` to `sidechat.v1` mapping. |
-| Runtime | `agent-runtime` | Run one prepared turn against a provider; emit `RuntimeEvent`. |
+| Layer   | Packages                          | Role                                                                       |
+| ------- | --------------------------------- | -------------------------------------------------------------------------- |
+| Browser | `side-chat-widget`, `host-bridge` | Render chat; seam to host UI, auth, and commands.                          |
+| Service | `apps/partner-ai-service`         | Hono composition root: routes, SSE transport, server-owned turn runner.    |
+| Core    | `partner-ai-core`                 | Product workflow, policy, and the `RuntimeEvent` to `sidechat.v1` mapping. |
+| Runtime | `agent-runtime`                   | Run one prepared turn against a provider; emit `RuntimeEvent`.             |
 
 ## End-to-end flow
 
@@ -49,7 +49,7 @@ EVENTS (outward)  -- three vocabularies, never conflated
 agent-runtime      provider / AI-SDK stream parts   (stay inside agent-runtime)
   -> ai-runtime-contract   RuntimeEvent
   -> partner-ai-core       sidechat.v1 events        (mapped here)
-  -> partner-ai-service    GET /chat/turns/:id/stream (SSE replay + tail)
+  -> partner-ai-service    SSE on the POST /chat/runs response (resume: GET /chat/turns/:id/stream)
   -> side-chat-widget      SSE reader -> run store -> reducer -> message/activity state
 ```
 
@@ -64,11 +64,11 @@ a live stream. Live streaming is currently correct on a single instance; the
 multi-instance affinity fixes are tracked in `plan/`. For the full lifecycle,
 see [assistant-turn.md](./assistant-turn.md).
 
-| Call | Method + path | Does |
-|---|---|---|
-| Start | `POST /chat/runs` | Runs pre-start synchronously, returns turn identity JSON `{protocolVersion, requestId, assistantTurnId, conversationId, status}`, then forks generation onto a server-owned fiber keyed by `assistantTurnId`. |
-| Stream | `GET /chat/turns/:assistantTurnId/stream?after=<seq>` | Opens SSE; replays the in-memory registry from `<seq>`, then tails live events to the terminal one. |
-| Activity | `GET /chat/activity` | Subject-scoped SSE pushing cross-conversation turn lifecycle; powers the "generating" dot on chats you are not viewing. |
+| Call           | Method + path                                         | Does                                                                                                                                                                                                                 |
+| -------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start + stream | `POST /chat/runs`                                     | Runs pre-start synchronously, forks generation onto a server-owned fiber keyed by `assistantTurnId`, then streams the turn as SSE on this same response — `sidechat.started` (sequence 0) carries the turn identity. |
+| Resume         | `GET /chat/turns/:assistantTurnId/stream?after=<seq>` | Same-instance resume: opens SSE, replays the in-memory registry from `<seq>`, then tails live events to the terminal one.                                                                                            |
+| Activity       | `GET /chat/activity`                                  | Subject-scoped SSE pushing cross-conversation turn lifecycle; powers the "generating" dot on chats you are not viewing.                                                                                              |
 
 Two near-identical event names — do not conflate them. `sidechat.activity` carries
 reasoning and tool steps **inside** one turn (codec `sse-codec.ts`).
@@ -80,20 +80,20 @@ reasoning and tool steps **inside** one turn (codec `sse-codec.ts`).
 Twelve workspaces. Open the first files to orient; each package README owns its
 local detail.
 
-| Package | Owns | Must NOT own | First files to open |
-|---|---|---|---|
-| `apps/partner-ai-service` | Deployable Hono service: routes, config parsing, SSE transport, the server-owned turn runner (`FiberMap` by `assistantTurnId`), the in-memory turn-event registry, cancel/activity dispatchers, the host-command resolver. | Product lifecycle, provider internals, widget state, a host app. | `src/inbound/http/app.ts`, `src/inbound/turn-runner/turn-runner.ts`, `src/composition/service-composition.ts`, `sidechat.config.ts` |
-| `packages/partner-ai-core` | Stream-chat workflow, policy, context, capability contracts, ports, lifecycle, `RuntimeEvent` to `sidechat.v1` mapping. | Hono, DB rows, provider SDKs, React, `agent-runtime`. | `src/application/stream-chat/README.md`, `src/application/stream-chat/protocol/run-turn-generation.ts`, `src/ports/index.ts` |
-| `packages/ai-runtime-contract` | Provider-neutral core/runtime boundary: `AiRuntimeRequest`, `AiRuntimePort`, the `RuntimeEvent` union, branded ids, error/finish/blocked codes. | Product lifecycle, provider adapters, executable tools, browser protocol. | `src/index.ts`, `README.md` |
-| `packages/agent-runtime` | One prepared turn: `streamEffect`, executor registry, AI-SDK tool-loop executor, runtime tools, provider adapters (OpenAI/Azure/fake), host-command tool exposure. | Product policy, persistence, browser protocol. | `src/runtime/README.md`, `src/runtime/agent-runtime.ts` |
-| `packages/chat-protocol` | Browser `sidechat.v1`: request/event DTOs, validators, sequence checks, the turn and activity SSE codecs, schema JSON, version const. | Runtime events, provider parts, Hono, Effect, React. | `src/sidechat-v1/index.ts`, `README.md` |
-| `packages/side-chat-widget` | Embeddable React widget: public API, browser-safe API client + SSE/activity readers, TanStack-Query conversation/history repository, FSD layers, themes. | Effect, provider SDKs, DB rows, service internals. | `src/widgets/side-chat/index.ts`, `src/features/chat/model/run/widget-run-store.ts`, `src/entities/conversation/api/`, `src/entities/conversation/index.ts` |
-| `packages/host-bridge` | Browser host seam: host-context provider and host-command capability, dispatch, and result shapes. | RuntimeTool execution, backend persistence, service routes. | `src/bridge/bridge.ts`, `src/commands/`, `src/context/host-context.ts` |
-| `packages/db` | Persistence: schema contract, Drizzle/Postgres + in-memory repositories, turn records and lease ops, the dedicated cancel/activity `LISTEN/NOTIFY` connections. | Product use cases, Hono routes, runtime execution, widget state. | `src/schema-contract/index.ts`, `src/repositories/index.ts`, `src/drizzle/schema.ts` |
-| `packages/shared` | Domain-neutral TS helpers: `Brand<>`, JSON value types, record narrowing, omit-undefined helpers. Zero deps. | Product, protocol, runtime, widget, or persistence ownership. | `src/index.ts` |
-| `packages/testing` | Shared test-only helpers: `sidechat.v1` builders, SSE mock encode, terminal-stream asserts. | Production behavior, package-specific business fixtures. | `src/index.ts` |
-| `test-harness/adoption-harness` | Cross-package adopter golden-path tests over an in-process service. | Browser/Playwright scenarios, production deployment, real provider behavior. | `src/adoption-golden-path.test.ts` |
-| `test-harness/widget-harness` | Browser harness: Vite dev app, iframe host proxy, mock-stream and local-service modes, fake host bridge, Playwright pages. | Production host app, service policy, provider config. | `src/app/harness-app.tsx`, `e2e/` |
+| Package                         | Owns                                                                                                                                                                                                                       | Must NOT own                                                                 | First files to open                                                                                                                                         |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/partner-ai-service`       | Deployable Hono service: routes, config parsing, SSE transport, the server-owned turn runner (`FiberMap` by `assistantTurnId`), the in-memory turn-event registry, cancel/activity dispatchers, the host-command resolver. | Product lifecycle, provider internals, widget state, a host app.             | `src/inbound/http/app.ts`, `src/inbound/turn-runner/turn-runner.ts`, `src/composition/service-composition.ts`, `sidechat.config.ts`                         |
+| `packages/partner-ai-core`      | Stream-chat workflow, policy, context, capability contracts, ports, lifecycle, `RuntimeEvent` to `sidechat.v1` mapping.                                                                                                    | Hono, DB rows, provider SDKs, React, `agent-runtime`.                        | `src/application/stream-chat/README.md`, `src/application/stream-chat/protocol/run-turn-generation.ts`, `src/ports/index.ts`                                |
+| `packages/ai-runtime-contract`  | Provider-neutral core/runtime boundary: `AiRuntimeRequest`, `AiRuntimePort`, the `RuntimeEvent` union, branded ids, error/finish/blocked codes.                                                                            | Product lifecycle, provider adapters, executable tools, browser protocol.    | `src/index.ts`, `README.md`                                                                                                                                 |
+| `packages/agent-runtime`        | One prepared turn: `streamEffect`, executor registry, AI-SDK tool-loop executor, runtime tools, provider adapters (OpenAI/Azure/fake), host-command tool exposure.                                                         | Product policy, persistence, browser protocol.                               | `src/runtime/README.md`, `src/runtime/agent-runtime.ts`                                                                                                     |
+| `packages/chat-protocol`        | Browser `sidechat.v1`: request/event DTOs, validators, sequence checks, the turn and activity SSE codecs, schema JSON, version const.                                                                                      | Runtime events, provider parts, Hono, Effect, React.                         | `src/sidechat-v1/index.ts`, `README.md`                                                                                                                     |
+| `packages/side-chat-widget`     | Embeddable React widget: public API, browser-safe API client + SSE/activity readers, TanStack-Query conversation/history repository, FSD layers, themes.                                                                   | Effect, provider SDKs, DB rows, service internals.                           | `src/widgets/side-chat/index.ts`, `src/features/chat/model/run/widget-run-store.ts`, `src/entities/conversation/api/`, `src/entities/conversation/index.ts` |
+| `packages/host-bridge`          | Browser host seam: host-context provider and host-command capability, dispatch, and result shapes.                                                                                                                         | RuntimeTool execution, backend persistence, service routes.                  | `src/bridge/bridge.ts`, `src/commands/`, `src/context/host-context.ts`                                                                                      |
+| `packages/db`                   | Persistence: schema contract, Drizzle/Postgres + in-memory repositories, turn records and lease ops, the dedicated cancel/activity `LISTEN/NOTIFY` connections.                                                            | Product use cases, Hono routes, runtime execution, widget state.             | `src/schema-contract/index.ts`, `src/repositories/index.ts`, `src/drizzle/schema.ts`                                                                        |
+| `packages/shared`               | Domain-neutral TS helpers: `Brand<>`, JSON value types, record narrowing, omit-undefined helpers. Zero deps.                                                                                                               | Product, protocol, runtime, widget, or persistence ownership.                | `src/index.ts`                                                                                                                                              |
+| `packages/testing`              | Shared test-only helpers: `sidechat.v1` builders, SSE mock encode, terminal-stream asserts.                                                                                                                                | Production behavior, package-specific business fixtures.                     | `src/index.ts`                                                                                                                                              |
+| `test-harness/adoption-harness` | Cross-package adopter golden-path tests over an in-process service.                                                                                                                                                        | Browser/Playwright scenarios, production deployment, real provider behavior. | `src/adoption-golden-path.test.ts`                                                                                                                          |
+| `test-harness/widget-harness`   | Browser harness: Vite dev app, iframe host proxy, mock-stream and local-service modes, fake host bridge, Playwright pages.                                                                                                 | Production host app, service policy, provider config.                        | `src/app/harness-app.tsx`, `e2e/`                                                                                                                           |
 
 ## Invariants
 

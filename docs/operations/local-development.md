@@ -20,10 +20,10 @@ The launcher prompts for provider and ports, installs dependencies if missing, t
 
 `scripts/run-local-fake.mjs` reads two flags (`run-local-fake.mjs:79-80`):
 
-| Flag | Effect |
-| --- | --- |
-| `--yes` | Skip all prompts; use the saved file, env vars, then defaults. Auto-applied when stdin is not a TTY (CI, pipes). |
-| `--install` | Force `npm install` before starting, even when `node_modules` exists. |
+| Flag        | Effect                                                                                                           |
+| ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--yes`     | Skip all prompts; use the saved file, env vars, then defaults. Auto-applied when stdin is not a TTY (CI, pipes). |
+| `--install` | Force `npm install` before starting, even when `node_modules` exists.                                            |
 
 The launcher saves your answers (including any API key) to `scripts/.run-local-fake.json` (`run-local-fake.mjs:119-136`) and reuses them next run. Keep that file out of git.
 
@@ -31,10 +31,10 @@ The launcher saves your answers (including any API key) to `scripts/.run-local-f
 
 The launcher starts two Vite/tsx dev servers over npm workspaces:
 
-| Process | Default URL | Role |
-| --- | --- | --- |
-| Backend service | `http://127.0.0.1:8787` | Hono API + chosen provider. Health at `/healthz`. |
-| Widget UI | `http://127.0.0.1:5174` | Vite widget harness; renders only Side Chat under the frame path. `strictPort`, bind host `0.0.0.0`. |
+| Process         | Default URL             | Role                                                                                                 |
+| --------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| Backend service | `http://127.0.0.1:8787` | Hono API + chosen provider. Health at `/healthz`.                                                    |
+| Widget UI       | `http://127.0.0.1:5174` | Vite widget harness; renders only Side Chat under the frame path. `strictPort`, bind host `0.0.0.0`. |
 
 Your own app is the host. Proxy `/side-chat-api` to the backend and `/side-chat-frame` to the widget UI, then embed the iframe — see [embed-widget-iframe.md](embed-widget-iframe.md). The launcher prints both targets and a ready-to-paste iframe `src`.
 
@@ -54,11 +54,11 @@ The service reads `process.env` synchronously at boot and never auto-loads a `.e
 
 The launcher offers three providers (prompt at `run-local-fake.mjs:570-636`):
 
-| Provider | Setup | Persistence |
-| --- | --- | --- |
-| `fake` (default) | None. In-memory showcase model + mock tools. | In-memory |
-| `openai` | Prompts for API key, allowed models (first is default), and an optional OpenAI-compatible base URL. | In-memory (no DB URL set) |
-| `azure` | Prompts for endpoint, key, api-version, and gpt-4o deployment; boots `apps/partner-ai-service/sidechat.azure.config.ts` via `SIDECHAT_CONFIG_PATH`. | In-memory |
+| Provider         | Setup                                                                                                                                               | Persistence               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `fake` (default) | None. In-memory showcase model + mock tools.                                                                                                        | In-memory                 |
+| `openai`         | Prompts for API key, allowed models (first is default), and an optional OpenAI-compatible base URL.                                                 | In-memory (no DB URL set) |
+| `azure`          | Prompts for endpoint, key, api-version, and gpt-4o deployment; boots `apps/partner-ai-service/sidechat.azure.config.ts` via `SIDECHAT_CONFIG_PATH`. | In-memory                 |
 
 The `fake` and `azure` modes delete `SIDECHAT_DATABASE_URL` so persistence stays in-memory (`run-local-fake.mjs:755`, `:763`). The `openai` mode does not scrub it, but with no database URL set and the `development` profile it also runs in-memory. For Postgres-backed runs, see [database.md](database.md).
 
@@ -72,7 +72,7 @@ When the provider is `fake`, the launcher sets these defaults (`run-local-fake.m
 
 Two demo prompts exercise the fake model (`run-local-fake.mjs:894-897`):
 
-| Prompt | What it shows |
-| --- | --- |
-| `hello` | Markdown reply with slow token streaming. |
-| `tool` | Thinking, then `mock_web_search`, then markdown. |
+| Prompt  | What it shows                                    |
+| ------- | ------------------------------------------------ |
+| `hello` | Markdown reply with slow token streaming.        |
+| `tool`  | Thinking, then `mock_web_search`, then markdown. |

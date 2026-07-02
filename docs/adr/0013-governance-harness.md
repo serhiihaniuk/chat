@@ -16,14 +16,14 @@ recorded answer.
 
 ## What it buys here
 
-| Capability | How | Without it |
-|---|---|---|
-| **Boundaries that hold mechanically.** | 14 gate scripts (`npm run lint:custom`) parse every import and dependency: layer deny-lists, single-owner deps (`hono`/`pg`/`ai`/`process.env`), widget FSD ranks, outbound-call allowlists. | Boundary erosion at AI speed; the architecture becomes a diagram, not a fact. |
-| **A ceiling on cleverness.** | Cognitive-complexity and nesting budgets, file/function size caps, `as unknown as` banned — enforced by AST, calibrated for a lower-context human, stricter for Effect/Stream/React code. | AI output optimized for the model's working memory instead of the next maintainer's. |
-| **Docs that carry a contract.** | Durable docs must declare `Read this when / Source of truth for / Not source of truth for`; paragraph density caps; vocabulary owned in one file; banned stale-truth docs fail the gate. | The exact rot the 2026-07-01 review found in the unguarded corners. |
-| **Gates that cannot silently die.** | The meta-gate runs every check against a known-bad fixture and fails if any `check-*.mjs` is not wired into the runner. | The most dangerous failure: a protection everyone believes still runs. |
-| **A shared rulebook for humans and AI.** | `AGENTS.md`: mandatory reading path, final-state rule (no compat shims; delete replaced code in the same patch), spine-function comment style, verification order — the same contract for every contributor, silicon or not. | Every AI session and every new hire re-deriving the house rules, differently. |
-| **Intent that survives cleanup passes.** | This ADR set: decisions recorded with rejected alternatives, specifically so "helpful" refactors (DRY the config, spread Effect outward, merge the event vocabularies) meet a written answer. | Chesterton's fences removed by whoever finds them inconvenient. |
+| Capability                               | How                                                                                                                                                                                                                          | Without it                                                                           |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Boundaries that hold mechanically.**   | 14 gate scripts (`npm run lint:custom`) parse every import and dependency: layer deny-lists, single-owner deps (`hono`/`pg`/`ai`/`process.env`), widget FSD ranks, outbound-call allowlists.                                 | Boundary erosion at AI speed; the architecture becomes a diagram, not a fact.        |
+| **A ceiling on cleverness.**             | Cognitive-complexity and nesting budgets, file/function size caps, `as unknown as` banned — enforced by AST, calibrated for a lower-context human, stricter for Effect/Stream/React code.                                    | AI output optimized for the model's working memory instead of the next maintainer's. |
+| **Docs that carry a contract.**          | Durable docs must declare `Read this when / Source of truth for / Not source of truth for`; paragraph density caps; vocabulary owned in one file; banned stale-truth docs fail the gate.                                     | The exact rot the 2026-07-01 review found in the unguarded corners.                  |
+| **Gates that cannot silently die.**      | The meta-gate runs every check against a known-bad fixture and fails if any `check-*.mjs` is not wired into the runner.                                                                                                      | The most dangerous failure: a protection everyone believes still runs.               |
+| **A shared rulebook for humans and AI.** | `AGENTS.md`: mandatory reading path, final-state rule (no compat shims; delete replaced code in the same patch), spine-function comment style, verification order — the same contract for every contributor, silicon or not. | Every AI session and every new hire re-deriving the house rules, differently.        |
+| **Intent that survives cleanup passes.** | This ADR set: decisions recorded with rejected alternatives, specifically so "helpful" refactors (DRY the config, spread Effect outward, merge the event vocabularies) meet a written answer.                                | Chesterton's fences removed by whoever finds them inconvenient.                      |
 
 ## Decision
 
@@ -48,7 +48,7 @@ that only run when someone remembers.
   budget; the custom gates are ~15 small, readable scripts, each testable
   against a bad fixture.
 - **Trusting model quality** — the point is not that AI output is bad; it is
-  that *unverified* output drifts, and verification must be cheaper than
+  that _unverified_ output drifts, and verification must be cheaper than
   generation. Gates are that arbitrage.
 
 ## Consequences

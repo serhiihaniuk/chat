@@ -10,10 +10,10 @@ Side Chat persists chats in a Postgres schema named `sidechat`. Drizzle generate
 
 Run both from the repo root. Edit `packages/db/src/drizzle/schema.ts`, then:
 
-| Command | Does | Entry point |
-| --- | --- | --- |
-| `npm run db:generate` | Wipes `packages/db/migrations`, then emits exactly one migration named `day_one` from `schema.ts`. | [`scripts/db-generate.mjs`](../../scripts/db-generate.mjs) |
-| `npm run db:reset` | Resolves the connection, then drops the `sidechat` schema, recreates it, applies the migration, and applies role grants. | [`apps/partner-ai-service/scripts/reset-database.ts`](../../apps/partner-ai-service/scripts/reset-database.ts) |
+| Command               | Does                                                                                                                     | Entry point                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `npm run db:generate` | Wipes `packages/db/migrations`, then emits exactly one migration named `day_one` from `schema.ts`.                       | [`scripts/db-generate.mjs`](../../scripts/db-generate.mjs)                                                     |
+| `npm run db:reset`    | Resolves the connection, then drops the `sidechat` schema, recreates it, applies the migration, and applies role grants. | [`apps/partner-ai-service/scripts/reset-database.ts`](../../apps/partner-ai-service/scripts/reset-database.ts) |
 
 `db:generate` produces DDL files; it does not connect to Postgres. `db:reset` is the only path that touches a database.
 
@@ -28,12 +28,12 @@ Run both from the repo root. Edit `packages/db/src/drizzle/schema.ts`, then:
 1. **Resolve.** `reset-database.ts` opportunistically loads a `.env`, then calls the service's `readDatabaseUrl()`. It exits with an error if `SIDECHAT_DATABASE_URL` is unset ([`reset-database.ts:20-24`](../../apps/partner-ai-service/scripts/reset-database.ts)). Tooling never re-reads the env contract; the service owns it.
 2. **Apply.** `applySidechatSchema` runs four steps in order ([`scripts/lib/apply-sidechat-schema.mjs:28-33`](../../scripts/lib/apply-sidechat-schema.mjs)):
 
-| Step | SQL |
-| --- | --- |
-| Drop | `DROP SCHEMA IF EXISTS sidechat CASCADE` |
-| Create | `CREATE SCHEMA "sidechat"` |
-| Migrate | Apply every generated migration in journal order. |
-| Grant | Apply [`packages/db/sql/runtime-role-grants.sql`](../../packages/db/sql/runtime-role-grants.sql). |
+| Step    | SQL                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------------- |
+| Drop    | `DROP SCHEMA IF EXISTS sidechat CASCADE`                                                          |
+| Create  | `CREATE SCHEMA "sidechat"`                                                                        |
+| Migrate | Apply every generated migration in journal order.                                                 |
+| Grant   | Apply [`packages/db/sql/runtime-role-grants.sql`](../../packages/db/sql/runtime-role-grants.sql). |
 
 The apply layer creates the schema itself because the generated migration assumes the schema already exists.
 
@@ -45,10 +45,10 @@ Drizzle does offline DDL generation only. The `dbCredentials.url` in [`packages/
 
 `SIDECHAT_DATABASE_URL` selects the persistence backend at service boot ([`environment.ts:74-79`](../../apps/partner-ai-service/src/config/sidechat-config/environment.ts)):
 
-| State | Development | Production |
-| --- | --- | --- |
+| State       | Development        | Production         |
+| ----------- | ------------------ | ------------------ |
 | URL present | Postgres / Drizzle | Postgres / Drizzle |
-| URL absent | In-memory | Hard fail at boot |
+| URL absent  | In-memory          | Hard fail at boot  |
 
 In-memory persistence loses all chats on restart. Use it for local development only. See [configuration.md](./configuration.md) for how the URL is declared in `sidechat.config.ts`.
 
@@ -56,10 +56,10 @@ In-memory persistence loses all chats on restart. Use it for local development o
 
 [`runtime-role-grants.sql`](../../packages/db/sql/runtime-role-grants.sql) defines least-privilege roles that `db:reset` applies after the migration. Drizzle manages tables, not roles, so this file is the durable source for the role policy.
 
-| Role | Privileges |
-| --- | --- |
-| `sidechat_owner` | Owns the schema. |
+| Role                | Privileges                                                            |
+| ------------------- | --------------------------------------------------------------------- |
+| `sidechat_owner`    | Owns the schema.                                                      |
 | `sidechat_migrator` | `USAGE`, `CREATE` on the schema; all privileges on tables (owns DDL). |
-| `sidechat_runtime` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` only — never `CREATE`. |
+| `sidechat_runtime`  | `SELECT`, `INSERT`, `UPDATE`, `DELETE` only — never `CREATE`.         |
 
 The running service connects as `sidechat_runtime`, so it can read and write rows but cannot alter the schema. Only the migrator role applies DDL.

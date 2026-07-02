@@ -7,6 +7,8 @@ import type { SideChatWidgetProps } from "./side-chat-widget.types.js";
 describe("side chat widget public props", () => {
   it("expose client and host bridge seams without service internals", () => {
     expectTypeOf<SideChatWidgetProps["client"]>().toEqualTypeOf<SideChatApiClient>();
-    expectTypeOf<NonNullable<SideChatWidgetProps["hostBridge"]>>().toEqualTypeOf<WidgetHostBridge>();
+    expectTypeOf<
+      NonNullable<SideChatWidgetProps["hostBridge"]>
+    >().toEqualTypeOf<WidgetHostBridge>();
   });
 });

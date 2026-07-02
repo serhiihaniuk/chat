@@ -1,37 +1,44 @@
-import { PartnerAiCoreError } from "@side-chat/partner-ai-core";
+import { PartnerAiCoreError, type AuthContext } from "@side-chat/partner-ai-core";
 import {
   PROTOCOL_ERROR_CODES,
   ProtocolValidationError,
-  SIDECHAT_PROTOCOL_VERSION,
   parseChatStreamRequest,
   type ChatStreamRequest,
 } from "@side-chat/chat-protocol";
 import type { Hono } from "hono";
 
-import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
+import type { StartedTurn, TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { AuthContextVariables } from "../../../middleware/auth-context.js";
 import {
   errorMessage,
   httpStatusForProtocolError,
   jsonError,
+  replayExpiredError,
 } from "../../../response/protocol-errors.js";
 import { requireContextAuth } from "../../types.js";
+import { openTurnEventStream, type TurnStreamDependencies } from "../turn-stream-response.js";
 
-export type ChatRunsRouteDependencies = {
+/** Replay the whole turn from `sidechat.started`; the POST caller has seen nothing yet. */
+const REPLAY_FROM_START = -1;
+
+export type ChatRunsRouteDependencies = TurnStreamDependencies & {
   readonly turnRunner: TurnRunner;
 };
 
 /**
- * Add POST /chat/runs.
+ * Add POST /chat/runs — start a turn and stream it on the same connection.
  *
- * This route accepts an assistant turn and hands it to the server-owned runner:
- * pre-start runs synchronously, then generation is forked off the request and
- * runs to a durable terminal regardless of this connection. The response is JSON
- * (never SSE) carrying the turn identity a client later streams or cancels by.
+ * Pre-start runs synchronously, so setup failures are still JSON errors (the
+ * browser never saw `sidechat.started`). Once the turn is accepted, generation is
+ * forked onto the server-owned runner and this response becomes the turn's SSE
+ * stream, replayed from the beginning. Binding the stream to the starting
+ * connection is what makes it land on the owning instance with no sticky routing
+ * (ADR 0007); `sidechat.started` at sequence 0 carries the turn identity
+ * (`assistantTurnId` on the envelope, `conversationId` on the event).
  *
- * Pre-start failures become JSON errors here, matching the assistant-turn failure
- * split: setup is rejected as a request/core error because the browser never saw
- * `sidechat.started`.
+ * Closing this response releases one subscriber and never interrupts generation;
+ * `GET /chat/runs/:requestId` recovers a lost identity, and the stream route
+ * resumes from a cursor on the same instance.
  */
 export const registerChatRunsRoute = (
   app: Hono<AuthContextVariables>,
@@ -49,16 +56,45 @@ export const registerChatRunsRoute = (
       return jsonError(PROTOCOL_ERROR_CODES.BAD_REQUEST, errorMessage(error), 400);
     }
 
+    let started: StartedTurn;
     try {
-      const started = await dependencies.turnRunner.start({
+      started = await dependencies.turnRunner.start({
         request: chatRequest,
         authContext,
         ...traceInput(context.req.raw),
       });
-      return context.json({ protocolVersion: SIDECHAT_PROTOCOL_VERSION, ...started });
     } catch (error) {
       return mapPreStartError(error);
     }
+
+    return streamStartedTurn(dependencies, authContext, started);
+  });
+};
+
+/**
+ * Stream an accepted turn, honoring idempotent replays.
+ *
+ * A fresh turn (`inserted`) is always live in this instance's registry, so it
+ * streams unconditionally. A repeated `requestId` resolves to the existing turn
+ * without forking a second generation; if that turn already finished and its
+ * buffer was swept, fail closed as `replay_expired` before any SSE frame — the
+ * caller reads the answer from conversation history instead.
+ */
+const streamStartedTurn = (
+  dependencies: ChatRunsRouteDependencies,
+  authContext: AuthContext,
+  started: StartedTurn,
+): Response => {
+  const finished = started.status !== "running";
+  if (!started.inserted && finished && !dependencies.dispatcher.hasTurn(started.assistantTurnId)) {
+    return replayExpiredError("This turn has finished; read it from conversation history.");
+  }
+
+  return openTurnEventStream(dependencies, {
+    assistantTurnId: started.assistantTurnId,
+    requestId: started.requestId,
+    authContext,
+    after: REPLAY_FROM_START,
   });
 };
 
@@ -83,7 +119,7 @@ const traceInput = (request: Request): { readonly traceId?: string | undefined }
  * Map a pre-start failure to its JSON response.
  *
  * Only pre-start work can fail here: once generation is forked, terminal
- * outcomes travel through the durable event log, not this response.
+ * outcomes travel through the turn's event stream, not this response.
  */
 const mapPreStartError = (error: unknown): Response => {
   if (error instanceof PartnerAiCoreError) {

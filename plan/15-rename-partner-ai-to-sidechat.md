@@ -1,4 +1,4 @@
-# 15 — Rename partner-ai-* → sidechat-*
+# 15 — Rename partner-ai-_ → sidechat-_
 
 **Epic:** 2 First-run | **Priority:** P1 | **Depends on:** run LAST in epic 2; ideally after epics 1–5 (fewest open branches) | **Status:** todo
 

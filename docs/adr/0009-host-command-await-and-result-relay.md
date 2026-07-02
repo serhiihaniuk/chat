@@ -8,7 +8,7 @@ A host command is a tool the **browser** executes (open a record, focus a
 panel), but the **model** calls it mid-turn and needs the result to keep
 generating. Two physical constraints shape the design:
 
-- SSE is one-directional. The turn stream can deliver the command *to* the
+- SSE is one-directional. The turn stream can deliver the command _to_ the
   browser, but it cannot carry the result back up. The return path must be a
   separate HTTP request.
 - With connection-bound streaming (ADR 0007), the paused tool loop lives in the
@@ -20,12 +20,12 @@ model calls open forever waiting for a browser that left.
 
 ## What it buys here
 
-| Guarantee | How | Naive alternative |
-|---|---|---|
-| **A turn can never hang on a silent host.** | Two hard bounds: no subscriber → immediate `no_connected_client`; no result in 30 s → `timed_out`. The model always receives a value. | An unbounded await; one closed tab parks a model call forever. |
+| Guarantee                                     | How                                                                                                                                             | Naive alternative                                                                          |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **A turn can never hang on a silent host.**   | Two hard bounds: no subscriber → immediate `no_connected_client`; no result in 30 s → `timed_out`. The model always receives a value.           | An unbounded await; one closed tab parks a model call forever.                             |
 | **Results survive load-balancer misrouting.** | Any instance persists the result durably and pokes the owner via `pg_notify`; the owner also polls the table as a fallback (target: `plan/08`). | A result POST that 404s on the wrong instance while the host already performed the action. |
-| **No cross-turn or cross-workspace settle.** | Pending entries keyed `(assistantTurnId, commandId)`; the route validates the pair. | A leaked commandId settling someone else's pending call. |
-| **The model hears the truth.** | The settled result feeds the tool loop; the timeline and the model agree on what happened. | UI shows "applied" while the model was told it timed out. |
+| **No cross-turn or cross-workspace settle.**  | Pending entries keyed `(assistantTurnId, commandId)`; the route validates the pair.                                                             | A leaked commandId settling someone else's pending call.                                   |
+| **The model hears the truth.**                | The settled result feeds the tool loop; the timeline and the model agree on what happened.                                                      | UI shows "applied" while the model was told it timed out.                                  |
 
 ## Decision
 

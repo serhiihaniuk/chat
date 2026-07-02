@@ -29,21 +29,21 @@ runs it — it never re-decides policy.
 
 An implementation owes four things:
 
-| Obligation | Meaning |
-|---|---|
+| Obligation                     | Meaning                                                                                                                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Speak only `RuntimeEvent`.** | `started`, `output_delta`, `activity`, `completed`, `error`, `blocked` — never provider or framework types. Core maps these to `sidechat.v1`; the browser never sees anything else. |
-| **Exactly one terminal.** | Every stream ends with one `completed`, `error`, or `blocked`, and nothing after it (`isRuntimeTerminalEvent` is exported for exactly this). |
-| **Honor the abort signal.** | A fiber interrupt aborts the request's signal; the engine must stop real work (cancel a fetch, close a remote stream) — cancel is a product guarantee, not a suggestion. |
-| **Typed, scrubbed failures.** | Expected failures are `AiRuntimeError` values with public-safe messages; raw engine/provider errors never cross the port. |
+| **Exactly one terminal.**      | Every stream ends with one `completed`, `error`, or `blocked`, and nothing after it (`isRuntimeTerminalEvent` is exported for exactly this).                                        |
+| **Honor the abort signal.**    | A fiber interrupt aborts the request's signal; the engine must stop real work (cancel a fetch, close a remote stream) — cancel is a product guarantee, not a suggestion.            |
+| **Typed, scrubbed failures.**  | Expected failures are `AiRuntimeError` values with public-safe messages; raw engine/provider errors never cross the port.                                                           |
 
 ## Four integration levels — use the smallest that fits
 
-| You need | Level | What you write | Where |
-|---|---|---|---|
-| The current orchestrator consulting another agent for one task | **0 — Agent-as-tool** | A `RuntimeTool` whose execute calls the agent's API | The normal tool seam; section below |
-| Another model vendor | **1 — Provider** | One adapter file (~130 lines; Azure adapter is the worked example) + a config entry | Inside `agent-runtime`; [extension-seams.md](extension-seams.md) |
-| Different loop behavior (planner, critic pass, custom stop rules) | **2 — Executor** | An `AgentExecutor` emitting `RuntimeEvent`s, selected per turn profile | Inside `agent-runtime`; the deterministic test executor is the minimal example |
-| A different engine entirely — another framework, another language, a hosted agent | **3 — Engine** | An `AiRuntimePort` implementation | Anywhere; wired in service composition in place of the default runtime bundle |
+| You need                                                                          | Level                 | What you write                                                                      | Where                                                                          |
+| --------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| The current orchestrator consulting another agent for one task                    | **0 — Agent-as-tool** | A `RuntimeTool` whose execute calls the agent's API                                 | The normal tool seam; section below                                            |
+| Another model vendor                                                              | **1 — Provider**      | One adapter file (~130 lines; Azure adapter is the worked example) + a config entry | Inside `agent-runtime`; [extension-seams.md](extension-seams.md)               |
+| Different loop behavior (planner, critic pass, custom stop rules)                 | **2 — Executor**      | An `AgentExecutor` emitting `RuntimeEvent`s, selected per turn profile              | Inside `agent-runtime`; the deterministic test executor is the minimal example |
+| A different engine entirely — another framework, another language, a hosted agent | **3 — Engine**        | An `AiRuntimePort` implementation                                                   | Anywhere; wired in service composition in place of the default runtime bundle  |
 
 ## Level 0: delegating to another agent mid-turn (agent-as-tool)
 
@@ -84,7 +84,7 @@ Two honest constraints, and one boundary:
 
 Level 3 is deliberately boring. The shipped AI-SDK engine is just the default
 occupant of the port — the deterministic fake engine that drives all offline
-tests is *already a second, complete implementation*, which is the existence
+tests is _already a second, complete implementation_, which is the existence
 proof that the seam works.
 
 ## The remote-engine pattern (the "Python/LangGraph" answer)
@@ -128,7 +128,7 @@ Worth stating because it is the point: swapping Level 3 touches **zero** lines
 of auth, policy, context admission, persistence, protocol, service routes, or
 widget. The turn lifecycle ([assistant-turn.md](assistant-turn.md)) — pre-start
 stages, finalization, exactly-one-terminal, cancel, idempotency — wraps
-*around* the port and keeps working, because those guarantees were never the
+_around_ the port and keeps working, because those guarantees were never the
 engine's job.
 
 ## Files to open

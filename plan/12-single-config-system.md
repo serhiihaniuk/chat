@@ -8,7 +8,7 @@ Two parallel config systems with subtly different semantics coexist:
 
 - The declared system: `apps/partner-ai-service/src/config/sidechat-config/*` driven by `sidechat.config.ts`.
 - The legacy env parser: `service-config.ts` (279 lines) + `env/` + `model-catalog/` + `service-capability-config.ts` — roughly a third of `config/`, documented as "slated for removal" (`docs/operations/configuration.md:57`).
-- Semantics differ: the config path maps `CONFIGURED`→`ALLOW_ALL` in development (`options/options-adapter.ts:181-189`) while the legacy path *rejects* `configured` in development (`service-config.ts:134-137`); default profiles differ; `normalizeBearerToken` is duplicated (`environment.ts:170-171` vs `service-config.ts:277-278`).
+- Semantics differ: the config path maps `CONFIGURED`→`ALLOW_ALL` in development (`options/options-adapter.ts:181-189`) while the legacy path _rejects_ `configured` in development (`service-config.ts:134-137`); default profiles differ; `normalizeBearerToken` is duplicated (`environment.ts:170-171` vs `service-config.ts:277-278`).
 - **The fallback is silent:** `loadSelectedSideChatConfig` catches ANY import error (a typo in `sidechat.config.ts`!) and returns `{loaded:false, reason}`; `server.ts:62-79` then boots the legacy parser **without logging the reason** — the service silently runs a different universe (different defaults, no Azure) with the declared config ignored.
 
 ## Decided approach

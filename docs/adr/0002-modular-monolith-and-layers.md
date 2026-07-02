@@ -14,13 +14,13 @@ swappable).
 
 ## What it buys here
 
-| Capability | In this repo | Without it |
-|---|---|---|
-| **One process to run, deploy, and debug.** | `npm run dev` boots Postgres + the app; one Dockerfile; one log stream. | Service sprawl: N deploys, N configs, distributed debugging for a single feature. |
-| **Layers with inward-only dependencies.** Browser → Service → Core → Runtime, crossed by two contract packages. | The widget cannot see a DB row; the runtime cannot see a route; each layer knows only the contract beside it ([system-map.md](../architecture/system-map.md)). | Spaghetti imports; changing storage touches UI code. |
-| **Boundaries enforced by CI, not convention.** | 14 gate scripts parse every import and dependency; a forbidden import fails before review ([package-boundaries.md](../architecture/package-boundaries.md)). | Boundary erosion, one well-meaning PR at a time. |
-| **Future service boundaries, pre-cut.** | Package seams are potential service seams; the contracts already exist. | A rewrite when scale ever forces a split. |
-| **Swappable infrastructure.** | Postgres and in-memory repositories pass one shared contract suite; providers swap via config; core is framework-free (hexagonal, Effect-first — ADR 0003). | Fork-to-change; storage and vendors welded into product logic. |
+| Capability                                                                                                      | In this repo                                                                                                                                                   | Without it                                                                        |
+| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **One process to run, deploy, and debug.**                                                                      | `npm run dev` boots Postgres + the app; one Dockerfile; one log stream.                                                                                        | Service sprawl: N deploys, N configs, distributed debugging for a single feature. |
+| **Layers with inward-only dependencies.** Browser → Service → Core → Runtime, crossed by two contract packages. | The widget cannot see a DB row; the runtime cannot see a route; each layer knows only the contract beside it ([system-map.md](../architecture/system-map.md)). | Spaghetti imports; changing storage touches UI code.                              |
+| **Boundaries enforced by CI, not convention.**                                                                  | 14 gate scripts parse every import and dependency; a forbidden import fails before review ([package-boundaries.md](../architecture/package-boundaries.md)).    | Boundary erosion, one well-meaning PR at a time.                                  |
+| **Future service boundaries, pre-cut.**                                                                         | Package seams are potential service seams; the contracts already exist.                                                                                        | A rewrite when scale ever forces a split.                                         |
+| **Swappable infrastructure.**                                                                                   | Postgres and in-memory repositories pass one shared contract suite; providers swap via config; core is framework-free (hexagonal, Effect-first — ADR 0003).    | Fork-to-change; storage and vendors welded into product logic.                    |
 
 ## Decision
 

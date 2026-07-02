@@ -30,7 +30,7 @@
     "/chat/runs": {
       "post": {
         "operationId": "createRun",
-        "description": "Create one assistant turn. Pre-start runs synchronously; generation is then forked server-side and runs to a durable terminal regardless of this connection. Returns the turn identity as JSON (never SSE); stream or replay it with GET /chat/turns/{assistantTurnId}/stream.",
+        "description": "Start one assistant turn and stream it on this response (connection-bound streaming, ADR 0007). Pre-start runs synchronously and its failures return JSON; once the turn is accepted, generation is forked server-side and this response becomes the turn's SSE stream from sidechat.started (sequence 0, carrying assistantTurnId and conversationId) to the terminal event. Closing the response never interrupts generation; resume on the same instance with GET /chat/turns/{assistantTurnId}/stream.",
         "requestBody": {
           "required": true,
           "content": {
@@ -43,12 +43,15 @@
         },
         "responses": {
           "200": {
-            "description": "Turn identity { protocolVersion, requestId, assistantTurnId, conversationId, status }",
-            "content": { "application/json": { "schema": { "type": "object" } } }
+            "description": "The turn's SSE stream: sidechat.started (turn identity) through exactly one terminal event",
+            "content": { "text/event-stream": { "schema": { "type": "string" } } }
           },
           "400": { "description": "Bad request" },
           "401": { "description": "Unauthorized" },
           "403": { "description": "Forbidden" },
+          "404": {
+            "description": "replay_expired: a repeated requestId resolved to a finished turn whose stream buffer was swept; read conversation history"
+          },
           "500": { "description": "Internal error" }
         }
       }

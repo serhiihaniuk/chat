@@ -119,8 +119,14 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
     clock: composition.ports.clock,
   });
   registerChatUsageRoute(app, composition.repositories);
-  // Start one turn (forks generation) ...
-  registerChatRunsRoute(app, { turnRunner: composition.turnRunner });
+  // Start one turn (forks generation) and stream it on the same connection —
+  // the response IS the turn's SSE stream, so it is owner-bound by construction.
+  registerChatRunsRoute(app, {
+    turnRunner: composition.turnRunner,
+    ports: composition.ports,
+    dispatcher: composition.dispatcher,
+    safetyPollIntervalMs: composition.safetyPollIntervalMs,
+  });
   // ... then resolve, read status, subscribe to its durable event stream, and
   // cancel it. Composition already started the per-instance cancel listener
   // (`cancelDispatcher`) that interrupts an owned fiber when a cancel lands on

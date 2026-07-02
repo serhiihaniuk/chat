@@ -1,6 +1,6 @@
 # Host Commands (Host-Side Tools)
 
-Read this when: you want the assistant to *act* in your host app — open a record, focus a panel, prefill a form — instead of only answering in text.
+Read this when: you want the assistant to _act_ in your host app — open a record, focus a panel, prefill a form — instead of only answering in text.
 Source of truth for: declaring, handling, and testing a host command end to end, plus a runnable worked example.
 Not source of truth for: the host-bridge contract ([widget-and-host-integration.md](widget-and-host-integration.md) "Host bridge contract"), the full seam map ([extension-seams.md](extension-seams.md)), or the config file shape ([../operations/configuration.md](../operations/configuration.md)).
 
@@ -8,28 +8,28 @@ Not source of truth for: the host-bridge contract ([widget-and-host-integration.
 
 Side Chat has two ways for the assistant to do more than write text. They look similar in a config file and feel different at runtime.
 
-- A **runtime tool** runs on the server. The runtime executes it, the result feeds back into the model, and the model keeps writing. `jira.search_issues` ([jira-search-issues-tool.ts](../../apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts)) is the worked example. Use a tool when the *backend* must fetch or compute something.
-- A **host command** runs in the browser. The assistant asks your host page to perform a UI action; your page performs it and reports back. There is no server execution. Use a host command when the *host app* owns the action — navigation, selection, opening a record.
+- A **runtime tool** runs on the server. The runtime executes it, the result feeds back into the model, and the model keeps writing. `jira.search_issues` ([jira-search-issues-tool.ts](../../apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts)) is the worked example. Use a tool when the _backend_ must fetch or compute something.
+- A **host command** runs in the browser. The assistant asks your host page to perform a UI action; your page performs it and reports back. There is no server execution. Use a host command when the _host app_ owns the action — navigation, selection, opening a record.
 
-| | Runtime tool | Host command |
-|---|---|---|
-| Runs in | The service runtime | The browser, in your host app |
-| Declared as | `ToolCapability` + a `RuntimeTool` executable | `HostCommandCapability` only |
-| Performed by | `agent-runtime` | Your `HostBridge.dispatchCommand` |
-| Result feeds | Back to the model | Into the activity timeline, and back to the model via the result route |
-| Worked example | `jira-search-issues-tool.ts` | `open_resource` (this guide) |
+|                | Runtime tool                                  | Host command                                                           |
+| -------------- | --------------------------------------------- | ---------------------------------------------------------------------- |
+| Runs in        | The service runtime                           | The browser, in your host app                                          |
+| Declared as    | `ToolCapability` + a `RuntimeTool` executable | `HostCommandCapability` only                                           |
+| Performed by   | `agent-runtime`                               | Your `HostBridge.dispatchCommand`                                      |
+| Result feeds   | Back to the model                             | Into the activity timeline, and back to the model via the result route |
+| Worked example | `jira-search-issues-tool.ts`                  | `open_resource` (this guide)                                           |
 
-If an action needs both — say, persist on the server *and* move the host UI — ship a runtime tool and a host command as two registrations. Neither one implies the other.
+If an action needs both — say, persist on the server _and_ move the host UI — ship a runtime tool and a host command as two registrations. Neither one implies the other.
 
 ## The contract
 
 Three small types carry a host command from config to the host app. Read them once; the rest of this guide is just wiring them together.
 
-| Piece | Type (location) | Shape |
-|---|---|---|
-| Declaration | `HostCommandCapability` ([capabilities.ts:170](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) | `{ commandName, description, inputSchema, approvalMode }` |
-| Stream event | `ActivityHostCommandDetails` ([event-union.ts:98](../../packages/chat-protocol/src/sidechat-v1/events/event-union.ts)) | a `host_command` activity event with `{ commandId, commandName, payload }` |
-| Result | `HostCommandResult` ([command-result.ts](../../packages/host-bridge/src/commands/command-result.ts)) | `{ commandId, commandName, status, resultCode, data? }` |
+| Piece        | Type (location)                                                                                                                   | Shape                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Declaration  | `HostCommandCapability` ([capabilities.ts:170](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) | `{ commandName, description, inputSchema, approvalMode }`                  |
+| Stream event | `ActivityHostCommandDetails` ([event-union.ts:98](../../packages/chat-protocol/src/sidechat-v1/events/event-union.ts))            | a `host_command` activity event with `{ commandId, commandName, payload }` |
+| Result       | `HostCommandResult` ([command-result.ts](../../packages/host-bridge/src/commands/command-result.ts))                              | `{ commandId, commandName, status, resultCode, data? }`                    |
 
 The flow is one straight line:
 
@@ -52,12 +52,12 @@ You see a **Demo host app** panel (the host page) next to the chat widget. Send 
 
 Four files make that work. They are the host-command analogue of the jira tool — copy them for your own command:
 
-| File | Role |
-|---|---|
-| [host-commands.ts](../../apps/partner-ai-service/src/config/catalog/capabilities/host-commands.ts) | Declares the `open_resource` capability (catalog entry). |
-| [demo-host-surface.ts](../../test-harness/widget-harness/src/host/demo-host-surface.ts) | The host app's own state, and how it interprets a command. |
-| [fake-host-bridge.ts](../../test-harness/widget-harness/src/host/fake-host-bridge.ts) | The bridge: turns a dispatched command into a host action + result. |
-| [demo-host-panel.tsx](../../test-harness/widget-harness/src/app/demo-host-panel.tsx) | The visible host UI a person also clicks directly. |
+| File                                                                                               | Role                                                                |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [host-commands.ts](../../apps/partner-ai-service/src/config/catalog/capabilities/host-commands.ts) | Declares the `open_resource` capability (catalog entry).            |
+| [demo-host-surface.ts](../../test-harness/widget-harness/src/host/demo-host-surface.ts)            | The host app's own state, and how it interprets a command.          |
+| [fake-host-bridge.ts](../../test-harness/widget-harness/src/host/fake-host-bridge.ts)              | The bridge: turns a dispatched command into a host action + result. |
+| [demo-host-panel.tsx](../../test-harness/widget-harness/src/app/demo-host-panel.tsx)               | The visible host UI a person also clicks directly.                  |
 
 ## Add a host command
 
@@ -99,8 +99,8 @@ The host app owns the action. Build a `HostBridge` and implement `dispatchComman
 
 ```ts
 const bridge = createHostBridge({
-  contextProvider,        // returns HostContext on each turn
-  capabilities,           // { schemaVersion, commands: [{ commandName: "open_resource" }] }
+  contextProvider, // returns HostContext on each turn
+  capabilities, // { schemaVersion, commands: [{ commandName: "open_resource" }] }
   dispatcher: {
     dispatchCommand: (command) => {
       if (command.commandName === "open_resource") {
@@ -118,7 +118,7 @@ const bridge = createHostBridge({
 
 The harness shows the same idea without the capability gate — it reads the payload and mutates the visible demo state ([fake-host-bridge.ts](../../test-harness/widget-harness/src/host/fake-host-bridge.ts) → [demo-host-surface.ts](../../test-harness/widget-harness/src/host/demo-host-surface.ts)). Return one of the `HostCommandResult` statuses (`applied`, `rejected`, `unsupported`, `failed`, `timed_out`); the helpers in [command-result.ts](../../packages/host-bridge/src/commands/command-result.ts) build each.
 
-Keep the dispatcher synchronous-ish and side-effecting on *your* state only. Do not retry inside it — a failed result is the recorded outcome.
+Keep the dispatcher synchronous-ish and side-effecting on _your_ state only. Do not retry inside it — a failed result is the recorded outcome.
 
 ### 3. See the result in the widget
 
@@ -160,21 +160,24 @@ const createPostMessageHostBridge = ({ context }) => ({
       const controller = new AbortController();
       const timer = setTimeout(() => {
         controller.abort();
-        resolve(createCommandResult(command, { status: "timed_out", resultCode: "host_command_timeout" }));
+        resolve(
+          createCommandResult(command, { status: "timed_out", resultCode: "host_command_timeout" }),
+        );
       }, 5000);
-      window.addEventListener("message", (message) => {
-        if (message.origin !== origin) return;                          // validate sender
-        const data = message.data;
-        if (data?.type !== "sidechat.widget.hostCommandResult") return;
-        if (data.commandId !== command.commandId) return;               // correlate reply
-        clearTimeout(timer);
-        controller.abort();
-        resolve(createCommandResult(command, data.result));
-      }, { signal: controller.signal });
-      window.parent.postMessage(
-        { type: "sidechat.widget.hostCommand", command },
-        origin,
+      window.addEventListener(
+        "message",
+        (message) => {
+          if (message.origin !== origin) return; // validate sender
+          const data = message.data;
+          if (data?.type !== "sidechat.widget.hostCommandResult") return;
+          if (data.commandId !== command.commandId) return; // correlate reply
+          clearTimeout(timer);
+          controller.abort();
+          resolve(createCommandResult(command, data.result));
+        },
+        { signal: controller.signal },
       );
+      window.parent.postMessage({ type: "sidechat.widget.hostCommand", command }, origin);
     });
   },
 });
@@ -186,10 +189,10 @@ Pass it to the widget exactly like the in-process bridge: `<SideChatWidget hostB
 
 ```js
 window.addEventListener("message", (event) => {
-  if (event.origin !== window.location.origin) return;          // validate sender
+  if (event.origin !== window.location.origin) return; // validate sender
   if (event.data?.type !== "sidechat.widget.hostCommand") return;
   const { commandId, commandName, payload } = event.data.command;
-  const result = performHostAction(commandName, payload);       // → { status, resultCode, data? }
+  const result = performHostAction(commandName, payload); // → { status, resultCode, data? }
   frame.contentWindow.postMessage(
     { type: "sidechat.widget.hostCommandResult", commandId, result },
     window.location.origin,
@@ -249,21 +252,21 @@ The pieces, in order:
 
 Bounds that make the pause safe — the turn can never hang on a silent host:
 
-| Situation | Resolver behavior | What the model sees |
-|---|---|---|
-| No stream subscriber connected when the tool fires | Resolves immediately | `no_connected_client` result |
-| No result within 30 seconds | Resolves on the timer | `timed_out` result |
-| Result posted twice / after settle | Second settle is a no-op | first result only |
-| User cancels mid-await | Fiber interrupt tears the await down | (turn ends `aborted`) |
+| Situation                                          | Resolver behavior                    | What the model sees          |
+| -------------------------------------------------- | ------------------------------------ | ---------------------------- |
+| No stream subscriber connected when the tool fires | Resolves immediately                 | `no_connected_client` result |
+| No result within 30 seconds                        | Resolves on the timer                | `timed_out` result           |
+| Result posted twice / after settle                 | Second settle is a no-op             | first result only            |
+| User cancels mid-await                             | Fiber interrupt tears the await down | (turn ends `aborted`)        |
 
 Failure modes worth knowing — several have fixes tracked in `plan/`:
 
-| Failure | Today | Target |
-|---|---|---|
+| Failure                                                   | Today                                                                                                              | Target                                                                                                                                                                        |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Result POST lands on a non-owner instance (load balancer) | `404`; the owner times out after 30 s; the model is told `timed_out` even though the host **performed the action** | Any instance persists the result durably and `pg_notify`s the owner, which settles in milliseconds; the owner also polls the result table as a fallback (`plan/08`, ADR 0009) |
-| Stream stays silent during a long await | A proxy idle-timeout may cut the SSE | Heartbeat comments keep it alive (`plan/17`) |
-| Reload replays a completed command event | The widget re-dispatches it — the host action runs twice | Dispatch skips events whose `status` is not `running` or that carry a result (`plan/19`) |
-| Owner instance crashes mid-await | Pending entry and fiber die together; the turn strands `running` | The orphan sweep terminalizes it (`plan/05`) |
+| Stream stays silent during a long await                   | A proxy idle-timeout may cut the SSE                                                                               | Heartbeat comments keep it alive (`plan/17`)                                                                                                                                  |
+| Reload replays a completed command event                  | The widget re-dispatches it — the host action runs twice                                                           | Dispatch skips events whose `status` is not `running` or that carry a result (`plan/19`)                                                                                      |
+| Owner instance crashes mid-await                          | Pending entry and fiber die together; the turn strands `running`                                                   | The orphan sweep terminalizes it (`plan/05`)                                                                                                                                  |
 
 One boundary to respect: this seam is built for **fast UI actions**. The await
 is in-memory and 30-seconds-bounded, so a turn cannot park on a human decision

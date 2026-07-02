@@ -15,11 +15,11 @@ read [`assistant-turn.md`](./assistant-turn.md).
 Each vocabulary lives in exactly one package. Never import one where another
 belongs — the boundary is the point.
 
-| Vocabulary | Package | Visible to | Enum source |
-|---|---|---|---|
-| AI SDK stream part (`TextStreamPart`) | `agent-runtime` | runtime internals only | AI SDK `ai` package |
-| `RuntimeEvent` (`runtime.*`) | `ai-runtime-contract` | core <-> runtime | `RUNTIME_EVENT_TYPES`, `packages/ai-runtime-contract/src/index.ts:113` |
-| `SidechatStreamEvent` (`sidechat.*`) | `chat-protocol` | browser <-> service | `SIDECHAT_EVENT_TYPES`, `packages/chat-protocol/src/sidechat-v1/events/event-union.ts` |
+| Vocabulary                            | Package               | Visible to             | Enum source                                                                            |
+| ------------------------------------- | --------------------- | ---------------------- | -------------------------------------------------------------------------------------- |
+| AI SDK stream part (`TextStreamPart`) | `agent-runtime`       | runtime internals only | AI SDK `ai` package                                                                    |
+| `RuntimeEvent` (`runtime.*`)          | `ai-runtime-contract` | core <-> runtime       | `RUNTIME_EVENT_TYPES`, `packages/ai-runtime-contract/src/index.ts:113`                 |
+| `SidechatStreamEvent` (`sidechat.*`)  | `chat-protocol`       | browser <-> service    | `SIDECHAT_EVENT_TYPES`, `packages/chat-protocol/src/sidechat-v1/events/event-union.ts` |
 
 `RuntimeEvent` and `SidechatStreamEvent` look alike but are different types:
 different enum strings (`runtime.*` vs `sidechat.*`), different id brands, and
@@ -46,14 +46,14 @@ SidechatStreamEvent       (re-validated in the widget)
 WidgetRunState            (UI state, pure reducer)
 ```
 
-| Hop | Function | File |
-|---|---|---|
-| AI SDK part -> `RuntimeEvent` | `mapAiSdkStreamPart` | `packages/agent-runtime/src/runtime/ai-sdk/streaming/stream-part-mapper.ts` |
-| AI SDK tool parts -> activity row | `mapAiSdkToolActivity` | `packages/agent-runtime/src/runtime/ai-sdk/streaming/tool-activity-mapper.ts` |
-| `RuntimeEvent` -> `SidechatStreamEvent` | `mapRuntimeEvent` | `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts:52` |
-| `SidechatStreamEvent` -> SSE text | `encodeSseEvent` | `packages/chat-protocol/src/sidechat-v1/codec/sse-codec.ts` |
-| SSE bytes -> validated event | `decodeChunkedSseStream` | `packages/side-chat-widget/src/entities/conversation/api/sse/side-chat-sse-reader.ts` |
-| event -> `WidgetRunState` | `widgetRunReducer` | `packages/side-chat-widget/src/features/chat/model/run/widget-run-reducer.ts` |
+| Hop                                     | Function                 | File                                                                                       |
+| --------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------ |
+| AI SDK part -> `RuntimeEvent`           | `mapAiSdkStreamPart`     | `packages/agent-runtime/src/runtime/ai-sdk/streaming/stream-part-mapper.ts`                |
+| AI SDK tool parts -> activity row       | `mapAiSdkToolActivity`   | `packages/agent-runtime/src/runtime/ai-sdk/streaming/tool-activity-mapper.ts`              |
+| `RuntimeEvent` -> `SidechatStreamEvent` | `mapRuntimeEvent`        | `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts:52` |
+| `SidechatStreamEvent` -> SSE text       | `encodeSseEvent`         | `packages/chat-protocol/src/sidechat-v1/codec/sse-codec.ts`                                |
+| SSE bytes -> validated event            | `decodeChunkedSseStream` | `packages/side-chat-widget/src/entities/conversation/api/sse/side-chat-sse-reader.ts`      |
+| event -> `WidgetRunState`               | `widgetRunReducer`       | `packages/side-chat-widget/src/features/chat/model/run/widget-run-reducer.ts`              |
 
 Two rules surprise newcomers:
 
@@ -70,14 +70,14 @@ Provider-neutral, internal to the core <-> runtime boundary. Every event carries
 `requestId`, `assistantTurnId`, and `sequence`. Defined in
 `packages/ai-runtime-contract/src/index.ts`.
 
-| `type` | Key fields |
-|---|---|
-| `runtime.started` | `providerId`, `modelId` |
-| `runtime.output_delta` | `content` |
-| `runtime.activity` | `activityId`, `activityKind`, `status`, `title`, `body?`, `details?` |
-| `runtime.completed` | `finishReason`, `usage?` |
-| `runtime.error` | `code`, `message`, `retryable` |
-| `runtime.blocked` | `reason`, `publicMessage` |
+| `type`                 | Key fields                                                           |
+| ---------------------- | -------------------------------------------------------------------- |
+| `runtime.started`      | `providerId`, `modelId`                                              |
+| `runtime.output_delta` | `content`                                                            |
+| `runtime.activity`     | `activityId`, `activityKind`, `status`, `title`, `body?`, `details?` |
+| `runtime.completed`    | `finishReason`, `usage?`                                             |
+| `runtime.error`        | `code`, `message`, `retryable`                                       |
+| `runtime.blocked`      | `reason`, `publicMessage`                                            |
 
 `RuntimeTerminalEvent` = `completed | error | blocked`. Activity kinds are
 `progress`, `reasoning`, `tool`, and `host_command`
@@ -93,15 +93,15 @@ The browser-facing contract. The protocol version literal is `sidechat.v1`
 `protocolVersion`, `eventId`, `assistantTurnId`, `sequence`, and `createdAt`.
 Defined in `packages/chat-protocol/src/sidechat-v1/events/event-union.ts`.
 
-| `type` | Key fields |
-|---|---|
-| `sidechat.started` | `conversationId?` |
-| `sidechat.delta` | `content` |
-| `sidechat.activity` | `activityId`, `activityKind`, `status`, `title`, `body?`, `details?` |
-| `sidechat.completed` | `finishReason`, `usage?` |
-| `sidechat.error` | `code` (`ProtocolErrorCode`), `message`, `retryable` |
-| `sidechat.blocked` | `reason`, `publicMessage` (terminal safety stop) |
-| `sidechat.history` | `messages[]` — **defined but never emitted**; no server code produces it and the widget reducer ignores it (removal or use tracked in `plan/35`) |
+| `type`               | Key fields                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sidechat.started`   | `conversationId?`                                                                                                                                |
+| `sidechat.delta`     | `content`                                                                                                                                        |
+| `sidechat.activity`  | `activityId`, `activityKind`, `status`, `title`, `body?`, `details?`                                                                             |
+| `sidechat.completed` | `finishReason`, `usage?`                                                                                                                         |
+| `sidechat.error`     | `code` (`ProtocolErrorCode`), `message`, `retryable`                                                                                             |
+| `sidechat.blocked`   | `reason`, `publicMessage` (terminal safety stop)                                                                                                 |
+| `sidechat.history`   | `messages[]` — **defined but never emitted**; no server code produces it and the widget reducer ignores it (removal or use tracked in `plan/35`) |
 
 `TerminalEvent` = `completed | error | blocked`; `sidechat.blocked` is a terminal
 safety stop, not a completed answer. `ProtocolErrorCode` (`errors.ts`) is a
@@ -118,10 +118,11 @@ The per-turn stream is Server-Sent Events. Streaming is connection-bound
 [`assistant-turn.md`](./assistant-turn.md) owns the lifecycle and the in-memory
 registry. This doc owns the wire format and validation.
 
-- **Open:** `POST /chat/runs` returns turn identity JSON, then
-  `GET /chat/turns/:assistantTurnId/stream?after=<seq>` opens the SSE stream and
-  replays the per-instance registry from `<seq>`. The widget defaults
-  `after=-1` to replay from `sidechat.started`.
+- **Open:** `POST /chat/runs` streams the turn as SSE on its own response, from
+  `sidechat.started` (sequence 0, carrying the turn identity) to the terminal.
+  `GET /chat/turns/:assistantTurnId/stream?after=<seq>` is the same-instance
+  resume: it replays the per-instance registry from `<seq>` and tails.
+  `after=-1` replays from `sidechat.started`.
 - **Frame format:** one frame per event, `id`/`event`/`data` lines, blank-line
   separated (`encodeSseEvent`, `sse-codec.ts`):
 
@@ -179,13 +180,13 @@ finalization): non-empty, increasing, exactly one terminal, nothing after it.
 Two event families share the word "activity" but ride different streams and
 codecs. Do not conflate them.
 
-| | `sidechat.activity` | `sidechat.turn-activity` |
-|---|---|---|
-| Scope | reasoning/tool/host_command steps **inside one turn** | turn lifecycle **across conversations** |
-| Stream | the per-turn `/chat/turns/:id/stream` | a separate `GET /chat/activity` SSE stream |
-| Purpose | render activity rows in the open chat | the "generating" dot on chats you are not viewing |
-| Part of `SidechatStreamEvent`? | yes | no — own type, no sequence, no terminal |
-| Codec | `sse-codec.ts` | `activity-sse-codec.ts` |
+|                                | `sidechat.activity`                                   | `sidechat.turn-activity`                          |
+| ------------------------------ | ----------------------------------------------------- | ------------------------------------------------- |
+| Scope                          | reasoning/tool/host_command steps **inside one turn** | turn lifecycle **across conversations**           |
+| Stream                         | the per-turn `/chat/turns/:id/stream`                 | a separate `GET /chat/activity` SSE stream        |
+| Purpose                        | render activity rows in the open chat                 | the "generating" dot on chats you are not viewing |
+| Part of `SidechatStreamEvent`? | yes                                                   | no — own type, no sequence, no terminal           |
+| Codec                          | `sse-codec.ts`                                        | `activity-sse-codec.ts`                           |
 
 The cross-conversation stream is already scoped to one (workspace, subject), so
 its wire event carries no scope and never closes on its own — it stays open until

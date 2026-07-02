@@ -321,6 +321,8 @@ describe("partner ai service streaming path", () => {
       body: JSON.stringify(validRequest),
     });
     expect(response.status).toBe(200);
+    // Drain the POST's SSE body so the subscriber releases cleanly.
+    await response.text();
 
     // The completed observation is recorded by the onExit finalizer, after the
     // browser terminal, so poll the captured records until it lands.

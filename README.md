@@ -35,10 +35,10 @@ Four layers. Dependencies point inward; each layer knows only the contract besid
 it. Two contract packages cross the boundaries: `chat-protocol` (browser↔service)
 and `ai-runtime-contract` (core↔runtime).
 
-| Layer   | Packages                          | Role                                                            |
+| Layer   | Packages                          | Role                                                           |
 | ------- | --------------------------------- | -------------------------------------------------------------- |
 | Browser | `side-chat-widget`, `host-bridge` | Render chat; seam to host UI, auth, and commands.              |
-| Service | `apps/partner-ai-service`         | Hono root: routes, SSE transport, server-owned turn runner.   |
+| Service | `apps/partner-ai-service`         | Hono root: routes, SSE transport, server-owned turn runner.    |
 | Core    | `partner-ai-core`                 | Product workflow, policy, `RuntimeEvent` → `sidechat.v1`.      |
 | Runtime | `agent-runtime`                   | Run one prepared turn against a provider; emit `RuntimeEvent`. |
 
@@ -101,13 +101,13 @@ next human maintainer rather than for the model.
 
 ## Tech stack
 
-| Area      | Choices                                                            |
-| --------- | ----------------------------------------------------------------- |
-| Language  | TypeScript (strict), Node 24, Effect v4                           |
-| AI        | AI SDK 6, provider-neutral runtime, tool-calling loop            |
-| Backend   | Hono service, Drizzle ORM, PostgreSQL (`LISTEN/NOTIFY`)          |
-| Frontend  | React 19, TanStack Query, Tailwind, iframe-isolated widget       |
-| Tooling   | oxlint, oxfmt, Vitest, Playwright, testcontainers, custom lints  |
+| Area     | Choices                                                         |
+| -------- | --------------------------------------------------------------- |
+| Language | TypeScript (strict), Node 24, Effect v4                         |
+| AI       | AI SDK 6, provider-neutral runtime, tool-calling loop           |
+| Backend  | Hono service, Drizzle ORM, PostgreSQL (`LISTEN/NOTIFY`)         |
+| Frontend | React 19, TanStack Query, Tailwind, iframe-isolated widget      |
+| Tooling  | oxlint, oxfmt, Vitest, Playwright, testcontainers, custom lints |
 
 ## Run it locally
 
@@ -154,14 +154,14 @@ npx -p node@24.16.0 -p npm@11.15.0 npm run verify
 
 ## Where to read next
 
-| Need                      | Document                                           |
-| ------------------------- | -------------------------------------------------- |
-| Documentation map         | [docs/README.md](docs/README.md)                   |
-| Whole system on one page  | [docs/architecture/system-map.md](docs/architecture/system-map.md) |
-| Assistant turn lifecycle  | [docs/architecture/assistant-turn.md](docs/architecture/assistant-turn.md) |
-| Package boundaries        | [docs/architecture/package-boundaries.md](docs/architecture/package-boundaries.md) |
-| Canonical terms           | [docs/domain/vocabulary.md](docs/domain/vocabulary.md) |
-| Agent rules               | [AGENTS.md](AGENTS.md)                             |
+| Need                     | Document                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| Documentation map        | [docs/README.md](docs/README.md)                                                   |
+| Whole system on one page | [docs/architecture/system-map.md](docs/architecture/system-map.md)                 |
+| Assistant turn lifecycle | [docs/architecture/assistant-turn.md](docs/architecture/assistant-turn.md)         |
+| Package boundaries       | [docs/architecture/package-boundaries.md](docs/architecture/package-boundaries.md) |
+| Canonical terms          | [docs/domain/vocabulary.md](docs/domain/vocabulary.md)                             |
+| Agent rules              | [AGENTS.md](AGENTS.md)                                                             |
 
 ## Maintainer
 

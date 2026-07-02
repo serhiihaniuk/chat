@@ -4,9 +4,9 @@ Status: accepted 2026-07-02
 
 ## Context
 
-A recurring stakeholder question: *"what if we later need a different agent —
+A recurring stakeholder question: _"what if we later need a different agent —
 a Python/LangGraph service, a hosted agent platform, a second engine beside
-the first?"* The fear is that choosing the AI SDK runtime (ADR 0006) closes
+the first?"_ The fear is that choosing the AI SDK runtime (ADR 0006) closes
 that door. It does not — but the escape hatch was implicit in the code and
 invisible in the record. This ADR makes it explicit.
 
@@ -26,12 +26,12 @@ other way to reach a model — the gates forbid core from importing
 
 ## What it buys here
 
-| Capability | How | Without it |
-|---|---|---|
-| **The engine is a plug, not a foundation.** | Core depends only on `ai-runtime-contract`; the shipped AI-SDK engine is one implementation of one method. | "Replace the agent framework" means rewriting product logic. |
-| **Four sized doors for future needs.** | Delegate a task to another agent (a tool — no architecture change) < new provider (one adapter file) < new executor (custom loop, same contract) < whole new engine behind the port — including a remote one in another language. | Every integration question becomes a fork-vs-rewrite debate. |
-| **Everything above the port is engine-agnostic.** | Auth, policy, guards, context admission, persistence, protocol mapping, the widget — none of it changes when the engine does. | Engine migration drags the whole product with it. |
-| **Engines are testable in isolation.** | The contract is small enough to fake: the deterministic scripted engine drives the full product offline today. | Integration tests requiring live agent infrastructure. |
+| Capability                                        | How                                                                                                                                                                                                                               | Without it                                                   |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **The engine is a plug, not a foundation.**       | Core depends only on `ai-runtime-contract`; the shipped AI-SDK engine is one implementation of one method.                                                                                                                        | "Replace the agent framework" means rewriting product logic. |
+| **Four sized doors for future needs.**            | Delegate a task to another agent (a tool — no architecture change) < new provider (one adapter file) < new executor (custom loop, same contract) < whole new engine behind the port — including a remote one in another language. | Every integration question becomes a fork-vs-rewrite debate. |
+| **Everything above the port is engine-agnostic.** | Auth, policy, guards, context admission, persistence, protocol mapping, the widget — none of it changes when the engine does.                                                                                                     | Engine migration drags the whole product with it.            |
+| **Engines are testable in isolation.**            | The contract is small enough to fake: the deterministic scripted engine drives the full product offline today.                                                                                                                    | Integration tests requiring live agent infrastructure.       |
 
 ## Decision
 
@@ -46,7 +46,7 @@ SDK-free, and provider-free; an implementation owes exactly four things:
 
 Integration needs are answered at the **smallest sufficient level**, in order:
 
-- **Level 0 — delegate a task to another agent: a tool.** When the *current*
+- **Level 0 — delegate a task to another agent: a tool.** When the _current_
   orchestrator needs a specialist agent for one bounded task ("analyze this
   contract", "query the fleet-ops agent"), that agent is registered as a
   `RuntimeTool` whose execute calls the agent's API and returns its result.

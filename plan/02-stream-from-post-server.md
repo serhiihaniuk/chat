@@ -1,6 +1,14 @@
 # 02 — Stream from POST /chat/runs (server)
 
-**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 01 | **Status:** todo
+**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 01 | **Status:** done (2026-07-02)
+
+## Delivery notes
+
+- **Identity frame decision:** no new protocol event. `sidechat.started` at sequence 0 already carries everything (`assistantTurnId` on the envelope, `conversationId` on the event, `requestId` known to the caller) — core has always set `conversationId` (`protocol-event-stream.ts:105`). Story 16's completeness surface is unchanged.
+- **Implementation:** `chat-runs.ts` runs pre-start → forks → opens the SSE via the shared `openTurnEventStream` helper (new `routes/chat/turn-stream-response.ts`, also used by the resume GET). `StartedTurn` now carries the real durable `status` + `inserted` (JSON `status: "running"` hardcode deleted). Duplicate `requestId`: replays the existing turn's stream; terminal + swept buffer → `404 replay_expired`.
+- **Tests:** runs-route suite rewritten (SSE contract, identity frame, duplicate replay, disconnect-doesn't-interrupt via drained repo assertions, JSON pre-start errors); test-support `startRun` now reads the started frame and cancels the body (a standing disconnect-safety regression), `runTurnStream` drains the POST; adoption harness single-call; resilience observability test resumes explicitly via GET; OpenAI smoke script single-call. 181 service+harness tests green; full `npm run verify` green.
+- **Docs updated in-patch:** assistant-turn.md (HTTP surface), system-map.md (flow + table), runtime-and-protocol-events.md (transport open), ADR 0007 (landed markers), OpenAPI `/chat/runs` (SSE response).
+- **Known:** the widget still speaks the two-call flow — browser e2e stays red until story 03 (flagged in assistant-turn.md).
 
 ## Problem
 

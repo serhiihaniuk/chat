@@ -11,13 +11,13 @@ browser rendering events it half-understands.
 
 ## What it buys here
 
-| Capability | In this repo | Without it |
-|---|---|---|
-| **One strictly validated contract.** | Hand-written validators whitelist fields per event and reject unknown types and keys; tests prove DB rows, runtime events, and provider parts are rejected; SSE frame/payload cross-checks stop event spoofing. | Duck-typed payloads where a leaked internal object "mostly works" until it doesn't. |
-| **Versioned evolution.** | Every event and request carries `protocolVersion`; sources live under `src/sidechat-v1/`; old clients fail loudly, not weirdly. | Silent breaking changes discovered by users. |
-| **A dependency-free contract package.** | `chat-protocol` depends only on `@side-chat/shared` — no Effect, no React, no zod; safe in any browser bundle. | The contract dragging server dependencies into every consumer. |
-| **Activity as product data.** | The Thinking timeline is driven by `sidechat.activity` events, never provider-native parts or frontend string heuristics. | UI parsing model output with regexes; every provider change breaks the timeline. |
-| **Non-React, non-browser consumers.** | Plain DTOs + SSE codecs; the widget's own reader consumes the same public codec it ships. | A protocol usable only by the bundled widget. |
+| Capability                              | In this repo                                                                                                                                                                                                    | Without it                                                                          |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **One strictly validated contract.**    | Hand-written validators whitelist fields per event and reject unknown types and keys; tests prove DB rows, runtime events, and provider parts are rejected; SSE frame/payload cross-checks stop event spoofing. | Duck-typed payloads where a leaked internal object "mostly works" until it doesn't. |
+| **Versioned evolution.**                | Every event and request carries `protocolVersion`; sources live under `src/sidechat-v1/`; old clients fail loudly, not weirdly.                                                                                 | Silent breaking changes discovered by users.                                        |
+| **A dependency-free contract package.** | `chat-protocol` depends only on `@side-chat/shared` — no Effect, no React, no zod; safe in any browser bundle.                                                                                                  | The contract dragging server dependencies into every consumer.                      |
+| **Activity as product data.**           | The Thinking timeline is driven by `sidechat.activity` events, never provider-native parts or frontend string heuristics.                                                                                       | UI parsing model output with regexes; every provider change breaks the timeline.    |
+| **Non-React, non-browser consumers.**   | Plain DTOs + SSE codecs; the widget's own reader consumes the same public codec it ships.                                                                                                                       | A protocol usable only by the bundled widget.                                       |
 
 ## Decision
 

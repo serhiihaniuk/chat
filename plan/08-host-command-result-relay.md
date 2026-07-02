@@ -4,7 +4,7 @@
 
 ## Problem
 
-A model-called host command pauses the tool loop on an in-memory promise map on the owning instance (`apps/partner-ai-service/src/adapters/host-commands/service-host-command-resolver.ts:29,59-77`, 30 s timeout). The browser posts the result to `POST /chat/turns/:id/host-commands/:commandId/result` (`chat-turns.ts:146-176`) — a separate HTTP request that 404s on any non-owner instance. With stream-from-POST (story 02) the *stream* is owner-attached, but this result POST still round-robins.
+A model-called host command pauses the tool loop on an in-memory promise map on the owning instance (`apps/partner-ai-service/src/adapters/host-commands/service-host-command-resolver.ts:29,59-77`, 30 s timeout). The browser posts the result to `POST /chat/turns/:id/host-commands/:commandId/result` (`chat-turns.ts:146-176`) — a separate HTTP request that 404s on any non-owner instance. With stream-from-POST (story 02) the _stream_ is owner-attached, but this result POST still round-robins.
 
 Secondary issue (single-instance too): the route authorizes the turn id against the caller's workspace but settles by **global commandId alone** — any authenticated caller with any valid turn in their own workspace plus a leaked commandId can settle another workspace's pending command. And subject-scoping is absent (story 20 handles subject scoping broadly).
 

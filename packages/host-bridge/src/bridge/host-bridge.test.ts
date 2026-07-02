@@ -29,7 +29,11 @@ const capabilities: HostCapabilities = {
       inputSchema: { type: "object" },
       resourceTypes: ["document"],
     },
-    { commandName: "highlight_source", description: "Highlight a source.", inputSchema: { type: "object" } },
+    {
+      commandName: "highlight_source",
+      description: "Highlight a source.",
+      inputSchema: { type: "object" },
+    },
   ],
 };
 

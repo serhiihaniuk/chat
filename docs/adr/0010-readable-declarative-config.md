@@ -14,12 +14,12 @@ not by executing config-generating code in their head.
 
 ## What it buys here
 
-| Capability | How | Without it |
-|---|---|---|
-| **A deployment readable in one sitting.** | One file, top to bottom, answers "what does this run": provider, models, tools, policy, budgets, timers. | Behavior reconstructed from env vars, defaults, and helper modules — archaeology. |
-| **Variants you can diff and trust.** | `sidechat.config.ts` vs `sidechat.azure.config.ts` are standalone complete files; a diff between them is the complete difference between deployments. | Inheritance chains where a variant is readable only relative to another file. |
-| **A typed menu, not stringly config.** | Entries are picked from `as const` catalogs (`PROVIDERS`, `TOOLS`, ...) with `satisfies` checks; a typo'd model id fails the build. | `"gpt-5.4-mini"` strings validated at runtime, or never. |
-| **Every env var visible and described.** | `readEnv(key, { description, defaultValue })` declared inline where used; ad-hoc `process.env` fails a gate. | Scattered env reads discovered in incident postmortems. |
+| Capability                                | How                                                                                                                                                   | Without it                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **A deployment readable in one sitting.** | One file, top to bottom, answers "what does this run": provider, models, tools, policy, budgets, timers.                                              | Behavior reconstructed from env vars, defaults, and helper modules — archaeology. |
+| **Variants you can diff and trust.**      | `sidechat.config.ts` vs `sidechat.azure.config.ts` are standalone complete files; a diff between them is the complete difference between deployments. | Inheritance chains where a variant is readable only relative to another file.     |
+| **A typed menu, not stringly config.**    | Entries are picked from `as const` catalogs (`PROVIDERS`, `TOOLS`, ...) with `satisfies` checks; a typo'd model id fails the build.                   | `"gpt-5.4-mini"` strings validated at runtime, or never.                          |
+| **Every env var visible and described.**  | `readEnv(key, { description, defaultValue })` declared inline where used; ad-hoc `process.env` fails a gate.                                          | Scattered env reads discovered in incident postmortems.                           |
 
 ## Decision
 
@@ -28,7 +28,7 @@ reading — **deliberately repetitive, deliberately not abstracted**:
 
 - **One file answers everything.** `apps/partner-ai-service/sidechat.config.ts`
   (`defineSideChatConfig({...}) satisfies SideChatConfig`) declares the entire
-  behavior of one deployment, top to bottom. The config file *is* the
+  behavior of one deployment, top to bottom. The config file _is_ the
   documentation of the deployment.
 - **No config-generating code.** No loops, factories, spreads, or conditionals
   that assemble entries. Every model, tool, and command is spelled out, even

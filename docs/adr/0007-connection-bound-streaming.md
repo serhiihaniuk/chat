@@ -18,12 +18,12 @@ or another tab shows the final message once the turn completes.
 
 ## What it buys here
 
-| Capability | In this repo | With the durable log (measured, then removed) |
-|---|---|---|
-| **Zero DB writes on the streaming hot path.** | Deltas live in a per-instance registry; the 250 ms coalescer caps events at ~4/s per turn; Postgres sees ~15 short queries per whole turn. | A row + a NOTIFY per delta event, per turn, forever — write amplification for a replay feature the product doesn't need. |
-| **A small operational surface.** | No event-log table, no retention pruner, no event fan-out channel to operate; the registry dies with the process by design. | Retention policy, pruning schedules, and log-growth capacity planning as day-one operator duties. |
-| **The claude.ai UX, exactly.** | Active connection streams live; reload/other tabs read the finished message from history; multi-instance serves the *next* turn from the DB. | Cross-instance mid-turn replay — engineering nobody's UX required. |
-| **The guarantees that matter survive.** | Idempotent starts (a real unique constraint), genuine provider abort on cancel, exactly-one-terminal finalization, durable final state. | Same — these never depended on the log. |
+| Capability                                    | In this repo                                                                                                                                 | With the durable log (measured, then removed)                                                                            |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Zero DB writes on the streaming hot path.** | Deltas live in a per-instance registry; the 250 ms coalescer caps events at ~4/s per turn; Postgres sees ~15 short queries per whole turn.   | A row + a NOTIFY per delta event, per turn, forever — write amplification for a replay feature the product doesn't need. |
+| **A small operational surface.**              | No event-log table, no retention pruner, no event fan-out channel to operate; the registry dies with the process by design.                  | Retention policy, pruning schedules, and log-growth capacity planning as day-one operator duties.                        |
+| **The claude.ai UX, exactly.**                | Active connection streams live; reload/other tabs read the finished message from history; multi-instance serves the _next_ turn from the DB. | Cross-instance mid-turn replay — engineering nobody's UX required.                                                       |
+| **The guarantees that matter survive.**       | Idempotent starts (a real unique constraint), genuine provider abort on cancel, exactly-one-terminal finalization, durable final state.      | Same — these never depended on the log.                                                                                  |
 
 ## Decision
 
@@ -34,10 +34,10 @@ Assistant turns are **server-owned and connection-bound**:
 - Postgres remains the source of truth for **final** state: conversations,
   messages, turn records and statuses, usage, cancel intent.
 - The stream is delivered on the connection that starts the turn:
-  `POST /chat/runs` returns the SSE stream directly (decided; today's code
-  still uses the two-call shape — see Consequences). A same-instance resume
-  endpoint may replay the registry; a non-owner instance must fail fast, never
-  hang.
+  `POST /chat/runs` returns the SSE stream directly, with `sidechat.started`
+  at sequence 0 carrying the turn identity (landed via `plan/02`). A
+  same-instance resume endpoint replays the registry; a non-owner instance
+  must fail fast, never hang.
 - Multi-instance works **turn-independently**: any instance serves the next
   turn because context comes from the DB. Sticky routing is not required and
   not wanted.
@@ -51,12 +51,12 @@ Assistant turns are **server-owned and connection-bound**:
 **"We're giving up resumability."** Be precise about what is lost: mid-turn
 replay across instances or restarts. What is kept: same-instance reconnect
 replays the registry; a lost stream converges via a status poll that works on
-*any* instance, then reads the finished answer from history. The user-visible
+_any_ instance, then reads the finished answer from history. The user-visible
 behavior matches claude.ai — brief "reconnecting", then the completed message.
 
 **"How does this scale horizontally?"** Turn-independently: the next turn can
-start on any instance because all context is read from the DB. Only the *live
-stream* is instance-bound, and stream-from-POST makes that binding physical
+start on any instance because all context is read from the DB. Only the _live
+stream_ is instance-bound, and stream-from-POST makes that binding physical
 (the connection that starts the turn is the owner) instead of an LB
 configuration. No sticky routing, no shared event bus.
 
@@ -73,9 +73,10 @@ Accepted losses: no cross-instance or cross-restart replay of an in-flight
 stream; a client that loses its connection waits for the turn to finish and
 reads the result from history.
 
-The code has not fully caught up to this decision. The gaps and their fixes
-are tracked in [`plan/`](../../plan/00-overview.md): stream-from-POST
-(`plan/02`, `plan/03`), fail-fast non-owner resume (`plan/04`), the orphan
-sweep (`plan/05`), and client-side handoff/retry (`plan/06`, `plan/07`).
-Until `plan/02`–`plan/05` land, live streaming is correct on a single
-instance only.
+The code is catching up to this decision; gaps and fixes are tracked in
+[`plan/`](../../plan/00-overview.md). Landed: server-side stream-from-POST
+(`plan/02`). Pending: the widget's move to the single call (`plan/03`),
+fail-fast non-owner resume (`plan/04`), the orphan sweep (`plan/05`), and
+client-side handoff/retry (`plan/06`, `plan/07`). Until `plan/03`–`plan/05`
+land, live streaming is correct on a single instance only and the shipped
+widget still speaks the previous two-call flow.

@@ -126,7 +126,10 @@ const toolDisplayName = (item: WidgetActivityItem): string => {
 };
 
 const humanizeToolName = (name: string): string => {
-  const words = name.trim().split(/[\s_-]+/u).filter(Boolean);
+  const words = name
+    .trim()
+    .split(/[\s_-]+/u)
+    .filter(Boolean);
   if (words.length === 0) return name;
   return words
     .map((word, index) => (index === 0 ? capitalizeWord(word) : word.toLowerCase()))

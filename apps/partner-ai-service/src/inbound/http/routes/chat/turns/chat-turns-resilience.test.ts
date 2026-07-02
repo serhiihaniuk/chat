@@ -99,6 +99,9 @@ describe("resumable lifecycle observability", () => {
     const records: ObservabilityRecord[] = [];
     const harness = createApp({ observability: spySink(records) });
     const started = await runTurnStream(harness.app, runRequest());
+    // Replay telemetry belongs to the resume GET, not the connection-bound POST
+    // stream, so resume the finished turn explicitly.
+    await readTurnStream(harness.app, started.assistantTurnId);
 
     const states = lifecycleStates(records);
     // A completed run replayed over SSE records replay served and run finished.

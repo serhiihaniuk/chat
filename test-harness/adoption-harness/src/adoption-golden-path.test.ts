@@ -47,10 +47,10 @@ describe("golden-path adopter flow", () => {
       requestId: "request_adoption_001",
     });
 
-    // Drive the server-owned streaming path end to end: start the turn, then
-    // replay + tail its durable event log as SSE. The widget transport client is
-    // migrated separately; this harness validates the service flow plus the
-    // widget state projection over the emitted protocol events.
+    // Drive the connection-bound streaming path end to end: one POST starts the
+    // turn and streams it to the terminal on the same response (ADR 0007). The
+    // widget transport client is migrated separately; this harness validates the
+    // service flow plus the widget state projection over the emitted events.
     const events = await runTurnStream(app, request);
     const widgetState = projectEventsIntoWidgetState(
       request.message.id,
@@ -114,10 +114,10 @@ type WidgetProjectedState = {
 const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
 
 /**
- * Start one turn, then replay + tail its durable event log as SSE.
+ * Run one turn over the single connection-bound call.
  *
- * This is the new single streaming path: `POST /chat/runs` to start generation
- * off the request, then `GET /chat/turns/:id/stream?after=-1` to subscribe. The
+ * `POST /chat/runs` starts generation and streams the turn on the same response;
+ * the `sidechat.started` frame at sequence 0 carries the turn identity. The
  * decoded events are exactly what a browser subscriber receives.
  */
 const runTurnStream = async (
@@ -130,14 +130,8 @@ const runTurnStream = async (
     body: JSON.stringify(request),
   });
   expect(runResponse.status).toBe(200);
-  const assistantTurnId = ((await runResponse.json()) as { assistantTurnId: string })
-    .assistantTurnId;
-
-  const streamResponse = await app.request(`/chat/turns/${assistantTurnId}/stream?after=-1`, {
-    headers: AUTH_HEADER,
-  });
-  expect(streamResponse.status).toBe(200);
-  return decodeSseEvents(await streamResponse.text());
+  expect(runResponse.headers.get("content-type")).toContain("text/event-stream");
+  return decodeSseEvents(await runResponse.text());
 };
 
 const projectEventsIntoWidgetState = (

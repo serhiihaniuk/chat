@@ -14,9 +14,9 @@ node scripts/run-local-fake.mjs
 
 This starts two dev servers (provider, database, and Azure options live in [local-development.md](local-development.md)):
 
-| Server | Default origin | Your app proxies it as |
-| --- | --- | --- |
-| Backend service | `http://127.0.0.1:8787` | `/side-chat-api` (strip the prefix) |
+| Server           | Default origin          | Your app proxies it as                             |
+| ---------------- | ----------------------- | -------------------------------------------------- |
+| Backend service  | `http://127.0.0.1:8787` | `/side-chat-api` (strip the prefix)                |
 | Widget UI (Vite) | `http://127.0.0.1:5174` | `/side-chat-frame` (forward unchanged, `ws: true`) |
 
 The launcher prints both targets, the bearer token, and a ready-to-paste iframe `src`. Leave it running while you develop your host app.
@@ -74,38 +74,48 @@ Add a toggle button and the same-origin frame to your page. The widget reads its
 
 Frame `src` query params:
 
-| Param | Value | Effect |
-| --- | --- | --- |
-| `mode` | `local-service` | Talk to the real service through `apiBaseUrl`. |
-| `apiBaseUrl` | `/side-chat-api` | Same-origin API prefix your app proxies. |
-| `openControl` | `host` | Your app owns open/close; the widget defers (`modes.ts:61-64`). |
-| `open` | `false` | Initial visible state. |
-| `workspaceId` | host value | Scopes conversation storage. |
-| `authToken` | dev bearer | Local-only; see the token note below. |
+| Param         | Value            | Effect                                                          |
+| ------------- | ---------------- | --------------------------------------------------------------- |
+| `mode`        | `local-service`  | Talk to the real service through `apiBaseUrl`.                  |
+| `apiBaseUrl`  | `/side-chat-api` | Same-origin API prefix your app proxies.                        |
+| `openControl` | `host`           | Your app owns open/close; the widget defers (`modes.ts:61-64`). |
+| `open`        | `false`          | Initial visible state.                                          |
+| `workspaceId` | host value       | Scopes conversation storage.                                    |
+| `authToken`   | dev bearer       | Local-only; see the token note below.                           |
 
 Dock the button bottom-right and place the iframe above it. The iframe must keep a large fixed viewport because its contents cannot draw outside its rectangle:
 
 ```css
-#side-chat-toggle { position: fixed; right: 16px; bottom: 16px; z-index: 20; }
+#side-chat-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+}
 #side-chat-frame {
-  position: fixed; right: 16px; bottom: 64px; z-index: 10;
+  position: fixed;
+  right: 16px;
+  bottom: 64px;
+  z-index: 10;
   width: min(1200px, calc(100vw - 32px));
   height: min(90vh, calc(100vh - 80px));
   min-height: min(620px, calc(100vh - 80px));
   border: 0;
 }
-#side-chat-frame[hidden] { display: none; }
+#side-chat-frame[hidden] {
+  display: none;
+}
 ```
 
 ## 4. Open/close handshake
 
 Your app owns the visible state and drives the iframe with three `postMessage` types (`harness-app.tsx:16-18`):
 
-| Type | Direction | Meaning |
-| --- | --- | --- |
-| `sidechat.widget.ready` | iframe -> host | Frame mounted; resend current state. |
-| `sidechat.widget.setOpen` | host -> iframe | Set open/closed to match the host button. |
-| `sidechat.widget.openChange` | iframe -> host | Side Chat chrome requested a close. |
+| Type                         | Direction      | Meaning                                   |
+| ---------------------------- | -------------- | ----------------------------------------- |
+| `sidechat.widget.ready`      | iframe -> host | Frame mounted; resend current state.      |
+| `sidechat.widget.setOpen`    | host -> iframe | Set open/closed to match the host button. |
+| `sidechat.widget.openChange` | iframe -> host | Side Chat chrome requested a close.       |
 
 Send `setOpen` on button click, on frame `load`, and on `ready`; listen for `openChange` to follow a close from inside the widget:
 
@@ -115,7 +125,10 @@ const button = document.querySelector<HTMLButtonElement>("#side-chat-toggle");
 let open = false;
 
 const sendOpenState = () => {
-  frame?.contentWindow?.postMessage({ type: "sidechat.widget.setOpen", open }, window.location.origin);
+  frame?.contentWindow?.postMessage(
+    { type: "sidechat.widget.setOpen", open },
+    window.location.origin,
+  );
   if (frame) frame.hidden = !open;
   if (button) {
     button.textContent = open ? "Close assistant" : "Open assistant";
@@ -123,7 +136,10 @@ const sendOpenState = () => {
   }
 };
 
-button?.addEventListener("click", () => { open = !open; sendOpenState(); });
+button?.addEventListener("click", () => {
+  open = !open;
+  sendOpenState();
+});
 frame?.addEventListener("load", sendOpenState);
 window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin) return;

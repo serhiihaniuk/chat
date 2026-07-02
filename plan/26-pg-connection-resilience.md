@@ -19,7 +19,7 @@
 ## Acceptance criteria
 
 - [ ] Killing/restarting local Postgres while the service runs: process survives, logs the drop, reconnects, and a cancel issued after restart still interrupts (container test).
-- [ ] A cancel written *during* the outage is honored after reconnect (durable-intent rescan test).
+- [ ] A cancel written _during_ the outage is honored after reconnect (durable-intent rescan test).
 - [ ] Pool `max`/ssl configurable via `sidechat.config.ts`; defaults unchanged.
 - [ ] No `Effect.promise` remains on any pg connect path (grep).
 

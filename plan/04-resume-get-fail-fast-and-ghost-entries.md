@@ -6,8 +6,8 @@
 
 Three defects in `GET /chat/turns/:id/stream` against a turn this instance doesn't own or that has ended oddly:
 
-1. **Silent hang on non-owner:** the route only fails closed (`replay_expired`) for *terminal* turns (`apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts:97-104`). For a *running* turn with no local registry entry it opens SSE against an empty buffer and hangs forever.
-2. **Ghost entries:** `subscribe` calls `ensureTurn`, creating a permanent empty non-terminal registry entry for any turn this instance doesn't own (`apps/partner-ai-service/src/adapters/persistence/turn-events/in-memory-turn-event-log.ts:92-99`); the sweep only reclaims *terminal* entries (`:49-53`), so these leak for the process lifetime and flip `hasSubscribers` true, misleading the host-command resolver.
+1. **Silent hang on non-owner:** the route only fails closed (`replay_expired`) for _terminal_ turns (`apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts:97-104`). For a _running_ turn with no local registry entry it opens SSE against an empty buffer and hangs forever.
+2. **Ghost entries:** `subscribe` calls `ensureTurn`, creating a permanent empty non-terminal registry entry for any turn this instance doesn't own (`apps/partner-ai-service/src/adapters/persistence/turn-events/in-memory-turn-event-log.ts:92-99`); the sweep only reclaims _terminal_ entries (`:49-53`), so these leak for the process lifetime and flip `hasSubscribers` true, misleading the host-command resolver.
 3. **Terminal turn + `after ≥ maxSequence` hangs:** turn is terminal and buffered, replay filters everything out, no tail will ever come, `takeUntil` never fires — the SSE never closes.
 
 Also: `readReplayOffset` parses `after=` (empty string) as `0`, silently skipping seq 0, and non-numeric values as full replay (`chat-turns.ts:265-269`).

@@ -8,14 +8,15 @@ import {
 import {
   SIDECHAT_EVENT_TYPES,
   SIDECHAT_PROTOCOL_VERSION,
+  decodeSseEvents,
   type ChatStreamRequest,
 } from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
 import { Stream } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createPartnerAiServiceApp } from "../../../app.js";
-import { readTurnStream } from "#testing/turn-stream/turn-stream-harness.test-support";
+import { startRun } from "#testing/turn-stream/turn-stream-harness.test-support";
 
 const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
 
@@ -27,27 +28,14 @@ const runRequest = (overrides: Partial<ChatStreamRequest> = {}): ChatStreamReque
 });
 
 describe("POST /chat/runs", () => {
-  it("accepts a turn, returns its identity as JSON, and runs generation to a completed turn", async () => {
+  it("streams the turn on the POST response: started carries identity, then events to the terminal", async () => {
     const harness = createRouteHarness();
 
     const response = await postRun(harness.app, runRequest());
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
 
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toMatchObject({
-      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-      requestId: "request_runs_route_001",
-      status: "running",
-    });
-    expect(typeof body["assistantTurnId"]).toBe("string");
-    expect(typeof body["conversationId"]).toBe("string");
-
-    // No SSE consumed the run while it generated, yet it finishes server-side and
-    // its events remain replayable from the in-memory registry: subscribing after
-    // the fact replays started..completed before the buffer is swept.
-    const assistantTurnId = body["assistantTurnId"] as string;
-    const events = await readTurnStream(harness.app, assistantTurnId);
+    const events = decodeSseEvents(await response.text());
     expect(events.map((event) => event.type)).toEqual([
       SIDECHAT_EVENT_TYPES.STARTED,
       SIDECHAT_EVENT_TYPES.ACTIVITY,
@@ -55,10 +43,53 @@ describe("POST /chat/runs", () => {
       SIDECHAT_EVENT_TYPES.COMPLETED,
     ]);
 
+    // The started frame at sequence 0 is the turn identity: assistantTurnId on
+    // the envelope, conversationId on the event, requestId known to the caller.
+    const started = events[0];
+    expect(started?.type).toBe(SIDECHAT_EVENT_TYPES.STARTED);
+    expect(started?.sequence).toBe(0);
+    const assistantTurnId = started?.assistantTurnId as string;
+    expect(typeof assistantTurnId).toBe("string");
+    expect(started && "conversationId" in started && started.conversationId).toBeTruthy();
+
     const turn = harness.repositories
       .snapshot()
       .assistantTurns.find((candidate) => candidate.assistantTurnId === assistantTurnId);
     expect(turn?.status).toBe("completed");
+  });
+
+  it("replays the same turn for a repeated requestId without forking a second generation", async () => {
+    const harness = createRouteHarness();
+    const request = runRequest({ requestId: "request_runs_idempotent_001" });
+
+    const first = decodeSseEvents(await (await postRun(harness.app, request)).text());
+    const second = decodeSseEvents(await (await postRun(harness.app, request)).text());
+
+    // One durable turn; the replay streams the identical event sequence from the
+    // registry buffer instead of generating again.
+    expect(harness.repositories.snapshot().assistantTurns).toHaveLength(1);
+    expect(second.map((event) => event.type)).toEqual(first.map((event) => event.type));
+    expect(second[0]?.assistantTurnId).toBe(first[0]?.assistantTurnId);
+  });
+
+  it("keeps generating to a durable terminal when the starting connection disconnects mid-stream", async () => {
+    const harness = createRouteHarness();
+
+    // startRun reads only the started frame and cancels the body — the dropped
+    // subscriber must not interrupt the server-owned generation fiber.
+    const started = await startRun(harness.app, runRequest());
+
+    await vi.waitFor(() => {
+      const turn = harness.repositories
+        .snapshot()
+        .assistantTurns.find((candidate) => candidate.assistantTurnId === started.assistantTurnId);
+      expect(turn?.status).toBe("completed");
+    });
+
+    const messages = harness.repositories
+      .snapshot()
+      .messages.filter((message) => message.conversationId === started.conversationId);
+    expect(messages.some((message) => message.role === "assistant")).toBe(true);
   });
 
   it("rejects a malformed body as a JSON bad-request without opening a run", async () => {
@@ -71,6 +102,7 @@ describe("POST /chat/runs", () => {
     });
 
     expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body["code"]).toBe("bad_request");
     expect(harness.repositories.snapshot().assistantTurns).toHaveLength(0);

@@ -18,13 +18,13 @@ and vendor-neutral.
 
 ## What it buys here
 
-| Capability | How | Without it |
-|---|---|---|
-| **Running the app IS running it with logs.** | Development wires both channels to a pretty console by default; `SIDECHAT_LOG_LEVEL=debug` narrates every event. | A silent console; debugging by adding `console.log` and reverting it. |
-| **Silent failures become log lines.** | LISTEN drops/reconnects, fiber and finalizer failures, config fallback, orphan sweeps all speak through the diagnostic logger. | The review's failure class: a deaf listener or stranded turn with zero trace. |
-| **Secret-safe by construction.** | Payload stripping + recursive key redaction run before any sink or logger sees data; no level or flag can reveal prompts. | One verbose flag away from prompts in log aggregators. |
-| **Vendor-neutral telemetry.** | One sink port; console/OTel/Datadog are adapters an adopter writes in a few lines (`Effect.sync`/`tryPromise`). | An APM SDK welded into a template. |
-| **A broken sink can't break chat.** | Fail-open on both channels (`plan/27`). | Telemetry outages becoming product outages. |
+| Capability                                   | How                                                                                                                            | Without it                                                                    |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| **Running the app IS running it with logs.** | Development wires both channels to a pretty console by default; `SIDECHAT_LOG_LEVEL=debug` narrates every event.               | A silent console; debugging by adding `console.log` and reverting it.         |
+| **Silent failures become log lines.**        | LISTEN drops/reconnects, fiber and finalizer failures, config fallback, orphan sweeps all speak through the diagnostic logger. | The review's failure class: a deaf listener or stranded turn with zero trace. |
+| **Secret-safe by construction.**             | Payload stripping + recursive key redaction run before any sink or logger sees data; no level or flag can reveal prompts.      | One verbose flag away from prompts in log aggregators.                        |
+| **Vendor-neutral telemetry.**                | One sink port; console/OTel/Datadog are adapters an adopter writes in a few lines (`Effect.sync`/`tryPromise`).                | An APM SDK welded into a template.                                            |
+| **A broken sink can't break chat.**          | Fail-open on both channels (`plan/27`).                                                                                        | Telemetry outages becoming product outages.                                   |
 
 ## Decision
 

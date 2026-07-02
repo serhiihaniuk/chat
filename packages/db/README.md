@@ -22,7 +22,7 @@ Not source of truth for: product workflow or protocol events.
   `LISTEN` connection per channel, opened outside the query pool, bridges
   notifications into the service through the
   `createPostgresTurn{Cancel,Activity}NotificationSource` factories (with NOOP
-  variants for memory/local paths). Live turn *events* do not flow through this
+  variants for memory/local paths). Live turn _events_ do not flow through this
   package — they live in the service's in-memory registry
   ([ADR 0007](../../docs/adr/0007-connection-bound-streaming.md)).
 - Drizzle/Postgres schema, the postgres-drizzle adapter, and memory

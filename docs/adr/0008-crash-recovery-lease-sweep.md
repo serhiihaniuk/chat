@@ -20,19 +20,19 @@ and reconnecting clients hang.
 
 ## What it buys here
 
-| Guarantee | How | Without it |
-|---|---|---|
-| **A crash cannot poison the next turn.** | Any surviving instance terminalizes the orphan; the `requestId` becomes retryable, `activeTurn` and the activity dot clear. | Stranded `running` rows block retries and light dots forever — today's state until `plan/05`. |
-| **No split brain, ever.** | The lease carries an epoch; a reaped-then-awakened zombie owner's next heartbeat renew matches zero rows → it self-interrupts. Two instances can never both finish one turn. | A GC-paused owner waking up and double-answering. |
-| **No leader election.** | The sweep uses CAS + `FOR UPDATE SKIP LOCKED`; every instance runs it concurrently with disjoint claims. | A coordinator service — new infrastructure for a background loop. |
-| **Clients converge without knowing anything.** | The widget's fallback polls `GET /chat/turns/:id` — a plain DB read valid on any instance — then hands off to history. | Permanent spinners and locked composers. |
-| **Honest terminals.** | The sweep classifies from durable evidence: cancel intent → `user_aborted`, else `provider_failed`; the reap emits the activity NOTIFY so dots clear live. | Every crash reported as a generic mystery. |
+| Guarantee                                      | How                                                                                                                                                                          | Without it                                                                                    |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **A crash cannot poison the next turn.**       | Any surviving instance terminalizes the orphan; the `requestId` becomes retryable, `activeTurn` and the activity dot clear.                                                  | Stranded `running` rows block retries and light dots forever — today's state until `plan/05`. |
+| **No split brain, ever.**                      | The lease carries an epoch; a reaped-then-awakened zombie owner's next heartbeat renew matches zero rows → it self-interrupts. Two instances can never both finish one turn. | A GC-paused owner waking up and double-answering.                                             |
+| **No leader election.**                        | The sweep uses CAS + `FOR UPDATE SKIP LOCKED`; every instance runs it concurrently with disjoint claims.                                                                     | A coordinator service — new infrastructure for a background loop.                             |
+| **Clients converge without knowing anything.** | The widget's fallback polls `GET /chat/turns/:id` — a plain DB read valid on any instance — then hands off to history.                                                       | Permanent spinners and locked composers.                                                      |
+| **Honest terminals.**                          | The sweep classifies from durable evidence: cancel intent → `user_aborted`, else `provider_failed`; the reap emits the activity NOTIFY so dots clear live.                   | Every crash reported as a generic mystery.                                                    |
 
 ## Decision
 
 **The principle:** any guarantee that must survive a crash is anchored in
 Postgres; in-memory state is only ever a latency optimization; recovery is
-always *another process noticing durable breadcrumbs* — never the dying
+always _another process noticing durable breadcrumbs_ — never the dying
 process cleaning up after itself.
 
 **The mechanism, in layers:**
@@ -65,7 +65,7 @@ tunable via `leaseTtl` / `reaperInterval` in `sidechat.config.ts`.
 
 - **Relying on `onExit` alone** — the category error this ADR exists to
   prevent: finalizers cannot run in a process that no longer exists.
-- **A durable event log / generation checkpointing** — resumes the *answer*,
+- **A durable event log / generation checkpointing** — resumes the _answer_,
   not just the state; built once and removed as too heavy (ADR 0007). The
   user re-asking is the accepted trade.
 - **A durable-execution/workflow engine** — real crash-resume, at the cost of

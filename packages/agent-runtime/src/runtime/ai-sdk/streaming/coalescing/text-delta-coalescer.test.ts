@@ -43,7 +43,9 @@ describe("coalesceTextDeltaParts", () => {
   });
 
   it("flushes buffered text at stream end", async () => {
-    const out = await collect(coalesceTextDeltaParts(streamOf([text("a"), text("b"), text("c")]), 250));
+    const out = await collect(
+      coalesceTextDeltaParts(streamOf([text("a"), text("b"), text("c")]), 250),
+    );
     expect(out).toEqual([text("abc")]);
   });
 

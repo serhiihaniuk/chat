@@ -12,11 +12,11 @@ production by adopters as if it were guidance.
 
 ## What it buys here
 
-| Capability | In this repo | Without it |
-|---|---|---|
-| **A clear product boundary.** | Side Chat owns widget, protocol, service, runtime, persistence; partners own host surfaces, auth, data, workflows. The only "host" in the repo is a contract plus fixtures. | The framework grows a favorite child; APIs bend toward the demo instead of the adopter. |
-| **Executable, honest examples.** | The widget harness is explicitly a fixture: demo host panel, fake bridge, and `workbench-embed.html` — a complete, origin-checked postMessage embedding that doubles as adopter documentation. | Demo-app code cargo-culted into production; example and product indistinguishable. |
-| **Fail-closed demo capabilities.** | Mock/local capabilities (fake provider, mock tools, seeded chats) fail outside explicit local profiles. | Demo backdoors riding into production configs. |
+| Capability                         | In this repo                                                                                                                                                                                   | Without it                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **A clear product boundary.**      | Side Chat owns widget, protocol, service, runtime, persistence; partners own host surfaces, auth, data, workflows. The only "host" in the repo is a contract plus fixtures.                    | The framework grows a favorite child; APIs bend toward the demo instead of the adopter. |
+| **Executable, honest examples.**   | The widget harness is explicitly a fixture: demo host panel, fake bridge, and `workbench-embed.html` — a complete, origin-checked postMessage embedding that doubles as adopter documentation. | Demo-app code cargo-culted into production; example and product indistinguishable.      |
+| **Fail-closed demo capabilities.** | Mock/local capabilities (fake provider, mock tools, seeded chats) fail outside explicit local profiles.                                                                                        | Demo backdoors riding into production configs.                                          |
 
 ## Decision
 
