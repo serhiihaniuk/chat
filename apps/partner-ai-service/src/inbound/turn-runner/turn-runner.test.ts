@@ -283,9 +283,6 @@ const FAST_LEASE: ResumabilityConfig = {
   heartbeatIntervalMs: 20,
   reaperIntervalMs: 1_000,
   reaperBatchLimit: 50,
-  turnEventRetentionMs: 60_000,
-  prunerIntervalMs: 1_000,
-  prunerBatchLimit: 100,
 };
 
 const completedRuntime = (runtimeRequests: AiRuntimeRequest[]): AiRuntimePort => ({

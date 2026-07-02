@@ -32,8 +32,6 @@ export const SERVICE_ENV_KEYS = {
   heartbeatIntervalMs: "SIDECHAT_HEARTBEAT_INTERVAL_MS",
   reaperIntervalMs: "SIDECHAT_REAPER_INTERVAL_MS",
   reaperBatchLimit: "SIDECHAT_REAPER_BATCH_LIMIT",
-  turnEventRetentionMs: "SIDECHAT_TURN_EVENT_RETENTION_MS",
-  prunerIntervalMs: "SIDECHAT_PRUNER_INTERVAL_MS",
   outputDeltaFlushIntervalMs: "SIDECHAT_OUTPUT_DELTA_FLUSH_MS",
   provider: "SIDECHAT_PROVIDER",
   enableDevTools: "SIDECHAT_ENABLE_DEV_TOOLS",

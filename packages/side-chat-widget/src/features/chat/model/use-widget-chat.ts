@@ -206,7 +206,7 @@ const isRunVisibleFor = (
   selectedConversationId: string | undefined,
 ): boolean => runConversationId === undefined || runConversationId === selectedConversationId;
 
-// On replay_expired the durable log is gone: drop the live-run guard so history
+// On replay_expired the stream buffer is gone: drop the live-run guard so history
 // reloads, and adopt the conversation id so the right transcript is shown.
 const useReplayExpiredHandler = (
   streamOwnedConversationRef: { current: string | undefined },

@@ -23,7 +23,7 @@ export type { TurnLeaseSettings } from "./lease/turn-lease-heartbeat.js";
  * This is the core half of the server-owned runner: the service forks this
  * Effect into its own scope (never the HTTP request) and the turn then runs to
  * completion regardless of whether any browser is connected. Each post-start
- * `SidechatStreamEvent` is appended to the durable event log as it is emitted;
+ * `SidechatStreamEvent` is appended to the turn event log as it is emitted;
  * the adapter signals subscribers on commit.
  *
  * Finalization is owned here through `Effect.onExit` so it runs on success,
@@ -56,7 +56,7 @@ export const runTurnGeneration = (
   });
 
 /**
- * Drain the post-start protocol stream into the durable event log.
+ * Drain the post-start protocol stream into the turn event log.
  *
  * The stream itself already records each emitted event into the shared
  * accumulator, so this stage only persists. An append failure surfaces as a

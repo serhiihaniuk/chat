@@ -216,19 +216,10 @@ const sideChatAzureConfig = defineSideChatConfig({
       description:
         "Max running turns one reaper sweep terminalizes, so a backlog drains gradually.",
     }),
-    turnEventRetention: readEnv.number(SERVICE_ENV_KEYS.turnEventRetentionMs, {
-      defaultValue: RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
-      description:
-        "How long (ms) a terminal turn keeps its turn_events after completion before pruning.",
-    }),
-    prunerInterval: readEnv.number(SERVICE_ENV_KEYS.prunerIntervalMs, {
-      defaultValue: RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
-      description: "How often (ms) this instance prunes turn_events of long-terminal turns.",
-    }),
     outputDeltaFlushInterval: readEnv.number(SERVICE_ENV_KEYS.outputDeltaFlushIntervalMs, {
       defaultValue: RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,
       description:
-        "Window (ms) to batch streamed text into one turn_events row; lower is smoother, higher writes less.",
+        "Window (ms) to coalesce streamed text into one delta event; lower is smoother, higher emits fewer events.",
     }),
   },
 } satisfies SideChatConfig);

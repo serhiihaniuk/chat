@@ -1,6 +1,16 @@
 # 10 — Post-implementation docs delta + dead knobs + stale code comments
 
-**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 02–09 | **Status:** todo (scope reduced 2026-07-02)
+**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 02–09 | **Status:** done (2026-07-02)
+
+## Delivery notes
+
+- **Dead knobs deleted end-to-end:** `turnEventRetention` + `prunerInterval` config entries (all three config files), `SIDECHAT_TURN_EVENT_RETENTION_MS`/`SIDECHAT_PRUNER_INTERVAL_MS` env keys, `TURN_EVENT_RETENTION_MS`/`PRUNER_INTERVAL_MS`/`PRUNER_BATCH_LIMIT` catalog defaults, the `ResumabilityConfig`/`Options`/`SideChatResumabilityConfig` fields, both resolvers (readable-config + legacy env), and every test reference. `reaperInterval`/`reaperBatchLimit` stayed (live since `plan/05`). configuration.md's resumability row no longer flags a known gap.
+- **Stale-comment purge:** every `turn_events`/`durable log`/`pruner` mention in prod code is now either rewritten to the registry model (routes, subscription stream, resolvers, widget client comments, core drain docs) or an explicitly historical reference to the deleted design (the registry's terminal-guard comment, composition's "no durable log" contrast). The docs-app glossary's flat-wrong "durable turn-event log is the source of truth" entry was replaced with a turn-event-registry entry.
+- **Docs delta (tasks 3–4):** already landed incrementally with stories 02–09 (assistant-turn HTTP table, transport docs, OpenAPI additions per story) — verified current; nothing further needed.
+- **Capacity note (task 5):** new `docs/operations/capacity-and-deployment.md` — instance model, 3 dedicated LISTEN connections per instance, SSE budgets + the 30 s silent host-command pause vs proxy idle timeouts (until `plan/17`), the grows-forever table with the ~3.6 M rows/yr math, and the deliberate non-persistence of tool/activity detail (`tool_invocations` reserved, owner decision). Indexed in docs/README.
+- **Clean script (task 6):** `npm run clean` (`scripts/clean-dist.mjs`) removes all workspace dist/tsbuildinfo; ran it + rebuilt — the stale `turn-pruner.d.ts` ghosts are gone; dist is gitignored so nothing was ever tracked.
+- **Out of scope, flagged as a chip:** seven `apps/docs` (Fumadocs showcase) content pages still describe the durable-log design — a full content rewrite spun off as its own task.
+- Acceptance greps clean: `turn_events` appears only in ADRs/plan/generated-schema; the comment grep returns only true statements; verify green.
 
 ## Scope change
 

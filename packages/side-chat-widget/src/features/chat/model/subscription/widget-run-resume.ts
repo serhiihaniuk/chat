@@ -41,10 +41,10 @@ const isResumableRun = (run: WidgetRunState): boolean =>
  * The marker holds only identity, so the view is rebuilt: a turn that already
  * finished server-side is left to history (resuming it would duplicate the
  * bubble), otherwise conversation history (the prompt + prior turns) is loaded,
- * the run is seeded with it plus a fresh pending assistant bubble, and the durable
- * log is replayed from the start (after = -1) so the in-flight answer streams back
- * into that bubble. The store-empty re-checks guard against a concurrent reconnect
- * seeding first.
+ * the run is seeded with it plus a fresh pending assistant bubble, and the
+ * buffered stream is replayed from the start (after = -1) so the in-flight answer
+ * streams back into that bubble. The store-empty re-checks guard against a
+ * concurrent reconnect seeding first.
  */
 export const resumeRunFromMarker = async (
   context: RunLifecycleContext,
@@ -130,7 +130,7 @@ export type ResumeFromActiveTurnInput = {
  * This is the marker-independent resume path: the server itself says a turn is
  * still running for the conversation, so it works on a fresh device or when the
  * persisted marker is missing/stale. The loaded transcript (seedMessages) plus a
- * fresh pending bubble is seeded, then the durable log is replayed from the start
+ * fresh pending bubble is seeded, then the buffered stream is replayed from the start
  * (after = -1) into that bubble. `activeTurn` is only present while running, so the
  * transcript never already contains this turn's answer — no duplicate bubble. The
  * caller guards against an already-tracked run before calling this.

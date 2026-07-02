@@ -71,7 +71,7 @@ export const createProtocolStreamRefs = (
  * Build the browser-facing post-start stream from already-allocated refs.
  *
  * The runner allocates the refs with `createProtocolStreamRefs`, drains this
- * stream into the durable event log, and finalizes against the same accumulator in
+ * stream into the turn event log, and finalizes against the same accumulator in
  * its `onExit`. From this point on runtime failures become terminal protocol
  * events, so the SSE contract stays stable: after `sidechat.started`, a consumer
  * sees exactly one `sidechat.completed` or `sidechat.error`. The stream is

@@ -325,12 +325,12 @@ export const glossary: readonly GlossaryTerm[] = [
     match: ["turn runner"],
   },
   {
-    id: "durable-turn-event-log",
-    term: "Durable turn-event log",
-    definition: "Append-only, per-turn ordered log; the source of truth for a turn's events. The browser only subscribes.",
+    id: "turn-event-registry",
+    term: "Turn-event registry",
+    definition: "Per-instance in-memory buffer of a live turn's events; the only live transport. Final state lives in the DB.",
     category: "turn",
-    code: "packages/db/src/drizzle/schema.ts (turn_events)",
-    match: ["durable turn-event log", "turn-event log"],
+    code: "apps/partner-ai-service/src/adapters/persistence/turn-events/in-memory-turn-event-log.ts",
+    match: ["turn-event registry", "turn event registry", "in-memory registry"],
   },
   {
     id: "replay-offset",
@@ -631,7 +631,7 @@ export const glossary: readonly GlossaryTerm[] = [
   {
     id: "db",
     term: "packages/db",
-    definition: "The only home for pg and drizzle-orm; owns turn_events and persistence.",
+    definition: "The only home for pg and drizzle-orm; owns the schema contract and persistence.",
     category: "packages",
     code: "packages/db/",
   },

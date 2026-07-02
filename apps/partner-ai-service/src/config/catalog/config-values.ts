@@ -87,13 +87,6 @@ export const DEFAULT_TOOL_POLICY = {
  * an instance sweeps expired-lease running turns. `REAPER_BATCH_LIMIT` bounds one
  * sweep so a backlog drains over several passes instead of one large transaction.
  *
- * The retention tunables keep the durable `turn_events` log from growing without
- * bound. `TURN_EVENT_RETENTION_MS` is how long a terminal turn keeps its event
- * rows after `completed_at` before the pruner deletes them (the consolidated turn
- * record and assistant message stay); `PRUNER_INTERVAL_MS` is the sweep cadence;
- * `PRUNER_BATCH_LIMIT` bounds one sweep so a backlog drains over several passes.
- * Retention defaults to a day so a normal reconnect still replays from the log and
- * only long-abandoned turns fall back to conversation history.
  */
 export const RESUMABILITY_DEFAULTS = {
   SAFETY_POLL_INTERVAL_MS: 2_000,
@@ -101,9 +94,6 @@ export const RESUMABILITY_DEFAULTS = {
   HEARTBEAT_INTERVAL_MS: 10_000,
   REAPER_INTERVAL_MS: 15_000,
   REAPER_BATCH_LIMIT: 100,
-  TURN_EVENT_RETENTION_MS: 86_400_000,
-  PRUNER_INTERVAL_MS: 3_600_000,
-  PRUNER_BATCH_LIMIT: 100,
   OUTPUT_DELTA_FLUSH_INTERVAL_MS: 250,
 } as const;
 

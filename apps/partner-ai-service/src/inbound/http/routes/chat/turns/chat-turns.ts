@@ -45,7 +45,7 @@ export type ChatTurnRouteDependencies = {
  * Register the turn-scoped read routes: resolve, status, and live stream.
  *
  * These are the subscribe half of the resumable transport. Generation is started
- * by `POST /chat/runs`; everything here only reads the durable log and live
+ * by `POST /chat/runs`; everything here only reads the registry's buffer and live
  * fan-out, scoped to the caller's workspace so an id is never a bearer capability.
  */
 export const registerChatTurnRoutes = (
@@ -80,7 +80,7 @@ export const registerChatTurnRoutes = (
     });
   });
 
-  // Replay + tail the durable event log as SSE.
+  // Replay + tail the registry buffer as SSE.
   app.get("/chat/turns/:assistantTurnId/stream", async (context) => {
     const authContext = requireContextAuth(context.get("authContext"));
     const turn = await loadWorkspaceTurn(

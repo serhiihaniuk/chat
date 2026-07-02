@@ -30,13 +30,13 @@ export type TurnSubscriptionDependencies = {
 };
 
 /**
- * Build one subscriber's replay-plus-tail stream over the durable turn-event log.
+ * Build one subscriber's replay-plus-tail stream over the in-memory registry.
  *
  * This is the single live transport the SSE route serves. It follows the
  * resumability contract exactly:
  *
  * 1. register with the dispatcher first, so no fan-out is missed during replay;
- * 2. replay `readEventsAfter(after)` from the durable log, tracking the high
+ * 2. replay `readEventsAfter(after)` from the registry buffer, tracking the high
  *    sequence already emitted;
  * 3. tail live events — dispatcher fan-out plus a low-frequency safety poll —
  *    through a DENSE gate: only `maxEmitted + 1` is emitted directly, a gap
@@ -45,7 +45,7 @@ export type TurnSubscriptionDependencies = {
  * 4. end at the first terminal event (`takeUntil(isTerminal)`).
  *
  * A turn that is already terminal in the log replays its terminal and ends at
- * step 4 without ever needing the tail. The durable log is the source of truth;
+ * step 4 without ever needing the tail. The registry buffer is the source of truth;
  * the dispatcher and poll only decide *when* to read. `Stream.unwrap` runs the
  * builder in the stream's own scope, so the result has no service requirements
  * and the route converts it straight to a `ReadableStream`.
@@ -127,7 +127,7 @@ const gatedReplayStream = (
 /**
  * Tail live events from the dispatcher fan-out plus the safety poll.
  *
- * Both sources feed one DENSE gate, so the durable log stays the source of
+ * Both sources feed one DENSE gate, so the registry buffer stays the source of
  * truth: the fan-out makes delivery low-latency, and the poll is the
  * missed-notify backstop. The gate is applied by the single consuming fiber, so
  * an event arriving on both paths is emitted exactly once, and a dropped
@@ -149,7 +149,7 @@ const tailLiveEvents = (
 };
 
 /**
- * Periodically re-read the durable log as a missed-notify backstop.
+ * Periodically re-read the registry buffer as a missed-signal backstop.
  *
  * Each tick reads everything after the current high-water mark and flattens it
  * into the live stream, where the shared gate drops anything already emitted. This

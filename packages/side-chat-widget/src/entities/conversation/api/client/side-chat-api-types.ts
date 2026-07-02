@@ -79,7 +79,7 @@ export type SubscribeTurnOptions = {
  * The async iterable yields validated `sidechat.v1` events in sequence. It may
  * still fail while being consumed if the server sends malformed frames, omits a
  * terminal event, or the caller aborts the request. A stream that cannot replay
- * (the durable log was pruned, or the turn is gone) is reported as a
+ * (the stream buffer was swept, or the turn is gone) is reported as a
  * `replay_expired` `SideChatApiError` before any event is yielded.
  */
 export type SubscribeTurnResult = {

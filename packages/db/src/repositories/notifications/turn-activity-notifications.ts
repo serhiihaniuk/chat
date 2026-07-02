@@ -6,9 +6,9 @@ import { Stream } from "effect";
  * Carries the full scope so the dispatcher can fan out by `(workspaceId,
  * subjectId)` and forward `{ conversationId, assistantTurnId, status }` to clients
  * without a per-signal read. `status` is the assistant turn status — `running`
- * means generating; any other value is terminal. Unlike the durable `turn_events`
- * log, there is no replay: initial state comes from a snapshot on connect, so a
- * dropped signal self-corrects on the next transition or reconnect.
+ * means generating; any other value is terminal. Unlike the turn stream, there
+ * is no replay: initial state comes from a snapshot on connect, so a dropped
+ * signal self-corrects on the next transition or reconnect.
  */
 export type TurnActivityNotification = {
   readonly workspaceId: string;

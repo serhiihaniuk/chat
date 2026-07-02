@@ -189,7 +189,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   // The activity dispatcher fans subject-scoped turn lifecycle out to the
   // `/chat/activity` SSE subscribers, so the sidebar shows a live "generating" dot
   // on every conversation with an in-flight turn. The notification carries the
-  // full event, so this never reads the durable log.
+  // full event, so no persistence read is needed per signal.
   const activityDispatcher = createTurnActivityDispatcher({
     notificationSource: createActivityNotificationSource(persistence.persistence),
   });

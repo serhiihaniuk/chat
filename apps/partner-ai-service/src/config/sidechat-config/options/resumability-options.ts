@@ -7,9 +7,8 @@ import type { ServiceEnv, SideChatConfig } from "../types.js";
  * Resolve the resumability tunables from the readable config's env references.
  *
  * Mirrors the legacy env parser's resolver: the same catalog defaults feed the
- * runner lease, reaper, subscriber poll, and turn_events retention/pruning. The
- * pruner batch size stays a catalog constant (not env-tunable); everything else is
- * an env reference declared in `sidechat.config.ts`.
+ * runner lease, reaper, and subscriber poll. Every knob is an env reference
+ * declared in `sidechat.config.ts`.
  */
 export const createResumabilityConfig = (
   config: SideChatConfig,
@@ -33,11 +32,5 @@ export const createResumabilityConfig = (
     ),
     reaperIntervalMs: num(resumability.reaperInterval, RESUMABILITY_DEFAULTS.REAPER_INTERVAL_MS),
     reaperBatchLimit: num(resumability.reaperBatchLimit, RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT),
-    turnEventRetentionMs: num(
-      resumability.turnEventRetention,
-      RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
-    ),
-    prunerIntervalMs: num(resumability.prunerInterval, RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS),
-    prunerBatchLimit: RESUMABILITY_DEFAULTS.PRUNER_BATCH_LIMIT,
   };
 };

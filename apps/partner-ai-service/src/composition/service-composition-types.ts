@@ -45,20 +45,14 @@ export type PersistenceConfig =
  * Operator tunables for resumable streaming, resolved through config (not literals).
  *
  * `safetyPollIntervalMs` is the per-subscriber reconcile cadence: a low-frequency
- * backstop that re-reads the durable log so a missed Postgres `NOTIFY` (or a
+ * backstop that re-reads the in-memory registry so a missed fan-out offer (or a
  * listener reconnect) still advances a live subscriber.
  *
  * The lease fields drive owner-lease fencing: `instanceId` identifies this
  * process as a lease owner; `leaseTtlMs`/`heartbeatIntervalMs` size the lease
  * window and the renew cadence under it; `reaperIntervalMs`/`reaperBatchLimit` are
- * how often this instance sweeps expired-lease running turns and how many it
- * terminalizes per pass to fence dead or slow owners.
- *
- * The retention fields drive `turn_events` pruning: `turnEventRetentionMs` is how
- * long a terminal turn keeps its event rows after completion, `prunerIntervalMs`
- * is the sweep cadence, and `prunerBatchLimit` bounds one sweep so a backlog
- * drains over several passes. The turn record and assistant message are never
- * pruned — only the now-redundant event log.
+ * how often this instance sweeps dead-owner running turns and how many it
+ * terminalizes per pass to fence dead or slow owners (ADR 0008).
  */
 export type ResumabilityConfig = {
   readonly safetyPollIntervalMs: number;
@@ -67,9 +61,6 @@ export type ResumabilityConfig = {
   readonly heartbeatIntervalMs: number;
   readonly reaperIntervalMs: number;
   readonly reaperBatchLimit: number;
-  readonly turnEventRetentionMs: number;
-  readonly prunerIntervalMs: number;
-  readonly prunerBatchLimit: number;
 };
 
 /**
@@ -87,9 +78,6 @@ export type ResumabilityOptions = {
   readonly heartbeatIntervalMs?: number | undefined;
   readonly reaperIntervalMs?: number | undefined;
   readonly reaperBatchLimit?: number | undefined;
-  readonly turnEventRetentionMs?: number | undefined;
-  readonly prunerIntervalMs?: number | undefined;
-  readonly prunerBatchLimit?: number | undefined;
 };
 
 export type RuntimeModelMetadata = {

@@ -23,8 +23,8 @@ const REPLAY_EXPIRED_STATUS = 404;
 /**
  * Return the transport-level `replay_expired` JSON error before opening SSE.
  *
- * Emitted when a turn's durable log has been pruned past the requested replay
- * offset. The status is 404 because the widget's stream client maps a 404 stream
+ * Emitted when a finished turn's stream buffer has been swept from the
+ * registry. The status is 404 because the widget's stream client maps a 404 stream
  * open to `replay_expired` and falls back to conversation history; the distinct
  * `code` lets operators tell a pruned-log replay from a genuine unknown turn.
  */

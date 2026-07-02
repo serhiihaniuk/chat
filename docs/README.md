@@ -24,7 +24,7 @@ Pick a reading path by your skill level, then follow the ownership table.
 
 **Embedding or operating** — adopt, run, or extend Side Chat:
 
-- [operations/](operations/): [verification.md](operations/verification.md), [local-development.md](operations/local-development.md), [configuration.md](operations/configuration.md), [database.md](operations/database.md), [embed-widget-iframe.md](operations/embed-widget-iframe.md).
+- [operations/](operations/): [verification.md](operations/verification.md), [local-development.md](operations/local-development.md), [configuration.md](operations/configuration.md), [capacity-and-deployment.md](operations/capacity-and-deployment.md), [database.md](operations/database.md), [embed-widget-iframe.md](operations/embed-widget-iframe.md).
 - [architecture/extension-seams.md](architecture/extension-seams.md): the seams for tools, guards, executors, observability, and host commands.
 - [architecture/host-commands.md](architecture/host-commands.md): the end-to-end walkthrough for adding a host-side tool (host command), with a runnable example.
 
@@ -47,6 +47,7 @@ Each file below owns its topic. Link to it; never re-derive its content elsewher
 | [operations/verification.md](operations/verification.md)                                   | Gate commands and what each proves.                                              |
 | [operations/local-development.md](operations/local-development.md)                         | Running the service and harnesses locally.                                       |
 | [operations/configuration.md](operations/configuration.md)                                 | The typed `sidechat.config.ts` and its tunables.                                 |
+| [operations/capacity-and-deployment.md](operations/capacity-and-deployment.md)             | Instance model, SSE budgets, and what grows forever.                             |
 | [operations/database.md](operations/database.md)                                           | Schema tooling, migrations, and role grants.                                     |
 | [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md)                     | Embedding the widget in a host page via iframe.                                  |
 | [product/requirements.md](product/requirements.md)                                         | Functional, quality, safety, and adoption requirements.                          |

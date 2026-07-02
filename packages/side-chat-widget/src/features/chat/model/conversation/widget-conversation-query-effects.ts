@@ -76,7 +76,7 @@ export const useConversationHistoryMessages = ({
  *
  * `activeTurn` is the authoritative, marker-independent resume signal: when a
  * history read says a turn is still running, reconnect to it (seed the loaded
- * transcript + replay the durable log). This covers a fresh device or a missing/
+ * transcript + replay the buffered stream). This covers a fresh device or a missing/
  * stale local marker. The controller no-ops when a run is already tracked, so this
  * never competes with the marker resume or an in-session stream.
  */

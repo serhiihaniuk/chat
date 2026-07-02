@@ -1,13 +1,13 @@
 import type { SideChatNumberEnvReference, SideChatStringEnvReference } from "../env-references.js";
 
 /**
- * Operator tunables for resumable streaming, as readable-config env references.
+ * Operator tunables for connection-bound streaming, as readable-config env references.
  *
- * Deployment knobs, not assistant behavior: a missed-NOTIFY reconcile poll, the
- * owner-lease/heartbeat/reaper fencing knobs, and the turn_events retention/pruning
- * knobs. Each field's runtime meaning is documented on `ResumabilityConfig` in
- * service-composition-types.ts; the `NOTIFY` channel and the pruner batch size stay
- * db/catalog constants rather than env references.
+ * Deployment knobs, not assistant behavior: a missed-signal reconcile poll and
+ * the owner-lease/heartbeat/reaper crash-recovery knobs (ADR 0008). Each field's
+ * runtime meaning is documented on `ResumabilityConfig` in
+ * service-composition-types.ts; the `NOTIFY` channels and the reaper's NULL-lease
+ * grace stay db/catalog constants rather than env references.
  */
 export type SideChatResumabilityConfig = {
   readonly safetyPollInterval: SideChatNumberEnvReference;
@@ -16,10 +16,7 @@ export type SideChatResumabilityConfig = {
   readonly heartbeatInterval: SideChatNumberEnvReference;
   readonly reaperInterval: SideChatNumberEnvReference;
   readonly reaperBatchLimit: SideChatNumberEnvReference;
-  readonly turnEventRetention: SideChatNumberEnvReference;
-  readonly prunerInterval: SideChatNumberEnvReference;
-  // Window (ms) for batching streamed text into one turn_events row before it is
-  // written + NOTIFYed; governs the durable write cadence, so it lives with the
-  // other turn_events lifecycle knobs. Resolved into the runtime executor config.
+  // Window (ms) for coalescing streamed text into one emitted delta event;
+  // governs the per-turn event rate. Resolved into the runtime executor config.
   readonly outputDeltaFlushInterval: SideChatNumberEnvReference;
 };

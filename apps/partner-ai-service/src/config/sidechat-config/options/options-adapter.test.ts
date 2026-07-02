@@ -146,7 +146,7 @@ describe("sidechat.config.ts", () => {
     expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
   });
 
-  it("resolves resumability retention and batch knobs from the readable config", () => {
+  it("resolves resumability batch knobs from the readable config", () => {
     const baseEnv = {
       [PROVIDERS.OPENAI.SECRET_ENV_KEYS.API_KEY]: "key_123",
       [SERVICE_ENV_KEYS.databaseUrl]: "postgres://sidechat:sidechat@localhost/sidechat",
@@ -157,22 +157,15 @@ describe("sidechat.config.ts", () => {
     const defaults = createPartnerAiServiceOptionsFromConfig(sideChatConfig, baseEnv);
     expect(defaults.resumability).toMatchObject({
       reaperBatchLimit: RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
-      turnEventRetentionMs: RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
-      prunerIntervalMs: RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
-      prunerBatchLimit: RESUMABILITY_DEFAULTS.PRUNER_BATCH_LIMIT,
     });
 
     // Env overrides flow through the same readable-config resolver.
     const overridden = createPartnerAiServiceOptionsFromConfig(sideChatConfig, {
       ...baseEnv,
       [SERVICE_ENV_KEYS.reaperBatchLimit]: "25",
-      [SERVICE_ENV_KEYS.turnEventRetentionMs]: "60000",
-      [SERVICE_ENV_KEYS.prunerIntervalMs]: "30000",
     });
     expect(overridden.resumability).toMatchObject({
       reaperBatchLimit: 25,
-      turnEventRetentionMs: 60000,
-      prunerIntervalMs: 30000,
     });
   });
 

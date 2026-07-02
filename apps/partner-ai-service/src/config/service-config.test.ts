@@ -180,15 +180,13 @@ describe("partner ai service env config", () => {
     });
   });
 
-  it("resolves resumability lease and retention tunables from env with safe defaults", () => {
+  it("resolves resumability lease tunables from env with safe defaults", () => {
     const overridden = createPartnerAiServiceOptionsFromEnv({
       SIDECHAT_INSTANCE_ID: "instance_pod_7",
       SIDECHAT_LEASE_TTL_MS: "45000",
       SIDECHAT_HEARTBEAT_INTERVAL_MS: "12000",
       SIDECHAT_REAPER_INTERVAL_MS: "20000",
       SIDECHAT_REAPER_BATCH_LIMIT: "25",
-      SIDECHAT_TURN_EVENT_RETENTION_MS: "60000",
-      SIDECHAT_PRUNER_INTERVAL_MS: "30000",
     });
     expect(overridden.resumability).toMatchObject({
       instanceId: "instance_pod_7",
@@ -196,8 +194,6 @@ describe("partner ai service env config", () => {
       heartbeatIntervalMs: 12000,
       reaperIntervalMs: 20000,
       reaperBatchLimit: 25,
-      turnEventRetentionMs: 60000,
-      prunerIntervalMs: 30000,
     });
 
     // Absent env falls back to the catalog defaults, with a stable per-process id.
@@ -207,8 +203,6 @@ describe("partner ai service env config", () => {
       heartbeatIntervalMs: RESUMABILITY_DEFAULTS.HEARTBEAT_INTERVAL_MS,
       reaperIntervalMs: RESUMABILITY_DEFAULTS.REAPER_INTERVAL_MS,
       reaperBatchLimit: RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
-      turnEventRetentionMs: RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
-      prunerIntervalMs: RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
     });
     expect(defaults.resumability?.instanceId).toBeTruthy();
   });

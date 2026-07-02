@@ -39,17 +39,6 @@ export const createResumabilityConfigFromEnv = (env: ServiceEnv): ResumabilityCo
     SERVICE_ENV_KEYS.reaperBatchLimit,
     RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
   ),
-  turnEventRetentionMs: readPositiveDuration(
-    env,
-    SERVICE_ENV_KEYS.turnEventRetentionMs,
-    RESUMABILITY_DEFAULTS.TURN_EVENT_RETENTION_MS,
-  ),
-  prunerIntervalMs: readPositiveDuration(
-    env,
-    SERVICE_ENV_KEYS.prunerIntervalMs,
-    RESUMABILITY_DEFAULTS.PRUNER_INTERVAL_MS,
-  ),
-  prunerBatchLimit: RESUMABILITY_DEFAULTS.PRUNER_BATCH_LIMIT,
 });
 
 const readPositiveDuration = (env: ServiceEnv, key: string, fallback: number): number => {
@@ -61,8 +50,7 @@ const readPositiveDuration = (env: ServiceEnv, key: string, fallback: number): n
 };
 
 // Batch limits are counts, so they must be positive integers (a fractional limit
-// is meaningless to the bounded sweep). The pruner batch limit stays a catalog
-// constant; only the reaper batch limit is env-tunable for now.
+// is meaningless to the bounded sweep).
 const readPositiveInteger = (env: ServiceEnv, key: string, fallback: number): number => {
   const rawValue = envValue(env, key);
   if (!rawValue) return fallback;
