@@ -52,6 +52,9 @@
           "404": {
             "description": "replay_expired: a repeated requestId resolved to a finished turn whose stream buffer was swept; read conversation history"
           },
+          "409": {
+            "description": "stream_unavailable (reason not_stream_owner): a repeated requestId resolved to a turn still running on another instance; poll GET /chat/turns/{assistantTurnId} until it finishes"
+          },
           "500": { "description": "Internal error" }
         }
       }
@@ -90,7 +93,7 @@
     "/chat/turns/{assistantTurnId}/stream": {
       "get": {
         "operationId": "streamTurn",
-        "description": "Subscribe to (and replay) one turn's durable sidechat.v1 event log as Server-Sent Events. Emits events with sequence > after and ends at the terminal event.",
+        "description": "Same-instance resume: replay one turn's buffered sidechat.v1 events as Server-Sent Events. Emits events with sequence > after; a running turn tails live to the terminal, a terminal turn ends right after its replay.",
         "parameters": [
           {
             "name": "assistantTurnId",
@@ -111,8 +114,12 @@
             "description": "sidechat.v1 server-sent event stream",
             "content": { "text/event-stream": { "schema": { "type": "string" } } }
           },
+          "400": { "description": "Malformed after query parameter (must be an integer)" },
           "404": {
-            "description": "replay_expired (the durable log was pruned) or unknown turn; fall back to conversation history"
+            "description": "replay_expired (the finished turn's buffer was swept) or unknown turn; fall back to conversation history"
+          },
+          "409": {
+            "description": "stream_unavailable (reason not_stream_owner): the turn is running but another instance owns its live stream; poll turn status"
           }
         }
       }

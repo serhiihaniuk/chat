@@ -4,6 +4,7 @@ import type { SidechatRepositories } from "#repositories/contract";
 import { closeIfNeeded, startTurn, workspaceId } from "../repository-contract.helpers.js";
 
 const LEASE_TTL_MS = 30_000;
+const NULL_LEASE_GRACE_MS = 2 * LEASE_TTL_MS;
 const OWNER_A = "instance_a";
 const OWNER_B = "instance_b";
 
@@ -11,6 +12,15 @@ const OWNER_B = "instance_b";
 // deterministic: every acquired lease is in the past relative to the reap now.
 const ACQUIRE_NOW = "2026-06-21T00:00:00.000Z";
 const FUTURE_NOW = "2026-06-21T01:00:00.000Z";
+
+// The sweep is deliberately workspace-global, and the postgres suite shares one
+// database across the contract suites, so a sweep can also claim stale running
+// turns earlier suites left behind. A generous limit keeps this suite's target
+// turn inside every pass.
+const REAP_LIMIT = 100;
+
+const reapAt = (repositories: SidechatRepositories, now: string) =>
+  repositories.reapExpiredTurns({ now, nullLeaseGraceMs: NULL_LEASE_GRACE_MS, limit: REAP_LIMIT });
 
 /**
  * Shared owner-lease + reaper contract for both repository adapters.
@@ -146,7 +156,7 @@ export const turnLeaseRepositoryContract = (
 
         // A now inside the lease window (the acquire instant) reaps nothing: the
         // lease has not expired yet.
-        const withinWindow = await repositories.reapExpiredTurns({ now: ACQUIRE_NOW, limit: 10 });
+        const withinWindow = await reapAt(repositories, ACQUIRE_NOW);
         expect(withinWindow.map((row) => row.assistantTurnId)).not.toContain(turn.assistantTurnId);
         await expect(
           repositories.findAssistantTurn({
@@ -157,7 +167,7 @@ export const turnLeaseRepositoryContract = (
 
         // A now past the lease expiry reaps it, fencing the owner: the status is
         // terminal and the epoch advanced past the acquire epoch (1 -> 2).
-        const reaped = await repositories.reapExpiredTurns({ now: FUTURE_NOW, limit: 10 });
+        const reaped = await reapAt(repositories, FUTURE_NOW);
         const reapedRow = reaped.find((row) => row.assistantTurnId === turn.assistantTurnId);
         expect(reapedRow?.leaseEpoch).toBe(2);
         await expect(
@@ -173,8 +183,37 @@ export const turnLeaseRepositoryContract = (
 
         // A second pass at the same now finds the turn no longer running, so it is
         // not reaped again — exactly-once across passes.
-        const secondPass = await repositories.reapExpiredTurns({ now: FUTURE_NOW, limit: 10 });
+        const secondPass = await reapAt(repositories, FUTURE_NOW);
         expect(secondPass.map((row) => row.assistantTurnId)).not.toContain(turn.assistantTurnId);
+      } finally {
+        await closeIfNeeded(repositories);
+      }
+    });
+
+    it("reaps a running turn that never acquired a lease once its grace elapsed", async () => {
+      const repositories = createRepositories();
+      const scope = nextScope();
+      try {
+        // A crash between the turn insert and the lease acquire leaves a running
+        // row with no lease at all; only the started-at grace can catch it.
+        const turn = await startTurn(repositories, scope);
+        const startedAtMs = new Date(turn.startedAt).getTime();
+        const withinGrace = new Date(startedAtMs + NULL_LEASE_GRACE_MS / 2).toISOString();
+        const pastGrace = new Date(startedAtMs + NULL_LEASE_GRACE_MS + 1_000).toISOString();
+
+        // Within the grace window the turn may still be racing toward its lease
+        // acquire, so it survives the sweep.
+        const early = await reapAt(repositories, withinGrace);
+        expect(early.map((row) => row.assistantTurnId)).not.toContain(turn.assistantTurnId);
+
+        const reaped = await reapAt(repositories, pastGrace);
+        expect(reaped.map((row) => row.assistantTurnId)).toContain(turn.assistantTurnId);
+        await expect(
+          repositories.findAssistantTurn({
+            workspaceId: workspaceId(scope),
+            assistantTurnId: turn.assistantTurnId,
+          }),
+        ).resolves.toMatchObject({ status: "provider_failed", errorCode: "timeout" });
       } finally {
         await closeIfNeeded(repositories);
       }
@@ -191,7 +230,7 @@ export const turnLeaseRepositoryContract = (
           now: ACQUIRE_NOW,
         });
 
-        const reaped = await repositories.reapExpiredTurns({ now: FUTURE_NOW, limit: 10 });
+        const reaped = await reapAt(repositories, FUTURE_NOW);
         const reapedRow = reaped.find((row) => row.assistantTurnId === turn.assistantTurnId);
         expect(reapedRow?.cancelRequested).toBe(true);
         await expect(
@@ -214,8 +253,8 @@ export const turnLeaseRepositoryContract = (
         // Two passes race over the same expired turn; the running-guard CAS lets
         // exactly one win, so the turn appears in exactly one pass's result.
         const [first, second] = await Promise.all([
-          repositories.reapExpiredTurns({ now: FUTURE_NOW, limit: 10 }),
-          repositories.reapExpiredTurns({ now: FUTURE_NOW, limit: 10 }),
+          reapAt(repositories, FUTURE_NOW),
+          reapAt(repositories, FUTURE_NOW),
         ]);
         const reapCount = [first, second]
           .flat()

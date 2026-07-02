@@ -27,6 +27,8 @@ export const openTurnEventStream = (
     readonly requestId: string;
     readonly authContext: AuthContext;
     readonly after: number;
+    /** Serve the buffered replay and end without tailing (turn already terminal). */
+    readonly replayOnly?: boolean;
   },
 ): Response => {
   const events = createTurnSubscriptionStream(
@@ -39,6 +41,7 @@ export const openTurnEventStream = (
       assistantTurnId: subscription.assistantTurnId,
       authContext: subscription.authContext,
       after: subscription.after,
+      replayOnly: subscription.replayOnly ?? false,
     },
   );
   return streamSseResponse(events, subscription.requestId);

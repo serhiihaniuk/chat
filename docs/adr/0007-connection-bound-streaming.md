@@ -75,7 +75,8 @@ reads the result from history.
 
 The code is catching up to this decision; gaps and fixes are tracked in
 [`plan/`](../../plan/00-overview.md). Landed: stream-from-POST end to end —
-the server (`plan/02`) and the widget's single-call client (`plan/03`).
-Pending: fail-fast non-owner resume (`plan/04`), the orphan sweep (`plan/05`),
-and client-side handoff/retry (`plan/06`, `plan/07`). Until `plan/04` and
-`plan/05` land, live streaming is correct on a single instance only.
+the server (`plan/02`), the widget's single-call client (`plan/03`), fail-fast
+non-owner streaming (`plan/04`: a running turn owned elsewhere is
+`409 stream_unavailable`, never a hanging SSE; only the owner registers turns),
+and the orphan sweep (`plan/05`, ADR 0008). Pending: client-side handoff/retry
+(`plan/06`, `plan/07`).

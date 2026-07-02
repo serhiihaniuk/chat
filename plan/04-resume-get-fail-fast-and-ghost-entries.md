@@ -1,6 +1,15 @@
 # 04 — Resume GET: fail fast on non-owner + stop creating ghost registry entries
 
-**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 02 | **Status:** todo
+**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 02 | **Status:** done (2026-07-02)
+
+## Delivery notes
+
+- **Fail fast on non-owner (GET and POST-replay):** any stream request for a turn this instance's registry doesn't hold fails closed before SSE — terminal turn → `404 replay_expired` (as before), running turn → **`409 stream_unavailable` with `reason: not_stream_owner`, `retryable: true`** (new `TRANSPORT_ERROR_CODES.STREAM_UNAVAILABLE` + `STREAM_UNAVAILABLE_REASONS` in chat-protocol; `notStreamOwnerError` helper in `protocol-errors.ts`). The duplicate-`requestId` POST replay path got the same treatment — it had the identical hang.
+- **No ghost entries:** `dispatcher.subscribe` no longer creates registry entries — unknown turn resolves `undefined` (typed miss; the stream degrades to replay-only). The removed `ensureTurn` was silently covering a real race: `start()` returns when the fiber is forked, before its first append — so the owner now **explicitly registers** the turn (`dispatcher.registerTurn`, new contract method) in `streamStartedTurn` before the POST response subscribes. Readers never register turns.
+- **Terminal turns are replay-only:** the subscription stream takes a `replayOnly` flag — serve the buffer, never tail — so a terminal turn with `after ≥ maxSequence` closes immediately instead of hanging on a `takeUntil` that can never fire.
+- **Strict `after`:** empty/non-integer `after` (including `after=` which `Number` read as `0`, silently skipping sequence 0) → `400` naming the parameter; missing still defaults to `-1`.
+- **Tests:** new `in-memory-turn-event-log.test.ts` (typed miss leaves registry unchanged, owner-registered fan-out, sweep-on-register); `chat-turns.test.ts` adds non-owner 409 (two apps sharing one memory repository = two instances over one DB), terminal + `after=max` ends immediately, and `after=""/"abc"/"1.5"` → 400.
+- **Docs:** assistant-turn.md (HTTP table, connection-bound rules, replay expiry, newcomer trap), runtime-and-protocol-events.md transport bullet, vocabulary.md (`stream_unavailable` row), OpenAPI (409s + 400, stream description), ADR 0007 landed-marker. Client reaction to the 409 (poll fallback) stays `plan/07`.
 
 ## Problem
 

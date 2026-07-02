@@ -6,6 +6,7 @@ import { TURN_ACTIVITY_NOTIFY_CHANNEL, TURN_CANCEL_NOTIFY_CHANNEL } from "#schem
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
+  activityNotifyPayload,
   requireRunningTurn,
   requireSubjectConversation,
   toAssistantTurnRecord,
@@ -54,26 +55,6 @@ const requestTurnCancellation =
       );
       return { cancelRequested: true };
     });
-
-/** The columns the activity signal needs from a turn row. */
-type ActivityRow = {
-  readonly workspaceId: string;
-  readonly subjectId: string;
-  readonly conversationId: string;
-  readonly assistantTurnId: string;
-  readonly status: string;
-};
-
-// Subject-scoped lifecycle payload for the activity stream (sidebar live dots).
-// Emitted in the same transaction as the status write so it fires only on commit.
-const activityNotifyPayload = (row: ActivityRow): string =>
-  JSON.stringify({
-    workspaceId: row.workspaceId,
-    subjectId: row.subjectId,
-    conversationId: row.conversationId,
-    assistantTurnId: row.assistantTurnId,
-    status: row.status,
-  });
 
 export const createPostgresDrizzleTurnRepository = ({
   db,

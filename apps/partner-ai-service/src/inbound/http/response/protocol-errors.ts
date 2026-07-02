@@ -1,6 +1,7 @@
 import {
   PROTOCOL_ERROR_CODES,
   SIDECHAT_PROTOCOL_VERSION,
+  STREAM_UNAVAILABLE_REASONS,
   TRANSPORT_ERROR_CODES,
   type ProtocolErrorCode,
 } from "@side-chat/chat-protocol";
@@ -36,6 +37,30 @@ export const replayExpiredError = (message: string): Response =>
       retryable: false,
     },
     { status: REPLAY_EXPIRED_STATUS },
+  );
+
+/** HTTP status for a stream request that reached the wrong (non-owner) instance. */
+const STREAM_UNAVAILABLE_STATUS = 409;
+
+/**
+ * Return the transport-level `stream_unavailable` JSON error before opening SSE.
+ *
+ * Emitted when the turn is still running but this instance holds no registry
+ * entry for it — another instance owns the live stream, and connection-bound
+ * streaming never proxies across instances. Marked retryable because the turn
+ * will reach a durable terminal: the client polls turn status and then reads the
+ * answer from conversation history.
+ */
+export const notStreamOwnerError = (message: string): Response =>
+  Response.json(
+    {
+      protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+      code: TRANSPORT_ERROR_CODES.STREAM_UNAVAILABLE,
+      reason: STREAM_UNAVAILABLE_REASONS.NOT_STREAM_OWNER,
+      message,
+      retryable: true,
+    },
+    { status: STREAM_UNAVAILABLE_STATUS },
   );
 
 export const errorMessage = (error: unknown): string =>

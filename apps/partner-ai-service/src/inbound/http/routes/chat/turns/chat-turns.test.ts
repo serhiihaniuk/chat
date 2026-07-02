@@ -100,6 +100,57 @@ describe("GET /chat/turns/:assistantTurnId/stream", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
     await expect(response.json()).resolves.toMatchObject({ code: "not_found" });
   });
+
+  it("fails fast with 409 when another instance owns the running turn", async () => {
+    // Two apps over one repository store model two service instances sharing a
+    // database. The turn runs on the owner; the other instance must answer with
+    // a structured error instead of opening an SSE that would hang forever.
+    const gate = createGate();
+    const repositories = createMemorySidechatRepositories();
+    const owner = createApp({ repositories, agentRuntime: gatedRuntime(gate.promise) });
+    const other = createApp({ repositories });
+    const started = await startRun(owner.app, runRequest());
+
+    const response = await other.app.request(`/chat/turns/${started.assistantTurnId}/stream`, {
+      headers: AUTH_HEADER,
+    });
+    expect(response.status).toBe(409);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "stream_unavailable",
+      reason: "not_stream_owner",
+      retryable: true,
+    });
+
+    gate.release();
+    await waitForCompletedTurn(owner.app, started.assistantTurnId);
+  });
+
+  it("ends immediately for a terminal turn when after is at the max sequence", async () => {
+    const app = createApp().app;
+    const started = await startRun(app, runRequest());
+    await waitForCompletedTurn(app, started.assistantTurnId);
+
+    // The buffered turn ends at sequence 3; replaying after 3 yields nothing, and
+    // the response must still close instead of tailing a turn that will never emit.
+    const events = await readTurnStream(app, started.assistantTurnId, 3);
+    expect(events).toEqual([]);
+  });
+
+  it.each(["", "abc", "1.5"])("rejects a malformed after=%j with a 400", async (after) => {
+    const app = createApp().app;
+    const started = await startRun(app, runRequest());
+
+    const response = await app.request(
+      `/chat/turns/${started.assistantTurnId}/stream?after=${after}`,
+      { headers: AUTH_HEADER },
+    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "bad_request",
+      message: expect.stringContaining('"after"') as string,
+    });
+  });
 });
 
 describe("GET /chat/runs/:requestId", () => {
@@ -202,8 +253,13 @@ type RouteHarness = {
   readonly repositories: MemorySidechatRepositories;
 };
 
-const createApp = (options: { readonly agentRuntime?: AiRuntimePort } = {}): RouteHarness => {
-  const repositories = createMemorySidechatRepositories();
+const createApp = (
+  options: {
+    readonly agentRuntime?: AiRuntimePort;
+    readonly repositories?: MemorySidechatRepositories;
+  } = {},
+): RouteHarness => {
+  const repositories = options.repositories ?? createMemorySidechatRepositories();
   return {
     repositories,
     app: createPartnerAiServiceApp({

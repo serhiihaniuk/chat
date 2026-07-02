@@ -150,8 +150,9 @@ data: <JSON of the event>
   `malformed_stream` on leftover bytes (`side-chat-sse-reader.ts`).
 - **Replay expired:** a `404` before the SSE body means the terminal turn was
   swept from the registry. The widget maps it to `replay_expired` and falls
-  back to history. Transport error codes stay separate from in-stream event
-  `code`s.
+  back to history. A `409 stream_unavailable` means the turn is still running
+  but another instance owns its live stream — the client polls turn status
+  instead. Transport error codes stay separate from in-stream event `code`s.
 
 ## Validation And Anti-Spoofing
 

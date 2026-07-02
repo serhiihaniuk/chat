@@ -91,11 +91,15 @@ const maxSequenceFrom =
 
 const subscribeTo =
   (turns: TurnRegistry) =>
-  (input: { readonly assistantTurnId: string }): Promise<TurnEventSubscription> =>
+  (input: { readonly assistantTurnId: string }): Promise<TurnEventSubscription | undefined> =>
     Effect.runPromise(
       Effect.gen(function* () {
+        // Subscribing never creates an entry: only the owner registers a turn
+        // (registerTurn / appendEvent), so a foreign or swept turn is a typed miss
+        // instead of a permanent ghost entry that misleads hasSubscribers.
+        const turn = turns.get(input.assistantTurnId);
+        if (!turn) return undefined;
         const queue = yield* Queue.dropping<SidechatStreamEvent>(SUBSCRIBER_QUEUE_CAPACITY);
-        const turn = ensureTurn(turns, input.assistantTurnId);
         turn.subscribers.add(queue);
         return {
           events: queue,
@@ -120,6 +124,9 @@ export const createInMemoryTurnEventLog = (): InMemoryTurnEventLog => {
     readEventsAfter: readEventsAfterFrom(turns),
     maxSequence: maxSequenceFrom(turns),
     subscribe: subscribeTo(turns),
+    registerTurn: (assistantTurnId) => {
+      ensureTurn(turns, assistantTurnId);
+    },
     hasTurn: (assistantTurnId) => turns.has(assistantTurnId),
     hasSubscribers: (assistantTurnId) => (turns.get(assistantTurnId)?.subscribers.size ?? 0) > 0,
     shutdown: () => {

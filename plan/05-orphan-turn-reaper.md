@@ -1,6 +1,15 @@
 # 05 — Orphan-turn reaper sweep
 
-**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** — | **Status:** todo
+**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** — | **Status:** done (2026-07-02)
+
+## Delivery notes
+
+- **The sweep is back, smaller than the deleted one:** `inbound/turn-runner/maintenance/turn-reaper.ts` — periodic fiber per instance (`reaperInterval`/`reaperBatchLimit` reconnected from config via `resolveResumabilityConfig`), wired in `service-composition.ts`, torn down in `shutdown()`, exposed as `composition.turnReaper` (`sweepOnce` for tests). The old reaper's synthetic-terminal append is gone with the durable `turn_events` log — the crashed owner's stream buffer died with it, so the reaper only CASes the status; clients converge from history.
+- **NULL-lease window closed:** `ReapExpiredTurnsCommand` gained `nullLeaseGraceMs`; both adapters' predicates are now `running AND (lease_expires_at < now OR (lease IS NULL AND started_at < now - grace))`. Composition passes grace = 2× lease TTL. Contract test added ("never acquired a lease": within grace survives, past grace reaped).
+- **Reap notifies activity in-transaction:** the Postgres reap runs in a transaction and emits the `turn_activity` NOTIFY per reaped row (payload builder `activityNotifyPayload` moved to `records.ts`, shared with turns.ts), so other tabs' "generating" dots clear live. Memory adapter stays notify-less like its other paths.
+- **Heartbeat resilience:** `renewTurnLease` failures are retried (2 retries, 200ms exponential backoff) before they can fail the heartbeat race; a _successful_ renew reporting `renewed: false` still fences immediately. New `turn-lease-heartbeat.test.ts` proves both (flaky renew → drain completes; fence → drain interrupted), built on `createFakePorts` + `prepareStreamChatTurn` — no unsafe casts.
+- **Tests/observability:** new `turn-reaper.test.ts` (sweepOnce terminalizes a crashed NULL-lease turn honestly + clears the ghost active turn + records `turn_reaped`; periodic fiber sweeps until shutdown); lease-contract calls routed through a `reapAt` helper with limit 100 (the sweep is workspace-global and the postgres suite shares one DB). Full `npm run verify` green. `npm run test:db:container` NOT run — Docker unavailable on this machine; the postgres side of the new contract test needs one container run before release.
+- **Docs:** assistant-turn.md crash-recovery section rewritten to the shipped sweep; ADR 0008 consequences updated (landed); ADR 0007 pending list shrunk; configuration.md resumability row (reaper knobs live; pruner/retention still dead until `plan/10`). The stale comments named in task 4 (`turn-cancel-notification-source.ts`, `lifecycle.ts`) are true again verbatim — verified, no edits needed; `repositories.ts` ReapedTurn doc reworded (no synthetic terminal).
 
 ## Problem
 

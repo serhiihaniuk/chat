@@ -1,8 +1,9 @@
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { assistantTurns, type sidechatTables } from "#drizzle/schema";
 import {
+  TURN_ACTIVITY_NOTIFY_CHANNEL,
   toAssistantTurnId,
   toWorkspaceId,
   type AcquireTurnLeaseCommand,
@@ -13,6 +14,7 @@ import {
   type RenewTurnLeaseCommand,
   type RenewTurnLeaseResult,
 } from "#schema-contract";
+import { activityNotifyPayload } from "./records.js";
 
 type Db = NodePgDatabase<typeof sidechatTables>;
 
@@ -95,12 +97,14 @@ const renewTurnLease = async (
 };
 
 /**
- * Terminalize the running turns whose lease expired, fencing their owners.
+ * Terminalize the running turns whose owner died, fencing their owners.
  *
  * Honest classification rides the durable cancel intent: a turn with
  * `cancel_requested_at` becomes `user_aborted`, otherwise `provider_failed`
  * (timeout) — the same split the abnormal finalizer uses. Bumping the epoch in
- * the same statement fences a slow-but-alive owner.
+ * the same statement fences a slow-but-alive owner. Each reaped turn's
+ * `turn_activity` notify fires in the same transaction as its status CAS, so
+ * other tabs' "generating" dots clear live instead of on their next snapshot.
  *
  * The update targets only rows a `FOR UPDATE SKIP LOCKED` subquery locked, so two
  * concurrent reaper passes grab disjoint rows and the running-guard means a turn
@@ -112,21 +116,32 @@ const reapExpiredTurns = async (
   db: Db,
   command: ReapExpiredTurnsCommand,
 ): Promise<readonly ReapedTurn[]> => {
-  const reaped = await db
-    .update(assistantTurns)
-    .set({
-      status: sql`case when ${assistantTurns.cancelRequestedAt} is not null then 'user_aborted' else 'provider_failed' end`,
-      errorCode: sql`case when ${assistantTurns.cancelRequestedAt} is not null then 'aborted' else 'timeout' end`,
-      leaseEpoch: sql`${assistantTurns.leaseEpoch} + 1`,
-      completedAt: command.now,
-    })
-    .where(sql`${assistantTurns.assistantTurnId} in ${expiredTurnIds(command.now, command.limit)}`)
-    .returning({
-      workspaceId: assistantTurns.workspaceId,
-      assistantTurnId: assistantTurns.assistantTurnId,
-      cancelRequestedAt: assistantTurns.cancelRequestedAt,
-      leaseEpoch: assistantTurns.leaseEpoch,
-    });
+  const reaped = await db.transaction(async (transaction) => {
+    const rows = await transaction
+      .update(assistantTurns)
+      .set({
+        status: sql`case when ${assistantTurns.cancelRequestedAt} is not null then 'user_aborted' else 'provider_failed' end`,
+        errorCode: sql`case when ${assistantTurns.cancelRequestedAt} is not null then 'aborted' else 'timeout' end`,
+        leaseEpoch: sql`${assistantTurns.leaseEpoch} + 1`,
+        completedAt: command.now,
+      })
+      .where(sql`${assistantTurns.assistantTurnId} in ${expiredTurnIds(command)}`)
+      .returning({
+        workspaceId: assistantTurns.workspaceId,
+        subjectId: assistantTurns.subjectId,
+        conversationId: assistantTurns.conversationId,
+        assistantTurnId: assistantTurns.assistantTurnId,
+        status: assistantTurns.status,
+        cancelRequestedAt: assistantTurns.cancelRequestedAt,
+        leaseEpoch: assistantTurns.leaseEpoch,
+      });
+    for (const row of rows) {
+      await transaction.execute(
+        sql`select pg_notify(${TURN_ACTIVITY_NOTIFY_CHANNEL}, ${activityNotifyPayload(row)})`,
+      );
+    }
+    return rows;
+  });
 
   return reaped.map((row) => ({
     workspaceId: toWorkspaceId(row.workspaceId),
@@ -137,17 +152,30 @@ const reapExpiredTurns = async (
 };
 
 /**
- * Lock up to `limit` expired-lease running turns for this sweep.
+ * Lock up to `limit` dead-owner running turns for this sweep.
  *
- * `FOR UPDATE SKIP LOCKED` is what makes concurrent reapers safe: each pass
- * locks and claims a disjoint set instead of blocking on or double-reaping the
- * same rows.
+ * A dead owner shows up two ways: an acquired lease that expired, or a NULL
+ * lease on a turn started before `now - nullLeaseGraceMs` (a crash in the
+ * insert-to-acquire window — SQL `lease_expires_at < now` is never true for
+ * NULL). `FOR UPDATE SKIP LOCKED` is what makes concurrent reapers safe: each
+ * pass locks and claims a disjoint set instead of blocking on or double-reaping
+ * the same rows.
  */
-const expiredTurnIds = (now: string, limit: number) =>
+const expiredTurnIds = (command: ReapExpiredTurnsCommand) =>
   sql`(select ${assistantTurns.assistantTurnId} from ${assistantTurns} where ${and(
     eq(assistantTurns.status, "running"),
-    lt(assistantTurns.leaseExpiresAt, now),
-  )} limit ${limit} for update skip locked)`;
+    or(
+      lt(assistantTurns.leaseExpiresAt, command.now),
+      and(
+        isNull(assistantTurns.leaseExpiresAt),
+        lt(assistantTurns.startedAt, graceCutoff(command)),
+      ),
+    ),
+  )} limit ${command.limit} for update skip locked)`;
+
+/** The instant a NULL-lease running turn must have started after to survive. */
+const graceCutoff = (command: ReapExpiredTurnsCommand): string =>
+  new Date(new Date(command.now).getTime() - command.nullLeaseGraceMs).toISOString();
 
 /** Resolve the absolute lease expiry from the injected clock, not `now()`. */
 const leaseExpiry = (now: string, leaseTtlMs: number): string =>

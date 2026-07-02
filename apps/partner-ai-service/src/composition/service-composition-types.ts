@@ -15,6 +15,7 @@ import type {
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
+import type { TurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import type { ServiceHostCommandResolver } from "#adapters/host-commands/service-host-command-resolver";
@@ -173,6 +174,8 @@ export type ServiceComposition = {
   readonly ports: StreamChatPorts;
   /** Server-owned generation runner that outlives any one HTTP request. */
   readonly turnRunner: TurnRunner;
+  /** Per-instance crash backstop that terminalizes dead-owner running turns. */
+  readonly turnReaper: TurnReaper;
   /** Per-instance live fan-out of durable turn events to local subscribers. */
   readonly dispatcher: TurnEventDispatcher;
   /** Connection-bound resolver for UI (host) tool calls; the result route settles it. */

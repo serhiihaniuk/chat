@@ -12,7 +12,11 @@ import type { ServiceHostCommandResolver } from "#adapters/host-commands/service
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { AuthContextVariables } from "../../../middleware/auth-context.js";
-import { jsonError, replayExpiredError } from "../../../response/protocol-errors.js";
+import {
+  jsonError,
+  notStreamOwnerError,
+  replayExpiredError,
+} from "../../../response/protocol-errors.js";
 import { requireContextAuth } from "../../types.js";
 import { openTurnEventStream } from "../turn-stream-response.js";
 import {
@@ -88,12 +92,25 @@ export const registerChatTurnRoutes = (
     if (!turn) return notFoundTurn();
 
     const after = readReplayOffset(context.req.query("after"));
-    // Connection-bound streaming: a finished turn that is no longer buffered in the
-    // in-memory registry cannot be streamed, so return replay_expired before opening
-    // SSE and let the widget read the final answer from conversation history. A turn
-    // still in the registry (running, or recently finished and buffered) is replayed
-    // from its buffer and tailed.
-    if (isTerminalTurn(turn) && !dependencies.dispatcher.hasTurn(turn.assistantTurnId)) {
+    if (after === undefined) {
+      return jsonError(
+        PROTOCOL_ERROR_CODES.BAD_REQUEST,
+        'Query parameter "after" must be an integer sequence number.',
+        400,
+      );
+    }
+
+    // Connection-bound streaming: only the registry owner can serve a live stream.
+    // A finished turn whose buffer was swept fails closed as replay_expired (the
+    // widget reads the answer from conversation history); a running turn owned by
+    // another instance fails fast as stream_unavailable instead of opening an SSE
+    // over an empty buffer that would hang forever.
+    if (!dependencies.dispatcher.hasTurn(turn.assistantTurnId)) {
+      if (!isTerminalTurn(turn)) {
+        return notStreamOwnerError(
+          "Another instance owns this turn's live stream; poll turn status until it finishes.",
+        );
+      }
       recordReplayOutcome(dependencies, turn, "replay_expired", after);
       return replayExpiredError("This turn has finished; read it from conversation history.");
     }
@@ -105,6 +122,9 @@ export const registerChatTurnRoutes = (
       requestId: turn.requestId,
       authContext,
       after,
+      // A terminal turn's buffer already holds everything it will ever emit, so
+      // serve the replay and end — tailing past the terminal would never close.
+      replayOnly: isTerminalTurn(turn),
     });
   });
 
@@ -227,11 +247,13 @@ const turnStatus = (turn: AssistantTurnRecord) => ({
 /**
  * Parse the `after` replay offset with the single project convention.
  *
- * A missing or non-integer value falls back to `-1` (replay the whole turn) so a
- * fresh subscriber always gets `sidechat.started` first.
+ * A missing parameter falls back to `-1` (replay the whole turn) so a fresh
+ * subscriber always gets `sidechat.started` first. Anything present but not an
+ * integer — including the empty string, which `Number` would silently read as
+ * `0` and skip sequence 0 — is a malformed request, reported as `undefined` so
+ * the route answers 400 instead of guessing an offset.
  */
-const readReplayOffset = (rawAfter: string | undefined): number => {
+const readReplayOffset = (rawAfter: string | undefined): number | undefined => {
   if (rawAfter === undefined) return DEFAULT_REPLAY_OFFSET;
-  const parsed = Number(rawAfter);
-  return Number.isInteger(parsed) ? parsed : DEFAULT_REPLAY_OFFSET;
+  return /^-?\d+$/u.test(rawAfter) ? Number(rawAfter) : undefined;
 };

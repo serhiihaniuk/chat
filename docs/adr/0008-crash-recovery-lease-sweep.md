@@ -78,11 +78,12 @@ tunable via `leaseTtl` / `reaperInterval` in `sidechat.config.ts`.
 ## Consequences
 
 Crash recovery costs one background loop per instance plus a heartbeat UPDATE
-per running turn per 10 s — machinery that is already written and race-tested
-in `packages/db` (`turn-lease.ts`; concurrent-reap exactly-once contract
-tests). Until `plan/05` wires the loop, the lease writes are pure cost and
-crashes strand turns — the docs flag this honestly
-([assistant-turn.md](../architecture/assistant-turn.md) "Durability and crash
-recovery"). Each `turn_reaped` observation flows to the telemetry sink
+per running turn per 10 s. The design landed with `plan/05` (2026-07-02): the
+sweep runs from service composition (`turn-runner/maintenance/turn-reaper.ts`),
+the reap predicate covers both the expired-lease and NULL-lease cases in both
+repository adapters (`turn-lease.ts`; concurrent-reap exactly-once contract
+tests), the reap notifies the activity channel in the same transaction, and the
+heartbeat retries a transient renew failure before it would ever fence a
+healthy turn. Each `turn_reaped` observation flows to the telemetry sink
 (ADR 0011), so operators can alarm on reap rate — a rising rate means
 instances are dying, which is the signal to go look at layer 1.

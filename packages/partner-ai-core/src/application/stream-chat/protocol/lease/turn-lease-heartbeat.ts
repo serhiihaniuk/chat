@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schedule } from "effect";
 import type { PartnerAiCoreError } from "#errors";
 import { STREAM_CHAT_FAILURES, mapPortFailure } from "../../errors/effect-failures.js";
 import type { PreparedStreamChatTurn, StreamChatPorts } from "../../stream-chat-types.js";
@@ -67,11 +67,23 @@ const acquireOwnerLease = (
   );
 
 /**
+ * Extra renew attempts after a transient persistence failure, before the
+ * heartbeat gives up and lets the failure interrupt a healthy generation.
+ */
+const RENEW_RETRY_ATTEMPTS = 2;
+
+/** Base backoff between renew retries; short, because the lease window is ticking. */
+const RENEW_RETRY_BASE_MS = 200;
+
+/**
  * Renew the lease on a fixed cadence until it is lost, then self-interrupt.
  *
  * Sleeping before the first renew gives the lease its full window before the
  * first heartbeat. A lost renew ends the loop with `Effect.interrupt`, which is
- * what fences the raced drain.
+ * what fences the raced drain. A renew that *fails* (a DB blip, not a fence) is
+ * retried with a short backoff first, so one transient persistence error cannot
+ * kill a healthy turn — only a renew that succeeds with `renewed: false` still
+ * fences immediately.
  */
 const heartbeatUntilFenced = (
   ports: StreamChatPorts,
@@ -81,7 +93,10 @@ const heartbeatUntilFenced = (
 ): Effect.Effect<never, PartnerAiCoreError> =>
   Effect.gen(function* () {
     yield* Effect.sleep(lease.heartbeatIntervalMs);
-    const { renewed } = yield* renewOwnerLease(ports, lease, turn, leaseEpoch);
+    const { renewed } = yield* Effect.retry(renewOwnerLease(ports, lease, turn, leaseEpoch), {
+      times: RENEW_RETRY_ATTEMPTS,
+      schedule: Schedule.exponential(RENEW_RETRY_BASE_MS),
+    });
     if (!renewed) return yield* Effect.interrupt;
     return yield* heartbeatUntilFenced(ports, lease, turn, leaseEpoch);
   });

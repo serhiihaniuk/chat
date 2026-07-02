@@ -146,17 +146,26 @@ export type RenewTurnLeaseResult = {
 
 export type ReapExpiredTurnsCommand = {
   readonly now: string;
+  /**
+   * Grace window for running turns that never acquired a lease.
+   *
+   * A crash between the turn insert and the lease acquire leaves a running row
+   * with a NULL lease that `lease_expires_at < now` can never match. Such a row
+   * is reaped once it `started_at` earlier than `now - nullLeaseGraceMs`; the
+   * grace (~2x the lease TTL) keeps a healthy just-started turn out of reach.
+   */
+  readonly nullLeaseGraceMs: number;
   /** Upper bound on reaped turns per pass, so one sweep cannot run unbounded. */
   readonly limit: number;
 };
 
 /**
- * One turn the reaper terminalized because its lease expired while running.
+ * One turn the reaper terminalized because its owner died while it was running.
  *
- * `cancelRequested` carries the durable cancel intent so the reaper appends the
- * honest synthetic terminal (a cancel becomes `user_aborted`, otherwise a
- * `provider_failed` timeout). `leaseEpoch` is the post-bump epoch the CAS fenced
- * the dead owner with.
+ * `cancelRequested` carries the durable cancel intent behind the honest status
+ * split (a cancel becomes `user_aborted`, otherwise a `provider_failed`
+ * timeout). `leaseEpoch` is the post-bump epoch the CAS fenced the dead owner
+ * with.
  */
 export type ReapedTurn = {
   readonly workspaceId: WorkspaceId;

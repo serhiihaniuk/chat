@@ -23,6 +23,7 @@ import { createServiceRuntimeBundle } from "./runtime/create-service-runtime-bun
 import { createServiceSecurityPorts } from "./security/create-service-security-ports.js";
 import { createServiceToolBundle } from "./tools/create-service-tool-bundle.js";
 import { createStreamChatPorts } from "./ports/create-stream-chat-ports.js";
+import { createTurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import { createTurnRunner } from "#inbound/turn-runner/turn-runner";
 import { createTurnCancelDispatcher } from "#inbound/turn-stream/turn-cancel-dispatcher";
 import { createTurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-activity-dispatcher";
@@ -159,6 +160,19 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     },
   });
 
+  // The reaper is the crash backstop (ADR 0008): a hard-killed owner cannot
+  // finalize its turns, so every instance periodically terminalizes dead-owner
+  // running turns (expired lease, or NULL lease past 2x the TTL for a crash in
+  // the insert-to-acquire window). Concurrent sweeps claim disjoint rows.
+  const turnReaper = createTurnReaper({
+    repositories: persistence.repositories,
+    clock: streamChat.ports.clock,
+    reaperIntervalMs: resumability.reaperIntervalMs,
+    batchLimit: resumability.reaperBatchLimit,
+    nullLeaseGraceMs: 2 * resumability.leaseTtlMs,
+    observability: options.observability,
+  });
+
   // The dispatcher is the same per-instance in-memory registry that backs
   // ports.turnEventLog: core appends events to it and the SSE route subscribes to
   // it, so the live stream is a direct in-memory fan-out (no durable log, no NOTIFY).
@@ -190,6 +204,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     runtime: runtime.runtime,
     ports: streamChat.ports,
     turnRunner,
+    turnReaper,
     dispatcher,
     hostCommandResolver,
     cancelDispatcher,
@@ -204,10 +219,11 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     }),
     safetyPollIntervalMs: resumability.safetyPollIntervalMs,
     // Interrupt generation first so its onExit finalizes each turn, then tear down
-    // the two LISTEN dispatchers and the in-memory event registry.
+    // the reaper sweep, the two LISTEN dispatchers, and the in-memory event registry.
     shutdown: async () => {
       await turnRunner.shutdown();
       await Promise.all([
+        turnReaper.shutdown(),
         cancelDispatcher.shutdown(),
         activityDispatcher.shutdown(),
         dispatcher.shutdown(),

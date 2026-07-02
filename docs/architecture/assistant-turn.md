@@ -25,10 +25,10 @@ construction. `sidechat.started` at sequence 0 carries the turn identity —
 `assistantTurnId` on the envelope, `conversationId` on the event; the caller
 already knows its `requestId`.
 
-| Call                                                  | Runs                                                                                              | Returns                                                                                                                                                                                      |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /chat/runs`                                     | Pre-start synchronously, forks generation, then streams                                           | SSE from `sidechat.started` to the terminal; pre-start failures are JSON errors. A repeated `requestId` replays the existing turn's stream (or `404 replay_expired` if its buffer was swept) |
-| `GET /chat/turns/:assistantTurnId/stream?after=<seq>` | Same-instance resume: replay `sequence > after` from the registry, then tail live to the terminal | SSE; or `404` JSON if the turn is unknown, cross-workspace, or `replay_expired`                                                                                                              |
+| Call                                                  | Runs                                                                                              | Returns                                                                                                                                                                                                                                                             |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /chat/runs`                                     | Pre-start synchronously, forks generation, then streams                                           | SSE from `sidechat.started` to the terminal; pre-start failures are JSON errors. A repeated `requestId` replays the existing turn's stream, or fails closed: `404 replay_expired` (finished, buffer swept) / `409 stream_unavailable` (running on another instance) |
+| `GET /chat/turns/:assistantTurnId/stream?after=<seq>` | Same-instance resume: replay `sequence > after` from the registry, then tail live to the terminal | SSE; or JSON: `404` for unknown/cross-workspace/`replay_expired`, `409 stream_unavailable` for a running turn owned elsewhere, `400` for a malformed `after`                                                                                                        |
 
 The shipped widget speaks this flow: `createRun` consumes the POST stream and
 reads its identity from the started frame; `subscribeTurn` is its resume path.
@@ -141,11 +141,15 @@ Consequences of connection-bound transport:
 - **Cross-instance and cross-restart resume do not exist.** The registry dies
   with the process. A client that loses its stream waits for the turn to end
   and reads the result from conversation history.
-- **Known gap:** the live stream now rides the POST connection (owner-bound by
-  construction), but a resume `GET` for a _running_ turn on an instance that
-  does not own it still opens an SSE that never produces data instead of
-  failing fast — `plan/04` adds the owner check. Until it lands, run one
-  service instance.
+- **Non-owner requests fail fast.** A stream request for a _running_ turn that
+  this instance's registry does not hold answers `409` with the transport code
+  `stream_unavailable` (`reason: not_stream_owner`) instead of opening an SSE
+  that would never produce data. The client polls turn status until the
+  terminal lands in history.
+- **Only the owner registers turns.** `POST /chat/runs` registers a fresh turn
+  in the registry before its response subscribes; subscribing never creates an
+  entry, so a foreign or swept turn is a typed miss, not a permanent ghost
+  entry.
 
 ## Replay expiry
 
@@ -154,7 +158,9 @@ opening SSE for **terminal** turns: it returns the `replay_expired` JSON error
 with HTTP `404` (`turns/chat-turns-resumability.ts`, `chat-turns.ts`). The
 widget maps `replay_expired` to a history fallback — it refetches the
 conversation and clears the run. A **running** turn never returns
-`replay_expired`.
+`replay_expired` — the non-owner case is `409 stream_unavailable` instead. A
+terminal turn that is still buffered serves its replay and ends without
+tailing, so a cursor at or past the terminal sequence closes immediately.
 
 ## Durability and crash recovery
 
@@ -163,17 +169,22 @@ turn record and status, usage, context snapshots, audit events, and cancel
 intent. What it does not hold: the in-flight event stream.
 
 Generation acquires an owner lease and renews it on a heartbeat
-(`protocol/lease/turn-lease-heartbeat.ts`); a renew that matches no row means
-the owner was fenced, and the drain self-interrupts. Clean shutdown interrupts
-generation first — each `onExit` finalizes — then tears down dispatchers
-(SIGTERM/SIGINT in `server.ts`).
+(`protocol/lease/turn-lease-heartbeat.ts`); a transient renew failure is
+retried with a short backoff, but a renew that succeeds and matches no row
+means the owner was fenced, and the drain self-interrupts. Clean shutdown
+interrupts generation first — each `onExit` finalizes — then tears down the
+reaper and dispatchers (SIGTERM/SIGINT in `server.ts`).
 
-**Known gap:** nothing currently sweeps expired leases, so a hard crash (not a
-clean shutdown) strands its running turns — status stays `running`, the
-activity dot never clears, and the `requestId` cannot be retried. The sweep
-that terminalizes orphaned turns is `plan/05`; the DB primitive
-(`reapExpiredTurns`) already exists and is tested. The full crash-recovery
-design — breadcrumbs, sweep, epoch fencing, client convergence — is
+A hard crash (not a clean shutdown) cannot finalize, so every instance runs a
+reaper sweep (`turn-runner/maintenance/turn-reaper.ts`, cadence
+`reaperInterval`): it terminalizes running turns whose lease expired — or whose
+lease was never acquired and whose `started_at` is past a grace of 2× the lease
+TTL — with honest classification (cancel intent → `user_aborted`, else
+`provider_failed`) and the activity NOTIFY in the same transaction, so the
+"generating" dot clears live and the conversation accepts new turns again.
+Concurrent sweeps claim disjoint rows (`FOR UPDATE SKIP LOCKED`), so no leader
+election. The full crash-recovery design — breadcrumbs, sweep, epoch fencing,
+client convergence — is
 [ADR 0008](../adr/0008-crash-recovery-lease-sweep.md).
 
 ## Cancel
@@ -205,7 +216,8 @@ check-then-insert — and does **not** fork a second generation, gated by
 - **Normal vs abnormal terminal differ.** The stream's
   `completed`/`error`/`blocked` is appended by the drain; only an abnormal exit
   appends the synthetic terminal.
-- **`replay_expired` is `404`, terminal-only.** A running turn never expires.
+- **`replay_expired` is `404`, terminal-only.** A running turn never expires;
+  a running turn owned elsewhere is `409 stream_unavailable`.
 - **Generation is socket-independent.** Cancelling the SSE releases the local
   subscriber only; it never interrupts the fiber.
 

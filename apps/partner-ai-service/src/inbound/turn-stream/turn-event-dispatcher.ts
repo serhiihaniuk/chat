@@ -29,12 +29,22 @@ export type TurnEventDispatcher = {
    *
    * Registering first is the missed-event guard: from this point the subscriber
    * receives every fanned-out event, so a caller can replay the buffer and then
-   * drain this queue without a gap.
+   * drain this queue without a gap. Subscribing never creates a registry entry:
+   * an unknown turn (not owned here, or already swept) resolves `undefined` so
+   * the caller ends after replay instead of tailing a turn that will never emit.
    */
   readonly subscribe: (input: {
     readonly assistantTurnId: string;
     readonly authContext: AuthContext;
-  }) => Promise<TurnEventSubscription>;
+  }) => Promise<TurnEventSubscription | undefined>;
+  /**
+   * Create the turn's registry entry the moment this instance accepts the turn.
+   *
+   * Only the owner calls this (idempotently), before its POST response
+   * subscribes — the generation fiber's first append may still be in flight, and
+   * without the entry that subscribe would miss. Readers never register turns.
+   */
+  readonly registerTurn: (assistantTurnId: string) => void;
   /** Whether the turn is still tracked in the registry (live or recently buffered). */
   readonly hasTurn: (assistantTurnId: string) => boolean;
   /** Release the registry resources (shutdown). */

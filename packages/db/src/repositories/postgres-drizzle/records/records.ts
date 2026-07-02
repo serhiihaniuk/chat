@@ -85,6 +85,32 @@ export const toAssistantTurnRecord = (
   updatedAt: isoTimestamp(row.completedAt ?? row.startedAt),
 });
 
+/** The columns the activity signal needs from a turn row. */
+export type ActivityRow = {
+  readonly workspaceId: string;
+  readonly subjectId: string;
+  readonly conversationId: string;
+  readonly assistantTurnId: string;
+  readonly status: string;
+};
+
+/**
+ * Subject-scoped lifecycle payload for the activity stream (sidebar live dots).
+ *
+ * Every status transition — start, complete, fail, reap — must emit this in the
+ * same transaction as the status write so it fires only on commit; a transition
+ * that skips it leaves other tabs' "generating" dots stale until their next
+ * snapshot.
+ */
+export const activityNotifyPayload = (row: ActivityRow): string =>
+  JSON.stringify({
+    workspaceId: row.workspaceId,
+    subjectId: row.subjectId,
+    conversationId: row.conversationId,
+    assistantTurnId: row.assistantTurnId,
+    status: row.status,
+  });
+
 export const toContextSnapshotRecord = (
   row: typeof turnContextSnapshots.$inferSelect,
 ): ContextSnapshotRecord => ({

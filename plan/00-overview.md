@@ -15,8 +15,8 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | 01  | ADR + docs greenfield pass — **done 2026-07-02**                       | 1 Streaming   | —                       |
 | 02  | Stream from POST /chat/runs (server) — **done 2026-07-02**             | 1 Streaming   | 01                      |
 | 03  | Widget consumes the POST stream — **done 2026-07-02**                  | 1 Streaming   | 02                      |
-| 04  | Resume GET: fail fast + no ghost entries                               | 1 Streaming   | 02                      |
-| 05  | Orphan-turn reaper sweep                                               | 1 Streaming   | —                       |
+| 04  | Resume GET: fail fast + no ghost entries — **done 2026-07-02**         | 1 Streaming   | 02                      |
+| 05  | Orphan-turn reaper sweep — **done 2026-07-02**                         | 1 Streaming   | —                       |
 | 06  | Widget run→history handoff on terminal                                 | 1 Streaming   | —                       |
 | 07  | Widget transport resilience (retry, poll fallback, watchdog)           | 1 Streaming   | 03, 04, 06              |
 | 08  | Host-command result relay (multi-instance)                             | 1 Streaming   | 02                      |

@@ -85,7 +85,7 @@ const reapExpiredTurns = async (
   await Promise.resolve();
   const expired = store.assistantTurns
     .map((turn, index) => ({ turn, index }))
-    .filter(({ turn }) => isExpiredRunning(turn, command.now))
+    .filter(({ turn }) => isExpiredRunning(turn, command))
     .slice(0, command.limit);
 
   return expired.map(({ turn, index }) => reapTurn(store, index, turn, command.now));
@@ -127,10 +127,17 @@ const findRunningTurnIndex = (
       turn.status === "running",
   );
 
-const isExpiredRunning = (turn: AssistantTurnRecord, now: string): boolean =>
-  turn.status === "running" &&
-  turn.leaseExpiresAt !== undefined &&
-  new Date(turn.leaseExpiresAt).getTime() < new Date(now).getTime();
+/**
+ * A dead owner shows up two ways, mirroring the postgres predicate: an acquired
+ * lease that expired, or a lease never acquired on a turn started before
+ * `now - nullLeaseGraceMs` (a crash in the insert-to-acquire window).
+ */
+const isExpiredRunning = (turn: AssistantTurnRecord, command: ReapExpiredTurnsCommand): boolean => {
+  if (turn.status !== "running") return false;
+  const now = new Date(command.now).getTime();
+  if (turn.leaseExpiresAt !== undefined) return new Date(turn.leaseExpiresAt).getTime() < now;
+  return new Date(turn.startedAt).getTime() < now - command.nullLeaseGraceMs;
+};
 
 /** Resolve the absolute lease expiry from the injected clock, mirroring postgres. */
 const leaseExpiry = (now: string, leaseTtlMs: number): string =>

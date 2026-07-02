@@ -9,6 +9,14 @@ export type TurnSubscriptionInput = {
   readonly authContext: AuthContext;
   /** Replay offset: emit events with `sequence > after`; `-1` replays the whole turn. */
   readonly after: number;
+  /**
+   * Serve the buffered replay and end — never tail.
+   *
+   * Set for turns already terminal in the database: everything they will ever
+   * emit is in the buffer, so tailing could only hang (e.g. `after` at or past
+   * the terminal sequence leaves nothing for `takeUntil` to fire on).
+   */
+  readonly replayOnly?: boolean;
 };
 
 export type TurnSubscriptionDependencies = {
@@ -54,11 +62,18 @@ const openSubscriptionStream = (
   input: TurnSubscriptionInput,
 ): Effect.Effect<Stream.Stream<SidechatStreamEvent>, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const subscription = yield* acquireSubscription(dependencies.dispatcher, input);
+    // A subscription miss (the turn was swept between the route's ownership check
+    // and this acquire) degrades to replay-only: serve whatever the log still
+    // holds and end, instead of tailing a turn that will never emit again.
+    const subscription = input.replayOnly
+      ? undefined
+      : yield* acquireSubscription(dependencies.dispatcher, input);
     const maxEmitted = yield* Ref.make(input.after);
 
     const replayStream = yield* gatedReplayStream(dependencies.ports, input, maxEmitted);
-    const liveStream = tailLiveEvents(dependencies, input, subscription, maxEmitted);
+    const liveStream = subscription
+      ? tailLiveEvents(dependencies, input, subscription, maxEmitted)
+      : Stream.empty;
 
     return Stream.concat(replayStream, liveStream).pipe(Stream.takeUntil(isTerminalEvent));
   });
@@ -72,7 +87,7 @@ const openSubscriptionStream = (
 const acquireSubscription = (
   dispatcher: TurnEventDispatcher,
   input: TurnSubscriptionInput,
-): Effect.Effect<TurnEventSubscription, never, Scope.Scope> =>
+): Effect.Effect<TurnEventSubscription | undefined, never, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.promise(() =>
       dispatcher.subscribe({
@@ -80,7 +95,7 @@ const acquireSubscription = (
         authContext: input.authContext,
       }),
     ),
-    (subscription) => Effect.promise(() => subscription.release()),
+    (subscription) => (subscription ? Effect.promise(() => subscription.release()) : Effect.void),
   );
 
 /**

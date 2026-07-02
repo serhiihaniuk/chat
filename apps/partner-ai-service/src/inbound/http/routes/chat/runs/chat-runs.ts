@@ -13,6 +13,7 @@ import {
   errorMessage,
   httpStatusForProtocolError,
   jsonError,
+  notStreamOwnerError,
   replayExpiredError,
 } from "../../../response/protocol-errors.js";
 import { requireContextAuth } from "../../types.js";
@@ -74,11 +75,13 @@ export const registerChatRunsRoute = (
 /**
  * Stream an accepted turn, honoring idempotent replays.
  *
- * A fresh turn (`inserted`) is always live in this instance's registry, so it
- * streams unconditionally. A repeated `requestId` resolves to the existing turn
- * without forking a second generation; if that turn already finished and its
- * buffer was swept, fail closed as `replay_expired` before any SSE frame — the
- * caller reads the answer from conversation history instead.
+ * A fresh turn (`inserted`) is registered in this instance's registry right here,
+ * before the response subscribes — the forked generation's first append may still
+ * be in flight, and subscribing never creates entries. A repeated `requestId`
+ * resolves to the existing turn without forking a second generation; if this
+ * instance holds no buffer for it, fail closed before any SSE frame — a finished
+ * turn is `replay_expired` (read conversation history), a still-running turn on
+ * another instance is `stream_unavailable` (poll status until it finishes).
  */
 const streamStartedTurn = (
   dependencies: ChatRunsRouteDependencies,
@@ -86,7 +89,14 @@ const streamStartedTurn = (
   started: StartedTurn,
 ): Response => {
   const finished = started.status !== "running";
-  if (!started.inserted && finished && !dependencies.dispatcher.hasTurn(started.assistantTurnId)) {
+  if (started.inserted) {
+    dependencies.dispatcher.registerTurn(started.assistantTurnId);
+  } else if (!dependencies.dispatcher.hasTurn(started.assistantTurnId)) {
+    if (!finished) {
+      return notStreamOwnerError(
+        "Another instance owns this turn's live stream; poll turn status until it finishes.",
+      );
+    }
     return replayExpiredError("This turn has finished; read it from conversation history.");
   }
 
@@ -95,6 +105,8 @@ const streamStartedTurn = (
     requestId: started.requestId,
     authContext,
     after: REPLAY_FROM_START,
+    // A replayed finished turn ends after its buffered replay; a live turn tails.
+    replayOnly: finished,
   });
 };
 
