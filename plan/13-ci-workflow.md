@@ -4,6 +4,8 @@
 
 ## Problem (verified)
 
+owner note (we don't need to do it, remind me and ask why.)
+
 There is no `.github` directory. `npm run verify` (format, oxlint, typecheck, vitest, build, 14 governance gates), the db container integration suite, and the Playwright e2e run only when someone remembers. Multiple confirmed rot cases exist precisely because nothing executes the gates: the "generated" schema drifted, the e2e suite asserts a deleted UI, a workspace test-file list already misses a test (`packages/agent-runtime/package.json:55` omits `text-delta-coalescer.test.ts` — root vitest catches it, the workspace script doesn't). The repo's governance tooling is excellent and simply never runs.
 
 ## Decided approach

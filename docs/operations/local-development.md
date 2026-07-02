@@ -55,18 +55,18 @@ The launcher offers three providers (prompt at `run-local-fake.mjs:570-636`):
 | Provider         | Setup                                                                                                                                               | Persistence               |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
 | `fake` (default) | None. In-memory showcase model + mock tools.                                                                                                        | In-memory                 |
-| `openai`         | Prompts for API key, allowed models (first is default), and an optional OpenAI-compatible base URL.                                                 | In-memory (no DB URL set) |
+| `openai`         | Prompts for API key and an optional OpenAI-compatible base URL; boots the default `sidechat.config.ts` (its declared models apply).                 | In-memory (no DB URL set) |
 | `azure`          | Prompts for endpoint, key, api-version, and gpt-4o deployment; boots `apps/partner-ai-service/sidechat.azure.config.ts` via `SIDECHAT_CONFIG_PATH`. | In-memory                 |
 
-The `fake` and `azure` modes delete `SIDECHAT_DATABASE_URL` so persistence stays in-memory (`run-local-fake.mjs:755`, `:763`). The `openai` mode does not scrub it, but with no database URL set and the `development` profile it also runs in-memory. For Postgres-backed runs, see [database.md](database.md).
+All three modes delete `SIDECHAT_DATABASE_URL` so persistence stays in-memory. For Postgres-backed runs, see [database.md](database.md).
 
 ### Fake provider defaults
 
 When the provider is `fake`, the launcher sets these defaults (`run-local-fake.mjs:746-759`):
 
-- Profile `development`, policy `allow_all`.
+- Profile `development` (the config maps `configured` policy to `allow_all` there).
 - `SIDECHAT_DEMO_SEED_CONVERSATIONS=true` — seeds demo conversations.
-- `SIDECHAT_ENABLE_DEV_TOOLS=true` — enables the `mock_web_search` tool.
+- The `mock_web_search` tool is declared in the fake config itself.
 
 Two demo prompts exercise the fake model (`run-local-fake.mjs:894-897`):
 

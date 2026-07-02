@@ -13,7 +13,7 @@
 //
 // Providers:
 //   - fake    in-memory showcase model + mock tools (default; no key needed)
-//   - openai  real OpenAI-compatible models (prompts for API key + models)
+//   - openai  the default sidechat.config.ts models (prompts for API key)
 //   - azure   boots the standalone Azure + in-memory "fake db" config
 //             (sidechat.azure.config.ts) and prompts for the Azure endpoint,
 //             API key, api-version, and gpt-4o deployment name
@@ -557,7 +557,7 @@ async function collectConfig() {
   let provider = (
     await ask(
       "Provider [fake/openai/azure]",
-      pick(saved, "provider", process.env.SIDECHAT_PROVIDER, "fake"),
+      pick(saved, "provider", process.env.SIDECHAT_LAUNCH_PROVIDER, "fake"),
     )
   ).toLowerCase();
   if (provider !== "fake" && provider !== "openai" && provider !== "azure") {
@@ -643,7 +643,7 @@ async function collectConfig() {
   return cfg;
 }
 
-/** Prompt for the openai provider's key, model allowlist, and optional endpoint. */
+/** Prompt for the openai provider's key and optional endpoint (models come from sidechat.config.ts). */
 async function collectOpenAiConfig(cfg, saved) {
   const savedKey = pick(saved, "apiKey", process.env.SIDECHAT_OPENAI_API_KEY, "");
   cfg.apiKey = await askSecret("API key", savedKey);
@@ -652,10 +652,6 @@ async function collectOpenAiConfig(cfg, saved) {
     cfg.apiKey = await askSecret("API key", "");
     if (SKIP_PROMPTS) break;
   }
-  cfg.models = await ask(
-    "Allowed models (comma-separated, first is default)",
-    pick(saved, "models", process.env.SIDECHAT_ALLOWED_MODELS, "gpt-5.4-mini"),
-  );
   cfg.baseUrl = await ask(
     "API base URL - OpenAI-compatible endpoint root, e.g. https://gateway/v1 (blank = api.openai.com)",
     pick(saved, "baseUrl", process.env.SIDECHAT_OPENAI_BASE_URL, ""),
@@ -713,9 +709,7 @@ function buildBackendEnv(cfg) {
   const backendEnv = {
     PORT: String(cfg.backendPort),
     SIDECHAT_PROFILE: process.env.SIDECHAT_PROFILE || "development",
-    SIDECHAT_POLICY_MODE: process.env.SIDECHAT_POLICY_MODE || "allow_all",
     SIDECHAT_AUTH_BEARER_TOKEN: cfg.authToken,
-    SIDECHAT_PROVIDER: cfg.provider,
     SIDECHAT_WORKSPACE_ID: cfg.workspaceId,
   };
   if (cfg.provider === "fake") {
@@ -739,14 +733,14 @@ function buildBackendEnv(cfg) {
       `Provider: azure gpt-4o (deployment "${cfg.azureDeploymentGpt4o}") via sidechat.azure.config.ts. Persistence: in-memory.`,
     );
   } else {
+    // Boot the default readable config (sidechat.config.ts): its declared models
+    // apply; only the secret key and optional endpoint come from env.
+    delete process.env.SIDECHAT_DATABASE_URL;
     backendEnv.SIDECHAT_OPENAI_API_KEY = cfg.apiKey;
-    backendEnv.SIDECHAT_ALLOWED_MODELS = cfg.models;
     if (cfg.baseUrl) backendEnv.SIDECHAT_OPENAI_BASE_URL = cfg.baseUrl;
-    if (process.env.SIDECHAT_OPENAI_REASONING_EFFORT)
-      backendEnv.SIDECHAT_OPENAI_REASONING_EFFORT = process.env.SIDECHAT_OPENAI_REASONING_EFFORT;
-    if (process.env.SIDECHAT_OPENAI_REASONING_SUMMARY)
-      backendEnv.SIDECHAT_OPENAI_REASONING_SUMMARY = process.env.SIDECHAT_OPENAI_REASONING_SUMMARY;
-    logLauncher(`Provider: openai (models: ${cfg.models}). Persistence: in-memory.`);
+    logLauncher(
+      "Provider: openai via sidechat.config.ts (models declared there). Persistence: in-memory.",
+    );
   }
   return backendEnv;
 }

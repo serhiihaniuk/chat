@@ -68,7 +68,7 @@ Every command below is a root `package.json` script (`package.json:11-31`).
 | `npm run audit`                 | `npm audit` reports no high-or-above advisory.                                       | No           |
 
 The provider smoke refuses to run until you set **both** acknowledgement flags:
-`SIDECHAT_PROVIDER=openai` and `SIDECHAT_LIVE_PROVIDER_SMOKE=approved`
+`SIDECHAT_OPENAI_API_KEY` and `SIDECHAT_LIVE_PROVIDER_SMOKE=approved`
 (`scripts/smoke-openai-provider.mjs:5-12`).
 
 ## Custom governance gates

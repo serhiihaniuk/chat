@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { defineConfig } from "playwright/test";
 
 const widgetPort = readPortEnv("SIDECHAT_E2E_WIDGET_PORT", 5174);
@@ -36,8 +37,12 @@ export default defineConfig({
         PORT: String(servicePort),
         SIDECHAT_AUTH_BEARER_TOKEN: authToken,
         // The no-secrets fake-provider config: deterministic model, in-memory
-        // persistence, mock tools — the browser suite needs no API key.
-        SIDECHAT_CONFIG_PATH: "apps/partner-ai-service/sidechat.fake.config.ts",
+        // persistence, mock tools — the browser suite needs no API key. Absolute,
+        // because the webServer child resolves relative paths from its own cwd.
+        SIDECHAT_CONFIG_PATH: resolve(
+          import.meta.dirname,
+          "apps/partner-ai-service/sidechat.fake.config.ts",
+        ),
         SIDECHAT_DATABASE_URL: "",
         SIDECHAT_DEMO_SEED_CONVERSATIONS: "true",
         SIDECHAT_PROFILE: "development",

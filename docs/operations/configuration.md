@@ -16,19 +16,20 @@ One file, one default export: `defineSideChatConfig({...}) satisfies SideChatCon
 
 Every key below lives in `sidechat.config.ts` at the cited line. Each owns one slice of behavior:
 
-| Key                  | Owns                                                                                                                                                                                                        | Line   |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `environment`        | Deployment shape and secrets via `readEnv`: port, profile, bearer token, database URL, tenant/workspace ids.                                                                                                | `:33`  |
-| `models`             | Provider connection (kind, secret API key, optional endpoint), reasoning summary, the `default` model, and `availableModels` with per-model reasoning options.                                              | `:61`  |
-| `executors`          | The executor catalog and default; ships only `AI_SDK_TOOL_LOOP`.                                                                                                                                            | `:105` |
-| `tools`              | Backend tools the assistant may call; ships only `mock_web_search` (prompt, delay, exposure, approval ids).                                                                                                 | `:109` |
-| `hostCommands`       | App-owned commands the host runs; ships empty (no commands, policies, or renderers yet).                                                                                                                    | `:126` |
-| `turnGuards`         | Per-turn safety guards; ships empty.                                                                                                                                                                        | `:131` |
-| `requestPolicy`      | Request gating mode (`CONFIGURED`) and the model entitlements a request may select.                                                                                                                         | `:134` |
-| `chat.turnProfile`   | The default profile: system instructions, Markdown output, allowlisted tools, and standard safety.                                                                                                          | `:143` |
-| `context`            | History window (`recent_messages`, 12 messages / 4k tokens) and `contextAdmission` token budgets.                                                                                                           | `:167` |
-| `auxiliaryModelJobs` | Side model jobs; ships the enabled conversation-title job.                                                                                                                                                  | `:180` |
-| `resumability`       | Lease and heartbeat timers, the per-process `instanceId`, the crash-recovery sweep cadence (`reaperInterval`, `reaperBatchLimit` — ADR 0008), and the delta coalescing window (`outputDeltaFlushInterval`). | `:189` |
+| Key                  | Owns                                                                                                                                                           | Line   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `environment`        | Deployment shape and secrets via `readEnv`: port, profile, bearer token, database URL, tenant/workspace ids.                                                   | `:33`  |
+| `models`             | Provider connection (kind, secret API key, optional endpoint), reasoning summary, the `default` model, and `availableModels` with per-model reasoning options. | `:61`  |
+| `executors`          | The executor catalog and default; ships only `AI_SDK_TOOL_LOOP`.                                                                                               | `:105` |
+| `tools`              | Backend tools the assistant may call; ships only `mock_web_search` (prompt, delay, exposure, approval ids).                                                    | `:109` |
+| `hostCommands`       | App-owned commands the host runs; ships empty (no commands, policies, or renderers yet).                                                                       | `:126` |
+| `turnGuards`         | Per-turn safety guards; ships empty.                                                                                                                           | `:131` |
+| `requestPolicy`      | Request gating mode (`CONFIGURED`) and the model entitlements a request may select.                                                                            | `:134` |
+| `chat.turnProfile`   | The default profile: system instructions, Markdown output, allowlisted tools, and standard safety.                                                             | `:143` |
+| `context`            | History window (`recent_messages`, 12 messages / 4k tokens) and `contextAdmission` token budgets.                                                              | `:167` |
+| `auxiliaryModelJobs` | Side model jobs; ships the enabled conversation-title job.                                                                                                     | `:180` |
+| `streaming`          | The delta coalescing window (`outputDeltaFlushInterval`): provider text batched into ~4 delta events/s — fewer SSE frames and widget re-renders.               | `:214` |
+| `resumability`       | Lease and heartbeat timers, the per-process `instanceId`, and the crash-recovery sweep cadence (`reaperInterval`, `reaperBatchLimit` — ADR 0008).              | `:189` |
 
 ## Declaring process inputs with `readEnv`
 
@@ -42,18 +43,19 @@ The config never reads `process.env` directly. Each process input is a `readEnv`
 | `readEnv.boolean(key, ...)`  | A boolean flag.                          | `environment.demoSeedConversations` (`:48`)   |
 | `readEnv.optional(key, ...)` | An optional override, absent by default. | `models.provider.connection.endpoint` (`:68`) |
 
-Env variable names are centralized, not typed inline. They live in `SERVICE_ENV_KEYS` ([`src/config/env/service-env-contract.ts:14-41`](../../apps/partner-ai-service/src/config/env/service-env-contract.ts)), a dependency-free leaf shared by both the config resolver and the legacy parser so they form no import cycle. Add a key there, then reference it from the config.
+Env variable names are centralized, not typed inline. They live in `SERVICE_ENV_KEYS` ([`src/config/env/service-env-contract.ts`](../../apps/partner-ai-service/src/config/env/service-env-contract.ts)), a dependency-free leaf the config files and the boot-path resolvers share. Add a key there, then reference it from the config. Provider secrets keep their canonical names in the provider catalog (`PROVIDERS.*.SECRET_ENV_KEYS`).
 
 ## How the service loads it
 
-`src/server.ts` builds its boot config from the typed object first, falling back to the legacy parser only if no config module loads:
+The typed config object is the ONE config system — there is no fallback:
 
-1. `server.ts:62-71` calls `loadSelectedSideChatConfig()`. On success it builds options via `createPartnerAiServiceOptionsFromConfig(config)`.
-2. The loader ([`config-selection.ts`](../../apps/partner-ai-service/src/config/sidechat-config/selection/config-selection.ts)) imports the config module. `SIDECHAT_CONFIG_PATH` overrides the module path; the default is `../../../../sidechat.config.ts` (`:74-79`).
-3. `SIDECHAT_CONFIG` selects a named config when the module exports a `SIDECHAT_CONFIGS` registry; otherwise the default export is used (`:60-72`). An unknown name throws.
+1. `server.ts` calls `loadSelectedSideChatConfig()` and builds options via `createPartnerAiServiceOptionsFromConfig(config)`.
+2. The loader ([`config-selection.ts`](../../apps/partner-ai-service/src/config/sidechat-config/selection/config-selection.ts)) imports the config module. `SIDECHAT_CONFIG_PATH` overrides the module path; the default is the app-root `sidechat.config.ts`.
+3. `SIDECHAT_CONFIG` selects a named config when the module exports a `SIDECHAT_CONFIGS` registry; otherwise the default export is used. An unknown name throws.
+4. **A config that cannot load is a fatal boot error.** A missing file, a syntax error, or a throw at module scope prints the module path and reason and exits non-zero — the service never silently boots different behavior.
 
-## Rules and the fallback
+## Rules
 
 - **No ad-hoc `process.env`.** `check-runtime-boundaries.mjs:22-28` fails any production source that reads `process.env` outside a `*.test.ts` file or the config adapter (anything under `apps/partner-ai-service/src/config/`). New tunables go in `sidechat.config.ts` plus `SERVICE_ENV_KEYS`, never as inline reads. This gate runs inside `npm run lint:custom` — see [verification.md](verification.md).
 - **Single DB owner.** The service is the only reader of the database URL (`SIDECHAT_DATABASE_URL`); `drizzle.config.ts` and DB tooling deliberately do not re-read it.
-- **Legacy parser is a migration fallback only.** When no config module loads, `server.ts:73-78` falls back to the env parser [`src/config/service-config.ts`](../../apps/partner-ai-service/src/config/service-config.ts). That parser handles only the `fake` and `openai` providers and rejects others (`service-config.ts:205-218`). Azure is config-only: configure it through `sidechat.azure.config.ts`, not env flags. This fallback is slated for removal.
+- **Development maps `configured` policy to `allow_all`.** The development profile deliberately relaxes the request policy so local runs work without entitlements; production enforces the configured entitlements as declared.

@@ -16,7 +16,16 @@ export type SideChatResumabilityConfig = {
   readonly heartbeatInterval: SideChatNumberEnvReference;
   readonly reaperInterval: SideChatNumberEnvReference;
   readonly reaperBatchLimit: SideChatNumberEnvReference;
-  // Window (ms) for coalescing streamed text into one emitted delta event;
-  // governs the per-turn event rate. Resolved into the runtime executor config.
+};
+
+/**
+ * Stream-delivery tunables, as readable-config env references.
+ *
+ * `outputDeltaFlushInterval` is the window (ms) for coalescing provider text
+ * into one emitted delta event (~4 events/s at the default): fewer SSE frames,
+ * registry appends, and widget re-renders. It is a render-cadence knob, not a
+ * resumability one — resolved into the runtime executor config.
+ */
+export type SideChatStreamingConfig = {
   readonly outputDeltaFlushInterval: SideChatNumberEnvReference;
 };

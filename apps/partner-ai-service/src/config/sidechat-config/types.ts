@@ -25,14 +25,16 @@ import type {
   ServiceProfileValue,
   ToolDefaultExposure,
 } from "../catalog/config-values.js";
+import type { SideChatStringEnvReference } from "./env-references.js";
 import type {
-  SideChatBooleanEnvReference,
-  SideChatNumberEnvReference,
-  SideChatStringEnvReference,
-} from "./env-references.js";
-import type { SideChatResumabilityConfig } from "./contracts/resumability-config-types.js";
+  SideChatResumabilityConfig,
+  SideChatStreamingConfig,
+} from "./contracts/resumability-config-types.js";
+import type { SideChatEnvironmentConfig } from "./contracts/environment-config-types.js";
 
-export type ServiceEnv = Readonly<Record<string, string | undefined>>;
+export type { SideChatEnvironmentConfig } from "./contracts/environment-config-types.js";
+
+export type { ServiceEnv } from "../env/service-env-contract.js";
 export type ServiceProfile = ServiceProfileValue;
 
 export type SideChatModelDescriptor = {
@@ -67,31 +69,6 @@ export type SideChatDefaultModel<Model extends SideChatModelDescriptor> = {
   readonly model: Model;
   /** Default reasoning effort for the default model. */
   readonly reasoning: Model["SUPPORTED_REASONING_EFFORTS"][number];
-};
-
-/**
- * Process-env contract declared beside product config.
- *
- * These references are deployment wiring, not assistant behavior: they select
- * ports, posture, workspace identity, auth, and persistence after a config file
- * has been selected. The values are resolved at boot and secret references must
- * never appear in diagnostics, model catalogs, or browser protocol data.
- */
-export type SideChatEnvironmentConfig = {
-  /** HTTP port used by the Node service. */
-  readonly port: SideChatNumberEnvReference;
-  /** Deployment posture such as development or production. */
-  readonly profile: SideChatStringEnvReference;
-  /** Optional bearer token used by the service auth adapter. */
-  readonly authBearerToken: SideChatStringEnvReference;
-  /** Optional Postgres connection string; absence keeps development on memory storage. */
-  readonly databaseUrl: SideChatStringEnvReference;
-  /** Enables deterministic demo conversation seeding for local boot. */
-  readonly demoSeedConversations: SideChatBooleanEnvReference;
-  /** Workspace scope used when requests do not carry a host-specific identity. */
-  readonly tenantId: SideChatStringEnvReference;
-  /** Workspace id used by repository and authorization adapters. */
-  readonly workspaceId: SideChatStringEnvReference;
 };
 
 /**
@@ -283,7 +260,9 @@ export type SideChatConfig = {
     /** Configured auxiliary jobs such as conversation-title generation. */
     readonly availableJobs: readonly SideChatAuxiliaryModelJobConfig[];
   };
-  /** Operator tunables for resumable server-owned streaming. */
+  /** Stream-delivery tunables (delta coalescing cadence). */
+  readonly streaming: SideChatStreamingConfig;
+  /** Operator tunables for crash recovery and resume (lease, heartbeat, reaper). */
   readonly resumability: SideChatResumabilityConfig;
 };
 

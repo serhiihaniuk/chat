@@ -1,8 +1,17 @@
 # 30 — Widget e2e reconciliation + CI wiring
 
-**Epic:** 6 Widget UI | **Priority:** P0 (a red-if-ever-run suite certifies behavior that isn't there) | **Depends on:** 13, 19, 23; after epic-1 client stories | **Status:** todo
+**Epic:** 6 Widget UI | **Priority:** P0 (a red-if-ever-run suite certifies behavior that isn't there) | **Depends on:** 13, 19, 23; after epic-1 client stories | **Status:** in-progress (reconciliation done 2026-07-02; CI + fidelity + new scenarios remain)
 
-> Update from story 03 (2026-07-02): the suite now RUNS (plan/11 fixed the fake boot; a demo-host-panel `z-index: 2147483000` overlay and a Vite optimizeDeps 504 for streamdown were fixed en route). Current tally: 8 passed, 4 failed — every failure is this story's stale-UI inventory. Add `:91` to the list below: the tool-flow scenario expects "Run mock_web_search" + query JSON + expandable result details, but the shipped UI renders a bare `mock_web_search` chip. The transport waits were already migrated to POST `/chat/runs` in 03; the identity-first mock stream is done (item 2's last bullet — verified).
+## Delivery notes (reconciliation half, 2026-07-02)
+
+**The suite is GREEN: 12/12 in ~27 s** (down from 8/4 with four tests burning full timeouts). Every stale assertion was resolved per this story's rule — rewrite to the shipped UI, with a comment pointing at the story that rebuilds the feature:
+
+- `:91` + `:189` (tool details): rewritten to the shipped §9.9 contract — a tool renders as a humanized plain-text row ("Mock web search"), non-interactive, no expanded query/result details. The `:189` test now also pins the _absence_ of a details surface, so plan/23's rebuild consciously flips it.
+- `:246` (dismiss error): rewritten to the shipped ErrorNotice — a `role=alert` with a "Try again" secondary action, no dismiss control. The test now also proves retry is _functional_: clicking it resubmits, the error scenario fails again, and the widget lands back in the honest error state with the composer usable.
+- `:288` (chat-size hover + model popover): the context ring is `aria-hidden` decoration (plan/33 owns its fate) and mock mode has no model catalog, so the test moved to local-service mode and asserts the real thing it was for — the model selector opens as an anchored popover contained in a short viewport ("Search models..." visible + in-viewport). Two shipped-UI facts discovered en route: the trigger is a `combobox` showing the model id, and the Base UI popup carries `role=dialog` (the old "no dialog" assertion asserted an implementation detail).
+- Earlier under stories 03/06: transport waits moved to POST `/chat/runs`, identity-first mock stream verified, the run→history handoff test rewritten, demo-panel z-index and Vite optimizeDeps fixed.
+
+**Still this story's scope (with deps 13/19/23):** flip the CI e2e job to required (13), mock-stream fidelity (multi-delta pacing, a `blocked` scenario), iframe-bridge hardening (`getCapabilities` forwarding, `result.data` passthrough, `message.source` check), and the two new scenarios (reload-mid-turn → resume; cancel-in-other-tab). One flake to watch: occasional Windows dev-server crashes/socket exhaustion under repeated local runs — CI wiring should retry-on-crash or serialize.
 
 ## Problem
 

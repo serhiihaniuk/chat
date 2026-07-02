@@ -105,9 +105,9 @@ test("showcases the fake provider with slow markdown and local tool activity", a
   await expect(page.getByText(/Use this during the demo/u)).toBeVisible();
 
   await openActivityPanel(page, { timeout: 30_000 });
-  await expect(page.getByText("Run mock_web_search")).toBeVisible({ timeout: 5_000 });
-  await expect(page.getByText(/"query": "Side Chat demo briefing: tool"/u)).toBeVisible();
-  await expect(page.getByText(/Mocked web search found/u)).toBeVisible();
+  // The activity trace shows tool rows as humanized plain-text lines (§9.9);
+  // expandable detail cards are plan/23's rebuild, not shipped UI.
+  await expect(page.getByText("Mock web search")).toBeVisible({ timeout: 5_000 });
   await expect(page.getByLabel("Message")).toBeEnabled({ timeout: 30_000 });
   await expectUsageWasRecorded(request);
 });
@@ -186,7 +186,10 @@ test("streams from the local service while embedded in an iframe", async ({ page
   expect(Math.abs(reopenedBox.width - resizedPanelWidth)).toBeLessThanOrEqual(2);
 });
 
-test("renders tool activity details from the canonical activity stream", async ({ page }) => {
+test("renders tool activity rows from the canonical activity stream", async ({ page }) => {
+  // The shipped trace renders a tool as a humanized plain-text row (§9.9) — no
+  // pill, not clickable, no expanded query/result details. The expandable detail
+  // card is plan/23's rebuild; when it lands, this test grows back with it.
   await page.goto(widgetAppUrl("?mode=mock-stream&scenario=tool"));
   await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
 
@@ -198,22 +201,10 @@ test("renders tool activity details from the canonical activity stream", async (
   });
   await waitForActivityPanelAutoClose(page);
   await openActivityPanel(page, { timeout: 15_000 });
-  const toolTrigger = page.getByRole("button", { name: /mock_web_search/u });
-  await expect(toolTrigger).toBeVisible({ timeout: 15_000 });
-  // Tool rows are collapsed by default; expand to reveal the details.
-  await expect(page.getByText("Search query")).toBeHidden();
-  await toolTrigger.click();
-  await expect(page.getByText("Search query")).toBeVisible();
-  await expect(page.getByText("current portfolio news", { exact: true }).last()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Result", exact: true }).first()).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(page.getByText(/Mocked web search found/u)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Search results", exact: true })).toBeVisible();
-  await expect(page.getByText("Mock Search Result")).toBeVisible();
-  await expect(page.getByText("example.test")).toBeVisible();
-
-  await toolTrigger.click();
+  const toolRow = page.getByText("Mock web search", { exact: true }).last();
+  await expect(toolRow).toBeVisible({ timeout: 15_000 });
+  // Plain informational row: no expandable details surface.
+  await expect(page.getByRole("button", { name: /Mock web search/u })).toHaveCount(0);
   await expect(page.getByText("Search query")).toBeHidden();
 });
 
@@ -243,15 +234,22 @@ test("sends turn profile and host context through public widget seams", async ({
   ).toBeVisible();
 });
 
-test("shows a stream error state without arbitrary waits", async ({ page }) => {
+test("shows a stream error state with a working retry affordance", async ({ page }) => {
   await page.goto(widgetAppUrl("?mode=mock-stream&scenario=error"));
 
   await page.getByLabel("Message").fill("trigger mock failure");
   await page.getByRole("button", { name: "Send" }).click();
 
-  await expect(page.getByText("Mock stream failed")).toBeVisible();
-  await page.getByRole("button", { name: "Dismiss error" }).click();
-  await expect(page.getByText("Mock stream failed")).toBeHidden();
+  // The error notice is a role=alert with a "Try again" secondary action —
+  // there is no dismiss control by design (retry or move on).
+  const alert = page.getByRole("alert").filter({ hasText: "Mock stream failed" });
+  await expect(alert).toBeVisible();
+
+  // Retry resubmits the same prompt; the error scenario fails again, and the
+  // widget must land back in the same honest error state, not wedge or crash.
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(alert).toBeVisible();
+  await expect(page.getByLabel("Message")).toBeEnabled();
 });
 
 test("opens the narrow conversation switcher menu without crashing", async ({ page }) => {
@@ -285,24 +283,25 @@ test("keeps the widget usable on a mobile viewport", async ({ page }) => {
   await expectElementWithinViewport(page, page.getByRole("button", { name: "Send" }));
 });
 
-test("keeps prompt input chat-size and model controls visible as anchored popovers", async ({
+test("keeps the model selector visible as an anchored popover on a short viewport", async ({
   page,
+  request,
 }) => {
+  // The context ring is aria-hidden decoration today (its interactive fate is
+  // plan/33), and mock mode has no model catalog — so this runs against the
+  // local service, whose fake model + thinking levels populate the selector.
+  await expectServiceHealth(request);
   await page.setViewportSize({ height: 486, width: 864 });
-  await page.goto(widgetAppUrl("?mode=mock-stream"));
+  await openLocalServiceWidget(page);
 
-  const contextButton = page.getByRole("button", { name: "Chat size estimate" });
-  await expect(contextButton).toBeVisible();
-  await contextButton.hover();
-
-  const contextDetails = page.getByText(/not the selected model's context window/u);
-  await expect(contextDetails).toBeVisible();
-  await expectElementWithinViewport(page, contextDetails);
-
-  await page.getByRole("button", { name: "Select model" }).click();
+  await page
+    .getByRole("combobox")
+    .filter({ hasText: /fake.?echo/iu })
+    .click();
+  // The popup must open anchored inside the short viewport — never clipped off
+  // screen. (It renders as a Base UI popover; role is an implementation detail.)
   const modelSearch = page.getByPlaceholder("Search models...");
   await expect(modelSearch).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expectElementWithinViewport(page, modelSearch);
 });
 

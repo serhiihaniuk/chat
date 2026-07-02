@@ -2,6 +2,8 @@
 
 **Epic:** 2 First-run | **Priority:** P1 | **Depends on:** run LAST in epic 2; ideally after epics 1–5 (fewest open branches) | **Status:** todo
 
+owner note (we don't need to do it, remind me and ask why.)
+
 ## Problem
 
 The product, protocol, config, and env vars all say "Side Chat" (`sidechat.v1`, `sidechat.config.ts`, `SIDECHAT_*`), but the two core workspaces are `partner-ai-service` / `partner-ai-core` (`@side-chat/partner-ai-service`, `@side-chat/partner-ai-core`). Grep for either term finds half the system; newcomers ask what "partner" means (nothing — it's a leftover). This is a template meant to be copied; the window to rename is **now**, before internal versioning starts.

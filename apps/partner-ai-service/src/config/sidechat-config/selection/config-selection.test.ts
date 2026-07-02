@@ -24,11 +24,25 @@ describe("sidechat config selection", () => {
   });
 
   it("loads the root config module", async () => {
-    const result = await loadSelectedSideChatConfig({});
+    const selection = await loadSelectedSideChatConfig({});
 
-    expect(result).toMatchObject({
-      loaded: true,
-      selection: { name: "default" },
-    });
+    expect(selection).toMatchObject({ name: "default" });
+  });
+
+  it("fails loudly when the config module cannot load, naming module and reason", async () => {
+    // There is no fallback config system: a broken config is a fatal boot error
+    // (ADR 0010), never a silent boot with different behavior.
+    await expect(
+      loadSelectedSideChatConfig({ SIDECHAT_CONFIG_PATH: "./no-such-sidechat.config.ts" }),
+    ).rejects.toThrow(/Unable to load the SideChat config module at .*no-such-sidechat\.config/u);
+  });
+
+  it("fails loudly when the config module throws at load time", async () => {
+    await expect(
+      loadSelectedSideChatConfig({
+        SIDECHAT_CONFIG_PATH:
+          "apps/partner-ai-service/src/config/sidechat-config/selection/broken-config.fixture.ts",
+      }),
+    ).rejects.toThrow(/Unable to load the SideChat config module .*broken on purpose/u);
   });
 });

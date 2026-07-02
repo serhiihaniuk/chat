@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readDatabaseUrl } from "#config/service-config";
+import { SERVICE_ENV_KEYS, envValue } from "#config/env/service-env-contract";
 
 import { applySidechatSchema } from "../../../scripts/lib/apply-sidechat-schema.mjs";
 
@@ -17,7 +17,7 @@ try {
   // .env is optional; the connection may come from the ambient environment.
 }
 
-const connectionString = readDatabaseUrl();
+const connectionString = envValue(process.env, SERVICE_ENV_KEYS.databaseUrl);
 if (!connectionString) {
   console.error("SIDECHAT_DATABASE_URL is required to reset the database (set it in .env).");
   process.exit(1);

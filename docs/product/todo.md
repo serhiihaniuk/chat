@@ -11,10 +11,6 @@ This doc tracks work the system deliberately does not do yet. Each entry names a
 - History summary context, working name `recent_plus_summary`: support long conversations by admitting recent same-conversation messages plus a generated summary of older history. Before reintroducing this as configuration, define the summary generation owner, persistence timing, refresh policy, token budget accounting, health diagnostics, and tests that prove only authorized history can become model-visible context. Shipped history mode is `recent_messages` only ([sidechat.config.ts](../../apps/partner-ai-service/sidechat.config.ts)).
 - Long-term memory and retrieval context: persist durable user, workspace, or project facts and admit retrieved knowledge into model context. Before reintroducing DB schema, capability source types, configuration, or manifests, define the data model, write ownership, retention and deletion policy, tenant/subject authorization, retrieval strategy, redaction and audit behavior, token budgeting, and tests that prove only authorized memory can become model-visible context.
 
-## Configuration
-
-- Retire the legacy behavior env flags: the env-only parser still reads `SIDECHAT_POLICY_MODE`, `SIDECHAT_ALLOWED_MODELS`, `SIDECHAT_PROVIDER`, and `SIDECHAT_ENABLE_DEV_TOOLS` as a fallback when no config module loads ([service-env-contract.ts](../../apps/partner-ai-service/src/config/env/service-env-contract.ts), `service-config.ts`). This is the only open phase of the config migration. Behavior already ships from `sidechat.config.ts`; remove the parser so a single source declares behavior, leaving only secrets and deployment shape in env.
-
 ## Known code gaps
 
 Known gaps now live in the working plan at [`plan/00-overview.md`](../../plan/00-overview.md), one story per gap with evidence and acceptance criteria — including the `sidechat.blocked` sequence/schema gap (`plan/16`), the streaming affinity and orphan-turn gaps (`plan/02`–`plan/07`), and the fake quick-start boot failure (`plan/11`). Architecture docs mark each gap inline where it bites.

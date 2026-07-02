@@ -23,7 +23,7 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | 09  | Subscription gap fix + terminal guarantees — **done 2026-07-02**                   | 1 Streaming   | —                       |
 | 10  | Post-implementation docs delta + dead knobs + comment purge — **done 2026-07-02**  | 1 Streaming   | 02–09                   |
 | 11  | Fix the fake-provider quick start — **done 2026-07-02**                            | 2 First-run   | —                       |
-| 12  | Single config system (remove legacy parser, loud failures)                         | 2 First-run   | 11                      |
+| 12  | Single config system (remove legacy parser, loud failures) — **done 2026-07-02**   | 2 First-run   | 11                      |
 | 13  | CI workflow                                                                        | 2 First-run   | —                       |
 | 14  | LICENSE + README claim corrections                                                 | 2 First-run   | —                       |
 | 15  | Rename `partner-ai-*` → `sidechat-*`                                               | 2 First-run   | do LAST in epic 2       |
@@ -41,7 +41,7 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | 27  | Persistence races + fiber observability + fail-open telemetry                      | 5 Robustness  | 05, 36                  |
 | 28  | DB indexes + retention documentation                                               | 5 Robustness  | —                       |
 | 29  | Widget instance isolation + lifecycle cleanup                                      | 5 Robustness  | 03                      |
-| 30  | Widget e2e reconciliation + CI wiring                                              | 6 Widget UI   | 13, 19, 23              |
+| 30  | Widget e2e reconciliation + CI wiring — **suite green 2026-07-02; CI remains**     | 6 Widget UI   | 13, 19, 23              |
 | 31  | Widget dead-code purge + dark-mode alignment                                       | 6 Widget UI   | —                       |
 | 32  | Theme single-sourcing + add-a-theme recipe                                         | 6 Widget UI   | 31                      |
 | 33  | Composer correctness + real context ring                                           | 6 Widget UI   | —                       |

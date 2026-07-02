@@ -27,7 +27,7 @@ import {
   DEFAULT_TENANT_ID,
   DEFAULT_WORKSPACE_ID,
   SERVICE_ENV_KEYS,
-} from "#config/service-config";
+} from "#config/env/service-env-contract";
 
 const sideChatConfig = defineSideChatConfig({
   environment: {
@@ -186,6 +186,13 @@ const sideChatConfig = defineSideChatConfig({
       },
     ],
   },
+  streaming: {
+    outputDeltaFlushInterval: readEnv.number(SERVICE_ENV_KEYS.outputDeltaFlushIntervalMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,
+      description:
+        "Window (ms) to coalesce streamed text into one delta event; lower is smoother, higher emits fewer events.",
+    }),
+  },
   resumability: {
     safetyPollInterval: readEnv.number(SERVICE_ENV_KEYS.safetyPollIntervalMs, {
       defaultValue: RESUMABILITY_DEFAULTS.SAFETY_POLL_INTERVAL_MS,
@@ -213,11 +220,6 @@ const sideChatConfig = defineSideChatConfig({
       defaultValue: RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT,
       description:
         "Max running turns one reaper sweep terminalizes, so a backlog drains gradually.",
-    }),
-    outputDeltaFlushInterval: readEnv.number(SERVICE_ENV_KEYS.outputDeltaFlushIntervalMs, {
-      defaultValue: RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,
-      description:
-        "Window (ms) to coalesce streamed text into one delta event; lower is smoother, higher emits fewer events.",
     }),
   },
 } satisfies SideChatConfig);

@@ -9,11 +9,8 @@ import {
   type SidechatRepositories,
 } from "@side-chat/db";
 import type { PartnerAiServiceOptions } from "#inbound/http/app";
-import {
-  DEFAULT_TENANT_ID,
-  DEFAULT_WORKSPACE_ID,
-  ServiceConfigError,
-} from "#config/service-config";
+import { DEFAULT_TENANT_ID, DEFAULT_WORKSPACE_ID } from "#config/env/service-env-contract";
+import { ServiceConfigError } from "#config/service-config-error";
 
 type DemoConversationSeed = {
   readonly id: string;

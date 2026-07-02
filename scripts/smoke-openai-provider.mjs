@@ -1,9 +1,14 @@
 import { createPartnerAiServiceApp } from "../apps/partner-ai-service/src/inbound/http/app.js";
-import { createPartnerAiServiceOptionsFromEnv } from "../apps/partner-ai-service/src/config/service-config.js";
+import {
+  createPartnerAiServiceOptionsFromConfig,
+  loadSelectedSideChatConfig,
+} from "../apps/partner-ai-service/src/config/sidechat-config.js";
 import { SIDECHAT_PROTOCOL_VERSION } from "../packages/chat-protocol/src/index.js";
 
-if (process.env["SIDECHAT_PROVIDER"] !== "openai") {
-  throw new Error("Set SIDECHAT_PROVIDER=openai for the live provider smoke.");
+// The smoke boots the same readable config the service does (sidechat.config.ts
+// or SIDECHAT_CONFIG_PATH); the OpenAI key comes from SIDECHAT_OPENAI_API_KEY.
+if (!process.env["SIDECHAT_OPENAI_API_KEY"]) {
+  throw new Error("Set SIDECHAT_OPENAI_API_KEY for the live provider smoke.");
 }
 if (process.env["SIDECHAT_LIVE_PROVIDER_SMOKE"] !== "approved") {
   throw new Error(
@@ -12,8 +17,9 @@ if (process.env["SIDECHAT_LIVE_PROVIDER_SMOKE"] !== "approved") {
 }
 
 const token = process.env["SIDECHAT_AUTH_BEARER_TOKEN"] ?? "local-smoke-token";
+const selection = await loadSelectedSideChatConfig();
 const app = createPartnerAiServiceApp(
-  createPartnerAiServiceOptionsFromEnv({
+  createPartnerAiServiceOptionsFromConfig(selection.config, {
     ...process.env,
     SIDECHAT_AUTH_BEARER_TOKEN: token,
   }),

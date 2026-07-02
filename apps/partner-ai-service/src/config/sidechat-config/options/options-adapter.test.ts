@@ -19,7 +19,7 @@ import {
   readEnv,
   type SideChatConfiguredModel,
 } from "#config/sidechat-config";
-import { SERVICE_ENV_KEYS } from "#config/service-config";
+import { SERVICE_ENV_KEYS } from "#config/env/service-env-contract";
 
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,

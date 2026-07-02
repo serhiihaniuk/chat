@@ -4,6 +4,8 @@
 
 ## Problem (verified)
 
+owner note (we don't need to do it, remind me and ask why.)
+
 - **No LICENSE file exists** while `README.md:8` opens with "Side Chat is an open-source framework…". Blocking for any adopter's legal review; also legally ambiguous for contributors.
 - README factual errors independent of the streaming rewrite (story 10 owns those):
   - `README.md:106` claims "shadow-DOM-isolated widget" — false; isolation is the **iframe** (shadow DOM exists only in the docs app's preview harness, `apps/docs/app/components/preview.tsx`).

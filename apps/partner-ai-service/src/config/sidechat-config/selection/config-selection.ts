@@ -19,10 +19,6 @@ export type SelectedSideChatConfig = {
   readonly config: SideChatConfig;
 };
 
-export type SideChatConfigLoadResult =
-  | { readonly loaded: true; readonly selection: SelectedSideChatConfig }
-  | { readonly loaded: false; readonly reason: string };
-
 export const selectSideChatConfig = (
   configModule: SideChatConfigModule,
   env: ServiceEnv = process.env,
@@ -38,23 +34,27 @@ export const selectSideChatConfig = (
   );
 };
 
+/**
+ * Load and select the one config the service boots from — or throw, loudly.
+ *
+ * The config is the single source of behavior (ADR 0010): there is no fallback
+ * system, so a config that cannot load (missing file, syntax error, a throw at
+ * module scope) is a fatal boot error naming the module and the reason. A
+ * broken config must never silently boot different behavior.
+ */
 export const loadSelectedSideChatConfig = async (
   env: ServiceEnv = process.env,
-): Promise<SideChatConfigLoadResult> => {
-  const explicitConfigName = Boolean(readRequestedConfigName(env));
+): Promise<SelectedSideChatConfig> => {
+  const configModuleUrl = readConfigModuleUrl(env);
+  let configModule: SideChatConfigModule;
   try {
-    const configModule = (await import(readConfigModuleUrl(env))) as SideChatConfigModule;
-    return { loaded: true, selection: selectSideChatConfig(configModule, env) };
+    configModule = (await import(configModuleUrl)) as SideChatConfigModule;
   } catch (error) {
-    if (explicitConfigName) {
-      throw new ServiceConfigError(`Unable to load sidechat.config.ts: ${errorMessage(error)}`);
-    }
-
-    return {
-      loaded: false,
-      reason: errorMessage(error),
-    };
+    throw new ServiceConfigError(
+      `Unable to load the SideChat config module at ${configModuleUrl}: ${errorMessage(error)}`,
+    );
   }
+  return selectSideChatConfig(configModule, env);
 };
 
 const readConfigRegistry = (configModule: SideChatConfigModule): SideChatConfigRegistry => {

@@ -16,15 +16,12 @@ const workspaceId = "workspace_persistent_e2e";
 const repoRoot = resolve(import.meta.dirname, "..");
 const serviceEnv = (connectionString) => ({
   PORT: String(servicePort),
-  SIDECHAT_ALLOWED_MODELS: "",
+  // Boot the standalone no-secrets fake config; the database URL selects
+  // Postgres persistence over its in-memory default.
+  SIDECHAT_CONFIG_PATH: resolve(repoRoot, "apps/partner-ai-service/sidechat.fake.config.ts"),
   SIDECHAT_AUTH_BEARER_TOKEN: authToken,
   SIDECHAT_DATABASE_URL: connectionString,
-  SIDECHAT_ENABLE_DEV_TOOLS: "true",
-  SIDECHAT_HISTORY_MODE: "recent_messages",
-  SIDECHAT_OPENAI_API_KEY: "",
-  SIDECHAT_POLICY_MODE: "allow_all",
   SIDECHAT_PROFILE: "development",
-  SIDECHAT_PROVIDER: "fake",
   SIDECHAT_TENANT_ID: "tenant_persistent_e2e",
   SIDECHAT_WORKSPACE_ID: workspaceId,
 });

@@ -5,11 +5,6 @@ import {
   readSideChatConfigPort,
   readSideChatDemoSeedConversations,
 } from "./config/sidechat-config.js";
-import {
-  createPartnerAiServiceOptionsFromEnv,
-  readDemoSeedConversations,
-  readServicePort,
-} from "./config/service-config.js";
 import { withDemoSeededConversations } from "./demo/demo-conversation-seed.js";
 import { createPartnerAiService, type PartnerAiServiceOptions } from "./inbound/http/app.js";
 
@@ -59,22 +54,16 @@ const installGracefulShutdown = (
   process.once("SIGINT", drain);
 };
 
+// The config file is the ONE source of behavior (ADR 0010): a config that
+// cannot load rejects here with the module path and reason, and `main`'s catch
+// prints it and exits non-zero — the service never silently boots without it.
 const createBootConfig = async (): Promise<ServiceBootConfig> => {
-  const configResult = await loadSelectedSideChatConfig();
-  if (configResult.loaded) {
-    const config = configResult.selection.config;
-    return {
-      options: createPartnerAiServiceOptionsFromConfig(config),
-      port: readSideChatConfigPort(config),
-      seedDemoConversations: readSideChatDemoSeedConversations(config),
-    };
-  }
-
-  const options = createPartnerAiServiceOptionsFromEnv();
+  const selection = await loadSelectedSideChatConfig();
+  const config = selection.config;
   return {
-    options,
-    port: readServicePort(),
-    seedDemoConversations: readDemoSeedConversations(),
+    options: createPartnerAiServiceOptionsFromConfig(config),
+    port: readSideChatConfigPort(config),
+    seedDemoConversations: readSideChatDemoSeedConversations(config),
   };
 };
 

@@ -151,7 +151,7 @@ const createRuntimeToolConfig = (
     hostCommands: nonEmpty(config.hostCommands.availableCommands),
     approvalPolicies: nonEmpty(config.hostCommands.approvalPolicies),
     flushIntervalMs:
-      readNumberEnvReference(env, config.resumability.outputDeltaFlushInterval) ??
+      readNumberEnvReference(env, config.streaming.outputDeltaFlushInterval) ??
       RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,
   });
 
