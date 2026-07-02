@@ -1,6 +1,7 @@
 import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 import sideChatConfig from "#sidechat-config";
+import sideChatFakeConfig from "#sidechat-fake-config";
 import { createPartnerAiServiceApp } from "#inbound/http/app";
 import { runTurnStream } from "#testing/turn-stream/turn-stream-harness.test-support";
 import { EXECUTORS } from "#config/catalog/capabilities/executors";
@@ -128,6 +129,21 @@ describe("sidechat.config.ts", () => {
     expect(events.at(-1)).toMatchObject({
       type: SIDECHAT_EVENT_TYPES.COMPLETED,
     });
+  });
+
+  it("boots the shipped no-secrets fake config without any provider env", async () => {
+    const options = createPartnerAiServiceOptionsFromConfig(sideChatFakeConfig, {
+      [SERVICE_ENV_KEYS.authBearerToken]: "local-fake-token",
+      [SERVICE_ENV_KEYS.safetyPollIntervalMs]: "10",
+    });
+    expect(options.runtime).toMatchObject({
+      provider: PROVIDERS.FAKE.KIND,
+      modelId: PROVIDERS.FAKE.MODELS.FAKE_ECHO.MODEL_ID,
+    });
+
+    const app = createPartnerAiServiceApp(options);
+    const { events } = await runTurnStream(app, validRequest, "Bearer local-fake-token");
+    expect(events.at(-1)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.COMPLETED });
   });
 
   it("resolves resumability retention and batch knobs from the readable config", () => {

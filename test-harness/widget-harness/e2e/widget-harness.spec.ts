@@ -28,10 +28,10 @@ function readPortEnv(name: string, fallback: number): number {
 
 const widgetAppUrl = (query: string): string => `${widgetFramePath}${query}`;
 
-// The resumable flow streams over GET /chat/turns/:id/stream (POST /chat/runs only
-// returns JSON identity), so the SSE response to wait for matches that route.
+// Connection-bound streaming (ADR 0007): POST /chat/runs streams the turn on its
+// own response, so that is the SSE response to wait for when a message is sent.
 const isTurnStreamResponse = (url: string): boolean =>
-  /\/side-chat-api\/chat\/turns\/[^/]+\/stream/u.test(url);
+  /\/side-chat-api\/chat\/runs(?:\?|$)/u.test(url);
 
 test.beforeEach(({ page }) => {
   const pageErrors: string[] = [];

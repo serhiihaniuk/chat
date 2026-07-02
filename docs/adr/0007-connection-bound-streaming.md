@@ -74,9 +74,8 @@ stream; a client that loses its connection waits for the turn to finish and
 reads the result from history.
 
 The code is catching up to this decision; gaps and fixes are tracked in
-[`plan/`](../../plan/00-overview.md). Landed: server-side stream-from-POST
-(`plan/02`). Pending: the widget's move to the single call (`plan/03`),
-fail-fast non-owner resume (`plan/04`), the orphan sweep (`plan/05`), and
-client-side handoff/retry (`plan/06`, `plan/07`). Until `plan/03`–`plan/05`
-land, live streaming is correct on a single instance only and the shipped
-widget still speaks the previous two-call flow.
+[`plan/`](../../plan/00-overview.md). Landed: stream-from-POST end to end —
+the server (`plan/02`) and the widget's single-call client (`plan/03`).
+Pending: fail-fast non-owner resume (`plan/04`), the orphan sweep (`plan/05`),
+and client-side handoff/retry (`plan/06`, `plan/07`). Until `plan/04` and
+`plan/05` land, live streaming is correct on a single instance only.

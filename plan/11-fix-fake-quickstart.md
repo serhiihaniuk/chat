@@ -1,6 +1,13 @@
 # 11 — Fix the fake-provider quick start
 
-**Epic:** 2 First-run | **Priority:** P0 | **Depends on:** — | **Status:** todo
+**Epic:** 2 First-run | **Priority:** P0 | **Depends on:** — | **Status:** done (2026-07-02, executed during story 03 — it blocked all browser verification)
+
+## Delivery notes
+
+- **`apps/partner-ai-service/sidechat.fake.config.ts`** — standalone no-secrets config following the Azure pattern: fake provider (`fake-echo`, three reasoning efforts), mock web search enabled, dev profile, in-memory persistence. Boot verified with zero provider env: options build → `provider: fake, model: fake-echo`.
+- **Wiring:** `run-local-fake.mjs` fake mode and the Playwright e2e webServer both boot via `SIDECHAT_CONFIG_PATH` to the fake config (the dead `SIDECHAT_PROVIDER`/`SIDECHAT_ENABLE_DEV_TOOLS` env injection removed from those paths; the launcher keeps `SIDECHAT_PROVIDER` for the legacy openai path until `plan/12`).
+- **Boot-locking unit test:** `options-adapter.test.ts` "boots the shipped no-secrets fake config without any provider env" — builds options via the new `#sidechat-fake-config` subpath import and streams a turn to `completed`.
+- **Evidence for the launcher path:** the e2e suite boots the identical config+env shape through the Playwright webServer and streams real turns (widget-harness :56/:69/:131 green); docs known-gap notes removed from README and local-development.md.
 
 ## Problem (verified by execution 2026-07-01)
 

@@ -18,13 +18,15 @@ type MockRun = {
 };
 
 /**
- * Deterministic in-memory client over the resumable two-call flow.
+ * Deterministic in-memory client over the connection-bound flow.
  *
- * `createRun` records the run's event script keyed by its turn id; `subscribeTurn`
- * replays events with `sequence > after`, so a remount/reconnect resumes from the
- * last seen sequence without duplicating already-applied events. `cancelTurn`
- * flips the run to cancelled. State lives per client instance, mirroring how a
- * single browser session resumes its own in-flight turn.
+ * `createRun` records the run's event script keyed by its turn id and streams it
+ * on the same call — identity first (`sidechat.started`), then the scripted
+ * events, matching the real POST-is-the-stream contract. `subscribeTurn` replays
+ * events with `sequence > after`, so a remount/reconnect resumes from the last
+ * seen sequence without duplicating already-applied events. `cancelTurn` flips
+ * the run to cancelled. State lives per client instance, mirroring how a single
+ * browser session resumes its own in-flight turn.
  */
 export const createMockStreamClient = (
   config?: Pick<WidgetHarnessConfig, "scenario">,
@@ -36,17 +38,18 @@ export const createMockStreamClient = (
     createRun: (request) => {
       const assistantTurnId = `turn-${request.requestId}`;
       const events = createMockEvents(request, scenario);
-      runs.set(assistantTurnId, {
+      const run: MockRun = {
         requestId: request.requestId,
         conversationId: startedConversationId(events),
         events,
         cancelled: false,
-      });
+      };
+      runs.set(assistantTurnId, run);
       return Promise.resolve({
         requestId: request.requestId,
         assistantTurnId,
-        conversationId: startedConversationId(events),
-        status: "running",
+        conversationId: run.conversationId,
+        events: replayMockEvents(run, -1),
       });
     },
     subscribeTurn: (assistantTurnId, options) => {

@@ -19,33 +19,49 @@ export type RunSubscriptionInput = {
   readonly hostBridge: HostBridgeRef;
   readonly requestId: string;
   readonly assistantTurnId: string;
-  readonly after: number;
+  /**
+   * Pre-acquired event stream (the `createRun` POST body). When present, the
+   * subscription consumes it directly; when absent, it opens the resume GET
+   * from `after`.
+   */
+  readonly events?: AsyncIterable<SidechatStreamEvent> | undefined;
+  /** Resume cursor for the subscribe path; ignored when `events` is provided. */
+  readonly after?: number | undefined;
   readonly signal: AbortSignal;
   /** Persist the latest applied sequence so a later reconnect resumes correctly. */
   readonly onSequence: (sequence: number) => void;
-  /** Called when the durable log is gone, so the caller can fall back to history. */
+  /** Called when the stream buffer is gone, so the caller can fall back to history. */
   readonly onReplayExpired: () => void;
 };
 
 /**
- * Drive one subscription: open the turn stream and fold events into the store.
+ * Drive one subscription: consume the turn stream and fold events into the store.
  *
- * Idempotent by sequence (the reducer drops already-applied events), so a
- * reconnect after `after = lastSeenSequence` never double-applies. Host commands
- * are dispatched once and their result folded back before later events advance
- * the turn. A `replay_expired` open is reported to the caller; an abort is
- * swallowed; any other transport error fails the run for a later reconnect.
+ * The stream is either the `createRun` POST body (connection-bound start) or the
+ * resume GET from `after`. Idempotent by sequence (the reducer drops
+ * already-applied events), so a reconnect after `after = lastSeenSequence` never
+ * double-applies. Host commands are dispatched once and their result folded back
+ * before later events advance the turn. A `replay_expired` open is reported to
+ * the caller; an abort is swallowed; any other transport error fails the run for
+ * a later reconnect.
  */
 export const runSubscription = async (input: RunSubscriptionInput): Promise<void> => {
   try {
-    const subscription = await input.client.subscribeTurn(input.assistantTurnId, {
-      after: input.after,
-      signal: input.signal,
-    });
-    await consumeEvents(input, subscription.events);
+    const events = input.events ?? (await openResumeStream(input));
+    await consumeEvents(input, events);
   } catch (error) {
     handleSubscriptionError(input, error);
   }
+};
+
+const openResumeStream = async (
+  input: RunSubscriptionInput,
+): Promise<AsyncIterable<SidechatStreamEvent>> => {
+  const subscription = await input.client.subscribeTurn(input.assistantTurnId, {
+    after: input.after,
+    signal: input.signal,
+  });
+  return subscription.events;
 };
 
 const consumeEvents = async (

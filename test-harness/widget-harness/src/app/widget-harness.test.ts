@@ -49,19 +49,18 @@ describe("widget harness modes", () => {
     expect(html).not.toContain("Workspace Assistant");
   });
 
-  it("creates deterministic mock stream events through the two-call flow", async () => {
+  it("creates deterministic mock stream events on the connection-bound call", async () => {
     const events = createMockEvents(request);
     const streamed = [];
     const client = createMockStreamClient();
     const run = await client.createRun(request);
-    const subscription = await client.subscribeTurn(run.assistantTurnId);
 
-    for await (const event of subscription.events) streamed.push(event.type);
+    // The create response IS the stream, identity frame first.
+    for await (const event of run.events) streamed.push(event.type);
 
     expect(run).toMatchObject({
       requestId: "request-1",
       assistantTurnId: "turn-request-1",
-      status: "running",
     });
     expect(events.map((event) => event.type)).toEqual([
       "sidechat.started",

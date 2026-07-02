@@ -14,6 +14,7 @@ import {
   openSubscription,
   releaseSubscription,
   type ActiveSubscription,
+  type BeginRunControl,
   type HostBridgeRef,
   type RunLifecycleContext,
   type StartRunInput,
@@ -91,8 +92,9 @@ export const useWidgetRunController = (input: WidgetRunControllerInput): WidgetR
   );
 
   const startRun = useCallback(
-    (startInput: StartRunInput) => beginRun(contextRef.current, store, subscribe, startInput),
-    [contextRef, store, subscribe],
+    (startInput: StartRunInput) =>
+      startRunWithSlot(contextRef.current, store, subscriptionRef.current, startInput),
+    [contextRef, store],
   );
 
   const reconnect = useCallback(() => {
@@ -130,6 +132,35 @@ export const useWidgetRunController = (input: WidgetRunControllerInput): WidgetR
   }, [contextRef, store]);
 
   return { run, startRun, reconnect, resumeFromHistory, cancel, clearRun };
+};
+
+/**
+ * Start a fresh run, claiming the active-subscription slot before the POST.
+ *
+ * A fresh run replaces any live stream: the old subscription is aborted and the
+ * new controller registered first, so cancel/clear can abort the in-flight
+ * create and its connection-bound stream. The slot's turn id lands once the
+ * identity frame arrives.
+ */
+const startRunWithSlot = (
+  context: RunLifecycleContext,
+  store: WidgetRunStore,
+  active: ActiveSubscription,
+  startInput: StartRunInput,
+): Promise<void> => {
+  active.controller?.abort();
+  const controller = new AbortController();
+  active.controller = controller;
+  active.turnId = undefined;
+  const control: BeginRunControl = {
+    signal: controller.signal,
+    onIdentified: (assistantTurnId) => {
+      if (active.controller === controller) active.turnId = assistantTurnId;
+    },
+  };
+  return beginRun(context, store, control, startInput).finally(() => {
+    if (active.controller === controller) releaseSubscription(active);
+  });
 };
 
 const useStoreSnapshot = (store: WidgetRunStore): WidgetRunState | undefined =>

@@ -117,16 +117,12 @@ npm run dev --workspace @side-chat/partner-ai-service
 npm run dev --workspace @side-chat/widget-harness -- --host 127.0.0.1
 ```
 
-Or start the backend + widget with one command (no Docker, in-memory persistence,
-seeded demo chats):
+Or start the backend + widget with one command (no Docker, no API key,
+in-memory persistence, seeded demo chats):
 
 ```sh
 node scripts/run-local-fake.mjs --yes
 ```
-
-Known gap: the no-API-key fake mode of that launcher currently fails at boot;
-until `plan/11` lands, pick the `openai` or `azure` mode, or use `npm run dev`
-(see [docs/operations/local-development.md](docs/operations/local-development.md)).
 
 This starts only the two servers; **your own app is the host** — proxy `/side-chat-api`
 and `/side-chat-frame` to them and embed the iframe (see

@@ -23,6 +23,22 @@ function normalizeViteBase(value: string): string {
 export default defineConfig({
   base,
   plugins: [react(), tailwindcss()],
+  // Serve streamdown as raw ESM instead of pre-bundling it: its lazily-imported
+  // highlighting chunk otherwise gets a dep-optimizer generation hash that goes
+  // stale when the optimizer reruns mid-session ("Outdated Optimize Dep" 504 on
+  // the first rendered code block), which fails the e2e no-page-errors gate.
+  // Nested CJS deps of the excluded package still need interop bundling; this is
+  // the full runtime-CJS closure of streamdown@2.5.0 (types-only and mermaid-only
+  // subtrees excluded — the harness never renders mermaid).
+  optimizeDeps: {
+    exclude: ["streamdown"],
+    include: [
+      "streamdown > hast-util-to-jsx-runtime > style-to-js",
+      "streamdown > hast-util-to-jsx-runtime > mdast-util-mdx-expression > mdast-util-from-markdown > micromark > debug",
+      "streamdown > hast-util-to-jsx-runtime > mdast-util-mdx-expression > mdast-util-from-markdown > micromark > debug > ms",
+      "streamdown > remark-gfm > remark-parse > unified > extend",
+    ],
+  },
   server: {
     host: "127.0.0.1",
     port: 5173,

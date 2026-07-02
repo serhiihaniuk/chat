@@ -2,6 +2,8 @@
 
 **Epic:** 6 Widget UI | **Priority:** P0 (a red-if-ever-run suite certifies behavior that isn't there) | **Depends on:** 13, 19, 23; after epic-1 client stories | **Status:** todo
 
+> Update from story 03 (2026-07-02): the suite now RUNS (plan/11 fixed the fake boot; a demo-host-panel `z-index: 2147483000` overlay and a Vite optimizeDeps 504 for streamdown were fixed en route). Current tally: 8 passed, 4 failed — every failure is this story's stale-UI inventory. Add `:91` to the list below: the tool-flow scenario expects "Run mock_web_search" + query JSON + expandable result details, but the shipped UI renders a bare `mock_web_search` chip. The transport waits were already migrated to POST `/chat/runs` in 03; the identity-first mock stream is done (item 2's last bullet — verified).
+
 ## Problem
 
 The Playwright suite asserts a UI that no longer exists, and nothing runs it (no CI until story 13). In `test-harness/widget-harness/e2e/widget-harness.spec.ts`:

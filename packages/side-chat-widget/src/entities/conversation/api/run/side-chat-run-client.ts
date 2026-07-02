@@ -1,16 +1,22 @@
-import { parseChatStreamRequest, type ChatStreamRequest } from "@side-chat/chat-protocol";
+import {
+  SIDECHAT_EVENT_TYPES,
+  parseChatStreamRequest,
+  type ChatStreamRequest,
+  type SidechatStreamEvent,
+} from "@side-chat/chat-protocol";
 import { isRecord, omitUndefinedProperties } from "@side-chat/shared";
 
 import { SideChatApiError } from "../http/side-chat-api-error.js";
 import { assertNotAborted, buildPathUrl, createHttpError } from "../http/side-chat-http-helpers.js";
 import { retryJsonRequest } from "./side-chat-run-retry.js";
+import { turnEventStreamFromResponse, turnStreamOpenError } from "./side-chat-turn-stream.js";
 import type {
   CancelTurnResult,
   CreateRunOptions,
-  CreateRunResult,
   FetchLike,
   ResolveRunResult,
   SideChatApiClientOptions,
+  StartRunResult,
   SubmitHostCommandResultInput,
   SubmitHostCommandResultResult,
   TurnStatusResult,
@@ -20,30 +26,84 @@ const DEFAULT_RUNS_PATH = "/chat/runs";
 const DEFAULT_TURNS_PATH = "/chat/turns";
 
 /**
- * Identity half of the resumable chat flow.
+ * Start one assistant turn and open its stream on the same POST (ADR 0007).
  *
- * `POST /chat/runs` runs pre-start synchronously and returns the turn identity as
- * JSON; the browser then subscribes to the turn stream separately. A turn-creating
- * POST is retried on the configured statuses, deduped server-side by the request
- * idempotency key, so a replayed create never forks a second generation.
+ * Pre-start failures arrive as JSON errors and are retried on the configured
+ * statuses — the request idempotency key makes a replayed create resolve to the
+ * same turn, never a second generation. Once a streaming response is accepted,
+ * nothing re-POSTs: the identity is read from the `sidechat.started` frame and
+ * the full validated stream (including that frame) is returned for consumption.
  */
 export const createRunWithFetch = async (
   request: ChatStreamRequest,
   clientOptions: SideChatApiClientOptions,
   options: CreateRunOptions,
   transport: FetchLike,
-): Promise<CreateRunResult> => {
+): Promise<StartRunResult> => {
   const parsedRequest = parseChatStreamRequest(request);
-  const response = await retryJsonRequest(
-    {
-      run: () => requestCreateRun(parsedRequest, clientOptions, options, transport),
-      retry: options.retry ?? clientOptions.retry,
-      signal: options.signal,
-    },
-    "create run",
-  );
-  return normalizeCreateRun(await readJson(response, "create run"));
+  let response: Response;
+  try {
+    response = await retryJsonRequest(
+      {
+        run: () => requestCreateRun(parsedRequest, clientOptions, options, transport),
+        retry: options.retry ?? clientOptions.retry,
+        signal: options.signal,
+      },
+      "create run",
+    );
+  } catch (error) {
+    throw mapCreateRunOpenError(error);
+  }
+  return startRunResultFromStream(parsedRequest.requestId, response, options.signal);
 };
+
+// A 404 on create means a repeated requestId resolved to a finished turn whose
+// stream buffer was swept — the same replay_expired the resume path reports, so
+// callers fall back to conversation history.
+const mapCreateRunOpenError = (error: unknown): unknown =>
+  error instanceof SideChatApiError && error.code === "http_error" && error.status === 404
+    ? turnStreamOpenError(error.status)
+    : error;
+
+/**
+ * Read the identity frame, then hand back the full stream.
+ *
+ * The first event of an accepted run response must be `sidechat.started`
+ * carrying `conversationId`; it is re-yielded ahead of the remaining events so
+ * the consumer's reducer still sees the complete sequence from 0.
+ */
+const startRunResultFromStream = async (
+  requestId: string,
+  response: Response,
+  signal: AbortSignal | undefined,
+): Promise<StartRunResult> => {
+  const iterator = turnEventStreamFromResponse(response, signal)[Symbol.asyncIterator]();
+  const first = await iterator.next();
+  if (first.done) {
+    throw new SideChatApiError("network_error", "Run stream ended before its identity frame");
+  }
+  const started = first.value;
+  if (started.type !== SIDECHAT_EVENT_TYPES.STARTED || !started.conversationId) {
+    throw new SideChatApiError(
+      "network_error",
+      "Run stream did not begin with a sidechat.started identity frame",
+    );
+  }
+  return {
+    requestId,
+    assistantTurnId: started.assistantTurnId,
+    conversationId: started.conversationId,
+    events: withReplayedFirstEvent(started, iterator),
+  };
+};
+
+async function* withReplayedFirstEvent(
+  first: SidechatStreamEvent,
+  rest: AsyncIterator<SidechatStreamEvent>,
+): AsyncGenerator<SidechatStreamEvent> {
+  yield first;
+  yield* { [Symbol.asyncIterator]: () => rest };
+}
 
 /** Resolve a lost create reply: map the client request id back to its turn. */
 export const resolveRunWithFetch = async (
@@ -122,7 +182,7 @@ const createRunInit = (request: ChatStreamRequest, signal: AbortSignal | undefin
   omitUndefinedProperties({
     method: "POST",
     headers: {
-      accept: "application/json",
+      accept: "text/event-stream",
       "content-type": "application/json",
       // Lets the server dedupe a replayed create so retries never create duplicates.
       "idempotency-key": request.requestId,
@@ -165,24 +225,6 @@ const readJson = async (response: Response, route: string): Promise<unknown> => 
   } catch (cause) {
     throw new SideChatApiError("network_error", `Malformed ${route} response JSON`, { cause });
   }
-};
-
-export const normalizeCreateRun = (payload: unknown): CreateRunResult => {
-  if (
-    !isRecord(payload) ||
-    typeof payload["requestId"] !== "string" ||
-    typeof payload["assistantTurnId"] !== "string" ||
-    typeof payload["conversationId"] !== "string" ||
-    typeof payload["status"] !== "string"
-  ) {
-    throw new SideChatApiError("network_error", "Malformed create run response");
-  }
-  return {
-    requestId: payload["requestId"],
-    assistantTurnId: payload["assistantTurnId"],
-    conversationId: payload["conversationId"],
-    status: payload["status"],
-  };
 };
 
 const normalizeResolveRun = (payload: unknown): ResolveRunResult => {

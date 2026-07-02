@@ -14,7 +14,7 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | --- | ---------------------------------------------------------------------- | ------------- | ----------------------- |
 | 01  | ADR + docs greenfield pass — **done 2026-07-02**                       | 1 Streaming   | —                       |
 | 02  | Stream from POST /chat/runs (server) — **done 2026-07-02**             | 1 Streaming   | 01                      |
-| 03  | Widget consumes the POST stream                                        | 1 Streaming   | 02                      |
+| 03  | Widget consumes the POST stream — **done 2026-07-02**                  | 1 Streaming   | 02                      |
 | 04  | Resume GET: fail fast + no ghost entries                               | 1 Streaming   | 02                      |
 | 05  | Orphan-turn reaper sweep                                               | 1 Streaming   | —                       |
 | 06  | Widget run→history handoff on terminal                                 | 1 Streaming   | —                       |
@@ -22,7 +22,7 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | 08  | Host-command result relay (multi-instance)                             | 1 Streaming   | 02                      |
 | 09  | Subscription gap fix + terminal guarantees                             | 1 Streaming   | —                       |
 | 10  | Post-implementation docs delta + dead knobs + comment purge            | 1 Streaming   | 02–09                   |
-| 11  | Fix the fake-provider quick start                                      | 2 First-run   | —                       |
+| 11  | Fix the fake-provider quick start — **done 2026-07-02**                | 2 First-run   | —                       |
 | 12  | Single config system (remove legacy parser, loud failures)             | 2 First-run   | 11                      |
 | 13  | CI workflow                                                            | 2 First-run   | —                       |
 | 14  | LICENSE + README claim corrections                                     | 2 First-run   | —                       |

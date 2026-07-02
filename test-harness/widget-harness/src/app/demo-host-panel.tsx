@@ -110,7 +110,9 @@ const styles = {
     position: "fixed",
     top: 16,
     left: 16,
-    zIndex: 2_147_483_000,
+    // Below the widget: when the wide-mode sidebar (or a narrow viewport) overlaps
+    // this corner, the widget must receive the clicks — the demo panel is scenery.
+    zIndex: 5,
     width: 340,
     maxHeight: "calc(100vh - 32px)",
     overflow: "auto",

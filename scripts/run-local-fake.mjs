@@ -65,6 +65,7 @@ const DEFAULT_WIDGET_FRAME_PATH = "/side-chat-frame";
 // instead of the default sidechat.config.ts; the server selects it via
 // SIDECHAT_CONFIG_PATH. Endpoint/key/deployment are prompted (see collectConfig).
 const AZURE_CONFIG_PATH = path.join(ROOT, "apps", "partner-ai-service", "sidechat.azure.config.ts");
+const FAKE_CONFIG_PATH = path.join(ROOT, "apps", "partner-ai-service", "sidechat.fake.config.ts");
 const DEFAULT_AZURE_API_VERSION = "2024-12-01-preview";
 const DEFAULT_AZURE_GPT_4O_DEPLOYMENT = "gpt-4o";
 
@@ -718,11 +719,13 @@ function buildBackendEnv(cfg) {
     SIDECHAT_WORKSPACE_ID: cfg.workspaceId,
   };
   if (cfg.provider === "fake") {
+    // Boot the standalone no-secrets fake config; its development profile + no
+    // database URL selects in-memory persistence.
     delete process.env.SIDECHAT_DATABASE_URL; // keep memory persistence
+    backendEnv.SIDECHAT_CONFIG_PATH = FAKE_CONFIG_PATH;
     backendEnv.SIDECHAT_DEMO_SEED_CONVERSATIONS =
       process.env.SIDECHAT_DEMO_SEED_CONVERSATIONS ?? "true";
-    backendEnv.SIDECHAT_ENABLE_DEV_TOOLS = process.env.SIDECHAT_ENABLE_DEV_TOOLS ?? "true";
-    logLauncher("Provider: fake showcase model with local mock tools.");
+    logLauncher("Provider: fake showcase model with local mock tools (no API key).");
   } else if (cfg.provider === "azure") {
     // Boot the standalone Azure config; its development profile + no database URL
     // selects in-memory ("fake db") persistence, same as fake mode.

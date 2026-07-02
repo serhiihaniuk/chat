@@ -1,3 +1,4 @@
+import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
 import { omitUndefinedProperties } from "@side-chat/shared";
 
 import { SideChatApiError } from "../http/side-chat-api-error.js";
@@ -46,19 +47,29 @@ const streamResultFromResponse = (
   response: Response,
   signal: AbortSignal | undefined,
 ): SubscribeTurnResult => {
-  if (!response.ok) throw streamOpenError(response.status);
+  if (!response.ok) throw turnStreamOpenError(response.status);
+  return { events: turnEventStreamFromResponse(response, signal) };
+};
+
+/**
+ * Decode an accepted SSE response into the validated turn event stream.
+ *
+ * Shared by the resume subscription and `createRun` (whose POST response IS the
+ * turn stream). The reader enforces increasing sequence and exactly one terminal
+ * across the whole body.
+ */
+export const turnEventStreamFromResponse = (
+  response: Response,
+  signal: AbortSignal | undefined,
+): AsyncIterable<SidechatStreamEvent> => {
   if (!response.body) {
     throw new SideChatApiError("network_error", "Turn stream response body is missing");
   }
-  return {
-    events: decodeChunkedSseStream(
-      readResponseBody(response.body),
-      signal ? { signal } : undefined,
-    ),
-  };
+  return decodeChunkedSseStream(readResponseBody(response.body), signal ? { signal } : undefined);
 };
 
-const streamOpenError = (status: number): SideChatApiError => {
+/** Map a non-OK stream-opening status: 404 means the buffer is gone (`replay_expired`). */
+export const turnStreamOpenError = (status: number): SideChatApiError => {
   if (status === REPLAY_EXPIRED_STATUS) {
     return new SideChatApiError("replay_expired", "Turn stream can no longer be replayed", {
       status,

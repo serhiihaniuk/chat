@@ -27,7 +27,6 @@ export type {
   CancelTurnResult,
   ConversationSummary,
   CreateRunOptions,
-  CreateRunResult,
   FetchLike,
   ListConversationsOptions,
   ListConversationsResult,
@@ -44,6 +43,7 @@ export type {
   ResetHistoryResult,
   SideChatApiClient,
   SideChatApiClientOptions,
+  StartRunResult,
   SubmitHostCommandResultInput,
   SubmitHostCommandResultResult,
   SubscribeActivityOptions,
@@ -56,9 +56,10 @@ export type {
 /**
  * Build the widget-facing HTTP repository.
  *
- * Chat uses the resumable two-call flow: `createRun` posts the turn identity,
- * then `subscribeTurn` opens the replayable SSE stream. Resolve/status/cancel
- * round out reconnect and stop. Every method hides fetch mechanics behind
+ * Chat is connection-bound: `createRun` starts the turn and streams it on the
+ * same response (identity read from the `sidechat.started` frame), and
+ * `subscribeTurn` resumes from a cursor. Resolve/status/cancel round out
+ * reconnect and stop. Every method hides fetch mechanics behind
  * `SideChatApiError` and returns protocol/domain shapes only.
  */
 export const createSideChatApiClient = (options: SideChatApiClientOptions): SideChatApiClient => {
@@ -92,7 +93,7 @@ const buildResourceMethods = (
     resetHistoryWithFetch(conversationId, options, resetOptions, transport),
 });
 
-// The resumable two-call chat flow plus reconnect/stop helpers.
+// The connection-bound chat flow (create streams on the POST) plus resume/stop helpers.
 const buildRunMethods = (
   options: SideChatApiClientOptions,
   transport: FetchLike,

@@ -14,7 +14,7 @@ export {
   type CancelTurnResult,
   type ConversationSummary,
   type CreateRunOptions,
-  type CreateRunResult,
+  type StartRunResult,
   type FetchLike,
   type ListConversationsOptions,
   type ListConversationsResult,

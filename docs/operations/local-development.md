@@ -12,9 +12,7 @@ Run one command from the repo root; it starts the backend and widget for your ow
 node scripts/run-local-fake.mjs
 ```
 
-The launcher prompts for provider and ports, installs dependencies if missing, then starts two dev servers (backend + widget UI). By default it uses the **fake** provider: an in-memory showcase model, mock tools, and seeded demo chats — no API key, no database. It does **not** start a host page — your own app is the host. Wire your app's dev proxy to the two servers it prints; see [embed-widget-iframe.md](embed-widget-iframe.md).
-
-> Known gap (fix tracked in `plan/11`): fake mode currently fails at boot — the config-first loader reads `sidechat.config.ts`, whose models are OpenAI-only, and demands `SIDECHAT_OPENAI_API_KEY` regardless of `SIDECHAT_PROVIDER=fake`. Until the fake config selection lands, use the `openai` mode with a key, the `azure` mode, or `npm run dev`.
+The launcher prompts for provider and ports, installs dependencies if missing, then starts two dev servers (backend + widget UI). By default it uses the **fake** provider: it boots the standalone no-secrets config (`apps/partner-ai-service/sidechat.fake.config.ts`) — an in-memory showcase model, mock tools, and seeded demo chats; no API key, no database. It does **not** start a host page — your own app is the host. Wire your app's dev proxy to the two servers it prints; see [embed-widget-iframe.md](embed-widget-iframe.md).
 
 ## Flags
 

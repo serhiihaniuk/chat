@@ -27,6 +27,7 @@ const started = (): StartedEvent => ({
   assistantTurnId: "turn-1",
   sequence: 0,
   createdAt: "2026-05-23T00:00:00.000Z",
+  conversationId: "conversation-1",
 });
 
 const delta = (): DeltaEvent => ({
@@ -57,15 +58,6 @@ const collect = async (
   return output;
 };
 
-const runResponse = (): Response =>
-  Response.json({
-    protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-    requestId: "request-1",
-    assistantTurnId: "turn-1",
-    conversationId: "conversation-1",
-    status: "running",
-  });
-
 const streamResponse = (events: readonly SidechatStreamEvent[]): Response =>
   new Response(streamFromText(events.map(encodeSseEvent).join("")), {
     status: 200,
@@ -83,8 +75,10 @@ const streamFromText = (text: string): ReadableStream<Uint8Array> => {
 };
 
 describe("createSideChatApiClient run flow", () => {
-  it("creates a run with a JSON identity and an idempotency key", async () => {
-    const fetchMock = vi.fn<FetchLike>(() => Promise.resolve(runResponse()));
+  it("creates a run that streams on the POST, reading identity from the started frame", async () => {
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(streamResponse([started(), delta(), completed()])),
+    );
     const client = createSideChatApiClient({
       baseUrl: "https://assistant.example.test",
       fetch: fetchMock,
@@ -92,17 +86,24 @@ describe("createSideChatApiClient run flow", () => {
 
     const run = await client.createRun(request);
 
-    expect(run).toEqual({
+    expect(run).toMatchObject({
       requestId: "request-1",
       assistantTurnId: "turn-1",
       conversationId: "conversation-1",
-      status: "running",
     });
+    // The stream still yields the identity frame first, so the reducer sees the
+    // complete sequence from 0.
+    const events = await collect(run.events);
+    expect(events.map((event) => event.type)).toEqual([
+      "sidechat.started",
+      "sidechat.delta",
+      "sidechat.completed",
+    ]);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://assistant.example.test/chat/runs");
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       headers: {
-        accept: "application/json",
+        accept: "text/event-stream",
         "content-type": "application/json",
         "idempotency-key": "request-1",
       },
@@ -200,7 +201,9 @@ describe("createSideChatApiClient run flow", () => {
   it("rejects an already aborted create", async () => {
     const controller = new AbortController();
     controller.abort("cancelled");
-    const fetchMock = vi.fn<FetchLike>(() => Promise.resolve(runResponse()));
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(streamResponse([started(), completed()])),
+    );
     const client = createSideChatApiClient({
       baseUrl: "https://example.test",
       fetch: fetchMock,
@@ -212,11 +215,11 @@ describe("createSideChatApiClient run flow", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("retries configured status failures before a run is created", async () => {
+  it("retries configured status failures before a run stream is accepted", async () => {
     const fetchMock = vi
       .fn<FetchLike>()
       .mockResolvedValueOnce(new Response("busy", { status: 503 }))
-      .mockResolvedValueOnce(runResponse());
+      .mockResolvedValueOnce(streamResponse([started(), delta(), completed()]));
     const client = createSideChatApiClient({
       baseUrl: "https://example.test",
       fetch: fetchMock,
@@ -225,9 +228,18 @@ describe("createSideChatApiClient run flow", () => {
 
     const run = await client.createRun(request);
 
+    // Both attempts carry the same idempotency key, so the replayed create
+    // resolves to the same turn instead of forking a second generation.
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.map((call) => call[1]?.headers)).toEqual([
+      expect.objectContaining({ "idempotency-key": "request-1" }),
+      expect.objectContaining({ "idempotency-key": "request-1" }),
+    ]);
     expect(run.assistantTurnId).toBe("turn-1");
   });
+
+  // Post-acceptance no-re-POST, identity-frame validation, and the create 404 →
+  // replay_expired mapping are covered in side-chat-run-client.test.ts.
 
   it("does not retry a 409 conflict on the turn-creating create", async () => {
     const fetchMock = vi.fn<FetchLike>(() =>
@@ -414,9 +426,10 @@ describe("createSideChatApiClient run flow", () => {
     });
   });
 
-  it("rejects malformed run and resource JSON", async () => {
+  it("rejects malformed run streams and resource JSON", async () => {
     const fetchMock = vi
       .fn<FetchLike>()
+      // A JSON body where the run's SSE stream should be is a malformed stream.
       .mockResolvedValueOnce(Response.json({ requestId: "request-1" }))
       .mockResolvedValueOnce(Response.json({ conversations: [{ conversationId: "c1" }] }))
       .mockResolvedValueOnce(Response.json({ totalTokens: "5" }));
@@ -425,7 +438,7 @@ describe("createSideChatApiClient run flow", () => {
       fetch: fetchMock,
     });
 
-    await expect(client.createRun(request)).rejects.toMatchObject({ code: "network_error" });
+    await expect(client.createRun(request)).rejects.toMatchObject({ code: "malformed_stream" });
     await expect(client.listConversations?.()).rejects.toMatchObject({ code: "network_error" });
     await expect(client.readUsage?.()).rejects.toMatchObject({ code: "network_error" });
   });

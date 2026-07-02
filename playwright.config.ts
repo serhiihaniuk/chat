@@ -34,15 +34,13 @@ export default defineConfig({
       command: "npm --workspace @side-chat/partner-ai-service run dev",
       env: {
         PORT: String(servicePort),
-        SIDECHAT_ALLOWED_MODELS: "",
         SIDECHAT_AUTH_BEARER_TOKEN: authToken,
+        // The no-secrets fake-provider config: deterministic model, in-memory
+        // persistence, mock tools — the browser suite needs no API key.
+        SIDECHAT_CONFIG_PATH: "apps/partner-ai-service/sidechat.fake.config.ts",
         SIDECHAT_DATABASE_URL: "",
         SIDECHAT_DEMO_SEED_CONVERSATIONS: "true",
-        SIDECHAT_ENABLE_DEV_TOOLS: "true",
-        SIDECHAT_OPENAI_API_KEY: "",
-        SIDECHAT_POLICY_MODE: "allow_all",
         SIDECHAT_PROFILE: "development",
-        SIDECHAT_PROVIDER: "fake",
         SIDECHAT_TENANT_ID: "tenant_e2e",
         SIDECHAT_WORKSPACE_ID: workspaceId,
       },

@@ -75,17 +75,27 @@ export const releaseSubscription = (active: ActiveSubscription): void => {
   active.turnId = undefined;
 };
 
+/** Abort + slot bookkeeping the controller hands `beginRun` for one fresh run. */
+export type BeginRunControl = {
+  readonly signal: AbortSignal;
+  /** Record the canonical turn id on the slot once the identity frame arrives. */
+  readonly onIdentified: (assistantTurnId: string) => void;
+};
+
 /**
- * Create the run, seed the store and marker, then open the first subscription.
+ * Start the run and consume its stream on the same POST connection (ADR 0007).
  *
- * Create failures (no `sidechat.started` was ever seen) fail the run as a
- * request-level error; the optimistic bubbles stay so the user sees the prompt
- * with an error rather than a vanished message.
+ * `createRun` retries pre-stream failures under the request idempotency key;
+ * once the stream is open, its identity (the `sidechat.started` frame) seeds the
+ * store and marker, and the same connection is drained to the terminal — no
+ * separate subscribe call. Create failures (no `sidechat.started` was ever seen)
+ * fail the run as a request-level error; the optimistic bubbles stay so the user
+ * sees the prompt with an error rather than a vanished message.
  */
 export const beginRun = async (
   context: RunLifecycleContext,
   store: WidgetRunStore,
-  subscribe: (target: SubscribeTarget) => void,
+  control: BeginRunControl,
   startInput: StartRunInput,
 ): Promise<void> => {
   const { requestId } = startInput.request;
@@ -96,27 +106,61 @@ export const beginRun = async (
     messages: startInput.messages,
   });
 
+  let run;
   try {
-    const created = await context.client.createRun(startInput.request, {});
-    // Record the canonical turn id so cancel/reconnect can act before any event.
-    store.dispatch(requestId, { type: "identified", assistantTurnId: created.assistantTurnId });
-    writeActiveRunMarker(context.conversationStorageKey, {
-      requestId: created.requestId,
-      assistantTurnId: created.assistantTurnId,
-      conversationId: created.conversationId,
-      lastSeenSequence: -1,
-    });
-    subscribe({
-      requestId,
-      assistantTurnId: created.assistantTurnId,
-      conversationId: created.conversationId,
-      after: -1,
-      resuming: false,
-    });
+    run = await context.client.createRun(startInput.request, { signal: control.signal });
   } catch (error) {
+    if (control.signal.aborted || isAbortApiError(error)) return;
+    // A replayed requestId whose finished turn was already swept: the answer
+    // lives in history, so fall back instead of rendering a false failure.
+    if (isReplayExpiredError(error)) {
+      clearActiveRunMarker(context.conversationStorageKey);
+      store.clear();
+      context.onReplayExpired(undefined);
+      return;
+    }
     store.dispatch(requestId, { type: "stream-failed", message: runErrorMessage(error) });
+    return;
   }
+
+  control.onIdentified(run.assistantTurnId);
+  store.dispatch(requestId, { type: "identified", assistantTurnId: run.assistantTurnId });
+  writeActiveRunMarker(context.conversationStorageKey, {
+    requestId,
+    assistantTurnId: run.assistantTurnId,
+    conversationId: run.conversationId,
+    lastSeenSequence: -1,
+  });
+
+  await runSubscription({
+    client: context.client,
+    store,
+    hostBridge: context.hostBridge,
+    requestId,
+    assistantTurnId: run.assistantTurnId,
+    events: run.events,
+    signal: control.signal,
+    onSequence: (sequence) =>
+      writeActiveRunMarker(context.conversationStorageKey, {
+        requestId,
+        assistantTurnId: run.assistantTurnId,
+        conversationId: run.conversationId,
+        lastSeenSequence: sequence,
+      }),
+    onReplayExpired: () => {
+      clearActiveRunMarker(context.conversationStorageKey);
+      store.clear();
+      context.onReplayExpired(run.conversationId);
+    },
+  });
+  finalizeSubscription(context, store, control.signal);
 };
+
+const isAbortApiError = (error: unknown): boolean =>
+  error instanceof SideChatApiError && error.code === "aborted";
+
+const isReplayExpiredError = (error: unknown): boolean =>
+  error instanceof SideChatApiError && error.code === "replay_expired";
 
 /**
  * Run one subscription end to end, keeping the marker's offset current.

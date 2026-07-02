@@ -1,6 +1,15 @@
 # 03 — Widget consumes the POST stream
 
-**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 02 | **Status:** todo
+**Epic:** 1 Streaming | **Priority:** P0 | **Depends on:** 02 | **Status:** done (2026-07-02)
+
+## Delivery notes
+
+- **Client:** `createRun` now returns `StartRunResult` — identity read from the `sidechat.started` frame plus the FULL validated stream (frame re-yielded, so the reducer sees sequence 0); `CreateRunResult` deleted. Retry stays response-level under the idempotency key; once a stream is accepted nothing re-POSTs (tested with a mid-read body failure). A create `404` maps to `replay_expired` → history fallback. `resolveRun` kept and documented as the `plan/07` poll seam.
+- **Model layer:** `beginRun` consumes the POST stream directly through `runSubscription` (which now accepts a pre-acquired stream; `subscribeTurn` remains the resume path). The controller claims the abort slot _before_ the POST (`startRunWithSlot`), so cancel/clear abort the in-flight create and its stream; the slot's turn id lands via `onIdentified`.
+- **Fakes/harness:** all widget test fakes, `widget-test-env`, and the mock-stream client emit identity-first streams from `createRun`; local-service client passes through unchanged (auth-fetch wraps the POST stream too).
+- **e2e:** transport waits updated (the POST response IS the SSE to await). Suite: 8 passed incl. the golden paths (real backend :69, iframe :131, mock-stream :56); the 4 remaining failures are all story-30's documented stale-UI assertions (:91 tool-detail copy, :189 detail cards, :246 "Dismiss error", :288 chat-size hover).
+- **Also fixed en route (pre-existing, verified unrelated to this story):** plan/11 executed in full (see its notes); the harness demo-host panel's `z-index: 2147483000` swallowed widget clicks (→ `z-index: 5`); Vite dep-optimizer "Outdated Optimize Dep" 504 on streamdown's lazy highlighting chunk (→ `optimizeDeps.exclude: ["streamdown"]` + nested-CJS includes in the harness vite config).
+- Docs updated in-patch: widget-and-host-integration.md (single-call flow + outbound steps), assistant-turn.md, ADR 0007 (03 marked landed), api-client doc comments, verification.md smoke row.
 
 ## Problem
 

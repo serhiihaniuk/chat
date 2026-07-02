@@ -11,6 +11,11 @@
       "development": "./sidechat.config.ts",
       "default": "./sidechat.config.ts"
     },
+    "#sidechat-fake-config": {
+      "types": "./sidechat.fake.config.ts",
+      "development": "./sidechat.fake.config.ts",
+      "default": "./sidechat.fake.config.ts"
+    },
     "#adapters/*": {
       "types": "./src/adapters/*.ts",
       "development": "./src/adapters/*.ts",

@@ -147,12 +147,13 @@ export const waitForText = async (text: string): Promise<void> => {
 };
 
 /**
- * Build a fake widget client over the resumable two-call flow.
+ * Build a fake widget client over the connection-bound flow.
  *
- * `createRun` records the request and returns a fixed turn identity (matching the
- * fixture `started` event); `subscribeTurn` replays the events `createEvents`
- * produces for that request. A rejecting `createEvents` surfaces at stream open,
- * exactly where a real subscribe failure would.
+ * `createRun` records the request and returns a fixed turn identity together
+ * with the events `createEvents` produces — the POST-is-the-stream contract. A
+ * rejecting `createEvents` surfaces from `createRun`, exactly where a real
+ * stream-open failure would. `subscribeTurn` replays the same events for the
+ * resume path.
  */
 export const fakeClient = (
   createEvents: (
@@ -173,16 +174,16 @@ export const fakeClient = (
 
   return {
     ...overrides,
-    createRun: (request) => {
+    createRun: async (request) => {
       counter += 1;
       const assistantTurnId = `turn-${counter}`;
       runs.set(assistantTurnId, request);
-      return Promise.resolve({
+      return {
         requestId: request.requestId,
         assistantTurnId,
         conversationId: "conversation-1",
-        status: "running",
-      });
+        events: await createEvents(request),
+      };
     },
     subscribeTurn: async (assistantTurnId) => {
       const request = runs.get(assistantTurnId);

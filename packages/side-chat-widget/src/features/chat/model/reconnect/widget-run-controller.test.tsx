@@ -112,14 +112,15 @@ const fakeClient = (
     subscribeAfters,
     cancelledTurns,
     client: {
+      // The POST response IS the stream: identity plus the full event iterable.
       createRun: (request) => {
         createRunCalls.push(1);
-        return Promise.resolve({
+        return build(-1).then((subscription) => ({
           requestId: request.requestId,
           assistantTurnId: TURN_ID,
           conversationId: "conversation-1",
-          status: "running",
-        });
+          events: subscription.events,
+        }));
       },
       subscribeTurn: (_assistantTurnId, options) => {
         subscribeAfters.push(options?.after ?? -1);
@@ -200,7 +201,7 @@ const assistantContent = (harness: Harness): string =>
     ?.content ?? "";
 
 describe("useWidgetRunController", () => {
-  it("creates a run then subscribes from -1 and applies events in order", async () => {
+  it("streams the run on the create call itself and applies events in order", async () => {
     const fake = fakeClient(() =>
       Promise.resolve({
         events: eventStream([started(), delta(1, "Hi "), delta(2, "there"), completed(3)]),
@@ -214,7 +215,8 @@ describe("useWidgetRunController", () => {
     await flush();
 
     expect(fake.createRunCalls).toHaveLength(1);
-    expect(fake.subscribeAfters[0]).toBe(-1);
+    // Connection-bound: the create response carried the stream; no resume GET.
+    expect(fake.subscribeAfters).toEqual([]);
     expect(harness.controllerRef.current?.run?.status).toBe(WIDGET_RUN_STATUSES.COMPLETED);
     expect(assistantContent(harness)).toBe("Hi there");
   });
@@ -223,8 +225,8 @@ describe("useWidgetRunController", () => {
     let opened = 0;
     const fake = fakeClient((after) => {
       opened += 1;
-      // First open streams started + first delta then ends abruptly (no terminal);
-      // the resubscribe must continue from after = lastSeenSequence (1).
+      // The create stream carries started + first delta then ends abruptly (no
+      // terminal); the resume GET must continue from after = lastSeenSequence (1).
       if (opened === 1)
         return Promise.resolve({ events: eventStream([started(), delta(1, "Hi ")]) });
       expect(after).toBe(1);
@@ -243,7 +245,7 @@ describe("useWidgetRunController", () => {
     act(() => harness.controllerRef.current?.reconnect());
     await flush();
 
-    expect(fake.subscribeAfters).toEqual([-1, 1]);
+    expect(fake.subscribeAfters).toEqual([1]);
     expect(assistantContent(harness)).toBe("Hi there");
     expect(harness.controllerRef.current?.run?.status).toBe(WIDGET_RUN_STATUSES.COMPLETED);
   });
@@ -278,7 +280,9 @@ describe("useWidgetRunController", () => {
     });
     await flush();
 
-    expect(harness.replayExpired).toEqual(["conversation-1"]);
+    // The create itself reported the swept buffer, before any identity frame,
+    // so the fallback fires without a conversation id.
+    expect(harness.replayExpired).toEqual(["none"]);
     expect(harness.controllerRef.current?.run).toBeUndefined();
   });
 });

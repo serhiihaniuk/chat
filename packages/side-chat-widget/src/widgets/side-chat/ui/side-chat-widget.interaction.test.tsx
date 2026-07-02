@@ -119,7 +119,7 @@ describe("SideChatWidget interactions", () => {
           requestId: request.requestId,
           assistantTurnId: "turn-1",
           conversationId: "conversation-1",
-          status: "running",
+          events: neverEndingEvents(),
         }),
       subscribeTurn: () => Promise.resolve({ events: neverEndingEvents() }),
       resolveRun: () => Promise.resolve({ assistantTurnId: "turn-1", status: "running" }),

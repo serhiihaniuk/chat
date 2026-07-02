@@ -44,7 +44,7 @@ The widget is provider-free and Effect-free. It must not import `ai`, `@ai-sdk/*
 
 ## Live-turn data flow
 
-Chat is a two-call flow, not a single socket: `POST /chat/runs` returns the turn identity, then `GET /chat/turns/:assistantTurnId/stream?after=<seq>` streams events. Generation is server-owned and the browser only subscribes, so an in-session reconnect to the same instance resumes the same turn; after a reload or a lost stream, the final answer comes from conversation history once the turn is terminal (connection-bound streaming, [ADR 0007](../adr/0007-connection-bound-streaming.md)). See [runtime-and-protocol-events.md](runtime-and-protocol-events.md) for the transport contract.
+Chat is connection-bound (ADR [0007](../adr/0007-connection-bound-streaming.md)): `client.createRun` POSTs the turn and the response _is_ its SSE stream — the `sidechat.started` frame at sequence 0 carries the identity. `GET /chat/turns/:assistantTurnId/stream?after=<seq>` is the same-instance resume. Generation is server-owned and the browser only subscribes, so an in-session reconnect resumes the same turn; after a reload or a lost stream, the final answer comes from conversation history once the turn is terminal. See [runtime-and-protocol-events.md](runtime-and-protocol-events.md) for the transport contract.
 
 Inbound events flow through four stages, each pure or single-purpose:
 
@@ -64,8 +64,8 @@ The widget uses TanStack Query for the conversation list, history, and model cat
 A submit walks from the composer to the service:
 
 1. **Submit.** `useWidgetChatActions.startTurn` (`use-widget-chat-actions.ts:69`) creates optimistic user and assistant bubbles, calls `hostBridge?.getContext({requestId})` (:78), builds the request with `createWidgetChatRequest`, then calls `controller.startRun`.
-2. **Begin run.** The controller seeds the store, calls `client.createRun` (`POST /chat/runs`), dispatches `identified` with the turn id, and writes a persisted reconnect marker.
-3. **Subscribe and drive.** `runSubscription` (`subscription/widget-run-subscription.ts:35`) opens `client.subscribeTurn`, then `consumeEvents` dispatches each event, persists its sequence, and may dispatch a host command.
+2. **Begin run.** The controller claims the abort slot, seeds the store, and calls `client.createRun` (`POST /chat/runs`) — whose response is the turn's stream. The identity frame dispatches `identified` and writes a persisted reconnect marker.
+3. **Drive.** `runSubscription` (`subscription/widget-run-subscription.ts`) consumes that same stream (`consumeEvents` dispatches each event, persists its sequence, and may dispatch a host command); on a resume it opens `client.subscribeTurn` from the cursor instead.
 4. **Stop.** `controller.cancel` calls `client.cancelTurn` (`POST /chat/turns/:id/cancel`), then dispatches a `CANCELLED` terminal. Cancel is durable — the server acks it — not a fetch abort.
 5. **Reconnect.** Mount, tab-visibility, online, and conversation-select triggers resubscribe. An in-session reconnect resumes from the live cursor; a cold reload rebuilds from the persisted marker. Cross-conversation "generating" dots come from `client.subscribeActivity` (`GET /chat/activity`). An activity event for the conversation a tab is **currently viewing** also refreshes that conversation's history (`useWidgetChat` `onEvent` → `refreshHistory`), so a turn started in another tab resumes its live stream here via the history read's `activeTurn` — the dot alone never pulls in the turn's content.
 

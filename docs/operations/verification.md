@@ -64,7 +64,7 @@ Every command below is a root `package.json` script (`package.json:11-31`).
 | ------------------------------- | ------------------------------------------------------------------------------------ | ------------ |
 | `npm run test:e2e`              | Playwright drives the widget in a browser (direct page and iframe host).             | No           |
 | `npm run test:e2e:persistent`   | History survives a service restart, with the service plus a Testcontainers Postgres. | Yes          |
-| `npm run smoke:provider:openai` | A live two-call OpenAI run works end to end.                                         | No           |
+| `npm run smoke:provider:openai` | A live OpenAI run streams end to end on the connection-bound POST.                   | No           |
 | `npm run audit`                 | `npm audit` reports no high-or-above advisory.                                       | No           |
 
 The provider smoke refuses to run until you set **both** acknowledgement flags:

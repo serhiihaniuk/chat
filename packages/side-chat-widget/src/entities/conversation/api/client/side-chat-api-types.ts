@@ -13,10 +13,9 @@ export type FetchLike = (input: string | URL | Request, init?: RequestInit) => P
 /**
  * Retry policy for widget-owned HTTP calls that can be safely replayed.
  *
- * The turn-creating POST relies on the request idempotency key sent with
- * `createRun`; callers may narrow the retryable HTTP statuses, but 409 is
- * excluded from the default policy because a conflicting create is not
- * replay-safe.
+ * The turn-creating POST relies on the `createRun` idempotency key; callers may
+ * narrow the retryable HTTP statuses, but 409 is excluded from the default
+ * policy because a conflicting create is not replay-safe.
  */
 export type RetryPolicy = {
   readonly attempts: number;
@@ -27,10 +26,10 @@ export type RetryPolicy = {
  * Browser API wiring for the embedded widget.
  *
  * The widget owns these HTTP paths because they only serve the widget shell:
- * conversation lists, history, usage, reset, and the resumable two-call chat
- * flow (create a run, then subscribe to its turn). The client returns Side Chat
- * protocol/domain shapes and hides fetch mechanics, raw response payloads, and
- * transport-specific errors behind `SideChatApiError`.
+ * conversation lists, history, usage, reset, and the connection-bound chat flow
+ * (`createRun` streams the turn on its own response; `subscribeTurn` resumes).
+ * The client returns Side Chat protocol/domain shapes and hides fetch mechanics
+ * and transport-specific errors behind `SideChatApiError`.
  */
 export type SideChatApiClientOptions = {
   readonly baseUrl: string;
@@ -53,17 +52,18 @@ export type CreateRunOptions = {
 };
 
 /**
- * Identity returned the moment a run is accepted by `POST /chat/runs`.
+ * An accepted run: its identity plus the turn's live event stream (ADR 0007).
  *
- * `assistantTurnId` is the canonical key for streaming, status, and cancel;
- * `requestId` stays the idempotency/resolver key. The status is the server's
- * turn status string and should not be treated as a closed client enum.
+ * The `sidechat.started` frame at sequence 0 carries the identity, surfaced here
+ * so callers record it before consuming; `events` yields the FULL validated
+ * stream (including that frame) through exactly one terminal. `assistantTurnId`
+ * keys status/resume/cancel; `requestId` stays the idempotency/resolver key.
  */
-export type CreateRunResult = {
+export type StartRunResult = {
   readonly requestId: string;
   readonly assistantTurnId: string;
   readonly conversationId: string;
-  readonly status: string;
+  readonly events: AsyncIterable<SidechatStreamEvent>;
 };
 
 /** Per-request controls for subscribing to one assistant turn stream. */
@@ -246,11 +246,11 @@ export type ReadUsageOptions = {
 /**
  * Widget-facing repository over the Side Chat service HTTP API.
  *
- * Chat uses the resumable two-call flow: `createRun` posts the turn identity,
- * then `subscribeTurn` streams (and replays) ordered protocol events. The other
- * methods are request/response. Optional methods let tests or constrained hosts
- * provide only the capabilities they support without leaking transport internals
- * into React state code.
+ * Chat is connection-bound: `createRun` starts the turn and streams it on the
+ * same response; `subscribeTurn` is the same-instance resume from a sequence
+ * cursor. The other methods are request/response. Optional methods let tests or
+ * constrained hosts provide only the capabilities they support without leaking
+ * transport internals into React state code.
  */
 export type SideChatApiClient = {
   readonly listModels?: ((options?: ListModelsOptions) => Promise<ListModelsResult>) | undefined;
@@ -269,11 +269,12 @@ export type SideChatApiClient = {
   readonly createRun: (
     request: ChatStreamRequest,
     options?: CreateRunOptions,
-  ) => Promise<CreateRunResult>;
+  ) => Promise<StartRunResult>;
   readonly subscribeTurn: (
     assistantTurnId: string,
     options?: SubscribeTurnOptions,
   ) => Promise<SubscribeTurnResult>;
+  /** Map a lost `requestId` back to its turn (the poll fallback seam — `plan/07`). */
   readonly resolveRun: (requestId: string, options?: CreateRunOptions) => Promise<ResolveRunResult>;
   readonly getTurnStatus: (
     assistantTurnId: string,

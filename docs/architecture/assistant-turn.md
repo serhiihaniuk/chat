@@ -30,8 +30,8 @@ already knows its `requestId`.
 | `POST /chat/runs`                                     | Pre-start synchronously, forks generation, then streams                                           | SSE from `sidechat.started` to the terminal; pre-start failures are JSON errors. A repeated `requestId` replays the existing turn's stream (or `404 replay_expired` if its buffer was swept) |
 | `GET /chat/turns/:assistantTurnId/stream?after=<seq>` | Same-instance resume: replay `sequence > after` from the registry, then tail live to the terminal | SSE; or `404` JSON if the turn is unknown, cross-workspace, or `replay_expired`                                                                                                              |
 
-Known gap: the shipped widget still speaks the previous two-call flow until
-`plan/03` lands — run the browser e2e suite only after it.
+The shipped widget speaks this flow: `createRun` consumes the POST stream and
+reads its identity from the started frame; `subscribeTurn` is its resume path.
 
 Routes live in `apps/partner-ai-service/src/inbound/http/routes/chat/`: start
 in `runs/chat-runs.ts`, stream in `turns/chat-turns.ts`.
