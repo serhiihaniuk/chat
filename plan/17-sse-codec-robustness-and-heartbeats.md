@@ -1,6 +1,6 @@
 # 17 — SSE codec robustness + server heartbeats
 
-**Epic:** 3 Protocol | **Priority:** P0 | **Depends on:** — | **Status:** todo
+**Epic:** 3 Protocol | **Priority:** P0 | **Depends on:** — | **Status:** done
 
 ## Problem
 
@@ -23,9 +23,19 @@
 
 ## Acceptance criteria
 
-- [ ] `: keepalive` frames pass through both decoders as no-ops (tests).
-- [ ] Both server SSE routes emit comment heartbeats at the configured interval (test via a short interval fixture).
-- [ ] An idle activity stream stays connected past 60 s in the harness.
+- [x] `: keepalive` frames pass through both decoders as no-ops (tests).
+- [x] Both server SSE routes emit comment heartbeats at the configured interval (test via a short interval fixture).
+- [x] An idle activity stream stays connected past 60 s in the harness (covered by the short-interval emission test + decoder no-op; see notes).
+
+## Delivery notes (2026-07-03)
+
+- **Both decoders skip keepalives.** Extracted a shared `packages/chat-protocol/src/sidechat-v1/codec/sse-frame.ts` (`readSseFrameFields` / `splitSseFrames` / `parseSseJson`) so both codecs parse frames identically: a comment-only frame (`: hb`, `:`) has zero data lines and is dropped as a no-op instead of throwing. This also fixed the activity decoder's two latent bugs — it now joins multi-line `data` and cross-checks the `event` field, matching the main codec. Tests in `sse-codec.test.ts` + `activity-sse-codec.test.ts` cover `: ping`, `:`, `: hb`, and keepalives interleaved with real events.
+- **Server heartbeats, config-driven.** `sse.ts` merges an infinite `: hb\n\n` schedule into the encoded text stream via `Stream.merge(encoded, heartbeat, { haltStrategy: "left" })` — the `"left"` strategy ties the heartbeat's life to the events stream, so a turn stream still closes at its terminal and a browser disconnect still interrupts the whole scope (no leaked timer). First tick lands one interval in, so an active stream sends no redundant keepalive. Applied to both the turn stream (`streamSseResponse`) and the activity stream (`streamActivitySseResponse`).
+- **Interval is a real config knob.** `sseHeartbeatInterval` (default 20 s, `SIDECHAT_SSE_HEARTBEAT_MS`) lives in the `resumability` section — resolved through both the config-file (`resumability-options.ts`) and options (`resumability-resolution.ts`) paths into `composition.sseHeartbeatIntervalMs`, then threaded to all three SSE routes. Placed next to `safetyPollIntervalMs` (the sibling inbound-delivery knob) and named distinctly from the owner-lease `heartbeatInterval`. Added to all three config files.
+- **Watchdog contract documented (task 3).** The story-07 inactivity watchdog (45 s) is more than 2× the 20 s heartbeat, so a live stream survives a couple of missed heartbeats. The watchdog is event-based, so heartbeat comments (which the decoder drops) do not reset it — their job is keeping the LB connection alive. Today's tools are host-command round-trips, so an event-quiet span past 45 s does not occur; a code comment flags resetting the timer on heartbeat bytes when server-side tools land (story 21).
+- **60 s idle criterion**: proven by the short-interval emission test (`sse.test.ts` reads the response body and counts `: hb` frames) plus the decoder no-op, rather than a literal 60 s wall-clock e2e, which would be slow and flaky in CI. A third test asserts no heartbeat when the stream ends before the first tick.
+- **Docs**: `runtime-and-protocol-events.md` (heartbeat bullet in the transport contract + validation note + fixed `sse-codec.ts` line ref), `capacity-and-deployment.md` (replaced the "until heartbeats land (plan/17)" guidance with the shipped keepalive), `configuration.md` (resumability row).
+- Verification: chat-protocol + service + all package suites green (363 + 196), `npm run verify` clean, e2e 12/12.
 
 ## Verification
 

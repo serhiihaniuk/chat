@@ -133,13 +133,20 @@ data: <JSON of the event>
 
 ```
 
-- **Server transport:** `streamSseResponse` pipes the Effect `Stream` through
-  `Stream.map(encodeSseEvent)` -> `Stream.encodeText` -> `Stream.toReadableStream`
+- **Server transport:** `streamSseResponse` maps the Effect `Stream` through
+  `encodeSseEvent`, merges the heartbeat (below), then `Stream.encodeText` ->
+  `Stream.toReadableStream`
   (`apps/partner-ai-service/src/inbound/http/response/sse.ts`). Headers:
   `content-type: text/event-stream; charset=utf-8`,
   `cache-control: no-cache, no-transform`, `connection: keep-alive`,
   `x-accel-buffering: no`. No hand-rolled controller loop; browser disconnect
   cancels the `ReadableStream` and releases only this subscriber.
+- **Heartbeat:** both the turn and `/chat/activity` streams merge an SSE comment
+  keepalive (`: hb`) every `SIDECHAT_SSE_HEARTBEAT_MS` (default 20 s) so an idle
+  stream stays under a proxy idle timeout. It is a comment, not an event: it
+  carries no `data`, never advances the sequence, and both decoders skip it per
+  the SSE spec (`sse-frame.ts`). `haltStrategy: "left"` ties the heartbeat's life
+  to the events stream, so a terminal still closes the response.
 - **Sequence numbers:** strictly increasing, starting at `sidechat.started` = 0.
   The server emits a gap-free stream by construction via
   `advanceProtocolStream` (`protocol-stream-state-machine.ts:57`): one
@@ -157,12 +164,13 @@ data: <JSON of the event>
 ## Validation And Anti-Spoofing
 
 The widget re-decodes and re-validates every frame; it trusts the wire, not the
-sender. `decodeChunkedSseStream` splits on blank-line boundaries and calls
-`parseSidechatStreamEvent` (`sse-codec.ts`, `validation/validation.ts:38`),
-which whitelists fields per event type and rejects DB rows, runtime events, and
-unknown fields (`requireKnownKeys`). The frame `id`/`event` lines must match the
-JSON payload's `eventId`/`type`, or `assertFrameMatchesPayload` throws
-(`sse-codec.ts:64`), so a malformed frame cannot impersonate another event.
+sender. `decodeChunkedSseStream` splits on blank-line boundaries, drops
+comment-only keepalive frames, and calls `parseSidechatStreamEvent`
+(`sse-codec.ts`, `validation/validation.ts:38`), which whitelists fields per
+event type and rejects DB rows, runtime events, and unknown fields
+(`requireKnownKeys`). The frame `id`/`event` lines must match the JSON payload's
+`eventId`/`type`, or `assertFrameMatchesPayload` throws (`sse-codec.ts:34`), so a
+malformed frame cannot impersonate another event.
 
 The whole-stream validator `validateSidechatEventSequence`
 (`ordering/sequence.ts`) checks a complete stream offline (used in tests and

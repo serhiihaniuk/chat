@@ -9,6 +9,7 @@ export type TurnStreamDependencies = {
   readonly ports: StreamChatPorts;
   readonly dispatcher: TurnEventDispatcher;
   readonly safetyPollIntervalMs: number;
+  readonly sseHeartbeatIntervalMs: number;
 };
 
 /**
@@ -44,5 +45,5 @@ export const openTurnEventStream = (
       replayOnly: subscription.replayOnly ?? false,
     },
   );
-  return streamSseResponse(events, subscription.requestId);
+  return streamSseResponse(events, subscription.requestId, dependencies.sseHeartbeatIntervalMs);
 };

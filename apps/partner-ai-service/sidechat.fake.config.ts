@@ -207,6 +207,11 @@ const sideChatFakeConfig = defineSideChatConfig({
       description:
         "Max running turns one reaper sweep terminalizes, so a backlog drains gradually.",
     }),
+    sseHeartbeatInterval: readEnv.number(SERVICE_ENV_KEYS.sseHeartbeatIntervalMs, {
+      defaultValue: RESUMABILITY_DEFAULTS.SSE_HEARTBEAT_INTERVAL_MS,
+      description:
+        "SSE comment-keepalive cadence (ms) on the turn and activity streams, under the LB idle timeout.",
+    }),
   },
 } satisfies SideChatConfig);
 

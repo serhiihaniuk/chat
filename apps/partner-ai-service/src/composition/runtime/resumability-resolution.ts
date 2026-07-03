@@ -28,5 +28,9 @@ export const resolveResumabilityConfig = (
     ),
     reaperIntervalMs: num(resumability?.reaperIntervalMs, RESUMABILITY_DEFAULTS.REAPER_INTERVAL_MS),
     reaperBatchLimit: num(resumability?.reaperBatchLimit, RESUMABILITY_DEFAULTS.REAPER_BATCH_LIMIT),
+    sseHeartbeatIntervalMs: num(
+      resumability?.sseHeartbeatIntervalMs,
+      RESUMABILITY_DEFAULTS.SSE_HEARTBEAT_INTERVAL_MS,
+    ),
   };
 };

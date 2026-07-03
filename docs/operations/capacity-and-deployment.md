@@ -33,9 +33,14 @@ live turn stream (only while a turn runs) and the `/chat/activity` lifecycle
 stream (whenever the panel is open). Size Node's open-socket expectations from
 concurrent open panels, not from user counts. The stream itself is cheap: the
 250 ms delta coalescer caps events at ~4/s per turn, and the streaming hot path
-does zero database writes. Until server heartbeats land (`plan/17`), configure
-proxy idle timeouts above the longest expected silent pause (a host-command
-await can be silent for up to 30 s).
+does zero database writes.
+
+Both streams write an SSE comment heartbeat (`: hb`) every
+`SIDECHAT_SSE_HEARTBEAT_MS` (default 20 s), so an idle stream keeps bytes flowing
+under a proxy or load-balancer idle timeout. Keep that idle timeout above the
+heartbeat interval — the default clears the common ALB 60 s — rather than above
+the longest silent pause. The heartbeat is a comment the protocol decoder drops,
+so it never appears as an event.
 
 ## What grows forever (by design)
 

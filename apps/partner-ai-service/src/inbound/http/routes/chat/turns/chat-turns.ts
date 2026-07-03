@@ -37,6 +37,7 @@ export type ChatTurnRouteDependencies = {
   /** Settles UI (host) tool calls with the browser's POSTed result. */
   readonly hostCommandResolver: ServiceHostCommandResolver;
   readonly safetyPollIntervalMs: number;
+  readonly sseHeartbeatIntervalMs: number;
   /** Optional telemetry sink for replay served/expired, cancel, and run-finished. */
   readonly observability?: ObservabilitySinkPort | undefined;
 };

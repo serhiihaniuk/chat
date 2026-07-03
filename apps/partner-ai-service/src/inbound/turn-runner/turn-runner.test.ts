@@ -283,6 +283,7 @@ const FAST_LEASE: ResumabilityConfig = {
   heartbeatIntervalMs: 20,
   reaperIntervalMs: 1_000,
   reaperBatchLimit: 50,
+  sseHeartbeatIntervalMs: 20_000,
 };
 
 const completedRuntime = (runtimeRequests: AiRuntimeRequest[]): AiRuntimePort => ({

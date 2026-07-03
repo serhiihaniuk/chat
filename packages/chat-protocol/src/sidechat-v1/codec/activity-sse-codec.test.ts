@@ -43,4 +43,22 @@ describe("turn-activity SSE codec", () => {
       ),
     ).toThrow("malformed turn-activity event");
   });
+
+  it("ignores comment-only keepalive frames", () => {
+    for (const keepalive of [": ping\n\n", ":\n\n", ": hb\n\n"]) {
+      expect(decodeTurnActivitySseEvents(keepalive)).toEqual([]);
+    }
+  });
+
+  it("skips a keepalive interleaved with real events", () => {
+    const stream = `${encodeTurnActivitySseEvent(event)}: hb\n\n${encodeTurnActivitySseEvent({
+      ...event,
+      status: "completed",
+    })}`;
+
+    expect(decodeTurnActivitySseEvents(stream).map((decoded) => decoded.status)).toEqual([
+      "running",
+      "completed",
+    ]);
+  });
 });

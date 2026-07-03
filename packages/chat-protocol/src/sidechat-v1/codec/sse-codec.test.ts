@@ -48,4 +48,22 @@ describe("SSE codec", () => {
 
     expect(() => decodeSseEvents(frame)).toThrow(ProtocolValidationError);
   });
+
+  it("ignores comment-only keepalive frames", () => {
+    for (const keepalive of [": ping\n\n", ":\n\n", ": hb\n\n"]) {
+      expect(decodeSseEvents(keepalive)).toEqual([]);
+    }
+  });
+
+  it("skips a keepalive interleaved with real events", () => {
+    const stream = `${encodeSseEvent(errorEvent)}: hb\n\n${encodeSseEvent(event)}`;
+
+    expect(decodeSseEvents(stream)).toEqual([errorEvent, event]);
+  });
+
+  it("decodes a frame that carries a comment line before its data", () => {
+    const frame = `: note\n${encodeSseEvent(event)}`;
+
+    expect(decodeSseEvents(frame)).toEqual([event]);
+  });
 });

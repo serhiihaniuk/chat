@@ -61,6 +61,8 @@ export type ResumabilityConfig = {
   readonly heartbeatIntervalMs: number;
   readonly reaperIntervalMs: number;
   readonly reaperBatchLimit: number;
+  /** SSE comment-keepalive cadence (ms) written on the turn and activity streams. */
+  readonly sseHeartbeatIntervalMs: number;
 };
 
 /**
@@ -78,6 +80,7 @@ export type ResumabilityOptions = {
   readonly heartbeatIntervalMs?: number | undefined;
   readonly reaperIntervalMs?: number | undefined;
   readonly reaperBatchLimit?: number | undefined;
+  readonly sseHeartbeatIntervalMs?: number | undefined;
 };
 
 export type RuntimeModelMetadata = {
@@ -176,6 +179,8 @@ export type ServiceComposition = {
   readonly observability?: ObservabilitySinkPort | undefined;
   /** Resolved per-subscriber reconcile cadence for the subscription stream. */
   readonly safetyPollIntervalMs: number;
+  /** Resolved SSE comment-keepalive cadence (ms) for the turn and activity streams. */
+  readonly sseHeartbeatIntervalMs: number;
   readonly capabilities: ServiceCapabilityStatus;
   readonly diagnostics: ServiceDiagnostics;
   /**

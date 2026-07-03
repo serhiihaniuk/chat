@@ -16,6 +16,8 @@ export type SideChatResumabilityConfig = {
   readonly heartbeatInterval: SideChatNumberEnvReference;
   readonly reaperInterval: SideChatNumberEnvReference;
   readonly reaperBatchLimit: SideChatNumberEnvReference;
+  /** SSE comment-keepalive cadence for the turn and activity streams. */
+  readonly sseHeartbeatInterval: SideChatNumberEnvReference;
 };
 
 /**

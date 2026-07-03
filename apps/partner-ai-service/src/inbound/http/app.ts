@@ -126,6 +126,7 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
     ports: composition.ports,
     dispatcher: composition.dispatcher,
     safetyPollIntervalMs: composition.safetyPollIntervalMs,
+    sseHeartbeatIntervalMs: composition.sseHeartbeatIntervalMs,
   });
   // ... then resolve, read status, subscribe to its durable event stream, and
   // cancel it. Composition already started the per-instance cancel listener
@@ -138,6 +139,7 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
     runner: composition.turnRunner,
     hostCommandResolver: composition.hostCommandResolver,
     safetyPollIntervalMs: composition.safetyPollIntervalMs,
+    sseHeartbeatIntervalMs: composition.sseHeartbeatIntervalMs,
     observability: composition.observability,
   });
   // Subject-scoped live turn lifecycle, so the sidebar shows a "generating" dot on
@@ -145,6 +147,7 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
   registerActivityRoutes(app, {
     repositories: composition.repositories,
     dispatcher: composition.activityDispatcher,
+    sseHeartbeatIntervalMs: composition.sseHeartbeatIntervalMs,
   });
 
   return { app, shutdown: composition.shutdown };

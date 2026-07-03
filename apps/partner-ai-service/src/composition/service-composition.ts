@@ -229,6 +229,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
       turnProfiles,
     }),
     safetyPollIntervalMs: resumability.safetyPollIntervalMs,
+    sseHeartbeatIntervalMs: resumability.sseHeartbeatIntervalMs,
     // Interrupt generation first so its onExit finalizes each turn, then tear down
     // the reaper sweep, the LISTEN dispatchers, and the in-memory event registry.
     shutdown: async () => {

@@ -1,5 +1,6 @@
 import { ProtocolValidationError } from "../errors.js";
 import { isRecord } from "../primitives.js";
+import { parseSseJson, readSseFrameFields, splitSseFrames } from "./sse-frame.js";
 
 /**
  * Cross-conversation turn lifecycle, pushed on the subject-scoped activity stream.
@@ -25,16 +26,32 @@ export const isRunningActivity = (event: TurnActivityEvent): boolean => event.st
 export const encodeTurnActivitySseEvent = (event: TurnActivityEvent): string =>
   `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 
-/** Decode SSE text into validated turn-activity events (one per frame). */
-export const decodeTurnActivitySseEvents = (stream: string): TurnActivityEvent[] => {
-  const frames = stream.split(/\r?\n\r?\n/u).filter((frame) => frame.trim().length > 0);
-  return frames.map(decodeFrame);
-};
+/**
+ * Decode SSE text into validated turn-activity events.
+ *
+ * Comment-only frames (keepalives, e.g. `: hb`) carry no data and are skipped,
+ * so the server heartbeat or a proxy keepalive never breaks the activity stream.
+ * Multi-line `data` payloads are joined, and the `event` field is cross-checked
+ * against the payload type — matching the main `sidechat.v1` codec.
+ */
+export const decodeTurnActivitySseEvents = (stream: string): TurnActivityEvent[] =>
+  splitSseFrames(stream).flatMap((frame) => {
+    const event = decodeFrame(frame);
+    return event ? [event] : [];
+  });
 
-const decodeFrame = (frame: string): TurnActivityEvent => {
-  const dataLine = frame.split(/\r?\n/u).find((line) => line.startsWith("data:"));
-  if (!dataLine) throw new ProtocolValidationError("activity SSE frame missing data");
-  return parseTurnActivityEvent(parseJson(dataLine.slice(dataLine.indexOf(":") + 1).trimStart()));
+const decodeFrame = (frame: string): TurnActivityEvent | undefined => {
+  const fields = readSseFrameFields(frame);
+  // A keepalive/comment-only frame has no data lines; ignore it per the SSE spec.
+  if (fields.dataLines.length === 0) return undefined;
+
+  const event = parseTurnActivityEvent(
+    parseSseJson(fields.dataLines.join("\n"), "activity SSE data is not valid JSON"),
+  );
+  if (fields.eventName && fields.eventName !== event.type) {
+    throw new ProtocolValidationError("activity SSE event field does not match payload type");
+  }
+  return event;
 };
 
 export const parseTurnActivityEvent = (value: unknown): TurnActivityEvent => {
@@ -53,12 +70,4 @@ export const parseTurnActivityEvent = (value: unknown): TurnActivityEvent => {
     assistantTurnId: value["assistantTurnId"],
     status: value["status"],
   };
-};
-
-const parseJson = (source: string): unknown => {
-  try {
-    return JSON.parse(source) as unknown;
-  } catch {
-    throw new ProtocolValidationError("activity SSE data is not valid JSON");
-  }
 };

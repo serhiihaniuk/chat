@@ -22,6 +22,7 @@ export const SERVICE_ENV_KEYS = {
   heartbeatIntervalMs: "SIDECHAT_HEARTBEAT_INTERVAL_MS",
   reaperIntervalMs: "SIDECHAT_REAPER_INTERVAL_MS",
   reaperBatchLimit: "SIDECHAT_REAPER_BATCH_LIMIT",
+  sseHeartbeatIntervalMs: "SIDECHAT_SSE_HEARTBEAT_MS",
   outputDeltaFlushIntervalMs: "SIDECHAT_OUTPUT_DELTA_FLUSH_MS",
   tenantId: "SIDECHAT_TENANT_ID",
   workspaceId: "SIDECHAT_WORKSPACE_ID",

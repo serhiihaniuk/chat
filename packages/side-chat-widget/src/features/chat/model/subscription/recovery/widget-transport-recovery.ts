@@ -15,7 +15,18 @@ type HostBridgeRef = Pick<HostBridge, "dispatchCommand"> | undefined;
 
 /** Retry ladder: bounded backoff before falling back to status polling. */
 const RETRY_BACKOFF_MS = [500, 1_000, 2_000, 4_000] as const;
-/** No stream event for this long ⇒ the connection is wedged; cut it and retry. */
+/**
+ * No stream event for this long ⇒ the connection is wedged; cut it and retry.
+ *
+ * Paired with the server SSE heartbeat (`SSE_HEARTBEAT_INTERVAL_MS`, ~20 s): the
+ * watchdog window is deliberately more than twice that cadence, so a live stream
+ * survives a couple of missed heartbeats before it is treated as wedged. The
+ * heartbeat is a comment frame that the decoder drops, so it does not reset this
+ * event-based timer — its job is to keep bytes flowing under a load balancer's
+ * idle timeout. Today's tools are host-command round-trips (browser-fast), so an
+ * event-quiet span past this window does not occur in practice; when server-side
+ * tools can idle a turn longer (story 21), reset this timer on heartbeat bytes.
+ */
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 45_000;
 const POLL_INTERVAL_MS = 2_000;
 /** Consecutive status-poll failures before the run is failed locally. */

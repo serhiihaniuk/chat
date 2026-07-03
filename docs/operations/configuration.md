@@ -16,20 +16,20 @@ One file, one default export: `defineSideChatConfig({...}) satisfies SideChatCon
 
 Every key below lives in `sidechat.config.ts` at the cited line. Each owns one slice of behavior:
 
-| Key                  | Owns                                                                                                                                                           | Line   |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `environment`        | Deployment shape and secrets via `readEnv`: port, profile, bearer token, database URL, tenant/workspace ids.                                                   | `:33`  |
-| `models`             | Provider connection (kind, secret API key, optional endpoint), reasoning summary, the `default` model, and `availableModels` with per-model reasoning options. | `:61`  |
-| `executors`          | The executor catalog and default; ships only `AI_SDK_TOOL_LOOP`.                                                                                               | `:105` |
-| `tools`              | Backend tools the assistant may call; ships only `mock_web_search` (prompt, delay, exposure, approval ids).                                                    | `:109` |
-| `hostCommands`       | App-owned commands the host runs; ships empty (no commands, policies, or renderers yet).                                                                       | `:126` |
-| `turnGuards`         | Per-turn safety guards; ships empty.                                                                                                                           | `:131` |
-| `requestPolicy`      | Request gating mode (`CONFIGURED`) and the model entitlements a request may select.                                                                            | `:134` |
-| `chat.turnProfile`   | The default profile: system instructions, Markdown output, allowlisted tools, and standard safety.                                                             | `:143` |
-| `context`            | History window (`recent_messages`, 12 messages / 4k tokens) and `contextAdmission` token budgets.                                                              | `:167` |
-| `auxiliaryModelJobs` | Side model jobs; ships the enabled conversation-title job.                                                                                                     | `:180` |
-| `streaming`          | The delta coalescing window (`outputDeltaFlushInterval`): provider text batched into ~4 delta events/s — fewer SSE frames and widget re-renders.               | `:214` |
-| `resumability`       | Lease and heartbeat timers, the per-process `instanceId`, and the crash-recovery sweep cadence (`reaperInterval`, `reaperBatchLimit` — ADR 0008).              | `:189` |
+| Key                  | Owns                                                                                                                                                                                        | Line   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `environment`        | Deployment shape and secrets via `readEnv`: port, profile, bearer token, database URL, tenant/workspace ids.                                                                                | `:33`  |
+| `models`             | Provider connection (kind, secret API key, optional endpoint), reasoning summary, the `default` model, and `availableModels` with per-model reasoning options.                              | `:61`  |
+| `executors`          | The executor catalog and default; ships only `AI_SDK_TOOL_LOOP`.                                                                                                                            | `:105` |
+| `tools`              | Backend tools the assistant may call; ships only `mock_web_search` (prompt, delay, exposure, approval ids).                                                                                 | `:109` |
+| `hostCommands`       | App-owned commands the host runs; ships empty (no commands, policies, or renderers yet).                                                                                                    | `:126` |
+| `turnGuards`         | Per-turn safety guards; ships empty.                                                                                                                                                        | `:131` |
+| `requestPolicy`      | Request gating mode (`CONFIGURED`) and the model entitlements a request may select.                                                                                                         | `:134` |
+| `chat.turnProfile`   | The default profile: system instructions, Markdown output, allowlisted tools, and standard safety.                                                                                          | `:143` |
+| `context`            | History window (`recent_messages`, 12 messages / 4k tokens) and `contextAdmission` token budgets.                                                                                           | `:167` |
+| `auxiliaryModelJobs` | Side model jobs; ships the enabled conversation-title job.                                                                                                                                  | `:180` |
+| `streaming`          | The delta coalescing window (`outputDeltaFlushInterval`): provider text batched into ~4 delta events/s — fewer SSE frames and widget re-renders.                                            | `:214` |
+| `resumability`       | Lease and heartbeat timers, the per-process `instanceId`, the crash-recovery sweep cadence (`reaperInterval`, `reaperBatchLimit` — ADR 0008), and the `sseHeartbeatInterval` SSE keepalive. | `:189` |
 
 ## Declaring process inputs with `readEnv`
 

@@ -10,6 +10,7 @@ import type { TurnActivityDispatcher } from "#inbound/turn-stream/activity/turn-
 export type ActivityRouteDependencies = {
   readonly repositories: SidechatRepositories;
   readonly dispatcher: TurnActivityDispatcher;
+  readonly sseHeartbeatIntervalMs: number;
 };
 
 /**
@@ -32,6 +33,10 @@ export const registerActivityRoutes = (
       { dispatcher: dependencies.dispatcher, repositories: dependencies.repositories },
       { workspaceId: authContext.workspaceId, subjectId: authContext.subject.subjectId },
     );
-    return streamActivitySseResponse(events, `activity_${authContext.subject.subjectId}`);
+    return streamActivitySseResponse(
+      events,
+      `activity_${authContext.subject.subjectId}`,
+      dependencies.sseHeartbeatIntervalMs,
+    );
   });
 };

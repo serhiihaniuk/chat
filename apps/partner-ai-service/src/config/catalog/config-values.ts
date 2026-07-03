@@ -87,6 +87,11 @@ export const DEFAULT_TOOL_POLICY = {
  * an instance sweeps expired-lease running turns. `REAPER_BATCH_LIMIT` bounds one
  * sweep so a backlog drains over several passes instead of one large transaction.
  *
+ * `SSE_HEARTBEAT_INTERVAL_MS` is the SSE comment keepalive cadence written on both
+ * the turn and activity streams so an idle stream keeps bytes flowing under a load
+ * balancer's idle timeout (ALB default 60 s). It is well under that timeout, and
+ * under half the widget's inactivity watchdog, so a live-but-quiet stream is never
+ * cut. This is the connection keepalive, distinct from the owner-lease heartbeat.
  */
 export const RESUMABILITY_DEFAULTS = {
   SAFETY_POLL_INTERVAL_MS: 2_000,
@@ -94,6 +99,7 @@ export const RESUMABILITY_DEFAULTS = {
   HEARTBEAT_INTERVAL_MS: 10_000,
   REAPER_INTERVAL_MS: 15_000,
   REAPER_BATCH_LIMIT: 100,
+  SSE_HEARTBEAT_INTERVAL_MS: 20_000,
   OUTPUT_DELTA_FLUSH_INTERVAL_MS: 250,
 } as const;
 
