@@ -33,7 +33,7 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | 19  | Widget terminal semantics (cancelled/blocked/replay) — **done 2026-07-03**         | 3 Protocol    | 16                      |
 | 20  | Injectable auth seam + subject scoping — **done 2026-07-03**                       | 4 Seams       | —                       |
 | 21  | Real tool registration seam + promise factory — **done 2026-07-03**                | 4 Seams       | —                       |
-| 22  | Model call-settings seam                                                           | 4 Seams       | —                       |
+| 22  | Model call-settings seam — **done 2026-07-03**                                     | 4 Seams       | —                       |
 | 23  | Render protocol content + custom renderer seam                                     | 4 Seams       | —                       |
 | 24  | Core cleanup: dead Layer machinery, port invariants, approval honesty              | 4 Seams       | —                       |
 | 25  | Extension docs completion (context, tables, migrations, host commands)             | 4 Seams       | 20–24                   |

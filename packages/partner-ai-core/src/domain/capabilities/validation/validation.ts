@@ -115,6 +115,9 @@ export const createTurnPolicyDecision = ({
     providerId: modelSelection?.providerId ?? profile.modelPolicy.providerId,
     modelId: modelSelection?.modelId ?? profile.modelPolicy.modelId,
     reasoning: modelSelection?.reasoning,
+    // Call settings are a profile default (not a per-request choice), so they ride
+    // from the profile straight into the decision.
+    callSettings: profile.callSettings,
     allowedToolNames: profile.defaultToolPolicy.allowedToolNames,
     allowedCommandNames,
     approvalRequirements: approvalRequirementsForSelectedCapabilities(

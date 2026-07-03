@@ -97,6 +97,7 @@ const createProviderRequest = (
   assistantTurnId: request.assistantTurnId,
   providerId: request.providerId,
   modelId: request.modelId,
+  callSettings: request.callSettings,
   messages,
   tools: tools.length > 0 ? tools : undefined,
   toolScope: request.toolScope,

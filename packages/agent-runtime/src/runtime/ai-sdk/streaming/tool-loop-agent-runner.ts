@@ -16,6 +16,7 @@ import {
 import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 import type { HostCommandResolver, RuntimeTool } from "#tools/runtime-tool";
 import {
+  agentCallSettings,
   createAiSdkToolSet,
   createHostCommandToolSet,
   hostCommandNameSet,
@@ -170,6 +171,9 @@ const createAiSdkPartStream = ({
           tools,
           toolChoice: tools ? AI_SDK_TOOL_CHOICE_AUTO : undefined,
           providerOptions,
+          // Neutral call settings mapped to top-level SDK settings. Absent
+          // sampling/output fields drop out; `stopWhen` names the step cap.
+          ...agentCallSettings(request.callSettings),
         }),
       );
 

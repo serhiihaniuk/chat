@@ -1,8 +1,15 @@
-import { jsonSchema, tool as createAiTool, type ToolExecutionOptions, type ToolSet } from "ai";
+import {
+  jsonSchema,
+  stepCountIs,
+  tool as createAiTool,
+  type ToolExecutionOptions,
+  type ToolSet,
+} from "ai";
 import {
   AiRuntimeError,
   RUNTIME_ERROR_CODES,
   type AiHostCommandDescriptor,
+  type RuntimeCallSettings,
 } from "@side-chat/ai-runtime-contract";
 import type { JsonObject } from "@side-chat/shared";
 import type { HostCommandResolver, RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
@@ -10,6 +17,30 @@ import type { HostCommandResolver, RuntimeTool, RuntimeToolContext } from "#tool
 import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
 import { toJsonObject } from "./json-value.js";
 import { executeRuntimeToolForAiSdk } from "./runtime-tool-executor.js";
+
+/**
+ * Default tool-loop step cap, made explicit.
+ *
+ * ToolLoopAgent's own default is `stepCountIs(20)` (invisible in the settings); the
+ * runner always passes `stopWhen` so the cap is named and configurable via
+ * `callSettings.maxToolSteps`, while an absent value keeps the exact prior default.
+ */
+const DEFAULT_MAX_TOOL_STEPS = 20;
+
+/**
+ * Map the runtime's neutral call settings to the AI SDK agent's top-level settings.
+ *
+ * These are call settings, not `providerOptions`. Absent sampling/output fields
+ * stay `undefined` so the agent construction drops them (keeping SDK defaults);
+ * `stopWhen` is always set so the step cap is explicit.
+ */
+export const agentCallSettings = (callSettings: RuntimeCallSettings | undefined) => ({
+  temperature: callSettings?.temperature,
+  maxOutputTokens: callSettings?.maxOutputTokens,
+  topP: callSettings?.topP,
+  stopSequences: callSettings?.stopSequences ? [...callSettings.stopSequences] : undefined,
+  stopWhen: stepCountIs(callSettings?.maxToolSteps ?? DEFAULT_MAX_TOOL_STEPS),
+});
 
 /**
  * Convert the selected app tools to the shape AI SDK expects.

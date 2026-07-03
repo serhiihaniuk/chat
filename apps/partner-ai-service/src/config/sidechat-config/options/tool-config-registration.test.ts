@@ -63,3 +63,29 @@ describe("config-driven tool registration", () => {
     );
   });
 });
+
+describe("config-driven model call settings", () => {
+  it("surfaces configured call settings on the turn profile", () => {
+    const config = defineSideChatConfig({
+      ...sideChatFakeConfig,
+      chat: {
+        ...sideChatFakeConfig.chat,
+        turnProfile: {
+          ...sideChatFakeConfig.chat.turnProfile,
+          callSettings: { maxOutputTokens: 512, maxToolSteps: 4 },
+        },
+      },
+    });
+
+    const options = createPartnerAiServiceOptionsFromConfig(config, FAKE_ENV);
+    expect(options.turnProfiles?.[0]?.callSettings).toEqual({
+      maxOutputTokens: 512,
+      maxToolSteps: 4,
+    });
+  });
+
+  it("leaves call settings absent when the config sets none", () => {
+    const options = createPartnerAiServiceOptionsFromConfig(sideChatFakeConfig, FAKE_ENV);
+    expect(options.turnProfiles?.[0]?.callSettings).toBeUndefined();
+  });
+});

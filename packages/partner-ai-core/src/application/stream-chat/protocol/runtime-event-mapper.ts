@@ -7,6 +7,7 @@ import {
   type ActivitySource,
   type ActivityToolDetails,
   type ActivityHostCommandDetails,
+  type CompletedEvent,
   type ProtocolErrorCode,
   type SidechatStreamEvent,
   toActivityId,
@@ -15,6 +16,7 @@ import {
 import {
   RUNTIME_ERROR_CODES,
   RUNTIME_EVENT_TYPES,
+  RUNTIME_FINISH_REASONS,
   type RuntimeActivityDetails,
   type RuntimeActivityImage,
   type RuntimeActivitySource,
@@ -22,6 +24,7 @@ import {
   type RuntimeActivityHostCommandDetails,
   type RuntimeEvent,
   type RuntimeErrorEvent,
+  type RuntimeFinishReason,
 } from "@side-chat/ai-runtime-contract";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import {
@@ -87,7 +90,7 @@ export const mapRuntimeEvent = (
       return omitUndefinedProperties({
         ...base,
         type: SIDECHAT_EVENT_TYPES.COMPLETED,
-        finishReason: event.finishReason,
+        finishReason: mapCompletedFinishReason(event.finishReason),
         usage: event.usage,
       });
     case RUNTIME_EVENT_TYPES.ERROR:
@@ -148,6 +151,18 @@ export const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
  * Known failures keep their useful public code. Everything else becomes
  * provider_failed so adapter/provider details do not leak into sidechat.v1.
  */
+/**
+ * Map a runtime finish reason to the browser protocol's smaller set.
+ *
+ * `tool_step_limit` (the tool loop hit its step cap) is a truncation, so it maps
+ * to `length` — the browser's truncation finish reason — so a capped turn is
+ * observable without a browser-facing enum the widget does not need. The runtime
+ * keeps the distinct reason for server-side observability. Other reasons share the
+ * protocol's strings.
+ */
+const mapCompletedFinishReason = (reason: RuntimeFinishReason): CompletedEvent["finishReason"] =>
+  reason === RUNTIME_FINISH_REASONS.TOOL_STEP_LIMIT ? "length" : reason;
+
 const mapRuntimeErrorCode = (code: string): ProtocolErrorCode => {
   if (code === RUNTIME_ERROR_CODE_TOOL_FAILED) return PROTOCOL_ERROR_CODES.TOOL_FAILED;
   if (code === RUNTIME_ERROR_CODE_TIMEOUT) return PROTOCOL_ERROR_CODES.TIMEOUT;

@@ -14,8 +14,30 @@ prompt builders, product policy, persistence, or browser protocol events.
 - `AiRuntimePort`, the Effect-first stream port product core calls.
 - Runtime events, activity details, public runtime error codes, finish reasons,
   ids, and stream type aliases.
+- `RuntimeReasoningPolicy` and `RuntimeCallSettings`, the provider-neutral
+  model-tuning bags a turn may carry.
 - Tool scope data that runtime may pass to app-owned executable tools after
   policy has selected tool names.
+
+## Model call settings
+
+`AiRuntimeRequest.callSettings` (`RuntimeCallSettings`) is an all-optional bag of
+provider-neutral model parameters for one turn:
+
+| Field             | Meaning                                                   |
+| ----------------- | --------------------------------------------------------- |
+| `temperature`     | Sampling temperature.                                     |
+| `maxOutputTokens` | Cap on generated tokens.                                  |
+| `topP`            | Nucleus-sampling cutoff.                                  |
+| `stopSequences`   | Strings that end generation.                              |
+| `maxToolSteps`    | Tool-loop step cap; absent uses the runtime default (20). |
+
+These are top-level model call settings, not provider-native option names — the
+runtime spreads them into the model call and turns `maxToolSteps` into the loop's
+stop condition. An absent bag (or field) changes nothing. A turn truncated at the
+step cap completes with the `tool_step_limit` finish reason, distinct from `stop`,
+so truncation is observable rather than silent. A provider may drop a setting it
+does not support (e.g. OpenAI ignores `temperature`/`topP` for reasoning models).
 
 ## Does Not Own
 

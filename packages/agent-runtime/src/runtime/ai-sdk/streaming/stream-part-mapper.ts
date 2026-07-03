@@ -15,6 +15,7 @@ import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request
 const AI_SDK_FINISH_REASON_LENGTH = "length" as const;
 const AI_SDK_FINISH_REASON_CONTENT_FILTER = "content-filter" as const;
 const AI_SDK_FINISH_REASON_ERROR = "error" as const;
+const AI_SDK_FINISH_REASON_TOOL_CALLS = "tool-calls" as const;
 const AI_SDK_PART_TYPE_ABORT = "abort" as const;
 
 /**
@@ -165,15 +166,18 @@ export const mapAiSdkStreamPart = (
 /**
  * Runtime finish reasons are intentionally smaller than provider reasons.
  *
- * Downstream protocol/UI only needs to know whether generation stopped normally
- * or hit length. Abort is not a provider finish reason (the SDK signals it with a
- * separate `abort` part); content filtering and error are their own terminals
- * handled before this maps a normal completion.
+ * Downstream protocol/UI only needs to know whether generation stopped normally,
+ * hit length, or was truncated at the tool-loop step cap. A final `tool-calls`
+ * finish means the loop stopped while the model still wanted to call tools — the
+ * step cap fired — so it maps to the distinct `tool_step_limit` rather than a
+ * silent `stop`. Abort is signalled by a separate `abort` part; content filtering
+ * and error are their own terminals handled before this maps a normal completion.
  */
-const mapFinishReason = (reason: string): RuntimeFinishReason =>
-  reason === AI_SDK_FINISH_REASON_LENGTH
-    ? RUNTIME_FINISH_REASONS.LENGTH
-    : RUNTIME_FINISH_REASONS.STOP;
+const mapFinishReason = (reason: string): RuntimeFinishReason => {
+  if (reason === AI_SDK_FINISH_REASON_LENGTH) return RUNTIME_FINISH_REASONS.LENGTH;
+  if (reason === AI_SDK_FINISH_REASON_TOOL_CALLS) return RUNTIME_FINISH_REASONS.TOOL_STEP_LIMIT;
+  return RUNTIME_FINISH_REASONS.STOP;
+};
 
 /**
  * Fill missing token counts with zero.

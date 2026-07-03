@@ -106,6 +106,23 @@ describe("buildModelTurnRequest", () => {
     expect(request.toolNames).toEqual(turn.policyDecision.allowedToolNames);
   });
 
+  it("carries the profile's call settings from the turn policy decision", () => {
+    const turn = createPreparedTurn();
+    const callSettings = { maxOutputTokens: 512, temperature: 0.3, maxToolSteps: 3 };
+    const request = buildModelTurnRequest(input, {
+      ...turn,
+      policyDecision: { ...turn.policyDecision, callSettings },
+    });
+
+    expect(request.callSettings).toEqual(callSettings);
+  });
+
+  it("leaves call settings absent when the profile sets none", () => {
+    const request = buildModelTurnRequest(input, createPreparedTurn());
+
+    expect(request.callSettings).toBeUndefined();
+  });
+
   it("narrows tool names to the per-turn enabled selection, intersecting the profile allowlist", () => {
     const turn = createPreparedTurn();
     const request = buildModelTurnRequest(

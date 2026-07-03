@@ -198,6 +198,24 @@ export type SideChatTurnProfileDeclaration = {
     /** Registered guard ids that must pass for this profile. */
     readonly turnGuardIds: readonly string[];
   };
+  /** Optional model call settings applied to this profile's turns; omit for defaults. */
+  readonly callSettings?: SideChatCallSettings | undefined;
+};
+
+/**
+ * Provider-neutral model call settings for a turn profile.
+ *
+ * Ordinary sampling/output knobs plus the tool-loop step cap, all optional. The
+ * boot path passes them through to the runtime, which applies them to the model
+ * call; an absent field keeps the runtime/provider default.
+ */
+export type SideChatCallSettings = {
+  readonly temperature?: number | undefined;
+  readonly maxOutputTokens?: number | undefined;
+  readonly topP?: number | undefined;
+  readonly stopSequences?: readonly string[] | undefined;
+  /** Max tool-loop steps before the turn stops; absent uses the runtime default (20). */
+  readonly maxToolSteps?: number | undefined;
 };
 
 export type SideChatConfig = {

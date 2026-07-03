@@ -1,4 +1,5 @@
 import type {
+  CallSettingsPolicy,
   TurnProfile,
   ModelPolicy,
   OutputContract,
@@ -29,6 +30,7 @@ export type ServiceTurnProfileConfig = {
   readonly prompt: SystemPromptDefinition;
   readonly executorId?: string | undefined;
   readonly model: ModelPolicy;
+  readonly callSettings?: CallSettingsPolicy | undefined;
   readonly toolPolicy: ToolExposurePolicy;
   readonly outputContract?: OutputContract | undefined;
   readonly safety: SafetyPolicy;
@@ -127,6 +129,7 @@ const buildServiceProfile = (
       systemInstructions: prompt.content,
       executorId: turnProfileConfig.executorId ?? EXECUTORS.AI_SDK_TOOL_LOOP.EXECUTOR_ID,
       modelPolicy: turnProfileConfig.model,
+      callSettings: turnProfileConfig.callSettings,
       defaultToolPolicy: turnProfileConfig.toolPolicy,
       outputContract: turnProfileConfig.outputContract ?? DEFAULT_OUTPUT_CONTRACT,
       safetyPolicy: turnProfileConfig.safety,

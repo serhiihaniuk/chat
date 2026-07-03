@@ -61,6 +61,22 @@ export type RuntimeReasoningPolicy = {
 };
 
 /**
+ * Provider-neutral model call settings applied to one turn's generation.
+ *
+ * Ordinary sampling/output knobs plus the tool-loop step cap, all optional so an
+ * absent bag changes nothing. Top-level model settings (not provider-native
+ * options); the runtime spreads them in and `maxToolSteps` becomes the stop cap.
+ */
+export type RuntimeCallSettings = {
+  readonly temperature?: number | undefined;
+  readonly maxOutputTokens?: number | undefined;
+  readonly topP?: number | undefined;
+  readonly stopSequences?: readonly string[] | undefined;
+  /** Max tool-loop steps before generation stops; absent uses the runtime default. */
+  readonly maxToolSteps?: number | undefined;
+};
+
+/**
  * App-owned scope passed to executable runtime tools.
  *
  * Core has already selected the tool names before this crosses the runtime
@@ -104,6 +120,7 @@ export type AiRuntimeRequest = {
   readonly providerId: ProviderId;
   readonly modelId: ModelId;
   readonly reasoning?: RuntimeReasoningPolicy | undefined;
+  readonly callSettings?: RuntimeCallSettings | undefined;
   readonly messages: readonly AiRuntimeMessage[];
   readonly toolNames: readonly string[];
   readonly toolScope: AiToolScope;
@@ -161,6 +178,10 @@ export const RUNTIME_FINISH_REASONS = {
   STOP: "stop",
   LENGTH: "length",
   ABORTED: "aborted",
+  // The tool loop hit its configured `maxToolSteps` while the model still wanted
+  // to call tools. Distinct from `stop` so a capped (truncated) turn is
+  // observable, never a silent normal completion.
+  TOOL_STEP_LIMIT: "tool_step_limit",
 } as const;
 
 export type RuntimeFinishReason =

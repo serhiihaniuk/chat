@@ -28,6 +28,7 @@ Contract types live in `packages/*`; binding happens in `apps/partner-ai-service
 | Wire a host command       | `HostCommandCapability` (core manifest shape, [capabilities.ts](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) + the host-bridge dispatch shapes ([capability.ts](../../packages/host-bridge/src/commands/capability.ts))       | Declare in `sidechat.config.ts`; the runtime exposes it to the model as a callable tool; handle it in the host app via `packages/host-bridge`                                                                                                                                                | Declared in config; model-callable; performed in the browser ([host-commands.md](host-commands.md)) |
 | Add an observability sink | `ObservabilitySinkPort` ([observability.ts:54](../../packages/partner-ai-core/src/services/observability.ts))                                                                                                                                                       | `options.observability` ([service-composition.ts:137](../../apps/partner-ai-service/src/composition/service-composition.ts)); default `NOOP_OBSERVABILITY_SINK`                                                                                                                              | Injected port; receives redacted records only                                                       |
 | Add a persistence adapter | `SidechatRepositories` + `RepositoryAdapterKind` (`@side-chat/db`)                                                                                                                                                                                                  | `options.repositories` / `options.persistence`, resolved by `createServicePersistenceBundle`                                                                                                                                                                                                 | Injected port; repos must declare `adapterKind` or fail closed                                      |
+| Change model parameters   | `RuntimeCallSettings` ([ai-runtime-contract](../../packages/ai-runtime-contract/src/index.ts)) / `SideChatCallSettings` ([types.ts](../../apps/partner-ai-service/src/config/sidechat-config/types.ts))                                                             | `chat.turnProfile.callSettings` in `sidechat.config.ts`; threads profile → `TurnPolicyDecision` → `buildModelTurnRequest` → the runtime call                                                                                                                                                 | Config bag: `temperature`, `maxOutputTokens`, `topP`, `stopSequences`, `maxToolSteps`               |
 | Plug in auth              | `ServiceAuthVerifier` ([service-auth.ts:37](../../apps/partner-ai-service/src/adapters/auth/service-auth.ts)); returns an `AuthContext` (`@side-chat/partner-ai-core`)                                                                                              | `options.authVerifier` ([app.ts:95](../../apps/partner-ai-service/src/inbound/http/app.ts)); when absent the static-token adapter from `auth` config is the dev default                                                                                                                      | Injected port; `AuthContext.subject.subjectId` is the identity every read/write scopes by           |
 
 The capability rule keeps three stages separate: a manifest `ToolCapability` is a declaration, not model access; the per-turn policy decides which names are allowed; runtime executes only registered `RuntimeTool`s named in that allowlist. Declaring a tool capability without an executable is impossible because one registration supplies both.
@@ -119,6 +120,27 @@ createPartnerAiServiceApp({ authVerifier: jwtVerifier /* , runtime, repositories
 ```
 
 `AuthContext.subject.subjectId` is the per-user identity **everything scopes by**: conversation lists and history, the activity stream, and every turn read/write. A turn belongs to the subject that started it, so a leaked turn id from another user resolves to not-found on status, stream, and host-command result, and its cancel is a durable no-op. Return `undefined` for an unverifiable token and the request is answered `401`; the built-in comparisons are constant-time and normalize the `Bearer ` prefix on either side.
+
+### Change model parameters
+
+Ordinary model knobs live on the turn profile, beside reasoning. Add a `callSettings` block to `chat.turnProfile` in `sidechat.config.ts`:
+
+```ts
+chat: {
+  turnProfile: {
+    // …id, systemInstructions, tools, safety…
+    callSettings: {
+      temperature: 0.4,
+      maxOutputTokens: 1024,
+      topP: 0.95,
+      stopSequences: ["\n\nUser:"],
+      maxToolSteps: 8, // tool-loop cap; omit for the default of 20
+    },
+  },
+},
+```
+
+Each field is optional, so an absent block (or field) keeps the runtime/provider default — no behavior change for existing configs. The block threads profile → `TurnPolicyDecision` → `buildModelTurnRequest` → the runtime, which applies them as top-level model call settings (not provider-native options). A turn stopped at `maxToolSteps` completes with the `tool_step_limit` finish reason so a truncated turn is observable, not a silent `stop`. A provider may ignore a setting it does not support (OpenAI drops `temperature`/`topP` for reasoning models); `maxOutputTokens` is the portable one.
 
 ## Where adapters live
 

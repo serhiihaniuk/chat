@@ -27,6 +27,7 @@ export const buildModelTurnRequest = (
   providerId: turn.policyDecision.providerId,
   modelId: turn.policyDecision.modelId,
   reasoning: turn.policyDecision.reasoning,
+  callSettings: turn.policyDecision.callSettings,
   messages: buildModelMessages(turn),
   // The runtime allowlist is the turn profile's tools, narrowed to the user's
   // per-turn selection from the composer tools menu (request.enabledToolNames).

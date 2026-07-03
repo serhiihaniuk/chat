@@ -2,6 +2,7 @@ import type {
   AiRuntimeMessage,
   AiRuntimeRequest,
   AiToolScope,
+  RuntimeCallSettings,
 } from "@side-chat/ai-runtime-contract";
 import type { RuntimeTool } from "#tools/runtime-tool";
 
@@ -17,6 +18,7 @@ export type RuntimeProviderRequest = {
   readonly assistantTurnId: AiRuntimeRequest["assistantTurnId"];
   readonly providerId: AiRuntimeRequest["providerId"];
   readonly modelId: AiRuntimeRequest["modelId"];
+  readonly callSettings?: RuntimeCallSettings | undefined;
   readonly messages: readonly AiRuntimeMessage[];
   readonly tools?: readonly RuntimeTool[] | undefined;
   readonly toolScope: AiToolScope;

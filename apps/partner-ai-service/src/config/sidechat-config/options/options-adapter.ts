@@ -248,6 +248,7 @@ const createTurnProfileConfig = (
       modelId: config.models.default.model.MODEL_ID,
       allowedModelIds: config.models.availableModels.map((entry) => entry.model.MODEL_ID),
     },
+    callSettings: profile.callSettings,
     outputContract: profile.output,
     toolPolicy: {
       mode: profile.tools.mode,

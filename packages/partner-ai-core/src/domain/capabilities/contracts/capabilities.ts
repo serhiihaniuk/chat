@@ -110,6 +110,21 @@ export type ReasoningPolicy = {
   readonly effort: ReasoningEffort;
 };
 
+/**
+ * Provider-neutral model call settings a profile applies to its turns.
+ *
+ * Ordinary sampling/output knobs plus the tool-loop step cap, all optional. Core
+ * carries them from the profile into the runtime request; the runtime spreads them
+ * into the model call. Mirrors the runtime contract's `RuntimeCallSettings`.
+ */
+export type CallSettingsPolicy = {
+  readonly temperature?: number | undefined;
+  readonly maxOutputTokens?: number | undefined;
+  readonly topP?: number | undefined;
+  readonly stopSequences?: readonly string[] | undefined;
+  readonly maxToolSteps?: number | undefined;
+};
+
 export type ToolExposurePolicy = {
   readonly mode: ToolPolicyMode;
   readonly allowedToolNames: readonly string[];
@@ -144,6 +159,7 @@ export type TurnProfile = {
   readonly systemInstructions: string;
   readonly executorId: ExecutorId;
   readonly modelPolicy: ModelPolicy;
+  readonly callSettings?: CallSettingsPolicy | undefined;
   readonly defaultToolPolicy: ToolExposurePolicy;
   readonly outputContract: OutputContract;
   readonly safetyPolicy: SafetyPolicy;
@@ -241,6 +257,7 @@ export type TurnPolicyDecision = {
   readonly providerId: ProviderId;
   readonly modelId: ModelId;
   readonly reasoning?: ReasoningPolicy | undefined;
+  readonly callSettings?: CallSettingsPolicy | undefined;
   readonly allowedToolNames: readonly string[];
   readonly allowedCommandNames: readonly string[];
   readonly approvalRequirements: readonly ApprovalRequirement[];

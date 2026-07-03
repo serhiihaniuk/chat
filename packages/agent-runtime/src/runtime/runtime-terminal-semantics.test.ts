@@ -32,6 +32,27 @@ const createDelayedProvider = (): ModelProvider => ({
     ),
 });
 
+// A model that always calls a tool, so the loop only ever stops at the step cap.
+// The prompt grows each round (the tool result is appended), so the tool-call id
+// stays unique per step.
+const createLoopingToolProvider = (): ModelProvider => ({
+  providerId: "loop",
+  modelIds: ["loop-model"],
+  resolveModel: (selection) =>
+    Effect.succeed(
+      createScriptedLanguageModel({
+        providerId: "loop",
+        modelId: selection.modelId,
+        text: "still working",
+        toolCall: (options) => ({
+          toolCallId: `call_loop_${options.prompt.length}`,
+          toolName: MOCK_WEB_SEARCH_TOOL_NAME,
+          input: { query: "keep going" },
+        }),
+      }),
+    ),
+});
+
 describe("runtime terminal semantics", () => {
   it("ends an aborted turn with exactly one aborted completion terminal", async () => {
     const controller = new AbortController();
@@ -59,6 +80,41 @@ describe("runtime terminal semantics", () => {
     const terminals = events.filter(isRuntimeTerminalEvent);
     expect(terminals).toHaveLength(1);
     expect(terminals[0]).toMatchObject({ type: "runtime.completed", finishReason: "aborted" });
+  });
+
+  it("stops the tool loop at maxToolSteps and reports the step-limit finish reason", async () => {
+    const runtime = createAgentRuntime({
+      flushIntervalMs: 0,
+      providers: [createLoopingToolProvider()],
+      tools: [createMockWebSearchTool()],
+    });
+
+    const events = await collectEvents(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          request({
+            providerId: "loop",
+            modelId: "loop-model",
+            toolNames: [MOCK_WEB_SEARCH_TOOL_NAME],
+            callSettings: { maxToolSteps: 2 },
+          }),
+        ),
+      ),
+    );
+
+    // The loop never stops on its own, so the cap is what terminated it — a
+    // distinct completion, not a silent `stop`.
+    const terminals = events.filter(isRuntimeTerminalEvent);
+    expect(terminals).toHaveLength(1);
+    expect(terminals[0]).toMatchObject({
+      type: "runtime.completed",
+      finishReason: "tool_step_limit",
+    });
+    // The tool ran on each of the capped steps.
+    const toolActivities = events.filter(
+      (event) => event.type === "runtime.activity" && event.activityKind === "tool",
+    );
+    expect(toolActivities.length).toBeGreaterThan(0);
   });
 
   it("keeps a single terminal when an error is followed by an errored finish", async () => {

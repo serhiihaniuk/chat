@@ -201,6 +201,79 @@ describe("createOpenAIResponsesProvider", () => {
     expect(reasoningField(parseRequestBody(calls[0]?.body))).toMatchObject({ effort: "high" });
   });
 
+  it("sends a configured maxOutputTokens in the Responses request body", async () => {
+    const calls: RequestInit[] = [];
+    const runtime = createAgentRuntime({
+      flushIntervalMs: 0,
+      providers: [
+        createOpenAIResponsesProvider({
+          apiKey: "test-key",
+          modelIds: ["gpt-5.4-mini"],
+          fetch: (_url, init) => {
+            calls.push(init ?? {});
+            return Promise.resolve(
+              new Response(sse({ type: "response.completed", response: { usage: {} } }), {
+                status: 200,
+              }),
+            );
+          },
+        }),
+      ],
+    });
+
+    await collect(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          runtimeRequest({
+            providerId: OPENAI_PROVIDER_ID,
+            modelId: "gpt-5.4-mini",
+            // temperature/topP are also threaded, but OpenAI drops them for a
+            // reasoning model; maxOutputTokens is the portable knob the wire carries.
+            callSettings: { maxOutputTokens: 256, temperature: 0.2, topP: 0.9 },
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        ),
+      ),
+    );
+
+    expect(parseRequestBody(calls[0]?.body)).toMatchObject({ max_output_tokens: 256 });
+  });
+
+  it("omits maxOutputTokens from the body when no call settings are configured", async () => {
+    const calls: RequestInit[] = [];
+    const runtime = createAgentRuntime({
+      flushIntervalMs: 0,
+      providers: [
+        createOpenAIResponsesProvider({
+          apiKey: "test-key",
+          modelIds: ["gpt-5.4-mini"],
+          fetch: (_url, init) => {
+            calls.push(init ?? {});
+            return Promise.resolve(
+              new Response(sse({ type: "response.completed", response: { usage: {} } }), {
+                status: 200,
+              }),
+            );
+          },
+        }),
+      ],
+    });
+
+    await collect(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          runtimeRequest({
+            providerId: OPENAI_PROVIDER_ID,
+            modelId: "gpt-5.4-mini",
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        ),
+      ),
+    );
+
+    expect(parseRequestBody(calls[0]?.body)["max_output_tokens"]).toBeUndefined();
+  });
+
   it("omits the reasoning option for a non-reasoning selection so OpenAI does not 400", async () => {
     const calls: RequestInit[] = [];
     const runtime = createAgentRuntime({
