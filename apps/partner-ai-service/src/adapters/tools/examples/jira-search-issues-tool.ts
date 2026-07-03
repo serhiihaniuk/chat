@@ -5,6 +5,7 @@ import {
   type RuntimeActivitySource,
 } from "@side-chat/ai-runtime-contract";
 import {
+  createRuntimeToolFromPromise,
   type RuntimeTool,
   type RuntimeToolContext,
   type RuntimeToolScope,
@@ -35,6 +36,9 @@ export const JIRA_SEARCH_ISSUES_INPUT_SCHEMA = {
   additionalProperties: false,
 } as const satisfies JsonObject;
 
+const JIRA_TOOL_DESCRIPTION =
+  "Search Jira issues the current user may access. Use this for questions about tickets, bugs, epics, or project work items.";
+
 export type JiraIssue = {
   readonly key: string;
   readonly summary: string;
@@ -55,23 +59,22 @@ export type JiraSearchIssuesRequest = {
 };
 
 /**
- * Concrete Jira clients own Jira auth and visibility checks.
+ * The adopter's Jira client, owning Jira auth and visibility checks.
  *
- * This example tool passes primitive runtime scope into that app-owned client
- * and normalizes the visible issues into runtime-safe JSON.
+ * Modeled as a plain Promise (most SDKs are promise-based). The tool passes the
+ * primitive runtime scope into it and normalizes the visible issues into
+ * runtime-safe JSON.
  */
 export type JiraClient = {
-  readonly searchIssues: (
-    request: JiraSearchIssuesRequest,
-  ) => Effect.Effect<readonly JiraIssue[], unknown>;
+  readonly searchIssues: (request: JiraSearchIssuesRequest) => Promise<readonly JiraIssue[]>;
 };
 
 /**
  * Bundle the Jira search capability and executable as one registration.
  *
- * This is the adopter pattern: one factory returns the manifest capability and
- * the matching `RuntimeTool` together, so the declared tool always has an
- * executable behind it.
+ * The manifest capability and the matching `RuntimeTool` come from one factory,
+ * so the declared tool always has an executable behind it. This uses the promise
+ * flavor below; swap in `createJiraSearchIssuesToolEffect` for the Effect variant.
  */
 export const createJiraSearchIssuesRegistration = ({
   jiraClient,
@@ -87,67 +90,110 @@ export const createJiraSearchIssuesRegistration = ({
     runtimeTool: createJiraSearchIssuesTool({ jiraClient }),
   });
 
+/**
+ * Flavor 1 (recommended) — a plain async function via `createRuntimeToolFromPromise`.
+ *
+ * No Effect knowledge needed: `run` returns the JSON result or throws. Invalid
+ * input or missing scope throw a typed `AiRuntimeError` whose safe message is
+ * preserved; a thrown client failure is scrubbed to a stable `tool_failed`
+ * message by the wrapper, so raw Jira errors never reach the model.
+ */
 export const createJiraSearchIssuesTool = ({
+  jiraClient,
+}: {
+  readonly jiraClient: JiraClient;
+}): RuntimeTool =>
+  createRuntimeToolFromPromise({
+    name: JIRA_SEARCH_ISSUES_TOOL_NAME,
+    description: JIRA_TOOL_DESCRIPTION,
+    inputSchema: JIRA_SEARCH_ISSUES_INPUT_SCHEMA,
+    readSources: readJiraIssueSources,
+    run: async (input, context) => {
+      const { query, maxResults } = readJiraSearchIssuesInput(input);
+      const scope = readJiraToolScope(context);
+      const issues = await jiraClient.searchIssues(
+        jiraRequest(query, maxResults, context.requestId, scope, context.abortSignal),
+      );
+      return toJiraSearchIssuesResult(issues);
+    },
+  });
+
+/**
+ * Flavor 2 (advanced) — the same tool written directly as an Effect program.
+ *
+ * Choose this for explicit typed failures and interruption. It wraps the same
+ * promise client through `Effect.tryPromise`; `toJiraToolError` keeps a
+ * deliberately thrown `AiRuntimeError` and reduces anything else to a safe message.
+ */
+export const createJiraSearchIssuesToolEffect = ({
   jiraClient,
 }: {
   readonly jiraClient: JiraClient;
 }): RuntimeTool => ({
   name: JIRA_SEARCH_ISSUES_TOOL_NAME,
-  description:
-    "Search Jira issues the current user may access. Use this for questions about tickets, bugs, epics, or project work items.",
+  description: JIRA_TOOL_DESCRIPTION,
   inputSchema: JIRA_SEARCH_ISSUES_INPUT_SCHEMA,
   readSources: readJiraIssueSources,
   execute: (input, context) =>
     Effect.gen(function* () {
-      const searchInput = yield* readJiraSearchIssuesInput(input);
-      const scope = yield* readJiraToolScope(context);
-      const issues = yield* jiraClient
-        .searchIssues({
-          query: searchInput.query,
-          maxResults: searchInput.maxResults,
-          requestId: context.requestId,
-          hostAppId: scope.hostAppId,
-          workspaceId: scope.workspaceId,
-          subjectId: scope.subjectId,
-          conversationId: scope.conversationId,
-          assistantTurnId: scope.assistantTurnId,
-          abortSignal: context.abortSignal,
-        })
-        .pipe(Effect.mapError(toJiraToolError));
-
+      const parsed = yield* Effect.try({
+        try: () => readJiraSearchIssuesInput(input),
+        catch: toJiraToolError,
+      });
+      const scope = yield* Effect.try({
+        try: () => readJiraToolScope(context),
+        catch: toJiraToolError,
+      });
+      const issues = yield* Effect.tryPromise({
+        try: (signal) =>
+          jiraClient.searchIssues(
+            jiraRequest(parsed.query, parsed.maxResults, context.requestId, scope, signal),
+          ),
+        catch: toJiraToolError,
+      });
       return toJiraSearchIssuesResult(issues);
-    }).pipe(Effect.mapError(toJiraToolError)),
+    }),
 });
 
-const readJiraToolScope = (
-  context: RuntimeToolContext,
-): Effect.Effect<RuntimeToolScope, AiRuntimeError> =>
-  context.scope
-    ? Effect.succeed(context.scope)
-    : Effect.fail(
-        new AiRuntimeError(
-          RUNTIME_ERROR_CODES.TOOL_FAILED,
-          "jira.search_issues requires runtime tool scope.",
-        ),
-      );
+const jiraRequest = (
+  query: string,
+  maxResults: number,
+  requestId: string,
+  scope: RuntimeToolScope,
+  abortSignal: AbortSignal | undefined,
+): JiraSearchIssuesRequest => ({
+  query,
+  maxResults,
+  requestId,
+  hostAppId: scope.hostAppId,
+  workspaceId: scope.workspaceId,
+  subjectId: scope.subjectId,
+  conversationId: scope.conversationId,
+  assistantTurnId: scope.assistantTurnId,
+  abortSignal,
+});
+
+const readJiraToolScope = (context: RuntimeToolContext): RuntimeToolScope => {
+  if (!context.scope) {
+    throw new AiRuntimeError(
+      RUNTIME_ERROR_CODES.TOOL_FAILED,
+      "jira.search_issues requires runtime tool scope.",
+    );
+  }
+  return context.scope;
+};
 
 const readJiraSearchIssuesInput = (
   input: JsonObject,
-): Effect.Effect<{ readonly query: string; readonly maxResults: number }, AiRuntimeError> => {
+): { readonly query: string; readonly maxResults: number } => {
   const query = input["query"];
   if (typeof query !== "string" || query.trim().length === 0) {
-    return Effect.fail(
-      new AiRuntimeError(
-        RUNTIME_ERROR_CODES.TOOL_FAILED,
-        "jira.search_issues requires a non-empty query string.",
-      ),
+    throw new AiRuntimeError(
+      RUNTIME_ERROR_CODES.TOOL_FAILED,
+      "jira.search_issues requires a non-empty query string.",
     );
   }
-
-  return Effect.succeed({
-    query: query.trim(),
-    maxResults: readMaxResults(input["maxResults"]),
-  });
+  return { query: query.trim(), maxResults: readMaxResults(input["maxResults"]) };
 };
 
 const readMaxResults = (value: unknown): number =>
@@ -187,10 +233,7 @@ const readJiraIssueSourceLabel = (issue: Record<string, unknown>): string => {
   return "Jira issue";
 };
 
-const toJiraToolError = (error: unknown): AiRuntimeError => {
-  if (error instanceof AiRuntimeError) return error;
-  return new AiRuntimeError(
-    RUNTIME_ERROR_CODES.TOOL_FAILED,
-    error instanceof Error ? error.message : "jira.search_issues failed.",
-  );
-};
+const toJiraToolError = (error: unknown): AiRuntimeError =>
+  error instanceof AiRuntimeError
+    ? error
+    : new AiRuntimeError(RUNTIME_ERROR_CODES.TOOL_FAILED, "jira.search_issues failed.");

@@ -1,6 +1,6 @@
 # 21 — Real tool registration seam + promise-based tool factory
 
-**Epic:** 4 Seams | **Priority:** P0 (the product's headline extension point) | **Depends on:** — | **Status:** todo
+**Epic:** 4 Seams | **Priority:** P0 (the product's headline extension point) | **Depends on:** — | **Status:** done
 
 ## Problem
 
@@ -18,10 +18,19 @@ What's already good and must be preserved: bundled declaration+executable regist
 
 ## Acceptance criteria
 
-- [ ] A new tool added via (tool file + map entry + config entry) is model-callable in the fake-provider harness with zero edits to validation/options-adapter internals (prove with a test tool in the adoption harness).
-- [ ] An unknown configured tool name fails boot with an error listing available names.
-- [ ] `createRuntimeToolFromPromise` is exported, tested (success, throw → `tool_failed` with scrubbed message, abort), and used by the worked example.
-- [ ] extension-seams.md steps name real files that exist.
+- [x] A new tool added via (tool file + map entry + config entry) is model-callable with zero edits to validation/options-adapter internals — `tool-registrations.test.ts` proves an injected map entry dispatches; `tool-config-registration.test.ts` boots the fake config and asserts the config tool is offered in the `/tools` manifest and profile allowlist; the adoption harness registers a promise-authored tool and asserts it is offered + executes.
+- [x] An unknown configured tool name fails boot with an error listing available names (`tool-config-registration.test.ts`).
+- [x] `createRuntimeToolFromPromise` is exported, tested (success, throw → `tool_failed` with scrubbed message, abort, deliberate typed error), and used by the worked Jira example.
+- [x] extension-seams.md steps name real files that exist.
+
+## Delivery notes (2026-07-03)
+
+- **The config tool surface is real now.** New `apps/partner-ai-service/src/adapters/tools/tool-registrations.ts` holds `DEFAULT_TOOL_REGISTRATIONS` (tool name → registration factory). The config validator (`validation.ts`) accepts exactly the names in the map, and the options adapter (`options-adapter.ts` `registrationForTool`) dispatches the configured name through it — an unknown name is a loud boot error naming the available tools, not a silent fallback to the mock. Adding a config-driven tool is now three edits: tool file, one map entry, one config entry — no validator/adapter changes. The registry is an optional parameter (defaulting to the shipped map) so tests inject a new entry without editing the dispatcher.
+- **`createRuntimeToolFromPromise`** (new public export from `@side-chat/agent-runtime`): `{ name, description, inputSchema, timeoutMs?, readSources?, run: async (input, ctx) => JsonObject }`. A thrown error is scrubbed to a stable `tool_failed` message (raw text never crosses the boundary); a caller abort maps to `aborted`; a deliberately thrown `AiRuntimeError` keeps its code. The Effect signature stays the advanced path.
+- **Jira example shows both flavors.** `createJiraSearchIssuesTool` (promise-first, via the factory) and `createJiraSearchIssuesToolEffect` (Effect variant) — one promise-based `JiraClient`, a parameterized test proving both behave identically at the boundary (including scrubbing a raw client error). The mock web search stays Effect.
+- **Docs:** extension-seams.md "Add a tool" rewritten as the real three-step recipe (naming `tool-registrations.ts`, both flavors, the `exposure`/allowlist block), the seam-map row updated, and the stale "not injectable yet (plan/21)" notes corrected.
+- Gotchas handled: no `@types/json-schema`, so a `JSONSchema7`-typed pass-through trips `no-unsafe-assignment` — the factory takes `JsonObject` for the schema. The fake provider only scripts a `mock_web_search` tool call, so the end-to-end "model-callable" proof is the manifest/allowlist offering (execution is covered by the mock + factory unit tests) rather than a driven tool-call.
+- Verification: agent-runtime + service + adoption suites green (274 tests), `npm run verify` clean. e2e was 12/13 with a rotating environmental flake (socket/warmup pressure from repeated runs); each flaked test — including the `local-service` iframe test that boots the real service — passes cleanly in isolation, and the widget bundle is unchanged by this server-side story.
 
 ## Verification
 

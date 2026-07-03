@@ -1,6 +1,11 @@
 import type { ConversationTitleGenerationPort } from "@side-chat/partner-ai-core";
 import { omitUndefinedProperties } from "@side-chat/shared";
-import { createMockWebSearchRegistration } from "#adapters/tools/mock-web-search-tool";
+import {
+  DEFAULT_TOOL_REGISTRATIONS,
+  availableToolNames,
+  findToolRegistrationFactory,
+  type ToolRegistrationFactory,
+} from "#adapters/tools/tool-registrations";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { RuntimeToolConfig } from "#composition/service-composition-types";
 import type { ServiceToolRegistration } from "#composition/tools/service-tool-registry";
@@ -157,20 +162,36 @@ const createRuntimeToolConfig = (
 
 const createToolRegistrations = (
   configuredTools: readonly SideChatToolConfig[],
+  registry: Readonly<Record<string, ToolRegistrationFactory>> = DEFAULT_TOOL_REGISTRATIONS,
 ): readonly ServiceToolRegistration[] | undefined => {
   const registrations = configuredTools.map((toolConfig) =>
-    createMockWebSearchRegistration({
-      description: toolConfig.modelPrompt.usageInstructions,
-      label: toolConfig.tool.LABEL,
-      defaultEnabled: toolConfig.exposure.defaultMode === TOOL_DEFAULT_EXPOSURE.ENABLED,
-      approvalPolicyIds: toolConfig.exposure.approvalPolicyIds,
-      ...omitUndefinedProperties({
-        delayMs: toolConfig.parameters.delayMs,
-      }),
-    }),
+    registrationForTool(toolConfig, registry),
   );
 
   return nonEmpty(registrations);
+};
+
+// Dispatch a configured tool to its registration factory by name; an unknown name
+// is a loud boot error naming what is available, not a silent fallback.
+const registrationForTool = (
+  toolConfig: SideChatToolConfig,
+  registry: Readonly<Record<string, ToolRegistrationFactory>>,
+): ServiceToolRegistration => {
+  const factory = findToolRegistrationFactory(toolConfig.tool.NAME, registry);
+  if (!factory) {
+    throw new ServiceConfigError(
+      `Unsupported configured tool ${toolConfig.tool.NAME}. Available tools: ${availableToolNames(
+        registry,
+      ).join(", ")}.`,
+    );
+  }
+  return factory({
+    description: toolConfig.modelPrompt.usageInstructions,
+    label: toolConfig.tool.LABEL,
+    defaultEnabled: toolConfig.exposure.defaultMode === TOOL_DEFAULT_EXPOSURE.ENABLED,
+    approvalPolicyIds: toolConfig.exposure.approvalPolicyIds,
+    delayMs: toolConfig.parameters.delayMs,
+  });
 };
 
 const createPolicyConfig = (

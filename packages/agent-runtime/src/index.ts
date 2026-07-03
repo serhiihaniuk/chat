@@ -4,5 +4,6 @@ export * from "./providers/model-provider.js";
 export * from "./providers/openai/openai-model-provider.js";
 export * from "./runtime/agent-runtime.js";
 export * from "./runtime/basic-agent/basic-runtime-agent.js";
+export * from "./tools/create-runtime-tool-from-promise.js";
 export * from "./tools/runtime-tool.js";
 export * from "./tools/tool-registry.js";

@@ -39,7 +39,7 @@ describe("service composition runtime tools", () => {
         provider: "fake",
         tools: [
           createJiraSearchIssuesRegistration({
-            jiraClient: { searchIssues: () => Effect.succeed([]) },
+            jiraClient: { searchIssues: () => Promise.resolve([]) },
           }),
         ],
       },
@@ -197,7 +197,7 @@ describe("service composition runtime tools", () => {
         ],
         tools: [
           createJiraSearchIssuesRegistration({
-            jiraClient: { searchIssues: () => Effect.succeed([]) },
+            jiraClient: { searchIssues: () => Promise.resolve([]) },
           }),
           jiraCreateIssueRegistration,
         ],

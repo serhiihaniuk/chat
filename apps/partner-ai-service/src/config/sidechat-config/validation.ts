@@ -1,5 +1,5 @@
+import { availableToolNames } from "#adapters/tools/tool-registrations";
 import { AUXILIARY_JOBS } from "../catalog/capabilities/auxiliary-jobs.js";
-import { TOOLS } from "../catalog/capabilities/tools.js";
 import { TOOL_DEFAULT_EXPOSURE, TOOL_POLICY_MODES } from "../catalog/config-values.js";
 import { PROVIDERS } from "../catalog/providers.js";
 import { ServiceConfigError } from "../service-config-error.js";
@@ -179,8 +179,10 @@ const assertConfiguredTool = (
   if (configuredToolNames.has(toolConfig.tool.NAME)) {
     throw new ServiceConfigError(`Duplicate configured tool ${toolConfig.tool.NAME}.`);
   }
-  if (toolConfig.tool.NAME !== TOOLS.MOCK_WEB_SEARCH.NAME) {
-    throw new ServiceConfigError(`Unsupported configured tool ${toolConfig.tool.NAME}.`);
+  if (!availableToolNames().includes(toolConfig.tool.NAME)) {
+    throw new ServiceConfigError(
+      `Unsupported configured tool ${toolConfig.tool.NAME}. Available tools: ${availableToolNames().join(", ")}.`,
+    );
   }
   if (toolConfig.parameters.delayMs !== undefined && toolConfig.parameters.delayMs < 0) {
     throw new ServiceConfigError(`${toolConfig.tool.NAME} delayMs must not be negative.`);

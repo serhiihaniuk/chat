@@ -1,30 +1,37 @@
 import { Effect } from "effect";
 import { RUNTIME_ERROR_CODES } from "@side-chat/ai-runtime-contract";
-import type { RuntimeToolContext } from "@side-chat/agent-runtime";
+import type { RuntimeTool, RuntimeToolContext } from "@side-chat/agent-runtime";
 import { describe, expect, it } from "vitest";
 import {
   createJiraSearchIssuesTool,
+  createJiraSearchIssuesToolEffect,
   JIRA_SEARCH_ISSUES_TOOL_NAME,
+  type JiraClient,
   type JiraSearchIssuesRequest,
 } from "./jira-search-issues-tool.js";
 
-describe("jira search issues runtime tool example", () => {
+// Both authoring flavors must behave identically at the runtime boundary.
+const flavors: readonly [string, (deps: { readonly jiraClient: JiraClient }) => RuntimeTool][] = [
+  ["promise flavor", createJiraSearchIssuesTool],
+  ["effect flavor", createJiraSearchIssuesToolEffect],
+];
+
+describe.each(flavors)("jira search issues runtime tool example (%s)", (_label, createTool) => {
   it("passes request context to the Jira client and normalizes results", async () => {
     const requests: JiraSearchIssuesRequest[] = [];
-    const tool = createJiraSearchIssuesTool({
+    const tool = createTool({
       jiraClient: {
-        searchIssues: (request) =>
-          Effect.sync(() => {
-            requests.push(request);
-            return [
-              {
-                key: "SC-42",
-                summary: "Adopt assistant architecture",
-                status: "In Progress",
-                url: "https://jira.example.test/browse/SC-42",
-              },
-            ];
-          }),
+        searchIssues: (request) => {
+          requests.push(request);
+          return Promise.resolve([
+            {
+              key: "SC-42",
+              summary: "Adopt assistant architecture",
+              status: "In Progress",
+              url: "https://jira.example.test/browse/SC-42",
+            },
+          ]);
+        },
       },
     });
 
@@ -54,17 +61,12 @@ describe("jira search issues runtime tool example", () => {
       ],
     });
     expect(tool.readSources?.(result)).toEqual([
-      {
-        label: "SC-42",
-        url: "https://jira.example.test/browse/SC-42",
-      },
+      { label: "SC-42", url: "https://jira.example.test/browse/SC-42" },
     ]);
   });
 
   it("fails closed when enterprise runtime scope is missing", async () => {
-    const tool = createJiraSearchIssuesTool({
-      jiraClient: { searchIssues: () => Effect.succeed([]) },
-    });
+    const tool = createTool({ jiraClient: { searchIssues: () => Promise.resolve([]) } });
 
     await expect(
       Effect.runPromise(tool.execute({ query: "SC" }, toolContextWithoutScope)),
@@ -75,9 +77,7 @@ describe("jira search issues runtime tool example", () => {
   });
 
   it("rejects invalid input as a runtime-safe tool failure", async () => {
-    const tool = createJiraSearchIssuesTool({
-      jiraClient: { searchIssues: () => Effect.succeed([]) },
-    });
+    const tool = createTool({ jiraClient: { searchIssues: () => Promise.resolve([]) } });
 
     await expect(Effect.runPromise(tool.execute({}, toolContext))).rejects.toMatchObject({
       code: RUNTIME_ERROR_CODES.TOOL_FAILED,
@@ -85,19 +85,20 @@ describe("jira search issues runtime tool example", () => {
     });
   });
 
-  it("maps client failures to runtime-safe tool errors", async () => {
-    const tool = createJiraSearchIssuesTool({
+  it("scrubs a client failure to a runtime-safe tool error", async () => {
+    const tool = createTool({
       jiraClient: {
-        searchIssues: () => Effect.fail(new Error("Jira auth failed")),
+        searchIssues: () => Promise.reject(new Error("Jira auth failed: token=secret")),
       },
     });
 
-    await expect(
-      Effect.runPromise(tool.execute({ query: "SC" }, toolContext)),
-    ).rejects.toMatchObject({
-      code: RUNTIME_ERROR_CODES.TOOL_FAILED,
-      message: "Jira auth failed",
-    });
+    const failure = await Effect.runPromise(
+      Effect.flip(tool.execute({ query: "SC" }, toolContext)),
+    );
+    expect(failure.code).toBe(RUNTIME_ERROR_CODES.TOOL_FAILED);
+    // The raw client error must never reach the model.
+    expect(failure.message).toBe("jira.search_issues failed.");
+    expect(failure.message).not.toContain("secret");
   });
 });
 
