@@ -8,6 +8,7 @@ import {
 import { Effect, Stream } from "effect";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import {
+  isRuntimeTerminalEvent,
   type AiRuntimeError,
   type AiRuntimeEventStream,
   type RuntimeEvent,
@@ -18,6 +19,7 @@ import {
   createAiSdkToolSet,
   createHostCommandToolSet,
   hostCommandNameSet,
+  mergeToolSets,
 } from "../tools/ai-sdk-tool-adapter.js";
 import {
   appendReasoningDelta,
@@ -26,6 +28,7 @@ import {
   type ReasoningStreamState,
 } from "./reasoning-activity.js";
 import {
+  classifyAiSdkPart,
   createRuntimeStartedEvent,
   mapAiSdkStreamPart,
   toRuntimeError,
@@ -83,7 +86,12 @@ export const runAiSdkToolLoopAgentStream = (
    * order.
    */
   const started = Stream.succeed(createRuntimeStartedEvent(options.request, 0));
-  return Stream.concat(started, createAiSdkRuntimeEventStream(options));
+  // End the runner stream at the first terminal so one turn emits exactly one
+  // terminal event: a late `finish` after an in-band `error`/`blocked` can never
+  // add a second, contradicting terminal.
+  return Stream.concat(started, createAiSdkRuntimeEventStream(options)).pipe(
+    Stream.takeUntil(isRuntimeTerminalEvent),
+  );
 };
 
 const createAiSdkRuntimeEventStream = (
@@ -99,10 +107,14 @@ const createAiSdkRuntimeEventStream = (
 const mapAiSdkPartsToRuntimeEventStream = (
   request: RuntimeProviderRequest,
   parts: AsyncIterable<TextStreamPart<ToolSet>>,
-): AiRuntimeEventStream =>
-  // Turn AI SDK parts into runtime events. The mapping state owns sequence
-  // numbers and flushes any pending reasoning row at stream end.
-  Stream.fromAsyncIterable(parts, toRuntimeError).pipe(
+): AiRuntimeEventStream => {
+  // Log an unrecognized part type once per turn so a future SDK pin's new part
+  // never vanishes without a signal; the mapping itself still drops it.
+  const loggedUnknownPartTypes = new Set<string>();
+  return Stream.fromAsyncIterable(parts, toRuntimeError).pipe(
+    Stream.tap((part) => logUnknownAiSdkPart(request, loggedUnknownPartTypes, part)),
+    // Turn AI SDK parts into runtime events. The mapping state owns sequence
+    // numbers and flushes any pending reasoning row at stream end.
     Stream.mapAccum(
       () => createRuntimeEventMappingState(request),
       (state, part) => mapAiSdkPartToRuntimeEvents(request, state, part),
@@ -111,14 +123,19 @@ const mapAiSdkPartsToRuntimeEventStream = (
       },
     ),
   );
+};
 
-const mergeToolSets = (
-  base: ToolSet | undefined,
-  extra: ToolSet | undefined,
-): ToolSet | undefined => {
-  if (!base) return extra;
-  if (!extra) return base;
-  return { ...base, ...extra };
+const logUnknownAiSdkPart = (
+  request: RuntimeProviderRequest,
+  logged: Set<string>,
+  part: TextStreamPart<ToolSet>,
+): Effect.Effect<void> => {
+  if (classifyAiSdkPart(part.type) !== "unknown" || logged.has(part.type)) return Effect.void;
+  logged.add(part.type);
+  return Effect.logWarning(
+    `agent-runtime dropped an unrecognized AI SDK stream part "${part.type}" ` +
+      `(provider ${request.providerId}, model ${request.modelId}); it may need mapping or the ignore list.`,
+  );
 };
 
 const createAiSdkPartStream = ({

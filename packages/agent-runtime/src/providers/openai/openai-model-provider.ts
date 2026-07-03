@@ -83,18 +83,28 @@ export const createOpenAIResponsesProvider = (
     modelIds: options.modelIds,
     resolveModel: (selection) => Effect.succeed(openai.responses(selection.modelId)),
     resolveProviderOptions: (selection) =>
-      Effect.succeed({
-        // `store: false` disables OpenAI-side retention of prompts/responses.
-        // `reasoningSummary` is only sent when explicitly configured, so the
-        // default request never asks OpenAI to produce a reasoning summary.
-        openai: omitUndefinedProperties({
-          store: false,
-          reasoningEffort:
-            selection.reasoning?.effort ??
-            options.reasoningEffort ??
-            OPENAI_REASONING_EFFORTS.MEDIUM,
-          reasoningSummary: options.reasoningSummary,
-        }),
-      }),
+      Effect.succeed({ openai: openaiProviderOptions(options, selection.reasoning?.effort) }),
   };
+};
+
+/**
+ * Build the OpenAI Responses provider options, omitting reasoning for a
+ * non-reasoning selection.
+ *
+ * `store: false` disables OpenAI-side retention, and a reasoning summary is only
+ * sent when explicitly configured. A non-reasoning model must not receive a
+ * `reasoningEffort` at all — OpenAI answers 400 — so an explicit or configured
+ * `none` effort drops the option; any other effort falls back to the MEDIUM
+ * default, mirroring how the Azure adapter omits reasoning for a `none` effort.
+ */
+const openaiProviderOptions = (
+  options: OpenAIResponsesProviderOptions,
+  requestedEffort: RuntimeReasoningEffort | undefined,
+) => {
+  const effort = requestedEffort ?? options.reasoningEffort ?? OPENAI_REASONING_EFFORTS.MEDIUM;
+  return omitUndefinedProperties({
+    store: false,
+    reasoningEffort: effort === RUNTIME_REASONING_EFFORTS.NONE ? undefined : effort,
+    reasoningSummary: options.reasoningSummary,
+  });
 };

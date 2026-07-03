@@ -8,10 +8,10 @@ Not source of truth for: provider policy, product policy, or protocol events.
 
 | File                                  | Owns                                                                |
 | ------------------------------------- | ------------------------------------------------------------------- |
-| `streaming/tool-loop-agent-runner.ts` | Opens ToolLoopAgent for the default executor and preserves order.   |
+| `streaming/tool-loop-agent-runner.ts` | Opens ToolLoopAgent, ends at the first terminal, merges tool sets.  |
 | `streaming/tool-activity-mapper.ts`   | Maps AI SDK tool parts into one runtime activity row per tool call. |
 | `streaming/reasoning-activity.ts`     | Buffers reasoning deltas into one safe activity row.                |
-| `streaming/stream-part-mapper.ts`     | Maps text, finish, started, and error parts.                        |
+| `streaming/stream-part-mapper.ts`     | Maps text/finish/error/abort parts; classifies every part type.     |
 | `tools/ai-sdk-tool-adapter.ts`        | Converts RuntimeTool into an AI SDK tool callback.                  |
 | `tools/runtime-tool-executor.ts`      | Runs RuntimeTool Effects with abort and timeout handling.           |
 | `tools/json-value.ts`                 | Normalizes unknown tool input/output into JSON-safe values.         |
@@ -25,6 +25,23 @@ Not source of truth for: provider policy, product policy, or protocol events.
 - It awaits `agent.stream(...)` only long enough to get AI SDK's stream handle.
 - The assistant answer still streams through `result.fullStream`.
 - Downstream packages receive RuntimeEvents, not AI SDK stream parts.
+
+## Terminal And Part-Mapping Rules
+
+- **Exactly one terminal.** The runner ends the stream at the first
+  `completed | error | blocked` (`Stream.takeUntil(isRuntimeTerminalEvent)`), so a
+  late `finish` after an in-band `error` can never add a second terminal. The
+  mapper also drops an `error` finish reason rather than emitting `completed`.
+- **Abort is a terminal.** A caller abort arrives as an `abort` part, mapped to
+  `runtime.completed(aborted)`; an `AbortError` during stream open/iteration maps
+  to the `aborted` error code, never a retryable provider outage.
+- **Every part type is classified.** `classifyAiSdkPart` is backed by an
+  exhaustive `Record<AiSdkPartType, …>`, so a future SDK pin's new part type fails
+  to compile until it is mapped or added to the ignore list; an unrecognized type
+  at runtime is logged once per turn, never silently dropped.
+- **Tool names are unique per turn.** A runtime tool and a host command sharing a
+  name fail the turn with a typed `tool_conflict`, instead of one silently
+  shadowing the other.
 
 ## Canonical Docs
 

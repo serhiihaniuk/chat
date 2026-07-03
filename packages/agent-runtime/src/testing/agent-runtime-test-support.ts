@@ -1,4 +1,9 @@
-import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
+import type {
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3StreamPart,
+  LanguageModelV3Usage,
+} from "@ai-sdk/provider";
 import { Effect, Stream } from "effect";
 import {
   RUNTIME_EVENT_TYPES,
@@ -45,6 +50,51 @@ export const createThrowingProvider = (): ModelProvider => ({
   resolveModel: () => {
     throw new Error("provider adapter exploded");
   },
+});
+
+const ZERO_V3_USAGE: LanguageModelV3Usage = {
+  inputTokens: { total: 0, noCache: 0, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: 0, text: 0, reasoning: undefined },
+};
+
+/**
+ * A provider whose stream emits an in-band `error` part and then an errored
+ * `finish` — the double-terminal repro.
+ *
+ * Before this story the error mapped to `runtime.error` and the errored finish
+ * mapped to a second `runtime.completed(stop)`. The runner now ends at the first
+ * terminal, so exactly one `runtime.error` survives.
+ */
+export const createErrorThenFinishProvider = (): ModelProvider => ({
+  providerId: "error-finish",
+  modelIds: ["error-finish-model"],
+  resolveModel: (selection) => Effect.succeed(createErrorThenFinishModel(selection.modelId)),
+});
+
+const createErrorThenFinishModel = (modelId: string): LanguageModelV3 => ({
+  specificationVersion: "v3",
+  provider: "error-finish",
+  modelId,
+  supportedUrls: {},
+  doGenerate: () => Promise.reject(new Error("error-finish fixture is stream-only")),
+  doStream: () =>
+    Promise.resolve({
+      stream: new ReadableStream<LanguageModelV3StreamPart>({
+        start(controller) {
+          controller.enqueue({ type: "stream-start", warnings: [] });
+          controller.enqueue({ type: "text-start", id: "text_1" });
+          controller.enqueue({ type: "text-delta", id: "text_1", delta: "partial answer" });
+          controller.enqueue({ type: "text-end", id: "text_1" });
+          controller.enqueue({ type: "error", error: new Error("provider stream blew up") });
+          controller.enqueue({
+            type: "finish",
+            finishReason: { unified: "error", raw: "error" },
+            usage: ZERO_V3_USAGE,
+          });
+          controller.close();
+        },
+      }),
+    }),
 });
 
 export const createDeterministicExecutor = (

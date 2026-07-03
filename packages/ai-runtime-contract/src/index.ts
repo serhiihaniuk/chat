@@ -147,6 +147,9 @@ export const RUNTIME_ERROR_CODES = {
   EXECUTOR_UNAVAILABLE: "executor_unavailable",
   TOOL_UNAVAILABLE: "tool_unavailable",
   TOOL_FAILED: "tool_failed",
+  // A runtime tool and a host command declared the same name for one turn; the
+  // request is rejected rather than silently letting one shadow the other.
+  TOOL_CONFLICT: "tool_conflict",
   TIMEOUT: "timeout",
   ABORTED: "aborted",
   INTERNAL_ERROR: "internal_error",

@@ -1,5 +1,9 @@
 import { jsonSchema, tool as createAiTool, type ToolExecutionOptions, type ToolSet } from "ai";
-import type { AiHostCommandDescriptor } from "@side-chat/ai-runtime-contract";
+import {
+  AiRuntimeError,
+  RUNTIME_ERROR_CODES,
+  type AiHostCommandDescriptor,
+} from "@side-chat/ai-runtime-contract";
 import type { JsonObject } from "@side-chat/shared";
 import type { HostCommandResolver, RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 
@@ -22,6 +26,30 @@ export const createAiSdkToolSet = (
   return Object.fromEntries(
     runtimeTools.map((runtimeTool) => [runtimeTool.name, toAiSdkTool(runtimeTool, request)]),
   ) as ToolSet;
+};
+
+/**
+ * Merge the runtime tool set with the host-command tool set for one turn.
+ *
+ * A name shared across the two kinds is a configuration error, not a silent
+ * override: it would let a browser-declared host command shadow a registered
+ * runtime tool (and misclassify every later stream part with that name). Reject
+ * the turn with a typed `tool_conflict` instead.
+ */
+export const mergeToolSets = (
+  base: ToolSet | undefined,
+  extra: ToolSet | undefined,
+): ToolSet | undefined => {
+  if (!base) return extra;
+  if (!extra) return base;
+  const conflict = Object.keys(extra).find((name) => Object.hasOwn(base, name));
+  if (conflict !== undefined) {
+    throw new AiRuntimeError(
+      RUNTIME_ERROR_CODES.TOOL_CONFLICT,
+      `A host command and a runtime tool both use the name "${conflict}".`,
+    );
+  }
+  return { ...base, ...extra };
 };
 
 const toAiSdkTool = (runtimeTool: RuntimeTool, request: RuntimeProviderRequest) =>

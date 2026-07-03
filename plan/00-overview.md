@@ -29,7 +29,7 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | 15  | Rename `partner-ai-*` → `sidechat-*`                                               | 2 First-run   | do LAST in epic 2       |
 | 16  | sidechat.blocked completeness + schema honesty — **done 2026-07-03**               | 3 Protocol    | —                       |
 | 17  | SSE codec robustness + server heartbeats — **done 2026-07-03**                     | 3 Protocol    | —                       |
-| 18  | Runtime abort + single-terminal enforcement                                        | 3 Protocol    | —                       |
+| 18  | Runtime abort + single-terminal enforcement — **done 2026-07-03**                  | 3 Protocol    | —                       |
 | 19  | Widget terminal semantics (cancelled/blocked/replay)                               | 3 Protocol    | 16                      |
 | 20  | Injectable auth seam + subject scoping                                             | 4 Seams       | —                       |
 | 21  | Real tool registration seam + promise factory                                      | 4 Seams       | —                       |

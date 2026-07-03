@@ -201,6 +201,45 @@ describe("createOpenAIResponsesProvider", () => {
     expect(reasoningField(parseRequestBody(calls[0]?.body))).toMatchObject({ effort: "high" });
   });
 
+  it("omits the reasoning option for a non-reasoning selection so OpenAI does not 400", async () => {
+    const calls: RequestInit[] = [];
+    const runtime = createAgentRuntime({
+      flushIntervalMs: 0,
+      providers: [
+        createOpenAIResponsesProvider({
+          apiKey: "test-key",
+          modelIds: ["gpt-5.4-mini"],
+          fetch: (_url, init) => {
+            calls.push(init ?? {});
+            return Promise.resolve(
+              new Response(sse({ type: "response.completed", response: { usage: {} } }), {
+                status: 200,
+              }),
+            );
+          },
+        }),
+      ],
+    });
+
+    await collect(
+      Stream.toAsyncIterable(
+        runtime.streamEffect(
+          runtimeRequest({
+            providerId: OPENAI_PROVIDER_ID,
+            modelId: "gpt-5.4-mini",
+            reasoning: { effort: "none" },
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        ),
+      ),
+    );
+
+    const parsedBody = parseRequestBody(calls[0]?.body);
+    expect(parsedBody["store"]).toBe(false);
+    // A non-reasoning model must receive no reasoning effort at all.
+    expect(parsedBody["reasoning"]).toBeUndefined();
+  });
+
   it("turns provider HTTP failures into a public-safe runtime error without leaking raw text", async () => {
     const runtime = createAgentRuntime({
       providers: [
