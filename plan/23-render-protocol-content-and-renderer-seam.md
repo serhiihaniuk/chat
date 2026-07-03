@@ -108,14 +108,23 @@ three new design-system components also got apps/docs pages: `tool-detail.mdx`,
 (`app/components/demos/{tool-detail,citations,activity-images}.tsx` rendering the
 REAL widget components via `./ui/activity/*` exports) and a new `citations` token
 group in `app/data/tokens-components.ts`. Validated by the docs app's own
-`npm run typecheck` (react-router typegen + fumadocs-mdx + tsc). Note: the docs
-app's production `npm run build` fails on a **clean tree** with a rotating
-"Rolldown failed to resolve @/components/demos/<name>" error — pre-existing
-toolchain breakage, verified via `git stash -u`, flagged as a separate task
-(task_28972e0b), not caused or fixable by this story.
+`npm run typecheck` (react-router typegen + fumadocs-mdx + tsc), `npm run dev`,
+and `npm run build`.
+
+**Docs toolchain fix (follow-up commit).** The docs app's `dev` and `build` both
+failed with a rotating "Cannot find module @/components/demos/<name>" — Vite's
+native `resolve.tsconfigPaths` resolving the tsconfig `@/*` and `collections/*`
+aliases nondeterministically on Windows (reproduced on a clean tree via
+`git stash -u`, so not caused by this story). Fixed by replacing
+`tsconfigPaths: true` in `apps/docs/vite.config.ts` with explicit `resolve.alias`
+entries (`@` → `./app`, `collections` → `./.source`); the @rollup/plugin-alias
+path-boundary match keeps `@` from swallowing scoped packages like
+`@react-router/*`. `dev` and `build` now pass deterministically.
 
 **Visual verification:** live preview of the mock-stream harness (tool scenario:
 detail card expands with input/result JSON, "1 source" fold lists the linked row,
-thumbnail renders) and the showcase (`/docs.html`: Citations section matches the
-design — leader glyphs, domains, number chips, ↗ only on linked rows; Tool detail
-section shows expanded/collapsed/error rows).
+thumbnail renders), the showcase (`/docs.html`: Citations matches the design —
+leader glyphs, domains, number chips, ↗ only on linked rows; Tool detail shows
+expanded/collapsed/error rows), and the Fumadocs app (`/docs/design-system/
+components/citations` + `/tool-detail` render the real widget components in their
+shadow-DOM preview).
