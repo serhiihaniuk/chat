@@ -1,6 +1,6 @@
 # 16 — sidechat.blocked completeness + schema honesty
 
-**Epic:** 3 Protocol | **Priority:** P0 | **Depends on:** — | **Status:** todo
+**Epic:** 3 Protocol | **Priority:** P0 | **Depends on:** — | **Status:** done
 
 ## Problem
 
@@ -24,11 +24,22 @@ The two-session-old "blocked-terminal rollout gap" is still open, and the patter
 
 ## Acceptance criteria
 
-- [ ] A blocked-terminated stream passes `validateSidechatEventSequence` (test).
-- [ ] The completeness test fails if any event is added to the union but not the schema/sequence/codecs (prove by temporarily adding a dummy event).
-- [ ] No file named `*.generated.*` lacks a producing generator (gate updated).
-- [ ] `assertTerminalStream` recognizes blocked; `@side-chat/testing` has ≥1 real consumer or is deleted.
-- [ ] Blocked turns persist with status `blocked`, not `provider_failed` (db + core tests updated).
+- [x] A blocked-terminated stream passes `validateSidechatEventSequence` (test).
+- [x] The completeness test fails if any event is added to the union but not the schema/sequence/codecs (prove by temporarily adding a dummy event).
+- [x] No file named `*.generated.*` lacks a producing generator (gate updated).
+- [x] `assertTerminalStream` recognizes blocked; `@side-chat/testing` has ≥1 real consumer or is deleted.
+- [x] Blocked turns persist with status `blocked`, not `provider_failed` (db + core tests updated).
+
+## Delivery notes (2026-07-03)
+
+- **Sequence validator**: `ordering/sequence.ts` no longer restricts terminals to completed/error — terminality is delegated entirely to `isTerminalEvent`. Added a blocked-terminated stream test to `sequence.test.ts`.
+- **Completeness gate**: new `src/sidechat-v1/protocol-completeness.test.ts` holds one fixture per event type in `EVENT_FIXTURES: Record<SidechatEventType, SidechatStreamEvent>` (compile lock) and asserts schema base-enum parity, one schema def per type pinned by its `type` const, blocked-reason enum parity, every terminal member passing `validateSidechatEventSequence`, and SSE codec round-trips. Drift proven: a temporary dummy union member produced 5 test failures + 2 compile errors.
+- **Schema honesty**: no generator ever existed, so the schema was renamed `src/generated/sidechat-v1.schema.generated.json` → `src/sidechat-v1.schema.json` with a "hand-maintained, parity enforced by protocol-completeness.test.ts" header, and gained the BlockedEvent def (base type enum, oneOf, `reason`/`publicMessage`). Same treatment for `docs/generated/partner-ai-service.openapi.generated.json` → `docs/partner-ai-service.openapi.json` ($ref updated). `check-generated-artifacts.mjs` was rewritten around a `REGISTERED_GENERATORS` map (currently empty): any `*.generated.*` file without a registered producer fails the gate; `check-governance-fixtures.mjs` proves it.
+- **`@side-chat/testing`: deleted** (final-state rule — zero consumers; dogfooding would have manufactured a consumer just to keep a third terminal check alive). References removed from tsconfig path mappings/refs, `check-boundaries.mjs`, `check-dependency-policy.mjs`, and docs (package-boundaries, verification, system-map).
+- **Validator table tightening**: `EVENT_PAYLOAD_VALIDATORS` is now `satisfies Record<SidechatEventType, …>`; inline enum arrays derive from the exported constants (`SIDECHAT_BLOCKED_REASONS`, `ACTIVITY_KINDS`, `ACTIVITY_STATUSES`).
+- **Distinct `blocked` status**: added to db `ASSISTANT_TURN_STATUSES` (check constraint regenerated in `0000_day_one.sql`) and core `AssistantTurnFailureStatus`. `protocolTerminalErrorCode` was replaced by `protocolTerminalFailure` returning `{status, errorCode}` — a blocked terminal persists as status `blocked` with the blocked reason (`content_filter`/`safety_policy`) as its error code; `failAssistantTurn`'s `errorCode` widened to `ProtocolErrorCode | SidechatBlockedReason`. Core + db contract tests updated.
+- **Gotcha for future db enum edits**: drizzle-kit resolves `#schema-contract` through `dist/` (no "development" condition), so `npm run db:generate` silently uses a stale build — rebuild `packages/db` first or the regenerated constraint keeps the old value list.
+- Verification: chat-protocol/core/db/service suites green (358 + 189 tests), `npm run verify` clean, e2e 12/12. `test:db:container` still deferred — Docker unavailable (standing chip).
 
 ## Verification
 

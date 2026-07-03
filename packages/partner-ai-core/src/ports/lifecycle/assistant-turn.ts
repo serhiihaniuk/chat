@@ -1,10 +1,18 @@
-import type { ChatStreamRequest, ProtocolErrorCode, UsageMetadata } from "@side-chat/chat-protocol";
+import type {
+  ChatStreamRequest,
+  ProtocolErrorCode,
+  SidechatBlockedReason,
+  UsageMetadata,
+} from "@side-chat/chat-protocol";
 import type { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
 import type { PreparedTurnContext } from "#domain/capabilities";
 import type { ConversationRef, MessageRef } from "./conversation.js";
 
 export type AssistantTurnFailureStatus =
+  // A safety stop: the turn was blocked before a usable answer. Distinct from
+  // provider_failed so audits can tell a filtered turn from a provider outage.
+  | "blocked"
   | "user_aborted"
   | "timed_out"
   | "provider_failed"
@@ -63,7 +71,8 @@ export type AssistantTurnLifecyclePort = {
     readonly authContext: AuthContext;
     readonly assistantTurnId: string;
     readonly status: AssistantTurnFailureStatus;
-    readonly errorCode: ProtocolErrorCode;
+    /** A protocol error code, or the blocked reason for a `blocked` status. */
+    readonly errorCode: ProtocolErrorCode | SidechatBlockedReason;
     readonly now: string;
   }) => Effect.Effect<void, unknown>;
   /**

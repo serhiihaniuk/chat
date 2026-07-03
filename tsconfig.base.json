@@ -16,8 +16,7 @@
       "@side-chat/side-chat-widget/testing": [
         "./packages/side-chat-widget/src/entities/chat/testing.ts"
       ],
-      "@side-chat/side-chat-widget": ["./packages/side-chat-widget/src/index.ts"],
-      "@side-chat/testing": ["./packages/testing/src/index.ts"]
+      "@side-chat/side-chat-widget": ["./packages/side-chat-widget/src/index.ts"]
     },
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "strict": true,

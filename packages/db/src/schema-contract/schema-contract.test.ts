@@ -31,6 +31,7 @@ describe("db schema contract", () => {
     expect(ASSISTANT_TURN_STATUSES).toEqual([
       "running",
       "completed",
+      "blocked",
       "user_aborted",
       "timed_out",
       "provider_failed",

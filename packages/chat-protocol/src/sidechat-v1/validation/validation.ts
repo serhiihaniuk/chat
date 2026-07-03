@@ -1,7 +1,14 @@
 import { ProtocolValidationError } from "../errors.js";
 import { isRecord } from "../primitives.js";
 import { SIDECHAT_PROTOCOL_VERSION } from "../version.js";
-import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "../events/event-union.js";
+import {
+  ACTIVITY_KINDS,
+  ACTIVITY_STATUSES,
+  SIDECHAT_BLOCKED_REASONS,
+  SIDECHAT_EVENT_TYPES,
+  type SidechatEventType,
+  type SidechatStreamEvent,
+} from "../events/event-union.js";
 import { toBrandedSidechatEvent } from "./sidechat-event-branding.js";
 
 const eventTypes = new Set<string>(Object.values(SIDECHAT_EVENT_TYPES));
@@ -103,7 +110,7 @@ const validateErrorEvent = (event: Record<string, unknown>): void => {
 
 const validateBlockedEvent = (event: Record<string, unknown>): void => {
   requireKnownKeys(event, BLOCKED_EVENT_FIELDS, "sidechat.blocked event");
-  requireOneOf(event["reason"], ["content_filter", "safety_policy"], 'event["reason"]');
+  requireOneOf(event["reason"], Object.values(SIDECHAT_BLOCKED_REASONS), 'event["reason"]');
   requireString(event["publicMessage"], 'event["publicMessage"]');
 };
 
@@ -115,6 +122,8 @@ const validateHistoryEvent = (event: Record<string, unknown>): void => {
   for (const message of event["messages"]) validateHistoryMessage(message);
 };
 
+// `satisfies Record<SidechatEventType, …>` is the completeness lock: adding an
+// event to the union without a payload validator here fails to compile.
 const EVENT_PAYLOAD_VALIDATORS = {
   [SIDECHAT_EVENT_TYPES.STARTED]: validateStartedEvent,
   [SIDECHAT_EVENT_TYPES.DELTA]: validateDeltaEvent,
@@ -123,16 +132,12 @@ const EVENT_PAYLOAD_VALIDATORS = {
   [SIDECHAT_EVENT_TYPES.ERROR]: validateErrorEvent,
   [SIDECHAT_EVENT_TYPES.BLOCKED]: validateBlockedEvent,
   [SIDECHAT_EVENT_TYPES.HISTORY]: validateHistoryEvent,
-} satisfies Record<string, (event: Record<string, unknown>) => void>;
+} satisfies Record<SidechatEventType, (event: Record<string, unknown>) => void>;
 
 const validateActivityPayload = (event: Record<string, unknown>): void => {
   requireString(event["activityId"], 'event["activityId"]');
-  requireOneOf(
-    event["activityKind"],
-    ["progress", "reasoning", "tool", "host_command"],
-    'event["activityKind"]',
-  );
-  requireOneOf(event["status"], ["running", "completed", "failed"], 'event["status"]');
+  requireOneOf(event["activityKind"], Object.values(ACTIVITY_KINDS), 'event["activityKind"]');
+  requireOneOf(event["status"], Object.values(ACTIVITY_STATUSES), 'event["status"]');
   requireString(event["title"], 'event["title"]');
   if (event["body"] !== undefined) requireString(event["body"], 'event["body"]');
   if (event["details"] !== undefined) validateActivityDetails(event["details"]);

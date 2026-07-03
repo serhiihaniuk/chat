@@ -109,10 +109,6 @@ for (const file of listSourceFiles(root)) {
     if (forbidden.some((pattern) => pattern.test(dependency))) {
       errors.push(`${file}: forbidden ${dependency} import in ${area}`);
     }
-
-    if (dependency === "@side-chat/testing" && area !== "packages/testing") {
-      errors.push(`${file}: production source must not import packages/testing`);
-    }
   }
 }
 

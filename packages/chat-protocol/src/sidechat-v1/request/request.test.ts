@@ -8,10 +8,7 @@ import { SIDECHAT_PROTOCOL_VERSION } from "../version.js";
 
 type JsonRecord = Record<string, unknown>;
 
-const schemaPath = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../generated/sidechat-v1.schema.generated.json",
-);
+const schemaPath = join(dirname(fileURLToPath(import.meta.url)), "../../sidechat-v1.schema.json");
 
 describe("parseChatStreamRequest", () => {
   it("accepts a sidechat.v1 stream request", () => {

@@ -345,9 +345,11 @@ describe("stream chat runtime terminal mapping", () => {
     });
     expect(events.filter(isTerminalEvent)).toHaveLength(1);
     expect(events.some((event) => event.type === SIDECHAT_EVENT_TYPES.COMPLETED)).toBe(false);
-    // A filtered turn is not persisted as a completed answer.
+    // A filtered turn is not persisted as a completed answer — and its status is
+    // the distinct `blocked`, with the safety reason as the error code, so audits
+    // can tell a safety stop from a provider outage.
     expect(ports.completedTurns).toEqual([]);
-    expect(ports.failedTurns[0]).toMatchObject({ status: "provider_failed" });
+    expect(ports.failedTurns[0]).toMatchObject({ status: "blocked", errorCode: "content_filter" });
   });
 
   it("maps runtime failures to a stable terminal protocol error", async () => {

@@ -1,5 +1,5 @@
 {
-  "_generatedFrom": "Generated from: apps/partner-ai-service/src/inbound/http/app.ts and src/inbound/http/routes/chat/**, plus packages/chat-protocol/src/sidechat-v1/*.ts. Hand-maintained until a generator is wired; per ADR 0004, update this artifact in the same change as any route or protocol change.",
+  "_source": "Hand-maintained OpenAPI description of apps/partner-ai-service/src/inbound/http/** and the sidechat.v1 protocol. Per ADR 0004, update this file in the same change as any route or protocol change.",
   "openapi": "3.1.0",
   "info": {
     "title": "Side Chat Partner AI Service",
@@ -10,20 +10,30 @@
     "/healthz": {
       "get": {
         "operationId": "getHealth",
-        "responses": { "200": { "description": "Service health" } }
+        "responses": {
+          "200": {
+            "description": "Service health"
+          }
+        }
       }
     },
     "/readyz": {
       "get": {
         "operationId": "getReadiness",
-        "responses": { "200": { "description": "Service readiness" } }
+        "responses": {
+          "200": {
+            "description": "Service readiness"
+          }
+        }
       }
     },
     "/models": {
       "get": {
         "operationId": "listModels",
         "responses": {
-          "200": { "description": "Available assistant models for the workspace" }
+          "200": {
+            "description": "Available assistant models for the workspace"
+          }
         }
       }
     },
@@ -36,7 +46,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "../../packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json#/$defs/ChatStreamRequest"
+                "$ref": "../packages/chat-protocol/src/sidechat-v1.schema.json#/$defs/ChatStreamRequest"
               }
             }
           }
@@ -44,18 +54,32 @@
         "responses": {
           "200": {
             "description": "The turn's SSE stream: sidechat.started (turn identity) through exactly one terminal event",
-            "content": { "text/event-stream": { "schema": { "type": "string" } } }
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
-          "400": { "description": "Bad request" },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Forbidden" },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "replay_expired: a repeated requestId resolved to a finished turn whose stream buffer was swept; read conversation history"
           },
           "409": {
             "description": "stream_unavailable (reason not_stream_owner): a repeated requestId resolved to a turn still running on another instance; poll GET /chat/turns/{assistantTurnId} until it finishes"
           },
-          "500": { "description": "Internal error" }
+          "500": {
+            "description": "Internal error"
+          }
         }
       }
     },
@@ -64,11 +88,22 @@
         "operationId": "resolveRun",
         "description": "Resolve a lost POST /chat/runs reply: map a client request id back to its assistant turn.",
         "parameters": [
-          { "name": "requestId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "{ assistantTurnId, status }" },
-          "404": { "description": "Unknown request id" }
+          "200": {
+            "description": "{ assistantTurnId, status }"
+          },
+          "404": {
+            "description": "Unknown request id"
+          }
         }
       }
     },
@@ -81,12 +116,18 @@
             "name": "assistantTurnId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
-          "200": { "description": "{ assistantTurnId, conversationId, requestId, status }" },
-          "404": { "description": "Unknown turn" }
+          "200": {
+            "description": "{ assistantTurnId, conversationId, requestId, status }"
+          },
+          "404": {
+            "description": "Unknown turn"
+          }
         }
       }
     },
@@ -99,22 +140,35 @@
             "name": "assistantTurnId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "after",
             "in": "query",
             "required": false,
             "description": "Replay offset; emit events with sequence > after. Default -1 replays the whole turn.",
-            "schema": { "type": "integer", "default": -1 }
+            "schema": {
+              "type": "integer",
+              "default": -1
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "sidechat.v1 server-sent event stream",
-            "content": { "text/event-stream": { "schema": { "type": "string" } } }
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
-          "400": { "description": "Malformed after query parameter (must be an integer)" },
+          "400": {
+            "description": "Malformed after query parameter (must be an integer)"
+          },
           "404": {
             "description": "replay_expired (the finished turn's buffer was swept) or unknown turn; fall back to conversation history"
           },
@@ -133,9 +187,18 @@
             "name": "assistantTurnId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
-          { "name": "commandId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "commandId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
@@ -152,7 +215,9 @@
           "200": {
             "description": "{ settled: true } — the result is durably recorded and relayed to the owner"
           },
-          "400": { "description": "Body is not a JSON object" },
+          "400": {
+            "description": "Body is not a JSON object"
+          },
           "404": {
             "description": "Unknown turn, or no host command with that id was emitted for this turn (a leaked commandId cannot settle through a different turn)"
           }
@@ -168,10 +233,16 @@
             "name": "assistantTurnId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
-        "responses": { "200": { "description": "{ assistantTurnId, cancelRequested }" } }
+        "responses": {
+          "200": {
+            "description": "{ assistantTurnId, cancelRequested }"
+          }
+        }
       }
     },
     "/chat/activity": {
@@ -181,7 +252,13 @@
         "responses": {
           "200": {
             "description": "sidechat.turn-activity server-sent event stream",
-            "content": { "text/event-stream": { "schema": { "type": "string" } } }
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -191,9 +268,20 @@
         "operationId": "listConversations",
         "description": "List the subject's conversations for the switcher/sidebar.",
         "parameters": [
-          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer" } }
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
         ],
-        "responses": { "200": { "description": "Conversation summaries" } }
+        "responses": {
+          "200": {
+            "description": "Conversation summaries"
+          }
+        }
       }
     },
     "/chat/conversations/{conversationId}": {
@@ -205,13 +293,26 @@
             "name": "conversationId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
-          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer" } }
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "{ conversationId, messages, activeTurn? }" },
-          "404": { "description": "Unknown conversation" }
+          "200": {
+            "description": "{ conversationId, messages, activeTurn? }"
+          },
+          "404": {
+            "description": "Unknown conversation"
+          }
         }
       }
     },
@@ -223,10 +324,16 @@
             "name": "conversationId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
-        "responses": { "200": { "description": "Conversation message history" } }
+        "responses": {
+          "200": {
+            "description": "Conversation message history"
+          }
+        }
       },
       "delete": {
         "operationId": "resetChatHistory",
@@ -235,16 +342,26 @@
             "name": "conversationId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
-        "responses": { "200": { "description": "Conversation reset result" } }
+        "responses": {
+          "200": {
+            "description": "Conversation reset result"
+          }
+        }
       }
     },
     "/usage": {
       "get": {
         "operationId": "readUsageSummary",
-        "responses": { "200": { "description": "Workspace usage summary" } }
+        "responses": {
+          "200": {
+            "description": "Workspace usage summary"
+          }
+        }
       }
     }
   }

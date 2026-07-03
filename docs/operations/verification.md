@@ -2,7 +2,7 @@
 
 Read this when: you need to choose, run, or report a verification command.
 Source of truth for: the root `package.json` gate commands and what each proves.
-Not source of truth for: test fixture design (see [packages/testing/README.md](../../packages/testing/README.md)) or product requirements.
+Not source of truth for: test placement and fixture design (see the testing skill under `.agents/skills`) or product requirements.
 
 Side Chat gates every change through scripts in the root `package.json`. The one
 command you run before pushing is `npm run verify`: it chains six checks and fails

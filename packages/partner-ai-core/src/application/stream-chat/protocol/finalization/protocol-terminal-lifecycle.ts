@@ -1,4 +1,3 @@
-import { PROTOCOL_ERROR_CODES, type ProtocolErrorCode } from "@side-chat/chat-protocol";
 import { omitUndefinedProperties } from "@side-chat/shared";
 import { Effect, Ref } from "effect";
 import {
@@ -6,16 +5,16 @@ import {
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
 } from "#errors";
-import type { AssistantTurnFailureStatus } from "#ports";
 import {
   STREAM_CHAT_FAILURES,
   mapPortFailure,
   mapSyncFailure,
 } from "../../errors/effect-failures.js";
 import {
-  protocolTerminalErrorCode,
+  protocolTerminalFailure,
   validateProtocolAccumulator,
   type ProtocolEventAccumulator,
+  type ProtocolTerminalFailure,
 } from "./protocol-event-accumulator.js";
 import { recordStreamObservationEffect } from "../../observability/stream-chat-observability.js";
 import { prepareConversationTitleAfterCompletion } from "../../conversation-title/prepare-conversation-title.js";
@@ -43,11 +42,12 @@ export const finalizeProtocolStream = (
     // protocol error. Never let a malformed stream be saved as completed.
     yield* validateTerminalOrFailTurn(ports, turn, state);
 
-    // Terminal code is the durable split between completed and failed turns.
-    const terminalCode = protocolTerminalErrorCode(state);
+    // The stream's terminal dictates the durable split: completed, or a failure
+    // whose honest status/code pair includes the distinct `blocked` safety stop.
+    const failure = protocolTerminalFailure(state);
     if (turn.assistantTurn.status === "running") {
-      if (terminalCode) {
-        yield* failAssistantTurnFromTerminal(ports, turn, terminalCode);
+      if (failure) {
+        yield* failAssistantTurnFromTerminal(ports, turn, failure);
       } else {
         yield* completeAssistantTurnFromAccumulator(ports, input, turn, state);
       }
@@ -59,11 +59,11 @@ export const finalizeProtocolStream = (
       ports.observability,
       omitUndefinedProperties({
         correlation: turn.correlation,
-        lifecycleState: terminalCode ? "failed" : "completed",
+        lifecycleState: failure ? "failed" : "completed",
         assistantTurnId: turn.assistantTurnId,
         providerId: turn.policyDecision.providerId,
         modelId: turn.policyDecision.modelId,
-        errorCode: terminalCode,
+        errorCode: failure?.errorCode,
         startedAt: turn.startedAt,
         now: ports.clock.now(),
         attributes: { eventCount: state.eventCount },
@@ -149,22 +149,15 @@ const completeAssistantTurnFromAccumulator = (
 const failAssistantTurnFromTerminal = (
   ports: StreamChatPorts,
   turn: PreparedStreamChatTurn,
-  errorCode: ProtocolErrorCode,
+  failure: ProtocolTerminalFailure,
 ): Effect.Effect<void, PartnerAiCoreError> =>
   mapPortFailure(
     ports.assistantTurns.failAssistantTurn({
       authContext: turn.authContext,
       assistantTurnId: turn.assistantTurnId,
-      status: failureStatusForProtocolCode(errorCode),
-      errorCode,
+      status: failure.status,
+      errorCode: failure.errorCode,
       now: ports.clock.now(),
     }),
     STREAM_CHAT_FAILURES.PERSISTENCE,
   );
-
-const failureStatusForProtocolCode = (code: ProtocolErrorCode): AssistantTurnFailureStatus => {
-  if (code === PROTOCOL_ERROR_CODES.ABORTED) return "user_aborted";
-  if (code === PROTOCOL_ERROR_CODES.TIMEOUT) return "timed_out";
-  if (code === PROTOCOL_ERROR_CODES.TOOL_FAILED) return "tool_failed";
-  return "provider_failed";
-};

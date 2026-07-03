@@ -20,6 +20,9 @@ export type MessageRole = (typeof MESSAGE_ROLES)[number];
 export const ASSISTANT_TURN_STATUSES = [
   "running",
   "completed",
+  // A safety stop: the turn was blocked before a usable answer. Distinct from
+  // provider_failed so audits can tell a filtered turn from a provider outage.
+  "blocked",
   "user_aborted",
   "timed_out",
   "provider_failed",

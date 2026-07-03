@@ -14,7 +14,6 @@
     { "path": "./packages/host-bridge" },
     { "path": "./packages/shared" },
     { "path": "./packages/db" },
-    { "path": "./packages/testing" },
     { "path": "./test-harness/adoption-harness" },
     { "path": "./test-harness/widget-harness" }
   ]

@@ -1,9 +1,5 @@
 import { ProtocolSequenceError } from "../errors.js";
-import {
-  isTerminalEvent,
-  SIDECHAT_EVENT_TYPES,
-  type SidechatStreamEvent,
-} from "../events/event-union.js";
+import { isTerminalEvent, type SidechatStreamEvent } from "../events/event-union.js";
 
 export type SequenceValidationResult = {
   readonly terminalEvent: SidechatStreamEvent;
@@ -13,8 +9,11 @@ export type SequenceValidationResult = {
 /**
  * Check that a complete stream is ordered and closed.
  *
- * Events must be non-empty, sequence numbers must increase by one, and the last
- * event must be the only completed/error event.
+ * Events must be non-empty, sequence numbers must strictly increase, and the
+ * last event must be the stream's only terminal. What counts as terminal is
+ * owned by `isTerminalEvent` (completed/error/blocked) — this validator never
+ * re-enumerates the terminal set, so a new terminal member cannot silently
+ * diverge from the union.
  */
 export const validateSidechatEventSequence = (
   events: readonly SidechatStreamEvent[],
@@ -37,13 +36,6 @@ export const validateSidechatEventSequence = (
 
   if (!terminalEvent) {
     throw new ProtocolSequenceError("stream must include exactly one terminal event");
-  }
-
-  if (
-    terminalEvent.type !== SIDECHAT_EVENT_TYPES.COMPLETED &&
-    terminalEvent.type !== SIDECHAT_EVENT_TYPES.ERROR
-  ) {
-    throw new ProtocolSequenceError("terminal event type is unsupported");
   }
 
   return { terminalEvent, eventCount: events.length };

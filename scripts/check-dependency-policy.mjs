@@ -91,7 +91,6 @@ const allowed = {
     "typescript",
     "vite",
   ]),
-  "@side-chat/testing": new Set(["@side-chat/chat-protocol"]),
   "@side-chat/adoption-harness": new Set([
     "@side-chat/chat-protocol",
     "@side-chat/db",

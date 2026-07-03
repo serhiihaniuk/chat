@@ -4,6 +4,7 @@ import {
   SIDECHAT_EVENT_TYPES,
   type CompletedEvent,
   type ProtocolErrorCode,
+  type SidechatBlockedReason,
   type SidechatStreamEvent,
   type TerminalEvent,
 } from "@side-chat/chat-protocol";
@@ -12,6 +13,7 @@ import {
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
 } from "#errors";
+import type { AssistantTurnFailureStatus } from "#ports";
 
 /**
  * Finalization facts collected while core emits one browser protocol stream.
@@ -85,21 +87,39 @@ export const validateProtocolAccumulator = (accumulator: ProtocolEventAccumulato
   if (reason) throw invalidRuntimeSequence(reason);
 };
 
+/** The durable persistence a failing terminal dictates: honest status + code. */
+export type ProtocolTerminalFailure = {
+  readonly status: AssistantTurnFailureStatus;
+  readonly errorCode: ProtocolErrorCode | SidechatBlockedReason;
+};
+
 /**
- * Map the terminal event to the durable failure code, or `undefined` when the
- * turn completed successfully.
+ * Map the terminal event to its durable failure, or `undefined` for a
+ * successful completion.
  *
- * A blocked (safety-filtered) terminal is a failed turn, not a completion: it
- * persists as `provider_failed` so a filtered turn is never saved as a finished
- * answer. The browser still receives the distinct `sidechat.blocked` event.
+ * A blocked (safety-filtered) terminal is a failed turn, not a completion — it
+ * persists as status `blocked` with the blocked reason as its error code, so a
+ * safety stop is auditable as distinct from a provider outage while a filtered
+ * turn is still never saved as a finished answer.
  */
-export const protocolTerminalErrorCode = (
+export const protocolTerminalFailure = (
   accumulator: ProtocolEventAccumulator,
-): ProtocolErrorCode | undefined => {
+): ProtocolTerminalFailure | undefined => {
   const terminal = accumulator.terminalEvent;
-  if (terminal?.type === SIDECHAT_EVENT_TYPES.ERROR) return terminal.code;
-  if (terminal?.type === SIDECHAT_EVENT_TYPES.BLOCKED) return PROTOCOL_ERROR_CODES.PROVIDER_FAILED;
+  if (terminal?.type === SIDECHAT_EVENT_TYPES.ERROR) {
+    return { status: failureStatusForProtocolCode(terminal.code), errorCode: terminal.code };
+  }
+  if (terminal?.type === SIDECHAT_EVENT_TYPES.BLOCKED) {
+    return { status: "blocked", errorCode: terminal.reason };
+  }
   return undefined;
+};
+
+const failureStatusForProtocolCode = (code: ProtocolErrorCode): AssistantTurnFailureStatus => {
+  if (code === PROTOCOL_ERROR_CODES.ABORTED) return "user_aborted";
+  if (code === PROTOCOL_ERROR_CODES.TIMEOUT) return "timed_out";
+  if (code === PROTOCOL_ERROR_CODES.TOOL_FAILED) return "tool_failed";
+  return "provider_failed";
 };
 
 const invalidReasonForNextEvent = (

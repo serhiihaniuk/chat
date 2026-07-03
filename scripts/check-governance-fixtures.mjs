@@ -210,27 +210,13 @@ expectFailure(
   },
 );
 
-expectFailure("generated artifact header fixture", "check-generated-artifacts.mjs", (root) => {
-  writeFixtureFile(
-    root,
-    "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
-    '{ "_generatedFrom": "Generated from: fixture" }\n',
-  );
-  writeFixtureFile(
-    root,
-    "docs/generated/partner-ai-service.openapi.generated.json",
-    '{ "_generatedFrom": "Generated from: fixture" }\n',
-  );
-  writeFixtureFile(root, "packages/chat-protocol/src/protocol.generated.ts", "export {};\n");
-});
-
-expectFailure("generated artifact missing fixture", "check-generated-artifacts.mjs", (root) => {
-  writeFixtureFile(
-    root,
-    "packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json",
-    '{ "_generatedFrom": "Generated from: fixture" }\n',
-  );
-});
+expectFailure(
+  "unregistered generated artifact fixture",
+  "check-generated-artifacts.mjs",
+  (root) => {
+    writeFixtureFile(root, "packages/chat-protocol/src/protocol.generated.ts", "export {};\n");
+  },
+);
 
 expectFailure("runtime boundary process.env fixture", "check-runtime-boundaries.mjs", (root) => {
   writeFixtureFile(

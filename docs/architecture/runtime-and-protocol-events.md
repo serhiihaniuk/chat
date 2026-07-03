@@ -168,13 +168,10 @@ The whole-stream validator `validateSidechatEventSequence`
 (`ordering/sequence.ts`) checks a complete stream offline (used in tests and
 finalization): non-empty, increasing, exactly one terminal, nothing after it.
 
-> Known gap (fix tracked in `plan/16`): `validateSidechatEventSequence` accepts
-> only `completed`/`error` as the terminal type and rejects `sidechat.blocked`
-> (`ordering/sequence.ts:42`), and the schema JSON omits `blocked`
-> (`packages/chat-protocol/src/generated/sidechat-v1.schema.generated.json`).
-> The per-event validator, the server state machine, and the widget reader all
-> treat `blocked` as terminal, so live code accepts it while the offline
-> validator and published schema do not.
+Terminality is owned by `isTerminalEvent` alone (completed/error/blocked); the
+offline validator never re-enumerates it, and the hand-maintained schema JSON
+(`packages/chat-protocol/src/sidechat-v1.schema.json`) is held to the union by
+a completeness test, so a new event cannot ship half-recognized.
 
 ## The Two Activity Streams
 

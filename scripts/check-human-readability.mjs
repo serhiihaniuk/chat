@@ -7,7 +7,6 @@ const errors = [];
 const warnings = [];
 
 const TEMPORARY_PLAN_PREFIX = "side-chat-readability-to-9-orchestrator-plan/";
-const GENERATED_DOC_PREFIX = "docs/generated/";
 const MAX_DOC_PARAGRAPH_CHARACTERS = 620;
 const MAX_DOC_PARAGRAPH_WORDS = 105;
 
@@ -275,7 +274,6 @@ function validateQualitySkill() {
 function isIgnoredPath(file) {
   return (
     file.startsWith(TEMPORARY_PLAN_PREFIX) ||
-    file.startsWith(GENERATED_DOC_PREFIX) ||
     file.includes("/dist/") ||
     file.includes("/build/") ||
     file.includes("/coverage/") ||

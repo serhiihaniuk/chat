@@ -1,5 +1,5 @@
 {
-  "id": "3fdbfac2-8dcd-405c-8eb8-90fc0917f68d",
+  "id": "7075cca4-0333-4b4d-ab02-96235e98e4ac",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -231,7 +231,7 @@
       "checkConstraints": {
         "assistant_turns_status_check": {
           "name": "assistant_turns_status_check",
-          "value": "status in ('running', 'completed', 'user_aborted', 'timed_out', 'provider_failed', 'tool_failed', 'persistence_failed')"
+          "value": "status in ('running', 'completed', 'blocked', 'user_aborted', 'timed_out', 'provider_failed', 'tool_failed', 'persistence_failed')"
         }
       },
       "isRLSEnabled": false

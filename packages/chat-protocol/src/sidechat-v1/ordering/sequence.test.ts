@@ -32,6 +32,22 @@ describe("validateSidechatEventSequence", () => {
     });
   });
 
+  it("accepts a blocked-terminated stream (safety stop is a legal terminal)", () => {
+    const blocked: SidechatStreamEvent = {
+      ...baseEvent,
+      type: SIDECHAT_EVENT_TYPES.BLOCKED,
+      eventId: "evt_002",
+      sequence: 1,
+      reason: "content_filter",
+      publicMessage: "This request was blocked by a safety filter.",
+    };
+
+    expect(validateSidechatEventSequence([started, blocked])).toEqual({
+      terminalEvent: blocked,
+      eventCount: 2,
+    });
+  });
+
   it("rejects missing terminal events", () => {
     expect(() => validateSidechatEventSequence([started])).toThrow(ProtocolSequenceError);
   });

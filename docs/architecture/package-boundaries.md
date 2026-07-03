@@ -39,7 +39,6 @@ These apply to every `*/src/` file, on top of the per-package deny lists:
 
 - No relative import that crosses a package; import the package name instead (`check-boundaries.mjs:121-132`).
 - No relative import that crosses a top-level `src/<folder>` in the same package; use the `#<folder>/...` subpath (`check-boundaries.mjs:134-150`).
-- No `@side-chat/testing` import from production source (`check-boundaries.mjs:113-115`).
 - Outbound network (`fetch`, `new WebSocket`, `new EventSource`) only in `apps/partner-ai-service/src/outbound/`, `packages/agent-runtime/src/adapters/`, or `side-chat-widget/src/shared/ai/prompt-input.tsx` (`check-outbound-rules.mjs:12-22`).
 
 ## Data hand-offs
@@ -63,7 +62,7 @@ Data changes shape at each seam so no layer leaks another's types. The widget ne
 | _`check-dependency-policy.mjs`_          | Each package's `package.json` deps must sit in a closed allow set; `shadcn`/`@repo/shadcn-ui` banned everywhere; an unknown dep or a package with no policy entry fails (`:13-133`).                                                                                           |
 | `check-unused-dependencies.mjs`          | Every declared dependency must appear in that package's source text, minus an explicit ignore list (`:92-100`).                                                                                                                                                                |
 | `check-package-exports.mjs`              | Each package is `@side-chat`-scoped, `version 0.0.0`, `private`, `type: module`, with `exports["."]`, `types`, a `typecheck` script, and a root `tsconfig` project reference (`:19-31`).                                                                                       |
-| _`check-boundaries.mjs`_                 | Per-package forbidden-import lists, no boundary-crossing relative imports (cross-package or cross-`src`-folder), no `@side-chat/testing` in production (the matrix above).                                                                                                     |
+| _`check-boundaries.mjs`_                 | Per-package forbidden-import lists, no boundary-crossing relative imports (cross-package or cross-`src`-folder) — the matrix above.                                                                                                                                            |
 | _`check-widget-layers.mjs`_              | Widget FSD: import only downward through `app/showcase > widgets > features > entities > shared`; no cross-slice; `shared` imports no product package; no removed `application/assets/domain/ui` folders; public `index.ts` exports only the widget (`:16-68`).                |
 | _`check-runtime-boundaries.mjs`_         | Single owners: `process.env` -> config adapter; `pg`/`drizzle-orm` -> `db`; `hono` -> service; `ai`/`@ai-sdk/*` -> `agent-runtime` (widget `shared/ai` quarantine excepted) (`:21-50`).                                                                                        |
 | _`check-outbound-rules.mjs`_             | `fetch`/`WebSocket`/`EventSource` only in the approved outbound and provider-adapter folders (`:12-22`).                                                                                                                                                                       |
