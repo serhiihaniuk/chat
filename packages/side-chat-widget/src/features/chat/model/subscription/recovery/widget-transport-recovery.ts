@@ -1,8 +1,8 @@
 import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
 
+import { toErrorMessage } from "#entities/chat";
 import { SideChatApiError, type SideChatApiClient } from "#entities/conversation";
-import { runErrorMessage } from "../../run/widget-run-reducer.js";
 import {
   WIDGET_RUN_STATUSES,
   isTerminalRunStatus,
@@ -106,7 +106,7 @@ const decideNextStep = (
   const error = outcome.kind === "error" ? outcome.error : wedgedConnectionError();
   switch (classifyTransportError(error)) {
     case "fatal":
-      failRun(input, runErrorMessage(error));
+      failRun(input, toErrorMessage(error));
       return "stop";
     case "poll":
       return "poll";

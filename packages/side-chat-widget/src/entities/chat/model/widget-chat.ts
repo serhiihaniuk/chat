@@ -13,6 +13,18 @@ import { createEmptyActivityTimeline, type WidgetActivityTimeline } from "./acti
 export type WidgetStatus = "idle" | "submitted" | "streaming" | "error";
 export type WidgetUsage = UsageMetadata;
 
+/**
+ * The terminal notice the conversation view renders, if any.
+ *
+ * `error` is the retryable failure surface; `blocked` is the calm safety-stop
+ * notice with no Retry. A cancelled or still-running turn has no notice. Lives in
+ * the entity layer so both the chat feature (which computes it) and the
+ * conversation feature (which renders it) can share the type.
+ */
+export type WidgetRunNotice =
+  | { readonly kind: "error"; readonly message: string }
+  | { readonly kind: "blocked"; readonly message: string };
+
 export type WidgetMessage = {
   readonly id: string;
   readonly role: "user" | "assistant";

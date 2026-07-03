@@ -136,6 +136,19 @@ export const createMockEvents = (
     ];
   }
 
+  if (scenario === "blocked") {
+    return [
+      started(assistantTurnId),
+      deltaEvent(assistantTurnId, 1, "Let me look into that"),
+      {
+        ...baseEvent(assistantTurnId, 2),
+        type: "sidechat.blocked",
+        reason: "content_filter",
+        publicMessage: "This response was stopped by a safety filter.",
+      },
+    ];
+  }
+
   const workspaceId =
     typeof request.hostContext?.metadata?.["workspaceId"] === "string"
       ? request.hostContext.metadata["workspaceId"]

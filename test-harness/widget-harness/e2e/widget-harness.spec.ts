@@ -252,6 +252,25 @@ test("shows a stream error state with a working retry affordance", async ({ page
   await expect(page.getByLabel("Message")).toBeEnabled();
 });
 
+test("shows a blocked turn as a calm safety notice with no retry", async ({ page }) => {
+  await page.goto(widgetAppUrl("?mode=mock-stream&scenario=blocked"));
+
+  await page.getByLabel("Message").fill("something that trips the filter");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  // Blocked is a calm role=status notice carrying the public message — never the
+  // red role=alert error surface, and crucially with no "Try again" (a filtered
+  // prompt must not invite resubmission).
+  const notice = page.getByRole("status").filter({
+    hasText: "This response was stopped by a safety filter.",
+  });
+  await expect(notice).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  // The composer stays usable for a fresh message.
+  await expect(page.getByLabel("Message")).toBeEnabled();
+});
+
 test("opens the narrow conversation switcher menu without crashing", async ({ page }) => {
   // Regression: each date-group label is a Base UI MenuGroupLabel that must sit inside a
   // MenuGroup. Without the group, opening the menu throws and blanks the widget

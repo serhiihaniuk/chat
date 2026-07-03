@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { WidgetMessage } from "#entities/chat";
+import type { WidgetMessage, WidgetRunNotice } from "#entities/chat";
 import type { ReasoningVisibility } from "#entities/settings";
 import {
   Conversation,
@@ -8,25 +8,25 @@ import {
   ConversationFollowTrigger,
   ConversationScrollButton,
 } from "#shared/ui/conversation";
-import { ErrorNotice } from "#shared/ui/error-notice";
+import { BlockedNotice, ErrorNotice } from "#shared/ui/error-notice";
 import { WidgetMessageView } from "./widget-message-view.js";
 
 export const WidgetConversation = ({
   emptyState,
-  errorMessage,
+  notice,
   isLoadingHistory,
   messages,
   onRetry,
   reasoningVisibility,
 }: {
   readonly emptyState: ReactNode;
-  readonly errorMessage: string | undefined;
+  readonly notice: WidgetRunNotice | undefined;
   readonly isLoadingHistory: boolean;
   readonly messages: readonly WidgetMessage[];
   readonly onRetry: () => void;
   readonly reasoningVisibility: ReasoningVisibility;
 }) => {
-  const isEmpty = messages.length === 0 && !errorMessage;
+  const isEmpty = messages.length === 0 && !notice;
   const latestUserMessageId = readLatestUserMessageId(messages);
   const showEmptyState = isEmpty && !isLoadingHistory;
 
@@ -49,7 +49,7 @@ export const WidgetConversation = ({
                 reasoningVisibility={reasoningVisibility}
               />
             ))}
-            {errorMessage && <WidgetError message={errorMessage} onRetry={onRetry} />}
+            {notice && <WidgetNotice notice={notice} onRetry={onRetry} />}
           </>
         )}
       </ConversationContent>
@@ -85,10 +85,17 @@ const ConversationSkeleton = () => (
   </div>
 );
 
-export const WidgetError = ({
-  message,
+// Blocked is a calm safety notice with no Retry; every other notice is the
+// retryable error surface.
+export const WidgetNotice = ({
+  notice,
   onRetry,
 }: {
-  readonly message: string;
+  readonly notice: WidgetRunNotice;
   readonly onRetry: () => void;
-}) => <ErrorNotice message={message} onRetry={onRetry} />;
+}) =>
+  notice.kind === "blocked" ? (
+    <BlockedNotice message={notice.message} />
+  ) : (
+    <ErrorNotice message={notice.message} onRetry={onRetry} />
+  );

@@ -14,6 +14,9 @@ export const WIDGET_RUN_STATUSES = {
   COMPLETED: "completed",
   FAILED: "failed",
   CANCELLED: "cancelled",
+  // A safety-filtered turn. Terminal and distinct from FAILED so the UI shows a
+  // calm guard notice with no Retry, never inviting resubmission of blocked input.
+  BLOCKED: "blocked",
 } as const;
 
 export type WidgetRunStatus = (typeof WIDGET_RUN_STATUSES)[keyof typeof WIDGET_RUN_STATUSES];
@@ -22,6 +25,7 @@ const TERMINAL_RUN_STATUSES = new Set<WidgetRunStatus>([
   WIDGET_RUN_STATUSES.COMPLETED,
   WIDGET_RUN_STATUSES.FAILED,
   WIDGET_RUN_STATUSES.CANCELLED,
+  WIDGET_RUN_STATUSES.BLOCKED,
 ]);
 
 /** Whether a run status means generation is over and no resubscribe is needed. */
@@ -32,8 +36,10 @@ export const isTerminalRunStatus = (status: WidgetRunStatus): boolean =>
  * Collapse the run lifecycle into the widget's UI status.
  *
  * The composer only needs busy vs idle vs error: `reconnecting` reads as busy
- * (a stop is still meaningful), completed/cancelled are idle, and `failed` is the
- * single error surface the conversation view renders.
+ * (a stop is still meaningful), completed/cancelled/blocked are idle, and `failed`
+ * is the single error surface the conversation view renders. Blocked is idle, not
+ * error: it is terminal but offers no Retry, so the composer stays usable for a
+ * new message while the blocked notice explains the stop.
  */
 export const runStatusToWidgetStatus = (status: WidgetRunStatus): WidgetStatus => {
   switch (status) {
@@ -46,6 +52,7 @@ export const runStatusToWidgetStatus = (status: WidgetRunStatus): WidgetStatus =
       return "error";
     case WIDGET_RUN_STATUSES.COMPLETED:
     case WIDGET_RUN_STATUSES.CANCELLED:
+    case WIDGET_RUN_STATUSES.BLOCKED:
       return "idle";
   }
 };

@@ -5,19 +5,37 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createWidgetMessage, type WidgetMessage } from "#entities/chat";
-import { WidgetConversation, WidgetError } from "./widget-conversation.js";
+import { WidgetConversation, WidgetNotice } from "./widget-conversation.js";
 
 let previousGlobals: [string, PropertyDescriptor | undefined][] = [];
 
-describe("WidgetError", () => {
-  it("renders the failure with a retry control", () => {
+describe("WidgetNotice", () => {
+  it("renders an error notice with a retry control", () => {
     const html = renderToStaticMarkup(
-      <WidgetError message="Chat client request failed: 502" onRetry={() => undefined} />,
+      <WidgetNotice
+        notice={{ kind: "error", message: "Chat client request failed: 502" }}
+        onRetry={() => undefined}
+      />,
     );
 
     expect(html).toContain("Chat client request failed: 502");
     expect(html).toContain('role="alert"');
     expect(html).toContain("Try again");
+  });
+
+  it("renders a blocked notice with no retry control", () => {
+    const html = renderToStaticMarkup(
+      <WidgetNotice
+        notice={{ kind: "blocked", message: "This response was blocked by a safety filter." }}
+        onRetry={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("This response was blocked by a safety filter.");
+    // Blocked is a calm status notice, never the red alert, and never a retry.
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain('role="alert"');
+    expect(html).not.toContain("Try again");
   });
 });
 
@@ -192,7 +210,7 @@ const renderConversation = (root: Root, messages: readonly WidgetMessage[]): voi
     root.render(
       <WidgetConversation
         emptyState={<p>Empty</p>}
-        errorMessage={undefined}
+        notice={undefined}
         isLoadingHistory={false}
         messages={messages}
         onRetry={() => undefined}

@@ -1,7 +1,10 @@
-import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
+import {
+  PROTOCOL_ERROR_CODES,
+  SIDECHAT_EVENT_TYPES,
+  type SidechatStreamEvent,
+} from "@side-chat/chat-protocol";
 import type { HostCommandActivityEvent, HostCommandResult } from "@side-chat/host-bridge";
 
-import { toErrorMessage } from "#entities/chat";
 import {
   applyHostCommandResult,
   closeAssistantMessage,
@@ -93,8 +96,15 @@ const applyEvent = (state: WidgetRunState, event: SidechatStreamEvent): WidgetRu
   return applyEventRunFields(advanced, event);
 };
 
+// `applyEvent` already returns early on HISTORY, so run-field folding only ever
+// sees the non-history events — no dead HISTORY branch below.
+type NonHistoryEvent = Exclude<
+  SidechatStreamEvent,
+  { readonly type: typeof SIDECHAT_EVENT_TYPES.HISTORY }
+>;
+
 /** Fold run-level data carried on specific events (conversation id, usage, errors, status). */
-const applyEventRunFields = (state: WidgetRunState, event: SidechatStreamEvent): WidgetRunState => {
+const applyEventRunFields = (state: WidgetRunState, event: NonHistoryEvent): WidgetRunState => {
   switch (event.type) {
     case SIDECHAT_EVENT_TYPES.STARTED:
       return {
@@ -105,12 +115,17 @@ const applyEventRunFields = (state: WidgetRunState, event: SidechatStreamEvent):
     case SIDECHAT_EVENT_TYPES.COMPLETED:
       return { ...state, status: WIDGET_RUN_STATUSES.COMPLETED, usage: event.usage };
     case SIDECHAT_EVENT_TYPES.ERROR:
-      return { ...state, status: WIDGET_RUN_STATUSES.FAILED, errorMessage: event.message };
+      // A user cancel arrives as sidechat.error(code=aborted): render the calm
+      // cancelled state (no red, no Retry), not a failure. Any other code fails.
+      return event.code === PROTOCOL_ERROR_CODES.ABORTED
+        ? { ...state, status: WIDGET_RUN_STATUSES.CANCELLED }
+        : { ...state, status: WIDGET_RUN_STATUSES.FAILED, errorMessage: event.message };
     case SIDECHAT_EVENT_TYPES.BLOCKED:
-      return { ...state, status: WIDGET_RUN_STATUSES.FAILED, errorMessage: event.publicMessage };
+      // Blocked is its own terminal: keep the public message, but as a guard notice
+      // with no Retry (a content-filtered prompt should not be resubmitted as-is).
+      return { ...state, status: WIDGET_RUN_STATUSES.BLOCKED, errorMessage: event.publicMessage };
     case SIDECHAT_EVENT_TYPES.DELTA:
     case SIDECHAT_EVENT_TYPES.ACTIVITY:
-    case SIDECHAT_EVENT_TYPES.HISTORY:
       return { ...state, status: streamingStatus(state) };
   }
 };
@@ -166,6 +181,3 @@ const applyStreamFailed = (state: WidgetRunState, message: string): WidgetRunSta
     messages: closeAssistantMessage(state.messages, state.localAssistantMessageId),
   };
 };
-
-/** Normalize an unknown thrown value into a user-facing run error message. */
-export const runErrorMessage = (error: unknown): string => toErrorMessage(error);

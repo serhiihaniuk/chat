@@ -9,6 +9,7 @@ export type WidgetHarnessScenario =
   | "default"
   | "echo-request"
   | "error"
+  | "blocked"
   | "failed-host-command"
   | "tool";
 
@@ -66,6 +67,7 @@ const parseOpenControl = (control: string | null): WidgetHarnessOpenControl => {
 const parseScenario = (scenario: string | null): WidgetHarnessScenario => {
   if (scenario === "echo-request") return "echo-request";
   if (scenario === "error") return "error";
+  if (scenario === "blocked") return "blocked";
   if (scenario === "failed-host-command") return "failed-host-command";
   if (scenario === "tool") return "tool";
   return "default";

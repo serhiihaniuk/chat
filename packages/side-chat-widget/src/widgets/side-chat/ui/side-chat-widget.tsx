@@ -212,7 +212,7 @@ const SideChatWidgetContent = ({
                   title={EMPTY_STATE_TITLE}
                 />
               }
-              errorMessage={chat.errorMessage}
+              notice={chat.notice}
               isLoadingHistory={chat.isLoadingHistory}
               messages={chat.messages}
               onRetry={chat.retryLastMessage}

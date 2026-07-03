@@ -2,7 +2,9 @@ import type { ChatModelPreference } from "@side-chat/chat-protocol";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import { useMemo, useRef, useState, type MutableRefObject } from "react";
 
+import type { WidgetRunNotice } from "#entities/chat";
 import {
+  WIDGET_RUN_STATUSES,
   isTerminalRunStatus,
   runStatusToWidgetStatus,
   type WidgetRunState,
@@ -98,6 +100,7 @@ export const useWidgetChat = ({
   );
   const isLoadingHistory = shouldLoadHistory && historyQuery.isPending && !historyQuery.data;
   const liveErrorMessage = visibleRun?.errorMessage ?? errorMessage;
+  const notice = toRunNotice(visibleRun, liveErrorMessage);
   // Latest transcript, so a new turn seeds its run with the prior messages: the
   // run store holds only the current run, so multi-turn history is carried in.
   const visibleMessagesRef = useLatestRef(visibleMessages);
@@ -166,7 +169,7 @@ export const useWidgetChat = ({
     clearError: actions.clearError,
     conversationId,
     conversations,
-    errorMessage: liveErrorMessage,
+    notice,
     isLoadingHistory,
     messages: visibleMessages,
     // Manual catch-up: re-read the current conversation from the server (the header
@@ -184,6 +187,19 @@ export const useWidgetChat = ({
     submitMessage: actions.submitMessage,
     usage: visibleRun?.usage,
   };
+};
+
+// Turn the run + message into the notice the conversation view renders: a blocked
+// turn gets the calm guard notice, any other message is the retryable error
+// surface, and a clean or cancelled run shows nothing.
+const toRunNotice = (
+  run: WidgetRunState | undefined,
+  message: string | undefined,
+): WidgetRunNotice | undefined => {
+  if (!message) return undefined;
+  return run?.status === WIDGET_RUN_STATUSES.BLOCKED
+    ? { kind: "blocked", message }
+    : { kind: "error", message };
 };
 
 // A run owns its conversation's transcript only while it is NON-terminal: the

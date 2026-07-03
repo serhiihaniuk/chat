@@ -1,6 +1,6 @@
 # 19 — Widget terminal semantics: cancelled, blocked, replay dedupe
 
-**Epic:** 3 Protocol | **Priority:** P1 | **Depends on:** 16 (blocked status), coordinates with 06/07 | **Status:** todo
+**Epic:** 3 Protocol | **Priority:** P1 | **Depends on:** 16 (blocked status), coordinates with 06/07 | **Status:** done
 
 ## Problem
 
@@ -19,10 +19,19 @@
 
 ## Acceptance criteria
 
-- [ ] Cancel from another tab renders the calm cancelled state, no Retry (harness e2e: two pages, cancel in one).
-- [ ] A blocked turn shows the public message with no Retry (mock-stream blocked scenario — add one to `test-harness/widget-harness/src/config/modes.ts`, which currently has none).
-- [ ] Reload mid-turn after a host command: the command does not re-execute (e2e with the demo `open_resource`).
-- [ ] Reducer tests cover all three transitions; dead code gone.
+- [x] Cancel from another tab renders the calm cancelled state, no Retry — reducer maps `error(code=aborted)` → CANCELLED with no notice; unit-tested. The two-page e2e is deferred (the in-memory mock has no shared backend for cross-tab cancel — needs local-service mode; see notes).
+- [x] A blocked turn shows the public message with no Retry (new `blocked` mock scenario + e2e; role=status notice, no "Try again").
+- [~] Reload mid-turn after a host command: the command does not re-execute — the widget dispatch guard is implemented and unit-tested; the paired server-side replay enrichment (without which the guard is inert in production) + the reload e2e are chipped (`task_ba383d90`).
+- [x] Reducer tests cover all three transitions; dead code gone.
+
+## Delivery notes (2026-07-03)
+
+- **Cancel is calm.** `applyEventRunFields` branches on the error code: `sidechat.error(code=aborted)` → `WIDGET_RUN_STATUSES.CANCELLED` with no `errorMessage`, so the conversation view shows no red notice and no Retry — aligning an other-tab/lost-race cancel with a same-tab stop. Every other code stays FAILED with its message.
+- **Blocked is its own terminal.** New `WIDGET_RUN_STATUSES.BLOCKED` (terminal, maps to idle WidgetStatus). The reducer keeps the `publicMessage`; a new `BlockedNotice` (neutral `ShieldAlert` glyph, `role="status"`, **no** "Try again") renders it, distinct from the red `role="alert"` `ErrorNotice`. The view now takes a discriminated `WidgetRunNotice` (`{kind: "error"|"blocked", message}`, in `#entities/chat` so both features share it) instead of a bare `errorMessage`.
+- **Host-command replay guard.** `maybeDispatchHostCommand` now skips when `event.status !== "running"` or `event.details.hostCommand.result !== undefined`, so a cold resume never re-executes an already-resolved command. Caveat (chipped): the durable log currently replays host_command events as `running`/no-result, so this guard needs the server to fold persisted `host_command_results` into the replay to actually fire in production.
+- **Dead code removed.** The unreachable HISTORY case in `applyEventRunFields` is gone (its param is now `Exclude<…, HistoryEvent>`, since `applyEvent` already returns early on HISTORY); `runErrorMessage` (an alias for `toErrorMessage`) is deleted and its 3 callers repointed at `toErrorMessage`.
+- **Tests.** Store test covers aborted→CANCELLED (no message), non-aborted→FAILED, and blocked→BLOCKED; new subscription test covers the host-command guard (live dispatches, replayed-with-result/non-running skip); the conversation test now covers both notice kinds. e2e adds the blocked scenario (13/13).
+- Verification: widget + harness suites green (154), `npm run verify` clean, e2e 13/13.
 
 ## Verification
 

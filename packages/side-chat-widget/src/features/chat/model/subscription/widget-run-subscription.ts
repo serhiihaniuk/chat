@@ -1,4 +1,8 @@
-import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
+import {
+  ACTIVITY_STATUSES,
+  SIDECHAT_EVENT_TYPES,
+  type SidechatStreamEvent,
+} from "@side-chat/chat-protocol";
 import { createCommandResult, createFailedResult, type HostBridge } from "@side-chat/host-bridge";
 
 import { toErrorMessage, toJsonObject } from "#entities/chat";
@@ -102,6 +106,13 @@ const maybeDispatchHostCommand = async (
 ): Promise<void> => {
   if (event.type !== SIDECHAT_EVENT_TYPES.ACTIVITY) return;
   if (!isHostCommandActivityEvent(event)) return;
+  // A replayed, already-resolved host command must never re-execute. A cold
+  // resume after reload replays from `after=-1` with a fresh dedupe set, so the
+  // dedupe list alone cannot catch it; a non-running status or a persisted result
+  // means the command was already handled. The live path emits it running with no
+  // result, so the genuine first call still dispatches.
+  if (event.status !== ACTIVITY_STATUSES.RUNNING) return;
+  if (event.details.hostCommand.result !== undefined) return;
 
   const current = input.store.getSnapshot();
   if (current?.dispatchedHostCommandIds.includes(event.activityId)) return;

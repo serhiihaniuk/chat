@@ -1,7 +1,9 @@
 import {
   SIDECHAT_PROTOCOL_VERSION,
+  type BlockedEvent,
   type CompletedEvent,
   type DeltaEvent,
+  type ErrorEvent,
   type SidechatStreamEvent,
   type StartedEvent,
 } from "@side-chat/chat-protocol";
@@ -67,6 +69,29 @@ const completed = (sequence: number): CompletedEvent => ({
   usage: { totalTokens: 7 },
 });
 
+const errorEvent = (sequence: number, code: ErrorEvent["code"]): ErrorEvent => ({
+  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+  type: "sidechat.error",
+  eventId: `evt-${sequence}`,
+  assistantTurnId: "turn-1",
+  sequence,
+  createdAt: "2026-05-23T00:00:02.000Z",
+  code,
+  message: "The assistant turn failed.",
+  retryable: true,
+});
+
+const blocked = (sequence: number): BlockedEvent => ({
+  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
+  type: "sidechat.blocked",
+  eventId: `evt-${sequence}`,
+  assistantTurnId: "turn-1",
+  sequence,
+  createdAt: "2026-05-23T00:00:02.000Z",
+  reason: "content_filter",
+  publicMessage: "This request was blocked by a safety filter.",
+});
+
 const applyEvents = (store: WidgetRunStore, events: readonly SidechatStreamEvent[]): void => {
   for (const event of events) store.dispatch(REQUEST_ID, { type: "event", event });
 };
@@ -129,6 +154,38 @@ describe("widget run store", () => {
     const run = store.getSnapshot();
     expect(run?.status).toBe(WIDGET_RUN_STATUSES.CANCELLED);
     expect(run?.messages.find((message) => message.id === ASSISTANT_ID)?.isStreaming).toBe(false);
+  });
+
+  it("maps a user-cancel error (code=aborted) to the calm cancelled state, no notice", () => {
+    const store = startStore();
+    applyEvents(store, [started(), delta(1, "partial"), errorEvent(2, "aborted")]);
+
+    const run = store.getSnapshot();
+    // A cancel must not read as a failure: cancelled status, and no error message
+    // so the conversation view shows no red notice and no Retry.
+    expect(run?.status).toBe(WIDGET_RUN_STATUSES.CANCELLED);
+    expect(run?.errorMessage).toBeUndefined();
+    expect(assistantContent(store)).toBe("partial");
+  });
+
+  it("maps a non-aborted error to failed with its message", () => {
+    const store = startStore();
+    applyEvents(store, [started(), errorEvent(1, "provider_failed")]);
+
+    const run = store.getSnapshot();
+    expect(run?.status).toBe(WIDGET_RUN_STATUSES.FAILED);
+    expect(run?.errorMessage).toBe("The assistant turn failed.");
+  });
+
+  it("maps a blocked event to its own status with the public message", () => {
+    const store = startStore();
+    applyEvents(store, [started(), delta(1, "partial"), blocked(2)]);
+
+    const run = store.getSnapshot();
+    // Blocked is distinct from failed so the UI can withhold Retry; the public
+    // message rides along as the notice text.
+    expect(run?.status).toBe(WIDGET_RUN_STATUSES.BLOCKED);
+    expect(run?.errorMessage).toBe("This request was blocked by a safety filter.");
   });
 
   it("does not override a terminal status with a late event", () => {

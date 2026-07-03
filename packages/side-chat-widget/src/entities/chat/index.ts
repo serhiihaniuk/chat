@@ -22,6 +22,7 @@ export { baseEvent, completed, delta, started } from "./model/widget-stream-fixt
 export type {
   WidgetChatRequestInput,
   WidgetMessage,
+  WidgetRunNotice,
   WidgetStatus,
   WidgetUsage,
 } from "./model/widget-chat.js";

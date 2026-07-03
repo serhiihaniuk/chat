@@ -8,7 +8,7 @@
  * Button variant so its muted fill follows the same theme token as every secondary action.
  */
 import { useState, type ReactElement } from "react";
-import { RotateCcw, TriangleAlert } from "lucide-react";
+import { RotateCcw, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { Button } from "#shared/ui/button";
 
@@ -39,6 +39,26 @@ function ErrorNotice({
   );
 }
 
+/**
+ * Blocked notice — a turn stopped by safety filtering.
+ *
+ * Same muted surface as the error notice, but a NEUTRAL guard glyph (no red) and,
+ * crucially, no "Try again": a content-filtered turn must not invite resubmission
+ * of the same input. `role="status"` (not `alert`) keeps the tone calm.
+ */
+function BlockedNotice({ message }: { message: string }): ReactElement {
+  return (
+    <div
+      data-slot="blocked-notice"
+      role="status"
+      className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3"
+    >
+      <ShieldAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <p className="min-w-0 text-sm text-foreground">{message}</p>
+    </div>
+  );
+}
+
 export function ErrorNoticeSection(): ReactElement {
   const [attempts, setAttempts] = useState(1);
 
@@ -53,4 +73,4 @@ export function ErrorNoticeSection(): ReactElement {
   );
 }
 
-export { ErrorNotice };
+export { BlockedNotice, ErrorNotice };

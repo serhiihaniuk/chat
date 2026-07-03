@@ -1,9 +1,8 @@
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
 
-import type { WidgetMessage } from "#entities/chat";
+import { toErrorMessage, type WidgetMessage } from "#entities/chat";
 import { SideChatApiError, type SideChatApiClient } from "#entities/conversation";
-import { runErrorMessage } from "../run/widget-run-reducer.js";
 import { WIDGET_RUN_STATUSES, type WidgetRunState } from "../run/widget-run-state.js";
 import type { WidgetRunStore } from "../run/widget-run-store.js";
 import { clearActiveRunMarker, writeActiveRunMarker } from "../reconnect/widget-run-marker.js";
@@ -132,7 +131,7 @@ export const beginRun = async (
       context.onReplayExpired(undefined);
       return;
     }
-    store.dispatch(requestId, { type: "stream-failed", message: runErrorMessage(error) });
+    store.dispatch(requestId, { type: "stream-failed", message: toErrorMessage(error) });
     return;
   }
   unlink();
@@ -266,6 +265,6 @@ export const cancelRun = async (
     clearActiveRunMarker(context.conversationStorageKey);
   } catch (error) {
     if (error instanceof SideChatApiError && error.code === "aborted") return;
-    store.dispatch(run.requestId, { type: "stream-failed", message: runErrorMessage(error) });
+    store.dispatch(run.requestId, { type: "stream-failed", message: toErrorMessage(error) });
   }
 };
