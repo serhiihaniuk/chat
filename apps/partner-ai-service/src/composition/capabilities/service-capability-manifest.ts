@@ -3,6 +3,7 @@ import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
+  configurationInvalidError,
   createTurnPolicyDecision,
   resolveTurnProfileFromManifest,
   validateHostCapabilityManifest,
@@ -72,9 +73,9 @@ export const createStaticHostCapabilityManifestPort = (
 
 // Turn the host capability manifest plus the request's turnProfileId into a
 // TurnPolicyDecision from createTurnPolicyDecision. A structurally invalid manifest
-// fails as INTERNAL_ERROR because the service shipped a broken menu, while an
-// unresolvable or forbidden profile fails as FORBIDDEN. Those two failure causes
-// stay on separate protocol codes so a caller fault is never reported as a service bug.
+// fails as configuration_invalid because the service shipped a broken menu, while
+// an unresolvable or forbidden profile fails as FORBIDDEN. Those two failure causes
+// stay distinct so a caller fault is never reported as a service bug.
 export const createServiceTurnPolicyResolver = ({
   providers,
 }: {
@@ -84,13 +85,10 @@ export const createServiceTurnPolicyResolver = ({
     Effect.gen(function* () {
       const validation = validateHostCapabilityManifest(manifest);
       if (!validation.valid) {
-        return yield* Effect.fail(
-          new PartnerAiCoreError(
-            PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
-            validation.issues.map((issue) => issue.message).join(" "),
-            PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
-          ),
-        );
+        // A structurally invalid manifest is a broken service menu: surface it as
+        // configuration_invalid (issue codes/paths preserved), distinct from the
+        // FORBIDDEN caller faults below and from provider runtime failures.
+        return yield* Effect.fail(configurationInvalidError(validation.issues));
       }
 
       const resolution = resolveTurnProfileFromManifest(manifest, request.turnProfileId);

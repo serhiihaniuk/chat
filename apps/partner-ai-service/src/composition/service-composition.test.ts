@@ -25,8 +25,6 @@ const authContext = {
   workspaceId: "workspace_tools",
   subject: { subjectId: "subject_1", userId: "user_1" },
   actor: { subjectId: "subject_1", userId: "user_1" },
-  roles: ["member"],
-  scopes: ["conversation:read", "conversation:write", "message:write"],
   source: "test_authority",
   issuedAt: "2026-05-23T13:00:00.000Z",
 } as const;
@@ -188,13 +186,6 @@ describe("service composition runtime tools", () => {
             approvalMode: "never",
           },
         ],
-        approvalPolicies: [
-          {
-            policyId: "jira_create_issue_requires_approval",
-            mode: "always",
-            capabilityNames: [JIRA_CREATE_ISSUE_TOOL_NAME],
-          },
-        ],
         tools: [
           createJiraSearchIssuesRegistration({
             jiraClient: { searchIssues: () => Promise.resolve([]) },
@@ -216,13 +207,48 @@ describe("service composition runtime tools", () => {
       JIRA_SEARCH_ISSUES_TOOL_NAME,
       JIRA_CREATE_ISSUE_TOOL_NAME,
     ]);
-    expect(manifest.approvalPolicies).toEqual([
-      {
-        policyId: "jira_create_issue_requires_approval",
-        mode: "always",
-        capabilityNames: [JIRA_CREATE_ISSUE_TOOL_NAME],
-      },
-    ]);
+  });
+
+  it("fails composition loudly when an approval policy requests enforcement", () => {
+    // Approvals are validated but not yet enforced (plan/24): a non-"never" mode
+    // must fail boot with a clear message, not silently do nothing.
+    expect(() =>
+      composePartnerAiService({
+        workspace,
+        runtime: {
+          provider: "fake",
+          approvalPolicies: [
+            {
+              policyId: "jira_create_issue_requires_approval",
+              mode: "always",
+              capabilityNames: [JIRA_CREATE_ISSUE_TOOL_NAME],
+            },
+          ],
+          tools: [jiraCreateIssueRegistration],
+        },
+      }),
+    ).toThrow(
+      /Approval enforcement is not implemented.*jira_create_issue_requires_approval.*always/su,
+    );
+  });
+
+  it("fails composition when a host command requests approval", () => {
+    expect(() =>
+      composePartnerAiService({
+        workspace,
+        runtime: {
+          provider: "fake",
+          hostCommands: [
+            {
+              commandName: "host.delete_record",
+              description: "Ask the host app to delete a record.",
+              inputSchema: { type: "object" },
+              approvalMode: "on_request",
+            },
+          ],
+        },
+      }),
+    ).toThrow(/Approval enforcement is not implemented.*host\.delete_record.*on_request/su);
   });
 });
 

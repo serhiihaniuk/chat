@@ -130,8 +130,6 @@ const toAuthContext = (
     ...config.workspace,
     subject,
     actor: config.actor ?? subject,
-    roles: ["member"],
-    scopes: ["conversation:read", "conversation:write", "message:write"],
     source: config.profile === "production" ? "signed_service_token" : "test_authority",
     hostOrigin: hostOrigin === "" ? undefined : hostOrigin,
     issuedAt,

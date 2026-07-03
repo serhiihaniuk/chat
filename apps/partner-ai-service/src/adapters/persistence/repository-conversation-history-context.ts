@@ -1,9 +1,7 @@
 import { Effect } from "effect";
-import type {
-  ConversationHistoryContextPort,
-  PreparedHistoryMessage,
-} from "@side-chat/partner-ai-core";
+import type { PreparedHistoryMessage } from "@side-chat/partner-ai-core";
 import type { MessageRecord, SidechatRepositories } from "@side-chat/db";
+import type { ConversationHistoryContextPort } from "#composition/context/context-manager/service-context-manager-types";
 
 export const createRepositoryConversationHistoryContext = (
   repositories: SidechatRepositories,

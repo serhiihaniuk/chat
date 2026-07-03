@@ -20,8 +20,6 @@ export const authContext: AuthContext = {
   workspaceId: "workspace_001",
   subject: { subjectId: "subject_001", userId: "user_001" },
   actor: { subjectId: "subject_001", userId: "user_001" },
-  roles: ["member"],
-  scopes: ["conversation:read", "conversation:write", "message:write"],
   source: "test_authority",
   hostOrigin: "https://host.example",
   issuedAt: "2026-05-23T13:00:00.000Z",

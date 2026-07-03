@@ -13,8 +13,6 @@ const authContext = {
   workspaceId: workspace.workspaceId,
   subject: { subjectId: "subject_1", userId: "user_1" },
   actor: { subjectId: "subject_1", userId: "user_1" },
-  roles: ["member"],
-  scopes: ["conversation:read"],
   source: "test_authority",
   issuedAt: "2026-06-16T00:00:00.000Z",
 } as const;

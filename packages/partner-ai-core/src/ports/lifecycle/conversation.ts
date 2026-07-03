@@ -23,6 +23,17 @@ export type ConversationRepositoryPort = {
     /** Record clock sourced from the caller's clock port, not from auth evidence. */
     readonly now: string;
   }) => Effect.Effect<ConversationRef, unknown>;
+  /**
+   * Append the user message, idempotently on its message id.
+   *
+   * A retried request carrying the same message id must return the SAME
+   * `MessageRef` (same `messageId`, same `sequenceIndex`) rather than appending a
+   * duplicate, so a reconnect or double-submit cannot fork the conversation. The
+   * `@side-chat/db` `sidechatRepositoryContract` kit
+   * (`packages/db/src/testing/repository-contract.test-support.ts`) is the
+   * executable spec — its "conversation and message idempotency" case asserts the
+   * second append reuses the first record.
+   */
   readonly appendUserMessage: (input: {
     readonly authContext: AuthContext;
     readonly conversationId: string;

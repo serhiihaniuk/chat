@@ -7,6 +7,7 @@ import {
   validateHostCapabilityManifest,
   validateTurnPolicyDecision,
 } from "../capabilities.js";
+import { PARTNER_AI_CORE_ERROR_CODES, configurationInvalidError } from "#errors";
 import {
   createTurnProfile,
   createManifest,
@@ -100,5 +101,28 @@ describe("host capability manifest contract", () => {
     expect(issueCodes(validation)).toEqual([
       HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE,
     ]);
+  });
+
+  it("surfaces a typo'd tool reference as configuration_invalid with the issue path", () => {
+    const analyst = createTurnProfile({
+      defaultToolPolicy: {
+        mode: "profile_allowlist",
+        allowedToolNames: ["typo_web_search"],
+      },
+    });
+    const validation = validateHostCapabilityManifest(createManifest({ turnProfiles: [analyst] }));
+    expect(validation.valid).toBe(false);
+    if (validation.valid) return;
+
+    const error = configurationInvalidError(validation.issues);
+
+    // Distinct backend code — a config typo is no longer the generic bucket that
+    // a provider crash also lands in.
+    expect(error.code).toBe(PARTNER_AI_CORE_ERROR_CODES.CONFIGURATION_INVALID);
+    expect(error.code).not.toBe("runtime_failed");
+    // The offending field path and issue code survive, not flattened to a string.
+    const toolIssue = error.issues?.find((issue) => issue.path.includes("allowedToolNames"));
+    expect(toolIssue?.code).toBe(HOST_CAPABILITY_VALIDATION_CODES.UNKNOWN_TOOL_REFERENCE);
+    expect(toolIssue?.path).toContain("turnProfiles[0].defaultToolPolicy.allowedToolNames");
   });
 });

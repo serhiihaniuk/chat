@@ -100,7 +100,6 @@ const createTurnGuardInput = (
   hostAppId: input.hostAppId,
   profileId: turnPlan.policyDecision.profileId,
   safetyPolicyId: turnPlan.profile.safetyPolicy.policyId,
-  abortSignal: input.abortSignal,
 });
 
 const toBlockedTurnGuardError = (decision: Extract<TurnGuardDecision, { kind: "block" }>) =>

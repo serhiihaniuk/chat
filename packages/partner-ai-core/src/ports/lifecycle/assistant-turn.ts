@@ -32,8 +32,23 @@ export type AssistantTurnRef = WorkspaceRef & {
  * Store the lifecycle of one assistant reply.
  *
  * Start it, save the prepared context, then write either completed or failed.
+ *
+ * Two invariants make exactly-one-terminal safe under retries and multi-instance
+ * races; the `@side-chat/db` `sidechatRepositoryContract` kit
+ * (`packages/db/src/testing/repository-contract.test-support.ts`) is the
+ * executable spec, so a custom adapter proves them by passing that suite:
+ * `startAssistantTurn` is get-or-create (see its own doc), and
+ * `completeAssistantTurn`/`failAssistantTurn` are first-transition-wins.
  */
 export type AssistantTurnLifecyclePort = {
+  /**
+   * Get-or-create the assistant turn for `(workspace_id, request_id)`.
+   *
+   * A retried POST with the same request id must return the SAME turn, not a
+   * second one: the returned `AssistantTurnRef.inserted` is `true` only for the
+   * row this call created and `false` for a replay. This is what lets one browser
+   * request id resolve to one durable turn across reconnects and instances.
+   */
   readonly startAssistantTurn: (input: {
     readonly authContext: AuthContext;
     readonly conversation: ConversationRef;
@@ -55,6 +70,14 @@ export type AssistantTurnLifecyclePort = {
     readonly manifestHash: string;
     readonly now: string;
   }) => Effect.Effect<void, unknown>;
+  /**
+   * Terminalize a running turn as completed. First transition wins.
+   *
+   * The write must apply only while the turn is still `running` and be a no-op
+   * once any terminal (complete or fail) already transitioned it — so a late
+   * finalizer racing a real terminal can never overwrite the honest outcome.
+   * `finalize-turn-generation.ts` leans on this to keep exactly one status change.
+   */
   readonly completeAssistantTurn: (input: {
     readonly authContext: AuthContext;
     readonly conversation: ConversationRef;
@@ -67,6 +90,11 @@ export type AssistantTurnLifecyclePort = {
     readonly modelId: string;
     readonly now: string;
   }) => Effect.Effect<void, unknown>;
+  /**
+   * Terminalize a running turn as failed. First transition wins (see
+   * `completeAssistantTurn`): only a still-running turn transitions, so the first
+   * terminal to land is durable and every later complete/fail is a no-op.
+   */
   readonly failAssistantTurn: (input: {
     readonly authContext: AuthContext;
     readonly assistantTurnId: string;

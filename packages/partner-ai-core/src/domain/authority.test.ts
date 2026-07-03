@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   AUTHORITY_DENIAL_CODES,
   PRODUCTION_AUTHORITY_INVARIANT,
-  assertRequiredScope,
   assertWorkspaceAuthority,
   requireAuthContext,
   type AuthContext,
@@ -13,8 +12,6 @@ const authContext: AuthContext = {
   workspaceId: "workspace_001",
   subject: { subjectId: "subject_001", userId: "user_001" },
   actor: { subjectId: "subject_001", userId: "user_001" },
-  roles: ["member"],
-  scopes: ["conversation:read", "conversation:write", "message:write"],
   source: "test_authority",
   hostOrigin: "https://host.example",
   issuedAt: "2026-05-23T13:00:00.000Z",
@@ -45,13 +42,6 @@ describe("normalized authority contract", () => {
     expect(requireAuthContext(undefined)).toMatchObject({
       allowed: false,
       code: AUTHORITY_DENIAL_CODES.MISSING_AUTH,
-    });
-  });
-
-  it("requires explicit scopes from trusted authority", () => {
-    expect(assertRequiredScope(authContext, "audit:write")).toMatchObject({
-      allowed: false,
-      code: AUTHORITY_DENIAL_CODES.MISSING_SCOPE,
     });
   });
 

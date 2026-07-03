@@ -34,16 +34,16 @@ export type StreamChatInput = {
   readonly request: ChatStreamRequest;
   readonly authContext: AuthContext | undefined;
   readonly traceId?: string | undefined;
-  readonly abortSignal?: AbortSignal | undefined;
 };
 
 /**
  * Ports needed by the stream-chat workflow.
  *
- * Composition binds these to real adapters through an Effect Layer
- * (`createPartnerAiCoreLayer`) before the pre-start and runner entrypoints run.
- * Keeping this type small makes it obvious which outside systems the stream-chat
- * workflow can touch.
+ * Composition binds these to real adapters and passes one plain `StreamChatPorts`
+ * object into the pre-start and runner entrypoints — there is no Effect Layer or
+ * service registry between the app and core. Keeping this type small makes it
+ * obvious which outside systems the stream-chat workflow can touch, and keeps the
+ * wiring readable for non-Effect adopters.
  */
 export type StreamChatPorts = {
   readonly conversations: ConversationRepositoryPort;

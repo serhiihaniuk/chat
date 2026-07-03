@@ -4,10 +4,10 @@ import {
   createTurnPolicyDecision,
   hashHostCapabilityManifest,
   resolveTurnProfileFromManifest,
-  type ConversationHistoryContextPort,
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
+import type { ConversationHistoryContextPort } from "./service-context-manager-types.js";
 import { createServiceHostCapabilityManifest } from "../../capabilities/service-capability-manifest.js";
 import { createTurnProfileRegistry } from "../../turn-profile/turn-profile-registry.js";
 import {
@@ -73,8 +73,6 @@ const authContext = {
   workspaceId: "workspace_local",
   subject: { subjectId: "subject_1", userId: "user_1" },
   actor: { subjectId: "subject_1", userId: "user_1" },
-  roles: ["member"],
-  scopes: ["conversation:read", "conversation:write", "message:write"],
   source: "test_authority",
   issuedAt: "2026-05-23T13:00:00.000Z",
 } as const;

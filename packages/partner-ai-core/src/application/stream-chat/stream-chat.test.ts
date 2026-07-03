@@ -84,9 +84,8 @@ describe("stream chat lifecycle and policy", () => {
 
   it("passes final messages, explicit tool allowlist, and a core-owned abort signal to runtime", async () => {
     const ports = createFakePorts({ authContext });
-    const abortController = new AbortController();
 
-    await collect(runStreamChat({ ...input, abortSignal: abortController.signal }, ports));
+    await collect(runStreamChat(input, ports));
 
     expect(ports.runtimeRequests[0]).toMatchObject({
       requestId: "request_001",
@@ -116,11 +115,10 @@ describe("stream chat lifecycle and policy", () => {
         { role: "user", content: "hello" },
       ],
     });
-    // The server-owned path drives provider abort from fiber interruption, not
-    // from any caller-provided signal: runtime gets a defined, core-owned signal
-    // that is deliberately not the input's signal.
+    // The server-owned path drives provider abort from fiber interruption: core
+    // mints its own AbortSignal for the runtime request. There is no caller signal
+    // to thread — `StreamChatInput` carries none by design.
     expect(ports.runtimeRequests[0]?.abortSignal).toBeInstanceOf(AbortSignal);
-    expect(ports.runtimeRequests[0]?.abortSignal).not.toBe(abortController.signal);
     expect(ports.runtimeRequests[0]).not.toHaveProperty("profileId");
     expect(ports.runtimeRequests[0]).not.toHaveProperty("systemInstructions");
     expect(ports.runtimeRequests[0]).not.toHaveProperty("availableToolNames");

@@ -2,7 +2,6 @@ import type { ModelProvider, RuntimeTool } from "@side-chat/agent-runtime";
 import type {
   AiRuntimePort,
   ContextManagerPort,
-  ConversationHistoryContextPort,
   HostCapabilityManifest,
   HostCapabilityManifestPort,
   StreamChatPorts,
@@ -11,6 +10,7 @@ import type {
 } from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
 
+import type { ConversationHistoryContextPort } from "#composition/context/context-manager/service-context-manager-types";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { InMemoryTurnEventLog } from "#adapters/persistence/turn-events/in-memory-turn-event-log";

@@ -178,7 +178,6 @@ export const prepareAndRecordTurnContext = (
           manifest: contextInput.turnPlan.manifest,
           policyDecision: contextInput.turnPlan.policyDecision,
           now: ports.clock.now(),
-          abortSignal: input.abortSignal,
         }),
         STREAM_CHAT_FAILURES.CONTEXT,
       ),

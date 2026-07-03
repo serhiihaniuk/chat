@@ -75,6 +75,16 @@ export const TOOL_POLICY_MODES = {
 
 export type ToolPolicyMode = ObjectValue<typeof TOOL_POLICY_MODES>;
 
+/**
+ * Approval modes are VALIDATED, NOT YET ENFORCED.
+ *
+ * The manifest, turn-policy, and requirement code fully cross-check approval
+ * declarations, but nothing gates a capability on its mode at run time
+ * (`createTurnPolicyDecision` selects no commands, and no runtime step consults
+ * `approvalRequirements`). Until approval enforcement and the widget approval UI
+ * ship, service composition rejects any mode other than `NEVER` rather than
+ * silently accepting one — see the approval wall in `create-service-capability-bundle.ts`.
+ */
 export const APPROVAL_MODES = {
   NEVER: "never",
   ON_REQUEST: "on_request",
@@ -190,6 +200,7 @@ export type HostCommandCapability = {
   readonly approvalMode: ApprovalMode;
 };
 
+/** Validated, not yet enforced — see the {@link APPROVAL_MODES} contract note. */
 export type ApprovalPolicy = {
   readonly policyId: PolicyId;
   readonly mode: ApprovalMode;

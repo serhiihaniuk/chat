@@ -1,10 +1,34 @@
+import type { Effect } from "effect";
 import type {
+  AuthContext,
   ContextManagerPort,
   ContextAdmissionConfig,
-  ConversationHistoryContextPort,
+  ConversationRef,
   HistoryContextConfig,
+  MessageRef,
   PreparedHistoryMessage,
+  WorkspaceRef,
 } from "@side-chat/partner-ai-core";
+
+/**
+ * Service-owned port for prior conversation messages admitted as model context.
+ *
+ * A persistence adapter reads the conversation and returns only messages safe
+ * for context preparation before runtime execution; database rows, reset storage
+ * details, and browser DTOs stay behind it. This lives in the service (not core)
+ * because core never consumes it — the service's context manager reads history
+ * through it, then implements the core `ContextManagerPort` that core does use.
+ */
+export type ConversationHistoryContextPort = {
+  readonly readConversationHistory: (input: {
+    readonly authContext: AuthContext;
+    readonly workspace: WorkspaceRef;
+    readonly conversation: ConversationRef;
+    readonly currentUserMessage: MessageRef;
+    readonly limit: number;
+    readonly abortSignal?: AbortSignal | undefined;
+  }) => Effect.Effect<readonly PreparedHistoryMessage[], unknown>;
+};
 
 /**
  * Service-owned inputs for preparing model-visible context.

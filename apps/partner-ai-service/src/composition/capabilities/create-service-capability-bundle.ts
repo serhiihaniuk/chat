@@ -3,8 +3,11 @@
 // Does not own: prompt text, tool execution, or per-turn policy decisions
 // (the resolver only turns the manifest plus a request into a decision).
 
+import { APPROVAL_MODES, type HostCapabilityManifest } from "@side-chat/partner-ai-core";
+
 import { createCapabilityStatusForComposition } from "#composition/capabilities/status/service-capability-composition";
 import { DEFAULT_SERVICE_CAPABILITY_CONFIG } from "#composition/capabilities/service-capability-settings";
+import { ServiceConfigError } from "#config/service-config-error";
 import { PROVIDERS } from "#config/catalog/providers";
 import {
   createServiceHostCapabilityManifest,
@@ -45,6 +48,7 @@ export const createServiceCapabilityBundle = (
     hostCommands: runtimeConfig.hostCommands,
     approvalPolicies: runtimeConfig.approvalPolicies,
   });
+  assertApprovalEnforcementUnsupported(manifest);
 
   const capabilityStatus = createCapabilityStatusForComposition({
     capabilityConfig,
@@ -60,4 +64,33 @@ export const createServiceCapabilityBundle = (
     }),
     capabilityStatus,
   };
+};
+
+/**
+ * Reject any approval mode other than `never` at composition, loudly.
+ *
+ * Approval requirements are validated end-to-end but not yet enforced (see the
+ * {@link APPROVAL_MODES} contract note): nothing gates a capability on its mode
+ * at run time. A silent no-op would let an adopter believe `always` is doing
+ * something. Fail boot instead, naming every offender, until approval gating (and
+ * the widget approval UI) ships.
+ */
+const assertApprovalEnforcementUnsupported = (manifest: HostCapabilityManifest): void => {
+  const offenders = [
+    ...manifest.approvalPolicies
+      .filter((policy) => policy.mode !== APPROVAL_MODES.NEVER)
+      .map((policy) => `approval policy "${policy.policyId}" (mode "${policy.mode}")`),
+    ...manifest.commands
+      .filter((command) => command.approvalMode !== APPROVAL_MODES.NEVER)
+      .map(
+        (command) =>
+          `host command "${command.commandName}" (approvalMode "${command.approvalMode}")`,
+      ),
+  ];
+  if (offenders.length === 0) return;
+
+  throw new ServiceConfigError(
+    `Approval enforcement is not implemented, but ${offenders.join(", ")} request it. ` +
+      `Set every approval mode to "${APPROVAL_MODES.NEVER}" until approval gating ships (plan/24).`,
+  );
 };

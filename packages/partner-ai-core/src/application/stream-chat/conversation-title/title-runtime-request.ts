@@ -35,6 +35,5 @@ export const createConversationTitleRuntimeRequest = (
       conversationId: turn.conversation.conversationId,
       assistantTurnId,
     },
-    abortSignal: input.abortSignal,
   };
 };

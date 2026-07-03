@@ -10,8 +10,6 @@ const AUTH_CONTEXT: AuthContext = {
   workspaceId: "workspace_registry",
   subject: { subjectId: "subject_registry", userId: "user_registry" },
   actor: { subjectId: "subject_registry", userId: "user_registry" },
-  roles: ["member"],
-  scopes: ["conversation:read"],
   source: "test_authority",
   issuedAt: "2026-07-02T00:00:00.000Z",
 };

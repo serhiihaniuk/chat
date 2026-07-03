@@ -9,14 +9,15 @@ execution, or widget UI.
 
 ## Owns
 
-- `prepareStreamChatTurn(...)` + `runTurnGeneration(...)` (the server-owned
-  streaming path) and `createPartnerAiCoreLayer(...)`.
+- `prepareStreamChatTurn(...)` + `runTurnGeneration(...)`, the server-owned
+  streaming path. Composition passes one plain `StreamChatPorts` object into
+  these entrypoints — there is no Effect Layer or service registry between the
+  app and core.
 - Product authorization, policy, context, turn lifecycle, and protocol mapping.
 - Post-success conversation title generation timing, admitted inputs,
   sanitization, persistence call, and failure isolation.
 - Turn guard selection, context manager, and runtime port contracts.
 - Typed product failures and terminal protocol semantics.
-- Effect Layer wiring for core services.
 
 ## Does Not Own
 

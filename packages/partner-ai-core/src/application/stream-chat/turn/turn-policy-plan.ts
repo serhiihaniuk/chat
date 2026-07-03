@@ -9,9 +9,8 @@ import {
   type TurnPolicyDecision,
 } from "#domain/capabilities";
 import {
-  PARTNER_AI_CORE_ERROR_CODES,
-  PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
-  PartnerAiCoreError,
+  configurationInvalidError,
+  type ConfigurationIssue,
   type PartnerAiCoreError as PartnerAiCoreErrorType,
 } from "#errors";
 import { mapPolicyDenialToError } from "#policies/policy";
@@ -123,22 +122,11 @@ const resolvePolicyProfile = (
   const resolution = resolveTurnProfileFromManifest(manifest, profileId);
   if (resolution.resolved) return Effect.succeed(resolution.profile);
 
-  return Effect.fail(
-    new PartnerAiCoreError(
-      PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
-      resolution.issue.message,
-      PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
-    ),
-  );
+  // An unresolvable profile is a policy-resolution config failure, not a runtime
+  // fault: surface it as configuration_invalid with the issue path preserved.
+  return Effect.fail(configurationInvalidError([resolution.issue]));
 };
 
 const failCapabilityValidation = (
-  issues: readonly { readonly message: string }[],
-): Effect.Effect<never, PartnerAiCoreErrorType> =>
-  Effect.fail(
-    new PartnerAiCoreError(
-      PARTNER_AI_CORE_ERROR_CODES.RUNTIME_FAILED,
-      issues.map((issue) => issue.message).join(" "),
-      PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
-    ),
-  );
+  issues: readonly ConfigurationIssue[],
+): Effect.Effect<never, PartnerAiCoreErrorType> => Effect.fail(configurationInvalidError(issues));

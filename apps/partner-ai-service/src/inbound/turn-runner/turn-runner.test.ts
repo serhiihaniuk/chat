@@ -31,8 +31,6 @@ const AUTH_CONTEXT: AuthContext = {
   ...WORKSPACE,
   subject: { subjectId: "subject_runner", userId: "user_runner" },
   actor: { subjectId: "subject_runner", userId: "user_runner" },
-  roles: ["member"],
-  scopes: ["conversation:read", "conversation:write", "message:write"],
   source: "test_authority",
   issuedAt: "2026-06-21T00:00:00.000Z",
 };
