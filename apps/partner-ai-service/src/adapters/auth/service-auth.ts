@@ -1,7 +1,19 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 import type { AuditActor, AuthContext, SubjectRef, WorkspaceRef } from "@side-chat/partner-ai-core";
 import type { HostContext } from "@side-chat/chat-protocol";
 
 export const DEFAULT_DEV_BEARER_TOKEN = "Bearer local-test-token";
+
+/**
+ * Normalize a bearer token to the `Bearer <token>` header form.
+ *
+ * The single normalizer for tokens the service compares: a raw token from config
+ * OR directly-passed options is treated the same as one already carrying the
+ * `Bearer ` prefix, so both authorize the identical `Authorization` header.
+ */
+export const normalizeBearerToken = (token: string): string =>
+  token.startsWith("Bearer ") ? token : `Bearer ${token}`;
 
 export type DevelopmentAuthConfig = {
   readonly profile: "development";
@@ -57,12 +69,24 @@ export const createServiceAuthVerifier = (config: ServiceAuthConfig): ServiceAut
   return {
     resolveAuthContext: (input) =>
       Promise.resolve(
-        input.bearerToken === trustedToken
+        input.bearerToken !== undefined && tokensMatch(input.bearerToken, trustedToken)
           ? toAuthContext(config, input.hostContext?.origin, issuedAtForConfig(config))
           : undefined,
       ),
   };
 };
+
+/**
+ * Constant-time token equality.
+ *
+ * Both tokens are hashed to a fixed 32-byte digest first, so `timingSafeEqual`
+ * never sees unequal lengths (which would throw and leak length), and the
+ * comparison time does not depend on how many leading characters matched.
+ */
+const tokensMatch = (candidate: string, trusted: string): boolean =>
+  timingSafeEqual(sha256(candidate), sha256(trusted));
+
+const sha256 = (value: string): Buffer => createHash("sha256").update(value, "utf8").digest();
 
 // The static-token authority "issues" the context when it verifies the token, so
 // the authentic issue time is verification time unless a profile pins one. This
@@ -72,7 +96,7 @@ const issuedAtForConfig = (config: ServiceAuthConfig): string =>
 
 const tokenForConfig = (config: ServiceAuthConfig): string => {
   if (config.profile === "development") {
-    return config.devBearerToken ?? DEFAULT_DEV_BEARER_TOKEN;
+    return normalizeBearerToken(config.devBearerToken ?? DEFAULT_DEV_BEARER_TOKEN);
   }
 
   if (!config.trustedBearerToken) {
@@ -81,13 +105,16 @@ const tokenForConfig = (config: ServiceAuthConfig): string => {
     );
   }
 
-  if (config.trustedBearerToken === DEFAULT_DEV_BEARER_TOKEN) {
+  // Normalize before the guard so a directly-passed option token (no `Bearer `
+  // prefix) is still caught if it is the dev default.
+  const trusted = normalizeBearerToken(config.trustedBearerToken);
+  if (trusted === DEFAULT_DEV_BEARER_TOKEN) {
     throw new ServiceAuthConfigurationError(
       "Development static auth cannot be used by the production profile.",
     );
   }
 
-  return config.trustedBearerToken;
+  return trusted;
 };
 
 const toAuthContext = (

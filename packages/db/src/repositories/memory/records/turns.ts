@@ -152,6 +152,7 @@ const requestMemoryTurnCancellation =
     const turn = store.assistantTurns.find(
       (candidate) =>
         candidate.workspaceId === command.workspaceId &&
+        candidate.subjectId === command.subjectId &&
         candidate.assistantTurnId === command.assistantTurnId,
     );
     if (!turn || turn.status !== "running") return { cancelRequested: false };

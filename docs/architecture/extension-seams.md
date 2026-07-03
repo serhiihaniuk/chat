@@ -28,6 +28,7 @@ Contract types live in `packages/*`; binding happens in `apps/partner-ai-service
 | Wire a host command       | `HostCommandCapability` (core manifest shape, [capabilities.ts](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) + the host-bridge dispatch shapes ([capability.ts](../../packages/host-bridge/src/commands/capability.ts)) | Declare in `sidechat.config.ts`; the runtime exposes it to the model as a callable tool; handle it in the host app via `packages/host-bridge`                                                                                                                                                | Declared in config; model-callable; performed in the browser ([host-commands.md](host-commands.md)) |
 | Add an observability sink | `ObservabilitySinkPort` ([observability.ts:54](../../packages/partner-ai-core/src/services/observability.ts))                                                                                                                                                 | `options.observability` ([service-composition.ts:137](../../apps/partner-ai-service/src/composition/service-composition.ts)); default `NOOP_OBSERVABILITY_SINK`                                                                                                                              | Injected port; receives redacted records only                                                       |
 | Add a persistence adapter | `SidechatRepositories` + `RepositoryAdapterKind` (`@side-chat/db`)                                                                                                                                                                                            | `options.repositories` / `options.persistence`, resolved by `createServicePersistenceBundle`                                                                                                                                                                                                 | Injected port; repos must declare `adapterKind` or fail closed                                      |
+| Plug in auth              | `ServiceAuthVerifier` ([service-auth.ts:37](../../apps/partner-ai-service/src/adapters/auth/service-auth.ts)); returns an `AuthContext` (`@side-chat/partner-ai-core`)                                                                                        | `options.authVerifier` ([app.ts:95](../../apps/partner-ai-service/src/inbound/http/app.ts)); when absent the static-token adapter from `auth` config is the dev default                                                                                                                      | Injected port; `AuthContext.subject.subjectId` is the identity every read/write scopes by           |
 
 The capability rule keeps three stages separate: a manifest `ToolCapability` is a declaration, not model access; the per-turn policy decides which names are allowed; runtime executes only registered `RuntimeTool`s named in that allowlist. Declaring a tool capability without an executable is impossible because one registration supplies both.
 
@@ -85,8 +86,40 @@ Full walkthrough with a runnable example: [host-commands.md](host-commands.md). 
 2. `createServicePersistenceBundle` picks memory or postgres by `PersistenceConfig.kind`; a custom kind needs explicit persistence metadata or composition fails closed.
 3. Keep `pg` and `drizzle-orm` inside `@side-chat/db`; the boundary lints forbid them elsewhere.
 
+### Plug in your auth verifier
+
+The default authority is a static bearer token for local development — every caller of one token resolves to one subject. Production plugs in a real check by implementing `ServiceAuthVerifier` and passing it as `options.authVerifier`; when present it fully replaces the static-token adapter, so there are **no edits to `app.ts`**.
+
+The contract is one method — request headers in, an `AuthContext` (or `undefined` to reject) out:
+
+```ts
+import type { ServiceAuthVerifier } from "@side-chat/partner-ai-service";
+import type { AuthContext } from "@side-chat/partner-ai-core";
+
+const jwtVerifier: ServiceAuthVerifier = {
+  resolveAuthContext: async ({ bearerToken }) => {
+    const claims = await verifyJwt(bearerToken); // your library; return undefined on failure
+    if (!claims) return undefined;
+    return {
+      tenantId: claims.tenantId,
+      workspaceId: claims.workspaceId,
+      subject: { subjectId: claims.sub, userId: claims.sub },
+      actor: { subjectId: claims.sub, userId: claims.sub },
+      roles: ["member"],
+      scopes: ["conversation:read", "conversation:write", "message:write"],
+      source: "signed_service_token",
+      issuedAt: new Date(claims.iat * 1000).toISOString(),
+    } satisfies AuthContext;
+  },
+};
+
+createPartnerAiServiceApp({ authVerifier: jwtVerifier /* , runtime, repositories, … */ });
+```
+
+`AuthContext.subject.subjectId` is the per-user identity **everything scopes by**: conversation lists and history, the activity stream, and every turn read/write. A turn belongs to the subject that started it, so a leaked turn id from another user resolves to not-found on status, stream, and host-command result, and its cancel is a durable no-op. Return `undefined` for an unverifiable token and the request is answered `401`; the built-in comparisons are constant-time and normalize the `Bearer ` prefix on either side.
+
 ## Where adapters live
 
 For folder placement inside the service, see [adapters/README.md](../../apps/partner-ai-service/src/adapters/README.md). Folders that ship implementations today: `auth/`, `guards/`, `host-commands/` (the connection-bound result resolver), `persistence/` (including the in-memory turn-event registry), `policy/`, and `tools/`. The rest (`agents/`, `memory/`, `observability/`, `rag/`, `title/`) are reserved and empty.
 
-Two seams adopters ask for are not injectable yet, both tracked in `plan/`: bring-your-own auth (the `ServiceAuthVerifier` interface exists, but options accept only static-token configs — `plan/20`), and config-driven custom tools (`plan/21`, note above).
+One seam adopters ask for is not injectable through the config file yet, tracked in `plan/`: config-driven custom tools (`plan/21`, note above). Auth is injectable via `options.authVerifier` (above).

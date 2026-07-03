@@ -14,9 +14,10 @@ import {
  *
  * It proves the read and cancel surface the resumable routes depend on: a turn
  * resolves by id, by request id, and as a conversation's active turn until it goes
- * terminal; an unknown or cross-workspace id resolves to `undefined` rather than
- * throwing; and a durable cancel intent is recorded for a running turn but is a
- * no-op once the turn is terminal, unknown, or in another workspace.
+ * terminal; an unknown, cross-workspace, or cross-subject id resolves to
+ * `undefined` rather than throwing; and a durable cancel intent is recorded for a
+ * running turn but is a no-op once the turn is terminal, unknown, or owned by
+ * another workspace or subject.
  */
 export const turnResolutionRepositoryContract = (
   label: string,
@@ -36,6 +37,7 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toMatchObject({
@@ -78,6 +80,17 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: "other_workspace" as never,
+            subjectId: subjectId(scope),
+            assistantTurnId: turn.assistantTurnId,
+          }),
+        ).resolves.toBeUndefined();
+
+        // A cross-subject id resolves to undefined: another user with a leaked
+        // turn id cannot read it even inside the same workspace.
+        await expect(
+          repositories.findAssistantTurn({
+            workspaceId: workspaceId(scope),
+            subjectId: "other_subject" as never,
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toBeUndefined();
@@ -96,6 +109,7 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.requestTurnCancellation({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
             now,
           }),
@@ -103,6 +117,7 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toMatchObject({ status: "running", cancelRequestedAt: now });
@@ -118,6 +133,7 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.requestTurnCancellation({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
             now,
           }),
@@ -127,7 +143,7 @@ export const turnResolutionRepositoryContract = (
       }
     });
 
-    it("does not cancel an unknown or cross-workspace turn", async () => {
+    it("does not cancel an unknown, cross-workspace, or cross-subject turn", async () => {
       const repositories = createRepositories();
       const scope = nextScope();
       try {
@@ -137,6 +153,7 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.requestTurnCancellation({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: "assistant_turn_missing" as never,
             now,
           }),
@@ -147,12 +164,25 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.requestTurnCancellation({
             workspaceId: "other_workspace" as never,
+            subjectId: subjectId(scope),
+            assistantTurnId: turn.assistantTurnId,
+            now,
+          }),
+        ).resolves.toEqual({ cancelRequested: false });
+
+        // Cross-subject id: another user in the same workspace with a leaked turn
+        // id cannot cancel it.
+        await expect(
+          repositories.requestTurnCancellation({
+            workspaceId: workspaceId(scope),
+            subjectId: "other_subject" as never,
             assistantTurnId: turn.assistantTurnId,
             now,
           }),
         ).resolves.toEqual({ cancelRequested: false });
         const unchanged = await repositories.findAssistantTurn({
           workspaceId: workspaceId(scope),
+          subjectId: subjectId(scope),
           assistantTurnId: turn.assistantTurnId,
         });
         expect(unchanged?.cancelRequestedAt).toBeUndefined();

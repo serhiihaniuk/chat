@@ -31,6 +31,7 @@ describe("createTurnReaper", () => {
     await expect(
       repositories.findAssistantTurn({
         workspaceId: WORKSPACE_ID,
+        subjectId: SUBJECT_ID,
         assistantTurnId: turn.assistantTurnId,
       }),
     ).resolves.toMatchObject({ status: "provider_failed", errorCode: "timeout" });
@@ -59,6 +60,7 @@ describe("createTurnReaper", () => {
         .poll(async () => {
           const found = await repositories.findAssistantTurn({
             workspaceId: WORKSPACE_ID,
+            subjectId: SUBJECT_ID,
             assistantTurnId: turn.assistantTurnId,
           });
           return found?.status;

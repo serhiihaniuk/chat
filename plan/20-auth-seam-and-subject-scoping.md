@@ -1,6 +1,6 @@
 # 20 — Injectable auth seam + subject scoping
 
-**Epic:** 4 Seams | **Priority:** P0 (first thing every adopting team touches) | **Depends on:** — | **Status:** todo
+**Epic:** 4 Seams | **Priority:** P0 (first thing every adopting team touches) | **Depends on:** — | **Status:** done
 
 ## Problem
 
@@ -19,10 +19,19 @@
 
 ## Acceptance criteria
 
-- [ ] An embedder can pass a custom verifier via options with zero edits to `app.ts` (test with a fake JWT verifier in the adoption harness).
-- [ ] Subject B: 404/403 on subject A's turn stream, status, cancel, host-command result (route tests + contract tests for the scoped commands).
-- [ ] Static-token comparisons are timing-safe.
-- [ ] extension-seams.md documents the auth seam with a runnable example.
+- [x] An embedder can pass a custom verifier via options with zero edits to `app.ts` (adoption-harness test with a fake subject verifier; no `auth` config supplied).
+- [x] Subject B: not-found on subject A's turn status/stream/host-command result, no-op cancel, and A's conversation absent from B's list (adoption-harness route test + db contract test for the scoped commands).
+- [x] Static-token comparisons are timing-safe.
+- [x] extension-seams.md documents the auth seam with a runnable example.
+
+## Delivery notes (2026-07-03)
+
+- **Injectable verifier.** `PartnerAiServiceOptions.authVerifier?: ServiceAuthVerifier` — when present it fully replaces the static-token adapter (`app.ts:95` now `options.authVerifier ?? createServiceAuthVerifier(...)`). The auth types (`ServiceAuthVerifier`, `ServiceAuthInput`, `ServiceAuthConfig`, `HostProvidedContext`) are re-exported from the package index so an adopter can implement one. `AuthContext.subject.subjectId` is documented as the identity everything scopes by.
+- **Subject-scoped turn surface.** Added `subjectId` to `FindAssistantTurnCommand` + `RequestTurnCancellationCommand` (contract + both adapters' predicates). Threaded `authContext.subject.subjectId` through the turn status/stream route (`loadWorkspaceTurn`), cancel route, host-command-result route, and the finalize `readTurnControlState`. A leaked turn id from another user in the same workspace now resolves to not-found on reads and a no-op cancel — the within-workspace IDOR is closed. (Conversation history was already subject-scoped.)
+- **Timing-safe + single normalizer.** Token equality is now `timingSafeEqual` over SHA-256 digests (constant time, and unequal-length tokens no longer throw/leak length). `normalizeBearerToken` moved to `service-auth.ts` as the SINGLE normalizer applied at comparison time, covering both the config path AND directly-passed option tokens; the duplicate in `environment.ts` was removed. A `none`-prefix dev-default token is still rejected under the production profile.
+- **Docs.** extension-seams.md gained a "Plug in auth" seam row and a worked "Plug in your auth verifier" section (JWT example → AuthContext; what subjectId scopes; constant-time posture). The stale "bring-your-own auth not injectable yet (plan/20)" note is corrected.
+- **Tests.** New adoption-harness `adoption-auth-scoping.test.ts` (custom verifier authenticates with no static config; unknown token → 401; subject B → 404 on status/stream/host-command, no-op cancel, A's conversation not in B's list). New `service-auth.test.ts` (normalization, correct/wrong token, unequal-length no-throw, dev-default-in-production guard, subject flow). Db contract test gained cross-subject isolation assertions for `findAssistantTurn` + `requestTurnCancellation`.
+- Verification: db + service + adoption suites green (232 tests), `npm run verify` clean, e2e 13/13. `test:db:container` deferred — Docker unavailable; the postgres subject-scoping runs through the same shared contract test (memory adapter verified now; standing chip covers the container run).
 
 ## Verification
 

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { SidechatRepositories } from "#repositories/contract";
-import { closeIfNeeded, startTurn, workspaceId } from "../repository-contract.helpers.js";
+import {
+  closeIfNeeded,
+  startTurn,
+  subjectId,
+  workspaceId,
+} from "../repository-contract.helpers.js";
 
 const LEASE_TTL_MS = 30_000;
 const NULL_LEASE_GRACE_MS = 2 * LEASE_TTL_MS;
@@ -58,6 +63,7 @@ export const turnLeaseRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toMatchObject({ ownerInstanceId: OWNER_A, leaseEpoch: 1 });
@@ -161,6 +167,7 @@ export const turnLeaseRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toMatchObject({ status: "running" });
@@ -173,6 +180,7 @@ export const turnLeaseRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toMatchObject({
@@ -211,6 +219,7 @@ export const turnLeaseRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toMatchObject({ status: "provider_failed", errorCode: "timeout" });
@@ -226,6 +235,7 @@ export const turnLeaseRepositoryContract = (
         const turn = await acquiredTurn(repositories, scope, OWNER_A);
         await repositories.requestTurnCancellation({
           workspaceId: workspaceId(scope),
+          subjectId: subjectId(scope),
           assistantTurnId: turn.assistantTurnId,
           now: ACQUIRE_NOW,
         });
@@ -236,6 +246,7 @@ export const turnLeaseRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toMatchObject({ status: "user_aborted", errorCode: "aborted" });

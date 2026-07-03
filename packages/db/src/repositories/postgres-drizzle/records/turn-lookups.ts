@@ -8,10 +8,11 @@ import { toAssistantTurnRecord } from "./records.js";
 type TurnLookupDb = NodePgDatabase<typeof sidechatTables>;
 
 /**
- * Read one turn by id, scoped to the workspace.
+ * Read one turn by id, scoped to workspace + subject.
  *
- * Returns `undefined` for an unknown or cross-workspace id so the route maps a
- * guessed id to a not-found response instead of a thrown error.
+ * Returns `undefined` for an unknown, cross-workspace, or cross-subject id so the
+ * route maps a guessed or leaked id to a not-found response instead of leaking
+ * another user's turn.
  */
 export const findAssistantTurn =
   (db: TurnLookupDb): SidechatRepositories["findAssistantTurn"] =>
@@ -22,6 +23,7 @@ export const findAssistantTurn =
       .where(
         and(
           eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.subjectId, command.subjectId),
           eq(assistantTurns.assistantTurnId, command.assistantTurnId),
         ),
       )

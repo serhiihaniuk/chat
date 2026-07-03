@@ -41,6 +41,7 @@ const requestTurnCancellation =
         .where(
           and(
             eq(assistantTurns.workspaceId, command.workspaceId),
+            eq(assistantTurns.subjectId, command.subjectId),
             eq(assistantTurns.assistantTurnId, command.assistantTurnId),
             eq(assistantTurns.status, "running"),
           ),

@@ -90,6 +90,9 @@ export type FailAssistantTurnCommand = RepositoryCommandEnvelope & {
 
 export type RequestTurnCancellationCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
+  // A turn belongs to the subject that started it; cancel is scoped to that
+  // subject so a leaked turn id from another user cannot stop it.
+  readonly subjectId: SubjectId;
 };
 
 /**
@@ -176,6 +179,10 @@ export type ReapedTurn = {
 
 export type FindAssistantTurnCommand = {
   readonly workspaceId: WorkspaceId;
+  // A turn belongs to the subject that started it; reads (status, stream replay,
+  // host-command result) are scoped to that subject so a leaked turn id from
+  // another user cannot be tailed. Cross-subject lookups return `undefined`.
+  readonly subjectId: SubjectId;
   readonly assistantTurnId: AssistantTurnId;
 };
 export type FindAssistantTurnByRequestCommand = {

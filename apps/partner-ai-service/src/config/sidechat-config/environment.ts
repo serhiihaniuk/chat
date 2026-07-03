@@ -50,19 +50,21 @@ export const createAuthConfig = (
   workspace: WorkspaceRef,
   rawToken: string | undefined,
 ): ServiceAuthConfig => {
-  const bearerToken = rawToken ? normalizeBearerToken(rawToken) : undefined;
+  // The token is stored as configured; the auth verifier normalizes the `Bearer `
+  // prefix at comparison time, so the config and directly-passed options share
+  // one normalizer (see service-auth `normalizeBearerToken`).
   if (profile === SERVICE_PROFILES.PRODUCTION) {
     return omitUndefinedProperties({
       profile,
       workspace,
-      trustedBearerToken: bearerToken,
+      trustedBearerToken: rawToken,
     });
   }
 
   return omitUndefinedProperties({
     profile,
     workspace,
-    devBearerToken: bearerToken,
+    devBearerToken: rawToken,
   });
 };
 
@@ -166,6 +168,3 @@ const readMissingBooleanEnvReference = (
 
   throw new ServiceConfigError(`${reference.key} is required.`);
 };
-
-const normalizeBearerToken = (token: string): string =>
-  token.startsWith("Bearer ") ? token : `Bearer ${token}`;

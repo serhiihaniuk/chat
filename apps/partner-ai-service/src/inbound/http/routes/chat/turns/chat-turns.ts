@@ -130,8 +130,9 @@ export const registerChatTurnRoutes = (
   });
 
   // Cancel one turn from any instance. The id is not a bearer capability: the
-  // intent write is workspace-scoped, so a cross-workspace id simply matches no
-  // running turn and is reported as not cancelled.
+  // intent write is scoped to the caller's workspace AND subject, so a leaked id
+  // from another user (or workspace) matches no running turn and is reported as
+  // not cancelled.
   app.post("/chat/turns/:assistantTurnId/cancel", async (context) => {
     const authContext = requireContextAuth(context.get("authContext"));
     const assistantTurnId = context.req.param("assistantTurnId");
@@ -140,6 +141,7 @@ export const registerChatTurnRoutes = (
     // finished or unknown turn is a no-op ack rather than an error.
     const { cancelRequested } = await dependencies.repositories.requestTurnCancellation({
       workspaceId: authContext.workspaceId,
+      subjectId: authContext.subject.subjectId,
       assistantTurnId,
       now: dependencies.ports.clock.now(),
     });
@@ -166,10 +168,11 @@ export const registerChatTurnRoutes = (
 };
 
 /**
- * Load one turn scoped to the caller's workspace.
+ * Load one turn scoped to the caller's workspace AND subject.
  *
- * Returns `undefined` for an unknown or cross-workspace id so the route maps it
- * to a not-found response rather than leaking another tenant's turn.
+ * Returns `undefined` for an unknown, cross-workspace, or cross-subject id so the
+ * route maps it to a not-found response rather than leaking another tenant's — or
+ * another user's — turn.
  */
 const loadWorkspaceTurn = (
   dependencies: ChatTurnRouteDependencies,
@@ -178,6 +181,7 @@ const loadWorkspaceTurn = (
 ): Promise<AssistantTurnRecord | undefined> =>
   dependencies.repositories.findAssistantTurn({
     workspaceId: authContext.workspaceId,
+    subjectId: authContext.subject.subjectId,
     assistantTurnId,
   });
 

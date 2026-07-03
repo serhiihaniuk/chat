@@ -8,7 +8,11 @@ import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
 import { Hono } from "hono";
 
-import { createServiceAuthVerifier, type ServiceAuthConfig } from "#adapters/auth/service-auth";
+import {
+  createServiceAuthVerifier,
+  type ServiceAuthConfig,
+  type ServiceAuthVerifier,
+} from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import {
   composePartnerAiService,
@@ -48,6 +52,15 @@ const DEFAULT_WORKSPACE: WorkspaceRef = {
 export type PartnerAiServiceOptions = {
   readonly repositories?: SidechatRepositories | undefined;
   readonly auth?: ServiceAuthConfig | undefined;
+  /**
+   * A custom authority that turns request headers into an `AuthContext`.
+   *
+   * When present it fully replaces the built-in static-token verifier — an
+   * embedder plugs in their JWT/session check here with zero edits to `app.ts`.
+   * `AuthContext.subject.subjectId` is the per-user identity every read/write
+   * scopes by (conversations, activity, and turn stream/status/cancel).
+   */
+  readonly authVerifier?: ServiceAuthVerifier | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
   readonly policies?: ServicePolicyConfig | undefined;
   readonly persistence?: PersistenceConfig | undefined;
@@ -92,7 +105,9 @@ export type PartnerAiService = {
 export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): PartnerAiService => {
   const app = new Hono<AuthContextVariables>();
   const composition = composePartnerAiService(compositionOptions(options));
-  const authority = createServiceAuthVerifier(composition.auth);
+  // A custom verifier wins outright; otherwise the static-token adapter derived
+  // from config is the dev/default authority.
+  const authority = options.authVerifier ?? createServiceAuthVerifier(composition.auth);
 
   app.use("*", requestIdMiddleware());
 

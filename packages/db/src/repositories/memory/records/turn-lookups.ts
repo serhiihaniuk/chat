@@ -3,7 +3,7 @@ import type { MemoryStore } from "../store/store.js";
 
 type MemoryStoreContext = { readonly store: MemoryStore };
 
-/** Read one turn by id, scoped to the workspace; `undefined` when none matches. */
+/** Read one turn by id, scoped to workspace + subject; `undefined` when none matches. */
 export const findMemoryAssistantTurn =
   ({ store }: MemoryStoreContext): AssistantTurnRepositoryContract["findAssistantTurn"] =>
   async (command) => {
@@ -11,6 +11,7 @@ export const findMemoryAssistantTurn =
     return store.assistantTurns.find(
       (turn) =>
         turn.workspaceId === command.workspaceId &&
+        turn.subjectId === command.subjectId &&
         turn.assistantTurnId === command.assistantTurnId,
     );
   };

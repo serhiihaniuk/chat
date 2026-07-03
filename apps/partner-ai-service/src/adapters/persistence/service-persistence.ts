@@ -181,11 +181,12 @@ const createReadTurnControlStateEffect =
   ({ authContext, assistantTurnId }) =>
     Effect.tryPromise({
       try: async () => {
-        // The workspace-scoped turn read already returns `undefined` for an
-        // unknown or cross-workspace id, and now carries the durable cancel
-        // intent, so finalize can classify the exit without a second query.
+        // The workspace + subject-scoped turn read already returns `undefined`
+        // for an unknown, cross-workspace, or cross-subject id, and carries the
+        // durable cancel intent, so finalize classifies the exit in one query.
         const turn = await repositories.findAssistantTurn({
           workspaceId: authContext.workspaceId,
+          subjectId: authContext.subject.subjectId,
           assistantTurnId,
         });
         if (!turn) return undefined;

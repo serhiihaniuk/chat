@@ -38,6 +38,7 @@ export const registerHostCommandResultRoute = (
     const authContext = requireContextAuth(context.get("authContext"));
     const turn = await dependencies.repositories.findAssistantTurn({
       workspaceId: authContext.workspaceId,
+      subjectId: authContext.subject.subjectId,
       assistantTurnId: context.req.param("assistantTurnId"),
     });
     if (!turn)
