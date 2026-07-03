@@ -105,8 +105,8 @@ test("showcases the fake provider with slow markdown and local tool activity", a
   await expect(page.getByText(/Use this during the demo/u)).toBeVisible();
 
   await openActivityPanel(page, { timeout: 30_000 });
-  // The activity trace shows tool rows as humanized plain-text lines (§9.9);
-  // expandable detail cards are plan/23's rebuild, not shipped UI.
+  // The activity trace shows the tool as a humanized row; with input/result
+  // details it is the expandable detail card.
   await expect(page.getByText("Mock web search")).toBeVisible({ timeout: 5_000 });
   await expect(page.getByLabel("Message")).toBeEnabled({ timeout: 30_000 });
   await expectUsageWasRecorded(request);
@@ -186,10 +186,9 @@ test("streams from the local service while embedded in an iframe", async ({ page
   expect(Math.abs(reopenedBox.width - resizedPanelWidth)).toBeLessThanOrEqual(2);
 });
 
-test("renders tool activity rows from the canonical activity stream", async ({ page }) => {
-  // The shipped trace renders a tool as a humanized plain-text row (§9.9) — no
-  // pill, not clickable, no expanded query/result details. The expandable detail
-  // card is plan/23's rebuild; when it lands, this test grows back with it.
+test("renders expandable tool details, sources, and images from the activity stream", async ({
+  page,
+}) => {
   await page.goto(widgetAppUrl("?mode=mock-stream&scenario=tool"));
   await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
 
@@ -201,11 +200,27 @@ test("renders tool activity rows from the canonical activity stream", async ({ p
   });
   await waitForActivityPanelAutoClose(page);
   await openActivityPanel(page, { timeout: 15_000 });
-  const toolRow = page.getByText("Mock web search", { exact: true }).last();
+
+  // The tool row is an expandable detail card: collapsed shows only the
+  // humanized name; expanding discloses the input and result payloads.
+  const toolRow = page.getByRole("button", { name: /Mock web search/u }).last();
   await expect(toolRow).toBeVisible({ timeout: 15_000 });
-  // Plain informational row: no expandable details surface.
-  await expect(page.getByRole("button", { name: /Mock web search/u })).toHaveCount(0);
-  await expect(page.getByText("Search query")).toBeHidden();
+  // Collapsed: the payload disclosure is not in the DOM yet.
+  await expect(page.getByText(/"query"/u).first()).toBeHidden();
+  await toolRow.click();
+  // Both the Input and the Result payload blocks disclose (each carries the query).
+  await expect(page.getByText(/"query"/u).first()).toBeVisible();
+  await expect(page.getByText(/briefing-style context/u)).toBeVisible();
+
+  // The turn's attributed sources fold under the answer; expanding lists the
+  // linked source row.
+  const sourcesFold = page.getByRole("button", { name: /1 source/u });
+  await expect(sourcesFold).toBeVisible();
+  await sourcesFold.click();
+  await expect(page.getByRole("link", { name: /Mock Search Result/u })).toBeVisible();
+
+  // Produced images render as inline thumbnails without expanding anything.
+  await expect(page.getByAltText("Mock search preview")).toBeVisible();
 });
 
 test("renders a failed host-command result from the mock harness", async ({ page }) => {

@@ -28,6 +28,7 @@ import { createSideChatWidgetQueryClient } from "../model/side-chat-query-client
 import type { SideChatWidgetLabels, SideChatWidgetProps } from "../model/side-chat-widget.types.js";
 
 export type {
+  RenderActivityItem,
   SideChatWidgetTurnProfile,
   SideChatWidgetLabels,
   SideChatWidgetPanelActions,
@@ -35,6 +36,7 @@ export type {
   SideChatWidgetProps,
   SideChatWidgetQuickAction,
   SideChatWidgetStateSnapshot,
+  WidgetActivityItem,
 } from "../model/side-chat-widget.types.js";
 
 const defaultLabels = {
@@ -81,6 +83,7 @@ const SideChatWidgetContent = ({
   panelActions,
   panelSizeStorageKey,
   quickActions = [],
+  renderActivityItem,
   renderClosedLauncher = true,
   reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
   themeStorageKey,
@@ -217,6 +220,7 @@ const SideChatWidgetContent = ({
               messages={chat.messages}
               onRetry={chat.retryLastMessage}
               reasoningVisibility={reasoningVisibility}
+              renderActivityItem={renderActivityItem}
             />
             <WidgetFooter
               isBusy={isBusy}

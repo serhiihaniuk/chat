@@ -1,11 +1,13 @@
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
+import type { WidgetActivityItem } from "#entities/chat";
 import type { ReasoningVisibility } from "#entities/settings";
 import type { SideChatWidgetPanelSize } from "#entities/panel";
 import type { WidgetThemeId } from "#entities/theme";
 import type { SideChatApiClient } from "#entities/conversation";
+import type { RenderActivityItem } from "#features/conversation";
 
-export type { ReasoningVisibility, WidgetThemeId };
+export type { ReasoningVisibility, RenderActivityItem, WidgetActivityItem, WidgetThemeId };
 
 export type SideChatWidgetLabels = {
   readonly placeholder?: string | undefined;
@@ -74,6 +76,13 @@ export type SideChatWidgetProps = {
   // for "minimal" and expanded for "detailed". Defaults to "minimal". Not a
   // user-facing setting.
   readonly reasoningVisibility?: ReasoningVisibility | undefined;
+  /**
+   * Custom rendering for one activity item (tool call, host command, reasoning
+   * row) in the message trace. Return a node to replace only that item's
+   * default rendering; return `undefined` to keep the default. A rendering
+   * seam only — protocol projection and host-command dispatch are unaffected.
+   */
+  readonly renderActivityItem?: RenderActivityItem | undefined;
   readonly themeStorageKey?: string | undefined;
   /**
    * Browser-local key under which the resizable panel's size is persisted, so a

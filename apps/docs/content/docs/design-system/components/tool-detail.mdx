@@ -1,0 +1,49 @@
+---
+title: Tool detail
+description: The expandable form of the tool row that discloses a call's input, result, and outcome.
+---
+
+import { ToolDetailDemo } from '@/components/demos/tool-detail';
+
+A tool detail row is the expandable form of the [tool row](/docs/design-system/components/tool-row). Collapsed, it looks exactly like the compact row — the same status glyph and plain tool name — plus a trailing chevron. Expanded, it discloses what the call actually did: an optional status line (host commands lead with `status · resultCode`), the input payload, the result payload as pretty-printed JSON blocks, and a distinct error-code line tinted by the `sc-error-glyph` hook for failures. Rows without any disclosable detail keep using the non-interactive tool row; this component renders only when there is something to disclose.
+
+The fold is the same Base UI `Collapsible` contract as the Reasoning panel: the trigger is a real button with `data-slot="tool-detail-row"` and a `data-state`, and the panel height animates from `--collapsible-panel-height` through the `sc-collapsible-panel` hook class.
+
+<DesignControls />
+
+<Preview>
+  <ToolDetailDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { ToolDetailRow } from '@side-chat/side-chat-widget/ui/activity/tool-detail';
+
+<ToolDetailRow
+  name="Search web"
+  state="success"
+  detail={{
+    input: { query: 'current portfolio news' },
+    result: { summary: 'Found 3 briefing-style results.' },
+  }}
+/>
+
+// A resolved host command leads with its outcome line.
+<ToolDetailRow
+  name="Open resource"
+  state="success"
+  detail={{ statusLine: 'applied · resource_opened', input: { resourceId: 'ticket-4821' } }}
+/>
+
+// A failed call gets a distinct error-code line.
+<ToolDetailRow
+  name="Read file"
+  state="error"
+  detail={{ errorCode: 'tool_failed', input: { path: '/reports/q4' } }}
+/>
+```
+
+## Tokens
+
+<TokenTable group="tool-row" />

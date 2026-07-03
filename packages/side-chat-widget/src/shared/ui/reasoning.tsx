@@ -15,7 +15,7 @@
  * Panel height animates from Base UI's exposed `--collapsible-panel-height`
  * through the `sc-collapsible-panel` hook class — no JS `scrollHeight` measure.
  */
-import { useState, type ReactElement } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 
 import { Collapsible } from "@base-ui/react/collapsible";
 import { Brain, ChevronDown } from "lucide-react";
@@ -23,10 +23,15 @@ import { Brain, ChevronDown } from "lucide-react";
 import { cn } from "#shared/lib/cn";
 import { ToolRow, type ToolState } from "#shared/ui/tool-row";
 
-/** One entry in the trace: either a plain thought line or a tool invocation. */
+/**
+ * One entry in the trace: a plain thought line, a compact tool invocation, or a
+ * pre-built node (an expandable tool-detail row, or a host-supplied custom
+ * rendering from the widget's `renderActivityItem` seam).
+ */
 export type ReasoningItem =
   | { kind: "thought"; id: string; text: string }
-  | { kind: "tool"; id: string; name: string; state: ToolState };
+  | { kind: "tool"; id: string; name: string; state: ToolState }
+  | { kind: "node"; id: string; node: ReactNode };
 
 export function Reasoning({
   items,
@@ -51,20 +56,24 @@ export function Reasoning({
       </Collapsible.Trigger>
       <Collapsible.Panel className="sc-collapsible-panel ml-2">
         <div className="flex flex-col gap-2.5 py-2 pl-3.5">
-          {items.map((item) =>
-            item.kind === "thought" ? (
-              <p key={item.id} className="text-sm text-muted-foreground">
-                {item.text}
-              </p>
-            ) : (
-              <ToolRow key={item.id} name={item.name} state={item.state} />
-            ),
-          )}
+          {items.map((item) => (
+            <ReasoningEntry key={item.id} item={item} />
+          ))}
         </div>
       </Collapsible.Panel>
     </Collapsible.Root>
   );
 }
+
+const ReasoningEntry = ({ item }: { item: ReasoningItem }): ReactNode => {
+  if (item.kind === "thought") {
+    return <p className="text-sm text-muted-foreground">{item.text}</p>;
+  }
+  if (item.kind === "tool") {
+    return <ToolRow name={item.name} state={item.state} />;
+  }
+  return item.node;
+};
 
 const TRACE: ReasoningItem[] = [
   { kind: "thought", id: "t1", text: "Reading the conversation context and the user's request." },

@@ -213,6 +213,14 @@ const toolRunningEvent = (assistantTurnId: string, query: string): ActivityEvent
   },
 });
 
+// A deterministic inline SVG payload so the images rendering path is exercised
+// without any binary fixture or network fetch. btoa exists in the browser
+// harness and in the Node >= 16 test runtime alike.
+const MOCK_IMAGE_SVG_BASE64 = btoa(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" fill="currentColor">' +
+    '<rect width="120" height="80" opacity="0.15"/><circle cx="60" cy="40" r="18" opacity="0.4"/></svg>',
+);
+
 const toolCompletedEvent = (assistantTurnId: string, query: string): ActivityEvent => ({
   ...baseEvent(assistantTurnId, 3),
   type: "sidechat.activity",
@@ -221,6 +229,14 @@ const toolCompletedEvent = (assistantTurnId: string, query: string): ActivityEve
   status: "completed",
   title: "Run mock_web_search",
   details: {
+    images: [
+      {
+        alt: "Mock search preview",
+        caption: "Mock search preview",
+        mediaType: "image/svg+xml",
+        data: MOCK_IMAGE_SVG_BASE64,
+      },
+    ],
     tool: {
       toolCallId: "mock-tool-web-search",
       toolName: "mock_web_search",

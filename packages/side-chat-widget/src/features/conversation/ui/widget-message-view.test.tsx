@@ -39,7 +39,8 @@ describe("WidgetMessageView", () => {
       ],
     });
 
-    // Detailed exposure expands the rebuilt reasoning trace; tool rows stay compact.
+    // Detailed exposure expands the reasoning trace; a tool that carries
+    // input/result renders as the expandable detail row, collapsed by default.
     const html = renderToStaticMarkup(
       <WidgetMessageView message={message} reasoningVisibility="detailed" />,
     );
@@ -47,9 +48,9 @@ describe("WidgetMessageView", () => {
     expect(html).toContain("Here is the answer.");
     expect(html).toContain("Checked portfolio context");
     expect(html).toContain("Mock web search");
-    expect(html).toContain('data-slot="tool-row"');
+    expect(html).toContain('data-slot="tool-detail-row"');
     expect(html).toContain('data-state="success"');
-    // The rebuilt tool row does not expose the old expandable result payload.
+    // Collapsed by default: the result payload discloses on expand only.
     expect(html).not.toContain("found context");
   });
 

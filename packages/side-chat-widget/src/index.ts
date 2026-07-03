@@ -1,11 +1,13 @@
 export {
   SideChatWidget,
+  type RenderActivityItem,
   type SideChatWidgetLabels,
   type SideChatWidgetPanelActions,
   type SideChatWidgetProps,
   type SideChatWidgetQuickAction,
   type SideChatWidgetStateSnapshot,
   type ReasoningVisibility,
+  type WidgetActivityItem,
   type WidgetThemeId,
   SIDE_CHAT_API_ERROR_CODES,
   createSideChatApiClient,

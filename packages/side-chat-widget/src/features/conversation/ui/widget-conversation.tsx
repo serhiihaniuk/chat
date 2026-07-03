@@ -9,6 +9,7 @@ import {
   ConversationScrollButton,
 } from "#shared/ui/conversation";
 import { BlockedNotice, ErrorNotice } from "#shared/ui/error-notice";
+import type { RenderActivityItem } from "./activity/widget-activity-content.js";
 import { WidgetMessageView } from "./widget-message-view.js";
 
 export const WidgetConversation = ({
@@ -18,6 +19,7 @@ export const WidgetConversation = ({
   messages,
   onRetry,
   reasoningVisibility,
+  renderActivityItem,
 }: {
   readonly emptyState: ReactNode;
   readonly notice: WidgetRunNotice | undefined;
@@ -25,6 +27,7 @@ export const WidgetConversation = ({
   readonly messages: readonly WidgetMessage[];
   readonly onRetry: () => void;
   readonly reasoningVisibility: ReasoningVisibility;
+  readonly renderActivityItem?: RenderActivityItem | undefined;
 }) => {
   const isEmpty = messages.length === 0 && !notice;
   const latestUserMessageId = readLatestUserMessageId(messages);
@@ -47,6 +50,7 @@ export const WidgetConversation = ({
                 key={message.id}
                 message={message}
                 reasoningVisibility={reasoningVisibility}
+                renderActivityItem={renderActivityItem}
               />
             ))}
             {notice && <WidgetNotice notice={notice} onRetry={onRetry} />}

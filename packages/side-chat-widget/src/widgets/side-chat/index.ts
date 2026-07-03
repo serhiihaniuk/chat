@@ -1,5 +1,6 @@
 export { SideChatWidget } from "./ui/side-chat-widget.js";
 export type {
+  RenderActivityItem,
   SideChatWidgetTurnProfile,
   SideChatWidgetLabels,
   SideChatWidgetPanelActions,
@@ -8,6 +9,7 @@ export type {
   SideChatWidgetQuickAction,
   SideChatWidgetStateSnapshot,
   ReasoningVisibility,
+  WidgetActivityItem,
   WidgetThemeId,
 } from "./model/side-chat-widget.types.js";
 export {

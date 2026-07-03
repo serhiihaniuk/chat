@@ -11,6 +11,9 @@
     "model-selector",
     "reasoning",
     "tool-row",
+    "tool-detail",
+    "citations",
+    "activity-images",
     "error-notice",
     "settings"
   ]

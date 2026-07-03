@@ -95,7 +95,7 @@ row + how-to.
 suggested "per model or per turn-profile … put callSettings beside reasoning in the
 model entry." Reasoning effort actually flows through the **profile/policy** path
 already (`TurnPolicyDecision.reasoning`), and that is where a per-turn generation
-setting belongs (it is a property of *this* turn's policy, resolvable per
+setting belongs (it is a property of _this_ turn's policy, resolvable per
 subject/profile later), so `callSettings` sits beside `reasoning` on
 `TurnProfile`/`TurnPolicyDecision`, surfaced via `config.chat.turnProfile`. No
 model-default entry was added; an adopter tunes generation on the turn profile.

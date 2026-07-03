@@ -8,6 +8,9 @@
 import type { ReactNode } from "react";
 
 import { MarkdownSection } from "#shared/ai/markdown-content";
+import { ActivityImagesSection } from "#shared/ui/activity/activity-images";
+import { CitationsSection } from "#shared/ui/activity/citations";
+import { ToolDetailSection } from "#shared/ui/activity/tool-detail";
 import { BadgeSection } from "#shared/ui/badge";
 import { ButtonSection } from "#shared/ui/button";
 import { CollapsibleSection } from "#shared/ui/collapsible";
@@ -135,6 +138,24 @@ export const sections: readonly ShowcaseSection[] = [
     title: "Section 9.9 - Tool row",
     kind: "composition",
     node: <ToolRowSection />,
+  },
+  {
+    id: "tool-detail",
+    title: "Section 9.9 - Tool detail (expandable)",
+    kind: "composition",
+    node: <ToolDetailSection />,
+  },
+  {
+    id: "citations",
+    title: "Citations - Sources fold",
+    kind: "composition",
+    node: <CitationsSection />,
+  },
+  {
+    id: "activity-images",
+    title: "Activity images",
+    kind: "composition",
+    node: <ActivityImagesSection />,
   },
   {
     id: "error-notice",

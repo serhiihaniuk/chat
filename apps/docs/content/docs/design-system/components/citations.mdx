@@ -1,0 +1,35 @@
+---
+title: Citations
+description: A foldable "N sources" attribution list under an answer, built on the same Collapsible as Reasoning.
+---
+
+import { CitationsDemo } from '@/components/demos/citations';
+
+Citations attribute an answer to its sources. The full set lives under a foldable "N sources" row below the answer — the same Base UI `Collapsible` primitive as the Reasoning fold, with an identical trigger-plus-chevron contract and the `--collapsible-panel-height` animation. Only the panel contents differ: source rows instead of thought and tool rows.
+
+Each source row carries a leader glyph, the source title with its domain as a meta line, and a trailing number chip. The leader glyph is a neutral tokenized chip showing the domain's first letter (or a quote glyph for excerpts); a real favicon's brand colour is the one sanctioned non-token value, and the protocol does not carry favicons, so every glyph stays tokenized.
+
+Linking is a separate axis from source kind. A source with a `url` renders as a real anchor: pointer cursor, hover fill, and a trailing open-externally arrow. A terminal source — a pasted excerpt with no destination — drops all three: default cursor, no hover, no arrow. It still lists and still numbers.
+
+<DesignControls />
+
+<Preview>
+  <CitationsDemo />
+</Preview>
+
+## Usage
+
+```tsx
+import { SourcesFold, type CitationSource } from '@side-chat/side-chat-widget/ui/activity/citations';
+
+const sources: CitationSource[] = [
+  { label: 'Regulatory framework on AI', url: 'https://ec.europa.eu/ai' }, // linked
+  { label: '"…fully applicable two years later" — pasted context' }, // terminal
+];
+
+<SourcesFold sources={sources} />
+```
+
+## Tokens
+
+<TokenTable group="citations" />

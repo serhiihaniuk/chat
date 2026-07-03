@@ -49,6 +49,17 @@ overrides, not component-local styles.
 with `renderClosedLauncher={false}` when the host renders its own launcher
 button outside the Side Chat frame.
 
+`renderActivityItem` is the custom-rendering seam for one activity item in the
+message trace (tool call, host command, reasoning row). It receives a
+`WidgetActivityItem` (exported type: id, kind, status, title, and the protocol
+`details` with tool input/result, host-command payload/result, sources, and
+images) and returns a `ReactNode` to replace only that item's default rendering,
+or `undefined` to keep the default. It is a rendering seam only — protocol
+projection and host-command dispatch are unaffected. Defaults without it: tools
+and host commands with disclosable payloads render as expandable detail rows,
+attributed sources render as a foldable "N sources" list under the answer, and
+produced images render as constrained inline thumbnails.
+
 `@side-chat/side-chat-widget/testing` exports widget model projection helpers
 for harness tests. It is not a host application API.
 

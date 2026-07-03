@@ -46,4 +46,6 @@ export function ToolRowSection(): ReactElement {
   );
 }
 
-export { ToolRow };
+// ToolGlyph is shared with the expandable detail row (#shared/ui/activity/tool-detail)
+// so both rows keep one status-glyph vocabulary.
+export { ToolGlyph, ToolRow };

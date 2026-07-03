@@ -328,6 +328,22 @@
   --header-h: var(--size-header);
   --header-px: calc(var(--spacing) * 4);
   --rail-newchat-h: var(--header-h);
+
+  /* Citations (design c-citation) — foldable "N sources" list under an answer.
+     Token names/values per the Design System citations token table. */
+  --cite-fold-fg: var(--muted-foreground);
+  --cite-source-radius: var(--radius-md);
+  --cite-source-bg-hover: var(--accent);
+  --cite-source-title-fg: var(--card-foreground);
+  --cite-source-meta-fg: var(--muted-foreground);
+  --cite-icon-size: 1.125rem;
+  --cite-icon-bg: var(--muted);
+  --cite-icon-fg: var(--muted-foreground);
+  --cite-icon-border: var(--border);
+  --cite-marker-bg: var(--muted);
+  --cite-marker-border: var(--border);
+  --cite-marker-radius: var(--radius-sm);
+  --cite-link-fg: var(--muted-foreground);
 }
 
 .dark {
@@ -779,6 +795,50 @@
 /* Error glyph (§9.10 / §7.6) — destructive mixed into muted; no phantom -foreground */
 @utility sc-error-glyph {
   color: color-mix(in oklch, var(--destructive) 60%, var(--muted-foreground));
+}
+
+/* Citations (design c-citation) — leader glyph chip on a source row. A neutral
+   tokenized kind glyph; the only sanctioned non-token color is a real favicon,
+   which the protocol does not carry, so every glyph stays tokenized here. */
+@utility sc-cite-glyph {
+  @apply flex shrink-0 items-center justify-center font-bold;
+  width: var(--cite-icon-size);
+  height: var(--cite-icon-size);
+  border-radius: var(--cite-marker-radius);
+  background: var(--cite-icon-bg);
+  border: 1px solid var(--cite-icon-border);
+  color: var(--cite-icon-fg);
+  font-size: var(--text-2xs);
+}
+
+/* Citations — trailing source-number chip; marker tokens, non-interactive. */
+@utility sc-cite-marker {
+  @apply inline-flex shrink-0 items-center font-semibold;
+  padding: 1px calc(var(--spacing) * 1.25);
+  border-radius: var(--cite-marker-radius);
+  background: var(--cite-marker-bg);
+  border: 1px solid var(--cite-marker-border);
+  color: var(--cite-source-meta-fg);
+  font-size: var(--text-2xs);
+}
+
+/* Citations — fold panel. Same Base UI height animation as sc-collapsible-panel
+   but without its left rule: the sources list is not a reasoning trace. */
+@utility sc-cite-panel {
+  @apply overflow-hidden;
+  height: var(--collapsible-panel-height);
+  transition: height var(--dur) var(--ease-out);
+}
+
+/* Citations — one source row; linked rows (an <a>) get hover fill + pointer,
+   terminal rows (a <div>) keep the default cursor and no hover, per the design's
+   linked/terminal axis. */
+@utility sc-cite-source {
+  @apply flex items-center gap-2.5 px-2 py-1.5;
+  border-radius: var(--cite-source-radius);
+}
+a.sc-cite-source:hover {
+  background: var(--cite-source-bg-hover);
 }
 
 /* Context ring (§9.5) — SVG stroke; the % drives stroke-dashoffset inline */

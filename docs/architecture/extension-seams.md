@@ -30,6 +30,7 @@ Contract types live in `packages/*`; binding happens in `apps/partner-ai-service
 | Add a persistence adapter | `SidechatRepositories` + `RepositoryAdapterKind` (`@side-chat/db`)                                                                                                                                                                                                  | `options.repositories` / `options.persistence`, resolved by `createServicePersistenceBundle`                                                                                                                                                                                                 | Injected port; repos must declare `adapterKind` or fail closed                                      |
 | Change model parameters   | `RuntimeCallSettings` ([ai-runtime-contract](../../packages/ai-runtime-contract/src/index.ts)) / `SideChatCallSettings` ([types.ts](../../apps/partner-ai-service/src/config/sidechat-config/types.ts))                                                             | `chat.turnProfile.callSettings` in `sidechat.config.ts`; threads profile → `TurnPolicyDecision` → `buildModelTurnRequest` → the runtime call                                                                                                                                                 | Config bag: `temperature`, `maxOutputTokens`, `topP`, `stopSequences`, `maxToolSteps`               |
 | Plug in auth              | `ServiceAuthVerifier` ([service-auth.ts:37](../../apps/partner-ai-service/src/adapters/auth/service-auth.ts)); returns an `AuthContext` (`@side-chat/partner-ai-core`)                                                                                              | `options.authVerifier` ([app.ts:95](../../apps/partner-ai-service/src/inbound/http/app.ts)); when absent the static-token adapter from `auth` config is the dev default                                                                                                                      | Injected port; `AuthContext.subject.subjectId` is the identity every read/write scopes by           |
+| Render an activity item   | `RenderActivityItem` / `WidgetActivityItem` ([side-chat-widget.types.ts](../../packages/side-chat-widget/src/widgets/side-chat/model/side-chat-widget.types.ts), both exported from `@side-chat/side-chat-widget`)                                                  | `renderActivityItem` prop on `SideChatWidget`                                                                                                                                                                                                                                                | Rendering seam only: return a node to replace one item's default rendering, `undefined` to keep it  |
 
 The capability rule keeps three stages separate: a manifest `ToolCapability` is a declaration, not model access; the per-turn policy decides which names are allowed; runtime executes only registered `RuntimeTool`s named in that allowlist. Declaring a tool capability without an executable is impossible because one registration supplies both.
 
@@ -141,6 +142,24 @@ chat: {
 ```
 
 Each field is optional, so an absent block (or field) keeps the runtime/provider default — no behavior change for existing configs. The block threads profile → `TurnPolicyDecision` → `buildModelTurnRequest` → the runtime, which applies them as top-level model call settings (not provider-native options). A turn stopped at `maxToolSteps` completes with the `tool_step_limit` finish reason so a truncated turn is observable, not a silent `stop`. A provider may ignore a setting it does not support (OpenAI drops `temperature`/`topP` for reasoning models); `maxOutputTokens` is the portable one.
+
+### Render an activity item
+
+The widget renders protocol activity content by default: tools and host commands with disclosable payloads are expandable detail rows (input/result JSON, host-command `status · resultCode`), attributed sources fold under the answer as an "N sources" list, and produced images render as constrained inline thumbnails. To replace the rendering of one item — the usual first customization is a custom card for your own tool's result — pass `renderActivityItem`:
+
+```tsx
+<SideChatWidget
+  client={client}
+  renderActivityItem={
+    (item) =>
+      item.details?.tool?.toolName === "ticket_lookup" ? (
+        <TicketCard result={item.details.tool.result} status={item.status} />
+      ) : undefined // every other item keeps the default rendering
+  }
+/>
+```
+
+The callback receives each `WidgetActivityItem` (id, kind, status, title, protocol `details`) and returns a replacement node or `undefined` to fall through. It is a rendering seam only — projection of protocol events into widget state and host-command dispatch are not overridable here.
 
 ## Where adapters live
 
