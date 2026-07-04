@@ -75,6 +75,17 @@ Three event vocabularies, never conflated, each lower than the last: AI-SDK stre
 | `replay_expired`                               | `TransportErrorCode` (HTTP 404): a terminal turn swept from the registry can no longer replay from `after`.                                                                  | `.../errors.ts:34` (`TRANSPORT_ERROR_CODES.REPLAY_EXPIRED`)                                                     |
 | `stream_unavailable`                           | `TransportErrorCode` (HTTP 409, reason `not_stream_owner`): the turn is running but another instance owns its live stream, so the client polls turn status instead.          | `.../errors.ts:35` (`TRANSPORT_ERROR_CODES.STREAM_UNAVAILABLE`)                                                 |
 
+## Observability
+
+Two channels, one redaction discipline (ADR 0011): the turn-scoped telemetry sink and the non-turn diagnostic logger. No log level ever reveals prompts, model output, tool payloads, or secrets.
+
+| Term                  | Meaning                                                                                                                                                           | Where it lives (code path)                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| DiagnosticLogger      | A plain, synchronous, leveled logger (`debug`/`info`/`warn`/`error` + fields) for events with no turn: boot, config fallback, LISTEN drops, shutdown. Fail-open.  | `packages/shared/src/diagnostic-logger.ts` (`DiagnosticLogger`, `SILENT_DIAGNOSTIC_LOGGER`) |
+| ObservabilitySinkPort | The turn-scoped telemetry channel: one redacted `ObservabilityRecord` per lifecycle state (`received`, `started`, `runtime_event`, terminals, subscriber/replay). | `packages/partner-ai-core/src/services/observability.ts:55`                                 |
+| Console sink          | The shipped `ObservabilitySinkPort` that renders each record as one line; the dev default and the adopter recipe.                                                 | `apps/partner-ai-service/src/adapters/observability/console-observability-sink.ts`          |
+| redactAttributes      | The single key-based recursive redaction applied before any log or sink sees data. Owned by `shared`, reused by core telemetry and the loggers.                   | `packages/shared/src/redaction.ts` (`redactAttributes`)                                     |
+
 ## Identity & authority
 
 Authority is proven, fail-closed, and checked before any persistence or model work. Host-page metadata is reference data only — it never establishes identity. See `../architecture/assistant-turn.md` for where pre-start runs these checks.

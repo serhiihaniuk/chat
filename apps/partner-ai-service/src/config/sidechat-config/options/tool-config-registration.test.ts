@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { NOOP_OBSERVABILITY_SINK, type ObservabilityRecord } from "@side-chat/partner-ai-core";
+import { SILENT_DIAGNOSTIC_LOGGER } from "@side-chat/shared";
+import { Effect } from "effect";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import sideChatFakeConfig from "#sidechat-fake-config";
 import { createPartnerAiServiceApp } from "#inbound/http/app";
@@ -8,6 +11,8 @@ import {
   createPartnerAiServiceOptionsFromConfig,
   defineSideChatConfig,
 } from "#config/sidechat-config";
+import { createDefaultObservabilitySink } from "#adapters/observability/service-observability";
+import { readLoggingConfig } from "#config/sidechat-config/environment";
 import { SERVICE_ENV_KEYS } from "#config/env/service-env-contract";
 
 const FAKE_ENV = {
@@ -87,5 +92,59 @@ describe("config-driven model call settings", () => {
   it("leaves call settings absent when the config sets none", () => {
     const options = createPartnerAiServiceOptionsFromConfig(sideChatFakeConfig, FAKE_ENV);
     expect(options.turnProfiles?.[0]?.callSettings).toBeUndefined();
+  });
+});
+
+describe("config-driven logging defaults", () => {
+  const RECEIVED: ObservabilityRecord = {
+    requestId: "request_1",
+    traceId: "trace_request_1",
+    lifecycleState: "received",
+    latencyMs: 0,
+    attributes: {},
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resolves format by profile and honors an explicit level", () => {
+    const env = sideChatFakeConfig.environment;
+    expect(readLoggingConfig("development", {}, env)).toEqual({ level: "info", format: "pretty" });
+    expect(readLoggingConfig("production", {}, env)).toEqual({ level: "info", format: "json" });
+    expect(readLoggingConfig("production", { [SERVICE_ENV_KEYS.logLevel]: "debug" }, env)).toEqual({
+      level: "debug",
+      format: "json",
+    });
+  });
+
+  it("rejects an unknown log level", () => {
+    expect(() =>
+      readLoggingConfig(
+        "development",
+        { [SERVICE_ENV_KEYS.logLevel]: "verbose" },
+        sideChatFakeConfig.environment,
+      ),
+    ).toThrow(/SIDECHAT_LOG_LEVEL/u);
+  });
+
+  it("uses the console sink in development and the no-op sink in production", () => {
+    expect(createDefaultObservabilitySink(false, SILENT_DIAGNOSTIC_LOGGER)).toBe(
+      NOOP_OBSERVABILITY_SINK,
+    );
+    expect(createDefaultObservabilitySink(true, SILENT_DIAGNOSTIC_LOGGER)).not.toBe(
+      NOOP_OBSERVABILITY_SINK,
+    );
+  });
+
+  it("config-driven development boot installs a writing console sink and a logger", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const options = createPartnerAiServiceOptionsFromConfig(sideChatFakeConfig, FAKE_ENV);
+
+    expect(options.diagnosticLogger).toBeDefined();
+    Effect.runSync(options.observability?.record(RECEIVED) ?? Effect.void);
+
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(String(log.mock.calls[0]?.[0])).toContain("turn received");
   });
 });

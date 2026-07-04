@@ -6,6 +6,10 @@ import {
   findToolRegistrationFactory,
   type ToolRegistrationFactory,
 } from "#adapters/tools/tool-registrations";
+import {
+  createConsoleDiagnosticLogger,
+  createDefaultObservabilitySink,
+} from "#adapters/observability/service-observability";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
 import type { RuntimeToolConfig } from "#composition/service-composition-types";
 import type { ServiceToolRegistration } from "#composition/tools/service-tool-registry";
@@ -24,6 +28,7 @@ import { ServiceConfigError } from "../../service-config-error.js";
 import {
   createAuthConfig,
   createPersistenceConfig,
+  readLoggingConfig,
   readNumberEnvReference,
   readRequiredStringEnvReference,
   readServiceProfile,
@@ -59,6 +64,9 @@ export const createPartnerAiServiceOptionsFromConfig = (
   const workspace = readWorkspace(config.environment, env);
   const profile = readServiceProfile(readStringEnvReference(env, config.environment.profile));
   const providerKind = readProviderKindForConfig(config);
+  const diagnosticLogger = createConsoleDiagnosticLogger(
+    readLoggingConfig(profile, env, config.environment),
+  );
 
   return omitUndefinedProperties({
     workspace,
@@ -72,6 +80,13 @@ export const createPartnerAiServiceOptionsFromConfig = (
     capabilities: config.context,
     persistence: createPersistenceConfig(profile, env, config.environment.databaseUrl),
     conversationTitleGeneration: createConversationTitleGeneration(config),
+    // Console-first by profile: development sees the turn lifecycle in the console
+    // through the real sink; production stays NOOP until an adopter installs one.
+    observability: createDefaultObservabilitySink(
+      profile === SERVICE_PROFILES.DEVELOPMENT,
+      diagnosticLogger,
+    ),
+    diagnosticLogger,
     turnProfiles: [createTurnProfileConfig(providerKind, config)],
     defaultTurnProfileId: config.chat.turnProfile.id,
     turnGuardIds: config.chat.turnProfile.safety.turnGuardIds,

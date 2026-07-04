@@ -105,5 +105,12 @@ const toJsonActivityMetadata = (details: RuntimeActivityDetails | undefined): Js
       errorCode: details.tool.errorCode === "" ? undefined : details.tool.errorCode,
     });
   }
+  if (details.hostCommand) {
+    output["hostCommand"] = omitUndefinedProperties({
+      commandId: details.hostCommand.commandId,
+      commandName: details.hostCommand.commandName,
+      payloadPresent: Boolean(details.hostCommand.payload),
+    });
+  }
   return output;
 };

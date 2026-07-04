@@ -1,5 +1,6 @@
 import { type Cause, Effect, Queue, type Scope, Stream } from "effect";
 import { Client } from "pg";
+import type { DiagnosticLogger } from "@side-chat/shared";
 
 import { HOST_COMMAND_RESULT_NOTIFY_CHANNEL } from "#schema-contract";
 import {
@@ -25,9 +26,10 @@ import {
  */
 export const createPostgresHostCommandResultNotificationSource = (
   connectionString: string,
+  logger?: DiagnosticLogger,
 ): HostCommandResultNotificationSource => ({
   notifications: Stream.callback<HostCommandResultNotification>((queue) =>
-    openListenConnection(connectionString, queue),
+    openListenConnection(connectionString, queue, logger),
   ),
 });
 
@@ -41,6 +43,7 @@ export const createPostgresHostCommandResultNotificationSource = (
 const openListenConnection = (
   connectionString: string,
   queue: Queue.Queue<HostCommandResultNotification, Cause.Done>,
+  logger: DiagnosticLogger | undefined,
 ): Effect.Effect<void, never, Scope.Scope> =>
   Effect.gen(function* () {
     const client = new Client({ connectionString });
@@ -51,11 +54,23 @@ const openListenConnection = (
       const notification = parseHostCommandResultNotification(message.payload);
       if (notification) Queue.offerUnsafe(queue, notification);
     });
+    client.on("error", (error) =>
+      logger?.warn("listen connection error", {
+        channel: HOST_COMMAND_RESULT_NOTIFY_CHANNEL,
+        error: error.message,
+      }),
+    );
 
     yield* connectAndListen(client);
+    logger?.info("listen connected", { channel: HOST_COMMAND_RESULT_NOTIFY_CHANNEL });
 
     // Tear the dedicated connection down when the subscriber's scope closes.
-    yield* Effect.addFinalizer(() => Effect.promise(() => client.end()));
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(() => {
+        logger?.debug("listen closed", { channel: HOST_COMMAND_RESULT_NOTIFY_CHANNEL });
+        return client.end();
+      }),
+    );
   });
 
 const connectAndListen = (client: Client): Effect.Effect<void> =>

@@ -25,6 +25,17 @@ The launcher prompts for provider and ports, installs dependencies if missing, t
 
 The launcher saves your answers (including any API key) to `scripts/.run-local-fake.json` (`run-local-fake.mjs:119-136`) and reuses them next run. Keep that file out of git.
 
+## Run with logs
+
+Running the backend IS running it with logs — no flag needed. On the development profile (which `run-local-fake` uses) the console prints a boot summary, then one readable line per turn: `received`, `started` (with the model), each tool or host-command activity (name + status), and the terminal (status + latency). Two env vars tune it (ADR [0011](../adr/0011-observability-channels-and-console-first-dev.md)):
+
+| Env var               | Values                        | Default                               | Effect                                                                                                                                     |
+| --------------------- | ----------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SIDECHAT_LOG_LEVEL`  | `debug` `info` `warn` `error` | `info`                                | `debug` adds every runtime event, subscriber attach/detach, replay, cancel, and host-command settle; `warn` silences routine turn traffic. |
+| `SIDECHAT_LOG_FORMAT` | `pretty` `json`               | `pretty` in dev, `json` in production | `pretty` is one human line; `json` is one object per line for a log aggregator.                                                            |
+
+Redaction is unconditional: **no level ever prints prompts, model output, tool payloads, or secrets** — deep content debugging uses the fake provider, not a verbosity switch. Telemetry defaults to the console sink in development and to the no-op sink in production until you install a real one (see [extension-seams.md](../architecture/extension-seams.md) "Add an observability sink").
+
 ## The two processes
 
 The launcher starts two Vite/tsx dev servers over npm workspaces:

@@ -24,6 +24,8 @@ export const SERVICE_ENV_KEYS = {
   reaperBatchLimit: "SIDECHAT_REAPER_BATCH_LIMIT",
   sseHeartbeatIntervalMs: "SIDECHAT_SSE_HEARTBEAT_MS",
   outputDeltaFlushIntervalMs: "SIDECHAT_OUTPUT_DELTA_FLUSH_MS",
+  logLevel: "SIDECHAT_LOG_LEVEL",
+  logFormat: "SIDECHAT_LOG_FORMAT",
   tenantId: "SIDECHAT_TENANT_ID",
   workspaceId: "SIDECHAT_WORKSPACE_ID",
 } as const;

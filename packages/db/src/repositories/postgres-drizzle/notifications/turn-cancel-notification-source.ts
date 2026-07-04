@@ -1,5 +1,6 @@
 import { type Cause, Effect, Queue, type Scope, Stream } from "effect";
 import { Client } from "pg";
+import type { DiagnosticLogger } from "@side-chat/shared";
 
 import { TURN_CANCEL_NOTIFY_CHANNEL } from "#schema-contract";
 import {
@@ -24,9 +25,10 @@ import {
  */
 export const createPostgresTurnCancelNotificationSource = (
   connectionString: string,
+  logger?: DiagnosticLogger,
 ): TurnCancelNotificationSource => ({
   notifications: Stream.callback<TurnCancelNotification>((queue) =>
-    openListenConnection(connectionString, queue),
+    openListenConnection(connectionString, queue, logger),
   ),
 });
 
@@ -40,6 +42,7 @@ export const createPostgresTurnCancelNotificationSource = (
 const openListenConnection = (
   connectionString: string,
   queue: Queue.Queue<TurnCancelNotification, Cause.Done>,
+  logger: DiagnosticLogger | undefined,
 ): Effect.Effect<void, never, Scope.Scope> =>
   Effect.gen(function* () {
     const client = new Client({ connectionString });
@@ -50,11 +53,25 @@ const openListenConnection = (
       const notification = parseTurnCancelNotification(message.payload);
       if (notification) Queue.offerUnsafe(queue, notification);
     });
+    // A dropped LISTEN connection is exactly the "deaf listener" failure the
+    // review found: surface it as a log line instead of a silent stall.
+    client.on("error", (error) =>
+      logger?.warn("listen connection error", {
+        channel: TURN_CANCEL_NOTIFY_CHANNEL,
+        error: error.message,
+      }),
+    );
 
     yield* connectAndListen(client);
+    logger?.info("listen connected", { channel: TURN_CANCEL_NOTIFY_CHANNEL });
 
     // Tear the dedicated connection down when the subscriber's scope closes.
-    yield* Effect.addFinalizer(() => Effect.promise(() => client.end()));
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(() => {
+        logger?.debug("listen closed", { channel: TURN_CANCEL_NOTIFY_CHANNEL });
+        return client.end();
+      }),
+    );
   });
 
 const connectAndListen = (client: Client): Effect.Effect<void> =>

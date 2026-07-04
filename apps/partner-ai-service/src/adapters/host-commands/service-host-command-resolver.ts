@@ -1,6 +1,6 @@
 import type { HostCommandResolveRequest, HostCommandResolver } from "@side-chat/agent-runtime";
 import type { ClockPort } from "@side-chat/partner-ai-core";
-import type { JsonObject } from "@side-chat/shared";
+import type { DiagnosticLogger, JsonObject } from "@side-chat/shared";
 import type { SidechatRepositories } from "@side-chat/db";
 
 /**
@@ -57,6 +57,8 @@ export type ServiceHostCommandResolverInput = {
   readonly workspaceId: string;
   readonly clock: ClockPort;
   readonly resultPollIntervalMs?: number | undefined;
+  /** Optional diagnostics for await/settle/timeout visibility (all at debug). */
+  readonly logger?: DiagnosticLogger | undefined;
 };
 
 type PendingCommand = {
@@ -85,8 +87,16 @@ export const createServiceHostCommandResolver = (
 
   const awaitResult = async (request: HostCommandResolveRequest): Promise<JsonObject> => {
     if (!input.hasConnectedClient(request.assistantTurnId)) {
+      input.logger?.debug("host command skipped: no connected client", {
+        assistantTurnId: request.assistantTurnId,
+        commandId: request.commandId,
+      });
       return NO_CONNECTED_CLIENT_RESULT;
     }
+    input.logger?.debug("host command awaiting browser result", {
+      assistantTurnId: request.assistantTurnId,
+      commandId: request.commandId,
+    });
     // The durable emit is what binds commandId to this turn for every instance's
     // result route. A failed write is swallowed: the local fast path still works,
     // only the cross-instance relay (which reads this row) is degraded.
@@ -155,7 +165,13 @@ const registerPending = (
     if (cleanup()) reject(new Error("Host command resolution was aborted."));
   };
   const timer = setTimeout(() => {
-    if (cleanup()) resolve(TIMED_OUT_RESULT);
+    if (cleanup()) {
+      input.logger?.debug("host command timed out", {
+        assistantTurnId: request.assistantTurnId,
+        commandId: request.commandId,
+      });
+      resolve(TIMED_OUT_RESULT);
+    }
   }, input.timeoutMs);
   timer.unref();
   const poll = setInterval(() => {

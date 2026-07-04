@@ -49,6 +49,14 @@ const sideChatConfig = defineSideChatConfig({
       defaultValue: false,
       description: "Whether local boot seeds deterministic demo conversations.",
     }),
+    logLevel: readEnv(SERVICE_ENV_KEYS.logLevel, {
+      defaultValue: "info",
+      description: "Minimum diagnostic log level: debug | info | warn | error.",
+    }),
+    logFormat: readEnv.optional(SERVICE_ENV_KEYS.logFormat, {
+      description:
+        "Diagnostic output format: pretty | json (default: pretty in development, json in production).",
+    }),
     tenantId: readEnv(SERVICE_ENV_KEYS.tenantId, {
       defaultValue: DEFAULT_TENANT_ID,
       description: "Default workspace tenant id used by service adapters.",

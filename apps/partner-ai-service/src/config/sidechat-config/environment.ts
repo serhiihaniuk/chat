@@ -7,10 +7,14 @@
  * protocol data.
  */
 import type { WorkspaceRef } from "@side-chat/partner-ai-core";
-import { omitUndefinedProperties } from "@side-chat/shared";
+import {
+  DIAGNOSTIC_LOG_LEVELS,
+  omitUndefinedProperties,
+  type DiagnosticLogLevel,
+} from "@side-chat/shared";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { PersistenceConfig } from "#composition/service-composition-types";
-import { SERVICE_PROFILES } from "../catalog/config-values.js";
+import { LOG_FORMATS, SERVICE_PROFILES, type LogFormatValue } from "../catalog/config-values.js";
 import {
   DEFAULT_SERVICE_PORT,
   DEFAULT_TENANT_ID,
@@ -66,6 +70,47 @@ export const createAuthConfig = (
     workspace,
     devBearerToken: rawToken,
   });
+};
+
+/** Resolved diagnostic-logging configuration for one boot. */
+export type ServiceLoggingConfig = {
+  readonly level: DiagnosticLogLevel;
+  readonly format: LogFormatValue;
+};
+
+/**
+ * Resolve the diagnostic log level and output format for this boot.
+ *
+ * Level defaults to `info` (the reference default); format has no static default
+ * because it follows the profile — `pretty` in development, `json` in production
+ * — unless `SIDECHAT_LOG_FORMAT` overrides it. Invalid values fail loud rather
+ * than silently degrading, matching the config system's fail-fast posture.
+ */
+export const readLoggingConfig = (
+  profile: ServiceProfile,
+  env: ServiceEnv,
+  environment: SideChatEnvironmentConfig,
+): ServiceLoggingConfig => ({
+  level: readLogLevel(readStringEnvReference(env, environment.logLevel)),
+  format: readLogFormat(profile, readStringEnvReference(env, environment.logFormat)),
+});
+
+const readLogLevel = (raw: string | undefined): DiagnosticLogLevel => {
+  if (raw === undefined) return "info";
+  if ((DIAGNOSTIC_LOG_LEVELS as readonly string[]).includes(raw)) return raw as DiagnosticLogLevel;
+  throw new ServiceConfigError(
+    `SIDECHAT_LOG_LEVEL must be one of ${DIAGNOSTIC_LOG_LEVELS.join(", ")}.`,
+  );
+};
+
+const readLogFormat = (profile: ServiceProfile, raw: string | undefined): LogFormatValue => {
+  if (raw === undefined) {
+    return profile === SERVICE_PROFILES.DEVELOPMENT ? LOG_FORMATS.PRETTY : LOG_FORMATS.JSON;
+  }
+  if (raw === LOG_FORMATS.PRETTY || raw === LOG_FORMATS.JSON) return raw;
+  throw new ServiceConfigError(
+    `SIDECHAT_LOG_FORMAT must be ${LOG_FORMATS.PRETTY} or ${LOG_FORMATS.JSON}.`,
+  );
 };
 
 export const createPersistenceConfig = (

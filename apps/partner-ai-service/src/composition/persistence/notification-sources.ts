@@ -9,6 +9,7 @@ import {
   type TurnActivityNotificationSource,
   type TurnCancelNotificationSource,
 } from "@side-chat/db";
+import type { DiagnosticLogger } from "@side-chat/shared";
 
 import type { PersistenceConfig } from "../service-composition-types.js";
 
@@ -23,9 +24,10 @@ import type { PersistenceConfig } from "../service-composition-types.js";
  */
 export const createCancelNotificationSource = (
   persistence: PersistenceConfig,
+  logger?: DiagnosticLogger,
 ): TurnCancelNotificationSource =>
   persistence.kind === "postgres"
-    ? createPostgresTurnCancelNotificationSource(persistence.databaseUrl)
+    ? createPostgresTurnCancelNotificationSource(persistence.databaseUrl, logger)
     : NOOP_TURN_CANCEL_NOTIFICATION_SOURCE;
 
 /**
@@ -38,9 +40,10 @@ export const createCancelNotificationSource = (
  */
 export const createActivityNotificationSource = (
   persistence: PersistenceConfig,
+  logger?: DiagnosticLogger,
 ): TurnActivityNotificationSource =>
   persistence.kind === "postgres"
-    ? createPostgresTurnActivityNotificationSource(persistence.databaseUrl)
+    ? createPostgresTurnActivityNotificationSource(persistence.databaseUrl, logger)
     : NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE;
 
 /**
@@ -54,7 +57,8 @@ export const createActivityNotificationSource = (
  */
 export const createHostCommandResultNotificationSource = (
   persistence: PersistenceConfig,
+  logger?: DiagnosticLogger,
 ): HostCommandResultNotificationSource =>
   persistence.kind === "postgres"
-    ? createPostgresHostCommandResultNotificationSource(persistence.databaseUrl)
+    ? createPostgresHostCommandResultNotificationSource(persistence.databaseUrl, logger)
     : NOOP_HOST_COMMAND_RESULT_NOTIFICATION_SOURCE;

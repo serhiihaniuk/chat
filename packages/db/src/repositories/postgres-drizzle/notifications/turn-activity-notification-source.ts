@@ -1,5 +1,6 @@
 import { type Cause, Effect, Queue, type Scope, Stream } from "effect";
 import { Client } from "pg";
+import type { DiagnosticLogger } from "@side-chat/shared";
 
 import { TURN_ACTIVITY_NOTIFY_CHANNEL } from "#schema-contract";
 import {
@@ -19,15 +20,17 @@ import {
  */
 export const createPostgresTurnActivityNotificationSource = (
   connectionString: string,
+  logger?: DiagnosticLogger,
 ): TurnActivityNotificationSource => ({
   notifications: Stream.callback<TurnActivityNotification>((queue) =>
-    openListenConnection(connectionString, queue),
+    openListenConnection(connectionString, queue, logger),
   ),
 });
 
 const openListenConnection = (
   connectionString: string,
   queue: Queue.Queue<TurnActivityNotification, Cause.Done>,
+  logger: DiagnosticLogger | undefined,
 ): Effect.Effect<void, never, Scope.Scope> =>
   Effect.gen(function* () {
     const client = new Client({ connectionString });
@@ -36,10 +39,22 @@ const openListenConnection = (
       const notification = parseTurnActivityNotification(message.payload);
       if (notification) Queue.offerUnsafe(queue, notification);
     });
+    client.on("error", (error) =>
+      logger?.warn("listen connection error", {
+        channel: TURN_ACTIVITY_NOTIFY_CHANNEL,
+        error: error.message,
+      }),
+    );
 
     yield* connectAndListen(client);
+    logger?.info("listen connected", { channel: TURN_ACTIVITY_NOTIFY_CHANNEL });
 
-    yield* Effect.addFinalizer(() => Effect.promise(() => client.end()));
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(() => {
+        logger?.debug("listen closed", { channel: TURN_ACTIVITY_NOTIFY_CHANNEL });
+        return client.end();
+      }),
+    );
   });
 
 const connectAndListen = (client: Client): Effect.Effect<void> =>

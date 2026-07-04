@@ -1,9 +1,12 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
+  SILENT_DIAGNOSTIC_LOGGER,
   compactJsonObject,
   omitNullishField,
   omitUndefinedField,
   omitUndefinedProperties,
+  redactAttributes,
+  shouldEmitDiagnostic,
   type OmitUndefinedProperties,
 } from "./index.js";
 
@@ -89,5 +92,35 @@ describe("compactJsonObject", () => {
       kept: "value",
       empty: null,
     });
+  });
+});
+
+describe("redactAttributes", () => {
+  it("redacts sensitive keys recursively while keeping benign fields", () => {
+    expect(
+      redactAttributes({
+        model: "fake-echo",
+        prompt: "system instructions",
+        nested: { apiKey: "sk-123", count: 2 },
+        list: [{ token: "abc" }, { safe: "ok" }],
+      }),
+    ).toEqual({
+      model: "fake-echo",
+      prompt: "[redacted]",
+      nested: { apiKey: "[redacted]", count: 2 },
+      list: [{ token: "[redacted]" }, { safe: "ok" }],
+    });
+  });
+});
+
+describe("diagnostic logger contract", () => {
+  it("filters by configured minimum level", () => {
+    expect(shouldEmitDiagnostic("info", "debug")).toBe(false);
+    expect(shouldEmitDiagnostic("info", "info")).toBe(true);
+    expect(shouldEmitDiagnostic("warn", "error")).toBe(true);
+  });
+
+  it("SILENT_DIAGNOSTIC_LOGGER never throws", () => {
+    expect(() => SILENT_DIAGNOSTIC_LOGGER.error("boom", { detail: "x" })).not.toThrow();
   });
 });

@@ -23,6 +23,10 @@ export type SideChatEnvironmentConfig = {
   readonly databaseUrl: SideChatStringEnvReference;
   /** Enables deterministic demo conversation seeding for local boot. */
   readonly demoSeedConversations: SideChatBooleanEnvReference;
+  /** Minimum diagnostic log level: `debug` | `info` | `warn` | `error` (default `info`). */
+  readonly logLevel: SideChatStringEnvReference;
+  /** Diagnostic output format: `pretty` | `json`; absence defaults by profile. */
+  readonly logFormat: SideChatStringEnvReference;
   /** Workspace scope used when requests do not carry a host-specific identity. */
   readonly tenantId: SideChatStringEnvReference;
   /** Workspace id used by repository and authorization adapters. */

@@ -41,6 +41,13 @@ export const SERVICE_PROFILES = {
 
 export type ServiceProfileValue = ObjectValue<typeof SERVICE_PROFILES>;
 
+export const LOG_FORMATS = {
+  PRETTY: "pretty",
+  JSON: "json",
+} as const;
+
+export type LogFormatValue = ObjectValue<typeof LOG_FORMATS>;
+
 export const REQUEST_POLICY_MODES = {
   ALLOW_ALL: "allow_all",
   FAIL_CLOSED: "fail_closed",

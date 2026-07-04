@@ -133,3 +133,13 @@ export const omitNullishField = <Key extends string, Value>(
   value: Value,
 ): OmitNullishField<Key, Value> =>
   value === null || value === undefined ? {} : ({ [key]: value } as OmitNullishField<Key, Value>);
+
+export { redactAttributes, safeJsonPrimitive } from "./redaction.js";
+export {
+  DIAGNOSTIC_LOG_LEVELS,
+  SILENT_DIAGNOSTIC_LOGGER,
+  shouldEmitDiagnostic,
+  type DiagnosticLogFields,
+  type DiagnosticLogLevel,
+  type DiagnosticLogger,
+} from "./diagnostic-logger.js";

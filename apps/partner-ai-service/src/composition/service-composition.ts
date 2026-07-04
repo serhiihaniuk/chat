@@ -1,3 +1,4 @@
+import { SILENT_DIAGNOSTIC_LOGGER } from "@side-chat/shared";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
 import { createInMemoryTurnEventLog } from "#adapters/persistence/turn-events/in-memory-turn-event-log";
 import { createHostCommandResultDispatcher } from "#adapters/host-commands/host-command-result-dispatcher";
@@ -97,6 +98,7 @@ export type {
  * adapters instead of relying on the development fallbacks each factory owns.
  */
 export const composePartnerAiService = (options: ServiceCompositionOptions): ServiceComposition => {
+  const logger = options.diagnosticLogger ?? SILENT_DIAGNOSTIC_LOGGER;
   const turnGuards = options.turnGuards ?? createNoopTurnGuardRegistry();
 
   const security = createServiceSecurityPorts(options);
@@ -131,6 +133,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     repositories: persistence.repositories,
     workspaceId: options.workspace.workspaceId,
     clock: systemClock,
+    logger,
   });
   const runtime = createServiceRuntimeBundle(options, { providers, tools, hostCommandResolver });
   const streamChat = createStreamChatPorts({
@@ -183,7 +186,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   // this instance owns the named turn (a no-op otherwise).
   const cancelDispatcher = createTurnCancelDispatcher({
     runner: turnRunner,
-    notificationSource: createCancelNotificationSource(persistence.persistence),
+    notificationSource: createCancelNotificationSource(persistence.persistence, logger),
   });
 
   // The activity dispatcher fans subject-scoped turn lifecycle out to the
@@ -191,7 +194,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   // on every conversation with an in-flight turn. The notification carries the
   // full event, so no persistence read is needed per signal.
   const activityDispatcher = createTurnActivityDispatcher({
-    notificationSource: createActivityNotificationSource(persistence.persistence),
+    notificationSource: createActivityNotificationSource(persistence.persistence, logger),
   });
 
   // The result dispatcher is the cross-instance half of the host-command relay:
@@ -202,7 +205,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     resolver: hostCommandResolver,
     repositories: persistence.repositories,
     workspaceId: options.workspace.workspaceId,
-    notificationSource: createHostCommandResultNotificationSource(persistence.persistence),
+    notificationSource: createHostCommandResultNotificationSource(persistence.persistence, logger),
   });
 
   return {

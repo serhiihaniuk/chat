@@ -45,6 +45,8 @@ The config never reads `process.env` directly. Each process input is a `readEnv`
 
 Env variable names are centralized, not typed inline. They live in `SERVICE_ENV_KEYS` ([`src/config/env/service-env-contract.ts`](../../apps/partner-ai-service/src/config/env/service-env-contract.ts)), a dependency-free leaf the config files and the boot-path resolvers share. Add a key there, then reference it from the config. Provider secrets keep their canonical names in the provider catalog (`PROVIDERS.*.SECRET_ENV_KEYS`).
 
+Diagnostic logging is configured the same way: `environment.logLevel` (`SIDECHAT_LOG_LEVEL`, default `info`) and `environment.logFormat` (`SIDECHAT_LOG_FORMAT`, default `pretty` in development and `json` in production) select the console log verbosity and shape. For what each level prints, see [local-development.md](./local-development.md) "Run with logs".
+
 ## How the service loads it
 
 The typed config object is the ONE config system — there is no fallback:

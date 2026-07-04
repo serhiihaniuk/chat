@@ -81,9 +81,10 @@ Full walkthrough with a runnable example: [host-commands.md](host-commands.md). 
 
 ### Add an observability sink
 
-1. Implement an `ObservabilitySinkPort` and pass it as `options.observability`.
-2. Treat every record as already redacted; never log raw prompts, provider output, or tool payloads.
-3. The service `observability/` folder exists but ships no sink yet. The contract and `NOOP_OBSERVABILITY_SINK` default both live in [observability.ts](../../packages/partner-ai-core/src/services/observability.ts); core redacts records before your sink receives them.
+1. Implement an `ObservabilitySinkPort` and pass it as `options.observability` — an explicit sink always wins over the profile default.
+2. Treat every record as already redacted; never log raw prompts, provider output, or tool payloads. Core redacts records before your sink receives them.
+3. A real sink already ships: [`createConsoleObservabilitySink`](../../apps/partner-ai-service/src/adapters/observability/console-observability-sink.ts) renders each `ObservabilityRecord` as one compact line and doubles as the copy-me recipe. Development installs it by default; production defaults to `NOOP_OBSERVABILITY_SINK`. The contract and no-op default live in [observability.ts](../../packages/partner-ai-core/src/services/observability.ts).
+4. For events that have no turn (boot, config fallback, LISTEN drops, shutdown), use the second channel — the `DiagnosticLogger` ([@side-chat/shared](../../packages/shared/src/diagnostic-logger.ts)), a plain leveled logger, not the turn-scoped sink (ADR [0011](../adr/0011-observability-channels-and-console-first-dev.md)).
 
 ### Add a persistence adapter
 

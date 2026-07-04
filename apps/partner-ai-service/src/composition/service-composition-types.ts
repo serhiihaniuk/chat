@@ -15,6 +15,7 @@ import type {
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import type { SidechatRepositories } from "@side-chat/db";
+import type { DiagnosticLogger } from "@side-chat/shared";
 import type { TurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
 import type { TurnEventDispatcher } from "#inbound/turn-stream/turn-event-dispatcher";
@@ -210,6 +211,8 @@ export type ServiceCompositionOptions = {
   readonly agentRuntime?: AgentRuntime | undefined;
   readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
+  /** Operational diagnostic logger; composition defaults to silent when omitted. */
+  readonly diagnosticLogger?: DiagnosticLogger | undefined;
   /** Capability declarations for implemented service context behavior. */
   readonly capabilities?: ServiceCapabilityConfig | undefined;
   /** Explicit turn profile configuration; defaults to the built-in default profile. */

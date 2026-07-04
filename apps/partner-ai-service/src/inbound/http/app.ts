@@ -6,6 +6,7 @@ import type {
 } from "@side-chat/partner-ai-core";
 import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
+import type { DiagnosticLogger } from "@side-chat/shared";
 import { Hono } from "hono";
 
 import {
@@ -62,6 +63,12 @@ export type PartnerAiServiceOptions = {
    */
   readonly authVerifier?: ServiceAuthVerifier | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
+  /**
+   * Operational diagnostic logger for non-turn events (boot, config fallback,
+   * LISTEN drops, shutdown). Config-driven boot installs a console logger by
+   * profile; a programmatic embedder that omits it stays silent.
+   */
+  readonly diagnosticLogger?: DiagnosticLogger | undefined;
   readonly policies?: ServicePolicyConfig | undefined;
   readonly persistence?: PersistenceConfig | undefined;
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
@@ -93,6 +100,12 @@ export type PartnerAiServiceOptions = {
 export type PartnerAiService = {
   readonly app: PartnerAiServiceApp;
   readonly shutdown: () => Promise<void>;
+  /** Secret-free boot facts for the startup log line. */
+  readonly diagnostics: {
+    readonly providerId: string;
+    readonly modelId: string;
+    readonly persistenceLabel: string;
+  };
 };
 
 /**
@@ -165,7 +178,15 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
     sseHeartbeatIntervalMs: composition.sseHeartbeatIntervalMs,
   });
 
-  return { app, shutdown: composition.shutdown };
+  return {
+    app,
+    shutdown: composition.shutdown,
+    diagnostics: {
+      providerId: composition.diagnostics.runtimeProviderId,
+      modelId: composition.diagnostics.runtimeModelId,
+      persistenceLabel: composition.diagnostics.persistenceLabel,
+    },
+  };
 };
 
 export type PartnerAiServiceApp = Hono<AuthContextVariables>;
@@ -191,6 +212,7 @@ const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositio
   agentRuntime: options.agentRuntime,
   conversationTitleGeneration: options.conversationTitleGeneration,
   observability: options.observability,
+  diagnosticLogger: options.diagnosticLogger,
   capabilities: options.capabilities,
   turnProfiles: options.turnProfiles,
   defaultTurnProfileId: options.defaultTurnProfileId,
