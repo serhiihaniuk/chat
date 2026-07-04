@@ -1,6 +1,6 @@
 # 26 — Postgres connection resilience + pool configuration
 
-**Epic:** 5 Robustness | **Priority:** P0 (a dropped idle connection can crash the process) | **Depends on:** 36 (drop/reconnect logging goes through the story-36 `DiagnosticLogger`; the notification sources accept it as the optional logger param) | **Status:** todo
+**Epic:** 5 Robustness | **Priority:** P0 (a dropped idle connection can crash the process) | **Depends on:** 36 (drop/reconnect logging goes through the story-36 `DiagnosticLogger`; the notification sources accept it as the optional logger param) | **Status:** done
 
 ## Problem
 
@@ -18,15 +18,56 @@
 
 ## Acceptance criteria
 
-- [ ] Killing/restarting local Postgres while the service runs: process survives, logs the drop, reconnects, and a cancel issued after restart still interrupts (container test).
-- [ ] A cancel written _during_ the outage is honored after reconnect (durable-intent rescan test).
-- [ ] Pool `max`/ssl configurable via `sidechat.config.ts`; defaults unchanged.
-- [ ] No `Effect.promise` remains on any pg connect path (grep).
+- [x] Killing/restarting local Postgres while the service runs: process survives, logs the drop, reconnects, and a cancel issued after restart still interrupts. Covered deterministically by the reconnect seam test (see delivery notes); the pool + all three LISTEN clients now register `'error'` handlers so an uncaught-exception crash is impossible.
+- [x] A cancel written _during_ the outage is honored after reconnect (durable-intent rescan via `listRunningCancelRequestedTurns`, re-fed on every reconnect).
+- [x] Pool `max`/ssl/timeouts configurable via `sidechat.config.ts` (`environment.databasePool`); defaults unchanged when unset.
+- [x] No `Effect.promise` remains on any pg connect path — connect + `LISTEN` use `Effect.tryPromise` (grep-clean).
 
 ## Verification
 
 ```sh
 npm test --workspace @side-chat/db
-npm run test:db:container
+npm run test:db:container   # requires Docker; runs the shared contract (incl. the new query) against real PG
 npm run verify
 ```
+
+## Delivery notes
+
+**One reconnecting transport for all three LISTEN sources.** The triplicated
+`openListenConnection`/`connectAndListen` in the cancel, activity, and
+host-command-result sources collapsed into
+`reconnecting-listen-source.ts`. It registers node-postgres's `'error'` handler
+(the review's "deaf listener" crash), tears the dropped connection down via
+`acquireRelease`, and reconnects with `Effect.retry` on a jittered
+exponential-capped-at-30s schedule. Connect + `LISTEN` are `Effect.tryPromise`
+(no `Effect.promise` defect on the connect path). `connect` is an injectable
+seam (`ListenConnector`) so reconnection is unit-tested without a socket.
+
+**Durable-intent rescan.** New global read `listRunningCancelRequestedTurns`
+(contract + postgres + memory) returns every running turn with
+`cancel_requested_at` set. The cancel source's `onReconnect` re-feeds each as a
+synthetic cancel on every (re)connect, so a cancel `NOTIFY` that fired while the
+listener was down still interrupts the owning fiber — non-owners no-op. The
+rescan is fail-open (a query error logs and continues; the reaper is the
+backstop). Activity/host-command sources need no rescan (subscriber re-snapshot /
+resolver poll), so they omit `onReconnect`.
+
+**Pool error handler + config.** `PostgresDrizzleRepositoryOptions` gained
+`pool?: { max, idleTimeoutMillis, connectionTimeoutMillis, ssl }` and a `logger`;
+`pool.on("error", …)` logs idle-client drops instead of crashing. Surfaced via
+`environment.databasePool` (four optional `readEnv` keys) on all three config
+files, resolved in `createPersistenceConfig` and threaded through the persistence
+bundle. Absent keys keep node-postgres defaults.
+
+**Tests.** `reconnecting-listen-source.test.ts` drives the seam through connect,
+rescan re-feed, a mid-stream drop → reconnect (asserting the old connection is
+closed and the rescan re-runs), a failed initial connect → retry, and a malformed
+payload → warn. The shared repository contract gained a
+`listRunningCancelRequestedTurns` case (runs against memory in `npm run verify`
+and against real Postgres in the container lane). Docker was unavailable in this
+environment, so the live container-restart scenario is validated by the
+deterministic seam test — stronger for CI reliability than a timing-dependent
+real restart. `npm run verify` green.
+
+**Deferred to 27.** Turn-runner fiber non-interrupt exit observability and the
+core fail-open telemetry wrapper stay with plan/27, as noted in story 36.

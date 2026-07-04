@@ -47,6 +47,23 @@ export const findMemoryActiveAssistantTurn =
       .sort((left, right) => (left.startedAt < right.startedAt ? 1 : -1))[0];
   };
 
+/**
+ * Every running turn carrying durable cancel intent, across all workspaces.
+ *
+ * The memory adapter is single-instance and cancels interrupt in-process, so no
+ * listener re-scans this in practice; it exists to satisfy the shared contract.
+ */
+export const listMemoryRunningCancelRequestedTurns =
+  ({
+    store,
+  }: MemoryStoreContext): AssistantTurnRepositoryContract["listRunningCancelRequestedTurns"] =>
+  async () => {
+    await Promise.resolve();
+    return store.assistantTurns
+      .filter((turn) => turn.status === "running" && turn.cancelRequestedAt !== undefined)
+      .map((turn) => ({ workspaceId: turn.workspaceId, assistantTurnId: turn.assistantTurnId }));
+  };
+
 /** Every running turn for a subject across conversations (activity snapshot). */
 export const listMemoryActiveAssistantTurns =
   ({ store }: MemoryStoreContext): AssistantTurnRepositoryContract["listActiveAssistantTurns"] =>

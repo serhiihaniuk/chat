@@ -56,6 +56,20 @@ const sideChatAzureConfig = defineSideChatConfig({
       required: false,
       description: "Left unset on purpose: absence selects in-memory persistence.",
     }),
+    databasePool: {
+      max: readEnv.number(SERVICE_ENV_KEYS.databasePoolMax, {
+        description: "Max pooled Postgres connections (node-postgres default: 10).",
+      }),
+      idleTimeoutMillis: readEnv.number(SERVICE_ENV_KEYS.databasePoolIdleTimeoutMs, {
+        description: "Idle-connection timeout in ms before the pool releases it.",
+      }),
+      connectionTimeoutMillis: readEnv.number(SERVICE_ENV_KEYS.databasePoolConnectionTimeoutMs, {
+        description: "Timeout in ms to acquire a new pooled connection before failing.",
+      }),
+      ssl: readEnv.boolean(SERVICE_ENV_KEYS.databasePoolSsl, {
+        description: "Enable TLS for the query pool (managed Postgres).",
+      }),
+    },
     demoSeedConversations: readEnv.boolean(SERVICE_ENV_KEYS.demoSeedConversations, {
       defaultValue: false,
       description: "Whether local boot seeds deterministic demo conversations.",

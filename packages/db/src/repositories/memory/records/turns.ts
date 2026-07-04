@@ -10,6 +10,7 @@ import {
   findMemoryAssistantTurn,
   findMemoryAssistantTurnByRequest,
   listMemoryActiveAssistantTurns,
+  listMemoryRunningCancelRequestedTurns,
 } from "./turn-lookups.js";
 import { updateTurn } from "../store/store.js";
 import { result } from "../../repository-utils.js";
@@ -28,6 +29,7 @@ export const createMemoryAssistantTurnRepository = ({
   | "findAssistantTurnByRequest"
   | "findActiveAssistantTurn"
   | "listActiveAssistantTurns"
+  | "listRunningCancelRequestedTurns"
 > => ({
   startAssistantTurn: startMemoryAssistantTurn({ ids, store }),
   recordTurnContextSnapshot: recordMemoryTurnContextSnapshot({ ids, store }),
@@ -38,6 +40,7 @@ export const createMemoryAssistantTurnRepository = ({
   findAssistantTurnByRequest: findMemoryAssistantTurnByRequest({ store }),
   findActiveAssistantTurn: findMemoryActiveAssistantTurn({ store }),
   listActiveAssistantTurns: listMemoryActiveAssistantTurns({ store }),
+  listRunningCancelRequestedTurns: listMemoryRunningCancelRequestedTurns({ store }),
 });
 
 const startMemoryAssistantTurn =

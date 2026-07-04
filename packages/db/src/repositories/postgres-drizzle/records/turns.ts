@@ -17,6 +17,7 @@ import {
   findAssistantTurn,
   findAssistantTurnByRequest,
   listActiveAssistantTurns,
+  listRunningCancelRequestedTurns,
 } from "./turn-lookups.js";
 import { readUsageSummary, recordUsage } from "./usage.js";
 import { one, optional, result } from "../../repository-utils.js";
@@ -68,6 +69,7 @@ export const createPostgresDrizzleTurnRepository = ({
   | "findAssistantTurn"
   | "findAssistantTurnByRequest"
   | "listActiveAssistantTurns"
+  | "listRunningCancelRequestedTurns"
   | "recordTurnContextSnapshot"
   | "recordUsage"
   | "readUsageSummary"
@@ -243,6 +245,7 @@ export const createPostgresDrizzleTurnRepository = ({
   findAssistantTurnByRequest: findAssistantTurnByRequest(db),
   findActiveAssistantTurn: findActiveAssistantTurn(db),
   listActiveAssistantTurns: listActiveAssistantTurns(db),
+  listRunningCancelRequestedTurns: listRunningCancelRequestedTurns(db),
   recordUsage: recordUsage({ db, ids }),
   readUsageSummary: readUsageSummary({ db, ids }),
 });

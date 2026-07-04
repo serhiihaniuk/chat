@@ -78,7 +78,7 @@ export const createPartnerAiServiceOptionsFromConfig = (
     policies: createPolicyConfig(profile, config),
     runtime: createRuntimeConfig(profile, providerKind, config, env),
     capabilities: config.context,
-    persistence: createPersistenceConfig(profile, env, config.environment.databaseUrl),
+    persistence: createPersistenceConfig(profile, env, config.environment),
     conversationTitleGeneration: createConversationTitleGeneration(config),
     // Console-first by profile: development sees the turn lifecycle in the console
     // through the real sink; production stays NOOP until an adopter installs one.

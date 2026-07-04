@@ -1,7 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { assistantTurns, type sidechatTables } from "#drizzle/schema";
+import { toAssistantTurnId, toWorkspaceId } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
 import { toAssistantTurnRecord } from "./records.js";
 
@@ -71,6 +72,32 @@ export const findActiveAssistantTurn =
       .orderBy(desc(assistantTurns.startedAt))
       .limit(1);
     return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
+  };
+
+/**
+ * Read every running turn carrying durable cancel intent, across all workspaces.
+ *
+ * The cancel LISTEN source re-scans this after each (re)connect so a cancel
+ * requested during a listener outage is still honored. It is intentionally
+ * unscoped: the process re-feeds each id as a synthetic cancel signal and only
+ * interrupts the turns it owns (a no-op otherwise).
+ */
+export const listRunningCancelRequestedTurns =
+  (db: TurnLookupDb): SidechatRepositories["listRunningCancelRequestedTurns"] =>
+  async () => {
+    const rows = await db
+      .select({
+        workspaceId: assistantTurns.workspaceId,
+        assistantTurnId: assistantTurns.assistantTurnId,
+      })
+      .from(assistantTurns)
+      .where(
+        and(eq(assistantTurns.status, "running"), isNotNull(assistantTurns.cancelRequestedAt)),
+      );
+    return rows.map((row) => ({
+      workspaceId: toWorkspaceId(row.workspaceId),
+      assistantTurnId: toAssistantTurnId(row.assistantTurnId),
+    }));
   };
 
 /**

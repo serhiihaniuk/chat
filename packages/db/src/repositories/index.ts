@@ -18,6 +18,7 @@ export {
   createPostgresTurnCancelNotificationSource,
   type PostgresDrizzleRepositoryOptions,
   type PostgresDrizzleSidechatRepositories,
+  type PostgresPoolOptions,
 } from "./postgres-drizzle/index.js";
 export {
   NOOP_TURN_CANCEL_NOTIFICATION_SOURCE,

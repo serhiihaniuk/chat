@@ -143,6 +143,50 @@ export const turnResolutionRepositoryContract = (
       }
     });
 
+    it("surfaces running turns with durable cancel intent for the reconnect rescan", async () => {
+      const repositories = createRepositories();
+      const scope = nextScope();
+      try {
+        const turn = await startTurn(repositories, scope);
+
+        // Before a cancel is requested the turn is not in the rescan set.
+        await expect(repositories.listRunningCancelRequestedTurns()).resolves.not.toContainEqual(
+          expect.objectContaining({ assistantTurnId: turn.assistantTurnId }),
+        );
+
+        await repositories.requestTurnCancellation({
+          workspaceId: workspaceId(scope),
+          subjectId: subjectId(scope),
+          assistantTurnId: turn.assistantTurnId,
+          now,
+        });
+
+        // A running turn with durable cancel intent is exactly what a reconnecting
+        // listener re-feeds so a cancel from the outage still interrupts.
+        await expect(repositories.listRunningCancelRequestedTurns()).resolves.toContainEqual(
+          expect.objectContaining({
+            workspaceId: workspaceId(scope),
+            assistantTurnId: turn.assistantTurnId,
+          }),
+        );
+
+        // Once terminal it drops out — the fiber is gone, so there is nothing left
+        // to interrupt on the next reconnect.
+        await repositories.failAssistantTurn({
+          workspaceId: workspaceId(scope),
+          assistantTurnId: turn.assistantTurnId,
+          status: "user_aborted",
+          errorCode: "aborted",
+          now,
+        });
+        await expect(repositories.listRunningCancelRequestedTurns()).resolves.not.toContainEqual(
+          expect.objectContaining({ assistantTurnId: turn.assistantTurnId }),
+        );
+      } finally {
+        await closeIfNeeded(repositories);
+      }
+    });
+
     it("does not cancel an unknown, cross-workspace, or cross-subject turn", async () => {
       const repositories = createRepositories();
       const scope = nextScope();

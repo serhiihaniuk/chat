@@ -13,6 +13,10 @@ export type ServiceEnv = Readonly<Record<string, string | undefined>>;
 export const SERVICE_ENV_KEYS = {
   authBearerToken: "SIDECHAT_AUTH_BEARER_TOKEN",
   databaseUrl: "SIDECHAT_DATABASE_URL",
+  databasePoolMax: "SIDECHAT_DATABASE_POOL_MAX",
+  databasePoolIdleTimeoutMs: "SIDECHAT_DATABASE_POOL_IDLE_TIMEOUT_MS",
+  databasePoolConnectionTimeoutMs: "SIDECHAT_DATABASE_POOL_CONNECTION_TIMEOUT_MS",
+  databasePoolSsl: "SIDECHAT_DATABASE_POOL_SSL",
   demoSeedConversations: "SIDECHAT_DEMO_SEED_CONVERSATIONS",
   port: "PORT",
   profile: "SIDECHAT_PROFILE",

@@ -186,7 +186,11 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
   // this instance owns the named turn (a no-op otherwise).
   const cancelDispatcher = createTurnCancelDispatcher({
     runner: turnRunner,
-    notificationSource: createCancelNotificationSource(persistence.persistence, logger),
+    notificationSource: createCancelNotificationSource(
+      persistence.persistence,
+      persistence.repositories,
+      logger,
+    ),
   });
 
   // The activity dispatcher fans subject-scoped turn lifecycle out to the

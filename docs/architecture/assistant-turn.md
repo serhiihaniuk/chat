@@ -209,6 +209,27 @@ instance. The fiber interrupt aborts the provider call for real (the
 `AbortController` reaches the AI SDK), and finalization writes
 `user_aborted` / `aborted`.
 
+## Connection resilience
+
+The three cross-instance wake signals — cancel, turn activity, and host-command
+result — each hold one dedicated Postgres `LISTEN` connection, separate from the
+query pool so they survive PgBouncer transaction pooling. All three share one
+reconnecting transport
+(`repositories/postgres-drizzle/notifications/reconnecting-listen-source.ts`): it
+registers node-postgres's `'error'` handler (an unhandled one crashes the
+process), closes the dropped connection, and reconnects with jittered,
+capped-exponential backoff. The query pool likewise logs its idle-client
+`'error'` instead of faulting. So a Postgres restart or a load-balancer
+idle-timeout no longer kills the service — the listeners re-establish and resume.
+
+`NOTIFY` is only a poke, so a signal delivered while a listener was disconnected
+would be lost. Each transport recovers differently: on every (re)connect the
+cancel source re-scans running turns with durable `cancel_requested_at`
+(`listRunningCancelRequestedTurns`) and re-feeds each as a synthetic cancel, so a
+cancel from the outage still interrupts; activity subscribers re-read their
+snapshot on their own reconnect; the host-command resolver polls the durable row.
+The reaper remains the ultimate backstop for anything a reconnect misses.
+
 ## Idempotency
 
 Idempotency is `requestId`-only. A repeated `(workspace_id, request_id)`

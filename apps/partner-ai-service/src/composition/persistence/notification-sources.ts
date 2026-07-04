@@ -6,6 +6,7 @@ import {
   NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE,
   NOOP_TURN_CANCEL_NOTIFICATION_SOURCE,
   type HostCommandResultNotificationSource,
+  type SidechatRepositories,
   type TurnActivityNotificationSource,
   type TurnCancelNotificationSource,
 } from "@side-chat/db";
@@ -24,10 +25,20 @@ import type { PersistenceConfig } from "../service-composition-types.js";
  */
 export const createCancelNotificationSource = (
   persistence: PersistenceConfig,
+  repositories: SidechatRepositories,
   logger?: DiagnosticLogger,
 ): TurnCancelNotificationSource =>
   persistence.kind === "postgres"
-    ? createPostgresTurnCancelNotificationSource(persistence.databaseUrl, logger)
+    ? createPostgresTurnCancelNotificationSource(
+        persistence.databaseUrl,
+        logger,
+        // On each (re)connect, re-surface running turns with durable cancel intent
+        // so a cancel that fired while the listener was down still interrupts.
+        async () =>
+          (await repositories.listRunningCancelRequestedTurns()).map(
+            (turn) => turn.assistantTurnId,
+          ),
+      )
     : NOOP_TURN_CANCEL_NOTIFICATION_SOURCE;
 
 /**

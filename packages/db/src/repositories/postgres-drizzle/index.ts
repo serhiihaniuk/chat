@@ -1,5 +1,6 @@
+import { omitUndefinedProperties, type DiagnosticLogger } from "@side-chat/shared";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Pool, type PoolConfig } from "pg";
 
 import { sidechatTables } from "#drizzle/schema";
 import { REPOSITORY_ADAPTER_KINDS, type SidechatRepositories } from "../contract.js";
@@ -13,8 +14,25 @@ export { createPostgresTurnCancelNotificationSource } from "./notifications/turn
 export { createPostgresTurnActivityNotificationSource } from "./notifications/turn-activity-notification-source.js";
 export { createPostgresHostCommandResultNotificationSource } from "./notifications/host-command-result-notification-source.js";
 
+/** Tunables for the shared query pool; absent fields keep node-postgres defaults. */
+export type PostgresPoolOptions = {
+  readonly max?: number | undefined;
+  readonly idleTimeoutMillis?: number | undefined;
+  readonly connectionTimeoutMillis?: number | undefined;
+  readonly ssl?: boolean | undefined;
+};
+
 export type PostgresDrizzleRepositoryOptions = {
   readonly connectionString: string;
+  /** Query-pool tunables surfaced from `sidechat.config.ts`. */
+  readonly pool?: PostgresPoolOptions | undefined;
+  /**
+   * Diagnostic logger for the pool's `'error'` events. node-postgres emits
+   * `'error'` on an idle client whose connection dropped; without a handler Node
+   * treats it as an uncaught exception and crashes the process. Logging it keeps
+   * the pool fail-open — the next query re-establishes a connection.
+   */
+  readonly logger?: DiagnosticLogger | undefined;
 };
 
 export type PostgresDrizzleSidechatRepositories = SidechatRepositories & {
@@ -23,10 +41,24 @@ export type PostgresDrizzleSidechatRepositories = SidechatRepositories & {
   readonly close: () => Promise<void>;
 };
 
+const toPoolConfig = (options: PostgresDrizzleRepositoryOptions): PoolConfig =>
+  omitUndefinedProperties({
+    connectionString: options.connectionString,
+    max: options.pool?.max,
+    idleTimeoutMillis: options.pool?.idleTimeoutMillis,
+    connectionTimeoutMillis: options.pool?.connectionTimeoutMillis,
+    ssl: options.pool?.ssl,
+  });
+
 export const createPostgresDrizzleSidechatRepositories = (
   options: PostgresDrizzleRepositoryOptions,
 ): PostgresDrizzleSidechatRepositories => {
-  const pool = new Pool({ connectionString: options.connectionString });
+  const pool = new Pool(toPoolConfig(options));
+  // A dropped idle connection surfaces here; swallowing-with-a-log keeps a
+  // Postgres restart or LB idle-timeout from crashing the process.
+  pool.on("error", (error) =>
+    options.logger?.error("postgres pool error", { error: error.message }),
+  );
   const context = {
     db: drizzle(pool, { schema: sidechatTables }),
     ids: createRandomIdGenerator("pg"),

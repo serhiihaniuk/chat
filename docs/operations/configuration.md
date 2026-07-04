@@ -47,6 +47,17 @@ Env variable names are centralized, not typed inline. They live in `SERVICE_ENV_
 
 Diagnostic logging is configured the same way: `environment.logLevel` (`SIDECHAT_LOG_LEVEL`, default `info`) and `environment.logFormat` (`SIDECHAT_LOG_FORMAT`, default `pretty` in development and `json` in production) select the console log verbosity and shape. For what each level prints, see [local-development.md](./local-development.md) "Run with logs".
 
+The Postgres query pool is tunable through `environment.databasePool`; each key is optional and absence keeps the node-postgres default. Set them only to override:
+
+| Env variable                                   | Pool option               | Default       |
+| ---------------------------------------------- | ------------------------- | ------------- |
+| `SIDECHAT_DATABASE_POOL_MAX`                   | `max`                     | 10            |
+| `SIDECHAT_DATABASE_POOL_IDLE_TIMEOUT_MS`       | `idleTimeoutMillis`       | node-postgres |
+| `SIDECHAT_DATABASE_POOL_CONNECTION_TIMEOUT_MS` | `connectionTimeoutMillis` | node-postgres |
+| `SIDECHAT_DATABASE_POOL_SSL`                   | `ssl` (TLS on/off)        | off           |
+
+These apply to the shared query pool. The three dedicated `LISTEN` connections (cancel, activity, host-command result) are not pooled; enable TLS for them through the connection string's `sslmode`. Both the pool and the `LISTEN` connections now survive a database restart — see [assistant-turn.md](../architecture/assistant-turn.md) "Connection resilience".
+
 ## How the service loads it
 
 The typed config object is the ONE config system — there is no fallback:

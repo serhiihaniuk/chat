@@ -12,6 +12,8 @@ import {
   type SidechatRepositories,
 } from "@side-chat/db";
 
+import type { DiagnosticLogger } from "@side-chat/shared";
+
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { PersistenceConfig, ServiceCompositionOptions } from "../service-composition-types.js";
 import type { ServicePersistenceBundle, ServiceSecurityBundle } from "../bundle-types.js";
@@ -30,7 +32,8 @@ export const createServicePersistenceBundle = (
 ): ServicePersistenceBundle => {
   const persistence =
     options.persistence ?? defaultPersistence(security.auth.profile, options.repositories);
-  const repositories = options.repositories ?? createRepositoriesForPersistence(persistence);
+  const repositories =
+    options.repositories ?? createRepositoriesForPersistence(persistence, options.diagnosticLogger);
   if (options.persistence) assertPersistenceMatchesRepositories(options.persistence, repositories);
 
   return {
@@ -40,10 +43,15 @@ export const createServicePersistenceBundle = (
   };
 };
 
-const createRepositoriesForPersistence = (persistence: PersistenceConfig): SidechatRepositories => {
+const createRepositoriesForPersistence = (
+  persistence: PersistenceConfig,
+  logger: DiagnosticLogger | undefined,
+): SidechatRepositories => {
   if (persistence.kind === "postgres") {
     return createPostgresDrizzleSidechatRepositories({
       connectionString: persistence.databaseUrl,
+      pool: persistence.pool,
+      logger,
     });
   }
 

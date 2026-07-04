@@ -12,6 +12,7 @@ import {
   omitUndefinedProperties,
   type DiagnosticLogLevel,
 } from "@side-chat/shared";
+import type { PostgresPoolOptions } from "@side-chat/db";
 import type { ServiceAuthConfig } from "#adapters/auth/service-auth";
 import type { PersistenceConfig } from "#composition/service-composition-types";
 import { LOG_FORMATS, SERVICE_PROFILES, type LogFormatValue } from "../catalog/config-values.js";
@@ -116,14 +117,39 @@ const readLogFormat = (profile: ServiceProfile, raw: string | undefined): LogFor
 export const createPersistenceConfig = (
   profile: ServiceProfile,
   env: ServiceEnv,
-  databaseUrlReference: SideChatStringEnvReference,
+  environment: SideChatEnvironmentConfig,
 ): PersistenceConfig => {
-  const databaseUrl = readStringEnvReference(env, databaseUrlReference);
-  if (databaseUrl) return { kind: "postgres", databaseUrl };
+  const databaseUrl = readStringEnvReference(env, environment.databaseUrl);
+  if (databaseUrl) {
+    return omitUndefinedProperties({
+      kind: "postgres" as const,
+      databaseUrl,
+      pool: readDatabasePoolOptions(env, environment.databasePool),
+    });
+  }
   if (profile === SERVICE_PROFILES.PRODUCTION) {
     throw new ServiceConfigError("SIDECHAT_DATABASE_URL is required in production.");
   }
   return { kind: "memory" };
+};
+
+/**
+ * Resolve the query-pool tunables, or `undefined` when none are configured.
+ *
+ * Every field is optional: an absent value keeps the node-postgres default, so a
+ * pool object is only attached when at least one knob is set.
+ */
+const readDatabasePoolOptions = (
+  env: ServiceEnv,
+  pool: SideChatEnvironmentConfig["databasePool"],
+): PostgresPoolOptions | undefined => {
+  const resolved = omitUndefinedProperties({
+    max: readNumberEnvReference(env, pool.max),
+    idleTimeoutMillis: readNumberEnvReference(env, pool.idleTimeoutMillis),
+    connectionTimeoutMillis: readNumberEnvReference(env, pool.connectionTimeoutMillis),
+    ssl: readBooleanEnvReference(env, pool.ssl),
+  });
+  return Object.keys(resolved).length > 0 ? resolved : undefined;
 };
 
 export const readSideChatConfigPort = (

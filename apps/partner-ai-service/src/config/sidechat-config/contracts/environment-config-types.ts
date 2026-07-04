@@ -21,6 +21,8 @@ export type SideChatEnvironmentConfig = {
   readonly authBearerToken: SideChatStringEnvReference;
   /** Optional Postgres connection string; absence keeps development on memory storage. */
   readonly databaseUrl: SideChatStringEnvReference;
+  /** Query-pool tunables; each is optional and falls back to the node-postgres default. */
+  readonly databasePool: SideChatDatabasePoolConfig;
   /** Enables deterministic demo conversation seeding for local boot. */
   readonly demoSeedConversations: SideChatBooleanEnvReference;
   /** Minimum diagnostic log level: `debug` | `info` | `warn` | `error` (default `info`). */
@@ -31,4 +33,18 @@ export type SideChatEnvironmentConfig = {
   readonly tenantId: SideChatStringEnvReference;
   /** Workspace id used by repository and authorization adapters. */
   readonly workspaceId: SideChatStringEnvReference;
+};
+
+/**
+ * Postgres query-pool tunables, each an optional env reference.
+ *
+ * Absent values keep the node-postgres defaults (max 10, no TLS). `ssl` enables
+ * TLS for managed databases; connection-string `sslmode` still applies to the
+ * dedicated `LISTEN` connections, which are not pooled.
+ */
+export type SideChatDatabasePoolConfig = {
+  readonly max: SideChatNumberEnvReference;
+  readonly idleTimeoutMillis: SideChatNumberEnvReference;
+  readonly connectionTimeoutMillis: SideChatNumberEnvReference;
+  readonly ssl: SideChatBooleanEnvReference;
 };

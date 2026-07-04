@@ -14,7 +14,7 @@ import type {
   TurnGuardRegistryPort,
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
-import type { SidechatRepositories } from "@side-chat/db";
+import type { PostgresPoolOptions, SidechatRepositories } from "@side-chat/db";
 import type { DiagnosticLogger } from "@side-chat/shared";
 import type { TurnReaper } from "#inbound/turn-runner/maintenance/turn-reaper";
 import type { TurnRunner } from "#inbound/turn-runner/turn-runner";
@@ -40,7 +40,11 @@ import type { ServiceDiagnostics } from "./bundle-types.js";
  */
 export type PersistenceConfig =
   | { readonly kind: "memory" }
-  | { readonly kind: "postgres"; readonly databaseUrl: string };
+  | {
+      readonly kind: "postgres";
+      readonly databaseUrl: string;
+      readonly pool?: PostgresPoolOptions | undefined;
+    };
 
 /**
  * Operator tunables for resumable streaming, resolved through config (not literals).

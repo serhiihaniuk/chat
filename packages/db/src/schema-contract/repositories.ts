@@ -177,6 +177,20 @@ export type ReapedTurn = {
   readonly leaseEpoch: number;
 };
 
+/**
+ * A running turn carrying durable cancel intent, surfaced on LISTEN reconnect.
+ *
+ * The cancel notification source re-scans these after every (re)connect so a
+ * cancel NOTIFY that fired while the dedicated listener was disconnected is not
+ * lost: each id is re-fed as a synthetic cancel signal and the owning instance
+ * interrupts its live fiber. Global across workspaces by design — a re-fed signal
+ * is a harmless no-op on any instance that does not own the turn.
+ */
+export type RunningCancelRequestedTurn = {
+  readonly workspaceId: WorkspaceId;
+  readonly assistantTurnId: AssistantTurnId;
+};
+
 export type FindAssistantTurnCommand = {
   readonly workspaceId: WorkspaceId;
   // A turn belongs to the subject that started it; reads (status, stream replay,
@@ -374,6 +388,12 @@ export type AssistantTurnRepositoryContract = {
   // two concurrent sweeps cannot both reap a turn because the running-guard CAS
   // matches only once.
   readonly reapExpiredTurns: (command: ReapExpiredTurnsCommand) => Promise<readonly ReapedTurn[]>;
+  // Every running turn with durable cancel intent, across all workspaces. The
+  // cancel LISTEN source re-scans this on each (re)connect so a cancel requested
+  // during a listener outage is still honored — NOTIFY is only a poke, the durable
+  // `cancel_requested_at` column is the truth. Non-owning instances no-op on the
+  // re-fed signal, so a global (unscoped) scan is safe.
+  readonly listRunningCancelRequestedTurns: () => Promise<readonly RunningCancelRequestedTurn[]>;
   // Turn-record reads for the resumable routes, all workspace-scoped and
   // returning `undefined` (not throwing) for an unknown or cross-tenant id, so a
   // guessed id maps to a not-found response. `findActiveAssistantTurn` answers
