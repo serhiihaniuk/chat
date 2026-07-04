@@ -105,3 +105,10 @@ the tool payload" is covered deterministically at the sink level (a record carry
 zero-dep (redaction + logger are pure); `db` imports only `type { DiagnosticLogger }`.
 `npm run verify` green; real-boot confirmed via the e2e suite (fake-config service
 boots + streams with logging active).
+
+**Post-story audit follow-up (same day):** three quiet fault paths promoted to
+`warn` — `event_read_failed` in the console sink (a failed persistence read during
+replay is a fault, not churn), a malformed LISTEN notification payload on all three
+channels (corruption/version skew, previously dropped silently), and HTTP 401
+rejections in `requireAuth` (a misconfigured widget token now shows in the dev
+console). Deeper resilience (connect retry, fiber exits) stays with plan/26 + 27.

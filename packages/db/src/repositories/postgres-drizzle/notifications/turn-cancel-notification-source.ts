@@ -48,10 +48,12 @@ const openListenConnection = (
     const client = new Client({ connectionString });
 
     // Forward every signal that parses; a skipped malformed payload is harmless
-    // because the reaper still terminalizes a turn with durable cancel intent.
+    // because the reaper still terminalizes a turn with durable cancel intent —
+    // but it still means corruption or version skew, so it warns.
     client.on("notification", (message) => {
       const notification = parseTurnCancelNotification(message.payload);
       if (notification) Queue.offerUnsafe(queue, notification);
+      else logger?.warn("malformed notification skipped", { channel: TURN_CANCEL_NOTIFY_CHANNEL });
     });
     // A dropped LISTEN connection is exactly the "deaf listener" failure the
     // review found: surface it as a log line instead of a silent stall.

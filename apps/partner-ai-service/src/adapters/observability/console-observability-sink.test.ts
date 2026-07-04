@@ -97,6 +97,15 @@ describe("console observability sink", () => {
     expect(calls[2]).toMatchObject({ level: "debug", message: "runtime event" });
   });
 
+  it("logs a failed event read at warn — a persistence fault, not routine churn", () => {
+    const { logger, calls } = createCapturingLogger();
+    const sink = createConsoleObservabilitySink(logger);
+
+    Effect.runSync(sink.record(record({ lifecycleState: "event_read_failed" })));
+
+    expect(calls[0]).toMatchObject({ level: "warn", message: "event read failed" });
+  });
+
   it("never surfaces a payload that rode along in attributes", () => {
     const { logger, calls } = createCapturingLogger();
     const sink = createConsoleObservabilitySink(logger);

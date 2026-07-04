@@ -38,6 +38,10 @@ const openListenConnection = (
     client.on("notification", (message) => {
       const notification = parseTurnActivityNotification(message.payload);
       if (notification) Queue.offerUnsafe(queue, notification);
+      // A dropped signal is a real (if unlikely) fault: we publish these payloads
+      // ourselves, so a parse failure means corruption or a version skew.
+      else
+        logger?.warn("malformed notification skipped", { channel: TURN_ACTIVITY_NOTIFY_CHANNEL });
     });
     client.on("error", (error) =>
       logger?.warn("listen connection error", {

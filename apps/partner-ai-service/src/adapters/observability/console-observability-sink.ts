@@ -49,6 +49,8 @@ const INFO_LIFECYCLE_STATES: ReadonlySet<ObservabilityRecord["lifecycleState"]> 
 ]);
 
 const levelForRecord = (record: ObservabilityRecord): DiagnosticLogLevel => {
+  // A failed persistence read during replay is a real fault, not routine churn.
+  if (record.lifecycleState === "event_read_failed") return "warn";
   if (record.lifecycleState === "runtime_event") {
     return isSurfacedActivity(record.attributes) ? "info" : "debug";
   }

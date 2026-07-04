@@ -49,10 +49,15 @@ const openListenConnection = (
     const client = new Client({ connectionString });
 
     // Forward every signal that parses; a skipped malformed payload is harmless
-    // because the owner's result poll still reads the durable row.
+    // because the owner's result poll still reads the durable row — but it still
+    // means corruption or version skew, so it warns.
     client.on("notification", (message) => {
       const notification = parseHostCommandResultNotification(message.payload);
       if (notification) Queue.offerUnsafe(queue, notification);
+      else
+        logger?.warn("malformed notification skipped", {
+          channel: HOST_COMMAND_RESULT_NOTIFY_CHANNEL,
+        });
     });
     client.on("error", (error) =>
       logger?.warn("listen connection error", {

@@ -200,8 +200,17 @@ describe("partner ai service streaming path", () => {
     });
   });
 
-  it("fails closed when normalized auth cannot be extracted", async () => {
-    const response = await createApp().request("/chat/runs", {
+  it("fails closed when normalized auth cannot be extracted, and warns the console", async () => {
+    const warns: string[] = [];
+    const app = createApp({
+      diagnosticLogger: {
+        debug: () => undefined,
+        info: () => undefined,
+        warn: (message) => void warns.push(message),
+        error: () => undefined,
+      },
+    });
+    const response = await app.request("/chat/runs", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(validRequest),
@@ -213,6 +222,7 @@ describe("partner ai service streaming path", () => {
       code: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
       retryable: false,
     });
+    expect(warns).toContain("request rejected: authentication required");
   });
 
   it("refuses production boot without a real authority adapter", () => {

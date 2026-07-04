@@ -6,7 +6,7 @@ import type {
 } from "@side-chat/partner-ai-core";
 import type { AgentRuntime } from "@side-chat/agent-runtime";
 import type { SidechatRepositories } from "@side-chat/db";
-import type { DiagnosticLogger } from "@side-chat/shared";
+import { SILENT_DIAGNOSTIC_LOGGER, type DiagnosticLogger } from "@side-chat/shared";
 import { Hono } from "hono";
 
 import {
@@ -135,10 +135,11 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
     capabilities: composition.capabilities,
   });
 
-  app.use("/models", authContextMiddleware(authority), requireAuth());
-  app.use("/tools", authContextMiddleware(authority), requireAuth());
-  app.use("/chat/*", authContextMiddleware(authority), requireAuth());
-  app.use("/usage", authContextMiddleware(authority), requireAuth());
+  const guard = requireAuth(options.diagnosticLogger ?? SILENT_DIAGNOSTIC_LOGGER);
+  app.use("/models", authContextMiddleware(authority), guard);
+  app.use("/tools", authContextMiddleware(authority), guard);
+  app.use("/chat/*", authContextMiddleware(authority), guard);
+  app.use("/usage", authContextMiddleware(authority), guard);
 
   registerModelsRoute(app, composition.policies, composition.diagnostics.providerRegistryStatus);
   registerToolsRoute(app, composition.diagnostics.toolCatalog);
