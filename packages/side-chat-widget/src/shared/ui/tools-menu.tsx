@@ -23,7 +23,6 @@ import { useState, type ReactElement } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Check, FileText, Globe, Paperclip, Plus } from "lucide-react";
 
-import { cn } from "#shared/lib/cn";
 import { Switch } from "#shared/ui/switch";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
@@ -177,17 +176,5 @@ function ScopeGroup(): ReactElement {
         ))}
       </Menu.RadioGroup>
     </Menu.Group>
-  );
-}
-
-export function ToolsMenuSection(): ReactElement {
-  return (
-    <div className="flex flex-col items-start gap-3 p-4">
-      <ToolsMenu />
-      <p className={cn("text-xs text-muted-foreground")}>
-        Click the <span className="font-semibold text-foreground">+</span> to open the tools menu —
-        toggle a tool or pick a context scope.
-      </p>
-    </div>
   );
 }

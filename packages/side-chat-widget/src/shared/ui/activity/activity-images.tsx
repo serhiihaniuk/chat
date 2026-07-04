@@ -48,32 +48,3 @@ export function ActivityImages({
 // assembled data: URI so a permissive producer still renders.
 const toImageSrc = (image: ActivityImageData): string =>
   image.data.startsWith("data:") ? image.data : `data:${image.mediaType};base64,${image.data}`;
-
-// A self-contained demo payload (currentColor-only SVG, no literal colors), so
-// the showcase needs no external URL — same approach as the Media (§8.5)
-// placeholder.
-const DEMO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100" fill="currentColor">
-  <rect width="160" height="100" opacity="0.12"/>
-  <circle cx="42" cy="38" r="14" opacity="0.45"/>
-  <path d="M0 84l44-30 36 22 34-40 46 48v16H0z" opacity="0.45"/>
-</svg>`;
-
-const DEMO_IMAGES: readonly ActivityImageData[] = [
-  {
-    alt: "Generated chart preview",
-    caption: "Generated chart preview",
-    mediaType: "image/svg+xml",
-    data: typeof btoa === "function" ? btoa(DEMO_SVG) : "",
-  },
-];
-
-export function ActivityImagesSection(): ReactElement {
-  return (
-    <div className="flex flex-col gap-4">
-      <ActivityImages images={DEMO_IMAGES} />
-      <p className="text-xs text-muted-foreground">
-        Thumbnails are height-capped and embedded as data: URIs — no host CSS, no remote fetch.
-      </p>
-    </div>
-  );
-}

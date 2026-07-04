@@ -123,23 +123,3 @@ const readDomain = (url: string | undefined): string | undefined => {
     return undefined;
   }
 };
-
-const DEMO_SOURCES: readonly CitationSource[] = [
-  { label: "Regulatory framework on AI — European Commission", url: "https://ec.europa.eu/ai" },
-  {
-    label: "EU AI Act: rules for general-purpose AI take effect",
-    url: "https://reuters.com/eu-ai",
-  },
-  { label: "“…fully applicable two years later” — pasted context" },
-];
-
-export function CitationsSection(): ReactElement {
-  return (
-    <div className="flex flex-col gap-4">
-      <SourcesFold defaultOpen sources={DEMO_SOURCES} />
-      <p className="text-xs text-muted-foreground">
-        Linked rows open externally (↗); the terminal row has no link affordance.
-      </p>
-    </div>
-  );
-}

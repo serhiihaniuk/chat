@@ -212,26 +212,3 @@ const submitOnEnter = ({
   event.preventDefault();
   send();
 };
-
-export function ComposerSection(): ReactElement {
-  const [armedText, setArmedText] = useState("Summarise the attached spec");
-
-  return (
-    <div className="flex w-full max-w-measure-message flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-medium text-muted-foreground">Idle</span>
-        <Composer />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-medium text-muted-foreground">Armed</span>
-        <Composer
-          contextPercent={78}
-          onSubmit={() => setArmedText("")}
-          onValueChange={setArmedText}
-          value={armedText}
-        />
-      </div>
-    </div>
-  );
-}

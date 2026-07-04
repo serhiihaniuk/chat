@@ -55,15 +55,3 @@ export function MessageActions({
     </div>
   );
 }
-
-export function MessageActionsSection(): ReactElement {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="sc-markdown max-w-measure-message text-md">
-        Yes — you can pass a custom <code>container</code> to keep popups inside the themed root.
-        That preserves both the tokens and the font.
-      </div>
-      <MessageActions />
-    </div>
-  );
-}

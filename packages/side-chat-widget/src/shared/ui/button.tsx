@@ -7,7 +7,6 @@
  * which also owns its `popupopen:` reaction when wired as a Base UI menu trigger.
  */
 import type { ButtonHTMLAttributes, ReactElement } from "react";
-import { Plus, Settings } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
 
@@ -59,33 +58,4 @@ export function IconButton({
   "aria-label": string;
 }): ReactElement {
   return <button type={type} className={cn("sc-icon-btn", className)} {...props} />;
-}
-
-export function ButtonSection(): ReactElement {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button variant="primary">
-        <Plus className="size-4" />
-        Primary
-      </Button>
-      <Button variant="secondary">
-        <Settings className="size-4" />
-        Secondary
-      </Button>
-      <Button variant="ghost">
-        <Plus className="size-4" />
-        Ghost
-      </Button>
-      <Button variant="primary" disabled>
-        <Plus className="size-4" />
-        Disabled
-      </Button>
-      <IconButton aria-label="Settings">
-        <Settings className="size-4" />
-      </IconButton>
-      <IconButton aria-label="New chat">
-        <Plus className="size-4" />
-      </IconButton>
-    </div>
-  );
 }

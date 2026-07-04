@@ -7,7 +7,7 @@
  * heading), and items are newest-first within a bucket. Buckets are separated by
  * `--rail-group-gap`. No Base UI parts — plain layout around §9.1.
  */
-import { useState, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { ConversationItem } from "#shared/ui/conversation-item";
 
@@ -58,47 +58,6 @@ export function ConversationGrouping({
           </section>
         ) : null,
       )}
-    </div>
-  );
-}
-
-const BUCKETS: Bucket[] = [
-  {
-    id: "recent",
-    label: "Recent",
-    items: [
-      { id: "1", title: "Refactor the turn reducer keystone", when: "2 minutes ago", updatedAt: 5 },
-      {
-        id: "2",
-        title: "Scoped token approach for widget themes",
-        when: "1 hour ago",
-        updatedAt: 4,
-      },
-      { id: "3", title: "Greenfield widget design direction", when: "Today", updatedAt: 3 },
-    ],
-  },
-  // "This week" is intentionally empty to prove empty buckets render nothing.
-  { id: "week", label: "This week", items: [] },
-  {
-    id: "older",
-    label: "Older",
-    items: [
-      {
-        id: "4",
-        title: "Why does the composer reflow on selection? A very long title that truncates",
-        when: "Last week",
-        updatedAt: 2,
-      },
-      { id: "5", title: "RC blocked-terminal rollout gaps", when: "2 weeks ago", updatedAt: 1 },
-    ],
-  },
-];
-
-export function ConversationGroupingSection(): ReactElement {
-  const [activeId, setActiveId] = useState("1");
-  return (
-    <div className="w-64">
-      <ConversationGrouping buckets={BUCKETS} activeId={activeId} onSelect={setActiveId} />
     </div>
   );
 }

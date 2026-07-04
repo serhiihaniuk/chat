@@ -36,16 +36,6 @@ function ToolRow({ name, state }: { name: string; state: ToolState }): ReactElem
   );
 }
 
-export function ToolRowSection(): ReactElement {
-  return (
-    <div className="flex flex-col gap-2.5">
-      <ToolRow name="search_web" state="running" />
-      <ToolRow name="read_file" state="success" />
-      <ToolRow name="run_tests" state="error" />
-    </div>
-  );
-}
-
 // ToolGlyph is shared with the expandable detail row (#shared/ui/activity/tool-detail)
 // so both rows keep one status-glyph vocabulary.
 export { ToolGlyph, ToolRow };

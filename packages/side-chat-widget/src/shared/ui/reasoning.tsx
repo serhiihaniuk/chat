@@ -15,7 +15,7 @@
  * Panel height animates from Base UI's exposed `--collapsible-panel-height`
  * through the `sc-collapsible-panel` hook class — no JS `scrollHeight` measure.
  */
-import { useState, type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Collapsible } from "@base-ui/react/collapsible";
 import { Brain, ChevronDown } from "lucide-react";
@@ -74,28 +74,3 @@ const ReasoningEntry = ({ item }: { item: ReasoningItem }): ReactNode => {
   }
   return item.node;
 };
-
-const TRACE: ReasoningItem[] = [
-  { kind: "thought", id: "t1", text: "Reading the conversation context and the user's request." },
-  { kind: "tool", id: "x1", name: "search_files", state: "success" },
-  { kind: "thought", id: "t2", text: "Cross-checking the matched paths before drafting a reply." },
-  { kind: "tool", id: "x2", name: "read_file", state: "success" },
-];
-
-export function ReasoningSection(): ReactElement {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <Reasoning items={TRACE} label="Thought for 4s" open={open} onOpenChange={setOpen} />
-
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="self-start rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-accent"
-      >
-        {open ? "Collapse" : "Expand"} reasoning
-      </button>
-    </div>
-  );
-}

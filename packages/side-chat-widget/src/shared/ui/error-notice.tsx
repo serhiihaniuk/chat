@@ -7,7 +7,7 @@
  * copy stays tier-1 (text-foreground). The secondary "Try again" uses the shared
  * Button variant so its muted fill follows the same theme token as every secondary action.
  */
-import { useState, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import { RotateCcw, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { Button } from "#shared/ui/button";
@@ -55,20 +55,6 @@ function BlockedNotice({ message }: { message: string }): ReactElement {
     >
       <ShieldAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       <p className="min-w-0 text-sm text-foreground">{message}</p>
-    </div>
-  );
-}
-
-export function ErrorNoticeSection(): ReactElement {
-  const [attempts, setAttempts] = useState(1);
-
-  return (
-    <div className="flex w-full max-w-measure-message flex-col gap-2">
-      <ErrorNotice
-        message="The model failed to respond. Check your connection and try again."
-        onRetry={() => setAttempts((n) => n + 1)}
-      />
-      <p className="text-2xs text-muted-foreground">Retry attempts: {attempts}</p>
     </div>
   );
 }

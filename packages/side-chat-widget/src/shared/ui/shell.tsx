@@ -132,29 +132,3 @@ export function SidebarRail(): ReactElement {
     </aside>
   );
 }
-
-export function ShellSection(): ReactElement {
-  return (
-    <div
-      className="relative overflow-hidden rounded-lg border border-border bg-sc-canvas"
-      style={{ height: "440px" }}
-    >
-      <div
-        className="sc-widget-panel absolute right-4 bottom-4 z-0 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-(--shadow-panel)"
-        style={{ width: "520px", height: "360px" }}
-      >
-        <Shell />
-      </div>
-    </div>
-  );
-}
-
-export function SidebarRailSection(): ReactElement {
-  return (
-    <div className="flex justify-center" style={{ height: "300px" }}>
-      <div className="h-full overflow-hidden rounded-lg border border-border">
-        <SidebarRail />
-      </div>
-    </div>
-  );
-}

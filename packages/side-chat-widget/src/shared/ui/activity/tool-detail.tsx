@@ -95,29 +95,3 @@ const PayloadBlock = ({
     </pre>
   </div>
 );
-
-export function ToolDetailSection(): ReactElement {
-  return (
-    <div className="flex flex-col gap-2.5">
-      <ToolDetailRow
-        defaultOpen
-        detail={{
-          input: { query: "current portfolio news" },
-          result: { summary: "Found 3 briefing-style results." },
-        }}
-        name="Search web"
-        state="success"
-      />
-      <ToolDetailRow
-        detail={{ statusLine: "applied · resource_opened", input: { resourceId: "ticket-4821" } }}
-        name="Open resource"
-        state="success"
-      />
-      <ToolDetailRow
-        detail={{ errorCode: "tool_failed", input: { path: "/reports/q4" } }}
-        name="Read file"
-        state="error"
-      />
-    </div>
-  );
-}

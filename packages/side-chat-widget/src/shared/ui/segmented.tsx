@@ -6,11 +6,10 @@
  * equal share. The active item is expressed through `pressed:` (fill + shadow,
  * never colour alone, never `:hover`), so exactly one item reads as raised.
  */
-import { useState, type ComponentType, type ReactElement } from "react";
+import { type ComponentType, type ReactElement } from "react";
 
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { Toggle } from "@base-ui/react/toggle";
-import { Gauge, Sparkles, Zap } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
 
@@ -55,22 +54,5 @@ export function Segmented({
         </Toggle>
       ))}
     </ToggleGroup>
-  );
-}
-
-export function SegmentedSection(): ReactElement {
-  const [level, setLevel] = useState("auto");
-
-  const items: SegmentedItem[] = [
-    { id: "off", label: "Off", Icon: Zap },
-    { id: "auto", label: "Auto", Icon: Gauge },
-    { id: "max", label: "Max", Icon: Sparkles },
-  ];
-
-  return (
-    <div className="flex w-full max-w-measure-empty flex-col gap-2">
-      <span className="text-xs font-medium text-muted-foreground">Thinking</span>
-      <Segmented items={items} value={level} onValueChange={setLevel} />
-    </div>
   );
 }

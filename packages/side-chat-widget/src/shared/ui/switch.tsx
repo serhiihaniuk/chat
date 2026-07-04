@@ -10,7 +10,6 @@
  */
 import { type ReactElement } from "react";
 
-import { Field } from "@base-ui/react/field";
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
 
 import { cn } from "#shared/lib/cn";
@@ -20,37 +19,5 @@ export function Switch({ className, ...props }: SwitchPrimitive.Root.Props): Rea
     <SwitchPrimitive.Root className={cn("sc-switch-root", className)} {...props}>
       <SwitchPrimitive.Thumb className="sc-switch-thumb" />
     </SwitchPrimitive.Root>
-  );
-}
-
-const TITLE_CLASS = "text-sm font-semibold text-foreground";
-const HINT_CLASS = "text-xs text-muted-foreground";
-
-export function SwitchSection(): ReactElement {
-  // Each labelled row is its own Field.Root — Base UI requires Field parts to live
-  // inside a Field.Root, and the Root wires the Label→control association for us.
-  const rows = [
-    {
-      title: "Send with Ctrl+Enter",
-      hint: "Enter adds a newline",
-      control: <Switch />,
-    },
-    { title: "Stream responses", hint: "Render tokens as they arrive", control: <Switch /> },
-    { title: "Web search", hint: "Unavailable on this model", control: <Switch disabled /> },
-  ];
-  return (
-    <div className="flex w-full flex-col gap-4">
-      {rows.map((r) => (
-        <Field.Root key={r.title}>
-          <Field.Label className="flex items-center justify-between gap-3">
-            <span className="flex flex-col">
-              <span className={TITLE_CLASS}>{r.title}</span>
-              <span className={HINT_CLASS}>{r.hint}</span>
-            </span>
-            {r.control}
-          </Field.Label>
-        </Field.Root>
-      ))}
-    </div>
   );
 }

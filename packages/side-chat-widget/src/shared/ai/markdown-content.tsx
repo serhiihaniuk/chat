@@ -12,8 +12,6 @@ import type { ReactElement } from "react";
 
 import { Streamdown } from "streamdown";
 
-import { cn } from "#shared/lib/cn";
-
 export type MarkdownMode = "streaming" | "static";
 
 export function MarkdownContent({
@@ -35,39 +33,6 @@ export function MarkdownContent({
       >
         {children}
       </Streamdown>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Demo
-// ---------------------------------------------------------------------------
-
-const FIXTURE = `## Streaming markdown
-
-A wrapper around [Streamdown](https://streamdown.ai) that renders assistant
-replies, including inline code like \`useState()\` and rich blocks.
-
-- Parsing, GFM and sanitization are owned by Streamdown
-- Incomplete fences and tables are repaired while streaming
-- Styling flows from tokens via the \`sc-markdown\` hook class
-
-\`\`\`ts
-function greet(name: string): string {
-  return \`Hello, \${name}!\`;
-}
-\`\`\`
-
-| Mode        | Repair | Use            |
-| ----------- | ------ | -------------- |
-| \`streaming\` | on     | live turn      |
-| \`static\`    | off    | saved history  |
-`;
-
-export function MarkdownSection(): ReactElement {
-  return (
-    <div className={cn("max-w-measure-message text-md")}>
-      <MarkdownContent mode="static">{FIXTURE}</MarkdownContent>
     </div>
   );
 }

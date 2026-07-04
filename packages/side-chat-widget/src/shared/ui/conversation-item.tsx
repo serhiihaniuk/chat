@@ -7,7 +7,7 @@
  * screen readers) rather than a faked class. The trailing dot is pre-rendered at
  * `opacity-0` so toggling selection never reflows the row.
  */
-import { useState, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { cn } from "#shared/lib/cn";
 
@@ -52,33 +52,5 @@ export function ConversationItem({
         <span className="ml-auto size-1.5 shrink-0 rounded-full bg-(--convo-indicator) opacity-0 aria-[current=true]:opacity-100" />
       )}
     </button>
-  );
-}
-
-const ITEMS = [
-  { id: "1", title: "Refactor the turn reducer keystone", when: "2 minutes ago" },
-  { id: "2", title: "Scoped token approach for widget themes", when: "Yesterday" },
-  {
-    id: "3",
-    title: "Why does the composer reflow on selection? A very long title that truncates",
-    when: "Tuesday",
-  },
-  { id: "4", title: "RC blocked-terminal rollout gaps", when: "Last week" },
-];
-
-export function ConversationItemSection(): ReactElement {
-  const [activeId, setActiveId] = useState("1");
-  return (
-    <div className="flex flex-col gap-0.5 w-64">
-      {ITEMS.map((item) => (
-        <ConversationItem
-          key={item.id}
-          title={item.title}
-          when={item.when}
-          active={item.id === activeId}
-          onSelect={() => setActiveId(item.id)}
-        />
-      ))}
-    </div>
   );
 }

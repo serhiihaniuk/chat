@@ -45,31 +45,3 @@ export function Message({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Demo
-// ---------------------------------------------------------------------------
-
-const USER_1 = "How do I memoize an expensive value in React?";
-
-const ASSISTANT_1 = `Use the \`useMemo\` hook — it caches the result between renders and only recomputes when a dependency changes.
-
-- Pass a factory function and a dependency array
-- Reach for it when the computation is genuinely expensive
-- For functions you pass as props, prefer \`useCallback\``;
-
-const USER_2 =
-  "And what about a really long message that needs to wrap before it touches the edge of the column?";
-
-const ASSISTANT_2 = `Long user turns cap at **82%** of the column width, so they always wrap a little before the edge instead of filling the whole row.`;
-
-export function MessageSection(): ReactElement {
-  return (
-    <div className="flex flex-col gap-4">
-      <Message role="user" text={USER_1} />
-      <Message role="assistant" text={ASSISTANT_1} />
-      <Message role="user" text={USER_2} />
-      <Message role="assistant" text={ASSISTANT_2} />
-    </div>
-  );
-}

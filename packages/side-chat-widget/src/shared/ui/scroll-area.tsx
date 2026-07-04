@@ -43,21 +43,3 @@ function ScrollArea({
 }
 
 export { ScrollArea };
-
-const ROWS = Array.from({ length: 20 }, (_, i) => `Scrollable row ${i + 1}`);
-
-export function ScrollAreaSection(): ReactElement {
-  return (
-    <div className="flex h-48 flex-col">
-      <ScrollArea className="rounded-lg border border-border">
-        <div className="flex flex-col gap-2 p-3">
-          {ROWS.map((row) => (
-            <p key={row} className="text-sm text-muted-foreground">
-              {row}
-            </p>
-          ))}
-        </div>
-      </ScrollArea>
-    </div>
-  );
-}

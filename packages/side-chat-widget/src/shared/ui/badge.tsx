@@ -12,7 +12,6 @@
 import type { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { cn } from "#shared/lib/cn";
-import { Sparkles, MessageSquare, TriangleAlert } from "lucide-react";
 
 function Badge({ className, ...props }: ComponentPropsWithoutRef<"span">): ReactElement {
   return (
@@ -42,36 +41,6 @@ function Suggestion({
       )}
       {...props}
     />
-  );
-}
-
-export function BadgeSection(): ReactElement {
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge>Beta</Badge>
-        <Badge>New</Badge>
-        <Badge>
-          <Sparkles className="size-3" />
-          Pro
-        </Badge>
-        <Badge>
-          <TriangleAlert className="size-3" />
-          Deprecated
-        </Badge>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Suggestion>
-          <Sparkles className="size-4" />
-          Summarize this page
-        </Suggestion>
-        <Suggestion>
-          <MessageSquare className="size-4" />
-          Draft a reply
-        </Suggestion>
-      </div>
-    </div>
   );
 }
 

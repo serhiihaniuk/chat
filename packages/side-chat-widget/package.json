@@ -43,16 +43,6 @@
       "development": "./src/entities/chat/testing.ts",
       "default": "./dist/entities/chat/testing.js"
     },
-    "./showcase": {
-      "types": "./src/showcase/showcase.tsx",
-      "development": "./src/showcase/showcase.tsx",
-      "default": "./dist/showcase/showcase.js"
-    },
-    "./docs": {
-      "types": "./src/showcase/docs/docs-app.tsx",
-      "development": "./src/showcase/docs/docs-app.tsx",
-      "default": "./dist/showcase/docs/docs-app.js"
-    },
     "./ui/*": {
       "types": "./src/shared/ui/*.tsx",
       "development": "./src/shared/ui/*.tsx",
