@@ -19,11 +19,12 @@ import {
   type MemorySidechatRepositories,
 } from "@side-chat/db";
 import type { AuthContext, TurnEventLogPort, WorkspaceRef } from "@side-chat/partner-ai-core";
-import { Effect, Stream } from "effect";
+import type { DiagnosticLogFields } from "@side-chat/shared";
+import { Effect, Exit, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { composePartnerAiService, type ResumabilityConfig } from "#composition/service-composition";
-import type { TurnRunner } from "./turn-runner.js";
+import { observeGenerationExit, type TurnRunner } from "./turn-runner.js";
 
 const WORKSPACE: WorkspaceRef = { tenantId: "tenant_runner", workspaceId: "workspace_runner" };
 
@@ -402,3 +403,39 @@ const lastNonTerminalSequence = (events: readonly SidechatStreamEvent[]): number
   Math.max(
     ...events.filter((event) => !isTerminalEvent(eventOf(event))).map((event) => event.sequence),
   );
+
+describe("generation fiber exit observation", () => {
+  const captureLogger = (
+    errors: { message: string; fields: DiagnosticLogFields | undefined }[],
+  ) => ({
+    debug: () => undefined,
+    info: () => undefined,
+    warn: () => undefined,
+    error: (message: string, fields?: DiagnosticLogFields) => void errors.push({ message, fields }),
+  });
+
+  it("logs a failed or defect generation with the turn id, never silent", () => {
+    const errors: { message: string; fields: DiagnosticLogFields | undefined }[] = [];
+    const logger = captureLogger(errors);
+
+    observeGenerationExit(logger, "turn_boom", Exit.fail(new Error("finalizer write failed")));
+    observeGenerationExit(logger, "turn_die", Exit.die("unexpected defect"));
+
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).toMatchObject({
+      message: "turn generation failed",
+      fields: { turn: "turn_boom", error: "finalizer write failed" },
+    });
+    expect(errors[1]?.fields).toMatchObject({ turn: "turn_die" });
+  });
+
+  it("stays quiet on a normal or interrupted exit", () => {
+    const errors: { message: string; fields: DiagnosticLogFields | undefined }[] = [];
+    const logger = captureLogger(errors);
+
+    observeGenerationExit(logger, "turn_ok", Exit.succeed(undefined));
+    observeGenerationExit(logger, "turn_cancelled", Exit.interrupt());
+
+    expect(errors).toHaveLength(0);
+  });
+});

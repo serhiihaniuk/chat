@@ -56,7 +56,15 @@ export type ObservabilityRecord = RequestCorrelation & {
   readonly attributes: JsonObject;
 };
 
-/** Telemetry adapter supplied by service composition. */
+/**
+ * Telemetry adapter supplied by service composition.
+ *
+ * A sink failure can never affect a turn: `recordStreamObservationEffect` runs
+ * every observation fail-open, so a `record` that rejects is swallowed rather
+ * than rejecting the request at pre-start or aborting a healthy generation
+ * mid-stream. Implementations should still avoid throwing, but the workflow does
+ * not depend on it.
+ */
 export type ObservabilitySinkPort = {
   readonly record: (record: ObservabilityRecord) => Effect.Effect<void, unknown>;
 };

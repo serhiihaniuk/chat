@@ -1,5 +1,8 @@
 import { Effect } from "effect";
-import type { PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
+import type { AuthContext } from "#domain/authority";
+import { conversationBusyError, type PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
+import type { ConversationRef } from "#ports";
+import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,
@@ -18,6 +21,34 @@ import {
   toPreparedStreamChatTurn,
 } from "./stream-chat-turn-prestart-lifecycle.js";
 import { resolveAllowedTurnPlan } from "./turn-policy-plan.js";
+
+/**
+ * Reject a second concurrent run in one conversation before any durable write.
+ *
+ * A running turn from a different request means another tab or client is
+ * mid-turn — fail `conversation_busy` (409). A running turn from this same
+ * request is this request's own idempotent retry, so it passes through to the
+ * get-or-create turn insert. Best-effort: two simultaneous fresh requests can
+ * still both pass, which lease fencing and the reaper tolerate.
+ */
+const guardConcurrentConversationTurn = (
+  ports: StreamChatPorts,
+  input: StreamChatInput,
+  authContext: AuthContext,
+  conversation: ConversationRef,
+): Effect.Effect<void, PartnerAiCoreErrorType> =>
+  Effect.gen(function* () {
+    const active = yield* mapPortFailure(
+      ports.assistantTurns.findActiveConversationTurn({
+        authContext,
+        conversationId: conversation.conversationId,
+      }),
+      STREAM_CHAT_FAILURES.PERSISTENCE,
+    );
+    if (active && active.requestId !== input.request.requestId) {
+      return yield* Effect.fail(conversationBusyError());
+    }
+  });
 
 /**
  * Prepare everything that must succeed before the browser sees `started`.
@@ -48,6 +79,10 @@ export const prepareStreamChatTurn = (
 
     // Load or create only the conversation this subject may access.
     const conversation = yield* ensureAuthorizedConversation(ports, input, authContext);
+
+    // Reject a second concurrent run in this conversation (a different tab/client)
+    // before any durable write; this request's own idempotent retry passes through.
+    yield* guardConcurrentConversationTurn(ports, input, authContext, conversation);
 
     // Store the user-visible message that starts this assistant turn.
     const userMessage = yield* appendUserMessage(ports, input, authContext, conversation);

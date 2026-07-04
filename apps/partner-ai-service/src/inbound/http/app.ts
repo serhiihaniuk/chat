@@ -156,6 +156,7 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
     dispatcher: composition.dispatcher,
     safetyPollIntervalMs: composition.safetyPollIntervalMs,
     sseHeartbeatIntervalMs: composition.sseHeartbeatIntervalMs,
+    logger: options.diagnosticLogger ?? SILENT_DIAGNOSTIC_LOGGER,
   });
   // ... then resolve, read status, subscribe to its durable event stream, and
   // cancel it. Composition already started the per-instance cancel listener

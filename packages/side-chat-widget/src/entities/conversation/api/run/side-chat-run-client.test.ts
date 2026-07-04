@@ -151,4 +151,23 @@ describe("side chat run client", () => {
       status: 404,
     });
   });
+
+  it("maps a 409 on create to a conversation_busy notice, never retried", async () => {
+    const fetchMock = vi.fn<FetchLike>(() =>
+      Promise.resolve(new Response("busy", { status: 409 })),
+    );
+
+    const error = await createRunWithFetch(
+      request,
+      { ...clientOptions, retry: { attempts: 3 } },
+      {},
+      fetchMock,
+    ).catch((caught: unknown) => caught);
+
+    // A 409 is excluded from retry and surfaces a wait-your-turn notice message
+    // the widget shows to the user, not a raw HTTP failure.
+    expect(error).toMatchObject({ code: "conversation_busy", status: 409 });
+    expect(String((error as Error).message)).toContain("already generating");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

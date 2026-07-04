@@ -20,6 +20,15 @@ export type ConversationRepositoryPort = {
     readonly authContext: AuthContext;
     readonly requestedConversationId?: string | undefined;
     readonly fallbackConversationId: string;
+    /**
+     * Deterministic conversation key for a conversationless request.
+     *
+     * The fresh `fallbackConversationId` differs on every retry, so keying the
+     * conversation on it would mint a new orphan per retry. Deriving the key from
+     * the request id lets a retried conversationless POST converge on the one
+     * conversation the first attempt created.
+     */
+    readonly fallbackConversationKey: string;
     /** Record clock sourced from the caller's clock port, not from auth evidence. */
     readonly now: string;
   }) => Effect.Effect<ConversationRef, unknown>;

@@ -37,6 +37,7 @@ const createAssistantTurnPersistence = (
   completeAssistantTurn: createCompleteAssistantTurnEffect(repositories),
   failAssistantTurn: createFailAssistantTurnEffect(repositories),
   readTurnControlState: createReadTurnControlStateEffect(repositories),
+  findActiveConversationTurn: createFindActiveConversationTurnEffect(repositories),
   acquireTurnLease: createAcquireTurnLeaseEffect(repositories),
   renewTurnLease: createRenewTurnLeaseEffect(repositories),
 });
@@ -175,6 +176,22 @@ const createFailAssistantTurnEffect =
         }),
       catch: (error) => error,
     }).pipe(Effect.asVoid);
+
+const createFindActiveConversationTurnEffect =
+  (repositories: SidechatRepositories): AssistantTurnLifecyclePort["findActiveConversationTurn"] =>
+  ({ authContext, conversationId }) =>
+    Effect.tryPromise({
+      try: async () => {
+        const turn = await repositories.findActiveAssistantTurn({
+          workspaceId: authContext.workspaceId,
+          subjectId: authContext.subject.subjectId,
+          conversationId,
+        });
+        if (!turn) return undefined;
+        return { assistantTurnId: turn.assistantTurnId, requestId: turn.requestId };
+      },
+      catch: (error) => error,
+    });
 
 const createReadTurnControlStateEffect =
   (repositories: SidechatRepositories): AssistantTurnLifecyclePort["readTurnControlState"] =>

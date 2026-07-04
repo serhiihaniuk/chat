@@ -105,6 +105,9 @@ export const ensureAuthorizedConversation = (
         authContext,
         requestedConversationId: input.request.conversationId,
         fallbackConversationId: ports.ids.nextConversationId(),
+        // Keyed on the request id, not the fresh fallback id, so a retried
+        // conversationless POST converges on one conversation instead of orphaning.
+        fallbackConversationKey: `conversationless:${input.request.requestId}`,
         now: ports.clock.now(),
       }),
       STREAM_CHAT_FAILURES.PERSISTENCE,

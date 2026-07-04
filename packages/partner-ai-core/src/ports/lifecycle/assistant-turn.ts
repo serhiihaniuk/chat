@@ -117,6 +117,20 @@ export type AssistantTurnLifecyclePort = {
     readonly assistantTurnId: string;
   }) => Effect.Effect<TurnControlState | undefined, unknown>;
   /**
+   * Read the conversation's in-flight turn, if one is running.
+   *
+   * The concurrent-turn guard consults this at pre-start: a running turn from a
+   * different request means the conversation is busy (a second tab or client),
+   * while a running turn from the same request is this request's own idempotent
+   * retry. Returns `undefined` when no turn is running. Best-effort: two
+   * genuinely simultaneous fresh requests can still both pass, which the reaper
+   * and lease fencing already tolerate.
+   */
+  readonly findActiveConversationTurn: (input: {
+    readonly authContext: AuthContext;
+    readonly conversationId: string;
+  }) => Effect.Effect<ActiveConversationTurn | undefined, unknown>;
+  /**
    * Claim the owner lease for a running turn before generation streams.
    *
    * Compare-and-set: it takes ownership, bumps the fencing epoch, and sets the
@@ -146,6 +160,12 @@ export type AssistantTurnLifecyclePort = {
     readonly leaseTtlMs: number;
     readonly now: string;
   }) => Effect.Effect<TurnLeaseRenewal, unknown>;
+};
+
+/** The conversation's running turn and the request that started it. */
+export type ActiveConversationTurn = {
+  readonly assistantTurnId: string;
+  readonly requestId: string;
 };
 
 /** Outcome of claiming the owner lease, carrying the epoch the heartbeat echoes. */

@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, gt, isNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { conversations, messages } from "#drizzle/schema";
-import type { ConversationRecord, ConversationSummaryRecord } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
+import { readConversationSummaryTitle } from "./conversation-summaries.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
   buildHistoryWhere,
@@ -87,6 +87,22 @@ export const createPostgresDrizzleConversationRepository = ({
     if (existing[0]) return result(toMessageRecord(existing[0]), false);
 
     const inserted = await db.transaction(async (transaction) => {
+      // Serialize concurrent appends to one conversation: take the conversation
+      // row lock before reading `max(sequence_index)`, so two racing appends can
+      // never compute the same next index and collide on
+      // `messages_conversation_sequence_uq`. The loser blocks here until the
+      // winner commits, then reads the winner's row. The tx already writes this
+      // same row below (updatedAt/lastMessageAt), so the lock adds no new contention.
+      await transaction
+        .select({ conversationId: conversations.conversationId })
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.workspaceId, command.workspaceId),
+            eq(conversations.conversationId, command.conversationId),
+          ),
+        )
+        .for("update");
       const [nextSequence] = await transaction
         .select({
           value: sql<number>`coalesce(max(${messages.sequenceIndex}), -1) + 1`,
@@ -264,32 +280,4 @@ const historyLowerBound = (
   if (requestedAfter === undefined) return resetCutoff;
   if (resetCutoff === undefined) return requestedAfter;
   return Math.max(requestedAfter, resetCutoff);
-};
-
-const readConversationSummaryTitle = async (
-  db: PostgresDrizzleRepositoryContext["db"],
-  conversation: ConversationRecord,
-): Promise<ConversationSummaryRecord> => {
-  if (conversation.titleText) return conversation;
-
-  const titleMessage = await db
-    .select({ contentText: messages.contentText })
-    .from(messages)
-    .where(buildTitleMessageWhere(conversation))
-    .orderBy(asc(messages.sequenceIndex))
-    .limit(1);
-  const titleText = titleMessage[0]?.contentText;
-  return titleText ? { ...conversation, titleText } : { ...conversation };
-};
-
-const buildTitleMessageWhere = (conversation: ConversationRecord): SQL => {
-  const clauses = [
-    eq(messages.workspaceId, conversation.workspaceId),
-    eq(messages.conversationId, conversation.conversationId),
-    eq(messages.role, "user"),
-  ];
-  if (conversation.historyCutoffSequenceIndex !== undefined) {
-    clauses.push(gt(messages.sequenceIndex, conversation.historyCutoffSequenceIndex));
-  }
-  return and(...clauses)!;
 };

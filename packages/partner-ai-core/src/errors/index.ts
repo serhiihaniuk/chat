@@ -6,6 +6,10 @@ export const PARTNER_AI_CORE_ERROR_CODES = {
   RUNTIME_FAILED: "runtime_failed",
   PERSISTENCE_FAILED: "persistence_failed",
   TURN_GUARD_BLOCKED: "turn_guard_blocked",
+  // The conversation already has a turn in flight (a second tab or client). A
+  // client-actionable 409, distinct from a server fault, so its message is safe
+  // to show and the widget maps it to a notice.
+  CONVERSATION_BUSY: "conversation_busy",
   // The service shipped a broken capability menu: a manifest that fails
   // validation or a turn policy that references something unregistered. Distinct
   // from RUNTIME_FAILED so a config typo is never indistinguishable from a
@@ -17,6 +21,7 @@ export const PARTNER_AI_CORE_ERROR_CODES = {
 export const PARTNER_AI_CORE_PROTOCOL_ERROR_CODES = {
   UNAUTHORIZED: PROTOCOL_ERROR_CODES.UNAUTHORIZED,
   FORBIDDEN: PROTOCOL_ERROR_CODES.FORBIDDEN,
+  CONFLICT: PROTOCOL_ERROR_CODES.CONFLICT,
   PROVIDER_FAILED: PROTOCOL_ERROR_CODES.PROVIDER_FAILED,
   PERSISTENCE_FAILED: PROTOCOL_ERROR_CODES.PERSISTENCE_FAILED,
   INTERNAL_ERROR: PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
@@ -80,6 +85,21 @@ export const configurationInvalidError = (
     PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
     false,
     issues,
+  );
+
+/**
+ * Build the `conversation_busy` failure for a concurrent turn.
+ *
+ * The protocol code is `conflict` (HTTP 409): the conversation already has a
+ * turn generating, so the client should wait rather than retry blindly. The
+ * message is client-safe — it names no internal detail.
+ */
+export const conversationBusyError = (): PartnerAiCoreError =>
+  new PartnerAiCoreError(
+    PARTNER_AI_CORE_ERROR_CODES.CONVERSATION_BUSY,
+    "This conversation already has a turn in progress.",
+    PARTNER_AI_CORE_PROTOCOL_ERROR_CODES.CONFLICT,
+    false,
   );
 
 export const mapAuthorityDenialToError = (

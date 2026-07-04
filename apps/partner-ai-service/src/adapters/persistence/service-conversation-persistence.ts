@@ -17,16 +17,26 @@ export const createConversationPersistence = (
 
 const createEnsureConversationEffect =
   (repositories: SidechatRepositories): ConversationRepositoryPort["ensureConversation"] =>
-  ({ authContext, requestedConversationId, fallbackConversationId, now }) =>
+  ({
+    authContext,
+    requestedConversationId,
+    fallbackConversationId,
+    fallbackConversationKey,
+    now,
+  }) =>
     Effect.tryPromise({
       try: async () => {
+        // The id is minted fresh for a new conversation, but the key is
+        // deterministic (request-derived) for a conversationless request so a
+        // retry dedupes on it instead of orphaning a second conversation.
         const conversationId = requestedConversationId ?? fallbackConversationId;
+        const conversationKey = requestedConversationId ?? fallbackConversationKey;
         const conversation = await repositories.createOrGetConversation({
           workspaceId: authContext.workspaceId,
           subjectId: authContext.subject.subjectId,
           actorId: toActorId(authContext.actor.subjectId),
           conversationId,
-          conversationKey: conversationId,
+          conversationKey,
           now,
         });
         return {

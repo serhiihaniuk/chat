@@ -4,7 +4,9 @@ import {
   ProtocolValidationError,
   parseChatStreamRequest,
   type ChatStreamRequest,
+  type ProtocolErrorCode,
 } from "@side-chat/chat-protocol";
+import type { DiagnosticLogger } from "@side-chat/shared";
 import type { Hono } from "hono";
 
 import type { StartedTurn, TurnRunner } from "#inbound/turn-runner/turn-runner";
@@ -24,6 +26,7 @@ const REPLAY_FROM_START = -1;
 
 export type ChatRunsRouteDependencies = TurnStreamDependencies & {
   readonly turnRunner: TurnRunner;
+  readonly logger: DiagnosticLogger;
 };
 
 /**
@@ -65,7 +68,7 @@ export const registerChatRunsRoute = (
         ...traceInput(context.req.raw),
       });
     } catch (error) {
-      return mapPreStartError(error);
+      return mapPreStartError(error, chatRequest.requestId, dependencies.logger);
     }
 
     return streamStartedTurn(dependencies, authContext, started);
@@ -132,18 +135,43 @@ const traceInput = (request: Request): { readonly traceId?: string | undefined }
  *
  * Only pre-start work can fail here: once generation is forked, terminal
  * outcomes travel through the turn's event stream, not this response.
+ *
+ * A 5xx body carries a generic message plus the request id — the real error
+ * (which may include driver detail) goes only to the log, never the browser. A
+ * 4xx message is client-actionable (bad request, unauthorized, conversation
+ * busy), so it is safe to return verbatim.
  */
-const mapPreStartError = (error: unknown): Response => {
+const mapPreStartError = (
+  error: unknown,
+  requestId: string,
+  logger: DiagnosticLogger,
+): Response => {
   if (error instanceof PartnerAiCoreError) {
-    return jsonError(
-      error.protocolCode,
-      error.message,
-      httpStatusForProtocolError(error.protocolCode),
-      error.retryable,
-    );
+    const status = httpStatusForProtocolError(error.protocolCode);
+    if (status >= 500) {
+      return internalError(error, requestId, logger, error.protocolCode, error.retryable);
+    }
+    return jsonError(error.protocolCode, error.message, status, error.retryable);
   }
   if (error instanceof ProtocolValidationError) {
     return jsonError(PROTOCOL_ERROR_CODES.BAD_REQUEST, error.message, 400);
   }
-  return jsonError(PROTOCOL_ERROR_CODES.INTERNAL_ERROR, errorMessage(error), 500, true);
+  // An unknown thrown value carries no honest retryable signal; default to true.
+  return internalError(error, requestId, logger, PROTOCOL_ERROR_CODES.INTERNAL_ERROR, true);
+};
+
+const internalError = (
+  error: unknown,
+  requestId: string,
+  logger: DiagnosticLogger,
+  code: ProtocolErrorCode,
+  retryable: boolean,
+): Response => {
+  logger.error("turn pre-start failed", { requestId, error: errorMessage(error) });
+  return jsonError(
+    code,
+    `An internal error occurred (reference ${requestId}).`,
+    httpStatusForProtocolError(code),
+    retryable,
+  );
 };

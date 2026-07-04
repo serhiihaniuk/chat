@@ -31,6 +31,7 @@ describe("stream chat conversation title generation", () => {
       "turnPolicy",
       "policy",
       "ensureConversation",
+      "findActiveConversationTurn",
       "appendUserMessage",
       "startAssistantTurn",
       "contextManager",

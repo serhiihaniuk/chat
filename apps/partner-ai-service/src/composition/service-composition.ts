@@ -161,6 +161,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
       leaseTtlMs: resumability.leaseTtlMs,
       heartbeatIntervalMs: resumability.heartbeatIntervalMs,
     },
+    logger,
   });
 
   // The reaper is the crash backstop (ADR 0008): a hard-killed owner cannot

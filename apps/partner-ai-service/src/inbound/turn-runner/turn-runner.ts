@@ -10,7 +10,8 @@ import {
   type WorkspaceRef,
 } from "@side-chat/partner-ai-core";
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
-import { Effect, Exit, type Fiber, FiberMap, Option, Scope } from "effect";
+import type { DiagnosticLogger } from "@side-chat/shared";
+import { Cause, Effect, Exit, type Fiber, FiberMap, Option, Scope } from "effect";
 
 /**
  * Inputs the HTTP edge hands the runner to start one server-owned turn.
@@ -68,6 +69,8 @@ export type TurnRunnerDependencies = {
   readonly ports: StreamChatPorts;
   /** Owner-lease tunables; the forked generation heartbeats and fences on these. */
   readonly lease: TurnLeaseSettings;
+  /** Observes forked-fiber exits so a finalizer/generation fault is never silent. */
+  readonly logger: DiagnosticLogger;
 };
 
 /**
@@ -123,6 +126,12 @@ export const createTurnRunner = (dependencies: TurnRunnerDependencies): TurnRunn
  * it. `runTurnGeneration` claims and heartbeats the lease internally (and
  * self-interrupts if fenced) under the same `onExit` that finalizes the turn. We
  * do not await the fiber: `start` returns as soon as generation is accepted.
+ *
+ * A fiber exit is otherwise unobserved (nobody joins the map), so a fault during
+ * generation or its finalizer — a DB blip while writing the terminal, say — would
+ * strand the turn `running` in silence. The observer turns that into a loud log
+ * (the reaper still recovers the turn); an interrupt (cancel/shutdown) is expected
+ * and stays quiet.
  */
 const forkGeneration = (
   dependencies: TurnRunnerDependencies,
@@ -130,7 +139,7 @@ const forkGeneration = (
   input: StartTurnInput,
   turn: PreparedStreamChatTurn,
 ): void => {
-  Effect.runSync(
+  const fiber = Effect.runSync(
     FiberMap.run(
       fibers,
       turn.assistantTurnId,
@@ -142,6 +151,24 @@ const forkGeneration = (
       ),
     ),
   );
+  fiber.addObserver((exit) =>
+    observeGenerationExit(dependencies.logger, turn.assistantTurnId, exit),
+  );
+};
+
+/** Log a fiber exit that failed or died; a pure interrupt is expected and quiet. */
+export const observeGenerationExit = (
+  logger: DiagnosticLogger,
+  assistantTurnId: string,
+  exit: Exit.Exit<unknown, unknown>,
+): void => {
+  if (Exit.isSuccess(exit)) return;
+  if (!Cause.hasFails(exit.cause) && !Cause.hasDies(exit.cause)) return;
+  const reason = Cause.squash(exit.cause);
+  logger.error("turn generation failed", {
+    turn: assistantTurnId,
+    error: reason instanceof Error ? reason.message : String(reason),
+  });
 };
 
 /**

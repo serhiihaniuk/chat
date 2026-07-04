@@ -228,6 +228,7 @@ const createObservedPorts = (
     failAssistantTurn: () => Effect.succeed(undefined),
     readTurnControlState: () =>
       Effect.succeed({ status: "running" as const, cancelRequested: false }),
+    findActiveConversationTurn: () => Effect.succeed(undefined),
     acquireTurnLease: () => Effect.succeed({ acquired: true, leaseEpoch: 1 }),
     renewTurnLease: () => Effect.succeed({ renewed: true }),
   };

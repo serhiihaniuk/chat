@@ -7,6 +7,7 @@ import {
 } from "@side-chat/ai-runtime-contract";
 import { Effect, Stream } from "effect";
 import {
+  type ActiveConversationTurn,
   type AiRuntimePort,
   type AssistantTurnLifecyclePort,
   type AssistantTurnStatus,
@@ -81,6 +82,7 @@ export const createAssistantTurnLifecyclePort = (
   completedTurns: Parameters<AssistantTurnLifecyclePort["completeAssistantTurn"]>[0][],
   failedTurns: Parameters<AssistantTurnLifecyclePort["failAssistantTurn"]>[0][],
   controlState: FakeTurnControlState = { status: "running", cancelRequested: false },
+  activeConversationTurn?: ActiveConversationTurn,
 ): AssistantTurnLifecyclePort => ({
   startAssistantTurn: () => {
     calls.push("startAssistantTurn");
@@ -115,6 +117,11 @@ export const createAssistantTurnLifecyclePort = (
       status: controlState.status,
       cancelRequested: controlState.cancelRequested,
     });
+  },
+  findActiveConversationTurn: () => {
+    calls.push("findActiveConversationTurn");
+    // Undefined by default (no concurrent turn); a fixture drives the busy guard.
+    return Effect.succeed(activeConversationTurn);
   },
   acquireTurnLease: () => {
     calls.push("acquireTurnLease");

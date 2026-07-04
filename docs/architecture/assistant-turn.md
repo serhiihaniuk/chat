@@ -209,6 +209,33 @@ instance. The fiber interrupt aborts the provider call for real (the
 `AbortController` reaches the AI SDK), and finalization writes
 `user_aborted` / `aborted`.
 
+## Concurrency, idempotency edges, and fail-open telemetry
+
+Pre-start rejects a second concurrent run in one conversation. After the
+conversation is resolved, `guardConcurrentConversationTurn` reads the
+conversation's in-flight turn (`findActiveConversationTurn`): a running turn from
+a _different_ request means another tab or client is mid-turn, so the request
+fails `conversation_busy` (HTTP 409) before any durable write; a running turn from
+the _same_ request is that request's own idempotent retry and passes through. It
+is best-effort — two genuinely simultaneous fresh requests can still both pass,
+which lease fencing and the reaper already tolerate.
+
+A conversationless request keys its conversation on the request id
+(`conversationless:<requestId>`), not on the freshly minted fallback id, so a
+retried create converges on one conversation instead of orphaning a new one each
+attempt; the returned `conversationId` is the winning record's. Concurrent
+`appendMessage`s to one conversation serialize on a `SELECT … FOR UPDATE` of the
+conversation row before reading `max(sequence_index)`, so they never collide on
+the sequence unique index.
+
+Telemetry is fail-open: `recordStreamObservationEffect` swallows a sink failure
+rather than rejecting the request or aborting generation (a sink runs on every
+runtime event). A pre-start 5xx returns a generic body naming only the request id;
+the real error, which may carry driver detail, goes to the diagnostic log. A
+forked generation fiber's non-interrupt exit is logged with its turn id, so a
+fault during generation or its finalizer is loud and reaper-recovered, never
+silent.
+
 ## Connection resilience
 
 The three cross-instance wake signals — cancel, turn activity, and host-command

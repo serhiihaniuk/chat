@@ -26,6 +26,7 @@ describe("service conversation persistence record clock", () => {
       conversations.ensureConversation({
         authContext,
         fallbackConversationId: "conversation_clock_1",
+        fallbackConversationKey: "conversationless:request_clock_1",
         now: TEST_CLOCK_NOW,
       }),
     );
@@ -44,6 +45,7 @@ describe("service conversation persistence record clock", () => {
       conversations.ensureConversation({
         authContext,
         fallbackConversationId: "conversation_clock_2",
+        fallbackConversationKey: "conversationless:request_clock_2",
         now: TEST_CLOCK_NOW,
       }),
     );
@@ -60,5 +62,33 @@ describe("service conversation persistence record clock", () => {
     expect(storedMessage?.role).toBe("user");
     expect(storedMessage?.createdAt).toBe(TEST_CLOCK_NOW);
     expect(storedMessage?.createdAt).not.toBe(STALE_ISSUED_AT);
+  });
+
+  it("converges a retried conversationless request on one conversation", async () => {
+    const repositories = createMemorySidechatRepositories();
+    const conversations = createConversationPersistence(repositories);
+
+    // Same request id (same deterministic key), a fresh fallback id each attempt.
+    const first = await Effect.runPromise(
+      conversations.ensureConversation({
+        authContext,
+        fallbackConversationId: "conversation_mint_a",
+        fallbackConversationKey: "conversationless:request_retry",
+        now: TEST_CLOCK_NOW,
+      }),
+    );
+    const second = await Effect.runPromise(
+      conversations.ensureConversation({
+        authContext,
+        fallbackConversationId: "conversation_mint_b",
+        fallbackConversationKey: "conversationless:request_retry",
+        now: TEST_CLOCK_NOW,
+      }),
+    );
+
+    // The retry dedupes on the key: one conversation, and its id is the winner's,
+    // never the second attempt's discarded fresh id.
+    expect(second.conversationId).toBe(first.conversationId);
+    expect(repositories.snapshot().conversations).toHaveLength(1);
   });
 });

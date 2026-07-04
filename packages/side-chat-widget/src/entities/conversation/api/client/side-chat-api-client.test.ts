@@ -252,7 +252,7 @@ describe("createSideChatApiClient run flow", () => {
     });
 
     await expect(client.createRun(request)).rejects.toMatchObject({
-      code: "http_error",
+      code: "conversation_busy",
       status: 409,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);

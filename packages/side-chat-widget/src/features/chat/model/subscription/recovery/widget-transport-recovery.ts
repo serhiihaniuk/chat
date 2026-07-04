@@ -140,6 +140,9 @@ export const classifyTransportError = (error: unknown): TransportErrorClass => {
       return error.status !== undefined && error.status >= 500 ? "retryable" : "fatal";
     case "malformed_stream":
     case "replay_expired":
+    // A busy conversation is a pre-start rejection, not a recoverable drop:
+    // retrying or polling cannot unbusy it, so surface it as fatal.
+    case "conversation_busy":
       return "fatal";
   }
 };

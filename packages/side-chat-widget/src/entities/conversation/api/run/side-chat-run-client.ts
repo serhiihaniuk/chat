@@ -57,13 +57,22 @@ export const createRunWithFetch = async (
   return startRunResultFromStream(parsedRequest.requestId, response, options.signal);
 };
 
-// A 404 on create means a repeated requestId resolved to a finished turn whose
-// stream buffer was swept — the same replay_expired the resume path reports, so
-// callers fall back to conversation history.
-const mapCreateRunOpenError = (error: unknown): unknown =>
-  error instanceof SideChatApiError && error.code === "http_error" && error.status === 404
-    ? turnStreamOpenError(error.status)
-    : error;
+// A wait-your-turn notice for a busy conversation (server 409 `conflict`).
+const CONVERSATION_BUSY_MESSAGE =
+  "This conversation is already generating a reply. Wait for it to finish before sending another message.";
+
+// Translate a create-run open failure into the code callers branch on. A 404 is
+// `replay_expired` (a repeated requestId resolved to a swept finished turn — fall
+// back to history); a 409 is `conversation_busy` (another tab/client is mid-turn),
+// surfaced as a sane notice rather than a raw HTTP failure.
+const mapCreateRunOpenError = (error: unknown): unknown => {
+  if (!(error instanceof SideChatApiError) || error.code !== "http_error") return error;
+  if (error.status === 404) return turnStreamOpenError(error.status);
+  if (error.status === 409) {
+    return new SideChatApiError("conversation_busy", CONVERSATION_BUSY_MESSAGE, { status: 409 });
+  }
+  return error;
+};
 
 /**
  * Read the identity frame, then hand back the full stream.

@@ -1,23 +1,22 @@
 import type { RuntimeEvent } from "@side-chat/ai-runtime-contract";
-import type { Effect } from "effect";
-import type { PartnerAiCoreError } from "#errors";
+import { Effect } from "effect";
 import { runtimeEventAttributes, recordStreamObservation } from "#services/stream-observability";
 import type { ObservabilitySinkPort } from "#services/observability";
 import type { PreparedStreamChatTurn, StreamChatPorts } from "../stream-chat-types.js";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 
 /**
- * Record one lifecycle observation through the same typed error channel.
+ * Record one lifecycle observation, fail-open.
  *
- * A telemetry sink failure becomes a PartnerAiCoreError before
- * `sidechat.started`, or a terminal stream error after streaming begins. Sink
- * adapter errors should not escape directly into the stream-chat workflow.
+ * Telemetry must never affect a turn. This runs at pre-start and on every runtime
+ * event, so a sink that rejects — a flaky adopter seam — would otherwise reject
+ * the request before `sidechat.started` or abort a healthy generation mid-stream.
+ * Swallowing the failure is the guarantee the `ObservabilitySinkPort` contract
+ * promises; the shipped console sink already redacts and try/catches internally.
  */
 export const recordStreamObservationEffect = (
   sink: ObservabilitySinkPort | undefined,
   input: Parameters<typeof recordStreamObservation>[1],
-): Effect.Effect<void, PartnerAiCoreError> =>
-  mapPortFailure(recordStreamObservation(sink, input), STREAM_CHAT_FAILURES.OBSERVABILITY);
+): Effect.Effect<void> => recordStreamObservation(sink, input).pipe(Effect.ignore);
 
 /**
  * Record safe telemetry attributes for one runtime event.
@@ -30,7 +29,7 @@ export const recordRuntimeEventObservation = (
   ports: StreamChatPorts,
   turn: PreparedStreamChatTurn,
   runtimeEvent: RuntimeEvent,
-): Effect.Effect<void, PartnerAiCoreError> =>
+): Effect.Effect<void> =>
   recordStreamObservationEffect(ports.observability, {
     correlation: turn.correlation,
     lifecycleState: "runtime_event",

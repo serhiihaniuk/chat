@@ -71,12 +71,14 @@ describe("partner ai service turn guards", () => {
     });
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toMatchObject({
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       code: PROTOCOL_ERROR_CODES.INTERNAL_ERROR,
-      message: "classifier unavailable",
       retryable: false,
     });
+    // The raw guard failure message goes to the log, never the browser body.
+    expect(String(body["message"])).not.toContain("classifier unavailable");
     expect(repositories.snapshot()).toMatchObject(emptyPersistenceSnapshot);
   });
 });

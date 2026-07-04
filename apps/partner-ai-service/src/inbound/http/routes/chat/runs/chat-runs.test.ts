@@ -92,6 +92,29 @@ describe("POST /chat/runs", () => {
     expect(messages.some((message) => message.role === "assistant")).toBe(true);
   });
 
+  it("returns a generic 500 body without leaking the underlying error message", async () => {
+    const repositories = createMemorySidechatRepositories();
+    // A repository that throws a driver-shaped message at pre-start.
+    const leaky: MemorySidechatRepositories = {
+      ...repositories,
+      appendMessage: () =>
+        Promise.reject(new Error("SECRET DRIVER DETAIL: relation messages does not exist")),
+    };
+    const app = createPartnerAiServiceApp({
+      repositories: leaky,
+      agentRuntime: completedRuntime(),
+    });
+
+    const response = await postRun(app, runRequest({ requestId: "request_leak_001" }));
+
+    expect(response.status).toBe(500);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body["code"]).toBe("internal_error");
+    // The body names the request id for support, never the driver detail.
+    expect(String(body["message"])).toContain("request_leak_001");
+    expect(String(body["message"])).not.toContain("SECRET DRIVER DETAIL");
+  });
+
   it("rejects a malformed body as a JSON bad-request without opening a run", async () => {
     const harness = createRouteHarness();
 

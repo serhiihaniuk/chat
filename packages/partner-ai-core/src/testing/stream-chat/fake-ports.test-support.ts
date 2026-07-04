@@ -10,6 +10,7 @@ import {
   type TurnPolicyDecision,
 } from "#domain/capabilities";
 import {
+  type ActiveConversationTurn,
   type AssistantTurnLifecyclePort,
   type ClockPort,
   DISABLED_CONVERSATION_TITLE_GENERATION,
@@ -54,6 +55,8 @@ export type FakePortOptions = {
   readonly observability?: ObservabilitySinkPort | undefined;
   /** Seeds the durable control state `readTurnControlState` returns (cancel intent). */
   readonly turnControlState?: FakeTurnControlState | undefined;
+  /** Seeds the conversation's in-flight turn the busy guard consults at pre-start. */
+  readonly activeConversationTurn?: ActiveConversationTurn | undefined;
 };
 
 export const createFakePorts = (options: FakePortOptions = {}) => {
@@ -93,6 +96,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     completedTurns,
     failedTurns,
     turnControlState,
+    options.activeConversationTurn,
   );
   const runtime = createRuntimePort(calls, runtimeRequests, options.runtimeEvents);
   const appendedEvents: SidechatStreamEvent[] = [];

@@ -10,6 +10,9 @@ export const SIDE_CHAT_API_ERROR_CODES = {
   // The turn is still running but another instance owns its live stream (HTTP
   // 409, `not_stream_owner`). Callers poll turn status until it is terminal.
   STREAM_UNAVAILABLE: "stream_unavailable",
+  // The conversation already has a turn generating (HTTP 409, `conflict`). The
+  // widget shows a wait-your-turn notice instead of a raw failure.
+  CONVERSATION_BUSY: "conversation_busy",
 } as const;
 
 export type SideChatApiErrorCode =

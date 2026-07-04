@@ -45,6 +45,7 @@ describe("stream chat turn guards", () => {
       "turnPolicy",
       "policy",
       "ensureConversation",
+      "findActiveConversationTurn",
       "appendUserMessage",
       "startAssistantTurn",
       "contextManager",
