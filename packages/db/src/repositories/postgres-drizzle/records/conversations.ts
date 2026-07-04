@@ -205,6 +205,8 @@ export const createPostgresDrizzleConversationRepository = ({
       )
       .orderBy(desc(conversations.lastMessageAt))
       .limit(command.limit);
+    // N+1: one title-fallback read per untitled conversation, bounded by the
+    // sidebar `limit` (25). Fold into a lateral join only if that limit grows.
     return Promise.all(
       rows.map((row) => readConversationSummaryTitle(db, toConversationRecord(row))),
     );

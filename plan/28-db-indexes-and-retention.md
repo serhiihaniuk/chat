@@ -1,6 +1,6 @@
 # 28 — DB indexes + retention documentation
 
-**Epic:** 5 Robustness | **Priority:** P1 (cheap now, painful at 10⁶ rows) | **Depends on:** — | **Status:** todo
+**Epic:** 5 Robustness | **Priority:** P1 (cheap now, painful at 10⁶ rows) | **Depends on:** — | **Status:** done
 
 ## Problem
 
@@ -23,15 +23,60 @@ Index audit vs actual query shapes (schema indexes at `packages/db/src/drizzle/s
 
 ## Acceptance criteria
 
-- [ ] `EXPLAIN` (container test or manual) shows index scans for `listActiveAssistantTurns` and `readUsageSummary`.
-- [ ] Schema governance test (`schema.test.ts`) updated for the index changes; `db:generate` produced one fresh migration; `test:db:container` green.
-- [ ] The duplicate index is gone.
-- [ ] Retention reality documented.
+- [x] `EXPLAIN` container test asserts index scans for `listActiveAssistantTurns` (activity snapshot), `readUsageSummary`, and the conversation list — with `SET LOCAL enable_seqscan = off` so the planner must use an index if one covers the query.
+- [x] Schema governance test (`schema.test.ts`) asserts the new index DDL and the absence of the dropped one; `db:generate` produced one fresh `day_one` migration.
+- [x] The duplicate `messages_conversation_sequence_desc_idx` is gone.
+- [x] Retention reality + external approach documented in `capacity-and-deployment.md`.
 
 ## Verification
 
 ```sh
 npm run db:generate
-npm run test:db:container
+npm run test:db:container   # requires Docker; runs the EXPLAIN + concurrent-append checks against real PG
 npm run verify
 ```
+
+## Delivery notes
+
+**Audited every query shape, not just the five listed.** I mapped every
+`WHERE`/`ORDER BY` across the postgres-drizzle repositories against the indexes,
+including the reads stories 26/27 added. Most candidate "problems" were already
+O(1)/O(log n) and needed nothing: PK-keyed writes (`complete`/`fail`/`cancel`/
+lease renew) seek one row then filter; `max(sequence_index)` and history `DESC`
+ride the `(conversation_id, sequence_index)` unique index scanned backward. Four
+changes were real:
+
+1. **Partial working-set index** — `assistant_turns_running_lookup_idx`
+   `(workspace_id, subject_id, conversation_id) WHERE status = 'running'`. Its size
+   tracks live concurrency, not history, and it serves every hot running-turn read:
+   `listActiveAssistantTurns` (ws+subj prefix, on every `/chat/activity` connect),
+   `findActiveConversationTurn` (the story-27 per-create guard) and
+   `findActiveAssistantTurn` (resume) as exact seeks, and — because it stays tiny —
+   the unscoped `listRunningCancelRequestedTurns` reconnect rescan (story 26) and
+   the reaper sweep scan it instead of the full table. This is broader than the
+   story's `(workspace_id, subject_id)` proposal so the story-26/27 reads are
+   covered too.
+2. **`usage_records_workspace_idx` `(workspace_id)`** — `readUsageSummary`'s
+   per-workspace `SUM` no longer full-scans an ever-growing table.
+3. **`conversations_workspace_subject_recent_idx`
+   `(workspace_id, subject_id, last_message_at)`** — the sidebar list orders a
+   subject's unbounded-growing conversation set newest-first; this makes it a
+   top-N index scan instead of a sort. (Not in the original story; added because
+   the audit showed it is a real growth-driven hot read.)
+4. **Dropped `messages_conversation_sequence_desc_idx`** — a pure-write-overhead
+   duplicate of the `(conversation_id, sequence_index)` unique index.
+
+**Migration + governance.** Regenerated the single `day_one` migration
+(`npm run db:generate`, which wipes and re-emits from `schema.ts`). The governance
+test asserts each new index's DDL and the absence of the dropped one; an EXPLAIN
+container test proves the planner uses each index. The N+1 title fallback in
+`listConversations` is annotated (bounded by the 25-row sidebar limit).
+
+**Retention.** `capacity-and-deployment.md` now documents the growth reality plus
+the two external approaches — time partitioning (drop old partitions) and a
+scheduled delete (children before parents, since every FK is
+`ON DELETE no action`) — and the `readUsageSummary` ~10⁷-row rollup threshold.
+Retention stays documented, not built, per the review decision.
+
+`npm run verify` green; the EXPLAIN + concurrent-append checks run in CI's
+`test:db:container` lane (Docker unavailable in this environment).

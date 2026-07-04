@@ -1,6 +1,10 @@
+import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
-import { createPostgresDrizzleSidechatRepositories } from "./index.js";
+import {
+  createPostgresDrizzleSidechatRepositories,
+  type PostgresDrizzleSidechatRepositories,
+} from "./index.js";
 import { conversationListRepositoryContract } from "#testing/conversation-list-contract.test-support";
 import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
 import { turnLeaseRepositoryContract } from "#testing/turn/turn-lease-contract.test-support";
@@ -72,7 +76,52 @@ describe("postgres drizzle repositories", () => {
       await repositories.close();
     }
   });
+  it("plans the hot reads as index scans, never a seq scan of the full table", async () => {
+    const repositories = createPostgresDrizzleSidechatRepositories({
+      connectionString: databaseUrl,
+    });
+    try {
+      // Disable seq scans within the transaction so the planner must pick an index
+      // if one covers the query; an uncovered query would still seq-scan (at a
+      // punitive cost) and the index-name assertion would fail.
+      const activityPlan = await explainWithoutSeqScan(
+        repositories,
+        sql`select * from sidechat.assistant_turns
+            where workspace_id = 'w' and subject_id = 's' and status = 'running'
+            order by started_at desc`,
+      );
+      expect(activityPlan).toContain("assistant_turns_running_lookup_idx");
+
+      const usagePlan = await explainWithoutSeqScan(
+        repositories,
+        sql`select coalesce(sum(input_tokens), 0) from sidechat.usage_records
+            where workspace_id = 'w'`,
+      );
+      expect(usagePlan).toContain("usage_records_workspace_idx");
+
+      const listPlan = await explainWithoutSeqScan(
+        repositories,
+        sql`select * from sidechat.conversations
+            where workspace_id = 'w' and subject_id = 's'
+            order by last_message_at desc limit 25`,
+      );
+      expect(listPlan).toContain("conversations_workspace_subject_recent_idx");
+    } finally {
+      await repositories.close();
+    }
+  });
 });
+
+/** EXPLAIN a query with seq scans disabled, returning the joined plan text. */
+const explainWithoutSeqScan = (
+  repositories: PostgresDrizzleSidechatRepositories,
+  query: ReturnType<typeof sql>,
+): Promise<string> =>
+  repositories.db.transaction(async (tx) => {
+    await tx.execute(sql`set local enable_seqscan = off`);
+    const result = await tx.execute(sql`explain ${query}`);
+    return result.rows.map((row) => String(row["QUERY PLAN"])).join("\n");
+  });
 
 const NOW = "2026-05-23T13:00:00.000Z";
 

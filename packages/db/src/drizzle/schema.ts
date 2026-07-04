@@ -58,6 +58,16 @@ export const conversations = sidechat.table(
       table.subjectId,
       table.conversationKey,
     ),
+    // The sidebar lists a subject's conversations newest-first on every panel open;
+    // a subject accumulates conversations without bound, so this serves the filter
+    // + `last_message_at DESC` order as a top-N index scan instead of sorting the
+    // whole set. (The `(…, conversation_key)` unique index above filters but cannot
+    // order.)
+    index("conversations_workspace_subject_recent_idx").on(
+      table.workspaceId,
+      table.subjectId,
+      table.lastMessageAt,
+    ),
     check("conversations_status_check", inList("status", CONVERSATION_STATUSES)),
   ],
 );
@@ -78,9 +88,11 @@ export const messages = sidechat.table(
     createdAt: createdAt(),
   },
   (table) => [
+    // History reads (`sequence_index DESC`) and the append `max(sequence_index)`
+    // are served by the unique index below scanned backwards, so a second
+    // same-columns index would be pure write overhead per message insert.
     uniqueIndex("messages_conversation_sequence_uq").on(table.conversationId, table.sequenceIndex),
     uniqueIndex("messages_workspace_idempotency_uq").on(table.workspaceId, table.idempotencyKey),
-    index("messages_conversation_sequence_desc_idx").on(table.conversationId, table.sequenceIndex),
     check("messages_role_check", inList("role", MESSAGE_ROLES)),
   ],
 );
@@ -134,6 +146,16 @@ export const assistantTurns = sidechat.table(
   (table) => [
     uniqueIndex("assistant_turns_workspace_request_uq").on(table.workspaceId, table.requestId),
     index("assistant_turns_conversation_started_idx").on(table.conversationId, table.startedAt),
+    // Partial index over only the in-flight working set (running turns ≈ live
+    // concurrency, not the ever-growing history). It is the exact shape of the hot
+    // running-turn reads: the activity snapshot (`listActiveAssistantTurns`, keyed
+    // on workspace+subject), the per-create concurrency guard and the resume lookup
+    // (`findActiveConversationTurn` / `findActiveAssistantTurn`, keyed on
+    // workspace+subject+conversation), and — because it stays tiny — the unscoped
+    // reaper sweep and cancel rescan scan it instead of the full table.
+    index("assistant_turns_running_lookup_idx")
+      .on(table.workspaceId, table.subjectId, table.conversationId)
+      .where(sql`status = 'running'`),
     check("assistant_turns_status_check", inList("status", ASSISTANT_TURN_STATUSES)),
   ],
 );
@@ -181,6 +203,11 @@ export const usageRecords = sidechat.table(
   },
   (table) => [
     uniqueIndex("usage_records_turn_step_uq").on(table.assistantTurnId, table.runtimeStepIndex),
+    // `readUsageSummary` sums by workspace; without this the aggregate full-scans a
+    // table that grows one row per runtime step forever. This bounds the scan to a
+    // workspace's rows — a rollup table is the next step past ~10^7 rows (see
+    // capacity-and-deployment.md).
+    index("usage_records_workspace_idx").on(table.workspaceId),
   ],
 );
 

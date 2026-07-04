@@ -62,6 +62,43 @@ rows) per year — comfortably ordinary Postgres volume, but plan storage and
 index growth accordingly. If a deployment ever needs retention, it is a policy
 decision for the adopter, not a framework default.
 
+**The hot reads stay bounded as these tables grow.** The queries that run per
+request or per connection do not scan the whole history:
+
+- The activity snapshot, the per-turn concurrency guard, the resume lookup, and
+  the reaper/cancel sweeps all read only _running_ turns, served by a **partial
+  index** (`assistant_turns_running_lookup_idx … WHERE status = 'running'`) whose
+  size tracks live concurrency, not the row count.
+- History and the append `max(sequence_index)` ride the `(conversation_id,
+sequence_index)` unique index (scanned backwards for `DESC`); there is no
+  second same-columns index adding write cost.
+- `readUsageSummary` sums within a workspace on `usage_records_workspace_idx`
+  instead of full-scanning the table.
+- The sidebar conversation list reads a subject's newest conversations through
+  `conversations_workspace_subject_recent_idx` as a top-N scan, not a sort of the
+  subject's whole (unbounded) set.
+
+## Retention: what an adopter must build
+
+No automatic pruning ships. When a deployment decides to cap growth, two
+standard approaches fit:
+
+- **Time partitioning** — range-partition the append-only tables (`assistant_turns`,
+  `messages`, `usage_records`, `audit_events`, `turn_context_snapshots`,
+  `host_command_results`) by month on their timestamp and drop old partitions.
+  Detaching a partition is instant and index-free, unlike a bulk `DELETE`.
+- **Scheduled delete** — a periodic job deleting rows past a cutoff. Every foreign
+  key is `ON DELETE no action`, so a delete must remove children before parents:
+  `usage_records` / `turn_context_snapshots` / `tool_invocations` /
+  `host_command_results` → `assistant_turns` → `messages` → `conversations`.
+  Batch by id range and `VACUUM` so a large purge does not bloat the tables.
+
+One scaling threshold to watch: `readUsageSummary` aggregates a workspace's
+`usage_records` live. The workspace index keeps that bounded to the workspace's
+rows, but past ~10^7 rows the per-call `SUM` gets slow — introduce a rollup
+(a materialized per-workspace running total updated on write) at that point
+rather than widening the index.
+
 ## What deliberately disappears
 
 The in-flight event stream — deltas, reasoning rows, tool inputs and results,

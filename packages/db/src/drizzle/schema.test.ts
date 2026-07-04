@@ -45,6 +45,27 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).toContain('"cancel_requested_at" timestamp with time zone');
   });
 
+  it("indexes the hot query working sets and drops the redundant message index", () => {
+    // Partial index over only running turns: the activity snapshot, the per-create
+    // concurrency guard, the resume lookup, and the reaper/cancel-rescan all read
+    // the in-flight set, never the full history.
+    expect(migration).toMatch(
+      /CREATE INDEX "assistant_turns_running_lookup_idx" ON "sidechat"\."assistant_turns" USING btree \("workspace_id","subject_id","conversation_id"\) WHERE status = 'running';/u,
+    );
+    // Workspace-scoped usage summary must not full-scan an ever-growing table.
+    expect(migration).toContain(
+      'CREATE INDEX "usage_records_workspace_idx" ON "sidechat"."usage_records" USING btree ("workspace_id")',
+    );
+    // The sidebar list orders a subject's growing conversation set newest-first.
+    expect(migration).toContain(
+      'CREATE INDEX "conversations_workspace_subject_recent_idx" ON "sidechat"."conversations" USING btree ("workspace_id","subject_id","last_message_at")',
+    );
+    // The unique index serves history/`max()` reads scanned backwards, so the
+    // same-columns plain index is gone — no per-insert write overhead.
+    expect(migration).toContain('"messages_conversation_sequence_uq"');
+    expect(migration).not.toContain("messages_conversation_sequence_desc_idx");
+  });
+
   it("keeps runtime least privilege in the durable role grants", () => {
     expect(grants).toContain("CREATE ROLE sidechat_runtime NOLOGIN");
     expect(grants).toContain("GRANT USAGE ON SCHEMA sidechat TO sidechat_runtime");
