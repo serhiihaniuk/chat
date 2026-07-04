@@ -15,7 +15,16 @@ export type HostCommand = {
   readonly payload: JsonObject;
 };
 
-export type HostCommandCapability = {
+/**
+ * A command the browser bridge can perform, as advertised by `getCapabilities`.
+ *
+ * Named to stay distinct from core's manifest `HostCommandCapability`
+ * (`@side-chat/partner-ai-core`): both describe the same command by name, but the
+ * server side carries `approvalMode` (turn policy) while this browser side carries
+ * `resourceTypes` (which resources the bridge can act on). A command must appear
+ * on BOTH sides — the server exposes it to the model, the browser performs it.
+ */
+export type BrowserHostCommandCapability = {
   readonly commandName: string;
   readonly description: string;
   readonly inputSchema: JsonObject;
@@ -24,7 +33,7 @@ export type HostCommandCapability = {
 
 export type HostCapabilities = {
   readonly schemaVersion: string;
-  readonly commands: readonly HostCommandCapability[];
+  readonly commands: readonly BrowserHostCommandCapability[];
 };
 
 export const isHostCommandActivityEvent = (
@@ -46,7 +55,10 @@ export const supportsCommand = (capabilities: HostCapabilities, command: HostCom
       supportsResourceType(capability, command.payload),
   );
 
-const supportsResourceType = (capability: HostCommandCapability, payload: JsonObject): boolean => {
+const supportsResourceType = (
+  capability: BrowserHostCommandCapability,
+  payload: JsonObject,
+): boolean => {
   const resourceTypes = capability.resourceTypes;
   // No resource list means the command applies to every resource. If a list is
   // present, the command payload must name one allowed resource type.

@@ -173,7 +173,7 @@ export const buildModelTurnRequest = (input, turn): AiRuntimeRequest => ({
     subjectId: turn.authContext.subject.subjectId, // Maya — injected here, trusted
     conversationId: turn.conversation.conversationId,
     assistantTurnId: turn.assistantTurnId,
-    allowedHostCommandNames: turn.policyDecision.allowedCommandNames,
+    hostCommands: input.request.hostCommands, // relayed from the browser bridge's getCapabilities
   },
   // ...
 });

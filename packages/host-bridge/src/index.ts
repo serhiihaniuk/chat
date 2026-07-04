@@ -2,10 +2,10 @@ export {
   isHostCommandActivityEvent,
   supportsCommand,
   toHostCommand,
+  type BrowserHostCommandCapability,
   type HostCapabilities,
   type HostCommand,
   type HostCommandActivityEvent,
-  type HostCommandCapability,
 } from "./commands/capability.js";
 export {
   createCommandResult,

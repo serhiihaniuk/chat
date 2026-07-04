@@ -41,6 +41,19 @@ The apply layer creates the schema itself because the generated migration assume
 
 Drizzle does offline DDL generation only. The `dbCredentials.url` in [`packages/db/drizzle.config.ts`](../../packages/db/drizzle.config.ts) is intentionally empty, so raw `drizzle-kit migrate` or `drizzle-kit push` has no connection and must not be used. Apply schema changes only through `db:reset`. The DB test lanes apply migrations the same way, against a Testcontainers Postgres (`scripts/run-db-container-tests.mjs`).
 
+## Graduating to incremental migrations
+
+The day-one convention exists because regenerating the whole schema is safe only while you can drop the database at will. The moment you run a deployed instance with data you cannot lose, `db:reset`'s `DROP SCHEMA … CASCADE` stops being acceptable and you must switch to a forward-only migration chain. This is the intended graduation path, not a path the repo exercises today — plan it before your first production data, not after.
+
+Switch in four steps:
+
+1. **Stop regenerating.** Stop running `npm run db:generate`. Its whole job is the day-one wipe — `rm -rf packages/db/migrations` then `drizzle-kit generate --name day_one` — which throws away migration history. Freeze the current `packages/db/migrations` as your baseline, and commit it as history you never rewrite.
+2. **Generate deltas, not the whole.** Edit `schema.ts`, then run `drizzle-kit generate` directly (no `rm -rf`, a real `--name <change>` per change) so each edit stacks a new numbered migration on the baseline instead of replacing it.
+3. **Apply forward-only.** Populate `dbCredentials.url` in [`drizzle.config.ts`](../../packages/db/drizzle.config.ts) and apply with `drizzle-kit migrate`, which runs only the not-yet-applied migrations against the live database. Do not use `db:reset` against data you keep.
+4. **Retire the destructive reset.** Keep `db:reset` for local development and ephemeral test databases only — its `DROP SCHEMA … CASCADE` erases everything. Never point it at a database whose data must survive.
+
+The role model already fits this future: `sidechat_migrator` owns DDL and `sidechat_runtime` cannot alter the schema (see [Three roles](#three-roles)), so incremental migrations run as the migrator while the service keeps its least-privilege runtime connection.
+
 ## Postgres vs in-memory
 
 `SIDECHAT_DATABASE_URL` selects the persistence backend at service boot ([`environment.ts:74-79`](../../apps/partner-ai-service/src/config/sidechat-config/environment.ts)):

@@ -55,6 +55,17 @@ status transition (cancel/complete/fail) -> pg_notify in the same transaction
 LISTEN connection -> notification source -> service dispatcher fan-out
 ```
 
+## Adding an entity
+
+A new persisted entity crosses every layer of this package, and two gates fail the build until the layers agree: the `SCHEMA_ENTITY_TYPES` governance test and the shared contract suite both adapters run. Follow the layers in order — `usage_record` is the smallest end-to-end example to copy.
+
+1. **Declare the contract** (`src/schema-contract/`). Add the record type in [`entities.ts`](src/schema-contract/entities.ts) (extend `TenantScopedRecord & VersionedRecord` so `workspaceId`, `createdAt`, and `updatedAt` are required) and add it to the `SchemaContractRecord` union. Add the command type(s) in [`repositories.ts`](src/schema-contract/repositories.ts) (extend `RepositoryCommandEnvelope` so `workspaceId` + `now` are required; results are `RepositoryCommandResult<YourRecord>`) and the method signatures on the fitting contract interface — `ConversationRepositoryContract`, `AssistantTurnRepositoryContract`, or `InteractionRepositoryContract`. Add a branded id + its `to<Id>` helper in [`ids/persistence-ids.ts`](src/schema-contract/ids/persistence-ids.ts). If the entity has a state machine, add its status tuple in [`lifecycle.ts`](src/schema-contract/lifecycle.ts).
+2. **Register the entity name** (`src/schema-contract/lifecycle.ts`). Append the entity's string to `SCHEMA_ENTITY_TYPES`, then add the same string to the expected array in [`schema-contract.test.ts`](src/schema-contract/schema-contract.test.ts) ("names the required persisted entity surfaces"). This test fails first if you skip it — it is the drift guard that forces every layer below.
+3. **Define the table** (`src/drizzle/schema.ts`). Add the `sidechat.table(...)` definition (columns mirror the record; use `check()` for status enums) and register it in the `sidechatTables` object at the bottom of the file.
+4. **Implement both adapters, in parity.** Add the row→record mapper `to<Entity>Record` in [`postgres-drizzle/records/records.ts`](src/repositories/postgres-drizzle/records/records.ts). Add the Postgres operations to the fitting grouped file under [`postgres-drizzle/records/`](src/repositories/postgres-drizzle/records) (`usage.ts`, `interactions.ts`, `turns.ts`, …) and mirror them under [`memory/records/`](src/repositories/memory/records), plus a store array in [`memory/store/store.ts`](src/repositories/memory/store/store.ts). Wire each factory into [`postgres-drizzle/index.ts`](src/repositories/postgres-drizzle/index.ts) and [`memory/index.ts`](src/repositories/memory/index.ts). Prefer extending a grouped file over adding one: these `records/` dirs carry a raised file budget (Postgres 9, memory 8), not the usual 5.
+5. **Prove parity** (`src/testing/repository-contract.test-support.ts`). Add cases for idempotency, any lifecycle transitions, and cross-workspace isolation. Both adapters run this one suite, so a memory/Postgres divergence fails here rather than in production.
+6. **Regenerate the migration.** Rebuild the package first — `npm run build --workspace @side-chat/db` — then `npm run db:generate`. Gotcha: `db:generate` resolves `#schema-contract` through `packages/db/dist/`, so a stale build silently regenerates the migration against the old types. Rebuild, generate, then confirm the new table appears in `packages/db/migrations/`.
+
 ## Boundary Rules
 
 - Drizzle and Postgres stay inside this package.
