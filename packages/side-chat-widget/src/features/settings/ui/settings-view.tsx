@@ -17,8 +17,10 @@ export const SettingsView = ({
   onDensityChange,
   onElevationChange,
   onSelectTheme,
+  onSendWithCtrlEnterChange,
   onTextSizeChange,
   onTypefaceChange,
+  sendWithCtrlEnter,
   textSize,
   themeId,
   typeface,
@@ -33,8 +35,10 @@ export const SettingsView = ({
   readonly onDensityChange: (next: string) => void;
   readonly onElevationChange: (next: string) => void;
   readonly onSelectTheme: (themeId: WidgetThemeId) => void;
+  readonly onSendWithCtrlEnterChange: (next: boolean) => void;
   readonly onTextSizeChange: (next: string) => void;
   readonly onTypefaceChange: (next: string) => void;
+  readonly sendWithCtrlEnter: boolean;
   readonly textSize: string;
   readonly themeId: WidgetThemeId;
   readonly typeface: string;
@@ -50,12 +54,14 @@ export const SettingsView = ({
     onCornersChange={onCornersChange}
     onDensityChange={onDensityChange}
     onElevationChange={onElevationChange}
+    onSendWithCtrlEnterChange={onSendWithCtrlEnterChange}
     onTextSizeChange={onTextSizeChange}
     onThemeChange={(next) => {
       if (isWidgetThemeId(next)) onSelectTheme(next);
     }}
     onTypefaceChange={onTypefaceChange}
     railHeader={<SettingsRailHeader onBack={onBack} />}
+    sendWithCtrlEnter={sendWithCtrlEnter}
     textSize={textSize}
     theme={themeId}
     themeOptions={WIDGET_THEME_IDS}

@@ -4,8 +4,10 @@ import { Composer } from '@side-chat/side-chat-widget/ui/composer';
 
 /**
  * The Composer is self-contained: with no `modelSelector` prop it renders its own
- * ModelSelector, and it always renders its own ToolsMenu + context ring. Both popups
- * mount through the widget root's portal container, so they stay inside the preview.
+ * ModelSelector, and always its own ToolsMenu. The context meter appears only when
+ * both `contextUsedTokens` and `contextWindowTokens` are known, so it reads a real
+ * fill (hover it for "used / window tokens") instead of a decorative percentage.
+ * Both popups mount through the widget root's portal container, staying in-preview.
  */
 export function ComposerDemo() {
   const [armed, setArmed] = useState('Summarise the attached spec and list the open questions');
@@ -22,12 +24,17 @@ export function ComposerDemo() {
       }}
     >
       <Field label="Idle">
-        <Composer placeholder="Message Side Chat..." />
+        <Composer
+          contextUsedTokens={24_000}
+          contextWindowTokens={200_000}
+          placeholder="Message Side Chat..."
+        />
       </Field>
 
       <Field label="Armed">
         <Composer
-          contextPercent={78}
+          contextUsedTokens={156_000}
+          contextWindowTokens={200_000}
           onSubmit={() => setArmed('')}
           onValueChange={setArmed}
           value={armed}
@@ -35,7 +42,12 @@ export function ComposerDemo() {
       </Field>
 
       <Field label="Streaming">
-        <Composer contextPercent={64} status="streaming" value="" />
+        <Composer
+          contextUsedTokens={188_000}
+          contextWindowTokens={200_000}
+          status="streaming"
+          value=""
+        />
       </Field>
     </div>
   );

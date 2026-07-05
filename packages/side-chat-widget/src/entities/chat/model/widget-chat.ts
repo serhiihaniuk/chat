@@ -14,6 +14,22 @@ export type WidgetStatus = "idle" | "submitted" | "streaming" | "error";
 export type WidgetUsage = UsageMetadata;
 
 /**
+ * Tokens occupying the context window after a completed turn, or `undefined` when
+ * usage carries no token counts. Prefers the provider's `totalTokens`; otherwise
+ * sums input + output (the prompt already includes prior history, so this is the
+ * running context fill, not a single message's size). The context meter divides
+ * this by the active model's context window.
+ */
+export const contextTokensFromUsage = (usage: WidgetUsage | undefined): number | undefined => {
+  if (!usage) return undefined;
+  if (usage.totalTokens !== undefined) return usage.totalTokens;
+  if (usage.inputTokens !== undefined && usage.outputTokens !== undefined) {
+    return usage.inputTokens + usage.outputTokens;
+  }
+  return usage.inputTokens ?? usage.outputTokens;
+};
+
+/**
  * The terminal notice the conversation view renders, if any.
  *
  * `error` is the retryable failure surface; `blocked` is the calm safety-stop

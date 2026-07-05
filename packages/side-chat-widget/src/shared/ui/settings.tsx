@@ -36,6 +36,8 @@ type SettingsPanelProps = {
   onTextSizeChange?: (next: string) => void;
   typeface?: string;
   onTypefaceChange?: (next: string) => void;
+  sendWithCtrlEnter?: boolean;
+  onSendWithCtrlEnterChange?: (next: boolean) => void;
   applyAppearance?: boolean;
   header?: ReactNode;
   railHeader?: ReactNode;
@@ -102,6 +104,8 @@ export function SettingsPanel({
   onTextSizeChange,
   typeface: typefaceProp,
   onTypefaceChange,
+  sendWithCtrlEnter: sendWithCtrlEnterProp,
+  onSendWithCtrlEnterChange,
   applyAppearance = true,
   header,
   railHeader,
@@ -118,7 +122,11 @@ export function SettingsPanel({
     onTypefaceChange,
     "plus-jakarta",
   );
-  const [sendWithCtrlEnter, setSendWithCtrlEnter] = useState(false);
+  const [sendWithCtrlEnter, setSendWithCtrlEnter] = useControlledValue(
+    sendWithCtrlEnterProp,
+    onSendWithCtrlEnterChange,
+    false,
+  );
 
   const groups = createSettingsGroups({
     accent,

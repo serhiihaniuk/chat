@@ -6,7 +6,8 @@
  * the `data-[from=user]:` variant, so the SAME component renders both sides.
  *
  *   user      → a right-aligned bubble with one squared tail corner (rounded-br-sm),
- *               capped at 82% of the column so long lines wrap before the edge.
+ *               capped at 82% of the column so long lines wrap before the edge;
+ *               `break-words` also breaks an unbroken run (a long URL) inside the cap.
  *   assistant → no bubble; full-measure prose rendered through `MarkdownContent`
  *               (the ONE Markdown wrapper) and capped at the reading measure.
  *
@@ -32,7 +33,7 @@ export function Message({
     <div data-from={role} className="data-[from=user]:flex data-[from=user]:justify-end">
       {role === "user" ? (
         <div
-          className="w-fit rounded-lg rounded-br-sm bg-message-user text-message-user-foreground px-3.5 py-2.5 text-md leading-message"
+          className="w-fit break-words rounded-lg rounded-br-sm bg-message-user text-message-user-foreground px-3.5 py-2.5 text-md leading-message"
           style={{ maxWidth: "82%" }}
         >
           {text}

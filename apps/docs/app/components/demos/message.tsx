@@ -21,6 +21,11 @@ const USER_2 =
 
 const ASSISTANT_2 = `Long user turns cap at **82%** of the column width, so they always wrap a little before the edge instead of filling the whole row.`;
 
+// An unbroken run (a long URL with no spaces) must still break inside the 82% cap
+// rather than overflow the bubble — the `break-words` fixture the e2e viewport check
+// guards.
+const USER_3 = `https://example.com/${"a".repeat(180)}`;
+
 export function MessageDemo() {
   return (
     <div
@@ -37,6 +42,7 @@ export function MessageDemo() {
       <Message role="assistant" text={ASSISTANT_1} />
       <Message role="user" text={USER_2} />
       <Message role="assistant" text={ASSISTANT_2} />
+      <Message role="user" text={USER_3} />
     </div>
   );
 }

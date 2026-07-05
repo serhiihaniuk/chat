@@ -317,13 +317,30 @@ test("keeps the widget usable on a mobile viewport", async ({ page }) => {
   await expectElementWithinViewport(page, page.getByRole("button", { name: "Send" }));
 });
 
+test("wraps an unbroken 300-character user message inside its bubble", async ({ page }) => {
+  await page.goto(widgetAppUrl("?mode=mock-stream"));
+  await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
+
+  // An unbroken run (a long URL with no spaces) must break inside the 82% bubble
+  // cap, not paint past its right edge. `break-words` makes the text's scrollWidth
+  // collapse to its clientWidth; without it the single line overflows by hundreds
+  // of pixels.
+  const longUrl = `https://example.com/${"a".repeat(280)}`;
+  await page.getByLabel("Message").fill(longUrl);
+  await page.getByRole("button", { name: "Send" }).click();
+
+  const bubble = page.getByRole("log").getByText(longUrl, { exact: true });
+  await expect(bubble).toBeVisible();
+  const overflow = await bubble.evaluate((node) => node.scrollWidth - node.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 test("keeps the model selector visible as an anchored popover on a short viewport", async ({
   page,
   request,
 }) => {
-  // The context ring is aria-hidden decoration today (its interactive fate is
-  // plan/33), and mock mode has no model catalog — so this runs against the
-  // local service, whose fake model + thinking levels populate the selector.
+  // Mock mode has no model catalog, so this runs against the local service, whose
+  // fake model + thinking levels populate the selector.
   await expectServiceHealth(request);
   await page.setViewportSize({ height: 486, width: 864 });
   await openLocalServiceWidget(page);

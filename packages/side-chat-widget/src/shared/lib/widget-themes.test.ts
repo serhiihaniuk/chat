@@ -17,9 +17,7 @@ describe("widget theme completeness", () => {
 
       // A named theme re-skins the root through a scoped attribute block; graphite is
       // the `:root` base and is the one theme that must carry NO such block.
-      expect(styles.includes(`[data-sidechat-theme="${id}"]`)).toBe(
-        id !== DEFAULT_WIDGET_THEME_ID,
-      );
+      expect(styles.includes(`[data-sidechat-theme="${id}"]`)).toBe(id !== DEFAULT_WIDGET_THEME_ID);
     }
   });
 });

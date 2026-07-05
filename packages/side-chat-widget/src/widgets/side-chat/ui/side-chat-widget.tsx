@@ -17,8 +17,9 @@ import {
   WidgetHeader,
 } from "#features/panel";
 import { WidgetFooter } from "#features/prompt";
-import { SettingsView } from "#features/settings";
+import { SettingsView, useSendPreference } from "#features/settings";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
+import { contextTokensFromUsage } from "#entities/chat";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } from "lucide-react";
@@ -103,6 +104,7 @@ const SideChatWidgetContent = ({
   };
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
   const appearance = useWidgetAppearance();
+  const sendPreference = useSendPreference();
   const modelSelection = useWidgetModelSelection({
     turnProfiles,
     client,
@@ -157,8 +159,10 @@ const SideChatWidgetContent = ({
           onDensityChange={appearance.setDensity}
           onElevationChange={appearance.setElevation}
           onSelectTheme={theme.setTheme}
+          onSendWithCtrlEnterChange={sendPreference.setSendWithCtrlEnter}
           onTextSizeChange={appearance.setTextSize}
           onTypefaceChange={appearance.setTypeface}
+          sendWithCtrlEnter={sendPreference.sendWithCtrlEnter}
           textSize={appearance.textSize}
           themeId={theme.themeId}
           typeface={appearance.typeface}
@@ -222,9 +226,9 @@ const SideChatWidgetContent = ({
               renderActivityItem={renderActivityItem}
             />
             <WidgetFooter
-              isBusy={isBusy}
+              contextUsedTokens={contextTokensFromUsage(chat.usage)}
+              contextWindowTokens={modelSelection.selectedModelContextWindowTokens}
               labels={resolvedLabels}
-              messages={chat.messages}
               models={modelSelection.footerModels}
               onModelSelect={modelSelection.selectFooterModel}
               onReasoningEffortSelect={modelSelection.setSelectedReasoningEffort}
@@ -233,6 +237,7 @@ const SideChatWidgetContent = ({
               reasoningEfforts={modelSelection.reasoningEfforts}
               selectedModelKey={modelSelection.selectedFooterModelKey}
               selectedReasoningEffort={modelSelection.selectedReasoningEffort}
+              sendOnEnter={!sendPreference.sendWithCtrlEnter}
               status={chat.status}
               stop={chat.stop}
               tools={toolSelection.tools}

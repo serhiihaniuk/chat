@@ -1,6 +1,6 @@
 import { BrainCircuitIcon, GaugeIcon, SparklesIcon, type LucideIcon } from "lucide-react";
 
-import type { WidgetMessage, WidgetStatus } from "#entities/chat";
+import type { WidgetStatus } from "#entities/chat";
 import { Composer } from "#shared/ui/composer";
 import { ModelSelector, type Model, type ThinkingLevel } from "#shared/ui/model-selector";
 import { ToolsMenu, type ToolMenuItem } from "#shared/ui/tools-menu";
@@ -17,9 +17,9 @@ type WidgetFooterModel = {
 };
 
 export const WidgetFooter = ({
-  isBusy,
+  contextUsedTokens,
+  contextWindowTokens,
   labels,
-  messages,
   models,
   onModelSelect,
   onReasoningEffortSelect,
@@ -28,13 +28,16 @@ export const WidgetFooter = ({
   reasoningEfforts,
   selectedModelKey,
   selectedReasoningEffort,
+  sendOnEnter,
   status,
   stop,
   tools,
 }: {
-  readonly isBusy: boolean;
+  // Real context fill: tokens used by the last completed turn against the active
+  // model's window. Both undefined until a turn completes, so the meter stays hidden.
+  readonly contextUsedTokens: number | undefined;
+  readonly contextWindowTokens: number | undefined;
   readonly labels: WidgetFooterLabels;
-  readonly messages: readonly WidgetMessage[];
   readonly models: readonly WidgetFooterModel[];
   readonly onModelSelect: (modelKey: string) => void;
   readonly onReasoningEffortSelect: (effort: ChatReasoningEffort) => void;
@@ -43,6 +46,7 @@ export const WidgetFooter = ({
   readonly reasoningEfforts: readonly ChatReasoningEffort[];
   readonly selectedModelKey: string | undefined;
   readonly selectedReasoningEffort: ChatReasoningEffort | undefined;
+  readonly sendOnEnter: boolean;
   readonly status: WidgetStatus;
   readonly stop: () => void;
   readonly tools: readonly ToolMenuItem[];
@@ -50,8 +54,8 @@ export const WidgetFooter = ({
   <footer className="shrink-0 px-3 pb-3">
     <Composer
       className="mx-auto w-full max-w-measure-message"
-      contextPercent={estimateVisibleContextPercent(messages)}
-      disabled={isBusy}
+      contextUsedTokens={contextUsedTokens}
+      contextWindowTokens={contextWindowTokens}
       modelSelector={
         models.length > 0 ? (
           <PromptModelSelector
@@ -68,6 +72,7 @@ export const WidgetFooter = ({
       onSubmit={onSubmitMessage}
       placeholder={labels.placeholder}
       sendLabel={labels.send}
+      sendOnEnter={sendOnEnter}
       status={status}
       toolsMenu={tools.length > 0 ? <ToolsMenu tools={tools} onToggleTool={onToggleTool} /> : null}
     />
@@ -131,9 +136,3 @@ const describeReasoningEffort = (effort: ChatReasoningEffort): string => {
 
 const formatReasoningEffort = (effort: ChatReasoningEffort): string =>
   `${effort[0]?.toUpperCase()}${effort.slice(1)}`;
-
-const estimateVisibleContextPercent = (messages: readonly WidgetMessage[]): number => {
-  const visibleCharacters = messages.reduce((sum, message) => sum + message.content.length, 0);
-  if (visibleCharacters === 0) return 0;
-  return Math.min(100, Math.max(6, Math.round(visibleCharacters / 48)));
-};
