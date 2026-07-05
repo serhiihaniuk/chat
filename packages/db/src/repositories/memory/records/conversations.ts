@@ -69,6 +69,21 @@ const createOrGetMemoryConversation =
   }: MemoryRepositoryContext): ConversationRepositoryContract["createOrGetConversation"] =>
   async (command) => {
     await Promise.resolve();
+    // A follow-up turn provides the real conversationId; return that conversation by
+    // id. Its stored conversation_key may differ from this request's key (a
+    // conversationless conversation is keyed by request id), so a key-only lookup
+    // would miss it and push a duplicate record for the same id.
+    const existingById = command.conversationId
+      ? store.conversations.find(
+          (conversation) =>
+            conversation.workspaceId === command.workspaceId &&
+            conversation.subjectId === command.subjectId &&
+            conversation.conversationId === command.conversationId,
+        )
+      : undefined;
+    if (existingById) return result(existingById, false);
+
+    // Conversationless create (or its retry) dedupes on the request-derived key.
     const existing = store.conversations.find(
       (conversation) =>
         conversation.workspaceId === command.workspaceId &&

@@ -2,6 +2,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { conversations, messages } from "#drizzle/schema";
 import type { SidechatRepositories } from "../../contract.js";
+import { createOrGetConversationRecord } from "./conversation-create.js";
 import { readConversationSummaryTitle } from "./conversation-summaries.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
@@ -24,48 +25,7 @@ export const createPostgresDrizzleConversationRepository = ({
   | "prepareConversationTitle"
   | "resetConversation"
 > => ({
-  createOrGetConversation: async (command) => {
-    const inserted = await db
-      .insert(conversations)
-      .values({
-        conversationId: command.conversationId ?? ids.next("conversation"),
-        workspaceId: command.workspaceId,
-        subjectId: command.subjectId,
-        conversationKey: command.conversationKey,
-        status: "active",
-        createdByActorId: command.actorId,
-        createdAt: command.now,
-        updatedAt: command.now,
-        lastMessageAt: command.now,
-      })
-      .onConflictDoNothing({
-        target: [conversations.workspaceId, conversations.subjectId, conversations.conversationKey],
-      })
-      .returning();
-    if (inserted[0]) return result(toConversationRecord(inserted[0]), true);
-
-    const existing = await db
-      .select()
-      .from(conversations)
-      .where(
-        and(
-          eq(conversations.workspaceId, command.workspaceId),
-          eq(conversations.subjectId, command.subjectId),
-          eq(conversations.conversationKey, command.conversationKey),
-        ),
-      )
-      .limit(1);
-    return result(
-      toConversationRecord(
-        one(
-          existing,
-          "record_not_found",
-          "Conversation unique conflict did not return an existing record.",
-        ),
-      ),
-      false,
-    );
-  },
+  createOrGetConversation: createOrGetConversationRecord({ db, ids }),
   appendMessage: async (command) => {
     await requireSubjectConversation(
       db,

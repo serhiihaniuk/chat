@@ -19,6 +19,30 @@ export const conversationListRepositoryContract = (
   const nextScope = () => `${label.replace(/\W+/gu, "_")}_list_${++scopeCounter}`;
 
   describe("conversation list repository contract", () => {
+    it("returns an existing conversation by id when a follow-up key differs from the stored key", async () => {
+      const repositories = createRepositories();
+      const scope = nextScope();
+      try {
+        // The first turn stores a key ("default"); the follow-up turn continues by id,
+        // passing the conversationId as its key. The stored key differs, so it must be
+        // found by id — not recreated (memory) or crashed on the primary key (postgres).
+        const created = await createConversation(repositories, scope);
+        const followUp = await repositories.createOrGetConversation({
+          workspaceId: workspaceId(scope),
+          subjectId: subjectId(scope),
+          actorId: actorId(scope),
+          conversationId: created.conversationId,
+          conversationKey: created.conversationId,
+          now,
+        });
+
+        expect(followUp.inserted).toBe(false);
+        expect(followUp.record.conversationId).toBe(created.conversationId);
+      } finally {
+        await closeIfNeeded(repositories);
+      }
+    });
+
     it("lists subject conversations newest first with safe titles", async () => {
       const repositories = createRepositories();
       const scope = nextScope();
