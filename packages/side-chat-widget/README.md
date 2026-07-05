@@ -45,6 +45,24 @@ are the variation axis, not a light/dark toggle. The widget root does not respon
 to the host page's `.dark`/`prefers-color-scheme`; a future dark palette would be
 added as a fifth theme, not a mode.
 
+### Adding a theme
+
+The theme id/name/description list is single-sourced in
+`src/shared/lib/widget-themes.ts`; `entities/theme` re-exports it and the settings
+picker reads it, so a new theme is three edits, not five:
+
+1. Add `{ id, name, description }` to `WIDGET_THEMES` (and the id to
+   `WIDGET_THEME_IDS`) in `src/shared/lib/widget-themes.ts`.
+2. Add a `[data-sidechat-theme="<id>"]` token block in `styles.css` that overrides
+   the palette (copy an existing named theme; the default `graphite` is the `:root`
+   base and has no such block).
+3. Add a `[data-sidechat-theme-preview="<id>"]` block in `styles.css` so the
+   settings swatch renders the real palette instead of falling back to graphite.
+
+`widget-themes.test.ts` fails if a new id is missing either CSS block, so a missed
+step is caught by `npm run verify`. Appearance token values (corners, density, text
+scale, typeface, elevation) are single-sourced in `shared/lib/widget-appearance-style.ts`.
+
 The built-in settings view also persists appearance controls under
 `side-chat-widget:appearance`: accent, corners, density, text size, typeface, and
 elevation. These controls re-skin the widget root by writing shared token

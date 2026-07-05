@@ -1,42 +1,12 @@
-// Named widget themes — four light palettes, no dark mode. Graphite is the default
-// and carries no root attribute (its tokens live on :root); Sapphire, Sage, and Ocean
-// are token blocks scoped to the widget root via data-sidechat-theme (see styles.css).
-// The list drives the settings theme picker.
+// The named-theme data is single-sourced in `shared/lib/widget-themes` (the lowest
+// layer, so the shared/ui settings picker can read the same list without importing
+// upward into `entities`). This module re-exports it as the theme entity's surface.
 
-export const WIDGET_THEME_IDS = ["graphite", "sapphire", "sage", "ocean"] as const;
-
-export type WidgetThemeId = (typeof WIDGET_THEME_IDS)[number];
-
-export const DEFAULT_WIDGET_THEME_ID: WidgetThemeId = "graphite";
-
-export type WidgetTheme = {
-  readonly id: WidgetThemeId;
-  readonly name: string;
-  readonly description: string;
-};
-
-export const WIDGET_THEMES: readonly WidgetTheme[] = [
-  {
-    id: "graphite",
-    name: "Graphite",
-    description: "Cool charcoal, premium neutral.",
-  },
-  {
-    id: "sapphire",
-    name: "Sapphire",
-    description: "Deep navy, premium banking.",
-  },
-  {
-    id: "sage",
-    name: "Sage",
-    description: "Deep emerald, premium green.",
-  },
-  {
-    id: "ocean",
-    name: "Ocean",
-    description: "Blue neutrals, blue primary.",
-  },
-];
-
-export const isWidgetThemeId = (value: string | null): value is WidgetThemeId =>
-  value !== null && (WIDGET_THEME_IDS as readonly string[]).includes(value);
+export {
+  DEFAULT_WIDGET_THEME_ID,
+  isWidgetThemeId,
+  WIDGET_THEME_IDS,
+  WIDGET_THEMES,
+  type WidgetTheme,
+  type WidgetThemeId,
+} from "#shared/lib/widget-themes";

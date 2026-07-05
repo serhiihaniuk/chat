@@ -1,19 +1,12 @@
 import type { ReactElement } from "react";
 
-export const THEME_PREVIEW_IDS = {
-  GRAPHITE: "graphite",
-  SAPPHIRE: "sapphire",
-  SAGE: "sage",
-  OCEAN: "ocean",
-} as const;
+import type { WidgetTheme, WidgetThemeId } from "#shared/lib/widget-themes";
 
-export type ThemePreview = (typeof THEME_PREVIEW_IDS)[keyof typeof THEME_PREVIEW_IDS];
-
-export type ThemePreviewOption = {
-  readonly description: string;
-  readonly id: ThemePreview;
-  readonly name: string;
-};
+// Aliases of the canonical theme types (see `shared/lib/widget-themes`); the local
+// `shared/ui` names stay for the settings surface, but the id union and option shape
+// have exactly one definition.
+export type ThemePreview = WidgetThemeId;
+export type ThemePreviewOption = WidgetTheme;
 
 const PREVIEW_LINE_SIZES = ["long", "medium", "short"] as const;
 

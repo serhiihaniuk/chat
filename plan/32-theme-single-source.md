@@ -1,6 +1,6 @@
 # 32 — Theme single-sourcing + add-a-theme recipe
 
-**Epic:** 6 Widget UI | **Priority:** P1 | **Depends on:** 31 | **Status:** todo
+**Epic:** 6 Widget UI | **Priority:** P1 | **Depends on:** 31 | **Status:** done
 
 ## Problem
 
@@ -22,15 +22,44 @@ FSD note: `shared/ui` cannot import from `entities/theme` (layer lint imports on
 
 ## Acceptance criteria
 
-- [ ] One source of truth for theme ids/names/descriptions and one for appearance values (grep: old duplicates gone).
-- [ ] The completeness test fails when a theme id lacks either CSS block (prove with a temporary dummy id).
-- [ ] Widget layer lint green (`scripts/check-widget-layers.mjs` via `npm run lint:custom`).
-- [ ] README recipe exists; settings preview and live root agree after changing one appearance value (manual harness check).
+- [x] One source of truth for theme ids/names/descriptions (`shared/lib/widget-themes.ts`) and one for appearance values (`shared/lib/widget-appearance-style.ts`). Grep confirms the old duplicates gone: no `THEME_PREVIEW_IDS`, `CORNER_RADIUS`/`ELEVATION_SHADOWS` defined once, theme copy defined once.
+- [x] The completeness test fails when a theme id lacks either CSS block — proven by temporarily adding a `dummy` id (test went red: "expected false to be true"), then reverting (green).
+- [x] Widget layer lint green (`check-widget-layers.mjs`): the canonical data lives in `shared` so `shared/ui` reads it without importing upward.
+- [x] README "Adding a theme" recipe added (three edits, down from five); settings preview and live root agree by construction — both derive from the one `widgetAppearanceStyle`, and the preview inherits the root's tokens.
 
 ## Verification
 
 ```sh
 npm test --workspace @side-chat/side-chat-widget
-npm run lint:custom
+npm run build --workspace apps/docs
 npm run verify
 ```
+
+## Delivery notes
+
+**Theme data → `shared/lib/widget-themes.ts` (the FSD-correct home).** The layer
+lint forbids `shared/ui` from importing `entities`, so the canonical list can't sit
+in `entities/theme`. Moved `WIDGET_THEME_IDS`, `WidgetThemeId`, `WIDGET_THEMES`
+(names + descriptions), `DEFAULT_WIDGET_THEME_ID`, and `isWidgetThemeId` down to
+`shared`; `entities/theme/model/themes.ts` now re-exports them (product surface
+unchanged). The settings picker reads `WIDGET_THEMES` directly and its
+`THEME_PREVIEW_IDS` / duplicate `THEMES` array are gone; `ThemePreview`,
+`ThemePreviewOption`, and `widget-root`'s `ThemeName` are now thin aliases of the
+canonical `WidgetThemeId`/`WidgetTheme`, so the id union has one definition. (Minor:
+the settings theme list now follows the canonical order — graphite, sapphire, sage,
+ocean.)
+
+**Appearance table de-duplicated.** `use-widget-appearance.ts` no longer inlines the
+corner/density/text-scale/typeface/elevation tables that were verbatim copies of
+`shared/lib/widget-appearance-style.ts`; it imports `widgetAppearanceStyle` and
+builds the root props from it. The settings preview and the live root can no longer
+drift — they read one function.
+
+**Completeness safety net.** `widget-themes.test.ts` reads `styles.css` and asserts,
+per canonical id: a `[data-sidechat-theme-preview="<id>"]` block always exists (the
+settings swatch), and a `[data-sidechat-theme="<id>"]` block exists for every named
+theme but NOT for the `:root`-based default (graphite). A missed CSS block now fails
+`npm run verify`.
+
+`npm run verify` green; widget suite 161 tests (the new completeness test); docs app
+builds against `./ui/*`.

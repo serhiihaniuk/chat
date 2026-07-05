@@ -20,8 +20,10 @@
 import { createContext, use, useState, type ComponentPropsWithoutRef } from "react";
 
 import { cn } from "#shared/lib/cn";
+import type { WidgetThemeId } from "#shared/lib/widget-themes";
 
-export type ThemeName = "graphite" | "sapphire" | "sage" | "ocean";
+// The root's theme prop is the canonical theme id union (see shared/lib/widget-themes).
+export type ThemeName = WidgetThemeId;
 
 const PortalContainerContext = createContext<HTMLElement | null>(null);
 

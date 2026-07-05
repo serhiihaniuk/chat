@@ -1,38 +1,11 @@
 import type { ReactElement } from "react";
 
 import { cn } from "#shared/lib/cn";
+import { WIDGET_THEMES } from "#shared/lib/widget-themes";
 import { Segmented, type SegmentedItem } from "#shared/ui/segmented";
-import {
-  THEME_PREVIEW_IDS,
-  ThemePreviewCard,
-  type ThemePreview,
-  type ThemePreviewOption,
-} from "./theme-preview-card.js";
+import { ThemePreviewCard, type ThemePreview } from "./theme-preview-card.js";
 
 export type { ThemePreview } from "./theme-preview-card.js";
-
-const THEMES: readonly ThemePreviewOption[] = [
-  {
-    id: THEME_PREVIEW_IDS.GRAPHITE,
-    name: "Graphite",
-    description: "Cool charcoal, premium neutral.",
-  },
-  {
-    id: THEME_PREVIEW_IDS.SAGE,
-    name: "Sage",
-    description: "Deep emerald, premium green.",
-  },
-  {
-    id: THEME_PREVIEW_IDS.OCEAN,
-    name: "Ocean",
-    description: "Blue neutrals, blue primary.",
-  },
-  {
-    id: THEME_PREVIEW_IDS.SAPPHIRE,
-    name: "Sapphire",
-    description: "Deep navy, premium banking.",
-  },
-];
 
 export type AccentOption = {
   readonly id: "default" | "blue" | "green" | "violet" | "orange";
@@ -160,8 +133,8 @@ export function ThemeGroup({
   readonly typeface: string;
 }): ReactElement {
   const themes = availableThemes
-    ? THEMES.filter((option) => availableThemes.includes(option.id))
-    : THEMES;
+    ? WIDGET_THEMES.filter((option) => availableThemes.includes(option.id))
+    : WIDGET_THEMES;
 
   return (
     <div className={cn("flex flex-col", narrow ? "gap-4" : "gap-4.5")}>

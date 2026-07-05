@@ -43,7 +43,7 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | 29  | Widget instance isolation + lifecycle cleanup — **done 2026-07-05**                          | 5 Robustness  | 03                      |
 | 30  | Widget e2e reconciliation + CI wiring — **suite green 2026-07-02; CI remains**               | 6 Widget UI   | 13, 19, 23              |
 | 31  | Widget dead-code purge + dark-mode alignment — **done 2026-07-05** (fonts deferred)          | 6 Widget UI   | —                       |
-| 32  | Theme single-sourcing + add-a-theme recipe                                                   | 6 Widget UI   | 31                      |
+| 32  | Theme single-sourcing + add-a-theme recipe — **done 2026-07-05**                             | 6 Widget UI   | 31                      |
 | 33  | Composer correctness + real context ring                                                     | 6 Widget UI   | —                       |
 | 34  | Labels/rebranding surface + mobile bottom sheet                                              | 6 Widget UI   | —                       |
 | 35  | Core tree flattening + naming de-collisions                                                  | 7 Readability | after epics 1–5         |
