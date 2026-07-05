@@ -16,6 +16,7 @@ import {
 
 import { cn } from "#shared/lib/cn";
 import { SideChatWidgetRoot, type ThemeName } from "#shared/ui/widget-root";
+import { useIsMobile } from "../model/use-is-mobile.js";
 import {
   createResizeSession,
   sizeStyle,
@@ -86,6 +87,7 @@ export function ResizablePanel({
   style?: CSSProperties;
   children: ReactNode;
 } & Omit<React.ComponentPropsWithoutRef<"div">, "style" | "className" | "children">) {
+  const isMobile = useIsMobile();
   const [size, setSize] = useState<ResizablePanelSize>(
     () => defaultSize ?? { width: 640, height: 760 },
   );
@@ -116,24 +118,42 @@ export function ResizablePanel({
   return (
     <SideChatWidgetRoot
       className={cn(
-        "sc-widget-panel z-50 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-(--shadow-panel)",
-        anchor === "fixed" ? "fixed right-4 bottom-4" : "absolute right-4 bottom-4",
+        "sc-widget-panel z-50 flex flex-col overflow-hidden border border-border bg-card text-foreground shadow-(--shadow-panel)",
+        // Below the mobile breakpoint the panel is a full-width bottom sheet that
+        // slides up; above it, the floating card the user can drag-resize.
+        isMobile
+          ? "sc-widget-sheet fixed inset-x-0 bottom-0 rounded-t-2xl border-b-0"
+          : cn(
+              "rounded-xl",
+              anchor === "fixed" ? "fixed right-4 bottom-4" : "absolute right-4 bottom-4",
+            ),
         className,
       )}
-      style={{ ...style, ...sizeStyle(size, offset, anchor) }}
+      style={isMobile ? sheetStyle(style) : { ...style, ...sizeStyle(size, offset, anchor) }}
       theme={theme}
       {...rootProps}
     >
-      {HANDLES.map((handle) => (
-        <button
-          aria-label={handle.ariaLabel}
-          className={handle.className}
-          key={handle.handle}
-          onPointerDown={(event) => startResize(handle.handle, event)}
-          type="button"
-        />
-      ))}
+      {/* Resize is a desktop-only affordance; the sheet is sized by the viewport. */}
+      {isMobile
+        ? null
+        : HANDLES.map((handle) => (
+            <button
+              aria-label={handle.ariaLabel}
+              className={handle.className}
+              key={handle.handle}
+              onPointerDown={(event) => startResize(handle.handle, event)}
+              type="button"
+            />
+          ))}
       {children}
     </SideChatWidgetRoot>
   );
 }
+
+// The mobile sheet ignores the dragged width/height: it fills the viewport width and
+// stands ~85% tall, preserving the caller's appearance tokens carried on `style`.
+const sheetStyle = (style: CSSProperties | undefined): CSSProperties => ({
+  ...style,
+  height: "85dvh",
+  maxHeight: "85dvh",
+});

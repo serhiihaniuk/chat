@@ -1,6 +1,7 @@
 import { Menu } from "@base-ui/react/menu";
 import { PlusIcon } from "lucide-react";
 
+import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { usePortalContainer } from "#shared/ui/widget-root";
 import {
   formatRelativeTime,
@@ -28,12 +29,13 @@ export const ConversationSwitcher = ({
   readonly title: string;
 }) => {
   const container = usePortalContainer();
-  const activeTitle = readActiveConversationTitle(conversations, selectedConversationId);
+  const labels = useWidgetLabels();
+  const activeTitle = readActiveConversationTitle(conversations, selectedConversationId, labels);
 
   return (
     <Menu.Root>
       <Menu.Trigger
-        aria-label="Select chat"
+        aria-label={labels.conversationSelectChat}
         className="-mx-1 flex min-w-0 items-center rounded-md px-1 py-1 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         disabled={disabled}
         title={activeTitle}
@@ -49,13 +51,13 @@ export const ConversationSwitcher = ({
               onClick={onNewConversation}
             >
               <PlusIcon className="size-4 text-primary" />
-              New chat
+              {labels.conversationNewChat}
             </Menu.Item>
             {conversations.length > 0 && (
               <>
                 <Menu.Separator className="my-1 h-px bg-border" />
                 <div className="max-h-72 overflow-y-auto">
-                  {groupConversationsByDate(conversations).map((group) => (
+                  {groupConversationsByDate(conversations, labels).map((group) => (
                     <Menu.Group key={group.id}>
                       <Menu.GroupLabel className="px-2.5 pt-1.5 pb-1 text-2xs font-bold uppercase tracking-wider text-muted-foreground">
                         {group.label}
@@ -66,6 +68,7 @@ export const ConversationSwitcher = ({
                           isActive={conversation.id === selectedConversationId}
                           isRunning={runningConversationIds.has(conversation.id)}
                           key={conversation.id}
+                          labels={labels}
                           onSelect={onSelectConversation}
                         />
                       ))}
@@ -85,11 +88,13 @@ const SwitcherItem = ({
   conversation,
   isActive,
   isRunning,
+  labels,
   onSelect,
 }: {
   readonly conversation: ConversationSummaryView;
   readonly isActive: boolean;
   readonly isRunning: boolean;
+  readonly labels: WidgetLabels;
   readonly onSelect: (conversationId: string | undefined) => void;
 }) => (
   <Menu.Item
@@ -99,24 +104,30 @@ const SwitcherItem = ({
     <span className="flex min-w-0 flex-col gap-0.5">
       <span className="truncate text-sm text-popover-foreground">{conversation.title}</span>
       <span className="text-xs text-muted-foreground">
-        {formatRelativeTime(conversation.lastMessageAt)}
+        {formatRelativeTime(conversation.lastMessageAt, labels)}
       </span>
     </span>
-    <SwitcherIndicator active={isActive} running={isRunning} />
+    <SwitcherIndicator
+      active={isActive}
+      generatingLabel={labels.conversationGenerating}
+      running={isRunning}
+    />
   </Menu.Item>
 );
 
 const SwitcherIndicator = ({
   active,
+  generatingLabel,
   running,
 }: {
   readonly active: boolean;
+  readonly generatingLabel: string;
   readonly running: boolean;
 }) => {
   if (running) {
     return (
       <span
-        aria-label="Generating"
+        aria-label={generatingLabel}
         className="size-1.5 shrink-0 animate-pulse rounded-full bg-(--convo-running-indicator)"
       />
     );

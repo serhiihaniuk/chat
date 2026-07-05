@@ -19,6 +19,7 @@ import { Collapsible } from "@base-ui/react/collapsible";
 import { ArrowUpRight, ChevronDown, Folder, Quote } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
+import { useWidgetLabels } from "#shared/lib/widget-labels";
 
 /** One attributed source; structurally matches the protocol's ActivitySource. */
 export type CitationSource = {
@@ -33,6 +34,7 @@ export function SourcesFold({
   readonly sources: readonly CitationSource[];
   readonly defaultOpen?: boolean;
 }): ReactElement | undefined {
+  const labels = useWidgetLabels();
   const [open, setOpen] = useState(defaultOpen);
   if (sources.length === 0) return undefined;
 
@@ -43,7 +45,7 @@ export function SourcesFold({
         className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"
       >
         <Folder className="size-3.5" />
-        {sources.length === 1 ? "1 source" : `${sources.length} sources`}
+        {labels.activitySources(sources.length)}
         <ChevronDown
           className={cn("size-3.5 transition-transform ease-out", open && "rotate-180")}
         />

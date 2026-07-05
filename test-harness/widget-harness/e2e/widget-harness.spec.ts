@@ -335,6 +335,31 @@ test("wraps an unbroken 300-character user message inside its bubble", async ({ 
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("uses a floating panel on desktop and a full-width bottom sheet on a phone", async ({
+  page,
+}) => {
+  await page.goto(widgetAppUrl("?mode=mock-stream"));
+  const panel = page.getByRole("region", { name: "Workspace Assistant" });
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await expect(panel).toBeVisible();
+  const desktop = await panel.boundingBox();
+  if (desktop === null) throw new Error("Expected a desktop bounding box.");
+  // Floating card: inset from the left edge, narrower than the viewport.
+  expect(desktop.x).toBeGreaterThan(8);
+  expect(desktop.width).toBeLessThan(1280);
+
+  await page.setViewportSize({ height: 812, width: 375 });
+  // Let the slide-up settle before measuring the resting geometry.
+  await page.waitForTimeout(350);
+  const sheet = await panel.boundingBox();
+  if (sheet === null) throw new Error("Expected a mobile bounding box.");
+  // Bottom sheet: flush to both side edges and the bottom of the viewport.
+  expect(sheet.x).toBeLessThanOrEqual(1);
+  expect(sheet.width).toBeGreaterThanOrEqual(374);
+  expect(sheet.y + sheet.height).toBeGreaterThanOrEqual(810);
+});
+
 test("keeps the model selector visible as an anchored popover on a short viewport", async ({
   page,
   request,

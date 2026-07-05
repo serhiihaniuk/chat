@@ -27,6 +27,22 @@ const directoryBudgetExceptions = new Map([
     },
   ],
   [
+    "packages/side-chat-widget/src/shared/lib",
+    {
+      maxFiles: 6,
+      reason:
+        "layer-0 widget primitives kept flat so #shared/lib/<name> imports stay stable: cn, unknown-record, widget-appearance-style, widget-themes (+ its stylesheet completeness test), and widget-labels (the rebrand/localization label bag plus the React context every layer reads for copy)",
+    },
+  ],
+  [
+    "packages/side-chat-widget/src/widgets/side-chat/ui",
+    {
+      maxFiles: 6,
+      reason:
+        "the widget shell plus its co-located DOM test suites (interaction, conversations, conversation-titles, labels) that share one happy-dom harness (widget-test-env), kept flat so the shell surface reads with its behaviours beside it",
+    },
+  ],
+  [
     "apps/partner-ai-service/src/composition/factories",
     {
       maxFiles: 22,

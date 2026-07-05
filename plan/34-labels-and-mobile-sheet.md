@@ -1,6 +1,6 @@
 # 34 — Rebranding/labels surface + mobile bottom sheet
 
-**Epic:** 6 Widget UI | **Priority:** P2 | **Depends on:** — | **Status:** todo
+**Epic:** 6 Widget UI | **Priority:** P2 | **Depends on:** — | **Status:** done
 
 ## Problem
 
@@ -14,10 +14,10 @@
 
 ## Acceptance criteria
 
-- [ ] Every user-visible string is overridable via `labels` (test: render with a full override, assert no default English remains in the DOM for covered surfaces).
-- [ ] The page-context claim appears only when the bridge provides context (test with and without a bridge).
-- [ ] At 375×812 the panel renders as a bottom sheet; at desktop it's the floating panel (e2e viewport assertions + screenshots).
-- [ ] Embed doc updated with mobile iframe guidance if geometry recommendations changed.
+- [x] Every user-visible string is overridable via `labels` (test: render with a full override, assert no default English remains in the DOM for covered surfaces).
+- [x] The page-context claim appears only when the bridge provides context (test with and without a bridge).
+- [x] At 375×812 the panel renders as a bottom sheet; at desktop it's the floating panel (e2e viewport assertions + screenshots).
+- [x] Embed doc updated with mobile iframe guidance if geometry recommendations changed.
 
 ## Verification
 
@@ -26,3 +26,56 @@ npm test --workspace @side-chat/side-chat-widget
 npm run test:e2e
 npm run verify
 ```
+
+## Delivery notes
+
+**Labels: a flat, context-threaded override surface.** `shared/lib/widget-labels.ts`
+is the one place built-in copy lives (`defaultWidgetLabels`) plus a flat `WidgetLabels`
+type (strings, and format functions for counts/durations), a `resolveWidgetLabels`
+merge (an `undefined` override keeps the default), and a `WidgetLabelsProvider` /
+`useWidgetLabels` context defaulting to the built-ins (so standalone `shared/ui`,
+showcase, and unit renders read real copy unwired). The shell resolves the caller's
+`labels` once and provides it; every covered leaf reads `useWidgetLabels()` — no
+prop-drilling. The public `SideChatWidgetLabels` (`Partial<WidgetLabels>`) is the
+override surface; `placeholder`/`send`/`title` (the only three that were overridable)
+fold into it unchanged.
+
+**Covered surfaces (wired + tested):** empty state (title + both descriptions),
+composer input aria, error notice (+ "Try again"), activity (thinking / thought-for-Ns
+/ thought process / preparing / N sources), conversation (new chat, select chat,
+generating, the five relative-time strings as functions, the five date-group labels),
+and header/settings chrome (refresh, settings, new chat, close, back, settings title,
+conversations, feed). The relative-time and group helpers in `conversation-options.ts`
+now take `labels`, so localization reaches the switcher and the sidebar.
+
+**Scoped OUT (documented, not a gap):** design-identity copy — theme names, accent
+names, and appearance option labels ("Sharp"/"Cozy"/typeface names/elevation names) —
+stays in the single-sourced design vocabulary (`widget-themes.ts`, story 32), and the
+model-selector / message-actions primitives keep their built-in copy. Making the
+labels type advertise only what is actually wired keeps the override contract honest;
+these are a clean follow-up if a full localization needs them.
+
+**Empty-state honesty fix.** `WidgetHostBridge` always carries `getContext`, so the
+"I can see the page you're viewing" line now renders only when `hostBridge` is present;
+without a bridge the neutral `emptyStateWithoutContext` shows. Covered by a with/without
+bridge test.
+
+**Injectable agent mark.** New `renderAgentMark?: () => ReactNode` prop falls back to
+the built-in `AgentMark`, threaded to the two live sites (empty-state greeting +
+header title).
+
+**Mobile bottom sheet.** `useIsMobile` (matchMedia `(max-width: 639px)`, SSR-safe lazy
+init) drives `ResizablePanel`: below the breakpoint it renders a full-width, bottom-
+flush sheet at ~85dvh that slides up (`sc-widget-sheet` keyframe, reduced-motion
+respected) and drops the resize handles; above it, the draggable floating card is
+unchanged. The embed doc gains a mobile `@media (max-width: 640px)` iframe recipe — the
+host owns the iframe geometry, so it must give the frame full width for the sheet to
+fit.
+
+**Harness note.** The widget DOM tests share `widget-test-env`; the bottom-sheet unit
+test stubs `window.matchMedia` around an SSR render (scoped + restored) to assert the
+sheet class + absent handles, and the e2e resizes 1280→375 to assert floating-card vs.
+full-width-bottom geometry. Two `check-code-shape` exceptions were added (`shared/lib`
+and `widgets/side-chat/ui`, both already at the 5-file cap) with reasons.
+
+`npm run verify` green; widget suite 177 tests (+4).

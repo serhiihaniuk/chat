@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 
 import type { WidgetMessage } from "#entities/chat";
 import type { ReasoningVisibility } from "#entities/settings";
+import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
 import { SourcesFold } from "#shared/ui/activity/citations";
 import { Message } from "#shared/ui/message";
@@ -52,19 +53,21 @@ export const WidgetMessageView = memo(
   },
 );
 
-const PENDING_ACTIVITY_ITEMS: readonly ReasoningItem[] = [
-  { id: "pending-reasoning", kind: "thought", text: "Preparing the response." },
-];
-
-const WidgetPendingActivityTimeline = () => (
-  <Reasoning
-    items={PENDING_ACTIVITY_ITEMS}
-    label="Thinking..."
-    onOpenChange={() => undefined}
-    open
-    thinking
-  />
-);
+const WidgetPendingActivityTimeline = () => {
+  const labels = useWidgetLabels();
+  const items: readonly ReasoningItem[] = [
+    { id: "pending-reasoning", kind: "thought", text: labels.activityPreparing },
+  ];
+  return (
+    <Reasoning
+      items={items}
+      label={labels.activityThinking}
+      onOpenChange={() => undefined}
+      open
+      thinking
+    />
+  );
+};
 
 const WidgetActivityTimeline = ({
   message,
@@ -75,6 +78,7 @@ const WidgetActivityTimeline = ({
   readonly reasoningVisibility: ReasoningVisibility;
   readonly renderActivityItem: RenderActivityItem | undefined;
 }) => {
+  const labels = useWidgetLabels();
   const shouldOpenByDefault = shouldOpenActivityByDefault(message.isStreaming, reasoningVisibility);
   const [open, setOpen] = useState(shouldOpenByDefault);
   const duration = readActivityDuration(message);
@@ -82,7 +86,7 @@ const WidgetActivityTimeline = ({
     () => toReasoningItems(message, renderActivityItem),
     [message, renderActivityItem],
   );
-  const label = readReasoningLabel(message, duration);
+  const label = readReasoningLabel(message, duration, labels);
 
   useEffect(() => {
     if (shouldOpenByDefault) {
@@ -119,10 +123,14 @@ const shouldOpenActivityByDefault = (
   reasoningVisibility: ReasoningVisibility,
 ): boolean => isStreaming === true || reasoningVisibility === "detailed";
 
-const readReasoningLabel = (message: WidgetMessage, duration: number | undefined): string => {
-  if (message.isStreaming === true) return "Thinking...";
-  if (duration) return `Thought for ${duration}s`;
-  return "Thought process";
+const readReasoningLabel = (
+  message: WidgetMessage,
+  duration: number | undefined,
+  labels: WidgetLabels,
+): string => {
+  if (message.isStreaming === true) return labels.activityThinking;
+  if (duration) return labels.activityThoughtForSeconds(duration);
+  return labels.activityThoughtProcess;
 };
 
 const readActivityDuration = (message: WidgetMessage): number | undefined => {

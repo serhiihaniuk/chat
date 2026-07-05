@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import type { WidgetMessage, WidgetRunNotice } from "#entities/chat";
 import type { ReasoningVisibility } from "#entities/settings";
+import { useWidgetLabels } from "#shared/lib/widget-labels";
 import {
   Conversation,
   ConversationContent,
@@ -29,12 +30,13 @@ export const WidgetConversation = ({
   readonly reasoningVisibility: ReasoningVisibility;
   readonly renderActivityItem?: RenderActivityItem | undefined;
 }) => {
+  const labels = useWidgetLabels();
   const isEmpty = messages.length === 0 && !notice;
   const latestUserMessageId = readLatestUserMessageId(messages);
   const showEmptyState = isEmpty && !isLoadingHistory;
 
   return (
-    <Conversation aria-label="Conversation feed">
+    <Conversation aria-label={labels.headerConversationFeed}>
       <ConversationContent
         className="mx-auto min-h-full w-full max-w-measure-message gap-4 px-4 pt-4 pb-8"
         scrollClassName="size-full"

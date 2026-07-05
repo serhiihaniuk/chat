@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
 import type { WidgetActivityItem } from "#entities/chat";
@@ -6,13 +8,14 @@ import type { SideChatWidgetPanelSize } from "#entities/panel";
 import type { WidgetThemeId } from "#entities/theme";
 import type { SideChatApiClient } from "#entities/conversation";
 import type { RenderActivityItem } from "#features/conversation";
+import type { SideChatWidgetLabels } from "#shared/lib/widget-labels";
 
-export type { ReasoningVisibility, RenderActivityItem, WidgetActivityItem, WidgetThemeId };
-
-export type SideChatWidgetLabels = {
-  readonly placeholder?: string | undefined;
-  readonly send?: string | undefined;
-  readonly title?: string | undefined;
+export type {
+  ReasoningVisibility,
+  RenderActivityItem,
+  SideChatWidgetLabels,
+  WidgetActivityItem,
+  WidgetThemeId,
 };
 
 export type SideChatWidgetPanelActions = {
@@ -88,6 +91,12 @@ export type SideChatWidgetProps = {
    * seam only — protocol projection and host-command dispatch are unaffected.
    */
   readonly renderActivityItem?: RenderActivityItem | undefined;
+  /**
+   * Replace the built-in agent mark (the greeting + header glyph) with custom
+   * branding. Returns a node rendered in place of the default `AgentMark`; omit to
+   * keep it.
+   */
+  readonly renderAgentMark?: (() => ReactNode) | undefined;
   readonly themeStorageKey?: string | undefined;
   /**
    * Browser-local key under which the resizable panel's size is persisted, so a

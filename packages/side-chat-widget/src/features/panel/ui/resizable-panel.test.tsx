@@ -10,6 +10,24 @@ const START = {
   y: 500,
 };
 
+// Render with a stubbed `window.matchMedia` reporting a mobile viewport, so the
+// panel's `useIsMobile` lazy initializer resolves true during SSR. Scoped + restored
+// so it never leaks the desktop default the other cases rely on.
+const renderWithMobileViewport = (element: React.ReactElement): string => {
+  const original = Reflect.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    writable: true,
+    value: { matchMedia: () => ({ matches: true }) },
+  });
+  try {
+    return renderToStaticMarkup(element);
+  } finally {
+    if (original) Object.defineProperty(globalThis, "window", original);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
+};
+
 describe("ResizablePanel", () => {
   it("renders resize handles with accessible labels", () => {
     const html = renderToStaticMarkup(
@@ -35,6 +53,19 @@ describe("ResizablePanel", () => {
     );
 
     expect(html.match(/z-\[80\]/g)).toHaveLength(6);
+  });
+
+  it("becomes a full-width bottom sheet with no resize handles below the mobile breakpoint", () => {
+    const html = renderWithMobileViewport(
+      <ResizablePanel defaultSize={{ width: 640, height: 760 }}>
+        <div>Panel body</div>
+      </ResizablePanel>,
+    );
+
+    expect(html).toContain("sc-widget-sheet");
+    expect(html).toContain("inset-x-0");
+    expect(html).not.toContain("Resize panel from");
+    expect(html).toContain("Panel body");
   });
 
   it("grows from the right edge and clamps the anchored panel offset", () => {

@@ -24,6 +24,7 @@ import { Field } from "@base-ui/react/field";
 import { ArrowUp, Brain, Sparkles, Square } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
+import { useWidgetLabels } from "#shared/lib/widget-labels";
 import { ContextMeter } from "#shared/ui/context-meter";
 import { ModelSelector, type Model } from "#shared/ui/model-selector";
 import { ToolsMenu } from "#shared/ui/tools-menu";
@@ -83,6 +84,7 @@ export function Composer({
   status = "idle",
   value,
 }: ComposerProps): ReactElement {
+  const labels = useWidgetLabels();
   const { setText, text } = useComposerText({ defaultValue, onValueChange, value });
   const isBusy = isBusyStatus(status);
   const canSend = canSubmitText(text, disabled, isBusy);
@@ -102,7 +104,7 @@ export function Composer({
   return (
     <Field.Root className={cn("sc-composer", className)}>
       <Field.Control
-        aria-label="Message"
+        aria-label={labels.composerInputAria}
         className="w-full resize-none bg-transparent px-3.5 py-3 text-md outline-none placeholder:text-muted-foreground"
         disabled={disabled}
         onChange={(event) => setText(event.target.value)}

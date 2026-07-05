@@ -10,6 +10,7 @@
 import { type ReactElement } from "react";
 
 import { cn } from "#shared/lib/cn";
+import { useWidgetLabels } from "#shared/lib/widget-labels";
 
 const conversationItemClass =
   "flex w-full cursor-pointer select-none items-center gap-(--row-gap) rounded-(--convo-item-radius) px-(--row-px) py-(--row-py) text-left";
@@ -27,6 +28,7 @@ export function ConversationItem({
   running?: boolean | undefined;
   onSelect?: (() => void) | undefined;
 }): ReactElement {
+  const labels = useWidgetLabels();
   return (
     <button
       type="button"
@@ -45,7 +47,7 @@ export function ConversationItem({
         // Live turn: a pulsing dot, shown regardless of selection. Same size as the
         // selection dot so toggling it never reflows the row.
         <span
-          aria-label="Generating"
+          aria-label={labels.conversationGenerating}
           className="ml-auto size-1.5 shrink-0 animate-pulse rounded-full bg-(--convo-running-indicator)"
         />
       ) : (

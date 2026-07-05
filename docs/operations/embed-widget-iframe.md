@@ -107,6 +107,27 @@ Dock the button bottom-right and place the iframe above it. The iframe must keep
 }
 ```
 
+### Mobile: give the iframe the full width so the sheet fits
+
+Below 640px the widget renders as a **bottom sheet** — full width, flush to the
+bottom, about 85% tall — instead of the floating card. The widget only controls its
+own layout _inside_ the iframe rectangle; the host controls the iframe element's
+geometry. So on small screens, size the iframe to the viewport width and drop the side
+inset, or the sheet is boxed into the desktop card's width:
+
+```css
+@media (max-width: 640px) {
+  #side-chat-frame {
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 92vh;
+    min-height: 0;
+  }
+}
+```
+
 ## 4. Open/close handshake
 
 Your app owns the visible state and drives the iframe with three `postMessage` types (`harness-app.tsx:16-18`):

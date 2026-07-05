@@ -1,3 +1,5 @@
+import type { WidgetLabels } from "#shared/lib/widget-labels";
+
 export type ConversationSummaryView = {
   readonly id: string;
   readonly title: string;
@@ -9,33 +11,34 @@ const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
 // The label shown for the active conversation in the switcher trigger. Falls back to
-// "New chat" before the first turn establishes a conversation.
+// the "new chat" label before the first turn establishes a conversation.
 export const readActiveConversationTitle = (
   conversations: readonly ConversationSummaryView[],
   selectedConversationId: string | undefined,
+  labels: WidgetLabels,
 ): string => {
-  if (!selectedConversationId) return "New chat";
+  if (!selectedConversationId) return labels.conversationNewChat;
   return (
     conversations.find((conversation) => conversation.id === selectedConversationId)?.title ??
-    "New chat"
+    labels.conversationNewChat
   );
 };
 
 // Compact relative timestamp for the conversation lists ("Now", "2h ago",
-// "Yesterday", then a date). Returns "" when the timestamp is missing or invalid.
-export const formatRelativeTime = (iso: string | undefined): string => {
+// "Yesterday", then a locale date). Returns "" when the timestamp is missing/invalid.
+export const formatRelativeTime = (iso: string | undefined, labels: WidgetLabels): string => {
   if (!iso) return "";
   const timestamp = Date.parse(iso);
   if (!Number.isFinite(timestamp)) return "";
 
   const elapsed = Date.now() - timestamp;
-  if (elapsed < MINUTE_MS) return "Now";
-  if (elapsed < HOUR_MS) return `${Math.floor(elapsed / MINUTE_MS)}m ago`;
-  if (elapsed < DAY_MS) return `${Math.floor(elapsed / HOUR_MS)}h ago`;
+  if (elapsed < MINUTE_MS) return labels.relativeNow;
+  if (elapsed < HOUR_MS) return labels.relativeMinutesAgo(Math.floor(elapsed / MINUTE_MS));
+  if (elapsed < DAY_MS) return labels.relativeHoursAgo(Math.floor(elapsed / HOUR_MS));
 
   const days = Math.floor(elapsed / DAY_MS);
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days}d ago`;
+  if (days === 1) return labels.relativeYesterday;
+  if (days < 7) return labels.relativeDaysAgo(days);
   return new Date(timestamp).toLocaleDateString();
 };
 
@@ -46,22 +49,33 @@ export type ConversationGroup = {
 };
 
 // Buckets, newest first, mirroring chat-app session lists. Conversations arrive
-// already ordered newest-first, so each one drops into its bucket in order. The most
-// recent bucket stays labelled "Recent"; per-item relative time is shown separately.
+// already ordered newest-first, so each one drops into its bucket in order. Bucket
+// labels come from the widget labels; per-item relative time is shown separately.
 const GROUP_DEFINITIONS: readonly {
   readonly id: string;
-  readonly label: string;
   readonly maxAgeDays: number;
 }[] = [
-  { id: "recent", label: "Recent", maxAgeDays: 0 },
-  { id: "yesterday", label: "Yesterday", maxAgeDays: 1 },
-  { id: "week", label: "Previous 7 days", maxAgeDays: 7 },
-  { id: "month", label: "Previous 30 days", maxAgeDays: 30 },
-  { id: "older", label: "Older", maxAgeDays: Number.POSITIVE_INFINITY },
+  { id: "recent", maxAgeDays: 0 },
+  { id: "yesterday", maxAgeDays: 1 },
+  { id: "week", maxAgeDays: 7 },
+  { id: "month", maxAgeDays: 30 },
+  { id: "older", maxAgeDays: Number.POSITIVE_INFINITY },
 ];
+
+const groupLabelFor = (id: string, labels: WidgetLabels): string => {
+  const byId: Record<string, string> = {
+    recent: labels.groupRecent,
+    yesterday: labels.groupYesterday,
+    week: labels.groupPreviousWeek,
+    month: labels.groupPreviousMonth,
+    older: labels.groupOlder,
+  };
+  return byId[id] ?? id;
+};
 
 export const groupConversationsByDate = (
   conversations: readonly ConversationSummaryView[],
+  labels: WidgetLabels,
 ): readonly ConversationGroup[] => {
   const todayStart = startOfToday();
   const buckets = new Map<string, ConversationSummaryView[]>(
@@ -74,7 +88,9 @@ export const groupConversationsByDate = (
 
   return GROUP_DEFINITIONS.flatMap((group) => {
     const items = buckets.get(group.id) ?? [];
-    return items.length === 0 ? [] : [{ id: group.id, label: group.label, conversations: items }];
+    return items.length === 0
+      ? []
+      : [{ id: group.id, label: groupLabelFor(group.id, labels), conversations: items }];
   });
 };
 

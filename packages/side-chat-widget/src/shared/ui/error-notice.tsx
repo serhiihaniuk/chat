@@ -10,15 +10,17 @@
 import { type ReactElement } from "react";
 import { RotateCcw, ShieldAlert, TriangleAlert } from "lucide-react";
 
+import { useWidgetLabels } from "#shared/lib/widget-labels";
 import { Button } from "#shared/ui/button";
 
 function ErrorNotice({
-  message = "Something went wrong while generating a response.",
+  message,
   onRetry,
 }: {
   message?: string;
   onRetry?: () => void;
 }): ReactElement {
+  const labels = useWidgetLabels();
   return (
     <div
       data-slot="error-notice"
@@ -27,11 +29,11 @@ function ErrorNotice({
     >
       <TriangleAlert className="sc-error-glyph mt-0.5 size-4 shrink-0" />
       <div className="min-w-0">
-        <p className="text-sm text-foreground">{message}</p>
+        <p className="text-sm text-foreground">{message ?? labels.noticeError}</p>
         {onRetry ? (
           <Button type="button" variant="secondary" size="sm" onClick={onRetry} className="mt-2">
             <RotateCcw className="size-3.5" />
-            Try again
+            {labels.noticeRetry}
           </Button>
         ) : null}
       </div>

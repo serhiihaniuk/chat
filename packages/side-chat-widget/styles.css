@@ -1099,6 +1099,27 @@ a.sc-cite-source:hover {
   container: side-chat-widget / inline-size;
 }
 
+/* Mobile bottom sheet: below the mobile breakpoint the panel is a full-width sheet
+   (see useIsMobile) that slides up from the bottom edge on mount. */
+.sc-widget-sheet {
+  animation: sc-sheet-up var(--dur) var(--ease-out);
+}
+
+@keyframes sc-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-widget-sheet {
+    animation: none;
+  }
+}
+
 .sc-wide-slot {
   display: none;
 }

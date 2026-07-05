@@ -1,4 +1,5 @@
 import { isWidgetThemeId, WIDGET_THEME_IDS, type WidgetThemeId } from "#entities/theme";
+import { useWidgetLabels } from "#shared/lib/widget-labels";
 import { Button } from "#shared/ui/button";
 import { SettingsPanel } from "#shared/ui/settings";
 import type { AccentOption } from "#shared/ui/settings-groups";
@@ -69,36 +70,44 @@ export const SettingsView = ({
   />
 );
 
-const SettingsHeader = ({ onBack }: { readonly onBack: () => void }) => (
-  <header className="sc-header">
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="sc-narrow-slot">
-        <Button
-          aria-label="Back to chat"
-          onClick={onBack}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <ChevronLeftIcon className="size-4" />
-        </Button>
-      </span>
-      <h3 className="truncate text-md font-semibold text-foreground">Settings</h3>
-    </div>
-  </header>
-);
+const SettingsHeader = ({ onBack }: { readonly onBack: () => void }) => {
+  const labels = useWidgetLabels();
+  return (
+    <header className="sc-header">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="sc-narrow-slot">
+          <Button
+            aria-label={labels.headerBack}
+            onClick={onBack}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronLeftIcon className="size-4" />
+          </Button>
+        </span>
+        <h3 className="truncate text-md font-semibold text-foreground">
+          {labels.headerSettingsTitle}
+        </h3>
+      </div>
+    </header>
+  );
+};
 
-const SettingsRailHeader = ({ onBack }: { readonly onBack: () => void }) => (
-  <div className="sc-rail-newchat border-b border-(--settings-nav-border)">
-    <Button
-      aria-label="Back to chat"
-      className="w-full justify-start gap-2 px-2.5 py-2 text-left"
-      onClick={onBack}
-      type="button"
-      variant="secondary"
-    >
-      <ChevronLeftIcon className="size-4 text-primary" />
-      Back to chat
-    </Button>
-  </div>
-);
+const SettingsRailHeader = ({ onBack }: { readonly onBack: () => void }) => {
+  const labels = useWidgetLabels();
+  return (
+    <div className="sc-rail-newchat border-b border-(--settings-nav-border)">
+      <Button
+        aria-label={labels.headerBack}
+        className="w-full justify-start gap-2 px-2.5 py-2 text-left"
+        onClick={onBack}
+        type="button"
+        variant="secondary"
+      >
+        <ChevronLeftIcon className="size-4 text-primary" />
+        {labels.headerBack}
+      </Button>
+    </div>
+  );
+};

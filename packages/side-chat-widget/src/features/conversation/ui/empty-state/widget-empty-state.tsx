@@ -1,6 +1,7 @@
 import { AgentMark } from "#shared/ui/agent-mark";
 import { Button } from "#shared/ui/button";
 import { ChevronRightIcon, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 export type WidgetEmptyStateSuggestion = {
   readonly id: string;
@@ -15,12 +16,14 @@ export const WidgetEmptyState = ({
   assistantTitle,
   description,
   onSelectSuggestion,
+  renderAgentMark,
   suggestions,
   title,
 }: {
   readonly assistantTitle?: string | undefined;
   readonly description: string;
   readonly onSelectSuggestion: (prompt: string) => void;
+  readonly renderAgentMark?: (() => ReactNode) | undefined;
   readonly suggestions: readonly WidgetEmptyStateSuggestion[];
   readonly title: string;
 }) => (
@@ -29,7 +32,11 @@ export const WidgetEmptyState = ({
       <div className="flex flex-col gap-3">
         {assistantTitle && (
           <span className="flex min-w-0 items-center gap-2">
-            <AgentMark className="size-5 shrink-0 text-primary/80" />
+            {renderAgentMark ? (
+              renderAgentMark()
+            ) : (
+              <AgentMark className="size-5 shrink-0 text-primary/80" />
+            )}
             <span className="truncate font-semibold text-xl text-card-foreground tracking-tight">
               {assistantTitle}
             </span>
