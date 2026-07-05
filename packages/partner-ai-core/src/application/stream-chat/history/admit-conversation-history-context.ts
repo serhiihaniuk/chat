@@ -5,7 +5,7 @@ import {
   type HistoryContextManifest,
   type HistoryContextManifestMessage,
   type PreparedHistoryMessage,
-} from "#domain/capabilities";
+} from "#domain/capabilities-contract";
 
 export type ConversationHistoryAdmission = {
   readonly admittedMessages: readonly PreparedHistoryMessage[];

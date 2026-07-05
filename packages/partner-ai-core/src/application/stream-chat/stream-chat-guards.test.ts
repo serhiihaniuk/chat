@@ -8,12 +8,8 @@ import {
   createManifest,
   input,
   resolveTestProfile,
-} from "#testing/stream-chat/fixtures.test-support";
-import {
-  collect,
-  createFakePorts,
-  runStreamChat,
-} from "#testing/stream-chat/fake-ports.test-support";
+} from "#testing/fixtures.test-support";
+import { collect, createFakePorts, runStreamChat } from "#testing/fake-ports.test-support";
 
 describe("stream chat turn guards", () => {
   it("runs allow turn guards before persistence, context, or runtime work", async () => {

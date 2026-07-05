@@ -4,19 +4,17 @@ import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
-} from "#errors";
-import {
   STREAM_CHAT_FAILURES,
   mapPortFailure,
   mapSyncFailure,
-} from "../../errors/effect-failures.js";
+} from "#errors";
 import {
   protocolTerminalFailure,
   validateProtocolAccumulator,
   type ProtocolEventAccumulator,
   type ProtocolTerminalFailure,
 } from "./protocol-event-accumulator.js";
-import { recordStreamObservationEffect } from "../../observability/stream-chat-observability.js";
+import { recordStreamObservationEffect } from "../../stream-chat-observability.js";
 import { prepareConversationTitleAfterCompletion } from "../../conversation-title/prepare-conversation-title.js";
 import type {
   PreparedStreamChatTurn,
@@ -81,8 +79,11 @@ const validateTerminalOrFailTurn = (
     STREAM_CHAT_FAILURES.INVALID_RUNTIME_SEQUENCE,
   ).pipe(
     Effect.catch((error: PartnerAiCoreError) =>
-      (turn.assistantTurn.status === "running"
-        ? mapPortFailure(
+      Effect.gen(function* () {
+        // A still-running turn is marked provider_failed before the error re-raises;
+        // an already-terminal turn just re-raises (nothing left to fail).
+        if (turn.assistantTurn.status === "running") {
+          yield* mapPortFailure(
             ports.assistantTurns.failAssistantTurn({
               authContext: turn.authContext,
               assistantTurnId: turn.assistantTurnId,
@@ -91,9 +92,10 @@ const validateTerminalOrFailTurn = (
               now: ports.clock.now(),
             }),
             STREAM_CHAT_FAILURES.PERSISTENCE,
-          )
-        : Effect.void
-      ).pipe(Effect.andThen(Effect.fail(error))),
+          );
+        }
+        return yield* Effect.fail(error);
+      }),
     ),
   );
 

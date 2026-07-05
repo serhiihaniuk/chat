@@ -9,8 +9,8 @@ import {
   createTurnPolicyDecision,
   type CapabilityConfig,
   type PreparedTurnContext,
-} from "../capabilities.js";
-import { createTurnProfile, createManifest } from "#testing/capabilities/manifest-fixtures";
+} from "../capabilities-contract.js";
+import { createTurnProfile, createManifest } from "#testing/manifest-fixtures";
 
 describe("capability substrate types", () => {
   it("models prepared context without infrastructure types", () => {

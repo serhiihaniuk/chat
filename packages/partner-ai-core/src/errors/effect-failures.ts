@@ -3,7 +3,7 @@ import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
-} from "#errors";
+} from "./partner-ai-core-error.js";
 
 export type CoreFailure = {
   readonly code: ConstructorParameters<typeof PartnerAiCoreError>[0];

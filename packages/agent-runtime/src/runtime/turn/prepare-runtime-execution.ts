@@ -1,5 +1,6 @@
 import type { AiRuntimeMessage, AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
 import type { ModelProvider } from "#providers/model-provider";
+import { createToolRegistry, type ToolRegistry } from "#tools/tool-registry";
 import type { HostCommandResolver, RuntimeTool } from "#tools/runtime-tool";
 import type { AgentExecutor } from "../executors/agent-executor.js";
 import {
@@ -13,7 +14,7 @@ import {
   resolveProvider,
   type ProviderCatalog,
 } from "./provider-selection.js";
-import { createToolCatalog, selectRuntimeToolsByName, type ToolCatalog } from "./tool-selection.js";
+import { selectRuntimeToolsByName } from "./tool-selection.js";
 
 /**
  * RuntimeState is the indexed copy of what the app injected at startup.
@@ -25,7 +26,7 @@ import { createToolCatalog, selectRuntimeToolsByName, type ToolCatalog } from ".
 export type RuntimeState = {
   readonly executors: ExecutorCatalog;
   readonly providers: ProviderCatalog;
-  readonly tools: ToolCatalog;
+  readonly tools: ToolRegistry;
 };
 
 /**
@@ -52,7 +53,7 @@ export const createRuntimeState = (options: {
     hostCommandResolver: options.hostCommandResolver,
   }),
   providers: createProviderCatalog(options.providers),
-  tools: createToolCatalog(options.tools),
+  tools: createToolRegistry(options.tools ?? []),
 });
 
 /**

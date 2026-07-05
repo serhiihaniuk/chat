@@ -5,8 +5,8 @@ import type {
   HostCapabilityManifest,
   PreparedTurnContext,
   TurnPolicyDecision,
-} from "#domain/capabilities";
-import type { ConversationRef, MessageRef } from "../lifecycle/conversation.js";
+} from "#domain/capabilities-contract";
+import type { ConversationRef, MessageRef } from "./lifecycle/conversation.js";
 
 export type ContextManagerPort = {
   readonly prepareTurnContext: (input: {

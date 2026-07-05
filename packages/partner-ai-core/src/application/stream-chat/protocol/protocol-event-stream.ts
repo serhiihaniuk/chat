@@ -21,7 +21,7 @@ import {
 import {
   recordRuntimeEventObservation,
   recordStreamObservationEffect,
-} from "../observability/stream-chat-observability.js";
+} from "../stream-chat-observability.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createTurnPolicyDecision, hashHostCapabilityManifest } from "#domain/capabilities";
+import {
+  createTurnPolicyDecision,
+  hashHostCapabilityManifest,
+} from "#domain/capabilities-contract";
 import type { PreparedStreamChatTurn } from "#application/stream-chat/stream-chat-types";
 import {
   authContext,
@@ -7,7 +10,7 @@ import {
   createPreparedContext,
   input,
   resolveTestProfile,
-} from "#testing/stream-chat/fixtures.test-support";
+} from "#testing/fixtures.test-support";
 import { buildModelTurnRequest } from "./build-model-turn-request.js";
 import { renderContextBoardMessage } from "./render-context-board-message.js";
 

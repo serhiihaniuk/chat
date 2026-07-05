@@ -1,10 +1,5 @@
-import { createToolRegistry, type ToolRegistry } from "#tools/tool-registry";
+import type { ToolRegistry } from "#tools/tool-registry";
 import type { RuntimeTool } from "#tools/runtime-tool";
-
-export type ToolCatalog = ToolRegistry;
-
-export const createToolCatalog = (tools: readonly RuntimeTool[] | undefined): ToolCatalog =>
-  createToolRegistry(tools ?? []);
 
 /**
  * Select the exact tools the model can see for one assistant turn.

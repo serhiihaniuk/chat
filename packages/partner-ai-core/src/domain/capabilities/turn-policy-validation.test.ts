@@ -5,13 +5,13 @@ import {
   hashHostCapabilityManifest,
   resolveTurnProfileFromManifest,
   validateTurnPolicyDecision,
-} from "../capabilities.js";
+} from "../capabilities-contract.js";
 import {
   createTurnProfile,
   createManifest,
   createTool,
   turnPolicyIssueCodes,
-} from "#testing/capabilities/manifest-fixtures";
+} from "#testing/manifest-fixtures";
 
 describe("turn policy validation", () => {
   it("rejects turn policies that expose capabilities outside the resolved profile", () => {

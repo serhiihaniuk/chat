@@ -9,11 +9,11 @@ import type {
   ProfileId,
   ProviderId,
   SystemPromptId,
-} from "./ids/capability-ids.js";
-import type { HostCapabilityValidationCode } from "./validation/capability-validation-codes.js";
+} from "./capability-ids.js";
+import type { HostCapabilityValidationCode } from "./capability-validation-codes.js";
 
-export * from "./ids/capability-ids.js";
-export * from "./validation/capability-validation-codes.js";
+export * from "./capability-ids.js";
+export * from "./capability-validation-codes.js";
 
 type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
 

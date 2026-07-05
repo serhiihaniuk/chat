@@ -11,12 +11,9 @@ import {
   SIDECHAT_EVENT_TYPES,
   type ActivityKind,
   type ActivityStatus,
-  type HistoryMessage,
   type SidechatBlockedReason,
   type SidechatEventType,
 } from "../events/event-union.js";
-
-export type HistoryMessageRole = HistoryMessage["role"];
 
 const PROTOCOL_ERROR_CODE_VALUES: readonly unknown[] = Object.values(PROTOCOL_ERROR_CODES);
 
@@ -99,7 +96,6 @@ export const readEventType = (value: unknown): SidechatEventType => {
     case SIDECHAT_EVENT_TYPES.COMPLETED:
     case SIDECHAT_EVENT_TYPES.ERROR:
     case SIDECHAT_EVENT_TYPES.BLOCKED:
-    case SIDECHAT_EVENT_TYPES.HISTORY:
       return value;
     default:
       throw new ProtocolValidationError('event["type"] is not a sidechat.v1 event');
@@ -147,17 +143,6 @@ export const readFinishReason = (value: unknown): "stop" | "length" | "aborted" 
       return value;
     default:
       throw new ProtocolValidationError('event["finishReason"] has unsupported value');
-  }
-};
-
-export const readHistoryMessageRole = (value: unknown): HistoryMessageRole => {
-  switch (value) {
-    case "user":
-    case "assistant":
-    case "system":
-      return value;
-    default:
-      throw new ProtocolValidationError('event["messages"][].role has unsupported value');
   }
 };
 

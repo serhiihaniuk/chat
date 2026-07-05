@@ -6,13 +6,13 @@ import {
 } from "@side-chat/ai-runtime-contract";
 import { SIDECHAT_EVENT_TYPES } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
-import { authContext, input } from "#testing/stream-chat/fixtures.test-support";
+import { authContext, input } from "#testing/fixtures.test-support";
 import {
   collect,
   createFakePorts,
   isTerminalEvent,
   runStreamChat,
-} from "#testing/stream-chat/fake-ports.test-support";
+} from "#testing/fake-ports.test-support";
 
 describe("stream chat conversation title generation", () => {
   it("runs a no-tools title job after the first completed exchange", async () => {

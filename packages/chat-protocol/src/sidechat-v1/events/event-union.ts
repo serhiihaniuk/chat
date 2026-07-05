@@ -19,7 +19,6 @@ export const SIDECHAT_EVENT_TYPES = {
   COMPLETED: "sidechat.completed",
   ERROR: "sidechat.error",
   BLOCKED: "sidechat.blocked",
-  HISTORY: "sidechat.history",
 } as const;
 
 export type SidechatEventType = (typeof SIDECHAT_EVENT_TYPES)[keyof typeof SIDECHAT_EVENT_TYPES];
@@ -144,11 +143,11 @@ export type BlockedEvent = SidechatEventBase & {
   readonly publicMessage: string;
 };
 
-export type HistoryEvent = SidechatEventBase & {
-  readonly type: typeof SIDECHAT_EVENT_TYPES.HISTORY;
-  readonly messages: readonly HistoryMessage[];
-};
-
+/**
+ * One stored transcript message, as returned by the conversation history
+ * read-path (`readHistory` / `ReadHistoryResult`). This is a request/response
+ * shape, not a stream event: no server emits it over the turn stream.
+ */
 export type HistoryMessage = {
   readonly id: MessageId;
   readonly role: "user" | "assistant" | "system";
@@ -172,8 +171,7 @@ export type SidechatStreamEvent =
   | ActivityEvent
   | CompletedEvent
   | ErrorEvent
-  | BlockedEvent
-  | HistoryEvent;
+  | BlockedEvent;
 
 /**
  * Tell whether this event closes the stream.

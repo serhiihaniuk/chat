@@ -3,12 +3,8 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { PARTNER_AI_CORE_ERROR_CODES } from "#errors";
-import { authContext, input } from "#testing/stream-chat/fixtures.test-support";
-import {
-  collect,
-  createFakePorts,
-  runStreamChat,
-} from "#testing/stream-chat/fake-ports.test-support";
+import { authContext, input } from "#testing/fixtures.test-support";
+import { collect, createFakePorts, runStreamChat } from "#testing/fake-ports.test-support";
 
 describe("stream chat concurrency and fail-open telemetry", () => {
   it("keeps a turn healthy when the observability sink always fails", async () => {

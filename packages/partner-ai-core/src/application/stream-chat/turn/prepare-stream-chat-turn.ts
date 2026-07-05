@@ -1,8 +1,12 @@
 import { Effect } from "effect";
 import type { AuthContext } from "#domain/authority";
-import { conversationBusyError, type PartnerAiCoreError as PartnerAiCoreErrorType } from "#errors";
+import {
+  conversationBusyError,
+  STREAM_CHAT_FAILURES,
+  mapPortFailure,
+  type PartnerAiCoreError as PartnerAiCoreErrorType,
+} from "#errors";
 import type { ConversationRef } from "#ports";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,

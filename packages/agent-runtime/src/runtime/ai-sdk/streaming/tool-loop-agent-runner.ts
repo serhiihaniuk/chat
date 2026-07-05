@@ -32,7 +32,7 @@ import {
   classifyAiSdkPart,
   createRuntimeStartedEvent,
   mapAiSdkStreamPart,
-  toRuntimeError,
+  toProviderRuntimeError,
 } from "./stream-part-mapper.js";
 import {
   coalesceTextDeltaParts,
@@ -112,7 +112,7 @@ const mapAiSdkPartsToRuntimeEventStream = (
   // Log an unrecognized part type once per turn so a future SDK pin's new part
   // never vanishes without a signal; the mapping itself still drops it.
   const loggedUnknownPartTypes = new Set<string>();
-  return Stream.fromAsyncIterable(parts, toRuntimeError).pipe(
+  return Stream.fromAsyncIterable(parts, toProviderRuntimeError).pipe(
     Stream.tap((part) => logUnknownAiSdkPart(request, loggedUnknownPartTypes, part)),
     // Turn AI SDK parts into runtime events. The mapping state owns sequence
     // numbers and flushes any pending reasoning row at stream end.
@@ -196,7 +196,7 @@ const createAiSdkPartStream = ({
         flushIntervalMs ?? DEFAULT_OUTPUT_DELTA_FLUSH_MS,
       );
     },
-    catch: (error) => toRuntimeError(error),
+    catch: (error) => toProviderRuntimeError(error),
   }).pipe(
     Effect.withSpan(AI_SDK_AGENT_STREAM_OPEN_SPAN, {
       attributes: {
@@ -210,6 +210,7 @@ const createAiSdkPartStream = ({
 
 type RuntimeEventMappingState = {
   readonly sequence: number;
+  // MUTABLE cell, deliberately threaded unchanged through the immutable mapAccum state: reasoning accumulates + flushes in place (reasoning-activity.ts), so copying it per step silently drops buffered reasoning. Do not "fix" the inconsistency.
   readonly reasoningState: ReasoningStreamState;
   readonly runtimeTools: ReadonlyMap<string, RuntimeTool>;
   readonly hostCommandNames: ReadonlySet<string>;

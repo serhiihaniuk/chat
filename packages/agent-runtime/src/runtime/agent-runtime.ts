@@ -132,7 +132,7 @@ const createRuntimeExecution = (
 const attemptRuntime = <A>(tryFn: () => A): Effect.Effect<A, AiRuntimeError> =>
   Effect.try({
     try: tryFn,
-    catch: (error) => toRuntimeError(error),
+    catch: (error) => toRuntimeDefectError(error),
   });
 
 /**
@@ -143,7 +143,7 @@ const attemptRuntime = <A>(tryFn: () => A): Effect.Effect<A, AiRuntimeError> =>
  */
 const catchRuntimeDefects = (stream: AiRuntimeEventStream): AiRuntimeEventStream =>
   Stream.catchCauseIf(stream, Cause.hasDies, (cause) =>
-    Stream.fail(toRuntimeError(Cause.squash(cause))),
+    Stream.fail(toRuntimeDefectError(Cause.squash(cause))),
   );
 
 /**
@@ -155,7 +155,7 @@ const catchRuntimeDefects = (stream: AiRuntimeEventStream): AiRuntimeEventStream
 const RUNTIME_INTERNAL_ERROR_PUBLIC_MESSAGE =
   "The assistant could not complete this response because of an internal error.";
 
-const toRuntimeError = (error: unknown): AiRuntimeError =>
+const toRuntimeDefectError = (error: unknown): AiRuntimeError =>
   error instanceof AiRuntimeError
     ? error
     : new AiRuntimeError(RUNTIME_ERROR_CODES.INTERNAL_ERROR, RUNTIME_INTERNAL_ERROR_PUBLIC_MESSAGE);

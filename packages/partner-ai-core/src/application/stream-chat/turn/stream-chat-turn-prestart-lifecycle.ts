@@ -1,16 +1,17 @@
 import { Effect } from "effect";
 import { assertWorkspaceAuthority, type AuthContext } from "#domain/authority";
-import type { PreparedTurnContext } from "#domain/capabilities";
+import type { PreparedTurnContext } from "#domain/capabilities-contract";
 import {
   PARTNER_AI_CORE_ERROR_CODES,
+  STREAM_CHAT_FAILURES,
   mapAuthorityDenialToError,
+  mapPortFailure,
   type PartnerAiCoreError as PartnerAiCoreErrorType,
 } from "#errors";
 import type { AssistantTurnRef, ConversationRef, MessageRef, TurnGuardDecision } from "#ports";
 import { createRequestCorrelation, type RequestCorrelation } from "#services/observability";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
-import { runTurnGuards } from "../guards/run-turn-guards.js";
-import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
+import { runTurnGuards } from "../run-turn-guards.js";
+import { recordStreamObservationEffect } from "../stream-chat-observability.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,
@@ -262,9 +263,11 @@ const failStartedTurnOnError = <A>(
 ): Effect.Effect<A, PartnerAiCoreErrorType> =>
   effect.pipe(
     Effect.catch((error: PartnerAiCoreErrorType) =>
-      markStartedTurnFailed(ports, authContext, assistantTurnId, error).pipe(
-        Effect.andThen(Effect.fail(error)),
-      ),
+      Effect.gen(function* () {
+        // Mark the started turn failed, then re-raise the original error unchanged.
+        yield* markStartedTurnFailed(ports, authContext, assistantTurnId, error);
+        return yield* Effect.fail(error);
+      }),
     ),
   );
 

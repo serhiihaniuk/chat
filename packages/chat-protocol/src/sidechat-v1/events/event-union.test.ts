@@ -118,34 +118,6 @@ describe("sidechat event validation", () => {
     ).toThrow(ProtocolValidationError);
   });
 
-  it("rejects malformed history message sequences", () => {
-    const historyEvent = {
-      protocolVersion: "sidechat.v1",
-      type: SIDECHAT_EVENT_TYPES.HISTORY,
-      eventId: "evt_history",
-      assistantTurnId: "turn_001",
-      sequence: 4,
-      createdAt: "2026-05-23T13:00:00.000Z",
-      messages: [
-        {
-          id: "message_001",
-          role: "user",
-          content: "hello",
-          sequence: 1,
-        },
-      ],
-    };
-
-    for (const sequence of [-1, 1.5]) {
-      expect(() =>
-        parseSidechatStreamEvent({
-          ...historyEvent,
-          messages: [{ ...historyEvent.messages[0], sequence }],
-        }),
-      ).toThrow(ProtocolValidationError);
-    }
-  });
-
   it("rejects event fields outside the declared event shape", () => {
     expect(() =>
       parseSidechatStreamEvent({

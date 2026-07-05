@@ -2,7 +2,7 @@ import {
   HOST_CAPABILITY_SCHEMA_VERSIONS,
   type TurnProfile,
   type HostCapabilityManifest,
-} from "#domain/capabilities";
+} from "#domain/capabilities-contract";
 
 type ValidationWithIssueCodes =
   | { readonly valid: true }

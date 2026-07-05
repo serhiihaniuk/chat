@@ -1,6 +1,6 @@
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
-import type { PreparedTurnContext, TurnPolicyDecision } from "#domain/capabilities";
+import type { PreparedTurnContext, TurnPolicyDecision } from "#domain/capabilities-contract";
 import type {
   AiRuntimePort,
   AssistantTurnLifecyclePort,

@@ -54,7 +54,7 @@ export const RUNTIME_ABORTED_PUBLIC_MESSAGE =
  * never retried as a provider outage. Any other foreign SDK/provider error is
  * reduced to a stable public message so its raw text never crosses the boundary.
  */
-export const toRuntimeError = (error: unknown): AiRuntimeError => {
+export const toProviderRuntimeError = (error: unknown): AiRuntimeError => {
   if (error instanceof AiRuntimeError) return error;
   if (isAbortError(error)) {
     return new AiRuntimeError(RUNTIME_ERROR_CODES.ABORTED, RUNTIME_ABORTED_PUBLIC_MESSAGE);

@@ -81,7 +81,6 @@ export const widgetRunReducer = (
  * terminal status; otherwise the run is streaming.
  */
 const applyEvent = (state: WidgetRunState, event: SidechatStreamEvent): WidgetRunState => {
-  if (event.type === SIDECHAT_EVENT_TYPES.HISTORY) return state;
   // A terminal status is final: a stray event after completed/failed/cancelled is
   // ignored entirely so it can neither reopen the turn nor append content.
   if (isTerminalRunStatus(state.status)) return state;
@@ -96,15 +95,8 @@ const applyEvent = (state: WidgetRunState, event: SidechatStreamEvent): WidgetRu
   return applyEventRunFields(advanced, event);
 };
 
-// `applyEvent` already returns early on HISTORY, so run-field folding only ever
-// sees the non-history events — no dead HISTORY branch below.
-type NonHistoryEvent = Exclude<
-  SidechatStreamEvent,
-  { readonly type: typeof SIDECHAT_EVENT_TYPES.HISTORY }
->;
-
 /** Fold run-level data carried on specific events (conversation id, usage, errors, status). */
-const applyEventRunFields = (state: WidgetRunState, event: NonHistoryEvent): WidgetRunState => {
+const applyEventRunFields = (state: WidgetRunState, event: SidechatStreamEvent): WidgetRunState => {
   switch (event.type) {
     case SIDECHAT_EVENT_TYPES.STARTED:
       return {

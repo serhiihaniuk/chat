@@ -1,8 +1,8 @@
 import { Effect, Exit, Ref } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { createFakePorts } from "#testing/stream-chat/fake-ports.test-support";
-import { authContext, input } from "#testing/stream-chat/fixtures.test-support";
+import { createFakePorts } from "#testing/fake-ports.test-support";
+import { authContext, input } from "#testing/fixtures.test-support";
 import type { StreamChatPorts } from "../../stream-chat-types.js";
 import { prepareStreamChatTurn } from "../../turn/prepare-stream-chat-turn.js";
 import { drainUnderOwnerLease, type TurnLeaseSettings } from "./turn-lease-heartbeat.js";

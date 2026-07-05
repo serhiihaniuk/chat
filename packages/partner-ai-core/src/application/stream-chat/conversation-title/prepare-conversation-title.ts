@@ -1,7 +1,7 @@
 import { RUNTIME_EVENT_TYPES, type RuntimeEvent } from "@side-chat/ai-runtime-contract";
 import { Effect, Stream } from "effect";
 import type { ConversationTitlePromptConfig } from "#ports";
-import { recordStreamObservationEffect } from "../observability/stream-chat-observability.js";
+import { recordStreamObservationEffect } from "../stream-chat-observability.js";
 import type {
   PreparedStreamChatTurn,
   StreamChatInput,

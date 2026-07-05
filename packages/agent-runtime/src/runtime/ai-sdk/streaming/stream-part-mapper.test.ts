@@ -5,7 +5,7 @@ import {
   RUNTIME_ABORTED_PUBLIC_MESSAGE,
   RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE,
   classifyAiSdkPart,
-  toRuntimeError,
+  toProviderRuntimeError,
 } from "./stream-part-mapper.js";
 
 /** Every AI SDK stream part this runtime turns into a runtime event. */
@@ -58,24 +58,24 @@ describe("classifyAiSdkPart", () => {
   });
 });
 
-describe("toRuntimeError", () => {
+describe("toProviderRuntimeError", () => {
   it("keeps an AiRuntimeError and its honest code", () => {
     const original = new AiRuntimeError(RUNTIME_ERROR_CODES.TOOL_CONFLICT, "conflict");
-    expect(toRuntimeError(original)).toBe(original);
+    expect(toProviderRuntimeError(original)).toBe(original);
   });
 
   it("maps a caller AbortError to the aborted code, never a provider outage", () => {
     const aborted = new Error("The operation was aborted.");
     aborted.name = "AbortError";
 
-    const mapped = toRuntimeError(aborted);
+    const mapped = toProviderRuntimeError(aborted);
 
     expect(mapped.code).toBe(RUNTIME_ERROR_CODES.ABORTED);
     expect(mapped.message).toBe(RUNTIME_ABORTED_PUBLIC_MESSAGE);
   });
 
   it("reduces a foreign provider/SDK error to a public-safe provider failure", () => {
-    const mapped = toRuntimeError(new Error("raw provider internals: key=sk-123"));
+    const mapped = toProviderRuntimeError(new Error("raw provider internals: key=sk-123"));
 
     expect(mapped.code).toBe(RUNTIME_ERROR_CODES.PROVIDER_UNAVAILABLE);
     expect(mapped.message).toBe(RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE);

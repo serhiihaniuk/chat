@@ -74,11 +74,6 @@ const EVENT_FIXTURES: Record<SidechatEventType, SidechatStreamEvent> = {
     reason: SIDECHAT_BLOCKED_REASONS.CONTENT_FILTER,
     publicMessage: "This request was blocked by a safety filter.",
   },
-  [SIDECHAT_EVENT_TYPES.HISTORY]: {
-    ...base(SIDECHAT_EVENT_TYPES.HISTORY, 6),
-    type: SIDECHAT_EVENT_TYPES.HISTORY,
-    messages: [{ id: "message_1", role: "user", content: "hi", sequence: 0 }],
-  },
 };
 
 const eventTypes = Object.values(SIDECHAT_EVENT_TYPES);

@@ -1,4 +1,5 @@
 import type { SidechatRepositories } from "#repositories/contract";
+import { toUserMessageId } from "#schema-contract";
 
 export const now = "2026-05-23T13:00:00.000Z";
 
@@ -56,7 +57,7 @@ export const startTurn = async (repositories: SidechatRepositories, scope: strin
     actorId: actorId(scope),
     requestId: "request_1",
     conversationId: conversation.conversationId,
-    userMessageId: userMessage.record.messageId,
+    userMessageId: toUserMessageId(userMessage.record.messageId),
     runtimeProfile: "fake",
     systemPromptVersion: "system_v1",
     contextStrategyVersion: "context_v1",

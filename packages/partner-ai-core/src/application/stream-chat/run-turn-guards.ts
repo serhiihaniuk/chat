@@ -4,12 +4,13 @@ import {
   PARTNER_AI_CORE_ERROR_CODES,
   PARTNER_AI_CORE_PROTOCOL_ERROR_CODES,
   PartnerAiCoreError,
+  STREAM_CHAT_FAILURES,
+  mapPortFailure,
   type PartnerAiCoreError as PartnerAiCoreErrorType,
 } from "#errors";
 import type { TurnGuard, TurnGuardDecision, TurnGuardInput, TurnGuardRegistryPort } from "#ports";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
-import type { StreamChatInput } from "../stream-chat-types.js";
-import type { ResolvedTurnPlan } from "../turn/turn-policy-plan.js";
+import type { StreamChatInput } from "./stream-chat-types.js";
+import type { ResolvedTurnPlan } from "./turn/turn-policy-plan.js";
 
 export type RunTurnGuardsInput = {
   readonly registry: TurnGuardRegistryPort;

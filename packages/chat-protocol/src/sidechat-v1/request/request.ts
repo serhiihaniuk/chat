@@ -3,7 +3,7 @@ import { omitUndefinedProperties } from "@side-chat/shared";
 import {
   assertProtocolVersion,
   isRecord,
-  requireString,
+  requireStringField,
   toConversationId,
   toMessageId,
   toRequestId,
@@ -126,7 +126,7 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
     if (!isRecord(input)) throw new Error("request must be an object");
     requireKnownKeys(input, REQUEST_FIELDS, "request");
     const protocolVersion = assertProtocolVersion(input["protocolVersion"], "request");
-    const requestId = toRequestId(requireString(input, "requestId", "request"));
+    const requestId = toRequestId(requireStringField(input, "requestId", "request"));
     const message = parseMessage(input["message"]);
     const conversationId = readOptionalConversationId(input);
     const turnProfileId = readOptionalString(input, "turnProfileId", "request");
@@ -155,8 +155,8 @@ export const parseChatStreamRequest = (input: unknown): ChatStreamRequest => {
 const parseMessage = (input: unknown): ChatRequestMessage => {
   if (!isRecord(input)) throw new Error("request.message must be an object");
   requireKnownKeys(input, MESSAGE_FIELDS, "request.message");
-  const id = toMessageId(requireString(input, "id", "request.message"));
-  const content = requireString(input, "content", "request.message");
+  const id = toMessageId(requireStringField(input, "id", "request.message"));
+  const content = requireStringField(input, "content", "request.message");
   return { id, content };
 };
 
@@ -170,8 +170,8 @@ const parseOptionalModelPreference = (
 const parseModelPreference = (input: unknown): ChatModelPreference => {
   if (!isRecord(input)) throw new Error("request.model must be an object");
   requireKnownKeys(input, MODEL_FIELDS, "request.model");
-  const providerId = requireString(input, "providerId", "request.model");
-  const modelId = requireString(input, "modelId", "request.model");
+  const providerId = requireStringField(input, "providerId", "request.model");
+  const modelId = requireStringField(input, "modelId", "request.model");
   const reasoningEffort = readOptionalReasoningEffort(input);
   return omitUndefinedProperties({ providerId, modelId, reasoningEffort });
 };
@@ -198,7 +198,7 @@ const parseOptionalHostContext = (input: Record<string, unknown>): HostContext |
 const parseHostContext = (input: unknown): HostContext | undefined => {
   if (!isRecord(input)) throw new Error("request.hostContext must be an object");
   requireKnownKeys(input, HOST_CONTEXT_FIELDS, "request.hostContext");
-  const schemaVersion = requireString(input, "schemaVersion", "request.hostContext");
+  const schemaVersion = requireStringField(input, "schemaVersion", "request.hostContext");
   const origin = readOptionalString(input, "origin", "request.hostContext");
   const url = readOptionalString(input, "url", "request.hostContext");
   const title = readOptionalString(input, "title", "request.hostContext");
@@ -224,8 +224,8 @@ const parseOptionalHostCommands = (
 const parseHostCommand = (input: unknown): RequestHostCommand => {
   if (!isRecord(input)) throw new Error("request.hostCommands[] must be an object");
   requireKnownKeys(input, HOST_COMMAND_FIELDS, "request.hostCommands[]");
-  const commandName = requireString(input, "commandName", "request.hostCommands[]");
-  const description = requireString(input, "description", "request.hostCommands[]");
+  const commandName = requireStringField(input, "commandName", "request.hostCommands[]");
+  const description = requireStringField(input, "description", "request.hostCommands[]");
   const inputSchema = readRequiredJsonObject(input, "inputSchema", "request.hostCommands[]");
   return { commandName, description, inputSchema };
 };
@@ -258,7 +258,7 @@ const readOptionalString = (
   context: string,
 ): string | undefined => {
   if (!Object.hasOwn(record, key)) return undefined;
-  return requireString(record, key, context);
+  return requireStringField(record, key, context);
 };
 
 const readOptionalJsonObject = (

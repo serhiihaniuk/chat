@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SidechatRepositories } from "#repositories/contract";
+import { toAssistantMessageId } from "#schema-contract";
 import {
   closeIfNeeded,
   startTurn,
@@ -136,7 +137,7 @@ export const turnLeaseRepositoryContract = (
         await repositories.completeAssistantTurn({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.assistantTurnId,
-          assistantMessageId: turn.userMessageId,
+          assistantMessageId: toAssistantMessageId(turn.userMessageId),
           finishReason: "stop",
           now: ACQUIRE_NOW,
         });

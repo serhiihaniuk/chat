@@ -4,7 +4,7 @@ import type {
   ConversationRepositoryPort,
 } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
-import { toActorId, type SidechatRepositories } from "@side-chat/db";
+import { toActorId, toAssistantMessageId, type SidechatRepositories } from "@side-chat/db";
 import {
   appendMessage,
   appendTurnAuditEvent,
@@ -143,7 +143,7 @@ const createCompleteAssistantTurnEffect =
         await repositories.completeAssistantTurn({
           workspaceId: authContext.workspaceId,
           assistantTurnId,
-          assistantMessageId: assistantMessage.record.messageId,
+          assistantMessageId: toAssistantMessageId(assistantMessage.record.messageId),
           finishReason,
           now,
         });

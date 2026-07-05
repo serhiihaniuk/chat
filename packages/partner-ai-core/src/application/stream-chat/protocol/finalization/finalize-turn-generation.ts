@@ -5,9 +5,8 @@ import {
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
 import { Cause, Effect, Exit, Ref } from "effect";
-import type { PartnerAiCoreError } from "#errors";
+import { STREAM_CHAT_FAILURES, mapPortFailure, type PartnerAiCoreError } from "#errors";
 import type { AssistantTurnFailureStatus, TurnControlState } from "#ports";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../../errors/effect-failures.js";
 import { finalizeProtocolStream } from "./protocol-terminal-lifecycle.js";
 import type { ProtocolEventAccumulator } from "./protocol-event-accumulator.js";
 import type {

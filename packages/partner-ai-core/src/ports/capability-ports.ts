@@ -1,7 +1,7 @@
 import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import type { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
-import type { HostCapabilityManifest, TurnPolicyDecision } from "#domain/capabilities";
+import type { HostCapabilityManifest, TurnPolicyDecision } from "#domain/capabilities-contract";
 
 export type HostCapabilityManifestPort = {
   readonly loadManifest: (input: {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toTargetId } from "#schema-contract";
+import { toAssistantMessageId, toTargetId, toUserMessageId } from "#schema-contract";
 import type { SidechatRepositories } from "#repositories/contract";
 import {
   actorId,
@@ -142,7 +142,7 @@ export const sidechatRepositoryContract = (
           actorId: actorId(scope),
           requestId: "request_1",
           conversationId: conversation.conversationId,
-          userMessageId: userMessage.record.messageId,
+          userMessageId: toUserMessageId(userMessage.record.messageId),
           runtimeProfile: "fake",
           systemPromptVersion: "system_v1",
           contextStrategyVersion: "context_v1",
@@ -157,7 +157,7 @@ export const sidechatRepositoryContract = (
           actorId: actorId(scope),
           requestId: "request_1",
           conversationId: conversation.conversationId,
-          userMessageId: userMessage.record.messageId,
+          userMessageId: toUserMessageId(userMessage.record.messageId),
           runtimeProfile: "fake",
           systemPromptVersion: "system_v1",
           contextStrategyVersion: "context_v1",
@@ -239,7 +239,7 @@ export const sidechatRepositoryContract = (
         const completed = await repositories.completeAssistantTurn({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.record.assistantTurnId,
-          assistantMessageId: assistantMessage.record.messageId,
+          assistantMessageId: toAssistantMessageId(assistantMessage.record.messageId),
           finishReason: "stop",
           now,
         });

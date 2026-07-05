@@ -18,7 +18,7 @@ fetch(url))` does nothing until something runs it. That laziness is why
 dependency injection here needs no framework: a port method returns a
 description, composition decides which adapter built it, and tests hand in fake
 descriptions — no mocking library, no import patching. See the fake ports in
-`packages/partner-ai-core/src/testing/stream-chat/` driving the whole workflow.
+`packages/partner-ai-core/src/testing/` driving the whole workflow.
 
 **2. Reading a signature tells you everything.** `Effect.Effect<A, E>` reads:
 "when run, succeeds with `A` or fails with `E`". So

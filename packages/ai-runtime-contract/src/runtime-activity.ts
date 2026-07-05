@@ -10,6 +10,8 @@ import type { ToolCallId } from "./runtime-ids.js";
  */
 
 export const RUNTIME_ACTIVITY_KINDS = {
+  // Reserved; no runtime producer emits a progress row yet. Kept in the contract so
+  // the projection/union stay exhaustive for when one does.
   PROGRESS: "progress",
   REASONING: "reasoning",
   TOOL: "tool",
@@ -83,6 +85,8 @@ export type RuntimeActivityHostCommandDetails = {
  */
 export type RuntimeActivityDetails = {
   readonly sources?: readonly RuntimeActivitySource[] | undefined;
+  // Reserved; no runtime producer populates images yet. The widget renders produced
+  // images through tools' readSources path (story 23), not this field.
   readonly images?: readonly RuntimeActivityImage[] | undefined;
   readonly tool?: RuntimeActivityToolDetails | undefined;
   readonly hostCommand?: RuntimeActivityHostCommandDetails | undefined;

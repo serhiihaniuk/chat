@@ -14,8 +14,8 @@ import {
   type ProtocolEventAccumulator,
 } from "#application/stream-chat/protocol/finalization/protocol-event-accumulator";
 import { finalizeTurnGeneration } from "#application/stream-chat/protocol/finalization/finalize-turn-generation";
-import { input } from "#testing/stream-chat/fixtures.test-support";
-import { createFakePorts } from "#testing/stream-chat/fake-ports.test-support";
+import { input } from "#testing/fixtures.test-support";
+import { createFakePorts } from "#testing/fake-ports.test-support";
 
 // The abnormal finalizer owns exactly one synthetic terminal and one durable
 // status, classified honestly from the exit cause plus durable cancel intent.

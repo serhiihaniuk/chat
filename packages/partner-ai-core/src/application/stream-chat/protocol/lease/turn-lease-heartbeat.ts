@@ -1,6 +1,5 @@
 import { Effect, Schedule } from "effect";
-import type { PartnerAiCoreError } from "#errors";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../../errors/effect-failures.js";
+import { STREAM_CHAT_FAILURES, mapPortFailure, type PartnerAiCoreError } from "#errors";
 import type { PreparedStreamChatTurn, StreamChatPorts } from "../../stream-chat-types.js";
 
 /**

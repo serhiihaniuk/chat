@@ -1,7 +1,7 @@
 import type {
   HostCapabilityValidationCode,
   HostCapabilityValidationIssue,
-} from "../contracts/capabilities.js";
+} from "./contracts/capabilities.js";
 
 export const duplicateValueIssues = (
   values: readonly string[],

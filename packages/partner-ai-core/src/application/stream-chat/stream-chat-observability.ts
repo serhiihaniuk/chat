@@ -1,8 +1,11 @@
 import type { RuntimeEvent } from "@side-chat/ai-runtime-contract";
 import { Effect } from "effect";
-import { runtimeEventAttributes, recordStreamObservation } from "#services/stream-observability";
-import type { ObservabilitySinkPort } from "#services/observability";
-import type { PreparedStreamChatTurn, StreamChatPorts } from "../stream-chat-types.js";
+import {
+  runtimeEventAttributes,
+  recordStreamObservation,
+  type ObservabilitySinkPort,
+} from "#services/observability";
+import type { PreparedStreamChatTurn, StreamChatPorts } from "./stream-chat-types.js";
 
 /**
  * Record one lifecycle observation, fail-open.

@@ -1,5 +1,5 @@
 import type { AiRuntimeMessage } from "@side-chat/ai-runtime-contract";
-import type { PreparedContextBoard, PreparedContextSection } from "#domain/capabilities";
+import type { PreparedContextBoard, PreparedContextSection } from "#domain/capabilities-contract";
 
 /**
  * Core-owned context trust boundary for the final model request.

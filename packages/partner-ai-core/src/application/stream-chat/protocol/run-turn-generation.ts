@@ -1,7 +1,6 @@
 import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
 import { Effect, Stream } from "effect";
-import type { PartnerAiCoreError } from "#errors";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
+import { STREAM_CHAT_FAILURES, mapPortFailure, type PartnerAiCoreError } from "#errors";
 import { finalizeTurnGeneration } from "./finalization/finalize-turn-generation.js";
 import {
   createProtocolStreamRefs,

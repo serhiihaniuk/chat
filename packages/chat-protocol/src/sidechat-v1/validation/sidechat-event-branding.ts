@@ -5,7 +5,6 @@ import {
   toConversationId,
   toEventId,
   toHostCommandId,
-  toMessageId,
   toProtocolSequence,
   toToolCallId,
 } from "../primitives.js";
@@ -19,7 +18,6 @@ import {
   type ActivitySource,
   type ActivityToolDetails,
   type CompletedEvent,
-  type HistoryMessage,
   type SidechatEventBase,
   type SidechatStreamEvent,
   type StartedEvent,
@@ -28,12 +26,10 @@ import {
 import {
   readActivityKind,
   readActivityStatus,
-  readArray,
   readBlockedReason,
   readBoolean,
   readEventType,
   readFinishReason,
-  readHistoryMessageRole,
   readJsonObject,
   readNonNegativeInteger,
   readOptionalArray,
@@ -77,12 +73,6 @@ export const toBrandedSidechatEvent = (event: Record<string, unknown>): Sidechat
         type: SIDECHAT_EVENT_TYPES.BLOCKED,
         reason: readBlockedReason(event["reason"]),
         publicMessage: readString(event["publicMessage"], 'event["publicMessage"]'),
-      };
-    case SIDECHAT_EVENT_TYPES.HISTORY:
-      return {
-        ...base,
-        type: SIDECHAT_EVENT_TYPES.HISTORY,
-        messages: readArray(event["messages"], toHistoryMessage),
       };
   }
 };
@@ -241,17 +231,4 @@ const toCompletedEvent = (
   if (isRecord(event["usage"])) completedEvent.usage = toUsageMetadata(event["usage"]);
 
   return completedEvent;
-};
-
-const toHistoryMessage = (value: unknown): HistoryMessage => {
-  const message = readRecord(value, 'event["messages"] item');
-
-  return {
-    id: toMessageId(readString(message["id"], 'event["messages"][].id')),
-    role: readHistoryMessageRole(message["role"]),
-    content: readString(message["content"], 'event["messages"][].content'),
-    sequence: toProtocolSequence(
-      readNonNegativeInteger(message["sequence"], 'event["messages"][].sequence'),
-    ),
-  };
 };

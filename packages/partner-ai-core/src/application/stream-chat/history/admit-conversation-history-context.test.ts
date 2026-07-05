@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HISTORY_CONTEXT_MODES, type PreparedHistoryMessage } from "#domain/capabilities";
+import { HISTORY_CONTEXT_MODES, type PreparedHistoryMessage } from "#domain/capabilities-contract";
 import { admitConversationHistoryContext } from "./admit-conversation-history-context.js";
 
 describe("admitConversationHistoryContext", () => {

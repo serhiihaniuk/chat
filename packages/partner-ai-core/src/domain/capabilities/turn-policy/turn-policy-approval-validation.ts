@@ -5,11 +5,8 @@ import {
   type HostCapabilityValidationIssue,
   type TurnPolicyDecision,
 } from "../contracts/capabilities.js";
-import {
-  readHostCommandName,
-  readToolCapabilityName,
-} from "../validation/validation-field-readers.js";
-import { unknownValueIssues } from "../validation/validation-issue-helpers.js";
+import { readHostCommandName, readToolCapabilityName } from "../validation-field-readers.js";
+import { unknownValueIssues } from "../validation-issue-helpers.js";
 
 export const approvalRequirementsForSelectedCapabilities = (
   manifest: HostCapabilityManifest,

@@ -46,7 +46,7 @@ Within an epic, execute in file order. Epics 2, 3 can run parallel to Epic 1 exc
 | 32  | Theme single-sourcing + add-a-theme recipe — **done 2026-07-05**                             | 6 Widget UI   | 31                      |
 | 33  | Composer correctness + real context ring — **done 2026-07-05**                               | 6 Widget UI   | —                       |
 | 34  | Labels/rebranding surface + mobile bottom sheet — **done 2026-07-05**                        | 6 Widget UI   | —                       |
-| 35  | Core tree flattening + naming de-collisions                                                  | 7 Readability | after epics 1–5         |
+| 35  | Core tree flattening + naming de-collisions — **done 2026-07-05**                            | 7 Readability | after epics 1–5         |
 | 36  | Observability foundation + dev console logs (ADR 0011) — **done 2026-07-04**                 | 5 Robustness  | — (run FIRST in epic 5) |
 
 ## Status legend

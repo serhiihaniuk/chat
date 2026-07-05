@@ -55,12 +55,20 @@ export type StartedTurn = {
  */
 export type TurnRunner = {
   readonly start: (input: StartTurnInput) => Promise<StartedTurn>;
-  /** Await one turn's generation fiber; resolves immediately if it is not running. */
-  readonly awaitTurn: (assistantTurnId: string) => Promise<void>;
   /** Interrupt one turn's generation fiber, triggering its abnormal finalize. */
   readonly interruptTurn: (assistantTurnId: string) => Promise<void>;
   /** Interrupt every in-flight turn and close the runner scope (shutdown). */
   readonly shutdown: () => Promise<void>;
+};
+
+/**
+ * Test-only runner surface. `awaitTurn` (await one turn's generation fiber; resolves
+ * immediately if it is not running) is not part of the production `TurnRunner`
+ * contract — only tests await generation to assert the durable outcome. `createTurnRunner`
+ * returns this wider handle; production consumers hold the narrower `TurnRunner`.
+ */
+export type TurnRunnerTestHandle = TurnRunner & {
+  readonly awaitTurn: (assistantTurnId: string) => Promise<void>;
 };
 
 export type TurnRunnerDependencies = {
@@ -81,7 +89,7 @@ export type TurnRunnerDependencies = {
  * the scope closes. Keys are server-generated `assistantTurnId`s, which are
  * globally unique, so the map is tenant-safe.
  */
-export const createTurnRunner = (dependencies: TurnRunnerDependencies): TurnRunner => {
+export const createTurnRunner = (dependencies: TurnRunnerDependencies): TurnRunnerTestHandle => {
   const scope = Effect.runSync(Scope.make());
   const fibers = Effect.runSync(
     FiberMap.make<string>().pipe(Effect.provideService(Scope.Scope, scope)),

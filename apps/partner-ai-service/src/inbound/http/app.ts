@@ -15,6 +15,7 @@ import {
   type ServiceAuthVerifier,
 } from "#adapters/auth/service-auth";
 import type { ServicePolicyConfig } from "#adapters/policy/service-policy";
+import { DEFAULT_TENANT_ID, DEFAULT_WORKSPACE_ID } from "#config/env/service-env-contract";
 import {
   composePartnerAiService,
   type PersistenceConfig,
@@ -38,8 +39,8 @@ import { registerModelsRoute } from "./routes/models/models.js";
 import { registerToolsRoute } from "./routes/tools/tools.js";
 
 const DEFAULT_WORKSPACE: WorkspaceRef = {
-  tenantId: "tenant_local",
-  workspaceId: "workspace_local",
+  tenantId: DEFAULT_TENANT_ID,
+  workspaceId: DEFAULT_WORKSPACE_ID,
 };
 
 /**

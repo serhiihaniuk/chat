@@ -12,7 +12,10 @@ import {
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { AUTHORITY_DENIAL_CODES } from "#domain/authority";
-import { createTurnPolicyDecision, hashHostCapabilityManifest } from "#domain/capabilities";
+import {
+  createTurnPolicyDecision,
+  hashHostCapabilityManifest,
+} from "#domain/capabilities-contract";
 import { PARTNER_AI_CORE_ERROR_CODES } from "#errors";
 import { denyRequestPolicy, POLICY_DENIAL_CODES } from "#policies/policy";
 import {
@@ -20,13 +23,13 @@ import {
   createManifest,
   input,
   resolveTestProfile,
-} from "#testing/stream-chat/fixtures.test-support";
+} from "#testing/fixtures.test-support";
 import {
   collect,
   createFakePorts,
   isTerminalEvent,
   runStreamChat,
-} from "#testing/stream-chat/fake-ports.test-support";
+} from "#testing/fake-ports.test-support";
 
 describe("stream chat lifecycle and policy", () => {
   it("streams valid sidechat.v1 events through Effect services", async () => {

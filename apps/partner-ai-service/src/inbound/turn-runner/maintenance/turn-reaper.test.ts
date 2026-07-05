@@ -1,5 +1,9 @@
 import type { ObservabilityRecord, ObservabilitySinkPort } from "@side-chat/partner-ai-core";
-import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
+import {
+  createMemorySidechatRepositories,
+  toUserMessageId,
+  type MemorySidechatRepositories,
+} from "@side-chat/db";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -117,7 +121,7 @@ const startRunningTurn = async (repositories: MemorySidechatRepositories, reques
     actorId: "actor_reaper",
     requestId,
     conversationId: conversation.record.conversationId,
-    userMessageId: message.record.messageId,
+    userMessageId: toUserMessageId(message.record.messageId),
     runtimeProfile: "fake",
     systemPromptVersion: "system_v1",
     contextStrategyVersion: "context_v1",

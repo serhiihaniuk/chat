@@ -74,6 +74,38 @@ const directoryBudgetExceptions = new Map([
         "the run controller keeps three co-located test files, each owning one concern that would otherwise blow a single test file's line budget: base streaming/cancel/replay, transport recovery, and the mount lifecycle (StrictMode adoption, DOM-removal leak, two-widget isolation), alongside the controller, the reconnect triggers, and the durable run marker",
     },
   ],
+  [
+    "packages/partner-ai-core/src/application/stream-chat",
+    {
+      maxFiles: 6,
+      reason:
+        "the stream-chat workflow root keeps its three cross-cutting suites (stream-chat.test, stream-chat-guards.test, stream-chat-concurrency.test) beside the two files they exercise across the whole path — stream-chat-types (shared ports/input/prepared-turn types) and stream-chat-observability (the fail-open lifecycle recorder called from prestart, protocol, title, and finalization) — after the observability/ and guards/ one-file folders were flattened up",
+    },
+  ],
+  [
+    "packages/partner-ai-core/src/domain/capabilities",
+    {
+      maxFiles: 6,
+      reason:
+        "capability validation source (validation, validation-field-readers, validation-issue-helpers) sits beside the three behavioral suites that drive it (capabilities.test, capability-substrate-types.test, turn-policy-validation.test) after the one-file validation/ folder was flattened up; deeper contract types and turn-policy resolution keep their own child folders",
+    },
+  ],
+  [
+    "packages/partner-ai-core/src/domain/capabilities/contracts",
+    {
+      maxFiles: 6,
+      reason:
+        "the capability contract barrel (capabilities) re-exports its five sibling contract modules — capability-configuration, context, hashing, capability-ids, capability-validation-codes — kept flat so the ids/ and validation/ one-file folders collapse into one readable contracts surface",
+    },
+  ],
+  [
+    "packages/partner-ai-core/src/ports",
+    {
+      maxFiles: 6,
+      reason:
+        "the #ports barrel (index) plus the five port contracts it re-exports — capability-ports, context-manager, turn-guard, runtime-port, conversation-title-generation — kept flat so external importers stay on the stable #ports alias after the per-port one-file folders were flattened; the four turn-lifecycle refs keep their own lifecycle/ child folder",
+    },
+  ],
 ]);
 
 const sourceFiles = listSourceFiles(root);

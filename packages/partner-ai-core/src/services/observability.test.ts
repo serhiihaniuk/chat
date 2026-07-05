@@ -13,7 +13,7 @@ import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import { prepareStreamChatTurn } from "#application/stream-chat/turn/prepare-stream-chat-turn";
 import { runTurnGeneration } from "#application/stream-chat/protocol/run-turn-generation";
-import { TEST_TURN_LEASE } from "#testing/stream-chat/fake-ports.test-support";
+import { TEST_TURN_LEASE } from "#testing/fake-ports.test-support";
 import type { AuthContext } from "#domain/authority";
 import {
   CONTEXT_ADMISSION_POLICIES,
@@ -24,7 +24,7 @@ import {
   resolveTurnProfileFromManifest,
   type TurnProfile,
   type HostCapabilityManifest,
-} from "#domain/capabilities";
+} from "#domain/capabilities-contract";
 import {
   createRequestCorrelation,
   redactAttributes,

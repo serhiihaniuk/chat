@@ -12,7 +12,7 @@ import {
   type HostCapabilityManifest,
   type PreparedTurnContext,
   type TurnPolicyDecision,
-} from "#domain/capabilities";
+} from "#domain/capabilities-contract";
 import type { StreamChatInput } from "#application/stream-chat/stream-chat-types";
 
 export const authContext: AuthContext = {

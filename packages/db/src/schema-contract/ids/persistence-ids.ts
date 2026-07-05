@@ -5,8 +5,10 @@ export type SubjectId = Brand<string, "SubjectId">;
 export type ActorId = Brand<string, "ActorId">;
 export type ConversationId = Brand<string, "ConversationId">;
 export type MessageId = Brand<string, "MessageId">;
-export type UserMessageId = Brand<string, "MessageId">;
-export type AssistantMessageId = Brand<string, "MessageId">;
+// Distinct brands so a user id is never silently accepted where an assistant id is
+// required (and vice versa); both still narrow the shared MessageId column type.
+export type UserMessageId = Brand<string, "UserMessageId">;
+export type AssistantMessageId = Brand<string, "AssistantMessageId">;
 export type AssistantTurnId = Brand<string, "AssistantTurnId">;
 export type RequestId = Brand<string, "RequestId">;
 export type ContextSnapshotId = Brand<string, "ContextSnapshotId">;
@@ -28,9 +30,10 @@ export const toActorId = (value: string): ActorId => brandString<"ActorId">(valu
 export const toConversationId = (value: string): ConversationId =>
   brandString<"ConversationId">(value);
 export const toMessageId = (value: string): MessageId => brandString<"MessageId">(value);
-export const toUserMessageId = (value: string): UserMessageId => brandString<"MessageId">(value);
+export const toUserMessageId = (value: string): UserMessageId =>
+  brandString<"UserMessageId">(value);
 export const toAssistantMessageId = (value: string): AssistantMessageId =>
-  brandString<"MessageId">(value);
+  brandString<"AssistantMessageId">(value);
 export const toAssistantTurnId = (value: string): AssistantTurnId =>
   brandString<"AssistantTurnId">(value);
 export const toRequestId = (value: string): RequestId => brandString<"RequestId">(value);

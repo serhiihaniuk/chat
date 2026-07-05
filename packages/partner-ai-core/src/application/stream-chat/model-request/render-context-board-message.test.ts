@@ -6,7 +6,7 @@ import {
   CONTEXT_TRUST_LEVELS,
   type PreparedContextBoard,
   type PreparedContextSection,
-} from "#domain/capabilities";
+} from "#domain/capabilities-contract";
 import { renderContextBoardMessage } from "./render-context-board-message.js";
 
 const emptyManifest: PreparedContextBoard["manifest"] = {

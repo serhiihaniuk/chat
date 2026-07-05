@@ -24,7 +24,7 @@ import { Effect, Exit, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { composePartnerAiService, type ResumabilityConfig } from "#composition/service-composition";
-import { observeGenerationExit, type TurnRunner } from "./turn-runner.js";
+import { observeGenerationExit, type TurnRunnerTestHandle } from "./turn-runner.js";
 
 const WORKSPACE: WorkspaceRef = { tenantId: "tenant_runner", workspaceId: "workspace_runner" };
 
@@ -241,7 +241,7 @@ describe("server-owned turn runner", () => {
 });
 
 type RunnerHarness = {
-  readonly runner: TurnRunner;
+  readonly runner: TurnRunnerTestHandle;
   readonly repositories: MemorySidechatRepositories;
   /** The in-memory registry the runner emits to; tests read live events from it. */
   readonly turnEventLog: TurnEventLogPort;
@@ -265,7 +265,7 @@ const createRunnerHarness = ({ runtime, resumability }: HarnessOptions = {}): Ru
     resumability,
   });
   return {
-    runner: composition.turnRunner,
+    runner: composition.turnRunner as TurnRunnerTestHandle,
     repositories,
     turnEventLog: composition.ports.turnEventLog,
     runtimeRequests,

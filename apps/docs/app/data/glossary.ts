@@ -199,7 +199,7 @@ export const glossary: readonly GlossaryTerm[] = [
     term: "Conversation title",
     definition: "Display label generated once after the first successful exchange, when config enables it.",
     category: "ai",
-    code: "packages/partner-ai-core/src/ports/title/conversation-title-generation.ts",
+    code: "packages/partner-ai-core/src/ports/conversation-title-generation.ts",
   },
   {
     id: "auxiliary-model-job",
@@ -259,7 +259,7 @@ export const glossary: readonly GlossaryTerm[] = [
     term: "System prompt id",
     definition: "Durable profile id naming the source of resolved instructions.",
     category: "ai",
-    code: "packages/partner-ai-core/.../contracts/ids/capability-ids.ts (SystemPromptId)",
+    code: "packages/partner-ai-core/.../contracts/capability-ids.ts (SystemPromptId)",
   },
   {
     id: "system-instructions",
@@ -449,13 +449,6 @@ export const glossary: readonly GlossaryTerm[] = [
     definition: "A terminal safety-stop: the turn was blocked before a usable answer, kept distinct from completed.",
     category: "events",
     code: "packages/chat-protocol/.../events/event-union.ts (BlockedEvent)",
-  },
-  {
-    id: "sidechat-history",
-    term: "sidechat.history / HistoryMessage",
-    definition: "Replay payload of past messages the widget falls back to after replay_expired.",
-    category: "events",
-    code: "packages/chat-protocol/.../events/event-union.ts (HistoryEvent, HistoryMessage)",
   },
   {
     id: "tool-call-result-error",
@@ -707,7 +700,7 @@ export const glossary: readonly GlossaryTerm[] = [
     term: "TurnGuard",
     definition: "A pre-context safety check that may allow, warn, or block one turn.",
     category: "packages",
-    code: "packages/partner-ai-core/src/ports/guards/turn-guard.ts",
+    code: "packages/partner-ai-core/src/ports/turn-guard.ts",
     match: ["TurnGuard"],
   },
   {

@@ -7,11 +7,11 @@ import {
   type HostCapabilityValidationResult,
   type TurnPolicyDecision,
   type TurnPolicyResolutionInput,
-} from "../contracts/capabilities.js";
+} from "./contracts/capabilities.js";
 import {
   approvalRequirementsForSelectedCapabilities,
   validateApprovalPolicyReferences,
-} from "../turn-policy/turn-policy-approval-validation.js";
+} from "./turn-policy/turn-policy-approval-validation.js";
 import {
   readApprovalPolicyId,
   readTurnProfileId,

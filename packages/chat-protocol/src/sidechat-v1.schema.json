@@ -158,8 +158,7 @@
             "sidechat.activity",
             "sidechat.completed",
             "sidechat.error",
-            "sidechat.blocked",
-            "sidechat.history"
+            "sidechat.blocked"
           ]
         },
         "eventId": {
@@ -214,12 +213,6 @@
         "retryable": {
           "type": "boolean"
         },
-        "messages": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/HistoryMessage"
-          }
-        },
         "reason": {
           "enum": ["content_filter", "safety_policy"]
         },
@@ -248,9 +241,6 @@
         },
         {
           "$ref": "#/$defs/BlockedEvent"
-        },
-        {
-          "$ref": "#/$defs/HistoryEvent"
         }
       ]
     },
@@ -488,49 +478,6 @@
       },
       "additionalProperties": false
     },
-    "HistoryEvent": {
-      "type": "object",
-      "required": [
-        "protocolVersion",
-        "type",
-        "eventId",
-        "assistantTurnId",
-        "sequence",
-        "createdAt",
-        "messages"
-      ],
-      "properties": {
-        "protocolVersion": {
-          "$ref": "#/$defs/ProtocolVersion"
-        },
-        "type": {
-          "const": "sidechat.history"
-        },
-        "eventId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "assistantTurnId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "sequence": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "createdAt": {
-          "type": "string",
-          "minLength": 1
-        },
-        "messages": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/HistoryMessage"
-          }
-        }
-      },
-      "additionalProperties": false
-    },
     "ActivityDetails": {
       "type": "object",
       "properties": {
@@ -630,26 +577,6 @@
         },
         "result": {
           "$ref": "#/$defs/JsonObject"
-        }
-      },
-      "additionalProperties": false
-    },
-    "HistoryMessage": {
-      "type": "object",
-      "required": ["id", "role", "content", "sequence"],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "role": {
-          "enum": ["user", "assistant", "system"]
-        },
-        "content": {
-          "type": "string"
-        },
-        "sequence": {
-          "type": "integer",
-          "minimum": 0
         }
       },
       "additionalProperties": false

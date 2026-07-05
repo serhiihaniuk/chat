@@ -6,7 +6,7 @@ import type {
 } from "@side-chat/chat-protocol";
 import type { Effect } from "effect";
 import type { AuthContext, WorkspaceRef } from "#domain/authority";
-import type { PreparedTurnContext } from "#domain/capabilities";
+import type { PreparedTurnContext } from "#domain/capabilities-contract";
 import type { ConversationRef, MessageRef } from "./conversation.js";
 
 export type AssistantTurnFailureStatus =

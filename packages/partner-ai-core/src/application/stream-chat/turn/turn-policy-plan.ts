@@ -7,14 +7,15 @@ import {
   type TurnProfile,
   type HostCapabilityManifest,
   type TurnPolicyDecision,
-} from "#domain/capabilities";
+} from "#domain/capabilities-contract";
 import {
   configurationInvalidError,
+  STREAM_CHAT_FAILURES,
+  mapPortFailure,
   type ConfigurationIssue,
   type PartnerAiCoreError as PartnerAiCoreErrorType,
 } from "#errors";
 import { mapPolicyDenialToError } from "#policies/policy";
-import { STREAM_CHAT_FAILURES, mapPortFailure } from "../errors/effect-failures.js";
 import type { StreamChatInput, StreamChatPorts } from "../stream-chat-types.js";
 import type { AuthContext } from "#domain/authority";
 

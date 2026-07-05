@@ -3,7 +3,7 @@ import type {
   TurnProfile,
   HostCommandCapability,
   ToolCapability,
-} from "../contracts/capabilities.js";
+} from "./contracts/capabilities.js";
 
 export const readTurnProfileId = (profile: TurnProfile): string => profile.profileId;
 

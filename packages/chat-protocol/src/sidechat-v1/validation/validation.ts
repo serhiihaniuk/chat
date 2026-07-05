@@ -34,7 +34,6 @@ const ACTIVITY_EVENT_FIELDS = [
 const COMPLETED_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "finishReason", "usage"] as const;
 const ERROR_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "code", "message", "retryable"] as const;
 const BLOCKED_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "reason", "publicMessage"] as const;
-const HISTORY_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "messages"] as const;
 
 /**
  * Validate one event received from or sent to a browser stream.
@@ -114,14 +113,6 @@ const validateBlockedEvent = (event: Record<string, unknown>): void => {
   requireString(event["publicMessage"], 'event["publicMessage"]');
 };
 
-const validateHistoryEvent = (event: Record<string, unknown>): void => {
-  requireKnownKeys(event, HISTORY_EVENT_FIELDS, "sidechat.history event");
-  if (!Array.isArray(event["messages"])) {
-    throw new Error('event["messages"] must be an array');
-  }
-  for (const message of event["messages"]) validateHistoryMessage(message);
-};
-
 // `satisfies Record<SidechatEventType, …>` is the completeness lock: adding an
 // event to the union without a payload validator here fails to compile.
 const EVENT_PAYLOAD_VALIDATORS = {
@@ -131,7 +122,6 @@ const EVENT_PAYLOAD_VALIDATORS = {
   [SIDECHAT_EVENT_TYPES.COMPLETED]: validateCompletedEvent,
   [SIDECHAT_EVENT_TYPES.ERROR]: validateErrorEvent,
   [SIDECHAT_EVENT_TYPES.BLOCKED]: validateBlockedEvent,
-  [SIDECHAT_EVENT_TYPES.HISTORY]: validateHistoryEvent,
 } satisfies Record<SidechatEventType, (event: Record<string, unknown>) => void>;
 
 const validateActivityPayload = (event: Record<string, unknown>): void => {
@@ -236,15 +226,6 @@ const validateUsageMetadata = (value: unknown): void => {
     requireNonNegativeInteger(value["outputTokens"], 'event["usage"]["outputTokens"]');
   if (value["totalTokens"] !== undefined)
     requireNonNegativeInteger(value["totalTokens"], 'event["usage"]["totalTokens"]');
-};
-
-const validateHistoryMessage = (value: unknown): void => {
-  if (!isRecord(value)) throw new Error('event["messages"] item must be an object');
-  requireKnownKeys(value, ["id", "role", "content", "sequence"], 'event["messages"] item');
-  requireString(value["id"], 'event["messages"][].id');
-  requireOneOf(value["role"], ["user", "assistant", "system"], 'event["messages"][].role');
-  requireString(value["content"], 'event["messages"][].content');
-  requireNonNegativeInteger(value["sequence"], 'event["messages"][].sequence');
 };
 
 const validateArray = (

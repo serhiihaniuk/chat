@@ -8,7 +8,7 @@ import {
   type HostCapabilityManifest,
   type PreparedTurnContext,
   type TurnPolicyDecision,
-} from "#domain/capabilities";
+} from "#domain/capabilities-contract";
 import {
   type ActiveConversationTurn,
   type AssistantTurnLifecyclePort,

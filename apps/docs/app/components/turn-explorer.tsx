@@ -94,7 +94,7 @@ const HOPS: readonly Hop[] = [
     phase: "pre-start",
     pkg: "partner-ai-core",
     fn: "runSelectedTurnGuards()",
-    file: "stream-chat/guards/run-turn-guards.ts",
+    file: "stream-chat/run-turn-guards.ts",
     detail: "Run turn guards on Maya's raw text — before any context or model call exists.",
   },
   {

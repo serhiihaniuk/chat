@@ -5,7 +5,6 @@ export { isRecord } from "@side-chat/shared";
 
 import { SIDECHAT_PROTOCOL_VERSION, type SidechatProtocolVersion } from "./version.js";
 
-export type SidechatId = Brand<string, "SidechatId">;
 export type RequestId = Brand<string, "RequestId">;
 export type ConversationId = Brand<string, "ConversationId">;
 export type MessageId = Brand<string, "MessageId">;
@@ -16,7 +15,6 @@ export type ToolCallId = Brand<string, "ToolCallId">;
 export type HostCommandId = Brand<string, "HostCommandId">;
 export type ProtocolSequence = Brand<number, "ProtocolSequence">;
 
-export const toSidechatId = (value: string): SidechatId => brandString<"SidechatId">(value);
 export const toRequestId = (value: string): RequestId => brandString<"RequestId">(value);
 export const toConversationId = (value: string): ConversationId =>
   brandString<"ConversationId">(value);
@@ -35,17 +33,22 @@ export type ProtocolEnvelope = {
   readonly protocolVersion: SidechatProtocolVersion;
 };
 
-export const readString = (record: Record<string, unknown>, key: string): string | undefined => {
+// Named `*Field` to distinguish this record-field family from the by-key string
+// readers in the event-readers/validation internals (a different signature).
+export const readStringField = (
+  record: Record<string, unknown>,
+  key: string,
+): string | undefined => {
   const value = record[key];
   return typeof value === "string" && value.length > 0 ? value : undefined;
 };
 
-export const requireString = (
+export const requireStringField = (
   record: Record<string, unknown>,
   key: string,
   context: string,
 ): string => {
-  const value = readString(record, key);
+  const value = readStringField(record, key);
   if (!value) throw new Error(`${context}.${key} must be a non-empty string`);
   return value;
 };

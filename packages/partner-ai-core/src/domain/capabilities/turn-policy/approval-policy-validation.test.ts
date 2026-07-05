@@ -9,7 +9,7 @@ import {
   type TurnProfile,
   type HostCapabilityManifest,
   type TurnPolicyDecision,
-} from "../../capabilities.js";
+} from "../../capabilities-contract.js";
 
 describe("host capability approval policy validation", () => {
   it("accepts approval policies for declared tools and host commands", () => {

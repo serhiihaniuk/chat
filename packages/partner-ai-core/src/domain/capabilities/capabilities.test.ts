@@ -6,14 +6,14 @@ import {
   resolveTurnProfileFromManifest,
   validateHostCapabilityManifest,
   validateTurnPolicyDecision,
-} from "../capabilities.js";
+} from "../capabilities-contract.js";
 import { PARTNER_AI_CORE_ERROR_CODES, configurationInvalidError } from "#errors";
 import {
   createTurnProfile,
   createManifest,
   createTool,
   issueCodes,
-} from "#testing/capabilities/manifest-fixtures";
+} from "#testing/manifest-fixtures";
 
 describe("host capability manifest contract", () => {
   it("accepts a valid fake manifest, resolves a profile, and produces a turn policy decision", () => {

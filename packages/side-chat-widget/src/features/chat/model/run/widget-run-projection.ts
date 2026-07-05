@@ -48,7 +48,6 @@ export const projectEventOntoMessages = (
       // AND clear the streaming flag so the "thinking" indicator resolves.
       return closeAssistantMessage(messages, assistantMessageId, event.createdAt);
     case SIDECHAT_EVENT_TYPES.STARTED:
-    case SIDECHAT_EVENT_TYPES.HISTORY:
       return messages;
   }
 };
