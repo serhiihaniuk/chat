@@ -63,7 +63,6 @@ const requiredByPackage = {
     "react-dom": "19.2.6",
     "@base-ui/react": "1.5.0",
     clsx: "2.1.1",
-    "embla-carousel-react": "8.6.0",
     "lucide-react": "1.16.0",
     streamdown: "2.5.0",
     "tailwind-merge": "3.6.0",

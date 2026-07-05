@@ -8,8 +8,6 @@
 @source "../../../node_modules/@streamdown/math/dist";
 @source "../../../node_modules/@streamdown/mermaid/dist";
 
-@custom-variant dark (&:is(.dark *));
-
 /*
  * Self-hosted typefaces. URLs are relative to this stylesheet so bundlers ship
  * the fonts with the widget — no Google Fonts CDN, works offline.
@@ -60,11 +58,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -146,17 +139,11 @@
   --accent: oklch(0.955 0.008 264);
   --accent-foreground: oklch(0.27 0.026 264);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.91 0.009 264);
   --input: oklch(0.91 0.009 264);
   --ring: oklch(0.55 0.03 264);
   --success: oklch(0.6 0.13 160);
   --sc-canvas: oklch(0.978 0.004 264);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.978 0.004 264);
   --sidebar-foreground: oklch(0.22 0.018 264);
   --sidebar-primary: oklch(0.26 0.028 264);
@@ -176,12 +163,13 @@
  * overrides (sage/ocean) apply to this same element, so an alias like
  * `--switch-track-on: var(--primary)` re-substitutes the themed --primary here.
  * Declared on :root they would be frozen to the graphite tier-1 values and inherit
- * that frozen value down — named themes and host .dark could then never re-skin the
- * hook classes that read them. This is exactly the §12.3 re-skin contract.
+ * that frozen value down — named themes could then never re-skin the hook classes
+ * that read them. This is exactly the §12.3 re-skin contract.
  */
 .side-chat-widget-root {
   /* ── runtime motion ───────────────────────────────────────────────── */
   --dur: 200ms;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* The design-system density control mutates --space-unit; Tailwind v4 spacing
      utilities and widget tier-2 spacing tokens read --spacing. Bridge the two so
@@ -263,11 +251,10 @@
   --row-bg-hover: var(--accent);
   --row-bg-active: var(--accent);
 
-  /* Message bubble padding (§7.2 / §9.6) — color aliases to the shared active row surface. */
+  /* Message bubble color aliases to the shared active row surface (§7.2 / §9.6);
+     the bubble's padding comes from utilities in message.tsx, not tokens. */
   --message-user: var(--row-bg-active, var(--accent));
   --message-user-foreground: var(--foreground);
-  --message-user-px: calc(var(--spacing) * 3.5);
-  --message-user-py: calc(var(--spacing) * 2.5);
 
   /* Conversation / grouping (§9.1 / §9.2) — values per design_widget.html token table */
   --convo-indicator: var(--primary);
@@ -344,46 +331,6 @@
   --cite-marker-border: var(--border);
   --cite-marker-radius: var(--radius-sm);
   --cite-link-fg: var(--muted-foreground);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: var(--muted);
-  --secondary-foreground: var(--foreground);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --success: oklch(0.72 0.15 162);
-  --sc-canvas: oklch(0.165 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --row-bg-hover: var(--accent);
-  --row-bg-active: var(--accent);
-  --message-user: var(--row-bg-active, var(--accent));
-  --message-user-foreground: var(--foreground);
 }
 
 /*
@@ -1203,11 +1150,6 @@ a.sc-cite-source:hover {
   }
 }
 
-@utility sc-panel {
-  @apply absolute right-4 bottom-4 flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-(--shadow-panel);
-  max-width: calc(100% - 2rem);
-  max-height: calc(100% - 2rem);
-}
 @utility sc-header {
   @apply flex shrink-0 items-center justify-between border-b border-border;
   box-sizing: border-box;

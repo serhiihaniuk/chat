@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
   "main": "./dist/index.js",
   "types": "./src/index.ts",
   "imports": {
@@ -56,7 +59,8 @@
     "./styles.css": "./styles.css"
   },
   "scripts": {
-    "build": "tsc -b --pretty false",
+    "clean": "tsc -b --clean",
+    "build": "tsc -b --clean && tsc -b --pretty false",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
     "test": "cd ../.. && vitest run packages/side-chat-widget/src --passWithNoTests"
   },
@@ -67,7 +71,6 @@
     "@side-chat/shared": "0.0.0",
     "@tanstack/react-query": "5.101.0",
     "clsx": "2.1.1",
-    "embla-carousel-react": "8.6.0",
     "lucide-react": "1.16.0",
     "streamdown": "2.5.0",
     "tailwind-merge": "3.6.0",

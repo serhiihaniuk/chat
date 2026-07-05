@@ -40,6 +40,11 @@ theme. Themes
 are scoped to the widget root and never leak onto the host page; see
 `docs/architecture/widget-and-host-integration.md` (Theming And Layout).
 
+**Light-only by design.** The widget ships no dark mode — the four named themes
+are the variation axis, not a light/dark toggle. The widget root does not respond
+to the host page's `.dark`/`prefers-color-scheme`; a future dark palette would be
+added as a fifth theme, not a mode.
+
 The built-in settings view also persists appearance controls under
 `side-chat-widget:appearance`: accent, corners, density, text size, typeface, and
 elevation. These controls re-skin the widget root by writing shared token

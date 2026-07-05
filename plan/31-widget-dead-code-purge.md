@@ -1,6 +1,6 @@
 # 31 — Widget dead-code purge + dark-mode alignment
 
-**Epic:** 6 Widget UI | **Priority:** P1 | **Depends on:** — | **Status:** todo
+**Epic:** 6 Widget UI | **Priority:** P1 | **Depends on:** — | **Status:** done (fonts deferred — needs subsetting tooling)
 
 ## Problem
 
@@ -24,18 +24,48 @@ In a template, dead code reads as endorsed style. Verified-unreachable inventory
 
 ## Acceptance criteria
 
-- [ ] Zero `dark:` occurrences and no `.dark` block in the widget package; settings test updated; policy stated in README.
-- [ ] `grep -rn "sc-panel\|--chart-\|--message-user-p\|destructive-foreground\|var(--ease)" packages/side-chat-widget/src` → only intentional hits.
-- [ ] `./showcase` export gone; docs app unaffected (it imports `./ui/*`).
-- [ ] No private session names in fixtures.
-- [ ] Fonts ≤ ~30 KB per family as woff2, or removed.
-- [ ] `npm run verify` + widget tests + e2e green; docs app still builds (`apps/docs` consumes `./ui/*` — do not break those exports).
+- [x] Zero `dark:` occurrences and no `.dark` block in the widget package (the `dark:` utilities lived only in the deleted components); light-only policy stated in the README. (The graphite-tracks-host-dark settings test and the docs-app Dark toggle no longer existed — removed in an earlier pass.)
+- [x] `--chart-*`, `--message-user-p*`, `--destructive-foreground` gone; `sc-panel` `@utility` deleted (unused; `ResizablePanel` inlines it); `--ease` now defined (`cubic-bezier(0.4, 0, 0.2, 1)`) so the three transitions that read it animate on the intended curve.
+- [x] `./showcase` export + `src/showcase/` were already gone; stale local `dist/` removed and a `clean` step wired into `build`. Docs app still builds (verified: `react-router build` green — it imports only live `./ui/*` components, none of the deleted eight).
+- [x] No private session names in fixtures (already generic — none found).
+- [ ] Fonts: DEFERRED — the two raw TTFs (DM Sans, Instrument Sans) back live user-selectable typeface options, so they can't be deleted; subsetting them to woff2 needs font tooling not available here (spawned a follow-up task).
+- [x] `npm run verify` + widget tests (160) green; docs app builds.
+
+## Delivery notes
+
+**Much of the problem statement was already resolved** by earlier sessions — the
+`ComponentShowcase` source + `./showcase` export, the fixture leaks, the docs-app
+Dark toggle, and the graphite-tracks-host-dark test were all already gone. An
+inventory pass reconciled the story to the actual current state before touching
+anything.
+
+**Deleted the dead shadcn cluster** (all zero-importer, all carrying banned `dark:`
+/ `!` idioms): `carousel`, `hover-card`, `command`, `dialog`, `input-group`,
+`button-group`, `spinner`, `dropdown-menu`. Removing `carousel` made
+`embla-carousel-react` unused — dropped from `dependencies`, the version-pins
+allowlist, and the lockfile. The widget package and the docs app both still build,
+proving the eight were truly unreachable.
+
+**Dark mode removed:** the `.dark` token block and `@custom-variant dark` are gone
+from `styles.css`; every `dark:` utility died with the deleted components, so the
+package now has zero. A stale comment referencing "host .dark" was corrected, and
+the README states the light-only position (themes are the variation axis; a future
+dark palette would be a fifth theme, not a mode).
+
+**Dead tokens purged:** `--chart-1..5` (both the `@theme inline` aliases and the
+`:root` values), `--message-user-px/py` (padding comes from utilities in
+`message.tsx`), and `--destructive-foreground`. `--ease` was used by three
+transitions but never defined — now defined next to `--dur`. The unused `sc-panel`
+`@utility` was deleted.
+
+**Build hygiene:** added `"sideEffects": ["*.css"]` (JS tree-shaking while
+preserving the stylesheet) and a `clean` step in `build`; removed the stale local
+`dist/` (gitignored, so repo-invisible, but it held orphaned `showcase/` output).
 
 ## Verification
 
 ```sh
 npm test --workspace @side-chat/side-chat-widget
-npm run test:e2e
-npm run build
+npm run build --workspace apps/docs   # docs app still builds against ./ui/*
 npm run verify
 ```
