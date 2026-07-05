@@ -7,7 +7,6 @@ export type {
   SideChatWidgetPanelSize,
   SideChatWidgetProps,
   SideChatWidgetQuickAction,
-  SideChatWidgetStateSnapshot,
   ReasoningVisibility,
   WidgetActivityItem,
   WidgetThemeId,

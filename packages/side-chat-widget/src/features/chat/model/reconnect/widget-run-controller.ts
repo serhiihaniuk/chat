@@ -1,7 +1,10 @@
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 import {
+  acquireWidgetRunInstance,
   getWidgetRunStore,
+  getWidgetSubscriptionSlot,
+  releaseWidgetRunInstance,
   type WidgetRunStore,
   type WidgetRunStoreKey,
 } from "../run/widget-run-store.js";
@@ -73,30 +76,36 @@ export const useWidgetRunController = (input: WidgetRunControllerInput): WidgetR
   const store = getWidgetRunStore(input.storeKey);
   const run = useStoreSnapshot(store);
   const contextRef = useLatestRef<RunLifecycleContext>(input);
-  const subscriptionRef = useRef<ActiveSubscription>({ controller: undefined, turnId: undefined });
+  // The live-subscription slot is module-scoped and shared across mounts (keyed
+  // like the store), so a remount adopts the in-flight stream via `openSubscription`
+  // instead of opening a second one — never a per-mount `useRef`.
+  const subscription = getWidgetSubscriptionSlot(input.storeKey);
   // Guards the async marker-resume (history load + seed) so repeated reconnect
   // triggers during a full reload do not seed the run twice.
   const resumingRef = useRef(false);
 
+  // Refcount this mount so the last owner's unmount aborts the shared subscription
+  // (leak fix), while a StrictMode/fast remount re-acquires and adopts it.
+  useRunInstanceLifecycle(input.storeKey);
+
   const subscribe = useCallback(
     (target: SubscribeTarget) => {
-      const active = subscriptionRef.current;
-      const signal = openSubscription(active, target.assistantTurnId);
+      const signal = openSubscription(subscription, target.assistantTurnId);
       if (!signal) return;
-      const controller = active.controller;
+      const controller = subscription.controller;
       void driveSubscription(contextRef.current, store, target, signal).finally(() => {
         // Release the slot when this exact subscription ends so a later reconnect
         // (e.g. the stream closed without a terminal) can reopen the same turn.
-        if (active.controller === controller) releaseSubscription(active);
+        if (subscription.controller === controller) releaseSubscription(subscription);
       });
     },
-    [contextRef, store],
+    [contextRef, store, subscription],
   );
 
   const startRun = useCallback(
     (startInput: StartRunInput) =>
-      startRunWithSlot(contextRef.current, store, subscriptionRef.current, startInput),
-    [contextRef, store],
+      startRunWithSlot(contextRef.current, store, subscription, startInput),
+    [contextRef, store, subscription],
   );
 
   const reconnect = useCallback(() => {
@@ -128,10 +137,10 @@ export const useWidgetRunController = (input: WidgetRunControllerInput): WidgetR
   const cancel = useCallback(() => cancelRun(contextRef.current, store), [contextRef, store]);
 
   const clearRun = useCallback(() => {
-    abortSubscription(subscriptionRef.current);
+    abortSubscription(subscription);
     clearActiveRunMarker(contextRef.current.conversationStorageKey);
     store.clear();
-  }, [contextRef, store]);
+  }, [contextRef, store, subscription]);
 
   return { run, startRun, reconnect, resumeFromHistory, cancel, clearRun };
 };
@@ -163,6 +172,16 @@ const startRunWithSlot = (
   return beginRun(context, store, control, startInput).finally(() => {
     if (active.controller === controller) releaseSubscription(active);
   });
+};
+
+/** Refcount this mount against the shared run instance (adopt on remount, abort on last unmount). */
+const useRunInstanceLifecycle = (storeKey: WidgetRunStoreKey): void => {
+  const { storageKey, baseUrl } = storeKey;
+  useEffect(() => {
+    const key = { storageKey, baseUrl };
+    acquireWidgetRunInstance(key);
+    return () => releaseWidgetRunInstance(key);
+  }, [storageKey, baseUrl]);
 };
 
 const useStoreSnapshot = (store: WidgetRunStore): WidgetRunState | undefined =>

@@ -43,9 +43,14 @@ export const useWidgetChat = ({
   readonly selectedProfileId: string | undefined;
   readonly enabledToolNames: readonly string[] | undefined;
 }) => {
-  const initialConversationStore = useRef(readWidgetConversationStore(conversationStorageKey));
+  // Lazy initializer so the localStorage read + JSON.parse runs once on mount,
+  // not on every render (a bare `useRef(read())` re-evaluates its argument each
+  // render even though the ref keeps the first value).
+  const [initialConversationStore] = useState(() =>
+    readWidgetConversationStore(conversationStorageKey),
+  );
   const [conversationId, setConversationId] = useState<string | undefined>(
-    initialConversationStore.current.activeConversationId,
+    initialConversationStore.activeConversationId,
   );
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const pendingConversationTitleRef = useRef<string | undefined>(undefined);
@@ -56,19 +61,21 @@ export const useWidgetChat = ({
   const conversationsQuery = useGetConversations({
     activeConversationId: conversationId,
     client,
-    initialConversations: initialConversationStore.current.conversations,
+    initialConversations: initialConversationStore.conversations,
   });
   const { refreshConversations, upsertStartedConversation, refreshHistory } =
     useConversationQueryRepository({
       activeConversationId: conversationId,
       client,
-      initialConversations: initialConversationStore.current.conversations,
+      initialConversations: initialConversationStore.conversations,
     });
 
   const controller = useWidgetRunController({
     client,
     hostBridge,
-    storeKey: { storageKey: conversationStorageKey, baseUrl: undefined },
+    // Namespace the run store + subscription slot by storage key AND service, so
+    // two widgets pointed at different services never share a live run.
+    storeKey: { storageKey: conversationStorageKey, baseUrl: client.baseUrl },
     conversationStorageKey,
     onReplayExpired: useReplayExpiredHandler(streamOwnedConversationRef, setConversationId),
     refreshHistory,

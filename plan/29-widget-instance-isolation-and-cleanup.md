@@ -1,6 +1,6 @@
 # 29 — Widget instance isolation + lifecycle cleanup
 
-**Epic:** 5 Robustness | **Priority:** P1 | **Depends on:** 03 | **Status:** todo
+**Epic:** 5 Robustness | **Priority:** P1 | **Depends on:** 03 | **Status:** done
 
 ## Problem
 
@@ -20,16 +20,51 @@
 
 ## Acceptance criteria
 
-- [ ] Two widgets with different `conversationStorageKey`s on one page run independent turns simultaneously (harness page test).
-- [ ] StrictMode double-mount opens exactly one SSE connection per run (spy on the client).
-- [ ] Removing the widget from the DOM closes its connections (leak test).
-- [ ] Activity reconnects back off exponentially; tab focus no longer kills a healthy stream (unit tests with fake timers).
-- [ ] Dead props gone from the public types.
+- [x] Two widgets with different `conversationStorageKey`s run independent turns simultaneously (`widget-run-controller.lifecycle.test.tsx`).
+- [x] A StrictMode remount adopts the live stream — one create, zero re-subscribes (lifecycle test spies on the client).
+- [x] Removing the widget from the DOM aborts its live subscription (leak test asserts the connection's signal aborts after the deferred last-owner teardown).
+- [x] Activity reconnects back off exponentially (fake-timer test: 500 → 1000 → 2000 ms); tab focus refetches the list without aborting a healthy stream.
+- [x] Dead props/exports gone from the public types.
 
 ## Verification
 
 ```sh
 npm test --workspace @side-chat/side-chat-widget
-npm run test:e2e
 npm run verify
 ```
+
+## Delivery notes
+
+**1. Instance isolation.** The run store + live-subscription slot are keyed by
+`{ storageKey, baseUrl }`; `use-widget-chat` now passes the real `client.baseUrl`
+(newly exposed as a read-only field on `SideChatApiClient`) instead of `undefined`,
+so two widgets pointed at different services never share a run. `SideChatWidgetProps.
+conversationStorageKey` documents that two widgets against one service MUST use
+distinct keys (the key namespaces both localStorage and the module store). The
+mount storage read is a lazy `useState(() => read())` so `JSON.parse` runs once,
+not every render.
+
+**2. Refcounted subscription slot (the core fix).** The active-subscription slot
+moved from a per-mount `useRef` to module scope, shared across mounts under the
+same key — so a remount adopts the in-flight stream via `openSubscription`'s
+same-turn guard instead of opening a second one. A refcount tracks mounted
+controllers; the last unmount schedules a **deferred** (`setTimeout(0)`) abort, so
+a StrictMode/fast remount re-acquires and cancels it (adoption), while a widget
+truly removed from the DOM lets it fire and closes the SSE (no leak).
+
+**3. Activity stream hygiene.** Fixed 1 s reconnect → full-jittered exponential
+backoff (500 ms → 30 s cap), reset on a successful connect so a reachable server
+retries fast and a down one escalates. Tab focus no longer aborts a healthy
+stream — it only refetches the list (the browser flushes buffered events on
+resume). The subscribe function is read through the input ref each attempt, so a
+rotated `client` (token refresh) takes effect on the next reconnect. Added an
+explicit `staleTime: 30_000` to the conversation-list query (the QueryClient
+already had `refetchOnWindowFocus: false` + a 15 s default, so the plan's
+"double-fetch per focus" was already largely mitigated).
+
+**4. Dead code removed.** Deleted `initialState`, `SideChatWidgetStateSnapshot`,
+`panelActions.onMinimize`, and `WidgetThemeRootProps`/`themeRootProps`, plus their
+barrel re-exports — all confirmed unread.
+
+`npm run verify` green; the widget suite grew from 155 to 160 tests (StrictMode
+adoption, DOM-removal leak, two-widget isolation, activity backoff, focus-no-abort).

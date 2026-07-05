@@ -1,8 +1,4 @@
-export {
-  useWidgetTheme,
-  type WidgetThemeController,
-  type WidgetThemeRootProps,
-} from "./model/use-widget-theme.js";
+export { useWidgetTheme, type WidgetThemeController } from "./model/use-widget-theme.js";
 export {
   useWidgetAppearance,
   type WidgetAccentId,

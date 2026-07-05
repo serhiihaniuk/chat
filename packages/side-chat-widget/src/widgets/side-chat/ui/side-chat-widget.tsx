@@ -35,7 +35,6 @@ export type {
   SideChatWidgetPanelSize,
   SideChatWidgetProps,
   SideChatWidgetQuickAction,
-  SideChatWidgetStateSnapshot,
   WidgetActivityItem,
 } from "../model/side-chat-widget.types.js";
 

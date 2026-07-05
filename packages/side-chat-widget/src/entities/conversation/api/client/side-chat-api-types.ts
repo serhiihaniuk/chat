@@ -253,6 +253,7 @@ export type ReadUsageOptions = {
  * transport internals into React state code.
  */
 export type SideChatApiClient = {
+  readonly baseUrl?: string | undefined; // service origin; namespaces the run store per service
   readonly listModels?: ((options?: ListModelsOptions) => Promise<ListModelsResult>) | undefined;
   /** Read the backend tool catalog for the composer tools menu. Optional. */
   readonly listTools?: ((options?: ListToolsOptions) => Promise<ListToolsResult>) | undefined;

@@ -50,6 +50,14 @@ const directoryBudgetExceptions = new Map([
         "the memory adapter mirrors the postgres records split: turn-events.ts owns the durable event log (append/terminal guard, idempotent re-append), turn-lookups.ts owns the turn-record reads (by id, by request, active turn), and turn-lease.ts mirrors the owner-lease fencing CAS (acquire/renew/reap) so turns.ts stays within the per-file function-count budget",
     },
   ],
+  [
+    "packages/side-chat-widget/src/features/chat/model/reconnect",
+    {
+      maxFiles: 6,
+      reason:
+        "the run controller keeps three co-located test files, each owning one concern that would otherwise blow a single test file's line budget: base streaming/cancel/replay, transport recovery, and the mount lifecycle (StrictMode adoption, DOM-removal leak, two-widget isolation), alongside the controller, the reconnect triggers, and the durable run marker",
+    },
+  ],
 ]);
 
 const sourceFiles = listSourceFiles(root);

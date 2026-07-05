@@ -69,6 +69,7 @@ export const createSideChatApiClient = (options: SideChatApiClientOptions): Side
   }
 
   return {
+    baseUrl: options.baseUrl,
     ...buildResourceMethods(options, transport),
     ...buildRunMethods(options, transport),
   };

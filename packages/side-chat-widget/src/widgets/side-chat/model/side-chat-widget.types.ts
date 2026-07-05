@@ -17,7 +17,6 @@ export type SideChatWidgetLabels = {
 
 export type SideChatWidgetPanelActions = {
   readonly onClose?: (() => void) | undefined;
-  readonly onMinimize?: (() => void) | undefined;
 };
 
 export type SideChatWidgetQuickAction = {
@@ -25,8 +24,6 @@ export type SideChatWidgetQuickAction = {
   readonly label: string;
   readonly prompt: string;
 };
-
-export type SideChatWidgetStateSnapshot = Record<string, never>;
 
 export type SideChatWidgetTurnProfile = {
   readonly id: string;
@@ -38,6 +35,15 @@ export type { SideChatWidgetPanelSize };
 export type SideChatWidgetProps = {
   readonly turnProfiles?: readonly SideChatWidgetTurnProfile[] | undefined;
   readonly client: SideChatApiClient;
+  /**
+   * Browser-local namespace for this widget's conversation state and live run.
+   *
+   * Two Side Chat widgets on one page against the same service MUST pass distinct
+   * keys: the key namespaces both localStorage and the module-scoped run store, so
+   * a shared (or omitted) key makes them share one conversation and clobber each
+   * other's live turn. Widgets pointed at different services are already isolated
+   * by their client `baseUrl`.
+   */
   readonly conversationStorageKey?: string | undefined;
   readonly defaultTurnProfileId?: string | undefined;
   /**
@@ -51,7 +57,6 @@ export type SideChatWidgetProps = {
   readonly defaultPanelSize?: SideChatWidgetPanelSize | undefined;
   readonly defaultTheme?: WidgetThemeId | undefined;
   readonly hostBridge?: WidgetHostBridge | undefined;
-  readonly initialState?: SideChatWidgetStateSnapshot | undefined;
   readonly labels?: SideChatWidgetLabels | undefined;
   readonly onOpenChange?: ((open: boolean) => void) | undefined;
   /**

@@ -110,6 +110,10 @@ export const useGetConversations = ({
     enabled: client.listConversations !== undefined,
     initialData: initialConversations,
     initialDataUpdatedAt: 0,
+    // The activity stream force-refreshes the list on each (re)connect and on tab
+    // focus, so the query itself need not refetch on every re-render; hold it fresh
+    // for 30 s (the QueryClient already disables refetch-on-window-focus).
+    staleTime: 30_000,
   });
 };
 

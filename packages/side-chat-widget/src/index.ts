@@ -5,7 +5,6 @@ export {
   type SideChatWidgetPanelActions,
   type SideChatWidgetProps,
   type SideChatWidgetQuickAction,
-  type SideChatWidgetStateSnapshot,
   type ReasoningVisibility,
   type WidgetActivityItem,
   type WidgetThemeId,
