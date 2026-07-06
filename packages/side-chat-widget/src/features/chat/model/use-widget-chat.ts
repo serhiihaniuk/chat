@@ -140,18 +140,28 @@ export const useWidgetChat = ({
   });
   // Live turn lifecycle for every conversation, so the sidebar shows a "generating"
   // dot on chats with an in-flight turn — even ones not open. Refresh the list on
-  // each (re)connect so a chat started elsewhere appears with its dot.
+  // each RE-connect so a chat started elsewhere appears with its dot.
+  const activityConnectedRef = useRef(false);
   const runningConversationIds = useActivityStream({
     client,
-    onConnected: () => void refreshConversations(),
-    // A turn started in another tab for the conversation this tab is viewing: pull
-    // the server transcript so the history read's `activeTurn` resumes the live
-    // stream here (running) or shows the final messages (terminal). Skip only
-    // while a local NON-terminal run owns this conversation — once the local run
-    // is terminal, the other tab's turn must show up here.
+    // The initial list load is the conversations query's job; the activity stream only
+    // needs to close a gap on a reconnect, so skip the first connect to avoid a
+    // duplicate list read on mount.
+    onConnected: () => {
+      if (!activityConnectedRef.current) {
+        activityConnectedRef.current = true;
+        return;
+      }
+      void refreshConversations();
+    },
+    // A turn started in another tab for the conversation this tab is viewing: pull the
+    // server transcript so the history read's `activeTurn` resumes here. Skip while a
+    // local run owns this conversation for the whole turn (adopt→handoff): the
+    // run→history handoff already re-reads history on terminal, so refetching here
+    // would only duplicate that read.
     onEvent: (event) => {
       if (event.conversationId !== conversationId) return;
-      if (run?.conversationId === conversationId && !isTerminalRunStatus(run.status)) return;
+      if (streamOwnedConversationRef.current === conversationId) return;
       void refreshHistory(conversationId);
     },
   });

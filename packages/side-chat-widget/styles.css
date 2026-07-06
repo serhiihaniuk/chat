@@ -14,7 +14,7 @@
  */
 @font-face {
   font-family: "Plus Jakarta Sans";
-  src: url("./fonts/plus-jakarta-sans/PlusJakartaSans-variable.woff2") format("woff2");
+  src: url("./src/fonts/plus-jakarta-sans/PlusJakartaSans-variable.woff2") format("woff2");
   font-weight: 200 800;
   font-style: normal;
   font-display: swap;
@@ -22,7 +22,7 @@
 
 @font-face {
   font-family: "DM Sans";
-  src: url("./fonts/dm-sans/DMSans-variable.ttf") format("truetype");
+  src: url("./src/fonts/dm-sans/DMSans-variable.ttf") format("truetype");
   font-weight: 100 1000;
   font-style: normal;
   font-display: swap;
@@ -30,7 +30,7 @@
 
 @font-face {
   font-family: "Instrument Sans";
-  src: url("./fonts/instrument-sans/InstrumentSans-variable.ttf") format("truetype");
+  src: url("./src/fonts/instrument-sans/InstrumentSans-variable.ttf") format("truetype");
   font-weight: 400 700;
   font-stretch: 75% 100%;
   font-style: normal;
@@ -1111,6 +1111,26 @@ a.sc-cite-source:hover {
   }
   to {
     transform: translateY(0);
+  }
+}
+
+/* Header refresh: one full turn per click, driven by a toggled class (see WidgetHeader). */
+.sc-refresh-spin {
+  animation: sc-spin 500ms var(--ease);
+}
+
+@keyframes sc-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-refresh-spin {
+    animation: none;
   }
 }
 

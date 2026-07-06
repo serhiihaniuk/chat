@@ -126,6 +126,11 @@ export const useGetConversationHistory = ({
     queryKey: conversationQueryKeys.history(conversationId),
     queryFn: ({ signal }) => readConversationHistory(client, conversationId, signal),
     enabled: enabled && conversationId !== undefined && client.readHistory !== undefined,
+    // `refreshHistory` (the run→history handoff, the header Refresh button, and a
+    // cross-tab resume) force-fetches and writes this cache; hold it fresh for 30 s so
+    // the query does not re-fetch the transcript the handoff just wrote when it
+    // re-enables after the run clears.
+    staleTime: 30_000,
   });
 
 export const useGetModelCatalog = ({ client }: UseGetModelCatalogInput) =>
@@ -218,16 +223,25 @@ export const useConversationQueryRepository = ({
   );
   // Force a fresh read of one conversation's transcript: after a turn finishes
   // (run→history handoff), or after a reload when a turn finished while away.
-  // Awaiting the invalidation waits for the active query's refetch to settle.
+  // `fetchQuery` (not `invalidateQueries`) fetches imperatively and returns the data
+  // without needing an active observer, and deduplicates against the history query's
+  // own in-flight fetch — so the terminal auto-fetch and this handoff read collapse to
+  // one request instead of one canceling the other. `staleTime: 0` still forces the
+  // handoff's settle-poll to re-read the server on each retry.
   const refreshHistory = useCallback<RefreshHistory>(
     async (conversationId) => {
-      if (!conversationId) return undefined;
-      const queryKey = conversationQueryKeys.history(conversationId);
-      await queryClient.invalidateQueries({ queryKey });
-      const state = queryClient.getQueryState<ReadHistoryResult>(queryKey);
-      return state?.status === "success" ? state.data : undefined;
+      if (!conversationId || !client.readHistory) return undefined;
+      try {
+        return await queryClient.fetchQuery({
+          queryKey: conversationQueryKeys.history(conversationId),
+          queryFn: ({ signal }) => readConversationHistory(client, conversationId, signal),
+          staleTime: 0,
+        });
+      } catch {
+        return undefined;
+      }
     },
-    [queryClient],
+    [client, queryClient],
   );
 
   return {

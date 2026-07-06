@@ -1,7 +1,7 @@
 import { useWidgetLabels } from "#shared/lib/widget-labels";
 import { Button, IconButton } from "#shared/ui/button";
 import { PlusIcon, RefreshCwIcon, SettingsIcon, XIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 export const ClosedWidgetLauncher = ({
   label,
@@ -38,17 +38,24 @@ export const WidgetHeader = ({
   readonly title: ReactNode;
 }) => {
   const labels = useWidgetLabels();
+  const [spinning, setSpinning] = useState(false);
   return (
     <header className="sc-header">
       <div className="flex min-w-0 flex-1 items-center">{title}</div>
       {onRefresh ? (
         <IconButton
           aria-label={labels.headerRefresh}
-          onClick={onRefresh}
+          onClick={() => {
+            setSpinning(true);
+            onRefresh();
+          }}
           title={labels.headerRefresh}
           type="button"
         >
-          <RefreshCwIcon className="size-4" />
+          <RefreshCwIcon
+            className={spinning ? "size-4 sc-refresh-spin" : "size-4"}
+            onAnimationEnd={() => setSpinning(false)}
+          />
         </IconButton>
       ) : null}
       <IconButton aria-label={labels.headerSettings} onClick={onOpenSettings} type="button">

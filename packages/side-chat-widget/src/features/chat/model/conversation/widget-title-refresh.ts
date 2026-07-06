@@ -16,6 +16,19 @@ export type RefreshConversationsAfterStreamInput = {
   readonly setErrorMessage: SetWidgetError;
 };
 
+// The service generates the conversation title a beat AFTER the turn completes: a
+// separate model call that finalizes once the browser stream has already closed, so
+// the first post-turn list read almost always still carries the optimistic
+// user-message title. Reconcile once, then — only while that row is still the
+// fallback — keep re-reading on a spaced cadence, stopping the instant the generated
+// title lands. This spans the title's typical arrival window so the sidebar updates
+// on its own instead of only on a manual refresh, and the retry count is bounded so
+// a title that never arrives (generation skipped or failed) cannot poll forever.
+// Firing the reads back-to-back (as this once did) just re-reads the whole list
+// before the title is ready, so they all miss it and waste the request.
+const TITLE_REFRESH_RETRY_DELAY_MS = 1500;
+export const TITLE_REFRESH_MAX_RETRIES = 5;
+
 export const refreshConversationsAfterStream = async ({
   activeConversationId,
   fallbackTitle,
@@ -23,21 +36,21 @@ export const refreshConversationsAfterStream = async ({
   setErrorMessage,
 }: RefreshConversationsAfterStreamInput): Promise<void> => {
   const input = { activeConversationId } satisfies RefreshConversationsInput;
-  const refreshed = await refreshConversationsAndReport(
-    refreshConversations,
-    input,
-    setErrorMessage,
-  );
-  if (!shouldRetryFallbackTitleRefresh(refreshed, activeConversationId, fallbackTitle)) return;
-
-  // The service can list the newly-created conversation before the generated
-  // title lands. Retry only while the active row still shows the optimistic
-  // user-message title, then stop polling.
-  const retried = await refreshConversationsAndReport(refreshConversations, input, setErrorMessage);
-  if (!shouldRetryFallbackTitleRefresh(retried, activeConversationId, fallbackTitle)) return;
-
-  void refreshConversations(input).catch(reportRefreshError(setErrorMessage));
+  for (let retry = 0; retry <= TITLE_REFRESH_MAX_RETRIES; retry += 1) {
+    const refreshed = await refreshConversationsAndReport(
+      refreshConversations,
+      input,
+      setErrorMessage,
+    );
+    if (!shouldRetryFallbackTitleRefresh(refreshed, activeConversationId, fallbackTitle)) return;
+    if (retry < TITLE_REFRESH_MAX_RETRIES) await delay(TITLE_REFRESH_RETRY_DELAY_MS);
+  }
 };
+
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const refreshConversationsAndReport = async (
   refreshConversations: RefreshConversations,
