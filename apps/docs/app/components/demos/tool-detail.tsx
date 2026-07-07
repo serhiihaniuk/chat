@@ -1,9 +1,10 @@
 /**
  * Demo for Tool detail — renders the REAL <ToolDetailRow> from the widget: the
- * expandable form of the §9.9 tool row. One row expanded (input + result JSON
- * blocks), one resolved host command (status · resultCode lead line), and one
- * failed call (distinct error-code line). Layout uses inline styles + widget
- * tokens so it survives inside <Preview>'s shadow root.
+ * expandable form of the §9.9 tool row. One row expanded to show the readable
+ * key/value payload tree (primitives inline, a nested object and an array indented
+ * beneath their key), one resolved host command (status · resultCode lead line),
+ * and one failed call (distinct error-code line). Layout uses inline styles +
+ * widget tokens so it survives inside <Preview>'s shadow root.
  */
 import { ToolDetailRow } from "@side-chat/side-chat-widget/ui/activity/tool-detail";
 
@@ -21,8 +22,12 @@ export function ToolDetailDemo() {
       <ToolDetailRow
         defaultOpen
         detail={{
-          input: { query: "current portfolio news" },
-          result: { summary: "Found 3 briefing-style results." },
+          input: { query: "current portfolio news", maxResults: 3 },
+          result: {
+            summary: "Found 3 briefing-style results.",
+            topResult: { title: "Q3 earnings beat estimates", source: "Reuters" },
+            tickers: ["ACME", "GLOB", "INIT"],
+          },
         }}
         name="Search web"
         state="success"

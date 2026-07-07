@@ -102,7 +102,9 @@ const SwitcherItem = ({
     onClick={() => onSelect(conversation.id)}
   >
     <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="truncate text-sm text-popover-foreground">{conversation.title}</span>
+      <span title={conversation.title} className="truncate text-sm text-popover-foreground">
+        {conversation.title}
+      </span>
       <span className="text-xs text-muted-foreground">
         {formatRelativeTime(conversation.lastMessageAt, labels)}
       </span>

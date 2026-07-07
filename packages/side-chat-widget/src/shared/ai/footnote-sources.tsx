@@ -33,6 +33,29 @@ export const parseFootnoteSources = (markdown: string): readonly FootnoteSource[
     toFootnoteSource(index + 1, match[1]!.trim()),
   );
 
+const FOOTNOTE_DEFINITION_LABEL = /^\[\^([^\]]+)\]:/gmu;
+const FOOTNOTE_REFERENCE = /\[\^([^\]]+)\](?!:)/gu;
+
+/**
+ * Hide footnote reference markers whose definition has not streamed in yet.
+ *
+ * While a turn streams, the model writes `[^1]` markers before the matching
+ * `[^1]:` definitions it appends at the very end, so remark cannot resolve them and
+ * they flash as raw "[^1]" text. Dropping the still-unresolved markers keeps the
+ * streaming prose clean; each one reappears — now as an inline citation chip — the
+ * instant its definition arrives, because a marker whose definition is already
+ * present is kept untouched. Completed history skips this: an unresolved marker
+ * there is a real dangling reference that degrades to plain text by design.
+ */
+export const hideUnresolvedFootnoteMarkers = (markdown: string): string => {
+  const defined = new Set(
+    [...markdown.matchAll(FOOTNOTE_DEFINITION_LABEL)].map((match) => match[1]),
+  );
+  return markdown.replace(FOOTNOTE_REFERENCE, (marker, label: string) =>
+    defined.has(label) ? marker : "",
+  );
+};
+
 /**
  * Resolve an inline `[^n]` marker's rendered number to its parsed source.
  *

@@ -18,6 +18,9 @@ export type ConfiguredToolInput = {
   readonly defaultEnabled: boolean;
   readonly approvalPolicyIds: readonly string[];
   readonly delayMs?: number | undefined;
+  readonly resultCount?: number | undefined;
+  readonly searchModelId?: string | undefined;
+  readonly searchAgentPrompt?: string | undefined;
 };
 
 export type ToolRegistrationFactory = (input: ConfiguredToolInput) => ServiceToolRegistration;
@@ -42,6 +45,9 @@ export const DEFAULT_TOOL_REGISTRATIONS: Readonly<Record<string, ToolRegistratio
         defaultEnabled: input.defaultEnabled,
         approvalPolicyIds: input.approvalPolicyIds,
         delayMs: input.delayMs,
+        resultCount: input.resultCount,
+        modelId: input.searchModelId,
+        systemPrompt: input.searchAgentPrompt,
       }),
     ),
 };

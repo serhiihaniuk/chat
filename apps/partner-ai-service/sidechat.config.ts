@@ -137,6 +137,9 @@ const sideChatConfig = defineSideChatConfig({
         },
         parameters: {
           delayMs: TOOLS.MOCK_WEB_SEARCH.PARAMETERS.DEFAULT_DELAY_MS,
+          resultCount: TOOLS.MOCK_WEB_SEARCH.PARAMETERS.DEFAULT_RESULT_COUNT,
+          searchModelId: TOOLS.MOCK_WEB_SEARCH.PARAMETERS.DEFAULT_SEARCH_MODEL_ID,
+          searchAgentPrompt: TOOLS.MOCK_WEB_SEARCH.PARAMETERS.DEFAULT_SEARCH_AGENT_PROMPT,
         },
         exposure: {
           defaultMode: TOOL_DEFAULT_EXPOSURE.ENABLED,

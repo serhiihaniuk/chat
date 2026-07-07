@@ -42,6 +42,9 @@ export const componentTokenGroups: Record<string, readonly TokenRow[]> = {
   ],
   "message": [
     { token: "--message-stack-gap", resolvesTo: "calc(var(--spacing) * 2)", property: "gap", usage: "Vertical gap between a message's stacked parts — the reasoning trace, the answer, and the sources fold — so all three share one density-driven rhythm instead of hardcoded per-part spacing." },
+    { token: "--message-block-gap", resolvesTo: "calc(var(--spacing) * 1)", property: "margin-block", usage: "Vertical margin between markdown blocks in the answer body — paragraphs, lists, code blocks, blockquotes, tables. Small on purpose: the real block separation is this margin plus the prose line-height's own leading, so it nests tighter than the message's stack gap." },
+    { token: "--message-item-gap", resolvesTo: "calc(var(--spacing) * 0.5)", property: "margin-block", usage: "Vertical margin on each list item in the answer body — the tightest rhythm in the nesting (item < block < stack)." },
+    { token: "--message-leading", resolvesTo: "1.5", property: "line-height", usage: "Line-height of assistant prose (paragraphs, list items, blockquotes) — a touch tighter than the user bubble's 1.55 so stacked short blocks don't read as far apart." },
     { token: "--message-user-px", resolvesTo: "calc(var(--spacing) * 3.5)", property: "padding-inline", usage: "Horizontal padding inside the user bubble (the px-3.5 utility)." },
     { token: "--message-user-py", resolvesTo: "calc(var(--spacing) * 2.5)", property: "padding-block", usage: "Vertical padding inside the user bubble (the py-2.5 utility)." },
     { token: "--message-user", resolvesTo: "var(--row-bg-active, var(--accent)) -> var(--accent)", property: "background-color", usage: "Fill of the right-aligned user bubble (bg-message-user); follows the shared active row surface." },
@@ -99,6 +102,11 @@ export const componentTokenGroups: Record<string, readonly TokenRow[]> = {
     { token: "--success", resolvesTo: "tier-1", property: "color (Check glyph via text-success)", usage: "Tints the check glyph when the tool call has succeeded." },
     { token: "--destructive", resolvesTo: "tier-1", property: "color (TriangleAlert glyph, mixed 60% via sc-error-glyph)", usage: "Error-state base colour, mixed into --muted-foreground by the sc-error-glyph hook so the alert glyph reads as a muted red rather than a phantom destructive-foreground." },
     { token: "--muted-foreground", resolvesTo: "tier-1", property: "color (TriangleAlert glyph, remainder of the sc-error-glyph mix)", usage: "The muted partner colour the error glyph is mixed toward, softening the destructive tint." },
+  ],
+  "tool-detail": [
+    { token: "--tool-detail-gap", resolvesTo: "calc(var(--spacing) * 1.5)", property: "gap", usage: "Vertical rhythm between rows of the expanded payload tree, and the horizontal gap between a key and its inline value." },
+    { token: "--tool-detail-pad", resolvesTo: "calc(var(--spacing) * 2.5)", property: "padding", usage: "Padding of the Input / Result payload panel (the muted block)." },
+    { token: "--tool-detail-indent", resolvesTo: "calc(var(--spacing) * 2.5)", property: "padding-inline-start", usage: "Left indent of a nested object or list item under its key, paired with the border-l rule — one indent per nesting level, never doubled." },
   ],
   "citations": [
     { token: "--cite-fold-fg", resolvesTo: "var(--muted-foreground)", property: "color", usage: "The folder glyph, \"N sources\" label, and chevron of the fold trigger — the quiet attribution voice." },

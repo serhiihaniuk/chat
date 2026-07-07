@@ -319,6 +319,16 @@
   /* Message stack — one gap for a message's stacked parts (reasoning, answer,
      sources fold), so the vertical rhythm is a single density-driven token. */
   --message-stack-gap: calc(var(--spacing) * 2);
+  --message-block-gap: calc(var(--spacing) * 2);
+  --message-item-gap: calc(var(--spacing) * 0.5);
+  --message-leading: 1.5;
+
+  /* Tool detail — the expanded payload tree: row/key-value rhythm, the
+     Input/Result panel padding, and the one-per-level nested indent. All resolve
+     through --spacing so the Density control moves them together. */
+  --tool-detail-gap: calc(var(--spacing) * 1.5);
+  --tool-detail-pad: calc(var(--spacing) * 2.5);
+  --tool-detail-indent: calc(var(--spacing) * 2.5);
 
   /* Citations (design c-citation) — foldable "N sources" list under an answer, plus
      the inline [n] marker and its hover card. Token names/values per the Design
@@ -1253,8 +1263,20 @@ a.sc-cite-source:hover {
 
 /* Markdown (§10) — styles Streamdown's owned DOM; tokens first, no one-off colour */
 @utility sc-markdown {
+  & :where(p, li, blockquote, td) {
+    line-height: var(--message-leading);
+  }
   & :where(p) {
-    @apply my-3 first:mt-0 last:mb-0;
+    @apply my-(--message-block-gap);
+  }
+  /* The answer's first block sits flush with its top and its last block flush with
+     its bottom — whatever the block type — so a leading/trailing list, heading, or
+     code block never adds padding on top of the message's own --message-stack-gap. */
+  & :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4):first-child {
+    margin-top: 0;
+  }
+  & :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4):last-child {
+    margin-bottom: 0;
   }
   & :where(a) {
     @apply text-primary underline underline-offset-2;
@@ -1263,25 +1285,25 @@ a.sc-cite-source:hover {
     @apply rounded-sm border border-border bg-muted px-1 py-0.5 text-sm;
   }
   & :where(pre) {
-    @apply my-3 overflow-x-auto rounded-md border border-border bg-muted p-3 text-sm;
+    @apply my-(--message-block-gap) overflow-x-auto rounded-md border border-border bg-muted p-3 text-sm;
   }
   & :where(ul) {
-    @apply my-3 list-disc pl-5;
+    @apply my-(--message-block-gap) list-disc pl-5;
   }
   & :where(ol) {
-    @apply my-3 list-decimal pl-5;
+    @apply my-(--message-block-gap) list-decimal pl-5;
   }
   & :where(li) {
-    @apply my-1;
+    @apply my-(--message-item-gap);
   }
   & :where(h1, h2, h3, h4) {
-    @apply mt-4 mb-2 font-semibold first:mt-0;
+    @apply mt-4 mb-2 font-semibold;
   }
   & :where(blockquote) {
-    @apply my-3 border-l-2 border-border pl-3 text-muted-foreground;
+    @apply my-(--message-block-gap) border-l-2 border-border pl-3 text-muted-foreground;
   }
   & :where(table) {
-    @apply my-3 w-full text-sm;
+    @apply my-(--message-block-gap) w-full text-sm;
   }
   & :where(th, td) {
     @apply border border-border px-2 py-1 text-left;

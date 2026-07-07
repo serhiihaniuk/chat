@@ -208,6 +208,9 @@ const registrationForTool = (
     defaultEnabled: toolConfig.exposure.defaultMode === TOOL_DEFAULT_EXPOSURE.ENABLED,
     approvalPolicyIds: toolConfig.exposure.approvalPolicyIds,
     delayMs: toolConfig.parameters.delayMs,
+    resultCount: toolConfig.parameters.resultCount,
+    searchModelId: toolConfig.parameters.searchModelId,
+    searchAgentPrompt: toolConfig.parameters.searchAgentPrompt,
   });
 };
 

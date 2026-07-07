@@ -148,8 +148,14 @@ export type SideChatToolConfig<Tool extends SideChatToolDescriptor = SideChatToo
   };
   /** Safe runtime parameters for this tool instance. */
   readonly parameters: {
-    /** Local delay used by the deterministic mock web-search fixture. */
+    /** Local delay used by the mock web-search fixture's canned fallback. */
     readonly delayMs?: number | undefined;
+    /** How many results the mock web-search sub-agent fabricates. */
+    readonly resultCount?: number | undefined;
+    /** Model the mock web-search sub-agent runs (defaults to gpt-5.4-mini). */
+    readonly searchModelId?: string | undefined;
+    /** System prompt that makes the mock web-search sub-agent behave like a search engine. */
+    readonly searchAgentPrompt?: string | undefined;
   };
   /** Default exposure and approval metadata for this tool. */
   readonly exposure: {

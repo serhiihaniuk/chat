@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   footnoteSourceForMarker,
+  hideUnresolvedFootnoteMarkers,
   parseFootnoteSources,
   reactNodeText,
 } from "./footnote-sources.js";
@@ -72,6 +73,32 @@ describe("footnoteSourceForMarker", () => {
 
   it("returns undefined for a number past the defined sources", () => {
     expect(footnoteSourceForMarker(sources, "9")).toBeUndefined();
+  });
+});
+
+describe("hideUnresolvedFootnoteMarkers", () => {
+  it("drops a marker whose definition has not streamed in yet", () => {
+    expect(hideUnresolvedFootnoteMarkers("The sky is blue [^1] and clear.")).toBe(
+      "The sky is blue  and clear.",
+    );
+  });
+
+  it("keeps a marker once its definition is present", () => {
+    const streamed = "The sky is blue [^1].\n\n[^1]: Rayleigh scattering. https://a.test";
+    expect(hideUnresolvedFootnoteMarkers(streamed)).toBe(streamed);
+  });
+
+  it("keeps resolved markers and drops still-unresolved ones in the same pass", () => {
+    const partial = "Sky [^1] and sunsets [^2].\n\n[^1]: Rayleigh. https://a.test";
+    expect(hideUnresolvedFootnoteMarkers(partial)).toBe(
+      "Sky [^1] and sunsets .\n\n[^1]: Rayleigh. https://a.test",
+    );
+  });
+
+  it("never touches definition lines", () => {
+    expect(hideUnresolvedFootnoteMarkers("[^1]: Only a definition. https://a.test")).toBe(
+      "[^1]: Only a definition. https://a.test",
+    );
   });
 });
 

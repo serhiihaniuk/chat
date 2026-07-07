@@ -40,7 +40,9 @@ export function ConversationItem({
       )}
     >
       <span className="flex flex-col min-w-0 gap-0.5">
-        <span className="truncate text-sm font-medium text-(--convo-title-fg)">{title}</span>
+        <span title={title} className="truncate text-sm font-medium text-(--convo-title-fg)">
+          {title}
+        </span>
         <span className="truncate text-xs text-(--convo-subtitle-fg)">{when}</span>
       </span>
       {running === true ? (

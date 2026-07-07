@@ -26,6 +26,7 @@ import { ArrowUpRight, ChevronDown, Folder, Quote } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
 import { useWidgetLabels } from "#shared/lib/widget-labels";
+import { LinkSafetyDialog, openExternalUrl } from "#shared/ui/link-safety-dialog";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
 /** One attributed source; structurally matches the protocol's ActivitySource. */
@@ -45,32 +46,47 @@ export function SourcesFold({
 }): ReactElement | undefined {
   const labels = useWidgetLabels();
   const [open, setOpen] = useState(defaultOpen);
+  // A linked row opens through the same §8.16 link-safety confirm as a Markdown
+  // link, not a bare navigation. The fold lives outside Streamdown, so it drives
+  // the dialog itself; the clicked row's url is the open state.
+  const [safetyUrl, setSafetyUrl] = useState<string | null>(null);
   if (sources.length === 0) return undefined;
 
   return (
-    <Collapsible.Root open={open} onOpenChange={setOpen}>
-      <Collapsible.Trigger
-        data-slot="sources-fold"
-        className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-      >
-        <Folder className="size-3.5" />
-        {labels.activitySources(sources.length)}
-        <ChevronDown
-          className={cn("size-3.5 transition-transform ease-out", open && "rotate-180")}
-        />
-      </Collapsible.Trigger>
-      <Collapsible.Panel className="sc-cite-panel">
-        <div className="flex flex-col gap-0.5 pt-2">
-          {sources.map((source, index) => (
-            <SourceRow
-              key={`${source.url ?? source.label}-${index}`}
-              marker={index + 1}
-              source={source}
-            />
-          ))}
-        </div>
-      </Collapsible.Panel>
-    </Collapsible.Root>
+    <>
+      <Collapsible.Root open={open} onOpenChange={setOpen}>
+        <Collapsible.Trigger
+          data-slot="sources-fold"
+          className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"
+        >
+          <Folder className="size-3.5" />
+          {labels.activitySources(sources.length)}
+          <ChevronDown
+            className={cn("size-3.5 transition-transform ease-out", open && "rotate-180")}
+          />
+        </Collapsible.Trigger>
+        <Collapsible.Panel className="sc-cite-panel">
+          <div className="flex flex-col gap-0.5 pt-2">
+            {sources.map((source, index) => (
+              <SourceRow
+                key={`${source.url ?? source.label}-${index}`}
+                marker={index + 1}
+                source={source}
+                onOpen={setSafetyUrl}
+              />
+            ))}
+          </div>
+        </Collapsible.Panel>
+      </Collapsible.Root>
+      <LinkSafetyDialog
+        isOpen={safetyUrl !== null}
+        url={safetyUrl ?? ""}
+        onClose={() => setSafetyUrl(null)}
+        onConfirm={() => {
+          if (safetyUrl !== null) openExternalUrl(safetyUrl);
+        }}
+      />
+    </>
   );
 }
 
@@ -117,9 +133,11 @@ export function InlineCitation({
 const SourceRow = ({
   marker,
   source,
+  onOpen,
 }: {
   readonly marker: number;
   readonly source: CitationSource;
+  readonly onOpen: (url: string) => void;
 }): ReactElement => {
   const body = (
     <>
@@ -138,8 +156,20 @@ const SourceRow = ({
     );
   }
 
+  // Keep the real href (right-click "copy link", middle-click) but intercept the
+  // left click to route through the link-safety confirm instead of navigating.
+  const url = source.url;
   return (
-    <a data-slot="source-row" className="sc-cite-source" href={source.url} {...EXTERNAL_LINK}>
+    <a
+      data-slot="source-row"
+      className="sc-cite-source"
+      href={url}
+      {...EXTERNAL_LINK}
+      onClick={(event) => {
+        event.preventDefault();
+        onOpen(url);
+      }}
+    >
       {body}
       <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
     </a>

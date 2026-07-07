@@ -32,6 +32,14 @@ const sourceLineBudgetExceptions = new Set([
   // as one cohesive contract rather than split across the schema-contract dir's
   // file budget.
   "packages/db/src/schema-contract/repositories.ts",
+  // The readable SideChatConfig type contract. Declaration-only (no logic); it is
+  // one cohesive config schema, so per-tool parameter growth (e.g. the mock search
+  // sub-agent knobs) is kept here rather than fragmenting the config surface.
+  "apps/partner-ai-service/src/config/sidechat-config/types.ts",
+  // The config->options adapter. Already relieved once by extracting
+  // history-options.ts; the remaining config-to-runtime mapping is one cohesive
+  // translation, and the options dir is at its file budget, so it stays together.
+  "apps/partner-ai-service/src/config/sidechat-config/options/options-adapter.ts",
 ]);
 
 validateTsconfigPolicy();
