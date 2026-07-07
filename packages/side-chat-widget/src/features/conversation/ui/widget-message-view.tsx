@@ -1,7 +1,12 @@
 import { memo, useEffect, useMemo, useState } from "react";
 
 import type { WidgetMessage } from "#entities/chat";
-import type { ReasoningVisibility } from "#entities/settings";
+import {
+  DEFAULT_TOOL_DETAIL_LEVEL,
+  type ReasoningVisibility,
+  type ToolDetailLevel,
+} from "#entities/settings";
+import { parseFootnoteSources } from "#shared/ai/footnote-sources";
 import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
 import { SourcesFold } from "#shared/ui/activity/citations";
@@ -22,23 +27,34 @@ export const WidgetMessageView = memo(
     message,
     reasoningVisibility,
     renderActivityItem,
+    toolDetail = DEFAULT_TOOL_DETAIL_LEVEL,
   }: {
     readonly message: WidgetMessage;
     readonly reasoningVisibility: ReasoningVisibility;
     readonly renderActivityItem?: RenderActivityItem | undefined;
+    readonly toolDetail?: ToolDetailLevel | undefined;
   }) => {
     const showActivity = shouldShowActivity(message);
     const mode = message.isStreaming === true ? "streaming" : "static";
     const images = readMessageImages(message);
-    const sources = readMessageSources(message);
+    // One "N sources" fold under the answer, spaced by this view's flex gap like
+    // reasoning and the answer. The model's explicit footnote citations are the
+    // curated surface when present (their numbers match the inline chips); a pure
+    // tool turn falls back to the tool-attributed sources.
+    const footnoteSources = parseFootnoteSources(message.content);
+    const sources = footnoteSources.length > 0 ? footnoteSources : readMessageSources(message);
 
     return (
-      <div className="flex w-full flex-col gap-2">
+      // One density-driven token (--message-stack-gap) spaces every part of the
+      // message — reasoning, answer, sources fold — so their vertical rhythm stays
+      // consistent and scales with the Density control.
+      <div className="flex w-full flex-col gap-(--message-stack-gap)">
         {showActivity && (
           <WidgetActivityTimeline
             message={message}
             reasoningVisibility={reasoningVisibility}
             renderActivityItem={renderActivityItem}
+            toolDetail={toolDetail}
           />
         )}
         {message.content ? (
@@ -73,18 +89,20 @@ const WidgetActivityTimeline = ({
   message,
   reasoningVisibility,
   renderActivityItem,
+  toolDetail,
 }: {
   readonly message: WidgetMessage;
   readonly reasoningVisibility: ReasoningVisibility;
   readonly renderActivityItem: RenderActivityItem | undefined;
+  readonly toolDetail: ToolDetailLevel;
 }) => {
   const labels = useWidgetLabels();
   const shouldOpenByDefault = shouldOpenActivityByDefault(message.isStreaming, reasoningVisibility);
   const [open, setOpen] = useState(shouldOpenByDefault);
   const duration = readActivityDuration(message);
   const items = useMemo(
-    () => toReasoningItems(message, renderActivityItem),
-    [message, renderActivityItem],
+    () => toReasoningItems(message, renderActivityItem, toolDetail),
+    [message, renderActivityItem, toolDetail],
   );
   const label = readReasoningLabel(message, duration, labels);
 
@@ -103,6 +121,10 @@ const WidgetActivityTimeline = ({
       setOpen(false);
     }
   }, [message.content, shouldOpenByDefault]);
+
+  // A tools-only timeline at level "hidden" projects to zero entries: no fold at
+  // all beats an expandable "Thought process" that opens onto nothing.
+  if (items.length === 0) return null;
 
   return (
     <Reasoning

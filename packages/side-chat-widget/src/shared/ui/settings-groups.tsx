@@ -25,10 +25,12 @@ export type SettingsState = {
   readonly onSendWithCtrlEnterChange: (next: boolean) => void;
   readonly onTextSizeChange: (next: string) => void;
   readonly onThemeChange: (next: ThemePreview) => void;
+  readonly onToolDetailChange: (next: string) => void;
   readonly onTypefaceChange: (next: string) => void;
   readonly sendWithCtrlEnter: boolean;
   readonly textSize: string;
   readonly theme: ThemePreview;
+  readonly toolDetail: string;
   readonly typeface: string;
 };
 
@@ -45,10 +47,12 @@ export const createSettingsGroups = ({
   onSendWithCtrlEnterChange,
   onTextSizeChange,
   onThemeChange,
+  onToolDetailChange,
   onTypefaceChange,
   sendWithCtrlEnter,
   textSize,
   theme,
+  toolDetail,
   typeface,
 }: SettingsState): readonly SettingsGroup[] => [
   {
@@ -79,11 +83,13 @@ export const createSettingsGroups = ({
   {
     id: "general",
     label: "General",
-    description: "Keyboard shortcut",
+    description: "Behavior preferences",
     render: (narrow) => (
       <GeneralGroup
         sendWithCtrlEnter={sendWithCtrlEnter}
         onSendWithCtrlEnterChange={onSendWithCtrlEnterChange}
+        toolDetail={toolDetail}
+        onToolDetailChange={onToolDetailChange}
         narrow={narrow}
       />
     ),

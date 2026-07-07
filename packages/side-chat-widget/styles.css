@@ -316,8 +316,14 @@
   --header-px: calc(var(--spacing) * 4);
   --rail-newchat-h: var(--header-h);
 
-  /* Citations (design c-citation) — foldable "N sources" list under an answer.
-     Token names/values per the Design System citations token table. */
+  /* Message stack — one gap for a message's stacked parts (reasoning, answer,
+     sources fold), so the vertical rhythm is a single density-driven token. */
+  --message-stack-gap: calc(var(--spacing) * 2);
+
+  /* Citations (design c-citation) — foldable "N sources" list under an answer, plus
+     the inline [n] marker and its hover card. Token names/values per the Design
+     System citations token table. Spacing/size tokens resolve through --spacing so
+     the Density control moves them all together. */
   --cite-fold-fg: var(--muted-foreground);
   --cite-source-radius: var(--radius-md);
   --cite-source-bg-hover: var(--accent);
@@ -330,6 +336,15 @@
   --cite-marker-bg: var(--muted);
   --cite-marker-border: var(--border);
   --cite-marker-radius: var(--radius-sm);
+  --cite-marker-size: calc(var(--spacing) * 4.5);
+  --cite-marker-px: calc(var(--spacing) * 1.25);
+  --cite-marker-py: calc(var(--spacing) * 0.5);
+  --cite-ref-mx: calc(var(--spacing) * 0.5);
+  --cite-card-pad: calc(var(--spacing) * 3);
+  --cite-card-w: min(20rem, calc(100vw - 2rem));
+  --cite-card-gap: calc(var(--spacing) * 1.5);
+  --cite-marker-active-bg: var(--foreground);
+  --cite-marker-active-fg: var(--background);
   --cite-link-fg: var(--muted-foreground);
 }
 
@@ -758,10 +773,15 @@
   font-size: var(--text-2xs);
 }
 
-/* Citations — trailing source-number chip; marker tokens, non-interactive. */
+/* Citations — trailing source-number chip; marker tokens, non-interactive. A tight
+   min-size square (--cite-marker-size) so single digits center consistently, sized
+   to sit level with the row's trailing open-externally arrow (leading-none, not the
+   inherited 1.5). All spacing is density-driven via the marker tokens. */
 @utility sc-cite-marker {
-  @apply inline-flex shrink-0 items-center font-semibold;
-  padding: 1px calc(var(--spacing) * 1.25);
+  @apply inline-flex shrink-0 items-center justify-center self-center font-semibold leading-none;
+  min-width: var(--cite-marker-size);
+  min-height: var(--cite-marker-size);
+  padding: var(--cite-marker-py) var(--cite-marker-px);
   border-radius: var(--cite-marker-radius);
   background: var(--cite-marker-bg);
   border: 1px solid var(--cite-marker-border);
@@ -786,6 +806,28 @@
 }
 a.sc-cite-source:hover {
   background: var(--cite-source-bg-hover);
+}
+
+/* Citations — inline `[n]` marker: a small tokenized chip inside prose that
+   triggers the source hover card. Baseline-aligned superscript sizing so it sits
+   with the text without disturbing line rhythm; reuses the marker tokens so it
+   matches the fold's number chip and scales with density. Its open/active state
+   (the dark --cite-marker-active-* fill, paired with the card) is applied on the
+   trigger in JSX via the popupopen: variant, keeping state off the Base UI part. */
+@utility sc-cite-ref {
+  @apply inline-flex cursor-pointer items-center justify-center align-super font-semibold leading-none;
+  min-width: var(--cite-marker-size);
+  margin-inline: var(--cite-ref-mx);
+  padding: 0 var(--cite-marker-px);
+  border-radius: var(--cite-marker-radius);
+  background: var(--cite-marker-bg);
+  border: 1px solid var(--cite-marker-border);
+  color: var(--cite-source-meta-fg);
+  font-size: var(--text-2xs);
+  transition:
+    background var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
 }
 
 /* Context ring (§9.5) — SVG stroke; the % drives stroke-dashoffset inline */
@@ -1269,6 +1311,58 @@ a.sc-cite-source:hover {
 [data-slot="select-content"][data-ending-style],
 [data-slot="combobox-content"][data-starting-style],
 [data-slot="combobox-content"][data-ending-style] {
+  opacity: 0;
+  scale: 0.97;
+}
+
+/* Citation hover card (§9.5) — the inline `[n]` marker's PreviewCard popup. Same
+   portaled-popup surface as the menus; a source preview stacked by --cite-card-gap:
+   a favicon+domain row, the title, then the model's exact quoted excerpt. */
+[data-slot="hover-card-content"] {
+  @apply rounded-xl border border-border bg-popover text-popover-foreground shadow-(--shadow-popover);
+  width: var(--cite-card-w);
+  padding: var(--cite-card-pad);
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--dur) var(--ease-out),
+    scale var(--dur) var(--ease-out);
+}
+[data-slot="hover-card-content"][data-starting-style],
+[data-slot="hover-card-content"][data-ending-style] {
+  opacity: 0;
+  scale: 0.97;
+}
+
+/*
+ * Modal dialog (§8.16). Panel-scoped: both slots are portaled into the widget
+ * root and positioned absolute, so the dialog overlays the panel (never the
+ * host page) and the backdrop inherits the panel's rounded corners.
+ */
+[data-slot="dialog-backdrop"] {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  border-radius: inherit;
+  background: oklch(0.145 0 0 / 0.32);
+  transition: opacity var(--dur) var(--ease-out);
+}
+[data-slot="dialog-content"] {
+  @apply absolute rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-(--shadow-popover);
+  z-index: 91;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: min(calc(100% - 2rem), 26rem);
+  transition:
+    opacity var(--dur) var(--ease-out),
+    scale var(--dur) var(--ease-out);
+}
+[data-slot="dialog-backdrop"][data-starting-style],
+[data-slot="dialog-backdrop"][data-ending-style] {
+  opacity: 0;
+}
+[data-slot="dialog-content"][data-starting-style],
+[data-slot="dialog-content"][data-ending-style] {
   opacity: 0;
   scale: 0.97;
 }

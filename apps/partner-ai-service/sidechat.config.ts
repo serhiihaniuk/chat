@@ -173,6 +173,7 @@ const sideChatConfig = defineSideChatConfig({
         "Use bullet or numbered lists when the answer contains multiple items.",
         "Preserve emphasis with Markdown syntax.",
         "Keep tool payload JSON out of the visible answer unless the user explicitly asks for raw data.",
+        "When your answer draws on specific, nameable sources, cite them with GitHub-flavored Markdown footnotes: put a [^1], [^2], … marker (numbered sequentially) right after the claim it supports, and define each once at the very end as '[^1]: Source title — https://url — \"a short exact quote from the source\"'. Add the quote whenever you can and keep it to one sentence. Only cite real sources you can name; never invent a citation or a quote, and define every marker you use.",
       ],
       output: { format: OUTPUT_FORMATS.MARKDOWN },
       tools: {
@@ -207,6 +208,13 @@ const sideChatConfig = defineSideChatConfig({
         prompt: AUXILIARY_JOBS.CONVERSATION_TITLE.DEFAULT_PROMPT,
       },
     ],
+  },
+  history: {
+    turnActivity: readEnv(SERVICE_ENV_KEYS.turnActivityHistory, {
+      defaultValue: "full",
+      description:
+        'Whether completed turns store their activity trace (reasoning, tool calls) with the message so history reads replay it: "full" or "disabled".',
+    }),
   },
   streaming: {
     outputDeltaFlushInterval: readEnv.number(SERVICE_ENV_KEYS.outputDeltaFlushIntervalMs, {

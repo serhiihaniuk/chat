@@ -2,6 +2,7 @@ import { ACTIVITY_KINDS, ACTIVITY_STATUSES } from "@side-chat/chat-protocol";
 import type { ReactNode } from "react";
 
 import type { WidgetActivityItem, WidgetMessage } from "#entities/chat";
+import type { ToolDetailLevel } from "#entities/settings";
 import type { ActivityImageData } from "#shared/ui/activity/activity-images";
 import type { CitationSource } from "#shared/ui/activity/citations";
 import { hasToolDetail, ToolDetailRow, type ToolDetail } from "#shared/ui/activity/tool-detail";
@@ -19,42 +20,58 @@ export type RenderActivityItem = (item: WidgetActivityItem) => ReactNode | undef
 /**
  * Project a message's activity timeline into reasoning-fold entries.
  *
- * Order of precedence per item: the host's `renderActivityItem` override, then
- * the expandable detail row (a tool/host-command with disclosable input/result),
- * then the compact tool row, then a plain thought line.
+ * The user's tool-detail level governs tool/host-command items first: "hidden"
+ * drops them from the fold entirely (thoughts stay), "name" pins the compact
+ * row, and only "full" reaches the default precedence — the host's
+ * `renderActivityItem` override, then the expandable detail row (disclosable
+ * input/result), then the compact tool row. Non-tool items always consult the
+ * override, then render as plain thought lines.
  */
 export const toReasoningItems = (
   message: WidgetMessage,
   renderActivityItem: RenderActivityItem | undefined,
+  toolDetail: ToolDetailLevel,
 ): readonly ReasoningItem[] =>
-  message.activity.items.map((item) => {
+  message.activity.items.flatMap((item) => {
+    if (item.kind === ACTIVITY_KINDS.TOOL || item.kind === ACTIVITY_KINDS.HOST_COMMAND) {
+      if (toolDetail === "hidden") return [];
+      if (toolDetail === "name") return [toCompactToolItem(item)];
+    }
+
     const custom = renderActivityItem?.(item);
     if (custom !== undefined) {
-      return { kind: "node", id: item.id, node: custom };
+      return [{ kind: "node", id: item.id, node: custom } as const];
     }
 
     if (item.kind === ACTIVITY_KINDS.TOOL || item.kind === ACTIVITY_KINDS.HOST_COMMAND) {
-      return toToolItem(item);
+      return [toToolItem(item)];
     }
 
-    return { kind: "thought", id: item.id, text: readThoughtText(item) };
+    return [{ kind: "thought", id: item.id, text: readThoughtText(item) } as const];
   });
 
 const toToolItem = (item: WidgetActivityItem): ReasoningItem => {
-  const name = toolDisplayName(item);
-  const state = toToolState(item);
   const detail = toToolDetail(item);
 
   if (hasToolDetail(detail)) {
     return {
       kind: "node",
       id: item.id,
-      node: <ToolDetailRow detail={detail} name={name} state={state} />,
+      node: (
+        <ToolDetailRow detail={detail} name={toolDisplayName(item)} state={toToolState(item)} />
+      ),
     };
   }
 
-  return { kind: "tool", id: item.id, name, state };
+  return toCompactToolItem(item);
 };
+
+const toCompactToolItem = (item: WidgetActivityItem): ReasoningItem => ({
+  kind: "tool",
+  id: item.id,
+  name: toolDisplayName(item),
+  state: toToolState(item),
+});
 
 // Any running tool spins — including one running concurrently behind the active
 // timeline row. Success is only shown for an actually completed item.

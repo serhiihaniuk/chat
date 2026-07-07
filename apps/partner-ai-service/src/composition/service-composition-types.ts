@@ -11,6 +11,7 @@ import type {
   HostCommandCapability,
   ObservabilitySinkPort,
   StreamChatPorts,
+  TurnActivityHistoryMode,
   TurnGuardRegistryPort,
   WorkspaceRef,
 } from "@side-chat/partner-ai-core";
@@ -214,6 +215,8 @@ export type ServiceCompositionOptions = {
   readonly runtime?: (RuntimeConfig & RuntimeToolConfig) | undefined;
   readonly agentRuntime?: AgentRuntime | undefined;
   readonly conversationTitleGeneration?: ConversationTitleGenerationPort | undefined;
+  /** Turn-activity retention posture; omitted defaults to "full" (store the trace). */
+  readonly turnActivityHistory?: TurnActivityHistoryMode | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
   /** Operational diagnostic logger; composition defaults to silent when omitted. */
   readonly diagnosticLogger?: DiagnosticLogger | undefined;

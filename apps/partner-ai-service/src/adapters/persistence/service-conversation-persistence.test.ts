@@ -2,6 +2,7 @@ import { createMemorySidechatRepositories } from "@side-chat/db";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { createConversationPersistence } from "./service-conversation-persistence.js";
+import { readTurnActivityEvents, turnActivityMetadata } from "./service-persistence-recorders.js";
 
 // issuedAt deliberately carries the old hardcoded auth default so each assertion
 // proves the record clock comes from the threaded `now`, never from auth evidence.
@@ -90,5 +91,37 @@ describe("service conversation persistence record clock", () => {
     // never the second attempt's discarded fresh id.
     expect(second.conversationId).toBe(first.conversationId);
     expect(repositories.snapshot().conversations).toHaveLength(1);
+  });
+});
+
+// The metadata key has one owner: the write serializes the protocol activity
+// events under `turnActivity.events` and the read replays them verbatim, so the
+// history route and the completion write can never disagree about the shape.
+describe("turn activity metadata roundtrip", () => {
+  const activityEvent = {
+    protocolVersion: "sidechat.v1",
+    type: "sidechat.activity",
+    eventId: "evt-1",
+    assistantTurnId: "assistant_turn_001",
+    sequence: 1,
+    createdAt: "2026-07-06T00:00:00.000Z",
+    activityId: "activity_001",
+    activityKind: "tool",
+    status: "completed",
+    title: "Ran a tool",
+    details: { tool: { toolCallId: "call_1", toolName: "mock_web_search", input: { q: "x" } } },
+  } as const;
+
+  it("stores events under turnActivity.events and reads them back verbatim", () => {
+    const metadata = turnActivityMetadata([activityEvent]);
+    expect(readTurnActivityEvents(metadata)).toEqual([activityEvent]);
+  });
+
+  it("stores nothing for an absent or empty trace and reads nothing back", () => {
+    expect(turnActivityMetadata(undefined)).toEqual({});
+    expect(turnActivityMetadata([])).toEqual({});
+    expect(readTurnActivityEvents({})).toBeUndefined();
+    expect(readTurnActivityEvents({ turnActivity: "not-an-object" })).toBeUndefined();
+    expect(readTurnActivityEvents({ turnActivity: { events: [] } })).toBeUndefined();
   });
 });

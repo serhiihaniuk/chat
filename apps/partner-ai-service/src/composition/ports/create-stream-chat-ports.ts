@@ -4,12 +4,14 @@
 // (those live in core; routes only carry these ports across the boundary).
 
 import {
+  DEFAULT_TURN_ACTIVITY_HISTORY_MODE,
   DISABLED_CONVERSATION_TITLE_GENERATION,
   type ClockPort,
   type ConversationTitleGenerationPort,
   type IdGeneratorPort,
   type ObservabilitySinkPort,
   type StreamChatPorts,
+  type TurnActivityHistoryMode,
   type TurnGuardRegistryPort,
 } from "@side-chat/partner-ai-core";
 
@@ -42,6 +44,8 @@ export type StreamChatPortsInput = {
    */
   readonly turnEventLog?: InMemoryTurnEventLog | undefined;
   readonly titleGeneration?: ConversationTitleGenerationPort | undefined;
+  /** Turn-activity retention posture; omitted defaults to "full" (store the trace). */
+  readonly turnActivityHistory?: TurnActivityHistoryMode | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
 };
 
@@ -70,6 +74,7 @@ export const createStreamChatPorts = (input: StreamChatPortsInput): StreamChatPo
     contextManager: input.context.contextManager,
     runtime: input.runtime.runtime,
     conversationTitleGeneration: input.titleGeneration ?? DISABLED_CONVERSATION_TITLE_GENERATION,
+    turnActivityHistory: input.turnActivityHistory ?? DEFAULT_TURN_ACTIVITY_HISTORY_MODE,
     clock: systemClock,
     ids: randomIds,
     policies: createServicePolicyPort(input.security.policies),

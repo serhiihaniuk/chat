@@ -146,6 +146,7 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     turnEventLog,
     titleGeneration:
       options.conversationTitleGeneration ?? DEFAULT_SERVICE_CONVERSATION_TITLE_GENERATION,
+    turnActivityHistory: options.turnActivityHistory,
     observability: options.observability,
   });
 

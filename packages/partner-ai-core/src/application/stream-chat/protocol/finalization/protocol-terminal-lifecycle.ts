@@ -119,6 +119,8 @@ const completeAssistantTurnFromAccumulator = (
   return Effect.gen(function* () {
     // Persist assistant content from the accumulator rather than replaying the
     // protocol event stream; long streams should not be retained only for this.
+    // The activity trace rides along only when the config-gated accumulator
+    // collected any (turn-activity history "full") — see the accumulator doc.
     yield* mapPortFailure(
       ports.assistantTurns.completeAssistantTurn(
         omitUndefinedProperties({
@@ -127,6 +129,8 @@ const completeAssistantTurnFromAccumulator = (
           request: input.request,
           assistantTurnId: turn.assistantTurnId,
           assistantContent: accumulator.assistantContent,
+          activityEvents:
+            accumulator.activityEvents.length > 0 ? accumulator.activityEvents : undefined,
           finishReason: completed.finishReason,
           usage: completed.usage,
           providerId: turn.policyDecision.providerId,

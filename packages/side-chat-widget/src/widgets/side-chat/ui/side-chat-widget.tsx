@@ -17,7 +17,7 @@ import {
   WidgetHeader,
 } from "#features/panel";
 import { WidgetFooter } from "#features/prompt";
-import { SettingsView, useSendPreference } from "#features/settings";
+import { SettingsView, useSendPreference, useToolDetailPreference } from "#features/settings";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import { contextTokensFromUsage } from "#entities/chat";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
@@ -97,6 +97,7 @@ const SideChatWidgetContent = ({
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
   const appearance = useWidgetAppearance();
   const sendPreference = useSendPreference();
+  const toolDetailPreference = useToolDetailPreference();
   const modelSelection = useWidgetModelSelection({
     turnProfiles,
     client,
@@ -154,10 +155,12 @@ const SideChatWidgetContent = ({
             onSelectTheme={theme.setTheme}
             onSendWithCtrlEnterChange={sendPreference.setSendWithCtrlEnter}
             onTextSizeChange={appearance.setTextSize}
+            onToolDetailChange={toolDetailPreference.setToolDetail}
             onTypefaceChange={appearance.setTypeface}
             sendWithCtrlEnter={sendPreference.sendWithCtrlEnter}
             textSize={appearance.textSize}
             themeId={theme.themeId}
+            toolDetail={toolDetailPreference.toolDetail}
             typeface={appearance.typeface}
           />
         ) : (
@@ -218,6 +221,7 @@ const SideChatWidgetContent = ({
                 onRetry={chat.retryLastMessage}
                 reasoningVisibility={reasoningVisibility}
                 renderActivityItem={renderActivityItem}
+                toolDetail={toolDetailPreference.toolDetail}
               />
               <WidgetFooter
                 contextUsedTokens={contextTokensFromUsage(chat.usage)}

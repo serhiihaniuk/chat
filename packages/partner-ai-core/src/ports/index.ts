@@ -7,3 +7,4 @@ export type * from "./lifecycle/conversation.js";
 export type * from "./lifecycle/turn-event-log.js";
 export * from "./runtime-port.js";
 export * from "./conversation-title-generation.js";
+export * from "./turn-activity-history.js";

@@ -1,4 +1,5 @@
 import type {
+  ActivityEvent,
   ChatRequestMessage,
   ChatStreamRequest,
   UsageMetadata,
@@ -33,6 +34,36 @@ export const conversationTitleTextField = (
   omitUndefinedProperties({
     titleText: conversation.titleText,
   });
+
+/**
+ * The assistant message's metadata key that stores the turn's activity trace.
+ *
+ * Write and read live side by side so the shape has exactly one owner: the
+ * completion write serializes the protocol activity events verbatim under
+ * `turnActivity.events`, and the history route replays them verbatim into
+ * `HistoryMessage.activity`. Only present when turn-activity history is
+ * enabled AND the turn produced activity; every other message keeps `{}`.
+ */
+export const turnActivityMetadata = (
+  activityEvents: readonly ActivityEvent[] | undefined,
+): JsonObject =>
+  activityEvents && activityEvents.length > 0
+    ? { turnActivity: toJsonObject({ events: activityEvents }) }
+    : {};
+
+/** Read back the stored activity trace; `undefined` when none was stored. */
+export const readTurnActivityEvents = (
+  metadataJson: JsonObject,
+): readonly ActivityEvent[] | undefined => {
+  const turnActivity = metadataJson["turnActivity"];
+  if (!turnActivity || typeof turnActivity !== "object" || Array.isArray(turnActivity)) {
+    return undefined;
+  }
+  const events = (turnActivity as Record<string, unknown>)["events"];
+  if (!Array.isArray(events) || events.length === 0) return undefined;
+  // This service wrote the events from protocol-typed values; replay verbatim.
+  return events as readonly ActivityEvent[];
+};
 
 export const recordContextSnapshot = ({
   repositories,
@@ -150,6 +181,7 @@ export const appendMessage = ({
   authContext,
   conversationId,
   message,
+  metadataJson,
   idempotencyKey,
   now,
 }: {
@@ -157,6 +189,7 @@ export const appendMessage = ({
   readonly authContext: AuthContext;
   readonly conversationId: string;
   readonly message: PersistableMessage;
+  readonly metadataJson?: JsonObject | undefined;
   readonly idempotencyKey: string;
   readonly now: string;
 }) =>
@@ -166,7 +199,7 @@ export const appendMessage = ({
     conversationId,
     role: message.role,
     contentText: message.content,
-    metadataJson: {},
+    metadataJson: metadataJson ?? {},
     idempotencyKey: { value: idempotencyKey },
     now,
   });

@@ -2,7 +2,7 @@ import type { ChatModelPreference } from "@side-chat/chat-protocol";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import { useMemo, useRef, useState, type MutableRefObject } from "react";
 
-import type { WidgetRunNotice } from "#entities/chat";
+import { carryTranscriptActivity, type WidgetMessage, type WidgetRunNotice } from "#entities/chat";
 import {
   WIDGET_RUN_STATUSES,
   isTerminalRunStatus,
@@ -101,9 +101,10 @@ export const useWidgetChat = ({
   const visibleRun = runVisible ? run : undefined;
   const conversations = conversationsQuery.data ?? [];
   const status = visibleRun ? runStatusToWidgetStatus(visibleRun.status) : "idle";
-  const visibleMessages = useMemo(
-    () => (visibleRun ? visibleRun.messages : (historyMessages ?? [])),
-    [historyMessages, visibleRun],
+  const visibleMessages = useVisibleMessagesWithCarriedActivity(
+    visibleRun,
+    historyMessages,
+    conversationId,
   );
   const isLoadingHistory = shouldLoadHistory && historyQuery.isPending && !historyQuery.data;
   const liveErrorMessage = visibleRun?.errorMessage ?? errorMessage;
@@ -217,6 +218,40 @@ const toRunNotice = (
   return run?.status === WIDGET_RUN_STATUSES.BLOCKED
     ? { kind: "blocked", message }
     : { kind: "error", message };
+};
+
+/**
+ * The displayed transcript: the live run's messages while a run is visible,
+ * otherwise the loaded history with the last run's activity carried over.
+ *
+ * History rows carry no activity timeline, so the run→history handoff would
+ * drop the thinking info the user just watched. Snapshot the latest visible run
+ * transcript (per conversation) and re-attach its timelines onto the history
+ * projection; the snapshot is tab-local, so a reload reads plain history —
+ * exactly the intended lifetime.
+ */
+const useVisibleMessagesWithCarriedActivity = (
+  visibleRun: WidgetRunState | undefined,
+  historyMessages: readonly WidgetMessage[] | undefined,
+  conversationId: string | undefined,
+): readonly WidgetMessage[] => {
+  const lastRunTranscriptRef = useRef<
+    { readonly conversationId: string; readonly messages: readonly WidgetMessage[] } | undefined
+  >(undefined);
+  if (visibleRun?.conversationId) {
+    lastRunTranscriptRef.current = {
+      conversationId: visibleRun.conversationId,
+      messages: visibleRun.messages,
+    };
+  }
+  return useMemo(() => {
+    if (visibleRun) return visibleRun.messages;
+    const transcript = historyMessages ?? [];
+    const snapshot = lastRunTranscriptRef.current;
+    return snapshot && snapshot.conversationId === conversationId
+      ? carryTranscriptActivity(transcript, snapshot.messages)
+      : transcript;
+  }, [conversationId, historyMessages, visibleRun]);
 };
 
 // A run owns its conversation's transcript only while it is NON-terminal: the

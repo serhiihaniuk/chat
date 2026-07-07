@@ -1,4 +1,5 @@
 import type {
+  ActivityEvent,
   ChatStreamRequest,
   ProtocolErrorCode,
   SidechatBlockedReason,
@@ -84,6 +85,12 @@ export type AssistantTurnLifecyclePort = {
     readonly request: ChatStreamRequest;
     readonly assistantTurnId: string;
     readonly assistantContent: string;
+    /**
+     * The turn's activity trace, stored with the assistant message so history
+     * reads can replay it. Present only when turn-activity history is enabled
+     * AND the turn produced activity; absent means store nothing extra.
+     */
+    readonly activityEvents?: readonly ActivityEvent[] | undefined;
     readonly finishReason: string;
     readonly usage?: UsageMetadata | undefined;
     readonly providerId: string;

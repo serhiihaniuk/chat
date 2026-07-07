@@ -11,10 +11,12 @@ import {
   type WidgetActivityTimeline,
 } from "./activity.js";
 import {
+  carryTranscriptActivity,
   createDefaultRequest,
   createWidgetMessage,
   toErrorMessage,
   updateMessage,
+  type WidgetMessage,
 } from "./widget-chat.js";
 
 describe("widget-state", () => {
@@ -329,4 +331,50 @@ const createProgressActivity = (overrides: Partial<ActivityEvent>): ActivityEven
   status: "completed",
   title: "Searching the web",
   ...overrides,
+});
+
+describe("carryTranscriptActivity", () => {
+  const withActivity = (message: WidgetMessage): WidgetMessage => ({
+    ...message,
+    activity: applyActivityEvent(message.activity, createToolActivity({})),
+  });
+
+  it("re-attaches the run's timelines onto the tail-aligned history transcript", () => {
+    // Run transcript: local ids, thinking info on the assistant reply.
+    const runMessages = [
+      createWidgetMessage("local-user", "user", "find docs"),
+      withActivity(createWidgetMessage("local-assistant", "assistant", "Here they are.")),
+    ];
+    // History transcript: server ids, an extra older exchange, empty timelines.
+    const history = [
+      createWidgetMessage("msg_1", "user", "hello"),
+      createWidgetMessage("msg_2", "assistant", "hi"),
+      createWidgetMessage("msg_3", "user", "find docs"),
+      createWidgetMessage("msg_4", "assistant", "Here they are."),
+    ];
+
+    const carried = carryTranscriptActivity(history, runMessages);
+
+    // Identity (server id) is kept; only the timeline is carried over.
+    expect(carried[3]?.id).toBe("msg_4");
+    expect(carried[3]?.activity.items).toHaveLength(1);
+    expect(carried.slice(0, 3)).toEqual(history.slice(0, 3));
+  });
+
+  it("skips a counterpart whose role or content diverged", () => {
+    const runMessages = [
+      withActivity(createWidgetMessage("local-assistant", "assistant", "the run's answer")),
+    ];
+    const history = [createWidgetMessage("msg_1", "assistant", "a different committed answer")];
+
+    // Diverged content (another tab, truncation): never mislabel the message.
+    expect(carryTranscriptActivity(history, runMessages)).toBe(history);
+  });
+
+  it("returns the history transcript untouched when the run carried no thinking info", () => {
+    const runMessages = [createWidgetMessage("local-assistant", "assistant", "plain answer")];
+    const history = [createWidgetMessage("msg_1", "assistant", "plain answer")];
+
+    expect(carryTranscriptActivity(history, runMessages)).toBe(history);
+  });
 });

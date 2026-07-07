@@ -147,12 +147,19 @@ export type BlockedEvent = SidechatEventBase & {
  * One stored transcript message, as returned by the conversation history
  * read-path (`readHistory` / `ReadHistoryResult`). This is a request/response
  * shape, not a stream event: no server emits it over the turn stream.
+ *
+ * `activity` is the turn's stored activity events (reasoning summaries, tool
+ * calls, host commands) replayed verbatim, present on assistant messages only
+ * when the service persists turn activity (`turnActivityHistory: "full"`). A
+ * client folds them with the same reducer it uses for the live stream, so a
+ * reloaded transcript shows the thinking the user watched live.
  */
 export type HistoryMessage = {
   readonly id: MessageId;
   readonly role: "user" | "assistant" | "system";
   readonly content: string;
   readonly sequence: ProtocolSequence;
+  readonly activity?: readonly ActivityEvent[];
 };
 
 export type UsageMetadata = {

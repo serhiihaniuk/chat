@@ -244,12 +244,17 @@ const normalizeHistoryMessage = (payload: unknown): ReadHistoryResult["messages"
   ) {
     throw new SideChatApiError("network_error", "Malformed history response");
   }
-  return {
+  const activity =
+    Array.isArray(payload["activity"]) && payload["activity"].length > 0
+      ? (payload["activity"] as ReadHistoryResult["messages"][number]["activity"])
+      : undefined;
+  return omitUndefinedProperties({
     id: payload["id"],
     role: payload["role"],
     content: payload["content"],
     sequence: payload["sequence"],
-  };
+    activity,
+  });
 };
 
 const normalizeReset = (payload: unknown): ResetHistoryResult => {

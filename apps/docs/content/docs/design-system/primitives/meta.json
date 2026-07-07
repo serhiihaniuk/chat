@@ -15,6 +15,7 @@
     "badge",
     "scroll-area",
     "separator",
-    "collapsible"
+    "collapsible",
+    "dialog"
   ]
 }

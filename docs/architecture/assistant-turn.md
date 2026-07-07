@@ -177,7 +177,12 @@ tailing, so a cursor at or past the terminal sequence closes immediately.
 
 What Postgres durably holds: conversations, user and assistant messages, the
 turn record and status, usage, context snapshots, audit events, and cancel
-intent. What it does not hold: the in-flight event stream.
+intent. When turn-activity history is enabled (the default; `history.turnActivity`
+in `sidechat.config.ts`), a completed turn also stores its activity trace —
+reasoning summaries, tool calls, host commands, as the protocol activity events —
+in the assistant message's metadata, and history reads return it as
+`HistoryMessage.activity` so a reloaded transcript replays the thinking. What
+Postgres does not hold: the in-flight event stream.
 
 Generation acquires an owner lease and renews it on a heartbeat
 (`protocol/lease/turn-lease-heartbeat.ts`); a transient renew failure is

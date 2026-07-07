@@ -251,6 +251,7 @@ const createObservedPorts = (
     assistantTurns,
     turnEventLog: createTurnEventLogPort(),
     conversationTitleGeneration: DISABLED_CONVERSATION_TITLE_GENERATION,
+    turnActivityHistory: "full" as const,
     hostCapabilities: { loadManifest: () => Effect.succeed(manifest) },
     turnPolicies: { resolveTurnPolicy: () => Effect.succeed(policyDecision) },
     contextManager: {

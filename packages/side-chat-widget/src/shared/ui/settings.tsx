@@ -38,6 +38,8 @@ type SettingsPanelProps = {
   onTypefaceChange?: (next: string) => void;
   sendWithCtrlEnter?: boolean;
   onSendWithCtrlEnterChange?: (next: boolean) => void;
+  toolDetail?: string;
+  onToolDetailChange?: (next: string) => void;
   applyAppearance?: boolean;
   header?: ReactNode;
   railHeader?: ReactNode;
@@ -106,6 +108,8 @@ export function SettingsPanel({
   onTypefaceChange,
   sendWithCtrlEnter: sendWithCtrlEnterProp,
   onSendWithCtrlEnterChange,
+  toolDetail: toolDetailProp,
+  onToolDetailChange,
   applyAppearance = true,
   header,
   railHeader,
@@ -127,6 +131,11 @@ export function SettingsPanel({
     onSendWithCtrlEnterChange,
     false,
   );
+  const [toolDetail, setToolDetail] = useControlledValue(
+    toolDetailProp,
+    onToolDetailChange,
+    "full",
+  );
 
   const groups = createSettingsGroups({
     accent,
@@ -141,10 +150,12 @@ export function SettingsPanel({
     onSendWithCtrlEnterChange: setSendWithCtrlEnter,
     onTextSizeChange: setTextSize,
     onThemeChange: setTheme,
+    onToolDetailChange: setToolDetail,
     onTypefaceChange: setTypeface,
     sendWithCtrlEnter,
     textSize,
     theme,
+    toolDetail,
     typeface,
   });
   const active = findActiveGroup(groups, group);

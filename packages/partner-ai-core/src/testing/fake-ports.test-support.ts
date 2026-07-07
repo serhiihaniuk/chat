@@ -17,6 +17,7 @@ import {
   type ConversationTitleGenerationPort,
   type ContextManagerPort,
   type ConversationRepositoryPort,
+  type TurnActivityHistoryMode,
   type TurnGuardRegistryPort,
 } from "#ports";
 import type { PolicyEvaluationInput, PolicyPort } from "#policies/policy";
@@ -53,6 +54,8 @@ export type FakePortOptions = {
   readonly contextManager?: ContextManagerPort | undefined;
   readonly preparedContext?: PreparedTurnContext | undefined;
   readonly observability?: ObservabilitySinkPort | undefined;
+  /** Turn-activity retention posture; tests default to "full" (store the trace). */
+  readonly turnActivityHistory?: TurnActivityHistoryMode | undefined;
   /** Seeds the durable control state `readTurnControlState` returns (cancel intent). */
   readonly turnControlState?: FakeTurnControlState | undefined;
   /** Seeds the conversation's in-flight turn the busy guard consults at pre-start. */
@@ -152,6 +155,9 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
     runtime,
     conversationTitleGeneration:
       options.conversationTitleGeneration ?? DISABLED_CONVERSATION_TITLE_GENERATION,
+    // Tests exercise the store-the-trace path by default; the disabled posture is
+    // covered explicitly where a test asserts nothing is retained.
+    turnActivityHistory: options.turnActivityHistory ?? ("full" as const),
     clock,
     ids,
     observability: options.observability,

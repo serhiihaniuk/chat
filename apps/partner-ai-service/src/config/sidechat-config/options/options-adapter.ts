@@ -35,6 +35,7 @@ import {
   readStringEnvReference,
   readWorkspace,
 } from "../environment.js";
+import { readTurnActivityHistory } from "./history-options.js";
 import { createResumabilityConfig } from "./resumability-options.js";
 import { createAzureRuntimeConfig, createRuntimeModelMetadata } from "./runtime-config-helpers.js";
 import type { ServiceEnv, ServiceProfile, SideChatConfig, SideChatToolConfig } from "../types.js";
@@ -80,6 +81,7 @@ export const createPartnerAiServiceOptionsFromConfig = (
     capabilities: config.context,
     persistence: createPersistenceConfig(profile, env, config.environment),
     conversationTitleGeneration: createConversationTitleGeneration(config),
+    turnActivityHistory: readTurnActivityHistory(config, env),
     // Console-first by profile: development sees the turn lifecycle in the console
     // through the real sink; production stays NOOP until an adopter installs one.
     observability: createDefaultObservabilitySink(

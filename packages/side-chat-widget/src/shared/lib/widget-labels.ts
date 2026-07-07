@@ -51,6 +51,14 @@ export type WidgetLabels = {
   readonly headerSettingsTitle: string;
   readonly headerConversations: string;
   readonly headerConversationFeed: string;
+  // Modal chrome + the markdown link-safety confirm (§8.16 dialog; every external
+  // link in assistant output opens through it).
+  readonly dialogClose: string;
+  readonly linkSafetyTitle: string;
+  readonly linkSafetyDescription: string;
+  readonly linkSafetyCopy: string;
+  readonly linkSafetyCopied: string;
+  readonly linkSafetyOpen: string;
 };
 
 /** Public override surface: any subset of the built-in copy. */
@@ -93,6 +101,12 @@ export const defaultWidgetLabels: WidgetLabels = {
   headerSettingsTitle: "Settings",
   headerConversations: "Conversations",
   headerConversationFeed: "Conversation feed",
+  dialogClose: "Close dialog",
+  linkSafetyTitle: "Open external link?",
+  linkSafetyDescription: "You're about to visit an external website.",
+  linkSafetyCopy: "Copy link",
+  linkSafetyCopied: "Copied",
+  linkSafetyOpen: "Open link",
 };
 
 /** Merge a caller's overrides over the defaults; an `undefined` field keeps the default. */

@@ -194,6 +194,13 @@ const sideChatFakeConfig = defineSideChatConfig({
       },
     ],
   },
+  history: {
+    turnActivity: readEnv(SERVICE_ENV_KEYS.turnActivityHistory, {
+      defaultValue: "full",
+      description:
+        'Whether completed turns store their activity trace (reasoning, tool calls) with the message so history reads replay it: "full" or "disabled".',
+    }),
+  },
   streaming: {
     outputDeltaFlushInterval: readEnv.number(SERVICE_ENV_KEYS.outputDeltaFlushIntervalMs, {
       defaultValue: RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,

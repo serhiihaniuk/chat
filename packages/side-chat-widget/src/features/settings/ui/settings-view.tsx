@@ -20,10 +20,12 @@ export const SettingsView = ({
   onSelectTheme,
   onSendWithCtrlEnterChange,
   onTextSizeChange,
+  onToolDetailChange,
   onTypefaceChange,
   sendWithCtrlEnter,
   textSize,
   themeId,
+  toolDetail,
   typeface,
 }: {
   readonly accent: AccentOption["id"];
@@ -38,10 +40,12 @@ export const SettingsView = ({
   readonly onSelectTheme: (themeId: WidgetThemeId) => void;
   readonly onSendWithCtrlEnterChange: (next: boolean) => void;
   readonly onTextSizeChange: (next: string) => void;
+  readonly onToolDetailChange: (next: string) => void;
   readonly onTypefaceChange: (next: string) => void;
   readonly sendWithCtrlEnter: boolean;
   readonly textSize: string;
   readonly themeId: WidgetThemeId;
+  readonly toolDetail: string;
   readonly typeface: string;
 }) => (
   <SettingsPanel
@@ -60,12 +64,14 @@ export const SettingsView = ({
     onThemeChange={(next) => {
       if (isWidgetThemeId(next)) onSelectTheme(next);
     }}
+    onToolDetailChange={onToolDetailChange}
     onTypefaceChange={onTypefaceChange}
     railHeader={<SettingsRailHeader onBack={onBack} />}
     sendWithCtrlEnter={sendWithCtrlEnter}
     textSize={textSize}
     theme={themeId}
     themeOptions={WIDGET_THEME_IDS}
+    toolDetail={toolDetail}
     typeface={typeface}
   />
 );

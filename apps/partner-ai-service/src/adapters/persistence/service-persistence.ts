@@ -10,6 +10,7 @@ import {
   appendTurnAuditEvent,
   recordContextSnapshot,
   recordUsage,
+  turnActivityMetadata,
 } from "./service-persistence-recorders.js";
 import {
   createAcquireTurnLeaseEffect,
@@ -111,6 +112,7 @@ const createCompleteAssistantTurnEffect =
     request,
     assistantTurnId,
     assistantContent,
+    activityEvents,
     finishReason,
     usage,
     providerId,
@@ -128,6 +130,9 @@ const createCompleteAssistantTurnEffect =
             role: "assistant",
             content: assistantContent,
           },
+          // The turn's thinking trace rides on the message row so history reads
+          // replay it; `{}` when turn-activity history is disabled or empty.
+          metadataJson: turnActivityMetadata(activityEvents),
           idempotencyKey: `${request.requestId}:assistant`,
           now,
         });

@@ -61,7 +61,7 @@ describe("SideChatWidget settings", () => {
     expect(panel?.querySelector(":scope > .absolute.inset-0")).toBeNull();
   });
 
-  it("uses conversation-row styling for settings groups and keeps General to the Ctrl+Enter setting", async () => {
+  it("uses conversation-row styling for settings groups and keeps General to the behavior settings", async () => {
     renderThemeWidget();
 
     await clickButton("Settings");
@@ -74,10 +74,21 @@ describe("SideChatWidget settings", () => {
 
     const generalTab = document.querySelector('button[aria-label="General"]');
     expect(generalTab?.getAttribute("data-active")).toBe("true");
-    expect(generalTab?.textContent).toContain("Keyboard shortcut");
+    expect(generalTab?.textContent).toContain("Behavior preferences");
     expect(document.body.textContent).toContain("Send with Ctrl+Enter");
+    expect(document.body.textContent).toContain("Tool call details");
     expect(document.body.textContent).not.toContain("Custom instructions");
     expect(document.body.textContent).not.toContain("Default model");
+  });
+
+  it("persists the tool-detail level from the General group", async () => {
+    renderThemeWidget();
+
+    await clickButton("Settings");
+    await clickButton("General");
+    await clickButton("Name only");
+
+    expect(window.localStorage.getItem("side-chat-widget:tool-detail")).toBe("name");
   });
 
   it("offers only the locally served widget typefaces", async () => {

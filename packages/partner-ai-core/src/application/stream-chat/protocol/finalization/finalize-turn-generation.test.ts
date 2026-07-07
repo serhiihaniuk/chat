@@ -148,6 +148,45 @@ describe("terminal guarantees across exit shapes", () => {
     expect(ports.completedTurns).toHaveLength(1);
     expect(ports.completedTurns[0]).toMatchObject({ assistantContent: "The answer." });
   });
+
+  it("persists the collected activity trace with the completed turn", async () => {
+    const ports = createFakePorts({});
+    // Accumulator created with activity collection ON (turn-activity history "full").
+    const state = [
+      startedEvent(0),
+      activityEvent(1),
+      deltaEvent(2, "The answer."),
+      completedEvent(3),
+    ].reduce(recordProtocolEvent, createProtocolEventAccumulator(true));
+
+    const exit = await runFinalize(ports, Exit.succeed(undefined), state);
+
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(ports.completedTurns).toHaveLength(1);
+    expect(ports.completedTurns[0]?.activityEvents).toHaveLength(1);
+    expect(ports.completedTurns[0]?.activityEvents?.[0]).toMatchObject({
+      activityId: "activity_001",
+      title: "Ran a tool",
+    });
+  });
+
+  it("retains no activity when turn-activity history is disabled", async () => {
+    const ports = createFakePorts({ turnActivityHistory: "disabled" });
+    // Disabled means disabled in memory too: the accumulator never collects, so
+    // the completed turn carries no activityEvents field at all.
+    const state = [
+      startedEvent(0),
+      activityEvent(1),
+      deltaEvent(2, "The answer."),
+      completedEvent(3),
+    ].reduce(recordProtocolEvent, createProtocolEventAccumulator(false));
+
+    const exit = await runFinalize(ports, Exit.succeed(undefined), state);
+
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(ports.completedTurns).toHaveLength(1);
+    expect(ports.completedTurns[0]?.activityEvents).toBeUndefined();
+  });
 });
 
 const startedEvent = (sequence: number): SidechatStreamEvent => ({
@@ -178,6 +217,19 @@ const completedEvent = (sequence: number): SidechatStreamEvent => ({
   sequence,
   createdAt: "2026-07-02T00:00:02.000Z",
   finishReason: "stop",
+});
+
+const activityEvent = (sequence: number): SidechatStreamEvent => ({
+  protocolVersion: "sidechat.v1",
+  type: SIDECHAT_EVENT_TYPES.ACTIVITY,
+  eventId: `evt-${sequence}`,
+  assistantTurnId: "assistant_turn_001",
+  sequence,
+  createdAt: "2026-07-02T00:00:00.500Z",
+  activityId: "activity_001",
+  activityKind: "tool",
+  status: "completed",
+  title: "Ran a tool",
 });
 
 const accumulatorWith = (events: readonly SidechatStreamEvent[]): ProtocolEventAccumulator =>

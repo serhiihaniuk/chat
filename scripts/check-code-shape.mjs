@@ -99,11 +99,19 @@ const directoryBudgetExceptions = new Map([
     },
   ],
   [
-    "packages/partner-ai-core/src/ports",
+    "apps/partner-ai-service/src/config/sidechat-config/options",
     {
       maxFiles: 6,
       reason:
-        "the #ports barrel (index) plus the five port contracts it re-exports — capability-ports, context-manager, turn-guard, runtime-port, conversation-title-generation — kept flat so external importers stay on the stable #ports alias after the per-port one-file folders were flattened; the four turn-lifecycle refs keep their own lifecycle/ child folder",
+        "the options-adapter spine plus its per-concern resolvers (resumability, history, runtime helpers) and their tests, kept flat as one boot-path options family",
+    },
+  ],
+  [
+    "packages/partner-ai-core/src/ports",
+    {
+      maxFiles: 7,
+      reason:
+        "the #ports barrel (index) plus the six port contracts it re-exports — capability-ports, context-manager, turn-guard, runtime-port, conversation-title-generation, turn-activity-history — kept flat so external importers stay on the stable #ports alias after the per-port one-file folders were flattened; the four turn-lifecycle refs keep their own lifecycle/ child folder",
     },
   ],
 ]);

@@ -32,7 +32,7 @@ describe("activity content rendering", () => {
     });
 
     const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="detailed" />,
+      <WidgetMessageView message={message} reasoningVisibility="detailed" toolDetail="full" />,
     );
 
     // Both running rows spin; the one behind the active item must not read as done.
@@ -71,6 +71,7 @@ describe("activity content rendering", () => {
       <WidgetMessageView
         message={message}
         reasoningVisibility="detailed"
+        toolDetail="full"
         renderActivityItem={(item) =>
           item.details?.tool?.toolName === "mock_web_search" ? (
             <div data-testid="custom-tool">Custom search card</div>
@@ -113,13 +114,145 @@ describe("activity content rendering", () => {
     });
 
     const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="minimal" />,
+      <WidgetMessageView message={message} reasoningVisibility="minimal" toolDetail="full" />,
     );
 
     expect(html).toContain('data-slot="sources-fold"');
     expect(html).toContain("1 source");
     expect(html).toContain('data-slot="activity-images"');
     expect(html).toContain('src="data:image/svg+xml;base64,Zm9v"');
+  });
+
+  it('pins the compact row at level "name" — the payloads stay undisclosed', () => {
+    const message = createAssistantMessage({
+      activityEvents: [
+        createActivity({
+          activityId: "tool_call_001",
+          activityKind: "tool",
+          sequence: 1,
+          status: "completed",
+          title: "Run mock_web_search",
+          details: {
+            tool: {
+              toolCallId: "tool_call_001",
+              toolName: "mock_web_search",
+              input: { query: "news" },
+              result: { summary: "found" },
+            },
+          },
+        }),
+      ],
+    });
+
+    const html = renderToStaticMarkup(
+      <WidgetMessageView message={message} reasoningVisibility="detailed" toolDetail="name" />,
+    );
+
+    expect(html).toContain("Mock web search");
+    // No expandable detail row, no payload text.
+    expect(html).not.toContain('data-slot="tool-detail-row"');
+    expect(html).not.toContain("news");
+  });
+
+  it('drops tool rows at level "hidden" and removes a tools-only fold entirely', () => {
+    const message = createAssistantMessage({
+      content: "Done.",
+      activityEvents: [
+        createActivity({
+          activityId: "tool_call_001",
+          activityKind: "tool",
+          sequence: 1,
+          status: "completed",
+          title: "Run mock_web_search",
+          details: {
+            tool: { toolCallId: "tool_call_001", toolName: "mock_web_search" },
+          },
+        }),
+      ],
+    });
+
+    const html = renderToStaticMarkup(
+      <WidgetMessageView message={message} reasoningVisibility="detailed" toolDetail="hidden" />,
+    );
+
+    // The only item was a tool: no fold at all, just the answer text.
+    expect(html).not.toContain("Mock web search");
+    expect(html).not.toContain("Thought process");
+    expect(html).toContain("Done.");
+  });
+
+  it('keeps reasoning thoughts visible at level "hidden"', () => {
+    const message = createAssistantMessage({
+      activityEvents: [
+        createActivity({
+          activityId: "tool_call_001",
+          activityKind: "tool",
+          sequence: 1,
+          status: "completed",
+          title: "Run mock_web_search",
+          details: { tool: { toolCallId: "tool_call_001", toolName: "mock_web_search" } },
+        }),
+        createActivity({
+          activityId: "reasoning_001",
+          activityKind: "reasoning",
+          sequence: 2,
+          title: "Prepared final answer",
+        }),
+      ],
+    });
+
+    const html = renderToStaticMarkup(
+      <WidgetMessageView message={message} reasoningVisibility="detailed" toolDetail="hidden" />,
+    );
+
+    expect(html).not.toContain("Mock web search");
+    expect(html).toContain("Prepared final answer");
+  });
+
+  it("renders one sources fold from the answer's footnote citations, plus inline chips", () => {
+    const message = createAssistantMessage({
+      content:
+        "Sky [^1] and sunsets [^2].\n\n[^1]: Rayleigh. https://a.test\n[^2]: OpenStax. https://b.test",
+    });
+    const html = renderToStaticMarkup(
+      <WidgetMessageView message={message} reasoningVisibility="minimal" />,
+    );
+    // The fold is a sibling of the answer (spaced by --message-stack-gap), not inside
+    // MarkdownContent; the answer's markdown still renders the two inline chips.
+    expect((html.match(/data-slot="sources-fold"/gu) ?? []).length).toBe(1);
+    expect(html).toContain("2 sources");
+    expect((html.match(/data-slot="citation-ref"/gu) ?? []).length).toBe(2);
+  });
+
+  it("prefers the answer's footnote citations (1) over the tool's attributed sources (2)", () => {
+    const message = createAssistantMessage({
+      content: "Cited [^1].\n\n[^1]: Curated. https://c.test",
+      activityEvents: [
+        createActivity({
+          activityId: "tool_call_001",
+          activityKind: "tool",
+          sequence: 1,
+          status: "completed",
+          title: "Run mock_web_search",
+          details: {
+            tool: {
+              toolCallId: "tool_call_001",
+              toolName: "mock_web_search",
+              sources: [
+                { label: "Tool A", url: "https://a.test" },
+                { label: "Tool B", url: "https://b.test" },
+              ],
+            },
+          },
+        }),
+      ],
+    });
+    const html = renderToStaticMarkup(
+      <WidgetMessageView message={message} reasoningVisibility="minimal" />,
+    );
+    // The count proves which set fed the (collapsed) fold: the single footnote.
+    expect(html).toContain("1 source");
+    expect(html).not.toContain("2 sources");
   });
 });
 

@@ -139,6 +139,37 @@ export const updateMessage = (
   update: (message: WidgetMessage) => WidgetMessage,
 ): WidgetMessage[] => messages.map((message) => (message.id === id ? update(message) : message));
 
+/**
+ * Carry activity timelines from a finished run's transcript onto the freshly
+ * loaded history projection (run→history handoff).
+ *
+ * History rows do not persist the activity timeline (reasoning, tool calls,
+ * sources), so swapping the live run for history would silently drop the
+ * thinking info the user just watched. The two transcripts are tail-aligned —
+ * server message ids never match the run's local ids — and each history message
+ * keeps its own identity while re-attaching the run counterpart's non-empty
+ * timeline. A counterpart only qualifies when role AND content agree, so a
+ * diverged transcript (another tab appended, history truncated) is never
+ * mislabeled with someone else's thinking.
+ */
+export const carryTranscriptActivity = (
+  messages: readonly WidgetMessage[],
+  source: readonly WidgetMessage[],
+): readonly WidgetMessage[] => {
+  if (messages.length === 0 || source.length === 0) return messages;
+  const offset = messages.length - source.length;
+  let carried = false;
+  const next = messages.map((message, index) => {
+    const counterpart = source[index - offset];
+    if (!counterpart || counterpart.activity.items.length === 0) return message;
+    if (counterpart.role !== message.role || counterpart.content !== message.content)
+      return message;
+    carried = true;
+    return { ...message, activity: counterpart.activity };
+  });
+  return carried ? next : messages;
+};
+
 export const findLastUserMessage = (
   messages: readonly WidgetMessage[],
 ): WidgetMessage | undefined => {

@@ -1,8 +1,10 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
-import { toActorId, type SidechatRepositories } from "@side-chat/db";
+import { toActorId, type MessageRecord, type SidechatRepositories } from "@side-chat/db";
 import type { ClockPort } from "@side-chat/partner-ai-core";
+import { omitUndefinedProperties } from "@side-chat/shared";
 import type { Hono } from "hono";
 
+import { readTurnActivityEvents } from "#adapters/persistence/service-persistence-recorders";
 import type { AuthContextVariables } from "../../middleware/auth-context.js";
 import { errorMessage, jsonError } from "../../response/protocol-errors.js";
 import { requireContextAuth } from "../types.js";
@@ -48,12 +50,7 @@ export const registerChatHistoryRoutes = (
       return context.json({
         protocolVersion: SIDECHAT_PROTOCOL_VERSION,
         conversationId,
-        messages: messages.map((message) => ({
-          id: message.messageId,
-          role: message.role,
-          content: message.contentText,
-          sequence: message.sequenceIndex,
-        })),
+        messages: messages.map(toHistoryMessagePayload),
       });
     } catch (error) {
       return jsonError("not_found", errorMessage(error), 404);
@@ -82,12 +79,7 @@ export const registerChatHistoryRoutes = (
       return context.json({
         protocolVersion: SIDECHAT_PROTOCOL_VERSION,
         conversationId,
-        messages: messages.map((message) => ({
-          id: message.messageId,
-          role: message.role,
-          content: message.contentText,
-          sequence: message.sequenceIndex,
-        })),
+        messages: messages.map(toHistoryMessagePayload),
         activeTurn: activeTurn
           ? { assistantTurnId: activeTurn.assistantTurnId, status: activeTurn.status }
           : null,
@@ -120,6 +112,18 @@ export const registerChatHistoryRoutes = (
     }
   });
 };
+
+// One stored message as `HistoryMessage` (chat-protocol): the assistant's stored
+// activity trace replays verbatim under `activity`, and the field is omitted for
+// messages without one so the payload stays lean.
+const toHistoryMessagePayload = (message: MessageRecord) =>
+  omitUndefinedProperties({
+    id: message.messageId,
+    role: message.role,
+    content: message.contentText,
+    sequence: message.sequenceIndex,
+    activity: readTurnActivityEvents(message.metadataJson),
+  });
 
 const readPositiveInteger = (rawValue: string | undefined, fallback: number): number => {
   if (!rawValue) return fallback;

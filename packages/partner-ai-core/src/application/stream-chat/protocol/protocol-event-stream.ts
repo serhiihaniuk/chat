@@ -61,7 +61,10 @@ export const createProtocolStreamRefs = (
   turn: PreparedStreamChatTurn,
 ): Effect.Effect<ProtocolStreamRefs> =>
   Effect.gen(function* () {
-    const accumulator = yield* Ref.make(createProtocolEventAccumulator());
+    // Activity retention is a config decision made here, at allocation: a
+    // disabled service never holds activity payloads in memory at all.
+    const collectActivity = ports.turnActivityHistory === "full";
+    const accumulator = yield* Ref.make(createProtocolEventAccumulator(collectActivity));
     const nextProtocolSequence = yield* Ref.make(1);
     const streamState = yield* Ref.make(createProtocolStreamState());
     return { ports, input, turn, accumulator, nextProtocolSequence, streamState };

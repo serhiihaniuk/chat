@@ -14,6 +14,7 @@ import type {
   IdGeneratorPort,
   MessageRef,
   TurnEventLogPort,
+  TurnActivityHistoryMode,
   TurnGuardDecision,
   TurnGuardRegistryPort,
   TurnPolicyResolverPort,
@@ -55,6 +56,8 @@ export type StreamChatPorts = {
   readonly contextManager: ContextManagerPort;
   readonly runtime: AiRuntimePort;
   readonly conversationTitleGeneration: ConversationTitleGenerationPort;
+  /** Whether completed turns persist their activity trace (see the port doc). */
+  readonly turnActivityHistory: TurnActivityHistoryMode;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
   readonly policies: PolicyPort;

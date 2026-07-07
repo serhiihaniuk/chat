@@ -2,6 +2,7 @@ import {
   isTerminalEvent,
   PROTOCOL_ERROR_CODES,
   SIDECHAT_EVENT_TYPES,
+  type ActivityEvent,
   type CompletedEvent,
   type ProtocolErrorCode,
   type SidechatBlockedReason,
@@ -20,10 +21,17 @@ import type { AssistantTurnFailureStatus } from "#ports";
  *
  * The accumulator preserves only what terminal persistence needs: event counts,
  * terminal identity, completed usage, accumulated assistant text, and the first
- * protocol-ordering problem. It does not keep every event or runtime/provider
- * payload, so finalization can validate the stream without turning diagnostics
- * into a private content log.
+ * protocol-ordering problem. Deltas are never retained event-by-event, so
+ * finalization can validate the stream without turning diagnostics into a
+ * private content log. Activity events are the one config-gated exception:
+ * when turn-activity history is enabled (`collectActivity`), they are retained
+ * verbatim — bounded by {@link MAX_ACCUMULATED_ACTIVITY_EVENTS} — so completion
+ * can persist the thinking trace alongside the answer. Disabled means disabled
+ * in memory too: nothing activity-shaped is retained at all.
  */
+
+/** Bound on retained activity events; the tool loop's step cap keeps real turns far below it. */
+export const MAX_ACCUMULATED_ACTIVITY_EVENTS = 128;
 
 /**
  * Minimal mutable summary of emitted `sidechat.v1` events.
@@ -38,14 +46,20 @@ export type ProtocolEventAccumulator = {
   readonly terminalEvent?: TerminalEvent | undefined;
   readonly completedEvent?: CompletedEvent | undefined;
   readonly assistantContent: string;
+  readonly collectActivity: boolean;
+  readonly activityEvents: readonly ActivityEvent[];
   readonly invalidReason?: string | undefined;
 };
 
 /** Initial accumulator before `sidechat.started` is remembered. */
-export const createProtocolEventAccumulator = (): ProtocolEventAccumulator => ({
+export const createProtocolEventAccumulator = (
+  collectActivity = false,
+): ProtocolEventAccumulator => ({
   eventCount: 0,
   terminalCount: 0,
   assistantContent: "",
+  collectActivity,
+  activityEvents: [],
 });
 
 /**
@@ -68,6 +82,8 @@ export const recordProtocolEvent = (
     terminalEvent,
     completedEvent,
     assistantContent: appendAssistantContent(accumulator.assistantContent, event),
+    collectActivity: accumulator.collectActivity,
+    activityEvents: appendActivityEvent(accumulator, event),
     invalidReason,
   };
 };
@@ -154,6 +170,23 @@ const terminalPositionIssue = (accumulator: ProtocolEventAccumulator): string | 
 
 const appendAssistantContent = (content: string, event: SidechatStreamEvent): string =>
   event.type === SIDECHAT_EVENT_TYPES.DELTA ? `${content}${event.content}` : content;
+
+// Retain the activity trace only when turn-activity history is enabled, and stop
+// at the bound: a runaway loop degrades to a truncated trace, never to unbounded
+// memory. Repeated events for one activityId are kept as-is — the client's fold
+// dedupes by id exactly like it does on the live stream.
+const appendActivityEvent = (
+  accumulator: ProtocolEventAccumulator,
+  event: SidechatStreamEvent,
+): readonly ActivityEvent[] => {
+  if (!accumulator.collectActivity || event.type !== SIDECHAT_EVENT_TYPES.ACTIVITY) {
+    return accumulator.activityEvents;
+  }
+  if (accumulator.activityEvents.length >= MAX_ACCUMULATED_ACTIVITY_EVENTS) {
+    return accumulator.activityEvents;
+  }
+  return [...accumulator.activityEvents, event];
+};
 
 const isCompletedEvent = (event: SidechatStreamEvent): event is CompletedEvent =>
   event.type === SIDECHAT_EVENT_TYPES.COMPLETED;
