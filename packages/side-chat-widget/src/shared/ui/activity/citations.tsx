@@ -38,7 +38,7 @@ export function SourcesFold({
 }): ReactElement | undefined {
   const labels = useWidgetLabels();
   const [open, setOpen] = useState(defaultOpen);
-  // A linked row opens through the same §8.16 link-safety confirm as a Markdown
+  // A linked row opens through the same Dialog link-safety confirm as a Markdown
   // link, not a bare navigation. The fold lives outside Streamdown, so it drives
   // the dialog itself; the clicked row's url is the open state.
   const [safetyUrl, setSafetyUrl] = useState<string | null>(null);

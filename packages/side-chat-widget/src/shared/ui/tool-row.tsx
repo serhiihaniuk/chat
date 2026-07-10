@@ -1,5 +1,5 @@
 /**
- * §9.9 — Tool row: a compact status line inside Reasoning.
+ * Tool row: a compact status line inside Reasoning.
  *
  * Show one status icon followed by the tool name as plain text. This is
  * informational, not interactive, so it stays a plain `<div>` with no pill or

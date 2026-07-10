@@ -1,5 +1,5 @@
 /**
- * §8.5 Media (avatar).
+ * Media (avatar).
  *
  * A fixed-size square leading graphic. The `sc-media` hook class owns the size,
  * radius, background and foreground tokens plus centering — so the component never

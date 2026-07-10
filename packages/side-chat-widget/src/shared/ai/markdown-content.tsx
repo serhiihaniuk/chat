@@ -1,5 +1,5 @@
 /**
- * §10 — Markdown / Streamdown wrapper.
+ * Markdown / Streamdown wrapper.
  *
  * The ONE wrapper every assistant message renders through (never raw `<Streamdown>`).
  * We do NOT parse Markdown ourselves — Streamdown owns parsing, GFM, sanitization,
@@ -59,7 +59,7 @@ export function MarkdownContent({
         components={components}
         // Streamdown's built-in confirm modal renders outside the widget's token
         // scope (unstyled over the host page), so link safety stays on but the
-        // modal is ours: the §8.16 panel-scoped dialog, with copy from the labels
+        // modal is ours: the panel-scoped Dialog, with copy from the labels
         // bag so it rebrands/localizes with the rest of the widget.
         linkSafety={{
           enabled: true,

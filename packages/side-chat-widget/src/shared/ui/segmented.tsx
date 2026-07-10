@@ -1,5 +1,5 @@
 /**
- * §8.8 — Segmented (single-select Toggle Group).
+ * Segmented control — single-select Toggle Group.
  *
  * A radio-like row built on Base UI ToggleGroup + Toggle. `value` is held as a
  * one-item array; the track is the `sc-seg` hook class and each item flexes to an

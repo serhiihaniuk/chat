@@ -1,5 +1,5 @@
 /**
- * §9.1 — Conversation item.
+ * Conversation item.
  *
  * The standalone <button> form of Row: a single selectable conversation entry in
  * the sidebar list. No Base UI part — a plain button, so it may use `hover:` and

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Tool detail row — the expandable form of the §9.9 tool row.
+ * Tool detail row — the expandable form of the Tool row.
  *
  * Collapsed it looks exactly like `ToolRow` (status glyph + plain name) with a
  * trailing chevron; expanded it reveals what the call actually did: an optional

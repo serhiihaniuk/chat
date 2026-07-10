@@ -1,6 +1,6 @@
 /**
  * Row demo — renders the REAL Row pattern the same way its in-source `RowSection`
- * does. Row is a BASE-UI-DIRECT primitive: §8.4 calls it a className PATTERN, not
+ * does. Row is a BASE-UI-DIRECT primitive: Row calls it a className PATTERN, not
  * its own Base UI part. The file ships the reusable `rowBaseClass` plus a single
  * `RowSection` that shows the two contract forms side by side, so the demo mounts
  * that Section rather than re-implementing raw Base UI.

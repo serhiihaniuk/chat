@@ -1,5 +1,5 @@
 /**
- * Menu / popover demo (§8.2) — renders the REAL <MenuSection> composition.
+ * Menu / popover demo (Menu) — renders the REAL <MenuSection> composition.
  *
  * Menu is BASE-UI-DIRECT: the source file exports no reusable wrapper, only the
  * `MenuSection` showcase that composes Base UI `Menu` parts directly and tags its

@@ -1,5 +1,5 @@
 /**
- * §8.6 — Text & form (Field).
+ * Field — text and form controls.
  *
  * Thin role wrapper over Base UI Field. The Label/Description/Error carry the
  * typographic roles; the Control owns the input/textarea chrome. Clicking the

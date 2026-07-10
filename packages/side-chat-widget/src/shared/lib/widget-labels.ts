@@ -51,7 +51,7 @@ export type WidgetLabels = {
   readonly headerSettingsTitle: string;
   readonly headerConversations: string;
   readonly headerConversationFeed: string;
-  // Modal chrome + the markdown link-safety confirm (§8.16 dialog; every external
+  // Modal chrome + the markdown link-safety confirm (Dialog; every external
   // link in assistant output opens through it).
   readonly dialogClose: string;
   readonly linkSafetyTitle: string;

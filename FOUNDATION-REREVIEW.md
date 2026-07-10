@@ -13,13 +13,13 @@
 
 **What remains is exactly three stories plus one tail**, all deliberately deferred: CI (13), LICENSE + README claims (14), the `partner-ai-*` → `sidechat-*` rename (15, correctly scheduled last), and story 30's CI-wiring remainder. None are code risks; two of them (CI, LICENSE) are still the adoption blockers they were on day one.
 
-**Live testing after the plan found real bugs the plan couldn't have caught** — including one P0 (every second message in a conversationless conversation returned 500). All are fixed; details in §4. This is the strongest argument for story 13: the repo's verification gates are excellent and still only run when someone remembers.
+**Live testing after the plan found real bugs the plan couldn't have caught** — including one P0 (every second message in a conversationless conversation returned 500). All are fixed; details in section 4. This is the strongest argument for story 13: the repo's verification gates are excellent and still only run when someone remembers.
 
 ---
 
 ## 1. The four streaming gaps — all closed (verified in code)
 
-| Original gap (§2 of the review)                                         | State                          | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Original gap (section 2 of the review)                                  | State                          | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ----------------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **2.1** Stream GET lands on a non-owner and hangs forever               | **Fixed — stream-from-POST**   | `POST /chat/runs` _is_ the SSE stream (ADR 0007). The resume GET now fails closed before any SSE frame: non-owner + running → `stream_unavailable` JSON; swept terminal → `replay_expired` (`apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts:85-130`). Subscribing no longer creates ghost registry entries (subscribe never creates an entry — `in-memory-turn-event-log.ts:99-106`). Host-command results relay cross-instance via persisted result + NOTIFY dispatcher (`service-composition.ts:209-214`). |
 | **2.2** Crashed instance strands turns `running` forever                | **Fixed — reaper reinstated**  | `turn-reaper.ts` sweeps `reapExpiredTurns` from composition, all instances concurrently (`SKIP LOCKED`); widened predicate covers the NULL-lease window (`turn-lease.ts:160-174`); ADR 0008 records the design.                                                                                                                                                                                                                                                                                                                        |
@@ -30,14 +30,14 @@
 
 ## 2. The rest of the review, by section
 
-### First-run and template experience (§3) — mostly fixed, the two adoption blockers remain
+### First-run and template experience (section 3) — mostly fixed, the two adoption blockers remain
 
 - **Fake quick start works by design now**: a dedicated `sidechat.fake.config.ts` ships and `run-local-fake.mjs` selects it — the boot path no longer depends on env-var archaeology.
 - **The silent dual-config universe is gone**: the 279-line legacy `service-config.ts` is deleted (story 12); one config system remains.
-- **Still missing: CI (story 13) and LICENSE (story 14).** No `.github/`, no `LICENSE` file. Unchanged since the original review, and the review's judgment stands: a minimal workflow running `npm run verify` is the single highest-leverage addition. §4's lint episode is a live demonstration.
+- **Still missing: CI (story 13) and LICENSE (story 14).** No `.github/`, no `LICENSE` file. Unchanged since the original review, and the review's judgment stands: a minimal workflow running `npm run verify` is the single highest-leverage addition. section 4's lint episode is a live demonstration.
 - **Naming (story 15)**: `partner-ai-service`/`partner-ai-core` still ship under the old name; correctly deferred to last (fewest open branches).
 
-### Adopter seams (§4) — all six delivered
+### Adopter seams (section 4) — all six delivered
 
 | Seam                  | Then                                         | Now                                                                                                                 |
 | --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -48,23 +48,23 @@
 | Model parameters      | hardcoded                                    | `callSettings` bag on the runtime request (`ai-runtime-contract/src/index.ts:71-123`)                               |
 | Dead Layer machinery  | 178 unused lines sold as canonical           | deleted (`effect-runtime.ts` gone); the plain ports object is the story                                             |
 
-### Protocol completeness (§5) — closed structurally, not just patched
+### Protocol completeness (section 5) — closed structurally, not just patched
 
 The fix went further than the review asked: the sequence validator no longer re-enumerates terminals at all — terminality is owned solely by `isTerminalEvent` (completed/error/blocked), so a new terminal member cannot silently diverge (`ordering/sequence.ts:13-15`). A `protocol-completeness.test.ts` pins schema ↔ event-type ↔ validator agreement. Both browser decoders skip comment/dataless frames, and the server now sends the SSE heartbeats (20 s default) whose absence the review flagged as an LB time-bomb.
 
-### Robustness (§6) — the crash class is gone
+### Robustness (section 6) — the crash class is gone
 
 - `pool.on("error")` handler (`postgres-drizzle/index.ts:59`); every LISTEN channel runs on a `reconnectingListenStream` with its own drop/reconnect test. The "dropped idle connection = process crash" failure mode no longer exists.
 - The append sequence race is fixed with a conversation row lock before the `max(sequence_index)` read, with the unique index as backstop (`records/conversations.ts:51-77`).
 - Telemetry is fail-open — the doc comment now leads with it (`stream-chat-observability.ts:11`).
 
-### Widget UI (§7) and performance (§8) — delivered
+### Widget UI (section 7) and performance (section 8) — delivered
 
 - e2e suite reconciled with the shipped UI (now under `test-harness/widget-harness/e2e/`; green 2026-07-02) — CI wiring is the story-30 remainder.
 - Dark-mode remnants: zero hits. Theme data single-sourced (story 32). Labels/rebranding surface + mobile bottom sheet shipped (34). Composer IME/focus/Ctrl+Enter and an honest usage-driven context meter shipped (33) — the meter was verified live this session.
 - Both indexes exist: the partial running-turns index (`schema.ts:149-158`) and `usage_records_workspace_idx` (`schema.ts:210`). Pool `max`/`ssl` are config-exposed (`environment-config-types.ts:41-49`).
 
-### Readability (§9) — the tree now tells the truth
+### Readability (section 9) — the tree now tells the truth
 
 `partner-ai-core` is 20 directories (was 36). The naming de-collisions all landed in story 35: `ToolCatalog` alias gone, the two `toRuntimeError`s split into intent-named functions, `readString` families merged, user/assistant message ids are distinct brands, and the dead vocabulary (`sidechat.history` event, `event_log_conflict`) is deleted rather than documented.
 
@@ -95,7 +95,7 @@ Uncommitted at the time of writing: fixes 2–4 above plus a small refresh-butto
 
 | Item                                                | Why it still matters                                                                                                                                                                                                  |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Story 13 — CI**                                   | The review called it the highest-leverage governance addition; §4.6 re-proved it. `npm run verify` + `test:db:container` in a workflow.                                                                               |
+| **Story 13 — CI**                                   | The review called it the highest-leverage governance addition; section 4.6 re-proved it. `npm run verify` + `test:db:container` in a workflow.                                                                        |
 | **Story 14 — LICENSE + README claims**              | Legal blocker for any adopter; unchanged.                                                                                                                                                                             |
 | **Story 15 — rename `partner-ai-*` → `sidechat-*`** | Do last, as planned — after 13/14 land.                                                                                                                                                                               |
 | **Story 30 remainder**                              | Wire the reconciled e2e suite into CI (depends on 13) + the deferred fidelity scenarios.                                                                                                                              |
@@ -113,7 +113,7 @@ Uncommitted at the time of writing: fixes 2–4 above plus a small refresh-butto
 | `packages/db`             | excellent patterns, crash-prone connection layer, stale README | reconnecting LISTEN + pool error handling; README truthful; append race locked                    |
 | `chat-protocol`           | blocked-terminal divergence in three copies                    | terminality single-sourced + completeness test                                                    |
 | Widget (state)            | resilience half-built                                          | handoff/retry/watchdog shipped and live-verified; post-plan request/title fixes landed            |
-| Widget (UI)               | mid-molt: dead code, dark remnants, placebo controls           | purged, single-sourced, controls real (typeface required the §4.4 asset fix)                      |
+| Widget (UI)               | mid-molt: dead code, dark remnants, placebo controls           | purged, single-sourced, controls real (typeface required the section 4.4 asset fix)               |
 | Template/DX               | no CI, no LICENSE, first command crashed                       | quick start works; **CI and LICENSE still missing — the last P0s**                                |
 
 ---

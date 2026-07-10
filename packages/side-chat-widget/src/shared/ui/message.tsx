@@ -1,5 +1,5 @@
 /**
- * §9.6 — Message: render one turn of conversation text.
+ * Message: render one turn of conversation text.
  *
  * One semantic `<div data-from>` handles both roles. The `data-[from=user]:`
  * styles choose the layout, so user and assistant messages stay in one component.

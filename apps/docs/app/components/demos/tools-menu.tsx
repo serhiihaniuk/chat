@@ -1,5 +1,5 @@
 /**
- * Demo for §9.3 Tools menu — renders the REAL <ToolsMenu /> composition.
+ * Demo for Tools menu — renders the REAL <ToolsMenu /> composition.
  *
  * The component is fully self-contained: it owns its own tool-toggle and
  * context-scope state, and reads the portal container from the surrounding

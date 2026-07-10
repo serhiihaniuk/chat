@@ -1,7 +1,7 @@
 /**
  * Demo for "Scroll area".
  *
- * Renders the REAL ScrollArea wrapper (§8.3) — the Base UI Root → Viewport →
+ * Renders the REAL ScrollArea wrapper (Scroll area) — the Base UI Root → Viewport →
  * Scrollbar → Thumb tree with a vertical overlay scrollbar. The `className`
  * passed to ScrollArea styles the Viewport, so callers give it the border /
  * radius; the overlay scrollbar fades when idle and surfaces on hover/scroll,

@@ -1,5 +1,5 @@
 /**
- * §8.3 — Scroll area (bounded panels only, never the chat log).
+ * Scroll area (bounded panels only, never the chat log).
  *
  * Base UI ScrollArea with an overlay scrollbar. The fade-when-idle behaviour lives
  * entirely in styles.css, keyed on Base UI's own data attributes on the scrollbar

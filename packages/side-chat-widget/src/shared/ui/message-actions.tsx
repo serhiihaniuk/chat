@@ -1,5 +1,5 @@
 /**
- * §9.7 — Message actions.
+ * Message actions.
  *
  * Ghost icon+label buttons under a COMPLETED assistant answer. All styling lives in
  * the `sc-action` hook class (ghost background, hover, the `&[data-copied]` success

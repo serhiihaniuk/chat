@@ -1,5 +1,5 @@
 /**
- * Select demo (§8.10) — renders the REAL non-searchable dropdown the same way its
+ * Select demo (Select) — renders the REAL non-searchable dropdown the same way its
  * in-source `SelectSection` does. Select is a BASE-UI-DIRECT primitive: the file ships
  * no reusable wrapper, only the `SelectSection` (the Settings "Default model" picker) as
  * the 1:1 contract reference, so the demo simply mounts that Section.

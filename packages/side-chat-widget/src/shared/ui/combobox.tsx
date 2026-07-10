@@ -1,10 +1,10 @@
 /**
- * §8.11 — Combobox (the searchable selector).
+ * Combobox (the searchable selector).
  *
  * The only primitive with a filter input. Filtering, highlight, and empty-state are
  * built into Base UI `Combobox`, so there is no manual query state: the built-in fuzzy
  * filter sets `highlighted:` on the match and `Combobox.Empty` renders the no-results
- * row. Rows reuse the Row + Media patterns (§8.4 / §8.5). The popup is portaled into the
+ * row. Rows reuse the Row + Media patterns (Row / Media). The popup is portaled into the
  * widget root via `container={container}` (G5) and skinned through the
  * `data-slot="combobox-content"` CSS layer.
  *

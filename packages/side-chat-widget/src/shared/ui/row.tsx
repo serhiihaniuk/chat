@@ -1,5 +1,5 @@
 /**
- * §8.4 — Row: the shared layout for selectable lines.
+ * Row: the shared layout for selectable lines.
  *
  * Row is a class-name pattern, not a separate Base UI component. A line has
  * `[leading media?] [title + optional subtitle] [trailing indicator?]` and is

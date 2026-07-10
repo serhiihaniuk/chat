@@ -1,6 +1,6 @@
 /**
  * Demo for Tool detail — renders the REAL <ToolDetailRow> from the widget: the
- * expandable form of the §9.9 tool row. One row expanded to show the readable
+ * expandable form of the Tool row. One row expanded to show the readable
  * key/value payload tree (primitives inline, a nested object and an array indented
  * beneath their key), one resolved host command (status · resultCode lead line),
  * and one failed call (distinct error-code line). Layout uses inline styles +

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * §8.14 — Separator.
+ * Separator.
  *
  * Thin rule built on Base UI's Separator so it carries `role=separator` (and the
  * matching `aria-orientation`) instead of an inert styled <div>. Consumers usually

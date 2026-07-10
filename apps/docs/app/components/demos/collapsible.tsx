@@ -1,5 +1,5 @@
 /**
- * Demo for §8.15 — Collapsible. Renders the REAL <Collapsible> fold twice: a
+ * Demo for Collapsible. Renders the REAL <Collapsible> fold twice: a
  * controlled trace whose open state is toggled by a button, and a second fold that
  * starts open. Each panel height animates from Base UI's exposed
  * `--collapsible-panel-height` through the `sc-collapsible-panel` hook class — no JS

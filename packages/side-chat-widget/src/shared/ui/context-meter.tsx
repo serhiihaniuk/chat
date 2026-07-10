@@ -1,5 +1,5 @@
 /**
- * §9.5a — Context meter: show real context-window usage.
+ * Context meter: show real context-window usage.
  *
  * The meter compares token usage from the last completed turn
  * (`sidechat.completed`.usage) with the active model's context window. It renders

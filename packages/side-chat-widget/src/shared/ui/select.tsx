@@ -1,8 +1,8 @@
 /**
- * §8.10 — Select: the non-searchable dropdown.
+ * Select: the non-searchable dropdown.
  *
  * This uses Base UI `Select` for model and settings choices. If the control needs
- * a search field, use the Combobox pattern instead (§8.11).
+ * a search field, use the Combobox pattern instead (Combobox).
  *
  * Keep this part tree intact:
  * `Select.Root` → `Select.Trigger` → `Select.Portal(container)` → `Select.Positioner`

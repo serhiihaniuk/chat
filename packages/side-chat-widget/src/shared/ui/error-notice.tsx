@@ -1,9 +1,9 @@
 /**
- * §9.10 — Error notice.
+ * Error notice.
  *
  * A turn that failed to complete, shown on a MUTED surface — not a full-red panel.
  * The only red is the leading glyph, tinted via the `sc-error-glyph` hook class
- * (destructive mixed into muted — there is NO destructive-foreground, §7.6). Body
+ * (destructive mixed into muted — there is NO destructive-foreground, semantic colors). Body
  * copy stays tier-1 (text-foreground). The secondary "Try again" uses the shared
  * Button variant so its muted fill follows the same theme token as every secondary action.
  */

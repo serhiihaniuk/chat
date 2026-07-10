@@ -73,7 +73,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
 
-  /* §2.4 / §5.3 — type scale, each paired with its line-height so rhythm can't drift */
+  /* Type scale and line height — each value is paired with its line-height so rhythm can't drift */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1.4;
   --text-xs: 0.75rem;
@@ -89,12 +89,12 @@
   --text-xl: 1.5rem;
   --text-xl--line-height: 1.25;
 
-  /* leading the user bubble asks for explicitly (§9.6) — registered, never leading-[1.55] */
+  /* leading the user bubble asks for explicitly (Message) — registered, never leading-[1.55] */
   --leading-message: 1.55;
 }
 
 /*
- * Section 5.5 - elevation.
+ * Elevation tokens.
  *
  * Tailwind v4 registers the shadow namespace here. Runtime elevation consumers
  * use the CSS-variable shorthand (`shadow-(--shadow-*)`) so settings can change
@@ -106,7 +106,7 @@
   --shadow-panel: 0 12px 32px -8px oklch(0 0 0 / 0.2), 0 4px 12px -4px oklch(0 0 0 / 0.12);
 }
 
-/* §2.5 / §4 — Base UI state registered ONCE as bracket-free variants (used everywhere). */
+/* Base UI states — Base UI state registered ONCE as bracket-free variants (used everywhere). */
 @custom-variant highlighted (&[data-highlighted]); /* pointer OR keyboard active item */
 @custom-variant selected (&[data-selected]);
 @custom-variant pressed (&[data-pressed]);
@@ -164,7 +164,7 @@
  * `--switch-track-on: var(--primary)` re-substitutes the themed --primary here.
  * Declared on :root they would be frozen to the graphite tier-1 values and inherit
  * that frozen value down — named themes could then never re-skin the hook classes
- * that read them. This is exactly the §12.3 re-skin contract.
+ * that read them. This is exactly the theme re-skin contract.
  */
 .side-chat-widget-root {
   /* ── runtime motion ───────────────────────────────────────────────── */
@@ -185,7 +185,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
 
-  /* ── §5.4 semantic sizes (consumed by the @utility size wrappers below) ─ */
+  /* ── semantic sizes (consumed by the @utility size wrappers below) ─ */
   --size-sidebar: 15.5rem;
   --size-menu: 17.625rem;
   --size-measure-message: 44.5rem;
@@ -195,9 +195,9 @@
   --size-touch: 2.75rem;
 
   /* ── TIER 2 component tokens — each an alias of a tier-1 value or a calc()
-        over --spacing, never a raw literal except the sub-grid cases (§2.3). ─ */
+        over --spacing, never a raw literal except the sub-grid cases. ─ */
 
-  /* Switch (§7.1 / §8.1) */
+  /* Switch (control sizing) */
   --switch-w: 1.875rem;
   --switch-h: 1.125rem;
   --switch-knob-size: 0.875rem;
@@ -206,30 +206,30 @@
   --switch-track-on: var(--primary);
   --switch-track-off: var(--input);
 
-  /* Media / avatar (§8.5) */
+  /* Media / avatar */
   --media-size: 1.625rem;
   --media-radius: var(--radius-md);
   --media-fill: var(--muted);
   --media-border: var(--border);
   --media-fg: var(--muted-foreground);
 
-  /* Field (§8.6) */
+  /* Field */
   --field-bg: var(--background);
   --field-border: var(--input);
   --field-radius: var(--radius-md);
   --field-px: calc(var(--spacing) * 3);
   --field-py: calc(var(--spacing) * 2.5);
 
-  /* Segmented (§8.8) */
+  /* Segmented control */
   --seg-pad: 3px;
   --seg-radius: var(--radius-md);
   --seg-item-radius: calc(var(--radius-md) - 3px);
 
-  /* Scroll area (§8.3) */
+  /* Scroll area */
   --scrollarea-w: 0.5rem;
   --scrollarea-thumb: var(--border);
 
-  /* Menu / Popover (§8.2) */
+  /* Menu / Popover */
   --menu-bg: var(--popover);
   --menu-fg: var(--popover-foreground);
   --menu-border: var(--border);
@@ -243,7 +243,7 @@
   --menu-item-check: var(--primary);
   --menu-section-label: var(--muted-foreground);
 
-  /* Row (section 8.4) */
+  /* Row */
   --row-px: calc(var(--spacing) * 2.5);
   --row-py: calc(var(--spacing) * 2);
   --row-gap: calc(var(--spacing) * 2.5);
@@ -251,12 +251,12 @@
   --row-bg-hover: var(--accent);
   --row-bg-active: var(--accent);
 
-  /* Message bubble color aliases to the shared active row surface (§7.2 / §9.6);
+  /* Message bubble color aliases to the shared active row surface;
      the bubble's padding comes from utilities in message.tsx, not tokens. */
   --message-user: var(--row-bg-active, var(--accent));
   --message-user-foreground: var(--foreground);
 
-  /* Conversation / grouping (§9.1 / §9.2) — values per design_widget.html token table */
+  /* Conversation / grouping (conversation items and grouping) — values per design_widget.html token table */
   --convo-indicator: var(--primary);
   /* Live "generating" dot on a conversation row with an in-flight turn. */
   --convo-running-indicator: var(--primary);
@@ -271,7 +271,7 @@
   --rail-list-gap: 1px;
   --rail-border: var(--sidebar-border);
 
-  /* Settings (section 9.11) */
+  /* Settings (Settings) */
   /* Settings group rail shares the chat conversation rail's width as one token. */
   --settings-nav-w: var(--size-sidebar);
   --settings-nav-bg: var(--sidebar);
@@ -297,21 +297,21 @@
   --settings-accent-violet: oklch(0.54 0.22 292);
   --settings-accent-orange: oklch(0.62 0.19 41);
 
-  /* Agent mark tile (§9.12 header) — 27px, accent fill, primary glyph */
+  /* Agent mark tile (Widget header) — 27px, accent fill, primary glyph */
   --agent-mark-size: 1.6875rem;
   --agent-mark-bg: var(--accent);
   --agent-mark-fg: var(--primary);
   --agent-mark-border: var(--border);
   --agent-mark-radius: var(--radius-md);
 
-  /* Header (§9.12) */
+  /* Header (Widget header) */
   --header-title-size: var(--text-md);
 
-  /* Composer context ring (§9.5) — a subtle grey meter, not a bold primary arc */
+  /* Composer context ring (Composer) — a subtle grey meter, not a bold primary arc */
   --context-ring-track: var(--border);
   --context-ring-indicator: var(--muted-foreground);
 
-  /* Shell / header / rail (§9.12) */
+  /* Shell / header / rail (Widget header) */
   --header-h: var(--size-header);
   --header-px: calc(var(--spacing) * 4);
   --rail-newchat-h: var(--header-h);
@@ -578,7 +578,7 @@
 }
 
 /* ============================================================================
-   §5.4 — named size utilities. The `--size-*` namespace does not auto-generate
+   semantic sizes — named size utilities. The `--size-*` namespace does not auto-generate
    w-/h-/size- utilities in Tailwind v4, so each ledger size is a thin @utility
    wrapper reading its custom property. Component code uses the utility name.
    ============================================================================ */
@@ -607,12 +607,12 @@
 }
 
 /* ============================================================================
-   §6 — irreducible CSS layer. Every entry here is a calc()-derived value, a
+   derived CSS values — irreducible CSS layer. Every entry here is a calc()-derived value, a
    portaled element not rendered directly, or a runtime var — never a value a
    utility could express. This is the CLOSED list; components add nothing here.
    ============================================================================ */
 
-/* Switch (§8.1) — thumb travel is calc(track − knob − 2·inset), not track height */
+/* Switch — thumb travel is calc(track − knob − 2·inset), not track height */
 @utility sc-switch-root {
   @apply relative shrink-0 cursor-pointer rounded-full border-0 transition-colors;
   width: var(--switch-w);
@@ -640,7 +640,7 @@
   translate: calc(var(--switch-w) - var(--switch-knob-size) - (2 * var(--switch-inset)));
 }
 
-/* Media / avatar (§8.5) — single-source the size so every avatar resizes at once */
+/* Media / avatar — single-source the size so every avatar resizes at once */
 @utility sc-media {
   @apply flex shrink-0 items-center justify-center overflow-hidden;
   width: var(--media-size);
@@ -651,7 +651,7 @@
   color: var(--media-fg);
 }
 
-/* Agent mark (§9.12) — the header brand tile; 27px, accent fill, primary diamond.
+/* Agent mark (Widget header) — the header brand tile; 27px, accent fill, primary diamond.
    A dedicated tile (not sc-media): its bg is --accent and size is 27px, per the
    design_widget.html --agent-mark-* token table. */
 @utility sc-agent-mark {
@@ -664,7 +664,7 @@
   color: var(--agent-mark-fg);
 }
 
-/* Icon button (§8.7) — needs --size-control + the popupopen reaction */
+/* Icon button (Button) — needs --size-control + the popupopen reaction */
 @utility sc-icon-btn {
   @apply inline-flex items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground cursor-pointer hover:bg-accent;
   width: var(--size-control);
@@ -674,7 +674,7 @@
   }
 }
 
-/* Segmented track (§8.8) — the only place the 3px inset lives */
+/* Segmented track (Segmented control) — the only place the 3px inset lives */
 @utility sc-seg {
   @apply flex bg-muted;
   border-radius: var(--seg-radius);
@@ -682,7 +682,7 @@
   padding: var(--seg-pad);
 }
 
-/* Text field / input / textarea (§8.6) — every form control reads its --field-* tokens,
+/* Text field / input / textarea (Field) — every form control reads its --field-* tokens,
    so one change re-skins them all. Radius is --field-radius (= --radius-md, the app-core
    control radius), never a one-off rounded-xl/rounded-lg. */
 @utility sc-field {
@@ -708,7 +708,7 @@
   }
 }
 
-/* Combobox empty state (§8.11). Base UI keeps this element mounted as an aria-live
+/* Combobox empty state. Base UI keeps this element mounted as an aria-live
    region even when there ARE matches (its children are just removed), so collapse it
    to nothing while empty — otherwise its py-6 padding reserves a blank 48px gap. */
 @utility sc-combo-empty {
@@ -718,14 +718,14 @@
   }
 }
 
-/* Collapsible panel (§8.15) — height animates from Base UI's exposed var, no JS measure */
+/* Collapsible panel — height animates from Base UI's exposed var, no JS measure */
 @utility sc-collapsible-panel {
   @apply overflow-hidden border-l-2 border-border;
   height: var(--collapsible-panel-height);
   transition: height var(--dur) var(--ease-out);
 }
 
-/* Composer (§9.5) — focus ring on the shell, + rotates to ×, send arms */
+/* Composer (Composer) — focus ring on the shell, + rotates to ×, send arms */
 @utility sc-composer {
   @apply flex flex-col rounded-xl border border-input bg-background shadow-(--shadow-card);
   &:focus-within,
@@ -756,7 +756,7 @@
   }
 }
 
-/* Message actions (§9.7) — Copied is a transient state swap on the same button */
+/* Message actions (Message actions) — Copied is a transient state swap on the same button */
 @utility sc-action {
   @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground bg-transparent hover:bg-accent cursor-pointer;
   &[data-copied] {
@@ -764,7 +764,7 @@
   }
 }
 
-/* Error glyph (§9.10 / §7.6) — destructive mixed into muted; no phantom -foreground */
+/* Error glyph (Error notice / semantic colors) — destructive mixed into muted; no phantom -foreground */
 @utility sc-error-glyph {
   color: color-mix(in oklch, var(--destructive) 60%, var(--muted-foreground));
 }
@@ -840,7 +840,7 @@ a.sc-cite-source:hover {
     border-color var(--dur) var(--ease-out);
 }
 
-/* Context ring (§9.5) — SVG stroke; the % drives stroke-dashoffset inline */
+/* Context ring (Composer) — SVG stroke; the % drives stroke-dashoffset inline */
 @utility sc-context-ring {
   & .sc-context-ring-track {
     stroke: var(--context-ring-track);
@@ -1261,7 +1261,7 @@ a.sc-cite-source:hover {
   padding-inline: var(--header-px);
 }
 
-/* Markdown (§10) — styles Streamdown's owned DOM; tokens first, no one-off colour */
+/* Markdown (Markdown / Streamdown) — styles Streamdown's owned DOM; tokens first, no one-off colour */
 @utility sc-markdown {
   & :where(p, li, blockquote, td) {
     line-height: var(--message-leading);
@@ -1311,7 +1311,7 @@ a.sc-cite-source:hover {
 }
 
 /* ============================================================================
-   Portaled popups (§8.2 / §8.10 / §8.11). They live outside .side-chat-widget-root
+   Portaled popups (Menu / Select / Combobox). They live outside .side-chat-widget-root
    in the DOM even when portaled into it, carry --transform-origin for the
    enter/exit, and are unlayered so they beat Tailwind's utility layer.
    ============================================================================ */
@@ -1337,7 +1337,7 @@ a.sc-cite-source:hover {
   scale: 0.97;
 }
 
-/* Citation hover card (§9.5) — the inline `[n]` marker's PreviewCard popup. Same
+/* Citation hover card (Composer) — the inline `[n]` marker's PreviewCard popup. Same
    portaled-popup surface as the menus; a source preview stacked by --cite-card-gap:
    a favicon+domain row, the title, then the model's exact quoted excerpt. */
 [data-slot="hover-card-content"] {
@@ -1356,7 +1356,7 @@ a.sc-cite-source:hover {
 }
 
 /*
- * Modal dialog (§8.16). Panel-scoped: both slots are portaled into the widget
+ * Modal dialog. Panel-scoped: both slots are portaled into the widget
  * root and positioned absolute, so the dialog overlays the panel (never the
  * host page) and the backdrop inherits the panel's rounded corners.
  */
@@ -1390,7 +1390,7 @@ a.sc-cite-source:hover {
 }
 
 /*
- * Base UI ScrollArea overlay scrollbar (§8.3). Unlayered and keyed on Base UI's
+ * Base UI ScrollArea overlay scrollbar (Scroll area). Unlayered and keyed on Base UI's
  * own data attributes so it fades out when idle and appears on hover/scroll.
  */
 [data-slot="scroll-area-scrollbar"] {

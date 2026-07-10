@@ -1,5 +1,5 @@
 /**
- * §8.2 — Menu / Popover.
+ * Menu / Popover.
  *
  * Built directly on Base UI Menu. Consumers compose the parts themselves; the
  * only shared affordance is `MenuSection` (the showcase demo) — siblings import

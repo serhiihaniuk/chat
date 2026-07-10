@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * §8.15 — Collapsible.
+ * Collapsible.
  *
  * Built on Base UI `Collapsible`, which owns the open/close + height animation
  * contract. The panel animates from Base UI's exposed `--collapsible-panel-height`
  * through the `sc-collapsible-panel` hook class — never a JS `scrollHeight` measure.
- * Controlled `open` lets a parent (e.g. the Reasoning fold, §9) auto-collapse when
+ * Controlled `open` lets a parent, such as the Reasoning fold, auto-collapse when
  * the answer starts. The chevron rotates via the `panelopen:` variant.
  */
 import { type ReactElement, type ReactNode } from "react";

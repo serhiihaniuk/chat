@@ -1,7 +1,7 @@
 /**
  * Dialog demo — renders the REAL `DialogSection` from the widget.
  *
- * Dialog (§8.16) is the panel-scoped modal: `WidgetDialog` portals its backdrop
+ * Dialog is the panel-scoped modal: `WidgetDialog` portals its backdrop
  * and popup into the widget root (`usePortalContainer()`) and positions them
  * absolute, so the overlay covers the widget panel — never the embedding page —
  * and clips to the panel's rounded corners. Surface + motion are owned by

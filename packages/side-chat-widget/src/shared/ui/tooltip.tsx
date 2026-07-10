@@ -1,5 +1,5 @@
 /**
- * §8.13 — Tooltip.
+ * Tooltip.
  *
  * Built from Base UI `Tooltip`. Replaces the native `title` attribute on header
  * icon buttons (Settings / New chat / Close). No dedicated palette — the popup

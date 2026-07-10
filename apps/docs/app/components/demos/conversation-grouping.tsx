@@ -1,5 +1,5 @@
 /**
- * Demo for §9.2 Conversation grouping — rendered inside <Preview>'s shadow root.
+ * Demo for Conversation grouping — rendered inside <Preview>'s shadow root.
  *
  * Only the widget's compiled stylesheet is present, so this file's own layout uses
  * inline styles + widget tokens (var(--…)); the real ConversationGrouping carries

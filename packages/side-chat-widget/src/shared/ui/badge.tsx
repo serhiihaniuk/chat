@@ -1,5 +1,5 @@
 /**
- * §8.12 — Badge & Suggestion (plain markup, no Base UI).
+ * Badge & Suggestion (plain markup, no Base UI).
  *
  * Badge   = a NON-interactive status pill (<span>). No hover/focus affordance —
  *           it conveys state, it is not actionable.

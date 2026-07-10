@@ -1,5 +1,5 @@
 /**
- * Demo for §9.6 Message — renders the REAL <Message> leaf for both roles.
+ * Demo for Message — renders the REAL <Message> leaf for both roles.
  *
  * A turn is a semantic `<div data-from>`; the role drives layout + skin. The user
  * side is a right-aligned bubble capped at 82% of the column; the assistant side is

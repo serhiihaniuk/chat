@@ -1,11 +1,11 @@
 /**
- * §9.2 — Conversation grouping.
+ * Conversation grouping.
  *
- * Conversation items (§9.1) bucketed by last-activity into Recent · This week ·
+ * Conversation items bucketed by last-activity into Recent · This week ·
  * Older, each bucket a `<section>` under a `--group-label-*` overline. Bucketing
  * keys off `updatedAt`, not creation; an empty bucket renders nothing (no orphan
  * heading), and items are newest-first within a bucket. Buckets are separated by
- * `--rail-group-gap`. No Base UI parts — plain layout around §9.1.
+ * `--rail-group-gap`. No Base UI parts — plain layout around conversation items.
  */
 import { type ReactElement } from "react";
 

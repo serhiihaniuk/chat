@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * §8.16 — Link-safety confirmation for every external link.
+ * Dialog — Link-safety confirmation for every external link.
  *
  * Markdown links and citation rows use this same dialog before opening a URL.
  * The widget owns the dialog instead of Streamdown, so it stays inside the

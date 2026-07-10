@@ -1,5 +1,5 @@
 /**
- * Section 9.5 — Composer: the message input and its controls.
+ * Composer: the message input and its controls.
  *
  * The shell contains the textarea, tools menu, real context meter, model selector,
  * and send button. `sc-composer` owns the `:focus-within` ring, so focusing the

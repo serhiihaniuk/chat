@@ -1,5 +1,5 @@
 /**
- * Demo for §8.14 — Separator. Renders the REAL <Separator> (Base UI Separator, so it
+ * Demo for Separator. Renders the REAL <Separator> (Base UI Separator, so it
  * carries role=separator + aria-orientation) in both orientations: a horizontal rule
  * splitting two stacked text blocks, and a vertical rule between two inline items.
  * Demo-level layout uses inline styles + widget tokens because the <Preview> shadow

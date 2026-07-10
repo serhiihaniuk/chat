@@ -9,7 +9,7 @@
 
 ## Executive summary
 
-**The per-layer engineering is genuinely strong — better than most production codebases.** Boundaries are real and machine-enforced, the event vocabularies are mapped once per boundary as promised, the exactly-one-terminal invariant is defended in multiple layers and tested on every exit path, comment quality is exceptional, and the fake provider + adapter-parity test harnesses are exemplary. The vertical performance story is excellent (see §8).
+**The per-layer engineering is genuinely strong — better than most production codebases.** Boundaries are real and machine-enforced, the event vocabularies are mapped once per boundary as promised, the exactly-one-terminal invariant is defended in multiple layers and tested on every exit path, comment quality is exceptional, and the fake provider + adapter-parity test harnesses are exemplary. The vertical performance story is excellent (see section 8).
 
 **The foundation risk is not code quality — it's that the repo currently disagrees with itself about what its architecture is.** On 2026-06-30, a deliberate refactor series ("connection-bound streaming", commits `b194451` → `8c0af7e` → `f2b5bb8` → `9961a6e` → `be8303f` → `349ba73`) deleted the durable `turn_events` table, the reaper, and the pruner, replacing the event transport with a per-instance in-memory registry. That pivot is a defensible product decision (claude.ai works the same way). But nothing else followed it:
 
@@ -17,9 +17,9 @@
 - The safety mechanisms that the old design relied on (reaper) were removed without replacing the jobs they did, so **a crashed instance now strands turns as `running` forever**.
 - Dead surface remains everywhere: lease heartbeats that protect against nothing, four config knobs that configure nothing, a `dist/` full of deleted modules, e2e tests asserting a deleted UI.
 
-**The intended model** (confirmed by the owner during this review): one active tab holds the live stream; refresh/other tabs read the final message from the DB when the turn completes; **multi-instance must still work turn-independently** — any instance can serve the next turn because context comes from the DB. Section §2 evaluates the code against _that_ target and lists exactly what's missing. Short version: the model is achievable with small, targeted fixes — no re-architecture needed — but four gaps currently break it, one of which breaks it even for a single browser tab behind a load balancer.
+**The intended model** (confirmed by the owner during this review): one active tab holds the live stream; refresh/other tabs read the final message from the DB when the turn completes; **multi-instance must still work turn-independently** — any instance can serve the next turn because context comes from the DB. Section 2 evaluates the code against _that_ target and lists exactly what's missing. Short version: the model is achievable with small, targeted fixes — no re-architecture needed — but four gaps currently break it, one of which breaks it even for a single browser tab behind a load balancer.
 
-**Bottom line:** fix the P0 list (§10) before building more features. All of it is days, not weeks, and none of it fights the architecture — it finishes the pivot that was started.
+**Bottom line:** fix the P0 list (section 10) before building more features. All of it is days, not weeks, and none of it fights the architecture — it finishes the pivot that was started.
 
 ---
 
@@ -32,7 +32,7 @@ Confidence matters as much as fear. These were verified, not assumed:
 - **Exactly-one-terminal is defended in layers**: protocol state machine, accumulator, `Effect.onExit` finalization covering success/failure/defect/interrupt, and tests on all five exit paths (`finalize-turn-generation.test.ts`).
 - **Idempotent turn start is atomic** — `INSERT ... ON CONFLICT (workspace_id, request_id) DO NOTHING` + fork-only-when-inserted. Not check-then-insert.
 - **Abort genuinely aborts**: durable cancel intent + NOTIFY + fiber interrupt + `AbortController` threaded into `agent.stream()` — the provider fetch is actually cancelled, verified through all four packages.
-- **Vertical performance is engineered, not accidental** (§8): 250 ms delta coalescing, zero DB writes per streamed delta, pull-based SSE with bounded dropping queues, per-message memoized rendering.
+- **Vertical performance is engineered, not accidental** (section 8): 250 ms delta coalescing, zero DB writes per streamed delta, pull-based SSE with bounded dropping queues, per-message memoized rendering.
 - **Testing craft**: the deterministic fake provider implements the real `LanguageModelV3` interface so the actual AI-SDK loop runs offline; provider tests assert real wire bodies via injected fetch; the db contract suite runs identically against Postgres (Testcontainers) and in-memory; the widget reducer is pure and thoroughly unit-tested.
 - **Comment discipline** matches AGENTS.md: spine functions read top-down with stage comments; tricky SQL (lease CAS, `SKIP LOCKED`, notify-in-transaction) explains _why_.
 - **The token/theming system delivers its promise**: 3-tier tokens, themes/accent/density/radius/typeface all flow through one root; portals and fonts correctly scoped inside the iframe.
@@ -141,7 +141,7 @@ Downstream semantic fixes in the same theme:
 - The widget maps `sidechat.error(code=aborted)` to FAILED with a Retry button — a cancel from another tab renders as a red error; blocked gets a Retry that resubmits filtered content (`widget-run-reducer.ts:107-110`). Map aborted → CANCELLED; give blocked its own status, no retry.
 - Core persists a blocked turn as `provider_failed` status — safety stops are indistinguishable from outages in the DB (`protocol-event-accumulator.ts:96-103`).
 - Host commands re-execute on reload replay (`maybeDispatchHostCommand` ignores `status`/existing `result` — a reload mid-turn re-navigates the host, `widget-run-subscription.ts:65-82`).
-- Comment-only SSE frames (`: keepalive`) **crash both protocol decoders** (`sse-codec.ts:15,28`; `activity-sse-codec.ts:36`) — the moment an adopter's proxy sends standard keepalives, every client hard-fails mid-turn. Skip dataless frames; and since the service sends no heartbeats itself (see §8), adopters _will_ add them.
+- Comment-only SSE frames (`: keepalive`) **crash both protocol decoders** (`sse-codec.ts:15,28`; `activity-sse-codec.ts:36`) — the moment an adopter's proxy sends standard keepalives, every client hard-fails mid-turn. Skip dataless frames; and since the service sends no heartbeats itself (see section 8), adopters _will_ add them.
 
 ---
 
@@ -183,7 +183,7 @@ Widget (state):
 ## 7. Widget UI (P1/P2)
 
 - **The Playwright e2e suite asserts a UI that no longer exists** (tool detail cards, "Dismiss error" button, context-ring hover — `e2e/widget-harness.spec.ts:66,189-229,253,294-306`) and nothing runs it (no CI). A red-if-ever-run suite certifies behavior that isn't there — reconcile it with the shipped UI and put it in CI; the harness itself (iframe postMessage host, health-checked orchestration, fail-on-page-error) is genuinely good.
-- **Protocol content renders nothing** (see §4 — tool results/sources/images/host-command results). The mock stream emits them; they vanish.
+- **Protocol content renders nothing** (see section 4 — tool results/sources/images/host-command results). The mock stream emits them; they vanish.
 - **The context ring is fabricated** — `characters/48`, `aria-hidden`, no tooltip — while real `usage` from completed events sits unused (`widget-footer.tsx:135-139`, `widget-run-reducer.ts:106`). Use real usage or remove the ring.
 - **Dark-mode remnants contradict the no-dark policy**: a full `.dark` token block, `dark:` utilities in two components, a docs-app Dark toggle, and a unit test _enforcing_ graphite-tracks-host-dark. Decide and align (policy says: no dark).
 - **Mobile bottom sheet is not implemented** (design record says floating panel → bottom sheet on mobile; it's a fixed card at every viewport).
@@ -199,14 +199,14 @@ Widget (state):
 
 **Vertical: no, you didn't mess up.** Quantified by review: the 250 ms coalescer caps event rate at ~4/s per turn regardless of provider token rate; **zero DB writes per streamed delta**; ~10-15 short queries at pre-start + ~5-7 at finalization + 1 lease update/10 s; SSE is pull-based, holds no pooled connections, and bounds a stuck client at a 256-event dropping queue; one active turn holds ~3× the answer text in memory; the widget re-renders only the streaming message per delta (memo + identity-preserving projection), history capped at 100 messages. Realistic ceilings: ~10k SSE connections per Node instance, thousands of concurrent turns per small Postgres. No event-loop hazards, no hot-path logging.
 
-**Horizontal: broken at 2 instances today** — the gaps in §2 (stream affinity, host-command affinity, orphan recovery). The turn-independent model you want is compatible with the current design once §2.1/§2.2 land; the cancel and activity channels already work cross-instance correctly (poke-don't-payload NOTIFY, ~200-byte payloads, 2-3 per turn — nowhere near limits).
+**Horizontal: broken at 2 instances today** — the gaps in section 2 (stream affinity, host-command affinity, orphan recovery). The turn-independent model you want is compatible with the current design once section 2.1/section 2.2 land; the cancel and activity channels already work cross-instance correctly (poke-don't-payload NOTIFY, ~200-byte payloads, 2-3 per turn — nowhere near limits).
 
 **Cheap wins before ~10⁶ rows:**
 
 - Partial index `assistant_turns(workspace_id, subject_id) WHERE status='running'` — the activity snapshot currently **seq-scans on every widget mount/tab-refocus** (`turn-lookups.ts:80-95`).
 - Index `usage_records(workspace_id)` — `/usage` is a full-table scan+aggregate growing forever (`usage.ts:56-76`).
 - Drop `messages_conversation_sequence_desc_idx` (exact duplicate of the unique index; pure write overhead).
-- **SSE heartbeat comments every ~20 s** — idle activity streams send zero bytes, so LB idle timeouts (ALB default 60 s) kill them; each reconnect fires the unindexed snapshot scan plus a list refetch. (Fix the decoder crash from §5 first.)
+- **SSE heartbeat comments every ~20 s** — idle activity streams send zero bytes, so LB idle timeouts (ALB default 60 s) kill them; each reconnect fires the unindexed snapshot scan plus a list refetch. (Fix the decoder crash from section 5 first.)
 - Expose pg `Pool` `max` (and TLS) through `sidechat.config.ts` — currently hardcoded defaults, contradicting the config-driven rule (`postgres-drizzle/index.ts:15-28`).
 - No retention policy exists for `assistant_turns`/`usage_records`/`audit_events` (~3.6 M rows/yr at 10 k turns/day) — fine for years, but the (currently dead) retention knobs suggest otherwise; document reality.
 - No load test or benchmark exists in the repo; one autocannon script + one "N concurrent streaming turns" harness test would anchor regressions.
@@ -230,16 +230,16 @@ Strong overall — naming tracks the vocabulary doc, spine functions read top-do
 
 **P0 — before anything else (all small except the affinity decision):**
 
-1. Decide and implement the stream-affinity story (§2.1: fail-fast + sticky docs, or stream-from-POST) — and write **ADR-0010** superseding 0009.
-2. Reinstate the orphan sweep calling `reapExpiredTurns` with the widened predicate (§2.2); make heartbeat renewal retry once.
-3. Docs truth pass (§2.4): rewrite streaming sections of README / assistant-turn / system-map / db README; purge "reaper backstops it" comments; delete dead reaper/pruner/retention config knobs.
-4. Fix the fake-provider quick start (§3) and log the silent config fallback.
-5. Add `pool.on("error")` / `client.on("error")` + LISTEN reconnect loops (§6 — prevents process crashes).
+1. Decide and implement the stream-affinity story (section 2.1: fail-fast + sticky docs, or stream-from-POST) — and write **ADR-0010** superseding 0009.
+2. Reinstate the orphan sweep calling `reapExpiredTurns` with the widened predicate (section 2.2); make heartbeat renewal retry once.
+3. Docs truth pass (section 2.4): rewrite streaming sections of README / assistant-turn / system-map / db README; purge "reaper backstops it" comments; delete dead reaper/pruner/retention config knobs.
+4. Fix the fake-provider quick start (section 3) and log the silent config fallback.
+5. Add `pool.on("error")` / `client.on("error")` + LISTEN reconnect loops (section 6 — prevents process crashes).
 6. Add minimal CI (`npm run verify` + `test:db:container`) and a LICENSE.
 
-**P1 — the template promise (each independent, small-to-medium):** 7. Widget resilience set (§2.3): retryable transport errors, run→history handoff on terminal, inactivity watchdog, dense-gap fix in the subscription stream, synthetic terminal on the success path. 8. Terminal semantics set (§5): blocked through sequence validator + schema + completeness test; aborted → CANCELLED in the reducer; no Retry for blocked; skip resolved host commands on replay; decoders skip comment frames. 9. Seams set (§4): injectable `authVerifier` + subject-scoped turn routes; real tool-registration map; `createRuntimeToolFromPromise`; `renderActivityItem` prop; call-settings bag; delete the dead Effect Layer machinery; port-contract invariants written down. 10. Correctness set (§6): `FOR UPDATE` on appendMessage + observe fiber exits; conversation key from requestId; abort part → terminal; single-terminal enforcement in the runner; fail-open telemetry. 11. The two DB indexes + SSE heartbeats + Pool config (§8).
+**P1 — the template promise (each independent, small-to-medium):** 7. Widget resilience set (section 2.3): retryable transport errors, run→history handoff on terminal, inactivity watchdog, dense-gap fix in the subscription stream, synthetic terminal on the success path. 8. Terminal semantics set (section 5): blocked through sequence validator + schema + completeness test; aborted → CANCELLED in the reducer; no Retry for blocked; skip resolved host commands on replay; decoders skip comment frames. 9. Seams set (section 4): injectable `authVerifier` + subject-scoped turn routes; real tool-registration map; `createRuntimeToolFromPromise`; `renderActivityItem` prop; call-settings bag; delete the dead Effect Layer machinery; port-contract invariants written down. 10. Correctness set (section 6): `FOR UPDATE` on appendMessage + observe fiber exits; conversation key from requestId; abort part → terminal; single-terminal enforcement in the runner; fail-open telemetry. 11. The two DB indexes + SSE heartbeats + Pool config (section 8).
 
-**P2 — polish while it's cheap:** 12. Widget UI pass (§7): e2e reconciliation, render-or-cut tool results/sources, dark-mode cleanup, theme single-sourcing + recipe, composer IME/focus fixes, dead-code purge, isolation claims. 13. Core folder flattening + naming de-collisions (§9); "add a table" and "graduating from day-one migrations" runbooks; rename `partner-ai-*` or add the glossary.
+**P2 — polish while it's cheap:** 12. Widget UI pass (section 7): e2e reconciliation, render-or-cut tool results/sources, dark-mode cleanup, theme single-sourcing + recipe, composer IME/focus fixes, dead-code purge, isolation claims. 13. Core folder flattening + naming de-collisions (section 9); "add a table" and "graduating from day-one migrations" runbooks; rename `partner-ai-*` or add the glossary.
 
 ---
 
@@ -255,7 +255,7 @@ Strong overall — naming tracks the vocabulary doc, spine functions read top-do
 | `side-chat-widget` (state)              | Good architecture (pure reducer, minimal public API); resilience half-built — resumability breaks exactly where it matters.                            |
 | `side-chat-widget` (UI)                 | Token/theming system is the real thing; protocol content unrendered, stale e2e, dead code pile — mid-molt, fixable in days.                            |
 | Template/DX                             | Governance tooling is genuinely impressive, but there's no CI to run it, no LICENSE, and the first documented command crashes.                         |
-| Performance                             | Vertical: excellent, quantified. Horizontal: blocked by §2; two missing indexes; otherwise clean.                                                      |
+| Performance                             | Vertical: excellent, quantified. Horizontal: blocked by section 2; two missing indexes; otherwise clean.                                               |
 
 ---
 

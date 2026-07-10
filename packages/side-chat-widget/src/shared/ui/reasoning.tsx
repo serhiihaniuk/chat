@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * §9.8 — Reasoning: the foldable thinking trace.
+ * Reasoning: the foldable thinking trace.
  *
- * Base UI `Collapsible` (§8.15) contains thought lines and `<ToolRow>` entries
- * (§9.9) as siblings in stream order. Tools stay where they happened; they are
+ * Base UI `Collapsible` contains thought lines and `<ToolRow>` entries
+ * (tool rows) as siblings in stream order. Tools stay where they happened; they are
  * not moved into a separate block below the answer. The header pulses while the
  * model is thinking, and the chevron follows the controlled open state.
  *

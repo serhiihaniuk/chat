@@ -1,5 +1,5 @@
 /**
- * §8.16 — Dialog: a modal kept inside the widget panel.
+ * Dialog: a modal kept inside the widget panel.
  *
  * Base UI `Dialog` portals the backdrop and popup into `usePortalContainer()`.
  * Absolute positioning keeps the modal over the widget, not over the host page,

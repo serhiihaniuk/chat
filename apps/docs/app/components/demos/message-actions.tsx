@@ -1,5 +1,5 @@
 /**
- * Demo for the §9.7 Message actions row.
+ * Demo for the Message actions row.
  *
  * Renders the REAL <MessageActions> ghost button row beneath a sample assistant
  * answer, mirroring MessageActionsSection. Demo-level layout uses inline styles +

@@ -1,5 +1,5 @@
 /**
- * Demo for §9.10 — Error notice. Renders the REAL ErrorNotice on a muted surface,
+ * Demo for Error notice. Renders the REAL ErrorNotice on a muted surface,
  * once with a "Try again" retry and once as a bare advisory (no retry). Layout here
  * uses inline styles + widget tokens so it survives inside <Preview>'s shadow root.
  */

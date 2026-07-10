@@ -1,5 +1,5 @@
 /**
- * §8.9 Tabs — Base UI Tabs with PANELS (distinct from Segmented, which has none).
+ * Tabs — Base UI Tabs with PANELS (distinct from Segmented, which has none).
  *
  * Root drives value/onValueChange; the List + every Panel are siblings sharing the
  * same values. Drive both the tabs and their panels from ONE array so adding a group

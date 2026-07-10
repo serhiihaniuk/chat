@@ -1,5 +1,5 @@
 /**
- * §8.7 — Button.
+ * Button.
  *
  * Text buttons are pure tier-1 utilities on a plain <button>, so `hover:` and
  * `focus-visible:` are allowed here (gate G4 only forbids those on Base UI parts).

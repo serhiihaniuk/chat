@@ -1,5 +1,5 @@
 /**
- * Demo for §9.8 — Reasoning. Renders the REAL <Reasoning> foldable trace twice:
+ * Demo for Reasoning. Renders the REAL <Reasoning> foldable trace twice:
  * a live "thinking" trace (label shimmers, a tool still running, panel open) and a
  * completed trace whose open state is user-toggled via a control button. The panel
  * interleaves thought lines and tool rows as siblings in stream order. Layout here

@@ -1,5 +1,5 @@
 /**
- * Demo for §8.5 — Media (avatar). Renders the REAL Media square across its three
+ * Demo for Media (avatar). Renders the REAL Media square across its three
  * content modes: 1–2 initials, a lucide glyph, and a cover <img> that fills the
  * square. Each variant is captioned. Wrapper layout uses inline styles + widget
  * tokens so it survives inside <Preview>'s shadow root.

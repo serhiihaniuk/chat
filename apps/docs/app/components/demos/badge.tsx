@@ -1,5 +1,5 @@
 /**
- * Demo for §8.12 — Badge & Suggestion.
+ * Demo for Badge & Suggestion.
  *
  * Renders the REAL primitives side by side so the contrast is visible: <Badge> is a
  * non-interactive status pill (a <span>, no hover/focus), while <Suggestion> is an
