@@ -1,5 +1,5 @@
 import type { TextStreamPart, ToolSet } from "ai";
-import type { JsonObject } from "@side-chat/shared";
+import { toJsonObject, type JsonObject } from "@side-chat/shared";
 import type { RuntimeTool } from "#tools/runtime-tool";
 
 import {
@@ -12,7 +12,6 @@ import {
   type RuntimeEvent,
 } from "@side-chat/ai-runtime-contract";
 import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
-import { toJsonObject } from "../tools/json-value.js";
 
 const AI_SDK_TOOL_PART_TYPES = {
   INPUT_START: "tool-input-start",

@@ -74,7 +74,7 @@ describe("partner ai service streaming path", () => {
     });
   });
 
-  it("replays sidechat.v1 events from the durable log for authorized requests", async () => {
+  it("streams sidechat.v1 events from the owning instance for authorized requests", async () => {
     const { events } = await runTurnStream(createApp(), validRequest);
 
     expect(events.map((event) => event.type)).toEqual(

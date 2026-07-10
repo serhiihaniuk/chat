@@ -3,25 +3,24 @@ import type { Effect } from "effect";
 import type { AuthContext } from "#domain/authority";
 
 /**
- * Durable, append-only log of one assistant turn's browser stream events.
+ * Append-only store for one assistant turn's browser stream events.
  *
- * This is the resumability source of truth: a reconnect or cancel can land on a
- * different instance than the one generating, so the log (not an in-memory
- * stream) is what every subscriber replays from. Core appends each emitted
- * `SidechatStreamEvent` here; the persistence adapter stamps the row, derives
- * the durable type/sequence, and signals subscribers on commit.
+ * Source events come from core; the target adapter chooses the storage
+ * technology. The shipped target is a per-instance in-memory registry, so
+ * replay is available only on that instance while the entry is retained. This
+ * port hides the adapter but does not promise cross-instance or restart replay.
  *
- * Ordering and offsets follow one convention: the event `sequence` is dense and
- * gap-free per turn (`sidechat.started` is 0), and reads use
- * `after = <lastSeenSequence>` returning `sequence > after` ordered ascending.
+ * Invariant: event sequences are dense per turn (`sidechat.started` is 0).
+ * Reads use `after = <lastSeenSequence>` and return `sequence > after` in
+ * ascending order.
  */
 export type TurnEventLogPort = {
   /**
    * Append one stream event at its protocol sequence.
    *
-   * Idempotent on `(assistantTurnId, sequence)`: re-appending the identical event
-   * is a no-op, while a conflicting payload at the same sequence is a durable-log
-   * corruption and fails. At most one terminal event is ever stored per turn.
+   * Invariant: `(assistantTurnId, sequence)` is idempotent only for an identical
+   * event; a conflicting payload fails. Once the target stores a terminal,
+   * later appends are no-ops, so each turn stores at most one terminal.
    */
   readonly appendEvent: (input: {
     readonly authContext: AuthContext;

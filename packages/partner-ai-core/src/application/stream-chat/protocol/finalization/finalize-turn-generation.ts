@@ -40,8 +40,8 @@ type AbnormalTerminal = {
  *
  * This is the `onExit` finalizer for the service runner. The runner forks
  * generation off the HTTP request and drains the post-start stream into the
- * event log; this function then guarantees the turn always reaches exactly one
- * durable terminal — as a STATUS and as an EVENT:
+ * turn-event store; this function then guarantees one terminal event for live
+ * subscribers and one durable final status for history:
  *
  * - A normal exit with a terminal in the accumulator persists the status the
  *   stream's own terminal dictates.
@@ -57,11 +57,9 @@ type AbnormalTerminal = {
  *   failure) is classified honestly from the exit cause plus the durable cancel
  *   intent, and the one synthetic terminal that path owns is appended.
  *
- * The synthetic append can never duplicate a terminal that landed concurrently:
- * the event-log adapter refuses appends after a terminal (the in-memory
- * registry's terminal guard; formerly the DB's partial-unique index). The
- * durable status write rides the running-guard, so only the first transition
- * wins.
+ * The turn-event port refuses appends after a terminal, so a synthetic append
+ * racing the stream's terminal cannot create a second one. The durable status
+ * write uses the running guard, so only the first final transition wins.
  */
 export const finalizeTurnGeneration = <A>(
   ports: StreamChatPorts,
@@ -75,7 +73,7 @@ export const finalizeTurnGeneration = <A>(
     if (Exit.isSuccess(exit)) {
       if (!state.terminalEvent) {
         // The drain ended cleanly but the stream never carried a terminal: close
-        // the event log for subscribers before the status write fails the turn.
+        // the turn-event store for subscribers before the status write fails the turn.
         yield* appendSyntheticTerminal(ports, input, turn, PROTOCOL_ERROR_CODES.PROVIDER_FAILED);
       }
       return yield* finalizeProtocolStream(ports, input, turn, accumulator);
@@ -94,10 +92,10 @@ export const finalizeTurnGeneration = <A>(
  *
  * The exit cause and the durable cancel intent decide the honest terminal: a
  * user cancel, an external interrupt (shutdown/fence), or a defect each map to a
- * different status and code. The synthetic terminal append conflicts on the
- * partial-unique terminal index, so it can never duplicate a terminal that landed
- * concurrently; the durable status write is guarded so only the first transition
- * wins. Both steps are therefore safe even though this path owns the abnormal exit.
+ * different status and code. The turn-event port's terminal guard prevents a
+ * concurrent stream terminal from being duplicated; the durable status write is
+ * guarded so only the first transition wins. Both steps are safe even though
+ * this path owns the abnormal exit.
  */
 const finalizeAbortedTurnGeneration = (
   ports: StreamChatPorts,
@@ -125,7 +123,7 @@ const finalizeAbortedTurnGeneration = (
   });
 
 /**
- * Classify an abnormal exit into its honest durable terminal.
+ * Classify an abnormal exit into its honest durable failure outcome.
  *
  * - Interrupt with durable cancel intent: a real user cancel -> `user_aborted`.
  * - Interrupt without cancel intent: a shutdown or lease-fence stop the user did
@@ -183,10 +181,9 @@ const failTurn = (
 /**
  * Append the synthetic terminal at `maxSequence + 1`.
  *
- * The append goes through the event-log port, which `ON CONFLICT DO NOTHING`s on
- * the partial-unique terminal index. So if a real terminal already landed (a
- * race between the stream emitting one and the fiber being interrupted), this is
- * a durable no-op and the turn keeps exactly one terminal.
+ * The finalizer sends this fallback to the turn-event port, whose terminal
+ * guard ignores it when the stream's own terminal won the interruption race.
+ * Invariant: subscribers observe exactly one terminal.
  */
 const appendSyntheticTerminal = (
   ports: StreamChatPorts,

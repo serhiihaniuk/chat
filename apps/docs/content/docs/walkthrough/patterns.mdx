@@ -242,8 +242,8 @@ are folded into an immutable accumulator (`recordProtocolEvent`).
 <Callout title="Deep dive">
 Note what the stream does **not** do: it does not finalize. Durable terminal persistence is owned
 by the *caller* — the server-owned runner's `Effect.onExit` reads the shared accumulator after the
-stream is exhausted. That separation is exactly what makes a turn resumable: generation and its
-finalization live on a server fiber, independent of any browser connection (see
+stream is exhausted. That separation makes generation recoverable: generation and finalization
+live on a server fiber, independent of the browser, while live replay remains owner-bound (see
 [Life of a Turn](/docs/walkthrough/life-of-a-turn)).
 </Callout>
 

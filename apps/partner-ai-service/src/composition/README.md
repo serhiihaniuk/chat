@@ -91,7 +91,8 @@ in-flight turns.
 - Add a provider: register it in `providers/`, then it flows through
   `providers/create-service-provider-bundle.ts`.
 - Add a runtime tool: ship capability + executor as one `ServiceToolRegistration`
-  in `tools/`.
+  in `tools/`. Use its runtime factory only when the executor must call this
+  composition's own `AgentRuntime`; the registry keeps that binding per instance.
 - Add a turn profile: add a `ServiceTurnProfileConfig`; it validates through
   `turn-profile/create-service-turn-profile-bundle.ts`. The readable config that
   feeds it lives in `docs/operations/configuration.md`.

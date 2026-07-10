@@ -43,6 +43,9 @@ function escapeRegExp(value: string): string {
 }
 
 export default defineConfig({
+  // The Playwright suite runs this proxy and the widget UI concurrently from
+  // one workspace. Separate caches keep their dependency optimizers isolated.
+  cacheDir: "../node_modules/.vite-widget-host",
   root: "public",
   server: {
     host: "127.0.0.1",

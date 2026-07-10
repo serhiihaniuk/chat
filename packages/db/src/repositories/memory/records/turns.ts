@@ -141,9 +141,9 @@ const failMemoryAssistantTurn =
 /**
  * Mirror the postgres cancel-intent CAS for the memory adapter.
  *
- * Only a running turn in the same workspace transitions; an unknown,
- * cross-workspace, or already-terminal turn is a durable no-op so the shared
- * contract test holds. Memory has no `pg_notify`, so the in-process runner is
+ * Invariant (shared with postgres): only a running turn in the same workspace
+ * transitions; an unknown, cross-workspace, or already-terminal turn is a
+ * durable no-op so the shared contract test holds. Memory has no `pg_notify`, so the in-process runner is
  * interrupted directly by the cancel route instead of through a listener.
  */
 const requestMemoryTurnCancellation =

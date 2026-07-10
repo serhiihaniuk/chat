@@ -15,8 +15,8 @@ Not source of truth for: product workflow or protocol events.
   `(workspace_id, request_id)`, running-guarded complete/fail transitions,
   cancel intent (`requestTurnCancellation` CAS + `pg_notify` in one
   transaction), and the compare-and-set lease operations `acquireTurnLease` /
-  `renewTurnLease` / `reapExpiredTurns` (note: no production caller sweeps
-  expired leases yet — `plan/05`).
+  `renewTurnLease` / `reapExpiredTurns`. Every service instance runs the turn
+  reaper, which claims expired turns in bounded, disjoint batches.
 - Postgres `LISTEN/NOTIFY` for the two small signal channels, `turn_cancel` and
   `turn_activity` — pokes carrying ids, never event bodies. A dedicated
   `LISTEN` connection per channel, opened outside the query pool, bridges

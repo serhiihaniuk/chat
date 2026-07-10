@@ -205,11 +205,14 @@ test("renders expandable tool details, sources, and images from the activity str
   // humanized name; expanding discloses the input and result payloads.
   const toolRow = page.getByRole("button", { name: /Mock web search/u }).last();
   await expect(toolRow).toBeVisible({ timeout: 15_000 });
-  // Collapsed: the payload disclosure is not in the DOM yet.
-  await expect(page.getByText(/"query"/u).first()).toBeHidden();
+  // Collapsed: the semantic key/value disclosure is not in the DOM yet.
+  const queryTerms = page.locator("dt").filter({ hasText: /^Query$/u });
+  const queryValues = page.locator("dd").filter({ hasText: /^current portfolio news$/u });
+  await expect(queryTerms).toHaveCount(0);
   await toolRow.click();
-  // Both the Input and the Result payload blocks disclose (each carries the query).
-  await expect(page.getByText(/"query"/u).first()).toBeVisible();
+  // Both the Input and Result payload blocks disclose a human-readable Query row.
+  await expect(queryTerms).toHaveCount(2);
+  await expect(queryValues).toHaveCount(2);
   await expect(page.getByText(/briefing-style context/u)).toBeVisible();
 
   // The turn's attributed sources fold under the answer; expanding lists the
@@ -312,24 +315,26 @@ test("keeps the widget usable on a mobile viewport", async ({ page }) => {
 
   const widget = page.getByRole("region", { name: "Workspace Assistant" });
   await expect(widget).toBeVisible();
-  await expectElementWithinViewport(page, widget);
-  await expectElementWithinViewport(page, page.getByLabel("Message"));
-  await expectElementWithinViewport(page, page.getByRole("button", { name: "Send" }));
+  await expectElementWithinViewport(widget);
+  await expectElementWithinViewport(page.getByLabel("Message"));
+  await expectElementWithinViewport(page.getByRole("button", { name: "Send" }));
 });
 
 test("wraps an unbroken 300-character user message inside its bubble", async ({ page }) => {
   await page.goto(widgetAppUrl("?mode=mock-stream"));
   await expect(page.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
 
-  // An unbroken run (a long URL with no spaces) must break inside the 82% bubble
-  // cap, not paint past its right edge. `break-words` makes the text's scrollWidth
-  // collapse to its clientWidth; without it the single line overflows by hundreds
-  // of pixels.
+  // An unbroken run (a long URL with no spaces) must break inside the user bubble,
+  // not paint past its right edge. Measure that bubble rather than the assistant's
+  // markdown link, which repeats the same URL in the mock response.
   const longUrl = `https://example.com/${"a".repeat(280)}`;
   await page.getByLabel("Message").fill(longUrl);
   await page.getByRole("button", { name: "Send" }).click();
 
-  const bubble = page.getByRole("log").getByText(longUrl, { exact: true });
+  const bubble = page
+    .getByRole("log")
+    .locator('[data-from="user"]')
+    .getByText(longUrl, { exact: true });
   await expect(bubble).toBeVisible();
   const overflow = await bubble.evaluate((node) => node.scrollWidth - node.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
@@ -378,7 +383,7 @@ test("keeps the model selector visible as an anchored popover on a short viewpor
   // screen. (It renders as a Base UI popover; role is an implementation detail.)
   const modelSearch = page.getByPlaceholder("Search models...");
   await expect(modelSearch).toBeVisible();
-  await expectElementWithinViewport(page, modelSearch);
+  await expectElementWithinViewport(modelSearch);
 });
 
 const openLocalServiceWidget = async (page: Page) => {
@@ -465,17 +470,8 @@ const expectSeededConversations = async (request: APIRequestContext) => {
   );
 };
 
-const expectElementWithinViewport = async (page: Page, locator: Locator) => {
-  const viewport = page.viewportSize();
-  if (viewport === null) throw new Error("Expected page viewport to be available.");
-
-  const box = await locator.boundingBox();
-  if (box === null) throw new Error("Expected element to have a bounding box.");
-
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+const expectElementWithinViewport = async (locator: Locator) => {
+  await expect(locator).toBeInViewport({ ratio: 1 });
 };
 
 const resizePanelFromLeftEdge = async (

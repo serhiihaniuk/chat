@@ -30,6 +30,7 @@ export type {
 } from "./client/side-chat-api-types.js";
 export {
   SIDE_CHAT_API_ERROR_CODES,
+  isAbortApiError,
   SideChatApiError,
   type SideChatApiErrorCode,
 } from "./http/side-chat-api-error.js";

@@ -24,9 +24,9 @@ import {
 const databaseUrl = process.env["SIDECHAT_TEST_DATABASE_URL"];
 const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
 
-// This suite proves the cross-instance transport over real Postgres LISTEN/NOTIFY.
-// It runs only when a local test database is provided (see AGENTS.md / the plan);
-// without it the suite is skipped rather than spinning up a container here.
+// This suite combines real Postgres turn persistence with the service's
+// connection-bound, in-memory stream registry. It runs only when a local test
+// database is provided; without one it skips instead of starting a container.
 describe.skipIf(!databaseUrl)("partner ai service streaming over postgres", () => {
   const closers: Array<() => Promise<void>> = [];
   afterAll(async () => {
@@ -45,9 +45,9 @@ describe.skipIf(!databaseUrl)("partner ai service streaming over postgres", () =
     });
   };
 
-  it("receives started..completed in order on a live notify-driven subscription", async () => {
-    // The runtime blocks until released, so the subscription must tail live events
-    // delivered by the real Postgres NOTIFY path, not just replay a finished log.
+  it("receives started..completed in order on a live registry subscription", async () => {
+    // The runtime blocks until released, so the subscription must tail events
+    // from the owning instance's registry instead of reading a completed turn.
     const gate = createGate();
     const app = createApp(gatedRuntime(gate.promise));
     const request = uniqueRequest();
@@ -66,7 +66,7 @@ describe.skipIf(!databaseUrl)("partner ai service streaming over postgres", () =
     expect(events.map((event) => event.sequence)).toEqual([0, 1, 2, 3]);
   });
 
-  it("replays an already-completed run from the durable log and ends", async () => {
+  it("replays a completed run from the owning instance's registry and ends", async () => {
     const app = createApp(completedRuntime());
     const { assistantTurnId } = await runTurnStream(app, uniqueRequest());
 

@@ -159,7 +159,7 @@ export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): P
     sseHeartbeatIntervalMs: composition.sseHeartbeatIntervalMs,
     logger: options.diagnosticLogger ?? SILENT_DIAGNOSTIC_LOGGER,
   });
-  // ... then resolve, read status, subscribe to its durable event stream, and
+  // ... then resolve, read status, subscribe to its per-instance live stream, and
   // cancel it. Composition already started the per-instance cancel listener
   // (`cancelDispatcher`) that interrupts an owned fiber when a cancel lands on
   // any instance; the cancel route only writes durable intent + notify.

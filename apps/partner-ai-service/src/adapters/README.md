@@ -26,8 +26,9 @@ host-command logic directly.
 
 - Turn guards run before conversation persistence, private context, or runtime
   execution.
-- A tool's capability and executable ship as one `ServiceToolRegistration`, so
-  the manifest and runtime never need two independent lists.
+- A tool's capability and executable (direct or composition-realized) ship as
+  one `ServiceToolRegistration`, so the manifest and runtime never need two
+  independent lists.
 - `mock-web-search-tool.ts` is a local development/test fixture exposed through
   `createMockWebSearchRegistration`.
 

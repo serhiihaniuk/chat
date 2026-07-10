@@ -40,15 +40,10 @@ export function ConversationItem({
       )}
     >
       <span className="flex flex-col min-w-0 gap-0.5">
-        <span
-          title={title}
-          className="truncate text-sm font-medium text-(--convo-title-fg)"
-        >
+        <span title={title} className="truncate text-sm font-medium text-(--convo-title-fg)">
           {title}
         </span>
-        <span className="truncate text-xs text-(--convo-subtitle-fg)">
-          {when}
-        </span>
+        <span className="truncate text-xs text-(--convo-subtitle-fg)">{when}</span>
       </span>
       {running === true ? (
         // Live turn: a pulsing dot, shown regardless of selection. Same size as the

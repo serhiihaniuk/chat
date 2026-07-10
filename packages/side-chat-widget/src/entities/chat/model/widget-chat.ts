@@ -18,7 +18,7 @@ export type WidgetUsage = UsageMetadata;
  * usage carries no token counts. Prefers the provider's `totalTokens`; otherwise
  * sums input + output (the prompt already includes prior history, so this is the
  * running context fill, not a single message's size). The context meter divides
- * this by the active model's context window.
+ * this by the active model's context window to show the fill.
  */
 export const contextTokensFromUsage = (usage: WidgetUsage | undefined): number | undefined => {
   if (!usage) return undefined;
@@ -143,14 +143,14 @@ export const updateMessage = (
  * Carry activity timelines from a finished run's transcript onto the freshly
  * loaded history projection (run→history handoff).
  *
- * History rows do not persist the activity timeline (reasoning, tool calls,
- * sources), so swapping the live run for history would silently drop the
- * thinking info the user just watched. The two transcripts are tail-aligned —
- * server message ids never match the run's local ids — and each history message
- * keeps its own identity while re-attaching the run counterpart's non-empty
- * timeline. A counterpart only qualifies when role AND content agree, so a
- * diverged transcript (another tab appended, history truncated) is never
- * mislabeled with someone else's thinking.
+ * History can persist the activity timeline, but it may be empty when retention
+ * is disabled or the trace is unavailable. In that fallback case, swapping the
+ * live run for history would drop the thinking info the user just watched. The
+ * transcripts are tail-aligned — server ids never match the run's local ids —
+ * and each history message keeps its identity while receiving the matching run
+ * timeline. Durable history always wins when it already has activity. A run
+ * counterpart only qualifies when role and content agree, so a diverged
+ * transcript is never mislabeled with someone else's thinking.
  */
 export const carryTranscriptActivity = (
   messages: readonly WidgetMessage[],
@@ -161,6 +161,7 @@ export const carryTranscriptActivity = (
   let carried = false;
   const next = messages.map((message, index) => {
     const counterpart = source[index - offset];
+    if (message.activity.items.length > 0) return message;
     if (!counterpart || counterpart.activity.items.length === 0) return message;
     if (counterpart.role !== message.role || counterpart.content !== message.content)
       return message;

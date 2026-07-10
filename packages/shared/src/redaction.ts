@@ -11,6 +11,8 @@ import type { JsonObject, JsonPrimitive, JsonValue } from "./index.js";
  * a caller might place under a harmless key — treat it as a safety net, not a
  * data-loss-prevention engine, and avoid putting private values under bland keys.
  */
+// Stored pre-lowercased: `isSensitiveKey` lowercases the candidate key only, so
+// matching never depends on how an entry here happens to be cased.
 const SENSITIVE_KEY_PARTS = [
   "authorization",
   "bearer",
@@ -23,8 +25,8 @@ const SENSITIVE_KEY_PARTS = [
   "message",
   "messages",
   "content",
-  "argumentsJson",
-  "resultJson",
+  "argumentsjson",
+  "resultjson",
   "result",
   "details",
   "sources",
@@ -78,5 +80,5 @@ const isJsonObject = (value: JsonValue): value is JsonObject =>
 
 const isSensitiveKey = (key: string): boolean => {
   const normalized = key.toLowerCase();
-  return SENSITIVE_KEY_PARTS.some((part) => normalized.includes(part.toLowerCase()));
+  return SENSITIVE_KEY_PARTS.some((part) => normalized.includes(part));
 };

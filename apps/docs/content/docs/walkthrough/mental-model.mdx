@@ -1,110 +1,82 @@
 ---
 title: Mental Model
-description: Meet Maya, the four-layer model, the two golden rules, and the two TypeScript things that will confuse you on day one.
+description: Meet Maya, the four-layer model, the trust boundary, and the two TypeScript ideas that appear throughout the code.
 ---
 
-## Meet Maya (we'll follow her the whole way)
+## Meet Maya
 
-Maya is a support agent. She has the company's web dashboard open, and in the corner there's a
-chat panel that slid in from the side. She types:
+Maya is a support agent. She opens the Side Chat panel in her company's dashboard and types:
 
 > show me my open Jira tickets
 
-A second later, a little row appears that says "Searching Jira…", flips to "Searched Jira
-(3 results)", and then a written summary of her three tickets types itself out, word by word.
-
-That tiny interaction touches every part of this system — the wire format, the rules engine, an
-AI model, a tool call out to Jira, and a live stream back to her screen. We'll follow Maya's exact
-request through every section of this guide. When an idea feels abstract, come back to her.
+The panel shows a "Searching Jira…" activity, then streams a summary. That small interaction crosses
+the browser protocol, product policy, a provider, a tool, persistence, and a live SSE response.
 
 <Callout title="You will learn">
-- What Side Chat is, in one sentence, and the four-layer shape it takes.
-- The one rule that explains most of the design: **dependencies point inward**.
-- Why the browser sends only text, and the server owns the prompt and the roles.
-- Why Maya's request is **two** HTTP calls, not one — and what that buys her.
-- The two TypeScript things (Effect, branded types) that look scary but aren't.
+- The four layers and the rule that keeps them separate.
+- Why the browser sends user text while the server owns trusted instructions and roles.
+- Why generation outlives the stream connection.
+- What connection-bound streaming preserves, and what it deliberately does not preserve.
+
 </Callout>
 
-## What the product is
+## The four layers
 
-Side Chat is a self-contained AI chat assistant that a company embeds into its existing web app —
-that side panel Maya is using. The code lives in a monorepo: one git repository holding about a
-dozen small TypeScript packages, plus one deployable server. Each package has one job, which is
-what makes the pile navigable once you know the map.
-
-In one breath: the user types a message → the server runs one **turn** → an LLM (today, OpenAI)
-streams an answer back, pausing to call tools like "search Jira" when it needs to → the panel
-renders it live. Every concept in this guide hangs off that sentence.
-
-## The 60-second mental model
-
-Side Chat is four layers wrapped around a protected center, and one rule explains most of the
-design: **dependencies point inward**. The center holds the rules; it knows nothing about OpenAI,
-HTTP, or the database. Those live at the edges and can be swapped without touching the rules.
-
-Read the layers from the outside in. Each one reaches the layer beneath it only through a typed
-contract:
+Dependencies point inward. Each layer crosses the next boundary through a typed contract.
 
 | Layer | Package | Owns | Talks down through |
 | --- | --- | --- | --- |
-| **Browser** | `side-chat-widget`, `host-bridge` | The side panel Maya types into | the HTTP API (`POST /chat/runs`, `GET …/stream`) |
-| **Service** | `apps/partner-ai-service` | HTTP routes, composition, SSE transport, the server-owned turn runner | the Core stream-chat entry point |
-| **Core — the rules** | `packages/partner-ai-core` | Policy, context, and lifecycle; imports no infrastructure | the `AiRuntimePort` contract |
-| **Runtime — execution** | `packages/agent-runtime` | Provider calls, the tool loop, event mapping | the provider SDK and the DB repositories |
+| **Browser** | `side-chat-widget`, `host-bridge` | The panel, API client, run store, and host seam | `chat-protocol` |
+| **Service** | `apps/partner-ai-service` | HTTP, composition, SSE, the turn runner, and live registry | Core entry points |
+| **Core** | `packages/partner-ai-core` | Authority, policy, context, lifecycle, and protocol mapping | `ai-runtime-contract` |
+| **Runtime** | `packages/agent-runtime` | Provider calls, tool loops, and runtime events | Provider SDKs |
 
-Two contract packages carry the pure types (no runtime code) across those boundaries: `chat-protocol` between the
-browser and the service, and `ai-runtime-contract` between Core and the Runtime. Results flow back
-out the same path — the Runtime emits events, Core maps them to protocol events, and the service
-streams them to the browser — but **no inner layer ever imports an outer one**.
+The Core never imports HTTP, Postgres, React, or a provider SDK. The browser never receives a
+provider DTO, database row, or `RuntimeEvent`.
 
-Two rules are worth burning in now, because together they explain most of the design:
+## Two rules explain the design
 
 <Callout title="The two golden rules">
-1. **Dependencies point inward.** The Core (`partner-ai-core`) is the most isolated package in the
-   repo — it imports no database, no HTTP framework, no AI SDK. Everything it needs from the
-   outside world it asks for through interfaces.
-2. **The server owns the prompt and the roles; the browser only sends text.** Maya's panel sends
-   her words and nothing else — it cannot tell the AI how to behave or put words in its mouth.
-   This "trust boundary" shapes the request format and half the turn pipeline.
+1. **Dependencies point inward.** Outer layers choose adapters; inner layers depend on contracts.
+2. **The server owns authority and instructions.** The browser contributes user text and optional
+   catalog-backed preferences. It cannot assign roles or send provider-native options.
 </Callout>
 
-One thing worth calling out: the browser makes **two** calls, not one. `POST /chat/runs` hands
-over Maya's text and gets back the turn's identity; the server then runs the turn **on its own**,
-writing every event to a durable log. The browser opens `GET …/stream` to watch that log live.
-Because the turn lives on the server — not inside one HTTP response — Maya can close the panel,
-reload, or drop her connection, then reconnect to the **same** turn still in progress. *Life of a
-Turn* traces exactly how.
+## One POST starts and streams the turn
+
+The widget calls `POST /chat/runs`. The service performs all pre-start checks, forks generation onto
+a server-owned Effect fiber, registers a live buffer on that instance before subscribing, and
+returns SSE on the same response. The first event, `sidechat.started`, identifies the turn.
+
+The browser is a subscriber, not the worker. Closing the stream releases that subscriber but does
+not cancel generation. The fiber continues and Postgres records the final status and assistant
+message.
+
+The live events themselves are connection-bound. They exist in the owning instance's in-memory
+turn-event registry. A reconnect can resume from the last sequence if it reaches the same instance.
+If it reaches another instance, the server returns `409 stream_unavailable`; the widget polls status
+and loads the final answer from history. If a terminal buffer was already swept, `404 replay_expired`
+also sends the widget to history.
 
 <Callout type="warn" title="Pitfall">
-Don't picture the browser as the thing running the turn. Maya's panel is a **disposable
-subscriber**: it sends text, then watches a log the server owns. If she reloads mid-answer, the
-turn keeps generating on the server — her new panel just resubscribes. Treating the browser as the
-source of truth is the single biggest way to misread this system.
+Server-owned generation does not mean cross-instance live replay. The final answer survives in
+Postgres. The typing animation survives only while the owning process still holds its registry
+entry.
 </Callout>
 
-## Two TypeScript things that aren't AI, but will confuse you on day one
+## Two TypeScript ideas
 
-Defuse these now, before you open a file and panic. Neither is essential to understanding the
-architecture — they're just unfamiliar machinery you'll see everywhere.
-
-- **Effect.** This codebase uses the [Effect](https://effect.website) library instead of plain
-  `Promise`. When you see `Effect.Effect<A, E>` or `Stream.Stream<A, E>`, read it as "a lazy,
-  not-yet-run Promise of `A` that can fail with the typed error `E`." That's enough to navigate
-  everything.
-- **Branded types.** You'll see `RequestId = Brand<string, "RequestId">`. At runtime that is just
-  a string. The `Brand` part is a compile-time-only label that stops you from passing a
-  `ConversationId` where a `RequestId` belongs. Treat `RequestId` as "a string the compiler is
-  being careful about" and move on.
-
-With Maya in mind, the four layers mapped, the two golden rules set, and those two gotchas
-defused, the rest of the guide has somewhere to stand.
+- **Effect.** Read `Effect.Effect<A, E>` as a lazy asynchronous operation that succeeds with `A` or
+  fails with typed error `E`. `Stream.Stream<A, E>` is the streaming counterpart.
+- **Branded types.** `RequestId = Brand<string, "RequestId">` is a string with a compile-time label
+  that prevents accidental id mixing.
 
 <Callout title="Recap">
-- Side Chat is four layers around a protected center; **dependencies point inward**.
-- The Core holds the rules and imports no infrastructure — it asks through ports.
-- The browser sends only text; the server owns the prompt, the roles, and the turn.
-- One request is two calls (`POST /chat/runs` then `GET …/stream`), which is what makes a turn survive a reload.
-- Effect is a lazy typed Promise; a branded type is just a string the compiler watches.
+- Side Chat has Browser, Service, Core, and Runtime layers with dependencies pointing inward.
+- The server owns trusted instructions, authority, generation, and final persistence.
+- `POST /chat/runs` is the primary SSE stream.
+- Same-instance resume uses `GET …/stream?after=<seq>`; other cases converge through status and history.
 </Callout>
 
-**Next:** [the words](/docs/walkthrough/vocabulary) — the exact vocabulary this guide leans on, so the next pages read without ambiguity.
+**Next:** [AI Vocabulary](/docs/walkthrough/vocabulary) defines the model, message, streaming, and
+tool-loop words used by the rest of the walkthrough.

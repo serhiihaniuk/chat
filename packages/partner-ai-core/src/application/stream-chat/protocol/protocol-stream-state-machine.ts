@@ -4,7 +4,7 @@ import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-
  * Protocol stream correctness enforced before each browser event is emitted.
  *
  * The accumulator validates the stream after the fact for persistence; this
- * state machine is the front-line guarantee that the browser never sees a second
+ * state machine is the front-line invariant: the browser never sees a second
  * `sidechat.started`, more than one terminal, or any event after a terminal. A
  * rejected transition means "do not emit this event", which keeps the
  * `sidechat.v1` stream valid by construction.

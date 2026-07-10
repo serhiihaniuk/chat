@@ -10,9 +10,10 @@ A turn is **server-owned and connection-bound** (ADR 0007). The browser starts
 it; generation runs on a background fiber that outlives any socket. In-flight
 events live in a per-instance, in-memory registry — the live stream is served
 by the instance that runs the turn. Postgres holds the durable **final** state:
-the conversation, messages, turn record and status, and cancel intent. A reload
-does not replay a live stream; it reads history from the DB once the turn is
-terminal.
+the conversation, messages, turn record and status, and cancel intent. A
+reconnect or reload can replay only while it reaches the owning instance and
+that instance still holds the buffer. Otherwise the widget waits for the
+durable terminal status and reads the answer from history.
 
 For shared terms (turn, terminal event, turn-event registry), see
 [../domain/vocabulary.md](../domain/vocabulary.md).
@@ -46,11 +47,11 @@ Supporting routes (all workspace-scoped, in `turns/chat-turns.ts` unless noted):
 
 ## Lifecycle stages
 
-Stages 1-9 are **pre-start**: they run synchronously inside `POST /chat/runs`
-and any failure rejects setup as JSON. Stage 1 is the HTTP route; stages 2-9
+Stages 1-10 are **pre-start**: they run synchronously inside `POST /chat/runs`
+and any failure rejects setup as JSON. Stage 1 is the HTTP route; stages 2-10
 run in `prepareStreamChatTurn`
 (`packages/partner-ai-core/src/application/stream-chat/turn/prepare-stream-chat-turn.ts`).
-Stages 10-13 are **post-start**: they run on the forked fiber in
+Stages 11-14 are **post-start**: they run on the forked fiber in
 `runTurnGeneration` (`.../stream-chat/protocol/run-turn-generation.ts`).
 
 |   # | Stage                                          | Proves / records / finalizes                                                           | Failure                                   |
@@ -61,15 +62,16 @@ Stages 10-13 are **post-start**: they run on the forked fiber in
 |   4 | Resolve the turn plan                          | Profile, validated model/reasoning, tools, executor, instructions, capability manifest | Pre-start reject                          |
 |   5 | Run turn guards                                | Profile-selected guards before private context, persistence, or tools                  | Pre-start reject                          |
 |   6 | Ensure authorized conversation                 | Load or create only a conversation this subject may access                             | Pre-start reject                          |
-|   7 | Append the user message                        | Store the user-visible message that starts the turn                                    | Pre-start reject                          |
-|   8 | Start the turn record                          | Durable turn, status `running`; idempotent on `(workspace_id, request_id)`             | Pre-start reject **and** mark turn failed |
-|   9 | Prepare and record context                     | History, host context, tool context, context manifest snapshot                         | Pre-start reject and mark turn failed     |
-|  10 | Acquire lease, emit `sidechat.started` (seq 0) | Owner claims the lease, then the started event opens the stream                        | In-stream terminal                        |
-|  11 | Execute the runtime                            | Run the executor; an `AbortController` lets a fiber interrupt abort the provider call  | In-stream terminal                        |
-|  12 | Map events, append to the registry             | `RuntimeEvent` → `sidechat.v1`; each emitted event lands in the per-instance registry  | In-stream terminal                        |
-|  13 | Finalize (always, via `onExit`)                | Write durable terminal status + assistant message; run post-success title generation   | See finalization                          |
+|   7 | Reject a concurrent conversation turn          | No assistant turn is already running for this conversation                             | `409 conversation_busy`                   |
+|   8 | Append the user message                        | Store the user-visible message that starts the turn                                    | Pre-start reject                          |
+|   9 | Start the turn record                          | Durable turn, status `running`; idempotent on `(workspace_id, request_id)`             | Pre-start reject **and** mark turn failed |
+|  10 | Prepare and record context                     | History, host context, tool context, context manifest snapshot                         | Pre-start reject and mark turn failed     |
+|  11 | Acquire lease, emit `sidechat.started` (seq 0) | Owner claims the lease, then the started event opens the stream                        | In-stream terminal                        |
+|  12 | Execute the runtime                            | Run the executor; an `AbortController` lets a fiber interrupt abort the provider call  | In-stream terminal                        |
+|  13 | Map events, append to the registry             | `RuntimeEvent` → `sidechat.v1`; each emitted event lands in the per-instance registry  | In-stream terminal                        |
+|  14 | Finalize (always, via `onExit`)                | Write durable terminal status + assistant message; run post-success title generation   | See finalization                          |
 
-The boundary sits after stage 9: `POST /chat/runs` forks post-start into a
+The boundary sits after stage 10: `POST /chat/runs` forks post-start into a
 `FiberMap` keyed by `assistantTurnId` — but only when the turn record was newly
 inserted (`turn-runner.ts:93`) — and then turns its response into the turn's
 SSE stream.

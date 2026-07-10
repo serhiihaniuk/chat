@@ -89,9 +89,10 @@ for harness tests. It is not a host application API.
 ## Main Flows
 
 ```txt
-user submit -> optimistic widget state -> createRun -> subscribeTurn (resumable)
+user submit -> optimistic widget state -> createRun (POST response stream)
   -> protocol events -> widget messages/activity
-reconnect (visibility/online/reload) -> subscribeTurn from last sequence
+reconnect (visibility/online/remount) -> owner-bound subscribeTurn from last sequence
+  -> status polling + terminal history when the live buffer is unavailable
   (features/chat/model/reconnect/)
 subscribeActivity -> running conversation ids -> sidebar "generating" dot
   (features/chat/model/activity/use-activity-stream.ts)

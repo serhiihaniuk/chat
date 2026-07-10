@@ -6,6 +6,7 @@ import {
   type WidgetRunState,
 } from "./run/widget-run-state.js";
 import { refreshConversationsAfterStream } from "./conversation/widget-title-refresh.js";
+import type { RunShellBridge } from "./conversation/shell/run-shell-bridge.js";
 import type {
   ReadHistoryResult,
   RefreshConversations,
@@ -14,8 +15,6 @@ import type {
 
 type SetConversationId = Dispatch<SetStateAction<string | undefined>>;
 type SetError = Dispatch<SetStateAction<string | undefined>>;
-type MutableConversationRef = { current: string | undefined };
-type PendingTitleRef = { readonly current: string | undefined };
 
 type UpsertStartedConversation = (input: {
   readonly conversationId: string;
@@ -27,11 +26,13 @@ export type WidgetRunEffectsInput = {
   readonly run: WidgetRunState | undefined;
   readonly setConversationId: SetConversationId;
   readonly setErrorMessage: SetError;
-  readonly streamOwnedConversationRef: MutableConversationRef;
-  readonly pendingConversationTitleRef: PendingTitleRef;
+  /** Shared run↔shell state (stream-owned conversation, pending title). */
+  readonly shellBridge: RunShellBridge;
   readonly refreshConversations: RefreshConversations;
   readonly upsertStartedConversation: UpsertStartedConversation;
   readonly refreshHistory: RefreshHistory;
+  /** Read the external run store at async completion, before React may re-render. */
+  readonly getRun: () => WidgetRunState | undefined;
   /** Forget the live run (subscription, marker, store) once history has taken over. */
   readonly clearRun: () => void;
 };
@@ -54,18 +55,12 @@ export const useWidgetRunEffects = (input: WidgetRunEffectsInput): void => {
 };
 
 const useAdoptStartedConversation = (input: WidgetRunEffectsInput): void => {
-  const {
-    run,
-    setConversationId,
-    streamOwnedConversationRef,
-    pendingConversationTitleRef,
-    upsertStartedConversation,
-  } = input;
+  const { run, setConversationId, shellBridge, upsertStartedConversation } = input;
   const conversationId = run?.conversationId;
   const requestId = run?.requestId;
   // Adopt the server-assigned conversation exactly once per run. Guarding by the
-  // run's request id (not the history-refetch ref) means a later explicit
-  // `selectConversation` — which resets that ref — cannot re-trigger adoption and
+  // run's request id (not the bridge's stream-owned field) means a later explicit
+  // `selectConversation` — which resets that field — cannot re-trigger adoption and
   // yank the user back to the in-flight turn on the next streamed event.
   const adoptedRequestRef = useRef<string | undefined>(undefined);
 
@@ -76,10 +71,10 @@ const useAdoptStartedConversation = (input: WidgetRunEffectsInput): void => {
 
     // The live run owns these messages until the user reselects the conversation,
     // so guard history refetch and adopt the server-assigned id.
-    streamOwnedConversationRef.current = conversationId;
+    shellBridge.adoptConversation(conversationId);
     setConversationId(conversationId);
 
-    const fallbackTitle = pendingConversationTitleRef.current;
+    const fallbackTitle = shellBridge.getSnapshot().pendingConversationTitle;
     if (fallbackTitle) {
       upsertStartedConversation({
         conversationId,
@@ -87,25 +82,11 @@ const useAdoptStartedConversation = (input: WidgetRunEffectsInput): void => {
         lastMessageAt: lastMessageAt(run),
       });
     }
-  }, [
-    conversationId,
-    pendingConversationTitleRef,
-    requestId,
-    run,
-    setConversationId,
-    streamOwnedConversationRef,
-    upsertStartedConversation,
-  ]);
+  }, [conversationId, requestId, run, setConversationId, shellBridge, upsertStartedConversation]);
 };
 
 const useRefreshAfterRunCompletes = (input: WidgetRunEffectsInput): void => {
-  const {
-    run,
-    pendingConversationTitleRef,
-    refreshConversations,
-    setErrorMessage,
-    streamOwnedConversationRef,
-  } = input;
+  const { run, shellBridge, refreshConversations, setErrorMessage } = input;
   const completedRequestRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -114,18 +95,13 @@ const useRefreshAfterRunCompletes = (input: WidgetRunEffectsInput): void => {
     completedRequestRef.current = run.requestId;
 
     void refreshConversationsAfterStream({
-      activeConversationId: run.conversationId ?? streamOwnedConversationRef.current,
-      fallbackTitle: pendingConversationTitleRef.current,
+      activeConversationId:
+        run.conversationId ?? shellBridge.getSnapshot().streamOwnedConversationId,
+      fallbackTitle: shellBridge.getSnapshot().pendingConversationTitle,
       refreshConversations,
       setErrorMessage,
     });
-  }, [
-    pendingConversationTitleRef,
-    refreshConversations,
-    run,
-    setErrorMessage,
-    streamOwnedConversationRef,
-  ]);
+  }, [refreshConversations, run, setErrorMessage, shellBridge]);
 };
 
 /** Retries for a refetch that still reports the finishing turn as running. */
@@ -143,10 +119,8 @@ const HANDOFF_SETTLE_DELAY_MS = 250;
  * cleared, so the user still sees why the turn ended.
  */
 const useHistoryHandoffAfterTerminal = (input: WidgetRunEffectsInput): void => {
-  const { run, refreshHistory, clearRun, setErrorMessage, streamOwnedConversationRef } = input;
+  const { run, refreshHistory, clearRun, getRun, setErrorMessage, shellBridge } = input;
   const handedOffRequestRef = useRef<string | undefined>(undefined);
-  const runRef = useRef(run);
-  runRef.current = run;
 
   useEffect(() => {
     if (!run || !isTerminalRunStatus(run.status)) return;
@@ -155,12 +129,12 @@ const useHistoryHandoffAfterTerminal = (input: WidgetRunEffectsInput): void => {
 
     void handOffRunToHistory(run, refreshHistory).then((handedOff) => {
       if (!handedOff) return;
-      if (runRef.current?.requestId !== run.requestId) return;
+      if (getRun()?.requestId !== run.requestId) return;
       if (run.errorMessage) setErrorMessage(run.errorMessage);
-      streamOwnedConversationRef.current = undefined;
+      shellBridge.releaseStreamOwnership();
       clearRun();
     });
-  }, [clearRun, refreshHistory, run, setErrorMessage, streamOwnedConversationRef]);
+  }, [clearRun, getRun, refreshHistory, run, setErrorMessage, shellBridge]);
 };
 
 /**

@@ -146,12 +146,6 @@ export const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
       );
 
 /**
- * Hide internal runtime error names from the browser.
- *
- * Known failures keep their useful public code. Everything else becomes
- * provider_failed so adapter/provider details do not leak into sidechat.v1.
- */
-/**
  * Map a runtime finish reason to the browser protocol's smaller set.
  *
  * `tool_step_limit` (the tool loop hit its step cap) is a truncation, so it maps
@@ -163,6 +157,12 @@ export const mapUnknownRuntimeError = (error: unknown): PartnerAiCoreError =>
 const mapCompletedFinishReason = (reason: RuntimeFinishReason): CompletedEvent["finishReason"] =>
   reason === RUNTIME_FINISH_REASONS.TOOL_STEP_LIMIT ? "length" : reason;
 
+/**
+ * Hide internal runtime error names from the browser.
+ *
+ * Known failures keep their useful public code. Everything else becomes
+ * provider_failed so adapter/provider details do not leak into sidechat.v1.
+ */
 const mapRuntimeErrorCode = (code: string): ProtocolErrorCode => {
   if (code === RUNTIME_ERROR_CODE_TOOL_FAILED) return PROTOCOL_ERROR_CODES.TOOL_FAILED;
   if (code === RUNTIME_ERROR_CODE_TIMEOUT) return PROTOCOL_ERROR_CODES.TIMEOUT;

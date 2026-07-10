@@ -56,8 +56,8 @@ export type CreateRunOptions = {
  *
  * The `sidechat.started` frame at sequence 0 carries the identity, surfaced here
  * so callers record it before consuming; `events` yields the FULL validated
- * stream (including that frame) through exactly one terminal. `assistantTurnId`
- * keys status/resume/cancel; `requestId` stays the idempotency/resolver key.
+ * stream from sequence 0 through exactly one terminal. `assistantTurnId` keys
+ * status/resume/cancel; `requestId` stays the idempotency/resolver key.
  */
 export type StartRunResult = {
   readonly requestId: string;
@@ -79,8 +79,8 @@ export type SubscribeTurnOptions = {
  * The async iterable yields validated `sidechat.v1` events in sequence. It may
  * still fail while being consumed if the server sends malformed frames, omits a
  * terminal event, or the caller aborts the request. A stream that cannot replay
- * (the stream buffer was swept, or the turn is gone) is reported as a
- * `replay_expired` `SideChatApiError` before any event is yielded.
+ * (the stream buffer was swept, or the turn is gone) is reported to the caller
+ * as a `replay_expired` `SideChatApiError` before any event is yielded.
  */
 export type SubscribeTurnResult = {
   readonly events: AsyncIterable<SidechatStreamEvent>;

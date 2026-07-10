@@ -11,7 +11,7 @@ import { Effect } from "effect";
  * Service-side recorder for the resumable-streaming lifecycle.
  *
  * The core turn workflow records the turn's own lifecycle (received/started/
- * runtime_event/terminal) through the same `ObservabilitySinkPort`. This is the
+ * runtime_event/terminal) to the same `ObservabilitySinkPort`. This is the
  * other half: the transport lifecycle that lives in the service — subscriber
  * attach/detach, replay served vs expired, reaper reaps, cross-instance cancel,
  * and run duration on terminal — so operators see resumable behavior across

@@ -14,6 +14,17 @@ import {
   type SidechatBlockedReason,
   type SidechatEventType,
 } from "../events/event-union.js";
+import { isJsonObject } from "./json-guards.js";
+
+/**
+ * Strict field readers for the single-pass event parser.
+ *
+ * Every reader validates AND returns the typed value, so the parser never reads
+ * a field twice. The `readOptional*` family is strict on purpose: an absent
+ * (`undefined`) field reads as absent, but a present field of the wrong type is
+ * a protocol error — leniently coercing it to `undefined` would silently drop
+ * caller data.
+ */
 
 const PROTOCOL_ERROR_CODE_VALUES: readonly unknown[] = Object.values(PROTOCOL_ERROR_CODES);
 
@@ -29,15 +40,11 @@ export const readString = (value: unknown, label: string): string => {
   return value;
 };
 
+export const readOptionalString = (value: unknown, label: string): string | undefined =>
+  value === undefined ? undefined : readString(value, label);
+
 export const readBoolean = (value: unknown, label: string): boolean => {
   if (typeof value !== "boolean") throw new ProtocolValidationError(`${label} must be boolean`);
-  return value;
-};
-
-export const readNumber = (value: unknown, label: string): number => {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new ProtocolValidationError(`${label} must be a finite number`);
-  }
   return value;
 };
 
@@ -48,45 +55,32 @@ export const readNonNegativeInteger = (value: unknown, label: string): number =>
   return value;
 };
 
-export const readOptionalNumber = (value: unknown): number | undefined =>
-  typeof value === "number" && Number.isFinite(value) ? value : undefined;
+export const readOptionalNonNegativeInteger = (value: unknown, label: string): number | undefined =>
+  value === undefined ? undefined : readNonNegativeInteger(value, label);
 
 export const readArray = <Item>(
   value: unknown,
+  label: string,
   mapItem: (item: unknown) => Item,
 ): readonly Item[] => {
-  if (!Array.isArray(value)) throw new ProtocolValidationError("value must be an array");
+  if (!Array.isArray(value)) throw new ProtocolValidationError(`${label} must be an array`);
   return value.map(mapItem);
 };
 
 export const readOptionalArray = <Item>(
   value: unknown,
+  label: string,
   mapItem: (item: unknown) => Item,
-): readonly Item[] | undefined => (Array.isArray(value) ? value.map(mapItem) : undefined);
+): readonly Item[] | undefined =>
+  value === undefined ? undefined : readArray(value, label, mapItem);
 
 export const readJsonObject = (value: unknown, label: string): JsonObject => {
   if (!isJsonObject(value)) throw new ProtocolValidationError(`${label} must be a JSON object`);
   return value;
 };
 
-export const readOptionalJsonObject = (value: unknown): JsonObject | undefined =>
-  isJsonObject(value) ? value : undefined;
-
-const isJsonObject = (value: unknown): value is JsonObject =>
-  isRecord(value) && Object.values(value).every(isJsonValue);
-
-const isJsonValue = (value: unknown): value is JsonObject[keyof JsonObject] => {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean" ||
-    (typeof value === "number" && Number.isFinite(value))
-  ) {
-    return true;
-  }
-  if (Array.isArray(value)) return value.every(isJsonValue);
-  return isJsonObject(value);
-};
+export const readOptionalJsonObject = (value: unknown, label: string): JsonObject | undefined =>
+  value === undefined ? undefined : readJsonObject(value, label);
 
 export const readEventType = (value: unknown): SidechatEventType => {
   switch (value) {
@@ -146,13 +140,19 @@ export const readFinishReason = (value: unknown): "stop" | "length" | "aborted" 
   }
 };
 
-export const readProtocolErrorCode = (value: unknown): ProtocolErrorCode => {
+export const readProtocolErrorCode = (
+  value: unknown,
+  label = 'event["code"]',
+): ProtocolErrorCode => {
   if (isProtocolErrorCode(value)) return value;
-  throw new ProtocolValidationError('event["code"] has unsupported value');
+  throw new ProtocolValidationError(`${label} has unsupported value`);
 };
 
-export const readOptionalProtocolErrorCode = (value: unknown): ProtocolErrorCode | undefined =>
-  value === undefined ? undefined : readProtocolErrorCode(value);
+export const readOptionalProtocolErrorCode = (
+  value: unknown,
+  label?: string,
+): ProtocolErrorCode | undefined =>
+  value === undefined ? undefined : readProtocolErrorCode(value, label);
 
 const isProtocolErrorCode = (value: unknown): value is ProtocolErrorCode =>
   PROTOCOL_ERROR_CODE_VALUES.includes(value);

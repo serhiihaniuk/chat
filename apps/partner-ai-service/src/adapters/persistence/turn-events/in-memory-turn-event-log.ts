@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { isTerminalEvent, type SidechatStreamEvent } from "@side-chat/chat-protocol";
 import type { TurnEventLogPort } from "@side-chat/partner-ai-core";
 import { Effect, Queue } from "effect";
@@ -14,13 +15,14 @@ import type {
  * object that is both the core {@link TurnEventLogPort} (core appends each emitted
  * event here) and the {@link TurnEventDispatcher} the SSE route subscribes to.
  * `appendEvent` writes an in-memory buffer and fans out to local subscribers
- * directly, so there is no log read, no notify, and no safety poll. The final
- * assistant message is still persisted by core (`completeAssistantTurn`); this
- * registry only carries the live stream, so a lost connection is recovered from
- * history, never replayed.
+ * directly, without a durable event read or Postgres notification. The
+ * subscription stream separately performs a low-frequency registry read as a
+ * missed-signal backstop. The final assistant message is still persisted by
+ * core (`completeAssistantTurn`); same-instance reconnects may replay this
+ * buffer, while a missing or swept buffer converges through durable history.
  *
- * A turn's buffer is dropped once it is terminal and has no live subscribers, so
- * memory tracks only in-flight and actively-watched turns.
+ * A terminal turn with no live subscribers becomes eligible for lazy sweeping
+ * when the next turn starts, keeping only a short same-instance replay window.
  */
 export type InMemoryTurnEventLog = TurnEventLogPort &
   TurnEventDispatcher & {
@@ -64,21 +66,48 @@ const ensureTurn = (turns: TurnRegistry, assistantTurnId: string): RunningTurn =
 const appendEventTo =
   (turns: TurnRegistry): InMemoryTurnEventLog["appendEvent"] =>
   ({ assistantTurnId, event }) =>
-    Effect.sync(() => {
-      const turn = ensureTurn(turns, assistantTurnId);
+    Effect.suspend(() => {
+      const existingTurn = turns.get(assistantTurnId);
+      if (!existingTurn && event.sequence !== 0) {
+        return Effect.fail(denseSequenceError(assistantTurnId, event.sequence, 0));
+      }
+      const turn = existingTurn ?? ensureTurn(turns, assistantTurnId);
+      const existingEvent = turn.events[event.sequence];
+      if (existingEvent) {
+        return sameProtocolEvent(existingEvent, event)
+          ? Effect.void
+          : Effect.fail(conflictingSequenceError(assistantTurnId, event.sequence));
+      }
       // Terminal guard: once a terminal is recorded the turn's log is closed, so
       // a racing synthetic terminal (an interrupt landing just after `completed`)
       // is a no-op — the same exactly-one-terminal contract the durable log's
       // partial-unique index used to enforce. Finalization relies on this.
-      if (turn.terminal) return;
+      if (turn.terminal) return Effect.void;
       const lastSequence = turn.events.at(-1)?.sequence ?? -1;
-      // Idempotent on sequence: core appends in dense order, so a replayed append
-      // at an already-stored sequence is a no-op.
-      if (event.sequence <= lastSequence) return;
+      const nextSequence = lastSequence + 1;
+      if (event.sequence !== nextSequence) {
+        return Effect.fail(denseSequenceError(assistantTurnId, event.sequence, nextSequence));
+      }
       turn.events.push(event);
       for (const queue of turn.subscribers) Queue.offerUnsafe(queue, event);
       if (isTerminalEvent(event)) turn.terminal = true;
+      return Effect.void;
     });
+
+const sameProtocolEvent = (stored: SidechatStreamEvent, candidate: SidechatStreamEvent): boolean =>
+  isDeepStrictEqual(stored, candidate);
+
+const conflictingSequenceError = (assistantTurnId: string, sequence: number): Error =>
+  new Error(`Turn ${assistantTurnId} sequence ${sequence} already contains a different event.`);
+
+const denseSequenceError = (
+  assistantTurnId: string,
+  receivedSequence: number,
+  nextSequence: number,
+): Error =>
+  new Error(
+    `Turn ${assistantTurnId} sequence ${receivedSequence} must be the next dense sequence ${nextSequence}.`,
+  );
 
 const readEventsAfterFrom =
   (turns: TurnRegistry): InMemoryTurnEventLog["readEventsAfter"] =>
@@ -135,8 +164,14 @@ export const createInMemoryTurnEventLog = (): InMemoryTurnEventLog => {
     hasTurn: (assistantTurnId) => turns.has(assistantTurnId),
     hasSubscribers: (assistantTurnId) => (turns.get(assistantTurnId)?.subscribers.size ?? 0) > 0,
     shutdown: () => {
+      // Shut the subscriber queues down too: a tail blocked on Queue.take must
+      // settle instead of hanging past the registry's lifetime. The HTTP server
+      // closes the sockets anyway; this makes the teardown self-contained.
+      const queues = [...turns.values()].flatMap((turn) => [...turn.subscribers]);
       turns.clear();
-      return Promise.resolve();
+      return Effect.runPromise(
+        Effect.forEach(queues, (queue) => Queue.shutdown(queue), { discard: true }),
+      ).then(() => undefined);
     },
   };
 };

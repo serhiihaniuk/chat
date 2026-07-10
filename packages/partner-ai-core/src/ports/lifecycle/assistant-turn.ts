@@ -87,8 +87,8 @@ export type AssistantTurnLifecyclePort = {
     readonly assistantContent: string;
     /**
      * The turn's activity trace, stored with the assistant message so history
-     * reads can replay it. Present only when turn-activity history is enabled
-     * AND the turn produced activity; absent means store nothing extra.
+     * reads can replay it to the client. Present only when turn-activity history
+     * is enabled AND the turn produced activity; absent means store nothing extra.
      */
     readonly activityEvents?: readonly ActivityEvent[] | undefined;
     readonly finishReason: string;

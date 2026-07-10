@@ -1,140 +1,83 @@
 ---
 title: Event Delivery
-description: How a turn's events travel from the durable log to the browser — append-and-notify, LISTEN/NOTIFY fan-out, replay, tail, reconnect, and multi-instance.
+description: How the owning instance buffers sidechat.v1 events, streams the POST response, and serves same-instance resume.
 ---
 
-This is the reference for the **transport** that moves a turn's events to the browser: how each event
-is appended, how instances learn a new event exists, and how a subscriber replays then tails the log.
-It owns the wire mechanism only. For *what each event means* see
-[Protocol & Runtime Events](/docs/system-design/protocol-and-events); for *when* events are produced
-across a turn see [Assistant Turn Lifecycle](/docs/system-design/assistant-turn); for *why* the model
-is server-owned see [Resumable Streaming](/docs/system-design/resumable-streaming).
+This page explains the live transport between Core and the browser. For event meanings, read
+[Protocol & Runtime Events](/docs/system-design/protocol-and-events). For lifecycle order, read
+[Assistant Turn Lifecycle](/docs/system-design/assistant-turn).
 
-<Callout title="You will learn">
-- How an event is **appended and announced** in one transaction — and why the announce is only a hint.
-- How one subscriber **replays then tails** the durable log behind an exactly-once gate.
-- How `LISTEN/NOTIFY` fans a signal to **every instance** with no Redis.
-- Why **any instance** can serve a stream the owner generated — no sticky routing.
-- How **reconnect**, `replay_expired`, and the **activity stream** reuse the same path.
+## The live source is an in-memory registry
 
-</Callout>
+Every service instance owns one turn-event registry. After generation is forked, the route registers
+the fresh turn before the POST response subscribes. Core maps each `RuntimeEvent` to `sidechat.v1`;
+the owner appends that public event to the registry and wakes subscribers on the same instance.
 
-## The mental model
+The registry enforces the live-stream invariants:
 
-The durable `turn_events` table is the source of truth; everything else is a way to read it sooner.
-Each `sidechat.v1` event carries a monotonic `sequence` (the `sidechat.started` event is sequence 0),
-and a turn's rows are an append-only, totally ordered log. A subscriber's whole job is to read that
-log from an offset and keep reading until the terminal event.
+- Events are ordered by a strictly increasing `sequence`.
+- Re-appending an identical sequence is idempotent.
+- Conflicting content at one sequence fails loudly.
+- A gap is not emitted until the missing sequence reaches the buffer.
+- The first terminal closes the turn; later appends are ignored.
 
-`LISTEN/NOTIFY` never carries event data. It carries one fact — "turn X has new rows" — so readers
-re-read promptly instead of polling hard. Lose the signal and you lose latency, never an event: a
-low-frequency safety poll backstops it. This is why the system needs no Redis and stays multi-instance
-safe.
+Postgres never stores these frames. It stores the durable final turn and assistant message.
 
-## Append-and-notify
+## Primary stream: the POST response
 
-Generation appends each event with `appendTurnEvent`
-(`packages/db/src/repositories/postgres-drizzle/records/turn-events.ts`). The INSERT and the
-`pg_notify` commit together, so a subscriber is never woken for a row it cannot yet read:
+`POST /chat/runs` performs pre-start work before opening a stream. When setup succeeds, the service:
 
-| Step | What happens | Why |
-| ---: | --- | --- |
-| 1 | Prove the turn is in the caller's workspace | An id is not a bearer capability |
-| 2 | Reject a *second* terminal before writing | Turn many concurrent races into a typed `event_log_conflict` |
-| 3 | `INSERT ... ON CONFLICT (assistantTurnId, sequence) DO NOTHING` | Append is idempotent on the sequence key |
-| 4 | `pg_notify('turn_events', { assistantTurnId, sequence })` in the **same transaction** | The signal fires only on commit — readers see the row |
-| 5 | A PK conflict reconciles as idempotent re-append or loud corruption | Identical re-append is fine; a different payload at one sequence fails |
+1. Registers the fresh `assistantTurnId` in the local registry.
+2. Forks generation onto the instance's `TurnRunner`.
+3. Subscribes from `after=-1`.
+4. Returns that subscription as the POST response body with SSE headers.
 
-The notify payload is just ids. A partial-unique terminal index is the hard backstop behind step 2, so
-a turn can never persist two terminal events.
+`sidechat.started` is sequence 0, so the POST caller learns `assistantTurnId` from the event envelope
+and `conversationId` from the event. Closing the response drops only that subscriber; generation
+continues on the server-owned fiber.
 
-## The subscription: replay then tail
+## Resume: replay, then tail
 
-One subscriber's stream is `createTurnSubscriptionStream`
-(`apps/partner-ai-service/src/inbound/turn-stream/turn-subscription-stream.ts`). It runs four stages,
-in order, and the order is load-bearing:
+`GET /chat/turns/:assistantTurnId/stream?after=<seq>` is the resume route. On the owning instance it
+registers the subscriber first, replays buffered events with `sequence > after`, then tails local
+notifications until a terminal event.
 
-| Order | Stage | Mechanism |
-| ---: | --- | --- |
-| 1 | **Register** with the dispatcher first | Subscribe before reading, so no fan-out is missed during replay |
-| 2 | **Replay** durable rows `sequence > after` | One read of the log; advance the high-water mark past them |
-| 3 | **Tail** live events | Merge dispatcher NOTIFY fan-out with a low-frequency safety poll |
-| 4 | **End** at the terminal event | `takeUntil(isTerminalEvent)` closes the stream and unsubscribes |
+Each subscriber has a bounded dropping queue. A low-frequency safety poll re-reads the registry, and
+the dense sequence gate detects a gap and catches up from the buffer. A dropped wake-up can delay an
+event but cannot permanently lose it while the registry entry exists.
 
-An exactly-once gate sits across stages 2–3: the stream emits an event only when its `sequence` is
-greater than `maxEmitted`, advanced atomically per event. So the replayed rows, the fan-out, and the
-poll can all surface the same sequence and it still reaches the browser exactly once. A turn already
-terminal in the log replays its terminal and ends at stage 4 without ever tailing.
+## Instance ownership is visible at the API
 
-<Callout title="Deep dive: why the safety poll exists">
-The dispatcher's per-subscriber queue is **dropping** — a lagging socket drops queued signals rather
-than pinning unbounded memory (`SUBSCRIBER_QUEUE_CAPACITY`). The safety poll re-reads everything past
-the high-water mark on a low-frequency schedule, so a dropped `NOTIFY` or an overflowed queue is
-self-healing: it delays an event, never loses it. The poll interval is config-driven
-(`safetyPollIntervalMs`), not hardcoded.
-</Callout>
+The live buffer exists only on the instance that started the turn. The route checks the registry
+before writing any SSE frame:
 
-## LISTEN/NOTIFY fan-out
+- A running turn absent from this instance returns HTTP `409 stream_unavailable` with reason
+  `not_stream_owner`. The widget polls durable status until terminal, then reads history.
+- A terminal turn absent from this instance returns HTTP `404 replay_expired`. The widget reads the
+  final answer from conversation history.
+- A terminal turn still in the registry replays through its terminal and closes immediately.
 
-Persistence owns exactly one dedicated `LISTEN` connection per service instance
-(`packages/db/src/repositories/postgres-drizzle/notifications/turn-event-notification-source.ts`). It
-is the only place that issues `LISTEN`, and it holds its own connection — not one from the query pool —
-so it survives transaction-pooled PgBouncer. The service's per-instance dispatcher
-(`turn-event-dispatcher.ts`) consumes that stream: on each notify it reads the new rows **once per
-turn** and fans them out to every local subscriber of that turn.
+This behavior prevents an empty non-owner stream from hanging. Same-instance resume is exact;
+cross-instance live replay is deliberately unavailable.
 
-`pg_notify` reaches **every** instance's listener, so a signal raised by the generating instance wakes
-subscribers wherever they connected. Three channels carry these signals, each notified in the same
-transaction as the write it announces:
+## Registry sweep
 
-| Channel | Announces | Payload |
+The registry drops terminal entries only after they have no subscribers and the terminal retention
+window has elapsed. The sweep is lazy and runs when the instance registers another turn. Sweeping
+reclaims process memory; it does not delete any durable conversation or message.
+
+## What still uses Postgres notifications
+
+Turn content does not use `LISTEN/NOTIFY`. Three separate cross-instance coordination paths do:
+
+| Channel | Announces | Recovery source |
 | --- | --- | --- |
-| `turn_events` | A new event row for a turn | `{ assistantTurnId, sequence }` |
-| `turn_cancel` | A durable cancel intent | `{ assistantTurnId }` |
-| `turn_activity` | A turn started or reached terminal | `{ workspaceId, subjectId, conversationId, assistantTurnId, status }` |
+| `turn_cancel` | Durable cancel intent | Re-scan running turns with cancel intent after reconnect |
+| `turn_activity` | A turn started or reached terminal | Re-read the subject-scoped activity snapshot |
+| Host-command result channel | A browser posted a result for a paused host command | Poll the durable host-command row |
 
-Because reads are the truth and the signal is only a hint, the system needs **no Redis** and is
-multi-instance safe by construction.
+Each channel uses a dedicated reconnecting `LISTEN` connection. The notification is only a wake-up;
+durable state remains the recovery source.
 
-## Multi-instance: no sticky routing
-
-A turn **generates** on exactly one owner instance (claimed by an owner lease), but **any** instance
-can **serve** its stream: serving is just reading the durable log plus listening for notifies. The
-notification source confirms a subscriber here may watch a turn generated by a different instance —
-expected, because both read the same log.
-
-| Action | Where it can land | How it reaches the owner |
-| --- | --- | --- |
-| Generate | One owner instance only | Owner lease (`lease_epoch` CAS + heartbeat) |
-| Serve / replay the stream | Any instance | Reads the durable log + local fan-out |
-| Reconnect | Any instance (often a different one) | Resubscribe with `after` — no special path |
-| Cancel | Any instance | `pg_notify('turn_cancel')`; the owner interrupts its fiber, others no-op |
-
-There is no sticky routing and no session affinity. A reconnect or a cancel landing on a non-owning
-instance is the normal case, not an edge case.
-
-## Reconnect, replay expiry, and the activity stream
-
-The browser is a disposable subscriber. There is no special reconnect path: it reopens the same
-`GET /chat/turns/:assistantTurnId/stream?after=<lastSequenceSeen>` and the stream replays from there
-and resumes. The replay offset is one convention everywhere — `after=<lastSeenSequence>`, default
-`-1`, returning `sequence > after`.
-
-One case breaks a plain replay: a background pruner deletes the event rows of long-terminal turns
-(retention). If the smallest retained sequence is past `after + 1`, replay is impossible. The route
-fails closed **before** opening SSE — it returns the `replay_expired` JSON error (HTTP 404,
-`TRANSPORT_ERROR_CODES.REPLAY_EXPIRED`, a terminal-only code) — and the widget falls back to reading
-conversation history (`GET /chat/conversations/:id`) instead of a stream that can never replay. A
-still-running turn never returns `replay_expired`: its tail still delivers events.
-
-The subject-scoped `GET /chat/activity` stream reuses this **same** notify + fan-out + SSE pattern on
-the `turn_activity` channel. On connect it emits a snapshot of currently-running turns, then tails live
-transitions — pushing the "generating" dot to conversations the user is not even viewing. It has no
-terminal and no replay; a dropped signal self-corrects when the client reconnects and re-reads the
-snapshot.
-
----
-
-See also: [Assistant Turn Lifecycle](/docs/system-design/assistant-turn) (stages and crash recovery) ·
-[Protocol & Runtime Events](/docs/system-design/protocol-and-events) (event shapes) ·
-[Resumable Streaming](/docs/system-design/resumable-streaming) (the decision behind this design).
+`GET /chat/activity` is a separate subject-scoped SSE feed. It emits a snapshot of running turns and
+then live lifecycle transitions. It has no sequence, replay offset, or terminal event.

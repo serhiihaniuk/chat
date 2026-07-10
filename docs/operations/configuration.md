@@ -29,7 +29,7 @@ Every key below lives in `sidechat.config.ts` at the cited line. Each owns one s
 | `context`            | History window (`recent_messages`, 12 messages / 4k tokens) and `contextAdmission` token budgets.                                                                                                                                     | `:167` |
 | `auxiliaryModelJobs` | Side model jobs; ships the enabled conversation-title job.                                                                                                                                                                            | `:180` |
 | `history`            | Turn-activity retention (`turnActivity`, `SIDECHAT_TURN_ACTIVITY_HISTORY`): `full` (default) stores the turn's activity trace with the assistant message and serves it on history reads; `disabled` keeps the trace live-stream-only. | `:211` |
-| `streaming`          | The delta coalescing window (`outputDeltaFlushInterval`): provider text batched into ~4 delta events/s — fewer SSE frames and widget re-renders.                                                                                      | `:214` |
+| `streaming`          | The delta coalescing window (`outputDeltaFlushInterval`): provider text and reasoning batched into ~4 events/s per active block — fewer SSE frames and widget re-renders.                                                             | `:214` |
 | `resumability`       | Lease and heartbeat timers, the per-process `instanceId`, the crash-recovery sweep cadence (`reaperInterval`, `reaperBatchLimit` — ADR 0008), and the `sseHeartbeatInterval` SSE keepalive.                                           | `:189` |
 
 ## Declaring process inputs with `readEnv`

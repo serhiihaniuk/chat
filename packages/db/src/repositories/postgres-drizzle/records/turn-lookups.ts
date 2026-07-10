@@ -52,7 +52,7 @@ export const findAssistantTurnByRequest =
 /**
  * Read the running turn for one conversation, if any.
  *
- * The most recently started running turn is the one a reconnect resumes; a
+ * The most recently started running turn is the one a reconnect recovers; a
  * conversation should only ever have one, but ordering keeps this stable.
  */
 export const findActiveAssistantTurn =
@@ -104,7 +104,8 @@ export const listRunningCancelRequestedTurns =
  * Read every running turn for a subject, across all conversations.
  *
  * Powers the activity stream's snapshot on connect: one entry per conversation
- * with an in-flight turn. Ordered by start so the snapshot is stable.
+ * with an in-flight turn. Ordered by start time so the snapshot is stable from
+ * read to read.
  */
 export const listActiveAssistantTurns =
   (db: TurnLookupDb): SidechatRepositories["listActiveAssistantTurns"] =>

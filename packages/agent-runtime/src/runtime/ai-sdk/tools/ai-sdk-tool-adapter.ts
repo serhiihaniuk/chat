@@ -11,11 +11,10 @@ import {
   type AiHostCommandDescriptor,
   type RuntimeCallSettings,
 } from "@side-chat/ai-runtime-contract";
-import type { JsonObject } from "@side-chat/shared";
+import { toJsonObject, type JsonObject } from "@side-chat/shared";
 import type { HostCommandResolver, RuntimeTool, RuntimeToolContext } from "#tools/runtime-tool";
 
 import type { RuntimeProviderRequest } from "../../turn/runtime-provider-request.js";
-import { toJsonObject } from "./json-value.js";
 import { executeRuntimeToolForAiSdk } from "./runtime-tool-executor.js";
 
 /**
@@ -62,10 +61,10 @@ export const createAiSdkToolSet = (
 /**
  * Merge the runtime tool set with the host-command tool set for one turn.
  *
- * A name shared across the two kinds is a configuration error, not a silent
- * override: it would let a browser-declared host command shadow a registered
- * runtime tool (and misclassify every later stream part with that name). Reject
- * the turn with a typed `tool_conflict` instead.
+ * Invariant: a name shared across the two kinds is a configuration error, not a
+ * silent override — it would let a browser-declared host command shadow a
+ * registered runtime tool (and misclassify every later stream part with that
+ * name). Reject the turn with a typed `tool_conflict` instead.
  */
 export const mergeToolSets = (
   base: ToolSet | undefined,

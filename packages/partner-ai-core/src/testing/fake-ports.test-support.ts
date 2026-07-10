@@ -165,7 +165,7 @@ export const createFakePorts = (options: FakePortOptions = {}) => {
 };
 
 /**
- * Run one turn through the server-owned path and replay its durable events.
+ * Run one turn through the server-owned path and replay its buffered events.
  *
  * This drives the same shape the service runner uses: pre-start synchronously
  * (`prepareStreamChatTurn`), then `runTurnGeneration`, which drains the post-start

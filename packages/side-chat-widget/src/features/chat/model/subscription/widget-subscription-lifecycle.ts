@@ -2,10 +2,11 @@ import type { ChatStreamRequest } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
 
 import { toErrorMessage, type WidgetMessage } from "#entities/chat";
-import { SideChatApiError, type SideChatApiClient } from "#entities/conversation";
-import { WIDGET_RUN_STATUSES, type WidgetRunState } from "../run/widget-run-state.js";
+import { isAbortApiError, SideChatApiError, type SideChatApiClient } from "#entities/conversation";
+import { isTerminalRunStatus, WIDGET_RUN_STATUSES } from "../run/widget-run-state.js";
 import type { WidgetRunStore } from "../run/widget-run-store.js";
 import { clearActiveRunMarker, writeActiveRunMarker } from "../reconnect/widget-run-marker.js";
+import { linkAbort } from "./recovery/link-abort.js";
 import {
   consumeTurnStreamWithRecovery,
   type InitialStreamAttempt,
@@ -115,7 +116,7 @@ export const beginRun = async (
   // so the recovery watchdog can cut a wedged first attempt without touching the
   // caller's slot — an outer abort still stops everything.
   const connection = new AbortController();
-  const unlink = forwardAbort(control.signal, connection);
+  const unlink = linkAbort(control.signal, connection);
 
   let run;
   try {
@@ -139,7 +140,8 @@ export const beginRun = async (
   control.onIdentified(run.assistantTurnId);
   store.dispatch(requestId, { type: "identified", assistantTurnId: run.assistantTurnId });
   // Written exactly once per run; cleared only on a server-confirmed terminal or
-  // a replaced run — never on a transport failure, so a reload can still resume.
+  // a replaced run — never on a transport failure, so a reload can still
+  // attempt owner-bound replay or terminal-history recovery.
   writeActiveRunMarker(context.conversationStorageKey, {
     requestId,
     assistantTurnId: run.assistantTurnId,
@@ -171,23 +173,6 @@ const initialAttempt = (
   events: InitialStreamAttempt["events"],
   controller: AbortController,
 ): InitialStreamAttempt => ({ events, controller });
-
-const forwardAbort = (outer: AbortSignal, inner: AbortController): (() => void) => {
-  if (outer.aborted) {
-    inner.abort(outer.reason);
-    return () => undefined;
-  }
-  const forward = (): void => {
-    inner.abort(outer.reason);
-  };
-  outer.addEventListener("abort", forward);
-  return () => {
-    outer.removeEventListener("abort", forward);
-  };
-};
-
-const isAbortApiError = (error: unknown): boolean =>
-  error instanceof SideChatApiError && error.code === "aborted";
 
 const isReplayExpiredError = (error: unknown): boolean =>
   error instanceof SideChatApiError && error.code === "replay_expired";
@@ -229,6 +214,8 @@ export const driveSubscription = async (
   finalizeSubscription(context, store, signal);
 };
 
+// The terminal set is owned by `isTerminalRunStatus` — never re-enumerated here,
+// so a new terminal status (like BLOCKED) always clears the resume marker too.
 const finalizeSubscription = (
   context: RunLifecycleContext,
   store: WidgetRunStore,
@@ -236,21 +223,17 @@ const finalizeSubscription = (
 ): void => {
   if (signal.aborted) return;
   const run = store.getSnapshot();
-  if (run && isTerminalRun(run)) clearActiveRunMarker(context.conversationStorageKey);
+  if (run && isTerminalRunStatus(run.status)) clearActiveRunMarker(context.conversationStorageKey);
 };
-
-const isTerminalRun = (run: WidgetRunState): boolean =>
-  run.status === WIDGET_RUN_STATUSES.COMPLETED ||
-  run.status === WIDGET_RUN_STATUSES.FAILED ||
-  run.status === WIDGET_RUN_STATUSES.CANCELLED;
 
 /**
  * Cancel the live turn through the server, then render its terminal state.
  *
  * Cancel is a durable intent, not just a fetch abort: the server CAS-acks and
  * the owning instance interrupts generation. After the ack the run is marked
- * cancelled locally so the terminal state shows even before the stream's own
- * terminal arrives.
+ * cancelled locally, so the user sees the terminal state even before the
+ * stream's own terminal arrives — a late one applies to an already-settled run
+ * as a no-op.
  */
 export const cancelRun = async (
   context: RunLifecycleContext,

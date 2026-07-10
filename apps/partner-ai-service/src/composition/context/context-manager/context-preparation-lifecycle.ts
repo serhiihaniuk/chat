@@ -40,7 +40,7 @@ import type {
  */
 
 /**
- * Resolve the profile core already admitted for this turn.
+ * Resolve the profile core already admitted for this turn to its manifest entry.
  *
  * Policy has already selected the profile id. If the manifest no longer contains
  * it, that is a service configuration failure, not a denial.

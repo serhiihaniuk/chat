@@ -23,6 +23,10 @@ import { readUsageSummary, recordUsage } from "./usage.js";
 import { one, optional, result } from "../../repository-utils.js";
 
 type TurnDb = NodePgDatabase<typeof sidechatTables>;
+type FinishRunningTurnPatch = Pick<
+  typeof assistantTurns.$inferInsert,
+  "status" | "assistantMessageId" | "finishReason" | "errorCode" | "completedAt"
+>;
 
 /**
  * Durable cancel intent + notify in one transaction (module-level to keep the
@@ -57,6 +61,42 @@ const requestTurnCancellation =
       );
       return { cancelRequested: true };
     });
+
+/**
+ * CAS-finish a running turn + activity notify in one transaction (module-level to
+ * keep the repository factory within its nested-function budget).
+ *
+ * Both terminal writers share this: only the SET payload differs. The CAS on
+ * `status = "running"` means only the first transition wins, and the notify fires
+ * on commit so the lifecycle signal never races ahead of the durable status.
+ */
+const finishRunningTurn = async (
+  db: TurnDb,
+  command: { readonly workspaceId: string; readonly assistantTurnId: string },
+  patch: FinishRunningTurnPatch,
+) => {
+  await requireRunningTurn(db, command.workspaceId, command.assistantTurnId);
+  const rows = await db.transaction(async (transaction) => {
+    const updated = await transaction
+      .update(assistantTurns)
+      .set(patch)
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
+          eq(assistantTurns.status, "running"),
+        ),
+      )
+      .returning();
+    if (updated[0]) {
+      await transaction.execute(
+        sql`select pg_notify(${TURN_ACTIVITY_NOTIFY_CHANNEL}, ${activityNotifyPayload(updated[0])})`,
+      );
+    }
+    return updated;
+  });
+  return toAssistantTurnRecord(one(rows, "invalid_transition", "Assistant turn was not running."));
+};
 
 export const createPostgresDrizzleTurnRepository = ({
   db,
@@ -181,65 +221,19 @@ export const createPostgresDrizzleTurnRepository = ({
       false,
     );
   },
-  completeAssistantTurn: async (command) => {
-    await requireRunningTurn(db, command.workspaceId, command.assistantTurnId);
-    const rows = await db.transaction(async (transaction) => {
-      const updated = await transaction
-        .update(assistantTurns)
-        .set({
-          status: "completed",
-          assistantMessageId: command.assistantMessageId,
-          finishReason: command.finishReason,
-          completedAt: command.now,
-        })
-        .where(
-          and(
-            eq(assistantTurns.workspaceId, command.workspaceId),
-            eq(assistantTurns.assistantTurnId, command.assistantTurnId),
-            eq(assistantTurns.status, "running"),
-          ),
-        )
-        .returning();
-      if (updated[0]) {
-        await transaction.execute(
-          sql`select pg_notify(${TURN_ACTIVITY_NOTIFY_CHANNEL}, ${activityNotifyPayload(updated[0])})`,
-        );
-      }
-      return updated;
-    });
-    return toAssistantTurnRecord(
-      one(rows, "invalid_transition", "Assistant turn was not running."),
-    );
-  },
-  failAssistantTurn: async (command) => {
-    await requireRunningTurn(db, command.workspaceId, command.assistantTurnId);
-    const rows = await db.transaction(async (transaction) => {
-      const updated = await transaction
-        .update(assistantTurns)
-        .set({
-          status: command.status,
-          errorCode: command.errorCode,
-          completedAt: command.now,
-        })
-        .where(
-          and(
-            eq(assistantTurns.workspaceId, command.workspaceId),
-            eq(assistantTurns.assistantTurnId, command.assistantTurnId),
-            eq(assistantTurns.status, "running"),
-          ),
-        )
-        .returning();
-      if (updated[0]) {
-        await transaction.execute(
-          sql`select pg_notify(${TURN_ACTIVITY_NOTIFY_CHANNEL}, ${activityNotifyPayload(updated[0])})`,
-        );
-      }
-      return updated;
-    });
-    return toAssistantTurnRecord(
-      one(rows, "invalid_transition", "Assistant turn was not running."),
-    );
-  },
+  completeAssistantTurn: (command) =>
+    finishRunningTurn(db, command, {
+      status: "completed",
+      assistantMessageId: command.assistantMessageId,
+      finishReason: command.finishReason,
+      completedAt: command.now,
+    }),
+  failAssistantTurn: (command) =>
+    finishRunningTurn(db, command, {
+      status: command.status,
+      errorCode: command.errorCode,
+      completedAt: command.now,
+    }),
   requestTurnCancellation: requestTurnCancellation(db),
   findAssistantTurn: findAssistantTurn(db),
   findAssistantTurnByRequest: findAssistantTurnByRequest(db),

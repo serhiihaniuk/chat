@@ -1,5 +1,6 @@
 import {
   SIDECHAT_PROTOCOL_VERSION,
+  type BlockedEvent,
   type CompletedEvent,
   type DeltaEvent,
   type SidechatStreamEvent,
@@ -14,6 +15,7 @@ import { createWidgetMessage } from "#entities/chat";
 import { SideChatApiError, type SideChatApiClient } from "#entities/conversation";
 import { resetWidgetRunStores } from "../run/widget-run-store.js";
 import { WIDGET_RUN_STATUSES } from "../run/widget-run-state.js";
+import { readActiveRunMarker } from "./widget-run-marker.js";
 import { useWidgetRunController, type WidgetRunController } from "./widget-run-controller.js";
 
 const REQUEST_ID = "request-1";
@@ -68,6 +70,13 @@ const completed = (sequence: number): CompletedEvent => ({
   ...event(sequence),
   type: "sidechat.completed",
   finishReason: "stop",
+});
+
+const blocked = (sequence: number): BlockedEvent => ({
+  ...event(sequence),
+  type: "sidechat.blocked",
+  reason: "content_filter",
+  publicMessage: "This request was blocked by a safety filter.",
 });
 
 const eventStream = async function* (
@@ -196,5 +205,25 @@ describe("useWidgetRunController transport recovery", () => {
 
     const markerWrites = setItem.mock.calls.filter(([key]) => key.endsWith(":active-run"));
     expect(markerWrites).toHaveLength(1);
+  });
+
+  it("clears the reconnect marker when the stream ends blocked", async () => {
+    const fake = fakeClient(() =>
+      Promise.resolve({
+        events: eventStream([started(), blocked(1)]),
+      }),
+    );
+    const setItem = vi.spyOn(globalThis.localStorage, "setItem");
+    const removeItem = vi.spyOn(globalThis.localStorage, "removeItem");
+    const controllerRef = renderController(fake.client);
+
+    await act(async () => {
+      await controllerRef.current?.startRun(startInput());
+    });
+
+    expect(controllerRef.current?.run?.status).toBe(WIDGET_RUN_STATUSES.BLOCKED);
+    expect(setItem.mock.calls.some(([key]) => key.endsWith(":active-run"))).toBe(true);
+    expect(removeItem.mock.calls.some(([key]) => key.endsWith(":active-run"))).toBe(true);
+    expect(readActiveRunMarker("controller-recovery-test")).toBeUndefined();
   });
 });

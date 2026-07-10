@@ -6,6 +6,7 @@
  * --tool-label-fg (foreground) at --tool-label-size (text-sm), weight 500; only the
  * glyph carries colour. Informational, not interactive — a plain <div>.
  *
+ * The state comes from the activity timeline row; each state maps to one glyph:
  *   running -> spinning Loader2, --tool-running-fg (primary)
  *   success -> Check,          --tool-done-fg (success)
  *   error   -> TriangleAlert, tinted via the sc-error-glyph hook class

@@ -98,7 +98,7 @@ export type RequestTurnCancellationCommand = RepositoryCommandEnvelope & {
 /**
  * Outcome of recording a durable cancel intent.
  *
- * `cancelRequested` is true only when this call moved a still-running turn into
+ * `cancelRequested` is true only when this call moved a still-running turn to
  * the cancel-requested state (and notified). It is false for an unknown,
  * cross-workspace, or already-terminal turn, so a cancel of a finished turn is a
  * no-op rather than an error.

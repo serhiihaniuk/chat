@@ -72,9 +72,12 @@ See [Confusing Words](/docs/walkthrough/confusing-words) and [Add a Tool](/docs/
 
 | Term | One-line meaning |
 | --- | --- |
-| Turn events log | The durable, append-only `turn_events` table — the source of truth a stream replays and tails. |
+| Turn-event registry | The owning instance's in-memory buffer of live `sidechat.v1` events. |
 | Owner lease | The compare-and-swap claim (with a lease epoch + heartbeat) that lets exactly one instance own a running turn. |
-| Reaper / pruner | Background sweeps: the reaper terminalizes turns whose lease expired; the pruner deletes old event-log rows. |
+| Reaper | The background sweep that terminalizes turns whose lease expired. |
+| Registry sweep | Lazy cleanup that drops terminal, unwatched live buffers after retention. |
+| `stream_unavailable` | HTTP 409: this instance does not own the running turn's live registry; poll status. |
+| `replay_expired` | HTTP 404: the terminal live buffer is gone; read conversation history. |
 | Host bridge | The seam that lets the widget ask the page it is embedded in to run an allowed command. |
 | Drizzle | The TypeScript query-builder the Postgres repository uses. |
 | FSD (feature-sliced design) | The widget's folder convention: shared → entities → features → widgets, lower layers never importing up. |

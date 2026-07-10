@@ -23,10 +23,10 @@ export type SideChatResumabilityConfig = {
 /**
  * Stream-delivery tunables, as readable-config env references.
  *
- * `outputDeltaFlushInterval` is the window (ms) for coalescing provider text
- * into one emitted delta event (~4 events/s at the default): fewer SSE frames,
- * registry appends, and widget re-renders. It is a render-cadence knob, not a
- * resumability one — resolved into the runtime executor config.
+ * `outputDeltaFlushInterval` is the window (ms) for coalescing provider text and
+ * reasoning into emitted delta events (~4 events/s per active block at the
+ * default): fewer SSE frames, registry appends, and widget re-renders. It is a
+ * render-cadence knob, not a resumability one — resolved into runtime config.
  */
 export type SideChatStreamingConfig = {
   readonly outputDeltaFlushInterval: SideChatNumberEnvReference;

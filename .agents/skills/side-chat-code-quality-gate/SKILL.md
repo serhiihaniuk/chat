@@ -575,8 +575,6 @@ Read `references/comment-readability-rubric.md` for comments, context bridges, a
 
 Read `references/comment-readability-rubric.md` as mandatory when changed code adds or refactors exported types, config/status/control-plane objects, boundary mappers, adapter selectors, diagnostics, or spine functions.
 
-Read `references/side-chat-architecture-map.md` when a change crosses packages or introduces imports.
-
 Read `assets/comment-context-bridge-patterns.md` when rewriting comments around AI SDK, Effect, runtime, provider, protocol, activity, tool, or adapter code.
 
 Read `references/eval-prompts.md` when validating skill behavior.

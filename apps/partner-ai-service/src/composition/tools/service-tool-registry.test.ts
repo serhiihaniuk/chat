@@ -40,6 +40,7 @@ describe("createServiceToolRegistry", () => {
       name: "search",
       capability: toolCapability("search"),
       runtimeTool: runtimeTool("search_runtime"),
+      createRuntimeTool: () => runtimeTool("search_runtime"),
       defaultEnabled: true,
       approvalPolicyIds: [],
     };

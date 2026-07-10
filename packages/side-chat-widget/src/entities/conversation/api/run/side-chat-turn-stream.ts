@@ -57,9 +57,10 @@ const streamResultFromResponse = (
 /**
  * Decode an accepted SSE response into the validated turn event stream.
  *
+ * Source is the raw `Response` body; target is a validated event iterable.
  * Shared by the resume subscription and `createRun` (whose POST response IS the
- * turn stream). The reader enforces increasing sequence and exactly one terminal
- * across the whole body.
+ * turn stream). Invariant, enforced by the reader across the whole body:
+ * sequence numbers strictly increase and exactly one terminal event closes it.
  */
 export const turnEventStreamFromResponse = (
   response: Response,
@@ -72,9 +73,9 @@ export const turnEventStreamFromResponse = (
 };
 
 /**
- * Map a non-OK stream-opening status: 404 means the buffer is gone
- * (`replay_expired`); 409 means another instance owns the live stream
- * (`stream_unavailable` — poll turn status until terminal).
+ * Map a non-OK stream-opening status to its typed API error: 404 means the
+ * buffer is gone (`replay_expired`); 409 means another instance owns the live
+ * stream (`stream_unavailable` — poll turn status until terminal).
  */
 export const turnStreamOpenError = (status: number): SideChatApiError => {
   if (status === REPLAY_EXPIRED_STATUS) {

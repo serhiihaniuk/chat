@@ -3,15 +3,18 @@ import {
   SIDECHAT_EVENT_TYPES,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-import { createCommandResult, createFailedResult, type HostBridge } from "@side-chat/host-bridge";
+import {
+  createCommandResult,
+  createFailedResult,
+  isHostCommandActivityEvent,
+  toHostCommand,
+  type HostBridge,
+  type HostCommandActivityEvent,
+} from "@side-chat/host-bridge";
 
 import { toErrorMessage, toJsonObject } from "#entities/chat";
-import { SideChatApiError, type SideChatApiClient } from "#entities/conversation";
-import {
-  isHostCommandActivityEvent,
-  toHostCommandResultJson,
-  toRunHostCommand,
-} from "../run/widget-run-projection.js";
+import { isAbortApiError, SideChatApiError, type SideChatApiClient } from "#entities/conversation";
+import { toHostCommandResultJson } from "../run/widget-run-projection.js";
 import type { WidgetRunStore } from "../run/widget-run-store.js";
 
 type HostBridgeRef = Pick<HostBridge, "dispatchCommand"> | undefined;
@@ -67,7 +70,7 @@ export const runSubscription = async (
     const events = input.events ?? (await openResumeStream(input));
     await consumeEvents(input, events);
   } catch (error) {
-    if (input.signal.aborted || isAbortError(error)) return { kind: "aborted" };
+    if (input.signal.aborted || isAbortApiError(error)) return { kind: "aborted" };
     if (error instanceof SideChatApiError && error.code === "replay_expired") {
       return { kind: "replay-expired" };
     }
@@ -154,11 +157,8 @@ const submitHostCommandResult = async (
   }
 };
 
-const dispatchHostCommand = async (
-  hostBridge: HostBridgeRef,
-  event: Parameters<typeof toRunHostCommand>[0],
-) => {
-  const command = toRunHostCommand(event);
+const dispatchHostCommand = async (hostBridge: HostBridgeRef, event: HostCommandActivityEvent) => {
+  const command = toHostCommand(event);
   if (!hostBridge) {
     return createFailedResult(command, "host_bridge_unavailable");
   }
@@ -172,6 +172,3 @@ const dispatchHostCommand = async (
     });
   }
 };
-
-const isAbortError = (error: unknown): boolean =>
-  error instanceof SideChatApiError && error.code === "aborted";

@@ -68,7 +68,7 @@ describe("GET /chat/turns/:assistantTurnId/stream replay_expired", () => {
     const harness = createApp();
     const started = await runTurnStream(harness.app, runRequest());
 
-    // No prune: the durable log is intact, so resume replays normally and ends.
+    // The terminal turn remains buffered, so resume replays normally and ends.
     const events = await readTurnStream(harness.app, started.assistantTurnId);
     expect(events.at(0)).toMatchObject({ type: SIDECHAT_EVENT_TYPES.STARTED });
     expect(events.at(-1)).toMatchObject({

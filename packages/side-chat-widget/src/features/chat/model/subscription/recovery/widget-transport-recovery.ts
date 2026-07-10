@@ -9,6 +9,7 @@ import {
   type WidgetRunStatus,
 } from "../../run/widget-run-state.js";
 import type { WidgetRunStore } from "../../run/widget-run-store.js";
+import { linkAbort } from "./link-abort.js";
 import { runSubscription, type SubscriptionAttemptOutcome } from "../widget-run-subscription.js";
 
 type HostBridgeRef = Pick<HostBridge, "dispatchCommand"> | undefined;
@@ -243,20 +244,6 @@ const resumeCursor = (input: TransportRecoveryInput): number => {
 /** The watchdog aborted a live-but-silent connection: report it as a network stall. */
 const wedgedConnectionError = (): SideChatApiError =>
   new SideChatApiError("network_error", "No stream events arrived within the inactivity window");
-
-const linkAbort = (outer: AbortSignal, inner: AbortController): (() => void) => {
-  if (outer.aborted) {
-    inner.abort(outer.reason);
-    return () => undefined;
-  }
-  const forward = (): void => {
-    inner.abort(outer.reason);
-  };
-  outer.addEventListener("abort", forward);
-  return () => {
-    outer.removeEventListener("abort", forward);
-  };
-};
 
 /**
  * Abort the attempt's controller when no event arrives within the window.

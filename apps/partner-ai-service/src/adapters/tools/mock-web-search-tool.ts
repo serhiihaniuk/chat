@@ -16,9 +16,9 @@ import {
 import { isRecord, type JsonObject } from "@side-chat/shared";
 import {
   createServiceToolRegistration,
+  type ServiceToolRuntimeAccessor,
   type ServiceToolRegistration,
 } from "#composition/tools/service-tool-registry";
-import { getMockWebSearchRuntime } from "./mock-web-search-runtime.js";
 
 export const DEFAULT_MOCK_WEB_SEARCH_DELAY_MS = 5000;
 export const DEFAULT_MOCK_WEB_SEARCH_RESULT_COUNT = 5;
@@ -54,14 +54,25 @@ export type MockWebSearchAgentConfig = {
 };
 
 /**
+ * Late-binding accessor for the sub-agent's runtime.
+ *
+ * The runtime is built from the tools, so this tool cannot capture it at
+ * construction. Its registry supplies a composition-local accessor and fills
+ * that registry's handle once composition has built the runtime. An unset
+ * accessor (a title job or direct unit test) degrades to the canned result.
+ */
+export type MockWebSearchRuntimeAccessor = ServiceToolRuntimeAccessor;
+
+/**
  * Local/dev web-search fixture.
  *
  * Instead of a canned constant, it runs a small model-only sub-agent (the runtime
  * `createBasicRuntimeAgent`, pinned to `gpt-5.4-mini`) that pretends to be a search
  * engine and fabricates several plausible results from its own knowledge. The main
- * model sees an ordinary tool result. The sub-agent runs against the shared runtime
- * handle (see `mock-web-search-runtime`); when that handle is unset or the sub-agent
- * fails, it falls back to a deterministic canned result so a turn never breaks.
+ * model sees an ordinary tool result. The sub-agent reads its runtime through
+ * the composition-local `getRuntime` accessor; when it reads unset or the
+ * sub-agent fails, the tool falls back to a deterministic canned result so a
+ * turn never breaks.
  */
 export const createMockWebSearchTool = ({
   delayMs = DEFAULT_MOCK_WEB_SEARCH_DELAY_MS,
@@ -69,9 +80,11 @@ export const createMockWebSearchTool = ({
   resultCount = DEFAULT_MOCK_WEB_SEARCH_RESULT_COUNT,
   modelId = DEFAULT_MOCK_WEB_SEARCH_MODEL_ID,
   systemPrompt = DEFAULT_MOCK_WEB_SEARCH_AGENT_PROMPT,
+  getRuntime = () => undefined,
 }: {
   readonly delayMs?: number;
   readonly description?: string;
+  readonly getRuntime?: MockWebSearchRuntimeAccessor;
 } & MockWebSearchAgentConfig = {}): RuntimeTool => ({
   name: MOCK_WEB_SEARCH_TOOL_NAME,
   description,
@@ -80,7 +93,7 @@ export const createMockWebSearchTool = ({
   execute: (input, context) =>
     Effect.gen(function* () {
       const query = yield* readQuery(input);
-      const results = yield* runSearchAgent(query, context, {
+      const results = yield* runSearchAgent(query, context, getRuntime, {
         resultCount,
         modelId,
         systemPrompt,
@@ -108,9 +121,10 @@ export const createMockWebSearchTool = ({
 const runSearchAgent = (
   query: string,
   context: RuntimeToolContext,
+  getRuntime: MockWebSearchRuntimeAccessor,
   config: Required<MockWebSearchAgentConfig>,
 ): Effect.Effect<MockSearchResult[], never> => {
-  const runtime = getMockWebSearchRuntime();
+  const runtime = getRuntime();
   if (!runtime || !context.providerId || !context.scope) {
     return Effect.succeed<MockSearchResult[]>([]);
   }
@@ -211,20 +225,21 @@ export const createMockWebSearchRegistration = ({
   readonly approvalPolicyIds?: readonly string[];
   readonly label?: string;
 } & MockWebSearchAgentConfig = {}): ServiceToolRegistration => {
-  const runtimeTool = createMockWebSearchTool({
-    delayMs,
-    description,
-    resultCount,
-    modelId,
-    systemPrompt,
-  });
   return createServiceToolRegistration({
     capability: {
       name: MOCK_WEB_SEARCH_TOOL_NAME,
-      description: runtimeTool.description,
+      description,
       inputSchema: MOCK_WEB_SEARCH_INPUT_SCHEMA,
     },
-    runtimeTool,
+    createRuntimeTool: (getRuntime) =>
+      createMockWebSearchTool({
+        delayMs,
+        description,
+        resultCount,
+        modelId,
+        systemPrompt,
+        getRuntime,
+      }),
     defaultEnabled,
     approvalPolicyIds,
     label,

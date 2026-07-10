@@ -1,61 +1,58 @@
 ---
 title: System Design
-description: How Side Chat is built — the layered architecture, the resumable server-owned turn model, and what each package owns.
+description: How Side Chat is built — the layered architecture, the connection-bound turn model, and what each package owns.
 ---
 
-This section explains how Side Chat works under the hood: the layered architecture, the way one
-message becomes a streamed answer, and the job of each package.
-
-These pages are the reference tier — terse, precise, and table-first. If you are new to the system,
-read the [Walkthrough](/docs/walkthrough) first; it tells the same story as a narrative, then sends
-you here for the exact contracts. Start with the four-layer shape below, then open the page that
-matches your change.
+This section explains how Side Chat turns one browser message into a streamed answer. These pages
+are the terse reference tier. Start with the four-layer shape below, then open the page that matches
+your change. If the architecture is new to you, read the [Walkthrough](/docs/walkthrough) first.
 
 ## Reference pages
 
 <Cards>
   <Card title="Assistant Turn Lifecycle" href="/docs/system-design/assistant-turn" description="The stages of one turn, the failure split, server-owned generation, cancellation, and crash recovery." />
   <Card title="Protocol & Runtime Events" href="/docs/system-design/protocol-and-events" description="How a provider stream part becomes a RuntimeEvent, then a sidechat.v1 event, then widget state." />
+  <Card title="Event Delivery" href="/docs/system-design/event-delivery" description="How the POST stream and same-instance resume read the in-memory turn-event registry." />
   <Card title="Package Boundaries" href="/docs/system-design/package-boundaries" description="What each boundary owns, may import, and must not import — and how the rules are enforced." />
-  <Card title="Resumable Streaming (ADR 0009)" href="/docs/system-design/resumable-streaming" description="Why the turn is server-owned and resumable: the decision, alternatives rejected, and consequences." />
+  <Card title="Connection-Bound Streaming (ADR 0007)" href="/docs/system-design/resumable-streaming" description="Why live events stay on the owning instance while Postgres stores the durable final state." />
 </Cards>
 
-## The shape: four layers, dependencies inward
+## Four layers, dependencies inward
 
-Side Chat is four layers wrapped around a protected center. Each layer depends only on the layer
-beneath it, and only through a typed contract. The center stays pure: it never imports HTTP, a
-database, or an AI SDK.
+Each layer depends only on the contract beside it. The Core stays free of HTTP, database drivers,
+and provider SDKs.
 
 | Layer | Package | Owns |
 | --- | --- | --- |
-| Browser | `side-chat-widget`, `host-bridge` | The embedded panel, the API client, and the host bridge |
-| Service | `apps/partner-ai-service` | HTTP routes, env/config, SSE transport, and the server-owned turn runner |
+| Browser | `side-chat-widget`, `host-bridge` | The embedded panel, API client, live-stream reader, and host seam |
+| Service | `apps/partner-ai-service` | HTTP routes, SSE transport, the turn runner, and the in-memory event registry |
 | Core | `packages/partner-ai-core` | Policy, context, capability contracts, lifecycle, and protocol mapping |
 | Runtime | `packages/agent-runtime` | Provider calls, the tool loop, and runtime-event mapping |
 
-Two contract packages hold the pure types that cross those boundaries: `chat-protocol`
-(browser ⇄ service) and `ai-runtime-contract` (core ⇄ runtime).
+Two pure contract packages cross those boundaries: `chat-protocol` between browser and service, and
+`ai-runtime-contract` between Core and Runtime.
 
-## Streaming is resumable and server-owned
+## Streaming is server-owned and connection-bound
 
-A turn does not live inside one HTTP response. It runs in two calls, so generation outlives any
-single connection:
+`POST /chat/runs` performs pre-start work, forks generation onto a server-owned fiber, registers
+the live turn on that service instance before subscribing, and returns the turn's SSE stream on the
+same response.
+`sidechat.started` is sequence 0 and carries the turn identity.
 
-1. `POST /chat/runs` runs the pre-start steps, then returns the turn's identity as JSON —
-   `{ protocolVersion, requestId, assistantTurnId, conversationId, status }`. The service forks
-   generation onto a server-owned fiber.
-2. `GET /chat/turns/:assistantTurnId/stream?after=<seq>` opens an SSE stream that replays the
-   durable event log from `after`, then tails live events to the terminal one.
+Live events exist only in that instance's in-memory turn-event registry. Postgres stores the durable
+conversation, messages, turn status, and final answer. The browser can use
+`GET /chat/turns/:assistantTurnId/stream?after=<seq>` to resume from the registry on the same
+instance. A running turn on another instance returns `409 stream_unavailable`; the widget polls its
+status and reads history after it becomes terminal. A terminal turn whose buffer was swept returns
+`404 replay_expired`, which also sends the widget to conversation history.
 
-The durable `turn_events` log is the source of truth; the browser is only a subscriber, so a
-reconnect resumes the same turn. A separate `GET /chat/activity` stream pushes turn lifecycle
-across conversations, so the sidebar shows a live "generating" dot even on chats that are not open.
+`GET /chat/activity` is a separate subject-scoped SSE stream. It pushes cross-conversation lifecycle
+signals for the sidebar's generating indicator; it is not a replay path for turn content.
 
 ## One turn across the layers
 
-Each step of a turn lands in the layer that owns it. Step through the map below to see the staircase
-from browser to runtime and back, or read the full sequence on the
-[Assistant Turn Lifecycle](/docs/system-design/assistant-turn) page.
+Step through the map below to see the request move inward and protocol events move back to the
+browser. The [Assistant Turn Lifecycle](/docs/system-design/assistant-turn) page owns the exact order.
 
 <TurnExplorer />
 
@@ -63,32 +60,27 @@ from browser to runtime and back, or read the full sequence on the
 
 | Package | Owns | First files to open |
 | --- | --- | --- |
-| `apps/partner-ai-service` | HTTP routes, composition, SSE transport, the turn runner, the dispatchers, the reaper and pruner | `src/inbound/http/app.ts`, `src/inbound/turn-runner/turn-runner.ts` |
+| `apps/partner-ai-service` | HTTP routes, composition, SSE, turn runner, in-memory registry, reaper, and cross-instance dispatchers | `src/inbound/http/app.ts`, `src/inbound/turn-runner/turn-runner.ts` |
 | `packages/partner-ai-core` | Stream-chat workflow, policy, context, ports, lifecycle, protocol mapping | `src/application/stream-chat/` |
-| `packages/ai-runtime-contract` | Provider-neutral request, tool scope, `RuntimeEvent`, error, stream, and port contracts | `src/index.ts` |
-| `packages/agent-runtime` | Prepared-turn execution, executors, runtime tools, the provider adapter | `src/runtime/agent-runtime.ts` |
-| `packages/chat-protocol` | `sidechat.v1` request/event DTOs, validators, the SSE codec, the generated schema | `src/sidechat-v1/index.ts` |
-| `packages/side-chat-widget` | The React widget, the API client and SSE reader, the query repository, protocol-to-UI state | `src/widgets/side-chat/` |
-| `packages/host-bridge` | The browser seam for host context and host commands | `src/bridge/` |
-| `packages/db` | Persistence schema, repository contracts and adapters, the `LISTEN/NOTIFY` source | `src/schema-contract/`, `src/repositories/` |
+| `packages/ai-runtime-contract` | Provider-neutral request, `RuntimeEvent`, error, stream, and port contracts | `src/index.ts` |
+| `packages/agent-runtime` | Prepared-turn execution, executors, runtime tools, and provider adapters | `src/runtime/agent-runtime.ts` |
+| `packages/chat-protocol` | `sidechat.v1` request/event DTOs, validators, SSE codecs, and schema | `src/sidechat-v1/index.ts` |
+| `packages/side-chat-widget` | React widget, browser API client, SSE reader, query repository, and protocol-to-UI state | `src/widgets/side-chat/` |
+| `packages/host-bridge` | Browser seam for host context and host commands | `src/bridge/` |
+| `packages/db` | Persistence plus cancel, turn-activity, and host-command-result `LISTEN/NOTIFY` sources | `src/schema-contract/`, `src/repositories/` |
 
 ## The composition root
 
-The `apps/partner-ai-service` package assembles itself in one place — the composition root under
-`src/composition/`. It is organized feature-first: `composePartnerAiService` calls each concern's
-factory in dependency order, every concern folder owns its registry/builder plus that factory (the
-wiring mirror of `adapters/`, which owns the implementations), and the bundles combine into the
-`ServiceComposition` the HTTP routes consume.
+`apps/partner-ai-service/src/composition/` chooses concrete adapters and assembles the
+`ServiceComposition` consumed by the routes.
 
 <CompositionRoot />
 
 ## Invariants
 
-These hold across the system; breaking one is a design bug, not a style choice:
-
 - Product policy, capability configuration, and prepared context stay in `partner-ai-core`.
-- Shared core-to-runtime request and event shapes stay in `ai-runtime-contract`.
 - Provider and AI SDK details stay in `agent-runtime`.
-- Browser contracts stay in `chat-protocol`, `host-bridge`, and the widget package.
-- Env parsing and concrete adapter modes live in service composition, injected through ports.
+- Browser contracts stay in `chat-protocol`, `host-bridge`, and the widget.
+- Live turn events never become database rows; only final state is durable.
+- Closing an SSE connection releases a subscriber. It never cancels generation.
 - The repo ships no production host app.

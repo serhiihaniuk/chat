@@ -70,7 +70,7 @@ export type ObservabilityRecord = RequestCorrelation & {
 /**
  * Telemetry adapter supplied by service composition.
  *
- * A sink failure can never affect a turn: `recordStreamObservationEffect` runs
+ * Invariant: a sink failure can never affect a turn. `recordStreamObservationEffect` runs
  * every observation fail-open, so a `record` that rejects is swallowed rather
  * than rejecting the request at pre-start or aborting a healthy generation
  * mid-stream. Implementations should still avoid throwing, but the workflow does

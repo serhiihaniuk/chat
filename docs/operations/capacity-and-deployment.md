@@ -101,12 +101,16 @@ rather than widening the index.
 
 ## What deliberately disappears
 
-The in-flight event stream — deltas, reasoning rows, tool inputs and results,
-host-command activity detail — lives only in the per-instance in-memory
-registry and dies with the turn (or the process). After a reload, history shows
-the final user and assistant messages, not the tool cards. `tool_invocations`
-is the reserved-but-unwritten table if the product ever wants persistent tool
-detail in history; wiring it is an owner decision, not scheduled work.
+The in-flight transport buffer lives only in the owning instance's registry.
+Its replay cursor, SSE frames, and incremental text deltas disappear when the
+turn is swept or the process exits. The durable assistant message remains the
+source for the final answer.
+
+When `history.turnActivity` is enabled (the default), finalization also stores
+the completed activity trace in assistant-message metadata. History can then
+rebuild reasoning, tool, and host-command rows after a reload. This snapshot is
+turn history, not a replayable transport log: it cannot resume an in-flight SSE
+stream or recover the original event cursor.
 
 ## Verify
 

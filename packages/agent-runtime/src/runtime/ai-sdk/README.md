@@ -6,15 +6,15 @@ Not source of truth for: provider policy, product policy, or protocol events.
 
 ## Files
 
-| File                                  | Owns                                                                |
-| ------------------------------------- | ------------------------------------------------------------------- |
-| `streaming/tool-loop-agent-runner.ts` | Opens ToolLoopAgent, ends at the first terminal, merges tool sets.  |
-| `streaming/tool-activity-mapper.ts`   | Maps AI SDK tool parts into one runtime activity row per tool call. |
-| `streaming/reasoning-activity.ts`     | Buffers reasoning deltas into one safe activity row.                |
-| `streaming/stream-part-mapper.ts`     | Maps text/finish/error/abort parts; classifies every part type.     |
-| `tools/ai-sdk-tool-adapter.ts`        | Converts RuntimeTool into an AI SDK tool callback.                  |
-| `tools/runtime-tool-executor.ts`      | Runs RuntimeTool Effects with abort and timeout handling.           |
-| `tools/json-value.ts`                 | Normalizes unknown tool input/output into JSON-safe values.         |
+| File                                      | Owns                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| `streaming/tool-loop-agent-runner.ts`     | Opens ToolLoopAgent, ends at the first terminal, merges tool sets.  |
+| `streaming/tool-activity-mapper.ts`       | Maps AI SDK tool parts into one runtime activity row per tool call. |
+| `streaming/reasoning-activity.ts`         | Buffers reasoning deltas into one safe activity row.                |
+| `streaming/stream-part-mapper.ts`         | Maps text/finish/error/abort parts; classifies every part type.     |
+| `streaming/coalescing/delta-coalescer.ts` | Batches same-block text/reasoning delta runs into one merged part.  |
+| `tools/ai-sdk-tool-adapter.ts`            | Converts RuntimeTool into an AI SDK tool callback.                  |
+| `tools/runtime-tool-executor.ts`          | Runs RuntimeTool Effects with abort and timeout handling.           |
 
 ## Boundary Rules
 

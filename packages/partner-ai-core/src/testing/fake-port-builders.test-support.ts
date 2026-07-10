@@ -136,12 +136,11 @@ export const createAssistantTurnLifecyclePort = (
 });
 
 /**
- * In-memory turn-event log mirroring the durable adapter's read semantics.
+ * Minimal turn-event store for core workflow tests.
  *
- * Append records the event for assertions; reads use the same `sequence > after`
- * convention as the real adapter. The one-terminal partial-unique guard lives in
- * the durable repository, so server-level runner tests exercise it through the
- * memory repositories rather than this fake.
+ * Appends remain inspectable by assertions, and reads use the port's
+ * `sequence > after` ordering convention. Subscriber fan-out, retention, and
+ * terminal-race enforcement belong to the shipped service adapter's tests.
  */
 export const createTurnEventLogPort = (
   calls: string[],

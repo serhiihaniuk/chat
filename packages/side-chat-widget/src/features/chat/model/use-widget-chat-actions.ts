@@ -13,10 +13,9 @@ import type { ChatModelPreference, RequestHostCommand } from "@side-chat/chat-pr
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
 import type { WidgetRunController } from "./reconnect/widget-run-controller.js";
+import type { RunShellBridge } from "./conversation/shell/run-shell-bridge.js";
 
 type SetError = Dispatch<SetStateAction<string | undefined>>;
-type MutableConversationRef = { current: string | undefined };
-type PendingTitleRef = { current: string | undefined };
 
 export type WidgetChatActionsInput = {
   readonly controller: WidgetRunController;
@@ -30,8 +29,8 @@ export type WidgetChatActionsInput = {
   readonly visibleMessagesRef: MutableRefObject<readonly WidgetMessage[]>;
   readonly setConversationId: Dispatch<SetStateAction<string | undefined>>;
   readonly setErrorMessage: SetError;
-  readonly streamOwnedConversationRef: MutableConversationRef;
-  readonly pendingConversationTitleRef: PendingTitleRef;
+  /** Shared run↔shell state (stream-owned conversation, pending title). */
+  readonly shellBridge: RunShellBridge;
 };
 
 export type WidgetChatActions = {
@@ -64,8 +63,7 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
     visibleMessagesRef,
     setConversationId,
     setErrorMessage,
-    streamOwnedConversationRef,
-    pendingConversationTitleRef,
+    shellBridge,
   } = input;
 
   const startTurn = useCallback(
@@ -74,7 +72,7 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
       const userMessage = createWidgetMessage(ids.userMessageId, "user", messageText);
       const assistantMessage = createWidgetMessage(ids.assistantMessageId, "assistant", "", true);
 
-      pendingConversationTitleRef.current = messageText;
+      shellBridge.markTurnSubmitted(messageText);
       setErrorMessage(undefined);
 
       const hostContext = await hostBridge?.getContext({ requestId: ids.requestId });
@@ -101,10 +99,10 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
       controller,
       enabledToolNames,
       hostBridge,
-      pendingConversationTitleRef,
       selectedModel,
       selectedProfileId,
       setErrorMessage,
+      shellBridge,
     ],
   );
 
@@ -119,21 +117,14 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
 
   const selectConversation = useCallback(
     (nextConversationId: string | undefined) => {
-      pendingConversationTitleRef.current = undefined;
-      // Explicit selection always wants fresh history, so release the no-refetch guard.
-      streamOwnedConversationRef.current = undefined;
+      // Explicit selection always wants fresh history and no stale optimistic title.
+      shellBridge.resetForConversationSelection();
       setConversationId(nextConversationId);
       setErrorMessage(undefined);
       // A run may be live for the selected conversation; resume tailing it.
       controller.reconnect();
     },
-    [
-      controller,
-      pendingConversationTitleRef,
-      setConversationId,
-      setErrorMessage,
-      streamOwnedConversationRef,
-    ],
+    [controller, setConversationId, setErrorMessage, shellBridge],
   );
 
   const startNewConversation = useCallback(

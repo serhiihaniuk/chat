@@ -1,30 +1,18 @@
 ---
 title: Guided Walkthrough
-description: A plain-English, example-first tour of how Side Chat is built — for engineers who know JavaScript and UI, but are new to building AI agents.
+description: A plain-English, example-first tour of Side Chat for engineers new to AI agents.
 ---
 
-A plain-English, example-first tour of how this AI chat system is built — for engineers who know
-JavaScript and UI well, but are new to building AI agents. We don't just name the pieces; for
-every concept we show how it's actually wired in the code.
-
-This walkthrough is the **onboarding** companion to the reference docs. The
-[Design System](/docs/design-system) documents the UI, and [System Design](/docs/system-design)
-is the precise architecture reference; this section is the narrative that makes them land. It was
-produced by reading the real code in this repo — so when this guide and the code ever disagree,
-**trust the code**.
+This walkthrough follows one user message through the real Side Chat code. It introduces each idea
+before naming its API. Use [System Design](/docs/system-design) for terse architecture contracts and
+the [Design System](/docs/design-system) for the live UI surface.
 
 ## How to read this guide
 
-Each section assumes the vocabulary from the ones before it, so the words always have somewhere to
-land. But you can jump in based on what you need:
-
-- **New to AI backends?** Start at [AI Vocabulary](/docs/walkthrough/vocabulary) — it assumes nothing.
-- **Get the concepts, but can't picture the code?** Each pattern and term is given the idea first,
-  then how it's actually built.
-- **Want to see it all click together?** *Life of a Turn* traces one real message end to end, and
-  *Add a Tool* has you wire up a real tool by hand.
-- **Just need the architecture map?** [System Design](/docs/system-design) lists every package and
-  its one job.
+- Start with **Mental Model** if the package layout is unfamiliar.
+- Start with **AI Vocabulary** if model, token, delta, or tool-loop language is unfamiliar.
+- Use **Life of a Turn** to connect all layers in one ordered trace.
+- Use **Navigating the Code** when you already have a concrete change to make.
 
 ## Contents
 
@@ -32,46 +20,46 @@ land. But you can jump in based on what you need:
   <Card
     title="1 · Mental Model"
     href="/docs/walkthrough/mental-model"
-    description="Meet Maya, the four-layer model, the two golden rules, and the TypeScript gotchas to defuse on day one."
+    description="Meet Maya, the four-layer model, the trust boundary, and the connection-bound stream."
   />
   <Card
     title="2 · AI Vocabulary"
     href="/docs/walkthrough/vocabulary"
-    description="The words you need before reading a file: tokens, messages, deltas, the tool loop, providers, and turns."
+    description="Tokens, messages, deltas, the tool loop, providers, and turns."
   />
   <Card
     title="3 · Patterns in the Code"
     href="/docs/walkthrough/patterns"
-    description="The eight patterns Side Chat is built from — each with the idea, the real code, and what breaks without it."
+    description="The patterns Side Chat uses, with the real code and the failure each pattern prevents."
   />
   <Card
     title="4 · Life of a Turn"
     href="/docs/walkthrough/life-of-a-turn"
-    description="One message traced through the resumable, server-owned pipeline — with an interactive step-by-step trace."
+    description="One message through the server-owned, connection-bound pipeline."
   />
   <Card
     title="5 · Streaming & Reconnect"
     href="/docs/walkthrough/streaming-and-reconnect"
-    description="The durable event log, LISTEN/NOTIFY fan-out, and replay-then-tail — why a dropped connection just resubscribes to the same turn."
+    description="The in-memory registry, same-instance resume, and history fallback after a stream is lost."
   />
   <Card
     title="6 · Confusing Words"
     href="/docs/walkthrough/confusing-words"
-    description="The overloaded nouns — registry, manifest, capability, policy, guard — each with the idea and the real type."
+    description="Registry, manifest, capability, policy, guard, and other overloaded codebase nouns."
   />
   <Card
     title="7 · Add a Tool"
     href="/docs/walkthrough/add-a-tool"
-    description="Build the real jira.search_issues tool end to end, and follow it through every gate before the model can call it."
+    description="Build the jira.search_issues tool and follow it through every execution gate."
   />
   <Card
     title="8 · Navigating the Code"
     href="/docs/walkthrough/navigating"
-    description="The three questions you actually ask, a reading order, a path-to-layer heuristic, and where the tests pin behavior."
+    description="A reading order, path-to-layer heuristic, and the tests that pin behavior."
   />
   <Card
     title="9 · Glossary"
     href="/docs/walkthrough/glossary"
-    description="One-line definitions for every AI, architecture, and codebase term used in the walkthrough."
+    description="One-line definitions for the terms used throughout the walkthrough."
   />
 </Cards>

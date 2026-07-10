@@ -1,7 +1,8 @@
 import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
-import { Effect, Stream } from "effect";
+import { Effect, Ref, Stream } from "effect";
 import { STREAM_CHAT_FAILURES, mapPortFailure, type PartnerAiCoreError } from "#errors";
 import { finalizeTurnGeneration } from "./finalization/finalize-turn-generation.js";
+import { recordProtocolEvent } from "./finalization/protocol-event-accumulator.js";
 import {
   createProtocolStreamRefs,
   createStartedProtocolStream,
@@ -17,13 +18,14 @@ import type {
 export type { TurnLeaseSettings } from "./lease/turn-lease-heartbeat.js";
 
 /**
- * Run one prepared assistant turn to a durable terminal, socket-independent.
+ * Run one prepared assistant turn to a durable final status, socket-independent.
  *
  * This is the core half of the server-owned runner: the service forks this
  * Effect into its own scope (never the HTTP request) and the turn then runs to
  * completion regardless of whether any browser is connected. Each post-start
- * `SidechatStreamEvent` is appended to the turn event log as it is emitted;
- * the adapter signals subscribers on commit.
+ * `SidechatStreamEvent` is appended to the turn-event port as it is emitted. The
+ * shipped service stores those events in its per-instance registry and signals
+ * same-instance subscribers on append.
  *
  * Finalization is owned here through `Effect.onExit` so it runs on success,
  * provider error, user-interrupt, shutdown, and lease-fence alike:
@@ -45,8 +47,8 @@ export const runTurnGeneration = (
   lease: TurnLeaseSettings,
 ): Effect.Effect<void, PartnerAiCoreError> =>
   Effect.gen(function* () {
-    // The refs are shared between the post-start stream (which fills the
-    // accumulator as it emits) and the finalizer (which reads it on exit).
+    // The drain records only successfully appended events in the accumulator;
+    // the finalizer reads those same committed facts on every exit path.
     const refs = yield* createProtocolStreamRefs(ports, input, turn);
     return yield* Effect.onExit(
       drainUnderOwnerLease(ports, lease, turn, drainPostStartToEventLog(refs)),
@@ -57,10 +59,11 @@ export const runTurnGeneration = (
 /**
  * Drain the post-start protocol stream into the turn event log.
  *
- * The stream itself already records each emitted event into the shared
- * accumulator, so this stage only persists. An append failure surfaces as a
- * typed core error, turning the exit abnormal so the synthetic terminal is
- * written instead of a silently lost turn.
+ * Source events come from the protocol stream; the turn-event port is the
+ * target. Each append and accumulator update form one uninterruptible boundary.
+ * Invariant: finalization never trusts a terminal the target did not receive.
+ * An append failure becomes a typed core error, so the abnormal path attempts
+ * its synthetic terminal instead of silently losing the turn.
  */
 const drainPostStartToEventLog = (
   refs: ProtocolStreamRefs,
@@ -71,11 +74,17 @@ const appendStreamEvent = (
   refs: ProtocolStreamRefs,
   event: SidechatStreamEvent,
 ): Effect.Effect<void, PartnerAiCoreError> =>
-  mapPortFailure(
-    refs.ports.turnEventLog.appendEvent({
-      authContext: refs.turn.authContext,
-      assistantTurnId: refs.turn.assistantTurnId,
-      event,
-    }),
-    STREAM_CHAT_FAILURES.PERSISTENCE,
+  Effect.uninterruptible(
+    mapPortFailure(
+      refs.ports.turnEventLog.appendEvent({
+        authContext: refs.turn.authContext,
+        assistantTurnId: refs.turn.assistantTurnId,
+        event,
+      }),
+      STREAM_CHAT_FAILURES.PERSISTENCE,
+    ).pipe(
+      Effect.andThen(
+        Ref.update(refs.accumulator, (current) => recordProtocolEvent(current, event)),
+      ),
+    ),
   );

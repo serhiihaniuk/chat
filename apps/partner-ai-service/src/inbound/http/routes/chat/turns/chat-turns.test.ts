@@ -44,7 +44,7 @@ describe("GET /chat/turns/:assistantTurnId/stream", () => {
     expect(events.map((event) => event.sequence)).toEqual([0, 1, 2, 3]);
   });
 
-  it("replays an already-completed run from the durable log and ends", async () => {
+  it("replays a completed run from the owning instance's registry and ends", async () => {
     const app = createApp().app;
     const started = await startRun(app, runRequest());
     // Let generation finish first, then subscribe: the stream must replay the full

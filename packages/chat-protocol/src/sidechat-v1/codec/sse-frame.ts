@@ -43,11 +43,15 @@ export const parseSseJson = (source: string, message: string): unknown => {
 
 const parseFrameLine = (line: string): { readonly field: string; readonly value: string } => {
   const separator = line.indexOf(":");
-  if (separator < 0) throw new ProtocolValidationError("malformed SSE field");
+  if (separator < 0) return { field: line, value: "" };
+
+  const rawValue = line.slice(separator + 1);
 
   return {
     field: line.slice(0, separator),
-    value: line.slice(separator + 1).trimStart(),
+    // SSE removes one optional ASCII space after the colon, not all leading
+    // whitespace. Preserving the rest keeps field values spec-exact.
+    value: rawValue.startsWith(" ") ? rawValue.slice(1) : rawValue,
   };
 };
 

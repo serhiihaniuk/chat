@@ -61,7 +61,7 @@ export const createTurnSubscriptionStream = (
  * The subscription is acquired with `Effect.acquireRelease`, so the dispatcher
  * registration is released exactly when the stream's scope closes — on the
  * terminal event, on an error, or when the HTTP response cancels. Releasing only
- * unsubscribes this local subscriber; it never touches the generation fiber.
+ * removes this local subscriber from the fan-out; it never touches the generation fiber.
  */
 const openSubscriptionStream = (
   dependencies: TurnSubscriptionDependencies,
@@ -153,8 +153,8 @@ const tailLiveEvents = (
  *
  * Each tick reads everything after the current high-water mark and flattens it
  * into the live stream, where the shared gate drops anything already emitted. This
- * makes a dropped `NOTIFY` or a fan-out queue overflow self-healing while keeping
- * each poll read small.
+ * makes a dropped in-memory fan-out offer or a full subscriber queue
+ * self-healing while keeping each poll read small.
  */
 const safetyPollStream = (
   dependencies: TurnSubscriptionDependencies,
@@ -200,8 +200,9 @@ const readEventsAfter = (
  * A max-based gate would let a dropped fan-out offer (slow consumer, full queue)
  * advance past the missing sequence forever. Instead: an already-emitted
  * sequence is dropped, the next dense sequence is emitted directly, and a
- * higher-than-dense sequence triggers a re-read of the durable suffix — the
- * buffer holds every event of a live turn — which is emitted in order. If the
+ * higher-than-dense sequence triggers a re-read of the registry suffix — the
+ * owner buffer holds every retained event of a live turn — which is emitted in
+ * order. If the
  * re-read comes back empty the mark stays put, so the safety poll retries the
  * same gap instead of skipping it.
  */

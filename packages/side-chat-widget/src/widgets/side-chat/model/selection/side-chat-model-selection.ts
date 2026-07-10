@@ -95,7 +95,7 @@ export const useWidgetModelSelection = ({
     reasoningEfforts: selectableReasoningEfforts(selectedBackendModel),
     selectedFooterModelKey,
     selectedModel: toChatModelPreference(selectedBackendModel, selectedReasoningEffort),
-    // The context window drives the honest context meter; undefined for turn-profile
+    // Source of truth for the honest context meter; undefined for turn-profile
     // fallbacks (no catalog) so the meter stays hidden rather than faking a size.
     selectedModelContextWindowTokens: selectedBackendModel?.contextWindowTokens,
     selectedModelLabel: selectedFooterModel?.label,

@@ -176,4 +176,41 @@ describe("host context bridge", () => {
       data: { selected: true },
     });
   });
+
+  it("gates dispatch with the provider's current dynamic capabilities", async () => {
+    const noCommands: HostCapabilities = {
+      schemaVersion: "host-bridge.capabilities.v1",
+      commands: [],
+    };
+    let currentCapabilities = noCommands;
+    let dispatchCount = 0;
+    const command = toHostCommand(commandEvent());
+    const bridge = createHostBridge({
+      contextProvider: {
+        getContext: () => Promise.resolve(contextSnapshot),
+        getCapabilities: () => Promise.resolve(currentCapabilities),
+      },
+      capabilities: noCommands,
+      dispatcher: {
+        dispatchCommand: () => {
+          dispatchCount += 1;
+          return Promise.resolve(
+            createCommandResult(command, {
+              status: "applied",
+              resultCode: "opened",
+            }),
+          );
+        },
+      },
+    });
+
+    expect((await bridge.getCapabilities()).commands).toEqual([]);
+    currentCapabilities = capabilities;
+
+    await expect(bridge.dispatchCommand(commandEvent())).resolves.toMatchObject({
+      status: "applied",
+      resultCode: "opened",
+    });
+    expect(dispatchCount).toBe(1);
+  });
 });

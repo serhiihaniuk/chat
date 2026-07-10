@@ -19,7 +19,7 @@ import type { AssistantTurnFailureStatus } from "#ports";
 /**
  * Finalization facts collected while core emits one browser protocol stream.
  *
- * The accumulator preserves only what terminal persistence needs: event counts,
+ * The accumulator preserves only what durable turn finalization needs: event counts,
  * terminal identity, completed usage, accumulated assistant text, and the first
  * protocol-ordering problem. Deltas are never retained event-by-event, so
  * finalization can validate the stream without turning diagnostics into a
@@ -51,7 +51,7 @@ export type ProtocolEventAccumulator = {
   readonly invalidReason?: string | undefined;
 };
 
-/** Initial accumulator before `sidechat.started` is remembered. */
+/** Initial accumulator before `sidechat.started` is successfully appended. */
 export const createProtocolEventAccumulator = (
   collectActivity = false,
 ): ProtocolEventAccumulator => ({
@@ -63,7 +63,7 @@ export const createProtocolEventAccumulator = (
 });
 
 /**
- * Remember one browser-visible event for later terminal validation.
+ * Record one successfully appended browser-visible event for finalization.
  *
  * Runtime sequence ids are not used here. The accumulator checks the
  * browser-facing sequence that core assigns after `sidechat.started`.

@@ -10,6 +10,10 @@ import type {
   RefreshHistory,
 } from "#entities/conversation";
 import { WIDGET_RUN_STATUSES, type WidgetRunState } from "./run/widget-run-state.js";
+import {
+  createRunShellBridge,
+  type RunShellBridge,
+} from "./conversation/shell/run-shell-bridge.js";
 import { useWidgetRunEffects, type WidgetRunEffectsInput } from "./use-widget-run-effects.js";
 
 let windowRef: Window;
@@ -60,7 +64,8 @@ type EffectsHarness = {
   readonly setErrorMessage: Mock<Dispatch<SetStateAction<string | undefined>>>;
   readonly refreshHistory: Mock<RefreshHistory>;
   readonly clearRun: Mock<() => void>;
-  readonly streamOwnedConversationRef: { current: string | undefined };
+  readonly shellBridge: RunShellBridge;
+  readonly replaceRunSnapshot: (run: WidgetRunState | undefined) => void;
   readonly render: (run: WidgetRunState | undefined) => void;
 };
 
@@ -73,7 +78,7 @@ const renderEffects = (
     options.refreshHistory ?? (() => Promise.resolve(settledHistory())),
   );
   const clearRun = vi.fn<() => void>();
-  const streamOwnedConversationRef = { current: undefined as string | undefined };
+  const shellBridge = createRunShellBridge();
   const runRef: { current: WidgetRunState | undefined } = { current: undefined };
 
   const Probe = () => {
@@ -81,12 +86,12 @@ const renderEffects = (
       run: runRef.current,
       setConversationId,
       setErrorMessage,
-      streamOwnedConversationRef,
-      pendingConversationTitleRef: { current: undefined },
+      shellBridge,
       refreshConversations: noopRefresh,
       upsertStartedConversation: () => {},
       refreshHistory,
       clearRun,
+      getRun: () => runRef.current,
     };
     useWidgetRunEffects(input);
     return null;
@@ -101,7 +106,10 @@ const renderEffects = (
     setErrorMessage,
     refreshHistory,
     clearRun,
-    streamOwnedConversationRef,
+    shellBridge,
+    replaceRunSnapshot: (run) => {
+      runRef.current = run;
+    },
     render,
   };
 };
@@ -117,20 +125,20 @@ describe("useAdoptStartedConversation", () => {
 
     expect(harness.setConversationId).toHaveBeenCalledTimes(1);
     expect(harness.setConversationId).toHaveBeenCalledWith("conversation-1");
-    expect(harness.streamOwnedConversationRef.current).toBe("conversation-1");
+    expect(harness.shellBridge.getSnapshot().streamOwnedConversationId).toBe("conversation-1");
   });
 
-  it("does not re-adopt after a conversation switch resets the stream-owned ref", () => {
-    // Regression: adoption used to be guarded by the history-refetch ref, which a
+  it("does not re-adopt after a conversation switch resets the stream-owned field", () => {
+    // Regression: adoption used to be guarded by the history-refetch field, which a
     // later selectConversation resets. The next streamed delta then re-ran
     // adoption and yanked the user back to the in-flight turn. Adoption is now
-    // keyed by the run's request id, so a reset ref cannot re-trigger it.
+    // keyed by the run's request id, so a reset field cannot re-trigger it.
     const harness = renderEffects();
     harness.render(buildRun());
     expect(harness.setConversationId).toHaveBeenCalledTimes(1);
 
-    // The user selects another conversation — that clears the stream-owned ref...
-    harness.streamOwnedConversationRef.current = undefined;
+    // The user selects another conversation — that clears the stream-owned field...
+    harness.shellBridge.resetForConversationSelection();
     // ...then another delta lands for the same run (a fresh state object).
     harness.render(
       buildRun({ messages: [createWidgetMessage("assistant-1", "assistant", "hi there", true)] }),
@@ -152,7 +160,7 @@ describe("useHistoryHandoffAfterTerminal", () => {
     expect(harness.refreshHistory).toHaveBeenCalledWith("conversation-1");
     expect(harness.clearRun).toHaveBeenCalledTimes(1);
     expect(harness.setErrorMessage).not.toHaveBeenCalled();
-    expect(harness.streamOwnedConversationRef.current).toBeUndefined();
+    expect(harness.shellBridge.getSnapshot().streamOwnedConversationId).toBeUndefined();
   });
 
   it("carries a failed run's error notice into shell state before clearing", async () => {
@@ -184,7 +192,7 @@ describe("useHistoryHandoffAfterTerminal", () => {
     expect(harness.clearRun).not.toHaveBeenCalled();
   });
 
-  it("never clears a newer run that replaced the finishing one mid-handoff", async () => {
+  it("never clears a newer store snapshot before React re-renders the handoff effect", async () => {
     let resolveRefetch: (history: ReadHistoryResult | undefined) => void = () => {};
     const harness = renderEffects({
       refreshHistory: () =>
@@ -194,8 +202,9 @@ describe("useHistoryHandoffAfterTerminal", () => {
     });
     harness.render(buildRun({ status: WIDGET_RUN_STATUSES.COMPLETED }));
 
-    // A new run replaces the finishing one while its refetch is still in flight.
-    harness.render(buildRun({ requestId: "request-2" }));
+    // The external run store changes immediately, before React has rendered the
+    // replacement and before a passive effect could mirror it into a ref.
+    harness.replaceRunSnapshot(buildRun({ requestId: "request-2" }));
     resolveRefetch(settledHistory());
     await settleHandoff();
 

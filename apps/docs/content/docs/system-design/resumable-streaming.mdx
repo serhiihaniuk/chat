@@ -1,66 +1,65 @@
 ---
-title: Resumable Streaming (ADR 0009)
-description: Why the assistant turn is server-owned and resumable — the decision, the alternatives rejected, and the consequences.
+title: Connection-Bound Streaming (ADR 0007)
+description: Why generation is server-owned while live events remain bound to the instance that accepted the turn.
 ---
 
-This is the decision record (ADR 0009, **accepted**) behind the streaming model. Read it to learn
-*why* a turn is server-owned and resumable — the problem it solves and the options weighed. For
-*how* it works today, see [Assistant Turn Lifecycle](/docs/system-design/assistant-turn); for the
-narrative, see [Life of a Turn](/docs/walkthrough/life-of-a-turn).
+This page summarizes the accepted streaming decision. Read
+[Assistant Turn Lifecycle](/docs/system-design/assistant-turn) for the ordered flow and
+[Event Delivery](/docs/system-design/event-delivery) for the registry mechanics.
 
 ## Context
 
-Chat streaming was response-owned: one `POST /chat/stream` request both ran the turn and carried its
-Server-Sent Events. The in-flight turn lived only in that request and the browser's memory, so a tab
-switch, reload, or dropped connection orphaned the turn — the browser lost the answer, and timestamps
-drifted because persisted times came from the auth token's `issuedAt`. Users expect what Claude and
-ChatGPT do: leave, come back, and the conversation is still there, still streaming.
+Generation must survive a browser disconnect. At the same time, persisting every model delta and
+replaying it across instances adds storage, fan-out, retention, and correctness machinery that the
+product does not need. The durable product result is the settled conversation, not the animation of
+how text arrived.
 
 ## Decision
 
-Make the assistant turn **server-owned and resumable**. Browser connections become disposable
-subscribers that can reconnect from any instance and replay from a sequence offset.
+Use **server-owned generation with connection-bound live streaming**:
 
-- **Durable log as source of truth.** A `turn_events` table holds the ordered, append-only event log
-  per turn. The browser-facing stream replays from this log, so events survive any disconnect.
-- **Two-call HTTP flow.** `POST /chat/runs` runs pre-start synchronously and returns the turn identity
-  as JSON; generation is then forked off the request. `GET /chat/turns/{assistantTurnId}/stream?after=<seq>`
-  replays the log and tails live events. `assistantTurnId` is the canonical key; `requestId` is the
-  idempotency and lost-reply resolver key only.
-- **In-process generation.** Generation runs in server-owned Effect fibers (a turn runner with a
-  `FiberMap` keyed by `assistantTurnId`), finalized through `Effect.onExit` so success, error, cancel,
-  and shutdown all reach a durable terminal. A partial unique index enforces exactly one terminal per
-  turn.
-- **Postgres `LISTEN/NOTIFY` for liveness, no Redis.** The append writer notifies a channel in the
-  same transaction; one dedicated `LISTEN` connection per instance fans signals out to local
-  subscribers, with a low-frequency safety poll as the missed-signal backstop. Reads, not the signal,
-  are the source of truth.
-- **Crash recovery and retention.** Owner-lease fencing (`lease_epoch` CAS + heartbeat) plus a reaper
-  terminalize dead- or slow-owner turns; a pruner bounds `turn_events` retention (a pruned turn falls
-  back to conversation history on resume via `replay_expired`).
-- **Cancel as durable intent.** Cancellation writes `cancel_requested_at` and notifies; the owning
-  instance interrupts its fiber, and the reaper covers a dead owner.
-- **Timestamps from the clock.** Persisted times come from `ports.clock.now()`, not the auth token.
+- `POST /chat/runs` runs setup, forks generation, and streams SSE on that same response.
+- A per-instance in-memory registry buffers the live `sidechat.v1` events.
+- `GET /chat/turns/:assistantTurnId/stream?after=<seq>` resumes only from the same registry.
+- Postgres stores durable final state: conversation, messages, turn status, usage, context snapshots,
+  and cancel intent.
+- Owner leases plus a reaper recover turns whose process crashes before finalization.
+- Cancel, turn activity, and host-command results use dedicated Postgres notification channels.
+  Turn content does not.
+
+## Recovery contract
+
+Live resume is best effort outside the owning instance. The API makes that limit explicit:
+
+| Condition | Response | Client action |
+| --- | --- | --- |
+| Owner still holds the registry entry | SSE replay from `after`, then live tail | Continue rendering |
+| Turn is running on another instance | `409 stream_unavailable` | Poll durable status, then read history |
+| Turn is terminal and no buffer exists | `404 replay_expired` | Read conversation history |
+
+This split keeps the live path small while preserving the answer. A disconnect never cancels the
+fiber. A process crash cannot preserve live deltas, but the reaper prevents the turn from remaining
+`running` forever and history remains the convergence point.
 
 ## Alternatives rejected
 
-- **Redis (pub/sub or streams)** for liveness or the event log — adds an operational dependency the
-  durable Postgres log plus `LISTEN/NOTIFY` already make unnecessary.
-- **Sticky routing** that pins a turn's stream to its generating instance — brittle under restarts and
-  scaling; the durable log lets any instance serve any turn.
-- **Keeping the response-owned stream** — the core defect; it cannot survive a disconnect.
-- **A durable-execution worker** (a workflow engine) — out of scope for a long-running, horizontally
-  scalable Node service; in-process fibers with lease recovery suffice.
+- **Response-owned generation.** Tying model execution to the browser socket lets a disconnect
+  abandon work or misclassify its outcome.
+- **A durable cross-instance event log.** Persisting every delta would enable any-instance replay,
+  but it adds a second durable representation of the answer plus notification, retention, and
+  conflict rules.
+- **A separate pub/sub system.** Redis does not solve the durable-result problem and adds another
+  operational dependency.
+- **A durable workflow engine.** It is unnecessary for the current long-running Node service and its
+  bounded assistant-turn lifecycle.
 
 ## Consequences
 
-- The service is a **long-running, horizontally scalable Node service**. Edge and serverless deployment
-  are out of scope — generation outlives the request and relies on a held `LISTEN` connection and
-  in-process fibers.
-- `partner-ai-core` exposes the server-owned split `prepareStreamChatTurn` + `runTurnGeneration`; the
-  response-owned `streamChatEffect` was removed.
-- `db` owns the durable log, the dedicated `LISTEN/NOTIFY` connection, and the notification sources,
-  behind the repository boundary.
-- The subject-scoped activity stream (`GET /chat/activity`, channel `turn_activity`, `TurnActivityEvent`)
-  reuses this same `NOTIFY` + fan-out + SSE pattern to push per-conversation "generating" status to the
-  sidebar.
+- The service must run as a long-lived process because generation and live buffers are in memory.
+- Initial streaming needs no sticky-routing feature: the POST response is already on the owner.
+- Same-instance resume works from an exact sequence cursor.
+- Cross-instance resume converges through status and history instead of pretending live replay is
+  available.
+- A reload may lose the typing animation while preserving the durable final answer.
+- `partner-ai-core` keeps the `prepareStreamChatTurn` plus `runTurnGeneration` split so the service
+  can finish setup before it forks generation.

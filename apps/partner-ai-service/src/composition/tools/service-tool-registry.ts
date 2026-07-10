@@ -1,5 +1,15 @@
 import type { ToolCapability } from "@side-chat/partner-ai-core";
-import type { RuntimeTool } from "@side-chat/agent-runtime";
+import type { AgentRuntime, RuntimeTool } from "@side-chat/agent-runtime";
+
+/**
+ * Read the AgentRuntime owned by one service composition.
+ *
+ * A runtime-aware tool receives this before its registry has built the runtime,
+ * so it returns `undefined` until composition completes the cycle.
+ */
+export type ServiceToolRuntimeAccessor = () => AgentRuntime | undefined;
+
+type ServiceRuntimeToolFactory = (getRuntime: ServiceToolRuntimeAccessor) => RuntimeTool;
 
 /**
  * One source of truth for tool declaration and executable registration.
@@ -12,7 +22,22 @@ import type { RuntimeTool } from "@side-chat/agent-runtime";
 export type ServiceToolRegistration = {
   readonly name: string;
   readonly capability: ToolCapability;
+  /**
+   * Directly executable tool definition exposed to adopters and unit tests.
+   *
+   * Runtime-aware registrations create this with an unset accessor, so it uses
+   * the tool's documented no-runtime behavior. Composition executes the fresh,
+   * registry-owned instance returned by `createRuntimeTool` below.
+   */
   readonly runtimeTool: RuntimeTool;
+  /**
+   * Create the executable for one service composition.
+   *
+   * The factory receives a composition-local runtime accessor from its target
+   * registry. Invariant: a sub-agent tool can cross the tools-before-runtime
+   * construction cycle without storing mutable state on this registration.
+   */
+  readonly createRuntimeTool: ServiceRuntimeToolFactory;
   /** Whether the default profile includes this name before request checks run. */
   readonly defaultEnabled: boolean;
   /** Approval policy ids that gate this tool; reported in diagnostics. */
@@ -33,7 +58,7 @@ export type ServiceToolStatus = {
  *
  * The label is the curated display name (humanized tool name when a
  * registration omits one); `defaultEnabled` seeds the menu toggle. Approval and
- * runtime detail stay out — this is a display catalog, not a policy surface.
+ * runtime detail are hidden — this is a display catalog, not a policy surface.
  */
 export type ServiceToolCatalogEntry = {
   readonly name: string;
@@ -55,6 +80,8 @@ export type ServiceToolRegistry = {
   readonly status: ServiceToolRegistryStatus;
   /** Display catalog served by `GET /tools` for the composer tools menu. */
   readonly catalog: readonly ServiceToolCatalogEntry[];
+  /** Complete the composition-local accessor used by runtime-aware tools. */
+  readonly bindRuntime: (runtime: AgentRuntime) => void;
 };
 
 /** Composition-time failure raised when tool registrations are invalid. */
@@ -68,69 +95,96 @@ export class ServiceToolRegistryError extends Error {
 }
 
 /**
- * Build one registration from a matched capability and runtime tool.
+ * Build one reusable registration from a capability and executable definition.
  *
- * The registration name is taken from the runtime tool; `createServiceToolRegistry`
- * later rejects any registration whose capability or runtime tool name drifts
- * from it.
+ * Ordinary tools supply their executable directly. Runtime-aware tools supply a
+ * factory; the registration exposes its no-runtime form while each registry
+ * realizes a composition-local executable and validates that its name still
+ * matches the capability.
  */
-export const createServiceToolRegistration = ({
-  capability,
-  runtimeTool,
-  defaultEnabled = true,
-  approvalPolicyIds = [],
-  label,
-}: {
-  readonly capability: ToolCapability;
-  readonly runtimeTool: RuntimeTool;
-  readonly defaultEnabled?: boolean;
-  readonly approvalPolicyIds?: readonly string[];
-  readonly label?: string | undefined;
-}): ServiceToolRegistration => ({
-  name: runtimeTool.name,
-  capability,
-  runtimeTool,
-  defaultEnabled,
-  approvalPolicyIds,
-  label,
-});
+export const createServiceToolRegistration = (
+  input: {
+    readonly capability: ToolCapability;
+    readonly defaultEnabled?: boolean;
+    readonly approvalPolicyIds?: readonly string[];
+    readonly label?: string | undefined;
+  } & (
+    | {
+        readonly runtimeTool: RuntimeTool;
+        readonly createRuntimeTool?: never;
+      }
+    | {
+        readonly runtimeTool?: never;
+        readonly createRuntimeTool: ServiceRuntimeToolFactory;
+      }
+  ),
+): ServiceToolRegistration => {
+  const createRuntimeTool =
+    "createRuntimeTool" in input ? input.createRuntimeTool : () => input.runtimeTool;
+  const runtimeTool =
+    "runtimeTool" in input ? input.runtimeTool : input.createRuntimeTool(() => undefined);
+
+  return {
+    name: runtimeTool.name,
+    capability: input.capability,
+    runtimeTool,
+    createRuntimeTool,
+    defaultEnabled: input.defaultEnabled ?? true,
+    approvalPolicyIds: input.approvalPolicyIds ?? [],
+    label: input.label,
+  };
+};
 
 /**
  * Validate tool registrations and split them into manifest and runtime outputs.
  *
- * Manifest capabilities and runtime tools come from the same registration list,
- * so the capability surface and the executable surface stay in lockstep.
+ * Manifest capabilities and runtime tools come from the same registration list.
+ * Each registry also owns the late runtime handle captured by its realized
+ * tools, so an immutable registration can be reused without coupling service
+ * compositions together.
  */
 export const createServiceToolRegistry = (
   registrations: readonly ServiceToolRegistration[],
 ): ServiceToolRegistry => {
+  const runtimeHandle: { current: AgentRuntime | undefined } = { current: undefined };
+  const getRuntime: ServiceToolRuntimeAccessor = () => runtimeHandle.current;
+  const realizedRegistrations = registrations.map((registration) => ({
+    registration,
+    runtimeTool: registration.createRuntimeTool(getRuntime),
+  }));
   const seenNames = new Set<string>();
-  for (const registration of registrations) {
-    assertMatchingNames(registration);
+  for (const { registration, runtimeTool } of realizedRegistrations) {
+    assertMatchingNames(registration, runtimeTool);
     assertUniqueName(seenNames, registration.name);
   }
 
   return {
     toolCapabilities: registrations.map((registration) => registration.capability),
-    runtimeTools: registrations.map((registration) => registration.runtimeTool),
+    runtimeTools: realizedRegistrations.map(({ runtimeTool }) => runtimeTool),
     defaultEnabledToolNames: registrations
       .filter((registration) => registration.defaultEnabled)
       .map((registration) => registration.name),
     status: { tools: registrations.map(toToolStatus) },
     catalog: registrations.map(toCatalogEntry),
+    bindRuntime: (runtime) => {
+      runtimeHandle.current = runtime;
+    },
   };
 };
 
-const assertMatchingNames = (registration: ServiceToolRegistration): void => {
+const assertMatchingNames = (
+  registration: ServiceToolRegistration,
+  runtimeTool: RuntimeTool,
+): void => {
   if (
     registration.name === registration.capability.name &&
-    registration.name === registration.runtimeTool.name
+    registration.name === runtimeTool.name
   ) {
     return;
   }
 
   throw new ServiceToolRegistryError(
-    `Tool registration ${registration.name} must match capability ${registration.capability.name} and runtime tool ${registration.runtimeTool.name}.`,
+    `Tool registration ${registration.name} must match capability ${registration.capability.name} and runtime tool ${runtimeTool.name}.`,
   );
 };
 

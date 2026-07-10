@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ProtocolValidationError } from "../errors.js";
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "../events/event-union.js";
 import { decodeSseEvents, encodeSseEvent } from "./sse-codec.js";
+import { readSseFrameFields } from "./sse-frame.js";
 
 const base = {
   protocolVersion: "sidechat.v1",
@@ -65,5 +66,13 @@ describe("SSE codec", () => {
     const frame = `: note\n${encodeSseEvent(event)}`;
 
     expect(decodeSseEvents(frame)).toEqual([event]);
+  });
+
+  it("follows SSE field parsing for empty values and leading spaces", () => {
+    expect(readSseFrameFields("data\nid:  event_001")).toEqual({
+      dataLines: [""],
+      eventName: undefined,
+      eventId: " event_001",
+    });
   });
 });

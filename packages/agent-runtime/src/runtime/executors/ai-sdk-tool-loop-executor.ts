@@ -9,7 +9,7 @@ import {
 } from "./agent-executor.js";
 
 export type AiSdkToolLoopExecutorOptions = {
-  /** Text-batching window in ms passed through to the runner; `0` disables batching. */
+  /** Text/reasoning batching window passed to the runner; `0` disables batching. */
   readonly flushIntervalMs?: number | undefined;
   /** Awaits browser-side results for UI (host) tool calls. */
   readonly hostCommandResolver?: HostCommandResolver | undefined;

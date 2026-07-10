@@ -37,6 +37,12 @@ export type { StartRunInput } from "../subscription/widget-subscription-lifecycl
 export type WidgetRunController = {
   /** Current live run, or undefined when idle. Read via `useSyncExternalStore`. */
   readonly run: WidgetRunState | undefined;
+  /**
+   * The store's live run snapshot, for async callbacks that must decide against
+   * the freshest state (not a render-captured value). Reading the store directly
+   * closes the render/effect timing window a ref snapshot would leave open.
+   */
+  readonly getRun: () => WidgetRunState | undefined;
   /** Start a fresh run: create on the server, persist a marker, then subscribe. */
   readonly startRun: (input: StartRunInput) => Promise<void>;
   /** Resume the active run (mount / visibility / online / conversation select). */
@@ -142,7 +148,15 @@ export const useWidgetRunController = (input: WidgetRunControllerInput): WidgetR
     store.clear();
   }, [contextRef, store, subscription]);
 
-  return { run, startRun, reconnect, resumeFromHistory, cancel, clearRun };
+  return {
+    run,
+    getRun: store.getSnapshot,
+    startRun,
+    reconnect,
+    resumeFromHistory,
+    cancel,
+    clearRun,
+  };
 };
 
 /**

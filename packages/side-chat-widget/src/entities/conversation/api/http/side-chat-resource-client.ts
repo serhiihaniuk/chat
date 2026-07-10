@@ -89,8 +89,8 @@ export const readHistoryWithFetch = async (
 ): Promise<ReadHistoryResult> => {
   assertNotAborted(options.signal);
   // Read the single-conversation route so history arrives with the server's
-  // activeTurn pointer, letting a reconnecting client resume an in-flight turn
-  // from the same read that loaded past messages.
+  // activeTurn pointer, letting a reconnecting client attempt owner-bound
+  // resume from the same read that loaded past messages.
   const url = new URL(
     encodeURIComponent(conversationId),
     `${buildPathUrl(
@@ -163,7 +163,7 @@ const normalizeHistory = (payload: unknown): ReadHistoryResult => {
 };
 
 // `activeTurn` is null/absent when no turn is in flight. A present pointer must
-// carry the turn id + status so a reconnecting client can resume it.
+// carry the turn id + status so a reconnecting client can attempt recovery.
 const normalizeActiveTurn = (payload: unknown): ReadHistoryResult["activeTurn"] => {
   if (payload === null || payload === undefined) return undefined;
   if (

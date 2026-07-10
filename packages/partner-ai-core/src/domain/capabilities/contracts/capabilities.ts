@@ -83,7 +83,7 @@ export type ToolPolicyMode = ObjectValue<typeof TOOL_POLICY_MODES>;
  * (`createTurnPolicyDecision` selects no commands, and no runtime step consults
  * `approvalRequirements`). Until approval enforcement and the widget approval UI
  * ship, service composition rejects any mode other than `NEVER` rather than
- * silently accepting one — see the approval wall in `create-service-capability-bundle.ts`.
+ * silently agreeing to one — see the approval wall in `create-service-capability-bundle.ts`.
  */
 export const APPROVAL_MODES = {
   NEVER: "never",

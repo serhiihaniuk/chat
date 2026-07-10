@@ -50,8 +50,8 @@ describe("POST /chat/turns/:assistantTurnId/cancel", () => {
 
     await waitForStatus(harness.app, started.assistantTurnId, "user_aborted");
 
-    // A subscriber that connects after the cancel replays the durable log: it sees
-    // exactly one aborted terminal and ends without hanging.
+    // A subscriber that connects after the cancel replays the owner registry: it
+    // sees exactly one aborted terminal and ends without hanging.
     const events = await readTurnStream(harness.app, started.assistantTurnId);
     const terminals = events.filter((event) => event.type === SIDECHAT_EVENT_TYPES.ERROR);
     expect(terminals).toHaveLength(1);

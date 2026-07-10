@@ -285,7 +285,7 @@ export type SideChatConfig = {
     readonly availableJobs: readonly SideChatAuxiliaryModelJobConfig[];
   };
   readonly history: {
-    /** "full" (default) stores the turn's activity trace (reasoning, tool calls) with the assistant message and serves it on history reads; "disabled" keeps the trace live-stream-only. A data-retention posture, not a UI preference. */
+    /** "full" (default) stores the turn's activity trace (reasoning, tool calls) with the assistant message and serves it to history reads; "disabled" keeps the trace live-stream-only. A data-retention posture, not a UI preference. */
     readonly turnActivity: SideChatStringEnvReference;
   };
   /** Stream-delivery tunables (delta coalescing cadence). */

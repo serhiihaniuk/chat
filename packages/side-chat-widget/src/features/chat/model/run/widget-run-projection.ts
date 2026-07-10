@@ -4,11 +4,7 @@ import {
   type JsonObject,
   type SidechatStreamEvent,
 } from "@side-chat/chat-protocol";
-import {
-  toHostCommand,
-  type HostCommandActivityEvent,
-  type HostCommandResult,
-} from "@side-chat/host-bridge";
+import type { HostCommandActivityEvent, HostCommandResult } from "@side-chat/host-bridge";
 
 import {
   applyActivityEvent,
@@ -115,9 +111,3 @@ export const toHostCommandResultJson = (result: HostCommandResult): JsonObject =
     resolvedAt: result.resolvedAt,
     data: result.data,
   });
-
-/** Re-export the host-command type narrowing helper alongside the projection. */
-export { isHostCommandActivityEvent } from "@side-chat/host-bridge";
-
-/** Build the runtime host command shape for dispatch from an activity event. */
-export const toRunHostCommand = (event: HostCommandActivityEvent) => toHostCommand(event);

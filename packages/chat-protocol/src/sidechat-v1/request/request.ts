@@ -13,6 +13,7 @@ import {
   type ProtocolEnvelope,
   type RequestId,
 } from "../primitives.js";
+import { isJsonObject, requireKnownKeys } from "../validation/json-guards.js";
 
 /**
  * User-authored content submitted by the browser to start one assistant turn.
@@ -270,30 +271,4 @@ const readOptionalJsonObject = (
   const value = record[key];
   if (!isJsonObject(value)) throw new Error(`${context}.${key} must be a JSON object`);
   return value;
-};
-
-const isJsonObject = (value: unknown): value is JsonObject =>
-  isRecord(value) && Object.values(value).every(isJsonValue);
-
-const isJsonValue = (value: unknown): value is JsonObject[keyof JsonObject] => {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean" ||
-    (typeof value === "number" && Number.isFinite(value))
-  ) {
-    return true;
-  }
-  if (Array.isArray(value)) return value.every(isJsonValue);
-  return isJsonObject(value);
-};
-
-const requireKnownKeys = (
-  record: Record<string, unknown>,
-  allowedKeys: readonly string[],
-  label: string,
-): void => {
-  for (const key of Object.keys(record)) {
-    if (!allowedKeys.includes(key)) throw new Error(`${label} has unsupported field "${key}"`);
-  }
 };

@@ -1,165 +1,85 @@
 ---
 title: Navigating the Code
-description: A field guide — the three questions you actually ask, a reading order, a path-to-layer heuristic, the honest rough edges, and where the tests pin behavior.
+description: A field guide to the system prompt, tools, turn entry points, package layers, and contract tests.
 ---
 
-This is a field guide to the codebase: the three questions you'll actually ask, a reading order, a
-path-to-layer heuristic, the rough edges, and where the tests pin behavior. It opens with the
-questions, because you usually arrive with one, not a tour request.
+Use this page when you arrive with a concrete question. It points to the smallest set of files that
+explains the current implementation.
 
-<Callout title="You will learn">
-- Where the three things you'll hunt first actually live: the system prompt, the tool registry, and a turn's start.
-- A five-file reading order that builds understanding from the protocol outward.
-- A path-to-layer heuristic that tells you what a file does from where it sits.
-- The honest rough edges — noop guards, one real provider — that save a confused afternoon.
-- Which tests pin which behavior, so you start a change by reading its test.
-</Callout>
+## Where is the system prompt built?
 
-## The three questions you will actually ask
+The service config declares the prompt sections. The prompt builder joins them. Core's
+`buildModelMessages` places the resolved system instructions before admitted context, history, and
+the current user message. The browser cannot supply or reorder those roles.
 
-### "Where is the system prompt built?"
+Start in these files:
 
-The system prompt is built in three places, in order:
+- `apps/partner-ai-service/src/composition/assistant/default-assistant-config.ts`
+- `apps/partner-ai-service/src/composition/assistant/system-prompt-builder.ts`
+- `packages/partner-ai-core/src/application/stream-chat/model-request/build-model-turn-request.ts`
 
-- **Text** — `composition/assistant/default-assistant-config.ts`. A plain string constant: no template
-  engine, no DB lookup. It is wrapped in a `{ id, content }` section, and a prompt is an ordered array
-  of those sections.
-- **Joining** — `composition/assistant/system-prompt-builder.ts` (`createDefaultSystemPromptBuilder`):
-  the strategy that maps each section to its content and joins them with `\n\n`.
-- **Assembly** — `buildModelMessages` in `stream-chat/model-request/build-model-turn-request.ts`: where
-  the built text becomes the first message the model sees — system instructions first, then the
-  optional context board, then admitted history and Maya's current message. No caller can reorder it.
+## Where are tools registered?
 
-### "Where are tools registered?"
+`apps/partner-ai-service/src/composition/tools/service-tool-registry.ts` binds each declared
+`ToolCapability` to a matching executable `RuntimeTool`. It rejects name mismatches and duplicates
+during composition. Concrete tool adapters live under
+`apps/partner-ai-service/src/adapters/tools/`.
 
-`composition/tools/service-tool-registry.ts` — `createServiceToolRegistry`, the boot-time validator
-that pairs each `ToolCapability` (what the model sees) with its `RuntimeTool` (what runs), asserts
-their names match, and rejects duplicates. The individual tool, like Maya's `jira.search_issues`, is
-declared in `adapters/tools/examples/jira-search-issues-tool.ts`.
+## Where does a turn start?
 
-### "Where does a turn start?"
+The primary route is `POST /chat/runs` in
+`apps/partner-ai-service/src/inbound/http/routes/chat/runs/chat-runs.ts`. It validates the request,
+calls the turn runner, then returns the turn's SSE stream on the same response.
 
-Two routes, because a turn is two HTTP calls (see [Life of a Turn](/docs/walkthrough/life-of-a-turn)):
+`inbound/turn-runner/turn-runner.ts` runs `prepareStreamChatTurn`, registers only newly inserted turns,
+and forks `runTurnGeneration` onto a server-owned fiber. The first streamed event,
+`sidechat.started`, carries the turn identity.
 
-- **`POST /chat/runs`** — `inbound/http/routes/chat/runs/chat-runs.ts`. It parses and brands the
-  request, then hands off to the turn runner.
-- The runner — `inbound/turn-runner/turn-runner.ts` — runs `prepareStreamChatTurn` (all the
-  synchronous pre-start work: auth, policy, guards, persistence), then **forks generation onto a
-  server-owned fiber** and returns the turn's identity as JSON. Generation now outlives the request.
-- **`GET /chat/turns/:assistantTurnId/stream`** — `inbound/http/routes/chat/turns/chat-turns.ts` —
-  is the SSE subscription that replays the durable log and tails live events.
-
-The load-bearing boundary is no longer "the first byte of one response." It is the `sidechat.started`
-event emitted at the end of pre-start: fail before it and `POST /chat/runs` returns a JSON error and
-no turn; fail after it and the turn is live, so every outcome is a durable protocol event the stream
-replays.
+`GET /chat/turns/:assistantTurnId/stream?after=<seq>` in `chat-turns.ts` is the same-instance resume
+route. It never starts generation. A non-owner running turn returns `409 stream_unavailable`; a
+terminal turn without a registry buffer returns `404 replay_expired`.
 
 ## Recommended reading order
 
-Read these five in order. Each one makes sense of the next.
+1. Read `packages/chat-protocol/src/sidechat-v1/events/event-union.ts` for the browser contract.
+2. Read `prepare-stream-chat-turn.ts` and `run-turn-generation.ts` for the lifecycle split.
+3. Read `turn-runner.ts`, `chat-runs.ts`, and `turn-subscription-stream.ts` for service ownership.
+4. Read `in-memory-turn-event-log.ts` for the live registry rules.
+5. Read `packages/agent-runtime/src/runtime/ai-sdk/` last for provider execution.
 
-1. **The protocol contract** — `packages/chat-protocol/src/sidechat-v1/events/event-union.ts`. Every
-   other layer produces or consumes these event types (`sidechat.started`, `delta`, `activity`,
-   `completed`, `error`, `blocked`). Once you know the wire shapes, the rest is "how do we produce
-   these in order."
-2. **The turn pipeline** — `partner-ai-core/src/application/stream-chat/turn/prepare-stream-chat-turn.ts`
-   (the all-or-nothing pre-start) and `protocol/run-turn-generation.ts` (the forked generation that
-   appends to the durable log). Read them together to see the pre-start / generation split.
-3. **The hands-on tool example** ([Add a Tool](/docs/walkthrough/add-a-tool)). Follow one concrete
-   tool — `jira.search_issues` — from declaration through registry, policy, request, execution, and
-   activity events. This is where the abstract pieces snap into one thread.
-4. **The composition root** — `apps/partner-ai-service/src/composition/service-composition.ts`. Read it
-   as a dependency graph: providers → tools → assistants → runtime → ports. Each `create*Bundle` call
-   is a factory in `composition/factories/`.
-5. **The runtime** — `packages/agent-runtime/src/runtime/ai-sdk/`. Read this last. It is the only layer
-   that talks to the AI SDK and the provider. By now you know exactly what it receives (an
-   `AiRuntimeRequest` with a closed `toolNames` list) and what it must emit (`RuntimeEvent`s that map
-   to the protocol).
+## Path-to-layer heuristic
 
-## The path-to-layer heuristic
+| Path fragment | Layer | What belongs there |
+| --- | --- | --- |
+| `partner-ai-core/src/domain/` | Domain | Pure types and validation |
+| `partner-ai-core/src/ports/` | Ports | Interfaces describing what Core needs |
+| `partner-ai-core/src/application/` | Use cases | Effect orchestration and protocol mapping |
+| `partner-ai-service/src/adapters/` | Adapters | Concrete persistence, tools, auth, and observability |
+| `partner-ai-service/src/composition/` | Composition | Registry validation and adapter wiring |
+| `partner-ai-service/src/inbound/` | Transport | Routes, SSE framing, runner, and subscription streams |
+| `side-chat-widget/src/` | Browser | React UI, API client, run state, and protocol projection |
 
-You can usually tell what a file does by where it lives:
+Dependencies point inward. Core never imports an adapter. The widget never imports service, runtime,
+Effect, or database code.
 
-| Path fragment | Layer | What you'll find | Allowed to import |
-| --- | --- | --- | --- |
-| `partner-ai-core/src/domain/` | Domain | Pure types and validation (manifest, `TurnPolicyDecision`). No I/O. | nothing concrete |
-| `partner-ai-core/src/ports/` | Port | Interfaces describing what core needs (`ClockPort`, `AiRuntimePort`). | domain types only |
-| `partner-ai-core/src/application/` | Use case | Orchestration in Effect (the turn pipeline, protocol stream). | domain + ports |
-| `partner-ai-service/src/adapters/` | Adapter | Concrete implementations of ports (Jira tool, noop guards, OpenAI). | external libs |
-| `partner-ai-service/src/composition/` | Composition | Registries, factories, the composition root. The only place that calls `new`. | everything |
-| `partner-ai-service/src/inbound/` | Protocol/HTTP | Routes, middleware, SSE framing, the turn runner. | composition output |
-| `side-chat-widget/` | UI / transport | React hooks, message state, the API client, the SSE read loop. | the protocol contract |
+## Current edges worth knowing
 
-The rule that makes this hold: **arrows point inward, toward domain.** Core never imports an adapter;
-an adapter never imports a route; composition imports everything and wires it together. A `domain/`
-file importing `@ai-sdk/openai` is a bug, not a pattern. A quick test: if a file imports a database
-driver or an API client, it belongs in `apps/partner-ai-service`; if it only imports types and other
-libraries, it belongs in `packages/`.
+- OpenAI is the shipped real provider; tests also use a fake provider.
+- Turn guards are an adopter seam. The local/default composition may intentionally register none.
+- Live stream resume is connection-bound. Do not assume another instance can replay a running turn.
+- `sidechat.blocked` is a distinct terminal event, not an error alias.
 
-## Honest rough edges
+## Tests that pin the contracts
 
-A few things are deliberately rough; knowing them saves a confused afternoon.
+- `chat-protocol` codec and ordering tests pin SSE frame identity, sequence, and terminal rules.
+- `partner-ai-core` stream-chat tests pin pre-start ordering and fail-closed guards.
+- Service route tests pin POST-as-SSE, non-owner `stream_unavailable`, and terminal
+  `replay_expired` behavior.
+- The in-memory registry tests pin sequence conflicts, gaps, terminal closure, and shutdown.
+- Widget SSE and run-controller tests pin decode, reconnect, status polling, and history fallback.
+- Composition registry tests pin duplicate declarations and name mismatches at boot.
 
-- **The provider surface is one real provider.** Only OpenAI is wired (plus a fake provider for
-  tests). Swapping or adding a provider is an adapter + a config line, but no second real provider
-  ships today.
+Start a change by reading the nearest test, then the production file it protects.
 
-<Callout type="warn" title="Pitfall">
-**Guards are a noop by default.** `createNoopTurnGuardRegistry` returns `{ guards: [] }`, so the
-default deployment does no pre-model content-safety checking unless a real registry is injected at
-the composition root — the file comment in `adapters/guards/noop-turn-guard-registry.ts` says so
-outright. Don't read the guard step (step 4 in *Life of a Turn*) as proof that content is being
-filtered; the *seam* exists, but the default deployment fills it with a pass-through. This is the
-one gap most likely to surprise you.
-</Callout>
-
-<Callout title="Deep dive">
-A few things older docs may misdescribe — the live code is **ahead** of them:
-
-- The streaming flow is **two-call and resumable** (`POST /chat/runs` + `GET …/stream`), not a single
-  streaming endpoint. Any doc mentioning `POST /chat/stream` is stale.
-- The protocol stream has an **explicit state machine** (`protocol/protocol-stream-state-machine.ts`,
-  `advanceProtocolStream`), not just informal accumulator checks.
-- `sidechat.blocked` **exists** as a distinct terminal event, so a safety/guard rejection no longer has
-  to masquerade as `sidechat.error`.
-- The context board renders a `# Context Board` header plus a fixed boundary paragraph and stamps
-  `Trust:`/`Source:` provenance on every section — trust labeling is in place.
-</Callout>
-
-## Where the tests live and what they pin
-
-Tests sit next to the code they cover (`*.test.ts`). The ones worth knowing:
-
-- **Protocol framing** — `chat-protocol/src/sidechat-v1/codec/sse-codec.test.ts` round-trips a typed
-  event and pins that a frame whose `event:` header disagrees with its JSON payload type is rejected
-  at decode time.
-- **Message assembly order** — `build-model-turn-request.test.ts` and
-  `render-context-board-message.test.ts` pin the deterministic message order and the exact
-  context-boundary wording. The boundary paragraph is a security contract; rewording it fails the test
-  on purpose.
-- **Turn-policy validation** — the `turn-policy-validation` test pins that a turn cannot allow a tool
-  outside the resolved profile/manifest.
-- **The pipeline** — `stream-chat.test.ts` and `stream-chat-guards.test.ts` pin pre-start ordering,
-  guard fail-closed behavior, and that failures before `sidechat.started` never open a stream.
-- **Client decode** — the widget's `side-chat-sse-reader.test.ts` pins that the browser enforces the
-  same ordering rules (sequence strictly increases; nothing after a terminal).
-- **Registry validation** — the factory tests under `composition/factories/` pin that bad
-  declarations throw at boot, not at request time.
-
-Rule of thumb: if you change a wire shape, a message order, or an allowlist rule, a test above will
-catch you — start your change by reading its test, then the code.
-
-<Callout title="Recap">
-- Three questions cover most arrivals: the system prompt builds in three files, tools register in `service-tool-registry.ts`, and a turn starts across `POST /chat/runs` + `GET …/stream`.
-- Read the five files in order — protocol, turn pipeline, tool example, composition root, runtime — each makes sense of the next.
-- A file's path tells you its layer, and arrows point inward: a `domain/` file importing an SDK is a bug.
-- Two rough edges are real: guards are a noop by default, and only OpenAI is wired.
-- Tests sit beside the code and pin the contracts; read the test before changing a wire shape or rule.
-</Callout>
-
-For the "why" behind any term here, see [Confusing Words](/docs/walkthrough/confusing-words) and the
-[Glossary](/docs/walkthrough/glossary); for the full request trace, see
-[Life of a Turn](/docs/walkthrough/life-of-a-turn).
-
-Next: keep the [Glossary](/docs/walkthrough/glossary) and [Confusing Words](/docs/walkthrough/confusing-words)
-open as a reference while you read code — they define every term used above.
+For terms, keep [Confusing Words](/docs/walkthrough/confusing-words) and the
+[Glossary](/docs/walkthrough/glossary) open beside the code.

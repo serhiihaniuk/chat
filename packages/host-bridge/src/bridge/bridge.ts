@@ -35,13 +35,26 @@ export type HostBridgeOptions = {
   readonly capabilities: HostCapabilities;
 };
 
-export const createHostBridge = (options: HostBridgeOptions): HostBridge => ({
-  getContext: async (request) =>
-    toProtocolHostContext(await options.contextProvider.getContext(request)),
-  getCapabilities: async () =>
+export const createHostBridge = (options: HostBridgeOptions): HostBridge => {
+  // Advertising and gating must read the SAME capability source: if dispatch
+  // gated against the static `options.capabilities` while `getCapabilities`
+  // served a provider's per-page set, a command advertised to the model could be
+  // rejected as unsupported at dispatch. A provider read that throws fails the
+  // dispatch honestly — the widget folds it into a failed command result.
+  const resolveCapabilities = async (): Promise<HostCapabilities> =>
     options.contextProvider.getCapabilities
       ? await options.contextProvider.getCapabilities()
-      : options.capabilities,
-  dispatchCommand: (event) =>
-    dispatchSupportedCommand(options.dispatcher, options.capabilities, toHostCommand(event)),
-});
+      : options.capabilities;
+
+  return {
+    getContext: async (request) =>
+      toProtocolHostContext(await options.contextProvider.getContext(request)),
+    getCapabilities: resolveCapabilities,
+    dispatchCommand: async (event) =>
+      dispatchSupportedCommand(
+        options.dispatcher,
+        await resolveCapabilities(),
+        toHostCommand(event),
+      ),
+  };
+};

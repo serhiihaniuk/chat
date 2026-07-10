@@ -346,9 +346,8 @@ const emptyHistoryManifest = {
   messages: [],
 };
 
-// In-memory turn-event log: observability assertions never read it back, so the
-// port only needs to satisfy the layer with the same `sequence > after` reads as
-// the durable adapter.
+// Observability assertions never depend on turn-event retention, so this store
+// only preserves the port's `sequence > after` read convention.
 const createTurnEventLogPort = (): TurnEventLogPort => {
   const appendedEvents: SidechatStreamEvent[] = [];
   return {
@@ -382,7 +381,8 @@ const createSteppingClock = (): ClockPort => {
 };
 
 /**
- * Run one turn through the server-owned path and read its durable events back.
+ * Run one turn through the server-owned path, then read its buffered events back
+ * to assert the recorded lifecycle.
  *
  * Observability is a side effect of `runTurnGeneration`: pre-start records the
  * received/started observations, the post-start stream records runtime events,

@@ -223,7 +223,7 @@ const sideChatConfig = defineSideChatConfig({
     outputDeltaFlushInterval: readEnv.number(SERVICE_ENV_KEYS.outputDeltaFlushIntervalMs, {
       defaultValue: RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,
       description:
-        "Window (ms) to coalesce streamed text into one delta event; lower is smoother, higher emits fewer events.",
+        "Window (ms) to coalesce streamed text and reasoning deltas; lower is smoother, higher emits fewer events.",
     }),
   },
   resumability: {

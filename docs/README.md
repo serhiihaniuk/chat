@@ -62,6 +62,7 @@ vocabulary, lifecycle, and boundaries, and never owns global terms.
 [apps/docs](../apps/docs) renders the docs as a site (`npm run dev` on port 4111)
 with sections for the Design System (live widget components), System Design
 (architecture and the turn model), the Walkthrough (the example-first tour), and
-the Vocabulary. Start newcomers on the Walkthrough. Parts of the rendered System
-Design section still describe the pre-2026-07 durable-log streaming design;
-these docs under `docs/` are the source of truth until that section is updated.
+the Vocabulary. Start newcomers on the Walkthrough. The rendered System Design
+and Walkthrough follow the same connection-bound streaming model as these
+canonical docs: live events stay in the owning instance's registry, while
+terminal status and history are durable.

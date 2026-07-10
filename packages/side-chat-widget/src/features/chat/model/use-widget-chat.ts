@@ -2,13 +2,7 @@ import type { ChatModelPreference } from "@side-chat/chat-protocol";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import { useMemo, useRef, useState, type MutableRefObject } from "react";
 
-import { carryTranscriptActivity, type WidgetMessage, type WidgetRunNotice } from "#entities/chat";
-import {
-  WIDGET_RUN_STATUSES,
-  isTerminalRunStatus,
-  runStatusToWidgetStatus,
-  type WidgetRunState,
-} from "./run/widget-run-state.js";
+import { runStatusToWidgetStatus } from "./run/widget-run-state.js";
 import {
   readWidgetConversationStore,
   useConversationQueryRepository,
@@ -25,8 +19,19 @@ import {
 import { useActivityStream } from "./activity/use-activity-stream.js";
 import { useReconnectTriggers } from "./reconnect/widget-reconnect-triggers.js";
 import { useWidgetRunController } from "./reconnect/widget-run-controller.js";
+import {
+  createRunShellBridge,
+  useRunShellSnapshot,
+  type RunShellBridge,
+} from "./conversation/shell/run-shell-bridge.js";
 import { useWidgetChatActions } from "./use-widget-chat-actions.js";
 import { useWidgetRunEffects } from "./use-widget-run-effects.js";
+import {
+  isRunVisibleFor,
+  runOwnsHistory,
+  toRunNotice,
+  useVisibleMessagesWithCarriedActivity,
+} from "./view/widget-visible-transcript.js";
 
 export const useWidgetChat = ({
   client,
@@ -53,10 +58,10 @@ export const useWidgetChat = ({
     initialConversationStore.activeConversationId,
   );
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const pendingConversationTitleRef = useRef<string | undefined>(undefined);
-  // Id established by the current run. History must not refetch it because the
-  // live run already owns those messages until the user reselects it.
-  const streamOwnedConversationRef = useRef<string | undefined>(undefined);
+  // One reactive bridge publishes the run state the conversation shell needs;
+  // lazy state keeps that bridge instance stable for the lifetime of the mount.
+  const [shellBridge] = useState(createRunShellBridge);
+  const shellSnapshot = useRunShellSnapshot(shellBridge);
 
   const conversationsQuery = useGetConversations({
     activeConversationId: conversationId,
@@ -77,7 +82,7 @@ export const useWidgetChat = ({
     // two widgets pointed at different services never share a live run.
     storeKey: { storageKey: conversationStorageKey, baseUrl: client.baseUrl },
     conversationStorageKey,
-    onReplayExpired: useReplayExpiredHandler(streamOwnedConversationRef, setConversationId),
+    onReplayExpired: useReplayExpiredHandler(shellBridge, setConversationId),
     refreshHistory,
   });
   const run = controller.run;
@@ -86,7 +91,7 @@ export const useWidgetChat = ({
   const shouldLoadHistory =
     conversationId !== undefined &&
     client.readHistory !== undefined &&
-    !runOwnsHistory(run, conversationId, streamOwnedConversationRef.current);
+    !runOwnsHistory(run, conversationId, shellSnapshot.streamOwnedConversationId);
   const historyQuery = useGetConversationHistory({
     client,
     conversationId,
@@ -124,11 +129,11 @@ export const useWidgetChat = ({
     run,
     setConversationId,
     setErrorMessage,
-    streamOwnedConversationRef,
-    pendingConversationTitleRef,
+    shellBridge,
     refreshConversations,
     upsertStartedConversation,
     refreshHistory,
+    getRun: controller.getRun,
     clearRun: controller.clearRun,
   });
   useReconnectTriggers(controller.reconnect);
@@ -162,7 +167,7 @@ export const useWidgetChat = ({
     // would only duplicate that read.
     onEvent: (event) => {
       if (event.conversationId !== conversationId) return;
-      if (streamOwnedConversationRef.current === conversationId) return;
+      if (shellSnapshot.streamOwnedConversationId === conversationId) return;
       void refreshHistory(conversationId);
     },
   });
@@ -179,8 +184,7 @@ export const useWidgetChat = ({
     visibleMessagesRef,
     setConversationId,
     setErrorMessage,
-    streamOwnedConversationRef,
-    pendingConversationTitleRef,
+    shellBridge,
   });
 
   return {
@@ -190,8 +194,8 @@ export const useWidgetChat = ({
     notice,
     isLoadingHistory,
     messages: visibleMessages,
-    // Manual catch-up: re-read the current conversation from the server (the header
-    // Refresh button), now that connection-bound streaming has no auto-resume.
+    // Manual catch-up: re-read the current conversation from the server (the
+    // header Refresh button), independent of owner-bound live recovery.
     refresh: () => {
       void refreshHistory(conversationId);
     },
@@ -207,85 +211,18 @@ export const useWidgetChat = ({
   };
 };
 
-// Turn the run + message into the notice the conversation view renders: a blocked
-// turn gets the calm guard notice, any other message is the retryable error
-// surface, and a clean or cancelled run shows nothing.
-const toRunNotice = (
-  run: WidgetRunState | undefined,
-  message: string | undefined,
-): WidgetRunNotice | undefined => {
-  if (!message) return undefined;
-  return run?.status === WIDGET_RUN_STATUSES.BLOCKED
-    ? { kind: "blocked", message }
-    : { kind: "error", message };
-};
-
-/**
- * The displayed transcript: the live run's messages while a run is visible,
- * otherwise the loaded history with the last run's activity carried over.
- *
- * History rows carry no activity timeline, so the run→history handoff would
- * drop the thinking info the user just watched. Snapshot the latest visible run
- * transcript (per conversation) and re-attach its timelines onto the history
- * projection; the snapshot is tab-local, so a reload reads plain history —
- * exactly the intended lifetime.
- */
-const useVisibleMessagesWithCarriedActivity = (
-  visibleRun: WidgetRunState | undefined,
-  historyMessages: readonly WidgetMessage[] | undefined,
-  conversationId: string | undefined,
-): readonly WidgetMessage[] => {
-  const lastRunTranscriptRef = useRef<
-    { readonly conversationId: string; readonly messages: readonly WidgetMessage[] } | undefined
-  >(undefined);
-  if (visibleRun?.conversationId) {
-    lastRunTranscriptRef.current = {
-      conversationId: visibleRun.conversationId,
-      messages: visibleRun.messages,
-    };
-  }
-  return useMemo(() => {
-    if (visibleRun) return visibleRun.messages;
-    const transcript = historyMessages ?? [];
-    const snapshot = lastRunTranscriptRef.current;
-    return snapshot && snapshot.conversationId === conversationId
-      ? carryTranscriptActivity(transcript, snapshot.messages)
-      : transcript;
-  }, [conversationId, historyMessages, visibleRun]);
-};
-
-// A run owns its conversation's transcript only while it is NON-terminal: the
-// moment it ends, history loading resumes so the run→history handoff (and the
-// header Refresh button) can read the committed answer from the server.
-const runOwnsHistory = (
-  run: WidgetRunState | undefined,
-  conversationId: string,
-  streamOwnedConversationId: string | undefined,
-): boolean =>
-  run !== undefined &&
-  !isTerminalRunStatus(run.status) &&
-  conversationId === streamOwnedConversationId;
-
-// A run's messages belong to the displayed conversation when their ids match, or
-// when the run has not yet been assigned a conversation (it was just started in
-// the current view). One active run per instance keeps this unambiguous.
-const isRunVisibleFor = (
-  runConversationId: string | undefined,
-  selectedConversationId: string | undefined,
-): boolean => runConversationId === undefined || runConversationId === selectedConversationId;
-
 // On replay_expired the stream buffer is gone: drop the live-run guard so history
 // reloads, and adopt the conversation id so the right transcript is shown.
 const useReplayExpiredHandler = (
-  streamOwnedConversationRef: { current: string | undefined },
+  shellBridge: RunShellBridge,
   setConversationId: (conversationId: string | undefined) => void,
 ): ((conversationId: string | undefined) => void) =>
   useMemo(
     () => (conversationId: string | undefined) => {
-      streamOwnedConversationRef.current = undefined;
+      shellBridge.releaseStreamOwnership();
       if (conversationId) setConversationId(conversationId);
     },
-    [setConversationId, streamOwnedConversationRef],
+    [setConversationId, shellBridge],
   );
 
 // Keep the latest value in a ref so a callback can read it without re-creating

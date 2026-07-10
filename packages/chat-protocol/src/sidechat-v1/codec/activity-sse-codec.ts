@@ -30,7 +30,7 @@ export const encodeTurnActivitySseEvent = (event: TurnActivityEvent): string =>
  * Decode SSE text into validated turn-activity events.
  *
  * Comment-only frames (keepalives, e.g. `: hb`) carry no data and are skipped,
- * so the server heartbeat or a proxy keepalive never breaks the activity stream.
+ * so a keepalive from the server or a proxy never breaks the activity stream.
  * Multi-line `data` payloads are joined, and the `event` field is cross-checked
  * against the payload type — matching the main `sidechat.v1` codec.
  */

@@ -5,7 +5,6 @@ import type { PartnerAiCoreError } from "#errors";
 import { buildModelTurnRequest } from "../model-request/build-model-turn-request.js";
 import {
   createProtocolEventAccumulator,
-  recordProtocolEvent,
   type ProtocolEventAccumulator,
 } from "./finalization/protocol-event-accumulator.js";
 import {
@@ -31,12 +30,12 @@ import type {
 /**
  * Mutable bookkeeping shared by the post-start stream and its finalizer.
  *
- * The accumulator keeps only finalization facts; the sequence and state-machine
- * refs gate the browser contract. A caller creates these once, builds the
- * post-start stream from them, then finalizes against the same accumulator after
- * the stream is drained. Sharing the refs is why finalization is no longer a
- * stream-tail segment: the server-owned runner reads the same accumulated terminal
- * facts in its `onExit` after the stream is drained.
+ * The accumulator keeps only successfully appended finalization facts; the
+ * sequence and state-machine refs gate the browser contract. A caller creates
+ * these once, builds the post-start stream from them, then finalizes against the
+ * same accumulator after the stream is drained. Sharing the refs is why
+ * finalization is no longer a stream-tail segment: the server-owned runner reads
+ * the same committed terminal facts in its `onExit` after the stream is drained.
  */
 export type ProtocolStreamRefs = {
   readonly ports: StreamChatPorts;
@@ -51,8 +50,8 @@ export type ProtocolStreamRefs = {
  * Allocate the per-turn refs the post-start stream and finalizer share.
  *
  * Core owns browser sequence numbers after `sidechat.started`; runtime sequence
- * numbers are internal and may include dropped lifecycle events. The state
- * machine gates emission so the browser never sees a second start, a second
+ * numbers are internal and may include dropped lifecycle events. Invariant,
+ * gated by the state machine: the browser never sees a second start, a second
  * terminal, or any event after a terminal.
  */
 export const createProtocolStreamRefs = (
@@ -78,8 +77,8 @@ export const createProtocolStreamRefs = (
  * its `onExit`. From this point on runtime failures become terminal protocol
  * events, so the SSE contract stays stable: after `sidechat.started`, a consumer
  * sees exactly one `sidechat.completed` or `sidechat.error`. The stream is
- * finalization-free on purpose — durable terminal persistence is the runner's
- * `onExit`, never a stream-tail segment.
+ * finalization-free on purpose: durable turn-status finalization belongs to the
+ * runner's `onExit`, never a stream-tail segment.
  */
 export const createStartedProtocolStream = (
   refs: ProtocolStreamRefs,
@@ -109,7 +108,7 @@ const emitStartedEvent = (refs: ProtocolStreamRefs): Effect.Effect<SidechatStrea
     };
     // Commit the idle -> started transition; from idle this is always accepted.
     yield* acceptStreamTransition(refs.streamState, started);
-    return yield* rememberEvent(refs.accumulator, started);
+    return started;
   });
 
 /**
@@ -197,14 +196,14 @@ const mapRuntimeEventEffect = (
 
     // Advance protocol sequence only for events that cross the browser contract.
     yield* Ref.set(refs.nextProtocolSequence, sequence + 1);
-    return yield* rememberEvent(refs.accumulator, event);
+    return event;
   });
 
 /**
  * Emit the final error event after streaming has already started.
  *
  * Before `sidechat.started`, a failure rejects the request. After it, the
- * browser needs `sidechat.error` so the UI can close the turn cleanly. A failure
+ * browser needs `sidechat.error` to close the turn cleanly. A failure
  * that arrives after a terminal was already emitted is dropped by the state
  * machine so the stream keeps exactly one terminal.
  */
@@ -232,7 +231,7 @@ const emitRuntimeFailureEvent = (
     const event = createErrorEvent(input, turn.assistantTurnId, sequence, ports, error);
     const accepted = yield* acceptStreamTransition(refs.streamState, event);
     if (!accepted) return undefined;
-    return yield* rememberEvent(refs.accumulator, event);
+    return event;
   });
 
 /**
@@ -252,9 +251,3 @@ const acceptStreamTransition = (
     yield* Ref.set(streamState, transition.state);
     return true;
   });
-
-const rememberEvent = (
-  accumulator: Ref.Ref<ProtocolEventAccumulator>,
-  event: SidechatStreamEvent,
-): Effect.Effect<SidechatStreamEvent> =>
-  Ref.update(accumulator, (current) => recordProtocolEvent(current, event)).pipe(Effect.as(event));

@@ -41,8 +41,8 @@ export type AgentRuntimeOptions = {
   readonly providers: readonly ModelProvider[];
   readonly tools?: readonly RuntimeTool[] | undefined;
   /**
-   * Window (ms) for batching streamed text into one durable delta. Defaults to
-   * `DEFAULT_OUTPUT_DELTA_FLUSH_MS` in the runner; `0` disables batching.
+   * Window (ms) for batching streamed text and reasoning into fewer emitted
+   * deltas. Defaults to `DEFAULT_DELTA_FLUSH_MS`; `0` disables batching.
    */
   readonly flushIntervalMs?: number | undefined;
   /**

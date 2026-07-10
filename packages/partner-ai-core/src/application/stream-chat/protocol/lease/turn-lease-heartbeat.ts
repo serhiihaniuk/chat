@@ -16,7 +16,8 @@ export type TurnLeaseSettings = {
 };
 
 /**
- * Run the generation drain under an owner lease, fencing it if the lease is lost.
+ * Run the generation drain under an owner lease, fencing it when ownership is
+ * lost to the reaper or a new owner.
  *
  * This is the fencing half of the server-owned runner (resumable-streaming plan,
  * "Lease Fencing"). It must stay *inside* `runTurnGeneration`'s `onExit`, so the

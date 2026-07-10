@@ -22,6 +22,7 @@ export {
 export {
   SIDE_CHAT_API_ERROR_CODES,
   createSideChatApiClient,
+  isAbortApiError,
   SideChatApiError,
   type ActiveTurnSummary,
   type CancelTurnResult,

@@ -1,7 +1,7 @@
 /**
  * §9.3 — Tools menu.
  *
- * The composer "+" menu. In the live widget it lists the backend tool catalog
+ * The composer "+" menu. In the live widget it receives the backend tool catalog
  * (`tools` with an `onToggleTool` handler) so each tool can be enabled or
  * disabled for the next turn. With no handler it is the self-contained design
  * demo: sample tools plus the attach-file and context-scope rows that show the

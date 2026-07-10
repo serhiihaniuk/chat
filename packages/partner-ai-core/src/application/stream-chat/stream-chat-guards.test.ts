@@ -34,7 +34,7 @@ describe("stream chat turn guards", () => {
       safetyPolicyId: "standard",
     });
     expect(guardInputs[0]).not.toHaveProperty("contextBoard");
-    // Each emitted event is appended to the durable log before the onExit
+    // Each emitted event is appended to the turn-event store before the onExit
     // finalizer records the completed turn.
     expect(ports.calls).toEqual([
       "hostCapabilities",

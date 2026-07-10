@@ -53,7 +53,8 @@ describe("server-owned turn runner", () => {
     });
     await harness.runner.awaitTurn(started.assistantTurnId);
 
-    // Every post-start event was appended to the durable log, ending in completed.
+    // Every post-start event was appended to the owning instance's registry,
+    // ending in completed.
     const events = await readTurnEvents(harness.turnEventLog, started.assistantTurnId);
     expect(events.map((event) => event.type)).toEqual([
       SIDECHAT_EVENT_TYPES.STARTED,
@@ -143,8 +144,8 @@ describe("server-owned turn runner", () => {
     await harness.runner.awaitTurn(second.assistantTurnId);
 
     expect(second.assistantTurnId).toBe(first.assistantTurnId);
-    // The replay did not fork a second generation, so the durable log keeps the
-    // single completed run with no duplicate terminal and exactly one main
+    // The replay did not fork a second generation, so the registry keeps one
+    // completed run with no duplicate terminal and exactly one main
     // generation runtime call (the conversation-title job is excluded).
     const events = await readTurnEvents(harness.turnEventLog, first.assistantTurnId);
     expect(events.filter((event) => isTerminalEvent(eventOf(event)))).toHaveLength(1);
@@ -395,8 +396,8 @@ const requireOnly = (records: readonly SidechatStreamEvent[]): SidechatStreamEve
 // Decode the stored protocol-free payload back into the typed event the way the
 // persistence adapter does, so assertions read the same rehydrated union the
 // runner would hand a subscriber.
-// The in-memory registry returns parsed stream events directly (the durable
-// turn_events record wrapper is gone), so eventOf is now the identity.
+// The in-memory registry returns parsed stream events directly, so eventOf is
+// the identity.
 const eventOf = (event: SidechatStreamEvent): SidechatStreamEvent => event;
 
 const lastNonTerminalSequence = (events: readonly SidechatStreamEvent[]): number =>

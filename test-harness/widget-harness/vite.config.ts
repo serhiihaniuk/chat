@@ -22,6 +22,10 @@ function normalizeViteBase(value: string): string {
 
 export default defineConfig({
   base,
+  // Playwright starts this UI server beside the host proxy. Give each process
+  // its own optimizer cache so one Vite generation cannot invalidate the
+  // other's dependency URLs and surface an "Outdated Optimize Dep" 504.
+  cacheDir: "node_modules/.vite-widget-ui",
   plugins: [react(), tailwindcss()],
   // Serve streamdown as raw ESM instead of pre-bundling it: its lazily-imported
   // highlighting chunk otherwise gets a dep-optimizer generation hash that goes

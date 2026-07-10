@@ -1,6 +1,5 @@
 import { SILENT_DIAGNOSTIC_LOGGER } from "@side-chat/shared";
 import { createNoopTurnGuardRegistry } from "#adapters/guards/noop-turn-guard-registry";
-import { setMockWebSearchRuntime } from "#adapters/tools/mock-web-search-runtime";
 import { createInMemoryTurnEventLog } from "#adapters/persistence/turn-events/in-memory-turn-event-log";
 import { createHostCommandResultDispatcher } from "#adapters/host-commands/host-command-result-dispatcher";
 import {
@@ -137,10 +136,10 @@ export const composePartnerAiService = (options: ServiceCompositionOptions): Ser
     logger,
   });
   const runtime = createServiceRuntimeBundle(options, { providers, tools, hostCommandResolver });
-  // Publish the runtime handle for the mock web search fixture's sub-agent. The
-  // tool is built before the runtime (the runtime is built FROM the tools), so it
-  // reads the runtime from this shared handle at request time (dev-only fixture).
-  setMockWebSearchRuntime(runtime.runtime);
+  // Complete the tools-before-runtime construction cycle. Each tool registry owns
+  // this handle, so reusing one immutable registration across service compositions
+  // cannot redirect an older composition's sub-agent tools to a newer runtime.
+  tools.registry.bindRuntime(runtime.runtime);
   const streamChat = createStreamChatPorts({
     persistence,
     capabilities,

@@ -1,6 +1,6 @@
 import { SIDECHAT_EVENT_TYPES, type SidechatStreamEvent } from "@side-chat/chat-protocol";
 import type { AuthContext } from "@side-chat/partner-ai-core";
-import { Effect, Queue } from "effect";
+import { Effect, Exit, Queue } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { createInMemoryTurnEventLog } from "./in-memory-turn-event-log.js";
@@ -79,6 +79,71 @@ describe("createInMemoryTurnEventLog", () => {
 
     await subscription!.release();
     expect(log.hasSubscribers("assistant_turn_owned")).toBe(false);
+  });
+
+  it("settles a subscriber blocked on Queue.take when the registry shuts down", async () => {
+    const log = createInMemoryTurnEventLog();
+    log.registerTurn("assistant_turn_shutdown");
+    const subscription = await log.subscribe({
+      assistantTurnId: "assistant_turn_shutdown",
+      authContext: AUTH_CONTEXT,
+    });
+    expect(subscription).toBeDefined();
+
+    const takeExit = Effect.runPromiseExit(Queue.take(subscription!.events));
+    await log.shutdown();
+
+    expect(Exit.isFailure(await takeExit)).toBe(true);
+    expect(log.hasTurn("assistant_turn_shutdown")).toBe(false);
+  });
+
+  it("treats an identical sequence reappend as an idempotent no-op", async () => {
+    const log = createInMemoryTurnEventLog();
+    const firstStarted = startedEvent("assistant_turn_retry");
+
+    await appendEvent(log, firstStarted);
+    await appendEvent(log, { ...firstStarted });
+
+    const events = await Effect.runPromise(
+      log.readEventsAfter({
+        authContext: AUTH_CONTEXT,
+        assistantTurnId: "assistant_turn_retry",
+        after: -1,
+      }),
+    );
+    expect(events).toEqual([firstStarted]);
+  });
+
+  it("fails when the same sequence is reappended with a conflicting payload", async () => {
+    const log = createInMemoryTurnEventLog();
+    const firstStarted = startedEvent("assistant_turn_conflict");
+    await appendEvent(log, firstStarted);
+
+    await expect(
+      appendEvent(log, { ...firstStarted, eventId: "evt_conflicting_started" }),
+    ).rejects.toThrow("already contains a different event");
+  });
+
+  it("fails when an append skips the next dense sequence", async () => {
+    const log = createInMemoryTurnEventLog();
+    await appendEvent(log, startedEvent("assistant_turn_gap"));
+
+    await expect(
+      appendEvent(log, {
+        ...completedEvent("assistant_turn_gap"),
+        eventId: "evt_assistant_turn_gap_2",
+        sequence: 2,
+      }),
+    ).rejects.toThrow("must be the next dense sequence 1");
+
+    const events = await Effect.runPromise(
+      log.readEventsAfter({
+        authContext: AUTH_CONTEXT,
+        assistantTurnId: "assistant_turn_gap",
+        after: -1,
+      }),
+    );
+    expect(events.map((event) => event.sequence)).toEqual([0]);
   });
 
   it("refuses appends after a terminal — exactly one terminal per turn", async () => {

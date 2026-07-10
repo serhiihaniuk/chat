@@ -1,13 +1,13 @@
 import { isRecord } from "@side-chat/shared";
 
 /**
- * Lightweight pointer to a live run, persisted so a full reload can resume it.
+ * Lightweight pointer to a live run, persisted so a full reload can recover it.
  *
  * Only identity is stored — never message content or a cursor — because the
- * server's buffered stream is the source of truth for events and a cold resume
- * always replays from the start (`after = -1`). Written once when the turn is
- * identified and cleared only on a server-confirmed terminal (or a replaced
- * run) — never on a transport failure, so a reload can still recover the turn.
+ * the owning instance's buffered stream is the live source of truth, and a cold
+ * recovery attempts replay from the start (`after = -1`). If that buffer is
+ * unavailable, the controller polls durable status and falls back to terminal
+ * history. The marker survives transport failure so a reload can try both paths.
  */
 export type WidgetActiveRunMarker = {
   readonly requestId: string;

@@ -148,7 +148,7 @@ export type RuntimeToolConfig = {
   readonly tools?: readonly ServiceToolRegistration[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
   readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
-  /** Text-batching window (ms) handed to the runtime executor; `0` disables batching. */
+  /** Text/reasoning batching window (ms); `0` disables batching. */
   readonly flushIntervalMs?: number | undefined;
 };
 
@@ -173,7 +173,7 @@ export type ServiceComposition = {
   readonly turnRunner: TurnRunner;
   /** Per-instance crash backstop that terminalizes dead-owner running turns. */
   readonly turnReaper: TurnReaper;
-  /** Per-instance live fan-out of durable turn events to local subscribers. */
+  /** Per-instance fan-out from the live turn-event registry to local subscribers. */
   readonly dispatcher: TurnEventDispatcher;
   /** Connection-bound resolver for UI (host) tool calls; the result route settles it. */
   readonly hostCommandResolver: ServiceHostCommandResolver;

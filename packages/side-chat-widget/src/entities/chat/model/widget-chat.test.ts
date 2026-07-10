@@ -377,4 +377,23 @@ describe("carryTranscriptActivity", () => {
 
     expect(carryTranscriptActivity(history, runMessages)).toBe(history);
   });
+
+  it("preserves a persisted history timeline instead of replacing it with the run snapshot", () => {
+    const runMessages = [
+      withActivity(createWidgetMessage("local-assistant", "assistant", "Here they are.")),
+    ];
+    const historyMessage = createWidgetMessage("msg_1", "assistant", "Here they are.");
+    const history = [
+      {
+        ...historyMessage,
+        activity: applyActivityEvent(
+          historyMessage.activity,
+          createToolActivity({ activityId: "persisted_activity", title: "Persisted trace" }),
+        ),
+      },
+    ];
+
+    expect(carryTranscriptActivity(history, runMessages)).toBe(history);
+    expect(history[0]?.activity.items[0]?.title).toBe("Persisted trace");
+  });
 });

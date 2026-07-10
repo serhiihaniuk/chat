@@ -34,10 +34,7 @@ import {
   mapAiSdkStreamPart,
   toProviderRuntimeError,
 } from "./stream-part-mapper.js";
-import {
-  coalesceTextDeltaParts,
-  DEFAULT_OUTPUT_DELTA_FLUSH_MS,
-} from "./coalescing/text-delta-coalescer.js";
+import { coalesceDeltaParts, DEFAULT_DELTA_FLUSH_MS } from "./coalescing/delta-coalescer.js";
 import {
   createRuntimeToolLookup,
   isHostCommandToolPart,
@@ -64,7 +61,7 @@ export type AiSdkToolLoopAgentRunOptions = {
   readonly model: LanguageModel;
   readonly providerOptions?: ToolLoopAgentSettings["providerOptions"] | undefined;
   readonly request: RuntimeProviderRequest;
-  /** Text-batching window in ms; defaults to `DEFAULT_OUTPUT_DELTA_FLUSH_MS`, `0` disables. */
+  /** Delta-batching window in ms; defaults to `DEFAULT_DELTA_FLUSH_MS`, `0` disables. */
   readonly flushIntervalMs?: number | undefined;
   /** Awaits browser-side results for UI (host) tool calls; absent disables them. */
   readonly hostCommandResolver?: HostCommandResolver | undefined;
@@ -191,10 +188,7 @@ const createAiSdkPartStream = ({
           abortSignal: request.abortSignal,
         }),
       );
-      return coalesceTextDeltaParts(
-        result.fullStream,
-        flushIntervalMs ?? DEFAULT_OUTPUT_DELTA_FLUSH_MS,
-      );
+      return coalesceDeltaParts(result.fullStream, flushIntervalMs ?? DEFAULT_DELTA_FLUSH_MS);
     },
     catch: (error) => toProviderRuntimeError(error),
   }).pipe(

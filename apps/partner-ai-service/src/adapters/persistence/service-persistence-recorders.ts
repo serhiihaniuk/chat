@@ -38,11 +38,11 @@ export const conversationTitleTextField = (
 /**
  * The assistant message's metadata key that stores the turn's activity trace.
  *
- * Write and read live side by side so the shape has exactly one owner: the
- * completion write serializes the protocol activity events verbatim under
- * `turnActivity.events`, and the history route replays them verbatim into
- * `HistoryMessage.activity`. Only present when turn-activity history is
- * enabled AND the turn produced activity; every other message keeps `{}`.
+ * Write and read live side by side so the shape has exactly one owner, from
+ * write to replay: the completion write serializes the protocol activity events
+ * verbatim under `turnActivity.events`, and the history route replays them
+ * verbatim into `HistoryMessage.activity`. Only present when turn-activity
+ * history is enabled AND the turn produced activity; every other message keeps `{}`.
  */
 export const turnActivityMetadata = (
   activityEvents: readonly ActivityEvent[] | undefined,

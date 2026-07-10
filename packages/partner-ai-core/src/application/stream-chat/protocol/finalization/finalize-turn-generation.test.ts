@@ -97,8 +97,8 @@ describe("abnormal turn finalization", () => {
     });
     const finalized = await runAbnormalFinalize(ports, Exit.interrupt(1));
 
-    // The synthetic terminal append still runs (idempotent on the unique index),
-    // but no durable failure is written over the won terminal.
+    // The synthetic terminal append still runs (the port's terminal guard makes
+    // it a no-op), but no durable failure is written over the won terminal.
     expect(finalized.terminals).toHaveLength(1);
     expect(ports.failedTurns).toHaveLength(0);
   });

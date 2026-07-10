@@ -1,233 +1,105 @@
 ---
 title: Streaming & Reconnect
-description: How Maya's answer survives a closed laptop, a flaky network, and three load-balanced servers — the durable event log and LISTEN/NOTIFY, in plain English.
+description: How the in-memory live registry, same-instance resume, and durable history fallback work together.
 ---
 
-Maya's three Jira tickets are halfway through typing themselves out when she snaps her laptop shut to
-run to a meeting. She reopens it twenty minutes later, clicks back to the chat, and the full answer
-is sitting there — finished. Nothing was lost, nothing was re-asked. The same trick works when the
-company grows and runs **three** copies of the server behind a load balancer: the request that
-started Maya's turn and the request that reconnects to it can land on two different machines, and it
-still just works.
-
-[Life of a Turn](/docs/walkthrough/life-of-a-turn) traced Maya's message across 16 hops and ended
-with two it called "the source of truth" and "replay, then tail" (steps 14 and 15). This page slows
-those two hops down. It is the story of how events get from the server to her screen, and why a
-dropped connection is a non-event.
+Maya closes her laptop while the answer is streaming. The browser connection disappears, but the
+server-owned generation fiber keeps running. When she returns, the widget tries to recover the live
+stream. If live recovery is impossible, it waits for the durable outcome and reloads the transcript.
 
 <Callout title="You will learn">
-- Why the **durable log** — not the browser, not the connection — is the one source of truth.
-- What `LISTEN/NOTIFY` is, in plain terms, and why it means **no Redis** and works with many servers.
-- Why reconnecting is not a special path — it is just reopening the stream with `after = last sequence seen`.
-- How a turn can **generate on one server** but be **streamed by any server**.
-- What happens when the log was pruned, and how the "generating" dot on your other chats rides the same rails.
+- Why the POST response is the primary stream.
+- How the owning instance buffers and replays live events.
+- Why another instance returns `stream_unavailable` instead of an empty stream.
+- How `replay_expired` and conversation history complete recovery.
+- Which three cross-instance signals still use Postgres notifications.
+
 </Callout>
 
-## The durable log is the source of truth
+## The live registry is a process-local notebook
 
-Picture a shared notebook with numbered lines. Every time the model produces something — a word, a
-reasoning step, the `jira.search_issues` call, the final answer — the server writes one numbered line
-into the notebook. The browser never writes to the notebook. It only ever **reads** it. That notebook
-is the durable log, and it is the single fact everything else defers to.
+Picture a numbered notebook that exists only in one server process. Every mapped `sidechat.v1` event
+is one line: `sidechat.started` at sequence 0, then deltas and activities, then exactly one terminal.
+The registry keeps those lines ordered and wakes local subscribers.
 
-This flips the obvious design. Your instinct is that the answer "lives" in the connection streaming
-it to Maya — that the bytes on the wire *are* the answer. Here, the bytes on the wire are a **copy**.
-The real answer is the rows in the log. The connection is a window onto the notebook, and you can
-close and reopen a window without touching what is written on the page.
+The notebook is useful but disposable. It is not stored in Postgres and vanishes when the process
+restarts. Postgres stores the settled conversation, messages, turn record, usage, and cancel intent.
+That final state is what the product promises to preserve.
 
-**How it's wired.** The notebook is the `turn_events` table (`packages/db`). Each `sidechat.v1` event
-carries a monotonic `sequence` — line 0, 1, 2, … — and the generating fiber appends each one with
-`appendStreamEvent` (step 14 in *Life of a Turn*). Two properties make the append trustworthy:
+## The POST response opens the notebook
 
-- **Append-and-notify in one transaction.** The `INSERT` and the "new rows exist" signal commit
-  together. There is never a signal pointing at a row that did not get written, and never a written
-  row with no signal.
-- **The append is idempotent.** Writing the same sequence twice is a no-op (`ON CONFLICT DO NOTHING`
-  on the sequence key), so a retry can never create a duplicate line 7.
+`POST /chat/runs` performs setup before any SSE frame. After setup succeeds, the service forks
+generation, registers the turn in its local notebook before subscribing, and streams the same
+response from the start. The first frame identifies the turn. No separate GET is required for the
+happy path.
 
-**What breaks without it.** If the answer lived only in the connection — the old response-owned
-design — then closing the laptop *is* losing the answer. There is nothing to come back to. Maya's
-reload would orphan a half-finished turn and she would have to ask again. The durable log is the
-entire reason "leave and come back" is possible.
+Closing the POST response closes one window onto the notebook. The worker remains alive. To stop the
+turn, the widget must call `POST /chat/turns/:assistantTurnId/cancel`.
 
-## LISTEN/NOTIFY: a doorbell, not a delivery
+## Same-instance resume uses `after`
 
-If the log is the truth, the server still needs to know *when* a new line was written so it can push
-it to Maya without delay. That is what Postgres `LISTEN/NOTIFY` does, and the cleanest way to picture
-it is a **doorbell**.
+The widget tracks the last sequence it applied. A recovery request uses:
 
-A `NOTIFY` is a doorbell that rings and says, in effect, "new rows exist for turn X." It carries no
-real payload you trust — it is just a chime. Everyone who is listening hears the chime and does the
-same thing in response: **go re-read the notebook**. The doorbell is not the answer. It only tells
-you to go look at the page, and the page is where the truth is.
+`GET /chat/turns/:assistantTurnId/stream?after=<lastSeenSequence>`
 
-This distinction is the whole design. Because the **read** is the source of truth and the doorbell is
-only a hint, two things you would otherwise worry about stop mattering:
+On the owning instance, the server registers the subscriber first, replays buffered events with a
+higher sequence, then tails new events. Registering first prevents a gap between replay and tail.
+A dense sequence gate catches a dropped queue wake-up by re-reading the buffer.
 
-- A **missed** doorbell is not a lost event. A low-frequency safety poll re-reads the log on a timer
-  anyway, so even if a chime is dropped, the row is picked up on the next sweep. The doorbell makes
-  delivery *fast*; the poll makes it *certain*.
-- You do **not need Redis** or any other message broker to fan events out. Postgres already holds the
-  truth and already has a doorbell built in. Adding a separate pub/sub system would mean a second
-  place that could disagree with the log — and an extra service to run.
+This is exact while the local registry entry exists. It is not a cross-instance contract.
 
-**How it's wired.** Each service instance opens **one** dedicated `LISTEN` connection (in
-`packages/db`) and holds it open. When `appendStreamEvent` fires its `pg_notify`, Postgres delivers
-the chime to the `LISTEN` connection on **every** instance. Each instance's dispatcher then wakes its
-own local subscribers, who re-read the rows they have not seen yet. The channels are named in
-`packages/db/src/schema-contract/lifecycle.ts`:
+## Another instance fails fast
 
-| Channel | Doorbell for | Read by |
+A load balancer may send the resume GET to a different service instance. That process can read the
+durable turn row, but it cannot read the owner's live registry. If the turn is still `running`, the
+route returns HTTP `409 stream_unavailable` with reason `not_stream_owner`.
+
+The widget then polls `GET /chat/turns/:assistantTurnId`. When the durable status becomes terminal,
+it refetches conversation history and replaces the transient run state with the saved answer.
+
+Failing fast matters. Opening SSE from a non-owner would produce an empty connection that could never
+deliver a terminal event.
+
+## A swept terminal buffer returns `replay_expired`
+
+The registry lazily sweeps terminal entries after their retention window and after all subscribers
+leave. Sweeping frees process memory; it does not delete the turn or assistant message.
+
+If a client asks for a terminal turn after its buffer is gone, the stream route returns HTTP
+`404 replay_expired` before opening SSE. The widget stops retrying the live stream, reloads
+conversation history, and clears the persisted run marker.
+
+<Callout title="What survives">
+- A network disconnect: generation and the owner's registry entry continue.
+- A same-instance reconnect: the buffered suffix replays from `after`.
+- A cross-instance reconnect: live animation may be lost; status and history recover the answer.
+- A process crash: the registry is lost; the reaper settles the durable turn record.
+</Callout>
+
+## Cross-instance signals are separate from turn content
+
+Postgres `LISTEN/NOTIFY` does not carry turn deltas. It remains useful for three coordination paths:
+
+| Signal | Why another instance needs it | Durable recovery |
 | --- | --- | --- |
-| `turn_events` | new event rows for a turn | the per-turn stream subscribers |
-| `turn_cancel` | a durable cancel intent landed | the instance owning the turn's fiber |
-| `turn_activity` | a turn started or finished | the sidebar "generating" dots |
+| Cancel | Interrupt the instance that owns the generation fiber | Re-scan running turns with cancel intent |
+| Turn activity | Update generating indicators across tabs and instances | Re-read the subject-scoped running-turn snapshot |
+| Host-command result | Settle a host command waiting on the owner | Poll the stored command result |
 
-**What breaks without it.** Drop the doorbell and you keep only the poll. The system is still
-*correct* — the log is unchanged — but Maya watches her answer arrive in laggy chunks on the poll
-interval instead of word by word. Drop the *poll* and keep only the doorbell, and a single dropped
-chime could strand the last delta until the next event nudges things. You want both: the doorbell for
-latency, the poll as the backstop.
+Each notification is a wake-up, not trusted state. Each listener reconnects after a dropped Postgres
+connection and recovers from the durable source named above.
 
-<Callout title="Deep dive: the exactly-once gate">
-Two sources can wake a subscriber for the same row — a `NOTIFY` and the safety poll — and a reconnect
-can replay rows the subscriber later sees live again. So the stream is not naively "emit whatever a
-wake-up surfaces." It tracks the highest sequence it has already emitted and emits a row **only if its
-sequence is greater** (`sequence > maxEmitted`). Replay and tail can overlap freely; the gate
-guarantees Maya's browser sees each line exactly once, in order. The stream then ends itself at the
-first terminal event (`takeUntil(isTerminalEvent)`).
-</Callout>
-
-## Replay, then tail — and reconnect is just that again
-
-A subscriber that opens the stream does two things in sequence: it **replays**, then it **tails**.
-
-- **Replay** reads the notebook from a starting line and streams every existing row in order, so the
-  subscriber catches up to the present. A brand-new viewer replays from the very beginning; a
-  returning viewer replays from wherever it left off.
-- **Tail** keeps the window open and streams each new row as it lands — driven by the doorbell, with
-  the poll as backstop — until the terminal line.
-
-The one knob that drives both is `after`: a sequence number meaning "I already have everything up to
-here; give me what's past it." The browser keeps `after` updated to the **last sequence it saw**.
-
-Now the punchline for reconnects. There is **no special reconnect code path**. When Maya reopens her
-laptop, the browser opens the *same* `GET /chat/turns/:assistantTurnId/stream?after=<seq>` it always
-opens — it just passes the last sequence it had seen before the lid closed. The server replays the
-lines she missed during the meeting, then tails the rest. A first connection and a reconnection are
-the **same request** with a different `after`. "Reconnect" is not a feature; it is the absence of one.
-
-**How it's wired.** The subscription (step 15, `createTurnSubscriptionStream`) registers a local
-listener, replays `turn_events` rows with `sequence > after`, then tails live events through the
-exactly-once gate above. The browser persists the last sequence it rendered, so a cold page reload
-restarts from the saved marker and an in-session blip resumes from the live cursor.
-
-**What breaks without it.** If reconnect were its own pathway — say, "fetch a snapshot, then attach a
-fresh stream" — you would have two code paths that can drift apart, and a seam where events fall
-between the snapshot and the attach. Folding reconnect into "replay from `after`, then tail" means the
-same battle-tested path serves the first byte and the millionth, and there is no gap to leak through.
-
-<Callout type="warn" title="Pitfall: the stream is a window, not the worker">
-It is tempting to read "the browser opens the stream" as "the browser is driving the turn." It is
-not. Closing the SSE connection does **not** stop generation — the fiber on the server keeps writing
-to the log whether or not anyone is watching. To actually stop a turn you must send a durable cancel
-(`POST /chat/turns/:id/cancel`), which writes `cancel_requested_at` and rings the `turn_cancel`
-doorbell. A closed window is not a stop signal.
-</Callout>
-
-## Many servers: generate on one, stream from any
-
-Scale the company up to three servers behind a load balancer and the design barely notices, because
-of one clean split:
-
-- A turn **generates** on exactly **one** instance — the *owner*. Only the owner writes that turn's
-  lines into the notebook.
-- A turn can be **streamed** from **any** instance. Serving the stream is just reading the log and
-  listening for the doorbell, and every instance can do both.
-
-So when Maya reopens her laptop, the load balancer might route her reconnect to a *different* server
-than the one generating her answer. That is fine. The reconnecting server reads the same `turn_events`
-rows from the same Postgres and hears the same `turn_events` doorbell as everyone else. There is **no
-sticky routing** — nothing has to pin Maya to "her" server.
-
-**How it's wired.** Generation is forked onto a server-owned Effect fiber, and exactly one instance
-claims write-ownership through an **owner lease** (covered next). The stream route, by contrast, holds
-no special claim — it reads the durable log and subscribes to notifies like any reader. This is also
-why a *cancel* can safely land on any instance: whichever one receives the `POST` writes the durable
-intent, and the `turn_cancel` doorbell lets the actual owner interrupt its fiber.
-
-**What breaks without it.** Pin the stream to its generating instance and you are back to sticky
-routing: brittle under restarts, deploys, and scaling. If that one instance restarts mid-turn, Maya's
-window goes dark even though the answer is safe in the log. Decoupling "who generates" from "who
-serves" is what lets you add, remove, or restart servers without dropping anyone's stream.
-
-<Callout title="Deep dive: the owner lease">
-"Exactly one writer" is enforced, not hoped for. An owner claims the turn with a compare-and-swap on a
-`lease_epoch` and renews it with a heartbeat. If the owner dies or stalls, a reaper bumps the epoch to
-fence it out and terminalizes the turn, and any heartbeat from the stale owner self-interrupts when it
-sees the epoch moved. The result: even across crashes and deploys, a turn's log never has two
-machines writing conflicting lines. The reader side needs none of this — it only reads.
-</Callout>
-
-## When the log was pruned
-
-The notebook does not grow forever. A background **pruner** deletes a turn's `turn_events` rows once
-the turn has been terminal long enough; the conversation and its final assistant message stay, only
-the now-redundant event rows go. This is almost always invisible — pruning happens well after a turn
-finishes — but it creates one edge case worth naming.
-
-Suppose Maya comes back not after twenty minutes but after a week, and her browser tries to reconnect
-with an `after` pointing into rows the pruner already deleted. Replay from there is impossible: those
-lines are gone. The stream cannot honestly resume, so it says so.
-
-**How it's wired.** The route answers HTTP 404 `replay_expired` — a terminal-only transport error
-code (`packages/chat-protocol/src/sidechat-v1/errors.ts`). The widget treats that not as a failure but
-as a signal to **stop trying to replay a live stream** and instead read the finished conversation from
-history (`sidechat.history`). Maya still sees her three tickets; they just arrive as a settled
-transcript rather than a replayed stream.
-
-**What breaks without it.** Without an explicit `replay_expired`, a reconnect into pruned rows would
-either hang waiting for lines that will never come, or silently show a truncated answer starting from
-some arbitrary surviving row. The distinct code turns "those events are gone" into a clean, handled
-fork: live stream when the log is intact, history when it is not.
-
-## The "generating" dot rides the same rails
-
-Maya has several chats in her sidebar. When a turn is running in one she is *not* looking at, that
-chat shows a small "generating" dot. That dot is not a second streaming system — it is the **same
-doorbell-and-fan-out pattern** pointed at a different question.
-
-Instead of "what are the new events for turn X," the dot answers "which of this person's
-conversations have a turn running right now." A turn ringing the `turn_activity` doorbell when it
-starts or finishes is enough to flip dots on and off across every conversation in the sidebar.
-
-**How it's wired.** A separate subject-scoped SSE stream, `GET /chat/activity`, reuses the identical
-`NOTIFY` + fan-out + SSE machinery (`apps/partner-ai-service`). One detail differs by design: the
-`turn_activity` notification carries the full lifecycle payload — `{ workspaceId, subjectId,
-conversationId, assistantTurnId, status }` — so the activity dispatcher can fan it out by subject
-**without re-reading the log**. The per-turn stream is the careful one (durable log, replay, exactly
-once); the activity stream is the lightweight cousin (no sequence, no replay, no terminal), because a
-momentarily-stale dot costs nothing while a wrong word in Maya's answer would.
-
-**What breaks without it.** Build the dot as its own bespoke mechanism and you have two transport
-systems to keep correct, secure, and multi-instance safe. Reusing the proven pattern means the dot
-inherits the same "works across three servers, no Redis" guarantees for free.
+`GET /chat/activity` uses the turn-activity signal to power generating indicators. It is a separate
+subject-scoped SSE stream with a snapshot and live transitions. It has no turn sequence, replay
+cursor, or terminal event.
 
 <Callout title="Recap">
-- The **durable `turn_events` log is the source of truth**; the browser only ever reads it, and the
-  connection is a disposable window onto it.
-- `LISTEN/NOTIFY` is a **doorbell** that says "new rows exist" — everyone re-reads the log. Reads, not
-  the chime, are the truth, which is why there is **no Redis** and it is multi-instance safe. A safety
-  poll backstops a missed chime.
-- **Reconnect is not special**: it is the same `GET …/stream?after=<seq>` with `after` set to the last
-  sequence seen — replay the gap, then tail.
-- A turn **generates on one owner instance** but can be **streamed from any** — no sticky routing.
-- If the log was pruned, the stream returns `replay_expired` and the widget **falls back to
-  conversation history**. The sidebar's "generating" dot reuses the same pattern via `GET /chat/activity`.
+- The POST response is the primary SSE stream.
+- The owner stores live events in an in-memory registry.
+- Same-instance resume replays `sequence > after`, then tails.
+- `409 stream_unavailable` means poll status; `404 replay_expired` means read history.
+- Cancel, turn activity, and host-command results use Postgres notifications. Turn content does not.
 </Callout>
 
-**Next:** you have seen one turn born, streamed, and survive a disconnect. [Add a
-Tool](/docs/walkthrough/add-a-tool) builds the real `jira.search_issues` tool by hand and follows it
-through every gate before the model is allowed to call it. For the precise transport contract behind
-this narrative, see System Design → [Resumable Streaming (ADR
-0009)](/docs/system-design/resumable-streaming).
+For the precise contract, see [Event Delivery](/docs/system-design/event-delivery) and
+[Connection-Bound Streaming](/docs/system-design/resumable-streaming).

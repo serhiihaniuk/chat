@@ -55,3 +55,7 @@ export class SideChatApiError extends Error {
 
 const withCause = (cause: unknown): ErrorOptions | undefined =>
   cause === undefined ? undefined : { cause };
+
+/** Whether a failure is this API's own abort signal (user cancel or watchdog cut). */
+export const isAbortApiError = (error: unknown): boolean =>
+  error instanceof SideChatApiError && error.code === SIDE_CHAT_API_ERROR_CODES.ABORTED;

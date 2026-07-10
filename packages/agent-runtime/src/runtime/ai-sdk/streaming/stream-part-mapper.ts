@@ -41,7 +41,7 @@ export const RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE =
  * Browser-safe text for a caller-aborted turn.
  *
  * A stream that fails before it can emit an abort terminal (e.g. aborted during
- * stream open) surfaces this stable message with the `aborted` code.
+ * stream open) returns this stable message to callers with the `aborted` code.
  */
 export const RUNTIME_ABORTED_PUBLIC_MESSAGE =
   "The assistant response was stopped before it finished.";

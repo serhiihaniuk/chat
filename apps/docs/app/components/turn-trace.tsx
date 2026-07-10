@@ -1,8 +1,7 @@
 /**
- * <TurnTrace /> — an interactive trace of one assistant turn through the current resumable,
- * server-owned pipeline, in the style of a timeline. The reader steps along a hop track (click,
- * Prev/Next, or arrow keys); a large stage card shows the active hop, and a durable-event-log panel
- * fills in with the sidechat.v1 events as the turn streams. A boundary marks where generation forks
+ * <TurnTrace /> — an interactive trace of one assistant turn through the connection-bound,
+ * server-owned pipeline. The reader steps along a hop track (click, Prev/Next, or arrow keys); a
+ * large stage card shows the active hop, and a live-registry panel fills with sidechat.v1 events. A boundary marks where generation forks
  * onto a server-owned fiber — before it a failure is a JSON error; after it, a terminal event.
  */
 import {
@@ -61,7 +60,7 @@ const PHASES: readonly Phase[] = [
     id: "stream",
     label: "Stream",
     color: "#0d9488",
-    blurb: "GET …/stream replays the durable log, then tails live events. Reconnect-safe.",
+    blurb: "The POST response tails the live registry; GET …/stream is same-instance resume.",
   },
   {
     id: "finalize",
@@ -89,73 +88,79 @@ const STEPS: readonly Step[] = [
       "Confirm the caller may act in this workspace and conversation before anything else runs.",
   },
   {
+    name: "Record request received",
+    layer: "Core",
+    phase: "pre-start",
+    file: "stream-chat · observability",
+    detail:
+      "Record correlation and observation before runtime or persistence work begins.",
+  },
+  {
     name: "Resolve the turn plan",
     layer: "Core",
     phase: "pre-start",
     file: "stream-chat/turn · profile + model policy",
     detail:
-      "Pick the assistant profile, the model policy, and the tool allowlist that govern this turn.",
+      "Pick the assistant profile, model policy, tool allowlist, executor, and instructions.",
   },
   {
-    name: "Guard the input",
+    name: "Run turn guards",
     layer: "Core",
     phase: "pre-start",
     file: "stream-chat · turn guards",
-    detail: "Run turn guards on Maya's raw text — before any context or model call exists.",
+    detail: "Run selected guards before private context, persistence, tools, or provider work.",
   },
   {
-    name: "Ensure conversation & append the message",
+    name: "Ensure the conversation",
     layer: "DB",
     phase: "pre-start",
-    file: "db · records/conversations + messages",
-    detail: "Upsert the conversation, then persist Maya's message with role `user`.",
+    file: "db · records/conversations.ts",
+    detail: "Load or create only a conversation this subject may access.",
+  },
+  {
+    name: "Reject a concurrent turn",
+    layer: "Core",
+    phase: "pre-start",
+    file: "stream-chat/turn/prepare-stream-chat-turn.ts",
+    detail:
+      "Return `conversation_busy` when this conversation already has a running assistant turn.",
+  },
+  {
+    name: "Append the user message",
+    layer: "DB",
+    phase: "pre-start",
+    file: "db · records/messages.ts",
+    detail: "Persist Maya's visible message with the server-assigned `user` role.",
   },
   {
     name: "Start the assistant turn",
     layer: "DB",
     phase: "pre-start",
     file: "db · records/turns.ts → startAssistantTurn",
-    detail:
-      "Insert the assistant_turns row as `running`, idempotent on requestId. The turn is now durable.",
+    detail: "Insert the assistant_turns row as `running`, idempotent on requestId.",
   },
   {
-    name: "Prepare context",
+    name: "Prepare and record context",
     layer: "Core",
     phase: "pre-start",
     file: "stream-chat · context preparation",
-    detail: "Assemble the model-ready message list within the token budget.",
+    detail: "Assemble history, host context, tool context, and the manifest snapshot.",
   },
   {
-    name: "Emit started (sequence 0)",
-    layer: "Core",
-    phase: "pre-start",
-    file: "stream-chat/protocol/protocol-event-stream.ts",
-    detail:
-      "Record the first protocol event. This is the fence between pre-start (sync, JSON errors) and generation (async).",
-  },
-  {
-    name: "Fork generation onto a server-owned fiber",
+    name: "Fork generation and register the live turn",
     layer: "Service",
     phase: "pre-start",
     file: "inbound/turn-runner/turn-runner.ts → FiberMap.run",
     detail:
-      "Detach generation onto a fiber keyed by assistantTurnId. It now runs to a terminal even if the browser disconnects.",
+      "Fork generation onto a fiber keyed by assistantTurnId, then register the fresh turn before the POST response subscribes.",
   },
   {
-    name: "Return the turn identity",
-    layer: "Service",
-    phase: "pre-start",
-    file: "inbound/http/routes/chat/runs/chat-runs.ts",
-    detail:
-      "POST /chat/runs responds 200 with JSON { assistantTurnId, conversationId, requestId, status: 'running' } — never SSE.",
-  },
-  {
-    name: "Acquire the owner lease + heartbeat",
+    name: "Acquire the owner lease and emit started",
     layer: "Core",
     phase: "generation",
     file: "stream-chat/protocol/lease/turn-lease-heartbeat.ts",
     detail:
-      "CAS this instance as the turn's owner with a lease epoch; a heartbeat renews it and self-interrupts if the reaper or a new owner fences it.",
+      "Fence this instance as owner, then append sidechat.started at sequence 0 to the local registry.",
   },
   {
     name: "Run the tool loop",
@@ -174,20 +179,20 @@ const STEPS: readonly Step[] = [
       "Convert each RuntimeEvent into a sidechat.v1 event with a sequence number; the state machine rejects illegal transitions.",
   },
   {
-    name: "Append each event to the durable log",
-    layer: "DB",
+    name: "Append each event to the live registry",
+    layer: "Service",
     phase: "generation",
-    file: "db · records/turn-events.ts → appendStreamEvent",
+    file: "adapters/persistence/turn-events/in-memory-turn-event-log.ts",
     detail:
-      "Insert every event into turn_events, then pg_notify. The log — not the connection — is the source of truth.",
+      "Buffer each mapped sidechat.v1 event in order and wake subscribers on this instance.",
   },
   {
-    name: "Subscribe: replay, then tail",
+    name: "Stream the POST response; resume with GET",
     layer: "Service",
     phase: "stream",
     file: "inbound/turn-stream/turn-subscription-stream.ts",
     detail:
-      "GET /chat/turns/:id/stream?after=<seq> replays the log past `after`, tails live events as SSE, and ends at the terminal event. A reconnect just resumes here.",
+      "The POST response replays from sequence -1 and tails as SSE. GET …/stream?after=<seq> resumes only on the owner instance.",
   },
   {
     name: "Finalize & persist the terminal",
@@ -195,20 +200,20 @@ const STEPS: readonly Step[] = [
     phase: "finalize",
     file: "stream-chat/protocol/finalization/finalize-turn-generation.ts",
     detail:
-      "Effect.onExit completes or fails the turn and appends a conflict-free synthetic terminal if the fiber died mid-flight. The reaper is the backstop for a dead instance.",
+      "Effect.onExit persists the final status and message; when needed, the registry terminal guard accepts one synthetic terminal. The reaper covers a dead instance.",
   },
 ];
 
 const FRAMES: readonly Frame[] = [
-  { seq: 0, ev: "sidechat.started", tx: "stream opens", at: 8 },
-  { seq: 1, ev: "sidechat.activity", tx: "running · Searching Jira", at: 12 },
-  { seq: 2, ev: "sidechat.activity", tx: "completed · 2 results + sources", at: 13 },
-  { seq: 3, ev: "sidechat.delta", tx: '"Here are your open tickets:"', at: 14 },
-  { seq: 4, ev: "sidechat.completed", tx: "usage · in 312 · out 48", at: 16 },
+  { seq: 0, ev: "sidechat.started", tx: "stream opens", at: 12 },
+  { seq: 1, ev: "sidechat.activity", tx: "running · Searching Jira", at: 13 },
+  { seq: 2, ev: "sidechat.activity", tx: "completed · 2 results + sources", at: 14 },
+  { seq: 3, ev: "sidechat.delta", tx: '"Here are your open tickets:"', at: 15 },
+  { seq: 4, ev: "sidechat.completed", tx: "usage · in 312 · out 48", at: 15 },
 ];
 
 /** Index of the last pre-start step; generation forks right after it. */
-const FORK_AFTER_INDEX = 9;
+const FORK_AFTER_INDEX = 10;
 
 const PHASE_BY_ID = Object.fromEntries(PHASES.map((phase) => [phase.id, phase])) as Record<
   PhaseId,
@@ -333,10 +338,10 @@ export function TurnTrace(): ReactElement {
         </div>
       </div>
 
-      {/* Durable event log — the sidechat.v1 events, lighting up as the trace passes the step that emits each. */}
+      {/* Live registry — sidechat.v1 events appear when the trace reaches their append step. */}
       <div className="border-t border-fd-border px-5 py-3">
         <div className="mb-2 text-2xs font-semibold uppercase tracking-wide text-fd-muted-foreground">
-          Durable event log
+          Live turn-event registry
         </div>
         <div className="flex flex-col gap-1 font-mono text-2xs">
           {FRAMES.map((frame) => {
@@ -386,9 +391,9 @@ export function TurnTrace(): ReactElement {
       <div className="border-t border-fd-border px-5 py-2.5">
         <p className="text-2xs leading-relaxed text-fd-muted-foreground">
           Before the <span className="font-medium text-fd-foreground">fork</span>, a failure rejects
-          the request as JSON and no turn starts. After it the turn is server-owned: failures land as a
-          terminal <code>sidechat.error</code> in the durable log, and any client can resubscribe with{" "}
-          <code>?after=&lt;seq&gt;</code>.
+          setup as JSON. After it, generation is server-owned and terminal events land in the owner's
+          in-memory registry. Same-instance clients can resume with <code>?after=&lt;seq&gt;</code>; other
+          instances converge through status and conversation history.
         </p>
       </div>
     </div>

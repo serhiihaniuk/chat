@@ -317,6 +317,14 @@ export const glossary: readonly GlossaryTerm[] = [
     match: ["server-owned generation"],
   },
   {
+    id: "connection-bound-streaming",
+    term: "Connection-bound streaming",
+    definition: "Live events exist only in the owning instance's registry; Postgres stores final state.",
+    category: "turn",
+    code: "docs/adr/0007-connection-bound-streaming.md",
+    match: ["connection-bound streaming"],
+  },
+  {
     id: "turn-runner",
     term: "Turn runner",
     definition: "Per-instance component that forks generation and tracks live turns in a FiberMap keyed by assistantTurnId.",
@@ -354,14 +362,6 @@ export const glossary: readonly GlossaryTerm[] = [
     category: "turn",
     code: "apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-reaper.ts (TurnReaper)",
     match: ["reaper"],
-  },
-  {
-    id: "pruner",
-    term: "Pruner",
-    definition: "Background sweep that deletes event rows of old terminal turns past retention; the turn still resolves.",
-    category: "turn",
-    code: "apps/partner-ai-service/src/inbound/turn-runner/maintenance/turn-pruner.ts",
-    match: ["pruner"],
   },
   {
     id: "pre-start-failure",
@@ -488,9 +488,16 @@ export const glossary: readonly GlossaryTerm[] = [
   {
     id: "replay-expired",
     term: "replay_expired",
-    definition: "The one TransportErrorCode (HTTP 404): a pruned log can no longer replay from after.",
+    definition: "HTTP 404: a terminal turn's registry buffer is gone, so the client must read history.",
     category: "events",
     code: "packages/chat-protocol/src/sidechat-v1/errors.ts (TRANSPORT_ERROR_CODES.REPLAY_EXPIRED)",
+  },
+  {
+    id: "stream-unavailable",
+    term: "stream_unavailable",
+    definition: "HTTP 409: this instance does not own the running turn's live registry; poll status.",
+    category: "events",
+    code: "packages/chat-protocol/src/sidechat-v1/errors.ts (TRANSPORT_ERROR_CODES.STREAM_UNAVAILABLE)",
   },
 
   // ── Identity & authority ───────────────────────────────────────────────────
