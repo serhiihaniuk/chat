@@ -6,9 +6,7 @@ Source of truth for: the server's pre-production capacity model and permit lifet
 
 Not source of truth for: deployment replica sizing. Capacity/deployment documentation must be updated from measured configuration after implementation.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 11
 
@@ -49,6 +47,18 @@ Add readable validated settings for:
 - global/per-turn pending host-command limits;
 - shutdown drain budget;
 - optional fairness/partition keys.
+
+Use these explicit pre-production starting values:
+
+- active turns per instance: 16;
+- queued turn starts: 32;
+- admission wait timeout: 5 seconds;
+- default concurrent provider requests: 8, with optional lower per-provider/model overrides;
+- concurrent runtime tools: 16 globally and 4 per tool key;
+- pending host commands: 128 globally and 4 per turn;
+- graceful drain budget: 20 seconds.
+
+These values are safe bounded starting points, not production capacity claims. Before production, load evidence may change them through the readable config without changing architecture. Capacity rejection maps before streaming to HTTP 503 with stable safe code `turn_capacity` and a 5-second `Retry-After`; Step 12 updates `chat-protocol`/HTTP contract tests if the current envelope needs that new code.
 
 Cross-field rules must reject impossible states such as zero workers with a nonzero queue, negative limits, queue timeout beyond request limits, or a provider key without a configured provider.
 
@@ -94,8 +104,10 @@ Cross-field rules must reject impossible states such as zero workers with a nonz
 
 ## Verification
 
+Create admission/host capacity tests in `apps/partner-ai-service/src/inbound/turn-runner/turn-capacity.test.ts` and provider/tool permit tests in `packages/agent-runtime/src/runtime/runtime-capacity.test.ts`.
+
 ```powershell
-npm test -- <capacity-contract-files>
+npm test -- apps/partner-ai-service/src/inbound/turn-runner/turn-capacity.test.ts packages/agent-runtime/src/runtime/runtime-capacity.test.ts
 npm test -- packages/agent-runtime
 npm test -- apps/partner-ai-service/src/inbound/turn-runner
 npm run typecheck

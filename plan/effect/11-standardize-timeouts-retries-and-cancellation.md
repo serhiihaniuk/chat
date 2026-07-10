@@ -6,9 +6,7 @@ Source of truth for: operation-specific retry/timeout decisions and end-to-end c
 
 Not source of truth for: capacity admission or provider concurrency counts, which belong to Step 12.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 10
 
@@ -36,13 +34,15 @@ Use the baseline table in `KNOWLEDGE.md`, but verify all current operations.
 
 ## Provider execution rule
 
-Keep AI SDK `maxRetries: 0`. If the product adds provider retry, it is allowed only before the first `RuntimeEvent` or tool/side effect is observed and only for typed transient provider failures. Once any delta, reasoning activity, tool call, host command, usage side effect, or persisted provider event occurs, automatic turn retry is forbidden.
+Keep AI SDK `maxRetries: 0`. Product-level provider retry is allowed only before the first `RuntimeEvent` or tool/side effect is observed and only for typed transient provider failures. Once any delta, reasoning activity, tool call, host command, usage side effect, or persisted provider event occurs, automatic turn retry is forbidden.
 
 Implement this as an explicit state transition, not an assumption that opening a stream means nothing was emitted. The retry gate closes permanently on the first RuntimeEvent or any tool execution/host-command emission/other side effect, even if no event has reached the client. A retry creates a fresh provider attempt and permit.
 
+The initial product policy is at most two provider attempts: one retry for a typed transient failure before the gate closes, using jittered exponential delay from 250 ms capped at 2 seconds. AI SDK `maxRetries` stays zero. This is an explicit behavior change owned by this step and must be documented/tested; operators may set attempts to one to disable product retry.
+
 ## Title generation rule
 
-Title generation is an auxiliary finalization job. Give it a validated timeout and an AbortController bridge to the AI SDK/provider boundary. Timeout/failure is observed safely and cannot hang or fail the main turn's terminal completion. Interrupt its fiber on application shutdown.
+Title generation is an auxiliary finalization job. Give it a validated timeout and an AbortController boundary adapter for the AI SDK/provider call. Timeout/failure is observed safely and cannot hang or fail the main turn's terminal completion. Interrupt its fiber on application shutdown.
 
 ## Lease rule
 
@@ -91,9 +91,11 @@ Notification source reconnect uses a capped jitter schedule for classified trans
 
 ## Verification
 
+Create the cross-cutting policy tests in `packages/partner-ai-core/src/application/stream-chat/stream-chat-resilience.contract.test.ts` and provider gate tests in `packages/agent-runtime/src/runtime/provider-retry-gate.test.ts`.
+
 ```powershell
 rg -n 'retry|maxRetries|timeout|setTimeout|setInterval|AbortController|AbortSignal|catchCause' packages/agent-runtime packages/partner-ai-core apps/partner-ai-service
-npm test -- <retry-timeout-cancellation-contract-files>
+npm test -- packages/partner-ai-core/src/application/stream-chat/stream-chat-resilience.contract.test.ts packages/agent-runtime/src/runtime/provider-retry-gate.test.ts
 npm run typecheck
 npm run lint:oxlint
 npm run lint:custom

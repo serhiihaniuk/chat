@@ -6,9 +6,7 @@ Source of truth for: the configuration resolution pipeline, secret handling, bui
 
 Not source of truth for: user-facing configuration vocabulary; preserve the readable TypeScript configuration surface and canonical operations docs.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 06
 

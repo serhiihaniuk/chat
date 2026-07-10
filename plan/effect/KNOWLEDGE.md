@@ -29,7 +29,7 @@ The ignored `.reference/effect` clone is research material, not a package depend
 
 - Vercel AI SDK remains responsible for model/provider execution, AI SDK tools, and provider-native streaming inside `packages/agent-runtime`.
 - Hono remains the inbound HTTP framework in `apps/partner-ai-service`.
-- Drizzle and `pg` remain private to `packages/db`.
+- Drizzle and `pg` remain private to `packages/db`. Record repositories stay Promise-based; notification sources may remain Effect Streams because the database package already owns scoped reconnect/listen behavior.
 - `chat-protocol` remains the public `sidechat.v1` contract and stays Effect-free.
 - Browser packages stay Effect-free and provider-DTO-free.
 
@@ -55,41 +55,41 @@ Required product capabilities use required services. Provide explicit no-op Laye
 
 This map prevents two opposite mistakes: rebuilding Effect features by hand and adopting primitives that do not solve a current problem. Exact module/type names must be updated after Step 01 if the selected v4 release renamed them.
 
-| Feature family | Program posture | Intended use or reason |
-| --- | --- | --- |
-| Typed `Effect<A, E, R>` | adopt throughout core/server | Make success, expected failure, and required services explicit. |
-| Generator/do notation and named Effect functions | adopt selectively | Keep lifecycle stages readable; split concept-dense generators into named operations. |
-| Context/service-map services | adopt | Replace `StreamChatPorts` with cohesive individually replaceable capabilities. |
-| Layer and Layer memoization | adopt | Build Live/Test graphs, share resources once, and encode dependency/resource ownership. |
-| ManagedRuntime and NodeRuntime | adopt | Create one Hono adapter and one executable root with explicit disposal. |
-| Scope and acquire/release constructs | adopt | Own pools, listeners, queues, registries, streams, exporters, and background fibers. |
-| Fiber, FiberMap, and FiberSet | adopt | Own active turns, keyed host waits, and supervised background work. |
-| Deferred | adopt | Exactly-once host-command completion, readiness gates, and controlled test synchronization. |
-| Queue/Mailbox | adopt where semantics fit | Bounded turn admission and worker handoff after verifying selected-version shutdown/backpressure. |
-| Semaphore/partitioned semaphore | adopt | Hold provider/tool permits for the complete protected resource lifetime. |
-| Clock, Duration, Schedule, timeout, retry, repeat | adopt | Replace raw timers and encode bounded operation-specific resilience with virtual-time tests. |
-| Ref | adopt for simple fiber-safe state | Counters and state machines that do not require effectful atomic updates. |
-| SynchronizedRef | adopt only for effectful atomic transitions | Use when Deferred/FiberMap/Queue cannot encode an atomic resolver/registry transition. |
-| SubscriptionRef | conditional | Low-frequency readiness/degraded state; do not duplicate event fan-out. |
-| Stream | adopt inside runtime/service workflows | Provider drains, notifications, and subscriptions with scope/backpressure; convert at transport edges. |
-| Sink/Channel | conditional specialist tool | Use only when Stream combinators cannot express a performance-critical protocol transform clearly. |
-| PubSub | adopt | Scoped live event signals and subscriber queues; durable replay stays in the event log. |
-| Race, timeout, interruption controls, finalizers | adopt carefully | Resolve competing outcomes and guarantee terminal/resource cleanup without losing cancellation. |
-| Cause and Exit | adopt at supervision/test boundaries | Preserve typed failure, defect, and interruption; never expose raw causes publicly. |
-| Error accumulation/validation | adopt at boot and batch validation | Report all safe configuration issues without arbitrarily accumulating dependent runtime failures. |
-| Schema and Redacted | adopt | Validate resolved settings/boundary errors and protect secrets. |
-| Config/ConfigProvider | selective | Resolve environment/default-provider values without duplicating the readable TS config model. |
-| Logger, Tracer, Metric | adopt | Native semantic runtime observability through permanent Layers. |
-| Supervisor | selective | Observe fibers where valuable; it complements scoped ownership/FiberMap/FiberSet. |
-| FiberRef/log/span annotations | selective | Propagate safe infrastructure context; do not hide product inputs or sensitive data. |
-| Cache | defer pending measured repetition | Consider only after defining TTL, key cardinality, failure caching, tenant isolation, and measured need. |
-| Request/RequestResolver batching | defer pending a real batching seam | Use only when repository reads can batch without violating ordering/transaction semantics. |
-| STM/TRef/TQueue | defer | Use only for a verified invariant requiring atomic coordination across multiple independent refs/queues. |
-| Schedule cron | do not use for the current reaper | The reaper needs elapsed-time scheduling, not calendar semantics. |
-| Effect HTTP API/server | do not adopt | Hono and `chat-protocol` remain the HTTP/public contract boundary. |
-| Effect SQL | do not adopt | Drizzle/`pg` and Promise repository contracts remain the persistence boundary. |
-| Effect AI | do not adopt | Vercel AI SDK remains the chosen provider/tool/stream runtime. |
-| Cluster/workflow/distributed modules | do not adopt without a separate decision | PostgreSQL and the protocol workflow already own turn durability. |
+| Feature family                                    | Program posture                             | Intended use or reason                                                                                   |
+| ------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Typed `Effect<A, E, R>`                           | adopt throughout core/server                | Make success, expected failure, and required services explicit.                                          |
+| Generator/do notation and named Effect functions  | adopt selectively                           | Keep lifecycle stages readable; split concept-dense generators into named operations.                    |
+| Context/service-map services                      | adopt                                       | Replace `StreamChatPorts` with cohesive individually replaceable capabilities.                           |
+| Layer and Layer memoization                       | adopt                                       | Build Live/Test graphs, share resources once, and encode dependency/resource ownership.                  |
+| ManagedRuntime and NodeRuntime                    | adopt                                       | Create one Hono adapter and one executable root with explicit disposal.                                  |
+| Scope and acquire/release constructs              | adopt                                       | Own pools, listeners, queues, registries, streams, exporters, and background fibers.                     |
+| Fiber, FiberMap, and FiberSet                     | adopt                                       | Own active turns, keyed host waits, and supervised background work.                                      |
+| Deferred                                          | adopt                                       | Exactly-once host-command completion, readiness gates, and controlled test synchronization.              |
+| Queue/Mailbox                                     | adopt where semantics fit                   | Bounded turn admission and worker handoff after verifying selected-version shutdown/backpressure.        |
+| Semaphore/partitioned semaphore                   | adopt                                       | Hold provider/tool permits for the complete protected resource lifetime.                                 |
+| Clock, Duration, Schedule, timeout, retry, repeat | adopt                                       | Replace raw timers and encode bounded operation-specific resilience with virtual-time tests.             |
+| Ref                                               | adopt for simple fiber-safe state           | Counters and state machines that do not require effectful atomic updates.                                |
+| SynchronizedRef                                   | adopt only for effectful atomic transitions | Use when Deferred/FiberMap/Queue cannot encode an atomic resolver/registry transition.                   |
+| SubscriptionRef                                   | conditional                                 | Low-frequency readiness/degraded state; do not duplicate event fan-out.                                  |
+| Stream                                            | adopt inside runtime/service workflows      | Provider drains, notifications, and subscriptions with scope/backpressure; convert at transport edges.   |
+| Sink/Channel                                      | conditional specialist tool                 | Use only when Stream combinators cannot express a performance-critical protocol transform clearly.       |
+| PubSub                                            | adopt                                       | Scoped live event signals and subscriber queues; durable replay stays in the event log.                  |
+| Race, timeout, interruption controls, finalizers  | adopt carefully                             | Resolve competing outcomes and guarantee terminal/resource cleanup without losing cancellation.          |
+| Cause and Exit                                    | adopt at supervision/test boundaries        | Preserve typed failure, defect, and interruption; never expose raw causes publicly.                      |
+| Error accumulation/validation                     | adopt at boot and batch validation          | Report all safe configuration issues without arbitrarily accumulating dependent runtime failures.        |
+| Schema and Redacted                               | adopt                                       | Validate resolved settings/boundary errors and protect secrets.                                          |
+| Config/ConfigProvider                             | selective                                   | Resolve environment/default-provider values without duplicating the readable TS config model.            |
+| Logger, Tracer, Metric                            | adopt                                       | Native semantic runtime observability through permanent Layers.                                          |
+| Supervisor                                        | selective                                   | Observe fibers where valuable; it complements scoped ownership/FiberMap/FiberSet.                        |
+| FiberRef/log/span annotations                     | selective                                   | Propagate safe infrastructure context; do not hide product inputs or sensitive data.                     |
+| Cache                                             | defer pending measured repetition           | Consider only after defining TTL, key cardinality, failure caching, tenant isolation, and measured need. |
+| Request/RequestResolver batching                  | defer pending a real batching seam          | Use only when repository reads can batch without violating ordering/transaction semantics.               |
+| STM/TRef/TQueue                                   | defer                                       | Use only for a verified invariant requiring atomic coordination across multiple independent refs/queues. |
+| Schedule cron                                     | do not use for the current reaper           | The reaper needs elapsed-time scheduling, not calendar semantics.                                        |
+| Effect HTTP API/server                            | do not adopt                                | Hono and `chat-protocol` remain the HTTP/public contract boundary.                                       |
+| Effect SQL                                        | do not adopt                                | Drizzle/`pg` and Promise repository contracts remain the persistence boundary.                           |
+| Effect AI                                         | do not adopt                                | Vercel AI SDK remains the chosen provider/tool/stream runtime.                                           |
+| Cluster/workflow/distributed modules              | do not adopt without a separate decision    | PostgreSQL and the protocol workflow already own turn durability.                                        |
 
 ### State selection rule
 
@@ -175,15 +175,15 @@ Use the built-in Effect `Clock`; tests use `TestClock`. Keep raw `setTimeout` ou
 
 Every retry requires an ownership decision and idempotency proof:
 
-| Operation | Retry policy |
-| --- | --- |
-| Lease acquire/renew | retry only classified transient storage errors; bounded, jittered schedule |
-| Notification source | reconnect classified transient failures; capped jitter; observable state |
-| Provider call before first emitted event | optional retry for typed transient provider failure |
-| Provider call after any delta, tool call, or side effect | never retry the turn automatically |
-| Host-command wait | poll on schedule until notify, timeout, abort, or terminal persisted result |
-| Title generation | bounded timeout; failure cannot hang or fail turn finalization |
-| Repository write with unclear idempotency | do not retry until operation contract proves safety |
+| Operation                                                | Retry policy                                                                                   |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Lease acquire/renew                                      | retry only classified transient storage errors; bounded, jittered schedule                     |
+| Notification source                                      | reconnect classified transient failures; capped jitter; observable state                       |
+| Provider call before first emitted event/side effect     | one retry for a typed transient failure; 250 ms jittered exponential delay capped at 2 seconds |
+| Provider call after any delta, tool call, or side effect | never retry the turn automatically                                                             |
+| Host-command wait                                        | poll on schedule until notify, timeout, abort, or terminal persisted result                    |
+| Title generation                                         | bounded timeout; failure cannot hang or fail turn finalization                                 |
+| Repository write with unclear idempotency                | do not retry until operation contract proves safety                                            |
 
 AI SDK internal retries remain disabled (`maxRetries: 0`) so the product workflow owns retry semantics.
 
@@ -262,7 +262,7 @@ Step 01 must replace this list with exact imports and signatures from the select
 Allowed production execution boundaries:
 
 - `NodeRuntime.runMain` at the executable root;
-- the application `ManagedRuntime` bridge used by Hono;
+- the application `ManagedRuntime` boundary adapter used by Hono;
 - an AI SDK Promise/AbortSignal tool adapter where the third-party callback requires a Promise.
 
 Forbidden final-state patterns:
@@ -288,6 +288,6 @@ Contract suites must run against both Live-like deterministic Layers and focused
 
 ## Migration discipline
 
-Each step remains green. If a temporary bridge is necessary, it has one composition switch, an owner, and a deletion criterion in the same step or a named later step. Never operate two resource owners for the same concern. No public protocol or database schema change is implied by this rewrite; authorize such changes explicitly if evidence proves one is necessary.
+Each step remains green. A final module may be built off the active path for tests, but no old-to-new compatibility adapter is allowed. Cut composition directly, delete the replaced module in the cutover step, and never operate two resource owners for one concern. No database schema change is implied; Step 12 explicitly owns the new safe capacity response contract.
 
 No live provider request or non-disposable database operation is part of routine verification. Release certification may include a real-provider smoke test only with explicit user direction and safely scoped credentials.

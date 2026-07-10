@@ -6,9 +6,7 @@ Source of truth for: how the program selects, validates, pins, and records its E
 
 Not source of truth for: the version that happens to be current today. The executor must query official sources at execution time.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: none
 

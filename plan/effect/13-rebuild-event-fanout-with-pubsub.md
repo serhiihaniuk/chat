@@ -6,9 +6,7 @@ Source of truth for: the PubSub live fan-out design, durable replay composition,
 
 Not source of truth for: public `sidechat.v1` event shapes or durable event-log schema.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 12
 

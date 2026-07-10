@@ -6,9 +6,7 @@ Source of truth for: the Effect-facing persistence services, Promise conversion 
 
 Not source of truth for: database schema or repository semantics. Those remain owned by `packages/db` and its canonical documentation.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 05
 
@@ -41,7 +39,7 @@ Each adapter method uses the selected version's typed Promise constructor, catch
 ### Application-owned Live path
 
 1. Read validated persistence settings.
-2. Acquire the PostgreSQL repository/pool and notification connections in a scoped Effect.
+2. Acquire the PostgreSQL repository/pool and notification client factory/source dependencies in a scoped Effect. Actual LISTEN connections belong to Step 09 subscription scopes.
 3. Register release immediately after acquisition.
 4. Adapt repository capabilities into Effect services.
 5. Release exactly once when the application scope closes, including partial Layer acquisition failure.
@@ -72,9 +70,9 @@ Do not store an `owned: boolean` next to a universal shutdown callback if separa
 4. Build one adapter module per cohesive repository service. Centralize Promise conversion and error mapping there.
 5. Implement the same `beginTurn` atomic contract for PostgreSQL and in-memory repositories so conformance tests remain meaningful. Use a real Drizzle transaction for PostgreSQL.
 6. Build separate app-owned PostgreSQL, in-memory, and caller-owned injected Layers that provide the same service set.
-7. Convert current composition and tests to consume those Layers while keeping exactly one persistence path active.
+7. Prove the final Layers with focused integration tests off the active application path. Do not wrap them in the old persistence bundle. Step 08 cuts composition directly to them.
 8. Persistence owns the pool/client factory and a typed scoped notification Stream/source. The Step 09 dispatcher subscription owns the actual LISTEN connection and fiber, so listener clients close before the underlying pool.
-9. Remove duplicated wrappers, repository pass-through bundles, and shutdown plumbing whose only purpose was manual ownership.
+9. Remove duplicated adapter wrappers that have no active caller. Record old persistence bundle/shutdown symbols in Step 08's direct-cutover deletion inventory rather than creating compatibility wrappers.
 10. Keep record repository exports Promise-based. Keep notification Effect imports confined to the scoped notification/reconnect modules and document that intentional exception. Fix repository contract gaps with db conformance tests.
 
 ## Likely affected areas
@@ -123,7 +121,7 @@ If container execution is unavailable, record the exact blocker and keep the ste
 - [ ] Partial acquisition and repeated disposal tests pass.
 - [ ] Notification connection ownership is explicit.
 - [ ] Record repository contracts remain Promise-based; notification Stream/reconnect Effect usage stays scoped and documented.
-- [ ] Replaced persistence bundles/manual shutdown code are deleted.
+- [ ] No compatibility wrapper exists; remaining old persistence bundle/shutdown symbols are isolated and listed for Step 08 atomic deletion.
 - [ ] Memory, disposable PostgreSQL, typecheck, and governance tests pass.
 - [ ] `STATUS.md` records lifecycle evidence and any blocked external integration.
 

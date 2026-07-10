@@ -6,9 +6,7 @@ Source of truth for: background ownership, startup, supervision, failure policy,
 
 Not source of truth for: host-command resolution details, retry schedules, or final executable shutdown; those are refined in Steps 10, 11, and 15.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: approved architecture checkpoint after Step 08
 

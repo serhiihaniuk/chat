@@ -6,9 +6,7 @@ Source of truth for: final cleanup, automated architecture rules, canonical docu
 
 Not source of truth for: permission to retain temporary bridges. This step is complete only when replacement residue is gone.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 15
 
@@ -42,7 +40,7 @@ Extend current custom lints with fixture-proven rules. At minimum enforce:
 1. Effect remains forbidden in browser/widget/host-bridge/chat-protocol/shared boundary areas.
 2. AI SDK/provider imports remain private to `packages/agent-runtime`; service composition consumes only its neutral exports.
 3. `pg`/Drizzle remain in `packages/db`; Hono remains in the service.
-4. Production `Effect.run*` is allowed only at NodeRuntime root, Hono ManagedRuntime bridge, and approved AI SDK Promise adapter.
+4. Production `Effect.run*` is allowed only at NodeRuntime root, the Hono ManagedRuntime boundary adapter, and the approved AI SDK Promise adapter.
 5. Manual `Scope.make`/`Scope.close` is forbidden in production service/core code.
 6. Fallible I/O must not use unchecked `Effect.promise`; approved adapters use typed construction.
 7. Core workflows may not accept or construct a `StreamChatPorts`-style mega registry.
@@ -76,7 +74,7 @@ At completion, retain `plan/effect` as a historical execution record because it 
 2. Delete legacy modules and migrate any remaining tests/callers to final names. Remove package exports and dependency exceptions that no longer apply.
 3. Add/extend custom governance scripts and violation fixtures for the rules above. Register every new rule in `scripts/run-custom-lints.mjs`, update the governance meta-fixture, and update the documented gate count and order.
 4. Update all canonical documentation from the verified implementation. Link to one owner per topic rather than duplicating large architecture descriptions.
-5. Add readable file-level mental models to concept-dense final composition, turn workflow, host lifecycle, capacity, and runtime bridge modules. Delete comments that narrate obsolete migration history.
+5. Add readable file-level mental models to concept-dense final composition, turn workflow, host lifecycle, capacity, and runtime boundary-adapter modules. Delete comments that narrate obsolete migration history.
 6. Run formatting and all focused conformance suites.
 7. Run the full pinned repository gate.
 8. Run disposable database tests and the fake-provider application lifecycle smoke.

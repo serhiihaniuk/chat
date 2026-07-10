@@ -6,9 +6,7 @@ Source of truth for: the target Layer graph, acquisition ownership, memoization,
 
 Not source of truth for: the final Node executable, readiness signals, or ordered process shutdown, which belong to Step 15. The application ManagedRuntime and Hono boundary adapter are part of this step.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 07
 

@@ -11,7 +11,13 @@ import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const ignoredDirectories = new Set([".git", ".omx", ".playwright-mcp", "node_modules"]);
+const ignoredDirectories = new Set([
+  ".git",
+  ".omx",
+  ".playwright-mcp",
+  ".reference",
+  "node_modules",
+]);
 
 function isIgnoredDirectory(name) {
   return ignoredDirectories.has(name) || name.startsWith("node_modules.");

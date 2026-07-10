@@ -6,9 +6,7 @@ Source of truth for: the observable behavior that the rewrite must preserve and 
 
 Not source of truth for: implementation shape. Tests in this step must remain valid across the old and target architectures.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 01
 

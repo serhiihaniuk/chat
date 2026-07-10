@@ -6,9 +6,7 @@ Source of truth for: semantic instrumentation boundaries, privacy/cardinality ru
 
 Not source of truth for: external vendor selection or production telemetry credentials.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 13
 
@@ -106,9 +104,11 @@ Identifiers should generally remain absent. If a request-scoped log correlation 
 
 ## Verification
 
+Create the collector/privacy/cardinality contract in `apps/partner-ai-service/src/adapters/observability/effect-observability.test.ts`.
+
 ```powershell
 rg -n 'console\.|ObservabilitySinkPort|Effect\.runPromise.*catch|Effect\.runSync|Metric|Tracer|Logger' packages/partner-ai-core packages/agent-runtime apps/partner-ai-service
-npm test -- <observability-contract-files>
+npm test -- apps/partner-ai-service/src/adapters/observability/effect-observability.test.ts
 npm run typecheck
 npm run lint:oxlint
 npm run lint:custom

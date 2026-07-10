@@ -6,9 +6,7 @@ Source of truth for: the rewrite's error ownership, recovery categories, mapping
 
 Not source of truth for: public protocol error changes. Preserve `sidechat.v1` unless this step explicitly proves and coordinates a contract change.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 03
 
@@ -91,11 +89,13 @@ For each tag, test the observable mapping and absence of sensitive data. Require
 
 Keep error modules near their owner. Add a small package-level index only when consumers need a stable export.
 
+Create the cross-package error contract in `packages/partner-ai-core/src/application/stream-chat/stream-chat-errors.test.ts` and keep HTTP privacy/exhaustiveness assertions in `apps/partner-ai-service/src/inbound/http/response/protocol-errors.test.ts`.
+
 ## Verification
 
 ```powershell
 rg -n 'Effect<[^>]*unknown|mapPortFailure|catchCause|catchAll|new Error\(' packages/partner-ai-core packages/agent-runtime apps/partner-ai-service
-npm test -- <error-and-boundary-contract-files>
+npm test -- packages/partner-ai-core/src/application/stream-chat/stream-chat-errors.test.ts apps/partner-ai-service/src/inbound/http/response/protocol-errors.test.ts
 npm run typecheck
 npm run lint:oxlint
 npm run lint:custom

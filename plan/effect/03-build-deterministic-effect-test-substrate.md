@@ -6,9 +6,7 @@ Source of truth for: the test Layer strategy and reusable deterministic service/
 
 Not source of truth for: production Layer composition, which belongs to Step 08.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 02
 
@@ -54,6 +52,8 @@ Effect tests can provide the smallest service environment, advance virtual time,
 
 Production modules should not import test helpers. Use package exports for test support only when another workspace legitimately consumes a conformance suite; otherwise keep helpers private.
 
+Create the substrate demonstrations in `packages/partner-ai-core/src/testing/effect-test-substrate.test.ts`. Package-specific neutral controls remain under each existing `src/testing` directory.
+
 ## Required demonstrations
 
 Write focused tests proving:
@@ -78,7 +78,7 @@ Write focused tests proving:
 Run the new demonstrations directly, then all packages touched by the helpers:
 
 ```powershell
-npm test -- <focused-effect-test-files>
+npm test -- packages/partner-ai-core/src/testing/effect-test-substrate.test.ts
 npm run typecheck
 npm run lint:oxlint
 npm run lint:custom

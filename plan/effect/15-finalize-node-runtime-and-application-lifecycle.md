@@ -6,9 +6,7 @@ Source of truth for: the final NodeRuntime topology, approved boundary adapters,
 
 Not source of truth for: internal service implementations, which must already be complete in prior steps.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 14
 

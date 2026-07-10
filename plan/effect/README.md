@@ -57,7 +57,7 @@ The order is architectural dependency order. A later step may prepare a branch w
 2. Inspect `git status --short` and the current implementation. Paths and symbols in plans are anchors, not permission to assume the code is unchanged.
 3. Reverify every Effect API against the pinned installed declarations and the official v4 reference clone. Do not translate from Effect v3 memory or the public Effect AI introduction.
 4. Change the step status to `in_progress` in `STATUS.md`, record the owner and date, and add a short execution note.
-5. Implement only the target state and any temporary bridge explicitly permitted by the step. Keep one active implementation at composition roots.
+5. Implement only the target state. A replacement may be built off-path for tests, but do not add old-to-new compatibility adapters; cut the composition root directly and keep one active implementation.
 6. Run the focused contract tests first, then the required repository gates. Fix failures instead of weakening tests or rules.
 7. Update canonical docs in the same change when the step alters ownership, lifecycle, vocabulary, configuration, protocol behavior, or verification.
 8. Record evidence and deviations in the step file. Update `KNOWLEDGE.md` only for reusable, verified facts.

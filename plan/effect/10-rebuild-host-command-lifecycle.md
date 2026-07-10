@@ -6,9 +6,7 @@ Source of truth for: exactly-once host-command wait semantics and scoped resolve
 
 Not source of truth for: public host-command DTOs. Preserve `sidechat.v1` schemas and route ownership unless a separately approved change is required.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 09
 

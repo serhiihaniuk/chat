@@ -6,9 +6,7 @@ Source of truth for: the core service-tag layout and migration from plain depend
 
 Not source of truth for: Live Layer construction, which belongs to Step 08.
 
-Status: `not_started`
-
-Owner: unassigned
+Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
 Depends on: Step 04
 
