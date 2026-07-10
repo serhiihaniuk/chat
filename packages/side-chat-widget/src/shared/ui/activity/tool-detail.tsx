@@ -180,10 +180,8 @@ const PayloadValue = ({
   if (depth >= MAX_PAYLOAD_DEPTH)
     return <span className={LEAF_CLAMP}>{JSON.stringify(value)}</span>;
   if (Array.isArray(value)) return <PayloadList items={value} depth={depth} />;
-  if (typeof value === "object") {
-    return (
-      <PayloadObject entries={Object.entries(value as Record<string, unknown>)} depth={depth} />
-    );
+  if (isRecord(value)) {
+    return <PayloadObject entries={Object.entries(value)} depth={depth} />;
   }
   // A symbol or function — never present in a JSON tool payload.
   return <PayloadEmpty />;
@@ -220,6 +218,9 @@ const PayloadEmpty = (): ReactElement => <span className="text-muted-foreground"
 
 const isPrimitive = (value: unknown): boolean =>
   value === null || (typeof value !== "object" && typeof value !== "function");
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 // Type-safe stringify for a primitive cell — never reaches Object's "[object
 // Object]" default because the caller has already guarded to primitives.

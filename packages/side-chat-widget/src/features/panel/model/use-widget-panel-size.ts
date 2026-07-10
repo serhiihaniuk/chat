@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { parseJsonRecord } from "@side-chat/shared";
 
 import type { SideChatWidgetPanelSize } from "#entities/panel";
 
@@ -68,9 +69,10 @@ const writeStoredPanelSize = (
 // a corrupted or hand-edited entry falls back to the default instead of rendering a
 // broken panel.
 const parsePanelSize = (raw: string): SideChatWidgetPanelSize | undefined => {
-  const parsed: unknown = JSON.parse(raw);
-  if (typeof parsed !== "object" || parsed === null) return undefined;
-  const { width, height } = parsed as { readonly width?: unknown; readonly height?: unknown };
+  const parsed = parseJsonRecord(raw);
+  if (!parsed) return undefined;
+  const width = parsed["width"];
+  const height = parsed["height"];
   if (!isPositiveFinite(width) || !isPositiveFinite(height)) return undefined;
   return { width, height };
 };

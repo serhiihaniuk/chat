@@ -213,7 +213,6 @@ export const createMockWebSearchRegistration = ({
   delayMs = DEFAULT_MOCK_WEB_SEARCH_DELAY_MS,
   description = MOCK_WEB_SEARCH_TOOL_DESCRIPTION,
   defaultEnabled = true,
-  approvalPolicyIds = [],
   label = MOCK_WEB_SEARCH_TOOL_LABEL,
   resultCount = DEFAULT_MOCK_WEB_SEARCH_RESULT_COUNT,
   modelId = DEFAULT_MOCK_WEB_SEARCH_MODEL_ID,
@@ -222,7 +221,6 @@ export const createMockWebSearchRegistration = ({
   readonly delayMs?: number;
   readonly description?: string;
   readonly defaultEnabled?: boolean;
-  readonly approvalPolicyIds?: readonly string[];
   readonly label?: string;
 } & MockWebSearchAgentConfig = {}): ServiceToolRegistration => {
   return createServiceToolRegistration({
@@ -241,7 +239,6 @@ export const createMockWebSearchRegistration = ({
         getRuntime,
       }),
     defaultEnabled,
-    approvalPolicyIds,
     label,
   });
 };

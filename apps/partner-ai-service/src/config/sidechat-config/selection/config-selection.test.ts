@@ -23,6 +23,19 @@ describe("sidechat config selection", () => {
     ).toThrow("SIDECHAT_CONFIG must be one of default");
   });
 
+  it("rejects dynamically loaded values that bypass defineSideChatConfig", () => {
+    expect(() => selectSideChatConfig({ default: {} }, {})).toThrow(
+      "default sidechat config must be created with defineSideChatConfig()",
+    );
+
+    expect(() =>
+      selectSideChatConfig(
+        { SIDECHAT_CONFIGS: { local: {} } },
+        { [SIDECHAT_CONFIG_ENV_KEY]: "local" },
+      ),
+    ).toThrow("SIDECHAT_CONFIGS.local must be created with defineSideChatConfig()");
+  });
+
   it("loads the root config module", async () => {
     const selection = await loadSelectedSideChatConfig({});
 

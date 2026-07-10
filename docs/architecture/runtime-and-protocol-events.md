@@ -22,10 +22,8 @@ belongs — the boundary is the point.
 | `SidechatStreamEvent` (`sidechat.*`)  | `chat-protocol`       | browser <-> service    | `SIDECHAT_EVENT_TYPES`, `packages/chat-protocol/src/sidechat-v1/events/event-union.ts` |
 
 `RuntimeEvent` and `SidechatStreamEvent` look alike but are different types:
-different enum strings (`runtime.*` vs `sidechat.*`), different id brands, and
-different membership. One protocol event has no runtime source at all:
-`sidechat.history` is defined in the union but never emitted by any server code
-today (see the taxonomy note below).
+different enum strings (`runtime.*` vs `sidechat.*`) and different id brands.
+REST history messages are resource DTOs, not members of either event union.
 
 ## The Mapping Chain
 
@@ -57,9 +55,10 @@ WidgetRunState            (UI state, pure reducer)
 
 Two rules surprise newcomers:
 
-- **`runtime.started` is dropped, not forwarded.** Core emits its own
-  `sidechat.started` when the turn is prepared, so `mapRuntimeEvent` returns
-  `undefined` for `runtime.started`.
+- **`runtime.started` is dropped, not forwarded.** The server-owned generation
+  fiber acquires its owner lease and emits `sidechat.started` before opening the
+  runtime stream, so `mapRuntimeEvent` returns `undefined` for
+  `runtime.started`.
 - **Sequence is renumbered at the core boundary.** Runtime keeps an internal
   sequence; core assigns the browser sequence fresh (`sidechat.started` = 0,
   then +1 per emitted event). Runtime numbers never leak to the browser.
@@ -93,15 +92,14 @@ The browser-facing contract. The protocol version literal is `sidechat.v1`
 `protocolVersion`, `eventId`, `assistantTurnId`, `sequence`, and `createdAt`.
 Defined in `packages/chat-protocol/src/sidechat-v1/events/event-union.ts`.
 
-| `type`               | Key fields                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sidechat.started`   | `conversationId?`                                                                                                                                |
-| `sidechat.delta`     | `content`                                                                                                                                        |
-| `sidechat.activity`  | `activityId`, `activityKind`, `status`, `title`, `body?`, `details?`                                                                             |
-| `sidechat.completed` | `finishReason`, `usage?`                                                                                                                         |
-| `sidechat.error`     | `code` (`ProtocolErrorCode`), `message`, `retryable`                                                                                             |
-| `sidechat.blocked`   | `reason`, `publicMessage` (terminal safety stop)                                                                                                 |
-| `sidechat.history`   | `messages[]` — **defined but never emitted**; no server code produces it and the widget reducer ignores it (removal or use tracked in `plan/35`) |
+| `type`               | Key fields                                                           |
+| -------------------- | -------------------------------------------------------------------- |
+| `sidechat.started`   | `conversationId?`                                                    |
+| `sidechat.delta`     | `content`                                                            |
+| `sidechat.activity`  | `activityId`, `activityKind`, `status`, `title`, `body?`, `details?` |
+| `sidechat.completed` | `finishReason`, `usage?`                                             |
+| `sidechat.error`     | `code` (`ProtocolErrorCode`), `message`, `retryable`                 |
+| `sidechat.blocked`   | `reason`, `publicMessage` (terminal safety stop)                     |
 
 `TerminalEvent` = `completed | error | blocked`; `sidechat.blocked` is a terminal
 safety stop, not a completed answer. `ProtocolErrorCode` (`errors.ts`) is a

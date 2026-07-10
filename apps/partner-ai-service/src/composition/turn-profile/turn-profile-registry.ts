@@ -101,7 +101,12 @@ export const createTurnProfileRegistry = (input: TurnProfileRegistryInput): Turn
   );
   const defaultProfile = serviceProfiles.find(
     (serviceProfile) => serviceProfile.profile.profileId === input.defaultProfileId,
-  ) as ServiceTurnProfile;
+  );
+  if (!defaultProfile) {
+    throw new TurnProfileRegistryError(
+      `Default turn profile ${input.defaultProfileId} is not registered.`,
+    );
+  }
 
   return {
     turnProfiles: serviceProfiles.map((serviceProfile) => serviceProfile.profile),

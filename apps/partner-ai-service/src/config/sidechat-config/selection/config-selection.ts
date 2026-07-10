@@ -1,7 +1,8 @@
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
+import { isRecord } from "@side-chat/shared";
 import { ServiceConfigError } from "../../service-config-error.js";
-import type { ServiceEnv, SideChatConfig } from "../types.js";
+import { isDefinedSideChatConfig, type ServiceEnv, type SideChatConfig } from "../types.js";
 
 export const SIDECHAT_CONFIG_ENV_KEY = "SIDECHAT_CONFIG";
 export const SIDECHAT_CONFIG_PATH_ENV_KEY = "SIDECHAT_CONFIG_PATH";
@@ -20,7 +21,7 @@ export type SelectedSideChatConfig = {
 };
 
 export const selectSideChatConfig = (
-  configModule: SideChatConfigModule,
+  configModule: unknown,
   env: ServiceEnv = process.env,
 ): SelectedSideChatConfig => {
   const requestedName = readRequestedConfigName(env);
@@ -46,9 +47,9 @@ export const loadSelectedSideChatConfig = async (
   env: ServiceEnv = process.env,
 ): Promise<SelectedSideChatConfig> => {
   const configModuleUrl = readConfigModuleUrl(env);
-  let configModule: SideChatConfigModule;
+  let configModule: unknown;
   try {
-    configModule = (await import(configModuleUrl)) as SideChatConfigModule;
+    configModule = await import(configModuleUrl);
   } catch (error) {
     throw new ServiceConfigError(
       `Unable to load the SideChat config module at ${configModuleUrl}: ${errorMessage(error)}`,
@@ -57,13 +58,44 @@ export const loadSelectedSideChatConfig = async (
   return selectSideChatConfig(configModule, env);
 };
 
-const readConfigRegistry = (configModule: SideChatConfigModule): SideChatConfigRegistry => {
-  if (configModule.SIDECHAT_CONFIGS) return configModule.SIDECHAT_CONFIGS;
-  if (configModule.default) return { [DEFAULT_SIDECHAT_CONFIG_NAME]: configModule.default };
+const readConfigRegistry = (configModule: unknown): SideChatConfigRegistry => {
+  if (!isRecord(configModule)) {
+    throw new ServiceConfigError("sidechat.config.ts must export a config module object.");
+  }
+
+  const namedConfigs = configModule["SIDECHAT_CONFIGS"];
+  if (namedConfigs !== undefined) return readNamedConfigRegistry(namedConfigs);
+
+  const defaultConfig = configModule["default"];
+  if (isDefinedSideChatConfig(defaultConfig)) {
+    return { [DEFAULT_SIDECHAT_CONFIG_NAME]: defaultConfig };
+  }
+  if (defaultConfig !== undefined) {
+    throw new ServiceConfigError(
+      "The default sidechat config must be created with defineSideChatConfig().",
+    );
+  }
 
   throw new ServiceConfigError(
     "sidechat.config.ts must export SIDECHAT_CONFIGS or a default SideChatConfig.",
   );
+};
+
+const readNamedConfigRegistry = (value: unknown): SideChatConfigRegistry => {
+  if (!isRecord(value)) {
+    throw new ServiceConfigError("SIDECHAT_CONFIGS must be an object keyed by config name.");
+  }
+
+  const registry: Record<string, SideChatConfig> = {};
+  for (const [name, config] of Object.entries(value)) {
+    if (!isDefinedSideChatConfig(config)) {
+      throw new ServiceConfigError(
+        `SIDECHAT_CONFIGS.${name} must be created with defineSideChatConfig().`,
+      );
+    }
+    registry[name] = config;
+  }
+  return registry;
 };
 
 const readRequestedConfigName = (env: ServiceEnv): string | undefined => {

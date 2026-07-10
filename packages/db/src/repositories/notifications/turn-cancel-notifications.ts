@@ -1,4 +1,5 @@
 import { Stream } from "effect";
+import { parseJsonRecord } from "@side-chat/shared";
 
 /**
  * One parsed cancel-intent signal surfaced by the cancel notification source.
@@ -53,19 +54,11 @@ export const parseTurnCancelNotification = (
   payload: string | undefined,
 ): TurnCancelNotification | undefined => {
   if (!payload) return undefined;
-  const parsed = parseJson(payload);
-  if (!parsed || typeof parsed !== "object") return undefined;
+  const parsed = parseJsonRecord(payload);
+  if (!parsed) return undefined;
 
-  const assistantTurnId = (parsed as Record<string, unknown>)["assistantTurnId"];
+  const assistantTurnId = parsed["assistantTurnId"];
   if (typeof assistantTurnId !== "string") return undefined;
 
   return { assistantTurnId };
-};
-
-const parseJson = (source: string): unknown => {
-  try {
-    return JSON.parse(source) as unknown;
-  } catch {
-    return undefined;
-  }
 };

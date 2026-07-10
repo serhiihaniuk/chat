@@ -158,7 +158,6 @@ Maya hits send. Core loads the manifest, resolves the turn policy, and validates
 | 1. Boot-time name match | `assertMatchingNames` | The capability and the executable share one name; no phantom tools |
 | 2. Per-turn manifest check | `manifestToolIssues` | The tool is declared in this deployment's manifest |
 | 3. Per-turn profile check | `profileToolIssues` | The tool is in this assistant profile's allowlist |
-| 4. Approval policy | `approvalRequirementIssues` | Any required human approval is present |
 
 `buildModelTurnRequest` then maps the validated decision into the request the runtime receives. The
 critical field is `toolNames` — names only, no schemas, no executors — and the trusted `toolScope`:
@@ -245,7 +244,7 @@ Three guarantees fall out:
 - A tool is two halves — the **capability** (what the model reads) and the **executable** (what the server runs) — joined by one shared `name`.
 - You always pair them in a single `createServiceToolRegistration`; the registry rejects a mismatch at boot.
 - The trusted `toolScope` carries Maya's `subjectId` into `execute`, so the model can never ask for another user's data.
-- Four independent gates — name match, manifest, profile, approval — must pass before the model receives the name.
+- Three independent gates — name match, manifest, and profile — must pass before the model receives the name.
 - Every new tool repeats the same four objects; the manifest, policy, request builder, and stream loop stay generic.
 </Callout>
 

@@ -27,7 +27,8 @@ provider adapter details.
   execution.
 - Runtime tools are app-owned backend capabilities injected into agent runtime.
 - Declared tools are not executable unless a matching RuntimeTool is registered.
-- Mutating tools require an explicit approval policy path before execution.
+- The alpha exposes no approval-enforcing mode. A team must implement a durable
+  approval workflow before exposing a mutating tool that requires human approval.
 - Host commands are browser/host-app interactions and stay separate from backend
   runtime tools.
 - Product core owns context gathering, squashing, redaction, authorization,
@@ -67,7 +68,8 @@ provider adapter details.
 - Protocol event strings come from centralized constants.
 - SSE encode/decode and sequence behavior are covered by tests.
 - Pre-start failures reject request setup.
-- Post-start failures emit exactly one terminal `sidechat.error`.
+- Post-start failures emit exactly one terminal `sidechat.error`; a safety stop
+  emits exactly one terminal `sidechat.blocked` instead.
 - Successful streams emit exactly one `sidechat.completed`.
 - Abort/cancel paths must not be reported as successful completion.
 

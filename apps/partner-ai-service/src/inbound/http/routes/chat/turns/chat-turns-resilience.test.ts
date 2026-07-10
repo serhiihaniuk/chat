@@ -11,11 +11,15 @@ import {
   type ChatStreamRequest,
 } from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
-import type { ObservabilityLifecycleState, ObservabilityRecord } from "@side-chat/partner-ai-core";
+import type {
+  ObservabilityLifecycleState,
+  ObservabilityRecord,
+  ObservabilitySinkPort,
+} from "@side-chat/partner-ai-core";
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../app.js";
+import { createDevelopmentPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../app.js";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   readTurnStream,
@@ -163,17 +167,17 @@ type RouteHarness = {
 const createApp = (
   options: {
     readonly agentRuntime?: AiRuntimePort;
-    readonly observability?: unknown;
+    readonly observability?: ObservabilitySinkPort;
   } = {},
 ): RouteHarness => {
   const repositories = createMemorySidechatRepositories();
-  const service = createPartnerAiServiceApp({
+  const service = createDevelopmentPartnerAiServiceApp({
     repositories,
     resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
     agentRuntime: options.agentRuntime ?? completedRuntime(),
-    observability: options.observability as never,
+    observability: options.observability,
   });
-  // createPartnerAiServiceApp discards the shutdown; gated tests do not need a clean
+  // createDevelopmentPartnerAiServiceApp discards the shutdown; gated tests do not need a clean
   // teardown beyond releasing the gate, so a no-op keeps the harness shape uniform.
   return { app: service, repositories, shutdown: async () => undefined };
 };

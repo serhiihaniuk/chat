@@ -12,6 +12,7 @@ export {
   createFailedResult,
   createRejectedResult,
   createUnsupportedResult,
+  HOST_COMMAND_RESULT_STATUSES,
   type CommandResultInput,
   type HostCommandResult,
   type HostCommandResultStatus,

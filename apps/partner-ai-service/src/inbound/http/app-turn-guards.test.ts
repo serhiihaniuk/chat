@@ -3,7 +3,8 @@ import { createMemorySidechatRepositories } from "@side-chat/db";
 import type { TurnGuard } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp } from "./app.js";
+import { createDevelopmentPartnerAiServiceApp } from "./app.js";
+import { readJsonResponseObject } from "#testing/json-response.test-support";
 
 const validRequest = {
   protocolVersion: SIDECHAT_PROTOCOL_VERSION,
@@ -19,7 +20,7 @@ const validRequest = {
 describe("partner ai service turn guards", () => {
   it("maps blocked guards to their protocol HTTP status before persistence", async () => {
     const repositories = createMemorySidechatRepositories();
-    const response = await createPartnerAiServiceApp({
+    const response = await createDevelopmentPartnerAiServiceApp({
       repositories,
       turnGuardIds: ["service.test.guard"],
       turnGuards: {
@@ -55,7 +56,7 @@ describe("partner ai service turn guards", () => {
 
   it("maps failed guards to internal-error HTTP status before persistence", async () => {
     const repositories = createMemorySidechatRepositories();
-    const response = await createPartnerAiServiceApp({
+    const response = await createDevelopmentPartnerAiServiceApp({
       repositories,
       turnGuardIds: ["service.test.guard"],
       turnGuards: {
@@ -71,7 +72,7 @@ describe("partner ai service turn guards", () => {
     });
 
     expect(response.status).toBe(500);
-    const body = (await response.json()) as Record<string, unknown>;
+    const body = await readJsonResponseObject(response);
     expect(body).toMatchObject({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       code: PROTOCOL_ERROR_CODES.INTERNAL_ERROR,

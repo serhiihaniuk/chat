@@ -1,11 +1,11 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
 
-import { createPartnerAiServiceApp } from "../../app.js";
+import { createDevelopmentPartnerAiServiceApp } from "../../app.js";
 
 describe("partner ai service tool catalog", () => {
   it("exposes the configured tool catalog with curated labels and default-enabled flags", async () => {
-    const response = await createPartnerAiServiceApp({
+    const response = await createDevelopmentPartnerAiServiceApp({
       runtime: { provider: "fake", enableMockWebSearch: true },
     }).request("/tools", { headers: { authorization: "Bearer local-test-token" } });
 
@@ -24,7 +24,7 @@ describe("partner ai service tool catalog", () => {
   });
 
   it("serves an empty catalog when no backend tools are configured", async () => {
-    const response = await createPartnerAiServiceApp().request("/tools", {
+    const response = await createDevelopmentPartnerAiServiceApp().request("/tools", {
       headers: { authorization: "Bearer local-test-token" },
     });
 
@@ -36,7 +36,7 @@ describe("partner ai service tool catalog", () => {
   });
 
   it("requires authentication", async () => {
-    const response = await createPartnerAiServiceApp().request("/tools");
+    const response = await createDevelopmentPartnerAiServiceApp().request("/tools");
     expect(response.status).toBe(401);
   });
 });

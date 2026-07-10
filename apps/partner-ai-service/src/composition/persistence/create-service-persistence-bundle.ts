@@ -61,7 +61,7 @@ const createRepositoriesForPersistence = (
 const persistenceLabelForRepositories = (
   repositories: SidechatRepositories,
 ): ServicePersistenceBundle["persistenceLabel"] => {
-  const adapterKind = repositoryAdapterKind(repositories);
+  const adapterKind = readRepositoryAdapterKind(repositories);
   switch (adapterKind) {
     case REPOSITORY_ADAPTER_KINDS.MEMORY:
       return "memory";
@@ -84,8 +84,10 @@ const persistenceLabelForRepositories = (
  * checks the runtime value before publishing persistence diagnostics. Missing
  * or unknown markers fail closed instead of becoming local memory persistence.
  */
-const repositoryAdapterKind = (repositories: SidechatRepositories): RepositoryAdapterKind => {
-  const adapterKind = (repositories as { readonly adapterKind?: unknown }).adapterKind;
+export const readRepositoryAdapterKind = (repositories: {
+  readonly adapterKind?: unknown;
+}): RepositoryAdapterKind => {
+  const adapterKind: unknown = repositories.adapterKind;
   if (isRepositoryAdapterKind(adapterKind)) {
     return adapterKind;
   }

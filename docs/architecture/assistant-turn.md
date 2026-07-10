@@ -117,8 +117,8 @@ The split turns on one question: has the browser seen `sidechat.started`?
 
 | Phase             | Started seen? | Behavior                                                        |
 | ----------------- | ------------- | --------------------------------------------------------------- |
-| Pre-start (1-9)   | No            | Reject setup as a JSON error to the caller                      |
-| In-stream (10-13) | Yes           | Append exactly one terminal to the registry; no caller response |
+| Pre-start (1-10)  | No            | Reject setup as a JSON error to the caller                      |
+| In-stream (11-14) | Yes           | Append exactly one terminal to the registry; no caller response |
 
 `POST /chat/runs` maps pre-start failures in `chat-runs.ts`:
 `PartnerAiCoreError` → its protocol code and HTTP status;

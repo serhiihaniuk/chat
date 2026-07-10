@@ -25,11 +25,11 @@ If an action needs both — say, persist on the server _and_ move the host UI �
 
 Three small types carry a host command from config to the host app. Read them once; the rest of this guide is just wiring them together.
 
-| Piece        | Type (location)                                                                                                                                                                                                                                                                                                            | Shape                                                                      |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Declaration  | `HostCommandCapability` ([capabilities.ts:196](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) — the server manifest shape; the browser bridge advertises the same command as a `BrowserHostCommandCapability` ([capability.ts](../../packages/host-bridge/src/commands/capability.ts)) | `{ commandName, description, inputSchema, approvalMode }`                  |
-| Stream event | `ActivityHostCommandDetails` ([event-union.ts:98](../../packages/chat-protocol/src/sidechat-v1/events/event-union.ts))                                                                                                                                                                                                     | a `host_command` activity event with `{ commandId, commandName, payload }` |
-| Result       | `HostCommandResult` ([command-result.ts](../../packages/host-bridge/src/commands/command-result.ts))                                                                                                                                                                                                                       | `{ commandId, commandName, status, resultCode, data? }`                    |
+| Piece        | Type (location)                                                                                                                                                                                                                                                                                                        | Shape                                                                      |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Declaration  | `HostCommandCapability` ([capabilities.ts](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) — the server manifest shape; the browser bridge advertises the same command as a `BrowserHostCommandCapability` ([capability.ts](../../packages/host-bridge/src/commands/capability.ts)) | `{ commandName, description, inputSchema }`                                |
+| Stream event | `ActivityHostCommandDetails` ([event-union.ts:98](../../packages/chat-protocol/src/sidechat-v1/events/event-union.ts))                                                                                                                                                                                                 | a `host_command` activity event with `{ commandId, commandName, payload }` |
+| Result       | `HostCommandResult` ([command-result.ts](../../packages/host-bridge/src/commands/command-result.ts))                                                                                                                                                                                                                   | `{ commandId, commandName, status, resultCode, data? }`                    |
 
 The flow is one straight line:
 
@@ -41,7 +41,7 @@ The flow is one straight line:
 
 ## The worked example
 
-`open_resource` is a complete, runnable host command. It lives in the widget harness, which doubles as a tiny demo host app. Run it:
+`open_resource` is a complete, runnable host-side example. It lives in the widget harness, which doubles as a tiny demo host app. The harness stream emits the command directly, so this example proves dispatch, host handling, and result folding without requiring a model or server declaration. Run it:
 
 ```bash
 npm run dev --workspace @side-chat/widget-harness
@@ -50,14 +50,13 @@ npm run dev --workspace @side-chat/widget-harness
 
 You see a **Demo host app** panel (the host page) next to the chat widget. Send any message. The mock stream emits an `open_resource` host command; the harness bridge applies it, and the panel updates live — the named record highlights, the "Assistant actions" counter ticks up, and the command log shows `open_resource · applied`.
 
-Four files make that work. They are the host-command analogue of the jira tool — copy them for your own command:
+Three files make that work. Copy their host-side pattern for your own command:
 
-| File                                                                                               | Role                                                                |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| [host-commands.ts](../../apps/partner-ai-service/src/config/catalog/capabilities/host-commands.ts) | Declares the `open_resource` capability (catalog entry).            |
-| [demo-host-surface.ts](../../test-harness/widget-harness/src/host/demo-host-surface.ts)            | The host app's own state, and how it interprets a command.          |
-| [fake-host-bridge.ts](../../test-harness/widget-harness/src/host/fake-host-bridge.ts)              | The bridge: turns a dispatched command into a host action + result. |
-| [demo-host-panel.tsx](../../test-harness/widget-harness/src/app/demo-host-panel.tsx)               | The visible host UI a person also clicks directly.                  |
+| File                                                                                    | Role                                                                |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [demo-host-surface.ts](../../test-harness/widget-harness/src/host/demo-host-surface.ts) | The host app's own state, and how it interprets a command.          |
+| [fake-host-bridge.ts](../../test-harness/widget-harness/src/host/fake-host-bridge.ts)   | The bridge: turns a dispatched command into a host action + result. |
+| [demo-host-panel.tsx](../../test-harness/widget-harness/src/app/demo-host-panel.tsx)    | The visible host UI a person also clicks directly.                  |
 
 ## Add a host command
 
@@ -66,30 +65,25 @@ Four files make that work. They are the host-command analogue of the jira tool �
 A host command is "registered" by declaring a `HostCommandCapability` in `hostCommands.availableCommands`. Follow the catalog pattern used for tools — a named entry, kept beside config so a reader sees the command's contract:
 
 ```ts
-// apps/partner-ai-service/src/config/catalog/capabilities/host-commands.ts
-export const HOST_COMMANDS = {
-  OPEN_RESOURCE: {
-    commandName: "open_resource",
-    description:
-      "Open a record in the host app for the user, such as a ticket, invoice, or customer.",
-    inputSchema: OPEN_RESOURCE_INPUT_SCHEMA, // a JSON Schema object
-    approvalMode: "never",
-  },
-} as const satisfies Record<string, HostCommandCapability>;
+const openResourceCommand = {
+  commandName: "open_resource",
+  description:
+    "Open a record in the host app for the user, such as a ticket, invoice, or customer.",
+  inputSchema: OPEN_RESOURCE_INPUT_SCHEMA, // a JSON Schema object
+} satisfies HostCommandCapability;
 ```
 
 ```ts
 // apps/partner-ai-service/sidechat.config.ts
 hostCommands: {
-  availableCommands: [HOST_COMMANDS.OPEN_RESOURCE],
-  approvalPolicies: [],
-  activityRenderers: [],
+  availableCommands: [openResourceCommand],
 },
 ```
 
 - `commandName` is the stable id the host app matches on. Namespacing (`open_resource`, `crm.open_record`) keeps it distinct from tool names.
 - `inputSchema` is the JSON Schema for the `payload` your host app will receive.
-- `approvalMode` must be `never` today ([ApprovalMode](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)). Approval enforcement is not implemented, so composition **fails boot** with a clear error if any command's `approvalMode` — or any `approvalPolicies` entry — is `on_request` or `always` (the approval wall in [create-service-capability-bundle.ts](../../apps/partner-ai-service/src/composition/capabilities/create-service-capability-bundle.ts)). A loud wall beats silently ignoring an approval you thought was gating.
+
+Host commands are bounded browser actions, not a durable human-approval workflow. If a mutation requires approval, build a separate durable workflow that records the request, decision, authorization, and retry behavior before exposing the mutation to the model.
 
 That is the whole backend change. The command now appears in the host manifest; no runtime tool, no executor.
 
@@ -269,20 +263,20 @@ Bounds that make the pause safe — the turn can never hang on a silent host:
 | Result posted twice / after settle                 | Second settle is a no-op             | first result only            |
 | User cancels mid-await                             | Fiber interrupt tears the await down | (turn ends `aborted`)        |
 
-Failure modes worth knowing — two still have fixes tracked in `plan/`:
+Failure modes worth knowing:
 
-| Failure                                                   | Behavior                                                                                                                                                                         |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Result POST lands on a non-owner instance (load balancer) | That instance persists the result and `pg_notify`s; the owner settles in milliseconds, or within ~2 s via its result poll if the signal was lost (ADR 0009)                      |
-| Result POSTed with a leaked commandId from another turn   | `404` — the durable `emitted` row binds the command to its turn, so a caller's own valid turn cannot settle someone else's command                                               |
-| Stream stays silent during a long await                   | A proxy idle-timeout may cut the SSE; heartbeat comments will keep it alive (`plan/17`)                                                                                          |
-| Reload replays a completed command event                  | The widget re-dispatches it — the host action runs twice; dispatch will skip non-`running` events (`plan/19`)                                                                    |
-| Owner instance crashes mid-await                          | Pending entry and fiber die together; the orphan sweep terminalizes the turn (`plan/05`). The `emitted` row stays unresolved — one small row, kept forever by design (`plan/10`) |
+| Failure                                                   | Behavior                                                                                                                                                    |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Result POST lands on a non-owner instance (load balancer) | That instance persists the result and `pg_notify`s; the owner settles in milliseconds, or within ~2 s via its result poll if the signal was lost (ADR 0009) |
+| Result POSTed with a leaked commandId from another turn   | `404` — the durable `emitted` row binds the command to its turn, so a caller's own valid turn cannot settle someone else's command                          |
+| Stream stays silent during a long await                   | SSE heartbeat comments keep proxies and client watchdogs from treating the healthy pause as a dead connection.                                              |
+| Reload replays a completed command event                  | Dispatch ignores activity that is no longer `running`, so a completed host action is not performed twice.                                                   |
+| Owner instance crashes mid-await                          | Pending entry and fiber die together; the lease reaper terminalizes the turn. The `emitted` row stays unresolved — one small row, kept forever by design.   |
 
 One boundary to respect: this seam is built for **fast UI actions**. The await
 is in-memory and 30-seconds-bounded, so a turn cannot park on a human decision
 — do not build approval gates on it (ADR 0009 records the rejected
-durable-pause alternative, and `approvalMode` is not enforced yet — `plan/24`).
+durable-pause alternative).
 
 ## Verify
 

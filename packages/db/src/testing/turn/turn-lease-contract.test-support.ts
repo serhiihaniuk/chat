@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SidechatRepositories } from "#repositories/contract";
-import { toAssistantMessageId } from "#schema-contract";
+import { toAssistantMessageId, toAssistantTurnId, toWorkspaceId } from "#schema-contract";
 import {
   closeIfNeeded,
   startTurn,
@@ -116,7 +116,7 @@ export const turnLeaseRepositoryContract = (
         await expect(
           repositories.acquireTurnLease({
             workspaceId: workspaceId(scope),
-            assistantTurnId: "assistant_turn_missing" as never,
+            assistantTurnId: toAssistantTurnId("assistant_turn_missing"),
             ownerInstanceId: OWNER_A,
             leaseTtlMs: LEASE_TTL_MS,
             now: ACQUIRE_NOW,
@@ -125,7 +125,7 @@ export const turnLeaseRepositoryContract = (
 
         await expect(
           repositories.acquireTurnLease({
-            workspaceId: "other_workspace" as never,
+            workspaceId: toWorkspaceId("other_workspace"),
             assistantTurnId: turn.assistantTurnId,
             ownerInstanceId: OWNER_A,
             leaseTtlMs: LEASE_TTL_MS,

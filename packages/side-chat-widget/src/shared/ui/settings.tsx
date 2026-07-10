@@ -87,7 +87,7 @@ const appliedAppearanceStyle = (
     elevation,
     textSize,
     typeface,
-  }) as CSSProperties;
+  });
 };
 
 export function SettingsPanel({
@@ -192,8 +192,11 @@ export function SettingsPanel({
   );
 }
 
-const findActiveGroup = (groups: readonly SettingsGroup[], groupId: string): SettingsGroup =>
-  groups.find((candidate) => candidate.id === groupId) ?? groups[0]!;
+const findActiveGroup = (groups: readonly SettingsGroup[], groupId: string): SettingsGroup => {
+  const active = groups.find((candidate) => candidate.id === groupId) ?? groups[0];
+  if (!active) throw new Error("Settings require at least one group");
+  return active;
+};
 
 const SettingsPanels = ({
   groups,

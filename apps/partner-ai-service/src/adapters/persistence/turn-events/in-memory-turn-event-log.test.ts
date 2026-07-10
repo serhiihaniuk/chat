@@ -71,13 +71,14 @@ describe("createInMemoryTurnEventLog", () => {
       authContext: AUTH_CONTEXT,
     });
     expect(subscription).toBeDefined();
+    if (!subscription) throw new Error("Expected an owner turn subscription.");
     expect(log.hasSubscribers("assistant_turn_owned")).toBe(true);
 
     await appendEvent(log, startedEvent("assistant_turn_owned"));
-    const fannedOut = await Effect.runPromise(Queue.take(subscription!.events));
+    const fannedOut = await Effect.runPromise(Queue.take(subscription.events));
     expect(fannedOut).toMatchObject({ type: SIDECHAT_EVENT_TYPES.STARTED, sequence: 0 });
 
-    await subscription!.release();
+    await subscription.release();
     expect(log.hasSubscribers("assistant_turn_owned")).toBe(false);
   });
 
@@ -89,8 +90,9 @@ describe("createInMemoryTurnEventLog", () => {
       authContext: AUTH_CONTEXT,
     });
     expect(subscription).toBeDefined();
+    if (!subscription) throw new Error("Expected an owner turn subscription.");
 
-    const takeExit = Effect.runPromiseExit(Queue.take(subscription!.events));
+    const takeExit = Effect.runPromiseExit(Queue.take(subscription.events));
     await log.shutdown();
 
     expect(Exit.isFailure(await takeExit)).toBe(true);

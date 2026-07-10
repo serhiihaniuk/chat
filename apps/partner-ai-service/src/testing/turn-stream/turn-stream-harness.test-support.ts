@@ -79,7 +79,9 @@ export const runTurnStream = async (
   const response = await postRun(app, request, authToken);
   const events = decodeSseEvents(await response.text());
   expect(events.length).toBeGreaterThan(0);
-  return { ...startedIdentity(events[0] as SidechatStreamEvent), events };
+  const started = events[0];
+  if (!started) throw new Error("Expected the run stream to contain a first frame.");
+  return { ...startedIdentity(started), events };
 };
 
 /** Read the `conversationId` carried on the replayed `sidechat.started` event. */

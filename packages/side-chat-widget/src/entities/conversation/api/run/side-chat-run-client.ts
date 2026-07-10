@@ -230,7 +230,8 @@ const hostCommandResultUrl = (
 
 const readJson = async (response: Response, route: string): Promise<unknown> => {
   try {
-    return (await response.json()) as unknown;
+    const payload: unknown = await response.json();
+    return payload;
   } catch (cause) {
     throw new SideChatApiError("network_error", `Malformed ${route} response JSON`, { cause });
   }

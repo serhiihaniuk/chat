@@ -25,6 +25,7 @@ import { describe, expect, it } from "vitest";
 
 import { composePartnerAiService, type ResumabilityConfig } from "#composition/service-composition";
 import { observeGenerationExit, type TurnRunnerTestHandle } from "./turn-runner.js";
+import { isTurnRunnerTestHandle } from "#testing/turn-runner/turn-runner.test-support";
 
 const WORKSPACE: WorkspaceRef = { tenantId: "tenant_runner", workspaceId: "workspace_runner" };
 
@@ -265,8 +266,11 @@ const createRunnerHarness = ({ runtime, resumability }: HarnessOptions = {}): Ru
     agentRuntime: runtime ?? completedRuntime(runtimeRequests),
     resumability,
   });
+  if (!isTurnRunnerTestHandle(composition.turnRunner)) {
+    throw new Error("Expected composition to retain the test runner handle.");
+  }
   return {
-    runner: composition.turnRunner as TurnRunnerTestHandle,
+    runner: composition.turnRunner,
     repositories,
     turnEventLog: composition.ports.turnEventLog,
     runtimeRequests,

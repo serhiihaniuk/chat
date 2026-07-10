@@ -53,10 +53,7 @@ describe("coalesceDeltaParts", () => {
   });
 
   it("flushes the current delta when the window expires before the next part", async () => {
-    let releaseNext!: () => void;
-    const nextPartReady = new Promise<void>((resolve) => {
-      releaseNext = resolve;
-    });
+    const { promise: nextPartReady, resolve: releaseNext } = Promise.withResolvers<void>();
     const delayedParts = async function* (): AsyncIterable<TextStreamPart<ToolSet>> {
       yield text("a");
       await nextPartReady;
@@ -130,7 +127,7 @@ describe("coalesceDeltaParts", () => {
     const out = await collect(coalesceDeltaParts(streamOf(chunks.map(text)), 250));
     const merged = out
       .filter((part) => part.type === "text-delta")
-      .map((part) => (part as { text: string }).text)
+      .map((part) => part.text)
       .join("");
     expect(merged).toBe(chunks.join(""));
   });

@@ -7,11 +7,17 @@ import type {
   StreamChatInput,
   StreamChatPorts,
 } from "../stream-chat-types.js";
+import { normalizeConversationTitle } from "./conversation-title-normalization.js";
 import { createConversationTitleRuntimeRequest } from "./title-runtime-request.js";
 
-const TITLE_MAX_WORDS = 6;
-const TITLE_MIN_WORDS = 2;
-const TITLE_MAX_LENGTH = 64;
+/**
+ * Best-effort title generation after a successful assistant turn.
+ *
+ * The job only considers the initial exchange, runs through the same runtime
+ * boundary with a title-specific request, sanitizes model output, and asks
+ * persistence to set a title only when still eligible. Skip and failure outcomes
+ * are observable, but they cannot change or add a terminal event to the chat turn.
+ */
 
 const TITLE_FAILURE_REASONS = {
   PERSISTENCE_FAILED: "persistence_failed",
@@ -60,6 +66,7 @@ export const prepareConversationTitleAfterCompletion = (
   turn: PreparedStreamChatTurn,
   assistantContent: string,
 ): Effect.Effect<void, never> =>
+  // Keep the auxiliary job isolated from the already committed assistant turn.
   prepareConversationTitleAfterCompletionEffect(ports, input, turn, assistantContent).pipe(
     Effect.catch((error) =>
       recordTitleObservationSafe(ports, turn, "failed", titleFailureReason(error)),
@@ -75,6 +82,7 @@ const prepareConversationTitleAfterCompletionEffect = (
   Effect.gen(function* () {
     if (ports.conversationTitleGeneration.mode === "disabled") return;
 
+    // Prove this exchange is eligible before spending a second model call.
     const prepared = prepareTitleInput(
       ports.conversationTitleGeneration.prompt,
       input,
@@ -87,6 +95,7 @@ const prepareConversationTitleAfterCompletionEffect = (
     }
 
     const rawTitle = yield* runConversationTitleAgent(ports, input, turn, prepared.input);
+    // Model output crosses back into the domain only after strict normalization.
     const titleText = normalizeConversationTitle(rawTitle, prepared.input.userContent);
     if (!titleText) {
       yield* recordTitleObservationSafe(
@@ -98,6 +107,7 @@ const prepareConversationTitleAfterCompletionEffect = (
       return;
     }
 
+    // Persistence owns write-once/concurrent-writer semantics for the title.
     yield* ports.conversations
       .prepareConversationTitle({
         authContext: turn.authContext,
@@ -203,46 +213,6 @@ const collectTitleOutput = (
     return output;
   });
 
-const normalizeConversationTitle = (rawTitle: string, userContent: string): string | undefined => {
-  const cleaned = stripGeneratedTitleNoise(rawTitle);
-  const wordLimited = limitTitleWords(cleaned);
-  const lengthLimited = limitTitleLength(wordLimited);
-  const title = stripTrailingPunctuation(lengthLimited).trim();
-  if (titleWordCount(title) < TITLE_MIN_WORDS) return undefined;
-  if (isCopiedUserMessage(title, userContent)) return undefined;
-  return title;
-};
-
-const stripGeneratedTitleNoise = (rawTitle: string): string =>
-  rawTitle
-    .split(/\r?\n/u)[0]
-    ?.replace(/^\s*(?:title\s*:\s*)/iu, "")
-    .replace(/^\s*[-*]\s*/u, "")
-    .replace(/^["'`]+|["'`]+$/gu, "")
-    .replace(/\s+/gu, " ")
-    .trim() ?? "";
-
-const limitTitleWords = (title: string): string =>
-  title.split(/\s+/u).filter(Boolean).slice(0, TITLE_MAX_WORDS).join(" ");
-
-const limitTitleLength = (title: string): string => {
-  if (title.length <= TITLE_MAX_LENGTH) return title;
-
-  const truncated = title.slice(0, TITLE_MAX_LENGTH).trimEnd();
-  const lastSpace = truncated.lastIndexOf(" ");
-  return lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated;
-};
-
-const stripTrailingPunctuation = (title: string): string => title.replace(/[.!?,:;]+$/u, "");
-
-const titleWordCount = (title: string): number => title.split(/\s+/u).filter(Boolean).length;
-
-const isCopiedUserMessage = (title: string, userContent: string): boolean =>
-  comparisonText(title) === comparisonText(userContent);
-
-const comparisonText = (text: string): string =>
-  stripTrailingPunctuation(text).replace(/\s+/gu, " ").trim().toLocaleLowerCase("en-US");
-
 const recordTitleObservationSafe = (
   ports: StreamChatPorts,
   turn: PreparedStreamChatTurn,
@@ -276,4 +246,17 @@ const isTitleGenerationFailure = (error: unknown): error is TitleGenerationFailu
   typeof error === "object" &&
   error !== null &&
   "reason" in error &&
-  Object.values(TITLE_FAILURE_REASONS).includes(error.reason as TitleFailureReason);
+  isTitleFailureReason(error.reason);
+
+const isTitleFailureReason = (value: unknown): value is TitleFailureReason => {
+  switch (value) {
+    case TITLE_FAILURE_REASONS.RUNTIME_FAILED:
+    case TITLE_FAILURE_REASONS.RUNTIME_ERROR_EVENT:
+    case TITLE_FAILURE_REASONS.RUNTIME_INCOMPLETE:
+    case TITLE_FAILURE_REASONS.PERSISTENCE_FAILED:
+    case TITLE_FAILURE_REASONS.UNEXPECTED_FAILURE:
+      return true;
+    default:
+      return false;
+  }
+};

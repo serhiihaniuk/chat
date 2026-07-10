@@ -66,7 +66,7 @@ describe("service composition runtime tools", () => {
       JIRA_SEARCH_ISSUES_TOOL_NAME,
     ]);
     expect(composition.diagnostics.toolRegistryStatus.tools).toEqual([
-      { name: JIRA_SEARCH_ISSUES_TOOL_NAME, defaultEnabled: true, approvalPolicyIds: [] },
+      { name: JIRA_SEARCH_ISSUES_TOOL_NAME, defaultEnabled: true },
     ]);
     expect(events.at(-1)).toMatchObject({ type: "runtime.completed" });
   });
@@ -97,7 +97,7 @@ describe("service composition runtime tools", () => {
     // from the same registration: selecting the tool name never fails closed.
     expect(manifest.tools.map((tool) => tool.name)).toEqual([MOCK_WEB_SEARCH_TOOL_NAME]);
     expect(composition.diagnostics.toolRegistryStatus.tools).toEqual([
-      { name: MOCK_WEB_SEARCH_TOOL_NAME, defaultEnabled: true, approvalPolicyIds: [] },
+      { name: MOCK_WEB_SEARCH_TOOL_NAME, defaultEnabled: true },
     ]);
     expect(events.at(-1)).toMatchObject({ type: "runtime.completed" });
   });
@@ -183,7 +183,6 @@ describe("service composition runtime tools", () => {
             commandName: "host.open_ticket_panel",
             description: "Ask the host app to open its ticket details panel.",
             inputSchema: { type: "object" },
-            approvalMode: "never",
           },
         ],
         tools: [
@@ -200,55 +199,12 @@ describe("service composition runtime tools", () => {
     expect(manifest.commands).toEqual([
       expect.objectContaining({
         commandName: "host.open_ticket_panel",
-        approvalMode: "never",
       }),
     ]);
     expect(manifest.tools.map((tool) => tool.name)).toEqual([
       JIRA_SEARCH_ISSUES_TOOL_NAME,
       JIRA_CREATE_ISSUE_TOOL_NAME,
     ]);
-  });
-
-  it("fails composition loudly when an approval policy requests enforcement", () => {
-    // Approvals are validated but not yet enforced (plan/24): a non-"never" mode
-    // must fail boot with a clear message, not silently do nothing.
-    expect(() =>
-      composePartnerAiService({
-        workspace,
-        runtime: {
-          provider: "fake",
-          approvalPolicies: [
-            {
-              policyId: "jira_create_issue_requires_approval",
-              mode: "always",
-              capabilityNames: [JIRA_CREATE_ISSUE_TOOL_NAME],
-            },
-          ],
-          tools: [jiraCreateIssueRegistration],
-        },
-      }),
-    ).toThrow(
-      /Approval enforcement is not implemented.*jira_create_issue_requires_approval.*always/su,
-    );
-  });
-
-  it("fails composition when a host command requests approval", () => {
-    expect(() =>
-      composePartnerAiService({
-        workspace,
-        runtime: {
-          provider: "fake",
-          hostCommands: [
-            {
-              commandName: "host.delete_record",
-              description: "Ask the host app to delete a record.",
-              inputSchema: { type: "object" },
-              approvalMode: "on_request",
-            },
-          ],
-        },
-      }),
-    ).toThrow(/Approval enforcement is not implemented.*host\.delete_record.*on_request/su);
   });
 });
 
@@ -318,14 +274,13 @@ const JIRA_CREATE_ISSUE_TOOL_NAME = "jira.create_issue";
 const jiraCreateIssueRegistration = createServiceToolRegistration({
   capability: {
     name: JIRA_CREATE_ISSUE_TOOL_NAME,
-    description: "Create a Jira issue after approval.",
+    description: "Create a Jira issue.",
     inputSchema: { type: "object" },
   },
   runtimeTool: {
     name: JIRA_CREATE_ISSUE_TOOL_NAME,
-    description: "Create a Jira issue after approval.",
+    description: "Create a Jira issue.",
     inputSchema: { type: "object" },
     execute: () => Effect.succeed({ created: true }),
   },
-  approvalPolicyIds: ["jira_create_issue_requires_approval"],
 });

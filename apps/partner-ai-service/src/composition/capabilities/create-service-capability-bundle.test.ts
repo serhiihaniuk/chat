@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
+import { createMemorySidechatRepositories } from "@side-chat/db";
 import type { ServicePersistenceBundle } from "../bundle-types.js";
 import { createServiceTurnProfileBundle } from "../turn-profile/create-service-turn-profile-bundle.js";
 import { createServiceCapabilityBundle } from "./create-service-capability-bundle.js";
@@ -39,7 +40,7 @@ const buildInput = (persistence: ServicePersistenceBundle) => {
 
 const memoryPersistence: ServicePersistenceBundle = {
   persistence: { kind: "memory" },
-  repositories: {} as ServicePersistenceBundle["repositories"],
+  repositories: createMemorySidechatRepositories(),
   persistenceLabel: "memory",
 };
 

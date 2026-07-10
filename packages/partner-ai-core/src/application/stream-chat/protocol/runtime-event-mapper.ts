@@ -49,8 +49,9 @@ type EventMappingPorts = {
 /**
  * Convert runtime events into the sidechat.v1 events sent to the browser.
  *
- * `runtime.started` is skipped because the browser already received
- * `sidechat.started` when the turn was prepared.
+ * `runtime.started` is skipped because core emits `sidechat.started` as the first
+ * browser event after pre-start preparation succeeds, before opening this runtime
+ * event stream.
  */
 export const mapRuntimeEvent = (
   event: RuntimeEvent,

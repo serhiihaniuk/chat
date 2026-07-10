@@ -1,16 +1,19 @@
 /// <reference types="node" />
 
 import { readFileSync } from "node:fs";
+import { isRecord, parseJsonRecord } from "@side-chat/shared";
 import { describe, expect, it } from "vitest";
 
 import { sidechatTables } from "./schema.js";
 
 const migrationsDir = new URL("../../migrations/", import.meta.url);
-const journal = JSON.parse(readFileSync(new URL("meta/_journal.json", migrationsDir), "utf8"));
+const journal = readMigrationJournal(
+  readFileSync(new URL("meta/_journal.json", migrationsDir), "utf8"),
+);
 const migration = journal.entries
   .slice()
-  .sort((left: { idx: number }, right: { idx: number }) => left.idx - right.idx)
-  .map((entry: { tag: string }) => readFileSync(new URL(`${entry.tag}.sql`, migrationsDir), "utf8"))
+  .sort((left, right) => left.idx - right.idx)
+  .map((entry) => readFileSync(new URL(`${entry.tag}.sql`, migrationsDir), "utf8"))
   .join("\n")
   .replaceAll("\r\n", "\n");
 const grants = readFileSync(
@@ -61,7 +64,7 @@ describe("sidechat drizzle schema and migration", () => {
       'CREATE INDEX "conversations_workspace_subject_recent_idx" ON "sidechat"."conversations" USING btree ("workspace_id","subject_id","last_message_at")',
     );
     // The unique index serves history/`max()` reads scanned backwards, so the
-    // same-columns plain index is gone — no per-insert write overhead.
+    // same-columns plain index is gone, avoiding duplicate write work per insert.
     expect(migration).toContain('"messages_conversation_sequence_uq"');
     expect(migration).not.toContain("messages_conversation_sequence_desc_idx");
   });
@@ -76,3 +79,30 @@ describe("sidechat drizzle schema and migration", () => {
     expect(grants).not.toMatch(/GRANT[^;]*\bCREATE\b[^;]*TO sidechat_runtime/u);
   });
 });
+
+type MigrationJournal = {
+  readonly entries: readonly MigrationJournalEntry[];
+};
+
+type MigrationJournalEntry = {
+  readonly idx: number;
+  readonly tag: string;
+};
+
+function readMigrationJournal(source: string): MigrationJournal {
+  const parsed = parseJsonRecord(source);
+  if (!parsed || !Array.isArray(parsed["entries"])) {
+    throw new Error("Drizzle migration journal must contain an entries array.");
+  }
+
+  return { entries: parsed["entries"].map(readMigrationJournalEntry) };
+}
+
+function readMigrationJournalEntry(value: unknown): MigrationJournalEntry {
+  if (!isRecord(value) || typeof value["idx"] !== "number" || typeof value["tag"] !== "string") {
+    throw new Error(
+      "Each Drizzle migration journal entry must contain numeric idx and string tag.",
+    );
+  }
+  return { idx: value["idx"], tag: value["tag"] };
+}

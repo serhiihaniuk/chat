@@ -17,6 +17,11 @@ import {
   HOST_COMMAND_RESULT_STATUSES,
   MESSAGE_ROLES,
   TOOL_INVOCATION_STATUSES,
+  type AssistantTurnStatus,
+  type ConversationStatus,
+  type HostCommandResultStatus,
+  type MessageRole,
+  type ToolInvocationStatus,
 } from "#schema-contract";
 
 const sidechat = pgSchema("sidechat");
@@ -39,7 +44,7 @@ export const conversations = sidechat.table(
     workspaceId: workspaceIdColumn(),
     subjectId: text("subject_id").notNull(),
     conversationKey: text("conversation_key").notNull(),
-    status: text("status").notNull().default("active"),
+    status: text("status").$type<ConversationStatus>().notNull().default("active"),
     titleText: text("title_text"),
     createdByActorId: text("created_by_actor_id").notNull(),
     historyCutoffSequenceIndex: integer("history_cutoff_sequence_index"),
@@ -61,7 +66,7 @@ export const conversations = sidechat.table(
     // The sidebar lists a subject's conversations newest-first on every panel open;
     // a subject accumulates conversations without bound, so this serves the filter
     // + `last_message_at DESC` order as a top-N index scan instead of sorting the
-    // whole set. (The `(…, conversation_key)` unique index above filters but cannot
+    // whole set. (The `(..., conversation_key)` unique index above filters but cannot
     // order.)
     index("conversations_workspace_subject_recent_idx").on(
       table.workspaceId,
@@ -80,7 +85,7 @@ export const messages = sidechat.table(
       .notNull()
       .references(() => conversations.conversationId),
     workspaceId: workspaceIdColumn(),
-    role: text("role").notNull(),
+    role: text("role").$type<MessageRole>().notNull(),
     contentText: text("content_text").notNull(),
     metadataJson: jsonb("metadata_json").$type<JsonObject>().notNull(),
     sequenceIndex: integer("sequence_index").notNull(),
@@ -118,7 +123,7 @@ export const assistantTurns = sidechat.table(
     toolRegistryVersion: text("tool_registry_version").notNull(),
     modelProvider: text("model_provider").notNull(),
     modelId: text("model_id").notNull(),
-    status: text("status").notNull().default("running"),
+    status: text("status").$type<AssistantTurnStatus>().notNull().default("running"),
     finishReason: text("finish_reason"),
     errorCode: text("error_code"),
     startedAt: timestamp("started_at", {
@@ -222,7 +227,7 @@ export const toolInvocations = sidechat.table(
     runtimeStepIndex: integer("runtime_step_index").notNull(),
     toolCallId: text("tool_call_id").notNull(),
     toolName: text("tool_name").notNull(),
-    status: text("status").notNull(),
+    status: text("status").$type<ToolInvocationStatus>().notNull(),
     inputHash: text("input_hash").notNull(),
     outputHash: text("output_hash"),
     inputRedactedJson: jsonb("input_redacted_json").$type<JsonObject>().notNull(),
@@ -254,7 +259,7 @@ export const hostCommandResults = sidechat.table(
     commandId: text("command_id").notNull(),
     commandType: text("command_type").notNull(),
     resourceId: text("resource_id"),
-    status: text("status").notNull(),
+    status: text("status").$type<HostCommandResultStatus>().notNull(),
     resultCode: text("result_code").notNull(),
     commandRedactedJson: jsonb("command_redacted_json").$type<JsonObject>().notNull(),
     resultRedactedJson: jsonb("result_redacted_json").$type<JsonObject>(),

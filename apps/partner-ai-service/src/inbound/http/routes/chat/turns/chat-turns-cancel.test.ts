@@ -15,7 +15,8 @@ import type { WorkspaceRef } from "@side-chat/partner-ai-core";
 import { Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../app.js";
+import { createDevelopmentPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../app.js";
+import { readJsonResponseObject, requireString } from "#testing/json-response.test-support";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   readTurnStream,
@@ -132,7 +133,7 @@ const createApp = (options: { readonly agentRuntime?: AiRuntimePort } = {}): Rou
   const repositories = createMemorySidechatRepositories();
   return {
     repositories,
-    app: createPartnerAiServiceApp({
+    app: createDevelopmentPartnerAiServiceApp({
       repositories,
       resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
       agentRuntime: options.agentRuntime ?? completedRuntime(),
@@ -144,7 +145,7 @@ const createWorkspaceApp = (
   repositories: MemorySidechatRepositories,
   workspace: WorkspaceRef,
 ): PartnerAiServiceApp =>
-  createPartnerAiServiceApp({
+  createDevelopmentPartnerAiServiceApp({
     repositories,
     workspace,
     resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
@@ -219,7 +220,8 @@ const waitForStatus = async (
       const response = await app.request(`/chat/turns/${assistantTurnId}`, {
         headers: AUTH_HEADER,
       });
-      return ((await response.json()) as { status: string }).status;
+      const body = await readJsonResponseObject(response);
+      return requireString(body["status"], "turn status");
     })
     .toBe(status);
 };

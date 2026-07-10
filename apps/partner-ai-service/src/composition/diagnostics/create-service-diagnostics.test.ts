@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createMemorySidechatRepositories } from "@side-chat/db";
 import { PROVIDERS } from "#config/catalog/providers";
 import type { ServicePersistenceBundle } from "../bundle-types.js";
 import { createServiceTurnProfileBundle } from "../turn-profile/create-service-turn-profile-bundle.js";
@@ -10,7 +11,7 @@ const workspace = { tenantId: "tenant_diag", workspaceId: "workspace_diag" } as 
 
 const memoryPersistence: ServicePersistenceBundle = {
   persistence: { kind: "memory" },
-  repositories: {} as ServicePersistenceBundle["repositories"],
+  repositories: createMemorySidechatRepositories(),
   persistenceLabel: "memory",
 };
 

@@ -42,7 +42,6 @@ describe("createServiceToolRegistry", () => {
       runtimeTool: runtimeTool("search_runtime"),
       createRuntimeTool: () => runtimeTool("search_runtime"),
       defaultEnabled: true,
-      approvalPolicyIds: [],
     };
 
     expect(() => createServiceToolRegistry([mismatched])).toThrow(ServiceToolRegistryError);
@@ -58,7 +57,6 @@ describe("createServiceToolRegistry", () => {
         capability: toolCapability("create"),
         runtimeTool: runtimeTool("create"),
         defaultEnabled: false,
-        approvalPolicyIds: ["create_requires_approval"],
       }),
     ]);
 
@@ -69,8 +67,8 @@ describe("createServiceToolRegistry", () => {
     expect(registry.runtimeTools.map((tool) => tool.name)).toEqual(["search", "create"]);
     expect(registry.defaultEnabledToolNames).toEqual(["search"]);
     expect(registry.status.tools).toEqual([
-      { name: "search", defaultEnabled: true, approvalPolicyIds: [] },
-      { name: "create", defaultEnabled: false, approvalPolicyIds: ["create_requires_approval"] },
+      { name: "search", defaultEnabled: true },
+      { name: "create", defaultEnabled: false },
     ]);
   });
 

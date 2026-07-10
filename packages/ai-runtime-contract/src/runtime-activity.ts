@@ -85,8 +85,8 @@ export type RuntimeActivityHostCommandDetails = {
  */
 export type RuntimeActivityDetails = {
   readonly sources?: readonly RuntimeActivitySource[] | undefined;
-  // Reserved; no runtime producer populates images yet. The widget renders produced
-  // images through tools' readSources path (story 23), not this field.
+  // Reserved; no runtime producer populates images yet. Tools expose current
+  // displayable artifacts through their result/source projection instead.
   readonly images?: readonly RuntimeActivityImage[] | undefined;
   readonly tool?: RuntimeActivityToolDetails | undefined;
   readonly hostCommand?: RuntimeActivityHostCommandDetails | undefined;

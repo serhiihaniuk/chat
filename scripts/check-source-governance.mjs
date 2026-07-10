@@ -8,6 +8,7 @@ import {
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import ts from "typescript";
 
 const root = resolveRoot();
 const errors = [];
@@ -25,21 +26,29 @@ const requiredStrictOptions = {
   verbatimModuleSyntax: true,
   skipLibCheck: true,
 };
-const sourceLineBudgetExceptions = new Set([
-  "packages/db/src/drizzle/schema.ts",
+const sourceLineBudgetExceptions = new Map([
+  ["packages/db/src/drizzle/schema.ts", 308],
   // Pure persistence type-contract catalog (command shapes + repository
   // interfaces). It is declaration-only with no branching logic, so it is kept
   // as one cohesive contract rather than split across the schema-contract dir's
   // file budget.
-  "packages/db/src/schema-contract/repositories.ts",
-  // The readable SideChatConfig type contract. Declaration-only (no logic); it is
-  // one cohesive config schema, so per-tool parameter growth (e.g. the mock search
-  // sub-agent knobs) is kept here rather than fragmenting the config surface.
-  "apps/partner-ai-service/src/config/sidechat-config/types.ts",
+  ["packages/db/src/schema-contract/repositories.ts", 444],
+  // Declaration-only public configuration contract. Keeping the complete
+  // starter-owned shape together is easier to scan than fragmenting it by key;
+  // the exact ceiling prevents behavioral helpers from accumulating here.
+  ["apps/partner-ai-service/src/config/sidechat-config/types.ts", 312],
   // The config->options adapter. Already relieved once by extracting
   // history-options.ts; the remaining config-to-runtime mapping is one cohesive
   // translation, and the options dir is at its file budget, so it stays together.
-  "apps/partner-ai-service/src/config/sidechat-config/options/options-adapter.ts",
+  ["apps/partner-ai-service/src/config/sidechat-config/options/options-adapter.ts", 301],
+  // The docs app predates source-shape coverage. These exact ceilings make its
+  // existing catalogs and compound explorers ratchets: they may shrink, but a
+  // new line must first pay down the existing readability debt.
+  ["apps/docs/app/data/glossary.ts", 747],
+  ["apps/docs/app/components/design-controls.tsx", 698],
+  ["apps/docs/app/components/turn-explorer.tsx", 500],
+  ["apps/docs/app/components/turn-trace.tsx", 404],
+  ["apps/docs/app/data/tokens.ts", 339],
 ]);
 
 validateTsconfigPolicy();
@@ -108,33 +117,111 @@ function validateSourceFiles() {
     if (/(?:^|\/)(?:dist|build|coverage)\//.test(file)) continue;
 
     const source = readFileSync(join(root, file), "utf8");
-    const productionSource = file.includes("/src/");
     validateSourceLineBudget(file, source);
-    if (productionSource && /as\s+unknown\s+as/.test(source)) {
-      errors.push(`${file}: unsafe double assertion is forbidden`);
-    }
+    validateTypeSafetyEscapes(file, source);
     if (/class\s+ToolLoopAgent\b/.test(source)) {
       errors.push(`${file}: local ToolLoopAgent class shadows AI SDK export`);
     }
   }
 }
 
+function validateTypeSafetyEscapes(file, source) {
+  if (!/\.tsx?$/u.test(file)) return;
+
+  validateTypeScriptSuppressions(file, source);
+
+  const sourceFile = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  visit(sourceFile);
+
+  function visit(node) {
+    if (ts.isAsExpression(node) && node.type.getText(sourceFile) !== "const") {
+      reportAssertion(node, `type assertion "as ${node.type.getText(sourceFile)}"`);
+    } else if (ts.isTypeAssertionExpression(node)) {
+      reportAssertion(node, `angle-bracket type assertion "<${node.type.getText(sourceFile)}>"`);
+    } else if (ts.isNonNullExpression(node)) {
+      reportAssertion(node, 'non-null assertion "!"');
+    } else if (node.exclamationToken !== undefined) {
+      reportAssertion(node, 'definite-assignment assertion "!"');
+    } else if (
+      node.kind === ts.SyntaxKind.AnyKeyword &&
+      !ts.isAsExpression(node.parent) &&
+      !ts.isTypeAssertionExpression(node.parent)
+    ) {
+      reportAssertion(node, 'explicit "any" type');
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  function reportAssertion(node, assertion) {
+    const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+    errors.push(
+      `${file}:${line}: TypeScript escape hatch is forbidden: ${assertion}.\n` +
+        "  Type-safety fix: keep uncertain values as unknown, narrow them with a type guard or parser, and prove indexed values before use. `as const` and `satisfies` remain allowed.",
+    );
+  }
+}
+
+function validateTypeScriptSuppressions(file, source) {
+  // Fumadocs regenerates this ignored directory and owns its emitted `@ts-nocheck`.
+  // Repository-authored TypeScript remains fully governed.
+  if (file.startsWith("apps/docs/.source/")) return;
+
+  const directivePattern = /^\s*(?:\/\/|\/\*)\s*@ts-(ignore|nocheck|expect-error)\b(.*)$/u;
+
+  for (const [index, line] of source.split("\n").entries()) {
+    const match = directivePattern.exec(line);
+    if (!match) continue;
+
+    const directive = match[1];
+    if (directive === "ignore" || directive === "nocheck") {
+      errors.push(`${file}:${index + 1}: TypeScript suppression "@ts-${directive}" is forbidden.`);
+      continue;
+    }
+
+    const reason = match[2]?.replace(/\*\/$/u, "").trim();
+    if (!isTestLikeSourceFile(file)) {
+      errors.push(`${file}:${index + 1}: "@ts-expect-error" is allowed only in test files.`);
+    } else if (!reason) {
+      errors.push(`${file}:${index + 1}: "@ts-expect-error" requires a reason.`);
+    }
+  }
+}
+
 function validateSourceLineBudget(file, source) {
   const lineCount = source.split("\n").length;
-  const productionSource = file.includes("/src/");
+  const productionSource = isGovernedProductionSource(file);
+  const exceptionLimit = sourceLineBudgetExceptions.get(file);
+  const testSource = isTestLikeSourceFile(file);
 
   if (
     productionSource &&
-    !file.endsWith(".test.ts") &&
-    !sourceLineBudgetExceptions.has(file) &&
+    !testSource &&
     !isCopiedSharedAiPrimitive(file) &&
-    lineCount > 300
+    lineCount > (exceptionLimit ?? 300)
   ) {
-    errors.push(`${file}: production source file exceeds 300-line budget`);
+    errors.push(
+      `${file}: production source file has ${lineCount} lines (max ${exceptionLimit ?? 300})`,
+    );
   }
-  if (productionSource && file.endsWith(".test.ts") && lineCount > 450) {
+  if (productionSource && testSource && lineCount > 450) {
     errors.push(`${file}: test source file exceeds 450-line budget`);
   }
+}
+
+function isGovernedProductionSource(file) {
+  return file.includes("/src/") || file.startsWith("apps/docs/app/");
+}
+
+function isTestLikeSourceFile(file) {
+  return /\.(?:test|spec)\.(?:ts|tsx)$/u.test(file) || file.includes(".test-support.");
 }
 
 function isCopiedSharedAiPrimitive(file) {

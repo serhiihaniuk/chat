@@ -39,7 +39,13 @@ export type ToolMenuItem = {
   readonly enabled: boolean;
 };
 
-type Scope = "page" | "selection" | "workspace";
+const CONTEXT_SCOPES = {
+  PAGE: "page",
+  SELECTION: "selection",
+  WORKSPACE: "workspace",
+} as const;
+
+type Scope = (typeof CONTEXT_SCOPES)[keyof typeof CONTEXT_SCOPES];
 
 const SAMPLE_TOOLS: readonly ToolMenuItem[] = [
   { name: "web-search", label: "Web search", enabled: true },
@@ -47,9 +53,9 @@ const SAMPLE_TOOLS: readonly ToolMenuItem[] = [
 ];
 
 const SCOPES: ReadonlyArray<{ value: Scope; label: string }> = [
-  { value: "page", label: "This page" },
-  { value: "selection", label: "Selection" },
-  { value: "workspace", label: "Whole workspace" },
+  { value: CONTEXT_SCOPES.PAGE, label: "This page" },
+  { value: CONTEXT_SCOPES.SELECTION, label: "Selection" },
+  { value: CONTEXT_SCOPES.WORKSPACE, label: "Whole workspace" },
 ];
 
 export function ToolsMenu({
@@ -159,12 +165,17 @@ function ToolsGroup({
 }
 
 function ScopeGroup(): ReactElement {
-  const [scope, setScope] = useState<Scope>("page");
+  const [scope, setScope] = useState<Scope>(CONTEXT_SCOPES.PAGE);
 
   return (
     <Menu.Group>
       <Menu.GroupLabel className={LABEL_CLASS}>Context scope</Menu.GroupLabel>
-      <Menu.RadioGroup value={scope} onValueChange={(value) => setScope(value as Scope)}>
+      <Menu.RadioGroup
+        value={scope}
+        onValueChange={(value) => {
+          if (isScope(value)) setScope(value);
+        }}
+      >
         {SCOPES.map(({ value, label }) => (
           <Menu.RadioItem key={value} value={value} closeOnClick={false} className={ITEM_CLASS}>
             <FileText className="size-4 text-muted-foreground" />
@@ -178,3 +189,6 @@ function ScopeGroup(): ReactElement {
     </Menu.Group>
   );
 }
+
+const isScope = (value: unknown): value is Scope =>
+  typeof value === "string" && Object.values(CONTEXT_SCOPES).some((scope) => scope === value);

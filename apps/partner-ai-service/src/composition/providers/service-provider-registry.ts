@@ -143,7 +143,8 @@ export class ServiceProviderRegistryError extends Error {
 export const createServiceProviderRegistry = (
   registrations: readonly ServiceProviderRegistration[],
 ): ServiceProviderRegistry => {
-  if (registrations.length === 0) {
+  const [defaultRegistration] = registrations;
+  if (!defaultRegistration) {
     throw new ServiceProviderRegistryError(
       "Service provider registry requires at least one provider registration.",
     );
@@ -158,7 +159,6 @@ export const createServiceProviderRegistry = (
     assertReasoningPolicy(registration);
   }
 
-  const defaultRegistration = registrations[0] as ServiceProviderRegistration;
   return {
     providers: registrations.map(createModelProvider),
     defaultProviderId: defaultRegistration.providerId,

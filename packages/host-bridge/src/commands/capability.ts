@@ -1,6 +1,7 @@
 import type { ActivityEvent, ActivityHostCommandDetails } from "@side-chat/chat-protocol";
 import type { JsonObject } from "@side-chat/shared";
 
+/** A protocol activity narrowed to the host-command payload the bridge can dispatch. */
 export type HostCommandActivityEvent = ActivityEvent & {
   readonly activityKind: "host_command";
   readonly details: {
@@ -8,6 +9,7 @@ export type HostCommandActivityEvent = ActivityEvent & {
   };
 };
 
+/** Command identity and JSON payload delivered to the embedding host. */
 export type HostCommand = {
   readonly assistantTurnId: string;
   readonly commandId: string;
@@ -19,10 +21,10 @@ export type HostCommand = {
  * A command the browser bridge can perform, as advertised by `getCapabilities`.
  *
  * Named to stay distinct from core's manifest `HostCommandCapability`
- * (`@side-chat/partner-ai-core`): both describe the same command by name, but the
- * server side carries `approvalMode` (turn policy) while this browser side carries
- * `resourceTypes` (which resources the bridge can act on). A command must appear
- * on BOTH sides — the server exposes it to the model, the browser performs it.
+ * (`@side-chat/partner-ai-core`): both describe the same command by name, while
+ * this browser shape also carries `resourceTypes` (which resources the bridge
+ * can act on). The core shape records the server's deployment catalog. This
+ * browser shape is sent per turn and is what the runtime exposes to the model.
  */
 export type BrowserHostCommandCapability = {
   readonly commandName: string;
@@ -31,6 +33,12 @@ export type BrowserHostCommandCapability = {
   readonly resourceTypes?: readonly string[] | undefined;
 };
 
+/**
+ * Browser command menu available on the current host surface.
+ *
+ * `schemaVersion` lets the host evolve its declaration shape deliberately;
+ * commands are the exact set the bridge is prepared to dispatch for this read.
+ */
 export type HostCapabilities = {
   readonly schemaVersion: string;
   readonly commands: readonly BrowserHostCommandCapability[];

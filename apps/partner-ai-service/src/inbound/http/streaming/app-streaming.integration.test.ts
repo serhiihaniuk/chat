@@ -14,12 +14,13 @@ import { createPostgresDrizzleSidechatRepositories } from "@side-chat/db";
 import { Effect, Stream } from "effect";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "../app.js";
+import { createDevelopmentPartnerAiServiceApp, type PartnerAiServiceApp } from "../app.js";
 import {
   readTurnStream,
   runTurnStream,
   startRun,
 } from "#testing/turn-stream/turn-stream-harness.test-support";
+import { readJsonResponseObject, requireString } from "#testing/json-response.test-support";
 
 const databaseUrl = process.env["SIDECHAT_TEST_DATABASE_URL"];
 const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
@@ -34,13 +35,14 @@ describe.skipIf(!databaseUrl)("partner ai service streaming over postgres", () =
   });
 
   const createApp = (agentRuntime: AiRuntimePort): PartnerAiServiceApp => {
+    const connectionString = requireDatabaseUrl();
     const repositories = createPostgresDrizzleSidechatRepositories({
-      connectionString: databaseUrl as string,
+      connectionString,
     });
     closers.push(() => repositories.close());
-    return createPartnerAiServiceApp({
+    return createDevelopmentPartnerAiServiceApp({
       repositories,
-      persistence: { kind: "postgres", databaseUrl: databaseUrl as string },
+      persistence: { kind: "postgres", databaseUrl: connectionString },
       agentRuntime,
     });
   };
@@ -91,7 +93,8 @@ describe.skipIf(!databaseUrl)("partner ai service streaming over postgres", () =
     const response = await app.request(`/chat/turns/${started.assistantTurnId}/stream?after=-1`, {
       headers: AUTH_HEADER,
     });
-    const reader = response.body!.getReader();
+    if (!response.body) throw new Error("Expected the stream response to have a body.");
+    const reader = response.body.getReader();
     await reader.read();
     await reader.cancel();
 
@@ -101,11 +104,18 @@ describe.skipIf(!databaseUrl)("partner ai service streaming over postgres", () =
         const status = await app.request(`/chat/turns/${started.assistantTurnId}`, {
           headers: AUTH_HEADER,
         });
-        return ((await status.json()) as { status: string }).status;
+        const body = await readJsonResponseObject(status);
+        return requireString(body["status"], "turn status");
       })
       .toBe("completed");
   });
 });
+
+const requireDatabaseUrl = (): string => {
+  const value = process.env["SIDECHAT_TEST_DATABASE_URL"];
+  if (value) return value;
+  throw new Error("SIDECHAT_TEST_DATABASE_URL is required when the Postgres suite runs.");
+};
 
 let requestCounter = 0;
 const uniqueRequest = (): ChatStreamRequest => {

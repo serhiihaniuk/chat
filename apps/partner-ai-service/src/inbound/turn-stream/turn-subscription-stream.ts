@@ -5,6 +5,8 @@ import { Cause, Duration, Effect, Ref, Schedule, type Scope, Stream } from "effe
 import { recordResumableObservation } from "./turn-observability.js";
 import type { TurnEventDispatcher, TurnEventSubscription } from "./turn-event-dispatcher.js";
 
+const NO_TURN_EVENTS: readonly SidechatStreamEvent[] = [];
+
 export type TurnSubscriptionInput = {
   readonly assistantTurnId: string;
   readonly authContext: AuthContext;
@@ -190,7 +192,7 @@ const readEventsAfter = (
           now: ports.clock.now(),
           errorCode: "persistence_failed",
           attributes: { cause: Cause.pretty(cause).slice(0, 500) },
-        }).pipe(Effect.as([] as readonly SidechatStreamEvent[])),
+        }).pipe(Effect.as(NO_TURN_EVENTS)),
       ),
     );
 

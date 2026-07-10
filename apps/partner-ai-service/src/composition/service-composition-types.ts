@@ -6,7 +6,6 @@ import type {
 } from "@side-chat/agent-runtime";
 import type {
   AiRuntimePort,
-  ApprovalPolicy,
   ConversationTitleGenerationPort,
   HostCommandCapability,
   ObservabilitySinkPort,
@@ -147,7 +146,6 @@ export type RuntimeToolConfig = {
   readonly enableMockWebSearch?: boolean | undefined;
   readonly tools?: readonly ServiceToolRegistration[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
-  readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
   /** Text/reasoning batching window (ms); `0` disables batching. */
   readonly flushIntervalMs?: number | undefined;
 };

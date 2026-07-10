@@ -193,12 +193,29 @@ class TestResizeObserver implements ResizeObserver {
 
   notify(height: number): void {
     if (!this.target) return;
-    this.callback(
-      [{ contentRect: { height } as DOMRectReadOnly, target: this.target } as ResizeObserverEntry],
-      this,
-    );
+    this.callback([createResizeObserverEntry(this.target, height)], this);
   }
 }
+
+const createResizeObserverEntry = (target: Element, height: number): ResizeObserverEntry => ({
+  target,
+  contentRect: createDomRect(height),
+  borderBoxSize: [],
+  contentBoxSize: [],
+  devicePixelContentBoxSize: [],
+});
+
+const createDomRect = (height: number): DOMRectReadOnly => ({
+  x: 0,
+  y: 0,
+  width: 0,
+  height,
+  top: 0,
+  right: 0,
+  bottom: height,
+  left: 0,
+  toJSON: () => ({ height }),
+});
 
 const assignGlobal = (name: string, value: unknown): void => {
   previousGlobals.push([name, Object.getOwnPropertyDescriptor(globalThis, name)]);

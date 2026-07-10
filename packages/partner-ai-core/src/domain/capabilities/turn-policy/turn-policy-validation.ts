@@ -7,7 +7,6 @@ import {
   type TurnPolicyDecision,
   type TurnPolicyValidationResult,
 } from "../contracts/capabilities.js";
-import { approvalRequirementIssues } from "./turn-policy-approval-validation.js";
 import {
   readManifestTurnPolicyReferences,
   unknownManifestCommandMessage,
@@ -25,7 +24,6 @@ export const validateTurnPolicyDecision = (
     ...manifestToolIssues(manifestReferences.toolNames, decision),
     ...manifestCommandIssues(manifestReferences.commandNames, decision),
     ...profileToolIssues(profile, decision),
-    ...approvalRequirementIssues(manifest, decision),
   ];
 
   return issues.length === 0 ? { valid: true, decision } : { valid: false, issues };

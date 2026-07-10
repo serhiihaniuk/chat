@@ -18,16 +18,19 @@ export type {
   WidgetThemeId,
 };
 
+/** Optional host-owned actions exposed through the widget panel chrome. */
 export type SideChatWidgetPanelActions = {
   readonly onClose?: (() => void) | undefined;
 };
 
+/** One starter prompt rendered in the widget's empty conversation state. */
 export type SideChatWidgetQuickAction = {
   readonly id: string;
   readonly label: string;
   readonly prompt: string;
 };
 
+/** Host-facing label and id for a backend-configured turn profile. */
 export type SideChatWidgetTurnProfile = {
   readonly id: string;
   readonly label: string;
@@ -35,8 +38,18 @@ export type SideChatWidgetTurnProfile = {
 
 export type { SideChatWidgetPanelSize };
 
+/**
+ * Public configuration for one embeddable Side Chat instance.
+ *
+ * The host supplies the browser API client and may add page context/commands via
+ * `hostBridge`. Storage keys namespace browser-local shell state; controlled
+ * `open` state and rendering callbacks customize presentation without changing
+ * protocol projection or the server-owned turn lifecycle.
+ */
 export type SideChatWidgetProps = {
+  /** Profiles offered by the host when no backend model catalog drives selection. */
   readonly turnProfiles?: readonly SideChatWidgetTurnProfile[] | undefined;
+  /** Browser repository used for chat streams, recovery, history, and catalog reads. */
   readonly client: SideChatApiClient;
   /**
    * Browser-local namespace for this widget's conversation state and live run.
@@ -48,6 +61,7 @@ export type SideChatWidgetProps = {
    * by their client `baseUrl`.
    */
   readonly conversationStorageKey?: string | undefined;
+  /** Initially selected profile id; falls back to the first supplied profile. */
   readonly defaultTurnProfileId?: string | undefined;
   /**
    * Initial panel state for the widget-owned launcher flow.
@@ -57,10 +71,15 @@ export type SideChatWidgetProps = {
    * open/closed transition.
    */
   readonly defaultOpen?: boolean | undefined;
+  /** Initial floating-panel dimensions before a persisted size is restored. */
   readonly defaultPanelSize?: SideChatWidgetPanelSize | undefined;
+  /** Initial named light theme before a persisted theme is restored. */
   readonly defaultTheme?: WidgetThemeId | undefined;
+  /** Optional page-context and host-command seam supplied by the embedding app. */
   readonly hostBridge?: WidgetHostBridge | undefined;
+  /** Partial replacement for the widget's built-in user-facing copy. */
   readonly labels?: SideChatWidgetLabels | undefined;
+  /** Receives requested open-state changes in controlled and uncontrolled modes. */
   readonly onOpenChange?: ((open: boolean) => void) | undefined;
   /**
    * Controlled panel state supplied by the host embedding surface.
@@ -71,6 +90,7 @@ export type SideChatWidgetProps = {
    */
   readonly open?: boolean | undefined;
   readonly panelActions?: SideChatWidgetPanelActions | undefined;
+  /** Starter prompts shown only before the selected conversation has messages. */
   readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
   /**
    * Whether Side Chat renders its internal closed-state launcher.
@@ -79,10 +99,11 @@ export type SideChatWidgetProps = {
    * owns the button that opens and closes the frame.
    */
   readonly renderClosedLauncher?: boolean | undefined;
-  // Host/server-configured: live thinking opens while streaming only after the
-  // stream emits an activity trace; completed reasoning defaults to collapsed
-  // for "minimal" and expanded for "detailed". Defaults to "minimal". Not a
-  // user-facing setting.
+  /**
+   * Host/server-controlled reasoning presentation, not a user preference.
+   * Defaults to `minimal`; `detailed` expands completed reasoning while live
+   * reasoning still opens only after the stream emits an activity trace.
+   */
   readonly reasoningVisibility?: ReasoningVisibility | undefined;
   /**
    * Custom rendering for one activity item (tool call, host command, reasoning
@@ -97,6 +118,7 @@ export type SideChatWidgetProps = {
    * keep it.
    */
   readonly renderAgentMark?: (() => ReactNode) | undefined;
+  /** Browser-local key for the selected named theme. */
   readonly themeStorageKey?: string | undefined;
   /**
    * Browser-local key under which the resizable panel's size is persisted, so a

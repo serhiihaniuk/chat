@@ -73,7 +73,7 @@ Idempotency is load-bearing in three places that reconnect depends on: the `crea
 
 ## Host bridge contract
 
-The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **browser seam**: host context flows in, host commands flow out. Host commands are browser UI actions the host app performs — **not** backend RuntimeTools. A model-callable backend action needs a separate RuntimeTool with its own manifest, approval policy, and registration.
+The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **browser seam**: host context flows in, host commands flow out. Host commands are browser UI actions the host app performs — **not** backend RuntimeTools. A model-callable backend action needs a separate RuntimeTool, manifest declaration, and service registration.
 
 `createHostBridge(options)` (`bridge/bridge.ts:28`) returns a `HostBridge` of `{getContext, getCapabilities, dispatchCommand}` (:16). The widget consumes a narrowed view of it.
 

@@ -34,7 +34,6 @@ export const TOOLS = {
     },
     EXPOSURE: {
       DEFAULT_MODE: TOOL_DEFAULT_EXPOSURE.ENABLED,
-      APPROVAL_POLICY_IDS: [],
     },
   },
 } as const;

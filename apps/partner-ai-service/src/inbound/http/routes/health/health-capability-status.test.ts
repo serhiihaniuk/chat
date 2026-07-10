@@ -1,10 +1,10 @@
 import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp } from "../../app.js";
+import { createDevelopmentPartnerAiServiceApp } from "../../app.js";
 
 describe("partner ai service capability diagnostics", () => {
   it("reports implemented capabilities explicitly", async () => {
-    const response = await createPartnerAiServiceApp().request("/healthz");
+    const response = await createDevelopmentPartnerAiServiceApp().request("/healthz");
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -44,7 +44,7 @@ describe("partner ai service capability diagnostics", () => {
   });
 
   it("omits secrets and private adapter details from diagnostics", async () => {
-    const response = await createPartnerAiServiceApp({
+    const response = await createDevelopmentPartnerAiServiceApp({
       auth: productionAuth,
       policies: {
         profile: "production",

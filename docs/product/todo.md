@@ -11,6 +11,9 @@ This doc tracks work the system deliberately does not do yet. Each entry names a
 - History summary context, working name `recent_plus_summary`: support long conversations by admitting recent same-conversation messages plus a generated summary of older history. Before reintroducing this as configuration, define the summary generation owner, persistence timing, refresh policy, token budget accounting, health diagnostics, and tests that prove only authorized history can become model-visible context. Shipped history mode is `recent_messages` only ([sidechat.config.ts](../../apps/partner-ai-service/sidechat.config.ts)).
 - Long-term memory and retrieval context: persist durable user, workspace, or project facts and admit retrieved knowledge into model context. Before reintroducing DB schema, capability source types, configuration, or manifests, define the data model, write ownership, retention and deletion policy, tenant/subject authorization, retrieval strategy, redaction and audit behavior, token budgeting, and tests that prove only authorized memory can become model-visible context.
 
-## Known code gaps
+## Release engineering
 
-Known gaps now live in the working plan at [`plan/00-overview.md`](../../plan/00-overview.md), one story per gap with evidence and acceptance criteria — including the `sidechat.blocked` sequence/schema gap (`plan/16`), the streaming affinity and orphan-turn gaps (`plan/02`–`plan/07`), and the fake quick-start boot failure (`plan/11`). Architecture docs mark each gap inline where it bites.
+- CI is adopter-owned. Before an alpha tag, wire the repository's `npm run verify` command into the chosen CI service so the local and remote quality gates are identical.
+- Add the intended open-source license before publishing the starter outside the owning organization.
+
+The working [`plan/`](../../plan/00-overview.md) folder is implementation history and planning material, not the source of truth for shipped behavior. Canonical architecture and operations docs must describe the current code directly.

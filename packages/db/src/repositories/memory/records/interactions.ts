@@ -30,9 +30,7 @@ export const recordMemoryToolInvocation = async (
   const tool: ToolInvocationRecord = omitUndefinedProperties({
     workspaceId: command.workspaceId,
     toolInvocationId:
-      existingIndex >= 0
-        ? store.toolInvocations[existingIndex]!.toolInvocationId
-        : ids.next("tool_invocation"),
+      store.toolInvocations[existingIndex]?.toolInvocationId ?? ids.next("tool_invocation"),
     assistantTurnId: command.assistantTurnId,
     runtimeStepIndex: command.runtimeStepIndex,
     toolCallId: command.toolCallId,
@@ -67,9 +65,7 @@ export const recordMemoryHostCommandResult = async (
   const hostCommand: HostCommandResultRecord = omitUndefinedProperties({
     workspaceId: command.workspaceId,
     hostCommandId:
-      existingIndex >= 0
-        ? store.hostCommandResults[existingIndex]!.hostCommandId
-        : ids.next("host_command"),
+      store.hostCommandResults[existingIndex]?.hostCommandId ?? ids.next("host_command"),
     assistantTurnId: command.assistantTurnId,
     commandId: command.commandId,
     commandType: command.commandType,

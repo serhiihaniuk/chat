@@ -15,7 +15,6 @@ const INPUT: ConfiguredToolInput = {
   description: "A configured tool.",
   label: "Configured tool",
   defaultEnabled: true,
-  approvalPolicyIds: [],
 };
 
 describe("tool registrations", () => {
@@ -48,7 +47,6 @@ describe("tool registrations", () => {
           run: (toolInput) => Promise.resolve({ received: toolInput }),
         }),
         defaultEnabled: input.defaultEnabled,
-        approvalPolicyIds: input.approvalPolicyIds,
         label: input.label,
       });
     const registry: Record<string, ToolRegistrationFactory> = {

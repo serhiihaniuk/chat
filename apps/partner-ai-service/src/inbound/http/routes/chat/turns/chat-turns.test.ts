@@ -14,7 +14,8 @@ import { createMemorySidechatRepositories, type MemorySidechatRepositories } fro
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../app.js";
+import { createDevelopmentPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../app.js";
+import { readJsonResponseObject, requireString } from "#testing/json-response.test-support";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   readTurnStream,
@@ -81,7 +82,8 @@ describe("GET /chat/turns/:assistantTurnId/stream", () => {
       `/chat/turns/${started.assistantTurnId}/stream?after=-1`,
       { headers: AUTH_HEADER, signal: abort.signal },
     );
-    const reader = streamResponse.body!.getReader();
+    if (!streamResponse.body) throw new Error("Expected the turn stream to have a body.");
+    const reader = streamResponse.body.getReader();
     await reader.read();
     await reader.cancel();
     abort.abort();
@@ -148,7 +150,7 @@ describe("GET /chat/turns/:assistantTurnId/stream", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       code: "bad_request",
-      message: expect.stringContaining('"after"') as string,
+      message: expect.stringContaining('"after"'),
     });
   });
 });
@@ -262,7 +264,7 @@ const createApp = (
   const repositories = options.repositories ?? createMemorySidechatRepositories();
   return {
     repositories,
-    app: createPartnerAiServiceApp({
+    app: createDevelopmentPartnerAiServiceApp({
       repositories,
       resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
       agentRuntime: options.agentRuntime ?? completedRuntime(),
@@ -343,7 +345,8 @@ const waitForCompletedTurn = async (
       const response = await app.request(`/chat/turns/${assistantTurnId}`, {
         headers: AUTH_HEADER,
       });
-      return ((await response.json()) as { status: string }).status;
+      const body = await readJsonResponseObject(response);
+      return requireString(body["status"], "turn status");
     })
     .toBe("completed");
 };

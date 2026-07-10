@@ -13,6 +13,14 @@ import {
   type HostContextRequest,
 } from "#context/host-context";
 
+/**
+ * Browser seam between Side Chat and the page that embeds it.
+ *
+ * Context enters the turn through `getContext`; model-requested host commands
+ * leave through `dispatchCommand`. Capabilities and dispatch share one source so
+ * the widget never advertises a command that the same bridge would reject merely
+ * because two catalogs drifted apart.
+ */
 export type HostBridge = {
   readonly getContext: (request: HostContextRequest) => Promise<HostContext>;
   readonly getCapabilities: () => Promise<HostCapabilities>;
@@ -29,12 +37,21 @@ export type HostBridge = {
 export type WidgetHostBridge = Pick<HostBridge, "getContext" | "dispatchCommand"> &
   Partial<Pick<HostBridge, "getCapabilities">>;
 
+/** Concrete host implementations bound into a {@link HostBridge}. */
 export type HostBridgeOptions = {
   readonly contextProvider: HostContextProvider;
   readonly dispatcher: HostCommandDispatcher;
   readonly capabilities: HostCapabilities;
 };
 
+/**
+ * Bind host context, command capabilities, and dispatch into one widget bridge.
+ *
+ * The bridge converts the richer host snapshot to browser-safe protocol context
+ * on every request. Dispatcher exceptions become failed command results; context
+ * or capability-provider failures remain rejected promises for the widget to
+ * surface as host integration failures.
+ */
 export const createHostBridge = (options: HostBridgeOptions): HostBridge => {
   // Advertising and gating must read the SAME capability source: if dispatch
   // gated against the static `options.capabilities` while `getCapabilities`

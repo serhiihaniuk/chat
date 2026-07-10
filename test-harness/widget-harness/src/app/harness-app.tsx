@@ -1,6 +1,7 @@
 import { createElement, useEffect, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 
+import { isRecord } from "@side-chat/chat-protocol";
 import { SideChatWidget, type SideChatWidgetProps } from "@side-chat/side-chat-widget";
 
 import { createHarnessHostBridge, createHarnessHostContext } from "#host/fake-host-bridge";
@@ -106,9 +107,8 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
 };
 
 const isSetOpenMessage = (message: unknown): message is WidgetHarnessSetOpenMessage => {
-  if (typeof message !== "object" || message === null) return false;
-  const candidate = message as { readonly open?: unknown; readonly type?: unknown };
-  return candidate.type === SET_OPEN_MESSAGE_TYPE && typeof candidate.open === "boolean";
+  if (!isRecord(message)) return false;
+  return message["type"] === SET_OPEN_MESSAGE_TYPE && typeof message["open"] === "boolean";
 };
 
 const createWidgetHarnessProps = (

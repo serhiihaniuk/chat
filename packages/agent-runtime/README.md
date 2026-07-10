@@ -20,7 +20,7 @@ browser protocol.
 
 ## Does Not Own
 
-- Product authorization, approval policy, or host-command dispatch.
+- Product authorization or policy, or host-command dispatch.
 - Runtime request, event, stream, and error contracts owned by
   `@side-chat/ai-runtime-contract`.
 - Context gathering, redaction, manifests, or database writes.

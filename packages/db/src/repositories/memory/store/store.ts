@@ -81,7 +81,13 @@ export const updateTurn = (
       "Assistant turn does not exist in the requested workspace.",
     );
   }
-  const current = store.assistantTurns[index]!;
+  const current = store.assistantTurns[index];
+  if (!current) {
+    throw new DbRepositoryError(
+      "record_not_found",
+      "Assistant turn does not exist in the requested workspace.",
+    );
+  }
   if (current.status !== "running") {
     throw new DbRepositoryError(
       "invalid_transition",

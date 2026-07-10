@@ -1,4 +1,4 @@
-import { isRecord } from "@side-chat/shared";
+import { parseJsonRecord } from "@side-chat/shared";
 
 /**
  * Lightweight pointer to a live run, persisted so a full reload can recover it.
@@ -65,17 +65,13 @@ export const clearActiveRunMarker = (conversationStorageKey: string | undefined)
 };
 
 const parseMarker = (raw: string): WidgetActiveRunMarker | undefined => {
-  try {
-    const value: unknown = JSON.parse(raw);
-    if (!isRecord(value) || typeof value["requestId"] !== "string") return undefined;
-    return {
-      requestId: value["requestId"],
-      assistantTurnId: optionalString(value["assistantTurnId"]),
-      conversationId: optionalString(value["conversationId"]),
-    };
-  } catch {
-    return undefined;
-  }
+  const value = parseJsonRecord(raw);
+  if (!value || typeof value["requestId"] !== "string") return undefined;
+  return {
+    requestId: value["requestId"],
+    assistantTurnId: optionalString(value["assistantTurnId"]),
+    conversationId: optionalString(value["conversationId"]),
+  };
 };
 
 const optionalString = (value: unknown): string | undefined =>

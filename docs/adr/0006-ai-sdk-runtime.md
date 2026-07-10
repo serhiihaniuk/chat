@@ -98,6 +98,5 @@ nothing forces it today.
 Product logic never sees a provider type, and providers swap via config. The
 costs are owned: the SDK version is pinned exactly, stream parts the mapper
 does not recognize are dropped, so **every SDK upgrade requires a mapping
-review** (an ignore-set with a log-once backstop is `plan/18`); and the SDK's
-tool-loop defaults (step cap) must be surfaced, not trusted invisibly
-(`plan/22`).
+review** with the ignored-part diagnostics checked; and the SDK's tool-loop
+step cap remains an explicit runtime setting rather than an invisible default.

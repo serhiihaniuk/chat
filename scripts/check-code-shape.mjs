@@ -10,7 +10,37 @@ const MAX_PRODUCTION_FUNCTIONS_PER_FILE = 28;
 const MAX_SOURCE_FILES_PER_DIRECTORY = 5;
 const MAX_NESTED_FUNCTIONS = 8;
 const COPIED_SHARED_AI_PREFIX = "packages/side-chat-widget/src/shared/ai/";
+// The docs app entered the gate after these compound components already
+// existed. Exact current ceilings keep them visible and prevent further growth
+// without pretending that a broad exemption is a readability rule.
+const nestedFunctionBudgetExceptions = new Map([
+  ["apps/docs/app/components/design-controls.tsx:DesignControlsProvider", 18],
+  ["apps/docs/app/components/design-controls.tsx:anonymous function", 13],
+  ["apps/docs/app/components/design-controls.tsx:ThemeComposer", 18],
+  ["apps/docs/app/components/term.tsx:Term", 10],
+  ["apps/docs/app/components/turn-explorer.tsx:TurnExplorer", 17],
+  ["apps/docs/app/components/turn-trace.tsx:TurnTrace", 12],
+]);
+const functionCountBudgetExceptions = new Map([
+  ["apps/docs/app/components/design-controls.tsx", 75],
+]);
 const directoryBudgetExceptions = new Map([
+  [
+    "apps/docs/app/components",
+    {
+      maxFiles: 12,
+      reason:
+        "the contributor site component catalog is already flat; this exact ceiling prevents further growth while component-group extraction is evaluated",
+    },
+  ],
+  [
+    "apps/docs/app/components/demos",
+    {
+      maxFiles: 28,
+      reason:
+        "one demo per documented surface keeps examples directly discoverable; this exact ceiling prevents unrelated helpers from accumulating in the catalog",
+    },
+  ],
   [
     "packages/side-chat-widget/src/shared/ui",
     {
@@ -141,7 +171,10 @@ validateDirectoryFileBudgets(sourceFiles);
 failIfErrors(errors);
 
 function isWorkspaceSourceFile(file) {
-  return /^(?:apps|packages|test-harness)\//u.test(file) && file.includes("/src/");
+  return (
+    (/^(?:apps|packages|test-harness)\//u.test(file) && file.includes("/src/")) ||
+    file.startsWith("apps/docs/app/")
+  );
 }
 
 function isAnalyzableSourceFile(file) {
@@ -177,9 +210,12 @@ function validateFunctionShape(file, sourceFile) {
     }
 
     const nestedFunctions = nestedFunctionCount(node);
-    if (!isTestLikeFile(file) && nestedFunctions > MAX_NESTED_FUNCTIONS) {
+    const name = functionName(node);
+    const nestedFunctionLimit =
+      nestedFunctionBudgetExceptions.get(`${file}:${name}`) ?? MAX_NESTED_FUNCTIONS;
+    if (!isTestLikeFile(file) && nestedFunctions > nestedFunctionLimit) {
       errors.push(
-        `${file}:${lineOf(sourceFile, node)}: ${functionName(node)} contains ${nestedFunctions} nested functions (max ${MAX_NESTED_FUNCTIONS}).\n` +
+        `${file}:${lineOf(sourceFile, node)}: ${name} contains ${nestedFunctions} nested functions (max ${nestedFunctionLimit}).\n` +
           "  Refactor prompt: move nested closures into module-level helpers or smaller factory modules so collaborators can scan responsibilities top-down without opening one everything-bag function.",
       );
     }
@@ -190,10 +226,12 @@ function validateFileResponsibilityBudget(file, sourceFile) {
   if (isTestLikeFile(file)) return;
 
   const count = functionLikeNodes(sourceFile).length;
-  if (count <= MAX_PRODUCTION_FUNCTIONS_PER_FILE) return;
+  const functionLimit =
+    functionCountBudgetExceptions.get(file) ?? MAX_PRODUCTION_FUNCTIONS_PER_FILE;
+  if (count <= functionLimit) return;
 
   errors.push(
-    `${file}: production source file declares ${count} function-like blocks (max ${MAX_PRODUCTION_FUNCTIONS_PER_FILE}).\n` +
+    `${file}: production source file declares ${count} function-like blocks (max ${functionLimit}).\n` +
       "  Refactor prompt: split the file by domain responsibility, prefer deep modules with small public surfaces, and move test-only builders to src/testing/** instead of adding more helpers here.",
   );
 }

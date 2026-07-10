@@ -36,5 +36,9 @@ const buildTitleMessageWhere = (conversation: ConversationRecord): SQL => {
   if (conversation.historyCutoffSequenceIndex !== undefined) {
     clauses.push(gt(messages.sequenceIndex, conversation.historyCutoffSequenceIndex));
   }
-  return and(...clauses)!;
+  const where = and(...clauses);
+  if (!where) {
+    throw new Error("Conversation title queries must always keep their identity constraints.");
+  }
+  return where;
 };

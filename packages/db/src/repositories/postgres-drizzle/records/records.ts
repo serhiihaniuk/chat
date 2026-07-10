@@ -33,7 +33,7 @@ export const toConversationRecord = (
   workspaceId: row.workspaceId,
   subjectId: row.subjectId,
   conversationKey: row.conversationKey,
-  status: row.status as ConversationRecord["status"],
+  status: row.status,
   ...omitNullishField("titleText", row.titleText),
   createdByActorId: row.createdByActorId,
   ...omitNullishField("historyCutoffSequenceIndex", row.historyCutoffSequenceIndex),
@@ -46,7 +46,7 @@ export const toMessageRecord = (row: typeof messages.$inferSelect): MessageRecor
   messageId: row.messageId,
   conversationId: row.conversationId,
   workspaceId: row.workspaceId,
-  role: row.role as MessageRecord["role"],
+  role: row.role,
   contentText: row.contentText,
   metadataJson: row.metadataJson,
   sequenceIndex: row.sequenceIndex,
@@ -72,7 +72,7 @@ export const toAssistantTurnRecord = (
   toolRegistryVersion: row.toolRegistryVersion,
   modelProvider: row.modelProvider,
   modelId: row.modelId,
-  status: row.status as AssistantTurnRecord["status"],
+  status: row.status,
   ...omitNullishField("finishReason", row.finishReason),
   ...omitNullishField("errorCode", row.errorCode),
   startedAt: isoTimestamp(row.startedAt),
@@ -153,7 +153,7 @@ export const toToolInvocationRecord = (
   runtimeStepIndex: row.runtimeStepIndex,
   toolCallId: row.toolCallId,
   toolName: row.toolName,
-  status: row.status as ToolInvocationRecord["status"],
+  status: row.status,
   inputHash: row.inputHash,
   ...omitNullishField("outputHash", row.outputHash),
   inputRedactedJson: row.inputRedactedJson,
@@ -174,7 +174,7 @@ export const toHostCommandResultRecord = (
   commandId: row.commandId,
   commandType: row.commandType,
   ...omitNullishField("resourceId", row.resourceId),
-  status: row.status as HostCommandResultRecord["status"],
+  status: row.status,
   resultCode: row.resultCode,
   commandRedactedJson: row.commandRedactedJson,
   ...omitNullishField("resultRedactedJson", row.resultRedactedJson),
@@ -280,5 +280,9 @@ export const buildHistoryWhere = (
     clauses.push(lt(messages.sequenceIndex, beforeSequenceIndex));
   }
 
-  return and(...clauses)!;
+  const where = and(...clauses);
+  if (!where) {
+    throw new Error("History queries must always keep workspace and conversation constraints.");
+  }
+  return where;
 };

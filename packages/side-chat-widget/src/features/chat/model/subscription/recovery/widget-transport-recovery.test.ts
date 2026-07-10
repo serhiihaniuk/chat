@@ -186,8 +186,8 @@ describe("consumeTurnStreamWithRecovery", () => {
   it("degrades to status polling when retries exhaust, and takes the server's terminal", async () => {
     // Every subscribe attempt drops immediately; the server eventually reports
     // completed — only ITS verdict ends the run, not a local fake-FAILED.
-    const alwaysDropping = Array.from({ length: 8 }, () => ({
-      events: [] as readonly SidechatStreamEvent[],
+    const alwaysDropping: readonly ScriptedAttempt[] = Array.from({ length: 8 }, () => ({
+      events: [],
       thenThrow: dropped(),
     }));
     const harness = buildClient(alwaysDropping, ["running", "completed"]);

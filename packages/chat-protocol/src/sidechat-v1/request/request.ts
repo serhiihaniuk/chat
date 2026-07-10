@@ -114,8 +114,6 @@ const MESSAGE_FIELDS = ["id", "content"] as const;
 const MODEL_FIELDS = ["providerId", "modelId", "reasoningEffort"] as const;
 const HOST_CONTEXT_FIELDS = ["schemaVersion", "origin", "url", "title", "metadata"] as const;
 const HOST_COMMAND_FIELDS = ["commandName", "description", "inputSchema"] as const;
-const reasoningEfforts = new Set<string>(Object.values(CHAT_REASONING_EFFORTS));
-
 /**
  * Validate the browser request for a new assistant turn.
  *
@@ -182,8 +180,17 @@ const readOptionalReasoningEffort = (
 ): ChatReasoningEffort | undefined => {
   const value = readOptionalString(input, "reasoningEffort", "request.model");
   if (value === undefined) return undefined;
-  if (reasoningEfforts.has(value)) return value as ChatReasoningEffort;
-  throw new Error("request.model.reasoningEffort is not supported");
+  switch (value) {
+    case CHAT_REASONING_EFFORTS.NONE:
+    case CHAT_REASONING_EFFORTS.MINIMAL:
+    case CHAT_REASONING_EFFORTS.LOW:
+    case CHAT_REASONING_EFFORTS.MEDIUM:
+    case CHAT_REASONING_EFFORTS.HIGH:
+    case CHAT_REASONING_EFFORTS.XHIGH:
+      return value;
+    default:
+      throw new Error("request.model.reasoningEffort is not supported");
+  }
 };
 
 const readOptionalConversationId = (input: Record<string, unknown>): ConversationId | undefined => {

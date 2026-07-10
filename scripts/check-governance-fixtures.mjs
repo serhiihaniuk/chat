@@ -13,17 +13,55 @@ import {
 const scriptDirectory = fileURLToPath(new URL(".", import.meta.url));
 const errors = [];
 
-function expectFailure(name, script, setup) {
+function expectFailure(name, script, setup, expectedText) {
   const fixtureRoot = makeFixtureRoot();
   try {
     setup(fixtureRoot);
     const result = runNodeScript(join(scriptDirectory, script), fixtureRoot);
     if (result.status === 0) {
       errors.push(`${name}: ${script} unexpectedly passed`);
+    } else if (
+      expectedText !== undefined &&
+      !`${result.stdout ?? ""}\n${result.stderr ?? ""}`.includes(expectedText)
+    ) {
+      errors.push(`${name}: ${script} failed without the expected message "${expectedText}"`);
     }
   } finally {
     removeFixtureRoot(fixtureRoot);
   }
+}
+
+function expectSuccess(name, script, setup) {
+  const fixtureRoot = makeFixtureRoot();
+  try {
+    setup(fixtureRoot);
+    const result = runNodeScript(join(scriptDirectory, script), fixtureRoot);
+    if (result.status !== 0) {
+      errors.push(
+        `${name}: ${script} unexpectedly failed\n${result.stdout ?? ""}\n${result.stderr ?? ""}`,
+      );
+    }
+  } finally {
+    removeFixtureRoot(fixtureRoot);
+  }
+}
+
+function writeStrictTsconfig(root) {
+  writeJson(join(root, "tsconfig.base.json"), {
+    compilerOptions: {
+      strict: true,
+      exactOptionalPropertyTypes: true,
+      noUncheckedIndexedAccess: true,
+      noImplicitOverride: true,
+      noImplicitReturns: true,
+      noFallthroughCasesInSwitch: true,
+      noPropertyAccessFromIndexSignature: true,
+      useUnknownInCatchVariables: true,
+      isolatedModules: true,
+      verbatimModuleSyntax: true,
+      skipLibCheck: true,
+    },
+  });
 }
 
 expectFailure("hard runtime pin fixture", "check-version-pins.mjs", (root) => {
@@ -149,6 +187,23 @@ expectFailure("human readability dense doc fixture", "check-human-readability.mj
   );
 });
 
+expectFailure(
+  "high-load source orientation fixture",
+  "check-human-readability.mjs",
+  (root) => {
+    const helpers = Array.from(
+      { length: 12 },
+      (_, index) => `const helper${index} = () => ${index};`,
+    );
+    writeFixtureFile(
+      root,
+      "apps/docs/app/dense.ts",
+      [...helpers, ...Array.from({ length: 394 }, () => "// padding"), "export {};", ""].join("\n"),
+    );
+  },
+  "needs a file-level mental-model comment",
+);
+
 expectFailure("flat source directory fixture", "check-code-shape.mjs", (root) => {
   for (let index = 1; index <= 13; index += 1) {
     writeFixtureFile(
@@ -164,27 +219,175 @@ expectFailure("build artifact fixture", "check-source-governance.mjs", (root) =>
 });
 
 expectFailure("typescript escape fixture", "check-source-governance.mjs", (root) => {
-  writeJson(join(root, "tsconfig.base.json"), {
-    compilerOptions: {
-      strict: true,
-      exactOptionalPropertyTypes: true,
-      noUncheckedIndexedAccess: true,
-      noImplicitOverride: true,
-      noImplicitReturns: true,
-      noFallthroughCasesInSwitch: true,
-      noPropertyAccessFromIndexSignature: true,
-      useUnknownInCatchVariables: true,
-      isolatedModules: true,
-      verbatimModuleSyntax: true,
-      skipLibCheck: true,
-    },
-  });
+  writeStrictTsconfig(root);
   writeFixtureFile(
     root,
     "packages/chat-protocol/src/bad.ts",
     "const value = 1 as unknown as string;\nexport { value };\n",
   );
 });
+
+expectFailure(
+  "type assertion fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/bad.ts",
+      [
+        "const input: unknown = 'value';",
+        "export const asserted = input as string;",
+        "export const nonNull = [input][0]!;",
+        "",
+      ].join("\n"),
+    );
+  },
+  'TypeScript escape hatch is forbidden: type assertion "as string"',
+);
+
+expectFailure(
+  "angle-bracket assertion fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/bad.ts",
+      "const input: unknown = 'value';\nexport const asserted = <string>input;\n",
+    );
+  },
+  'TypeScript escape hatch is forbidden: angle-bracket type assertion "<string>"',
+);
+
+expectFailure(
+  "non-null assertion fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/bad.ts",
+      "const input: unknown[] = [];\nexport const asserted = input[0]!;\n",
+    );
+  },
+  'TypeScript escape hatch is forbidden: non-null assertion "!"',
+);
+
+expectFailure(
+  "definite-assignment assertion fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/bad.ts",
+      "let resolve!: () => void;\nexport { resolve };\n",
+    );
+  },
+  'TypeScript escape hatch is forbidden: definite-assignment assertion "!"',
+);
+
+expectFailure(
+  "TypeScript ignore directive fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/bad.ts",
+      "// @ts-ignore\nexport const value: string = 1;\n",
+    );
+  },
+  'TypeScript suppression "@ts-ignore" is forbidden',
+);
+
+expectFailure(
+  "unexplained expect-error fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/bad.test.ts",
+      "// @ts-expect-error\nexport const value: string = 1;\n",
+    );
+  },
+  '"@ts-expect-error" requires a reason',
+);
+
+expectFailure(
+  "test assertion fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/assertion.test.ts",
+      "const input: unknown = 'value';\nexport const asserted = input as string;\n",
+    );
+  },
+  'TypeScript escape hatch is forbidden: type assertion "as string"',
+);
+
+expectFailure(
+  "test-support assertion fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/assertion.test-support.ts",
+      "const input: unknown = 'value';\nexport const asserted = input as string;\n",
+    );
+  },
+  'TypeScript escape hatch is forbidden: type assertion "as string"',
+);
+
+expectFailure(
+  "copied UI assertion fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/side-chat-widget/src/shared/ai/assertion.tsx",
+      "const input: unknown = 'value';\nexport const asserted = input as string;\n",
+    );
+  },
+  'TypeScript escape hatch is forbidden: type assertion "as string"',
+);
+
+expectFailure(
+  "explicit any fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/explicit-any.ts",
+      "export const readValue = (value: any): any => value;\n",
+    );
+  },
+  'TypeScript escape hatch is forbidden: explicit "any" type',
+);
+
+expectSuccess(
+  "inference-preserving TypeScript operators fixture",
+  "check-source-governance.mjs",
+  (root) => {
+    writeStrictTsconfig(root);
+    writeFixtureFile(
+      root,
+      "packages/chat-protocol/src/good.ts",
+      [
+        "const VALUES = { READY: 'ready' } as const;",
+        "export const config = { value: VALUES.READY } satisfies { readonly value: string };",
+        "",
+      ].join("\n"),
+    );
+  },
+);
 
 expectFailure("outbound fetch fixture", "check-outbound-rules.mjs", (root) => {
   writeFixtureFile(

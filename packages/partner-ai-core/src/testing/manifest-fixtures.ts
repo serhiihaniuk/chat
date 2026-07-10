@@ -20,8 +20,6 @@ export const createManifest = (
     turnProfiles: [analyst],
     tools: [createTool("mock_web_search")],
     commands: [createHostCommand("open_record")],
-    approvalPolicies: [createApprovalPolicy("host_commands_require_review", ["open_record"])],
-    activityRenderers: [{ rendererId: "tool_row", activityKind: "tool" }],
     ...overrides,
   };
 };
@@ -59,11 +57,4 @@ const createHostCommand = (commandName: string) => ({
   commandName,
   description: "Open a host app record for the user.",
   inputSchema: { type: "object" },
-  approvalMode: "on_request" as const,
-});
-
-const createApprovalPolicy = (policyId: string, capabilityNames: readonly string[]) => ({
-  policyId,
-  mode: "on_request" as const,
-  capabilityNames,
 });

@@ -7,7 +7,13 @@ import type { ObservabilityRecord } from "@side-chat/partner-ai-core";
 import { createMemorySidechatRepositories } from "@side-chat/db";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "./app.js";
+import { createDevelopmentPartnerAiServiceApp, type PartnerAiServiceApp } from "./app.js";
+import {
+  readJsonResponseObject,
+  requireJsonArray,
+  requireJsonObject,
+  requireString,
+} from "#testing/json-response.test-support";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   runTurnStream,
@@ -28,9 +34,9 @@ const authHeaders = { authorization: "Bearer local-test-token" } as const;
 const jsonHeaders = { ...authHeaders, "content-type": "application/json" } as const;
 
 const createApp = (
-  options: Parameters<typeof createPartnerAiServiceApp>[0] = {},
+  options: Parameters<typeof createDevelopmentPartnerAiServiceApp>[0] = {},
 ): PartnerAiServiceApp =>
-  createPartnerAiServiceApp({
+  createDevelopmentPartnerAiServiceApp({
     resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
     ...options,
   });
@@ -227,7 +233,7 @@ describe("partner ai service streaming path", () => {
 
   it("refuses production boot without a real authority adapter", () => {
     expect(() =>
-      createPartnerAiServiceApp({
+      createDevelopmentPartnerAiServiceApp({
         persistence: productionPersistence,
         auth: {
           profile: "production",
@@ -239,7 +245,7 @@ describe("partner ai service streaming path", () => {
 
   it("keeps static dev auth out of the production profile", () => {
     expect(() =>
-      createPartnerAiServiceApp({
+      createDevelopmentPartnerAiServiceApp({
         persistence: productionPersistence,
         auth: {
           profile: "production",
@@ -277,7 +283,7 @@ describe("partner ai service streaming path", () => {
 
   it("refuses production allow-all policy configuration", () => {
     expect(() =>
-      createPartnerAiServiceApp({
+      createDevelopmentPartnerAiServiceApp({
         persistence: productionPersistence,
         auth: {
           profile: "production",
@@ -349,10 +355,14 @@ const readConversationTitle = async (
   conversationId: string,
 ): Promise<string | undefined> => {
   const response = await app.request("/chat/conversations?limit=10", { headers: authHeaders });
-  const body = (await response.json()) as {
-    readonly conversations: readonly { readonly conversationId: string; readonly title: string }[];
-  };
-  return body.conversations.find((entry) => entry.conversationId === conversationId)?.title;
+  const body = await readJsonResponseObject(response);
+  const conversations = requireJsonArray(body["conversations"], "conversations");
+  for (const [index, value] of conversations.entries()) {
+    const entry = requireJsonObject(value, `conversation ${index}`);
+    if (entry["conversationId"] !== conversationId) continue;
+    return requireString(entry["title"], `conversation ${index} title`);
+  }
+  return undefined;
 };
 
 const productionPersistence = {

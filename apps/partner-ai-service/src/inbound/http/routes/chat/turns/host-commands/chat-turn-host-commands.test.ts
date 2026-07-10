@@ -2,7 +2,7 @@ import { SIDECHAT_PROTOCOL_VERSION, type ChatStreamRequest } from "@side-chat/ch
 import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
 
-import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../../app.js";
+import { createDevelopmentPartnerAiServiceApp, type PartnerAiServiceApp } from "../../../../app.js";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   runTurnStream,
@@ -24,7 +24,7 @@ type Harness = {
 
 const createApp = (repositories = createMemorySidechatRepositories()): Harness => ({
   repositories,
-  app: createPartnerAiServiceApp({
+  app: createDevelopmentPartnerAiServiceApp({
     repositories,
     resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
   }),
@@ -69,18 +69,17 @@ describe("POST /chat/turns/:assistantTurnId/host-commands/:commandId/result rela
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ settled: true });
-    await expect(
-      harness.repositories.findHostCommandResult({
-        workspaceId: "workspace_local",
-        assistantTurnId,
-        commandId: "cmd_1",
-      }),
-    ).resolves.toMatchObject({
+    const storedResult = await harness.repositories.findHostCommandResult({
+      workspaceId: "workspace_local",
+      assistantTurnId,
+      commandId: "cmd_1",
+    });
+    expect(storedResult).toMatchObject({
       status: "applied",
       resultCode: "opened",
       resultRedactedJson: { status: "applied", resultCode: "opened", data: { ok: true } },
-      resolvedAt: expect.any(String) as string,
     });
+    expect(typeof storedResult?.resolvedAt).toBe("string");
   });
 
   it("rejects a commandId that was never emitted for the turn", async () => {

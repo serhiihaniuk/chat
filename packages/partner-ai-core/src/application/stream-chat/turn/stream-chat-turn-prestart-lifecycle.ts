@@ -2,7 +2,6 @@ import { Effect } from "effect";
 import { assertWorkspaceAuthority, type AuthContext } from "#domain/authority";
 import type { PreparedTurnContext } from "#domain/capabilities-contract";
 import {
-  PARTNER_AI_CORE_ERROR_CODES,
   STREAM_CHAT_FAILURES,
   mapAuthorityDenialToError,
   mapPortFailure,
@@ -18,9 +17,21 @@ import type {
   StreamChatPorts,
 } from "../stream-chat-types.js";
 import type { ResolvedTurnPlan } from "./turn-policy-plan.js";
+import { failStartedTurnOnError } from "./started-turn-failure.js";
 
+/**
+ * Named pre-start stages used by `prepareStreamChatTurn`.
+ *
+ * These helpers prove authority and policy, create the durable conversation,
+ * message, and turn records, prepare context, and record server observability.
+ * They neither open the runtime stream nor emit browser protocol events; those
+ * responsibilities begin only after this lifecycle returns a prepared turn.
+ */
+
+/** Request-level timing and correlation captured before durable setup starts. */
 export type StreamChatRequestScope = {
   readonly correlation: RequestCorrelation;
+  /** Server receipt time used for end-to-end latency, not `sidechat.started` time. */
   readonly startedAt: string;
 };
 
@@ -222,6 +233,9 @@ export const recordStartedStreamTurn = (
   assistantTurn: AssistantTurnRef,
   preparedContext: PreparedTurnContext,
 ): Effect.Effect<void, PartnerAiCoreErrorType> =>
+  // This is the server-side "prepared and ready" observation. The protocol
+  // stream emits `sidechat.started` later, after preparation returns and before
+  // the runtime stream is drained.
   recordStreamObservationEffect(ports.observability, {
     correlation: requestScope.correlation,
     lifecycleState: "started",
@@ -254,39 +268,3 @@ export const toPreparedStreamChatTurn = (input: PreparedTurnInput): PreparedStre
   turnGuardDecisions: input.turnGuardDecisions,
   preparedContext: input.preparedContext,
 });
-
-const failStartedTurnOnError = <A>(
-  ports: StreamChatPorts,
-  authContext: AuthContext,
-  assistantTurnId: string,
-  effect: Effect.Effect<A, PartnerAiCoreErrorType>,
-): Effect.Effect<A, PartnerAiCoreErrorType> =>
-  effect.pipe(
-    Effect.catch((error: PartnerAiCoreErrorType) =>
-      Effect.gen(function* () {
-        // Mark the started turn failed, then re-raise the original error unchanged.
-        yield* markStartedTurnFailed(ports, authContext, assistantTurnId, error);
-        return yield* Effect.fail(error);
-      }),
-    ),
-  );
-
-const markStartedTurnFailed = (
-  ports: StreamChatPorts,
-  authContext: AuthContext,
-  assistantTurnId: string,
-  error: PartnerAiCoreErrorType,
-): Effect.Effect<void, PartnerAiCoreErrorType> =>
-  mapPortFailure(
-    ports.assistantTurns.failAssistantTurn({
-      authContext,
-      assistantTurnId,
-      status:
-        error.code === PARTNER_AI_CORE_ERROR_CODES.PERSISTENCE_FAILED
-          ? "persistence_failed"
-          : "provider_failed",
-      errorCode: error.protocolCode,
-      now: ports.clock.now(),
-    }),
-    STREAM_CHAT_FAILURES.PERSISTENCE,
-  );

@@ -76,7 +76,7 @@ export const createProtocolStreamRefs = (
  * stream into the turn event log, and finalizes against the same accumulator in
  * its `onExit`. From this point on runtime failures become terminal protocol
  * events, so the SSE contract stays stable: after `sidechat.started`, a consumer
- * sees exactly one `sidechat.completed` or `sidechat.error`. The stream is
+ * sees exactly one `sidechat.completed`, `sidechat.error`, or `sidechat.blocked`. The stream is
  * finalization-free on purpose: durable turn-status finalization belongs to the
  * runner's `onExit`, never a stream-tail segment.
  */

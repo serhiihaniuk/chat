@@ -32,7 +32,8 @@ fiber: a handle you can await, interrupt, or track. That is how a turn outlives
 its HTTP request — `POST /chat/runs` forks generation into a `FiberMap` keyed
 by `assistantTurnId` (`turn-runner.ts`), and cancel later finds exactly that
 fiber. The discipline: a fiber nobody observes fails silently, so every fork
-needs a supervisor, a join, or an exit log (`plan/27`).
+needs a supervisor, a join, or an exit log. The turn runner observes detached
+generation fibers and reports non-interrupt exits.
 
 **4. Interruption is real cancellation.** Interrupting a fiber stops it _and_
 runs its finalizers, cascading through everything it started. The repo's cancel
@@ -77,8 +78,8 @@ Effect.sync(() => console.log(x)); // run a synchronous function
 Effect.tryPromise(() => fetch(url)); // run a promise; rejection = typed failure
 ```
 
-A telemetry sink is one `Effect.sync`. A tool is one `Effect.tryPromise` (and
-the promise-based factory in `plan/21` removes even that). The diagnostic
+A telemetry sink is one `Effect.sync`. A tool can use the shipped
+`createRuntimeToolFromPromise` factory and avoid Effect entirely. The diagnostic
 logger (ADR 0011) is plain sync — no Effect at all.
 
 **Contributing to core/service/runtime: the working set.**
@@ -94,12 +95,12 @@ logger (ADR 0011) is plain sync — no Effect at all.
   so inner code sees one typed taxonomy.
 - **`Effect.promise` vs `Effect.tryPromise`:** `Effect.promise` claims "cannot
   fail" — a rejection becomes a silent defect. If the promise can reject
-  (network, DB), use `tryPromise`. This exact misuse made LISTEN connection
-  failures invisible (`plan/26`).
+  (network, DB), use `tryPromise`. Notification listeners use the fallible path
+  and reconnect with diagnostics when a LISTEN connection drops.
 - **Fibers must be observed.** `forkDetach`/`FiberMap.run` return handles;
   either await them, register an exit observer, or log non-interrupt exits.
-  The one unobserved fiber in the repo produced the review's worst server bug
-  (a stranded turn with a lost answer — `plan/27`).
+  The turn runner observes detached generation fibers and logs unexpected exits,
+  so a lost answer cannot remain silent.
 - **Verify v4 APIs against the installed `.d.ts`** under
   `node_modules/effect/dist/`, never against v3 memory, blog posts, or LLM
   training data — v3 and v4 differ (`Effect.catch` shapes, fork APIs,

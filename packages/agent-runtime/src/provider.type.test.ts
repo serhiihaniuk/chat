@@ -17,7 +17,7 @@ describe("agent runtime public provider types", () => {
     >();
     expectTypeOf<ModelProvider>().not.toHaveProperty("stream");
     expectTypeOf<ReturnType<AgentExecutor["stream"]>>().toEqualTypeOf<AiRuntimeEventStream>();
-    expectTypeOf<AgentExecutionRequest["model"]>().toEqualTypeOf<unknown>();
+    expectTypeOf<AgentExecutionRequest["model"]>().toEqualTypeOf<LanguageModel>();
     expectTypeOf<ReturnType<AgentRuntime["streamEffect"]>>().toEqualTypeOf<AiRuntimeEventStream>();
     expectTypeOf<
       Extract<RuntimeEvent, { type: "response.output_text.delta" }>

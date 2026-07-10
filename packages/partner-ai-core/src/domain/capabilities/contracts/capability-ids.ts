@@ -7,7 +7,6 @@ export type ProfileId = Brand<string, "ProfileId">;
 export type SystemPromptId = Brand<string, "SystemPromptId">;
 export type ExecutorId = Brand<string, "ExecutorId">;
 export type PolicyId = Brand<string, "PolicyId">;
-export type ActivityRendererId = Brand<string, "ActivityRendererId">;
 export type ManifestHash = Brand<string, "ManifestHash">;
 
 export const toHostAppId = (value: string): HostAppId => brandString<"HostAppId">(value);
@@ -18,6 +17,4 @@ export const toSystemPromptId = (value: string): SystemPromptId =>
   brandString<"SystemPromptId">(value);
 export const toExecutorId = (value: string): ExecutorId => brandString<"ExecutorId">(value);
 export const toPolicyId = (value: string): PolicyId => brandString<"PolicyId">(value);
-export const toActivityRendererId = (value: string): ActivityRendererId =>
-  brandString<"ActivityRendererId">(value);
 export const toManifestHash = (value: string): ManifestHash => brandString<"ManifestHash">(value);

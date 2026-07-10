@@ -1,4 +1,5 @@
 import { Stream } from "effect";
+import { parseJsonRecord } from "@side-chat/shared";
 
 /**
  * One parsed turn-lifecycle signal for the subject-scoped activity stream.
@@ -53,10 +54,8 @@ export const parseTurnActivityNotification = (
   payload: string | undefined,
 ): TurnActivityNotification | undefined => {
   if (!payload) return undefined;
-  const parsed = parseJson(payload);
-  if (!parsed || typeof parsed !== "object") return undefined;
-
-  const candidate = parsed as Record<string, unknown>;
+  const candidate = parseJsonRecord(payload);
+  if (!candidate) return undefined;
   const workspaceId = candidate["workspaceId"];
   const subjectId = candidate["subjectId"];
   const conversationId = candidate["conversationId"];
@@ -73,12 +72,4 @@ export const parseTurnActivityNotification = (
   }
 
   return { workspaceId, subjectId, conversationId, assistantTurnId, status };
-};
-
-const parseJson = (source: string): unknown => {
-  try {
-    return JSON.parse(source) as unknown;
-  } catch {
-    return undefined;
-  }
 };

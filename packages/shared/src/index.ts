@@ -3,9 +3,10 @@ declare const brandSymbol: unique symbol;
 /**
  * Nominal marker for primitive values that should not be interchangeable.
  *
- * Runtime values stay unchanged. Raw primitives can still enter contracts for a
- * low-churn rollout, while values already branded as different concepts stop
- * being interchangeable.
+ * Runtime values stay unchanged. Raw primitives remain assignable because these
+ * are soft brands, while values already branded as different concepts stop
+ * being interchangeable. Boundary code should still use the owning constructor
+ * so the conversion is visible and searchable.
  */
 export type Brand<Value, Name extends string> = Value & {
   readonly [brandSymbol]?: Name;
@@ -35,6 +36,17 @@ export type JsonObject = { readonly [key: string]: JsonValue };
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** Parse JSON only when its root is a keyed object. */
+export const parseJsonRecord = (source: string): Record<string, unknown> | undefined => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    return undefined;
+  }
+  return isRecord(parsed) ? parsed : undefined;
+};
+
 /**
  * Turn unknown input into a JSON object.
  *
@@ -45,11 +57,11 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 export const toJsonObject = (value: unknown): JsonObject => {
   if (!isRecord(value)) return { value: toJsonValue(value) };
 
-  return Object.fromEntries(
-    Object.entries(value).flatMap(([key, entry]) =>
-      entry === undefined ? [] : [[key, toJsonValue(entry)]],
-    ),
-  ) as JsonObject;
+  const json: Record<string, JsonValue> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry !== undefined) json[key] = toJsonValue(entry);
+  }
+  return json;
 };
 
 const toJsonValue = (value: unknown): JsonValue => {
@@ -108,31 +120,35 @@ export type OmitUndefinedProperties<Value extends object> = SimplifyObject<
   }
 >;
 
-export const omitUndefinedField = <Key extends string, Value>(
+export function omitUndefinedField<Key extends string, Value>(
   key: Key,
   value: Value,
-): OmitUndefinedField<Key, Value> =>
-  value === undefined ? {} : ({ [key]: value } as OmitUndefinedField<Key, Value>);
+): OmitUndefinedField<Key, Value>;
+export function omitUndefinedField(key: string, value: unknown): object {
+  return value === undefined ? {} : { [key]: value };
+}
 
 /**
  * Shallowly omit own enumerable string-keyed properties whose value is undefined.
  */
-export const omitUndefinedProperties = <const Value extends object>(
+export function omitUndefinedProperties<const Value extends object>(
   value: Value,
-): OmitUndefinedProperties<Value> => {
+): OmitUndefinedProperties<Value>;
+export function omitUndefinedProperties(value: object): object {
   const output: Record<string, unknown> = {};
-  for (const key of Object.keys(value) as Array<keyof Value & string>) {
-    const entry = value[key];
+  for (const [key, entry] of Object.entries(value)) {
     if (entry !== undefined) output[key] = entry;
   }
-  return output as OmitUndefinedProperties<Value>;
-};
+  return output;
+}
 
-export const omitNullishField = <Key extends string, Value>(
+export function omitNullishField<Key extends string, Value>(
   key: Key,
   value: Value,
-): OmitNullishField<Key, Value> =>
-  value === null || value === undefined ? {} : ({ [key]: value } as OmitNullishField<Key, Value>);
+): OmitNullishField<Key, Value>;
+export function omitNullishField(key: string, value: unknown): object {
+  return value === null || value === undefined ? {} : { [key]: value };
+}
 
 export { redactAttributes, safeJsonPrimitive } from "./redaction.js";
 export {

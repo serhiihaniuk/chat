@@ -3,7 +3,7 @@ import {
   RUNTIME_REASONING_EFFORTS,
   type RuntimeReasoningEffort,
 } from "@side-chat/ai-runtime-contract";
-import { isRecord, type JsonObject } from "@side-chat/shared";
+import { isRecord } from "@side-chat/shared";
 
 import type { ScriptedToolCall } from "#testing/scripted-language-model";
 import { createDeterministicTitle } from "./fake-title-script.js";
@@ -223,8 +223,7 @@ const readToolOutputSummary = (output: {
 }): string | undefined => {
   if (output.type === "text" && typeof output.value === "string") return output.value;
   if (output.type !== "json" || !isRecord(output.value)) return undefined;
-  const value = output.value as JsonObject;
-  return typeof value["summary"] === "string" ? value["summary"] : undefined;
+  return typeof output.value["summary"] === "string" ? output.value["summary"] : undefined;
 };
 
 const normalizeReasoningEffort = (

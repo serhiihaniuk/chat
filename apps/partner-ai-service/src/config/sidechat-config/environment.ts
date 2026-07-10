@@ -98,10 +98,22 @@ export const readLoggingConfig = (
 
 const readLogLevel = (raw: string | undefined): DiagnosticLogLevel => {
   if (raw === undefined) return "info";
-  if ((DIAGNOSTIC_LOG_LEVELS as readonly string[]).includes(raw)) return raw as DiagnosticLogLevel;
+  if (isDiagnosticLogLevel(raw)) return raw;
   throw new ServiceConfigError(
     `SIDECHAT_LOG_LEVEL must be one of ${DIAGNOSTIC_LOG_LEVELS.join(", ")}.`,
   );
+};
+
+const isDiagnosticLogLevel = (value: string): value is DiagnosticLogLevel => {
+  switch (value) {
+    case "debug":
+    case "info":
+    case "warn":
+    case "error":
+      return true;
+    default:
+      return false;
+  }
 };
 
 const readLogFormat = (profile: ServiceProfile, raw: string | undefined): LogFormatValue => {

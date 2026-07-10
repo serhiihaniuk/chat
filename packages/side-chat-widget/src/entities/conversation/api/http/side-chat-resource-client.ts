@@ -1,4 +1,4 @@
-import type { UsageMetadata } from "@side-chat/chat-protocol";
+import { parseHistoryMessage, type UsageMetadata } from "@side-chat/chat-protocol";
 import { isRecord, omitUndefinedProperties } from "@side-chat/shared";
 
 import { SideChatApiError } from "./side-chat-api-error.js";
@@ -142,7 +142,8 @@ export const readUsageWithFetch = async (
 
 const readJson = async (response: Response, route: string): Promise<unknown> => {
   try {
-    return (await response.json()) as unknown;
+    const payload: unknown = await response.json();
+    return payload;
   } catch (cause) {
     throw new SideChatApiError("network_error", `Malformed ${route} response JSON`, { cause });
   }
@@ -235,26 +236,11 @@ const normalizeConversationSummary = (
 };
 
 const normalizeHistoryMessage = (payload: unknown): ReadHistoryResult["messages"][number] => {
-  if (
-    !isRecord(payload) ||
-    typeof payload["id"] !== "string" ||
-    !isHistoryRole(payload["role"]) ||
-    typeof payload["content"] !== "string" ||
-    typeof payload["sequence"] !== "number"
-  ) {
-    throw new SideChatApiError("network_error", "Malformed history response");
+  try {
+    return parseHistoryMessage(payload);
+  } catch (cause) {
+    throw new SideChatApiError("network_error", "Malformed history response", { cause });
   }
-  const activity =
-    Array.isArray(payload["activity"]) && payload["activity"].length > 0
-      ? (payload["activity"] as ReadHistoryResult["messages"][number]["activity"])
-      : undefined;
-  return omitUndefinedProperties({
-    id: payload["id"],
-    role: payload["role"],
-    content: payload["content"],
-    sequence: payload["sequence"],
-    activity,
-  });
 };
 
 const normalizeReset = (payload: unknown): ResetHistoryResult => {
@@ -294,6 +280,3 @@ const normalizeUsage = (payload: unknown): UsageMetadata => {
 
 const isOptionalNumber = (value: unknown): value is number | undefined =>
   value === undefined || typeof value === "number";
-
-const isHistoryRole = (value: unknown): value is ReadHistoryResult["messages"][number]["role"] =>
-  value === "user" || value === "assistant" || value === "system";

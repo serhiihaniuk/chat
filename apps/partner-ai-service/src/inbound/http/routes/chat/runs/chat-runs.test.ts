@@ -15,7 +15,8 @@ import { createMemorySidechatRepositories, type MemorySidechatRepositories } fro
 import { Stream } from "effect";
 import { describe, expect, it, vi } from "vitest";
 
-import { createPartnerAiServiceApp } from "../../../app.js";
+import { createDevelopmentPartnerAiServiceApp } from "../../../app.js";
+import { readJsonResponseObject } from "#testing/json-response.test-support";
 import { startRun } from "#testing/turn-stream/turn-stream-harness.test-support";
 
 const AUTH_HEADER = { authorization: "Bearer local-test-token" } as const;
@@ -48,9 +49,10 @@ describe("POST /chat/runs", () => {
     const started = events[0];
     expect(started?.type).toBe(SIDECHAT_EVENT_TYPES.STARTED);
     expect(started?.sequence).toBe(0);
-    const assistantTurnId = started?.assistantTurnId as string;
-    expect(typeof assistantTurnId).toBe("string");
-    expect(started && "conversationId" in started && started.conversationId).toBeTruthy();
+    if (started?.type !== SIDECHAT_EVENT_TYPES.STARTED || !started.conversationId) {
+      throw new Error("Expected sidechat.started with a conversation id.");
+    }
+    const assistantTurnId = started.assistantTurnId;
 
     const turn = harness.repositories
       .snapshot()
@@ -100,7 +102,7 @@ describe("POST /chat/runs", () => {
       appendMessage: () =>
         Promise.reject(new Error("SECRET DRIVER DETAIL: relation messages does not exist")),
     };
-    const app = createPartnerAiServiceApp({
+    const app = createDevelopmentPartnerAiServiceApp({
       repositories: leaky,
       agentRuntime: completedRuntime(),
     });
@@ -108,7 +110,7 @@ describe("POST /chat/runs", () => {
     const response = await postRun(app, runRequest({ requestId: "request_leak_001" }));
 
     expect(response.status).toBe(500);
-    const body = (await response.json()) as Record<string, unknown>;
+    const body = await readJsonResponseObject(response);
     expect(body["code"]).toBe("internal_error");
     // The body names the request id for support, never the driver detail.
     expect(String(body["message"])).toContain("request_leak_001");
@@ -126,14 +128,14 @@ describe("POST /chat/runs", () => {
 
     expect(response.status).toBe(400);
     expect(response.headers.get("content-type")).toContain("application/json");
-    const body = (await response.json()) as Record<string, unknown>;
+    const body = await readJsonResponseObject(response);
     expect(body["code"]).toBe("bad_request");
     expect(harness.repositories.snapshot().assistantTurns).toHaveLength(0);
   });
 });
 
 type RouteHarness = {
-  readonly app: ReturnType<typeof createPartnerAiServiceApp>;
+  readonly app: ReturnType<typeof createDevelopmentPartnerAiServiceApp>;
   readonly repositories: MemorySidechatRepositories;
 };
 
@@ -141,7 +143,7 @@ const createRouteHarness = (): RouteHarness => {
   const repositories = createMemorySidechatRepositories();
   return {
     repositories,
-    app: createPartnerAiServiceApp({
+    app: createDevelopmentPartnerAiServiceApp({
       repositories,
       agentRuntime: completedRuntime(),
     }),
@@ -149,7 +151,7 @@ const createRouteHarness = (): RouteHarness => {
 };
 
 const postRun = (
-  app: ReturnType<typeof createPartnerAiServiceApp>,
+  app: ReturnType<typeof createDevelopmentPartnerAiServiceApp>,
   request: ChatStreamRequest,
 ): Promise<Response> =>
   // Hono's `app.request` is typed `Response | Promise<Response>`; normalize to a

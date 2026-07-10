@@ -16,7 +16,6 @@ export type ConfiguredToolInput = {
   readonly description: string;
   readonly label: string;
   readonly defaultEnabled: boolean;
-  readonly approvalPolicyIds: readonly string[];
   readonly delayMs?: number | undefined;
   readonly resultCount?: number | undefined;
   readonly searchModelId?: string | undefined;
@@ -43,7 +42,6 @@ export const DEFAULT_TOOL_REGISTRATIONS: Readonly<Record<string, ToolRegistratio
         description: input.description,
         label: input.label,
         defaultEnabled: input.defaultEnabled,
-        approvalPolicyIds: input.approvalPolicyIds,
         delayMs: input.delayMs,
         resultCount: input.resultCount,
         modelId: input.searchModelId,

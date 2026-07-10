@@ -51,8 +51,6 @@ export const createManifest = (): HostCapabilityManifest => ({
     },
   ],
   commands: [],
-  approvalPolicies: [],
-  activityRenderers: [],
 });
 
 export const resolveTestProfile = (manifest: HostCapabilityManifest): TurnProfile => {

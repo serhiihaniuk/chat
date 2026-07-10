@@ -143,6 +143,14 @@ export type BlockedEvent = SidechatEventBase & {
   readonly publicMessage: string;
 };
 
+export const HISTORY_MESSAGE_ROLES = {
+  USER: "user",
+  ASSISTANT: "assistant",
+  SYSTEM: "system",
+} as const;
+
+export type HistoryMessageRole = (typeof HISTORY_MESSAGE_ROLES)[keyof typeof HISTORY_MESSAGE_ROLES];
+
 /**
  * One stored transcript message, as returned by the conversation history
  * read-path (`readHistory` / `ReadHistoryResult`). This is a request/response
@@ -156,7 +164,7 @@ export type BlockedEvent = SidechatEventBase & {
  */
 export type HistoryMessage = {
   readonly id: MessageId;
-  readonly role: "user" | "assistant" | "system";
+  readonly role: HistoryMessageRole;
   readonly content: string;
   readonly sequence: ProtocolSequence;
   readonly activity?: readonly ActivityEvent[];

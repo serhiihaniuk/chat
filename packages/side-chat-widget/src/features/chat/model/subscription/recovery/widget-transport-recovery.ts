@@ -24,9 +24,9 @@ const RETRY_BACKOFF_MS = [500, 1_000, 2_000, 4_000] as const;
  * survives a couple of missed heartbeats before it is treated as wedged. The
  * heartbeat is a comment frame that the decoder drops, so it does not reset this
  * event-based timer — its job is to keep bytes flowing under a load balancer's
- * idle timeout. Today's tools are host-command round-trips (browser-fast), so an
- * event-quiet span past this window does not occur in practice; when server-side
- * tools can idle a turn longer (story 21), reset this timer on heartbeat bytes.
+ * idle timeout. A quiet model or server tool can therefore trigger reconnect and
+ * status-poll recovery while server-owned generation continues. That recovery is
+ * safe; byte-level heartbeat activity would need a separate decoder signal.
  */
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 45_000;
 const POLL_INTERVAL_MS = 2_000;
@@ -186,19 +186,12 @@ const pollUntilServerTerminal = async (input: TransportRecoveryInput): Promise<v
   input.store.dispatch(input.requestId, { type: "reconnect-started" });
   let failures = 0;
   while (!isRecoveryOver(input)) {
-    const status = await readServerTurnStatus(input);
-    if (status !== undefined && status !== "running") {
-      input.onServerTerminal();
-      input.store.dispatch(input.requestId, {
-        type: "terminal",
-        status: widgetStatusFromServer(status),
-        ...(widgetStatusFromServer(status) === WIDGET_RUN_STATUSES.FAILED
-          ? { message: SERVER_FAILED_MESSAGE }
-          : {}),
-      });
+    const step = await readServerPollStep(input);
+    if (step.kind === "terminal") {
+      settleServerTerminal(input, step.status);
       return;
     }
-    failures = status === undefined ? failures + 1 : 0;
+    failures = step.kind === "failed" ? failures + 1 : 0;
     if (failures >= MAX_POLL_FAILURES) {
       failRun(input, LOST_CONNECTION_MESSAGE);
       return;
@@ -207,15 +200,35 @@ const pollUntilServerTerminal = async (input: TransportRecoveryInput): Promise<v
   }
 };
 
-const readServerTurnStatus = async (input: TransportRecoveryInput): Promise<string | undefined> => {
+type ServerPollStep =
+  | { readonly kind: "running" }
+  | { readonly kind: "failed" }
+  | { readonly kind: "terminal"; readonly status: WidgetRunStatus };
+
+const readServerPollStep = async (input: TransportRecoveryInput): Promise<ServerPollStep> => {
   try {
     const result = await input.client.getTurnStatus(input.assistantTurnId, {
       signal: input.signal,
     });
-    return result.status;
+    return result.status === "running"
+      ? { kind: "running" }
+      : { kind: "terminal", status: widgetStatusFromServer(result.status) };
   } catch {
-    return undefined;
+    return { kind: "failed" };
   }
+};
+
+const settleServerTerminal = (input: TransportRecoveryInput, status: WidgetRunStatus): void => {
+  input.onServerTerminal();
+  if (status === WIDGET_RUN_STATUSES.FAILED) {
+    input.store.dispatch(input.requestId, {
+      type: "terminal",
+      status,
+      message: SERVER_FAILED_MESSAGE,
+    });
+    return;
+  }
+  input.store.dispatch(input.requestId, { type: "terminal", status });
 };
 
 /** Map the durable turn status to the widget's terminal vocabulary. */

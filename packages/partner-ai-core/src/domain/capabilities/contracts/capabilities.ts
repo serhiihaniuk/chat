@@ -1,6 +1,5 @@
 import type { JsonObject } from "@side-chat/shared";
 import type {
-  ActivityRendererId,
   ExecutorId,
   HostAppId,
   ManifestHash,
@@ -21,7 +20,7 @@ type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
  * Portable host capability declarations that core policy can reason about.
  *
  * These types describe what a host app may offer to one embedding surface:
- * profiles, backend tools, host commands, approvals, and renderers. They are
+ * profiles, backend tools, and host commands. They are
  * registration and policy inputs only; executable tools, database adapters,
  * provider credentials, and browser rendering stay outside this contract.
  *
@@ -74,24 +73,6 @@ export const TOOL_POLICY_MODES = {
 } as const;
 
 export type ToolPolicyMode = ObjectValue<typeof TOOL_POLICY_MODES>;
-
-/**
- * Approval modes are VALIDATED, NOT YET ENFORCED.
- *
- * The manifest, turn-policy, and requirement code fully cross-check approval
- * declarations, but nothing gates a capability on its mode at run time
- * (`createTurnPolicyDecision` selects no commands, and no runtime step consults
- * `approvalRequirements`). Until approval enforcement and the widget approval UI
- * ship, service composition rejects any mode other than `NEVER` rather than
- * silently agreeing to one — see the approval wall in `create-service-capability-bundle.ts`.
- */
-export const APPROVAL_MODES = {
-  NEVER: "never",
-  ON_REQUEST: "on_request",
-  ALWAYS: "always",
-} as const;
-
-export type ApprovalMode = ObjectValue<typeof APPROVAL_MODES>;
 
 export const OUTPUT_FORMATS = {
   MARKDOWN: "markdown",
@@ -190,33 +171,21 @@ export type ToolCapability = {
 /**
  * Manifest declaration for a host-app UI command.
  *
- * Commands are browser/host interactions, not backend runtime tools, unless the
- * service separately models a backend tool that asks for or records approval.
+ * Host commands are fast browser interactions, not a durable approval workflow.
+ * Approval-required mutations need a separately designed workflow outside this
+ * alpha contract.
  */
 export type HostCommandCapability = {
   readonly commandName: string;
   readonly description: string;
   readonly inputSchema: JsonObject;
-  readonly approvalMode: ApprovalMode;
-};
-
-/** Validated, not yet enforced — see the {@link APPROVAL_MODES} contract note. */
-export type ApprovalPolicy = {
-  readonly policyId: PolicyId;
-  readonly mode: ApprovalMode;
-  readonly capabilityNames: readonly string[];
-};
-
-export type ActivityRendererCapability = {
-  readonly rendererId: ActivityRendererId;
-  readonly activityKind: string;
 };
 
 /**
  * Host-declared capability catalog for one embedding surface.
  *
- * The manifest is the authority for profiles, tools, commands, approvals, and
- * renderers available to core policy. A capability being present here is
+ * The manifest is the authority for profiles, tools, and commands available to
+ * core policy. A capability being present here is
  * registration only; exposure is decided by `TurnPolicyDecision` for each turn.
  */
 export type HostCapabilityManifest = {
@@ -226,8 +195,6 @@ export type HostCapabilityManifest = {
   readonly turnProfiles: readonly TurnProfile[];
   readonly tools: readonly ToolCapability[];
   readonly commands: readonly HostCommandCapability[];
-  readonly approvalPolicies: readonly ApprovalPolicy[];
-  readonly activityRenderers: readonly ActivityRendererCapability[];
 };
 
 export type HostCapabilityValidationIssue = {
@@ -248,11 +215,6 @@ export type TurnProfileResolution =
   | { readonly resolved: true; readonly profile: TurnProfile }
   | { readonly resolved: false; readonly issue: HostCapabilityValidationIssue };
 
-export type ApprovalRequirement = {
-  readonly capabilityName: string;
-  readonly mode: ApprovalMode;
-};
-
 /**
  * Per-turn authorization result for runtime execution.
  *
@@ -271,7 +233,6 @@ export type TurnPolicyDecision = {
   readonly callSettings?: CallSettingsPolicy | undefined;
   readonly allowedToolNames: readonly string[];
   readonly allowedCommandNames: readonly string[];
-  readonly approvalRequirements: readonly ApprovalRequirement[];
   readonly manifestHash: ManifestHash;
 };
 

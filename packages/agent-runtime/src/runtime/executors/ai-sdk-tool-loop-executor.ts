@@ -1,5 +1,3 @@
-import type { LanguageModel, ToolLoopAgentSettings } from "ai";
-
 import type { HostCommandResolver } from "#tools/runtime-tool";
 import { runAiSdkToolLoopAgentStream } from "../ai-sdk/streaming/tool-loop-agent-runner.js";
 import {
@@ -32,8 +30,4 @@ const toAiSdkToolLoopOptions = ({
   model,
   providerOptions,
   providerRequest,
-}: AgentExecutionRequest) => ({
-  model: model as LanguageModel,
-  providerOptions: providerOptions as ToolLoopAgentSettings["providerOptions"] | undefined,
-  request: providerRequest,
-});
+}: AgentExecutionRequest) => ({ model, providerOptions, request: providerRequest });

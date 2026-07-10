@@ -112,12 +112,52 @@ export const defaultWidgetLabels: WidgetLabels = {
 /** Merge a caller's overrides over the defaults; an `undefined` field keeps the default. */
 export const resolveWidgetLabels = (overrides: SideChatWidgetLabels | undefined): WidgetLabels => {
   if (!overrides) return defaultWidgetLabels;
-  const merged: Record<string, unknown> = { ...defaultWidgetLabels };
-  for (const key of Object.keys(overrides)) {
-    const value = (overrides as Record<string, unknown>)[key];
-    if (value !== undefined) merged[key] = value;
-  }
-  return merged as WidgetLabels;
+  const read = <Key extends keyof WidgetLabels>(key: Key): WidgetLabels[Key] =>
+    overrides[key] ?? defaultWidgetLabels[key];
+
+  return {
+    title: read("title"),
+    placeholder: read("placeholder"),
+    send: read("send"),
+    emptyStateTitle: read("emptyStateTitle"),
+    emptyStateWithContext: read("emptyStateWithContext"),
+    emptyStateWithoutContext: read("emptyStateWithoutContext"),
+    composerInputAria: read("composerInputAria"),
+    noticeError: read("noticeError"),
+    noticeRetry: read("noticeRetry"),
+    activityPreparing: read("activityPreparing"),
+    activityThinking: read("activityThinking"),
+    activityThoughtProcess: read("activityThoughtProcess"),
+    activityThoughtForSeconds: read("activityThoughtForSeconds"),
+    activitySources: read("activitySources"),
+    conversationNewChat: read("conversationNewChat"),
+    conversationSelectChat: read("conversationSelectChat"),
+    conversationGenerating: read("conversationGenerating"),
+    relativeNow: read("relativeNow"),
+    relativeYesterday: read("relativeYesterday"),
+    relativeMinutesAgo: read("relativeMinutesAgo"),
+    relativeHoursAgo: read("relativeHoursAgo"),
+    relativeDaysAgo: read("relativeDaysAgo"),
+    groupRecent: read("groupRecent"),
+    groupYesterday: read("groupYesterday"),
+    groupPreviousWeek: read("groupPreviousWeek"),
+    groupPreviousMonth: read("groupPreviousMonth"),
+    groupOlder: read("groupOlder"),
+    headerRefresh: read("headerRefresh"),
+    headerSettings: read("headerSettings"),
+    headerNewChat: read("headerNewChat"),
+    headerClose: read("headerClose"),
+    headerBack: read("headerBack"),
+    headerSettingsTitle: read("headerSettingsTitle"),
+    headerConversations: read("headerConversations"),
+    headerConversationFeed: read("headerConversationFeed"),
+    dialogClose: read("dialogClose"),
+    linkSafetyTitle: read("linkSafetyTitle"),
+    linkSafetyDescription: read("linkSafetyDescription"),
+    linkSafetyCopy: read("linkSafetyCopy"),
+    linkSafetyCopied: read("linkSafetyCopied"),
+    linkSafetyOpen: read("linkSafetyOpen"),
+  };
 };
 
 const WidgetLabelsContext = createContext<WidgetLabels>(defaultWidgetLabels);

@@ -1,8 +1,10 @@
-import type {
-  ActivityEvent,
-  ChatRequestMessage,
-  ChatStreamRequest,
-  UsageMetadata,
+import {
+  parseSidechatStreamEvent,
+  SIDECHAT_EVENT_TYPES,
+  type ActivityEvent,
+  type ChatRequestMessage,
+  type ChatStreamRequest,
+  type UsageMetadata,
 } from "@side-chat/chat-protocol";
 import {
   hashCanonicalJson,
@@ -15,7 +17,12 @@ import {
   type MessageRecord,
   type SidechatRepositories,
 } from "@side-chat/db";
-import { omitUndefinedProperties, toJsonObject, type JsonObject } from "@side-chat/shared";
+import {
+  isRecord,
+  omitUndefinedProperties,
+  toJsonObject,
+  type JsonObject,
+} from "@side-chat/shared";
 
 type PersistableMessage = ChatRequestMessage & {
   readonly role: MessageRecord["role"];
@@ -56,13 +63,21 @@ export const readTurnActivityEvents = (
   metadataJson: JsonObject,
 ): readonly ActivityEvent[] | undefined => {
   const turnActivity = metadataJson["turnActivity"];
-  if (!turnActivity || typeof turnActivity !== "object" || Array.isArray(turnActivity)) {
-    return undefined;
-  }
-  const events = (turnActivity as Record<string, unknown>)["events"];
+  if (!isRecord(turnActivity)) return undefined;
+  const events = turnActivity["events"];
   if (!Array.isArray(events) || events.length === 0) return undefined;
-  // This service wrote the events from protocol-typed values; replay verbatim.
-  return events as readonly ActivityEvent[];
+
+  const parsedEvents: ActivityEvent[] = [];
+  for (const storedEvent of events) {
+    try {
+      const event = parseSidechatStreamEvent(storedEvent);
+      if (event.type !== SIDECHAT_EVENT_TYPES.ACTIVITY) return undefined;
+      parsedEvents.push(event);
+    } catch {
+      return undefined;
+    }
+  }
+  return parsedEvents;
 };
 
 export const recordContextSnapshot = ({

@@ -44,4 +44,5 @@ constants, never inline literals.
 Every event shape has one source of truth and strict validation at the trust
 boundary. The owned cost: adding an event touches several sync points (union,
 validators, codecs, schema, sequence rules), and history proved a miss can slip
-through — the completeness gate that makes a miss a red test is `plan/16`.
+through. `protocol-completeness.test.ts` makes an incomplete event addition a
+red test.

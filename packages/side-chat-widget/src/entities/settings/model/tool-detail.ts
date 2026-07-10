@@ -15,4 +15,4 @@ export type ToolDetailLevel = (typeof TOOL_DETAIL_LEVELS)[number];
 export const DEFAULT_TOOL_DETAIL_LEVEL: ToolDetailLevel = "full";
 
 export const isToolDetailLevel = (value: unknown): value is ToolDetailLevel =>
-  typeof value === "string" && (TOOL_DETAIL_LEVELS as readonly string[]).includes(value);
+  typeof value === "string" && TOOL_DETAIL_LEVELS.some((level) => level === value);

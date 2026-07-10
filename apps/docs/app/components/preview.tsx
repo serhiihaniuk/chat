@@ -17,7 +17,7 @@
  *  - `@font-face` declared only inside a shadow root is unreliable across browsers, so
  *    we also register the font faces once in the document head.
  */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { SideChatWidgetRoot } from "@side-chat/side-chat-widget/ui/widget-root";
 
@@ -60,8 +60,6 @@ export function Preview({ children, className, padded = true }: PreviewProps) {
     setMount(root.querySelector<HTMLElement>("[data-preview-mount]"));
   }, []);
 
-  const skinStyle = cssVars as CSSProperties;
-
   return (
     <div className="not-prose my-4 overflow-hidden rounded-xl border border-fd-border bg-fd-card">
       <div ref={hostRef} />
@@ -70,7 +68,7 @@ export function Preview({ children, className, padded = true }: PreviewProps) {
             <SideChatWidgetRoot
               theme={theme}
               className={dark ? "dark" : undefined}
-              style={skinStyle}
+              style={cssVars}
             >
               <div
                 className={className}

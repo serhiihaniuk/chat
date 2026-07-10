@@ -6,9 +6,8 @@ import type { ServiceEnv, SideChatConfig } from "../types.js";
 /**
  * Resolve the resumability tunables from the readable config's env references.
  *
- * Mirrors the legacy env parser's resolver: the same catalog defaults feed the
- * runner lease, reaper, and subscriber poll. Every knob is an env reference
- * declared in `sidechat.config.ts`.
+ * The same catalog defaults feed the runner lease, reaper, and subscriber poll.
+ * Every knob is an env reference declared in `sidechat.config.ts`.
  */
 export const createResumabilityConfig = (
   config: SideChatConfig,

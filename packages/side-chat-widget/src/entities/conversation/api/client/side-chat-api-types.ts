@@ -275,7 +275,7 @@ export type SideChatApiClient = {
     assistantTurnId: string,
     options?: SubscribeTurnOptions,
   ) => Promise<SubscribeTurnResult>;
-  /** Map a lost `requestId` back to its turn (the poll fallback seam — `plan/07`). */
+  /** Recover the server turn identity when a client loses its live run response. */
   readonly resolveRun: (requestId: string, options?: CreateRunOptions) => Promise<ResolveRunResult>;
   readonly getTurnStatus: (
     assistantTurnId: string,

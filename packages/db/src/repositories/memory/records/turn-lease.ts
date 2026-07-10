@@ -40,7 +40,8 @@ const acquireTurnLease = async (
   const index = findRunningTurnIndex(store, command.workspaceId, command.assistantTurnId);
   if (index < 0) return { acquired: false, leaseEpoch: 0 };
 
-  const current = store.assistantTurns[index]!;
+  const current = store.assistantTurns[index];
+  if (!current) return { acquired: false, leaseEpoch: 0 };
   const leaseEpoch = current.leaseEpoch + 1;
   upsertAt(store.assistantTurns, index, {
     ...current,
@@ -60,7 +61,8 @@ const renewTurnLease = async (
   const index = findRunningTurnIndex(store, command.workspaceId, command.assistantTurnId);
   if (index < 0) return { renewed: false };
 
-  const current = store.assistantTurns[index]!;
+  const current = store.assistantTurns[index];
+  if (!current) return { renewed: false };
   // Owner+epoch is the fence: a bumped epoch (reaper or new owner) means this
   // owner is stale and must stop, so the renew reports not-renewed.
   if (

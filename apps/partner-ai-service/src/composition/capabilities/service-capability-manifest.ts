@@ -8,7 +8,6 @@ import {
   resolveTurnProfileFromManifest,
   validateHostCapabilityManifest,
   type TurnProfile,
-  type ApprovalPolicy,
   type HostCommandCapability,
   type HostCapabilityManifest,
   type HostCapabilityManifestPort,
@@ -33,13 +32,11 @@ export const createServiceHostCapabilityManifest = ({
   defaultProfileId,
   toolCapabilities = [],
   hostCommands = [],
-  approvalPolicies = [],
 }: {
   readonly turnProfiles: readonly TurnProfile[];
   readonly defaultProfileId: ProfileId;
   readonly toolCapabilities?: readonly ToolCapability[] | undefined;
   readonly hostCommands?: readonly HostCommandCapability[] | undefined;
-  readonly approvalPolicies?: readonly ApprovalPolicy[] | undefined;
 }): HostCapabilityManifest => ({
   schemaVersion: HOST_CAPABILITY_SCHEMA_VERSIONS.V1,
   hostAppId: LOCAL_HOST_APP_ID,
@@ -47,8 +44,6 @@ export const createServiceHostCapabilityManifest = ({
   turnProfiles,
   tools: toolCapabilities,
   commands: hostCommands,
-  approvalPolicies,
-  activityRenderers: [],
 });
 
 // A hostAppId that does not match this manifest fails as FORBIDDEN rather than

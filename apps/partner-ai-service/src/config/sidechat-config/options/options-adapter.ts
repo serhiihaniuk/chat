@@ -53,8 +53,8 @@ export { readSideChatConfigPort, readSideChatDemoSeedConversations } from "../en
  *
  * Product behavior comes from `sidechat.config.ts`; env is limited to process
  * wiring, deployment posture, auth tokens, persistence URLs, and provider
- * secrets. This keeps local boot readable while the legacy env parser remains
- * available during the staged migration.
+ * secrets. This keeps local boot readable and makes the selected config the
+ * single source of deployable service behavior.
  */
 export const createPartnerAiServiceOptionsFromConfig = (
   config: SideChatConfig,
@@ -167,11 +167,10 @@ const providerIdForKind = (providerKind: ConfigProviderKind): string => {
 const createRuntimeToolConfig = (
   config: SideChatConfig,
   env: ServiceEnv,
-): Pick<RuntimeToolConfig, "tools" | "hostCommands" | "approvalPolicies" | "flushIntervalMs"> =>
+): Pick<RuntimeToolConfig, "tools" | "hostCommands" | "flushIntervalMs"> =>
   omitUndefinedProperties({
     tools: createToolRegistrations(config.tools.availableTools),
     hostCommands: nonEmpty(config.hostCommands.availableCommands),
-    approvalPolicies: nonEmpty(config.hostCommands.approvalPolicies),
     flushIntervalMs:
       readNumberEnvReference(env, config.streaming.outputDeltaFlushInterval) ??
       RESUMABILITY_DEFAULTS.OUTPUT_DELTA_FLUSH_INTERVAL_MS,
@@ -206,7 +205,6 @@ const registrationForTool = (
     description: toolConfig.modelPrompt.usageInstructions,
     label: toolConfig.tool.LABEL,
     defaultEnabled: toolConfig.exposure.defaultMode === TOOL_DEFAULT_EXPOSURE.ENABLED,
-    approvalPolicyIds: toolConfig.exposure.approvalPolicyIds,
     delayMs: toolConfig.parameters.delayMs,
     resultCount: toolConfig.parameters.resultCount,
     searchModelId: toolConfig.parameters.searchModelId,

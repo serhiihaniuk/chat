@@ -129,15 +129,12 @@ const sideChatFakeConfig = defineSideChatConfig({
         },
         exposure: {
           defaultMode: TOOL_DEFAULT_EXPOSURE.ENABLED,
-          approvalPolicyIds: TOOLS.MOCK_WEB_SEARCH.EXPOSURE.APPROVAL_POLICY_IDS,
         },
       },
     ],
   },
   hostCommands: {
     availableCommands: [],
-    approvalPolicies: [],
-    activityRenderers: [],
   },
   turnGuards: {
     availableGuards: [],

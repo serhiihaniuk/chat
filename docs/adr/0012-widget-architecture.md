@@ -20,7 +20,7 @@ cleanup pass cannot unknowingly reverse them.
 | **A widget ordinary React devs can own.**  | Gate-enforced: no Effect, no provider SDKs, no service internals — only `chat-protocol`, `host-bridge`, `shared`, React, TanStack Query.                                                                                                                          | The server's double learning curve leaking into the one layer adopters must touch.                                                                |
 | **Navigable structure under churn.**       | Feature-Sliced Design with lint-enforced ranks (`widgets > features > entities > shared`), no cross-slice imports, a locked public entry that exports only the widget API.                                                                                        | 150 files of React with every import reaching everything.                                                                                         |
 | **The right tool per data shape.**         | **Reads** (conversation list, history, model catalog) ride TanStack Query; the **live turn** rides SSE reader → module-level run store → pure reducer (`useSyncExternalStore`).                                                                                   | A cache library contorted around an ordered event stream, or hand-rolled fetching for plain reads.                                                |
-| **Replay-safe live state.**                | The reducer is pure and idempotent by sequence; there is deliberately **no client-side merge** of live and history — a terminal run hands off to refetched history (`plan/06` completes the handoff).                                                             | Snapshot-merge heuristics: the classic source of duplicated and reordered messages.                                                               |
+| **Replay-safe live state.**                | The reducer is pure and idempotent by sequence; there is deliberately **no client-side merge** of live and history — a terminal run refetches committed history, then clears the live run.                                                                        | Snapshot-merge heuristics: the classic source of duplicated and reordered messages.                                                               |
 | **Themable without a fork.**               | Tiered tokens on the widget root; four light themes via `data-sidechat-theme`; radius/typeface/density/elevation as one-token overrides; compound kit exported beside the batteries-included default. **No dark mode by policy** — themes are the variation axis. | Hardcoded values and a half-maintained dark variant nobody designed.                                                                              |
 
 ## Decision
@@ -55,7 +55,7 @@ Hosts embed via proxy + iframe (documented recipe) rather than `npm install
 and render` — the deliberate price of isolation; direct mount exists but the
 host owns the style risk. The FSD gates occasionally force an import through a
 barrel a newcomer would have reached around. The no-merge model makes the
-run→history handoff (`plan/06`) load-bearing: until it lands, the terminal run
-shadows history — a known gap, not a design change. Review rule: reintroducing
+run→history handoff load-bearing: terminal events trigger a committed-history
+refetch before the live run is cleared. Review rule: reintroducing
 Effect into the widget, a live-path Query cache, `:root`-global tokens, or a
 `dark:` variant should be rejected and pointed here.

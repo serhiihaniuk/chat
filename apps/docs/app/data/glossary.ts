@@ -297,7 +297,7 @@ export const glossary: readonly GlossaryTerm[] = [
   {
     id: "turn-policy-decision",
     term: "TurnPolicyDecision",
-    definition: "The per-turn decision: profile, model, allowed tools and commands, approvals, executor, and instructions.",
+    definition: "The per-turn decision: profile, model, allowed tools and commands, executor, and instructions.",
     category: "turn",
     code: "packages/partner-ai-core/.../contracts/capabilities.ts (TurnPolicyDecision)",
   },
@@ -666,7 +666,7 @@ export const glossary: readonly GlossaryTerm[] = [
   {
     id: "host-capability-manifest",
     term: "Host capability manifest",
-    definition: "The host's declaration of possible profiles, tools, commands, approvals, and renderers.",
+    definition: "The host's declaration of possible profiles, tools, and commands.",
     category: "packages",
     code: "packages/partner-ai-core/.../contracts/capabilities.ts (HostCapabilityManifest)",
     match: ["host capability manifest", "capability manifest"],
@@ -709,14 +709,6 @@ export const glossary: readonly GlossaryTerm[] = [
     category: "packages",
     code: "packages/partner-ai-core/src/ports/turn-guard.ts",
     match: ["TurnGuard"],
-  },
-  {
-    id: "approval-policy",
-    term: "ApprovalPolicy",
-    definition: "A policy requiring user or host approval before a declared tool or command runs.",
-    category: "packages",
-    code: "packages/partner-ai-core/.../contracts/capabilities.ts (ApprovalPolicy)",
-    match: ["ApprovalPolicy"],
   },
   {
     id: "copied-ui-primitive",

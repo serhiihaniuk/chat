@@ -4,6 +4,8 @@ import { Effect, type Scope, Stream } from "effect";
 
 import type { ActivitySubscription, TurnActivityDispatcher } from "./turn-activity-dispatcher.js";
 
+const NO_TURN_ACTIVITY_EVENTS: readonly TurnActivityEvent[] = [];
+
 export type ActivityStreamInput = {
   readonly workspaceId: string;
   readonly subjectId: string;
@@ -83,5 +85,5 @@ const readSnapshot = (
         }),
       ),
     ),
-    Effect.catchCause(() => Effect.succeed([] as readonly TurnActivityEvent[])),
+    Effect.catchCause(() => Effect.succeed(NO_TURN_ACTIVITY_EVENTS)),
   );

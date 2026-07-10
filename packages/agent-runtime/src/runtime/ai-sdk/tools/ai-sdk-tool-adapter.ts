@@ -53,9 +53,11 @@ export const createAiSdkToolSet = (
 ): ToolSet | undefined => {
   if (!runtimeTools || runtimeTools.length === 0) return undefined;
 
-  return Object.fromEntries(
-    runtimeTools.map((runtimeTool) => [runtimeTool.name, toAiSdkTool(runtimeTool, request)]),
-  ) as ToolSet;
+  const toolSet: ToolSet = {};
+  for (const runtimeTool of runtimeTools) {
+    toolSet[runtimeTool.name] = toAiSdkTool(runtimeTool, request);
+  }
+  return toolSet;
 };
 
 /**
@@ -120,12 +122,11 @@ export const createHostCommandToolSet = (
   resolver: HostCommandResolver | undefined,
 ): ToolSet | undefined => {
   if (!hostCommands || hostCommands.length === 0) return undefined;
-  return Object.fromEntries(
-    hostCommands.map((command) => [
-      command.commandName,
-      toHostCommandTool(command, request, resolver),
-    ]),
-  ) as ToolSet;
+  const toolSet: ToolSet = {};
+  for (const command of hostCommands) {
+    toolSet[command.commandName] = toHostCommandTool(command, request, resolver);
+  }
+  return toolSet;
 };
 
 /** Names of the host commands exposed this turn, for the stream mapper's branch. */

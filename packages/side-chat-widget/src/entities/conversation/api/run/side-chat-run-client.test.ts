@@ -166,8 +166,9 @@ describe("side chat run client", () => {
 
     // A 409 is excluded from retry and surfaces a wait-your-turn notice message
     // the widget shows to the user, not a raw HTTP failure.
+    if (!(error instanceof Error)) throw new Error("Expected a conversation-busy error.");
     expect(error).toMatchObject({ code: "conversation_busy", status: 409 });
-    expect(String((error as Error).message)).toContain("already generating");
+    expect(error.message).toContain("already generating");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

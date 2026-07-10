@@ -193,5 +193,6 @@ const resolveDefaultModelKey = (
     const key = modelKey(defaultModel);
     if (models.some((model) => modelKey(model) === key)) return key;
   }
-  return modelKey(models.find((model) => model.default) ?? models[0]!);
+  const fallback = models.find((model) => model.default) ?? models[0];
+  return fallback ? modelKey(fallback) : undefined;
 };

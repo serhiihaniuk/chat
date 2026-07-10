@@ -1,4 +1,4 @@
-import { isRecord } from "@side-chat/shared";
+import { isRecord, parseJsonRecord } from "@side-chat/shared";
 
 import type { ConversationSummary } from "../api/client/side-chat-api-types.js";
 
@@ -79,16 +79,12 @@ export const readWidgetConversationStore = (
   const storage = readLocalStorage(storageKey);
   if (!storage) return EMPTY_STORE;
 
-  try {
-    const parsed = JSON.parse(storage) as unknown;
-    if (!isRecord(parsed)) return EMPTY_STORE;
-    return {
-      activeConversationId: readStoredActiveConversationId(parsed["activeConversationId"]),
-      conversations: readStoredConversations(parsed["conversations"]),
-    };
-  } catch {
-    return EMPTY_STORE;
-  }
+  const parsed = parseJsonRecord(storage);
+  if (!parsed) return EMPTY_STORE;
+  return {
+    activeConversationId: readStoredActiveConversationId(parsed["activeConversationId"]),
+    conversations: readStoredConversations(parsed["conversations"]),
+  };
 };
 
 export const writeWidgetConversationStore = (

@@ -29,9 +29,10 @@ const EXCERPT_QUOTE = /["“]([^"”]{10,})["”]/gu;
  * neither is a terminal source, exactly like the fold's non-linked rows.
  */
 export const parseFootnoteSources = (markdown: string): readonly FootnoteSource[] =>
-  [...markdown.matchAll(FOOTNOTE_DEFINITION)].map((match, index) =>
-    toFootnoteSource(index + 1, match[1]!.trim()),
-  );
+  [...markdown.matchAll(FOOTNOTE_DEFINITION)].flatMap((match, index) => {
+    const content = match[1];
+    return content === undefined ? [] : [toFootnoteSource(index + 1, content.trim())];
+  });
 
 const FOOTNOTE_DEFINITION_LABEL = /^\[\^([^\]]+)\]:/gmu;
 const FOOTNOTE_REFERENCE = /\[\^([^\]]+)\](?!:)/gu;
@@ -72,14 +73,17 @@ export const footnoteSourceForMarker = (
 const toFootnoteSource = (order: number, content: string): FootnoteSource => {
   const { excerpt, rest } = extractExcerpt(content);
   const link = MARKDOWN_LINK.exec(rest);
-  if (link) {
-    const label = collapse(rest.replace(MARKDOWN_LINK, link[1]!));
-    return withExcerpt({ number: order, label: label || link[1]!, url: link[2]! }, excerpt);
+  const linkLabel = link?.[1];
+  const linkUrl = link?.[2];
+  if (linkLabel !== undefined && linkUrl !== undefined) {
+    const label = collapse(rest.replace(MARKDOWN_LINK, linkLabel));
+    return withExcerpt({ number: order, label: label || linkLabel, url: linkUrl }, excerpt);
   }
   const bare = BARE_URL.exec(rest);
-  if (bare) {
-    const label = collapse(rest.replace(bare[1]!, ""));
-    return withExcerpt({ number: order, label: label || bare[1]!, url: bare[1]! }, excerpt);
+  const bareUrl = bare?.[1];
+  if (bareUrl !== undefined) {
+    const label = collapse(rest.replace(bareUrl, ""));
+    return withExcerpt({ number: order, label: label || bareUrl, url: bareUrl }, excerpt);
   }
   const label = collapse(rest);
   // A lone quote with no title or url is itself the terminal source — the quoted
@@ -92,12 +96,19 @@ const toFootnoteSource = (order: number, content: string): FootnoteSource => {
 // URL inside the quote can't be read as the source link. The longest quoted run is
 // the excerpt; a shorter quoted phrase in the title is left in place.
 const extractExcerpt = (content: string): { readonly excerpt?: string; readonly rest: string } => {
-  const matches = [...content.matchAll(EXCERPT_QUOTE)];
-  if (matches.length === 0) return { rest: content };
-  const best = matches.reduce((longest, match) =>
-    match[1]!.length > longest[1]!.length ? match : longest,
-  );
-  return { excerpt: normalize(best[1]!), rest: content.replace(best[0], " ") };
+  const matches = [...content.matchAll(EXCERPT_QUOTE)].flatMap((match) => {
+    const excerpt = match[1];
+    return excerpt === undefined ? [] : [{ excerpt, fullMatch: match[0] }];
+  });
+  const first = matches[0];
+  if (!first) return { rest: content };
+  const best = matches
+    .slice(1)
+    .reduce(
+      (longest, match) => (match.excerpt.length > longest.excerpt.length ? match : longest),
+      first,
+    );
+  return { excerpt: normalize(best.excerpt), rest: content.replace(best.fullMatch, " ") };
 };
 
 const withExcerpt = (source: FootnoteSource, excerpt: string | undefined): FootnoteSource =>

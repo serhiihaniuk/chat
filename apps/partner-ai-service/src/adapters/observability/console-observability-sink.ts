@@ -1,9 +1,10 @@
-import type {
-  DiagnosticLogFields,
-  DiagnosticLogger,
-  DiagnosticLogLevel,
-  JsonObject,
-  JsonValue,
+import {
+  isRecord,
+  type DiagnosticLogFields,
+  type DiagnosticLogger,
+  type DiagnosticLogLevel,
+  type JsonObject,
+  type JsonValue,
 } from "@side-chat/shared";
 import type { ObservabilityRecord, ObservabilitySinkPort } from "@side-chat/partner-ai-core";
 import { Effect } from "effect";
@@ -29,8 +30,8 @@ export const createConsoleObservabilitySink = (
         const line = describeRecord(record);
         logger[levelForRecord(record)](line.message, line.fields);
       } catch {
-        // A telemetry line is never worth faulting a turn (see `plan/27` for the
-        // core-side fail-open wrapper this complements).
+        // Observability is fail-open: formatting or sink faults must never change
+        // the turn result that produced the diagnostic record.
       }
     }),
 });
@@ -143,10 +144,7 @@ const readString = (source: JsonObject, key: string): string | undefined => {
 
 const readObject = (source: JsonObject, key: string): JsonObject | undefined => {
   const value = source[key];
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  // Only the JsonObject member of JsonValue remains; Array.isArray does not narrow
-  // a readonly array out of the union, so assert the sole survivor.
-  return value as JsonObject;
+  return isRecord(value) ? value : undefined;
 };
 
 // Drop undefined fields so a line only carries what it actually has.

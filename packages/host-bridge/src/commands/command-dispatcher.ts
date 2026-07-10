@@ -5,6 +5,7 @@ import {
   type HostCommandResult,
 } from "./command-result.js";
 
+/** Host implementation that performs one already capability-checked command. */
 export type HostCommandDispatcher = {
   readonly dispatchCommand: (command: HostCommand) => Promise<HostCommandResult>;
 };

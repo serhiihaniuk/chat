@@ -1,19 +1,31 @@
 /**
- * Theme configurator.
+ * This file owns the docs-only theme configurator and the context that carries
+ * its preview overrides.
  *
- * One <DesignControls /> button toggles a docked sidebar whose knobs are all real widget
- * CSS tokens — `theme` -> data-sidechat-theme, `dark` -> a .dark class, per-token color
- * overrides -> inline `--<token>`, `radius` -> --radius, `density` -> --space-unit. The
- * context exposes `cssVars` for every <Preview> plus `resolvedColors`, which are measured
- * from the widget stylesheet so the sidebar shows the active theme instead of stale fallback
- * swatches. Editing any control re-skins the real components live. State persists to localStorage.
+ * One <DesignControls /> button toggles a docked sidebar whose knobs map into
+ * real widget CSS tokens. The context sends those overrides into each Preview
+ * and measures resolved colors from the widget stylesheet. Stored browser data
+ * must pass the local readers before it re-enters state. Widget token definitions
+ * and production appearance behavior deliberately stay in the widget package.
  */
-import { createContext, use, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Check, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
 import { ensureWidgetFontsInDocument, WIDGET_SHADOW_CSS } from "./widget-preview-css";
 
 export type WidgetTheme = "graphite" | "sapphire" | "sage" | "ocean";
+
+export type WidgetPreviewStyle = CSSProperties & {
+  [name: `--${string}`]: string | undefined;
+};
 
 export interface DesignControlsState {
   theme: WidgetTheme;
@@ -35,7 +47,7 @@ export interface DesignControlsContextValue extends DesignControlsState {
   open: boolean;
   setOpen: (open: boolean) => void;
   /** The CSS custom properties applied to every demo's widget root. */
-  cssVars: Record<string, string>;
+  cssVars: WidgetPreviewStyle;
   /** Browser-resolved theme colors, normalized for the color pickers. */
   resolvedColors: Record<string, string>;
 }
@@ -211,7 +223,7 @@ function cssColorToHex(value: string): string | null {
   return null;
 }
 
-function createThemeProbe(state: DesignControlsState, cssVars: Record<string, string>) {
+function createThemeProbe(state: DesignControlsState, cssVars: WidgetPreviewStyle) {
   const host = document.createElement("div");
   host.style.cssText =
     "position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;pointer-events:none;";
@@ -223,7 +235,9 @@ function createThemeProbe(state: DesignControlsState, cssVars: Record<string, st
   const root = document.createElement("div");
   root.className = state.dark ? "side-chat-widget-root dark" : "side-chat-widget-root";
   if (state.theme !== "graphite") root.dataset["sidechatTheme"] = state.theme;
-  for (const [name, value] of Object.entries(cssVars)) root.style.setProperty(name, value);
+  for (const [name, value] of Object.entries(cssVars)) {
+    if (value !== undefined) root.style.setProperty(name, value);
+  }
 
   const sample = document.createElement("div");
   root.appendChild(sample);
@@ -235,7 +249,7 @@ function createThemeProbe(state: DesignControlsState, cssVars: Record<string, st
 
 function resolveThemeColors(
   state: DesignControlsState,
-  cssVars: Record<string, string>,
+  cssVars: WidgetPreviewStyle,
 ): Record<string, string> {
   if (typeof document === "undefined") return COLOR_FALLBACKS;
   ensureWidgetFontsInDocument();
@@ -260,11 +274,36 @@ function readStored(): DesignControlsState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...(JSON.parse(raw) as Partial<DesignControlsState>) };
+    const parsed: unknown = JSON.parse(raw);
+    return readStoredState(parsed) ?? DEFAULT_STATE;
   } catch {
     return DEFAULT_STATE;
   }
 }
+
+const readStoredState = (value: unknown): DesignControlsState | undefined => {
+  if (!isRecord(value)) return undefined;
+  return {
+    theme: isWidgetTheme(value["theme"]) ? value["theme"] : DEFAULT_STATE.theme,
+    dark: typeof value["dark"] === "boolean" ? value["dark"] : DEFAULT_STATE.dark,
+    radius: typeof value["radius"] === "string" ? value["radius"] : DEFAULT_STATE.radius,
+    density: typeof value["density"] === "string" ? value["density"] : DEFAULT_STATE.density,
+    colors: readStringRecord(value["colors"]),
+  };
+};
+
+const isWidgetTheme = (value: unknown): value is WidgetTheme =>
+  typeof value === "string" && THEMES.some((theme) => theme.id === value);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const readStringRecord = (value: unknown): Record<string, string> => {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
+};
 
 export function DesignControlsProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DesignControlsState>(DEFAULT_STATE);
@@ -284,7 +323,7 @@ export function DesignControlsProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   const cssVars = useMemo(() => {
-    const vars: Record<string, string> = {
+    const vars: WidgetPreviewStyle = {
       "--radius": state.radius,
       "--space-unit": state.density,
     };

@@ -12,6 +12,7 @@ import {
   type SidechatStreamEvent,
 } from "./events/event-union.js";
 import { validateSidechatEventSequence } from "./ordering/sequence.js";
+import { isRecord } from "./primitives.js";
 import { SIDECHAT_PROTOCOL_VERSION } from "./version.js";
 
 /**
@@ -78,19 +79,15 @@ const EVENT_FIXTURES: Record<SidechatEventType, SidechatStreamEvent> = {
 
 const eventTypes = Object.values(SIDECHAT_EVENT_TYPES);
 
-type SchemaDef = {
-  readonly properties?: Record<string, { readonly const?: string; readonly enum?: string[] }>;
-};
+type JsonRecord = Record<string, unknown>;
 
-const schema = JSON.parse(
+const schemaSource: unknown = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../sidechat-v1.schema.json"), "utf8"),
-) as {
-  readonly $defs: Record<string, SchemaDef> & {
-    readonly SidechatEventBase: SchemaDef;
-    readonly SidechatStreamEvent: { readonly oneOf: readonly { readonly $ref: string }[] };
-    readonly BlockedEvent: SchemaDef;
-  };
-};
+);
+const schemaDefinitions = readRecord(
+  readRecord(schemaSource, "sidechat schema")["$defs"],
+  "sidechat schema.$defs",
+);
 
 describe("sidechat.v1 protocol completeness", () => {
   it("has a fixture for every event type (grows with the union by construction)", () => {
@@ -100,20 +97,19 @@ describe("sidechat.v1 protocol completeness", () => {
   });
 
   it("keeps the schema's base type enum identical to the TypeScript union", () => {
-    const schemaTypes = schema.$defs.SidechatEventBase.properties?.["type"]?.enum ?? [];
+    const schemaTypes = readSchemaEnum("SidechatEventBase", "type");
     expect([...schemaTypes].sort()).toEqual([...eventTypes].sort());
   });
 
   it("declares one schema def per event type, each pinned by its type const", () => {
-    const oneOfDefs = schema.$defs.SidechatStreamEvent.oneOf.map(
-      (entry) => schema.$defs[entry.$ref.replace("#/$defs/", "")],
+    const pinnedTypes = readEventDefinitions().map((definition) =>
+      readString(readSchemaProperty(definition, "type")["const"], "event type const"),
     );
-    const pinnedTypes = oneOfDefs.map((def) => def?.properties?.["type"]?.const ?? "");
     expect([...pinnedTypes].sort()).toEqual([...eventTypes].sort());
   });
 
   it("keeps the schema's blocked reasons identical to the exported constants", () => {
-    const schemaReasons = schema.$defs.BlockedEvent.properties?.["reason"]?.enum ?? [];
+    const schemaReasons = readSchemaEnum("BlockedEvent", "reason");
     expect([...schemaReasons].sort()).toEqual(Object.values(SIDECHAT_BLOCKED_REASONS).sort());
   });
 
@@ -136,3 +132,50 @@ describe("sidechat.v1 protocol completeness", () => {
     }
   });
 });
+
+const readDefinition = (name: string): JsonRecord =>
+  readRecord(schemaDefinitions[name], `sidechat schema.$defs.${name}`);
+
+const readSchemaProperty = (definition: JsonRecord, name: string): JsonRecord => {
+  const properties = readRecord(definition["properties"], "schema definition properties");
+  return readRecord(properties[name], `schema property ${name}`);
+};
+
+const readSchemaEnum = (definitionName: string, propertyName: string): readonly string[] => {
+  const property = readSchemaProperty(readDefinition(definitionName), propertyName);
+  return readStringArray(property["enum"], `${definitionName}.${propertyName}.enum`);
+};
+
+const readEventDefinitions = (): readonly JsonRecord[] => {
+  const alternatives = readDefinition("SidechatStreamEvent")["oneOf"];
+  if (!Array.isArray(alternatives)) {
+    throw new Error("SidechatStreamEvent.oneOf must be an array.");
+  }
+
+  return alternatives.map((entry, index) => {
+    const reference = readString(
+      readRecord(entry, `SidechatStreamEvent.oneOf[${index}]`)["$ref"],
+      `SidechatStreamEvent.oneOf[${index}].$ref`,
+    );
+    const prefix = "#/$defs/";
+    if (!reference.startsWith(prefix)) {
+      throw new Error(`SidechatStreamEvent reference must start with ${prefix}.`);
+    }
+    return readDefinition(reference.slice(prefix.length));
+  });
+};
+
+function readRecord(value: unknown, label: string): JsonRecord {
+  if (isRecord(value)) return value;
+  throw new Error(`${label} must be a JSON object.`);
+}
+
+function readString(value: unknown, label: string): string {
+  if (typeof value === "string") return value;
+  throw new Error(`${label} must be a string.`);
+}
+
+function readStringArray(value: unknown, label: string): readonly string[] {
+  if (Array.isArray(value) && value.every((entry) => typeof entry === "string")) return value;
+  throw new Error(`${label} must be a string array.`);
+}

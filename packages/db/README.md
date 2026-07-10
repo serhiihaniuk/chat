@@ -17,12 +17,13 @@ Not source of truth for: product workflow or protocol events.
   transaction), and the compare-and-set lease operations `acquireTurnLease` /
   `renewTurnLease` / `reapExpiredTurns`. Every service instance runs the turn
   reaper, which claims expired turns in bounded, disjoint batches.
-- Postgres `LISTEN/NOTIFY` for the two small signal channels, `turn_cancel` and
-  `turn_activity` — pokes carrying ids, never event bodies. A dedicated
+- Postgres `LISTEN/NOTIFY` for the three small signal channels, `turn_cancel`,
+  `turn_activity`, and `host_command_result` — pokes carrying ids, never event
+  bodies. A dedicated
   `LISTEN` connection per channel, opened outside the query pool, bridges
   notifications into the service through the
-  `createPostgresTurn{Cancel,Activity}NotificationSource` factories (with NOOP
-  variants for memory/local paths). Live turn _events_ do not flow through this
+  notification-source factory per channel (with NOOP variants for memory/local
+  paths). Live turn _events_ do not flow through this
   package — they live in the service's in-memory registry
   ([ADR 0007](../../docs/adr/0007-connection-bound-streaming.md)).
 - Drizzle/Postgres schema, the postgres-drizzle adapter, and memory

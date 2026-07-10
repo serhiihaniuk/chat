@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Stream } from "effect";
 import type { AiRuntimeRequest } from "@side-chat/ai-runtime-contract";
+import { isRecord, parseJsonRecord } from "@side-chat/shared";
 import { createAgentRuntime } from "#runtime/agent-runtime";
 import { RUNTIME_PROVIDER_ERROR_PUBLIC_MESSAGE } from "#runtime/ai-sdk/streaming/stream-part-mapper";
 import {
@@ -363,12 +364,16 @@ describe("createOpenAIResponsesProvider", () => {
 });
 
 const parseRequestBody = (body: RequestInit["body"]): Record<string, unknown> => {
-  expect(typeof body).toBe("string");
-  return JSON.parse(body as string) as Record<string, unknown>;
+  if (typeof body !== "string") throw new Error("Expected a string request body.");
+  const parsed = parseJsonRecord(body);
+  if (!parsed) throw new Error("Expected a JSON object request body.");
+  return parsed;
 };
 
-const reasoningField = (body: Record<string, unknown>): Record<string, unknown> =>
-  (body["reasoning"] ?? {}) as Record<string, unknown>;
+const reasoningField = (body: Record<string, unknown>): Record<string, unknown> => {
+  const reasoning = body["reasoning"];
+  return isRecord(reasoning) ? reasoning : {};
+};
 
 const sse = (payload: object): string =>
   `event: ${"type" in payload ? String(payload.type) : "message"}\n` +

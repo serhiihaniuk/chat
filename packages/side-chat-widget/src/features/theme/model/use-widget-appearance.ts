@@ -1,4 +1,5 @@
 import { useCallback, useState, type CSSProperties } from "react";
+import { parseJsonRecord } from "@side-chat/shared";
 
 import { widgetAppearanceStyle } from "#shared/lib/widget-appearance-style";
 
@@ -98,12 +99,12 @@ export const useWidgetAppearance = ({
 
   return {
     ...state,
-    setAccent: useAppearanceSetter("accent", ACCENTS, update),
-    setCorners: useAppearanceSetter("corners", CORNERS, update),
-    setDensity: useAppearanceSetter("density", DENSITIES, update),
-    setElevation: useAppearanceSetter("elevation", ELEVATIONS, update),
-    setTextSize: useAppearanceSetter("textSize", TEXT_SIZES, update),
-    setTypeface: useAppearanceSetter("typeface", TYPEFACES, update),
+    setAccent: useAppearanceSetter("accent", update),
+    setCorners: useAppearanceSetter("corners", update),
+    setDensity: useAppearanceSetter("density", update),
+    setElevation: useAppearanceSetter("elevation", update),
+    setTextSize: useAppearanceSetter("textSize", update),
+    setTypeface: useAppearanceSetter("typeface", update),
     appearanceRootProps: createAppearanceRootProps(state),
   };
 };
@@ -125,23 +126,63 @@ const useStoredAppearance = (
   return [state, update];
 };
 
-const useAppearanceSetter = <Key extends keyof WidgetAppearanceState>(
-  key: Key,
-  list: readonly WidgetAppearanceState[Key][],
+const useAppearanceSetter = (
+  key: keyof WidgetAppearanceState,
   update: WidgetAppearanceUpdate,
 ): ((next: string) => void) =>
   useCallback(
     (next: string) => {
-      if (isOneOf(list, next)) update({ [key]: next } as Partial<WidgetAppearanceState>);
+      const patch = readAppearancePatch(key, next);
+      if (patch) update(patch);
     },
-    [key, list, update],
+    [key, update],
   );
+
+const readAppearancePatch = (
+  key: keyof WidgetAppearanceState,
+  value: string,
+): Partial<WidgetAppearanceState> | undefined => APPEARANCE_PATCH_READERS[key](value);
+
+type AppearancePatchReader = (value: string) => Partial<WidgetAppearanceState> | undefined;
+
+const APPEARANCE_PATCH_READERS = {
+  accent: readAccentPatch,
+  corners: readCornersPatch,
+  density: readDensityPatch,
+  elevation: readElevationPatch,
+  textSize: readTextSizePatch,
+  typeface: readTypefacePatch,
+} satisfies Record<keyof WidgetAppearanceState, AppearancePatchReader>;
+
+function readAccentPatch(value: string): Partial<WidgetAppearanceState> | undefined {
+  return isOneOf(ACCENTS, value) ? { accent: value } : undefined;
+}
+
+function readCornersPatch(value: string): Partial<WidgetAppearanceState> | undefined {
+  return isOneOf(CORNERS, value) ? { corners: value } : undefined;
+}
+
+function readDensityPatch(value: string): Partial<WidgetAppearanceState> | undefined {
+  return isOneOf(DENSITIES, value) ? { density: value } : undefined;
+}
+
+function readElevationPatch(value: string): Partial<WidgetAppearanceState> | undefined {
+  return isOneOf(ELEVATIONS, value) ? { elevation: value } : undefined;
+}
+
+function readTextSizePatch(value: string): Partial<WidgetAppearanceState> | undefined {
+  return isOneOf(TEXT_SIZES, value) ? { textSize: value } : undefined;
+}
+
+function readTypefacePatch(value: string): Partial<WidgetAppearanceState> | undefined {
+  return isOneOf(TYPEFACES, value) ? { typeface: value } : undefined;
+}
 
 const createAppearanceRootProps = (state: WidgetAppearanceState): WidgetAppearanceRootProps => ({
   ...(state.accent === "default" ? {} : { "data-sidechat-accent": state.accent }),
   // The token values are single-sourced in shared/lib so the settings preview and
   // the live root can never disagree.
-  style: widgetAppearanceStyle(state) as CSSProperties,
+  style: widgetAppearanceStyle(state),
 });
 
 const DEFAULTS: WidgetAppearanceState = {
@@ -154,16 +195,16 @@ const DEFAULTS: WidgetAppearanceState = {
 };
 
 const isOneOf = <Value extends string>(list: readonly Value[], value: unknown): value is Value =>
-  typeof value === "string" && list.includes(value as Value);
+  typeof value === "string" && list.some((candidate) => candidate === value);
 
 const readStored = (storageKey: string | undefined): WidgetAppearanceState => {
   if (!storageKey || typeof window === "undefined") return DEFAULTS;
   try {
     const raw = window.localStorage.getItem(storageKey);
     if (!raw) return DEFAULTS;
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return DEFAULTS;
-    const record = parsed as Record<string, unknown>;
+    const parsed = parseJsonRecord(raw);
+    if (!parsed) return DEFAULTS;
+    const record = parsed;
     return {
       accent: isOneOf(ACCENTS, record["accent"]) ? record["accent"] : DEFAULTS.accent,
       corners: isOneOf(CORNERS, record["corners"]) ? record["corners"] : DEFAULTS.corners,

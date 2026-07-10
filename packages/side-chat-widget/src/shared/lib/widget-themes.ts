@@ -29,4 +29,4 @@ export const WIDGET_THEMES: readonly WidgetTheme[] = [
 ];
 
 export const isWidgetThemeId = (value: string | null): value is WidgetThemeId =>
-  value !== null && (WIDGET_THEME_IDS as readonly string[]).includes(value);
+  value !== null && WIDGET_THEME_IDS.some((themeId) => themeId === value);

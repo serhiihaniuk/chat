@@ -2,7 +2,13 @@ import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import { createMemorySidechatRepositories, type MemorySidechatRepositories } from "@side-chat/db";
 import { hashCanonicalJson } from "@side-chat/partner-ai-core";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp, type PartnerAiServiceApp } from "./app.js";
+import { createDevelopmentPartnerAiServiceApp, type PartnerAiServiceApp } from "./app.js";
+import {
+  readJsonResponseObject,
+  requireJsonArray,
+  requireJsonObject,
+  requireString,
+} from "#testing/json-response.test-support";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   runTurnStream,
@@ -23,7 +29,7 @@ const validRequest = {
 const authHeaders = { authorization: "Bearer local-test-token" } as const;
 
 const createApp = (repositories: MemorySidechatRepositories): PartnerAiServiceApp =>
-  createPartnerAiServiceApp({
+  createDevelopmentPartnerAiServiceApp({
     repositories,
     resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
   });
@@ -162,8 +168,10 @@ const readHistory = async (
 ): Promise<readonly string[]> => {
   const response = await app.request(`/chat/history/${conversationId}`, { headers: authHeaders });
   expect(response.status).toBe(200);
-  const history = (await response.json()) as {
-    readonly messages: readonly { readonly content: string }[];
-  };
-  return history.messages.map((message) => message.content);
+  const history = await readJsonResponseObject(response);
+  const messages = requireJsonArray(history["messages"], "history messages");
+  return messages.map((message, index) => {
+    const record = requireJsonObject(message, `history message ${index}`);
+    return requireString(record["content"], `history message ${index} content`);
+  });
 };

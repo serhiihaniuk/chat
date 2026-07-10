@@ -1,10 +1,6 @@
-import {
-  HOST_COMMAND_RESULT_STATUSES,
-  type HostCommandResultStatus,
-  type SidechatRepositories,
-} from "@side-chat/db";
+import { type HostCommandResultStatus, type SidechatRepositories } from "@side-chat/db";
 import { PROTOCOL_ERROR_CODES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
-import type { JsonObject } from "@side-chat/shared";
+import { isRecord, type JsonObject, type JsonValue } from "@side-chat/shared";
 import type { StreamChatPorts } from "@side-chat/partner-ai-core";
 import type { Hono } from "hono";
 
@@ -104,17 +100,38 @@ const readHostCommandResult = async (request: Request): Promise<JsonObject | und
   } catch {
     return undefined;
   }
-  if (typeof body !== "object" || body === null || Array.isArray(body)) return undefined;
-  return body as JsonObject;
+  return isJsonObject(body) ? body : undefined;
+};
+
+const isJsonObject = (value: unknown): value is JsonObject =>
+  isRecord(value) && Object.values(value).every(isJsonValue);
+
+const isJsonValue = (value: unknown): value is JsonValue => {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return isJsonObject(value);
 };
 
 /** The browser result's status, constrained to the durable vocabulary (never `emitted`). */
 const resultStatus = (result: JsonObject): HostCommandResultStatus => {
   const status = result["status"];
-  if (typeof status !== "string" || status === "emitted") return "failed";
-  return (HOST_COMMAND_RESULT_STATUSES as readonly string[]).includes(status)
-    ? (status as HostCommandResultStatus)
-    : "failed";
+  if (
+    status === "applied" ||
+    status === "rejected" ||
+    status === "unsupported" ||
+    status === "failed" ||
+    status === "timed_out"
+  ) {
+    return status;
+  }
+  return "failed";
 };
 
 const resultCode = (result: JsonObject): string =>

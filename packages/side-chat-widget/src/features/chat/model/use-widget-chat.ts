@@ -8,6 +8,8 @@ import {
   useConversationQueryRepository,
   useGetConversationHistory,
   useGetConversations,
+  type RefreshConversations,
+  type RefreshHistory,
   type SideChatApiClient,
 } from "#entities/conversation";
 import {
@@ -33,6 +35,15 @@ import {
   useVisibleMessagesWithCarriedActivity,
 } from "./view/widget-visible-transcript.js";
 
+/**
+ * Reconcile persisted selection, server resources, and one live run into the
+ * view model consumed by the widget shell.
+ *
+ * Server history is authoritative between turns. During a turn, the run store
+ * temporarily owns the visible transcript so a refetch cannot erase streamed
+ * text; the shell bridge records that ownership until terminal effects refresh
+ * history and hand the committed transcript back to the query cache.
+ */
 export const useWidgetChat = ({
   client,
   conversationStorageKey,
@@ -144,32 +155,12 @@ export const useWidgetChat = ({
     historyMessages,
     resumeActiveTurn: controller.resumeFromHistory,
   });
-  // Live turn lifecycle for every conversation, so the sidebar shows a "generating"
-  // dot on chats with an in-flight turn — even ones not open. Refresh the list on
-  // each RE-connect so a chat started elsewhere appears with its dot.
-  const activityConnectedRef = useRef(false);
-  const runningConversationIds = useActivityStream({
+  const runningConversationIds = useRunningConversationActivity({
     client,
-    // The initial list load is the conversations query's job; the activity stream only
-    // needs to close a gap on a reconnect, so skip the first connect to avoid a
-    // duplicate list read on mount.
-    onConnected: () => {
-      if (!activityConnectedRef.current) {
-        activityConnectedRef.current = true;
-        return;
-      }
-      void refreshConversations();
-    },
-    // A turn started in another tab for the conversation this tab is viewing: pull the
-    // server transcript so the history read's `activeTurn` resumes here. Skip while a
-    // local run owns this conversation for the whole turn (adopt→handoff): the
-    // run→history handoff already re-reads history on terminal, so refetching here
-    // would only duplicate that read.
-    onEvent: (event) => {
-      if (event.conversationId !== conversationId) return;
-      if (shellSnapshot.streamOwnedConversationId === conversationId) return;
-      void refreshHistory(conversationId);
-    },
+    conversationId,
+    refreshConversations,
+    refreshHistory,
+    streamOwnedConversationId: shellSnapshot.streamOwnedConversationId,
   });
 
   const actions = useWidgetChatActions({
@@ -209,6 +200,45 @@ export const useWidgetChat = ({
     submitMessage: actions.submitMessage,
     usage: visibleRun?.usage,
   };
+};
+
+type RunningConversationActivityInput = {
+  readonly client: Pick<SideChatApiClient, "subscribeActivity">;
+  readonly conversationId: string | undefined;
+  readonly refreshConversations: RefreshConversations;
+  readonly refreshHistory: RefreshHistory;
+  readonly streamOwnedConversationId: string | undefined;
+};
+
+/** Track live turns across conversations and close cache gaps after reconnects. */
+const useRunningConversationActivity = ({
+  client,
+  conversationId,
+  refreshConversations,
+  refreshHistory,
+  streamOwnedConversationId,
+}: RunningConversationActivityInput): ReadonlySet<string> => {
+  const hasConnectedRef = useRef(false);
+
+  return useActivityStream({
+    client,
+    // The conversation query performs the initial list read. Later connects may
+    // have missed lifecycle events, so they refresh the list before showing dots.
+    onConnected: () => {
+      if (!hasConnectedRef.current) {
+        hasConnectedRef.current = true;
+        return;
+      }
+      void refreshConversations();
+    },
+    // Another tab can start a turn for the conversation shown here. Pull history
+    // so its active turn is resumed, unless this tab's stream already owns it.
+    onEvent: (event) => {
+      if (event.conversationId !== conversationId) return;
+      if (streamOwnedConversationId === conversationId) return;
+      void refreshHistory(conversationId);
+    },
+  });
 };
 
 // On replay_expired the stream buffer is gone: drop the live-run guard so history

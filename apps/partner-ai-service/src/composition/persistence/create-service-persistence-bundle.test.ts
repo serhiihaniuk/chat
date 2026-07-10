@@ -5,7 +5,10 @@ import {
 } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
 import type { ServiceSecurityBundle } from "../bundle-types.js";
-import { createServicePersistenceBundle } from "./create-service-persistence-bundle.js";
+import {
+  createServicePersistenceBundle,
+  readRepositoryAdapterKind,
+} from "./create-service-persistence-bundle.js";
 
 const workspace = { tenantId: "tenant_p", workspaceId: "workspace_p" } as const;
 
@@ -50,12 +53,9 @@ describe("createServicePersistenceBundle", () => {
     const untagged = { ...createMemorySidechatRepositories() };
     Reflect.deleteProperty(untagged, "adapterKind");
 
-    expect(() =>
-      createServicePersistenceBundle(
-        { workspace, repositories: untagged as SidechatRepositories },
-        developmentSecurity,
-      ),
-    ).toThrow("Injected repositories must declare a valid adapterKind");
+    expect(() => readRepositoryAdapterKind(untagged)).toThrow(
+      "Injected repositories must declare a valid adapterKind",
+    );
   });
 
   it("labels tagged postgres-drizzle repositories", () => {

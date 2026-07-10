@@ -25,18 +25,21 @@ export const validateSideChatConfig = (config: SideChatConfig): void => {
   assertToolConfig(config);
   assertConversationTitleJobs(config);
   assertContextConfig(config);
-  assertUnsupportedConfigSurfaces(config);
 };
 
 export const readProviderKindForConfig = (config: SideChatConfig): ConfigProviderKind => {
-  const providerKinds = new Set(config.models.availableModels.map(providerKindForModel));
-  if (providerKinds.size !== 1) {
+  const [firstModel, ...otherModels] = config.models.availableModels;
+  if (!firstModel) {
+    throw new ServiceConfigError("sidechat.config.ts requires at least one enabled model.");
+  }
+
+  const providerKind = providerKindForModel(firstModel);
+  if (otherModels.some((model) => providerKindForModel(model) !== providerKind)) {
     throw new ServiceConfigError(
       "sidechat.config.ts currently supports one provider per service config.",
     );
   }
-
-  return [...providerKinds][0] as ConfigProviderKind;
+  return providerKind;
 };
 
 export const readDefaultConfiguredModel = (
@@ -123,7 +126,7 @@ const assertCurrentRuntimeReasoningShape = (config: SideChatConfig): void => {
     if (sameValues(entry.reasoning.options, first.reasoning.options)) continue;
 
     throw new ServiceConfigError(
-      "Phase 3 provider wiring requires configured models to share reasoning options until per-model provider reasoning is migrated.",
+      "All configured models must currently share the same reasoning options.",
     );
   }
 };
@@ -241,14 +244,6 @@ const assertContextConfig = (config: SideChatConfig): void => {
 
   throw new ServiceConfigError(
     "sidechat.config.ts context reservedOutputTokens must be lower than maxInputTokens.",
-  );
-};
-
-const assertUnsupportedConfigSurfaces = (config: SideChatConfig): void => {
-  if (config.hostCommands.activityRenderers.length === 0) return;
-
-  throw new ServiceConfigError(
-    "Activity renderers are cataloged in config but not wired into the Phase 3 service manifest yet.",
   );
 };
 

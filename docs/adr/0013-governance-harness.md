@@ -19,7 +19,7 @@ recorded answer.
 | Capability                               | How                                                                                                                                                                                                                          | Without it                                                                           |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | **Boundaries that hold mechanically.**   | 14 gate scripts (`npm run lint:custom`) parse every import and dependency: layer deny-lists, single-owner deps (`hono`/`pg`/`ai`/`process.env`), widget FSD ranks, outbound-call allowlists.                                 | Boundary erosion at AI speed; the architecture becomes a diagram, not a fact.        |
-| **A ceiling on cleverness.**             | Cognitive-complexity and nesting budgets, file/function size caps, `as unknown as` banned — enforced by AST, calibrated for a lower-context human, stricter for Effect/Stream/React code.                                    | AI output optimized for the model's working memory instead of the next maintainer's. |
+| **A ceiling on cleverness.**             | Cognitive-complexity and nesting budgets, file/function size caps, TypeScript assertions banned — enforced by AST, calibrated for a lower-context human, stricter for Effect/Stream/React code.                              | AI output optimized for the model's working memory instead of the next maintainer's. |
 | **Docs that carry a contract.**          | Durable docs must declare `Read this when / Source of truth for / Not source of truth for`; paragraph density caps; vocabulary owned in one file; banned stale-truth docs fail the gate.                                     | The exact rot the 2026-07-01 review found in the unguarded corners.                  |
 | **Gates that cannot silently die.**      | The meta-gate runs every check against a known-bad fixture and fails if any `check-*.mjs` is not wired into the runner.                                                                                                      | The most dangerous failure: a protection everyone believes still runs.               |
 | **A shared rulebook for humans and AI.** | `AGENTS.md`: mandatory reading path, final-state rule (no compat shims; delete replaced code in the same patch), spine-function comment style, verification order — the same contract for every contributor, silicon or not. | Every AI session and every new hire re-deriving the house rules, differently.        |
@@ -33,9 +33,8 @@ convention. The pipeline (`npm run verify`) runs format, lint, typecheck,
 tests, build, then the 14 custom gates; a new gate must register with the
 runner or the meta-gate fails; a new dependency must join an explicit
 allowlist. The final-state rule applies to the whole blast radius of a change
-— code, tests, docs, config — in the same patch. CI (`plan/13`) runs the
-identical gate, closing the one hole the review found in this system: gates
-that only run when someone remembers.
+— code, tests, docs, config — in the same patch. Adopters should run the same
+`npm run verify` command in CI; this starter does not prescribe a CI vendor.
 
 ## Alternatives rejected
 

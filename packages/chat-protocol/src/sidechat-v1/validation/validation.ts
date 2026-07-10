@@ -5,6 +5,7 @@ import {
   toAssistantTurnId,
   toConversationId,
   toEventId,
+  toMessageId,
   toProtocolSequence,
 } from "../primitives.js";
 import { SIDECHAT_PROTOCOL_VERSION } from "../version.js";
@@ -12,16 +13,20 @@ import {
   SIDECHAT_EVENT_TYPES,
   type ActivityEvent,
   type CompletedEvent,
+  type HistoryMessage,
+  type HistoryMessageRole,
   type SidechatEventBase,
   type SidechatEventType,
   type SidechatStreamEvent,
   type StartedEvent,
+  HISTORY_MESSAGE_ROLES,
 } from "../events/event-union.js";
 import { parseActivityDetails, parseUsageMetadata } from "./activity-payload-parsers.js";
 import { requireKnownKeys } from "./json-guards.js";
 import {
   readActivityKind,
   readActivityStatus,
+  readArray,
   readBlockedReason,
   readBoolean,
   readEventType,
@@ -67,6 +72,7 @@ const ACTIVITY_EVENT_FIELDS = [
 const COMPLETED_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "finishReason", "usage"] as const;
 const ERROR_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "code", "message", "retryable"] as const;
 const BLOCKED_EVENT_FIELDS = [...BASE_EVENT_FIELDS, "reason", "publicMessage"] as const;
+const HISTORY_MESSAGE_FIELDS = ["id", "role", "content", "sequence", "activity"] as const;
 
 export const parseSidechatStreamEvent = (input: unknown): SidechatStreamEvent => {
   try {
@@ -80,6 +86,76 @@ export const parseSidechatStreamEvent = (input: unknown): SidechatStreamEvent =>
     const message = error instanceof Error ? error.message : "invalid event";
     throw new ProtocolValidationError(message);
   }
+};
+
+/**
+ * Parse one stored transcript message returned by the history HTTP route.
+ *
+ * History JSON becomes the same branded message and activity contracts used by
+ * the live protocol. Activity is accepted only on assistant messages, and every
+ * item is revalidated as `sidechat.activity`; arbitrary stored JSON never reaches
+ * the widget under an asserted protocol type.
+ */
+export const parseHistoryMessage = (input: unknown): HistoryMessage => {
+  try {
+    const message = readRecord(input, "history message");
+    requireKnownKeys(message, HISTORY_MESSAGE_FIELDS, "history message");
+    const role = readHistoryMessageRole(message["role"]);
+    const activity = readHistoryActivity(message["activity"], role);
+
+    const historyMessage: Writable<HistoryMessage> = {
+      id: toMessageId(readString(message["id"], 'history message["id"]')),
+      role,
+      content: readString(message["content"], 'history message["content"]'),
+      sequence: toProtocolSequence(
+        readNonNegativeInteger(message["sequence"], 'history message["sequence"]'),
+      ),
+    };
+    if (activity !== undefined) historyMessage.activity = activity;
+    return historyMessage;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "invalid history message";
+    throw new ProtocolValidationError(message);
+  }
+};
+
+const readHistoryMessageRole = (value: unknown): HistoryMessageRole => {
+  switch (value) {
+    case HISTORY_MESSAGE_ROLES.USER:
+    case HISTORY_MESSAGE_ROLES.ASSISTANT:
+    case HISTORY_MESSAGE_ROLES.SYSTEM:
+      return value;
+    default:
+      throw new ProtocolValidationError('history message["role"] has unsupported value');
+  }
+};
+
+const readHistoryActivity = (
+  value: unknown,
+  role: HistoryMessageRole,
+): readonly ActivityEvent[] | undefined => {
+  if (value === undefined) return undefined;
+  if (role !== HISTORY_MESSAGE_ROLES.ASSISTANT) {
+    throw new ProtocolValidationError(
+      'history message["activity"] is allowed only on assistant messages',
+    );
+  }
+
+  const events = readArray(value, 'history message["activity"]', parseHistoryActivityEvent);
+  if (events.length === 0) {
+    throw new ProtocolValidationError('history message["activity"] must not be empty');
+  }
+  return events;
+};
+
+const parseHistoryActivityEvent = (value: unknown): ActivityEvent => {
+  const event = parseSidechatStreamEvent(value);
+  if (event.type !== SIDECHAT_EVENT_TYPES.ACTIVITY) {
+    throw new ProtocolValidationError(
+      'history message["activity"] items must be sidechat.activity events',
+    );
+  }
+  return event;
 };
 
 const toEventBase = (event: Record<string, unknown>): SidechatEventBase => ({

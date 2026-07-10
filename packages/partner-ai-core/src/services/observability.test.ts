@@ -312,8 +312,6 @@ const createManifest = (): HostCapabilityManifest => ({
   turnProfiles: [createProfile()],
   tools: [],
   commands: [],
-  approvalPolicies: [],
-  activityRenderers: [],
 });
 
 const createProfile = (): TurnProfile => ({

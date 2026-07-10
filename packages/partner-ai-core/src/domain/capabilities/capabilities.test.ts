@@ -41,7 +41,6 @@ describe("host capability manifest contract", () => {
       modelId: "fake-echo",
       allowedToolNames: ["mock_web_search"],
       allowedCommandNames: [],
-      approvalRequirements: [],
     });
     expect(decision.manifestHash).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(validateTurnPolicyDecision(manifest, resolution.profile, decision)).toMatchObject({

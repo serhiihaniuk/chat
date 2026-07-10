@@ -19,8 +19,8 @@ const REVERSE_INPUT_SCHEMA = {
 } as const satisfies JsonObject;
 
 /**
- * An adopter's tool, authored as a plain async function via the promise factory —
- * no Effect knowledge required — then bundled into one registration.
+ * An adopter's tool, authored as a plain async function via the promise factory.
+ * No Effect knowledge is required before bundling it into one registration.
  */
 const reverseToolRegistration = (): ServiceToolRegistration =>
   createServiceToolRegistration({
@@ -39,13 +39,15 @@ const reverseToolRegistration = (): ServiceToolRegistration =>
       },
     }),
     defaultEnabled: true,
-    approvalPolicyIds: [],
     label: "Reverse text",
   });
 
 describe("adopter tool registration", () => {
   it("offers a promise-authored tool to the model through the service manifest", async () => {
+    const workspace = { tenantId: "tenant_adopt_tool", workspaceId: "workspace_adopt_tool" };
     const app = createPartnerAiServiceApp({
+      workspace,
+      auth: { profile: "development", workspace },
       repositories: createMemorySidechatRepositories({ idPrefix: "adopt_tool" }),
       runtime: { provider: "fake", tools: [reverseToolRegistration()] },
       resumability: { safetyPollIntervalMs: 10 },
@@ -53,10 +55,8 @@ describe("adopter tool registration", () => {
 
     const response = await app.request("/tools", { headers: AUTH });
     expect(response.status).toBe(200);
-    const body = (await response.json()) as {
-      readonly tools: readonly { readonly name: string }[];
-    };
-    expect(body.tools.map((tool) => tool.name)).toContain("example.reverse_text");
+    const body: unknown = await response.json();
+    expect(readToolNames(body)).toContain("example.reverse_text");
   });
 
   it("runs the promise-authored tool exactly as written", async () => {
@@ -71,3 +71,14 @@ describe("adopter tool registration", () => {
     expect(result).toEqual({ reversed: "sretto" });
   });
 });
+
+const readToolNames = (value: unknown): string[] => {
+  if (!isRecord(value) || !Array.isArray(value["tools"])) return [];
+  return value["tools"].flatMap((tool) => {
+    if (!isRecord(tool) || typeof tool["name"] !== "string") return [];
+    return [tool["name"]];
+  });
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);

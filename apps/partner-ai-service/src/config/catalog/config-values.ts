@@ -5,7 +5,6 @@ import {
 } from "@side-chat/partner-ai-core";
 
 export {
-  APPROVAL_MODES,
   CONTEXT_ADMISSION_POLICIES,
   HISTORY_CONTEXT_MODES,
   OUTPUT_FORMATS,

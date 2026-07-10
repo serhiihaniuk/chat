@@ -13,10 +13,7 @@ import {
 } from "./records.js";
 import { one, result } from "../../repository-utils.js";
 
-export const createPostgresDrizzleConversationRepository = ({
-  db,
-  ids,
-}: PostgresDrizzleRepositoryContext): Pick<
+type ConversationRepository = Pick<
   SidechatRepositories,
   | "appendMessage"
   | "createOrGetConversation"
@@ -24,9 +21,33 @@ export const createPostgresDrizzleConversationRepository = ({
   | "listConversations"
   | "prepareConversationTitle"
   | "resetConversation"
-> => ({
-  createOrGetConversation: createOrGetConversationRecord({ db, ids }),
-  appendMessage: async (command) => {
+>;
+
+type AppendMessageCommand = Parameters<ConversationRepository["appendMessage"]>[0];
+
+/**
+ * Build the Postgres conversation repository from named operations.
+ *
+ * Message insertion owns its transaction and idempotency race. The other
+ * operations stay independent so a maintainer can enter through one behavior
+ * without reading the entire repository object literal.
+ */
+export const createPostgresDrizzleConversationRepository = (
+  context: PostgresDrizzleRepositoryContext,
+): ConversationRepository => ({
+  createOrGetConversation: createOrGetConversationRecord(context),
+  appendMessage: createAppendMessage(context),
+  readConversationHistory: createReadConversationHistory(context),
+  listConversations: createListConversations(context),
+  prepareConversationTitle: createPrepareConversationTitle(context),
+  resetConversation: createResetConversation(context),
+});
+
+const createAppendMessage = (
+  context: PostgresDrizzleRepositoryContext,
+): ConversationRepository["appendMessage"] => {
+  const { db } = context;
+  return async (command) => {
     await requireSubjectConversation(
       db,
       command.workspaceId,
@@ -34,88 +55,13 @@ export const createPostgresDrizzleConversationRepository = ({
       command.conversationId,
     );
 
-    const existing = await db
-      .select()
-      .from(messages)
-      .where(
-        and(
-          eq(messages.workspaceId, command.workspaceId),
-          eq(messages.idempotencyKey, command.idempotencyKey.value),
-        ),
-      )
-      .limit(1);
+    const existing = await readMessageByIdempotencyKey(context, command);
     if (existing[0]) return result(toMessageRecord(existing[0]), false);
 
-    const inserted = await db.transaction(async (transaction) => {
-      // Serialize concurrent appends to one conversation: take the conversation
-      // row lock before reading `max(sequence_index)`, so two racing appends can
-      // never compute the same next index and collide on
-      // `messages_conversation_sequence_uq`. The loser blocks here until the
-      // winner commits, then reads the winner's row. The tx already writes this
-      // same row below (updatedAt/lastMessageAt), so the lock adds no new contention.
-      await transaction
-        .select({ conversationId: conversations.conversationId })
-        .from(conversations)
-        .where(
-          and(
-            eq(conversations.workspaceId, command.workspaceId),
-            eq(conversations.conversationId, command.conversationId),
-          ),
-        )
-        .for("update");
-      const [nextSequence] = await transaction
-        .select({
-          value: sql<number>`coalesce(max(${messages.sequenceIndex}), -1) + 1`,
-        })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.workspaceId, command.workspaceId),
-            eq(messages.conversationId, command.conversationId),
-          ),
-        );
-      const sequenceIndex = Number(nextSequence?.value ?? 0);
-      const [message] = await transaction
-        .insert(messages)
-        .values({
-          messageId: ids.next("message"),
-          conversationId: command.conversationId,
-          workspaceId: command.workspaceId,
-          role: command.role,
-          contentText: command.contentText,
-          metadataJson: command.metadataJson,
-          sequenceIndex,
-          idempotencyKey: command.idempotencyKey.value,
-          createdAt: command.now,
-        })
-        .onConflictDoNothing({
-          target: [messages.workspaceId, messages.idempotencyKey],
-        })
-        .returning();
-      if (!message) return undefined;
-      await transaction
-        .update(conversations)
-        .set({ status: "active", updatedAt: command.now, lastMessageAt: command.now })
-        .where(
-          and(
-            eq(conversations.workspaceId, command.workspaceId),
-            eq(conversations.conversationId, command.conversationId),
-          ),
-        );
-      return message;
-    });
+    const inserted = await insertConversationMessage(context, command);
     if (inserted) return result(toMessageRecord(inserted), true);
 
-    const repeated = await db
-      .select()
-      .from(messages)
-      .where(
-        and(
-          eq(messages.workspaceId, command.workspaceId),
-          eq(messages.idempotencyKey, command.idempotencyKey.value),
-        ),
-      )
-      .limit(1);
+    const repeated = await readMessageByIdempotencyKey(context, command);
     return result(
       toMessageRecord(
         one(
@@ -126,8 +72,84 @@ export const createPostgresDrizzleConversationRepository = ({
       ),
       false,
     );
-  },
-  readConversationHistory: async (command) => {
+  };
+};
+
+const readMessageByIdempotencyKey = (
+  { db }: PostgresDrizzleRepositoryContext,
+  command: AppendMessageCommand,
+) =>
+  db
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.workspaceId, command.workspaceId),
+        eq(messages.idempotencyKey, command.idempotencyKey.value),
+      ),
+    )
+    .limit(1);
+
+/** Insert one message while serializing sequence allocation per conversation. */
+const insertConversationMessage = (
+  { db, ids }: PostgresDrizzleRepositoryContext,
+  command: AppendMessageCommand,
+) =>
+  db.transaction(async (transaction) => {
+    // Lock before reading max(sequence_index): concurrent appends then allocate
+    // distinct sequence indexes, while an idempotency loser observes the winner.
+    await transaction
+      .select({ conversationId: conversations.conversationId })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.workspaceId, command.workspaceId),
+          eq(conversations.conversationId, command.conversationId),
+        ),
+      )
+      .for("update");
+    const [nextSequence] = await transaction
+      .select({ value: sql<number>`coalesce(max(${messages.sequenceIndex}), -1) + 1` })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.workspaceId, command.workspaceId),
+          eq(messages.conversationId, command.conversationId),
+        ),
+      );
+    const sequenceIndex = Number(nextSequence?.value ?? 0);
+    const [message] = await transaction
+      .insert(messages)
+      .values({
+        messageId: ids.next("message"),
+        conversationId: command.conversationId,
+        workspaceId: command.workspaceId,
+        role: command.role,
+        contentText: command.contentText,
+        metadataJson: command.metadataJson,
+        sequenceIndex,
+        idempotencyKey: command.idempotencyKey.value,
+        createdAt: command.now,
+      })
+      .onConflictDoNothing({ target: [messages.workspaceId, messages.idempotencyKey] })
+      .returning();
+    if (!message) return undefined;
+
+    await transaction
+      .update(conversations)
+      .set({ status: "active", updatedAt: command.now, lastMessageAt: command.now })
+      .where(
+        and(
+          eq(conversations.workspaceId, command.workspaceId),
+          eq(conversations.conversationId, command.conversationId),
+        ),
+      );
+    return message;
+  });
+
+const createReadConversationHistory =
+  ({ db }: PostgresDrizzleRepositoryContext): ConversationRepository["readConversationHistory"] =>
+  async (command) => {
     const conversation = await requireSubjectConversation(
       db,
       command.workspaceId,
@@ -152,8 +174,11 @@ export const createPostgresDrizzleConversationRepository = ({
       .orderBy(desc(messages.sequenceIndex))
       .limit(command.limit);
     return rows.reverse().map(toMessageRecord);
-  },
-  listConversations: async (command) => {
+  };
+
+const createListConversations =
+  ({ db }: PostgresDrizzleRepositoryContext): ConversationRepository["listConversations"] =>
+  async (command) => {
     const rows = await db
       .select()
       .from(conversations)
@@ -170,8 +195,11 @@ export const createPostgresDrizzleConversationRepository = ({
     return Promise.all(
       rows.map((row) => readConversationSummaryTitle(db, toConversationRecord(row))),
     );
-  },
-  prepareConversationTitle: async (command) => {
+  };
+
+const createPrepareConversationTitle =
+  ({ db }: PostgresDrizzleRepositoryContext): ConversationRepository["prepareConversationTitle"] =>
+  async (command) => {
     await requireSubjectConversation(
       db,
       command.workspaceId,
@@ -201,8 +229,11 @@ export const createPostgresDrizzleConversationRepository = ({
       command.subjectId,
       command.conversationId,
     );
-  },
-  resetConversation: async (command) => {
+  };
+
+const createResetConversation =
+  ({ db }: PostgresDrizzleRepositoryContext): ConversationRepository["resetConversation"] =>
+  async (command) => {
     await requireSubjectConversation(
       db,
       command.workspaceId,
@@ -232,8 +263,7 @@ export const createPostgresDrizzleConversationRepository = ({
     return toConversationRecord(
       one(rows, "record_not_found", "Conversation reset did not update."),
     );
-  },
-});
+  };
 
 const historyLowerBound = (
   requestedAfter: number | undefined,

@@ -119,7 +119,7 @@ const parseJsonBody = async (
   { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly message: string }
 > => {
   try {
-    return { ok: true, value: (await request.json()) as unknown };
+    return { ok: true, value: await request.json() };
   } catch {
     return { ok: false, message: "Request body must be valid JSON." };
   }

@@ -1,7 +1,11 @@
 import { SIDECHAT_EVENT_TYPES, SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import { parseJsonRecord } from "@side-chat/shared";
 import { describe, expect, it } from "vitest";
 
-import { createPartnerAiServiceApp, type PartnerAiServiceOptions } from "../../app.js";
+import {
+  createDevelopmentPartnerAiServiceApp,
+  type DevelopmentPartnerAiServiceOptions,
+} from "../../app.js";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   runTurnStream,
@@ -15,7 +19,7 @@ const validRequest = {
 
 describe("partner ai service model catalog", () => {
   it("exposes fake demo thinking levels in the local model catalog", async () => {
-    const response = await createPartnerAiServiceApp().request("/models", {
+    const response = await createDevelopmentPartnerAiServiceApp().request("/models", {
       headers: { authorization: "Bearer local-test-token" },
     });
 
@@ -37,7 +41,7 @@ describe("partner ai service model catalog", () => {
   });
 
   it("exposes the configured backend model catalog with reasoning and context windows", async () => {
-    const response = await createPartnerAiServiceApp({
+    const response = await createDevelopmentPartnerAiServiceApp({
       runtime: openAiRuntimeOptions(),
     }).request("/models", { headers: { authorization: "Bearer local-test-token" } });
 
@@ -71,7 +75,7 @@ describe("partner ai service model catalog", () => {
 
   it("sends the request-selected backend model and reasoning effort to runtime", async () => {
     const providerCalls: RequestInit[] = [];
-    const app = createPartnerAiServiceApp({
+    const app = createDevelopmentPartnerAiServiceApp({
       resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
       runtime: openAiRuntimeOptions({
         fetch: (_url, init) => {
@@ -99,7 +103,7 @@ describe("partner ai service model catalog", () => {
 });
 
 type OpenAiRuntimeOptions = Extract<
-  NonNullable<PartnerAiServiceOptions["runtime"]>,
+  NonNullable<DevelopmentPartnerAiServiceOptions["runtime"]>,
   { readonly provider: "openai" }
 >;
 
@@ -127,8 +131,10 @@ const openAiRuntimeOptions = (overrides: Partial<OpenAiRuntimeOptions> = {}) => 
 });
 
 const parseProviderRequestBody = (body: RequestInit["body"]): Record<string, unknown> => {
-  expect(typeof body).toBe("string");
-  return JSON.parse(body as string) as Record<string, unknown>;
+  if (typeof body !== "string") throw new Error("Expected a string provider request body.");
+  const parsed = parseJsonRecord(body);
+  if (!parsed) throw new Error("Expected a JSON object provider request body.");
+  return parsed;
 };
 
 const sse = (payload: object): string =>

@@ -67,16 +67,16 @@ UI: one activity row — "contract_analyst · running → completed"
 What you get for free at this level: profile allowlisting decides which turns
 may delegate; abort propagates (cancelling the turn aborts the delegation);
 the tool timeout bounds a slow agent; the result rides the normal tool-result
-path back to the model and the timeline. After `plan/21`, the whole adapter is
-a `createRuntimeToolFromPromise` wrapping one HTTP call.
+path back to the model and the timeline. The whole adapter can use
+`createRuntimeToolFromPromise` to wrap one HTTP call.
 
 Two honest constraints, and one boundary:
 
 - **Results return whole, not streamed.** A delegated task shows as a running
   tool row until it completes; the sub-agent's tokens do not stream into the
   UI. Fine for bounded tasks; a sign you want Level 2/3 if not.
-- **Depth is bounded by the step cap** (the tool-loop limit, configurable via
-  `plan/22`) — delegation cannot recurse unboundedly.
+- **Depth is bounded by the configured tool-loop step cap** — delegation cannot
+  recurse unboundedly.
 - **Boundary:** a bounded task with schema'd input/output is a tool. Hiding an
   open-ended multi-agent workflow behind one tool call is an explicit non-goal
   ([requirements](../product/requirements.md)); if a whole turn should be

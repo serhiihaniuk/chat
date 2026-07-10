@@ -20,7 +20,10 @@ Not source of truth for: product workflow or domain terms.
 
 ## Public Surface
 
-Utility exports only.
+- JSON value types, record narrowing, object-root JSON parsing, and safe JSON
+  normalization.
+- Optional-field compaction, soft brands, redaction, and diagnostic logging
+  primitives.
 
 ## Boundary Rules
 

@@ -126,7 +126,7 @@ const mergedDelta = (part: CoalesciblePart, text: string): TextStreamPart<ToolSe
 });
 
 const isCoalesciblePart = (part: TextStreamPart<ToolSet>): part is CoalesciblePart =>
-  (COALESCIBLE_PART_TYPES as readonly string[]).includes(part.type);
+  part.type === "text-delta" || part.type === "reasoning-delta";
 
 const continuesWindow = (
   first: CoalesciblePart,

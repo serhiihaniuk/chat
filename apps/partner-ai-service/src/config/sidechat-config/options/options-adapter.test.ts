@@ -68,7 +68,6 @@ describe("sidechat.config.ts", () => {
           {
             name: TOOLS.MOCK_WEB_SEARCH.NAME,
             defaultEnabled: true,
-            approvalPolicyIds: [],
           },
         ],
       },

@@ -158,9 +158,11 @@ const conversationSummariesForTitleRefresh = (
 };
 
 const createDeferred = <Value,>() => {
-  let resolve!: (value: Value | PromiseLike<Value>) => void;
+  const deferred: { resolve?: (value: Value | PromiseLike<Value>) => void } = {};
   const promise = new Promise<Value>((resolver) => {
-    resolve = resolver;
+    deferred.resolve = resolver;
   });
+  const resolve = deferred.resolve;
+  if (!resolve) throw new Error("Deferred promise did not initialize its resolver.");
   return { promise, resolve };
 };

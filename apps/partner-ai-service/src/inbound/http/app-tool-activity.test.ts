@@ -6,7 +6,7 @@ import {
 } from "@side-chat/ai-runtime-contract";
 import { Stream } from "effect";
 import { describe, expect, it } from "vitest";
-import { createPartnerAiServiceApp } from "./app.js";
+import { createDevelopmentPartnerAiServiceApp } from "./app.js";
 import {
   TEST_SAFETY_POLL_INTERVAL_MS,
   runTurnStream,
@@ -27,7 +27,7 @@ describe("partner ai service tool activity stream", () => {
     const runtimeEvents = createToolRuntimeEvents("request_001", "assistant_turn_001");
     const runtimeRequests: unknown[] = [];
     const { events } = await runTurnStream(
-      createPartnerAiServiceApp({
+      createDevelopmentPartnerAiServiceApp({
         resumability: { safetyPollIntervalMs: TEST_SAFETY_POLL_INTERVAL_MS },
         agentRuntime: {
           streamEffect: (request) => {

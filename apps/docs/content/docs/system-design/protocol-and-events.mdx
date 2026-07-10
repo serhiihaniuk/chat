@@ -28,7 +28,7 @@ Each shape belongs to one layer and never leaks past it:
 - The selected `AgentExecutor` emits `RuntimeEvent`s. The default executor calls the private AI SDK
   adapter; other executors may use different engines but must still emit `RuntimeEvent`s at the
   boundary.
-- The runtime does not decide product authorization, approval policy, host-command dispatch,
+- The runtime does not decide product authorization or policy, host-command dispatch,
   persistence, or context access.
 
 ## Protocol rules

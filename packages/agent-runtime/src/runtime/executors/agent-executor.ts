@@ -1,4 +1,5 @@
 import type { AiRuntimeEventStream } from "@side-chat/ai-runtime-contract";
+import type { LanguageModel, ToolLoopAgentSettings } from "ai";
 import type { RuntimeProviderRequest } from "../turn/runtime-provider-request.js";
 
 export const DEFAULT_AGENT_EXECUTOR_ID = "ai_sdk.tool_loop" as const;
@@ -6,14 +7,13 @@ export const DEFAULT_AGENT_EXECUTOR_ID = "ai_sdk.tool_loop" as const;
 /**
  * Provider artifacts the runtime resolves and hands straight to the executor.
  *
- * `ResolvedProviderModel` is the AI SDK `LanguageModel` and
- * `ResolvedProviderOptions` is the provider's call-options bag. The provider
- * adapter produces them; the runtime and executors pass them through unchanged
- * and never inspect them, so they stay `unknown` here on purpose instead of
- * leaking AI SDK types across the runtime boundary.
+ * The registered model providers currently resolve AI SDK model handles and
+ * provider-option bags. Executors remain pluggable: the built-in executor uses
+ * both artifacts, while another executor may ignore them and stream normalized
+ * runtime events by another strategy.
  */
-export type ResolvedProviderModel = unknown;
-export type ResolvedProviderOptions = unknown;
+export type ResolvedProviderModel = LanguageModel;
+export type ResolvedProviderOptions = ToolLoopAgentSettings["providerOptions"] | undefined;
 
 /**
  * AgentExecutionRequest is the last runtime-owned shape before streaming.

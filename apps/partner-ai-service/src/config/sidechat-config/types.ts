@@ -7,8 +7,6 @@
  * this file never contains provider credentials or database connection strings.
  */
 import type {
-  ActivityRendererCapability,
-  ApprovalPolicy,
   ConversationTitlePromptConfig,
   HostCommandCapability,
   OutputContract,
@@ -157,12 +155,10 @@ export type SideChatToolConfig<Tool extends SideChatToolDescriptor = SideChatToo
     /** System prompt that makes the mock web-search sub-agent behave like a search engine. */
     readonly searchAgentPrompt?: string | undefined;
   };
-  /** Default exposure and approval metadata for this tool. */
+  /** Default exposure metadata for this tool. */
   readonly exposure: {
     /** Whether the default turn profile includes this tool. */
     readonly defaultMode: ToolDefaultExposure;
-    /** Approval policy ids that gate this tool, if any. */
-    readonly approvalPolicyIds: readonly string[];
   };
 };
 
@@ -248,14 +244,10 @@ export type SideChatConfig = {
     /** Configured tool instances, each paired with an implemented executable. */
     readonly availableTools: readonly SideChatToolConfig[];
   };
-  /** Browser/host commands, approvals, and activity renderers. */
+  /** Browser/host commands available to model-facing runtime execution. */
   readonly hostCommands: {
     /** Host-app commands exposed through the browser bridge, not runtime tools. */
     readonly availableCommands: readonly HostCommandCapability[];
-    /** Approval policies that gate tools or host commands. */
-    readonly approvalPolicies: readonly ApprovalPolicy[];
-    /** UI renderers for command/tool activity. */
-    readonly activityRenderers: readonly ActivityRendererCapability[];
   };
   /** Turn guards available for safety policy selection. */
   readonly turnGuards: {
@@ -294,12 +286,7 @@ export type SideChatConfig = {
   readonly resumability: SideChatResumabilityConfig;
 };
 
-/**
- * Preserve literal config values while checking the readable service shape.
- *
- * The config file may contain human-authored prompt text, but closed product
- * ids should arrive from catalog imports. Runtime validation later checks
- * cross-field relationships such as default model membership and tool exposure.
- */
-export const defineSideChatConfig = <const Config extends SideChatConfig>(config: Config): Config =>
-  config;
+export {
+  defineSideChatConfig,
+  isDefinedSideChatConfig,
+} from "./selection/defined-sidechat-config.js";

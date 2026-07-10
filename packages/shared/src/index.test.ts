@@ -5,10 +5,25 @@ import {
   omitNullishField,
   omitUndefinedField,
   omitUndefinedProperties,
+  parseJsonRecord,
   redactAttributes,
   shouldEmitDiagnostic,
   type OmitUndefinedProperties,
 } from "./index.js";
+
+describe("parseJsonRecord", () => {
+  it("returns keyed JSON objects", () => {
+    expect(parseJsonRecord('{"assistantTurnId":"turn_1"}')).toEqual({
+      assistantTurnId: "turn_1",
+    });
+  });
+
+  it("rejects malformed JSON and non-object roots", () => {
+    expect(parseJsonRecord("not-json")).toBeUndefined();
+    expect(parseJsonRecord("null")).toBeUndefined();
+    expect(parseJsonRecord("[]")).toBeUndefined();
+  });
+});
 
 describe("omitUndefinedField", () => {
   it("omits undefined and preserves null", () => {

@@ -1,12 +1,12 @@
-import type { HostContext } from "@side-chat/chat-protocol";
+import { isRecord, type HostContext } from "@side-chat/chat-protocol";
 import {
   createCommandResult,
+  HOST_COMMAND_RESULT_STATUSES,
   toHostCommand,
   type HostBridge,
   type HostCommand,
   type HostCommandResult,
 } from "@side-chat/host-bridge";
-import { isRecord } from "@side-chat/shared";
 
 /**
  * Host bridge that forwards commands across an iframe boundary.
@@ -25,13 +25,9 @@ export const HOST_COMMAND_MESSAGE_TYPE = "sidechat.widget.hostCommand";
 export const HOST_COMMAND_RESULT_MESSAGE_TYPE = "sidechat.widget.hostCommandResult";
 const DEFAULT_COMMAND_TIMEOUT_MS = 5_000;
 
-const COMMAND_STATUSES: readonly HostCommandResult["status"][] = [
-  "applied",
-  "rejected",
-  "unsupported",
-  "failed",
-  "timed_out",
-];
+const COMMAND_STATUSES: readonly HostCommandResult["status"][] = Object.values(
+  HOST_COMMAND_RESULT_STATUSES,
+);
 
 export type PostMessageHostBridgeOptions = {
   readonly context: HostContext;
@@ -107,4 +103,4 @@ const readResultPayload = (
 };
 
 const isCommandStatus = (value: unknown): value is HostCommandResult["status"] =>
-  typeof value === "string" && (COMMAND_STATUSES as readonly string[]).includes(value);
+  typeof value === "string" && COMMAND_STATUSES.some((status) => status === value);

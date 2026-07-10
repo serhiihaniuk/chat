@@ -43,15 +43,7 @@ const DEFAULT_WORKSPACE: WorkspaceRef = {
   workspaceId: DEFAULT_WORKSPACE_ID,
 };
 
-/**
- * HTTP-facing options for embedding the service in tests, local boot, or a host app.
- *
- * These inputs are still service-layer dependencies. `createPartnerAiServiceApp`
- * forwards them into composition and route registration; it does not reinterpret
- * product policy, rebuild runtime providers, or expose adapter secrets through
- * the Hono app.
- */
-export type PartnerAiServiceOptions = {
+type PartnerAiServiceSharedOptions = {
   readonly repositories?: SidechatRepositories | undefined;
   readonly auth?: ServiceAuthConfig | undefined;
   /**
@@ -91,12 +83,50 @@ export type PartnerAiServiceOptions = {
   readonly resumability?: ResumabilityOptions | undefined;
 };
 
+type ExplicitAuthorityOptions =
+  | {
+      readonly auth: ServiceAuthConfig;
+      readonly authVerifier?: ServiceAuthVerifier | undefined;
+    }
+  | {
+      readonly auth?: ServiceAuthConfig | undefined;
+      readonly authVerifier: ServiceAuthVerifier;
+    };
+
+type ExplicitPersistenceOptions =
+  | {
+      readonly persistence: PersistenceConfig;
+      readonly repositories?: SidechatRepositories | undefined;
+    }
+  | {
+      readonly persistence?: PersistenceConfig | undefined;
+      readonly repositories: SidechatRepositories;
+    };
+
+/**
+ * Adopter-owned service construction contract.
+ *
+ * A host must deliberately choose workspace, authority, persistence, and runtime.
+ * The explicit shape prevents copied starter code from silently retaining local
+ * development identity, memory storage, or the fake provider in a deployment.
+ */
+export type PartnerAiServiceOptions = PartnerAiServiceSharedOptions &
+  ExplicitAuthorityOptions &
+  ExplicitPersistenceOptions & {
+    readonly workspace: WorkspaceRef;
+    readonly runtime: RuntimeConfig & RuntimeToolConfig;
+  };
+
+/** Optional overrides for the named local-development and test constructor. */
+export type DevelopmentPartnerAiServiceOptions = PartnerAiServiceSharedOptions;
+
 /**
  * A composed service: the Hono app plus its background-lifecycle shutdown.
  *
  * `shutdown` stops the generation runner, reaper, and `LISTEN` dispatchers the
  * composition started, so a long-running host (the Node server) can drain
- * cleanly on SIGTERM. Tests that only exercise HTTP use {@link createPartnerAiServiceApp}.
+ * cleanly on SIGTERM. Local HTTP tests use
+ * {@link createDevelopmentPartnerAiServiceApp}.
  */
 export type PartnerAiService = {
   readonly app: PartnerAiServiceApp;
@@ -116,7 +146,23 @@ export type PartnerAiService = {
  * parse requests and write responses, not rebuild policy, storage, or runtime
  * wiring.
  */
-export const createPartnerAiService = (options: PartnerAiServiceOptions = {}): PartnerAiService => {
+export const createPartnerAiService = (options: PartnerAiServiceOptions): PartnerAiService =>
+  createPartnerAiServiceFromOptions(options);
+
+/**
+ * Create a local/test service with documented development fallbacks.
+ *
+ * Adopter boot should use {@link createPartnerAiService}; this entry point is
+ * intentionally named so fake runtime, static dev auth, and memory persistence
+ * cannot be mistaken for deployment-ready defaults.
+ */
+export const createDevelopmentPartnerAiService = (
+  options: DevelopmentPartnerAiServiceOptions = {},
+): PartnerAiService => createPartnerAiServiceFromOptions(options);
+
+const createPartnerAiServiceFromOptions = (
+  options: DevelopmentPartnerAiServiceOptions,
+): PartnerAiService => {
   const app = new Hono<AuthContextVariables>();
   const composition = composePartnerAiService(compositionOptions(options));
   // A custom verifier wins outright; otherwise the static-token adapter derived
@@ -197,15 +243,21 @@ export type PartnerAiServiceApp = Hono<AuthContextVariables>;
 /**
  * Create just the Hono app, discarding the background-lifecycle shutdown.
  *
- * This is the convenience entry for HTTP tests and embedding contexts that do not
- * own process lifecycle; the long-running server uses {@link createPartnerAiService}
- * so it can shut the runner, reaper, and listeners down on SIGTERM.
+ * This explicit adopter entry preserves the same dependency requirements as
+ * {@link createPartnerAiService}. Hosts that own process lifecycle should use the
+ * full constructor so they can stop the runner, reaper, and listeners on SIGTERM.
  */
-export const createPartnerAiServiceApp = (
-  options: PartnerAiServiceOptions = {},
-): PartnerAiServiceApp => createPartnerAiService(options).app;
+export const createPartnerAiServiceApp = (options: PartnerAiServiceOptions): PartnerAiServiceApp =>
+  createPartnerAiService(options).app;
 
-const compositionOptions = (options: PartnerAiServiceOptions): ServiceCompositionOptions => ({
+/** Create only the Hono app with local-development and test fallbacks. */
+export const createDevelopmentPartnerAiServiceApp = (
+  options: DevelopmentPartnerAiServiceOptions = {},
+): PartnerAiServiceApp => createDevelopmentPartnerAiService(options).app;
+
+const compositionOptions = (
+  options: DevelopmentPartnerAiServiceOptions,
+): ServiceCompositionOptions => ({
   workspace: options.workspace ?? DEFAULT_WORKSPACE,
   auth: options.auth,
   policies: options.policies,

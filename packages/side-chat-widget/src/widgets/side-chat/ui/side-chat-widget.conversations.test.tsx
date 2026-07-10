@@ -139,9 +139,9 @@ describe("SideChatWidget conversation history", () => {
   });
 
   it("hands a finished run off to server history without losing the answer", async () => {
-    // Run→history handoff (plan/06): while streaming, history must not refetch and
-    // clobber live text; once the run is terminal, history IS refetched and takes
-    // over serving the committed transcript — with no frame losing the answer.
+    // While streaming, history must not refetch and clobber live text. Once the
+    // run is terminal, history is refetched and takes over the committed
+    // transcript without any frame losing the answer.
     const readHistory = vi.fn<NonNullable<SideChatApiClient["readHistory"]>>((conversationId) =>
       Promise.resolve({
         conversationId,

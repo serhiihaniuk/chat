@@ -64,7 +64,6 @@ describe("createServiceToolBundle", () => {
               execute: () => Effect.succeed({ temperature: 21 }),
             },
             defaultEnabled: true,
-            approvalPolicyIds: [],
           }),
         ],
       },

@@ -35,7 +35,8 @@ export const splitSseFrames = (stream: string): readonly string[] =>
 
 export const parseSseJson = (source: string, message: string): unknown => {
   try {
-    return JSON.parse(source) as unknown;
+    const parsed: unknown = JSON.parse(source);
+    return parsed;
   } catch {
     throw new ProtocolValidationError(message);
   }

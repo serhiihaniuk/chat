@@ -23,7 +23,7 @@ describe("createAzureOpenAIProvider", () => {
           deploymentsByModelId: { "gpt-4o": "my-gpt4o-prod" },
           fetch: (url, init) => {
             urls.push(String(url));
-            headers.push((init?.headers ?? {}) as Record<string, string>);
+            headers.push(Object.fromEntries(new Headers(init?.headers).entries()));
             return Promise.resolve(
               new Response(
                 [

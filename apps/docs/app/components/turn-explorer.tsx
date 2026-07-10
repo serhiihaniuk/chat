@@ -226,11 +226,17 @@ const HOPS: readonly Hop[] = [
   },
 ];
 
-const LANE_BY_ID = Object.fromEntries(LANES.map((lane) => [lane.id, lane])) as Record<LaneId, Lane>;
-const PHASE_BY_ID = Object.fromEntries(PHASES.map((phase) => [phase.id, phase])) as Record<
-  PhaseId,
-  Phase
->;
+const laneById = (id: LaneId): Lane => {
+  const lane = LANES.find((candidate) => candidate.id === id);
+  if (!lane) throw new Error(`Unknown turn-explorer lane: ${id}`);
+  return lane;
+};
+
+const phaseById = (id: PhaseId): Phase => {
+  const phase = PHASES.find((candidate) => candidate.id === id);
+  if (!phase) throw new Error(`Unknown turn-explorer phase: ${id}`);
+  return phase;
+};
 
 const laneRow = (id: LaneId): number => LANES.findIndex((lane) => lane.id === id);
 const hopNumber = (index: number): string => String(index + 1).padStart(2, "0");
@@ -246,20 +252,21 @@ const PHASE_BANDS: readonly Band[] = HOPS.reduce<Band[]>((bands, hop, index) => 
   if (last && last.phase.id === hop.phase) {
     bands[bands.length - 1] = { ...last, count: last.count + 1 };
   } else {
-    bands.push({ phase: PHASE_BY_ID[hop.phase], start: index, count: 1 });
+    bands.push({ phase: phaseById(hop.phase), start: index, count: 1 });
   }
   return bands;
 }, []);
 
 const FIRST_GRID_ROW = 3; // row 1 = phase bands, row 2 = hop numbers, rows 3+ = lanes
 
-export function TurnExplorer(): ReactElement {
+export function TurnExplorer(): ReactElement | null {
   const [active, setActive] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeCardRef = useRef<HTMLButtonElement>(null);
-  const activeHop = HOPS[active]!;
-  const activeLane = LANE_BY_ID[activeHop.lane];
-  const activePhase = PHASE_BY_ID[activeHop.phase];
+  const activeHop = HOPS[active] ?? HOPS[0];
+  if (!activeHop) return null;
+  const activeLane = laneById(activeHop.lane);
+  const activePhase = phaseById(activeHop.phase);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -342,7 +349,10 @@ export function TurnExplorer(): ReactElement {
               style={{
                 gridColumn: index + 2,
                 gridRow: 2,
-                color: index === active ? PHASE_BY_ID[hop.phase].color : "var(--color-fd-muted-foreground)",
+                color:
+                  index === active
+                    ? phaseById(hop.phase).color
+                    : "var(--color-fd-muted-foreground)",
               }}
             >
               {hopNumber(index)}
@@ -363,7 +373,7 @@ export function TurnExplorer(): ReactElement {
 
           {/* hop cards, each in its lane row + hop column */}
           {HOPS.map((hop, index) => {
-            const lane = LANE_BY_ID[hop.lane];
+            const lane = laneById(hop.lane);
             const selected = index === active;
             const cardStyle: CSSProperties = {
               gridColumn: index + 2,
@@ -433,7 +443,7 @@ export function TurnExplorer(): ReactElement {
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-fd-border bg-fd-muted/30 px-4 py-2.5">
         <div className="flex gap-0.5">
           {HOPS.map((hop, index) => {
-            const phase = PHASE_BY_ID[hop.phase];
+            const phase = phaseById(hop.phase);
             const selected = index === active;
             return (
               <button

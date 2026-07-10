@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { ProtocolValidationError } from "../errors.js";
+import { isRecord } from "../primitives.js";
 import { CHAT_REASONING_EFFORTS, parseChatStreamRequest } from "./request.js";
 import { SIDECHAT_PROTOCOL_VERSION } from "../version.js";
 
@@ -255,13 +256,11 @@ describe("parseChatStreamRequest", () => {
 });
 
 const readGeneratedSchema = (): JsonRecord => {
-  const parsed = JSON.parse(readFileSync(schemaPath, "utf8")) as unknown;
+  const parsed: unknown = JSON.parse(readFileSync(schemaPath, "utf8"));
   return readRecord(parsed, "generated schema");
 };
 
 const readRecord = (value: unknown, label: string): JsonRecord => {
-  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-    return value as JsonRecord;
-  }
+  if (isRecord(value)) return value;
   throw new Error(`${label} must be a JSON object`);
 };

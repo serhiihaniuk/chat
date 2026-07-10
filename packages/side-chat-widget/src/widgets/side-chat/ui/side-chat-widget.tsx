@@ -49,6 +49,13 @@ const SUGGESTION_ICONS: readonly LucideIcon[] = [
   PenLineIcon,
 ];
 
+/**
+ * Render one self-contained Side Chat shell around a host-supplied API client.
+ *
+ * This boundary owns the widget-local query cache and delegates turn lifecycle,
+ * browser persistence, host integration, and visual composition to the model
+ * hooks below. It does not create service configuration or provider/runtime state.
+ */
 export const SideChatWidget = (props: SideChatWidgetProps) => {
   const [queryClient] = useState(createSideChatWidgetQueryClient);
 
@@ -59,6 +66,14 @@ export const SideChatWidget = (props: SideChatWidgetProps) => {
   );
 };
 
+/**
+ * Compose the widget's independent controllers into one render tree.
+ *
+ * Panel/settings state controls the shell, model and tool selection shape the
+ * next request, and `useWidgetChat` owns transcript lifecycle. This component
+ * wires those results to presentation components; transport decoding and server
+ * policy remain behind the host-supplied client.
+ */
 const SideChatWidgetContent = ({
   turnProfiles = [],
   client,
@@ -253,7 +268,7 @@ const toEmptyStateSuggestions = (
 ): readonly WidgetEmptyStateSuggestion[] =>
   quickActions.map((action, index) => ({
     ...action,
-    icon: SUGGESTION_ICONS[index % SUGGESTION_ICONS.length]!,
+    icon: SUGGESTION_ICONS[index % SUGGESTION_ICONS.length] ?? FileTextIcon,
   }));
 
 // Honest empty-state copy: only claim to see the page when a host bridge is present

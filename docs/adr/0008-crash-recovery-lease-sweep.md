@@ -1,6 +1,6 @@
 # ADR 0008: Crash Recovery — Durable Breadcrumbs Plus A Lease Sweep
 
-Status: accepted 2026-07-02 (implementation tracked in `plan/05`, `plan/26`, `plan/07`)
+Status: accepted and implemented 2026-07-02
 
 ## Context
 
@@ -20,13 +20,13 @@ and reconnecting clients hang.
 
 ## What it buys here
 
-| Guarantee                                      | How                                                                                                                                                                          | Without it                                                                                    |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **A crash cannot poison the next turn.**       | Any surviving instance terminalizes the orphan; the `requestId` becomes retryable, `activeTurn` and the activity dot clear.                                                  | Stranded `running` rows block retries and light dots forever — today's state until `plan/05`. |
-| **No split brain, ever.**                      | The lease carries an epoch; a reaped-then-awakened zombie owner's next heartbeat renew matches zero rows → it self-interrupts. Two instances can never both finish one turn. | A GC-paused owner waking up and double-answering.                                             |
-| **No leader election.**                        | The sweep uses CAS + `FOR UPDATE SKIP LOCKED`; every instance runs it concurrently with disjoint claims.                                                                     | A coordinator service — new infrastructure for a background loop.                             |
-| **Clients converge without knowing anything.** | The widget's fallback polls `GET /chat/turns/:id` — a plain DB read valid on any instance — then hands off to history.                                                       | Permanent spinners and locked composers.                                                      |
-| **Honest terminals.**                          | The sweep classifies from durable evidence: cancel intent → `user_aborted`, else `provider_failed`; the reap emits the activity NOTIFY so dots clear live.                   | Every crash reported as a generic mystery.                                                    |
+| Guarantee                                      | How                                                                                                                                                                          | Without it                                                        |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **A crash cannot poison the next turn.**       | Any surviving instance terminalizes the orphan; the `requestId` becomes retryable, `activeTurn` and the activity dot clear.                                                  | Stranded `running` rows block retries and light dots forever.     |
+| **No split brain, ever.**                      | The lease carries an epoch; a reaped-then-awakened zombie owner's next heartbeat renew matches zero rows → it self-interrupts. Two instances can never both finish one turn. | A GC-paused owner waking up and double-answering.                 |
+| **No leader election.**                        | The sweep uses CAS + `FOR UPDATE SKIP LOCKED`; every instance runs it concurrently with disjoint claims.                                                                     | A coordinator service — new infrastructure for a background loop. |
+| **Clients converge without knowing anything.** | The widget's fallback polls `GET /chat/turns/:id` — a plain DB read valid on any instance — then hands off to history.                                                       | Permanent spinners and locked composers.                          |
+| **Honest terminals.**                          | The sweep classifies from durable evidence: cancel intent → `user_aborted`, else `provider_failed`; the reap emits the activity NOTIFY so dots clear live.                   | Every crash reported as a generic mystery.                        |
 
 ## Decision
 
@@ -38,8 +38,8 @@ process cleaning up after itself.
 **The mechanism, in layers:**
 
 1. **Don't crash for stupid reasons.** DB blips must degrade, not kill:
-   `error` handlers on the pool and LISTEN clients, reconnect loops with
-   durable-intent rescan (`plan/26`). Most fleet "crashes" are this bug.
+   `error` handlers on the pool and LISTEN clients, plus reconnect loops with
+   durable-intent rescan. Most fleet "crashes" are this bug.
 2. **Leases are the breadcrumbs.** Generation CAS-acquires an owner lease
    (`owner_instance_id`, `lease_epoch`, `lease_expires_at`) and renews it on a
    heartbeat. A dead owner simply stops renewing.
@@ -47,14 +47,14 @@ process cleaning up after itself.
    `reapExpiredTurns`: expired ≡ `running` with a past lease, **or** a NULL
    lease older than a grace window (the crash-between-insert-and-acquire
    case). Reaped turns get honest classification and the activity NOTIFY, in
-   one transaction (`plan/05`).
+   one transaction.
 4. **Fencing closes the zombie case.** The sweep bumps `lease_epoch`; a
    stalled owner that wakes up fails its epoch-guarded renew and
    self-interrupts. Heartbeat renews retry transient DB errors first, so one
    blip cannot fence a healthy turn.
 5. **Clients converge through the DB.** Stream lost → bounded reconnect →
    poll turn status on any instance → on terminal, refetch history and clear
-   the run (`plan/07`, `plan/06`).
+   the run.
 
 **The timeline this yields:** crash at t=0 → lease expires (~TTL 30 s) → swept
 within the reaper interval + grace → client poll shows an honest failed state
@@ -78,8 +78,8 @@ tunable via `leaseTtl` / `reaperInterval` in `sidechat.config.ts`.
 ## Consequences
 
 Crash recovery costs one background loop per instance plus a heartbeat UPDATE
-per running turn per 10 s. The design landed with `plan/05` (2026-07-02): the
-sweep runs from service composition (`turn-runner/maintenance/turn-reaper.ts`),
+per running turn per 10 s. The sweep runs from service composition
+(`turn-runner/maintenance/turn-reaper.ts`),
 the reap predicate covers both the expired-lease and NULL-lease cases in both
 repository adapters (`turn-lease.ts`; concurrent-reap exactly-once contract
 tests), the reap notifies the activity channel in the same transaction, and the

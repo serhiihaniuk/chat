@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { SidechatRepositories } from "#repositories/contract";
-import { toAssistantMessageId } from "#schema-contract";
+import {
+  toAssistantMessageId,
+  toAssistantTurnId,
+  toSubjectId,
+  toWorkspaceId,
+} from "#schema-contract";
 import {
   closeIfNeeded,
   now,
@@ -80,7 +85,7 @@ export const turnResolutionRepositoryContract = (
         // A cross-workspace or unknown id resolves to undefined, not a throw.
         await expect(
           repositories.findAssistantTurn({
-            workspaceId: "other_workspace" as never,
+            workspaceId: toWorkspaceId("other_workspace"),
             subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
           }),
@@ -91,7 +96,7 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
-            subjectId: "other_subject" as never,
+            subjectId: toSubjectId("other_subject"),
             assistantTurnId: turn.assistantTurnId,
           }),
         ).resolves.toBeUndefined();
@@ -199,7 +204,7 @@ export const turnResolutionRepositoryContract = (
           repositories.requestTurnCancellation({
             workspaceId: workspaceId(scope),
             subjectId: subjectId(scope),
-            assistantTurnId: "assistant_turn_missing" as never,
+            assistantTurnId: toAssistantTurnId("assistant_turn_missing"),
             now,
           }),
         ).resolves.toEqual({ cancelRequested: false });
@@ -208,7 +213,7 @@ export const turnResolutionRepositoryContract = (
         // from another tenant cannot cancel another workspace's turn.
         await expect(
           repositories.requestTurnCancellation({
-            workspaceId: "other_workspace" as never,
+            workspaceId: toWorkspaceId("other_workspace"),
             subjectId: subjectId(scope),
             assistantTurnId: turn.assistantTurnId,
             now,
@@ -220,7 +225,7 @@ export const turnResolutionRepositoryContract = (
         await expect(
           repositories.requestTurnCancellation({
             workspaceId: workspaceId(scope),
-            subjectId: "other_subject" as never,
+            subjectId: toSubjectId("other_subject"),
             assistantTurnId: turn.assistantTurnId,
             now,
           }),

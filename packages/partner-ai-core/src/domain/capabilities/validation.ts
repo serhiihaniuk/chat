@@ -9,11 +9,6 @@ import {
   type TurnPolicyResolutionInput,
 } from "./contracts/capabilities.js";
 import {
-  approvalRequirementsForSelectedCapabilities,
-  validateApprovalPolicyReferences,
-} from "./turn-policy/turn-policy-approval-validation.js";
-import {
-  readApprovalPolicyId,
   readTurnProfileId,
   readHostCommandName,
   readToolCapabilityName,
@@ -52,22 +47,14 @@ export const validateHostCapabilityManifest = (
       HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_COMMAND_NAME,
       "host command name",
     ),
-    ...duplicateValueIssues(
-      manifest.approvalPolicies.map(readApprovalPolicyId),
-      "approvalPolicies",
-      HOST_CAPABILITY_VALIDATION_CODES.DUPLICATE_APPROVAL_POLICY_ID,
-      "approval policy id",
-    ),
   );
 
   const profileIds = new Set(manifest.turnProfiles.map(readTurnProfileId));
   const toolNames = new Set(manifest.tools.map(readToolCapabilityName));
-  const commandNames = new Set(manifest.commands.map(readHostCommandName));
 
   issues.push(
     ...validateDefaultProfileReference(manifest, profileIds),
     ...validateTurnProfileReferences(manifest, toolNames),
-    ...validateApprovalPolicyReferences(manifest, toolNames, commandNames),
   );
 
   return issues.length === 0 ? { valid: true, manifest } : { valid: false, issues };
@@ -93,7 +80,6 @@ export const resolveTurnProfileFromManifest = (
 };
 
 export const createTurnPolicyDecision = ({
-  manifest,
   profile,
   manifestHash,
   modelSelection,
@@ -102,11 +88,6 @@ export const createTurnPolicyDecision = ({
   // turn here yet. When command execution is wired, this is the place that must
   // choose which command names the turn may use.
   const allowedCommandNames: readonly string[] = [];
-  const selectedCapabilityNames = new Set([
-    ...profile.defaultToolPolicy.allowedToolNames,
-    ...allowedCommandNames,
-  ]);
-
   return {
     profileId: profile.profileId,
     profileVersion: profile.version,
@@ -120,10 +101,6 @@ export const createTurnPolicyDecision = ({
     callSettings: profile.callSettings,
     allowedToolNames: profile.defaultToolPolicy.allowedToolNames,
     allowedCommandNames,
-    approvalRequirements: approvalRequirementsForSelectedCapabilities(
-      manifest,
-      selectedCapabilityNames,
-    ),
     manifestHash,
   };
 };

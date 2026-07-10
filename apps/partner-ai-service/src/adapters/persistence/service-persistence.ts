@@ -80,12 +80,28 @@ const createStartAssistantTurnEffect =
           workspaceId: authContext.workspaceId,
           conversationId: conversation.conversationId,
           assistantTurnId: turn.record.assistantTurnId,
-          status: turn.record.status as AssistantTurnStatus,
+          status: toAssistantTurnStatus(turn.record.status),
           inserted: turn.inserted,
         };
       },
       catch: (error) => error,
     });
+
+const toAssistantTurnStatus = (status: string): AssistantTurnStatus => {
+  switch (status) {
+    case "running":
+    case "completed":
+    case "blocked":
+    case "user_aborted":
+    case "timed_out":
+    case "provider_failed":
+    case "tool_failed":
+    case "persistence_failed":
+      return status;
+    default:
+      throw new Error(`Unsupported assistant turn status ${status}.`);
+  }
+};
 
 const createRecordContextSnapshotEffect =
   (repositories: SidechatRepositories): AssistantTurnLifecyclePort["recordContextSnapshot"] =>

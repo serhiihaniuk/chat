@@ -15,7 +15,8 @@ Not source of truth for: runtime events or widget state.
   `sidechat-v1/codec/activity-sse-codec.ts`). This is the cross-conversation turn
   lifecycle event carried on the subject-scoped activity stream, distinct from the
   in-turn `ActivityEvent` (`sidechat.activity`, reasoning/tool steps inside one turn).
-- Generated JSON Schema and protocol tests.
+- The hand-maintained JSON Schema and parity/completeness tests that keep it
+  synchronized with the TypeScript contract.
 
 ## Does Not Own
 
@@ -41,7 +42,8 @@ SSE encode/decode round trip
 
 - Keep protocol DTOs browser-safe.
 - Do not import React, Hono, Effect, DB, AI SDK, or runtime internals.
-- Add tests and generated schema updates when protocol shape changes.
+- Update the hand-maintained schema and its parity tests in the same change as a
+  protocol shape.
 
 ## Tests
 

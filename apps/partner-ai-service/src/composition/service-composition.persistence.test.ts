@@ -32,26 +32,9 @@ describe("service composition persistence metadata", () => {
       }),
     ).toThrow("Persistence config memory does not match injected postgres-drizzle repositories.");
   });
-
-  it("rejects untagged injected repositories instead of classifying them as memory", () => {
-    expect(() =>
-      composePartnerAiService({
-        workspace,
-        repositories: createUntaggedRepositories(),
-      }),
-    ).toThrow(
-      "Injected repositories must declare a valid adapterKind; service composition cannot infer persistence from untagged repositories.",
-    );
-  });
 });
 
 const createPostgresDrizzleTaggedRepositories = (): SidechatRepositories => ({
   ...createMemorySidechatRepositories(),
   adapterKind: REPOSITORY_ADAPTER_KINDS.POSTGRES_DRIZZLE,
 });
-
-const createUntaggedRepositories = (): SidechatRepositories => {
-  const untaggedRepositories = { ...createMemorySidechatRepositories() };
-  Reflect.deleteProperty(untaggedRepositories, "adapterKind");
-  return untaggedRepositories as SidechatRepositories;
-};

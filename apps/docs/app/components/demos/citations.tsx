@@ -15,7 +15,7 @@ import {
   type CitationSource,
 } from "@side-chat/side-chat-widget/ui/activity/citations";
 
-const SOURCES: readonly CitationSource[] = [
+const SOURCES = [
   {
     label: "Regulatory framework on AI — European Commission",
     url: "https://digital-strategy.ec.europa.eu/ai",
@@ -27,7 +27,7 @@ const SOURCES: readonly CitationSource[] = [
     excerpt: "Obligations for general-purpose AI models began applying across the union in August 2025.",
   },
   { label: "“…fully applicable two years later” — pasted context" },
-];
+] satisfies readonly [CitationSource, CitationSource, CitationSource];
 
 export function CitationsDemo() {
   return (
@@ -42,8 +42,8 @@ export function CitationsDemo() {
     >
       <p style={{ margin: 0, fontSize: "0.9375rem", lineHeight: 1.6 }}>
         The framework applies across the union
-        <InlineCitation number={1} source={SOURCES[0]!} /> and takes effect in stages
-        <InlineCitation number={2} source={SOURCES[1]!} />.
+        <InlineCitation number={1} source={SOURCES[0]} /> and takes effect in stages
+        <InlineCitation number={2} source={SOURCES[1]} />.
       </p>
       <SourcesFold defaultOpen sources={SOURCES} />
     </div>

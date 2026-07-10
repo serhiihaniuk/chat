@@ -215,10 +215,11 @@ const FRAMES: readonly Frame[] = [
 /** Index of the last pre-start step; generation forks right after it. */
 const FORK_AFTER_INDEX = 10;
 
-const PHASE_BY_ID = Object.fromEntries(PHASES.map((phase) => [phase.id, phase])) as Record<
-  PhaseId,
-  Phase
->;
+const phaseById = (id: PhaseId): Phase => {
+  const phase = PHASES.find((candidate) => candidate.id === id);
+  if (!phase) throw new Error(`Unknown turn-trace phase: ${id}`);
+  return phase;
+};
 
 const FUTURE_NODE = "bg-fd-muted text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-foreground";
 
@@ -234,10 +235,11 @@ const nodeStyle = (state: StepState, color: string): CSSProperties | undefined =
   return undefined;
 };
 
-export function TurnTrace(): ReactElement {
+export function TurnTrace(): ReactElement | null {
   const [active, setActive] = useState(0);
-  const activeStep = STEPS[active]!;
-  const activePhase = PHASE_BY_ID[activeStep.phase];
+  const activeStep = STEPS[active] ?? STEPS[0];
+  if (!activeStep) return null;
+  const activePhase = phaseById(activeStep.phase);
   const stepState = (index: number): StepState => {
     if (index === active) return "active";
     if (index < active) return "passed";
@@ -277,7 +279,7 @@ export function TurnTrace(): ReactElement {
         </div>
         <div className="flex min-w-max items-center gap-1">
           {STEPS.map((step, index) => {
-            const phase = PHASE_BY_ID[step.phase];
+            const phase = phaseById(step.phase);
             const state = stepState(index);
             const node = (
               <button

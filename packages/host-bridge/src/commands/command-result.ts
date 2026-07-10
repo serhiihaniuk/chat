@@ -2,13 +2,24 @@ import { omitUndefinedProperties, type JsonObject } from "@side-chat/shared";
 
 import type { HostCommand } from "./capability.js";
 
-export type HostCommandResultStatus =
-  | "applied"
-  | "rejected"
-  | "unsupported"
-  | "failed"
-  | "timed_out";
+export const HOST_COMMAND_RESULT_STATUSES = {
+  APPLIED: "applied",
+  REJECTED: "rejected",
+  UNSUPPORTED: "unsupported",
+  FAILED: "failed",
+  TIMED_OUT: "timed_out",
+} as const;
 
+export type HostCommandResultStatus =
+  (typeof HOST_COMMAND_RESULT_STATUSES)[keyof typeof HOST_COMMAND_RESULT_STATUSES];
+
+/**
+ * Browser-host outcome recorded for one model-requested host command.
+ *
+ * Results are safe to return to the widget timeline. `resolvedAt` is an ISO-8601
+ * timestamp, `resultCode` is the host's stable diagnostic code, and `data` must
+ * contain only JSON-safe values that the host is willing to disclose in the UI.
+ */
 export type HostCommandResult = {
   readonly commandId: string;
   readonly commandName: string;
@@ -18,6 +29,7 @@ export type HostCommandResult = {
   readonly data?: JsonObject;
 };
 
+/** Host-owned outcome fields used to settle a dispatched command. */
 export type CommandResultInput = {
   readonly status: HostCommandResultStatus;
   readonly resultCode: string;
@@ -25,6 +37,7 @@ export type CommandResultInput = {
   readonly data?: JsonObject | undefined;
 };
 
+/** Create the complete timeline result while preserving the command identity. */
 export const createCommandResult = (
   command: HostCommand,
   input: CommandResultInput,

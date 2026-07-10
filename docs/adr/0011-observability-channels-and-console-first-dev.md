@@ -1,16 +1,13 @@
 # ADR 0011: Observability — Two Channels, Console-First Development
 
-Status: accepted 2026-07-02 (implementation tracked in `plan/36`; fail-open fix in `plan/27`)
+Status: accepted and implemented 2026-07-02
 
 ## Context
 
-The repo ships a redacted, turn-scoped telemetry port (`ObservabilitySinkPort`,
-`packages/partner-ai-core/src/services/observability.ts`) — but its default is
-a no-op, no sink implementation exists, and nothing else in the system logs at
-all. Consequences today: a developer running the app sees a silent console; a
-dropped LISTEN connection, a failed finalizer, or a silently swapped config
-system leaves no trace; and the one wiring that does exist is fail-closed, so a
-flaky sink can kill healthy turns.
+The repo needs two different kinds of evidence: redacted, turn-scoped product
+telemetry through `ObservabilitySinkPort`, and operational diagnostics for boot,
+listeners, background fibers, reapers, and shutdown. Conflating them would
+either pollute the domain vocabulary or leave process-level failures silent.
 
 The audience constraint shapes everything: adopters are ordinary web devs who
 do not know Effect, and this is a template — defaults must be safe, visible,
@@ -24,7 +21,7 @@ and vendor-neutral.
 | **Silent failures become log lines.**        | LISTEN drops/reconnects, fiber and finalizer failures, config fallback, orphan sweeps all speak through the diagnostic logger. | The review's failure class: a deaf listener or stranded turn with zero trace. |
 | **Secret-safe by construction.**             | Payload stripping + recursive key redaction run before any sink or logger sees data; no level or flag can reveal prompts.      | One verbose flag away from prompts in log aggregators.                        |
 | **Vendor-neutral telemetry.**                | One sink port; console/OTel/Datadog are adapters an adopter writes in a few lines (`Effect.sync`/`tryPromise`).                | An APM SDK welded into a template.                                            |
-| **A broken sink can't break chat.**          | Fail-open on both channels (`plan/27`).                                                                                        | Telemetry outages becoming product outages.                                   |
+| **A broken sink can't break chat.**          | Fail-open on both channels.                                                                                                    | Telemetry outages becoming product outages.                                   |
 
 ## Decision
 
@@ -86,7 +83,6 @@ and vendor-neutral.
 Developers get a readable live console by default, and operators get JSON
 diagnostics plus a single, documented seam for real telemetry. The silent
 failure modes the 2026-07-01 review found (deaf LISTEN connections, unobserved
-finalizer failures, silent config fallback) all gain a mandatory log line —
-stories `plan/26`, `plan/27`, and `plan/12` reference the logger this ADR
-introduces. Cost: one more small port threaded through composition, and a
+finalizer failures, silent config fallback) all gain a mandatory log line.
+Cost: one more small port threaded through composition, and a
 discipline that new "interesting" events must pick the correct channel.

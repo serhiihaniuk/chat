@@ -71,7 +71,9 @@ export function TabsSection(): ReactElement {
   return (
     <Tabs.Root
       value={value}
-      onValueChange={(next) => setValue(next as string)}
+      onValueChange={(next) => {
+        if (typeof next === "string") setValue(next);
+      }}
       className="flex gap-6"
     >
       <Tabs.List className="flex flex-col gap-1 w-44 shrink-0">

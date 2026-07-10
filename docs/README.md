@@ -4,11 +4,11 @@ Read this when: you need to find the right Side Chat doc and know what it owns.
 Source of truth for: the documentation map, reading paths, and per-doc ownership.
 Not source of truth for: any domain term, lifecycle, boundary, or command (each links below).
 
-Side Chat is an embeddable, adoptable enterprise AI assistant foundation: a host
-web app drops the widget into its own UI, calls the service, and keeps owning its
-business UI, auth, data, and permissions. This page is an index, not a chapter. It
-routes you to the doc that owns each topic and never redefines that topic here.
-Pick a reading path by your skill level, then follow the ownership table.
+Side Chat is an adoptable AI assistant starter: a team clones or forks this
+repository, embeds the widget in its host app, and owns the resulting code. The
+host keeps its business UI, auth, data, and permissions. This page is an index,
+not a chapter. Pick a reading path by your skill level, then follow the ownership
+table to the doc that owns each topic.
 
 ## Reading paths
 
@@ -22,7 +22,7 @@ Pick a reading path by your skill level, then follow the ownership table.
 - [architecture/](architecture/): system map, [assistant-turn.md](architecture/assistant-turn.md), [runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md), [package-boundaries.md](architecture/package-boundaries.md), [widget-and-host-integration.md](architecture/widget-and-host-integration.md), [extension-seams.md](architecture/extension-seams.md), [host-commands.md](architecture/host-commands.md), [effect.md](architecture/effect.md).
 - [domain/vocabulary.md](domain/vocabulary.md): canonical terms and the synonyms to avoid.
 
-**Embedding or operating** — adopt, run, or extend Side Chat:
+**Adopting or operating** — turn the starter into your team's application:
 
 - [operations/](operations/): [verification.md](operations/verification.md), [local-development.md](operations/local-development.md), [configuration.md](operations/configuration.md), [capacity-and-deployment.md](operations/capacity-and-deployment.md), [database.md](operations/database.md), [embed-widget-iframe.md](operations/embed-widget-iframe.md).
 - [architecture/extension-seams.md](architecture/extension-seams.md): the seams for tools, guards, executors, observability, and host commands.

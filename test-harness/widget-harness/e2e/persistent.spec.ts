@@ -1,3 +1,4 @@
+import { isRecord } from "@side-chat/chat-protocol";
 import { expect, test, type APIRequestContext, type Page } from "playwright/test";
 
 const serviceBaseUrl = process.env["SIDECHAT_PERSISTENT_SERVICE_URL"] ?? "http://127.0.0.1:3102";
@@ -109,7 +110,17 @@ const readHistory = async (
     headers: authHeaders(),
   });
   expect(response.ok()).toBe(true);
-  return (await response.json()) as { readonly messages: readonly { readonly content: string }[] };
+  const history: unknown = await response.json();
+  if (!isRecord(history) || !Array.isArray(history["messages"])) {
+    throw new Error("History response must contain a messages array.");
+  }
+  const messages = history["messages"].map((message, index) => {
+    if (!isRecord(message) || typeof message["content"] !== "string") {
+      throw new Error(`History message ${index} must contain string content.`);
+    }
+    return { content: message["content"] };
+  });
+  return { messages };
 };
 
 const expectPersistentUsage = async (request: APIRequestContext, totalTokens: number) => {

@@ -46,7 +46,7 @@ export const createAzureRuntimeConfig = (
   config: SideChatConfig,
   env: ServiceEnv,
   defaultModelId: string,
-  toolConfig: Pick<RuntimeToolConfig, "tools" | "hostCommands" | "approvalPolicies">,
+  toolConfig: Pick<RuntimeToolConfig, "tools" | "hostCommands">,
 ): NonNullable<PartnerAiServiceOptions["runtime"]> => {
   const provider = readAzureProviderConfig(config);
   const context = "when sidechat.config.ts enables Azure OpenAI models";

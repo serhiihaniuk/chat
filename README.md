@@ -4,15 +4,17 @@ Read this when: you want the shortest entrypoint into this repository.
 Source of truth for: setup commands and the top-level package map.
 Not source of truth for: domain terms, package boundaries, or test policy.
 
-Side Chat is an open-source framework for embedding AI assistant capabilities into
-existing web products. A host app drops in the React widget, calls the service,
-and keeps owning its own UI, auth, data, and permissions. The framework supplies
-everything else the assistant needs — runtime, tools, streaming, and protocol.
+Side Chat is a starter framework for adding an AI assistant to an existing web
+product. Teams clone or fork this repository, adapt the source, and own the
+resulting application. The host app keeps its UI, auth, data, and permissions;
+this starter supplies the widget, service, runtime, tools, streaming, protocol,
+and the tests and governance needed to change them safely.
 
 ## Features
 
-- **Drop-in embeddable widget.** A React widget mounts into any host app over an
-  iframe, isolated from host styles, with no framework lock-in on the host side.
+- **Starter-owned embeddable widget.** A React widget mounts into the team's host
+  app over an iframe, isolated from host styles. The adopting team owns the frame,
+  proxy, deployment, and any product-specific changes.
 - **Server-owned streaming.** Generation runs on the server, not tied to a
   socket: the active tab streams live, a reload reads the finished answer from
   the database, and a user cancel genuinely aborts the provider call.
@@ -24,8 +26,10 @@ everything else the assistant needs — runtime, tools, streaming, and protocol.
   fake) behind one contract, so product logic never couples to a vendor.
 - **Versioned protocol.** A stable browser protocol (`sidechat.v1`) with SSE
   codecs and strict sequence validation between backend and any client.
-- **Enterprise-ready seams.** First-class context redaction, authorization,
-  tool-approval policy, and per-conversation activity streams.
+- **Enterprise-oriented seams.** First-class context redaction, authorization,
+  and per-conversation activity streams. Approval is intentionally absent from
+  the alpha surface: teams that need it must add a durable workflow and matching
+  UI before exposing a mutation that requires a human decision.
 - **Adoptable, not invasive.** The host keeps its UI, auth, data, and permissions;
   the framework owns only the assistant.
 
@@ -67,8 +71,9 @@ These are the parts that show judgment, not just feature wiring.
   server-owned fiber that outlives the socket; live events flow through an
   in-memory per-instance registry, and Postgres holds the durable final state —
   the claude.ai model, chosen over a durable event log for simplicity
-  (ADR [0005](docs/adr/0007-connection-bound-streaming.md)). Cross-instance
-  cancel and activity signals ride PostgreSQL `LISTEN/NOTIFY`, no Redis.
+  (ADR [0007](docs/adr/0007-connection-bound-streaming.md)). Cross-instance
+  cancel, activity, and host-command result signals ride PostgreSQL
+  `LISTEN/NOTIFY`, no Redis.
 - **Three event vocabularies, mapped once per boundary.** Provider stream parts →
   `RuntimeEvent` → `sidechat.v1`. Each conversion happens in exactly one place, so
   no layer leaks the layer beneath it.
@@ -108,6 +113,20 @@ next human maintainer rather than for the model.
 | Backend  | Hono service, Drizzle ORM, PostgreSQL (`LISTEN/NOTIFY`)         |
 | Frontend | React 19, TanStack Query, Tailwind, iframe-isolated widget      |
 | Tooling  | oxlint, oxfmt, Vitest, Playwright, testcontainers, custom lints |
+
+## Adopt this starter
+
+This repository is the product starting point, not an npm library that hides its
+internals. Pick the shortest path that matches the change your team needs:
+
+| Contributor path      | Start with                                                                                                                                                                          | Customize next                                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| New to the repo       | Run the fake local stack below, then read the [Walkthrough](docs/README.md#reading-paths).                                                                                          | Edit the typed [`sidechat.config.ts`](apps/partner-ai-service/sidechat.config.ts) and keep the fake provider while learning the flow. |
+| Product integrator    | Read the [iframe embedding guide](docs/operations/embed-widget-iframe.md) and [configuration guide](docs/operations/configuration.md).                                              | Wire the host proxy, real auth verifier, provider credentials, Postgres, and host bridge.                                             |
+| Framework contributor | Read the [system map](docs/architecture/system-map.md), [package boundaries](docs/architecture/package-boundaries.md), and [extension seams](docs/architecture/extension-seams.md). | Change core, runtime, protocol, or persistence behind their owning contracts and run the full gate.                                   |
+
+Keep `sidechat.v1` deliberate even when your team owns both ends: it is the
+browser/service trust boundary and protects the widget from server internals.
 
 ## Run it locally
 

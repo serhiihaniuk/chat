@@ -10,7 +10,7 @@ const fixtureDir = dirname(fileURLToPath(import.meta.url));
 
 const readFixture = (name: string): unknown[] => {
   const text = readFileSync(join(fixtureDir, name), "utf8");
-  const parsed = JSON.parse(text) as unknown;
+  const parsed: unknown = JSON.parse(text);
   if (!Array.isArray(parsed)) throw new Error(`${name} must be an array`);
   return parsed;
 };

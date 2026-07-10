@@ -6,9 +6,10 @@ Not source of truth for: global vocabulary or product requirements.
 
 This is the deployable Hono composition root: the one process that wires
 `@side-chat/partner-ai-core`, `@side-chat/agent-runtime`, `@side-chat/db`, and the
-enterprise adapters into a running service. It is the only app in the repo, and it
-is not a host app — it serves the widget's `sidechat.v1` API, it does not embed the
-widget. It owns the server-owned turn runner that forks a fiber per
+enterprise adapters into a running service. It is the repo's deployable backend
+app; `apps/docs` is a contributor documentation site. The service is not a host
+app — it serves the widget's `sidechat.v1` API, it does not embed the widget. It
+owns the server-owned turn runner that forks a fiber per
 `assistantTurnId` and the dispatchers, reaper, and pruner around it.
 
 ## Owns

@@ -17,7 +17,7 @@ const TOKEN_B = "Bearer adopter-token-b";
  * A stand-in for an adopter's JWT/session check: it maps a bearer token to a
  * subject and returns a full `AuthContext`. Everything downstream scopes by
  * `subject.subjectId`. This is exactly the seam an embedder plugs their own
- * verifier into — no edits to `app.ts`.
+ * verifier into without editing `app.ts`.
  */
 const subjectVerifier = (
   tokenToSubject: Readonly<Record<string, string>>,
@@ -138,8 +138,17 @@ describe("adopter auth seam and subject scoping", () => {
       headers: authHeaders(TOKEN_B),
     });
     expect(otherConversations.status).toBe(200);
-    const listed = (await otherConversations.json()) as { readonly conversations?: unknown[] };
-    const ids = (listed.conversations ?? []).map((entry) => (entry as { id?: string }).id);
+    const listed: unknown = await otherConversations.json();
+    const conversations = isRecord(listed) ? listed["conversations"] : undefined;
+    const ids = Array.isArray(conversations)
+      ? conversations.flatMap((entry) => {
+          if (!isRecord(entry) || typeof entry["id"] !== "string") return [];
+          return [entry["id"]];
+        })
+      : [];
     expect(ids).not.toContain(conversationId);
   });
 });
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);

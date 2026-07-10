@@ -7,8 +7,8 @@ Status: accepted 2026-07-02
 Everything the service does is tunable: provider, models, reasoning, tools,
 host commands, guards, policy, context budgets, timers. Spread across env
 flags, code defaults, and helper modules, that behavior becomes archaeology —
-the 2026-07-01 review found exactly that in the legacy env parser (removal:
-`plan/12`). The audience is a team copying this repo: their first question is
+the 2026-07-01 review found exactly that in the legacy env parser, which was
+removed. The audience is a team copying this repo: their first question is
 "what does this deployment actually do", and they should answer it by reading,
 not by executing config-generating code in their head.
 

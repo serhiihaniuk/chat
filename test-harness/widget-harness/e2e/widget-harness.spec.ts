@@ -1,3 +1,4 @@
+import { isRecord } from "@side-chat/chat-protocol";
 import {
   expect,
   test,
@@ -414,7 +415,7 @@ const waitForActivityPanelAutoClose = async (page: Page) => {
 const expectServiceHealth = async (request: APIRequestContext) => {
   const response = await request.get(`${serviceBaseUrl}/healthz`);
   expect(response.ok()).toBe(true);
-  const health = (await response.json()) as unknown;
+  const health: unknown = await response.json();
   expect(health).toMatchObject({
     modelId: "fake-echo",
     persistence: "memory",
@@ -428,11 +429,10 @@ const expectUsageWasRecorded = async (request: APIRequestContext) => {
     headers: { authorization: `Bearer ${authToken}` },
   });
   expect(response.ok()).toBe(true);
-  const usage = (await response.json()) as {
-    readonly totalTokens?: unknown;
-  };
-  expect(typeof usage.totalTokens).toBe("number");
-  expect(usage.totalTokens).toBeGreaterThan(0);
+  const usage = readResponseRecord(await response.json(), "usage response");
+  const totalTokens = usage["totalTokens"];
+  if (typeof totalTokens !== "number") throw new Error("Usage totalTokens must be a number.");
+  expect(totalTokens).toBeGreaterThan(0);
 };
 
 const expectFakeThinkingCatalog = async (request: APIRequestContext) => {
@@ -440,14 +440,10 @@ const expectFakeThinkingCatalog = async (request: APIRequestContext) => {
     headers: { authorization: `Bearer ${authToken}` },
   });
   expect(response.ok()).toBe(true);
-  const catalog = (await response.json()) as {
-    readonly models?: readonly {
-      readonly modelId?: unknown;
-      readonly providerId?: unknown;
-      readonly reasoning?: unknown;
-    }[];
-  };
-  expect(catalog.models?.[0]).toMatchObject({
+  const catalog = readResponseRecord(await response.json(), "model catalog response");
+  const models = catalog["models"];
+  if (!Array.isArray(models)) throw new Error("Model catalog models must be an array.");
+  expect(models[0]).toMatchObject({
     providerId: "fake",
     modelId: "fake-echo",
     reasoning: {
@@ -462,12 +458,23 @@ const expectSeededConversations = async (request: APIRequestContext) => {
     headers: { authorization: `Bearer ${authToken}` },
   });
   expect(response.ok()).toBe(true);
-  const list = (await response.json()) as {
-    readonly conversations?: readonly { readonly title?: unknown }[];
-  };
-  expect(list.conversations?.map((conversation) => conversation.title)).toContain(
-    "Assistant Mission Overview",
-  );
+  const list = readResponseRecord(await response.json(), "conversation list response");
+  const conversations = list["conversations"];
+  if (!Array.isArray(conversations)) {
+    throw new Error("Conversation list conversations must be an array.");
+  }
+  const titles = conversations.map((conversation, index) => {
+    const record = readResponseRecord(conversation, `conversation list item ${index}`);
+    const title = record["title"];
+    if (typeof title !== "string") throw new Error(`Conversation ${index} title must be a string.`);
+    return title;
+  });
+  expect(titles).toContain("Assistant Mission Overview");
+};
+
+const readResponseRecord = (value: unknown, label: string): Record<string, unknown> => {
+  if (isRecord(value)) return value;
+  throw new Error(`${label} must be a JSON object.`);
 };
 
 const expectElementWithinViewport = async (locator: Locator) => {

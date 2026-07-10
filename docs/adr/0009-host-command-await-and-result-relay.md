@@ -1,6 +1,6 @@
 # ADR 0009: Host-Command Await And Result Relay
 
-Status: accepted 2026-07-02; relay implemented 2026-07-02 (`plan/08`)
+Status: accepted and implemented 2026-07-02
 
 ## Context
 
@@ -80,10 +80,9 @@ poke-don't-payload discipline the cancel channel uses.
 ## Consequences
 
 Host commands are for **fast UI actions**, not approval gates: the await is
-in-memory and 30-seconds-bounded, and `approvalMode` in the manifest is
-validated but not enforced (`plan/24`). An instance crash mid-await loses the
-pending entry with the fiber; the orphan sweep (`plan/05`) terminalizes the
-turn. The silent pause makes SSE heartbeats necessary so proxies and client
-watchdogs do not kill a healthy stream (`plan/17`). Mechanics, wiring, and the
+in-memory and 30-seconds-bounded. An instance crash mid-await loses the
+pending entry with the fiber; the lease reaper terminalizes the turn. The
+silent pause makes SSE heartbeats necessary so proxies and client watchdogs do
+not kill a healthy stream. Mechanics, wiring, and the
 failure-mode table live in
 [host-commands.md](../architecture/host-commands.md).

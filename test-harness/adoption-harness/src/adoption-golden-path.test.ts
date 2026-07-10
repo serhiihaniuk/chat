@@ -22,11 +22,18 @@ import { omitUndefinedProperties } from "@side-chat/shared";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
+const ADOPTION_WORKSPACE = {
+  tenantId: "tenant_adoption",
+  workspaceId: "workspace_adoption",
+} as const;
+
 describe("golden-path adopter flow", () => {
   it("streams from manifest policy through context, runtime, client, and widget state", async () => {
     const repositories = createMemorySidechatRepositories({ idPrefix: "adoption" });
     const guardInputs: TurnGuardInput[] = [];
     const app = createPartnerAiServiceApp({
+      workspace: ADOPTION_WORKSPACE,
+      auth: { profile: "development", workspace: ADOPTION_WORKSPACE },
       repositories,
       runtime: { provider: "fake", enableMockWebSearch: true },
       turnGuards: createRecordingGuardRegistry(guardInputs),

@@ -40,8 +40,6 @@ export type ServiceToolRegistration = {
   readonly createRuntimeTool: ServiceRuntimeToolFactory;
   /** Whether the default profile includes this name before request checks run. */
   readonly defaultEnabled: boolean;
-  /** Approval policy ids that gate this tool; reported in diagnostics. */
-  readonly approvalPolicyIds: readonly string[];
   /** Curated display label for the composer tools menu; humanized name when absent. */
   readonly label?: string | undefined;
 };
@@ -50,15 +48,14 @@ export type ServiceToolRegistration = {
 export type ServiceToolStatus = {
   readonly name: string;
   readonly defaultEnabled: boolean;
-  readonly approvalPolicyIds: readonly string[];
 };
 
 /**
  * One tool as the composer tools menu sees it, served by `GET /tools`.
  *
  * The label is the curated display name (humanized tool name when a
- * registration omits one); `defaultEnabled` seeds the menu toggle. Approval and
- * runtime detail are hidden — this is a display catalog, not a policy surface.
+ * registration omits one); `defaultEnabled` seeds the menu toggle. Executable
+ * runtime details are hidden — this is a display catalog, not a runtime surface.
  */
 export type ServiceToolCatalogEntry = {
   readonly name: string;
@@ -106,7 +103,6 @@ export const createServiceToolRegistration = (
   input: {
     readonly capability: ToolCapability;
     readonly defaultEnabled?: boolean;
-    readonly approvalPolicyIds?: readonly string[];
     readonly label?: string | undefined;
   } & (
     | {
@@ -130,7 +126,6 @@ export const createServiceToolRegistration = (
     runtimeTool,
     createRuntimeTool,
     defaultEnabled: input.defaultEnabled ?? true,
-    approvalPolicyIds: input.approvalPolicyIds ?? [],
     label: input.label,
   };
 };
@@ -198,7 +193,6 @@ const assertUniqueName = (seen: Set<string>, name: string): void => {
 const toToolStatus = (registration: ServiceToolRegistration): ServiceToolStatus => ({
   name: registration.name,
   defaultEnabled: registration.defaultEnabled,
-  approvalPolicyIds: registration.approvalPolicyIds,
 });
 
 const toCatalogEntry = (registration: ServiceToolRegistration): ServiceToolCatalogEntry => ({

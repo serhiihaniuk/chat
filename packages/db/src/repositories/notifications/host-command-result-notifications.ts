@@ -1,4 +1,5 @@
 import { Stream } from "effect";
+import { parseJsonRecord } from "@side-chat/shared";
 
 /**
  * One parsed host-command-result signal surfaced by the result notification source.
@@ -51,21 +52,11 @@ export const parseHostCommandResultNotification = (
   payload: string | undefined,
 ): HostCommandResultNotification | undefined => {
   if (!payload) return undefined;
-  const parsed = parseJson(payload);
-  if (!parsed || typeof parsed !== "object") return undefined;
-
-  const record = parsed as Record<string, unknown>;
+  const record = parseJsonRecord(payload);
+  if (!record) return undefined;
   const assistantTurnId = record["assistantTurnId"];
   const commandId = record["commandId"];
   if (typeof assistantTurnId !== "string" || typeof commandId !== "string") return undefined;
 
   return { assistantTurnId, commandId };
-};
-
-const parseJson = (source: string): unknown => {
-  try {
-    return JSON.parse(source) as unknown;
-  } catch {
-    return undefined;
-  }
 };
