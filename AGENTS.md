@@ -8,7 +8,25 @@ These instructions apply to the whole repository. A more specific `AGENTS.md` in
 
 ## Mission
 
-Make the smallest coherent change that solves the requested problem and leaves the repository easier for a human maintainer to understand. Prefer evidence over assumption, deletion over compatibility residue, and explicit code over clever code. Do not claim a behavior, test, or command is correct until you inspected or ran the relevant evidence.
+Make the smallest coherent change that solves the requested problem and leaves the repository easier for a human maintainer to understand. In this pre-alpha foundation, a clean rewrite can be the smallest coherent change when the current design is the problem. Prefer evidence over assumption, deletion over compatibility residue, and explicit code over clever code. Do not claim a behavior, test, or command is correct until you inspected or ran the relevant evidence.
+
+## Pre-alpha foundation posture
+
+This repository is being built before alpha, production use, or any external compatibility promise. Treat the current implementation, architecture, internal APIs, old plans, and historical decisions as replaceable working material—not as authority that must be preserved. We intentionally have a rewrite window now; after alpha, the same changes would require slower incremental migration.
+
+This is a standing instruction for every task, not only architecture tasks:
+
+- Prefer the best justified long-term design over the smallest diff or a compatibility wrapper. A ground-up rewrite, boundary change, or deletion of a subsystem is allowed when it produces a materially simpler, safer, more readable, more correct, more observable, more performant, or more scalable foundation.
+- When a requested change looks like a local patch over a weak abstraction, stop and evaluate the clean replacement. Do not silently cement a bad boundary just because it already exists or because the requested ticket sounds narrow.
+- Re-check old architectural assumptions against the current official libraries, SDKs, and repository evidence. A decision made before a useful API or capability existed is not a reason to avoid using it now.
+- Consider both immediate benefits and foundational improvements. Take low-risk improvements that help now, but do not let quick wins hide a rewrite that should happen before alpha.
+- Bring every material rewrite, boundary change, or subsystem deletion to the user's attention before taking that broader implementation branch, even when it is adjacent to the requested task. The user is open to discussion; do not silently expand the scope or choose the rewrite on the user's behalf. Explain the evidence, target shape, why replacement beats incremental repair, what would be deleted, and how the result would be verified.
+- Treat documentation as part of the architecture, not as cleanup after the code. Before implementing a material architectural change, update or create the appropriate source-of-truth architecture document, plan, or ADR so the proposed target and decision are explicit. Keep the documentation update in the same coherent change as the implementation, and update affected lifecycle, boundary, protocol, operations, and package docs whenever the rewrite changes them.
+- Do not use the pre-alpha rewrite posture as permission to ignore, bypass, or leave documentation stale. If the existing docs are wrong, identify the conflict and repair the source of truth before or alongside the code change.
+- Do not preserve code solely because it is already tested, documented, familiar, or expensive to understand. Tests and docs are evidence to migrate or replace; they are not reasons to keep an inferior design.
+- Keep the rewrite recommendation bounded and justified. Do not expand into unrelated work, but do surface material architectural consequences before implementing a local workaround.
+
+When proposing a rewrite, state explicitly: current failure or constraint, target architecture, affected boundaries, documentation source of truth, deletion plan, migration or cutover shape, security and data risks, verification strategy, and why the pre-alpha timing makes the change worthwhile. When the rewrite is approved or already requested, documentation comes first: record the target and decision, then implement, then re-audit every affected document before claiming completion.
 
 ## Before you work
 
@@ -51,6 +69,7 @@ Use the smallest set that matches the task:
 
 - [`side-chat-code-quality-gate`](.agents/skills/side-chat-code-quality-gate/SKILL.md): readability, simplification, maintainability, architecture boundaries, comments, static gates, or code review.
 - [`side-chat-documentation`](.agents/skills/side-chat-documentation/SKILL.md): durable docs, READMEs, ADRs, architecture notes, runbooks, or stale-document audits.
+- [`side-chat-design-system`](.agents/skills/side-chat-design-system/SKILL.md): widget tokens, density, themes, Base UI primitives, portal contracts, hook utilities, styling, or design-system documentation.
 - [`side-chat-testing-architecture`](.agents/skills/side-chat-testing-architecture/SKILL.md): test level, test design, fixtures, deterministic doubles, coverage, or flaky-test repair.
 
 Work with a skill as follows:
@@ -79,11 +98,11 @@ Use `apply_patch` for hand edits. Formatting tools may rewrite files when format
 
 ## Change discipline
 
-- Keep the diff small, reviewable, and behavior-preserving unless the request calls for a behavior change.
+- Keep the diff reviewable and coherent. Prefer small, behavior-preserving changes for local fixes, but do not constrain a justified pre-alpha foundation rewrite to an artificially small diff.
 - This repository is pre-production. When an internal API is replaced, remove its old helpers, aliases, comments, tests, and docs in the same coherent patch.
 - Do not add a dependency unless the user requests it. If a dependency is necessary, update the package policy and lockfile together.
 - Update canonical docs in the same patch when code changes ownership, lifecycle order, protocol events, domain terms, configuration, or verification behavior.
-- Public `sidechat.v1` contracts are real product contracts. Change them deliberately, update both sides, and add contract-focused tests.
+- Public `sidechat.v1` contracts are real product contracts even before alpha: change them deliberately, update both sides, and add contract-focused tests. Their current shape is still replaceable before release when a better contract is justified; do not preserve it only for backward compatibility.
 - Do not weaken a test, lint rule, type rule, boundary rule, or security check merely to make the change pass.
 
 ## Repository boundaries

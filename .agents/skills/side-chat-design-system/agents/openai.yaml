@@ -1,0 +1,7 @@
+interface:
+  display_name: "Side Chat Design System"
+  short_description: "Keep widget tokens and UI contracts consistent"
+  default_prompt: "Use $side-chat-design-system to review this widget visual change against the token, theme, density, and Base UI contracts."
+
+policy:
+  allow_implicit_invocation: true

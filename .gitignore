@@ -28,6 +28,7 @@ test-harness/widget-harness/vite.config.js.map
 .codex/
 .claude/
 .codex-run/
+.reference/
 .tmp*
 apps/*/dist/
 packages/*/dist/
