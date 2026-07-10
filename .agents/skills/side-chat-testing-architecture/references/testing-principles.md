@@ -1,249 +1,189 @@
-# Testing Principles
+# Testing principles
 
-## Research-backed principles
+Use these principles when a test design needs more detail than the main skill provides. Discover the repository's actual package names, public exports, test helpers, commands, and configured libraries before applying an example.
 
-Use the testing literature as strong guidance, not dogma.
+## Protect behavior, not implementation
 
-Durable principles:
+Start with the behavior a user, caller, package, or operator can observe. Name the contract and its owner. Assert the smallest stable result that proves the behavior.
 
-- Verify behavior through stable public seams.
-- Prefer state/output/user-visible effects over internal interaction checks.
-- Control non-determinism explicitly.
-- Prefer fakes and ports over deep mock trees.
-- Use characterization tests before refactoring unclear legacy behavior.
-- Treat test smells as maintainability risks, not style complaints.
-- Say when a requested “unit test” is really a contract, integration, service, or E2E test.
-
-TDD is useful when behavior is clear enough to specify before implementation, but it is not mandatory for exploratory work. Use red-green-refactor when it helps; otherwise write tests as soon as behavior stabilizes.
-
-## Compact glossary
-
-SUT:
-System under test. The package, function, service, component, route, adapter, or harness behavior being exercised.
-
-Fixture:
-The test data and environment needed before the behavior can be exercised.
-
-Dummy:
-A value passed only because an API requires it. It is not used.
-
-Stub:
-A dependency that returns predefined data.
-
-Fake:
-A simplified working implementation, such as a memory repository or fake provider.
-
-Spy:
-A double that records calls for later inspection.
-
-Mock:
-A double with expectations about interactions. Use sparingly.
-
-Characterization test:
-A test that captures current behavior before changing unclear or legacy code.
-
-## Test portfolio heuristic
-
-Use many fast unit/component/contract tests, fewer integration/service tests, and very few Playwright E2E tests.
-
-This is a portfolio heuristic, not a law. If the main risk is a package boundary, prefer a contract test. If the main risk is collaboration between real packages, prefer an integration test. If the main risk is browser behavior in the harness, use Playwright.
-
-## State over interaction
-
-Prefer final state, output, normalized event, protocol DTO, rendered UI, HTTP response, or repository result over internal call counts.
-
-Interaction assertions are acceptable when the interaction is the public contract:
-
-- host bridge command emitted
-- analytics/audit event emitted, if such boundary exists
-- runtime tool invoked as part of public runtime behavior
-- repository port called with a domain object in a core use-case test
-- API client receives a `sidechat.v1` request payload
-
-Avoid asserting:
-
-- internal helper was called
-- React hook was called
-- exact provider SDK method was called outside adapter tests
-- exact Hono implementation detail outside route tests
-- exact Drizzle call outside DB adapter tests
-
-## FIRST + determinism
-
-Tests should be:
-
-Fast:
-Ordinary tests should not use real networks, real Postgres, arbitrary sleeps, or full browser flows.
-
-Independent:
-Tests should not depend on execution order or shared mutable state.
-
-Repeatable:
-Tests should not depend on current date, timezone, locale, unseeded randomness, external services, or machine-specific environment.
-
-Self-validating:
-Tests must pass or fail automatically. No manual inspection of logs, screenshots, console output, or generated files.
-
-Timely:
-Tests should be written near the behavior change while intent is still known.
-
-Extra rule:
-Time, randomness, network, environment variables, browser APIs, provider behavior, DB state, and global singletons are volatility sources. Control them explicitly.
-
-## Test shape
-
-Prefer Arrange, Act, Assert, with cleanup when globals/timers/mocks are involved.
-
-Arrange:
-Create inputs, fixtures, fake ports, fake providers, memory repositories, fake host bridge, and protocol fixtures.
-
-Act:
-Execute the behavior once.
-
-Assert:
-Check the public result, protocol event, rendered UI, HTTP response, or repository state.
-
-Cleanup:
-Restore timers, globals, mocks, DB state, network routes, and filesystem artifacts when used.
-
-## Naming tests
-
-Name tests as behavior specifications.
-
-Good:
-
-```ts
-it('rejects a chat request when the protocol version is unsupported')
-it('decodes assistant delta events from an SSE stream')
-it('maps policy denial to a forbidden protocol error')
-it('renders the failed-send state when the chat client rejects')
-it('normalizes provider text deltas into runtime events')
-it('persists and reads conversations through the repository contract')
-```
-
-Bad:
-
-```ts
-it('works')
-it('renders')
-it('calls handler')
-it('uses service')
-it('returns data')
-```
-
-## React widget testing rules
-
-Test like a user of the embeddable widget, not like an inspector of React internals.
-
-Prefer queries in this order:
-
-1. `getByRole`
-2. `getByLabelText`
-3. `getByPlaceholderText` when appropriate
-4. `getByText`
-5. `getByDisplayValue`
-6. `getByTestId` only when no semantic query makes sense
-
-Use `userEvent.setup()` for realistic interaction.
-
-Avoid CSS selectors and DOM structure assertions unless structure is the public contract.
-
-For async UI:
-
-- use `findBy...` when an element should appear later
-- use `queryBy...` when asserting absence
-- use `waitFor` when waiting for an async state transition
-- use `waitForElementToBeRemoved` or `waitFor` when something disappears asynchronously
-- avoid arbitrary sleeps
-- assert visible outcomes, not internal promises
-
-jest-dom is not part of the repo’s default test setup. Do not generate `toBeInTheDocument`, `toHaveTextContent`, `toBeVisible`, or other jest-dom matchers unless the user shows that a specific package config enables them. Prefer Vitest-compatible assertions already available in the repo, such as truthiness/null checks, `textContent`, DOM properties, or existing local assertion helpers.
-
-## Static widget render tests
-
-`renderToStaticMarkup` may be used for simple widget render or markup/a11y smoke checks when the repo already uses that style.
-
-Use it for:
-
-- basic markup smoke tests
-- simple static render states
-- checking obvious accessible attributes in static output
-
-Do not use it for:
-
-- interactive behavior
-- async UI
-- streaming states
-- realistic user flows
-
-For interactions, use Testing Library or Playwright harness tests.
-
-## Playwright harness rules
-
-Use Playwright for browser-level confidence in `test-harness/widget-harness`.
-
-Never use arbitrary sleeps:
-
-```ts
-await page.waitForTimeout(1000)
-```
-
-Prefer semantic locators and web-first assertions:
-
-```ts
-await page.getByRole('textbox', { name: /message/i }).fill('Hello')
-await page.getByRole('button', { name: /send/i }).click()
-await expect(page.getByText(/assistant response/i)).toBeVisible()
-```
-
-Use `page.route()` only for hard-to-reach browser-level states:
-
-- backend 500 response
-- slow stream
-- malformed stream
-- auth/policy failure
-- empty stream
-
-Do not use Playwright routing to compensate for poor unit/service seams.
-
-## Vitest rules
-
-Use Vitest as the default runner for unit, contract, service, and integration tests.
-
-Recommended defaults should match the repo’s actual config. Do not invent setup files or assertion libraries.
+A resilient test fails when the protected behavior breaks and survives a refactor that preserves that behavior. A fragile test passes while behavior is wrong or fails because an internal helper moved.
 
 Prefer:
 
-- explicit imports from Vitest unless repo convention differs
-- isolated tests
-- deterministic fake timers where time matters
-- colocated `*.test.ts` / `*.test.tsx` beside source
-- shared builders from `packages/testing` when they reduce noise
+- public functions, ports, route responses, protocol values, rendered roles, and visible state;
+- deterministic inputs and explicit time or stream control;
+- assertions about output, errors, ordering, ownership, and resource cleanup;
+- small fixtures that show the behavior under test.
 
-Be careful with setup files because modules imported there can be cached before individual tests mock them.
+Avoid:
 
-## user-event and fake timers
+- private helper calls;
+- hook-call assertions;
+- exact internal object graphs;
+- whole-tree snapshots;
+- incidental CSS selectors;
+- arbitrary timeouts;
+- assertion of framework internals.
 
-When fake timers are active and user-event is used, wire timer advancement explicitly if the repo’s user-event version supports it.
+## Choose test level by risk
+
+Use a unit test for a pure rule, parser, validator, mapper, codec, normalizer, or local error conversion.
+
+Use a contract test when multiple implementations or modules must preserve the same public behavior. Run the same contract against deterministic and persistent implementations when the repository provides both.
+
+Use a component test for user-visible UI behavior through the component's public props and boundary doubles.
+
+Use a service or route test for transport status, request validation, authentication or policy decisions, response encoding, and composition behavior.
+
+Use an integration test when real module collaboration is the risk and a unit test would miss a translation, wiring, or ownership failure.
+
+Use browser automation only for critical browser behavior that lower-level tests cannot prove. Keep the browser suite small and wait for observable state.
+
+## Test boundary ownership
+
+Every representation has an owner. Keep provider-native events, persistence rows, server framework objects, runtime details, and host internals inside their owning module. Assert the normalized public contract at the boundary where it becomes visible.
+
+For a streamed assistant or event-driven system, test each translation separately:
+
+1. provider or external input becomes a normalized internal event;
+2. internal state becomes a public protocol event;
+3. the browser or consumer turns protocol events into visible state.
+
+Do not combine all translations in one oversized test unless the end-to-end flow itself is the behavior under test.
+
+## Deterministic doubles
+
+Use existing in-memory adapters, fake providers, fake transports, controlled streams, fake host boundaries, fixtures, and builders. If no seam exists, identify the smallest production refactor that creates one.
+
+A fake should preserve the public contract and the failure modes relevant to the test. Do not build a fake that returns an easier shape than the real adapter if that would hide a boundary bug.
+
+Use real persistence or network only in an explicit integration lane. Keep credentials, external state, and test data isolated.
+
+## Async and stream tests
+
+Control time, cancellation, completion, and failure explicitly. Test:
+
+- success and terminal failure;
+- cancellation and cleanup;
+- client disconnect or consumer cancellation when relevant;
+- duplicate, missing, malformed, or out-of-order events;
+- backpressure and slow-consumer behavior when the system buffers or drops data;
+- retry and idempotency behavior only when implemented by the current code.
+
+Do not use sleeps to hide a race. Use a deferred promise, controlled stream, fake clock, event waiter, or repository-supported polling helper.
+
+## Error and security tests
+
+Test that invalid input fails at the owning boundary, unauthorized data remains inaccessible, and private details do not cross into responses, logs, diagnostics, or protocol events.
+
+For each important failure, assert both the public error and the durable or visible state after the failure. A test that only sees a thrown error may miss a stranded row, leaked resource, or incorrect retry state.
+
+## Test data and fixtures
+
+Name fixtures by the behavior they support. Keep required fields visible. Prefer builders that make invalid states deliberate instead of silently filling every field with plausible defaults.
+
+Avoid global mutable fixtures. Create state inside each test or reset it through the repository's supported lifecycle. Keep timestamps, ids, and randomness deterministic unless nondeterminism is the subject of the test.
+
+## Flakiness diagnosis
+
+When a test flakes, classify the cause before changing it:
+
+- uncontrolled time or scheduler;
+- hidden network or persistence;
+- shared mutable state;
+- race between producer and assertion;
+- unstable selector or snapshot;
+- leaked resource or unclosed stream;
+- order-dependent test setup.
+
+Repair the cause at the test seam. Do not add retries, sleeps, wider timeouts, or weaker assertions without proving why they are correct.
+
+## Coverage and review
+
+Coverage percentage is a signal, not proof. Prioritize public contracts, security boundaries, failure paths, lifecycle transitions, persistence races, and code that is difficult to reason about.
+
+Before finalizing a test, explain what failure it would catch, what it intentionally does not prove, and which repository command verifies it. Keep the explanation close to the test when the reason is non-obvious.
+
+## Reusable test examples
+
+### Name tests as behavior
+
+Prefer names that describe the observable contract:
 
 ```ts
-const user = userEvent.setup({
-  advanceTimers: vi.advanceTimersByTime,
+it('rejects an unsupported protocol version')
+it('maps a policy denial to a forbidden response')
+it('renders the failed-send state when the client rejects')
+it('normalizes external text deltas into public runtime events')
+```
+
+Avoid names such as `works`, `renders`, `calls handler`, or `returns data`. A good name tells a future maintainer why the test exists before they read its setup.
+
+### Arrange, act, assert, cleanup
+
+```ts
+it('releases a subscription when the consumer cancels', async () => {
+  const subscription = createControlledSubscription()
+
+  const result = await consumeOne(subscription.stream)
+  await result.cancel()
+
+  expect(subscription.isClosed()).toBe(true)
 })
 ```
 
-Always restore real timers after the test. Do not mix real waiting with fake timers unless there is a clear reason.
+Arrange controlled inputs and resources, act through the public seam, assert the observable result and cleanup, then restore any timers, globals, routes, streams, files, or persistent state changed by the test.
 
-## Time, randomness, and globals
+### UI behavior through a fake boundary
 
-Never let tests depend on real time when time affects behavior.
+```ts
+it('shows a send error when the client rejects', async () => {
+  const user = userEvent.setup()
+  const client = createFakeClient({
+    send: vi.fn().mockRejectedValue(new Error('failed')),
+  })
 
-Use fake timers, fixed system time, or an injected clock.
+  render(<AssistantWidget client={client} />)
+
+  await user.type(screen.getByRole('textbox', { name: /message/i }), 'Hello')
+  await user.click(screen.getByRole('button', { name: /send/i }))
+
+  expect(await screen.findByText(/could not send/i)).toBeTruthy()
+})
+```
+
+Use semantic queries and visible state. Do not assert hook calls, private state, or incidental DOM structure. Use the assertion helpers already configured by the repository; do not assume an extra DOM matcher package.
+
+### Browser-level failure state
+
+```ts
+test('shows a recoverable error when the backend fails', async ({ page }) => {
+  await page.route('**/api/messages', route =>
+    route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 'internal_error' }),
+    }),
+  )
+
+  await page.goto('/')
+  await page.getByRole('textbox', { name: /message/i }).fill('Hello')
+  await page.getByRole('button', { name: /send/i }).click()
+
+  await expect(page.getByText(/something went wrong/i)).toBeVisible()
+})
+```
+
+Use browser routing only for a browser-level state that is difficult to produce through the real test service. Never use arbitrary sleeps to wait for it.
+
+### Time and randomness
+
+When time affects behavior, use the configured fake-clock facility or inject a clock and restore it afterward:
 
 ```ts
 beforeEach(() => {
   vi.useFakeTimers()
-  vi.setSystemTime(new Date('2026-05-25T12:00:00Z'))
+  vi.setSystemTime(new Date('2026-01-15T12:00:00Z'))
 })
 
 afterEach(() => {
@@ -251,126 +191,26 @@ afterEach(() => {
 })
 ```
 
-Control or inject:
+Apply the same discipline to generated ids, random values, locale, timezone, environment variables, storage, and browser globals. Advance timers explicitly when a user-event library requires it.
 
-- `Date.now`
-- `new Date()`
-- timers
-- `crypto.randomUUID()`
-- `Math.random()`
-- environment variables
-- localStorage/sessionStorage
-- browser globals
-- provider IDs
-- generated message IDs
+### Fixtures and snapshots
 
-Restore modified globals after each test.
-
-## Data builders and fixtures
-
-Use `packages/testing` builders and protocol helpers when available.
-
-Good builders:
-
-- produce valid defaults
-- make important differences obvious
-- avoid hidden external dependencies
-- avoid mutation shared across tests
-- encode product vocabulary, not random mock data
-
-Avoid huge opaque Object Mother fixtures.
-
-Prefer:
+Good builders produce valid defaults, make important differences obvious, avoid hidden external work, avoid shared mutation, and use product vocabulary:
 
 ```ts
-const request = createChatRequest({
-  protocolVersion: 'sidechat.v1',
+const request = createRequest({
+  protocolVersion: 'protocol.v1',
   message: 'Hello',
 })
 ```
 
-Over:
+Prefer this over a large opaque fixture imported from another test. Use snapshots only for stable, intentionally structural output whose diff someone will review. Whole component trees and large generated output are poor snapshot targets.
 
-```ts
-const request = hugeFixtureFromAnotherTest
-```
+### Smell-to-fix map
 
-## Snapshot policy
-
-Snapshots are allowed only when the output is stable, intentionally structural, and the diff is meaningful.
-
-Good candidates:
-
-- small protocol fixture snapshots
-- generated schema snapshots if reviewed deliberately
-- compact static markup snapshots when already accepted by the repo
-
-Bad candidates:
-
-- whole React trees
-- provider-native events
-- large generated output nobody reviews
-- snapshots replacing explicit behavior assertions
-
-A snapshot that nobody reads is not a useful test.
-
-## Coverage policy
-
-Coverage is a signal, not a goal.
-
-Prefer covering:
-
-- protocol validation branches
-- SSE decode/encode failure paths
-- policy denial paths
-- typed error mapping
-- runtime event normalization edge cases
-- repository contract edge cases
-- widget error/loading/disabled states
-- service auth/config/persistence failures
-
-Avoid meaningless tests just to hit line coverage.
-
-## Fragile test smells
-
-Call out and fix these smells:
-
-- testing implementation details
-- asserting private/helper/hook calls
-- mocking every module in a dependency chain
-- snapshot-only tests
-- CSS selector queries
-- exact DOM structure assertions
-- real network calls in ordinary tests
-- real Postgres in non-opt-in tests
-- arbitrary sleeps
-- uncontrolled dates/timers/randomness
-- uncontrolled timezone/locale
-- shared mutable fixtures
-- giant opaque fixtures
-- tests that pass only when run alone
-- provider-native event assertions outside `agent-runtime`
-- DB row assertions outside `packages/db`
-- Hono object assertions outside service route tests
-- protocol tests that include non-`sidechat.v1` shapes
-- Playwright tests using `.locator('.btn-primary')` instead of semantic locators
-
-## Smell to refactor map
-
-Implementation-detail assertion: Replace helper/hook call assertions with public output, protocol DTO/event, rendered UI, HTTP response, or repository state.
-
-Deep mock tree: Replace many mocks with one fake at a stable package boundary.
-
-Protocol leakage: Move provider/DB/HTTP-specific assertions into the owning package and assert `sidechat.v1` at public boundaries.
-
-Provider-native leakage: Assert normalized runtime events outside provider adapter tests.
-
-DB leakage: Assert repository/domain objects outside `packages/db`, not Drizzle rows.
-
-Missing seam: Introduce a minimal port, adapter, fake provider, fake repository, fake transport, or fake host bridge.
-
-Real time / arbitrary wait: Use fake timers in Vitest tests and web-first assertions in Playwright.
-
-Escaping network: Use fake transport/service, in-process route tests, or Playwright route only at E2E level.
-
-Legacy refactor without tests: Add characterization tests first.
+- implementation-detail assertion -> assert public output, state, event, response, or repository result;
+- deep mock tree -> replace it with one fake at a stable seam;
+- external or database leakage -> assert the normalized domain/public shape outside the owning adapter;
+- missing seam -> introduce the smallest port, fake, or controlled adapter needed;
+- arbitrary wait -> control time or await observable state;
+- unclear legacy behavior -> add a characterization test before refactoring.

@@ -1,15 +1,15 @@
-# Comment templates for Side Chat readability
+# Comment templates
 
-Use these only when names and structure are not enough. Prefer replacing the bracketed wording with concrete Side Chat terms.
+Use these only when names and structure are not enough. Replace every bracketed phrase with concrete local entities.
 
 ## Boundary mapper
 
 ```ts
 /**
- * Convert [source-system] [source-entity] into Side Chat's [target-contract].
+ * Convert [source system] [source entity] into [target contract].
  *
- * [Hidden detail] stays inside [owning package/boundary]. Downstream packages
- * only receive [stable target fields or guarantees].
+ * [Hidden detail] stays inside [owning boundary]. Callers receive only
+ * [stable fields or guarantees].
  */
 ```
 
@@ -17,29 +17,36 @@ Example:
 
 ```ts
 /**
- * Convert AI SDK `tool-error` stream parts into Side Chat's canonical tool activity.
+ * Convert external tool-error parts into the public activity record.
  *
- * The provider/tool exception stays inside `agent-runtime`. Downstream packages
- * only receive the failed activity row and the stable `TOOL_FAILED` protocol code.
+ * The provider exception stays inside the adapter. Callers receive only the
+ * stable activity id, safe input metadata, and public error code.
  */
 ```
 
-## Effect/Stream boundary
+## Effect or stream boundary
 
 ```ts
 /**
- * Run one [product action] through the [private adapter/public port].
+ * Run [product action] through [private adapter or public port].
  *
- * This remains an Effect Stream because [typed failures/cancellation/streaming]
- * must stay in the workflow until [transport or package boundary].
+ * The result remains [effect/stream/async abstraction] until [boundary] so
+ * [typed failures, cancellation, ordering, or streaming] stay visible.
  */
 ```
 
 ## Invariant
 
 ```ts
-// Keep [entity/id/order] stable across [event/update]. The widget/core/runtime
-// treats it as [contract], so changing it creates [specific failure].
+// Keep [entity, id, or order] stable across [event or update]. Downstream code
+// treats it as [contract], so changing it would cause [specific failure].
+```
+
+Example:
+
+```ts
+// Keep `callId` stable across start, progress, and completion events. The
+// consumer merges updates by this id instead of rendering duplicate activities.
 ```
 
 ## Non-guarantee
@@ -48,18 +55,9 @@ Example:
 /**
  * Returns [value] for [caller use].
  *
- * The result is [guarantee], but it is not [non-guarantee]. Callers that need
- * [stronger behavior] must use [other API or explicit check].
+ * The result guarantees [behavior], but it does not guarantee [stronger
+ * behavior]. Callers that need that behavior must use [explicit API/check].
  */
 ```
 
-## Deletion candidates
-
-Delete or rewrite comments that say only:
-
-- "handle the request"
-- "convert the data"
-- "process the event"
-- "map to the contract" without naming source and target
-- "adapter boundary" without naming which adapter and which downstream contract
-- line-by-line explanations of obvious code
+Delete comments that only say “handle,” “convert,” “process,” or “map” without naming source and target entities, or that explain obvious lines one by one.

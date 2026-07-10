@@ -1,143 +1,109 @@
 # Readability refactor examples
 
-These examples target the exact failure mode where code is technically correct but too hard to read because it assumes the reader already knows the AI SDK/Effect/domain context.
+These examples target code that is correct but forces a maintainer to reconstruct too much context. Adapt them to the repository's actual types and APIs. They illustrate a shape, not a dependency or package contract.
 
-## Example 1: nested Effect/Stream expression
+## Example 1: nested effect/stream expression
 
 Problem shape:
 
 ```ts
 /**
- * streamEffect is the Effect-native way to run one assistant turn.
- *
- * It prepares the provider-ready request first. If that succeeds, it opens
- * the AI SDK ToolLoopAgent as an Effect Stream so provider failures,
- * cancellation, timeouts, and future tracing stay in the typed workflow.
+ * The external stream must not open until request preparation succeeds.
+ * Keeping the boundary in one expression makes that lifecycle easy to miss.
  */
-const streamEffect = (request: AgentRuntimeRequest): RuntimeEventStream =>
-  catchRuntimeDefects(
-    Stream.unwrap(
-      Effect.map(
-        createRuntimeExecution(state, request),
-        ({ model, providerOptions, providerRequest }) =>
-          runAiSdkToolLoopAgentStream({
-            model,
-            providerOptions,
-            request: providerRequest,
-          }),
-      ),
+const streamResult = catchDefects(
+  Stream.unwrap(
+    Effect.map(createExecution(state, request), execution =>
+      openExternalStream({
+        model: execution.model,
+        options: execution.options,
+        request: execution.request,
+      }),
     ),
-  );
+  ),
+)
 ```
 
 What is wrong:
 
-- the comment explains the intent, but the expression still makes the reader unpack nested Effect/Stream mechanics;
-- the important domain step is anonymous: opening the AI SDK runtime stream;
-- the phrase “Effect-native” assumes the reader already knows why this shape exists;
-- the source and target boundary are only partly named.
+- the important domain step is anonymous;
+- the reader must unpack effect and stream mechanics at the same time;
+- the expression does not show where external details stop being visible.
 
 Preferred shape:
 
 ```ts
-/**
- * Run one Side Chat assistant turn through the private AI SDK adapter.
- *
- * `partner-ai-core` calls this after preparing the turn. Keeping the result as
- * an Effect Stream lets provider failures, cancellation, and runtime defects be
- * normalized before the HTTP/SSE boundary sees them.
- */
-const streamEffect = (request: AgentRuntimeRequest): RuntimeEventStream => {
-  const runtimeExecution = createRuntimeExecution(state, request);
-  const providerStream = Effect.map(runtimeExecution, openAiSdkRuntimeStream);
+const execution = createExecution(state, request)
+const externalStream = Effect.map(execution, openExternalStream)
+const normalizedStream = Stream.unwrap(externalStream)
 
-  return catchRuntimeDefects(Stream.unwrap(providerStream));
-};
-
-const openAiSdkRuntimeStream = ({
-  model,
-  providerOptions,
-  providerRequest,
-}: RuntimeExecution): RuntimeEventStream =>
-  runAiSdkToolLoopAgentStream({
-    model,
-    providerOptions,
-    request: providerRequest,
-  });
+const streamResult = catchDefects(normalizedStream)
 ```
 
 Why this is better:
 
-- the business step has a name: `openAiSdkRuntimeStream`;
-- the nested containers are still present, but the reader can follow them one at a time;
-- the comment names who calls this and where the boundary ends;
-- the comment does not explain every Effect combinator.
+- preparation, stream opening, unwrapping, and defect normalization are visible stages;
+- the domain operation has a name instead of being an anonymous callback;
+- the result remains in the existing abstraction, so behavior and failure semantics do not change.
 
-Do not mechanically apply this exact diff if the surrounding code would become worse. The rule is to name the domain step and reduce nested mental parsing.
+Do not mechanically apply this exact diff if the surrounding code would become worse. Extract only the steps that reduce context load.
 
-## Example 2: comment with hidden domain assumptions
+## Example 2: context-gap comment
 
-Problem shape:
+Weak:
+
+```ts
+/** Convert a failure into the runtime activity contract. */
+```
+
+Stronger:
 
 ```ts
 /**
- * Convert a provider/tool execution failure into the runtime activity contract.
+ * Convert an external tool failure into the public activity record.
  *
- * The detailed thrown value stays private to the adapter boundary. Downstream
- * code only needs a stable failed activity with a typed protocol error code.
- */
-const mapToolError = (
-  request: RuntimeProviderRequest,
-  sequence: number,
-  part: AiSdkToolErrorPart,
-): RuntimeEvent =>
-  createToolActivity({
-    request,
-    sequence,
-    status: ACTIVITY_STATUS_FAILED,
-    toolCallId: part.toolCallId,
-    toolName: part.toolName,
-    input: toJsonObject(part.input),
-    errorCode: RUNTIME_ERROR_CODES.TOOL_FAILED,
-    ...titleProp(part.title),
-  });
-```
-
-What is wrong:
-
-- it says “provider/tool execution failure” but does not name the concrete source entity;
-- it says “runtime activity contract” but does not say the target is a Side Chat runtime tool activity row;
-- “adapter boundary” is vague unless the reader already knows `agent-runtime` owns AI SDK details;
-- the code itself is clear enough, but the comment misses the context bridge.
-
-Preferred comment:
-
-```ts
-/**
- * Convert AI SDK `tool-error` stream parts into Side Chat's tool activity row.
- *
- * The thrown provider/tool value stays inside `agent-runtime`; downstream
- * packages only receive a failed activity and the stable `TOOL_FAILED` code.
+ * The raw exception stays inside the adapter; callers receive a failed record
+ * and a stable public error code.
  */
 ```
 
-This is not much longer, but it tells the reader the source, target, owner, and downstream guarantee.
+Name the source, target, owner, and downstream guarantee. The comment should not explain ordinary syntax.
 
-## Example 3: when to refactor instead of comment
+## Example 3: comment versus structure
 
 Bad:
 
 ```ts
-// Prepare the request and open the provider stream.
-const stream = Stream.unwrap(Effect.map(createRuntimeExecution(state, request), (execution) => runAiSdkToolLoopAgentStream({ model: execution.model, providerOptions: execution.providerOptions, request: execution.providerRequest })));
+// Prepare the request and open the external stream.
+const stream = unwrap(map(createExecution(state, request), execution => openStream(execution)))
 ```
 
 Better:
 
 ```ts
-const runtimeExecution = createRuntimeExecution(state, request);
-const providerStream = Effect.map(runtimeExecution, openAiSdkRuntimeStream);
-const stream = Stream.unwrap(providerStream);
+const execution = createExecution(state, request)
+const preparedStream = map(execution, openStream)
+const stream = unwrap(preparedStream)
 ```
 
-A comment that merely labels a dense expression is weak. Named steps are stronger.
+Named stages are stronger than a comment that labels a dense expression. If the expression still mixes policy, mapping, transport, and cleanup, split by responsibility rather than by line count.
+
+## Example 4: boundary mapping with stable identity
+
+Problem shape:
+
+```ts
+const activity = mapPart(part)
+```
+
+Preferred shape:
+
+```ts
+const externalFailurePart = part
+const publicActivity = mapExternalFailureToActivity({
+  callId: externalFailurePart.callId,
+  safeCode: toPublicErrorCode(externalFailurePart.error),
+})
+```
+
+The names show which representation is private, which representation is public, and which identity must survive the translation.

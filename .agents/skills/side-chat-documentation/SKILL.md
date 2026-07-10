@@ -1,155 +1,83 @@
 ---
 name: side-chat-documentation
-description: Write, review, update, or audit documentation — READMEs, architecture and design notes, ADRs, guides, doc comments, API/protocol docs, and changelogs — so it is clear AND accurate. Combines Google technical-writing craft (audience-first; active voice; strong verbs; short single-idea sentences; parallel lists; scannable paragraphs with strong opening sentences; explicit terms; clear document structure) with Side Chat's accuracy rules (docs must match current code; canonical docs own their topic; link vocabulary instead of duplicating it; delete stale plan/target docs). Use for documentation passes and audits, stale-doc detection, README/architecture cleanup, doc-writing help, or whenever a code change affects docs.
-compatibility: Codex CLI, Codex IDE extension, Codex app; instruction-first skill, no network required (Google Technical Writing One/Two distilled into references/).
+description: Write, review, update, or audit durable documentation, READMEs, architecture notes, ADRs, guides, runbooks, API docs, and non-trivial comments so they stay accurate, clear, scannable, and aligned with the current code. Use for documentation passes, stale-doc detection, source-of-truth cleanup, and documentation changes caused by code work.
+compatibility: Codex CLI, Codex IDE, Codex app; instruction-first skill; no network required.
 metadata:
-  version: "1.0.0"
-  project: "Side Chat"
-  domain: "Technical documentation — READMEs, architecture docs, ADRs, guides, doc comments, protocol/API docs"
-  source: "Google Technical Writing One & Two (developers.google.com/tech-writing) adapted to the Side Chat repository conventions."
+  version: "2.0.0"
+  domain: "Repository documentation accuracy, ownership, and technical writing"
+  source: "Repository-local documentation guidance with general technical-writing rules"
 ---
 
-# Side Chat Documentation
+# Repository Documentation
 
-Write docs a maintainer can use without already knowing the system. Two things make
-a doc good, and a doc must pass both:
-
-1. **Accurate** — it matches the current code, terms, and lifecycle.
-2. **Clear** — a busy reader gets the answer fast, in plain, scannable prose.
-
-A beautifully written doc that lies is worse than no doc. An accurate doc that
-reads like an AI essay wastes the reader's time. Hold both.
+Write documentation a maintainer can use without already knowing the system. A good document must be accurate and clear. A polished document that describes removed code is worse than no document.
 
 ## When to use this skill
 
-Use it when the task is documentation: writing or updating a README, architecture
-or design note, ADR, guide, runbook, protocol/API doc, or a non-trivial doc
-comment; doing a documentation pass or audit; hunting stale docs; or cleaning up
-prose. Also use it before finalizing any code change that alters a documented
-term, lifecycle, boundary, command, or public contract — update the doc in the
-same change.
+Use it for READMEs, architecture or design notes, ADRs, guides, runbooks, protocol or API docs, changelogs, documentation audits, stale-doc cleanup, and non-trivial documentation comments.
 
-For code readability, comments, and quality gates, use `side-chat-code-quality-gate`.
-For test design, use `side-chat-testing-architecture`. This skill owns durable
-prose docs.
+Use it before finalizing code that changes a documented term, lifecycle, boundary, public contract, configuration model, command, or verification rule.
 
-## The one equation
+Use the code-quality skill for implementation readability and quality gates. Use the testing skill when test design is the primary task.
 
-> good docs = (knowledge the audience needs for the task) − (what they already know)
+## Ground the document in the current system
 
-Before writing or reviewing, answer four questions:
+Before writing or judging a document:
 
-1. Who is the reader? (role + how close they already are to this topic)
-2. What is their goal — why are they here?
-3. What do they already know?
-4. What must they know or do after reading?
+1. Identify the reader, goal, prerequisites, and expected action.
+2. Read the repository documentation index and the canonical document that owns the topic.
+3. Read the relevant source, tests, configuration, package manifest, or command implementation.
+4. Confirm names, signatures, endpoints, events, lifecycle order, paths, and commands against the current code.
+5. If code and documentation disagree, report or fix the stale source of truth. Do not document from memory or from an old plan.
 
-Give them exactly that. Cut what they know; add what they lack. The most common
-failure is the **curse of knowledge**: the author forgets what a newcomer doesn't
-know and leaves a "file not found" gap.
+Use the repository's actual vocabulary. Define an unfamiliar term once or link to the glossary. Do not introduce a second name for the same concept.
 
-## Ground every doc in the real system first
+## Ownership and scope
 
-Docs go stale silently. Before writing or judging a doc, read the code and the
-canonical docs it describes — never document from memory or from an older doc.
+Every repository should have one source of truth for each topic. Find it before adding a new explanation:
 
-- Confirm names, signatures, endpoints, events, and lifecycle order against source.
-- Read the canonical docs that own the topic (below) so you link instead of
-  re-deriving.
-- If the code and the doc disagree, the code is the truth; fix the doc.
+- glossary or vocabulary document for terms;
+- architecture document for package roles and boundaries;
+- lifecycle or flow document for ordering and failure semantics;
+- operations document for commands, configuration, deployment, and databases;
+- package README for local role and entry points;
+- ADR for an accepted architectural decision and its rationale.
 
-## Craft rules (the short version)
+Link to the owner instead of copying a global table into a local README. Flag documents that claim production behavior the code does not provide, keep replaced plans linked as truth, duplicate canonical vocabulary, or leave a shipped architectural capability undocumented.
 
-Full rules with examples: `references/google-tech-writing-rules.md`. The essentials:
+Prefer the clean final state for unshipped internal changes. Delete replaced helpers, docs, comments, tests, aliases, and temporary notes when the replacement lands. Keep history only in the repository's intended history mechanism.
 
-- **Words.** Define unfamiliar terms on first use (or link). Use one name per
-  concept — never drift between synonyms. Spell out an acronym on first use; only
-  define one that is much shorter AND used many times. Replace ambiguous `it` /
-  `this` / `that` with the explicit noun.
-- **Active voice.** Actor + verb + target. "The reaper terminalizes the turn", not
-  "The turn is terminalized by the reaper." Imperative ("Run the migration.") is
-  active and right for steps.
-- **Strong verbs.** Replace *is/are/occurs/happens* with what actually happens.
-  Cut `there is` / `there are`. Replace vague adjectives with data.
-- **Short sentences.** One idea each. Split chains joined by *and/because/which*.
-  Delete filler ("in order to" → "to", "is able to" → "can").
-- **Lists & tables.** Bulleted = unordered, numbered = ordered steps (start each
-  step with an imperative verb). Keep items parallel. Introduce every list/table
-  with a sentence ending in a colon. Convert run-in lists to real lists.
-- **Paragraphs.** Lead with the point — the opening sentence is the one many
-  readers read. One topic per paragraph, ~3–5 sentences. Answer What, Why, How.
-- **Structure.** State scope (and pointed non-scope), audience, and prerequisites
-  up front. Summarize key points first — readers may not reach page two. Organize
-  by the reader's goal. Compare new things to familiar ones.
+## Writing rules
 
-## Side Chat accuracy and ownership rules
+- Lead with the document's purpose, scope, audience, and key result.
+- Use active voice and strong verbs.
+- Keep one idea per sentence and one topic per paragraph.
+- Define unfamiliar terms near their first use.
+- Use numbered lists for ordered procedures and bullets for unordered facts.
+- Introduce every list or table with a sentence that explains why it exists.
+- Prefer concrete values, paths, actors, and outcomes over vague adjectives.
+- Remove filler, ambiguous pronouns, passive voice, walls of text, and run-in lists.
+- Keep examples short and executable. Never include secrets or unverified commands.
 
-Canonical docs own their topic; everything else links to them. Do not redefine a
-canonical topic in a second place — duplication is how docs drift.
+## Documentation audit workflow
 
-- `docs/domain/vocabulary.md` — owns terms. READMEs link here; they don't redefine
-  global vocabulary.
-- `docs/architecture/assistant-turn.md` — owns the turn lifecycle and its order.
-- `docs/architecture/system-map.md` — owns package roles and entry files.
-- `docs/architecture/package-boundaries.md` — owns import/data boundaries.
-- `docs/architecture/runtime-and-protocol-events.md` — owns runtime + `sidechat.v1`
-  events and the streaming/transport contract.
-- `docs/operations/verification.md` — owns gate commands.
-- `docs/operations/configuration.md` — owns the human-readable `SideChatConfig` model.
-- `docs/operations/local-development.md` — owns the no-Docker local run.
-- `docs/operations/database.md` — owns the database generate/reset tooling.
-- Package `README.md` — owns that package's local role and entry points, and links
-  out for shared vocabulary, lifecycle, and boundaries.
-
-Flag or fix a doc when it:
-
-- describes code that no longer exists, or misnames an endpoint, event, term, or
-  command (e.g. an old single streaming endpoint after a two-call flow shipped);
-- claims production behavior the system does not have;
-- is an old target / current-state / implementation-plan doc still linked as
-  truth — delete it or move it to an explicit planning area, in the same change
-  that supersedes it;
-- redefines vocabulary that `docs/domain/vocabulary.md` already owns;
-- reads like an essay instead of a scannable reference;
-- documents a new capability nowhere (a shipped feature with no doc + no ADR when
-  the decision was architectural).
-
-This repo is pre-production: prefer a clean final-state rewrite over compatibility
-notes and change-history asides. Do not keep a replaced doc "for history".
-
-## Doing a documentation pass
-
-When asked to review or update docs broadly:
-
-1. **Inventory** the docs (`git ls-files '*.md'`, package READMEs, root plans) and
-   group them: canonical architecture, package READMEs, ADRs, product/ops, process
-   /skills.
-2. **List what changed** in the code recently (new endpoints, events, lifecycle,
-   terms, commands, removed APIs). That list is your staleness checklist.
-3. **Audit each doc against the code**, not against other docs. For broad scope,
-   fan out one reviewer per cluster; have each read its docs AND the relevant
-   source and report per file: `current` / `stale (specifics + file:line)` /
-   `gap`.
-4. **Triage:** fix high-confidence accuracy errors and clear craft problems;
-   surface uncertain or larger restructurings as findings for the user.
-5. **Edit** with the craft rules above. Keep the diff scoped; don't rewrite a doc
-   that is merely outdated in one section.
-6. **Self-edit** every doc you touch (next section).
-7. **Verify** any command, code sample, endpoint, or term you wrote or changed —
-   run it or grep the source. Never ship an unverified sample.
+1. Inventory tracked Markdown files, package READMEs, architecture docs, operations docs, ADRs, and root-level plans.
+2. List recent code changes that could make documentation stale: renamed APIs, removed files, changed events, lifecycle changes, moved ownership, new commands, or altered configuration.
+3. Audit each document against source, not against another document.
+4. Classify each document or section as `current`, `stale` with specific evidence, or `gap`.
+5. Fix high-confidence accuracy and clarity issues. Report uncertain redesigns separately.
+6. Remove or relink replaced sources of truth in the same change.
+7. Verify every changed path, command, endpoint, symbol, and example.
 
 ## Self-edit before finalizing
 
-Run this pass on every doc you write or change:
+Re-read the document as its target reader. Check:
 
-1. Set it aside, then re-read as the target reader. Read tricky parts aloud.
-2. Does the opening state scope, audience, and the key point?
-3. Is every term, name, endpoint, event, and command correct against the code?
-4. Cut: weak verbs, passive voice, `there is`, vague modifiers, filler, ambiguous
-   pronouns, walls of text, run-in lists.
-5. Are lists parallel and introduced? Are steps imperative and ordered?
-6. Could a lower-context maintainer act on this without opening five other docs?
-7. Did you delete or relink anything this change made stale?
+1. Does the opening state scope, audience, and the key point?
+2. Is each term, name, command, path, and lifecycle claim current?
+3. Can a lower-context maintainer act without opening several unrelated documents?
+4. Are lists parallel and procedures ordered?
+5. Did the change leave a stale or competing source of truth behind?
 
 ## Review-mode output
 
@@ -157,28 +85,22 @@ When reviewing without editing, report actionable findings only:
 
 ```md
 ## Summary
-<Docs inspected, how checked (against which source), dominant risk: accuracy vs clarity.>
+<Documents inspected, sources checked, and dominant accuracy or clarity risk.>
 
 ## Findings
-| Severity | Category | Doc (file:line) | Problem | Fix | Confidence |
+| Severity | Category | Document | Problem | Fix | Confidence |
 |---|---|---|---|---|---|
-| high | stale-accuracy | docs/architecture/assistant-turn.md:40 | Describes removed POST /chat/stream; flow is now two-call. | Rewrite lifecycle to POST /chat/runs + GET /chat/turns/:id/stream. | high |
-| med | clarity-structure | packages/db/README.md:12 | Wall-of-text intro, passive voice. | Lead with the package's role; split into a 4-sentence opener + list. | med |
+| high | stale-accuracy | `path/to/document.md:line` | ... | ... | high |
 
 ## Gaps
-<Shipped features or decisions with no doc/ADR.>
+<Shipped behavior or decision with no adequate documentation.>
 
 ## Uncertainty
-<Docs not checked, or where code intent was unclear.>
+<Documents or source areas not checked, or unclear intent.>
 ```
 
-Categories: `stale-accuracy`, `missing-doc`, `vocabulary-duplication`,
-`clarity-structure`, `clarity-sentence`, `list-table`, `audience-mismatch`,
-`scope-creep`, `dead-doc` (stale plan/target still linked as truth).
+Useful categories include `stale-accuracy`, `missing-doc`, `vocabulary-duplication`, `clarity-structure`, `clarity-sentence`, `list-table`, `audience-mismatch`, `scope-creep`, and `dead-doc`.
 
-## When to read the reference
+## References
 
-Read `references/google-tech-writing-rules.md` for the full do/don't rules with
-examples (words, voice, sentences, lists/tables, paragraphs, audience, structure,
-self-editing, doc types, illustrating, sample code) — before a large writing or
-audit pass, or whenever you need the precise rule and example behind a finding.
+Read `references/google-tech-writing-rules.md` for detailed writing examples when a large documentation pass needs them.

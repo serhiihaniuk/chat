@@ -1,29 +1,18 @@
-# Comment Context Bridge Patterns
+# Comment context-bridge patterns
 
-Use these when a comment must help a reader who does not know the whole Side Chat context.
-Use source, target, hidden detail, and invariant as drafting questions. Do not
-paste `Source:`, `Target:`, or `Invariant:` labels into code unless that labeled
-shape is clearer than prose in the local file.
+Use these patterns when names and structure do not give a lower-context reader enough information. Replace placeholders with the repository's actual entities and contracts. The examples are deliberately generic so they can be reused without copying stale paths or package names.
 
 ## File-level orientation
 
-Use this for concept-dense files, not simple leaf files or barrels. The first
-line must state the file's mental model, not the visible declaration category.
-
 ```ts
 /**
- * A core assistant turn sees the host app through this capability menu.
+ * A <workflow> sees <outside system> through this <local contract/menu>.
  *
- * Each service names one job the host can perform for the workflow: persist
- * conversation and assistant-turn state, publish host capabilities, resolve
- * policy and guards, prepare context and memory, run the model-side runtime,
- * mint ids and timestamps, enforce request policy, and emit observability.
- * The Effect Layer binds these jobs to real app adapters at composition time, so
- * partner-ai-core can coordinate the turn without importing HTTP, database,
- * provider, or tool-adapter packages.
- *
- * Update this comment when the core workflow gains or loses an app-supplied
- * capability, or when a capability's job moves across package boundaries.
+ * Each capability performs one job required by the workflow: <job one>,
+ * <job two>, or <job three>. Composition binds them to concrete adapters, so
+ * this file coordinates the contract but does not own <outside details>.
+ * Update this comment when the workflow gains or loses a capability or when a
+ * capability moves across a boundary.
  */
 ```
 
@@ -31,48 +20,46 @@ line must state the file's mental model, not the visible declaration category.
 
 ```ts
 /**
- * Prepare the runtime-side inputs needed before model streaming starts.
+ * Prepare the inputs needed before <next lifecycle boundary>.
  *
- * Profile defaults, executor choice, provider/model selection, tool exposure,
- * and final messages are resolved here. The provider stream is not opened until
- * this returns, so selection failures stay pre-stream and never look like a
- * partial model response.
+ * Authorization, policy, and adapter selection are settled here. The external
+ * operation has not started yet, so preparation failures cannot look like a
+ * partial response to the caller.
  */
 ```
 
-Stage comments should name what the step makes true before the next step:
+Stage comments should name what becomes true before the next step:
 
 ```ts
-// Pick the instructions and usual defaults before applying request choices.
-const profile = resolveProfile(state.profiles, request.profileId);
+// Prove authorization before private data or external work is exposed.
+const authorization = checkAuthorization(input)
 
-// Choose the execution engine before any provider stream can open.
-const executor = resolveAgentExecutor(state.executors, request);
+// Select the adapter after the request is validated.
+const adapter = selectAdapter(authorization, configuration)
 
-// Keep only the tools selected for this turn.
-const tools = selectRuntimeTools(state.tools, profile, request);
+// Keep only the capabilities admitted for this operation.
+const capabilities = selectCapabilities(adapter, policy)
 ```
 
 ## Boundary mapper
 
 ```ts
 /**
- * Convert <source-system> <source-entity> into <target-contract>.
+ * Convert <source system/entity> into <target contract>.
  *
- * <Hidden detail> stays inside <owning boundary>; downstream code only receives
- * <stable fields, identity, or error code>.
+ * <Sensitive or vendor detail> stays inside <owning boundary>; callers receive
+ * only <stable fields, identity, or error code>.
  */
 ```
 
-Concrete example:
+Concrete generic example:
 
 ```ts
 /**
- * Convert AI SDK `tool-error` stream parts into Side Chat's tool activity row.
+ * Convert an external tool-error part into the public tool-activity record.
  *
- * AI SDK parts may contain provider or tool exceptions. Those raw values stay
- * inside `agent-runtime`; downstream packages receive only a failed activity,
- * the stable `TOOL_FAILED` code, and safe metadata they can render or persist.
+ * The provider exception stays inside the adapter; downstream callers receive
+ * one failed activity, its stable call id, and a safe public error code.
  */
 ```
 
@@ -80,13 +67,11 @@ Concrete example:
 
 ```ts
 /**
- * Select prior conversation messages for the next assistant turn.
+ * Select the prior records admitted for the next operation.
  *
- * The input is already authorized and model-safe; this function only decides
- * which messages are admitted under the configured history policy. Disabled
- * modes return no messages, admitted messages keep repository order, and the
- * manifest records ids, order, token estimates, and drop reasons without
- * copying message text.
+ * The input is already authorized. This function applies the configured
+ * admission policy and records safe ids and reasons without copying private
+ * content into diagnostics.
  */
 ```
 
@@ -94,29 +79,29 @@ Concrete example:
 
 ```ts
 /**
- * Report whether configured capabilities are safe for this service profile.
+ * Report safe status for the configured capability.
  *
- * Health output may expose capability names, ids, counts, and adapter status.
- * It must not expose credentials, provider options, memory records, retrieved
- * content, or raw tool/provider errors.
+ * Diagnostics may expose names, counts, and adapter state. They must not expose
+ * credentials, private records, retrieved content, or raw external errors.
  */
 ```
 
 ## Stable identity
 
 ```ts
-// Keep `toolCallId` as the activity id. AI SDK emits multiple parts for one
-// tool call, and the widget must update one row rather than render duplicates.
+// Keep `callId` as the activity id. One external operation may emit several
+// parts, and the consumer must update one activity instead of rendering duplicates.
 ```
 
-## Effect boundary
+## Effect or stream boundary
 
 ```ts
 /**
- * Run one assistant turn through the private AI SDK adapter.
+ * Run one assistant turn through the private provider adapter.
  *
- * The result stays as an Effect Stream so provider failures, cancellation, and
- * runtime defects are normalized before the HTTP/SSE boundary sees them.
+ * Keep the result in the repository's effect/stream abstraction until the
+ * transport boundary so typed failures, cancellation, and event ordering stay
+ * visible to the workflow.
  */
 ```
 
@@ -124,20 +109,13 @@ Concrete example:
 
 ```ts
 /**
- * Returns the model-facing provider request for this turn.
+ * Returns the prepared provider request for the next execution stage.
  *
- * The request is ready for AI SDK execution, but it is not a policy decision;
- * tool exposure and context selection must already be resolved before this step.
+ * The request has passed input normalization, but this function does not make
+ * policy decisions or authorize capabilities; those checks happen earlier.
  */
 ```
 
-## Deletion candidates
+## Deletion candidate
 
-Delete comments like:
-
-```ts
-// Set failed status.
-status: ACTIVITY_STATUS_FAILED,
-```
-
-The code already says that. If a comment is needed, explain why failure becomes a protocol-safe code or why the raw error is hidden.
+Delete comments that only narrate syntax. If a comment is needed, explain the contract, hidden detail, or invariant that the code cannot carry by itself.

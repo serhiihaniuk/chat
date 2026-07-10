@@ -14,12 +14,12 @@ Use this structure for code-quality reviews unless the user asks for another for
 | typecheck | run / skipped / blocked | ... |
 | test | run / skipped / blocked | ... |
 | build | run / skipped / blocked | ... |
-| lint:custom | run / skipped / blocked | ... |
+| repository governance check | run / skipped / blocked | ... |
 
 ## Findings
 | Severity | Category | Evidence | Why it matters | Suggested fix | Confidence |
 |---|---|---|---|---|---|
-| high | effect-sdk-context-gap | `packages/...:symbol` | ... | ... | high |
+| high | effect-sdk-context-gap | `path/to/file:line` | ... | ... | high |
 
 ## Readability/comment improvements
 <Use only when useful. Include exact replacement comments or code-shape suggestion.>

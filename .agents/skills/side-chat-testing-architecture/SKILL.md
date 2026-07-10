@@ -1,141 +1,106 @@
 ---
 name: side-chat-testing-architecture
-description: Use when writing, reviewing, or refactoring tests in the Side Chat monorepo. Covers Vitest unit, contract, service, and integration tests; Testing Library widget tests; Playwright harness tests; sidechat.v1 protocol contracts; package boundary leakage; fake providers; memory repositories; and deterministic test strategy. Do not assume jest-dom or new test libraries.
+description: Write, review, or refactor tests in a TypeScript/React/Node repository. Choose honest test levels, protect public contracts and architecture boundaries, use deterministic doubles, and avoid brittle implementation-coupled tests. Use for unit, contract, component, service, integration, browser E2E, testability, and flakiness work.
+compatibility: Codex CLI, Codex IDE, Codex app; instruction-first skill; no network required.
+metadata:
+  version: "2.0.0"
+  domain: "Test architecture, deterministic verification, and boundary protection"
+  source: "Repository-local testing guidance expressed without repository-specific paths"
 ---
 
-# Side Chat Testing Architecture Skill
+# Testing Architecture
 
-## Purpose
-
-Use this skill to help with tests in the Side Chat repository.
-
-Side Chat is an npm workspace modular monolith for an embeddable AI assistant. Package boundaries are architecture. Tests must protect product contracts, deterministic behavior, and stable seams without coupling to implementation details.
-
-The browser/backend contract is `sidechat.v1`. It must not leak provider-native stream parts, AI SDK UI messages, database rows, Hono objects, Effect runtime details, Drizzle/Postgres internals, or host application internals.
+Use this skill to protect product behavior, public contracts, deterministic behavior, and stable architecture seams without coupling tests to implementation details.
 
 ## When to use this skill
 
-Use this skill when the user asks to:
+Use it when the user asks to:
 
-- write or review tests in the Side Chat repo
-- decide whether a test should be unit, contract, service/route, integration, component, or Playwright E2E
-- test `sidechat.v1` protocol behavior
-- test SSE encoding/decoding or stream event normalization
-- test package boundaries or architecture governance
-- test React widget behavior
-- test browser client transport behavior
-- test host bridge contracts
-- test partner AI core use cases, policies, ports, typed errors, or Effect service wiring
-- test agent runtime provider adapters, fake provider, runtime tools, or normalized runtime events
-- test Hono service routes and adapters
-- test repository contracts, memory repositories, or Postgres adapters
-- fix flaky, brittle, over-mocked, or implementation-coupled tests
-- refactor untested legacy behavior safely
+- write, review, refactor, or classify tests;
+- choose between unit, contract, component, service, integration, or browser E2E tests;
+- test a versioned protocol, stream codec, transport, host boundary, runtime adapter, repository, route, or UI;
+- fix flaky, brittle, over-mocked, or implementation-coupled tests;
+- safely characterize untested legacy behavior.
 
-Do not use this skill for:
+Do not use it for broad product strategy, visual design unrelated to testability, dependency selection unrelated to testing, or production behavior outside the repository.
 
-- broad product strategy unrelated to tests
-- UI design critique unrelated to testability
-- package installation or dependency migration unless testing-specific
-- production host app behavior outside this repo
-- provider-specific AI SDK behavior unless it is normalized through Side Chat runtime contracts
+## Discover the repository's test surface
+
+Before writing tests:
+
+1. Read `AGENTS.md`, the repository documentation index, and the nearest package or folder README.
+2. Inspect the package manifest and test configuration to discover the actual test runners, scripts, test locations, and available matchers.
+3. Identify the behavior or contract and the module that owns it.
+4. Inspect nearby tests and existing test support before creating a new double or helper.
+5. Read the relevant architecture and boundary docs.
+
+Do not assume a matcher, library, folder, package, command, or shared builder exists. Discover it from the current repository.
 
 ## Always do this
 
-1. Identify the behavior, product contract, or architecture boundary being protected.
-2. Identify the owning package.
-3. Choose the smallest honest test level:
-   - unit
-   - contract
-   - component
-   - service/route
-   - integration
-   - Playwright E2E
-4. Identify the seam or double to use.
-5. Prefer existing repo doubles: memory repositories, fake providers, fake host bridge, fake chat client/transport, protocol fixtures, and builders from `packages/testing`.
-6. Assert observable behavior, not internals.
-7. Recommend the right repo command: `npm test`, `npm run test:e2e`, `npm run test:db:local`, or `npm run verify`.
+1. State the behavior, product contract, or architecture boundary being protected.
+2. Identify the owning module or package.
+3. Choose the smallest honest test level.
+4. Choose an existing seam or the smallest new seam needed.
+5. Prefer deterministic repository doubles: in-memory adapters, fake providers, fake transports, controlled streams, fake host boundaries, fixtures, and local builders that actually exist.
+6. Assert observable behavior through a stable public seam.
+7. Recommend the repository's actual focused and full verification commands.
+
+## Test-level decision
+
+Choose the smallest level that proves the behavior:
+
+- **Unit:** pure or local behavior with controlled dependencies, such as validation, mapping, domain rules, policy decisions, error mapping, codecs, parsers, and normalization.
+- **Contract:** behavior stable across package boundaries or implementations, such as protocol fixtures, browser/server DTOs, host boundaries, repository contracts, runtime event contracts, or adapter parity.
+- **Component:** user-visible UI states, interaction, accessibility, loading, streaming, error, and empty states through a fake client or boundary.
+- **Service/route:** HTTP behavior, authentication or policy failures, validation, composition, persistence through a test adapter, and mapping domain errors to transport responses.
+- **Integration:** collaboration between several real modules where a unit or contract test would miss wiring, ownership, or translation errors.
+- **Browser E2E:** a small set of critical flows through the real browser harness, such as boot, user submission, streamed output, visible errors, and host-boundary behavior.
 
 ## Hard constraints
 
-- Do not assume jest-dom matchers. Avoid `toBeInTheDocument`, `toHaveTextContent`, `toBeVisible`, and similar matchers unless the user shows they exist in a specific package.
-- Do not introduce new test libraries unless explicitly asked.
-- Do not expose provider-native events outside `packages/agent-runtime` adapter tests.
-- Do not expose AI SDK UI messages through `sidechat.v1`.
-- Do not expose database rows outside `packages/db` tests.
-- Do not expose Hono objects outside service route tests.
-- Do not expose Effect runtime details through protocol, widget, client, or service contracts.
-- Do not use real Postgres except opt-in DB integration tests.
-- Do not use real network in ordinary tests.
-- Do not use Playwright sleeps such as `page.waitForTimeout()`.
-- Do not test React hook internals just to prove a hook was called.
-- Do not snapshot the whole widget tree as a substitute for behavior assertions.
+- Do not assume extra matchers, assertion libraries, test libraries, or framework helpers. Use only configured dependencies unless the user explicitly requests a new one.
+- Do not expose provider-native events, database rows, server framework objects, runtime internals, or host internals through browser-facing contracts.
+- Do not use a real database except in an explicit opt-in integration lane.
+- Do not use real network calls in ordinary tests.
+- Do not use arbitrary sleeps in browser tests. Wait for observable state or a controlled event.
+- Do not test hook internals merely to prove that a hook was called.
+- Do not snapshot an entire UI tree as a substitute for behavior assertions.
+- Do not weaken a test to make an implementation pass. Repair the behavior, the seam, or the expectation.
 
-## Core principle
+## Core resilience test
 
-Test observable behavior through stable public seams.
+Before approving a test, ask:
 
-In this repo, stable seams are usually package public APIs, protocol fixtures, ports, fake providers, memory repositories, browser client contracts, host bridge contracts, Hono route boundaries, and Playwright harness flows.
-
-Before approving or generating a test, ask:
-
-1. Would this test fail if the product behavior, package contract, or architecture boundary was broken?
-2. Would this test still pass after a refactor that preserves that public behavior or boundary?
+1. Would this test fail if the protected product behavior or architecture boundary broke?
+2. Would this test survive a refactor that preserves the protected behavior or boundary?
 
 If the first answer is no, the test is weak. If the second answer is no, the test is fragile.
 
-## Test level decision
+## Boundary and transport strategy
 
-Choose the smallest honest test level.
+Keep each representation inside its owning boundary. A versioned browser/server contract must not expose provider DTOs, database rows, framework objects, runtime details, or host application internals.
 
-Use a unit test for pure or local behavior with dependencies controlled: protocol validators, DTO mappers, SSE codecs, stream decoders, domain rules, policy decisions, typed error mappers, runtime event normalization, config parsers, and test builders.
+Test transport in layers:
 
-Use a contract test when behavior must remain stable across package boundaries or implementations: `sidechat.v1` fixtures, browser/backend protocol, host bridge command/context contract, repository contracts, fake provider behavior, runtime normalized event contract, memory repository versus real Postgres adapter, and service port contracts.
+1. Test validators and codecs directly.
+2. Test the browser or transport client with a controlled response, fake fetch, or controlled stream.
+3. Test service routes with an in-process composition and deterministic adapters.
+4. Use browser automation only when browser behavior is the risk.
+5. Use a real database only through the repository's explicit integration lane.
 
-Use a component test for widget behavior from the user’s point of view: visible UI states, user input, submit/send interaction, loading, streaming, error, empty states, accessible behavior, and widget interaction with fake chat client or fake host bridge.
-
-Use a service/route test for `apps/partner-ai-service`: Hono route behavior, auth/policy failures, request validation, route-to-core composition, domain error to HTTP/SSE mapping, and persistence adapter behavior through memory repositories. Assert HTTP/protocol behavior, not Hono internals.
-
-Use an integration test when the risk is collaboration between several real packages: chat-client + chat-protocol, service + core + fake provider + memory repository, widget + fake chat client + host bridge, or DB repository contract against real Postgres in the opt-in suite.
-
-Use Playwright E2E only for critical browser harness flows in `test-harness/widget-harness`: widget boots, user sends a message, streaming response appears, error state appears, and host bridge behavior is visible in browser.
-
-## Boundary leakage rules
-
-`sidechat.v1` must not expose provider-native stream parts, AI SDK UI messages, database rows, Hono objects, Effect runtime details, or host application internals.
-
-Browser packages must not depend on Hono, Drizzle, Postgres, provider SDK internals, server-only config, or service internals.
-
-`partner-ai-core` must remain framework-free and hexagonal. Tests should use ports/fakes rather than importing service adapters directly.
-
-`agent-runtime` may know provider details, but it must normalize them before crossing runtime boundaries.
-
-`packages/db` may know Drizzle/Postgres, but repository consumers should see repository contracts/domain shapes, not rows.
-
-## Network and transport strategy
-
-When testing network or transport behavior, use repo-facing Vitest/test interfaces and existing seams. Do not mention or depend on underlying implementation details of those test interfaces.
-
-Choose the least fragile seam:
-
-1. Test protocol codecs and validators directly in `chat-protocol`.
-2. Test `chat-client` with fake fetch/transport or controlled stream source.
-3. Test service routes with in-process app/service composition, memory repositories, and fake providers.
-4. Test browser harness edge cases with Playwright `page.route()` only when the browser-level failure is the point.
-5. Use real Postgres only through `npm run test:db:local` or explicitly marked opt-in integration tests.
-
-Ordinary tests should not accidentally reach the real network. Treat hidden network calls as determinism bugs.
+Hidden network calls are determinism bugs. A test that needs a missing seam should identify the smallest production-code refactor that creates the seam.
 
 ## Output contract
 
-When generating or reviewing tests, use this shape unless the user asks for something else:
+When generating or reviewing tests, use this shape unless the user asks for another:
 
 ```text
 Behavior/contract to protect:
 - ...
 
 Recommended test level:
-- unit | contract | component | service/route | integration | Playwright E2E
+- unit | contract | component | service/route | integration | browser E2E
 
 Seam/double to use:
 - ...
@@ -147,34 +112,25 @@ Why this is resilient:
 - ...
 
 Failure meaning:
-- What product behavior, package contract, or boundary would be broken if this test fails.
+- What product behavior, contract, or boundary would be broken if this test fails.
 
-Repo checks to run:
-- npm test / npm run test:e2e / npm run test:db:local / npm run verify
+Repository checks to run:
+- <focused command>
+- <full gate when appropriate>
 ```
 
 Keep explanations short by default.
 
 ## Failure behavior
 
-If code is missing, ask for the relevant source file or infer a minimal test plan from the described contract.
+If source is missing, request the relevant file or infer a minimal test plan from the described contract. If behavior is ambiguous, state the ambiguity and propose characterization tests or a behavior matrix.
 
-If public behavior is ambiguous, state the ambiguity and propose characterization tests or a small behavior matrix.
-
-If the test would require a missing seam, identify the missing seam and suggest the smallest production-code refactor.
-
-If the user asks for a brittle test, explain the fragility and provide a behavior-oriented alternative.
-
-If the test requires unavailable or non-core tools, do not introduce jest-dom or new libraries unless the user explicitly asks. Prefer existing repo seams and repo-facing test interfaces.
-
-If the requested test crosses package boundaries incorrectly, flag the architecture boundary and propose the correct package-level test.
+If the requested test is brittle, explain the fragility and provide a behavior-oriented alternative. If it crosses a package boundary incorrectly, name the boundary and propose the correct owning test.
 
 ## References
 
-Use these files when more detail is needed:
+Load references relative to this skill directory only when needed:
 
-- `references/repo-context.md` for repository architecture, product path, commands, and package ownership.
-- `references/package-testing-matrix.md` for package-specific test types, doubles, and leakage risks.
-- `references/testing-principles.md` for deeper testing rules, smells, fixtures, fakes, timers, snapshots, and coverage.
-- `references/examples.md` for concrete Side Chat-style test examples.
-- `references/validation-prompts.md` for prompts that test whether this skill behaves correctly.
+- `references/testing-principles.md` for deeper test design, fixtures, fakes, timers, snapshots, and coverage.
+- `references/examples.md` for generic test-shape examples.
+- `references/validation-prompts.md` for skill behavior checks.

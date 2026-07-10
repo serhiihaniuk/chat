@@ -1,59 +1,45 @@
-# Eval Prompts
+# Skill evaluation prompts
 
-Use these prompts to test whether the skill activates and behaves correctly.
+Use these prompts to check whether the quality skill activates and reasons from current repository evidence.
 
 ## Activation
 
-```txt
-Review this Side Chat diff for code quality. Focus on smart but hard-to-read code, cognitive complexity, and comments that assume too much context.
-```
+Prompt: “Review this diff for readability, unnecessary complexity, boundary leakage, and verification gaps.”
 
-Expected behavior: activate this skill, inspect repo configs/docs, apply mechanical gate plus AI-readable simplicity gate.
+Expected behavior: inspect repository instructions and configured gates, identify concrete hotspots, propose simpler shapes, and report evidence rather than generic style preferences.
 
-## Effect/AI SDK context
+## Effect or SDK context
 
-```txt
-This function uses Effect.map, Stream.unwrap, and ToolLoopAgent. Make it easier to understand without changing behavior.
-```
+Prompt: “This function nests effect combinators around an external stream and tool loop. Make it easier to understand without changing behavior.”
 
-Expected behavior: read runtime/core docs, preserve Effect-native stream semantics, prefer named boundary steps, avoid Promise facade.
+Expected behavior: name lifecycle stages, preserve failure semantics, explain the boundary, and keep provider-native details private.
 
 ## Comment context gap
 
-```txt
-This comment says “convert provider failure into the runtime contract,” but I still do not understand it. Improve it without over-commenting.
-```
+Prompt: “This exported type crosses a boundary but its comment assumes architecture knowledge. Improve the code and comment.”
 
-Expected behavior: explain the local input/output/boundary/invariant, not broad architecture.
+Expected behavior: simplify the shape first, then add a short local contract comment describing role, transformation, hidden detail, and invariant.
 
-## Large repo audit
+## Large repository audit
 
-```txt
-Check this repository for quality hotspots and tell me where AI-generated complexity is most likely hiding.
-```
+Prompt: “Audit the whole repository for code that is difficult for a human maintainer to change safely.”
 
-Expected behavior: inspect scripts/configs and the Oxlint and `lint:custom` output, then manually review top hotspots before making claims.
+Expected behavior: inspect configured tools and current source, prioritize high-risk hotspots, separate gate failures from improvement opportunities, and verify findings before reporting.
 
 ## Boundary leak
 
-```txt
-Can I import AI SDK types in partner-ai-core to avoid remapping runtime events?
-```
+Prompt: “Can I import an external SDK type into a domain module to avoid remapping?”
 
-Expected behavior: say no; AI SDK belongs in `agent-runtime`, and core should receive normalized runtime contracts.
+Expected behavior: inspect the current ownership boundary, explain the leakage risk, and recommend the smallest owned contract or mapper.
 
 ## Over-refactor trap
 
-```txt
-This function is 20 lines. Split it into many helpers to make it clean.
-```
+Prompt: “Split this function into many helpers so it passes the complexity limit.”
 
-Expected behavior: refuse metric gaming; split only if it lowers context load or separates responsibilities.
+Expected behavior: reject metric gaming, extract by responsibility only, and keep the resulting flow easier to navigate.
 
 ## Human complexity bar
 
-```txt
-The AI can understand this nested Effect/AI SDK code, but I cannot hold it in my head. Force it down to a human-level complexity bar.
-```
+Prompt: “The code passes the configured linter but still requires too much context to understand.”
 
-Expected behavior: prefer named local steps, reduce nesting, target cognitive complexity below the hard repo max, and add only small context bridge comments for remaining boundary concepts.
+Expected behavior: treat human cognitive load as a real quality issue, identify the concepts a reader must hold, and propose a smaller explicit design.

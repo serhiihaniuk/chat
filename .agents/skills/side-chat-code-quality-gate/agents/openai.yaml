@@ -1,9 +1,9 @@
-# Optional Codex/OpenAI agent metadata for the Side Chat code quality gate skill.
+# Optional agent metadata for the repository code quality gate skill.
 # The canonical behavior lives in ../SKILL.md.
 name: side-chat-code-quality-gate
 version: 1.2.0
 triggers:
-  - side chat code quality
+  - repository code quality
   - code smells
   - cognitive complexity
   - human cognitive load

@@ -1,195 +1,77 @@
-# Comment Readability Rubric
+# Comment readability rubric
 
-This skill folds the earlier comment-design guidance into Side Chat's quality gate. A comment is good only when it reduces context load or prevents misuse.
+A comment is good only when it reduces context load or prevents misuse. Discover the repository's current terms and boundaries before writing the final prose.
 
 ## Useful comment jobs
 
-Use comments for:
-
-- file-level orientation for concept-dense files;
-- source-to-target boundary translation;
-- caller-visible contract;
-- invariant or stable identity rule;
-- non-guarantee;
-- failure, cancellation, ordering, timeout, privacy, or normalization rule;
-- reason a simpler-looking alternative is wrong.
+Use comments for file-level orientation, source-to-target translation, caller-visible contracts, invariants, stable identity, non-guarantees, failure, cancellation, ordering, timeout, privacy, normalization, and reasons a simpler-looking alternative is wrong.
 
 ## Failing comments
 
-Flag comments that:
+Flag comments that restate code, use vague verbs without concrete entities, assume architecture knowledge, omit the local invariant, become stale after ownership changes, replace a needed refactor, or claim intent not supported by code, tests, or docs.
 
-- restate the function or next line;
-- say “convert”, “map”, “handle”, “process”, “stable”, “typed”, “adapter boundary”, “runtime contract”, or “provider-ready” without naming concrete source and target entities;
-- assume the reader already knows architecture docs;
-- explain many details but omit the local invariant;
-- omit a file-level orientation comment from a concept-dense file;
-- leave a file-level orientation comment stale after exported concepts,
-  ownership, or lifecycle responsibilities change;
-- use a file-level comment that only restates visible declarations such as
-  "defines types", "defines service tags", or "contains helpers";
-- fail to group many same-shaped declarations by workflow job or product role;
-- dump `Source:`, `Target:`, and `Invariant:` labels when ordinary prose would
-  be easier to read;
-- become a substitute for simpler names or less nesting;
-- invent intent not visible in code, tests, docs, or user instruction.
+Do not paste `Source`, `Target`, or `Invariant` labels into every comment. Use ordinary prose unless labels genuinely improve a dense contract.
 
 ## Context bridge pattern
 
-Use this shape as prose. Use source, target, hidden detail, and invariant as
-drafting questions, not as labels to paste into the comment.
-Boundary-heavy Side Chat comments must not be terse one-liners. Write two to
-five informative lines that name the local role first, then the lifecycle,
-privacy, failure, ordering, or non-guarantee that future edits must preserve.
+Use source, target, hidden detail, and invariant as drafting questions:
 
 ```ts
 /**
  * <Local role in the pipeline.>
  *
  * <Source representation> becomes <target representation>. <Identity, privacy,
- * ordering, failure, or non-guarantee that future edits must preserve.>
+ * ordering, failure, or non-guarantee future edits must preserve.>
  */
 ```
 
-Avoid this worksheet shape unless the surrounding file already uses compact
-contract labels and the labels are clearer than sentences:
-
-```ts
-/**
- * Source: <source representation>.
- * Target: <target representation>.
- * Invariant: <rule>.
- */
-```
+A boundary comment should name the local role first, then the lifecycle, privacy, failure, ordering, or non-guarantee that matters to callers.
 
 Example:
 
 ```ts
 /**
- * Convert AI SDK `tool-error` stream parts into Side Chat's tool activity row.
+ * Select records admitted to the next workflow step.
  *
- * AI SDK parts may contain provider or tool exceptions. Those raw values stay
- * inside `agent-runtime`; downstream packages receive only a failed activity,
- * the stable `TOOL_FAILED` code, and safe metadata they can render or persist.
+ * The input is already authorized; this function applies the history policy,
+ * preserves repository order, and records safe ids and drop reasons without
+ * copying private content into diagnostics.
  */
 ```
 
 ## Comment versus refactor
 
-Refactor before commenting when:
-
-- one helper name would explain the step;
-- an anonymous callback hides a domain operation;
-- variable names are too generic for boundary code;
-- a dense expression requires a comment only to be parsed;
-- a long comment explains multiple responsibilities in one function.
+Refactor before commenting when a helper name would explain the step, an anonymous callback hides a domain operation, variable names are too generic, a dense expression needs a comment merely to be parsed, or one comment explains several responsibilities.
 
 Comment after refactoring when stable design knowledge remains hidden.
 
-## Not overdone rule
+## Coverage triggers
 
-Do not add comments everywhere. Most private helpers need no comment when their name, parameters, and return type are enough.
+Add or verify comments for concept-dense files, exported types with domain meaning, fields whose names hide units or lifecycle, spine functions, boundary mappers, adapter selectors, composition roots, and diagnostics that must not leak private data.
 
-Add a comment when the code crosses a boundary or preserves a rule that is easy to break later.
+Do not add orientation boilerplate to simple leaves, barrels, or tiny helpers.
 
-## Required coverage triggers
+## File-level orientation
 
-Missing comments are failures for complex Side Chat code, even when existing comments are not wrong.
+The comment should name the file's non-obvious role, why its concepts belong together, what stays outside the file, and what future change requires updating it. A visible declaration category such as “contains helpers” is not enough.
 
-Add or verify comments for:
+## Spine-function comments
 
-- concept-dense files such as Effect service/tag files, runtime/request contract
-  files, protocol mapper files, adapter composition roots, capability contract
-  files, context manager files, and files that define several related exported
-  concepts;
-- exported complex types, option objects, config objects, status objects, manifest shapes, protocol shapes, and context-board shapes;
-- fields whose names do not reveal units, privacy rules, lifecycle stage, failure behavior, or whether the value is model-visible;
-- spine functions that coordinate several lifecycle steps;
-- boundary mappers such as env-to-config, config-to-manifest, manifest-to-status, provider-to-runtime, runtime-to-protocol, DB-to-domain, and context-candidate-to-context-board conversion;
-- adapter selectors and composition roots where missing dependencies become no-op ports, concrete ports, or startup failures;
-- diagnostics and health/readiness objects that must expose safe status without leaking secrets or private content.
+For a function that coordinates lifecycle stages, comment what each stage proves, records, publishes, selects, hides, prepares, finalizes, or fails before the next stage.
 
-## File-level orientation comment shape
+## Type-contract comments
 
-Use this when a file defines several related concepts or one boundary surface
-that is hard to understand from filenames alone:
-the comment is the local bridge for readers who reach the file from search,
-stack traces, or review without the architecture docs already open.
+For an exported type, answer where values come from, who consumes them, what rule future edits must preserve, and what callers must not assume. Keep the prose close to the type and avoid private implementation details.
 
 ```ts
 /**
- * A core assistant turn sees the host app through this capability menu.
+ * Secret-safe status for one optional capability.
  *
- * Each service names one job the host can perform for the workflow: persist
- * conversation and assistant-turn state, publish host capabilities, resolve
- * policy and guards, prepare context and memory, run the model-side runtime,
- * mint ids and timestamps, enforce request policy, and emit observability.
- * The Effect Layer binds these jobs to real app adapters at composition time, so
- * partner-ai-core can coordinate the turn without importing HTTP, database,
- * provider, or tool-adapter packages.
- *
- * Update this comment when the core workflow gains or loses an app-supplied
- * capability, or when a capability's job moves across package boundaries.
- */
-```
-
-The comment must name the file's non-obvious role, why the concepts belong
-together, what stays outside this file, and the update trigger. Do not add this
-comment to simple leaf files, barrels, or tiny helpers.
-
-## Spine-function comment shape
-
-Use this when a function sequences a request lifecycle or service composition flow:
-
-```ts
-/**
- * Prepare everything that must be settled before <next lifecycle boundary>.
- *
- * <What is still allowed to fail here, and what must not have started yet.>
- */
-export const prepareThing = (...) =>
-  Effect.gen(function* () {
-    // Prove <authorization/config/policy/resource availability> before <private data/model/stream> is exposed.
-    const first = yield* ...
-
-    // Record <durable/auditable state> before <downstream work> can start.
-    yield* ...
-
-    // Publish/select <manifest/port/runtime/context> that later code will consume.
-    const selected = ...
-  });
-```
-
-Every stage comment must use a strong verb such as prove, record, publish, select, hide, prepare, finalize, or fail. Avoid comments that merely say "build", "map", "handle", or "process".
-
-## Type contract comment checklist
-
-Use this for exported types that carry domain meaning. Answer these questions
-while drafting:
-
-- Where do values come from?
-- Who consumes the shape?
-- What rule must future edits preserve?
-- What must callers not assume?
-
-Write prose:
-
-```ts
-/**
- * Secret-safe status for one optional service capability.
- *
- * Health endpoints may expose capability names, ids, counts, and adapter
- * presence. They must not expose credentials, provider options, retrieved
- * content, memory records, or raw tool/provider errors, because this shape is
- * safe for readiness probes and operator diagnostics.
+ * Diagnostics may expose the capability name and adapter state, but must not
+ * expose credentials, provider options, private records, or raw exceptions.
  */
 export type CapabilityStatus = {
-  readonly capability: string;
-  readonly state: CapabilityState;
-};
+  readonly name: string
+  readonly state: CapabilityState
+}
 ```
-
-Do not use literal `Source:`, `Target:`, `Invariant:`, or `Non-guarantee:`
-labels unless a dense exported record is easier to scan that way. Do not let
-compact AI-friendly phrases stand alone. If a comment says "control plane",
-"adapter boundary", "runtime contract", "typed config", or "validates intent",
-it must also name concrete source and target entities plus the invariant.

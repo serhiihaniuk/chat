@@ -31,13 +31,13 @@ Refactor or simplify when code requires the reader to hold too many of these at 
 
 - provider/model selection;
 - runtime request shape;
-- ToolLoopAgent stream opening;
+- external agent-loop stream opening;
 - Effect error channel;
 - stream unwrapping;
 - defect catching;
 - tool selection;
 - protocol event shape;
-- widget activity identity;
+- consumer activity identity;
 - cancellation/timeout/tracing;
 - object spread precedence;
 - conditional result fields.
@@ -92,8 +92,8 @@ A comment is allowed to spend a little mental budget only when it saves more tha
 Good comment:
 
 ```ts
-// Keep `toolCallId` as the activity id. AI SDK emits several parts for one tool
-// call, and the widget must update one row instead of rendering duplicates.
+// Keep `operationId` as the activity id. An external operation may emit several
+// parts, and the consumer must update one row instead of rendering duplicates.
 ```
 
 Bad comment:

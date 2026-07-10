@@ -1,89 +1,81 @@
-# AI SDK and Effect Readability
+# Effect, stream, and SDK readability
 
-Use this reference for `packages/agent-runtime`, `packages/partner-ai-core`, and service adapter code that touches Effect, Stream, AI SDK, ToolLoopAgent, provider selection, runtime tools, runtime events, or protocol mapping.
+Use this reference when a boundary combines an effect system, streams, an AI SDK, a provider adapter, tools, or protocol mapping. Discover the repository's actual module names and public contracts before applying these patterns.
 
-## Local mental model required
+## Local mental model
 
-A reader should be able to reconstruct this path locally:
+A reader should be able to reconstruct the local path without simulating the entire application:
 
 ```txt
-partner-ai-core prepares allowed turn
--> agent-runtime resolves profile/provider/model/tools
--> AI SDK ToolLoopAgent runs the provider/tool loop
--> agent-runtime maps AI SDK parts to RuntimeEvent
--> core/service map RuntimeEvent to sidechat.v1 events
--> widget renders protocol activity rows
+prepare the allowed request
+-> resolve the execution adapter and tools
+-> open the provider or external stream
+-> normalize external parts into internal events
+-> map internal events into the public contract
+-> render or persist the public result
 ```
 
-If code or comments force the reader to infer this whole chain from vague terms, improve names, extract a boundary step, or add a short context bridge comment.
+If code or comments force the reader to infer this chain from vague terms, improve names, extract a boundary step, or add a short context bridge comment.
 
 ## Failure model
 
-Expected failures belong in Effect's typed error channel:
+Use the effect system's typed failure channel for expected validation, provider, persistence, policy, and tool failures. Keep defects distinct from expected failures. Boundary catchers may normalize defects as a safety net, but they should not make ordinary failure semantics invisible.
 
-```txt
-Effect.fail
-Effect.try
-Effect.tryPromise
-yield* failing effects
-```
+A useful local comment says where conversion happens and what representation downstream callers receive.
 
-Raw `throw` is a defect. Boundary catchers may convert defects as a safety net, but expected provider, policy, persistence, or tool failures should not rely on raw JavaScript throws.
-
-A good local comment says where conversion happens:
+For expected failures, keep the repository's typed failure channel visible:
 
 ```ts
-// Convert adapter defects at the runtime boundary so core receives the same
-// AgentRuntimeError shape as ordinary typed runtime failures.
+const prepared = Effect.gen(function* () {
+  const input = yield* validateRequest(request)
+  const policy = yield* checkPolicy(input)
+  return yield* prepareExecution(input, policy)
+})
 ```
 
-## AI SDK mapping rules
+Use the configured defect boundary only for unexpected defects or final safety normalization. Do not turn every expected failure into an opaque catch.
 
-Provider-native stream parts stay inside `packages/agent-runtime`.
+## External-to-internal mapping
 
-For tool activity, the local mapping is:
+Keep provider-native or framework-native parts inside the adapter that owns them. Normalize them once into the repository's stable internal event or domain shape.
+
+Preserve the stable identity, sequence, ordering, cancellation, and terminal-state rules defined by the public contract. Do not invent a second mapper in a downstream package.
+
+For a multi-part external operation, a generic mapping table might be:
 
 ```txt
-tool-input-start -> running tool activity with empty input
-tool-call        -> same activity with completed input
-tool-result      -> same activity completed with result/sources
-tool-error       -> same activity failed with TOOL_FAILED
+external-start  -> one running public activity with empty input
+external-call   -> the same activity with completed input
+external-result -> the same activity completed with safe output
+external-error  -> the same activity failed with a public error code
 ```
 
-The stable identity is `toolCallId`. Preserve it as the activity id unless a protocol change explicitly says otherwise.
+The operation id is the stable identity. Several external parts may update one public activity; creating a new id for every part causes duplicate rows.
 
 ## Dense pipeline smell
 
-Flag code when one expression combines several of these:
+Flag one expression that combines request preparation, adapter selection, tool selection, stream opening, effect-to-stream conversion, defect catching, external-part mapping, and public-protocol mapping.
 
-- runtime request preparation;
-- provider/model resolution;
-- tool selection;
-- stream opening;
-- Effect-to-Stream unwrapping;
-- defect catching;
-- provider-native part mapping;
-- runtime-to-protocol mapping.
-
-Prefer names that describe domain steps:
+Prefer named steps:
 
 ```ts
-const runtimeExecution = createRuntimeExecution(state, request);
-const providerStream = Effect.map(runtimeExecution, openAiSdkRuntimeStream);
+const execution = createExecution(state, request)
+const externalStream = openExternalStream(execution)
+const internalEvents = normalizeExternalStream(externalStream)
 
-return catchRuntimeDefects(Stream.unwrap(providerStream));
+return mapToPublicEvents(internalEvents)
 ```
 
-Avoid helper names like `handle`, `process`, `map`, or `run` when a boundary-specific name is available.
+Use the shape only when it reduces cognitive load more than it increases navigation.
+
+Avoid helper names such as `handle`, `process`, `map`, or `run` when the boundary can be named directly, for example `normalizeExternalEvents` or `mapActivityToPublicEvent`.
 
 ## Review questions
 
-1. Which package owns this decision?
-2. What is the source representation?
-3. What is the target representation?
-4. What stable id/order/failure rule is preserved?
-5. What provider-native detail must stay private?
-6. Is the Effect failure channel still visible?
-7. Would a reader outside the current PR understand the local sequence?
-
-If the answer is unclear, do not add a long tutorial comment. First improve names and structure. Then add the smallest useful context bridge.
+1. Which module owns this decision?
+2. What representation enters this function?
+3. What representation leaves it?
+4. Which identity, order, cancellation, and failure rules are preserved?
+5. Which external details must stay private?
+6. Is the expected failure channel visible?
+7. Would a reader outside the current change understand the local sequence?

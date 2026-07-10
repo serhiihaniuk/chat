@@ -1,76 +1,61 @@
-# Side Chat Testing Examples
+# Generic testing examples
 
-Use these examples as patterns, not as exact code to paste. Prefer existing repo helpers, builders, and naming conventions.
+Use these as shapes, not as exact code. Discover the repository's actual names, builders, matchers, and test runner before adapting an example. Keep the examples generic; the current repository supplies the real paths and commands.
 
-## Contract test for a repository fake
-
-Use shared contract tests when a fake stands in for an important implementation.
+## Contract test for interchangeable implementations
 
 ```ts
 const repositoryContract = (createRepository: () => ConversationRepository) => {
   it('saves and reads a conversation by id', async () => {
     const repository = createRepository()
+    const conversation = createConversation({ id: 'conversation-1' })
 
-    await repository.save(createConversation({ id: 'conversation-1' }))
+    await repository.save(conversation)
 
-    expect(await repository.findById('conversation-1')).toEqual(
-      createConversation({ id: 'conversation-1' })
-    )
+    expect(await repository.findById(conversation.id)).toEqual(conversation)
   })
 }
 
-describe('memory conversation repository', () => {
+describe('in-memory conversation repository', () => {
   repositoryContract(() => createMemoryConversationRepository())
 })
-
-// A slower opt-in DB suite can run the same contract against Postgres.
 ```
 
-Use contract tests where fake drift would create false confidence. Do not overdo them for tiny one-off stubs.
+The same contract can run against a slower opt-in persistent implementation when the repository provides one. This catches fake drift without forcing every ordinary test to use a real database. Do not create contract suites for trivial one-off stubs.
 
-## Widget component test with fake chat client
+## Component test with a fake boundary
 
 ```ts
-it('renders the failed-send state when the chat client rejects', async () => {
+it('renders the failed-send state when the client rejects', async () => {
   const user = userEvent.setup()
-  const chatClient = createFakeChatClient({
-    sendMessage: vi.fn().mockRejectedValue(new Error('failed')),
+  const client = createFakeClient({
+    send: vi.fn().mockRejectedValue(new Error('failed')),
   })
 
-  render(<SideChatWidget chatClient={chatClient} />)
+  render(<AssistantWidget client={client} />)
 
   await user.type(screen.getByRole('textbox', { name: /message/i }), 'Hello')
   await user.click(screen.getByRole('button', { name: /send/i }))
 
-  const error = await screen.findByText(/could not send/i)
-  expect(error).toBeTruthy()
+  expect(await screen.findByText(/could not send/i)).toBeTruthy()
 })
 ```
 
-Why this is resilient:
+This verifies visible behavior, controls the boundary, and avoids hook calls or internal state assertions. It also avoids assuming a particular DOM assertion extension: use matchers that the repository actually configures.
 
-- It verifies visible widget behavior.
-- It controls the chat-client seam.
-- It does not assert hook calls or internal React state.
-- It does not assume jest-dom matchers.
-
-## Protocol validator unit test
+## Protocol validator test
 
 ```ts
-it('rejects a chat request when the protocol version is unsupported', () => {
-  const result = validateChatRequest(
-    createChatRequest({ protocolVersion: 'sidechat.v0' })
+it('rejects an unsupported protocol version', () => {
+  const result = validateRequest(
+    createRequest({ protocolVersion: 'protocol.v0' }),
   )
 
   expect(result.ok).toBe(false)
 })
 ```
 
-Why this is resilient:
-
-- It protects the `sidechat.v1` contract.
-- It tests the validator through its public result.
-- It does not depend on service, DB, widget, or provider internals.
+Protect the versioned public contract through its validator. Do not involve the service, database, UI, or provider unless that collaboration is the behavior under test.
 
 ## Runtime normalization test
 
@@ -86,54 +71,43 @@ it('normalizes provider text deltas into runtime events', () => {
 })
 ```
 
-Why this is resilient:
+Keep provider-native shapes inside the provider adapter test. Assert the normalized event through the public runtime contract.
 
-- Provider-native shape is contained inside `agent-runtime`.
-- Public assertions use normalized runtime events.
-- It protects the boundary that prevents provider leakage.
-
-## Service route test with memory repository and fake provider
+## Service boundary test
 
 ```ts
-it('maps policy denial to a forbidden protocol error', async () => {
-  const app = createPartnerAiServiceApp({
-    conversationRepository: createMemoryConversationRepository(),
+it('maps policy denial to a forbidden response', async () => {
+  const app = createServiceApp({
+    repository: createMemoryRepository(),
     provider: createFakeProvider(),
     policy: createDenyAllPolicy(),
   })
 
   const response = await app.request('/v1/chat', {
     method: 'POST',
-    body: JSON.stringify(createChatRequest()),
+    body: JSON.stringify(createRequest()),
   })
 
   expect(response.status).toBe(403)
-
-  const body = await response.json()
-  expect(body.code).toBe('policy_denied')
+  expect((await response.json()).code).toBe('policy_denied')
 })
 ```
 
-Why this is resilient:
+Assert the transport contract, not the framework's internal object graph. If the route also persists state, assert the public response and the repository's observable state separately. Do not assert framework request objects or database rows outside their owning adapter tests.
 
-- It asserts HTTP/protocol behavior.
-- It uses memory repository and fake provider.
-- It does not assert Hono internals.
-
-## Playwright harness test
+## Browser harness test
 
 ```ts
-test('shows an error when the backend stream fails', async ({ page }) => {
-  await page.route('**/v1/chat', route => {
-    return route.fulfill({
+test('shows an error when the stream fails', async ({ page }) => {
+  await page.route('**/v1/chat', route =>
+    route.fulfill({
       status: 500,
       contentType: 'application/json',
       body: JSON.stringify({ code: 'internal_error' }),
-    })
-  })
+    }),
+  )
 
   await page.goto('/')
-
   await page.getByRole('textbox', { name: /message/i }).fill('Hello')
   await page.getByRole('button', { name: /send/i }).click()
 
@@ -141,23 +115,18 @@ test('shows an error when the backend stream fails', async ({ page }) => {
 })
 ```
 
-Why this is resilient:
+Use browser automation only for browser-level behavior. Prefer semantic locators and observable state over arbitrary sleeps. Use route interception for hard-to-reach browser states such as a backend failure, malformed stream, or policy denial; do not use it to compensate for a missing unit or service seam.
 
-- It uses Playwright only for a browser-level failure state.
-- It uses semantic locators.
-- It avoids arbitrary sleeps.
-- It uses route interception only for a hard-to-reach edge case.
-
-## Characterization test before legacy refactor
+## Characterization test before a legacy refactor
 
 ```ts
-describe('legacy stream decoder characterization', () => {
+describe('legacy decoder characterization', () => {
   it('keeps empty text deltas as empty strings', () => {
-    expect(decodeStreamChunk(createLegacyEmptyDelta())).toEqual(
-      createRuntimeTextDelta({ text: '' })
+    expect(decodeChunk(createLegacyEmptyDelta())).toEqual(
+      createRuntimeTextDelta({ text: '' }),
     )
   })
 })
 ```
 
-Use this when behavior is unclear. First capture current behavior, then refactor behind that safety net.
+Capture unclear current behavior before refactoring behind the safety net. The test is temporary only if the behavior is intentionally changed later; once the desired contract is known, rewrite it as a normal behavior test.
