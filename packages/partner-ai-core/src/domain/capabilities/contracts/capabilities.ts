@@ -17,15 +17,11 @@ export * from "./capability-validation-codes.js";
 type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];
 
 /**
- * Portable host capability declarations that core policy can reason about.
+ * Describe the capabilities a host app may register for one embedding.
  *
- * These types describe what a host app may offer to one embedding surface:
- * profiles, backend tools, and host commands. They are
- * registration and policy inputs only; executable tools, database adapters,
- * provider credentials, and browser rendering stay outside this contract.
- *
- * Update this comment when capability ownership changes or when a manifest
- * field starts carrying executable, provider-native, or browser-only detail.
+ * Core uses these declarations for registration and policy. Executable tools,
+ * database adapters, provider credentials, and browser rendering stay outside
+ * this contract.
  */
 
 export const HOST_CAPABILITY_SCHEMA_VERSIONS = {

@@ -69,14 +69,11 @@ export type WidgetRunControllerInput = {
 };
 
 /**
- * Own the live run for a widget instance: create, subscribe, reconnect, cancel.
+ * Drive the live run for one widget instance.
  *
- * The durable owner is the module run store; this hook is a thin React driver
- * that subscribes to it and delegates transport work to the subscription
- * lifecycle helpers. A single active-subscription slot fences the live stream so
- * a new run or an explicit clear stops the previous one without clobbering newer
- * state. Inputs are read through a ref so the callbacks stay stable and the
- * mount/visibility reconnect effect never refires.
+ * The module run store owns the state. This hook connects React lifecycle events
+ * to the transport helpers for start, reconnect, and cancel. One shared
+ * subscription slot prevents a new run from leaving an older stream active.
  */
 export const useWidgetRunController = (input: WidgetRunControllerInput): WidgetRunController => {
   const store = getWidgetRunStore(input.storeKey);

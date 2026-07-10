@@ -12,23 +12,15 @@ import { Client } from "pg";
 import type { DiagnosticLogger } from "@side-chat/shared";
 
 /**
- * A dedicated Postgres `LISTEN` connection with self-healing reconnection.
+ * Keep one Postgres `LISTEN` connection alive and reconnect it after a drop.
  *
- * The three notification sources (cancel, activity, host-command result) each
- * hold one long-lived `LISTEN` connection. node-postgres emits `'error'` on a
- * dropped connection; with no handler Node treats it as an uncaught exception, so
- * a Postgres restart or load-balancer idle-timeout would kill the whole service
- * process. This helper is the single reconnecting transport all three share: it
- * registers the error handler, tears the dead connection down, and reconnects
- * with jittered, capped-exponential backoff — the process survives and the
- * listener resumes.
+ * The cancel, activity, and host-command sources share this helper. It handles
+ * connection errors, closes the dead connection, and retries with capped,
+ * jittered backoff so a database restart does not crash the service.
  *
- * On every (re)connect it re-runs `onReconnect`, whose records are re-fed as
- * notifications. That is how a signal delivered while the listener was
- * disconnected is not lost: `NOTIFY` is only a poke, so the cancel source re-scans
- * durable cancel intent from the database and re-feeds it. Activity and
- * host-command sources need no rescan — their subscribers re-snapshot and the
- * host-command resolver polls the durable row.
+ * After reconnecting, `onReconnect` can reread durable state. This matters for
+ * cancel signals because `NOTIFY` is only a hint and can be missed. The other
+ * sources recover through their own snapshot or result-poll paths.
  */
 export type ListenConnection = {
   readonly onNotification: (handler: (payload: string | undefined) => void) => void;

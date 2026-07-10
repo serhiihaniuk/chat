@@ -32,25 +32,19 @@ export type TurnSubscriptionDependencies = {
 };
 
 /**
- * Build one subscriber's replay-plus-tail stream over the in-memory registry.
+ * Build the live stream for one subscriber.
  *
- * This is the single live transport the SSE route serves. It follows the
- * resumability contract exactly:
- *
- * 1. register with the dispatcher first, so no fan-out is missed during replay;
- * 2. replay `readEventsAfter(after)` from the registry buffer, tracking the high
- *    sequence already emitted;
- * 3. tail live events — dispatcher fan-out plus a low-frequency safety poll —
- *    through a DENSE gate: only `maxEmitted + 1` is emitted directly, a gap
- *    triggers a re-read of the log suffix, so replay and tail never duplicate
- *    and a dropped fan-out offer never becomes a permanent hole;
- * 4. end at the first terminal event (`takeUntil(isTerminal)`).
- *
- * A turn that is already terminal in the log replays its terminal and ends at
- * step 4 without ever needing the tail. The registry buffer is the source of truth;
- * the dispatcher and poll only decide *when* to read. `Stream.unwrap` runs the
- * builder in the stream's own scope, so the result has no service requirements
- * and the route converts it straight to a `ReadableStream`.
+ * The stream has four steps:
+
+ * 1. Register before replay so no live event is missed.
+ * 2. Replay buffered events after the requested sequence.
+ * 3. Read new events from the dispatcher and the safety poll. Emit only the
+ *    next sequence number; if there is a gap, reread the missing suffix.
+ * 4. Stop after the first terminal event.
+
+ * The registry is the source of truth. The dispatcher and poll only tell us
+ * when to read it. This keeps replay and live delivery ordered and prevents a
+ * missed notification from creating a permanent gap.
  */
 export const createTurnSubscriptionStream = (
   dependencies: TurnSubscriptionDependencies,
@@ -127,14 +121,11 @@ const gatedReplayStream = (
   });
 
 /**
- * Tail live events from the dispatcher fan-out plus the safety poll.
+ * Read live events from the dispatcher and the safety poll.
  *
- * Both sources feed one DENSE gate, so the registry buffer stays the source of
- * truth: the fan-out makes delivery low-latency, and the poll is the
- * missed-notify backstop. The gate is applied by the single consuming fiber, so
- * an event arriving on both paths is emitted exactly once, and a dropped
- * fan-out offer (a slow consumer's full queue) is healed by a re-read instead
- * of becoming a permanent hole.
+ * Both paths use one sequence gate. The dispatcher is fast; the poll repairs a
+ * missed notification. The gate runs in one consumer, so duplicate delivery is
+ * emitted once and a full queue cannot create a permanent gap.
  */
 const tailLiveEvents = (
   dependencies: TurnSubscriptionDependencies,
@@ -197,16 +188,11 @@ const readEventsAfter = (
     );
 
 /**
- * Emit only the next DENSE sequence; heal a gap by re-reading the log.
+ * Emit only the next sequence and repair gaps from the registry.
  *
- * A max-based gate would let a dropped fan-out offer (slow consumer, full queue)
- * advance past the missing sequence forever. Instead: an already-emitted
- * sequence is dropped, the next dense sequence is emitted directly, and a
- * higher-than-dense sequence triggers a re-read of the registry suffix — the
- * owner buffer holds every retained event of a live turn — which is emitted in
- * order. If the
- * re-read comes back empty the mark stays put, so the safety poll retries the
- * same gap instead of skipping it.
+ * Drop sequences already sent. Emit the next one directly. If a higher sequence
+ * arrives, reread the retained suffix and emit it in order. If the reread is
+ * empty, keep the cursor unchanged so the safety poll tries the same gap again.
  */
 const emitDense = (
   ports: TurnStreamPorts,

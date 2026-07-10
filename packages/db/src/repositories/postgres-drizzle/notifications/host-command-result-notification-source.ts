@@ -9,14 +9,12 @@ import {
 import { reconnectingListenStream } from "./reconnecting-listen-source.js";
 
 /**
- * Build the per-instance Postgres `LISTEN` source for host-command results.
+ * Build the per-instance Postgres listener for host-command results.
  *
- * `recordHostCommandResult` `pg_notify`s `HOST_COMMAND_RESULT_NOTIFY_CHANNEL` in
- * the same transaction as a resolved result write; this source holds one
- * dedicated, self-healing connection (not from the query pool, so it survives
- * PgBouncer transaction pooling) and surfaces parsed signals to the result
- * dispatcher. No reconnect rescan is needed — the resolver's result poll reads the
- * durable row, so a signal missed during an outage still settles the tool loop.
+ * The result row and `pg_notify` call are written in one transaction. This source
+ * uses one dedicated, self-healing connection rather than the query pool, so it
+ * also works with PgBouncer transaction pooling. A missed signal is safe because
+ * the resolver polls the durable result row.
  */
 export const createPostgresHostCommandResultNotificationSource = (
   connectionString: string,

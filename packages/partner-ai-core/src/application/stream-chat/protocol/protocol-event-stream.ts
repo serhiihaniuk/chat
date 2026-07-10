@@ -28,14 +28,15 @@ import type {
 } from "../stream-chat-types.js";
 
 /**
- * Mutable bookkeeping shared by the post-start stream and its finalizer.
+ * Shared state for the stream and its finalizer.
  *
- * The accumulator keeps only successfully appended finalization facts; the
- * sequence and state-machine refs gate the browser contract. A caller creates
- * these once, builds the post-start stream from them, then finalizes against the
- * same accumulator after the stream is drained. Sharing the refs is why
- * finalization is no longer a stream-tail segment: the server-owned runner reads
- * the same committed terminal facts in its `onExit` after the stream is drained.
+ * The accumulator records only events that were appended successfully. The
+ * sequence and state-machine refs enforce the browser contract. Both the stream
+ * and `onExit` use these same refs, so finalization sees the events that were
+ * actually committed.
+ *
+ * Source: events accepted by the protocol state machine. Target: the stream and
+ * its finalizer. Invariant: both use the same committed state.
  */
 export type ProtocolStreamRefs = {
   readonly ports: StreamChatPorts;
@@ -47,12 +48,16 @@ export type ProtocolStreamRefs = {
 };
 
 /**
- * Allocate the per-turn refs the post-start stream and finalizer share.
+ * Allocate the per-turn state shared by the stream and its finalizer.
  *
- * Core owns browser sequence numbers after `sidechat.started`; runtime sequence
- * numbers are internal and may include dropped lifecycle events. Invariant,
- * gated by the state machine: the browser never sees a second start, a second
- * terminal, or any event after a terminal.
+ * Core assigns browser sequence numbers after `sidechat.started`. Runtime
+ * sequence numbers are private and may include events the browser never sees.
+ * The state machine prevents a second start, a second terminal, or any event
+ * after a terminal.
+ *
+ * Source: one prepared turn. Target: the shared stream state. Invariant: browser
+ * sequence numbers start after `sidechat.started` and advance only for emitted
+ * events.
  */
 export const createProtocolStreamRefs = (
   ports: StreamChatPorts,
@@ -70,15 +75,14 @@ export const createProtocolStreamRefs = (
   });
 
 /**
- * Build the browser-facing post-start stream from already-allocated refs.
+ * Build the browser-facing stream after `sidechat.started`.
  *
- * The runner allocates the refs with `createProtocolStreamRefs`, drains this
- * stream into the turn event log, and finalizes against the same accumulator in
- * its `onExit`. From this point on runtime failures become terminal protocol
- * events, so the SSE contract stays stable: after `sidechat.started`, a consumer
- * sees exactly one `sidechat.completed`, `sidechat.error`, or `sidechat.blocked`. The stream is
- * finalization-free on purpose: durable turn-status finalization belongs to the
- * runner's `onExit`, never a stream-tail segment.
+ * Runtime failures become one terminal protocol event, so the client always
+ * sees exactly one of `completed`, `error`, or `blocked`. Durable turn status is
+ * written by the runner's `onExit`, not by a stream-tail step.
+ *
+ * Source: the runtime event stream after the start marker. Target: browser
+ * protocol events. Invariant: one terminal event closes the protocol stream.
  */
 export const createStartedProtocolStream = (
   refs: ProtocolStreamRefs,
@@ -145,16 +149,12 @@ const keepEmittedEvents = (
   Stream.flatMap(stream, (event) => (event ? Stream.succeed(event) : Stream.empty));
 
 /**
- * Open the runtime event stream with provider abort tied to fiber interruption.
+ * Open the runtime stream and stop the provider when the fiber stops.
  *
- * The server runner forks generation without a browser abort signal, so the only
- * thing that should stop the in-flight provider call is interruption of this
- * fiber (a cross-instance cancel via `FiberMap.remove`, or shutdown). We thread an
- * `AbortController` signal into the runtime request and abort it from a stream
- * finalizer: `Stream.ensuring` runs on every termination — interrupt, error, and
- * normal completion alike — so interruption propagates all the way to the AI SDK
- * call and stops generation and billing, not just the socket. Aborting after a
- * normal finish is a harmless no-op.
+ * Server-side generation has no browser abort signal. A fiber interrupt from
+ * cancel, lease fencing, or shutdown must reach the provider call, not only the
+ * socket. `Stream.ensuring` aborts the request on every exit: success, failure,
+ * or interruption. Aborting after normal completion is harmless.
  */
 const createRuntimeEventStream = (
   refs: ProtocolStreamRefs,

@@ -36,30 +36,18 @@ type AbnormalTerminal = {
 };
 
 /**
- * Finalize one server-owned generation regardless of how its fiber exited.
+ * Finish a server-owned turn after generation stops.
  *
- * This is the `onExit` finalizer for the service runner. The runner forks
- * generation off the HTTP request and drains the post-start stream into the
- * turn-event store; this function then guarantees one terminal event for live
- * subscribers and one durable final status for history:
+ * The runner may stop normally, be cancelled, lose its lease, shut down, or
+ * fail. This finalizer always tries to leave two things behind:
  *
- * - A normal exit with a terminal in the accumulator persists the status the
- *   stream's own terminal dictates.
- * - A normal exit WITHOUT a terminal (a provider stream that just ended) first
- *   appends the synthetic terminal, so tailing subscribers close instead of
- *   hanging on `takeUntil`; the accumulator validation then fails the status
- *   honestly.
- * - An abnormal exit whose accumulator already holds a terminal means the
- *   stream finished and the interrupt landed after it: the stream's terminal
- *   wins — a turn the user watched complete is persisted as completed, never
- *   re-terminalized as aborted.
- * - Any other abnormal exit (interrupt, shutdown, defect, or an event-log write
- *   failure) is classified honestly from the exit cause plus the durable cancel
- *   intent, and the one synthetic terminal that path owns is appended.
+ * - one terminal event for live subscribers;
+ * - one final status for history.
  *
- * The turn-event port refuses appends after a terminal, so a synthetic append
- * racing the stream's terminal cannot create a second one. The durable status
- * write uses the running guard, so only the first final transition wins.
+ * If the stream already emitted a terminal, that event wins. If it stopped
+ * without one, this function adds a synthetic terminal. The event log rejects
+ * appends after a terminal, and the status update only changes a running turn,
+ * so races cannot create two terminals or two final statuses.
  */
 export const finalizeTurnGeneration = <A>(
   ports: StreamChatPorts,
@@ -88,14 +76,11 @@ export const finalizeTurnGeneration = <A>(
   });
 
 /**
- * Finalize a generation that ended without emitting its own terminal.
+ * Add the terminal for a generation that stopped without one.
  *
- * The exit cause and the durable cancel intent decide the honest terminal: a
- * user cancel, an external interrupt (shutdown/fence), or a defect each map to a
- * different status and code. The turn-event port's terminal guard prevents a
- * concurrent stream terminal from being duplicated; the durable status write is
- * guarded so only the first transition wins. Both steps are safe even though
- * this path owns the abnormal exit.
+ * The exit cause and the saved cancel request decide whether this was a user
+ * cancel, an external stop, or a failure. The event log and status update both
+ * have first-writer-wins guards, so a terminal racing this path is safe.
  */
 const finalizeAbortedTurnGeneration = (
   ports: StreamChatPorts,
@@ -123,14 +108,11 @@ const finalizeAbortedTurnGeneration = (
   });
 
 /**
- * Classify an abnormal exit into its honest durable failure outcome.
+ * Choose the final status for an abnormal stop.
  *
- * - Interrupt with durable cancel intent: a real user cancel -> `user_aborted`.
- * - Interrupt without cancel intent: a shutdown or lease-fence stop the user did
- *   not ask for -> `provider_failed` with a timeout-style code, since generation
- *   was cut off rather than failing on its own.
- * - Any non-interrupt abnormal exit (a defect or an event-log append failure) ->
- *   `provider_failed`, the closest terminal for generation that could not finish.
+ * A saved cancel request means the user stopped the turn. An interrupt without
+ * that request means shutdown or lease fencing. Any other cause is a generation
+ * failure.
  */
 const classifyAbnormalTerminal = (
   cause: Cause.Cause<PartnerAiCoreError>,

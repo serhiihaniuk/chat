@@ -17,16 +17,13 @@ type HostBridgeRef = Pick<HostBridge, "dispatchCommand"> | undefined;
 /** Retry ladder: bounded backoff before falling back to status polling. */
 const RETRY_BACKOFF_MS = [500, 1_000, 2_000, 4_000] as const;
 /**
- * No stream event for this long ⇒ the connection is wedged; cut it and retry.
+ * Cut and retry when no stream event arrives for this long.
  *
- * Paired with the server SSE heartbeat (`SSE_HEARTBEAT_INTERVAL_MS`, ~20 s): the
- * watchdog window is deliberately more than twice that cadence, so a live stream
- * survives a couple of missed heartbeats before it is treated as wedged. The
- * heartbeat is a comment frame that the decoder drops, so it does not reset this
- * event-based timer — its job is to keep bytes flowing under a load balancer's
- * idle timeout. A quiet model or server tool can therefore trigger reconnect and
- * status-poll recovery while server-owned generation continues. That recovery is
- * safe; byte-level heartbeat activity would need a separate decoder signal.
+ * The server sends an SSE heartbeat about every 20 seconds. This window is more
+ * than twice that interval, so a few missed heartbeats do not cause a reconnect.
+ * Heartbeats keep the connection alive but are discarded by the decoder, so they
+ * do not reset this event timer. A quiet model or server tool may therefore
+ * trigger safe reconnect and status polling while generation continues.
  */
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 45_000;
 const POLL_INTERVAL_MS = 2_000;
@@ -63,16 +60,13 @@ export type TransportRecoveryInput = {
 };
 
 /**
- * Consume one turn's stream to its terminal, surviving transport failures.
+ * Consume one turn's stream and recover from transport failures.
  *
- * The ADR 0007 client contract: transport failures are *reconnecting*, not
- * terminal. Each attempt runs under its own AbortController (linked to the
- * caller's signal) with an inactivity watchdog, so a zombie connection is cut
- * instead of locking the composer forever. Retryable failures re-open the resume
- * GET from the store's cursor on a bounded backoff; when retries exhaust — or the
- * server says another instance owns the stream — recovery degrades to polling
- * turn status until the server reports a terminal. Only a fatal error (protocol
- * violation, 4xx) or persistent poll failure fails the run locally.
+ * A broken connection means `reconnecting`, not terminal. Each attempt has its
+ * own abort controller and inactivity watchdog, so a stuck connection is cut.
+ * Retryable failures reopen the stream from the store's cursor. If retries run
+ * out, or another instance owns the stream, poll turn status instead. Only a
+ * protocol/4xx error or a failed status poll marks the local run as failed.
  */
 export const consumeTurnStreamWithRecovery = async (
   input: TransportRecoveryInput,
@@ -117,14 +111,12 @@ const decideNextStep = (
 };
 
 /**
- * Sort a transport failure into retry / poll / fail-now.
+ * Classify a transport failure as retry, poll, or fail-now.
  *
- * Dropped connections (`missing_terminal`), network errors, 5xx, and the
- * watchdog's own abort are transient — the same instance usually still owns the
- * turn. `stream_unavailable` means retrying this instance can never work, so it
- * goes straight to the status poll. Protocol violations and 4xx are fatal: the
- * stream (or this client) is wrong, not unlucky. Unknown thrown values (e.g. a
- * fetch `TypeError`) read as network trouble.
+ * Missing terminals, network errors, 5xx responses, and watchdog aborts are
+ * transient. `stream_unavailable` goes straight to status polling because this
+ * instance cannot serve the stream. Protocol errors and 4xx responses are
+ * fatal. Unknown thrown values are treated as network errors.
  */
 type TransportErrorClass = "retryable" | "poll" | "fatal";
 

@@ -5,21 +5,16 @@ import { Effect, Exit, Schedule, Scope } from "effect";
 import { recordResumableObservation } from "#inbound/turn-stream/turn-observability";
 
 /**
- * Per-instance background terminalizer for dead-owner recovery (ADR 0008).
+ * Finish turns whose server owner died (ADR 0008).
  *
- * A clean shutdown finalizes every turn through `onExit`; a hard crash (OOM,
- * `kill -9`) cannot, leaving its turns `running` forever — a permanent
- * "generating" dot, a ghost active turn, and a poisoned `requestId`. Every
- * instance runs one reaper: on a fixed cadence it asks the repository to
- * compare-and-set every dead-owner running turn (expired lease, or a NULL lease
- * past the started-at grace) into an honest terminal status, bumping the epoch
- * so a zombie owner waking up is fenced. Concurrent sweeps are safe — the
- * repository claims disjoint rows — so no leader election is needed.
+ * A hard crash can leave a turn marked `running` forever. Each service instance
+ * periodically asks the repository to finish turns with an expired lease or a
+ * missing lease past the startup grace period. The update also increments the
+ * lease epoch, so a crashed owner that wakes up cannot write again.
  *
- * There is no event to append: the crashed owner's in-memory stream buffer died
- * with it, and the repository's status CAS notifies the activity channel in the
- * same transaction, so other tabs' indicators clear live. Clients converge on
- * the durable status via history.
+ * The crashed instance's in-memory stream is gone, so the reaper emits no
+ * replacement stream event. The durable status update clears activity dots, and
+ * clients read the final result from history.
  */
 export type TurnReaper = {
   /** Run one sweep now and return how many turns it terminalized (tests/diagnostics). */

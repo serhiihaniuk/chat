@@ -38,13 +38,13 @@ const isResumableRun = (run: WidgetRunState): boolean =>
 /**
  * Resume a run after a full reload, when the in-memory store is empty.
  *
- * The marker holds only identity, so the view is rebuilt: a turn that already
- * finished server-side is left to history (resuming it would duplicate the
- * bubble), otherwise conversation history (the prompt + prior turns) is loaded,
- * the run is seeded with it plus a fresh pending assistant bubble, and the
- * buffered stream is replayed from the start (after = -1) so the in-flight answer
- * streams back into that bubble. The store-empty re-checks guard against a
- * concurrent reconnect seeding first.
+ * The marker stores only the turn identity, so the view must be rebuilt. If the
+ * turn already finished, history is enough; replaying it would duplicate the
+ * assistant bubble. If it is still running, load history, add a pending bubble,
+ * and replay the buffered events from the start (`after = -1`).
+ *
+ * The store checks before each seed prevent two reconnects from creating two
+ * local runs.
  */
 export const resumeRunFromMarker = async (
   context: RunLifecycleContext,
@@ -125,15 +125,13 @@ export type ResumeFromActiveTurnInput = {
 };
 
 /**
- * Resume the running turn a history read reported via its `activeTurn` pointer.
+ * Resume the running turn reported by a history read.
  *
- * This is the marker-independent resume path: the server itself says a turn is
- * still running for the conversation, so it works on a fresh device or when the
- * persisted marker is missing/stale. The loaded transcript (seedMessages) plus a
- * fresh pending bubble is seeded, then the buffered stream is replayed from the start
- * (after = -1) into that bubble. `activeTurn` is only present while running, so the
- * transcript never already contains this turn's answer — no duplicate bubble. The
- * caller guards against an already-tracked run before calling this.
+ * This path does not need the browser's run marker. The server says the turn is
+ * still running, so it also works on a new device or when the marker is stale.
+ * Seed the loaded transcript with a pending assistant bubble, then replay the
+ * stream from the beginning (`after = -1`). `activeTurn` exists only while the
+ * turn is running, so history cannot already contain a second answer.
  */
 export const resumeFromActiveTurn = (
   store: WidgetRunStore,

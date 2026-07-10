@@ -4,20 +4,16 @@ import type { DiagnosticLogger, JsonObject } from "@side-chat/shared";
 import type { SidechatRepositories } from "@side-chat/db";
 
 /**
- * Service implementation of the runtime {@link HostCommandResolver}, connection-bound.
+ * Resolve a host command through the browser (ADR 0009).
  *
- * A UI (host) tool runs in the browser, so the runtime cannot execute it: the tool
- * asks this resolver for the browser's result. The resolver is connection-bound:
- * - no client streaming the turn → an immediate `no_connected_client` result, so
- *   the model adapts instead of waiting on a browser that will never answer;
- * - a client present → an `emitted` row is persisted (the durable proof that this
- *   command belongs to this turn — any instance's result route validates against
- *   it), the `host_command` activity reaches the browser over the live stream,
- *   and the browser POSTs the result. If that POST lands here, `resolveResult`
- *   settles directly (the fast path); if it lands on another instance, the
- *   persisted result reaches this owner via the NOTIFY-driven dispatcher or the
- *   low-frequency result poll — correctness never depends on NOTIFY delivery
- *   (ADR 0009). A timeout backstop guarantees the tool loop never hangs.
+ * The runtime cannot run a host command itself. If no browser is connected,
+ * return `no_connected_client` immediately. Otherwise, save an `emitted` row,
+ * send the activity to the browser, and wait for the browser's result.
+ *
+ * The saved row lets any service instance verify that the result belongs to
+ * this turn. A local notification is a fast path only; the durable result poll
+ * keeps the flow correct when a notification is missed. A timeout prevents the
+ * model loop from waiting forever.
  */
 export type ServiceHostCommandResolver = HostCommandResolver & {
   /**

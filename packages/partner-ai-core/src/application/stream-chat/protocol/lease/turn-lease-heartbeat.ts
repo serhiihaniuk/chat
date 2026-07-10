@@ -16,23 +16,15 @@ export type TurnLeaseSettings = {
 };
 
 /**
- * Run the generation drain under an owner lease, fencing it when ownership is
- * lost to the reaper or a new owner.
+ * Run generation while this service instance owns the turn lease.
  *
- * This is the fencing half of the server-owned runner (resumable-streaming plan,
- * "Lease Fencing"). It must stay *inside* `runTurnGeneration`'s `onExit`, so the
- * abnormal finalizer owns every exit — including an interrupt that lands during
- * `acquireTurnLease` before the drain even starts.
+ * First, try to claim the lease. If another owner already has it, generation
+ * still runs as a safe backstop, but this instance does not start a heartbeat.
+ * If the claim succeeds, generation races the heartbeat. Losing the lease
+ * interrupts generation so an old owner cannot keep writing after takeover.
  *
- * - It claims the lease first so the reaper cannot terminalize a turn with a live
- *   owner. A failed claim (the turn is already terminal/owned) skips the heartbeat
- *   and just drains; the reaper is the backstop.
- * - It then races the drain against a heartbeat. If the drain ends, the heartbeat
- *   is interrupted with it. If a renew reports `renewed: false`, this owner was
- *   fenced (the reaper or a new owner bumped the epoch), so the heartbeat
- *   self-interrupts and `Effect.raceFirst` interrupts the drain. That interrupt
- *   without cancel intent is what the finalizer records as a non-user
- *   `provider_failed`, so a fenced owner stops without double-writing the turn.
+ * This function stays inside `runTurnGeneration`'s `onExit`. That lets the
+ * finalizer handle every stop, including an interrupt during lease acquisition.
  */
 export const drainUnderOwnerLease = (
   ports: StreamChatPorts,
@@ -76,14 +68,11 @@ const RENEW_RETRY_ATTEMPTS = 2;
 const RENEW_RETRY_BASE_MS = 200;
 
 /**
- * Renew the lease on a fixed cadence until it is lost, then self-interrupt.
+ * Renew the lease until the owner is fenced.
  *
- * Sleeping before the first renew gives the lease its full window before the
- * first heartbeat. A lost renew ends the loop with `Effect.interrupt`, which is
- * what fences the raced drain. A renew that *fails* (a DB blip, not a fence) is
- * retried with a short backoff first, so one transient persistence error cannot
- * kill a healthy turn — only a renew that succeeds with `renewed: false` still
- * fences immediately.
+ * A transient database error gets a few quick retries. A successful renewal
+ * with `renewed: false` means another owner or the reaper took the lease, so
+ * this function interrupts generation immediately.
  */
 const heartbeatUntilFenced = (
   ports: StreamChatPorts,

@@ -89,14 +89,15 @@ export type BeginRunControl = {
 };
 
 /**
- * Start the run and consume its stream on the same POST connection (ADR 0007).
+ * Start a run and consume the stream returned by the same POST request.
  *
- * `createRun` retries pre-stream failures under the request idempotency key;
- * once the stream is open, its identity (the `sidechat.started` frame) seeds the
- * store and marker, and the same connection is drained to the terminal — no
- * separate subscribe call. Create failures (no `sidechat.started` was ever seen)
- * fail the run as a request-level error; the optimistic bubbles stay so the user
- * sees the prompt with an error rather than a vanished message.
+ * Before the stream opens, `createRun` may retry with the request id. Once the
+ * `sidechat.started` event arrives, it identifies the run and seeds the store.
+ * The POST response is then consumed until the terminal event; no second
+ * subscription is needed.
+ *
+ * If the request fails before that identity event, the optimistic messages stay
+ * visible and the assistant bubble shows the request error.
  */
 export const beginRun = async (
   context: RunLifecycleContext,

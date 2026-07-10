@@ -14,24 +14,19 @@ export type TurnEventSubscription = {
 };
 
 /**
- * Per-instance fan-out of live turn events to local SSE subscribers
- * (connection-bound streaming).
+ * Fan out live turn events to SSE subscribers on this service instance.
  *
- * Backed by the in-memory running-turn registry: a turn present in the registry
- * is live (or recently finished and still buffered), so a subscriber replays its
- * buffer and tails new events. A turn absent from the registry has finished and
- * been garbage-collected, so the route returns `replay_expired` and the client
- * reads the final answer from conversation history — there is no durable replay.
+ * A turn in the registry is live or recently finished, so subscribers can replay
+ * its buffer and receive new events. When the entry is swept, replay expires and
+ * the client reads the final answer from conversation history.
  */
 export type TurnEventDispatcher = {
   /**
-   * Register a subscriber for one turn before any replay read.
+   * Register before reading the replay buffer.
    *
-   * Registering first is the missed-event guard: from this point the subscriber
-   * receives every fanned-out event, so a caller can replay the buffer and then
-   * drain this queue without a gap. Subscribing never creates a registry entry:
-   * an unknown turn (not owned here, or already swept) resolves `undefined` so
-   * the caller ends after replay instead of tailing a turn that will never emit.
+   * From registration onward, the subscriber receives new events. The caller can
+   * then replay the buffer and drain the queue without a gap. Registration never
+   * creates a turn entry; an unknown or swept turn returns `undefined`.
    */
   readonly subscribe: (input: {
     readonly assistantTurnId: string;

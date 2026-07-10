@@ -64,15 +64,12 @@ export type MockWebSearchAgentConfig = {
 export type MockWebSearchRuntimeAccessor = ServiceToolRuntimeAccessor;
 
 /**
- * Local/dev web-search fixture.
+ * Provide a local/development web-search fixture.
  *
- * Instead of a canned constant, it runs a small model-only sub-agent (the runtime
- * `createBasicRuntimeAgent`, pinned to `gpt-5.4-mini`) that pretends to be a search
- * engine and fabricates several plausible results from its own knowledge. The main
- * model sees an ordinary tool result. The sub-agent reads its runtime through
- * the composition-local `getRuntime` accessor; when it reads unset or the
- * sub-agent fails, the tool falls back to a deterministic canned result so a
- * turn never breaks.
+ * It normally runs a small model-only sub-agent and returns ordinary search-like
+ * results to the main model. The sub-agent gets its runtime from the local
+ * composition. If that runtime is missing or the sub-agent fails, return a
+ * deterministic canned result so the turn still completes.
  */
 export const createMockWebSearchTool = ({
   delayMs = DEFAULT_MOCK_WEB_SEARCH_DELAY_MS,

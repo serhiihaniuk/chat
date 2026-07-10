@@ -10,16 +10,12 @@ import type {
 import type { ContextAdmissionPolicy, HistoryContextMode } from "./capability-configuration.js";
 
 /**
- * Core-owned model context contracts for one prepared assistant turn.
+ * Contracts for the model context prepared for one assistant turn.
  *
- * Host page context and conversation history become `ContextCandidate` values
- * or prepared runtime messages, then an admitted `PreparedContextBoard` and
- * provider-neutral `PreparedRuntimeMessage` list. Candidate text may appear in
- * board sections and runtime messages; manifests keep only ids, source labels,
- * trust, redaction, token estimates, and budgets.
- *
- * Update this comment when context preparation gains a new source type, changes
- * what becomes model-visible, or moves admission responsibility across packages.
+ * Host context and conversation history become candidates, then pass through
+ * admission into a context board and provider-neutral runtime messages. The
+ * manifest keeps ids, source labels, trust, redaction, token estimates, and
+ * budgets; it does not carry the candidate text itself.
  */
 
 type ObjectValue<T extends Readonly<Record<string, string>>> = T[keyof T];

@@ -17,14 +17,12 @@ import {
  */
 
 /**
- * The displayed transcript: the live run's messages while a run is visible,
- * otherwise the loaded history with the last run's activity carried over.
+ * Choose the transcript shown by the conversation view.
  *
- * History normally carries persisted activity when retention is enabled. If a
- * row has no timeline, the run→history handoff would drop the thinking info the
- * user just watched. Snapshot the latest visible run transcript per conversation
- * and use it only to fill that gap; durable history remains authoritative. The
- * snapshot is tab-local, so a reload depends on history alone.
+ * While a run is visible, show its live messages. Otherwise show history. If a
+ * history row has no activity timeline, carry it over from the latest visible
+ * run for that conversation. History remains authoritative, and the snapshot is
+ * tab-local, so a reload depends on history alone.
  */
 export const useVisibleMessagesWithCarriedActivity = (
   visibleRun: WidgetRunState | undefined,

@@ -9,20 +9,16 @@ import type {
 } from "#inbound/turn-stream/turn-event-dispatcher";
 
 /**
- * Per-instance in-memory turn-event registry (connection-bound streaming).
+ * Keep one turn's events in memory for connection-bound streaming.
  *
- * Replaces the durable `turn_events` log + Postgres NOTIFY fan-out with a single
- * object that is both the core {@link TurnEventLogPort} (core appends each emitted
- * event here) and the {@link TurnEventDispatcher} the SSE route subscribes to.
- * `appendEvent` writes an in-memory buffer and fans out to local subscribers
- * directly, without a durable event read or Postgres notification. The
- * subscription stream separately performs a low-frequency registry read as a
- * missed-signal backstop. The final assistant message is still persisted by
- * core (`completeAssistantTurn`); same-instance reconnects may replay this
- * buffer, while a missing or swept buffer converges through durable history.
+ * Core appends to this registry, and the SSE route subscribes to it. A live
+ * subscriber receives events directly; the stream also rereads the registry
+ * occasionally in case a notification was missed.
  *
- * A terminal turn with no live subscribers becomes eligible for lazy sweeping
- * when the next turn starts, keeping only a short same-instance replay window.
+ * This is per service instance and is not durable. A reconnect can replay events
+ * only while this instance still has the buffer. The assistant message itself is
+ * persisted by core, so history remains the fallback when the buffer is gone.
+ * Finished buffers without subscribers are swept when a later turn starts.
  */
 export type InMemoryTurnEventLog = TurnEventLogPort &
   TurnEventDispatcher & {

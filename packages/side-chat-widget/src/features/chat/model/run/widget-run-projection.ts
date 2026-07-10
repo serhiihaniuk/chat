@@ -16,13 +16,15 @@ import {
 } from "#entities/chat";
 
 /**
- * Project one ordered stream event onto the assistant message bubble.
+ * Apply one server event to the assistant message.
  *
- * Pure: it maps source `SidechatStreamEvent`s to target widget message state and
- * never performs I/O. Host-command dispatch is a side effect owned by the run
- * controller; its result is folded back through `applyHostCommandResult`.
- * `started`/`completed` carry run-level data (conversation id, usage) handled by
- * the reducer, so they leave the message list unchanged here.
+ * This function only changes widget state. It does not call the network or the
+ * host app. The run controller sends host commands; when the host replies,
+ * `applyHostCommandResult` updates the matching activity row.
+ *
+ * Text events append text, activity events update the timeline, and terminal
+ * events finish the bubble. The reducer handles run-level data such as the
+ * conversation id and usage.
  */
 export const projectEventOntoMessages = (
   messages: readonly WidgetMessage[],

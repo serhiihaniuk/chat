@@ -2,14 +2,11 @@ import { Stream } from "effect";
 import { parseJsonRecord } from "@side-chat/shared";
 
 /**
- * One parsed turn-lifecycle signal for the subject-scoped activity stream.
+ * One parsed update for the subject's running-turn indicators.
  *
- * Carries the full scope so the dispatcher can fan out by `(workspaceId,
- * subjectId)` and forward `{ conversationId, assistantTurnId, status }` to clients
- * without a per-signal read. `status` is the assistant turn status — `running`
- * means generating; any other value is terminal. Unlike the turn stream, there
- * is no replay: initial state comes from a snapshot on connect, so a dropped
- * signal self-corrects on the next transition or reconnect.
+ * The full scope lets the dispatcher route the update without another database
+ * read. `running` means the turn is generating; every other status is terminal.
+ * This feed has no replay. Subscribers get a fresh snapshot when they connect.
  */
 export type TurnActivityNotification = {
   readonly workspaceId: string;
@@ -22,10 +19,9 @@ export type TurnActivityNotification = {
 /**
  * Per-instance feed of turn-lifecycle signals.
  *
- * Persistence owns this because it owns Postgres `LISTEN/NOTIFY`: one dedicated
- * connection per instance listens on `TURN_ACTIVITY_NOTIFY_CHANNEL` and surfaces
- * parsed notifications here. The service composes this into its activity
- * dispatcher; it never opens a `LISTEN` connection itself.
+ * Persistence owns the Postgres `LISTEN/NOTIFY` connection and exposes parsed
+ * updates here. The service composes this feed into its activity dispatcher; it
+ * does not open a database listener itself.
  */
 export type TurnActivityNotificationSource = {
   /** A scoped stream of lifecycle signals; the scope owns the dedicated connection. */
@@ -33,12 +29,10 @@ export type TurnActivityNotificationSource = {
 };
 
 /**
- * A notification source that never emits.
+ * A notification source for memory persistence, which has no live wake signal.
  *
- * Memory persistence has no cross-process wake signal. The activity stream still
- * serves its snapshot of currently-running turns on connect; it just never
- * receives live transitions — the correct memory behavior (mirrors the turn-event
- * memory source).
+ * The activity stream still sends its current snapshot on connect. It simply
+ * cannot send live changes between processes.
  */
 export const NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE: TurnActivityNotificationSource = {
   notifications: Stream.never,

@@ -17,17 +17,15 @@ import {
 import type { AssistantTurnFailureStatus } from "#ports";
 
 /**
- * Finalization facts collected while core emits one browser protocol stream.
+ * Keep the facts needed to finish one browser stream.
  *
- * The accumulator preserves only what durable turn finalization needs: event counts,
- * terminal identity, completed usage, accumulated assistant text, and the first
- * protocol-ordering problem. Deltas are never retained event-by-event, so
- * finalization can validate the stream without turning diagnostics into a
- * private content log. Activity events are the one config-gated exception:
- * when turn-activity history is enabled (`collectActivity`), they are retained
- * verbatim — bounded by {@link MAX_ACCUMULATED_ACTIVITY_EVENTS} — so completion
- * can persist the thinking trace alongside the answer. Disabled means disabled
- * in memory too: nothing activity-shaped is retained at all.
+ * The accumulator stores counts, terminal identity, usage, assistant text, and
+ * the first protocol-ordering problem. It does not keep every text delta, so
+ * finalization can validate the stream without becoming a content log.
+ *
+ * Activity events are retained only when turn-activity history is enabled, and
+ * are capped by {@link MAX_ACCUMULATED_ACTIVITY_EVENTS}. When disabled, no
+ * activity payload is kept in memory.
  */
 
 /** Bound on retained activity events; the tool loop's step cap keeps real turns far below it. */

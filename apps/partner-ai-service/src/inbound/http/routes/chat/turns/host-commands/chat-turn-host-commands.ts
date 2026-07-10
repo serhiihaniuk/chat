@@ -17,14 +17,12 @@ export type HostCommandResultRouteDependencies = {
 };
 
 /**
- * Register the host-command result route (the browser's half of a UI tool call).
+ * Register the browser's host-command result route (ADR 0009).
  *
- * The route works on ANY instance (ADR 0009): it proves the command belongs to
- * the caller's turn against the durable `emitted` row the owner persisted at
- * dispatch — a leaked commandId without that row is a 404, never a settle — then
- * persists the browser's result (which NOTIFYs the owner in the same
- * transaction) and offers it to the local resolver for the same-instance fast
- * path. Reposting a result is an idempotent upsert.
+ * Any service instance may receive the result. It first checks the durable
+ * `emitted` row for this turn, so a leaked command id cannot settle a tool call.
+ * It then saves the result, which wakes the owning instance, and offers it to a
+ * local resolver when the owner is on this instance. Reposting is idempotent.
  */
 export const registerHostCommandResultRoute = (
   app: Hono<AuthContextVariables>,

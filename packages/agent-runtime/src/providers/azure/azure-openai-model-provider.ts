@@ -13,14 +13,13 @@ import type { ModelProvider } from "#providers/model-provider";
 export const AZURE_OPENAI_PROVIDER_ID = "azure" as const;
 
 /**
- * Service-owned inputs for building the Azure OpenAI provider.
+ * Private inputs used to build an Azure OpenAI provider.
  *
- * Azure differs from plain OpenAI: it routes by a resource `endpoint`, an
- * `apiVersion`, and a per-model `deployment` name (which can differ from the
- * model id). `apiKey`, `endpoint`, `apiVersion`, and `fetch` are
- * agent-runtime-private transport inputs and must never reach the manifest,
- * diagnostics, or the browser. `modelIds`, `deploymentsByModelId`, and the
- * reasoning effort are the model-visible policy callers may see.
+ * Azure routes by endpoint, API version, and deployment name. The deployment
+ * name may differ from the model id. The key, endpoint, API version, and fetch
+ * function stay inside agent-runtime; they must not reach manifests, logs, or
+ * the browser. Model ids, deployment mappings, and reasoning settings are the
+ * policy-level values callers may see.
  */
 export type AzureOpenAIProviderOptions = {
   readonly apiKey: string;
@@ -38,17 +37,12 @@ export const AZURE_OPENAI_REASONING_EFFORTS = RUNTIME_REASONING_EFFORTS;
 export type AzureOpenAIReasoningEffort = RuntimeReasoningEffort;
 
 /**
- * Map these provider options onto an AI SDK `createAzure` Chat Completions provider.
+ * Map the private settings to the AI SDK Azure provider.
  *
- * At this boundary `endpoint` becomes the Azure `baseURL` (normalized to the
- * `/openai` deployment route) and the secret `apiKey` stays hidden inside
- * `createAzure`. `useDeploymentBasedUrls` selects the
- * `{baseURL}/deployments/{deployment}?api-version=` routing the Azure resource
- * exposes, so each model resolves to its configured deployment. The
- * model-id -> deployment indirection lives only here, so the runtime port keeps
- * speaking provider-neutral model ids. Reasoning effort is forwarded only for a
- * genuine effort, since the default deployments (e.g. gpt-4o) are non-reasoning
- * chat models that must not receive a reasoning option.
+ * Normalize the endpoint to Azure's `/openai` route and keep the API key inside
+ * `createAzure`. When deployment-based URLs are enabled, resolve each provider-
+ * neutral model id to its configured deployment here. Forward reasoning only
+ * when it is set; non-reasoning chat models must not receive that option.
  */
 export const createAzureOpenAIProvider = (options: AzureOpenAIProviderOptions): ModelProvider => {
   if (options.apiKey.trim().length === 0) {

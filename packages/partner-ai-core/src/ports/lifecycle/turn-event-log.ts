@@ -3,16 +3,14 @@ import type { Effect } from "effect";
 import type { AuthContext } from "#domain/authority";
 
 /**
- * Append-only store for one assistant turn's browser stream events.
+ * Store the browser events for one assistant turn.
  *
- * Source events come from core; the target adapter chooses the storage
- * technology. The shipped target is a per-instance in-memory registry, so
- * replay is available only on that instance while the entry is retained. This
- * port hides the adapter but does not promise cross-instance or restart replay.
+ * Core appends events; an adapter stores them. The current adapter is an
+ * in-memory per-instance registry, so replay works only on the owning instance
+ * while the entry is retained. There is no cross-instance or restart replay.
  *
- * Invariant: event sequences are dense per turn (`sidechat.started` is 0).
- * Reads use `after = <lastSeenSequence>` and return `sequence > after` in
- * ascending order.
+ * Sequences are dense: `sidechat.started` is 0. Reads return events whose
+ * sequence is greater than `after`, in ascending order.
  */
 export type TurnEventLogPort = {
   /**

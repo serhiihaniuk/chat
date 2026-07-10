@@ -54,14 +54,14 @@ export type SubscriptionAttemptOutcome =
   | { readonly kind: "error"; readonly error: unknown };
 
 /**
- * Drive one subscription attempt: consume the turn stream into the store.
+ * Apply one subscription attempt to the run store.
  *
- * The stream is either the `createRun` POST body (connection-bound start) or the
- * resume GET from `after`. Idempotent by sequence (the reducer drops
- * already-applied events), so a reconnect from the store's cursor never
- * double-applies. Host commands are dispatched once and their result folded back
- * before later events advance the turn. Failures are RETURNED, not folded into
- * the store — transport recovery owns retry/poll/fail decisions.
+ * Events come either from the initial POST response or from a resume request.
+ * Sequence checks make replay safe. Host commands are dispatched once, then
+ * their result is written before later events continue.
+ *
+ * This function reports failures to transport recovery. It does not decide
+ * whether to retry, poll, or fail the run.
  */
 export const runSubscription = async (
   input: RunSubscriptionInput,

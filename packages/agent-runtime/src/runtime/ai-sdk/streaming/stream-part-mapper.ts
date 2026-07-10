@@ -164,14 +164,12 @@ export const mapAiSdkStreamPart = (
 };
 
 /**
- * Runtime finish reasons are intentionally smaller than provider reasons.
+ * Map provider finish reasons to the smaller runtime set.
  *
- * Downstream protocol/UI only needs to know whether generation stopped normally,
- * hit length, or was truncated at the tool-loop step cap. A final `tool-calls`
- * finish means the loop stopped while the model still wanted to call tools — the
- * step cap fired — so it maps to the distinct `tool_step_limit` rather than a
- * silent `stop`. Abort is signalled by a separate `abort` part; content filtering
- * and error are their own terminals handled before this maps a normal completion.
+ * The UI only needs normal stop, length limit, or tool-step limit. A final
+ * `tool-calls` reason means the model still wanted another tool call, so it maps
+ * to `tool_step_limit` instead of looking like a normal stop. Abort, filtering,
+ * and provider errors are handled by their own terminal paths.
  */
 const mapFinishReason = (reason: string): RuntimeFinishReason => {
   if (reason === AI_SDK_FINISH_REASON_LENGTH) return RUNTIME_FINISH_REASONS.LENGTH;
@@ -196,14 +194,15 @@ type AiSdkPartType = TextStreamPart<ToolSet>["type"];
 export type AiSdkPartClassification = "mapped" | "ignored" | "unknown";
 
 /**
- * Every AI SDK stream part type, tagged with how this runtime treats it.
+ * Classify every AI SDK stream part.
  *
- * `mapped` parts become runtime events — text/finish/error/abort here, reasoning
- * and tool parts in their own mappers. `ignored` parts are deliberate no-ops:
- * framing/lifecycle boundaries, streamed tool input, raw provider passthrough,
- * and sources/files the timeline does not render. The `Record<AiSdkPartType, …>`
- * is exhaustive by construction, so a future SDK pin that adds a part type fails
- * to compile until it is classified — closing the "new part silently vanishes" gap.
+ * Mapped parts become runtime events. Ignored parts are deliberate no-ops for
+ * framing, streamed tool input, provider passthrough, or sources the timeline
+ * does not render. The exhaustive `Record` makes a future SDK part fail at
+ * compile time until it is classified.
+ *
+ * Source: one AI SDK stream part. Target: a runtime event or an intentional
+ * no-op. Invariant: every SDK part type must be classified.
  */
 const AI_SDK_PART_CLASSIFICATION: Record<AiSdkPartType, AiSdkPartClassification> = {
   "text-delta": "mapped",

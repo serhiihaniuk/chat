@@ -1,21 +1,15 @@
 /**
- * §3 — Root, theme & portal contract.
+ * Own the widget theme and the container used by popup portals.
  *
- * The widget root owns the tier-1 + tier-2 tokens (via the `.side-chat-widget-root`
- * class and the `data-sidechat-theme` attribute) and is the portal target every
- * popup must mount into. Graphite is the base `:root` contract and therefore carries
- * NO attribute, so it stays responsive to the host's light/dark. Named themes write
- * the attribute, which re-skins this root and every descendant through inheritance.
+ * The root holds the widget's design tokens. Named themes set an attribute on
+ * this element, so the theme applies to the root and all of its children.
  *
- * Base UI portals Menu/Popover/Select/Combobox/Tooltip/Dialog/HoverCard to
- * `document.body` by default — outside the token scope. `usePortalContainer()` hands
- * each popup the root element so `container={...}` keeps the theme + font (gate G5).
+ * Base UI normally mounts popups under `document.body`, outside those tokens.
+ * `usePortalContainer` gives each popup this root instead.
  *
- * The root element is published through a *callback ref + state*, not a plain ref.
- * A ref's `.current` is still null while descendants first render, and an uncontrolled
- * popup never re-reads it — so a ref would leave `container` null and Base UI would
- * render the popup nowhere. Storing the element in state re-renders consumers once it
- * is attached, so every popup that opens later receives the live root element.
+ * The root is stored in state through a callback ref. State is needed because
+ * descendants render before a plain ref has a usable element; the state update
+ * gives later popups the real container.
  */
 import { createContext, use, useState, type ComponentPropsWithoutRef } from "react";
 

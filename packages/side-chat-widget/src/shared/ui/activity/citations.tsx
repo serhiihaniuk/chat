@@ -1,22 +1,14 @@
 "use client";
 
 /**
- * Citations (design c-citation) — the foldable "N sources" list under an answer,
- * and the inline `[n]` marker that hovers a source card.
+ * Render source citations in two forms:
  *
- * The fold reuses the same Base UI `Collapsible` contract as the Reasoning fold
- * (identical trigger + chevron rotation + `--collapsible-panel-height` animation);
- * only the panel contents differ — source rows instead of thought/tool rows. The
- * inline marker hovers a Base UI `PreviewCard` whose body is a richer source
- * preview: a favicon+domain row, the title, then the model's exact quoted excerpt.
- * While the card is open the marker takes its dark active state, pairing the two.
+ * - a collapsible "N sources" list below the answer;
+ * - an inline `[n]` marker that opens one source preview.
  *
- * Each row: a leader glyph (a per-source brand colour derived from the domain — a
- * favicon stand-in, the one sanctioned non-token colour; terminal sources fall
- * back to a neutral kind glyph), title + domain meta, and a trailing number chip.
- * Linking is a separate axis: a source WITH a url renders as an <a> with hover fill
- * and a trailing ↗ (opens externally); a terminal source (no url) renders as a
- * <div> — default cursor, no hover, no arrow.
+ * Both forms use the widget's portal container so they stay inside the theme.
+ * A source with a URL is a link. A source without one is display-only and has
+ * no hover or external-navigation affordance.
  */
 import { useState, type CSSProperties, type ReactElement } from "react";
 

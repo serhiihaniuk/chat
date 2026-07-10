@@ -8,19 +8,15 @@ import type { JsonObject } from "@side-chat/shared";
 import { Effect } from "effect";
 
 /**
- * Service-side recorder for the resumable-streaming lifecycle.
+ * Record the service-side part of resumable streaming.
  *
- * The core turn workflow records the turn's own lifecycle (received/started/
- * runtime_event/terminal) to the same `ObservabilitySinkPort`. This is the
- * other half: the transport lifecycle that lives in the service — subscriber
- * attach/detach, replay served vs expired, reaper reaps, cross-instance cancel,
- * and run duration on terminal — so operators see resumable behavior across
- * instances. It reuses the established `recordStreamObservation` pattern (same
- * redaction, same correlation, same sink); it is not a new metrics framework.
+ * Core records turn events. This recorder covers transport events such as a
+ * subscriber joining, replay being served or expiring, a reaper finishing a
+ * turn, and a cross-instance cancel. It uses the existing observation sink and
+ * redaction rules; it is not a second metrics system.
  *
- * Lifecycle records are best-effort telemetry, never part of the request result:
- * every record is swallowed if the sink fails (`Effect.ignore`) so an observability
- * outage can never fault a subscriber stream, a reap sweep, or a cancel ack.
+ * These records are best effort. A logging failure is ignored so observability
+ * can never break a stream, reaper sweep, or cancel response.
  */
 export type ResumableObservation = {
   readonly sink: ObservabilitySinkPort | undefined;

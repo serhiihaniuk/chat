@@ -97,20 +97,16 @@ const renewTurnLease = async (
 };
 
 /**
- * Terminalize the running turns whose owner died, fencing their owners.
+ * Finish running turns whose owner has expired.
  *
- * Honest classification rides the durable cancel intent: a turn with
- * `cancel_requested_at` becomes `user_aborted`, otherwise `provider_failed`
- * (timeout) — the same split the abnormal finalizer uses. Bumping the epoch in
- * the same statement fences a slow-but-alive owner. Each reaped turn's
- * `turn_activity` notify fires in the same transaction as its status CAS, so
- * other tabs' "generating" dots clear live instead of on their next snapshot.
+ * A saved cancel request becomes `user_aborted`; otherwise the turn becomes
+ * `provider_failed` with a timeout code. Incrementing the lease epoch fences a
+ * slow owner that wakes up later. The same transaction sends the activity update
+ * so other tabs clear their "generating" dots.
  *
- * The update targets only rows a `FOR UPDATE SKIP LOCKED` subquery locked, so two
- * concurrent reaper passes grab disjoint rows and the running-guard means a turn
- * already terminalized by one pass matches no row in the other: a turn is reaped
- * exactly once across passes. `limit` bounds one sweep so a backlog drains over
- * several passes instead of one unbounded transaction.
+ * `FOR UPDATE SKIP LOCKED` gives concurrent reapers different rows. The running
+ * guard makes the operation first-writer-wins, and `limit` keeps each sweep
+ * small.
  */
 const reapExpiredTurns = async (
   db: Db,

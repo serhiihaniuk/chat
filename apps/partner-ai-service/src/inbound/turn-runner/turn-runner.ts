@@ -127,19 +127,15 @@ export const createTurnRunner = (dependencies: TurnRunnerDependencies): TurnRunn
 };
 
 /**
- * Fork post-start generation into the service scope, under an owner lease.
+ * Fork generation into the service scope under an owner lease.
  *
- * `FiberMap.run` forks with the runner's captured runtime and registers the
- * fiber under the turn id, so the generation survives the request that started
- * it. `runTurnGeneration` claims and heartbeats the lease internally (and
- * self-interrupts if fenced) under the same `onExit` that finalizes the turn. We
- * do not await the fiber: `start` returns as soon as generation is accepted.
+ * The fiber is stored by turn id, so it survives the request that started it.
+ * `runTurnGeneration` claims and renews the lease, then finalizes the turn when
+ * the fiber exits. `start` returns as soon as generation is accepted.
  *
- * A fiber exit is otherwise unobserved (nobody joins the map), so a fault during
- * generation or its finalizer — a DB blip while writing the terminal, say — would
- * strand the turn `running` in silence. The observer turns that into a loud log
- * (the reaper still recovers the turn); an interrupt (cancel/shutdown) is expected
- * and stays quiet.
+ * The runner does not join the fiber, so an unexpected failure would otherwise
+ * be silent. The observer logs such failures; the reaper can still recover the
+ * turn. Expected cancel and shutdown interrupts stay quiet.
  */
 const forkGeneration = (
   dependencies: TurnRunnerDependencies,

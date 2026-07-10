@@ -1,22 +1,13 @@
 /**
- * §9.3 — Tools menu.
+ * Render the composer's "+" menu.
  *
- * The composer "+" menu. In the live widget it receives the backend tool catalog
- * (`tools` with an `onToggleTool` handler) so each tool can be enabled or
- * disabled for the next turn. With no handler it is the self-contained design
- * demo: sample tools plus the attach-file and context-scope rows that show the
- * full menu surface for the showcase and docs.
+ * In the live widget, `tools` and `onToggleTool` control which backend tools
+ * are enabled for the next turn. Without them, the component renders its
+ * self-contained demo rows.
  *
- * Built on Base UI `Menu` with `data-slot="dropdown-menu-content"` on the popup
- * (so the surface — border, `bg-popover`, `shadow-(--shadow-popover)`, enter/exit
- * transition — is owned by styles.css), plus the `Switch` primitive (§8.1) for
- * tool toggles and `Menu.Separator` between regions. No new surface tokens: the
- * popup reuses `--menu-*`, the switch `--switch-*`.
- *
- * The trigger is the composer `+` button (`sc-composer-add`); its `+`→`×` rotation
- * is owned by that utility on the popup-open state. State is read via named Base UI
- * variants only — items expose `highlighted:`, the tool toggles `checked:`, and the
- * scope rows render a `RadioItemIndicator` check. One popover open at a time (Base UI).
+ * Base UI owns menu state and keyboard behavior. The CSS file owns the popup
+ * surface and state styles, so this component only composes menu parts and
+ * supplies the tool data.
  */
 import { useState, type ReactElement } from "react";
 

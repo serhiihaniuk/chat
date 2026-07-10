@@ -17,21 +17,15 @@ export type ActivityStreamDependencies = {
 };
 
 /**
- * Build one subscriber's snapshot-plus-tail stream of subject turn activity.
+ * Build one subscriber's activity stream.
  *
- * This is the single transport the activity SSE route serves:
+ * Register with the dispatcher first, then send a snapshot of every running
+ * turn, and finally keep sending live changes. Registering first prevents a
+ * change during the snapshot read from being lost.
  *
- * 1. register with the dispatcher first, so a transition during the snapshot read
- *    is not missed;
- * 2. emit a snapshot of every currently-running turn as `running` events (the
- *    client's initial set of live conversations);
- * 3. tail live transitions from the dispatcher fan-out.
- *
- * There is no terminal and no replay: the stream stays open until the browser
- * disconnects, and a dropped signal self-corrects when the client reconnects and
- * re-reads the snapshot. The client dedupes by conversation, so a snapshot entry
- * that also arrives live is harmless. `Stream.unwrap` runs the builder in the
- * stream's own scope, so the route converts it straight to a `ReadableStream`.
+ * This stream has no terminal event or replay. It stays open until the browser
+ * disconnects. A reconnect gets a new snapshot, which repairs a missed signal.
+ * Duplicate snapshot/live entries are safe because the client dedupes them.
  */
 export const createActivitySubscriptionStream = (
   dependencies: ActivityStreamDependencies,

@@ -32,14 +32,10 @@ export type AssistantTurnRef = WorkspaceRef & {
 /**
  * Store the lifecycle of one assistant reply.
  *
- * Start it, save the prepared context, then write either completed or failed.
- *
- * Two invariants make exactly-one-terminal safe under retries and multi-instance
- * races; the `@side-chat/db` `sidechatRepositoryContract` kit
- * (`packages/db/src/testing/repository-contract.test-support.ts`) is the
- * executable spec, so a custom adapter proves them by passing that suite:
- * `startAssistantTurn` is get-or-create (see its own doc), and
- * `completeAssistantTurn`/`failAssistantTurn` are first-transition-wins.
+ * Start the turn, save its prepared context, then write either a completed or
+ * failed result. Starting is get-or-create, and terminal status is
+ * first-transition-wins. These rules keep retries and multi-instance races from
+ * creating duplicate turns or replacing the first final result.
  */
 export type AssistantTurnLifecyclePort = {
   /**

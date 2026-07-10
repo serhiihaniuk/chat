@@ -51,39 +51,29 @@ export const HOST_COMMAND_RESULT_STATUSES = [
 export type HostCommandResultStatus = (typeof HOST_COMMAND_RESULT_STATUSES)[number];
 
 /**
- * Postgres `LISTEN/NOTIFY` channel a durable cancel intent signals on.
+ * Postgres channel that signals a saved cancel request.
  *
- * A cancel can land on any instance, but only the instance that owns the live
- * generation fiber can interrupt it. `requestTurnCancellation` writes the durable
- * intent and notifies this channel in one transaction; every instance listens,
- * and the owning one interrupts its fiber while non-owners no-op. The payload is
- * just `{ assistantTurnId }` — the durable `cancel_requested_at` column is the
- * source of truth, so a missed signal still terminalizes via the reaper.
+ * Any instance may receive it, but only the owner of the generation fiber can
+ * interrupt that fiber. The database row is the source of truth, so a missed
+ * notification is recovered by the reaper.
  */
 export const TURN_CANCEL_NOTIFY_CHANNEL = "turn_cancel";
 
 /**
- * Postgres `LISTEN/NOTIFY` channel for subject-scoped turn lifecycle.
+ * Postgres channel for subject-scoped turn lifecycle updates.
  *
- * A turn becoming `running` (start) or reaching a terminal status (finish) signals
- * this channel in the same transaction as the status write, so the per-instance
- * activity dispatcher can push a live "generating" indicator to every conversation
- * in a subject's sidebar — even chats the user is not viewing. The payload carries
- * the full scope `{ workspaceId, subjectId, conversationId, assistantTurnId, status }`
- * so the dispatcher fans out by subject without a per-signal read.
+ * The status write and notification happen in one transaction. The payload has
+ * the full scope, so the activity dispatcher can update every conversation in the
+ * subject's sidebar without another database read.
  */
 export const TURN_ACTIVITY_NOTIFY_CHANNEL = "turn_activity";
 
 /**
- * Postgres `LISTEN/NOTIFY` channel a durable host-command result signals on.
+ * Postgres channel that signals a saved host-command result.
  *
- * A browser can POST a host-command result to any instance, but only the
- * instance that owns the paused tool loop can settle the awaiting promise. The
- * result route persists the browser's result and notifies this channel in one
- * transaction; every instance listens, the owner reads the persisted row and
- * settles, non-owners no-op. The payload is `{ assistantTurnId, commandId }` —
- * a poke, never the result body — and the durable `host_command_results` row is
- * the source of truth, so a missed signal only costs the owner's low-frequency
- * result poll a couple of seconds, never correctness (ADR 0009).
+ * Any instance may receive the browser request, but only the owner of the paused
+ * tool loop can settle it. The notification is only a wake-up signal; the saved
+ * result row is the source of truth, so a missed notification affects latency,
+ * not correctness (ADR 0009).
  */
 export const HOST_COMMAND_RESULT_NOTIFY_CHANNEL = "host_command_result";

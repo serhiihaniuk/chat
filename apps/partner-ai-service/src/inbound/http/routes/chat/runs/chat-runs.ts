@@ -30,19 +30,20 @@ export type ChatRunsRouteDependencies = TurnStreamDependencies & {
 };
 
 /**
- * Add POST /chat/runs — start a turn and stream it on the same connection.
+ * Start a turn and stream it on the same POST connection.
  *
- * Pre-start runs synchronously, so setup failures are still JSON errors (the
- * browser never saw `sidechat.started`). Once the turn is accepted, generation is
- * forked onto the server-owned runner and this response becomes the turn's SSE
- * stream, replayed from the beginning. Binding the stream to the starting
- * connection is what makes it land on the owning instance with no sticky routing
- * (ADR 0007); `sidechat.started` at sequence 0 carries the turn identity
- * (`assistantTurnId` on the envelope, `conversationId` on the event).
+ * Setup runs before `sidechat.started`, so setup failures are JSON responses.
+ * After acceptance, generation runs in the server-owned runner and this response
+ * sends the turn's SSE events from the beginning. Binding the stream to the
+ * starting connection keeps it on the owning instance without sticky routing
+ * (ADR 0007). The first event carries the turn identity.
  *
- * Closing this response releases one subscriber and never interrupts generation;
- * `GET /chat/runs/:requestId` recovers a lost identity, and the stream route
- * resumes from a cursor on the same instance.
+ * Closing the response releases the subscriber but does not stop generation.
+ * The status route recovers a lost identity, and the stream route resumes later
+ * from its saved cursor.
+ *
+ * Source: the accepted turn and its server-owned event stream. Target: the
+ * browser's SSE response. Invariant: closing the response never stops the turn.
  */
 export const registerChatRunsRoute = (
   app: Hono<AuthContextVariables>,
@@ -76,15 +77,16 @@ export const registerChatRunsRoute = (
 };
 
 /**
- * Stream an accepted turn, honoring idempotent replays.
+ * Stream an accepted turn, including idempotent replays.
  *
- * A fresh turn (`inserted`) is registered in this instance's registry right here,
- * before the response subscribes — the forked generation's first append may still
- * be in flight, and subscribing never creates entries. A repeated `requestId`
- * resolves to the existing turn without forking a second generation; if this
- * instance holds no buffer for it, fail closed before any SSE frame — a finished
- * turn is `replay_expired` (read conversation history), a still-running turn on
- * another instance is `stream_unavailable` (poll status until it finishes).
+ * A new turn is registered before the response subscribes because its first
+ * event may already be arriving. A repeated request id reuses the existing turn
+ * and never starts a second generation. If this instance has no event buffer,
+ * fail before sending SSE: a finished turn is `replay_expired`, while a running
+ * turn owned elsewhere is `stream_unavailable`.
+ *
+ * Source: the accepted turn and its request id. Target: this instance's SSE
+ * subscriber. Invariant: one request id never starts two generations.
  */
 const streamStartedTurn = (
   dependencies: ChatRunsRouteDependencies,

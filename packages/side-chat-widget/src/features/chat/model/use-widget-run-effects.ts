@@ -38,15 +38,11 @@ export type WidgetRunEffectsInput = {
 };
 
 /**
- * Bridge live run state back into the conversation list and selection.
+ * Connect live run milestones to the conversation list and history.
  *
- * The run store owns messages/status; these effects only react to three run
- * milestones the conversation shell still cares about: the server assigning a
- * conversation id (adopt + optimistically list it), the run completing (refresh
- * the list so the generated title replaces the optimistic one), and the run
- * reaching any terminal (hand the transcript off to server history). Each
- * effect runs once per transition via a ref guard, so including every dependency
- * stays both lint-clean and idempotent.
+ * These effects handle three transitions: assign a conversation id, refresh the
+ * list after completion, and hand the finished transcript to history. Ref guards
+ * make each transition run once while dependencies remain explicit.
  */
 export const useWidgetRunEffects = (input: WidgetRunEffectsInput): void => {
   useAdoptStartedConversation(input);
@@ -109,14 +105,12 @@ const HANDOFF_SETTLE_ATTEMPTS = 3;
 const HANDOFF_SETTLE_DELAY_MS = 250;
 
 /**
- * Hand the finished run off to server history: fetch, then clear (ADR 0007).
+ * Move a finished run to server history: fetch first, then clear (ADR 0007).
  *
- * Fetch-then-clear means there is never a frame where neither the run nor
- * history shows the answer. The clear is skipped when nothing fresh landed
- * (refetch failed, no conversation id) or when a newer run replaced this one —
- * a live run must never be clobbered by a stale handoff. A failed run's error
- * notice is carried into shell state before the run (its only holder) is
- * cleared, so the user still sees why the turn ended.
+ * Fetching first keeps the answer visible at every moment. Do not clear when the
+ * refresh failed, there is no conversation id, or a newer run replaced this one.
+ * For a failed run, copy its error notice into shell state before clearing the
+ * run, because the run is the only place that currently holds that notice.
  */
 const useHistoryHandoffAfterTerminal = (input: WidgetRunEffectsInput): void => {
   const { run, refreshHistory, clearRun, getRun, setErrorMessage, shellBridge } = input;

@@ -23,23 +23,16 @@ type ActivityStreamInput = {
 };
 
 /**
- * Subscribe to the subject-scoped activity stream and track which conversations
- * have a live turn, so the sidebar can show a "generating" dot — even on chats the
- * user is not viewing.
+ * Track which conversations have a running turn.
  *
- * The stream pushes a snapshot of running turns on connect, then live transitions.
- * The returned set is the source for the dots: a `running` event adds a
- * conversation, any terminal status removes it. The subscription is long-lived: it
- * opens on mount, reconnects on drop/error (with jittered exponential backoff so a
- * down server is not hammered) and on `online`, and tears down on unmount. On tab
- * refocus it does NOT abort a healthy stream — the browser flushes the events it
- * buffered while hidden — it only refetches the list to close any gap. The
- * subscription reads the client through a ref, so a rotated `client` (new token)
- * takes effect on the next reconnect. A host whose client lacks `subscribeActivity`
- * gets an empty set (no dots).
+ * The server sends a snapshot when the connection opens, then sends changes.
+ * A running event adds an id; any terminal event removes it. The returned set
+ * drives the sidebar's "generating" dots.
  *
- * `onEvent` additionally forwards each event so a viewing tab can resume a turn
- * started elsewhere; the running set itself stays the dot's only source.
+ * The connection starts on mount, reconnects after failures or `online`, and
+ * stops on unmount. Returning to a visible tab only refetches the list; it does
+ * not interrupt a healthy stream. `onEvent` forwards events to the viewing tab
+ * so it can refresh a turn started in another tab.
  */
 export const useActivityStream = (input: ActivityStreamInput): ReadonlySet<string> => {
   const [runningIds, setRunningIds] = useState<ReadonlySet<string>>(emptySet);
@@ -75,14 +68,12 @@ export const useActivityStream = (input: ActivityStreamInput): ReadonlySet<strin
 type ActivityLoop = { readonly stop: () => void; readonly reconnect: () => void };
 
 /**
- * Drive a reconnecting activity subscription until stopped.
+ * Keep the activity connection open and reconnect it when needed.
  *
- * Each connection resets the set (a fresh snapshot is authoritative, so a turn that
- * ended while disconnected clears), refetches the list, then applies live events.
- * `getSubscribe` is read fresh per attempt so a rotated client takes effect on
- * reconnect. A successful connect resets the backoff; a failed one escalates it up
- * to the cap, so a down server is not hammered. `reconnect` aborts the current
- * connection so the loop re-opens it; `stop` ends the loop on unmount.
+ * Each new connection starts with a fresh snapshot, which clears turns that
+ * ended while the client was disconnected. A successful connection resets the
+ * backoff; repeated failures increase it up to the cap. `reconnect` aborts the
+ * current attempt, while `stop` ends the loop during unmount.
  */
 const startActivityLoop = (
   getSubscribe: () => SubscribeActivity | undefined,

@@ -18,27 +18,16 @@ import type {
 export type { TurnLeaseSettings } from "./lease/turn-lease-heartbeat.js";
 
 /**
- * Run one prepared assistant turn to a durable final status, socket-independent.
+ * Run one assistant turn independently of the HTTP connection.
  *
- * This is the core half of the server-owned runner: the service forks this
- * Effect into its own scope (never the HTTP request) and the turn then runs to
- * completion regardless of whether any browser is connected. Each post-start
- * `SidechatStreamEvent` is appended to the turn-event port as it is emitted. The
- * shipped service stores those events in its per-instance registry and signals
- * same-instance subscribers on append.
+ * The service starts this Effect in a server-owned fiber. It writes each
+ * browser event to the turn-event store while generation runs, then finalizes
+ * the durable turn when the fiber exits.
  *
- * Finalization is owned here through `Effect.onExit` so it runs on success,
- * provider error, user-interrupt, shutdown, and lease-fence alike:
- * - a normal terminal was emitted by the stream and appended by the drain, so
- *   finalize only writes the durable assistant-turn status;
- * - an abnormal exit appends the one synthetic terminal that path owns.
- *
- * The drain runs under an owner lease: the fiber claims ownership, heartbeats it,
- * and self-interrupts if fenced — and because the lease logic sits *inside* this
- * `onExit`, even an interrupt during lease acquisition still finalizes the turn.
- *
- * The result is the invariant the plan requires: exactly one terminal event and
- * exactly one durable status transition across every exit path.
+ * The owner lease can interrupt generation when another instance takes over.
+ * The lease and the finalizer are inside the same `onExit` scope, so even an
+ * interrupt during lease acquisition still produces the required terminal
+ * event and final status.
  */
 export const runTurnGeneration = (
   ports: StreamChatPorts,

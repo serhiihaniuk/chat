@@ -2,29 +2,23 @@ import { Stream } from "effect";
 import { parseJsonRecord } from "@side-chat/shared";
 
 /**
- * One parsed cancel-intent signal surfaced by the cancel notification source.
+ * One parsed signal for a saved cancel request.
  *
- * The signal carries only the turn identity: it tells the owning instance *which*
- * turn was cancelled, never anything about the turn's events. The durable
- * `cancel_requested_at` column is the source of truth, so a missed or duplicated
- * signal can never lose a cancel — it only changes whether the live fiber is
- * interrupted promptly or terminalized later by the reaper.
+ * It carries only the turn id. The durable `cancel_requested_at` column is the
+ * source of truth, so a missed or duplicate signal cannot lose a cancel. It only
+ * changes whether the live fiber stops now or the reaper finishes it later.
  */
 export type TurnCancelNotification = {
   readonly assistantTurnId: string;
 };
 
 /**
- * Per-instance feed of cancel-intent signals.
+ * Per-instance feed of saved cancel requests.
  *
- * Persistence owns this because it owns Postgres `LISTEN/NOTIFY`: exactly one
- * dedicated connection per instance listens on `TURN_CANCEL_NOTIFY_CHANNEL` and
- * surfaces parsed notifications here. The service composes this into the cancel
- * dispatcher, which interrupts the local generation fiber when this instance owns
- * the named turn; non-owning instances no-op.
- *
- * The stream is scoped: subscribing acquires the listener and unsubscribing (the
- * scope closing) tears the connection down cleanly.
+ * Persistence owns the Postgres listener and exposes parsed signals here. The
+ * service uses them to interrupt a local generation fiber when this instance owns
+ * the turn; other instances do nothing. The stream is scoped, so closing it also
+ * closes the listener connection.
  */
 export type TurnCancelNotificationSource = {
   /** A scoped stream of cancel signals; the scope owns the dedicated connection. */

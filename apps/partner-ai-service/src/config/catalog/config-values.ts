@@ -80,24 +80,18 @@ export const DEFAULT_TOOL_POLICY = {
 } as const;
 
 /**
- * Default resumable-streaming operator tunables.
+ * Default timings for resumable streaming.
  *
- * `SAFETY_POLL_INTERVAL_MS` is the per-subscriber reconcile cadence — a
- * low-frequency backstop for a missed Postgres `NOTIFY`. It is deliberately
- * slower than the notify path so the poll adds little load while still bounding
- * how long a dropped signal can stall a live subscriber.
+ * The safety poll checks the event registry when a database notification is
+ * missed. It runs less often than the notification path to limit database load.
  *
- * The lease tunables fence dead or slow owners. `LEASE_TTL_MS` is how long an
- * owner's claim stays valid; `HEARTBEAT_INTERVAL_MS` is comfortably under it so a
- * live owner renews several times before expiry; `REAPER_INTERVAL_MS` is how often
- * an instance sweeps expired-lease running turns. `REAPER_BATCH_LIMIT` bounds one
- * sweep so a backlog drains over several passes instead of one large transaction.
+ * Lease settings decide when an owner is considered dead. The heartbeat runs
+ * several times before the lease expires. The reaper checks expired leases and
+ * limits each sweep so a large backlog is handled in smaller transactions.
  *
- * `SSE_HEARTBEAT_INTERVAL_MS` is the SSE comment keepalive cadence written on both
- * the turn and activity streams so an idle stream keeps bytes flowing under a load
- * balancer's idle timeout (ALB default 60 s). It is well under that timeout, and
- * under half the widget's inactivity watchdog, so a live-but-quiet stream is never
- * cut. This is the connection keepalive, distinct from the owner-lease heartbeat.
+ * The SSE heartbeat keeps quiet connections alive through load balancers. It is
+ * separate from the owner-lease heartbeat and must run before the widget's
+ * inactivity watchdog fires.
  */
 export const RESUMABILITY_DEFAULTS = {
   SAFETY_POLL_INTERVAL_MS: 2_000,
