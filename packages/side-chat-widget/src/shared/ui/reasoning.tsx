@@ -1,19 +1,17 @@
 "use client";
 
 /**
- * §9.8 — Reasoning.
+ * §9.8 — Reasoning: the foldable thinking trace.
  *
- * A foldable thinking trace built on Base UI `Collapsible` (§8.15) whose panel
- * interleaves thought lines and `<ToolRow>` entries (§9.9) as SIBLINGS, in stream
- * order — never a separate tool block below the answer. The header label shimmers
- * (a subtle `animate-pulse`) while the model is still thinking, and the chevron
- * follows this component's controlled open state.
+ * Base UI `Collapsible` (§8.15) contains thought lines and `<ToolRow>` entries
+ * (§9.9) as siblings in stream order. Tools stay where they happened; they are
+ * not moved into a separate block below the answer. The header pulses while the
+ * model is thinking, and the chevron follows the controlled open state.
  *
- * Open state is controlled so a parent can expand live thinking, collapse
- * completed minimal traces, or keep detailed traces open while leaving the
- * trigger user-toggleable.
- * Panel height animates from Base UI's exposed `--collapsible-panel-height`
- * through the `sc-collapsible-panel` hook class — no JS `scrollHeight` measure.
+ * The parent controls open state so it can expand live thinking, collapse a
+ * short completed trace, or keep a detailed trace open. The panel height uses
+ * Base UI's `--collapsible-panel-height` through `sc-collapsible-panel`; no
+ * JavaScript `scrollHeight` measurement is needed.
  */
 import { type ReactElement, type ReactNode } from "react";
 

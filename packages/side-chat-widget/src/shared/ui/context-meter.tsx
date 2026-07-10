@@ -1,15 +1,14 @@
 /**
- * §9.5a — Context meter.
+ * §9.5a — Context meter: show real context-window usage.
  *
- * The honest fill indicator in the composer controls row. It shows how full the
- * active model's context window is, driven by REAL token usage from the last
- * completed turn (`sidechat.completed`.usage) against the model's context window.
- * It renders nothing until both numbers are known, so it never fabricates a value
- * (the old ring faked `characters / 48`).
+ * The meter compares token usage from the last completed turn
+ * (`sidechat.completed`.usage) with the active model's context window. It renders
+ * nothing until both values are known, so it never invents a percentage from
+ * character counts.
  *
- * A11y: the ring is a `role="meter"` with an aria label + `aria-valuetext`, and a
- * Base UI tooltip names "used / window tokens" on hover — the SVG itself stays
- * `aria-hidden` so the meter reads once, not twice.
+ * For accessibility, the ring is `role="meter"` with an ARIA label and value
+ * text. A Base UI tooltip shows “used / window tokens” on hover. The SVG is
+ * `aria-hidden` so the value is announced only once.
  */
 import { Tooltip } from "@base-ui/react/tooltip";
 import type { ReactElement } from "react";

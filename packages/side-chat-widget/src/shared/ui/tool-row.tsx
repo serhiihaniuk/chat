@@ -1,16 +1,14 @@
 /**
- * §9.9 — Tool row.
+ * §9.9 — Tool row: a compact status line inside Reasoning.
  *
- * A compact line inside the Reasoning panel: a leading status glyph then the tool
- * name as PLAIN text — no pill, no wrench (matching the design tokens). The name is
- * --tool-label-fg (foreground) at --tool-label-size (text-sm), weight 500; only the
- * glyph carries colour. Informational, not interactive — a plain <div>.
+ * Show one status icon followed by the tool name as plain text. This is
+ * informational, not interactive, so it stays a plain `<div>` with no pill or
+ * wrench icon. Only the icon changes color.
  *
- * The state comes from the activity timeline row; each state maps to one glyph:
- *   running -> spinning Loader2, --tool-running-fg (primary)
- *   success -> Check,          --tool-done-fg (success)
- *   error   -> TriangleAlert, tinted via the sc-error-glyph hook class
- *             (destructive mixed into muted — there is no destructive-foreground)
+ * The activity timeline supplies the state:
+ * - `running` → spinning `Loader2`
+ * - `success` → `Check`
+ * - `error` → `TriangleAlert`, styled by `sc-error-glyph`
  */
 import type { ReactElement } from "react";
 

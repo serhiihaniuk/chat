@@ -1,16 +1,14 @@
 "use client";
 
 /**
- * §8.16 — Link-safety confirm.
+ * §8.16 — Link-safety confirmation for every external link.
  *
- * The one interstitial for every external jump the widget makes: the assistant's
- * Markdown links (Streamdown intercepts the click and passes its own `onConfirm`)
- * and the citation fold's source rows (which pass `openExternalUrl`). The widget's
- * own §8.16 dialog, not Streamdown's built-in modal, so the confirm renders inside
- * the token scope and localizes with the rest of the widget.
+ * Markdown links and citation rows use this same dialog before opening a URL.
+ * The widget owns the dialog instead of Streamdown, so it stays inside the
+ * widget's theme and uses the widget's localized labels.
  *
- * It only presents the jump: the destination URL verbatim — link text can lie, the
- * href cannot — plus copy-instead and open actions. `onConfirm` performs the open.
+ * Show the exact destination URL because link text can be misleading. The user
+ * can copy the URL or open it; `onConfirm` performs the actual navigation.
  */
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 

@@ -1,17 +1,15 @@
 /**
- * §8.10 — Select (non-searchable dropdown).
+ * §8.10 — Select: the non-searchable dropdown.
  *
- * Built from Base UI `Select`. This is the plain non-searchable picker pattern; the
- * narrow Settings navigator also uses Select for group switching. A search field would
- * make it a Combobox, §8.11.
+ * This uses Base UI `Select` for model and settings choices. If the control needs
+ * a search field, use the Combobox pattern instead (§8.11).
  *
- * Part tree (contract): Select.Root (items/value/onValueChange) → Select.Trigger
- * (Select.Value + Select.Icon) → Select.Portal(container) → Select.Positioner →
- * Select.Popup[data-slot="select-content"] → Select.List → Select.Item
- * (Select.ItemText + Select.ItemIndicator). The popup is styled in CSS via the
- * shared `select-content` slot; the portal mounts into the widget root (G5) so it
- * keeps the theme + font. Item state is `highlighted:` (active) and `selected:`
- * (chosen → check). Typeahead is built into Base UI.
+ * Keep this part tree intact:
+ * `Select.Root` → `Select.Trigger` → `Select.Portal(container)` → `Select.Positioner`
+ * → `Select.Popup[data-slot="select-content"]` → `Select.List` → `Select.Item`.
+ * The popup CSS uses the shared `select-content` slot, and the portal stays inside
+ * the widget root so the theme and font apply. Base UI handles typeahead;
+ * `highlighted:` marks the active item and `selected:` shows the check.
  */
 import { useState, type ReactElement } from "react";
 import { Select } from "@base-ui/react/select";

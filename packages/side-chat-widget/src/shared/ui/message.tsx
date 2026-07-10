@@ -1,18 +1,16 @@
 /**
- * §9.6 — Message.
+ * §9.6 — Message: render one turn of conversation text.
  *
- * The leaf that renders one turn of conversation text. No Base UI part — a turn is
- * a semantic `<div data-from>` whose role drives layout and skin entirely through
- * the `data-[from=user]:` variant, so the SAME component renders both sides.
+ * One semantic `<div data-from>` handles both roles. The `data-[from=user]:`
+ * styles choose the layout, so user and assistant messages stay in one component.
  *
- *   user      → a right-aligned bubble with one squared tail corner (rounded-br-sm),
- *               capped at 82% of the column so long lines wrap before the edge;
- *               `break-words` also breaks an unbroken run (a long URL) inside the cap.
- *   assistant → no bubble; full-measure prose rendered through `MarkdownContent`
- *               (the ONE Markdown wrapper) and capped at the reading measure.
+ * - User messages are right-aligned bubbles with one squared tail corner. They
+ *   use an 82% width cap and `break-words`, which also breaks long URLs.
+ * - Assistant messages have no bubble. `MarkdownContent` renders the prose at
+ *   the normal reading width.
  *
- * The 82% cap is an inline style (a runtime value, not a class) so it never needs an
- * arbitrary `max-w-[..]` utility; leading is the registered `leading-message` token.
+ * The 82% cap is an inline runtime value, so it does not need an arbitrary
+ * `max-w-[..]` utility. Line height comes from the `leading-message` token.
  */
 import type { ReactElement } from "react";
 

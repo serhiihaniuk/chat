@@ -1,15 +1,14 @@
 /**
- * Section 9.5 - Composer.
+ * Section 9.5 — Composer: the message input and its controls.
  *
- * The input shell: a Field textarea over a controls row (Tools menu + honest
- * context meter + Model selector slot + send). The focus ring lives on the shell
- * via `sc-composer` (`:focus-within`), never on the raw textarea, so tabbing into
- * the field lights the whole surface. Send is one button that swaps idle/armed/stop
- * through our own `data-armed` state on the `sc-send` hook class.
+ * The shell contains the textarea, tools menu, real context meter, model selector,
+ * and send button. `sc-composer` owns the `:focus-within` ring, so focusing the
+ * textarea highlights the whole surface. One `sc-send` button changes between
+ * idle, send, and stop through its `data-armed` state.
  *
- * The field stays enabled while a turn streams so the next message can be drafted;
- * a bare Enter then inserts a newline (Stop is the button's job, not Enter's), and
- * focus returns to the field after each send and when the turn finishes.
+ * The field stays enabled while a turn streams so the next message can be drafted.
+ * Enter inserts a newline; stopping is the button's job. Focus returns to the
+ * field after sending and when the turn finishes.
  */
 import {
   useEffect,

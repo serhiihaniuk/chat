@@ -1,16 +1,15 @@
 /**
- * §8.16 — Dialog.
+ * §8.16 — Dialog: a modal kept inside the widget panel.
  *
- * Built from Base UI `Dialog`. A PANEL-SCOPED modal: backdrop and popup are
- * portaled into the widget root (`usePortalContainer()`) and positioned absolute,
- * so the dialog overlays the widget panel — never the embedding host page — and
- * the backdrop clips to the panel's rounded corners. Surface + positioning are
- * owned by styles.css via the `dialog-backdrop` / `dialog-content` slots; JSX
- * only tags the slots (same contract as menus and popovers).
+ * Base UI `Dialog` portals the backdrop and popup into `usePortalContainer()`.
+ * Absolute positioning keeps the modal over the widget, not over the host page,
+ * and lets the backdrop follow the panel's rounded corners. `styles.css` owns
+ * the surface and positioning through the `dialog-backdrop` and `dialog-content`
+ * slots; JSX only supplies those slot names.
  *
- * Controlled-only: the widget's dialogs open from imperative flows (a clicked
- * markdown link, a destructive confirm), not from a co-located trigger button,
- * so the component takes `open`/`onOpenChange` and no Trigger part.
+ * This component is controlled only. The widget opens it from flows such as a
+ * clicked Markdown link or a destructive-action confirmation, so it has
+ * `open`/`onOpenChange` but no local Trigger part.
  */
 import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";

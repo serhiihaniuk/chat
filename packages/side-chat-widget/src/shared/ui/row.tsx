@@ -1,25 +1,21 @@
 /**
- * §8.4 — Row: the single most reused primitive.
+ * §8.4 — Row: the shared layout for selectable lines.
  *
- * Row is a className PATTERN, not its own Base UI part. A selectable line is
- *   [leading media?] [title + optional subtitle] [trailing check/indicator?]
- * and it appears in exactly two forms:
+ * Row is a class-name pattern, not a separate Base UI component. A line has
+ * `[leading media?] [title + optional subtitle] [trailing indicator?]` and is
+ * used in two forms:
  *
- *   A) As the styled content of a Base UI `Menu.Item` / `Select.Item` /
- *      `Combobox.Item` — active state via `highlighted:` (pointer OR keyboard),
- *      the trailing check via `selected:` on the part's ItemIndicator.
- *   B) As a standalone `<button>` (the conversation row) — active state via the
- *      semantic `aria-current="true"`, surfaced with the row hover/active
- *      surface tokens and a trailing dot.
+ * - A Base UI `Menu.Item`, `Select.Item`, or `Combobox.Item`. Base UI supplies
+ *   `highlighted:` for pointer/keyboard focus and `selected:` for the check.
+ * - A standalone `<button>` such as a conversation row. It uses
+ *   `aria-current="true"` for the active conversation and shows a trailing dot.
  *
- * Two rules are load-bearing in both forms:
- *   - TRUNCATION: the title column carries `min-w-0` AND the text carries
- *     `truncate`, or a long title pushes the whole panel wider.
- *   - NO REFLOW: the trailing indicator is always in the DOM at `opacity-0` and
- *     only revealed by state, so selection never shifts the layout.
+ * Keep `min-w-0` on the title column and `truncate` on the text, or a long title
+ * widens the panel. Keep the trailing indicator in the DOM at `opacity-0` and
+ * reveal it with state, or selection will move the rest of the row.
  *
- * Consumers inline `rowBaseClass` on their `Item`/`<button>` and append the
- * form-specific state variant.
+ * Consumers add `rowBaseClass` to their item or button, then append its state
+ * variant.
  */
 import { useState, type ReactElement } from "react";
 
