@@ -429,6 +429,138 @@ expectFailure("runtime boundary process.env fixture", "check-runtime-boundaries.
   );
 });
 
+expectFailure(
+  "service application framework boundary fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/application/bad.ts",
+      "import { Hono } from 'hono';\nexport const bad = new Hono();\n",
+    );
+  },
+  "application imports outward dependency hono",
+);
+
+expectFailure(
+  "service workflow directive placement fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/adapters/http/bad.ts",
+      "export async function bad() {\n  'use workflow';\n}\n",
+    );
+  },
+  "Workflow directive must live under",
+);
+
+expectFailure(
+  "service adapter coupling fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/adapters/http/bad.ts",
+      "import { adapter } from '#adapters/providers/azure';\nexport const bad = adapter;\n",
+    );
+  },
+  "adapter imports another outer implementation",
+);
+
+expectFailure(
+  "service workflow engine placement fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/adapters/http/bad.ts",
+      "import { start } from 'workflow/api';\nexport const bad = start;\n",
+    );
+  },
+  "Workflow engine import workflow/api is legal only",
+);
+
+expectFailure(
+  "service production testing isolation fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/index.ts",
+      "export { app } from '#composition/route/production';\n",
+    );
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/composition/route/production.ts",
+      "export { model } from '#testing/scripted-model';\n",
+    );
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/testing/scripted-model.ts",
+      "export const model = {};\n",
+    );
+  },
+  "production import graph reaches testing dependency",
+);
+
+expectFailure(
+  "service workflow self-assembly fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/workflows/bad.ts",
+      "import { model } from '#testing/scripted-model';\nexport const bad = model;\n",
+    );
+  },
+  "workflow imports forbidden outer dependency #testing/scripted-model",
+);
+
+expectFailure(
+  "service config escape fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/config/bad.ts",
+      "export { value } from '../testing/secret.js';\n",
+    );
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/testing/secret.ts",
+      "export const value = 1;\n",
+    );
+  },
+  "config subsystem imports outward dependency",
+);
+
+expectFailure(
+  "service environment magic string fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/config/environment/bad.ts",
+      "export const value = process.env['WORKFLOW_POSTGRES_URL'];\n",
+    );
+  },
+  "environment key WORKFLOW_POSTGRES_URL must use SERVICE_ENV_KEYS",
+);
+
+expectFailure(
+  "service root config environment magic string fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/sidechat.config.ts",
+      "export const postgresUrl = readEnv.secret('WORKFLOW_POSTGRES_URL');\n",
+    );
+  },
+  "environment key WORKFLOW_POSTGRES_URL must use SERVICE_ENV_KEYS",
+);
+
 expectFailure("package exports fixture", "check-package-exports.mjs", (root) => {
   writeJson(join(root, "tsconfig.json"), { references: [] });
   writeJson(join(root, "packages/orphan/package.json"), {

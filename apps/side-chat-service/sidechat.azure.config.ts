@@ -3,7 +3,7 @@ import {
   readEnv,
   SERVICE_ENV_KEYS,
   type SideChatConfig,
-} from "./src/ports/configuration/side-chat-config.js";
+} from "./src/config/declaration/side-chat-config.js";
 
 /** Azure provider details join this standalone deployment variant in Step 04. */
 const config: SideChatConfig = defineSideChatConfig({

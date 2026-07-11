@@ -63,7 +63,7 @@ POST responds with `createUIMessageStreamResponse` over `run.readable.pipeThroug
 ## Verification
 
 ```powershell
-npm test -- apps/side-chat-service/src/http
+npm test -- apps/side-chat-service/src/adapters/http
 npm test -- apps/side-chat-service/src/workflows
 npm run typecheck
 npm run lint:custom

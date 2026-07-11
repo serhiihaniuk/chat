@@ -1,7 +1,7 @@
 import {
   defineSideChatConfig,
   type SideChatConfig,
-} from "./src/ports/configuration/side-chat-config.js";
+} from "./src/config/declaration/side-chat-config.js";
 
 const config: SideChatConfig = defineSideChatConfig({
   timeouts: { requestMs: 10_000, queueMs: 1_000, providerMs: 5_000 },

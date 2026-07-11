@@ -29,9 +29,11 @@ One small transform in Step 05's `outboundTransforms` seam enforces product poli
 - **forward-compatibility**: unknown chunk types are **forwarded, not dropped**, and counted in telemetry;
 - **terminal guard**: assert-once semantics — a second terminal-class chunk is dropped and counted (defense in depth; the SDK should already guarantee this).
 
-### Profile document
+### Profile package + document
 
-Write the canonical profile doc (placement per docs policy; linked from Step 21): pinned protocol version (`x-vercel-ai-ui-message-stream: v1`), our `data-*` part schemas, the error-code vocabulary with retryability, the auth/transport contract (headers, cancel/reconnect routes), and the keepalive note (comment frames, interval).
+Create the shared profile package (`packages/stream-profile`, final name recorded here; see `ARCHITECTURE.md` §Package boundaries): dependency-free and browser-safe, exporting our `data-*` part types and the error-code vocabulary with retryability — imported by BOTH this service's scrub/injection code and the widget (Steps 13/14). This is the shrunken successor of `chat-protocol`'s legitimate shared-contract role; keep it to type declarations plus the vocabulary table, no runtime machinery.
+
+Write the canonical profile doc (placement per docs policy; linked from Step 21): pinned protocol version (`x-vercel-ai-ui-message-stream: v1`), our `data-*` part schemas (referencing the package as their source of truth), the error-code vocabulary with retryability, the auth/transport contract (headers, cancel/reconnect routes), and the keepalive note (comment frames, interval).
 
 ## Edge cases (each a test)
 
@@ -45,7 +47,7 @@ Write the canonical profile doc (placement per docs policy; linked from Step 21)
 ## Verification
 
 ```powershell
-npm test -- apps/side-chat-service/src/http
+npm test -- apps/side-chat-service/src/adapters/http
 npm run typecheck
 npm run lint:custom
 rg -n "sidechat\.v1" apps/side-chat-service

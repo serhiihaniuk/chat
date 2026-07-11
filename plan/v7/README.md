@@ -70,11 +70,11 @@ AI SDK 7 adoption was never gated; only the durable-execution substrate was. The
 - **First pass:** the compatibility gate found that cancellation could not reach an in-flight provider call inside a workflow (Workflow 4.6's VM lacks `AbortSignal`; a Workflow 5 beta signal failed AI SDK's `instanceof AbortSignal` check). It selected a request-bound `ToolLoopAgent` fallback and deleted the Workflow code. The finding was correct; its evidence document was later lost in an interrupted cleanup.
 - **Re-examination:** a from-scratch reproduction on the newest versions ([`evidence/02-workflow-cancellation-reexamination.md`](./evidence/02-workflow-cancellation-reexamination.md)) proved the failure is a one-line name-lookup bug while the DevKit's v5 cancellation semantics are correct end-to-end. The user decided to adopt Workflow with the pinned realm patch, ADR 0016 was revised to that outcome, and the foundation was rebuilt and verified the same day. The fallback code was deleted — exactly one substrate ships, never both behind an abstraction.
 
-**Final outcome:** WorkflowAgent + Workflow DevKit + `@workflow/world-postgres` at exact pins, with the patch isolated in `apps/side-chat-service/src/runtime/workflow-abort-signal-patch.ts`. The permanent compatibility suite (`npm run test:service:compatibility`) re-verifies the substrate on every dependency bump and contains the patch-removal tripwire: it asserts the unpatched path still throws, so the run in which a dependency bump makes that test flip is the run that deletes the patch. Cancellation is signal-based via a durable abort hook; `run.cancel()` is not the cancellation mechanism. Step 12's approval gap, deployment constraints, write amplification, and telemetry maturity are owned and repaired by later steps, as the gate always intended.
+**Final outcome:** WorkflowAgent + Workflow DevKit + `@workflow/world-postgres` at exact pins, with the patch isolated in `apps/side-chat-service/src/workflows/abort-signal-patch.ts`. The permanent compatibility suite (`npm run test:service:compatibility`) re-verifies the substrate on every dependency bump and contains the patch-removal tripwire: it asserts the unpatched path still throws, so the run in which a dependency bump makes that test flip is the run that deletes the patch. Cancellation is signal-based via a durable abort hook; `run.cancel()` is not the cancellation mechanism. Step 12's approval gap, deployment constraints, write amplification, and telemetry maturity are owned and repaired by later steps, as the gate always intended.
 
 ## How an agent executes a step
 
-1. Read this file, [`STATUS.md`](./STATUS.md), [`KNOWLEDGE.md`](./KNOWLEDGE.md), and the step file.
+1. Read this file, [`ARCHITECTURE.md`](./ARCHITECTURE.md) (normative — every file placement and dependency direction follows it), [`STATUS.md`](./STATUS.md), [`KNOWLEDGE.md`](./KNOWLEDGE.md), and the step file.
 2. Verify SDK/Workflow APIs against installed declarations and `.reference/ai-sdk-v7` / `.reference/workflow`. Reverify after every version bump.
 3. Update `STATUS.md` owner/state before and after work.
 4. Keep the old app unchanged and green until Step 20.
@@ -111,6 +111,7 @@ This program leaves `plan/effect` byte-identical as historical research material
 
 ## Files
 
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md): the normative target shape — layers, ports, dependency law, physical seams, anti-patterns.
 - [`STATUS.md`](./STATUS.md): state, ownership, substrate verdict, evidence.
 - [`KNOWLEDGE.md`](./KNOWLEDGE.md): verified facts, gotchas, baseline, rationale.
 - `01`–`21`: executable milestone contracts (one file per step).

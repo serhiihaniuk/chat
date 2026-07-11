@@ -28,10 +28,10 @@ This step originally existed as two files (02a retained foundation, 02b compatib
 ## Implemented architecture
 
 - HTTP: `hono`, served through the Nitro build (`nitro.config.ts`, module `workflow/nitro`); scripts `build: nitro build`, `dev: nitro dev`, `start: node .output/server/index.mjs`.
-- Agent: `WorkflowAgent` (`@ai-sdk/workflow`) inside a `'use workflow'` turn function (`src/runtime/turn-workflow.ts`).
-- Patch module: `src/runtime/workflow-abort-signal-patch.ts` restores a constructable `AbortSignal` global inside the workflow realm (written as `Reflect.getPrototypeOf(signal)` + `Object.assign(globalThis, { AbortSignal: … })` because repo gates forbid type assertions; semantically the proven one-liner). Its header carries the root cause, the evidence link, and the removal criterion.
+- Agent: `WorkflowAgent` (`@ai-sdk/workflow`) inside a `'use workflow'` compatibility turn (`src/workflows/testing/compatibility-turn.ts`).
+- Patch module: `src/workflows/abort-signal-patch.ts` restores a constructable `AbortSignal` global inside the workflow realm (written as `Reflect.getPrototypeOf(signal)` + `Object.assign(globalThis, { AbortSignal: … })` because repo gates forbid type assertions; semantically the proven one-liner). Its header carries the root cause, the evidence link, and the removal criterion.
 - Cancellation: signal-based — a durable abort hook raced with `WorkflowAgent.stream`; the cancel route resumes the hook; the workflow-realm `AbortController` aborts the provider call. `run.cancel()` is not a mechanism and no `run.cancel()` route exists.
-- Test provider: credential-free scripted model (`src/runtime/scripted-language-model.ts`) implementing `WORKFLOW_SERIALIZE`/`WORKFLOW_DESERIALIZE` from `@workflow/serde` so it crosses the workflow→step boundary.
+- Test provider: credential-free scripted model (`src/testing/scripted-language-model.ts`) implementing `WORKFLOW_SERIALIZE`/`WORKFLOW_DESERIALIZE` from `@workflow/serde` so it crosses the workflow→step boundary.
 - Worlds: dev and the compatibility suite run the embedded local world with a disposable `WORKFLOW_LOCAL_DATA_DIR`; production builds select `@workflow/world-postgres` via the build-time `WORKFLOW_TARGET_WORLD` esbuild alias, with `WORKFLOW_POSTGRES_URL` as the runtime secret.
 - Pins (exact): `ai@7.0.22`, `@ai-sdk/workflow@1.0.22`, `workflow@5.0.0-beta.30`, `@ai-sdk/provider@4.0.3`, `@workflow/serde@5.0.0-beta.2`, `@workflow/world-postgres@5.0.0-beta.24`, `nitro@3.0.260610-beta`, `rollup@4.62.2`, `hono@4.12.27`; `zod` deliberately undeclared (auto peer; root pins it).
 - Boundaries: no import from the old app, Effect runtime, provider credentials, or browser packages; `.nitro/`, `.output/`, `.workflow-data/` gitignored and governance-ignored.
@@ -45,7 +45,7 @@ This step originally existed as two files (02a retained foundation, 02b compatib
 
 ## Permanent compatibility suite (3/3 green on the compiled Nitro output)
 
-`src/runtime/service-compatibility.integration.test.ts`, run by `npm run test:service:compatibility`:
+`src/composition/route/service-compatibility.integration.test.ts`, run by `npm run test:service:compatibility`:
 
 1. boots the compiled service on an ephemeral port and completes a native WorkflowAgent UI message stream (text framing, `finish`, `[DONE]`);
 2. delivers hook cancellation to the in-flight provider call — provider-observed abort, zero late content, exactly one provider attempt;
@@ -73,14 +73,14 @@ npm run lint:custom
 
 ## Handoff record
 
-Service workspace: `apps/side-chat-service` (Nitro entry `nitro.config.ts`; Hono app `src/http/app.ts`, exported via `src/index.ts`)
+Service workspace: `apps/side-chat-service` (Nitro entry `nitro.config.ts`; Hono app created under `src/adapters/http`, exported via `src/index.ts`)
 
-Turn workflow: `apps/side-chat-service/src/runtime/turn-workflow.ts`
+Turn workflow: `apps/side-chat-service/src/workflows/testing/compatibility-turn.ts`
 
-Patch module: `apps/side-chat-service/src/runtime/workflow-abort-signal-patch.ts`
+Patch module: `apps/side-chat-service/src/workflows/abort-signal-patch.ts`
 
-Scripted model: `apps/side-chat-service/src/runtime/scripted-language-model.ts`
+Scripted model: `apps/side-chat-service/src/testing/scripted-language-model.ts`
 
-Permanent suite: `apps/side-chat-service/src/runtime/service-compatibility.integration.test.ts` (verified command: `npm run test:service:compatibility`, 3/3)
+Permanent suite: `apps/side-chat-service/src/composition/route/service-compatibility.integration.test.ts` (verified command: `npm run test:service:compatibility`, 3/3)
 
 Decision and findings recorded in: ADR 0016 (revised), `KNOWLEDGE.md` §2026-07-11 cancellation re-examination and §2026-07-11 foundation rebuild facts, `evidence/02-workflow-cancellation-reexamination.md`

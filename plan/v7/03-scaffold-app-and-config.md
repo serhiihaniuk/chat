@@ -25,24 +25,23 @@ The retained `apps/side-chat-service` foundation gains the final configuration p
 ```text
 apps/side-chat-service/
   src/
-    ports/              # inward contracts; no framework imports
-    application/        # resolved settings and cross-field policy
-    adapters/
-      configuration/    # process env and bundled config selection
-      inbound/http/     # Hono health/readiness and compatibility routes
-      outbound/workflow/ # WorkflowAgent execution and engine repair
-    bootstrap/          # production/testing wiring and resource ownership
+    application/ports/  # earned behavioral interfaces only
+    adapters/http/      # Hono health/readiness and compatibility routes
+    config/             # cohesive config DSL, env resolution, validation
+    composition/        # route and workflow-bundle wiring; resources
+    workflows/          # registry/engine repair plus production/testing scan roots
+    testing/            # scripted models and doubles
     index.ts
   sidechat.config.ts
   sidechat.fake.config.ts
   sidechat.azure.config.ts
 ```
 
-Plain TypeScript only. `process.env` is read once in the env adapter. Constructors/functions receive dependencies explicitly. Two Step 02 facts constrain the composition: the Workflow serialization boundary forbids closures over live services, and the Nitro workflow build compiles routes and workflow steps into separate module instances — module-scope state never crosses that boundary. Services reachable from step code therefore initialize inside the step bundle: expose exactly one documented initialized-once registry owned by production composition; it must reject use before initialization, reset in test disposal, and never be assumed shared with the route bundle.
+Plain TypeScript only. The three app-root `sidechat*.config.ts` declarations are inputs owned by the config catalog; every other config import stays inside `src/config`. `process.env` is read once in the env adapter. Constructors/functions receive dependencies explicitly. Two Step 02 facts constrain composition: route and workflow module state is not shared, and Nitro scans configured workflow directories independently from route reachability. Each physical workflow bundle therefore uses its matching composition initializer and the one typed initialized-once registry. Production and testing scan roots are disjoint.
 
 ## Implementation sequence
 
-1. Port by copy and simplify: config-module selection → environment resolution → zod validation with accumulated issues → immutable `Settings`.
+1. Port by copy and simplify: config-module selection → environment resolution → dependency-free validation with accumulated issues → immutable `Settings`.
 2. Add required blocks: `timeouts`, `agent`, `capacity`, `keepalive`, `telemetry`, and `workflow` (worker, journal archive/prune knobs, `WORKFLOW_POSTGRES_URL` via the env adapter). Note the build-time part of the env contract: `WORKFLOW_TARGET_WORLD` selects the world at `nitro build` and is not a runtime setting.
 3. Add cross-field validation: chunk/tool budgets below total budget, queue timeout below request budget, positive keepalive below the documented proxy idle budget, and Workflow worker concurrency above configured active generation plus headroom.
 4. Build explicit production and testing compositions. Production cannot import scripted providers; tests cannot reach credentials or persistent infrastructure.
@@ -57,18 +56,20 @@ Plain TypeScript only. `process.env` is read once in the env adapter. Constructo
 - `process.env` is unreachable outside the env adapter;
 - partial acquisition failure closes worker/pool/listeners and never opens the port;
 - production composition cannot resolve scripted/test dependencies;
+- the compiled production artifact contains no scripted-provider or compatibility marker;
 - missing or invalid `workflow` settings fail boot with accumulated safe issues.
 
 ## Verification
 
 ```powershell
-npm test -- apps/side-chat-service/src/application/configuration
-npm test -- apps/side-chat-service/src/adapters/configuration
-npm test -- apps/side-chat-service/src/bootstrap
+npm test -- apps/side-chat-service/src/config
+npm test -- apps/side-chat-service/src/composition
+npm test -- apps/side-chat-service/src/workflows
 npm run typecheck
 npm run build
+npm run build:testing --workspace @side-chat/side-chat-service
 npm run lint:custom
-rg -n "process\.env" apps/side-chat-service/src --glob '!**/adapters/configuration/**' --glob '!**/*.test.ts'
+rg -n "process\.env" apps/side-chat-service/src --glob '!**/config/**' --glob '!**/*.test.ts'
 ```
 
 The search must return zero.
@@ -85,8 +86,10 @@ The search must return zero.
 
 Configuration modules ported: readable default, fake, and Azure declarations; build-bundled selection through `SIDECHAT_CONFIG`; env references resolve only during boot.
 
-Settings blocks and cross-field rules: timeouts, agent, capacity, keepalive, telemetry, and workflow; queue/request, chunk/total, tool/total, keepalive/proxy, worker/headroom, and archive/prune invariants accumulate through Zod.
+Settings blocks and cross-field rules: timeouts, agent, capacity, keepalive, telemetry, and workflow; queue/request, chunk/total, tool/total, keepalive/proxy, worker/headroom, and archive/prune invariants accumulate in the dependency-free config boundary.
 
-Composition/resource order: explicit bootstrap compositions start named service parts in order and close partial or completed startup in reverse. Testing close also resets workflow-adapter state. The enforced dependency direction is `bootstrap -> adapters -> application -> ports`.
+Composition/resource order: explicit route-bundle compositions start named service parts in order and close partial or completed startup in reverse. Matching production/testing workflow composition functions initialize the typed registry in their own bundle; only testing can reset it.
 
-Workflow configuration and env contract: `WORKFLOW_TARGET_WORLD` remains Step 02 build-time input; `WORKFLOW_POSTGRES_URL` is a secret runtime reference. The workflow registry rejects reads before initialization and documents Nitro module-instance isolation.
+Artifact isolation: the normal Nitro config scans the empty Step 03 `workflows/production` root. The compatibility builder overrides both the route entry and scan root to `workflows/testing`. The permanent suite rebuilds production afterward and rejects any scripted-provider or compatibility marker in `.output`.
+
+Workflow configuration and env contract: `WORKFLOW_TARGET_WORLD` remains Step 02 build-time input; `WORKFLOW_POSTGRES_URL` is a secret runtime reference. The registry stores an application-owned model-provider port, rejects reads before initialization, and never implies route/workflow module-state sharing.

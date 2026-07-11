@@ -43,7 +43,7 @@ Clients load validated history, discover in-flight runs for reattachment, and pr
 
 ```powershell
 npm test -- apps/side-chat-service/src/persistence
-npm test -- apps/side-chat-service/src/http
+npm test -- apps/side-chat-service/src/adapters/http
 npm run test:db:container
 npm run typecheck
 npm run lint:custom

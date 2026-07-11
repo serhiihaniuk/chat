@@ -61,7 +61,7 @@ Per Step 01: suspend until reattach, bounded by `clientToolMs` — the run is du
 
 ```powershell
 npm test -- apps/side-chat-service/src/tools
-npm test -- apps/side-chat-service/src/http
+npm test -- apps/side-chat-service/src/adapters/http
 npm run typecheck
 npm run lint:custom
 rg -n "hostCommand|HostCommand" apps/side-chat-service packages/host-bridge

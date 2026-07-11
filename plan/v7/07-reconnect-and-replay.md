@@ -35,7 +35,7 @@ Any authorized client can attach to an in-flight or recently finished run and re
 ## Verification
 
 ```powershell
-npm test -- apps/side-chat-service/src/http
+npm test -- apps/side-chat-service/src/adapters/http
 npm run typecheck
 npm run lint:custom
 ```

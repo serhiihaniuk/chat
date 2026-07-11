@@ -3,7 +3,7 @@ import {
   readEnv,
   SERVICE_ENV_KEYS,
   type SideChatConfig,
-} from "./src/ports/configuration/side-chat-config.js";
+} from "./src/config/declaration/side-chat-config.js";
 
 /** Production defaults remain readable here; secrets resolve only during boot. */
 const config: SideChatConfig = defineSideChatConfig({

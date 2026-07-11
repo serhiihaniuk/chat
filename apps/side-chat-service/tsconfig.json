@@ -8,5 +8,5 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "sidechat*.config.ts"]
+  "include": ["src/**/*.ts", "nitro.config.ts", "sidechat*.config.ts"]
 }

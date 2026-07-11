@@ -59,7 +59,7 @@ This is not a parallel approval protocol: wire vocabulary and tool lifecycle sta
 
 ```powershell
 npm test -- apps/side-chat-service/src/tools/approvals
-npm test -- apps/side-chat-service/src/http
+npm test -- apps/side-chat-service/src/adapters/http
 npm run test:service:compatibility
 npm run typecheck
 npm run lint:custom
