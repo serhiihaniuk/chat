@@ -238,6 +238,66 @@ describe("chat routes", () => {
     }
   });
 
+  it("validates the client-tool catalog before admission, writes, or execution", async () => {
+    const admission = new DeterministicTurnAdmission();
+    const execution = new ControlledTurnExecution(chunks(), neverTerminal());
+    const harness = await createServiceTestHarness({
+      turnAdmission: admission,
+      turnExecution: execution,
+    });
+    try {
+      const invalidCatalog = [
+        {
+          name: "open_file",
+          description: "Open a file.",
+          inputSchema: { type: "object" },
+        },
+        {
+          name: "open_file",
+          description: "Shadow the first declaration.",
+          inputSchema: { type: "object" },
+        },
+      ];
+      const response = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest({ clientTools: invalidCatalog }),
+      );
+
+      expect(response.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
+      expect(admission.admitted).toBe(0);
+      expect(harness.turnState.userMessages).toEqual([]);
+      expect(execution.started).toEqual([]);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("passes a validated client-tool catalog to turn execution", async () => {
+    const execution = new ControlledTurnExecution(chunks(), neverTerminal());
+    const harness = await createServiceTestHarness({ turnExecution: execution });
+    const clientTools = [
+      {
+        name: "open_file",
+        description: "Open a file.",
+        inputSchema: {
+          type: "object",
+          properties: { path: { type: "string" } },
+          required: ["path"],
+        },
+      },
+    ];
+    let response: Response | undefined;
+    try {
+      response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest({ clientTools }));
+
+      expect(response.status).toBe(SUCCESS_HTTP_STATUS);
+      expect(execution.started[0]?.clientTools).toEqual(clientTools);
+    } finally {
+      await response?.body?.cancel();
+      await harness.close();
+    }
+  });
+
   it("rejects POST and cancel ownership violations before execution", async () => {
     const state = new InMemoryTurnState([
       {
@@ -292,7 +352,7 @@ class ControlledTurnExecution implements TurnExecution {
   }
 }
 
-function chatRequest(): RequestInit {
+function chatRequest(extra: Record<string, unknown> = {}): RequestInit {
   return {
     method: "POST",
     body: JSON.stringify({
@@ -300,6 +360,7 @@ function chatRequest(): RequestInit {
       conversationId: TEST_CONVERSATION.conversationId,
       messages: [requestUserMessage],
       modelPreference: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+      ...extra,
     }),
   };
 }

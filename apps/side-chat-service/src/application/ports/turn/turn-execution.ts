@@ -1,5 +1,6 @@
 import type { UIMessage, UIMessageChunk } from "ai";
 
+import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import type {
   TurnExecutionErrorCode,
   TurnMessage,
@@ -13,7 +14,7 @@ export type TurnExecutionInput = TurnRef &
     requestId: string;
     modelId: string;
     messages: readonly TurnMessage[];
-    clientTools: readonly unknown[];
+    clientTools: readonly ClientToolDefinition[];
   }>;
 
 /**

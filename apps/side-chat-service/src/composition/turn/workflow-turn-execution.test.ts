@@ -49,7 +49,13 @@ describe("createWorkflowTurnExecution", () => {
       }),
     );
     const execution = createWorkflowTurnExecution(settings, startTurn);
-    const clientTools = [{ name: "open_file" }];
+    const clientTools = [
+      {
+        name: "open_file",
+        description: "Open a file in the host application.",
+        inputSchema: { type: "object" },
+      },
+    ];
 
     await execution.start({ ...TURN_INPUT, clientTools });
 

@@ -12,6 +12,7 @@ import { resumeHook, start } from "workflow/api";
 
 import { assertModelInstance, type ModelProvider } from "#application/ports/model-provider";
 import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
+import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import { initializeProductionWorkflowServices } from "#composition/workflow/production";
 import { patchWorkflowRealmAbortSignal } from "../abort-signal-patch.js";
 
@@ -47,7 +48,7 @@ export interface ChatTurnWorkflowInput {
   readonly maxSteps: number;
   readonly providerTimeoutMs: number;
   readonly messages: readonly SerializableChatMessage[];
-  readonly clientTools: readonly unknown[];
+  readonly clientTools: readonly ClientToolDefinition[];
 }
 
 export type ChatTurnTerminalOutcome =

@@ -17,7 +17,7 @@ const INPUT: ConversationTitleWorkflowInput = {
 
 it("does not resolve a persistent title workflow before its durable write", async () => {
   let releaseWrite: (() => void) | undefined;
-  const persist = vi.fn(
+  const persist = vi.fn<() => Promise<void>>(
     () =>
       new Promise<void>((resolve) => {
         releaseWrite = resolve;

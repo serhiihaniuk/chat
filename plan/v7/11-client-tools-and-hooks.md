@@ -79,7 +79,15 @@ The `rg` documents remaining old naming in `host-bridge` (renamed in Steps 15/20
 
 ## Handoff record
 
-Endpoints, modules, dispatch-row states: pending
+Catalog transport slice: `application/turn/tools/client-tool-catalog.ts` owns the
+serializable definition and duplicate/server-shadowing policy, while the HTTP
+boundary proves names, descriptions, and JSON-safe schema transport. The current
+server-tool catalog is empty, so live server-shadow admission and the AI SDK
+`dynamicTool`/Ajv execution path remain part of this step's hook/wait slice. The
+incomplete path is intentionally not wired into `WorkflowAgent` and no direct
+tool-execute unit test is presented as schema-validation proof.
+
+Endpoints, dispatch-row states: pending
 
 resumeHook unknown-token handling applied: pending
 

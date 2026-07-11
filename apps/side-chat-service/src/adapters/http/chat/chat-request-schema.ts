@@ -1,7 +1,19 @@
 import { safeValidateUIMessages, type UIMessage } from "ai";
 import { z } from "zod";
 
+import {
+  hasClientToolNameConflict,
+  type ClientToolDefinition,
+} from "#application/turn/tools/client-tool-catalog";
 import { TURN_MESSAGE_ROLES, type TurnMessage, type TurnMessageRole } from "#domain/turn/turn";
+
+const clientToolSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    description: z.string().trim().min(1),
+    inputSchema: z.record(z.string(), z.json()),
+  })
+  .strict();
 
 const chatEnvelopeSchema = z
   .object({
@@ -9,7 +21,7 @@ const chatEnvelopeSchema = z
     conversationId: z.string().trim().min(1),
     messages: z.array(z.unknown()).min(1),
     modelPreference: z.string().trim().min(1).optional(),
-    clientTools: z.array(z.unknown()).optional(),
+    clientTools: z.array(clientToolSchema).optional(),
   })
   .strict();
 
@@ -21,7 +33,7 @@ export type ChatRequest = Readonly<{
   messages: readonly TurnMessage[];
   acceptedUserMessage: TurnMessage;
   requestedModelId?: string | undefined;
-  clientTools: readonly unknown[];
+  clientTools: readonly ClientToolDefinition[];
 }>;
 
 export async function parseChatRequest(value: unknown): Promise<ChatRequest | undefined> {
@@ -35,6 +47,8 @@ export async function parseChatRequest(value: unknown): Promise<ChatRequest | un
   }
   const acceptedUiMessage = validated.data.at(-1);
   if (acceptedUiMessage?.role !== "user") return undefined;
+  const clientTools = envelope.data.clientTools ?? [];
+  if (hasClientToolNameConflict(clientTools)) return undefined;
   const messages = validated.data.map(toTurnMessage);
   const acceptedUserMessage = messages.at(-1);
   if (acceptedUserMessage === undefined) return undefined;
@@ -44,7 +58,7 @@ export async function parseChatRequest(value: unknown): Promise<ChatRequest | un
     messages,
     acceptedUserMessage,
     requestedModelId: envelope.data.modelPreference,
-    clientTools: envelope.data.clientTools ?? [],
+    clientTools,
   };
 }
 
