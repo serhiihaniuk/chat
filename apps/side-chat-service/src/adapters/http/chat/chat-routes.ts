@@ -6,20 +6,15 @@ import { TurnRejectedError } from "#application/turn/turn-errors";
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 
 import type { AuthVariables } from "../auth-middleware.js";
-import {
-  errorResponse,
-  HTTP_ERROR_CODES,
-  HTTP_STATUS,
-  turnRejectionResponse,
-} from "../error-response.js";
+import { errorResponse, HTTP_ERROR, turnRejectionResponse } from "../error-response.js";
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "../http-contract.js";
 import { parseCancelRequest, parseChatRequest } from "./chat-request-schema.js";
-import { createChatStreamResponse, type OutboundTransform } from "./chat-stream-response.js";
+import { createChatStreamResponse, type OutboundTransformFactory } from "./chat-stream-response.js";
 
 export type ChatRouteDependencies = RunTurnDependencies &
   Readonly<{
     keepaliveIntervalMs: number;
-    outboundTransforms?: readonly OutboundTransform[];
+    outboundTransforms?: readonly OutboundTransformFactory[];
     selectModel: TurnModelPolicy;
   }>;
 
@@ -31,12 +26,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
     const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
     const request = await parseChatRequest(await safeJson(context.req.raw));
     if (!request) {
-      return errorResponse(
-        requestId,
-        HTTP_ERROR_CODES.BAD_REQUEST,
-        "Invalid chat request.",
-        HTTP_STATUS.BAD_REQUEST,
-      );
+      return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid chat request.");
     }
 
     try {
@@ -64,12 +54,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
     const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
     const request = parseCancelRequest(await safeJson(context.req.raw));
     if (!request) {
-      return errorResponse(
-        requestId,
-        HTTP_ERROR_CODES.BAD_REQUEST,
-        "Invalid cancel request.",
-        HTTP_STATUS.BAD_REQUEST,
-      );
+      return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid cancel request.");
     }
     try {
       await cancelTurn(dependencies.turns, dependencies.execution, {
@@ -95,9 +80,8 @@ function mapTurnError(requestId: string, error: unknown): Response {
   }
   return errorResponse(
     requestId,
-    HTTP_ERROR_CODES.INTERNAL_ERROR,
+    HTTP_ERROR.INTERNAL_SERVER_ERROR,
     "The turn could not be started.",
-    HTTP_STATUS.INTERNAL_SERVER_ERROR,
   );
 }
 

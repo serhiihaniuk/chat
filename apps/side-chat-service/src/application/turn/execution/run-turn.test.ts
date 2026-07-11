@@ -1,3 +1,4 @@
+import type { UIMessageChunk } from "ai";
 import { describe, expect, it } from "vitest";
 
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
@@ -120,7 +121,7 @@ class FixedTurnExecution implements TurnExecution {
   start(_input: TurnExecutionInput): Promise<StartedTurnExecution> {
     return Promise.resolve({
       runId: "run-1",
-      stream: new ReadableStream({
+      stream: new ReadableStream<UIMessageChunk>({
         start(controller) {
           controller.close();
         },

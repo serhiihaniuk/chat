@@ -6,6 +6,7 @@ import {
 } from "#adapters/persistence/in-memory-turn-state";
 import type { Settings } from "#config/settings/resolve-settings";
 import { configuredTurnModel } from "#application/turn/turn-model-policy";
+import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import { AUTH_PROFILES } from "#config/declaration/side-chat-config";
 
 import { assertAiSdkDefaultProviderIsUnset } from "../lifecycle/ai-sdk-global-guard.js";
@@ -38,7 +39,7 @@ export async function startProductionService(
       admission: PASS_THROUGH_TURN_ADMISSION,
       execution,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
-      outboundTransforms: [],
+      outboundTransforms: [() => createScrubTransform()],
       selectModel: configuredTurnModel(settings.models.modelId),
     }),
   );

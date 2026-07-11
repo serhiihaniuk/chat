@@ -35,6 +35,7 @@ const allowed = {
     "@opentelemetry/semantic-conventions",
     "@workflow/serde",
     "@workflow/world-postgres",
+    "@side-chat/stream-profile",
     "ai",
     "hono",
     "nitro",
@@ -61,6 +62,7 @@ const allowed = {
   "@side-chat/ai-runtime-contract": new Set(["@side-chat/shared", "effect"]),
   "@side-chat/chat-protocol": new Set(["@side-chat/shared"]),
   "@side-chat/shared": new Set(),
+  "@side-chat/stream-profile": new Set(),
   "@side-chat/db": new Set([
     "@side-chat/shared",
     "@types/pg",

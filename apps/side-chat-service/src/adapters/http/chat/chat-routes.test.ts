@@ -1,7 +1,7 @@
-import type { UIMessage } from "ai";
+import type { UIMessage, UIMessageChunk } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
-import { HTTP_STATUS } from "#adapters/http/error-response";
+import { HTTP_ERROR } from "#adapters/http/error-response";
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "#adapters/http/http-contract";
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import type {
@@ -10,14 +10,7 @@ import type {
   TurnExecutionInput,
   TurnExecutionTerminal,
 } from "#application/ports/turn/turn-execution";
-import {
-  TURN_EXECUTION_ERROR_CODES,
-  TURN_MESSAGE_ROLES,
-  TURN_OUTPUT_EVENT_TYPES,
-  TURN_TERMINAL_STATUSES,
-  type TurnMessage,
-  type TurnOutputEvent,
-} from "#domain/turn/turn";
+import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES, type TurnMessage } from "#domain/turn/turn";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
@@ -31,6 +24,7 @@ const TEST_CONVERSATION = {
 const SUCCESS_HTTP_STATUS = 200;
 const TEST_RUN_ID = "run-1";
 const UNKNOWN_RUN_ID = "run-secret";
+const RAW_PROVIDER_SENTINEL = "RAW provider secret sk-live-should-never-ship";
 
 const acceptedUserMessage: TurnMessage = {
   id: "user-1",
@@ -48,15 +42,11 @@ describe("chat routes", () => {
   it("streams one ordered finish and finalizes the happy path once", async () => {
     const execution = new ControlledTurnExecution(
       chunks(
-        { type: TURN_OUTPUT_EVENT_TYPES.START, messageId: "assistant-1" },
-        { type: TURN_OUTPUT_EVENT_TYPES.TEXT_START, textId: "text-1" },
-        {
-          type: TURN_OUTPUT_EVENT_TYPES.TEXT_DELTA,
-          textId: "text-1",
-          delta: "Hello back",
-        },
-        { type: TURN_OUTPUT_EVENT_TYPES.TEXT_END, textId: "text-1" },
-        { type: TURN_OUTPUT_EVENT_TYPES.FINISH },
+        { type: "start", messageId: "assistant-1" },
+        { type: "text-start", id: "text-1" },
+        { type: "text-delta", id: "text-1", delta: "Hello back" },
+        { type: "text-end", id: "text-1" },
+        { type: "finish" },
       ),
       Promise.resolve({
         status: TURN_TERMINAL_STATUSES.COMPLETED,
@@ -77,17 +67,42 @@ describe("chat routes", () => {
       expect(response.headers.get("x-vercel-ai-ui-message-stream")).toBe("v1");
       expect(response.headers.get(HTTP_HEADERS.WORKFLOW_RUN_ID)).toBe(TEST_RUN_ID);
       const parts = await responseChunks(response);
-      expect(parts.map((part) => part.type)).toEqual([
+      expect(parts.map((part) => part["type"])).toEqual([
         "start",
         "text-start",
         "text-delta",
         "text-end",
         "finish",
       ]);
-      expect(parts.filter((part) => part.type === "finish")).toHaveLength(1);
+      expect(parts.filter((part) => part["type"] === "finish")).toHaveLength(1);
       await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
       expect([...harness.turnState.terminals.values()][0]?.usage).toEqual(usage(7, 10));
       expect(harness.turnState.assistantMessages).toHaveLength(1);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("forwards a content-filter finish reason and records it as the blocked terminal", async () => {
+    const execution = new ControlledTurnExecution(
+      chunks(
+        { type: "start", messageId: "assistant-1" },
+        { type: "finish", finishReason: "content-filter" },
+      ),
+      Promise.resolve({
+        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        stepUsage: [usage(2, 0)],
+        finishReason: "content-filter",
+      }),
+    );
+    const harness = await createServiceTestHarness({ turnExecution: execution });
+    try {
+      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
+      const parts = await responseChunks(response);
+      const finish = parts.find((part) => part["type"] === "finish");
+      expect(finish?.["finishReason"]).toBe("content-filter");
+      await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
+      expect([...harness.turnState.terminals.values()][0]?.finishReason).toBe("content-filter");
     } finally {
       await harness.close();
     }
@@ -129,14 +144,10 @@ describe("chat routes", () => {
   it("preserves partial stream content and one cancelled terminal on mid-stream cancel", async () => {
     const execution = new ControlledTurnExecution(
       chunks(
-        { type: TURN_OUTPUT_EVENT_TYPES.START, messageId: "assistant-1" },
-        { type: TURN_OUTPUT_EVENT_TYPES.TEXT_START, textId: "text-1" },
-        {
-          type: TURN_OUTPUT_EVENT_TYPES.TEXT_DELTA,
-          textId: "text-1",
-          delta: "partial",
-        },
-        { type: TURN_OUTPUT_EVENT_TYPES.ABORT },
+        { type: "start", messageId: "assistant-1" },
+        { type: "text-start", id: "text-1" },
+        { type: "text-delta", id: "text-1", delta: "partial" },
+        { type: "abort" },
       ),
       Promise.resolve({
         status: TURN_TERMINAL_STATUSES.CANCELLED,
@@ -149,13 +160,13 @@ describe("chat routes", () => {
     try {
       const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
       const parts = await responseChunks(response);
-      expect(parts.map((part) => part.type)).toEqual([
+      expect(parts.map((part) => part["type"])).toEqual([
         "start",
         "text-start",
         "text-delta",
         "abort",
       ]);
-      expect(parts.at(-1)?.type).toBe("abort");
+      expect(parts.at(-1)?.["type"]).toBe("abort");
       await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
       expect(harness.turnState.assistantMessages).toEqual([]);
     } finally {
@@ -163,38 +174,23 @@ describe("chat routes", () => {
     }
   });
 
-  it.each([
-    [
-      "before output",
-      [
-        {
-          type: TURN_OUTPUT_EVENT_TYPES.ERROR,
-          errorCode: TURN_EXECUTION_ERROR_CODES.MODEL_STREAM_FAILED,
-        },
-      ] satisfies TurnOutputEvent[],
-    ],
+  const errorCases: ReadonlyArray<readonly [string, readonly UIMessageChunk[]]> = [
+    ["before output", [{ type: "error", errorText: RAW_PROVIDER_SENTINEL }]],
     [
       "after partial output",
       [
-        { type: TURN_OUTPUT_EVENT_TYPES.TEXT_START, textId: "text-1" },
-        {
-          type: TURN_OUTPUT_EVENT_TYPES.TEXT_DELTA,
-          textId: "text-1",
-          delta: "partial",
-        },
-        {
-          type: TURN_OUTPUT_EVENT_TYPES.ERROR,
-          errorCode: TURN_EXECUTION_ERROR_CODES.MODEL_STREAM_FAILED,
-        },
-      ] satisfies TurnOutputEvent[],
+        { type: "text-start", id: "text-1" },
+        { type: "text-delta", id: "text-1", delta: "partial" },
+        { type: "error", errorText: RAW_PROVIDER_SENTINEL },
+      ],
     ],
-  ])("keeps provider errors %s inside the opened stream", async (_label, streamParts) => {
+  ];
+  it.each(errorCases)("scrubs provider errors to a safe code %s", async (_label, streamParts) => {
     const execution = new ControlledTurnExecution(
       chunks(...streamParts),
       Promise.resolve({
         status: TURN_TERMINAL_STATUSES.FAILED,
         stepUsage: [],
-        safeErrorCode: TURN_EXECUTION_ERROR_CODES.MODEL_STREAM_FAILED,
       }),
     );
     const harness = await createServiceTestHarness({
@@ -203,9 +199,13 @@ describe("chat routes", () => {
     try {
       const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
       expect(response.status).toBe(SUCCESS_HTTP_STATUS);
-      const parts = await responseChunks(response);
-      expect(parts.at(-1)?.type).toBe("error");
-      expect(parts.filter((part) => part.type === "error")).toHaveLength(1);
+      const body = await responseText(response);
+      expect(body).not.toContain(RAW_PROVIDER_SENTINEL);
+      const parts = decodeChunks(body);
+      const errors = parts.filter((part) => part["type"] === "error");
+      expect(errors).toHaveLength(1);
+      expect(errors[0]?.["errorText"]).toBe("provider_failed");
+      expect(parts.at(-1)?.["type"]).toBe("error");
       await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
       expect(harness.turnState.assistantMessages).toEqual([]);
     } finally {
@@ -225,7 +225,7 @@ describe("chat routes", () => {
     });
     try {
       const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
-      expect(response.status).toBe(HTTP_STATUS.CONFLICT);
+      expect(response.status).toBe(HTTP_ERROR.CONFLICT.STATUS);
       expect(admission.admitted).toBe(0);
       expect(state.userMessages).toEqual([]);
       expect(execution.started).toEqual([]);
@@ -249,7 +249,7 @@ describe("chat routes", () => {
     });
     try {
       expect((await harness.request(CHAT_HTTP_ROUTES.START, chatRequest())).status).toBe(
-        HTTP_STATUS.FORBIDDEN,
+        HTTP_ERROR.FORBIDDEN.STATUS,
       );
       expect(
         (
@@ -260,7 +260,7 @@ describe("chat routes", () => {
             }),
           })
         ).status,
-      ).toBe(HTTP_STATUS.FORBIDDEN);
+      ).toBe(HTTP_ERROR.FORBIDDEN.STATUS);
       expect(execution.started).toEqual([]);
       expect(execution.cancelled).toEqual([]);
     } finally {
@@ -274,7 +274,7 @@ class ControlledTurnExecution implements TurnExecution {
   readonly cancelled: string[] = [];
 
   constructor(
-    private readonly stream: ReadableStream<TurnOutputEvent>,
+    private readonly stream: ReadableStream<UIMessageChunk>,
     private readonly terminal: Promise<TurnExecutionTerminal>,
   ) {}
 
@@ -300,7 +300,7 @@ function chatRequest(): RequestInit {
   };
 }
 
-function chunks(...parts: TurnOutputEvent[]): ReadableStream<TurnOutputEvent> {
+function chunks(...parts: UIMessageChunk[]): ReadableStream<UIMessageChunk> {
   return new ReadableStream({
     start(controller) {
       for (const part of parts) controller.enqueue(part);
@@ -309,21 +309,28 @@ function chunks(...parts: TurnOutputEvent[]): ReadableStream<TurnOutputEvent> {
   });
 }
 
-async function responseChunks(response: Response): Promise<Array<Readonly<{ type: string }>>> {
-  const body = await response.text();
-  return body
+async function responseText(response: Response): Promise<string> {
+  return response.text();
+}
+
+async function responseChunks(response: Response): Promise<Array<Record<string, unknown>>> {
+  return decodeChunks(await response.text());
+}
+
+function decodeChunks(text: string): Array<Record<string, unknown>> {
+  return text
     .split("\n")
     .filter((line) => line.startsWith("data: "))
     .filter((line) => line !== "data: [DONE]")
     .map((line) => parseStreamPart(line.slice(6)));
 }
 
-function parseStreamPart(source: string): Readonly<{ type: string }> {
+function parseStreamPart(source: string): Record<string, unknown> {
   const value: unknown = JSON.parse(source);
   if (!isRecord(value) || typeof value["type"] !== "string") {
     throw new Error(`Expected a UI message stream part: ${source}`);
   }
-  return { type: value["type"] };
+  return value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

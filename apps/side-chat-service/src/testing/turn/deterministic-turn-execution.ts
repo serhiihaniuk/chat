@@ -1,3 +1,5 @@
+import type { UIMessageChunk } from "ai";
+
 import type {
   StartedTurnExecution,
   TurnExecution,
@@ -16,7 +18,7 @@ export class DeterministicTurnExecution implements TurnExecution {
     if (this.startFailure) return Promise.reject(this.startFailure);
     return Promise.resolve({
       runId: `run-${input.turnId}`,
-      stream: new ReadableStream({ start: (controller) => controller.close() }),
+      stream: new ReadableStream<UIMessageChunk>({ start: (controller) => controller.close() }),
       terminal: Promise.resolve({
         status: TURN_TERMINAL_STATUSES.COMPLETED,
         stepUsage: [],

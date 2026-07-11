@@ -9,6 +9,7 @@ import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
 import { configuredTurnModel } from "#application/turn/turn-model-policy";
+import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import type { Settings } from "#config/settings/resolve-settings";
 import { scriptedModelProvider } from "#testing/scripted-language-model";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
@@ -46,7 +47,7 @@ export async function startTestingService(
       admission: overrides.turnAdmission ?? new DeterministicTurnAdmission(),
       execution: turnExecution,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
-      outboundTransforms: [],
+      outboundTransforms: [() => createScrubTransform()],
       selectModel:
         settings.models.provider === "scripted"
           ? (requested) => requested ?? settings.models.modelId

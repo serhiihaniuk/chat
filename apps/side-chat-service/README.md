@@ -15,6 +15,7 @@ The normative target is [`plan/v7/ARCHITECTURE.md`](../../plan/v7/ARCHITECTURE.m
 - `src/application/ports`: application-owned behavioral interfaces with real substitutions.
 - `src/adapters/auth`: credential-authority implementations behind `RequestAuthorizer`.
 - `src/adapters/http`: Hono translation, auth middleware, health routes, and stream transforms.
+- `src/application/turn/stream`: the outbound scrub filter — the single edge that narrows the engine's UI message stream to the Side Chat wire profile (safe error codes, terminal discipline). The public wire contract is [`docs/architecture/stream-profile.md`](../../docs/architecture/stream-profile.md); its shared vocabulary lives in [`packages/stream-profile`](../../packages/stream-profile/README.md).
 - `src/adapters/persistence`: temporary in-memory turn state behind application ports; Step 09 replaces it with PostgreSQL.
 - `src/adapters/providers`: AI SDK v7 OpenAI/Azure implementations of `ModelProvider`.
 - `src/adapters/telemetry`: redacted AI SDK telemetry mapped into `TelemetrySink`.

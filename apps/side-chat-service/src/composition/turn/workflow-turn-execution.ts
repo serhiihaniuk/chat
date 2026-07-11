@@ -1,16 +1,16 @@
 import type { UIMessageChunk } from "ai";
 
+import { SIDE_CHAT_FINISH_REASONS, type SideChatFinishReason } from "@side-chat/stream-profile";
+
 import type { TurnExecution, TurnExecutionTerminal } from "#application/ports/turn/turn-execution";
+import { UI_MESSAGE_CHUNK_TYPES } from "#application/turn/stream/ui-message-chunk-types";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { Settings } from "#config/settings/resolve-settings";
 import {
   TURN_EXECUTION_ERROR_CODES,
   TURN_MESSAGE_ROLES,
-  TURN_OUTPUT_EVENT_TYPES,
   TURN_TERMINAL_STATUSES,
   type TurnMessage,
-  type TurnOutputEvent,
-  type TurnUsage,
 } from "#domain/turn/turn";
 import {
   CHAT_TURN_ERROR_CODES,
@@ -29,7 +29,16 @@ const TURN_CANCELLATION = {
   USER_REASON: "user_requested_cancellation",
 } as const;
 
-/** Route-bundle adapter from application turn execution to durable Workflow calls. */
+/**
+ * Adapt durable Workflow runs to the application `TurnExecution` port: launch a
+ * run, re-attach the native finish reason from its terminal, and map the durable
+ * outcome to the application terminal.
+ *
+ * @param settings - Resolved service settings; supplies the agent instructions,
+ *   step cap, and provider timeout carried into each run.
+ * @param startTurn - How a run is launched. Defaults to the real `startChatTurn`
+ *   Workflow entry; route tests inject a fake to drive the stream and terminal directly.
+ */
 export function createWorkflowTurnExecution(
   settings: Settings,
   startTurn: StartChatTurn = startChatTurn,
@@ -46,12 +55,13 @@ export function createWorkflowTurnExecution(
         messages: input.messages.map(toSerializableMessage),
         clientTools: input.clientTools,
       });
+      const terminal = started.terminal.then((outcome) =>
+        toApplicationTerminal(input.turnId, outcome),
+      );
       return {
         runId: started.runId,
-        stream: started.stream.pipeThrough(toTurnOutputEvents()),
-        terminal: started.terminal.then((terminal) =>
-          toApplicationTerminal(input.turnId, terminal),
-        ),
+        stream: stampFinishReason(started.stream, terminal),
+        terminal,
       };
     },
     async cancel(runId) {
@@ -76,17 +86,13 @@ function toApplicationTerminal(
 ): TurnExecutionTerminal {
   if (terminal.status === CHAT_TURN_OUTCOMES.COMPLETED) {
     const assistantMessage = toAssistantMessage(turnId, terminal.text);
-    if (assistantMessage === undefined) {
-      return {
-        status: TURN_TERMINAL_STATUSES.COMPLETED,
-        stepUsage: [toUsage(terminal.usage)],
-      };
-    }
-    return {
+    const completed: TurnExecutionTerminal = {
       status: TURN_TERMINAL_STATUSES.COMPLETED,
       stepUsage: [toUsage(terminal.usage)],
-      assistantMessage,
+      finishReason: terminal.finishReason,
     };
+    if (assistantMessage === undefined) return completed;
+    return { ...completed, assistantMessage };
   }
   if (terminal.status === CHAT_TURN_OUTCOMES.CANCELLED) {
     return { status: TURN_TERMINAL_STATUSES.CANCELLED, stepUsage: [] };
@@ -116,61 +122,42 @@ function toAssistantMessage(turnId: string, text: string): TurnMessage | undefin
   };
 }
 
-function toTurnOutputEvents(): TransformStream<UIMessageChunk, TurnOutputEvent> {
-  return new TransformStream({
-    transform(chunk, controller) {
-      const event = toTurnOutputEvent(chunk);
-      if (event !== undefined) controller.enqueue(event);
-    },
-  });
+/**
+ * The SDK's model-call transform emits a bare `finish` chunk; the native finish
+ * reason survives only in the run's terminal outcome. Re-attach it here, at the
+ * one edge that holds both the stream and the terminal, so `content-filter` and
+ * `length` reach the client as native finish semantics.
+ */
+function stampFinishReason(
+  stream: ReadableStream<UIMessageChunk>,
+  terminal: Promise<TurnExecutionTerminal>,
+): ReadableStream<UIMessageChunk> {
+  return stream.pipeThrough(
+    new TransformStream({
+      async transform(chunk, controller) {
+        if (chunk.type !== UI_MESSAGE_CHUNK_TYPES.FINISH) {
+          controller.enqueue(chunk);
+          return;
+        }
+        const reason = toFinishReason((await terminal).finishReason);
+        controller.enqueue(reason === undefined ? chunk : { ...chunk, finishReason: reason });
+      },
+    }),
+  );
 }
 
-function toTurnOutputEvent(chunk: UIMessageChunk): TurnOutputEvent | undefined {
-  if (chunk.type === "start") return toStartEvent(chunk);
-  if (chunk.type === "text-start") return toTextStartEvent(chunk);
-  if (chunk.type === "text-delta") return toTextDeltaEvent(chunk);
-  if (chunk.type === "text-end") return toTextEndEvent(chunk);
-  if (chunk.type === "error") return toErrorEvent();
-  if (chunk.type === "abort") return { type: TURN_OUTPUT_EVENT_TYPES.ABORT };
-  if (chunk.type === "finish") return { type: TURN_OUTPUT_EVENT_TYPES.FINISH };
+function toFinishReason(value: string | undefined): SideChatFinishReason | undefined {
+  for (const reason of Object.values(SIDE_CHAT_FINISH_REASONS)) {
+    if (reason === value) return reason;
+  }
   return undefined;
-}
-
-function toStartEvent(chunk: Extract<UIMessageChunk, { type: "start" }>): TurnOutputEvent {
-  return {
-    type: TURN_OUTPUT_EVENT_TYPES.START,
-    messageId: chunk.messageId ?? crypto.randomUUID(),
-  };
-}
-
-function toTextStartEvent(chunk: Extract<UIMessageChunk, { type: "text-start" }>): TurnOutputEvent {
-  return { type: TURN_OUTPUT_EVENT_TYPES.TEXT_START, textId: chunk.id };
-}
-
-function toTextDeltaEvent(chunk: Extract<UIMessageChunk, { type: "text-delta" }>): TurnOutputEvent {
-  return {
-    type: TURN_OUTPUT_EVENT_TYPES.TEXT_DELTA,
-    textId: chunk.id,
-    delta: chunk.delta,
-  };
-}
-
-function toTextEndEvent(chunk: Extract<UIMessageChunk, { type: "text-end" }>): TurnOutputEvent {
-  return { type: TURN_OUTPUT_EVENT_TYPES.TEXT_END, textId: chunk.id };
-}
-
-function toErrorEvent(): TurnOutputEvent {
-  return {
-    type: TURN_OUTPUT_EVENT_TYPES.ERROR,
-    errorCode: TURN_EXECUTION_ERROR_CODES.MODEL_STREAM_FAILED,
-  };
 }
 
 function toUsage(usage: {
   readonly inputTokens: number | undefined;
   readonly outputTokens: number | undefined;
   readonly totalTokens: number | undefined;
-}): TurnUsage {
+}) {
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
   return {

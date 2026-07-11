@@ -14,6 +14,7 @@
     { "path": "./packages/side-chat-widget" },
     { "path": "./packages/host-bridge" },
     { "path": "./packages/shared" },
+    { "path": "./packages/stream-profile" },
     { "path": "./packages/db" },
     { "path": "./test-harness/adoption-harness" },
     { "path": "./test-harness/widget-harness" }

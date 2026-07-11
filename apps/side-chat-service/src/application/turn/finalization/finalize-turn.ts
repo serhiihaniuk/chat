@@ -17,6 +17,7 @@ export type FinalizeTurnInput = Readonly<{
   stepUsage: readonly TurnUsage[];
   assistantMessage?: TurnMessage | undefined;
   safeErrorCode?: TurnExecutionErrorCode | undefined;
+  finishReason?: string | undefined;
   admission: TurnAdmissionLease;
 }>;
 
@@ -39,6 +40,7 @@ export async function finalizeTurn(
       status: input.status,
       usage: sumTurnUsage(input.stepUsage),
       safeErrorCode: input.safeErrorCode,
+      finishReason: input.finishReason,
     });
     if (!claimed) return false;
 

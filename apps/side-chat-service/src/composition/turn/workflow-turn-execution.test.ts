@@ -1,21 +1,35 @@
+import type { UIMessageChunk } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
-import { CHAT_TURN_OUTCOMES, type ChatTurnWorkflowInput } from "#workflows/production/chat-turn";
+import { CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
 
 import { createWorkflowTurnExecution, type StartChatTurn } from "./workflow-turn-execution.js";
 
+function testSettings() {
+  const result = validateSettings(createDefaultConfig());
+  if (!result.ok) throw new Error("Test settings must be valid");
+  return result.settings;
+}
+
+const TURN_INPUT = {
+  conversationId: "conversation-1",
+  turnId: "turn-1",
+  requestId: "request-1",
+  modelId: "test-model",
+  messages: [{ id: "user-1", role: TURN_MESSAGE_ROLES.USER, text: "Hello" }],
+  clientTools: [],
+} as const;
+
 describe("createWorkflowTurnExecution", () => {
   it("passes timeout and client-tool metadata into the workflow boundary", async () => {
-    const result = validateSettings(createDefaultConfig());
-    if (!result.ok) throw new Error("Test settings must be valid");
-    const settings = result.settings;
-    const startTurn = vi.fn<StartChatTurn>((_input: ChatTurnWorkflowInput) =>
+    const settings = testSettings();
+    const startTurn = vi.fn<StartChatTurn>(() =>
       Promise.resolve({
         runId: "run-1",
-        stream: new ReadableStream(),
+        stream: new ReadableStream<UIMessageChunk>(),
         terminal: Promise.resolve({
           status: CHAT_TURN_OUTCOMES.COMPLETED,
           text: "",
@@ -27,14 +41,7 @@ describe("createWorkflowTurnExecution", () => {
     const execution = createWorkflowTurnExecution(settings, startTurn);
     const clientTools = [{ name: "open_file" }];
 
-    await execution.start({
-      conversationId: "conversation-1",
-      turnId: "turn-1",
-      requestId: "request-1",
-      modelId: "test-model",
-      messages: [{ id: "user-1", role: TURN_MESSAGE_ROLES.USER, text: "Hello" }],
-      clientTools,
-    });
+    await execution.start({ ...TURN_INPUT, clientTools });
 
     expect(startTurn).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -43,4 +50,48 @@ describe("createWorkflowTurnExecution", () => {
       }),
     );
   });
+
+  it("stamps the terminal finish reason onto the wire finish chunk", async () => {
+    const startTurn = vi.fn<StartChatTurn>(() =>
+      Promise.resolve({
+        runId: "run-1",
+        stream: chunks({ type: "start", messageId: "assistant-1" }, { type: "finish" }),
+        terminal: Promise.resolve({
+          status: CHAT_TURN_OUTCOMES.COMPLETED,
+          text: "",
+          finishReason: "content-filter",
+          usage: { inputTokens: 1, outputTokens: 0, totalTokens: 1 },
+        }),
+      }),
+    );
+    const execution = createWorkflowTurnExecution(testSettings(), startTurn);
+
+    const started = await execution.start(TURN_INPUT);
+    const parts = await readAll(started.stream);
+
+    expect(parts.find((part) => part.type === "finish")).toEqual({
+      type: "finish",
+      finishReason: "content-filter",
+    });
+    expect((await started.terminal).finishReason).toBe("content-filter");
+  });
 });
+
+function chunks(...parts: UIMessageChunk[]): ReadableStream<UIMessageChunk> {
+  return new ReadableStream({
+    start(controller) {
+      for (const part of parts) controller.enqueue(part);
+      controller.close();
+    },
+  });
+}
+
+async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageChunk[]> {
+  const reader = stream.getReader();
+  const output: UIMessageChunk[] = [];
+  while (true) {
+    const next = await reader.read();
+    if (next.done) return output;
+    output.push(next.value);
+  }
+}

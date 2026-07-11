@@ -1,25 +1,44 @@
 import { createUIMessageStreamResponse, type UIMessageChunk } from "ai";
 
-import {
-  TURN_FINISH_REASONS,
-  TURN_OUTPUT_EVENT_TYPES,
-  type TurnOutputEvent,
-} from "#domain/turn/turn";
-
 import { withIdleSseKeepalive } from "../stream/keepalive.js";
 import { HTTP_HEADERS } from "../http-contract.js";
 
+/** One stage of outbound policy over the wire stream. Single-use — see {@link OutboundTransformFactory}. */
 export type OutboundTransform = TransformStream<UIMessageChunk, UIMessageChunk>;
 
-/** Encode the SDK stream once, then add byte-level idle comments at the HTTP edge. */
+/**
+ * Builds a fresh {@link OutboundTransform} per request. A `TransformStream` is
+ * single-use, so the outbound seam holds factories, not shared instances; this is
+ * also where `data-*` injection composes with the scrub filter, ordered relative
+ * to native parts.
+ */
+export type OutboundTransformFactory = () => OutboundTransform;
+
+/**
+ * Encode a turn's UI message stream as the Server-Sent Events HTTP response.
+ *
+ * The engine stream is encoded once, outbound policy is applied through the
+ * transforms, and byte-level keepalive comments are added last — at the HTTP edge,
+ * after encoding — so they never disturb chunk decoding. The response advertises
+ * the `x-vercel-ai-ui-message-stream: v1` protocol via the SDK encoder.
+ *
+ * @param options.stream - The turn's native `UIMessageChunk` stream. Consumed once.
+ * @param options.runId - Durable run id, returned as the `x-workflow-run-id`
+ *   response header so a dropped client can reconnect and replay.
+ * @param options.keepaliveIntervalMs - Idle timeout in milliseconds after which a
+ *   comment frame is emitted to stop proxies closing a quiet stream. The timer
+ *   resets on every real chunk, so an actively streaming turn carries no keepalives.
+ * @param options.outboundTransforms - Per-request transform factories, applied in
+ *   array order before encoding; each is invoked once per response. Defaults to
+ *   none. The scrub filter and any `data-*` injection compose here.
+ */
 export function createChatStreamResponse(options: {
-  readonly stream: ReadableStream<TurnOutputEvent>;
+  readonly stream: ReadableStream<UIMessageChunk>;
   readonly runId: string;
   readonly keepaliveIntervalMs: number;
-  readonly outboundTransforms?: readonly OutboundTransform[];
+  readonly outboundTransforms?: readonly OutboundTransformFactory[];
 }): Response {
-  const uiMessageStream = options.stream.pipeThrough(toUiMessageChunks());
-  const transformed = pipeOutboundTransforms(uiMessageStream, options.outboundTransforms ?? []);
+  const transformed = pipeOutboundTransforms(options.stream, options.outboundTransforms ?? []);
   const response = createUIMessageStreamResponse({
     stream: transformed,
     headers: { [HTTP_HEADERS.WORKFLOW_RUN_ID]: options.runId },
@@ -32,38 +51,11 @@ export function createChatStreamResponse(options: {
   });
 }
 
-function toUiMessageChunks(): TransformStream<TurnOutputEvent, UIMessageChunk> {
-  return new TransformStream({
-    transform(event, controller) {
-      controller.enqueue(toUiMessageChunk(event));
-    },
-  });
-}
-
-function toUiMessageChunk(event: TurnOutputEvent): UIMessageChunk {
-  switch (event.type) {
-    case TURN_OUTPUT_EVENT_TYPES.START:
-      return { type: "start", messageId: event.messageId };
-    case TURN_OUTPUT_EVENT_TYPES.TEXT_START:
-      return { type: "text-start", id: event.textId };
-    case TURN_OUTPUT_EVENT_TYPES.TEXT_DELTA:
-      return { type: "text-delta", id: event.textId, delta: event.delta };
-    case TURN_OUTPUT_EVENT_TYPES.TEXT_END:
-      return { type: "text-end", id: event.textId };
-    case TURN_OUTPUT_EVENT_TYPES.ERROR:
-      return { type: "error", errorText: event.errorCode };
-    case TURN_OUTPUT_EVENT_TYPES.ABORT:
-      return { type: "abort" };
-    case TURN_OUTPUT_EVENT_TYPES.FINISH:
-      return { type: "finish", finishReason: TURN_FINISH_REASONS.STOP };
-  }
-}
-
 function pipeOutboundTransforms(
   source: ReadableStream<UIMessageChunk>,
-  transforms: readonly OutboundTransform[],
+  factories: readonly OutboundTransformFactory[],
 ): ReadableStream<UIMessageChunk> {
   let stream = source;
-  for (const transform of transforms) stream = stream.pipeThrough(transform);
+  for (const create of factories) stream = stream.pipeThrough(create());
   return stream;
 }

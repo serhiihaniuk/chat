@@ -30,39 +30,6 @@ export type TurnMessage = Readonly<{
   text: string;
 }>;
 
-export const TURN_OUTPUT_EVENT_TYPES = {
-  START: "start",
-  TEXT_START: "text_start",
-  TEXT_DELTA: "text_delta",
-  TEXT_END: "text_end",
-  ERROR: "error",
-  ABORT: "abort",
-  FINISH: "finish",
-} as const;
-
-export const TURN_FINISH_REASONS = {
-  STOP: "stop",
-} as const;
-
-export type TurnOutputEvent =
-  | Readonly<{ type: typeof TURN_OUTPUT_EVENT_TYPES.START; messageId: string }>
-  | Readonly<{
-      type: typeof TURN_OUTPUT_EVENT_TYPES.TEXT_START;
-      textId: string;
-    }>
-  | Readonly<{
-      type: typeof TURN_OUTPUT_EVENT_TYPES.TEXT_DELTA;
-      textId: string;
-      delta: string;
-    }>
-  | Readonly<{ type: typeof TURN_OUTPUT_EVENT_TYPES.TEXT_END; textId: string }>
-  | Readonly<{
-      type: typeof TURN_OUTPUT_EVENT_TYPES.ERROR;
-      errorCode: TurnExecutionErrorCode;
-    }>
-  | Readonly<{ type: typeof TURN_OUTPUT_EVENT_TYPES.ABORT }>
-  | Readonly<{ type: typeof TURN_OUTPUT_EVENT_TYPES.FINISH }>;
-
 export type TurnRef = Readonly<{
   conversationId: string;
   turnId: string;
@@ -78,6 +45,13 @@ export type TurnTerminal = Readonly<{
   status: TurnTerminalStatus;
   usage: TurnUsage;
   safeErrorCode?: TurnExecutionErrorCode | undefined;
+  /**
+   * The native provider finish reason (e.g. `stop`, `length`, `content-filter`).
+   * Recorded verbatim so a content-filtered ("blocked") turn is distinguishable
+   * in history from a clean stop; the wire carries the same value on its finish
+   * part. Opaque string: the value set is owned by the provider, not by us.
+   */
+  finishReason?: string | undefined;
 }>;
 
 export const ZERO_TURN_USAGE: TurnUsage = {

@@ -1,9 +1,7 @@
+import type { UIMessageChunk } from "ai";
+
 import type { StartedTurnExecution } from "#application/ports/turn/turn-execution";
-import {
-  TURN_EXECUTION_ERROR_CODES,
-  TURN_TERMINAL_STATUSES,
-  type TurnOutputEvent,
-} from "#domain/turn/turn";
+import { TURN_EXECUTION_ERROR_CODES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 
 import { finalizeTurn, type FinalizeTurnDependencies } from "../finalization/finalize-turn.js";
 import {
@@ -17,7 +15,7 @@ export type RunTurnDependencies = PrepareTurnDependencies & FinalizeTurnDependen
 
 export type RunningTurn = Readonly<{
   runId: string;
-  stream: ReadableStream<TurnOutputEvent>;
+  stream: ReadableStream<UIMessageChunk>;
 }>;
 
 /** Owns a turn from preparation through its durable terminal transition. */
@@ -44,6 +42,7 @@ function finalizePreparedTurn(
       stepUsage: terminal.stepUsage,
       assistantMessage: terminal.assistantMessage,
       safeErrorCode: terminal.safeErrorCode,
+      finishReason: terminal.finishReason,
       admission: prepared.admission,
     }),
   );
@@ -58,9 +57,9 @@ function terminalOutcome(execution: StartedTurnExecution): StartedTurnExecution[
 }
 
 function closeAfterFinalization(
-  stream: ReadableStream<TurnOutputEvent>,
+  stream: ReadableStream<UIMessageChunk>,
   finalization: Promise<boolean>,
-): ReadableStream<TurnOutputEvent> {
+): ReadableStream<UIMessageChunk> {
   const reader = stream.getReader();
   return new ReadableStream({
     async pull(controller) {

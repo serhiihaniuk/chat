@@ -8,7 +8,7 @@ import {
   type CompatibilityTurnRequest,
 } from "#workflows/testing/compatibility-turn";
 
-import { HTTP_STATUS } from "./error-response.js";
+import { HTTP_ERROR } from "./error-response.js";
 import { HTTP_HEADERS } from "./http-contract.js";
 
 /**
@@ -35,7 +35,7 @@ export function createCompatibilityApp(): Hono {
     const cancelled = await cancelCompatibilityTurn(requestId);
     return cancelled
       ? context.json({ cancelled: true })
-      : context.json({ cancelled: false }, HTTP_STATUS.NOT_FOUND);
+      : context.json({ cancelled: false }, HTTP_ERROR.NOT_FOUND.STATUS);
   });
 
   app.post("/compatibility/probes/unpatched-abort-signal", async (context) => {
