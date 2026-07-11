@@ -13,8 +13,12 @@ const run = async () => {
 
   try {
     await applySidechatMigrations(postgres.connectionString);
+    await spawnNode(["node_modules/@workflow/world-postgres/bin/setup.js"], {
+      WORKFLOW_POSTGRES_URL: postgres.connectionString,
+    });
     await spawnNpm(["run", "test:db:integration"], {
       SIDECHAT_TEST_DATABASE_URL: postgres.connectionString,
+      WORKFLOW_POSTGRES_URL: postgres.connectionString,
     });
   } finally {
     await postgres.stop();
@@ -22,10 +26,19 @@ const run = async () => {
 };
 
 const spawnNpm = (args, extraEnv) =>
+  spawnProcess(
+    process.platform === "win32" ? "cmd.exe" : "npm",
+    process.platform === "win32" ? ["/d", "/s", "/c", "npm", ...args] : args,
+    extraEnv,
+    `npm ${args.join(" ")}`,
+  );
+
+const spawnNode = (args, extraEnv) =>
+  spawnProcess(process.execPath, args, extraEnv, `node ${args.join(" ")}`);
+
+const spawnProcess = (command, args, extraEnv, description) =>
   new Promise((resolve, reject) => {
-    const command = process.platform === "win32" ? "cmd.exe" : "npm";
-    const commandArgs = process.platform === "win32" ? ["/d", "/s", "/c", "npm", ...args] : args;
-    const child = spawn(command, commandArgs, {
+    const child = spawn(command, args, {
       cwd: repoRoot,
       env: cleanEnv({ ...process.env, ...extraEnv }),
       shell: false,
@@ -34,7 +47,7 @@ const spawnNpm = (args, extraEnv) =>
     child.on("error", reject);
     child.on("exit", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`npm ${args.join(" ")} exited with ${code ?? "unknown"}`));
+      else reject(new Error(`${description} exited with ${code ?? "unknown"}`));
     });
   });
 

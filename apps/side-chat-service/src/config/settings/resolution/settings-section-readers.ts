@@ -3,10 +3,16 @@ import type { Settings } from "./settings-contract.js";
 import {
   readObject,
   readOptionalString,
+  readRequiredCatalogValue,
   readRequiredString,
   type SettingsIssue,
 } from "../setting-readers.js";
-import { TELEMETRY_MODES, TELEMETRY_MODE_VALUES } from "../../declaration/side-chat-config.js";
+import {
+  TELEMETRY_MODES,
+  TELEMETRY_MODE_VALUES,
+  WORKFLOW_JOURNAL_CLASSES,
+  WORKFLOW_JOURNAL_CLASS_VALUES,
+} from "../../declaration/side-chat-config.js";
 
 /** Decode each top-level settings section without applying cross-field policy. */
 export function readSettings(candidate: unknown, issues: SettingsIssue[]): Settings {
@@ -114,14 +120,21 @@ function readWorkflow(candidate: unknown, issues: SettingsIssue[]): Settings["wo
       "workflow.concurrencyHeadroom",
       issues,
     ),
-    journalArchiveAfterDays: readPositiveInteger(
-      value["journalArchiveAfterDays"],
-      "workflow.journalArchiveAfterDays",
-      issues,
-    ),
     journalPruneAfterDays: readPositiveInteger(
       value["journalPruneAfterDays"],
       "workflow.journalPruneAfterDays",
+      issues,
+    ),
+    journalSweepIntervalMs: readPositiveInteger(
+      value["journalSweepIntervalMs"],
+      "workflow.journalSweepIntervalMs",
+      issues,
+    ),
+    journalClass: readRequiredCatalogValue(
+      value["journalClass"],
+      "workflow.journalClass",
+      WORKFLOW_JOURNAL_CLASS_VALUES,
+      WORKFLOW_JOURNAL_CLASSES.OPERATIONAL,
       issues,
     ),
     postgresUrl: readOptionalString(value["postgresUrl"], "workflow.postgresUrl", issues),

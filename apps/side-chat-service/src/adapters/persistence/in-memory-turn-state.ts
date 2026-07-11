@@ -1,4 +1,5 @@
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
+import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
@@ -23,13 +24,16 @@ type StoredTurn = Readonly<{
  * are rejected exactly as a database adapter would reject them. Step 09 replaces
  * this class without changing the application ports.
  */
-export class InMemoryTurnState implements ConversationStore, MessageStore, TurnStore {
+export class InMemoryTurnState
+  implements ConversationStore, ConversationQueryStore, MessageStore, TurnStore
+{
   readonly userMessages: TurnMessage[] = [];
   readonly assistantMessages: TurnMessage[] = [];
   readonly terminals = new Map<string, TurnTerminal>();
   readonly runningTurns = new Set<string>();
 
   private readonly conversations = new Map<string, SeedConversation>();
+  private readonly conversationMessages = new Map<string, TurnMessage[]>();
   private readonly turns = new Map<string, StoredTurn>();
   private nextTurnNumber = 1;
 
@@ -43,6 +47,53 @@ export class InMemoryTurnState implements ConversationStore, MessageStore, TurnS
     try {
       this.requireOwnedConversation(auth, conversationId);
       return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(asError(error));
+    }
+  }
+
+  readHistory(auth: AuthContext, conversationId: string) {
+    try {
+      this.requireOwnedConversation(auth, conversationId);
+      const messages = this.conversationMessages.get(conversationId) ?? [];
+      return Promise.resolve(
+        messages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          parts: [{ type: "text", text: message.text }],
+          metadata: {},
+        })),
+      );
+    } catch (error) {
+      return Promise.reject(asError(error));
+    }
+  }
+
+  listConversations(auth: AuthContext) {
+    const conversations = [...this.conversations.values()]
+      .filter((conversation) => sameOwner(auth, conversation))
+      .map((conversation) => ({
+        id: conversation.conversationId,
+        status: "active" as const,
+        lastMessageAt: auth.issuedAt,
+      }));
+    return Promise.resolve(conversations);
+  }
+
+  findActiveTurn(auth: AuthContext, conversationId: string) {
+    try {
+      this.requireOwnedConversation(auth, conversationId);
+      const active = [...this.turns.values()].find(
+        (turn) =>
+          turn.reference.conversationId === conversationId &&
+          this.runningTurns.has(conversationId) &&
+          turn.runId !== undefined,
+      );
+      return Promise.resolve(
+        active?.runId
+          ? { turnId: active.reference.turnId, runId: active.runId, status: "running" as const }
+          : undefined,
+      );
     } catch (error) {
       return Promise.reject(asError(error));
     }
@@ -66,6 +117,7 @@ export class InMemoryTurnState implements ConversationStore, MessageStore, TurnS
       const reference = this.createTurnReference(input.conversationId);
       this.runningTurns.add(input.conversationId);
       this.userMessages.push(input.userMessage);
+      this.appendConversationMessage(input.conversationId, input.userMessage);
       this.turns.set(reference.turnId, {
         reference,
         requestId: input.requestId,
@@ -100,6 +152,7 @@ export class InMemoryTurnState implements ConversationStore, MessageStore, TurnS
   appendAssistantMessage(turn: TurnRef, message: TurnMessage): Promise<void> {
     this.requireTurn(turn);
     this.assistantMessages.push(message);
+    this.appendConversationMessage(turn.conversationId, message);
     return Promise.resolve();
   }
 
@@ -145,6 +198,11 @@ export class InMemoryTurnState implements ConversationStore, MessageStore, TurnS
     const turnId = `turn-${this.nextTurnNumber}`;
     this.nextTurnNumber += 1;
     return { conversationId, turnId };
+  }
+
+  private appendConversationMessage(conversationId: string, message: TurnMessage): void {
+    const messages = this.conversationMessages.get(conversationId) ?? [];
+    this.conversationMessages.set(conversationId, [...messages, message]);
   }
 }
 

@@ -2,6 +2,8 @@ import { registerTelemetry, type Telemetry } from "ai";
 
 import { PRIVATE_TELEMETRY_OPTIONS, type TelemetrySink } from "#application/ports/telemetry-sink";
 
+let serviceTelemetrySink: TelemetrySink = { record: () => undefined };
+
 export class TelemetryRegistrationError extends Error {
   readonly code = "telemetry_already_registered";
 }
@@ -17,9 +19,14 @@ export function registerServiceTelemetry(
       "AI SDK telemetry may be registered only once per process",
     );
   }
+  serviceTelemetrySink = sink;
   registerTelemetry(createAiSdkTelemetry(sink), ...additionalIntegrations);
   void sink.record({ type: "service.boot" });
 }
+
+/** Record a bounded service event through the same sink registered for AI SDK events. */
+export const recordServiceTelemetry: TelemetrySink["record"] = (record) =>
+  serviceTelemetrySink.record(record);
 
 function createAiSdkTelemetry(sink: TelemetrySink): Telemetry {
   return {

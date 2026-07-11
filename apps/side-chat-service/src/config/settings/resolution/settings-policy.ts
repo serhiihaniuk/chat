@@ -33,7 +33,29 @@ export function validateSettingsPolicy(settings: Settings, issues: SettingsIssue
   );
 
   validateWorkerConcurrency(settings, issues);
-  validateJournalRetention(settings, issues);
+  validateMaintenanceDatabase(settings, issues);
+}
+
+function validateMaintenanceDatabase(settings: Settings, issues: SettingsIssue[]): void {
+  const productUrl = settings.persistence.databaseUrl;
+  const workflowUrl = settings.workflow.postgresUrl;
+  if (productUrl === undefined || workflowUrl === undefined) return;
+  const productDatabase = identifyPostgresDatabase(productUrl);
+  const workflowDatabase = identifyPostgresDatabase(workflowUrl);
+  if (productDatabase !== undefined && productDatabase === workflowDatabase) return;
+  issues.push({
+    path: "workflow.postgresUrl",
+    message: "must use the product Postgres database for legal-hold-safe journal pruning",
+  });
+}
+
+function identifyPostgresDatabase(connectionString: string): string | undefined {
+  try {
+    const url = new URL(connectionString);
+    return `${url.protocol}//${url.hostname.toLowerCase()}:${url.port || "5432"}${url.pathname}`;
+  } catch {
+    return undefined;
+  }
 }
 
 function validateWorkerConcurrency(settings: Settings, issues: SettingsIssue[]): void {
@@ -43,14 +65,6 @@ function validateWorkerConcurrency(settings: Settings, issues: SettingsIssue[]):
   issues.push({
     path: "workflow.workerConcurrency",
     message: `must be at least active generations plus headroom (${requiredConcurrency})`,
-  });
-}
-
-function validateJournalRetention(settings: Settings, issues: SettingsIssue[]): void {
-  if (settings.workflow.journalPruneAfterDays > settings.workflow.journalArchiveAfterDays) return;
-  issues.push({
-    path: "workflow.journalPruneAfterDays",
-    message: "must be greater than journal archive age",
   });
 }
 

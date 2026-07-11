@@ -37,29 +37,30 @@ Clients load validated history, discover in-flight runs for reattachment, and pr
 4. pruning removes only terminal runs past the window;
 5. the first sweep after downtime catches accumulated terminal runs;
 6. concurrent sweeps are safe;
-7. discovered `runId` feeds the Step 07 stream route successfully.
+7. discovered `runId` feeds the Step 07 stream route successfully. This cross-step assertion is owned by Step 07 because that route does not exist before Step 10 unblocks it; Step 10 proves the discovery value is the exact persisted Workflow run id.
 
 ## Verification
 
 ```powershell
-npm test -- apps/side-chat-service/src/persistence
-npm test -- apps/side-chat-service/src/adapters/http
+npm test -- apps/side-chat-service/src/application/conversations apps/side-chat-service/src/adapters/http/conversations apps/side-chat-service/src/composition/lifecycle/maintenance packages/db/src/maintenance
 npm run test:db:container
-npm run typecheck
+npm run typecheck --workspace @side-chat/db
+npm run typecheck --workspace @side-chat/side-chat-service
+npx oxlint --deny-warnings apps/side-chat-service packages/db scripts/run-db-container-tests.mjs
 npm run lint:custom
 ```
 
 ## Completion checklist
 
-- [ ] History read with drift-degrade decision implemented and tested.
-- [ ] Discovery endpoint live; marker machinery has no consumer in the new path.
-- [ ] Pruning proven as a self-healing, concurrency-safe sweep.
-- [ ] All seven edge cases pass; container evidence recorded.
+- [x] History read with drift-degrade decision implemented and tested.
+- [x] Discovery endpoint live; marker machinery has no consumer in the new path.
+- [x] Pruning proven as a self-healing, concurrency-safe sweep.
+- [x] Step 10's six executable edge cases pass and container evidence is recorded; Step 07 owns the deferred route integration case above.
 
 ## Handoff record
 
-Drift-degrade evidence: pending
+Drift-degrade evidence: `read-conversation-history.test.ts` proves a removed structured part degrades only its message, keeps safe text, uses the neutral fallback when needed, records label-free telemetry, and does not fail the list.
 
-Pruning adapter and pinned-schema evidence: pending
+Pruning adapter and pinned-schema evidence: `npm run test:db:container` bootstraps the installed `@workflow/world-postgres` schema and passes the maintenance integration suite for eligibility, legal hold, archive rollback, batching, and concurrent advisory locking. The service sweeper tests prove immediate catch-up, scheduled retry, and overlap protection.
 
-Read-route shapes: pending
+Read-route shapes: authenticated `GET /api/conversations`, `GET /api/models`, `GET /api/conversations/:conversationId/messages`, and `GET /api/conversations/:conversationId/active-turn`. The last returns `{ activeTurn: { turnId, runId, status: "running" } | null }`; it exposes only a bound run and becomes null after terminal projection. Two-tenant tests cover list, history, and discovery isolation.

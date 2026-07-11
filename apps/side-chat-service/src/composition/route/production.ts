@@ -1,5 +1,11 @@
 import { createHttpApp } from "#adapters/http/health/health-app";
+import {
+  createPostgresWorkflowJournalMaintenance,
+  type ArchiveWorkflowJournal,
+} from "@side-chat/db";
 import { createChatRoutes } from "#adapters/http/chat/chat-routes";
+import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
+import { recordServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import {
   InMemoryTurnState,
   type SeedConversation,
@@ -9,12 +15,13 @@ import {
   type PostgresTurnState,
 } from "#adapters/persistence/postgres-turn-state";
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
+import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { TurnStore } from "#application/ports/turn/turn-store";
 import type { Settings } from "#config/settings/resolve-settings";
 import { configuredTurnModel } from "#application/turn/turn-model-policy";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
-import { AUTH_PROFILES } from "#config/declaration/side-chat-config";
+import { AUTH_PROFILES, WORKFLOW_JOURNAL_CLASSES } from "#config/declaration/side-chat-config";
 
 import { assertAiSdkDefaultProviderIsUnset } from "../lifecycle/ai-sdk-global-guard.js";
 import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
@@ -22,6 +29,7 @@ import { createWorkflowReadiness } from "../lifecycle/readiness/workflow-readine
 import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
 import { createProductionModelProvider } from "../providers/production-model-provider.js";
 import { startConfiguredTelemetry } from "../lifecycle/telemetry/configured-telemetry.js";
+import { startWorkflowJournalSweeper } from "../lifecycle/maintenance/workflow-journal-sweeper.js";
 import { PASS_THROUGH_TURN_ADMISSION } from "../turn/pass-through-admission.js";
 import { createWorkflowTurnExecution } from "../turn/workflow-turn-execution.js";
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
@@ -29,18 +37,24 @@ import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
 /** Production wiring contains no scripted providers or compatibility-only routes. */
 export async function startProductionService(
   settings: Settings,
-  starters: readonly StartServicePart[] = [],
+  options: Readonly<{
+    starters?: readonly StartServicePart[] | undefined;
+    archiveWorkflowJournal?: ArchiveWorkflowJournal | undefined;
+  }> = {},
 ) {
   assertAiSdkDefaultProviderIsUnset();
   const modelProvider = createProductionModelProvider(settings);
   const authorizer = createServiceAuthorizer(settings.auth);
   const persistence = createProductionPersistence(settings);
+  const maintenanceStarters = createMaintenanceStarters(settings, options.archiveWorkflowJournal);
   // The persistence close is registered first so its pool is disposed even if a
   // later starter (telemetry, workflow readiness) fails during startup.
   const scope = await startServiceScope(settings, [
     persistence.registerClose,
+    ...maintenanceStarters.beforeTelemetry,
     startConfiguredTelemetry,
-    ...starters,
+    ...maintenanceStarters.afterTelemetry,
+    ...(options.starters ?? []),
   ]);
   const execution = createWorkflowTurnExecution(settings);
   const app = createHttpApp(createWorkflowReadiness(scope, settings), authorizer);
@@ -56,6 +70,14 @@ export async function startProductionService(
       selectModel: configuredTurnModel(settings.models.modelId),
     }),
   );
+  app.route(
+    "/",
+    createQueryRoutes({
+      queries: persistence.store,
+      telemetry: { record: recordServiceTelemetry },
+      model: { id: settings.models.modelId, provider: settings.models.provider },
+    }),
+  );
   return {
     app,
     modelProvider,
@@ -63,8 +85,43 @@ export async function startProductionService(
   };
 }
 
+function createMaintenanceStarters(
+  settings: Settings,
+  archiveWorkflowJournal: ArchiveWorkflowJournal | undefined,
+): Readonly<{
+  beforeTelemetry: readonly StartServicePart[];
+  afterTelemetry: readonly StartServicePart[];
+}> {
+  const connectionString = settings.workflow.postgresUrl;
+  if (connectionString === undefined) return { beforeTelemetry: [], afterTelemetry: [] };
+  if (
+    settings.workflow.journalClass === WORKFLOW_JOURNAL_CLASSES.RECORD &&
+    archiveWorkflowJournal === undefined
+  ) {
+    throw new Error("Record-class Workflow journals require an immutable archive adapter.");
+  }
+  const maintenance = createPostgresWorkflowJournalMaintenance({
+    connectionString,
+    archive:
+      settings.workflow.journalClass === WORKFLOW_JOURNAL_CLASSES.RECORD
+        ? archiveWorkflowJournal
+        : undefined,
+  });
+  return {
+    beforeTelemetry: [
+      () => ({ name: "workflow journal maintenance", close: () => maintenance.close() }),
+    ],
+    afterTelemetry: [
+      (serviceSettings) =>
+        startWorkflowJournalSweeper(serviceSettings, maintenance, {
+          record: recordServiceTelemetry,
+        }),
+    ],
+  };
+}
+
 type ProductionPersistence = Readonly<{
-  store: ConversationStore & MessageStore & TurnStore;
+  store: ConversationStore & ConversationQueryStore & MessageStore & TurnStore;
   registerClose: StartServicePart;
 }>;
 
@@ -79,6 +136,9 @@ type ProductionPersistence = Readonly<{
 function createProductionPersistence(settings: Settings): ProductionPersistence {
   const databaseUrl = settings.persistence.databaseUrl;
   if (databaseUrl === undefined) {
+    if (settings.auth.profile === AUTH_PROFILES.PRODUCTION) {
+      throw new Error("Production requires persistent Side Chat storage.");
+    }
     const store = new InMemoryTurnState(productionConversations(settings));
     return {
       store,

@@ -1,5 +1,12 @@
 export type TelemetryRecord = Readonly<{
-  type: "service.boot" | "ai.operation.start" | "ai.operation.end" | "ai.operation.error";
+  type:
+    | "service.boot"
+    | "ai.operation.start"
+    | "ai.operation.end"
+    | "ai.operation.error"
+    | "persistence.history_drift"
+    | "workflow.journal_prune"
+    | "workflow.journal_prune_error";
   operationId?: string | undefined;
 }>;
 

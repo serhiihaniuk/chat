@@ -10,10 +10,10 @@ Side Chat persists chats in a Postgres schema named `sidechat`. Drizzle generate
 
 Run both from the repo root. Edit `packages/db/src/drizzle/schema.ts`, then:
 
-| Command               | Does                                                                                                                     | Entry point                                                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `npm run db:generate` | Wipes `packages/db/migrations`, then emits exactly one migration named `day_one` from `schema.ts`.                       | [`scripts/db-generate.mjs`](../../scripts/db-generate.mjs)                                                     |
-| `npm run db:reset`    | Resolves the connection, then drops the `sidechat` schema, recreates it, applies the migration, and applies role grants. | [`scripts/reset-database.mjs`](../../scripts/reset-database.mjs)                                               |
+| Command               | Does                                                                                                                     | Entry point                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `npm run db:generate` | Wipes `packages/db/migrations`, then emits exactly one migration named `day_one` from `schema.ts`.                       | [`scripts/db-generate.mjs`](../../scripts/db-generate.mjs)       |
+| `npm run db:reset`    | Resolves the connection, then drops the `sidechat` schema, recreates it, applies the migration, and applies role grants. | [`scripts/reset-database.mjs`](../../scripts/reset-database.mjs) |
 
 `db:generate` produces DDL files; it does not connect to Postgres. `db:reset` is the only path that touches a database.
 
@@ -64,6 +64,16 @@ The role model already fits this future: `sidechat_migrator` owns DDL and `sidec
 | URL absent  | In-memory          | Hard fail at boot  |
 
 In-memory persistence loses all chats on restart. Use it for local development only. See [configuration.md](./configuration.md) for how the URL is declared in `sidechat.config.ts`.
+
+## Workflow journal maintenance
+
+Production uses two schemas in one physical database: `sidechat` is the durable business record and `workflow` is the Postgres World execution journal. `SIDECHAT_DATABASE_URL` and `WORKFLOW_POSTGRES_URL` may use different least-privilege users, but their host, port, and database must match so one maintenance transaction can enforce Side Chat legal holds.
+
+`journalPruneAfterDays`, `journalSweepIntervalMs`, and `journalClass` are declared in the service's `workflow` config block. The service validates the exact six-table World schema at boot, performs an immediate catch-up sweep, and repeats on the configured interval. A transaction-scoped advisory lock prevents overlapping instances; transient sweep failures are recorded and the next interval retries.
+
+Only Workflow-terminal runs older than the cutoff and bound to terminal Side Chat turns are eligible. Conversations under legal hold are excluded. The default `operational` class deletes eligible hot-journal rows; the `record` class requires an injected archive callback and archives a complete six-table snapshot before deletion. Archive storage must make `runId` idempotent because a later database rollback can cause a retry.
+
+`npm run test:db:container` applies the Side Chat migration, runs the installed `@workflow/world-postgres` bootstrap, and proves the adapter against that real pinned schema. The maintenance principal needs DML on the six `workflow` tables plus `SELECT` on the Side Chat turn and conversation eligibility columns; schema bootstrap remains a migrator/owner action.
 
 ## Three roles
 

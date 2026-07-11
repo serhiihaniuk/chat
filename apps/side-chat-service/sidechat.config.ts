@@ -4,6 +4,7 @@ import {
   readEnv,
   SERVICE_ENV_KEYS,
   TELEMETRY_MODES,
+  WORKFLOW_JOURNAL_CLASSES,
   type SideChatConfig,
 } from "./src/config/declaration/side-chat-config.js";
 import { OPENAI_PROVIDER } from "./src/config/providers/openai-provider-config.js";
@@ -36,7 +37,7 @@ const config: SideChatConfig = defineSideChatConfig({
   capacity: { activeGenerations: 8 },
   persistence: {
     databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL, {
-      required: false,
+      required: true,
     }),
   },
   keepalive: { intervalMs: 15_000, proxyIdleBudgetMs: 60_000 },
@@ -44,10 +45,11 @@ const config: SideChatConfig = defineSideChatConfig({
   workflow: {
     workerConcurrency: 10,
     concurrencyHeadroom: 2,
-    journalArchiveAfterDays: 7,
     journalPruneAfterDays: 30,
+    journalSweepIntervalMs: 3_600_000,
+    journalClass: WORKFLOW_JOURNAL_CLASSES.OPERATIONAL,
     postgresUrl: readEnv.secret(SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL, {
-      required: false,
+      required: true,
     }),
   },
 });

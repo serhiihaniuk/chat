@@ -2,6 +2,7 @@ import {
   AUTH_PROFILES,
   defineSideChatConfig,
   TELEMETRY_MODES,
+  WORKFLOW_JOURNAL_CLASSES,
   type SideChatConfig,
 } from "./src/config/declaration/side-chat-config.js";
 import { SCRIPTED_PROVIDER } from "./src/config/providers/scripted-provider-config.js";
@@ -31,8 +32,9 @@ const config: SideChatConfig = defineSideChatConfig({
   workflow: {
     workerConcurrency: 3,
     concurrencyHeadroom: 1,
-    journalArchiveAfterDays: 1,
     journalPruneAfterDays: 2,
+    journalSweepIntervalMs: 60_000,
+    journalClass: WORKFLOW_JOURNAL_CLASSES.OPERATIONAL,
     postgresUrl: undefined,
   },
 });

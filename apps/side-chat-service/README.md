@@ -16,7 +16,7 @@ The normative target is [`plan/v7/ARCHITECTURE.md`](../../plan/v7/ARCHITECTURE.m
 - `src/adapters/auth`: credential-authority implementations behind `RequestAuthorizer`.
 - `src/adapters/http`: Hono translation, auth middleware, health routes, and stream transforms.
 - `src/application/turn/stream`: the outbound scrub filter — the single edge that narrows the engine's UI message stream to the Side Chat wire profile (safe error codes, terminal discipline). The public wire contract is [`docs/architecture/stream-profile.md`](../../docs/architecture/stream-profile.md); its shared vocabulary lives in [`packages/stream-profile`](../../packages/stream-profile/README.md).
-- `src/adapters/persistence`: temporary in-memory turn state behind application ports; Step 09 replaces it with PostgreSQL.
+- `src/adapters/persistence`: PostgreSQL production state and explicit in-memory test/local substitutes behind application ports.
 - `src/adapters/providers`: AI SDK v7 OpenAI/Azure implementations of `ModelProvider`.
 - `src/adapters/telemetry`: redacted AI SDK telemetry mapped into `TelemetrySink`.
 - `src/config`: one cohesive config DSL, environment resolution, validation, and settings subsystem.
@@ -24,7 +24,9 @@ The normative target is [`plan/v7/ARCHITECTURE.md`](../../plan/v7/ARCHITECTURE.m
 - `src/workflows`: physical Workflow bundles, with disjoint production/testing scan roots plus the shared typed registry and realm patch.
 - `src/testing`: scripted models and other doubles, reachable only from testing composition.
 
-Turn execution enters through `POST /api/chat`; cancellation enters through `POST /api/chat/:runId/cancel`. HTTP validates and encodes, application use cases own admission and terminal-state policy, and the production Workflow bundle alone owns WorkflowAgent and provider execution. Each Workflow run returns one journaled terminal outcome; the application projects it through persistence ports, then releases admission and closes the response. Step 05's projection is intentionally in memory until Step 09 supplies PostgreSQL.
+Turn execution enters through `POST /api/chat`; cancellation enters through `POST /api/chat/:runId/cancel`. HTTP validates and encodes, application use cases own admission and terminal-state policy, and the production Workflow bundle alone owns WorkflowAgent and provider execution. Each Workflow run returns one journaled terminal outcome; the application projects it through PostgreSQL persistence ports, then releases admission and closes the response.
+
+Authenticated query routes expose conversations, configured models, validated message history, and the newest bound active turn. History validation degrades only the drifting message to safe text and emits content-free telemetry. Production also validates the pinned Postgres World schema at boot and runs an immediate, scheduled, concurrency-safe journal sweep; legal holds and non-terminal runs are never pruned.
 
 Tests sit beside the contract they protect. `scripts/check-side-chat-service-architecture.mjs` enforces the inward dependency law, Workflow directive/import placement, adapter isolation, and production/test separation with known-bad fixtures.
 

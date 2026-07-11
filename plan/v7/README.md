@@ -77,7 +77,7 @@ AI SDK 7 adoption was never gated; only the durable-execution substrate was. The
 1. Read this file, [`ARCHITECTURE.md`](./ARCHITECTURE.md) (normative — every file placement and dependency direction follows it), [`STATUS.md`](./STATUS.md), [`KNOWLEDGE.md`](./KNOWLEDGE.md), and the step file.
 2. Verify SDK/Workflow APIs against installed declarations and `.reference/ai-sdk-v7` / `.reference/workflow`. Reverify after every version bump.
 3. Update `STATUS.md` owner/state before and after work.
-4. Keep the old app unchanged and green until Step 20.
+4. Keep the old app untouched unless a step records an approved exception. Step 09 intentionally left it red after the user approved deleting the obsolete persistence contract; Step 20 owns final cutover/deletion.
 5. Record evidence/deviations in the step handoff; put only reusable verified facts in `KNOWLEDGE.md`.
 6. Follow repository readability/security rules. No Effect in the new wing.
 

@@ -36,8 +36,7 @@ describe("service settings", () => {
       workflow: {
         workerConcurrency: 1,
         concurrencyHeadroom: 2,
-        journalArchiveAfterDays: 30,
-        journalPruneAfterDays: 10,
+        journalPruneAfterDays: 30,
         postgresUrl: secret,
       },
     });
@@ -56,6 +55,33 @@ describe("service settings", () => {
     if (!result.ok) return;
     expect(Object.isFrozen(result.settings)).toBe(true);
     expect(Object.isFrozen(result.settings.workflow)).toBe(true);
+  });
+
+  it("requires one database for legal-hold-safe Workflow maintenance", () => {
+    const result = resolveTestSettings(
+      createDefaultConfig({
+        persistence: { databaseUrl: "postgres://product" },
+        workflow: { postgresUrl: "postgres://workflow" },
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toContainEqual({
+      path: "workflow.postgresUrl",
+      message: "must use the product Postgres database for legal-hold-safe journal pruning",
+    });
+  });
+
+  it("allows separate least-privilege principals for the same database", () => {
+    const result = resolveTestSettings(
+      createDefaultConfig({
+        persistence: { databaseUrl: "postgres://product:secret@db.internal/sidechat" },
+        workflow: { postgresUrl: "postgres://workflow:other@db.internal/sidechat" },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
   });
 });
 

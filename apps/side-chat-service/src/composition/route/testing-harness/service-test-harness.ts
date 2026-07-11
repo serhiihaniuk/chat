@@ -1,5 +1,6 @@
 import type { Readiness } from "#adapters/http/health/health-app";
 import type { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
+import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { ModelProvider } from "#application/ports/model-provider";
 import type { RequestAuthorizer } from "#application/ports/request-authorizer";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
@@ -21,6 +22,7 @@ export async function createServiceTestHarness(
     readonly turnAdmission?: TurnAdmission;
     readonly turnExecution?: TurnExecution;
     readonly turnState?: InMemoryTurnState;
+    readonly conversationQueries?: ConversationQueryStore;
   } = {},
 ) {
   const settingsResult = validateSettings(createDefaultConfig());

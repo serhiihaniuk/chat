@@ -30,11 +30,18 @@ export const TELEMETRY_MODES = {
   OTLP: "otlp",
 } as const;
 
+export const WORKFLOW_JOURNAL_CLASSES = {
+  OPERATIONAL: "operational",
+  RECORD: "record",
+} as const;
+
 export const AUTH_PROFILE_VALUES = Object.values(AUTH_PROFILES);
 export const TELEMETRY_MODE_VALUES = Object.values(TELEMETRY_MODES);
+export const WORKFLOW_JOURNAL_CLASS_VALUES = Object.values(WORKFLOW_JOURNAL_CLASSES);
 
 export type AuthProfile = (typeof AUTH_PROFILE_VALUES)[number];
 export type TelemetryMode = (typeof TELEMETRY_MODE_VALUES)[number];
+export type WorkflowJournalClass = (typeof WORKFLOW_JOURNAL_CLASS_VALUES)[number];
 
 export const ENV_REFERENCE_KINDS = { ENV: "env" } as const;
 export const ENV_VALUE_TYPES = { STRING: "string", NUMBER: "number" } as const;
@@ -130,8 +137,9 @@ export interface SideChatConfig {
   readonly workflow: {
     readonly workerConcurrency: ConfigValue<number>;
     readonly concurrencyHeadroom: ConfigValue<number>;
-    readonly journalArchiveAfterDays: ConfigValue<number>;
     readonly journalPruneAfterDays: ConfigValue<number>;
+    readonly journalSweepIntervalMs: ConfigValue<number>;
+    readonly journalClass: WorkflowJournalClass;
     readonly postgresUrl: ConfigValue<string | undefined>;
   };
 }

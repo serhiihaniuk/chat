@@ -51,6 +51,7 @@ Data changes shape at each seam so no layer leaks another's types. The widget ne
 - AI SDK stream parts -> provider-neutral `RuntimeEvent`s inside `agent-runtime`.
 - `RuntimeEvent`s -> browser-safe `sidechat.v1` events in `partner-ai-core`.
 - Drizzle/Postgres rows stay behind repository adapters in `db`.
+- Postgres World journal rows stay behind `db` maintenance. The service scheduler supplies retention policy and archival; the adapter owns pinned-schema validation, eligibility joins, advisory locking, and transactional deletion.
 - Widget message and activity state derives only from `sidechat.v1` events and host-bridge messages.
 
 ## Gate-script catalog

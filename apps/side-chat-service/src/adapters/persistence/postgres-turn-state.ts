@@ -6,14 +6,18 @@ import {
 } from "@side-chat/db";
 
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
+import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
 
+import { createPostgresConversationQueries } from "./postgres-turn-state/conversation-queries.js";
+
 /** The write/cancel store surface the chat routes depend on, plus pool disposal. */
 export type PostgresTurnState = ConversationStore &
+  ConversationQueryStore &
   MessageStore &
   TurnStore & { close: () => Promise<void> };
 
@@ -79,15 +83,17 @@ export const createTurnStateFromRepositories = (
   repositories: ClosableRepositories,
 ): PostgresTurnState => {
   const context: TurnStateContext = { repositories, identities: new Map() };
+  const queries = createPostgresConversationQueries(repositories);
   return {
     assertOwned: assertOwned(context),
+    ...queries,
     assertCanBegin: assertCanBegin(context),
     beginTurn: beginTurn(context),
     bindRun: bindRun(context),
     assertRunOwned: assertRunOwned(context),
     appendAssistantMessage: appendAssistantMessage(context),
     claimTerminal: claimTerminal(context),
-    close: () => repositories.close(),
+    close: repositories.close,
   };
 };
 

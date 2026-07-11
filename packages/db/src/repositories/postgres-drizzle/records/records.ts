@@ -3,9 +3,9 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { omitNullishField } from "@side-chat/shared";
 
 import {
-  assistantTurns,
   conversations,
   messages,
+  type assistantTurns,
   type auditEvents,
   type hostCommandResults,
   type sidechatTables,

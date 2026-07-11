@@ -246,6 +246,48 @@ describe("postgres turn state adapter mapping", () => {
     });
   });
 
+  it("maps persisted history and a bound active turn onto the read port", async () => {
+    const active = { ...assistantTurnRecord("turn_running"), runId: "run_running" };
+    const state = createTurnStateFromRepositories(
+      fakeRepositories({
+        readConversationHistory: () =>
+          Promise.resolve([
+            {
+              ...messageRecord(),
+              messageId: "message_history",
+              parts: [{ type: "text", text: "history" }],
+              metadataJson: { source: "stored" },
+            },
+          ]),
+        findActiveAssistantTurn: () => Promise.resolve(active),
+      }),
+    );
+
+    await expect(state.readHistory(AUTH, "conversation_1")).resolves.toEqual([
+      {
+        id: "message_history",
+        role: "user",
+        parts: [{ type: "text", text: "history" }],
+        metadata: { source: "stored" },
+      },
+    ]);
+    await expect(state.findActiveTurn(AUTH, "conversation_1")).resolves.toEqual({
+      turnId: "turn_running",
+      runId: "run_running",
+      status: "running",
+    });
+  });
+
+  it("does not discover the running turn until its durable run id is bound", async () => {
+    const state = createTurnStateFromRepositories(
+      fakeRepositories({
+        findActiveAssistantTurn: () => Promise.resolve(assistantTurnRecord("turn_unbound")),
+      }),
+    );
+
+    await expect(state.findActiveTurn(AUTH, "conversation_1")).resolves.toBeUndefined();
+  });
+
   it("allows assertCanBegin when no turn is running (including a missing conversation)", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({ findActiveAssistantTurn: () => Promise.resolve(undefined) }),

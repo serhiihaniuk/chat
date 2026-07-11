@@ -1,14 +1,16 @@
 import { createCompatibilityApp } from "#adapters/http/compatibility-app";
 import { createChatRoutes } from "#adapters/http/chat/chat-routes";
+import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
 import { createHttpApp, type Readiness } from "#adapters/http/health/health-app";
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import { registerServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import type { ModelProvider } from "#application/ports/model-provider";
+import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { RequestAuthorizer } from "#application/ports/request-authorizer";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
-import { configuredTurnModel } from "#application/turn/turn-model-policy";
+import { configuredTurnModel, type TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import type { Settings } from "#config/settings/resolve-settings";
 import { scriptedModelProvider } from "#testing/scripted-language-model";
@@ -27,6 +29,7 @@ export async function startTestingService(
     modelProvider?: ModelProvider;
     readiness?: Readiness;
     telemetrySink?: TelemetrySink;
+    conversationQueries?: ConversationQueryStore;
     turnAdmission?: TurnAdmission;
     turnExecution?: TurnExecution;
     turnState?: InMemoryTurnState;
@@ -38,6 +41,7 @@ export async function startTestingService(
   const authorizer = overrides.authorizer ?? createServiceAuthorizer(settings.auth);
   const app = createHttpApp(readiness, authorizer);
   const turnState = overrides.turnState ?? defaultTurnState(settings);
+  const telemetrySink = overrides.telemetrySink ?? { record: () => undefined };
   const turnExecution = overrides.turnExecution ?? new DeterministicTurnExecution();
   app.route(
     "/",
@@ -48,10 +52,15 @@ export async function startTestingService(
       execution: turnExecution,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
-      selectModel:
-        settings.models.provider === "scripted"
-          ? (requested) => requested ?? settings.models.modelId
-          : configuredTurnModel(settings.models.modelId),
+      selectModel: testingTurnModelPolicy(settings),
+    }),
+  );
+  app.route(
+    "/",
+    createQueryRoutes({
+      queries: overrides.conversationQueries ?? turnState,
+      telemetry: telemetrySink,
+      model: { id: settings.models.modelId, provider: settings.models.provider },
     }),
   );
   app.route("/", createCompatibilityApp());
@@ -66,4 +75,11 @@ export async function startTestingService(
 
 function defaultTurnState(settings: Settings): InMemoryTurnState {
   return new InMemoryTurnState([localChatConversation(settings.auth.workspaceId)]);
+}
+
+function testingTurnModelPolicy(settings: Settings): TurnModelPolicy {
+  if (settings.models.provider !== "scripted") {
+    return configuredTurnModel(settings.models.modelId);
+  }
+  return (requested) => requested ?? settings.models.modelId;
 }
