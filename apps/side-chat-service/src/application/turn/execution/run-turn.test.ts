@@ -1,5 +1,5 @@
-import type { UIMessageChunk } from "ai";
-import { describe, expect, it } from "vitest";
+import type { UIMessage, UIMessageChunk } from "ai";
+import { describe, expect, it, vi } from "vitest";
 
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import type {
@@ -29,11 +29,11 @@ const USER_MESSAGE = {
   text: "Hello",
 } as const;
 
-const ASSISTANT_MESSAGE = {
+const ASSISTANT_MESSAGE: UIMessage = {
   id: "assistant-1",
   role: TURN_MESSAGE_ROLES.ASSISTANT,
-  text: "Done",
-} as const;
+  parts: [{ type: "text", text: "Done" }],
+};
 
 describe("runTurn", () => {
   it("keeps the response stream open until terminal persistence succeeds", async () => {
@@ -90,6 +90,47 @@ describe("runTurn", () => {
       safeErrorCode: TURN_EXECUTION_ERROR_CODES.WORKFLOW_FAILED,
     });
     expect(harness.admission.released).toBe(1);
+  });
+
+  it("starts title enrichment after completion without waiting for the title result", async () => {
+    const titleResult = deferred<{ title: string; persisted: boolean }>();
+    const startTitle = vi.fn<
+      () => Promise<{
+        runId: string;
+        result: Promise<{ title: string; persisted: boolean }>;
+      }>
+    >(() => Promise.resolve({ runId: "title-run-1", result: titleResult.promise }));
+    const harness = createHarness(
+      Promise.resolve({
+        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        stepUsage: [],
+        assistantMessage: ASSISTANT_MESSAGE,
+      }),
+    );
+    const dependencies: RunTurnDependencies = {
+      ...harness.dependencies,
+      titleGeneration: {
+        titles: harness.state,
+        workflow: { start: startTitle },
+        telemetry: { record: () => undefined },
+        modelId: "title-model",
+        timeoutMs: 250,
+      },
+    };
+
+    const running = await runTurn(dependencies, turnInput());
+    await expect(running.stream.getReader().read()).resolves.toEqual({
+      done: true,
+      value: undefined,
+    });
+    await vi.waitFor(() => expect(startTitle).toHaveBeenCalledOnce());
+
+    titleResult.resolve({ title: "Deployment risk review", persisted: false });
+    await vi.waitFor(() =>
+      expect(harness.state.listConversations(AUTH)).resolves.toEqual([
+        expect.objectContaining({ title: "Deployment risk review" }),
+      ]),
+    );
   });
 });
 

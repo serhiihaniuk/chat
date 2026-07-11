@@ -9,6 +9,7 @@ import type { ModelProvider } from "#application/ports/model-provider";
 export type OpenAIModelProviderOptions = {
   readonly apiKey: string;
   readonly modelId: string;
+  readonly titleModelId: string;
   readonly baseUrl?: string | undefined;
   readonly reasoningEffort?:
     | NonNullable<OpenAIResponsesProviderOptions["reasoningEffort"]>
@@ -24,7 +25,7 @@ export function createOpenAIModelProvider(options: OpenAIModelProviderOptions): 
   const openai = createOpenAIClient(options);
   return {
     modelFor: ({ modelId }) => {
-      if (modelId !== options.modelId)
+      if (modelId !== options.modelId && modelId !== options.titleModelId)
         throw new Error(`OpenAI model is not configured: ${modelId}`);
       if (options.reasoningEffort === undefined) {
         return {

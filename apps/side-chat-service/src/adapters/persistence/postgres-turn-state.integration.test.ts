@@ -1,4 +1,5 @@
 import { createPostgresDrizzleSidechatRepositories } from "@side-chat/db";
+import type { UIMessage } from "ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { TURN_REJECTION_CODES } from "#application/turn/turn-errors";
@@ -67,7 +68,7 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     await state.appendAssistantMessage(turn, {
       id: `${scope}_assistant`,
       role: TURN_MESSAGE_ROLES.ASSISTANT,
-      text: "Hi there",
+      parts: [{ type: "text", text: "Hi there" }],
     });
     const claimed = await state.claimTerminal(turn, {
       status: TURN_TERMINAL_STATUSES.COMPLETED,
@@ -161,10 +162,10 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     const replay = await state.beginTurn({ auth, conversationId, requestId, userMessage: user });
     expect(replay.turnId).toBe(first.turnId);
 
-    const assistant: TurnMessage = {
+    const assistant: UIMessage = {
       id: `${scope}_assistant`,
       role: TURN_MESSAGE_ROLES.ASSISTANT,
-      text: "once",
+      parts: [{ type: "text", text: "once" }],
     };
     await state.appendAssistantMessage(first, assistant);
     await state.appendAssistantMessage(first, assistant);

@@ -29,6 +29,7 @@ describe("provider configuration catalogs", () => {
     const openAi = readOpenAIModelSettings(
       {
         modelId: OPENAI_PROVIDER.MODELS.GPT_5_4.MODEL_ID,
+        titleModelId: OPENAI_PROVIDER.MODELS.GPT_5_4.MODEL_ID,
         apiKey: "test-key",
         reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
       },
@@ -38,6 +39,7 @@ describe("provider configuration catalogs", () => {
     const azure = readAzureModelSettings(
       {
         modelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
+        titleModelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
         deployment: "test-deployment",
         apiKey: "test-key",
         endpoint: "https://azure.test",

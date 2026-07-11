@@ -40,7 +40,7 @@ The Workflow DevKit runtime (WorkflowAgent, Postgres World, hooks, the Nitro com
 2. **Approval authority and audit:** the authenticated conversation owner decides initially. Record approver, tenant, conversation, turn, tool, input digest, decision, reason, timestamps, and expiry; never duplicate raw tool input into the audit row.
 3. **No-connected-client policy:** a client-tool wait suspends on its durable hook bounded by the configured timeout (the run is durable; the tool part replays to a reattaching tab), then resolves to a typed timed-out result. Do not rebuild a polling relay; the hook is the native suspension primitive.
 4. **`data-*` inventory:** native parts own text, reasoning, tool lifecycle, approvals, sources, files, abort, and finish. Add a Side Chat part only when a named consumer cannot derive the concept from native parts.
-5. **Feature cut list:** every old activity/recovery feature without a native equivalent is explicitly kept, redesigned, or deleted with its user-visible consequence.
+5. **Feature cut list:** the canonical inventory is [ADR 0015's feature-disposition table](../../docs/adr/0015-native-ui-stream-tools-and-approval-profile.md#feature-disposition). Every old activity, recovery, and turn-completion feature is explicitly kept, redesigned, or deleted there with its user-visible consequence. Step 08 adds any disposition discovered by executable parity work to that same table instead of creating a second list.
 6. **Error vocabulary:** start from `packages/chat-protocol/src/sidechat-v1/errors.ts`, remove transport-only codes, and define retryability and safe public messages.
 
 ## Acceptance contract

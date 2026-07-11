@@ -1,5 +1,9 @@
-import type { UIMessageChunk } from "ai";
+import type { UIMessage, UIMessageChunk } from "ai";
 
+import {
+  startConversationTitleGeneration,
+  type ConversationTitleDependencies,
+} from "#application/conversations/generate-conversation-title";
 import type { StartedTurnExecution } from "#application/ports/turn/turn-execution";
 import { TURN_EXECUTION_ERROR_CODES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 
@@ -11,7 +15,13 @@ import {
   type PreparedTurn,
 } from "./prepare-turn.js";
 
-export type RunTurnDependencies = PrepareTurnDependencies & FinalizeTurnDependencies;
+export type RunTurnDependencies = PrepareTurnDependencies &
+  FinalizeTurnDependencies &
+  Readonly<{
+    titleGeneration?:
+      | (ConversationTitleDependencies & Readonly<{ modelId: string; timeoutMs: number }>)
+      | undefined;
+  }>;
 
 export type RunningTurn = Readonly<{
   runId: string;
@@ -24,7 +34,7 @@ export async function runTurn(
   input: PrepareTurnInput,
 ): Promise<RunningTurn> {
   const prepared = await prepareTurn(dependencies, input);
-  const finalization = finalizePreparedTurn(dependencies, prepared);
+  const finalization = finalizePreparedTurn(dependencies, prepared, input);
   return {
     runId: prepared.execution.runId,
     stream: closeAfterFinalization(prepared.execution.stream, finalization),
@@ -32,11 +42,12 @@ export async function runTurn(
 }
 
 function finalizePreparedTurn(
-  dependencies: FinalizeTurnDependencies,
+  dependencies: RunTurnDependencies,
   prepared: PreparedTurn,
+  input: PrepareTurnInput,
 ): Promise<boolean> {
-  return terminalOutcome(prepared.execution).then((terminal) =>
-    finalizeTurn(dependencies, {
+  return terminalOutcome(prepared.execution).then(async (terminal) => {
+    const claimed = await finalizeTurn(dependencies, {
       turn: prepared.turn,
       status: terminal.status,
       stepUsage: terminal.stepUsage,
@@ -44,7 +55,40 @@ function finalizePreparedTurn(
       safeErrorCode: terminal.safeErrorCode,
       finishReason: terminal.finishReason,
       admission: prepared.admission,
-    }),
+    });
+    if (claimed) launchTitleGeneration(dependencies, input, terminal.assistantMessage);
+    return claimed;
+  });
+}
+
+function launchTitleGeneration(
+  dependencies: RunTurnDependencies,
+  input: PrepareTurnInput,
+  assistantMessage: UIMessage | undefined,
+): void {
+  const titleGeneration = dependencies.titleGeneration;
+  const assistantContent = assistantText(assistantMessage);
+  if (titleGeneration === undefined || assistantContent.length === 0) return;
+
+  void startConversationTitleGeneration(titleGeneration, {
+    auth: input.auth,
+    conversationId: input.conversationId,
+    requestId: input.requestId,
+    initialUserMessageId: input.acceptedUserMessage.id,
+    userContent: input.acceptedUserMessage.text,
+    assistantContent,
+    modelId: titleGeneration.modelId,
+    timeoutMs: titleGeneration.timeoutMs,
+  });
+}
+
+function assistantText(message: UIMessage | undefined): string {
+  return (
+    message?.parts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("")
+      .trim() ?? ""
   );
 }
 

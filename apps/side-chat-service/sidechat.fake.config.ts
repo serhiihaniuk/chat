@@ -11,13 +11,14 @@ const config: SideChatConfig = defineSideChatConfig({
   models: {
     provider: SCRIPTED_PROVIDER.KIND,
     modelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+    titleModelId: SCRIPTED_PROVIDER.MODELS.TITLE.MODEL_ID,
   },
   auth: {
     profile: AUTH_PROFILES.DEVELOPMENT,
     bearerToken: "local-test-token",
     workspaceId: "local-workspace",
   },
-  timeouts: { requestMs: 10_000, queueMs: 1_000, providerMs: 2_000 },
+  timeouts: { requestMs: 10_000, queueMs: 1_000, providerMs: 2_000, titleMs: 1_000 },
   agent: {
     instructions: "You are the deterministic Side Chat test assistant.",
     maxSteps: 4,

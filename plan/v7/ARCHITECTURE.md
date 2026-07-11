@@ -76,7 +76,11 @@ Rules: a port is defined next to the application code that owns it; no port with
 
 ## The physical overlay (non-negotiable)
 
-1. Only `workflows/**` contains `'use workflow'` / `'use step'` directives.
+1. Only `workflows/**` contains `'use workflow'` / `'use step'` directives. A
+   dedicated `use step` activity may import its driven adapter when Node-only
+   I/O must sit behind the workflow compiler's activity boundary; the exception
+   is file-and-adapter specific in architecture lint and must not spread into a
+   deterministic `use workflow` graph.
 2. Route and workflow bundles have separate composition entries. `composition/route/*` wires HTTP. `composition/workflow/production.ts` and `composition/workflow/testing.ts` initialize the **step-bundle registry** (`workflows/registry.ts`) in their own module instances. A workflow may import only the initializer matching its physical `workflows/production/` or `workflows/testing/` subtree. The registry is typed with real ports, rejects reads before initialization, and resets only in tests.
 3. Nothing crosses workflow→step boundaries except serializable values; model instances crossing implement `WORKFLOW_SERIALIZE`/`WORKFLOW_DESERIALIZE`.
 4. Abort-path errors keep the `AbortError` DOMException name (engine retries otherwise); cancellation is signal-based via durable hooks — `run.cancel()` is never the mechanism.

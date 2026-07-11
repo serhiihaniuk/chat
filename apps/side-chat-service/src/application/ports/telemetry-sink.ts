@@ -5,6 +5,9 @@ export type TelemetryRecord = Readonly<{
     | "ai.operation.end"
     | "ai.operation.error"
     | "persistence.history_drift"
+    | "conversation.title_generated"
+    | "conversation.title_skipped"
+    | "conversation.title_error"
     | "workflow.journal_prune"
     | "workflow.journal_prune_error";
   operationId?: string | undefined;

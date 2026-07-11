@@ -12,6 +12,7 @@ describe("createAzureModelProvider", () => {
       endpoint: "https://test-resource.cognitiveservices.azure.com/",
       apiVersion: "2025-01-01-preview",
       modelId: "gpt-4o",
+      titleModelId: "gpt-4o",
       deployment: "side-chat-production",
       fetch: (url, init) => {
         requestUrl = String(url);

@@ -11,6 +11,20 @@ describe("outbound scrub filter", () => {
     expect(JSON.stringify(out)).not.toContain(sentinel);
   });
 
+  it("removes provider metadata from otherwise valid chunks", async () => {
+    const sentinel = "provider-internal-should-never-ship";
+    const out = await scrub([
+      {
+        type: "text-start",
+        id: "text-1",
+        providerMetadata: { openai: { internal: sentinel } },
+      },
+    ]);
+
+    expect(out).toEqual([{ type: "text-start", id: "text-1" }]);
+    expect(JSON.stringify(out)).not.toContain(sentinel);
+  });
+
   it("forwards a native content-filter finish reason untouched", async () => {
     const out = await scrub([{ type: "finish", finishReason: "content-filter" }]);
     expect(out).toEqual([{ type: "finish", finishReason: "content-filter" }]);

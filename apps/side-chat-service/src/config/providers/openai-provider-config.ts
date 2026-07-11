@@ -32,6 +32,7 @@ export const OPENAI_PROVIDER = {
   },
   SETTINGS_FIELDS: {
     MODEL_ID: { KEY: "modelId", PATH: "models.modelId" },
+    TITLE_MODEL_ID: { KEY: "titleModelId", PATH: "models.titleModelId" },
     API_KEY: { KEY: "apiKey", PATH: "models.apiKey" },
     BASE_URL: { KEY: "baseUrl", PATH: "models.baseUrl" },
     REASONING_EFFORT: { KEY: "reasoningEffort", PATH: "models.reasoningEffort" },
@@ -48,6 +49,7 @@ export type OpenAIReasoningSummary = (typeof OPENAI_REASONING_SUMMARY_VALUES)[nu
 export type OpenAIModelConfig = Readonly<{
   provider: typeof OPENAI_PROVIDER.KIND;
   modelId: ConfigValue<string>;
+  titleModelId: ConfigValue<string>;
   apiKey: ConfigValue<string>;
   baseUrl?: ConfigValue<string | undefined>;
   reasoningEffort?: OpenAIReasoningEffort;
@@ -57,6 +59,7 @@ export type OpenAIModelConfig = Readonly<{
 export type OpenAIModelSettings = Readonly<{
   provider: typeof OPENAI_PROVIDER.KIND;
   modelId: string;
+  titleModelId: string;
   apiKey: string;
   baseUrl?: string | undefined;
   reasoningEffort?: OpenAIReasoningEffort | undefined;
@@ -71,6 +74,11 @@ export function readOpenAIModelSettings(
   return {
     provider: OPENAI_PROVIDER.KIND,
     modelId: readRequiredString(models[fields.MODEL_ID.KEY], fields.MODEL_ID.PATH, issues),
+    titleModelId: readRequiredString(
+      models[fields.TITLE_MODEL_ID.KEY],
+      fields.TITLE_MODEL_ID.PATH,
+      issues,
+    ),
     apiKey: readRequiredString(models[fields.API_KEY.KEY], fields.API_KEY.PATH, issues),
     baseUrl: readOptionalString(models[fields.BASE_URL.KEY], fields.BASE_URL.PATH, issues),
     reasoningEffort: readOptionalCatalogValue(

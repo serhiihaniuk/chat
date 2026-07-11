@@ -107,6 +107,7 @@ export interface SideChatConfig {
     readonly requestMs: ConfigValue<number>;
     readonly queueMs: ConfigValue<number>;
     readonly providerMs: ConfigValue<number>;
+    readonly titleMs: ConfigValue<number>;
   };
   readonly agent: {
     readonly instructions: ConfigValue<string>;

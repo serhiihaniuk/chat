@@ -8,7 +8,7 @@ import { createDefaultConfig } from "./settings.test-fixture.js";
 describe("service settings", () => {
   it("accumulates cross-field failures", () => {
     const config = createDefaultConfig({
-      timeouts: { requestMs: 1_000, queueMs: 1_000, providerMs: 500 },
+      timeouts: { requestMs: 1_000, queueMs: 1_000, providerMs: 500, titleMs: 250 },
       agent: {
         maxSteps: 8,
         totalTokenBudget: 100,

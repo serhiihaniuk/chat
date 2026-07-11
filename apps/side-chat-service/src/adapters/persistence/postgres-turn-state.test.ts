@@ -7,6 +7,7 @@ import {
   type ConversationRecord,
   type CreateOrGetConversationCommand,
   type MessageRecord,
+  type PrepareConversationTitleCommand,
   type SidechatRepositories,
   type StartAssistantTurnCommand,
 } from "@side-chat/db";
@@ -371,7 +372,7 @@ describe("postgres turn state adapter mapping", () => {
     await state.appendAssistantMessage(turn, {
       id: "assistant_1",
       role: TURN_MESSAGE_ROLES.ASSISTANT,
-      text: "Hi there",
+      parts: [{ type: "text", text: "Hi there" }],
     });
 
     expect(appendCommand).toMatchObject({
@@ -381,6 +382,33 @@ describe("postgres turn state adapter mapping", () => {
       messageId: "assistant_1",
       role: "assistant",
       parts: [{ type: "text", text: "Hi there" }],
+    });
+  });
+
+  it("checks the persisted sequence-zero message and delegates the conditional title write", async () => {
+    let titleCommand: PrepareConversationTitleCommand | undefined;
+    const state = createTurnStateFromRepositories(
+      fakeRepositories({
+        findConversation: () => Promise.resolve(conversationRecord()),
+        readConversationHistory: () =>
+          Promise.resolve([{ ...messageRecord(), messageId: USER_MESSAGE.id }]),
+        prepareConversationTitle: (command) => {
+          titleCommand = command;
+          return Promise.resolve({ ...conversationRecord(), titleText: command.titleText });
+        },
+      }),
+    );
+
+    await expect(
+      state.readTitleEligibility(AUTH, "conversation_1", USER_MESSAGE.id),
+    ).resolves.toEqual({ eligible: true });
+    await state.prepareConversationTitle(AUTH, "conversation_1", "Prepared conversation title");
+
+    expect(titleCommand).toMatchObject({
+      workspaceId: AUTH.workspaceId,
+      subjectId: AUTH.subjectId,
+      conversationId: "conversation_1",
+      titleText: "Prepared conversation title",
     });
   });
 });

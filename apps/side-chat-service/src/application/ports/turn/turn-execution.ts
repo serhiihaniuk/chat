@@ -1,4 +1,4 @@
-import type { UIMessageChunk } from "ai";
+import type { UIMessage, UIMessageChunk } from "ai";
 
 import type {
   TurnExecutionErrorCode,
@@ -21,7 +21,8 @@ export type TurnExecutionInput = TurnRef &
  * recoverable source of truth the application persists.
  *
  * - `stepUsage` is per model step; the application sums it into one total.
- * - `assistantMessage` is present only when a completed turn produced visible text.
+ * - `assistantMessage` is present for every completed turn as a stable native
+ *   `UIMessage`, including empty and reasoning-only responses.
  * - `safeErrorCode` is set only on a failed terminal and is already client-safe.
  * - `finishReason` is the native provider reason when known (e.g. `content-filter`
  *   for a blocked turn, `length` for a truncated one); absent on cancel/failure.
@@ -29,7 +30,7 @@ export type TurnExecutionInput = TurnRef &
 export type TurnExecutionTerminal = Readonly<{
   status: TurnTerminalStatus;
   stepUsage: readonly TurnUsage[];
-  assistantMessage?: TurnMessage;
+  assistantMessage?: UIMessage;
   safeErrorCode?: TurnExecutionErrorCode;
   finishReason?: string;
 }>;

@@ -1,9 +1,9 @@
-import type { UIMessageChunk } from "ai";
+import type { UIMessage, UIMessageChunk } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
-import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
+import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 import { CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
 
 import { createWorkflowTurnExecution, type StartChatTurn } from "./workflow-turn-execution.js";
@@ -23,6 +23,16 @@ const TURN_INPUT = {
   clientTools: [],
 } as const;
 
+function usage(inputTokens: number, outputTokens: number) {
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    reasoningTokens: 0,
+    cachedInputTokens: 0,
+  };
+}
+
 describe("createWorkflowTurnExecution", () => {
   it("passes timeout and client-tool metadata into the workflow boundary", async () => {
     const settings = testSettings();
@@ -32,9 +42,9 @@ describe("createWorkflowTurnExecution", () => {
         stream: new ReadableStream<UIMessageChunk>(),
         terminal: Promise.resolve({
           status: CHAT_TURN_OUTCOMES.COMPLETED,
-          text: "",
+          assistantMessage: { id: "turn-1-assistant", role: "assistant", parts: [] },
           finishReason: "stop",
-          usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          usage: usage(0, 0),
         }),
       }),
     );
@@ -58,9 +68,9 @@ describe("createWorkflowTurnExecution", () => {
         stream: chunks({ type: "start", messageId: "assistant-1" }, { type: "finish" }),
         terminal: Promise.resolve({
           status: CHAT_TURN_OUTCOMES.COMPLETED,
-          text: "",
+          assistantMessage: { id: "turn-1-assistant", role: "assistant", parts: [] },
           finishReason: "content-filter",
-          usage: { inputTokens: 1, outputTokens: 0, totalTokens: 1 },
+          usage: usage(1, 0),
         }),
       }),
     );
@@ -73,7 +83,35 @@ describe("createWorkflowTurnExecution", () => {
       type: "finish",
       finishReason: "content-filter",
     });
-    expect((await started.terminal).finishReason).toBe("content-filter");
+    await expect(started.terminal).resolves.toEqual({
+      status: TURN_TERMINAL_STATUSES.BLOCKED,
+      stepUsage: [usage(1, 0)],
+      finishReason: "content-filter",
+    });
+  });
+
+  it("keeps an empty assistant UIMessage on a completed terminal", async () => {
+    const assistantMessage: UIMessage = {
+      id: "turn-1-assistant",
+      role: "assistant",
+      parts: [],
+    };
+    const execution = createWorkflowTurnExecution(testSettings(), () =>
+      Promise.resolve({
+        runId: "run-1",
+        stream: chunks({ type: "finish" }),
+        terminal: Promise.resolve({
+          status: CHAT_TURN_OUTCOMES.COMPLETED,
+          assistantMessage,
+          finishReason: "stop",
+          usage: usage(1, 0),
+        }),
+      }),
+    );
+
+    const started = await execution.start(TURN_INPUT);
+
+    await expect(started.terminal).resolves.toMatchObject({ assistantMessage });
   });
 });
 

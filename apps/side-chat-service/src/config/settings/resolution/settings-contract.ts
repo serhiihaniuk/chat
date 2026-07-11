@@ -13,6 +13,7 @@ export type Settings = Readonly<{
     requestMs: number;
     queueMs: number;
     providerMs: number;
+    titleMs: number;
   }>;
   agent: Readonly<{
     instructions: string;

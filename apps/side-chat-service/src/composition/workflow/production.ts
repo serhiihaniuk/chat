@@ -15,6 +15,9 @@ export function initializeProductionWorkflowServices(): WorkflowServices {
     const settings = resolveServiceSettings(serviceProcessEnv());
     initializeWorkflowServices({
       modelProvider: createProductionModelProvider(settings),
+      ...(settings.persistence.databaseUrl === undefined
+        ? {}
+        : { databaseUrl: settings.persistence.databaseUrl }),
     });
   }
   return workflowServices();

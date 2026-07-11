@@ -4,42 +4,26 @@ import {
   uniqueViolationConstraint,
   type SidechatRepositories,
 } from "@side-chat/db";
+import { toJsonObject } from "@side-chat/shared";
 
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
-import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
-import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
+import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
 
 import { createPostgresConversationQueries } from "./postgres-turn-state/conversation-queries.js";
+import { createPostgresConversationTitleStore } from "./postgres-turn-state/conversation-titles.js";
+import type {
+  ClosableRepositories,
+  PostgresTurnState,
+  TurnIdentity,
+  TurnStateContext,
+} from "./postgres-turn-state/types.js";
 
-/** The write/cancel store surface the chat routes depend on, plus pool disposal. */
-export type PostgresTurnState = ConversationStore &
-  ConversationQueryStore &
-  MessageStore &
-  TurnStore &
-  TurnRunAccess & { close: () => Promise<void> };
-
-/** Repositories that also own their connection pool, as the pg-drizzle factory returns. */
-type ClosableRepositories = SidechatRepositories & { close: () => Promise<void> };
-
-/**
- * The tenant identity a turn was opened under.
- *
- * Later write ports carry only a `TurnRef`, so `beginTurn` records the request
- * identity needed to keep every database write tenant-scoped. This is valid for
- * the current single-instance prepare-to-finalize path; durable resumed writes
- * will need to recover identity from the turn row.
- */
-type TurnIdentity = Readonly<{ workspaceId: string; subjectId: string }>;
-
-type TurnStateContext = Readonly<{
-  repositories: SidechatRepositories;
-  identities: Map<string, TurnIdentity>;
-}>;
+export type { PostgresTurnState } from "./postgres-turn-state/types.js";
 
 /**
  * Postgres's default primary-key constraint name for `sidechat.conversations`
@@ -82,8 +66,10 @@ export const createTurnStateFromRepositories = (
 ): PostgresTurnState => {
   const context: TurnStateContext = { repositories, identities: new Map() };
   const queries = createPostgresConversationQueries(repositories);
+  const titles = createPostgresConversationTitleStore(repositories);
   return {
     assertOwned: assertOwned(context),
+    ...titles,
     ...queries,
     assertCanBegin: assertCanBegin(context),
     beginTurn: beginTurn(context),
@@ -200,8 +186,8 @@ const appendAssistantMessage =
       conversationId: turn.conversationId,
       messageId: message.id,
       role: TURN_MESSAGE_ROLES.ASSISTANT,
-      parts: [{ type: "text", text: message.text }],
-      metadataJson: {},
+      parts: message.parts.map(toJsonObject),
+      metadataJson: message.metadata === undefined ? {} : toJsonObject(message.metadata),
       now: new Date().toISOString(),
     });
   };
@@ -223,8 +209,8 @@ const claimTerminal =
         inputTokens: terminal.usage.inputTokens,
         outputTokens: terminal.usage.outputTokens,
         totalTokens: terminal.usage.totalTokens,
-        reasoningTokens: 0,
-        cachedInputTokens: 0,
+        reasoningTokens: terminal.usage.reasoningTokens ?? 0,
+        cachedInputTokens: terminal.usage.cachedInputTokens ?? 0,
       },
       now: new Date().toISOString(),
     });

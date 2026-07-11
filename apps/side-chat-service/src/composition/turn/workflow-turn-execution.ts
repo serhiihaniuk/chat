@@ -8,7 +8,6 @@ import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-
 import type { Settings } from "#config/settings/resolve-settings";
 import {
   TURN_EXECUTION_ERROR_CODES,
-  TURN_MESSAGE_ROLES,
   TURN_TERMINAL_STATUSES,
   type TurnMessage,
 } from "#domain/turn/turn";
@@ -55,9 +54,7 @@ export function createWorkflowTurnExecution(
         messages: input.messages.map(toSerializableMessage),
         clientTools: input.clientTools,
       });
-      const terminal = started.terminal.then((outcome) =>
-        toApplicationTerminal(input.turnId, outcome),
-      );
+      const terminal = started.terminal.then(toApplicationTerminal);
       return {
         runId: started.runId,
         stream: stampFinishReason(started.stream, terminal),
@@ -80,19 +77,22 @@ function toSerializableMessage(message: TurnMessage): SerializableChatMessage {
   };
 }
 
-function toApplicationTerminal(
-  turnId: string,
-  terminal: ChatTurnTerminalOutcome,
-): TurnExecutionTerminal {
+function toApplicationTerminal(terminal: ChatTurnTerminalOutcome): TurnExecutionTerminal {
   if (terminal.status === CHAT_TURN_OUTCOMES.COMPLETED) {
-    const assistantMessage = toAssistantMessage(turnId, terminal.text);
+    if (terminal.finishReason === "content-filter") {
+      return {
+        status: TURN_TERMINAL_STATUSES.BLOCKED,
+        stepUsage: [toUsage(terminal.usage)],
+        finishReason: terminal.finishReason,
+      };
+    }
     const completed: TurnExecutionTerminal = {
       status: TURN_TERMINAL_STATUSES.COMPLETED,
       stepUsage: [toUsage(terminal.usage)],
       finishReason: terminal.finishReason,
+      assistantMessage: terminal.assistantMessage,
     };
-    if (assistantMessage === undefined) return completed;
-    return { ...completed, assistantMessage };
+    return completed;
   }
   if (terminal.status === CHAT_TURN_OUTCOMES.CANCELLED) {
     return { status: TURN_TERMINAL_STATUSES.CANCELLED, stepUsage: [] };
@@ -111,15 +111,6 @@ function toApplicationErrorCode(
     return TURN_EXECUTION_ERROR_CODES.PROVIDER_TIMEOUT;
   }
   return TURN_EXECUTION_ERROR_CODES.MODEL_STREAM_FAILED;
-}
-
-function toAssistantMessage(turnId: string, text: string): TurnMessage | undefined {
-  if (text.length === 0) return undefined;
-  return {
-    id: `${turnId}-assistant`,
-    role: TURN_MESSAGE_ROLES.ASSISTANT,
-    text,
-  };
 }
 
 /**
@@ -157,6 +148,8 @@ function toUsage(usage: {
   readonly inputTokens: number | undefined;
   readonly outputTokens: number | undefined;
   readonly totalTokens: number | undefined;
+  readonly reasoningTokens: number | undefined;
+  readonly cachedInputTokens: number | undefined;
 }) {
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
@@ -164,5 +157,7 @@ function toUsage(usage: {
     inputTokens,
     outputTokens,
     totalTokens: usage.totalTokens ?? inputTokens + outputTokens,
+    reasoningTokens: usage.reasoningTokens ?? 0,
+    cachedInputTokens: usage.cachedInputTokens ?? 0,
   };
 }

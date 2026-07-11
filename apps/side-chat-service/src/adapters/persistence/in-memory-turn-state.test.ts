@@ -71,6 +71,24 @@ describe("InMemoryTurnState", () => {
       code: "turn_run_not_found",
     });
   });
+
+  it("titles only the persisted initial exchange and keeps the first title", async () => {
+    const state = seededState();
+    await state.beginTurn(beginInput());
+
+    await expect(
+      state.readTitleEligibility(AUTH, "conversation-1", USER_MESSAGE.id),
+    ).resolves.toEqual({ eligible: true });
+    await state.prepareConversationTitle(AUTH, "conversation-1", "Initial prepared title");
+    await state.prepareConversationTitle(AUTH, "conversation-1", "Ignored replacement title");
+
+    await expect(state.listConversations(AUTH)).resolves.toContainEqual(
+      expect.objectContaining({ title: "Initial prepared title" }),
+    );
+    await expect(
+      state.readTitleEligibility(AUTH, "conversation-1", USER_MESSAGE.id),
+    ).resolves.toEqual({ eligible: false, existingTitle: "Initial prepared title" });
+  });
 });
 
 function seededState(): InMemoryTurnState {

@@ -1,5 +1,6 @@
 export const TURN_TERMINAL_STATUSES = {
   COMPLETED: "completed",
+  BLOCKED: "blocked",
   FAILED: "failed",
   CANCELLED: "cancelled",
 } as const;
@@ -39,6 +40,8 @@ export type TurnUsage = Readonly<{
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  reasoningTokens?: number | undefined;
+  cachedInputTokens?: number | undefined;
 }>;
 
 export type TurnTerminal = Readonly<{
@@ -58,6 +61,8 @@ export const ZERO_TURN_USAGE: TurnUsage = {
   inputTokens: 0,
   outputTokens: 0,
   totalTokens: 0,
+  reasoningTokens: 0,
+  cachedInputTokens: 0,
 };
 
 export function sumTurnUsage(steps: readonly TurnUsage[]): TurnUsage {
@@ -66,6 +71,8 @@ export function sumTurnUsage(steps: readonly TurnUsage[]): TurnUsage {
       inputTokens: total.inputTokens + step.inputTokens,
       outputTokens: total.outputTokens + step.outputTokens,
       totalTokens: total.totalTokens + step.totalTokens,
+      reasoningTokens: (total.reasoningTokens ?? 0) + (step.reasoningTokens ?? 0),
+      cachedInputTokens: (total.cachedInputTokens ?? 0) + (step.cachedInputTokens ?? 0),
     }),
     ZERO_TURN_USAGE,
   );

@@ -7,6 +7,7 @@ export type AzureModelProviderOptions = {
   readonly endpoint: string;
   readonly apiVersion: string;
   readonly modelId: string;
+  readonly titleModelId: string;
   readonly deployment: string;
   readonly fetch?: typeof fetch | undefined;
 };
@@ -16,7 +17,8 @@ export function createAzureModelProvider(options: AzureModelProviderOptions): Mo
   const azure = createAzureClient(options);
   return {
     modelFor: ({ modelId }) => {
-      if (modelId !== options.modelId) throw new Error(`Azure model is not configured: ${modelId}`);
+      if (modelId !== options.modelId && modelId !== options.titleModelId)
+        throw new Error(`Azure model is not configured: ${modelId}`);
       return { model: azure.chat(options.deployment) };
     },
   };

@@ -1,5 +1,11 @@
+import type { UIMessage } from "ai";
+
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
-import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
+import type { ConversationTitleStore } from "#application/ports/turn/title/conversation-title-store";
+import type {
+  ConversationQueryStore,
+  StoredConversationMessage,
+} from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
@@ -7,10 +13,13 @@ import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-
 import type { AuthContext } from "#domain/auth-context";
 import type { TurnMessage, TurnRef, TurnTerminal } from "#domain/turn/turn";
 
+import { storedUIMessage, storedUserMessage } from "./in-memory-turn-state/messages.js";
+
 export type SeedConversation = Readonly<{
   conversationId: string;
   workspaceId: string;
   subjectId: string;
+  title?: string | undefined;
 }>;
 
 type StoredTurn = Readonly<{
@@ -26,15 +35,21 @@ type StoredTurn = Readonly<{
  * this class without changing the application ports.
  */
 export class InMemoryTurnState
-  implements ConversationStore, ConversationQueryStore, MessageStore, TurnStore, TurnRunAccess
+  implements
+    ConversationStore,
+    ConversationQueryStore,
+    ConversationTitleStore,
+    MessageStore,
+    TurnStore,
+    TurnRunAccess
 {
   readonly userMessages: TurnMessage[] = [];
-  readonly assistantMessages: TurnMessage[] = [];
+  readonly assistantMessages: UIMessage[] = [];
   readonly terminals = new Map<string, TurnTerminal>();
   readonly runningTurns = new Set<string>();
 
   private readonly conversations = new Map<string, SeedConversation>();
-  private readonly conversationMessages = new Map<string, TurnMessage[]>();
+  private readonly conversationMessages = new Map<string, StoredConversationMessage[]>();
   private readonly turns = new Map<string, StoredTurn>();
   private nextTurnNumber = 1;
 
@@ -57,14 +72,7 @@ export class InMemoryTurnState
     try {
       this.requireOwnedConversation(auth, conversationId);
       const messages = this.conversationMessages.get(conversationId) ?? [];
-      return Promise.resolve(
-        messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          parts: [{ type: "text", text: message.text }],
-          metadata: {},
-        })),
-      );
+      return Promise.resolve(messages);
     } catch (error) {
       return Promise.reject(asError(error));
     }
@@ -76,9 +84,27 @@ export class InMemoryTurnState
       .map((conversation) => ({
         id: conversation.conversationId,
         status: "active" as const,
+        ...(conversation.title === undefined ? {} : { title: conversation.title }),
         lastMessageAt: auth.issuedAt,
       }));
     return Promise.resolve(conversations);
+  }
+
+  readTitleEligibility(auth: AuthContext, conversationId: string, initialUserMessageId: string) {
+    const conversation = this.requireOwnedConversation(auth, conversationId);
+    const firstMessage = this.conversationMessages.get(conversationId)?.[0];
+    return Promise.resolve({
+      eligible: conversation.title === undefined && firstMessage?.id === initialUserMessageId,
+      ...(conversation.title === undefined ? {} : { existingTitle: conversation.title }),
+    });
+  }
+
+  prepareConversationTitle(auth: AuthContext, conversationId: string, titleText: string) {
+    const conversation = this.requireOwnedConversation(auth, conversationId);
+    if (conversation.title === undefined) {
+      this.conversations.set(conversationId, { ...conversation, title: titleText });
+    }
+    return Promise.resolve();
   }
 
   findActiveTurn(auth: AuthContext, conversationId: string) {
@@ -118,7 +144,7 @@ export class InMemoryTurnState
       const reference = this.createTurnReference(input.conversationId);
       this.runningTurns.add(input.conversationId);
       this.userMessages.push(input.userMessage);
-      this.appendConversationMessage(input.conversationId, input.userMessage);
+      this.appendConversationMessage(input.conversationId, storedUserMessage(input.userMessage));
       this.turns.set(reference.turnId, {
         reference,
         requestId: input.requestId,
@@ -163,10 +189,10 @@ export class InMemoryTurnState
     }
   }
 
-  appendAssistantMessage(turn: TurnRef, message: TurnMessage): Promise<void> {
+  appendAssistantMessage(turn: TurnRef, message: UIMessage): Promise<void> {
     this.requireTurn(turn);
     this.assistantMessages.push(message);
-    this.appendConversationMessage(turn.conversationId, message);
+    this.appendConversationMessage(turn.conversationId, storedUIMessage(message));
     return Promise.resolve();
   }
 
@@ -214,7 +240,10 @@ export class InMemoryTurnState
     return { conversationId, turnId };
   }
 
-  private appendConversationMessage(conversationId: string, message: TurnMessage): void {
+  private appendConversationMessage(
+    conversationId: string,
+    message: StoredConversationMessage,
+  ): void {
     const messages = this.conversationMessages.get(conversationId) ?? [];
     this.conversationMessages.set(conversationId, [...messages, message]);
   }

@@ -67,16 +67,21 @@ Every error part carries a safe code/message and retryability. Raw provider, dat
 
 ## Feature disposition
 
-| Current feature                                           | Target disposition        | User-visible consequence                                                |
-| --------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------- |
-| Text/reasoning/tool timeline                              | Rebuild from native parts | Same concepts, SDK-native lifecycle names.                              |
-| Custom generic activity/progress rows                     | Delete                    | No synthetic progress row without a real native event.                  |
-| Provider payload metadata in activities                   | Delete                    | Internal/provider details never reach the widget.                       |
-| Dense protocol sequence numbers                           | Delete                    | Native part ids/framing and reconnect normalization own ordering.       |
-| Same-instance resume handshake and transport error ladder | Delete                    | Workflow replay is native; fallback documents no mid-turn replay.       |
-| Local run markers, watchdog/backoff/poll recovery ladder  | Delete                    | Active-turn discovery plus native transport/reconnect replaces it.      |
-| Custom host-command event/result vocabulary               | Delete                    | Dynamic/client-tool parts and authenticated result handling replace it. |
-| Component library, themes, approval/tool cards            | Keep and adapt            | Visual product behavior remains, driven by native parts.                |
+| Current feature                                           | Target disposition          | User-visible consequence                                                                                                        |
+| --------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Text/reasoning/tool timeline                              | Rebuild from native parts   | Same concepts, SDK-native lifecycle names.                                                                                      |
+| First-successful-exchange conversation title              | Keep and isolate            | The title appears once; title failure or timeout never changes the turn.                                                        |
+| Content-filter safety terminal and filtered output        | Redesign with native finish | The stream ends with `finish(content-filter)`; history records the blocked outcome without retaining filtered assistant output. |
+| User cancellation terminal                                | Redesign with native abort  | Stop is a calm cancelled state, not an error card; partial output remains stream-only.                                          |
+| Tool-step limit terminal                                  | Redesign as native length   | A capped loop completes with `finish(length)` so the widget can explain truncation.                                             |
+| Per-turn usage totals and available token details         | Keep                        | Usage remains attributable to one turn; supported reasoning and cached-input details are not silently zeroed.                   |
+| Custom generic activity/progress rows                     | Delete                      | No synthetic progress row without a real native event.                                                                          |
+| Provider payload metadata in activities                   | Delete                      | Internal/provider details never reach the widget.                                                                               |
+| Dense protocol sequence numbers                           | Delete                      | Native part ids/framing and reconnect normalization own ordering.                                                               |
+| Same-instance resume handshake and transport error ladder | Replace with native replay  | Workflow run replay supports reconnect and multiple subscribers without owner-instance errors.                                  |
+| Local run markers, watchdog/backoff/poll recovery ladder  | Delete                      | Active-turn discovery plus native transport/reconnect replaces it.                                                              |
+| Custom host-command event/result vocabulary               | Delete                      | Dynamic/client-tool parts and authenticated result handling replace it.                                                         |
+| Component library, themes, approval/tool cards            | Keep and adapt              | Visual product behavior remains, driven by native parts.                                                                        |
 
 ## Consequences
 

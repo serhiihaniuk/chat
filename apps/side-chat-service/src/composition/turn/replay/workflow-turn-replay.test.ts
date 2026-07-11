@@ -15,9 +15,19 @@ describe("createWorkflowTurnReplay", () => {
         stream: chunks({ type: "start" }, { type: "finish" }),
         terminal: Promise.resolve({
           status: CHAT_TURN_OUTCOMES.COMPLETED,
-          text: "done",
+          assistantMessage: {
+            id: "assistant-1",
+            role: "assistant",
+            parts: [{ type: "text", text: "done" }],
+          },
           finishReason: "length",
-          usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+          usage: {
+            inputTokens: 1,
+            outputTokens: 2,
+            totalTokens: 3,
+            reasoningTokens: undefined,
+            cachedInputTokens: undefined,
+          },
         }),
       }),
     );

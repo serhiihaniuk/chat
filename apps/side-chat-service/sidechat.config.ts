@@ -14,6 +14,7 @@ const config: SideChatConfig = defineSideChatConfig({
   models: {
     provider: OPENAI_PROVIDER.KIND,
     modelId: OPENAI_PROVIDER.MODELS.GPT_5_4.MODEL_ID,
+    titleModelId: OPENAI_PROVIDER.MODELS.GPT_5_4.MODEL_ID,
     apiKey: readEnv.secret(OPENAI_PROVIDER.SECRET_ENV_KEYS.API_KEY),
     baseUrl: readEnv(OPENAI_PROVIDER.TRANSPORT_ENV_KEYS.BASE_URL),
     reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
@@ -25,7 +26,7 @@ const config: SideChatConfig = defineSideChatConfig({
       required: true,
     }),
   },
-  timeouts: { requestMs: 60_000, queueMs: 5_000, providerMs: 45_000 },
+  timeouts: { requestMs: 60_000, queueMs: 5_000, providerMs: 45_000, titleMs: 10_000 },
   agent: {
     instructions:
       "You are a concise enterprise assistant. Use only the context and tools provided.",

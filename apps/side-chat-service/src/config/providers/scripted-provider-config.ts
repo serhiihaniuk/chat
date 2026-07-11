@@ -11,20 +11,24 @@ export const SCRIPTED_PROVIDER = {
   KIND: PROVIDER_KINDS.SCRIPTED,
   MODELS: {
     COMPLETE: { MODEL_ID: "complete" },
+    TITLE: { MODEL_ID: "title" },
   },
   SETTINGS_FIELDS: {
     MODEL_ID: { KEY: "modelId", PATH: "models.modelId" },
+    TITLE_MODEL_ID: { KEY: "titleModelId", PATH: "models.titleModelId" },
   },
 } as const;
 
 export type ScriptedModelConfig = Readonly<{
   provider: typeof SCRIPTED_PROVIDER.KIND;
   modelId: ConfigValue<string>;
+  titleModelId: ConfigValue<string>;
 }>;
 
 export type ScriptedModelSettings = Readonly<{
   provider: typeof SCRIPTED_PROVIDER.KIND;
   modelId: string;
+  titleModelId: string;
 }>;
 
 export function readScriptedModelSettings(
@@ -35,5 +39,10 @@ export function readScriptedModelSettings(
   return {
     provider: SCRIPTED_PROVIDER.KIND,
     modelId: readRequiredString(models[field.KEY], field.PATH, issues),
+    titleModelId: readRequiredString(
+      models[SCRIPTED_PROVIDER.SETTINGS_FIELDS.TITLE_MODEL_ID.KEY],
+      SCRIPTED_PROVIDER.SETTINGS_FIELDS.TITLE_MODEL_ID.PATH,
+      issues,
+    ),
   };
 }

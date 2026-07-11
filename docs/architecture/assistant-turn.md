@@ -128,9 +128,13 @@ from the exit cause plus durable cancel intent:
 | Interrupt                | No (shutdown or lease-fence) | `provider_failed` / `timeout`         |
 | Defect or append failure | n/a                          | `provider_failed` / `provider_failed` |
 
-`sidechat.blocked` is a terminal safety-stop, not an error. Title generation is
-post-success enrichment, isolated; its failure is observed, never a second
-terminal.
+`sidechat.blocked` is a terminal safety-stop, not an error. In both service
+wings, title generation is post-success enrichment: it starts only after the
+completed terminal is durable, checks first-exchange eligibility, and writes
+conditionally. The new PostgreSQL wing performs that write inside the durable
+title workflow; its in-memory development fallback is process-local because
+the store itself is process-local. A timeout or failure is observed safely and
+can never create a second terminal or change the completed turn.
 
 ## Failure split
 

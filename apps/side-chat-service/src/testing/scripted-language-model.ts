@@ -10,7 +10,7 @@ import type { ModelProvider } from "#application/ports/model-provider";
 
 import { isProviderScriptMode, type ProviderScriptMode } from "./scripted-provider-contract.js";
 import { recordProviderAttempt } from "./scripted-provider-observations.js";
-import { createScriptedStream } from "./scripted-provider-stream.js";
+import { createScriptedStream } from "./provider/scripted-provider-stream.js";
 
 export {
   LATE_CONTENT_MARKER,

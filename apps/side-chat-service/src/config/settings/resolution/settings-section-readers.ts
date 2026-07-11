@@ -38,6 +38,7 @@ function readTimeouts(candidate: unknown, issues: SettingsIssue[]): Settings["ti
     requestMs: readPositiveInteger(value["requestMs"], "timeouts.requestMs", issues),
     queueMs: readPositiveInteger(value["queueMs"], "timeouts.queueMs", issues),
     providerMs: readPositiveInteger(value["providerMs"], "timeouts.providerMs", issues),
+    titleMs: readPositiveInteger(value["titleMs"], "timeouts.titleMs", issues),
   };
 }
 

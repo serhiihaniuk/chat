@@ -1,3 +1,5 @@
+import type { UIMessage } from "ai";
+
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { TurnAdmissionLease } from "#application/ports/turn/turn-admission";
 import type { TurnStore } from "#application/ports/turn/turn-store";
@@ -5,7 +7,6 @@ import {
   TURN_TERMINAL_STATUSES,
   sumTurnUsage,
   type TurnRef,
-  type TurnMessage,
   type TurnExecutionErrorCode,
   type TurnTerminalStatus,
   type TurnUsage,
@@ -15,7 +16,7 @@ export type FinalizeTurnInput = Readonly<{
   turn: TurnRef;
   status: TurnTerminalStatus;
   stepUsage: readonly TurnUsage[];
-  assistantMessage?: TurnMessage | undefined;
+  assistantMessage?: UIMessage | undefined;
   safeErrorCode?: TurnExecutionErrorCode | undefined;
   finishReason?: string | undefined;
   admission: TurnAdmissionLease;
@@ -44,18 +45,11 @@ export async function finalizeTurn(
     });
     if (!claimed) return false;
 
-    if (
-      input.status === TURN_TERMINAL_STATUSES.COMPLETED &&
-      hasVisibleAssistantOutput(input.assistantMessage)
-    ) {
+    if (input.status === TURN_TERMINAL_STATUSES.COMPLETED && input.assistantMessage !== undefined) {
       await dependencies.messages.appendAssistantMessage(input.turn, input.assistantMessage);
     }
     return true;
   } finally {
     await input.admission.release();
   }
-}
-
-function hasVisibleAssistantOutput(message: TurnMessage | undefined): message is TurnMessage {
-  return message !== undefined && message.text.trim().length > 0;
 }

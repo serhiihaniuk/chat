@@ -22,13 +22,14 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     models: {
       provider: SCRIPTED_PROVIDER.KIND,
       modelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+      titleModelId: SCRIPTED_PROVIDER.MODELS.TITLE.MODEL_ID,
     },
     auth: {
       profile: AUTH_PROFILES.DEVELOPMENT,
       bearerToken: "local-test-token",
       workspaceId: "local-workspace",
     },
-    timeouts: { requestMs: 60_000, queueMs: 5_000, providerMs: 45_000 },
+    timeouts: { requestMs: 60_000, queueMs: 5_000, providerMs: 45_000, titleMs: 10_000 },
     agent: {
       instructions: "You are a concise Side Chat assistant.",
       maxSteps: 8,

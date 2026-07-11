@@ -6,7 +6,7 @@ import {
   type WorkflowAgentOptions,
   type WorkflowAgentStreamResult,
 } from "@ai-sdk/workflow";
-import { isStepCount, type ModelMessage, type UIMessageChunk } from "ai";
+import { isStepCount, type ModelMessage, type UIMessage, type UIMessageChunk } from "ai";
 import { createHook, getWorkflowMetadata, getWritable, sleep } from "workflow";
 import { resumeHook, start } from "workflow/api";
 
@@ -53,7 +53,7 @@ export interface ChatTurnWorkflowInput {
 export type ChatTurnTerminalOutcome =
   | {
       readonly status: typeof CHAT_TURN_OUTCOMES.COMPLETED;
-      readonly text: string;
+      readonly assistantMessage: UIMessage;
       readonly finishReason: string;
       readonly usage: SerializableUsage;
     }
@@ -84,7 +84,23 @@ interface SerializableUsage {
   readonly inputTokens: number | undefined;
   readonly outputTokens: number | undefined;
   readonly totalTokens: number | undefined;
+  readonly reasoningTokens: number | undefined;
+  readonly cachedInputTokens: number | undefined;
 }
+
+type WorkflowAgentContentPart = WorkflowAgentStreamResult["steps"][number]["content"][number];
+
+type CompletedAgentResult = Readonly<{
+  steps: readonly Readonly<{ content: readonly WorkflowAgentContentPart[] }>[];
+  finishReason: string;
+  totalUsage: Readonly<{
+    inputTokens: number | undefined;
+    outputTokens: number | undefined;
+    totalTokens: number | undefined;
+    inputTokenDetails?: Readonly<{ cacheReadTokens: number | undefined }> | undefined;
+    outputTokenDetails?: Readonly<{ reasoningTokens: number | undefined }> | undefined;
+  }>;
+}>;
 
 export function chatTurnCancellationHookToken(runId: string): string {
   return `${CHAT_TURN_WORKFLOW.CANCELLATION_HOOK_PREFIX}:${runId}`;
@@ -158,7 +174,10 @@ export async function executeChatTurn(
       writable: getWritable<ModelCallStreamPart>(),
       abortSignal: controller.signal,
     })
-    .then(completedOutcome, failedOutcome);
+    .then(
+      (result) => toCompletedChatTurnOutcome(input.turnId, input.maxSteps, result),
+      failedOutcome,
+    );
 
   const cancelOutcome = async (): Promise<ChatTurnTerminalOutcome> => {
     const payload = await cancellation;
@@ -186,17 +205,43 @@ function toModelMessages(messages: readonly SerializableChatMessage[]): ModelMes
   }));
 }
 
-function completedOutcome(result: WorkflowAgentStreamResult): ChatTurnTerminalOutcome {
+export function toCompletedChatTurnOutcome(
+  turnId: string,
+  maxSteps: number,
+  result: CompletedAgentResult,
+): ChatTurnTerminalOutcome {
   return {
     status: CHAT_TURN_OUTCOMES.COMPLETED,
-    text: result.steps.at(-1)?.text ?? "",
-    finishReason: result.finishReason,
+    assistantMessage: toAssistantMessage(turnId, result),
+    finishReason: finishReasonFor(result, maxSteps),
     usage: {
       inputTokens: result.totalUsage.inputTokens,
       outputTokens: result.totalUsage.outputTokens,
       totalTokens: result.totalUsage.totalTokens,
+      reasoningTokens: result.totalUsage.outputTokenDetails?.reasoningTokens,
+      cachedInputTokens: result.totalUsage.inputTokenDetails?.cacheReadTokens,
     },
   };
+}
+
+function toAssistantMessage(turnId: string, result: CompletedAgentResult): UIMessage {
+  const content = result.steps.at(-1)?.content ?? [];
+  const parts: UIMessage["parts"] = [];
+  for (const part of content) {
+    if (part.type === "text") parts.push({ type: "text", text: part.text });
+    if (part.type === "reasoning") parts.push({ type: "reasoning", text: part.text });
+  }
+  return {
+    id: `${turnId}-assistant`,
+    role: "assistant",
+    parts,
+  };
+}
+
+function finishReasonFor(result: CompletedAgentResult, maxSteps: number): string {
+  const stoppedAtStepLimit =
+    result.finishReason === "tool-calls" && result.steps.length >= maxSteps;
+  return stoppedAtStepLimit ? "length" : result.finishReason;
 }
 
 function failedOutcome(error: unknown): ChatTurnTerminalOutcome {

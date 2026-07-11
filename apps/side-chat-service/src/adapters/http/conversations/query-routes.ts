@@ -1,4 +1,3 @@
-import { DbRepositoryError } from "@side-chat/db";
 import { Hono } from "hono";
 
 import { readConversationHistory } from "#application/conversations/read-conversation-history";
@@ -73,10 +72,8 @@ function mapHistoryError(requestIdValue: string, error: unknown): Response {
 }
 
 function isHiddenConversationError(error: unknown): boolean {
-  return (
-    error instanceof DbRepositoryError &&
-    (error.code === "record_not_found" || error.code === "cross_tenant_access_denied")
-  );
+  if (!(error instanceof Error) || !("code" in error)) return false;
+  return error.code === "record_not_found" || error.code === "cross_tenant_access_denied";
 }
 
 function requestId(context: { req: { header: (name: string) => string | undefined } }): string {

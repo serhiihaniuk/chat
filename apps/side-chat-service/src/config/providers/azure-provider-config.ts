@@ -22,6 +22,7 @@ export const AZURE_PROVIDER = {
   },
   SETTINGS_FIELDS: {
     MODEL_ID: { KEY: "modelId", PATH: "models.modelId" },
+    TITLE_MODEL_ID: { KEY: "titleModelId", PATH: "models.titleModelId" },
     DEPLOYMENT: { KEY: "deployment", PATH: "models.deployment" },
     API_KEY: { KEY: "apiKey", PATH: "models.apiKey" },
     ENDPOINT: { KEY: "endpoint", PATH: "models.endpoint" },
@@ -32,6 +33,7 @@ export const AZURE_PROVIDER = {
 export type AzureModelConfig = Readonly<{
   provider: typeof AZURE_PROVIDER.KIND;
   modelId: ConfigValue<string>;
+  titleModelId: ConfigValue<string>;
   deployment: ConfigValue<string>;
   apiKey: ConfigValue<string>;
   endpoint: ConfigValue<string>;
@@ -41,6 +43,7 @@ export type AzureModelConfig = Readonly<{
 export type AzureModelSettings = Readonly<{
   provider: typeof AZURE_PROVIDER.KIND;
   modelId: string;
+  titleModelId: string;
   deployment: string;
   apiKey: string;
   endpoint: string;
@@ -55,6 +58,11 @@ export function readAzureModelSettings(
   return {
     provider: AZURE_PROVIDER.KIND,
     modelId: readRequiredString(models[fields.MODEL_ID.KEY], fields.MODEL_ID.PATH, issues),
+    titleModelId: readRequiredString(
+      models[fields.TITLE_MODEL_ID.KEY],
+      fields.TITLE_MODEL_ID.PATH,
+      issues,
+    ),
     deployment: readRequiredString(models[fields.DEPLOYMENT.KEY], fields.DEPLOYMENT.PATH, issues),
     apiKey: readRequiredString(models[fields.API_KEY.KEY], fields.API_KEY.PATH, issues),
     endpoint: readRequiredString(models[fields.ENDPOINT.KEY], fields.ENDPOINT.PATH, issues),

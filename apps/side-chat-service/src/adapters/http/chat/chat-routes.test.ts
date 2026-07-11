@@ -54,7 +54,7 @@ describe("chat routes", () => {
         assistantMessage: {
           id: "assistant-1",
           role: TURN_MESSAGE_ROLES.ASSISTANT,
-          text: "Hello back",
+          parts: [{ type: "text", text: "Hello back" }],
         },
       }),
     );
@@ -90,7 +90,7 @@ describe("chat routes", () => {
         { type: "finish", finishReason: "content-filter" },
       ),
       Promise.resolve({
-        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        status: TURN_TERMINAL_STATUSES.BLOCKED,
         stepUsage: [usage(2, 0)],
         finishReason: "content-filter",
       }),
@@ -102,7 +102,11 @@ describe("chat routes", () => {
       const finish = parts.find((part) => part["type"] === "finish");
       expect(finish?.["finishReason"]).toBe("content-filter");
       await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
-      expect([...harness.turnState.terminals.values()][0]?.finishReason).toBe("content-filter");
+      expect([...harness.turnState.terminals.values()][0]).toMatchObject({
+        status: TURN_TERMINAL_STATUSES.BLOCKED,
+        finishReason: "content-filter",
+      });
+      expect(harness.turnState.assistantMessages).toHaveLength(0);
     } finally {
       await harness.close();
     }
@@ -338,7 +342,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function usage(inputTokens: number, outputTokens: number) {
-  return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    reasoningTokens: 0,
+    cachedInputTokens: 0,
+  };
 }
 
 function ownedState(): InMemoryTurnState {

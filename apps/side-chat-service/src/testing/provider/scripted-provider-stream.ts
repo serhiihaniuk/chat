@@ -4,17 +4,18 @@ import {
   LATE_CONTENT_MARKER,
   PROVIDER_SCRIPT_MODE,
   type ProviderScriptMode,
-} from "./scripted-provider-contract.js";
+} from "../scripted-provider-contract.js";
 import {
   PROVIDER_OBSERVATION_EVENT,
   recordProviderObservation,
-} from "./scripted-provider-observations.js";
+} from "../scripted-provider-observations.js";
 
 const SCRIPTED_STREAM_TEXT = {
   BLOCKING_DELTAS: ["streaming before ", "the abort"],
   PARTIAL_DELTAS: ["partial reply"],
   BLOCKED_TEXT_ID: "blocked-text",
   COMPLETED_TEXT_ID: "scripted-text",
+  REASONING_ID: "scripted-reasoning",
 } as const;
 
 const PROVIDER_ABORT_ERROR_NAME = "AbortError";
@@ -26,39 +27,68 @@ export function createScriptedStream(
   attemptCount: number,
   abortSignal: AbortSignal | undefined,
 ): ReadableStream<LanguageModelV4StreamPart> {
-  switch (mode) {
-    case PROVIDER_SCRIPT_MODE.COMPLETE:
-    case PROVIDER_SCRIPT_MODE.HAPPY:
-      return completedStream(`Scripted reply: ${requestId}`);
-    case PROVIDER_SCRIPT_MODE.MULTI_STEP:
-      return completedStream(`Scripted step ${attemptCount}: ${requestId}`);
-    case PROVIDER_SCRIPT_MODE.BLOCK:
-      return blockingStream(
-        requestId,
-        abortSignal,
-        SCRIPTED_STREAM_TEXT.BLOCKING_DELTAS,
-        attemptCount,
-      );
-    case PROVIDER_SCRIPT_MODE.CANCEL_MID:
-      return blockingStream(
-        requestId,
-        abortSignal,
-        SCRIPTED_STREAM_TEXT.PARTIAL_DELTAS,
-        attemptCount,
-      );
-    case PROVIDER_SCRIPT_MODE.CANCEL_BEFORE_FIRST:
-      return blockingStream(requestId, abortSignal, [], attemptCount);
-    case PROVIDER_SCRIPT_MODE.ERROR_BEFORE:
-      return errorStream(requestId, false, attemptCount);
-    case PROVIDER_SCRIPT_MODE.ERROR_MID:
-      return errorStream(requestId, true, attemptCount);
+  const immediateStream = createImmediateStream(requestId, mode, attemptCount);
+  if (immediateStream !== undefined) return immediateStream;
+
+  if (mode === PROVIDER_SCRIPT_MODE.BLOCK) {
+    return blockingStream(
+      requestId,
+      abortSignal,
+      SCRIPTED_STREAM_TEXT.BLOCKING_DELTAS,
+      attemptCount,
+    );
   }
+  if (mode === PROVIDER_SCRIPT_MODE.CANCEL_MID) {
+    return blockingStream(
+      requestId,
+      abortSignal,
+      SCRIPTED_STREAM_TEXT.PARTIAL_DELTAS,
+      attemptCount,
+    );
+  }
+  if (mode === PROVIDER_SCRIPT_MODE.CANCEL_BEFORE_FIRST) {
+    return blockingStream(requestId, abortSignal, [], attemptCount);
+  }
+  if (mode === PROVIDER_SCRIPT_MODE.ERROR_BEFORE) {
+    return errorStream(requestId, false, attemptCount);
+  }
+  return errorStream(requestId, true, attemptCount);
+}
+
+function createImmediateStream(
+  requestId: string,
+  mode: ProviderScriptMode,
+  attemptCount: number,
+): ReadableStream<LanguageModelV4StreamPart> | undefined {
+  if (mode === PROVIDER_SCRIPT_MODE.COMPLETE || mode === PROVIDER_SCRIPT_MODE.HAPPY) {
+    return completedStream(`Scripted reply: ${requestId}`);
+  }
+  if (mode === PROVIDER_SCRIPT_MODE.TITLE) {
+    return completedStream('{"title":"Scripted conversation title"}');
+  }
+  if (mode === PROVIDER_SCRIPT_MODE.MULTI_STEP) {
+    return completedStream(`Scripted step ${attemptCount}: ${requestId}`);
+  }
+  if (mode === PROVIDER_SCRIPT_MODE.EMPTY) return streamFromParts(completedParts());
+  if (mode === PROVIDER_SCRIPT_MODE.STEP_LIMIT) {
+    return streamFromParts(completedParts(`Scripted limited reply: ${requestId}`, "length"));
+  }
+  if (mode === PROVIDER_SCRIPT_MODE.REASONING_ONLY) {
+    return streamFromParts(reasoningOnlyParts(`Scripted reasoning: ${requestId}`));
+  }
+  return undefined;
 }
 
 function completedStream(text: string): ReadableStream<LanguageModelV4StreamPart> {
+  return streamFromParts(completedParts(text));
+}
+
+function streamFromParts(
+  parts: readonly LanguageModelV4StreamPart[],
+): ReadableStream<LanguageModelV4StreamPart> {
   return new ReadableStream({
     start(controller) {
-      for (const part of completedParts(text)) controller.enqueue(part);
+      for (const part of parts) controller.enqueue(part);
       controller.close();
     },
   });
@@ -157,16 +187,25 @@ function attemptLateContent(
   }
 }
 
-function completedParts(text: string): readonly LanguageModelV4StreamPart[] {
+function completedParts(
+  text?: string,
+  finishReason: "stop" | "length" = "stop",
+): readonly LanguageModelV4StreamPart[] {
   const id = SCRIPTED_STREAM_TEXT.COMPLETED_TEXT_ID;
+  const textParts: readonly LanguageModelV4StreamPart[] =
+    text === undefined
+      ? []
+      : [
+          { type: "text-start", id },
+          { type: "text-delta", id, delta: text },
+          { type: "text-end", id },
+        ];
   return [
     { type: "stream-start", warnings: [] },
-    { type: "text-start", id },
-    { type: "text-delta", id, delta: text },
-    { type: "text-end", id },
+    ...textParts,
     {
       type: "finish",
-      finishReason: { unified: "stop", raw: "stop" },
+      finishReason: { unified: finishReason, raw: finishReason },
       usage: {
         inputTokens: {
           total: 1,
@@ -174,7 +213,29 @@ function completedParts(text: string): readonly LanguageModelV4StreamPart[] {
           cacheRead: undefined,
           cacheWrite: undefined,
         },
-        outputTokens: { total: 1, text: 1, reasoning: undefined },
+        outputTokens: {
+          total: text === undefined ? 0 : 1,
+          text: text === undefined ? 0 : 1,
+          reasoning: undefined,
+        },
+      },
+    },
+  ];
+}
+
+function reasoningOnlyParts(reasoning: string): readonly LanguageModelV4StreamPart[] {
+  const id = SCRIPTED_STREAM_TEXT.REASONING_ID;
+  return [
+    { type: "stream-start", warnings: [] },
+    { type: "reasoning-start", id },
+    { type: "reasoning-delta", id, delta: reasoning },
+    { type: "reasoning-end", id },
+    {
+      type: "finish",
+      finishReason: { unified: "stop", raw: "stop" },
+      usage: {
+        inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+        outputTokens: { total: 1, text: 0, reasoning: 1 },
       },
     },
   ];

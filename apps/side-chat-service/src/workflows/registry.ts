@@ -8,6 +8,7 @@ import type { ModelProvider } from "#application/ports/model-provider";
  */
 export type WorkflowServices = Readonly<{
   readonly modelProvider: ModelProvider;
+  readonly databaseUrl?: string;
 }>;
 
 let initializedServices: WorkflowServices | undefined;

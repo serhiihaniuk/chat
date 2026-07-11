@@ -19,6 +19,9 @@ import {
  *   provider/tool/prompt text. Any in-stream error collapses to the generic
  *   retryable `provider_failed`; precise classification lives in the persisted
  *   terminal, not on the wire.
+ * - provider metadata is removed from every chunk. It is useful for server-side
+ *   diagnostics, but it is not part of the browser contract and may contain
+ *   provider-specific details.
  * - a native finish reason (`content-filter`, `length`, ...) is forwarded
  *   untouched — it already IS the blocked/length representation (ADR 0015).
  * - exactly one terminal-class chunk reaches the client; a second is dropped
@@ -72,5 +75,9 @@ function scrubChunk(chunk: UIMessageChunk): UIMessageChunk {
   if (chunk.type === UI_MESSAGE_CHUNK_TYPES.ERROR) {
     return { type: UI_MESSAGE_CHUNK_TYPES.ERROR, errorText: SIDE_CHAT_ERROR_CODES.PROVIDER_FAILED };
   }
-  return chunk;
+  if (!("providerMetadata" in chunk)) return chunk;
+
+  const safeChunk = structuredClone(chunk);
+  delete safeChunk.providerMetadata;
+  return safeChunk;
 }

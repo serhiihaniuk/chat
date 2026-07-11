@@ -15,6 +15,7 @@ import {
   type PostgresTurnState,
 } from "#adapters/persistence/postgres-turn-state";
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
+import type { ConversationTitleStore } from "#application/ports/turn/title/conversation-title-store";
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { TurnStore } from "#application/ports/turn/turn-store";
@@ -35,6 +36,7 @@ import { PASS_THROUGH_TURN_ADMISSION } from "../turn/pass-through-admission.js";
 import { createWorkflowTurnExecution } from "../turn/workflow-turn-execution.js";
 import { createWorkflowTurnReplay } from "../turn/replay/workflow-turn-replay.js";
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
+import { productionConversationTitleWorkflowStarter } from "#workflows/production/conversation-title/generate-conversation-title";
 
 /** Production wiring contains no scripted providers or compatibility-only routes. */
 export async function startProductionService(
@@ -73,6 +75,14 @@ export async function startProductionService(
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: configuredTurnModel(settings.models.modelId),
+      titleGeneration: {
+        titles: persistence.store,
+        workflow: productionConversationTitleWorkflowStarter,
+        telemetry: { record: recordServiceTelemetry },
+        modelId: settings.models.titleModelId,
+        timeoutMs: settings.timeouts.titleMs,
+        persistInWorkflow: settings.persistence.databaseUrl !== undefined,
+      },
     }),
   );
   app.route(
@@ -126,7 +136,12 @@ function createMaintenanceStarters(
 }
 
 type ProductionPersistence = Readonly<{
-  store: ConversationStore & ConversationQueryStore & MessageStore & TurnStore & TurnRunAccess;
+  store: ConversationStore &
+    ConversationQueryStore &
+    ConversationTitleStore &
+    MessageStore &
+    TurnStore &
+    TurnRunAccess;
   registerClose: StartServicePart;
 }>;
 

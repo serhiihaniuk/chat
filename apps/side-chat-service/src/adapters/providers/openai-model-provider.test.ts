@@ -9,6 +9,7 @@ describe("createOpenAIModelProvider", () => {
     const provider = createOpenAIModelProvider({
       apiKey: "test-key",
       modelId: "gpt-5.4-mini",
+      titleModelId: "gpt-5.4-mini",
       reasoningEffort: "medium",
       fetch: (_url, init) => {
         body = JSON.parse(String(init?.body));

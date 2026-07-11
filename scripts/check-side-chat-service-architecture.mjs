@@ -202,6 +202,12 @@ function isAdapterBoundaryViolation(specifier) {
 }
 
 function isWorkflowBoundaryViolation(file, specifier) {
+  if (
+    file === `${sourceRoot}workflows/production/conversation-title/persist-conversation-title.ts` &&
+    specifier === "#adapters/persistence/postgres-turn-state"
+  ) {
+    return false;
+  }
   if (specifier.startsWith(".")) return false;
   if (specifier.startsWith("#application/")) return false;
   if (specifier.startsWith("#workflows/")) return false;
