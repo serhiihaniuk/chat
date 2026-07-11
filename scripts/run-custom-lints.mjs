@@ -10,6 +10,7 @@ const checks = [
   "check-unused-dependencies.mjs",
   "check-package-exports.mjs",
   "check-boundaries.mjs",
+  "check-side-chat-service-architecture.mjs",
   "check-widget-layers.mjs",
   "check-runtime-boundaries.mjs",
   "check-outbound-rules.mjs",

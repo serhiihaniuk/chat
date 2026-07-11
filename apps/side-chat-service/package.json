@@ -3,27 +3,42 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/src/index.js",
   "types": "./src/index.ts",
   "imports": {
-    "#config/*": {
-      "types": "./src/config/*.ts",
-      "development": "./src/config/*.ts",
-      "default": "./dist/config/*.js"
+    "#application/*": {
+      "types": "./src/application/*.ts",
+      "development": "./src/application/*.ts",
+      "default": "./src/application/*.ts"
+    },
+    "#ports/*": {
+      "types": "./src/ports/*.ts",
+      "development": "./src/ports/*.ts",
+      "default": "./src/ports/*.ts"
+    },
+    "#adapters/*": {
+      "types": "./src/adapters/*.ts",
+      "development": "./src/adapters/*.ts",
+      "default": "./src/adapters/*.ts"
+    },
+    "#bootstrap/*": {
+      "types": "./src/bootstrap/*.ts",
+      "development": "./src/bootstrap/*.ts",
+      "default": "./src/bootstrap/*.ts"
     }
   },
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "development": "./src/index.ts",
-      "default": "./dist/index.js"
+      "default": "./dist/src/index.js"
     }
   },
   "scripts": {
     "build": "nitro build",
     "dev": "nitro dev",
     "start": "node .output/server/index.mjs",
-    "test": "cd ../.. && vitest run apps/side-chat-service/src/runtime",
+    "test": "cd ../.. && vitest run apps/side-chat-service/src/bootstrap/service-compatibility.integration.test.ts",
     "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
@@ -35,6 +50,7 @@
     "hono": "4.12.27",
     "nitro": "3.0.260610-beta",
     "rollup": "4.62.2",
-    "workflow": "5.0.0-beta.30"
+    "workflow": "5.0.0-beta.30",
+    "zod": "4.3.6"
   }
 }

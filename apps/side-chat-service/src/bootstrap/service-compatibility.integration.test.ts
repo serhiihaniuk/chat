@@ -6,8 +6,12 @@ import { join, resolve } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { SERVICE_ENV_KEYS, TEST_COMPOSITION } from "#config/server-config";
-import { LATE_CONTENT_MARKER, PROVIDER_OBSERVATION_PREFIX } from "./scripted-language-model.js";
+import { TEST_COMPOSITION } from "#adapters/configuration/process-environment";
+import {
+  LATE_CONTENT_MARKER,
+  PROVIDER_OBSERVATION_PREFIX,
+} from "#adapters/outbound/workflow/scripted-language-model";
+import { SERVICE_ENV_KEYS } from "#ports/configuration/side-chat-config";
 
 /**
  * Permanent compatibility gate for the WorkflowAgent substrate. It runs against
@@ -19,7 +23,7 @@ import { LATE_CONTENT_MARKER, PROVIDER_OBSERVATION_PREFIX } from "./scripted-lan
  *    the provider) and late provider content is rejected;
  * 3. the realm patch is load-bearing: the unpatched probe still throws the
  *    upstream `instanceof` TypeError. When that test starts failing because
- *    the probe completes, delete src/runtime/workflow-abort-signal-patch.ts.
+ *    the probe completes, delete the outbound Workflow adapter's patch module.
  */
 const repoRoot = resolve(import.meta.dirname, "../../../..");
 const serviceRoot = resolve(repoRoot, "apps/side-chat-service");
@@ -181,9 +185,9 @@ function startService(port: number): ChildProcess {
     env: cleanEnv({
       ...process.env,
       PORT: String(port),
-      [SERVICE_ENV_KEYS.testComposition]: TEST_COMPOSITION.ENABLED,
-      [SERVICE_ENV_KEYS.workflowLocalDataDir]: workflowDataDir,
-      [SERVICE_ENV_KEYS.workflowLocalBaseUrl]: `http://127.0.0.1:${port}`,
+      [SERVICE_ENV_KEYS.TEST_COMPOSITION]: TEST_COMPOSITION.ENABLED,
+      [SERVICE_ENV_KEYS.WORKFLOW_LOCAL_DATA_DIR]: workflowDataDir,
+      [SERVICE_ENV_KEYS.WORKFLOW_LOCAL_BASE_URL]: `http://127.0.0.1:${port}`,
     }),
     shell: false,
     stdio: "pipe",
@@ -255,7 +259,7 @@ function cleanEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
       ([key, value]) =>
         key.length > 0 &&
         !key.startsWith("=") &&
-        key !== SERVICE_ENV_KEYS.workflowTargetWorld &&
+        key !== SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD &&
         value !== undefined,
     ),
   );

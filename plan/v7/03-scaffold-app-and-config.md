@@ -25,11 +25,13 @@ The retained `apps/side-chat-service` foundation gains the final configuration p
 ```text
 apps/side-chat-service/
   src/
-    config/             # module selection, env adapter, schemas, Settings
-    http/               # app factory and health/readiness
-    composition/
-      production.ts     # real resource graph
-      testing.ts        # scripted/disposable dependencies only
+    ports/              # inward contracts; no framework imports
+    application/        # resolved settings and cross-field policy
+    adapters/
+      configuration/    # process env and bundled config selection
+      inbound/http/     # Hono health/readiness and compatibility routes
+      outbound/workflow/ # WorkflowAgent execution and engine repair
+    bootstrap/          # production/testing wiring and resource ownership
     index.ts
   sidechat.config.ts
   sidechat.fake.config.ts
@@ -60,30 +62,31 @@ Plain TypeScript only. `process.env` is read once in the env adapter. Constructo
 ## Verification
 
 ```powershell
-npm test -- apps/side-chat-service/src/config
-npm test -- apps/side-chat-service/src/composition
+npm test -- apps/side-chat-service/src/application/configuration
+npm test -- apps/side-chat-service/src/adapters/configuration
+npm test -- apps/side-chat-service/src/bootstrap
 npm run typecheck
 npm run build
 npm run lint:custom
-rg -n "process\.env" apps/side-chat-service/src --glob '!**/config/**'
+rg -n "process\.env" apps/side-chat-service/src --glob '!**/adapters/configuration/**' --glob '!**/*.test.ts'
 ```
 
 The search must return zero.
 
 ## Completion checklist
 
-- [ ] Settings pipeline and cross-field validation complete.
-- [ ] Production/test compositions are isolated and readable.
-- [ ] Boot failure is safe and resource-complete.
-- [ ] Step 02 permanent compatibility suite still passes.
-- [ ] Zero old-app imports; old app remains green.
+- [x] Settings pipeline and cross-field validation complete.
+- [x] Production/test compositions are isolated and readable.
+- [x] Boot failure is safe and resource-complete.
+- [x] Step 02 permanent compatibility suite still passes.
+- [x] Zero old-app imports; old app remains green.
 
 ## Handoff record
 
-Configuration modules ported: pending
+Configuration modules ported: readable default, fake, and Azure declarations; build-bundled selection through `SIDECHAT_CONFIG`; env references resolve only during boot.
 
-Settings blocks and cross-field rules: pending
+Settings blocks and cross-field rules: timeouts, agent, capacity, keepalive, telemetry, and workflow; queue/request, chunk/total, tool/total, keepalive/proxy, worker/headroom, and archive/prune invariants accumulate through Zod.
 
-Composition/resource order: pending
+Composition/resource order: explicit bootstrap compositions start named service parts in order and close partial or completed startup in reverse. Testing close also resets workflow-adapter state. The enforced dependency direction is `bootstrap -> adapters -> application -> ports`.
 
-Workflow configuration and env contract: pending
+Workflow configuration and env contract: `WORKFLOW_TARGET_WORLD` remains Step 02 build-time input; `WORKFLOW_POSTGRES_URL` is a secret runtime reference. The workflow registry rejects reads before initialization and documents Nitro module-instance isolation.

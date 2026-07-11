@@ -28,11 +28,10 @@ export function turnCancellationHookToken(requestId: string): string {
 }
 
 /**
- * One durable assistant turn. Everything in this function body executes inside
- * the workflow VM realm; the model call itself runs host-side in a step, which
- * is why the scripted model must be serde-capable.
+ * The request enters in the workflow realm and the model call runs in a host
+ * step. The outbound adapter preserves cancellation across that boundary.
  *
- * Cancellation contract: the turn ends through the durable cancellation hook
+ * Cancellation flows from the durable hook to the provider abort signal while
  * racing the agent stream (hook resume -> AbortController.abort -> the abort
  * reaches the in-flight provider call). `run.cancel()` is NOT the mechanism —
  * the evidence shows it marks the run cancelled without ever aborting an

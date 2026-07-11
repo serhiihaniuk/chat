@@ -1,14 +1,8 @@
-import { Hono } from "hono";
+import { serviceProcessEnv } from "#adapters/configuration/process-environment";
+import { bootService } from "#bootstrap/create-service";
 
-import { serverConfig } from "./config/server-config.js";
-import healthApp from "./http/app.js";
-import compatibilityApp from "./runtime/compatibility-app.js";
+// Nitro opens the port only after this module finishes evaluating. A rejected
+// boot therefore exposes no partially configured HTTP service.
+const service = await bootService(serviceProcessEnv());
 
-// Nitro route entry (nitro.config.ts sends "/**" here). The workflow module's
-// /.well-known/workflow/v1/* engine routes are matched before this catch-all.
-const app = new Hono();
-
-app.route("/", healthApp);
-if (serverConfig.useTestComposition) app.route("/", compatibilityApp);
-
-export default app;
+export default service.app;

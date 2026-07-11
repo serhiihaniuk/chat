@@ -23,7 +23,7 @@ for (const file of listSourceFiles(root)) {
     source.includes("process.env") &&
     !file.endsWith(".test.ts") &&
     !file.startsWith("apps/partner-ai-service/src/config/") &&
-    !file.startsWith("apps/side-chat-service/src/config/")
+    !file.startsWith("apps/side-chat-service/src/adapters/configuration/")
   ) {
     errors.push(`${file}: production source reads process.env outside a config adapter`);
   }

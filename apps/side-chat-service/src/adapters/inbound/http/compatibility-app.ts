@@ -8,7 +8,7 @@ import {
   runCompatibilityTurn,
   turnCancellationHookToken,
   type CompatibilityTurnRequest,
-} from "./turn-workflow.js";
+} from "#adapters/outbound/workflow/turn-workflow";
 
 /**
  * Credential-free compatibility surface, mounted only when

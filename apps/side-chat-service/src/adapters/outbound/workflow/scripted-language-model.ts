@@ -36,10 +36,9 @@ export function createScriptedLanguageModel(
  * `complete` streams a scripted reply and finishes; `block` streams two deltas
  * and then hangs until the abort signal fires, mimicking a stuck provider call.
  *
- * The instance is constructed inside the workflow realm and crosses the
- * workflow -> step boundary, so it must be serde-capable: the workflow runtime
- * re-instantiates it host-side through WORKFLOW_SERIALIZE/WORKFLOW_DESERIALIZE
- * (a plain object with doStream fails step-argument serialization).
+ * Serialization converts the model from a workflow value to a host-step value.
+ * The custom serde methods preserve only the request id and scripted mode;
+ * provider execution state never crosses that boundary.
  */
 class ScriptedLanguageModel implements LanguageModelV4 {
   readonly specificationVersion = "v4";

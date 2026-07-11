@@ -19,6 +19,7 @@ const ignoredDirectories = new Set([
   ".playwright-mcp",
   ".reference",
   ".workflow-data",
+  "dist",
   "node_modules",
 ]);
 
