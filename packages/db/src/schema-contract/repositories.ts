@@ -142,7 +142,6 @@ export type FindActiveAssistantTurnCommand = {
 export type FindAssistantTurnByRunCommand = {
   readonly workspaceId: WorkspaceId;
   readonly subjectId: SubjectId;
-  readonly conversationId: ConversationId;
   readonly runId: string;
 };
 
@@ -336,9 +335,9 @@ export type AssistantTurnRepositoryContract = {
     command: FindActiveAssistantTurnCommand,
   ) => Promise<AssistantTurnRecord | undefined>;
   // Resolve one turn from the durable run id it is bound to, scoped to
-  // workspace + subject + conversation. Answers "does this run belong to the
-  // caller's conversation?" for the cancel path. Returns `undefined` (never
-  // throws) for an unknown or cross-tenant run id.
+  // workspace + subject. Callers that also hold a conversation id compare it
+  // with the returned record. Returns `undefined` (never throws) for an unknown
+  // or cross-tenant run id so run-only replay routes do not leak existence.
   readonly findAssistantTurnByRun: (
     command: FindAssistantTurnByRunCommand,
   ) => Promise<AssistantTurnRecord | undefined>;

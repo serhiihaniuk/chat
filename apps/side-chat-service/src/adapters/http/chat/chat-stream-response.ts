@@ -25,6 +25,8 @@ export type OutboundTransformFactory = () => OutboundTransform;
  * @param options.stream - The turn's native `UIMessageChunk` stream. Consumed once.
  * @param options.runId - Durable run id, returned as the `x-workflow-run-id`
  *   response header so a dropped client can reconnect and replay.
+ * @param options.tailIndex - Durable tail observed before a replay reader opens.
+ *   Required for negative-offset reconnect accounting in WorkflowChatTransport.
  * @param options.keepaliveIntervalMs - Idle timeout in milliseconds after which a
  *   comment frame is emitted to stop proxies closing a quiet stream. The timer
  *   resets on every real chunk, so an actively streaming turn carries no keepalives.
@@ -36,12 +38,17 @@ export function createChatStreamResponse(options: {
   readonly stream: ReadableStream<UIMessageChunk>;
   readonly runId: string;
   readonly keepaliveIntervalMs: number;
+  readonly tailIndex?: number;
   readonly outboundTransforms?: readonly OutboundTransformFactory[];
 }): Response {
   const transformed = pipeOutboundTransforms(options.stream, options.outboundTransforms ?? []);
+  const headers: Record<string, string> = { [HTTP_HEADERS.WORKFLOW_RUN_ID]: options.runId };
+  if (options.tailIndex !== undefined) {
+    headers[HTTP_HEADERS.WORKFLOW_STREAM_TAIL_INDEX] = String(options.tailIndex);
+  }
   const response = createUIMessageStreamResponse({
     stream: transformed,
-    headers: { [HTTP_HEADERS.WORKFLOW_RUN_ID]: options.runId },
+    headers,
   });
   if (!response.body) return response;
   return new Response(withIdleSseKeepalive(response.body, options.keepaliveIntervalMs), {

@@ -74,6 +74,8 @@ export interface StartedChatTurn {
   readonly terminal: Promise<ChatTurnTerminalOutcome>;
 }
 
+export { replayChatTurn, type ReplayedChatTurn } from "./chat-turn-replay.js";
+
 interface TurnCancellation {
   readonly reason: string;
 }
@@ -177,7 +179,6 @@ export async function executeChatTurn(
 
   return await Promise.race([streamOutcome, cancelOutcome(), timeoutOutcome()]);
 }
-
 function toModelMessages(messages: readonly SerializableChatMessage[]): ModelMessage[] {
   return messages.map((message) => ({
     role: message.role,

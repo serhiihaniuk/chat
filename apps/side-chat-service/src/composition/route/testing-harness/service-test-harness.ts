@@ -5,6 +5,7 @@ import type { ModelProvider } from "#application/ports/model-provider";
 import type { RequestAuthorizer } from "#application/ports/request-authorizer";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
+import type { TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { createCollectingTelemetrySink } from "#testing/collecting-telemetry-sink";
@@ -21,6 +22,7 @@ export async function createServiceTestHarness(
     readonly readiness?: Readiness;
     readonly turnAdmission?: TurnAdmission;
     readonly turnExecution?: TurnExecution;
+    readonly turnReplay?: TurnReplay;
     readonly turnState?: InMemoryTurnState;
     readonly conversationQueries?: ConversationQueryStore;
   } = {},

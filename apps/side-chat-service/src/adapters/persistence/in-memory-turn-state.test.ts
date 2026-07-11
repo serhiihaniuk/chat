@@ -57,6 +57,20 @@ describe("InMemoryTurnState", () => {
     expect(state.userMessages).toEqual([USER_MESSAGE]);
     expect(state.runningTurns).toEqual(new Set(["conversation-1"]));
   });
+
+  it("hides a run from a mismatched owner on run-only access", async () => {
+    const state = seededState();
+    const turn = await state.beginTurn(beginInput());
+    await state.bindRun(turn, "run-1");
+
+    await expect(state.assertAccessible(AUTH, "run-1")).resolves.toBeUndefined();
+    await expect(
+      state.assertAccessible({ ...AUTH, subjectId: "another-subject" }, "run-1"),
+    ).rejects.toMatchObject({ code: "turn_run_not_found" });
+    await expect(state.assertAccessible(AUTH, "unknown-run")).rejects.toMatchObject({
+      code: "turn_run_not_found",
+    });
+  });
 });
 
 function seededState(): InMemoryTurnState {

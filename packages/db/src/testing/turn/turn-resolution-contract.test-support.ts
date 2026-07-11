@@ -160,7 +160,6 @@ export const turnResolutionRepositoryContract = (
           repositories.findAssistantTurnByRun({
             workspaceId: workspaceId(scope),
             subjectId: subjectId(scope),
-            conversationId: turn.conversationId,
             runId,
           }),
         ).resolves.toBeUndefined();
@@ -172,30 +171,20 @@ export const turnResolutionRepositoryContract = (
           now,
         });
 
-        // Once bound, the run resolves to its turn, scoped to workspace + subject + conversation.
+        // Once bound, the run resolves to its turn, scoped to workspace + subject.
         await expect(
           repositories.findAssistantTurnByRun({
             workspaceId: workspaceId(scope),
             subjectId: subjectId(scope),
-            conversationId: turn.conversationId,
             runId,
           }),
         ).resolves.toMatchObject({ assistantTurnId: turn.assistantTurnId, runId });
 
-        // Cross-subject and cross-conversation scoping both deny the run read.
+        // Cross-subject scoping denies the run read without revealing it.
         await expect(
           repositories.findAssistantTurnByRun({
             workspaceId: workspaceId(scope),
             subjectId: toSubjectId("other_subject"),
-            conversationId: turn.conversationId,
-            runId,
-          }),
-        ).resolves.toBeUndefined();
-        await expect(
-          repositories.findAssistantTurnByRun({
-            workspaceId: workspaceId(scope),
-            subjectId: subjectId(scope),
-            conversationId: toConversationId(`${scope}_other_conversation`),
             runId,
           }),
         ).resolves.toBeUndefined();

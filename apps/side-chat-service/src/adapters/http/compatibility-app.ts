@@ -7,6 +7,7 @@ import {
   startCompatibilityTurn,
   type CompatibilityTurnRequest,
 } from "#workflows/testing/compatibility-turn";
+import { inspectTestingChatTurnJournal } from "#workflows/testing/chat-turn";
 
 import { HTTP_ERROR } from "./error-response.js";
 import { HTTP_HEADERS } from "./http-contract.js";
@@ -40,6 +41,10 @@ export function createCompatibilityApp(): Hono {
 
   app.post("/compatibility/probes/unpatched-abort-signal", async (context) => {
     return context.json(await runUnpatchedAbortSignalProbe());
+  });
+
+  app.get("/compatibility/chat-turns/:runId/journal-shape", async (context) => {
+    return context.json(await inspectTestingChatTurnJournal(context.req.param("runId")));
   });
 
   return app;

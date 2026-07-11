@@ -9,6 +9,7 @@ import type { ConversationStore } from "#application/ports/turn/conversation-sto
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
+import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
@@ -19,7 +20,8 @@ import { createPostgresConversationQueries } from "./postgres-turn-state/convers
 export type PostgresTurnState = ConversationStore &
   ConversationQueryStore &
   MessageStore &
-  TurnStore & { close: () => Promise<void> };
+  TurnStore &
+  TurnRunAccess & { close: () => Promise<void> };
 
 /** Repositories that also own their connection pool, as the pg-drizzle factory returns. */
 type ClosableRepositories = SidechatRepositories & { close: () => Promise<void> };
@@ -27,14 +29,10 @@ type ClosableRepositories = SidechatRepositories & { close: () => Promise<void> 
 /**
  * The tenant identity a turn was opened under.
  *
- * `bindRun`, `claimTerminal`, and `appendAssistantMessage` receive only a
- * `TurnRef` (conversation id + turn id), but every db write is workspace- and
- * subject-scoped. `beginTurn` is the one call carrying the request's
- * `AuthContext`, so it records the identity for those later same-turn writes to
- * resolve. The write path is single-instance (prepare -> execute -> finalize on
- * one process), so an in-memory map — held for the process lifetime, like the
- * in-memory double's own turn state — suffices; durable cross-instance
- * resolution (reading the turn row on resume) is a later step.
+ * Later write ports carry only a `TurnRef`, so `beginTurn` records the request
+ * identity needed to keep every database write tenant-scoped. This is valid for
+ * the current single-instance prepare-to-finalize path; durable resumed writes
+ * will need to recover identity from the turn row.
  */
 type TurnIdentity = Readonly<{ workspaceId: string; subjectId: string }>;
 
@@ -91,6 +89,7 @@ export const createTurnStateFromRepositories = (
     beginTurn: beginTurn(context),
     bindRun: bindRun(context),
     assertRunOwned: assertRunOwned(context),
+    assertAccessible: assertRunAccessible(context),
     appendAssistantMessage: appendAssistantMessage(context),
     claimTerminal: claimTerminal(context),
     close: repositories.close,
@@ -171,7 +170,19 @@ const assertRunOwned =
     const turn = await repositories.findAssistantTurnByRun({
       workspaceId: auth.workspaceId,
       subjectId: auth.subjectId,
-      conversationId,
+      runId,
+    });
+    if (!turn || turn.conversationId !== conversationId) {
+      throw new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn run not found");
+    }
+  };
+
+const assertRunAccessible =
+  ({ repositories }: TurnStateContext): TurnRunAccess["assertAccessible"] =>
+  async (auth, runId) => {
+    const turn = await repositories.findAssistantTurnByRun({
+      workspaceId: auth.workspaceId,
+      subjectId: auth.subjectId,
       runId,
     });
     if (!turn) {

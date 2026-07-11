@@ -11,8 +11,11 @@ different lifecycle while the legacy service remains available for comparison.
 Its target is owned by [`plan/v7/05-turn-workflow-and-stream.md`](../../plan/v7/05-turn-workflow-and-stream.md)
 until cutover: authenticated `POST /api/chat` starts a durable Workflow run and
 returns its AI SDK UI-message stream; authenticated
-`POST /api/chat/:runId/cancel` resumes the run's durable abort hook. Workflow
-stores the live stream, execution journal, and recoverable terminal outcome.
+`POST /api/chat/:runId/cancel` resumes the run's durable abort hook.
+`GET /api/chat/:runId/stream?startIndex=N` proves tenant ownership, translates
+the public UI-chunk cursor over the raw Workflow journal, replays the prefix,
+and tails the same run; simultaneous subscribers receive independent readers.
+Workflow stores the live stream, execution journal, and recoverable terminal outcome.
 The route process projects that outcome through application-owned PostgreSQL
 ports before closing the response. The same durable projection supplies
 tenant-scoped history and active-turn discovery; a bound running turn exposes

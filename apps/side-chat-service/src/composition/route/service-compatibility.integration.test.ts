@@ -88,6 +88,59 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     const stream = await response.text();
     expect(stream).toContain(`Scripted reply: ${requestId}`);
     expect(countStreamParts(stream, "finish")).toBe(1);
+    const runId = requireRunId(response);
+    const shape = await readJournalShape(runId);
+    expect(shape).toEqual({ dataRows: 6, totalRows: 7, postgresSqlRoundTrips: 14 });
+  });
+
+  it("replays a terminal turn with pinned zero, negative, and past-end cursor semantics", async () => {
+    const requestId = "api-terminal-replay";
+    const started = await startApiTurn(requestId, "happy");
+    const runId = requireRunId(started);
+    await started.text();
+
+    const full = await replayApiTurn(runId, 0);
+    expect(full.status).toBe(200);
+    const tailIndex = Number(full.headers.get("x-workflow-stream-tail-index"));
+    expect(Number.isSafeInteger(tailIndex)).toBe(true);
+    const fullBody = await full.text();
+    expect(fullBody).toContain(`Scripted reply: ${requestId}`);
+    expect(countStreamParts(fullBody, "finish")).toBe(1);
+
+    const negative = await replayApiTurn(runId, -2);
+    expect(negative.status).toBe(200);
+    expect(negative.headers.get("x-workflow-stream-tail-index")).toBe(String(tailIndex));
+    expect(countStreamParts(await negative.text(), "finish")).toBe(1);
+
+    const atEnd = await replayApiTurn(runId, tailIndex + 1);
+    expect(atEnd.status).toBe(200);
+    expect(dataLines(await atEnd.text())).toEqual([]);
+
+    const pastEnd = await replayApiTurn(runId, tailIndex + 2);
+    expect(pastEnd.status).toBe(416);
+    expect(pastEnd.headers.get("x-workflow-stream-tail-index")).toBe(String(tailIndex));
+  });
+
+  it("gives simultaneous subscribers the same replay prefix and live tail", async () => {
+    const requestId = "api-live-replay";
+    const started = await startApiTurn(requestId, "cancel-mid");
+    const runId = requireRunId(started);
+    await waitForObservation(requestId, "provider-streaming");
+
+    const [first, second] = await Promise.all([replayApiTurn(runId, 0), replayApiTurn(runId, 0)]);
+    await cancelApiTurn(runId);
+    const [postBody, firstBody, secondBody] = await Promise.all([
+      started.text(),
+      first.text(),
+      second.text(),
+    ]);
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(dataLines(firstBody)).toEqual(dataLines(secondBody));
+    expect(firstBody.match(/partial reply/g)).toHaveLength(1);
+    expect(secondBody.match(/partial reply/g)).toHaveLength(1);
+    expect(postBody).toContain("partial reply");
   });
 
   it("durably times out and aborts a blocked provider call", async () => {
@@ -196,6 +249,29 @@ function startApiTurn(requestId: string, mode: ApiScriptMode): Promise<Response>
       ],
     }),
   });
+}
+
+function replayApiTurn(runId: string, startIndex: number): Promise<Response> {
+  return fetch(`${serviceBaseUrl}/api/chat/${runId}/stream?startIndex=${startIndex}`, {
+    headers: { authorization: "Bearer local-test-token" },
+  });
+}
+
+async function readJournalShape(runId: string): Promise<Record<string, unknown>> {
+  const response = await fetch(`${serviceBaseUrl}/compatibility/chat-turns/${runId}/journal-shape`);
+  const shape: unknown = await response.json();
+  if (!isRecord(shape)) throw new Error("Expected journal shape JSON");
+  return shape;
+}
+
+function requireRunId(response: Response): string {
+  const runId = response.headers.get("x-workflow-run-id");
+  if (!runId) throw new Error("Expected the chat route to return a run id");
+  return runId;
+}
+
+function dataLines(stream: string): string[] {
+  return stream.split("\n").filter((line) => line.startsWith("data: ") && line !== "data: [DONE]");
 }
 
 /** The durable run-id hook may not exist until the workflow first suspends. */

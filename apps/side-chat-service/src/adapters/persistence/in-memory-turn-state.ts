@@ -2,6 +2,7 @@ import type { ConversationStore } from "#application/ports/turn/conversation-sto
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
+import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import type { TurnMessage, TurnRef, TurnTerminal } from "#domain/turn/turn";
@@ -25,7 +26,7 @@ type StoredTurn = Readonly<{
  * this class without changing the application ports.
  */
 export class InMemoryTurnState
-  implements ConversationStore, ConversationQueryStore, MessageStore, TurnStore
+  implements ConversationStore, ConversationQueryStore, MessageStore, TurnStore, TurnRunAccess
 {
   readonly userMessages: TurnMessage[] = [];
   readonly assistantMessages: TurnMessage[] = [];
@@ -149,6 +150,19 @@ export class InMemoryTurnState
     }
   }
 
+  assertAccessible(auth: AuthContext, runId: string): Promise<void> {
+    try {
+      const turn = [...this.turns.values()].find((candidate) => candidate.runId === runId);
+      if (!turn) throw runNotFound();
+      this.requireOwnedConversation(auth, turn.reference.conversationId);
+      return Promise.resolve();
+    } catch (error) {
+      // A run-only route must not distinguish an unknown id from another
+      // tenant's id, even though conversation routes retain their richer errors.
+      return Promise.reject(asRunNotFound(error));
+    }
+  }
+
   appendAssistantMessage(turn: TurnRef, message: TurnMessage): Promise<void> {
     this.requireTurn(turn);
     this.assistantMessages.push(message);
@@ -213,4 +227,13 @@ function sameOwner(auth: AuthContext, conversation: SeedConversation): boolean {
 function asError(error: unknown): Error {
   if (error instanceof Error) return error;
   return new Error("Unexpected in-memory turn-state failure", { cause: error });
+}
+
+function runNotFound(): TurnRejectedError {
+  return new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn run not found");
+}
+
+function asRunNotFound(error: unknown): TurnRejectedError {
+  if (error instanceof TurnRejectedError) return runNotFound();
+  throw error;
 }

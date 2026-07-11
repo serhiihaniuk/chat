@@ -3,11 +3,13 @@ export const HTTP_HEADERS = {
   REQUEST_ID: "x-request-id",
   RETRY_AFTER: "retry-after",
   WORKFLOW_RUN_ID: "x-workflow-run-id",
+  WORKFLOW_STREAM_TAIL_INDEX: "x-workflow-stream-tail-index",
 } as const;
 
 export const CHAT_HTTP_ROUTES = {
   START: "/api/chat",
   CANCEL: "/api/chat/:runId/cancel",
+  STREAM: "/api/chat/:runId/stream",
 } as const;
 
 export const QUERY_HTTP_ROUTES = {

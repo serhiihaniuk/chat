@@ -221,6 +221,10 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     await expect(state.assertRunOwned(other, conversationId, runId)).rejects.toMatchObject({
       code: TURN_REJECTION_CODES.RUN_NOT_FOUND,
     });
+    await expect(state.assertAccessible(auth, runId)).resolves.toBeUndefined();
+    await expect(state.assertAccessible(other, runId)).rejects.toMatchObject({
+      code: TURN_REJECTION_CODES.RUN_NOT_FOUND,
+    });
   });
 
   it("rejects a turn for an unknown conversation via assertOwned", async () => {

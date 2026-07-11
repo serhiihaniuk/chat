@@ -10,6 +10,7 @@ import type { RequestAuthorizer } from "#application/ports/request-authorizer";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
+import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import { configuredTurnModel, type TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import type { Settings } from "#config/settings/resolve-settings";
@@ -20,6 +21,10 @@ import { DeterministicTurnExecution } from "#testing/turn/deterministic-turn-exe
 import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
 import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
+
+const unavailableTurnReplay: TurnReplay = {
+  open: () => Promise.resolve({ status: TURN_REPLAY_RESULTS.NOT_FOUND }),
+};
 
 export async function startTestingService(
   settings: Settings,
@@ -32,6 +37,7 @@ export async function startTestingService(
     conversationQueries?: ConversationQueryStore;
     turnAdmission?: TurnAdmission;
     turnExecution?: TurnExecution;
+    turnReplay?: TurnReplay;
     turnState?: InMemoryTurnState;
   }> = {},
 ) {
@@ -43,6 +49,7 @@ export async function startTestingService(
   const turnState = overrides.turnState ?? defaultTurnState(settings);
   const telemetrySink = overrides.telemetrySink ?? { record: () => undefined };
   const turnExecution = overrides.turnExecution ?? new DeterministicTurnExecution();
+  const turnReplay = resolveTurnReplay(overrides.turnReplay);
   app.route(
     "/",
     createChatRoutes({
@@ -50,6 +57,8 @@ export async function startTestingService(
       turns: turnState,
       admission: overrides.turnAdmission ?? new DeterministicTurnAdmission(),
       execution: turnExecution,
+      replay: turnReplay,
+      runAccess: turnState,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: testingTurnModelPolicy(settings),
@@ -71,6 +80,10 @@ export async function startTestingService(
     turnState,
     scope,
   };
+}
+
+function resolveTurnReplay(override: TurnReplay | undefined): TurnReplay {
+  return override ?? unavailableTurnReplay;
 }
 
 function defaultTurnState(settings: Settings): InMemoryTurnState {

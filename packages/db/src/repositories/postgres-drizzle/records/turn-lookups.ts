@@ -76,10 +76,10 @@ export const findActiveAssistantTurn =
 /**
  * Resolve one turn from the durable run id it is bound to.
  *
- * Scoped to workspace + subject + conversation so the cancel path can prove a
- * run belongs to the caller's conversation. Returns `undefined` for an unknown,
- * cross-workspace, cross-subject, or cross-conversation run id rather than
- * throwing, so a guessed or leaked run id maps to a not-found response.
+ * Scoped to workspace + subject so both run-only replay and conversation-bound
+ * cancellation can use one non-enumerating lookup. Cancellation separately
+ * compares the returned conversation id. Returns `undefined` for an unknown,
+ * cross-workspace, or cross-subject run id rather than leaking its existence.
  */
 export const findAssistantTurnByRun =
   (db: TurnLookupDb): SidechatRepositories["findAssistantTurnByRun"] =>
@@ -91,7 +91,6 @@ export const findAssistantTurnByRun =
         and(
           eq(assistantTurns.workspaceId, command.workspaceId),
           eq(assistantTurns.subjectId, command.subjectId),
-          eq(assistantTurns.conversationId, command.conversationId),
           eq(assistantTurns.runId, command.runId),
         ),
       )

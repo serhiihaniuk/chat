@@ -18,6 +18,7 @@ import type { ConversationStore } from "#application/ports/turn/conversation-sto
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { TurnStore } from "#application/ports/turn/turn-store";
+import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import type { Settings } from "#config/settings/resolve-settings";
 import { configuredTurnModel } from "#application/turn/turn-model-policy";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
@@ -32,6 +33,7 @@ import { startConfiguredTelemetry } from "../lifecycle/telemetry/configured-tele
 import { startWorkflowJournalSweeper } from "../lifecycle/maintenance/workflow-journal-sweeper.js";
 import { PASS_THROUGH_TURN_ADMISSION } from "../turn/pass-through-admission.js";
 import { createWorkflowTurnExecution } from "../turn/workflow-turn-execution.js";
+import { createWorkflowTurnReplay } from "../turn/replay/workflow-turn-replay.js";
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
 
 /** Production wiring contains no scripted providers or compatibility-only routes. */
@@ -57,6 +59,7 @@ export async function startProductionService(
     ...(options.starters ?? []),
   ]);
   const execution = createWorkflowTurnExecution(settings);
+  const replay = createWorkflowTurnReplay();
   const app = createHttpApp(createWorkflowReadiness(scope, settings), authorizer);
   app.route(
     "/",
@@ -65,6 +68,8 @@ export async function startProductionService(
       turns: persistence.store,
       admission: PASS_THROUGH_TURN_ADMISSION,
       execution,
+      replay,
+      runAccess: persistence.store,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: configuredTurnModel(settings.models.modelId),
@@ -121,7 +126,7 @@ function createMaintenanceStarters(
 }
 
 type ProductionPersistence = Readonly<{
-  store: ConversationStore & ConversationQueryStore & MessageStore & TurnStore;
+  store: ConversationStore & ConversationQueryStore & MessageStore & TurnStore & TurnRunAccess;
   registerClose: StartServicePart;
 }>;
 

@@ -4,6 +4,8 @@ import { cancelTurn } from "#application/turn/cancel-turn";
 import { runTurn, type RunTurnDependencies } from "#application/turn/execution/run-turn";
 import { TurnRejectedError } from "#application/turn/turn-errors";
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
+import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
+import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 
 import type { AuthVariables } from "../auth-middleware.js";
 import { errorResponse, HTTP_ERROR, turnRejectionResponse } from "../error-response.js";
@@ -16,6 +18,8 @@ export type ChatRouteDependencies = RunTurnDependencies &
     keepaliveIntervalMs: number;
     outboundTransforms?: readonly OutboundTransformFactory[];
     selectModel: TurnModelPolicy;
+    replay: TurnReplay;
+    runAccess: TurnRunAccess;
   }>;
 
 /** HTTP owns validation and stream encoding; application services own turn policy and state. */
@@ -71,7 +75,51 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
     }
   });
 
+  app.get(CHAT_HTTP_ROUTES.STREAM, async (context) => {
+    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const startIndex = parseStartIndex(context.req.query("startIndex"));
+    if (startIndex === undefined) {
+      return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid replay start index.");
+    }
+    const runId = context.req.param("runId");
+    try {
+      // Ownership precedes Workflow lookup so a guessed run id is never an
+      // existence oracle across workspaces or subjects.
+      await dependencies.runAccess.assertAccessible(context.get("authContext"), runId);
+      const replay = await dependencies.replay.open(runId, startIndex);
+      if (replay.status === TURN_REPLAY_RESULTS.NOT_FOUND) {
+        return errorResponse(requestId, HTTP_ERROR.NOT_FOUND, "Turn run not found.");
+      }
+      if (replay.status === TURN_REPLAY_RESULTS.START_INDEX_OUT_OF_RANGE) {
+        const response = errorResponse(
+          requestId,
+          HTTP_ERROR.RANGE_NOT_SATISFIABLE,
+          "Replay start index is beyond the durable stream.",
+        );
+        response.headers.set(HTTP_HEADERS.WORKFLOW_STREAM_TAIL_INDEX, String(replay.tailIndex));
+        return response;
+      }
+      return createChatStreamResponse({
+        stream: replay.stream,
+        runId,
+        tailIndex: replay.tailIndex,
+        keepaliveIntervalMs: dependencies.keepaliveIntervalMs,
+        outboundTransforms: dependencies.outboundTransforms ?? [],
+      });
+    } catch (error) {
+      return mapTurnError(requestId, error);
+    }
+  });
+
   return app;
+}
+
+/** Missing means replay from the beginning; otherwise require one safe integer. */
+function parseStartIndex(value: string | undefined): number | undefined {
+  if (value === undefined) return 0;
+  if (!/^-?(?:0|[1-9]\d*)$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 function mapTurnError(requestId: string, error: unknown): Response {
@@ -81,7 +129,7 @@ function mapTurnError(requestId: string, error: unknown): Response {
   return errorResponse(
     requestId,
     HTTP_ERROR.INTERNAL_SERVER_ERROR,
-    "The turn could not be started.",
+    "The turn request could not be completed.",
   );
 }
 

@@ -1,5 +1,5 @@
 import { createModelCallToUIChunkTransform, type ModelCallStreamPart } from "@ai-sdk/workflow";
-import { start } from "workflow/api";
+import { getRun, start } from "workflow/api";
 
 import { initializeTestingWorkflowServices } from "#composition/workflow/testing";
 import {
@@ -25,4 +25,12 @@ export async function startTestingChatTurn(input: ChatTurnWorkflowInput): Promis
     stream: run.getReadable<ModelCallStreamPart>().pipeThrough(createModelCallToUIChunkTransform()),
     terminal: run.returnValue,
   };
+}
+
+/** Testing-only measurement of the journal shape produced by WorkflowAgent. */
+export async function inspectTestingChatTurnJournal(runId: string) {
+  const readable = getRun<ChatTurnTerminalOutcome>(runId).getReadable<ModelCallStreamPart>();
+  const dataRows = (await readable.getTailIndex()) + 1;
+  const totalRows = dataRows + 1; // Workflow's EOF marker is stored as its own row.
+  return { dataRows, totalRows, postgresSqlRoundTrips: totalRows * 2 };
 }

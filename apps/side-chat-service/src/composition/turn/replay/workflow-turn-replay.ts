@@ -1,0 +1,33 @@
+import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
+import {
+  CHAT_TURN_OUTCOMES,
+  replayChatTurn,
+  type ChatTurnTerminalOutcome,
+  type ReplayedChatTurn,
+} from "#workflows/production/chat-turn";
+
+import { stampFinishReason } from "../workflow-turn-execution.js";
+
+/** Adapt Workflow replay handles to the application replay port. */
+export type ReplayChatTurn = (runId: string, startIndex: number) => Promise<ReplayedChatTurn>;
+
+export function createWorkflowTurnReplay(replayTurn: ReplayChatTurn = replayChatTurn): TurnReplay {
+  return {
+    async open(runId, startIndex) {
+      const replay = await replayTurn(runId, startIndex);
+      if (replay.status !== TURN_REPLAY_RESULTS.FOUND) return replay;
+      return {
+        status: TURN_REPLAY_RESULTS.FOUND,
+        stream: stampFinishReason(replay.stream, replay.terminal.then(replayFinishReason)),
+        tailIndex: replay.tailIndex,
+      };
+    },
+  };
+}
+
+function replayFinishReason(
+  terminal: ChatTurnTerminalOutcome,
+): Readonly<{ finishReason?: string }> {
+  if (terminal.status !== CHAT_TURN_OUTCOMES.COMPLETED) return {};
+  return { finishReason: terminal.finishReason };
+}

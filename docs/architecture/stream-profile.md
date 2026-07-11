@@ -54,6 +54,22 @@ Retryability and safe messages are looked up from the code via `SIDE_CHAT_ERROR_
 | `internal_error`       | yes       | An unexpected safe server failure occurred.        |
 | `unsupported_protocol` | no        | Client and service stream versions do not match.   |
 
+### Durable replay
+
+`GET /api/chat/:runId/stream?startIndex=N` proves tenant ownership, then
+returns replay plus live tail through the same finish-reason, scrub, SSE, and
+keepalive chain as `POST /api/chat`. It returns both `x-workflow-run-id` and
+`x-workflow-stream-tail-index`.
+
+`startIndex` is an index in the public `UIMessageChunk` stream, not the raw
+WorkflowAgent journal. Missing and `0` replay from the beginning; a negative
+value is resolved once against the current UI tail and clamps to zero; exactly
+`tail + 1` opens an empty live tail; anything greater returns `416` before SSE.
+The service scans the bounded raw prefix to translate that cursor because the
+pinned SDK's model-part-to-UI transform is not one-to-one. This preserves an
+exact client contract at O(history) reconnect cost without inventing a second
+durable stream or modifying WorkflowAgent internals.
+
 ## Terminal discipline
 
 Exactly one terminal-class part (`finish`, `error`, or `abort`) reaches the client. The scrub filter drops and counts any second terminal chunk as defense in depth; the SDK should already guarantee this. Unknown chunk types are forwarded untouched and counted, never dropped, so a future native part is forward-compatible.

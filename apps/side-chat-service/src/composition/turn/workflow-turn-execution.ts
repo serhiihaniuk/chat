@@ -128,9 +128,9 @@ function toAssistantMessage(turnId: string, text: string): TurnMessage | undefin
  * one edge that holds both the stream and the terminal, so `content-filter` and
  * `length` reach the client as native finish semantics.
  */
-function stampFinishReason(
+export function stampFinishReason(
   stream: ReadableStream<UIMessageChunk>,
-  terminal: Promise<TurnExecutionTerminal>,
+  terminal: Promise<Readonly<{ finishReason?: string }>>,
 ): ReadableStream<UIMessageChunk> {
   return stream.pipeThrough(
     new TransformStream({

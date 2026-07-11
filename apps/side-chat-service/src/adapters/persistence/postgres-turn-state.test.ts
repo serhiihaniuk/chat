@@ -306,6 +306,16 @@ describe("postgres turn state adapter mapping", () => {
     });
   });
 
+  it("maps an unresolved run to RUN_NOT_FOUND on run-only access", async () => {
+    const state = createTurnStateFromRepositories(
+      fakeRepositories({ findAssistantTurnByRun: () => Promise.resolve(undefined) }),
+    );
+
+    await expect(state.assertAccessible(AUTH, "run_x")).rejects.toMatchObject({
+      code: TURN_REJECTION_CODES.RUN_NOT_FOUND,
+    });
+  });
+
   it("folds usage and omits the message id on the terminal claim", async () => {
     let claimCommand: ClaimAssistantTurnTerminalCommand | undefined;
     const state = createTurnStateFromRepositories(

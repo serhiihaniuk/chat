@@ -3,11 +3,13 @@ import { serviceProcessEnv } from "#config/environment/process-environment";
 import { resolveServiceSettings } from "./create-service.js";
 import { startTestingService } from "./testing.js";
 import { createWorkflowTurnExecution } from "../turn/workflow-turn-execution.js";
+import { createWorkflowTurnReplay } from "../turn/replay/workflow-turn-replay.js";
 import { startTestingChatTurn } from "#workflows/testing/chat-turn";
 
 const settings = resolveServiceSettings(serviceProcessEnv());
 const service = await startTestingService(settings, [], {
   turnExecution: createWorkflowTurnExecution(settings, startTestingChatTurn),
+  turnReplay: createWorkflowTurnReplay(),
 });
 
 export default service.app;
