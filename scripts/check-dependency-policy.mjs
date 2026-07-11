@@ -35,6 +35,7 @@ const allowed = {
     "@opentelemetry/semantic-conventions",
     "@workflow/serde",
     "@workflow/world-postgres",
+    "@side-chat/db",
     "@side-chat/stream-profile",
     "ai",
     "hono",

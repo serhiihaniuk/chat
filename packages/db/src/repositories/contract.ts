@@ -5,7 +5,6 @@ import type {
 } from "#schema-contract";
 
 export const REPOSITORY_ADAPTER_KINDS = {
-  MEMORY: "memory",
   POSTGRES_DRIZZLE: "postgres-drizzle",
   CUSTOM: "custom",
 } as const;

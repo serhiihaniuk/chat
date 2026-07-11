@@ -12,6 +12,7 @@ export const SERVICE_ENV_KEYS = {
   WORKFLOW_POSTGRES_URL: "WORKFLOW_POSTGRES_URL",
   WORKFLOW_LOCAL_DATA_DIR: "WORKFLOW_LOCAL_DATA_DIR",
   WORKFLOW_LOCAL_BASE_URL: "WORKFLOW_LOCAL_BASE_URL",
+  SIDECHAT_DATABASE_URL: "SIDECHAT_DATABASE_URL",
   SIDECHAT_AUTH_TOKEN: "SIDECHAT_AUTH_TOKEN",
   SIDECHAT_WORKSPACE_ID: "SIDECHAT_WORKSPACE_ID",
   SIDECHAT_OTLP_ENDPOINT: "SIDECHAT_OTLP_ENDPOINT",
@@ -109,6 +110,10 @@ export interface SideChatConfig {
   };
   readonly capacity: {
     readonly activeGenerations: ConfigValue<number>;
+  };
+  readonly persistence: {
+    /** Product Postgres URL. Absent selects the in-memory store (development only). */
+    readonly databaseUrl: ConfigValue<string | undefined>;
   };
   readonly keepalive: {
     readonly intervalMs: ConfigValue<number>;

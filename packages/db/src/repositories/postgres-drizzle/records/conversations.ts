@@ -19,6 +19,7 @@ type ConversationRepository = Pick<
   | "createOrGetConversation"
   | "readConversationHistory"
   | "listConversations"
+  | "findConversation"
   | "prepareConversationTitle"
   | "resetConversation"
 >;
@@ -39,9 +40,34 @@ export const createPostgresDrizzleConversationRepository = (
   appendMessage: createAppendMessage(context),
   readConversationHistory: createReadConversationHistory(context),
   listConversations: createListConversations(context),
+  findConversation: createFindConversation(context),
   prepareConversationTitle: createPrepareConversationTitle(context),
   resetConversation: createResetConversation(context),
 });
+
+/**
+ * Read one conversation by id, scoped to workspace + subject.
+ *
+ * The subject predicate lives in the WHERE clause, so a conversation owned by a
+ * different subject resolves to `undefined` exactly like an unknown id — the
+ * caller cannot distinguish "not yours" from "does not exist".
+ */
+const createFindConversation =
+  ({ db }: PostgresDrizzleRepositoryContext): ConversationRepository["findConversation"] =>
+  async (command) => {
+    const rows = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.workspaceId, command.workspaceId),
+          eq(conversations.subjectId, command.subjectId),
+          eq(conversations.conversationId, command.conversationId),
+        ),
+      )
+      .limit(1);
+    return rows[0] ? toConversationRecord(rows[0]) : undefined;
+  };
 
 const createAppendMessage = (
   context: PostgresDrizzleRepositoryContext,
@@ -55,49 +81,39 @@ const createAppendMessage = (
       command.conversationId,
     );
 
-    const existing = await readMessageByIdempotencyKey(context, command);
-    if (existing[0]) return result(toMessageRecord(existing[0]), false);
-
+    // The caller-provided messageId is the idempotency key. A first append inserts
+    // and returns the row; a replay of the same id conflicts, inserts nothing, and
+    // is re-read below — no separate idempotency column lookup needed.
     const inserted = await insertConversationMessage(context, command);
     if (inserted) return result(toMessageRecord(inserted), true);
 
-    const repeated = await readMessageByIdempotencyKey(context, command);
+    const existing = await readMessageById(context, command);
     return result(
       toMessageRecord(
-        one(
-          repeated,
-          "record_not_found",
-          "Message idempotency conflict did not return an existing record.",
-        ),
+        one(existing, "record_not_found", "Message id conflict did not return an existing record."),
       ),
       false,
     );
   };
 };
 
-const readMessageByIdempotencyKey = (
-  { db }: PostgresDrizzleRepositoryContext,
-  command: AppendMessageCommand,
-) =>
+const readMessageById = ({ db }: PostgresDrizzleRepositoryContext, command: AppendMessageCommand) =>
   db
     .select()
     .from(messages)
     .where(
-      and(
-        eq(messages.workspaceId, command.workspaceId),
-        eq(messages.idempotencyKey, command.idempotencyKey.value),
-      ),
+      and(eq(messages.workspaceId, command.workspaceId), eq(messages.messageId, command.messageId)),
     )
     .limit(1);
 
 /** Insert one message while serializing sequence allocation per conversation. */
 const insertConversationMessage = (
-  { db, ids }: PostgresDrizzleRepositoryContext,
+  { db }: PostgresDrizzleRepositoryContext,
   command: AppendMessageCommand,
 ) =>
   db.transaction(async (transaction) => {
     // Lock before reading max(sequence_index): concurrent appends then allocate
-    // distinct sequence indexes, while an idempotency loser observes the winner.
+    // distinct sequence indexes, while a same-id replay observes the winner.
     await transaction
       .select({ conversationId: conversations.conversationId })
       .from(conversations)
@@ -121,17 +137,16 @@ const insertConversationMessage = (
     const [message] = await transaction
       .insert(messages)
       .values({
-        messageId: ids.next("message"),
+        messageId: command.messageId,
         conversationId: command.conversationId,
         workspaceId: command.workspaceId,
         role: command.role,
-        contentText: command.contentText,
+        parts: command.parts,
         metadataJson: command.metadataJson,
         sequenceIndex,
-        idempotencyKey: command.idempotencyKey.value,
         createdAt: command.now,
       })
-      .onConflictDoNothing({ target: [messages.workspaceId, messages.idempotencyKey] })
+      .onConflictDoNothing({ target: messages.messageId })
       .returning();
     if (!message) return undefined;
 

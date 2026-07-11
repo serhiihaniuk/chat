@@ -17,6 +17,7 @@ import type {
   ConversationId,
   HostCommandId,
   HostSurfaceId,
+  MessageId,
   ModelId,
   ProviderRequestId,
   RequestId,
@@ -47,10 +48,12 @@ export type CreateOrGetConversationCommand = RepositoryCommandEnvelope & {
 export type AppendMessageCommand = RepositoryCommandEnvelope & {
   readonly conversationId: ConversationId;
   readonly subjectId: SubjectId;
+  /** Deterministic, caller-generated id — the idempotency key: a replayed append
+   *  with the same id is a no-op that returns the stored row. */
+  readonly messageId: MessageId;
   readonly role: MessageRecord["role"];
-  readonly contentText: string;
+  readonly parts: readonly JsonObject[];
   readonly metadataJson: JsonObject;
-  readonly idempotencyKey: IdempotencyKey;
 };
 
 export type StartAssistantTurnCommand = RepositoryCommandEnvelope & {
@@ -59,12 +62,11 @@ export type StartAssistantTurnCommand = RepositoryCommandEnvelope & {
   readonly requestId: RequestId;
   readonly conversationId: ConversationId;
   readonly userMessageId: UserMessageId;
-  readonly runtimeProfile: string;
-  readonly systemPromptVersion: string;
-  readonly contextStrategyVersion: string;
-  readonly toolRegistryVersion: string;
   readonly modelProvider: string;
   readonly modelId: ModelId;
+  readonly instructionsVersion: string;
+  readonly configVersion: string;
+  readonly contentFilterVersion: string;
 };
 
 export type RecordTurnContextSnapshotCommand = RepositoryCommandEnvelope & {
@@ -76,119 +78,48 @@ export type RecordTurnContextSnapshotCommand = RepositoryCommandEnvelope & {
   readonly contextRedactedJson: JsonObject;
 };
 
-export type CompleteAssistantTurnCommand = RepositoryCommandEnvelope & {
+export type BindTurnRunCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
-  readonly assistantMessageId: AssistantMessageId;
-  readonly finishReason: string;
+  /** The durable Workflow run id; bound once, after the run starts. */
+  readonly runId: string;
 };
 
-export type FailAssistantTurnCommand = RepositoryCommandEnvelope & {
-  readonly assistantTurnId: AssistantTurnId;
-  readonly status: AssistantTurnRecord["status"];
-  readonly errorCode: string;
-};
-
-export type RequestTurnCancellationCommand = RepositoryCommandEnvelope & {
-  readonly assistantTurnId: AssistantTurnId;
-  // A turn belongs to the subject that started it; cancel is scoped to that
-  // subject so a leaked turn id from another user cannot stop it.
-  readonly subjectId: SubjectId;
+/** Aggregate token usage across a turn's steps, folded onto the terminal write. */
+export type TurnUsageTotals = {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly totalTokens: number;
+  readonly reasoningTokens: number;
+  readonly cachedInputTokens: number;
 };
 
 /**
- * Outcome of recording a durable cancel intent.
+ * The one guarded transition that moves a turn from `running` to a terminal status.
  *
- * `cancelRequested` is true only when this call moved a still-running turn to
- * the cancel-requested state (and notified). It is false for an unknown,
- * cross-workspace, or already-terminal turn, so a cancel of a finished turn is a
- * no-op rather than an error.
+ * `status` is any terminal (never `running`). `assistantMessageId`/`finishReason`
+ * accompany a completed or blocked turn; `errorCode` a failed one. The repository
+ * applies it as a single `UPDATE ... WHERE status = 'running'`, so a replay after
+ * a crash and a second finalize are both no-ops.
  */
-export type RequestTurnCancellationResult = {
-  readonly cancelRequested: boolean;
-};
-
-export type AcquireTurnLeaseCommand = RepositoryCommandEnvelope & {
+export type ClaimAssistantTurnTerminalCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
-  readonly ownerInstanceId: string;
-  /** Lease window in ms; the new expiry is `now + leaseTtlMs`. */
-  readonly leaseTtlMs: number;
+  readonly status: Exclude<AssistantTurnRecord["status"], "running">;
+  readonly assistantMessageId?: AssistantMessageId | undefined;
+  readonly finishReason?: string | undefined;
+  readonly errorCode?: string | undefined;
+  readonly usage: TurnUsageTotals;
 };
 
 /**
- * Outcome of claiming the lease for one running turn.
+ * Outcome of a terminal claim.
  *
- * `leaseEpoch` is the post-bump epoch the owner must echo on every heartbeat
- * `renewTurnLease` so a fenced owner (epoch advanced underneath it) sees `0` rows
- * and stops. `acquired` is false for an unknown, cross-workspace, or already
- * terminal turn (nothing matched the CAS), so a lost-race claim never strands.
+ * `claimed` is true only when this call moved the turn from `running` to a
+ * terminal status. It is false for an already-terminal turn (idempotent replay)
+ * or an unknown/cross-tenant id; `record` returns the current stored row either way.
  */
-export type AcquireTurnLeaseResult = {
-  readonly acquired: boolean;
-  readonly leaseEpoch: number;
-};
-
-export type RenewTurnLeaseCommand = RepositoryCommandEnvelope & {
-  readonly assistantTurnId: AssistantTurnId;
-  readonly ownerInstanceId: string;
-  /** Epoch the acquiring call returned; the renew CAS is scoped to it. */
-  readonly leaseEpoch: number;
-  readonly leaseTtlMs: number;
-};
-
-/**
- * Outcome of a heartbeat renewal.
- *
- * `renewed` is true only while this owner still holds the lease at the expected
- * epoch. A `false` result means the owner was fenced (the reaper or a new owner
- * bumped the epoch), so the caller must interrupt its generation to never
- * double-write.
- */
-export type RenewTurnLeaseResult = {
-  readonly renewed: boolean;
-};
-
-export type ReapExpiredTurnsCommand = {
-  readonly now: string;
-  /**
-   * Grace window for running turns that never acquired a lease.
-   *
-   * A crash between the turn insert and the lease acquire leaves a running row
-   * with a NULL lease that `lease_expires_at < now` can never match. Such a row
-   * is reaped once it `started_at` earlier than `now - nullLeaseGraceMs`; the
-   * grace (~2x the lease TTL) keeps a healthy just-started turn out of reach.
-   */
-  readonly nullLeaseGraceMs: number;
-  /** Upper bound on reaped turns per pass, so one sweep cannot run unbounded. */
-  readonly limit: number;
-};
-
-/**
- * One turn the reaper terminalized because its owner died while it was running.
- *
- * `cancelRequested` carries the durable cancel intent behind the honest status
- * split (a cancel becomes `user_aborted`, otherwise a `provider_failed`
- * timeout). `leaseEpoch` is the post-bump epoch the CAS fenced the dead owner
- * with.
- */
-export type ReapedTurn = {
-  readonly workspaceId: WorkspaceId;
-  readonly assistantTurnId: AssistantTurnId;
-  readonly cancelRequested: boolean;
-  readonly leaseEpoch: number;
-};
-
-/**
- * A running turn carrying durable cancel intent, surfaced on LISTEN reconnect.
- *
- * The cancel notification source re-scans these after every (re)connect so a
- * cancel NOTIFY that fired while the dedicated listener was disconnected is not
- * lost: each id is re-fed as a synthetic cancel signal and the owning instance
- * interrupts its live fiber. Global across workspaces by design — a re-fed signal
- * is a harmless no-op on any instance that does not own the turn.
- */
-export type RunningCancelRequestedTurn = {
-  readonly workspaceId: WorkspaceId;
-  readonly assistantTurnId: AssistantTurnId;
+export type ClaimAssistantTurnTerminalResult = {
+  readonly record: AssistantTurnRecord;
+  readonly claimed: boolean;
 };
 
 export type FindAssistantTurnCommand = {
@@ -207,6 +138,12 @@ export type FindActiveAssistantTurnCommand = {
   readonly workspaceId: WorkspaceId;
   readonly subjectId: SubjectId;
   readonly conversationId: ConversationId;
+};
+export type FindAssistantTurnByRunCommand = {
+  readonly workspaceId: WorkspaceId;
+  readonly subjectId: SubjectId;
+  readonly conversationId: ConversationId;
+  readonly runId: string;
 };
 
 export type ListActiveAssistantTurnsCommand = {
@@ -286,6 +223,12 @@ export type ListConversationsCommand = {
   readonly limit: number;
 };
 
+export type FindConversationCommand = {
+  readonly workspaceId: WorkspaceId;
+  readonly subjectId: SubjectId;
+  readonly conversationId: ConversationId;
+};
+
 export type PrepareConversationTitleCommand = RepositoryCommandEnvelope & {
   readonly subjectId: SubjectId;
   readonly conversationId: ConversationId;
@@ -313,12 +256,9 @@ export type RepositoryCommandInput =
   | CreateOrGetConversationCommand
   | AppendMessageCommand
   | StartAssistantTurnCommand
+  | BindTurnRunCommand
   | RecordTurnContextSnapshotCommand
-  | CompleteAssistantTurnCommand
-  | FailAssistantTurnCommand
-  | RequestTurnCancellationCommand
-  | AcquireTurnLeaseCommand
-  | RenewTurnLeaseCommand
+  | ClaimAssistantTurnTerminalCommand
   | RecordUsageCommand
   | ReadUsageSummaryCommand
   | RecordToolInvocationCommand
@@ -347,6 +287,13 @@ export type ConversationRepositoryContract = {
   readonly listConversations: (
     command: ListConversationsCommand,
   ) => Promise<readonly ConversationSummaryRecord[]>;
+  // Read one conversation by id, scoped to workspace + subject. Returns
+  // `undefined` (never throws) for an unknown or cross-tenant id, so the service
+  // maps a guessed or leaked id to a not-found response instead of leaking
+  // another subject's conversation.
+  readonly findConversation: (
+    command: FindConversationCommand,
+  ) => Promise<ConversationRecord | undefined>;
   readonly prepareConversationTitle: (
     command: PrepareConversationTitleCommand,
   ) => Promise<ConversationRecord>;
@@ -354,51 +301,31 @@ export type ConversationRepositoryContract = {
 };
 
 export type AssistantTurnRepositoryContract = {
+  // Open a running turn. Idempotent on `(workspace_id, request_id)`: a replayed
+  // start returns the existing row (`inserted: false`). The one-running-per-
+  // conversation partial unique index is the race-safe busy guard — a concurrent
+  // second running turn raises `conversation_busy` rather than a check-then-act
+  // window.
   readonly startAssistantTurn: (
     command: StartAssistantTurnCommand,
   ) => Promise<RepositoryCommandResult<AssistantTurnRecord>>;
+  // Bind the durable Workflow run id to a turn once its run has started.
+  readonly bindTurnRun: (command: BindTurnRunCommand) => Promise<AssistantTurnRecord>;
   readonly recordTurnContextSnapshot: (
     command: RecordTurnContextSnapshotCommand,
   ) => Promise<RepositoryCommandResult<ContextSnapshotRecord>>;
-  readonly completeAssistantTurn: (
-    command: CompleteAssistantTurnCommand,
-  ) => Promise<AssistantTurnRecord>;
-  readonly failAssistantTurn: (command: FailAssistantTurnCommand) => Promise<AssistantTurnRecord>;
-  // Record durable cancel intent for a running turn and notify the cancel channel
-  // in one transaction (notify fires on commit). CAS-guarded to running turns, so
-  // a cancel of an unknown, cross-workspace, or already-terminal turn is a no-op
-  // (`cancelRequested: false`), never an error. Works from any instance; the
-  // owning instance reacts to the notify by interrupting its live fiber.
-  readonly requestTurnCancellation: (
-    command: RequestTurnCancellationCommand,
-  ) => Promise<RequestTurnCancellationResult>;
-  // Claim ownership of a running turn for one instance: CAS sets owner, bumps the
-  // epoch, and extends the lease WHERE the turn is still running. The returned
-  // epoch is what the owner's heartbeat must echo. A non-running/unknown turn does
-  // not match, so `acquired` is false rather than an error.
-  readonly acquireTurnLease: (command: AcquireTurnLeaseCommand) => Promise<AcquireTurnLeaseResult>;
-  // Heartbeat the lease: CAS extends the expiry WHERE the turn is still running and
-  // owner+epoch still match. `renewed: false` means the owner was fenced (epoch
-  // advanced underneath it), so the caller must stop generation.
-  readonly renewTurnLease: (command: RenewTurnLeaseCommand) => Promise<RenewTurnLeaseResult>;
-  // Reaper sweep: atomically terminalize every running turn whose lease expired,
-  // bumping the epoch to fence its (dead or slow) owner. The status is the honest
-  // terminal — `user_aborted` when a cancel was requested, else `provider_failed`.
-  // Returns the reaped turns so the caller appends one synthetic terminal each;
-  // two concurrent sweeps cannot both reap a turn because the running-guard CAS
-  // matches only once.
-  readonly reapExpiredTurns: (command: ReapExpiredTurnsCommand) => Promise<readonly ReapedTurn[]>;
-  // Every running turn with durable cancel intent, across all workspaces. The
-  // cancel LISTEN source re-scans this on each (re)connect so a cancel requested
-  // during a listener outage is still honored — NOTIFY is only a poke, the durable
-  // `cancel_requested_at` column is the truth. Non-owning instances no-op on the
-  // re-fed signal, so a global (unscoped) scan is safe.
-  readonly listRunningCancelRequestedTurns: () => Promise<readonly RunningCancelRequestedTurn[]>;
+  // Moves a turn from `running` to a terminal status in one `UPDATE ... WHERE
+  // status = 'running'`, and returns `claimed: false` for an already-terminal
+  // turn — so a crash replay and a duplicate finalize are both no-ops. This is
+  // what makes "no turn ends without durable status" hold without a reaper.
+  readonly claimAssistantTurnTerminal: (
+    command: ClaimAssistantTurnTerminalCommand,
+  ) => Promise<ClaimAssistantTurnTerminalResult>;
   // Turn-record reads for the resumable routes, all workspace-scoped and
   // returning `undefined` (not throwing) for an unknown or cross-tenant id, so a
   // guessed id maps to a not-found response. `findActiveAssistantTurn` answers
   // "is there a running turn to resume?"; `findAssistantTurnByRequest` is the
-  // lost-`POST /chat/runs`-reply resolver from `requestId` to the canonical turn.
+  // lost-`POST /chat`-reply resolver from `requestId` to the canonical turn.
   readonly findAssistantTurn: (
     command: FindAssistantTurnCommand,
   ) => Promise<AssistantTurnRecord | undefined>;
@@ -407,6 +334,13 @@ export type AssistantTurnRepositoryContract = {
   ) => Promise<AssistantTurnRecord | undefined>;
   readonly findActiveAssistantTurn: (
     command: FindActiveAssistantTurnCommand,
+  ) => Promise<AssistantTurnRecord | undefined>;
+  // Resolve one turn from the durable run id it is bound to, scoped to
+  // workspace + subject + conversation. Answers "does this run belong to the
+  // caller's conversation?" for the cancel path. Returns `undefined` (never
+  // throws) for an unknown or cross-tenant run id.
+  readonly findAssistantTurnByRun: (
+    command: FindAssistantTurnByRunCommand,
   ) => Promise<AssistantTurnRecord | undefined>;
   // Every running turn for a subject across conversations. Powers the activity
   // stream's snapshot on connect (one entry per conversation with a live turn).

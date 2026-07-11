@@ -36,6 +36,7 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
       toolTokenBudget: 4_000,
     },
     capacity: { activeGenerations: 8 },
+    persistence: { databaseUrl: undefined },
     keepalive: { intervalMs: 15_000, proxyIdleBudgetMs: 60_000 },
     telemetry: { mode: TELEMETRY_MODES.OFF },
     workflow: {
@@ -52,6 +53,7 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     timeouts: { ...defaults.timeouts, ...overrides.timeouts },
     agent: { ...defaults.agent, ...overrides.agent },
     capacity: { ...defaults.capacity, ...overrides.capacity },
+    persistence: { ...defaults.persistence, ...overrides.persistence },
     keepalive: { ...defaults.keepalive, ...overrides.keepalive },
     telemetry: overrides.telemetry ?? defaults.telemetry,
     workflow: { ...defaults.workflow, ...overrides.workflow },

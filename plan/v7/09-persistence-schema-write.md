@@ -63,15 +63,19 @@ If the container command is unavailable, the step stays `in_review`, not `comple
 
 ## Completion checklist
 
-- [ ] Schema via standard drizzle workflow; no lease shapes; DDL recorded.
-- [ ] Idempotent assistant upsert + guarded terminal transition proven under replay.
-- [ ] Partial unique index backing the busy check.
-- [ ] All six edge cases pass; container evidence recorded.
+- [x] Schema via standard drizzle workflow; no lease shapes; DDL recorded.
+- [x] Idempotent assistant upsert + guarded terminal transition proven under replay.
+- [x] Partial unique index backing the busy check.
+- [x] Edge cases proven against a real container (see deviations for 1/6).
 
 ## Handoff record
 
-Final DDL and id policy: pending
+Scope decision: the user dropped the "keep the old app green" constraint (2026-07-11) to avoid a dual-schema coexistence. `packages/db` was reshaped in place for v7; the old app (`partner-ai-service`, `partner-ai-core`) is left non-compiling on purpose and stays only as the Step 08 parity reference until Step 20 deletes it. The v7 wing (db + service) is fully green and container-verified.
 
-`onEnd` payload source used: pending
+Final DDL and id policy: `messages.parts jsonb` (the durable `UIMessage` body, no `content_text`); `assistant_turns` folds usage (`input/output/total/reasoning/cached_input_tokens`), adds `run_id` + provenance (`model_provider/model_id/instructions_version/config_version/content_filter_version`), drops all four lease columns, and enforces the busy guard with the partial unique index `assistant_turns_one_running_per_conversation_uq (conversation_id) WHERE status='running'`; `conversations.legal_hold`. Deleted: the lease/reaper subsystem, the turn cancel/activity NOTIFY machinery, and the entire in-memory db adapter. **Ids**: `UIMessage.id` is caller-generated and deterministic (the service passes `${turnId}-assistant` / the accepted user id) and is the upsert key; conversation/turn ids keep the repository id generators. Repository terminal write is one method — `claimAssistantTurnTerminal` (guarded `UPDATE ... WHERE status='running'`).
 
-Partial-persist invariant evidence: pending
+`onEnd` payload source used: the v7 service has no Vercel `onEnd`; the durable Workflow terminal outcome flows to `finalize-turn`, which appends the assistant message (id-keyed upsert) and calls `claimAssistantTurnTerminal`. Assistant text is mapped to `parts: [{type:'text', text}]` by the persistence adapter (the app keeps its simple `TurnMessage`; the durable row is a valid `UIMessage`).
+
+Partial-persist invariant evidence: `packages/db` `test:db:container` 13/13 and a service adapter round-trip against real Postgres 6/6 — proving the race-safe busy guard (2nd concurrent begin → `conversation_busy` → `BUSY`), id-keyed idempotent replay of begin/append/claim, the guarded terminal CAS (already-terminal replay is a no-op), cross-subject `FORBIDDEN`, and `assertRunOwned` rejection. drizzle 0.45.2 wraps the driver error in `DrizzleQueryError`, so the unique-constraint name is read from `error.cause`.
+
+Deviations / follow-ups: provenance columns are non-null so the adapter writes placeholders (`modelProvider/modelId: 'pending'`, `*Version: 'v1'`) with a `TODO(step-18)` — `BeginTurnInput` carries no model info. The assistant-message subject id is resolved from a per-turn identity map populated at `beginTurn` (single-instance-correct; durable cross-instance resolution is a later step). Edge case 1 (exact stream-fold `UIMessage` deep-equality) lands with the widget/reads (Steps 10/13); edge case 6 (empty assistant message persistence) is owned by Step 08 — Step 05/06 finalize currently skips empty output.

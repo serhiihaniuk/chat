@@ -40,6 +40,11 @@ const config: SideChatConfig = defineSideChatConfig({
     toolTokenBudget: 4_000,
   },
   capacity: { activeGenerations: 8 },
+  persistence: {
+    databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL, {
+      required: false,
+    }),
+  },
   keepalive: { intervalMs: 15_000, proxyIdleBudgetMs: 60_000 },
   telemetry: { mode: TELEMETRY_MODES.CONSOLE },
   workflow: {

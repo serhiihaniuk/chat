@@ -23,7 +23,7 @@
     "test:db:local": "npm run test:db:container",
     "test:service:compatibility": "npm test --workspace @side-chat/side-chat-service",
     "db:generate": "npm run db:generate --workspace @side-chat/db",
-    "db:reset": "tsx --conditions=development apps/partner-ai-service/scripts/reset-database.ts",
+    "db:reset": "node scripts/reset-database.mjs",
     "test:e2e": "node node_modules/playwright/cli.js test",
     "test:e2e:persistent": "node scripts/run-persistent-e2e.mjs",
     "smoke:provider:openai": "tsx --conditions=development scripts/smoke-openai-provider.mjs",

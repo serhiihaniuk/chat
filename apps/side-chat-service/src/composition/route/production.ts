@@ -4,6 +4,13 @@ import {
   InMemoryTurnState,
   type SeedConversation,
 } from "#adapters/persistence/in-memory-turn-state";
+import {
+  createPostgresTurnState,
+  type PostgresTurnState,
+} from "#adapters/persistence/postgres-turn-state";
+import type { ConversationStore } from "#application/ports/turn/conversation-store";
+import type { MessageStore } from "#application/ports/turn/message-store";
+import type { TurnStore } from "#application/ports/turn/turn-store";
 import type { Settings } from "#config/settings/resolve-settings";
 import { configuredTurnModel } from "#application/turn/turn-model-policy";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
@@ -27,15 +34,21 @@ export async function startProductionService(
   assertAiSdkDefaultProviderIsUnset();
   const modelProvider = createProductionModelProvider(settings);
   const authorizer = createServiceAuthorizer(settings.auth);
-  const scope = await startServiceScope(settings, [startConfiguredTelemetry, ...starters]);
-  const turnState = new InMemoryTurnState(productionConversations(settings));
+  const persistence = createProductionPersistence(settings);
+  // The persistence close is registered first so its pool is disposed even if a
+  // later starter (telemetry, workflow readiness) fails during startup.
+  const scope = await startServiceScope(settings, [
+    persistence.registerClose,
+    startConfiguredTelemetry,
+    ...starters,
+  ]);
   const execution = createWorkflowTurnExecution(settings);
   const app = createHttpApp(createWorkflowReadiness(scope, settings), authorizer);
   app.route(
     "/",
     createChatRoutes({
-      messages: turnState,
-      turns: turnState,
+      messages: persistence.store,
+      turns: persistence.store,
       admission: PASS_THROUGH_TURN_ADMISSION,
       execution,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
@@ -47,6 +60,35 @@ export async function startProductionService(
     app,
     modelProvider,
     scope,
+  };
+}
+
+type ProductionPersistence = Readonly<{
+  store: ConversationStore & MessageStore & TurnStore;
+  registerClose: StartServicePart;
+}>;
+
+/**
+ * Select the turn store from configuration.
+ *
+ * A configured `persistence.databaseUrl` selects real Postgres; its absence
+ * falls back to the in-memory store (development only). The returned
+ * `registerClose` is a scope starter that owns disposing the store's resources
+ * on shutdown — a no-op for the in-memory store, the pool close for Postgres.
+ */
+function createProductionPersistence(settings: Settings): ProductionPersistence {
+  const databaseUrl = settings.persistence.databaseUrl;
+  if (databaseUrl === undefined) {
+    const store = new InMemoryTurnState(productionConversations(settings));
+    return {
+      store,
+      registerClose: () => ({ name: "in-memory turn state", close: () => undefined }),
+    };
+  }
+  const store: PostgresTurnState = createPostgresTurnState(databaseUrl);
+  return {
+    store,
+    registerClose: () => ({ name: "postgres turn state", close: () => store.close() }),
   };
 }
 

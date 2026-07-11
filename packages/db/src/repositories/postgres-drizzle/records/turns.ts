@@ -1,13 +1,12 @@
-import { and, eq, sql } from "drizzle-orm";
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { and, eq } from "drizzle-orm";
 
-import { assistantTurns, turnContextSnapshots, type sidechatTables } from "#drizzle/schema";
-import { TURN_ACTIVITY_NOTIFY_CHANNEL, TURN_CANCEL_NOTIFY_CHANNEL } from "#schema-contract";
+import { assistantTurns, turnContextSnapshots } from "#drizzle/schema";
+import type { RequestId, WorkspaceId } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
+import { DbRepositoryError } from "../../errors.js";
+import { uniqueViolationConstraint } from "../pg-errors.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
-  activityNotifyPayload,
-  requireRunningTurn,
   requireSubjectConversation,
   toAssistantTurnRecord,
   toContextSnapshotRecord,
@@ -16,106 +15,46 @@ import {
   findActiveAssistantTurn,
   findAssistantTurn,
   findAssistantTurnByRequest,
+  findAssistantTurnByRun,
   listActiveAssistantTurns,
-  listRunningCancelRequestedTurns,
 } from "./turn-lookups.js";
 import { readUsageSummary, recordUsage } from "./usage.js";
 import { one, optional, result } from "../../repository-utils.js";
 
-type TurnDb = NodePgDatabase<typeof sidechatTables>;
-type FinishRunningTurnPatch = Pick<
-  typeof assistantTurns.$inferInsert,
-  "status" | "assistantMessageId" | "finishReason" | "errorCode" | "completedAt"
->;
+type TurnDb = PostgresDrizzleRepositoryContext["db"];
 
-/**
- * Durable cancel intent + notify in one transaction (module-level to keep the
- * repository factory within its nested-function budget).
- *
- * CAS to running: only a live turn can be cancelled, so a finished or unknown turn
- * returns no row and the cancel is a durable no-op. The notify fires on commit, so
- * the signal never races ahead of the durable intent.
- */
-const requestTurnCancellation =
-  (db: TurnDb): SidechatRepositories["requestTurnCancellation"] =>
-  async (command) =>
-    db.transaction(async (transaction) => {
-      const rows = await transaction
-        .update(assistantTurns)
-        .set({ cancelRequestedAt: command.now })
-        .where(
-          and(
-            eq(assistantTurns.workspaceId, command.workspaceId),
-            eq(assistantTurns.subjectId, command.subjectId),
-            eq(assistantTurns.assistantTurnId, command.assistantTurnId),
-            eq(assistantTurns.status, "running"),
-          ),
-        )
-        .returning({ assistantTurnId: assistantTurns.assistantTurnId });
-      if (!rows[0]) return { cancelRequested: false };
-
-      await transaction.execute(
-        sql`select pg_notify(${TURN_CANCEL_NOTIFY_CHANNEL}, ${JSON.stringify({
-          assistantTurnId: command.assistantTurnId,
-        })})`,
-      );
-      return { cancelRequested: true };
-    });
-
-/**
- * CAS-finish a running turn + activity notify in one transaction (module-level to
- * keep the repository factory within its nested-function budget).
- *
- * Both terminal writers share this: only the SET payload differs. The CAS on
- * `status = "running"` means only the first transition wins, and the notify fires
- * on commit so the lifecycle signal never races ahead of the durable status.
- */
-const finishRunningTurn = async (
-  db: TurnDb,
-  command: { readonly workspaceId: string; readonly assistantTurnId: string },
-  patch: FinishRunningTurnPatch,
-) => {
-  await requireRunningTurn(db, command.workspaceId, command.assistantTurnId);
-  const rows = await db.transaction(async (transaction) => {
-    const updated = await transaction
-      .update(assistantTurns)
-      .set(patch)
-      .where(
-        and(
-          eq(assistantTurns.workspaceId, command.workspaceId),
-          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
-          eq(assistantTurns.status, "running"),
-        ),
-      )
-      .returning();
-    if (updated[0]) {
-      await transaction.execute(
-        sql`select pg_notify(${TURN_ACTIVITY_NOTIFY_CHANNEL}, ${activityNotifyPayload(updated[0])})`,
-      );
-    }
-    return updated;
-  });
-  return toAssistantTurnRecord(one(rows, "invalid_transition", "Assistant turn was not running."));
-};
+/** Read one turn by its client request id, workspace-scoped. */
+const selectTurnByRequest = (db: TurnDb, workspaceId: WorkspaceId, requestId: RequestId) =>
+  db
+    .select()
+    .from(assistantTurns)
+    .where(
+      and(eq(assistantTurns.workspaceId, workspaceId), eq(assistantTurns.requestId, requestId)),
+    )
+    .limit(1);
 
 export const createPostgresDrizzleTurnRepository = ({
   db,
   ids,
 }: PostgresDrizzleRepositoryContext): Pick<
   SidechatRepositories,
-  | "completeAssistantTurn"
-  | "failAssistantTurn"
+  | "startAssistantTurn"
+  | "bindTurnRun"
+  | "claimAssistantTurnTerminal"
+  | "recordTurnContextSnapshot"
   | "findActiveAssistantTurn"
   | "findAssistantTurn"
   | "findAssistantTurnByRequest"
+  | "findAssistantTurnByRun"
   | "listActiveAssistantTurns"
-  | "listRunningCancelRequestedTurns"
-  | "recordTurnContextSnapshot"
   | "recordUsage"
   | "readUsageSummary"
-  | "requestTurnCancellation"
-  | "startAssistantTurn"
 > => ({
+  // Open a running turn. Two unique constraints do the work: a SELECT-first on
+  // (workspace_id, request_id) makes a same-request replay idempotent without an
+  // insert; the insert then either succeeds, races another same-request insert
+  // (converge on it), or hits the one-running-per-conversation partial unique
+  // index — the race-safe busy guard — which surfaces as `conversation_busy`.
   startAssistantTurn: async (command) => {
     await requireSubjectConversation(
       db,
@@ -123,11 +62,12 @@ export const createPostgresDrizzleTurnRepository = ({
       command.subjectId,
       command.conversationId,
     );
-    // Insert + activity notify in one transaction so the "running" signal fires
-    // only on commit. A conflict (idempotent re-create) inserts nothing and skips
-    // the notify — the turn already signalled on its first insert.
-    const inserted = await db.transaction(async (transaction) => {
-      const rows = await transaction
+
+    const priorByRequest = await selectTurnByRequest(db, command.workspaceId, command.requestId);
+    if (priorByRequest[0]) return result(toAssistantTurnRecord(priorByRequest[0]), false);
+
+    try {
+      const rows = await db
         .insert(assistantTurns)
         .values({
           assistantTurnId: ids.next("assistant_turn"),
@@ -137,48 +77,115 @@ export const createPostgresDrizzleTurnRepository = ({
           subjectId: command.subjectId,
           actorId: command.actorId,
           userMessageId: command.userMessageId,
-          runtimeProfile: command.runtimeProfile,
-          systemPromptVersion: command.systemPromptVersion,
-          contextStrategyVersion: command.contextStrategyVersion,
-          toolRegistryVersion: command.toolRegistryVersion,
           modelProvider: command.modelProvider,
           modelId: command.modelId,
+          instructionsVersion: command.instructionsVersion,
+          configVersion: command.configVersion,
+          contentFilterVersion: command.contentFilterVersion,
           status: "running",
           startedAt: command.now,
         })
-        .onConflictDoNothing({
-          target: [assistantTurns.workspaceId, assistantTurns.requestId],
-        })
         .returning();
-      if (rows[0]) {
-        await transaction.execute(
-          sql`select pg_notify(${TURN_ACTIVITY_NOTIFY_CHANNEL}, ${activityNotifyPayload(rows[0])})`,
+      return result(
+        toAssistantTurnRecord(
+          one(rows, "record_not_found", "Assistant turn insert returned no row."),
+        ),
+        true,
+      );
+    } catch (error) {
+      const constraint = uniqueViolationConstraint(error);
+      // A concurrent insert with the same request id won the race between our
+      // SELECT and INSERT: converge on the stored row, no insert of ours.
+      if (constraint === "assistant_turns_workspace_request_uq") {
+        const raced = await selectTurnByRequest(db, command.workspaceId, command.requestId);
+        return result(
+          toAssistantTurnRecord(
+            one(
+              raced,
+              "record_not_found",
+              "Assistant turn request conflict did not return an existing record.",
+            ),
+          ),
+          false,
         );
       }
-      return rows;
-    });
-    if (inserted[0]) return result(toAssistantTurnRecord(inserted[0]), true);
+      // Another turn is already running for this conversation.
+      if (constraint === "assistant_turns_one_running_per_conversation_uq") {
+        throw new DbRepositoryError(
+          "conversation_busy",
+          "A turn is already running for this conversation.",
+        );
+      }
+      throw error;
+    }
+  },
+  // Bind the durable Workflow run id once the run has started. Idempotent: the CAS
+  // matches the turn in its workspace and re-sets the same run id on a replay.
+  bindTurnRun: async (command) => {
+    const rows = await db
+      .update(assistantTurns)
+      .set({ runId: command.runId })
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
+        ),
+      )
+      .returning();
+    return toAssistantTurnRecord(
+      one(rows, "record_not_found", "Assistant turn does not exist in the requested workspace."),
+    );
+  },
+  // The one guarded terminal transition: a single `UPDATE ... WHERE status =
+  // 'running'`. A matched row means this call won the transition (`claimed: true`);
+  // no match means the turn is already terminal (replay) or unknown, so we re-read
+  // and report `claimed: false` — a crash replay and a duplicate finalize are both
+  // no-ops rather than errors.
+  claimAssistantTurnTerminal: async (command) => {
+    const claimed = await db
+      .update(assistantTurns)
+      .set({
+        status: command.status,
+        finishReason: optional(command.finishReason),
+        errorCode: optional(command.errorCode),
+        assistantMessageId: optional(command.assistantMessageId),
+        inputTokens: command.usage.inputTokens,
+        outputTokens: command.usage.outputTokens,
+        totalTokens: command.usage.totalTokens,
+        reasoningTokens: command.usage.reasoningTokens,
+        cachedInputTokens: command.usage.cachedInputTokens,
+        completedAt: command.now,
+      })
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
+          eq(assistantTurns.status, "running"),
+        ),
+      )
+      .returning();
+    if (claimed[0]) return { record: toAssistantTurnRecord(claimed[0]), claimed: true };
 
-    const existing = await db
+    const current = await db
       .select()
       .from(assistantTurns)
       .where(
         and(
           eq(assistantTurns.workspaceId, command.workspaceId),
-          eq(assistantTurns.requestId, command.requestId),
+          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
         ),
       )
       .limit(1);
-    return result(
-      toAssistantTurnRecord(
+    return {
+      record: toAssistantTurnRecord(
         one(
-          existing,
+          current,
           "record_not_found",
-          "Assistant turn conflict did not return an existing record.",
+          "Assistant turn does not exist in the requested workspace.",
         ),
       ),
-      false,
-    );
+      claimed: false,
+    };
   },
   recordTurnContextSnapshot: async (command) => {
     const inserted = await db
@@ -221,25 +228,11 @@ export const createPostgresDrizzleTurnRepository = ({
       false,
     );
   },
-  completeAssistantTurn: (command) =>
-    finishRunningTurn(db, command, {
-      status: "completed",
-      assistantMessageId: command.assistantMessageId,
-      finishReason: command.finishReason,
-      completedAt: command.now,
-    }),
-  failAssistantTurn: (command) =>
-    finishRunningTurn(db, command, {
-      status: command.status,
-      errorCode: command.errorCode,
-      completedAt: command.now,
-    }),
-  requestTurnCancellation: requestTurnCancellation(db),
   findAssistantTurn: findAssistantTurn(db),
   findAssistantTurnByRequest: findAssistantTurnByRequest(db),
+  findAssistantTurnByRun: findAssistantTurnByRun(db),
   findActiveAssistantTurn: findActiveAssistantTurn(db),
   listActiveAssistantTurns: listActiveAssistantTurns(db),
-  listRunningCancelRequestedTurns: listRunningCancelRequestedTurns(db),
   recordUsage: recordUsage({ db, ids }),
   readUsageSummary: readUsageSummary({ db, ids }),
 });

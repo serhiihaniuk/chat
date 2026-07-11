@@ -13,7 +13,7 @@ Run both from the repo root. Edit `packages/db/src/drizzle/schema.ts`, then:
 | Command               | Does                                                                                                                     | Entry point                                                                                                    |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | `npm run db:generate` | Wipes `packages/db/migrations`, then emits exactly one migration named `day_one` from `schema.ts`.                       | [`scripts/db-generate.mjs`](../../scripts/db-generate.mjs)                                                     |
-| `npm run db:reset`    | Resolves the connection, then drops the `sidechat` schema, recreates it, applies the migration, and applies role grants. | [`apps/partner-ai-service/scripts/reset-database.ts`](../../apps/partner-ai-service/scripts/reset-database.ts) |
+| `npm run db:reset`    | Resolves the connection, then drops the `sidechat` schema, recreates it, applies the migration, and applies role grants. | [`scripts/reset-database.mjs`](../../scripts/reset-database.mjs)                                               |
 
 `db:generate` produces DDL files; it does not connect to Postgres. `db:reset` is the only path that touches a database.
 
@@ -25,7 +25,7 @@ Run both from the repo root. Edit `packages/db/src/drizzle/schema.ts`, then:
 
 `db:reset` resolves `SIDECHAT_DATABASE_URL` through the service, then rebuilds the schema from a clean state. The resolve and apply split across two files:
 
-1. **Resolve.** `reset-database.ts` opportunistically loads a `.env`, then calls the service's `readDatabaseUrl()`. It exits with an error if `SIDECHAT_DATABASE_URL` is unset ([`reset-database.ts:20-24`](../../apps/partner-ai-service/scripts/reset-database.ts)). Tooling never re-reads the env contract; the service owns it.
+1. **Resolve.** [`scripts/reset-database.mjs`](../../scripts/reset-database.mjs) reads `SIDECHAT_DATABASE_URL` directly from the environment and exits with an error if it is unset. The reset entry is standalone — it does not import a service — so rebuilding a local database never depends on either app compiling.
 2. **Apply.** `applySidechatSchema` runs four steps in order ([`scripts/lib/apply-sidechat-schema.mjs:28-33`](../../scripts/lib/apply-sidechat-schema.mjs)):
 
 | Step    | SQL                                                                                               |
@@ -56,7 +56,7 @@ The role model already fits this future: `sidechat_migrator` owns DDL and `sidec
 
 ## Postgres vs in-memory
 
-`SIDECHAT_DATABASE_URL` selects the persistence backend at service boot ([`environment.ts:74-79`](../../apps/partner-ai-service/src/config/sidechat-config/environment.ts)):
+`SIDECHAT_DATABASE_URL` selects the persistence backend at service boot. In the v7 service it is the `persistence.databaseUrl` config field (declared in the `sidechat*.config.ts` variants); production composition builds the Postgres turn store when it is set and the in-memory store when it is absent:
 
 | State       | Development        | Production         |
 | ----------- | ------------------ | ------------------ |

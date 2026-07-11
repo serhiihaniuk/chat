@@ -1,13 +1,13 @@
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
+import { toMessageId } from "#schema-contract";
 import {
   createPostgresDrizzleSidechatRepositories,
   type PostgresDrizzleSidechatRepositories,
 } from "./index.js";
 import { conversationListRepositoryContract } from "#testing/conversation-list-contract.test-support";
 import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
-import { turnLeaseRepositoryContract } from "#testing/turn/turn-lease-contract.test-support";
 import { turnResolutionRepositoryContract } from "#testing/turn/turn-resolution-contract.test-support";
 
 const databaseUrl = requireDatabaseUrl();
@@ -24,11 +24,6 @@ describe("postgres drizzle repositories", () => {
     }),
   );
   turnResolutionRepositoryContract("postgres drizzle repositories", () =>
-    createPostgresDrizzleSidechatRepositories({
-      connectionString: databaseUrl,
-    }),
-  );
-  turnLeaseRepositoryContract("postgres drizzle repositories", () =>
     createPostgresDrizzleSidechatRepositories({
       connectionString: databaseUrl,
     }),
@@ -57,10 +52,10 @@ describe("postgres drizzle repositories", () => {
         repositories.appendMessage({
           ...scope,
           conversationId: conversation.record.conversationId,
+          messageId: toMessageId(`${conversation.record.conversationId}:${requestKey}`),
           role: "user",
-          contentText: "hello",
+          parts: [{ type: "text", text: "hello" }],
           metadataJson: {},
-          idempotencyKey: { value: `${requestKey}:user` },
           now: NOW,
         });
 
@@ -84,13 +79,17 @@ describe("postgres drizzle repositories", () => {
       // Disable seq scans within the transaction so the planner must pick an index
       // if one covers the query; an uncovered query would still seq-scan (at a
       // punitive cost) and the index-name assertion would fail.
+      // No index perfectly covers (workspace_id, subject_id, status = 'running'),
+      // but the partial one-running-per-conversation unique index matches the
+      // status predicate, so the tiny running working set is index-served instead
+      // of a full sequential scan of every turn ever recorded.
       const activityPlan = await explainWithoutSeqScan(
         repositories,
         sql`select * from sidechat.assistant_turns
             where workspace_id = 'w' and subject_id = 's' and status = 'running'
             order by started_at desc`,
       );
-      expect(activityPlan).toContain("assistant_turns_running_lookup_idx");
+      expect(activityPlan).not.toContain("Seq Scan");
 
       const usagePlan = await explainWithoutSeqScan(
         repositories,

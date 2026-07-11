@@ -31,12 +31,9 @@ describe("db schema contract", () => {
     expect(ASSISTANT_TURN_STATUSES).toEqual([
       "running",
       "completed",
+      "failed",
+      "cancelled",
       "blocked",
-      "user_aborted",
-      "timed_out",
-      "provider_failed",
-      "tool_failed",
-      "persistence_failed",
     ]);
     expect(TOOL_INVOCATION_STATUSES).toEqual([
       "running",
@@ -63,6 +60,7 @@ describe("db schema contract", () => {
       conversationKey: "default",
       status: "active",
       createdByActorId: "actor_001",
+      legalHold: false,
       createdAt: "2026-05-23T13:00:00.000Z",
       updatedAt: "2026-05-23T13:00:00.000Z",
       lastMessageAt: "2026-05-23T13:00:00.000Z",

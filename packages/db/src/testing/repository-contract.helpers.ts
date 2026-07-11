@@ -1,5 +1,5 @@
 import type { SidechatRepositories } from "#repositories/contract";
-import { toUserMessageId } from "#schema-contract";
+import { toMessageId, toUserMessageId } from "#schema-contract";
 
 export const now = "2026-05-23T13:00:00.000Z";
 
@@ -23,10 +23,11 @@ export const appendUserMessage = (
     workspaceId: workspaceId(scope),
     subjectId: subjectId(scope),
     conversationId,
+    // Deterministic per conversation: a replay with the same id is idempotent.
+    messageId: toMessageId(`${conversationId}:user`),
     role: "user",
-    contentText: "hello",
+    parts: [{ type: "text", text: "hello" }],
     metadataJson: {},
-    idempotencyKey: { value: "request_1:user" },
     now,
   });
 
@@ -58,12 +59,11 @@ export const startTurn = async (repositories: SidechatRepositories, scope: strin
     requestId: "request_1",
     conversationId: conversation.conversationId,
     userMessageId: toUserMessageId(userMessage.record.messageId),
-    runtimeProfile: "fake",
-    systemPromptVersion: "system_v1",
-    contextStrategyVersion: "context_v1",
-    toolRegistryVersion: "tools_v1",
     modelProvider: "fake",
     modelId: "fake-model",
+    instructionsVersion: "instructions_v1",
+    configVersion: "config_v1",
+    contentFilterVersion: "filter_v1",
     now,
   });
   return turn.record;

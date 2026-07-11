@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { toMessageId } from "#schema-contract";
 import type { SidechatRepositories } from "#repositories/contract";
 import {
   actorId,
@@ -61,10 +62,10 @@ export const conversationListRepositoryContract = (
           workspaceId: workspaceId(scope),
           subjectId: subjectId(scope),
           conversationId: newer.record.conversationId,
+          messageId: toMessageId(`${newer.record.conversationId}:user`),
           role: "user",
-          contentText: "newer chat title",
+          parts: [{ type: "text", text: "newer chat title" }],
           metadataJson: {},
-          idempotencyKey: { value: "request_newer:user" },
           now: "2026-05-23T13:01:00.000Z",
         });
 

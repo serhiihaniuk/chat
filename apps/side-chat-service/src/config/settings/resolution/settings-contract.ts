@@ -22,6 +22,7 @@ export type Settings = Readonly<{
     toolTokenBudget: number;
   }>;
   capacity: Readonly<{ activeGenerations: number }>;
+  persistence: Readonly<{ databaseUrl?: string | undefined }>;
   keepalive: Readonly<{ intervalMs: number; proxyIdleBudgetMs: number }>;
   telemetry:
     | Readonly<{ mode: typeof TELEMETRY_MODES.OFF }>

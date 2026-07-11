@@ -1,5 +1,5 @@
 {
-  "id": "df602090-88b6-43ef-8197-6e1b6001a1ae",
+  "id": "c3a7297a-a0ee-4c2f-831a-3d81f35da11e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -56,29 +56,11 @@
           "primaryKey": false,
           "notNull": false
         },
-        "runtime_profile": {
-          "name": "runtime_profile",
+        "run_id": {
+          "name": "run_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
-        },
-        "system_prompt_version": {
-          "name": "system_prompt_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "context_strategy_version": {
-          "name": "context_strategy_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tool_registry_version": {
-          "name": "tool_registry_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "model_provider": {
           "name": "model_provider",
@@ -88,6 +70,24 @@
         },
         "model_id": {
           "name": "model_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "instructions_version": {
+          "name": "instructions_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "config_version": {
+          "name": "config_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_filter_version": {
+          "name": "content_filter_version",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -111,6 +111,41 @@
           "primaryKey": false,
           "notNull": false
         },
+        "input_tokens": {
+          "name": "input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "output_tokens": {
+          "name": "output_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_tokens": {
+          "name": "total_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "reasoning_tokens": {
+          "name": "reasoning_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "cached_input_tokens": {
+          "name": "cached_input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "started_at": {
           "name": "started_at",
           "type": "timestamp with time zone",
@@ -119,31 +154,6 @@
         },
         "completed_at": {
           "name": "completed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "owner_instance_id": {
-          "name": "owner_instance_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lease_expires_at": {
-          "name": "lease_expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lease_epoch": {
-          "name": "lease_epoch",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "cancel_requested_at": {
-          "name": "cancel_requested_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
@@ -192,21 +202,9 @@
           "method": "btree",
           "with": {}
         },
-        "assistant_turns_running_lookup_idx": {
-          "name": "assistant_turns_running_lookup_idx",
+        "assistant_turns_one_running_per_conversation_uq": {
+          "name": "assistant_turns_one_running_per_conversation_uq",
           "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "subject_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
             {
               "expression": "conversation_id",
               "isExpression": false,
@@ -214,7 +212,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "where": "status = 'running'",
           "concurrently": false,
           "method": "btree",
@@ -259,7 +257,7 @@
       "checkConstraints": {
         "assistant_turns_status_check": {
           "name": "assistant_turns_status_check",
-          "value": "status in ('running', 'completed', 'blocked', 'user_aborted', 'timed_out', 'provider_failed', 'tool_failed', 'persistence_failed')"
+          "value": "status in ('running', 'completed', 'failed', 'cancelled', 'blocked')"
         }
       },
       "isRLSEnabled": false
@@ -439,6 +437,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
+        },
+        "legal_hold": {
+          "name": "legal_hold",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -682,9 +687,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "content_text": {
-          "name": "content_text",
-          "type": "text",
+        "parts": {
+          "name": "parts",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },

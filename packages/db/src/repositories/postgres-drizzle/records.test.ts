@@ -32,6 +32,7 @@ describe("postgres row record mappers", () => {
       titleText: null,
       createdByActorId: "actor_1",
       historyCutoffSequenceIndex: null,
+      legalHold: false,
       createdAt: now,
       updatedAt: now,
       lastMessageAt: now,
@@ -41,7 +42,7 @@ describe("postgres row record mappers", () => {
       conversationId: "conversation_1",
       workspaceId: "workspace_1",
       role: "user",
-      contentText: "hello",
+      parts: [{ type: "text", text: "hello" }],
       metadataJson: {},
       sequenceIndex: 0,
       idempotencyKey: null,
@@ -79,7 +80,9 @@ describe("postgres row record mappers", () => {
     } satisfies typeof hostCommandResults.$inferSelect);
 
     expectCanonicalOmittedFields(conversation, ["titleText", "historyCutoffSequenceIndex"]);
+    expect(conversation.legalHold).toBe(false);
     expectCanonicalOmittedFields(message, ["idempotencyKey"]);
+    expect(message.parts).toEqual([{ type: "text", text: "hello" }]);
     expectCanonicalOmittedFields(tool, [
       "outputHash",
       "outputRedactedJson",
@@ -95,7 +98,7 @@ describe("postgres row record mappers", () => {
       conversationId: "conversation_1",
       workspaceId: "workspace_1",
       role: "user",
-      contentText: "hello",
+      parts: [{ type: "text", text: "hello" }],
       metadataJson: {},
       sequenceIndex: 0,
       idempotencyKey: "",
@@ -133,27 +136,28 @@ describe("postgres row record mappers", () => {
       actorId: "actor_1",
       userMessageId: "message_1",
       assistantMessageId: null,
-      runtimeProfile: "fake",
-      systemPromptVersion: "system_v1",
-      contextStrategyVersion: "context_v1",
-      toolRegistryVersion: "tools_v1",
+      runId: null,
       modelProvider: "fake",
       modelId: "fake-model",
+      instructionsVersion: "instructions_v1",
+      configVersion: "config_v1",
+      contentFilterVersion: "filter_v1",
       status: "running",
       finishReason: null,
       errorCode: null,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      reasoningTokens: 0,
+      cachedInputTokens: 0,
       startedAt: rawPgTimestamp,
-      completedAt: null,
-      ownerInstanceId: null,
-      leaseExpiresAt: null,
-      leaseEpoch: 0,
-      cancelRequestedAt: rawPgTimestamp,
+      completedAt: rawPgTimestamp,
     } satisfies typeof assistantTurns.$inferSelect);
 
-    // Both a primary timestamp and the optional cancel-intent column come back ISO,
-    // matching the memory adapter so the shared contract holds byte-for-byte.
+    // Both the primary timestamp and the optional completed-at column come back
+    // ISO, and the derived created/updated timestamps normalize the same way.
     expect(turn.startedAt).toBe(now);
-    expect(turn.cancelRequestedAt).toBe(now);
+    expect(turn.completedAt).toBe(now);
     expect(turn.createdAt).toBe(now);
     expect(turn.updatedAt).toBe(now);
   });

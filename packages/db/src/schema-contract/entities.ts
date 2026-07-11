@@ -48,6 +48,8 @@ export type ConversationRecord = TenantScopedRecord &
     readonly titleText?: string;
     readonly createdByActorId: ActorId;
     readonly historyCutoffSequenceIndex?: number;
+    /** When true, every prune/delete path must skip this conversation. */
+    readonly legalHold: boolean;
     readonly lastMessageAt: string;
   };
 
@@ -58,7 +60,8 @@ export type MessageRecord = TenantScopedRecord &
     readonly messageId: MessageId;
     readonly conversationId: ConversationId;
     readonly role: MessageRole;
-    readonly contentText: string;
+    /** The AI SDK `UIMessage.parts` verbatim — the one durable message body. */
+    readonly parts: readonly JsonObject[];
     readonly metadataJson: JsonObject;
     readonly sequenceIndex: number;
     readonly idempotencyKey?: string;
@@ -73,25 +76,26 @@ export type AssistantTurnRecord = TenantScopedRecord &
     readonly actorId: ActorId;
     readonly userMessageId: UserMessageId;
     readonly assistantMessageId?: AssistantMessageId;
-    readonly runtimeProfile: string;
-    readonly systemPromptVersion: string;
-    readonly contextStrategyVersion: string;
-    readonly toolRegistryVersion: string;
+    /** The durable Workflow run this turn attaches to; set once, after start. */
+    readonly runId?: string;
+    // Provenance for a regulated deployment: exactly which model, prompt, config,
+    // and content-filter version produced this turn.
     readonly modelProvider: string;
     readonly modelId: ModelId;
+    readonly instructionsVersion: string;
+    readonly configVersion: string;
+    readonly contentFilterVersion: string;
     readonly status: AssistantTurnStatus;
     readonly finishReason?: string;
     readonly errorCode?: string;
+    // Aggregate usage folded onto the turn; zero until a terminal status.
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly reasoningTokens: number;
+    readonly cachedInputTokens: number;
     readonly startedAt: string;
     readonly completedAt?: string;
-    /** Durable cancel intent timestamp; set once a cancel is requested. */
-    readonly cancelRequestedAt?: string;
-    /** Instance currently leasing generation of this turn, if any. */
-    readonly ownerInstanceId?: string;
-    /** Lease expiry; the reaper terminalizes a running turn past this instant. */
-    readonly leaseExpiresAt?: string;
-    /** Monotonic fencing token bumped on every acquire/reap so stale owners stop. */
-    readonly leaseEpoch: number;
   };
 
 export type ContextSnapshotRecord = TenantScopedRecord &

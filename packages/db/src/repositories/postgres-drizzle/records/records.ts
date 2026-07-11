@@ -37,6 +37,7 @@ export const toConversationRecord = (
   ...omitNullishField("titleText", row.titleText),
   createdByActorId: row.createdByActorId,
   ...omitNullishField("historyCutoffSequenceIndex", row.historyCutoffSequenceIndex),
+  legalHold: row.legalHold,
   createdAt: isoTimestamp(row.createdAt),
   updatedAt: isoTimestamp(row.updatedAt),
   lastMessageAt: isoTimestamp(row.lastMessageAt),
@@ -47,7 +48,7 @@ export const toMessageRecord = (row: typeof messages.$inferSelect): MessageRecor
   conversationId: row.conversationId,
   workspaceId: row.workspaceId,
   role: row.role,
-  contentText: row.contentText,
+  parts: row.parts,
   metadataJson: row.metadataJson,
   sequenceIndex: row.sequenceIndex,
   ...omitNullishField("idempotencyKey", row.idempotencyKey),
@@ -66,50 +67,25 @@ export const toAssistantTurnRecord = (
   actorId: row.actorId,
   userMessageId: row.userMessageId,
   ...omitNullishField("assistantMessageId", row.assistantMessageId),
-  runtimeProfile: row.runtimeProfile,
-  systemPromptVersion: row.systemPromptVersion,
-  contextStrategyVersion: row.contextStrategyVersion,
-  toolRegistryVersion: row.toolRegistryVersion,
+  ...omitNullishField("runId", row.runId),
   modelProvider: row.modelProvider,
   modelId: row.modelId,
+  instructionsVersion: row.instructionsVersion,
+  configVersion: row.configVersion,
+  contentFilterVersion: row.contentFilterVersion,
   status: row.status,
   ...omitNullishField("finishReason", row.finishReason),
   ...omitNullishField("errorCode", row.errorCode),
+  inputTokens: row.inputTokens,
+  outputTokens: row.outputTokens,
+  totalTokens: row.totalTokens,
+  reasoningTokens: row.reasoningTokens,
+  cachedInputTokens: row.cachedInputTokens,
   startedAt: isoTimestamp(row.startedAt),
   ...omitNullishField("completedAt", optionalIsoTimestamp(row.completedAt)),
-  ...omitNullishField("cancelRequestedAt", optionalIsoTimestamp(row.cancelRequestedAt)),
-  ...omitNullishField("ownerInstanceId", row.ownerInstanceId),
-  ...omitNullishField("leaseExpiresAt", optionalIsoTimestamp(row.leaseExpiresAt)),
-  leaseEpoch: row.leaseEpoch,
   createdAt: isoTimestamp(row.startedAt),
   updatedAt: isoTimestamp(row.completedAt ?? row.startedAt),
 });
-
-/** The columns the activity signal needs from a turn row. */
-export type ActivityRow = {
-  readonly workspaceId: string;
-  readonly subjectId: string;
-  readonly conversationId: string;
-  readonly assistantTurnId: string;
-  readonly status: string;
-};
-
-/**
- * Subject-scoped lifecycle payload for the activity stream (sidebar live dots).
- *
- * Every status transition — start, complete, fail, reap — must emit this in the
- * same transaction as the status write so it fires only on commit; a transition
- * that skips it leaves other tabs' "generating" dots stale until their next
- * snapshot.
- */
-export const activityNotifyPayload = (row: ActivityRow): string =>
-  JSON.stringify({
-    workspaceId: row.workspaceId,
-    subjectId: row.subjectId,
-    conversationId: row.conversationId,
-    assistantTurnId: row.assistantTurnId,
-    status: row.status,
-  });
 
 export const toContextSnapshotRecord = (
   row: typeof turnContextSnapshots.$inferSelect,
@@ -233,34 +209,6 @@ export const requireSubjectConversation = async (
     );
   }
   return conversation;
-};
-
-export const requireRunningTurn = async (
-  db: NodePgDatabase<typeof sidechatTables>,
-  workspaceId: string,
-  assistantTurnId: string,
-): Promise<typeof assistantTurns.$inferSelect> => {
-  const turn = one(
-    await db
-      .select()
-      .from(assistantTurns)
-      .where(
-        and(
-          eq(assistantTurns.workspaceId, workspaceId),
-          eq(assistantTurns.assistantTurnId, assistantTurnId),
-        ),
-      )
-      .limit(1),
-    "record_not_found",
-    "Assistant turn does not exist in the requested workspace.",
-  );
-  if (turn.status !== "running") {
-    throw new DbRepositoryError(
-      "invalid_transition",
-      "Only running assistant turns can be completed or failed.",
-    );
-  }
-  return turn;
 };
 
 export const buildHistoryWhere = (

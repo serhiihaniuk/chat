@@ -8,6 +8,6 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "types": ["node"]
   },
-  "references": [{ "path": "../../packages/stream-profile" }],
+  "references": [{ "path": "../../packages/db" }, { "path": "../../packages/stream-profile" }],
   "include": ["src/**/*.ts", "nitro.config.ts", "sidechat*.config.ts"]
 }

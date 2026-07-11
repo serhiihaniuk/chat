@@ -20,14 +20,15 @@ export type MessageRole = (typeof MESSAGE_ROLES)[number];
 export const ASSISTANT_TURN_STATUSES = [
   "running",
   "completed",
-  // A safety stop: the turn was blocked before a usable answer. Distinct from
-  // provider_failed so audits can tell a filtered turn from a provider outage.
+  // Every failure mode collapses to one status; the safe error code carries the
+  // detail. v7 drops the old app's per-cause statuses (provider/tool/persistence
+  // failures, timeouts) — the reaper that set some of them is gone.
+  "failed",
+  // The user or system cancelled the turn (replaces the old `user_aborted`).
+  "cancelled",
+  // A safety stop: the provider filtered the turn before a usable answer. Kept
+  // distinct from `failed` so history can tell a filtered turn from an outage.
   "blocked",
-  "user_aborted",
-  "timed_out",
-  "provider_failed",
-  "tool_failed",
-  "persistence_failed",
 ] as const;
 export type AssistantTurnStatus = (typeof ASSISTANT_TURN_STATUSES)[number];
 
@@ -49,24 +50,6 @@ export const HOST_COMMAND_RESULT_STATUSES = [
   "timed_out",
 ] as const;
 export type HostCommandResultStatus = (typeof HOST_COMMAND_RESULT_STATUSES)[number];
-
-/**
- * Postgres channel that signals a saved cancel request.
- *
- * Any instance may receive it, but only the owner of the generation fiber can
- * interrupt that fiber. The database row is the source of truth, so a missed
- * notification is recovered by the reaper.
- */
-export const TURN_CANCEL_NOTIFY_CHANNEL = "turn_cancel";
-
-/**
- * Postgres channel for subject-scoped turn lifecycle updates.
- *
- * The status write and notification happen in one transaction. The payload has
- * the full scope, so the activity dispatcher can update every conversation in the
- * subject's sidebar without another database read.
- */
-export const TURN_ACTIVITY_NOTIFY_CHANNEL = "turn_activity";
 
 /**
  * Postgres channel that signals a saved host-command result.

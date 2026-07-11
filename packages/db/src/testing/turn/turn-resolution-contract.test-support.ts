@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SidechatRepositories } from "#repositories/contract";
 import {
   toAssistantMessageId,
-  toAssistantTurnId,
+  toConversationId,
   toSubjectId,
   toWorkspaceId,
 } from "#schema-contract";
@@ -15,15 +15,21 @@ import {
   workspaceId,
 } from "../repository-contract.helpers.js";
 
+const ZERO_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
+  reasoningTokens: 0,
+  cachedInputTokens: 0,
+} as const;
+
 /**
- * Shared turn-resolution + cancel-intent contract for both repository adapters.
+ * Shared turn-resolution contract for the postgres repository adapter.
  *
- * It proves the read and cancel surface the resumable routes depend on: a turn
- * resolves by id, by request id, and as a conversation's active turn until it goes
- * terminal; an unknown, cross-workspace, or cross-subject id resolves to
- * `undefined` rather than throwing; and a durable cancel intent is recorded for a
- * running turn but is a no-op once the turn is terminal, unknown, or owned by
- * another workspace or subject.
+ * It proves the read surface the resumable routes depend on: a turn resolves by
+ * id, by request id, and as a conversation's active turn until it goes terminal;
+ * an unknown, cross-workspace, or cross-subject id resolves to `undefined` rather
+ * than throwing, so a guessed or leaked id maps to a not-found response.
  */
 export const turnResolutionRepositoryContract = (
   label: string,
@@ -32,7 +38,7 @@ export const turnResolutionRepositoryContract = (
   let scopeCounter = 0;
   const nextScope = () => `${label.replace(/\W+/gu, "_")}_resolution_${++scopeCounter}`;
 
-  describe("turn resolution and cancel-intent contract", () => {
+  describe("turn resolution contract", () => {
     it("resolves turns by id, request id, and active conversation state", async () => {
       const repositories = createRepositories();
       const scope = nextScope();
@@ -67,11 +73,13 @@ export const turnResolutionRepositoryContract = (
         ).resolves.toMatchObject({ assistantTurnId: turn.assistantTurnId });
 
         // Once terminal, the conversation no longer reports an active turn.
-        await repositories.completeAssistantTurn({
+        await repositories.claimAssistantTurnTerminal({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.assistantTurnId,
+          status: "completed",
           assistantMessageId: toAssistantMessageId(turn.userMessageId),
           finishReason: "stop",
+          usage: ZERO_USAGE,
           now,
         });
         await expect(
@@ -105,137 +113,126 @@ export const turnResolutionRepositoryContract = (
       }
     });
 
-    it("records durable cancel intent for a running turn and no-ops once terminal", async () => {
+    it("resolves a conversation by id and a turn by its bound run, denying cross-tenant reads", async () => {
       const repositories = createRepositories();
       const scope = nextScope();
+      const runId = `${scope}_run`;
       try {
         const turn = await startTurn(repositories, scope);
 
-        // A running turn accepts the cancel intent and exposes it on the record.
+        // findConversation resolves the owning conversation, scoped to workspace + subject.
         await expect(
-          repositories.requestTurnCancellation({
+          repositories.findConversation({
             workspaceId: workspaceId(scope),
             subjectId: subjectId(scope),
-            assistantTurnId: turn.assistantTurnId,
-            now,
+            conversationId: turn.conversationId,
           }),
-        ).resolves.toEqual({ cancelRequested: true });
-        await expect(
-          repositories.findAssistantTurn({
-            workspaceId: workspaceId(scope),
-            subjectId: subjectId(scope),
-            assistantTurnId: turn.assistantTurnId,
-          }),
-        ).resolves.toMatchObject({ status: "running", cancelRequestedAt: now });
-
-        // Once the turn is terminal the running-guard makes a cancel a no-op.
-        await repositories.failAssistantTurn({
-          workspaceId: workspaceId(scope),
-          assistantTurnId: turn.assistantTurnId,
-          status: "user_aborted",
-          errorCode: "aborted",
-          now,
-        });
-        await expect(
-          repositories.requestTurnCancellation({
-            workspaceId: workspaceId(scope),
-            subjectId: subjectId(scope),
-            assistantTurnId: turn.assistantTurnId,
-            now,
-          }),
-        ).resolves.toEqual({ cancelRequested: false });
-      } finally {
-        await closeIfNeeded(repositories);
-      }
-    });
-
-    it("surfaces running turns with durable cancel intent for the reconnect rescan", async () => {
-      const repositories = createRepositories();
-      const scope = nextScope();
-      try {
-        const turn = await startTurn(repositories, scope);
-
-        // Before a cancel is requested the turn is not in the rescan set.
-        await expect(repositories.listRunningCancelRequestedTurns()).resolves.not.toContainEqual(
-          expect.objectContaining({ assistantTurnId: turn.assistantTurnId }),
-        );
-
-        await repositories.requestTurnCancellation({
-          workspaceId: workspaceId(scope),
+        ).resolves.toMatchObject({
+          conversationId: turn.conversationId,
           subjectId: subjectId(scope),
-          assistantTurnId: turn.assistantTurnId,
-          now,
         });
 
-        // A running turn with durable cancel intent is exactly what a reconnecting
-        // listener re-feeds so a cancel from the outage still interrupts.
-        await expect(repositories.listRunningCancelRequestedTurns()).resolves.toContainEqual(
-          expect.objectContaining({
-            workspaceId: workspaceId(scope),
-            assistantTurnId: turn.assistantTurnId,
-          }),
-        );
-
-        // Once terminal it drops out — the fiber is gone, so there is nothing left
-        // to interrupt on the next reconnect.
-        await repositories.failAssistantTurn({
-          workspaceId: workspaceId(scope),
-          assistantTurnId: turn.assistantTurnId,
-          status: "user_aborted",
-          errorCode: "aborted",
-          now,
-        });
-        await expect(repositories.listRunningCancelRequestedTurns()).resolves.not.toContainEqual(
-          expect.objectContaining({ assistantTurnId: turn.assistantTurnId }),
-        );
-      } finally {
-        await closeIfNeeded(repositories);
-      }
-    });
-
-    it("does not cancel an unknown, cross-workspace, or cross-subject turn", async () => {
-      const repositories = createRepositories();
-      const scope = nextScope();
-      try {
-        const turn = await startTurn(repositories, scope);
-
-        // Unknown id: nothing matches the CAS, so it is a durable no-op.
+        // Unknown, cross-workspace, and cross-subject ids resolve to undefined, not a throw.
         await expect(
-          repositories.requestTurnCancellation({
+          repositories.findConversation({
             workspaceId: workspaceId(scope),
             subjectId: subjectId(scope),
-            assistantTurnId: toAssistantTurnId("assistant_turn_missing"),
-            now,
+            conversationId: toConversationId(`${scope}_missing`),
           }),
-        ).resolves.toEqual({ cancelRequested: false });
-
-        // Cross-workspace id: the workspace clause excludes it, so a guessed id
-        // from another tenant cannot cancel another workspace's turn.
+        ).resolves.toBeUndefined();
         await expect(
-          repositories.requestTurnCancellation({
+          repositories.findConversation({
             workspaceId: toWorkspaceId("other_workspace"),
             subjectId: subjectId(scope),
-            assistantTurnId: turn.assistantTurnId,
-            now,
+            conversationId: turn.conversationId,
           }),
-        ).resolves.toEqual({ cancelRequested: false });
-
-        // Cross-subject id: another user in the same workspace with a leaked turn
-        // id cannot cancel it.
+        ).resolves.toBeUndefined();
         await expect(
-          repositories.requestTurnCancellation({
+          repositories.findConversation({
             workspaceId: workspaceId(scope),
             subjectId: toSubjectId("other_subject"),
-            assistantTurnId: turn.assistantTurnId,
-            now,
+            conversationId: turn.conversationId,
           }),
-        ).resolves.toEqual({ cancelRequested: false });
-        const unchanged = await repositories.findAssistantTurn({
+        ).resolves.toBeUndefined();
+
+        // A turn has no bound run until bindTurnRun: the run lookup is undefined first.
+        await expect(
+          repositories.findAssistantTurnByRun({
+            workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
+            conversationId: turn.conversationId,
+            runId,
+          }),
+        ).resolves.toBeUndefined();
+
+        await repositories.bindTurnRun({
           workspaceId: workspaceId(scope),
-          subjectId: subjectId(scope),
           assistantTurnId: turn.assistantTurnId,
+          runId,
+          now,
         });
-        expect(unchanged?.cancelRequestedAt).toBeUndefined();
+
+        // Once bound, the run resolves to its turn, scoped to workspace + subject + conversation.
+        await expect(
+          repositories.findAssistantTurnByRun({
+            workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
+            conversationId: turn.conversationId,
+            runId,
+          }),
+        ).resolves.toMatchObject({ assistantTurnId: turn.assistantTurnId, runId });
+
+        // Cross-subject and cross-conversation scoping both deny the run read.
+        await expect(
+          repositories.findAssistantTurnByRun({
+            workspaceId: workspaceId(scope),
+            subjectId: toSubjectId("other_subject"),
+            conversationId: turn.conversationId,
+            runId,
+          }),
+        ).resolves.toBeUndefined();
+        await expect(
+          repositories.findAssistantTurnByRun({
+            workspaceId: workspaceId(scope),
+            subjectId: subjectId(scope),
+            conversationId: toConversationId(`${scope}_other_conversation`),
+            runId,
+          }),
+        ).resolves.toBeUndefined();
+      } finally {
+        await closeIfNeeded(repositories);
+      }
+    });
+
+    it("re-runs a terminal claim as an idempotent no-op and honors cross-subject denial", async () => {
+      const repositories = createRepositories();
+      const scope = nextScope();
+      try {
+        const turn = await startTurn(repositories, scope);
+
+        const first = await repositories.claimAssistantTurnTerminal({
+          workspaceId: workspaceId(scope),
+          assistantTurnId: turn.assistantTurnId,
+          status: "completed",
+          assistantMessageId: toAssistantMessageId(turn.userMessageId),
+          finishReason: "stop",
+          usage: ZERO_USAGE,
+          now,
+        });
+        expect(first.claimed).toBe(true);
+
+        // A crash replay or duplicate finalize matches no running row: a no-op that
+        // leaves the durable status untouched rather than raising.
+        const replay = await repositories.claimAssistantTurnTerminal({
+          workspaceId: workspaceId(scope),
+          assistantTurnId: turn.assistantTurnId,
+          status: "failed",
+          errorCode: "should_not_apply",
+          usage: ZERO_USAGE,
+          now,
+        });
+        expect(replay.claimed).toBe(false);
+        expect(replay.record.status).toBe("completed");
       } finally {
         await closeIfNeeded(repositories);
       }

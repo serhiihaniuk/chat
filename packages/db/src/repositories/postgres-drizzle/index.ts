@@ -7,12 +7,10 @@ import { REPOSITORY_ADAPTER_KINDS, type SidechatRepositories } from "../contract
 import { createPostgresDrizzleConversationRepository } from "./records/conversations.js";
 import { createPostgresDrizzleInteractionRepository } from "./records/interactions.js";
 import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
-import { createPostgresTurnLeaseRepository } from "./records/turn-lease.js";
 import { createRandomIdGenerator } from "../repository-utils.js";
 
-export { createPostgresTurnCancelNotificationSource } from "./notifications/turn-cancel-notification-source.js";
-export { createPostgresTurnActivityNotificationSource } from "./notifications/turn-activity-notification-source.js";
 export { createPostgresHostCommandResultNotificationSource } from "./notifications/host-command-result-notification-source.js";
+export { uniqueViolationConstraint } from "./pg-errors.js";
 
 /** Tunables for the shared query pool; absent fields keep node-postgres defaults. */
 export type PostgresPoolOptions = {
@@ -70,7 +68,6 @@ export const createPostgresDrizzleSidechatRepositories = (
     close: () => pool.end(),
     ...createPostgresDrizzleConversationRepository(context),
     ...createPostgresDrizzleTurnRepository(context),
-    ...createPostgresTurnLeaseRepository(context.db),
     ...createPostgresDrizzleInteractionRepository(context),
   };
 };

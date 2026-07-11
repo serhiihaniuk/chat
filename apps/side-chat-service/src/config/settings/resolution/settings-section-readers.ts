@@ -19,6 +19,7 @@ export function readSettings(candidate: unknown, issues: SettingsIssue[]): Setti
     timeouts: readTimeouts(root["timeouts"], issues),
     agent: readAgent(root["agent"], issues),
     capacity: readCapacity(root["capacity"], issues),
+    persistence: readPersistence(root["persistence"], issues),
     keepalive: readKeepalive(root["keepalive"], issues),
     telemetry: readTelemetry(root["telemetry"], issues),
     workflow: readWorkflow(root["workflow"], issues),
@@ -51,6 +52,12 @@ function readAgent(candidate: unknown, issues: SettingsIssue[]): Settings["agent
     ),
     toolTokenBudget: readPositiveInteger(value["toolTokenBudget"], "agent.toolTokenBudget", issues),
   };
+}
+
+function readPersistence(candidate: unknown, issues: SettingsIssue[]): Settings["persistence"] {
+  const value = readObject(candidate, "persistence", issues);
+  const databaseUrl = readOptionalString(value["databaseUrl"], "persistence.databaseUrl", issues);
+  return databaseUrl === undefined ? {} : { databaseUrl };
 }
 
 function readCapacity(candidate: unknown, issues: SettingsIssue[]): Settings["capacity"] {

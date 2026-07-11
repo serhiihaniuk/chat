@@ -7,22 +7,23 @@ CREATE TABLE "sidechat"."assistant_turns" (
 	"actor_id" text NOT NULL,
 	"user_message_id" text NOT NULL,
 	"assistant_message_id" text,
-	"runtime_profile" text NOT NULL,
-	"system_prompt_version" text NOT NULL,
-	"context_strategy_version" text NOT NULL,
-	"tool_registry_version" text NOT NULL,
+	"run_id" text,
 	"model_provider" text NOT NULL,
 	"model_id" text NOT NULL,
+	"instructions_version" text NOT NULL,
+	"config_version" text NOT NULL,
+	"content_filter_version" text NOT NULL,
 	"status" text DEFAULT 'running' NOT NULL,
 	"finish_reason" text,
 	"error_code" text,
+	"input_tokens" integer DEFAULT 0 NOT NULL,
+	"output_tokens" integer DEFAULT 0 NOT NULL,
+	"total_tokens" integer DEFAULT 0 NOT NULL,
+	"reasoning_tokens" integer DEFAULT 0 NOT NULL,
+	"cached_input_tokens" integer DEFAULT 0 NOT NULL,
 	"started_at" timestamp with time zone NOT NULL,
 	"completed_at" timestamp with time zone,
-	"owner_instance_id" text,
-	"lease_expires_at" timestamp with time zone,
-	"lease_epoch" integer DEFAULT 0 NOT NULL,
-	"cancel_requested_at" timestamp with time zone,
-	CONSTRAINT "assistant_turns_status_check" CHECK (status in ('running', 'completed', 'blocked', 'user_aborted', 'timed_out', 'provider_failed', 'tool_failed', 'persistence_failed'))
+	CONSTRAINT "assistant_turns_status_check" CHECK (status in ('running', 'completed', 'failed', 'cancelled', 'blocked'))
 );
 --> statement-breakpoint
 CREATE TABLE "sidechat"."audit_events" (
@@ -47,6 +48,7 @@ CREATE TABLE "sidechat"."conversations" (
 	"title_text" text,
 	"created_by_actor_id" text NOT NULL,
 	"history_cutoff_sequence_index" integer,
+	"legal_hold" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"last_message_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -74,7 +76,7 @@ CREATE TABLE "sidechat"."messages" (
 	"conversation_id" text NOT NULL,
 	"workspace_id" text NOT NULL,
 	"role" text NOT NULL,
-	"content_text" text NOT NULL,
+	"parts" jsonb NOT NULL,
 	"metadata_json" jsonb NOT NULL,
 	"sequence_index" integer NOT NULL,
 	"idempotency_key" text,
@@ -139,7 +141,7 @@ ALTER TABLE "sidechat"."turn_context_snapshots" ADD CONSTRAINT "turn_context_sna
 ALTER TABLE "sidechat"."usage_records" ADD CONSTRAINT "usage_records_assistant_turn_id_assistant_turns_assistant_turn_id_fk" FOREIGN KEY ("assistant_turn_id") REFERENCES "sidechat"."assistant_turns"("assistant_turn_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "assistant_turns_workspace_request_uq" ON "sidechat"."assistant_turns" USING btree ("workspace_id","request_id");--> statement-breakpoint
 CREATE INDEX "assistant_turns_conversation_started_idx" ON "sidechat"."assistant_turns" USING btree ("conversation_id","started_at");--> statement-breakpoint
-CREATE INDEX "assistant_turns_running_lookup_idx" ON "sidechat"."assistant_turns" USING btree ("workspace_id","subject_id","conversation_id") WHERE status = 'running';--> statement-breakpoint
+CREATE UNIQUE INDEX "assistant_turns_one_running_per_conversation_uq" ON "sidechat"."assistant_turns" USING btree ("conversation_id") WHERE status = 'running';--> statement-breakpoint
 CREATE INDEX "audit_events_workspace_created_idx" ON "sidechat"."audit_events" USING btree ("workspace_id","created_at");--> statement-breakpoint
 CREATE INDEX "audit_events_target_created_idx" ON "sidechat"."audit_events" USING btree ("target_type","target_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "conversations_workspace_subject_key_uq" ON "sidechat"."conversations" USING btree ("workspace_id","subject_id","conversation_key");--> statement-breakpoint

@@ -1,6 +1,7 @@
 import type { JsonObject } from "@side-chat/shared";
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -48,6 +49,9 @@ export const conversations = sidechat.table(
     titleText: text("title_text"),
     createdByActorId: text("created_by_actor_id").notNull(),
     historyCutoffSequenceIndex: integer("history_cutoff_sequence_index"),
+    // Regulated-deployment requirement: any prune/delete path must skip a held
+    // conversation. Cheap to carry now, always demanded later (KNOWLEDGE §Regulated).
+    legalHold: boolean("legal_hold").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     lastMessageAt: timestamp("last_message_at", {
@@ -63,11 +67,10 @@ export const conversations = sidechat.table(
       table.subjectId,
       table.conversationKey,
     ),
-    // The sidebar lists a subject's conversations newest-first on every panel open;
-    // a subject accumulates conversations without bound, so this serves the filter
-    // + `last_message_at DESC` order as a top-N index scan instead of sorting the
-    // whole set. (The `(..., conversation_key)` unique index above filters but cannot
-    // order.)
+    // The sidebar lists a subject's unbounded conversations newest-first on every
+    // panel open; this serves the (workspace, subject) filter + `last_message_at DESC`
+    // order as a top-N index scan instead of sorting the whole set. (The unique index
+    // above filters on the same columns but cannot order by last_message_at.)
     index("conversations_workspace_subject_recent_idx").on(
       table.workspaceId,
       table.subjectId,
@@ -86,16 +89,18 @@ export const messages = sidechat.table(
       .references(() => conversations.conversationId),
     workspaceId: workspaceIdColumn(),
     role: text("role").$type<MessageRole>().notNull(),
-    contentText: text("content_text").notNull(),
+    // The AI SDK `UIMessage.parts` verbatim — the one durable message shape,
+    // identical to the wire and the widget. jsonb is the truth; `role` is a query
+    // aid. Tool inputs/outputs live inside these parts (regulated full record).
+    parts: jsonb("parts").$type<readonly JsonObject[]>().notNull(),
     metadataJson: jsonb("metadata_json").$type<JsonObject>().notNull(),
     sequenceIndex: integer("sequence_index").notNull(),
     idempotencyKey: text("idempotency_key"),
     createdAt: createdAt(),
   },
   (table) => [
-    // History reads (`sequence_index DESC`) and the append `max(sequence_index)`
-    // are served by the unique index below scanned backwards, so a second
-    // same-columns index would be pure write overhead per message insert.
+    // History reads (`sequence_index DESC`) and the append `max(sequence_index)` are
+    // both served by the unique index below scanned backwards (no second index needed).
     uniqueIndex("messages_conversation_sequence_uq").on(table.conversationId, table.sequenceIndex),
     uniqueIndex("messages_workspace_idempotency_uq").on(table.workspaceId, table.idempotencyKey),
     check("messages_role_check", inList("role", MESSAGE_ROLES)),
@@ -117,15 +122,26 @@ export const assistantTurns = sidechat.table(
       .notNull()
       .references(() => messages.messageId),
     assistantMessageId: text("assistant_message_id").references(() => messages.messageId),
-    runtimeProfile: text("runtime_profile").notNull(),
-    systemPromptVersion: text("system_prompt_version").notNull(),
-    contextStrategyVersion: text("context_strategy_version").notNull(),
-    toolRegistryVersion: text("tool_registry_version").notNull(),
+    // The durable Workflow run this turn attaches to (reconnect/replay handle).
+    // Null between the turn row insert and the run start, then bound once.
+    runId: text("run_id"),
+    // Provenance for a regulated deployment: exactly which model, prompt, config,
+    // and content-filter version produced this turn (KNOWLEDGE §Regulated).
     modelProvider: text("model_provider").notNull(),
     modelId: text("model_id").notNull(),
+    instructionsVersion: text("instructions_version").notNull(),
+    configVersion: text("config_version").notNull(),
+    contentFilterVersion: text("content_filter_version").notNull(),
     status: text("status").$type<AssistantTurnStatus>().notNull().default("running"),
     finishReason: text("finish_reason"),
     errorCode: text("error_code"),
+    // Aggregate usage across all steps, folded onto the turn (v7 token detail).
+    // Zero until the turn reaches a terminal status.
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    totalTokens: integer("total_tokens").notNull().default(0),
+    reasoningTokens: integer("reasoning_tokens").notNull().default(0),
+    cachedInputTokens: integer("cached_input_tokens").notNull().default(0),
     startedAt: timestamp("started_at", {
       mode: "string",
       withTimezone: true,
@@ -134,32 +150,16 @@ export const assistantTurns = sidechat.table(
       mode: "string",
       withTimezone: true,
     }),
-    // Resumable-streaming ownership: the instance generating this turn, its lease
-    // window, and the fencing epoch the heartbeat/reaper compare-and-set against.
-    ownerInstanceId: text("owner_instance_id"),
-    leaseExpiresAt: timestamp("lease_expires_at", {
-      mode: "string",
-      withTimezone: true,
-    }),
-    leaseEpoch: integer("lease_epoch").notNull().default(0),
-    // Durable cancel intent, honored even when no live owner fiber exists.
-    cancelRequestedAt: timestamp("cancel_requested_at", {
-      mode: "string",
-      withTimezone: true,
-    }),
   },
   (table) => [
     uniqueIndex("assistant_turns_workspace_request_uq").on(table.workspaceId, table.requestId),
     index("assistant_turns_conversation_started_idx").on(table.conversationId, table.startedAt),
-    // Partial index over only the in-flight working set (running turns ≈ live
-    // concurrency, not the ever-growing history). It is the exact shape of the hot
-    // running-turn reads: the activity snapshot (`listActiveAssistantTurns`, keyed
-    // on workspace+subject), the per-create concurrency guard and the resume lookup
-    // (`findActiveConversationTurn` / `findActiveAssistantTurn`, keyed on
-    // workspace+subject+conversation), and — because it stays tiny — the unscoped
-    // reaper sweep and cancel rescan scan it instead of the full table.
-    index("assistant_turns_running_lookup_idx")
-      .on(table.workspaceId, table.subjectId, table.conversationId)
+    // One running turn per conversation, enforced by the database. This is the
+    // race-safe busy guard: a concurrent second turn hits a unique violation
+    // instead of a check-then-act window. Partial, so it covers only the tiny
+    // in-flight working set and terminal turns never collide.
+    uniqueIndex("assistant_turns_one_running_per_conversation_uq")
+      .on(table.conversationId)
       .where(sql`status = 'running'`),
     check("assistant_turns_status_check", inList("status", ASSISTANT_TURN_STATUSES)),
   ],

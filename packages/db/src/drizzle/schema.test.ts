@@ -41,19 +41,38 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).toContain("status in ('active', 'archived', 'reset')");
   });
 
-  it("adds resumable-streaming lease and cancel columns to assistant turns", () => {
-    expect(migration).toContain('"owner_instance_id" text');
-    expect(migration).toContain('"lease_expires_at" timestamp with time zone');
-    expect(migration).toContain('"lease_epoch" integer DEFAULT 0 NOT NULL');
-    expect(migration).toContain('"cancel_requested_at" timestamp with time zone');
+  it("carries the v7 assistant-turn provenance, folded usage, and run binding", () => {
+    // The durable Workflow run handle, bound once after the run starts.
+    expect(migration).toContain('"run_id" text');
+    // Regulated provenance: exactly which prompt, config, and filter produced it.
+    expect(migration).toContain('"instructions_version" text NOT NULL');
+    expect(migration).toContain('"config_version" text NOT NULL');
+    expect(migration).toContain('"content_filter_version" text NOT NULL');
+    // Aggregate usage folded onto the turn, zero until a terminal status.
+    expect(migration).toContain('"input_tokens" integer DEFAULT 0 NOT NULL');
+    expect(migration).toContain('"cached_input_tokens" integer DEFAULT 0 NOT NULL');
+    // Every failure collapses to one `failed` status; the reaper's per-cause
+    // statuses are gone.
+    expect(migration).toContain(
+      "status in ('running', 'completed', 'failed', 'cancelled', 'blocked')",
+    );
+    // The lease/cancel recovery columns went with the reaper.
+    expect(migration).not.toContain("owner_instance_id");
+    expect(migration).not.toContain("lease_epoch");
+    expect(migration).not.toContain("cancel_requested_at");
+    // The durable message body is the AI SDK `parts` array — no `content_text`.
+    expect(migration).toContain('"parts" jsonb NOT NULL');
+    expect(migration).not.toContain("content_text");
+    // A prune/delete path must be able to skip a held conversation.
+    expect(migration).toContain('"legal_hold" boolean DEFAULT false NOT NULL');
   });
 
   it("indexes the hot query working sets and drops the redundant message index", () => {
-    // Partial index over only running turns: the activity snapshot, the per-create
-    // concurrency guard, the resume lookup, and the reaper/cancel-rescan all read
-    // the in-flight set, never the full history.
+    // Partial unique index over only running turns: it is both the race-safe
+    // one-running-per-conversation busy guard and the in-flight lookup the resume
+    // and activity reads scan — never the full history.
     expect(migration).toMatch(
-      /CREATE INDEX "assistant_turns_running_lookup_idx" ON "sidechat"\."assistant_turns" USING btree \("workspace_id","subject_id","conversation_id"\) WHERE status = 'running';/u,
+      /CREATE UNIQUE INDEX "assistant_turns_one_running_per_conversation_uq" ON "sidechat"\."assistant_turns" USING btree \("conversation_id"\) WHERE status = 'running';/u,
     );
     // Workspace-scoped usage summary must not full-scan an ever-growing table.
     expect(migration).toContain(
