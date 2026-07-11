@@ -1,7 +1,9 @@
 import {
   createModelCallToUIChunkTransform,
   type ModelCallStreamPart,
+  type ProviderOptions,
   WorkflowAgent,
+  type WorkflowAgentOptions,
 } from "@ai-sdk/workflow";
 import { convertToModelMessages, isStepCount, type UIMessage, type UIMessageChunk } from "ai";
 import { createHook, getWritable } from "workflow";
@@ -12,7 +14,29 @@ import { assertModelInstance } from "#application/ports/model-provider";
 
 import { patchWorkflowRealmAbortSignal } from "../abort-signal-patch.js";
 
-type CompatibilityModelBehavior = "complete" | "block";
+export const COMPATIBILITY_MODEL_BEHAVIORS = {
+  COMPLETE: "complete",
+  BLOCK: "block",
+} as const;
+
+const COMPATIBILITY_OUTCOMES = {
+  COMPLETED: "completed",
+  STREAM_REJECTED: "stream-rejected",
+} as const;
+
+const COMPATIBILITY_WORKFLOW = {
+  AGENT_ID: "side-chat-turn",
+  CANCELLATION_HOOK_PREFIX: "turn-cancel",
+  CANCELLATION_REASON: "user pressed stop",
+  INSTRUCTIONS: "You are the Side Chat compatibility turn agent.",
+  MAX_RETRIES: 0,
+  MAX_STEPS: 1,
+  PROBE_AGENT_ID: "side-chat-unpatched-probe",
+  PROBE_REQUEST_ID: "unpatched-probe",
+} as const;
+
+type CompatibilityModelBehavior =
+  (typeof COMPATIBILITY_MODEL_BEHAVIORS)[keyof typeof COMPATIBILITY_MODEL_BEHAVIORS];
 
 export interface CompatibilityTurnRequest {
   readonly requestId: string;
@@ -21,9 +45,12 @@ export interface CompatibilityTurnRequest {
 }
 
 export type CompatibilityTurnOutcome =
-  | { readonly status: "completed"; readonly finalText: string }
   | {
-      readonly status: "stream-rejected";
+      readonly status: typeof COMPATIBILITY_OUTCOMES.COMPLETED;
+      readonly finalText: string;
+    }
+  | {
+      readonly status: typeof COMPATIBILITY_OUTCOMES.STREAM_REJECTED;
       readonly errorName: string;
       readonly errorMessage: string;
     };
@@ -33,7 +60,7 @@ interface TurnCancellation {
 }
 
 export function turnCancellationHookToken(requestId: string): string {
-  return `turn-cancel:${requestId}`;
+  return `${COMPATIBILITY_WORKFLOW.CANCELLATION_HOOK_PREFIX}:${requestId}`;
 }
 
 export interface StartedCompatibilityTurn {
@@ -55,7 +82,7 @@ export async function startCompatibilityTurn(
 export async function cancelCompatibilityTurn(requestId: string): Promise<boolean> {
   try {
     await resumeHook(turnCancellationHookToken(requestId), {
-      reason: "user pressed stop",
+      reason: COMPATIBILITY_WORKFLOW.CANCELLATION_REASON,
     });
     return true;
   } catch {
@@ -96,16 +123,13 @@ export async function runCompatibilityTurn(
   });
   assertModelInstance(resolvedModel.model);
 
-  const agent = new WorkflowAgent({
-    id: "side-chat-turn",
-    model: resolvedModel.model,
-    ...(resolvedModel.providerOptions === undefined
-      ? {}
-      : { providerOptions: resolvedModel.providerOptions }),
-    instructions: "You are the Side Chat compatibility turn agent.",
-    stopWhen: isStepCount(1),
-    maxRetries: 0,
-  });
+  const agent = new WorkflowAgent(
+    createCompatibilityAgentOptions({
+      id: COMPATIBILITY_WORKFLOW.AGENT_ID,
+      model: resolvedModel.model,
+      providerOptions: resolvedModel.providerOptions,
+    }),
+  );
 
   const modelMessages = await convertToModelMessages(request.messages);
 
@@ -139,20 +163,17 @@ export async function probeUnpatchedAbortSignal(): Promise<CompatibilityTurnOutc
   const controller = new AbortController();
   const { modelProvider } = initializeTestingWorkflowServices();
   const resolvedModel = modelProvider.modelFor({
-    modelId: "complete",
-    requestId: "unpatched-probe",
+    modelId: COMPATIBILITY_MODEL_BEHAVIORS.COMPLETE,
+    requestId: COMPATIBILITY_WORKFLOW.PROBE_REQUEST_ID,
   });
   assertModelInstance(resolvedModel.model);
-  const agent = new WorkflowAgent({
-    id: "side-chat-unpatched-probe",
-    model: resolvedModel.model,
-    ...(resolvedModel.providerOptions === undefined
-      ? {}
-      : { providerOptions: resolvedModel.providerOptions }),
-    instructions: "You are the Side Chat compatibility turn agent.",
-    stopWhen: isStepCount(1),
-    maxRetries: 0,
-  });
+  const agent = new WorkflowAgent(
+    createCompatibilityAgentOptions({
+      id: COMPATIBILITY_WORKFLOW.PROBE_AGENT_ID,
+      model: resolvedModel.model,
+      providerOptions: resolvedModel.providerOptions,
+    }),
+  );
 
   return await agent
     .stream({
@@ -164,20 +185,41 @@ export async function probeUnpatchedAbortSignal(): Promise<CompatibilityTurnOutc
 }
 
 function completedOutcome(result: { steps: Array<{ text: string }> }): CompatibilityTurnOutcome {
-  return { status: "completed", finalText: result.steps.at(-1)?.text ?? "" };
+  return {
+    status: COMPATIBILITY_OUTCOMES.COMPLETED,
+    finalText: result.steps.at(-1)?.text ?? "",
+  };
 }
 
 function rejectedOutcome(error: unknown): CompatibilityTurnOutcome {
   if (error instanceof Error) {
     return {
-      status: "stream-rejected",
+      status: COMPATIBILITY_OUTCOMES.STREAM_REJECTED,
       errorName: error.name,
       errorMessage: error.message,
     };
   }
   return {
-    status: "stream-rejected",
+    status: COMPATIBILITY_OUTCOMES.STREAM_REJECTED,
     errorName: "unknown",
     errorMessage: String(error),
   };
+}
+
+function createCompatibilityAgentOptions(options: {
+  readonly id: string;
+  readonly model: WorkflowAgentOptions["model"];
+  readonly providerOptions: ProviderOptions | undefined;
+}): WorkflowAgentOptions {
+  const agentOptions: WorkflowAgentOptions = {
+    id: options.id,
+    model: options.model,
+    instructions: COMPATIBILITY_WORKFLOW.INSTRUCTIONS,
+    stopWhen: isStepCount(COMPATIBILITY_WORKFLOW.MAX_STEPS),
+    maxRetries: COMPATIBILITY_WORKFLOW.MAX_RETRIES,
+  };
+  if (options.providerOptions !== undefined) {
+    agentOptions.providerOptions = options.providerOptions;
+  }
+  return agentOptions;
 }

@@ -3,9 +3,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { RequestAuthorizer } from "#application/ports/request-authorizer";
 
 export const DEVELOPMENT_BEARER_TOKEN = "Bearer local-test-token";
+const STATIC_SUBJECT_SUFFIX = "subject";
 
 export type StaticTokenAuthorizerOptions = Readonly<{
-  profile: "development" | "production";
+  allowDevelopmentToken: boolean;
   bearerToken: string;
   workspaceId: string;
   now?: () => Date;
@@ -19,7 +20,7 @@ export function createStaticTokenAuthorizer(
   options: StaticTokenAuthorizerOptions,
 ): RequestAuthorizer {
   const trustedToken = normalizeBearerToken(options.bearerToken);
-  if (options.profile === "production" && trustedToken === DEVELOPMENT_BEARER_TOKEN) {
+  if (!options.allowDevelopmentToken && trustedToken === DEVELOPMENT_BEARER_TOKEN) {
     throw new AuthConfigurationError("Production auth cannot use the development bearer token");
   }
   return {
@@ -28,12 +29,16 @@ export function createStaticTokenAuthorizer(
         request.bearerToken !== undefined && tokensMatch(request.bearerToken, trustedToken)
           ? {
               workspaceId: options.workspaceId,
-              subjectId: `${options.workspaceId}:subject`,
+              subjectId: staticSubjectId(options.workspaceId),
               issuedAt: (options.now ?? (() => new Date()))().toISOString(),
             }
           : undefined,
       ),
   };
+}
+
+export function staticSubjectId(workspaceId: string): string {
+  return `${workspaceId}:${STATIC_SUBJECT_SUFFIX}`;
 }
 
 export function normalizeBearerToken(token: string): string {

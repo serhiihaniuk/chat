@@ -1,17 +1,24 @@
 import {
+  AUTH_PROFILES,
   defineSideChatConfig,
+  TELEMETRY_MODES,
   type SideChatConfig,
 } from "./src/config/declaration/side-chat-config.js";
+import { SCRIPTED_PROVIDER } from "./src/config/providers/scripted-provider-config.js";
 
 const config: SideChatConfig = defineSideChatConfig({
-  models: { provider: "scripted", modelId: "complete" },
+  models: {
+    provider: SCRIPTED_PROVIDER.KIND,
+    modelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+  },
   auth: {
-    profile: "development",
+    profile: AUTH_PROFILES.DEVELOPMENT,
     bearerToken: "local-test-token",
     workspaceId: "local-workspace",
   },
-  timeouts: { requestMs: 10_000, queueMs: 1_000, providerMs: 5_000 },
+  timeouts: { requestMs: 10_000, queueMs: 1_000, providerMs: 2_000 },
   agent: {
+    instructions: "You are the deterministic Side Chat test assistant.",
     maxSteps: 4,
     totalTokenBudget: 4_000,
     chunkTokenBudget: 1_000,
@@ -19,7 +26,7 @@ const config: SideChatConfig = defineSideChatConfig({
   },
   capacity: { activeGenerations: 2 },
   keepalive: { intervalMs: 5_000, proxyIdleBudgetMs: 30_000 },
-  telemetry: { mode: "off" },
+  telemetry: { mode: TELEMETRY_MODES.OFF },
   workflow: {
     workerConcurrency: 3,
     concurrencyHeadroom: 1,

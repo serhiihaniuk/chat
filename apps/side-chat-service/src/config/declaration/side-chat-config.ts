@@ -1,3 +1,7 @@
+import type { AzureModelConfig } from "../providers/azure-provider-config.js";
+import type { OpenAIModelConfig } from "../providers/openai-provider-config.js";
+import type { ScriptedModelConfig } from "../providers/scripted-provider-config.js";
+
 /** Source-control-safe references from readable config files to deployment input. */
 export type ServiceEnv = Readonly<Record<string, string | undefined>>;
 
@@ -8,22 +12,36 @@ export const SERVICE_ENV_KEYS = {
   WORKFLOW_POSTGRES_URL: "WORKFLOW_POSTGRES_URL",
   WORKFLOW_LOCAL_DATA_DIR: "WORKFLOW_LOCAL_DATA_DIR",
   WORKFLOW_LOCAL_BASE_URL: "WORKFLOW_LOCAL_BASE_URL",
-  OPENAI_API_KEY: "OPENAI_API_KEY",
-  OPENAI_BASE_URL: "OPENAI_BASE_URL",
-  AZURE_OPENAI_API_KEY: "AZURE_OPENAI_API_KEY",
-  AZURE_OPENAI_ENDPOINT: "AZURE_OPENAI_ENDPOINT",
-  AZURE_OPENAI_API_VERSION: "AZURE_OPENAI_API_VERSION",
-  AZURE_OPENAI_DEPLOYMENT: "AZURE_OPENAI_DEPLOYMENT",
   SIDECHAT_AUTH_TOKEN: "SIDECHAT_AUTH_TOKEN",
   SIDECHAT_WORKSPACE_ID: "SIDECHAT_WORKSPACE_ID",
   SIDECHAT_OTLP_ENDPOINT: "SIDECHAT_OTLP_ENDPOINT",
   SIDECHAT_OTEL_SERVICE_NAME: "SIDECHAT_OTEL_SERVICE_NAME",
 } as const;
 
+export const AUTH_PROFILES = {
+  DEVELOPMENT: "development",
+  PRODUCTION: "production",
+} as const;
+
+export const TELEMETRY_MODES = {
+  OFF: "off",
+  CONSOLE: "console",
+  OTLP: "otlp",
+} as const;
+
+export const AUTH_PROFILE_VALUES = Object.values(AUTH_PROFILES);
+export const TELEMETRY_MODE_VALUES = Object.values(TELEMETRY_MODES);
+
+export type AuthProfile = (typeof AUTH_PROFILE_VALUES)[number];
+export type TelemetryMode = (typeof TELEMETRY_MODE_VALUES)[number];
+
+export const ENV_REFERENCE_KINDS = { ENV: "env" } as const;
+export const ENV_VALUE_TYPES = { STRING: "string", NUMBER: "number" } as const;
+
 export type EnvReference = {
-  readonly kind: "env";
+  readonly kind: typeof ENV_REFERENCE_KINDS.ENV;
   readonly key: string;
-  readonly valueType: "string" | "number";
+  readonly valueType: (typeof ENV_VALUE_TYPES)[keyof typeof ENV_VALUE_TYPES];
   readonly required: boolean;
   readonly secret: boolean;
   readonly defaultValue?: string | number;
@@ -34,53 +52,46 @@ type EnvOptions<T> = {
   readonly defaultValue?: T;
 };
 
-const stringReference = (key: string, options: EnvOptions<string> = {}): EnvReference => ({
-  kind: "env",
-  key,
-  valueType: "string",
-  required: options.required ?? false,
-  secret: false,
-  ...options,
-});
+type ReadEnv = {
+  (key: string, options?: EnvOptions<string>): EnvReference;
+  readonly secret: (key: string, options?: EnvOptions<string>) => EnvReference;
+  readonly number: (key: string, options?: EnvOptions<number>) => EnvReference;
+};
 
-export const readEnv = Object.assign(stringReference, {
-  secret: (key: string, options: EnvOptions<string> = {}): EnvReference => ({
-    ...stringReference(key, { ...options, required: options.required ?? true }),
-    secret: true,
-  }),
-  number: (key: string, options: EnvOptions<number> = {}): EnvReference => ({
-    kind: "env",
+const stringReference = (key: string, options: EnvOptions<string> = {}): EnvReference =>
+  createEnvReference(
     key,
-    valueType: "number",
-    required: options.required ?? false,
-    secret: false,
-    ...options,
-  }),
+    ENV_VALUE_TYPES.STRING,
+    options.required ?? false,
+    false,
+    options.defaultValue,
+  );
+
+export const readEnv: ReadEnv = Object.assign(stringReference, {
+  secret: (key: string, options: EnvOptions<string> = {}): EnvReference =>
+    createEnvReference(
+      key,
+      ENV_VALUE_TYPES.STRING,
+      options.required ?? true,
+      true,
+      options.defaultValue,
+    ),
+  number: (key: string, options: EnvOptions<number> = {}): EnvReference =>
+    createEnvReference(
+      key,
+      ENV_VALUE_TYPES.NUMBER,
+      options.required ?? false,
+      false,
+      options.defaultValue,
+    ),
 });
 
 export type ConfigValue<T> = T | EnvReference;
 
 export interface SideChatConfig {
-  readonly models:
-    | {
-        readonly provider: "openai";
-        readonly modelId: ConfigValue<string>;
-        readonly apiKey: ConfigValue<string>;
-        readonly baseUrl?: ConfigValue<string | undefined>;
-        readonly reasoningEffort?: "low" | "medium" | "high";
-        readonly reasoningSummary?: "auto" | "concise" | "detailed";
-      }
-    | {
-        readonly provider: "azure";
-        readonly modelId: ConfigValue<string>;
-        readonly deployment: ConfigValue<string>;
-        readonly apiKey: ConfigValue<string>;
-        readonly endpoint: ConfigValue<string>;
-        readonly apiVersion: ConfigValue<string>;
-      }
-    | { readonly provider: "scripted"; readonly modelId: ConfigValue<string> };
+  readonly models: OpenAIModelConfig | AzureModelConfig | ScriptedModelConfig;
   readonly auth: {
-    readonly profile: "development" | "production";
+    readonly profile: AuthProfile;
     readonly bearerToken: ConfigValue<string>;
     readonly workspaceId: ConfigValue<string>;
   };
@@ -90,6 +101,7 @@ export interface SideChatConfig {
     readonly providerMs: ConfigValue<number>;
   };
   readonly agent: {
+    readonly instructions: ConfigValue<string>;
     readonly maxSteps: ConfigValue<number>;
     readonly totalTokenBudget: ConfigValue<number>;
     readonly chunkTokenBudget: ConfigValue<number>;
@@ -103,10 +115,10 @@ export interface SideChatConfig {
     readonly proxyIdleBudgetMs: ConfigValue<number>;
   };
   readonly telemetry:
-    | { readonly mode: "off" }
-    | { readonly mode: "console" }
+    | { readonly mode: typeof TELEMETRY_MODES.OFF }
+    | { readonly mode: typeof TELEMETRY_MODES.CONSOLE }
     | {
-        readonly mode: "otlp";
+        readonly mode: typeof TELEMETRY_MODES.OTLP;
         readonly endpoint: ConfigValue<string>;
         readonly serviceName: ConfigValue<string>;
       };
@@ -121,3 +133,23 @@ export interface SideChatConfig {
 
 export const defineSideChatConfig = <const Config extends SideChatConfig>(config: Config): Config =>
   Object.freeze(config);
+
+function createEnvReference(
+  key: string,
+  valueType: EnvReference["valueType"],
+  required: boolean,
+  secret: boolean,
+  defaultValue: string | number | undefined,
+): EnvReference {
+  if (defaultValue === undefined) {
+    return { kind: ENV_REFERENCE_KINDS.ENV, key, valueType, required, secret };
+  }
+  return {
+    kind: ENV_REFERENCE_KINDS.ENV,
+    key,
+    valueType,
+    required,
+    secret,
+    defaultValue,
+  };
+}

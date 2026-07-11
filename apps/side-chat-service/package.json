@@ -68,7 +68,8 @@
     "hono": "4.12.27",
     "nitro": "3.0.260610-beta",
     "rollup": "4.62.2",
-    "workflow": "5.0.0-beta.30"
+    "workflow": "5.0.0-beta.30",
+    "zod": "4.4.3"
   },
   "optionalDependencies": {
     "@ai-sdk/otel": "1.0.22",

@@ -40,6 +40,7 @@ const allowed = {
     "nitro",
     "rollup",
     "workflow",
+    "zod",
   ]),
   "@side-chat/agent-runtime": new Set([
     "@ai-sdk/azure",

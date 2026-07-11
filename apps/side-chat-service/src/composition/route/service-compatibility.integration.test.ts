@@ -1,13 +1,13 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { createServer } from "node:net";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { LATE_CONTENT_MARKER, PROVIDER_OBSERVATION_PREFIX } from "#testing/scripted-language-model";
+import { BUNDLED_CONFIG_NAMES } from "#config/declaration/bundled-config-catalog";
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
+import { serviceProcessEnv } from "#config/environment/process-environment";
+import {
+  startCompiledService,
+  type CompiledService,
+} from "#adapters/http/testing/compiled-service-process";
 
 /**
  * Permanent compatibility gate for the WorkflowAgent substrate. It runs against
@@ -21,33 +21,25 @@ import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
  *    upstream `instanceof` TypeError. When that test starts failing because
  *    the probe completes, delete the outbound Workflow adapter's patch module.
  */
-const repoRoot = resolve(import.meta.dirname, "../../../../..");
-const serviceRoot = resolve(repoRoot, "apps/side-chat-service");
-let service: ChildProcess | undefined;
+let service: CompiledService | undefined;
 let serviceBaseUrl = "";
-let serviceOutput = "";
-let workflowDataDir = "";
 
 describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
   beforeAll(async () => {
-    await runCommand("npm", [
-      "run",
-      "build:testing",
-      "--workspace",
-      "@side-chat/side-chat-service",
-    ]);
-    const port = await availablePort();
-    serviceBaseUrl = `http://127.0.0.1:${port}`;
-    workflowDataDir = mkdtempSync(join(tmpdir(), "side-chat-workflow-data-"));
-    service = startService(port);
-    await waitForReady();
+    service = await startCompiledService({
+      environment: serviceProcessEnv(),
+      configName: BUNDLED_CONFIG_NAMES.FAKE,
+      configNameEnvKey: SERVICE_ENV_KEYS.CONFIG_NAME,
+      localBaseUrlEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_BASE_URL,
+      localDataDirectoryEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_DATA_DIR,
+      providerObservationPrefix: PROVIDER_OBSERVATION_PREFIX,
+      targetWorldEnvKey: SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD,
+    });
+    serviceBaseUrl = service.baseUrl;
   }, 300_000);
 
   afterAll(async () => {
-    await stopService(service);
-    if (workflowDataDir) rmSync(workflowDataDir, { recursive: true, force: true });
-    await runCommand("npm", ["run", "build", "--workspace", "@side-chat/side-chat-service"]);
-    assertProductionBundleExcludesTestingCode();
+    await service?.close();
   }, 300_000);
 
   it("boots and completes a native WorkflowAgent UI message stream", async () => {
@@ -87,6 +79,67 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     expect(countObservations(requestId, "provider-streaming")).toBe(1);
   });
 
+  it("runs the production chat route through the compiled WorkflowAgent", async () => {
+    const requestId = "api-happy-turn";
+    const response = await startApiTurn(requestId, "happy");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-vercel-ai-ui-message-stream")).toBe("v1");
+    expect(response.headers.get("x-workflow-run-id")).toBeTruthy();
+    const stream = await response.text();
+    expect(stream).toContain(`Scripted reply: ${requestId}`);
+    expect(countStreamParts(stream, "finish")).toBe(1);
+  });
+
+  it("durably times out and aborts a blocked provider call", async () => {
+    const requestId = "api-provider-timeout";
+    const response = await startApiTurn(requestId, "cancel-before-first");
+    const observation = await waitForObservation(requestId, "provider-aborted");
+    expect(observation["abortObserved"]).toBe(true);
+    expect(observation["lateContentAccepted"]).toBe(false);
+    await response.text();
+    expect(countObservations(requestId, "provider-attempt")).toBe(1);
+  });
+
+  it.each([
+    ["before-first", "cancel-before-first", "provider-waiting", false],
+    ["mid-stream", "cancel-mid", "provider-streaming", true],
+  ] as const)(
+    "aborts the provider exactly once on %s cancellation",
+    async (_label, mode, readyEvent, expectsPartial) => {
+      const requestId = `api-${mode}`;
+      const response = await startApiTurn(requestId, mode);
+      const runId = response.headers.get("x-workflow-run-id");
+      expect(runId).toBeTruthy();
+      await waitForObservation(requestId, readyEvent);
+      if (!runId) throw new Error("Expected the chat route to return a run id");
+      await cancelApiTurn(runId);
+      const observation = await waitForObservation(requestId, "provider-aborted");
+      expect(observation["attemptCount"]).toBe(1);
+      expect(observation["abortObserved"]).toBe(true);
+      expect(observation["lateContentAccepted"]).toBe(false);
+      const stream = await response.text();
+      expect(stream.includes("partial reply")).toBe(expectsPartial);
+      expect(stream).not.toContain(LATE_CONTENT_MARKER);
+      expect(countObservations(requestId, "provider-attempt")).toBe(1);
+    },
+  );
+
+  it.each([
+    ["before output", "error-before", false],
+    ["mid-stream", "error-mid", true],
+  ] as const)(
+    "keeps a provider error %s inside the opened SSE stream",
+    async (_label, mode, partial) => {
+      const requestId = `api-${mode}`;
+      const response = await startApiTurn(requestId, mode);
+      expect(response.status).toBe(200);
+      const stream = await response.text();
+      expect(stream.includes("partial reply")).toBe(partial);
+      expect(countStreamParts(stream, "error")).toBe(1);
+      expect(countObservations(requestId, "provider-attempt")).toBe(1);
+    },
+  );
+
   it("proves the realm patch is load-bearing (unpatched abortSignal throws)", async () => {
     const response = await fetch(`${serviceBaseUrl}/compatibility/probes/unpatched-abort-signal`, {
       method: "POST",
@@ -120,6 +173,53 @@ function startTurn(requestId: string, mode: "complete" | "block"): Promise<Respo
   });
 }
 
+type ApiScriptMode = "happy" | "cancel-before-first" | "cancel-mid" | "error-before" | "error-mid";
+
+function startApiTurn(requestId: string, mode: ApiScriptMode): Promise<Response> {
+  return fetch(`${serviceBaseUrl}/api/chat`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer local-test-token",
+      "content-type": "application/json",
+      "x-request-id": requestId,
+    },
+    body: JSON.stringify({
+      requestId,
+      conversationId: "conversation-1",
+      modelPreference: mode,
+      messages: [
+        {
+          id: `user-${requestId}`,
+          role: "user",
+          parts: [{ type: "text", text: "hello" }],
+        },
+      ],
+    }),
+  });
+}
+
+/** The durable run-id hook may not exist until the workflow first suspends. */
+async function cancelApiTurn(runId: string): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(`${serviceBaseUrl}/api/chat/${runId}/cancel`, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer local-test-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ conversationId: "conversation-1" }),
+    });
+    if (response.ok) return;
+    await delay(100);
+  }
+  throw new Error(`Chat cancel hook never became resumable:\n${currentServiceOutput()}`);
+}
+
+function countStreamParts(stream: string, type: string): number {
+  return stream.split(`"type":"${type}"`).length - 1;
+}
+
 /** The durable cancel hook registers when the workflow first suspends; retry until it exists. */
 async function cancelTurn(requestId: string): Promise<void> {
   const deadline = Date.now() + 30_000;
@@ -131,7 +231,7 @@ async function cancelTurn(requestId: string): Promise<void> {
     if (isRecord(body) && body["cancelled"] === true) return;
     await delay(100);
   }
-  throw new Error(`Cancel hook never became resumable:\n${serviceOutput}`);
+  throw new Error(`Cancel hook never became resumable:\n${currentServiceOutput()}`);
 }
 
 async function waitForObservation(
@@ -144,7 +244,9 @@ async function waitForObservation(
     if (observation) return observation;
     await delay(50);
   }
-  throw new Error(`Provider never reported "${event}" for ${requestId}:\n${serviceOutput}`);
+  throw new Error(
+    `Provider never reported "${event}" for ${requestId}:\n${currentServiceOutput()}`,
+  );
 }
 
 /** Scans captured service stdout for the scripted provider's observation lines. */
@@ -158,7 +260,7 @@ function countObservations(requestId: string, event: string): number {
 
 function readObservations(requestId: string, event: string): Array<Record<string, unknown>> {
   const observations: Array<Record<string, unknown>> = [];
-  for (const line of serviceOutput.split("\n")) {
+  for (const line of currentServiceOutput().split("\n")) {
     const markerIndex = line.indexOf(PROVIDER_OBSERVATION_PREFIX);
     if (markerIndex < 0) continue;
     const parsed = tryParseJson(line.slice(markerIndex + PROVIDER_OBSERVATION_PREFIX.length));
@@ -182,134 +284,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function startService(port: number): ChildProcess {
-  const child = spawn(process.execPath, [".output/server/index.mjs"], {
-    cwd: serviceRoot,
-    env: cleanEnv({
-      ...process.env,
-      PORT: String(port),
-      [SERVICE_ENV_KEYS.CONFIG_NAME]: "fake",
-      [SERVICE_ENV_KEYS.WORKFLOW_LOCAL_DATA_DIR]: workflowDataDir,
-      [SERVICE_ENV_KEYS.WORKFLOW_LOCAL_BASE_URL]: `http://127.0.0.1:${port}`,
-    }),
-    shell: false,
-    stdio: "pipe",
-  });
-  child.stdout?.on("data", (chunk) => (serviceOutput += String(chunk)));
-  child.stderr?.on("data", (chunk) => (serviceOutput += String(chunk)));
-  return child;
-}
-
-async function waitForReady(): Promise<void> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if (service?.exitCode !== null) throw new Error(`Service exited:\n${serviceOutput}`);
-    try {
-      const response = await fetch(`${serviceBaseUrl}/readyz`);
-      if (response.ok) return;
-    } catch {
-      // The child process may not have bound its port yet.
-    }
-    await delay(100);
-  }
-  throw new Error(`Timed out waiting for service:\n${serviceOutput}`);
-}
-
-async function stopService(child: ChildProcess | undefined): Promise<void> {
-  if (!child || child.exitCode !== null) return;
-  child.kill("SIGTERM");
-  await new Promise<void>((resolveExit) => {
-    child.once("exit", () => resolveExit());
-    setTimeout(resolveExit, 5_000).unref();
-  });
-  if (child.exitCode === null) child.kill("SIGKILL");
-}
-
-async function runCommand(command: string, args: ReadonlyArray<string>): Promise<void> {
-  await new Promise<void>((resolveRun, rejectRun) => {
-    const child = spawn(resolveCommand(command), resolveArgs(command, args), {
-      cwd: repoRoot,
-      env: cleanEnv(process.env),
-      shell: false,
-      stdio: "inherit",
-    });
-    child.once("error", rejectRun);
-    child.once("exit", (code) =>
-      code === 0
-        ? resolveRun()
-        : rejectRun(new Error(`${command} exited with ${code ?? "unknown"}`)),
-    );
-  });
-}
-
-function resolveCommand(command: string): string {
-  return process.platform === "win32" && command === "npm" ? "cmd.exe" : command;
-}
-
-function resolveArgs(command: string, args: ReadonlyArray<string>): ReadonlyArray<string> {
-  return process.platform === "win32" && command === "npm"
-    ? ["/d", "/s", "/c", "npm", ...args]
-    : args;
-}
-
-/**
- * Drops undefined and malformed entries, and pins the suite to the local world
- * even when the surrounding shell targets postgres.
- */
-function cleanEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return Object.fromEntries(
-    Object.entries(env).filter(
-      ([key, value]) =>
-        key.length > 0 &&
-        !key.startsWith("=") &&
-        key !== SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD &&
-        value !== undefined,
-    ),
-  );
-}
-
-async function availablePort(): Promise<number> {
-  return new Promise<number>((resolvePort, rejectPort) => {
-    const server = createServer();
-    server.once("error", rejectPort);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close();
-        rejectPort(new Error("Failed to allocate a service port"));
-        return;
-      }
-      server.close(() => resolvePort(address.port));
-    });
-  });
-}
-
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 }
 
-/** Production output is a separate graph; compatibility code must be physically absent. */
-function assertProductionBundleExcludesTestingCode(): void {
-  const forbiddenMarkers = [
-    "side-chat-scripted",
-    PROVIDER_OBSERVATION_PREFIX,
-    "Scripted reply:",
-    "/compatibility/turns",
-  ];
-
-  for (const file of outputTextFiles(resolve(serviceRoot, ".output"))) {
-    const source = readFileSync(file, "utf8");
-    const marker = forbiddenMarkers.find((candidate) => source.includes(candidate));
-    if (marker) throw new Error(`Production output contains testing marker ${marker} in ${file}`);
-  }
-}
-
-function outputTextFiles(directory: string): string[] {
-  const files: string[] = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...outputTextFiles(path));
-    if (entry.isFile() && /\.(?:js|mjs|cjs|json)$/u.test(entry.name)) files.push(path);
-  }
-  return files;
+function currentServiceOutput(): string {
+  return service?.output() ?? "Service output is unavailable";
 }

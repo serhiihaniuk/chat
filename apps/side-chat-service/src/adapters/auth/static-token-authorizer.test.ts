@@ -9,7 +9,7 @@ import {
 describe("static token authorization", () => {
   it("normalizes tokens and returns a bounded workspace identity", async () => {
     const authorizer = createStaticTokenAuthorizer({
-      profile: "development",
+      allowDevelopmentToken: true,
       bearerToken: "test-token",
       workspaceId: "workspace-1",
       now: () => new Date("2026-01-01T00:00:00.000Z"),
@@ -31,7 +31,7 @@ describe("static token authorization", () => {
   it("rejects the development token in production", () => {
     expect(() =>
       createStaticTokenAuthorizer({
-        profile: "production",
+        allowDevelopmentToken: false,
         bearerToken: "local-test-token",
         workspaceId: "workspace-1",
       }),

@@ -1,4 +1,9 @@
-import type { EnvReference, ServiceEnv } from "../declaration/side-chat-config.js";
+import {
+  ENV_REFERENCE_KINDS,
+  ENV_VALUE_TYPES,
+  type EnvReference,
+  type ServiceEnv,
+} from "../declaration/side-chat-config.js";
 import type { SettingsIssue } from "../settings/resolve-settings.js";
 
 export type ResolvedConfigCandidate = {
@@ -44,7 +49,7 @@ function resolveReference(
 ): string | number | undefined {
   const rawValue = environment[reference.key]?.trim();
   if (!rawValue) return resolveMissingReference(reference, path, issues);
-  if (reference.valueType === "string") return rawValue;
+  if (reference.valueType === ENV_VALUE_TYPES.STRING) return rawValue;
 
   const numericValue = Number(rawValue);
   if (Number.isFinite(numericValue)) return numericValue;
@@ -63,7 +68,7 @@ function resolveMissingReference(
 }
 
 function isEnvReference(value: unknown): value is EnvReference {
-  return isRecord(value) && value["kind"] === "env";
+  return isRecord(value) && value["kind"] === ENV_REFERENCE_KINDS.ENV;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

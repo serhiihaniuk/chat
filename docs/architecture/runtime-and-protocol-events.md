@@ -4,13 +4,25 @@ Read this when: you change event shapes, the mapping between them, the SSE wire 
 Source of truth for: the three event vocabularies, the mapping chain, and the streaming/transport contract.
 Not source of truth for: the turn lifecycle (`assistant-turn.md`), import/data boundaries (`package-boundaries.md`), or term definitions (`../domain/vocabulary.md`).
 
+## AI SDK 7 replacement stream
+
+`apps/side-chat-service` does not use the three-hop legacy mapping chain. Its
+Step 05 HTTP edge converts Workflow `ModelCallStreamPart` values once with
+`createModelCallToUIChunkTransform()`, then encodes the AI SDK UI-message stream
+v1 with `createUIMessageStreamResponse()`. The response carries
+`x-workflow-run-id`; idle SSE comments are injected only after encoding and are
+transparent to the AI SDK decoder. Step 06 will narrow this vendor stream into
+the Side Chat profile through the already named `outboundTransforms` seam.
+Until cutover, the remainder of this document is authoritative only for the
+legacy `apps/partner-ai-service` and current widget.
+
 One assistant turn produces a stream of events. That stream is rewritten three
 times as it crosses package boundaries, so the browser never sees a raw provider
 part. This doc names each event family, the function that maps one to the next,
 and the rules the SSE wire must obey. For the turn lifecycle around this stream,
 read [`assistant-turn.md`](./assistant-turn.md).
 
-## The Three Event Vocabularies
+## Legacy three-event mapping
 
 Each vocabulary lives in exactly one package. Never import one where another
 belongs — the boundary is the point.

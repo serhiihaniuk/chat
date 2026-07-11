@@ -1,6 +1,9 @@
 import type { Readiness } from "#adapters/http/health/health-app";
+import type { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import type { ModelProvider } from "#application/ports/model-provider";
 import type { RequestAuthorizer } from "#application/ports/request-authorizer";
+import type { TurnAdmission } from "#application/ports/turn/turn-admission";
+import type { TurnExecution } from "#application/ports/turn/turn-execution";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { createCollectingTelemetrySink } from "#testing/collecting-telemetry-sink";
@@ -15,6 +18,9 @@ export async function createServiceTestHarness(
     readonly authorizer?: RequestAuthorizer;
     readonly modelProvider?: ModelProvider;
     readonly readiness?: Readiness;
+    readonly turnAdmission?: TurnAdmission;
+    readonly turnExecution?: TurnExecution;
+    readonly turnState?: InMemoryTurnState;
   } = {},
 ) {
   const settingsResult = validateSettings(createDefaultConfig());

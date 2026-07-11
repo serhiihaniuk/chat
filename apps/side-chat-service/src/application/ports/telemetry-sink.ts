@@ -3,6 +3,12 @@ export type TelemetryRecord = Readonly<{
   operationId?: string | undefined;
 }>;
 
+/** Provider calls never record prompt, output, or tool content. */
+export const PRIVATE_TELEMETRY_OPTIONS = {
+  recordInputs: false,
+  recordOutputs: false,
+} as const;
+
 /** Records are intentionally bounded: prompts, outputs, tool payloads, and errors are excluded. */
 export interface TelemetrySink {
   readonly record: (record: TelemetryRecord) => void | Promise<void>;

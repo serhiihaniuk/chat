@@ -8,6 +8,9 @@ import {
   type CompatibilityTurnRequest,
 } from "#workflows/testing/compatibility-turn";
 
+import { HTTP_STATUS } from "./error-response.js";
+import { HTTP_HEADERS } from "./http-contract.js";
+
 /**
  * Credential-free compatibility surface for the testing route composition.
  * The route owns HTTP translation only. The separately compiled testing
@@ -23,14 +26,16 @@ export function createCompatibilityApp(): Hono {
 
     return createUIMessageStreamResponse({
       stream: turn.stream,
-      headers: { "x-workflow-run-id": turn.runId },
+      headers: { [HTTP_HEADERS.WORKFLOW_RUN_ID]: turn.runId },
     });
   });
 
   app.post("/compatibility/turns/:requestId/cancel", async (context) => {
     const requestId = context.req.param("requestId");
     const cancelled = await cancelCompatibilityTurn(requestId);
-    return cancelled ? context.json({ cancelled: true }) : context.json({ cancelled: false }, 404);
+    return cancelled
+      ? context.json({ cancelled: true })
+      : context.json({ cancelled: false }, HTTP_STATUS.NOT_FOUND);
   });
 
   app.post("/compatibility/probes/unpatched-abort-signal", async (context) => {

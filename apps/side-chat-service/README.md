@@ -15,12 +15,15 @@ The normative target is [`plan/v7/ARCHITECTURE.md`](../../plan/v7/ARCHITECTURE.m
 - `src/application/ports`: application-owned behavioral interfaces with real substitutions.
 - `src/adapters/auth`: credential-authority implementations behind `RequestAuthorizer`.
 - `src/adapters/http`: Hono translation, auth middleware, health routes, and stream transforms.
+- `src/adapters/persistence`: temporary in-memory turn state behind application ports; Step 09 replaces it with PostgreSQL.
 - `src/adapters/providers`: AI SDK v7 OpenAI/Azure implementations of `ModelProvider`.
 - `src/adapters/telemetry`: redacted AI SDK telemetry mapped into `TelemetrySink`.
 - `src/config`: one cohesive config DSL, environment resolution, validation, and settings subsystem.
 - `src/composition`: route-bundle production/testing wiring and process-owned resource lifecycle.
 - `src/workflows`: physical Workflow bundles, with disjoint production/testing scan roots plus the shared typed registry and realm patch.
 - `src/testing`: scripted models and other doubles, reachable only from testing composition.
+
+Turn execution enters through `POST /api/chat`; cancellation enters through `POST /api/chat/:runId/cancel`. HTTP validates and encodes, application use cases own admission and terminal-state policy, and the production Workflow bundle alone owns WorkflowAgent and provider execution. Each Workflow run returns one journaled terminal outcome; the application projects it through persistence ports, then releases admission and closes the response. Step 05's projection is intentionally in memory until Step 09 supplies PostgreSQL.
 
 Tests sit beside the contract they protect. `scripts/check-side-chat-service-architecture.mjs` enforces the inward dependency law, Workflow directive/import placement, adapter isolation, and production/test separation with known-bad fixtures.
 
@@ -34,7 +37,7 @@ The compatibility turn is a durable `"use workflow"` function in `src/workflows/
 
 The compatibility test builds and boots a testing-only Nitro workflow graph with a credential-free scripted provider, then rebuilds production and proves its artifact contains no compatibility or scripted-provider marker. It also guards the patch removal criterion: when its "unpatched probe" test starts failing because the probe streams successfully, an upstream fix has shipped and the patch module must be deleted.
 
-Configuration is declared in the three app-root `sidechat*.config.ts` variants and selected through `SIDECHAT_CONFIG` (`default`, `fake`, or `azure`). Every environment name lives in the uppercase `SERVICE_ENV_KEYS` catalog; provider credentials and auth tokens are secret references. The cohesive config subsystem resolves those references and accumulates safe validation issues.
+Configuration is declared in the three app-root `sidechat*.config.ts` variants and selected through `SIDECHAT_CONFIG` (`default`, `fake`, or `azure`). Service-wide environment names live in uppercase `SERVICE_ENV_KEYS`; each provider catalog owns its model ids, supported reasoning values, and provider-specific environment names. Credentials and auth tokens remain secret references. The cohesive config subsystem resolves those references and accumulates safe validation issues.
 
 Production composition constructs a provider model instance and rejects both scripted models and an AI SDK global default provider. OpenAI always disables provider retention and explicitly opts out of the AI SDK's automatic detailed reasoning summary unless the config selects one. Azure keeps deployment and API-version routing inside its adapter. Testing composition reuses the serde scripted model; it does not create another fake-provider protocol.
 

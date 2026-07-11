@@ -4,7 +4,23 @@ Read this when: you need the order, durability, or failure rules of one assistan
 Source of truth for: the turn lifecycle, the pre-start/in-stream failure split, finalization, the in-memory event registry, replay/resume rules, cancel, and idempotency.
 Not source of truth for: the `sidechat.v1` event vocabulary and SSE transport ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)), package roles ([system-map.md](system-map.md)), or the streaming decision record ([ADR 0007](../adr/0007-connection-bound-streaming.md)).
 
-## The one-paragraph model
+## AI SDK 7 replacement service
+
+The pre-alpha replacement under `apps/side-chat-service` deliberately uses a
+different lifecycle while the legacy service remains available for comparison.
+Its target is owned by [`plan/v7/05-turn-workflow-and-stream.md`](../../plan/v7/05-turn-workflow-and-stream.md)
+until cutover: authenticated `POST /api/chat` starts a durable Workflow run and
+returns its AI SDK UI-message stream; authenticated
+`POST /api/chat/:runId/cancel` resumes the run's durable abort hook. Workflow
+stores the live stream, execution journal, and recoverable terminal outcome.
+The route process projects that outcome through application-owned persistence
+ports before closing the response. Temporary Step 05 memory stores
+model conversation ownership, the single-running-turn constraint, accepted user
+messages, and terminal status until Steps 09 and 10 replace them with database
+adapters. The legacy connection-bound lifecycle below remains authoritative
+only for `apps/partner-ai-service` during this transition.
+
+## Legacy service model
 
 A turn is **server-owned and connection-bound** (ADR 0007). The browser starts
 it; generation runs on a background fiber that outlives any socket. In-flight

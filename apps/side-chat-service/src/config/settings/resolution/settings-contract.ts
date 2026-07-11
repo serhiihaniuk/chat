@@ -1,0 +1,41 @@
+import type { AuthSettings, ModelSettings } from "../deployment-settings.js";
+import type { SettingsIssue } from "../setting-readers.js";
+import type { TELEMETRY_MODES } from "../../declaration/side-chat-config.js";
+
+export type SettingsResult =
+  | { readonly ok: true; readonly settings: Settings }
+  | { readonly ok: false; readonly issues: readonly SettingsIssue[] };
+
+export type Settings = Readonly<{
+  models: ModelSettings;
+  auth: AuthSettings;
+  timeouts: Readonly<{
+    requestMs: number;
+    queueMs: number;
+    providerMs: number;
+  }>;
+  agent: Readonly<{
+    instructions: string;
+    maxSteps: number;
+    totalTokenBudget: number;
+    chunkTokenBudget: number;
+    toolTokenBudget: number;
+  }>;
+  capacity: Readonly<{ activeGenerations: number }>;
+  keepalive: Readonly<{ intervalMs: number; proxyIdleBudgetMs: number }>;
+  telemetry:
+    | Readonly<{ mode: typeof TELEMETRY_MODES.OFF }>
+    | Readonly<{ mode: typeof TELEMETRY_MODES.CONSOLE }>
+    | Readonly<{
+        mode: typeof TELEMETRY_MODES.OTLP;
+        endpoint: string;
+        serviceName: string;
+      }>;
+  workflow: Readonly<{
+    workerConcurrency: number;
+    concurrencyHeadroom: number;
+    journalArchiveAfterDays: number;
+    journalPruneAfterDays: number;
+    postgresUrl?: string | undefined;
+  }>;
+}>;

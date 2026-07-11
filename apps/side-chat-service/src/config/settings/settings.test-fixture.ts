@@ -1,4 +1,10 @@
-import { defineSideChatConfig, type SideChatConfig } from "../declaration/side-chat-config.js";
+import {
+  AUTH_PROFILES,
+  defineSideChatConfig,
+  TELEMETRY_MODES,
+  type SideChatConfig,
+} from "../declaration/side-chat-config.js";
+import { SCRIPTED_PROVIDER } from "../providers/scripted-provider-config.js";
 
 type ConfigOverrides = Omit<
   Partial<{
@@ -12,14 +18,18 @@ type ConfigOverrides = Omit<
 
 export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatConfig {
   const defaults: SideChatConfig = {
-    models: { provider: "scripted", modelId: "complete" },
+    models: {
+      provider: SCRIPTED_PROVIDER.KIND,
+      modelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+    },
     auth: {
-      profile: "development",
+      profile: AUTH_PROFILES.DEVELOPMENT,
       bearerToken: "local-test-token",
       workspaceId: "local-workspace",
     },
     timeouts: { requestMs: 60_000, queueMs: 5_000, providerMs: 45_000 },
     agent: {
+      instructions: "You are a concise Side Chat assistant.",
       maxSteps: 8,
       totalTokenBudget: 16_000,
       chunkTokenBudget: 4_000,
@@ -27,7 +37,7 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     },
     capacity: { activeGenerations: 8 },
     keepalive: { intervalMs: 15_000, proxyIdleBudgetMs: 60_000 },
-    telemetry: { mode: "off" },
+    telemetry: { mode: TELEMETRY_MODES.OFF },
     workflow: {
       workerConcurrency: 10,
       concurrencyHeadroom: 2,

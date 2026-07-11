@@ -1,15 +1,12 @@
 import { registerTelemetry, type Telemetry } from "ai";
 
-import type { TelemetrySink } from "#application/ports/telemetry-sink";
+import { PRIVATE_TELEMETRY_OPTIONS, type TelemetrySink } from "#application/ports/telemetry-sink";
 
 export class TelemetryRegistrationError extends Error {
   readonly code = "telemetry_already_registered";
 }
 
-export const PRIVATE_TELEMETRY_OPTIONS = {
-  recordInputs: false,
-  recordOutputs: false,
-} as const;
+export { PRIVATE_TELEMETRY_OPTIONS };
 
 export function registerServiceTelemetry(
   sink: TelemetrySink,

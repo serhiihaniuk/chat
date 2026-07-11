@@ -1,6 +1,21 @@
-import { initializeWorkflowServices, type WorkflowServices } from "#workflows/registry";
+import { serviceProcessEnv } from "#config/environment/process-environment";
+import {
+  initializeWorkflowServices,
+  workflowServices,
+  workflowServicesAreInitialized,
+  type WorkflowServices,
+} from "#workflows/registry";
 
-/** Production workflow bundles initialize their application ports explicitly. */
-export function initializeProductionWorkflowServices(services: WorkflowServices): void {
-  initializeWorkflowServices(services);
+import { createProductionModelProvider } from "../providers/production-model-provider.js";
+import { resolveServiceSettings } from "../settings/resolve-service-settings.js";
+
+/** Resolve production dependencies inside the workflow bundle's module realm. */
+export function initializeProductionWorkflowServices(): WorkflowServices {
+  if (!workflowServicesAreInitialized()) {
+    const settings = resolveServiceSettings(serviceProcessEnv());
+    initializeWorkflowServices({
+      modelProvider: createProductionModelProvider(settings),
+    });
+  }
+  return workflowServices();
 }

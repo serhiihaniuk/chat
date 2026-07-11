@@ -12,7 +12,7 @@ Depends on: Step 04. Unblocks: Steps 06, 07, 08, 09, 17.
 
 ## Outcome
 
-A user message becomes a durable streamed assistant turn: route → policy → `WorkflowAgent` → UI message stream v1 → client. Exactly one terminal part appears in every scenario this step owns.
+A user message becomes a streamed assistant turn with a durable Workflow journal outcome: route → policy → `WorkflowAgent` → UI message stream v1 → client. Exactly one terminal part appears in every scenario this step owns. Until Step 09, accepted messages and the query projection use the explicitly disposable in-memory adapter; the Workflow run return value is the recoverable terminal source of truth.
 
 ## Old-app behavior reference (read, do not port)
 
@@ -38,8 +38,8 @@ A user message becomes a durable streamed assistant turn: route → policy → `
 - `model` via `assertModelInstance`; `tools`: server tools now, Steps 11/12 add more;
 - `stopWhen: isStepCount(settings.agent.stopWhenSteps)`; `maxRetries: 0`; the explicit turn timeout and signal-based cancellation via the durable abort hook proven in Step 02 (the realm patch module must be loaded in the workflow bundle before `agent.stream`);
 - `writable: getWritable<ModelCallStreamPart>()`;
-- `onEnd`: persist assistant message + terminal status + usage via Step 09's idempotent persist;
-- a workflow-level catch that persists a failed terminal with a safe code — **no run may end without durable turn status**.
+- the workflow resolves exactly one JSON-safe terminal outcome containing assistant text, usage, cancellation, or a safe failure code;
+- the application projects that durable outcome idempotently through the Step 09 ports and releases admission only after projection. Step 05 uses the temporary in-memory adapter and records this stand-in explicitly.
 
 ### Stream response
 
@@ -74,16 +74,16 @@ The `rg` must return zero.
 
 ## Completion checklist
 
-- [ ] POST + cancel routes with the load-bearing order; WorkflowAgent construction.
-- [ ] All 8 edge cases tested with mock providers.
-- [ ] Admission seam + outbound-transform seam named and typed.
-- [ ] `onEnd`/catch guarantee: no run without durable terminal status.
-- [ ] Old app untouched.
+- [x] POST + cancel routes with the load-bearing order; WorkflowAgent construction.
+- [x] All 8 edge cases tested with mock providers, plus a durable provider-timeout case.
+- [x] Admission seam + outbound-transform seam named and typed.
+- [x] Workflow outcome guarantee: every run resolves one journaled terminal result; the application projects it idempotently before releasing admission.
+- [x] Old app untouched.
 
 ## Handoff record
 
-Final routes and modules: pending
+Final routes and modules: `adapters/http/chat/chat-routes.ts`; `application/turn/execution/{prepare-turn,run-turn}.ts`; `application/turn/finalization/finalize-turn.ts`; `composition/turn/workflow-turn-execution.ts`; `workflows/production/chat-turn.ts`.
 
-Cancel-before-first-chunk invariant evidence: pending
+Cancel-before-first-chunk invariant evidence: compiled compatibility suite observes provider abort, exactly one attempt, no late content, no empty assistant message, and admission release.
 
-Stand-ins used for Step 09 interfaces (if any): pending
+Stand-ins used for Step 09 interfaces (if any): `adapters/persistence/in-memory-turn-state.ts` implements the application-owned conversation, message, and turn ports. The Workflow journaled return value remains the recoverable terminal source; Step 09 replaces only the projection adapter.

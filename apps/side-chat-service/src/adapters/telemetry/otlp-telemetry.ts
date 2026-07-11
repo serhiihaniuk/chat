@@ -21,7 +21,9 @@ export async function createOtlpTelemetry(options: {
     import("@opentelemetry/sdk-trace-node"),
     import("@opentelemetry/semantic-conventions"),
   ]);
-  const exporter = new exporterModule.OTLPTraceExporter({ url: options.endpoint });
+  const exporter = new exporterModule.OTLPTraceExporter({
+    url: options.endpoint,
+  });
   const provider = new tracing.NodeTracerProvider({
     resource: resources.resourceFromAttributes({
       [conventions.ATTR_SERVICE_NAME]: options.serviceName,
