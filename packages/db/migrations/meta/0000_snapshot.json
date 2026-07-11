@@ -1,5 +1,5 @@
 {
-  "id": "c3a7297a-a0ee-4c2f-831a-3d81f35da11e",
+  "id": "0adc31e4-71c7-47ab-99b3-89b31190a131",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -177,6 +177,22 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assistant_turns_run_uq": {
+          "name": "assistant_turns_run_uq",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "run_id is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -383,6 +399,117 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "sidechat.client_tool_dispatches": {
+      "name": "client_tool_dispatches",
+      "schema": "sidechat",
+      "columns": {
+        "client_tool_dispatch_id": {
+          "name": "client_tool_dispatch_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "assistant_turn_id": {
+          "name": "assistant_turn_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tool_call_id": {
+          "name": "tool_call_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tool_name": {
+          "name": "tool_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "output_json": {
+          "name": "output_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dispatched_at": {
+          "name": "dispatched_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "late_result_at": {
+          "name": "late_result_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "client_tool_dispatches_turn_call_uq": {
+          "name": "client_tool_dispatches_turn_call_uq",
+          "columns": [
+            {
+              "expression": "assistant_turn_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tool_call_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "client_tool_dispatches_assistant_turn_id_assistant_turns_assistant_turn_id_fk": {
+          "name": "client_tool_dispatches_assistant_turn_id_assistant_turns_assistant_turn_id_fk",
+          "tableFrom": "client_tool_dispatches",
+          "tableTo": "assistant_turns",
+          "schemaTo": "sidechat",
+          "columnsFrom": ["assistant_turn_id"],
+          "columnsTo": ["assistant_turn_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "client_tool_dispatches_state_check": {
+          "name": "client_tool_dispatches_state_check",
+          "value": "state in ('dispatched', 'settled', 'failed', 'timed_out', 'late', 'aborted')"
+        }
+      },
       "isRLSEnabled": false
     },
     "sidechat.conversations": {

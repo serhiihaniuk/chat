@@ -2,12 +2,22 @@ import type { Settings } from "./settings-contract.js";
 import type { SettingsIssue } from "../setting-readers.js";
 
 /** Apply relationships that cannot be validated while decoding one field. */
-export function validateSettingsPolicy(settings: Settings, issues: SettingsIssue[]): void {
+export function validateSettingsPolicy(
+  settings: Settings,
+  issues: SettingsIssue[],
+): void {
   addLessThanIssue(
     settings.timeouts.queueMs,
     settings.timeouts.requestMs,
     "timeouts.queueMs",
     "request timeout",
+    issues,
+  );
+  addLessThanIssue(
+    settings.timeouts.clientToolMs,
+    settings.timeouts.providerMs,
+    "timeouts.clientToolMs",
+    "provider timeout",
     issues,
   );
   addLessThanIssue(
@@ -36,20 +46,27 @@ export function validateSettingsPolicy(settings: Settings, issues: SettingsIssue
   validateMaintenanceDatabase(settings, issues);
 }
 
-function validateMaintenanceDatabase(settings: Settings, issues: SettingsIssue[]): void {
+function validateMaintenanceDatabase(
+  settings: Settings,
+  issues: SettingsIssue[],
+): void {
   const productUrl = settings.persistence.databaseUrl;
   const workflowUrl = settings.workflow.postgresUrl;
   if (productUrl === undefined || workflowUrl === undefined) return;
   const productDatabase = identifyPostgresDatabase(productUrl);
   const workflowDatabase = identifyPostgresDatabase(workflowUrl);
-  if (productDatabase !== undefined && productDatabase === workflowDatabase) return;
+  if (productDatabase !== undefined && productDatabase === workflowDatabase)
+    return;
   issues.push({
     path: "workflow.postgresUrl",
-    message: "must use the product Postgres database for legal-hold-safe journal pruning",
+    message:
+      "must use the product Postgres database for legal-hold-safe journal pruning",
   });
 }
 
-function identifyPostgresDatabase(connectionString: string): string | undefined {
+function identifyPostgresDatabase(
+  connectionString: string,
+): string | undefined {
   try {
     const url = new URL(connectionString);
     return `${url.protocol}//${url.hostname.toLowerCase()}:${url.port || "5432"}${url.pathname}`;
@@ -58,7 +75,10 @@ function identifyPostgresDatabase(connectionString: string): string | undefined 
   }
 }
 
-function validateWorkerConcurrency(settings: Settings, issues: SettingsIssue[]): void {
+function validateWorkerConcurrency(
+  settings: Settings,
+  issues: SettingsIssue[],
+): void {
   const requiredConcurrency =
     settings.capacity.activeGenerations + settings.workflow.concurrencyHeadroom;
   if (settings.workflow.workerConcurrency >= requiredConcurrency) return;

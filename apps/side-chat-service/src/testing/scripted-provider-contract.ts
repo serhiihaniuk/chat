@@ -7,18 +7,26 @@ export const PROVIDER_SCRIPT_MODE = {
   EMPTY: "empty",
   STEP_LIMIT: "step-limit",
   REASONING_ONLY: "reasoning-only",
+  CLIENT_TOOL: "client-tool",
   CANCEL_BEFORE_FIRST: "cancel-before-first",
   CANCEL_MID: "cancel-mid",
   ERROR_BEFORE: "error-before",
   ERROR_MID: "error-mid",
 } as const;
 
-export type ProviderScriptMode = (typeof PROVIDER_SCRIPT_MODE)[keyof typeof PROVIDER_SCRIPT_MODE];
+export type ProviderScriptMode =
+  (typeof PROVIDER_SCRIPT_MODE)[keyof typeof PROVIDER_SCRIPT_MODE];
 
-const PROVIDER_SCRIPT_MODES = new Set<string>(Object.values(PROVIDER_SCRIPT_MODE));
+const PROVIDER_SCRIPT_MODES = new Set<string>(
+  Object.values(PROVIDER_SCRIPT_MODE),
+);
 
 export const LATE_CONTENT_MARKER = "late-content-after-abort";
+export const CLIENT_TOOL_PRIVATE_RESULT_MARKER =
+  "private-result-must-not-enter-stream";
 
-export function isProviderScriptMode(value: string): value is ProviderScriptMode {
+export function isProviderScriptMode(
+  value: string,
+): value is ProviderScriptMode {
   return PROVIDER_SCRIPT_MODES.has(value);
 }

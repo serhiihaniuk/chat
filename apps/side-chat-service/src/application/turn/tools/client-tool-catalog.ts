@@ -1,3 +1,12 @@
+export const CLIENT_TOOL_CATALOG_LIMITS = Object.freeze({
+  MAX_TOOLS: 16,
+  MAX_NAME_LENGTH: 64,
+  MAX_DESCRIPTION_LENGTH: 1_024,
+  MAX_SCHEMA_BYTES: 16_384,
+  MAX_SCHEMA_DEPTH: 16,
+  MAX_SCHEMA_NODES: 256,
+} as const);
+
 export type ClientToolDefinition = Readonly<{
   name: string;
   description: string;

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 
 import { assistantTurns, turnContextSnapshots } from "#drizzle/schema";
 import type { RequestId, WorkspaceId } from "#schema-contract";
@@ -24,12 +24,19 @@ import { one, optional, result } from "../../repository-utils.js";
 type TurnDb = PostgresDrizzleRepositoryContext["db"];
 
 /** Read one turn by its client request id, workspace-scoped. */
-const selectTurnByRequest = (db: TurnDb, workspaceId: WorkspaceId, requestId: RequestId) =>
+const selectTurnByRequest = (
+  db: TurnDb,
+  workspaceId: WorkspaceId,
+  requestId: RequestId,
+) =>
   db
     .select()
     .from(assistantTurns)
     .where(
-      and(eq(assistantTurns.workspaceId, workspaceId), eq(assistantTurns.requestId, requestId)),
+      and(
+        eq(assistantTurns.workspaceId, workspaceId),
+        eq(assistantTurns.requestId, requestId),
+      ),
     )
     .limit(1);
 
@@ -63,8 +70,13 @@ export const createPostgresDrizzleTurnRepository = ({
       command.conversationId,
     );
 
-    const priorByRequest = await selectTurnByRequest(db, command.workspaceId, command.requestId);
-    if (priorByRequest[0]) return result(toAssistantTurnRecord(priorByRequest[0]), false);
+    const priorByRequest = await selectTurnByRequest(
+      db,
+      command.workspaceId,
+      command.requestId,
+    );
+    if (priorByRequest[0])
+      return result(toAssistantTurnRecord(priorByRequest[0]), false);
 
     try {
       const rows = await db
@@ -88,7 +100,11 @@ export const createPostgresDrizzleTurnRepository = ({
         .returning();
       return result(
         toAssistantTurnRecord(
-          one(rows, "record_not_found", "Assistant turn insert returned no row."),
+          one(
+            rows,
+            "record_not_found",
+            "Assistant turn insert returned no row.",
+          ),
         ),
         true,
       );
@@ -97,7 +113,11 @@ export const createPostgresDrizzleTurnRepository = ({
       // A concurrent insert with the same request id won the race between our
       // SELECT and INSERT: converge on the stored row, no insert of ours.
       if (constraint === "assistant_turns_workspace_request_uq") {
-        const raced = await selectTurnByRequest(db, command.workspaceId, command.requestId);
+        const raced = await selectTurnByRequest(
+          db,
+          command.workspaceId,
+          command.requestId,
+        );
         return result(
           toAssistantTurnRecord(
             one(
@@ -119,8 +139,8 @@ export const createPostgresDrizzleTurnRepository = ({
       throw error;
     }
   },
-  // Bind the durable Workflow run id once the run has started. Idempotent: the CAS
-  // matches the turn in its workspace and re-sets the same run id on a replay.
+  // Bind the durable Workflow run id once the run has started. A replay may set
+  // the same id again, but a different id cannot steal an existing binding.
   bindTurnRun: async (command) => {
     const rows = await db
       .update(assistantTurns)
@@ -129,11 +149,34 @@ export const createPostgresDrizzleTurnRepository = ({
         and(
           eq(assistantTurns.workspaceId, command.workspaceId),
           eq(assistantTurns.assistantTurnId, command.assistantTurnId),
+          or(
+            isNull(assistantTurns.runId),
+            eq(assistantTurns.runId, command.runId),
+          ),
         ),
       )
       .returning();
-    return toAssistantTurnRecord(
-      one(rows, "record_not_found", "Assistant turn does not exist in the requested workspace."),
+    if (rows[0]) return toAssistantTurnRecord(rows[0]);
+
+    const current = await db
+      .select()
+      .from(assistantTurns)
+      .where(
+        and(
+          eq(assistantTurns.workspaceId, command.workspaceId),
+          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
+        ),
+      )
+      .limit(1);
+    if (current[0]) {
+      throw new DbRepositoryError(
+        "invalid_transition",
+        "An assistant turn cannot be rebound to a different Workflow run.",
+      );
+    }
+    throw new DbRepositoryError(
+      "record_not_found",
+      "Assistant turn does not exist in the requested workspace.",
     );
   },
   // The one guarded terminal transition: a single `UPDATE ... WHERE status =
@@ -164,7 +207,8 @@ export const createPostgresDrizzleTurnRepository = ({
         ),
       )
       .returning();
-    if (claimed[0]) return { record: toAssistantTurnRecord(claimed[0]), claimed: true };
+    if (claimed[0])
+      return { record: toAssistantTurnRecord(claimed[0]), claimed: true };
 
     const current = await db
       .select()

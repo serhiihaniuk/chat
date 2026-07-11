@@ -1,10 +1,14 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { assertProductionBundleExcludesTestingCode } from "./production-bundle-guard.js";
-import { availableLocalPort, localPortAcceptsConnections } from "./local-port.js";
+import {
+  availableLocalPort,
+  localPortAcceptsConnections,
+} from "./local-port.js";
 
 const repoRoot = resolve(import.meta.dirname, "../../../../../..");
 const serviceRoot = resolve(repoRoot, "apps/side-chat-service");
@@ -23,33 +27,65 @@ export type CompiledServiceOptions = Readonly<{
   localDataDirectoryEnvKey: string;
   providerObservationPrefix: string;
   targetWorldEnvKey: string;
+  useConfiguredTargetWorld?: boolean;
+}>;
+
+export type PreparedCompiledService = Readonly<{
+  start: () => Promise<CompiledService>;
+  close: () => Promise<void>;
 }>;
 
 export async function startCompiledService(
   options: CompiledServiceOptions,
 ): Promise<CompiledService> {
+  const prepared = await prepareCompiledService(options);
+  const service = await prepared.start();
+  return {
+    ...service,
+    close: async () => {
+      await service.close();
+      await prepared.close();
+    },
+  };
+}
+
+/** Builds once so a test can prove durable state survives a process boundary. */
+export async function prepareCompiledService(
+  options: CompiledServiceOptions,
+): Promise<PreparedCompiledService> {
   await runCommand(options, "npm", [
     "run",
     "build:testing",
     "--workspace",
     "@side-chat/side-chat-service",
   ]);
+  return {
+    start: () => startPreparedService(options),
+    close: async () => {
+      await restoreProductionBuild(options);
+    },
+  };
+}
+
+async function startPreparedService(
+  options: CompiledServiceOptions,
+): Promise<CompiledService> {
   const port = await availableLocalPort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const workflowDataDir = mkdtempSync(join(tmpdir(), "side-chat-workflow-data-"));
+  const workflowDataDir = mkdtempSync(
+    join(tmpdir(), "side-chat-workflow-data-"),
+  );
   let serviceOutput = "";
   const service = startService(options, port, workflowDataDir, (chunk) => {
     serviceOutput += chunk;
   });
   await waitForReady(service, port, () => serviceOutput);
-
   return {
     baseUrl,
     output: () => serviceOutput,
     close: async () => {
       await stopService(service);
       rmSync(workflowDataDir, { recursive: true, force: true });
-      await restoreProductionBuild(options);
     },
   };
 }
@@ -71,6 +107,7 @@ function startService(
         [options.localBaseUrlEnvKey]: `http://127.0.0.1:${port}`,
       },
       options.targetWorldEnvKey,
+      options.useConfiguredTargetWorld ?? false,
     ),
     shell: false,
     stdio: "pipe",
@@ -103,15 +140,31 @@ async function waitForReady(
 async function stopService(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null) return;
   child.kill("SIGTERM");
-  await new Promise<void>((resolveExit) => {
-    child.once("exit", () => resolveExit());
-    setTimeout(resolveExit, 5_000).unref();
-  });
-  if (child.exitCode === null) child.kill("SIGKILL");
+  try {
+    await once(child, "exit", { signal: AbortSignal.timeout(5_000) });
+    return;
+  } catch {
+    if (child.exitCode !== null) return;
+  }
+
+  child.kill("SIGKILL");
+  try {
+    await once(child, "exit", { signal: AbortSignal.timeout(5_000) });
+  } catch {
+    if (child.exitCode !== null) return;
+    throw new Error("Compiled service did not exit after SIGKILL");
+  }
 }
 
-async function restoreProductionBuild(options: CompiledServiceOptions): Promise<void> {
-  await runCommand(options, "npm", ["run", "build", "--workspace", "@side-chat/side-chat-service"]);
+async function restoreProductionBuild(
+  options: CompiledServiceOptions,
+): Promise<void> {
+  await runCommand(options, "npm", [
+    "run",
+    "build",
+    "--workspace",
+    "@side-chat/side-chat-service",
+  ]);
   assertProductionBundleExcludesTestingCode(
     resolve(serviceRoot, ".output"),
     options.providerObservationPrefix,
@@ -126,7 +179,11 @@ async function runCommand(
   await new Promise<void>((resolveRun, rejectRun) => {
     const child = spawn(resolveCommand(command), resolveArgs(command, args), {
       cwd: repoRoot,
-      env: cleanEnv(options.environment, options.targetWorldEnvKey),
+      env: cleanEnv(
+        options.environment,
+        options.targetWorldEnvKey,
+        options.useConfiguredTargetWorld ?? false,
+      ),
       shell: false,
       stdio: "inherit",
     });
@@ -142,10 +199,15 @@ async function runCommand(
 }
 
 function resolveCommand(command: string): string {
-  return process.platform === "win32" && command === "npm" ? "cmd.exe" : command;
+  return process.platform === "win32" && command === "npm"
+    ? "cmd.exe"
+    : command;
 }
 
-function resolveArgs(command: string, args: ReadonlyArray<string>): ReadonlyArray<string> {
+function resolveArgs(
+  command: string,
+  args: ReadonlyArray<string>,
+): ReadonlyArray<string> {
   return process.platform === "win32" && command === "npm"
     ? ["/d", "/s", "/c", "npm", ...args]
     : args;
@@ -155,11 +217,15 @@ function resolveArgs(command: string, args: ReadonlyArray<string>): ReadonlyArra
 function cleanEnv(
   env: Readonly<Record<string, string | undefined>>,
   targetWorldEnvKey: string,
+  preserveTargetWorld: boolean,
 ): NodeJS.ProcessEnv {
   return Object.fromEntries(
     Object.entries(env).filter(
       ([key, value]) =>
-        key.length > 0 && !key.startsWith("=") && key !== targetWorldEnvKey && value !== undefined,
+        key.length > 0 &&
+        !key.startsWith("=") &&
+        (preserveTargetWorld || key !== targetWorldEnvKey) &&
+        value !== undefined,
     ),
   );
 }

@@ -6,7 +6,10 @@ import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 import { CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
 
-import { createWorkflowTurnExecution, type StartChatTurn } from "./workflow-turn-execution.js";
+import {
+  createWorkflowTurnExecution,
+  type StartChatTurn,
+} from "./workflow-turn-execution.js";
 
 function testSettings() {
   const result = validateSettings(createDefaultConfig());
@@ -15,6 +18,11 @@ function testSettings() {
 }
 
 const TURN_INPUT = {
+  auth: {
+    workspaceId: "workspace-1",
+    subjectId: "subject-1",
+    issuedAt: "2026-01-01T00:00:00.000Z",
+  },
   conversationId: "conversation-1",
   turnId: "turn-1",
   requestId: "request-1",
@@ -42,13 +50,23 @@ describe("createWorkflowTurnExecution", () => {
         stream: new ReadableStream<UIMessageChunk>(),
         terminal: Promise.resolve({
           status: CHAT_TURN_OUTCOMES.COMPLETED,
-          assistantMessage: { id: "turn-1-assistant", role: "assistant", parts: [] },
+          assistantMessage: {
+            id: "turn-1-assistant",
+            role: "assistant",
+            parts: [],
+          },
           finishReason: "stop",
           usage: usage(0, 0),
         }),
       }),
     );
-    const execution = createWorkflowTurnExecution(settings, startTurn);
+    const execution = createWorkflowTurnExecution(
+      {
+        ...settings,
+        persistence: { databaseUrl: "postgres://test" },
+      },
+      startTurn,
+    );
     const clientTools = [
       {
         name: "open_file",
@@ -61,20 +79,51 @@ describe("createWorkflowTurnExecution", () => {
 
     expect(startTurn).toHaveBeenCalledWith(
       expect.objectContaining({
+        workspaceId: TURN_INPUT.auth.workspaceId,
         providerTimeoutMs: settings.timeouts.providerMs,
+        clientToolTimeoutMs: settings.timeouts.clientToolMs,
         clientTools,
       }),
     );
+  });
+
+  it("rejects client tools before workflow start when persistence is unavailable", async () => {
+    const startTurn = vi.fn<StartChatTurn>();
+    const execution = createWorkflowTurnExecution(testSettings(), startTurn);
+
+    await expect(
+      execution.start({
+        ...TURN_INPUT,
+        clientTools: [
+          {
+            name: "open_file",
+            description: "Open a file in the host application.",
+            inputSchema: { type: "object" },
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({
+      code: "client_tools_require_persistence",
+      message: "Client tools require durable persistence",
+    });
+    expect(startTurn).not.toHaveBeenCalled();
   });
 
   it("stamps the terminal finish reason onto the wire finish chunk", async () => {
     const startTurn = vi.fn<StartChatTurn>(() =>
       Promise.resolve({
         runId: "run-1",
-        stream: chunks({ type: "start", messageId: "assistant-1" }, { type: "finish" }),
+        stream: chunks(
+          { type: "start", messageId: "assistant-1" },
+          { type: "finish" },
+        ),
         terminal: Promise.resolve({
           status: CHAT_TURN_OUTCOMES.COMPLETED,
-          assistantMessage: { id: "turn-1-assistant", role: "assistant", parts: [] },
+          assistantMessage: {
+            id: "turn-1-assistant",
+            role: "assistant",
+            parts: [],
+          },
           finishReason: "content-filter",
           usage: usage(1, 0),
         }),
@@ -130,7 +179,9 @@ function chunks(...parts: UIMessageChunk[]): ReadableStream<UIMessageChunk> {
   });
 }
 
-async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageChunk[]> {
+async function readAll(
+  stream: ReadableStream<UIMessageChunk>,
+): Promise<UIMessageChunk[]> {
   const reader = stream.getReader();
   const output: UIMessageChunk[] = [];
   while (true) {

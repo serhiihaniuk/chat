@@ -15,7 +15,10 @@ export type ReplayedChatTurn =
   | Readonly<{ status: "start_index_out_of_range"; tailIndex: number }>;
 
 /** Open one independent durable reader after the HTTP edge proves ownership. */
-export async function replayChatTurn(runId: string, startIndex: number): Promise<ReplayedChatTurn> {
+export async function replayChatTurn(
+  runId: string,
+  startIndex: number,
+): Promise<ReplayedChatTurn> {
   const run = getRun<ChatTurnTerminalOutcome>(runId);
   if (!(await run.exists)) return { status: "not_found" };
   const replay = await openUiReplay(run, startIndex);
@@ -40,7 +43,11 @@ async function openUiReplay(
   run: Run<ChatTurnTerminalOutcome>,
   startIndex: number,
 ): Promise<
-  | Readonly<{ status: "found"; stream: ReadableStream<UIMessageChunk>; tailIndex: number }>
+  | Readonly<{
+      status: "found";
+      stream: ReadableStream<UIMessageChunk>;
+      tailIndex: number;
+    }>
   | Readonly<{ status: "start_index_out_of_range"; tailIndex: number }>
 > {
   const raw = run.getReadable<ModelCallStreamPart>();
@@ -57,7 +64,8 @@ async function openUiReplay(
   }
 
   const tailIndex = prefix.length - 1;
-  const absoluteStart = startIndex < 0 ? Math.max(prefix.length + startIndex, 0) : startIndex;
+  const absoluteStart =
+    startIndex < 0 ? Math.max(prefix.length + startIndex, 0) : startIndex;
   if (absoluteStart > tailIndex + 1) {
     await reader.cancel();
     return { status: "start_index_out_of_range", tailIndex };
@@ -92,7 +100,10 @@ async function readRawToEnd(
   }
 }
 
-function appendUiChunk(output: UIMessageChunk[], raw: ModelCallStreamPart): void {
+function appendUiChunk(
+  output: UIMessageChunk[],
+  raw: ModelCallStreamPart,
+): void {
   const chunk = toUIMessageChunk(raw);
   if (chunk !== undefined) output.push(chunk);
 }
@@ -146,5 +157,7 @@ async function enqueueNextLiveChunk(
 }
 
 function isTerminalRunStatus(status: string): boolean {
-  return status === "completed" || status === "failed" || status === "cancelled";
+  return (
+    status === "completed" || status === "failed" || status === "cancelled"
+  );
 }

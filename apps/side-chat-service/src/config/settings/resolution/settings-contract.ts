@@ -1,6 +1,9 @@
 import type { AuthSettings, ModelSettings } from "../deployment-settings.js";
 import type { SettingsIssue } from "../setting-readers.js";
-import type { TELEMETRY_MODES, WorkflowJournalClass } from "../../declaration/side-chat-config.js";
+import type {
+  TELEMETRY_MODES,
+  WorkflowJournalClass,
+} from "../../declaration/side-chat-config.js";
 
 export type SettingsResult =
   | { readonly ok: true; readonly settings: Settings }
@@ -13,6 +16,7 @@ export type Settings = Readonly<{
     requestMs: number;
     queueMs: number;
     providerMs: number;
+    clientToolMs: number;
     titleMs: number;
   }>;
   agent: Readonly<{

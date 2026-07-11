@@ -42,6 +42,11 @@
       "types": "./src/schema-contract/index.ts",
       "development": "./src/schema-contract/index.ts",
       "default": "./dist/schema-contract/index.js"
+    },
+    "./testing/client-tool-durability-test-support": {
+      "types": "./src/testing/client-tool-durability-test-support.ts",
+      "development": "./src/testing/client-tool-durability-test-support.ts",
+      "default": "./dist/testing/client-tool-durability-test-support.js"
     }
   },
   "scripts": {

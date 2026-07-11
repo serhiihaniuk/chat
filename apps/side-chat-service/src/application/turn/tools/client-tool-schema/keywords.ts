@@ -1,0 +1,90 @@
+export const DRAFT_07_SCHEMA_KEYWORDS = new Set([
+  "$ref",
+  "$comment",
+  "title",
+  "description",
+  "default",
+  "examples",
+  "readOnly",
+  "writeOnly",
+  "type",
+  "enum",
+  "const",
+  "multipleOf",
+  "maximum",
+  "exclusiveMaximum",
+  "minimum",
+  "exclusiveMinimum",
+  "maxLength",
+  "minLength",
+  "pattern",
+  "items",
+  "additionalItems",
+  "maxItems",
+  "minItems",
+  "uniqueItems",
+  "contains",
+  "maxProperties",
+  "minProperties",
+  "required",
+  "properties",
+  "patternProperties",
+  "additionalProperties",
+  "dependencies",
+  "propertyNames",
+  "if",
+  "then",
+  "else",
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "not",
+  "definitions",
+]);
+
+export const SCHEMA_MAP_KEYWORDS = new Set([
+  "properties",
+  "patternProperties",
+  "definitions",
+  "dependencies",
+]);
+export const SCHEMA_ARRAY_KEYWORDS = new Set(["allOf", "anyOf", "oneOf"]);
+export const SINGLE_SCHEMA_KEYWORDS = new Set([
+  "additionalItems",
+  "additionalProperties",
+  "propertyNames",
+  "if",
+  "then",
+  "else",
+  "not",
+  "contains",
+]);
+export const STRING_KEYWORDS = new Set(["$comment", "title", "description"]);
+export const BOOLEAN_KEYWORDS = new Set([
+  "readOnly",
+  "writeOnly",
+  "uniqueItems",
+]);
+export const FINITE_NUMBER_KEYWORDS = new Set([
+  "maximum",
+  "exclusiveMaximum",
+  "minimum",
+  "exclusiveMinimum",
+]);
+export const COUNT_KEYWORDS = new Set([
+  "maxLength",
+  "minLength",
+  "maxItems",
+  "minItems",
+  "maxProperties",
+  "minProperties",
+]);
+export const JSON_SCHEMA_TYPES = new Set([
+  "null",
+  "boolean",
+  "object",
+  "array",
+  "number",
+  "string",
+  "integer",
+]);

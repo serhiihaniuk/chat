@@ -8,7 +8,13 @@ import { createDefaultConfig } from "./settings.test-fixture.js";
 describe("service settings", () => {
   it("accumulates cross-field failures", () => {
     const config = createDefaultConfig({
-      timeouts: { requestMs: 1_000, queueMs: 1_000, providerMs: 500, titleMs: 250 },
+      timeouts: {
+        requestMs: 1_000,
+        queueMs: 1_000,
+        providerMs: 500,
+        clientToolMs: 500,
+        titleMs: 250,
+      },
       agent: {
         maxSteps: 8,
         totalTokenBudget: 100,
@@ -24,6 +30,7 @@ describe("service settings", () => {
     expect(result.issues.map((issue) => issue.path)).toEqual(
       expect.arrayContaining([
         "timeouts.queueMs",
+        "timeouts.clientToolMs",
         "agent.chunkTokenBudget",
         "agent.toolTokenBudget",
       ]),
@@ -69,15 +76,20 @@ describe("service settings", () => {
     if (result.ok) return;
     expect(result.issues).toContainEqual({
       path: "workflow.postgresUrl",
-      message: "must use the product Postgres database for legal-hold-safe journal pruning",
+      message:
+        "must use the product Postgres database for legal-hold-safe journal pruning",
     });
   });
 
   it("allows separate least-privilege principals for the same database", () => {
     const result = resolveTestSettings(
       createDefaultConfig({
-        persistence: { databaseUrl: "postgres://product:secret@db.internal/sidechat" },
-        workflow: { postgresUrl: "postgres://workflow:other@db.internal/sidechat" },
+        persistence: {
+          databaseUrl: "postgres://product:secret@db.internal/sidechat",
+        },
+        workflow: {
+          postgresUrl: "postgres://workflow:other@db.internal/sidechat",
+        },
       }),
     );
 

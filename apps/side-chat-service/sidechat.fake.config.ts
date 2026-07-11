@@ -18,7 +18,13 @@ const config: SideChatConfig = defineSideChatConfig({
     bearerToken: "local-test-token",
     workspaceId: "local-workspace",
   },
-  timeouts: { requestMs: 10_000, queueMs: 1_000, providerMs: 2_000, titleMs: 1_000 },
+  timeouts: {
+    requestMs: 10_000,
+    queueMs: 1_000,
+    providerMs: 2_000,
+    clientToolMs: 1_000,
+    titleMs: 1_000,
+  },
   agent: {
     instructions: "You are the deterministic Side Chat test assistant.",
     maxSteps: 4,

@@ -17,7 +17,9 @@ type ConfigOverrides = Omit<
   readonly telemetry?: SideChatConfig["telemetry"];
 };
 
-export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatConfig {
+export function createDefaultConfig(
+  overrides: ConfigOverrides = {},
+): SideChatConfig {
   const defaults: SideChatConfig = {
     models: {
       provider: SCRIPTED_PROVIDER.KIND,
@@ -29,7 +31,13 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
       bearerToken: "local-test-token",
       workspaceId: "local-workspace",
     },
-    timeouts: { requestMs: 60_000, queueMs: 5_000, providerMs: 45_000, titleMs: 10_000 },
+    timeouts: {
+      requestMs: 60_000,
+      queueMs: 5_000,
+      providerMs: 45_000,
+      clientToolMs: 30_000,
+      titleMs: 10_000,
+    },
     agent: {
       instructions: "You are a concise Side Chat assistant.",
       maxSteps: 8,

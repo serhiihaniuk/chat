@@ -1,7 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, posix } from "node:path";
 
-import { failIfErrors, importSpecifiers, listSourceFiles, resolveRoot } from "./lib/governance.mjs";
+import {
+  failIfErrors,
+  importSpecifiers,
+  listSourceFiles,
+  resolveRoot,
+} from "./lib/governance.mjs";
 
 const root = resolveRoot();
 const sourceRoot = "apps/side-chat-service/src/";
@@ -65,12 +70,16 @@ function checkLayerImports(file, layer, imports) {
   if (!rule) return;
 
   for (const specifier of imports) {
-    if (rule.violates(file, specifier)) report(file, `${rule.message} ${specifier}`);
+    if (rule.violates(file, specifier))
+      report(file, `${rule.message} ${specifier}`);
   }
 }
 
 function checkPhysicalWorkflowBoundary(file, layer, source, imports) {
-  if (layer !== "workflows" && /^\s*["']use (?:workflow|step)["'];/mu.test(source)) {
+  if (
+    layer !== "workflows" &&
+    /^\s*["']use (?:workflow|step)["'];/mu.test(source)
+  ) {
     report(file, `Workflow directive must live under ${sourceRoot}workflows/`);
   }
 
@@ -92,7 +101,9 @@ function checkPhysicalWorkflowBoundary(file, layer, source, imports) {
 
 function checkEnvironmentKeyLiterals(file, source) {
   if (file === configDeclaration || file.endsWith(".test.ts")) return;
-  for (const match of source.matchAll(/["']((?:SIDECHAT|WORKFLOW)_[A-Z0-9_]+)["']/gu)) {
+  for (const match of source.matchAll(
+    /["']((?:SIDECHAT|WORKFLOW)_[A-Z0-9_]+)["']/gu,
+  )) {
     report(file, `environment key ${match[1]} must use SERVICE_ENV_KEYS`);
   }
 }
@@ -108,7 +119,10 @@ function checkProductionGraph() {
     visited.add(file);
 
     if (file !== productionEntry && isTestingOnlyProductionDependency(file)) {
-      report(productionEntry, `production import graph reaches testing dependency ${file}`);
+      report(
+        productionEntry,
+        `production import graph reaches testing dependency ${file}`,
+      );
     }
 
     for (const specifier of importSpecifiers(readSource(file))) {
@@ -141,11 +155,15 @@ function resolveServiceImport(importer, specifier) {
 
   for (const [prefix, target] of Object.entries(aliases)) {
     if (specifier.startsWith(prefix)) {
-      return resolveTypeScriptFile(`${target}${specifier.slice(prefix.length)}`);
+      return resolveTypeScriptFile(
+        `${target}${specifier.slice(prefix.length)}`,
+      );
     }
   }
   if (!specifier.startsWith(".")) return undefined;
-  return resolveTypeScriptFile(posix.normalize(posix.join(posix.dirname(importer), specifier)));
+  return resolveTypeScriptFile(
+    posix.normalize(posix.join(posix.dirname(importer), specifier)),
+  );
 }
 
 function resolveTypeScriptFile(path) {
@@ -189,7 +207,9 @@ function isConfigImport(file, specifier) {
 }
 
 function resolveRelativeTypeScriptPath(file, specifier) {
-  return posix.normalize(posix.join(posix.dirname(file), specifier)).replace(/\.(?:m?js)$/u, ".ts");
+  return posix
+    .normalize(posix.join(posix.dirname(file), specifier))
+    .replace(/\.(?:m?js)$/u, ".ts");
 }
 
 function isAdapterBoundaryViolation(specifier) {
@@ -203,7 +223,16 @@ function isAdapterBoundaryViolation(specifier) {
 
 function isWorkflowBoundaryViolation(file, specifier) {
   if (
-    file === `${sourceRoot}workflows/production/conversation-title/persist-conversation-title.ts` &&
+    file === `${sourceRoot}workflows/production/client-tool-dispatch.ts` &&
+    specifier === "#composition/workflow/client-tool-store"
+  ) {
+    // This exact import is a Node-only store factory called directly inside
+    // one `use step` activity; widening it would leak adapters into workflows.
+    return false;
+  }
+  if (
+    file ===
+      `${sourceRoot}workflows/production/conversation-title/persist-conversation-title.ts` &&
     specifier === "#adapters/persistence/postgres-turn-state"
   ) {
     return false;
@@ -217,7 +246,11 @@ function isWorkflowBoundaryViolation(file, specifier) {
   if (specifier === "#composition/workflow/testing") {
     return !file.startsWith(`${sourceRoot}workflows/testing/`);
   }
-  if (specifier === "ai" || specifier === "workflow" || specifier.startsWith("workflow/")) {
+  if (
+    specifier === "ai" ||
+    specifier === "workflow" ||
+    specifier.startsWith("workflow/")
+  ) {
     return false;
   }
   if (specifier === "@ai-sdk/workflow") return false;
@@ -225,7 +258,9 @@ function isWorkflowBoundaryViolation(file, specifier) {
 }
 
 function isTestingBoundaryViolation(specifier) {
-  return specifier.startsWith("#adapters/") || specifier.startsWith("#composition/");
+  return (
+    specifier.startsWith("#adapters/") || specifier.startsWith("#composition/")
+  );
 }
 
 function readSource(file) {

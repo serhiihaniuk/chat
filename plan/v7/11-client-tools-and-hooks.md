@@ -36,9 +36,11 @@ Each client tool's `execute`:
 
 **Result-before-hook race**: the browser can POST after seeing the tool part but before hook creation. The durable row + check-before-wait covers it. Verify and record the pinned `resumeHook` unknown-token behavior; regardless, the endpoint persists the result first, and a missing hook cannot lose it.
 
+The pinned agent emits the tool-input part before `execute` persists the row. An authenticated result for an owned run therefore receives a retryable `409` until that exact dispatch exists. After a process restart, the durable result is committed first and the same retryable response continues until Workflow has restored the hook and accepted the wake-up; duplicate submissions reuse the recorded outcome. An unknown or foreign run remains a hidden `404`. The host bridge retries the `409` in Step 15.
+
 ### Result endpoint
 
-`POST /api/chat/:runId/tools/:toolCallId/output` (any instance): auth/tenancy → dispatch row exists for exactly this run→turn + toolCallId in the caller's tenant (a guessed id cannot settle a foreign call) → already settled? return recorded outcome (idempotent) → persist result, then `resumeHook(token, output)` → never log payload content.
+`POST /api/chat/:runId/tools/:toolCallId/output` (any instance): auth/tenancy → dispatch row exists for exactly this run→turn + toolCallId in the caller's tenant (a guessed id cannot settle a foreign call) → already settled? reuse the recorded outcome (idempotent) → persist result, then `resumeHook(token, output)` → acknowledge only after the wake-up is accepted; otherwise return retryable `409` while preserving the committed result → never log payload content.
 
 ### No-connected-client policy
 
@@ -71,24 +73,28 @@ The `rg` documents remaining old naming in `host-bridge` (renamed in Steps 15/20
 
 ## Completion checklist
 
-- [ ] Catalog → dynamic tools with collision check and JSON-Schema validation.
-- [ ] Wait + result endpoint with the dispatch-row contract; all 10 edge cases.
-- [ ] Exactly-once settle proven under duplicate/late/racing results; cross-instance + restart survival.
-- [ ] Payload-privacy sentinels pass.
-- [ ] Old resolver/dispatcher untouched (deleted in Step 20).
+- [x] Catalog → dynamic tools with collision check and pinned draft-07 JSON-Schema admission.
+- [x] Wait + result endpoint with the dispatch-row contract; edge cases split across focused, database, and compiled tests.
+- [x] Exactly-once settle proven under duplicate/late/racing results; cross-instance + restart survival.
+- [x] Payload-privacy sentinels pass.
+- [x] Old resolver/dispatcher untouched (deleted in Step 20).
 
 ## Handoff record
 
-Catalog transport slice: `application/turn/tools/client-tool-catalog.ts` owns the
-serializable definition and duplicate/server-shadowing policy, while the HTTP
-boundary proves names, descriptions, and JSON-safe schema transport. The current
-server-tool catalog is empty, so live server-shadow admission and the AI SDK
-`dynamicTool`/Ajv execution path remain part of this step's hook/wait slice. The
-incomplete path is intentionally not wired into `WorkflowAgent` and no direct
-tool-execute unit test is presented as schema-validation proof.
+Catalog and execution: `application/turn/tools/client-tool-catalog.ts` owns the
+bounded serializable definition plus duplicate/server-shadowing and pinned
+draft-07 admission policy. The current server-tool catalog is empty, so the
+live shadow check has no server names yet. `workflows/client-tools` maps admitted
+definitions to AI SDK `dynamicTool` values, wires them into `WorkflowAgent`, and
+uses the pinned Workflow Ajv reconstruction to validate each model-produced
+input against the host schema. Admission allows at most 16 tools, 64-character
+identifiers, 1,024-character descriptions, and schemas bounded to 16 KiB,
+16 levels, and 256 nodes; malformed keyword values and unsafe regex shapes are
+rejected before a durable run starts. Client-tool requests also require durable
+product persistence at admission time.
 
-Endpoints, dispatch-row states: pending
+Endpoints, dispatch-row states: authenticated `POST /api/chat/:runId/tools/:toolCallId/output`; `dispatched → settled|failed|timed_out|aborted`, with `timed_out → late` preserving the model's timeout output.
 
-resumeHook unknown-token handling applied: pending
+resumeHook unknown-token handling applied: persist first; catch only pinned `HookNotFoundError`; the workflow rereads after hook registration, while a retryable `409` makes duplicate POSTs repeat the wake-up until restored Workflow registration becomes visible.
 
-Policies applied (no-client, timeout, late-result): pending
+Policies applied (no-client, timeout, late-result): durable wait with `timeouts.clientToolMs`; replay restores native `dynamic-tool` identity; cancellation claims `aborted`; private output is persisted for the model but removed from acknowledgements, diagnostics, and outbound replay.

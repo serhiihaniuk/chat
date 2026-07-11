@@ -25,18 +25,71 @@ describe("outbound scrub filter", () => {
     expect(JSON.stringify(out)).not.toContain(sentinel);
   });
 
+  it("removes private dynamic client-tool output while preserving settled state", async () => {
+    const sentinel = "PRIVATE_CLIENT_TOOL_OUTPUT_SENTINEL";
+    const out = await scrub([
+      {
+        type: "tool-output-available",
+        toolCallId: "call-1",
+        output: { content: sentinel },
+        dynamic: true,
+      },
+    ]);
+
+    expect(out).toEqual([
+      {
+        type: "tool-output-available",
+        toolCallId: "call-1",
+        output: { status: "settled" },
+        dynamic: true,
+      },
+    ]);
+    expect(JSON.stringify(out)).not.toContain(sentinel);
+  });
+
+  it("replaces dynamic client-tool failure details with a safe code", async () => {
+    const sentinel = "INTERNAL_CLIENT_TOOL_FAILURE_SENTINEL";
+    const out = await scrub([
+      {
+        type: "tool-output-error",
+        toolCallId: "call-1",
+        errorText: sentinel,
+        dynamic: true,
+      },
+    ]);
+
+    expect(out).toEqual([
+      {
+        type: "tool-output-error",
+        toolCallId: "call-1",
+        errorText: "provider_failed",
+        dynamic: true,
+      },
+    ]);
+    expect(JSON.stringify(out)).not.toContain(sentinel);
+  });
+
   it("forwards a native content-filter finish reason untouched", async () => {
-    const out = await scrub([{ type: "finish", finishReason: "content-filter" }]);
+    const out = await scrub([
+      { type: "finish", finishReason: "content-filter" },
+    ]);
     expect(out).toEqual([{ type: "finish", finishReason: "content-filter" }]);
   });
 
   it("forwards unknown chunk types and counts them", async () => {
-    const unknown: UIMessageChunk = { type: "data-demo", data: { phase: "streaming" } };
+    const unknown: UIMessageChunk = {
+      type: "data-demo",
+      data: { phase: "streaming" },
+    };
     const seen: string[] = [];
     const out = await scrub([{ type: "start" }, unknown, { type: "finish" }], {
       onUnknownChunk: (type) => seen.push(type),
     });
-    expect(out.map((part) => part.type)).toEqual(["start", "data-demo", "finish"]);
+    expect(out.map((part) => part.type)).toEqual([
+      "start",
+      "data-demo",
+      "finish",
+    ]);
     expect(seen).toEqual(["data-demo"]);
   });
 
@@ -56,15 +109,21 @@ describe("outbound scrub filter", () => {
 
   it("treats error and abort as terminal for the single-terminal guard", async () => {
     const dropped: string[] = [];
-    const out = await scrub([{ type: "abort" }, { type: "error", errorText: "boom" }], {
-      onDroppedTerminalChunk: (type) => dropped.push(type),
-    });
+    const out = await scrub(
+      [{ type: "abort" }, { type: "error", errorText: "boom" }],
+      {
+        onDroppedTerminalChunk: (type) => dropped.push(type),
+      },
+    );
     expect(out.map((part) => part.type)).toEqual(["abort"]);
     expect(dropped).toEqual(["error"]);
   });
 });
 
-async function scrub(input: UIMessageChunk[], observer?: ScrubObserver): Promise<UIMessageChunk[]> {
+async function scrub(
+  input: UIMessageChunk[],
+  observer?: ScrubObserver,
+): Promise<UIMessageChunk[]> {
   const source = new ReadableStream<UIMessageChunk>({
     start(controller) {
       for (const chunk of input) controller.enqueue(chunk);

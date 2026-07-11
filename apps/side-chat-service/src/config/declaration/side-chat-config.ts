@@ -37,11 +37,14 @@ export const WORKFLOW_JOURNAL_CLASSES = {
 
 export const AUTH_PROFILE_VALUES = Object.values(AUTH_PROFILES);
 export const TELEMETRY_MODE_VALUES = Object.values(TELEMETRY_MODES);
-export const WORKFLOW_JOURNAL_CLASS_VALUES = Object.values(WORKFLOW_JOURNAL_CLASSES);
+export const WORKFLOW_JOURNAL_CLASS_VALUES = Object.values(
+  WORKFLOW_JOURNAL_CLASSES,
+);
 
 export type AuthProfile = (typeof AUTH_PROFILE_VALUES)[number];
 export type TelemetryMode = (typeof TELEMETRY_MODE_VALUES)[number];
-export type WorkflowJournalClass = (typeof WORKFLOW_JOURNAL_CLASS_VALUES)[number];
+export type WorkflowJournalClass =
+  (typeof WORKFLOW_JOURNAL_CLASS_VALUES)[number];
 
 export const ENV_REFERENCE_KINDS = { ENV: "env" } as const;
 export const ENV_VALUE_TYPES = { STRING: "string", NUMBER: "number" } as const;
@@ -66,7 +69,10 @@ type ReadEnv = {
   readonly number: (key: string, options?: EnvOptions<number>) => EnvReference;
 };
 
-const stringReference = (key: string, options: EnvOptions<string> = {}): EnvReference =>
+const stringReference = (
+  key: string,
+  options: EnvOptions<string> = {},
+): EnvReference =>
   createEnvReference(
     key,
     ENV_VALUE_TYPES.STRING,
@@ -107,6 +113,7 @@ export interface SideChatConfig {
     readonly requestMs: ConfigValue<number>;
     readonly queueMs: ConfigValue<number>;
     readonly providerMs: ConfigValue<number>;
+    readonly clientToolMs: ConfigValue<number>;
     readonly titleMs: ConfigValue<number>;
   };
   readonly agent: {
@@ -145,8 +152,9 @@ export interface SideChatConfig {
   };
 }
 
-export const defineSideChatConfig = <const Config extends SideChatConfig>(config: Config): Config =>
-  Object.freeze(config);
+export const defineSideChatConfig = <const Config extends SideChatConfig>(
+  config: Config,
+): Config => Object.freeze(config);
 
 function createEnvReference(
   key: string,

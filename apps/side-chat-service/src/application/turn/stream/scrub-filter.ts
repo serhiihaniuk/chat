@@ -22,6 +22,9 @@ import {
  * - provider metadata is removed from every chunk. It is useful for server-side
  *   diagnostics, but it is not part of the browser contract and may contain
  *   provider-specific details.
+ * - dynamic client-tool outputs retain only settled state, and their failures
+ *   collapse to a safe code. Browser values and internal execution errors do
+ *   not return through replay, logs, or a second tab.
  * - a native finish reason (`content-filter`, `length`, ...) is forwarded
  *   untouched — it already IS the blocked/length representation (ADR 0015).
  * - exactly one terminal-class chunk reaches the client; a second is dropped
@@ -30,7 +33,9 @@ import {
  */
 
 const TERMINAL_CHUNK_TYPES = new Set<string>(TERMINAL_UI_MESSAGE_CHUNK_TYPES);
-const KNOWN_CHUNK_TYPES = new Set<string>(Object.values(UI_MESSAGE_CHUNK_TYPES));
+const KNOWN_CHUNK_TYPES = new Set<string>(
+  Object.values(UI_MESSAGE_CHUNK_TYPES),
+);
 
 /**
  * Optional counters for the two chunks the filter handles defensively. The filter
@@ -65,7 +70,8 @@ export function createScrubTransform(
         }
         terminated = true;
       }
-      if (!KNOWN_CHUNK_TYPES.has(chunk.type)) observer.onUnknownChunk?.(chunk.type);
+      if (!KNOWN_CHUNK_TYPES.has(chunk.type))
+        observer.onUnknownChunk?.(chunk.type);
       controller.enqueue(scrubChunk(chunk));
     },
   });
@@ -73,8 +79,30 @@ export function createScrubTransform(
 
 function scrubChunk(chunk: UIMessageChunk): UIMessageChunk {
   if (chunk.type === UI_MESSAGE_CHUNK_TYPES.ERROR) {
-    return { type: UI_MESSAGE_CHUNK_TYPES.ERROR, errorText: SIDE_CHAT_ERROR_CODES.PROVIDER_FAILED };
+    return {
+      type: UI_MESSAGE_CHUNK_TYPES.ERROR,
+      errorText: SIDE_CHAT_ERROR_CODES.PROVIDER_FAILED,
+    };
   }
+  if (
+    chunk.type === UI_MESSAGE_CHUNK_TYPES.TOOL_OUTPUT_AVAILABLE &&
+    chunk.dynamic === true
+  ) {
+    return withoutProviderMetadata({ ...chunk, output: { status: "settled" } });
+  }
+  if (
+    chunk.type === UI_MESSAGE_CHUNK_TYPES.TOOL_OUTPUT_ERROR &&
+    chunk.dynamic === true
+  ) {
+    return withoutProviderMetadata({
+      ...chunk,
+      errorText: SIDE_CHAT_ERROR_CODES.PROVIDER_FAILED,
+    });
+  }
+  return withoutProviderMetadata(chunk);
+}
+
+function withoutProviderMetadata(chunk: UIMessageChunk): UIMessageChunk {
   if (!("providerMetadata" in chunk)) return chunk;
 
   const safeChunk = structuredClone(chunk);

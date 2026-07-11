@@ -2,6 +2,7 @@ import type { JsonObject } from "@side-chat/shared";
 import type {
   AssistantTurnRecord,
   AuditEventRecord,
+  ClientToolDispatchRecord,
   ContextSnapshotRecord,
   ConversationRecord,
   ConversationSummaryRecord,
@@ -28,6 +29,7 @@ import type {
   UserMessageId,
   WorkspaceId,
 } from "./ids/persistence-ids.js";
+import type { ClientToolDispatchRepositoryContract } from "./client-tools/repositories.js";
 
 export type IdempotencyKey = {
   readonly value: string;
@@ -189,6 +191,60 @@ export type RecordToolInvocationCommand = RepositoryCommandEnvelope & {
   readonly completedAt?: string | undefined;
 };
 
+export type CreateClientToolDispatchCommand = RepositoryCommandEnvelope & {
+  readonly assistantTurnId: AssistantTurnId;
+  readonly toolCallId: ToolCallId;
+  readonly toolName: string;
+};
+
+export type FindClientToolDispatchCommand = {
+  readonly workspaceId: WorkspaceId;
+  readonly assistantTurnId: AssistantTurnId;
+  readonly toolCallId: ToolCallId;
+};
+
+type ClaimClientToolDispatchCommand = RepositoryCommandEnvelope &
+  FindClientToolDispatchCommand & {
+    readonly outputJson?: JsonObject | undefined;
+  };
+
+export type ClaimClientToolTimeoutCommand = ClaimClientToolDispatchCommand & {
+  readonly outputJson: JsonObject;
+};
+
+export type ClaimClientToolAbortCommand = ClaimClientToolDispatchCommand & {
+  readonly outputJson: JsonObject;
+};
+
+export type ClaimClientToolDispatchResult = {
+  readonly record: ClientToolDispatchRecord;
+  readonly claimed: boolean;
+};
+
+export type SubmitClientToolOutputCommand = RepositoryCommandEnvelope &
+  FindClientToolDispatchCommand & {
+    readonly state: "settled" | "failed";
+    readonly outputJson: JsonObject;
+  };
+
+export type SubmitClientToolOutputDisposition =
+  | "accepted"
+  | "duplicate"
+  | "late";
+
+export type SubmittedClientToolDispatchRecord = Omit<
+  ClientToolDispatchRecord,
+  "outputJson" | "state"
+> & {
+  readonly state: "settled" | "failed" | "late" | "aborted";
+  readonly outputJson: JsonObject;
+};
+
+export type SubmitClientToolOutputResult = {
+  readonly record: SubmittedClientToolDispatchRecord;
+  readonly disposition: SubmitClientToolOutputDisposition;
+};
+
 export type FindHostCommandResultCommand = {
   readonly workspaceId: WorkspaceId;
   readonly assistantTurnId: AssistantTurnId;
@@ -261,6 +317,10 @@ export type RepositoryCommandInput =
   | RecordUsageCommand
   | ReadUsageSummaryCommand
   | RecordToolInvocationCommand
+  | CreateClientToolDispatchCommand
+  | ClaimClientToolTimeoutCommand
+  | ClaimClientToolAbortCommand
+  | SubmitClientToolOutputCommand
   | RecordHostCommandResultCommand
   | ReadConversationHistoryCommand
   | ListConversationsCommand
@@ -296,7 +356,9 @@ export type ConversationRepositoryContract = {
   readonly prepareConversationTitle: (
     command: PrepareConversationTitleCommand,
   ) => Promise<ConversationRecord>;
-  readonly resetConversation: (command: ResetConversationCommand) => Promise<ConversationRecord>;
+  readonly resetConversation: (
+    command: ResetConversationCommand,
+  ) => Promise<ConversationRecord>;
 };
 
 export type AssistantTurnRepositoryContract = {
@@ -309,7 +371,9 @@ export type AssistantTurnRepositoryContract = {
     command: StartAssistantTurnCommand,
   ) => Promise<RepositoryCommandResult<AssistantTurnRecord>>;
   // Bind the durable Workflow run id to a turn once its run has started.
-  readonly bindTurnRun: (command: BindTurnRunCommand) => Promise<AssistantTurnRecord>;
+  readonly bindTurnRun: (
+    command: BindTurnRunCommand,
+  ) => Promise<AssistantTurnRecord>;
   readonly recordTurnContextSnapshot: (
     command: RecordTurnContextSnapshotCommand,
   ) => Promise<RepositoryCommandResult<ContextSnapshotRecord>>;
@@ -349,28 +413,31 @@ export type AssistantTurnRepositoryContract = {
   readonly recordUsage: (
     command: RecordUsageCommand,
   ) => Promise<RepositoryCommandResult<UsageRecord>>;
-  readonly readUsageSummary: (command: ReadUsageSummaryCommand) => Promise<UsageSummary>;
+  readonly readUsageSummary: (
+    command: ReadUsageSummaryCommand,
+  ) => Promise<UsageSummary>;
 };
 
-export type InteractionRepositoryContract = {
-  readonly recordToolInvocation: (
-    command: RecordToolInvocationCommand,
-  ) => Promise<RepositoryCommandResult<ToolInvocationRecord>>;
-  readonly recordHostCommandResult: (
-    command: RecordHostCommandResultCommand,
-  ) => Promise<RepositoryCommandResult<HostCommandResultRecord>>;
-  /**
-   * Read one turn's host-command row by command id (workspace-scoped).
-   *
-   * The result relay reads through this twice: the result route to prove the
-   * command belongs to the caller's turn before persisting the browser's
-   * result, and the awaiting owner (listener or poll) to fetch the settled
-   * result. Returns `undefined` for an unknown or cross-workspace command.
-   */
-  readonly findHostCommandResult: (
-    command: FindHostCommandResultCommand,
-  ) => Promise<HostCommandResultRecord | undefined>;
-  readonly appendAuditEvent: (
-    command: AppendAuditEventCommand,
-  ) => Promise<RepositoryCommandResult<AuditEventRecord>>;
-};
+export type InteractionRepositoryContract =
+  ClientToolDispatchRepositoryContract & {
+    readonly recordToolInvocation: (
+      command: RecordToolInvocationCommand,
+    ) => Promise<RepositoryCommandResult<ToolInvocationRecord>>;
+    readonly recordHostCommandResult: (
+      command: RecordHostCommandResultCommand,
+    ) => Promise<RepositoryCommandResult<HostCommandResultRecord>>;
+    /**
+     * Read one turn's host-command row by command id (workspace-scoped).
+     *
+     * The result relay reads through this twice: the result route to prove the
+     * command belongs to the caller's turn before persisting the browser's
+     * result, and the awaiting owner (listener or poll) to fetch the settled
+     * result. Returns `undefined` for an unknown or cross-workspace command.
+     */
+    readonly findHostCommandResult: (
+      command: FindHostCommandResultCommand,
+    ) => Promise<HostCommandResultRecord | undefined>;
+    readonly appendAuditEvent: (
+      command: AppendAuditEventCommand,
+    ) => Promise<RepositoryCommandResult<AuditEventRecord>>;
+  };

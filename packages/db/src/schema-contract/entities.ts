@@ -4,6 +4,7 @@ import type {
   AssistantMessageId,
   AssistantTurnId,
   AuditEventId,
+  ClientToolDispatchId,
   ContextSnapshotId,
   ConversationId,
   HostCommandId,
@@ -24,6 +25,7 @@ import type {
 } from "./ids/persistence-ids.js";
 import type {
   AssistantTurnStatus,
+  ClientToolDispatchState,
   ConversationStatus,
   HostCommandResultStatus,
   MessageRole,
@@ -142,6 +144,26 @@ export type ToolInvocationRecord = TenantScopedRecord &
     readonly completedAt?: string;
   };
 
+/**
+ * Coordination row for one browser-executed tool call.
+ *
+ * `outputJson` is the exact typed value returned to the model. A late browser
+ * result never replaces it; `lateResultAt` records only that the result arrived
+ * after the timeout outcome had already won.
+ */
+export type ClientToolDispatchRecord = TenantScopedRecord &
+  VersionedRecord & {
+    readonly clientToolDispatchId: ClientToolDispatchId;
+    readonly assistantTurnId: AssistantTurnId;
+    readonly toolCallId: ToolCallId;
+    readonly toolName: string;
+    readonly state: ClientToolDispatchState;
+    readonly outputJson?: JsonObject;
+    readonly dispatchedAt: string;
+    readonly completedAt?: string;
+    readonly lateResultAt?: string;
+  };
+
 export type HostCommandResultRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly hostCommandId: HostCommandResultId;
@@ -175,5 +197,6 @@ export type SchemaContractRecord =
   | ContextSnapshotRecord
   | UsageRecord
   | ToolInvocationRecord
+  | ClientToolDispatchRecord
   | HostCommandResultRecord
   | AuditEventRecord;

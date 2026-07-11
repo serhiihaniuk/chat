@@ -26,7 +26,13 @@ const config: SideChatConfig = defineSideChatConfig({
       required: true,
     }),
   },
-  timeouts: { requestMs: 60_000, queueMs: 5_000, providerMs: 45_000, titleMs: 10_000 },
+  timeouts: {
+    requestMs: 60_000,
+    queueMs: 5_000,
+    providerMs: 45_000,
+    clientToolMs: 30_000,
+    titleMs: 10_000,
+  },
   agent: {
     instructions:
       "You are a concise enterprise assistant. Use only the context and tools provided.",

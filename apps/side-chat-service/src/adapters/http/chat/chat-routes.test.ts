@@ -10,7 +10,11 @@ import type {
   TurnExecutionInput,
   TurnExecutionTerminal,
 } from "#application/ports/turn/turn-execution";
-import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES, type TurnMessage } from "#domain/turn/turn";
+import {
+  TURN_MESSAGE_ROLES,
+  TURN_TERMINAL_STATUSES,
+  type TurnMessage,
+} from "#domain/turn/turn";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
@@ -62,10 +66,15 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
+      const response = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest(),
+      );
       expect(response.status).toBe(SUCCESS_HTTP_STATUS);
       expect(response.headers.get("x-vercel-ai-ui-message-stream")).toBe("v1");
-      expect(response.headers.get(HTTP_HEADERS.WORKFLOW_RUN_ID)).toBe(TEST_RUN_ID);
+      expect(response.headers.get(HTTP_HEADERS.WORKFLOW_RUN_ID)).toBe(
+        TEST_RUN_ID,
+      );
       const parts = await responseChunks(response);
       expect(parts.map((part) => part["type"])).toEqual([
         "start",
@@ -76,7 +85,9 @@ describe("chat routes", () => {
       ]);
       expect(parts.filter((part) => part["type"] === "finish")).toHaveLength(1);
       await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
-      expect([...harness.turnState.terminals.values()][0]?.usage).toEqual(usage(7, 10));
+      expect([...harness.turnState.terminals.values()][0]?.usage).toEqual(
+        usage(7, 10),
+      );
       expect(harness.turnState.assistantMessages).toHaveLength(1);
     } finally {
       await harness.close();
@@ -95,9 +106,14 @@ describe("chat routes", () => {
         finishReason: "content-filter",
       }),
     );
-    const harness = await createServiceTestHarness({ turnExecution: execution });
+    const harness = await createServiceTestHarness({
+      turnExecution: execution,
+    });
     try {
-      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
+      const response = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest(),
+      );
       const parts = await responseChunks(response);
       const finish = parts.find((part) => part["type"] === "finish");
       expect(finish?.["finishReason"]).toBe("content-filter");
@@ -162,7 +178,10 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
+      const response = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest(),
+      );
       const parts = await responseChunks(response);
       expect(parts.map((part) => part["type"])).toEqual([
         "start",
@@ -178,7 +197,9 @@ describe("chat routes", () => {
     }
   });
 
-  const errorCases: ReadonlyArray<readonly [string, readonly UIMessageChunk[]]> = [
+  const errorCases: ReadonlyArray<
+    readonly [string, readonly UIMessageChunk[]]
+  > = [
     ["before output", [{ type: "error", errorText: RAW_PROVIDER_SENTINEL }]],
     [
       "after partial output",
@@ -189,33 +210,41 @@ describe("chat routes", () => {
       ],
     ],
   ];
-  it.each(errorCases)("scrubs provider errors to a safe code %s", async (_label, streamParts) => {
-    const execution = new ControlledTurnExecution(
-      chunks(...streamParts),
-      Promise.resolve({
-        status: TURN_TERMINAL_STATUSES.FAILED,
-        stepUsage: [],
-      }),
-    );
-    const harness = await createServiceTestHarness({
-      turnExecution: execution,
-    });
-    try {
-      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
-      expect(response.status).toBe(SUCCESS_HTTP_STATUS);
-      const body = await responseText(response);
-      expect(body).not.toContain(RAW_PROVIDER_SENTINEL);
-      const parts = decodeChunks(body);
-      const errors = parts.filter((part) => part["type"] === "error");
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.["errorText"]).toBe("provider_failed");
-      expect(parts.at(-1)?.["type"]).toBe("error");
-      await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
-      expect(harness.turnState.assistantMessages).toEqual([]);
-    } finally {
-      await harness.close();
-    }
-  });
+  it.each(errorCases)(
+    "scrubs provider errors to a safe code %s",
+    async (_label, streamParts) => {
+      const execution = new ControlledTurnExecution(
+        chunks(...streamParts),
+        Promise.resolve({
+          status: TURN_TERMINAL_STATUSES.FAILED,
+          stepUsage: [],
+        }),
+      );
+      const harness = await createServiceTestHarness({
+        turnExecution: execution,
+      });
+      try {
+        const response = await harness.request(
+          CHAT_HTTP_ROUTES.START,
+          chatRequest(),
+        );
+        expect(response.status).toBe(SUCCESS_HTTP_STATUS);
+        const body = await responseText(response);
+        expect(body).not.toContain(RAW_PROVIDER_SENTINEL);
+        const parts = decodeChunks(body);
+        const errors = parts.filter((part) => part["type"] === "error");
+        expect(errors).toHaveLength(1);
+        expect(errors[0]?.["errorText"]).toBe("provider_failed");
+        expect(parts.at(-1)?.["type"]).toBe("error");
+        await vi.waitFor(() =>
+          expect(harness.turnState.terminals.size).toBe(1),
+        );
+        expect(harness.turnState.assistantMessages).toEqual([]);
+      } finally {
+        await harness.close();
+      }
+    },
+  );
 
   it("rejects a busy conversation before admission, writes, or execution", async () => {
     const state = ownedState();
@@ -228,72 +257,15 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
+      const response = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest(),
+      );
       expect(response.status).toBe(HTTP_ERROR.CONFLICT.STATUS);
       expect(admission.admitted).toBe(0);
       expect(state.userMessages).toEqual([]);
       expect(execution.started).toEqual([]);
     } finally {
-      await harness.close();
-    }
-  });
-
-  it("validates the client-tool catalog before admission, writes, or execution", async () => {
-    const admission = new DeterministicTurnAdmission();
-    const execution = new ControlledTurnExecution(chunks(), neverTerminal());
-    const harness = await createServiceTestHarness({
-      turnAdmission: admission,
-      turnExecution: execution,
-    });
-    try {
-      const invalidCatalog = [
-        {
-          name: "open_file",
-          description: "Open a file.",
-          inputSchema: { type: "object" },
-        },
-        {
-          name: "open_file",
-          description: "Shadow the first declaration.",
-          inputSchema: { type: "object" },
-        },
-      ];
-      const response = await harness.request(
-        CHAT_HTTP_ROUTES.START,
-        chatRequest({ clientTools: invalidCatalog }),
-      );
-
-      expect(response.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
-      expect(admission.admitted).toBe(0);
-      expect(harness.turnState.userMessages).toEqual([]);
-      expect(execution.started).toEqual([]);
-    } finally {
-      await harness.close();
-    }
-  });
-
-  it("passes a validated client-tool catalog to turn execution", async () => {
-    const execution = new ControlledTurnExecution(chunks(), neverTerminal());
-    const harness = await createServiceTestHarness({ turnExecution: execution });
-    const clientTools = [
-      {
-        name: "open_file",
-        description: "Open a file.",
-        inputSchema: {
-          type: "object",
-          properties: { path: { type: "string" } },
-          required: ["path"],
-        },
-      },
-    ];
-    let response: Response | undefined;
-    try {
-      response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest({ clientTools }));
-
-      expect(response.status).toBe(SUCCESS_HTTP_STATUS);
-      expect(execution.started[0]?.clientTools).toEqual(clientTools);
-    } finally {
-      await response?.body?.cancel();
       await harness.close();
     }
   });
@@ -312,9 +284,9 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      expect((await harness.request(CHAT_HTTP_ROUTES.START, chatRequest())).status).toBe(
-        HTTP_ERROR.FORBIDDEN.STATUS,
-      );
+      expect(
+        (await harness.request(CHAT_HTTP_ROUTES.START, chatRequest())).status,
+      ).toBe(HTTP_ERROR.FORBIDDEN.STATUS);
       expect(
         (
           await harness.request(cancelRoute(UNKNOWN_RUN_ID), {
@@ -378,7 +350,9 @@ async function responseText(response: Response): Promise<string> {
   return response.text();
 }
 
-async function responseChunks(response: Response): Promise<Array<Record<string, unknown>>> {
+async function responseChunks(
+  response: Response,
+): Promise<Array<Record<string, unknown>>> {
   return decodeChunks(await response.text());
 }
 

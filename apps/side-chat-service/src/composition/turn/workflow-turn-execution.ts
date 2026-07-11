@@ -1,10 +1,19 @@
 import type { UIMessageChunk } from "ai";
 
-import { SIDE_CHAT_FINISH_REASONS, type SideChatFinishReason } from "@side-chat/stream-profile";
+import {
+  SIDE_CHAT_FINISH_REASONS,
+  type SideChatFinishReason,
+} from "@side-chat/stream-profile";
 
-import type { TurnExecution, TurnExecutionTerminal } from "#application/ports/turn/turn-execution";
+import type {
+  TurnExecution,
+  TurnExecutionTerminal,
+} from "#application/ports/turn/turn-execution";
 import { UI_MESSAGE_CHUNK_TYPES } from "#application/turn/stream/ui-message-chunk-types";
-import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
+import {
+  TURN_REJECTION_CODES,
+  TurnRejectedError,
+} from "#application/turn/turn-errors";
 import type { Settings } from "#config/settings/resolve-settings";
 import {
   TURN_EXECUTION_ERROR_CODES,
@@ -22,7 +31,9 @@ import {
   type StartedChatTurn,
 } from "#workflows/production/chat-turn";
 
-export type StartChatTurn = (input: ChatTurnWorkflowInput) => Promise<StartedChatTurn>;
+export type StartChatTurn = (
+  input: ChatTurnWorkflowInput,
+) => Promise<StartedChatTurn>;
 
 const TURN_CANCELLATION = {
   USER_REASON: "user_requested_cancellation",
@@ -44,13 +55,24 @@ export function createWorkflowTurnExecution(
 ): TurnExecution {
   return {
     async start(input) {
+      if (
+        input.clientTools.length > 0 &&
+        settings.persistence.databaseUrl === undefined
+      ) {
+        throw new TurnRejectedError(
+          TURN_REJECTION_CODES.CLIENT_TOOLS_UNAVAILABLE,
+          "Client tools require durable persistence",
+        );
+      }
       const started = await startTurn({
+        workspaceId: input.auth.workspaceId,
         turnId: input.turnId,
         requestId: input.requestId,
         modelId: input.modelId,
         instructions: settings.agent.instructions,
         maxSteps: settings.agent.maxSteps,
         providerTimeoutMs: settings.timeouts.providerMs,
+        clientToolTimeoutMs: settings.timeouts.clientToolMs,
         messages: input.messages.map(toSerializableMessage),
         clientTools: input.clientTools,
       });
@@ -62,9 +84,15 @@ export function createWorkflowTurnExecution(
       };
     },
     async cancel(runId) {
-      const resumed = await cancelChatTurn(runId, TURN_CANCELLATION.USER_REASON);
+      const resumed = await cancelChatTurn(
+        runId,
+        TURN_CANCELLATION.USER_REASON,
+      );
       if (!resumed) {
-        throw new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn run not found");
+        throw new TurnRejectedError(
+          TURN_REJECTION_CODES.RUN_NOT_FOUND,
+          "Turn run not found",
+        );
       }
     },
   };
@@ -77,7 +105,9 @@ function toSerializableMessage(message: TurnMessage): SerializableChatMessage {
   };
 }
 
-function toApplicationTerminal(terminal: ChatTurnTerminalOutcome): TurnExecutionTerminal {
+function toApplicationTerminal(
+  terminal: ChatTurnTerminalOutcome,
+): TurnExecutionTerminal {
   if (terminal.status === CHAT_TURN_OUTCOMES.COMPLETED) {
     if (terminal.finishReason === "content-filter") {
       return {
@@ -131,13 +161,17 @@ export function stampFinishReason(
           return;
         }
         const reason = toFinishReason((await terminal).finishReason);
-        controller.enqueue(reason === undefined ? chunk : { ...chunk, finishReason: reason });
+        controller.enqueue(
+          reason === undefined ? chunk : { ...chunk, finishReason: reason },
+        );
       },
     }),
   );
 }
 
-function toFinishReason(value: string | undefined): SideChatFinishReason | undefined {
+function toFinishReason(
+  value: string | undefined,
+): SideChatFinishReason | undefined {
   for (const reason of Object.values(SIDE_CHAT_FINISH_REASONS)) {
     if (reason === value) return reason;
   }

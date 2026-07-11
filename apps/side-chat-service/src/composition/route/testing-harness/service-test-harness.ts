@@ -6,6 +6,8 @@ import type { RequestAuthorizer } from "#application/ports/request-authorizer";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
 import type { TurnReplay } from "#application/ports/turn/replay/turn-replay";
+import type { ClientToolDispatchStore } from "#application/ports/turn/tools/client-tool-dispatch-store";
+import type { ResumeClientTool } from "#application/turn/tools/submit-client-tool-output";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { createCollectingTelemetrySink } from "#testing/collecting-telemetry-sink";
@@ -25,10 +27,13 @@ export async function createServiceTestHarness(
     readonly turnReplay?: TurnReplay;
     readonly turnState?: InMemoryTurnState;
     readonly conversationQueries?: ConversationQueryStore;
+    readonly clientToolDispatches?: ClientToolDispatchStore;
+    readonly resumeClientTool?: ResumeClientTool;
   } = {},
 ) {
   const settingsResult = validateSettings(createDefaultConfig());
-  if (!settingsResult.ok) throw new Error("Default test settings must be valid");
+  if (!settingsResult.ok)
+    throw new Error("Default test settings must be valid");
   const previousTelemetry = globalThis.AI_SDK_TELEMETRY_INTEGRATIONS;
   globalThis.AI_SDK_TELEMETRY_INTEGRATIONS = undefined;
   const telemetry = createCollectingTelemetrySink();
@@ -48,7 +53,8 @@ export async function createServiceTestHarness(
     ...service,
     telemetry,
     request,
-    unauthenticatedRequest: (path: string, init?: RequestInit) => service.app.request(path, init),
+    unauthenticatedRequest: (path: string, init?: RequestInit) =>
+      service.app.request(path, init),
     close: async () => {
       await service.scope.close();
       globalThis.AI_SDK_TELEMETRY_INTEGRATIONS = previousTelemetry;

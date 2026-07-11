@@ -5,6 +5,7 @@ export const SCHEMA_ENTITY_TYPES = [
   "context_snapshot",
   "usage_record",
   "tool_invocation",
+  "client_tool_dispatch",
   "host_command_result",
   "audit_event",
 ] as const;
@@ -41,6 +42,18 @@ export const TOOL_INVOCATION_STATUSES = [
 ] as const;
 export type ToolInvocationStatus = (typeof TOOL_INVOCATION_STATUSES)[number];
 
+/** Durable lifecycle of one browser-executed client-tool call. */
+export const CLIENT_TOOL_DISPATCH_STATES = [
+  "dispatched",
+  "settled",
+  "failed",
+  "timed_out",
+  "late",
+  "aborted",
+] as const;
+export type ClientToolDispatchState =
+  (typeof CLIENT_TOOL_DISPATCH_STATES)[number];
+
 export const HOST_COMMAND_RESULT_STATUSES = [
   "emitted",
   "applied",
@@ -49,7 +62,8 @@ export const HOST_COMMAND_RESULT_STATUSES = [
   "failed",
   "timed_out",
 ] as const;
-export type HostCommandResultStatus = (typeof HOST_COMMAND_RESULT_STATUSES)[number];
+export type HostCommandResultStatus =
+  (typeof HOST_COMMAND_RESULT_STATUSES)[number];
 
 /**
  * Postgres channel that signals a saved host-command result.

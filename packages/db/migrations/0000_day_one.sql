@@ -39,6 +39,20 @@ CREATE TABLE "sidechat"."audit_events" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "sidechat"."client_tool_dispatches" (
+	"client_tool_dispatch_id" text PRIMARY KEY NOT NULL,
+	"assistant_turn_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"tool_call_id" text NOT NULL,
+	"tool_name" text NOT NULL,
+	"state" text NOT NULL,
+	"output_json" jsonb,
+	"dispatched_at" timestamp with time zone NOT NULL,
+	"completed_at" timestamp with time zone,
+	"late_result_at" timestamp with time zone,
+	CONSTRAINT "client_tool_dispatches_state_check" CHECK (state in ('dispatched', 'settled', 'failed', 'timed_out', 'late', 'aborted'))
+);
+--> statement-breakpoint
 CREATE TABLE "sidechat"."conversations" (
 	"conversation_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -134,16 +148,19 @@ CREATE TABLE "sidechat"."usage_records" (
 ALTER TABLE "sidechat"."assistant_turns" ADD CONSTRAINT "assistant_turns_conversation_id_conversations_conversation_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "sidechat"."conversations"("conversation_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sidechat"."assistant_turns" ADD CONSTRAINT "assistant_turns_user_message_id_messages_message_id_fk" FOREIGN KEY ("user_message_id") REFERENCES "sidechat"."messages"("message_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sidechat"."assistant_turns" ADD CONSTRAINT "assistant_turns_assistant_message_id_messages_message_id_fk" FOREIGN KEY ("assistant_message_id") REFERENCES "sidechat"."messages"("message_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sidechat"."client_tool_dispatches" ADD CONSTRAINT "client_tool_dispatches_assistant_turn_id_assistant_turns_assistant_turn_id_fk" FOREIGN KEY ("assistant_turn_id") REFERENCES "sidechat"."assistant_turns"("assistant_turn_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sidechat"."host_command_results" ADD CONSTRAINT "host_command_results_assistant_turn_id_assistant_turns_assistant_turn_id_fk" FOREIGN KEY ("assistant_turn_id") REFERENCES "sidechat"."assistant_turns"("assistant_turn_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sidechat"."messages" ADD CONSTRAINT "messages_conversation_id_conversations_conversation_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "sidechat"."conversations"("conversation_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sidechat"."tool_invocations" ADD CONSTRAINT "tool_invocations_assistant_turn_id_assistant_turns_assistant_turn_id_fk" FOREIGN KEY ("assistant_turn_id") REFERENCES "sidechat"."assistant_turns"("assistant_turn_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sidechat"."turn_context_snapshots" ADD CONSTRAINT "turn_context_snapshots_assistant_turn_id_assistant_turns_assistant_turn_id_fk" FOREIGN KEY ("assistant_turn_id") REFERENCES "sidechat"."assistant_turns"("assistant_turn_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sidechat"."usage_records" ADD CONSTRAINT "usage_records_assistant_turn_id_assistant_turns_assistant_turn_id_fk" FOREIGN KEY ("assistant_turn_id") REFERENCES "sidechat"."assistant_turns"("assistant_turn_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "assistant_turns_workspace_request_uq" ON "sidechat"."assistant_turns" USING btree ("workspace_id","request_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "assistant_turns_run_uq" ON "sidechat"."assistant_turns" USING btree ("run_id") WHERE run_id is not null;--> statement-breakpoint
 CREATE INDEX "assistant_turns_conversation_started_idx" ON "sidechat"."assistant_turns" USING btree ("conversation_id","started_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "assistant_turns_one_running_per_conversation_uq" ON "sidechat"."assistant_turns" USING btree ("conversation_id") WHERE status = 'running';--> statement-breakpoint
 CREATE INDEX "audit_events_workspace_created_idx" ON "sidechat"."audit_events" USING btree ("workspace_id","created_at");--> statement-breakpoint
 CREATE INDEX "audit_events_target_created_idx" ON "sidechat"."audit_events" USING btree ("target_type","target_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "client_tool_dispatches_turn_call_uq" ON "sidechat"."client_tool_dispatches" USING btree ("assistant_turn_id","tool_call_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "conversations_workspace_subject_key_uq" ON "sidechat"."conversations" USING btree ("workspace_id","subject_id","conversation_key");--> statement-breakpoint
 CREATE INDEX "conversations_workspace_subject_recent_idx" ON "sidechat"."conversations" USING btree ("workspace_id","subject_id","last_message_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "host_command_results_turn_command_uq" ON "sidechat"."host_command_results" USING btree ("assistant_turn_id","command_id");--> statement-breakpoint

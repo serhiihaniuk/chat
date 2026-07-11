@@ -1,13 +1,14 @@
-import { createModelCallToUIChunkTransform, type ModelCallStreamPart } from "@ai-sdk/workflow";
+import { type ModelCallStreamPart } from "@ai-sdk/workflow";
 import { getRun, start } from "workflow/api";
 
 import { initializeTestingWorkflowServices } from "#composition/workflow/testing";
 import {
   executeChatTurn,
-  type ChatTurnTerminalOutcome,
+  toChatTurnUIStream,
   type ChatTurnWorkflowInput,
   type StartedChatTurn,
-} from "#workflows/production/chat-turn";
+} from "#workflows/chat-turn";
+import type { ChatTurnTerminalOutcome } from "#workflows/chat-turn-outcome";
 
 /** Compiled test entry uses the same mechanics with the serde scripted model port. */
 export async function testingChatTurnWorkflow(
@@ -15,21 +16,28 @@ export async function testingChatTurnWorkflow(
 ): Promise<ChatTurnTerminalOutcome> {
   "use workflow";
 
-  return executeChatTurn(input, initializeTestingWorkflowServices().modelProvider);
+  const services = initializeTestingWorkflowServices();
+  return executeChatTurn(input, services.modelProvider, services.databaseUrl);
 }
 
-export async function startTestingChatTurn(input: ChatTurnWorkflowInput): Promise<StartedChatTurn> {
+export async function startTestingChatTurn(
+  input: ChatTurnWorkflowInput,
+): Promise<StartedChatTurn> {
   const run = await start(testingChatTurnWorkflow, [input]);
   return {
     runId: run.runId,
-    stream: run.getReadable<ModelCallStreamPart>().pipeThrough(createModelCallToUIChunkTransform()),
+    stream: toChatTurnUIStream(
+      run.getReadable<ModelCallStreamPart>(),
+      input.clientTools,
+    ),
     terminal: run.returnValue,
   };
 }
 
 /** Testing-only measurement of the journal shape produced by WorkflowAgent. */
 export async function inspectTestingChatTurnJournal(runId: string) {
-  const readable = getRun<ChatTurnTerminalOutcome>(runId).getReadable<ModelCallStreamPart>();
+  const readable =
+    getRun<ChatTurnTerminalOutcome>(runId).getReadable<ModelCallStreamPart>();
   const dataRows = (await readable.getTailIndex()) + 1;
   const totalRows = dataRows + 1; // Workflow's EOF marker is stored as its own row.
   return { dataRows, totalRows, postgresSqlRoundTrips: totalRows * 2 };

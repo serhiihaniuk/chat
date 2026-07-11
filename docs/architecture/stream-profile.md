@@ -22,6 +22,14 @@ The shared, browser-safe vocabulary — error codes, finish reasons, and the `da
 
 Native parts own all content and lifecycle: `text-*`, `reasoning-*`, tool input/output/approval, `source-*`, `file`, `start`/`finish`/`abort`, and the step boundaries. The widget renders turn state from these plus HTTP status.
 
+Browser-executed client tools use native dynamic tool parts. Their successful
+`tool-output-available` payload is private model input, so the outbound scrub
+replaces it with `{ status: "settled" }`; dynamic `tool-output-error` text is
+collapsed to the safe `provider_failed` code. The pinned Workflow decoder can
+drop dynamic identity and repeat a completed tool step on full replay, so the
+replay edge restores that identity and removes only a repeated step with the
+same tool-call id before the common scrub transform runs.
+
 ### Finish semantics
 
 The `finish` part's native `finishReason` carries the outcome, named by `SIDE_CHAT_FINISH_REASONS`: `stop`, `length` (output truncated), `content-filter` (**blocked**), `tool-calls`, `error`, or `other`. Side Chat introduces no separate "blocked" code — a content-filtered turn is a native `finish` with `finishReason: "content-filter"`, and the persisted turn records the same reason so history is distinguishable from a clean stop.

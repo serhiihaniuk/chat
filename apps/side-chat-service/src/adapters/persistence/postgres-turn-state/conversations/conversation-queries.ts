@@ -41,7 +41,11 @@ export function createPostgresConversationQueries(
         conversationId,
       });
       if (!record?.runId) return undefined;
-      return { turnId: record.assistantTurnId, runId: record.runId, status: "running" };
+      return {
+        turnId: record.assistantTurnId,
+        runId: record.runId,
+        status: "running",
+      };
     },
   };
 }

@@ -1,6 +1,7 @@
 import type { UIMessage, UIMessageChunk } from "ai";
 
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
+import type { AuthContext } from "#domain/auth-context";
 import type {
   TurnExecutionErrorCode,
   TurnMessage,
@@ -11,6 +12,7 @@ import type {
 
 export type TurnExecutionInput = TurnRef &
   Readonly<{
+    auth: AuthContext;
     requestId: string;
     modelId: string;
     messages: readonly TurnMessage[];

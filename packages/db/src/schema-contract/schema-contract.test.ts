@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   ASSISTANT_TURN_STATUSES,
+  CLIENT_TOOL_DISPATCH_STATES,
   CONVERSATION_STATUSES,
   HOST_COMMAND_RESULT_STATUSES,
   SCHEMA_ENTITY_TYPES,
@@ -21,6 +22,7 @@ describe("db schema contract", () => {
       "context_snapshot",
       "usage_record",
       "tool_invocation",
+      "client_tool_dispatch",
       "host_command_result",
       "audit_event",
     ]);
@@ -41,6 +43,14 @@ describe("db schema contract", () => {
       "failed",
       "cancelled",
       "skipped",
+    ]);
+    expect(CLIENT_TOOL_DISPATCH_STATES).toEqual([
+      "dispatched",
+      "settled",
+      "failed",
+      "timed_out",
+      "late",
+      "aborted",
     ]);
     expect(HOST_COMMAND_RESULT_STATUSES).toEqual([
       "emitted",

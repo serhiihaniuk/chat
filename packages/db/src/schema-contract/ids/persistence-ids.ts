@@ -15,6 +15,7 @@ export type ContextSnapshotId = Brand<string, "ContextSnapshotId">;
 export type UsageRecordId = Brand<string, "UsageRecordId">;
 export type ToolInvocationId = Brand<string, "ToolInvocationId">;
 export type ToolCallId = Brand<string, "ToolCallId">;
+export type ClientToolDispatchId = Brand<string, "ClientToolDispatchId">;
 export type HostCommandResultId = Brand<string, "HostCommandResultId">;
 export type HostCommandId = Brand<string, "HostCommandId">;
 export type AuditEventId = Brand<string, "AuditEventId">;
@@ -24,35 +25,47 @@ export type HostSurfaceId = Brand<string, "HostSurfaceId">;
 export type ResourceId = Brand<string, "ResourceId">;
 export type TargetId = Brand<string, "TargetId">;
 
-export const toWorkspaceId = (value: string): WorkspaceId => brandString<"WorkspaceId">(value);
-export const toSubjectId = (value: string): SubjectId => brandString<"SubjectId">(value);
-export const toActorId = (value: string): ActorId => brandString<"ActorId">(value);
+export const toWorkspaceId = (value: string): WorkspaceId =>
+  brandString<"WorkspaceId">(value);
+export const toSubjectId = (value: string): SubjectId =>
+  brandString<"SubjectId">(value);
+export const toActorId = (value: string): ActorId =>
+  brandString<"ActorId">(value);
 export const toConversationId = (value: string): ConversationId =>
   brandString<"ConversationId">(value);
-export const toMessageId = (value: string): MessageId => brandString<"MessageId">(value);
+export const toMessageId = (value: string): MessageId =>
+  brandString<"MessageId">(value);
 export const toUserMessageId = (value: string): UserMessageId =>
   brandString<"UserMessageId">(value);
 export const toAssistantMessageId = (value: string): AssistantMessageId =>
   brandString<"AssistantMessageId">(value);
 export const toAssistantTurnId = (value: string): AssistantTurnId =>
   brandString<"AssistantTurnId">(value);
-export const toRequestId = (value: string): RequestId => brandString<"RequestId">(value);
+export const toRequestId = (value: string): RequestId =>
+  brandString<"RequestId">(value);
 export const toContextSnapshotId = (value: string): ContextSnapshotId =>
   brandString<"ContextSnapshotId">(value);
 export const toUsageRecordId = (value: string): UsageRecordId =>
   brandString<"UsageRecordId">(value);
 export const toToolInvocationId = (value: string): ToolInvocationId =>
   brandString<"ToolInvocationId">(value);
-export const toToolCallId = (value: string): ToolCallId => brandString<"ToolCallId">(value);
+export const toToolCallId = (value: string): ToolCallId =>
+  brandString<"ToolCallId">(value);
+export const toClientToolDispatchId = (value: string): ClientToolDispatchId =>
+  brandString<"ClientToolDispatchId">(value);
 export const toHostCommandResultId = (value: string): HostCommandResultId =>
   brandString<"HostCommandResultId">(value);
 export const toHostCommandId = (value: string): HostCommandId =>
   brandString<"HostCommandId">(value);
-export const toAuditEventId = (value: string): AuditEventId => brandString<"AuditEventId">(value);
-export const toModelId = (value: string): ModelId => brandString<"ModelId">(value);
+export const toAuditEventId = (value: string): AuditEventId =>
+  brandString<"AuditEventId">(value);
+export const toModelId = (value: string): ModelId =>
+  brandString<"ModelId">(value);
 export const toProviderRequestId = (value: string): ProviderRequestId =>
   brandString<"ProviderRequestId">(value);
 export const toHostSurfaceId = (value: string): HostSurfaceId =>
   brandString<"HostSurfaceId">(value);
-export const toResourceId = (value: string): ResourceId => brandString<"ResourceId">(value);
-export const toTargetId = (value: string): TargetId => brandString<"TargetId">(value);
+export const toResourceId = (value: string): ResourceId =>
+  brandString<"ResourceId">(value);
+export const toTargetId = (value: string): TargetId =>
+  brandString<"TargetId">(value);
