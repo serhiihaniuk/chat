@@ -26,6 +26,11 @@
       "development": "./src/config/*.ts",
       "default": "./src/config/*.ts"
     },
+    "#domain/*": {
+      "types": "./src/domain/*.ts",
+      "development": "./src/domain/*.ts",
+      "default": "./src/domain/*.ts"
+    },
     "#testing/*": {
       "types": "./src/testing/*.ts",
       "development": "./src/testing/*.ts",
@@ -53,6 +58,8 @@
     "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
+    "@ai-sdk/azure": "4.0.11",
+    "@ai-sdk/openai": "4.0.11",
     "@ai-sdk/provider": "4.0.3",
     "@ai-sdk/workflow": "1.0.22",
     "@workflow/serde": "5.0.0-beta.2",
@@ -62,5 +69,12 @@
     "nitro": "3.0.260610-beta",
     "rollup": "4.62.2",
     "workflow": "5.0.0-beta.30"
+  },
+  "optionalDependencies": {
+    "@ai-sdk/otel": "1.0.22",
+    "@opentelemetry/exporter-trace-otlp-http": "0.220.0",
+    "@opentelemetry/resources": "2.9.0",
+    "@opentelemetry/sdk-trace-node": "2.9.0",
+    "@opentelemetry/semantic-conventions": "1.43.0"
   }
 }

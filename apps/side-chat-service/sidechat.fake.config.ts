@@ -4,6 +4,12 @@ import {
 } from "./src/config/declaration/side-chat-config.js";
 
 const config: SideChatConfig = defineSideChatConfig({
+  models: { provider: "scripted", modelId: "complete" },
+  auth: {
+    profile: "development",
+    bearerToken: "local-test-token",
+    workspaceId: "local-workspace",
+  },
   timeouts: { requestMs: 10_000, queueMs: 1_000, providerMs: 5_000 },
   agent: {
     maxSteps: 4,
@@ -13,7 +19,7 @@ const config: SideChatConfig = defineSideChatConfig({
   },
   capacity: { activeGenerations: 2 },
   keepalive: { intervalMs: 5_000, proxyIdleBudgetMs: 30_000 },
-  telemetry: { enabled: false },
+  telemetry: { mode: "off" },
   workflow: {
     workerConcurrency: 3,
     concurrencyHeadroom: 1,

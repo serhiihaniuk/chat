@@ -8,6 +8,7 @@ import { createHook, getWritable } from "workflow";
 import { resumeHook, start } from "workflow/api";
 
 import { initializeTestingWorkflowServices } from "#composition/workflow/testing";
+import { assertModelInstance } from "#application/ports/model-provider";
 
 import { patchWorkflowRealmAbortSignal } from "../abort-signal-patch.js";
 
@@ -53,7 +54,9 @@ export async function startCompatibilityTurn(
 
 export async function cancelCompatibilityTurn(requestId: string): Promise<boolean> {
   try {
-    await resumeHook(turnCancellationHookToken(requestId), { reason: "user pressed stop" });
+    await resumeHook(turnCancellationHookToken(requestId), {
+      reason: "user pressed stop",
+    });
     return true;
   } catch {
     return false;
@@ -87,10 +90,18 @@ export async function runCompatibilityTurn(
     token: turnCancellationHookToken(request.requestId),
   });
   const { modelProvider } = initializeTestingWorkflowServices();
+  const resolvedModel = modelProvider.modelFor({
+    modelId: request.mode,
+    requestId: request.requestId,
+  });
+  assertModelInstance(resolvedModel.model);
 
   const agent = new WorkflowAgent({
     id: "side-chat-turn",
-    model: modelProvider.modelFor({ modelId: request.mode, requestId: request.requestId }),
+    model: resolvedModel.model,
+    ...(resolvedModel.providerOptions === undefined
+      ? {}
+      : { providerOptions: resolvedModel.providerOptions }),
     instructions: "You are the Side Chat compatibility turn agent.",
     stopWhen: isStepCount(1),
     maxRetries: 0,
@@ -127,9 +138,17 @@ export async function probeUnpatchedAbortSignal(): Promise<CompatibilityTurnOutc
 
   const controller = new AbortController();
   const { modelProvider } = initializeTestingWorkflowServices();
+  const resolvedModel = modelProvider.modelFor({
+    modelId: "complete",
+    requestId: "unpatched-probe",
+  });
+  assertModelInstance(resolvedModel.model);
   const agent = new WorkflowAgent({
     id: "side-chat-unpatched-probe",
-    model: modelProvider.modelFor({ modelId: "complete", requestId: "unpatched-probe" }),
+    model: resolvedModel.model,
+    ...(resolvedModel.providerOptions === undefined
+      ? {}
+      : { providerOptions: resolvedModel.providerOptions }),
     instructions: "You are the Side Chat compatibility turn agent.",
     stopWhen: isStepCount(1),
     maxRetries: 0,
@@ -150,7 +169,15 @@ function completedOutcome(result: { steps: Array<{ text: string }> }): Compatibi
 
 function rejectedOutcome(error: unknown): CompatibilityTurnOutcome {
   if (error instanceof Error) {
-    return { status: "stream-rejected", errorName: error.name, errorMessage: error.message };
+    return {
+      status: "stream-rejected",
+      errorName: error.name,
+      errorMessage: error.message,
+    };
   }
-  return { status: "stream-rejected", errorName: "unknown", errorMessage: String(error) };
+  return {
+    status: "stream-rejected",
+    errorName: "unknown",
+    errorMessage: String(error),
+  };
 }

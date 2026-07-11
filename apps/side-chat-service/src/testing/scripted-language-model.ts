@@ -37,7 +37,7 @@ export function createScriptedLanguageModel(
 export const scriptedModelProvider: ModelProvider = {
   modelFor: ({ modelId, requestId }) => {
     if (modelId === "complete" || modelId === "block") {
-      return createScriptedLanguageModel(requestId, modelId);
+      return { model: createScriptedLanguageModel(requestId, modelId) };
     }
     throw new Error(`Unknown scripted model behavior: ${modelId}`);
   },
@@ -102,8 +102,16 @@ function blockingStream(
     start(controller) {
       controller.enqueue({ type: "stream-start", warnings: [] });
       controller.enqueue({ type: "text-start", id: "blocked-text" });
-      controller.enqueue({ type: "text-delta", id: "blocked-text", delta: "streaming before " });
-      controller.enqueue({ type: "text-delta", id: "blocked-text", delta: "the abort" });
+      controller.enqueue({
+        type: "text-delta",
+        id: "blocked-text",
+        delta: "streaming before ",
+      });
+      controller.enqueue({
+        type: "text-delta",
+        id: "blocked-text",
+        delta: "the abort",
+      });
       recordProviderObservation({ event: "provider-streaming", requestId });
 
       // The error must carry the AbortError name: the workflow engine treats a
@@ -135,7 +143,11 @@ function attemptLateContent(
   controller: ReadableStreamDefaultController<LanguageModelV4StreamPart>,
 ): boolean {
   try {
-    controller.enqueue({ type: "text-delta", id: "blocked-text", delta: LATE_CONTENT_MARKER });
+    controller.enqueue({
+      type: "text-delta",
+      id: "blocked-text",
+      delta: LATE_CONTENT_MARKER,
+    });
     return true;
   } catch {
     return false;
@@ -156,7 +168,12 @@ function completedParts(text: string): ReadonlyArray<LanguageModelV4StreamPart> 
       type: "finish",
       finishReason: { unified: "stop", raw: "stop" },
       usage: {
-        inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+        inputTokens: {
+          total: 1,
+          noCache: 1,
+          cacheRead: undefined,
+          cacheWrite: undefined,
+        },
         outputTokens: { total: 1, text: 1, reasoning: undefined },
       },
     },

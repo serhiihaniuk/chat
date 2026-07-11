@@ -30,6 +30,7 @@ apps/side-chat-service/src/
     production/      # durable entries scanned only by production builds
     testing/         # compatibility entries scanned only by test builds
   adapters/
+    auth/            # driven: token/JWT authority implementations
     http/            # driving: Hono routes -> application use cases
     providers/       # driven: azure/openai implementations of the model port
     persistence/     # driven: packages/db implementations of store ports
@@ -65,6 +66,7 @@ Ports are interfaces the application defines because a real substitution exists.
 | Port (application/ports)                                   | Production adapter                                 | Test/double                     |
 | ---------------------------------------------------------- | -------------------------------------------------- | ------------------------------- |
 | `ModelProvider` (construct a `LanguageModel` per settings) | `adapters/providers` azure/openai                  | `testing/` scripted serde model |
+| `RequestAuthorizer`                                        | `adapters/auth` token/JWT authority                | deterministic test authority    |
 | `TurnExecution` (start/cancel/attach a durable turn)       | `workflows/` shell via `workflow/api`              | in-process fake for route tests |
 | `ConversationStore`, `TurnStore` (Step 09 shapes)          | `adapters/persistence` on `packages/db`            | memory implementations          |
 | `TelemetrySink`                                            | `adapters/telemetry`                               | collecting fake                 |
@@ -83,17 +85,17 @@ Rules: a port is defined next to the application code that owns it; no port with
 
 ## Where each step's artifacts land
 
-| Step                          | Lands in                                                                                                                     |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 03 configuration/composition  | `config/`, `composition/`                                                                                                    |
-| 04 providers, auth, telemetry | `adapters/providers`, `adapters/http` (middleware), `adapters/telemetry`, `application/ports` (ModelProvider, TelemetrySink) |
-| 05 turn execution             | `application/` (run-turn use case + TurnExecution port), `workflows/` (durable shell), `adapters/http` (routes)              |
-| 06 stream profile/scrub       | `application/` (scrub policy), `adapters/http` (transform placement)                                                         |
-| 07 reconnect/replay           | `adapters/http` + `workflows/` (readable attachment)                                                                         |
-| 09/10 persistence             | `application/ports` (stores), `adapters/persistence`, `packages/db`                                                          |
-| 11 client tools               | `application/` (dispatch policy), `workflows/` (hook waits), `adapters/http` (result endpoint)                               |
-| 12 approvals                  | `application/` (policy + audit), `workflows/` (durable gate)                                                                 |
-| 17 admission                  | `application/` (semaphore policy), wired in `composition/`                                                                   |
+| Step                          | Lands in                                                                                                                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 03 configuration/composition  | `config/`, `composition/`                                                                                                                                        |
+| 04 providers, auth, telemetry | `adapters/providers`, `adapters/auth`, `adapters/http` (middleware), `adapters/telemetry`, `application/ports` (ModelProvider, RequestAuthorizer, TelemetrySink) |
+| 05 turn execution             | `application/` (run-turn use case + TurnExecution port), `workflows/` (durable shell), `adapters/http` (routes)                                                  |
+| 06 stream profile/scrub       | `application/` (scrub policy), `adapters/http` (transform placement)                                                                                             |
+| 07 reconnect/replay           | `adapters/http` + `workflows/` (readable attachment)                                                                                                             |
+| 09/10 persistence             | `application/ports` (stores), `adapters/persistence`, `packages/db`                                                                                              |
+| 11 client tools               | `application/` (dispatch policy), `workflows/` (hook waits), `adapters/http` (result endpoint)                                                                   |
+| 12 approvals                  | `application/` (policy + audit), `workflows/` (durable gate)                                                                                                     |
+| 17 admission                  | `application/` (semaphore policy), wired in `composition/`                                                                                                       |
 
 ## Package boundaries (monorepo level)
 

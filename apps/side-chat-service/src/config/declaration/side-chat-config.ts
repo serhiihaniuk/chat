@@ -8,6 +8,16 @@ export const SERVICE_ENV_KEYS = {
   WORKFLOW_POSTGRES_URL: "WORKFLOW_POSTGRES_URL",
   WORKFLOW_LOCAL_DATA_DIR: "WORKFLOW_LOCAL_DATA_DIR",
   WORKFLOW_LOCAL_BASE_URL: "WORKFLOW_LOCAL_BASE_URL",
+  OPENAI_API_KEY: "OPENAI_API_KEY",
+  OPENAI_BASE_URL: "OPENAI_BASE_URL",
+  AZURE_OPENAI_API_KEY: "AZURE_OPENAI_API_KEY",
+  AZURE_OPENAI_ENDPOINT: "AZURE_OPENAI_ENDPOINT",
+  AZURE_OPENAI_API_VERSION: "AZURE_OPENAI_API_VERSION",
+  AZURE_OPENAI_DEPLOYMENT: "AZURE_OPENAI_DEPLOYMENT",
+  SIDECHAT_AUTH_TOKEN: "SIDECHAT_AUTH_TOKEN",
+  SIDECHAT_WORKSPACE_ID: "SIDECHAT_WORKSPACE_ID",
+  SIDECHAT_OTLP_ENDPOINT: "SIDECHAT_OTLP_ENDPOINT",
+  SIDECHAT_OTEL_SERVICE_NAME: "SIDECHAT_OTEL_SERVICE_NAME",
 } as const;
 
 export type EnvReference = {
@@ -51,6 +61,29 @@ export const readEnv = Object.assign(stringReference, {
 export type ConfigValue<T> = T | EnvReference;
 
 export interface SideChatConfig {
+  readonly models:
+    | {
+        readonly provider: "openai";
+        readonly modelId: ConfigValue<string>;
+        readonly apiKey: ConfigValue<string>;
+        readonly baseUrl?: ConfigValue<string | undefined>;
+        readonly reasoningEffort?: "low" | "medium" | "high";
+        readonly reasoningSummary?: "auto" | "concise" | "detailed";
+      }
+    | {
+        readonly provider: "azure";
+        readonly modelId: ConfigValue<string>;
+        readonly deployment: ConfigValue<string>;
+        readonly apiKey: ConfigValue<string>;
+        readonly endpoint: ConfigValue<string>;
+        readonly apiVersion: ConfigValue<string>;
+      }
+    | { readonly provider: "scripted"; readonly modelId: ConfigValue<string> };
+  readonly auth: {
+    readonly profile: "development" | "production";
+    readonly bearerToken: ConfigValue<string>;
+    readonly workspaceId: ConfigValue<string>;
+  };
   readonly timeouts: {
     readonly requestMs: ConfigValue<number>;
     readonly queueMs: ConfigValue<number>;
@@ -69,9 +102,14 @@ export interface SideChatConfig {
     readonly intervalMs: ConfigValue<number>;
     readonly proxyIdleBudgetMs: ConfigValue<number>;
   };
-  readonly telemetry: {
-    readonly enabled: boolean;
-  };
+  readonly telemetry:
+    | { readonly mode: "off" }
+    | { readonly mode: "console" }
+    | {
+        readonly mode: "otlp";
+        readonly endpoint: ConfigValue<string>;
+        readonly serviceName: ConfigValue<string>;
+      };
   readonly workflow: {
     readonly workerConcurrency: ConfigValue<number>;
     readonly concurrencyHeadroom: ConfigValue<number>;

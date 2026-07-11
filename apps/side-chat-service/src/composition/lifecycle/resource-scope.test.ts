@@ -12,7 +12,10 @@ describe("service composition", () => {
 
     await expect(
       startTestingService(settings, [
-        () => ({ name: "worker", close: () => void events.push("worker:closed") }),
+        () => ({
+          name: "worker",
+          close: () => void events.push("worker:closed"),
+        }),
         () => ({ name: "pool", close: () => void events.push("pool:closed") }),
         () => {
           throw new Error("listener failed");

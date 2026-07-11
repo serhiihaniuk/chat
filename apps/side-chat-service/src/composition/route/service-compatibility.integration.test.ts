@@ -188,6 +188,7 @@ function startService(port: number): ChildProcess {
     env: cleanEnv({
       ...process.env,
       PORT: String(port),
+      [SERVICE_ENV_KEYS.CONFIG_NAME]: "fake",
       [SERVICE_ENV_KEYS.WORKFLOW_LOCAL_DATA_DIR]: workflowDataDir,
       [SERVICE_ENV_KEYS.WORKFLOW_LOCAL_BASE_URL]: `http://127.0.0.1:${port}`,
     }),

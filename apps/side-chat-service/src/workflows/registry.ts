@@ -6,7 +6,9 @@ import type { ModelProvider } from "#application/ports/model-provider";
  * initializer must therefore execute from workflow-bundle composition; route
  * composition cannot initialize this module instance on the workflow's behalf.
  */
-export type WorkflowServices = Readonly<{ readonly modelProvider: ModelProvider }>;
+export type WorkflowServices = Readonly<{
+  readonly modelProvider: ModelProvider;
+}>;
 
 let initializedServices: WorkflowServices | undefined;
 

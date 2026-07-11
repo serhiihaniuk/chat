@@ -7,6 +7,20 @@ import {
 
 /** Production defaults remain readable here; secrets resolve only during boot. */
 const config: SideChatConfig = defineSideChatConfig({
+  models: {
+    provider: "openai",
+    modelId: "gpt-5.4",
+    apiKey: readEnv.secret(SERVICE_ENV_KEYS.OPENAI_API_KEY),
+    baseUrl: readEnv(SERVICE_ENV_KEYS.OPENAI_BASE_URL),
+    reasoningEffort: "medium",
+  },
+  auth: {
+    profile: "production",
+    bearerToken: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_AUTH_TOKEN),
+    workspaceId: readEnv(SERVICE_ENV_KEYS.SIDECHAT_WORKSPACE_ID, {
+      required: true,
+    }),
+  },
   timeouts: { requestMs: 60_000, queueMs: 5_000, providerMs: 45_000 },
   agent: {
     maxSteps: 8,
@@ -16,13 +30,15 @@ const config: SideChatConfig = defineSideChatConfig({
   },
   capacity: { activeGenerations: 8 },
   keepalive: { intervalMs: 15_000, proxyIdleBudgetMs: 60_000 },
-  telemetry: { enabled: true },
+  telemetry: { mode: "console" },
   workflow: {
     workerConcurrency: 10,
     concurrencyHeadroom: 2,
     journalArchiveAfterDays: 7,
     journalPruneAfterDays: 30,
-    postgresUrl: readEnv.secret(SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL, { required: false }),
+    postgresUrl: readEnv.secret(SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL, {
+      required: false,
+    }),
   },
 });
 

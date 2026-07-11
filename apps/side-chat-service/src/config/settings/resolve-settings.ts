@@ -1,3 +1,9 @@
+import {
+  readDeploymentSettings,
+  type AuthSettings,
+  type ModelSettings,
+} from "./deployment-settings.js";
+
 /**
  * Settings boundary mental model: decode the unknown resolved declaration,
  * accumulate shape issues, apply cross-field policy only to the decoded
@@ -15,7 +21,13 @@ export type SettingsResult =
   | { readonly ok: false; readonly issues: readonly SettingsIssue[] };
 
 export type Settings = Readonly<{
-  timeouts: Readonly<{ requestMs: number; queueMs: number; providerMs: number }>;
+  models: ModelSettings;
+  auth: AuthSettings;
+  timeouts: Readonly<{
+    requestMs: number;
+    queueMs: number;
+    providerMs: number;
+  }>;
   agent: Readonly<{
     maxSteps: number;
     totalTokenBudget: number;
@@ -24,7 +36,10 @@ export type Settings = Readonly<{
   }>;
   capacity: Readonly<{ activeGenerations: number }>;
   keepalive: Readonly<{ intervalMs: number; proxyIdleBudgetMs: number }>;
-  telemetry: Readonly<{ enabled: boolean }>;
+  telemetry:
+    | Readonly<{ mode: "off" }>
+    | Readonly<{ mode: "console" }>
+    | Readonly<{ mode: "otlp"; endpoint: string; serviceName: string }>;
   workflow: Readonly<{
     workerConcurrency: number;
     concurrencyHeadroom: number;
@@ -49,6 +64,7 @@ export const formatSettingsIssues = (issues: readonly SettingsIssue[]): string =
 
 function readSettings(candidate: unknown, issues: SettingsIssue[]): Settings {
   const root = readObject(candidate, "configuration", issues);
+  const deployment = readDeploymentSettings(root["models"], root["auth"], issues);
   const timeouts = readObject(root["timeouts"], "timeouts", issues);
   const agent = readObject(root["agent"], "agent", issues);
   const capacity = readObject(root["capacity"], "capacity", issues);
@@ -57,6 +73,7 @@ function readSettings(candidate: unknown, issues: SettingsIssue[]): Settings {
   const workflow = readObject(root["workflow"], "workflow", issues);
 
   return {
+    ...deployment,
     timeouts: {
       requestMs: readPositiveInteger(timeouts["requestMs"], "timeouts.requestMs", issues),
       queueMs: readPositiveInteger(timeouts["queueMs"], "timeouts.queueMs", issues),
@@ -95,7 +112,7 @@ function readSettings(candidate: unknown, issues: SettingsIssue[]): Settings {
         issues,
       ),
     },
-    telemetry: { enabled: readBoolean(telemetry["enabled"], "telemetry.enabled", issues) },
+    telemetry: readTelemetrySettings(telemetry, issues),
     workflow: {
       workerConcurrency: readPositiveInteger(
         workflow["workerConcurrency"],
@@ -192,10 +209,27 @@ function readNonnegativeInteger(value: unknown, path: string, issues: SettingsIs
   return 0;
 }
 
-function readBoolean(value: unknown, path: string, issues: SettingsIssue[]): boolean {
-  if (typeof value === "boolean") return value;
-  issues.push({ path, message: "must be a boolean" });
-  return false;
+function readTelemetrySettings(
+  telemetry: Readonly<Record<string, unknown>>,
+  issues: SettingsIssue[],
+): Settings["telemetry"] {
+  const mode = telemetry["mode"];
+  if (mode === "off" || mode === "console") return { mode };
+  if (mode === "otlp") {
+    return {
+      mode,
+      endpoint: readRequiredString(telemetry["endpoint"], "telemetry.endpoint", issues),
+      serviceName: readRequiredString(telemetry["serviceName"], "telemetry.serviceName", issues),
+    };
+  }
+  issues.push({ path: "telemetry.mode", message: "must be one of: off, console, otlp" });
+  return { mode: "off" };
+}
+
+function readRequiredString(value: unknown, path: string, issues: SettingsIssue[]): string {
+  if (typeof value === "string" && value.trim().length > 0) return value;
+  issues.push({ path, message: "must be a non-empty string" });
+  return "";
 }
 
 function readOptionalString(
