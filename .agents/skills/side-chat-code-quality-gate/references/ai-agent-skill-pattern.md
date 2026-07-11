@@ -30,7 +30,7 @@ References are split so the agent loads only what it needs:
 - project toolchain;
 - readability gate;
 - comment rules;
-- Effect/AI SDK review;
+- AI SDK/stream review;
 - package boundaries;
 - eval prompts.
 

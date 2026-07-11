@@ -19,7 +19,7 @@ Use this structure for code-quality reviews unless the user asks for another for
 ## Findings
 | Severity | Category | Evidence | Why it matters | Suggested fix | Confidence |
 |---|---|---|---|---|---|
-| high | effect-sdk-context-gap | `path/to/file:line` | ... | ... | high |
+| high | stream-sdk-context-gap | `path/to/file:line` | ... | ... | high |
 
 ## Readability/comment improvements
 <Use only when useful. Include exact replacement comments or code-shape suggestion.>
@@ -44,10 +44,10 @@ mechanical-gate
 complexity-hotspot
 ai-readability
 comment-context-gap
-effect-sdk-context-gap
+stream-sdk-context-gap
 boundary-leak
 type-safety
-ui-state-effect
+ui-state-behavior
 testability-gap
 size-budget
 dependency-governance

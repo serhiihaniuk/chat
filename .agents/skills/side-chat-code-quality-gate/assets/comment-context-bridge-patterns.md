@@ -93,15 +93,15 @@ Concrete generic example:
 // parts, and the consumer must update one activity instead of rendering duplicates.
 ```
 
-## Effect or stream boundary
+## Stream or SDK boundary
 
 ```ts
 /**
  * Run one assistant turn through the private provider adapter.
  *
- * Keep the result in the repository's effect/stream abstraction until the
- * transport boundary so typed failures, cancellation, and event ordering stay
- * visible to the workflow.
+ * Keep the result in the repository's stream abstraction until the transport
+ * boundary so failure, cancellation, and event ordering stay visible to the
+ * workflow.
  */
 ```
 

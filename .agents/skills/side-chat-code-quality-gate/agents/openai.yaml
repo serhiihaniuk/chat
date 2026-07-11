@@ -1,7 +1,7 @@
 # Optional agent metadata for the repository code quality gate skill.
 # The canonical behavior lives in ../SKILL.md.
 name: side-chat-code-quality-gate
-version: 1.2.0
+version: 1.3.0
 triggers:
   - repository code quality
   - code smells
@@ -9,7 +9,7 @@ triggers:
   - human cognitive load
   - clever hard to understand code
   - comments assume too much context
-  - Effect Stream readability
+  - AI SDK stream readability
   - AI SDK ToolLoopAgent
   - Oxlint Oxfmt TypeScript custom lints
   - package boundaries

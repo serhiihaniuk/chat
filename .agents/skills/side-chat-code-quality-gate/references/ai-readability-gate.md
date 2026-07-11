@@ -8,11 +8,11 @@ The target is not “the model can still reason about it.” The target is that 
 
 For generated code, inspect deeply nested expressions, anonymous domain callbacks, conditional object spreads, type tricks, generic factories used once, functions with several reasons to change, and files that mix orchestration with mapping, policy, rendering, or fixtures.
 
-For effect, stream, and SDK-heavy code, a few extra local variables are usually cheaper than one compressed expression that requires global context:
+For stream and SDK-heavy code, a few extra local variables are usually cheaper than one compressed expression that requires global context:
 
 ```ts
 const execution = createExecution(state, request)
-const externalStream = Effect.map(execution, openExternalStream)
+const externalStream = openExternalStream(execution)
 const publicEvents = Stream.map(externalStream, normalizeExternalEvent)
 ```
 

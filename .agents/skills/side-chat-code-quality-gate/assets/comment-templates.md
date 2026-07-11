@@ -24,14 +24,14 @@ Example:
  */
 ```
 
-## Effect or stream boundary
+## Stream or SDK boundary
 
 ```ts
 /**
  * Run [product action] through [private adapter or public port].
  *
- * The result remains [effect/stream/async abstraction] until [boundary] so
- * [typed failures, cancellation, ordering, or streaming] stay visible.
+ * The result remains [stream/async abstraction] until [boundary] so
+ * [failure, cancellation, ordering, or streaming] stays visible.
  */
 ```
 

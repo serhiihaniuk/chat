@@ -1,6 +1,6 @@
-# Effect, stream, and SDK readability
+# Stream and SDK readability
 
-Use this reference when a boundary combines an effect system, streams, an AI SDK, a provider adapter, tools, or protocol mapping. Discover the repository's actual module names and public contracts before applying these patterns.
+Use this reference when a boundary combines streams, an AI SDK, a provider adapter, tools, or protocol mapping. Discover the repository's actual module names and public contracts before applying these patterns.
 
 ## Local mental model
 
@@ -19,21 +19,9 @@ If code or comments force the reader to infer this chain from vague terms, impro
 
 ## Failure model
 
-Use the effect system's typed failure channel for expected validation, provider, persistence, policy, and tool failures. Keep defects distinct from expected failures. Boundary catchers may normalize defects as a safety net, but they should not make ordinary failure semantics invisible.
+Keep expected validation, provider, persistence, policy, and tool failures distinct from unexpected failures. Boundary handlers may normalize unexpected failures as a safety net, but they must not make ordinary failure semantics invisible.
 
 A useful local comment says where conversion happens and what representation downstream callers receive.
-
-For expected failures, keep the repository's typed failure channel visible:
-
-```ts
-const prepared = Effect.gen(function* () {
-  const input = yield* validateRequest(request)
-  const policy = yield* checkPolicy(input)
-  return yield* prepareExecution(input, policy)
-})
-```
-
-Use the configured defect boundary only for unexpected defects or final safety normalization. Do not turn every expected failure into an opaque catch.
 
 ## External-to-internal mapping
 
@@ -54,7 +42,7 @@ The operation id is the stable identity. Several external parts may update one p
 
 ## Dense pipeline smell
 
-Flag one expression that combines request preparation, adapter selection, tool selection, stream opening, effect-to-stream conversion, defect catching, external-part mapping, and public-protocol mapping.
+Flag one expression that combines request preparation, adapter selection, tool selection, stream opening, external-part mapping, and public-protocol mapping.
 
 Prefer named steps:
 
@@ -77,5 +65,5 @@ Avoid helper names such as `handle`, `process`, `map`, or `run` when the boundar
 3. What representation leaves it?
 4. Which identity, order, cancellation, and failure rules are preserved?
 5. Which external details must stay private?
-6. Is the expected failure channel visible?
+6. Is the expected failure behavior visible?
 7. Would a reader outside the current change understand the local sequence?

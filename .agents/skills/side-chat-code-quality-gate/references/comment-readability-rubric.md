@@ -1,77 +1,98 @@
 # Comment readability rubric
 
-A comment is good only when it reduces context load or prevents misuse. Discover the repository's current terms and boundaries before writing the final prose.
+A comment earns its space when it reduces context load or prevents misuse. Write for the maintainer who knows the language but not the current change.
 
-## Useful comment jobs
+## Comment jobs
 
-Use comments for file-level orientation, source-to-target translation, caller-visible contracts, invariants, stable identity, non-guarantees, failure, cancellation, ordering, timeout, privacy, normalization, and reasons a simpler-looking alternative is wrong.
+Use comments for:
 
-## Failing comments
+- file-level orientation and a local mental model;
+- public API purpose and caller-visible contracts;
+- defaults, units, valid ranges, and mutually exclusive options;
+- provider, model, framework, or environment limitations;
+- lifecycle timing, ordering, cancellation, retries, and timeouts;
+- source-to-target conversion at a boundary;
+- identity, privacy, normalization, failure, and non-guarantees;
+- reasons a simpler-looking alternative would be wrong.
 
-Flag comments that restate code, use vague verbs without concrete entities, assume architecture knowledge, omit the local invariant, become stale after ownership changes, replace a needed refactor, or claim intent not supported by code, tests, or docs.
+Do not comment syntax, repeat a clear name, or defend complexity that should be removed through structure.
 
-Do not paste `Source`, `Target`, or `Invariant` labels into every comment. Use ordinary prose unless labels genuinely improve a dense contract.
+## Public API and JSDoc standard
 
-## Context bridge pattern
+Treat exported functions, types, and options as compact reference documentation:
 
-Use source, target, hidden detail, and invariant as drafting questions:
-
-```ts
-/**
- * <Local role in the pipeline.>
- *
- * <Source representation> becomes <target representation>. <Identity, privacy,
- * ordering, failure, or non-guarantee future edits must preserve.>
- */
-```
-
-A boundary comment should name the local role first, then the lifecycle, privacy, failure, ordering, or non-guarantee that matters to callers.
+1. Open with one direct purpose sentence.
+2. State an important non-goal and name the alternative when useful.
+3. Document every caller-facing option with `@param` or the local equivalent.
+4. Add defaults, units, ranges, conflicts, and conditional support claims.
+5. Describe observable timing and operational behavior when callers depend on it.
+6. Use inline code for symbols, option names, literals, and alternatives.
+7. Group related options so the reader can scan the contract by concern.
 
 Example:
 
 ```ts
 /**
- * Select records admitted to the next workflow step.
+ * Generate a response and execute tools for one prompt.
  *
- * The input is already authorized; this function applies the history policy,
- * preserves repository order, and records safe ids and drop reasons without
- * copying private content into diagnostics.
+ * This function does not stream output. Use `streamResponse` when callers
+ * need incremental events.
+ *
+ * @param prompt - A text prompt. Use either `prompt` or `messages`, not both.
+ * @param temperature - Sampling control passed to the provider. The range is
+ *   provider- and model-dependent; do not combine it with `topP`.
  */
 ```
-
-## Comment versus refactor
-
-Refactor before commenting when a helper name would explain the step, an anonymous callback hides a domain operation, variable names are too generic, a dense expression needs a comment merely to be parsed, or one comment explains several responsibilities.
-
-Comment after refactoring when stable design knowledge remains hidden.
-
-## Coverage triggers
-
-Add or verify comments for concept-dense files, exported types with domain meaning, fields whose names hide units or lifecycle, spine functions, boundary mappers, adapter selectors, composition roots, and diagnostics that must not leak private data.
-
-Do not add orientation boilerplate to simple leaves, barrels, or tiny helpers.
 
 ## File-level orientation
 
-The comment should name the file's non-obvious role, why its concepts belong together, what stays outside the file, and what future change requires updating it. A visible declaration category such as “contains helpers” is not enough.
+Concept-dense files need a short comment before the first exported concept. It must explain:
 
-## Spine-function comments
+- the file's local role;
+- why the grouped concepts belong together;
+- what stays outside the file;
+- what future change requires updating the comment.
 
-For a function that coordinates lifecycle stages, comment what each stage proves, records, publishes, selects, hides, prepares, finalizes, or fails before the next stage.
+Do not add this boilerplate to simple leaves, barrels, or tiny helpers.
 
-## Type-contract comments
+## Boundary comments
 
-For an exported type, answer where values come from, who consumes them, what rule future edits must preserve, and what callers must not assume. Keep the prose close to the type and avoid private implementation details.
+Name the local role first, then explain the conversion in ordinary prose:
 
 ```ts
 /**
- * Secret-safe status for one optional capability.
+ * Convert provider tool failures into public activity records.
  *
- * Diagnostics may expose the capability name and adapter state, but must not
- * expose credentials, provider options, private records, or raw exceptions.
+ * The raw provider error stays inside the adapter; callers receive one stable
+ * activity id and a safe public error code.
  */
-export type CapabilityStatus = {
-  readonly name: string
-  readonly state: CapabilityState
-}
 ```
+
+The reader should be able to identify the source representation, target contract, hidden detail, and preserved invariant without learning the entire architecture.
+
+Avoid a labeled `Source/Target/Invariant` worksheet unless the surrounding code already uses it and it genuinely improves clarity.
+
+## Spine functions
+
+For a function that coordinates a lifecycle, comment what each stage proves, selects, records, publishes, hides, prepares, finalizes, or fails before the next stage. Prefer named stages over comments that explain a dense expression.
+
+## Comment versus refactor
+
+Refactor first when:
+
+- a helper name would explain the operation;
+- an anonymous callback hides a domain step;
+- variables are too generic;
+- a comment is needed merely to parse an expression;
+- one comment explains several responsibilities.
+
+Comment after the refactor when stable design knowledge remains hidden.
+
+## Review questions
+
+1. Does this comment explain behavior the code cannot express clearly?
+2. Can a lower-context maintainer tell what the API does and does not guarantee?
+3. Are defaults, constraints, timing, and provider limitations documented where relevant?
+4. Does a boundary comment name source, target, hidden detail, and preserved invariant?
+5. Could the comment become stale after an ownership or lifecycle change?
+6. Would better names or structure remove the need for it?

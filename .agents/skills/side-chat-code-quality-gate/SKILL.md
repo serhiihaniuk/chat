@@ -3,7 +3,7 @@ name: side-chat-code-quality-gate
 description: Review, write, refactor, or gate TypeScript, React, Node, documentation, tests, architecture, comments, and repository governance for human-level readability, simplicity, maintainability, correctness, security, and configured quality checks. Use for hard-to-understand code, oversized functions/files, unclear async or framework boundaries, AI-generated code review, code smells, or repository-wide audits. Do not use for testing-only design; use the testing skill when the main task is test strategy.
 compatibility: Codex CLI, Codex IDE, Codex app; instruction-first skill; no network required.
 metadata:
-  version: "2.0.0"
+  version: "2.1.0"
   domain: "Repository code quality, readability, maintainability, and governance"
   source: "Repository-local quality guidance with technology-aware examples"
 ---
@@ -59,7 +59,7 @@ Write for the maintainer who returns to the code after the current conversation 
 
 Refactor when a function mixes responsibilities, failure modes, domain vocabularies, or lifecycle stages. Extract by responsibility and vocabulary, not by arbitrary line count. Do not create tiny helpers that make the reader jump through more files without reducing concepts.
 
-For async, stream, effect, provider, framework, and React state code, make execution order visible. Name preparation, invocation, mapping, cleanup, and error-conversion stages. Keep typed failures, defects, provider errors, tool errors, protocol errors, and UI errors distinct.
+For async, stream, provider, framework, and React state code, make execution order visible. Name preparation, invocation, mapping, cleanup, and error-conversion stages. Keep expected failures, unexpected failures, provider errors, tool errors, protocol errors, and UI errors distinct.
 
 ## Comment quality gate
 
@@ -72,6 +72,17 @@ Every kept comment should answer at least one question:
 - What invariant, privacy rule, ordering rule, or failure rule must future edits preserve?
 - What information is intentionally hidden, normalized, or not guaranteed?
 
+Public API and JSDoc comments should read like compact reference documentation:
+
+- Start with the API's purpose in one direct sentence.
+- State an important non-goal and name the alternative API when that prevents misuse.
+- Document every caller-facing option with `@param` or an equivalent local form.
+- Include defaults, units, valid ranges, mutually exclusive options, and provider or model limitations when they affect behavior.
+- Describe conditional guarantees honestly, using phrases such as "if supported" when the implementation cannot promise universal support.
+- Explain lifecycle timing, retries, cancellation, timeouts, observable behavior, and ordering when callers need to rely on them.
+- Use inline code formatting for symbols, option names, literal values, and alternatives.
+- Group related parameters in a readable order instead of presenting an undifferentiated option dump.
+
 Concept-dense files need a short file-level orientation comment before the first exported concept. The comment should state the local role, why the grouped concepts belong together, what responsibility stays outside the file, and what future change requires updating the comment. Do not add this boilerplate to simple leaf files, barrels, or tiny helpers.
 
 Boundary-heavy comments should explain the source representation, target contract, hidden detail, and preserved invariant in readable prose. Do not use a labeled `Source/Target/Invariant` worksheet unless the surrounding code already uses that form and it is genuinely clearer.
@@ -80,7 +91,7 @@ Boundary-heavy comments should explain the source representation, target contrac
 
 Keep framework and vendor details behind the boundary that owns them. Keep browser-facing contracts free of server objects, database rows, provider-native DTOs, and runtime internals. Keep database details behind repositories or the repository's declared persistence boundary. Keep transport conversions at transport edges.
 
-When reviewing effect, stream, AI SDK, or framework code, flag nested combinators or callbacks that hide execution order, callbacks with too many unrelated domain objects, and error mapping that mixes typed failures with defects. Prefer named preparation, adapter invocation, boundary mapping, and cleanup stages.
+When reviewing stream, AI SDK, or framework code, flag nested callbacks or adapters that hide execution order, callbacks with too many unrelated domain objects, and error mapping that hides expected versus unexpected failures. Prefer named preparation, adapter invocation, boundary mapping, and cleanup stages.
 
 ## Type and contract discipline
 
@@ -117,7 +128,7 @@ When reviewing without editing, report actionable findings only:
 <Files not inspected, unavailable tools, or unresolved intent.>
 ```
 
-Useful categories include `correctness-risk`, `type-safety-risk`, `complexity-hotspot`, `readability-context-gap`, `cleverness-debt`, `comment-quality`, `coupling-boundary`, `ui-state-effect`, `async-resource`, `testability-gap`, and `repo-gate-mismatch`.
+Useful categories include `correctness-risk`, `type-safety-risk`, `complexity-hotspot`, `readability-context-gap`, `cleverness-debt`, `comment-quality`, `coupling-boundary`, `ui-state-behavior`, `async-resource`, `testability-gap`, and `repo-gate-mismatch`.
 
 ## Edit mode output
 
@@ -140,7 +151,7 @@ Report changed files, the readability or quality issue fixed, comments added or 
 Load references relative to this skill directory only when needed:
 
 - `references/human-cognitive-load-budget.md` for complexity and simplification review.
-- `references/ai-sdk-effect-readability.md` for effect, stream, provider, and SDK boundaries.
+- `references/ai-sdk-readability.md` for stream, provider, and SDK boundaries.
 - `references/comment-readability-rubric.md` for context bridges and comment coverage.
 - `assets/comment-context-bridge-patterns.md` for boundary-comment examples.
 - `references/eval-prompts.md` when validating this skill's behavior.

@@ -2,7 +2,7 @@
 
 These examples target code that is correct but forces a maintainer to reconstruct too much context. Adapt them to the repository's actual types and APIs. They illustrate a shape, not a dependency or package contract.
 
-## Example 1: nested effect/stream expression
+## Example 1: nested stream expression
 
 Problem shape:
 
@@ -11,40 +11,30 @@ Problem shape:
  * The external stream must not open until request preparation succeeds.
  * Keeping the boundary in one expression makes that lifecycle easy to miss.
  */
-const streamResult = catchDefects(
-  Stream.unwrap(
-    Effect.map(createExecution(state, request), execution =>
-      openExternalStream({
-        model: execution.model,
-        options: execution.options,
-        request: execution.request,
-      }),
-    ),
-  ),
+const publicEvents = normalizeExternalStream(
+  openExternalStream(prepareExecution(state, request)),
 )
 ```
 
 What is wrong:
 
-- the important domain step is anonymous;
-- the reader must unpack effect and stream mechanics at the same time;
+- the important domain steps are anonymous;
+- the reader must unpack preparation, stream opening, and normalization at the same time;
 - the expression does not show where external details stop being visible.
 
 Preferred shape:
 
 ```ts
-const execution = createExecution(state, request)
-const externalStream = Effect.map(execution, openExternalStream)
-const normalizedStream = Stream.unwrap(externalStream)
-
-const streamResult = catchDefects(normalizedStream)
+const execution = prepareExecution(state, request)
+const externalStream = openExternalStream(execution)
+const publicEvents = normalizeExternalStream(externalStream)
 ```
 
 Why this is better:
 
-- preparation, stream opening, unwrapping, and defect normalization are visible stages;
-- the domain operation has a name instead of being an anonymous callback;
-- the result remains in the existing abstraction, so behavior and failure semantics do not change.
+- preparation, stream opening, normalization, and publication are visible stages;
+- the domain operations have names instead of being hidden inside a nested call;
+- the boundary is visible, so provider details do not leak into the public result.
 
 Do not mechanically apply this exact diff if the surrounding code would become worse. Extract only the steps that reduce context load.
 
@@ -75,15 +65,15 @@ Bad:
 
 ```ts
 // Prepare the request and open the external stream.
-const stream = unwrap(map(createExecution(state, request), execution => openStream(execution)))
+const stream = normalizeExternalStream(openExternalStream(prepareExecution(state, request)))
 ```
 
 Better:
 
 ```ts
-const execution = createExecution(state, request)
-const preparedStream = map(execution, openStream)
-const stream = unwrap(preparedStream)
+const execution = prepareExecution(state, request)
+const preparedStream = openExternalStream(execution)
+const stream = normalizeExternalStream(preparedStream)
 ```
 
 Named stages are stronger than a comment that labels a dense expression. If the expression still mixes policy, mapping, transport, and cleanup, split by responsibility rather than by line count.

@@ -2,7 +2,7 @@
 
 The agent must optimize for the complexity a human maintainer can hold, not for what an AI can parse.
 
-AI can generate code with many simultaneous concepts: types, Effect containers, stream conversion, provider execution, protocol mapping, comments, and hidden architectural assumptions. That code may be correct and still fail this quality gate.
+AI can generate code with many simultaneous concepts: types, stream conversion, provider execution, protocol mapping, comments, and hidden architectural assumptions. That code may be correct and still fail this quality gate.
 
 ## Core rule
 
@@ -16,14 +16,14 @@ Use these as soft limits:
 
 ```txt
 ordinary production function: cognitive complexity <= 8
-Effect / Stream / AI SDK boundary function: cognitive complexity <= 6
-React component or hook with state/effects: cognitive complexity <= 6
+Stream / AI SDK boundary function: cognitive complexity <= 6
+Stateful React component or hook: cognitive complexity <= 6
 max nesting: 2 levels preferred, 3 needs reason, 4 is mechanical max
 function length: about one screen / 40-50 logical lines unless declarative/cohesive
 active domain entities in one function: <= 5 preferred
 ```
 
-Why lower targets for Effect, AI SDK, and React state/effects? The library concepts already consume mental budget before the business logic starts.
+Why lower targets for stream, AI SDK, and stateful React code? The library concepts already consume mental budget before the business logic starts.
 
 ## Warning signs
 
@@ -32,9 +32,8 @@ Refactor or simplify when code requires the reader to hold too many of these at 
 - provider/model selection;
 - runtime request shape;
 - external agent-loop stream opening;
-- Effect error channel;
 - stream unwrapping;
-- defect catching;
+- unexpected-error normalization;
 - tool selection;
 - protocol event shape;
 - consumer activity identity;
@@ -112,7 +111,7 @@ Before finishing code, the agent should ask:
 Could a maintainer unfamiliar with this specific PR explain this function after one local read?
 Could they safely modify one branch without learning the whole architecture?
 Are the hard terms introduced locally, or does the code assume outside context?
-Would this still be readable if the reader did not know Effect or AI SDK well?
+Would this still be readable if the reader did not know the AI SDK well?
 ```
 
 If not, simplify before finalizing.
