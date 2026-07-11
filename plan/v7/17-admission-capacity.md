@@ -18,10 +18,10 @@ Load is chosen, not discovered: a bounded count of concurrently generating turns
 
 - **Mechanism**: plain-TS counting semaphore + FIFO wait queue (~30–50 lines, no framework) implementing `admitTurn(): Promise<ReleaseHandle>`; config: `capacity { maxActiveTurns, queueSize, queueTimeoutMs }` (validated since Step 03; defaults 16/32/5s).
 - **Acquisition**: in the Step 05 route order — after policy checks, **before any durable write**, so rejection leaves zero residue.
-- **Release**: tied to the turn's terminal transition (Step 09's guarded transition), not to request lifetime — the HTTP response can end while the run continues `[workflow-branch]`. Every exit releases exactly once: complete, fail, cancel, timeout.
-- **Suspension policy** `[workflow-branch]`: a run suspending on a hook/approval **releases its slot** and re-acquires on resume. If the local queue times out, the workflow durably sleeps with bounded jitter and retries admission without holding a worker/generation slot; it fails only when the turn's total durable deadline expires. Transient local saturation must not destroy a resumable run.
+- **Release**: tied to the turn's terminal transition (Step 09's guarded transition), not to request lifetime — the HTTP response can end while the durable run continues. Every exit releases exactly once: complete, fail, cancel, timeout.
+- **Suspension policy**: a run suspending on a hook/approval **releases its slot** and re-acquires on resume. If the local queue times out, the workflow durably sleeps with bounded jitter and retries admission without holding a worker/generation slot; it fails only when the turn's total durable deadline expires. Transient local saturation must not destroy a resumable run.
 - **Overload mapping**: queue full or queue timeout → HTTP 503, the Step 01 capacity code, `Retry-After: 5`—mapped before any stream starts.
-- **Worker alignment** `[workflow-branch]`: `WORKFLOW_POSTGRES_WORKER_CONCURRENCY ≥ maxActiveTurns + headroom` (resumes/timeouts); one cross-field validation ties them; both recorded together.
+- **Worker alignment**: `WORKFLOW_POSTGRES_WORKER_CONCURRENCY ≥ maxActiveTurns + headroom` (resumes/timeouts); one cross-field validation ties them; both recorded together.
 - **Provider partitions**: do not build them in this program. One generation semaphore is the foundation; add provider-specific partitions only from measured quota pressure in a later plan.
 - Counters exposed (consumed by Step 18): admitted, queued, rejected, active, queue-wait duration, suspension releases/re-acquisitions.
 
@@ -31,8 +31,8 @@ Load is chosen, not discovered: a bounded count of concurrently generating turns
 2. queue full → immediate 503, zero residue;
 3. cancel while queued → waiter removed, no slot consumed, no residue;
 4. release on every terminal path — after a mixed batch (complete/fail/cancel/client-tool timeout), active count returns to zero;
-5. `[workflow-branch]` suspension releases the slot: an instance saturated with suspended approvals still admits new turns;
-6. `[workflow-branch]` resume re-acquires; resume under saturation follows the recorded decision;
+5. suspension releases the slot: an instance saturated with suspended approvals still admits new turns;
+6. resume re-acquires; resume under saturation follows the recorded decision;
 7. deterministic concurrency stress: scripted blocking providers saturating admission — queue ordering (FIFO), timeout behavior, and counter consistency over repeated runs;
 8. release is idempotent in production; a second release emits a counter and throws in tests/development so lifecycle defects cannot hide;
 
@@ -53,8 +53,8 @@ npm run lint:custom
 ## Completion checklist
 
 - [ ] Semaphore + queue behind `admitTurn()`; overload contract implemented.
-- [ ] Slot release tied to terminal transition; suspension/resume policy implemented and recorded `[workflow-branch]`.
-- [ ] Worker-concurrency cross-field validation `[workflow-branch]`.
+- [ ] Slot release tied to terminal transition; suspension/resume policy implemented and recorded.
+- [ ] Worker-concurrency cross-field validation.
 - [ ] All eight edge cases + stress test pass.
 - [ ] Counters exposed for Step 18.
 

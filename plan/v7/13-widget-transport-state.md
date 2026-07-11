@@ -1,6 +1,6 @@
 # Step 13: Widget — Transport and Chat State
 
-Read this when: wiring the widget's chat state onto `useChat` and the branch transport.
+Read this when: wiring the widget's chat state onto `useChat` and `WorkflowChatTransport`.
 
 Source of truth for: transport configuration, auth wiring, history seeding, and send/stream/cancel state behavior.
 
@@ -12,7 +12,7 @@ Depends on: Steps 07, 10 (their endpoints). Unblocks: Steps 14, 15, 16.
 
 ## Outcome
 
-The widget sends a message, streams the answer, and cancels — through `useChat` (`@ai-sdk/react`) with the branch transport, seeded from validated history. Rendering may be minimal/raw in this step (text only); the old state layer is untouched and still present (deleted in Step 20). Component library and design system untouched.
+The widget sends a message, streams the answer, and cancels — through `useChat` (`@ai-sdk/react`) with `WorkflowChatTransport`, seeded from validated history. Rendering may be minimal/raw in this step (text only); the old state layer is untouched and still present (deleted in Step 20). Component library and design system untouched.
 
 ## Current evidence to verify (the layer being replaced)
 
@@ -23,9 +23,8 @@ The widget sends a message, streams the answer, and cancels — through `useChat
 ## Target design
 
 - One `useChat` per open conversation; `id` = conversation id; initial messages seeded from the Step 10 history read (validated `UIMessage[]`).
-- Transport `[workflow-branch]`: `WorkflowChatTransport` — `api` → Step 05 POST; auth headers/credentials/body via the prepare-hook functions (`prepareSendMessagesRequest`, `prepareReconnectToStreamRequest` — functions, so token refresh works); reconnect target Step 07's GET; `maxConsecutiveErrors` from config. (Reconnect _behavior_ is Step 16's scope; this step only wires the transport correctly.)
-- Transport `[fallback]`: `DefaultChatTransport` against the POST.
-- Cancel: the stop control drives Step 05's cancel route `[workflow-branch]` / request abort `[fallback]`.
+- Transport: `WorkflowChatTransport` — `api` → Step 05 POST; auth headers/credentials/body via the prepare-hook functions (`prepareSendMessagesRequest`, `prepareReconnectToStreamRequest` — functions, so token refresh works); reconnect target Step 07's GET; `maxConsecutiveErrors` from config. (Reconnect _behavior_ is Step 16's scope; this step only wires the transport correctly.)
+- Cancel: the stop control drives Step 05's cancel route.
 - Keepalive comment frames must be transparent to the transport decoder (test).
 - State invariants preserved from the old reducer (presentation contracts Step 14 builds on): terminal is final; cancel produces a calm cancelled state, not an error; a transport drop is "reconnecting", never terminal (full ladder in Step 16).
 - TanStack Query keeps owning conversations/models/history reads against the Step 10 shapes.
@@ -52,7 +51,7 @@ Plus a browser sanity run against the new wing (fake provider) via the preview w
 
 ## Completion checklist
 
-- [ ] useChat + transport wired per branch with auth prepare hooks.
+- [ ] useChat + `WorkflowChatTransport` wired with auth prepare hooks.
 - [ ] History seeding without duplicate bubbles.
 - [ ] All six edge cases tested; browser sanity run screenshotted.
 - [ ] Old state layer untouched but unused by this path.

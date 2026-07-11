@@ -1,5 +1,9 @@
 # AI SDK 7 Rewrite Knowledge Base
 
+## Current execution-substrate verdict (2026-07-11)
+
+**Workflow substrate, adopted with the pinned realm patch — implemented and green the same day** (user decision; [`STATUS.md`](./STATUS.md) §Execution-substrate verdict; ADR 0016, revised). The first gate pass had selected a `ToolLoopAgent` fallback on a deterministic cancellation failure; the re-examination proved that failure is a one-line name-lookup bug over correct cancellation semantics, and the fallback code was deleted when the Workflow rebuild landed. Details: §2026-07-11 cancellation re-examination and §2026-07-11 foundation rebuild facts below.
+
 Read this when: implementing any step or verifying an SDK API, limit, or behavior.
 
 Source of truth for: verified AI SDK 7 facts, gotchas, and configuration obligations for this program.
@@ -11,7 +15,7 @@ Not source of truth for: the API of a future SDK release. Re-verify against inst
 - Research date: 2026-07-10. Versions on npm that day: `ai@7.0.20` (clone HEAD at 7.0.21), `@ai-sdk/openai@4.0.11`, `@ai-sdk/azure@4.0.11`, `@ai-sdk/provider@4.0.3` (protocol `LanguageModelV4`), `@ai-sdk/react@4.0.21`, `@ai-sdk/otel@1.0.20`, `@ai-sdk/workflow@1.0.21`, `workflow@4.6.0`, `@workflow/world-postgres@4.3.0`.
 - Source clone: `.reference/ai-sdk-v7` (sparse: `packages/ai`, `packages/workflow`, `packages/provider`, `packages/provider-utils`, `packages/react`). Ignored reference material — re-pull when the pinned version changes. File:line references below are against this clone.
 - Requirements: Node ≥22, ESM-only. Repo already ships Node 24 + ESM.
-- Step 02a pins the exact versions; record them here when selected.
+- Step 02 pinned the exact versions; the installed set is recorded in §2026-07-11 foundation rebuild facts below.
 
 ## The wire protocol
 
@@ -25,22 +29,47 @@ Not source of truth for: the API of a future SDK release. Re-verify against inst
 
 - `@ai-sdk/workflow` exports `WorkflowAgent`, `WorkflowChatTransport`, `createModelCallToUIChunkTransform`. Agent is `stream()`-only (`generate()` throws — `workflow-agent.ts:1307`). It writes `ModelCallStreamPart`s to a `getWritable()` from `workflow`; convert to UI chunks at the response boundary. This is a two-vocabulary design (engine parts ≠ wire chunks) — same shape as the old RuntimeEvent architecture.
 - **One model call = one workflow step** (`do-stream-step.ts:114`). The journaled step result is deliberately compact — concatenated text + metadata, no per-chunk arrays (`do-stream-step.ts:86-94`). Each server tool execution is also a step.
-- **Every stream part is written individually** to the writable (`do-stream-step.ts:246-248`) and the SSE path has zero batching (`json-to-sse-transform-stream.ts`). Postgres World batches inserts on its flush interval but retains one row per chunk; Step 02b measures the deployed shape and later capacity/pruning steps own tuning.
+- **Every stream part is written individually** to the writable (`do-stream-step.ts:246-248`) and the SSE path has zero batching (`json-to-sse-transform-stream.ts`). Postgres World batches inserts on its flush interval but retains one row per chunk; the Step 02 suite is the measurement harness for the deployed shape (Step 19 re-measures rows/turn) and later capacity/pruning steps own tuning.
 - Crash mid-model-call: the step re-runs → the model call is redone (re-billed; text may differ). The client-side `normalize-ui-message-stream.ts` repairs framing and drops replayed chunks for already-ended parts.
 - Hooks (`createHook`/`resumeHook`, from `workflow`) suspend a run durably with a deterministic token; resume goes through Postgres, so any instance can accept the resume call. This is the native replacement for the host-command poll-and-notify relay.
 - Approval code exists inside `WorkflowAgent`, but the pinned compiled Workflow end-to-end path is **not yet proven safe**: `workflow-agent-e2e.integration.test.ts:219-227` labels `needsApproval` a GAP and observes immediate execution. Step 12 must reproduce this against the exact pins before choosing its mechanism. Approved responses are re-validated by the core validator when that path is active; HMAC signing remains core/ToolLoopAgent-only.
-- Self-hosting: `@workflow/world-postgres` (stable-labeled; graphile-worker job queue, NOTIFY/LISTEN realtime, `WORKFLOW_POSTGRES_URL`, bootstrap CLI). Hono is supported through the Nitro build wrapper. Known risk: vercel/workflow#611 reports stuck self-hosted jobs; Step 02b's permanent crash/cross-instance suite is the acceptance evidence.
+- Self-hosting: `@workflow/world-postgres` (stable-labeled; graphile-worker job queue, NOTIFY/LISTEN realtime, `WORKFLOW_POSTGRES_URL`, bootstrap CLI). Hono is supported through the Nitro build wrapper. Known risk: vercel/workflow#611 reports stuck self-hosted jobs; Step 02's permanent compatibility suite plus Step 19's crash-resume lifecycle smoke are the acceptance evidence.
 - No self-hosted deploy-versioning story: a run suspended across a deploy replays its event log against new code. Replay compatibility across deploys is our discipline (keep workflow function bodies stable; version tool names).
 - Serialization boundary: everything crossing a step boundary must be serializable. Tools are serialized (zod → JSON Schema, Ajv-reconstructed inside the step — `do-stream-step.ts:122-127`). No closures over live services; services reachable from module scope inside step code; contexts are plain data.
 - `sendFinish: false` / `preventClose: true` compose multiple agents into one stream (sub-agent orchestration support).
 - `WorkflowChatTransport`: auto-reconnect on missing `finish`, `startIndex` offsets, `maxConsecutiveErrors` (default 3), requires the POST response to return `x-workflow-run-id` and a `GET {api}/{runId}/stream` route.
 - Telemetry on the workflow path is a bridge marked TODO(#12164) — "approximately compatible" with core telemetry types. Expect churn.
 
+### 2026-07-11 cancellation re-examination (supersedes earlier claims where they conflict)
+
+Full evidence: [`evidence/02-workflow-cancellation-reexamination.md`](./evidence/02-workflow-cancellation-reexamination.md); repro preserved at `.reference/workflow-cancel-repro{,-v4}`.
+
+- On `workflow@5.0.0-beta.30` + `ai@7.0.22` + `@ai-sdk/workflow@1.0.22`: ANY `abortSignal` or numeric `timeout` passed to `WorkflowAgent.stream` inside a workflow throws `TypeError: Right-hand side of 'instanceof' is not callable` before the provider is called. Root cause is a name-lookup bug, not semantics: the workflow VM's `AbortSignal` global is a plain `{abort, any, timeout}` object (`vercel/workflow packages/core/src/workflow.ts:383`), and AI SDK's `mergeAbortSignals` uses `instanceof AbortSignal` (`packages/ai/src/util/merge-abort-signals.ts:17`).
+- **DevKit v5 cancellation semantics are correct**: a workflow-realm durable `AbortController` signal reaches a plain `'use step'` as a real native host `AbortSignal` and aborts an in-flight step in real time. Host→VM signal deserialization also works (realm crossing is solved in v5).
+- **Proven workaround (one line, in-workflow, undocumented)**: `globalThis.AbortSignal = Object.getPrototypeOf(controller.signal).constructor;` before `agent.stream` — full docs-blessed hook-race cancellation then works end-to-end (~2 ms abort delivery, reason intact).
+- `run.cancel()` confirmed: transitions status but delivers zero abort events to an in-flight provider call — never a substitute for signal-based stop.
+- Custom model instances crossing the workflow→step boundary must implement `WORKFLOW_SERIALIZE`/`WORKFLOW_DESERIALIZE` from `@workflow/serde`.
+- `workflow@4.6.0` control: VM has NO `AbortController`/`AbortSignal` at all (ReferenceError) — the first gate pass's v4 finding confirmed exactly.
+- Substrate verdict: **decided and implemented 2026-07-11 — Workflow adopted with the pinned patch** (STATUS.md §verdict; ADR 0016 revised). Upstream issue drafts are in the evidence file; filing requires user approval.
+
+### 2026-07-11 foundation rebuild facts (implemented; suite `npm run test:service:compatibility` is the proof)
+
+- **Pins installed**: `ai@7.0.22`, `@ai-sdk/workflow@1.0.22`, `workflow@5.0.0-beta.30`, `@ai-sdk/provider@4.0.3`, `@workflow/serde@5.0.0-beta.2`, `@workflow/world-postgres@5.0.0-beta.24`, `nitro@3.0.260610-beta`, `rollup@4.62.2`, `hono@4.12.27`. `zod` deliberately undeclared (auto peer; root pins 4.4.3).
+- **Patch module**: `apps/side-chat-service/src/runtime/workflow-abort-signal-patch.ts` — written as `Reflect.getPrototypeOf(signal)` + `Object.assign(globalThis, { AbortSignal: … })` (repo gates forbid type assertions), semantically the proven one-liner. The suite's third test is the **removal tripwire**: it asserts the unpatched path still throws the instanceof TypeError; when a dependency bump makes it pass, delete the patch in that change.
+- **Cancellation is signal-based**: durable abort hook raced with `WorkflowAgent.stream`; cancel route resumes the hook; the suite asserts provider-observed abort + zero late content + exactly one provider attempt. No `run.cancel()` route exists.
+- **Engine finding — AbortError naming**: a step failing with anything other than a `DOMException` named `AbortError` is treated as retryable and re-runs the provider call. Abort paths must preserve that name.
+- **Engine finding — pending hooks are safe**: a never-resumed `createHook` does not block run completion.
+- **Bundle isolation**: routes and workflow steps compile into separate module instances — no module-scope state sharing across that boundary. The provider-side test observations therefore travel via structured stdout lines, not shared memory.
+- **World selection is build-time**: `WORKFLOW_TARGET_WORLD` is an esbuild alias at `nitro build`; `WORKFLOW_POSTGRES_URL` is the runtime secret. Tests use the embedded local world with a disposable `WORKFLOW_LOCAL_DATA_DIR`. Ops docs must document this env contract (queued for Step 21's doc pass; noted here so it isn't lost).
+- Service scripts: `build: nitro build`, `dev: nitro dev`, `start: node .output/server/index.mjs`; `.nitro/`, `.output/`, `.workflow-data/` gitignored and governance-ignored.
+- Known nonfatal Windows noise: SWC "failed to read input source map" during nitro build; graphile-worker executable-detection warning.
+- **Convention reminder for step executors (twice violated by implementation agents on 2026-07-11)**: AGENTS.md rules apply to interim/foundation code too — env keys and closed value sets live in exported uppercase constant objects (see `apps/side-chat-service/src/config/server-config.ts`: `SERVICE_ENV_KEYS`, `TEST_COMPOSITION`, `WORKFLOW_WORLDS`), cross-directory imports use `#subpath` package imports (never `../` across source folders — `check-boundaries.mjs` enforces it), and formatting uses the repo's `npm run format` (the repo formatter is not prettier for source files).
+
 ## Workflow DevKit source facts (verified in `.reference/workflow`, clone of vercel/workflow, 2026-07-10 HEAD)
 
 - **License/governance**: Apache 2.0, DCO contributions, public monorepo. The compiler is a Rust SWC plugin (`swc-plugin-workflow`); adapters exist for next/nitro/nuxt/sveltekit/astro/vite/nest/vitest.
 - **World abstraction**: `World = Queue + Streamer + Storage` (three interfaces in `packages/world/src/interfaces.ts`); official worlds: local, postgres, testing, vercel (`worlds-manifest.json` marks them `type: "official"`, implying third-party worlds are expected). `world-postgres` runs on plain `pg` + drizzle + graphile-worker; `world-vercel` is where the Vercel-hosting specials live (E2E encryption, deployment/skew resolution, their events API).
-- **Chunk write batching EXISTS**: the core buffers stream writes with a flush interval—default **10ms**, override `WORKFLOW_STREAM_FLUSH_INTERVAL_MS` or `world.streamFlushIntervalMs` (`packages/core/src/serialization.ts:863-870`). A flush with >1 buffered chunk uses `writeMulti` → **one batched INSERT** (`world-postgres/src/streamer.ts:172-206`). Buffer clears only after successful write. Rows remain one per chunk/part, and `pg_notify` fires per chunk even inside a batch. Step 02b permanently measures rows/round trips; Step 07 owns any row-reducing delta coalescing.
+- **Chunk write batching EXISTS**: the core buffers stream writes with a flush interval—default **10ms**, override `WORKFLOW_STREAM_FLUSH_INTERVAL_MS` or `world.streamFlushIntervalMs` (`packages/core/src/serialization.ts:863-870`). A flush with >1 buffered chunk uses `writeMulti` → **one batched INSERT** (`world-postgres/src/streamer.ts:172-206`). Buffer clears only after successful write. Rows remain one per chunk/part, and `pg_notify` fires per chunk even inside a batch. The Step 02 suite is the permanent harness for measuring rows/round trips; Step 07 owns any row-reducing delta coalescing.
 - **Streamer design** mirrors the old Side Chat pattern: durable rows + one dedicated LISTEN connection per instance (topic `workflow_event_chunk`) + monotonic ULID chunk ids for order/dedup; replay (`get()`) loads the stream's chunks and tails live, supports negative `startIndex`; `getChunks` is cursor-paginated (default 100).
 - Observed dependency note: `world-postgres` also depends on `@vercel/queue` (verify its role at pin time).
 
@@ -138,7 +167,7 @@ v6 lacked LangGraph's checkpointing/interrupts/multi-agent; the user resisted La
 
 ## 6. Scale analysis (reasoning behind the numbers in "Scale model")
 
-Two connection layers: browser tabs hold Node SSE sockets (thousands per instance, near-free); Postgres connections are per-instance pools (~10–15, constant regardless of tabs; one shared LISTEN connection per instance). Postgres connections scale with instances, not users. Cost ladder: tabs → no; connections → no; NOTIFY → no; chunk-write throughput → first real bound, scaling with _concurrently generating turns_; job queue → same order. Estimate: mid VM pair ≈ 100–200 comfortable concurrent generations ≈ 500–1,000 simultaneously chatting users at ~20% generation duty cycle—with provider limits/bill binding first. Source now confirms flush-interval batching reduces round trips but still stores one row per chunk. Step 02b measures the real app; Steps 07/10/17 own coalescing, pruning/archive, and capacity decisions.
+Two connection layers: browser tabs hold Node SSE sockets (thousands per instance, near-free); Postgres connections are per-instance pools (~10–15, constant regardless of tabs; one shared LISTEN connection per instance). Postgres connections scale with instances, not users. Cost ladder: tabs → no; connections → no; NOTIFY → no; chunk-write throughput → first real bound, scaling with _concurrently generating turns_; job queue → same order. Estimate: mid VM pair ≈ 100–200 comfortable concurrent generations ≈ 500–1,000 simultaneously chatting users at ~20% generation duty cycle—with provider limits/bill binding first. Source now confirms flush-interval batching reduces round trips but still stores one row per chunk. Step 02 measures the real app; Steps 07/10/17 own coalescing, pruning/archive, and capacity decisions.
 
 ## 7. Why validation is retained architecture, not a spike
 

@@ -12,7 +12,7 @@ Depends on: Step 05 (interfaces agreed; may run in parallel with 06–08). Unblo
 
 ## Outcome
 
-`UIMessage` (id, role, parts, metadata) is the single durable message shape — identical to the stream and the widget. Turns carry status/usage/`run_id`. The write path is idempotent under workflow replay. No lease columns exist. Pre-alpha: schema changes reset the database; no data migration.
+`UIMessage` (id, role, parts, metadata) is the single durable message shape — identical to the stream and the widget. Turns carry status, usage, and `run_id`. The write path is idempotent under workflow replay. No lease columns exist. Pre-alpha: schema changes reset the database; no data migration.
 
 ## Current evidence to verify
 
@@ -24,16 +24,16 @@ Depends on: Step 05 (interfaces agreed; may run in parallel with 06–08). Unblo
 
 - `conversations`: as-is (id, tenant refs, title, timestamps).
 - `messages`: `id` (server-generated, stable), `conversation_id`, `role`, `parts jsonb`, `metadata jsonb`, ordering column, `created_at`. Indexed for ordered listing. The jsonb is the truth; extracted columns are query aids only.
-- `turns`: identity, conversation ref, status (`running|completed|failed|cancelled|blocked` — Step 01 vocabulary), usage (v7 token-detail shape), `run_id` `[workflow-branch]`, timestamps, and **provenance columns** (regulated-deployment requirement, `KNOWLEDGE.md` §Regulated): exact model id, instructions/config version, and content-filter version active for the turn — these make the retained record auditable ("which model and system prompt produced this answer"). **Partial unique index: one `running` turn per conversation** (backs Step 05's race-safe busy check). No lease columns.
+- `turns`: identity, conversation ref, status (`running|completed|failed|cancelled|blocked` — Step 01 vocabulary), usage (v7 token-detail shape), `run_id`, timestamps, and **provenance columns** (regulated-deployment requirement, `KNOWLEDGE.md` §Regulated): exact model id, instructions/config version, and content-filter version active for the turn. **Partial unique index: one `running` turn per conversation**. No lease columns.
 - `conversations` additionally carry a **legal-hold flag**: any deletion/pruning path (incl. Step 10's sweep for associated runs) must skip held conversations. Cheap now, always demanded later in regulated deployments.
 - `client_tool_dispatches` and `tool_approvals`: rows as specified by Steps 11/12 (created here; semantics owned there).
-- `[workflow-branch]` workflow tables live in their own schema (world config); product code never joins them.
+- Workflow tables live in their own Postgres World schema; product code never joins them.
 
 ## Write path
 
 - **Ids**: AI SDK `createIdGenerator()` creates all `UIMessage.id` values with one configured prefix/size; repository DB-id utilities continue to create conversation/turn/audit row ids. Never derive ids from mutable content.
 - **User message**: persisted in the Step 05 route after admission.
-- **Assistant message**: persisted in `onEnd` from the final `UIMessage` (verify what the pinned version hands the callback — final message vs assembling from `steps`/`responseMessages`; record which). **Upsert keyed on the deterministic message id** — `[workflow-branch]` `onEnd` may replay after a crash.
+- **Assistant message**: persisted in `onEnd` from the final `UIMessage`. **Upsert keyed on the deterministic message id** because `onEnd` may replay after a crash.
 - **Terminal transition**: `running → terminal` is a guarded state transition executed once; a second attempt is a no-op. Combined with the workflow-level catch (Step 05), the invariant holds: **no turn ends without durable status** — this replaces the reaper.
 - **Usage**: from the end event's aggregate usage (v7 aggregates across steps; `finalStep` is last-step-only — don't confuse them).
 - **Failure path**: persist exactly the client-visible partial assistant `UIMessage` on mid-stream failure; the turn row carries `failed` plus the safe error code. Do not discard already-rendered text and do not append raw provider error content to message parts.
@@ -41,7 +41,7 @@ Depends on: Step 05 (interfaces agreed; may run in parallel with 06–08). Unblo
 ## Edge cases (each a test)
 
 1. stream-then-load equality: the persisted `UIMessage` deep-equals what a client folding the full chunk stream holds (parts, ids, metadata);
-2. crash between terminal chunk and persist `[workflow-branch]` → replay re-runs `onEnd` → exactly one message row, one terminal transition;
+2. crash between terminal chunk and persistence → replay re-runs `onEnd` → exactly one message row and terminal transition;
 3. duplicate `onEnd` (defensive) → idempotent;
 4. concurrent second turn while one is `running` → unique-index rejection surfaces as the busy error (race-safe, not check-then-act);
 5. tenant isolation on every write (two-tenant test);

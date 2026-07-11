@@ -45,6 +45,14 @@ const allowedUnusedDependencies = new Map([
     "AI SDK provider-utils peer dependency required by provider runtime execution.",
   ],
   [
+    "@side-chat/side-chat-service:rollup",
+    "Nitro's server build requires its optional rollup peer at build time.",
+  ],
+  [
+    "@side-chat/side-chat-service:@workflow/world-postgres",
+    "Durable-world module resolved at build time via WORKFLOW_TARGET_WORLD for production builds; never imported from source.",
+  ],
+  [
     "@side-chat/side-chat-widget:react-dom",
     "Widget declares React DOM as a peer for host applications but does not import it directly.",
   ],

@@ -26,11 +26,11 @@ The model can drive the embedding page (client tools) and ask for sign-off (appr
 - `onToolCall`: filter `dynamic` tools (`toolCall.dynamic` guard) → resolve against the host-bridge capability registry → dispatch through `command-dispatcher` → `POST` the output to Step 11's result endpoint.
 - Dedupe by part state: a tool part already `output-available`/settled (from replay or refresh) is never re-dispatched; an unsettled part re-dispatches exactly once. In-flight dedupe: a dispatch in progress is not restarted by a re-render (ref-guard keyed by `toolCallId`).
 - Dispatcher exceptions become failed outputs POSTed to the server (never thrown into React), matching the bridge's existing convention.
-- `[fallback]` only: `addToolOutput` + `sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls` drives continuation; `[workflow-branch]` continuation is server-side — assert no auto-resubmit fires (test).
+- Continuation is server-side: the result endpoint resumes the durable hook. The widget never drives continuation — assert no client auto-resubmit fires (`addToolOutput`/`sendAutomaticallyWhen` unused) (test).
 
 ### Approvals
 
-- The Step 14 approval card sends approve/deny (+ optional reason) to Step 12's decision endpoint. `[workflow-branch]` the endpoint resumes the durable approval hook and replay updates the card. `[fallback]` the endpoint returns the validated signed approval payload, then the widget calls native `addToolApprovalResponse`; the next POST revalidates the stored decision and signature before agent continuation.
+- The Step 14 approval card sends approve/deny (+ optional reason) to Step 12's decision endpoint. The endpoint resumes the durable approval hook, and replay updates the card.
 - Card disabled states: already-decided (idempotent server echo), expired (typed denial rendering), foreign-decider rejection surfaced calmly.
 - After a decision, the continued stream updates the same tool row through its later states — no duplicate rows.
 
@@ -61,7 +61,7 @@ Browser end-to-end via the preview workflow: a scripted page capability + a gate
 
 - [ ] onToolCall dispatch with both dedupe layers; bridge integration intact.
 - [ ] Approval card actions against the real decision endpoint; disabled states.
-- [ ] All nine edge cases tested per branch.
+- [ ] All nine edge cases tested.
 - [ ] host-bridge renames done or explicitly deferred to Step 20 with a list.
 
 ## Handoff record

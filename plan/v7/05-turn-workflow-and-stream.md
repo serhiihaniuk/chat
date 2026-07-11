@@ -12,7 +12,7 @@ Depends on: Step 04. Unblocks: Steps 06, 07, 08, 09, 17.
 
 ## Outcome
 
-A user message becomes a streamed assistant turn: route → policy → agent → UI message stream v1 → client. `[workflow-branch]` the turn is a durable run; `[fallback]` a request-bound `ToolLoopAgent` call. Exactly one terminal part in every scenario this step owns.
+A user message becomes a durable streamed assistant turn: route → policy → `WorkflowAgent` → UI message stream v1 → client. Exactly one terminal part appears in every scenario this step owns.
 
 ## Old-app behavior reference (read, do not port)
 
@@ -30,26 +30,24 @@ A user message becomes a streamed assistant turn: route → policy → agent →
 5. persist the user message + create the turn row (Step 09 interfaces) — after admission, so rejection leaves no residue;
 6. start the run; stream the response.
 
-### Agent and run
+### Agent and workflow
 
-`[workflow-branch]` `chatTurnWorkflow(turnRef, messages, catalog)` — a `'use workflow'` function running one `WorkflowAgent`:
+`chatTurnWorkflow(turnRef, messages, catalog)` is a `'use workflow'` function running one `WorkflowAgent` with:
 
 - `instructions` from config (system-in-messages stays rejected — default flag untouched);
 - `model` via `assertModelInstance`; `tools`: server tools now, Steps 11/12 add more;
-- `stopWhen: isStepCount(settings.agent.stopWhenSteps)`; `maxRetries: 0`; `timeout: settings.timeouts.totalMs` (plain number on this path);
+- `stopWhen: isStepCount(settings.agent.stopWhenSteps)`; `maxRetries: 0`; the explicit turn timeout and signal-based cancellation via the durable abort hook proven in Step 02 (the realm patch module must be loaded in the workflow bundle before `agent.stream`);
 - `writable: getWritable<ModelCallStreamPart>()`;
 - `onEnd`: persist assistant message + terminal status + usage via Step 09's idempotent persist;
-- workflow-level catch: persist a failed terminal (safe code) — **no run may end without durable turn status**.
-
-`[fallback]` `ToolLoopAgent` with granular `timeout: { totalMs, chunkMs, toolMs }`, same callbacks, response streamed from the result.
+- a workflow-level catch that persists a failed terminal with a safe code — **no run may end without durable turn status**.
 
 ### Stream response
 
-POST responds with `createUIMessageStreamResponse` over `run.readable.pipeThrough(createModelCallToUIChunkTransform())` `[workflow-branch]` (direct agent stream `[fallback]`), with the Step 04 keepalive injected and header `x-workflow-run-id` `[workflow-branch]`. The Step 06 scrub transform slots into this chain — leave a named seam (`outboundTransforms: []`).
+POST responds with `createUIMessageStreamResponse` over `run.readable.pipeThrough(createModelCallToUIChunkTransform())`, with the Step 04 keepalive injected and `x-workflow-run-id`. The Step 06 scrub transform slots into this chain — leave a named seam (`outboundTransforms: []`).
 
 ### Cancellation
 
-`POST /api/chat/:runId/cancel` always performs auth/ownership first and drives the cancellation owner selected in Step 02b. `[workflow-branch]` use the verified cross-process/distributed abort mechanism so an `AbortSignal` reaches the active `WorkflowAgent.stream` provider call, then persist a clean cancelled terminal; use `run.cancel()` only as a forced fallback when graceful abort signaling cannot be delivered. `[fallback]` abort the request-owned controller. In both branches the test must observe provider abort directly—run status alone is not proof—and reject all later content.
+`POST /api/chat/:runId/cancel` always performs auth/ownership first and resumes the durable abort hook proven in Step 02 so an `AbortSignal` reaches the active `WorkflowAgent.stream` provider call; `run.cancel()` delivers no abort to the provider and is not the mechanism. It then persists a clean cancelled terminal. The abort path must fail the step with a `DOMException` named `AbortError` — any other error is retryable to the engine and re-runs the aborted provider call (Step 02 engine finding). The test must observe provider abort directly—run status alone is not proof—assert exactly one provider attempt, and reject all later content.
 
 ## Edge cases owned by this step (each a test)
 
@@ -76,7 +74,7 @@ The `rg` must return zero.
 
 ## Completion checklist
 
-- [ ] POST + cancel routes with the load-bearing order; run construction per branch.
+- [ ] POST + cancel routes with the load-bearing order; WorkflowAgent construction.
 - [ ] All 8 edge cases tested with mock providers.
 - [ ] Admission seam + outbound-transform seam named and typed.
 - [ ] `onEnd`/catch guarantee: no run without durable terminal status.

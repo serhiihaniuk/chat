@@ -8,15 +8,15 @@ Not source of truth for: current behavior (the running code and `docs/` own that
 
 ## Outcome
 
-Rebuild Side Chat on AI SDK 7 native primitives: agent loop, UI message stream, tools, approvals, timeouts, telemetry, and—when the compatibility contract passes—durable Workflow execution. Side Chat keeps only product concerns the SDK cannot own: authentication, tenancy/ownership, policy, privacy scrubbing, conversation records, widget/design-system behavior, and host-page integration.
+Rebuild Side Chat on AI SDK 7 native primitives: agent loop, UI message stream, tools, approvals, timeouts, telemetry, and durable Workflow execution (adopted and implemented — ADR 0016). Side Chat keeps only product concerns the SDK cannot own: authentication, tenancy/ownership, policy, privacy scrubbing, conversation records, widget/design-system behavior, and host-page integration.
 
 The strategy is a **greenfield wing with one cutover**, not an in-place migration. `apps/side-chat-service` is built v7-native inside this repository. The old path remains an unchanged behavior reference until Step 20, then replaced packages and modules are deleted. There is no compatibility bridge, dual protocol, or v6-to-v7 codemod phase.
 
 ## Decisions already made
 
 - **AI SDK 7 is the core, unconditionally.** It owns every concept it already implements. Custom infrastructure must justify itself.
-- **WorkflowAgent is the default durable execution substrate.** Steps 02a–02b build retained code and permanently test its self-hosted guarantees.
-- **The fallback is still AI SDK 7.** If a load-bearing Workflow invariant fails, the new service uses `ToolLoopAgent` with request-bound single-instance execution. It does not retain the old custom runtime, build custom durability/multi-instance machinery, reintroduce Effect, or coexist behind a bridge.
+- **WorkflowAgent + Workflow DevKit + Postgres World is the execution substrate, adopted with a pinned realm patch** ([ADR 0016](../../docs/adr/0016-workflow-durable-execution-substrate.md), revised; user decision 2026-07-11). Durable runs, crash-resume, cross-instance continuation, stream replay, and durable waits are native capabilities of the shipped service.
+- **Exactly one substrate ships.** The interim `ToolLoopAgent` fallback that the first gate pass selected was deleted when the Workflow rebuild landed. The new service retains no old custom runtime, no custom durability/multi-instance machinery, no Effect, and no compatibility bridge.
 - **Plain TypeScript in the new wing:** constructor/function injection, zod, `AbortSignal`, and async/await. No Effect imports.
 - **Strict SDK naming:** use `UIMessage`, `UIMessageChunk`, tools, approvals, runs, hooks, and transports where the SDK owns those concepts.
 - **Native feature shapes:** redesign or cut old features instead of recreating a shadow protocol. Use `data-*` only for a named product concept with no native representation.
@@ -27,15 +27,14 @@ The strategy is a **greenfield wing with one cutover**, not an in-place migratio
 
 Each file is one coherent milestone with anchors, tests, verification, and handoff evidence. If its test matrix cannot be completed well in one focused session, split it before implementation and add suffix files/status rows; never degrade the result to preserve numbering.
 
-Expected effort is **27–32 focused agent sessions**, with a plausible **25–36** range. The board has 22 milestones because some later feature milestones may require recorded suffix splits. The main uncertainty is product-policy and widget parity work around native parts, not whether AI SDK 7 is the core.
+Expected effort is **27–32 focused agent sessions**, with a plausible **25–36** range. The board has 21 milestones, and some later feature milestones may require recorded suffix splits. The main uncertainty is product-policy and widget parity work around native parts, not whether AI SDK 7 is the core.
 
 ## Program map
 
 ```mermaid
 flowchart TD
-  S1["01 Architecture decisions + acceptance"] --> S2A["02a Retained Workflow foundation"]
-  S2A --> S2B["02b Permanent compatibility gate"]
-  S2B --> S3["03 Configuration + composition"]
+  S1["01 Architecture decisions + acceptance"] --> S2["02 AI SDK service foundation"]
+  S2 --> S3["03 Configuration + composition"]
   S3 --> S4["04 Providers, auth, telemetry"]
   S4 --> S5["05 Turn execution + stream core"]
   S5 --> S6["06 Stream profile + scrub"]
@@ -64,16 +63,14 @@ flowchart TD
 
 After Step 05, the turn, persistence, and tools lanes can proceed where their declared dependencies allow. The widget lane starts after reconnect and discovery contracts exist.
 
-## Execution-substrate gate
+## Execution-substrate gate (resolved 2026-07-11)
 
-AI SDK 7 adoption is not gated. Step 01 records the architecture; Step 02a creates the real foundation; Step 02b retains permanent tests and selects exactly one execution substrate:
+AI SDK 7 adoption was never gated; only the durable-execution substrate was. The gate ran twice, both passes on 2026-07-11:
 
-- **Workflow (expected):** WorkflowAgent + Workflow DevKit + Postgres World, with durable runs, crash recovery, multi-instance continuation, replay, and hooks.
-- **Fallback:** ToolLoopAgent in the new service, with native stream/tools/approvals/timeouts/telemetry but deliberately request-bound single-instance semantics.
+- **First pass:** the compatibility gate found that cancellation could not reach an in-flight provider call inside a workflow (Workflow 4.6's VM lacks `AbortSignal`; a Workflow 5 beta signal failed AI SDK's `instanceof AbortSignal` check). It selected a request-bound `ToolLoopAgent` fallback and deleted the Workflow code. The finding was correct; its evidence document was later lost in an interrupted cleanup.
+- **Re-examination:** a from-scratch reproduction on the newest versions ([`evidence/02-workflow-cancellation-reexamination.md`](./evidence/02-workflow-cancellation-reexamination.md)) proved the failure is a one-line name-lookup bug while the DevKit's v5 cancellation semantics are correct end-to-end. The user decided to adopt Workflow with the pinned realm patch, ADR 0016 was revised to that outcome, and the foundation was rebuilt and verified the same day. The fallback code was deleted — exactly one substrate ships, never both behind an abstraction.
 
-Only failures of build/boot, crash recovery, cross-instance continuation, reconnect coherence, or prompt provider cancellation can select fallback. Approval gaps, deployment constraints, write amplification, telemetry maturity, or inspector quality are owned and repaired by later steps; they do not justify rebuilding an execution engine.
-
-The compatibility suite remains and reruns on Workflow dependency upgrades. The gate must delete the unselected substrate—never ship both behind an abstraction.
+**Final outcome:** WorkflowAgent + Workflow DevKit + `@workflow/world-postgres` at exact pins, with the patch isolated in `apps/side-chat-service/src/runtime/workflow-abort-signal-patch.ts`. The permanent compatibility suite (`npm run test:service:compatibility`) re-verifies the substrate on every dependency bump and contains the patch-removal tripwire: it asserts the unpatched path still throws, so the run in which a dependency bump makes that test flip is the run that deletes the patch. Cancellation is signal-based via a durable abort hook; `run.cancel()` is not the cancellation mechanism. Step 12's approval gap, deployment constraints, write amplification, and telemetry maturity are owned and repaired by later steps, as the gate always intended.
 
 ## How an agent executes a step
 
@@ -100,11 +97,13 @@ The compatibility suite remains and reruns on Workflow dependency upgrades. The 
 4. SSE keepalive at the transport edge.
 5. Safe `onError` mapping.
 6. Provider-instance assertion.
-7. Workflow journal archive/prune policy on the Workflow substrate.
+7. Workflow journal archive/prune policy.
+8. Abort paths fail with a `DOMException` named `AbortError`; any other error is retryable to the engine and re-runs the aborted provider call (Step 02 engine finding).
+9. World selection is a build-time choice: `WORKFLOW_TARGET_WORLD` at `nitro build` picks the local world (tests) or Postgres World (production); `WORKFLOW_POSTGRES_URL` is the runtime secret.
 
 ## Test policy
 
-Use deterministic Vitest tests and scripted providers; no real provider calls in the default suite. Step 02b is permanent architecture conformance. Later tests own feature behavior rather than relying on an early experiment. Old/new parity is a Step 08 decision checklist: prefer native behavior and record deliberate differences.
+Use deterministic Vitest tests and scripted providers; no real provider calls in the default suite. Step 02's compatibility suite is permanent architecture conformance. Later tests own feature behavior rather than relying on an early experiment. Old/new parity is a Step 08 decision checklist: prefer native behavior and record deliberate differences.
 
 ## Relationship to `plan/effect`
 
@@ -114,7 +113,8 @@ This program leaves `plan/effect` byte-identical as historical research material
 
 - [`STATUS.md`](./STATUS.md): state, ownership, substrate verdict, evidence.
 - [`KNOWLEDGE.md`](./KNOWLEDGE.md): verified facts, gotchas, baseline, rationale.
-- `01`, `02a`, `02b`, and `03`–`21`: executable milestone contracts.
+- `01`–`21`: executable milestone contracts (one file per step).
+- [`evidence/`](./evidence/): preserved gate and re-examination evidence.
 
 ## Completion definition
 

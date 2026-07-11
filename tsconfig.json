@@ -6,6 +6,7 @@
   "references": [
     { "path": "./apps/docs" },
     { "path": "./apps/partner-ai-service" },
+    { "path": "./apps/side-chat-service" },
     { "path": "./packages/ai-runtime-contract" },
     { "path": "./packages/chat-protocol" },
     { "path": "./packages/partner-ai-core" },

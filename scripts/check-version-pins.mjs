@@ -42,6 +42,17 @@ const requiredByPackage = {
     effect: "4.0.0-beta.70",
     "@effect/platform-node": "4.0.0-beta.70",
   },
+  "@side-chat/side-chat-service": {
+    ai: "7.0.22",
+    "@ai-sdk/provider": "4.0.3",
+    "@ai-sdk/workflow": "1.0.22",
+    workflow: "5.0.0-beta.30",
+    "@workflow/serde": "5.0.0-beta.2",
+    "@workflow/world-postgres": "5.0.0-beta.24",
+    nitro: "3.0.260610-beta",
+    rollup: "4.62.2",
+    hono: "4.12.27",
+  },
   "@side-chat/agent-runtime": {
     ai: "6.0.191",
     "@ai-sdk/azure": "3.0.65",

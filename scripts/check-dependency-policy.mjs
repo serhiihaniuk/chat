@@ -23,6 +23,17 @@ const allowed = {
     "effect",
     "hono",
   ]),
+  "@side-chat/side-chat-service": new Set([
+    "@ai-sdk/provider",
+    "@ai-sdk/workflow",
+    "@workflow/serde",
+    "@workflow/world-postgres",
+    "ai",
+    "hono",
+    "nitro",
+    "rollup",
+    "workflow",
+  ]),
   "@side-chat/agent-runtime": new Set([
     "@ai-sdk/azure",
     "@ai-sdk/openai",

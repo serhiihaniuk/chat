@@ -24,7 +24,7 @@ Verify in: `apps/partner-ai-service/src/adapters/host-commands/service-host-comm
 
 The host's per-page capability list (name, description, JSON Schema input) arrives with the POST as today. Per run: each capability becomes a tool; inputs validated against the host JSON Schema (the workflow path already carries Ajv-reconstructed JSON-Schema tools—reuse that representation); name collisions with server tools fail the request before the run starts. The stream announces calls through native `dynamic-tool`/tool-input parts; the Step 01-sanctioned `data-*` dispatch part is added only if the native part payload is insufficient for host-bridge routing (verify the actual shape first).
 
-### The wait `[workflow-branch]`
+### The wait (durable hook)
 
 Each client tool's `execute`:
 
@@ -34,7 +34,7 @@ Each client tool's `execute`:
 4. timeout → typed timed-out output to the model; row `timed_out`;
 5. result → validate, row `settled`, return output.
 
-**Result-before-hook race**: the browser can POST after seeing the tool part but before hook creation. The durable row + check-before-wait covers it. Step 02b records the pinned `resumeHook` unknown-token behavior; regardless, the endpoint persists the result first, and a missing hook cannot lose it.
+**Result-before-hook race**: the browser can POST after seeing the tool part but before hook creation. The durable row + check-before-wait covers it. Verify and record the pinned `resumeHook` unknown-token behavior; regardless, the endpoint persists the result first, and a missing hook cannot lose it.
 
 ### Result endpoint
 
@@ -42,11 +42,7 @@ Each client tool's `execute`:
 
 ### No-connected-client policy
 
-Per Step 01. `[workflow-branch]` default: suspend until reattach, bounded by `clientToolMs`—the run is durable and the tool part replays to reconnecting tabs. `[fallback]`: fail fast with the typed result.
-
-### `[fallback]` mechanism
-
-Pure native client tools (no server `execute`): the model's step ends at the call; the browser executes via `onToolCall` and continues via `addToolOutput` + `sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls`. The dispatch row is still written for the anti-spoof check on the continuation. Timeout enforcement moves to the widget + turn-status sweep — accept and record the reduced guarantee.
+Per Step 01: suspend until reattach, bounded by `clientToolMs` — the run is durable and the tool part replays to reconnecting tabs; on timeout the tool returns the typed timed-out result.
 
 ## Edge cases (each a test)
 
@@ -54,8 +50,8 @@ Pure native client tools (no server `execute`): the model's step ends at the cal
 2. result for a foreign turn/tenant → 404/403, no settle;
 3. timeout then late result → model already continued; row marked `late`; never re-injects;
 4. result-before-hook window → picked up by check-before-wait; turn continues;
-5. `[workflow-branch]` restart while waiting → hook survives; settle after restart resumes; settle POSTed to instance B while suspended from A resumes (permanent product-level durability proof);
-6. no tab attached → per policy (suspended `[workflow-branch]` / typed immediate result `[fallback]`);
+5. restart while waiting → hook survives; settle after restart resumes; settle POSTed to instance B while suspended from A resumes (permanent product-level durability proof);
+6. no tab attached → run suspends per policy and times out to the typed result;
 7. catalog name collision → request rejected before run start;
 8. malformed result payload → typed error output to the model, row `failed`, no throw;
 9. run cancelled while waiting → wait interrupted, row `aborted`, no dangling state;
@@ -76,8 +72,8 @@ The `rg` documents remaining old naming in `host-bridge` (renamed in Steps 15/20
 ## Completion checklist
 
 - [ ] Catalog → dynamic tools with collision check and JSON-Schema validation.
-- [ ] Wait + result endpoint with the dispatch-row contract; all 10 edge cases per branch.
-- [ ] Exactly-once settle proven under duplicate/late/racing results; cross-instance + restart survival `[workflow-branch]`.
+- [ ] Wait + result endpoint with the dispatch-row contract; all 10 edge cases.
+- [ ] Exactly-once settle proven under duplicate/late/racing results; cross-instance + restart survival.
 - [ ] Payload-privacy sentinels pass.
 - [ ] Old resolver/dispatcher untouched (deleted in Step 20).
 

@@ -24,16 +24,16 @@ The app has constructed provider instances, authenticated routes, one telemetry 
 
 1. **Provider registry**: construct OpenAI/Azure/fake provider **instances** from Settings, preserving the ported provider-settings knowledge. Add `assertModelInstance(model)` used at every future agent construction site; a string model throws (Gateway trap). Boot-time assertion that `globalThis.AI_SDK_DEFAULT_PROVIDER` is unset.
 2. **Auth/tenancy + envelope**: port middleware by copy; one error envelope module; wire onto the app factory.
-3. **Readiness**: `GET /ready` = config validated + DB reachable `[+ world worker started, workflow-branch]`; liveness stays trivial.
+3. **Readiness**: `GET /ready` = config validated + DB reachable + world worker started; liveness stays trivial.
 4. **Telemetry boot**: `registerTelemetry(...)` exactly once per Settings — in-memory collector (tests), console (local), OTLP behind config with the unstable import isolated in one module. Per-call `telemetry` options remain available to later steps.
 5. **Keepalive helper** in `http/`: injects periodic SSE comment frames at `keepalive.intervalMs` (core sends none); used from Step 05.
-6. **Test harness**: extend Step 02a's scripted-provider/disposable-infrastructure harness; add authenticated route helpers and one boot test proving readiness flips only after mandatory startup. Do not create a second fake-provider system.
+6. **Test harness**: extend Step 02's serde-capable scripted-provider/disposable-world harness; add authenticated route helpers and one boot test proving readiness flips only after mandatory startup. Do not create a second fake-provider system.
 
 ## Contract tests
 
 - `assertModelInstance` rejects a string model; the boot assertion fails if a global default provider is set;
 - an unauthenticated request is rejected by the ported middleware with the envelope shape;
-- readiness false before DB/worker startup completes, true after `[workflow-branch]`;
+- readiness false before DB/worker startup completes, true after;
 - telemetry collector receives a boot event; a second registration throws a typed startup error (duplicate global registration is a composition defect);
 - OpenAI request-shape test (mocked fetch): `store: false` present; reasoning summary explicitly disabled when config omits it;
 - Azure request-shape test: deployment/API-version routing intact.

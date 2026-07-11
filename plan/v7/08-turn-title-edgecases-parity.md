@@ -23,13 +23,13 @@ The turn feature is complete and audited: titles generate without ever blocking 
 
 ### Title generation
 
-A side call with `Output.object({ schema })` on the configured cheap model instance, `timeout: settings.timeouts.titleMs`, triggered after the first completed turn. `[workflow-branch]` start a separate idempotent `generateConversationTitle` workflow after terminal persistence; `[fallback]` start a lifecycle-owned background task after terminal persistence and drain/cancel it during shutdown. The update is conditional on the title still being empty, so replay/races cannot retitle. Failure logs safely and never touches turn status.
+A side call with `Output.object({ schema })` on the configured cheap model instance, `timeout: settings.timeouts.titleMs`, triggered after the first completed turn. Start a separate idempotent `generateConversationTitle` workflow after terminal persistence. The update is conditional on the title still being empty, so replay and races cannot retitle. Failure logs safely and never touches turn status.
 
 ### Residual edge cases (each a test)
 
 1. empty model response (finish, no text) → completed terminal; persist one assistant `UIMessage` with stable id and `parts: []`;
 2. step-limit reached (`stopWhen`) → length semantics through the Step 06 mapping; turn completes;
-3. `chunkMs` idle timeout `[fallback]` → TimeoutError → aborted-with-timeout terminal; `[workflow-branch]` total-timeout only — the reduced granularity recorded as a known difference;
+3. the configured turn timeout expires → aborted-with-timeout terminal (verify the abort-path error naming keeps the engine from retrying the step — Step 02 engine finding);
 4. title model failure/timeout → turn unaffected, safe log, no title;
 5. title success → conversation title persisted once; a second turn does not retitle (per the verified rule);
 6. reasoning-only response (reasoning parts, minimal text) → streams and persists correctly.
@@ -38,7 +38,7 @@ A side call with `Output.object({ schema })` on the configured cheap model insta
 
 Execute the checklist against both apps with equivalent scripted providers where practical; record every delta in the handoff and, where user-visible, in the Step 01 cut list:
 
-streamed text + reasoning; exactly one terminal; cancel semantics; disconnect semantics per branch; pre-stream vs mid-stream provider failure; content filter → blocked; step limit → length; usage per turn; abort → calm cancelled; title behavior; no provider DTO or raw error on the wire. Expected deltas (pre-approved): resumability semantics, activity representation, error envelope shape.
+streamed text + reasoning; exactly one terminal; durable cancel and reconnect semantics; pre-stream vs mid-stream provider failure; content filter → blocked; step limit → length; usage per turn; abort → calm cancelled; title behavior; no provider DTO or raw error on the wire. Expected deltas are recorded explicitly.
 
 ## Verification
 

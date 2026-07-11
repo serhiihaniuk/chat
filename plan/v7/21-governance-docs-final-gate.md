@@ -19,7 +19,7 @@ Custom governance mechanically enforces the new boundaries (with fixtures provin
 Extend the custom lints; every new rule needs a violating fixture with an actionable message, registration in `scripts/run-custom-lints.mjs`, meta-fixture coverage, and the documented gate count/order updated:
 
 1. provider packages (`@ai-sdk/openai`, `@ai-sdk/azure`, `@ai-sdk/provider`) importable only by the new wing's runtime module; `ai` UI types allowed repo-wide;
-2. no `effect` import in the new wing, widget, host-bridge, or selected fallback substrate;
+2. no `effect` import in the new wing, widget, or host-bridge;
 3. no string model ids at agent/model construction sites (pairs with the runtime assertion);
 4. `process.env` only in the config adapter (retarget the existing rule to the new app);
 5. agent construction sites must set `timeout`, `stopWhen`, `maxRetries` (fixture-proven convention);
@@ -34,15 +34,15 @@ One owner per topic; link, don't duplicate. Update to implemented current state:
 
 - `docs/architecture/system-map.md` — entry points, package roles;
 - `docs/architecture/package-boundaries.md` — SDK boundary rules (UI types repo-wide, providers server-only), removed packages;
-- `docs/architecture/assistant-turn.md` — native turn lifecycle: admission, cancellation, approvals, client tools, per-branch durability;
+- `docs/architecture/assistant-turn.md` — native turn lifecycle: admission, cancellation, approvals, client tools, durable-run semantics;
 - `docs/architecture/runtime-and-protocol-events.md` — rewritten as: UI message stream v1 + the Side Chat profile (the Step 06 doc becomes canonical or is linked as such);
 - `docs/architecture/widget-and-host-integration.md` — useChat architecture, client tools, host-bridge flow;
-- `docs/architecture/effect.md`—removed or explicitly historical; it must not describe the deleted core or the fallback architecture;
-- `docs/operations/configuration.md` — the settings surface incl. the obligations block; `capacity-and-deployment.md` — measured defaults, overload mapping, drain-deploy rule `[workflow-branch]`; `verification.md` — the smoke + new suites; `local-development.md` — Nitro dev loop `[workflow-branch]`, world bootstrap; `database.md` — schema, world schema note, pruning, reset flow;
+- `docs/architecture/effect.md`—removed or explicitly historical; it must not describe the deleted core as the current architecture;
+- `docs/operations/configuration.md` — the settings surface incl. the obligations block and the `WORKFLOW_*` env contract (`WORKFLOW_TARGET_WORLD` build-time world selection, `WORKFLOW_POSTGRES_URL` runtime secret, `WORKFLOW_LOCAL_DATA_DIR` for tests); `capacity-and-deployment.md` — measured defaults, overload mapping, drain-deploy rule; `verification.md` — the smoke + new suites; `local-development.md` — Nitro dev loop (`nitro dev`/`nitro build`), world bootstrap; `database.md` — schema, world schema note, pruning, reset flow;
 - `docs/domain/vocabulary.md` — SDK naming adopted; retired terms removed or marked historical;
 - root `README.md` technology claims; package READMEs for the new app, db, widget;
 - `AGENTS.md` — Effect-specific rules replaced/scoped to the final reality (**user reviews this edit before it lands**);
-- ADRs from Step 01 and the Step 02b substrate verdict—verify none contradicts implemented state; fix drift.
+- ADRs from Step 01 and the Step 02 substrate verdict (ADR 0016)—verify none contradicts implemented state; fix drift.
 
 ## Plan disposition
 

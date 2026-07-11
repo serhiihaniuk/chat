@@ -18,7 +18,7 @@ No gated tool side effect can occur without a durable authorized decision. The b
 
 Do **not** trust WorkflowAgent `needsApproval` as the gate. The current ignored source clone contains approval logic, but its compiled end-to-end test (`packages/workflow/src/workflow-agent-e2e.integration.test.ts`, “tool approval (GAP)”) states that `needsApproval` is ignored and the tool executes immediately.
 
-Therefore the Workflow substrate uses a **durable execution gate inside every gated tool**:
+Therefore use a **durable execution gate inside every gated tool**:
 
 1. before any side effect, create/upsert the approval request row with a unique `(turnId, toolCallId)` key and input digest;
 2. emit the native `tool-approval-request` UI chunk shape through the workflow writable;
@@ -27,9 +27,7 @@ Therefore the Workflow substrate uses a **durable execution gate inside every ga
 5. only an approved decision enters the idempotent side-effect step; denial/expiry returns the native denied result shape;
 6. retries/replay reuse the same row, decision, and idempotency key.
 
-This is not a parallel approval protocol: wire vocabulary and tool lifecycle stay AI SDK-native; the hook is the Workflow-supported durability primitive that closes a documented integration gap. Remove this wrapper only when the exact pinned compiled-path conformance test proves native `needsApproval` prevents execution before decision. A unit test of `WorkflowAgent` alone is insufficient.
-
-On the fallback substrate, use `ToolLoopAgent.toolApproval` plus `experimental_toolApprovalSecret`. The authenticated decision endpoint writes/audits the decision and returns the signed approval payload; the widget feeds it to native `addToolApprovalResponse`, and the next transport POST revalidates both the stored decision and HMAC before ToolLoopAgent continuation. The pending state persists in the saved `UIMessage`; execution remains live-session/request-bound by the fallback contract.
+This is not a parallel approval protocol: wire vocabulary and tool lifecycle stay AI SDK-native; the hook is the Workflow-supported durability primitive that closes a documented integration gap. Remove this wrapper only when the exact pinned compiled-path conformance test proves native `needsApproval` prevents execution before decision. A unit test of `WorkflowAgent` alone is insufficient. (The SDK's HMAC approval signing exists only on the core agent path and is unavailable on `WorkflowAgent`; the input digest plus the revalidation in step 4 carry the tamper check.)
 
 ## Policy layer
 
@@ -50,8 +48,8 @@ On the fallback substrate, use `ToolLoopAgent.toolApproval` plus `experimental_t
 6. duplicate same decision is idempotent; conflicting decision fails;
 7. decision after cancellation fails cleanly and is audited;
 8. per-input policy gates risky input and clears safe input;
-9. fallback tampering fails HMAC/input-digest validation;
-10. Workflow process restart between request and decision resumes safely;
+9. a tampered decision payload or mismatched input digest fails revalidation and changes nothing;
+10. process restart between request and decision resumes safely;
 11. refresh replays the approval request and the later decision without duplicate cards;
 12. tool removed or policy changed while suspended denies safely;
 13. compiled Workflow conformance fixture reproduces the upstream `needsApproval` behavior and proves our execution wrapper still blocks it;
@@ -76,10 +74,10 @@ npm run lint:custom
 ## Completion checklist
 
 - [ ] Gated inventory wired from Step 01.
-- [ ] Durable execution gate precedes every gated side effect on Workflow.
+- [ ] Durable execution gate precedes every gated side effect.
 - [ ] Native approval part shapes drive the widget; no shadow approval protocol.
 - [ ] Endpoint authorization, audit, expiry, replay, and idempotency complete.
-- [ ] All fourteen edge cases pass on the selected substrate.
+- [ ] All fourteen edge cases pass.
 - [ ] Upstream GAP status and wrapper-removal criterion recorded in `KNOWLEDGE.md`.
 
 ## Handoff record

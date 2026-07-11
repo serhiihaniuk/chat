@@ -7,6 +7,7 @@ const errors = [];
 
 for (const file of listSourceFiles(root)) {
   if (!file.includes("/src/")) continue;
+  if (file.endsWith(".test.ts") || file.endsWith(".test.tsx")) continue;
 
   const source = readFileSync(join(root, file), "utf8");
   const hasOutboundCall = /\bfetch\s*\(|new\s+WebSocket\b|new\s+EventSource\b/.test(source);

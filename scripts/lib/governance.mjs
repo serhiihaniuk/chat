@@ -13,9 +13,12 @@ import { spawnSync } from "node:child_process";
 
 const ignoredDirectories = new Set([
   ".git",
+  ".nitro",
   ".omx",
+  ".output",
   ".playwright-mcp",
   ".reference",
+  ".workflow-data",
   "node_modules",
 ]);
 

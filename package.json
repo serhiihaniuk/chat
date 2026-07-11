@@ -21,6 +21,7 @@
     "test:db:integration": "vitest run packages/db/src/repositories/postgres-drizzle/index.integration.test.ts",
     "test:db:container": "node scripts/run-db-container-tests.mjs",
     "test:db:local": "npm run test:db:container",
+    "test:service:compatibility": "npm test --workspace @side-chat/side-chat-service",
     "db:generate": "npm run db:generate --workspace @side-chat/db",
     "db:reset": "tsx --conditions=development apps/partner-ai-service/scripts/reset-database.ts",
     "test:e2e": "node node_modules/playwright/cli.js test",
@@ -32,6 +33,7 @@
     "clean": "node scripts/clean-dist.mjs"
   },
   "devDependencies": {
+    "@ai-sdk/react": "4.0.23",
     "@effect/vitest": "4.0.0-beta.70",
     "@types/node": "24.12.4",
     "@types/react": "19.2.15",

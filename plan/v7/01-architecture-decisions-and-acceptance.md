@@ -1,90 +1,76 @@
 # Step 01: Architecture Decisions and Acceptance Contract
 
-Read this when: establishing the rewrite's architecture before any new-wing code is written.
+Read this when: establishing or reviewing the rewrite architecture.
 
-Source of truth for: the AI SDK 7 core decision, the preferred execution substrate, the fallback boundary, the ADR set, product-policy inventories, and the compatibility criteria that Step 02b must prove.
+Source of truth for: AI SDK 7 adoption, product-owned boundaries, feature cuts, and acceptance rules.
 
-Not source of truth for: runtime behavior. Step 02b owns executable proof; later feature steps own their implementations.
+Not source of truth for: runtime behavior; permanent tests and later feature steps own executable proof.
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
-Depends on: none. Unblocks: Step 02a.
+Depends on: none. Unblocks: Step 02.
 
 ## Outcome
 
-The repository records its target architecture before implementation starts:
+The repository records one unambiguous target:
 
-- AI SDK 7 is the product core, unconditionally.
-- `WorkflowAgent` + Workflow DevKit + Postgres World is the default durable execution substrate.
-- The fallback, if the self-hosted substrate fails a load-bearing compatibility invariant, is AI SDK 7 `ToolLoopAgent` with request-bound single-instance execution. It is not the current custom runtime, an Effect rewrite, or a custom durability framework.
-- The execution-substrate choice is decided by permanent tests against retained foundation code, not by a disposable spike.
-- Approval policy, custom stream parts, error vocabulary, and deliberate feature cuts are decided before feature implementation.
+- AI SDK 7 is the application core for agent loops, UI messages, streaming, tools, approvals, timeouts, telemetry, and provider abstraction.
+- `WorkflowAgent` on the Workflow DevKit with `@workflow/world-postgres` owns durable turn execution (ADR 0016, revised; adopted with the pinned realm patch).
+- Hono owns HTTP serving, routed through the Nitro workflow build.
+- Side Chat owns authentication, tenancy, policy, privacy, persistence, widget behavior, and host-page integration.
+- The new wing uses plain TypeScript composition and does not import the old Effect application.
+- No custom execution engine, protocol shadow, or compatibility bridge is introduced.
+
+The ignored `.reference/ai-sdk-v7` and `.reference/workflow` repositories exist so agents can inspect upstream implementation and ecosystem behavior. A reference checkout is evidence, not an adoption decision.
 
 ## Architectural decisions
 
-Write or supersede the relevant ADRs with their current content in view:
+1. **AI SDK 7 as core runtime and wire protocol.** Use SDK-native concepts by default, strict SDK naming, UI message stream v1 plus the Side Chat profile, exact pins, and a greenfield cutover.
+2. **Durable execution.** Use `WorkflowAgent` + Workflow DevKit + Postgres World with explicit timeouts, step limits, retry ownership (`maxRetries: 0` inside steps), and signal-based cancellation via a durable abort hook. Runs survive process loss, are continuable by any instance, and replay their streams to reconnecting clients (ADR 0016; adopted 2026-07-11 with the pinned realm patch and its tripwire-guarded removal criterion).
+3. **Supersede the custom product protocol.** Preserve only Side Chat-owned safe errors, privacy scrubbing, and justified `data-*` parts. Delete the custom event union, SSE codecs, envelope validators, and double mapping at cutover.
+4. **Narrow the runtime port.** AI SDK UI types become the shared server/widget language. Provider construction stays server-only. Replaceable engine becomes replaceable provider.
+5. **Supersede host commands with client tools.** Retain ownership binding, timeout policy, auditability, and exactly-once browser dispatch where the SDK does not own them.
+6. **Plain TypeScript boundary.** The new wing is Effect-free. `plan/effect` remains unchanged historical research.
 
-1. **AI SDK 7 as core runtime and wire protocol.** Record SDK-native-by-default, strict SDK naming, plain-TypeScript composition, UI message stream `v1` plus the Side Chat profile, exact version pins, and greenfield cutover.
-2. **Supersede the custom product protocol.** Preserve only Side Chat-owned error codes, privacy scrubbing, and justified `data-*` parts. Delete the custom event union, SSE codecs, envelope validators, and double mapping at cutover.
-3. **Preferred durable substrate and explicit fallback.** Adopt WorkflowAgent/Postgres World by default. Record the permanent acceptance contract in this file and the fallback's intentionally reduced guarantees. Step 02b later appends the measured verdict; it does not reopen AI SDK 7 adoption.
-4. **Narrow the runtime port.** AI SDK UI types become the shared server/widget language. Provider construction stays server-only. “Replaceable engine” becomes “replaceable provider,” an accepted coupling.
-5. **Supersede the host-command architecture.** Reframe page capabilities as client tools. Side Chat retains ownership binding, timeout policy, auditability, and exactly-once settlement.
-6. **Effect boundary.** The new wing is Effect-free. Do not edit `plan/effect`; record that the v7 program supersedes its runtime jurisdiction if cutover completes.
+The Workflow DevKit runtime (WorkflowAgent, Postgres World, hooks, the Nitro compiler host) is adopted per the revised ADR 0016 — a user decision made 2026-07-11 after the compatibility gate ran twice. Reference checkouts remain evidence, not extra adoption license: introducing further upstream subsystems still requires a separate, user-approved decision tied to a concrete product need.
 
-Review at minimum ADRs 0003–0009, their index, [`KNOWLEDGE.md`](./KNOWLEDGE.md), and the current architecture docs before writing. No ADR may describe a hoped-for SDK behavior as confirmed; link the claim to either source evidence or a named permanent test in Step 02b.
-
-## Product decisions recorded here
+## Product decisions
 
 1. **Approval-gated tools:** enumerate always-gated, per-input-gated, and ungated tools. New mutating tools default to gated until explicitly cleared.
-2. **Approval authority and audit:** authenticated conversation owner initially; record approver, tenant, conversation, turn, tool, input digest, decision, reason, request/decision timestamps, and expiry. Never store raw tool input in the audit row.
-3. **No-connected-client policy:** durable execution waits for reattachment up to the configured timeout; fallback execution returns a typed no-client result. No hidden polling relay is rebuilt.
-4. **`data-*` inventory:** native parts own text, reasoning, tool lifecycle, approval, sources, files, abort, and finish. Add a Side Chat part only when a named consumer cannot derive the concept from native parts.
-5. **Feature cut list:** every old activity/recovery feature without a native equivalent is explicitly kept, redesigned, or deleted with the user-visible consequence.
-6. **Error vocabulary:** start from `packages/chat-protocol/src/sidechat-v1/errors.ts`, remove transport-only codes that no longer exist, and define retryability and safe public messages.
+2. **Approval authority and audit:** the authenticated conversation owner decides initially. Record approver, tenant, conversation, turn, tool, input digest, decision, reason, timestamps, and expiry; never duplicate raw tool input into the audit row.
+3. **No-connected-client policy:** a client-tool wait suspends on its durable hook bounded by the configured timeout (the run is durable; the tool part replays to a reattaching tab), then resolves to a typed timed-out result. Do not rebuild a polling relay; the hook is the native suspension primitive.
+4. **`data-*` inventory:** native parts own text, reasoning, tool lifecycle, approvals, sources, files, abort, and finish. Add a Side Chat part only when a named consumer cannot derive the concept from native parts.
+5. **Feature cut list:** every old activity/recovery feature without a native equivalent is explicitly kept, redesigned, or deleted with its user-visible consequence.
+6. **Error vocabulary:** start from `packages/chat-protocol/src/sidechat-v1/errors.ts`, remove transport-only codes, and define retryability and safe public messages.
 
-## Execution-substrate acceptance contract
+## Acceptance contract
 
-Step 02b selects the execution substrate. Only failures that invalidate the durable substrate's reason for existing may select fallback:
+The architecture is accepted when:
 
-1. the pinned Workflow/Nitro service cannot build, boot, and process a turn reliably in this monorepo;
-2. a run cannot recover to terminal after a hard owner-process crash without a new user request;
-3. a second service instance cannot continue or serve a run created by the first through shared Postgres state;
-4. replay plus live tail cannot produce a coherent client stream after reconnect;
-5. user cancellation cannot both stop provider work promptly and persist a coherent terminal outcome using a supported cross-process abort design.
-
-The following are implementation or operational findings, not fallback triggers by themselves:
-
-- `needsApproval` is incomplete in the pinned WorkflowAgent integration path;
-- deployment version skew requires drain/deploy discipline;
-- workflow journal write volume needs tuning, coalescing, archiving, or pruning;
-- inspection or telemetry tooling is immature;
-- a feature needs a Side Chat policy layer around native primitives.
-
-Those findings must be owned by their feature/operations step. They do not justify rebuilding a custom execution engine.
+1. the plain TypeScript/Hono service builds and boots in the monorepo through the Nitro workflow build;
+2. a credential-free WorkflowAgent turn produces a native UI message stream;
+3. signal-based cancellation reaches the provider promptly and accepts no later content;
+4. a crashed run recovers to a durable terminal without a new user request, and product persistence never claims more durability than the engine proves;
+5. governance prevents provider, Effect, browser, and configuration boundary violations;
+6. no old custom runtime or protocol bridge survives cutover.
 
 ## Verification
 
 ```powershell
 npm run lint:custom
-rg -n "spike|throwaway" plan/v7
+npm run test:service:compatibility
 ```
-
-The search may find historical explanation in `KNOWLEDGE.md`; it must not find an executable disposable-spike instruction.
 
 ## Completion checklist
 
-- [x] ADRs written or superseded; documentation index updated.
-- [x] AI SDK 7 core, preferred Workflow substrate, and narrow fallback recorded without ambiguity.
-- [x] Product decisions and cut list recorded.
-- [x] Step 02b acceptance criteria linked from the ADR.
-- [x] No product code changed by this step; `plan/effect` untouched by this step; docs governance passes.
+- [x] AI SDK 7 core and Workflow durable execution recorded without ambiguity.
+- [x] Product-owned boundaries and feature cuts recorded.
+- [x] Reference repositories explicitly classified as non-adoption evidence.
+- [x] Step 02 acceptance criteria linked to permanent tests.
+- [x] `plan/effect` remains untouched.
 
 ## Handoff record
 
-ADRs written: `docs/adr/0014-ai-sdk-7-native-core.md`, `0015-native-ui-stream-tools-and-approval-profile.md`, and `0016-workflow-durable-execution-substrate.md`. They supersede ADRs 0003–0009 at cutover without rewriting immutable history.
+ADRs: `docs/adr/0014-ai-sdk-7-native-core.md`, `0015-native-ui-stream-tools-and-approval-profile.md`, and `0016-workflow-durable-execution-substrate.md` (revised 2026-07-11 to the adopted-with-patch outcome).
 
-Approval and client-tool policies: `mock_web_search` and unchanged read-only lookup tools are ungated; mutating tools are always gated; mixed tools use per-input policy. The conversation owner approves, audit stores an input digest, durable approval expires after 24h, and Workflow uses a hook execution barrier until compiled-path conformance proves `needsApproval` safe.
-
-`data-*`, error, and feature-cut inventories: no custom `data-*` parts at baseline; 13 safe public error codes retained; old connection-bound transport codes, dense sequencing, synthetic progress rows, custom host-command vocabulary, markers, and recovery ladder are cut. Native text/reasoning/tool timeline and the component library remain.
-
-Acceptance-contract deviations: none. ADR 0016 records all five Step 02b invariants and distinguishes non-gating operational findings.
+Baseline custom parts: none. Baseline execution: durable WorkflowAgent runs on the Workflow DevKit. Baseline service host: Hono through the Nitro workflow build.

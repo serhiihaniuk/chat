@@ -23,9 +23,8 @@ A user can refresh, lose network, or open a second tab at any moment and the wid
 ### Cold load / refresh
 
 1. History query seeds messages (Step 13).
-2. Active-turn discovery (Step 10): if a run is live `[workflow-branch]`, reconnect via the transport (`initialStartIndex` per the Step 07 verified semantics) — the replayed stream rebuilds the in-progress assistant message; reconcile with the seeded history by message id (no duplicate bubbles).
-3. `[fallback]`: render history; a `running` turn shows pending state and resolves by refetch on terminal (accepted degraded semantics, recorded).
-4. No localStorage markers anywhere in the new path.
+2. Active-turn discovery (Step 10): if a run is live, reconnect via the transport (`initialStartIndex` per the Step 07 verified semantics) — the replayed stream rebuilds the in-progress assistant message; reconcile with the seeded history by message id (no duplicate bubbles).
+3. No localStorage markers anywhere in the new path.
 
 ### Transport drops
 
@@ -33,11 +32,11 @@ A user can refresh, lose network, or open a second tab at any moment and the wid
 
 ### Multi-tab
 
-Each tab: own `useChat`, own reconnect; both receive the full stream `[workflow-branch]`. Sender tab and watcher tab render identically after replay. Cross-tab send conflict resolves via the server busy policy; the loser renders the busy error calmly. `[fallback]`: second tab shows history-based pending state only (recorded).
+Each tab: own `useChat`, own reconnect; both receive the full stream. Sender tab and watcher tab render identically after replay. Cross-tab send conflict resolves via the server busy policy; the loser renders the busy error calmly.
 
 ## Edge cases (each a test)
 
-1. refresh mid-turn `[workflow-branch]` → full answer reassembled (replay + live tail), zero duplicate bubbles;
+1. refresh mid-turn → full answer reassembled (replay + live tail), zero duplicate bubbles;
 2. refresh mid-approval → persisted `approval-requested` re-renders the card (Step 12/15 contract); deciding then works;
 3. refresh mid-client-tool → Step 15's dedupe holds after reload;
 4. transport drops N<max times then recovers → reconnecting shown, stream continues, no user-visible loss;
@@ -62,7 +61,7 @@ Browser evidence via the preview workflow: refresh mid-turn and a two-tab sessio
 
 - [ ] Cold-load reattach via discovery; no markers.
 - [ ] Transport-drop presentation with correct error classification.
-- [ ] All nine edge cases tested per branch; two-tab browser evidence.
+- [ ] All nine edge cases tested; two-tab browser evidence.
 - [ ] Old recovery ladder consumer-free (deleted in Step 20).
 
 ## Handoff record

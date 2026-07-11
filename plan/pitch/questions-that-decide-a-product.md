@@ -1,3 +1,10 @@
+> **SUPERSEDED (2026-07-11).** LangGraph v3 (May 28–Jun 1, 2026) and
+> `@langchain/react` made questions 1, 2, and 7 factually outdated and
+> weakened 4, 9, and 10. Do not use this document as written. The current
+> artifact is [`ecosystem-decision-brief.md`](./ecosystem-decision-brief.md);
+> the still-valid questions (3, 5, 6, 8) live on there as acceptance
+> scenarios. Kept for the historical record.
+
 # Questions I'd Like Us to Answer Before We Commit
 
 I'm genuinely curious about these. Each one starts from what LangGraph gives

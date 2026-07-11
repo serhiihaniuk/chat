@@ -18,7 +18,7 @@ The system answers "what is it doing and how well" without leaking content: SDK-
 
 ### From the SDK `Telemetry` interface (registered once, Step 04)
 
-Model-call/step start-end timings, tool execution start-end + outcomes, abort reasons, end events; `finalStep.performance` (`timeToFirstOutputMs`, `outputTokensPerSecond`, `responseTimeMs`); finish reasons. `[workflow-branch]` caveat: the workflow telemetry bridge is young (TODO(#12164) — "approximately compatible") — assert only events it demonstrably delivers on the pinned version; the assertion list goes in the handoff.
+Model-call/step start-end timings, tool execution start-end + outcomes, abort reasons, end events; `finalStep.performance` (`timeToFirstOutputMs`, `outputTokensPerSecond`, `responseTimeMs`); finish reasons. Caveat: the workflow telemetry bridge is young (TODO(#12164) — "approximately compatible") — assert only events it demonstrably delivers on the pinned version; the assertion list goes in the handoff.
 
 ### Ours (the SDK cannot see these)
 
