@@ -24,19 +24,12 @@ import { one, optional, result } from "../../repository-utils.js";
 type TurnDb = PostgresDrizzleRepositoryContext["db"];
 
 /** Read one turn by its client request id, workspace-scoped. */
-const selectTurnByRequest = (
-  db: TurnDb,
-  workspaceId: WorkspaceId,
-  requestId: RequestId,
-) =>
+const selectTurnByRequest = (db: TurnDb, workspaceId: WorkspaceId, requestId: RequestId) =>
   db
     .select()
     .from(assistantTurns)
     .where(
-      and(
-        eq(assistantTurns.workspaceId, workspaceId),
-        eq(assistantTurns.requestId, requestId),
-      ),
+      and(eq(assistantTurns.workspaceId, workspaceId), eq(assistantTurns.requestId, requestId)),
     )
     .limit(1);
 
@@ -70,13 +63,8 @@ export const createPostgresDrizzleTurnRepository = ({
       command.conversationId,
     );
 
-    const priorByRequest = await selectTurnByRequest(
-      db,
-      command.workspaceId,
-      command.requestId,
-    );
-    if (priorByRequest[0])
-      return result(toAssistantTurnRecord(priorByRequest[0]), false);
+    const priorByRequest = await selectTurnByRequest(db, command.workspaceId, command.requestId);
+    if (priorByRequest[0]) return result(toAssistantTurnRecord(priorByRequest[0]), false);
 
     try {
       const rows = await db
@@ -100,40 +88,30 @@ export const createPostgresDrizzleTurnRepository = ({
         .returning();
       return result(
         toAssistantTurnRecord(
-          one(
-            rows,
-            "record_not_found",
-            "Assistant turn insert returned no row.",
-          ),
+          one(rows, "record_not_found", "Assistant turn insert returned no row."),
         ),
         true,
       );
     } catch (error) {
       const constraint = uniqueViolationConstraint(error);
-      // A concurrent insert with the same request id won the race between our
-      // SELECT and INSERT: converge on the stored row, no insert of ours.
-      if (constraint === "assistant_turns_workspace_request_uq") {
-        const raced = await selectTurnByRequest(
-          db,
-          command.workspaceId,
-          command.requestId,
-        );
-        return result(
-          toAssistantTurnRecord(
-            one(
-              raced,
-              "record_not_found",
-              "Assistant turn request conflict did not return an existing record.",
-            ),
-          ),
-          false,
-        );
-      }
-      // Another turn is already running for this conversation.
-      if (constraint === "assistant_turns_one_running_per_conversation_uq") {
+      const isRequestConflict = constraint === "assistant_turns_workspace_request_uq";
+      const isBusyConflict = constraint === "assistant_turns_one_running_per_conversation_uq";
+      if (isRequestConflict || isBusyConflict) {
+        // One concurrent insert can violate BOTH indexes; Postgres names only the
+        // one it checked first. Resolve by request identity, not by that name: an
+        // existing row for this request is a concurrent replay we converge on;
+        // without one, the running slot belongs to another turn (busy).
+        const raced = await selectTurnByRequest(db, command.workspaceId, command.requestId);
+        if (raced[0]) return result(toAssistantTurnRecord(raced[0]), false);
+        if (isBusyConflict) {
+          throw new DbRepositoryError(
+            "conversation_busy",
+            "A turn is already running for this conversation.",
+          );
+        }
         throw new DbRepositoryError(
-          "conversation_busy",
-          "A turn is already running for this conversation.",
+          "record_not_found",
+          "Assistant turn request conflict did not return an existing record.",
         );
       }
       throw error;
@@ -142,20 +120,33 @@ export const createPostgresDrizzleTurnRepository = ({
   // Bind the durable Workflow run id once the run has started. A replay may set
   // the same id again, but a different id cannot steal an existing binding.
   bindTurnRun: async (command) => {
-    const rows = await db
-      .update(assistantTurns)
-      .set({ runId: command.runId })
-      .where(
-        and(
-          eq(assistantTurns.workspaceId, command.workspaceId),
-          eq(assistantTurns.assistantTurnId, command.assistantTurnId),
-          or(
-            isNull(assistantTurns.runId),
-            eq(assistantTurns.runId, command.runId),
-          ),
-        ),
-      )
-      .returning();
+    const bindRun = async () => {
+      try {
+        return await db
+          .update(assistantTurns)
+          .set({ runId: command.runId })
+          .where(
+            and(
+              eq(assistantTurns.workspaceId, command.workspaceId),
+              eq(assistantTurns.assistantTurnId, command.assistantTurnId),
+              or(isNull(assistantTurns.runId), eq(assistantTurns.runId, command.runId)),
+            ),
+          )
+          .returning();
+      } catch (error) {
+        // The one-run-per-turn partial unique index rejects binding a run id that
+        // already belongs to another turn. Map it to the typed transition error
+        // rather than leaking a raw driver error to the port.
+        if (uniqueViolationConstraint(error) === "assistant_turns_run_uq") {
+          throw new DbRepositoryError(
+            "invalid_transition",
+            "This Workflow run is already bound to a different turn.",
+          );
+        }
+        throw error;
+      }
+    };
+    const rows = await bindRun();
     if (rows[0]) return toAssistantTurnRecord(rows[0]);
 
     const current = await db
@@ -180,10 +171,9 @@ export const createPostgresDrizzleTurnRepository = ({
     );
   },
   // The one guarded terminal transition: a single `UPDATE ... WHERE status =
-  // 'running'`. A matched row means this call won the transition (`claimed: true`);
-  // no match means the turn is already terminal (replay) or unknown, so we re-read
-  // and report `claimed: false` — a crash replay and a duplicate finalize are both
-  // no-ops rather than errors.
+  // 'running'`. A matched row won the transition (`claimed: true`). No match means
+  // already-terminal or unknown: an existing terminal row reports `claimed: false`
+  // (replay and duplicate finalize are no-ops); no row raises `record_not_found`.
   claimAssistantTurnTerminal: async (command) => {
     const claimed = await db
       .update(assistantTurns)
@@ -207,8 +197,7 @@ export const createPostgresDrizzleTurnRepository = ({
         ),
       )
       .returning();
-    if (claimed[0])
-      return { record: toAssistantTurnRecord(claimed[0]), claimed: true };
+    if (claimed[0]) return { record: toAssistantTurnRecord(claimed[0]), claimed: true };
 
     const current = await db
       .select()

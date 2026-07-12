@@ -22,6 +22,8 @@ export {
 export {
   CHAT_TURN_ERROR_CODES,
   CHAT_TURN_OUTCOMES,
+  chatTurnUsage,
+  classifyChatTurnOutcome,
   toCompletedChatTurnOutcome,
   type ChatTurnTerminalOutcome,
 } from "../chat-turn-outcome.js";
@@ -33,24 +35,16 @@ export {
 export { replayChatTurn, type ReplayedChatTurn } from "./chat-turn-replay.js";
 
 /** Route-side facade. Workflow handles and engine result objects remain private. */
-export async function startChatTurn(
-  input: ChatTurnWorkflowInput,
-): Promise<StartedChatTurn> {
+export async function startChatTurn(input: ChatTurnWorkflowInput): Promise<StartedChatTurn> {
   const run = await start(chatTurnWorkflow, [input]);
   return {
     runId: run.runId,
-    stream: toChatTurnUIStream(
-      run.getReadable<ModelCallStreamPart>(),
-      input.clientTools,
-    ),
+    stream: toChatTurnUIStream(run.getReadable<ModelCallStreamPart>(), input.clientTools),
     terminal: run.returnValue,
   };
 }
 
-export async function cancelChatTurn(
-  runId: string,
-  reason: string,
-): Promise<boolean> {
+export async function cancelChatTurn(runId: string, reason: string): Promise<boolean> {
   try {
     await resumeHook(chatTurnCancellationHookToken(runId), { reason });
     return true;

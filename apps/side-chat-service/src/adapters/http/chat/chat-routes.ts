@@ -3,34 +3,21 @@ import type { JsonValue } from "@side-chat/shared";
 
 import { cancelTurn } from "#application/turn/cancel-turn";
 import type { ClientToolDispatchStore } from "#application/ports/turn/tools/client-tool-dispatch-store";
-import {
-  runTurn,
-  type RunTurnDependencies,
-} from "#application/turn/execution/run-turn";
+import { runTurn, type RunTurnDependencies } from "#application/turn/execution/run-turn";
 import {
   submitClientToolOutput,
   type ResumeClientTool,
 } from "#application/turn/tools/submit-client-tool-output";
 import { TurnRejectedError } from "#application/turn/turn-errors";
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
-import {
-  TURN_REPLAY_RESULTS,
-  type TurnReplay,
-} from "#application/ports/turn/replay/turn-replay";
+import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 
 import type { AuthVariables } from "../auth-middleware.js";
-import {
-  errorResponse,
-  HTTP_ERROR,
-  turnRejectionResponse,
-} from "../error-response.js";
+import { errorResponse, HTTP_ERROR, turnRejectionResponse } from "../error-response.js";
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "../http-contract.js";
 import { parseCancelRequest, parseChatRequest } from "./chat-request-schema.js";
-import {
-  createChatStreamResponse,
-  type OutboundTransformFactory,
-} from "./chat-stream-response.js";
+import { createChatStreamResponse, type OutboundTransformFactory } from "./chat-stream-response.js";
 
 export type ChatRouteDependencies = RunTurnDependencies &
   Readonly<{
@@ -44,21 +31,14 @@ export type ChatRouteDependencies = RunTurnDependencies &
   }>;
 
 /** HTTP owns validation and stream encoding; application services own turn policy and state. */
-export function createChatRoutes(
-  dependencies: ChatRouteDependencies,
-): Hono<AuthVariables> {
+export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<AuthVariables> {
   const app = new Hono<AuthVariables>();
 
   app.post(CHAT_HTTP_ROUTES.START, async (context) => {
-    const requestId =
-      context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
     const request = await parseChatRequest(await safeJson(context.req.raw));
     if (!request) {
-      return errorResponse(
-        requestId,
-        HTTP_ERROR.BAD_REQUEST,
-        "Invalid chat request.",
-      );
+      return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid chat request.");
     }
 
     try {
@@ -83,15 +63,10 @@ export function createChatRoutes(
   });
 
   app.post(CHAT_HTTP_ROUTES.CANCEL, async (context) => {
-    const requestId =
-      context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
     const request = parseCancelRequest(await safeJson(context.req.raw));
     if (!request) {
-      return errorResponse(
-        requestId,
-        HTTP_ERROR.BAD_REQUEST,
-        "Invalid cancel request.",
-      );
+      return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid cancel request.");
     }
     try {
       await cancelTurn(dependencies.turns, dependencies.execution, {
@@ -109,8 +84,7 @@ export function createChatRoutes(
   });
 
   app.post(CHAT_HTTP_ROUTES.CLIENT_TOOL_OUTPUT, async (context) => {
-    const requestId =
-      context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
     try {
       const acknowledgement = await submitClientToolOutput(
         dependencies.clientToolDispatches,
@@ -129,31 +103,19 @@ export function createChatRoutes(
   });
 
   app.get(CHAT_HTTP_ROUTES.STREAM, async (context) => {
-    const requestId =
-      context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
     const startIndex = parseStartIndex(context.req.query("startIndex"));
     if (startIndex === undefined) {
-      return errorResponse(
-        requestId,
-        HTTP_ERROR.BAD_REQUEST,
-        "Invalid replay start index.",
-      );
+      return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid replay start index.");
     }
     const runId = context.req.param("runId");
     try {
       // Ownership precedes Workflow lookup so a guessed run id is never an
       // existence oracle across workspaces or subjects.
-      await dependencies.runAccess.assertAccessible(
-        context.get("authContext"),
-        runId,
-      );
+      await dependencies.runAccess.assertAccessible(context.get("authContext"), runId);
       const replay = await dependencies.replay.open(runId, startIndex);
       if (replay.status === TURN_REPLAY_RESULTS.NOT_FOUND) {
-        return errorResponse(
-          requestId,
-          HTTP_ERROR.NOT_FOUND,
-          "Turn run not found.",
-        );
+        return errorResponse(requestId, HTTP_ERROR.NOT_FOUND, "Turn run not found.");
       }
       if (replay.status === TURN_REPLAY_RESULTS.START_INDEX_OUT_OF_RANGE) {
         const response = errorResponse(
@@ -161,10 +123,7 @@ export function createChatRoutes(
           HTTP_ERROR.RANGE_NOT_SATISFIABLE,
           "Replay start index is beyond the durable stream.",
         );
-        response.headers.set(
-          HTTP_HEADERS.WORKFLOW_STREAM_TAIL_INDEX,
-          String(replay.tailIndex),
-        );
+        response.headers.set(HTTP_HEADERS.WORKFLOW_STREAM_TAIL_INDEX, String(replay.tailIndex));
         return response;
       }
       return createChatStreamResponse({
@@ -209,33 +168,24 @@ async function safeJson(request: Request): Promise<unknown> {
   }
 }
 
-const CLIENT_TOOL_OUTPUT_MAX_BYTES = 64 * 1024;
+export const CLIENT_TOOL_OUTPUT_MAX_BYTES = 64 * 1024;
 const CLIENT_TOOL_OUTPUT_MAX_DEPTH = 16;
 const INVALID_CLIENT_TOOL_OUTPUT = {
   value: { status: "failed", errorCode: "invalid_client_tool_output" },
 } as const;
 
-async function readClientToolOutput(request: Request) {
+export async function readClientToolOutput(request: Request) {
   const declaredLength = Number(request.headers.get("content-length"));
-  if (
-    Number.isFinite(declaredLength) &&
-    declaredLength > CLIENT_TOOL_OUTPUT_MAX_BYTES
-  ) {
+  if (Number.isFinite(declaredLength) && declaredLength > CLIENT_TOOL_OUTPUT_MAX_BYTES) {
     return { valid: false as const, output: INVALID_CLIENT_TOOL_OUTPUT };
   }
   try {
-    const text = await request.text();
-    if (
-      new TextEncoder().encode(text).byteLength > CLIENT_TOOL_OUTPUT_MAX_BYTES
-    ) {
+    const bytes = await readCappedBytes(request.body, CLIENT_TOOL_OUTPUT_MAX_BYTES);
+    if (bytes === undefined) {
       return { valid: false as const, output: INVALID_CLIENT_TOOL_OUTPUT };
     }
-    const body: unknown = JSON.parse(text);
-    if (
-      !isRecord(body) ||
-      !("output" in body) ||
-      !isBoundedJson(body["output"])
-    ) {
+    const body: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    if (!isRecord(body) || !("output" in body) || !isBoundedJson(body["output"])) {
       return { valid: false as const, output: INVALID_CLIENT_TOOL_OUTPUT };
     }
     return { valid: true as const, output: { value: body["output"] } };
@@ -244,17 +194,56 @@ async function readClientToolOutput(request: Request) {
   }
 }
 
+/**
+ * Read a body stream while enforcing a hard byte ceiling. The stream is the size
+ * authority: a `content-length` header may be missing or dishonest, so the cap
+ * is checked as bytes arrive and the source is cancelled the moment it is
+ * exceeded, never buffering the whole body first. Returns `undefined` when the
+ * body is over the ceiling.
+ */
+export async function readCappedBytes(
+  stream: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+): Promise<Uint8Array | undefined> {
+  if (stream === null) return new Uint8Array(0);
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return concatBytes(chunks, total);
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return undefined;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function concatBytes(chunks: readonly Uint8Array[], total: number): Uint8Array {
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return merged;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isBoundedJson(value: unknown, depth = 0): value is JsonValue {
   if (depth > CLIENT_TOOL_OUTPUT_MAX_DEPTH || value === undefined) return false;
-  if (value === null || typeof value === "string" || typeof value === "boolean")
-    return true;
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
   if (typeof value === "number") return Number.isFinite(value);
-  if (Array.isArray(value))
-    return value.every((entry) => isBoundedJson(entry, depth + 1));
+  if (Array.isArray(value)) return value.every((entry) => isBoundedJson(entry, depth + 1));
   if (!isRecord(value)) return false;
   return Object.values(value).every((entry) => isBoundedJson(entry, depth + 1));
 }

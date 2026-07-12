@@ -50,6 +50,8 @@ describe("postgres turn state adapter mapping", () => {
     expect(turn).toEqual({
       conversationId: "conversation_1",
       turnId: "turn_9",
+      workspaceId: AUTH.workspaceId,
+      subjectId: AUTH.subjectId,
     });
     // conversationId is passed through as both id and key; actor is the subject.
     expect(conversationCreated).toMatchObject({
@@ -94,8 +96,7 @@ describe("postgres turn state adapter mapping", () => {
   it("maps a conversations_pkey collision to a FORBIDDEN rejection", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        createOrGetConversation: () =>
-          Promise.reject(uniqueViolation("conversations_pkey")),
+        createOrGetConversation: () => Promise.reject(uniqueViolation("conversations_pkey")),
       }),
     );
 
@@ -107,8 +108,7 @@ describe("postgres turn state adapter mapping", () => {
   it("rethrows a non-pkey unique violation from conversation create", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        createOrGetConversation: () =>
-          Promise.reject(uniqueViolation("some_other_constraint")),
+        createOrGetConversation: () => Promise.reject(uniqueViolation("some_other_constraint")),
       }),
     );
 
@@ -122,9 +122,7 @@ describe("postgres turn state adapter mapping", () => {
       fakeRepositories({ findConversation: () => Promise.resolve(undefined) }),
     );
 
-    await expect(
-      state.assertOwned(AUTH, "conversation_1"),
-    ).rejects.toMatchObject({
+    await expect(state.assertOwned(AUTH, "conversation_1")).rejects.toMatchObject({
       code: TURN_REJECTION_CODES.NOT_FOUND,
     });
   });
@@ -136,22 +134,17 @@ describe("postgres turn state adapter mapping", () => {
       }),
     );
 
-    await expect(
-      state.assertOwned(AUTH, "conversation_1"),
-    ).resolves.toBeUndefined();
+    await expect(state.assertOwned(AUTH, "conversation_1")).resolves.toBeUndefined();
   });
 
   it("maps a running turn to BUSY on the assertCanBegin pre-check", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        findActiveAssistantTurn: () =>
-          Promise.resolve(assistantTurnRecord("turn_running")),
+        findActiveAssistantTurn: () => Promise.resolve(assistantTurnRecord("turn_running")),
       }),
     );
 
-    await expect(
-      state.assertCanBegin(AUTH, "conversation_1"),
-    ).rejects.toMatchObject({
+    await expect(state.assertCanBegin(AUTH, "conversation_1")).rejects.toMatchObject({
       code: TURN_REJECTION_CODES.BUSY,
     });
   });
@@ -163,9 +156,7 @@ describe("postgres turn state adapter mapping", () => {
       }),
     );
 
-    await expect(
-      state.assertCanBegin(AUTH, "conversation_1"),
-    ).resolves.toBeUndefined();
+    await expect(state.assertCanBegin(AUTH, "conversation_1")).resolves.toBeUndefined();
   });
 
   it("maps an unresolved run to RUN_NOT_FOUND on assertRunOwned", async () => {
@@ -175,9 +166,7 @@ describe("postgres turn state adapter mapping", () => {
       }),
     );
 
-    await expect(
-      state.assertRunOwned(AUTH, "conversation_1", "run_x"),
-    ).rejects.toMatchObject({
+    await expect(state.assertRunOwned(AUTH, "conversation_1", "run_x")).rejects.toMatchObject({
       code: TURN_REJECTION_CODES.RUN_NOT_FOUND,
     });
   });

@@ -66,7 +66,6 @@ export type MessageRecord = TenantScopedRecord &
     readonly parts: readonly JsonObject[];
     readonly metadataJson: JsonObject;
     readonly sequenceIndex: number;
-    readonly idempotencyKey?: string;
   };
 
 export type AssistantTurnRecord = TenantScopedRecord &

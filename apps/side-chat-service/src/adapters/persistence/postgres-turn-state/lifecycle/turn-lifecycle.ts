@@ -8,18 +8,12 @@ import { toJsonObject } from "@side-chat/shared";
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
 import type { MessageStore } from "#application/ports/turn/message-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
-import type {
-  BeginTurnInput,
-  TurnStore,
-} from "#application/ports/turn/turn-store";
-import {
-  TURN_REJECTION_CODES,
-  TurnRejectedError,
-} from "#application/turn/turn-errors";
+import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
+import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
 
-import type { TurnIdentity, TurnStateContext } from "../types.js";
+import type { TurnStateContext } from "../types.js";
 
 const CONVERSATIONS_PRIMARY_KEY_CONSTRAINT = "conversations_pkey";
 
@@ -46,9 +40,7 @@ type TurnLifecycle = Pick<
 >;
 
 /** Maps turn lifecycle ports to database repositories and their error contract. */
-export const createPostgresTurnLifecycle = (
-  context: TurnStateContext,
-): TurnLifecycle => ({
+export const createPostgresTurnLifecycle = (context: TurnStateContext): TurnLifecycle => ({
   assertOwned: assertOwned(context),
   assertCanBegin: assertCanBegin(context),
   beginTurn: beginTurn(context),
@@ -68,10 +60,7 @@ const assertOwned =
       conversationId,
     });
     if (!conversation) {
-      throw new TurnRejectedError(
-        TURN_REJECTION_CODES.NOT_FOUND,
-        "Conversation not found",
-      );
+      throw new TurnRejectedError(TURN_REJECTION_CODES.NOT_FOUND, "Conversation not found");
     }
   };
 
@@ -91,9 +80,8 @@ const assertCanBegin =
   };
 
 const beginTurn =
-  (context: TurnStateContext): TurnStore["beginTurn"] =>
+  ({ repositories }: TurnStateContext): TurnStore["beginTurn"] =>
   async (input) => {
-    const { repositories, identities } = context;
     const { auth, conversationId, userMessage } = input;
     const now = new Date().toISOString();
 
@@ -110,19 +98,19 @@ const beginTurn =
     });
     const turnRecord = await startTurn(repositories, input, now);
 
-    identities.set(turnRecord.assistantTurnId, {
+    return {
+      conversationId,
+      turnId: turnRecord.assistantTurnId,
       workspaceId: auth.workspaceId,
       subjectId: auth.subjectId,
-    });
-    return { conversationId, turnId: turnRecord.assistantTurnId };
+    };
   };
 
 const bindRun =
-  ({ repositories, identities }: TurnStateContext): TurnStore["bindRun"] =>
+  ({ repositories }: TurnStateContext): TurnStore["bindRun"] =>
   async (turn, runId) => {
-    const identity = requireIdentity(identities, turn.turnId);
     await repositories.bindTurnRun({
-      workspaceId: identity.workspaceId,
+      workspaceId: turn.workspaceId,
       assistantTurnId: turn.turnId,
       runId,
       now: new Date().toISOString(),
@@ -156,34 +144,25 @@ const assertRunAccessible =
   };
 
 const appendAssistantMessage =
-  ({
-    repositories,
-    identities,
-  }: TurnStateContext): MessageStore["appendAssistantMessage"] =>
+  ({ repositories }: TurnStateContext): MessageStore["appendAssistantMessage"] =>
   async (turn, message) => {
-    const identity = requireIdentity(identities, turn.turnId);
     await repositories.appendMessage({
-      workspaceId: identity.workspaceId,
-      subjectId: identity.subjectId,
+      workspaceId: turn.workspaceId,
+      subjectId: turn.subjectId,
       conversationId: turn.conversationId,
       messageId: message.id,
       role: TURN_MESSAGE_ROLES.ASSISTANT,
       parts: message.parts.map(toJsonObject),
-      metadataJson:
-        message.metadata === undefined ? {} : toJsonObject(message.metadata),
+      metadataJson: message.metadata === undefined ? {} : toJsonObject(message.metadata),
       now: new Date().toISOString(),
     });
   };
 
 const claimTerminal =
-  ({
-    repositories,
-    identities,
-  }: TurnStateContext): TurnStore["claimTerminal"] =>
+  ({ repositories }: TurnStateContext): TurnStore["claimTerminal"] =>
   async (turn, terminal) => {
-    const identity = requireIdentity(identities, turn.turnId);
     const result = await repositories.claimAssistantTurnTerminal({
-      workspaceId: identity.workspaceId,
+      workspaceId: turn.workspaceId,
       assistantTurnId: turn.turnId,
       status: terminal.status,
       assistantMessageId: undefined,
@@ -201,17 +180,6 @@ const claimTerminal =
     return result.claimed;
   };
 
-const requireIdentity = (
-  identities: Map<string, TurnIdentity>,
-  turnId: string,
-): TurnIdentity => {
-  const identity = identities.get(turnId);
-  if (!identity) {
-    throw new Error(`No recorded identity for turn ${turnId}.`);
-  }
-  return identity;
-};
-
 const createConversation = async (
   repositories: SidechatRepositories,
   auth: AuthContext,
@@ -228,9 +196,7 @@ const createConversation = async (
       now,
     });
   } catch (error) {
-    if (
-      uniqueViolationConstraint(error) === CONVERSATIONS_PRIMARY_KEY_CONSTRAINT
-    ) {
+    if (uniqueViolationConstraint(error) === CONVERSATIONS_PRIMARY_KEY_CONSTRAINT) {
       throw new TurnRejectedError(
         TURN_REJECTION_CODES.FORBIDDEN,
         "Conversation belongs to a different subject",
@@ -258,10 +224,7 @@ const startTurn = async (
     });
     return started.record;
   } catch (error) {
-    if (
-      error instanceof DbRepositoryError &&
-      error.code === "conversation_busy"
-    ) {
+    if (error instanceof DbRepositoryError && error.code === "conversation_busy") {
       throw busy();
     }
     throw error;
@@ -269,13 +232,7 @@ const startTurn = async (
 };
 
 const busy = (): TurnRejectedError =>
-  new TurnRejectedError(
-    TURN_REJECTION_CODES.BUSY,
-    "Conversation already has a running turn",
-  );
+  new TurnRejectedError(TURN_REJECTION_CODES.BUSY, "Conversation already has a running turn");
 
 const runNotFound = (): TurnRejectedError =>
-  new TurnRejectedError(
-    TURN_REJECTION_CODES.RUN_NOT_FOUND,
-    "Turn run not found",
-  );
+  new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn run not found");

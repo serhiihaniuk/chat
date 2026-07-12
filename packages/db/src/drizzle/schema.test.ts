@@ -13,9 +13,7 @@ const journal = readMigrationJournal(
 const migration = journal.entries
   .slice()
   .sort((left, right) => left.idx - right.idx)
-  .map((entry) =>
-    readFileSync(new URL(`${entry.tag}.sql`, migrationsDir), "utf8"),
-  )
+  .map((entry) => readFileSync(new URL(`${entry.tag}.sql`, migrationsDir), "utf8"))
   .join("\n")
   .replaceAll("\r\n", "\n");
 const grants = readFileSync(
@@ -30,6 +28,7 @@ describe("sidechat drizzle schema and migration", () => {
       "messages",
       "assistantTurns",
       "turnContextSnapshots",
+      "conversationTitleRuns",
       "usageRecords",
       "toolInvocations",
       "clientToolDispatches",
@@ -42,6 +41,9 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).not.toMatch(/CREATE TYPE .* AS ENUM/u);
     expect(migration).toContain('"sidechat"."host_command_results"');
     expect(migration).toContain('"sidechat"."client_tool_dispatches"');
+    expect(migration).toContain('"sidechat"."conversation_title_runs"');
+    // The dead nullable idempotency column and its index are gone (message_id PK).
+    expect(migration).not.toContain("idempotency_key");
     expect(migration).toContain("status in ('active', 'archived', 'reset')");
   });
 
@@ -54,9 +56,7 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).toContain('"content_filter_version" text NOT NULL');
     // Aggregate usage folded onto the turn, zero until a terminal status.
     expect(migration).toContain('"input_tokens" integer DEFAULT 0 NOT NULL');
-    expect(migration).toContain(
-      '"cached_input_tokens" integer DEFAULT 0 NOT NULL',
-    );
+    expect(migration).toContain('"cached_input_tokens" integer DEFAULT 0 NOT NULL');
     // Every failure collapses to one `failed` status; the reaper's per-cause
     // statuses are gone.
     expect(migration).toContain(
@@ -102,9 +102,7 @@ describe("sidechat drizzle schema and migration", () => {
 
   it("keeps runtime least privilege in the durable role grants", () => {
     expect(grants).toContain("CREATE ROLE sidechat_runtime NOLOGIN");
-    expect(grants).toContain(
-      "GRANT USAGE ON SCHEMA sidechat TO sidechat_runtime",
-    );
+    expect(grants).toContain("GRANT USAGE ON SCHEMA sidechat TO sidechat_runtime");
     expect(grants).toMatch(
       /GRANT SELECT, INSERT, UPDATE, DELETE\n {2}ON ALL TABLES IN SCHEMA sidechat\n {2}TO sidechat_runtime/u,
     );
@@ -132,11 +130,7 @@ function readMigrationJournal(source: string): MigrationJournal {
 }
 
 function readMigrationJournalEntry(value: unknown): MigrationJournalEntry {
-  if (
-    !isRecord(value) ||
-    typeof value["idx"] !== "number" ||
-    typeof value["tag"] !== "string"
-  ) {
+  if (!isRecord(value) || typeof value["idx"] !== "number" || typeof value["tag"] !== "string") {
     throw new Error(
       "Each Drizzle migration journal entry must contain numeric idx and string tag.",
     );

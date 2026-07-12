@@ -4,7 +4,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { TURN_REJECTION_CODES } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
-import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES, type TurnMessage } from "#domain/turn/turn";
+import {
+  TURN_MESSAGE_ROLES,
+  TURN_TERMINAL_STATUSES,
+  ZERO_TURN_USAGE,
+  type TurnMessage,
+} from "#domain/turn/turn";
+import type { ChatTurnFinalization } from "#workflows/chat-turn-outcome";
+import { runChatTurnFinalizeStep } from "#workflows/production/chat-turn-finalize";
 
 import { createPostgresTurnState, type PostgresTurnState } from "./postgres-turn-state.js";
 
@@ -234,4 +241,123 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
       code: TURN_REJECTION_CODES.NOT_FOUND,
     });
   });
+
+  // The workflow-side finalize step is the durable-finalize proof: it runs in a
+  // FRESH adapter (no in-memory identity map) and must recover ownership from the
+  // widened turn ref alone, exactly as it does after a route crash or worker kill.
+  it("durably finalizes a completed turn from a fresh adapter and replays idempotently", async () => {
+    const scope = nextScope();
+    const auth = authFor(scope);
+    const conversationId = `${scope}_conversation`;
+
+    const turn = await state.beginTurn({
+      auth,
+      conversationId,
+      requestId: `${scope}_req`,
+      userMessage: userMessage(scope),
+    });
+    await state.bindRun(turn, `${scope}_run`);
+
+    const assistantMessage: UIMessage = {
+      id: `${scope}_assistant`,
+      role: TURN_MESSAGE_ROLES.ASSISTANT,
+      parts: [{ type: "text", text: "Persisted by the workflow" }],
+    };
+    const finalization: ChatTurnFinalization = {
+      terminal: {
+        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        usage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 },
+        finishReason: "stop",
+      },
+      assistantMessage,
+    };
+
+    await runChatTurnFinalizeStep({
+      databaseUrl: requireDatabaseUrl(),
+      identity: turn,
+      finalization,
+    });
+
+    const record = await reader.findAssistantTurn({
+      workspaceId: auth.workspaceId,
+      subjectId: auth.subjectId,
+      assistantTurnId: turn.turnId,
+    });
+    expect(record).toMatchObject({ status: "completed", totalTokens: 5 });
+    const history = await reader.readConversationHistory({
+      workspaceId: auth.workspaceId,
+      subjectId: auth.subjectId,
+      conversationId,
+      limit: 10,
+    });
+    expect(history.map((message) => message.role)).toEqual(["user", "assistant"]);
+
+    // A durable REPLAY re-runs the step: the guarded CAS loses, so the terminal
+    // is untouched and no duplicate assistant message is appended.
+    await runChatTurnFinalizeStep({
+      databaseUrl: requireDatabaseUrl(),
+      identity: turn,
+      finalization: {
+        terminal: {
+          status: TURN_TERMINAL_STATUSES.FAILED,
+          usage: ZERO_TURN_USAGE,
+        },
+      },
+    });
+
+    const replayed = await reader.findAssistantTurn({
+      workspaceId: auth.workspaceId,
+      subjectId: auth.subjectId,
+      assistantTurnId: turn.turnId,
+    });
+    expect(replayed?.status).toBe("completed");
+    const historyAfterReplay = await reader.readConversationHistory({
+      workspaceId: auth.workspaceId,
+      subjectId: auth.subjectId,
+      conversationId,
+      limit: 10,
+    });
+    expect(historyAfterReplay.filter((message) => message.role === "assistant")).toHaveLength(1);
+  });
+
+  it.each([TURN_TERMINAL_STATUSES.BLOCKED, TURN_TERMINAL_STATUSES.CANCELLED])(
+    "finalizes a %s turn without persisting an assistant message",
+    async (status) => {
+      const scope = nextScope();
+      const auth = authFor(scope);
+      const conversationId = `${scope}_conversation`;
+
+      const turn = await state.beginTurn({
+        auth,
+        conversationId,
+        requestId: `${scope}_req`,
+        userMessage: userMessage(scope),
+      });
+
+      await runChatTurnFinalizeStep({
+        databaseUrl: requireDatabaseUrl(),
+        identity: turn,
+        finalization: { terminal: { status, usage: ZERO_TURN_USAGE } },
+      });
+
+      const record = await reader.findAssistantTurn({
+        workspaceId: auth.workspaceId,
+        subjectId: auth.subjectId,
+        assistantTurnId: turn.turnId,
+      });
+      expect(record?.status).toBe(status);
+      const history = await reader.readConversationHistory({
+        workspaceId: auth.workspaceId,
+        subjectId: auth.subjectId,
+        conversationId,
+        limit: 10,
+      });
+      expect(history.map((message) => message.role)).toEqual(["user"]);
+    },
+  );
 });
+
+function requireDatabaseUrl(): string {
+  if (!databaseUrl) throw new Error("SIDECHAT_TEST_DATABASE_URL is required.");
+  return databaseUrl;
+}

@@ -45,7 +45,6 @@ describe("postgres row record mappers", () => {
       parts: [{ type: "text", text: "hello" }],
       metadataJson: {},
       sequenceIndex: 0,
-      idempotencyKey: null,
       createdAt: now,
     } satisfies typeof messages.$inferSelect);
     const tool = toToolInvocationRecord({
@@ -81,7 +80,6 @@ describe("postgres row record mappers", () => {
 
     expectCanonicalOmittedFields(conversation, ["titleText", "historyCutoffSequenceIndex"]);
     expect(conversation.legalHold).toBe(false);
-    expectCanonicalOmittedFields(message, ["idempotencyKey"]);
     expect(message.parts).toEqual([{ type: "text", text: "hello" }]);
     expectCanonicalOmittedFields(tool, [
       "outputHash",
@@ -93,17 +91,6 @@ describe("postgres row record mappers", () => {
   });
 
   it("preserves present falsy SQL string values", () => {
-    const message = toMessageRecord({
-      messageId: "message_1",
-      conversationId: "conversation_1",
-      workspaceId: "workspace_1",
-      role: "user",
-      parts: [{ type: "text", text: "hello" }],
-      metadataJson: {},
-      sequenceIndex: 0,
-      idempotencyKey: "",
-      createdAt: now,
-    } satisfies typeof messages.$inferSelect);
     const tool = toToolInvocationRecord({
       toolInvocationId: "tool_invocation_1",
       assistantTurnId: "assistant_turn_1",
@@ -121,7 +108,6 @@ describe("postgres row record mappers", () => {
       completedAt: now,
     } satisfies typeof toolInvocations.$inferSelect);
 
-    expect(message.idempotencyKey).toBe("");
     expect(tool.outputHash).toBe("");
     expect(tool.errorCode).toBe("");
   });

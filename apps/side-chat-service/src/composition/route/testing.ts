@@ -1,10 +1,8 @@
 import { createCompatibilityApp } from "#adapters/http/compatibility-app";
 import { createChatRoutes } from "#adapters/http/chat/chat-routes";
 import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
-import {
-  createHttpApp,
-  type Readiness,
-} from "#adapters/http/health/health-app";
+import { EMPTY_STRUCTURED_PART_CATALOGS } from "#application/conversations/read-conversation-history";
+import { createHttpApp, type Readiness } from "#adapters/http/health/health-app";
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import {
   createPostgresTurnState,
@@ -22,24 +20,15 @@ import {
   type ClientToolDispatchStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { ResumeClientTool } from "#application/turn/tools/submit-client-tool-output";
-import {
-  TURN_REPLAY_RESULTS,
-  type TurnReplay,
-} from "#application/ports/turn/replay/turn-replay";
-import {
-  configuredTurnModel,
-  type TurnModelPolicy,
-} from "#application/turn/turn-model-policy";
+import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
+import { configuredTurnModel, type TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import type { Settings } from "#config/settings/resolve-settings";
 import { scriptedModelProvider } from "#testing/scripted-language-model";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
 import { DeterministicTurnExecution } from "#testing/turn/deterministic-turn-execution";
 
-import {
-  startServiceScope,
-  type StartServicePart,
-} from "../lifecycle/resource-scope.js";
+import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
 import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
 
@@ -49,10 +38,7 @@ const unavailableTurnReplay: TurnReplay = {
 
 const unavailableClientToolDispatches: ClientToolDispatchStore = {
   findOwned: () => Promise.resolve(CLIENT_TOOL_DISPATCH_LOOKUP.NOT_FOUND),
-  submit: () =>
-    Promise.reject(
-      new Error("Client-tool dispatch persistence is unavailable"),
-    ),
+  submit: () => Promise.reject(new Error("Client-tool dispatch persistence is unavailable")),
 };
 
 export async function startTestingService(
@@ -76,12 +62,7 @@ export async function startTestingService(
     overrides.turnState ??
       new InMemoryTurnState([localChatConversation(settings.auth.workspaceId)]),
   );
-  return startTestingServiceWithPersistence(
-    settings,
-    starters,
-    overrides,
-    persistence,
-  );
+  return startTestingServiceWithPersistence(settings, starters, overrides, persistence);
 }
 
 /** Compiled DB tests opt into configured Postgres without changing the in-process harness. */
@@ -128,37 +109,33 @@ async function startTestingServiceWithPersistence<
   }>,
   persistence: TestingPersistence<TStore>,
 ) {
-  if (overrides.telemetrySink !== undefined)
-    registerServiceTelemetry(overrides.telemetrySink);
-  const scope = await startServiceScope(settings, [
-    persistence.registerClose,
-    ...starters,
-  ]);
+  if (overrides.telemetrySink !== undefined) registerServiceTelemetry(overrides.telemetrySink);
+  const scope = await startServiceScope(settings, [persistence.registerClose, ...starters]);
   const readiness = overrides.readiness ?? { check: () => scope.isReady() };
-  const authorizer =
-    overrides.authorizer ?? createServiceAuthorizer(settings.auth);
+  const authorizer = overrides.authorizer ?? createServiceAuthorizer(settings.auth);
   const app = createHttpApp(readiness, authorizer);
   const turnState = persistence.store;
   const telemetrySink = overrides.telemetrySink ?? { record: () => undefined };
-  const turnExecution =
-    overrides.turnExecution ?? new DeterministicTurnExecution();
+  const turnExecution = overrides.turnExecution ?? new DeterministicTurnExecution();
   const turnReplay = resolveTurnReplay(overrides.turnReplay);
   app.route(
     "/",
     createChatRoutes({
-      messages: turnState,
       turns: turnState,
       admission: overrides.turnAdmission ?? new DeterministicTurnAdmission(),
       execution: turnExecution,
       replay: turnReplay,
       runAccess: turnState,
-      clientToolDispatches:
-        overrides.clientToolDispatches ?? persistence.clientToolDispatches,
-      resumeClientTool:
-        overrides.resumeClientTool ?? (() => Promise.resolve(false)),
+      clientToolDispatches: overrides.clientToolDispatches ?? persistence.clientToolDispatches,
+      resumeClientTool: overrides.resumeClientTool ?? (() => Promise.resolve(false)),
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: testingTurnModelPolicy(settings),
+      // In-memory dev has no durable workflow finalize; the route projects the
+      // terminal itself. Postgres deployments leave it to the workflow step.
+      ...(persistence.durable
+        ? {}
+        : { routeFinalization: { turns: turnState, messages: turnState } }),
     }),
   );
   app.route(
@@ -170,6 +147,7 @@ async function startTestingServiceWithPersistence<
         id: settings.models.modelId,
         provider: settings.models.provider,
       },
+      structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
     }),
   );
   app.route("/", createCompatibilityApp());
@@ -186,12 +164,13 @@ function resolveTurnReplay(override: TurnReplay | undefined): TurnReplay {
   return override ?? unavailableTurnReplay;
 }
 
-type TestingPersistence<TStore extends InMemoryTurnState | PostgresTurnState> =
-  Readonly<{
-    store: TStore;
-    clientToolDispatches: ClientToolDispatchStore;
-    registerClose: StartServicePart;
-  }>;
+type TestingPersistence<TStore extends InMemoryTurnState | PostgresTurnState> = Readonly<{
+  store: TStore;
+  clientToolDispatches: ClientToolDispatchStore;
+  registerClose: StartServicePart;
+  /** True when the workflow finalize step owns terminal persistence (Postgres). */
+  durable: boolean;
+}>;
 
 function createConfiguredTestingPersistence(
   settings: Settings,
@@ -206,6 +185,7 @@ function createConfiguredTestingPersistence(
   return {
     store,
     clientToolDispatches: store,
+    durable: true,
     registerClose: () => ({
       name: "postgres testing turn state",
       close: () => store.close(),
@@ -213,12 +193,11 @@ function createConfiguredTestingPersistence(
   };
 }
 
-function inMemoryPersistence(
-  store: InMemoryTurnState,
-): TestingPersistence<InMemoryTurnState> {
+function inMemoryPersistence(store: InMemoryTurnState): TestingPersistence<InMemoryTurnState> {
   return {
     store,
     clientToolDispatches: unavailableClientToolDispatches,
+    durable: false,
     registerClose: () => ({
       name: "in-memory testing turn state",
       close: () => undefined,

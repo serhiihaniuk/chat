@@ -59,9 +59,7 @@ export const messageRecord = (): MessageRecord => ({
   updatedAt: NOW,
 });
 
-export const assistantTurnRecord = (
-  assistantTurnId: string,
-): AssistantTurnRecord => ({
+export const assistantTurnRecord = (assistantTurnId: string): AssistantTurnRecord => ({
   workspaceId: AUTH.workspaceId,
   assistantTurnId,
   requestId: "request_1",
@@ -101,6 +99,7 @@ export const fakeRepositories = (
   findConversation: rejects("findConversation"),
   prepareConversationTitle: rejects("prepareConversationTitle"),
   resetConversation: rejects("resetConversation"),
+  recordConversationTitleRun: rejects("recordConversationTitleRun"),
   startAssistantTurn: rejects("startAssistantTurn"),
   bindTurnRun: rejects("bindTurnRun"),
   recordTurnContextSnapshot: rejects("recordTurnContextSnapshot"),

@@ -25,21 +25,15 @@ import { defineInteractionTables } from "./interaction-schema.js";
 const sidechat = pgSchema("sidechat");
 
 export const createdAt = () =>
-  timestamp("created_at", { mode: "string", withTimezone: true })
-    .notNull()
-    .defaultNow();
+  timestamp("created_at", { mode: "string", withTimezone: true }).notNull().defaultNow();
 
 const updatedAt = () =>
-  timestamp("updated_at", { mode: "string", withTimezone: true })
-    .notNull()
-    .defaultNow();
+  timestamp("updated_at", { mode: "string", withTimezone: true }).notNull().defaultNow();
 
 export const workspaceIdColumn = () => text("workspace_id").notNull();
 
 export const inList = (columnName: string, values: readonly string[]) =>
-  sql.raw(
-    `${columnName} in (${values.map((value) => `'${value}'`).join(", ")})`,
-  );
+  sql.raw(`${columnName} in (${values.map((value) => `'${value}'`).join(", ")})`);
 
 export const conversations = sidechat.table(
   "conversations",
@@ -48,10 +42,7 @@ export const conversations = sidechat.table(
     workspaceId: workspaceIdColumn(),
     subjectId: text("subject_id").notNull(),
     conversationKey: text("conversation_key").notNull(),
-    status: text("status")
-      .$type<ConversationStatus>()
-      .notNull()
-      .default("active"),
+    status: text("status").$type<ConversationStatus>().notNull().default("active"),
     titleText: text("title_text"),
     createdByActorId: text("created_by_actor_id").notNull(),
     historyCutoffSequenceIndex: integer("history_cutoff_sequence_index"),
@@ -82,10 +73,7 @@ export const conversations = sidechat.table(
       table.subjectId,
       table.lastMessageAt,
     ),
-    check(
-      "conversations_status_check",
-      inList("status", CONVERSATION_STATUSES),
-    ),
+    check("conversations_status_check", inList("status", CONVERSATION_STATUSES)),
   ],
 );
 
@@ -104,20 +92,12 @@ export const messages = sidechat.table(
     parts: jsonb("parts").$type<readonly JsonObject[]>().notNull(),
     metadataJson: jsonb("metadata_json").$type<JsonObject>().notNull(),
     sequenceIndex: integer("sequence_index").notNull(),
-    idempotencyKey: text("idempotency_key"),
     createdAt: createdAt(),
   },
   (table) => [
     // History reads (`sequence_index DESC`) and the append `max(sequence_index)` are
     // both served by the unique index below scanned backwards (no second index needed).
-    uniqueIndex("messages_conversation_sequence_uq").on(
-      table.conversationId,
-      table.sequenceIndex,
-    ),
-    uniqueIndex("messages_workspace_idempotency_uq").on(
-      table.workspaceId,
-      table.idempotencyKey,
-    ),
+    uniqueIndex("messages_conversation_sequence_uq").on(table.conversationId, table.sequenceIndex),
     check("messages_role_check", inList("role", MESSAGE_ROLES)),
   ],
 );
@@ -136,9 +116,7 @@ export const assistantTurns = sidechat.table(
     userMessageId: text("user_message_id")
       .notNull()
       .references(() => messages.messageId),
-    assistantMessageId: text("assistant_message_id").references(
-      () => messages.messageId,
-    ),
+    assistantMessageId: text("assistant_message_id").references(() => messages.messageId),
     // The durable Workflow run this turn attaches to (reconnect/replay handle).
     // Null between the turn row insert and the run start, then bound once.
     runId: text("run_id"),
@@ -149,10 +127,7 @@ export const assistantTurns = sidechat.table(
     instructionsVersion: text("instructions_version").notNull(),
     configVersion: text("config_version").notNull(),
     contentFilterVersion: text("content_filter_version").notNull(),
-    status: text("status")
-      .$type<AssistantTurnStatus>()
-      .notNull()
-      .default("running"),
+    status: text("status").$type<AssistantTurnStatus>().notNull().default("running"),
     finishReason: text("finish_reason"),
     errorCode: text("error_code"),
     // Aggregate usage across all steps, folded onto the turn (v7 token detail).
@@ -172,17 +147,11 @@ export const assistantTurns = sidechat.table(
     }),
   },
   (table) => [
-    uniqueIndex("assistant_turns_workspace_request_uq").on(
-      table.workspaceId,
-      table.requestId,
-    ),
+    uniqueIndex("assistant_turns_workspace_request_uq").on(table.workspaceId, table.requestId),
     uniqueIndex("assistant_turns_run_uq")
       .on(table.runId)
       .where(sql`run_id is not null`),
-    index("assistant_turns_conversation_started_idx").on(
-      table.conversationId,
-      table.startedAt,
-    ),
+    index("assistant_turns_conversation_started_idx").on(table.conversationId, table.startedAt),
     // One running turn per conversation, enforced by the database. This is the
     // race-safe busy guard: a concurrent second turn hits a unique violation
     // instead of a check-then-act window. Partial, so it covers only the tiny
@@ -190,10 +159,7 @@ export const assistantTurns = sidechat.table(
     uniqueIndex("assistant_turns_one_running_per_conversation_uq")
       .on(table.conversationId)
       .where(sql`status = 'running'`),
-    check(
-      "assistant_turns_status_check",
-      inList("status", ASSISTANT_TURN_STATUSES),
-    ),
+    check("assistant_turns_status_check", inList("status", ASSISTANT_TURN_STATUSES)),
   ],
 );
 
@@ -209,17 +175,12 @@ export const turnContextSnapshots = sidechat.table(
     hostSurfaceId: text("host_surface_id"),
     hostContextHash: text("host_context_hash").notNull(),
     capabilitiesHash: text("capabilities_hash").notNull(),
-    contextRedactedJson: jsonb("context_redacted_json")
-      .$type<JsonObject>()
-      .notNull(),
+    contextRedactedJson: jsonb("context_redacted_json").$type<JsonObject>().notNull(),
     createdAt: createdAt(),
   },
   (table) => [
     uniqueIndex("turn_context_snapshots_turn_uq").on(table.assistantTurnId),
-    index("turn_context_snapshots_workspace_hash_idx").on(
-      table.workspaceId,
-      table.hostContextHash,
-    ),
+    index("turn_context_snapshots_workspace_hash_idx").on(table.workspaceId, table.hostContextHash),
   ],
 );
 
@@ -244,10 +205,7 @@ export const usageRecords = sidechat.table(
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex("usage_records_turn_step_uq").on(
-      table.assistantTurnId,
-      table.runtimeStepIndex,
-    ),
+    uniqueIndex("usage_records_turn_step_uq").on(table.assistantTurnId, table.runtimeStepIndex),
     // `readUsageSummary` sums by workspace; without this the aggregate full-scans a
     // table that grows one row per runtime step forever. This bounds the scan to a
     // workspace's rows — a rollup table is the next step past ~10^7 rows (see
@@ -256,10 +214,11 @@ export const usageRecords = sidechat.table(
   ],
 );
 
-export const { toolInvocations, clientToolDispatches, hostCommandResults } =
+export const { toolInvocations, clientToolDispatches, hostCommandResults, conversationTitleRuns } =
   defineInteractionTables({
     sidechat,
     assistantTurns,
+    conversations,
     workspaceIdColumn,
     createdAt,
     inList,
@@ -280,15 +239,8 @@ export const auditEvents = sidechat.table(
     createdAt: createdAt(),
   },
   (table) => [
-    index("audit_events_workspace_created_idx").on(
-      table.workspaceId,
-      table.createdAt,
-    ),
-    index("audit_events_target_created_idx").on(
-      table.targetType,
-      table.targetId,
-      table.createdAt,
-    ),
+    index("audit_events_workspace_created_idx").on(table.workspaceId, table.createdAt),
+    index("audit_events_target_created_idx").on(table.targetType, table.targetId, table.createdAt),
   ],
 );
 
@@ -297,6 +249,7 @@ export const sidechatTables = {
   messages,
   assistantTurns,
   turnContextSnapshots,
+  conversationTitleRuns,
   usageRecords,
   toolInvocations,
   clientToolDispatches,

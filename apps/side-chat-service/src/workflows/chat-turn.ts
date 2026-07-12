@@ -4,33 +4,27 @@ import {
   type ProviderOptions,
   WorkflowAgent,
   type WorkflowAgentOptions,
+  type WorkflowAgentStreamResult,
 } from "@ai-sdk/workflow";
-import {
-  isStepCount,
-  type ModelMessage,
-  type ToolSet,
-  type UIMessageChunk,
-} from "ai";
+import { isStepCount, type ModelMessage, type ToolSet, type UIMessageChunk } from "ai";
 import { createHook, getWorkflowMetadata, getWritable, sleep } from "workflow";
 
-import {
-  assertModelInstance,
-  type ModelProvider,
-} from "#application/ports/model-provider";
+import { assertModelInstance, type ModelProvider } from "#application/ports/model-provider";
 import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
-import { patchWorkflowRealmAbortSignal } from "./abort-signal-patch.js";
+import { patchWorkflowRealmAbortSignal } from "./realm/abort-signal-patch.js";
 import {
+  ABORT_ERROR_NAME,
   CHAT_TURN_ERROR_CODES,
   CHAT_TURN_OUTCOMES,
+  chatTurnFinalization,
   failedChatTurnOutcome,
+  isChatTurnAbortError,
   toCompletedChatTurnOutcome,
   type ChatTurnTerminalOutcome,
 } from "./chat-turn-outcome.js";
-import {
-  createClientTools,
-  preserveDynamicClientToolIdentity,
-} from "./client-tools/index.js";
+import { createClientTools, preserveDynamicClientToolIdentity } from "./client-tools/index.js";
+import { runChatTurnFinalizeStep } from "./production/chat-turn-finalize.js";
 
 const CHAT_TURN_WORKFLOW = {
   AGENT_ID: "side-chat-turn",
@@ -38,6 +32,15 @@ const CHAT_TURN_WORKFLOW = {
   MAX_RETRIES: 0,
   PROVIDER_TIMEOUT_REASON: CHAT_TURN_ERROR_CODES.PROVIDER_TIMEOUT,
 } as const;
+
+/**
+ * Excludes an aborted stream from the terminal race. The cancel or timeout arm
+ * that requested the abort is the authority, so the aborted `agent.stream`
+ * rejection must not resolve the race and misclassify the outcome.
+ */
+const DEFERRED_OUTCOME: Promise<never> = new Promise(() => {
+  // Intentionally never settles.
+});
 
 export interface SerializableChatMessage {
   readonly role: "assistant" | "user";
@@ -47,6 +50,8 @@ export interface SerializableChatMessage {
 /** Everything crossing into the workflow realm is plain configuration data. */
 export interface ChatTurnWorkflowInput {
   readonly workspaceId: string;
+  readonly subjectId: string;
+  readonly conversationId: string;
   readonly turnId: string;
   readonly requestId: string;
   readonly modelId: string;
@@ -67,6 +72,10 @@ export interface StartedChatTurn {
 interface TurnCancellation {
   readonly reason: string;
 }
+
+type SettledStream =
+  | Readonly<{ kind: "completed"; result: WorkflowAgentStreamResult }>
+  | Readonly<{ kind: "failed"; error: unknown }>;
 
 export function chatTurnCancellationHookToken(runId: string): string {
   return `${CHAT_TURN_WORKFLOW.CANCELLATION_HOOK_PREFIX}:${runId}`;
@@ -112,29 +121,51 @@ export async function executeChatTurn(
     }),
   );
 
-  const streamOutcome = agent
+  const outcome = await raceChatTurnOutcome(agent, controller, cancellation, input);
+  if (databaseUrl !== undefined) {
+    await finalizeChatTurn(databaseUrl, input, outcome);
+  }
+  return outcome;
+}
+
+/**
+ * Resolve exactly one terminal outcome. A completion or a non-abort failure is
+ * authoritative; an aborted stream defers to the cancel or timeout arm that
+ * requested it, so the race is independent of order and of whether the abort
+ * error's message survives the provider and workflow-realm boundaries.
+ */
+async function raceChatTurnOutcome(
+  agent: WorkflowAgent,
+  controller: AbortController,
+  cancellation: PromiseLike<TurnCancellation>,
+  input: ChatTurnWorkflowInput,
+): Promise<ChatTurnTerminalOutcome> {
+  const streamSettled = agent
     .stream({
       messages: toModelMessages(input.messages),
       writable: getWritable<ModelCallStreamPart>(),
       abortSignal: controller.signal,
     })
     .then(
-      (result) =>
-        toCompletedChatTurnOutcome(input.turnId, input.maxSteps, result),
-      failedChatTurnOutcome,
+      (result): SettledStream => ({ kind: "completed", result }),
+      (error): SettledStream => ({ kind: "failed", error }),
     );
+
+  const streamOutcome = streamSettled.then((settled) => resolveSettledStream(settled, input));
 
   const cancelOutcome = async (): Promise<ChatTurnTerminalOutcome> => {
     const payload = await cancellation;
-    controller.abort(payload.reason);
-    await streamOutcome;
+    controller.abort(new DOMException(payload.reason, ABORT_ERROR_NAME));
+    await streamSettled;
     return { status: CHAT_TURN_OUTCOMES.CANCELLED, reason: payload.reason };
   };
 
   const timeoutOutcome = async (): Promise<ChatTurnTerminalOutcome> => {
     await sleep(`${input.providerTimeoutMs}ms`);
-    controller.abort(CHAT_TURN_WORKFLOW.PROVIDER_TIMEOUT_REASON);
-    await streamOutcome;
+    controller.abort(
+      new DOMException(CHAT_TURN_WORKFLOW.PROVIDER_TIMEOUT_REASON, ABORT_ERROR_NAME),
+    );
+    await streamSettled;
     return {
       status: CHAT_TURN_OUTCOMES.FAILED,
       code: CHAT_TURN_ERROR_CODES.PROVIDER_TIMEOUT,
@@ -142,6 +173,35 @@ export async function executeChatTurn(
   };
 
   return await Promise.race([streamOutcome, cancelOutcome(), timeoutOutcome()]);
+}
+
+function resolveSettledStream(
+  settled: SettledStream,
+  input: ChatTurnWorkflowInput,
+): ChatTurnTerminalOutcome | Promise<never> {
+  if (settled.kind === "completed") {
+    return toCompletedChatTurnOutcome(input.turnId, input.maxSteps, settled.result);
+  }
+  if (isChatTurnAbortError(settled.error)) return DEFERRED_OUTCOME;
+  return failedChatTurnOutcome();
+}
+
+/** Durably persist the terminal inside the workflow so a route crash cannot strand it. */
+function finalizeChatTurn(
+  databaseUrl: string,
+  input: ChatTurnWorkflowInput,
+  outcome: ChatTurnTerminalOutcome,
+): Promise<void> {
+  return runChatTurnFinalizeStep({
+    databaseUrl,
+    identity: {
+      conversationId: input.conversationId,
+      turnId: input.turnId,
+      workspaceId: input.workspaceId,
+      subjectId: input.subjectId,
+    },
+    finalization: chatTurnFinalization(outcome),
+  });
 }
 
 export function toChatTurnUIStream(
@@ -153,9 +213,7 @@ export function toChatTurnUIStream(
     .pipeThrough(preserveDynamicClientToolIdentity(clientTools));
 }
 
-function toModelMessages(
-  messages: readonly SerializableChatMessage[],
-): ModelMessage[] {
+function toModelMessages(messages: readonly SerializableChatMessage[]): ModelMessage[] {
   return messages.map((message) => ({
     role: message.role,
     content: message.content,

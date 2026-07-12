@@ -5,10 +5,7 @@ import {
   type ClientToolDispatchStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
 
-import {
-  submitClientToolOutput,
-  type ResumeClientTool,
-} from "./submit-client-tool-output.js";
+import { submitClientToolOutput, type ResumeClientTool } from "./submit-client-tool-output.js";
 import { TURN_REJECTION_CODES } from "../turn-errors.js";
 
 const AUTH = {
@@ -63,44 +60,67 @@ describe("submitClientToolOutput", () => {
   });
 
   it("stores malformed bodies as a typed failed model output", async () => {
-    const submit = vi.fn<ClientToolDispatchStore["submit"]>(
-      async (_dispatch, state, output) => ({
-        disposition: "accepted",
-        state,
-        output,
-      }),
-    );
+    const submit = vi.fn<ClientToolDispatchStore["submit"]>(async (_dispatch, state, output) => ({
+      disposition: "accepted",
+      state,
+      output,
+    }));
     await expect(
-      submitClientToolOutput(
-        { findOwned: async () => DISPATCH, submit },
-        async () => true,
-        {
-          auth: AUTH,
-          runId: DISPATCH.runId,
-          toolCallId: DISPATCH.toolCallId,
-          readOutput: async () => ({
-            valid: false,
-            output: {
-              value: {
-                status: "failed",
-                errorCode: "invalid_client_tool_output",
-              },
+      submitClientToolOutput({ findOwned: async () => DISPATCH, submit }, async () => true, {
+        auth: AUTH,
+        runId: DISPATCH.runId,
+        toolCallId: DISPATCH.toolCallId,
+        readOutput: async () => ({
+          valid: false,
+          output: {
+            value: {
+              status: "failed",
+              errorCode: "invalid_client_tool_output",
             },
-          }),
-        },
-      ),
+          },
+        }),
+      }),
     ).resolves.toMatchObject({ state: CLIENT_TOOL_OUTPUT_STATES.FAILED });
 
     expect(submit.mock.calls[0]?.[1]).toBe(CLIENT_TOOL_OUTPUT_STATES.FAILED);
   });
 
-  it("asks the caller to retry when durable output races hook recovery", async () => {
+  it("returns the recorded outcome for a duplicate after settle without resuming", async () => {
+    const resume = vi.fn<ResumeClientTool>(async () => false);
+    const result = await submitClientToolOutput(
+      {
+        findOwned: async () => DISPATCH,
+        submit: async () => ({
+          disposition: "duplicate",
+          state: "settled",
+          output: OUTPUT,
+        }),
+      },
+      resume,
+      {
+        auth: AUTH,
+        runId: DISPATCH.runId,
+        toolCallId: DISPATCH.toolCallId,
+        readOutput: async () => ({ valid: true, output: OUTPUT }),
+      },
+    );
+
+    expect(result).toEqual({
+      runId: DISPATCH.runId,
+      toolCallId: DISPATCH.toolCallId,
+      state: "settled",
+      accepted: false,
+    });
+    expect(resume).not.toHaveBeenCalled();
+  });
+
+  it("asks the first writer to retry when its hook is not yet registered", async () => {
     await expect(
       submitClientToolOutput(
         {
           findOwned: async () => DISPATCH,
           submit: async () => ({
-            disposition: "duplicate",
+            disposition: "accepted",
             state: "settled",
             output: OUTPUT,
           }),

@@ -1,17 +1,19 @@
-import { HookNotFoundError } from "workflow/internal/errors";
+import {
+  HookNotFoundError,
+  RunExpiredError,
+  WorkflowRunNotFoundError,
+} from "workflow/internal/errors";
 import type { createHook, sleep } from "workflow";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { runClientToolDispatchStep } from "../production/client-tool-dispatch.js";
 
-const { createHookMock, dispatchStepMock, disposeHookMock, resumeHookMock } =
-  vi.hoisted(() => ({
-    createHookMock: vi.fn<typeof createHook>(),
-    dispatchStepMock: vi.fn<typeof runClientToolDispatchStep>(),
-    disposeHookMock: vi.fn<() => void>(),
-    resumeHookMock:
-      vi.fn<(token: string, payload: unknown) => Promise<unknown>>(),
-  }));
+const { createHookMock, dispatchStepMock, disposeHookMock, resumeHookMock } = vi.hoisted(() => ({
+  createHookMock: vi.fn<typeof createHook>(),
+  dispatchStepMock: vi.fn<typeof runClientToolDispatchStep>(),
+  disposeHookMock: vi.fn<() => void>(),
+  resumeHookMock: vi.fn<(token: string, payload: unknown) => Promise<unknown>>(),
+}));
 
 vi.mock("workflow", () => ({
   createHook: createHookMock,
@@ -38,8 +40,24 @@ describe("resumeClientToolResult", () => {
   beforeEach(() => resumeHookMock.mockReset());
 
   it("treats only a missing hook as the expected result-before-registration window", async () => {
+    resumeHookMock.mockRejectedValueOnce(new HookNotFoundError("tool:run-1:call-1"));
+
+    await expect(
+      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }),
+    ).resolves.toBe(false);
+  });
+
+  it("treats a pruned run as a vanished wait rather than a failure", async () => {
+    resumeHookMock.mockRejectedValueOnce(new WorkflowRunNotFoundError("run-1"));
+
+    await expect(
+      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }),
+    ).resolves.toBe(false);
+  });
+
+  it("treats an expired run as a vanished wait rather than a failure", async () => {
     resumeHookMock.mockRejectedValueOnce(
-      new HookNotFoundError("tool:run-1:call-1"),
+      new RunExpiredError('Workflow run "run-1" is already in terminal state'),
     );
 
     await expect(
@@ -65,12 +83,10 @@ describe("executeClientTool", () => {
   });
 
   it("rereads the durable row after hook registration closes the early-result race", async () => {
-    dispatchStepMock
-      .mockResolvedValueOnce({ state: "dispatched" })
-      .mockResolvedValueOnce({
-        state: "settled",
-        output: { value: { opened: true } },
-      });
+    dispatchStepMock.mockResolvedValueOnce({ state: "dispatched" }).mockResolvedValueOnce({
+      state: "settled",
+      output: { value: { opened: true } },
+    });
     createHookMock.mockReturnValue(createHookTestDouble());
 
     await expect(

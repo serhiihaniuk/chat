@@ -6,10 +6,7 @@ import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 import { CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
 
-import {
-  createWorkflowTurnExecution,
-  type StartChatTurn,
-} from "./workflow-turn-execution.js";
+import { createWorkflowTurnExecution, type StartChatTurn } from "./workflow-turn-execution.js";
 
 function testSettings() {
   const result = validateSettings(createDefaultConfig());
@@ -23,6 +20,8 @@ const TURN_INPUT = {
     subjectId: "subject-1",
     issuedAt: "2026-01-01T00:00:00.000Z",
   },
+  workspaceId: "workspace-1",
+  subjectId: "subject-1",
   conversationId: "conversation-1",
   turnId: "turn-1",
   requestId: "request-1",
@@ -80,6 +79,8 @@ describe("createWorkflowTurnExecution", () => {
     expect(startTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: TURN_INPUT.auth.workspaceId,
+        subjectId: TURN_INPUT.auth.subjectId,
+        conversationId: TURN_INPUT.conversationId,
         providerTimeoutMs: settings.timeouts.providerMs,
         clientToolTimeoutMs: settings.timeouts.clientToolMs,
         clientTools,
@@ -113,10 +114,7 @@ describe("createWorkflowTurnExecution", () => {
     const startTurn = vi.fn<StartChatTurn>(() =>
       Promise.resolve({
         runId: "run-1",
-        stream: chunks(
-          { type: "start", messageId: "assistant-1" },
-          { type: "finish" },
-        ),
+        stream: chunks({ type: "start", messageId: "assistant-1" }, { type: "finish" }),
         terminal: Promise.resolve({
           status: CHAT_TURN_OUTCOMES.COMPLETED,
           assistantMessage: {
@@ -179,9 +177,7 @@ function chunks(...parts: UIMessageChunk[]): ReadableStream<UIMessageChunk> {
   });
 }
 
-async function readAll(
-  stream: ReadableStream<UIMessageChunk>,
-): Promise<UIMessageChunk[]> {
+async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageChunk[]> {
   const reader = stream.getReader();
   const output: UIMessageChunk[] = [];
   while (true) {

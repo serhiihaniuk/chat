@@ -5,6 +5,7 @@ import {
 } from "@side-chat/db";
 import { createChatRoutes } from "#adapters/http/chat/chat-routes";
 import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
+import { EMPTY_STRUCTURED_PART_CATALOGS } from "#application/conversations/read-conversation-history";
 import { recordServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import {
   InMemoryTurnState,
@@ -27,16 +28,10 @@ import {
 import type { Settings } from "#config/settings/resolve-settings";
 import { configuredTurnModel } from "#application/turn/turn-model-policy";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
-import {
-  AUTH_PROFILES,
-  WORKFLOW_JOURNAL_CLASSES,
-} from "#config/declaration/side-chat-config";
+import { AUTH_PROFILES, WORKFLOW_JOURNAL_CLASSES } from "#config/declaration/side-chat-config";
 
 import { assertAiSdkDefaultProviderIsUnset } from "../lifecycle/ai-sdk-global-guard.js";
-import {
-  startServiceScope,
-  type StartServicePart,
-} from "../lifecycle/resource-scope.js";
+import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
 import { createWorkflowReadiness } from "../lifecycle/readiness/workflow-readiness.js";
 import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
 import { createProductionModelProvider } from "../providers/production-model-provider.js";
@@ -61,10 +56,7 @@ export async function startProductionService(
   const modelProvider = createProductionModelProvider(settings);
   const authorizer = createServiceAuthorizer(settings.auth);
   const persistence = createProductionPersistence(settings);
-  const maintenanceStarters = createMaintenanceStarters(
-    settings,
-    options.archiveWorkflowJournal,
-  );
+  const maintenanceStarters = createMaintenanceStarters(settings, options.archiveWorkflowJournal);
   // The persistence close is registered first so its pool is disposed even if a
   // later starter (telemetry, workflow readiness) fails during startup.
   const scope = await startServiceScope(settings, [
@@ -76,14 +68,10 @@ export async function startProductionService(
   ]);
   const execution = createWorkflowTurnExecution(settings);
   const replay = createWorkflowTurnReplay();
-  const app = createHttpApp(
-    createWorkflowReadiness(scope, settings),
-    authorizer,
-  );
+  const app = createHttpApp(createWorkflowReadiness(scope, settings), authorizer);
   app.route(
     "/",
     createChatRoutes({
-      messages: persistence.store,
       turns: persistence.store,
       admission: PASS_THROUGH_TURN_ADMISSION,
       execution,
@@ -94,6 +82,16 @@ export async function startProductionService(
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: configuredTurnModel(settings.models.modelId),
+      // In-memory dev has no durable workflow finalize; the route projects the
+      // terminal itself. Postgres deployments leave it to the workflow step.
+      ...(persistence.durable
+        ? {}
+        : {
+            routeFinalization: {
+              turns: persistence.store,
+              messages: persistence.store,
+            },
+          }),
       titleGeneration: {
         titles: persistence.store,
         workflow: productionConversationTitleWorkflowStarter,
@@ -113,6 +111,9 @@ export async function startProductionService(
         id: settings.models.modelId,
         provider: settings.models.provider,
       },
+      // No server tool/data schema is exposed to the read path yet; a future
+      // catalog plugs in here to let persisted structured parts survive a read.
+      structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
     }),
   );
   return {
@@ -130,15 +131,12 @@ function createMaintenanceStarters(
   afterTelemetry: readonly StartServicePart[];
 }> {
   const connectionString = settings.workflow.postgresUrl;
-  if (connectionString === undefined)
-    return { beforeTelemetry: [], afterTelemetry: [] };
+  if (connectionString === undefined) return { beforeTelemetry: [], afterTelemetry: [] };
   if (
     settings.workflow.journalClass === WORKFLOW_JOURNAL_CLASSES.RECORD &&
     archiveWorkflowJournal === undefined
   ) {
-    throw new Error(
-      "Record-class Workflow journals require an immutable archive adapter.",
-    );
+    throw new Error("Record-class Workflow journals require an immutable archive adapter.");
   }
   const maintenance = createPostgresWorkflowJournalMaintenance({
     connectionString,
@@ -172,6 +170,8 @@ type ProductionPersistence = Readonly<{
     ClientToolDispatchStore &
     TurnRunAccess;
   registerClose: StartServicePart;
+  /** True when the workflow finalize step owns terminal persistence (Postgres). */
+  durable: boolean;
 }>;
 
 /**
@@ -182,9 +182,7 @@ type ProductionPersistence = Readonly<{
  * `registerClose` is a scope starter that owns disposing the store's resources
  * on shutdown — a no-op for the in-memory store, the pool close for Postgres.
  */
-function createProductionPersistence(
-  settings: Settings,
-): ProductionPersistence {
+function createProductionPersistence(settings: Settings): ProductionPersistence {
   const databaseUrl = settings.persistence.databaseUrl;
   if (databaseUrl === undefined) {
     if (settings.auth.profile === AUTH_PROFILES.PRODUCTION) {
@@ -196,6 +194,7 @@ function createProductionPersistence(
     );
     return {
       store,
+      durable: false,
       registerClose: () => ({
         name: "in-memory turn state",
         close: () => undefined,
@@ -205,6 +204,7 @@ function createProductionPersistence(
   const store: PostgresTurnState = createPostgresTurnState(databaseUrl);
   return {
     store,
+    durable: true,
     registerClose: () => ({
       name: "postgres turn state",
       close: () => store.close(),
@@ -214,15 +214,10 @@ function createProductionPersistence(
 
 const unavailableClientToolDispatchStore: ClientToolDispatchStore = {
   findOwned: () => Promise.resolve(CLIENT_TOOL_DISPATCH_LOOKUP.NOT_FOUND),
-  submit: () =>
-    Promise.reject(
-      new Error("Client-tool dispatch persistence is unavailable"),
-    ),
+  submit: () => Promise.reject(new Error("Client-tool dispatch persistence is unavailable")),
 };
 
-function productionConversations(
-  settings: Settings,
-): readonly SeedConversation[] {
+function productionConversations(settings: Settings): readonly SeedConversation[] {
   if (settings.auth.profile !== AUTH_PROFILES.DEVELOPMENT) return [];
   return [localChatConversation(settings.auth.workspaceId)];
 }

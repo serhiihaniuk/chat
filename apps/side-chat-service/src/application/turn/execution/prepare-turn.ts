@@ -1,11 +1,5 @@
-import type {
-  TurnAdmission,
-  TurnAdmissionLease,
-} from "#application/ports/turn/turn-admission";
-import type {
-  StartedTurnExecution,
-  TurnExecution,
-} from "#application/ports/turn/turn-execution";
+import type { TurnAdmission, TurnAdmissionLease } from "#application/ports/turn/turn-admission";
+import type { StartedTurnExecution, TurnExecution } from "#application/ports/turn/turn-execution";
 import type { TurnStore } from "#application/ports/turn/turn-store";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import type { AuthContext } from "#domain/auth-context";
@@ -50,9 +44,7 @@ export async function prepareTurn(
   input: PrepareTurnInput,
 ): Promise<PreparedTurn> {
   await dependencies.turns.assertCanBegin(input.auth, input.conversationId);
-  const admission = await dependencies.admission.admitTurn(
-    input.conversationId,
-  );
+  const admission = await dependencies.admission.admitTurn(input.conversationId);
 
   try {
     const turn = await dependencies.turns.beginTurn({
@@ -62,9 +54,8 @@ export async function prepareTurn(
       userMessage: input.acceptedUserMessage,
     });
     const executionInput = {
+      ...turn,
       auth: input.auth,
-      conversationId: turn.conversationId,
-      turnId: turn.turnId,
       requestId: input.requestId,
       modelId: input.modelId,
       messages: input.messages,

@@ -26,11 +26,7 @@ import type {
   UsageRecord,
 } from "#schema-contract";
 import { DbRepositoryError } from "../../errors.js";
-import {
-  isoTimestamp,
-  one,
-  optionalIsoTimestamp,
-} from "../../repository-utils.js";
+import { isoTimestamp, one, optionalIsoTimestamp } from "../../repository-utils.js";
 
 export const toConversationRecord = (
   row: typeof conversations.$inferSelect,
@@ -42,19 +38,14 @@ export const toConversationRecord = (
   status: row.status,
   ...omitNullishField("titleText", row.titleText),
   createdByActorId: row.createdByActorId,
-  ...omitNullishField(
-    "historyCutoffSequenceIndex",
-    row.historyCutoffSequenceIndex,
-  ),
+  ...omitNullishField("historyCutoffSequenceIndex", row.historyCutoffSequenceIndex),
   legalHold: row.legalHold,
   createdAt: isoTimestamp(row.createdAt),
   updatedAt: isoTimestamp(row.updatedAt),
   lastMessageAt: isoTimestamp(row.lastMessageAt),
 });
 
-export const toMessageRecord = (
-  row: typeof messages.$inferSelect,
-): MessageRecord => ({
+export const toMessageRecord = (row: typeof messages.$inferSelect): MessageRecord => ({
   messageId: row.messageId,
   conversationId: row.conversationId,
   workspaceId: row.workspaceId,
@@ -62,7 +53,6 @@ export const toMessageRecord = (
   parts: row.parts,
   metadataJson: row.metadataJson,
   sequenceIndex: row.sequenceIndex,
-  ...omitNullishField("idempotencyKey", row.idempotencyKey),
   createdAt: isoTimestamp(row.createdAt),
   updatedAt: isoTimestamp(row.createdAt),
 });
@@ -113,9 +103,7 @@ export const toContextSnapshotRecord = (
   updatedAt: isoTimestamp(row.createdAt),
 });
 
-export const toUsageRecord = (
-  row: typeof usageRecords.$inferSelect,
-): UsageRecord => ({
+export const toUsageRecord = (row: typeof usageRecords.$inferSelect): UsageRecord => ({
   usageRecordId: row.usageRecordId,
   assistantTurnId: row.assistantTurnId,
   workspaceId: row.workspaceId,
@@ -168,9 +156,7 @@ export const toClientToolDispatchRecord = (
   ...omitNullishField("completedAt", optionalIsoTimestamp(row.completedAt)),
   ...omitNullishField("lateResultAt", optionalIsoTimestamp(row.lateResultAt)),
   createdAt: isoTimestamp(row.dispatchedAt),
-  updatedAt: isoTimestamp(
-    row.lateResultAt ?? row.completedAt ?? row.dispatchedAt,
-  ),
+  updatedAt: isoTimestamp(row.lateResultAt ?? row.completedAt ?? row.dispatchedAt),
 });
 
 export const toHostCommandResultRecord = (
@@ -191,9 +177,7 @@ export const toHostCommandResultRecord = (
   ...omitNullishField("resolvedAt", optionalIsoTimestamp(row.resolvedAt)),
 });
 
-export const toAuditEventRecord = (
-  row: typeof auditEvents.$inferSelect,
-): AuditEventRecord => ({
+export const toAuditEventRecord = (row: typeof auditEvents.$inferSelect): AuditEventRecord => ({
   auditEventId: row.auditEventId,
   workspaceId: row.workspaceId,
   subjectId: row.subjectId,
@@ -235,11 +219,7 @@ export const requireSubjectConversation = async (
   subjectId: string,
   conversationId: string,
 ): Promise<ConversationRecord> => {
-  const conversation = await requireConversation(
-    db,
-    workspaceId,
-    conversationId,
-  );
+  const conversation = await requireConversation(db, workspaceId, conversationId);
   if (conversation.subjectId !== subjectId) {
     throw new DbRepositoryError(
       "cross_tenant_access_denied",
@@ -268,9 +248,7 @@ export const buildHistoryWhere = (
 
   const where = and(...clauses);
   if (!where) {
-    throw new Error(
-      "History queries must always keep workspace and conversation constraints.",
-    );
+    throw new Error("History queries must always keep workspace and conversation constraints.");
   }
   return where;
 };

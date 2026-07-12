@@ -72,6 +72,34 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
     }
   });
 
+  it("prunes an old title-generation run and skips a legally held one", async () => {
+    // Title runs are their own Workflow runs with no assistant_turns row. Before
+    // the linkage table the prune's join skipped them entirely, so they leaked.
+    const eligibleTitle = await seedTitleRun(inspectionPool, "title-eligible", {});
+    const heldTitle = await seedTitleRun(inspectionPool, "title-held", {
+      legalHold: true,
+    });
+    const maintenance = createPostgresWorkflowJournalMaintenance({
+      connectionString: databaseUrl,
+    });
+
+    try {
+      const result = await maintenance.sweep({
+        completedBefore: CUTOFF,
+        batchLimit: 20,
+      });
+      expect(result).toMatchObject({
+        lockAcquired: true,
+        selectedRuns: 1,
+        prunedRuns: 1,
+      });
+      // The eligible title run's journal is pruned; the held one survives.
+      await expect(readWorkflowRunIds(inspectionPool)).resolves.toEqual([heldTitle]);
+    } finally {
+      await maintenance.close();
+    }
+  });
+
   it("rolls back every delete when archival fails", async () => {
     const runId = await seedRun(inspectionPool, "archive-failure", {});
     const maintenance = createPostgresWorkflowJournalMaintenance({
@@ -206,6 +234,40 @@ async function seedRun(pool: Pool, label: string, options: SeedOptions): Promise
     ],
   );
   await seedWorkflowRows(pool, runId, workflowStatus, completedAt);
+  return runId;
+}
+
+async function seedTitleRun(
+  pool: Pool,
+  label: string,
+  options: Readonly<{ legalHold?: boolean }>,
+): Promise<string> {
+  const scope = `${label}-${crypto.randomUUID()}`;
+  const workspaceId = `workspace-${scope}`;
+  const conversationId = `conversation-${scope}`;
+  const runId = `run-${scope}`;
+
+  await pool.query(
+    `insert into sidechat.conversations
+       (conversation_id, workspace_id, subject_id, conversation_key,
+        created_by_actor_id, legal_hold, last_message_at)
+     values ($1, $2, $3, $4, $3, $5, $6)`,
+    [
+      conversationId,
+      workspaceId,
+      `subject-${scope}`,
+      scope,
+      options.legalHold ?? false,
+      OLD_COMPLETION,
+    ],
+  );
+  await pool.query(
+    `insert into sidechat.conversation_title_runs
+       (run_id, workspace_id, conversation_id, created_at)
+     values ($1, $2, $3, $4)`,
+    [runId, workspaceId, conversationId, OLD_COMPLETION],
+  );
+  await seedWorkflowRows(pool, runId, "completed", OLD_COMPLETION);
   return runId;
 }
 

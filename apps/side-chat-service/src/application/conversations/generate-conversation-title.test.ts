@@ -99,6 +99,7 @@ function titleHarness(
       }
       return Promise.resolve();
     },
+    recordConversationTitleRun: () => Promise.resolve(),
   };
   const harness = {
     preparedTitles,

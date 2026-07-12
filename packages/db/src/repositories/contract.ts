@@ -1,6 +1,7 @@
 import type {
   AssistantTurnRepositoryContract,
   ConversationRepositoryContract,
+  ConversationTitleRunRepositoryContract,
   InteractionRepositoryContract,
 } from "#schema-contract";
 
@@ -27,6 +28,7 @@ export const isRepositoryAdapterKind = (value: unknown): value is RepositoryAdap
  */
 export type SidechatRepositories = ConversationRepositoryContract &
   AssistantTurnRepositoryContract &
-  InteractionRepositoryContract & {
+  InteractionRepositoryContract &
+  ConversationTitleRunRepositoryContract & {
     readonly adapterKind: RepositoryAdapterKind;
   };

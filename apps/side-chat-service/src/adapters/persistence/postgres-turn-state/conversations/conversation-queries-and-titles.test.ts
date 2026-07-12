@@ -1,4 +1,7 @@
-import type { PrepareConversationTitleCommand } from "@side-chat/db";
+import type {
+  PrepareConversationTitleCommand,
+  ReadConversationHistoryCommand,
+} from "@side-chat/db";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -33,34 +36,71 @@ describe("postgres turn state query and title mapping", () => {
       }),
     );
 
-    await expect(state.readHistory(AUTH, "conversation_1")).resolves.toEqual([
-      {
-        id: "message_history",
-        role: "user",
-        parts: [{ type: "text", text: "history" }],
-        metadata: { source: "stored" },
-      },
-    ]);
-    await expect(state.findActiveTurn(AUTH, "conversation_1")).resolves.toEqual(
-      {
-        turnId: "turn_running",
-        runId: "run_running",
-        status: "running",
-      },
+    await expect(state.readHistory(AUTH, "conversation_1")).resolves.toEqual({
+      messages: [
+        {
+          id: "message_history",
+          role: "user",
+          parts: [{ type: "text", text: "history" }],
+          metadata: { source: "stored" },
+        },
+      ],
+      hasMoreBefore: false,
+    });
+    await expect(state.findActiveTurn(AUTH, "conversation_1")).resolves.toEqual({
+      turnId: "turn_running",
+      runId: "run_running",
+      status: "running",
+    });
+  });
+
+  it("pages history backward with a probe row and exposes the next cursor", async () => {
+    const commands: ReadConversationHistoryCommand[] = [];
+    const all = [
+      { ...messageRecord(), messageId: "m0", sequenceIndex: 0 },
+      { ...messageRecord(), messageId: "m1", sequenceIndex: 1 },
+      { ...messageRecord(), messageId: "m2", sequenceIndex: 2 },
+    ];
+    const state = createTurnStateFromRepositories(
+      fakeRepositories({
+        readConversationHistory: (command) => {
+          commands.push(command);
+          // Mirror the repository contract: the newest `limit` rows below the
+          // floor, returned ascending.
+          const below = all.filter(
+            (record) =>
+              command.beforeSequenceIndex === undefined ||
+              record.sequenceIndex < command.beforeSequenceIndex,
+          );
+          return Promise.resolve(below.slice(-command.limit));
+        },
+      }),
     );
+
+    const first = await state.readHistory(AUTH, "conversation_1", { limit: 2 });
+    // The adapter probes one extra row to detect older history without a count.
+    expect(commands[0]?.limit).toBe(3);
+    expect(first.messages.map((message) => message.id)).toEqual(["m1", "m2"]);
+    expect(first).toMatchObject({ hasMoreBefore: true, nextBeforeSequenceIndex: 1 });
+
+    const second = await state.readHistory(AUTH, "conversation_1", {
+      limit: 2,
+      beforeSequenceIndex: first.nextBeforeSequenceIndex,
+    });
+    expect(commands[1]).toMatchObject({ limit: 3, beforeSequenceIndex: 1 });
+    expect(second.messages.map((message) => message.id)).toEqual(["m0"]);
+    expect(second.hasMoreBefore).toBe(false);
+    expect(second.nextBeforeSequenceIndex).toBeUndefined();
   });
 
   it("does not discover a running turn until its durable run id is bound", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        findActiveAssistantTurn: () =>
-          Promise.resolve(assistantTurnRecord("turn_unbound")),
+        findActiveAssistantTurn: () => Promise.resolve(assistantTurnRecord("turn_unbound")),
       }),
     );
 
-    await expect(
-      state.findActiveTurn(AUTH, "conversation_1"),
-    ).resolves.toBeUndefined();
+    await expect(state.findActiveTurn(AUTH, "conversation_1")).resolves.toBeUndefined();
   });
 
   it("checks title eligibility and delegates the conditional title write", async () => {
@@ -83,11 +123,7 @@ describe("postgres turn state query and title mapping", () => {
     await expect(
       state.readTitleEligibility(AUTH, "conversation_1", USER_MESSAGE.id),
     ).resolves.toEqual({ eligible: true });
-    await state.prepareConversationTitle(
-      AUTH,
-      "conversation_1",
-      "Prepared conversation title",
-    );
+    await state.prepareConversationTitle(AUTH, "conversation_1", "Prepared conversation title");
 
     expect(titleCommand).toMatchObject({
       workspaceId: AUTH.workspaceId,

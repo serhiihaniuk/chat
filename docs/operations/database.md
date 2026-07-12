@@ -52,7 +52,7 @@ Switch in four steps:
 3. **Apply forward-only.** Populate `dbCredentials.url` in [`drizzle.config.ts`](../../packages/db/drizzle.config.ts) and apply with `drizzle-kit migrate`, which runs only the not-yet-applied migrations against the live database. Do not use `db:reset` against data you keep.
 4. **Retire the destructive reset.** Keep `db:reset` for local development and ephemeral test databases only — its `DROP SCHEMA … CASCADE` erases everything. Never point it at a database whose data must survive.
 
-The role model already fits this future: `sidechat_migrator` owns DDL and `sidechat_runtime` cannot alter the schema (see [Three roles](#three-roles)), so incremental migrations run as the migrator while the service keeps its least-privilege runtime connection.
+The role model already fits this future: `sidechat_migrator` owns DDL and `sidechat_runtime` cannot alter the schema (see [Least-privilege roles](#least-privilege-roles)), so incremental migrations run as the migrator while the service keeps its least-privilege runtime connection.
 
 ## Postgres vs in-memory
 
@@ -79,16 +79,17 @@ Production uses two schemas in one physical database: `sidechat` is the durable 
 
 Only Workflow-terminal runs older than the cutoff and bound to terminal Side Chat turns are eligible. Conversations under legal hold are excluded. The default `operational` class deletes eligible hot-journal rows; the `record` class requires an injected archive callback and archives a complete six-table snapshot before deletion. Archive storage must make `runId` idempotent because a later database rollback can cause a retry.
 
-`npm run test:db:container` applies the Side Chat migration, runs the installed `@workflow/world-postgres` bootstrap, and proves the adapter against that real pinned schema. The maintenance principal needs DML on the six `workflow` tables plus `SELECT` on the Side Chat turn and conversation eligibility columns; schema bootstrap remains a migrator/owner action.
+`npm run test:db:container` applies the Side Chat migration, runs the installed `@workflow/world-postgres` bootstrap, and proves the adapter against that real pinned schema. The maintenance principal needs DML on the six `workflow` tables plus `SELECT` on the Side Chat turn and conversation eligibility columns; the `sidechat_maintenance` role in [`runtime-role-grants.sql`](../../packages/db/sql/runtime-role-grants.sql) grants that `SELECT` on `sidechat.assistant_turns` and `sidechat.conversations`. Schema bootstrap remains a migrator/owner action.
 
-## Three roles
+## Least-privilege roles
 
 [`runtime-role-grants.sql`](../../packages/db/sql/runtime-role-grants.sql) defines least-privilege roles that `db:reset` applies after the migration. Drizzle manages tables, not roles, so this file is the durable source for the role policy.
 
-| Role                | Privileges                                                            |
-| ------------------- | --------------------------------------------------------------------- |
-| `sidechat_owner`    | Owns the schema.                                                      |
-| `sidechat_migrator` | `USAGE`, `CREATE` on the schema; all privileges on tables (owns DDL). |
-| `sidechat_runtime`  | `SELECT`, `INSERT`, `UPDATE`, `DELETE` only — never `CREATE`.         |
+| Role                   | Privileges                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| `sidechat_owner`       | Owns the schema.                                                                    |
+| `sidechat_migrator`    | `USAGE`, `CREATE` on the schema; all privileges on tables (owns DDL).               |
+| `sidechat_runtime`     | `SELECT`, `INSERT`, `UPDATE`, `DELETE` only — never `CREATE`.                        |
+| `sidechat_maintenance` | `USAGE` on the schema; `SELECT` on `assistant_turns` and `conversations` only.      |
 
-The running service connects as `sidechat_runtime`, so it can read and write rows but cannot alter the schema. Only the migrator role applies DDL.
+The running service connects as `sidechat_runtime`, so it can read and write rows but cannot alter the schema. The Workflow journal sweep connects as `sidechat_maintenance` (see [Workflow journal maintenance](#workflow-journal-maintenance)) — it reads turn and conversation eligibility but cannot touch any other Side Chat data. Only the migrator role applies DDL.

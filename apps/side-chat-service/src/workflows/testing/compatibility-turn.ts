@@ -5,19 +5,14 @@ import {
   WorkflowAgent,
   type WorkflowAgentOptions,
 } from "@ai-sdk/workflow";
-import {
-  convertToModelMessages,
-  isStepCount,
-  type UIMessage,
-  type UIMessageChunk,
-} from "ai";
+import { convertToModelMessages, isStepCount, type UIMessage, type UIMessageChunk } from "ai";
 import { createHook, getWritable } from "workflow";
 import { resumeHook, start } from "workflow/api";
 
 import { initializeTestingWorkflowServices } from "#composition/workflow/testing";
 import { assertModelInstance } from "#application/ports/model-provider";
 
-import { patchWorkflowRealmAbortSignal } from "../abort-signal-patch.js";
+import { patchWorkflowRealmAbortSignal } from "../realm/abort-signal-patch.js";
 
 export const COMPATIBILITY_MODEL_BEHAVIORS = {
   COMPLETE: "complete",
@@ -80,15 +75,11 @@ export async function startCompatibilityTurn(
   const run = await start(runCompatibilityTurn, [request]);
   return {
     runId: run.runId,
-    stream: run
-      .getReadable<ModelCallStreamPart>()
-      .pipeThrough(createModelCallToUIChunkTransform()),
+    stream: run.getReadable<ModelCallStreamPart>().pipeThrough(createModelCallToUIChunkTransform()),
   };
 }
 
-export async function cancelCompatibilityTurn(
-  requestId: string,
-): Promise<boolean> {
+export async function cancelCompatibilityTurn(requestId: string): Promise<boolean> {
   try {
     await resumeHook(turnCancellationHookToken(requestId), {
       reason: COMPATIBILITY_WORKFLOW.CANCELLATION_REASON,
@@ -193,9 +184,7 @@ export async function probeUnpatchedAbortSignal(): Promise<CompatibilityTurnOutc
     .then(completedOutcome, rejectedOutcome);
 }
 
-function completedOutcome(result: {
-  steps: Array<{ text: string }>;
-}): CompatibilityTurnOutcome {
+function completedOutcome(result: { steps: Array<{ text: string }> }): CompatibilityTurnOutcome {
   return {
     status: COMPATIBILITY_OUTCOMES.COMPLETED,
     finalText: result.steps.at(-1)?.text ?? "",

@@ -5,7 +5,6 @@ import { toMessageId } from "#schema-contract";
 import {
   createPostgresDrizzleSidechatRepositories,
   type PostgresDrizzleSidechatRepositories,
-  uniqueViolationConstraint,
 } from "./index.js";
 import { conversationListRepositoryContract } from "#testing/conversation-list-contract.test-support";
 import { clientToolDispatchRepositoryContract } from "#testing/client-tool-dispatch-contract.test-support";
@@ -63,9 +62,7 @@ describe("postgres drizzle repositories", () => {
         repositories.appendMessage({
           ...scope,
           conversationId: conversation.record.conversationId,
-          messageId: toMessageId(
-            `${conversation.record.conversationId}:${requestKey}`,
-          ),
+          messageId: toMessageId(`${conversation.record.conversationId}:${requestKey}`),
           role: "user",
           parts: [{ type: "text", text: "hello" }],
           metadataJson: {},
@@ -74,16 +71,11 @@ describe("postgres drizzle repositories", () => {
 
       // The conversation-row FOR UPDATE lock serializes the two racing appends, so
       // neither loses the sequence unique index to a duplicate-index conflict.
-      const [first, second] = await Promise.all([
-        append("request_a"),
-        append("request_b"),
-      ]);
+      const [first, second] = await Promise.all([append("request_a"), append("request_b")]);
 
       expect(first.inserted && second.inserted).toBe(true);
       expect(
-        [first.record.sequenceIndex, second.record.sequenceIndex].sort(
-          (a, b) => a - b,
-        ),
+        [first.record.sequenceIndex, second.record.sequenceIndex].sort((a, b) => a - b),
       ).toEqual([0, 1]);
     } finally {
       await repositories.close();
@@ -122,15 +114,9 @@ describe("postgres drizzle repositories", () => {
         }),
       ]);
 
-      expect(
-        outcomes.filter((outcome) => outcome?.disposition === "accepted"),
-      ).toHaveLength(1);
-      expect(
-        outcomes.filter((outcome) => outcome?.disposition === "duplicate"),
-      ).toHaveLength(1);
-      expect(outcomes[0]?.record.outputJson).toEqual(
-        outcomes[1]?.record.outputJson,
-      );
+      expect(outcomes.filter((outcome) => outcome?.disposition === "accepted")).toHaveLength(1);
+      expect(outcomes.filter((outcome) => outcome?.disposition === "duplicate")).toHaveLength(1);
+      expect(outcomes[0]?.record.outputJson).toEqual(outcomes[1]?.record.outputJson);
       expect(outcomes[0]?.record.state).toBe("settled");
     } finally {
       await repositories.close();
@@ -247,18 +233,16 @@ describe("postgres drizzle repositories", () => {
         now: NOW,
       });
 
-      const constraint = await repositories
-        .bindTurnRun({
+      // Binding a run id already held by another turn is a guarded transition,
+      // surfaced as a typed error rather than a raw driver unique violation.
+      await expect(
+        repositories.bindTurnRun({
           workspaceId: workspaceId(secondScope),
           assistantTurnId: second.assistantTurnId,
           runId: "run_globally_unique",
           now: NOW,
-        })
-        .then(
-          () => undefined,
-          (error: unknown) => uniqueViolationConstraint(error),
-        );
-      expect(constraint).toBe("assistant_turns_run_uq");
+        }),
+      ).rejects.toMatchObject({ code: "invalid_transition" });
     } finally {
       await repositories.close();
     }
@@ -325,9 +309,7 @@ const nextClientToolScope = (): string => {
 function requireDatabaseUrl(): string {
   const value = process.env["SIDECHAT_TEST_DATABASE_URL"];
   if (!value) {
-    throw new Error(
-      "SIDECHAT_TEST_DATABASE_URL is required for test:db:integration.",
-    );
+    throw new Error("SIDECHAT_TEST_DATABASE_URL is required for test:db:integration.");
   }
   return value;
 }

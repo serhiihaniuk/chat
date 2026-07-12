@@ -150,33 +150,38 @@ async function selectEligibleRunIds(
   client: PoolClient,
   options: WorkflowJournalSweepOptions,
 ): Promise<readonly string[]> {
+  // A prunable run is either a turn-bound run (assistant_turns) or a
+  // title-generation run (conversation_title_runs); each maps to at most one row
+  // in each table, so the outer joins never multiply. The owning conversation is
+  // whichever side matched, and its legal_hold gates BOTH kinds identically. A run
+  // matching neither (unknown) has a null owning conversation and is excluded by
+  // the inner conversation join, so it is never pruned.
+  //
+  // Only workflow_run is row-locked (the maintenance principal owns the `workflow`
+  // schema); the sidechat side stays read-only SELECT, so the least-privilege grant
+  // needs no UPDATE there — which would let the principal tamper with legal_hold.
+  // The sweep deletes only `workflow.*`, never sidechat rows, so held conversation
+  // content is always preserved even if a hold is applied during a sweep.
   const result = await client.query<RunIdRow>(
     `select workflow_run.id as run_id
        from workflow.workflow_runs workflow_run
-       join sidechat.assistant_turns assistant_turn
+       left join sidechat.assistant_turns assistant_turn
          on assistant_turn.run_id = workflow_run.id
+       left join sidechat.conversation_title_runs title_run
+         on title_run.run_id = workflow_run.id
        join sidechat.conversations conversation
-         on conversation.workspace_id = assistant_turn.workspace_id
-        and conversation.conversation_id = assistant_turn.conversation_id
+         on conversation.workspace_id
+              = coalesce(assistant_turn.workspace_id, title_run.workspace_id)
+        and conversation.conversation_id
+              = coalesce(assistant_turn.conversation_id, title_run.conversation_id)
       where workflow_run.status = any($1::workflow.status[])
-        and assistant_turn.status = any($2::text[])
         and workflow_run.completed_at < $3
         and conversation.legal_hold = false
-        and not exists (
-          select 1
-            from sidechat.assistant_turns unsafe_turn
-            join sidechat.conversations unsafe_conversation
-              on unsafe_conversation.workspace_id = unsafe_turn.workspace_id
-             and unsafe_conversation.conversation_id = unsafe_turn.conversation_id
-           where unsafe_turn.run_id = workflow_run.id
-             and (
-               unsafe_turn.status <> all($2::text[])
-               or unsafe_conversation.legal_hold = true
-             )
-        )
+        and (assistant_turn.run_id is not null or title_run.run_id is not null)
+        and (assistant_turn.run_id is null or assistant_turn.status = any($2::text[]))
       order by workflow_run.completed_at, workflow_run.id
       limit $4
-      for update of workflow_run, assistant_turn, conversation skip locked`,
+      for update of workflow_run skip locked`,
     [
       TERMINAL_WORKFLOW_STATUSES,
       TERMINAL_TURN_STATUSES,

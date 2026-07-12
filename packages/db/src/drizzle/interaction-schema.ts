@@ -1,6 +1,7 @@
 import type { JsonObject } from "@side-chat/shared";
 import {
   check,
+  index,
   integer,
   jsonb,
   text,
@@ -19,6 +20,7 @@ import {
 } from "#schema-contract";
 import type {
   assistantTurns,
+  conversations,
   createdAt,
   inList,
   workspaceIdColumn,
@@ -27,15 +29,17 @@ import type {
 type InteractionSchemaDependencies = {
   readonly sidechat: PgSchema;
   readonly assistantTurns: typeof assistantTurns;
+  readonly conversations: typeof conversations;
   readonly workspaceIdColumn: typeof workspaceIdColumn;
   readonly createdAt: typeof createdAt;
   readonly inList: typeof inList;
 };
 
-/** Tables that persist model-tool and legacy browser-interaction records. */
+/** Model-tool records, legacy browser-interaction records, and maintenance links. */
 export const defineInteractionTables = ({
   sidechat,
   assistantTurns,
+  conversations,
   workspaceIdColumn,
   createdAt,
   inList,
@@ -54,9 +58,7 @@ export const defineInteractionTables = ({
       status: text("status").$type<ToolInvocationStatus>().notNull(),
       inputHash: text("input_hash").notNull(),
       outputHash: text("output_hash"),
-      inputRedactedJson: jsonb("input_redacted_json")
-        .$type<JsonObject>()
-        .notNull(),
+      inputRedactedJson: jsonb("input_redacted_json").$type<JsonObject>().notNull(),
       outputRedactedJson: jsonb("output_redacted_json").$type<JsonObject>(),
       errorCode: text("error_code"),
       startedAt: timestamp("started_at", {
@@ -69,14 +71,8 @@ export const defineInteractionTables = ({
       }),
     },
     (table) => [
-      uniqueIndex("tool_invocations_turn_call_uq").on(
-        table.assistantTurnId,
-        table.toolCallId,
-      ),
-      check(
-        "tool_invocations_status_check",
-        inList("status", TOOL_INVOCATION_STATUSES),
-      ),
+      uniqueIndex("tool_invocations_turn_call_uq").on(table.assistantTurnId, table.toolCallId),
+      check("tool_invocations_status_check", inList("status", TOOL_INVOCATION_STATUSES)),
     ],
   );
 
@@ -111,10 +107,7 @@ export const defineInteractionTables = ({
         table.assistantTurnId,
         table.toolCallId,
       ),
-      check(
-        "client_tool_dispatches_state_check",
-        inList("state", CLIENT_TOOL_DISPATCH_STATES),
-      ),
+      check("client_tool_dispatches_state_check", inList("state", CLIENT_TOOL_DISPATCH_STATES)),
     ],
   );
 
@@ -131,9 +124,7 @@ export const defineInteractionTables = ({
       resourceId: text("resource_id"),
       status: text("status").$type<HostCommandResultStatus>().notNull(),
       resultCode: text("result_code").notNull(),
-      commandRedactedJson: jsonb("command_redacted_json")
-        .$type<JsonObject>()
-        .notNull(),
+      commandRedactedJson: jsonb("command_redacted_json").$type<JsonObject>().notNull(),
       resultRedactedJson: jsonb("result_redacted_json").$type<JsonObject>(),
       createdAt: createdAt(),
       resolvedAt: timestamp("resolved_at", {
@@ -146,12 +137,33 @@ export const defineInteractionTables = ({
         table.assistantTurnId,
         table.commandId,
       ),
-      check(
-        "host_command_results_status_check",
-        inList("status", HOST_COMMAND_RESULT_STATUSES),
-      ),
+      check("host_command_results_status_check", inList("status", HOST_COMMAND_RESULT_STATUSES)),
     ],
   );
 
-  return { toolInvocations, clientToolDispatches, hostCommandResults };
+  const conversationTitleRuns = sidechat.table(
+    "conversation_title_runs",
+    {
+      // The durable title-generation Workflow run id. Title runs are their own
+      // Workflow runs with no assistant_turns row, so one row here links each to
+      // its conversation, letting the journal prune honor legal_hold for title
+      // runs the same way it does for turn-bound runs (KNOWLEDGE §Regulated).
+      runId: text("run_id").primaryKey(),
+      workspaceId: workspaceIdColumn(),
+      conversationId: text("conversation_id")
+        .notNull()
+        .references(() => conversations.conversationId),
+      createdAt: createdAt(),
+    },
+    (table) => [
+      index("conversation_title_runs_conversation_idx").on(table.workspaceId, table.conversationId),
+    ],
+  );
+
+  return {
+    toolInvocations,
+    clientToolDispatches,
+    hostCommandResults,
+    conversationTitleRuns,
+  };
 };

@@ -28,9 +28,12 @@ export type FinalizeTurnDependencies = Readonly<{
 }>;
 
 /**
- * The terminal claim is the idempotency gate. Only its winner may persist an
- * assistant message, and only completed output is durable in Step 05; failed or
- * cancelled partial output remains stream-only.
+ * Persist the terminal for the in-memory dev store, whose separate process the
+ * durable workflow step cannot reach. The claim gates idempotency: its winner
+ * appends the assistant message, and only for a completed turn, because a failed
+ * or cancelled turn keeps its partial output stream-only. Returns whether this
+ * call won the claim. Durable Postgres never reaches here — the workflow finalize
+ * step owns the guarded claim, crash-safely.
  */
 export async function finalizeTurn(
   dependencies: FinalizeTurnDependencies,

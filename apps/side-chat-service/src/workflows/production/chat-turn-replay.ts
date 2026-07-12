@@ -15,10 +15,7 @@ export type ReplayedChatTurn =
   | Readonly<{ status: "start_index_out_of_range"; tailIndex: number }>;
 
 /** Open one independent durable reader after the HTTP edge proves ownership. */
-export async function replayChatTurn(
-  runId: string,
-  startIndex: number,
-): Promise<ReplayedChatTurn> {
+export async function replayChatTurn(runId: string, startIndex: number): Promise<ReplayedChatTurn> {
   const run = getRun<ChatTurnTerminalOutcome>(runId);
   if (!(await run.exists)) return { status: "not_found" };
   const replay = await openUiReplay(run, startIndex);
@@ -64,8 +61,7 @@ async function openUiReplay(
   }
 
   const tailIndex = prefix.length - 1;
-  const absoluteStart =
-    startIndex < 0 ? Math.max(prefix.length + startIndex, 0) : startIndex;
+  const absoluteStart = startIndex < 0 ? Math.max(prefix.length + startIndex, 0) : startIndex;
   if (absoluteStart > tailIndex + 1) {
     await reader.cancel();
     return { status: "start_index_out_of_range", tailIndex };
@@ -100,10 +96,7 @@ async function readRawToEnd(
   }
 }
 
-function appendUiChunk(
-  output: UIMessageChunk[],
-  raw: ModelCallStreamPart,
-): void {
+function appendUiChunk(output: UIMessageChunk[], raw: ModelCallStreamPart): void {
   const chunk = toUIMessageChunk(raw);
   if (chunk !== undefined) output.push(chunk);
 }
@@ -156,8 +149,11 @@ async function enqueueNextLiveChunk(
   }
 }
 
+// Mirrors the DevKit's pinned `TERMINAL_WORKFLOW_RUN_STATUSES` (`@workflow/world`,
+// which the service's dependency policy does not allow importing directly). A
+// terminal run will produce no further output, so replay reads to the buffered end.
+const TERMINAL_WORKFLOW_RUN_STATUSES = new Set<string>(["completed", "failed", "cancelled"]);
+
 function isTerminalRunStatus(status: string): boolean {
-  return (
-    status === "completed" || status === "failed" || status === "cancelled"
-  );
+  return TERMINAL_WORKFLOW_RUN_STATUSES.has(status);
 }

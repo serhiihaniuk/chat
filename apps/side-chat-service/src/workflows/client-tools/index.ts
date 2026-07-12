@@ -1,6 +1,10 @@
 import { dynamicTool, jsonSchema, type ToolSet } from "ai";
 import { createHook, sleep } from "workflow";
-import { HookNotFoundError } from "workflow/internal/errors";
+import {
+  HookNotFoundError,
+  RunExpiredError,
+  WorkflowRunNotFoundError,
+} from "workflow/internal/errors";
 import { resumeHook } from "workflow/api";
 
 import type {
@@ -50,13 +54,9 @@ type ClientToolRuntimeOptions = Readonly<{
   abortSignal: AbortSignal;
 }>;
 
-type PersistedClientToolIdentity = ClientToolDispatchIdentity &
-  Readonly<{ databaseUrl: string }>;
+type PersistedClientToolIdentity = ClientToolDispatchIdentity & Readonly<{ databaseUrl: string }>;
 
-export function clientToolResultHookToken(
-  runId: string,
-  toolCallId: string,
-): string {
+export function clientToolResultHookToken(runId: string, toolCallId: string): string {
   return `tool:${runId}:${toolCallId}`;
 }
 
@@ -70,9 +70,22 @@ export async function resumeClientToolResult(
     await resumeHook(clientToolResultHookToken(runId, toolCallId), output);
     return true;
   } catch (error) {
-    if (HookNotFoundError.is(error)) return false;
+    // A durable result can outlive its wait: a missing hook, or a run that
+    // journal pruning removed or expired, all mean there is no live wait to
+    // wake. `resumeHook` reads the hook then the run (`world.runs.get`), so it
+    // surfaces `HookNotFoundError`, `WorkflowRunNotFoundError`, or
+    // `RunExpiredError` here. Each is a stable "gone" signal that returns false
+    // for a terminal/retryable ack; other failures are real infrastructure
+    // faults and must not be hidden.
+    if (isVanishedWait(error)) return false;
     throw error;
   }
+}
+
+function isVanishedWait(error: unknown): boolean {
+  return (
+    HookNotFoundError.is(error) || WorkflowRunNotFoundError.is(error) || RunExpiredError.is(error)
+  );
 }
 
 export function createClientTools(options: ClientToolRuntimeOptions): ToolSet {
@@ -127,16 +140,12 @@ export async function executeClientTool(
   try {
     const conflict = await resultHook.getConflict();
     if (conflict !== null) {
-      throw new Error(
-        `Client-tool hook token is already owned by run ${conflict.runId}`,
-      );
+      throw new Error(`Client-tool hook token is already owned by run ${conflict.runId}`);
     }
 
     // Registration suspends durably. Re-read afterwards to close the window in
     // which the result commits before the hook token becomes visible.
-    const registeredOutput = clientToolOutput(
-      await readDispatch(persistedIdentity),
-    );
+    const registeredOutput = clientToolOutput(await readDispatch(persistedIdentity));
     if (registeredOutput !== undefined) return registeredOutput;
 
     return await waitForClientTool({
@@ -174,21 +183,15 @@ async function waitForClientTool(options: {
   }
 }
 
-function clientToolOutput(
-  dispatch: ClientToolDispatchSnapshot | undefined,
-): unknown {
+function clientToolOutput(dispatch: ClientToolDispatchSnapshot | undefined): unknown {
   if (dispatch?.state === "dispatched") return undefined;
   return dispatch?.output?.value;
 }
 
-function requireClientToolOutput(
-  dispatch: ClientToolDispatchSnapshot | undefined,
-): unknown {
+function requireClientToolOutput(dispatch: ClientToolDispatchSnapshot | undefined): unknown {
   const output = clientToolOutput(dispatch);
   if (output === undefined) {
-    throw new Error(
-      "Client-tool wait completed without a persisted terminal output",
-    );
+    throw new Error("Client-tool wait completed without a persisted terminal output");
   }
   return output;
 }
@@ -216,9 +219,7 @@ function settleDispatch(
   });
 }
 
-function toDispatchIdentity(
-  identity: PersistedClientToolIdentity,
-): ClientToolDispatchIdentity {
+function toDispatchIdentity(identity: PersistedClientToolIdentity): ClientToolDispatchIdentity {
   return {
     workspaceId: identity.workspaceId,
     turnId: identity.turnId,

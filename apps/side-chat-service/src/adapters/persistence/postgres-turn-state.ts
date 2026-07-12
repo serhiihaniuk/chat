@@ -19,12 +19,8 @@ export type { PostgresTurnState } from "./postgres-turn-state/types.js";
  * `conversationId` is passed through as both the db `conversationId` and its
  * `conversationKey`; `actorId` is the `subjectId`.
  */
-export const createPostgresTurnState = (
-  connectionString: string,
-): PostgresTurnState =>
-  createTurnStateFromRepositories(
-    createPostgresDrizzleSidechatRepositories({ connectionString }),
-  );
+export const createPostgresTurnState = (connectionString: string): PostgresTurnState =>
+  createTurnStateFromRepositories(createPostgresDrizzleSidechatRepositories({ connectionString }));
 
 /**
  * Build the turn store over any repositories implementation.
@@ -35,11 +31,10 @@ export const createPostgresTurnState = (
 export const createTurnStateFromRepositories = (
   repositories: ClosableRepositories,
 ): PostgresTurnState => {
-  const context: TurnStateContext = { repositories, identities: new Map() };
+  const context: TurnStateContext = { repositories };
   const queries = createPostgresConversationQueries(repositories);
   const titles = createPostgresConversationTitleStore(repositories);
-  const clientToolDispatches =
-    createPostgresClientToolDispatchStore(repositories);
+  const clientToolDispatches = createPostgresClientToolDispatchStore(repositories);
   const lifecycle = createPostgresTurnLifecycle(context);
   return {
     ...titles,

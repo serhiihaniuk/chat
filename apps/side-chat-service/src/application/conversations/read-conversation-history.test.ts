@@ -1,14 +1,29 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import type {
+  ConversationHistoryQuery,
   ConversationQueryStore,
   StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
 import { createCollectingTelemetrySink } from "#testing/collecting-telemetry-sink";
 
-import { readConversationHistory, UNAVAILABLE_HISTORY_TEXT } from "./read-conversation-history.js";
+import {
+  readConversationHistory,
+  UNAVAILABLE_HISTORY_TEXT,
+  type StructuredPartCatalogs,
+} from "./read-conversation-history.js";
 
 const auth = { workspaceId: "workspace", subjectId: "subject", issuedAt: "2026-07-11T00:00:00Z" };
+
+const weatherCatalog: StructuredPartCatalogs = {
+  tools: {
+    // `execute` is unused on the read path (validation reads only the schemas),
+    // but the SDK `Tool` type requires it for a non-dynamic tool.
+    weather: { inputSchema: z.object({ city: z.string() }), execute: () => Promise.resolve("ok") },
+  },
+  dataSchemas: {},
+};
 
 describe("readConversationHistory", () => {
   it("returns a valid persisted UI message unchanged", async () => {
@@ -21,10 +36,53 @@ describe("readConversationHistory", () => {
       "conversation",
     );
 
-    expect(result).toEqual([
+    expect(result.messages).toEqual([
       { id: "message-1", role: "assistant", parts: [{ type: "text", text: "kept" }], metadata: {} },
     ]);
+    expect(result.hasMore).toBe(false);
     expect(telemetry.records).toEqual([]);
+  });
+
+  it("keeps a tool part when its schema is present in the catalog", async () => {
+    const toolPart = {
+      type: "tool-weather",
+      toolCallId: "call-1",
+      state: "input-available",
+      input: { city: "Paris" },
+    };
+    const telemetry = createCollectingTelemetrySink();
+
+    const result = await readConversationHistory(
+      {
+        queries: queryStore([message([{ type: "text", text: "before" }, toolPart])]),
+        telemetry,
+        structuredPartCatalogs: weatherCatalog,
+      },
+      auth,
+      "conversation",
+    );
+
+    expect(result.messages[0]?.parts).toContainEqual(toolPart);
+    expect(telemetry.records).toEqual([]);
+  });
+
+  it("degrades a tool part whose schema was removed from the catalog", async () => {
+    const stored = message([
+      { type: "text", text: "safe" },
+      { type: "tool-legacy", toolCallId: "call-1", state: "input-available", input: {} },
+    ]);
+    const telemetry = createCollectingTelemetrySink();
+
+    const result = await readConversationHistory(
+      { queries: queryStore([stored]), telemetry, structuredPartCatalogs: weatherCatalog },
+      auth,
+      "conversation",
+    );
+
+    expect(result.messages).toEqual([
+      { id: "message-1", role: "assistant", parts: [{ type: "text", text: "safe" }] },
+    ]);
+    expect(telemetry.records).toEqual([{ type: "persistence.history_drift" }]);
   });
 
   it("drops a removed tool part while preserving valid text", async () => {
@@ -40,7 +98,7 @@ describe("readConversationHistory", () => {
       "conversation",
     );
 
-    expect(result).toEqual([
+    expect(result.messages).toEqual([
       { id: "message-1", role: "assistant", parts: [{ type: "text", text: "safe history" }] },
     ]);
     expect(telemetry.records).toEqual([{ type: "persistence.history_drift" }]);
@@ -58,7 +116,36 @@ describe("readConversationHistory", () => {
       "conversation",
     );
 
-    expect(result[0]?.parts).toEqual([{ type: "text", text: UNAVAILABLE_HISTORY_TEXT }]);
+    expect(result.messages[0]?.parts).toEqual([{ type: "text", text: UNAVAILABLE_HISTORY_TEXT }]);
+  });
+
+  it("forwards the paging query and surfaces the backward cursor", async () => {
+    let receivedQuery: ConversationHistoryQuery | undefined;
+    const store: ConversationQueryStore = {
+      readHistory: (_auth, _conversationId, query) => {
+        receivedQuery = query;
+        return Promise.resolve({
+          messages: [
+            { id: "m", role: "assistant", parts: [{ type: "text", text: "x" }], metadata: {} },
+          ],
+          hasMoreBefore: true,
+          nextBeforeSequenceIndex: 7,
+        });
+      },
+      listConversations: () => Promise.resolve([]),
+      findActiveTurn: () => Promise.resolve(undefined),
+    };
+
+    const result = await readConversationHistory(
+      { queries: store, telemetry: createCollectingTelemetrySink() },
+      auth,
+      "conversation",
+      { limit: 5, beforeSequenceIndex: 9 },
+    );
+
+    expect(receivedQuery).toEqual({ limit: 5, beforeSequenceIndex: 9 });
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).toBe(7);
   });
 });
 
@@ -68,7 +155,7 @@ function message(parts: StoredConversationMessage["parts"]): StoredConversationM
 
 function queryStore(messages: readonly StoredConversationMessage[]): ConversationQueryStore {
   return {
-    readHistory: () => Promise.resolve(messages),
+    readHistory: () => Promise.resolve({ messages, hasMoreBefore: false }),
     listConversations: () => Promise.resolve([]),
     findActiveTurn: () => Promise.resolve(undefined),
   };

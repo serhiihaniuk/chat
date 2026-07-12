@@ -1,6 +1,6 @@
 import { WorkflowAgent, type WorkflowAgentOptions } from "@ai-sdk/workflow";
 import { Output } from "ai";
-import { getWritable } from "workflow";
+import { getWorkflowMetadata, getWritable } from "workflow";
 import { start } from "workflow/api";
 
 import {
@@ -10,27 +10,22 @@ import {
   type ConversationTitleWorkflowResult,
   type ConversationTitleWorkflowStarter,
 } from "#application/conversations/generate-conversation-title";
-import {
-  assertModelInstance,
-  type ModelProvider,
-} from "#application/ports/model-provider";
+import { assertModelInstance, type ModelProvider } from "#application/ports/model-provider";
 import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
 import { initializeProductionWorkflowServices } from "#composition/workflow/production";
 
 import { persistConversationTitle } from "./persist-conversation-title.js";
+import { recordConversationTitleRun } from "./record-conversation-title-run.js";
 
 const TITLE_INSTRUCTIONS =
   "Create a concise conversation title. Return 2 to 6 words, no punctuation, and do not copy the full user message.";
 
-export const productionConversationTitleWorkflowStarter: ConversationTitleWorkflowStarter =
-  {
-    start: startGenerateConversationTitle,
-  };
+export const productionConversationTitleWorkflowStarter: ConversationTitleWorkflowStarter = {
+  start: startGenerateConversationTitle,
+};
 
 /** Route-side facade; workflow engine handles remain private to this module. */
-export async function startGenerateConversationTitle(
-  input: ConversationTitleWorkflowInput,
-) {
+export async function startGenerateConversationTitle(input: ConversationTitleWorkflowInput) {
   const run = await start(generateConversationTitleWorkflow, [input]);
   return { runId: run.runId, result: run.returnValue };
 }
@@ -39,6 +34,14 @@ export async function generateConversationTitleWorkflow(
   input: ConversationTitleWorkflowInput,
 ): Promise<ConversationTitleWorkflowResult> {
   "use workflow";
+
+  // Link this run to its conversation first, so even a run that produces no title
+  // is prunable under legal_hold like a turn-bound run.
+  await recordConversationTitleRun({
+    auth: input.auth,
+    conversationId: input.conversationId,
+    runId: getWorkflowMetadata().workflowRunId,
+  });
 
   const rawTitle = await executeConversationTitleWorkflow(
     input,

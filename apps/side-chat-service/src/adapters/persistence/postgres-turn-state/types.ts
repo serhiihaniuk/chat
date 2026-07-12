@@ -26,10 +26,6 @@ export type ClosableRepositories = SidechatRepositories & {
   close: () => Promise<void>;
 };
 
-/** Tenant identity retained for later writes whose ports carry only a turn reference. */
-export type TurnIdentity = Readonly<{ workspaceId: string; subjectId: string }>;
-
 export type TurnStateContext = Readonly<{
   repositories: SidechatRepositories;
-  identities: Map<string, TurnIdentity>;
 }>;

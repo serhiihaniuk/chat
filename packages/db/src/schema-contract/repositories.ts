@@ -31,10 +31,6 @@ import type {
 } from "./ids/persistence-ids.js";
 import type { ClientToolDispatchRepositoryContract } from "./client-tools/repositories.js";
 
-export type IdempotencyKey = {
-  readonly value: string;
-};
-
 export type RepositoryCommandEnvelope = {
   readonly workspaceId: WorkspaceId;
   readonly now: string;
@@ -116,8 +112,8 @@ export type ClaimAssistantTurnTerminalCommand = RepositoryCommandEnvelope & {
  * Outcome of a terminal claim.
  *
  * `claimed` is true only when this call moved the turn from `running` to a
- * terminal status. It is false for an already-terminal turn (idempotent replay)
- * or an unknown/cross-tenant id; `record` returns the current stored row either way.
+ * terminal status, and false for an already-terminal turn (replay or duplicate
+ * finalize); `record` returns the row. An unknown id raises `record_not_found`.
  */
 export type ClaimAssistantTurnTerminalResult = {
   readonly record: AssistantTurnRecord;
@@ -227,10 +223,7 @@ export type SubmitClientToolOutputCommand = RepositoryCommandEnvelope &
     readonly outputJson: JsonObject;
   };
 
-export type SubmitClientToolOutputDisposition =
-  | "accepted"
-  | "duplicate"
-  | "late";
+export type SubmitClientToolOutputDisposition = "accepted" | "duplicate" | "late";
 
 export type SubmittedClientToolDispatchRecord = Omit<
   ClientToolDispatchRecord,
@@ -356,9 +349,7 @@ export type ConversationRepositoryContract = {
   readonly prepareConversationTitle: (
     command: PrepareConversationTitleCommand,
   ) => Promise<ConversationRecord>;
-  readonly resetConversation: (
-    command: ResetConversationCommand,
-  ) => Promise<ConversationRecord>;
+  readonly resetConversation: (command: ResetConversationCommand) => Promise<ConversationRecord>;
 };
 
 export type AssistantTurnRepositoryContract = {
@@ -371,9 +362,7 @@ export type AssistantTurnRepositoryContract = {
     command: StartAssistantTurnCommand,
   ) => Promise<RepositoryCommandResult<AssistantTurnRecord>>;
   // Bind the durable Workflow run id to a turn once its run has started.
-  readonly bindTurnRun: (
-    command: BindTurnRunCommand,
-  ) => Promise<AssistantTurnRecord>;
+  readonly bindTurnRun: (command: BindTurnRunCommand) => Promise<AssistantTurnRecord>;
   readonly recordTurnContextSnapshot: (
     command: RecordTurnContextSnapshotCommand,
   ) => Promise<RepositoryCommandResult<ContextSnapshotRecord>>;
@@ -413,31 +402,28 @@ export type AssistantTurnRepositoryContract = {
   readonly recordUsage: (
     command: RecordUsageCommand,
   ) => Promise<RepositoryCommandResult<UsageRecord>>;
-  readonly readUsageSummary: (
-    command: ReadUsageSummaryCommand,
-  ) => Promise<UsageSummary>;
+  readonly readUsageSummary: (command: ReadUsageSummaryCommand) => Promise<UsageSummary>;
 };
 
-export type InteractionRepositoryContract =
-  ClientToolDispatchRepositoryContract & {
-    readonly recordToolInvocation: (
-      command: RecordToolInvocationCommand,
-    ) => Promise<RepositoryCommandResult<ToolInvocationRecord>>;
-    readonly recordHostCommandResult: (
-      command: RecordHostCommandResultCommand,
-    ) => Promise<RepositoryCommandResult<HostCommandResultRecord>>;
-    /**
-     * Read one turn's host-command row by command id (workspace-scoped).
-     *
-     * The result relay reads through this twice: the result route to prove the
-     * command belongs to the caller's turn before persisting the browser's
-     * result, and the awaiting owner (listener or poll) to fetch the settled
-     * result. Returns `undefined` for an unknown or cross-workspace command.
-     */
-    readonly findHostCommandResult: (
-      command: FindHostCommandResultCommand,
-    ) => Promise<HostCommandResultRecord | undefined>;
-    readonly appendAuditEvent: (
-      command: AppendAuditEventCommand,
-    ) => Promise<RepositoryCommandResult<AuditEventRecord>>;
-  };
+export type InteractionRepositoryContract = ClientToolDispatchRepositoryContract & {
+  readonly recordToolInvocation: (
+    command: RecordToolInvocationCommand,
+  ) => Promise<RepositoryCommandResult<ToolInvocationRecord>>;
+  readonly recordHostCommandResult: (
+    command: RecordHostCommandResultCommand,
+  ) => Promise<RepositoryCommandResult<HostCommandResultRecord>>;
+  /**
+   * Read one turn's host-command row by command id (workspace-scoped).
+   *
+   * The result relay reads through this twice: the result route to prove the
+   * command belongs to the caller's turn before persisting the browser's
+   * result, and the awaiting owner (listener or poll) to fetch the settled
+   * result. Returns `undefined` for an unknown or cross-workspace command.
+   */
+  readonly findHostCommandResult: (
+    command: FindHostCommandResultCommand,
+  ) => Promise<HostCommandResultRecord | undefined>;
+  readonly appendAuditEvent: (
+    command: AppendAuditEventCommand,
+  ) => Promise<RepositoryCommandResult<AuditEventRecord>>;
+};

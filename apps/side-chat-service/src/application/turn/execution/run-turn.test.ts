@@ -2,6 +2,7 @@ import type { UIMessage, UIMessageChunk } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
+import type { MessageStore } from "#application/ports/turn/message-store";
 import type {
   StartedTurnExecution,
   TurnExecution,
@@ -35,8 +36,14 @@ const ASSISTANT_MESSAGE: UIMessage = {
   parts: [{ type: "text", text: "Done" }],
 };
 
+const COMPLETED_TERMINAL: TurnExecutionTerminal = {
+  status: TURN_TERMINAL_STATUSES.COMPLETED,
+  stepUsage: [],
+  assistantMessage: ASSISTANT_MESSAGE,
+};
+
 describe("runTurn", () => {
-  it("keeps the response stream open until terminal persistence succeeds", async () => {
+  it("keeps the response stream open until the in-memory terminal is projected", async () => {
     const terminal = deferred<TurnExecutionTerminal>();
     const harness = createHarness(terminal.promise);
     const running = await runTurn(harness.dependencies, turnInput());
@@ -45,11 +52,7 @@ describe("runTurn", () => {
 
     await expect(promiseState(endOfStream)).resolves.toBe("pending");
 
-    terminal.resolve({
-      status: TURN_TERMINAL_STATUSES.COMPLETED,
-      stepUsage: [],
-      assistantMessage: ASSISTANT_MESSAGE,
-    });
+    terminal.resolve(COMPLETED_TERMINAL);
 
     await expect(endOfStream).resolves.toEqual({
       done: true,
@@ -59,25 +62,34 @@ describe("runTurn", () => {
     expect(harness.admission.released).toBe(1);
   });
 
-  it("errors the response stream when terminal persistence fails", async () => {
+  it("leaves terminal persistence to the durable workflow and only releases admission", async () => {
+    const harness = createHarness(Promise.resolve(COMPLETED_TERMINAL), {
+      durable: true,
+    });
+    const running = await runTurn(harness.dependencies, turnInput());
+
+    await expect(running.stream.getReader().read()).resolves.toEqual({
+      done: true,
+      value: undefined,
+    });
+    // The workflow finalize step owns durable persistence; the route touches nothing.
+    expect(harness.state.assistantMessages).toEqual([]);
+    expect(harness.state.terminals.size).toBe(0);
+    expect(harness.admission.released).toBe(1);
+  });
+
+  it("errors the response stream when in-memory persistence fails", async () => {
     const persistenceFailure = new Error("assistant persistence failed");
-    const harness = createHarness(
-      Promise.resolve({
-        status: TURN_TERMINAL_STATUSES.COMPLETED,
-        stepUsage: [],
-        assistantMessage: ASSISTANT_MESSAGE,
-      }),
-      {
-        appendAssistantMessage: () => Promise.reject(persistenceFailure),
-      },
-    );
+    const harness = createHarness(Promise.resolve(COMPLETED_TERMINAL), {
+      messages: { appendAssistantMessage: () => Promise.reject(persistenceFailure) },
+    });
     const running = await runTurn(harness.dependencies, turnInput());
 
     await expect(running.stream.getReader().read()).rejects.toBe(persistenceFailure);
     expect(harness.admission.released).toBe(1);
   });
 
-  it("maps a rejected terminal promise to a failed terminal and releases admission", async () => {
+  it("projects a failed terminal in the in-memory route lane when the run rejects", async () => {
     const harness = createHarness(Promise.reject(new Error("workflow return failed")));
     const running = await runTurn(harness.dependencies, turnInput());
 
@@ -100,13 +112,7 @@ describe("runTurn", () => {
         result: Promise<{ title: string; persisted: boolean }>;
       }>
     >(() => Promise.resolve({ runId: "title-run-1", result: titleResult.promise }));
-    const harness = createHarness(
-      Promise.resolve({
-        status: TURN_TERMINAL_STATUSES.COMPLETED,
-        stepUsage: [],
-        assistantMessage: ASSISTANT_MESSAGE,
-      }),
-    );
+    const harness = createHarness(Promise.resolve(COMPLETED_TERMINAL));
     const dependencies: RunTurnDependencies = {
       ...harness.dependencies,
       titleGeneration: {
@@ -136,7 +142,7 @@ describe("runTurn", () => {
 
 function createHarness(
   terminal: Promise<TurnExecutionTerminal>,
-  messages?: RunTurnDependencies["messages"],
+  options: { durable?: boolean; messages?: MessageStore } = {},
 ) {
   const state = new InMemoryTurnState([
     {
@@ -151,7 +157,14 @@ function createHarness(
     admission,
     turns: state,
     execution,
-    messages: messages ?? state,
+    ...(options.durable
+      ? {}
+      : {
+          routeFinalization: {
+            turns: state,
+            messages: options.messages ?? state,
+          },
+        }),
   };
   return { state, admission, dependencies };
 }

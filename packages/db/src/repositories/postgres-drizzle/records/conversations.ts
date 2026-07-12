@@ -3,6 +3,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { conversations, messages } from "#drizzle/schema";
 import type { SidechatRepositories } from "../../contract.js";
 import { createOrGetConversationRecord } from "./conversation-create.js";
+import { createRecordConversationTitleRun } from "./conversation-title-runs.js";
 import { readConversationSummaryTitle } from "./conversation-summaries.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
@@ -22,6 +23,7 @@ type ConversationRepository = Pick<
   | "findConversation"
   | "prepareConversationTitle"
   | "resetConversation"
+  | "recordConversationTitleRun"
 >;
 
 type AppendMessageCommand = Parameters<ConversationRepository["appendMessage"]>[0];
@@ -43,6 +45,7 @@ export const createPostgresDrizzleConversationRepository = (
   findConversation: createFindConversation(context),
   prepareConversationTitle: createPrepareConversationTitle(context),
   resetConversation: createResetConversation(context),
+  recordConversationTitleRun: createRecordConversationTitleRun(context),
 });
 
 /**

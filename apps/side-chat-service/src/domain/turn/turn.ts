@@ -31,9 +31,17 @@ export type TurnMessage = Readonly<{
   text: string;
 }>;
 
+/**
+ * Fully identifies one turn, tenant included. Carrying `workspaceId` and
+ * `subjectId` on the reference lets any adapter recover ownership from the ref
+ * alone, so a durable write that runs in a fresh adapter instance (e.g. the
+ * workflow-side finalize step) needs no shared in-memory identity map.
+ */
 export type TurnRef = Readonly<{
   conversationId: string;
   turnId: string;
+  workspaceId: string;
+  subjectId: string;
 }>;
 
 export type TurnUsage = Readonly<{

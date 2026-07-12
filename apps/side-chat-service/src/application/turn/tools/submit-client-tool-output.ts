@@ -4,10 +4,7 @@ import {
   type ClientToolDispatchStore,
   type ClientToolOutputEnvelope,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
-import {
-  TURN_REJECTION_CODES,
-  TurnRejectedError,
-} from "#application/turn/turn-errors";
+import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 
 export type ReadClientToolOutput = () => Promise<
@@ -44,16 +41,9 @@ export async function submitClientToolOutput(
   resume: ResumeClientTool,
   input: SubmitClientToolOutputInput,
 ): Promise<SubmitClientToolOutputAck> {
-  const dispatch = await store.findOwned(
-    input.auth,
-    input.runId,
-    input.toolCallId,
-  );
+  const dispatch = await store.findOwned(input.auth, input.runId, input.toolCallId);
   if (dispatch === CLIENT_TOOL_DISPATCH_LOOKUP.NOT_FOUND) {
-    throw new TurnRejectedError(
-      TURN_REJECTION_CODES.RUN_NOT_FOUND,
-      "Client tool call not found",
-    );
+    throw new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Client tool call not found");
   }
   if (dispatch === CLIENT_TOOL_DISPATCH_LOOKUP.NOT_READY) {
     throw new TurnRejectedError(
@@ -66,16 +56,19 @@ export async function submitClientToolOutput(
   const submitted = await input.readOutput();
   const result = await store.submit(
     dispatch,
-    submitted.valid
-      ? CLIENT_TOOL_OUTPUT_STATES.SETTLED
-      : CLIENT_TOOL_OUTPUT_STATES.FAILED,
+    submitted.valid ? CLIENT_TOOL_OUTPUT_STATES.SETTLED : CLIENT_TOOL_OUTPUT_STATES.FAILED,
     submitted.output,
   );
 
-  // A duplicate retries wake-up because an earlier resume may have raced hook
-  // registration or failed transiently after the database commit. A late value
-  // never re-enters a model run whose timeout outcome already won.
-  if (!isClosedWithoutResume(result.state)) {
+  // Only the first writer of a fresh outcome ("accepted") still has a live hook
+  // to wake, so only it must resume. A "duplicate" means an earlier POST already
+  // recorded this terminal outcome and woke the run; the hook is legitimately
+  // gone, so the retry is acknowledged idempotently with the recorded state. A
+  // "late" result recorded its timing but never re-enters a run whose timeout
+  // outcome already won. A false resume on the first-writer path means the hook
+  // is not yet registered (result-before-hook or restart-before-hook-restore),
+  // which stays a retryable conflict until Workflow restores the wait.
+  if (result.disposition === "accepted") {
     const resumed = await resume(input.runId, input.toolCallId, result.output);
     if (!resumed) {
       throw new TurnRejectedError(
@@ -92,8 +85,4 @@ export async function submitClientToolOutput(
     state: result.state,
     accepted: result.disposition === "accepted",
   };
-}
-
-function isClosedWithoutResume(state: string): boolean {
-  return state === "late" || state === "timed_out" || state === "aborted";
 }

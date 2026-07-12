@@ -1,29 +1,17 @@
 import type { UIMessageChunk } from "ai";
 
-import {
-  SIDE_CHAT_FINISH_REASONS,
-  type SideChatFinishReason,
-} from "@side-chat/stream-profile";
+import { SIDE_CHAT_FINISH_REASONS, type SideChatFinishReason } from "@side-chat/stream-profile";
 
-import type {
-  TurnExecution,
-  TurnExecutionTerminal,
-} from "#application/ports/turn/turn-execution";
+import type { TurnExecution, TurnExecutionTerminal } from "#application/ports/turn/turn-execution";
 import { UI_MESSAGE_CHUNK_TYPES } from "#application/turn/stream/ui-message-chunk-types";
-import {
-  TURN_REJECTION_CODES,
-  TurnRejectedError,
-} from "#application/turn/turn-errors";
+import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { Settings } from "#config/settings/resolve-settings";
+import type { TurnMessage } from "#domain/turn/turn";
 import {
-  TURN_EXECUTION_ERROR_CODES,
-  TURN_TERMINAL_STATUSES,
-  type TurnMessage,
-} from "#domain/turn/turn";
-import {
-  CHAT_TURN_ERROR_CODES,
   CHAT_TURN_OUTCOMES,
   cancelChatTurn,
+  chatTurnUsage,
+  classifyChatTurnOutcome,
   startChatTurn,
   type ChatTurnTerminalOutcome,
   type ChatTurnWorkflowInput,
@@ -31,9 +19,7 @@ import {
   type StartedChatTurn,
 } from "#workflows/production/chat-turn";
 
-export type StartChatTurn = (
-  input: ChatTurnWorkflowInput,
-) => Promise<StartedChatTurn>;
+export type StartChatTurn = (input: ChatTurnWorkflowInput) => Promise<StartedChatTurn>;
 
 const TURN_CANCELLATION = {
   USER_REASON: "user_requested_cancellation",
@@ -55,10 +41,7 @@ export function createWorkflowTurnExecution(
 ): TurnExecution {
   return {
     async start(input) {
-      if (
-        input.clientTools.length > 0 &&
-        settings.persistence.databaseUrl === undefined
-      ) {
+      if (input.clientTools.length > 0 && settings.persistence.databaseUrl === undefined) {
         throw new TurnRejectedError(
           TURN_REJECTION_CODES.CLIENT_TOOLS_UNAVAILABLE,
           "Client tools require durable persistence",
@@ -66,6 +49,8 @@ export function createWorkflowTurnExecution(
       }
       const started = await startTurn({
         workspaceId: input.auth.workspaceId,
+        subjectId: input.auth.subjectId,
+        conversationId: input.conversationId,
         turnId: input.turnId,
         requestId: input.requestId,
         modelId: input.modelId,
@@ -84,15 +69,9 @@ export function createWorkflowTurnExecution(
       };
     },
     async cancel(runId) {
-      const resumed = await cancelChatTurn(
-        runId,
-        TURN_CANCELLATION.USER_REASON,
-      );
+      const resumed = await cancelChatTurn(runId, TURN_CANCELLATION.USER_REASON);
       if (!resumed) {
-        throw new TurnRejectedError(
-          TURN_REJECTION_CODES.RUN_NOT_FOUND,
-          "Turn run not found",
-        );
+        throw new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn run not found");
       }
     },
   };
@@ -105,42 +84,17 @@ function toSerializableMessage(message: TurnMessage): SerializableChatMessage {
   };
 }
 
-function toApplicationTerminal(
-  terminal: ChatTurnTerminalOutcome,
-): TurnExecutionTerminal {
-  if (terminal.status === CHAT_TURN_OUTCOMES.COMPLETED) {
-    if (terminal.finishReason === "content-filter") {
-      return {
-        status: TURN_TERMINAL_STATUSES.BLOCKED,
-        stepUsage: [toUsage(terminal.usage)],
-        finishReason: terminal.finishReason,
-      };
-    }
-    const completed: TurnExecutionTerminal = {
-      status: TURN_TERMINAL_STATUSES.COMPLETED,
-      stepUsage: [toUsage(terminal.usage)],
-      finishReason: terminal.finishReason,
-      assistantMessage: terminal.assistantMessage,
-    };
-    return completed;
-  }
-  if (terminal.status === CHAT_TURN_OUTCOMES.CANCELLED) {
-    return { status: TURN_TERMINAL_STATUSES.CANCELLED, stepUsage: [] };
-  }
-  return {
-    status: TURN_TERMINAL_STATUSES.FAILED,
-    stepUsage: [],
-    safeErrorCode: toApplicationErrorCode(terminal.code),
-  };
-}
-
-function toApplicationErrorCode(
-  code: (typeof CHAT_TURN_ERROR_CODES)[keyof typeof CHAT_TURN_ERROR_CODES],
-) {
-  if (code === CHAT_TURN_ERROR_CODES.PROVIDER_TIMEOUT) {
-    return TURN_EXECUTION_ERROR_CODES.PROVIDER_TIMEOUT;
-  }
-  return TURN_EXECUTION_ERROR_CODES.MODEL_STREAM_FAILED;
+/**
+ * The route terminal and the durable workflow claim derive from one shared
+ * classifier, so they cannot disagree on status, assistant-message presence, or
+ * finish reason. This adds only the route-side per-step usage array; the durable
+ * claim adds its folded usage from the same classification.
+ */
+function toApplicationTerminal(terminal: ChatTurnTerminalOutcome): TurnExecutionTerminal {
+  const classification = classifyChatTurnOutcome(terminal);
+  const stepUsage =
+    terminal.status === CHAT_TURN_OUTCOMES.COMPLETED ? [chatTurnUsage(terminal)] : [];
+  return { ...classification, stepUsage };
 }
 
 /**
@@ -161,37 +115,15 @@ export function stampFinishReason(
           return;
         }
         const reason = toFinishReason((await terminal).finishReason);
-        controller.enqueue(
-          reason === undefined ? chunk : { ...chunk, finishReason: reason },
-        );
+        controller.enqueue(reason === undefined ? chunk : { ...chunk, finishReason: reason });
       },
     }),
   );
 }
 
-function toFinishReason(
-  value: string | undefined,
-): SideChatFinishReason | undefined {
+function toFinishReason(value: string | undefined): SideChatFinishReason | undefined {
   for (const reason of Object.values(SIDE_CHAT_FINISH_REASONS)) {
     if (reason === value) return reason;
   }
   return undefined;
-}
-
-function toUsage(usage: {
-  readonly inputTokens: number | undefined;
-  readonly outputTokens: number | undefined;
-  readonly totalTokens: number | undefined;
-  readonly reasoningTokens: number | undefined;
-  readonly cachedInputTokens: number | undefined;
-}) {
-  const inputTokens = usage.inputTokens ?? 0;
-  const outputTokens = usage.outputTokens ?? 0;
-  return {
-    inputTokens,
-    outputTokens,
-    totalTokens: usage.totalTokens ?? inputTokens + outputTokens,
-    reasoningTokens: usage.reasoningTokens ?? 0,
-    cachedInputTokens: usage.cachedInputTokens ?? 0,
-  };
 }

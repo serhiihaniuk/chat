@@ -28,13 +28,10 @@ describe("client-tool output route", () => {
       resumeClientTool,
     });
     try {
-      const response = await harness.request(
-        outputRoute(RUN_ID, TOOL_CALL_ID),
-        {
-          method: "POST",
-          body: JSON.stringify({ output: { value: privateSentinel } }),
-        },
-      );
+      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
+        method: "POST",
+        body: JSON.stringify({ output: { value: privateSentinel } }),
+      });
       const responseText = await response.text();
       expect(response.status).toBe(200);
       expect(responseText).not.toContain(privateSentinel);
@@ -57,13 +54,10 @@ describe("client-tool output route", () => {
       resumeClientTool: async () => true,
     });
     try {
-      const response = await harness.request(
-        outputRoute(RUN_ID, TOOL_CALL_ID),
-        {
-          method: "POST",
-          body: "not-json",
-        },
-      );
+      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
+        method: "POST",
+        body: "not-json",
+      });
       expect(response.status).toBe(200);
       expect(submit.mock.calls[0]?.[1]).toBe("failed");
       expect(submit.mock.calls[0]?.[2]).toEqual({
@@ -83,13 +77,10 @@ describe("client-tool output route", () => {
       },
     });
     try {
-      const response = await harness.request(
-        outputRoute("unknown-run", "guessed-call"),
-        {
-          method: "POST",
-          body: JSON.stringify({ output: "secret" }),
-        },
-      );
+      const response = await harness.request(outputRoute("unknown-run", "guessed-call"), {
+        method: "POST",
+        body: JSON.stringify({ output: "secret" }),
+      });
       expect(response.status).toBe(HTTP_ERROR.NOT_FOUND.STATUS);
       expect(submit).not.toHaveBeenCalled();
     } finally {
@@ -105,13 +96,10 @@ describe("client-tool output route", () => {
       },
     });
     try {
-      const response = await harness.request(
-        outputRoute(RUN_ID, "call-racing"),
-        {
-          method: "POST",
-          body: JSON.stringify({ output: "result" }),
-        },
-      );
+      const response = await harness.request(outputRoute(RUN_ID, "call-racing"), {
+        method: "POST",
+        body: JSON.stringify({ output: "result" }),
+      });
       expect(response.status).toBe(HTTP_ERROR.CONFLICT.STATUS);
       expect(response.headers.get(HTTP_HEADERS.RETRY_AFTER)).toBe("1");
       expect(await response.json()).toMatchObject({
@@ -123,7 +111,7 @@ describe("client-tool output route", () => {
     }
   });
 
-  it("returns a retryable conflict when the durable result races hook recovery", async () => {
+  it("returns a retryable conflict when the first writer's hook is not yet registered", async () => {
     const harness = await createServiceTestHarness({
       clientToolDispatches: {
         findOwned: async () => DISPATCH,
@@ -132,15 +120,41 @@ describe("client-tool output route", () => {
       resumeClientTool: async () => false,
     });
     try {
-      const response = await harness.request(
-        outputRoute(RUN_ID, TOOL_CALL_ID),
-        {
-          method: "POST",
-          body: JSON.stringify({ output: "result" }),
-        },
-      );
+      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
+        method: "POST",
+        body: JSON.stringify({ output: "result" }),
+      });
       expect(response.status).toBe(HTTP_ERROR.CONFLICT.STATUS);
       expect(response.headers.get(HTTP_HEADERS.RETRY_AFTER)).toBe("1");
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("returns the recorded outcome when a duplicate result arrives after settle", async () => {
+    const submit = vi.fn<ClientToolDispatchStore["submit"]>(async () => ({
+      disposition: "duplicate",
+      state: "settled",
+      output: { value: "already-recorded" },
+    }));
+    const resumeClientTool = vi.fn<ResumeClientTool>(async () => false);
+    const harness = await createServiceTestHarness({
+      clientToolDispatches: { findOwned: async () => DISPATCH, submit },
+      resumeClientTool,
+    });
+    try {
+      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
+        method: "POST",
+        body: JSON.stringify({ output: { value: "resent" } }),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        runId: RUN_ID,
+        toolCallId: TOOL_CALL_ID,
+        state: "settled",
+        accepted: false,
+      });
+      expect(resumeClientTool).not.toHaveBeenCalled();
     } finally {
       await harness.close();
     }
@@ -148,13 +162,11 @@ describe("client-tool output route", () => {
 });
 
 function acceptedSubmit() {
-  return vi.fn<ClientToolDispatchStore["submit"]>(
-    async (_dispatch, state, output) => ({
-      disposition: "accepted",
-      state,
-      output,
-    }),
-  );
+  return vi.fn<ClientToolDispatchStore["submit"]>(async (_dispatch, state, output) => ({
+    disposition: "accepted",
+    state,
+    output,
+  }));
 }
 
 function outputRoute(runId: string, toolCallId: string): string {
