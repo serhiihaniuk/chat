@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 
 import { clientToolDispatches } from "#drizzle/schema";
 import type { SidechatRepositories } from "../../contract.js";
-import { DbRepositoryError } from "../../errors.js";
+import { DB_REPOSITORY_ERROR_CODES, DbRepositoryError } from "../../errors.js";
 import { one, result } from "../../repository-utils.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import { toClientToolDispatchRecord } from "./records.js";
@@ -35,24 +35,20 @@ export const createPostgresDrizzleClientToolDispatchRepository = ({
         dispatchedAt: command.now,
       })
       .onConflictDoNothing({
-        target: [
-          clientToolDispatches.assistantTurnId,
-          clientToolDispatches.toolCallId,
-        ],
+        target: [clientToolDispatches.assistantTurnId, clientToolDispatches.toolCallId],
       })
       .returning();
-    if (inserted[0])
-      return result(toClientToolDispatchRecord(inserted[0]), true);
+    if (inserted[0]) return result(toClientToolDispatchRecord(inserted[0]), true);
 
     const existing = await selectClientToolDispatch(db, command);
     const record = one(
       existing,
-      "record_not_found",
+      DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
       "Client-tool dispatch conflict did not return the existing row.",
     );
     if (record.toolName !== command.toolName) {
       throw new DbRepositoryError(
-        "invalid_transition",
+        DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION,
         "A replayed client-tool call cannot change the tool name.",
       );
     }
@@ -74,18 +70,11 @@ export const createPostgresDrizzleClientToolDispatchRepository = ({
           outputJson: command.outputJson,
           completedAt: command.now,
         })
-        .where(
-          clientToolIdentity(
-            command,
-            eq(clientToolDispatches.state, "dispatched"),
-          ),
-        )
+        .where(clientToolIdentity(command, eq(clientToolDispatches.state, "dispatched")))
         .returning();
       if (accepted[0]) {
         return {
-          record: toSubmittedClientToolDispatchRecord(
-            toClientToolDispatchRecord(accepted[0]),
-          ),
+          record: toSubmittedClientToolDispatchRecord(toClientToolDispatchRecord(accepted[0])),
           disposition: "accepted" as const,
         };
       }
@@ -93,18 +82,11 @@ export const createPostgresDrizzleClientToolDispatchRepository = ({
       const late = await transaction
         .update(clientToolDispatches)
         .set({ state: "late", lateResultAt: command.now })
-        .where(
-          clientToolIdentity(
-            command,
-            eq(clientToolDispatches.state, "timed_out"),
-          ),
-        )
+        .where(clientToolIdentity(command, eq(clientToolDispatches.state, "timed_out")))
         .returning();
       if (late[0]) {
         return {
-          record: toSubmittedClientToolDispatchRecord(
-            toClientToolDispatchRecord(late[0]),
-          ),
+          record: toSubmittedClientToolDispatchRecord(toClientToolDispatchRecord(late[0])),
           disposition: "late" as const,
         };
       }
@@ -131,10 +113,7 @@ type ClientToolIdentity = {
   readonly toolCallId: string;
 };
 
-const clientToolIdentity = (
-  command: ClientToolIdentity,
-  state?: ReturnType<typeof eq>,
-) =>
+const clientToolIdentity = (command: ClientToolIdentity, state?: ReturnType<typeof eq>) =>
   and(
     eq(clientToolDispatches.workspaceId, command.workspaceId),
     eq(clientToolDispatches.assistantTurnId, command.assistantTurnId),
@@ -142,10 +121,7 @@ const clientToolIdentity = (
     state,
   );
 
-const selectClientToolDispatch = async (
-  db: ClientToolDb,
-  command: ClientToolIdentity,
-) => {
+const selectClientToolDispatch = async (db: ClientToolDb, command: ClientToolIdentity) => {
   const rows = await db
     .select()
     .from(clientToolDispatches)
@@ -166,12 +142,9 @@ const claimClientToolDispatch = async (
   const claimed = await db
     .update(clientToolDispatches)
     .set({ state, outputJson, completedAt: command.now })
-    .where(
-      clientToolIdentity(command, eq(clientToolDispatches.state, "dispatched")),
-    )
+    .where(clientToolIdentity(command, eq(clientToolDispatches.state, "dispatched")))
     .returning();
-  if (claimed[0])
-    return { record: toClientToolDispatchRecord(claimed[0]), claimed: true };
+  if (claimed[0]) return { record: toClientToolDispatchRecord(claimed[0]), claimed: true };
 
   const current = await selectClientToolDispatch(db, command);
   return current[0] ? { record: current[0], claimed: false } : undefined;
@@ -186,7 +159,7 @@ const toSubmittedClientToolDispatchRecord = (
     record.state === "timed_out"
   ) {
     throw new DbRepositoryError(
-      "invalid_transition",
+      DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION,
       "A submitted client-tool result must resolve to a stored terminal model output.",
     );
   }

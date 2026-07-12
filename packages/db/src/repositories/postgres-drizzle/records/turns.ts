@@ -1,9 +1,10 @@
 import { and, eq, isNull, or } from "drizzle-orm";
 
+import { SIDECHAT_UNIQUE_INDEXES } from "#drizzle/constraint-names";
 import { assistantTurns, turnContextSnapshots } from "#drizzle/schema";
 import type { RequestId, WorkspaceId } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
-import { DbRepositoryError } from "../../errors.js";
+import { DB_REPOSITORY_ERROR_CODES, DbRepositoryError } from "../../errors.js";
 import { uniqueViolationConstraint } from "../pg-errors.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import {
@@ -88,14 +89,20 @@ export const createPostgresDrizzleTurnRepository = ({
         .returning();
       return result(
         toAssistantTurnRecord(
-          one(rows, "record_not_found", "Assistant turn insert returned no row."),
+          one(
+            rows,
+            DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
+            "Assistant turn insert returned no row.",
+          ),
         ),
         true,
       );
     } catch (error) {
       const constraint = uniqueViolationConstraint(error);
-      const isRequestConflict = constraint === "assistant_turns_workspace_request_uq";
-      const isBusyConflict = constraint === "assistant_turns_one_running_per_conversation_uq";
+      const isRequestConflict =
+        constraint === SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_WORKSPACE_REQUEST;
+      const isBusyConflict =
+        constraint === SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_ONE_RUNNING_PER_CONVERSATION;
       if (isRequestConflict || isBusyConflict) {
         // One concurrent insert can violate BOTH indexes; Postgres names only the
         // one it checked first. Resolve by request identity, not by that name: an
@@ -105,12 +112,12 @@ export const createPostgresDrizzleTurnRepository = ({
         if (raced[0]) return result(toAssistantTurnRecord(raced[0]), false);
         if (isBusyConflict) {
           throw new DbRepositoryError(
-            "conversation_busy",
+            DB_REPOSITORY_ERROR_CODES.CONVERSATION_BUSY,
             "A turn is already running for this conversation.",
           );
         }
         throw new DbRepositoryError(
-          "record_not_found",
+          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
           "Assistant turn request conflict did not return an existing record.",
         );
       }
@@ -137,9 +144,9 @@ export const createPostgresDrizzleTurnRepository = ({
         // The one-run-per-turn partial unique index rejects binding a run id that
         // already belongs to another turn. Map it to the typed transition error
         // rather than leaking a raw driver error to the port.
-        if (uniqueViolationConstraint(error) === "assistant_turns_run_uq") {
+        if (uniqueViolationConstraint(error) === SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_RUN) {
           throw new DbRepositoryError(
-            "invalid_transition",
+            DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION,
             "This Workflow run is already bound to a different turn.",
           );
         }
@@ -161,12 +168,12 @@ export const createPostgresDrizzleTurnRepository = ({
       .limit(1);
     if (current[0]) {
       throw new DbRepositoryError(
-        "invalid_transition",
+        DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION,
         "An assistant turn cannot be rebound to a different Workflow run.",
       );
     }
     throw new DbRepositoryError(
-      "record_not_found",
+      DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
       "Assistant turn does not exist in the requested workspace.",
     );
   },
@@ -213,7 +220,7 @@ export const createPostgresDrizzleTurnRepository = ({
       record: toAssistantTurnRecord(
         one(
           current,
-          "record_not_found",
+          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
           "Assistant turn does not exist in the requested workspace.",
         ),
       ),
@@ -254,7 +261,7 @@ export const createPostgresDrizzleTurnRepository = ({
       toContextSnapshotRecord(
         one(
           existing,
-          "record_not_found",
+          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
           "Context snapshot conflict did not return an existing record.",
         ),
       ),

@@ -4,6 +4,7 @@ import { usageRecords } from "#drizzle/schema";
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import { toUsageRecord } from "./records.js";
+import { DB_REPOSITORY_ERROR_CODES } from "../../errors.js";
 import { one, optional, result } from "../../repository-utils.js";
 
 /** Insert one usage record per (turn, runtime step); idempotent on conflict. */
@@ -47,7 +48,11 @@ export const recordUsage =
       .limit(1);
     return result(
       toUsageRecord(
-        one(existing, "record_not_found", "Usage conflict did not return an existing record."),
+        one(
+          existing,
+          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
+          "Usage conflict did not return an existing record.",
+        ),
       ),
       false,
     );

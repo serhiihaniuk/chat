@@ -1,11 +1,20 @@
-export type DbRepositoryErrorCode =
-  | "cross_tenant_access_denied"
-  | "record_not_found"
-  | "invalid_transition"
+/**
+ * The typed failure codes a repository raises. Named here so call sites and tests
+ * reference the constant instead of repeating the string literal, and the union
+ * type stays derived from a single source.
+ */
+export const DB_REPOSITORY_ERROR_CODES = {
+  CROSS_TENANT_ACCESS_DENIED: "cross_tenant_access_denied",
+  RECORD_NOT_FOUND: "record_not_found",
+  INVALID_TRANSITION: "invalid_transition",
   // A second turn tried to start while one is already running for the
   // conversation. Raised when the `assistant_turns_one_running_per_conversation_uq`
   // partial unique index rejects the concurrent insert (the race-safe busy guard).
-  | "conversation_busy";
+  CONVERSATION_BUSY: "conversation_busy",
+} as const;
+
+export type DbRepositoryErrorCode =
+  (typeof DB_REPOSITORY_ERROR_CODES)[keyof typeof DB_REPOSITORY_ERROR_CODES];
 
 export class DbRepositoryError extends Error {
   constructor(

@@ -2,6 +2,7 @@ import { and, eq, type SQL } from "drizzle-orm";
 
 import { conversations } from "#drizzle/schema";
 import type { SidechatRepositories } from "../../contract.js";
+import { DB_REPOSITORY_ERROR_CODES } from "../../errors.js";
 import { one, result } from "../../repository-utils.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import { toConversationRecord } from "./records.js";
@@ -56,7 +57,11 @@ export const createOrGetConversationRecord =
     );
     return result(
       toConversationRecord(
-        one(existing, "record_not_found", "Conversation conflict returned no existing record."),
+        one(
+          existing,
+          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
+          "Conversation conflict returned no existing record.",
+        ),
       ),
       false,
     );

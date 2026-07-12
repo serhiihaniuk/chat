@@ -18,6 +18,7 @@ import {
   type HostCommandResultStatus,
   type ToolInvocationStatus,
 } from "#schema-contract";
+import { SIDECHAT_UNIQUE_INDEXES } from "./constraint-names.js";
 import type {
   assistantTurns,
   conversations,
@@ -71,7 +72,10 @@ export const defineInteractionTables = ({
       }),
     },
     (table) => [
-      uniqueIndex("tool_invocations_turn_call_uq").on(table.assistantTurnId, table.toolCallId),
+      uniqueIndex(SIDECHAT_UNIQUE_INDEXES.TOOL_INVOCATIONS_TURN_CALL).on(
+        table.assistantTurnId,
+        table.toolCallId,
+      ),
       check("tool_invocations_status_check", inList("status", TOOL_INVOCATION_STATUSES)),
     ],
   );
@@ -103,7 +107,7 @@ export const defineInteractionTables = ({
       }),
     },
     (table) => [
-      uniqueIndex("client_tool_dispatches_turn_call_uq").on(
+      uniqueIndex(SIDECHAT_UNIQUE_INDEXES.CLIENT_TOOL_DISPATCHES_TURN_CALL).on(
         table.assistantTurnId,
         table.toolCallId,
       ),
@@ -133,7 +137,7 @@ export const defineInteractionTables = ({
       }),
     },
     (table) => [
-      uniqueIndex("host_command_results_turn_command_uq").on(
+      uniqueIndex(SIDECHAT_UNIQUE_INDEXES.HOST_COMMAND_RESULTS_TURN_COMMAND).on(
         table.assistantTurnId,
         table.commandId,
       ),

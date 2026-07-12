@@ -25,7 +25,7 @@ import type {
   ToolInvocationRecord,
   UsageRecord,
 } from "#schema-contract";
-import { DbRepositoryError } from "../../errors.js";
+import { DB_REPOSITORY_ERROR_CODES, DbRepositoryError } from "../../errors.js";
 import { isoTimestamp, one, optionalIsoTimestamp } from "../../repository-utils.js";
 
 export const toConversationRecord = (
@@ -208,7 +208,7 @@ const requireConversation = async (
           ),
         )
         .limit(1),
-      "record_not_found",
+      DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
       "Conversation does not exist in the requested workspace.",
     ),
   );
@@ -222,7 +222,7 @@ export const requireSubjectConversation = async (
   const conversation = await requireConversation(db, workspaceId, conversationId);
   if (conversation.subjectId !== subjectId) {
     throw new DbRepositoryError(
-      "cross_tenant_access_denied",
+      DB_REPOSITORY_ERROR_CODES.CROSS_TENANT_ACCESS_DENIED,
       "Conversation belongs to a different subject.",
     );
   }

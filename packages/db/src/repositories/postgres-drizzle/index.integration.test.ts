@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import { toMessageId } from "#schema-contract";
+import { DB_REPOSITORY_ERROR_CODES } from "#repositories/errors";
 import {
   createPostgresDrizzleSidechatRepositories,
   type PostgresDrizzleSidechatRepositories,
@@ -242,7 +243,7 @@ describe("postgres drizzle repositories", () => {
           runId: "run_globally_unique",
           now: NOW,
         }),
-      ).rejects.toMatchObject({ code: "invalid_transition" });
+      ).rejects.toMatchObject({ code: DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION });
     } finally {
       await repositories.close();
     }

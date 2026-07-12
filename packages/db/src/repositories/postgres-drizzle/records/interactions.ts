@@ -1,10 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 
-import {
-  auditEvents,
-  hostCommandResults,
-  toolInvocations,
-} from "#drizzle/schema";
+import { auditEvents, hostCommandResults, toolInvocations } from "#drizzle/schema";
 import { HOST_COMMAND_RESULT_NOTIFY_CHANNEL } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
@@ -13,6 +9,7 @@ import {
   toHostCommandResultRecord,
   toToolInvocationRecord,
 } from "./records.js";
+import { DB_REPOSITORY_ERROR_CODES } from "../../errors.js";
 import { one, optional, result } from "../../repository-utils.js";
 
 export const createPostgresDrizzleInteractionRepository = ({
@@ -20,10 +17,7 @@ export const createPostgresDrizzleInteractionRepository = ({
   ids,
 }: PostgresDrizzleRepositoryContext): Pick<
   SidechatRepositories,
-  | "appendAuditEvent"
-  | "findHostCommandResult"
-  | "recordHostCommandResult"
-  | "recordToolInvocation"
+  "appendAuditEvent" | "findHostCommandResult" | "recordHostCommandResult" | "recordToolInvocation"
 > => ({
   recordToolInvocation: async (command) => {
     const existing = await db
@@ -40,8 +34,7 @@ export const createPostgresDrizzleInteractionRepository = ({
     const rows = await db
       .insert(toolInvocations)
       .values({
-        toolInvocationId:
-          existing[0]?.toolInvocationId ?? ids.next("tool_invocation"),
+        toolInvocationId: existing[0]?.toolInvocationId ?? ids.next("tool_invocation"),
         assistantTurnId: command.assistantTurnId,
         workspaceId: command.workspaceId,
         runtimeStepIndex: command.runtimeStepIndex,
@@ -76,7 +69,7 @@ export const createPostgresDrizzleInteractionRepository = ({
       toToolInvocationRecord(
         one(
           rows,
-          "record_not_found",
+          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
           "Tool invocation upsert returned no row.",
         ),
       ),
@@ -116,10 +109,7 @@ export const createPostgresDrizzleInteractionRepository = ({
           resolvedAt: optional(command.resolvedAt),
         })
         .onConflictDoUpdate({
-          target: [
-            hostCommandResults.assistantTurnId,
-            hostCommandResults.commandId,
-          ],
+          target: [hostCommandResults.assistantTurnId, hostCommandResults.commandId],
           set: {
             commandType: command.commandType,
             resourceId: optional(command.resourceId),
@@ -133,19 +123,17 @@ export const createPostgresDrizzleInteractionRepository = ({
         .returning();
       if (command.resolvedAt !== undefined) {
         await transaction.execute(
-          sql`select pg_notify(${HOST_COMMAND_RESULT_NOTIFY_CHANNEL}, ${JSON.stringify(
-            {
-              assistantTurnId: command.assistantTurnId,
-              commandId: command.commandId,
-            },
-          )})`,
+          sql`select pg_notify(${HOST_COMMAND_RESULT_NOTIFY_CHANNEL}, ${JSON.stringify({
+            assistantTurnId: command.assistantTurnId,
+            commandId: command.commandId,
+          })})`,
         );
       }
       return result(
         toHostCommandResultRecord(
           one(
             rows,
-            "record_not_found",
+            DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
             "Host command result upsert returned no row.",
           ),
         ),
@@ -184,7 +172,11 @@ export const createPostgresDrizzleInteractionRepository = ({
       .returning();
     return result(
       toAuditEventRecord(
-        one(rows, "record_not_found", "Audit event insert returned no row."),
+        one(
+          rows,
+          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
+          "Audit event insert returned no row.",
+        ),
       ),
       true,
     );

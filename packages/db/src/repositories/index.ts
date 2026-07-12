@@ -1,4 +1,8 @@
-export { DbRepositoryError, type DbRepositoryErrorCode } from "./errors.js";
+export {
+  DB_REPOSITORY_ERROR_CODES,
+  DbRepositoryError,
+  type DbRepositoryErrorCode,
+} from "./errors.js";
 export {
   isRepositoryAdapterKind,
   REPOSITORY_ADAPTER_KINDS,

@@ -11,6 +11,7 @@ import {
   type UserMessageId,
 } from "#schema-contract";
 import type { SidechatRepositories } from "#repositories/contract";
+import { DB_REPOSITORY_ERROR_CODES } from "#repositories/errors";
 import {
   actorId,
   appendUserMessage,
@@ -25,8 +26,7 @@ import {
 /** The first text part of a message body — the v7 durable `parts` shape. */
 const textOf = (message: MessageRecord): string | undefined => {
   for (const part of message.parts) {
-    if (part["type"] === "text" && typeof part["text"] === "string")
-      return part["text"];
+    if (part["type"] === "text" && typeof part["text"] === "string") return part["text"];
   }
   return undefined;
 };
@@ -83,9 +83,7 @@ export const sidechatRepositoryContract = (
         });
 
         expect(repeated.inserted).toBe(false);
-        expect(repeated.record.conversationId).toBe(
-          conversation.conversationId,
-        );
+        expect(repeated.record.conversationId).toBe(conversation.conversationId);
         // legal_hold rides through create/read; a fresh conversation is not held.
         expect(repeated.record.legalHold).toBe(false);
 
@@ -102,16 +100,8 @@ export const sidechatRepositoryContract = (
         expect(explicit.record.conversationId).toBe(explicitConversationId);
 
         // The same messageId replays idempotently: one row, same id, no re-insert.
-        const first = await appendUserMessage(
-          repositories,
-          scope,
-          conversation.conversationId,
-        );
-        const second = await appendUserMessage(
-          repositories,
-          scope,
-          conversation.conversationId,
-        );
+        const first = await appendUserMessage(repositories, scope, conversation.conversationId);
+        const second = await appendUserMessage(repositories, scope, conversation.conversationId);
 
         expect(first.inserted).toBe(true);
         expect(second.inserted).toBe(false);
@@ -126,11 +116,7 @@ export const sidechatRepositoryContract = (
       const scope = nextScope();
       try {
         const conversation = await createConversation(repositories, scope);
-        await appendUserMessage(
-          repositories,
-          scope,
-          conversation.conversationId,
-        );
+        await appendUserMessage(repositories, scope, conversation.conversationId);
 
         await expect(
           repositories.readConversationHistory({
@@ -140,7 +126,7 @@ export const sidechatRepositoryContract = (
             limit: 10,
           }),
         ).rejects.toMatchObject({
-          code: "cross_tenant_access_denied",
+          code: DB_REPOSITORY_ERROR_CODES.CROSS_TENANT_ACCESS_DENIED,
         });
 
         const reset = await repositories.resetConversation({
@@ -194,12 +180,7 @@ export const sidechatRepositoryContract = (
         const userMessageId = toUserMessageId(userMessage.record.messageId);
 
         const started = await repositories.startAssistantTurn(
-          startCommand(
-            scope,
-            conversation.conversationId,
-            userMessageId,
-            "request_1",
-          ),
+          startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
         );
         expect(started.inserted).toBe(true);
         expect(started.record.status).toBe("running");
@@ -207,30 +188,18 @@ export const sidechatRepositoryContract = (
         // Same request id: the SELECT-first path returns the running turn as an
         // idempotent replay — it must not be mistaken for a busy conversation.
         const replay = await repositories.startAssistantTurn(
-          startCommand(
-            scope,
-            conversation.conversationId,
-            userMessageId,
-            "request_1",
-          ),
+          startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
         );
         expect(replay.inserted).toBe(false);
-        expect(replay.record.assistantTurnId).toBe(
-          started.record.assistantTurnId,
-        );
+        expect(replay.record.assistantTurnId).toBe(started.record.assistantTurnId);
 
         // A different request id while the first is still running trips the
         // one-running-per-conversation partial unique index — the busy guard.
         await expect(
           repositories.startAssistantTurn(
-            startCommand(
-              scope,
-              conversation.conversationId,
-              userMessageId,
-              "request_2",
-            ),
+            startCommand(scope, conversation.conversationId, userMessageId, "request_2"),
           ),
-        ).rejects.toMatchObject({ code: "conversation_busy" });
+        ).rejects.toMatchObject({ code: DB_REPOSITORY_ERROR_CODES.CONVERSATION_BUSY });
       } finally {
         await closeIfNeeded(repositories);
       }
@@ -258,26 +227,14 @@ export const sidechatRepositoryContract = (
         });
         const userMessageId = toUserMessageId(userMessage.record.messageId);
         const turn = await repositories.startAssistantTurn(
-          startCommand(
-            scope,
-            conversation.conversationId,
-            userMessageId,
-            "request_1",
-          ),
+          startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
         );
         const repeatedTurn = await repositories.startAssistantTurn(
-          startCommand(
-            scope,
-            conversation.conversationId,
-            userMessageId,
-            "request_1",
-          ),
+          startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
         );
 
         expect(repeatedTurn.inserted).toBe(false);
-        expect(repeatedTurn.record.assistantTurnId).toBe(
-          turn.record.assistantTurnId,
-        );
+        expect(repeatedTurn.record.assistantTurnId).toBe(turn.record.assistantTurnId);
         expectCanonicalOmittedFields(turn.record, [
           "assistantMessageId",
           "runId",
@@ -359,9 +316,7 @@ export const sidechatRepositoryContract = (
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.record.assistantTurnId,
           status: "completed",
-          assistantMessageId: toAssistantMessageId(
-            assistantMessage.record.messageId,
-          ),
+          assistantMessageId: toAssistantMessageId(assistantMessage.record.messageId),
           finishReason: "stop",
           usage: {
             inputTokens: 1,
@@ -403,10 +358,7 @@ export const sidechatRepositoryContract = (
         expect(tool.record.outputHash).toBe("output_hash");
         expectCanonicalOmittedFields(tool.record, ["errorCode"]);
         expect(host.record.status).toBe("emitted");
-        expectCanonicalOmittedFields(host.record, [
-          "resultRedactedJson",
-          "resolvedAt",
-        ]);
+        expectCanonicalOmittedFields(host.record, ["resultRedactedJson", "resolvedAt"]);
         expect(audit.record.eventType).toBe("conversation.created");
         expect(completed.claimed).toBe(true);
         expect(completed.record.status).toBe("completed");

@@ -12,6 +12,7 @@ import {
   toConversationRecord,
   toMessageRecord,
 } from "./records.js";
+import { DB_REPOSITORY_ERROR_CODES } from "../../errors.js";
 import { one, result } from "../../repository-utils.js";
 
 type ConversationRepository = Pick<
@@ -93,7 +94,11 @@ const createAppendMessage = (
     const existing = await readMessageById(context, command);
     return result(
       toMessageRecord(
-        one(existing, "record_not_found", "Message id conflict did not return an existing record."),
+        one(
+          existing,
+          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
+          "Message id conflict did not return an existing record.",
+        ),
       ),
       false,
     );
@@ -279,7 +284,7 @@ const createResetConversation =
       )
       .returning();
     return toConversationRecord(
-      one(rows, "record_not_found", "Conversation reset did not update."),
+      one(rows, DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND, "Conversation reset did not update."),
     );
   };
 

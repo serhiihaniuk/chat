@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { isRecord, parseJsonRecord } from "@side-chat/shared";
 import { describe, expect, it } from "vitest";
 
+import { SIDECHAT_UNIQUE_INDEXES } from "./constraint-names.js";
 import { sidechatTables } from "./schema.js";
 
 const migrationsDir = new URL("../../migrations/", import.meta.url);
@@ -77,14 +78,14 @@ describe("sidechat drizzle schema and migration", () => {
     // Partial unique index over only running turns: it is both the race-safe
     // one-running-per-conversation busy guard and the in-flight lookup the resume
     // and activity reads scan — never the full history.
-    expect(migration).toMatch(
-      /CREATE UNIQUE INDEX "assistant_turns_one_running_per_conversation_uq" ON "sidechat"\."assistant_turns" USING btree \("conversation_id"\) WHERE status = 'running';/u,
-    );
-    expect(migration).toMatch(
-      /CREATE UNIQUE INDEX "assistant_turns_run_uq" ON "sidechat"\."assistant_turns" USING btree \("run_id"\) WHERE run_id is not null;/u,
+    expect(migration).toContain(
+      `CREATE UNIQUE INDEX "${SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_ONE_RUNNING_PER_CONVERSATION}" ON "sidechat"."assistant_turns" USING btree ("conversation_id") WHERE status = 'running';`,
     );
     expect(migration).toContain(
-      'CREATE UNIQUE INDEX "client_tool_dispatches_turn_call_uq" ON "sidechat"."client_tool_dispatches" USING btree ("assistant_turn_id","tool_call_id")',
+      `CREATE UNIQUE INDEX "${SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_RUN}" ON "sidechat"."assistant_turns" USING btree ("run_id") WHERE run_id is not null;`,
+    );
+    expect(migration).toContain(
+      `CREATE UNIQUE INDEX "${SIDECHAT_UNIQUE_INDEXES.CLIENT_TOOL_DISPATCHES_TURN_CALL}" ON "sidechat"."client_tool_dispatches" USING btree ("assistant_turn_id","tool_call_id")`,
     );
     // Workspace-scoped usage summary must not full-scan an ever-growing table.
     expect(migration).toContain(
@@ -96,7 +97,7 @@ describe("sidechat drizzle schema and migration", () => {
     );
     // The unique index serves history/`max()` reads scanned backwards, so the
     // same-columns plain index is gone, avoiding duplicate write work per insert.
-    expect(migration).toContain('"messages_conversation_sequence_uq"');
+    expect(migration).toContain(`"${SIDECHAT_UNIQUE_INDEXES.MESSAGES_CONVERSATION_SEQUENCE}"`);
     expect(migration).not.toContain("messages_conversation_sequence_desc_idx");
   });
 

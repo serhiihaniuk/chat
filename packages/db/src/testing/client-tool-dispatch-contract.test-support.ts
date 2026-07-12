@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { SidechatRepositories } from "#repositories/contract";
-import {
-  closeIfNeeded,
-  now,
-  startTurn,
-  workspaceId,
-} from "./repository-contract.helpers.js";
+import { DB_REPOSITORY_ERROR_CODES } from "#repositories/errors";
+import { closeIfNeeded, now, startTurn, workspaceId } from "./repository-contract.helpers.js";
 
 type RepositoryFactory = () => SidechatRepositories;
 
@@ -16,8 +12,7 @@ export const clientToolDispatchRepositoryContract = (
   createRepositories: RepositoryFactory,
 ): void => {
   let scopeIndex = 0;
-  const nextScope = () =>
-    `${label.replaceAll(/\W+/gu, "_")}_client_${++scopeIndex}`;
+  const nextScope = () => `${label.replaceAll(/\W+/gu, "_")}_client_${++scopeIndex}`;
 
   describe("client tool dispatch repository", () => {
     it("creates one dispatch row for a replayed tool call", async () => {
@@ -64,7 +59,7 @@ export const clientToolDispatchRepositoryContract = (
         });
         await expect(
           repositories.bindTurnRun({ ...command, runId: `${scope}_run_other` }),
-        ).rejects.toMatchObject({ code: "invalid_transition" });
+        ).rejects.toMatchObject({ code: DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION });
       } finally {
         await closeIfNeeded(repositories);
       }

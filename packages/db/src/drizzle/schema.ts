@@ -20,6 +20,7 @@ import {
   type ConversationStatus,
   type MessageRole,
 } from "#schema-contract";
+import { SIDECHAT_UNIQUE_INDEXES } from "./constraint-names.js";
 import { defineInteractionTables } from "./interaction-schema.js";
 
 const sidechat = pgSchema("sidechat");
@@ -59,7 +60,7 @@ export const conversations = sidechat.table(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex("conversations_workspace_subject_key_uq").on(
+    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.CONVERSATIONS_WORKSPACE_SUBJECT_KEY).on(
       table.workspaceId,
       table.subjectId,
       table.conversationKey,
@@ -97,7 +98,10 @@ export const messages = sidechat.table(
   (table) => [
     // History reads (`sequence_index DESC`) and the append `max(sequence_index)` are
     // both served by the unique index below scanned backwards (no second index needed).
-    uniqueIndex("messages_conversation_sequence_uq").on(table.conversationId, table.sequenceIndex),
+    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.MESSAGES_CONVERSATION_SEQUENCE).on(
+      table.conversationId,
+      table.sequenceIndex,
+    ),
     check("messages_role_check", inList("role", MESSAGE_ROLES)),
   ],
 );
@@ -147,8 +151,11 @@ export const assistantTurns = sidechat.table(
     }),
   },
   (table) => [
-    uniqueIndex("assistant_turns_workspace_request_uq").on(table.workspaceId, table.requestId),
-    uniqueIndex("assistant_turns_run_uq")
+    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_WORKSPACE_REQUEST).on(
+      table.workspaceId,
+      table.requestId,
+    ),
+    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_RUN)
       .on(table.runId)
       .where(sql`run_id is not null`),
     index("assistant_turns_conversation_started_idx").on(table.conversationId, table.startedAt),
@@ -156,7 +163,7 @@ export const assistantTurns = sidechat.table(
     // race-safe busy guard: a concurrent second turn hits a unique violation
     // instead of a check-then-act window. Partial, so it covers only the tiny
     // in-flight working set and terminal turns never collide.
-    uniqueIndex("assistant_turns_one_running_per_conversation_uq")
+    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_ONE_RUNNING_PER_CONVERSATION)
       .on(table.conversationId)
       .where(sql`status = 'running'`),
     check("assistant_turns_status_check", inList("status", ASSISTANT_TURN_STATUSES)),
@@ -179,7 +186,7 @@ export const turnContextSnapshots = sidechat.table(
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex("turn_context_snapshots_turn_uq").on(table.assistantTurnId),
+    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.TURN_CONTEXT_SNAPSHOTS_TURN).on(table.assistantTurnId),
     index("turn_context_snapshots_workspace_hash_idx").on(table.workspaceId, table.hostContextHash),
   ],
 );
@@ -205,7 +212,10 @@ export const usageRecords = sidechat.table(
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex("usage_records_turn_step_uq").on(table.assistantTurnId, table.runtimeStepIndex),
+    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.USAGE_RECORDS_TURN_STEP).on(
+      table.assistantTurnId,
+      table.runtimeStepIndex,
+    ),
     // `readUsageSummary` sums by workspace; without this the aggregate full-scans a
     // table that grows one row per runtime step forever. This bounds the scan to a
     // workspace's rows — a rollup table is the next step past ~10^7 rows (see
