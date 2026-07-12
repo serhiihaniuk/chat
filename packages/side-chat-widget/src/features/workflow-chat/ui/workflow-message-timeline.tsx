@@ -1,9 +1,9 @@
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { FileText } from "lucide-react";
 
 import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
-import { SourcesFold } from "#shared/ui/activity/citations";
+import { SourcesFold, type CitationSource } from "#shared/ui/activity/citations";
 import {
   BlockedNotice,
   CancelledNotice,
@@ -11,7 +11,7 @@ import {
   TruncatedNotice,
 } from "#shared/ui/error-notice";
 import { Message } from "#shared/ui/message";
-import { Reasoning } from "#shared/ui/reasoning";
+import { Reasoning, type ReasoningItem } from "#shared/ui/reasoning";
 
 import {
   projectWorkflowMessageParts,
@@ -23,7 +23,11 @@ import type {
   WorkflowApprovalDecisions,
   WorkflowChatTerminal,
 } from "../model/use-workflow-widget-chat.js";
-import { WorkflowToolPresentation } from "./workflow-tool-presentation.js";
+import { usesApprovalCard, WorkflowToolPresentation } from "./workflow-tool-presentation.js";
+
+type ToolItem = Extract<WorkflowTimelineItem, { kind: "tool" }>;
+type TextItem = Extract<WorkflowTimelineItem, { kind: "text" }>;
+type FileItem = Extract<WorkflowTimelineItem, { kind: "file" }>;
 
 export function WorkflowMessageTimeline({
   approvalDecisions,
@@ -47,34 +51,37 @@ export function WorkflowMessageTimeline({
     (terminal.messageId === undefined || terminal.messageId === message.id)
       ? terminal
       : undefined;
-  const items = projectWorkflowMessageParts(message, messageTerminal);
-  const activeTerminal = messageTerminal;
+  const role = message.role === "user" ? "user" : "assistant";
 
   return (
     <div
       data-slot="workflow-message-timeline"
       className="flex w-full flex-col gap-(--message-stack-gap)"
     >
-      {messageTerminal?.kind === "blocked" && message.role === "assistant" ? (
+      {messageTerminal?.kind === "blocked" && role === "assistant" ? (
         <BlockedNotice message={labels.noticeBlocked} />
       ) : (
-        <TimelineItems
-          isStreaming={isStreaming}
-          items={items}
-          labels={labels}
+        <MessageBody
           approvalDecisions={approvalDecisions}
+          isStreaming={isStreaming}
+          items={projectWorkflowMessageParts(message, messageTerminal)}
+          labels={labels}
           onApprovalDecision={onApprovalDecision}
-          role={message.role === "user" ? "user" : "assistant"}
+          role={role}
         />
       )}
-      {activeTerminal && (
-        <TerminalPresentation onRetry={onRetry} terminal={activeTerminal} />
-      )}
+      {messageTerminal && <TerminalPresentation onRetry={onRetry} terminal={messageTerminal} />}
     </div>
   );
 }
 
-function TimelineItems({
+/**
+ * Reasoning and tool activity fold into one collapsible trace, then the answer,
+ * its sources, and any files — the same composition the legacy message view uses,
+ * so the native branch reads identically without new layout. A tool awaiting a
+ * decision stays on its own as the interactive approval card.
+ */
+function MessageBody({
   approvalDecisions,
   isStreaming,
   items,
@@ -82,113 +89,157 @@ function TimelineItems({
   onApprovalDecision,
   role,
 }: {
+  readonly approvalDecisions: WorkflowApprovalDecisions | undefined;
   readonly isStreaming: boolean;
   readonly items: readonly WorkflowTimelineItem[];
   readonly labels: WidgetLabels;
-  readonly approvalDecisions: WorkflowApprovalDecisions | undefined;
   readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
   readonly role: "user" | "assistant";
 }): ReactElement {
-  return (
-    <>
-      {items.length === 0 && role === "assistant" ? (
-        <Message
-          mode={isStreaming ? "streaming" : "static"}
-          role="assistant"
-          text=""
-        />
-      ) : null}
-      {items.map((item) => (
-        <TimelineItem
-          approvalDecisions={approvalDecisions}
-          isStreaming={isStreaming}
-          item={item}
-          key={item.id}
-          labels={labels}
-          onApprovalDecision={onApprovalDecision}
-        />
-      ))}
-    </>
-  );
-}
-
-function TimelineItem({
-  approvalDecisions,
-  isStreaming,
-  item,
-  labels,
-  onApprovalDecision,
-}: {
-  readonly isStreaming: boolean;
-  readonly item: WorkflowTimelineItem;
-  readonly labels: WidgetLabels;
-  readonly approvalDecisions: WorkflowApprovalDecisions | undefined;
-  readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
-}): ReactElement {
-  if (item.kind === "text") {
-    return (
-      <Message
-        mode={isStreaming || item.streaming ? "streaming" : "static"}
-        role={item.role}
-        text={item.text}
-      />
-    );
-  }
-  if (item.kind === "reasoning") {
-    return <WorkflowReasoningPresentation item={item} labels={labels} />;
-  }
-  if (item.kind === "tool") {
-    return (
+  const { answers, approvals, files, sources, trace } = groupTimelineItems(
+    items,
+    approvalDecisions,
+    (item) => (
       <WorkflowToolPresentation
         approvalDecisions={approvalDecisions}
         item={item}
         labels={labels}
         onApprovalDecision={onApprovalDecision}
       />
-    );
-  }
-  if (item.kind === "source") {
-    return <SourcesFold sources={[{ label: item.label, url: item.url }]} />;
-  }
-  return <FilePresentation item={item} />;
+    ),
+  );
+  const isEmpty =
+    trace.length === 0 &&
+    approvals.length === 0 &&
+    answers.length === 0 &&
+    sources.length === 0 &&
+    files.length === 0;
+
+  return (
+    <>
+      {trace.length > 0 && (
+        <ActivityTrace
+          hasAnswer={answers.length > 0}
+          isStreaming={isStreaming}
+          items={trace}
+          labels={labels}
+        />
+      )}
+      {approvals.map((item) => (
+        <WorkflowToolPresentation
+          approvalDecisions={approvalDecisions}
+          item={item}
+          key={item.id}
+          labels={labels}
+          onApprovalDecision={onApprovalDecision}
+        />
+      ))}
+      {answers.map((item) => (
+        <Message
+          key={item.id}
+          mode={isStreaming || item.streaming ? "streaming" : "static"}
+          role={item.role}
+          text={item.text}
+        />
+      ))}
+      {sources.length > 0 && <SourcesFold sources={sources} />}
+      {files.map((item) => (
+        <FilePresentation item={item} key={item.id} />
+      ))}
+      {isEmpty && role === "assistant" ? (
+        <Message mode={isStreaming ? "streaming" : "static"} role="assistant" text="" />
+      ) : null}
+    </>
+  );
 }
 
-function WorkflowReasoningPresentation({
-  item,
+type TimelineGroups = Readonly<{
+  trace: readonly ReasoningItem[];
+  approvals: readonly ToolItem[];
+  answers: readonly TextItem[];
+  sources: readonly CitationSource[];
+  files: readonly FileItem[];
+}>;
+
+const isTextItem = (item: WorkflowTimelineItem): item is TextItem => item.kind === "text";
+const isFileItem = (item: WorkflowTimelineItem): item is FileItem => item.kind === "file";
+
+// Sort native parts into the legacy layout: one activity trace (reasoning plus
+// non-approval tool rows), interactive approval cards, answers, sources, and files.
+function groupTimelineItems(
+  items: readonly WorkflowTimelineItem[],
+  approvalDecisions: WorkflowApprovalDecisions | undefined,
+  renderTool: (item: ToolItem) => ReactElement,
+): TimelineGroups {
+  return {
+    trace: collectTrace(items, approvalDecisions, renderTool),
+    approvals: items.filter(
+      (item): item is ToolItem => item.kind === "tool" && usesApprovalCard(item, approvalDecisions),
+    ),
+    answers: items.filter(isTextItem),
+    sources: collectSources(items),
+    files: items.filter(isFileItem),
+  };
+}
+
+// Reasoning thoughts and non-approval tool rows, kept in source order.
+function collectTrace(
+  items: readonly WorkflowTimelineItem[],
+  approvalDecisions: WorkflowApprovalDecisions | undefined,
+  renderTool: (item: ToolItem) => ReactElement,
+): ReasoningItem[] {
+  const trace: ReasoningItem[] = [];
+  for (const item of items) {
+    if (item.kind === "reasoning") {
+      trace.push({ kind: "thought", id: item.id, text: item.text });
+    } else if (item.kind === "tool" && !usesApprovalCard(item, approvalDecisions)) {
+      trace.push({ kind: "node", id: item.id, node: renderTool(item) });
+    }
+  }
+  return trace;
+}
+
+function collectSources(items: readonly WorkflowTimelineItem[]): CitationSource[] {
+  const sources: CitationSource[] = [];
+  for (const item of items) {
+    if (item.kind === "source") sources.push({ label: item.label, url: item.url });
+  }
+  return sources;
+}
+
+// One "Thought process" fold for the whole trace: open while thinking, collapsed
+// once the answer lands, matching the legacy view's activity timeline.
+function ActivityTrace({
+  hasAnswer,
+  isStreaming,
+  items,
   labels,
 }: {
-  readonly item: Extract<WorkflowTimelineItem, { kind: "reasoning" }>;
+  readonly hasAnswer: boolean;
+  readonly isStreaming: boolean;
+  readonly items: readonly ReasoningItem[];
   readonly labels: WidgetLabels;
 }): ReactElement {
-  const [open, setOpen] = useState(item.streaming);
+  const [open, setOpen] = useState(isStreaming);
+  useEffect(() => {
+    if (!isStreaming && hasAnswer) setOpen(false);
+  }, [hasAnswer, isStreaming]);
   return (
     <Reasoning
-      items={[{ kind: "thought", id: item.id, text: item.text }]}
-      label={
-        item.streaming ? labels.activityThinking : labels.activityThoughtProcess
-      }
-      thinking={item.streaming}
-      open={open}
+      items={items}
+      label={isStreaming ? labels.activityThinking : labels.activityThoughtProcess}
       onOpenChange={setOpen}
+      open={open}
+      thinking={isStreaming}
     />
   );
 }
 
-function FilePresentation({
-  item,
-}: {
-  readonly item: Extract<WorkflowTimelineItem, { kind: "file" }>;
-}): ReactElement {
+function FilePresentation({ item }: { readonly item: FileItem }): ReactElement {
   if (item.mediaType.startsWith("image/") && item.url.startsWith("data:")) {
     return (
       <ActivityImages
-        images={[
-          {
-            alt: item.filename ?? "Image",
-            data: item.url,
-            mediaType: item.mediaType,
-          },
-        ]}
+        images={[{ alt: item.filename ?? "Image", data: item.url, mediaType: item.mediaType }]}
       />
     );
   }
@@ -214,9 +265,7 @@ function TerminalPresentation({
 }): ReactElement | null {
   const labels = useWidgetLabels();
   if (terminal.kind === "blocked") return null;
-  if (terminal.kind === "cancelled") {
-    return <CancelledNotice message={labels.noticeCancelled} />;
-  }
+  if (terminal.kind === "cancelled") return <CancelledNotice message={labels.noticeCancelled} />;
   if (terminal.kind === "completed") {
     return terminal.finishReason === "length" ? (
       <TruncatedNotice message={labels.noticeTruncated} />

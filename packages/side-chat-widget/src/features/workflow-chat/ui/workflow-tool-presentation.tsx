@@ -33,16 +33,8 @@ export function WorkflowToolPresentation({
   readonly labels: WidgetLabels;
   readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
 }): ReactElement {
-  const approval = item.approval;
-  const decision = approval
-    ? (approvalDecisions?.[approval.id] ?? approval.state)
-    : approvalDecisionForToolState(item.state);
-  if (
-    decision &&
-    (item.state === "approval-requested" ||
-      item.state === "input-available" ||
-      item.state === "output-denied")
-  ) {
+  const decision = approvalCardDecision(item, approvalDecisions);
+  if (decision) {
     return (
       <ApprovalPresentation
         decision={decision}
@@ -64,6 +56,34 @@ export function WorkflowToolPresentation({
 
 function approvalDecisionForToolState(state: WorkflowTimelineToolState): "requested" | undefined {
   return state === "approval-requested" ? "requested" : undefined;
+}
+
+/** The approval-card decision for a tool item, or undefined when it renders as a plain trace row. */
+function approvalCardDecision(
+  item: Extract<WorkflowTimelineItem, { kind: "tool" }>,
+  approvalDecisions: WorkflowApprovalDecisions | undefined,
+): ApprovalCardDecision | undefined {
+  const approval = item.approval;
+  const decision = approval
+    ? (approvalDecisions?.[approval.id] ?? approval.state)
+    : approvalDecisionForToolState(item.state);
+  if (
+    decision &&
+    (item.state === "approval-requested" ||
+      item.state === "input-available" ||
+      item.state === "output-denied")
+  ) {
+    return decision;
+  }
+  return undefined;
+}
+
+/** Whether a tool item is an interactive approval card (rendered on its own, not folded into the trace). */
+export function usesApprovalCard(
+  item: Extract<WorkflowTimelineItem, { kind: "tool" }>,
+  approvalDecisions: WorkflowApprovalDecisions | undefined,
+): boolean {
+  return approvalCardDecision(item, approvalDecisions) !== undefined;
 }
 
 function ApprovalPresentation({
