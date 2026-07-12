@@ -10,12 +10,10 @@ type ChatTurnFinalizeInput = Readonly<{
 }>;
 
 /**
- * Persist the turn's terminal inside the durable workflow's Node activity, so a
- * turn cannot end without a durable status even if the route process dies after
- * the run produced output. The guarded claim is the single idempotency gate:
- * only its winner appends the assistant message, and both the `status='running'`
- * CAS and the id-keyed message upsert are safe to re-run, so a durable replay of
- * this step is a no-op.
+ * Persist the terminal inside the durable workflow, so a turn cannot end without a
+ * durable status even if the route process dies. The claim is the idempotency
+ * gate: only its winner appends the assistant message, and both it and the
+ * id-keyed message upsert re-run cleanly, so replaying this step is a no-op.
  */
 export async function runChatTurnFinalizeStep(input: ChatTurnFinalizeInput): Promise<void> {
   "use step";

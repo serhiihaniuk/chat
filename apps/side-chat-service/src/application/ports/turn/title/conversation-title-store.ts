@@ -18,9 +18,8 @@ export interface ConversationTitleStore {
     titleText: string,
   ): Promise<void>;
   /**
-   * Link a title-generation Workflow run to its conversation so journal pruning
-   * can honor legal_hold for title runs, which carry no assistant_turns row.
-   * Idempotent on the run id.
+   * Link a title-generation run to its conversation so journal pruning can honor
+   * legal_hold for title runs the way it does turn runs. Idempotent on the run id.
    */
   recordConversationTitleRun(
     auth: AuthContext,

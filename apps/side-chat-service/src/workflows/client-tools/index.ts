@@ -70,13 +70,10 @@ export async function resumeClientToolResult(
     await resumeHook(clientToolResultHookToken(runId, toolCallId), output);
     return true;
   } catch (error) {
-    // A durable result can outlive its wait: a missing hook, or a run that
-    // journal pruning removed or expired, all mean there is no live wait to
-    // wake. `resumeHook` reads the hook then the run (`world.runs.get`), so it
-    // surfaces `HookNotFoundError`, `WorkflowRunNotFoundError`, or
-    // `RunExpiredError` here. Each is a stable "gone" signal that returns false
-    // for a terminal/retryable ack; other failures are real infrastructure
-    // faults and must not be hidden.
+    // A durable result can outlive its wait — the hook is gone, or journal pruning
+    // removed or expired the run — and `resumeHook` surfaces that as a vanished-wait
+    // error, a stable "gone" signal answered with false. Other failures are real
+    // infrastructure faults and must not be hidden.
     if (isVanishedWait(error)) return false;
     throw error;
   }

@@ -43,10 +43,9 @@ export function toolCallPart(call: {
 }
 
 /**
- * The `finish` part with its nested usage envelope, the single most-repeated shape
- * in scripted streams. Defaults to one input and one output text token; pass
- * `output` for the reasoning-only (`text: 0, reasoning: 1`), tool-call
- * (`text: 0`), or empty (`total: 0`) variants.
+ * The `finish` part with its nested usage envelope. Defaults to one input and one
+ * output text token; pass `output` (an `*_OUTPUT_TOKENS` constant) for the
+ * reasoning-only, tool-call, or empty-completion variants.
  */
 export function finishPart(
   reason: FinishReason = "stop",
@@ -84,10 +83,9 @@ export const REASONING_OUTPUT_TOKENS: OutputTokens = {
 };
 
 /**
- * Fluent builder for a scripted model stream. Opens with `stream-start`, chains
- * content parts, and terminates on `finish()` returning the complete part list —
- * so `modelStream().toolCall(...).finish("tool-calls")` replaces the hand-rolled
- * `stream-start` + part + verbose `finish` triples.
+ * Fluent builder for a scripted model stream: chain content parts, then `finish()`
+ * to get the complete part list. Replaces the hand-rolled `stream-start` + part +
+ * verbose `finish` triples scripted streams would otherwise repeat.
  */
 export function modelStream(): ModelStreamBuilder {
   const parts: LanguageModelV4StreamPart[] = [streamStart()];

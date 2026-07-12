@@ -8,15 +8,13 @@ import type { ClientToolDefinition } from "#application/turn/tools/client-tool-c
 import { isSupportedClientToolSchema } from "#application/turn/tools/client-tool-schema";
 import { modelStream, TOOL_CALL_OUTPUT_TOKENS } from "#testing/provider/model-stream-parts";
 
-// The runtime never validates model-produced tool input itself: `createClientTools`
-// wraps each admitted schema in a bare `jsonSchema` and `WorkflowAgent`
-// reconstructs the tool inside a "use step" (`resolveSerializableTools` in
-// `@ai-sdk/workflow`), compiling the schema with Ajv and attaching the `validate`
-// that turns a schema mismatch into a typed tool error. That step is unreachable
-// from a plain test, so this focused test reproduces the exact reconstruction —
-// real Ajv, real `jsonSchema` validate, real `streamText` tool handling — to
-// prove a schema-violating input becomes a typed tool error, the durable
-// `execute` (the client-tool wait) is never entered, and the turn does not throw.
+// The runtime never validates model-produced tool input itself: `WorkflowAgent`
+// reconstructs each admitted tool inside a "use step" (`resolveSerializableTools`
+// in `@ai-sdk/workflow`) and only there compiles the schema with Ajv into the
+// `validate` that turns a mismatch into a typed tool error. That step is unreachable
+// from a plain test, so this test reproduces the reconstruction with real Ajv and
+// `streamText` to prove a schema-violating input becomes a typed tool error without
+// ever entering the durable `execute` (the client-tool wait) or throwing the turn.
 
 const OPEN_FILE: ClientToolDefinition = {
   name: "open_file",

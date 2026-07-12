@@ -150,18 +150,13 @@ async function selectEligibleRunIds(
   client: PoolClient,
   options: WorkflowJournalSweepOptions,
 ): Promise<readonly string[]> {
-  // A prunable run is either a turn-bound run (assistant_turns) or a
-  // title-generation run (conversation_title_runs); each maps to at most one row
-  // in each table, so the outer joins never multiply. The owning conversation is
-  // whichever side matched, and its legal_hold gates BOTH kinds identically. A run
-  // matching neither (unknown) has a null owning conversation and is excluded by
-  // the inner conversation join, so it is never pruned.
+  // Prune a run only when its owning conversation is off legal hold. The joins
+  // resolve that conversation for a turn-bound run and a title run alike, so both
+  // are held the same way; a run that matches neither is left alone.
   //
-  // Only workflow_run is row-locked (the maintenance principal owns the `workflow`
-  // schema); the sidechat side stays read-only SELECT, so the least-privilege grant
-  // needs no UPDATE there — which would let the principal tamper with legal_hold.
-  // The sweep deletes only `workflow.*`, never sidechat rows, so held conversation
-  // content is always preserved even if a hold is applied during a sweep.
+  // The sweep deletes only `workflow.*`, so it row-locks just workflow_run and
+  // reads sidechat with plain SELECT — the maintenance grant needs no UPDATE,
+  // which could otherwise alter legal_hold.
   const result = await client.query<RunIdRow>(
     `select workflow_run.id as run_id
        from workflow.workflow_runs workflow_run

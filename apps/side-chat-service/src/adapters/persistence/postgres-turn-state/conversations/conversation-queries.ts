@@ -46,14 +46,11 @@ export function createPostgresConversationQueries(
 }
 
 /**
- * Read one backward page of history.
+ * Read one backward page of history, returned oldest-first below the `before` floor.
  *
- * History is anchored newest-first. The repository returns the newest N below the
- * `before` floor (`ORDER BY sequence_index DESC LIMIT N`, reversed to ascending),
- * so paging older means lowering the floor. Requesting one extra row detects
- * whether older history remains without a second count query: when the probe row
- * comes back it is the oldest of the batch, so it is dropped and the oldest
- * surviving row's sequence index becomes the next `before` cursor.
+ * Requesting one row beyond the limit detects whether older history remains without
+ * a second count query: the extra row is the oldest of the batch, so it is dropped
+ * and the oldest surviving row's sequence index becomes the next `before` cursor.
  */
 async function readHistoryPage(
   repositories: SidechatRepositories,

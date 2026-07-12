@@ -95,9 +95,7 @@ export type TurnUsageTotals = {
  * The one guarded transition that moves a turn from `running` to a terminal status.
  *
  * `status` is any terminal (never `running`). `assistantMessageId`/`finishReason`
- * accompany a completed or blocked turn; `errorCode` a failed one. The repository
- * applies it as a single `UPDATE ... WHERE status = 'running'`, so a replay after
- * a crash and a second finalize are both no-ops.
+ * accompany a completed or blocked turn; `errorCode` a failed one.
  */
 export type ClaimAssistantTurnTerminalCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;

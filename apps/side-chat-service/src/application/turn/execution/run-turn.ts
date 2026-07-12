@@ -24,11 +24,9 @@ export type RunTurnDependencies = PrepareTurnDependencies &
       | (ConversationTitleDependencies & Readonly<{ modelId: string; timeoutMs: number }>)
       | undefined;
     /**
-     * Present only when the durable workflow does NOT own finalization — the
-     * in-memory dev store, whose separate-process workflow bundle cannot reach
-     * it. In durable Postgres deployments this is absent and the workflow
-     * finalize step persists the terminal crash-safely; the route only releases
-     * admission and starts title enrichment.
+     * Present only for the in-memory dev store, whose workflow bundle runs in a
+     * separate process the route cannot reach, so the route finalizes the terminal
+     * itself. Durable Postgres leaves that to the workflow, so this is absent.
      */
     routeFinalization?: FinalizeTurnDependencies | undefined;
   }>;
@@ -39,10 +37,9 @@ export type RunningTurn = Readonly<{
 }>;
 
 /**
- * Owns a turn from preparation to the point its client stream closes. Durable
- * terminal persistence lives inside the workflow (guaranteed across a route
- * crash), so this route lane releases the admission lease, starts title
- * enrichment, and only persists the terminal itself as an in-memory-dev fallback.
+ * Owns a turn from preparation until its client stream closes. The durable terminal
+ * write lives in the workflow, so this route lane only releases admission and
+ * starts title enrichment (see `routeFinalization` for the in-memory fallback).
  */
 export async function runTurn(
   dependencies: RunTurnDependencies,
@@ -70,11 +67,9 @@ function finalizePreparedTurn(
 }
 
 /**
- * Release admission after the terminal is durable, and report whether the turn is
- * a fresh completion eligible for title enrichment. With durable Postgres the
- * workflow already persisted the terminal, so the route only releases admission.
- * Without it (in-memory dev), the route claims and appends best-effort — the whole
- * store is process-local and single-instance, so no durability is promised anyway.
+ * Release admission and report whether this is a fresh completion (eligible for
+ * title enrichment). The in-memory fallback also claims the terminal here, since
+ * its process-local store has no durable workflow to do it.
  */
 async function releaseWithFinalization(
   dependencies: RunTurnDependencies,

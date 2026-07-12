@@ -129,10 +129,10 @@ export async function executeChatTurn(
 }
 
 /**
- * Resolve exactly one terminal outcome. A completion or a non-abort failure is
- * authoritative; an aborted stream defers to the cancel or timeout arm that
- * requested it, so the race is independent of order and of whether the abort
- * error's message survives the provider and workflow-realm boundaries.
+ * Resolve exactly one terminal outcome. A completion or a non-abort failure wins
+ * directly; an aborted stream defers to the cancel or timeout arm that requested
+ * it, so the result is order-independent and does not depend on the abort message
+ * surviving the provider boundary.
  */
 async function raceChatTurnOutcome(
   agent: WorkflowAgent,

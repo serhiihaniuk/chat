@@ -55,11 +55,10 @@ export type ChatTurnTerminalOutcome =
     };
 
 /**
- * The one shared decision that keeps the route terminal and the durable claim in
- * agreement: given a workflow outcome, which durable turn status is it, does it
- * carry an assistant message, and what native finish reason or safe error code
- * does it record. A `content-filter` completion is `blocked` with no message;
- * every other completion appends its message; a cancel or failure appends none.
+ * The single decision that keeps the route terminal and the durable claim in
+ * agreement: which durable status a workflow outcome maps to, and whether it
+ * carries an assistant message. A `content-filter` completion is `blocked` with no
+ * message; a cancel or a failure carries none either.
  */
 export type ChatTurnClassification = Readonly<{
   status: TurnTerminalStatus;

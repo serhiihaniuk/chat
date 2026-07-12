@@ -9,10 +9,9 @@ type TitleRunLinkage = Readonly<{
 }>;
 
 /**
- * Link this title-generation run to its conversation inside the workflow's Node
- * activity boundary, so the journal prune can legal-hold-gate title runs exactly
- * as it does turn-bound runs. A deployment without a database (in-memory dev) has
- * no durable journal to prune, so the linkage is skipped there.
+ * Link this title-generation run to its conversation, so the journal prune can
+ * legal-hold-gate title runs the way it does turn-bound runs. Skipped without a
+ * database (in-memory dev), where there is no durable journal to prune.
  */
 export async function recordConversationTitleRun(input: TitleRunLinkage): Promise<void> {
   "use step";
