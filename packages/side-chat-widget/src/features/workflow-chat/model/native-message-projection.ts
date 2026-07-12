@@ -1,3 +1,5 @@
+import { asRecord, isRecord } from "@side-chat/shared";
+
 import type { WorkflowChatTerminal } from "./use-workflow-widget-chat.js";
 
 export type WorkflowTimelineMessage = Readonly<{
@@ -150,8 +152,7 @@ function projectToolPart(
     noteUnknownNativePart(`${type}:state`);
     return undefined;
   }
-  const name =
-    type === "dynamic-tool" ? readString(part, "toolName") : type.slice(5);
+  const name = type === "dynamic-tool" ? readString(part, "toolName") : type.slice(5);
   const errorText = readString(part, "errorText");
   const toolCallId = readString(part, "toolCallId");
   const base = {
@@ -268,14 +269,6 @@ function humanizeToolName(name: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Tool";
 }
 
-function asRecord(
-  value: unknown,
-): Readonly<Record<string, unknown>> | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    return undefined;
-  return Object.fromEntries(Object.entries(value));
-}
-
 function readString(
   record: Readonly<Record<string, unknown>> | undefined,
   key: string,
@@ -286,11 +279,6 @@ function readString(
 
 function noteUnknownNativePart(type: string): void {
   const meta: unknown = import.meta;
-  if (!isRecord(meta) || !isRecord(meta["env"]) || meta["env"]["DEV"] !== true)
-    return;
+  if (!isRecord(meta) || !isRecord(meta["env"]) || meta["env"]["DEV"] !== true) return;
   console.debug(`[side-chat] ignored unknown native UI message part: ${type}`);
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

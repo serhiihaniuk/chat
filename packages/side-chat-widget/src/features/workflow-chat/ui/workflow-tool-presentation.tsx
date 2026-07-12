@@ -1,16 +1,10 @@
 import { useState, type ReactElement } from "react";
 import { ShieldCheck } from "lucide-react";
-import {
-  SIDE_CHAT_ERROR_CODES,
-  SIDE_CHAT_ERROR_VOCABULARY,
-} from "@side-chat/stream-profile";
+import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
+import { asRecord } from "@side-chat/shared";
 
 import { Button } from "#shared/ui/button";
-import {
-  ToolDetailRow,
-  hasToolDetail,
-  type ToolDetail,
-} from "#shared/ui/activity/tool-detail";
+import { ToolDetailRow, hasToolDetail, type ToolDetail } from "#shared/ui/activity/tool-detail";
 import { Textarea } from "#shared/ui/textarea";
 import { ToolRow, type ToolState } from "#shared/ui/tool-row";
 import type { WidgetLabels } from "#shared/lib/widget-labels";
@@ -18,11 +12,15 @@ import type { WidgetLabels } from "#shared/lib/widget-labels";
 import type {
   WorkflowApprovalDecisionHandler,
   WorkflowApprovalDecisions,
+  WorkflowApprovalDecisionState,
 } from "../model/use-workflow-widget-chat.js";
 import type {
   WorkflowTimelineItem,
   WorkflowTimelineToolState,
 } from "../model/native-message-projection.js";
+
+/** The approval card's own state: a pending request plus the decided outcomes. */
+type ApprovalCardDecision = "requested" | WorkflowApprovalDecisionState;
 
 export function WorkflowToolPresentation({
   approvalDecisions,
@@ -64,9 +62,7 @@ export function WorkflowToolPresentation({
   );
 }
 
-function approvalDecisionForToolState(
-  state: WorkflowTimelineToolState,
-): "requested" | undefined {
+function approvalDecisionForToolState(state: WorkflowTimelineToolState): "requested" | undefined {
   return state === "approval-requested" ? "requested" : undefined;
 }
 
@@ -76,13 +72,7 @@ function ApprovalPresentation({
   labels,
   onApprovalDecision,
 }: {
-  readonly decision:
-    | "requested"
-    | "approved"
-    | "denied"
-    | "expired"
-    | "foreign"
-    | "failed";
+  readonly decision: ApprovalCardDecision;
   readonly item: Extract<WorkflowTimelineItem, { kind: "tool" }>;
   readonly labels: WidgetLabels;
   readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
@@ -90,15 +80,11 @@ function ApprovalPresentation({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const approvalId = item.approval?.id;
-  const canDecide = Boolean(
-    decision === "requested" && approvalId && onApprovalDecision,
-  );
+  const canDecide = Boolean(decision === "requested" && approvalId && onApprovalDecision);
   const runDecision = (approved: boolean): void => {
     if (!canDecide || !approvalId || !onApprovalDecision) return;
     setBusy(true);
-    void onApprovalDecision(approvalId, approved, reason).finally(() =>
-      setBusy(false),
-    );
+    void onApprovalDecision(approvalId, approved, reason).finally(() => setBusy(false));
   };
 
   return (
@@ -111,9 +97,7 @@ function ApprovalPresentation({
       <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       <div className="flex min-w-0 flex-col gap-(--tool-detail-gap)">
         <span className="text-sm font-medium text-foreground">{item.name}</span>
-        <span className="text-xs text-muted-foreground">
-          {approvalCopy(decision, labels)}
-        </span>
+        <span className="text-xs text-muted-foreground">{approvalCopy(decision, labels)}</span>
         {approvalId ? (
           <>
             {decision === "requested" ? (
@@ -134,11 +118,7 @@ function ApprovalPresentation({
               </>
             ) : null}
             <div className="flex flex-wrap gap-(--tool-detail-gap)">
-              <Button
-                disabled={!canDecide || busy}
-                onClick={() => runDecision(true)}
-                size="sm"
-              >
+              <Button disabled={!canDecide || busy} onClick={() => runDecision(true)} size="sm">
                 {labels.approvalApprove}
               </Button>
               <Button
@@ -157,16 +137,7 @@ function ApprovalPresentation({
   );
 }
 
-function approvalCopy(
-  decision:
-    | "requested"
-    | "approved"
-    | "denied"
-    | "expired"
-    | "foreign"
-    | "failed",
-  labels: WidgetLabels,
-): string {
+function approvalCopy(decision: ApprovalCardDecision, labels: WidgetLabels): string {
   if (decision === "requested") return labels.activityApprovalRequired;
   if (decision === "approved") return labels.approvalApproved;
   if (decision === "denied") return labels.approvalDenied;
@@ -181,9 +152,7 @@ function toolStateFor(state: WorkflowTimelineToolState): ToolState {
   return "running";
 }
 
-function toolDetailFor(
-  item: Extract<WorkflowTimelineItem, { kind: "tool" }>,
-): ToolDetail {
+function toolDetailFor(item: Extract<WorkflowTimelineItem, { kind: "tool" }>): ToolDetail {
   const input = asRecord(item.input);
   const output = asRecord(item.output);
   return {
@@ -191,16 +160,7 @@ function toolDetailFor(
     result: output,
     errorCode:
       item.state === "output-error"
-        ? SIDE_CHAT_ERROR_VOCABULARY[SIDE_CHAT_ERROR_CODES.TOOL_FAILED]
-            .safeMessage
+        ? SIDE_CHAT_ERROR_VOCABULARY[SIDE_CHAT_ERROR_CODES.TOOL_FAILED].safeMessage
         : undefined,
   };
-}
-
-function asRecord(
-  value: unknown,
-): Readonly<Record<string, unknown>> | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    return undefined;
-  return Object.fromEntries(Object.entries(value));
 }

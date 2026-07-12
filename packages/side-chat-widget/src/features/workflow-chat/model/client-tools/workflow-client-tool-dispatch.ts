@@ -9,10 +9,15 @@ import {
 } from "@side-chat/host-bridge";
 import { toJsonObject } from "@side-chat/shared";
 
-import {
-  postWorkflowClientToolOutput,
-  type WorkflowChatClient,
-} from "#entities/workflow-chat";
+import { postWorkflowClientToolOutput, type WorkflowChatClient } from "#entities/workflow-chat";
+
+/** Result codes for the ways host dispatch can fail before the tool ever runs. */
+const HOST_TOOL_DISPATCH_FAILURE = {
+  BRIDGE_UNAVAILABLE: "host_bridge_unavailable",
+  CAPABILITIES_UNAVAILABLE: "host_capabilities_unavailable",
+  CAPABILITIES_FAILED: "host_capabilities_failed",
+  DISPATCH_UNAVAILABLE: "host_tool_dispatch_unavailable",
+} as const;
 
 export type WorkflowClientToolCall = Readonly<{
   readonly toolCallId: string;
@@ -54,12 +59,7 @@ export async function dispatchWorkflowClientTool({
   if (!runId) return { result, outputPosted: false };
 
   try {
-    await postWorkflowClientToolOutput(
-      client,
-      runId,
-      toolCall.toolCallId,
-      result,
-    );
+    await postWorkflowClientToolOutput(client, runId, toolCall.toolCallId, result);
     return { result, outputPosted: true };
   } catch {
     return { result, outputPosted: false };
@@ -71,23 +71,22 @@ async function resolveAndDispatch(
   toolCall: HostToolCall,
 ): Promise<HostToolResult> {
   if (!hostBridge)
-    return createFailedToolResult(toolCall, "host_bridge_unavailable");
+    return createFailedToolResult(toolCall, HOST_TOOL_DISPATCH_FAILURE.BRIDGE_UNAVAILABLE);
 
   let capabilities: HostCapabilities;
   try {
     if (!hostBridge.getCapabilities) {
-      return createFailedToolResult(toolCall, "host_capabilities_unavailable");
+      return createFailedToolResult(toolCall, HOST_TOOL_DISPATCH_FAILURE.CAPABILITIES_UNAVAILABLE);
     }
     capabilities = await hostBridge.getCapabilities();
   } catch {
-    return createFailedToolResult(toolCall, "host_capabilities_failed");
+    return createFailedToolResult(toolCall, HOST_TOOL_DISPATCH_FAILURE.CAPABILITIES_FAILED);
   }
 
   try {
-    if (!supportsTool(capabilities, toolCall))
-      return createUnsupportedToolResult(toolCall);
+    if (!supportsTool(capabilities, toolCall)) return createUnsupportedToolResult(toolCall);
     if (!hostBridge.dispatchToolCall) {
-      return createFailedToolResult(toolCall, "host_tool_dispatch_unavailable");
+      return createFailedToolResult(toolCall, HOST_TOOL_DISPATCH_FAILURE.DISPATCH_UNAVAILABLE);
     }
     return await hostBridge.dispatchToolCall(toolCall);
   } catch {

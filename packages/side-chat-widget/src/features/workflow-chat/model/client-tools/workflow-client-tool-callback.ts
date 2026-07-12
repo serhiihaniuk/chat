@@ -1,10 +1,8 @@
 import type { ChatOnToolCallCallback } from "ai";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
+import { asRecord } from "@side-chat/shared";
 
-import type {
-  WorkflowChatClient,
-  WorkflowUIMessage,
-} from "#entities/workflow-chat";
+import type { WorkflowChatClient, WorkflowUIMessage } from "#entities/workflow-chat";
 import { dispatchWorkflowClientTool } from "./workflow-client-tool-dispatch.js";
 
 export function createWorkflowClientToolCallHandler({
@@ -38,10 +36,7 @@ export function createWorkflowClientToolCallHandler({
   };
 }
 
-function hasSettledToolCall(
-  messages: readonly WorkflowUIMessage[],
-  toolCallId: string,
-): boolean {
+function hasSettledToolCall(messages: readonly WorkflowUIMessage[], toolCallId: string): boolean {
   return messages.some((message) =>
     message.parts.some((part) => {
       const record = asRecord(part);
@@ -53,12 +48,4 @@ function hasSettledToolCall(
       );
     }),
   );
-}
-
-function asRecord(
-  value: unknown,
-): Readonly<Record<string, unknown>> | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    return undefined;
-  return Object.fromEntries(Object.entries(value));
 }

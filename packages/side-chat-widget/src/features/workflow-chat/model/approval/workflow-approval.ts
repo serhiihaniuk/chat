@@ -12,9 +12,7 @@ export type WorkflowApprovalDecisionState =
   | "foreign"
   | "failed";
 
-export type WorkflowApprovalDecisions = Readonly<
-  Record<string, WorkflowApprovalDecisionState>
->;
+export type WorkflowApprovalDecisions = Readonly<Record<string, WorkflowApprovalDecisionState>>;
 
 export type WorkflowApprovalDecisionHandler = (
   approvalId: string,
@@ -68,12 +66,7 @@ export function createWorkflowApprovalDecisionHandler({
       const state = approvalStateFromAcknowledgement(acknowledgement.state);
       setApprovalDecisions((current) => ({ ...current, [approvalId]: state }));
       if (state === "approved" || state === "denied") {
-        await addApprovalResponse(
-          chat,
-          approvalId,
-          state === "approved",
-          reason,
-        );
+        await addApprovalResponse(chat, approvalId, state === "approved", reason);
       }
     } catch (error) {
       const normalized = normalizeWorkflowChatError(error);
@@ -87,24 +80,23 @@ export function createWorkflowApprovalDecisionHandler({
   };
 }
 
-function approvalStateFromAcknowledgement(
-  state: string,
-): WorkflowApprovalDecisionState {
+function approvalStateFromAcknowledgement(state: string): WorkflowApprovalDecisionState {
   if (state === "approved") return "approved";
   if (state === "denied") return "denied";
   if (state === "expired") return "expired";
   return "failed";
 }
 
-function approvalFailureState(
-  error: WorkflowChatHttpError,
-): WorkflowApprovalDecisionState {
-  if (error.status === 409 || error.code === "tool_approval_conflict")
-    return "expired";
+// The decision endpoint's HTTP status is the widget's boundary signal: 409 means
+// the durable decision already moved on (expired or decided), 403/404 means this
+// run or decider is not ours to act on. Server error-code strings stay server-owned.
+const DECISION_HTTP_STATUS = { CONFLICT: 409, FORBIDDEN: 403, NOT_FOUND: 404 } as const;
+
+function approvalFailureState(error: WorkflowChatHttpError): WorkflowApprovalDecisionState {
+  if (error.status === DECISION_HTTP_STATUS.CONFLICT) return "expired";
   if (
-    error.status === 403 ||
-    error.status === 404 ||
-    error.code === "run_not_found"
+    error.status === DECISION_HTTP_STATUS.FORBIDDEN ||
+    error.status === DECISION_HTTP_STATUS.NOT_FOUND
   ) {
     return "foreign";
   }

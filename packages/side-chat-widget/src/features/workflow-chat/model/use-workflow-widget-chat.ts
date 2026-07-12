@@ -1,9 +1,6 @@
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus } from "ai";
-import {
-  toClientToolDefinitions,
-  type WidgetHostBridge,
-} from "@side-chat/host-bridge";
+import { toClientToolDefinitions, type WidgetHostBridge } from "@side-chat/host-bridge";
 import { useRef, useState } from "react";
 
 import {
@@ -35,14 +32,6 @@ export const WORKFLOW_WIDGET_CHAT_STATUS = {
 export type WorkflowWidgetChatStatus =
   (typeof WORKFLOW_WIDGET_CHAT_STATUS)[keyof typeof WORKFLOW_WIDGET_CHAT_STATUS];
 
-export const WORKFLOW_CHAT_TERMINAL_KIND = {
-  BLOCKED: "blocked",
-  CANCELLED: "cancelled",
-  COMPLETED: "completed",
-  ERROR: "error",
-  NONE: "none",
-} as const;
-
 export type { WorkflowChatTerminal } from "./terminal/workflow-chat-terminal.js";
 
 export type {
@@ -51,9 +40,7 @@ export type {
   WorkflowApprovalDecisionState,
 } from "./approval/workflow-approval.js";
 
-const AI_CHAT_STATUS_TO_WIDGET_STATUS: Readonly<
-  Record<ChatStatus, WorkflowWidgetChatStatus>
-> = {
+const AI_CHAT_STATUS_TO_WIDGET_STATUS: Readonly<Record<ChatStatus, WorkflowWidgetChatStatus>> = {
   error: WORKFLOW_WIDGET_CHAT_STATUS.ERROR,
   ready: WORKFLOW_WIDGET_CHAT_STATUS.IDLE,
   streaming: WORKFLOW_WIDGET_CHAT_STATUS.STREAMING,
@@ -83,28 +70,19 @@ export function useWorkflowWidgetChat(
   clientRef.current = client;
   const hostBridgeRef = useRef<WidgetHostBridge | undefined>(hostBridge);
   hostBridgeRef.current = hostBridge;
-  const latestMessagesRef =
-    useRef<readonly WorkflowUIMessage[]>(initialMessages);
+  const latestMessagesRef = useRef<readonly WorkflowUIMessage[]>(initialMessages);
   const dispatchedToolCallIdsRef = useRef<Set<string>>(new Set());
   const approvalRequestsInFlightRef = useRef<Set<string>>(new Set());
   const activeRunIdRef = useRef<string | undefined>(undefined);
   const latestErrorRef = useRef<WorkflowChatHttpError | undefined>(undefined);
   const [cancelled, setCancelled] = useState(false);
-  const [transportError, setTransportError] = useState<
-    WorkflowChatHttpError | undefined
-  >();
+  const [transportError, setTransportError] = useState<WorkflowChatHttpError | undefined>();
   const [terminal, setTerminal] = useState<WorkflowChatTerminal>({
     kind: "none",
   });
-  const [approvalDecisions, setApprovalDecisions] =
-    useState<WorkflowApprovalDecisions>({});
+  const [approvalDecisions, setApprovalDecisions] = useState<WorkflowApprovalDecisions>({});
   const [transport] = useState(() =>
-    createWidgetTransport(
-      clientRef,
-      activeRunIdRef,
-      dispatchedToolCallIdsRef,
-      hostBridgeRef,
-    ),
+    createWidgetTransport(clientRef, activeRunIdRef, dispatchedToolCallIdsRef, hostBridgeRef),
   );
   const onToolCall = createWorkflowClientToolCallHandler({
     activeRunIdRef,
@@ -149,10 +127,7 @@ export function useWorkflowWidgetChat(
     setTransportError(undefined);
     setCancelled(true);
     activeRunIdRef.current = undefined;
-    if (runId)
-      void cancelWorkflowChatRun(clientRef.current, runId).catch(
-        () => undefined,
-      );
+    if (runId) void cancelWorkflowChatRun(clientRef.current, runId).catch(() => undefined);
   };
 
   const decideApproval = createWorkflowApprovalDecisionHandler({
@@ -197,8 +172,7 @@ function createWidgetTransport(
     // result-before-hook retries are interaction continuations of that run.
     onRunFinished: () => undefined,
     onRunStarted: (runId) => {
-      if (activeRunIdRef.current !== runId)
-        dispatchedToolCallIdsRef.current.clear();
+      if (activeRunIdRef.current !== runId) dispatchedToolCallIdsRef.current.clear();
       activeRunIdRef.current = runId;
     },
   });
@@ -208,6 +182,4 @@ const toWidgetStatus = (
   status: ChatStatus,
   error: WorkflowChatHttpError | undefined,
 ): WorkflowWidgetChatStatus =>
-  error
-    ? WORKFLOW_WIDGET_CHAT_STATUS.ERROR
-    : AI_CHAT_STATUS_TO_WIDGET_STATUS[status];
+  error ? WORKFLOW_WIDGET_CHAT_STATUS.ERROR : AI_CHAT_STATUS_TO_WIDGET_STATUS[status];

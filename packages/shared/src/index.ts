@@ -36,6 +36,10 @@ export type JsonObject = { readonly [key: string]: JsonValue };
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** Narrow to a plain object record, or `undefined` when the value is not one. */
+export const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  isRecord(value) ? value : undefined;
+
 /** Parse JSON only when its root is a keyed object. */
 export const parseJsonRecord = (source: string): Record<string, unknown> | undefined => {
   let parsed: unknown;

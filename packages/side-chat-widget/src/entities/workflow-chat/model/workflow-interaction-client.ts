@@ -1,4 +1,4 @@
-import type { JsonValue } from "@side-chat/shared";
+import { isRecord, type JsonValue } from "@side-chat/shared";
 
 import {
   readWorkflowChatHttpError,
@@ -8,6 +8,12 @@ import {
   workflowChatUrl,
   type WorkflowChatClient,
 } from "./workflow-chat-client.js";
+
+// The durable hook is created just after the run starts, so an interaction POST
+// can briefly beat it and get a 409; retry a few times with the server's backoff.
+const HOOK_NOT_READY_STATUS = 409;
+const MAX_HOOK_RETRY_ATTEMPTS = 3;
+const MAX_RETRY_DELAY_MS = 5_000;
 
 export type WorkflowApprovalDecisionAcknowledgement = Readonly<{
   readonly approvalId: string;
@@ -56,14 +62,10 @@ export async function postWorkflowApprovalDecision(
     );
   }
   return {
-    approvalId:
-      typeof payload["approvalId"] === "string"
-        ? payload["approvalId"]
-        : approvalId,
+    approvalId: typeof payload["approvalId"] === "string" ? payload["approvalId"] : approvalId,
     state: payload["state"],
     accepted: payload["accepted"] === true,
-    resumed:
-      typeof payload["resumed"] === "boolean" ? payload["resumed"] : undefined,
+    resumed: typeof payload["resumed"] === "boolean" ? payload["resumed"] : undefined,
   };
 }
 
@@ -77,22 +79,21 @@ async function postWorkflowJson(
     const request = await resolveWorkflowChatRequestConfig(client);
     const headers = new Headers(request.headers);
     headers.set("content-type", "application/json");
-    if (!headers.has("x-request-id"))
-      headers.set("x-request-id", crypto.randomUUID());
+    if (!headers.has("x-request-id")) headers.set("x-request-id", crypto.randomUUID());
     const init: RequestInit = {
       method: "POST",
       body: JSON.stringify(body),
       headers,
     };
-    if (request.credentials !== undefined)
-      init.credentials = request.credentials;
-    const response = await workflowChatFetch(client)(
-      workflowChatUrl(client, path),
-      init,
-    );
+    if (request.credentials !== undefined) init.credentials = request.credentials;
+    const response = await workflowChatFetch(client)(workflowChatUrl(client, path), init);
     if (response.ok) return readJsonIfPresent(response);
 
-    if (retryNotReady && response.status === 409 && attempt < 3) {
+    if (
+      retryNotReady &&
+      response.status === HOOK_NOT_READY_STATUS &&
+      attempt < MAX_HOOK_RETRY_ATTEMPTS
+    ) {
       await waitForRetry(response.headers.get("retry-after"));
       continue;
     }
@@ -107,24 +108,14 @@ async function readJsonIfPresent(response: Response): Promise<unknown> {
     const value: unknown = JSON.parse(text);
     return value;
   } catch {
-    throw new WorkflowChatHttpError(
-      "invalid_json_response",
-      "Response was invalid.",
-      false,
-    );
+    throw new WorkflowChatHttpError("invalid_json_response", "Response was invalid.", false);
   }
 }
 
 async function waitForRetry(value: string | null): Promise<void> {
   const seconds = value === null ? 0 : Number(value);
   const delayMs =
-    Number.isFinite(seconds) && seconds > 0
-      ? Math.min(seconds * 1_000, 5_000)
-      : 0;
+    Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1_000, MAX_RETRY_DELAY_MS) : 0;
   if (delayMs === 0) return;
   await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
