@@ -2,13 +2,17 @@ import { createElement, useEffect, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 
 import { isRecord } from "@side-chat/chat-protocol";
+import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import { SideChatWidget, type SideChatWidgetProps } from "@side-chat/side-chat-widget";
 
 import { createHarnessHostBridge, createHarnessHostContext } from "#host/fake-host-bridge";
 import { createDemoHostSurface } from "#host/demo-host-surface";
 import { createPostMessageHostBridge } from "#host/post-message-host-bridge";
 import { DemoHostPanel } from "#app/demo-host-panel";
-import { createLocalServiceClient } from "#clients/local-service-client";
+import {
+  createLocalServiceClient,
+  createWorkflowServiceClient,
+} from "#clients/local-service-client";
 import { createMockStreamClient } from "#clients/mock-stream-client";
 import {
   parseWidgetHarnessConfig,
@@ -113,8 +117,22 @@ const isSetOpenMessage = (message: unknown): message is WidgetHarnessSetOpenMess
 
 const createWidgetHarnessProps = (
   config: WidgetHarnessConfig,
-  hostBridge: SideChatWidgetProps["hostBridge"],
+  hostBridge: WidgetHostBridge | undefined,
 ): SideChatWidgetProps => {
+  if (config.mode === "workflow-service") {
+    return {
+      workflowChat: createWorkflowServiceClient(config),
+      defaultOpen: config.defaultOpen,
+      defaultPanelSize: resolveHarnessPanelSize(),
+      labels: {
+        title: "Workspace Assistant",
+        placeholder: "Ask about this page",
+        send: "Send",
+      },
+      panelSizeStorageKey: `side-chat-widget:${config.workspaceId}:panel-size`,
+    };
+  }
+
   const client =
     config.mode === "local-service"
       ? createLocalServiceClient(config)

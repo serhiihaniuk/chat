@@ -44,6 +44,7 @@ for (const file of listSourceFiles(root)) {
     imports.some((name) => name === "ai" || name?.startsWith("@ai-sdk/")) &&
     area !== "packages/agent-runtime" &&
     area !== "apps/side-chat-service" &&
+    !isWidgetWorkflowPath(file) &&
     !(
       importsUseOnlyAiPackage(imports) &&
       file.startsWith("packages/side-chat-widget/src/shared/ai/")
@@ -58,5 +59,14 @@ failIfErrors(errors);
 function importsUseOnlyAiPackage(imports) {
   return (
     imports.some((name) => name === "ai") && !imports.some((name) => name?.startsWith("@ai-sdk/"))
+  );
+}
+
+function isWidgetWorkflowPath(file) {
+  return (
+    file.startsWith("packages/side-chat-widget/src/entities/workflow-chat/") ||
+    file.startsWith("packages/side-chat-widget/src/features/workflow-chat/") ||
+    file ===
+      "packages/side-chat-widget/src/widgets/side-chat/ui/workflow/workflow-side-chat-widget.tsx"
   );
 }

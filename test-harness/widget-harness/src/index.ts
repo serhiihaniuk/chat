@@ -18,6 +18,7 @@ import { mountBrowserHarness } from "./app/harness-app.js";
 export { mountBrowserHarness };
 export {
   createLocalServiceClient,
+  createWorkflowServiceClient,
   resolveLocalApiBaseUrl,
   withLocalAuth,
 } from "./clients/local-service-client.js";

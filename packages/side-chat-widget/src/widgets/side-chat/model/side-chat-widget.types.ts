@@ -3,10 +3,11 @@ import type { ReactNode } from "react";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
 import type { WidgetActivityItem } from "#entities/chat";
-import type { ReasoningVisibility } from "#entities/settings";
-import type { SideChatWidgetPanelSize } from "#entities/panel";
-import type { WidgetThemeId } from "#entities/theme";
 import type { SideChatApiClient } from "#entities/conversation";
+import type { SideChatWidgetPanelSize } from "#entities/panel";
+import type { ReasoningVisibility } from "#entities/settings";
+import type { WidgetThemeId } from "#entities/theme";
+import type { WorkflowChatClient } from "#entities/workflow-chat";
 import type { RenderActivityItem } from "#features/conversation";
 import type { SideChatWidgetLabels } from "#shared/lib/widget-labels";
 
@@ -38,31 +39,8 @@ export type SideChatWidgetTurnProfile = {
 
 export type { SideChatWidgetPanelSize };
 
-/**
- * Public configuration for one embeddable Side Chat instance.
- *
- * The host supplies the browser API client and may add page context/commands via
- * `hostBridge`. Storage keys namespace browser-local shell state; controlled
- * `open` state and rendering callbacks customize presentation without changing
- * protocol projection or the server-owned turn lifecycle.
- */
-export type SideChatWidgetProps = {
-  /** Profiles offered by the host when no backend model catalog drives selection. */
-  readonly turnProfiles?: readonly SideChatWidgetTurnProfile[] | undefined;
-  /** Browser repository used for chat streams, recovery, history, and catalog reads. */
-  readonly client: SideChatApiClient;
-  /**
-   * Browser-local namespace for this widget's conversation state and live run.
-   *
-   * Two Side Chat widgets on one page against the same service MUST pass distinct
-   * keys: the key namespaces both localStorage and the module-scoped run store, so
-   * a shared (or omitted) key makes them share one conversation and clobber each
-   * other's live turn. Widgets pointed at different services are already isolated
-   * by their client `baseUrl`.
-   */
-  readonly conversationStorageKey?: string | undefined;
-  /** Initially selected profile id; falls back to the first supplied profile. */
-  readonly defaultTurnProfileId?: string | undefined;
+/** Panel and appearance options supported by every widget transport branch. */
+type SideChatWidgetShellProps = {
   /**
    * Initial panel state for the widget-owned launcher flow.
    *
@@ -75,8 +53,6 @@ export type SideChatWidgetProps = {
   readonly defaultPanelSize?: SideChatWidgetPanelSize | undefined;
   /** Initial named light theme before a persisted theme is restored. */
   readonly defaultTheme?: WidgetThemeId | undefined;
-  /** Optional page-context and host-command seam supplied by the embedding app. */
-  readonly hostBridge?: WidgetHostBridge | undefined;
   /** Partial replacement for the widget's built-in user-facing copy. */
   readonly labels?: SideChatWidgetLabels | undefined;
   /** Receives requested open-state changes in controlled and uncontrolled modes. */
@@ -90,8 +66,6 @@ export type SideChatWidgetProps = {
    */
   readonly open?: boolean | undefined;
   readonly panelActions?: SideChatWidgetPanelActions | undefined;
-  /** Starter prompts shown only before the selected conversation has messages. */
-  readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
   /**
    * Whether Side Chat renders its internal closed-state launcher.
    *
@@ -99,6 +73,36 @@ export type SideChatWidgetProps = {
    * owns the button that opens and closes the frame.
    */
   readonly renderClosedLauncher?: boolean | undefined;
+  /** Browser-local key for the selected named theme. */
+  readonly themeStorageKey?: string | undefined;
+  /**
+   * Browser-local key under which the resizable panel's size is persisted, so a
+   * refresh or fresh iframe load restores the size the user dragged to. Defaults
+   * to a shared key when omitted; pass a workspace-scoped key to isolate hosts.
+   */
+  readonly panelSizeStorageKey?: string | undefined;
+};
+
+/** Configuration owned by the protocol-backed conversation and activity model. */
+type ProtocolSideChatWidgetOptions = {
+  /** Profiles offered by the host when no backend model catalog drives selection. */
+  readonly turnProfiles?: readonly SideChatWidgetTurnProfile[] | undefined;
+  /**
+   * Browser-local namespace for this widget's conversation state and live run.
+   *
+   * Two Side Chat widgets on one page against the same service MUST pass distinct
+   * keys: the key namespaces both localStorage and the module-scoped run store, so
+   * a shared (or omitted) key makes them share one conversation and clobber each
+   * other's live turn. Widgets pointed at different services are already isolated
+   * by their client `baseUrl`.
+   */
+  readonly conversationStorageKey?: string | undefined;
+  /** Initially selected profile id; falls back to the first supplied profile. */
+  readonly defaultTurnProfileId?: string | undefined;
+  /** Optional page-context and host-command seam supplied by the embedding app. */
+  readonly hostBridge?: WidgetHostBridge | undefined;
+  /** Starter prompts shown only before the selected conversation has messages. */
+  readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
   /**
    * Host/server-controlled reasoning presentation, not a user preference.
    * Defaults to `minimal`; `detailed` expands completed reasoning while live
@@ -118,12 +122,25 @@ export type SideChatWidgetProps = {
    * keep it.
    */
   readonly renderAgentMark?: (() => ReactNode) | undefined;
-  /** Browser-local key for the selected named theme. */
-  readonly themeStorageKey?: string | undefined;
-  /**
-   * Browser-local key under which the resizable panel's size is persisted, so a
-   * refresh or fresh iframe load restores the size the user dragged to. Defaults
-   * to a shared key when omitted; pass a workspace-scoped key to isolate hosts.
-   */
-  readonly panelSizeStorageKey?: string | undefined;
 };
+
+export type ProtocolSideChatWidgetProps = SideChatWidgetShellProps &
+  ProtocolSideChatWidgetOptions & {
+    /** Browser repository for the protocol-backed transport. */
+    readonly client: SideChatApiClient;
+    readonly workflowChat?: never;
+  };
+
+export type WorkflowSideChatWidgetProps = SideChatWidgetShellProps & {
+  readonly client?: never;
+  /** Native AI SDK transport and dynamic request configuration for one conversation. */
+  readonly workflowChat: WorkflowChatClient;
+};
+
+/**
+ * Public configuration for one embeddable Side Chat instance.
+ *
+ * A caller selects exactly one transport branch. The native workflow branch
+ * never imports or executes the protocol-backed run machinery.
+ */
+export type SideChatWidgetProps = ProtocolSideChatWidgetProps | WorkflowSideChatWidgetProps;

@@ -30,9 +30,9 @@ export const WidgetHeader = ({
   title,
 }: {
   readonly onClose: () => void;
-  readonly onNewConversation: () => void;
+  readonly onNewConversation?: (() => void) | undefined;
   readonly newConversationDisabled?: boolean | undefined;
-  readonly onOpenSettings: () => void;
+  readonly onOpenSettings?: (() => void) | undefined;
   /** Manual catch-up: re-read the current conversation from the server. */
   readonly onRefresh?: (() => void) | undefined;
   readonly title: ReactNode;
@@ -58,18 +58,22 @@ export const WidgetHeader = ({
           />
         </IconButton>
       ) : null}
-      <IconButton aria-label={labels.headerSettings} onClick={onOpenSettings} type="button">
-        <SettingsIcon className="size-4" />
-      </IconButton>
-      <IconButton
-        aria-label={labels.headerNewChat}
-        disabled={newConversationDisabled}
-        onClick={onNewConversation}
-        title={labels.headerNewChat}
-        type="button"
-      >
-        <PlusIcon className="size-4" />
-      </IconButton>
+      {onOpenSettings ? (
+        <IconButton aria-label={labels.headerSettings} onClick={onOpenSettings} type="button">
+          <SettingsIcon className="size-4" />
+        </IconButton>
+      ) : null}
+      {onNewConversation ? (
+        <IconButton
+          aria-label={labels.headerNewChat}
+          disabled={newConversationDisabled}
+          onClick={onNewConversation}
+          title={labels.headerNewChat}
+          type="button"
+        >
+          <PlusIcon className="size-4" />
+        </IconButton>
+      ) : null}
       <IconButton aria-label={labels.headerClose} onClick={onClose} type="button">
         <XIcon className="size-4" />
       </IconButton>

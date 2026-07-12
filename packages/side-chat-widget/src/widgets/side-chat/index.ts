@@ -6,11 +6,13 @@ export type {
   SideChatWidgetPanelActions,
   SideChatWidgetPanelSize,
   SideChatWidgetProps,
+  WorkflowSideChatWidgetProps,
   SideChatWidgetQuickAction,
   ReasoningVisibility,
   WidgetActivityItem,
   WidgetThemeId,
 } from "./model/side-chat-widget.types.js";
+export type { WorkflowChatClient, WorkflowChatRequestConfig } from "#entities/workflow-chat";
 export {
   SIDE_CHAT_API_ERROR_CODES,
   createSideChatApiClient,

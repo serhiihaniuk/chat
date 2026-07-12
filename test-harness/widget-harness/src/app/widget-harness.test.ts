@@ -5,6 +5,7 @@ import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
 import {
   createHarnessHostBridge,
   createLocalServiceClient,
+  createWorkflowServiceClient,
   createMockEvents,
   createMockStreamClient,
   createWidgetHarnessApp,
@@ -29,6 +30,7 @@ describe("widget harness modes", () => {
       mode: "local-service",
       apiBaseUrl: "/side-chat-api",
       authToken: "local-compose-token",
+      conversationId: "conversation-1",
       defaultOpen: true,
       openControl: "widget",
       workspaceId: "workspace_local",
@@ -114,6 +116,31 @@ describe("widget harness modes", () => {
     expect(resolveLocalApiBaseUrl("http://localhost:3100")).toBe("http://localhost:3100");
     expect(seenInputs).toContain("http://localhost:3100/chat/runs");
     expect(seenInputs).not.toContain("/api/chat/runs");
+  });
+
+  it("configures the isolated workflow-service widget path", () => {
+    const config = parseWidgetHarnessConfig(
+      "?mode=workflow-service&authToken=fresh-token&conversationId=conversation-42",
+    );
+    const app = createWidgetHarnessApp(config);
+    const client = createWorkflowServiceClient(config);
+
+    expect(config.mode).toBe("workflow-service");
+    expect(client).toMatchObject({
+      baseUrl: "http://127.0.0.1:5173/side-chat-api",
+      conversationId: "conversation-42",
+    });
+    expect(client.getRequestConfig?.()).toEqual({
+      headers: { authorization: "Bearer fresh-token" },
+    });
+    expect(renderToStaticMarkup(app.element)).toContain("Workspace Assistant");
+  });
+
+  it("keeps the workflow-service launcher available in standalone closed state", () => {
+    const config = parseWidgetHarnessConfig("?mode=workflow-service&open=false");
+    const html = renderToStaticMarkup(createWidgetHarnessApp(config).element);
+
+    expect(html).toContain("Workspace Assistant");
   });
 
   it("keeps host command results as harness-local records", async () => {

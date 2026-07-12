@@ -1,0 +1,163 @@
+import { safeValidateUIMessages, type UIMessage } from "ai";
+
+/**
+ * Validate workflow service responses before browser chat state consumes them.
+ *
+ * History enters as untrusted JSON and leaves as validated `UIMessage[]`.
+ * Service failures leave as safe `WorkflowChatHttpError` values; stream decoding
+ * and retry behavior remain inside `createWorkflowChatTransport`.
+ */
+export type WorkflowChatRequestConfig = Readonly<{
+  /** Headers resolved immediately before each history, send, replay, or cancel request. */
+  headers?: HeadersInit | undefined;
+  /** Browser fetch credentials mode resolved with the request headers. */
+  credentials?: RequestCredentials | undefined;
+}>;
+
+/** Browser configuration for one native workflow conversation. */
+export type WorkflowChatClient = Readonly<{
+  /** Service origin or proxy base without an endpoint-specific path. */
+  baseUrl: string;
+  /** Stable conversation id used for history, chat state, replay, and cancellation. */
+  conversationId: string;
+  /** Optional fetch implementation for browser adapters and deterministic tests. */
+  fetch?: typeof fetch | undefined;
+  /** Resolve current auth configuration at request time rather than mount time. */
+  getRequestConfig?:
+    | (() => WorkflowChatRequestConfig | Promise<WorkflowChatRequestConfig>)
+    | undefined;
+  /** Workflow reconnect error budget. The package default applies when omitted. */
+  maxConsecutiveErrors?: number | undefined;
+  /** Optional server-recognized model preference included with the next send. */
+  modelPreference?: string | undefined;
+}>;
+
+/** Safe public HTTP failure returned by the workflow service boundary. */
+export class WorkflowChatHttpError extends Error {
+  readonly code: string;
+  readonly retryable: boolean;
+
+  constructor(code: string, message: string, retryable: boolean) {
+    super(message);
+    this.name = "WorkflowChatHttpError";
+    this.code = code;
+    this.retryable = retryable;
+  }
+}
+
+export async function readWorkflowChatHistory(
+  client: WorkflowChatClient,
+  signal?: AbortSignal,
+): Promise<readonly UIMessage[]> {
+  const request = await resolveWorkflowChatRequestConfig(client);
+  const response = await workflowChatFetch(client)(
+    workflowChatUrl(
+      client,
+      `/api/conversations/${encodeURIComponent(client.conversationId)}/messages`,
+    ),
+    createHistoryRequestInit(request, signal),
+  );
+  if (!response.ok) throw await readWorkflowChatHttpError(response);
+
+  const payload: unknown = await response.json();
+  if (!isRecord(payload) || !Array.isArray(payload["messages"])) {
+    throw new Error("Conversation history response is invalid.");
+  }
+  if (payload["messages"].length === 0) return [];
+  const validated = await safeValidateUIMessages({ messages: payload["messages"] });
+  if (!validated.success) throw new Error("Conversation history contains invalid messages.");
+  return validated.data;
+}
+
+export async function cancelWorkflowChatRun(
+  client: WorkflowChatClient,
+  runId: string,
+): Promise<void> {
+  const request = await resolveWorkflowChatRequestConfig(client);
+  const headers = new Headers(request.headers);
+  headers.set("content-type", "application/json");
+  const init: RequestInit = {
+    method: "POST",
+    body: JSON.stringify({ conversationId: client.conversationId }),
+    headers,
+  };
+  if (request.credentials !== undefined) init.credentials = request.credentials;
+  const response = await workflowChatFetch(client)(
+    workflowChatUrl(client, `/api/chat/${encodeURIComponent(runId)}/cancel`),
+    init,
+  );
+  if (!response.ok) throw await readWorkflowChatHttpError(response);
+}
+
+export function workflowChatFetch(client: WorkflowChatClient): typeof fetch {
+  const request = client.fetch ?? globalThis.fetch?.bind(globalThis);
+  if (!request) throw new Error("Fetch is not available.");
+  return request;
+}
+
+export function workflowChatUrl(client: WorkflowChatClient, path: string): string {
+  return `${client.baseUrl.replace(/\/$/u, "")}${path}`;
+}
+
+export async function resolveWorkflowChatRequestConfig(
+  client: WorkflowChatClient,
+): Promise<WorkflowChatRequestConfig> {
+  return (await client.getRequestConfig?.()) ?? {};
+}
+
+export function normalizeWorkflowChatError(error: unknown): WorkflowChatHttpError {
+  if (isWorkflowChatHttpError(error)) return error;
+  const message = error instanceof Error ? error.message : "Chat request failed.";
+  const payload = parseEmbeddedErrorPayload(message);
+  return payload ?? new WorkflowChatHttpError("transport_error", message, false);
+}
+
+async function readWorkflowChatHttpError(response: Response): Promise<WorkflowChatHttpError> {
+  const text = await response.text();
+  const payload = parseErrorPayload(text);
+  return (
+    payload ??
+    new WorkflowChatHttpError(
+      "http_error",
+      `Chat request failed with status ${response.status}.`,
+      false,
+    )
+  );
+}
+
+function parseEmbeddedErrorPayload(message: string): WorkflowChatHttpError | undefined {
+  const start = message.indexOf("{");
+  return start < 0 ? undefined : parseErrorPayload(message.slice(start));
+}
+
+function parseErrorPayload(text: string): WorkflowChatHttpError | undefined {
+  try {
+    const value: unknown = JSON.parse(text);
+    if (!isRecord(value)) return undefined;
+    if (typeof value["code"] !== "string" || typeof value["message"] !== "string") {
+      return undefined;
+    }
+    return new WorkflowChatHttpError(value["code"], value["message"], value["retryable"] === true);
+  } catch {
+    return undefined;
+  }
+}
+
+function isWorkflowChatHttpError(value: unknown): value is WorkflowChatHttpError {
+  return value instanceof WorkflowChatHttpError;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function createHistoryRequestInit(
+  request: WorkflowChatRequestConfig,
+  signal: AbortSignal | undefined,
+): RequestInit {
+  const init: RequestInit = {};
+  if (request.credentials !== undefined) init.credentials = request.credentials;
+  if (request.headers !== undefined) init.headers = request.headers;
+  if (signal !== undefined) init.signal = signal;
+  return init;
+}

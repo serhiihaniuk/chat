@@ -72,7 +72,7 @@ const forbiddenByArea = {
     /^effect$/,
     /^pg$/,
     /^drizzle-orm$/,
-    /^@ai-sdk\//,
+    /^@ai-sdk\/(?!react$|workflow$)/,
     /^shadcn$/,
     /^@repo\/shadcn-ui$/,
     /^@side-chat\/(partner-ai-core|agent-runtime|ai-runtime-contract|db)$/,

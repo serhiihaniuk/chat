@@ -4,29 +4,31 @@ Read this when: editing the React widget, the host bridge, or the copied-UI quar
 Source of truth for: widget Feature-Sliced layers, the live-turn data flow, the host-bridge contract, and the `shared/ai` quarantine.
 Not source of truth for: the turn lifecycle ([assistant-turn.md](assistant-turn.md)), protocol events ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)), package roles ([system-map.md](system-map.md)), or iframe embedding ([../operations/embed-widget-iframe.md](../operations/embed-widget-iframe.md)).
 
-The browser widget lives in `packages/side-chat-widget` (a React component) and `packages/host-bridge` (the seam to the host app). The host app renders `<SideChatWidget>`, hands it an API client, and optionally a host bridge. The widget owns the chat UI; the host owns the page. This doc explains the widget's layers, how a live turn flows from the network to the screen, the host-bridge contract, and one quarantined folder of copied vendor UI. The decisions behind this shape — iframe isolation, Effect-free by gate, the reads-vs-live data split, no client merge, light themes only — are recorded in [ADR 0012](../adr/0012-widget-architecture.md).
+The browser widget lives in `packages/side-chat-widget` (a React component) and `packages/host-bridge` (the seam to the host app). The host app renders `<SideChatWidget>` and hands it exactly one transport configuration. The native branch accepts `workflowChat`; the protocol-backed branch accepts `client` and may also receive a host bridge. Both branches share panel, theme, labels, and open-state options, while protocol-specific conversation and activity options remain on the `client` branch. The widget owns the chat UI; the host owns the page. This doc explains both live-turn paths, the widget's layers, the host-bridge contract, and one quarantined folder of copied vendor UI. The decisions behind this shape — iframe isolation, Effect-free by gate, the reads-vs-live data split, no client merge, light themes only — are recorded in [ADR 0012](../adr/0012-widget-architecture.md).
 
 ## Feature-Sliced layers
 
 The widget uses Feature-Sliced Design (FSD): code sits in ranked layers, and a layer may import only from a same-or-lower rank. The public entry is `src/index.ts`, which re-exports only the widget API. There is **no `app` layer** — `src/app/` does not exist.
 
-| Layer                   | Rank | Owns                                                                                                           | Example                                                    |
-| ----------------------- | ---- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `widgets/side-chat`     | 3    | The composite root `SideChatWidget`, layout/view composition, query-client and model wiring, public props      | `src/widgets/side-chat/ui/side-chat-widget.tsx`            |
-| `features/chat`         | 2    | Submission, run lifecycle, SSE consumption, protocol-to-state mapping, reconnect, activity sidebar             | `src/features/chat/model/use-widget-chat.ts`               |
-| `features/conversation` | 2    | Sidebar, switcher, empty state, message/tool rendering                                                         | `src/features/conversation/ui/`                            |
-| `features/panel`        | 2    | Panel open/close/resize, browser-local size persistence (`useWidgetPanelSize`), header chrome, closed launcher | `src/features/panel/ui/`, `model/use-widget-panel-size.ts` |
-| `features/prompt`       | 2    | Composer/footer input                                                                                          | `src/features/prompt/ui/`                                  |
-| `features/settings`     | 2    | In-panel settings view                                                                                         | `src/features/settings/ui/`                                |
-| `features/theme`        | 2    | Theme and appearance state written to the widget root                                                          | `src/features/theme/model/`                                |
-| `entities/conversation` | 1    | API client, SSE reader, run client, activity stream, TanStack Query repository                                 | `src/entities/conversation/api/`                           |
-| `entities/chat`         | 1    | Protocol-backed message and activity-timeline state                                                            | `src/entities/chat/model/`                                 |
-| `entities/panel`        | 1    | Panel size model                                                                                               | `src/entities/panel/model/`                                |
-| `entities/settings`     | 1    | Shared settings metadata (`ReasoningVisibility`)                                                               | `src/entities/settings/model/`                             |
-| `entities/theme`        | 1    | Theme ids and metadata (`WidgetThemeId`)                                                                       | `src/entities/theme/model/`                                |
-| `shared/ui`             | 0    | Project-owned reusable primitives                                                                              | `src/shared/ui/`                                           |
-| `shared/lib`            | 0    | Browser-safe utilities                                                                                         | `src/shared/lib/`                                          |
-| `shared/ai`             | 0    | Quarantine: copied vendor UI, now only a Markdown wrapper                                                      | `src/shared/ai/`                                           |
+| Layer                    | Rank | Owns                                                                                                           | Example                                                    |
+| ------------------------ | ---- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `widgets/side-chat`      | 3    | The composite root `SideChatWidget`, layout/view composition, query-client and model wiring, public props      | `src/widgets/side-chat/ui/side-chat-widget.tsx`            |
+| `features/chat`          | 2    | Submission, run lifecycle, SSE consumption, protocol-to-state mapping, reconnect, activity sidebar             | `src/features/chat/model/use-widget-chat.ts`               |
+| `features/workflow-chat` | 2    | Native `useChat` state, send/stream/cancel state, typed transport errors                                       | `src/features/workflow-chat/model/`                        |
+| `features/conversation`  | 2    | Sidebar, switcher, empty state, message/tool rendering                                                         | `src/features/conversation/ui/`                            |
+| `features/panel`         | 2    | Panel open/close/resize, browser-local size persistence (`useWidgetPanelSize`), header chrome, closed launcher | `src/features/panel/ui/`, `model/use-widget-panel-size.ts` |
+| `features/prompt`        | 2    | Composer/footer input                                                                                          | `src/features/prompt/ui/`                                  |
+| `features/settings`      | 2    | In-panel settings view                                                                                         | `src/features/settings/ui/`                                |
+| `features/theme`         | 2    | Theme and appearance state written to the widget root                                                          | `src/features/theme/model/`                                |
+| `entities/conversation`  | 1    | API client, SSE reader, run client, activity stream, TanStack Query repository                                 | `src/entities/conversation/api/`                           |
+| `entities/workflow-chat` | 1    | Native transport adapter, history validation, request-time auth, cancel client                                 | `src/entities/workflow-chat/`                              |
+| `entities/chat`          | 1    | Protocol-backed message and activity-timeline state                                                            | `src/entities/chat/model/`                                 |
+| `entities/panel`         | 1    | Panel size model                                                                                               | `src/entities/panel/model/`                                |
+| `entities/settings`      | 1    | Shared settings metadata (`ReasoningVisibility`)                                                               | `src/entities/settings/model/`                             |
+| `entities/theme`         | 1    | Theme ids and metadata (`WidgetThemeId`)                                                                       | `src/entities/theme/model/`                                |
+| `shared/ui`              | 0    | Project-owned reusable primitives                                                                              | `src/shared/ui/`                                           |
+| `shared/lib`             | 0    | Browser-safe utilities                                                                                         | `src/shared/lib/`                                          |
+| `shared/ai`              | 0    | Quarantine: copied vendor UI, now only a Markdown wrapper                                                      | `src/shared/ai/`                                           |
 
 ### Import-direction rule
 
@@ -40,9 +42,17 @@ The widget uses Feature-Sliced Design (FSD): code sits in ranked layers, and a l
 
 Cross-slice access goes through `#`-alias barrels, declared in `package.json` (`#entities/*`, `#features/*`, `#shared/lib/*`, `#shared/ai/*`, `#shared/ui/*`). Each resolves to a slice's `index.ts`, so a deep relative import into another slice fails the check.
 
-The widget is provider-free and Effect-free. It must not import `ai`, `@ai-sdk/*`, `hono`, `pg`, `drizzle-orm`, Effect, or any runtime/service internal. Its only `@side-chat/*` dependencies are `chat-protocol`, `host-bridge`, and `shared`. `scripts/check-runtime-boundaries.mjs` guards this too.
+The widget is provider-free and Effect-free. The isolated `workflow-chat` slices may import AI SDK browser packages (`ai`, `@ai-sdk/react`, and `@ai-sdk/workflow`); provider SDKs, Hono, database libraries, Effect, and runtime/service internals remain forbidden. The workflow branch must not import `chat-protocol`; the protocol-backed branch owns that dependency. `scripts/check-runtime-boundaries.mjs` and the workflow import test guard these boundaries.
 
-## Live-turn data flow
+## Native v7 live-turn data flow
+
+The `workflowChat` branch reads `/api/conversations/:conversationId/messages`, accepts an empty new-conversation history, and validates non-empty history as native `UIMessage[]`. Only after that read settles does `useWorkflowWidgetChat` create one `useChat` instance with `id = conversationId`, so the history seed cannot race a streamed assistant into a duplicate bubble.
+
+`createWorkflowChatTransport` binds `WorkflowChatTransport` to the service envelope. Every send and reconnect resolves `getRequestConfig()` at request time, POSTs the strict `{requestId, conversationId, messages, modelPreference?}` body to `/api/chat`, and uses the returned `x-workflow-run-id` for `/api/chat/:runId/stream`. Stop aborts the local reader and POSTs `{conversationId}` to `/api/chat/:runId/cancel`. Aborted response-body errors close cleanly before the transport's reconnect check, so cancellation stays calm without hiding non-abort transport failures.
+
+The workflow shell currently projects text parts only. Specialized native message-part rendering and reconnect or multi-tab recovery remain separate responsibilities.
+
+## Protocol-backed live-turn data flow
 
 Chat is connection-bound (ADR [0007](../adr/0007-connection-bound-streaming.md)): `client.createRun` POSTs the turn and the response _is_ its SSE stream — the `sidechat.started` frame at sequence 0 carries the identity. `GET /chat/turns/:assistantTurnId/stream?after=<seq>` can resume only from the owning instance's live buffer. Generation is server-owned and the browser only subscribes. If a reconnect or reload cannot reach that buffer, the widget polls the durable turn status and reads the final answer from history. See [runtime-and-protocol-events.md](runtime-and-protocol-events.md) for the transport contract.
 

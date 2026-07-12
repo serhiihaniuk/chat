@@ -8,7 +8,7 @@ Not source of truth for: backend workflow or protocol definitions.
 ## Owns
 
 - Public React widget API.
-- Browser-safe API client and SSE reader used by widget consumers.
+- Browser-safe native AI SDK transport plus the protocol-backed client.
 - FSD layers for chat, conversation, prompt, panel, and shared UI.
 - Protocol event projection into widget message/activity state.
 - Host bridge usage from browser UI.
@@ -22,7 +22,19 @@ Not source of truth for: backend workflow or protocol definitions.
 
 ## Public Surface
 
-`src/index.ts` exports the side-chat widget API, including
+`src/index.ts` exports one discriminated widget API. New v7 consumers pass a
+`workflowChat` configuration with `baseUrl`, `conversationId`, and an optional
+request-time `getRequestConfig` callback. That branch validates history, seeds
+one `useChat` instance, and uses `WorkflowChatTransport` for POST, replay, and
+cancel requests. Request configuration is resolved for every request so a
+refreshed auth token is not captured at mount time.
+
+The native branch currently exposes panel, theme, labels, open-state, and
+closed-launcher options. Protocol-specific host context, activity renderers,
+quick actions, reasoning presentation, and turn profiles remain available only
+on the `client` branch until native message interactions own those contracts.
+
+The protocol-backed branch accepts `client` and exports
 `createSideChatApiClient` for service-backed consumers. `SideChatApiClient` drives
 the resumable run/turn flow through `createRun`, `subscribeTurn`, `resolveRun`,
 `getTurnStatus`, `cancelTurn`, and `subscribeActivity`, plus optional conversation
@@ -89,6 +101,11 @@ for harness tests. It is not a host application API.
 ## Main Flows
 
 ```txt
+workflowChat -> validated UIMessage history -> useChat
+  -> WorkflowChatTransport POST /api/chat -> native UI message stream
+  -> POST /api/chat/:runId/cancel on stop
+
+protocol client:
 user submit -> optimistic widget state -> createRun (POST response stream)
   -> protocol events -> widget messages/activity
 reconnect (visibility/online/remount) -> owner-bound subscribeTurn from last sequence
@@ -101,6 +118,8 @@ subscribeActivity -> running conversation ids -> sidebar "generating" dot
 ## Boundary Rules
 
 - Do not import Effect, Hono, DB, provider SDKs, or runtime internals.
+- Keep AI SDK imports inside the isolated `workflow-chat` slices; provider SDKs
+  remain server-only.
 - Keep stream mechanics in feature/model code, not prompt/footer rendering.
 - Treat `src/shared/ai/**` as copied visual primitives, not project style.
 

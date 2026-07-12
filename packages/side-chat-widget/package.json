@@ -65,11 +65,14 @@
     "test": "cd ../.. && vitest run packages/side-chat-widget/src --passWithNoTests"
   },
   "dependencies": {
+    "@ai-sdk/react": "4.0.23",
+    "@ai-sdk/workflow": "1.0.22",
     "@base-ui/react": "1.5.0",
     "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/host-bridge": "0.0.0",
     "@side-chat/shared": "0.0.0",
     "@tanstack/react-query": "5.101.0",
+    "ai": "7.0.22",
     "clsx": "2.1.1",
     "lucide-react": "1.16.0",
     "streamdown": "2.5.0",

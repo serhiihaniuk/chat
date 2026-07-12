@@ -2,6 +2,7 @@ import {
   createSideChatApiClient,
   type FetchLike,
   type SideChatApiClient,
+  type WorkflowChatClient,
 } from "@side-chat/side-chat-widget";
 
 import type { WidgetHarnessConfig } from "#config/modes";
@@ -11,6 +12,14 @@ export const createLocalServiceClient = (config: WidgetHarnessConfig): SideChatA
     baseUrl: resolveLocalApiBaseUrl(config.apiBaseUrl),
     fetch: withLocalAuth(config.authToken, globalThis.fetch.bind(globalThis)),
   });
+
+export const createWorkflowServiceClient = (config: WidgetHarnessConfig): WorkflowChatClient => ({
+  baseUrl: resolveLocalApiBaseUrl(config.apiBaseUrl),
+  conversationId: config.conversationId,
+  getRequestConfig: () => ({
+    headers: { authorization: `Bearer ${config.authToken}` },
+  }),
+});
 
 export const withLocalAuth =
   (authToken: string, fetchLike: FetchLike): FetchLike =>

@@ -27,7 +27,11 @@ import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } 
 import { useWidgetModelSelection } from "../model/selection/side-chat-model-selection.js";
 import { useWidgetToolSelection } from "../model/selection/side-chat-tool-selection.js";
 import { createSideChatWidgetQueryClient } from "../model/side-chat-query-client.js";
-import type { SideChatWidgetProps } from "../model/side-chat-widget.types.js";
+import type {
+  ProtocolSideChatWidgetProps,
+  SideChatWidgetProps,
+} from "../model/side-chat-widget.types.js";
+import { WorkflowSideChatWidget } from "./workflow/workflow-side-chat-widget.js";
 
 export type {
   RenderActivityItem,
@@ -36,6 +40,7 @@ export type {
   SideChatWidgetPanelActions,
   SideChatWidgetPanelSize,
   SideChatWidgetProps,
+  WorkflowSideChatWidgetProps,
   SideChatWidgetQuickAction,
   WidgetActivityItem,
 } from "../model/side-chat-widget.types.js";
@@ -61,7 +66,11 @@ export const SideChatWidget = (props: SideChatWidgetProps) => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SideChatWidgetContent {...props} />
+      {props.workflowChat ? (
+        <WorkflowSideChatWidget {...props} />
+      ) : (
+        <SideChatWidgetContent {...props} />
+      )}
     </QueryClientProvider>
   );
 };
@@ -94,7 +103,7 @@ const SideChatWidgetContent = ({
   renderClosedLauncher = true,
   reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
   themeStorageKey,
-}: SideChatWidgetProps) => {
+}: ProtocolSideChatWidgetProps) => {
   const labels = useMemo(() => resolveWidgetLabels(labelsProp), [labelsProp]);
   const initialProfileId = resolveInitialProfileId(defaultTurnProfileId, turnProfiles);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -274,7 +283,7 @@ const toEmptyStateSuggestions = (
 // Honest empty-state copy: only claim to see the page when a host bridge is present
 // to supply that context.
 const emptyStateDescription = (
-  hostBridge: SideChatWidgetProps["hostBridge"],
+  hostBridge: ProtocolSideChatWidgetProps["hostBridge"],
   labels: { readonly emptyStateWithContext: string; readonly emptyStateWithoutContext: string },
 ): string => (hostBridge ? labels.emptyStateWithContext : labels.emptyStateWithoutContext);
 

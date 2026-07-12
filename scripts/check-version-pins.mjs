@@ -70,6 +70,9 @@ const requiredByPackage = {
     "drizzle-kit": "0.31.10",
   },
   "@side-chat/side-chat-widget": {
+    ai: "7.0.22",
+    "@ai-sdk/react": "4.0.23",
+    "@ai-sdk/workflow": "1.0.22",
     react: "19.2.6",
     "react-dom": "19.2.6",
     "@base-ui/react": "1.5.0",

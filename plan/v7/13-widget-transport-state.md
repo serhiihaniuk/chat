@@ -51,13 +51,36 @@ Plus a browser sanity run against the new wing (fake provider) via the preview w
 
 ## Completion checklist
 
-- [ ] useChat + `WorkflowChatTransport` wired with auth prepare hooks.
-- [ ] History seeding without duplicate bubbles.
-- [ ] All six edge cases tested; browser sanity run screenshotted.
-- [ ] Old state layer untouched but unused by this path.
+- [x] useChat + `WorkflowChatTransport` wired with auth prepare hooks.
+- [x] History seeding without duplicate bubbles.
+- [x] All six edge cases tested; browser sanity run screenshotted.
+- [x] Old state layer untouched but unused by this path.
 
 ## Handoff record
 
-Transport/config entry points: pending
+Transport/config entry points: `entities/workflow-chat/api/workflow-chat-transport.ts`,
+`entities/workflow-chat/model/workflow-chat-client.ts`, and the public
+`WorkflowChatClient` / `WorkflowSideChatWidgetProps` exports. The harness's
+`workflow-service` mode targets the v7 service without changing legacy modes.
 
-Id-reconciliation approach: pending
+Id-reconciliation approach: history settles before the conversation-scoped
+`useChat` mounts. The native stream's `start.messageId` owns the assistant id;
+the widget does not create an optimistic assistant placeholder, so seed and
+stream cannot represent the same assistant twice.
+
+Evidence: focused workflow tests 15/15; widget package 229/229; widget and
+harness builds; harness test 8/8; browser send/finish and cancel screenshots in
+`evidence/13-widget-workflow-{stream,cancelled}.png`, with no page or console
+errors. The browser used the reviewed deterministic native-stream interceptor
+because the current compiled fake-service artifact fails before boot when the
+unrelated DB `#schema-contract` package import escapes the Nitro bundle.
+
+The native public props expose only the shell behavior implemented here. Host
+context, activity renderers, quick actions, reasoning presentation, and turn
+profiles remain protocol-branch contracts; the shared closed launcher is covered
+in the harness.
+
+Client-boundary tests reject malformed native history and prove that unknown HTTP
+bodies do not cross into public errors. The import-boundary suite discovers every
+production file inside the isolated workflow slices instead of maintaining a
+fragile file list.

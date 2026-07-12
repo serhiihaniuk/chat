@@ -9,7 +9,7 @@ Not source of truth for: production host app behavior.
 
 - Vite app for widget development.
 - Vite host proxy for local iframe embedding scenarios.
-- Mock-stream and local-service harness modes.
+- Mock-stream, legacy local-service, and v7 workflow-service harness modes.
 - Fake host bridge behavior for browser scenarios.
 - Playwright-visible harness pages.
 
@@ -30,6 +30,10 @@ Harness app entrypoint, browser mode selection, and E2E scenarios.
 harness mode -> widget props/client/host bridge -> visible browser scenario
 host proxy -> /side-chat-frame iframe UI + /side-chat-api service API
 ```
+
+Use `?mode=workflow-service&authToken=local-test-token&conversationId=conversation-1`
+to exercise the native `useChat` transport against the v7 service. This mode is
+separate from `local-service`, which remains the legacy protocol regression path.
 
 ## Boundary Rules
 
