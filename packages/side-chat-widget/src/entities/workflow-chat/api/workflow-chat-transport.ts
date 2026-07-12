@@ -4,13 +4,14 @@ import {
   type SendMessagesOptions,
   type WorkflowChatTransportOptions,
 } from "@ai-sdk/workflow";
-import type { ChatRequestOptions, ChatTransport, UIMessage } from "ai";
+import type { ChatRequestOptions, ChatTransport } from "ai";
 
 import {
   resolveWorkflowChatRequestConfig,
   workflowChatFetch,
   workflowChatUrl,
   type WorkflowChatClient,
+  type WorkflowUIMessage,
 } from "../model/workflow-chat-client.js";
 
 type CreateWorkflowChatTransportInput = Readonly<{
@@ -30,9 +31,9 @@ export function createWorkflowChatTransport({
   getClient,
   onRunFinished,
   onRunStarted,
-}: CreateWorkflowChatTransportInput): ChatTransport<UIMessage> {
+}: CreateWorkflowChatTransportInput): ChatTransport<WorkflowUIMessage> {
   const client = getClient();
-  const transportOptions: WorkflowChatTransportOptions<UIMessage> = {
+  const transportOptions: WorkflowChatTransportOptions<WorkflowUIMessage> = {
     api: workflowChatUrl(getClient(), "/api/chat"),
     fetch: (input, init) => fetchWorkflowResponse(getClient(), input, init),
     onChatSendMessage: (response) => {
@@ -61,7 +62,7 @@ export function createWorkflowChatTransport({
   if (client.maxConsecutiveErrors !== undefined) {
     transportOptions.maxConsecutiveErrors = client.maxConsecutiveErrors;
   }
-  const transport = new WorkflowChatTransport<UIMessage>(transportOptions);
+  const transport = new WorkflowChatTransport<WorkflowUIMessage>(transportOptions);
 
   return {
     reconnectToStream: (options) => transport.reconnectToStream(toReconnectOptions(options)),
@@ -111,14 +112,14 @@ function closeBodyCalmlyOnAbort(
   });
 }
 
-type AiSdkSendOptions = Parameters<ChatTransport<UIMessage>["sendMessages"]>[0];
-type AiSdkReconnectOptions = Parameters<ChatTransport<UIMessage>["reconnectToStream"]>[0];
+type AiSdkSendOptions = Parameters<ChatTransport<WorkflowUIMessage>["sendMessages"]>[0];
+type AiSdkReconnectOptions = Parameters<ChatTransport<WorkflowUIMessage>["reconnectToStream"]>[0];
 
 /** Keep AI SDK 7's explicit undefineds out of Workflow's exact optional fields. */
 const toSendOptions = (
   options: AiSdkSendOptions,
-): SendMessagesOptions<UIMessage> & ChatRequestOptions => {
-  const result: SendMessagesOptions<UIMessage> & ChatRequestOptions = {
+): SendMessagesOptions<WorkflowUIMessage> & ChatRequestOptions => {
+  const result: SendMessagesOptions<WorkflowUIMessage> & ChatRequestOptions = {
     chatId: options.chatId,
     messages: options.messages,
     trigger: options.trigger,
@@ -143,7 +144,7 @@ const toReconnectOptions = (
 
 type WorkflowChatRequestBody = {
   readonly conversationId: string;
-  readonly messages: UIMessage[];
+  readonly messages: WorkflowUIMessage[];
   readonly requestId: string;
   modelPreference?: string;
 };

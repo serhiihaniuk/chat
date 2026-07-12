@@ -59,6 +59,22 @@ describe("useWorkflowWidgetChat", () => {
       expect.objectContaining({ type: "text", text: "Answer", state: "done" }),
     );
     expect(chat.current?.messages.filter((message) => message.id === "seed-user")).toHaveLength(1);
+    expect(chat.current?.terminal).toMatchObject({
+      kind: "completed",
+      messageId: "assistant-1",
+      partCount: 2,
+    });
+  });
+
+  it("maps a native content-filter finish to a blocked terminal", async () => {
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(blockedTurnResponse()));
+    const chat = renderChat({ fetch: request });
+
+    await act(async () => chat.current?.submitMessage("Blocked"));
+    await waitFor(() => chat.current?.status === "idle");
+
+    expect(chat.current?.terminal).toMatchObject({ kind: "blocked", messageId: "assistant-1" });
+    expect(chat.current?.error).toBeUndefined();
   });
 
   it("keeps a typed busy failure calm and does not retry", async () => {
@@ -111,6 +127,7 @@ describe("useWorkflowWidgetChat", () => {
     expect(chat.current?.cancelled).toBe(true);
     expect(chat.current?.error).toBeUndefined();
     expect(chat.current?.status).toBe("idle");
+    expect(chat.current?.terminal).toMatchObject({ kind: "cancelled", messageId: "assistant-1" });
     expect(loggedError).not.toHaveBeenCalled();
   });
 });
@@ -175,6 +192,19 @@ function openTurnResponse(signal: AbortSignal | undefined): Response {
     },
   });
   return eventResponse(body);
+}
+
+function blockedTurnResponse(): Response {
+  return eventResponse(
+    [
+      { type: "start", messageId: "assistant-1" },
+      { type: "start-step" },
+      { type: "finish-step" },
+      { type: "finish", finishReason: "content-filter" },
+    ]
+      .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
+      .join("") + "data: [DONE]\n\n",
+  );
 }
 
 function eventResponse(body: BodyInit): Response {

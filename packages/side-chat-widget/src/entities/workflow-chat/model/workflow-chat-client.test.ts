@@ -28,6 +28,21 @@ describe("readWorkflowChatHistory", () => {
       retryable: false,
     });
   });
+
+  it("uses the stream profile safe message and retryability for recognized errors", async () => {
+    const client = createClient(() =>
+      Response.json(
+        { code: "provider_failed", message: "private provider details", retryable: false },
+        { status: 500 },
+      ),
+    );
+
+    await expect(readWorkflowChatHistory(client)).rejects.toMatchObject({
+      code: "provider_failed",
+      message: "The model provider failed safely.",
+      retryable: true,
+    });
+  });
 });
 
 function createClient(response: () => Response): WorkflowChatClient {

@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { isTextUIPart, type UIMessage } from "ai";
 import { useMemo, useState, type ReactNode } from "react";
 
-import { readWorkflowChatHistory } from "#entities/workflow-chat";
+import { readWorkflowChatHistory, type WorkflowUIMessage } from "#entities/workflow-chat";
 import {
   ClosedWidgetLauncher,
   ResizablePanel,
@@ -14,13 +13,13 @@ import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import {
   useWorkflowWidgetChat,
   WORKFLOW_WIDGET_CHAT_STATUS,
-  type WorkflowWidgetChatStatus,
+  type WorkflowChatTerminal,
+  WorkflowMessageTimeline,
 } from "#features/workflow-chat";
 import { resolveWidgetLabels, WidgetLabelsProvider } from "#shared/lib/widget-labels";
 import { Composer } from "#shared/ui/composer";
 import { Conversation, ConversationContent } from "#shared/ui/conversation";
 import { ErrorNotice } from "#shared/ui/error-notice";
-import { Message } from "#shared/ui/message";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 
 import type { WorkflowSideChatWidgetProps } from "../../model/side-chat-widget.types.js";
@@ -33,11 +32,6 @@ const WORKFLOW_HISTORY_QUERY = {
 const UI_MESSAGE_ROLE = {
   ASSISTANT: "assistant",
   USER: "user",
-} as const;
-
-const MESSAGE_RENDER_MODE = {
-  STATIC: "static",
-  STREAMING: "streaming",
 } as const;
 
 /** Render one conversation through the native workflow transport and chat state. */
@@ -144,33 +138,38 @@ function WorkflowChatSession({
   sendOnEnter,
   workflowChat,
 }: {
-  readonly initialMessages: readonly UIMessage[];
+  readonly initialMessages: readonly WorkflowUIMessage[];
   readonly labels: ReturnType<typeof resolveWidgetLabels>;
   readonly sendOnEnter: boolean;
   readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
 }) {
   const chat = useWorkflowWidgetChat(workflowChat, initialMessages);
+  const lastAssistantIndex = findLastAssistantIndex(chat.messages);
+  const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);
   return (
     <>
       <Conversation aria-label={labels.headerConversationFeed}>
         <ConversationContent className="mx-auto min-h-full w-full max-w-measure-message gap-4 px-4 pt-4 pb-8">
           {chat.messages.map((message, index) => (
-            <Message
+            <WorkflowMessageTimeline
               key={message.id}
-              mode={
-                isStreamingAssistant(chat.status, message, index, chat.messages)
-                  ? MESSAGE_RENDER_MODE.STREAMING
-                  : MESSAGE_RENDER_MODE.STATIC
-              }
-              role={
-                message.role === UI_MESSAGE_ROLE.USER
-                  ? UI_MESSAGE_ROLE.USER
-                  : UI_MESSAGE_ROLE.ASSISTANT
-              }
-              text={textFromMessage(message)}
+              isStreaming={isStreamingAssistant(chat.status, message, index, lastAssistantIndex)}
+              message={message}
+              onRetry={() => void chat.retry()}
+              terminal={terminalForMessage(chat.terminal, message.id, index, lastAssistantIndex)}
             />
           ))}
-          {chat.error && <ErrorNotice message={chat.error.message} />}
+          {chat.terminal.kind !== "none" && !terminalMessageIsRendered ? (
+            <WorkflowMessageTimeline
+              message={{
+                id: chat.terminal.messageId ?? "workflow-terminal",
+                role: "assistant",
+                parts: [],
+              }}
+              onRetry={() => void chat.retry()}
+              terminal={chat.terminal}
+            />
+          ) : null}
         </ConversationContent>
       </Conversation>
       <footer className="shrink-0 px-3 pb-3">
@@ -190,22 +189,42 @@ function WorkflowChatSession({
   );
 }
 
-function textFromMessage(message: UIMessage): string {
-  return message.parts
-    .filter(isTextUIPart)
-    .map((part) => part.text)
-    .join("");
-}
-
 function isStreamingAssistant(
-  status: WorkflowWidgetChatStatus,
-  message: UIMessage,
+  status: (typeof WORKFLOW_WIDGET_CHAT_STATUS)[keyof typeof WORKFLOW_WIDGET_CHAT_STATUS],
+  message: WorkflowUIMessage,
   index: number,
-  messages: readonly UIMessage[],
+  lastAssistantIndex: number,
 ): boolean {
   return (
     status === WORKFLOW_WIDGET_CHAT_STATUS.STREAMING &&
     message.role === UI_MESSAGE_ROLE.ASSISTANT &&
-    index === messages.length - 1
+    index === lastAssistantIndex
   );
+}
+
+function findLastAssistantIndex(messages: readonly WorkflowUIMessage[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === UI_MESSAGE_ROLE.ASSISTANT) return index;
+  }
+  return -1;
+}
+
+function terminalForMessage(
+  terminal: WorkflowChatTerminal,
+  messageId: string,
+  index: number,
+  lastAssistantIndex: number,
+): WorkflowChatTerminal | undefined {
+  if (terminal.kind === "none") return undefined;
+  if (terminal.messageId === messageId) return terminal;
+  if (terminal.messageId === undefined && index === lastAssistantIndex) return terminal;
+  return undefined;
+}
+
+function hasTerminalMessage(
+  terminal: WorkflowChatTerminal,
+  messages: readonly WorkflowUIMessage[],
+): boolean {
+  if (terminal.kind === "none" || terminal.messageId === undefined) return false;
+  return messages.some((message) => message.id === terminal.messageId);
 }

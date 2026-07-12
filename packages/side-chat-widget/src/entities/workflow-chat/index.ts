@@ -8,4 +8,5 @@ export type {
   WorkflowChatClient,
   WorkflowChatHttpError,
   WorkflowChatRequestConfig,
+  WorkflowUIMessage,
 } from "./model/workflow-chat-client.js";

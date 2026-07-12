@@ -29,10 +29,12 @@ one `useChat` instance, and uses `WorkflowChatTransport` for POST, replay, and
 cancel requests. Request configuration is resolved for every request so a
 refreshed auth token is not captured at mount time.
 
-The native branch currently exposes panel, theme, labels, open-state, and
-closed-launcher options. Protocol-specific host context, activity renderers,
-quick actions, reasoning presentation, and turn profiles remain available only
-on the `client` branch until native message interactions own those contracts.
+The native branch renders the validated AI SDK `UIMessage` part timeline with
+source-ordered text, reasoning, tool lifecycle, source, file, approval-display,
+and terminal presentations. Approval decisions remain display-only until the
+native interaction work in Step 15. Protocol-specific host context, activity
+renderers, quick actions, reasoning presentation, and turn profiles remain
+available only on the `client` branch.
 
 The protocol-backed branch accepts `client` and exports
 `createSideChatApiClient` for service-backed consumers. `SideChatApiClient` drives

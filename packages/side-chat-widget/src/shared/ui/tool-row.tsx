@@ -12,9 +12,9 @@
  */
 import type { ReactElement } from "react";
 
-import { Check, Loader2, TriangleAlert } from "lucide-react";
+import { Check, CircleX, Loader2, TriangleAlert } from "lucide-react";
 
-export type ToolState = "running" | "success" | "error";
+export type ToolState = "running" | "success" | "error" | "denied";
 
 function ToolGlyph({ state }: { state: ToolState }): ReactElement {
   if (state === "success") {
@@ -22,6 +22,9 @@ function ToolGlyph({ state }: { state: ToolState }): ReactElement {
   }
   if (state === "error") {
     return <TriangleAlert className="sc-error-glyph size-3.5 shrink-0" />;
+  }
+  if (state === "denied") {
+    return <CircleX className="size-3.5 shrink-0 text-muted-foreground" />;
   }
   return <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />;
 }

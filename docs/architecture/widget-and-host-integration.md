@@ -50,7 +50,7 @@ The `workflowChat` branch reads `/api/conversations/:conversationId/messages`, a
 
 `createWorkflowChatTransport` binds `WorkflowChatTransport` to the service envelope. Every send and reconnect resolves `getRequestConfig()` at request time, POSTs the strict `{requestId, conversationId, messages, modelPreference?}` body to `/api/chat`, and uses the returned `x-workflow-run-id` for `/api/chat/:runId/stream`. Stop aborts the local reader and POSTs `{conversationId}` to `/api/chat/:runId/cancel`. Aborted response-body errors close cleanly before the transport's reconnect check, so cancellation stays calm without hiding non-abort transport failures.
 
-The workflow shell currently projects text parts only. Specialized native message-part rendering and reconnect or multi-tab recovery remain separate responsibilities.
+The workflow branch projects validated native `UIMessage` parts in source order: text and reasoning, static or dynamic tool lifecycles, approval-requested display, sources, sanctioned files, and terminal notices. `SideChatDataParts` is empty, so no widget-owned `data-*` vocabulary is introduced. The projection ignores unknown future parts with a development-build console note, bounds rendering at the observed terminal part count, and leaves approval decisions and reconnect or multi-tab recovery to later responsibilities.
 
 ## Protocol-backed live-turn data flow
 

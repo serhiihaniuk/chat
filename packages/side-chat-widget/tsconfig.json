@@ -16,6 +16,9 @@
     },
     {
       "path": "../shared"
+    },
+    {
+      "path": "../stream-profile"
     }
   ],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/widget-test-env.tsx"]

@@ -8,7 +8,7 @@
  * Button variant so its muted fill follows the same theme token as every secondary action.
  */
 import { type ReactElement } from "react";
-import { RotateCcw, ShieldAlert, TriangleAlert } from "lucide-react";
+import { Ban, RotateCcw, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { useWidgetLabels } from "#shared/lib/widget-labels";
 import { Button } from "#shared/ui/button";
@@ -61,4 +61,30 @@ function BlockedNotice({ message }: { message: string }): ReactElement {
   );
 }
 
-export { BlockedNotice, ErrorNotice };
+function CancelledNotice({ message }: { message: string }): ReactElement {
+  return (
+    <div
+      data-slot="cancelled-notice"
+      role="status"
+      className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3"
+    >
+      <Ban className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <p className="min-w-0 text-sm text-foreground">{message}</p>
+    </div>
+  );
+}
+
+function TruncatedNotice({ message }: { message: string }): ReactElement {
+  return (
+    <div
+      data-slot="truncated-notice"
+      role="status"
+      className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3"
+    >
+      <ShieldAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <p className="min-w-0 text-sm text-foreground">{message}</p>
+    </div>
+  );
+}
+
+export { BlockedNotice, CancelledNotice, ErrorNotice, TruncatedNotice };

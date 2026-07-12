@@ -80,6 +80,7 @@ const allowed = {
     "@side-chat/chat-protocol",
     "@side-chat/host-bridge",
     "@side-chat/shared",
+    "@side-chat/stream-profile",
     "@tanstack/react-query",
     "ai",
     "clsx",

@@ -25,6 +25,10 @@ export type WidgetLabels = {
   readonly composerInputAria: string;
   readonly noticeError: string;
   readonly noticeRetry: string;
+  readonly noticeBlocked: string;
+  readonly noticeCancelled: string;
+  readonly noticeTruncated: string;
+  readonly activityApprovalRequired: string;
   readonly activityPreparing: string;
   readonly activityThinking: string;
   readonly activityThoughtProcess: string;
@@ -75,6 +79,10 @@ export const defaultWidgetLabels: WidgetLabels = {
   composerInputAria: "Message",
   noticeError: "Something went wrong while generating a response.",
   noticeRetry: "Try again",
+  noticeBlocked: "This response was blocked by safety filtering.",
+  noticeCancelled: "Response cancelled.",
+  noticeTruncated: "Response stopped at the model's output limit.",
+  activityApprovalRequired: "Approval required",
   activityPreparing: "Preparing the response.",
   activityThinking: "Thinking...",
   activityThoughtProcess: "Thought process",
@@ -125,6 +133,10 @@ export const resolveWidgetLabels = (overrides: SideChatWidgetLabels | undefined)
     composerInputAria: read("composerInputAria"),
     noticeError: read("noticeError"),
     noticeRetry: read("noticeRetry"),
+    noticeBlocked: read("noticeBlocked"),
+    noticeCancelled: read("noticeCancelled"),
+    noticeTruncated: read("noticeTruncated"),
+    activityApprovalRequired: read("activityApprovalRequired"),
     activityPreparing: read("activityPreparing"),
     activityThinking: read("activityThinking"),
     activityThoughtProcess: read("activityThoughtProcess"),

@@ -1,4 +1,12 @@
 import { safeValidateUIMessages, type UIMessage } from "ai";
+import {
+  isSideChatErrorCode,
+  SIDE_CHAT_ERROR_VOCABULARY,
+  type SideChatDataParts,
+} from "@side-chat/stream-profile";
+
+/** Native UI message shape for the workflow branch; SideChatDataParts is intentionally empty. */
+export type WorkflowUIMessage = UIMessage<unknown, SideChatDataParts>;
 
 /**
  * Validate workflow service responses before browser chat state consumes them.
@@ -48,7 +56,7 @@ export class WorkflowChatHttpError extends Error {
 export async function readWorkflowChatHistory(
   client: WorkflowChatClient,
   signal?: AbortSignal,
-): Promise<readonly UIMessage[]> {
+): Promise<readonly WorkflowUIMessage[]> {
   const request = await resolveWorkflowChatRequestConfig(client);
   const response = await workflowChatFetch(client)(
     workflowChatUrl(
@@ -64,7 +72,9 @@ export async function readWorkflowChatHistory(
     throw new Error("Conversation history response is invalid.");
   }
   if (payload["messages"].length === 0) return [];
-  const validated = await safeValidateUIMessages({ messages: payload["messages"] });
+  const validated = await safeValidateUIMessages<WorkflowUIMessage>({
+    messages: payload["messages"],
+  });
   if (!validated.success) throw new Error("Conversation history contains invalid messages.");
   return validated.data;
 }
@@ -137,7 +147,12 @@ function parseErrorPayload(text: string): WorkflowChatHttpError | undefined {
     if (typeof value["code"] !== "string" || typeof value["message"] !== "string") {
       return undefined;
     }
-    return new WorkflowChatHttpError(value["code"], value["message"], value["retryable"] === true);
+    const code = value["code"];
+    if (isSideChatErrorCode(code)) {
+      const profile = SIDE_CHAT_ERROR_VOCABULARY[code];
+      return new WorkflowChatHttpError(code, profile.safeMessage, profile.retryable);
+    }
+    return new WorkflowChatHttpError(code, value["message"], value["retryable"] === true);
   } catch {
     return undefined;
   }
