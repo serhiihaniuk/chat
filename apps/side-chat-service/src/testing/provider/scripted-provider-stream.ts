@@ -10,6 +10,7 @@ import {
   recordProviderObservation,
 } from "../scripted-provider-observations.js";
 import { clientToolCallParts } from "./client-tool-stream-parts.js";
+import { modelStream, NO_OUTPUT_TOKENS, REASONING_OUTPUT_TOKENS } from "./model-stream-parts.js";
 
 const SCRIPTED_STREAM_TEXT = {
   BLOCKING_DELTAS: ["streaming before ", "the abort"],
@@ -68,10 +69,7 @@ function createImmediateStream(
   attemptCount: number,
   clientToolOutputObserved: boolean,
 ): ReadableStream<LanguageModelV4StreamPart> | undefined {
-  if (
-    mode === PROVIDER_SCRIPT_MODE.COMPLETE ||
-    mode === PROVIDER_SCRIPT_MODE.HAPPY
-  ) {
+  if (mode === PROVIDER_SCRIPT_MODE.COMPLETE || mode === PROVIDER_SCRIPT_MODE.HAPPY) {
     return completedStream(`Scripted reply: ${requestId}`);
   }
   if (mode === PROVIDER_SCRIPT_MODE.TITLE) {
@@ -80,21 +78,15 @@ function createImmediateStream(
   if (mode === PROVIDER_SCRIPT_MODE.MULTI_STEP) {
     return completedStream(`Scripted step ${attemptCount}: ${requestId}`);
   }
-  if (mode === PROVIDER_SCRIPT_MODE.EMPTY)
-    return streamFromParts(completedParts());
+  if (mode === PROVIDER_SCRIPT_MODE.EMPTY) return streamFromParts(completedParts());
   if (mode === PROVIDER_SCRIPT_MODE.STEP_LIMIT) {
-    return streamFromParts(
-      completedParts(`Scripted limited reply: ${requestId}`, "length"),
-    );
+    return streamFromParts(completedParts(`Scripted limited reply: ${requestId}`, "length"));
   }
   if (mode === PROVIDER_SCRIPT_MODE.REASONING_ONLY) {
-    return streamFromParts(
-      reasoningOnlyParts(`Scripted reasoning: ${requestId}`),
-    );
+    return streamFromParts(reasoningOnlyParts(`Scripted reasoning: ${requestId}`));
   }
   if (mode === PROVIDER_SCRIPT_MODE.CLIENT_TOOL) {
-    if (attemptCount === 1)
-      return streamFromParts(clientToolCallParts(requestId));
+    if (attemptCount === 1) return streamFromParts(clientToolCallParts(requestId));
     return clientToolOutputObserved
       ? completedStream(`Client tool completed: ${requestId}`)
       : errorStream(requestId, false, attemptCount);
@@ -102,9 +94,7 @@ function createImmediateStream(
   return undefined;
 }
 
-function completedStream(
-  text: string,
-): ReadableStream<LanguageModelV4StreamPart> {
+function completedStream(text: string): ReadableStream<LanguageModelV4StreamPart> {
   return streamFromParts(completedParts(text));
 }
 
@@ -127,8 +117,7 @@ function blockingStream(
 ): ReadableStream<LanguageModelV4StreamPart> {
   return new ReadableStream({
     start(controller) {
-      if (textBeforeAbort.length > 0)
-        enqueuePartialText(controller, textBeforeAbort);
+      if (textBeforeAbort.length > 0) enqueuePartialText(controller, textBeforeAbort);
       recordProviderObservation({
         event: observationEventFor(textBeforeAbort),
         requestId,
@@ -138,12 +127,7 @@ function blockingStream(
       // AbortError is an engine contract: a generic failure is retryable and
       // would incorrectly re-run this provider call after cancellation.
       const abort = () => {
-        controller.error(
-          new DOMException(
-            abortReasonText(abortSignal),
-            PROVIDER_ABORT_ERROR_NAME,
-          ),
-        );
+        controller.error(new DOMException(abortReasonText(abortSignal), PROVIDER_ABORT_ERROR_NAME));
         recordProviderObservation({
           event: PROVIDER_OBSERVATION_EVENT.ABORTED,
           requestId,
@@ -165,8 +149,7 @@ function errorStream(
 ): ReadableStream<LanguageModelV4StreamPart> {
   return new ReadableStream({
     start(controller) {
-      if (emitBeforeError)
-        enqueuePartialText(controller, SCRIPTED_STREAM_TEXT.PARTIAL_DELTAS);
+      if (emitBeforeError) enqueuePartialText(controller, SCRIPTED_STREAM_TEXT.PARTIAL_DELTAS);
       recordProviderObservation({
         event: PROVIDER_OBSERVATION_EVENT.ERROR,
         requestId,
@@ -184,9 +167,7 @@ function errorStream(
 
 function observationEventFor(
   textBeforeAbort: readonly string[],
-):
-  | typeof PROVIDER_OBSERVATION_EVENT.STREAMING
-  | typeof PROVIDER_OBSERVATION_EVENT.WAITING {
+): typeof PROVIDER_OBSERVATION_EVENT.STREAMING | typeof PROVIDER_OBSERVATION_EVENT.WAITING {
   if (textBeforeAbort.length > 0) return PROVIDER_OBSERVATION_EVENT.STREAMING;
   return PROVIDER_OBSERVATION_EVENT.WAITING;
 }
@@ -198,8 +179,7 @@ function enqueuePartialText(
   const id = SCRIPTED_STREAM_TEXT.BLOCKED_TEXT_ID;
   controller.enqueue({ type: "stream-start", warnings: [] });
   controller.enqueue({ type: "text-start", id });
-  for (const delta of deltas)
-    controller.enqueue({ type: "text-delta", id, delta });
+  for (const delta of deltas) controller.enqueue({ type: "text-delta", id, delta });
 }
 
 function abortReasonText(abortSignal: AbortSignal | undefined): string {
@@ -226,59 +206,14 @@ function completedParts(
   text?: string,
   finishReason: "stop" | "length" = "stop",
 ): readonly LanguageModelV4StreamPart[] {
-  const id = SCRIPTED_STREAM_TEXT.COMPLETED_TEXT_ID;
-  const textParts: readonly LanguageModelV4StreamPart[] =
-    text === undefined
-      ? []
-      : [
-          { type: "text-start", id },
-          { type: "text-delta", id, delta: text },
-          { type: "text-end", id },
-        ];
-  return [
-    { type: "stream-start", warnings: [] },
-    ...textParts,
-    {
-      type: "finish",
-      finishReason: { unified: finishReason, raw: finishReason },
-      usage: {
-        inputTokens: {
-          total: 1,
-          noCache: 1,
-          cacheRead: undefined,
-          cacheWrite: undefined,
-        },
-        outputTokens: {
-          total: text === undefined ? 0 : 1,
-          text: text === undefined ? 0 : 1,
-          reasoning: undefined,
-        },
-      },
-    },
-  ];
+  if (text === undefined) {
+    return modelStream().finish(finishReason, NO_OUTPUT_TOKENS);
+  }
+  return modelStream().text(text, SCRIPTED_STREAM_TEXT.COMPLETED_TEXT_ID).finish(finishReason);
 }
 
-function reasoningOnlyParts(
-  reasoning: string,
-): readonly LanguageModelV4StreamPart[] {
-  const id = SCRIPTED_STREAM_TEXT.REASONING_ID;
-  return [
-    { type: "stream-start", warnings: [] },
-    { type: "reasoning-start", id },
-    { type: "reasoning-delta", id, delta: reasoning },
-    { type: "reasoning-end", id },
-    {
-      type: "finish",
-      finishReason: { unified: "stop", raw: "stop" },
-      usage: {
-        inputTokens: {
-          total: 1,
-          noCache: 1,
-          cacheRead: undefined,
-          cacheWrite: undefined,
-        },
-        outputTokens: { total: 1, text: 0, reasoning: 1 },
-      },
-    },
-  ];
+function reasoningOnlyParts(reasoning: string): readonly LanguageModelV4StreamPart[] {
+  return modelStream()
+    .reasoning(reasoning, SCRIPTED_STREAM_TEXT.REASONING_ID)
+    .finish("stop", REASONING_OUTPUT_TOKENS);
 }

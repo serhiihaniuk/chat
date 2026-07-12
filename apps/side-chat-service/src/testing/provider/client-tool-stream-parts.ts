@@ -1,29 +1,14 @@
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
 
+import { modelStream, TOOL_CALL_OUTPUT_TOKENS } from "./model-stream-parts.js";
+
 /** First scripted round asks the browser for one deterministic dynamic tool. */
-export function clientToolCallParts(
-  requestId: string,
-): readonly LanguageModelV4StreamPart[] {
-  return [
-    { type: "stream-start", warnings: [] },
-    {
-      type: "tool-call",
+export function clientToolCallParts(requestId: string): readonly LanguageModelV4StreamPart[] {
+  return modelStream()
+    .toolCall({
       toolCallId: `client-tool-${requestId}`,
       toolName: "open_file",
       input: JSON.stringify({ path: "/workspace/readme.md" }),
-    },
-    {
-      type: "finish",
-      finishReason: { unified: "tool-calls", raw: "tool-calls" },
-      usage: {
-        inputTokens: {
-          total: 1,
-          noCache: 1,
-          cacheRead: undefined,
-          cacheWrite: undefined,
-        },
-        outputTokens: { total: 1, text: 0, reasoning: undefined },
-      },
-    },
-  ];
+    })
+    .finish("tool-calls", TOOL_CALL_OUTPUT_TOKENS);
 }
