@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
-import { toMessageId } from "#schema-contract";
+import { toMessageId, toToolApprovalId } from "#schema-contract";
+import { auditEvents, toolApprovals } from "#drizzle/schema";
 import { DB_REPOSITORY_ERROR_CODES } from "#repositories/errors";
 import {
   createPostgresDrizzleSidechatRepositories,
@@ -9,6 +10,7 @@ import {
 } from "./index.js";
 import { conversationListRepositoryContract } from "#testing/conversation-list-contract.test-support";
 import { clientToolDispatchRepositoryContract } from "#testing/client-tool-dispatch-contract.test-support";
+import { toolApprovalRepositoryContract } from "#testing/approvals/tool-approval-contract.test-support";
 import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
 import { startTurn, workspaceId } from "#testing/repository-contract.helpers";
 import { turnResolutionRepositoryContract } from "#testing/turn/turn-resolution-contract.test-support";
@@ -27,6 +29,11 @@ describe("postgres drizzle repositories", () => {
     }),
   );
   clientToolDispatchRepositoryContract("postgres drizzle repositories", () =>
+    createPostgresDrizzleSidechatRepositories({
+      connectionString: databaseUrl,
+    }),
+  );
+  toolApprovalRepositoryContract("postgres drizzle repositories", () =>
     createPostgresDrizzleSidechatRepositories({
       connectionString: databaseUrl,
     }),
@@ -119,6 +126,59 @@ describe("postgres drizzle repositories", () => {
       expect(outcomes.filter((outcome) => outcome?.disposition === "duplicate")).toHaveLength(1);
       expect(outcomes[0]?.record.outputJson).toEqual(outcomes[1]?.record.outputJson);
       expect(outcomes[0]?.record.state).toBe("settled");
+    } finally {
+      await repositories.close();
+    }
+  });
+  it("serializes conflicting approval decisions and audits the durable winner", async () => {
+    const repositories = createPostgresDrizzleSidechatRepositories({
+      connectionString: databaseUrl,
+    });
+    const scope = nextClientToolScope();
+    const approvalId = toToolApprovalId(`${scope}_approval`);
+    try {
+      const turn = await startTurn(repositories, scope);
+      const request = {
+        workspaceId: workspaceId(scope),
+        assistantTurnId: turn.assistantTurnId,
+        approvalId,
+        toolCallId: `${scope}_call`,
+        toolName: "execute_sql",
+        inputDigest: "sha256:bounded-digest",
+        expiresAt: "2026-05-24T13:00:00.000Z",
+        now: NOW,
+      } as const;
+      await repositories.createOrGetToolApproval(request);
+      const decision = {
+        ...request,
+        approverSubjectId: turn.subjectId,
+        approverActorId: turn.actorId,
+        now: "2026-05-23T13:30:00.000Z",
+      } as const;
+
+      const outcomes = await Promise.all([
+        repositories.decideToolApproval({ ...decision, decision: "approved" }),
+        repositories.decideToolApproval({ ...decision, decision: "denied" }),
+      ]);
+
+      expect(outcomes.filter((outcome) => outcome?.disposition === "accepted")).toHaveLength(1);
+      expect(outcomes.filter((outcome) => outcome?.disposition === "rejected")).toHaveLength(1);
+      const stored = await repositories.db
+        .select()
+        .from(toolApprovals)
+        .where(eq(toolApprovals.approvalId, approvalId));
+      expect(["approved", "denied"]).toContain(stored[0]?.state);
+
+      const audit = await repositories.db
+        .select()
+        .from(auditEvents)
+        .where(eq(auditEvents.targetId, approvalId));
+      expect(audit.map((event) => event.eventType).sort()).toEqual([
+        "tool_approval_decided",
+        "tool_approval_decision_rejected",
+        "tool_approval_requested",
+      ]);
+      expect(audit.every((event) => !("rawInput" in event.metadataJson))).toBe(true);
     } finally {
       await repositories.close();
     }

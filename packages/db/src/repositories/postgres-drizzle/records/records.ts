@@ -8,6 +8,7 @@ import {
   type assistantTurns,
   type auditEvents,
   type clientToolDispatches,
+  type toolApprovals,
   type hostCommandResults,
   type sidechatTables,
   type toolInvocations,
@@ -18,6 +19,7 @@ import type {
   AssistantTurnRecord,
   AuditEventRecord,
   ClientToolDispatchRecord,
+  ToolApprovalRecord,
   ContextSnapshotRecord,
   ConversationRecord,
   HostCommandResultRecord,
@@ -157,6 +159,26 @@ export const toClientToolDispatchRecord = (
   ...omitNullishField("lateResultAt", optionalIsoTimestamp(row.lateResultAt)),
   createdAt: isoTimestamp(row.dispatchedAt),
   updatedAt: isoTimestamp(row.lateResultAt ?? row.completedAt ?? row.dispatchedAt),
+});
+
+export const toToolApprovalRecord = (
+  row: typeof toolApprovals.$inferSelect,
+): ToolApprovalRecord => ({
+  approvalId: row.approvalId,
+  assistantTurnId: row.assistantTurnId,
+  workspaceId: row.workspaceId,
+  toolCallId: row.toolCallId,
+  toolName: row.toolName,
+  inputDigest: row.inputDigest,
+  state: row.state,
+  ...omitNullishField("decisionReason", row.decisionReason),
+  ...omitNullishField("decidedBySubjectId", row.decidedBySubjectId),
+  ...omitNullishField("decidedByActorId", row.decidedByActorId),
+  requestedAt: isoTimestamp(row.requestedAt),
+  ...omitNullishField("decidedAt", optionalIsoTimestamp(row.decidedAt)),
+  expiresAt: isoTimestamp(row.expiresAt),
+  createdAt: isoTimestamp(row.requestedAt),
+  updatedAt: isoTimestamp(row.decidedAt ?? row.requestedAt),
 });
 
 export const toHostCommandResultRecord = (

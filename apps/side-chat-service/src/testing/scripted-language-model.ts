@@ -27,7 +27,10 @@ export {
   PROVIDER_SCRIPT_MODE,
   type ProviderScriptMode,
 } from "./scripted-provider-contract.js";
-export { PROVIDER_OBSERVATION_PREFIX } from "./scripted-provider-observations.js";
+export {
+  PROVIDER_OBSERVATION_EVENT,
+  PROVIDER_OBSERVATION_PREFIX,
+} from "./scripted-provider-observations.js";
 
 interface SerializedScriptedModel {
   readonly requestId: string;
@@ -67,27 +70,19 @@ class ScriptedLanguageModel implements LanguageModelV4 {
     readonly mode: ProviderScriptMode,
   ) {}
 
-  static [WORKFLOW_SERIALIZE](
-    instance: ScriptedLanguageModel,
-  ): SerializedScriptedModel {
+  static [WORKFLOW_SERIALIZE](instance: ScriptedLanguageModel): SerializedScriptedModel {
     return { requestId: instance.requestId, mode: instance.mode };
   }
 
-  static [WORKFLOW_DESERIALIZE](
-    data: SerializedScriptedModel,
-  ): ScriptedLanguageModel {
+  static [WORKFLOW_DESERIALIZE](data: SerializedScriptedModel): ScriptedLanguageModel {
     return new ScriptedLanguageModel(data.requestId, data.mode);
   }
 
-  doGenerate(
-    _options: LanguageModelV4CallOptions,
-  ): PromiseLike<LanguageModelV4GenerateResult> {
+  doGenerate(_options: LanguageModelV4CallOptions): PromiseLike<LanguageModelV4GenerateResult> {
     throw new Error("The compatibility model supports streaming only");
   }
 
-  doStream(
-    options: LanguageModelV4CallOptions,
-  ): PromiseLike<LanguageModelV4StreamResult> {
+  doStream(options: LanguageModelV4CallOptions): PromiseLike<LanguageModelV4StreamResult> {
     const attemptCount = recordProviderAttempt(
       this.requestId,
       this.mode,
@@ -125,17 +120,12 @@ function containsMarker(value: unknown, marker: string, depth = 0): boolean {
   if (Array.isArray(value)) {
     return value.some((entry) => containsMarker(entry, marker, depth + 1));
   }
-  return Object.values(value).some((entry) =>
-    containsMarker(entry, marker, depth + 1),
-  );
+  return Object.values(value).some((entry) => containsMarker(entry, marker, depth + 1));
 }
 
 function containsToolResult(value: unknown, depth = 0): boolean {
   if (value === null || typeof value !== "object" || depth > 12) return false;
-  if (Array.isArray(value))
-    return value.some((entry) => containsToolResult(entry, depth + 1));
+  if (Array.isArray(value)) return value.some((entry) => containsToolResult(entry, depth + 1));
   if ("type" in value && value.type === "tool-result") return true;
-  return Object.values(value).some((entry) =>
-    containsToolResult(entry, depth + 1),
-  );
+  return Object.values(value).some((entry) => containsToolResult(entry, depth + 1));
 }

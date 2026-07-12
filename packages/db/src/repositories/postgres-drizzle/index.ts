@@ -1,17 +1,12 @@
-import {
-  omitUndefinedProperties,
-  type DiagnosticLogger,
-} from "@side-chat/shared";
+import { omitUndefinedProperties, type DiagnosticLogger } from "@side-chat/shared";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool, type PoolConfig } from "pg";
 
 import { sidechatTables } from "#drizzle/schema";
-import {
-  REPOSITORY_ADAPTER_KINDS,
-  type SidechatRepositories,
-} from "../contract.js";
+import { REPOSITORY_ADAPTER_KINDS, type SidechatRepositories } from "../contract.js";
 import { createPostgresDrizzleConversationRepository } from "./records/conversations.js";
 import { createPostgresDrizzleClientToolDispatchRepository } from "./records/client-tool-dispatches.js";
+import { createPostgresDrizzleToolApprovalRepository } from "./records/approvals/tool-approvals.js";
 import { createPostgresDrizzleInteractionRepository } from "./records/interactions.js";
 import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
 import { createRandomIdGenerator } from "../repository-utils.js";
@@ -75,6 +70,7 @@ export const createPostgresDrizzleSidechatRepositories = (
     close: () => pool.end(),
     ...createPostgresDrizzleConversationRepository(context),
     ...createPostgresDrizzleClientToolDispatchRepository(context),
+    ...createPostgresDrizzleToolApprovalRepository(context),
     ...createPostgresDrizzleTurnRepository(context),
     ...createPostgresDrizzleInteractionRepository(context),
   };

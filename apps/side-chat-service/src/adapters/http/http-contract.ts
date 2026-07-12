@@ -10,6 +10,7 @@ export const CHAT_HTTP_ROUTES = {
   START: "/api/chat",
   CANCEL: "/api/chat/:runId/cancel",
   CLIENT_TOOL_OUTPUT: "/api/chat/:runId/tools/:toolCallId/output",
+  TOOL_APPROVAL: "/api/chat/:runId/approvals/:approvalId",
   STREAM: "/api/chat/:runId/stream",
 } as const;
 

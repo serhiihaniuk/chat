@@ -17,7 +17,7 @@ export async function testingChatTurnWorkflow(
   "use workflow";
 
   const services = initializeTestingWorkflowServices();
-  return executeChatTurn(input, services.modelProvider, services.databaseUrl);
+  return executeChatTurn(input, services.modelProvider, services.serverTools, services.databaseUrl);
 }
 
 export async function startTestingChatTurn(

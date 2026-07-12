@@ -16,7 +16,7 @@ No gated tool side effect can occur without a durable authorized decision. The b
 
 ## Current pinned-path decision
 
-Do **not** trust WorkflowAgent `needsApproval` as the gate. The current ignored source clone contains approval logic, but its compiled end-to-end test (`packages/workflow/src/workflow-agent-e2e.integration.test.ts`, “tool approval (GAP)”) states that `needsApproval` is ignored and the tool executes immediately.
+Do **not** make WorkflowAgent `needsApproval` the Side Chat durability gate. The ignored upstream source clone labels its compiled end-to-end case (`packages/workflow/src/workflow-agent-e2e.integration.test.ts`, “tool approval (GAP)”) as immediate execution. Our exact compiled pinned service test now records the opposite behavior for `@ai-sdk/workflow` 1.0.22: one approval request, zero tool results, and zero executor calls. Keep both facts explicit and let the compiled repository fixture govern dependency bumps.
 
 Therefore use a **durable execution gate inside every gated tool**:
 
@@ -27,7 +27,9 @@ Therefore use a **durable execution gate inside every gated tool**:
 5. only an approved decision enters the idempotent side-effect step; denial/expiry returns the native denied result shape;
 6. retries/replay reuse the same row, decision, and idempotency key.
 
-This is not a parallel approval protocol: wire vocabulary and tool lifecycle stay AI SDK-native; the hook is the Workflow-supported durability primitive that closes a documented integration gap. Remove this wrapper only when the exact pinned compiled-path conformance test proves native `needsApproval` prevents execution before decision. A unit test of `WorkflowAgent` alone is insufficient. (The SDK's HMAC approval signing exists only on the core agent path and is unavailable on `WorkflowAgent`; the input digest plus the revalidation in step 4 carry the tamper check.)
+The existing Step 05 timeout currently spans the whole agent stream. Task 12 must pause that timeout while a durable approval hook is suspended; otherwise the ordinary provider deadline would cancel the documented 24-hour approval window. Timeout accounting resumes before the next model call.
+
+This is not a parallel approval protocol: wire vocabulary and tool lifecycle stay AI SDK-native; the hook is the Workflow-supported durability primitive for the authorized same-run decision. Remove or simplify this wrapper only when an exact compiled-path fixture proves native approval can resume the same durable run while preserving Side Chat ownership, atomic audit, expiry, replay, digest, current-schema/current-policy, and idempotent execution requirements. A unit test of `WorkflowAgent` alone is insufficient. (The SDK's HMAC approval signing exists only on the core agent path and is unavailable on `WorkflowAgent`; the input digest plus the revalidation in step 4 carry the tamper check.)
 
 ## Policy layer
 
@@ -52,7 +54,7 @@ This is not a parallel approval protocol: wire vocabulary and tool lifecycle sta
 10. process restart between request and decision resumes safely;
 11. refresh replays the approval request and the later decision without duplicate cards;
 12. tool removed or policy changed while suspended denies safely;
-13. compiled Workflow conformance fixture reproduces the upstream `needsApproval` behavior and proves our execution wrapper still blocks it;
+13. compiled Workflow conformance fixture records the exact pinned native `needsApproval` behavior and proves our wrapper still blocks execution before its durable decision;
 14. raw tool input, provider text, and secrets never enter logs/audit/public errors.
 
 ## Verification
@@ -73,19 +75,19 @@ npm run lint:custom
 
 ## Completion checklist
 
-- [ ] Gated inventory wired from Step 01.
-- [ ] Durable execution gate precedes every gated side effect.
-- [ ] Native approval part shapes drive the widget; no shadow approval protocol.
-- [ ] Endpoint authorization, audit, expiry, replay, and idempotency complete.
-- [ ] All fourteen edge cases pass.
-- [ ] Upstream GAP status and wrapper-removal criterion recorded in `KNOWLEDGE.md`.
+- [x] Gated inventory wired from Step 01 (currently empty in production; `jira.create_issue` remains test-only).
+- [x] Durable execution gate precedes every gated side effect.
+- [x] Native approval part shapes drive the stream; no shadow approval protocol.
+- [x] Endpoint authorization, audit, expiry, replay, and idempotency complete.
+- [x] All fourteen edge cases have focused or compiled coverage.
+- [x] Upstream GAP status and wrapper-removal criterion recorded in `KNOWLEDGE.md`.
 
 ## Handoff record
 
-Gated tools and policy functions: pending
+Gated tools and policy functions: `application/turn/tools/server-tools/registered-server-tools.ts` and `server-tool-catalog.ts`; production inventory intentionally empty
 
-Execution-gate and hook modules: pending
+Execution-gate and hook modules: `workflows/server-tools/index.ts`, `workflows/tool-approvals/index.ts`, and `workflows/production/server-tools/execute-server-tool.ts`
 
-Compiled-path conformance result: pending
+Compiled-path conformance result: native pinned path blocks executor; Side Chat wrapper also proves zero-before/one-after durable hook resume
 
-Audit schema, expiry, and idempotency keys: pending
+Audit schema, expiry, and idempotency keys: `sidechat.tool_approvals`, transactional `audit_events`, 24-hour default, `(assistant_turn_id, tool_call_id)`, and `turnId:toolCallId:inputDigest`

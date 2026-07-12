@@ -6,6 +6,9 @@ export const TURN_REJECTION_CODES = {
   RUN_NOT_FOUND: "turn_run_not_found",
   CLIENT_TOOL_NOT_READY: "client_tool_dispatch_not_ready",
   CLIENT_TOOLS_UNAVAILABLE: "client_tools_require_persistence",
+  TOOL_APPROVAL_NOT_READY: "tool_approval_not_ready",
+  TOOL_APPROVAL_CONFLICT: "tool_approval_conflict",
+  INVALID_TOOL_APPROVAL: "invalid_tool_approval",
   MODEL_NOT_ALLOWED: "model_not_allowed",
 } as const;
 

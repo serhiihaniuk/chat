@@ -14,6 +14,7 @@ export const PROVIDER_OBSERVATION_EVENT = {
   ABORTED: "provider-aborted",
   ERROR: "provider-error",
   CLIENT_TOOL_OUTPUT_OBSERVED: "client-tool-output-observed",
+  NATIVE_APPROVAL_TOOL_EXECUTED: "native-approval-tool-executed",
 } as const;
 
 const providerAttempts = new Map<string, number>();
@@ -35,8 +36,6 @@ export function recordProviderAttempt(
   return attemptCount;
 }
 
-export function recordProviderObservation(
-  observation: Readonly<Record<string, unknown>>,
-): void {
+export function recordProviderObservation(observation: Readonly<Record<string, unknown>>): void {
   console.log(`${PROVIDER_OBSERVATION_PREFIX} ${JSON.stringify(observation)}`);
 }

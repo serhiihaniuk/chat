@@ -71,6 +71,14 @@ In-memory persistence loses all chats on restart. Use it for local development o
 
 `assistant_turns.run_id` has a partial unique index and is bound once. Result routes first resolve that run under the authenticated workspace and subject, then require the exact dispatch row before accepting a body. This makes the row an anti-spoof anchor and lets any service instance settle a suspended Workflow run without relying on process memory.
 
+## Tool-approval coordination
+
+`sidechat.tool_approvals` is the durable authority for gated server-tool execution. One row is unique on `(assistant_turn_id, tool_call_id)` and records the approval id, tool name, canonical input digest, request and expiry timestamps, terminal decision, optional reason, and approver identity. Raw tool input is deliberately absent: the digest binds the approval to the journaled call without duplicating private payloads.
+
+The state machine is `requested -> approved | denied | expired`. Request replay must preserve approval id, tool identity, digest, and expiry. An exact repeated decision is idempotent; a changed reason, opposite decision, late decision, identity mismatch, or decision after the turn becomes terminal is rejected. State transitions and their `audit_events` row commit in one transaction, and concurrent conflicting decisions serialize on the approval row.
+
+The authenticated decision route resolves `assistant_turns.run_id` under workspace and subject ownership before reading its body. The workflow persists the request before emitting `tool-approval-request`, then reloads the durable row after its deterministic hook wakes. Only an approved row can enter the idempotent execution step, which reloads the current tool catalog and revalidates schema and policy.
+
 ## Workflow journal maintenance
 
 Production uses two schemas in one physical database: `sidechat` is the durable business record and `workflow` is the Postgres World execution journal. `SIDECHAT_DATABASE_URL` and `WORKFLOW_POSTGRES_URL` may use different least-privilege users, but their host, port, and database must match so one maintenance transaction can enforce Side Chat legal holds.
@@ -85,11 +93,11 @@ Only Workflow-terminal runs older than the cutoff and bound to terminal Side Cha
 
 [`runtime-role-grants.sql`](../../packages/db/sql/runtime-role-grants.sql) defines least-privilege roles that `db:reset` applies after the migration. Drizzle manages tables, not roles, so this file is the durable source for the role policy.
 
-| Role                   | Privileges                                                                          |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| `sidechat_owner`       | Owns the schema.                                                                    |
-| `sidechat_migrator`    | `USAGE`, `CREATE` on the schema; all privileges on tables (owns DDL).               |
-| `sidechat_runtime`     | `SELECT`, `INSERT`, `UPDATE`, `DELETE` only — never `CREATE`.                        |
-| `sidechat_maintenance` | `USAGE` on the schema; `SELECT` on `assistant_turns` and `conversations` only.      |
+| Role                   | Privileges                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `sidechat_owner`       | Owns the schema.                                                               |
+| `sidechat_migrator`    | `USAGE`, `CREATE` on the schema; all privileges on tables (owns DDL).          |
+| `sidechat_runtime`     | `SELECT`, `INSERT`, `UPDATE`, `DELETE` only — never `CREATE`.                  |
+| `sidechat_maintenance` | `USAGE` on the schema; `SELECT` on `assistant_turns` and `conversations` only. |
 
 The running service connects as `sidechat_runtime`, so it can read and write rows but cannot alter the schema. The Workflow journal sweep connects as `sidechat_maintenance` (see [Workflow journal maintenance](#workflow-journal-maintenance)) — it reads turn and conversation eligibility but cannot touch any other Side Chat data. Only the migrator role applies DDL.

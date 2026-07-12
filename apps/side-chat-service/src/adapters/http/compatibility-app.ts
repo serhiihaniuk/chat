@@ -3,11 +3,16 @@ import { Hono } from "hono";
 
 import {
   cancelCompatibilityTurn,
+  runNativeApprovalGapProbe,
   runUnpatchedAbortSignalProbe,
   startCompatibilityTurn,
   type CompatibilityTurnRequest,
 } from "#workflows/testing/compatibility-turn";
 import { inspectTestingChatTurnJournal } from "#workflows/testing/chat-turn";
+import {
+  approveWrapperApprovalGate,
+  startWrapperApprovalGateProbe,
+} from "#workflows/testing/probes/wrapper-approval-gate";
 
 import { HTTP_ERROR } from "./error-response.js";
 import { HTTP_HEADERS } from "./http-contract.js";
@@ -42,6 +47,27 @@ export function createCompatibilityApp(): Hono {
   app.post("/compatibility/probes/unpatched-abort-signal", async (context) => {
     return context.json(await runUnpatchedAbortSignalProbe());
   });
+
+  app.post("/compatibility/probes/native-needs-approval-gap", async (context) => {
+    const request = await context.req.json<{ requestId: string }>();
+    return context.json(await runNativeApprovalGapProbe(request.requestId));
+  });
+
+  app.post("/compatibility/probes/wrapper-approval-gate", async (context) => {
+    const request = await context.req.json<{ requestId: string }>();
+    return context.json(await startWrapperApprovalGateProbe(request.requestId));
+  });
+
+  app.post(
+    "/compatibility/probes/wrapper-approval-gate/:runId/:approvalId",
+    async (context) => {
+      const resumed = await approveWrapperApprovalGate(
+        context.req.param("runId"),
+        context.req.param("approvalId"),
+      );
+      return context.json({ resumed }, resumed ? 200 : 404);
+    },
+  );
 
   app.get("/compatibility/chat-turns/:runId/journal-shape", async (context) => {
     return context.json(await inspectTestingChatTurnJournal(context.req.param("runId")));

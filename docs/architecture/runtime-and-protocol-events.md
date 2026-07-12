@@ -11,10 +11,26 @@ Step 05 HTTP edge converts Workflow `ModelCallStreamPart` values once with
 `createModelCallToUIChunkTransform()`, then encodes the AI SDK UI-message stream
 v1 with `createUIMessageStreamResponse()`. The response carries
 `x-workflow-run-id`; idle SSE comments are injected only after encoding and are
-transparent to the AI SDK decoder. Step 06 will narrow this vendor stream into
-the Side Chat profile through the already named `outboundTransforms` seam.
+transparent to the AI SDK decoder. Step 06 narrows this vendor stream into
+the Side Chat profile through the `outboundTransforms` seam.
 Until cutover, the remainder of this document is authoritative only for the
 legacy `apps/partner-ai-service` and current widget.
+
+### Native tool-approval lifecycle
+
+For a gated server tool, the workflow writes the AI SDK-native
+`tool-approval-request` part only after the Side Chat approval row exists. The
+part contains `approvalId` and `toolCallId`; the authenticated decision endpoint
+persists `approved` or `denied` before waking the deterministic Workflow hook.
+The hook payload is only a serializable wake signal. The database row is the
+decision authority.
+
+After wake or replay, the workflow reloads and revalidates ownership, tool
+identity, input digest, current schema, and current approval policy. Approval
+enters a separately journaled idempotent execution step; denial, expiry, tool
+removal, schema drift, or policy drift becomes the native-normalizable
+`tool-output-denied` lifecycle. Private decision reasons and raw tool input do
+not enter the public stream.
 
 One assistant turn produces a stream of events. That stream is rewritten three
 times as it crosses package boundaries, so the browser never sees a raw provider

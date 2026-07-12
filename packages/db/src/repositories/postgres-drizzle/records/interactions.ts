@@ -1,14 +1,11 @@
 import { and, eq, sql } from "drizzle-orm";
 
-import { auditEvents, hostCommandResults, toolInvocations } from "#drizzle/schema";
+import { hostCommandResults, toolInvocations } from "#drizzle/schema";
 import { HOST_COMMAND_RESULT_NOTIFY_CHANNEL } from "#schema-contract";
 import type { SidechatRepositories } from "../../contract.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
-import {
-  toAuditEventRecord,
-  toHostCommandResultRecord,
-  toToolInvocationRecord,
-} from "./records.js";
+import { toHostCommandResultRecord, toToolInvocationRecord } from "./records.js";
+import { insertAuditEvent } from "./approvals/audit-events.js";
 import { DB_REPOSITORY_ERROR_CODES } from "../../errors.js";
 import { one, optional, result } from "../../repository-utils.js";
 
@@ -154,31 +151,5 @@ export const createPostgresDrizzleInteractionRepository = ({
       .limit(1);
     return rows[0] ? toHostCommandResultRecord(rows[0]) : undefined;
   },
-  appendAuditEvent: async (command) => {
-    const rows = await db
-      .insert(auditEvents)
-      .values({
-        auditEventId: ids.next("audit_event"),
-        workspaceId: command.workspaceId,
-        subjectId: command.subjectId,
-        actorId: command.actorId,
-        eventType: command.eventType,
-        targetType: command.targetType,
-        targetId: command.targetId,
-        metadataJson: command.metadataJson,
-        requestId: command.requestId,
-        createdAt: command.now,
-      })
-      .returning();
-    return result(
-      toAuditEventRecord(
-        one(
-          rows,
-          DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
-          "Audit event insert returned no row.",
-        ),
-      ),
-      true,
-    );
-  },
+  appendAuditEvent: (command) => insertAuditEvent(db, ids, command),
 });

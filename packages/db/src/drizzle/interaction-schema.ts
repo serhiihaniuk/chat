@@ -14,9 +14,11 @@ import {
   CLIENT_TOOL_DISPATCH_STATES,
   HOST_COMMAND_RESULT_STATUSES,
   TOOL_INVOCATION_STATUSES,
+  TOOL_APPROVAL_STATES,
   type ClientToolDispatchState,
   type HostCommandResultStatus,
   type ToolInvocationStatus,
+  type ToolApprovalState,
 } from "#schema-contract";
 import { SIDECHAT_UNIQUE_INDEXES } from "./constraint-names.js";
 import type {
@@ -115,6 +117,13 @@ export const defineInteractionTables = ({
     ],
   );
 
+  const toolApprovals = defineToolApprovals({
+    sidechat,
+    assistantTurns,
+    workspaceIdColumn,
+    inList,
+  });
+
   const hostCommandResults = sidechat.table(
     "host_command_results",
     {
@@ -167,7 +176,55 @@ export const defineInteractionTables = ({
   return {
     toolInvocations,
     clientToolDispatches,
+    toolApprovals,
     hostCommandResults,
     conversationTitleRuns,
   };
 };
+
+function defineToolApprovals({
+  sidechat,
+  assistantTurns,
+  workspaceIdColumn,
+  inList,
+}: Pick<
+  InteractionSchemaDependencies,
+  "sidechat" | "assistantTurns" | "workspaceIdColumn" | "inList"
+>) {
+  return sidechat.table(
+    "tool_approvals",
+    {
+      approvalId: text("approval_id").primaryKey(),
+      assistantTurnId: text("assistant_turn_id")
+        .notNull()
+        .references(() => assistantTurns.assistantTurnId),
+      workspaceId: workspaceIdColumn(),
+      toolCallId: text("tool_call_id").notNull(),
+      toolName: text("tool_name").notNull(),
+      inputDigest: text("input_digest").notNull(),
+      state: text("state").$type<ToolApprovalState>().notNull().default("requested"),
+      decisionReason: text("decision_reason"),
+      decidedBySubjectId: text("decided_by_subject_id"),
+      decidedByActorId: text("decided_by_actor_id"),
+      requestedAt: timestamp("requested_at", {
+        mode: "string",
+        withTimezone: true,
+      }).notNull(),
+      decidedAt: timestamp("decided_at", {
+        mode: "string",
+        withTimezone: true,
+      }),
+      expiresAt: timestamp("expires_at", {
+        mode: "string",
+        withTimezone: true,
+      }).notNull(),
+    },
+    (table) => [
+      uniqueIndex(SIDECHAT_UNIQUE_INDEXES.TOOL_APPROVALS_TURN_CALL).on(
+        table.assistantTurnId,
+        table.toolCallId,
+      ),
+      check("tool_approvals_state_check", inList("state", TOOL_APPROVAL_STATES)),
+    ],
+  );
+}

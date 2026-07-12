@@ -60,5 +60,5 @@ export async function chatTurnWorkflow(
   "use workflow";
 
   const services = initializeProductionWorkflowServices();
-  return executeChatTurn(input, services.modelProvider, services.databaseUrl);
+  return executeChatTurn(input, services.modelProvider, services.serverTools, services.databaseUrl);
 }

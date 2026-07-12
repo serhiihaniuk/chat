@@ -5,14 +5,21 @@ import {
   WorkflowAgent,
   type WorkflowAgentOptions,
 } from "@ai-sdk/workflow";
-import { convertToModelMessages, isStepCount, type UIMessage, type UIMessageChunk } from "ai";
+import {
+  convertToModelMessages,
+  isStepCount,
+  type ToolSet,
+  type UIMessage,
+  type UIMessageChunk,
+} from "ai";
 import { createHook, getWritable } from "workflow";
 import { resumeHook, start } from "workflow/api";
 
 import { initializeTestingWorkflowServices } from "#composition/workflow/testing";
 import { assertModelInstance } from "#application/ports/model-provider";
-
 import { patchWorkflowRealmAbortSignal } from "../realm/abort-signal-patch.js";
+
+export { runNativeApprovalGapProbe } from "./probes/native-approval-gap.js";
 
 export const COMPATIBILITY_MODEL_BEHAVIORS = {
   COMPLETE: "complete",
@@ -210,14 +217,17 @@ function createCompatibilityAgentOptions(options: {
   readonly id: string;
   readonly model: WorkflowAgentOptions["model"];
   readonly providerOptions: ProviderOptions | undefined;
+  readonly stopWhen?: WorkflowAgentOptions["stopWhen"];
+  readonly tools?: ToolSet;
 }): WorkflowAgentOptions {
   const agentOptions: WorkflowAgentOptions = {
     id: options.id,
     model: options.model,
     instructions: COMPATIBILITY_WORKFLOW.INSTRUCTIONS,
-    stopWhen: isStepCount(COMPATIBILITY_WORKFLOW.MAX_STEPS),
+    stopWhen: options.stopWhen ?? isStepCount(COMPATIBILITY_WORKFLOW.MAX_STEPS),
     maxRetries: COMPATIBILITY_WORKFLOW.MAX_RETRIES,
   };
+  if (options.tools !== undefined) agentOptions.tools = options.tools;
   if (options.providerOptions !== undefined) {
     agentOptions.providerOptions = options.providerOptions;
   }

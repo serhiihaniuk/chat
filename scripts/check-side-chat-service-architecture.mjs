@@ -211,6 +211,14 @@ function isWorkflowBoundaryViolation(file, specifier) {
     return false;
   }
   if (
+    file === `${sourceRoot}workflows/production/approvals/tool-approval.ts` &&
+    specifier === "#composition/workflow/tool-approval-store"
+  ) {
+    // The approval state machine uses the same pool-owning Node step seam as
+    // client-tool dispatch; workflow-realm code still cannot import adapters.
+    return false;
+  }
+  if (
     file === `${sourceRoot}workflows/production/conversation-title/persist-conversation-title.ts` &&
     specifier === "#adapters/persistence/postgres-turn-state"
   ) {

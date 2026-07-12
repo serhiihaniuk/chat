@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { LATE_CONTENT_MARKER, PROVIDER_OBSERVATION_PREFIX } from "#testing/scripted-language-model";
+import {
+  LATE_CONTENT_MARKER,
+  PROVIDER_OBSERVATION_EVENT,
+  PROVIDER_OBSERVATION_PREFIX,
+} from "#testing/scripted-language-model";
 import { BUNDLED_CONFIG_NAMES } from "#config/declaration/bundled-config-catalog";
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
 import { serviceProcessEnv } from "#config/environment/process-environment";
@@ -20,6 +24,10 @@ import {
  * 3. the realm patch is load-bearing: the unpatched probe still throws the
  *    upstream `instanceof` TypeError. When that test starts failing because
  *    the probe completes, delete the outbound Workflow adapter's patch module.
+ * 4. the pinned compiled path's native `needsApproval` behavior is characterized
+ *    directly, so a dependency bump cannot silently move the safety boundary.
+ * 5. the Side Chat wrapper suspends before its mutating step and executes that
+ *    step exactly once only after the approval hook resumes.
  */
 let service: CompiledService | undefined;
 let serviceBaseUrl = "";
@@ -206,6 +214,50 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     expect(outcome["errorName"]).toBe("TypeError");
     expect(outcome["errorMessage"]).toContain("instanceof");
   });
+
+  it("characterizes compiled native needsApproval as blocking execution", async () => {
+    const requestId = "native-approval-gap";
+    const response = await fetch(
+      `${serviceBaseUrl}/compatibility/probes/native-needs-approval-gap`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      stepCount: 1,
+      toolCallsCount: 1,
+      toolResultsCount: 0,
+    });
+    expect(
+      countObservations(requestId, PROVIDER_OBSERVATION_EVENT.NATIVE_APPROVAL_TOOL_EXECUTED),
+    ).toBe(0);
+  });
+
+  it("keeps the compiled wrapper side effect behind the approval hook", async () => {
+    const requestId = "wrapper-approval-gate";
+    const started = await fetch(`${serviceBaseUrl}/compatibility/probes/wrapper-approval-gate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ requestId }),
+    });
+    expect(started.status).toBe(200);
+    const body: unknown = await started.json();
+    if (!isRecord(body)) throw new Error("Expected wrapper approval probe identifiers");
+    const runId = body["runId"];
+    const approvalId = body["approvalId"];
+    if (typeof runId !== "string" || typeof approvalId !== "string") {
+      throw new Error("Expected wrapper approval probe run and approval identifiers");
+    }
+
+    await waitForObservation(requestId, "wrapper-approval-requested");
+    expect(countObservations(requestId, "wrapper-side-effect-executed")).toBe(0);
+    await approveWrapperProbe(runId, approvalId);
+    await waitForObservation(requestId, "wrapper-side-effect-executed");
+    expect(countObservations(requestId, "wrapper-side-effect-executed")).toBe(1);
+  });
 });
 
 function startTurn(requestId: string, mode: "complete" | "block"): Promise<Response> {
@@ -308,6 +360,19 @@ async function cancelTurn(requestId: string): Promise<void> {
     await delay(100);
   }
   throw new Error(`Cancel hook never became resumable:\n${currentServiceOutput()}`);
+}
+
+async function approveWrapperProbe(runId: string, approvalId: string): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(
+      `${serviceBaseUrl}/compatibility/probes/wrapper-approval-gate/${runId}/${approvalId}`,
+      { method: "POST" },
+    );
+    if (response.ok) return;
+    await delay(100);
+  }
+  throw new Error(`Approval hook never became resumable:\n${currentServiceOutput()}`);
 }
 
 async function waitForObservation(

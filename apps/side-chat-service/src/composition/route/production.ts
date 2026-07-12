@@ -22,6 +22,10 @@ import type { MessageStore } from "#application/ports/turn/message-store";
 import type { TurnStore } from "#application/ports/turn/turn-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import {
+  TOOL_APPROVAL_LOOKUP,
+  type ToolApprovalDecisionStore,
+} from "#application/ports/turn/tools/tool-approval-store";
+import {
   CLIENT_TOOL_DISPATCH_LOOKUP,
   type ClientToolDispatchStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
@@ -43,6 +47,7 @@ import { createWorkflowTurnReplay } from "../turn/replay/workflow-turn-replay.js
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
 import { productionConversationTitleWorkflowStarter } from "#workflows/production/conversation-title/generate-conversation-title";
 import { resumeClientToolResult } from "#workflows/production/chat-turn";
+import { resumeToolApproval } from "#workflows/tool-approvals/index";
 
 /** Production wiring contains no scripted providers or compatibility-only routes. */
 export async function startProductionService(
@@ -79,6 +84,8 @@ export async function startProductionService(
       runAccess: persistence.store,
       clientToolDispatches: persistence.store,
       resumeClientTool: resumeClientToolResult,
+      toolApprovals: persistence.store,
+      resumeToolApproval,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: configuredTurnModel(settings.models.modelId),
@@ -168,6 +175,7 @@ type ProductionPersistence = Readonly<{
     MessageStore &
     TurnStore &
     ClientToolDispatchStore &
+    ToolApprovalDecisionStore &
     TurnRunAccess;
   registerClose: StartServicePart;
   /** True when the workflow finalize step owns terminal persistence (Postgres). */
@@ -191,6 +199,7 @@ function createProductionPersistence(settings: Settings): ProductionPersistence 
     const store = Object.assign(
       new InMemoryTurnState(productionConversations(settings)),
       unavailableClientToolDispatchStore,
+      unavailableToolApprovalStore,
     );
     return {
       store,
@@ -215,6 +224,11 @@ function createProductionPersistence(settings: Settings): ProductionPersistence 
 const unavailableClientToolDispatchStore: ClientToolDispatchStore = {
   findOwned: () => Promise.resolve(CLIENT_TOOL_DISPATCH_LOOKUP.NOT_FOUND),
   submit: () => Promise.reject(new Error("Client-tool dispatch persistence is unavailable")),
+};
+
+const unavailableToolApprovalStore: ToolApprovalDecisionStore = {
+  findOwnedApproval: () => Promise.resolve(TOOL_APPROVAL_LOOKUP.NOT_FOUND),
+  decideApproval: () => Promise.reject(new Error("Tool-approval persistence is unavailable")),
 };
 
 function productionConversations(settings: Settings): readonly SeedConversation[] {

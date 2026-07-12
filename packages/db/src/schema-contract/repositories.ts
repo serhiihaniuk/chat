@@ -9,6 +9,7 @@ import type {
   HostCommandResultRecord,
   MessageRecord,
   ToolInvocationRecord,
+  ToolApprovalRecord,
   UsageRecord,
 } from "./entities.js";
 import type {
@@ -30,7 +31,12 @@ import type {
   WorkspaceId,
 } from "./ids/persistence-ids.js";
 import type { ClientToolDispatchRepositoryContract } from "./client-tools/repositories.js";
-
+import type {
+  CreateOrGetToolApprovalCommand,
+  DecideToolApprovalCommand,
+  ExpireToolApprovalCommand,
+  ToolApprovalRepositoryContract,
+} from "./approvals/repositories.js";
 export type RepositoryCommandEnvelope = {
   readonly workspaceId: WorkspaceId;
   readonly now: string;
@@ -312,6 +318,9 @@ export type RepositoryCommandInput =
   | ClaimClientToolTimeoutCommand
   | ClaimClientToolAbortCommand
   | SubmitClientToolOutputCommand
+  | CreateOrGetToolApprovalCommand
+  | DecideToolApprovalCommand
+  | ExpireToolApprovalCommand
   | RecordHostCommandResultCommand
   | ReadConversationHistoryCommand
   | ListConversationsCommand
@@ -403,25 +412,26 @@ export type AssistantTurnRepositoryContract = {
   readonly readUsageSummary: (command: ReadUsageSummaryCommand) => Promise<UsageSummary>;
 };
 
-export type InteractionRepositoryContract = ClientToolDispatchRepositoryContract & {
-  readonly recordToolInvocation: (
-    command: RecordToolInvocationCommand,
-  ) => Promise<RepositoryCommandResult<ToolInvocationRecord>>;
-  readonly recordHostCommandResult: (
-    command: RecordHostCommandResultCommand,
-  ) => Promise<RepositoryCommandResult<HostCommandResultRecord>>;
-  /**
-   * Read one turn's host-command row by command id (workspace-scoped).
-   *
-   * The result relay reads through this twice: the result route to prove the
-   * command belongs to the caller's turn before persisting the browser's
-   * result, and the awaiting owner (listener or poll) to fetch the settled
-   * result. Returns `undefined` for an unknown or cross-workspace command.
-   */
-  readonly findHostCommandResult: (
-    command: FindHostCommandResultCommand,
-  ) => Promise<HostCommandResultRecord | undefined>;
-  readonly appendAuditEvent: (
-    command: AppendAuditEventCommand,
-  ) => Promise<RepositoryCommandResult<AuditEventRecord>>;
-};
+export type InteractionRepositoryContract = ClientToolDispatchRepositoryContract &
+  ToolApprovalRepositoryContract & {
+    readonly recordToolInvocation: (
+      command: RecordToolInvocationCommand,
+    ) => Promise<RepositoryCommandResult<ToolInvocationRecord>>;
+    readonly recordHostCommandResult: (
+      command: RecordHostCommandResultCommand,
+    ) => Promise<RepositoryCommandResult<HostCommandResultRecord>>;
+    /**
+     * Read one turn's host-command row by command id (workspace-scoped).
+     *
+     * The result relay reads through this twice: the result route to prove the
+     * command belongs to the caller's turn before persisting the browser's
+     * result, and the awaiting owner (listener or poll) to fetch the settled
+     * result. Returns `undefined` for an unknown or cross-workspace command.
+     */
+    readonly findHostCommandResult: (
+      command: FindHostCommandResultCommand,
+    ) => Promise<HostCommandResultRecord | undefined>;
+    readonly appendAuditEvent: (
+      command: AppendAuditEventCommand,
+    ) => Promise<RepositoryCommandResult<AuditEventRecord>>;
+  };

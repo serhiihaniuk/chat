@@ -1,4 +1,5 @@
 import type { ModelProvider } from "#application/ports/model-provider";
+import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
 
 /**
  * Workflow steps execute in a different Nitro module instance from routes.
@@ -8,6 +9,7 @@ import type { ModelProvider } from "#application/ports/model-provider";
  */
 export type WorkflowServices = Readonly<{
   readonly modelProvider: ModelProvider;
+  readonly serverTools: readonly ServerToolDefinition[];
   readonly databaseUrl?: string;
 }>;
 

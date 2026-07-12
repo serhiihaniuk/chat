@@ -36,7 +36,9 @@ The current configured production/fake tool inventory contains one server tool, 
 
 The authenticated conversation owner is the initial approver. The audit row stores approver, tenant, conversation, turn, tool and call ids, input digest, decision, optional reason, and request/decision/expiry timestamps. It never duplicates raw tool input. Durable approval expires after 24 hours unless configuration narrows it.
 
-WorkflowAgent's pinned compiled path currently documents that `needsApproval` can be ignored. Therefore native approval part shapes are the wire vocabulary, but a Side Chat durable hook gate must precede every gated side effect until the exact compiled-path conformance test proves native enforcement. Authentication and HMAC do not replace that execution barrier.
+The ignored upstream Workflow source clone labels `needsApproval` as a GAP, but the exact compiled pinned service (`@ai-sdk/workflow` 1.0.22) currently emits the approval request and does not invoke the tool executor. That characterization is a permanent dependency-bump tripwire, not the Side Chat durability contract. Side Chat still keeps its durable hook gate because native approval alone does not provide the authenticated same-run decision row, atomic audit, 24-hour expiry, replay authority, or current-catalog revalidation required here. Authentication and HMAC do not replace that execution barrier.
+
+The gate persists the request before emitting `tool-approval-request`, then suspends on a deterministic Workflow hook. A decision endpoint commits the authorized decision and audit record before resuming that hook. The resumed workflow reloads the row and revalidates ownership, tool identity, input digest, schema, and current policy; only an approved decision reaches the idempotent side-effect step. Denial or expiry emits the native `tool-output-denied` lifecycle state. Provider-call timeout accounting pauses while the durable approval hook is suspended, so the 24-hour approval window is not accidentally reduced to the ordinary model-call deadline.
 
 ## Client availability policy
 

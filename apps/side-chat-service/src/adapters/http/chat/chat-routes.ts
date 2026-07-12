@@ -3,12 +3,17 @@ import type { JsonValue } from "@side-chat/shared";
 
 import { cancelTurn } from "#application/turn/cancel-turn";
 import type { ClientToolDispatchStore } from "#application/ports/turn/tools/client-tool-dispatch-store";
+import type { ToolApprovalDecisionStore } from "#application/ports/turn/tools/tool-approval-store";
 import { runTurn, type RunTurnDependencies } from "#application/turn/execution/run-turn";
 import {
   submitClientToolOutput,
   type ResumeClientTool,
 } from "#application/turn/tools/submit-client-tool-output";
 import { TurnRejectedError } from "#application/turn/turn-errors";
+import {
+  submitToolApproval,
+  type ResumeToolApproval,
+} from "#application/turn/tools/approvals/submit-tool-approval";
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
@@ -18,6 +23,11 @@ import { errorResponse, HTTP_ERROR, turnRejectionResponse } from "../error-respo
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "../http-contract.js";
 import { parseCancelRequest, parseChatRequest } from "./chat-request-schema.js";
 import { createChatStreamResponse, type OutboundTransformFactory } from "./chat-stream-response.js";
+import { readToolApprovalDecision } from "./approvals/read-tool-approval-decision.js";
+import { readCappedBytes } from "./body/read-capped-bytes.js";
+
+export { TOOL_APPROVAL_DECISION_MAX_BYTES, readToolApprovalDecision } from "./approvals/read-tool-approval-decision.js";
+export { readCappedBytes } from "./body/read-capped-bytes.js";
 
 export type ChatRouteDependencies = RunTurnDependencies &
   Readonly<{
@@ -28,6 +38,8 @@ export type ChatRouteDependencies = RunTurnDependencies &
     runAccess: TurnRunAccess;
     clientToolDispatches: ClientToolDispatchStore;
     resumeClientTool: ResumeClientTool;
+    toolApprovals: ToolApprovalDecisionStore;
+    resumeToolApproval: ResumeToolApproval;
   }>;
 
 /** HTTP owns validation and stream encoding; application services own turn policy and state. */
@@ -94,6 +106,26 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
           runId: context.req.param("runId"),
           toolCallId: context.req.param("toolCallId"),
           readOutput: () => readClientToolOutput(context.req.raw),
+        },
+      );
+      return context.json(acknowledgement);
+    } catch (error) {
+      return mapTurnError(requestId, error);
+    }
+  });
+
+  app.post(CHAT_HTTP_ROUTES.TOOL_APPROVAL, async (context) => {
+    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    try {
+      const acknowledgement = await submitToolApproval(
+        dependencies.toolApprovals,
+        dependencies.resumeToolApproval,
+        {
+          auth: context.get("authContext"),
+          runId: context.req.param("runId"),
+          approvalId: context.req.param("approvalId"),
+          requestId,
+          readDecision: () => readToolApprovalDecision(context.req.raw),
         },
       );
       return context.json(acknowledgement);
@@ -192,47 +224,6 @@ export async function readClientToolOutput(request: Request) {
   } catch {
     return { valid: false as const, output: INVALID_CLIENT_TOOL_OUTPUT };
   }
-}
-
-/**
- * Read a body stream while enforcing a hard byte ceiling. The stream is the size
- * authority: a `content-length` header may be missing or dishonest, so the cap
- * is checked as bytes arrive and the source is cancelled the moment it is
- * exceeded, never buffering the whole body first. Returns `undefined` when the
- * body is over the ceiling.
- */
-export async function readCappedBytes(
-  stream: ReadableStream<Uint8Array> | null,
-  maxBytes: number,
-): Promise<Uint8Array | undefined> {
-  if (stream === null) return new Uint8Array(0);
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) return concatBytes(chunks, total);
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel();
-        return undefined;
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-function concatBytes(chunks: readonly Uint8Array[], total: number): Uint8Array {
-  const merged = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return merged;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

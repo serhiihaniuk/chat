@@ -9,6 +9,7 @@ import {
   PROVIDER_OBSERVATION_EVENT,
   recordProviderObservation,
 } from "../scripted-provider-observations.js";
+import { approvalToolCallParts } from "./approval-tool-stream-parts.js";
 import { clientToolCallParts } from "./client-tool-stream-parts.js";
 import { modelStream, NO_OUTPUT_TOKENS, REASONING_OUTPUT_TOKENS } from "./model-stream-parts.js";
 
@@ -85,13 +86,32 @@ function createImmediateStream(
   if (mode === PROVIDER_SCRIPT_MODE.REASONING_ONLY) {
     return streamFromParts(reasoningOnlyParts(`Scripted reasoning: ${requestId}`));
   }
-  if (mode === PROVIDER_SCRIPT_MODE.CLIENT_TOOL) {
-    if (attemptCount === 1) return streamFromParts(clientToolCallParts(requestId));
-    return clientToolOutputObserved
-      ? completedStream(`Client tool completed: ${requestId}`)
-      : errorStream(requestId, false, attemptCount);
-  }
-  return undefined;
+  const approvalGapStream = nativeApprovalGapStream(requestId, mode, attemptCount);
+  if (approvalGapStream !== undefined) return approvalGapStream;
+  return clientToolStream(requestId, mode, attemptCount, clientToolOutputObserved);
+}
+
+function clientToolStream(
+  requestId: string,
+  mode: ProviderScriptMode,
+  attemptCount: number,
+  outputObserved: boolean,
+): ReadableStream<LanguageModelV4StreamPart> | undefined {
+  if (mode !== PROVIDER_SCRIPT_MODE.CLIENT_TOOL) return undefined;
+  if (attemptCount === 1) return streamFromParts(clientToolCallParts(requestId));
+  return outputObserved
+    ? completedStream(`Client tool completed: ${requestId}`)
+    : errorStream(requestId, false, attemptCount);
+}
+
+function nativeApprovalGapStream(
+  requestId: string,
+  mode: ProviderScriptMode,
+  attemptCount: number,
+): ReadableStream<LanguageModelV4StreamPart> | undefined {
+  if (mode !== PROVIDER_SCRIPT_MODE.NATIVE_APPROVAL_GAP) return undefined;
+  if (attemptCount === 1) return streamFromParts(approvalToolCallParts(requestId));
+  return completedStream(`Native approval probe completed: ${requestId}`);
 }
 
 function completedStream(text: string): ReadableStream<LanguageModelV4StreamPart> {

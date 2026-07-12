@@ -33,6 +33,7 @@ describe("sidechat drizzle schema and migration", () => {
       "usageRecords",
       "toolInvocations",
       "clientToolDispatches",
+      "toolApprovals",
       "hostCommandResults",
       "auditEvents",
     ]);
@@ -42,6 +43,7 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).not.toMatch(/CREATE TYPE .* AS ENUM/u);
     expect(migration).toContain('"sidechat"."host_command_results"');
     expect(migration).toContain('"sidechat"."client_tool_dispatches"');
+    expect(migration).toContain('"sidechat"."tool_approvals"');
     expect(migration).toContain('"sidechat"."conversation_title_runs"');
     // The dead nullable idempotency column and its index are gone (message_id PK).
     expect(migration).not.toContain("idempotency_key");
@@ -86,6 +88,9 @@ describe("sidechat drizzle schema and migration", () => {
     );
     expect(migration).toContain(
       `CREATE UNIQUE INDEX "${SIDECHAT_UNIQUE_INDEXES.CLIENT_TOOL_DISPATCHES_TURN_CALL}" ON "sidechat"."client_tool_dispatches" USING btree ("assistant_turn_id","tool_call_id")`,
+    );
+    expect(migration).toContain(
+      `CREATE UNIQUE INDEX "${SIDECHAT_UNIQUE_INDEXES.TOOL_APPROVALS_TURN_CALL}" ON "sidechat"."tool_approvals" USING btree ("assistant_turn_id","tool_call_id")`,
     );
     // Workspace-scoped usage summary must not full-scan an ever-growing table.
     expect(migration).toContain(

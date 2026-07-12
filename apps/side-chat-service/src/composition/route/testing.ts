@@ -20,6 +20,11 @@ import {
   type ClientToolDispatchStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { ResumeClientTool } from "#application/turn/tools/submit-client-tool-output";
+import {
+  TOOL_APPROVAL_LOOKUP,
+  type ToolApprovalDecisionStore,
+} from "#application/ports/turn/tools/tool-approval-store";
+import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import { configuredTurnModel, type TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
@@ -41,6 +46,11 @@ const unavailableClientToolDispatches: ClientToolDispatchStore = {
   submit: () => Promise.reject(new Error("Client-tool dispatch persistence is unavailable")),
 };
 
+const unavailableToolApprovals: ToolApprovalDecisionStore = {
+  findOwnedApproval: () => Promise.resolve(TOOL_APPROVAL_LOOKUP.NOT_FOUND),
+  decideApproval: () => Promise.reject(new Error("Tool-approval persistence is unavailable")),
+};
+
 export async function startTestingService(
   settings: Settings,
   starters: readonly StartServicePart[] = [],
@@ -56,6 +66,8 @@ export async function startTestingService(
     turnState?: InMemoryTurnState;
     clientToolDispatches?: ClientToolDispatchStore;
     resumeClientTool?: ResumeClientTool;
+    toolApprovals?: ToolApprovalDecisionStore;
+    resumeToolApproval?: ResumeToolApproval;
   }> = {},
 ) {
   const persistence = inMemoryPersistence(
@@ -80,6 +92,8 @@ export async function startTestingServiceWithConfiguredPersistence(
     turnReplay?: TurnReplay;
     clientToolDispatches?: ClientToolDispatchStore;
     resumeClientTool?: ResumeClientTool;
+    toolApprovals?: ToolApprovalDecisionStore;
+    resumeToolApproval?: ResumeToolApproval;
   }> = {},
 ) {
   return startTestingServiceWithPersistence(
@@ -106,6 +120,8 @@ async function startTestingServiceWithPersistence<
     turnReplay?: TurnReplay;
     clientToolDispatches?: ClientToolDispatchStore;
     resumeClientTool?: ResumeClientTool;
+    toolApprovals?: ToolApprovalDecisionStore;
+    resumeToolApproval?: ResumeToolApproval;
   }>,
   persistence: TestingPersistence<TStore>,
 ) {
@@ -118,6 +134,7 @@ async function startTestingServiceWithPersistence<
   const telemetrySink = overrides.telemetrySink ?? { record: () => undefined };
   const turnExecution = overrides.turnExecution ?? new DeterministicTurnExecution();
   const turnReplay = resolveTurnReplay(overrides.turnReplay);
+  const approvalDependencies = testingApprovalDependencies(overrides, persistence);
   app.route(
     "/",
     createChatRoutes({
@@ -128,6 +145,7 @@ async function startTestingServiceWithPersistence<
       runAccess: turnState,
       clientToolDispatches: overrides.clientToolDispatches ?? persistence.clientToolDispatches,
       resumeClientTool: overrides.resumeClientTool ?? (() => Promise.resolve(false)),
+      ...approvalDependencies,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: testingTurnModelPolicy(settings),
@@ -160,6 +178,19 @@ async function startTestingServiceWithPersistence<
   };
 }
 
+function testingApprovalDependencies(
+  overrides: Readonly<{
+    toolApprovals?: ToolApprovalDecisionStore;
+    resumeToolApproval?: ResumeToolApproval;
+  }>,
+  persistence: Readonly<{ toolApprovals: ToolApprovalDecisionStore }>,
+) {
+  return {
+    toolApprovals: overrides.toolApprovals ?? persistence.toolApprovals,
+    resumeToolApproval: overrides.resumeToolApproval ?? (() => Promise.resolve(false)),
+  };
+}
+
 function resolveTurnReplay(override: TurnReplay | undefined): TurnReplay {
   return override ?? unavailableTurnReplay;
 }
@@ -167,6 +198,7 @@ function resolveTurnReplay(override: TurnReplay | undefined): TurnReplay {
 type TestingPersistence<TStore extends InMemoryTurnState | PostgresTurnState> = Readonly<{
   store: TStore;
   clientToolDispatches: ClientToolDispatchStore;
+  toolApprovals: ToolApprovalDecisionStore;
   registerClose: StartServicePart;
   /** True when the workflow finalize step owns terminal persistence (Postgres). */
   durable: boolean;
@@ -185,6 +217,7 @@ function createConfiguredTestingPersistence(
   return {
     store,
     clientToolDispatches: store,
+    toolApprovals: store,
     durable: true,
     registerClose: () => ({
       name: "postgres testing turn state",
@@ -197,6 +230,7 @@ function inMemoryPersistence(store: InMemoryTurnState): TestingPersistence<InMem
   return {
     store,
     clientToolDispatches: unavailableClientToolDispatches,
+    toolApprovals: unavailableToolApprovals,
     durable: false,
     registerClose: () => ({
       name: "in-memory testing turn state",

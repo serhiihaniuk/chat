@@ -1,4 +1,5 @@
 import { serviceProcessEnv } from "#config/environment/process-environment";
+import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
 import {
   initializeWorkflowServices,
   workflowServices,
@@ -15,6 +16,7 @@ export function initializeProductionWorkflowServices(): WorkflowServices {
     const settings = resolveServiceSettings(serviceProcessEnv());
     initializeWorkflowServices({
       modelProvider: createProductionModelProvider(settings),
+      serverTools: REGISTERED_SERVER_TOOLS,
       ...(settings.persistence.databaseUrl === undefined
         ? {}
         : { databaseUrl: settings.persistence.databaseUrl }),

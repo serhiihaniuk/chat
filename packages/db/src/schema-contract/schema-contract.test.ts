@@ -6,6 +6,7 @@ import {
   HOST_COMMAND_RESULT_STATUSES,
   SCHEMA_ENTITY_TYPES,
   TOOL_INVOCATION_STATUSES,
+  TOOL_APPROVAL_STATES,
   type ActorId,
   type CreateOrGetConversationCommand,
   type ConversationRecord,
@@ -23,6 +24,7 @@ describe("db schema contract", () => {
       "usage_record",
       "tool_invocation",
       "client_tool_dispatch",
+      "tool_approval",
       "host_command_result",
       "audit_event",
     ]);
@@ -52,6 +54,7 @@ describe("db schema contract", () => {
       "late",
       "aborted",
     ]);
+    expect(TOOL_APPROVAL_STATES).toEqual(["requested", "approved", "denied", "expired"]);
     expect(HOST_COMMAND_RESULT_STATUSES).toEqual([
       "emitted",
       "applied",

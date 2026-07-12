@@ -8,6 +8,8 @@ import type { TurnExecution } from "#application/ports/turn/turn-execution";
 import type { TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import type { ClientToolDispatchStore } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { ResumeClientTool } from "#application/turn/tools/submit-client-tool-output";
+import type { ToolApprovalDecisionStore } from "#application/ports/turn/tools/tool-approval-store";
+import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { createCollectingTelemetrySink } from "#testing/collecting-telemetry-sink";
@@ -29,6 +31,8 @@ export async function createServiceTestHarness(
     readonly conversationQueries?: ConversationQueryStore;
     readonly clientToolDispatches?: ClientToolDispatchStore;
     readonly resumeClientTool?: ResumeClientTool;
+    readonly toolApprovals?: ToolApprovalDecisionStore;
+    readonly resumeToolApproval?: ResumeToolApproval;
   } = {},
 ) {
   const settingsResult = validateSettings(createDefaultConfig());

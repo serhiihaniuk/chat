@@ -9,6 +9,7 @@ import type {
   TurnStateContext,
 } from "./postgres-turn-state/types.js";
 import { createPostgresClientToolDispatchStore } from "./postgres-turn-state/client-tool-dispatches.js";
+import { createPostgresToolApprovalStore } from "./postgres-turn-state/tool-approvals.js";
 
 export type { PostgresTurnState } from "./postgres-turn-state/types.js";
 
@@ -35,11 +36,13 @@ export const createTurnStateFromRepositories = (
   const queries = createPostgresConversationQueries(repositories);
   const titles = createPostgresConversationTitleStore(repositories);
   const clientToolDispatches = createPostgresClientToolDispatchStore(repositories);
+  const toolApprovals = createPostgresToolApprovalStore(repositories);
   const lifecycle = createPostgresTurnLifecycle(context);
   return {
     ...titles,
     ...queries,
     ...clientToolDispatches,
+    ...toolApprovals,
     ...lifecycle,
     close: repositories.close,
   };

@@ -7,11 +7,12 @@ import {
   type WorkflowAgentStreamResult,
 } from "@ai-sdk/workflow";
 import { isStepCount, type ModelMessage, type ToolSet, type UIMessageChunk } from "ai";
-import { createHook, getWorkflowMetadata, getWritable, sleep } from "workflow";
+import { createHook, getWorkflowMetadata, getWritable } from "workflow";
 
 import { assertModelInstance, type ModelProvider } from "#application/ports/model-provider";
 import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
+import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { patchWorkflowRealmAbortSignal } from "./realm/abort-signal-patch.js";
 import {
   ABORT_ERROR_NAME,
@@ -25,6 +26,12 @@ import {
 } from "./chat-turn-outcome.js";
 import { createClientTools, preserveDynamicClientToolIdentity } from "./client-tools/index.js";
 import { runChatTurnFinalizeStep } from "./production/chat-turn-finalize.js";
+import { createSuspendableTurnTimeout } from "./timeout/turn-timeout.js";
+import {
+  createServerTools,
+  type ApprovalWorkflowStreamPart,
+} from "./server-tools/index.js";
+import { normalizeApprovalUIChunk } from "./tool-approvals/approval-output.js";
 
 const CHAT_TURN_WORKFLOW = {
   AGENT_ID: "side-chat-turn",
@@ -85,6 +92,7 @@ export function chatTurnCancellationHookToken(runId: string): string {
 export async function executeChatTurn(
   input: ChatTurnWorkflowInput,
   modelProvider: ModelProvider,
+  serverToolDefinitions: readonly ServerToolDefinition[],
   databaseUrl?: string,
 ): Promise<ChatTurnTerminalOutcome> {
   const controller = new AbortController();
@@ -99,6 +107,28 @@ export async function executeChatTurn(
     requestId: input.requestId,
   });
   assertModelInstance(resolvedModel.model);
+  const providerTimeout = createSuspendableTurnTimeout(input.providerTimeoutMs);
+  const writable = getWritable<ApprovalWorkflowStreamPart>();
+  const clientTools = createClientTools({
+    definitions: input.clientTools,
+    runId: workflowRunId,
+    databaseUrl,
+    workspaceId: input.workspaceId,
+    turnId: input.turnId,
+    timeoutMs: input.clientToolTimeoutMs,
+    abortSignal: controller.signal,
+  });
+  const serverTools = createServerTools({
+    definitions: serverToolDefinitions,
+    databaseUrl,
+    workspaceId: input.workspaceId,
+    subjectId: input.subjectId,
+    conversationId: input.conversationId,
+    turnId: input.turnId,
+    runId: workflowRunId,
+    providerTimeout,
+    abortSignal: controller.signal,
+  });
 
   const agent = new WorkflowAgent(
     createAgentOptions({
@@ -109,19 +139,18 @@ export async function executeChatTurn(
       maxRetries: CHAT_TURN_WORKFLOW.MAX_RETRIES,
       telemetry: PRIVATE_TELEMETRY_OPTIONS,
       providerOptions: resolvedModel.providerOptions,
-      tools: createClientTools({
-        definitions: input.clientTools,
-        runId: workflowRunId,
-        databaseUrl,
-        workspaceId: input.workspaceId,
-        turnId: input.turnId,
-        timeoutMs: input.clientToolTimeoutMs,
-        abortSignal: controller.signal,
-      }),
+      tools: mergeToolSets(clientTools, serverTools),
     }),
   );
 
-  const outcome = await raceChatTurnOutcome(agent, controller, cancellation, input);
+  const outcome = await raceChatTurnOutcome(
+    agent,
+    controller,
+    cancellation,
+    providerTimeout,
+    writable,
+    input,
+  );
   if (databaseUrl !== undefined) {
     await finalizeChatTurn(databaseUrl, input, outcome);
   }
@@ -138,12 +167,14 @@ async function raceChatTurnOutcome(
   agent: WorkflowAgent,
   controller: AbortController,
   cancellation: PromiseLike<TurnCancellation>,
+  providerTimeout: ReturnType<typeof createSuspendableTurnTimeout>,
+  writable: WritableStream<ApprovalWorkflowStreamPart>,
   input: ChatTurnWorkflowInput,
 ): Promise<ChatTurnTerminalOutcome> {
   const streamSettled = agent
     .stream({
       messages: toModelMessages(input.messages),
-      writable: getWritable<ModelCallStreamPart>(),
+      writable,
       abortSignal: controller.signal,
     })
     .then(
@@ -161,7 +192,7 @@ async function raceChatTurnOutcome(
   };
 
   const timeoutOutcome = async (): Promise<ChatTurnTerminalOutcome> => {
-    await sleep(`${input.providerTimeoutMs}ms`);
+    await providerTimeout.waitUntilElapsed();
     controller.abort(
       new DOMException(CHAT_TURN_WORKFLOW.PROVIDER_TIMEOUT_REASON, ABORT_ERROR_NAME),
     );
@@ -210,7 +241,18 @@ export function toChatTurnUIStream(
 ): ReadableStream<UIMessageChunk> {
   return stream
     .pipeThrough(createModelCallToUIChunkTransform())
+    .pipeThrough(
+      new TransformStream<UIMessageChunk, UIMessageChunk>({
+        transform: (chunk, controller) => controller.enqueue(normalizeApprovalUIChunk(chunk)),
+      }),
+    )
     .pipeThrough(preserveDynamicClientToolIdentity(clientTools));
+}
+
+function mergeToolSets(clientTools: ToolSet, serverTools: ToolSet): ToolSet {
+  const duplicate = Object.keys(clientTools).find((name) => name in serverTools);
+  if (duplicate !== undefined) throw new Error(`Duplicate client/server tool name: ${duplicate}`);
+  return { ...clientTools, ...serverTools };
 }
 
 function toModelMessages(messages: readonly SerializableChatMessage[]): ModelMessage[] {

@@ -3,6 +3,7 @@ import type { UIMessageChunk } from "ai";
 import { getRun, type Run } from "workflow/api";
 
 import type { ChatTurnTerminalOutcome } from "./chat-turn.js";
+import { normalizeApprovalUIChunk } from "../tool-approvals/approval-output.js";
 
 export type ReplayedChatTurn =
   | Readonly<{
@@ -98,7 +99,7 @@ async function readRawToEnd(
 
 function appendUiChunk(output: UIMessageChunk[], raw: ModelCallStreamPart): void {
   const chunk = toUIMessageChunk(raw);
-  if (chunk !== undefined) output.push(chunk);
+  if (chunk !== undefined) output.push(normalizeApprovalUIChunk(chunk));
 }
 
 /** Release the pinned world's subscriber on client cancel and normal EOF. */
@@ -143,7 +144,7 @@ async function enqueueNextLiveChunk(
     }
     const chunk = toUIMessageChunk(next.value);
     if (chunk !== undefined) {
-      controller.enqueue(chunk);
+      controller.enqueue(normalizeApprovalUIChunk(chunk));
       return;
     }
   }

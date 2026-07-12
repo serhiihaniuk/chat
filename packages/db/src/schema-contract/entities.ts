@@ -18,6 +18,7 @@ import type {
   SubjectId,
   TargetId,
   ToolCallId,
+  ToolApprovalId,
   ToolInvocationId,
   UsageRecordId,
   UserMessageId,
@@ -30,6 +31,7 @@ import type {
   HostCommandResultStatus,
   MessageRole,
   ToolInvocationStatus,
+  ToolApprovalState,
 } from "./lifecycle.js";
 
 export type TenantScopedRecord = {
@@ -163,6 +165,23 @@ export type ClientToolDispatchRecord = TenantScopedRecord &
     readonly lateResultAt?: string;
   };
 
+/** Durable authorization decision for one exact tool call and input digest. */
+export type ToolApprovalRecord = TenantScopedRecord &
+  VersionedRecord & {
+    readonly approvalId: ToolApprovalId;
+    readonly assistantTurnId: AssistantTurnId;
+    readonly toolCallId: ToolCallId;
+    readonly toolName: string;
+    readonly inputDigest: string;
+    readonly state: ToolApprovalState;
+    readonly decisionReason?: string;
+    readonly decidedBySubjectId?: SubjectId;
+    readonly decidedByActorId?: ActorId;
+    readonly requestedAt: string;
+    readonly decidedAt?: string;
+    readonly expiresAt: string;
+  };
+
 export type HostCommandResultRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly hostCommandId: HostCommandResultId;
@@ -197,5 +216,6 @@ export type SchemaContractRecord =
   | UsageRecord
   | ToolInvocationRecord
   | ClientToolDispatchRecord
+  | ToolApprovalRecord
   | HostCommandResultRecord
   | AuditEventRecord;

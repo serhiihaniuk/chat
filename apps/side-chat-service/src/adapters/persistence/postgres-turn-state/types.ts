@@ -10,6 +10,10 @@ import type {
   ClientToolDispatchStore,
   ClientToolWorkflowStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
+import type {
+  ToolApprovalDecisionStore,
+  ToolApprovalWorkflowStore,
+} from "#application/ports/turn/tools/tool-approval-store";
 
 /** The route-facing PostgreSQL store surface, including pool disposal. */
 export type PostgresTurnState = ConversationStore &
@@ -19,6 +23,8 @@ export type PostgresTurnState = ConversationStore &
   TurnStore &
   ClientToolDispatchStore &
   ClientToolWorkflowStore &
+  ToolApprovalDecisionStore &
+  ToolApprovalWorkflowStore &
   TurnRunAccess & { close: () => Promise<void> };
 
 /** Repositories that also own their connection pool, as the pg-drizzle factory returns. */

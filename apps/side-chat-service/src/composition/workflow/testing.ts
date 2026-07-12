@@ -1,4 +1,5 @@
 import { scriptedModelProvider } from "#testing/scripted-language-model";
+import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
 import {
   envValue,
@@ -21,6 +22,7 @@ export function initializeTestingWorkflowServices(): WorkflowServices {
     );
     initializeWorkflowServices({
       modelProvider: scriptedModelProvider,
+      serverTools: REGISTERED_SERVER_TOOLS,
       ...(databaseUrl === undefined ? {} : { databaseUrl }),
     });
   }
