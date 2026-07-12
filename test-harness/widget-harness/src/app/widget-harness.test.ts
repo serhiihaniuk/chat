@@ -77,10 +77,13 @@ describe("widget harness modes", () => {
   it("replays only events after the reconnect offset", async () => {
     const client = createMockStreamClient();
     const run = await client.createRun(request);
-    const subscription = await client.subscribeTurn(run.assistantTurnId, { after: 1 });
+    const subscription = await client.subscribeTurn(run.assistantTurnId, {
+      after: 1,
+    });
 
     const sequences = [];
-    for await (const event of subscription.events) sequences.push(event.sequence);
+    for await (const event of subscription.events)
+      sequences.push(event.sequence);
 
     // Default script is started(0), reasoning(1), delta(2), host-command(3), completed(4).
     expect(sequences).toEqual([2, 3, 4]);
@@ -89,7 +92,10 @@ describe("widget harness modes", () => {
   it("configures local service mode with auth-wrapped fetch", async () => {
     const seenHeaders: HeadersInit[] = [];
     const seenInputs: Array<string | URL | Request> = [];
-    const fetchLike = (input: string | URL | Request, init: RequestInit = {}) => {
+    const fetchLike = (
+      input: string | URL | Request,
+      init: RequestInit = {},
+    ) => {
       seenInputs.push(input);
       seenHeaders.push(init.headers ?? {});
       return Promise.resolve(new Response("busy", { status: 503 }));
@@ -107,13 +113,19 @@ describe("widget harness modes", () => {
 
     expect(
       createLocalServiceClient(
-        parseWidgetHarnessConfig("?mode=local-service&apiBaseUrl=http://localhost:3100"),
+        parseWidgetHarnessConfig(
+          "?mode=local-service&apiBaseUrl=http://localhost:3100",
+        ),
       ),
     ).toHaveProperty("createRun");
-    expect(resolveLocalApiBaseUrl(parseWidgetHarnessConfig("?mode=local-service").apiBaseUrl)).toBe(
-      "http://127.0.0.1:5173/side-chat-api",
+    expect(
+      resolveLocalApiBaseUrl(
+        parseWidgetHarnessConfig("?mode=local-service").apiBaseUrl,
+      ),
+    ).toBe("http://127.0.0.1:5173/side-chat-api");
+    expect(resolveLocalApiBaseUrl("http://localhost:3100")).toBe(
+      "http://localhost:3100",
     );
-    expect(resolveLocalApiBaseUrl("http://localhost:3100")).toBe("http://localhost:3100");
     expect(seenInputs).toContain("http://localhost:3100/chat/runs");
     expect(seenInputs).not.toContain("/api/chat/runs");
   });
@@ -137,14 +149,18 @@ describe("widget harness modes", () => {
   });
 
   it("keeps the workflow-service launcher available in standalone closed state", () => {
-    const config = parseWidgetHarnessConfig("?mode=workflow-service&open=false");
+    const config = parseWidgetHarnessConfig(
+      "?mode=workflow-service&open=false",
+    );
     const html = renderToStaticMarkup(createWidgetHarnessApp(config).element);
 
     expect(html).toContain("Workspace Assistant");
   });
 
   it("keeps host command results as harness-local records", async () => {
-    const bridge = createHarnessHostBridge(parseWidgetHarnessConfig("?mode=mock-stream"));
+    const bridge = createHarnessHostBridge(
+      parseWidgetHarnessConfig("?mode=mock-stream"),
+    );
     const result = await bridge.dispatchCommand({
       protocolVersion: SIDECHAT_PROTOCOL_VERSION,
       type: "sidechat.activity",
@@ -171,5 +187,23 @@ describe("widget harness modes", () => {
       data: { persisted: false },
     });
     expect(bridge.commandRecords).toHaveLength(1);
+  });
+
+  it("keeps native workflow tool results as harness-local records", async () => {
+    const bridge = createHarnessHostBridge(
+      parseWidgetHarnessConfig("?mode=workflow-service"),
+    );
+    const result = await bridge.dispatchToolCall({
+      toolCallId: "tool-call-1",
+      toolName: "open_resource",
+      input: { resourceId: "doc-1" },
+    });
+
+    expect(result).toMatchObject({
+      toolCallId: "tool-call-1",
+      status: "applied",
+      resultCode: "harness_local_only",
+    });
+    expect(bridge.toolRecords).toHaveLength(1);
   });
 });

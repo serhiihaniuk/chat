@@ -10,12 +10,20 @@ import type {
 
 describe("side chat widget public props", () => {
   it("expose client and host bridge seams without service internals", () => {
-    expectTypeOf<ProtocolSideChatWidgetProps["client"]>().toEqualTypeOf<SideChatApiClient>();
-    expectTypeOf<WorkflowSideChatWidgetProps["workflowChat"]>().toEqualTypeOf<WorkflowChatClient>();
+    expectTypeOf<
+      ProtocolSideChatWidgetProps["client"]
+    >().toEqualTypeOf<SideChatApiClient>();
+    expectTypeOf<
+      WorkflowSideChatWidgetProps["workflowChat"]
+    >().toEqualTypeOf<WorkflowChatClient>();
     expectTypeOf<
       NonNullable<ProtocolSideChatWidgetProps["hostBridge"]>
     >().toEqualTypeOf<WidgetHostBridge>();
-    expectTypeOf<WorkflowSideChatWidgetProps>().not.toHaveProperty("hostBridge");
-    expectTypeOf<WorkflowSideChatWidgetProps>().not.toHaveProperty("quickActions");
+    expectTypeOf<
+      NonNullable<WorkflowSideChatWidgetProps["hostBridge"]>
+    >().toEqualTypeOf<WidgetHostBridge>();
+    expectTypeOf<WorkflowSideChatWidgetProps>().not.toHaveProperty(
+      "quickActions",
+    );
   });
 });

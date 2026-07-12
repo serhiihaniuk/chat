@@ -1,11 +1,15 @@
 export {
   isHostCommandActivityEvent,
   supportsCommand,
+  supportsTool,
+  toClientToolDefinitions,
   toHostCommand,
   type BrowserHostCommandCapability,
   type HostCapabilities,
   type HostCommand,
   type HostCommandActivityEvent,
+  type HostClientToolDefinition,
+  type HostToolCall,
 } from "./commands/capability.js";
 export {
   createCommandResult,
@@ -16,10 +20,16 @@ export {
   type CommandResultInput,
   type HostCommandResult,
   type HostCommandResultStatus,
+  createFailedToolResult,
+  createToolResult,
+  createUnsupportedToolResult,
+  type HostToolResult,
 } from "./commands/command-result.js";
 export {
   dispatchSupportedCommand,
+  dispatchSupportedToolCall,
   type HostCommandDispatcher,
+  type HostToolDispatcher,
 } from "./commands/command-dispatcher.js";
 export {
   createHostBridge,

@@ -1,6 +1,6 @@
 import { omitUndefinedProperties, type JsonObject } from "@side-chat/shared";
 
-import type { HostCommand } from "./capability.js";
+import type { HostCommand, HostToolCall } from "./capability.js";
 
 export const HOST_COMMAND_RESULT_STATUSES = {
   APPLIED: "applied",
@@ -29,8 +29,25 @@ export type HostCommandResult = {
   readonly data?: JsonObject;
 };
 
+/** Provider-free outcome for one native workflow client-tool call. */
+export type HostToolResult = {
+  readonly toolCallId: string;
+  readonly toolName: string;
+  readonly status: HostCommandResultStatus;
+  readonly resultCode: string;
+  readonly resolvedAt: string;
+  readonly data?: JsonObject;
+};
+
 /** Host-owned outcome fields used to settle a dispatched command. */
 export type CommandResultInput = {
+  readonly status: HostCommandResultStatus;
+  readonly resultCode: string;
+  readonly resolvedAt?: string | undefined;
+  readonly data?: JsonObject | undefined;
+};
+
+export type ToolResultInput = {
   readonly status: HostCommandResultStatus;
   readonly resultCode: string;
   readonly resolvedAt?: string | undefined;
@@ -60,7 +77,10 @@ export const createUnsupportedResult = (
     resultCode,
   });
 
-export const createRejectedResult = (command: HostCommand, resultCode: string): HostCommandResult =>
+export const createRejectedResult = (
+  command: HostCommand,
+  resultCode: string,
+): HostCommandResult =>
   createCommandResult(command, {
     status: "rejected",
     resultCode,
@@ -71,6 +91,37 @@ export const createFailedResult = (
   resultCode = "host_command_failed",
 ): HostCommandResult =>
   createCommandResult(command, {
+    status: "failed",
+    resultCode,
+  });
+
+export const createToolResult = (
+  toolCall: HostToolCall,
+  input: ToolResultInput,
+): HostToolResult =>
+  omitUndefinedProperties({
+    toolCallId: toolCall.toolCallId,
+    toolName: toolCall.toolName,
+    status: input.status,
+    resultCode: input.resultCode,
+    resolvedAt: input.resolvedAt ?? new Date().toISOString(),
+    data: input.data,
+  });
+
+export const createUnsupportedToolResult = (
+  toolCall: HostToolCall,
+  resultCode = "unsupported_command",
+): HostToolResult =>
+  createToolResult(toolCall, {
+    status: "unsupported",
+    resultCode,
+  });
+
+export const createFailedToolResult = (
+  toolCall: HostToolCall,
+  resultCode = "host_tool_failed",
+): HostToolResult =>
+  createToolResult(toolCall, {
     status: "failed",
     resultCode,
   });

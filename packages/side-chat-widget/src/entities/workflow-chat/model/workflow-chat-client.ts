@@ -44,12 +44,19 @@ export type WorkflowChatClient = Readonly<{
 export class WorkflowChatHttpError extends Error {
   readonly code: string;
   readonly retryable: boolean;
+  readonly status: number | undefined;
 
-  constructor(code: string, message: string, retryable: boolean) {
+  constructor(
+    code: string,
+    message: string,
+    retryable: boolean,
+    status?: number,
+  ) {
     super(message);
     this.name = "WorkflowChatHttpError";
     this.code = code;
     this.retryable = retryable;
+    this.status = status;
   }
 }
 
@@ -75,7 +82,8 @@ export async function readWorkflowChatHistory(
   const validated = await safeValidateUIMessages<WorkflowUIMessage>({
     messages: payload["messages"],
   });
-  if (!validated.success) throw new Error("Conversation history contains invalid messages.");
+  if (!validated.success)
+    throw new Error("Conversation history contains invalid messages.");
   return validated.data;
 }
 
@@ -105,7 +113,10 @@ export function workflowChatFetch(client: WorkflowChatClient): typeof fetch {
   return request;
 }
 
-export function workflowChatUrl(client: WorkflowChatClient, path: string): string {
+export function workflowChatUrl(
+  client: WorkflowChatClient,
+  path: string,
+): string {
   return `${client.baseUrl.replace(/\/$/u, "")}${path}`;
 }
 
@@ -115,50 +126,78 @@ export async function resolveWorkflowChatRequestConfig(
   return (await client.getRequestConfig?.()) ?? {};
 }
 
-export function normalizeWorkflowChatError(error: unknown): WorkflowChatHttpError {
+export function normalizeWorkflowChatError(
+  error: unknown,
+): WorkflowChatHttpError {
   if (isWorkflowChatHttpError(error)) return error;
-  const message = error instanceof Error ? error.message : "Chat request failed.";
+  const message =
+    error instanceof Error ? error.message : "Chat request failed.";
   const payload = parseEmbeddedErrorPayload(message);
-  return payload ?? new WorkflowChatHttpError("transport_error", message, false);
+  return (
+    payload ?? new WorkflowChatHttpError("transport_error", message, false)
+  );
 }
 
-async function readWorkflowChatHttpError(response: Response): Promise<WorkflowChatHttpError> {
+export async function readWorkflowChatHttpError(
+  response: Response,
+): Promise<WorkflowChatHttpError> {
   const text = await response.text();
-  const payload = parseErrorPayload(text);
+  const payload = parseErrorPayload(text, response.status);
   return (
     payload ??
     new WorkflowChatHttpError(
       "http_error",
       `Chat request failed with status ${response.status}.`,
       false,
+      response.status,
     )
   );
 }
 
-function parseEmbeddedErrorPayload(message: string): WorkflowChatHttpError | undefined {
+function parseEmbeddedErrorPayload(
+  message: string,
+): WorkflowChatHttpError | undefined {
   const start = message.indexOf("{");
   return start < 0 ? undefined : parseErrorPayload(message.slice(start));
 }
 
-function parseErrorPayload(text: string): WorkflowChatHttpError | undefined {
+function parseErrorPayload(
+  text: string,
+  status?: number,
+): WorkflowChatHttpError | undefined {
   try {
     const value: unknown = JSON.parse(text);
     if (!isRecord(value)) return undefined;
-    if (typeof value["code"] !== "string" || typeof value["message"] !== "string") {
+    if (
+      typeof value["code"] !== "string" ||
+      typeof value["message"] !== "string"
+    ) {
       return undefined;
     }
     const code = value["code"];
     if (isSideChatErrorCode(code)) {
       const profile = SIDE_CHAT_ERROR_VOCABULARY[code];
-      return new WorkflowChatHttpError(code, profile.safeMessage, profile.retryable);
+      return new WorkflowChatHttpError(
+        code,
+        profile.safeMessage,
+        profile.retryable,
+        status,
+      );
     }
-    return new WorkflowChatHttpError(code, value["message"], value["retryable"] === true);
+    return new WorkflowChatHttpError(
+      code,
+      value["message"],
+      value["retryable"] === true,
+      status,
+    );
   } catch {
     return undefined;
   }
 }
 
-function isWorkflowChatHttpError(value: unknown): value is WorkflowChatHttpError {
+function isWorkflowChatHttpError(
+  value: unknown,
+): value is WorkflowChatHttpError {
   return value instanceof WorkflowChatHttpError;
 }
 

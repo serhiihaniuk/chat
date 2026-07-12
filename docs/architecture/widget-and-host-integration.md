@@ -50,7 +50,11 @@ The `workflowChat` branch reads `/api/conversations/:conversationId/messages`, a
 
 `createWorkflowChatTransport` binds `WorkflowChatTransport` to the service envelope. Every send and reconnect resolves `getRequestConfig()` at request time, POSTs the strict `{requestId, conversationId, messages, modelPreference?}` body to `/api/chat`, and uses the returned `x-workflow-run-id` for `/api/chat/:runId/stream`. Stop aborts the local reader and POSTs `{conversationId}` to `/api/chat/:runId/cancel`. Aborted response-body errors close cleanly before the transport's reconnect check, so cancellation stays calm without hiding non-abort transport failures.
 
-The workflow branch projects validated native `UIMessage` parts in source order: text and reasoning, static or dynamic tool lifecycles, approval-requested display, sources, sanctioned files, and terminal notices. `SideChatDataParts` is empty, so no widget-owned `data-*` vocabulary is introduced. The projection ignores unknown future parts with a development-build console note, bounds rendering at the observed terminal part count, and leaves approval decisions and reconnect or multi-tab recovery to later responsibilities.
+The workflow branch projects validated native `UIMessage` parts in source order: text and reasoning, static or dynamic tool lifecycles, approval decisions, sources, sanctioned files, and terminal notices. `SideChatDataParts` is empty, so no widget-owned `data-*` vocabulary is introduced. An optional `hostBridge` advertises page capabilities as the request's native client-tool catalog.
+
+Dynamic `onToolCall` callbacks execute once per unsettled call and post a safe outcome to the durable result endpoint; settled replay parts never execute again. Approval cards post approve or deny decisions to the service, which resumes the durable hook. The widget does not call `addToolOutput` or configure `sendAutomaticallyWhen`, so continuation remains server-owned.
+
+The projection ignores unknown future parts with a development-build console note, bounds rendering at the observed terminal part count, and leaves reconnect or multi-tab recovery to the next responsibility.
 
 ## Protocol-backed live-turn data flow
 
@@ -83,14 +87,16 @@ Idempotency is load-bearing in three places that reconnect depends on: the `crea
 
 ## Host bridge contract
 
-The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **browser seam**: host context flows in, host commands flow out. Host commands are browser UI actions the host app performs — **not** backend RuntimeTools. A model-callable backend action needs a separate RuntimeTool, manifest declaration, and service registration.
+The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **browser seam**. The protocol branch uses it for host context and legacy host commands. The native workflow branch uses the same capability source for browser-executed client tools. Neither browser action is a backend RuntimeTool; a server-executed model tool needs a separate runtime registration.
 
-`createHostBridge(options)` (`bridge/bridge.ts:28`) returns a `HostBridge` of `{getContext, getCapabilities, dispatchCommand}` (:16). The widget consumes a narrowed view of it.
+`createHostBridge(options)` returns a `HostBridge` of `{getContext, getCapabilities, dispatchCommand, dispatchToolCall}`. The widget consumes the narrowed `WidgetHostBridge` view. `dispatchToolCall` can use a native tool dispatcher or adapt the existing command dispatcher during the pre-alpha cutover window.
 
-| Direction   | When                      | Method                                                                        | Where the widget calls it       |
-| ----------- | ------------------------- | ----------------------------------------------------------------------------- | ------------------------------- |
-| Context in  | On every submit/retry     | `getContext({requestId})` returns a `HostContext` attached to the run request | `use-widget-chat-actions.ts:78` |
-| Command out | During stream consumption | `dispatchCommand(event)` runs one host-command activity event                 | `widget-run-subscription.ts:55` |
+| Branch   | When                       | Method                                                                     | Owner in the widget                                        |
+| -------- | -------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Protocol | On every submit or retry   | `getContext({requestId})` returns context attached to the protocol request | `features/chat/model/use-widget-chat-actions.ts`           |
+| Protocol | During stream consumption  | `dispatchCommand(event)` runs one legacy host-command activity             | `features/chat/model/subscription/`                        |
+| Workflow | Before each send           | `getCapabilities()` supplies the native client-tool catalog                | `features/workflow-chat/model/use-workflow-widget-chat.ts` |
+| Workflow | On a dynamic tool callback | `dispatchToolCall(call)` runs one capability-gated browser action          | `features/workflow-chat/model/client-tools/`               |
 
 `dispatchCommand` runs **once per `activityId`**, only when an `ACTIVITY` event is a host-command event (guard at `widget-run-subscription.ts:69`). The result always folds back into the timeline:
 
@@ -99,6 +105,8 @@ The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **
 - Otherwise: records the dispatcher's `HostCommandResult`.
 
 Do not add ad-hoc retry around dispatch; a failed row is the recorded outcome.
+
+The native branch has two dedupe guards. A settled `UIMessage` tool part is never dispatched, including after refresh or replay. An in-memory set keyed by `toolCallId` prevents a re-render from starting the same unsettled dispatch twice. Bridge exceptions and missing capabilities become failed outputs posted to the service instead of React errors.
 
 ## Copied-UI quarantine
 

@@ -123,7 +123,8 @@
       <section id="host-records">
         <h1>Workbench (host page)</h1>
         <p class="lede">
-          This page is the host app. The assistant opens records here through the
+          This page is the host app. The assistant opens records here through
+          the
           <code>open_resource</code> host command, forwarded from the iframe.
         </p>
         <ul id="record-list"></ul>
@@ -151,7 +152,10 @@
       const OPEN_CHANGE_MESSAGE_TYPE = "sidechat.widget.openChange";
       const READY_MESSAGE_TYPE = "sidechat.widget.ready";
       const HOST_COMMAND_MESSAGE_TYPE = "sidechat.widget.hostCommand";
-      const HOST_COMMAND_RESULT_MESSAGE_TYPE = "sidechat.widget.hostCommandResult";
+      const HOST_COMMAND_RESULT_MESSAGE_TYPE =
+        "sidechat.widget.hostCommandResult";
+      const HOST_TOOL_CALL_MESSAGE_TYPE = "sidechat.widget.hostToolCall";
+      const HOST_TOOL_RESULT_MESSAGE_TYPE = "sidechat.widget.hostToolResult";
 
       const params = new URLSearchParams(window.location.search);
       const frame = document.querySelector("iframe");
@@ -163,9 +167,18 @@
       const framePath = params.get("framePath") ?? "/side-chat-frame/";
       const frameUrl = new URL(framePath, window.location.origin);
       frameUrl.searchParams.set("mode", params.get("mode") ?? "local-service");
-      frameUrl.searchParams.set("workspaceId", params.get("workspaceId") ?? "workspace_e2e");
-      frameUrl.searchParams.set("authToken", params.get("authToken") ?? "local-compose-token");
-      frameUrl.searchParams.set("apiBaseUrl", params.get("apiBaseUrl") ?? "/side-chat-api");
+      frameUrl.searchParams.set(
+        "workspaceId",
+        params.get("workspaceId") ?? "workspace_e2e",
+      );
+      frameUrl.searchParams.set(
+        "authToken",
+        params.get("authToken") ?? "local-compose-token",
+      );
+      frameUrl.searchParams.set(
+        "apiBaseUrl",
+        params.get("apiBaseUrl") ?? "/side-chat-api",
+      );
       frameUrl.searchParams.set("openControl", "host");
       frameUrl.searchParams.set("open", String(open));
       frame.src = frameUrl.toString();
@@ -203,13 +216,25 @@
           return { status: "unsupported", resultCode: "unknown_command" };
         }
         const id = command.payload?.resourceId;
-        if (typeof id !== "string") return { status: "failed", resultCode: "missing_resource_id" };
-        if (!records.some((record) => record.id === id)) records.push({ id, label: id });
+        if (typeof id !== "string")
+          return { status: "failed", resultCode: "missing_resource_id" };
+        if (!records.some((record) => record.id === id))
+          records.push({ id, label: id });
         activeId = id;
         renderRecords();
         statusEl.textContent = `Assistant opened: ${id}`;
-        return { status: "applied", resultCode: "workbench_opened", data: { persisted: false } };
+        return {
+          status: "applied",
+          resultCode: "workbench_opened",
+          data: { persisted: false },
+        };
       };
+
+      const handleHostToolCall = (toolCall) =>
+        handleHostCommand({
+          commandName: toolCall.toolName,
+          payload: toolCall.input,
+        });
 
       const sendOpenState = () => {
         frame.contentWindow?.postMessage(
@@ -237,7 +262,23 @@
         if (data?.type === HOST_COMMAND_MESSAGE_TYPE && data.command) {
           const result = handleHostCommand(data.command);
           frame.contentWindow?.postMessage(
-            { type: HOST_COMMAND_RESULT_MESSAGE_TYPE, commandId: data.command.commandId, result },
+            {
+              type: HOST_COMMAND_RESULT_MESSAGE_TYPE,
+              commandId: data.command.commandId,
+              result,
+            },
+            window.location.origin,
+          );
+          return;
+        }
+        if (data?.type === HOST_TOOL_CALL_MESSAGE_TYPE && data.toolCall) {
+          const result = handleHostToolCall(data.toolCall);
+          frame.contentWindow?.postMessage(
+            {
+              type: HOST_TOOL_RESULT_MESSAGE_TYPE,
+              toolCallId: data.toolCall.toolCallId,
+              result,
+            },
             window.location.origin,
           );
           return;

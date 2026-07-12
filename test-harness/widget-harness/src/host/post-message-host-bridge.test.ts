@@ -1,13 +1,21 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SIDECHAT_PROTOCOL_VERSION, type HostContext } from "@side-chat/chat-protocol";
-import type { HostCommandActivityEvent } from "@side-chat/host-bridge";
+import {
+  SIDECHAT_PROTOCOL_VERSION,
+  type HostContext,
+} from "@side-chat/chat-protocol";
+import type {
+  HostCapabilities,
+  HostCommandActivityEvent,
+} from "@side-chat/host-bridge";
 
 import {
   createPostMessageHostBridge,
   HOST_COMMAND_MESSAGE_TYPE,
   HOST_COMMAND_RESULT_MESSAGE_TYPE,
+  HOST_TOOL_CALL_MESSAGE_TYPE,
+  HOST_TOOL_RESULT_MESSAGE_TYPE,
 } from "./post-message-host-bridge.js";
 
 const context: HostContext = {
@@ -15,6 +23,13 @@ const context: HostContext = {
   origin: "http://localhost",
   title: "test host",
   metadata: {},
+};
+
+const capabilities: HostCapabilities = {
+  schemaVersion: "test.capabilities.v1",
+  commands: [
+    { commandName: "open_resource", description: "Open", inputSchema: {} },
+  ],
 };
 
 const makeEvent = (commandId: string): HostCommandActivityEvent => ({
@@ -37,11 +52,36 @@ const makeEvent = (commandId: string): HostCommandActivityEvent => ({
   },
 });
 
-const replyFromParent = (commandId: string, status: string, resultCode: string): void => {
+const replyFromParent = (
+  commandId: string,
+  status: string,
+  resultCode: string,
+): void => {
   window.dispatchEvent(
     new MessageEvent("message", {
       origin: window.location.origin,
-      data: { type: HOST_COMMAND_RESULT_MESSAGE_TYPE, commandId, result: { status, resultCode } },
+      data: {
+        type: HOST_COMMAND_RESULT_MESSAGE_TYPE,
+        commandId,
+        result: { status, resultCode },
+      },
+    }),
+  );
+};
+
+const replyFromParentForTool = (
+  toolCallId: string,
+  status: string,
+  resultCode: string,
+): void => {
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      origin: window.location.origin,
+      data: {
+        type: HOST_TOOL_RESULT_MESSAGE_TYPE,
+        toolCallId,
+        result: { status, resultCode },
+      },
     }),
   );
 };
@@ -53,7 +93,9 @@ describe("post-message host bridge", () => {
   });
 
   it("forwards the command to the parent and resolves with the parent's result", async () => {
-    const postMessage = vi.spyOn(window.parent, "postMessage").mockImplementation(() => undefined);
+    const postMessage = vi
+      .spyOn(window.parent, "postMessage")
+      .mockImplementation(() => undefined);
     const bridge = createPostMessageHostBridge({ context });
 
     const pending = bridge.dispatchCommand(makeEvent("cmd-1"));
@@ -94,5 +136,42 @@ describe("post-message host bridge", () => {
       status: "timed_out",
       resultCode: "host_command_timeout",
     });
+  });
+
+  it("forwards native workflow tools through the same iframe boundary", async () => {
+    const postMessage = vi
+      .spyOn(window.parent, "postMessage")
+      .mockImplementation(() => undefined);
+    const bridge = createPostMessageHostBridge({ context });
+    const pending = bridge.dispatchToolCall({
+      toolCallId: "tool-1",
+      toolName: "open_resource",
+      input: { resourceId: "ticket-4821" },
+    });
+
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: HOST_TOOL_CALL_MESSAGE_TYPE,
+        toolCall: {
+          toolCallId: "tool-1",
+          toolName: "open_resource",
+          input: { resourceId: "ticket-4821" },
+        },
+      },
+      window.location.origin,
+    );
+    replyFromParentForTool("tool-1", "applied", "workbench_opened");
+    await expect(pending).resolves.toMatchObject({
+      toolCallId: "tool-1",
+      toolName: "open_resource",
+      status: "applied",
+      resultCode: "workbench_opened",
+    });
+  });
+
+  it("exposes the host catalog for native workflow request preparation", async () => {
+    const bridge = createPostMessageHostBridge({ capabilities, context });
+
+    await expect(bridge.getCapabilities?.()).resolves.toEqual(capabilities);
   });
 });

@@ -30,11 +30,14 @@ cancel requests. Request configuration is resolved for every request so a
 refreshed auth token is not captured at mount time.
 
 The native branch renders the validated AI SDK `UIMessage` part timeline with
-source-ordered text, reasoning, tool lifecycle, source, file, approval-display,
-and terminal presentations. Approval decisions remain display-only until the
-native interaction work in Step 15. Protocol-specific host context, activity
-renderers, quick actions, reasoning presentation, and turn profiles remain
-available only on the `client` branch.
+source-ordered text, reasoning, tool lifecycle, source, file, approval, and
+terminal presentations. An optional `hostBridge` advertises page capabilities
+as native client tools, dispatches dynamic `onToolCall` requests once, and posts
+their safe outcome to the durable workflow hook. Approval cards post decisions
+to the service; the server owns continuation and replay updates the same tool
+row. Protocol-specific host context, activity renderers, quick actions,
+reasoning presentation, and turn profiles remain available only on the `client`
+branch.
 
 The protocol-backed branch accepts `client` and exports
 `createSideChatApiClient` for service-backed consumers. `SideChatApiClient` drives

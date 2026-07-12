@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UIMessage } from "ai";
 
 import type { WorkflowChatClient } from "#entities/workflow-chat";
-import { useWorkflowWidgetChat, type WorkflowWidgetChat } from "./use-workflow-widget-chat.js";
+import {
+  useWorkflowWidgetChat,
+  type WorkflowWidgetChat,
+} from "./use-workflow-widget-chat.js";
 
 const SEEDED_MESSAGE: UIMessage = {
   id: "seed-user",
@@ -20,7 +23,10 @@ let container: HTMLElement;
 
 beforeEach(() => {
   windowRef = new Window();
-  Object.defineProperty(globalThis, "window", { configurable: true, value: windowRef });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: windowRef,
+  });
   Object.defineProperty(globalThis, "document", {
     configurable: true,
     value: windowRef.document,
@@ -58,7 +64,9 @@ describe("useWorkflowWidgetChat", () => {
     expect(assistantMessages?.[0]?.parts).toContainEqual(
       expect.objectContaining({ type: "text", text: "Answer", state: "done" }),
     );
-    expect(chat.current?.messages.filter((message) => message.id === "seed-user")).toHaveLength(1);
+    expect(
+      chat.current?.messages.filter((message) => message.id === "seed-user"),
+    ).toHaveLength(1);
     expect(chat.current?.terminal).toMatchObject({
       kind: "completed",
       messageId: "assistant-1",
@@ -67,13 +75,18 @@ describe("useWorkflowWidgetChat", () => {
   });
 
   it("maps a native content-filter finish to a blocked terminal", async () => {
-    const request = vi.fn<typeof fetch>(() => Promise.resolve(blockedTurnResponse()));
+    const request = vi.fn<typeof fetch>(() =>
+      Promise.resolve(blockedTurnResponse()),
+    );
     const chat = renderChat({ fetch: request });
 
     await act(async () => chat.current?.submitMessage("Blocked"));
     await waitFor(() => chat.current?.status === "idle");
 
-    expect(chat.current?.terminal).toMatchObject({ kind: "blocked", messageId: "assistant-1" });
+    expect(chat.current?.terminal).toMatchObject({
+      kind: "blocked",
+      messageId: "assistant-1",
+    });
     expect(chat.current?.error).toBeUndefined();
   });
 
@@ -81,7 +94,11 @@ describe("useWorkflowWidgetChat", () => {
     const request = vi.fn<typeof fetch>(() =>
       Promise.resolve(
         Response.json(
-          { code: "conversation_busy", message: "A turn is already active.", retryable: false },
+          {
+            code: "conversation_busy",
+            message: "A turn is already active.",
+            retryable: false,
+          },
           { status: 409 },
         ),
       ),
@@ -100,7 +117,9 @@ describe("useWorkflowWidgetChat", () => {
   });
 
   it("cancels the local reader and calls the server abort endpoint without an error state", async () => {
-    const loggedError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const loggedError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     let postSignal: AbortSignal | undefined;
     let cancelBody: unknown;
     const request = vi.fn<typeof fetch>((input, init) => {
@@ -109,7 +128,8 @@ describe("useWorkflowWidgetChat", () => {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       postSignal = init?.signal ?? undefined;
-      if (postSignal?.aborted) return Promise.reject(new Error("Request was already aborted."));
+      if (postSignal?.aborted)
+        return Promise.reject(new Error("Request was already aborted."));
       return Promise.resolve(openTurnResponse(postSignal));
     });
     const chat = renderChat({ fetch: request });
@@ -119,7 +139,9 @@ describe("useWorkflowWidgetChat", () => {
     });
     await waitFor(() => chat.current?.status === "streaming");
     act(() => chat.current?.stop());
-    await waitFor(() => cancelBody !== undefined && chat.current?.cancelled === true);
+    await waitFor(
+      () => cancelBody !== undefined && chat.current?.cancelled === true,
+    );
     await waitFor(() => chat.current?.status === "idle");
 
     expect(postSignal?.aborted).toBe(true);
@@ -127,13 +149,54 @@ describe("useWorkflowWidgetChat", () => {
     expect(chat.current?.cancelled).toBe(true);
     expect(chat.current?.error).toBeUndefined();
     expect(chat.current?.status).toBe("idle");
-    expect(chat.current?.terminal).toMatchObject({ kind: "cancelled", messageId: "assistant-1" });
+    expect(chat.current?.terminal).toMatchObject({
+      kind: "cancelled",
+      messageId: "assistant-1",
+    });
     expect(loggedError).not.toHaveBeenCalled();
+  });
+
+  it("keeps the run id for approve decisions after the approval stream pauses", async () => {
+    let approvalBody: unknown;
+    const request = vi.fn<typeof fetch>((input, init) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/approvals/approval-1")) {
+        approvalBody = JSON.parse(requestBodyText(init?.body));
+        return Promise.resolve(
+          Response.json({
+            approvalId: "approval-1",
+            state: "approved",
+            accepted: true,
+          }),
+        );
+      }
+      return Promise.resolve(approvalTurnResponse());
+    });
+    const chat = renderChat({ fetch: request });
+
+    await act(async () => chat.current?.submitMessage("Approve this"));
+    await waitFor(() => chat.current?.status === "idle");
+
+    await act(async () =>
+      chat.current?.decideApproval("approval-1", true, "Looks good"),
+    );
+
+    expect(approvalBody).toEqual({ approved: true, reason: "Looks good" });
+    expect(chat.current?.approvalDecisions).toMatchObject({
+      "approval-1": "approved",
+    });
+    const renderedMessages = JSON.stringify(chat.current?.messages);
+    expect(renderedMessages).toContain('"type":"tool-needs_access"');
+    expect(renderedMessages).toContain('"state":"approval-responded"');
+    expect(renderedMessages).toContain('"id":"approval-1"');
+    expect(renderedMessages).toContain('"approved":true');
   });
 });
 
 function renderChat(overrides: Partial<WorkflowChatClient>) {
-  const current: { current: WorkflowWidgetChat | undefined } = { current: undefined };
+  const current: { current: WorkflowWidgetChat | undefined } = {
+    current: undefined,
+  };
   const client: WorkflowChatClient = {
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
@@ -188,7 +251,9 @@ function openTurnResponse(signal: AbortSignal | undefined): Response {
             .join(""),
         ),
       );
-      signal?.addEventListener("abort", () => controller.error(signal.reason), { once: true });
+      signal?.addEventListener("abort", () => controller.error(signal.reason), {
+        once: true,
+      });
     },
   });
   return eventResponse(body);
@@ -201,6 +266,30 @@ function blockedTurnResponse(): Response {
       { type: "start-step" },
       { type: "finish-step" },
       { type: "finish", finishReason: "content-filter" },
+    ]
+      .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
+      .join("") + "data: [DONE]\n\n",
+  );
+}
+
+function approvalTurnResponse(): Response {
+  return eventResponse(
+    [
+      { type: "start", messageId: "assistant-1" },
+      { type: "start-step" },
+      {
+        type: "tool-input-available",
+        toolCallId: "tool-call-1",
+        toolName: "needs_access",
+        input: { resourceId: "doc-1" },
+      },
+      {
+        type: "tool-approval-request",
+        approvalId: "approval-1",
+        toolCallId: "tool-call-1",
+      },
+      { type: "finish-step" },
+      { type: "finish" },
     ]
       .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
       .join("") + "data: [DONE]\n\n",

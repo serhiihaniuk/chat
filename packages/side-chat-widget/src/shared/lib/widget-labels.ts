@@ -29,6 +29,13 @@ export type WidgetLabels = {
   readonly noticeCancelled: string;
   readonly noticeTruncated: string;
   readonly activityApprovalRequired: string;
+  readonly approvalApprove: string;
+  readonly approvalDeny: string;
+  readonly approvalReason: string;
+  readonly approvalApproved: string;
+  readonly approvalDenied: string;
+  readonly approvalExpired: string;
+  readonly approvalUnavailable: string;
   readonly activityPreparing: string;
   readonly activityThinking: string;
   readonly activityThoughtProcess: string;
@@ -83,6 +90,13 @@ export const defaultWidgetLabels: WidgetLabels = {
   noticeCancelled: "Response cancelled.",
   noticeTruncated: "Response stopped at the model's output limit.",
   activityApprovalRequired: "Approval required",
+  approvalApprove: "Approve",
+  approvalDeny: "Deny",
+  approvalReason: "Reason (optional)",
+  approvalApproved: "Approved",
+  approvalDenied: "Denied",
+  approvalExpired: "Approval expired",
+  approvalUnavailable: "This approval is no longer available.",
   activityPreparing: "Preparing the response.",
   activityThinking: "Thinking...",
   activityThoughtProcess: "Thought process",
@@ -118,7 +132,9 @@ export const defaultWidgetLabels: WidgetLabels = {
 };
 
 /** Merge a caller's overrides over the defaults; an `undefined` field keeps the default. */
-export const resolveWidgetLabels = (overrides: SideChatWidgetLabels | undefined): WidgetLabels => {
+export const resolveWidgetLabels = (
+  overrides: SideChatWidgetLabels | undefined,
+): WidgetLabels => {
   if (!overrides) return defaultWidgetLabels;
   const read = <Key extends keyof WidgetLabels>(key: Key): WidgetLabels[Key] =>
     overrides[key] ?? defaultWidgetLabels[key];
@@ -137,6 +153,13 @@ export const resolveWidgetLabels = (overrides: SideChatWidgetLabels | undefined)
     noticeCancelled: read("noticeCancelled"),
     noticeTruncated: read("noticeTruncated"),
     activityApprovalRequired: read("activityApprovalRequired"),
+    approvalApprove: read("approvalApprove"),
+    approvalDeny: read("approvalDeny"),
+    approvalReason: read("approvalReason"),
+    approvalApproved: read("approvalApproved"),
+    approvalDenied: read("approvalDenied"),
+    approvalExpired: read("approvalExpired"),
+    approvalUnavailable: read("approvalUnavailable"),
     activityPreparing: read("activityPreparing"),
     activityThinking: read("activityThinking"),
     activityThoughtProcess: read("activityThoughtProcess"),
@@ -178,4 +201,5 @@ export const WidgetLabelsProvider = WidgetLabelsContext.Provider;
 
 // Reads the resolved labels. Outside a provider (standalone shared/ui, showcase, unit
 // tests) it returns the built-in defaults, so every leaf renders real copy unwired.
-export const useWidgetLabels = (): WidgetLabels => useContext(WidgetLabelsContext);
+export const useWidgetLabels = (): WidgetLabels =>
+  useContext(WidgetLabelsContext);

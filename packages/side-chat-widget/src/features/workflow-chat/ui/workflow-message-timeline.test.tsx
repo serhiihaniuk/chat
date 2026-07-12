@@ -8,7 +8,10 @@ import {
 } from "../model/native-message-projection.js";
 import { WorkflowMessageTimeline } from "./workflow-message-timeline.js";
 
-const assistant = (parts: readonly unknown[], id = "assistant-1"): WorkflowTimelineMessage => ({
+const assistant = (
+  parts: readonly unknown[],
+  id = "assistant-1",
+): WorkflowTimelineMessage => ({
   id,
   role: "assistant",
   parts,
@@ -19,7 +22,11 @@ const renderTimeline = (
   terminal?: WorkflowChatTerminal,
 ): string =>
   renderToStaticMarkup(
-    <WorkflowMessageTimeline message={message} onRetry={() => undefined} terminal={terminal} />,
+    <WorkflowMessageTimeline
+      message={message}
+      onRetry={() => undefined}
+      terminal={terminal}
+    />,
   );
 
 afterEach(() => {
@@ -32,9 +39,24 @@ describe("WorkflowMessageTimeline", () => {
       assistant([
         { type: "text", text: "Before" },
         { type: "reasoning", text: "Checking", state: "done" },
-        { type: "tool-search", state: "input-available", input: { query: "docs" } },
-        { type: "dynamic-tool", toolName: "lookup_weather", state: "output-available" },
-        { type: "dynamic-tool", toolName: "needs_access", state: "approval-requested" },
+        {
+          type: "tool-search",
+          state: "input-available",
+          input: { query: "docs" },
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "lookup_weather",
+          state: "output-available",
+        },
+        {
+          type: "dynamic-tool",
+          toolCallId: "call-approval",
+          toolName: "needs_access",
+          state: "approval-requested",
+          input: { resourceId: "doc-1" },
+          approval: { id: "approval-1" },
+        },
         { type: "tool-delete", state: "output-denied" },
         { type: "text", text: "After" },
       ]),
@@ -46,8 +68,93 @@ describe("WorkflowMessageTimeline", () => {
     expect(html).toContain('data-slot="tool-row" data-state="success"');
     expect(html).toContain('data-slot="tool-approval"');
     expect(html).toContain("Approval required");
+    expect(html).toContain("Approve");
+    expect(html).toContain("Deny");
+    expect(html).toContain("Reason (optional)");
     expect(html).toContain('data-slot="tool-row" data-state="denied"');
     expect(html).toContain("After");
+  });
+
+  it("updates one approval row in place for decided and typed expired states", () => {
+    const decided = assistant([
+      {
+        type: "dynamic-tool",
+        toolCallId: "call-approval",
+        toolName: "needs_access",
+        state: "approval-responded",
+        input: {},
+        approval: { id: "approval-1", approved: true },
+      },
+    ]);
+    const decidedHtml = renderToStaticMarkup(
+      <WorkflowMessageTimeline
+        approvalDecisions={{}}
+        message={decided}
+        onApprovalDecision={() => Promise.resolve()}
+      />,
+    );
+    expect(decidedHtml).toContain(
+      'data-slot="tool-approval" data-state="approved"',
+    );
+    expect(decidedHtml).toContain("disabled");
+
+    const expired = assistant([
+      {
+        type: "dynamic-tool",
+        toolCallId: "call-approval",
+        toolName: "needs_access",
+        state: "approval-requested",
+        input: {},
+        approval: { id: "approval-1" },
+      },
+    ]);
+    const expiredHtml = renderToStaticMarkup(
+      <WorkflowMessageTimeline
+        approvalDecisions={{ "approval-1": "expired" }}
+        message={expired}
+      />,
+    );
+    expect(expiredHtml).toContain('data-state="expired"');
+    expect(expiredHtml).toContain("Approval expired");
+    expect(expiredHtml).toContain("disabled");
+
+    const foreignHtml = renderToStaticMarkup(
+      <WorkflowMessageTimeline
+        approvalDecisions={{ "approval-1": "foreign" }}
+        message={expired}
+      />,
+    );
+    expect(foreignHtml).toContain('data-state="foreign"');
+    expect(foreignHtml).toContain("This approval is no longer available.");
+    expect(foreignHtml).toContain("disabled");
+  });
+
+  it("keeps the same projected id when a tool part settles later", () => {
+    const input = projectWorkflowMessageParts(
+      assistant([
+        {
+          type: "dynamic-tool",
+          toolCallId: "call-1",
+          toolName: "lookup",
+          state: "input-available",
+          input: { query: "docs" },
+        },
+      ]),
+    )[0];
+    const output = projectWorkflowMessageParts(
+      assistant([
+        {
+          type: "dynamic-tool",
+          toolCallId: "call-1",
+          toolName: "lookup",
+          state: "output-available",
+          input: { query: "docs" },
+          output: { result: "ok" },
+        },
+      ]),
+    )[0];
+
+    expect(input?.id).toBe(output?.id);
   });
 
   it("keeps interleaved native parts in source order", () => {
@@ -60,14 +167,23 @@ describe("WorkflowMessageTimeline", () => {
       ]),
     );
 
-    expect(html.indexOf("before")).toBeLessThan(html.indexOf("Thought process"));
-    expect(html.indexOf("Thought process")).toBeLessThan(html.indexOf("Lookup"));
+    expect(html.indexOf("before")).toBeLessThan(
+      html.indexOf("Thought process"),
+    );
+    expect(html.indexOf("Thought process")).toBeLessThan(
+      html.indexOf("Lookup"),
+    );
     expect(html.indexOf("Lookup")).toBeLessThan(html.indexOf("after"));
   });
 
   it("renders source URL, source document, sanctioned image files, and non-network files", () => {
     const message = assistant([
-      { type: "source-url", sourceId: "url-1", url: "https://example.test", title: "Docs" },
+      {
+        type: "source-url",
+        sourceId: "url-1",
+        url: "https://example.test",
+        title: "Docs",
+      },
       {
         type: "source-document",
         sourceId: "doc-1",
@@ -92,8 +208,12 @@ describe("WorkflowMessageTimeline", () => {
     const projected = projectWorkflowMessageParts(message);
 
     expect(html).toContain('data-slot="sources-fold"');
-    expect(projected).toContainEqual(expect.objectContaining({ kind: "source", label: "Docs" }));
-    expect(projected).toContainEqual(expect.objectContaining({ kind: "source", label: "Readme" }));
+    expect(projected).toContainEqual(
+      expect.objectContaining({ kind: "source", label: "Docs" }),
+    );
+    expect(projected).toContainEqual(
+      expect.objectContaining({ kind: "source", label: "Readme" }),
+    );
     expect(html).toContain('data-slot="activity-images"');
     expect(html).toContain('data-slot="file-presentation"');
     expect(html).toContain("report.pdf");
@@ -102,7 +222,9 @@ describe("WorkflowMessageTimeline", () => {
 
   it("renders an empty assistant and a reasoning-only assistant without crashing", () => {
     const emptyMessage = assistant([]);
-    const reasoningMessage = assistant([{ type: "reasoning", text: "Only thought" }]);
+    const reasoningMessage = assistant([
+      { type: "reasoning", text: "Only thought" },
+    ]);
     const emptyHtml = renderTimeline(emptyMessage);
     const reasoningHtml = renderTimeline(reasoningMessage);
     const projected = projectWorkflowMessageParts(reasoningMessage);
@@ -115,7 +237,9 @@ describe("WorkflowMessageTimeline", () => {
   });
 
   it("ignores unknown parts and emits a development note without exposing payload data", () => {
-    const debug = vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    const debug = vi
+      .spyOn(console, "debug")
+      .mockImplementation(() => undefined);
     const html = renderTimeline(
       assistant([
         { type: "data-future", payload: "private-future-payload" },
@@ -161,8 +285,14 @@ describe("WorkflowMessageTimeline", () => {
       partCount: 1,
     };
 
-    const blockedHtml = renderTimeline(assistant([{ type: "text", text: "filtered" }]), blocked);
-    const cancelledHtml = renderTimeline(assistant([{ type: "text", text: "partial" }]), cancelled);
+    const blockedHtml = renderTimeline(
+      assistant([{ type: "text", text: "filtered" }]),
+      blocked,
+    );
+    const cancelledHtml = renderTimeline(
+      assistant([{ type: "text", text: "partial" }]),
+      cancelled,
+    );
 
     expect(blockedHtml).toContain('data-slot="blocked-notice"');
     expect(blockedHtml).not.toContain("Try again");

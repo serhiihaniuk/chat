@@ -2,11 +2,22 @@ import type { HostContext } from "@side-chat/chat-protocol";
 
 import {
   toHostCommand,
+  type HostToolCall,
   type HostCapabilities,
   type HostCommandActivityEvent,
 } from "#commands/capability";
-import type { HostCommandResult } from "#commands/command-result";
-import { dispatchSupportedCommand, type HostCommandDispatcher } from "#commands/command-dispatcher";
+import {
+  createFailedToolResult,
+  createToolResult,
+  type HostCommandResult,
+  type HostToolResult,
+} from "#commands/command-result";
+import {
+  dispatchSupportedCommand,
+  dispatchSupportedToolCall,
+  type HostCommandDispatcher,
+  type HostToolDispatcher,
+} from "#commands/command-dispatcher";
 import {
   toProtocolHostContext,
   type HostContextProvider,
@@ -24,7 +35,12 @@ import {
 export type HostBridge = {
   readonly getContext: (request: HostContextRequest) => Promise<HostContext>;
   readonly getCapabilities: () => Promise<HostCapabilities>;
-  readonly dispatchCommand: (event: HostCommandActivityEvent) => Promise<HostCommandResult>;
+  readonly dispatchCommand: (
+    event: HostCommandActivityEvent,
+  ) => Promise<HostCommandResult>;
+  readonly dispatchToolCall: (
+    toolCall: HostToolCall,
+  ) => Promise<HostToolResult>;
 };
 
 /**
@@ -34,14 +50,18 @@ export type HostBridge = {
  * a host implements it only when it declares host commands for the model to call,
  * and it is read once per turn so the available command set can vary by page.
  */
-export type WidgetHostBridge = Pick<HostBridge, "getContext" | "dispatchCommand"> &
-  Partial<Pick<HostBridge, "getCapabilities">>;
+export type WidgetHostBridge = Pick<
+  HostBridge,
+  "getContext" | "dispatchCommand"
+> &
+  Partial<Pick<HostBridge, "getCapabilities" | "dispatchToolCall">>;
 
 /** Concrete host implementations bound into a {@link HostBridge}. */
 export type HostBridgeOptions = {
   readonly contextProvider: HostContextProvider;
   readonly dispatcher: HostCommandDispatcher;
   readonly capabilities: HostCapabilities;
+  readonly toolDispatcher?: HostToolDispatcher | undefined;
 };
 
 /**
@@ -73,5 +93,31 @@ export const createHostBridge = (options: HostBridgeOptions): HostBridge => {
         await resolveCapabilities(),
         toHostCommand(event),
       ),
+    dispatchToolCall: async (toolCall) => {
+      const capabilities = await resolveCapabilities();
+      if (options.toolDispatcher) {
+        return dispatchSupportedToolCall(
+          options.toolDispatcher,
+          capabilities,
+          toolCall,
+        );
+      }
+
+      try {
+        const commandResult = await dispatchSupportedCommand(
+          options.dispatcher,
+          capabilities,
+          {
+            assistantTurnId: "workflow-client-tool",
+            commandId: toolCall.toolCallId,
+            commandName: toolCall.toolName,
+            payload: toolCall.input,
+          },
+        );
+        return createToolResult(toolCall, commandResult);
+      } catch {
+        return createFailedToolResult(toolCall);
+      }
+    },
   };
 };

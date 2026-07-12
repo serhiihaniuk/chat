@@ -1,11 +1,9 @@
 import { useState, type ReactElement } from "react";
-import { FileText, ShieldCheck } from "lucide-react";
-import { SIDE_CHAT_ERROR_VOCABULARY, SIDE_CHAT_ERROR_CODES } from "@side-chat/stream-profile";
+import { FileText } from "lucide-react";
 
 import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
 import { SourcesFold } from "#shared/ui/activity/citations";
-import { ToolDetailRow, hasToolDetail, type ToolDetail } from "#shared/ui/activity/tool-detail";
 import {
   BlockedNotice,
   CancelledNotice,
@@ -14,25 +12,32 @@ import {
 } from "#shared/ui/error-notice";
 import { Message } from "#shared/ui/message";
 import { Reasoning } from "#shared/ui/reasoning";
-import { ToolRow, type ToolState } from "#shared/ui/tool-row";
 
 import {
   projectWorkflowMessageParts,
   type WorkflowTimelineItem,
   type WorkflowTimelineMessage,
-  type WorkflowTimelineToolState,
 } from "../model/native-message-projection.js";
-import type { WorkflowChatTerminal } from "../model/use-workflow-widget-chat.js";
+import type {
+  WorkflowApprovalDecisionHandler,
+  WorkflowApprovalDecisions,
+  WorkflowChatTerminal,
+} from "../model/use-workflow-widget-chat.js";
+import { WorkflowToolPresentation } from "./workflow-tool-presentation.js";
 
 export function WorkflowMessageTimeline({
+  approvalDecisions,
   isStreaming = false,
   message,
+  onApprovalDecision,
   onRetry,
   terminal,
 }: {
   readonly isStreaming?: boolean;
   readonly message: WorkflowTimelineMessage;
   readonly onRetry?: (() => void) | undefined;
+  readonly approvalDecisions?: WorkflowApprovalDecisions | undefined;
+  readonly onApprovalDecision?: WorkflowApprovalDecisionHandler | undefined;
   readonly terminal?: WorkflowChatTerminal | undefined;
 }): ReactElement {
   const labels = useWidgetLabels();
@@ -57,45 +62,68 @@ export function WorkflowMessageTimeline({
           isStreaming={isStreaming}
           items={items}
           labels={labels}
+          approvalDecisions={approvalDecisions}
+          onApprovalDecision={onApprovalDecision}
           role={message.role === "user" ? "user" : "assistant"}
         />
       )}
-      {activeTerminal && <TerminalPresentation onRetry={onRetry} terminal={activeTerminal} />}
+      {activeTerminal && (
+        <TerminalPresentation onRetry={onRetry} terminal={activeTerminal} />
+      )}
     </div>
   );
 }
 
 function TimelineItems({
+  approvalDecisions,
   isStreaming,
   items,
   labels,
+  onApprovalDecision,
   role,
 }: {
   readonly isStreaming: boolean;
   readonly items: readonly WorkflowTimelineItem[];
   readonly labels: WidgetLabels;
+  readonly approvalDecisions: WorkflowApprovalDecisions | undefined;
+  readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
   readonly role: "user" | "assistant";
 }): ReactElement {
   return (
     <>
       {items.length === 0 && role === "assistant" ? (
-        <Message mode={isStreaming ? "streaming" : "static"} role="assistant" text="" />
+        <Message
+          mode={isStreaming ? "streaming" : "static"}
+          role="assistant"
+          text=""
+        />
       ) : null}
       {items.map((item) => (
-        <TimelineItem isStreaming={isStreaming} item={item} key={item.id} labels={labels} />
+        <TimelineItem
+          approvalDecisions={approvalDecisions}
+          isStreaming={isStreaming}
+          item={item}
+          key={item.id}
+          labels={labels}
+          onApprovalDecision={onApprovalDecision}
+        />
       ))}
     </>
   );
 }
 
 function TimelineItem({
+  approvalDecisions,
   isStreaming,
   item,
   labels,
+  onApprovalDecision,
 }: {
   readonly isStreaming: boolean;
   readonly item: WorkflowTimelineItem;
   readonly labels: WidgetLabels;
+  readonly approvalDecisions: WorkflowApprovalDecisions | undefined;
+  readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
 }): ReactElement {
   if (item.kind === "text") {
     return (
@@ -109,7 +137,16 @@ function TimelineItem({
   if (item.kind === "reasoning") {
     return <WorkflowReasoningPresentation item={item} labels={labels} />;
   }
-  if (item.kind === "tool") return <ToolPresentation item={item} labels={labels} />;
+  if (item.kind === "tool") {
+    return (
+      <WorkflowToolPresentation
+        approvalDecisions={approvalDecisions}
+        item={item}
+        labels={labels}
+        onApprovalDecision={onApprovalDecision}
+      />
+    );
+  }
   if (item.kind === "source") {
     return <SourcesFold sources={[{ label: item.label, url: item.url }]} />;
   }
@@ -127,64 +164,14 @@ function WorkflowReasoningPresentation({
   return (
     <Reasoning
       items={[{ kind: "thought", id: item.id, text: item.text }]}
-      label={item.streaming ? labels.activityThinking : labels.activityThoughtProcess}
+      label={
+        item.streaming ? labels.activityThinking : labels.activityThoughtProcess
+      }
       thinking={item.streaming}
       open={open}
       onOpenChange={setOpen}
     />
   );
-}
-
-function ToolPresentation({
-  item,
-  labels,
-}: {
-  readonly item: Extract<WorkflowTimelineItem, { kind: "tool" }>;
-  readonly labels: WidgetLabels;
-}): ReactElement {
-  if (item.state === "approval-requested") {
-    return (
-      <div
-        data-slot="tool-approval"
-        role="status"
-        className="flex items-start gap-(--tool-detail-gap) rounded-md border border-border bg-muted p-(--tool-detail-pad)"
-      >
-        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-        <div className="flex min-w-0 flex-col gap-(--tool-detail-gap)">
-          <span className="text-sm font-medium text-foreground">{item.name}</span>
-          <span className="text-xs text-muted-foreground">{labels.activityApprovalRequired}</span>
-        </div>
-      </div>
-    );
-  }
-
-  const state = toolStateFor(item.state);
-  const detail = toolDetailFor(item);
-  return hasToolDetail(detail) ? (
-    <ToolDetailRow detail={detail} name={item.name} state={state} />
-  ) : (
-    <ToolRow name={item.name} state={state} />
-  );
-}
-
-function toolStateFor(state: WorkflowTimelineToolState): ToolState {
-  if (state === "output-available") return "success";
-  if (state === "output-error") return "error";
-  if (state === "output-denied") return "denied";
-  return "running";
-}
-
-function toolDetailFor(item: Extract<WorkflowTimelineItem, { kind: "tool" }>): ToolDetail {
-  const input = asRecord(item.input);
-  const output = asRecord(item.output);
-  return {
-    input,
-    result: output,
-    errorCode:
-      item.state === "output-error"
-        ? SIDE_CHAT_ERROR_VOCABULARY[SIDE_CHAT_ERROR_CODES.TOOL_FAILED].safeMessage
-        : undefined,
-  };
 }
 
 function FilePresentation({
@@ -195,7 +182,13 @@ function FilePresentation({
   if (item.mediaType.startsWith("image/") && item.url.startsWith("data:")) {
     return (
       <ActivityImages
-        images={[{ alt: item.filename ?? "Image", data: item.url, mediaType: item.mediaType }]}
+        images={[
+          {
+            alt: item.filename ?? "Image",
+            data: item.url,
+            mediaType: item.mediaType,
+          },
+        ]}
       />
     );
   }
@@ -233,9 +226,4 @@ function TerminalPresentation({
     return <ErrorNotice message={terminal.message} onRetry={onRetry} />;
   }
   return <ErrorNotice message={terminal.message} />;
-}
-
-function asRecord(value: unknown): Readonly<Record<string, unknown>> | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  return Object.fromEntries(Object.entries(value));
 }

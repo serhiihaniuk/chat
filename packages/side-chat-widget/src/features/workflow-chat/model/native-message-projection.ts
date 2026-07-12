@@ -32,8 +32,16 @@ export type WorkflowTimelineItem =
   | {
       readonly id: string;
       readonly kind: "tool";
+      readonly toolCallId?: string | undefined;
       readonly name: string;
       readonly state: WorkflowTimelineToolState;
+      readonly approval?:
+        | {
+            readonly id: string;
+            readonly state: "requested" | "approved" | "denied";
+            readonly reason?: string | undefined;
+          }
+        | undefined;
       readonly input?: unknown;
       readonly output?: unknown;
       readonly errorText?: string | undefined;
@@ -136,23 +144,40 @@ function projectToolPart(
   type: string,
 ): WorkflowTimelineItem | undefined {
   const rawState = readString(part, "state");
-  if (rawState === "approval-responded") return undefined;
-  const state = readToolState(rawState);
+  const approval = readApproval(part);
+  const state = readToolState(toolStateValue(rawState, approval));
   if (!state) {
     noteUnknownNativePart(`${type}:state`);
     return undefined;
   }
-  const name = type === "dynamic-tool" ? readString(part, "toolName") : type.slice(5);
+  const name =
+    type === "dynamic-tool" ? readString(part, "toolName") : type.slice(5);
   const errorText = readString(part, "errorText");
-  return {
-    id,
-    kind: "tool",
+  const toolCallId = readString(part, "toolCallId");
+  const base = {
+    id: toolCallId ? `${id}-tool-${toolCallId}` : id,
+    kind: "tool" as const,
     name: humanizeToolName(name || "Tool"),
     state,
     input: part["input"],
     output: part["output"],
     errorText,
   };
+  return {
+    ...base,
+    toolCallId,
+    approval,
+  };
+}
+
+function toolStateValue(
+  rawState: string | undefined,
+  approval: Extract<WorkflowTimelineItem, { kind: "tool" }>["approval"],
+): string | undefined {
+  if (rawState !== "approval-responded") return rawState;
+  if (approval?.state === "approved") return "input-available";
+  if (approval?.state === "denied") return "output-denied";
+  return undefined;
 }
 
 function projectSourceUrl(
@@ -216,6 +241,24 @@ function readToolState(value: unknown): WorkflowTimelineToolState | undefined {
   return undefined;
 }
 
+function readApproval(
+  part: Readonly<Record<string, unknown>>,
+): Extract<WorkflowTimelineItem, { kind: "tool" }>["approval"] {
+  const approval = asRecord(part["approval"]);
+  const id = readString(approval, "id");
+  if (!id) return undefined;
+  const approved = approval?.["approved"];
+  let state: "requested" | "approved" | "denied" = "requested";
+  if (approved === true) state = "approved";
+  if (approved === false) state = "denied";
+  const reason = readString(approval, "reason");
+  return {
+    id,
+    state,
+    reason,
+  };
+}
+
 function humanizeToolName(name: string): string {
   const words = name
     .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
@@ -225,8 +268,11 @@ function humanizeToolName(name: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Tool";
 }
 
-function asRecord(value: unknown): Readonly<Record<string, unknown>> | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+function asRecord(
+  value: unknown,
+): Readonly<Record<string, unknown>> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return undefined;
   return Object.fromEntries(Object.entries(value));
 }
 
@@ -240,7 +286,8 @@ function readString(
 
 function noteUnknownNativePart(type: string): void {
   const meta: unknown = import.meta;
-  if (!isRecord(meta) || !isRecord(meta["env"]) || meta["env"]["DEV"] !== true) return;
+  if (!isRecord(meta) || !isRecord(meta["env"]) || meta["env"]["DEV"] !== true)
+    return;
   console.debug(`[side-chat] ignored unknown native UI message part: ${type}`);
 }
 

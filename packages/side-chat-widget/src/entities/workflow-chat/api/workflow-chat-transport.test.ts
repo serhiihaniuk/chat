@@ -2,8 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { UIMessage, UIMessageChunk } from "ai";
 
-import { normalizeWorkflowChatError, type WorkflowChatClient } from "../index.js";
-import { createWorkflowChatTransport } from "./workflow-chat-transport.js";
+import {
+  normalizeWorkflowChatError,
+  type WorkflowChatClient,
+} from "../index.js";
+import {
+  createWorkflowChatTransport,
+  type WorkflowClientToolDefinition,
+} from "./workflow-chat-transport.js";
 
 const USER_MESSAGE: UIMessage = {
   id: "user-1",
@@ -37,7 +43,11 @@ describe("createWorkflowChatTransport", () => {
       conversationId: "conversation-1",
       messages: [USER_MESSAGE],
     });
-    expect(chunks).toContainEqual({ type: "text-delta", id: "text-1", delta: "Hi" });
+    expect(chunks).toContainEqual({
+      type: "text-delta",
+      id: "text-1",
+      delta: "Hi",
+    });
     expect(chunks.some((chunk) => chunk.type === "finish")).toBe(true);
     expect(chunks).toHaveLength(7);
   });
@@ -51,7 +61,9 @@ describe("createWorkflowChatTransport", () => {
     });
     const transport = createTransport({
       fetch: request,
-      getRequestConfig: () => ({ headers: { authorization: `Bearer ${token}` } }),
+      getRequestConfig: () => ({
+        headers: { authorization: `Bearer ${token}` },
+      }),
     });
 
     await sendAndRead(transport, [USER_MESSAGE]);
@@ -61,10 +73,43 @@ describe("createWorkflowChatTransport", () => {
     expect(authorization).toEqual(["Bearer first", "Bearer refreshed"]);
   });
 
+  it("includes the current native client-tool catalog in the workflow envelope", async () => {
+    let requestBody: unknown;
+    const request = vi.fn<typeof fetch>(async (_input, init) => {
+      requestBody = JSON.parse(String(init?.body));
+      return finishedResponse();
+    });
+    const transport = createTransport({ fetch: request }, () => [
+      {
+        name: "open_resource",
+        description: "Open a host resource.",
+        inputSchema: { type: "object" },
+      },
+    ]);
+
+    await sendAndRead(transport, [USER_MESSAGE]);
+
+    expect(requestBody).toEqual(
+      expect.objectContaining({
+        clientTools: [
+          {
+            name: "open_resource",
+            description: "Open a host resource.",
+            inputSchema: { type: "object" },
+          },
+        ],
+      }),
+    );
+  });
+
   it("surfaces a typed busy response without retrying", async () => {
     const request = vi.fn<typeof fetch>(async () =>
       Response.json(
-        { code: "conversation_busy", message: "A turn is already active.", retryable: false },
+        {
+          code: "conversation_busy",
+          message: "A turn is already active.",
+          retryable: false,
+        },
         { status: 409 },
       ),
     );
@@ -89,7 +134,10 @@ describe("createWorkflowChatTransport", () => {
 
 const KEEPALIVE = Symbol("keepalive");
 
-function createTransport(overrides: Partial<WorkflowChatClient>) {
+function createTransport(
+  overrides: Partial<WorkflowChatClient>,
+  getClientTools?: () => readonly WorkflowClientToolDefinition[],
+) {
   const client: WorkflowChatClient = {
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
@@ -97,6 +145,7 @@ function createTransport(overrides: Partial<WorkflowChatClient>) {
   };
   return createWorkflowChatTransport({
     getClient: () => client,
+    getClientTools,
     onRunFinished: () => undefined,
     onRunStarted: () => undefined,
   });
@@ -119,7 +168,9 @@ async function sendAndRead(
   return readAll(await transport.sendMessages(sendOptions(messages)));
 }
 
-async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageChunk[]> {
+async function readAll(
+  stream: ReadableStream<UIMessageChunk>,
+): Promise<UIMessageChunk[]> {
   const chunks: UIMessageChunk[] = [];
   const reader = stream.getReader();
   for (;;) {
@@ -130,13 +181,20 @@ async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessag
 }
 
 function finishedResponse(): Response {
-  return streamResponse([{ type: "start", messageId: "assistant-1" }, { type: "finish" }]);
+  return streamResponse([
+    { type: "start", messageId: "assistant-1" },
+    { type: "finish" },
+  ]);
 }
 
-function streamResponse(chunks: readonly (UIMessageChunk | typeof KEEPALIVE)[]): Response {
+function streamResponse(
+  chunks: readonly (UIMessageChunk | typeof KEEPALIVE)[],
+): Response {
   const body = chunks
     .map((chunk) =>
-      chunk === KEEPALIVE ? ": keepalive\n\n" : `data: ${JSON.stringify(chunk)}\n\n`,
+      chunk === KEEPALIVE
+        ? ": keepalive\n\n"
+        : `data: ${JSON.stringify(chunk)}\n\n`,
     )
     .join("");
   return new Response(`${body}data: [DONE]\n\n`, {

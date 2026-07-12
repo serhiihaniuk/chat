@@ -135,6 +135,8 @@ export type WorkflowSideChatWidgetProps = SideChatWidgetShellProps & {
   readonly client?: never;
   /** Native AI SDK transport and dynamic request configuration for one conversation. */
   readonly workflowChat: WorkflowChatClient;
+  /** Optional browser-safe host capability and client-tool dispatch seam. */
+  readonly hostBridge?: WidgetHostBridge | undefined;
 };
 
 /**
@@ -143,4 +145,6 @@ export type WorkflowSideChatWidgetProps = SideChatWidgetShellProps & {
  * A caller selects exactly one transport branch. The native workflow branch
  * never imports or executes the protocol-backed run machinery.
  */
-export type SideChatWidgetProps = ProtocolSideChatWidgetProps | WorkflowSideChatWidgetProps;
+export type SideChatWidgetProps =
+  | ProtocolSideChatWidgetProps
+  | WorkflowSideChatWidgetProps;

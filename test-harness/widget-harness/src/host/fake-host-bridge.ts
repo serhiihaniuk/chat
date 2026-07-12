@@ -1,11 +1,14 @@
 import type { HostContext } from "@side-chat/chat-protocol";
 import {
   createCommandResult,
+  createFailedToolResult,
+  createToolResult,
   createFailedResult,
   toHostCommand,
   type HostBridge,
   type HostCapabilities,
   type HostCommandResult,
+  type HostToolResult,
 } from "@side-chat/host-bridge";
 import type { JsonObject } from "@side-chat/shared";
 
@@ -18,18 +21,31 @@ export type HarnessHostCommandRecord = {
   readonly result: HostCommandResult;
 };
 
+export type HarnessHostToolRecord = {
+  readonly toolCallId: string;
+  readonly toolName: string;
+  readonly result: HostToolResult;
+};
+
 export type HarnessHostBridge = Pick<
   HostBridge,
-  "getContext" | "getCapabilities" | "dispatchCommand"
+  "getContext" | "getCapabilities" | "dispatchCommand" | "dispatchToolCall"
 > & {
   readonly commandRecords: readonly HarnessHostCommandRecord[];
+  readonly toolRecords: readonly HarnessHostToolRecord[];
 };
 
 const OPEN_RESOURCE_INPUT_SCHEMA: JsonObject = {
   type: "object",
   properties: {
-    resourceType: { type: "string", description: "Kind of host record, e.g. 'ticket'." },
-    resourceId: { type: "string", description: "Stable id of the record to open." },
+    resourceType: {
+      type: "string",
+      description: "Kind of host record, e.g. 'ticket'.",
+    },
+    resourceId: {
+      type: "string",
+      description: "Stable id of the record to open.",
+    },
   },
   required: ["resourceType", "resourceId"],
   additionalProperties: false,
@@ -42,7 +58,7 @@ const OPEN_RESOURCE_INPUT_SCHEMA: JsonObject = {
  * command so a model-driven call can be exercised end to end. `getCapabilities`
  * is read per turn, which is how the available set could change per page.
  */
-const HARNESS_HOST_CAPABILITIES: HostCapabilities = {
+export const HARNESS_HOST_CAPABILITIES: HostCapabilities = {
   schemaVersion: "widget-harness.capabilities.v1",
   commands: [
     {
@@ -68,9 +84,11 @@ export const createHarnessHostBridge = (
   surface?: DemoHostSurface,
 ): HarnessHostBridge => {
   const commandRecords: HarnessHostCommandRecord[] = [];
+  const toolRecords: HarnessHostToolRecord[] = [];
 
   return {
     commandRecords,
+    toolRecords,
     getContext: () => Promise.resolve(createHarnessHostContext(config)),
     getCapabilities: () => Promise.resolve(HARNESS_HOST_CAPABILITIES),
     dispatchCommand: (event) => {
@@ -94,10 +112,32 @@ export const createHarnessHostBridge = (
       );
       return Promise.resolve(result);
     },
+    dispatchToolCall: (toolCall) => {
+      const result =
+        config.scenario === "failed-host-command"
+          ? createFailedToolResult(toolCall, "harness_tool_failed")
+          : createToolResult(toolCall, {
+              status: "applied",
+              resultCode: "harness_local_only",
+              data: { persisted: false },
+            });
+      toolRecords.push({
+        toolCallId: toolCall.toolCallId,
+        toolName: toolCall.toolName,
+        result,
+      });
+      surface?.applyCommand(
+        { commandName: toolCall.toolName, payload: toolCall.input },
+        { status: result.status, resultCode: result.resultCode },
+      );
+      return Promise.resolve(result);
+    },
   };
 };
 
-export const createHarnessHostContext = (config: WidgetHarnessConfig): HostContext => ({
+export const createHarnessHostContext = (
+  config: WidgetHarnessConfig,
+): HostContext => ({
   schemaVersion: "widget-harness.host-context.v1",
   origin: "http://localhost:5173",
   title: `${config.workspaceId} widget harness`,

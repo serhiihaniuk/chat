@@ -76,17 +76,23 @@ const contextSnapshot: HostContextSnapshot = {
 
 describe("host bridge capabilities", () => {
   it("matches supported commands by name and resource type", () => {
-    expect(supportsCommand(capabilities, toHostCommand(commandEvent()))).toBe(true);
+    expect(supportsCommand(capabilities, toHostCommand(commandEvent()))).toBe(
+      true,
+    );
     expect(
       supportsCommand(
         capabilities,
-        toHostCommand(commandEvent({ resourceType: "ticket", resourceId: "t-1" })),
+        toHostCommand(
+          commandEvent({ resourceType: "ticket", resourceId: "t-1" }),
+        ),
       ),
     ).toBe(false);
   });
 
   it("returns unsupported results before dispatching unsupported commands", async () => {
-    const unsupported = toHostCommand(commandEvent({ resourceType: "ticket", resourceId: "t-1" }));
+    const unsupported = toHostCommand(
+      commandEvent({ resourceType: "ticket", resourceId: "t-1" }),
+    );
     let dispatched = false;
 
     const result = await dispatchSupportedCommand(
@@ -150,7 +156,10 @@ describe("host context bridge", () => {
   it("collects context and dispatches commands through the public bridge", async () => {
     const command = toHostCommand(commandEvent());
     const bridge = createHostBridge({
-      contextProvider: createStaticHostContextProvider(contextSnapshot, capabilities),
+      contextProvider: createStaticHostContextProvider(
+        contextSnapshot,
+        capabilities,
+      ),
       capabilities,
       dispatcher: {
         dispatchCommand: () =>
@@ -207,10 +216,57 @@ describe("host context bridge", () => {
     expect((await bridge.getCapabilities()).commands).toEqual([]);
     currentCapabilities = capabilities;
 
-    await expect(bridge.dispatchCommand(commandEvent())).resolves.toMatchObject({
+    await expect(bridge.dispatchCommand(commandEvent())).resolves.toMatchObject(
+      {
+        status: "applied",
+        resultCode: "opened",
+      },
+    );
+    expect(dispatchCount).toBe(1);
+  });
+
+  it("dispatches native workflow tools through the same capability gate", async () => {
+    const bridge = createHostBridge({
+      contextProvider: createStaticHostContextProvider(
+        contextSnapshot,
+        capabilities,
+      ),
+      capabilities,
+      dispatcher: {
+        dispatchCommand: (command) =>
+          Promise.resolve(
+            createCommandResult(command, {
+              status: "applied",
+              resultCode: "opened",
+              data: { selected: true },
+            }),
+          ),
+      },
+    });
+
+    await expect(
+      bridge.dispatchToolCall({
+        toolCallId: "tool-call-1",
+        toolName: "open_resource",
+        input: { resourceType: "document", resourceId: "doc-1" },
+      }),
+    ).resolves.toMatchObject({
+      toolCallId: "tool-call-1",
+      toolName: "open_resource",
       status: "applied",
       resultCode: "opened",
+      data: { selected: true },
     });
-    expect(dispatchCount).toBe(1);
+
+    await expect(
+      bridge.dispatchToolCall({
+        toolCallId: "tool-call-2",
+        toolName: "open_resource",
+        input: { resourceType: "ticket", resourceId: "ticket-1" },
+      }),
+    ).resolves.toMatchObject({
+      status: "unsupported",
+      resultCode: "unsupported_command",
+    });
   });
 });

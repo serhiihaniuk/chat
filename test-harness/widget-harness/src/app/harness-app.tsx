@@ -3,9 +3,16 @@ import { createRoot } from "react-dom/client";
 
 import { isRecord } from "@side-chat/chat-protocol";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
-import { SideChatWidget, type SideChatWidgetProps } from "@side-chat/side-chat-widget";
+import {
+  SideChatWidget,
+  type SideChatWidgetProps,
+} from "@side-chat/side-chat-widget";
 
-import { createHarnessHostBridge, createHarnessHostContext } from "#host/fake-host-bridge";
+import {
+  createHarnessHostBridge,
+  createHarnessHostContext,
+  HARNESS_HOST_CAPABILITIES,
+} from "#host/fake-host-bridge";
 import { createDemoHostSurface } from "#host/demo-host-surface";
 import { createPostMessageHostBridge } from "#host/post-message-host-bridge";
 import { DemoHostPanel } from "#app/demo-host-panel";
@@ -58,17 +65,24 @@ export type WidgetHarnessApp = {
   readonly element: ReactElement;
 };
 
-export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarnessApp => {
+export const createWidgetHarnessApp = (
+  config: WidgetHarnessConfig,
+): WidgetHarnessApp => {
   return {
     config,
     element: createElement(WidgetHarnessFrame, { config }),
   };
 };
 
-const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }) => {
+const WidgetHarnessFrame = ({
+  config,
+}: {
+  readonly config: WidgetHarnessConfig;
+}) => {
   const [hostOpen, setHostOpen] = useState(config.defaultOpen);
   const [demoHost] = useState(() => createDemoHostSurface());
-  const hostControlled = config.openControl === WIDGET_HARNESS_OPEN_CONTROLS.HOST;
+  const hostControlled =
+    config.openControl === WIDGET_HARNESS_OPEN_CONTROLS.HOST;
 
   useEffect(() => {
     if (!hostControlled) return undefined;
@@ -80,7 +94,10 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
     };
 
     window.addEventListener("message", receiveHostControl);
-    window.parent.postMessage({ type: READY_MESSAGE_TYPE }, window.location.origin);
+    window.parent.postMessage(
+      { type: READY_MESSAGE_TYPE },
+      window.location.origin,
+    );
     return () => window.removeEventListener("message", receiveHostControl);
   }, [hostControlled]);
 
@@ -88,7 +105,10 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
   // it directly. Inside an iframe the host page is the parent window, so the
   // bridge forwards each command across the boundary and awaits the reply.
   const hostBridge = hostControlled
-    ? createPostMessageHostBridge({ context: createHarnessHostContext(config) })
+    ? createPostMessageHostBridge({
+        capabilities: HARNESS_HOST_CAPABILITIES,
+        context: createHarnessHostContext(config),
+      })
     : createHarnessHostBridge(config, demoHost);
   const props = createWidgetHarnessProps(config, hostBridge);
   if (!hostControlled) {
@@ -103,16 +123,24 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
   return createElement(SideChatWidget, {
     ...props,
     onOpenChange: (open: boolean) => {
-      window.parent.postMessage({ type: OPEN_CHANGE_MESSAGE_TYPE, open }, window.location.origin);
+      window.parent.postMessage(
+        { type: OPEN_CHANGE_MESSAGE_TYPE, open },
+        window.location.origin,
+      );
     },
     open: hostOpen,
     renderClosedLauncher: false,
   });
 };
 
-const isSetOpenMessage = (message: unknown): message is WidgetHarnessSetOpenMessage => {
+const isSetOpenMessage = (
+  message: unknown,
+): message is WidgetHarnessSetOpenMessage => {
   if (!isRecord(message)) return false;
-  return message["type"] === SET_OPEN_MESSAGE_TYPE && typeof message["open"] === "boolean";
+  return (
+    message["type"] === SET_OPEN_MESSAGE_TYPE &&
+    typeof message["open"] === "boolean"
+  );
 };
 
 const createWidgetHarnessProps = (
@@ -122,6 +150,7 @@ const createWidgetHarnessProps = (
   if (config.mode === "workflow-service") {
     return {
       workflowChat: createWorkflowServiceClient(config),
+      hostBridge,
       defaultOpen: config.defaultOpen,
       defaultPanelSize: resolveHarnessPanelSize(),
       labels: {
@@ -138,7 +167,9 @@ const createWidgetHarnessProps = (
       ? createLocalServiceClient(config)
       : createMockStreamClient(config);
   const props: SideChatWidgetProps = {
-    turnProfiles: [{ id: SERVICE_DEFAULT_TURN_PROFILE_ID, label: "Default profile" }],
+    turnProfiles: [
+      { id: SERVICE_DEFAULT_TURN_PROFILE_ID, label: "Default profile" },
+    ],
     client,
     conversationStorageKey: `side-chat-widget:${config.workspaceId}:conversations`,
     panelSizeStorageKey: `side-chat-widget:${config.workspaceId}:panel-size`,
@@ -152,7 +183,11 @@ const createWidgetHarnessProps = (
       send: "Send",
     },
     quickActions: [
-      { id: "summarize", label: "Summarize this page", prompt: "Summarize this page." },
+      {
+        id: "summarize",
+        label: "Summarize this page",
+        prompt: "Summarize this page.",
+      },
       {
         id: "explain",
         label: "Explain the context scope section",
@@ -163,7 +198,11 @@ const createWidgetHarnessProps = (
         label: "Show me a debounce helper",
         prompt: "Show me a debounce helper.",
       },
-      { id: "reply", label: "Draft a reply about this", prompt: "Draft a reply about this." },
+      {
+        id: "reply",
+        label: "Draft a reply about this",
+        prompt: "Draft a reply about this.",
+      },
     ],
   };
   return props;
@@ -182,7 +221,10 @@ const resolveHarnessPanelSize = (): {
   };
 };
 
-export const mountWidgetHarness = (container: Element, search: string): void => {
+export const mountWidgetHarness = (
+  container: Element,
+  search: string,
+): void => {
   const app = createWidgetHarnessApp(parseWidgetHarnessConfig(search));
   createRoot(container).render(app.element);
 };
