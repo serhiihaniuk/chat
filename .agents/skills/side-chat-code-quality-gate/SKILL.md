@@ -101,6 +101,12 @@ For closed runtime value sets, follow the repository's established runtime repre
 
 Keep public contracts narrow. Validate untrusted input at the owning boundary. Do not leak internal errors, database rows, provider options, private content, or framework objects across a public boundary.
 
+**High-frequency regression — magic values and copied helpers. Check this explicitly on every change; it slips through most often.**
+
+- Extract repeated or domain literals — status values, error codes, result codes, reason strings, tuned numbers — into a named `const` at the owning module. Do not inline the same string or number in more than one place, and do not re-type a union inline when the owning module already exports it.
+- Reuse an existing shared helper or type instead of re-declaring it. A guard, projector, or record-narrowing utility copied into a second file is a defect: import it (for example from `@side-chat/shared`) and delete the copy. When a value set already exists, reuse it — do not stand up a parallel enum-like shape that can drift.
+- Never hardcode another package's contract values. If a client must react to a service error code or status, key off the boundary signal it already owns (HTTP status) or import a shared constant. A duplicated string silently breaks when the owner renames it.
+
 ## Documentation quality gate
 
 Treat documentation and comments as maintainability behavior. Update the canonical document when code changes a term, lifecycle order, boundary, public contract, configuration model, command, or verification rule.
