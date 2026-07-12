@@ -170,6 +170,14 @@ Delegate only when it materially improves speed, coverage, or correctness. Give 
 
 Do not delegate a simple file lookup or use parallel agents as a substitute for reading the relevant code. A delegated result must include evidence, uncertainty, and files or symbols inspected.
 
+### Luna xhigh executor
+
+The project-scoped `luna_xhigh_executor` agent is defined in [`.codex/agents/luna-xhigh-executor.toml`](.codex/agents/luna-xhigh-executor.toml). It uses `gpt-5.6-luna` with `xhigh` reasoning for substantial bounded execution; it is not limited to trivial work.
+
+Use it after the lead agent establishes the task boundary, ownership, source-of-truth documents, and verification target. Suitable slices include multi-file implementation, debugging and fixes, coherent refactors, focused tests, and implementation-linked documentation. The lead agent retains overall task ownership, architecture and scope decisions, integration, conflict resolution, and final verification.
+
+When the user requests Luna xhigh, route the work to the exact `luna_xhigh_executor` agent. If that agent is unavailable, report the limitation instead of spawning an inherited or fallback model under a misleading Luna task name. A display name is not proof of model selection: when model identity matters, verify the spawned session's `turn_context` records `model = "gpt-5.6-luna"` and `effort = "xhigh"`.
+
 ## Verification
 
 Run the narrowest relevant check first. Expand verification to match the risk:
