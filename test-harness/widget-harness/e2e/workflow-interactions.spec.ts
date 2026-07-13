@@ -22,8 +22,24 @@ const parityEvidenceDirectory = resolve(
 const parityWidgetUrl =
   "/side-chat-frame/?mode=workflow-service&conversationId=conversation-parity";
 const modelCatalog = {
-  models: [{ id: "workspace-gpt-5", provider: "openai" }],
+  models: [{ id: "workspace-gpt-5", provider: "openai", contextWindowTokens: 128_000 }],
   defaultModelId: "workspace-gpt-5",
+};
+const toolCatalog = {
+  tools: [
+    {
+      name: "mock_web_search",
+      label: "Mock web search",
+      description: "Search deterministic public context.",
+      defaultEnabled: true,
+    },
+    {
+      name: "calculator",
+      label: "Calculator",
+      description: "Evaluate arithmetic.",
+      defaultEnabled: true,
+    },
+  ],
 };
 
 test.beforeAll(() => {
@@ -172,6 +188,73 @@ test("shows the empty state with quick actions before the first message", async 
   });
 });
 
+test("selects server tools per turn and renders terminal context usage", async ({ page }) => {
+  let chatRequest: unknown;
+  await routeWorkflowApi(page, {
+    runId: "run-tools-and-usage",
+    tools: toolCatalog.tools,
+    onChatRequest: (body) => {
+      chatRequest = body;
+    },
+    chunks: [
+      { type: "start", messageId: "assistant-tools-and-usage" },
+      { type: "start-step" },
+      { type: "text-start", id: "text-tools-and-usage" },
+      {
+        type: "text-delta",
+        id: "text-tools-and-usage",
+        delta: "The selected calculator is available for this turn.",
+      },
+      { type: "text-end", id: "text-tools-and-usage" },
+      { type: "finish-step" },
+      {
+        type: "finish",
+        messageMetadata: {
+          usage: {
+            inputTokens: 10_000,
+            outputTokens: 2_800,
+            totalTokens: 12_800,
+            reasoningTokens: 0,
+            cachedInputTokens: 0,
+          },
+        },
+      },
+    ],
+  });
+
+  await page.goto(parityWidgetUrl);
+  await page.getByRole("button", { name: "Add context and tools" }).click();
+  const toolsPopup = page.locator('[data-slot="dropdown-menu-content"]');
+  await expect(page.getByText("Available tools")).toBeVisible();
+  await expect(page.getByText("Mock web search", { exact: true })).toBeVisible();
+  await expect(toolsPopup).toHaveCSS("opacity", "1");
+  await page.screenshot({
+    path: resolve(parityEvidenceDirectory, "tools-menu.png"),
+    fullPage: true,
+  });
+
+  await page.getByText("Mock web search", { exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(toolsPopup).toHaveCount(0);
+  await page.getByLabel("Message").fill("Calculate the selected total");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(page.getByText("The selected calculator is available for this turn.")).toBeVisible();
+  await expect.poll(() => chatRequest).toMatchObject({ enabledToolNames: ["calculator"] });
+  const contextMeter = page.getByRole("meter", { name: "Context used" });
+  await expect(contextMeter).toHaveAttribute("aria-valuetext", "12,800 / 128,000 tokens (10%)");
+  await contextMeter.hover();
+  const usageTooltip = page.getByText("12,800 / 128,000 tokens (10%)", { exact: true });
+  await expect(usageTooltip).toBeVisible();
+  await expect(usageTooltip).toHaveCSS("opacity", "1");
+  await waitForBrowserPaint(page);
+  await page.screenshot({
+    animations: "disabled",
+    path: resolve(parityEvidenceDirectory, "usage-meter.png"),
+    fullPage: true,
+  });
+});
+
 test("opens the settings view from the header gear and returns to the chat", async ({ page }) => {
   await routeWorkflowIdle(page);
 
@@ -191,54 +274,34 @@ test("opens the settings view from the header gear and returns to the chat", asy
 
 test("lists workspace conversations in the sidebar and opens a different one", async ({ page }) => {
   await page.route("**/side-chat-api/api/**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
-      await route.fulfill({
-        json: {
-          conversations: [
-            {
-              id: "conversation-parity",
-              title: "Billing bug",
-              lastMessageAt: "2026-07-13T10:00:00Z",
-            },
-            {
-              id: "conversation-refund",
-              title: "Refund policy",
-              lastMessageAt: "2026-07-13T09:00:00Z",
-            },
-          ],
+    const path = new URL(route.request().url()).pathname;
+    const messages = path.includes("/conversation-refund/messages")
+      ? [
+          {
+            id: "u-refund",
+            role: "user",
+            parts: [{ type: "text", text: "What is the refund window?" }],
+          },
+        ]
+      : [];
+    const fulfilled = await fulfillWorkflowRead(route, path, {
+      activeTurn: null,
+      conversations: [
+        {
+          id: "conversation-parity",
+          title: "Billing bug",
+          lastMessageAt: "2026-07-13T10:00:00Z",
         },
-      });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/models")) {
-      await route.fulfill({ json: modelCatalog });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/active-turn")) {
-      await route.fulfill({ json: { activeTurn: null } });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.includes("/conversation-refund/messages")) {
-      await route.fulfill({
-        json: {
-          messages: [
-            {
-              id: "u-refund",
-              role: "user",
-              parts: [{ type: "text", text: "What is the refund window?" }],
-            },
-          ],
+        {
+          id: "conversation-refund",
+          title: "Refund policy",
+          lastMessageAt: "2026-07-13T09:00:00Z",
         },
-      });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
-      await route.fulfill({ json: { messages: [] } });
-      return;
-    }
-    await route.abort("failed");
+      ],
+      messages,
+      tools: [],
+    });
+    if (!fulfilled) await route.abort("failed");
   });
 
   await page.goto(parityWidgetUrl);
@@ -259,52 +322,75 @@ test("lists workspace conversations in the sidebar and opens a different one", a
 // conversations, so the widget rests on its empty state.
 async function routeWorkflowIdle(page: Page): Promise<void> {
   await page.route("**/side-chat-api/api/**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
-      await route.fulfill({ json: { conversations: [] } });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/models")) {
-      await route.fulfill({ json: modelCatalog });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
-      await route.fulfill({ json: { messages: [] } });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/active-turn")) {
-      await route.fulfill({ json: { activeTurn: null } });
-      return;
-    }
-    await route.abort("failed");
+    const path = new URL(route.request().url()).pathname;
+    const fulfilled = await fulfillWorkflowRead(route, path, {
+      activeTurn: null,
+      conversations: [],
+      messages: [],
+      tools: [],
+    });
+    if (!fulfilled) await route.abort("failed");
   });
+}
+
+type WorkflowReadFixture = Readonly<{
+  activeTurn: Readonly<Record<string, unknown>> | null;
+  conversations: readonly Readonly<Record<string, unknown>>[];
+  messages: readonly Readonly<Record<string, unknown>>[];
+  tools: readonly Readonly<Record<string, unknown>>[];
+}>;
+
+async function fulfillWorkflowRead(
+  route: Route,
+  path: string,
+  fixture: WorkflowReadFixture,
+): Promise<boolean> {
+  if (route.request().method() !== "GET") return false;
+  if (path.endsWith("/conversations")) {
+    await route.fulfill({ json: { conversations: fixture.conversations } });
+    return true;
+  }
+  if (path.endsWith("/models")) {
+    await route.fulfill({ json: modelCatalog });
+    return true;
+  }
+  if (path.endsWith("/tools")) {
+    await route.fulfill({ json: { tools: fixture.tools } });
+    return true;
+  }
+  if (path.endsWith("/messages")) {
+    await route.fulfill({ json: { messages: fixture.messages } });
+    return true;
+  }
+  if (path.endsWith("/active-turn")) {
+    await route.fulfill({ json: { activeTurn: fixture.activeTurn } });
+    return true;
+  }
+  return false;
 }
 
 type WorkflowRouteScenario = Readonly<{
   readonly chunks: readonly Readonly<Record<string, unknown>>[];
   readonly runId: string;
   readonly onApproval?: ((body: unknown) => void) | undefined;
+  readonly onChatRequest?: ((body: unknown) => void) | undefined;
   readonly onToolOutput?: ((body: unknown) => void) | undefined;
+  readonly tools?: readonly Readonly<Record<string, unknown>>[] | undefined;
 }>;
 
 async function routeWorkflowApi(page: Page, scenario: WorkflowRouteScenario): Promise<void> {
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
-      await route.fulfill({ json: { conversations: [] } });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/models")) {
-      await route.fulfill({ json: modelCatalog });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
-      await route.fulfill({ json: { messages: [] } });
-      return;
-    }
+    const fulfilled = await fulfillWorkflowRead(route, url.pathname, {
+      activeTurn: null,
+      conversations: [],
+      messages: [],
+      tools: scenario.tools ?? [],
+    });
+    if (fulfilled) return;
     if (request.method() === "POST" && url.pathname.endsWith("/api/chat")) {
+      scenario.onChatRequest?.(request.postDataJSON());
       await fulfillWorkflowStream(route, scenario);
       return;
     }
@@ -343,22 +429,13 @@ async function routeWorkflowRecovery(
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
-      await route.fulfill({ json: { conversations: [] } });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/models")) {
-      await route.fulfill({ json: modelCatalog });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
-      await route.fulfill({ json: { messages: scenario.history } });
-      return;
-    }
-    if (request.method() === "GET" && url.pathname.endsWith("/active-turn")) {
-      await route.fulfill({ json: { activeTurn: scenario.activeTurn } });
-      return;
-    }
+    const fulfilled = await fulfillWorkflowRead(route, url.pathname, {
+      activeTurn: scenario.activeTurn,
+      conversations: [],
+      messages: scenario.history,
+      tools: [],
+    });
+    if (fulfilled) return;
     if (request.method() === "GET" && url.pathname.endsWith("/stream")) {
       await fulfillWorkflowStream(route, {
         chunks: scenario.streamChunks,
@@ -368,6 +445,15 @@ async function routeWorkflowRecovery(
     }
     await route.abort("failed");
   });
+}
+
+async function waitForBrowserPaint(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolvePaint) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolvePaint()));
+      }),
+  );
 }
 
 async function fulfillWorkflowStream(route: Route, scenario: WorkflowRouteScenario): Promise<void> {

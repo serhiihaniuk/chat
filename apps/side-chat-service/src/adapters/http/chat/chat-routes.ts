@@ -26,7 +26,10 @@ import { createChatStreamResponse, type OutboundTransformFactory } from "./chat-
 import { readToolApprovalDecision } from "./approvals/read-tool-approval-decision.js";
 import { readCappedBytes } from "./body/read-capped-bytes.js";
 
-export { TOOL_APPROVAL_DECISION_MAX_BYTES, readToolApprovalDecision } from "./approvals/read-tool-approval-decision.js";
+export {
+  TOOL_APPROVAL_DECISION_MAX_BYTES,
+  readToolApprovalDecision,
+} from "./approvals/read-tool-approval-decision.js";
 export { readCappedBytes } from "./body/read-capped-bytes.js";
 
 export type ChatRouteDependencies = RunTurnDependencies &
@@ -40,6 +43,7 @@ export type ChatRouteDependencies = RunTurnDependencies &
     resumeClientTool: ResumeClientTool;
     toolApprovals: ToolApprovalDecisionStore;
     resumeToolApproval: ResumeToolApproval;
+    serverToolNames: ReadonlySet<string>;
   }>;
 
 /** HTTP owns validation and stream encoding; application services own turn policy and state. */
@@ -48,7 +52,10 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
 
   app.post(CHAT_HTTP_ROUTES.START, async (context) => {
     const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
-    const request = await parseChatRequest(await safeJson(context.req.raw));
+    const request = await parseChatRequest(
+      await safeJson(context.req.raw),
+      dependencies.serverToolNames,
+    );
     if (!request) {
       return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid chat request.");
     }
@@ -61,6 +68,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         messages: request.messages,
         acceptedUserMessage: request.acceptedUserMessage,
         clientTools: request.clientTools,
+        enabledToolNames: request.enabledToolNames,
         modelId: dependencies.selectModel(request.requestedModelId),
       });
       return createChatStreamResponse({

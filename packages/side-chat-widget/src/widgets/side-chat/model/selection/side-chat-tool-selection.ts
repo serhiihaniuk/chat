@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -5,6 +6,7 @@ import {
   type SideChatApiClient,
   type ToolCatalogOption,
 } from "#entities/conversation";
+import { readWorkflowTools, type WorkflowChatClient } from "#entities/workflow-chat";
 
 type WidgetToolSelectionInput = {
   readonly client: SideChatApiClient;
@@ -36,6 +38,33 @@ export type WidgetToolSelection = {
  * default untouched for hosts without the tools endpoint; an empty array means
  * the user turned every catalog tool off.
  */
+const WORKFLOW_TOOLS_QUERY = {
+  RESOURCE: "tools",
+  SCOPE: "workflow-chat",
+} as const;
+
+export const useWorkflowToolSelection = (client: WorkflowChatClient): WidgetToolSelection => {
+  const toolCatalog = useQuery({
+    queryKey: [WORKFLOW_TOOLS_QUERY.SCOPE, WORKFLOW_TOOLS_QUERY.RESOURCE, client.baseUrl],
+    queryFn: ({ signal }) => readWorkflowTools(client, signal),
+  });
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+  const catalogTools = toolCatalog.data?.tools;
+  const tools = useMemo<readonly WidgetToolToggle[]>(
+    () => resolveToolToggles(catalogTools, overrides),
+    [catalogTools, overrides],
+  );
+  const toggleTool = useCallback(
+    (name: string) => setOverrides((current) => toggleToolOverride(catalogTools, current, name)),
+    [catalogTools],
+  );
+  const enabledToolNames = useMemo<readonly string[] | undefined>(
+    () => selectedToolNames(tools),
+    [tools],
+  );
+  return { tools, toggleTool, enabledToolNames };
+};
+
 export const useWidgetToolSelection = ({
   client,
 }: WidgetToolSelectionInput): WidgetToolSelection => {

@@ -99,6 +99,23 @@ describe("createWorkflowChatTransport", () => {
     );
   });
 
+  it("serializes the selected server tools, including an explicit empty selection", async () => {
+    const requestBodies: unknown[] = [];
+    const request = vi.fn<typeof fetch>(async (_input, init) => {
+      requestBodies.push(JSON.parse(String(init?.body)));
+      return finishedResponse();
+    });
+    const selected = createTransport({ fetch: request, enabledToolNames: ["web_search"] });
+    await sendAndRead(selected, [USER_MESSAGE]);
+    const none = createTransport({ fetch: request, enabledToolNames: [] });
+    await sendAndRead(none, [USER_MESSAGE]);
+
+    expect(requestBodies).toEqual([
+      expect.objectContaining({ enabledToolNames: ["web_search"] }),
+      expect.objectContaining({ enabledToolNames: [] }),
+    ]);
+  });
+
   it("surfaces a typed busy response without retrying", async () => {
     const request = vi.fn<typeof fetch>(async () =>
       Response.json(

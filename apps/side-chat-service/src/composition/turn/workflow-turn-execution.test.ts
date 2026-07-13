@@ -74,7 +74,11 @@ describe("createWorkflowTurnExecution", () => {
       },
     ];
 
-    await execution.start({ ...TURN_INPUT, clientTools });
+    await execution.start({
+      ...TURN_INPUT,
+      clientTools,
+      enabledToolNames: ["server_tool"],
+    });
 
     expect(startTurn).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -84,6 +88,7 @@ describe("createWorkflowTurnExecution", () => {
         providerTimeoutMs: settings.timeouts.providerMs,
         clientToolTimeoutMs: settings.timeouts.clientToolMs,
         clientTools,
+        enabledToolNames: ["server_tool"],
       }),
     );
   });

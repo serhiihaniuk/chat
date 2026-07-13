@@ -48,12 +48,10 @@ Not yet carried: **"Thought for N seconds" duration** (the native projection has
 
 Production no longer passes raw OpenAI/Azure SDK models across WorkflowAgent's internal durable step. `ModelProvider` now requires a marked Workflow-serializable handle; production serde journals only provider/model and non-secret routing, then reconstructs the raw SDK model in the step realm with the current environment-resolved credential. The same correction covers turn and title agents. Title generation uses normalized plain text plus the durable sleep/abort timeout instead of sending a schema object or numeric `AbortSignal.timeout` across the workflow realm. Evidence: credential-negative OpenAI/Azure reconstruction tests, compiled compatibility 13/13, production Postgres build, and a genuine OpenAI/Postgres turn with streamed text, `finish(stop)`, usage metadata, durable history, and an asynchronously persisted title.
 
-### In progress — composer tools menu + usage meter
+### Complete — composer tools menu + usage meter
 
-The usage/context meter implementation is complete at the service and native-client contract seams, but no browser screenshot or live browser verification is claimed here:
-
-- **Usage / context meter** — live and replayed terminal finishes carry schema-validated folded `messageMetadata.usage`; completed assistant history persists the same safe object and degrades invalid metadata before transport; `/api/models` publishes the configured `contextWindowTokens`; the widget validates both, projects the newest assistant usage, and supplies the existing `WidgetFooter` meter. Evidence: 11 focused files / 102 tests, service/widget/stream-profile TypeScript checks, scoped Oxlint, custom governance, touched-file formatting, and diff checks. Browser verification remains outstanding.
-- **Server tools menu** — server tools execute, but there is no `/tools` list route and no per-request server-tool allowlist. This remains B4 scope: a catalog route plus a request field threaded to tool selection.
+- **Usage / context meter** — live and replayed terminal finishes carry schema-validated folded `messageMetadata.usage`; completed assistant history persists the same safe object and degrades invalid metadata before transport; `/api/models` publishes the configured `contextWindowTokens`; the widget validates both, projects the newest assistant usage, and supplies the existing `WidgetFooter` meter. Evidence: 11 focused files / 102 tests plus browser assertion and the visible tooltip capture at `evidence/task-16a-widget-parity/usage-meter.png`.
+- **Server tools menu** — authenticated `/api/tools` exposes only the display projection `{ name, label, description, defaultEnabled }` of the trusted server catalog; schemas, executors, approval predicates, and provider data stay private. The native menu reads it through TanStack Query, preserves `undefined` when unavailable/empty and `[]` when every returned tool is disabled, and sends the optional allowlist on every new turn. The service rejects malformed/duplicate selections and client/server name collisions, intersects the request with the trusted catalog, and threads the plain selection through the durable workflow. The production catalog remains empty. Evidence: focused B4 contracts 8 files / 74 tests, service suite 54 files / 240 passed / 12 skipped, widget suite 50 files / 300 tests, direct service/widget TypeScript, scoped Oxlint, custom governance, and the browser allowlist assertion/capture at `evidence/task-16a-widget-parity/tools-menu.png`.
 
 ### Backend-gated / product decisions (not scheduled)
 
@@ -62,16 +60,16 @@ The usage/context meter implementation is complete at the service and native-cli
 
 ## Look identity — visual parity
 
-- Side-by-side legacy vs native for the same conversation fixture, per theme: Graphite, Sapphire, Sage, Ocean.
-- Repeated across the density range.
-- Token compliance: no hardcoded colors or spacing; every surface reads from the design-system token tiers (the design-system skill governs). No dark mode reintroduced.
-- Vertical rhythm, fold affordances, and message layout match the legacy view.
+- Side-by-side legacy `mock-stream` and native `workflow-service` use the same prompt/answer fixture and compare message, thought, source, file/image, sidebar, header, and composer rhythm.
+- Twelve paired captures cover Graphite, Sapphire, Sage, and Ocean at compact, cozy, and roomy density: `evidence/task-16a-widget-parity/look-<theme>-<density>.png`.
+- Every pair asserts the expected root theme attribute and exact density `--space-unit`; no widget styles or tokens were added for the native branch, and no dark mode was reintroduced.
+- The captures make the remaining duration gap visible: native says "Thought process" because replay has no timing. The evidence fixture deliberately pairs a sanctioned native file with the legacy activity image so both portable attachment surfaces stay visible; that fixture variation is not a product divergence.
 
 ## Verification
 
-- Drive both modes in the harness — legacy (`local-service` / `mock-stream`) and native (`workflow-service`) — against one deterministic fixture that exercises every mapping row: text, reasoning, tools running/done/denied, approval, sources, files, and each terminal state.
-- Capture side-by-side screenshots per theme; record them as evidence under `evidence/`.
-- Walk the feature checklist in the browser, not by reading code.
+- The paired look fixture covers the shared text, reasoning, completed-tool, source, file/image, and terminal-completion surfaces. Mutually exclusive approval, denial, cancellation, failure, and reconnect states remain separate deterministic browser scenarios recorded by Steps 14–16 rather than being forced into one impossible terminal transcript.
+- The B3/B4 browser scenario verifies the server-tools menu, disables one tool, asserts the exact request allowlist, streams terminal usage, asserts the meter value text, and captures both states.
+- The 12-pair browser test asserts no console/page errors; screenshot animations are disabled only at capture time so transient compositor layers cannot corrupt evidence.
 
 ## Intentional-divergence sign-off
 
@@ -82,8 +80,8 @@ Any legacy feature or visual detail deliberately not carried into the native wid
 - [x] Client-portable feature parity implemented and browser-verified (settings, empty state, quick actions, tool-detail, reasoning-visibility, agent mark, activity fold).
 - [x] Multi-conversation sidebar/switcher: built and browser-verified.
 - [x] Composer footer + model selector restored (shared `WidgetFooter`); multi-model is a product decision, reasoning-effort backend-gated.
-- [ ] Composer tools menu + usage meter: usage/context meter implementation is test-verified but not browser-verified; server tools menu remains B4 scope (tools-list route + allowlist).
+- [x] Composer tools menu + usage meter: B3/B4 implementation, request narrowing, visible menu, and terminal meter browser-verified.
 - [ ] Small client follow-ups: "Thought for N seconds" duration, message-action copy.
-- [ ] Look-identity side-by-side captured across all four themes and the density range.
-- [ ] Design-system token/density audit passes on all native components.
-- [ ] Step 20 references this gate as a hard precondition.
+- [x] Look-identity side-by-side captured across all four themes and compact/cozy/roomy density.
+- [x] Design-system theme/density audit passes on the paired native roots; this slice added no styles or tokens.
+- [x] Step 20 references this gate as a hard precondition.

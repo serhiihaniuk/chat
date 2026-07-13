@@ -5,9 +5,65 @@ import {
   SERVER_TOOL_APPROVAL_POLICIES,
   defineServerTool,
   requiresServerToolApproval,
+  selectServerToolDefinitions,
+  toServerToolCatalog,
 } from "./server-tool-catalog.js";
 
-describe("server tool approval policy", () => {
+const readTool = defineServerTool<JsonValue, { readonly ok: true }>({
+  name: "read_file",
+  description: "Read a file.",
+  inputSchema: { type: "object" },
+  validateInput: (input): input is JsonValue => input !== undefined,
+  approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.UNGATED },
+  execute: async () => ({ ok: true }),
+});
+const writeTool = defineServerTool<JsonValue, { readonly ok: true }>({
+  name: "write_file",
+  description: "Write a file.",
+  inputSchema: { type: "object" },
+  validateInput: (input): input is JsonValue => input !== undefined,
+  approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.ALWAYS },
+  execute: async () => ({ ok: true }),
+});
+
+describe("server tool catalog and approval policy", () => {
+  it("projects safe labels and enables registered tools by default", () => {
+    expect(
+      toServerToolCatalog([
+        { ...readTool, name: "mock_web_search" },
+        { ...readTool, name: "mock-web-search" },
+        { ...readTool, name: "mockWebSearch" },
+      ]),
+    ).toEqual([
+      {
+        name: "mock_web_search",
+        label: "Mock web search",
+        description: "Read a file.",
+        defaultEnabled: true,
+      },
+      {
+        name: "mock-web-search",
+        label: "Mock web search",
+        description: "Read a file.",
+        defaultEnabled: true,
+      },
+      {
+        name: "mockWebSearch",
+        label: "Mock web search",
+        description: "Read a file.",
+        defaultEnabled: true,
+      },
+    ]);
+  });
+
+  it("preserves absent selection and narrows explicit selections", () => {
+    const definitions = [readTool, writeTool];
+    expect(selectServerToolDefinitions(definitions, undefined)).toEqual(definitions);
+    expect(selectServerToolDefinitions(definitions, [])).toEqual([]);
+    expect(selectServerToolDefinitions(definitions, ["write_file"])).toEqual([writeTool]);
+    expect(selectServerToolDefinitions(definitions, ["missing"])).toEqual([]);
+  });
+
   it("resolves explicit ungated and always-gated classifications", async () => {
     await expect(
       requiresServerToolApproval(
@@ -66,6 +122,14 @@ describe("server tool approval policy", () => {
     expect(() =>
       defineServerTool(unsafeTool({ kind: SERVER_TOOL_APPROVAL_POLICIES.PER_INPUT })),
     ).toThrow(TypeError);
+  });
+
+  it("rejects catalog metadata that cannot enter the public display contract", () => {
+    const tool = unsafeTool({ kind: SERVER_TOOL_APPROVAL_POLICIES.ALWAYS });
+    expect(() => defineServerTool({ ...tool, name: " invalid " })).toThrow(TypeError);
+    expect(() => defineServerTool({ ...tool, name: "1_invalid" })).toThrow(TypeError);
+    expect(() => defineServerTool({ ...tool, description: "" })).toThrow(TypeError);
+    expect(() => defineServerTool({ ...tool, description: " padded " })).toThrow(TypeError);
   });
 
   it("rejects a missing runtime input predicate", () => {

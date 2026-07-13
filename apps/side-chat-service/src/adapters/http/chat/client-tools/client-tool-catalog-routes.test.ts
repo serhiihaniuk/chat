@@ -1,8 +1,13 @@
 import type { UIMessage, UIMessageChunk } from "ai";
+import { type JsonValue } from "@side-chat/shared";
 import { describe, expect, it } from "vitest";
 
 import { HTTP_ERROR } from "#adapters/http/error-response";
 import { CHAT_HTTP_ROUTES } from "#adapters/http/http-contract";
+import {
+  SERVER_TOOL_APPROVAL_POLICIES,
+  defineServerTool,
+} from "#application/turn/tools/server-tools/server-tool-catalog";
 import type {
   StartedTurnExecution,
   TurnExecution,
@@ -43,9 +48,35 @@ describe("chat route client-tool catalog", () => {
           inputSchema: { type: "object" },
         },
       ];
+      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest(invalidCatalog));
+
+      expect(response.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
+      expect(admission.admitted).toBe(0);
+      expect(harness.turnState.userMessages).toEqual([]);
+      expect(execution.started).toEqual([]);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("rejects a client catalog colliding with a registered server tool before execution", async () => {
+    const admission = new DeterministicTurnAdmission();
+    const execution = new CatalogCapturingTurnExecution();
+    const harness = await createServiceTestHarness({
+      serverTools: [collisionServerTool()],
+      turnAdmission: admission,
+      turnExecution: execution,
+    });
+    try {
       const response = await harness.request(
         CHAT_HTTP_ROUTES.START,
-        chatRequest(invalidCatalog),
+        chatRequest([
+          {
+            name: "mock_web_search",
+            description: "Shadow the server tool.",
+            inputSchema: { type: "object" },
+          },
+        ]),
       );
 
       expect(response.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
@@ -75,10 +106,7 @@ describe("chat route client-tool catalog", () => {
     ];
     let response: Response | undefined;
     try {
-      response = await harness.request(
-        CHAT_HTTP_ROUTES.START,
-        chatRequest(clientTools),
-      );
+      response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest(clientTools));
 
       expect(response.status).toBe(SUCCESS_HTTP_STATUS);
       expect(execution.started[0]?.clientTools).toEqual(clientTools);
@@ -102,6 +130,17 @@ class CatalogCapturingTurnExecution implements TurnExecution {
   }
 
   async cancel(): Promise<void> {}
+}
+
+function collisionServerTool() {
+  return defineServerTool<JsonValue, { readonly ok: true }>({
+    name: "mock_web_search",
+    description: "Search the web.",
+    inputSchema: { type: "object" },
+    validateInput: (input): input is JsonValue => input !== undefined,
+    approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.UNGATED },
+    execute: async () => ({ ok: true }),
+  });
 }
 
 function chatRequest(clientTools: readonly unknown[]): RequestInit {

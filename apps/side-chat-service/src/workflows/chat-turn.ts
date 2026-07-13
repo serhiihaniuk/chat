@@ -12,7 +12,10 @@ import { createHook, getWorkflowMetadata, getWritable } from "workflow";
 import { assertDurableModelHandle, type ModelProvider } from "#application/ports/model-provider";
 import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
-import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
+import {
+  selectServerToolDefinitions,
+  type ServerToolDefinition,
+} from "#application/turn/tools/server-tools/server-tool-catalog";
 import { patchWorkflowRealmAbortSignal } from "./realm/abort-signal-patch.js";
 import {
   ABORT_ERROR_NAME,
@@ -65,6 +68,7 @@ export interface ChatTurnWorkflowInput {
   readonly clientToolTimeoutMs: number;
   readonly messages: readonly SerializableChatMessage[];
   readonly clientTools: readonly ClientToolDefinition[];
+  readonly enabledToolNames?: readonly string[] | undefined;
 }
 
 export interface StartedChatTurn {
@@ -116,7 +120,7 @@ export async function executeChatTurn(
     abortSignal: controller.signal,
   });
   const serverTools = createServerTools({
-    definitions: serverToolDefinitions,
+    definitions: selectServerToolDefinitions(serverToolDefinitions, input.enabledToolNames),
     databaseUrl,
     workspaceId: input.workspaceId,
     subjectId: input.subjectId,

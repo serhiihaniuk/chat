@@ -6,7 +6,7 @@ const widgetBaseUrl = `http://127.0.0.1:${widgetPort}`;
 /** Browser proof for the native Workflow branch without the legacy service stack. */
 export default defineConfig({
   testDir: ".",
-  testMatch: "workflow-interactions.spec.ts",
+  testMatch: ["workflow-interactions.spec.ts", "workflow-look-parity.spec.ts"],
   fullyParallel: false,
   reporter: "list",
   use: {

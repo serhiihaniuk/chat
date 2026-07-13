@@ -25,6 +25,27 @@ describe("chat request client-tool catalog", () => {
   });
 
   it.each([
+    [undefined, undefined],
+    [[], []],
+    [
+      ["known.tool", "unknown"],
+      ["known.tool", "unknown"],
+    ],
+  ] as const)("preserves the optional enabled-tool selection: %s", async (enabled, expected) => {
+    const request = await parseChatRequest(chatEnvelope([], enabled), new Set(["known.tool"]));
+    expect(request?.enabledToolNames).toEqual(expected);
+  });
+
+  it("rejects duplicate enabled tool names and client/server collisions", async () => {
+    await expect(
+      parseChatRequest(chatEnvelope([], ["known", "known"]), new Set(["known"])),
+    ).resolves.toBeUndefined();
+    await expect(
+      parseChatRequest(chatEnvelope([VALID_TOOL]), new Set([VALID_TOOL.name])),
+    ).resolves.toBeUndefined();
+  });
+
+  it.each([
     [{ ...VALID_TOOL, name: "1_invalid" }, "invalid leading character"],
     [
       {
@@ -36,43 +57,33 @@ describe("chat request client-tool catalog", () => {
     [
       {
         ...VALID_TOOL,
-        description: "x".repeat(
-          CLIENT_TOOL_CATALOG_LIMITS.MAX_DESCRIPTION_LENGTH + 1,
-        ),
+        description: "x".repeat(CLIENT_TOOL_CATALOG_LIMITS.MAX_DESCRIPTION_LENGTH + 1),
       },
       "long description",
     ],
-  ] as const)(
-    "rejects catalog metadata outside its bounds: %s",
-    async (tool, _reason) => {
-      await expect(
-        parseChatRequest(chatEnvelope([tool])),
-      ).resolves.toBeUndefined();
-    },
-  );
+  ] as const)("rejects catalog metadata outside its bounds: %s", async (tool, _reason) => {
+    await expect(parseChatRequest(chatEnvelope([tool]))).resolves.toBeUndefined();
+  });
 
   it("rejects a catalog above the per-request tool limit", async () => {
-    const tools = Array.from(
-      { length: CLIENT_TOOL_CATALOG_LIMITS.MAX_TOOLS + 1 },
-      (_, index) => ({
-        ...VALID_TOOL,
-        name: `tool_${index}`,
-      }),
-    );
+    const tools = Array.from({ length: CLIENT_TOOL_CATALOG_LIMITS.MAX_TOOLS + 1 }, (_, index) => ({
+      ...VALID_TOOL,
+      name: `tool_${index}`,
+    }));
 
-    await expect(
-      parseChatRequest(chatEnvelope(tools)),
-    ).resolves.toBeUndefined();
+    await expect(parseChatRequest(chatEnvelope(tools))).resolves.toBeUndefined();
   });
 });
 
 function chatEnvelope(
   clientTools: readonly unknown[],
+  enabledToolNames?: readonly string[],
 ): Record<string, unknown> {
   return {
     requestId: "request-1",
     conversationId: "conversation-1",
     messages: [USER_MESSAGE],
     clientTools,
+    ...(enabledToolNames === undefined ? {} : { enabledToolNames }),
   };
 }

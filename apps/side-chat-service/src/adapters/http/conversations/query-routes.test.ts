@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { JsonObject } from "@side-chat/shared";
+import { isRecord, type JsonObject, type JsonValue } from "@side-chat/shared";
 import { DbRepositoryError } from "@side-chat/db";
 
 import type {
   ConversationHistoryPage,
   ConversationQueryStore,
 } from "#application/ports/conversation-query-store";
+import {
+  SERVER_TOOL_APPROVAL_POLICIES,
+  defineServerTool,
+} from "#application/turn/tools/server-tools/server-tool-catalog";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 
 describe("conversation query routes", () => {
@@ -33,6 +37,33 @@ describe("conversation query routes", () => {
       });
 
       const unauthenticated = await harness.unauthenticatedRequest("/api/conversations");
+      expect(unauthenticated.status).toBe(401);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("serves only the safe server-tool display projection", async () => {
+    const harness = await createServiceTestHarness({ serverTools: [displayTool()] });
+    try {
+      const response = await harness.request("/api/tools");
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        tools: [
+          {
+            name: "mock_web_search",
+            label: "Mock web search",
+            description: "Search the web.",
+            defaultEnabled: true,
+          },
+        ],
+      });
+      const body = JSON.stringify(await (await harness.request("/api/tools")).json());
+      expect(body).not.toContain("inputSchema");
+      expect(body).not.toContain("approvalPolicy");
+      expect(body).not.toContain("execute");
+
+      const unauthenticated = await harness.unauthenticatedRequest("/api/tools");
       expect(unauthenticated.status).toBe(401);
     } finally {
       await harness.close();
@@ -241,6 +272,23 @@ describe("conversation query routes", () => {
     }
   });
 });
+
+function displayTool() {
+  return defineServerTool<JsonValue, { readonly ok: true }>({
+    name: "mock_web_search",
+    description: "Search the web.",
+    inputSchema: { type: "object" },
+    validateInput: (input): input is JsonValue =>
+      input === null ||
+      isRecord(input) ||
+      Array.isArray(input) ||
+      typeof input === "string" ||
+      typeof input === "number" ||
+      typeof input === "boolean",
+    approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.UNGATED },
+    execute: async () => ({ ok: true }),
+  });
+}
 
 function storedText(id: string) {
   return {

@@ -17,6 +17,7 @@ export type TurnExecutionInput = TurnRef &
     modelId: string;
     messages: readonly TurnMessage[];
     clientTools: readonly ClientToolDefinition[];
+    enabledToolNames?: readonly string[] | undefined;
   }>;
 
 /**

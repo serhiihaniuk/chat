@@ -6,6 +6,14 @@ export const SERVER_TOOL_APPROVAL_POLICIES = Object.freeze({
   PER_INPUT: "per_input",
 } as const);
 
+export const SERVER_TOOL_CATALOG_LIMITS = Object.freeze({
+  MAX_TOOLS: 16,
+  MAX_NAME_LENGTH: 64,
+  MAX_DESCRIPTION_LENGTH: 1_024,
+} as const);
+
+const SERVER_TOOL_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]*$/u;
+
 export type ServerToolApprovalPolicyKind =
   (typeof SERVER_TOOL_APPROVAL_POLICIES)[keyof typeof SERVER_TOOL_APPROVAL_POLICIES];
 
@@ -38,6 +46,35 @@ export type ServerToolDefinition<Input extends JsonValue = JsonValue, Output = u
  * at the catalog boundary. This runtime check protects dynamically composed
  * catalogs in addition to the TypeScript discriminated union.
  */
+export type ServerToolCatalogOption = Readonly<{
+  name: string;
+  label: string;
+  description: string;
+  defaultEnabled: boolean;
+}>;
+
+/** Expose only the display contract; schemas, executors, and policies stay private. */
+export function toServerToolCatalog(
+  definitions: readonly ServerToolDefinition[],
+): readonly ServerToolCatalogOption[] {
+  return definitions.map((definition) => ({
+    name: definition.name,
+    label: toReadableToolLabel(definition.name),
+    description: definition.description,
+    defaultEnabled: true,
+  }));
+}
+
+/** Absent means the registered catalog; present input can only narrow it. */
+export function selectServerToolDefinitions(
+  definitions: readonly ServerToolDefinition[],
+  enabledToolNames: readonly string[] | undefined,
+): readonly ServerToolDefinition[] {
+  if (enabledToolNames === undefined) return definitions;
+  const enabled = new Set(enabledToolNames);
+  return definitions.filter((definition) => enabled.has(definition.name));
+}
+
 export function defineServerTool<Input extends JsonValue, Output>(
   definition: ServerToolDefinition<Input, Output>,
 ): ServerToolDefinition<Input, Output>;
@@ -81,10 +118,29 @@ function assertApprovalPolicy(policy: unknown): void {
   throw new TypeError("Server tool approval policy is missing or invalid");
 }
 
+function toReadableToolLabel(name: string): string {
+  const normalized = name
+    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+    .replace(/[\s_-]+/gu, " ")
+    .trim()
+    .toLowerCase();
+  return normalized.length === 0
+    ? normalized
+    : `${normalized[0]?.toUpperCase()}${normalized.slice(1)}`;
+}
+
 function isServerToolDefinition(value: Record<string, unknown>): value is ServerToolDefinition {
+  const name = value["name"];
+  const description = value["description"];
   return (
-    typeof value["name"] === "string" &&
-    typeof value["description"] === "string" &&
+    typeof name === "string" &&
+    name === name.trim() &&
+    name.length <= SERVER_TOOL_CATALOG_LIMITS.MAX_NAME_LENGTH &&
+    SERVER_TOOL_NAME_PATTERN.test(name) &&
+    typeof description === "string" &&
+    description === description.trim() &&
+    description.length > 0 &&
+    description.length <= SERVER_TOOL_CATALOG_LIMITS.MAX_DESCRIPTION_LENGTH &&
     isRecord(value["inputSchema"]) &&
     typeof value["validateInput"] === "function" &&
     typeof value["execute"] === "function"

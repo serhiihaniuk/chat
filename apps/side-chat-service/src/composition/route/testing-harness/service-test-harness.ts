@@ -10,6 +10,7 @@ import type { ClientToolDispatchStore } from "#application/ports/turn/tools/clie
 import type { ResumeClientTool } from "#application/turn/tools/submit-client-tool-output";
 import type { ToolApprovalDecisionStore } from "#application/ports/turn/tools/tool-approval-store";
 import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
+import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { createCollectingTelemetrySink } from "#testing/collecting-telemetry-sink";
@@ -33,11 +34,11 @@ export async function createServiceTestHarness(
     readonly resumeClientTool?: ResumeClientTool;
     readonly toolApprovals?: ToolApprovalDecisionStore;
     readonly resumeToolApproval?: ResumeToolApproval;
+    readonly serverTools?: readonly ServerToolDefinition[];
   } = {},
 ) {
   const settingsResult = validateSettings(createDefaultConfig());
-  if (!settingsResult.ok)
-    throw new Error("Default test settings must be valid");
+  if (!settingsResult.ok) throw new Error("Default test settings must be valid");
   const previousTelemetry = globalThis.AI_SDK_TELEMETRY_INTEGRATIONS;
   globalThis.AI_SDK_TELEMETRY_INTEGRATIONS = undefined;
   const telemetry = createCollectingTelemetrySink();
@@ -57,8 +58,7 @@ export async function createServiceTestHarness(
     ...service,
     telemetry,
     request,
-    unauthenticatedRequest: (path: string, init?: RequestInit) =>
-      service.app.request(path, init),
+    unauthenticatedRequest: (path: string, init?: RequestInit) => service.app.request(path, init),
     close: async () => {
       await service.scope.close();
       globalThis.AI_SDK_TELEMETRY_INTEGRATIONS = previousTelemetry;

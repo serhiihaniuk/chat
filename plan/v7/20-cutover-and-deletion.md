@@ -17,8 +17,9 @@ Every consumer points at the new wing; the old app and every replaced package ar
 ## Cutover order
 
 1. Point every launcher/config/reference at the new app — verify: `.claude/launch.json`, root `package.json` scripts, `docs/operations/local-development.md`, demo/embed entry points, e2e harness configuration.
-2. **Run the full verification below before deleting anything** — the last moment both apps exist is the cheapest place to catch a missed behavior.
-3. Delete per the inventory in one coherent change set (multiple commits fine; no intermediate state where a deleted module is still imported).
+2. Confirm [`16a-widget-parity-verification.md`](./16a-widget-parity-verification.md) is complete, including its intentional-divergence sign-off and paired four-theme/density evidence. Cutover must not replace the only remaining comparison surface while that gate is open.
+3. **Run the full verification below before deleting anything** — the last moment both apps exist is the cheapest place to catch a missed behavior.
+4. Delete per the inventory in one coherent change set (multiple commits fine; no intermediate state where a deleted module is still imported).
 
 ## Deletion inventory
 

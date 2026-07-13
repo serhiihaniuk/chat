@@ -60,6 +60,9 @@ export function createWorkflowTurnExecution(
         clientToolTimeoutMs: settings.timeouts.clientToolMs,
         messages: input.messages.map(toSerializableMessage),
         clientTools: input.clientTools,
+        ...(input.enabledToolNames === undefined
+          ? {}
+          : { enabledToolNames: input.enabledToolNames }),
       });
       const terminal = started.terminal.then(toApplicationTerminal);
       return {

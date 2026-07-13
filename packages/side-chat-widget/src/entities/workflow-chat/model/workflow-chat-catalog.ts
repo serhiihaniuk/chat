@@ -68,6 +68,16 @@ export type WorkflowModelCatalog = Readonly<{
   defaultModelId: string | undefined;
 }>;
 
+/** One trusted server tool exposed through the safe composer display contract. */
+export type WorkflowTool = Readonly<{
+  name: string;
+  label: string;
+  description: string;
+  defaultEnabled: boolean;
+}>;
+
+export type WorkflowToolCatalog = Readonly<{ tools: readonly WorkflowTool[] }>;
+
 /** Read the workflow service's turn model catalog for the composer selector. */
 export async function readWorkflowModels(
   client: WorkflowChatClient,
@@ -92,6 +102,58 @@ export async function readWorkflowModels(
   const defaultModelId =
     typeof payload["defaultModelId"] === "string" ? payload["defaultModelId"] : undefined;
   return { models, defaultModelId };
+}
+
+/** Read and strictly validate the server-tool display catalog. */
+export async function readWorkflowTools(
+  client: WorkflowChatClient,
+  signal?: AbortSignal,
+): Promise<WorkflowToolCatalog> {
+  const request = await resolveWorkflowChatRequestConfig(client);
+  const response = await workflowChatFetch(client)(
+    workflowChatUrl(client, "/api/tools"),
+    createHistoryRequestInit(request, signal),
+  );
+  if (!response.ok) throw await readWorkflowChatHttpError(response);
+
+  const payload: unknown = await response.json();
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ["tools"]) || !Array.isArray(payload["tools"])) {
+    throw new Error("Tool catalog response is invalid.");
+  }
+  const tools = payload["tools"].map(toWorkflowTool);
+  const validTools = tools.filter((tool): tool is WorkflowTool => tool !== undefined);
+  if (
+    validTools.length !== tools.length ||
+    new Set(validTools.map((tool) => tool.name)).size !== validTools.length
+  ) {
+    throw new Error("Tool catalog response is invalid.");
+  }
+  return { tools: validTools };
+}
+
+function toWorkflowTool(entry: unknown): WorkflowTool | undefined {
+  if (!isRecord(entry)) return undefined;
+  if (!hasOnlyKeys(entry, ["name", "label", "description", "defaultEnabled"])) return undefined;
+  const name = entry["name"];
+  const label = entry["label"];
+  const description = entry["description"];
+  const defaultEnabled = entry["defaultEnabled"];
+  if (!isTrimmedText(name) || !isTrimmedText(label) || !isTrimmedText(description)) {
+    return undefined;
+  }
+  if (typeof defaultEnabled !== "boolean") return undefined;
+  return { name, label, description, defaultEnabled };
+}
+
+function isTrimmedText(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value === value.trim();
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const allowed = new Set(keys);
+  return (
+    Object.keys(value).every((key) => allowed.has(key)) && Object.keys(value).length === keys.length
+  );
 }
 
 function toWorkflowModel(entry: unknown): WorkflowModel | undefined {

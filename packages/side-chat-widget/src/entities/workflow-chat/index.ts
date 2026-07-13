@@ -15,11 +15,17 @@ export type {
   WorkflowChatRequestConfig,
   WorkflowUIMessage,
 } from "./model/workflow-chat-client.js";
-export { readWorkflowConversations, readWorkflowModels } from "./model/workflow-chat-catalog.js";
+export {
+  readWorkflowConversations,
+  readWorkflowModels,
+  readWorkflowTools,
+} from "./model/workflow-chat-catalog.js";
 export type {
   WorkflowConversationSummary,
   WorkflowModel,
   WorkflowModelCatalog,
+  WorkflowTool,
+  WorkflowToolCatalog,
 } from "./model/workflow-chat-catalog.js";
 export {
   postWorkflowApprovalDecision,

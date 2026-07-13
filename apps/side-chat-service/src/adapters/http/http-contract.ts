@@ -19,4 +19,5 @@ export const QUERY_HTTP_ROUTES = {
   MESSAGES: "/api/conversations/:conversationId/messages",
   ACTIVE_TURN: "/api/conversations/:conversationId/active-turn",
   MODELS: "/api/models",
+  TOOLS: "/api/tools",
 } as const;

@@ -16,6 +16,7 @@ import {
   type WorkflowChatTerminal,
   WorkflowMessageTimeline,
 } from "#features/workflow-chat";
+import { useWorkflowToolSelection } from "../../model/selection/side-chat-tool-selection.js";
 import type { WidgetLabels } from "#shared/lib/widget-labels";
 import { Conversation, ConversationContent } from "#shared/ui/conversation";
 import { ErrorNotice } from "#shared/ui/error-notice";
@@ -27,8 +28,7 @@ const UI_MESSAGE_ROLE = {
   USER: "user",
 } as const;
 
-// The workflow service exposes no per-request reasoning effort or server-tool
-// allowlist yet, so those composer controls stay empty and their handlers no-op.
+// Reasoning effort remains backend-configured; server tools are selected per turn.
 const NO_OP = (): void => undefined;
 
 /** The conversation feed and composer for one native workflow chat. */
@@ -59,12 +59,14 @@ export function WorkflowChatSession({
   readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
 }) {
   const modelSelection = useWorkflowModelSelection(workflowChat);
+  const toolSelection = useWorkflowToolSelection(workflowChat);
   const sessionClient = useMemo(
     () => ({
       ...workflowChat,
       modelPreference: modelSelection.modelPreference,
+      enabledToolNames: toolSelection.enabledToolNames,
     }),
-    [workflowChat, modelSelection.modelPreference],
+    [workflowChat, modelSelection.modelPreference, toolSelection.enabledToolNames],
   );
   const chat = useWorkflowWidgetChat(sessionClient, initialMessages, hostBridge, activeTurn);
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
@@ -148,14 +150,14 @@ export function WorkflowChatSession({
         onModelSelect={modelSelection.onModelSelect}
         onReasoningEffortSelect={NO_OP}
         onSubmitMessage={chat.submitMessage}
-        onToggleTool={NO_OP}
+        onToggleTool={toolSelection.toggleTool}
         reasoningEfforts={[]}
         selectedModelKey={modelSelection.selectedModelKey}
         selectedReasoningEffort={undefined}
         sendOnEnter={sendOnEnter}
         status={chat.status}
         stop={chat.stop}
-        tools={[]}
+        tools={toolSelection.tools}
       />
     </>
   );

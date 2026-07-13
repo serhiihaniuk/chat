@@ -10,6 +10,10 @@ import {
   type ConversationQueryStore,
 } from "#application/ports/conversation-query-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
+import {
+  toServerToolCatalog,
+  type ServerToolDefinition,
+} from "#application/turn/tools/server-tools/server-tool-catalog";
 import { TURN_REJECTION_CODES } from "#application/turn/turn-errors";
 
 import type { AuthVariables } from "../auth-middleware.js";
@@ -26,6 +30,8 @@ export type QueryRouteDependencies = Readonly<{
   }>;
   /** Current tool/data schemas honored when validating persisted history parts. */
   structuredPartCatalogs?: StructuredPartCatalogs | undefined;
+  /** Current trusted server catalog; only its display projection is exposed. */
+  serverTools: readonly ServerToolDefinition[];
 }>;
 
 /** HTTP DTO ownership for durable conversation, history, discovery, and model reads. */
@@ -42,6 +48,10 @@ export function createQueryRoutes(dependencies: QueryRouteDependencies): Hono<Au
       models: [dependencies.model],
       defaultModelId: dependencies.model.id,
     }),
+  );
+
+  app.get(QUERY_HTTP_ROUTES.TOOLS, (context) =>
+    context.json({ tools: toServerToolCatalog(dependencies.serverTools) }),
   );
 
   app.get(QUERY_HTTP_ROUTES.MESSAGES, async (context) => {

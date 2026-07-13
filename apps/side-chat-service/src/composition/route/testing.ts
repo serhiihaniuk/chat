@@ -27,6 +27,8 @@ import {
 import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import { configuredTurnModel, type TurnModelPolicy } from "#application/turn/turn-model-policy";
+import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
+import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import type { Settings } from "#config/settings/resolve-settings";
 import { scriptedModelProvider } from "#testing/scripted-language-model";
@@ -51,6 +53,12 @@ const unavailableToolApprovals: ToolApprovalDecisionStore = {
   decideApproval: () => Promise.reject(new Error("Tool-approval persistence is unavailable")),
 };
 
+function resolveServerTools(
+  serverTools: readonly ServerToolDefinition[] | undefined,
+): readonly ServerToolDefinition[] {
+  return serverTools ?? REGISTERED_SERVER_TOOLS;
+}
+
 export async function startTestingService(
   settings: Settings,
   starters: readonly StartServicePart[] = [],
@@ -68,6 +76,7 @@ export async function startTestingService(
     resumeClientTool?: ResumeClientTool;
     toolApprovals?: ToolApprovalDecisionStore;
     resumeToolApproval?: ResumeToolApproval;
+    serverTools?: readonly ServerToolDefinition[];
   }> = {},
 ) {
   const persistence = inMemoryPersistence(
@@ -94,6 +103,7 @@ export async function startTestingServiceWithConfiguredPersistence(
     resumeClientTool?: ResumeClientTool;
     toolApprovals?: ToolApprovalDecisionStore;
     resumeToolApproval?: ResumeToolApproval;
+    serverTools?: readonly ServerToolDefinition[];
   }> = {},
 ) {
   return startTestingServiceWithPersistence(
@@ -122,6 +132,7 @@ async function startTestingServiceWithPersistence<
     resumeClientTool?: ResumeClientTool;
     toolApprovals?: ToolApprovalDecisionStore;
     resumeToolApproval?: ResumeToolApproval;
+    serverTools?: readonly ServerToolDefinition[];
   }>,
   persistence: TestingPersistence<TStore>,
 ) {
@@ -133,6 +144,8 @@ async function startTestingServiceWithPersistence<
   const turnState = persistence.store;
   const telemetrySink = overrides.telemetrySink ?? { record: () => undefined };
   const turnExecution = overrides.turnExecution ?? new DeterministicTurnExecution();
+  const serverTools = resolveServerTools(overrides.serverTools);
+  const serverToolNames = new Set(serverTools.map((definition) => definition.name));
   const turnReplay = resolveTurnReplay(overrides.turnReplay);
   const approvalDependencies = testingApprovalDependencies(overrides, persistence);
   app.route(
@@ -149,6 +162,7 @@ async function startTestingServiceWithPersistence<
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: testingTurnModelPolicy(settings),
+      serverToolNames,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable
@@ -167,6 +181,7 @@ async function startTestingServiceWithPersistence<
         contextWindowTokens: settings.models.contextWindowTokens,
       },
       structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
+      serverTools,
     }),
   );
   app.route("/", createCompatibilityApp());

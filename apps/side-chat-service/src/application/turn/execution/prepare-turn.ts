@@ -19,6 +19,7 @@ export type PrepareTurnInput = Readonly<{
   messages: readonly TurnMessage[];
   acceptedUserMessage: TurnMessage;
   clientTools?: readonly ClientToolDefinition[];
+  enabledToolNames?: readonly string[] | undefined;
 }>;
 
 export type PreparedTurn = Readonly<{
@@ -60,6 +61,7 @@ export async function prepareTurn(
       modelId: input.modelId,
       messages: input.messages,
       clientTools: input.clientTools ?? [],
+      ...(input.enabledToolNames === undefined ? {} : { enabledToolNames: input.enabledToolNames }),
     };
     const execution = await startExecution(dependencies, turn, executionInput);
     await dependencies.turns.bindRun(turn, execution.runId);

@@ -68,6 +68,9 @@ export function createWorkflowChatTransport({
         requestId: crypto.randomUUID(),
       };
       if (client.modelPreference !== undefined) body.modelPreference = client.modelPreference;
+      if (client.enabledToolNames !== undefined) {
+        body.enabledToolNames = client.enabledToolNames;
+      }
       if (clientTools && clientTools.length > 0) body.clientTools = clientTools;
       return applyRequestConfig({ api: workflowChatUrl(client, "/api/chat"), body }, request);
     },
@@ -173,6 +176,7 @@ type WorkflowChatRequestBody = {
   readonly messages: WorkflowUIMessage[];
   readonly requestId: string;
   clientTools?: readonly WorkflowClientToolDefinition[];
+  enabledToolNames?: readonly string[];
   modelPreference?: string;
 };
 

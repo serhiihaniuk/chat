@@ -40,6 +40,8 @@ export type WorkflowChatClient = Readonly<{
   maxConsecutiveErrors?: number | undefined;
   /** Optional server-recognized model preference included with the next send. */
   modelPreference?: string | undefined;
+  /** Optional server-tool narrowing included with the next send. */
+  enabledToolNames?: readonly string[] | undefined;
 }>;
 
 /** Safe public HTTP failure returned by the workflow service boundary. */

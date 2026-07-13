@@ -31,6 +31,7 @@ import {
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { Settings } from "#config/settings/resolve-settings";
 import { configuredTurnModel } from "#application/turn/turn-model-policy";
+import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import { AUTH_PROFILES, WORKFLOW_JOURNAL_CLASSES } from "#config/declaration/side-chat-config";
 
@@ -89,6 +90,7 @@ export async function startProductionService(
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
       selectModel: configuredTurnModel(settings.models.modelId),
+      serverToolNames: new Set(REGISTERED_SERVER_TOOLS.map((definition) => definition.name)),
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable
@@ -119,9 +121,10 @@ export async function startProductionService(
         provider: settings.models.provider,
         contextWindowTokens: settings.models.contextWindowTokens,
       },
-      // No server tool/data schema is exposed to the read path yet; a future
-      // catalog plugs in here to let persisted structured parts survive a read.
+      // The display catalog is public; server schemas remain private and are
+      // not admitted into persisted structured-part validation yet.
       structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
+      serverTools: REGISTERED_SERVER_TOOLS,
     }),
   );
   return {

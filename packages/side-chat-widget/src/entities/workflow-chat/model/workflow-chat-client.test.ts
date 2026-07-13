@@ -7,6 +7,7 @@ import {
   readWorkflowChatHistory,
   readWorkflowConversations,
   readWorkflowModels,
+  readWorkflowTools,
   type WorkflowChatClient,
 } from "../index.js";
 
@@ -243,6 +244,65 @@ describe("readWorkflowModels", () => {
     const client = createClient(() => Response.json({ models: "nope" }));
 
     await expect(readWorkflowModels(client)).rejects.toThrow("Model catalog response is invalid.");
+  });
+});
+
+describe("readWorkflowTools", () => {
+  it("strictly validates the safe tool catalog", async () => {
+    const client = createClient(() =>
+      Response.json({
+        tools: [
+          {
+            name: "mock_web_search",
+            label: "Mock web search",
+            description: "Search the web.",
+            defaultEnabled: true,
+          },
+        ],
+      }),
+    );
+
+    await expect(readWorkflowTools(client)).resolves.toEqual({
+      tools: [
+        {
+          name: "mock_web_search",
+          label: "Mock web search",
+          description: "Search the web.",
+          defaultEnabled: true,
+        },
+      ],
+    });
+  });
+
+  it.each([
+    {
+      tools: [
+        { name: "tool", label: "Tool", description: "Desc", defaultEnabled: true, secret: "x" },
+      ],
+    },
+    { tools: [{ name: "tool", label: "", description: "Desc", defaultEnabled: true }] },
+    { tools: [{ name: " tool ", label: "Tool", description: "Desc", defaultEnabled: true }] },
+    { tools: [{ name: "tool", label: "Tool", description: "", defaultEnabled: true }] },
+    {
+      tools: [
+        { name: "tool", label: "Tool", description: "Desc", defaultEnabled: true },
+        { name: "tool", label: "Other", description: "Desc", defaultEnabled: false },
+      ],
+    },
+    { tools: [{ name: "tool" }] },
+    { tools: "not-an-array" },
+    { tools: [], privateField: "nope" },
+  ])("rejects malformed or private catalog payloads: %s", async (payload) => {
+    const client = createClient(() => Response.json(payload));
+    await expect(readWorkflowTools(client)).rejects.toThrow("Tool catalog response is invalid.");
+  });
+
+  it("hides a failed tools response body from the public error", async () => {
+    const client = createClient(() => new Response("private", { status: 500 }));
+    await expect(readWorkflowTools(client)).rejects.toMatchObject({
+      code: "http_error",
+      status: 500,
+    });
   });
 });
 
