@@ -5,6 +5,7 @@ import {
   postWorkflowClientToolOutput,
   readWorkflowActiveTurn,
   readWorkflowChatHistory,
+  readWorkflowConversations,
   type WorkflowChatClient,
 } from "../index.js";
 
@@ -85,6 +86,43 @@ describe("readWorkflowActiveTurn", () => {
     const client = createClient(() => new Response("private", { status: 500 }));
 
     await expect(readWorkflowActiveTurn(client)).rejects.toMatchObject({
+      code: "http_error",
+      status: 500,
+    });
+  });
+});
+
+describe("readWorkflowConversations", () => {
+  it("maps summaries and drops malformed entries", async () => {
+    const client = createClient(() =>
+      Response.json({
+        conversations: [
+          { id: "conversation-a", title: "Billing bug", lastMessageAt: "2026-07-13T10:00:00Z" },
+          { id: "conversation-b" },
+          { title: "no id" },
+          42,
+        ],
+      }),
+    );
+
+    await expect(readWorkflowConversations(client)).resolves.toEqual([
+      { id: "conversation-a", title: "Billing bug", lastMessageAt: "2026-07-13T10:00:00Z" },
+      { id: "conversation-b", title: "", lastMessageAt: undefined },
+    ]);
+  });
+
+  it("rejects a response that is not a conversation list", async () => {
+    const client = createClient(() => Response.json({ conversations: "nope" }));
+
+    await expect(readWorkflowConversations(client)).rejects.toThrow(
+      "Conversation list response is invalid.",
+    );
+  });
+
+  it("hides a failed list response body from the public error", async () => {
+    const client = createClient(() => new Response("private", { status: 500 }));
+
+    await expect(readWorkflowConversations(client)).rejects.toMatchObject({
       code: "http_error",
       status: 500,
     });
