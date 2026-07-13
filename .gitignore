@@ -41,3 +41,6 @@ test-harness/*/dist/
 
 sidechat-complete-architecture/
 design_system.html
+
+# Workflow engine local run data (dev)
+.workflow-data/
