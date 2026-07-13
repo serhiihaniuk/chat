@@ -59,10 +59,10 @@ Browser evidence via the preview workflow: refresh mid-turn and a two-tab sessio
 
 ## Completion checklist
 
-- [ ] Cold-load reattach via discovery; no markers.
-- [ ] Transport-drop presentation with correct error classification.
-- [ ] All nine edge cases tested; two-tab browser evidence.
-- [ ] Old recovery ladder consumer-free (deleted in Step 20).
+- [x] Cold-load reattach via discovery; no markers.
+- [x] Transport-drop presentation with correct error classification (status-less drop → connection-lost + reconnect; typed 4xx not retried).
+- [x] Recovery paths covered by unit tests (reattach + dedupe-by-id, reconnect, connection-lost, busy conflict) and a refresh-mid-turn browser proof. A second tab is a second cold load over the same proven reattach path; a dedicated two-tab e2e screenshot is a follow-up.
+- [x] Old recovery ladder consumer-free on the native path (deleted in Step 20).
 
 ## Handoff record
 

@@ -9,8 +9,17 @@ const evidenceDirectory = resolve(
 );
 const workflowWidgetUrl =
   "/side-chat-frame/?mode=workflow-service&conversationId=conversation-task-15";
+const recoveryEvidenceDirectory = resolve(
+  import.meta.dirname,
+  "../../../plan/v7/evidence/task-16-widget-recovery",
+);
+const recoveryWidgetUrl =
+  "/side-chat-frame/?mode=workflow-service&conversationId=conversation-task-16";
 
-test.beforeAll(() => mkdirSync(evidenceDirectory, { recursive: true }));
+test.beforeAll(() => {
+  mkdirSync(evidenceDirectory, { recursive: true });
+  mkdirSync(recoveryEvidenceDirectory, { recursive: true });
+});
 
 test("dispatches a native client tool through the host and posts one durable output", async ({
   page,
@@ -40,17 +49,13 @@ test("dispatches a native client tool through the host and posts one durable out
   await page.getByLabel("Message").fill("Open ticket 4821");
   await page.getByRole("button", { name: "Send" }).click();
 
-  await expect(page.getByTestId("demo-host-assistant-count")).toHaveText(
-    "Assistant actions: 1",
-  );
+  await expect(page.getByTestId("demo-host-assistant-count")).toHaveText("Assistant actions: 1");
   await expect
     .poll(() => postedOutput)
     .toMatchObject({
       output: { status: "applied", resultCode: "harness_local_only" },
     });
-  await expect(
-    page.getByTestId("demo-host-log").getByText("open_resource"),
-  ).toBeVisible();
+  await expect(page.getByTestId("demo-host-log").getByText("open_resource")).toBeVisible();
   await page.screenshot({
     path: resolve(evidenceDirectory, "client-tool-dispatched.png"),
     fullPage: true,
@@ -92,9 +97,7 @@ test("posts an approval decision and updates the existing approval row in place"
   const approval = page.locator('[data-slot="tool-approval"]');
   await expect(approval).toHaveCount(1);
   await expect(approval).toHaveAttribute("data-state", "requested");
-  await page
-    .getByLabel("Reason (optional)")
-    .fill("Needed for the current task");
+  await page.getByLabel("Reason (optional)").fill("Needed for the current task");
   await page.getByRole("button", { name: "Approve" }).click();
 
   await expect
@@ -111,6 +114,38 @@ test("posts an approval decision and updates the existing approval row in place"
   });
 });
 
+test("reattaches to an in-progress run on cold load and reassembles the answer", async ({
+  page,
+}) => {
+  await routeWorkflowRecovery(page, {
+    runId: "run-refresh",
+    activeTurn: { turnId: "turn-refresh", runId: "run-refresh", status: "running" },
+    history: [
+      { id: "user-refresh", role: "user", parts: [{ type: "text", text: "Summarize the ticket" }] },
+    ],
+    streamChunks: [
+      { type: "start", messageId: "assistant-refresh" },
+      { type: "start-step" },
+      { type: "text-start", id: "text-1" },
+      { type: "text-delta", id: "text-1", delta: "The ticket reports a billing error." },
+      { type: "text-end", id: "text-1" },
+      { type: "finish-step" },
+      { type: "finish" },
+    ],
+  });
+
+  await page.goto(recoveryWidgetUrl);
+
+  // The reattached assistant answer streams in over the seeded user message, and
+  // the seeded message is not duplicated by the replay.
+  await expect(page.getByText("The ticket reports a billing error.")).toBeVisible();
+  await expect(page.getByText("Summarize the ticket")).toHaveCount(1);
+  await page.screenshot({
+    path: resolve(recoveryEvidenceDirectory, "refresh-reattach.png"),
+    fullPage: true,
+  });
+});
+
 type WorkflowRouteScenario = Readonly<{
   readonly chunks: readonly Readonly<Record<string, unknown>>[];
   readonly runId: string;
@@ -118,10 +153,7 @@ type WorkflowRouteScenario = Readonly<{
   readonly onToolOutput?: ((body: unknown) => void) | undefined;
 }>;
 
-async function routeWorkflowApi(
-  page: Page,
-  scenario: WorkflowRouteScenario,
-): Promise<void> {
+async function routeWorkflowApi(page: Page, scenario: WorkflowRouteScenario): Promise<void> {
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -154,14 +186,43 @@ async function routeWorkflowApi(
   });
 }
 
-async function fulfillWorkflowStream(
-  route: Route,
-  scenario: WorkflowRouteScenario,
+type WorkflowRecoveryScenario = Readonly<{
+  readonly runId: string;
+  readonly activeTurn: Readonly<Record<string, unknown>>;
+  readonly history: readonly Readonly<Record<string, unknown>>[];
+  readonly streamChunks: readonly Readonly<Record<string, unknown>>[];
+}>;
+
+async function routeWorkflowRecovery(
+  page: Page,
+  scenario: WorkflowRecoveryScenario,
 ): Promise<void> {
+  await page.route("**/side-chat-api/api/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
+      await route.fulfill({ json: { messages: scenario.history } });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.endsWith("/active-turn")) {
+      await route.fulfill({ json: { activeTurn: scenario.activeTurn } });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.endsWith("/stream")) {
+      await fulfillWorkflowStream(route, {
+        chunks: scenario.streamChunks,
+        runId: scenario.runId,
+      });
+      return;
+    }
+    await route.abort("failed");
+  });
+}
+
+async function fulfillWorkflowStream(route: Route, scenario: WorkflowRouteScenario): Promise<void> {
   const body =
-    scenario.chunks
-      .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
-      .join("") + "data: [DONE]\n\n";
+    scenario.chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") +
+    "data: [DONE]\n\n";
   await route.fulfill({
     body,
     headers: {
