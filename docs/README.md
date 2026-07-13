@@ -25,6 +25,7 @@ table to the doc that owns each topic.
 **Adopting or operating** — turn the starter into your team's application:
 
 - [operations/](operations/): [verification.md](operations/verification.md), [local-development.md](operations/local-development.md), [configuration.md](operations/configuration.md), [capacity-and-deployment.md](operations/capacity-and-deployment.md), [database.md](operations/database.md), [embed-widget-iframe.md](operations/embed-widget-iframe.md).
+- [pi/SETUP-GUIDE.md](pi/SETUP-GUIDE.md): configure and operate the repository-local Pi parent/implementer workflow.
 - [architecture/extension-seams.md](architecture/extension-seams.md): the seams for tools, guards, executors, observability, and host commands.
 - [architecture/host-commands.md](architecture/host-commands.md): the end-to-end walkthrough for adding a host-side tool (host command), with a runnable example.
 
@@ -50,6 +51,9 @@ Each file below owns its topic. Link to it; never re-derive its content elsewher
 | [operations/capacity-and-deployment.md](operations/capacity-and-deployment.md)             | Instance model, SSE budgets, and what grows forever.                             |
 | [operations/database.md](operations/database.md)                                           | Schema tooling, migrations, and role grants.                                     |
 | [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md)                     | Embedding the widget in a host page via iframe.                                  |
+| [pi/SETUP-GUIDE.md](pi/SETUP-GUIDE.md)                                                     | Starting, verifying, and troubleshooting project-local Pi.                       |
+| [pi/KNOWLEDGE.md](pi/KNOWLEDGE.md)                                                         | Pi model routing, child-agent, and project/machine boundary decisions.           |
+| [pi/IMPLEMENTATION-PLAN.md](pi/IMPLEMENTATION-PLAN.md)                                     | Pi rollout sequence, acceptance status, risks, and rollback boundary.            |
 | [product/requirements.md](product/requirements.md)                                         | Functional, quality, safety, and adoption requirements.                          |
 | [product/todo.md](product/todo.md)                                                         | Deferred product work, kept out of active config.                                |
 | [adr/](adr/)                                                                               | Accepted architecture decisions and their rationale.                             |

@@ -1,0 +1,32 @@
+{
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "high",
+  "enabledModels": [
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-luna",
+    "openai-codex/gpt-5.3-codex-spark"
+  ],
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 35000,
+    "keepRecentTokens": 20000
+  },
+  "packages": [
+    "npm:pi-subagents@0.34.0",
+    "npm:@narumitw/pi-chrome-devtools@0.14.1",
+    "npm:pi-web-search@1.3.1"
+  ],
+  "subagents": {
+    "defaultModel": "openai-codex/gpt-5.6-luna",
+    "disableBuiltins": true,
+    "modelScope": {
+      "enforce": true,
+      "allow": [
+        "openai-codex/gpt-5.6-sol",
+        "openai-codex/gpt-5.6-luna",
+        "openai-codex/gpt-5.3-codex-spark"
+      ]
+    }
+  }
+}

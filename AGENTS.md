@@ -140,6 +140,7 @@ Write for a lower-context human maintainer, not for AI working memory:
 - Keep one abstraction level per function. Separate policy, selection, transformation, persistence, transport, rendering, and error mapping into named stages.
 - Prefer named steps, guard clauses, precise domain names, and existing utilities over nested expressions, clever one-liners, type tricks, and abstraction layers that only hide simple work.
 - Do not split code into arbitrary tiny helpers if the split increases navigation or concept count.
+- **Frequently missed — check every change:** extract repeated or domain literals (statuses, error codes, reasons, tuned numbers) into named constants, and reuse shared helpers, types, and value sets instead of copying them. Do not hardcode another package's contract values; key off the boundary signal you own or import the shared constant. Duplicated helpers and inline magic values are a recurring regression, especially under time or cost pressure.
 
 Use structure before comments. Add comments only for a contract, invariant, failure or privacy rule, lifecycle boundary, non-goal, or non-obvious reason. A boundary comment should make the local role, source representation, target contract, hidden detail, and preserved invariant understandable without the implementation plan. Concept-dense files need a short file-level mental model. Delete comments that merely narrate syntax or describe an obsolete design.
 
@@ -164,19 +165,25 @@ When a doc and code disagree, verify the code and report or fix the stale source
 - Validate untrusted input at the owning boundary. Preserve idempotency, ownership checks, timeout, cancellation, size, rate, and resource limits.
 - Do not use real credentials, real provider calls, or persistent production data for local verification unless explicitly requested and safely scoped.
 
-## Delegation and parallel work
+## Pi operating model and delegation
 
-Delegate only when it materially improves speed, coverage, or correctness. Give each delegated task one bounded question, explicit read/write scope, and a verifiable output. Keep independent investigations parallel and dependent edits sequential. The lead agent owns integration, conflict resolution, final verification, and the final report.
+The main Pi chat is the Sol/high parent configured by [`.pi/settings.json`](.pi/settings.json) and [`.pi/APPEND_SYSTEM.md`](.pi/APPEND_SYSTEM.md). The only permitted project-scoped child is [`implementer`](.pi/agents/implementer.md), resolved as Luna/max. Provider-qualified identifiers such as `openai-codex/gpt-5.6-sol` and `openai-codex/gpt-5.6-luna` are configuration values, not workflow roles.
 
-Do not delegate a simple file lookup or use parallel agents as a substitute for reading the relevant code. A delegated result must include evidence, uncertainty, and files or symbols inspected.
+Use the following execution flow:
 
-### Luna xhigh executor
+1. The parent interprets the request and performs repository reconnaissance, official research, source-of-truth selection, architecture and scope decisions, planning, and sequencing.
+2. Before delegation, the parent defines the outcome, write scope, canonical docs, constraints, acceptance criteria, and verification target.
+3. The parent invokes only `implementer` through project-scoped subagent discovery and execution.
+4. The implementer owns the assigned slice, inspects its callers, tests, and referenced docs as needed, preserves unrelated user changes, and runs focused verification.
+5. The implementer reports changed files, verification evidence, uncertainty, conflicts, and recommended handoffs. The parent then owns integration, review, independent verification, and the final response.
 
-The project-scoped `luna_xhigh_executor` agent is defined in [`.codex/agents/luna-xhigh-executor.toml`](.codex/agents/luna-xhigh-executor.toml). It uses `gpt-5.6-luna` with `xhigh` reasoning for substantial bounded execution; it is not limited to trivial work.
+Delegate substantive bounded implementation, debugging, coherent refactoring, focused test work, and implementation-linked documentation. Do not delegate simple lookup, broad open-ended reconnaissance, final review, final verification, destructive, external, credentialed, production, git-publish, database-mutation, or materially scope-changing actions. Return architectural decisions, destructive actions, shared-file conflicts, and unresolved uncertainty to the parent rather than deciding them silently.
 
-Use it after the lead agent establishes the task boundary, ownership, source-of-truth documents, and verification target. Suitable slices include multi-file implementation, debugging and fixes, coherent refactors, focused tests, and implementation-linked documentation. The lead agent retains overall task ownership, architecture and scope decisions, integration, conflict resolution, and final verification.
+Use `agentScope: "project"` for subagent discovery and runs. Built-in roles remain disabled. Do not add competing delegation packages or silently broaden tools, extensions, model scope, nesting depth, or package pins.
 
-When the user requests Luna xhigh, route the work to the exact `luna_xhigh_executor` agent. If that agent is unavailable, report the limitation instead of spawning an inherited or fallback model under a misleading Luna task name. A display name is not proof of model selection: when model identity matters, verify the spawned session's `turn_context` records `model = "gpt-5.6-luna"` and `effort = "xhigh"`.
+Keep dependent edits sequential. Parallel implementation is allowed only for independent, disjoint write scopes in separate worktrees. Never run concurrent writers against the same checkout or overlapping files.
+
+Keep concise runtime and setup details linked to [`docs/pi/SETUP-GUIDE.md`](docs/pi/SETUP-GUIDE.md), and durable routing decisions linked to [`docs/pi/KNOWLEDGE.md`](docs/pi/KNOWLEDGE.md), rather than duplicating the full setup guide. The parent may work directly only for (1) a very small change where delegation overhead exceeds the work, (2) unavailable delegation, or (3) tightly coupled integration/final-fix work.
 
 ## Verification
 
