@@ -3,12 +3,14 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { UIMessage } from "ai";
-
-import type { WorkflowActiveTurn, WorkflowChatClient } from "#entities/workflow-chat";
+import type {
+  WorkflowActiveTurn,
+  WorkflowChatClient,
+  WorkflowUIMessage,
+} from "#entities/workflow-chat";
 import { useWorkflowWidgetChat, type WorkflowWidgetChat } from "./use-workflow-widget-chat.js";
 
-const SEEDED_MESSAGE: UIMessage = {
+const SEEDED_MESSAGE: WorkflowUIMessage = {
   id: "seed-user",
   role: "user",
   parts: [{ type: "text", text: "Earlier" }],
@@ -62,6 +64,17 @@ describe("useWorkflowWidgetChat", () => {
       expect.objectContaining({ type: "text", text: "Answer", state: "done" }),
     );
     expect(chat.current?.messages.filter((message) => message.id === "seed-user")).toHaveLength(1);
+    expect(
+      chat.current?.messages.find((message) => message.id === "assistant-1")?.metadata,
+    ).toEqual({
+      usage: {
+        inputTokens: 2,
+        outputTokens: 3,
+        totalTokens: 5,
+        reasoningTokens: 0,
+        cachedInputTokens: 0,
+      },
+    });
     expect(chat.current?.terminal).toMatchObject({
       kind: "completed",
       messageId: "assistant-1",
@@ -252,7 +265,18 @@ function completedTurnResponse(): Response {
       { type: "text-delta", id: "text-1", delta: "Answer" },
       { type: "text-end", id: "text-1" },
       { type: "finish-step" },
-      { type: "finish" },
+      {
+        type: "finish",
+        messageMetadata: {
+          usage: {
+            inputTokens: 2,
+            outputTokens: 3,
+            totalTokens: 5,
+            reasoningTokens: 0,
+            cachedInputTokens: 0,
+          },
+        },
+      },
     ]
       .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
       .join("") + "data: [DONE]\n\n",

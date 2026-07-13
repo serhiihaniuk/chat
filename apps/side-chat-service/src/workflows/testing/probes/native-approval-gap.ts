@@ -3,7 +3,7 @@ import { isStepCount, jsonSchema, type ToolSet } from "ai";
 import { getWritable } from "workflow";
 import { start } from "workflow/api";
 
-import { assertModelInstance } from "#application/ports/model-provider";
+import { assertDurableModelHandle } from "#application/ports/model-provider";
 import { initializeTestingWorkflowServices } from "#composition/workflow/testing";
 
 const PROBE = {
@@ -34,7 +34,7 @@ export async function probeNativeApprovalGap(requestId: string): Promise<NativeA
 
   const { modelProvider } = initializeTestingWorkflowServices();
   const resolvedModel = modelProvider.modelFor({ modelId: PROBE.MODEL_ID, requestId });
-  assertModelInstance(resolvedModel.model);
+  assertDurableModelHandle(resolvedModel.model);
   const agent = new WorkflowAgent({
     id: PROBE.AGENT_ID,
     model: resolvedModel.model,

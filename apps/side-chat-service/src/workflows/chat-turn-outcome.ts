@@ -135,7 +135,7 @@ export function classifyChatTurnOutcome(outcome: ChatTurnTerminalOutcome): ChatT
     return {
       status: TURN_TERMINAL_STATUSES.COMPLETED,
       finishReason: outcome.finishReason,
-      assistantMessage: outcome.assistantMessage,
+      assistantMessage: withUsageMetadata(outcome.assistantMessage, chatTurnUsage(outcome)),
     };
   }
   if (outcome.status === CHAT_TURN_OUTCOMES.CANCELLED) {
@@ -177,6 +177,10 @@ export function chatTurnFinalization(outcome: ChatTurnTerminalOutcome): ChatTurn
   return classification.assistantMessage === undefined
     ? { terminal }
     : { terminal, assistantMessage: classification.assistantMessage };
+}
+
+function withUsageMetadata(message: UIMessage, usage: TurnUsage): UIMessage {
+  return { ...message, metadata: { usage } };
 }
 
 function toTurnExecutionErrorCode(

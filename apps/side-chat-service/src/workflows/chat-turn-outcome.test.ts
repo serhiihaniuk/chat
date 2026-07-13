@@ -23,6 +23,7 @@ const ASSISTANT_MESSAGE: UIMessage = {
   id: "turn-1-assistant",
   role: "assistant",
   parts: [{ type: "text", text: "Hi there" }],
+  metadata: { provider: "private" },
 };
 
 function completedOutcome(finishReason: string): ChatTurnTerminalOutcome {
@@ -60,7 +61,20 @@ describe("classifyChatTurnOutcome", () => {
     expect(classifyChatTurnOutcome(completedOutcome("stop"))).toEqual({
       status: TURN_TERMINAL_STATUSES.COMPLETED,
       finishReason: "stop",
-      assistantMessage: ASSISTANT_MESSAGE,
+      assistantMessage: {
+        id: "turn-1-assistant",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hi there" }],
+        metadata: {
+          usage: {
+            inputTokens: 3,
+            outputTokens: 5,
+            totalTokens: 8,
+            reasoningTokens: 1,
+            cachedInputTokens: 2,
+          },
+        },
+      },
     });
   });
 
@@ -123,7 +137,20 @@ describe("chatTurnFinalization", () => {
           cachedInputTokens: 2,
         },
       },
-      assistantMessage: ASSISTANT_MESSAGE,
+      assistantMessage: {
+        id: "turn-1-assistant",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hi there" }],
+        metadata: {
+          usage: {
+            inputTokens: 3,
+            outputTokens: 5,
+            totalTokens: 8,
+            reasoningTokens: 1,
+            cachedInputTokens: 2,
+          },
+        },
+      },
     });
   });
 

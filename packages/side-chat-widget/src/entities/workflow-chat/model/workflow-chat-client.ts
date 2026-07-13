@@ -2,11 +2,13 @@ import { safeValidateUIMessages, type UIMessage } from "ai";
 import {
   isSideChatErrorCode,
   SIDE_CHAT_ERROR_VOCABULARY,
+  sideChatMessageMetadataSchema,
   type SideChatDataParts,
+  type SideChatMessageMetadata,
 } from "@side-chat/stream-profile";
 
-/** Native UI message shape for the workflow branch; SideChatDataParts is intentionally empty. */
-export type WorkflowUIMessage = UIMessage<unknown, SideChatDataParts>;
+/** Native UI message shape for the workflow branch; metadata is folded turn usage. */
+export type WorkflowUIMessage = UIMessage<SideChatMessageMetadata | undefined, SideChatDataParts>;
 
 /**
  * Validate workflow service responses before browser chat state consumes them.
@@ -76,6 +78,7 @@ export async function readWorkflowChatHistory(
   if (payload["messages"].length === 0) return [];
   const validated = await safeValidateUIMessages<WorkflowUIMessage>({
     messages: payload["messages"],
+    metadataSchema: sideChatMessageMetadataSchema,
   });
   if (!validated.success) throw new Error("Conversation history contains invalid messages.");
   return validated.data;

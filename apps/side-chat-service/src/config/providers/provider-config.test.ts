@@ -30,6 +30,7 @@ describe("provider configuration catalogs", () => {
       {
         modelId: OPENAI_PROVIDER.MODELS.GPT_5_4.MODEL_ID,
         titleModelId: OPENAI_PROVIDER.MODELS.GPT_5_4.MODEL_ID,
+        contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_4.CONTEXT_WINDOW_TOKENS,
         apiKey: "test-key",
         reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
       },
@@ -40,6 +41,7 @@ describe("provider configuration catalogs", () => {
       {
         modelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
         titleModelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
+        contextWindowTokens: AZURE_PROVIDER.MODELS.GPT_4O.CONTEXT_WINDOW_TOKENS,
         deployment: "test-deployment",
         apiKey: "test-key",
         endpoint: "https://azure.test",
@@ -50,9 +52,13 @@ describe("provider configuration catalogs", () => {
 
     expect(openAi).toMatchObject({
       provider: OPENAI_PROVIDER.KIND,
+      contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_4.CONTEXT_WINDOW_TOKENS,
       reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
     });
-    expect(azure.provider).toBe(AZURE_PROVIDER.KIND);
+    expect(azure).toMatchObject({
+      provider: AZURE_PROVIDER.KIND,
+      contextWindowTokens: AZURE_PROVIDER.MODELS.GPT_4O.CONTEXT_WINDOW_TOKENS,
+    });
     expect(openAiIssues).toEqual([]);
     expect(azureIssues).toEqual([]);
   });

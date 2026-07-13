@@ -6,7 +6,11 @@ import type {
 } from "@ai-sdk/provider";
 import { WORKFLOW_DESERIALIZE, WORKFLOW_SERIALIZE } from "@workflow/serde";
 
-import type { ModelProvider } from "#application/ports/model-provider";
+import {
+  DURABLE_MODEL_HANDLE,
+  type DurableLanguageModel,
+  type ModelProvider,
+} from "#application/ports/model-provider";
 
 import {
   CLIENT_TOOL_PRIVATE_RESULT_MARKER,
@@ -40,7 +44,7 @@ interface SerializedScriptedModel {
 export function createScriptedLanguageModel(
   requestId: string,
   mode: ProviderScriptMode,
-): LanguageModelV4 {
+): DurableLanguageModel {
   return new ScriptedLanguageModel(requestId, mode);
 }
 
@@ -60,6 +64,7 @@ export const scriptedModelProvider: ModelProvider = {
  * host-side provider process.
  */
 class ScriptedLanguageModel implements LanguageModelV4 {
+  readonly [DURABLE_MODEL_HANDLE] = true;
   readonly specificationVersion = "v4";
   readonly provider = "side-chat-scripted";
   readonly modelId = "workflow-compatibility";

@@ -25,6 +25,72 @@ describe("outbound scrub filter", () => {
     expect(JSON.stringify(out)).not.toContain(sentinel);
   });
 
+  it("preserves validated native usage metadata", async () => {
+    const out = await scrub([
+      {
+        type: "finish",
+        messageMetadata: {
+          usage: {
+            inputTokens: 2,
+            outputTokens: 3,
+            totalTokens: 5,
+            reasoningTokens: 0,
+            cachedInputTokens: 0,
+          },
+        },
+      },
+    ]);
+
+    expect(out).toEqual([
+      {
+        type: "finish",
+        messageMetadata: {
+          usage: {
+            inputTokens: 2,
+            outputTokens: 3,
+            totalTokens: 5,
+            reasoningTokens: 0,
+            cachedInputTokens: 0,
+          },
+        },
+      },
+    ]);
+  });
+
+  it("strips invalid native metadata without leaking private fields", async () => {
+    const sentinel = "PRIVATE_USAGE_METADATA_SENTINEL";
+    const out = await scrub([
+      {
+        type: "message-metadata",
+        messageMetadata: {
+          usage: {
+            inputTokens: 1,
+            outputTokens: 2,
+            totalTokens: 3,
+            privateField: sentinel,
+          },
+        },
+      },
+    ]);
+
+    expect(out).toEqual([{ type: "message-metadata" }]);
+    expect(JSON.stringify(out)).not.toContain(sentinel);
+  });
+
+  it("strips native metadata from chunk types that do not own it", async () => {
+    const sentinel = "MISPLACED_METADATA_SENTINEL";
+    const chunk = {
+      type: "text-start",
+      id: "text-1",
+      messageMetadata: { privateField: sentinel },
+    } as const;
+
+    const out = await scrub([chunk]);
+
+    expect(out).toEqual([{ type: "text-start", id: "text-1" }]);
+    expect(JSON.stringify(out)).not.toContain(sentinel);
+  });
+
   it("removes private dynamic client-tool output while preserving settled state", async () => {
     const sentinel = "PRIVATE_CLIENT_TOOL_OUTPUT_SENTINEL";
     const out = await scrub([
@@ -70,9 +136,7 @@ describe("outbound scrub filter", () => {
   });
 
   it("forwards a native content-filter finish reason untouched", async () => {
-    const out = await scrub([
-      { type: "finish", finishReason: "content-filter" },
-    ]);
+    const out = await scrub([{ type: "finish", finishReason: "content-filter" }]);
     expect(out).toEqual([{ type: "finish", finishReason: "content-filter" }]);
   });
 
@@ -85,11 +149,7 @@ describe("outbound scrub filter", () => {
     const out = await scrub([{ type: "start" }, unknown, { type: "finish" }], {
       onUnknownChunk: (type) => seen.push(type),
     });
-    expect(out.map((part) => part.type)).toEqual([
-      "start",
-      "data-demo",
-      "finish",
-    ]);
+    expect(out.map((part) => part.type)).toEqual(["start", "data-demo", "finish"]);
     expect(seen).toEqual(["data-demo"]);
   });
 
@@ -109,21 +169,15 @@ describe("outbound scrub filter", () => {
 
   it("treats error and abort as terminal for the single-terminal guard", async () => {
     const dropped: string[] = [];
-    const out = await scrub(
-      [{ type: "abort" }, { type: "error", errorText: "boom" }],
-      {
-        onDroppedTerminalChunk: (type) => dropped.push(type),
-      },
-    );
+    const out = await scrub([{ type: "abort" }, { type: "error", errorText: "boom" }], {
+      onDroppedTerminalChunk: (type) => dropped.push(type),
+    });
     expect(out.map((part) => part.type)).toEqual(["abort"]);
     expect(dropped).toEqual(["error"]);
   });
 });
 
-async function scrub(
-  input: UIMessageChunk[],
-  observer?: ScrubObserver,
-): Promise<UIMessageChunk[]> {
+async function scrub(input: UIMessageChunk[], observer?: ScrubObserver): Promise<UIMessageChunk[]> {
   const source = new ReadableStream<UIMessageChunk>({
     start(controller) {
       for (const chunk of input) controller.enqueue(chunk);

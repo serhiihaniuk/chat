@@ -2,6 +2,7 @@ import type { ConfigValue } from "../declaration/side-chat-config.js";
 import {
   readOptionalCatalogValue,
   readOptionalString,
+  readRequiredPositiveInteger,
   readRequiredString,
   type SettingsIssue,
   type SettingsObject,
@@ -12,7 +13,10 @@ import { PROVIDER_KINDS } from "./provider-config.js";
 export const OPENAI_PROVIDER = {
   KIND: PROVIDER_KINDS.OPENAI,
   MODELS: {
-    GPT_5_4: { MODEL_ID: "gpt-5.4" },
+    GPT_5_4: {
+      MODEL_ID: "gpt-5.4",
+      CONTEXT_WINDOW_TOKENS: 1_000_000,
+    },
   },
   REASONING_EFFORTS: {
     LOW: "low",
@@ -33,10 +37,20 @@ export const OPENAI_PROVIDER = {
   SETTINGS_FIELDS: {
     MODEL_ID: { KEY: "modelId", PATH: "models.modelId" },
     TITLE_MODEL_ID: { KEY: "titleModelId", PATH: "models.titleModelId" },
+    CONTEXT_WINDOW_TOKENS: {
+      KEY: "contextWindowTokens",
+      PATH: "models.contextWindowTokens",
+    },
     API_KEY: { KEY: "apiKey", PATH: "models.apiKey" },
     BASE_URL: { KEY: "baseUrl", PATH: "models.baseUrl" },
-    REASONING_EFFORT: { KEY: "reasoningEffort", PATH: "models.reasoningEffort" },
-    REASONING_SUMMARY: { KEY: "reasoningSummary", PATH: "models.reasoningSummary" },
+    REASONING_EFFORT: {
+      KEY: "reasoningEffort",
+      PATH: "models.reasoningEffort",
+    },
+    REASONING_SUMMARY: {
+      KEY: "reasoningSummary",
+      PATH: "models.reasoningSummary",
+    },
   },
 } as const;
 
@@ -50,6 +64,7 @@ export type OpenAIModelConfig = Readonly<{
   provider: typeof OPENAI_PROVIDER.KIND;
   modelId: ConfigValue<string>;
   titleModelId: ConfigValue<string>;
+  contextWindowTokens: ConfigValue<number>;
   apiKey: ConfigValue<string>;
   baseUrl?: ConfigValue<string | undefined>;
   reasoningEffort?: OpenAIReasoningEffort;
@@ -60,6 +75,7 @@ export type OpenAIModelSettings = Readonly<{
   provider: typeof OPENAI_PROVIDER.KIND;
   modelId: string;
   titleModelId: string;
+  contextWindowTokens: number;
   apiKey: string;
   baseUrl?: string | undefined;
   reasoningEffort?: OpenAIReasoningEffort | undefined;
@@ -77,6 +93,11 @@ export function readOpenAIModelSettings(
     titleModelId: readRequiredString(
       models[fields.TITLE_MODEL_ID.KEY],
       fields.TITLE_MODEL_ID.PATH,
+      issues,
+    ),
+    contextWindowTokens: readRequiredPositiveInteger(
+      models[fields.CONTEXT_WINDOW_TOKENS.KEY],
+      fields.CONTEXT_WINDOW_TOKENS.PATH,
       issues,
     ),
     apiKey: readRequiredString(models[fields.API_KEY.KEY], fields.API_KEY.PATH, issues),

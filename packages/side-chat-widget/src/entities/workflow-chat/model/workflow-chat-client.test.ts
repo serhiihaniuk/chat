@@ -17,6 +17,59 @@ describe("readWorkflowChatHistory", () => {
     await expect(readWorkflowChatHistory(client)).resolves.toEqual([]);
   });
 
+  it("accepts validated native usage metadata in history", async () => {
+    const client = createClient(() =>
+      Response.json({
+        messages: [
+          {
+            id: "message-1",
+            role: "assistant",
+            metadata: {
+              usage: {
+                inputTokens: 2,
+                outputTokens: 3,
+                totalTokens: 5,
+                reasoningTokens: 0,
+                cachedInputTokens: 0,
+              },
+            },
+            parts: [{ type: "text", text: "Answer" }],
+          },
+        ],
+      }),
+    );
+
+    await expect(readWorkflowChatHistory(client)).resolves.toMatchObject([
+      { id: "message-1", metadata: { usage: { totalTokens: 5 } } },
+    ]);
+  });
+
+  it("rejects private fields in native usage metadata", async () => {
+    const client = createClient(() =>
+      Response.json({
+        messages: [
+          {
+            id: "message-1",
+            role: "assistant",
+            metadata: {
+              usage: {
+                inputTokens: 2,
+                outputTokens: 3,
+                totalTokens: 5,
+                privateField: "do-not-accept",
+              },
+            },
+            parts: [{ type: "text", text: "Answer" }],
+          },
+        ],
+      }),
+    );
+
+    await expect(readWorkflowChatHistory(client)).rejects.toThrow(
+      "Conversation history contains invalid messages.",
+    );
+  });
+
   it("rejects non-empty history that is not a valid native UI message list", async () => {
     const client = createClient(() =>
       Response.json({
@@ -62,7 +115,9 @@ describe("readWorkflowChatHistory", () => {
 describe("readWorkflowActiveTurn", () => {
   it("returns the live run for reattach", async () => {
     const client = createClient(() =>
-      Response.json({ activeTurn: { turnId: "turn-1", runId: "run-1", status: "running" } }),
+      Response.json({
+        activeTurn: { turnId: "turn-1", runId: "run-1", status: "running" },
+      }),
     );
 
     await expect(readWorkflowActiveTurn(client)).resolves.toEqual({
@@ -98,7 +153,11 @@ describe("readWorkflowConversations", () => {
     const client = createClient(() =>
       Response.json({
         conversations: [
-          { id: "conversation-a", title: "Billing bug", lastMessageAt: "2026-07-13T10:00:00Z" },
+          {
+            id: "conversation-a",
+            title: "Billing bug",
+            lastMessageAt: "2026-07-13T10:00:00Z",
+          },
           { id: "conversation-b" },
           { title: "no id" },
           42,
@@ -107,7 +166,11 @@ describe("readWorkflowConversations", () => {
     );
 
     await expect(readWorkflowConversations(client)).resolves.toEqual([
-      { id: "conversation-a", title: "Billing bug", lastMessageAt: "2026-07-13T10:00:00Z" },
+      {
+        id: "conversation-a",
+        title: "Billing bug",
+        lastMessageAt: "2026-07-13T10:00:00Z",
+      },
       { id: "conversation-b", title: "", lastMessageAt: undefined },
     ]);
   });
@@ -134,14 +197,45 @@ describe("readWorkflowModels", () => {
   it("maps the catalog and drops malformed models", async () => {
     const client = createClient(() =>
       Response.json({
-        models: [{ id: "workspace-gpt-5", provider: "openai" }, { provider: "no id" }, 7],
+        models: [
+          {
+            id: "workspace-gpt-5",
+            provider: "openai",
+            contextWindowTokens: 128_000,
+          },
+          { provider: "no id" },
+          7,
+        ],
         defaultModelId: "workspace-gpt-5",
       }),
     );
 
     await expect(readWorkflowModels(client)).resolves.toEqual({
-      models: [{ id: "workspace-gpt-5", provider: "openai" }],
+      models: [
+        {
+          id: "workspace-gpt-5",
+          provider: "openai",
+          contextWindowTokens: 128_000,
+        },
+      ],
       defaultModelId: "workspace-gpt-5",
+    });
+  });
+
+  it("drops models without a positive integer context window", async () => {
+    const client = createClient(() =>
+      Response.json({
+        models: [
+          { id: "missing-window" },
+          { id: "fractional-window", contextWindowTokens: 2.5 },
+          { id: "valid", contextWindowTokens: 16_000 },
+        ],
+      }),
+    );
+
+    await expect(readWorkflowModels(client)).resolves.toEqual({
+      models: [{ id: "valid", contextWindowTokens: 16_000 }],
+      defaultModelId: undefined,
     });
   });
 

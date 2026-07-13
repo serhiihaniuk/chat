@@ -17,14 +17,13 @@ type ConfigOverrides = Omit<
   readonly telemetry?: SideChatConfig["telemetry"];
 };
 
-export function createDefaultConfig(
-  overrides: ConfigOverrides = {},
-): SideChatConfig {
+export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatConfig {
   const defaults: SideChatConfig = {
     models: {
       provider: SCRIPTED_PROVIDER.KIND,
       modelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
       titleModelId: SCRIPTED_PROVIDER.MODELS.TITLE.MODEL_ID,
+      contextWindowTokens: SCRIPTED_PROVIDER.MODELS.COMPLETE.CONTEXT_WINDOW_TOKENS,
     },
     auth: {
       profile: AUTH_PROFILES.DEVELOPMENT,

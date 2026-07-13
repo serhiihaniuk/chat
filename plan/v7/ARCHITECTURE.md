@@ -63,14 +63,14 @@ Engine placement, precisely: **`workflow` and `@ai-sdk/workflow` imports are leg
 
 Ports are interfaces the application defines because a real substitution exists. The known inventory (from the old system's proven port families plus the substrate decision):
 
-| Port (application/ports)                                   | Production adapter                                 | Test/double                     |
-| ---------------------------------------------------------- | -------------------------------------------------- | ------------------------------- |
-| `ModelProvider` (construct a `LanguageModel` per settings) | `adapters/providers` azure/openai                  | `testing/` scripted serde model |
-| `RequestAuthorizer`                                        | `adapters/auth` token/JWT authority                | deterministic test authority    |
-| `TurnExecution` (start/cancel/attach a durable turn)       | `workflows/` shell via `workflow/api`              | in-process fake for route tests |
-| `ConversationStore`, `TurnStore` (Step 09 shapes)          | `adapters/persistence` on `packages/db`            | memory implementations          |
-| `TelemetrySink`                                            | `adapters/telemetry`                               | collecting fake                 |
-| `Clock`/`IdGenerator`                                      | only if a test proves the need — do not pre-create |
+| Port (application/ports)                                       | Production adapter                                                   | Test/double                     |
+| -------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------- |
+| `ModelProvider` (resolve a Workflow-serializable model handle) | `composition/providers` over adapter-private azure/openai SDK models | `testing/` scripted serde model |
+| `RequestAuthorizer`                                            | `adapters/auth` token/JWT authority                                  | deterministic test authority    |
+| `TurnExecution` (start/cancel/attach a durable turn)           | `workflows/` shell via `workflow/api`                                | in-process fake for route tests |
+| `ConversationStore`, `TurnStore` (Step 09 shapes)              | `adapters/persistence` on `packages/db`                              | memory implementations          |
+| `TelemetrySink`                                                | `adapters/telemetry`                                                 | collecting fake                 |
+| `Clock`/`IdGenerator`                                          | only if a test proves the need — do not pre-create                   |
 
 Rules: a port is defined next to the application code that owns it; no port without two real implementations or a test that substitutes it; **never** a port around the SDK/engine itself.
 
@@ -82,7 +82,7 @@ Rules: a port is defined next to the application code that owns it; no port with
    is file-and-adapter specific in architecture lint and must not spread into a
    deterministic `use workflow` graph.
 2. Route and workflow bundles have separate composition entries. `composition/route/*` wires HTTP. `composition/workflow/production.ts` and `composition/workflow/testing.ts` initialize the **step-bundle registry** (`workflows/registry.ts`) in their own module instances. A workflow may import only the initializer matching its physical `workflows/production/` or `workflows/testing/` subtree. The registry is typed with real ports, rejects reads before initialization, and resets only in tests.
-3. Nothing crosses workflow→step boundaries except serializable values; model instances crossing implement `WORKFLOW_SERIALIZE`/`WORKFLOW_DESERIALIZE`.
+3. Nothing crosses workflow→step boundaries except serializable values. Raw provider SDK models are adapter-private and never cross. Production composition wraps them in a model handle implementing `WORKFLOW_SERIALIZE`/`WORKFLOW_DESERIALIZE`; its serialized descriptor pins only provider identity, model id, and non-secret routing. The step-realm deserializer resolves the current credential through the configuration environment adapter and reconstructs the SDK model there. API keys, credential values, fetch functions, and provider closures never enter the Workflow journal. Testing models implement the same serde contract directly.
 4. Abort-path errors keep the `AbortError` DOMException name (engine retries otherwise); cancellation is signal-based via durable hooks — `run.cancel()` is never the mechanism.
 5. The realm patch lives in exactly one `workflows/` module with its removal-tripwire test.
 6. Nitro scans only configured workflow directories. Production builds scan `workflows/production/`; compatibility builds scan `workflows/testing/`. Tests prove the production artifact contains no scripted-provider or compatibility marker.

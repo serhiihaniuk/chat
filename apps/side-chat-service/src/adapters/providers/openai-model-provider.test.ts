@@ -1,12 +1,12 @@
 import { streamText } from "ai";
 import { describe, expect, it } from "vitest";
 
-import { createOpenAIModelProvider } from "./openai-model-provider.js";
+import { createOpenAIModelAdapter } from "./openai-model-provider.js";
 
-describe("createOpenAIModelProvider", () => {
+describe("createOpenAIModelAdapter", () => {
   it("disables retention and the implicit detailed reasoning summary", async () => {
     let body: unknown;
-    const provider = createOpenAIModelProvider({
+    const provider = createOpenAIModelAdapter({
       apiKey: "test-key",
       modelId: "gpt-5.4-mini",
       titleModelId: "gpt-5.4-mini",
@@ -21,17 +21,12 @@ describe("createOpenAIModelProvider", () => {
         );
       },
     });
-    const resolved = provider.modelFor({
-      modelId: "gpt-5.4-mini",
-      requestId: "request-1",
-    });
+    const resolved = provider.modelFor("gpt-5.4-mini");
 
     const result = streamText({
-      model: resolved.model,
+      model: resolved,
       prompt: "hello",
-      ...(resolved.providerOptions === undefined
-        ? {}
-        : { providerOptions: resolved.providerOptions }),
+      providerOptions: provider.providerOptions,
     });
     for await (const _part of result.fullStream) {
       // Consuming the stream makes the mocked provider request observable.

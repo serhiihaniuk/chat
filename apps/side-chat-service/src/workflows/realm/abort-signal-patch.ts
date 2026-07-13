@@ -8,7 +8,8 @@
  * 'instanceof' is not callable`. vercel/ai runs exactly that check inside
  * `WorkflowAgent.stream` (`merge-abort-signals.ts:17`), so any `abortSignal` or
  * numeric `timeout` fails before the provider is reached. The repair restores the
- * realm's real `AbortSignal` class from the prototype of a signal created here.
+ * realm's real `AbortSignal` class from the prototype of a signal created here,
+ * while retaining the runtime's working `abort`, `any`, and `timeout` statics.
  *
  * Evidence: plan/v7/evidence/02-workflow-cancellation-reexamination.md. Remove this
  * module once either upstream ships its one-line fix (the VM exposing the real
@@ -18,5 +19,12 @@
 export function patchWorkflowRealmAbortSignal(signal: AbortSignal): void {
   const signalPrototype = Reflect.getPrototypeOf(signal);
   if (signalPrototype === null) return;
-  Object.assign(globalThis, { AbortSignal: signalPrototype.constructor });
+  const signalConstructor = signalPrototype.constructor;
+  const runtimeAbortSignal = globalThis.AbortSignal;
+  Object.assign(signalConstructor, {
+    abort: (reason?: unknown) => runtimeAbortSignal.abort(reason),
+    any: (signals: AbortSignal[]) => runtimeAbortSignal.any(signals),
+    timeout: (milliseconds: number) => runtimeAbortSignal.timeout(milliseconds),
+  });
+  Object.assign(globalThis, { AbortSignal: signalConstructor });
 }

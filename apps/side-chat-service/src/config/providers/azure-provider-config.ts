@@ -1,5 +1,6 @@
 import type { ConfigValue } from "../declaration/side-chat-config.js";
 import {
+  readRequiredPositiveInteger,
   readRequiredString,
   type SettingsIssue,
   type SettingsObject,
@@ -10,7 +11,10 @@ import { PROVIDER_KINDS } from "./provider-config.js";
 export const AZURE_PROVIDER = {
   KIND: PROVIDER_KINDS.AZURE,
   MODELS: {
-    GPT_4O: { MODEL_ID: "gpt-4o" },
+    GPT_4O: {
+      MODEL_ID: "gpt-4o",
+      CONTEXT_WINDOW_TOKENS: 128_000,
+    },
   },
   SECRET_ENV_KEYS: {
     API_KEY: "AZURE_OPENAI_API_KEY",
@@ -23,6 +27,10 @@ export const AZURE_PROVIDER = {
   SETTINGS_FIELDS: {
     MODEL_ID: { KEY: "modelId", PATH: "models.modelId" },
     TITLE_MODEL_ID: { KEY: "titleModelId", PATH: "models.titleModelId" },
+    CONTEXT_WINDOW_TOKENS: {
+      KEY: "contextWindowTokens",
+      PATH: "models.contextWindowTokens",
+    },
     DEPLOYMENT: { KEY: "deployment", PATH: "models.deployment" },
     API_KEY: { KEY: "apiKey", PATH: "models.apiKey" },
     ENDPOINT: { KEY: "endpoint", PATH: "models.endpoint" },
@@ -34,6 +42,7 @@ export type AzureModelConfig = Readonly<{
   provider: typeof AZURE_PROVIDER.KIND;
   modelId: ConfigValue<string>;
   titleModelId: ConfigValue<string>;
+  contextWindowTokens: ConfigValue<number>;
   deployment: ConfigValue<string>;
   apiKey: ConfigValue<string>;
   endpoint: ConfigValue<string>;
@@ -44,6 +53,7 @@ export type AzureModelSettings = Readonly<{
   provider: typeof AZURE_PROVIDER.KIND;
   modelId: string;
   titleModelId: string;
+  contextWindowTokens: number;
   deployment: string;
   apiKey: string;
   endpoint: string;
@@ -61,6 +71,11 @@ export function readAzureModelSettings(
     titleModelId: readRequiredString(
       models[fields.TITLE_MODEL_ID.KEY],
       fields.TITLE_MODEL_ID.PATH,
+      issues,
+    ),
+    contextWindowTokens: readRequiredPositiveInteger(
+      models[fields.CONTEXT_WINDOW_TOKENS.KEY],
+      fields.CONTEXT_WINDOW_TOKENS.PATH,
       issues,
     ),
     deployment: readRequiredString(models[fields.DEPLOYMENT.KEY], fields.DEPLOYMENT.PATH, issues),

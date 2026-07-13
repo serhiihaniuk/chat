@@ -1,13 +1,13 @@
 import { streamText } from "ai";
 import { describe, expect, it } from "vitest";
 
-import { createAzureModelProvider } from "./azure-model-provider.js";
+import { createAzureModelAdapter } from "./azure-model-provider.js";
 
-describe("createAzureModelProvider", () => {
+describe("createAzureModelAdapter", () => {
   it("routes through the configured deployment and API version", async () => {
     let requestUrl = "";
     let requestHeaders = new Headers();
-    const provider = createAzureModelProvider({
+    const provider = createAzureModelAdapter({
       apiKey: "azure-test-key",
       endpoint: "https://test-resource.cognitiveservices.azure.com/",
       apiVersion: "2025-01-01-preview",
@@ -29,12 +29,9 @@ describe("createAzureModelProvider", () => {
         );
       },
     });
-    const resolved = provider.modelFor({
-      modelId: "gpt-4o",
-      requestId: "request-1",
-    });
+    const model = provider.modelFor("gpt-4o");
 
-    const result = streamText({ model: resolved.model, prompt: "hello" });
+    const result = streamText({ model, prompt: "hello" });
     for await (const _part of result.fullStream) {
       // Consume the stream to complete the mocked provider call.
     }

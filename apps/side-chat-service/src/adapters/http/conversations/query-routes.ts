@@ -19,7 +19,11 @@ import { HTTP_HEADERS, QUERY_HTTP_ROUTES } from "../http-contract.js";
 export type QueryRouteDependencies = Readonly<{
   queries: ConversationQueryStore;
   telemetry: Pick<TelemetrySink, "record">;
-  model: Readonly<{ id: string; provider: string }>;
+  model: Readonly<{
+    id: string;
+    provider: string;
+    contextWindowTokens: number;
+  }>;
   /** Current tool/data schemas honored when validating persisted history parts. */
   structuredPartCatalogs?: StructuredPartCatalogs | undefined;
 }>;
@@ -34,7 +38,10 @@ export function createQueryRoutes(dependencies: QueryRouteDependencies): Hono<Au
   });
 
   app.get(QUERY_HTTP_ROUTES.MODELS, (context) =>
-    context.json({ models: [dependencies.model], defaultModelId: dependencies.model.id }),
+    context.json({
+      models: [dependencies.model],
+      defaultModelId: dependencies.model.id,
+    }),
   );
 
   app.get(QUERY_HTTP_ROUTES.MESSAGES, async (context) => {
@@ -75,7 +82,9 @@ export function createQueryRoutes(dependencies: QueryRouteDependencies): Hono<Au
   return app;
 }
 
-type QueryReader = Readonly<{ req: { query: (name: string) => string | undefined } }>;
+type QueryReader = Readonly<{
+  req: { query: (name: string) => string | undefined };
+}>;
 
 type ParsedHistoryQuery =
   | Readonly<{ ok: true; query: ConversationHistoryQuery }>
@@ -89,7 +98,10 @@ function parseHistoryQuery(context: QueryReader): ParsedHistoryQuery {
   if (beforeRaw !== undefined) {
     const before = Number(beforeRaw);
     if (!Number.isInteger(before) || before < 0) {
-      return { ok: false, message: "Query parameter 'before' must be a non-negative integer." };
+      return {
+        ok: false,
+        message: "Query parameter 'before' must be a non-negative integer.",
+      };
     }
     query.beforeSequenceIndex = before;
   }
@@ -98,7 +110,10 @@ function parseHistoryQuery(context: QueryReader): ParsedHistoryQuery {
   if (limitRaw !== undefined) {
     const limit = Number(limitRaw);
     if (!Number.isInteger(limit) || limit < 1) {
-      return { ok: false, message: "Query parameter 'limit' must be a positive integer." };
+      return {
+        ok: false,
+        message: "Query parameter 'limit' must be a positive integer.",
+      };
     }
     query.limit = Math.min(limit, DEFAULT_HISTORY_PAGE_LIMIT);
   }

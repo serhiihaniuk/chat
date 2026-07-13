@@ -4,10 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TURN_REPLAY_RESULTS } from "#application/ports/turn/replay/turn-replay";
 import { CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
 
-import {
-  createWorkflowTurnReplay,
-  type ReplayChatTurn,
-} from "./workflow-turn-replay.js";
+import { createWorkflowTurnReplay, type ReplayChatTurn } from "./workflow-turn-replay.js";
 
 describe("createWorkflowTurnReplay", () => {
   it("opens a fresh cursor and stamps the durable terminal finish reason", async () => {
@@ -43,7 +40,19 @@ describe("createWorkflowTurnReplay", () => {
     expect(replay.tailIndex).toBe(4);
     expect(await readAll(replay.stream)).toEqual([
       { type: "start" },
-      { type: "finish", finishReason: "length" },
+      {
+        type: "finish",
+        finishReason: "length",
+        messageMetadata: {
+          usage: {
+            inputTokens: 1,
+            outputTokens: 2,
+            totalTokens: 3,
+            reasoningTokens: 0,
+            cachedInputTokens: 0,
+          },
+        },
+      },
     ]);
   });
 
@@ -51,13 +60,9 @@ describe("createWorkflowTurnReplay", () => {
     "preserves the %s result without opening a stream",
     async (status) => {
       const replayTurn = vi.fn<ReplayChatTurn>(() =>
-        Promise.resolve(
-          status === "not_found" ? { status } : { status, tailIndex: 2 },
-        ),
+        Promise.resolve(status === "not_found" ? { status } : { status, tailIndex: 2 }),
       );
-      await expect(
-        createWorkflowTurnReplay(replayTurn).open("run-1", 9),
-      ).resolves.toEqual(
+      await expect(createWorkflowTurnReplay(replayTurn).open("run-1", 9)).resolves.toEqual(
         status === "not_found" ? { status } : { status, tailIndex: 2 },
       );
     },
@@ -108,7 +113,19 @@ describe("createWorkflowTurnReplay", () => {
         dynamic: true,
       },
       { type: "finish-step" },
-      { type: "finish", finishReason: "stop" },
+      {
+        type: "finish",
+        finishReason: "stop",
+        messageMetadata: {
+          usage: {
+            inputTokens: 1,
+            outputTokens: 2,
+            totalTokens: 3,
+            reasoningTokens: 0,
+            cachedInputTokens: 0,
+          },
+        },
+      },
     ]);
   });
 });
@@ -141,9 +158,7 @@ function chunks(...parts: UIMessageChunk[]): ReadableStream<UIMessageChunk> {
   });
 }
 
-async function readAll(
-  stream: ReadableStream<UIMessageChunk>,
-): Promise<UIMessageChunk[]> {
+async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageChunk[]> {
   const output: UIMessageChunk[] = [];
   for await (const chunk of stream) output.push(chunk);
   return output;

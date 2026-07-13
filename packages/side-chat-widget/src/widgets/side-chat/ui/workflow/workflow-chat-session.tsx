@@ -9,6 +9,7 @@ import {
 } from "#features/conversation";
 import { WidgetFooter } from "#features/prompt";
 import {
+  projectLatestAssistantUsage,
   useWorkflowModelSelection,
   useWorkflowWidgetChat,
   WORKFLOW_WIDGET_CHAT_STATUS,
@@ -59,11 +60,15 @@ export function WorkflowChatSession({
 }) {
   const modelSelection = useWorkflowModelSelection(workflowChat);
   const sessionClient = useMemo(
-    () => ({ ...workflowChat, modelPreference: modelSelection.modelPreference }),
+    () => ({
+      ...workflowChat,
+      modelPreference: modelSelection.modelPreference,
+    }),
     [workflowChat, modelSelection.modelPreference],
   );
   const chat = useWorkflowWidgetChat(sessionClient, initialMessages, hostBridge, activeTurn);
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
+  const contextUsedTokens = projectLatestAssistantUsage(chat.messages);
   const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);
   const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
   const isEmpty = chat.messages.length === 0 && chat.terminal.kind === "none" && !chat.error;
@@ -126,25 +131,18 @@ export function WorkflowChatSession({
                   toolDetail={toolDetail}
                 />
               ) : null}
-              {chat.error ? (
-                chat.error.status === undefined ? (
-                  // A transport drop carries no HTTP status; offer a reconnect that
-                  // reattaches to the still-running turn. Typed 4xx are not retried.
-                  <ErrorNotice
-                    message={labels.noticeConnectionLost}
-                    onRetry={() => void chat.reconnect()}
-                  />
-                ) : (
-                  <ErrorNotice message={chat.error.message} />
-                )
-              ) : null}
+              <WorkflowErrorNotice
+                error={chat.error}
+                connectionLostMessage={labels.noticeConnectionLost}
+                onReconnect={() => void chat.reconnect()}
+              />
             </>
           )}
         </ConversationContent>
       </Conversation>
       <WidgetFooter
-        contextUsedTokens={undefined}
-        contextWindowTokens={undefined}
+        contextUsedTokens={contextUsedTokens}
+        contextWindowTokens={modelSelection.contextWindowTokens}
         labels={labels}
         models={modelSelection.footerModels}
         onModelSelect={modelSelection.onModelSelect}
@@ -174,6 +172,22 @@ function isStreamingAssistant(
     message.role === UI_MESSAGE_ROLE.ASSISTANT &&
     index === lastAssistantIndex
   );
+}
+
+function WorkflowErrorNotice({
+  error,
+  connectionLostMessage,
+  onReconnect,
+}: {
+  readonly error: Readonly<{ message: string; status?: number | undefined }> | undefined;
+  readonly connectionLostMessage: string;
+  readonly onReconnect: () => void;
+}) {
+  if (!error) return null;
+  if (error.status !== undefined) return <ErrorNotice message={error.message} />;
+  // A transport drop carries no HTTP status; offer a reconnect that reattaches
+  // to the still-running turn. Typed 4xx errors are not retried.
+  return <ErrorNotice message={connectionLostMessage} onRetry={onReconnect} />;
 }
 
 function findLastAssistantIndex(messages: readonly WorkflowUIMessage[]): number {

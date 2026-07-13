@@ -6,7 +6,7 @@ import type { TurnExecution, TurnExecutionTerminal } from "#application/ports/tu
 import { UI_MESSAGE_CHUNK_TYPES } from "#application/turn/stream/ui-message-chunk-types";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { Settings } from "#config/settings/resolve-settings";
-import type { TurnMessage } from "#domain/turn/turn";
+import { sumTurnUsage, type TurnMessage, type TurnUsage } from "#domain/turn/turn";
 import {
   CHAT_TURN_OUTCOMES,
   cancelChatTurn,
@@ -105,7 +105,7 @@ function toApplicationTerminal(terminal: ChatTurnTerminalOutcome): TurnExecution
  */
 export function stampFinishReason(
   stream: ReadableStream<UIMessageChunk>,
-  terminal: Promise<Readonly<{ finishReason?: string }>>,
+  terminal: Promise<Readonly<{ finishReason?: string; stepUsage?: readonly TurnUsage[] }>>,
 ): ReadableStream<UIMessageChunk> {
   return stream.pipeThrough(
     new TransformStream({
@@ -114,8 +114,21 @@ export function stampFinishReason(
           controller.enqueue(chunk);
           return;
         }
-        const reason = toFinishReason((await terminal).finishReason);
-        controller.enqueue(reason === undefined ? chunk : { ...chunk, finishReason: reason });
+        const terminalOutcome = await terminal;
+        const reason = toFinishReason(terminalOutcome.finishReason);
+        const messageMetadata =
+          terminalOutcome.stepUsage === undefined
+            ? {}
+            : {
+                messageMetadata: {
+                  usage: sumTurnUsage(terminalOutcome.stepUsage),
+                },
+              };
+        controller.enqueue(
+          reason === undefined
+            ? { ...chunk, ...messageMetadata }
+            : { ...chunk, finishReason: reason, ...messageMetadata },
+        );
       },
     }),
   );

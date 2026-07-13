@@ -37,10 +37,65 @@ describe("readConversationHistory", () => {
     );
 
     expect(result.messages).toEqual([
-      { id: "message-1", role: "assistant", parts: [{ type: "text", text: "kept" }], metadata: {} },
+      { id: "message-1", role: "assistant", parts: [{ type: "text", text: "kept" }] },
     ]);
     expect(result.hasMore).toBe(false);
     expect(telemetry.records).toEqual([]);
+  });
+
+  it("preserves valid folded usage metadata", async () => {
+    const stored = message([{ type: "text", text: "kept" }], {
+      usage: {
+        inputTokens: 3,
+        outputTokens: 5,
+        totalTokens: 8,
+        reasoningTokens: 1,
+        cachedInputTokens: 2,
+      },
+    });
+    const telemetry = createCollectingTelemetrySink();
+
+    const result = await readConversationHistory(
+      { queries: queryStore([stored]), telemetry },
+      auth,
+      "conversation",
+    );
+
+    expect(result.messages).toEqual([
+      {
+        id: "message-1",
+        role: "assistant",
+        parts: [{ type: "text", text: "kept" }],
+        metadata: {
+          usage: {
+            inputTokens: 3,
+            outputTokens: 5,
+            totalTokens: 8,
+            reasoningTokens: 1,
+            cachedInputTokens: 2,
+          },
+        },
+      },
+    ]);
+    expect(telemetry.records).toEqual([]);
+  });
+
+  it("projects private metadata to text and records history drift", async () => {
+    const stored = message([{ type: "text", text: "safe" }], {
+      provider: { secret: "must-not-leak" },
+    });
+    const telemetry = createCollectingTelemetrySink();
+
+    const result = await readConversationHistory(
+      { queries: queryStore([stored]), telemetry },
+      auth,
+      "conversation",
+    );
+
+    expect(result.messages).toEqual([
+      { id: "message-1", role: "assistant", parts: [{ type: "text", text: "safe" }] },
+    ]);
+    expect(telemetry.records).toEqual([{ type: "persistence.history_drift" }]);
   });
 
   it("keeps a tool part when its schema is present in the catalog", async () => {
@@ -149,8 +204,11 @@ describe("readConversationHistory", () => {
   });
 });
 
-function message(parts: StoredConversationMessage["parts"]): StoredConversationMessage {
-  return { id: "message-1", role: "assistant", parts, metadata: {} };
+function message(
+  parts: StoredConversationMessage["parts"],
+  metadata: StoredConversationMessage["metadata"] = {},
+): StoredConversationMessage {
+  return { id: "message-1", role: "assistant", parts, metadata };
 }
 
 function queryStore(messages: readonly StoredConversationMessage[]): ConversationQueryStore {

@@ -14,6 +14,7 @@ const config: SideChatConfig = defineSideChatConfig({
     provider: AZURE_PROVIDER.KIND,
     modelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
     titleModelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
+    contextWindowTokens: AZURE_PROVIDER.MODELS.GPT_4O.CONTEXT_WINDOW_TOKENS,
     deployment: readEnv(AZURE_PROVIDER.TRANSPORT_ENV_KEYS.DEPLOYMENT, {
       required: true,
     }),

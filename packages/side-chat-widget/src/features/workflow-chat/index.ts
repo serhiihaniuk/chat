@@ -8,6 +8,7 @@ export {
   type WorkflowModelSelection,
 } from "./model/use-workflow-model-selection.js";
 export { WorkflowMessageTimeline } from "./ui/workflow-message-timeline.js";
+export { projectLatestAssistantUsage } from "./model/native-message-projection.js";
 export type {
   WorkflowChatTerminal,
   WorkflowWidgetChat,

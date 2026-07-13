@@ -6,4 +6,9 @@ export {
   type SideChatErrorProfile,
 } from "./error-vocabulary.js";
 export { SIDE_CHAT_FINISH_REASONS, type SideChatFinishReason } from "./finish-reasons.js";
-export { SIDE_CHAT_STREAM_PROTOCOL, type SideChatDataParts } from "./data-parts.js";
+export {
+  SIDE_CHAT_STREAM_PROTOCOL,
+  sideChatMessageMetadataSchema,
+  type SideChatDataParts,
+  type SideChatMessageMetadata,
+} from "./data-parts.js";

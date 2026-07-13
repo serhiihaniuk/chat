@@ -10,7 +10,9 @@ import { createServiceTestHarness } from "#composition/route/testing-harness/ser
 
 describe("conversation query routes", () => {
   it("serves route-owned conversation and model DTOs behind authentication", async () => {
-    const harness = await createServiceTestHarness({ conversationQueries: queryStore() });
+    const harness = await createServiceTestHarness({
+      conversationQueries: queryStore(),
+    });
     try {
       const conversations = await harness.request("/api/conversations");
       expect(await conversations.json()).toEqual({
@@ -26,7 +28,7 @@ describe("conversation query routes", () => {
 
       const models = await harness.request("/api/models");
       expect(await models.json()).toEqual({
-        models: [{ id: "complete", provider: "scripted" }],
+        models: [{ id: "complete", provider: "scripted", contextWindowTokens: 16_000 }],
         defaultModelId: "complete",
       });
 
@@ -42,7 +44,12 @@ describe("conversation query routes", () => {
       conversationQueries: queryStore({
         parts: [
           { type: "text", text: "safe" },
-          { type: "tool-removed", toolCallId: "call-1", state: "input-available", input: {} },
+          {
+            type: "tool-removed",
+            toolCallId: "call-1",
+            state: "input-available",
+            input: {},
+          },
         ],
       }),
     });
@@ -50,10 +57,18 @@ describe("conversation query routes", () => {
       const response = await harness.request("/api/conversations/conversation-1/messages");
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({
-        messages: [{ id: "message-1", role: "assistant", parts: [{ type: "text", text: "safe" }] }],
+        messages: [
+          {
+            id: "message-1",
+            role: "assistant",
+            parts: [{ type: "text", text: "safe" }],
+          },
+        ],
         hasMore: false,
       });
-      expect(harness.telemetry.records).toContainEqual({ type: "persistence.history_drift" });
+      expect(harness.telemetry.records).toContainEqual({
+        type: "persistence.history_drift",
+      });
     } finally {
       await harness.close();
     }
@@ -84,10 +99,15 @@ describe("conversation query routes", () => {
     store.readHistory = (_auth, _conversationId, query) => {
       received.push(query?.beforeSequenceIndex);
       return Promise.resolve(
-        pages.get(query?.beforeSequenceIndex) ?? { messages: [], hasMoreBefore: false },
+        pages.get(query?.beforeSequenceIndex) ?? {
+          messages: [],
+          hasMoreBefore: false,
+        },
       );
     };
-    const harness = await createServiceTestHarness({ conversationQueries: store });
+    const harness = await createServiceTestHarness({
+      conversationQueries: store,
+    });
     try {
       const first = await harness.request("/api/conversations/conversation-1/messages?limit=2");
       expect(await first.json()).toEqual({
@@ -108,7 +128,10 @@ describe("conversation query routes", () => {
       const third = await harness.request(
         "/api/conversations/conversation-1/messages?before=2&limit=2",
       );
-      expect(await third.json()).toEqual({ messages: [uiText("m1")], hasMore: false });
+      expect(await third.json()).toEqual({
+        messages: [uiText("m1")],
+        hasMore: false,
+      });
 
       expect(received).toEqual([undefined, 4, 2]);
     } finally {
@@ -117,7 +140,9 @@ describe("conversation query routes", () => {
   });
 
   it("rejects a malformed paging cursor", async () => {
-    const harness = await createServiceTestHarness({ conversationQueries: queryStore() });
+    const harness = await createServiceTestHarness({
+      conversationQueries: queryStore(),
+    });
     try {
       const response = await harness.request(
         "/api/conversations/conversation-1/messages?before=-1",
@@ -151,7 +176,9 @@ describe("conversation query routes", () => {
       Promise.resolve(
         running ? { turnId: "turn-1", runId: "run-1", status: "running" } : undefined,
       );
-    const harness = await createServiceTestHarness({ conversationQueries: store });
+    const harness = await createServiceTestHarness({
+      conversationQueries: store,
+    });
     try {
       const active = await harness.request("/api/conversations/conversation-1/active-turn");
       expect(await active.json()).toEqual({
@@ -187,12 +214,18 @@ describe("conversation query routes", () => {
       conversationQueries: tenantQueryStore(),
     });
     const requestAs = (tenant: string, path: string) =>
-      harness.app.request(path, { headers: { authorization: `Bearer tenant-${tenant}` } });
+      harness.app.request(path, {
+        headers: { authorization: `Bearer tenant-${tenant}` },
+      });
     try {
       const list = await requestAs("a", "/api/conversations");
       expect(await list.json()).toEqual({
         conversations: [
-          { id: "conversation-a", status: "active", lastMessageAt: "2026-07-11T00:00:00Z" },
+          {
+            id: "conversation-a",
+            status: "active",
+            lastMessageAt: "2026-07-11T00:00:00Z",
+          },
         ],
       });
 
@@ -210,11 +243,20 @@ describe("conversation query routes", () => {
 });
 
 function storedText(id: string) {
-  return { id, role: "assistant", parts: [{ type: "text", text: id }], metadata: {} };
+  return {
+    id,
+    role: "assistant",
+    parts: [{ type: "text", text: id }],
+    metadata: {},
+  };
 }
 
 function uiText(id: string) {
-  return { id, role: "assistant", parts: [{ type: "text", text: id }], metadata: {} };
+  return {
+    id,
+    role: "assistant",
+    parts: [{ type: "text", text: id }],
+  };
 }
 
 function queryStore(history: { readonly parts: readonly JsonObject[] } = { parts: [] }) {
@@ -225,7 +267,14 @@ function queryStore(history: { readonly parts: readonly JsonObject[] } = { parts
   } = {
     readHistory: () =>
       Promise.resolve({
-        messages: [{ id: "message-1", role: "assistant", parts: history.parts, metadata: {} }],
+        messages: [
+          {
+            id: "message-1",
+            role: "assistant",
+            parts: history.parts,
+            metadata: {},
+          },
+        ],
         hasMoreBefore: false,
       }),
     listConversations: () =>

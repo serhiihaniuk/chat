@@ -1,24 +1,38 @@
-import { WorkflowAgent, type WorkflowAgentOptions } from "@ai-sdk/workflow";
-import { Output } from "ai";
+import {
+  WorkflowAgent,
+  type WorkflowAgentOptions,
+  type WorkflowAgentStreamResult,
+} from "@ai-sdk/workflow";
 import { getWorkflowMetadata, getWritable } from "workflow";
 import { start } from "workflow/api";
 
 import {
-  CONVERSATION_TITLE_OUTPUT_SCHEMA,
   normalizeConversationTitle,
   type ConversationTitleWorkflowInput,
   type ConversationTitleWorkflowResult,
   type ConversationTitleWorkflowStarter,
 } from "#application/conversations/generate-conversation-title";
-import { assertModelInstance, type ModelProvider } from "#application/ports/model-provider";
+import { assertDurableModelHandle, type ModelProvider } from "#application/ports/model-provider";
 import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
 import { initializeProductionWorkflowServices } from "#composition/workflow/production";
 
+import { ABORT_ERROR_NAME } from "../../chat-turn-outcome.js";
+import { patchWorkflowRealmAbortSignal } from "../../realm/abort-signal-patch.js";
+import { createSuspendableTurnTimeout } from "../../timeout/turn-timeout.js";
 import { persistConversationTitle } from "./persist-conversation-title.js";
 import { recordConversationTitleRun } from "./record-conversation-title-run.js";
 
 const TITLE_INSTRUCTIONS =
   "Create a concise conversation title. Return 2 to 6 words, no punctuation, and do not copy the full user message.";
+
+const TITLE_EXECUTION = {
+  FAILED: "Conversation title generation failed",
+  TIMEOUT: "Conversation title generation timed out",
+} as const;
+
+type TitleStreamOutcome =
+  | Readonly<{ kind: "completed"; result: WorkflowAgentStreamResult }>
+  | Readonly<{ kind: "failed" }>;
 
 export const productionConversationTitleWorkflowStarter: ConversationTitleWorkflowStarter = {
   start: startGenerateConversationTitle,
@@ -71,15 +85,17 @@ export async function executeConversationTitleWorkflow(
   input: ConversationTitleWorkflowInput,
   modelProvider: ModelProvider,
 ): Promise<string> {
+  const controller = new AbortController();
+  patchWorkflowRealmAbortSignal(controller.signal);
   const resolvedModel = modelProvider.modelFor({
     modelId: input.modelId,
     requestId: input.requestId,
   });
-  assertModelInstance(resolvedModel.model);
+  assertDurableModelHandle(resolvedModel.model);
   const agent = new WorkflowAgent(
     titleAgentOptions(resolvedModel.model, resolvedModel.providerOptions),
   );
-  const result = await agent.stream({
+  const stream = agent.stream({
     messages: [
       {
         role: "user",
@@ -93,10 +109,35 @@ export async function executeConversationTitleWorkflow(
       },
     ],
     writable: getWritable(),
-    timeout: input.timeoutMs,
-    output: Output.object({ schema: CONVERSATION_TITLE_OUTPUT_SCHEMA }),
+    abortSignal: controller.signal,
   });
-  return result.output.title;
+  const result = await titleResultBeforeTimeout(stream, controller, input.timeoutMs);
+  const content = result.steps.at(-1)?.content ?? [];
+  return content
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("");
+}
+
+async function titleResultBeforeTimeout(
+  stream: Promise<WorkflowAgentStreamResult>,
+  controller: AbortController,
+  timeoutMs: number,
+): Promise<WorkflowAgentStreamResult> {
+  const settled = stream.then<TitleStreamOutcome, TitleStreamOutcome>(
+    (result) => ({ kind: "completed", result }),
+    () => ({ kind: "failed" }),
+  );
+  const timeout = async (): Promise<"timeout"> => {
+    await createSuspendableTurnTimeout(timeoutMs).waitUntilElapsed();
+    controller.abort(new DOMException(TITLE_EXECUTION.TIMEOUT, ABORT_ERROR_NAME));
+    await settled;
+    return "timeout";
+  };
+  const outcome = await Promise.race([settled, timeout()]);
+  if (outcome === "timeout") throw new Error(TITLE_EXECUTION.TIMEOUT);
+  if (outcome.kind === "failed") throw new Error(TITLE_EXECUTION.FAILED);
+  return outcome.result;
 }
 
 function titleAgentOptions(

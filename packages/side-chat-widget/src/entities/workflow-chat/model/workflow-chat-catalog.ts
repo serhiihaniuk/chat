@@ -56,7 +56,11 @@ function toConversationSummary(entry: unknown): WorkflowConversationSummary | un
 }
 
 /** One selectable turn model exposed by the workflow service. */
-export type WorkflowModel = Readonly<{ id: string; provider?: string | undefined }>;
+export type WorkflowModel = Readonly<{
+  id: string;
+  provider?: string | undefined;
+  contextWindowTokens: number;
+}>;
 
 /** The workflow service's turn model catalog and its default selection. */
 export type WorkflowModelCatalog = Readonly<{
@@ -92,6 +96,14 @@ export async function readWorkflowModels(
 
 function toWorkflowModel(entry: unknown): WorkflowModel | undefined {
   if (!isRecord(entry) || typeof entry["id"] !== "string") return undefined;
+  const contextWindowTokens = entry["contextWindowTokens"];
+  if (
+    typeof contextWindowTokens !== "number" ||
+    !Number.isSafeInteger(contextWindowTokens) ||
+    contextWindowTokens <= 0
+  ) {
+    return undefined;
+  }
   const provider = typeof entry["provider"] === "string" ? entry["provider"] : undefined;
-  return { id: entry["id"], provider };
+  return { id: entry["id"], provider, contextWindowTokens };
 }

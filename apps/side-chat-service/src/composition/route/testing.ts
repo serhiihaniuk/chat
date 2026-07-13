@@ -164,6 +164,7 @@ async function startTestingServiceWithPersistence<
       model: {
         id: settings.models.modelId,
         provider: settings.models.provider,
+        contextWindowTokens: settings.models.contextWindowTokens,
       },
       structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
     }),

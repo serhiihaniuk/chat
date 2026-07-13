@@ -117,6 +117,7 @@ export async function startProductionService(
       model: {
         id: settings.models.modelId,
         provider: settings.models.provider,
+        contextWindowTokens: settings.models.contextWindowTokens,
       },
       // No server tool/data schema is exposed to the read path yet; a future
       // catalog plugs in here to let persisted structured parts survive a read.

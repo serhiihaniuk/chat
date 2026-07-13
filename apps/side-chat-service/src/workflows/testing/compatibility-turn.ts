@@ -16,7 +16,7 @@ import { createHook, getWritable } from "workflow";
 import { resumeHook, start } from "workflow/api";
 
 import { initializeTestingWorkflowServices } from "#composition/workflow/testing";
-import { assertModelInstance } from "#application/ports/model-provider";
+import { assertDurableModelHandle } from "#application/ports/model-provider";
 import { patchWorkflowRealmAbortSignal } from "../realm/abort-signal-patch.js";
 
 export { runNativeApprovalGapProbe } from "./probes/native-approval-gap.js";
@@ -128,7 +128,7 @@ export async function runCompatibilityTurn(
     modelId: request.mode,
     requestId: request.requestId,
   });
-  assertModelInstance(resolvedModel.model);
+  assertDurableModelHandle(resolvedModel.model);
 
   const agent = new WorkflowAgent(
     createCompatibilityAgentOptions({
@@ -173,7 +173,7 @@ export async function probeUnpatchedAbortSignal(): Promise<CompatibilityTurnOutc
     modelId: COMPATIBILITY_MODEL_BEHAVIORS.COMPLETE,
     requestId: COMPATIBILITY_WORKFLOW.PROBE_REQUEST_ID,
   });
-  assertModelInstance(resolvedModel.model);
+  assertDurableModelHandle(resolvedModel.model);
   const agent = new WorkflowAgent(
     createCompatibilityAgentOptions({
       id: COMPATIBILITY_WORKFLOW.PROBE_AGENT_ID,

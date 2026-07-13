@@ -1,6 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus } from "ai";
 import { toClientToolDefinitions, type WidgetHostBridge } from "@side-chat/host-bridge";
+import { sideChatMessageMetadataSchema } from "@side-chat/stream-profile";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -97,6 +98,7 @@ export function useWorkflowWidgetChat(
   const chat = useChat<WorkflowUIMessage>({
     id: client.conversationId,
     messages: [...initialMessages],
+    messageMetadataSchema: sideChatMessageMetadataSchema,
     transport,
     onToolCall,
     onError: createWorkflowChatErrorHandler(latestErrorRef, setTransportError),

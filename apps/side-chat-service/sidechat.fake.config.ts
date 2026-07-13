@@ -12,6 +12,7 @@ const config: SideChatConfig = defineSideChatConfig({
     provider: SCRIPTED_PROVIDER.KIND,
     modelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
     titleModelId: SCRIPTED_PROVIDER.MODELS.TITLE.MODEL_ID,
+    contextWindowTokens: SCRIPTED_PROVIDER.MODELS.COMPLETE.CONTEXT_WINDOW_TOKENS,
   },
   auth: {
     profile: AUTH_PROFILES.DEVELOPMENT,

@@ -1,11 +1,6 @@
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { ConversationTitleStore } from "#application/ports/turn/title/conversation-title-store";
 import type { AuthContext } from "#domain/auth-context";
-import { z } from "zod";
-
-export const CONVERSATION_TITLE_OUTPUT_SCHEMA = z.object({
-  title: z.string().trim().min(1).max(64),
-});
 
 export type ConversationTitleWorkflowInput = Readonly<{
   auth: AuthContext;

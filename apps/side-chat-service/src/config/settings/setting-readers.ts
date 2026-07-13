@@ -19,6 +19,16 @@ export function readRequiredString(value: unknown, path: string, issues: Setting
   return "";
 }
 
+export function readRequiredPositiveInteger(
+  value: unknown,
+  path: string,
+  issues: SettingsIssue[],
+): number {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) return value;
+  issues.push({ path, message: "must be a positive integer" });
+  return 0;
+}
+
 export function readOptionalString(
   value: unknown,
   path: string,

@@ -1,12 +1,19 @@
-import type { LanguageModel } from "ai";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type ProviderOptions = Record<string, Record<string, JsonValue>>;
 
-export type ModelInstance = Exclude<LanguageModel, string>;
+/** Runtime marker for the model value that may cross a Workflow boundary. */
+export const DURABLE_MODEL_HANDLE = Symbol("side-chat.durable-model-handle");
+
+type DurableModelMarker = {
+  readonly [DURABLE_MODEL_HANDLE]: true;
+};
+
+export type DurableLanguageModel = LanguageModelV4 & DurableModelMarker;
 
 export type ResolvedModel = {
-  readonly model: ModelInstance;
+  readonly model: DurableLanguageModel;
   readonly providerOptions?: ProviderOptions | undefined;
 };
 
@@ -20,9 +27,15 @@ export interface ModelSelection {
   readonly requestId: string;
 }
 
-/** Reject AI SDK string ids because they silently route through the global Gateway provider. */
-export function assertModelInstance(model: LanguageModel): asserts model is ModelInstance {
-  if (typeof model === "string") {
-    throw new TypeError("Side Chat agents require a constructed model instance, not a model id");
+/** Reject ids and opaque SDK models that cannot safely cross a Workflow boundary. */
+export function assertDurableModelHandle(model: unknown): asserts model is DurableLanguageModel {
+  if (typeof model === "string" || !hasDurableModelMarker(model)) {
+    throw new TypeError("Side Chat agents require a Workflow-serializable model handle");
   }
+}
+
+function hasDurableModelMarker(value: unknown): value is DurableModelMarker {
+  return (
+    typeof value === "object" && value !== null && Reflect.get(value, DURABLE_MODEL_HANDLE) === true
+  );
 }

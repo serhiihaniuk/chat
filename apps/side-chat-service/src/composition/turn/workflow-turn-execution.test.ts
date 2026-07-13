@@ -135,6 +135,9 @@ describe("createWorkflowTurnExecution", () => {
     expect(parts.find((part) => part.type === "finish")).toEqual({
       type: "finish",
       finishReason: "content-filter",
+      messageMetadata: {
+        usage: usage(1, 0),
+      },
     });
     await expect(started.terminal).resolves.toEqual({
       status: TURN_TERMINAL_STATUSES.BLOCKED,

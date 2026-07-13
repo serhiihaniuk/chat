@@ -1,5 +1,7 @@
 import { safeValidateUIMessages, type UIMessage } from "ai";
 
+import { sideChatMessageMetadataSchema } from "@side-chat/stream-profile";
+
 import type {
   ConversationHistoryQuery,
   ConversationQueryStore,
@@ -75,6 +77,7 @@ async function validateStoredMessage(
   const candidate = toValidationCandidate(message);
   const validated = await safeValidateUIMessages({
     messages: [candidate],
+    metadataSchema: sideChatMessageMetadataSchema,
     tools: catalogs.tools,
     dataSchemas: catalogs.dataSchemas,
   });
@@ -108,12 +111,19 @@ function containsUnownedStructuredPart(
 }
 
 function toValidationCandidate(message: StoredConversationMessage) {
+  const metadata = normalizeStoredMetadata(message.metadata);
   return {
     id: message.id,
     role: message.role,
     parts: [...message.parts],
-    metadata: message.metadata,
+    ...(metadata === undefined ? {} : { metadata }),
   };
+}
+
+function normalizeStoredMetadata(
+  metadata: StoredConversationMessage["metadata"],
+): StoredConversationMessage["metadata"] | undefined {
+  return Object.keys(metadata).length === 0 ? undefined : metadata;
 }
 
 function textOnlyProjection(message: StoredConversationMessage): UIMessage {

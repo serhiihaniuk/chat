@@ -44,12 +44,16 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 
 Not yet carried: **"Thought for N seconds" duration** (the native projection has no activity timing) and **message-action copy**. Both are small client follow-ups.
 
-### In progress — composer tools menu + usage meter (service work)
+### Complete — durable real-provider execution
 
-The composer footer is restored with empty tools / no meter today; these need `apps/side-chat-service` changes (mapped, implementing):
+Production no longer passes raw OpenAI/Azure SDK models across WorkflowAgent's internal durable step. `ModelProvider` now requires a marked Workflow-serializable handle; production serde journals only provider/model and non-secret routing, then reconstructs the raw SDK model in the step realm with the current environment-resolved credential. The same correction covers turn and title agents. Title generation uses normalized plain text plus the durable sleep/abort timeout instead of sending a schema object or numeric `AbortSignal.timeout` across the workflow realm. Evidence: credential-negative OpenAI/Azure reconstruction tests, compiled compatibility 13/13, production Postgres build, and a genuine OpenAI/Postgres turn with streamed text, `finish(stop)`, usage metadata, durable history, and an asynchronously persisted title.
 
-- **Usage / context meter** — usage is computed and persisted but never sent on the stream (`messageMetadata` unpopulated; `providerMetadata` scrubbed), and the model's context window is not exposed. Needs usage on the wire + a context-window source.
-- **Server tools menu** — server tools execute, but there is no `/tools` list route and no per-request server-tool allowlist. Needs a catalog route + a request field threaded to tool selection.
+### In progress — composer tools menu + usage meter
+
+The usage/context meter implementation is complete at the service and native-client contract seams, but no browser screenshot or live browser verification is claimed here:
+
+- **Usage / context meter** — live and replayed terminal finishes carry schema-validated folded `messageMetadata.usage`; completed assistant history persists the same safe object and degrades invalid metadata before transport; `/api/models` publishes the configured `contextWindowTokens`; the widget validates both, projects the newest assistant usage, and supplies the existing `WidgetFooter` meter. Evidence: 11 focused files / 102 tests, service/widget/stream-profile TypeScript checks, scoped Oxlint, custom governance, touched-file formatting, and diff checks. Browser verification remains outstanding.
+- **Server tools menu** — server tools execute, but there is no `/tools` list route and no per-request server-tool allowlist. This remains B4 scope: a catalog route plus a request field threaded to tool selection.
 
 ### Backend-gated / product decisions (not scheduled)
 
@@ -78,7 +82,7 @@ Any legacy feature or visual detail deliberately not carried into the native wid
 - [x] Client-portable feature parity implemented and browser-verified (settings, empty state, quick actions, tool-detail, reasoning-visibility, agent mark, activity fold).
 - [x] Multi-conversation sidebar/switcher: built and browser-verified.
 - [x] Composer footer + model selector restored (shared `WidgetFooter`); multi-model is a product decision, reasoning-effort backend-gated.
-- [ ] Composer tools menu + usage meter: service work (usage on the wire, tools-list route + allowlist) — in progress.
+- [ ] Composer tools menu + usage meter: usage/context meter implementation is test-verified but not browser-verified; server tools menu remains B4 scope (tools-list route + allowlist).
 - [ ] Small client follow-ups: "Thought for N seconds" duration, message-action copy.
 - [ ] Look-identity side-by-side captured across all four themes and the density range.
 - [ ] Design-system token/density audit passes on all native components.

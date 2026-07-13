@@ -14,6 +14,7 @@ export type WorkflowFooterModel = Readonly<{ key: string; label: string }>;
 export type WorkflowModelSelection = Readonly<{
   footerModels: readonly WorkflowFooterModel[];
   selectedModelKey: string | undefined;
+  contextWindowTokens: number | undefined;
   onModelSelect: (modelKey: string) => void;
   /** The model id to send with the next turn, or undefined to accept the service default. */
   modelPreference: string | undefined;
@@ -32,10 +33,21 @@ export function useWorkflowModelSelection(client: WorkflowChatClient): WorkflowM
     queryFn: ({ signal }) => readWorkflowModels(client, signal),
   });
   const selectedModelKey = chosenModelId ?? catalog.data?.defaultModelId;
+  const selectedModel = catalog.data?.models.find((model) => model.id === selectedModelKey);
   const footerModels = useMemo<readonly WorkflowFooterModel[]>(
-    () => (catalog.data?.models ?? []).map((model) => ({ key: model.id, label: model.id })),
+    () =>
+      (catalog.data?.models ?? []).map((model) => ({
+        key: model.id,
+        label: model.id,
+      })),
     [catalog.data],
   );
   const onModelSelect = useCallback((modelKey: string) => setChosenModelId(modelKey), []);
-  return { footerModels, selectedModelKey, onModelSelect, modelPreference: selectedModelKey };
+  return {
+    footerModels,
+    selectedModelKey,
+    contextWindowTokens: selectedModel?.contextWindowTokens,
+    onModelSelect,
+    modelPreference: selectedModelKey,
+  };
 }

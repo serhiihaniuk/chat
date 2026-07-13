@@ -1,6 +1,5 @@
 import { createAzure } from "@ai-sdk/azure";
-
-import type { ModelProvider } from "#application/ports/model-provider";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 
 export type AzureModelProviderOptions = {
   readonly apiKey: string;
@@ -12,16 +11,26 @@ export type AzureModelProviderOptions = {
   readonly fetch?: typeof fetch | undefined;
 };
 
-/** Keep Azure's deployment routing private to its adapter. */
-export function createAzureModelProvider(options: AzureModelProviderOptions): ModelProvider {
+/** Raw Azure construction stays inside the provider adapter. */
+export type AzureModelAdapter = Readonly<{
+  readonly modelFor: (modelId: string) => LanguageModelV4;
+}>;
+
+/** Keep Azure deployment routing private to its adapter. */
+export function createAzureModelAdapter(options: AzureModelProviderOptions): AzureModelAdapter {
   const azure = createAzureClient(options);
   return {
-    modelFor: ({ modelId }) => {
-      if (modelId !== options.modelId && modelId !== options.titleModelId)
-        throw new Error(`Azure model is not configured: ${modelId}`);
-      return { model: azure.chat(options.deployment) };
+    modelFor: (modelId) => {
+      assertConfiguredModel(options, modelId);
+      return azure.chat(options.deployment);
     },
   };
+}
+
+function assertConfiguredModel(options: AzureModelProviderOptions, modelId: string): void {
+  if (modelId !== options.modelId && modelId !== options.titleModelId) {
+    throw new Error(`Azure model is not configured: ${modelId}`);
+  }
 }
 
 function createAzureClient(options: AzureModelProviderOptions) {

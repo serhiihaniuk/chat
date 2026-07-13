@@ -9,7 +9,7 @@ import {
 import { isStepCount, type ModelMessage, type ToolSet, type UIMessageChunk } from "ai";
 import { createHook, getWorkflowMetadata, getWritable } from "workflow";
 
-import { assertModelInstance, type ModelProvider } from "#application/ports/model-provider";
+import { assertDurableModelHandle, type ModelProvider } from "#application/ports/model-provider";
 import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
@@ -27,10 +27,7 @@ import {
 import { createClientTools, preserveDynamicClientToolIdentity } from "./client-tools/index.js";
 import { runChatTurnFinalizeStep } from "./production/chat-turn-finalize.js";
 import { createSuspendableTurnTimeout } from "./timeout/turn-timeout.js";
-import {
-  createServerTools,
-  type ApprovalWorkflowStreamPart,
-} from "./server-tools/index.js";
+import { createServerTools, type ApprovalWorkflowStreamPart } from "./server-tools/index.js";
 import { normalizeApprovalUIChunk } from "./tool-approvals/approval-output.js";
 
 const CHAT_TURN_WORKFLOW = {
@@ -106,7 +103,7 @@ export async function executeChatTurn(
     modelId: input.modelId,
     requestId: input.requestId,
   });
-  assertModelInstance(resolvedModel.model);
+  assertDurableModelHandle(resolvedModel.model);
   const providerTimeout = createSuspendableTurnTimeout(input.providerTimeoutMs);
   const writable = getWritable<ApprovalWorkflowStreamPart>();
   const clientTools = createClientTools({
