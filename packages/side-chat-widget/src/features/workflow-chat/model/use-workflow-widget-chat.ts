@@ -56,6 +56,7 @@ export type WorkflowWidgetChat = Readonly<{
   messages: readonly WorkflowUIMessage[];
   status: WorkflowWidgetChatStatus;
   terminal: WorkflowChatTerminal;
+  reconnect: () => Promise<void>;
   retry: () => Promise<void>;
   stop: () => void;
   submitMessage: (text: string) => Promise<void>;
@@ -131,6 +132,15 @@ export function useWorkflowWidgetChat(
     await chat.regenerate();
   };
 
+  const reconnect = async (): Promise<void> => {
+    // Reattach to the interrupted run's stream after the transport gave up; the
+    // run id is still held, so this resumes rather than starting a new turn.
+    latestErrorRef.current = undefined;
+    setTransportError(undefined);
+    chat.clearError();
+    await chat.resumeStream();
+  };
+
   const stop = (): void => {
     const runId = activeRunIdRef.current;
     void chat.stop();
@@ -158,6 +168,7 @@ export function useWorkflowWidgetChat(
     messages: chat.messages,
     status: toWidgetStatus(chat.status, transportError),
     terminal,
+    reconnect,
     retry,
     stop,
     submitMessage,

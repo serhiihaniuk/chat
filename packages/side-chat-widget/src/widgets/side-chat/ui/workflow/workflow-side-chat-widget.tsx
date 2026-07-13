@@ -196,6 +196,18 @@ function WorkflowChatSession({
               terminal={chat.terminal}
             />
           ) : null}
+          {chat.error ? (
+            chat.error.status === undefined ? (
+              // A transport drop carries no HTTP status; offer a reconnect that
+              // reattaches to the still-running turn. Typed 4xx are not retried.
+              <ErrorNotice
+                message={labels.noticeConnectionLost}
+                onRetry={() => void chat.reconnect()}
+              />
+            ) : (
+              <ErrorNotice message={chat.error.message} />
+            )
+          ) : null}
         </ConversationContent>
       </Conversation>
       <footer className="shrink-0 px-3 pb-3">

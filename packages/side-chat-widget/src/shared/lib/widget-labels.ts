@@ -28,6 +28,7 @@ export type WidgetLabels = {
   readonly noticeBlocked: string;
   readonly noticeCancelled: string;
   readonly noticeTruncated: string;
+  readonly noticeConnectionLost: string;
   readonly activityApprovalRequired: string;
   readonly approvalApprove: string;
   readonly approvalDeny: string;
@@ -89,6 +90,7 @@ export const defaultWidgetLabels: WidgetLabels = {
   noticeBlocked: "This response was blocked by safety filtering.",
   noticeCancelled: "Response cancelled.",
   noticeTruncated: "Response stopped at the model's output limit.",
+  noticeConnectionLost: "Connection lost. Reconnect to keep following this response.",
   activityApprovalRequired: "Approval required",
   approvalApprove: "Approve",
   approvalDeny: "Deny",
@@ -132,9 +134,7 @@ export const defaultWidgetLabels: WidgetLabels = {
 };
 
 /** Merge a caller's overrides over the defaults; an `undefined` field keeps the default. */
-export const resolveWidgetLabels = (
-  overrides: SideChatWidgetLabels | undefined,
-): WidgetLabels => {
+export const resolveWidgetLabels = (overrides: SideChatWidgetLabels | undefined): WidgetLabels => {
   if (!overrides) return defaultWidgetLabels;
   const read = <Key extends keyof WidgetLabels>(key: Key): WidgetLabels[Key] =>
     overrides[key] ?? defaultWidgetLabels[key];
@@ -152,6 +152,7 @@ export const resolveWidgetLabels = (
     noticeBlocked: read("noticeBlocked"),
     noticeCancelled: read("noticeCancelled"),
     noticeTruncated: read("noticeTruncated"),
+    noticeConnectionLost: read("noticeConnectionLost"),
     activityApprovalRequired: read("activityApprovalRequired"),
     approvalApprove: read("approvalApprove"),
     approvalDeny: read("approvalDeny"),
@@ -201,5 +202,4 @@ export const WidgetLabelsProvider = WidgetLabelsContext.Provider;
 
 // Reads the resolved labels. Outside a provider (standalone shared/ui, showcase, unit
 // tests) it returns the built-in defaults, so every leaf renders real copy unwired.
-export const useWidgetLabels = (): WidgetLabels =>
-  useContext(WidgetLabelsContext);
+export const useWidgetLabels = (): WidgetLabels => useContext(WidgetLabelsContext);

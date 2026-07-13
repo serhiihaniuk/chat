@@ -196,6 +196,25 @@ describe("useWorkflowWidgetChat", () => {
       1,
     );
   });
+
+  it("surfaces a status-less connection error and clears it on reconnect", async () => {
+    let failSend = true;
+    const request = vi.fn<typeof fetch>((input) => {
+      if (requestUrl(input).endsWith("/api/chat") && failSend) {
+        failSend = false;
+        return Promise.reject(new Error("network down"));
+      }
+      return Promise.resolve(completedTurnResponse());
+    });
+    const chat = renderChat({ fetch: request });
+
+    await act(async () => chat.current?.submitMessage("Hi"));
+    await waitFor(() => chat.current?.error !== undefined);
+    expect(chat.current?.error?.status).toBeUndefined();
+
+    await act(async () => chat.current?.reconnect());
+    await waitFor(() => chat.current?.error === undefined);
+  });
 });
 
 function renderChat(overrides: Partial<WorkflowChatClient>, activeTurn?: WorkflowActiveTurn) {
