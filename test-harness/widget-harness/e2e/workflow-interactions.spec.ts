@@ -21,6 +21,10 @@ const parityEvidenceDirectory = resolve(
 );
 const parityWidgetUrl =
   "/side-chat-frame/?mode=workflow-service&conversationId=conversation-parity";
+const modelCatalog = {
+  models: [{ id: "workspace-gpt-5", provider: "openai" }],
+  defaultModelId: "workspace-gpt-5",
+};
 
 test.beforeAll(() => {
   mkdirSync(evidenceDirectory, { recursive: true });
@@ -160,6 +164,8 @@ test("shows the empty state with quick actions before the first message", async 
 
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
   await expect(page.getByRole("button", { name: "Summarize this page" })).toBeVisible();
+  // The restored composer footer surfaces the workflow model selector.
+  await expect(page.getByText("workspace-gpt-5")).toBeVisible();
   await page.screenshot({
     path: resolve(parityEvidenceDirectory, "empty-state.png"),
     fullPage: true,
@@ -204,6 +210,10 @@ test("lists workspace conversations in the sidebar and opens a different one", a
           ],
         },
       });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.endsWith("/models")) {
+      await route.fulfill({ json: modelCatalog });
       return;
     }
     if (request.method() === "GET" && url.pathname.endsWith("/active-turn")) {
@@ -255,6 +265,10 @@ async function routeWorkflowIdle(page: Page): Promise<void> {
       await route.fulfill({ json: { conversations: [] } });
       return;
     }
+    if (request.method() === "GET" && url.pathname.endsWith("/models")) {
+      await route.fulfill({ json: modelCatalog });
+      return;
+    }
     if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
       await route.fulfill({ json: { messages: [] } });
       return;
@@ -280,6 +294,10 @@ async function routeWorkflowApi(page: Page, scenario: WorkflowRouteScenario): Pr
     const url = new URL(request.url());
     if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
       await route.fulfill({ json: { conversations: [] } });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.endsWith("/models")) {
+      await route.fulfill({ json: modelCatalog });
       return;
     }
     if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
@@ -327,6 +345,10 @@ async function routeWorkflowRecovery(
     const url = new URL(request.url());
     if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
       await route.fulfill({ json: { conversations: [] } });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.endsWith("/models")) {
+      await route.fulfill({ json: modelCatalog });
       return;
     }
     if (request.method() === "GET" && url.pathname.endsWith("/messages")) {

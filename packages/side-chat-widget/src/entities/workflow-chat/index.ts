@@ -7,16 +7,20 @@ export {
   normalizeWorkflowChatError,
   readWorkflowActiveTurn,
   readWorkflowChatHistory,
-  readWorkflowConversations,
 } from "./model/workflow-chat-client.js";
 export type {
   WorkflowActiveTurn,
   WorkflowChatClient,
   WorkflowChatHttpError,
   WorkflowChatRequestConfig,
-  WorkflowConversationSummary,
   WorkflowUIMessage,
 } from "./model/workflow-chat-client.js";
+export { readWorkflowConversations, readWorkflowModels } from "./model/workflow-chat-catalog.js";
+export type {
+  WorkflowConversationSummary,
+  WorkflowModel,
+  WorkflowModelCatalog,
+} from "./model/workflow-chat-catalog.js";
 export {
   postWorkflowApprovalDecision,
   postWorkflowClientToolOutput,

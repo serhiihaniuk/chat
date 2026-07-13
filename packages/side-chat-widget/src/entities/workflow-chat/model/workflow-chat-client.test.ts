@@ -6,6 +6,7 @@ import {
   readWorkflowActiveTurn,
   readWorkflowChatHistory,
   readWorkflowConversations,
+  readWorkflowModels,
   type WorkflowChatClient,
 } from "../index.js";
 
@@ -126,6 +127,28 @@ describe("readWorkflowConversations", () => {
       code: "http_error",
       status: 500,
     });
+  });
+});
+
+describe("readWorkflowModels", () => {
+  it("maps the catalog and drops malformed models", async () => {
+    const client = createClient(() =>
+      Response.json({
+        models: [{ id: "workspace-gpt-5", provider: "openai" }, { provider: "no id" }, 7],
+        defaultModelId: "workspace-gpt-5",
+      }),
+    );
+
+    await expect(readWorkflowModels(client)).resolves.toEqual({
+      models: [{ id: "workspace-gpt-5", provider: "openai" }],
+      defaultModelId: "workspace-gpt-5",
+    });
+  });
+
+  it("rejects a response that is not a model catalog", async () => {
+    const client = createClient(() => Response.json({ models: "nope" }));
+
+    await expect(readWorkflowModels(client)).rejects.toThrow("Model catalog response is invalid.");
   });
 });
 

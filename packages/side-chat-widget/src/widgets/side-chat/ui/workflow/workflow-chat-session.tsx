@@ -7,14 +7,15 @@ import {
   toEmptyStateSuggestions,
   WidgetEmptyState,
 } from "#features/conversation";
+import { WidgetFooter } from "#features/prompt";
 import {
+  useWorkflowModelSelection,
   useWorkflowWidgetChat,
   WORKFLOW_WIDGET_CHAT_STATUS,
   type WorkflowChatTerminal,
   WorkflowMessageTimeline,
 } from "#features/workflow-chat";
 import type { WidgetLabels } from "#shared/lib/widget-labels";
-import { Composer } from "#shared/ui/composer";
 import { Conversation, ConversationContent } from "#shared/ui/conversation";
 import { ErrorNotice } from "#shared/ui/error-notice";
 
@@ -24,6 +25,10 @@ const UI_MESSAGE_ROLE = {
   ASSISTANT: "assistant",
   USER: "user",
 } as const;
+
+// The workflow service exposes no per-request reasoning effort or server-tool
+// allowlist yet, so those composer controls stay empty and their handlers no-op.
+const NO_OP = (): void => undefined;
 
 /** The conversation feed and composer for one native workflow chat. */
 export function WorkflowChatSession({
@@ -52,7 +57,12 @@ export function WorkflowChatSession({
   readonly toolDetail: ToolDetailLevel;
   readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
 }) {
-  const chat = useWorkflowWidgetChat(workflowChat, initialMessages, hostBridge, activeTurn);
+  const modelSelection = useWorkflowModelSelection(workflowChat);
+  const sessionClient = useMemo(
+    () => ({ ...workflowChat, modelPreference: modelSelection.modelPreference }),
+    [workflowChat, modelSelection.modelPreference],
+  );
+  const chat = useWorkflowWidgetChat(sessionClient, initialMessages, hostBridge, activeTurn);
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
   const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);
   const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
@@ -132,19 +142,23 @@ export function WorkflowChatSession({
           )}
         </ConversationContent>
       </Conversation>
-      <footer className="shrink-0 px-3 pb-3">
-        <Composer
-          className="mx-auto w-full max-w-measure-message"
-          modelSelector={null}
-          onStop={chat.stop}
-          onSubmit={chat.submitMessage}
-          placeholder={labels.placeholder}
-          sendLabel={labels.send}
-          sendOnEnter={sendOnEnter}
-          status={chat.status}
-          toolsMenu={null}
-        />
-      </footer>
+      <WidgetFooter
+        contextUsedTokens={undefined}
+        contextWindowTokens={undefined}
+        labels={labels}
+        models={modelSelection.footerModels}
+        onModelSelect={modelSelection.onModelSelect}
+        onReasoningEffortSelect={NO_OP}
+        onSubmitMessage={chat.submitMessage}
+        onToggleTool={NO_OP}
+        reasoningEfforts={[]}
+        selectedModelKey={modelSelection.selectedModelKey}
+        selectedReasoningEffort={undefined}
+        sendOnEnter={sendOnEnter}
+        status={chat.status}
+        stop={chat.stop}
+        tools={[]}
+      />
     </>
   );
 }
