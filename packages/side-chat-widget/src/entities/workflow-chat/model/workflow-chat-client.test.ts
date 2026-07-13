@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   postWorkflowApprovalDecision,
   postWorkflowClientToolOutput,
+  readWorkflowActiveTurn,
   readWorkflowChatHistory,
   type WorkflowChatClient,
 } from "../index.js";
@@ -27,9 +28,7 @@ describe("readWorkflowChatHistory", () => {
   });
 
   it("hides a non-contract HTTP response body from the public error", async () => {
-    const client = createClient(
-      () => new Response("private upstream failure", { status: 500 }),
-    );
+    const client = createClient(() => new Response("private upstream failure", { status: 500 }));
 
     await expect(readWorkflowChatHistory(client)).rejects.toMatchObject({
       code: "http_error",
@@ -54,6 +53,40 @@ describe("readWorkflowChatHistory", () => {
       code: "provider_failed",
       message: "The model provider failed safely.",
       retryable: true,
+    });
+  });
+});
+
+describe("readWorkflowActiveTurn", () => {
+  it("returns the live run for reattach", async () => {
+    const client = createClient(() =>
+      Response.json({ activeTurn: { turnId: "turn-1", runId: "run-1", status: "running" } }),
+    );
+
+    await expect(readWorkflowActiveTurn(client)).resolves.toEqual({
+      turnId: "turn-1",
+      runId: "run-1",
+    });
+  });
+
+  it("returns undefined when no run is live", async () => {
+    const client = createClient(() => Response.json({ activeTurn: null }));
+
+    await expect(readWorkflowActiveTurn(client)).resolves.toBeUndefined();
+  });
+
+  it("returns undefined for a malformed active turn", async () => {
+    const client = createClient(() => Response.json({ activeTurn: { runId: 5 } }));
+
+    await expect(readWorkflowActiveTurn(client)).resolves.toBeUndefined();
+  });
+
+  it("hides a failed discovery response body from the public error", async () => {
+    const client = createClient(() => new Response("private", { status: 500 }));
+
+    await expect(readWorkflowActiveTurn(client)).rejects.toMatchObject({
+      code: "http_error",
+      status: 500,
     });
   });
 });
@@ -113,13 +146,7 @@ describe("workflow interaction endpoints", () => {
     });
 
     await expect(
-      postWorkflowApprovalDecision(
-        client,
-        "run-1",
-        "approval-1",
-        false,
-        "No longer needed",
-      ),
+      postWorkflowApprovalDecision(client, "run-1", "approval-1", false, "No longer needed"),
     ).resolves.toMatchObject({ state: "denied", accepted: true });
     expect(body).toEqual({ approved: false, reason: "No longer needed" });
 
@@ -142,16 +169,11 @@ describe("workflow interaction endpoints", () => {
 });
 
 function createClient(
-  response: (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => Response | Promise<Response>,
+  response: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>,
 ): WorkflowChatClient {
   return {
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
-    fetch: vi.fn<typeof fetch>((input, init) =>
-      Promise.resolve(response(input, init)),
-    ),
+    fetch: vi.fn<typeof fetch>((input, init) => Promise.resolve(response(input, init))),
   };
 }

@@ -46,12 +46,7 @@ export class WorkflowChatHttpError extends Error {
   readonly retryable: boolean;
   readonly status: number | undefined;
 
-  constructor(
-    code: string,
-    message: string,
-    retryable: boolean,
-    status?: number,
-  ) {
+  constructor(code: string, message: string, retryable: boolean, status?: number) {
     super(message);
     this.name = "WorkflowChatHttpError";
     this.code = code;
@@ -82,9 +77,41 @@ export async function readWorkflowChatHistory(
   const validated = await safeValidateUIMessages<WorkflowUIMessage>({
     messages: payload["messages"],
   });
-  if (!validated.success)
-    throw new Error("Conversation history contains invalid messages.");
+  if (!validated.success) throw new Error("Conversation history contains invalid messages.");
   return validated.data;
+}
+
+/** The conversation's live run, if any, for a cold-load reattach. */
+export type WorkflowActiveTurn = Readonly<{ turnId: string; runId: string }>;
+
+/**
+ * Discover whether a run is still streaming for this conversation.
+ *
+ * A cold load seeds history separately; this tells the widget whether to also
+ * reattach to an in-progress turn's stream. `undefined` means no live run.
+ */
+export async function readWorkflowActiveTurn(
+  client: WorkflowChatClient,
+  signal?: AbortSignal,
+): Promise<WorkflowActiveTurn | undefined> {
+  const request = await resolveWorkflowChatRequestConfig(client);
+  const response = await workflowChatFetch(client)(
+    workflowChatUrl(
+      client,
+      `/api/conversations/${encodeURIComponent(client.conversationId)}/active-turn`,
+    ),
+    createHistoryRequestInit(request, signal),
+  );
+  if (!response.ok) throw await readWorkflowChatHttpError(response);
+
+  const payload: unknown = await response.json();
+  if (!isRecord(payload)) throw new Error("Active turn response is invalid.");
+  const activeTurn = payload["activeTurn"];
+  if (!isRecord(activeTurn)) return undefined;
+  const runId = activeTurn["runId"];
+  const turnId = activeTurn["turnId"];
+  if (typeof runId !== "string" || typeof turnId !== "string") return undefined;
+  return { runId, turnId };
 }
 
 export async function cancelWorkflowChatRun(
@@ -113,10 +140,7 @@ export function workflowChatFetch(client: WorkflowChatClient): typeof fetch {
   return request;
 }
 
-export function workflowChatUrl(
-  client: WorkflowChatClient,
-  path: string,
-): string {
+export function workflowChatUrl(client: WorkflowChatClient, path: string): string {
   return `${client.baseUrl.replace(/\/$/u, "")}${path}`;
 }
 
@@ -126,16 +150,11 @@ export async function resolveWorkflowChatRequestConfig(
   return (await client.getRequestConfig?.()) ?? {};
 }
 
-export function normalizeWorkflowChatError(
-  error: unknown,
-): WorkflowChatHttpError {
+export function normalizeWorkflowChatError(error: unknown): WorkflowChatHttpError {
   if (isWorkflowChatHttpError(error)) return error;
-  const message =
-    error instanceof Error ? error.message : "Chat request failed.";
+  const message = error instanceof Error ? error.message : "Chat request failed.";
   const payload = parseEmbeddedErrorPayload(message);
-  return (
-    payload ?? new WorkflowChatHttpError("transport_error", message, false)
-  );
+  return payload ?? new WorkflowChatHttpError("transport_error", message, false);
 }
 
 export async function readWorkflowChatHttpError(
@@ -154,50 +173,30 @@ export async function readWorkflowChatHttpError(
   );
 }
 
-function parseEmbeddedErrorPayload(
-  message: string,
-): WorkflowChatHttpError | undefined {
+function parseEmbeddedErrorPayload(message: string): WorkflowChatHttpError | undefined {
   const start = message.indexOf("{");
   return start < 0 ? undefined : parseErrorPayload(message.slice(start));
 }
 
-function parseErrorPayload(
-  text: string,
-  status?: number,
-): WorkflowChatHttpError | undefined {
+function parseErrorPayload(text: string, status?: number): WorkflowChatHttpError | undefined {
   try {
     const value: unknown = JSON.parse(text);
     if (!isRecord(value)) return undefined;
-    if (
-      typeof value["code"] !== "string" ||
-      typeof value["message"] !== "string"
-    ) {
+    if (typeof value["code"] !== "string" || typeof value["message"] !== "string") {
       return undefined;
     }
     const code = value["code"];
     if (isSideChatErrorCode(code)) {
       const profile = SIDE_CHAT_ERROR_VOCABULARY[code];
-      return new WorkflowChatHttpError(
-        code,
-        profile.safeMessage,
-        profile.retryable,
-        status,
-      );
+      return new WorkflowChatHttpError(code, profile.safeMessage, profile.retryable, status);
     }
-    return new WorkflowChatHttpError(
-      code,
-      value["message"],
-      value["retryable"] === true,
-      status,
-    );
+    return new WorkflowChatHttpError(code, value["message"], value["retryable"] === true, status);
   } catch {
     return undefined;
   }
 }
 
-function isWorkflowChatHttpError(
-  value: unknown,
-): value is WorkflowChatHttpError {
+function isWorkflowChatHttpError(value: unknown): value is WorkflowChatHttpError {
   return value instanceof WorkflowChatHttpError;
 }
 

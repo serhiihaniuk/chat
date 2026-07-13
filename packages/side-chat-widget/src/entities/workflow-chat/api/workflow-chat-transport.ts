@@ -24,6 +24,8 @@ type CreateWorkflowChatTransportInput = Readonly<{
     | undefined;
   onRunStarted: (runId: string) => void;
   onRunFinished: () => void;
+  /** The run to reattach to on a cold-load reconnect, when discovery found one. */
+  getReconnectRunId?: (() => string | undefined) | undefined;
 }>;
 
 export type WorkflowClientToolDefinition = Readonly<{
@@ -42,6 +44,7 @@ export type WorkflowClientToolDefinition = Readonly<{
 export function createWorkflowChatTransport({
   getClient,
   getClientTools,
+  getReconnectRunId,
   onRunFinished,
   onRunStarted,
 }: CreateWorkflowChatTransportInput): ChatTransport<WorkflowUIMessage> {
@@ -51,8 +54,7 @@ export function createWorkflowChatTransport({
     fetch: (input, init) => fetchWorkflowResponse(getClient(), input, init),
     onChatSendMessage: (response) => {
       const runId = response.headers.get("x-workflow-run-id");
-      if (!runId)
-        throw new Error("Chat response did not include a workflow run id.");
+      if (!runId) throw new Error("Chat response did not include a workflow run id.");
       onRunStarted(runId);
     },
     onChatEnd: onRunFinished,
@@ -65,30 +67,29 @@ export function createWorkflowChatTransport({
         messages,
         requestId: crypto.randomUUID(),
       };
-      if (client.modelPreference !== undefined)
-        body.modelPreference = client.modelPreference;
+      if (client.modelPreference !== undefined) body.modelPreference = client.modelPreference;
       if (clientTools && clientTools.length > 0) body.clientTools = clientTools;
-      return applyRequestConfig(
-        { api: workflowChatUrl(client, "/api/chat"), body },
-        request,
-      );
+      return applyRequestConfig({ api: workflowChatUrl(client, "/api/chat"), body }, request);
     },
     prepareReconnectToStreamRequest: async ({ api }) => {
       const client = getClient();
       const request = await resolveWorkflowChatRequestConfig(client);
-      return applyRequestConfig({ api: toServiceUrl(client, api) }, request);
+      // A cold load has no SDK run id, so the SDK's fallback url targets the
+      // conversation id; a discovered run id rewrites it to that run's stream.
+      const runId = getReconnectRunId?.();
+      const url = runId
+        ? workflowChatUrl(client, `/api/chat/${encodeURIComponent(runId)}/stream`)
+        : toServiceUrl(client, api);
+      return applyRequestConfig({ api: url }, request);
     },
   };
   if (client.maxConsecutiveErrors !== undefined) {
     transportOptions.maxConsecutiveErrors = client.maxConsecutiveErrors;
   }
-  const transport = new WorkflowChatTransport<WorkflowUIMessage>(
-    transportOptions,
-  );
+  const transport = new WorkflowChatTransport<WorkflowUIMessage>(transportOptions);
 
   return {
-    reconnectToStream: (options) =>
-      transport.reconnectToStream(toReconnectOptions(options)),
+    reconnectToStream: (options) => transport.reconnectToStream(toReconnectOptions(options)),
     sendMessages: (options) => transport.sendMessages(toSendOptions(options)),
   };
 }
@@ -135,12 +136,8 @@ function closeBodyCalmlyOnAbort(
   });
 }
 
-type AiSdkSendOptions = Parameters<
-  ChatTransport<WorkflowUIMessage>["sendMessages"]
->[0];
-type AiSdkReconnectOptions = Parameters<
-  ChatTransport<WorkflowUIMessage>["reconnectToStream"]
->[0];
+type AiSdkSendOptions = Parameters<ChatTransport<WorkflowUIMessage>["sendMessages"]>[0];
+type AiSdkReconnectOptions = Parameters<ChatTransport<WorkflowUIMessage>["reconnectToStream"]>[0];
 
 /** Keep AI SDK 7's explicit undefineds out of Workflow's exact optional fields. */
 const toSendOptions = (
@@ -151,8 +148,7 @@ const toSendOptions = (
     messages: options.messages,
     trigger: options.trigger,
   };
-  if (options.abortSignal !== undefined)
-    result.abortSignal = options.abortSignal;
+  if (options.abortSignal !== undefined) result.abortSignal = options.abortSignal;
   if (options.body !== undefined) result.body = options.body;
   if (options.headers !== undefined) result.headers = options.headers;
   if (options.messageId !== undefined) result.messageId = options.messageId;

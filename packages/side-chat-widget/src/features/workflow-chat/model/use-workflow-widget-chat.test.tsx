@@ -5,11 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { UIMessage } from "ai";
 
-import type { WorkflowChatClient } from "#entities/workflow-chat";
-import {
-  useWorkflowWidgetChat,
-  type WorkflowWidgetChat,
-} from "./use-workflow-widget-chat.js";
+import type { WorkflowActiveTurn, WorkflowChatClient } from "#entities/workflow-chat";
+import { useWorkflowWidgetChat, type WorkflowWidgetChat } from "./use-workflow-widget-chat.js";
 
 const SEEDED_MESSAGE: UIMessage = {
   id: "seed-user",
@@ -64,9 +61,7 @@ describe("useWorkflowWidgetChat", () => {
     expect(assistantMessages?.[0]?.parts).toContainEqual(
       expect.objectContaining({ type: "text", text: "Answer", state: "done" }),
     );
-    expect(
-      chat.current?.messages.filter((message) => message.id === "seed-user"),
-    ).toHaveLength(1);
+    expect(chat.current?.messages.filter((message) => message.id === "seed-user")).toHaveLength(1);
     expect(chat.current?.terminal).toMatchObject({
       kind: "completed",
       messageId: "assistant-1",
@@ -75,9 +70,7 @@ describe("useWorkflowWidgetChat", () => {
   });
 
   it("maps a native content-filter finish to a blocked terminal", async () => {
-    const request = vi.fn<typeof fetch>(() =>
-      Promise.resolve(blockedTurnResponse()),
-    );
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(blockedTurnResponse()));
     const chat = renderChat({ fetch: request });
 
     await act(async () => chat.current?.submitMessage("Blocked"));
@@ -117,9 +110,7 @@ describe("useWorkflowWidgetChat", () => {
   });
 
   it("cancels the local reader and calls the server abort endpoint without an error state", async () => {
-    const loggedError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
+    const loggedError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let postSignal: AbortSignal | undefined;
     let cancelBody: unknown;
     const request = vi.fn<typeof fetch>((input, init) => {
@@ -128,8 +119,7 @@ describe("useWorkflowWidgetChat", () => {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       postSignal = init?.signal ?? undefined;
-      if (postSignal?.aborted)
-        return Promise.reject(new Error("Request was already aborted."));
+      if (postSignal?.aborted) return Promise.reject(new Error("Request was already aborted."));
       return Promise.resolve(openTurnResponse(postSignal));
     });
     const chat = renderChat({ fetch: request });
@@ -139,9 +129,7 @@ describe("useWorkflowWidgetChat", () => {
     });
     await waitFor(() => chat.current?.status === "streaming");
     act(() => chat.current?.stop());
-    await waitFor(
-      () => cancelBody !== undefined && chat.current?.cancelled === true,
-    );
+    await waitFor(() => cancelBody !== undefined && chat.current?.cancelled === true);
     await waitFor(() => chat.current?.status === "idle");
 
     expect(postSignal?.aborted).toBe(true);
@@ -177,9 +165,7 @@ describe("useWorkflowWidgetChat", () => {
     await act(async () => chat.current?.submitMessage("Approve this"));
     await waitFor(() => chat.current?.status === "idle");
 
-    await act(async () =>
-      chat.current?.decideApproval("approval-1", true, "Looks good"),
-    );
+    await act(async () => chat.current?.decideApproval("approval-1", true, "Looks good"));
 
     expect(approvalBody).toEqual({ approved: true, reason: "Looks good" });
     expect(chat.current?.approvalDecisions).toMatchObject({
@@ -191,9 +177,28 @@ describe("useWorkflowWidgetChat", () => {
     expect(renderedMessages).toContain('"id":"approval-1"');
     expect(renderedMessages).toContain('"approved":true');
   });
+
+  it("reattaches to a discovered run on cold load without duplicating seeded history", async () => {
+    const urls: string[] = [];
+    const request = vi.fn<typeof fetch>((input) => {
+      urls.push(requestUrl(input));
+      return Promise.resolve(completedTurnResponse());
+    });
+    const chat = renderChat({ fetch: request }, { runId: "run-1", turnId: "turn-1" });
+
+    await waitFor(
+      () => chat.current?.messages.some((message) => message.role === "assistant") ?? false,
+    );
+
+    expect(urls.some((url) => url.includes("/api/chat/run-1/stream"))).toBe(true);
+    expect(chat.current?.messages.filter((message) => message.id === "seed-user")).toHaveLength(1);
+    expect(chat.current?.messages.filter((message) => message.role === "assistant")).toHaveLength(
+      1,
+    );
+  });
 });
 
-function renderChat(overrides: Partial<WorkflowChatClient>) {
+function renderChat(overrides: Partial<WorkflowChatClient>, activeTurn?: WorkflowActiveTurn) {
   const current: { current: WorkflowWidgetChat | undefined } = {
     current: undefined,
   };
@@ -203,7 +208,7 @@ function renderChat(overrides: Partial<WorkflowChatClient>) {
     ...overrides,
   };
   const Probe = () => {
-    current.current = useWorkflowWidgetChat(client, [SEEDED_MESSAGE]);
+    current.current = useWorkflowWidgetChat(client, [SEEDED_MESSAGE], undefined, activeTurn);
     return null;
   };
   act(() => root.render(createElement(Probe)));

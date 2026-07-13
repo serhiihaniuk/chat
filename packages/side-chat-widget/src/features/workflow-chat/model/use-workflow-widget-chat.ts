@@ -1,11 +1,12 @@
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus } from "ai";
 import { toClientToolDefinitions, type WidgetHostBridge } from "@side-chat/host-bridge";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   cancelWorkflowChatRun,
   createWorkflowChatTransport,
+  type WorkflowActiveTurn,
   type WorkflowChatClient,
   type WorkflowChatHttpError,
   type WorkflowUIMessage,
@@ -65,6 +66,7 @@ export function useWorkflowWidgetChat(
   client: WorkflowChatClient,
   initialMessages: readonly WorkflowUIMessage[],
   hostBridge?: WidgetHostBridge,
+  activeTurn?: WorkflowActiveTurn,
 ): WorkflowWidgetChat {
   const clientRef = useRef(client);
   clientRef.current = client;
@@ -100,6 +102,16 @@ export function useWorkflowWidgetChat(
     onFinish: createWorkflowChatFinishHandler(latestErrorRef, setTerminal),
   });
   latestMessagesRef.current = chat.messages;
+
+  const reattachedRef = useRef(false);
+  useEffect(() => {
+    // On a cold load, seed the discovered run and resume its stream once. Replay
+    // reconciles with the seeded history by message id, so no bubbles duplicate.
+    if (reattachedRef.current || activeTurn === undefined) return;
+    reattachedRef.current = true;
+    activeRunIdRef.current = activeTurn.runId;
+    void chat.resumeStream();
+  }, [activeTurn, chat]);
 
   const submitMessage = async (text: string): Promise<void> => {
     setCancelled(false);
@@ -168,6 +180,7 @@ function createWidgetTransport(
         return [];
       }
     },
+    getReconnectRunId: () => activeRunIdRef.current,
     // Keep the last run id available after the stream closes: approvals and
     // result-before-hook retries are interaction continuations of that run.
     onRunFinished: () => undefined,

@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 
 import {
+  readWorkflowActiveTurn,
   readWorkflowChatHistory,
+  type WorkflowActiveTurn,
   type WorkflowUIMessage,
 } from "#entities/workflow-chat";
 import {
@@ -19,10 +21,7 @@ import {
   type WorkflowChatTerminal,
   WorkflowMessageTimeline,
 } from "#features/workflow-chat";
-import {
-  resolveWidgetLabels,
-  WidgetLabelsProvider,
-} from "#shared/lib/widget-labels";
+import { resolveWidgetLabels, WidgetLabelsProvider } from "#shared/lib/widget-labels";
 import { Composer } from "#shared/ui/composer";
 import { Conversation, ConversationContent } from "#shared/ui/conversation";
 import { ErrorNotice } from "#shared/ui/error-notice";
@@ -74,6 +73,16 @@ export function WorkflowSideChatWidget({
     ],
     queryFn: ({ signal }) => readWorkflowChatHistory(workflowChat, signal),
   });
+  const discovery = useQuery({
+    queryKey: [
+      WORKFLOW_HISTORY_QUERY.SCOPE,
+      "active-turn",
+      workflowChat.baseUrl,
+      workflowChat.conversationId,
+    ],
+    // TanStack forbids an undefined result, so a run-less conversation reads null.
+    queryFn: async ({ signal }) => (await readWorkflowActiveTurn(workflowChat, signal)) ?? null,
+  });
 
   const requestOpenChange = (nextOpen: boolean): void => {
     if (open === undefined) setUncontrolledOpen(nextOpen);
@@ -82,16 +91,11 @@ export function WorkflowSideChatWidget({
   if (!isOpen && renderClosedLauncher) {
     return (
       <SideChatWidgetRoot
-        data-sidechat-accent={
-          appearance.appearanceRootProps["data-sidechat-accent"]
-        }
+        data-sidechat-accent={appearance.appearanceRootProps["data-sidechat-accent"]}
         style={appearance.appearanceRootProps.style}
         theme={theme.themeId}
       >
-        <ClosedWidgetLauncher
-          label={labels.title}
-          onOpen={() => requestOpenChange(true)}
-        />
+        <ClosedWidgetLauncher label={labels.title} onOpen={() => requestOpenChange(true)} />
       </SideChatWidgetRoot>
     );
   }
@@ -99,19 +103,12 @@ export function WorkflowSideChatWidget({
 
   let historyContent: ReactNode;
   if (history.isPending) {
-    historyContent = (
-      <Conversation aria-label={labels.headerConversationFeed}>
-        {null}
-      </Conversation>
-    );
+    historyContent = <Conversation aria-label={labels.headerConversationFeed}>{null}</Conversation>;
   } else if (history.error) {
     historyContent = (
       <Conversation aria-label={labels.headerConversationFeed}>
         <ConversationContent className="mx-auto w-full max-w-measure-message px-4 pt-4">
-          <ErrorNotice
-            message={history.error.message}
-            onRetry={() => void history.refetch()}
-          />
+          <ErrorNotice message={history.error.message} onRetry={() => void history.refetch()} />
         </ConversationContent>
       </Conversation>
     );
@@ -122,6 +119,7 @@ export function WorkflowSideChatWidget({
         labels={labels}
         sendOnEnter={!sendPreference.sendWithCtrlEnter}
         hostBridge={hostBridge}
+        activeTurn={discovery.data ?? undefined}
         workflowChat={workflowChat}
       />
     );
@@ -132,9 +130,7 @@ export function WorkflowSideChatWidget({
       <ResizablePanel
         anchor="fixed"
         aria-label={labels.title}
-        data-sidechat-accent={
-          appearance.appearanceRootProps["data-sidechat-accent"]
-        }
+        data-sidechat-accent={appearance.appearanceRootProps["data-sidechat-accent"]}
         defaultSize={panelSize}
         onSizeChange={setPanelSize}
         role="region"
@@ -158,6 +154,7 @@ function WorkflowChatSession({
   initialMessages,
   labels,
   hostBridge,
+  activeTurn,
   sendOnEnter,
   workflowChat,
 }: {
@@ -165,14 +162,12 @@ function WorkflowChatSession({
   readonly labels: ReturnType<typeof resolveWidgetLabels>;
   readonly sendOnEnter: boolean;
   readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
+  readonly activeTurn: WorkflowActiveTurn | undefined;
   readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
 }) {
-  const chat = useWorkflowWidgetChat(workflowChat, initialMessages, hostBridge);
+  const chat = useWorkflowWidgetChat(workflowChat, initialMessages, hostBridge, activeTurn);
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
-  const terminalMessageIsRendered = hasTerminalMessage(
-    chat.terminal,
-    chat.messages,
-  );
+  const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);
   return (
     <>
       <Conversation aria-label={labels.headerConversationFeed}>
@@ -180,22 +175,12 @@ function WorkflowChatSession({
           {chat.messages.map((message, index) => (
             <WorkflowMessageTimeline
               key={message.id}
-              isStreaming={isStreamingAssistant(
-                chat.status,
-                message,
-                index,
-                lastAssistantIndex,
-              )}
+              isStreaming={isStreamingAssistant(chat.status, message, index, lastAssistantIndex)}
               message={message}
               onRetry={() => void chat.retry()}
               approvalDecisions={chat.approvalDecisions}
               onApprovalDecision={chat.decideApproval}
-              terminal={terminalForMessage(
-                chat.terminal,
-                message.id,
-                index,
-                lastAssistantIndex,
-              )}
+              terminal={terminalForMessage(chat.terminal, message.id, index, lastAssistantIndex)}
             />
           ))}
           {chat.terminal.kind !== "none" && !terminalMessageIsRendered ? (
@@ -243,9 +228,7 @@ function isStreamingAssistant(
   );
 }
 
-function findLastAssistantIndex(
-  messages: readonly WorkflowUIMessage[],
-): number {
+function findLastAssistantIndex(messages: readonly WorkflowUIMessage[]): number {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index]?.role === UI_MESSAGE_ROLE.ASSISTANT) return index;
   }
@@ -260,8 +243,7 @@ function terminalForMessage(
 ): WorkflowChatTerminal | undefined {
   if (terminal.kind === "none") return undefined;
   if (terminal.messageId === messageId) return terminal;
-  if (terminal.messageId === undefined && index === lastAssistantIndex)
-    return terminal;
+  if (terminal.messageId === undefined && index === lastAssistantIndex) return terminal;
   return undefined;
 }
 
@@ -269,7 +251,6 @@ function hasTerminalMessage(
   terminal: WorkflowChatTerminal,
   messages: readonly WorkflowUIMessage[],
 ): boolean {
-  if (terminal.kind === "none" || terminal.messageId === undefined)
-    return false;
+  if (terminal.kind === "none" || terminal.messageId === undefined) return false;
   return messages.some((message) => message.id === terminal.messageId);
 }
