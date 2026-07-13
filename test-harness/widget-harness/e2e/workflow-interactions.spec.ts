@@ -15,10 +15,17 @@ const recoveryEvidenceDirectory = resolve(
 );
 const recoveryWidgetUrl =
   "/side-chat-frame/?mode=workflow-service&conversationId=conversation-task-16";
+const parityEvidenceDirectory = resolve(
+  import.meta.dirname,
+  "../../../plan/v7/evidence/task-16a-widget-parity",
+);
+const parityWidgetUrl =
+  "/side-chat-frame/?mode=workflow-service&conversationId=conversation-parity";
 
 test.beforeAll(() => {
   mkdirSync(evidenceDirectory, { recursive: true });
   mkdirSync(recoveryEvidenceDirectory, { recursive: true });
+  mkdirSync(parityEvidenceDirectory, { recursive: true });
 });
 
 test("dispatches a native client tool through the host and posts one durable output", async ({
@@ -145,6 +152,54 @@ test("reattaches to an in-progress run on cold load and reassembles the answer",
     fullPage: true,
   });
 });
+
+test("shows the empty state with quick actions before the first message", async ({ page }) => {
+  await routeWorkflowIdle(page);
+
+  await page.goto(parityWidgetUrl);
+
+  await expect(page.getByText("How can I help with this page?")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Summarize this page" })).toBeVisible();
+  await page.screenshot({
+    path: resolve(parityEvidenceDirectory, "empty-state.png"),
+    fullPage: true,
+  });
+});
+
+test("opens the settings view from the header gear and returns to the chat", async ({ page }) => {
+  await routeWorkflowIdle(page);
+
+  await page.goto(parityWidgetUrl);
+  await page.getByRole("button", { name: "Settings" }).click();
+
+  const back = page.getByRole("button", { name: "Back to chat" });
+  await expect(back).toBeVisible();
+  await page.screenshot({
+    path: resolve(parityEvidenceDirectory, "settings-view.png"),
+    fullPage: true,
+  });
+
+  await back.click();
+  await expect(page.getByText("How can I help with this page?")).toBeVisible();
+});
+
+// A run-less conversation: empty history and no active turn, so the widget rests on
+// its empty state.
+async function routeWorkflowIdle(page: Page): Promise<void> {
+  await page.route("**/side-chat-api/api/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
+      await route.fulfill({ json: { messages: [] } });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.endsWith("/active-turn")) {
+      await route.fulfill({ json: { activeTurn: null } });
+      return;
+    }
+    await route.abort("failed");
+  });
+}
 
 type WorkflowRouteScenario = Readonly<{
   readonly chunks: readonly Readonly<Record<string, unknown>>[];

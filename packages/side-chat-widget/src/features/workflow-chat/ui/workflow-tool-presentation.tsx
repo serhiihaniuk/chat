@@ -3,6 +3,7 @@ import { ShieldCheck } from "lucide-react";
 import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
 import { asRecord } from "@side-chat/shared";
 
+import { DEFAULT_TOOL_DETAIL_LEVEL, type ToolDetailLevel } from "#entities/settings";
 import { Button } from "#shared/ui/button";
 import { ToolDetailRow, hasToolDetail, type ToolDetail } from "#shared/ui/activity/tool-detail";
 import { Textarea } from "#shared/ui/textarea";
@@ -27,11 +28,13 @@ export function WorkflowToolPresentation({
   item,
   labels,
   onApprovalDecision,
+  toolDetail = DEFAULT_TOOL_DETAIL_LEVEL,
 }: {
   readonly approvalDecisions: WorkflowApprovalDecisions | undefined;
   readonly item: Extract<WorkflowTimelineItem, { kind: "tool" }>;
   readonly labels: WidgetLabels;
   readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
+  readonly toolDetail?: ToolDetailLevel | undefined;
 }): ReactElement {
   const decision = approvalCardDecision(item, approvalDecisions);
   if (decision) {
@@ -45,8 +48,11 @@ export function WorkflowToolPresentation({
     );
   }
 
+  // "name" pins the compact row (no payload disclosure); "full" reaches the
+  // expandable detail row when the call carries input/result. "hidden" never
+  // reaches here — the trace drops those tools before rendering.
   const state = toolStateFor(item.state);
-  const detail = toolDetailFor(item);
+  const detail = toolDetail === "full" ? toolDetailFor(item) : {};
   return hasToolDetail(detail) ? (
     <ToolDetailRow detail={detail} name={item.name} state={state} />
   ) : (

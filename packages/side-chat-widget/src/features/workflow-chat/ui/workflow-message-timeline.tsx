@@ -1,9 +1,15 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { FileText } from "lucide-react";
 
+import {
+  DEFAULT_REASONING_VISIBILITY,
+  DEFAULT_TOOL_DETAIL_LEVEL,
+  type ReasoningVisibility,
+  type ToolDetailLevel,
+} from "#entities/settings";
 import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
-import { SourcesFold, type CitationSource } from "#shared/ui/activity/citations";
+import { SourcesFold } from "#shared/ui/activity/citations";
 import {
   BlockedNotice,
   CancelledNotice,
@@ -23,11 +29,8 @@ import type {
   WorkflowApprovalDecisions,
   WorkflowChatTerminal,
 } from "../model/use-workflow-widget-chat.js";
-import { usesApprovalCard, WorkflowToolPresentation } from "./workflow-tool-presentation.js";
-
-type ToolItem = Extract<WorkflowTimelineItem, { kind: "tool" }>;
-type TextItem = Extract<WorkflowTimelineItem, { kind: "text" }>;
-type FileItem = Extract<WorkflowTimelineItem, { kind: "file" }>;
+import { WorkflowToolPresentation } from "./workflow-tool-presentation.js";
+import { groupTimelineItems, type FileItem } from "./workflow-timeline-grouping.js";
 
 export function WorkflowMessageTimeline({
   approvalDecisions,
@@ -35,14 +38,18 @@ export function WorkflowMessageTimeline({
   message,
   onApprovalDecision,
   onRetry,
+  reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
   terminal,
+  toolDetail = DEFAULT_TOOL_DETAIL_LEVEL,
 }: {
   readonly isStreaming?: boolean;
   readonly message: WorkflowTimelineMessage;
   readonly onRetry?: (() => void) | undefined;
   readonly approvalDecisions?: WorkflowApprovalDecisions | undefined;
   readonly onApprovalDecision?: WorkflowApprovalDecisionHandler | undefined;
+  readonly reasoningVisibility?: ReasoningVisibility | undefined;
   readonly terminal?: WorkflowChatTerminal | undefined;
+  readonly toolDetail?: ToolDetailLevel | undefined;
 }): ReactElement {
   const labels = useWidgetLabels();
   const messageTerminal =
@@ -67,7 +74,9 @@ export function WorkflowMessageTimeline({
           items={projectWorkflowMessageParts(message, messageTerminal)}
           labels={labels}
           onApprovalDecision={onApprovalDecision}
+          reasoningVisibility={reasoningVisibility}
           role={role}
+          toolDetail={toolDetail}
         />
       )}
       {messageTerminal && <TerminalPresentation onRetry={onRetry} terminal={messageTerminal} />}
@@ -87,24 +96,30 @@ function MessageBody({
   items,
   labels,
   onApprovalDecision,
+  reasoningVisibility,
   role,
+  toolDetail,
 }: {
   readonly approvalDecisions: WorkflowApprovalDecisions | undefined;
   readonly isStreaming: boolean;
   readonly items: readonly WorkflowTimelineItem[];
   readonly labels: WidgetLabels;
   readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
+  readonly reasoningVisibility: ReasoningVisibility;
   readonly role: "user" | "assistant";
+  readonly toolDetail: ToolDetailLevel;
 }): ReactElement {
   const { answers, approvals, files, sources, trace } = groupTimelineItems(
     items,
     approvalDecisions,
+    toolDetail,
     (item) => (
       <WorkflowToolPresentation
         approvalDecisions={approvalDecisions}
         item={item}
         labels={labels}
         onApprovalDecision={onApprovalDecision}
+        toolDetail={toolDetail}
       />
     ),
   );
@@ -123,6 +138,7 @@ function MessageBody({
           isStreaming={isStreaming}
           items={trace}
           labels={labels}
+          reasoningVisibility={reasoningVisibility}
         />
       )}
       {approvals.map((item) => (
@@ -153,77 +169,28 @@ function MessageBody({
   );
 }
 
-type TimelineGroups = Readonly<{
-  trace: readonly ReasoningItem[];
-  approvals: readonly ToolItem[];
-  answers: readonly TextItem[];
-  sources: readonly CitationSource[];
-  files: readonly FileItem[];
-}>;
-
-const isTextItem = (item: WorkflowTimelineItem): item is TextItem => item.kind === "text";
-const isFileItem = (item: WorkflowTimelineItem): item is FileItem => item.kind === "file";
-
-// Sort native parts into the legacy layout: one activity trace (reasoning plus
-// non-approval tool rows), interactive approval cards, answers, sources, and files.
-function groupTimelineItems(
-  items: readonly WorkflowTimelineItem[],
-  approvalDecisions: WorkflowApprovalDecisions | undefined,
-  renderTool: (item: ToolItem) => ReactElement,
-): TimelineGroups {
-  return {
-    trace: collectTrace(items, approvalDecisions, renderTool),
-    approvals: items.filter(
-      (item): item is ToolItem => item.kind === "tool" && usesApprovalCard(item, approvalDecisions),
-    ),
-    answers: items.filter(isTextItem),
-    sources: collectSources(items),
-    files: items.filter(isFileItem),
-  };
-}
-
-// Reasoning thoughts and non-approval tool rows, kept in source order.
-function collectTrace(
-  items: readonly WorkflowTimelineItem[],
-  approvalDecisions: WorkflowApprovalDecisions | undefined,
-  renderTool: (item: ToolItem) => ReactElement,
-): ReasoningItem[] {
-  const trace: ReasoningItem[] = [];
-  for (const item of items) {
-    if (item.kind === "reasoning") {
-      trace.push({ kind: "thought", id: item.id, text: item.text });
-    } else if (item.kind === "tool" && !usesApprovalCard(item, approvalDecisions)) {
-      trace.push({ kind: "node", id: item.id, node: renderTool(item) });
-    }
-  }
-  return trace;
-}
-
-function collectSources(items: readonly WorkflowTimelineItem[]): CitationSource[] {
-  const sources: CitationSource[] = [];
-  for (const item of items) {
-    if (item.kind === "source") sources.push({ label: item.label, url: item.url });
-  }
-  return sources;
-}
-
 // One "Thought process" fold for the whole trace: open while thinking, collapsed
-// once the answer lands, matching the legacy view's activity timeline.
+// once the answer lands, matching the legacy view's activity timeline. Reasoning
+// visibility "detailed" keeps a completed trace open instead of collapsing it.
 function ActivityTrace({
   hasAnswer,
   isStreaming,
   items,
   labels,
+  reasoningVisibility,
 }: {
   readonly hasAnswer: boolean;
   readonly isStreaming: boolean;
   readonly items: readonly ReasoningItem[];
   readonly labels: WidgetLabels;
+  readonly reasoningVisibility: ReasoningVisibility;
 }): ReactElement {
-  const [open, setOpen] = useState(isStreaming);
+  const openByDefault = isStreaming || reasoningVisibility === "detailed";
+  const [open, setOpen] = useState(openByDefault);
   useEffect(() => {
-    if (!isStreaming && hasAnswer) setOpen(false);
-  }, [hasAnswer, isStreaming]);
+    if (openByDefault) setOpen(true);
+    else if (hasAnswer) setOpen(false);
+  }, [hasAnswer, openByDefault]);
   return (
     <Reasoning
       items={items}

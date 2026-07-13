@@ -137,6 +137,18 @@ export type WorkflowSideChatWidgetProps = SideChatWidgetShellProps & {
   readonly workflowChat: WorkflowChatClient;
   /** Optional browser-safe host capability and client-tool dispatch seam. */
   readonly hostBridge?: WidgetHostBridge | undefined;
+  /** Starter prompts shown only before the conversation has messages. */
+  readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
+  /**
+   * Host/server-controlled reasoning presentation, not a user preference.
+   * Defaults to `minimal`; `detailed` keeps a completed activity trace open.
+   */
+  readonly reasoningVisibility?: ReasoningVisibility | undefined;
+  /**
+   * Replace the built-in agent mark (the greeting + header glyph) with custom
+   * branding. Returns a node rendered in place of the default `AgentMark`.
+   */
+  readonly renderAgentMark?: (() => ReactNode) | undefined;
 };
 
 /**
@@ -145,6 +157,4 @@ export type WorkflowSideChatWidgetProps = SideChatWidgetShellProps & {
  * A caller selects exactly one transport branch. The native workflow branch
  * never imports or executes the protocol-backed run machinery.
  */
-export type SideChatWidgetProps =
-  | ProtocolSideChatWidgetProps
-  | WorkflowSideChatWidgetProps;
+export type SideChatWidgetProps = ProtocolSideChatWidgetProps | WorkflowSideChatWidgetProps;

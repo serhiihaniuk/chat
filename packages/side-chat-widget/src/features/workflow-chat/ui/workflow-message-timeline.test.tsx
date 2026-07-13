@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { ReasoningVisibility, ToolDetailLevel } from "#entities/settings";
+
 import type { WorkflowChatTerminal } from "../model/use-workflow-widget-chat.js";
 import {
   projectWorkflowMessageParts,
@@ -20,13 +22,17 @@ const renderTimeline = (
   message: WorkflowTimelineMessage,
   terminal?: WorkflowChatTerminal,
   isStreaming = false,
+  toolDetail?: ToolDetailLevel,
+  reasoningVisibility?: ReasoningVisibility,
 ): string =>
   renderToStaticMarkup(
     <WorkflowMessageTimeline
       isStreaming={isStreaming}
       message={message}
       onRetry={() => undefined}
+      reasoningVisibility={reasoningVisibility}
       terminal={terminal}
+      toolDetail={toolDetail}
     />,
   );
 
@@ -168,6 +174,64 @@ describe("WorkflowMessageTimeline", () => {
     expect(html.indexOf("thinking-trace")).toBeLessThan(html.indexOf("Lookup"));
     expect(html.indexOf("Lookup")).toBeGreaterThan(-1);
     expect(html.indexOf("Lookup")).toBeLessThan(html.indexOf("the-answer"));
+  });
+
+  it("drops tool rows from the trace at tool detail 'hidden' but keeps thoughts", () => {
+    const html = renderTimeline(
+      assistant([
+        { type: "reasoning", text: "still-thinking" },
+        {
+          type: "dynamic-tool",
+          toolName: "lookup_weather",
+          state: "output-available",
+          input: { city: "Zurich" },
+          output: { temp: 20 },
+        },
+      ]),
+      undefined,
+      true,
+      "hidden",
+    );
+
+    expect(html).toContain("still-thinking");
+    expect(html).not.toContain('data-slot="tool-row"');
+    expect(html).not.toContain('data-slot="tool-detail-row"');
+  });
+
+  it("pins a compact tool row without expandable payloads at tool detail 'name'", () => {
+    const html = renderTimeline(
+      assistant([
+        {
+          type: "dynamic-tool",
+          toolName: "lookup_weather",
+          state: "output-available",
+          input: { city: "Zurich" },
+          output: { temp: 20 },
+        },
+      ]),
+      undefined,
+      true,
+      "name",
+    );
+
+    // The same call renders as an expandable detail row at "full"; "name" pins the
+    // compact row so no payload is disclosed.
+    expect(html).toContain('data-slot="tool-row"');
+    expect(html).not.toContain('data-slot="tool-detail-row"');
+  });
+
+  it("keeps a completed trace open at reasoning visibility 'detailed'", () => {
+    const message = assistant([
+      { type: "reasoning", text: "kept-open" },
+      { type: "text", text: "the-answer" },
+    ]);
+    const detailed = renderTimeline(message, undefined, false, undefined, "detailed");
+    const minimal = renderTimeline(message, undefined, false, undefined, "minimal");
+
+    // The chevron rotates only while the fold is open: "detailed" holds a completed
+    // trace open, "minimal" leaves it collapsed behind the trigger.
+    expect(detailed).toContain("rotate-180");
+    expect(minimal).not.toContain("rotate-180");
   });
 
   it("renders source URL, source document, sanctioned image files, and non-network files", () => {

@@ -5,10 +5,11 @@ import { useWidgetChat } from "#features/chat";
 import {
   ConversationSidebar,
   ConversationSwitcher,
+  emptyStateDescription,
+  toEmptyStateSuggestions,
   WidgetConversation,
   WidgetEmptyState,
   WidgetHeaderTitle,
-  type WidgetEmptyStateSuggestion,
 } from "#features/conversation";
 import {
   ClosedWidgetLauncher,
@@ -23,7 +24,6 @@ import { contextTokensFromUsage } from "#entities/chat";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
 import { resolveWidgetLabels, WidgetLabelsProvider } from "#shared/lib/widget-labels";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
-import { Code2Icon, FileTextIcon, LightbulbIcon, PenLineIcon, type LucideIcon } from "lucide-react";
 import { useWidgetModelSelection } from "../model/selection/side-chat-model-selection.js";
 import { useWidgetToolSelection } from "../model/selection/side-chat-tool-selection.js";
 import { createSideChatWidgetQueryClient } from "../model/side-chat-query-client.js";
@@ -44,15 +44,6 @@ export type {
   SideChatWidgetQuickAction,
   WidgetActivityItem,
 } from "../model/side-chat-widget.types.js";
-
-// A small rotation so suggestion rows read as distinct actions without requiring the
-// host to supply per-action icons.
-const SUGGESTION_ICONS: readonly LucideIcon[] = [
-  FileTextIcon,
-  LightbulbIcon,
-  Code2Icon,
-  PenLineIcon,
-];
 
 /**
  * Render one self-contained Side Chat shell around a host-supplied API client.
@@ -271,21 +262,6 @@ const SideChatWidgetContent = ({
     </WidgetLabelsProvider>
   );
 };
-
-const toEmptyStateSuggestions = (
-  quickActions: readonly { readonly id: string; readonly label: string; readonly prompt: string }[],
-): readonly WidgetEmptyStateSuggestion[] =>
-  quickActions.map((action, index) => ({
-    ...action,
-    icon: SUGGESTION_ICONS[index % SUGGESTION_ICONS.length] ?? FileTextIcon,
-  }));
-
-// Honest empty-state copy: only claim to see the page when a host bridge is present
-// to supply that context.
-const emptyStateDescription = (
-  hostBridge: ProtocolSideChatWidgetProps["hostBridge"],
-  labels: { readonly emptyStateWithContext: string; readonly emptyStateWithoutContext: string },
-): string => (hostBridge ? labels.emptyStateWithContext : labels.emptyStateWithoutContext);
 
 const resolveInitialProfileId = (
   defaultTurnProfileId: string | undefined,

@@ -8,3 +8,8 @@ export {
   WidgetEmptyState,
   type WidgetEmptyStateSuggestion,
 } from "./ui/empty-state/widget-empty-state.js";
+export {
+  emptyStateDescription,
+  toEmptyStateSuggestions,
+  type EmptyStateQuickAction,
+} from "./ui/empty-state/empty-state-suggestions.js";

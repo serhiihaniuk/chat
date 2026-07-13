@@ -1,42 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 
-import {
-  readWorkflowActiveTurn,
-  readWorkflowChatHistory,
-  type WorkflowActiveTurn,
-  type WorkflowUIMessage,
-} from "#entities/workflow-chat";
+import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
+import { readWorkflowActiveTurn, readWorkflowChatHistory } from "#entities/workflow-chat";
+import { WidgetHeaderTitle } from "#features/conversation";
 import {
   ClosedWidgetLauncher,
   ResizablePanel,
   useWidgetPanelSize,
   WidgetHeader,
 } from "#features/panel";
-import { useSendPreference } from "#features/settings";
+import { SettingsView, useSendPreference, useToolDetailPreference } from "#features/settings";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
-import {
-  useWorkflowWidgetChat,
-  WORKFLOW_WIDGET_CHAT_STATUS,
-  type WorkflowChatTerminal,
-  WorkflowMessageTimeline,
-} from "#features/workflow-chat";
 import { resolveWidgetLabels, WidgetLabelsProvider } from "#shared/lib/widget-labels";
-import { Composer } from "#shared/ui/composer";
 import { Conversation, ConversationContent } from "#shared/ui/conversation";
 import { ErrorNotice } from "#shared/ui/error-notice";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 
 import type { WorkflowSideChatWidgetProps } from "../../model/side-chat-widget.types.js";
+import { WorkflowChatSession } from "./workflow-chat-session.js";
 
 const WORKFLOW_HISTORY_QUERY = {
   RESOURCE: "history",
   SCOPE: "workflow-chat",
-} as const;
-
-const UI_MESSAGE_ROLE = {
-  ASSISTANT: "assistant",
-  USER: "user",
 } as const;
 
 /** Render one conversation through the native workflow transport and chat state. */
@@ -50,6 +36,9 @@ export function WorkflowSideChatWidget({
   open,
   panelActions,
   panelSizeStorageKey,
+  quickActions = [],
+  reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
+  renderAgentMark,
   renderClosedLauncher = true,
   themeStorageKey,
   workflowChat,
@@ -64,6 +53,7 @@ export function WorkflowSideChatWidget({
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
   const appearance = useWidgetAppearance();
   const sendPreference = useSendPreference();
+  const toolDetailPreference = useToolDetailPreference();
   const history = useQuery({
     queryKey: [
       WORKFLOW_HISTORY_QUERY.SCOPE,
@@ -120,6 +110,10 @@ export function WorkflowSideChatWidget({
         sendOnEnter={!sendPreference.sendWithCtrlEnter}
         hostBridge={hostBridge}
         activeTurn={discovery.data ?? undefined}
+        quickActions={quickActions}
+        reasoningVisibility={reasoningVisibility}
+        renderAgentMark={renderAgentMark}
+        toolDetail={toolDetailPreference.toolDetail}
         workflowChat={workflowChat}
       />
     );
@@ -137,132 +131,82 @@ export function WorkflowSideChatWidget({
         style={appearance.appearanceRootProps.style}
         theme={theme.themeId}
       >
-        <WidgetHeader
+        <WorkflowWidgetPanelBody
+          appearance={appearance}
+          historyContent={historyContent}
+          labels={labels}
           onClose={() => {
             panelActions?.onClose?.();
             requestOpenChange(false);
           }}
-          title={labels.title}
+          renderAgentMark={renderAgentMark}
+          sendPreference={sendPreference}
+          theme={theme}
+          toolDetailPreference={toolDetailPreference}
         />
-        {historyContent}
       </ResizablePanel>
     </WidgetLabelsProvider>
   );
 }
 
-function WorkflowChatSession({
-  initialMessages,
+/**
+ * The panel's inner chrome: the settings view, or the header plus the conversation
+ * content. Owning `isSettingsOpen` here (rather than in the parent) keeps settings
+ * and its trigger together and matches the legacy shell's structure.
+ */
+function WorkflowWidgetPanelBody({
+  appearance,
+  historyContent,
   labels,
-  hostBridge,
-  activeTurn,
-  sendOnEnter,
-  workflowChat,
+  onClose,
+  renderAgentMark,
+  sendPreference,
+  theme,
+  toolDetailPreference,
 }: {
-  readonly initialMessages: readonly WorkflowUIMessage[];
+  readonly appearance: ReturnType<typeof useWidgetAppearance>;
+  readonly historyContent: ReactNode;
   readonly labels: ReturnType<typeof resolveWidgetLabels>;
-  readonly sendOnEnter: boolean;
-  readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
-  readonly activeTurn: WorkflowActiveTurn | undefined;
-  readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
-}) {
-  const chat = useWorkflowWidgetChat(workflowChat, initialMessages, hostBridge, activeTurn);
-  const lastAssistantIndex = findLastAssistantIndex(chat.messages);
-  const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);
+  readonly onClose: () => void;
+  readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
+  readonly sendPreference: ReturnType<typeof useSendPreference>;
+  readonly theme: ReturnType<typeof useWidgetTheme>;
+  readonly toolDetailPreference: ReturnType<typeof useToolDetailPreference>;
+}): ReactNode {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  if (isSettingsOpen) {
+    return (
+      <SettingsView
+        accent={appearance.accent}
+        corners={appearance.corners}
+        density={appearance.density}
+        elevation={appearance.elevation}
+        onAccentChange={appearance.setAccent}
+        onBack={() => setIsSettingsOpen(false)}
+        onCornersChange={appearance.setCorners}
+        onDensityChange={appearance.setDensity}
+        onElevationChange={appearance.setElevation}
+        onSelectTheme={theme.setTheme}
+        onSendWithCtrlEnterChange={sendPreference.setSendWithCtrlEnter}
+        onTextSizeChange={appearance.setTextSize}
+        onToolDetailChange={toolDetailPreference.setToolDetail}
+        onTypefaceChange={appearance.setTypeface}
+        sendWithCtrlEnter={sendPreference.sendWithCtrlEnter}
+        textSize={appearance.textSize}
+        themeId={theme.themeId}
+        toolDetail={toolDetailPreference.toolDetail}
+        typeface={appearance.typeface}
+      />
+    );
+  }
   return (
     <>
-      <Conversation aria-label={labels.headerConversationFeed}>
-        <ConversationContent className="mx-auto min-h-full w-full max-w-measure-message gap-4 px-4 pt-4 pb-8">
-          {chat.messages.map((message, index) => (
-            <WorkflowMessageTimeline
-              key={message.id}
-              isStreaming={isStreamingAssistant(chat.status, message, index, lastAssistantIndex)}
-              message={message}
-              onRetry={() => void chat.retry()}
-              approvalDecisions={chat.approvalDecisions}
-              onApprovalDecision={chat.decideApproval}
-              terminal={terminalForMessage(chat.terminal, message.id, index, lastAssistantIndex)}
-            />
-          ))}
-          {chat.terminal.kind !== "none" && !terminalMessageIsRendered ? (
-            <WorkflowMessageTimeline
-              message={{
-                id: chat.terminal.messageId ?? "workflow-terminal",
-                role: "assistant",
-                parts: [],
-              }}
-              onRetry={() => void chat.retry()}
-              approvalDecisions={chat.approvalDecisions}
-              onApprovalDecision={chat.decideApproval}
-              terminal={chat.terminal}
-            />
-          ) : null}
-          {chat.error ? (
-            chat.error.status === undefined ? (
-              // A transport drop carries no HTTP status; offer a reconnect that
-              // reattaches to the still-running turn. Typed 4xx are not retried.
-              <ErrorNotice
-                message={labels.noticeConnectionLost}
-                onRetry={() => void chat.reconnect()}
-              />
-            ) : (
-              <ErrorNotice message={chat.error.message} />
-            )
-          ) : null}
-        </ConversationContent>
-      </Conversation>
-      <footer className="shrink-0 px-3 pb-3">
-        <Composer
-          className="mx-auto w-full max-w-measure-message"
-          modelSelector={null}
-          onStop={chat.stop}
-          onSubmit={chat.submitMessage}
-          placeholder={labels.placeholder}
-          sendLabel={labels.send}
-          sendOnEnter={sendOnEnter}
-          status={chat.status}
-          toolsMenu={null}
-        />
-      </footer>
+      <WidgetHeader
+        onClose={onClose}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        title={<WidgetHeaderTitle renderAgentMark={renderAgentMark} title={labels.title} />}
+      />
+      {historyContent}
     </>
   );
-}
-
-function isStreamingAssistant(
-  status: (typeof WORKFLOW_WIDGET_CHAT_STATUS)[keyof typeof WORKFLOW_WIDGET_CHAT_STATUS],
-  message: WorkflowUIMessage,
-  index: number,
-  lastAssistantIndex: number,
-): boolean {
-  return (
-    status === WORKFLOW_WIDGET_CHAT_STATUS.STREAMING &&
-    message.role === UI_MESSAGE_ROLE.ASSISTANT &&
-    index === lastAssistantIndex
-  );
-}
-
-function findLastAssistantIndex(messages: readonly WorkflowUIMessage[]): number {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index]?.role === UI_MESSAGE_ROLE.ASSISTANT) return index;
-  }
-  return -1;
-}
-
-function terminalForMessage(
-  terminal: WorkflowChatTerminal,
-  messageId: string,
-  index: number,
-  lastAssistantIndex: number,
-): WorkflowChatTerminal | undefined {
-  if (terminal.kind === "none") return undefined;
-  if (terminal.messageId === messageId) return terminal;
-  if (terminal.messageId === undefined && index === lastAssistantIndex) return terminal;
-  return undefined;
-}
-
-function hasTerminalMessage(
-  terminal: WorkflowChatTerminal,
-  messages: readonly WorkflowUIMessage[],
-): boolean {
-  if (terminal.kind === "none" || terminal.messageId === undefined) return false;
-  return messages.some((message) => message.id === terminal.messageId);
 }

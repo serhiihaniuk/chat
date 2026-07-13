@@ -6,6 +6,7 @@ import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import {
   SideChatWidget,
   type SideChatWidgetProps,
+  type SideChatWidgetQuickAction,
 } from "@side-chat/side-chat-widget";
 
 import {
@@ -65,24 +66,17 @@ export type WidgetHarnessApp = {
   readonly element: ReactElement;
 };
 
-export const createWidgetHarnessApp = (
-  config: WidgetHarnessConfig,
-): WidgetHarnessApp => {
+export const createWidgetHarnessApp = (config: WidgetHarnessConfig): WidgetHarnessApp => {
   return {
     config,
     element: createElement(WidgetHarnessFrame, { config }),
   };
 };
 
-const WidgetHarnessFrame = ({
-  config,
-}: {
-  readonly config: WidgetHarnessConfig;
-}) => {
+const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }) => {
   const [hostOpen, setHostOpen] = useState(config.defaultOpen);
   const [demoHost] = useState(() => createDemoHostSurface());
-  const hostControlled =
-    config.openControl === WIDGET_HARNESS_OPEN_CONTROLS.HOST;
+  const hostControlled = config.openControl === WIDGET_HARNESS_OPEN_CONTROLS.HOST;
 
   useEffect(() => {
     if (!hostControlled) return undefined;
@@ -94,10 +88,7 @@ const WidgetHarnessFrame = ({
     };
 
     window.addEventListener("message", receiveHostControl);
-    window.parent.postMessage(
-      { type: READY_MESSAGE_TYPE },
-      window.location.origin,
-    );
+    window.parent.postMessage({ type: READY_MESSAGE_TYPE }, window.location.origin);
     return () => window.removeEventListener("message", receiveHostControl);
   }, [hostControlled]);
 
@@ -123,25 +114,28 @@ const WidgetHarnessFrame = ({
   return createElement(SideChatWidget, {
     ...props,
     onOpenChange: (open: boolean) => {
-      window.parent.postMessage(
-        { type: OPEN_CHANGE_MESSAGE_TYPE, open },
-        window.location.origin,
-      );
+      window.parent.postMessage({ type: OPEN_CHANGE_MESSAGE_TYPE, open }, window.location.origin);
     },
     open: hostOpen,
     renderClosedLauncher: false,
   });
 };
 
-const isSetOpenMessage = (
-  message: unknown,
-): message is WidgetHarnessSetOpenMessage => {
+const isSetOpenMessage = (message: unknown): message is WidgetHarnessSetOpenMessage => {
   if (!isRecord(message)) return false;
-  return (
-    message["type"] === SET_OPEN_MESSAGE_TYPE &&
-    typeof message["open"] === "boolean"
-  );
+  return message["type"] === SET_OPEN_MESSAGE_TYPE && typeof message["open"] === "boolean";
 };
+
+const HARNESS_QUICK_ACTIONS: readonly SideChatWidgetQuickAction[] = [
+  { id: "summarize", label: "Summarize this page", prompt: "Summarize this page." },
+  {
+    id: "explain",
+    label: "Explain the context scope section",
+    prompt: "Explain the context scope section.",
+  },
+  { id: "debounce", label: "Show me a debounce helper", prompt: "Show me a debounce helper." },
+  { id: "reply", label: "Draft a reply about this", prompt: "Draft a reply about this." },
+];
 
 const createWidgetHarnessProps = (
   config: WidgetHarnessConfig,
@@ -158,6 +152,7 @@ const createWidgetHarnessProps = (
         placeholder: "Ask about this page",
         send: "Send",
       },
+      quickActions: HARNESS_QUICK_ACTIONS,
       panelSizeStorageKey: `side-chat-widget:${config.workspaceId}:panel-size`,
     };
   }
@@ -167,9 +162,7 @@ const createWidgetHarnessProps = (
       ? createLocalServiceClient(config)
       : createMockStreamClient(config);
   const props: SideChatWidgetProps = {
-    turnProfiles: [
-      { id: SERVICE_DEFAULT_TURN_PROFILE_ID, label: "Default profile" },
-    ],
+    turnProfiles: [{ id: SERVICE_DEFAULT_TURN_PROFILE_ID, label: "Default profile" }],
     client,
     conversationStorageKey: `side-chat-widget:${config.workspaceId}:conversations`,
     panelSizeStorageKey: `side-chat-widget:${config.workspaceId}:panel-size`,
@@ -182,28 +175,7 @@ const createWidgetHarnessProps = (
       placeholder: "Ask about this page",
       send: "Send",
     },
-    quickActions: [
-      {
-        id: "summarize",
-        label: "Summarize this page",
-        prompt: "Summarize this page.",
-      },
-      {
-        id: "explain",
-        label: "Explain the context scope section",
-        prompt: "Explain the context scope section.",
-      },
-      {
-        id: "debounce",
-        label: "Show me a debounce helper",
-        prompt: "Show me a debounce helper.",
-      },
-      {
-        id: "reply",
-        label: "Draft a reply about this",
-        prompt: "Draft a reply about this.",
-      },
-    ],
+    quickActions: HARNESS_QUICK_ACTIONS,
   };
   return props;
 };
@@ -221,10 +193,7 @@ const resolveHarnessPanelSize = (): {
   };
 };
 
-export const mountWidgetHarness = (
-  container: Element,
-  search: string,
-): void => {
+export const mountWidgetHarness = (container: Element, search: string): void => {
   const app = createWidgetHarnessApp(parseWidgetHarnessConfig(search));
   createRoot(container).render(app.element);
 };
