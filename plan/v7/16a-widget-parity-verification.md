@@ -35,6 +35,8 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 
 - **Settings view + header gear** — theme (all four), accent, corners, density, elevation, text size, typeface, send preference, tool-detail level. Reuses the shared `SettingsView`. Evidence: `evidence/task-16a-widget-parity/settings-view.png`.
 - **Empty state + quick actions** — greeting, agent mark, context-aware description, host starter prompts. Evidence: `evidence/task-16a-widget-parity/empty-state.png`.
+- **Conversation sidebar + switcher (multi-conversation)** — the widget owns the active conversation; lists workspace conversations (`GET /api/conversations`, server-generated titles); new/select remounts a keyed session; a settled turn refreshes the list. Evidence: `evidence/task-16a-widget-parity/sidebar.png`. Signed-off degradation: cross-conversation running dots stay empty (native discovery is per-conversation).
+- **Composer footer + model selector** — the native path uses the shared `WidgetFooter` (same composer as legacy); the model selector reads `GET /api/models` and sends the chosen id as `modelPreference`.
 - **Tool-detail level** — `hidden` drops tool rows, `name` pins a compact row, `full` keeps the expandable detail (unit-tested).
 - **Reasoning visibility** — `detailed` holds a completed trace open (unit-tested).
 - **Agent mark** — `renderAgentMark` flows to the header title and the empty state.
@@ -42,18 +44,17 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 
 Not yet carried: **"Thought for N seconds" duration** (the native projection has no activity timing) and **message-action copy**. Both are small client follow-ups.
 
-### Backend-gated — needs `apps/side-chat-service` changes, not a widget port
+### In progress — composer tools menu + usage meter (service work)
 
-The workflow service is single-model, has no server-tool catalog, and does not put usage on the wire. These are service + product decisions:
+The composer footer is restored with empty tools / no meter today; these need `apps/side-chat-service` changes (mapped, implementing):
 
-- **Model selector / turn profiles** — `GET /api/models` returns one model and `selectModel` rejects any other id (`MODEL_NOT_ALLOWED`). A real selector needs a multi-model catalog + a permissive policy.
+- **Usage / context meter** — usage is computed and persisted but never sent on the stream (`messageMetadata` unpopulated; `providerMetadata` scrubbed), and the model's context window is not exposed. Needs usage on the wire + a context-window source.
+- **Server tools menu** — server tools execute, but there is no `/tools` list route and no per-request server-tool allowlist. Needs a catalog route + a request field threaded to tool selection.
+
+### Backend-gated / product decisions (not scheduled)
+
+- **Multi-model selection** — `GET /api/models` returns one model and `selectModel` rejects any other id. The selector shows the configured model; a real multi-model catalog + permissive policy is a product decision.
 - **Reasoning-effort control** — not a request field; baked into provider config.
-- **Server tools menu** — no `/tools` route and no server-tool execution; only host-supplied client tools travel on `clientTools`.
-- **Usage / context meter** — usage is computed and persisted but never sent on the stream (`messageMetadata` unpopulated; `providerMetadata` scrubbed). The native projection captures none.
-
-### Portable, decision pending
-
-- **Conversation sidebar + switcher (multi-conversation)** — `GET /api/conversations` exists and the service generates + persists titles, so this is a client-only port. The list client method (`readWorkflowConversations`) has landed with tests. The remaining wiring makes the widget **own** `conversationId` (today a required prop), changing its model from host-pinned-single to widget-managed-multi. Scope decision: is the native widget multi-conversation like the legacy widget, or deliberately single-conversation? If it ships, sign off one degradation — **cross-conversation running dots** are not populated (native discovery is per-conversation).
 
 ## Look identity — visual parity
 
@@ -75,8 +76,9 @@ Any legacy feature or visual detail deliberately not carried into the native wid
 ## Completion checklist
 
 - [x] Client-portable feature parity implemented and browser-verified (settings, empty state, quick actions, tool-detail, reasoning-visibility, agent mark, activity fold).
-- [ ] Multi-conversation sidebar/switcher: scope decision, then build or sign off as an intentional cut.
-- [ ] Backend-gated features (model selector, reasoning effort, server tools, usage meter): sign off as service-dependent, or schedule the service work.
+- [x] Multi-conversation sidebar/switcher: built and browser-verified.
+- [x] Composer footer + model selector restored (shared `WidgetFooter`); multi-model is a product decision, reasoning-effort backend-gated.
+- [ ] Composer tools menu + usage meter: service work (usage on the wire, tools-list route + allowlist) — in progress.
 - [ ] Small client follow-ups: "Thought for N seconds" duration, message-action copy.
 - [ ] Look-identity side-by-side captured across all four themes and the density range.
 - [ ] Design-system token/density audit passes on all native components.
