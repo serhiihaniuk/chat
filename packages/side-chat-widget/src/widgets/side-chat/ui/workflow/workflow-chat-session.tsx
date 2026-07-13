@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import type { ReasoningVisibility, ToolDetailLevel } from "#entities/settings";
 import type { WorkflowActiveTurn, WorkflowUIMessage } from "#entities/workflow-chat";
@@ -31,6 +31,7 @@ export function WorkflowChatSession({
   labels,
   hostBridge,
   activeTurn,
+  onConversationsChanged,
   quickActions,
   reasoningVisibility,
   renderAgentMark,
@@ -43,6 +44,8 @@ export function WorkflowChatSession({
   readonly sendOnEnter: boolean;
   readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
   readonly activeTurn: WorkflowActiveTurn | undefined;
+  /** Called when a turn settles, so the parent can refresh the conversation list. */
+  readonly onConversationsChanged: () => void;
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
   readonly reasoningVisibility: ReasoningVisibility;
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
@@ -54,6 +57,12 @@ export function WorkflowChatSession({
   const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);
   const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
   const isEmpty = chat.messages.length === 0 && chat.terminal.kind === "none" && !chat.error;
+  // A settled turn may have created this conversation or updated its title/time;
+  // let the parent refresh the sidebar list once the turn reaches a terminal.
+  const terminalKind = chat.terminal.kind;
+  useEffect(() => {
+    if (terminalKind !== "none") onConversationsChanged();
+  }, [terminalKind, onConversationsChanged]);
   return (
     <>
       <Conversation aria-label={labels.headerConversationFeed}>

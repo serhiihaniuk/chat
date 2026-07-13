@@ -183,12 +183,78 @@ test("opens the settings view from the header gear and returns to the chat", asy
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
 });
 
-// A run-less conversation: empty history and no active turn, so the widget rests on
-// its empty state.
+test("lists workspace conversations in the sidebar and opens a different one", async ({ page }) => {
+  await page.route("**/side-chat-api/api/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
+      await route.fulfill({
+        json: {
+          conversations: [
+            {
+              id: "conversation-parity",
+              title: "Billing bug",
+              lastMessageAt: "2026-07-13T10:00:00Z",
+            },
+            {
+              id: "conversation-refund",
+              title: "Refund policy",
+              lastMessageAt: "2026-07-13T09:00:00Z",
+            },
+          ],
+        },
+      });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.endsWith("/active-turn")) {
+      await route.fulfill({ json: { activeTurn: null } });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.includes("/conversation-refund/messages")) {
+      await route.fulfill({
+        json: {
+          messages: [
+            {
+              id: "u-refund",
+              role: "user",
+              parts: [{ type: "text", text: "What is the refund window?" }],
+            },
+          ],
+        },
+      });
+      return;
+    }
+    if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
+      await route.fulfill({ json: { messages: [] } });
+      return;
+    }
+    await route.abort("failed");
+  });
+
+  await page.goto(parityWidgetUrl);
+
+  await expect(page.getByText("Billing bug")).toBeVisible();
+  await expect(page.getByText("Refund policy")).toBeVisible();
+  await page.screenshot({
+    path: resolve(parityEvidenceDirectory, "sidebar.png"),
+    fullPage: true,
+  });
+
+  // Selecting another conversation remounts the session against its history.
+  await page.getByText("Refund policy").click();
+  await expect(page.getByText("What is the refund window?")).toBeVisible();
+});
+
+// A run-less conversation: empty history, no active turn, and no other workspace
+// conversations, so the widget rests on its empty state.
 async function routeWorkflowIdle(page: Page): Promise<void> {
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
+      await route.fulfill({ json: { conversations: [] } });
+      return;
+    }
     if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
       await route.fulfill({ json: { messages: [] } });
       return;
@@ -212,6 +278,10 @@ async function routeWorkflowApi(page: Page, scenario: WorkflowRouteScenario): Pr
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
+      await route.fulfill({ json: { conversations: [] } });
+      return;
+    }
     if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
       await route.fulfill({ json: { messages: [] } });
       return;
@@ -255,6 +325,10 @@ async function routeWorkflowRecovery(
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    if (request.method() === "GET" && url.pathname.endsWith("/conversations")) {
+      await route.fulfill({ json: { conversations: [] } });
+      return;
+    }
     if (request.method() === "GET" && url.pathname.endsWith("/messages")) {
       await route.fulfill({ json: { messages: scenario.history } });
       return;
