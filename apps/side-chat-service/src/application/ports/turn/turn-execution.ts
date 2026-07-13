@@ -30,6 +30,8 @@ export type TurnExecutionInput = TurnRef &
  * - `safeErrorCode` is set only on a failed terminal and is already client-safe.
  * - `finishReason` is the native provider reason when known (e.g. `content-filter`
  *   for a blocked turn, `length` for a truncated one); absent on cancel/failure.
+ * - `activityDurationMs` is the durable workflow's completed native activity
+ *   duration; it is absent on cancel/failure.
  */
 export type TurnExecutionTerminal = Readonly<{
   status: TurnTerminalStatus;
@@ -37,6 +39,7 @@ export type TurnExecutionTerminal = Readonly<{
   assistantMessage?: UIMessage;
   safeErrorCode?: TurnExecutionErrorCode;
   finishReason?: string;
+  activityDurationMs?: number;
 }>;
 
 /**

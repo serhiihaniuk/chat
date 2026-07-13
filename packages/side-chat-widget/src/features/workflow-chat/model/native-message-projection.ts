@@ -1,4 +1,5 @@
 import { asRecord, isRecord } from "@side-chat/shared";
+import type { SideChatMessageMetadata } from "@side-chat/stream-profile";
 
 import type { WorkflowUIMessage } from "#entities/workflow-chat";
 
@@ -8,6 +9,7 @@ export type WorkflowTimelineMessage = Readonly<{
   readonly id: string;
   readonly role: "system" | "user" | "assistant";
   readonly parts: readonly unknown[];
+  readonly metadata?: SideChatMessageMetadata | undefined;
 }>;
 
 export type WorkflowTimelineToolState =

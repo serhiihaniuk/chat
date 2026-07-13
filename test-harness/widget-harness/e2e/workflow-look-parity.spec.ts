@@ -25,6 +25,7 @@ const nativeMessages = [
     id: "assistant-look-parity",
     role: "assistant",
     metadata: {
+      activityDurationMs: 1_000,
       usage: {
         inputTokens: 10_000,
         outputTokens: 2_800,
@@ -92,6 +93,7 @@ test("captures legacy and native look parity across every theme and density", as
 
       await expect(legacy.getByText(fixtureAnswer)).toBeVisible();
       await expect(native.getByText(fixtureAnswer)).toBeVisible();
+      await expect(native.getByText("Thought for 1s")).toBeVisible();
       await expect(native.getByText("billing-brief.pdf")).toBeVisible();
       await expect(native.locator('[data-slot="sources-fold"]')).toBeVisible();
       await assertAppearance(legacy, theme, spaceUnit);

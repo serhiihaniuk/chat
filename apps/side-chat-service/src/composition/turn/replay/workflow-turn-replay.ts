@@ -31,12 +31,15 @@ export function createWorkflowTurnReplay(replayTurn: ReplayChatTurn = replayChat
   };
 }
 
-function replayFinishReason(
-  terminal: ChatTurnTerminalOutcome,
-): Readonly<{ finishReason?: string; stepUsage?: readonly TurnUsage[] }> {
+function replayFinishReason(terminal: ChatTurnTerminalOutcome): Readonly<{
+  finishReason?: string;
+  stepUsage?: readonly TurnUsage[];
+  activityDurationMs?: number;
+}> {
   if (terminal.status !== CHAT_TURN_OUTCOMES.COMPLETED) return {};
   return {
     finishReason: terminal.finishReason,
     stepUsage: [chatTurnUsage(terminal)],
+    activityDurationMs: terminal.activityDurationMs,
   };
 }

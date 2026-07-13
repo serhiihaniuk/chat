@@ -41,6 +41,7 @@ export type ChatTurnTerminalOutcome =
       readonly status: typeof CHAT_TURN_OUTCOMES.COMPLETED;
       readonly assistantMessage: UIMessage;
       readonly finishReason: string;
+      readonly activityDurationMs: number;
       readonly usage: SerializableUsage;
     }
   | {
@@ -63,6 +64,7 @@ export type ChatTurnTerminalOutcome =
 export type ChatTurnClassification = Readonly<{
   status: TurnTerminalStatus;
   finishReason?: string;
+  activityDurationMs?: number;
   safeErrorCode?: TurnExecutionErrorCode;
   assistantMessage?: UIMessage;
 }>;
@@ -90,12 +92,14 @@ type CompletedAgentResult = Readonly<{
 export function toCompletedChatTurnOutcome(
   turnId: string,
   maxSteps: number,
+  activityDurationMs: number,
   result: CompletedAgentResult,
 ): ChatTurnTerminalOutcome {
   return {
     status: CHAT_TURN_OUTCOMES.COMPLETED,
     assistantMessage: toAssistantMessage(turnId, result),
     finishReason: finishReasonFor(result, maxSteps),
+    activityDurationMs,
     usage: {
       inputTokens: result.totalUsage.inputTokens,
       outputTokens: result.totalUsage.outputTokens,
@@ -130,12 +134,18 @@ export function classifyChatTurnOutcome(outcome: ChatTurnTerminalOutcome): ChatT
       return {
         status: TURN_TERMINAL_STATUSES.BLOCKED,
         finishReason: outcome.finishReason,
+        activityDurationMs: outcome.activityDurationMs,
       };
     }
     return {
       status: TURN_TERMINAL_STATUSES.COMPLETED,
       finishReason: outcome.finishReason,
-      assistantMessage: withUsageMetadata(outcome.assistantMessage, chatTurnUsage(outcome)),
+      activityDurationMs: outcome.activityDurationMs,
+      assistantMessage: withUsageMetadata(
+        outcome.assistantMessage,
+        chatTurnUsage(outcome),
+        outcome.activityDurationMs,
+      ),
     };
   }
   if (outcome.status === CHAT_TURN_OUTCOMES.CANCELLED) {
@@ -179,8 +189,12 @@ export function chatTurnFinalization(outcome: ChatTurnTerminalOutcome): ChatTurn
     : { terminal, assistantMessage: classification.assistantMessage };
 }
 
-function withUsageMetadata(message: UIMessage, usage: TurnUsage): UIMessage {
-  return { ...message, metadata: { usage } };
+function withUsageMetadata(
+  message: UIMessage,
+  usage: TurnUsage,
+  activityDurationMs: number,
+): UIMessage {
+  return { ...message, metadata: { usage, activityDurationMs } };
 }
 
 function toTurnExecutionErrorCode(

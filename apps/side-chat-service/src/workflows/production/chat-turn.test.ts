@@ -8,10 +8,11 @@ import {
 } from "./chat-turn.js";
 
 const ZERO_USAGE = { inputTokens: 0, outputTokens: 0, totalTokens: 0 } as const;
+const ACTIVITY_DURATION_MS = 1_501;
 
 describe("completed chat turn outcome", () => {
   it("creates a stable empty assistant UIMessage when the model emits no content", () => {
-    const outcome = toCompletedChatTurnOutcome("turn-1", 4, {
+    const outcome = toCompletedChatTurnOutcome("turn-1", 4, ACTIVITY_DURATION_MS, {
       steps: [{ content: [] }],
       finishReason: "stop",
       totalUsage: ZERO_USAGE,
@@ -29,10 +30,8 @@ describe("completed chat turn outcome", () => {
   });
 
   it("preserves reasoning-only output as native assistant message parts", () => {
-    const outcome = toCompletedChatTurnOutcome("turn-2", 4, {
-      steps: [
-        { content: [{ type: "reasoning", text: "A private-safe summary" }] },
-      ],
+    const outcome = toCompletedChatTurnOutcome("turn-2", 4, ACTIVITY_DURATION_MS, {
+      steps: [{ content: [{ type: "reasoning", text: "A private-safe summary" }] }],
       finishReason: "stop",
       totalUsage: ZERO_USAGE,
     });
@@ -48,7 +47,7 @@ describe("completed chat turn outcome", () => {
   });
 
   it("maps a tool-call stop at the configured step cap to length", () => {
-    const outcome = toCompletedChatTurnOutcome("turn-3", 2, {
+    const outcome = toCompletedChatTurnOutcome("turn-3", 2, ACTIVITY_DURATION_MS, {
       steps: [{ content: [] }, { content: [] }],
       finishReason: "tool-calls",
       totalUsage: ZERO_USAGE,
@@ -58,7 +57,7 @@ describe("completed chat turn outcome", () => {
   });
 
   it("does not call an ordinary one-step stop a step-limit finish", () => {
-    const outcome = toCompletedChatTurnOutcome("turn-4", 1, {
+    const outcome = toCompletedChatTurnOutcome("turn-4", 1, ACTIVITY_DURATION_MS, {
       steps: [{ content: [{ type: "text", text: "Done" }] }],
       finishReason: "stop",
       totalUsage: ZERO_USAGE,
@@ -68,7 +67,7 @@ describe("completed chat turn outcome", () => {
   });
 
   it("preserves available reasoning and cached-input usage details", () => {
-    const outcome = toCompletedChatTurnOutcome("turn-5", 4, {
+    const outcome = toCompletedChatTurnOutcome("turn-5", 4, ACTIVITY_DURATION_MS, {
       steps: [{ content: [] }],
       finishReason: "stop",
       totalUsage: {
@@ -88,9 +87,7 @@ describe("completed chat turn outcome", () => {
 
 describe("client-tool Workflow compatibility", () => {
   it("uses a run-and-call-scoped hook token", () => {
-    expect(clientToolResultHookToken("run-1", "call-1")).toBe(
-      "tool:run-1:call-1",
-    );
+    expect(clientToolResultHookToken("run-1", "call-1")).toBe("tool:run-1:call-1");
   });
 
   it("restores native dynamic identity after the pinned Workflow transform drops it", async () => {
@@ -171,9 +168,7 @@ function chunks(...parts: UIMessageChunk[]): ReadableStream<UIMessageChunk> {
   });
 }
 
-async function readAll(
-  stream: ReadableStream<UIMessageChunk>,
-): Promise<UIMessageChunk[]> {
+async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageChunk[]> {
   const output: UIMessageChunk[] = [];
   for await (const part of stream) output.push(part);
   return output;

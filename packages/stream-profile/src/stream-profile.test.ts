@@ -53,6 +53,7 @@ describe("Side Chat error vocabulary", () => {
 describe("native message metadata schema", () => {
   it("accepts folded usage and returns a sanitized value", () => {
     const result = sideChatMessageMetadataSchema["~standard"].validate({
+      activityDurationMs: 1501,
       usage: {
         inputTokens: 2,
         outputTokens: 3,
@@ -64,6 +65,7 @@ describe("native message metadata schema", () => {
 
     expect(result).toEqual({
       value: {
+        activityDurationMs: 1501,
         usage: {
           inputTokens: 2,
           outputTokens: 3,
@@ -72,6 +74,16 @@ describe("native message metadata schema", () => {
           cachedInputTokens: 0,
         },
       },
+    });
+  });
+
+  it("accepts older folded usage metadata without activity duration", () => {
+    expect(
+      sideChatMessageMetadataSchema["~standard"].validate({
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+      }),
+    ).toEqual({
+      value: { usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 } },
     });
   });
 
@@ -96,7 +108,15 @@ describe("native message metadata schema", () => {
       usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
       privateField: "secret",
     },
-  ])("rejects private or invalid token metadata: %o", (value) => {
+    {
+      activityDurationMs: -1,
+      usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+    },
+    {
+      activityDurationMs: 1.5,
+      usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+    },
+  ])("rejects private or invalid metadata: %o", (value) => {
     const result = sideChatMessageMetadataSchema["~standard"].validate(value);
 
     expect(result).toEqual({
@@ -119,6 +139,11 @@ describe("native message metadata schema", () => {
       type: "object",
       additionalProperties: false,
       properties: {
+        activityDurationMs: {
+          type: "integer",
+          minimum: 0,
+          maximum: Number.MAX_SAFE_INTEGER,
+        },
         usage: {
           type: "object",
           additionalProperties: false,

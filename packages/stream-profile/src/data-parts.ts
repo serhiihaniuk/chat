@@ -1,7 +1,8 @@
 /**
  * The browser-safe native message metadata carried by a terminal finish chunk.
  * This is deliberately not a `data-*` part: the AI SDK message metadata field
- * is the narrow extension point for folded turn usage, and the scrub edge
+ * is the narrow extension point for folded turn usage and replay-safe assistant
+ * activity duration, and the scrub edge
  * validates it before it reaches the browser.
  */
 export type SideChatMessageMetadata = Readonly<{
@@ -12,6 +13,7 @@ export type SideChatMessageMetadata = Readonly<{
     reasoningTokens?: number | undefined;
     cachedInputTokens?: number | undefined;
   }>;
+  activityDurationMs?: number | undefined;
 }>;
 
 type SideChatSchemaIssue = Readonly<{
@@ -53,6 +55,11 @@ type SideChatMessageMetadataSchema = Readonly<{
 const SIDE_CHAT_MESSAGE_METADATA_JSON_SCHEMA = {
   type: "object",
   properties: {
+    activityDurationMs: {
+      type: "integer",
+      minimum: 0,
+      maximum: Number.MAX_SAFE_INTEGER,
+    },
     usage: {
       type: "object",
       properties: {
@@ -121,9 +128,18 @@ export const SIDE_CHAT_STREAM_PROTOCOL = {
 } as const;
 
 function parseMessageMetadata(value: unknown): SideChatMessageMetadata | undefined {
-  if (!isRecord(value) || !hasExactKeys(value, ["usage"])) return undefined;
+  if (!isRecord(value) || !hasOnlyKeys(value, ["usage", "activityDurationMs"])) return undefined;
   const usage = parseUsage(value["usage"]);
-  return usage === undefined ? undefined : { usage };
+  if (usage === undefined) return undefined;
+  const activityDurationMs = value["activityDurationMs"];
+  if ("activityDurationMs" in value && !isSafeNonNegativeInteger(activityDurationMs)) {
+    return undefined;
+  }
+  const metadata: { usage: SideChatMessageMetadata["usage"]; activityDurationMs?: number } = {
+    usage,
+  };
+  if (typeof activityDurationMs === "number") metadata.activityDurationMs = activityDurationMs;
+  return metadata;
 }
 
 function parseUsage(value: unknown): SideChatMessageMetadata["usage"] | undefined {
@@ -176,16 +192,15 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function hasExactKeys(value: Readonly<Record<string, unknown>>, keys: readonly string[]): boolean {
-  const actual = Reflect.ownKeys(value);
-  return actual.length === keys.length && keys.every((key) => actual.includes(key));
-}
-
 function hasOnlyKeys(value: Readonly<Record<string, unknown>>, keys: readonly string[]): boolean {
   return Reflect.ownKeys(value).every((key) => typeof key === "string" && keys.includes(key));
 }
 
 function isTokenCount(value: unknown): value is number {
+  return isSafeNonNegativeInteger(value);
+}
+
+function isSafeNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 

@@ -43,8 +43,9 @@ describe("readConversationHistory", () => {
     expect(telemetry.records).toEqual([]);
   });
 
-  it("preserves valid folded usage metadata", async () => {
+  it("preserves valid folded usage and activity-duration metadata", async () => {
     const stored = message([{ type: "text", text: "kept" }], {
+      activityDurationMs: 1_501,
       usage: {
         inputTokens: 3,
         outputTokens: 5,
@@ -67,6 +68,7 @@ describe("readConversationHistory", () => {
         role: "assistant",
         parts: [{ type: "text", text: "kept" }],
         metadata: {
+          activityDurationMs: 1_501,
           usage: {
             inputTokens: 3,
             outputTokens: 5,

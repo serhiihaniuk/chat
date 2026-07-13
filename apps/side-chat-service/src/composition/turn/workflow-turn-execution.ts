@@ -108,7 +108,13 @@ function toApplicationTerminal(terminal: ChatTurnTerminalOutcome): TurnExecution
  */
 export function stampFinishReason(
   stream: ReadableStream<UIMessageChunk>,
-  terminal: Promise<Readonly<{ finishReason?: string; stepUsage?: readonly TurnUsage[] }>>,
+  terminal: Promise<
+    Readonly<{
+      finishReason?: string;
+      stepUsage?: readonly TurnUsage[];
+      activityDurationMs?: number;
+    }>
+  >,
 ): ReadableStream<UIMessageChunk> {
   return stream.pipeThrough(
     new TransformStream({
@@ -125,6 +131,9 @@ export function stampFinishReason(
             : {
                 messageMetadata: {
                   usage: sumTurnUsage(terminalOutcome.stepUsage),
+                  ...(terminalOutcome.activityDurationMs === undefined
+                    ? {}
+                    : { activityDurationMs: terminalOutcome.activityDurationMs }),
                 },
               };
         controller.enqueue(

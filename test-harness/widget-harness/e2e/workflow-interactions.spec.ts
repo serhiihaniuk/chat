@@ -188,6 +188,57 @@ test("shows the empty state with quick actions before the first message", async 
   });
 });
 
+test("keeps a new-chat draft usable when its server history does not exist yet", async ({
+  page,
+}) => {
+  let newChatSelected = false;
+  let draftHistoryRequests = 0;
+  let draftActiveTurnRequests = 0;
+  await page.route("**/side-chat-api/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (newChatSelected && request.method() === "GET" && path.endsWith("/messages")) {
+      draftHistoryRequests += 1;
+      await route.fulfill({ status: 404, json: { error: "not_found" } });
+      return;
+    }
+    if (newChatSelected && request.method() === "GET" && path.endsWith("/active-turn")) {
+      draftActiveTurnRequests += 1;
+      await route.fulfill({ status: 404, json: { error: "not_found" } });
+      return;
+    }
+    const fulfilled = await fulfillWorkflowRead(route, path, {
+      activeTurn: null,
+      conversations: [
+        {
+          id: "conversation-parity",
+          title: "Existing conversation",
+          lastMessageAt: "2026-07-13T10:00:00Z",
+        },
+      ],
+      messages: [],
+      tools: [],
+    });
+    if (!fulfilled) await route.abort("failed");
+  });
+
+  await page.goto(parityWidgetUrl);
+  await expect(page.getByText("How can I help with this page?")).toBeVisible();
+  newChatSelected = true;
+  await page.getByRole("button", { name: "New chat", exact: true }).click();
+
+  await expect(page.getByText("How can I help with this page?")).toBeVisible();
+  await expect(page.getByLabel("Message")).toBeVisible();
+  await expect(page.getByText("workspace-gpt-5")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add context and tools" })).toBeVisible();
+  await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
+  expect(draftHistoryRequests).toBe(0);
+  expect(draftActiveTurnRequests).toBe(0);
+
+  await page.getByRole("button", { name: "Add context and tools" }).click();
+  await expect(page.getByText("No tools available", { exact: true })).toBeVisible();
+});
+
 test("selects server tools per turn and renders terminal context usage", async ({ page }) => {
   let chatRequest: unknown;
   await routeWorkflowApi(page, {

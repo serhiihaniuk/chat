@@ -74,7 +74,7 @@ export const WidgetFooter = ({
       sendLabel={labels.send}
       sendOnEnter={sendOnEnter}
       status={status}
-      toolsMenu={tools.length > 0 ? <ToolsMenu tools={tools} onToggleTool={onToggleTool} /> : null}
+      toolsMenu={<ToolsMenu tools={tools} onToggleTool={onToggleTool} />}
     />
   </footer>
 );

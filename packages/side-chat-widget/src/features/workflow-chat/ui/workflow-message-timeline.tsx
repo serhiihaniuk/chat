@@ -67,6 +67,7 @@ export function WorkflowMessageTimeline({
       className="flex w-full flex-col gap-(--message-stack-gap)"
     >
       <WorkflowMessageContent
+        activityDurationMs={readActivityDuration(message)}
         approvalDecisions={approvalDecisions}
         isStreaming={isStreaming}
         items={projectWorkflowMessageParts(message, messageTerminal)}
@@ -80,6 +81,10 @@ export function WorkflowMessageTimeline({
       {messageTerminal && <TerminalPresentation onRetry={onRetry} terminal={messageTerminal} />}
     </div>
   );
+}
+
+function readActivityDuration(message: WorkflowTimelineMessage): number | undefined {
+  return message.metadata?.activityDurationMs;
 }
 
 function WorkflowMessageContent({
@@ -100,6 +105,7 @@ function WorkflowMessageContent({
  * decision stays on its own as the interactive approval card.
  */
 function MessageBody({
+  activityDurationMs,
   approvalDecisions,
   isStreaming,
   items,
@@ -109,6 +115,7 @@ function MessageBody({
   role,
   toolDetail,
 }: {
+  readonly activityDurationMs: number | undefined;
   readonly approvalDecisions: WorkflowApprovalDecisions | undefined;
   readonly isStreaming: boolean;
   readonly items: readonly WorkflowTimelineItem[];
@@ -143,6 +150,7 @@ function MessageBody({
     <>
       {trace.length > 0 && (
         <ActivityTrace
+          activityDurationMs={activityDurationMs}
           hasAnswer={answers.length > 0}
           isStreaming={isStreaming}
           items={trace}
@@ -196,12 +204,14 @@ function CompletedAnswerCopy({
 // once the answer lands, matching the legacy view's activity timeline. Reasoning
 // visibility "detailed" keeps a completed trace open instead of collapsing it.
 function ActivityTrace({
+  activityDurationMs,
   hasAnswer,
   isStreaming,
   items,
   labels,
   reasoningVisibility,
 }: {
+  readonly activityDurationMs: number | undefined;
   readonly hasAnswer: boolean;
   readonly isStreaming: boolean;
   readonly items: readonly ReasoningItem[];
@@ -217,12 +227,22 @@ function ActivityTrace({
   return (
     <Reasoning
       items={items}
-      label={isStreaming ? labels.activityThinking : labels.activityThoughtProcess}
+      label={activityLabel(activityDurationMs, isStreaming, labels)}
       onOpenChange={setOpen}
       open={open}
       thinking={isStreaming}
     />
   );
+}
+
+function activityLabel(
+  activityDurationMs: number | undefined,
+  isStreaming: boolean,
+  labels: WidgetLabels,
+): string {
+  if (isStreaming) return labels.activityThinking;
+  if (activityDurationMs === undefined) return labels.activityThoughtProcess;
+  return labels.activityThoughtForSeconds(Math.max(1, Math.ceil(activityDurationMs / 1_000)));
 }
 
 function FilePresentation({ item }: { readonly item: FileItem }): ReactElement {

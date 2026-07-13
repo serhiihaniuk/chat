@@ -8,7 +8,7 @@ Not source of truth for: the base stream grammar (AI SDK's UI message stream `v1
 
 ## The contract
 
-The public stream **is** AI SDK's UI message stream `v1`. Side Chat adds a deliberately narrow profile — safe errors, validated native message metadata for folded usage, a `data-*` extension point, and a transport envelope — and nothing else. There is no custom event union, SSE codec, or engine-to-wire translator. The engine's stream is the protocol; one edge transform narrows it for privacy and safety.
+The public stream **is** AI SDK's UI message stream `v1`. Side Chat adds a deliberately narrow profile — safe errors, validated native message metadata for folded usage and assistant-activity duration, a `data-*` extension point, and a transport envelope — and nothing else. There is no custom event union, SSE codec, or engine-to-wire translator. The engine's stream is the protocol; one edge transform narrows it for privacy and safety.
 
 Protocol version is pinned and both sides move together:
 
@@ -20,7 +20,7 @@ The shared, browser-safe vocabulary — error codes, finish reasons, and the `da
 
 ## Parts
 
-Native parts own all content and lifecycle: `text-*`, `reasoning-*`, tool input/output/approval, `source-*`, `file`, `start`/`finish`/`abort`, and the step boundaries. The widget renders turn state from these plus HTTP status. Native `message-metadata` on `start`, `finish`, or `message-metadata` carries only the validated `SideChatMessageMetadata` usage object; provider metadata remains private and is scrubbed.
+Native parts own all content and lifecycle: `text-*`, `reasoning-*`, tool input/output/approval, `source-*`, `file`, `start`/`finish`/`abort`, and the step boundaries. The widget renders turn state from these plus HTTP status. Native `message-metadata` on `start`, `finish`, or `message-metadata` carries only validated `SideChatMessageMetadata`; provider metadata remains private and is scrubbed.
 
 Browser-executed client tools use native dynamic tool parts. Their successful
 `tool-output-available` payload is private model input, so the outbound scrub
@@ -38,7 +38,9 @@ The engine's `createModelCallToUIChunkTransform` emits a bare `finish` chunk; th
 
 ### Native message metadata
 
-`SideChatMessageMetadata` is the named native metadata extension. It contains only folded turn usage (`inputTokens`, `outputTokens`, `totalTokens`, and optional reasoning/cache counts), each as a finite non-negative integer. The dependency-free stream-profile schema rejects unknown/private fields. Live and replayed terminal chunks carry the same folded usage. Completed assistant persistence replaces arbitrary metadata with that safe usage object; the history read edge omits legacy empty metadata and degrades invalid metadata before transport. The scrub edge validates every metadata-bearing stream chunk, and the widget validates both history and live messages with the same schema.
+`SideChatMessageMetadata` is the named native metadata extension. It contains folded turn usage (`inputTokens`, `outputTokens`, `totalTokens`, and optional reasoning/cache counts) plus optional `activityDurationMs`; every value is a finite non-negative safe integer. `activityDurationMs` is measured inside the durable workflow from immediately before `WorkflowAgent.stream` starts until a completed model stream settles. It therefore covers provider generation and any tool or approval suspension inside that assistant activity, but excludes pre-run admission/preparation and terminal persistence. This is the replay-safe source for the widget's completed `Thought for Ns` label; the widget rounds up to whole seconds with a one-second display minimum when a trace exists.
+
+The dependency-free stream-profile schema rejects unknown/private fields. Live and replayed terminal chunks carry the same folded usage and activity duration. Completed assistant persistence replaces arbitrary metadata with that safe object; the history read edge omits legacy empty metadata and degrades invalid metadata before transport. The scrub edge validates every metadata-bearing stream chunk, and the widget validates both history and live messages with the same schema. Older messages may omit `activityDurationMs` and render the duration-free `Thought process` label.
 
 ### `data-*` parts
 

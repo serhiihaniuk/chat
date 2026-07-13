@@ -21,6 +21,7 @@ describe("createWorkflowTurnReplay", () => {
             parts: [{ type: "text", text: "done" }],
           },
           finishReason: "length",
+          activityDurationMs: 3501,
           usage: {
             inputTokens: 1,
             outputTokens: 2,
@@ -44,6 +45,7 @@ describe("createWorkflowTurnReplay", () => {
         type: "finish",
         finishReason: "length",
         messageMetadata: {
+          activityDurationMs: 3501,
           usage: {
             inputTokens: 1,
             outputTokens: 2,
@@ -117,6 +119,7 @@ describe("createWorkflowTurnReplay", () => {
         type: "finish",
         finishReason: "stop",
         messageMetadata: {
+          activityDurationMs: 1501,
           usage: {
             inputTokens: 1,
             outputTokens: 2,
@@ -139,6 +142,7 @@ function completedTerminal() {
       parts: [{ type: "text" as const, text: "done" }],
     },
     finishReason: "stop",
+    activityDurationMs: 1501,
     usage: {
       inputTokens: 1,
       outputTokens: 2,

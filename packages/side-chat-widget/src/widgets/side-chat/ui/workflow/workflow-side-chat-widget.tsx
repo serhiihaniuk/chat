@@ -109,6 +109,61 @@ export function WorkflowSideChatWidget({
  * (fresh transport + history seed); a settled turn refreshes the list so a new
  * conversation and its generated title appear.
  */
+function selectWorkflowHistoryContent({
+  error,
+  isLocalDraft,
+  isPending,
+  labels,
+  onRetry,
+  session,
+}: Readonly<{
+  error: Error | null;
+  isLocalDraft: boolean;
+  isPending: boolean;
+  labels: ReturnType<typeof resolveWidgetLabels>;
+  onRetry: () => void;
+  session: ReactNode;
+}>): ReactNode {
+  if (!isLocalDraft && isPending) {
+    return <Conversation aria-label={labels.headerConversationFeed}>{null}</Conversation>;
+  }
+  if (!isLocalDraft && error) {
+    return (
+      <Conversation aria-label={labels.headerConversationFeed}>
+        <ConversationContent className="mx-auto w-full max-w-measure-message px-4 pt-4">
+          <ErrorNotice message={error.message} onRetry={onRetry} />
+        </ConversationContent>
+      </Conversation>
+    );
+  }
+  return session;
+}
+
+function useWorkflowConversationSelection(initialConversationId: string): Readonly<{
+  activeConversationId: string;
+  isLocalDraft: boolean;
+  selectConversation: (conversationId: string) => void;
+  startNewConversation: () => void;
+}> {
+  const [activeConversationId, setActiveConversationId] = useState(initialConversationId);
+  const [localDraftConversationId, setLocalDraftConversationId] = useState<string>();
+  const startNewConversation = useCallback((): void => {
+    const conversationId = crypto.randomUUID();
+    setLocalDraftConversationId(conversationId);
+    setActiveConversationId(conversationId);
+  }, []);
+  const selectConversation = useCallback((conversationId: string): void => {
+    setLocalDraftConversationId(undefined);
+    setActiveConversationId(conversationId);
+  }, []);
+  return {
+    activeConversationId,
+    isLocalDraft: localDraftConversationId === activeConversationId,
+    selectConversation,
+    startNewConversation,
+  };
+}
+
 function WorkflowConversationPanel({
   appearance,
   hostBridge,
@@ -133,11 +188,16 @@ function WorkflowConversationPanel({
   const queryClient = useQueryClient();
   const sendPreference = useSendPreference();
   const toolDetailPreference = useToolDetailPreference();
-  const [activeConversationId, setActiveConversationId] = useState(workflowChat.conversationId);
+  const { activeConversationId, isLocalDraft, selectConversation, startNewConversation } =
+    useWorkflowConversationSelection(workflowChat.conversationId);
   const conversationClient = useMemo(
     () => ({ ...workflowChat, conversationId: activeConversationId }),
     [workflowChat, activeConversationId],
   );
+  const conversations = useQuery({
+    queryKey: [WORKFLOW_QUERY.SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
+    queryFn: ({ signal }) => readWorkflowConversations(workflowChat, signal),
+  });
   const history = useQuery({
     queryKey: [
       WORKFLOW_QUERY.SCOPE,
@@ -145,6 +205,7 @@ function WorkflowConversationPanel({
       workflowChat.baseUrl,
       activeConversationId,
     ],
+    enabled: !isLocalDraft,
     queryFn: ({ signal }) => readWorkflowChatHistory(conversationClient, signal),
   });
   const discovery = useQuery({
@@ -154,13 +215,10 @@ function WorkflowConversationPanel({
       workflowChat.baseUrl,
       activeConversationId,
     ],
+    enabled: !isLocalDraft,
     // TanStack forbids an undefined result, so a run-less conversation reads null.
     queryFn: async ({ signal }) =>
       (await readWorkflowActiveTurn(conversationClient, signal)) ?? null,
-  });
-  const conversations = useQuery({
-    queryKey: [WORKFLOW_QUERY.SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
-    queryFn: ({ signal }) => readWorkflowConversations(workflowChat, signal),
   });
   const conversationViews = useMemo<readonly ConversationSummaryView[]>(
     () =>
@@ -177,23 +235,17 @@ function WorkflowConversationPanel({
     });
   }, [queryClient, workflowChat.baseUrl]);
 
-  let historyContent: ReactNode;
-  if (history.isPending) {
-    historyContent = <Conversation aria-label={labels.headerConversationFeed}>{null}</Conversation>;
-  } else if (history.error) {
-    historyContent = (
-      <Conversation aria-label={labels.headerConversationFeed}>
-        <ConversationContent className="mx-auto w-full max-w-measure-message px-4 pt-4">
-          <ErrorNotice message={history.error.message} onRetry={() => void history.refetch()} />
-        </ConversationContent>
-      </Conversation>
-    );
-  } else {
-    historyContent = (
+  const historyContent = selectWorkflowHistoryContent({
+    error: history.error,
+    isLocalDraft,
+    isPending: history.isPending,
+    labels,
+    onRetry: () => void history.refetch(),
+    session: (
       <WorkflowChatSession
-        activeTurn={discovery.data ?? undefined}
+        activeTurn={isLocalDraft ? undefined : (discovery.data ?? undefined)}
         hostBridge={hostBridge}
-        initialMessages={history.data ?? []}
+        initialMessages={isLocalDraft ? [] : (history.data ?? [])}
         key={activeConversationId}
         labels={labels}
         onConversationsChanged={refreshConversations}
@@ -204,8 +256,8 @@ function WorkflowConversationPanel({
         toolDetail={toolDetailPreference.toolDetail}
         workflowChat={conversationClient}
       />
-    );
-  }
+    ),
+  });
 
   return (
     <WorkflowPanelView
@@ -215,9 +267,10 @@ function WorkflowConversationPanel({
       historyContent={historyContent}
       labels={labels}
       onClose={onClose}
+      onNewConversation={startNewConversation}
+      onSelectConversation={selectConversation}
       renderAgentMark={renderAgentMark}
       sendPreference={sendPreference}
-      setActiveConversationId={setActiveConversationId}
       theme={theme}
       toolDetailPreference={toolDetailPreference}
     />

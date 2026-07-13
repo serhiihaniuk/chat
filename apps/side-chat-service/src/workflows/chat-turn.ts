@@ -172,6 +172,7 @@ async function raceChatTurnOutcome(
   writable: WritableStream<ApprovalWorkflowStreamPart>,
   input: ChatTurnWorkflowInput,
 ): Promise<ChatTurnTerminalOutcome> {
+  const activityStartedAt = Date.now();
   const streamSettled = agent
     .stream({
       messages: toModelMessages(input.messages),
@@ -183,7 +184,9 @@ async function raceChatTurnOutcome(
       (error): SettledStream => ({ kind: "failed", error }),
     );
 
-  const streamOutcome = streamSettled.then((settled) => resolveSettledStream(settled, input));
+  const streamOutcome = streamSettled.then((settled) =>
+    resolveSettledStream(settled, input, Math.max(0, Date.now() - activityStartedAt)),
+  );
 
   const cancelOutcome = async (): Promise<ChatTurnTerminalOutcome> => {
     const payload = await cancellation;
@@ -210,9 +213,15 @@ async function raceChatTurnOutcome(
 function resolveSettledStream(
   settled: SettledStream,
   input: ChatTurnWorkflowInput,
+  activityDurationMs: number,
 ): ChatTurnTerminalOutcome | Promise<never> {
   if (settled.kind === "completed") {
-    return toCompletedChatTurnOutcome(input.turnId, input.maxSteps, settled.result);
+    return toCompletedChatTurnOutcome(
+      input.turnId,
+      input.maxSteps,
+      activityDurationMs,
+      settled.result,
+    );
   }
   if (isChatTurnAbortError(settled.error)) return DEFERRED_OUTCOME;
   return failedChatTurnOutcome();

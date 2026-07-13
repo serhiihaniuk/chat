@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   ConversationSidebar,
@@ -7,8 +7,11 @@ import {
   type ConversationSummaryView,
 } from "#features/conversation";
 import { WidgetHeader } from "#features/panel";
-import { SettingsView } from "#features/settings";
-import type { useSendPreference, useToolDetailPreference } from "#features/settings";
+import {
+  SettingsView,
+  type useSendPreference,
+  type useToolDetailPreference,
+} from "#features/settings";
 import type { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import type { resolveWidgetLabels } from "#shared/lib/widget-labels";
 
@@ -17,8 +20,6 @@ import type { WorkflowSideChatWidgetProps } from "../../model/side-chat-widget.t
 // The native path knows only the active conversation's run state (discovery is
 // per-conversation), so the sidebar's per-conversation "running" dot stays empty.
 const NO_RUNNING_CONVERSATIONS: ReadonlySet<string> = new Set();
-
-const newConversationId = (): string => crypto.randomUUID();
 
 /**
  * The panel's inner chrome: the settings view, or the conversation sidebar plus
@@ -32,9 +33,10 @@ export function WorkflowPanelView({
   historyContent,
   labels,
   onClose,
+  onNewConversation,
+  onSelectConversation,
   renderAgentMark,
   sendPreference,
-  setActiveConversationId,
   theme,
   toolDetailPreference,
 }: {
@@ -44,16 +46,16 @@ export function WorkflowPanelView({
   readonly historyContent: ReactNode;
   readonly labels: ReturnType<typeof resolveWidgetLabels>;
   readonly onClose: () => void;
+  readonly onNewConversation: () => void;
+  readonly onSelectConversation: (conversationId: string) => void;
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
   readonly sendPreference: ReturnType<typeof useSendPreference>;
-  readonly setActiveConversationId: Dispatch<SetStateAction<string>>;
   readonly theme: ReturnType<typeof useWidgetTheme>;
   readonly toolDetailPreference: ReturnType<typeof useToolDetailPreference>;
 }): ReactNode {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const startNewConversation = (): void => setActiveConversationId(newConversationId());
   const selectConversation = (conversationId: string | undefined): void => {
-    if (conversationId) setActiveConversationId(conversationId);
+    if (conversationId) onSelectConversation(conversationId);
   };
 
   if (isSettingsOpen) {
@@ -88,7 +90,7 @@ export function WorkflowPanelView({
       <div className="sc-wide-slot min-h-0 shrink-0">
         <ConversationSidebar
           conversations={conversations}
-          onNewConversation={startNewConversation}
+          onNewConversation={onNewConversation}
           onSelectConversation={selectConversation}
           runningConversationIds={NO_RUNNING_CONVERSATIONS}
           selectedConversationId={activeConversationId}
@@ -97,7 +99,7 @@ export function WorkflowPanelView({
       <div className="flex min-w-0 flex-1 flex-col">
         <WidgetHeader
           onClose={onClose}
-          onNewConversation={startNewConversation}
+          onNewConversation={onNewConversation}
           onOpenSettings={() => setIsSettingsOpen(true)}
           title={
             <>
@@ -108,7 +110,7 @@ export function WorkflowPanelView({
                 <ConversationSwitcher
                   conversations={conversations}
                   disabled={false}
-                  onNewConversation={startNewConversation}
+                  onNewConversation={onNewConversation}
                   onSelectConversation={selectConversation}
                   runningConversationIds={NO_RUNNING_CONVERSATIONS}
                   selectedConversationId={activeConversationId}

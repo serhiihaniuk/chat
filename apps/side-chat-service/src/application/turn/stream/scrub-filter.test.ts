@@ -25,11 +25,12 @@ describe("outbound scrub filter", () => {
     expect(JSON.stringify(out)).not.toContain(sentinel);
   });
 
-  it("preserves validated native usage metadata", async () => {
+  it("preserves validated native usage and activity-duration metadata", async () => {
     const out = await scrub([
       {
         type: "finish",
         messageMetadata: {
+          activityDurationMs: 1_501,
           usage: {
             inputTokens: 2,
             outputTokens: 3,
@@ -45,6 +46,7 @@ describe("outbound scrub filter", () => {
       {
         type: "finish",
         messageMetadata: {
+          activityDurationMs: 1_501,
           usage: {
             inputTokens: 2,
             outputTokens: 3,

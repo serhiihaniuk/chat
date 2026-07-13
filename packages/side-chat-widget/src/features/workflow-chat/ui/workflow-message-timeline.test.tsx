@@ -18,6 +18,17 @@ const assistant = (parts: readonly unknown[], id = "assistant-1"): WorkflowTimel
   parts,
 });
 
+const timedAssistant = (
+  parts: readonly unknown[],
+  activityDurationMs: number,
+): WorkflowTimelineMessage => ({
+  ...assistant(parts),
+  metadata: {
+    activityDurationMs,
+    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+  },
+});
+
 // isStreaming opens the activity fold so its trace rows render in static markup;
 // a completed turn keeps them behind the collapsed "Thought process" trigger.
 const renderTimeline = (
@@ -54,6 +65,22 @@ describe("WorkflowMessageTimeline", () => {
     expect(completed).toContain("Copy");
     expect(completed).not.toContain("Retry");
     expect(streaming).not.toContain("Copy");
+  });
+
+  it("renders the durable completed activity duration and keeps streaming labeled as thinking", () => {
+    const message = timedAssistant(
+      [
+        { type: "reasoning", text: "Checked the request" },
+        { type: "text", text: "Done" },
+      ],
+      1_501,
+    );
+
+    expect(renderTimeline(message)).toContain("Thought for 2s");
+    expect(renderTimeline(message, undefined, true)).toContain("Thinking");
+    expect(renderTimeline(assistant([{ type: "reasoning", text: "Legacy history" }]))).toContain(
+      "Thought process",
+    );
   });
 
   it("projects usage from the newest assistant message only", () => {

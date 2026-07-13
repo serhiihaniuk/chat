@@ -55,6 +55,7 @@ describe("createWorkflowTurnExecution", () => {
             parts: [],
           },
           finishReason: "stop",
+          activityDurationMs: 1501,
           usage: usage(0, 0),
         }),
       }),
@@ -128,6 +129,7 @@ describe("createWorkflowTurnExecution", () => {
             parts: [],
           },
           finishReason: "content-filter",
+          activityDurationMs: 2501,
           usage: usage(1, 0),
         }),
       }),
@@ -142,12 +144,14 @@ describe("createWorkflowTurnExecution", () => {
       finishReason: "content-filter",
       messageMetadata: {
         usage: usage(1, 0),
+        activityDurationMs: 2501,
       },
     });
     await expect(started.terminal).resolves.toEqual({
       status: TURN_TERMINAL_STATUSES.BLOCKED,
       stepUsage: [usage(1, 0)],
       finishReason: "content-filter",
+      activityDurationMs: 2501,
     });
   });
 
@@ -165,6 +169,7 @@ describe("createWorkflowTurnExecution", () => {
           status: CHAT_TURN_OUTCOMES.COMPLETED,
           assistantMessage,
           finishReason: "stop",
+          activityDurationMs: 1501,
           usage: usage(1, 0),
         }),
       }),

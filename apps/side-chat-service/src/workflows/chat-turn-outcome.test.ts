@@ -31,6 +31,7 @@ function completedOutcome(finishReason: string): ChatTurnTerminalOutcome {
     status: CHAT_TURN_OUTCOMES.COMPLETED,
     assistantMessage: ASSISTANT_MESSAGE,
     finishReason,
+    activityDurationMs: 1501,
     usage: {
       inputTokens: 3,
       outputTokens: 5,
@@ -61,6 +62,7 @@ describe("classifyChatTurnOutcome", () => {
     expect(classifyChatTurnOutcome(completedOutcome("stop"))).toEqual({
       status: TURN_TERMINAL_STATUSES.COMPLETED,
       finishReason: "stop",
+      activityDurationMs: 1501,
       assistantMessage: {
         id: "turn-1-assistant",
         role: "assistant",
@@ -73,6 +75,7 @@ describe("classifyChatTurnOutcome", () => {
             reasoningTokens: 1,
             cachedInputTokens: 2,
           },
+          activityDurationMs: 1501,
         },
       },
     });
@@ -82,6 +85,7 @@ describe("classifyChatTurnOutcome", () => {
     expect(classifyChatTurnOutcome(completedOutcome("content-filter"))).toEqual({
       status: TURN_TERMINAL_STATUSES.BLOCKED,
       finishReason: "content-filter",
+      activityDurationMs: 1501,
     });
   });
 
@@ -149,6 +153,7 @@ describe("chatTurnFinalization", () => {
             reasoningTokens: 1,
             cachedInputTokens: 2,
           },
+          activityDurationMs: 1501,
         },
       },
     });

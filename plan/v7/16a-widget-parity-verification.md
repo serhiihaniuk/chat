@@ -35,14 +35,14 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 
 - **Settings view + header gear** — theme (all four), accent, corners, density, elevation, text size, typeface, send preference, tool-detail level. Reuses the shared `SettingsView`. Evidence: `evidence/task-16a-widget-parity/settings-view.png`.
 - **Empty state + quick actions** — greeting, agent mark, context-aware description, host starter prompts. Evidence: `evidence/task-16a-widget-parity/empty-state.png`.
-- **Conversation sidebar + switcher (multi-conversation)** — the widget owns the active conversation; lists workspace conversations (`GET /api/conversations`, server-generated titles); new/select remounts a keyed session; a settled turn refreshes the list. Evidence: `evidence/task-16a-widget-parity/sidebar.png`. Signed-off degradation: cross-conversation running dots stay empty (native discovery is per-conversation).
-- **Composer footer + model selector** — the native path uses the shared `WidgetFooter` (same composer as legacy); the model selector reads `GET /api/models` and sends the chosen id as `modelPreference`.
+- **Conversation sidebar + switcher (multi-conversation)** — the widget owns the active conversation; lists workspace conversations (`GET /api/conversations`, server-generated titles); new/select remounts a keyed session; a new client-local draft skips history/discovery until first submit creates it; a settled turn refreshes the list. Evidence: `evidence/task-16a-widget-parity/sidebar.png`. Signed-off degradation: cross-conversation running dots stay empty (native discovery is per-conversation).
+- **Composer footer + model selector** — the native path uses the shared `WidgetFooter` (same composer as legacy); the model selector reads `GET /api/models` and sends the chosen id as `modelPreference`. The documented `+` control remains visible with an empty production tool catalog and honestly reports that no tools are available.
 - **Tool-detail level** — `hidden` drops tool rows, `name` pins a compact row, `full` keeps the expandable detail (unit-tested).
 - **Reasoning visibility** — `detailed` holds a completed trace open (unit-tested).
 - **Agent mark** — `renderAgentMark` flows to the header title and the empty state.
 - **Activity composition** — reasoning + tools folded into one "Thought process" trace ahead of the answer; sources fold; images; files (Step 14/15 + the look restoration).
 
-Not yet carried: **"Thought for N seconds" duration**. The native projection has no durable activity timing; adding a client timer would make live and replay disagree, so this remains a metadata-boundary decision rather than an invented value. Completed assistant text now uses the shared Copy action in both widget paths.
+Completed assistant activity now carries a bounded `activityDurationMs` measured inside the durable workflow. Live finish, replay finish, persisted assistant history, scrub validation, and widget validation share that value; completed native traces round it up to the same **"Thought for N seconds"** label while older messages safely retain "Thought process." Completed assistant text uses the shared Copy action in both widget paths.
 
 ### Complete — durable real-provider execution
 
@@ -53,17 +53,17 @@ Production no longer passes raw OpenAI/Azure SDK models across WorkflowAgent's i
 - **Usage / context meter** — live and replayed terminal finishes carry schema-validated folded `messageMetadata.usage`; completed assistant history persists the same safe object and degrades invalid metadata before transport; `/api/models` publishes the configured `contextWindowTokens`; the widget validates both, projects the newest assistant usage, and supplies the existing `WidgetFooter` meter. Evidence: 11 focused files / 102 tests plus browser assertion and the visible tooltip capture at `evidence/task-16a-widget-parity/usage-meter.png`.
 - **Server tools menu** — authenticated `/api/tools` exposes only the display projection `{ name, label, description, defaultEnabled }` of the trusted server catalog; schemas, executors, approval predicates, and provider data stay private. The native menu reads it through TanStack Query, preserves `undefined` when unavailable/empty and `[]` when every returned tool is disabled, and sends the optional allowlist on every new turn. The service rejects malformed/duplicate selections and client/server name collisions, intersects the request with the trusted catalog, and threads the plain selection through the durable workflow. The production catalog remains empty. Evidence: focused B4 contracts 8 files / 74 tests, service suite 54 files / 240 passed / 12 skipped, widget suite 50 files / 302 tests, direct service/widget TypeScript, scoped Oxlint, custom governance, and the browser allowlist assertion/capture at `evidence/task-16a-widget-parity/tools-menu.png`.
 
-### Backend-gated / product decisions (not scheduled)
+### Newly requested model control (provider target required)
 
-- **Multi-model selection** — `GET /api/models` returns one model and `selectModel` rejects any other id. The selector shows the configured model; a real multi-model catalog + permissive policy is a product decision.
-- **Reasoning-effort control** — not a request field; baked into provider config.
+- **Luna model** — the user requested Luna instead of GPT-5.4. The application service currently has only the OpenAI provider id `gpt-5.4`; Pi's Luna orchestration name is not an application-provider model id. The actual Luna API model id/endpoint must be supplied before changing execution. The UI must not relabel GPT-5.4 as Luna.
+- **Reasoning-effort control** — the user requested Light / Medium / High. Today effort is baked into provider config and is not a request field. Implementing this requires a validated per-turn `low | medium | high` value (displaying `low` as Light) threaded through HTTP, workflow input, model selection/provider options, and replay-safe request handling after the real model target is known.
 
 ## Look identity — visual parity
 
 - Side-by-side legacy `mock-stream` and native `workflow-service` use the same prompt/answer fixture and compare message, thought, source, file/image, sidebar, header, and composer rhythm.
 - Twelve paired captures cover Graphite, Sapphire, Sage, and Ocean at compact, cozy, and roomy density: `evidence/task-16a-widget-parity/look-<theme>-<density>.png`.
 - Every pair asserts the expected root theme attribute and exact density `--space-unit`; no widget styles or tokens were added for the native branch, and no dark mode was reintroduced.
-- The captures make the remaining duration gap visible: native says "Thought process" because replay has no timing. The evidence fixture deliberately pairs a sanctioned native file with the legacy activity image so both portable attachment surfaces stay visible; that fixture variation is not a product divergence.
+- The captures prove the duration gap is closed: the paired fixture renders "Thought for 1s" in both paths from deterministic legacy activity timestamps and native durable metadata. The fixture deliberately pairs a sanctioned native file with the legacy activity image so both portable attachment surfaces stay visible; that fixture variation is not a product divergence.
 
 ## Verification
 
@@ -82,7 +82,7 @@ Any legacy feature or visual detail deliberately not carried into the native wid
 - [x] Composer footer + model selector restored (shared `WidgetFooter`); multi-model is a product decision, reasoning-effort backend-gated.
 - [x] Composer tools menu + usage meter: B3/B4 implementation, request narrowing, visible menu, and terminal meter browser-verified.
 - [x] Completed assistant message-action copy is shared by legacy and native paths and browser-verified.
-- [ ] "Thought for N seconds" duration needs durable native timing metadata; no live-only approximation is accepted.
+- [x] "Thought for N seconds" uses durable metadata across live, replay, persistence, history, and browser rendering; no live-only approximation was introduced.
 - [x] Look-identity side-by-side captured across all four themes and compact/cozy/roomy density.
 - [x] Design-system theme/density audit passes on the paired native roots; this slice added no styles or tokens.
 - [x] Step 20 references this gate as a hard precondition.
