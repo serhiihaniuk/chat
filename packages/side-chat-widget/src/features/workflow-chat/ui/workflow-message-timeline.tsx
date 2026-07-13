@@ -17,6 +17,7 @@ import {
   TruncatedNotice,
 } from "#shared/ui/error-notice";
 import { Message } from "#shared/ui/message";
+import { MessageActions } from "#shared/ui/message-actions";
 import { Reasoning, type ReasoningItem } from "#shared/ui/reasoning";
 
 import {
@@ -65,22 +66,30 @@ export function WorkflowMessageTimeline({
       data-slot="workflow-message-timeline"
       className="flex w-full flex-col gap-(--message-stack-gap)"
     >
-      {messageTerminal?.kind === "blocked" && role === "assistant" ? (
-        <BlockedNotice message={labels.noticeBlocked} />
-      ) : (
-        <MessageBody
-          approvalDecisions={approvalDecisions}
-          isStreaming={isStreaming}
-          items={projectWorkflowMessageParts(message, messageTerminal)}
-          labels={labels}
-          onApprovalDecision={onApprovalDecision}
-          reasoningVisibility={reasoningVisibility}
-          role={role}
-          toolDetail={toolDetail}
-        />
-      )}
+      <WorkflowMessageContent
+        approvalDecisions={approvalDecisions}
+        isStreaming={isStreaming}
+        items={projectWorkflowMessageParts(message, messageTerminal)}
+        labels={labels}
+        messageIsBlocked={messageTerminal?.kind === "blocked" && role === "assistant"}
+        onApprovalDecision={onApprovalDecision}
+        reasoningVisibility={reasoningVisibility}
+        role={role}
+        toolDetail={toolDetail}
+      />
       {messageTerminal && <TerminalPresentation onRetry={onRetry} terminal={messageTerminal} />}
     </div>
+  );
+}
+
+function WorkflowMessageContent({
+  messageIsBlocked,
+  ...body
+}: Parameters<typeof MessageBody>[0] & { readonly messageIsBlocked: boolean }): ReactElement {
+  return messageIsBlocked ? (
+    <BlockedNotice message={body.labels.noticeBlocked} />
+  ) : (
+    <MessageBody {...body} />
   );
 }
 
@@ -162,11 +171,25 @@ function MessageBody({
       {files.map((item) => (
         <FilePresentation item={item} key={item.id} />
       ))}
+      <CompletedAnswerCopy answers={answers} isStreaming={isStreaming} role={role} />
       {isEmpty && role === "assistant" ? (
         <Message mode={isStreaming ? "streaming" : "static"} role="assistant" text="" />
       ) : null}
     </>
   );
+}
+
+function CompletedAnswerCopy({
+  answers,
+  isStreaming,
+  role,
+}: {
+  readonly answers: readonly Extract<WorkflowTimelineItem, { kind: "text" }>[];
+  readonly isStreaming: boolean;
+  readonly role: "user" | "assistant";
+}): ReactElement | null {
+  if (role !== "assistant" || isStreaming || answers.length === 0) return null;
+  return <MessageActions copyText={answers.map((item) => item.text).join("")} />;
 }
 
 // One "Thought process" fold for the whole trace: open while thinking, collapsed

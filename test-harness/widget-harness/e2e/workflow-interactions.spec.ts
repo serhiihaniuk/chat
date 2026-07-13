@@ -223,6 +223,17 @@ test("selects server tools per turn and renders terminal context usage", async (
   });
 
   await page.goto(parityWidgetUrl);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: (text: string) => {
+          sessionStorage.setItem("sidechat-e2e-copied-text", text);
+          return Promise.resolve();
+        },
+      },
+    });
+  });
   await page.getByRole("button", { name: "Add context and tools" }).click();
   const toolsPopup = page.locator('[data-slot="dropdown-menu-content"]');
   await expect(page.getByText("Available tools")).toBeVisible();
@@ -239,7 +250,13 @@ test("selects server tools per turn and renders terminal context usage", async (
   await page.getByLabel("Message").fill("Calculate the selected total");
   await page.getByRole("button", { name: "Send" }).click();
 
-  await expect(page.getByText("The selected calculator is available for this turn.")).toBeVisible();
+  const answer = "The selected calculator is available for this turn.";
+  await expect(page.getByText(answer)).toBeVisible();
+  await page.getByRole("button", { name: "Copy" }).click();
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem("sidechat-e2e-copied-text")))
+    .toBe(answer);
   await expect.poll(() => chatRequest).toMatchObject({ enabledToolNames: ["calculator"] });
   const contextMeter = page.getByRole("meter", { name: "Context used" });
   await expect(contextMeter).toHaveAttribute("aria-valuetext", "12,800 / 128,000 tokens (10%)");

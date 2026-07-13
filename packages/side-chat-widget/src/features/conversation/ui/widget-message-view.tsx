@@ -11,6 +11,7 @@ import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
 import { SourcesFold } from "#shared/ui/activity/citations";
 import { Message } from "#shared/ui/message";
+import { MessageActions } from "#shared/ui/message-actions";
 import { Reasoning, type ReasoningItem } from "#shared/ui/reasoning";
 import {
   readMessageImages,
@@ -64,10 +65,16 @@ export const WidgetMessageView = memo(
         )}
         {images.length > 0 && <ActivityImages images={images} />}
         {sources.length > 0 && <SourcesFold sources={sources} />}
+        <CompletedMessageCopy message={message} />
       </div>
     );
   },
 );
+
+const CompletedMessageCopy = ({ message }: { readonly message: WidgetMessage }) => {
+  if (message.role !== "assistant" || message.isStreaming === true || !message.content) return null;
+  return <MessageActions copyText={message.content} />;
+};
 
 const WidgetPendingActivityTimeline = () => {
   const labels = useWidgetLabels();

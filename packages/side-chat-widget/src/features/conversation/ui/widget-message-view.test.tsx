@@ -262,6 +262,25 @@ describe("WidgetMessageView", () => {
     expect(html).toContain('data-state="error"');
     expect(html).not.toContain("host_command_failed");
   });
+
+  it("shows copy only for a completed assistant answer", () => {
+    const completed = renderToStaticMarkup(
+      <WidgetMessageView
+        message={createAssistantMessage({ content: "Copy this answer" })}
+        reasoningVisibility="minimal"
+      />,
+    );
+    const streaming = renderToStaticMarkup(
+      <WidgetMessageView
+        message={createAssistantMessage({ content: "Still streaming", isStreaming: true })}
+        reasoningVisibility="minimal"
+      />,
+    );
+
+    expect(completed).toContain("Copy");
+    expect(completed).not.toContain("Retry");
+    expect(streaming).not.toContain("Copy");
+  });
 });
 
 const createAssistantMessage = ({

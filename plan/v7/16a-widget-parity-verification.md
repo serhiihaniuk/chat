@@ -42,7 +42,7 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 - **Agent mark** — `renderAgentMark` flows to the header title and the empty state.
 - **Activity composition** — reasoning + tools folded into one "Thought process" trace ahead of the answer; sources fold; images; files (Step 14/15 + the look restoration).
 
-Not yet carried: **"Thought for N seconds" duration** (the native projection has no activity timing) and **message-action copy**. Both are small client follow-ups.
+Not yet carried: **"Thought for N seconds" duration**. The native projection has no durable activity timing; adding a client timer would make live and replay disagree, so this remains a metadata-boundary decision rather than an invented value. Completed assistant text now uses the shared Copy action in both widget paths.
 
 ### Complete — durable real-provider execution
 
@@ -51,7 +51,7 @@ Production no longer passes raw OpenAI/Azure SDK models across WorkflowAgent's i
 ### Complete — composer tools menu + usage meter
 
 - **Usage / context meter** — live and replayed terminal finishes carry schema-validated folded `messageMetadata.usage`; completed assistant history persists the same safe object and degrades invalid metadata before transport; `/api/models` publishes the configured `contextWindowTokens`; the widget validates both, projects the newest assistant usage, and supplies the existing `WidgetFooter` meter. Evidence: 11 focused files / 102 tests plus browser assertion and the visible tooltip capture at `evidence/task-16a-widget-parity/usage-meter.png`.
-- **Server tools menu** — authenticated `/api/tools` exposes only the display projection `{ name, label, description, defaultEnabled }` of the trusted server catalog; schemas, executors, approval predicates, and provider data stay private. The native menu reads it through TanStack Query, preserves `undefined` when unavailable/empty and `[]` when every returned tool is disabled, and sends the optional allowlist on every new turn. The service rejects malformed/duplicate selections and client/server name collisions, intersects the request with the trusted catalog, and threads the plain selection through the durable workflow. The production catalog remains empty. Evidence: focused B4 contracts 8 files / 74 tests, service suite 54 files / 240 passed / 12 skipped, widget suite 50 files / 300 tests, direct service/widget TypeScript, scoped Oxlint, custom governance, and the browser allowlist assertion/capture at `evidence/task-16a-widget-parity/tools-menu.png`.
+- **Server tools menu** — authenticated `/api/tools` exposes only the display projection `{ name, label, description, defaultEnabled }` of the trusted server catalog; schemas, executors, approval predicates, and provider data stay private. The native menu reads it through TanStack Query, preserves `undefined` when unavailable/empty and `[]` when every returned tool is disabled, and sends the optional allowlist on every new turn. The service rejects malformed/duplicate selections and client/server name collisions, intersects the request with the trusted catalog, and threads the plain selection through the durable workflow. The production catalog remains empty. Evidence: focused B4 contracts 8 files / 74 tests, service suite 54 files / 240 passed / 12 skipped, widget suite 50 files / 302 tests, direct service/widget TypeScript, scoped Oxlint, custom governance, and the browser allowlist assertion/capture at `evidence/task-16a-widget-parity/tools-menu.png`.
 
 ### Backend-gated / product decisions (not scheduled)
 
@@ -68,7 +68,7 @@ Production no longer passes raw OpenAI/Azure SDK models across WorkflowAgent's i
 ## Verification
 
 - The paired look fixture covers the shared text, reasoning, completed-tool, source, file/image, and terminal-completion surfaces. Mutually exclusive approval, denial, cancellation, failure, and reconnect states remain separate deterministic browser scenarios recorded by Steps 14–16 rather than being forced into one impossible terminal transcript.
-- The B3/B4 browser scenario verifies the server-tools menu, disables one tool, asserts the exact request allowlist, streams terminal usage, asserts the meter value text, and captures both states.
+- The B3/B4 browser scenario verifies the server-tools menu, disables one tool, asserts the exact request allowlist, streams terminal usage, copies the exact assistant answer through the shared action, asserts the copied state and meter value text, and captures the visible results.
 - The 12-pair browser test asserts no console/page errors; screenshot animations are disabled only at capture time so transient compositor layers cannot corrupt evidence.
 
 ## Intentional-divergence sign-off
@@ -81,7 +81,8 @@ Any legacy feature or visual detail deliberately not carried into the native wid
 - [x] Multi-conversation sidebar/switcher: built and browser-verified.
 - [x] Composer footer + model selector restored (shared `WidgetFooter`); multi-model is a product decision, reasoning-effort backend-gated.
 - [x] Composer tools menu + usage meter: B3/B4 implementation, request narrowing, visible menu, and terminal meter browser-verified.
-- [ ] Small client follow-ups: "Thought for N seconds" duration, message-action copy.
+- [x] Completed assistant message-action copy is shared by legacy and native paths and browser-verified.
+- [ ] "Thought for N seconds" duration needs durable native timing metadata; no live-only approximation is accepted.
 - [x] Look-identity side-by-side captured across all four themes and compact/cozy/roomy density.
 - [x] Design-system theme/density audit passes on the paired native roots; this slice added no styles or tokens.
 - [x] Step 20 references this gate as a hard precondition.

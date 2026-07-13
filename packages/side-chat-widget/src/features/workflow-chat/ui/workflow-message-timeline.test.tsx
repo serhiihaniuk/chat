@@ -43,6 +43,19 @@ afterEach(() => {
 });
 
 describe("WorkflowMessageTimeline", () => {
+  it("shows copy only for a completed assistant answer", () => {
+    const completed = renderTimeline(assistant([{ type: "text", text: "Copy this answer" }]));
+    const streaming = renderTimeline(
+      assistant([{ type: "text", text: "Still streaming" }]),
+      undefined,
+      true,
+    );
+
+    expect(completed).toContain("Copy");
+    expect(completed).not.toContain("Retry");
+    expect(streaming).not.toContain("Copy");
+  });
+
   it("projects usage from the newest assistant message only", () => {
     const messages: WorkflowUIMessage[] = [
       { id: "user-1", role: "user", parts: [] },

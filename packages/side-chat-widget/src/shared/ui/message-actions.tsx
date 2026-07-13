@@ -13,11 +13,13 @@ import { Check, Copy, RotateCcw } from "lucide-react";
 const COPIED_MS = 1300;
 
 export function MessageActions({
+  copyText,
   onCopy,
   onRetry,
 }: {
-  onCopy?: () => void;
-  onRetry?: () => void;
+  readonly copyText?: string | undefined;
+  readonly onCopy?: (() => void) | undefined;
+  readonly onRetry?: (() => void) | undefined;
 }): ReactElement {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -29,29 +31,42 @@ export function MessageActions({
     [],
   );
 
-  function handleCopy() {
-    onCopy?.();
+  const isDemo = copyText === undefined && onCopy === undefined && onRetry === undefined;
+  const showCopied = (): void => {
     setCopied(true);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setCopied(false), COPIED_MS);
-  }
+  };
+  const handleCopy = (): void => {
+    if (onCopy) {
+      onCopy();
+      showCopied();
+      return;
+    }
+    if (copyText === undefined || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(copyText).then(showCopied, () => undefined);
+  };
 
   return (
     <div className="flex items-center gap-1">
-      <button className="sc-action" data-copied={copied ? true : undefined} onClick={handleCopy}>
-        {copied ? (
-          <>
-            <Check /> Copied
-          </>
-        ) : (
-          <>
-            <Copy /> Copy
-          </>
-        )}
-      </button>
-      <button className="sc-action" onClick={onRetry}>
-        <RotateCcw /> Retry
-      </button>
+      {isDemo || copyText !== undefined || onCopy !== undefined ? (
+        <button className="sc-action" data-copied={copied ? true : undefined} onClick={handleCopy}>
+          {copied ? (
+            <>
+              <Check /> Copied
+            </>
+          ) : (
+            <>
+              <Copy /> Copy
+            </>
+          )}
+        </button>
+      ) : null}
+      {isDemo || onRetry !== undefined ? (
+        <button className="sc-action" onClick={onRetry}>
+          <RotateCcw /> Retry
+        </button>
+      ) : null}
     </div>
   );
 }
