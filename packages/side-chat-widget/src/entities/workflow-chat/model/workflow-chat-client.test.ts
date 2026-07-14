@@ -8,7 +8,7 @@ import {
   readWorkflowConversations,
   readWorkflowModels,
   readWorkflowTools,
-  type WorkflowChatClient,
+  type WorkflowConversationClient,
 } from "../index.js";
 
 describe("readWorkflowChatHistory", () => {
@@ -427,7 +427,7 @@ describe("workflow interaction endpoints", () => {
 
 function createClient(
   response: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>,
-): WorkflowChatClient {
+): WorkflowConversationClient {
   return {
     baseUrl: "https://service.example",
     conversationId: "conversation-1",

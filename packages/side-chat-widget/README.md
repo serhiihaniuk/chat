@@ -23,14 +23,21 @@ Not source of truth for: backend workflow or protocol definitions.
 ## Public Surface
 
 `src/index.ts` exports one discriminated widget API. New v7 consumers pass a
-`workflowChat` configuration with `baseUrl`, `conversationId`, and an optional
-request-time `getRequestConfig` callback. That branch validates history, seeds
-one `useChat` instance, and uses `WorkflowChatTransport` for POST, replay, and
-cancel requests. Request configuration is resolved for every request so a
-refreshed auth token is not captured at mount time. Hosts that persist the
-active conversation in routing state use `onConversationIdChange`; it reports
-server-listed selections immediately and local drafts only after their first
-settled turn creates the server resource.
+`workflowChat` configuration with `baseUrl` and an optional request-time
+`getRequestConfig` callback. The branch starts in a client-only New chat draft
+unless `initialConversationId` names a server-known conversation for that mount.
+It validates history, seeds one `useChat` instance, and uses
+`WorkflowChatTransport` for POST, replay, and cancel requests. Request
+configuration is resolved for every request so a refreshed auth token is not
+captured at mount time.
+
+Workflow conversation selection is deliberately independent of routing and idle
+browser persistence. `workflowActiveTurnStorageKey` opts one widget instance into
+a tab-scoped `sessionStorage` cursor containing only the accepted conversation
+and run ids. The cursor is written at service acceptance, survives reconnect and
+approval pauses, and is cleared at a true terminal or cancel. On refresh the
+service's active-turn discovery must confirm the cursor before reattachment;
+missing or mismatched discovery returns the widget to New chat.
 
 The native branch renders the validated AI SDK `UIMessage` part timeline with
 source-ordered text, reasoning, tool lifecycle, source, file, approval, and

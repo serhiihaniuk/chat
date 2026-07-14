@@ -11,12 +11,12 @@ import {
   resolveWorkflowChatRequestConfig,
   workflowChatFetch,
   workflowChatUrl,
-  type WorkflowChatClient,
+  type WorkflowConversationClient,
   type WorkflowUIMessage,
 } from "../model/workflow-chat-client.js";
 
 type CreateWorkflowChatTransportInput = Readonly<{
-  getClient: () => WorkflowChatClient;
+  getClient: () => WorkflowConversationClient;
   getClientTools?:
     | (() =>
         | readonly WorkflowClientToolDefinition[]
@@ -99,7 +99,7 @@ export function createWorkflowChatTransport({
 }
 
 async function fetchWorkflowResponse(
-  client: WorkflowChatClient,
+  client: WorkflowConversationClient,
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
@@ -179,7 +179,7 @@ type WorkflowChatRequestBody = {
   clientTools?: readonly WorkflowClientToolDefinition[];
   enabledToolNames?: readonly string[];
   modelPreference?: string;
-  reasoningEffort?: WorkflowChatClient["reasoningEffort"];
+  reasoningEffort?: WorkflowConversationClient["reasoningEffort"];
 };
 
 type PreparedWorkflowRequest = {
@@ -198,7 +198,7 @@ const applyRequestConfig = <Request extends PreparedWorkflowRequest>(
   return result;
 };
 
-function toServiceUrl(client: WorkflowChatClient, api: string): string {
+function toServiceUrl(client: WorkflowConversationClient, api: string): string {
   if (/^https?:\/\//u.test(api)) return api;
   return workflowChatUrl(client, api.startsWith("/") ? api : `/${api}`);
 }

@@ -1,6 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus } from "ai";
 import { toClientToolDefinitions, type WidgetHostBridge } from "@side-chat/host-bridge";
+import { isRecord } from "@side-chat/shared";
 import { sideChatMessageMetadataSchema } from "@side-chat/stream-profile";
 import { useEffect, useRef, useState } from "react";
 
@@ -8,9 +9,10 @@ import {
   cancelWorkflowChatRun,
   createWorkflowChatTransport,
   type WorkflowActiveTurn,
-  type WorkflowChatClient,
   type WorkflowChatHttpError,
+  type WorkflowConversationClient,
   type WorkflowUIMessage,
+  WORKFLOW_CHAT_TRANSPORT_ERROR_CODE,
 } from "#entities/workflow-chat";
 import {
   createWorkflowApprovalDecisionHandler,
@@ -49,6 +51,12 @@ const AI_CHAT_STATUS_TO_WIDGET_STATUS: Readonly<Record<ChatStatus, WorkflowWidge
   submitted: WORKFLOW_WIDGET_CHAT_STATUS.SUBMITTED,
 };
 
+const PENDING_INTERACTION_STATE = new Set([
+  "approval-requested",
+  "input-available",
+  "input-streaming",
+]);
+
 export type WorkflowWidgetChat = Readonly<{
   approvalDecisions: WorkflowApprovalDecisions;
   cancelled: boolean;
@@ -63,17 +71,25 @@ export type WorkflowWidgetChat = Readonly<{
   submitMessage: (text: string) => Promise<void>;
 }>;
 
+export type WorkflowWidgetChatLifecycle = Readonly<{
+  onRunAccepted?: ((runId: string) => void) | undefined;
+  onRunTerminal?: ((runId: string) => void) | undefined;
+}>;
+
 /** One native AI SDK chat state machine for one open conversation. */
 export function useWorkflowWidgetChat(
-  client: WorkflowChatClient,
+  client: WorkflowConversationClient,
   initialMessages: readonly WorkflowUIMessage[],
   hostBridge?: WidgetHostBridge,
   activeTurn?: WorkflowActiveTurn,
+  lifecycle: WorkflowWidgetChatLifecycle = {},
 ): WorkflowWidgetChat {
   const clientRef = useRef(client);
   clientRef.current = client;
   const hostBridgeRef = useRef<WidgetHostBridge | undefined>(hostBridge);
   hostBridgeRef.current = hostBridge;
+  const lifecycleRef = useRef(lifecycle);
+  lifecycleRef.current = lifecycle;
   const latestMessagesRef = useRef<readonly WorkflowUIMessage[]>(initialMessages);
   const dispatchedToolCallIdsRef = useRef<Set<string>>(new Set());
   const approvalRequestsInFlightRef = useRef<Set<string>>(new Set());
@@ -86,7 +102,13 @@ export function useWorkflowWidgetChat(
   });
   const [approvalDecisions, setApprovalDecisions] = useState<WorkflowApprovalDecisions>({});
   const [transport] = useState(() =>
-    createWidgetTransport(clientRef, activeRunIdRef, dispatchedToolCallIdsRef, hostBridgeRef),
+    createWidgetTransport(
+      clientRef,
+      activeRunIdRef,
+      dispatchedToolCallIdsRef,
+      hostBridgeRef,
+      lifecycleRef,
+    ),
   );
   const onToolCall = createWorkflowClientToolCallHandler({
     activeRunIdRef,
@@ -102,7 +124,17 @@ export function useWorkflowWidgetChat(
     transport,
     onToolCall,
     onError: createWorkflowChatErrorHandler(latestErrorRef, setTransportError),
-    onFinish: createWorkflowChatFinishHandler(latestErrorRef, setTerminal),
+    onFinish: createWorkflowChatFinishHandler(
+      latestErrorRef,
+      setTerminal,
+      (_nextTerminal, message, error) => {
+        if (hasPendingInteraction(message) || error?.code === WORKFLOW_CHAT_TRANSPORT_ERROR_CODE) {
+          return;
+        }
+        const runId = activeRunIdRef.current;
+        if (runId) lifecycleRef.current.onRunTerminal?.(runId);
+      },
+    ),
   });
   latestMessagesRef.current = chat.messages;
 
@@ -145,12 +177,13 @@ export function useWorkflowWidgetChat(
 
   const stop = (): void => {
     const runId = activeRunIdRef.current;
+    activeRunIdRef.current = undefined;
     void chat.stop();
     chat.clearError();
     latestErrorRef.current = undefined;
     setTransportError(undefined);
     setCancelled(true);
-    activeRunIdRef.current = undefined;
+    if (runId) lifecycleRef.current.onRunTerminal?.(runId);
     if (runId) void cancelWorkflowChatRun(clientRef.current, runId).catch(() => undefined);
   };
 
@@ -178,10 +211,11 @@ export function useWorkflowWidgetChat(
 }
 
 function createWidgetTransport(
-  clientRef: { current: WorkflowChatClient },
+  clientRef: { current: WorkflowConversationClient },
   activeRunIdRef: { current: string | undefined },
   dispatchedToolCallIdsRef: { current: Set<string> },
   hostBridgeRef: { current: WidgetHostBridge | undefined },
+  lifecycleRef: { current: WorkflowWidgetChatLifecycle },
 ) {
   return createWorkflowChatTransport({
     getClient: () => clientRef.current,
@@ -200,6 +234,7 @@ function createWidgetTransport(
     onRunStarted: (runId) => {
       if (activeRunIdRef.current !== runId) dispatchedToolCallIdsRef.current.clear();
       activeRunIdRef.current = runId;
+      lifecycleRef.current.onRunAccepted?.(runId);
     },
   });
 }
@@ -209,3 +244,16 @@ const toWidgetStatus = (
   error: WorkflowChatHttpError | undefined,
 ): WorkflowWidgetChatStatus =>
   error ? WORKFLOW_WIDGET_CHAT_STATUS.ERROR : AI_CHAT_STATUS_TO_WIDGET_STATUS[status];
+
+function hasPendingInteraction(message: WorkflowUIMessage): boolean {
+  return message.parts.some((part) => {
+    const state = readInteractionState(part);
+    return state !== undefined && PENDING_INTERACTION_STATE.has(state);
+  });
+}
+
+function readInteractionState(value: unknown): string | undefined {
+  if (!isRecord(value)) return undefined;
+  const state = value["state"];
+  return typeof state === "string" ? state : undefined;
+}

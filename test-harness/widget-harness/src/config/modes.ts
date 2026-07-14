@@ -17,7 +17,6 @@ export type WidgetHarnessConfig = {
   readonly mode: WidgetHarnessMode;
   readonly apiBaseUrl: string;
   readonly authToken: string;
-  readonly conversationId: string;
   readonly defaultOpen: boolean;
   readonly openControl: WidgetHarnessOpenControl;
   readonly scenario: WidgetHarnessScenario;
@@ -26,7 +25,6 @@ export type WidgetHarnessConfig = {
 
 const DEFAULT_API_BASE_URL = "/side-chat-api";
 const DEFAULT_AUTH_TOKEN = "local-compose-token";
-const DEFAULT_CONVERSATION_ID = "conversation-1";
 const DEFAULT_WORKSPACE_ID = "workspace_local";
 
 export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig => {
@@ -36,7 +34,6 @@ export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig =>
     mode,
     apiBaseUrl: params.get("apiBaseUrl") ?? DEFAULT_API_BASE_URL,
     authToken: params.get("authToken") ?? DEFAULT_AUTH_TOKEN,
-    conversationId: params.get("conversationId") ?? DEFAULT_CONVERSATION_ID,
     defaultOpen: parseDefaultOpen(params.get("open"), params.get("defaultOpen")),
     openControl: parseOpenControl(params.get("openControl")),
     scenario: parseScenario(params.get("scenario")),

@@ -133,13 +133,18 @@ export type ProtocolSideChatWidgetProps = SideChatWidgetShellProps &
 
 export type WorkflowSideChatWidgetProps = SideChatWidgetShellProps & {
   readonly client?: never;
-  /** Native AI SDK transport and dynamic request configuration for one conversation. */
+  /** Native AI SDK transport and dynamic request configuration for this widget. */
   readonly workflowChat: WorkflowChatClient;
   /**
-   * Notifies the host after a server-known conversation becomes active. Local
-   * New chat drafts notify only after their first settled turn creates them.
+   * Optional server-known conversation selected only for this mount. Omit to
+   * start in a client-only New chat draft.
    */
-  readonly onConversationIdChange?: ((conversationId: string) => void) | undefined;
+  readonly initialConversationId?: string | undefined;
+  /**
+   * Explicit sessionStorage key for the accepted turn's refresh-recovery cursor.
+   * The cursor exists only while a run is active and never persists idle selection.
+   */
+  readonly workflowActiveTurnStorageKey?: string | undefined;
   /** Optional browser-safe host capability and client-tool dispatch seam. */
   readonly hostBridge?: WidgetHostBridge | undefined;
   /** Starter prompts shown only before the conversation has messages. */

@@ -7,12 +7,14 @@ export {
   normalizeWorkflowChatError,
   readWorkflowActiveTurn,
   readWorkflowChatHistory,
+  WORKFLOW_CHAT_TRANSPORT_ERROR_CODE,
 } from "./model/workflow-chat-client.js";
 export type {
   WorkflowActiveTurn,
   WorkflowChatClient,
   WorkflowChatHttpError,
   WorkflowChatRequestConfig,
+  WorkflowConversationClient,
   WorkflowUIMessage,
 } from "./model/workflow-chat-client.js";
 export {

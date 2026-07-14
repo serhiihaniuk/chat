@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { UIMessage, UIMessageChunk } from "ai";
 
-import { normalizeWorkflowChatError, type WorkflowChatClient } from "../index.js";
+import { normalizeWorkflowChatError, type WorkflowConversationClient } from "../index.js";
 import {
   createWorkflowChatTransport,
   type WorkflowClientToolDefinition,
@@ -191,7 +191,7 @@ async function reconnectUrls(
     urls.push(String(input));
     return finishedResponse();
   });
-  const client: WorkflowChatClient = {
+  const client: WorkflowConversationClient = {
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
     fetch: request,
@@ -209,10 +209,10 @@ async function reconnectUrls(
 const KEEPALIVE = Symbol("keepalive");
 
 function createTransport(
-  overrides: Partial<WorkflowChatClient>,
+  overrides: Partial<WorkflowConversationClient>,
   getClientTools?: () => readonly WorkflowClientToolDefinition[],
 ) {
-  const client: WorkflowChatClient = {
+  const client: WorkflowConversationClient = {
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
     ...overrides,

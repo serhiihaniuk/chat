@@ -25,12 +25,10 @@ export type WorkflowChatRequestConfig = Readonly<{
   credentials?: RequestCredentials | undefined;
 }>;
 
-/** Browser configuration for one native workflow conversation. */
+/** Browser configuration shared by every conversation in one workflow widget. */
 export type WorkflowChatClient = Readonly<{
   /** Service origin or proxy base without an endpoint-specific path. */
   baseUrl: string;
-  /** Stable conversation id used for history, chat state, replay, and cancellation. */
-  conversationId: string;
   /** Optional fetch implementation for browser adapters and deterministic tests. */
   fetch?: typeof fetch | undefined;
   /** Resolve current auth configuration at request time rather than mount time. */
@@ -46,6 +44,14 @@ export type WorkflowChatClient = Readonly<{
   /** Optional server-tool narrowing included with the next send. */
   enabledToolNames?: readonly string[] | undefined;
 }>;
+
+/** Request client after the widget has chosen one draft or persisted conversation. */
+export type WorkflowConversationClient = WorkflowChatClient &
+  Readonly<{
+    conversationId: string;
+  }>;
+
+export const WORKFLOW_CHAT_TRANSPORT_ERROR_CODE = "transport_error";
 
 /** Safe public HTTP failure returned by the workflow service boundary. */
 export class WorkflowChatHttpError extends Error {
@@ -63,7 +69,7 @@ export class WorkflowChatHttpError extends Error {
 }
 
 export async function readWorkflowChatHistory(
-  client: WorkflowChatClient,
+  client: WorkflowConversationClient,
   signal?: AbortSignal,
 ): Promise<readonly WorkflowUIMessage[]> {
   const request = await resolveWorkflowChatRequestConfig(client);
@@ -99,7 +105,7 @@ export type WorkflowActiveTurn = Readonly<{ turnId: string; runId: string }>;
  * reattach to an in-progress turn's stream. `undefined` means no live run.
  */
 export async function readWorkflowActiveTurn(
-  client: WorkflowChatClient,
+  client: WorkflowConversationClient,
   signal?: AbortSignal,
 ): Promise<WorkflowActiveTurn | undefined> {
   const request = await resolveWorkflowChatRequestConfig(client);
@@ -123,7 +129,7 @@ export async function readWorkflowActiveTurn(
 }
 
 export async function cancelWorkflowChatRun(
-  client: WorkflowChatClient,
+  client: WorkflowConversationClient,
   runId: string,
 ): Promise<void> {
   const request = await resolveWorkflowChatRequestConfig(client);
@@ -162,7 +168,7 @@ export function normalizeWorkflowChatError(error: unknown): WorkflowChatHttpErro
   if (isWorkflowChatHttpError(error)) return error;
   const message = error instanceof Error ? error.message : "Chat request failed.";
   const payload = parseEmbeddedErrorPayload(message);
-  return payload ?? new WorkflowChatHttpError("transport_error", message, false);
+  return payload ?? new WorkflowChatHttpError(WORKFLOW_CHAT_TRANSPORT_ERROR_CODE, message, false);
 }
 
 export async function readWorkflowChatHttpError(

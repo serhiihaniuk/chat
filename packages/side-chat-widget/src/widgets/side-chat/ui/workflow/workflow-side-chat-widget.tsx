@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
 import {
   readWorkflowActiveTurn,
   readWorkflowChatHistory,
   readWorkflowConversations,
+  type WorkflowConversationSummary,
 } from "#entities/workflow-chat";
 import type { ConversationSummaryView } from "#features/conversation";
 import { ClosedWidgetLauncher, ResizablePanel, useWidgetPanelSize } from "#features/panel";
@@ -13,8 +14,6 @@ import { useSendPreference, useToolDetailPreference } from "#features/settings";
 import { useWorkflowModelSelection, type WorkflowModelSelection } from "#features/workflow-chat";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import { resolveWidgetLabels, WidgetLabelsProvider } from "#shared/lib/widget-labels";
-import { Conversation, ConversationContent } from "#shared/ui/conversation";
-import { ErrorNotice } from "#shared/ui/error-notice";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 
 import type { WorkflowSideChatWidgetProps } from "../../model/side-chat-widget.types.js";
@@ -22,11 +21,10 @@ import {
   useWorkflowToolSelection,
   type WidgetToolSelection,
 } from "../../model/selection/side-chat-tool-selection.js";
-import {
-  useMissingConversationFallback,
-  useWorkflowConversationSelection,
-} from "../../model/selection/use-workflow-conversation-selection.js";
+import { useWorkflowConversationSelection } from "../../model/selection/workflow/use-workflow-conversation-selection.js";
+import { resolveWorkflowRecoveryValidation } from "../../model/selection/workflow-recovery/workflow-recovery-validation.js";
 import { WorkflowChatSession } from "./workflow-chat-session.js";
+import { selectWorkflowHistoryContent } from "./workflow-history-content.js";
 import { WorkflowPanelView } from "./workflow-panel-view.js";
 
 const WORKFLOW_QUERY = {
@@ -36,6 +34,17 @@ const WORKFLOW_QUERY = {
   SCOPE: "workflow-chat",
 } as const;
 
+function toConversationViews(
+  conversations: readonly WorkflowConversationSummary[] | undefined,
+  newChatLabel: string,
+): readonly ConversationSummaryView[] {
+  return (conversations ?? []).map((conversation) => ({
+    id: conversation.id,
+    title: conversation.title || newChatLabel,
+    lastMessageAt: conversation.lastMessageAt,
+  }));
+}
+
 /** Render a workspace's conversations through the native workflow transport. */
 export function WorkflowSideChatWidget({
   defaultOpen = true,
@@ -43,7 +52,7 @@ export function WorkflowSideChatWidget({
   defaultTheme,
   labels: labelsProp,
   hostBridge,
-  onConversationIdChange,
+  initialConversationId,
   onOpenChange,
   open,
   panelActions,
@@ -54,6 +63,7 @@ export function WorkflowSideChatWidget({
   renderClosedLauncher = true,
   themeStorageKey,
   workflowChat,
+  workflowActiveTurnStorageKey,
 }: WorkflowSideChatWidgetProps) {
   const labels = useMemo(() => resolveWidgetLabels(labelsProp), [labelsProp]);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -100,7 +110,7 @@ export function WorkflowSideChatWidget({
           appearance={appearance}
           hostBridge={hostBridge}
           labels={labels}
-          onConversationIdChange={onConversationIdChange}
+          initialConversationId={initialConversationId}
           onClose={() => {
             panelActions?.onClose?.();
             requestOpenChange(false);
@@ -110,6 +120,7 @@ export function WorkflowSideChatWidget({
           renderAgentMark={renderAgentMark}
           theme={theme}
           workflowChat={workflowChat}
+          workflowActiveTurnStorageKey={workflowActiveTurnStorageKey}
           modelSelection={modelSelection}
           toolSelection={toolSelection}
         />
@@ -118,66 +129,33 @@ export function WorkflowSideChatWidget({
   );
 }
 
-/**
- * Owns which conversation is active and the workspace conversation list, then
- * seeds one keyed chat session per conversation. Switching remounts the session
- * (fresh transport + history seed); a settled turn refreshes the list so a new
- * conversation and its generated title appear.
- */
-function selectWorkflowHistoryContent({
-  error,
-  isLocalDraft,
-  isPending,
-  labels,
-  onRetry,
-  session,
-}: Readonly<{
-  error: Error | null;
-  isLocalDraft: boolean;
-  isPending: boolean;
-  labels: ReturnType<typeof resolveWidgetLabels>;
-  onRetry: () => void;
-  session: ReactNode;
-}>): ReactNode {
-  if (!isLocalDraft && isPending) {
-    return <Conversation aria-label={labels.headerConversationFeed}>{null}</Conversation>;
-  }
-  if (!isLocalDraft && error) {
-    return (
-      <Conversation aria-label={labels.headerConversationFeed}>
-        <ConversationContent className="mx-auto w-full max-w-measure-message px-4 pt-4">
-          <ErrorNotice message={error.message} onRetry={onRetry} />
-        </ConversationContent>
-      </Conversation>
-    );
-  }
-  return session;
-}
-
+/** Own the selected conversation and seed one keyed native chat session. */
 function WorkflowConversationPanel({
   appearance,
   hostBridge,
+  initialConversationId,
   labels,
   onClose,
-  onConversationIdChange,
   quickActions,
   reasoningVisibility,
   renderAgentMark,
   theme,
   workflowChat,
+  workflowActiveTurnStorageKey,
   modelSelection,
   toolSelection,
 }: {
   readonly appearance: ReturnType<typeof useWidgetAppearance>;
   readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
+  readonly initialConversationId: WorkflowSideChatWidgetProps["initialConversationId"];
   readonly labels: ReturnType<typeof resolveWidgetLabels>;
   readonly onClose: () => void;
-  readonly onConversationIdChange: WorkflowSideChatWidgetProps["onConversationIdChange"];
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
   readonly reasoningVisibility: WorkflowSideChatWidgetProps["reasoningVisibility"];
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
   readonly theme: ReturnType<typeof useWidgetTheme>;
   readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
+  readonly workflowActiveTurnStorageKey: WorkflowSideChatWidgetProps["workflowActiveTurnStorageKey"];
   readonly modelSelection: WorkflowModelSelection;
   readonly toolSelection: WidgetToolSelection;
 }): ReactNode {
@@ -186,11 +164,15 @@ function WorkflowConversationPanel({
   const toolDetailPreference = useToolDetailPreference();
   const {
     activeConversationId,
-    commitLocalDraft,
+    acceptedRun,
+    clearTerminalRun,
+    discardInvalidRecovery,
     isLocalDraft,
+    recoveryCursor,
+    recoveryNeedsValidation,
     selectConversation,
     startNewConversation,
-  } = useWorkflowConversationSelection(workflowChat.conversationId, onConversationIdChange);
+  } = useWorkflowConversationSelection(initialConversationId, workflowActiveTurnStorageKey);
   const conversationClient = useMemo(
     () => ({ ...workflowChat, conversationId: activeConversationId }),
     [workflowChat, activeConversationId],
@@ -221,43 +203,41 @@ function WorkflowConversationPanel({
     queryFn: async ({ signal }) =>
       (await readWorkflowActiveTurn(conversationClient, signal)) ?? null,
   });
-  const conversationViews = useMemo<readonly ConversationSummaryView[]>(
-    () =>
-      (conversations.data ?? []).map((conversation) => ({
-        id: conversation.id,
-        title: conversation.title || labels.conversationNewChat,
-        lastMessageAt: conversation.lastMessageAt,
-      })),
-    [conversations.data, labels.conversationNewChat],
-  );
-  useMissingConversationFallback({
+  const conversationViews = toConversationViews(conversations.data, labels.conversationNewChat);
+  const recovery = resolveWorkflowRecoveryValidation({
     activeConversationId,
-    conversations: conversations.data,
-    error: history.error,
-    isLocalDraft,
-    selectConversation,
+    activeTurn: discovery.data,
+    cursor: recoveryCursor,
+    discoveryFailed: discovery.isError,
+    discoverySettled: discovery.isSuccess,
+    needsValidation: recoveryNeedsValidation,
   });
+  useEffect(() => {
+    if (recovery.invalidCursor) discardInvalidRecovery(recovery.invalidCursor);
+  }, [discardInvalidRecovery, recovery.invalidCursor]);
   const refreshConversations = useCallback((): void => {
-    commitLocalDraft();
     void queryClient.invalidateQueries({
       queryKey: [WORKFLOW_QUERY.SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
     });
-  }, [commitLocalDraft, queryClient, workflowChat.baseUrl]);
+  }, [queryClient, workflowChat.baseUrl]);
 
   const historyContent = selectWorkflowHistoryContent({
     error: history.error,
     isLocalDraft,
     isPending: history.isPending,
+    isRecoveryPending: recovery.isPending,
     labels,
     onRetry: () => void history.refetch(),
     session: (
       <WorkflowChatSession
-        activeTurn={isLocalDraft ? undefined : (discovery.data ?? undefined)}
+        activeTurn={isLocalDraft ? undefined : recovery.activeTurn}
         hostBridge={hostBridge}
         initialMessages={isLocalDraft ? [] : (history.data ?? [])}
         key={activeConversationId}
         labels={labels}
         onConversationsChanged={refreshConversations}
+        onRunAccepted={acceptedRun}
+        onRunTerminal={clearTerminalRun}
         quickActions={quickActions}
         reasoningVisibility={reasoningVisibility ?? DEFAULT_REASONING_VISIBILITY}
         renderAgentMark={renderAgentMark}

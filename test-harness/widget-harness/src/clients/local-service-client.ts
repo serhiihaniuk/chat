@@ -15,7 +15,6 @@ export const createLocalServiceClient = (config: WidgetHarnessConfig): SideChatA
 
 export const createWorkflowServiceClient = (config: WidgetHarnessConfig): WorkflowChatClient => ({
   baseUrl: resolveLocalApiBaseUrl(config.apiBaseUrl),
-  conversationId: config.conversationId,
   getRequestConfig: () => ({
     headers: { authorization: `Bearer ${config.authToken}` },
   }),

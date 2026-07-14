@@ -5,10 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   WorkflowActiveTurn,
-  WorkflowChatClient,
+  WorkflowConversationClient,
   WorkflowUIMessage,
 } from "#entities/workflow-chat";
-import { useWorkflowWidgetChat, type WorkflowWidgetChat } from "./use-workflow-widget-chat.js";
+import {
+  useWorkflowWidgetChat,
+  type WorkflowWidgetChat,
+  type WorkflowWidgetChatLifecycle,
+} from "./use-workflow-widget-chat.js";
 
 const SEEDED_MESSAGE: WorkflowUIMessage = {
   id: "seed-user",
@@ -45,11 +49,13 @@ afterEach(() => {
 describe("useWorkflowWidgetChat", () => {
   it("seeds history once and finishes with exactly one streamed assistant", async () => {
     let sentMessageIds: string[] = [];
+    const onRunAccepted = vi.fn<(runId: string) => void>();
+    const onRunTerminal = vi.fn<(runId: string) => void>();
     const request = vi.fn<typeof fetch>((_input, init) => {
       sentMessageIds = readSentMessageIds(init?.body);
       return Promise.resolve(completedTurnResponse());
     });
-    const chat = renderChat({ fetch: request });
+    const chat = renderChat({ fetch: request }, undefined, { onRunAccepted, onRunTerminal });
 
     await act(async () => chat.current?.submitMessage("Now"));
     await waitFor(() => chat.current?.status === "idle");
@@ -80,6 +86,8 @@ describe("useWorkflowWidgetChat", () => {
       messageId: "assistant-1",
       partCount: 2,
     });
+    expect(onRunAccepted).toHaveBeenCalledWith("run-1");
+    expect(onRunTerminal).toHaveBeenCalledWith("run-1");
   });
 
   it("maps a native content-filter finish to a blocked terminal", async () => {
@@ -159,6 +167,8 @@ describe("useWorkflowWidgetChat", () => {
 
   it("keeps the run id for approve decisions after the approval stream pauses", async () => {
     let approvalBody: unknown;
+    const onRunAccepted = vi.fn<(runId: string) => void>();
+    const onRunTerminal = vi.fn<(runId: string) => void>();
     const request = vi.fn<typeof fetch>((input, init) => {
       const url = requestUrl(input);
       if (url.endsWith("/approvals/approval-1")) {
@@ -173,10 +183,13 @@ describe("useWorkflowWidgetChat", () => {
       }
       return Promise.resolve(approvalTurnResponse());
     });
-    const chat = renderChat({ fetch: request });
+    const chat = renderChat({ fetch: request }, undefined, { onRunAccepted, onRunTerminal });
 
     await act(async () => chat.current?.submitMessage("Approve this"));
     await waitFor(() => chat.current?.status === "idle");
+
+    expect(onRunAccepted).toHaveBeenCalledWith("run-1");
+    expect(onRunTerminal).not.toHaveBeenCalled();
 
     await act(async () => chat.current?.decideApproval("approval-1", true, "Looks good"));
 
@@ -228,19 +241,43 @@ describe("useWorkflowWidgetChat", () => {
     await act(async () => chat.current?.reconnect());
     await waitFor(() => chat.current?.error === undefined);
   });
+
+  it("retains an accepted run when its response stream loses transport", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const onRunAccepted = vi.fn<(runId: string) => void>();
+    const onRunTerminal = vi.fn<(runId: string) => void>();
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(interruptedTurnResponse()));
+    const chat = renderChat({ fetch: request }, undefined, { onRunAccepted, onRunTerminal });
+
+    await act(async () => chat.current?.submitMessage("Lose the stream"));
+    await waitFor(() => chat.current?.error !== undefined);
+
+    expect(onRunAccepted).toHaveBeenCalledWith("run-1");
+    expect(onRunTerminal).not.toHaveBeenCalled();
+  });
 });
 
-function renderChat(overrides: Partial<WorkflowChatClient>, activeTurn?: WorkflowActiveTurn) {
+function renderChat(
+  overrides: Partial<WorkflowConversationClient>,
+  activeTurn?: WorkflowActiveTurn,
+  lifecycle?: WorkflowWidgetChatLifecycle,
+) {
   const current: { current: WorkflowWidgetChat | undefined } = {
     current: undefined,
   };
-  const client: WorkflowChatClient = {
+  const client: WorkflowConversationClient = {
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
     ...overrides,
   };
   const Probe = () => {
-    current.current = useWorkflowWidgetChat(client, [SEEDED_MESSAGE], undefined, activeTurn);
+    current.current = useWorkflowWidgetChat(
+      client,
+      [SEEDED_MESSAGE],
+      undefined,
+      activeTurn,
+      lifecycle,
+    );
     return null;
   };
   act(() => root.render(createElement(Probe)));
@@ -318,6 +355,15 @@ function blockedTurnResponse(): Response {
       .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
       .join("") + "data: [DONE]\n\n",
   );
+}
+
+function interruptedTurnResponse(): Response {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.error(new Error("network down after acceptance"));
+    },
+  });
+  return eventResponse(body);
 }
 
 function approvalTurnResponse(): Response {

@@ -1,7 +1,11 @@
 import { useEffect, useMemo } from "react";
 
 import type { ReasoningVisibility, ToolDetailLevel } from "#entities/settings";
-import type { WorkflowActiveTurn, WorkflowUIMessage } from "#entities/workflow-chat";
+import type {
+  WorkflowActiveTurn,
+  WorkflowConversationClient,
+  WorkflowUIMessage,
+} from "#entities/workflow-chat";
 import {
   emptyStateDescription,
   toEmptyStateSuggestions,
@@ -35,6 +39,8 @@ export function WorkflowChatSession({
   hostBridge,
   activeTurn,
   onConversationsChanged,
+  onRunAccepted,
+  onRunTerminal,
   quickActions,
   reasoningVisibility,
   renderAgentMark,
@@ -51,11 +57,13 @@ export function WorkflowChatSession({
   readonly activeTurn: WorkflowActiveTurn | undefined;
   /** Called when a turn settles, so the parent can refresh the conversation list. */
   readonly onConversationsChanged: () => void;
+  readonly onRunAccepted: (runId: string) => void;
+  readonly onRunTerminal: (runId: string) => void;
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
   readonly reasoningVisibility: ReasoningVisibility;
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
   readonly toolDetail: ToolDetailLevel;
-  readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
+  readonly workflowChat: WorkflowConversationClient;
   readonly modelSelection: WorkflowModelSelection;
   readonly toolSelection: WidgetToolSelection;
 }) {
@@ -73,7 +81,10 @@ export function WorkflowChatSession({
       toolSelection.enabledToolNames,
     ],
   );
-  const chat = useWorkflowWidgetChat(sessionClient, initialMessages, hostBridge, activeTurn);
+  const chat = useWorkflowWidgetChat(sessionClient, initialMessages, hostBridge, activeTurn, {
+    onRunAccepted,
+    onRunTerminal,
+  });
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
   const contextUsedTokens = projectLatestAssistantUsage(chat.messages);
   const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);

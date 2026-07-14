@@ -1,8 +1,4 @@
-import type {
-  ChatOnErrorCallback,
-  ChatOnFinishCallback,
-  FinishReason,
-} from "ai";
+import type { ChatOnErrorCallback, ChatOnFinishCallback, FinishReason } from "ai";
 import {
   isSideChatErrorCode,
   SIDE_CHAT_ERROR_CODES,
@@ -58,17 +54,22 @@ export function createWorkflowChatErrorHandler(
 export function createWorkflowChatFinishHandler(
   latestErrorRef: { current: WorkflowChatHttpError | undefined },
   setTerminal: (terminal: WorkflowChatTerminal) => void,
+  onFinish?: (
+    terminal: WorkflowChatTerminal,
+    message: WorkflowUIMessage,
+    error: WorkflowChatHttpError | undefined,
+  ) => void,
 ): ChatOnFinishCallback<WorkflowUIMessage> {
   return ({ isAbort, isError, message, finishReason }) => {
-    setTerminal(
-      terminalForFinish({
-        error: latestErrorRef.current,
-        finishReason,
-        isAbort,
-        isError,
-        message,
-      }),
-    );
+    const terminal = terminalForFinish({
+      error: latestErrorRef.current,
+      finishReason,
+      isAbort,
+      isError,
+      message,
+    });
+    setTerminal(terminal);
+    onFinish?.(terminal, message, latestErrorRef.current);
     latestErrorRef.current = undefined;
   };
 }
@@ -98,9 +99,7 @@ function terminalForFinish({
     kind: "completed",
     ...base,
     finishReason:
-      finishReason !== undefined && isSideChatFinishReason(finishReason)
-        ? finishReason
-        : undefined,
+      finishReason !== undefined && isSideChatFinishReason(finishReason) ? finishReason : undefined,
   };
 }
 
@@ -118,8 +117,7 @@ function errorTerminal(
       ...base,
     };
   }
-  const profile =
-    SIDE_CHAT_ERROR_VOCABULARY[SIDE_CHAT_ERROR_CODES.PROVIDER_FAILED];
+  const profile = SIDE_CHAT_ERROR_VOCABULARY[SIDE_CHAT_ERROR_CODES.PROVIDER_FAILED];
   return {
     kind: "error",
     code: SIDE_CHAT_ERROR_CODES.PROVIDER_FAILED,
@@ -129,9 +127,7 @@ function errorTerminal(
   };
 }
 
-function isSideChatFinishReason(
-  value: FinishReason,
-): value is SideChatFinishReason {
+function isSideChatFinishReason(value: FinishReason): value is SideChatFinishReason {
   return (
     value === SIDE_CHAT_FINISH_REASONS.STOP ||
     value === SIDE_CHAT_FINISH_REASONS.LENGTH ||

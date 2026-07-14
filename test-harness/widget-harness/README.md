@@ -31,11 +31,12 @@ harness mode -> widget props/client/host bridge -> visible browser scenario
 host proxy -> /side-chat-frame iframe UI + /side-chat-api service API
 ```
 
-Use `?mode=workflow-service&authToken=local-test-token&conversationId=conversation-1`
-to exercise the native `useChat` transport against the v7 service. The harness
-replaces that query parameter when a server-known conversation becomes active,
-so refreshing keeps the selected or newly persisted conversation. This mode is
-separate from `local-service`, which remains the legacy protocol regression path.
+Use `?mode=workflow-service&authToken=local-test-token` to exercise the native
+`useChat` transport against the v7 service. This mode starts in New chat and does
+not read or mutate a conversation id in the URL. The harness supplies one
+workspace-scoped, tab-local active-turn recovery key so a refresh can reattach
+only while that accepted turn remains active. This mode is separate from
+`local-service`, which remains the legacy protocol regression path.
 
 ## Boundary Rules
 

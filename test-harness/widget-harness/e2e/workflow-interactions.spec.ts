@@ -7,20 +7,21 @@ const evidenceDirectory = resolve(
   import.meta.dirname,
   "../../../plan/v7/evidence/task-15-widget-interactions",
 );
-const workflowWidgetUrl =
-  "/side-chat-frame/?mode=workflow-service&conversationId=conversation-task-15";
+const workflowWidgetUrl = "/side-chat-frame/?mode=workflow-service&workspaceId=task-15";
 const recoveryEvidenceDirectory = resolve(
   import.meta.dirname,
   "../../../plan/v7/evidence/task-16-widget-recovery",
 );
-const recoveryWidgetUrl =
-  "/side-chat-frame/?mode=workflow-service&conversationId=conversation-task-16";
+const recoveryWorkspaceId = "task-16";
+const recoveryWidgetUrl = `/side-chat-frame/?mode=workflow-service&workspaceId=${recoveryWorkspaceId}`;
+const recoveryStorageKey = `side-chat-widget:${recoveryWorkspaceId}:workflow-active-turn`;
 const parityEvidenceDirectory = resolve(
   import.meta.dirname,
   "../../../plan/v7/evidence/task-16a-widget-parity",
 );
-const parityWidgetUrl =
-  "/side-chat-frame/?mode=workflow-service&conversationId=conversation-parity";
+const parityWorkspaceId = "task-16a";
+const parityWidgetUrl = `/side-chat-frame/?mode=workflow-service&workspaceId=${parityWorkspaceId}`;
+const parityRecoveryStorageKey = `side-chat-widget:${parityWorkspaceId}:workflow-active-turn`;
 const modelCatalog = {
   models: [
     {
@@ -154,6 +155,10 @@ test("posts an approval decision and updates the existing approval row in place"
 test("reattaches to an in-progress run on cold load and reassembles the answer", async ({
   page,
 }) => {
+  await seedWorkflowRecoveryCursor(page, recoveryStorageKey, {
+    conversationId: "conversation-task-16",
+    runId: "run-refresh",
+  });
   await routeWorkflowRecovery(page, {
     runId: "run-refresh",
     activeTurn: {
@@ -213,7 +218,6 @@ test("shows the empty state with quick actions before the first message", async 
 test("keeps a new-chat draft usable when its server history does not exist yet", async ({
   page,
 }) => {
-  let newChatSelected = false;
   let draftPersisted = false;
   let draftConversationId: string | undefined;
   let draftHistoryRequests = 0;
@@ -221,32 +225,18 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (
-      newChatSelected &&
-      !draftPersisted &&
-      request.method() === "GET" &&
-      path.endsWith("/messages")
-    ) {
+    if (!draftPersisted && request.method() === "GET" && path.endsWith("/messages")) {
       draftHistoryRequests += 1;
       await route.fulfill({ status: 404, json: { error: "not_found" } });
       return;
     }
-    if (
-      newChatSelected &&
-      !draftPersisted &&
-      request.method() === "GET" &&
-      path.endsWith("/active-turn")
-    ) {
+    if (!draftPersisted && request.method() === "GET" && path.endsWith("/active-turn")) {
       draftActiveTurnRequests += 1;
       await route.fulfill({ status: 404, json: { error: "not_found" } });
       return;
     }
-    if (newChatSelected && request.method() === "POST" && path.endsWith("/api/chat")) {
-      const body: unknown = request.postDataJSON();
-      const conversationId =
-        body !== null && typeof body === "object" && !Array.isArray(body)
-          ? Reflect.get(body, "conversationId")
-          : undefined;
+    if (request.method() === "POST" && path.endsWith("/api/chat")) {
+      const conversationId = readConversationId(request.postData());
       if (typeof conversationId !== "string") throw new Error("Draft request needs an id.");
       draftConversationId = conversationId;
       draftPersisted = true;
@@ -276,7 +266,6 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
   await page.getByText("gpt-5.6-luna", { exact: true }).first().click();
   await page.getByRole("button", { name: "High" }).click();
   await page.keyboard.press("Escape");
-  newChatSelected = true;
   await page.getByRole("button", { name: "New chat", exact: true }).click();
 
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
@@ -287,7 +276,7 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
   await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
   expect(draftHistoryRequests).toBe(0);
   expect(draftActiveTurnRequests).toBe(0);
-  expect(new URL(page.url()).searchParams.get("conversationId")).toBe("conversation-parity");
+  expect(new URL(page.url()).searchParams.get("conversationId")).toBeNull();
 
   await page.getByRole("button", { name: "Add context and tools" }).click();
   await expect(page.getByText("No tools available", { exact: true })).toBeVisible();
@@ -295,9 +284,10 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
   await page.getByLabel("Message").fill("Persist this draft");
   await page.getByRole("button", { name: "Send" }).click();
   await expect.poll(() => draftConversationId).not.toBeUndefined();
+  expect(new URL(page.url()).searchParams.get("conversationId")).toBeNull();
   await expect
-    .poll(() => new URL(page.url()).searchParams.get("conversationId"))
-    .toBe(draftConversationId);
+    .poll(() => page.evaluate((key) => sessionStorage.getItem(key), parityRecoveryStorageKey))
+    .toBeNull();
   await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
 });
 
@@ -399,24 +389,27 @@ test("selects server tools per turn and renders terminal context usage", async (
   });
 });
 
-test("repairs a stale routed conversation with the newest authorized conversation", async ({
+test("discards a stale recovery cursor without routing to or selecting another chat", async ({
   page,
 }) => {
+  const historyRequests: string[] = [];
+  const discoveryRequests: string[] = [];
+  await seedWorkflowRecoveryCursor(page, parityRecoveryStorageKey, {
+    conversationId: "conversation-stale",
+    runId: "run-stale",
+  });
   await page.route("**/side-chat-api/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (route.request().method() === "GET" && path.includes("/conversation-stale/messages")) {
+    if (route.request().method() === "GET" && path.endsWith("/messages")) {
+      historyRequests.push(path);
       await route.fulfill({ status: 404, json: { error: "not_found" } });
       return;
     }
-    const messages = path.includes("/conversation-recovered/messages")
-      ? [
-          {
-            id: "user-recovered",
-            role: "user",
-            parts: [{ type: "text", text: "Recovered conversation" }],
-          },
-        ]
-      : [];
+    if (route.request().method() === "GET" && path.endsWith("/active-turn")) {
+      discoveryRequests.push(path);
+      await route.fulfill({ status: 200, json: { activeTurn: null } });
+      return;
+    }
     const fulfilled = await fulfillWorkflowRead(route, path, {
       activeTurn: null,
       conversations: [
@@ -426,19 +419,27 @@ test("repairs a stale routed conversation with the newest authorized conversatio
           lastMessageAt: "2026-07-13T11:00:00Z",
         },
       ],
-      messages,
+      messages: [],
       tools: [],
     });
     if (!fulfilled) await route.abort("failed");
   });
 
-  await page.goto("/side-chat-frame/?mode=workflow-service&conversationId=conversation-stale");
+  await page.goto(
+    `/side-chat-frame/?mode=workflow-service&workspaceId=${parityWorkspaceId}&conversationId=conversation-routed`,
+  );
 
-  await expect(page.getByText("Recovered conversation")).toBeVisible();
+  await expect(page.getByText("How can I help with this page?")).toBeVisible();
+  await expect(page.getByText("Recovered conversation")).toHaveCount(0);
   await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
+  expect(historyRequests).toEqual(["/side-chat-api/api/conversations/conversation-stale/messages"]);
+  expect(discoveryRequests).toEqual([
+    "/side-chat-api/api/conversations/conversation-stale/active-turn",
+  ]);
   await expect
-    .poll(() => new URL(page.url()).searchParams.get("conversationId"))
-    .toBe("conversation-recovered");
+    .poll(() => page.evaluate((key) => sessionStorage.getItem(key), parityRecoveryStorageKey))
+    .toBeNull();
+  expect(new URL(page.url()).searchParams.get("conversationId")).toBe("conversation-routed");
 });
 
 test("opens the settings view from the header gear and returns to the chat", async ({ page }) => {
@@ -502,10 +503,24 @@ test("lists workspace conversations in the sidebar and opens a different one", a
   // Selecting another conversation remounts the session against its history.
   await page.getByText("Refund policy").click();
   await expect(page.getByText("What is the refund window?")).toBeVisible();
-  await expect
-    .poll(() => new URL(page.url()).searchParams.get("conversationId"))
-    .toBe("conversation-refund");
+  expect(new URL(page.url()).searchParams.get("conversationId")).toBeNull();
 });
+
+async function seedWorkflowRecoveryCursor(
+  page: Page,
+  storageKey: string,
+  cursor: Readonly<{ conversationId: string; runId: string }>,
+): Promise<void> {
+  await page.addInitScript(({ key, value }) => sessionStorage.setItem(key, JSON.stringify(value)), {
+    key: storageKey,
+    value: cursor,
+  });
+}
+
+function readConversationId(body: string | null): string | undefined {
+  if (!body) return undefined;
+  return /"conversationId"\s*:\s*"([^"]+)"/u.exec(body)?.[1];
+}
 
 // A run-less conversation: empty history, no active turn, and no other workspace
 // conversations, so the widget rests on its empty state.
