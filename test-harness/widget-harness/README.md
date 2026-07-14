@@ -29,6 +29,7 @@ Harness app entrypoint, browser mode selection, and E2E scenarios.
 ```txt
 harness mode -> widget props/client/host bridge -> visible browser scenario
 host proxy -> /side-chat-frame iframe UI + /side-chat-api service API
+iframe parent registration -> correlated child context provider -> opted-in workflow request
 ```
 
 Use `?mode=workflow-service&authToken=local-test-token` to exercise the native
@@ -43,6 +44,9 @@ only while that accepted turn remains active. This mode is separate from
 - Keep scenarios readable and user-visible.
 - Do not encode production deployment assumptions.
 - Use fake provider/mock stream only as explicit development/test modes.
+- Exercise iframe page context through the public host-bridge adapter. The parent
+  owns collection; the child never reads parent DOM or receives harness-static
+  context through the command bridge.
 
 ## Tests
 

@@ -1,14 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  SIDECHAT_PROTOCOL_VERSION,
-  type HostContext,
-} from "@side-chat/chat-protocol";
-import type {
-  HostCapabilities,
-  HostCommandActivityEvent,
-} from "@side-chat/host-bridge";
+import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
+import type { HostCapabilities, HostCommandActivityEvent } from "@side-chat/host-bridge";
 
 import {
   createPostMessageHostBridge,
@@ -18,18 +12,9 @@ import {
   HOST_TOOL_RESULT_MESSAGE_TYPE,
 } from "./post-message-host-bridge.js";
 
-const context: HostContext = {
-  schemaVersion: "test.host-context.v1",
-  origin: "http://localhost",
-  title: "test host",
-  metadata: {},
-};
-
 const capabilities: HostCapabilities = {
   schemaVersion: "test.capabilities.v1",
-  commands: [
-    { commandName: "open_resource", description: "Open", inputSchema: {} },
-  ],
+  commands: [{ commandName: "open_resource", description: "Open", inputSchema: {} }],
 };
 
 const makeEvent = (commandId: string): HostCommandActivityEvent => ({
@@ -52,11 +37,7 @@ const makeEvent = (commandId: string): HostCommandActivityEvent => ({
   },
 });
 
-const replyFromParent = (
-  commandId: string,
-  status: string,
-  resultCode: string,
-): void => {
+const replyFromParent = (commandId: string, status: string, resultCode: string): void => {
   window.dispatchEvent(
     new MessageEvent("message", {
       origin: window.location.origin,
@@ -69,11 +50,7 @@ const replyFromParent = (
   );
 };
 
-const replyFromParentForTool = (
-  toolCallId: string,
-  status: string,
-  resultCode: string,
-): void => {
+const replyFromParentForTool = (toolCallId: string, status: string, resultCode: string): void => {
   window.dispatchEvent(
     new MessageEvent("message", {
       origin: window.location.origin,
@@ -93,10 +70,8 @@ describe("post-message host bridge", () => {
   });
 
   it("forwards the command to the parent and resolves with the parent's result", async () => {
-    const postMessage = vi
-      .spyOn(window.parent, "postMessage")
-      .mockImplementation(() => undefined);
-    const bridge = createPostMessageHostBridge({ context });
+    const postMessage = vi.spyOn(window.parent, "postMessage").mockImplementation(() => undefined);
+    const bridge = createPostMessageHostBridge({});
 
     const pending = bridge.dispatchCommand(makeEvent("cmd-1"));
 
@@ -125,7 +100,7 @@ describe("post-message host bridge", () => {
   it("ignores a reply for a different command id", async () => {
     vi.spyOn(window.parent, "postMessage").mockImplementation(() => undefined);
     vi.useFakeTimers();
-    const bridge = createPostMessageHostBridge({ context, timeoutMs: 1_000 });
+    const bridge = createPostMessageHostBridge({ timeoutMs: 1_000 });
 
     const pending = bridge.dispatchCommand(makeEvent("cmd-1"));
     replyFromParent("cmd-2", "applied", "wrong"); // mismatched id is ignored
@@ -139,10 +114,8 @@ describe("post-message host bridge", () => {
   });
 
   it("forwards native workflow tools through the same iframe boundary", async () => {
-    const postMessage = vi
-      .spyOn(window.parent, "postMessage")
-      .mockImplementation(() => undefined);
-    const bridge = createPostMessageHostBridge({ context });
+    const postMessage = vi.spyOn(window.parent, "postMessage").mockImplementation(() => undefined);
+    const bridge = createPostMessageHostBridge({});
     const pending = bridge.dispatchToolCall({
       toolCallId: "tool-1",
       toolName: "open_resource",
@@ -170,8 +143,9 @@ describe("post-message host bridge", () => {
   });
 
   it("exposes the host catalog for native workflow request preparation", async () => {
-    const bridge = createPostMessageHostBridge({ capabilities, context });
+    const bridge = createPostMessageHostBridge({ capabilities });
 
     await expect(bridge.getCapabilities?.()).resolves.toEqual(capabilities);
+    expect(bridge).not.toHaveProperty("getContext");
   });
 });

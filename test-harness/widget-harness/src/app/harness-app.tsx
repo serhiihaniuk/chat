@@ -2,18 +2,19 @@ import { createElement, useEffect, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 
 import { isRecord } from "@side-chat/chat-protocol";
-import type { WidgetHostBridge } from "@side-chat/host-bridge";
+import {
+  connectIframeHostContextProvider,
+  createHostBridge,
+  type HostContextProvider,
+  type WidgetHostBridge,
+} from "@side-chat/host-bridge";
 import {
   SideChatWidget,
   type SideChatWidgetProps,
   type SideChatWidgetQuickAction,
 } from "@side-chat/side-chat-widget";
 
-import {
-  createHarnessHostBridge,
-  createHarnessHostContext,
-  HARNESS_HOST_CAPABILITIES,
-} from "#host/fake-host-bridge";
+import { createHarnessHostBridge, HARNESS_HOST_CAPABILITIES } from "#host/fake-host-bridge";
 import { createDemoHostSurface } from "#host/demo-host-surface";
 import { createPostMessageHostBridge } from "#host/post-message-host-bridge";
 import { DemoHostPanel } from "#app/demo-host-panel";
@@ -77,6 +78,11 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
   const [hostOpen, setHostOpen] = useState(config.defaultOpen);
   const [demoHost] = useState(() => createDemoHostSurface());
   const hostControlled = config.openControl === WIDGET_HARNESS_OPEN_CONTROLS.HOST;
+  const [directHostBridge] = useState(() => createHarnessHostBridge(config, demoHost));
+  const [iframeCommandBridge] = useState(() =>
+    createPostMessageHostBridge({ capabilities: HARNESS_HOST_CAPABILITIES }),
+  );
+  const iframeContextProvider = useIframeContextProvider(hostControlled);
 
   useEffect(() => {
     if (!hostControlled) return undefined;
@@ -95,12 +101,14 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
   // In standalone mode the host UI lives in this same app, so the bridge mutates
   // it directly. Inside an iframe the host page is the parent window, so the
   // bridge forwards each command across the boundary and awaits the reply.
-  const hostBridge = hostControlled
-    ? createPostMessageHostBridge({
-        capabilities: HARNESS_HOST_CAPABILITIES,
-        context: createHarnessHostContext(config),
-      })
-    : createHarnessHostBridge(config, demoHost);
+  const hostBridge: WidgetHostBridge = hostControlled
+    ? {
+        ...iframeCommandBridge,
+        ...(iframeContextProvider
+          ? createHostBridge({ contextProvider: iframeContextProvider })
+          : {}),
+      }
+    : directHostBridge;
   const props = createWidgetHarnessProps(config, hostBridge);
   if (!hostControlled) {
     return createElement(
@@ -119,6 +127,26 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
     open: hostOpen,
     renderClosedLauncher: false,
   });
+};
+
+/** Discover only a parent callback that completed the public iframe handshake. */
+const useIframeContextProvider = (enabled: boolean): HostContextProvider | undefined => {
+  const [provider, setProvider] = useState<HostContextProvider | undefined>();
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let mounted = true;
+    void connectIframeHostContextProvider({ targetOrigin: window.location.origin }).then(
+      (connectedProvider) => {
+        if (mounted) setProvider(connectedProvider);
+      },
+    );
+    return () => {
+      mounted = false;
+    };
+  }, [enabled]);
+
+  return provider;
 };
 
 const isSetOpenMessage = (message: unknown): message is WidgetHarnessSetOpenMessage => {

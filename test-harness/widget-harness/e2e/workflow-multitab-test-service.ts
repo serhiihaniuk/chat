@@ -111,6 +111,10 @@ function handleTestControl(request: IncomingMessage, response: ServerResponse, u
 
 function handleCatalogRead(request: IncomingMessage, response: ServerResponse, url: URL): boolean {
   if (request.method !== "GET") return false;
+  if (url.pathname === "/api/capabilities") {
+    json(response, 200, { hostContext: { enabled: true } });
+    return true;
+  }
   if (url.pathname === "/api/conversations") {
     state.counters.conversations += 1;
     const conversations = state.conversationId

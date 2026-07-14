@@ -2,6 +2,8 @@ import { defineConfig } from "playwright/test";
 
 const widgetPort = 5175;
 const widgetBaseUrl = `http://127.0.0.1:${widgetPort}`;
+const hostPort = 5181;
+const hostBaseUrl = `http://127.0.0.1:${hostPort}`;
 const workflowFixturePort = 8788;
 const workflowFixtureUrl = `http://127.0.0.1:${workflowFixturePort}`;
 
@@ -10,6 +12,7 @@ export default defineConfig({
   testDir: ".",
   testMatch: [
     "workflow-interactions.spec.ts",
+    "workflow-iframe.spec.ts",
     "workflow-look-parity.spec.ts",
     "workflow-multitab.spec.ts",
   ],
@@ -36,6 +39,17 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       url: `${widgetBaseUrl}/side-chat-frame/`,
+    },
+    {
+      command: `npm --workspace @side-chat/widget-harness run dev -- --config vite.host.config.ts --host 127.0.0.1 --port ${hostPort} --strictPort`,
+      env: {
+        SIDECHAT_WIDGET_HOST_API_TARGET: workflowFixtureUrl,
+        SIDECHAT_WIDGET_HOST_FRAME_PATH: "/side-chat-frame",
+        SIDECHAT_WIDGET_HOST_UI_TARGET: widgetBaseUrl,
+      },
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: `${hostBaseUrl}/workbench-embed.html`,
     },
   ],
 });
