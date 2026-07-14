@@ -22,7 +22,7 @@ Replace the single generic Luna/max implementer flow with a cost-aware project-s
 ## Rollout
 
 1. Add deterministic context and scoped verification tools without a new dependency.
-2. Replace the one-agent policy with five narrow project agents and zero nested depth.
+2. Replace the one-agent policy with five narrow project agents; nesting is bounded to read-only helpers under the implementer.
 3. Synchronize `AGENTS.md`, parent policy, setup guide, and durable knowledge.
 4. Parse and type-check the Pi extension in isolation; check formatting and Git whitespace.
 5. Reload Pi and verify project discovery, live model resolution, tools, and budget metadata.
@@ -31,8 +31,8 @@ Replace the single generic Luna/max implementer flow with a cost-aware project-s
 ## Acceptance status
 
 - [x] Parent remains Sol/high and built-in children remain disabled.
-- [x] Project roles have explicit Luna models, thinking defaults, tools, fresh context, and zero nested depth.
-- [x] Implementer defaults to high rather than max; medium and max are deliberate per-run profiles.
+- [x] Project roles have explicit Luna models, thinking defaults, tools, and fresh context; only the implementer may spawn read-only helpers.
+- [x] Implementer defaults to Luna max; high and medium are deliberate per-run downgrades.
 - [x] Deterministic context reports dirty paths, ownership scopes, canonical docs, workspace checks, and relevant plan rows.
 - [x] Deterministic verification requires an explicit path scope, avoids shell interpolation, stops on first failure, and saves full logs outside Git.
 - [x] Production application/package source does not depend on Pi.
@@ -57,14 +57,14 @@ Project tests are intentionally not part of this Pi-only change. Live checks are
 
 ## Risks
 
-| Risk                                                   | Mitigation                                                                                         |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Static ownership rules drift                           | Keep rules small; context-builder verifies semantic facts and canonical docs remain authoritative  |
-| Existing dirty files contaminate verification          | Require explicit paths instead of treating every dirty file as task scope                          |
-| Agent budget ends before a useful report               | Soft warning precedes hard ceiling; parent may split the task but must not silently loosen limits  |
-| Browser tools are unavailable                          | Browser agent reports blocked; deterministic checks remain valid but visual proof stays incomplete |
-| Verification output leaks into Git or prompts          | Logs stay in ignored `.pi/runtime/`; children receive paths, not pasted output                     |
-| Too many roles recreate generic orchestration overhead | Invoke roles conditionally; there is no automatic all-agent chain                                  |
+| Risk                                                   | Mitigation                                                                                                                             |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Static ownership rules drift                           | Keep rules small; context-builder verifies semantic facts and canonical docs remain authoritative                                      |
+| Existing dirty files contaminate verification          | Require explicit paths instead of treating every dirty file as task scope                                                              |
+| Agent budget ends before a useful report               | Briefs state the budget; budgets are sized from run history; the parent revives an aborted run with a follow-up instead of relaunching |
+| Browser tools are unavailable                          | Browser agent reports blocked; deterministic checks remain valid but visual proof stays incomplete                                     |
+| Verification output leaks into Git or prompts          | Logs stay in ignored `.pi/runtime/`; children receive paths, not pasted output                                                         |
+| Too many roles recreate generic orchestration overhead | Invoke roles conditionally; there is no automatic all-agent chain                                                                      |
 
 ## Rollback
 

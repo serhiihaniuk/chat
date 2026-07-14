@@ -26,7 +26,7 @@ Run from the repository root:
 .\scripts\pi-project.ps1
 ```
 
-The wrapper caps the parent session at 10 child launches, permits no recursive child fan-out, and reserves `.pi/worktrees/` for deliberate worktree isolation. To state the parent explicitly:
+The wrapper caps each session at 10 child launches, caps nesting at depth 2 (parent → implementer → read-only helper), and reserves `.pi/worktrees/` for deliberate worktree isolation. To state the parent explicitly:
 
 ```powershell
 .\scripts\pi-project.ps1 --model openai-codex/gpt-5.6-sol --thinking high
@@ -60,9 +60,9 @@ Then inside the project Pi session:
 Confirm:
 
 - the parent is `openai-codex/gpt-5.6-sol` with `high` thinking;
-- exactly the five tracked project roles are available with the configured Luna thinking levels;
+- exactly the five tracked project roles are available with the configured Luna thinking levels (`implementer` at `max`);
 - built-in roles are absent for project-scoped discovery;
-- every child reports zero nested depth and its role-specific tools;
+- `implementer` reports the child-safe `subagent` tool with depth 1; the read-only roles report zero nested depth;
 - `sidechat_task_context` and `sidechat_verify` appear after extension reload;
 - explicit child models outside `subagents.modelScope.allow` are rejected.
 
@@ -72,10 +72,11 @@ Confirm:
 
 1. Use `sidechat_task_context` when task ownership or collision risk is unclear.
 2. Call `context-builder` only for a bounded semantic question.
-3. Give `implementer` one behavior, one primary boundary, and explicit paths.
-4. Call `sidechat_verify` with those paths; start focused and expand only when justified.
+3. Give `implementer` one behavior, one primary boundary, explicit paths, and its turn budget; it may use `sidechat_verify` and the read-only helpers itself.
+4. Call `sidechat_verify` with those paths for the final claim; start focused and expand only when justified.
 5. On failure, give `failure-analyst` the returned `.pi/runtime/verification/...` path.
-6. Add browser evidence or risk audit only when the change requires it.
+6. If a child dies at its turn budget or is rejected as planning-only, revive that run with a follow-up instead of relaunching.
+7. Add browser evidence or risk audit only when the change requires it.
 
 Use worktree isolation only for independent write tasks. Never run concurrent implementers against the same checkout or overlapping files.
 

@@ -123,7 +123,9 @@ async function discoverTests(
     if (!/\.[cm]?[jt]sx?$/u.test(file)) continue;
     const suffix = extname(file);
     const base = file.slice(0, -suffix.length);
-    candidates.push(`${base}.test${suffix}`, `${base}.spec${suffix}`);
+    for (const testSuffix of uniqueStrings([suffix, suffix.replace(/x$/u, "")])) {
+      candidates.push(`${base}.test${testSuffix}`, `${base}.spec${testSuffix}`);
+    }
   }
   const existing: string[] = [];
   for (const candidate of uniqueStrings(candidates)) {
@@ -262,8 +264,9 @@ export async function runVerification(
   const tests = await discoverTests(cwd, files, explicitTests);
   const commands = buildCommands(tier, files, existingFiles, tests);
   if (commands.length === 0) {
+    // Nothing ran, so nothing was verified; never report this as a pass.
     const details: VerificationDetails = {
-      passed: true,
+      passed: false,
       tier,
       claim: params.claim,
       scopedFiles: files,
@@ -271,8 +274,14 @@ export async function runVerification(
       commands: [],
     };
     return {
-      content: [{ type: "text", text: "No deterministic checks matched the assigned paths." }],
+      content: [
+        {
+          type: "text",
+          text: "No deterministic checks matched the assigned paths; nothing was verified. Narrow the paths or pass explicit tests.",
+        },
+      ],
       details,
+      isError: true,
     };
   }
 

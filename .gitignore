@@ -48,6 +48,7 @@ design_system.html
 # Pi restores these from .pi/settings.json or creates them at runtime.
 .pi/npm/
 .pi/git/
+.pi/runtime/
 .pi/sessions/
 .pi/worktrees/
 .pi-subagents/

@@ -167,25 +167,15 @@ When a doc and code disagree, verify the code and report or fix the stale source
 
 ## Pi operating model and delegation
 
-The main Pi chat is the Sol/high parent configured by [`.pi/settings.json`](.pi/settings.json) and [`.pi/APPEND_SYSTEM.md`](.pi/APPEND_SYSTEM.md). Project agents are narrow Luna roles: [`context-builder`](.pi/agents/context-builder.md), [`implementer`](.pi/agents/implementer.md), [`failure-analyst`](.pi/agents/failure-analyst.md), [`browser-evidence`](.pi/agents/browser-evidence.md), and conditional [`risk-auditor`](.pi/agents/risk-auditor.md). They are semantic workers, not alternate leaders. Provider-qualified model identifiers are configuration values, not workflow roles.
+The main Pi chat is the Sol/high parent configured by [`.pi/settings.json`](.pi/settings.json) and [`.pi/APPEND_SYSTEM.md`](.pi/APPEND_SYSTEM.md). Project agents in [`.pi/agents/`](.pi/agents) are narrow Luna roles — semantic workers, not alternate leaders. `.pi/APPEND_SYSTEM.md` owns parent routing, briefs, budgets, and recovery; [`docs/pi/KNOWLEDGE.md`](docs/pi/KNOWLEDGE.md) owns the durable rationale and execution flow; [`docs/pi/SETUP-GUIDE.md`](docs/pi/SETUP-GUIDE.md) owns setup and operator checks. Do not duplicate that guidance here.
 
-Use the following execution flow:
+These invariants hold regardless of orchestration:
 
-1. The parent interprets the request, owns architecture and scope, and calls `sidechat_task_context` when ownership, plan state, or dirty-file collisions are not already known.
-2. `context-builder` answers one bounded `locate`, `trace`, `impact`, or `plan-state` question. It reports evidence and a candidate scope; it does not edit or make architecture decisions.
-3. Before implementation, the parent defines the outcome, exact write scope, canonical docs, constraints, acceptance criteria, and verification target. Work spanning material ownership boundaries is split.
-4. `implementer` owns one approved behavior in one primary boundary. The parent chooses Luna `medium`, `high`, or `max` thinking according to the task rather than defaulting every task to maximum cost.
-5. The parent runs `sidechat_verify` against the assigned paths. Passing checks consume no child turn. `failure-analyst` receives the saved log path only after a real failure and returns diagnosis without editing.
-6. `browser-evidence` verifies one visible scenario after deterministic checks pass. `risk-auditor` is used only for security, persistence, concurrency, durable workflow, provider/tool, host-command, or public-protocol risk.
-7. The parent owns integration, final review, completion claims, and the response.
-
-Use fresh child context and compact task briefs or artifact paths rather than inheriting the parent transcript. Agent prompts define strict tools, turn/runtime budgets, and zero child depth. Do not loosen those limits silently. Never run concurrent writers in the same checkout or against overlapping paths.
-
-Delegate bounded repository mapping, substantive implementation, failure diagnosis, browser evidence, and conditional high-risk audit only through the matching role. Do not delegate broad reconnaissance, architecture, external research, final review, destructive, external, credentialed, production, git-publish, database-mutation, or materially scope-changing actions. Return architectural decisions, destructive actions, shared-file conflicts, and unresolved uncertainty to the parent.
-
-Use `agentScope: "project"` for discovery and runs. Built-in roles remain disabled. Do not add generic chains, competing delegation packages, or broader model/tool scope. Pi remains orchestration infrastructure: production application and package source must not import or depend on `.pi` code.
-
-Keep concise runtime and setup details linked to [`docs/pi/SETUP-GUIDE.md`](docs/pi/SETUP-GUIDE.md), and durable routing decisions linked to [`docs/pi/KNOWLEDGE.md`](docs/pi/KNOWLEDGE.md), rather than duplicating the full setup guide. The parent may work directly only for (1) a very small change where delegation overhead exceeds the work, (2) unavailable delegation, or (3) tightly coupled integration/final-fix work.
+- The parent owns interpretation, architecture, scope, integration, final review, and completion claims. Architectural decisions, destructive actions, shared-file conflicts, and unresolved uncertainty return to the parent.
+- Delegated children receive fresh context and compact task briefs or artifact paths, not the parent transcript.
+- Never run concurrent writers in the same checkout or against overlapping paths.
+- Built-in roles remain disabled; use `agentScope: "project"`. Do not add generic chains, competing delegation packages, or broader model/tool scope.
+- Pi remains orchestration infrastructure: production application and package source must not import or depend on `.pi` code.
 
 ## Verification
 
