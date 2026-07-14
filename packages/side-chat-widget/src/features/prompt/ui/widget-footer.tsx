@@ -19,11 +19,13 @@ type WidgetFooterModel = {
 export const WidgetFooter = ({
   contextUsedTokens,
   contextWindowTokens,
+  includeHostContext,
   labels,
   models,
   onModelSelect,
   onReasoningEffortSelect,
   onSubmitMessage,
+  onToggleHostContext,
   onToggleTool,
   reasoningEfforts,
   selectedModelKey,
@@ -37,11 +39,13 @@ export const WidgetFooter = ({
   // model's window. Both undefined until a turn completes, so the meter stays hidden.
   readonly contextUsedTokens: number | undefined;
   readonly contextWindowTokens: number | undefined;
+  readonly includeHostContext?: boolean | undefined;
   readonly labels: WidgetFooterLabels;
   readonly models: readonly WidgetFooterModel[];
   readonly onModelSelect: (modelKey: string) => void;
   readonly onReasoningEffortSelect: (effort: ChatReasoningEffort) => void;
   readonly onSubmitMessage: (messageText: string) => Promise<void>;
+  readonly onToggleHostContext?: (() => void) | undefined;
   readonly onToggleTool: (name: string) => void;
   readonly reasoningEfforts: readonly ChatReasoningEffort[];
   readonly selectedModelKey: string | undefined;
@@ -74,7 +78,14 @@ export const WidgetFooter = ({
       sendLabel={labels.send}
       sendOnEnter={sendOnEnter}
       status={status}
-      toolsMenu={<ToolsMenu tools={tools} onToggleTool={onToggleTool} />}
+      toolsMenu={
+        <ToolsMenu
+          includeHostContext={includeHostContext}
+          onToggleHostContext={onToggleHostContext}
+          onToggleTool={onToggleTool}
+          tools={tools}
+        />
+      }
     />
   </footer>
 );

@@ -100,6 +100,11 @@ export type WorkflowTool = Readonly<{
 
 export type WorkflowToolCatalog = Readonly<{ tools: readonly WorkflowTool[] }>;
 
+/** Authenticated deployment capabilities that control optional widget features. */
+export type WorkflowServiceCapabilities = Readonly<{
+  hostContext: Readonly<{ enabled: boolean }>;
+}>;
+
 /** Read the workflow service's turn model catalog for the composer selector. */
 export async function readWorkflowModels(
   client: WorkflowChatClient,
@@ -151,6 +156,33 @@ export async function readWorkflowTools(
     throw new Error("Tool catalog response is invalid.");
   }
   return { tools: validTools };
+}
+
+/** Read the exact service capability DTO; private or future fields fail closed. */
+export async function readWorkflowCapabilities(
+  client: WorkflowChatClient,
+  signal?: AbortSignal,
+): Promise<WorkflowServiceCapabilities> {
+  const request = await resolveWorkflowChatRequestConfig(client);
+  const response = await workflowChatFetch(client)(
+    workflowChatUrl(client, "/api/capabilities"),
+    createHistoryRequestInit(request, signal),
+  );
+  if (!response.ok) throw await readWorkflowChatHttpError(response);
+
+  const payload: unknown = await response.json();
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ["hostContext"])) {
+    throw new Error("Service capability response is invalid.");
+  }
+  const hostContext = payload["hostContext"];
+  if (
+    !isRecord(hostContext) ||
+    !hasOnlyKeys(hostContext, ["enabled"]) ||
+    typeof hostContext["enabled"] !== "boolean"
+  ) {
+    throw new Error("Service capability response is invalid.");
+  }
+  return { hostContext: { enabled: hostContext["enabled"] } };
 }
 
 function toWorkflowTool(entry: unknown): WorkflowTool | undefined {

@@ -5,6 +5,7 @@ import {
   type WorkflowChatTransportOptions,
 } from "@ai-sdk/workflow";
 import type { ChatRequestOptions, ChatTransport } from "ai";
+import type { HostContextRequest, WidgetHostBridge } from "@side-chat/host-bridge";
 import type { JsonObject } from "@side-chat/shared";
 
 import {
@@ -17,6 +18,7 @@ import {
 
 type CreateWorkflowChatTransportInput = Readonly<{
   getClient: () => WorkflowConversationClient;
+  getHostContext?: WorkflowHostContextCollector | undefined;
   getClientTools?:
     | (() =>
         | readonly WorkflowClientToolDefinition[]
@@ -27,6 +29,12 @@ type CreateWorkflowChatTransportInput = Readonly<{
   /** The run to reattach to on a cold-load reconnect, when discovery found one. */
   getReconnectRunId?: (() => string | undefined) | undefined;
 }>;
+
+type WidgetHostContextCollector = NonNullable<WidgetHostBridge["getContext"]>;
+type WorkflowHostContext = Awaited<ReturnType<WidgetHostContextCollector>>;
+type WorkflowHostContextCollector = (
+  request: HostContextRequest,
+) => Promise<WorkflowHostContext | undefined>;
 
 export type WorkflowClientToolDefinition = Readonly<{
   readonly name: string;
@@ -44,6 +52,7 @@ export type WorkflowClientToolDefinition = Readonly<{
 export function createWorkflowChatTransport({
   getClient,
   getClientTools,
+  getHostContext,
   getReconnectRunId,
   onRunFinished,
   onRunStarted,
@@ -61,11 +70,13 @@ export function createWorkflowChatTransport({
     prepareSendMessagesRequest: async ({ messages }) => {
       const client = getClient();
       const request = await resolveWorkflowChatRequestConfig(client);
+      const requestId = crypto.randomUUID();
       const clientTools = await getClientTools?.();
+      const hostContext = await getHostContext?.({ requestId });
       const body: WorkflowChatRequestBody = {
         conversationId: client.conversationId,
         messages,
-        requestId: crypto.randomUUID(),
+        requestId,
       };
       if (client.modelPreference !== undefined) body.modelPreference = client.modelPreference;
       if (client.reasoningEffort !== undefined) body.reasoningEffort = client.reasoningEffort;
@@ -73,6 +84,7 @@ export function createWorkflowChatTransport({
         body.enabledToolNames = client.enabledToolNames;
       }
       if (clientTools && clientTools.length > 0) body.clientTools = clientTools;
+      if (hostContext !== undefined) body.hostContext = hostContext;
       return applyRequestConfig({ api: workflowChatUrl(client, "/api/chat"), body }, request);
     },
     prepareReconnectToStreamRequest: async ({ api }) => {
@@ -178,6 +190,7 @@ type WorkflowChatRequestBody = {
   readonly requestId: string;
   clientTools?: readonly WorkflowClientToolDefinition[];
   enabledToolNames?: readonly string[];
+  hostContext?: WorkflowHostContext;
   modelPreference?: string;
   reasoningEffort?: WorkflowConversationClient["reasoningEffort"];
 };

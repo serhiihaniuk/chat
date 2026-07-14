@@ -18,6 +18,7 @@ export type {
   WorkflowUIMessage,
 } from "./model/workflow-chat-client.js";
 export {
+  readWorkflowCapabilities,
   readWorkflowConversations,
   readWorkflowModels,
   readWorkflowTools,
@@ -27,6 +28,7 @@ export type {
   WorkflowConversationSummary,
   WorkflowModel,
   WorkflowModelCatalog,
+  WorkflowServiceCapabilities,
   WorkflowTool,
   WorkflowToolCatalog,
 } from "./model/catalog/workflow-chat-catalog.js";

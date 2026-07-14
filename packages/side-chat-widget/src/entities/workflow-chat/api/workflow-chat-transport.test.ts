@@ -1,14 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { UIMessage, UIMessageChunk } from "ai";
+import type { UIMessageChunk } from "ai";
+import type { HostContextRequest, WidgetHostBridge } from "@side-chat/host-bridge";
 
-import { normalizeWorkflowChatError, type WorkflowConversationClient } from "../index.js";
+import {
+  normalizeWorkflowChatError,
+  type WorkflowConversationClient,
+  type WorkflowUIMessage,
+} from "../index.js";
 import {
   createWorkflowChatTransport,
   type WorkflowClientToolDefinition,
 } from "./workflow-chat-transport.js";
 
-const USER_MESSAGE: UIMessage = {
+const USER_MESSAGE: WorkflowUIMessage = {
   id: "user-1",
   role: "user",
   parts: [{ type: "text", text: "Hello" }],
@@ -99,6 +104,55 @@ describe("createWorkflowChatTransport", () => {
     );
   });
 
+  it("collects one fresh correlated host-context snapshot for each send and regeneration", async () => {
+    const requestBodies: unknown[] = [];
+    const contextRequests: HostContextRequest[] = [];
+    const request = vi.fn<typeof fetch>(async (_input, init) => {
+      requestBodies.push(JSON.parse(String(init?.body)));
+      return finishedResponse();
+    });
+    const getHostContext = vi.fn<NonNullable<WidgetHostBridge["getContext"]>>(({ requestId }) => {
+      contextRequests.push({ requestId });
+      return Promise.resolve({
+        schemaVersion: "test.host-context.v1",
+        title: `Snapshot ${contextRequests.length}`,
+      });
+    });
+    const transport = createTransport({ fetch: request }, undefined, getHostContext);
+
+    await sendAndRead(transport, [USER_MESSAGE]);
+    await sendAndRead(transport, [USER_MESSAGE], "regenerate-message");
+
+    const first = readRequestRecord(requestBodies[0]);
+    const second = readRequestRecord(requestBodies[1]);
+    expect(first["requestId"]).not.toBe(second["requestId"]);
+    expect(contextRequests).toEqual([
+      { requestId: first["requestId"] },
+      { requestId: second["requestId"] },
+    ]);
+    expect(first["hostContext"]).toEqual({
+      schemaVersion: "test.host-context.v1",
+      title: "Snapshot 1",
+    });
+    expect(second["hostContext"]).toEqual({
+      schemaVersion: "test.host-context.v1",
+      title: "Snapshot 2",
+    });
+  });
+
+  it("rejects a failed host-context collection before starting the workflow request", async () => {
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(finishedResponse()));
+    const getHostContext = vi.fn<NonNullable<WidgetHostBridge["getContext"]>>(() =>
+      Promise.reject(new Error("Host context is unavailable.")),
+    );
+    const transport = createTransport({ fetch: request }, undefined, getHostContext);
+
+    await expect(sendAndRead(transport, [USER_MESSAGE])).rejects.toThrow(
+      "Host context is unavailable.",
+    );
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it("serializes the current model and its catalog-selected reasoning effort", async () => {
     let requestBody: unknown;
     const request = vi.fn<typeof fetch>(async (_input, init) => {
@@ -181,6 +235,18 @@ describe("createWorkflowChatTransport", () => {
 
     expect(urls.some((url) => url.includes("/api/chat/conversation-1/stream"))).toBe(true);
   });
+
+  it("does not recollect page context while reconnecting to an existing run", async () => {
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(finishedResponse()));
+    const getHostContext = vi.fn<NonNullable<WidgetHostBridge["getContext"]>>(() =>
+      Promise.resolve({ schemaVersion: "test.host-context.v1" }),
+    );
+    const transport = createTransport({ fetch: request }, undefined, getHostContext);
+
+    await reconnectAndRead(transport);
+
+    expect(getHostContext).not.toHaveBeenCalled();
+  });
 });
 
 async function reconnectUrls(
@@ -202,7 +268,7 @@ async function reconnectUrls(
     onRunFinished: () => undefined,
     onRunStarted: () => undefined,
   });
-  await readAll(await transport.reconnectToStream({ chatId: "conversation-1" }));
+  await reconnectAndRead(transport);
   return urls;
 }
 
@@ -211,6 +277,7 @@ const KEEPALIVE = Symbol("keepalive");
 function createTransport(
   overrides: Partial<WorkflowConversationClient>,
   getClientTools?: () => readonly WorkflowClientToolDefinition[],
+  getHostContext?: NonNullable<WidgetHostBridge["getContext"]>,
 ) {
   const client: WorkflowConversationClient = {
     baseUrl: "https://service.example",
@@ -220,14 +287,18 @@ function createTransport(
   return createWorkflowChatTransport({
     getClient: () => client,
     getClientTools,
+    getHostContext,
     onRunFinished: () => undefined,
     onRunStarted: () => undefined,
   });
 }
 
-function sendOptions(messages: UIMessage[]) {
+function sendOptions(
+  messages: WorkflowUIMessage[],
+  trigger: "submit-message" | "regenerate-message" = "submit-message",
+) {
   return {
-    trigger: "submit-message" as const,
+    trigger,
     chatId: "conversation-1",
     messageId: undefined,
     messages,
@@ -237,9 +308,27 @@ function sendOptions(messages: UIMessage[]) {
 
 async function sendAndRead(
   transport: ReturnType<typeof createTransport>,
-  messages: UIMessage[],
+  messages: WorkflowUIMessage[],
+  trigger: "submit-message" | "regenerate-message" = "submit-message",
 ): Promise<UIMessageChunk[]> {
-  return readAll(await transport.sendMessages(sendOptions(messages)));
+  return readAll(await transport.sendMessages(sendOptions(messages, trigger)));
+}
+
+function readRequestRecord(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error("Expected a workflow request object.");
+  }
+  return value;
+}
+
+async function reconnectAndRead(transport: ReturnType<typeof createTransport>): Promise<void> {
+  const stream = await transport.reconnectToStream({ chatId: "conversation-1" });
+  if (!stream) throw new Error("Expected a workflow reconnect stream.");
+  await readAll(stream);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageChunk[]> {

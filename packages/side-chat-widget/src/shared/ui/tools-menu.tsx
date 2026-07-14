@@ -50,16 +50,21 @@ const SCOPES: ReadonlyArray<{ value: Scope; label: string }> = [
 ];
 
 export function ToolsMenu({
+  includeHostContext = false,
+  onToggleHostContext,
   tools = SAMPLE_TOOLS,
   onToggleTool,
 }: {
+  readonly includeHostContext?: boolean | undefined;
+  readonly onToggleHostContext?: (() => void) | undefined;
   readonly tools?: readonly ToolMenuItem[];
   readonly onToggleTool?: ((name: string) => void) | undefined;
 } = {}): ReactElement {
   const container = usePortalContainer();
-  // A handler means a live host owns the catalog; without one this is the design
-  // demo, which also shows the attach-file and context-scope surface.
-  const isLive = onToggleTool !== undefined;
+  // A handler means a live host owns at least one menu section. Without one this
+  // is the design demo, which also shows attach-file and context-scope rows.
+  const isLive = onToggleTool !== undefined || onToggleHostContext !== undefined;
+  const hasHostContext = onToggleHostContext !== undefined;
 
   return (
     <Menu.Root>
@@ -83,7 +88,18 @@ export function ToolsMenu({
               </>
             )}
 
-            <ToolsGroup tools={tools} isLive={isLive} onToggleTool={onToggleTool} />
+            {hasHostContext ? (
+              <HostContextGroup enabled={includeHostContext} onToggle={onToggleHostContext} />
+            ) : null}
+            {hasHostContext && tools.length > 0 ? (
+              <Menu.Separator className="my-1.5 h-px bg-border" />
+            ) : null}
+            <ToolCatalogContent
+              hasHostContext={hasHostContext}
+              isLive={isLive}
+              onToggleTool={onToggleTool}
+              tools={tools}
+            />
 
             {isLive ? null : (
               <>
@@ -95,6 +111,49 @@ export function ToolsMenu({
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
+  );
+}
+
+function ToolCatalogContent({
+  hasHostContext,
+  isLive,
+  onToggleTool,
+  tools,
+}: {
+  readonly hasHostContext: boolean;
+  readonly isLive: boolean;
+  readonly onToggleTool: ((name: string) => void) | undefined;
+  readonly tools: readonly ToolMenuItem[];
+}): ReactElement | null {
+  if (tools.length > 0) {
+    return <ToolsGroup tools={tools} isLive={isLive} onToggleTool={onToggleTool} />;
+  }
+  if (!isLive || hasHostContext) return null;
+  return <div className="px-2.5 py-2 text-sm text-muted-foreground">No tools available</div>;
+}
+
+function HostContextGroup({
+  enabled,
+  onToggle,
+}: {
+  readonly enabled: boolean;
+  readonly onToggle: () => void;
+}): ReactElement {
+  return (
+    <Menu.Group>
+      <Menu.GroupLabel className={LABEL_CLASS}>Context</Menu.GroupLabel>
+      <Menu.CheckboxItem
+        checked={enabled}
+        onCheckedChange={onToggle}
+        closeOnClick={false}
+        className={ITEM_CLASS}
+      >
+        <FileText className="size-4 shrink-0 text-muted-foreground" />
+        <span className="flex-1">Include page context</span>
+        {/* The menu item owns focus and keyboard input; the switch only reflects state. */}
+        <Switch checked={enabled} tabIndex={-1} />
+      </Menu.CheckboxItem>
+    </Menu.Group>
   );
 }
 
@@ -112,10 +171,6 @@ function ToolsGroup({
   const [localEnabled, setLocalEnabled] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(tools.map((tool) => [tool.name, tool.enabled])),
   );
-
-  if (tools.length === 0) {
-    return <div className="px-2.5 py-2 text-sm text-muted-foreground">No tools available</div>;
-  }
 
   const isEnabled = (tool: ToolMenuItem): boolean =>
     onToggleTool ? tool.enabled : (localEnabled[tool.name] ?? tool.enabled);

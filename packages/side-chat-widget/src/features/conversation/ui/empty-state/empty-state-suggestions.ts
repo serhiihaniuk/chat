@@ -29,9 +29,12 @@ export const toEmptyStateSuggestions = (
     icon: SUGGESTION_ICONS[index % SUGGESTION_ICONS.length] ?? FileTextIcon,
   }));
 
-// Honest empty-state copy: only claim to see the page when a host bridge is present
-// to supply that context.
+// Honest empty-state copy: only claim to see the page when the optional bridge
+// actually exposes a callable context collector.
 export const emptyStateDescription = (
   hostBridge: WidgetHostBridge | undefined,
   labels: { readonly emptyStateWithContext: string; readonly emptyStateWithoutContext: string },
-): string => (hostBridge ? labels.emptyStateWithContext : labels.emptyStateWithoutContext);
+): string =>
+  typeof hostBridge?.getContext === "function"
+    ? labels.emptyStateWithContext
+    : labels.emptyStateWithoutContext;

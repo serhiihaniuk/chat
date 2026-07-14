@@ -19,8 +19,8 @@ const emptyStream = (): AsyncIterable<SidechatStreamEvent> => ({
 
 const idleClient = () => fakeClient(() => emptyStream());
 
-// getContext is never called from the empty state; the honesty branch keys off the
-// bridge's presence, not its result.
+// getContext is never called from the empty state; the honesty branch keys off a
+// callable collector, not its result.
 const contextBridge: WidgetHostBridge = {
   getContext: () =>
     Promise.resolve({ schemaVersion: "test.host-context.v1", collectedAt: "2026-05-23T13:00:00Z" }),
@@ -55,6 +55,12 @@ describe("SideChatWidget labels", () => {
 
   it("omits the page-context claim when no host bridge is present", async () => {
     mountWidget(<SideChatWidget client={idleClient()} />);
+    await waitForText("Ask a question, or pick a place to start.");
+    expect(document.body.textContent).not.toContain("I can see the page");
+  });
+
+  it("omits the page-context claim when the bridge has no context collector", async () => {
+    mountWidget(<SideChatWidget client={idleClient()} hostBridge={{}} />);
     await waitForText("Ask a question, or pick a place to start.");
     expect(document.body.textContent).not.toContain("I can see the page");
   });

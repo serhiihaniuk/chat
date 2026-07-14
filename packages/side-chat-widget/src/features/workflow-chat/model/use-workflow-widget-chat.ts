@@ -83,6 +83,7 @@ export function useWorkflowWidgetChat(
   hostBridge?: WidgetHostBridge,
   activeTurn?: WorkflowActiveTurn,
   lifecycle: WorkflowWidgetChatLifecycle = {},
+  includeHostContext = false,
 ): WorkflowWidgetChat {
   const clientRef = useRef(client);
   clientRef.current = client;
@@ -90,6 +91,8 @@ export function useWorkflowWidgetChat(
   hostBridgeRef.current = hostBridge;
   const lifecycleRef = useRef(lifecycle);
   lifecycleRef.current = lifecycle;
+  const includeHostContextRef = useRef(includeHostContext);
+  includeHostContextRef.current = includeHostContext;
   const latestMessagesRef = useRef<readonly WorkflowUIMessage[]>(initialMessages);
   const dispatchedToolCallIdsRef = useRef<Set<string>>(new Set());
   const approvalRequestsInFlightRef = useRef<Set<string>>(new Set());
@@ -107,6 +110,7 @@ export function useWorkflowWidgetChat(
       activeRunIdRef,
       dispatchedToolCallIdsRef,
       hostBridgeRef,
+      includeHostContextRef,
       lifecycleRef,
     ),
   );
@@ -219,6 +223,7 @@ function createWidgetTransport(
   activeRunIdRef: { current: string | undefined },
   dispatchedToolCallIdsRef: { current: Set<string> },
   hostBridgeRef: { current: WidgetHostBridge | undefined },
+  includeHostContextRef: { current: boolean },
   lifecycleRef: { current: WorkflowWidgetChatLifecycle },
 ) {
   return createWorkflowChatTransport({
@@ -230,6 +235,11 @@ function createWidgetTransport(
       } catch {
         return [];
       }
+    },
+    getHostContext: async (request) => {
+      if (!includeHostContextRef.current) return undefined;
+      const getContext = hostBridgeRef.current?.getContext;
+      return getContext ? getContext(request) : undefined;
     },
     getReconnectRunId: () => activeRunIdRef.current,
     // Keep the last run id available after the stream closes: approvals and

@@ -21,6 +21,7 @@ import {
   type WorkflowChatTerminal,
   WorkflowMessageTimeline,
 } from "#features/workflow-chat";
+import type { WorkflowHostContextSelection } from "../../model/selection/side-chat-host-context-selection.js";
 import type { WidgetToolSelection } from "../../model/selection/side-chat-tool-selection.js";
 import type { WidgetLabels } from "#shared/lib/widget-labels";
 import { Conversation, ConversationContent } from "#shared/ui/conversation";
@@ -38,6 +39,7 @@ export function WorkflowChatSession({
   initialMessages,
   labels,
   hostBridge,
+  hostContextSelection,
   activeTurn,
   onRunAccepted,
   onRunTerminal,
@@ -56,6 +58,7 @@ export function WorkflowChatSession({
   readonly labels: WidgetLabels;
   readonly sendOnEnter: boolean;
   readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
+  readonly hostContextSelection: WorkflowHostContextSelection;
   readonly activeTurn: WorkflowActiveTurn | undefined;
   readonly onRunAccepted: (runId: string) => void;
   readonly onRunTerminal: (runId: string) => void;
@@ -83,10 +86,17 @@ export function WorkflowChatSession({
       toolSelection.enabledToolNames,
     ],
   );
-  const chat = useWorkflowWidgetChat(sessionClient, initialMessages, hostBridge, activeTurn, {
-    onRunAccepted,
-    onRunTerminal,
-  });
+  const chat = useWorkflowWidgetChat(
+    sessionClient,
+    initialMessages,
+    hostBridge,
+    activeTurn,
+    {
+      onRunAccepted,
+      onRunTerminal,
+    },
+    hostContextSelection.enabled,
+  );
   useEffect(() => onStatusChange(chat.status), [chat.status, onStatusChange]);
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
   const contextUsedTokens = projectLatestAssistantUsage(chat.messages);
@@ -160,11 +170,15 @@ export function WorkflowChatSession({
       <WidgetFooter
         contextUsedTokens={contextUsedTokens}
         contextWindowTokens={modelSelection.contextWindowTokens}
+        includeHostContext={hostContextSelection.enabled}
         labels={labels}
         models={modelSelection.footerModels}
         onModelSelect={modelSelection.onModelSelect}
         onReasoningEffortSelect={modelSelection.setSelectedReasoningEffort}
         onSubmitMessage={chat.submitMessage}
+        onToggleHostContext={
+          hostContextSelection.available ? hostContextSelection.toggle : undefined
+        }
         onToggleTool={toolSelection.toggleTool}
         reasoningEfforts={modelSelection.reasoningEfforts}
         selectedModelKey={modelSelection.selectedModelKey}

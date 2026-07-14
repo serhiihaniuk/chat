@@ -19,6 +19,10 @@ import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 import type { WorkflowSideChatWidgetProps } from "../../model/side-chat-widget.types.js";
 import { useWorkflowConversationQueries } from "../../model/queries/use-workflow-conversation-queries.js";
 import {
+  useWorkflowHostContextSelection,
+  type WorkflowHostContextSelection,
+} from "../../model/selection/side-chat-host-context-selection.js";
+import {
   useWorkflowToolSelection,
   type WidgetToolSelection,
 } from "../../model/selection/side-chat-tool-selection.js";
@@ -30,7 +34,6 @@ import { WorkflowChatSession } from "./workflow-chat-session.js";
 import { selectWorkflowHistoryContent } from "./workflow-history-content.js";
 
 const NO_RUNNING_CONVERSATIONS: ReadonlySet<string> = new Set();
-
 function toConversationViews(
   conversations: readonly WorkflowConversationSummary[] | undefined,
   newChatLabel: string,
@@ -41,7 +44,6 @@ function toConversationViews(
     lastMessageAt: conversation.lastMessageAt,
   }));
 }
-
 /** Render a workspace's conversations through the native workflow transport. */
 export function WorkflowSideChatWidget({
   defaultOpen = true,
@@ -73,8 +75,8 @@ export function WorkflowSideChatWidget({
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
   const appearance = useWidgetAppearance();
   const modelSelection = useWorkflowModelSelection(workflowChat);
+  const hostContextSelection = useWorkflowHostContextSelection(workflowChat, hostBridge);
   const toolSelection = useWorkflowToolSelection(workflowChat);
-
   const requestOpenChange = (nextOpen: boolean): void => {
     if (open === undefined) setUncontrolledOpen(nextOpen);
     onOpenChange?.(nextOpen);
@@ -91,7 +93,6 @@ export function WorkflowSideChatWidget({
     );
   }
   if (!isOpen) return null;
-
   return (
     <WidgetLabelsProvider value={labels}>
       <ResizablePanel
@@ -107,6 +108,7 @@ export function WorkflowSideChatWidget({
         <WorkflowConversationPanel
           appearance={appearance}
           hostBridge={hostBridge}
+          hostContextSelection={hostContextSelection}
           labels={labels}
           initialConversationId={initialConversationId}
           onClose={() => {
@@ -132,6 +134,7 @@ export function WorkflowSideChatWidget({
 function WorkflowConversationPanel({
   appearance,
   hostBridge,
+  hostContextSelection,
   initialConversationId,
   labels,
   onClose,
@@ -147,6 +150,7 @@ function WorkflowConversationPanel({
 }: {
   readonly appearance: ReturnType<typeof useWidgetAppearance>;
   readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
+  readonly hostContextSelection: WorkflowHostContextSelection;
   readonly initialConversationId: WorkflowSideChatWidgetProps["initialConversationId"];
   readonly labels: ReturnType<typeof resolveWidgetLabels>;
   readonly onClose: () => void;
@@ -247,6 +251,7 @@ function WorkflowConversationPanel({
       <WorkflowChatSession
         activeTurn={isLocalDraft ? undefined : recovery.activeTurn}
         hostBridge={hostBridge}
+        hostContextSelection={hostContextSelection}
         initialMessages={isLocalDraft ? [] : (history.data ?? [])}
         key={`${activeConversationId}:${sessionRevision}`}
         labels={labels}
@@ -265,7 +270,6 @@ function WorkflowConversationPanel({
       />
     ),
   });
-
   return (
     <SideChatPanelView
       appearance={appearance}
@@ -287,7 +291,6 @@ function WorkflowConversationPanel({
     />
   );
 }
-
 function isWorkflowBusyStatus(status: WorkflowWidgetChatStatus): boolean {
   return (
     status === WORKFLOW_WIDGET_CHAT_STATUS.SUBMITTED ||

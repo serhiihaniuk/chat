@@ -4,6 +4,7 @@ import {
   postWorkflowApprovalDecision,
   postWorkflowClientToolOutput,
   readWorkflowActiveTurn,
+  readWorkflowCapabilities,
   readWorkflowChatHistory,
   readWorkflowModels,
   readWorkflowTools,
@@ -299,6 +300,46 @@ describe("readWorkflowTools", () => {
       code: "http_error",
       status: 500,
     });
+  });
+});
+
+describe("readWorkflowCapabilities", () => {
+  it.each([true, false])(
+    "reads the exact authenticated host-context capability %s",
+    async (enabled) => {
+      let authorization: string | null = null;
+      const request = vi.fn<typeof fetch>((_input, init) => {
+        authorization = new Headers(init?.headers).get("authorization");
+        return Promise.resolve(Response.json({ hostContext: { enabled } }));
+      });
+      const client = {
+        baseUrl: "https://service.example",
+        fetch: request,
+        getRequestConfig: () => ({ headers: { authorization: "Bearer current" } }),
+      };
+
+      await expect(readWorkflowCapabilities(client)).resolves.toEqual({
+        hostContext: { enabled },
+      });
+      expect(request).toHaveBeenCalledWith(
+        "https://service.example/api/capabilities",
+        expect.objectContaining({ headers: { authorization: "Bearer current" } }),
+      );
+      expect(authorization).toBe("Bearer current");
+    },
+  );
+
+  it.each([
+    { hostContext: { enabled: true }, privateField: true },
+    { hostContext: { enabled: true, privateField: true } },
+    { hostContext: { enabled: "true" } },
+    { hostContext: {} },
+    {},
+  ])("rejects malformed or widened capability payloads: %s", async (payload) => {
+    const client = createClient(() => Response.json(payload));
+    await expect(readWorkflowCapabilities(client)).rejects.toThrow(
+      "Service capability response is invalid.",
+    );
   });
 });
 
