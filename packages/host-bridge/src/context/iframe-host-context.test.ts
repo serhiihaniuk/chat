@@ -124,7 +124,7 @@ describe("iframe host-context child connection", () => {
       if (message.type === "sidechat.host-context.connect.v1") {
         dispatchParentMessage(parent, {
           type: "sidechat.host-context.available.v1",
-          connectionId: message.connectionId,
+          connectionId: message["connectionId"],
         });
         return;
       }
@@ -132,8 +132,8 @@ describe("iframe host-context child connection", () => {
         collection += 1;
         dispatchParentMessage(parent, {
           type: "sidechat.host-context.response.v1",
-          connectionId: message.connectionId,
-          correlationId: message.correlationId,
+          connectionId: message["connectionId"],
+          correlationId: message["correlationId"],
           ok: true,
           snapshot: snapshot(`Page ${collection}`),
         });
@@ -181,15 +181,15 @@ function createRespondingParent(responseSnapshot: unknown): Window {
     if (message.type === "sidechat.host-context.connect.v1") {
       dispatchParentMessage(parent, {
         type: "sidechat.host-context.available.v1",
-        connectionId: message.connectionId,
+        connectionId: message["connectionId"],
       });
       return;
     }
     if (message.type === "sidechat.host-context.request.v1") {
       dispatchParentMessage(parent, {
         type: "sidechat.host-context.response.v1",
-        connectionId: message.connectionId,
-        correlationId: message.correlationId,
+        connectionId: message["connectionId"],
+        correlationId: message["correlationId"],
         ok: true,
         snapshot: responseSnapshot,
       });
