@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { normalizeRepositoryPath, scopesForPaths, uniqueStrings } from "./routing.ts";
+import {
+  normalizeRepositoryPath,
+  scopesForPaths,
+  uniqueStrings,
+  workspacesForScopes,
+} from "./routing.ts";
 import type { SidechatPiAPI, ToolResult } from "./types.ts";
 
 const PLAN_STATUS_PATH = "plan/v7/STATUS.md";
@@ -136,8 +141,8 @@ export async function buildTaskContext(
     scopes: scopes.map((scope) => scope.id),
     dirtyScopes: dirtyScopes.map((scope) => scope.id),
     canonicalDocs: uniqueStrings(scopes.flatMap((scope) => scope.canonicalDocs)),
-    workspaceChecks: scopes.flatMap((scope) =>
-      scope.workspace ? [`npm.cmd --workspace ${scope.workspace} run typecheck`] : [],
+    workspaceChecks: workspacesForScopes(scopes).map(
+      (workspace) => `npm.cmd --workspace ${workspace} run typecheck`,
     ),
     activePlanRows,
     warnings,

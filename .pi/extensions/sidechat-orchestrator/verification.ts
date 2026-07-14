@@ -2,7 +2,12 @@ import { access, mkdir, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { normalizeRepositoryPath, scopesForPaths, uniqueStrings } from "./routing.ts";
+import {
+  normalizeRepositoryPath,
+  scopesForPaths,
+  uniqueStrings,
+  workspacesForScopes,
+} from "./routing.ts";
 import type { ExecResult, SidechatPiAPI, ToolResult } from "./types.ts";
 
 const RUNTIME_LOG_DIRECTORY = ".pi/runtime/verification";
@@ -154,10 +159,9 @@ function buildCommands(
   if (tests.length > 0)
     commands.push({ label: "focused tests", command: "npm.cmd", args: ["test", "--", ...tests] });
 
-  const scopes = scopesForPaths(files);
-  for (const workspace of uniqueStrings(
-    scopes.flatMap((scope) => (scope.workspace ? [scope.workspace] : [])),
-  )) {
+  // Includes direct dependent workspaces so a contract change surfaces downstream
+  // type breaks here instead of at the full gate.
+  for (const workspace of workspacesForScopes(scopesForPaths(files))) {
     commands.push({
       label: `${workspace} typecheck`,
       command: "npm.cmd",

@@ -49,7 +49,7 @@ This is deliberately not a generic multi-agent chain. The parent invokes the sma
 `.pi/extensions/sidechat-orchestrator/` registers two Pi-only tools:
 
 - `sidechat_task_context` builds a compact repository packet from Git state, Side Chat ownership rules, canonical docs, workspace checks, and `plan/v7/STATUS.md`.
-- `sidechat_verify` runs focused, standard, or full checks for explicit repository-relative paths, stops on the first failure, and writes complete output to `.pi/runtime/verification/`. When no check matches the assigned paths it reports a non-pass, so an empty scope is never mistaken for a green result.
+- `sidechat_verify` runs focused, standard, or full checks for explicit repository-relative paths, stops on the first failure, and writes complete output to `.pi/runtime/verification/`. When no check matches the assigned paths it reports a non-pass, so an empty scope is never mistaken for a green result. Typecheck covers the changed workspaces plus their direct dependents from the scope map, so a contract change surfaces downstream type breaks below the full gate.
 
 The tools load in child sessions as well; the implementer uses `sidechat_verify` for its own deterministic checks instead of composing broad shell commands.
 
@@ -66,6 +66,8 @@ Turn budgets are sized from observed run history: substantive implementation sli
 When a child hits its ceiling or the completion guard rejects a planning-only result, the parent revives that run with a follow-up instead of paying for a fresh child; checkout edits and the child transcript survive the abort.
 
 Compact task briefs contain only outcome, scope, canonical docs, constraints, acceptance criteria, verification target, turn budget, and the already-gathered context facts. Large outputs are passed by artifact or log path, not pasted into the parent transcript.
+
+Cost and waste stay observable: `node scripts/pi-run-stats.mjs` aggregates the archived run metadata and verification logs into completed-versus-aborted spend, revival counts, and deterministic-check usage. Re-check it before changing budgets or routing so tuning follows evidence, not impressions.
 
 ## Routing invariants
 

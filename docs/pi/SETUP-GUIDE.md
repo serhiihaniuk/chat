@@ -80,6 +80,30 @@ Confirm:
 
 Use worktree isolation only for independent write tasks. Never run concurrent implementers against the same checkout or overlapping files.
 
+## Track cost and waste
+
+The session footer tracks the live session, for example:
+
+```text
+████▏ wk83 5h97 · Σ $2.51 ↑2.1M ↓89k CH93 · sub 3✓ 1✗$0.25 $0.55 · chk 2✓ 1✗
+```
+
+- The eighth-block meter shows the tightest quota window (its label is bold; the other window and any reset countdown stay dim). Meter color turns amber at 40% remaining and red at 20%.
+- `Σ` leads with total session cost in bold; token flows and cache-hit rate follow dim.
+- `sub` shows child-run outcomes; the aborted cost glues to the `✗` count in red, and the dim trailing figure is total child spend.
+- `chk` counts deterministic `sidechat_verify` calls (passes green, failures red).
+
+The `sub` and `chk` segments appear only after the first child run or check.
+
+For history across sessions:
+
+```powershell
+node scripts/pi-run-stats.mjs
+node scripts/pi-run-stats.mjs --json
+```
+
+The report splits spend into completed versus aborted runs, counts revivals and deterministic verifications, and groups cost by week. Review it before loosening any budget or routing rule.
+
 ## Troubleshooting
 
 If project settings do not load, start at the repository root, inspect trust state without printing credentials, restart Pi, and run `/subagents-doctor`.

@@ -3,6 +3,9 @@ export type RepositoryScope = {
   readonly prefixes: readonly string[];
   readonly canonicalDocs: readonly string[];
   readonly workspace?: string;
+  // Direct dependent workspaces that must also typecheck when this scope changes.
+  // Production surfaces plus widget-harness only; docs/adoption-harness breaks are left to the full gate.
+  readonly dependents?: readonly string[];
   readonly browserEvidence?: boolean;
 };
 
@@ -17,6 +20,7 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/partner-ai-core",
+    dependents: ["@side-chat/partner-ai-service"],
   },
   {
     id: "agent-runtime",
@@ -28,6 +32,7 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/agent-runtime",
+    dependents: ["@side-chat/partner-ai-service"],
   },
   {
     id: "ai-runtime-contract",
@@ -38,6 +43,11 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/ai-runtime-contract",
+    dependents: [
+      "@side-chat/agent-runtime",
+      "@side-chat/partner-ai-core",
+      "@side-chat/partner-ai-service",
+    ],
   },
   {
     id: "chat-protocol",
@@ -48,6 +58,13 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/chat-protocol",
+    dependents: [
+      "@side-chat/partner-ai-core",
+      "@side-chat/partner-ai-service",
+      "@side-chat/host-bridge",
+      "@side-chat/side-chat-widget",
+      "@side-chat/widget-harness",
+    ],
   },
   {
     id: "side-chat-service",
@@ -69,6 +86,7 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/side-chat-widget",
+    dependents: ["@side-chat/widget-harness"],
     browserEvidence: true,
   },
   {
@@ -80,6 +98,7 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/host-bridge",
+    dependents: ["@side-chat/side-chat-widget", "@side-chat/widget-harness"],
     browserEvidence: true,
   },
   {
@@ -91,6 +110,7 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/stream-profile",
+    dependents: ["@side-chat/side-chat-service", "@side-chat/side-chat-widget"],
   },
   {
     id: "database",
@@ -101,6 +121,7 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/db",
+    dependents: ["@side-chat/partner-ai-service", "@side-chat/side-chat-service"],
   },
   {
     id: "shared",
@@ -111,6 +132,16 @@ export const REPOSITORY_SCOPES: readonly RepositoryScope[] = [
       "docs/operations/verification.md",
     ],
     workspace: "@side-chat/shared",
+    dependents: [
+      "@side-chat/agent-runtime",
+      "@side-chat/ai-runtime-contract",
+      "@side-chat/chat-protocol",
+      "@side-chat/db",
+      "@side-chat/host-bridge",
+      "@side-chat/partner-ai-core",
+      "@side-chat/partner-ai-service",
+      "@side-chat/side-chat-widget",
+    ],
   },
   {
     id: "partner-ai-service",
@@ -155,6 +186,15 @@ export function scopesForPaths(paths: readonly string[]): readonly RepositorySco
     scope.prefixes.some((prefix) =>
       normalizedPaths.some((path) => path === prefix.slice(0, -1) || path.startsWith(prefix)),
     ),
+  );
+}
+
+export function workspacesForScopes(scopes: readonly RepositoryScope[]): readonly string[] {
+  return uniqueStrings(
+    scopes.flatMap((scope) => [
+      ...(scope.workspace ? [scope.workspace] : []),
+      ...(scope.dependents ?? []),
+    ]),
   );
 }
 

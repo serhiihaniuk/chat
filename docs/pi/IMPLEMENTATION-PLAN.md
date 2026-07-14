@@ -17,6 +17,7 @@ Replace the single generic Luna/max implementer flow with a cost-aware project-s
 | `.pi/agents/*.md`                       | Context, implementation, diagnosis, browser, and risk role contracts  |
 | `.pi/extensions/sidechat-orchestrator/` | Deterministic context and verification tools                          |
 | `scripts/pi-project.ps1`                | Project-root launcher and process-local limits                        |
+| `scripts/pi-run-stats.mjs`              | Historical run cost, waste, and verification-usage report             |
 | `AGENTS.md`, `docs/pi/`                 | Repository contract, operating guide, rationale, and rollout evidence |
 
 ## Rollout
