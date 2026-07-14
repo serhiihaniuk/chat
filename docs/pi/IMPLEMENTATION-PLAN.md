@@ -1,115 +1,71 @@
-# Pi project configuration implementation plan
+# Pi orchestration implementation plan
 
-Read this when: you are applying, verifying, maintaining, or rolling back the project-local Pi setup.
-Source of truth for: the Pi setup rollout sequence, acceptance criteria, verification status, risks, and rollback boundary for this repository.
-Not source of truth for: configuration rationale (see `KNOWLEDGE.md`), operating commands (see `SETUP-GUIDE.md`), or machine-global Pi installation and credentials.
+Read this when: you are implementing, verifying, maintaining, or rolling back the project-local Pi orchestration system.
+Source of truth for: rollout sequence, acceptance status, risks, and rollback boundary.
+Not source of truth for: durable rationale (see `KNOWLEDGE.md`) or operator commands (see `SETUP-GUIDE.md`).
 
 ## Outcome
 
-Add a reproducible, Git-tracked Pi configuration so a Sol/high parent can delegate approved implementation work to one permitted project-scoped Luna/max `implementer`. Keep private and machine-specific Pi state outside the repository.
+Replace the single generic Luna/max implementer flow with a cost-aware project-specific system: deterministic context and verification, narrow semantic roles, fresh contexts, explicit scopes, and hard runtime/tool/turn ceilings. Keep all Pi dependencies below `.pi/`; production Side Chat source remains Pi-independent.
 
-## Repository files
+## Tracked surface
 
-| File                        | Purpose                                                                                   |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| `.pi/settings.json`         | Parent defaults, package pin, explicit-request model scope, and built-in-role disablement |
-| `.pi/APPEND_SYSTEM.md`      | Parent orchestration policy                                                               |
-| `.pi/agents/implementer.md` | The only permitted project child definition                                               |
-| `scripts/pi-project.ps1`    | Project-root launcher with process-local limits                                           |
-| `.gitignore`                | Runtime cache, session, package, and worktree exclusions                                  |
-| `docs/pi/`                  | Setup procedure, durable decisions, and rollout evidence                                  |
+| Path                                    | Purpose                                                               |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `.pi/settings.json`                     | Parent defaults, package pins, model scope, and disabled built-ins    |
+| `.pi/APPEND_SYSTEM.md`                  | Parent routing, thinking profiles, and per-call budgets               |
+| `.pi/agents/*.md`                       | Context, implementation, diagnosis, browser, and risk role contracts  |
+| `.pi/extensions/sidechat-orchestrator/` | Deterministic context and verification tools                          |
+| `scripts/pi-project.ps1`                | Project-root launcher and process-local limits                        |
+| `AGENTS.md`, `docs/pi/`                 | Repository contract, operating guide, rationale, and rollout evidence |
 
-## Rollout sequence
+## Rollout
 
-### 1. Add and statically verify project configuration
-
-1. Preserve unrelated working-tree changes.
-2. Add or merge the files in the table above.
-3. Parse `.pi/settings.json` as JSON.
-4. Parse `scripts/pi-project.ps1` with the PowerShell parser.
-5. Confirm only intended Pi runtime paths were added to `.gitignore`.
-6. Run the repository documentation/readability gate.
-
-### 2. Verify the machine prerequisites
-
-1. Record `pi --version` without exposing authentication data.
-2. Confirm the offline registry contains the configured Sol and Luna model IDs.
-3. Confirm the machine uses the intended Git Bash executable.
-4. Preserve the existing `openai-codex` login; never print or copy its credential file.
-
-### 3. Trust and restore the project package
-
-1. Review `.pi/settings.json` and the pinned package source.
-2. Start Pi through `scripts/pi-project.ps1`.
-3. Grant project trust interactively only after that review.
-4. Restart Pi if required for project package restoration.
-5. Confirm `pi list` reports `npm:pi-subagents@0.34.0` and no competing delegation package.
-
-### 4. Prove routing and limits
-
-1. Confirm the parent resolves to Sol/high.
-2. Confirm project-scoped discovery exposes only `implementer`, which resolves to Luna/max.
-3. Confirm an explicit per-run child model outside the model scope is rejected.
-4. Run one approved disposable implementation task.
-5. Confirm nested child fan-out is blocked at depth 1.
-6. Confirm the parent-session launch cap is 10 through the project wrapper.
+1. Add deterministic context and scoped verification tools without a new dependency.
+2. Replace the one-agent policy with five narrow project agents and zero nested depth.
+3. Synchronize `AGENTS.md`, parent policy, setup guide, and durable knowledge.
+4. Parse and type-check the Pi extension in isolation; check formatting and Git whitespace.
+5. Reload Pi and verify project discovery, live model resolution, tools, and budget metadata.
+6. Exercise one disposable context call, one bounded implementation call, one passing verification, and one intentionally failing verification routed to failure analysis.
 
 ## Acceptance status
 
-Repository-static acceptance and read-only model checks can run non-interactively with Pi's one-command `--approve` override. Persisted project trust and an actual implementer task still require an interactive Pi session.
+- [x] Parent remains Sol/high and built-in children remain disabled.
+- [x] Project roles have explicit Luna models, thinking defaults, tools, fresh context, and zero nested depth.
+- [x] Implementer defaults to high rather than max; medium and max are deliberate per-run profiles.
+- [x] Deterministic context reports dirty paths, ownership scopes, canonical docs, workspace checks, and relevant plan rows.
+- [x] Deterministic verification requires an explicit path scope, avoids shell interpolation, stops on first failure, and saves full logs outside Git.
+- [x] Production application/package source does not depend on Pi.
+- [x] Routing docs and prompts describe the same role boundaries.
+- [ ] Pi reload discovers all five roles and both deterministic tools.
+- [ ] Live `/subagents-models` confirms the configured model/thinking mapping.
+- [ ] A disposable end-to-end routing smoke proves context, implementation, verification, and failure diagnosis.
 
-- [x] Project settings pin `npm:pi-subagents@0.34.0`.
-- [x] Parent defaults are Sol/high.
-- [x] Built-in child roles are disabled.
-- [x] The only permitted project-scoped child is `implementer` on Luna/max.
-- [x] The enforced explicit-request model scope contains Sol, Luna, and Codex Spark.
-- [x] The wrapper sets launch cap 10 and nesting depth 1.
-- [x] Known Pi runtime paths are ignored.
-- [x] Pi 0.80.6 and the configured models in its offline catalog were verified on 2026-07-13.
-- [x] `pi-subagents` was restored locally and `pi list --approve` resolved the pinned project package.
-- [ ] Sol/high completes a no-tool live entitlement check through the project wrapper after this routing change.
-- [x] Project-scoped discovery resolved only `implementer` on `openai-codex/gpt-5.6-luna`.
-- [x] An explicit `openai-codex/gpt-5.5` child request was rejected before launch by the model scope.
-- [ ] Persisted project trust is granted in an interactive Pi session.
-- [ ] Nested-child depth enforcement is smoke-tested.
-- [ ] A disposable approved implementation task completes with focused verification.
-
-Do not mark a live item complete from configuration files alone. Record the command and result when the check actually runs.
+Do not mark live items complete from static files alone.
 
 ## Static verification
 
 ```powershell
 Get-Content .pi/settings.json -Raw | ConvertFrom-Json | Out-Null
-
-$tokens = $null
-$errors = $null
-[System.Management.Automation.Language.Parser]::ParseFile(
-    (Resolve-Path scripts/pi-project.ps1),
-    [ref] $tokens,
-    [ref] $errors
-) | Out-Null
-if ($errors.Count -gt 0) { $errors | Out-String | Write-Error }
-
-npm run lint:custom
+npx tsx --eval "import('./.pi/extensions/sidechat-orchestrator/index.ts')"
+npx oxfmt --check .pi/extensions/sidechat-orchestrator .pi/agents .pi/APPEND_SYSTEM.md docs/pi AGENTS.md
 git diff --check
 git status --short
 ```
 
-Live commands and expected results are owned by `SETUP-GUIDE.md`.
+Project tests are intentionally not part of this Pi-only change. Live checks are owned by `SETUP-GUIDE.md`.
 
 ## Risks
 
-| Risk                                             | Mitigation                                                                            |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Private Pi state enters Git                      | Keep the project/machine boundary explicit and inspect staged paths before any commit |
-| Package behavior changes                         | Pin `0.34.0`; review and verify upgrades separately                                   |
-| Model appears in the catalog but is not entitled | Separate offline registry checks from a small live smoke test                         |
-| Windows resolves the wrong shell                 | Configure the intended Git Bash path globally, never as a personal project path       |
-| Child fan-out multiplies cost or writes          | Disable built-ins, enforce model scope, cap launches at 10 and depth at 1             |
-| Parallel edits collide                           | Use disjoint worktrees only after the parent approves independent write scopes        |
+| Risk                                                   | Mitigation                                                                                         |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Static ownership rules drift                           | Keep rules small; context-builder verifies semantic facts and canonical docs remain authoritative  |
+| Existing dirty files contaminate verification          | Require explicit paths instead of treating every dirty file as task scope                          |
+| Agent budget ends before a useful report               | Soft warning precedes hard ceiling; parent may split the task but must not silently loosen limits  |
+| Browser tools are unavailable                          | Browser agent reports blocked; deterministic checks remain valid but visual proof stays incomplete |
+| Verification output leaks into Git or prompts          | Logs stay in ignored `.pi/runtime/`; children receive paths, not pasted output                     |
+| Too many roles recreate generic orchestration overhead | Invoke roles conditionally; there is no automatic all-agent chain                                  |
 
 ## Rollback
 
-Rollback is a scoped Git change: revert the project `.pi` files, wrapper, ignore entries, and `docs/pi/` documentation together. Remove the project-local package through Pi's project package command only if it remains registered after the settings rollback.
-
-Do not delete global authentication, trust records, sessions, or unrelated machine settings as part of project rollback.
+Rollback is one scoped change: restore the earlier agent policy, remove the extra agent files and deterministic extension, and revert synchronized `AGENTS.md` and `docs/pi/` content. Do not delete global authentication, trust records, sessions, or unrelated machine state.

@@ -1,66 +1,71 @@
 # Pi project knowledge
 
-Read this when: you need to understand or change the repository's Pi model routing, child-agent surface, safety limits, or project-versus-machine boundary.
-Source of truth for: the decisions and invariants behind Side Chat's project-local Pi configuration.
-Not source of truth for: setup commands (see `SETUP-GUIDE.md`), rollout status (see `IMPLEMENTATION-PLAN.md`), or Side Chat package ownership (see `../architecture/package-boundaries.md`).
+Read this when: you need to understand or change Side Chat's Pi routing, child roles, cost controls, or project-versus-machine boundary.
+Source of truth for: durable decisions behind the project-local Pi configuration.
+Not source of truth for: setup commands (see `SETUP-GUIDE.md`), rollout status (see `IMPLEMENTATION-PLAN.md`), or package ownership (see `../architecture/package-boundaries.md`).
 
-## Operating shape
+## Goal
 
-The project uses two execution roles:
+Use the Sol/high parent for judgment and Luna children for narrow semantic work. Use deterministic local tools for repository facts and verification so passing commands do not consume an agent turn. Optimize for elapsed time and Codex quota together; low cost is not useful if it creates rework or weak evidence.
 
-| Role                | Model                       | Thinking | Ownership                                                                     |
-| ------------------- | --------------------------- | -------- | ----------------------------------------------------------------------------- |
-| Main Pi chat        | `openai-codex/gpt-5.6-sol`  | `high`   | Reconnaissance, research, planning, review, coordination, and scope decisions |
-| `implementer` child | `openai-codex/gpt-5.6-luna` | `max`    | One approved implementation slice and its focused verification                |
+## Execution roles
 
-`openai-codex/gpt-5.3-codex-spark` remains in the project model scope as an explicitly available fallback. It is not the configured default for either role.
+| Role               | Default model / thinking | Owns                                                                                  | Must not own                                             |
+| ------------------ | ------------------------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Main Pi chat       | Sol / `high`             | Intent, architecture, external research, scope, sequencing, integration, final review | Outsourcing decisions or completion claims               |
+| `context-builder`  | Luna / `low`             | One locate, trace, impact, or plan-state evidence packet                              | Edits, shell commands, architecture                      |
+| `implementer`      | Luna / `high`            | One approved behavior in one primary ownership boundary                               | Scope expansion, public-contract decisions, final review |
+| `failure-analyst`  | Luna / `low`             | Root cause of one failed deterministic command                                        | Edits or broad suite reruns                              |
+| `browser-evidence` | Luna / `low`             | Evidence for one visible scenario                                                     | Code edits, server control, broad UX review              |
+| `risk-auditor`     | Luna / `high`            | Conditional audit of high-risk invariants                                             | Style review or speculative redesign                     |
 
-## Package and child-agent decision
+The parent may override `implementer` with Luna `medium` for mechanical local work or Luna `max` for genuinely coupled, concept-dense work. Maximum thinking is exceptional, not the default.
 
-The project pins exactly one delegation package: `npm:pi-subagents@0.34.0`. Its built-in child catalog is disabled. The only permitted project child definition is `.pi/agents/implementer.md`.
+## Why roles are separated
 
-Do not add another delegation package alongside `pi-subagents`. A package change requires a separate review of its executable code, configuration contract, commands, runtime paths, and migration impact.
+Recent generic implementer runs repeatedly spent most of their tools rediscovering the repository, running verification, and recovering from oversized scopes. Separate roles reduce that waste:
 
-The implementer is write-capable because implementation is its only purpose. Its model, thinking level, tools, inherited project context, and maximum child depth are explicit in frontmatter so the live mapping can be inspected rather than inferred from the parent.
+- deterministic context exposes dirty paths, ownership, docs, workspace checks, and active plan rows before a child starts;
+- the context builder performs targeted semantic lookup without write tools;
+- the implementer receives an already-approved scope instead of planning its own task;
+- deterministic verification returns immediately on success and saves full failure logs outside the prompt;
+- the failure analyst reads one log only when a command actually fails;
+- browser and risk review run only when the change type requires them.
+
+This is deliberately not a generic multi-agent chain. The parent invokes the smallest role that resolves the current uncertainty.
+
+## Deterministic extension
+
+`.pi/extensions/sidechat-orchestrator/` registers two Pi-only tools:
+
+- `sidechat_task_context` builds a compact repository packet from Git state, Side Chat ownership rules, canonical docs, workspace checks, and `plan/v7/STATUS.md`.
+- `sidechat_verify` runs focused, standard, or full checks for explicit repository-relative paths, stops on the first failure, and writes complete output to `.pi/runtime/verification/`.
+
+The verification tool requires explicit paths because this checkout may already contain unrelated user changes. It never treats the entire dirty worktree as the implementation scope. Commands and arguments are passed separately; user-supplied paths are not interpolated into a shell string.
+
+The extension is orchestration infrastructure. Production application and package source do not import it or know Pi exists.
+
+## Budget and context policy
+
+Every agent starts with fresh context, inherits repository instructions, does not inherit arbitrary skills, cannot create children, and has role-specific tools. Frontmatter enforces hard tool ceilings. `.pi/APPEND_SYSTEM.md` owns the per-call runtime and turn budgets.
+
+Compact task briefs contain only outcome, scope, canonical docs, constraints, acceptance criteria, and verification target. Large outputs are passed by artifact or log path, not pasted into the parent transcript.
+
+## Routing invariants
+
+- Built-in roles remain disabled and calls use `agentScope: "project"`.
+- The parent handles a tiny, already-understood edit directly.
+- Unknown ownership or flow starts with deterministic context and one context-builder question.
+- One implementer owns one behavior and one primary ownership boundary.
+- Passing checks do not launch an agent.
+- Failure analysis begins only after a real failed command.
+- Browser evidence follows deterministic checks and runs only for visible behavior.
+- Risk audit is conditional on security, persistence, concurrency, cancellation, durable workflow, provider/tool, host-command, or public-protocol risk.
+- Concurrent writers never share a checkout or overlapping paths.
+- No generic chains, nested children, credential use, external mutation, or Git publishing.
 
 ## Project and machine ownership
 
-The repository owns:
+The repository owns tracked Pi settings, role prompts, orchestration policy, deterministic tool code, wrapper limits, and Pi documentation. The machine owns authentication, trust, sessions, package caches, restored packages, browser state, generated worktrees, verification logs, and personal shell configuration.
 
-- parent and child model defaults;
-- the model scope for explicit per-run child requests;
-- the exact `pi-subagents` package pin;
-- the single implementer prompt and tool surface;
-- the orchestration policy;
-- wrapper-applied spawn, depth, and worktree-path limits.
-
-The machine owns:
-
-- provider authentication and refresh tokens;
-- the Windows shell executable path;
-- project trust decisions;
-- sessions, package caches, restored package files, and generated worktrees;
-- any package configuration documented as global-only.
-
-This boundary keeps credentials and personal paths out of Git while making project behavior reviewable. The ignore rules cover known runtime paths, but ignore rules never make private data safe to copy into the repository.
-
-## Safety invariants
-
-- Built-in child roles remain disabled.
-- `implementer` remains the only permitted project-scoped child.
-- Parent subagent discovery and runs use `agentScope: "project"` when available.
-- The parent approves scope and verification before delegation.
-- Explicit per-run child model requests outside the model scope remain blocked.
-- The wrapper caps a parent session at 10 child launches.
-- Maximum nesting depth remains 1.
-- Parallel writers never share a checkout or overlapping files.
-- Authentication, trust, sessions, caches, and generated worktrees remain untracked.
-- Live model routing and entitlement are verified after configuration changes.
-
-`modelScope.enforce` is not an absolute allowlist for every resolution path. Configured frontmatter, defaults, overrides, and inherited models may warn instead of failing when outside the list. Keep all configured models in the scope and verify their live resolution.
-
-## Change policy
-
-Change one operational variable at a time. Do not update the Pi CLI, package pin, model routing, and safety limits in one unreviewable maintenance pass.
-
-When changing the package or model policy, update `.pi/settings.json`, the implementer definition when applicable, this decision record, the setup guide, and the rollout checks together. Run the static repository checks first, then repeat the live Pi diagnostics listed in `SETUP-GUIDE.md`.
+Keep machine-private data out of Git. A package or model-policy change requires a separate review and live routing verification.

@@ -1,58 +1,42 @@
 # Pi project setup guide
 
 Read this when: you are installing, starting, or troubleshooting Pi for this Side Chat checkout.
-Source of truth for: the project-local Pi startup procedure, operator checks, and the boundary between tracked project configuration and private machine state.
-Not source of truth for: Side Chat architecture (see `../architecture/system-map.md`), repository verification (see `../operations/verification.md`), or Pi and `pi-subagents` behavior outside the versions configured here.
+Source of truth for: project-local Pi startup, operator checks, and tracked-versus-private configuration.
+Not source of truth for: Side Chat architecture, repository verification, or Pi behavior outside the pinned versions.
 
-This repository configures a Sol/high parent with one permitted project-scoped child named `implementer`. The parent owns reconnaissance, planning, review, coordination, and scope decisions. The child executes an approved implementation slice.
+This repository configures a Sol/high parent, five narrow project-scoped Luna roles, and deterministic context/verification tools. The complete routing rationale is in [KNOWLEDGE.md](KNOWLEDGE.md).
 
 ## Configuration boundary
 
-The repository tracks the portable Pi behavior:
+The repository tracks:
 
-- `.pi/settings.json` selects the parent model, pins `npm:pi-subagents@0.34.0`, scopes explicit child model requests, and disables built-in child roles.
-- `.pi/APPEND_SYSTEM.md` adds repository orchestration policy without replacing Pi's base prompt.
-- `.pi/agents/implementer.md` defines the only permitted project child.
-- `scripts/pi-project.ps1` starts from the repository root with spawn and nesting limits.
+- `.pi/settings.json` for the parent model, package pins, model scope, and disabled built-ins;
+- `.pi/APPEND_SYSTEM.md` for parent routing and per-call budgets;
+- `.pi/agents/*.md` for role, tool, context, and hard tool-budget contracts;
+- `.pi/extensions/sidechat-orchestrator/` for deterministic repository context and verification;
+- `scripts/pi-project.ps1` for process-local launch and nesting limits.
 
-Keep authentication, trust decisions, sessions, caches, package restoration data, and machine-specific shell configuration outside Git. Do not copy or print private Pi files while setting up this project.
+Keep authentication, trust decisions, sessions, caches, restored packages, generated worktrees, verification logs, and machine shell configuration outside Git. Never print or copy private Pi files while setting up the project.
 
-## Machine prerequisites
+## Start
 
-Before starting the project wrapper, confirm the machine has:
-
-- a Pi release whose offline model catalog contains `openai-codex/gpt-5.6-sol` and `openai-codex/gpt-5.6-luna`;
-- an existing `openai-codex` login permitted to use those models;
-- Node.js and Git Bash compatible with the installed Pi release;
-- a global Pi `shellPath` pointing to the intended Git Bash executable on Windows.
-
-Machine setup is deliberately not automated by this repository. Preserve existing provider and authentication settings when adding a Windows `shellPath`.
-
-## Start the project
-
-Run the wrapper from the repository root:
+Run from the repository root:
 
 ```powershell
 .\scripts\pi-project.ps1
 ```
 
-The wrapper sets these process-local limits before starting Pi:
-
-- at most 10 child launches for the parent session;
-- one child level, so an implementer cannot recursively fan out;
-- `.pi/worktrees/` as the generated worktree base when worktree isolation is requested.
-
-To state the parent selection explicitly:
+The wrapper caps the parent session at 10 child launches, permits no recursive child fan-out, and reserves `.pi/worktrees/` for deliberate worktree isolation. To state the parent explicitly:
 
 ```powershell
 .\scripts\pi-project.ps1 --model openai-codex/gpt-5.6-sol --thinking high
 ```
 
-Trust the project only after reviewing `.pi/settings.json` and its pinned package. Restart Pi if trust was granted after the first load. For a deliberate one-command bootstrap after that review, run `pi install npm:pi-subagents@0.34.0 -l --approve` from the repository root.
+Trust the project only after reviewing `.pi/settings.json` and package pins. Restore the pinned delegation package with `pi install npm:pi-subagents@0.34.0 -l --approve` only after that review.
 
-## Verify the loaded configuration
+## Verify loaded configuration
 
-Run these non-secret checks from PowerShell:
+Run non-secret checks from PowerShell:
 
 ```powershell
 Get-Content .pi/settings.json -Raw | ConvertFrom-Json | Out-Null
@@ -61,40 +45,46 @@ pi --offline --list-models
 pi list
 ```
 
-Then run these commands inside the project Pi session:
+Then inside the project Pi session:
 
 ```text
 /subagents-doctor
 /subagents-models
+/subagents-models context-builder
 /subagents-models implementer
-/subagents-fleet
+/subagents-models failure-analyst
+/subagents-models browser-evidence
+/subagents-models risk-auditor
 ```
 
-The live results must show:
+Confirm:
 
-- parent model `openai-codex/gpt-5.6-sol` with `high` thinking;
-- `implementer` as the only project-scoped child;
-- implementer model `openai-codex/gpt-5.6-luna` with `max` thinking;
-- explicit per-run child model requests outside `subagents.modelScope.allow` rejected.
+- the parent is `openai-codex/gpt-5.6-sol` with `high` thinking;
+- exactly the five tracked project roles are available with the configured Luna thinking levels;
+- built-in roles are absent for project-scoped discovery;
+- every child reports zero nested depth and its role-specific tools;
+- `sidechat_task_context` and `sidechat_verify` appear after extension reload;
+- explicit child models outside `subagents.modelScope.allow` are rejected.
 
-`modelScope.enforce` governs explicit per-run model selection. A configured frontmatter, default, override, or inherited model outside the list may produce a warning instead of a hard rejection, so keep every configured model inside the same list and inspect `/subagents-models implementer` after changes.
+`modelScope.enforce` checks explicit per-run selection after removing a recognized thinking suffix. Keep every base model configured by frontmatter or overrides inside the same allow list.
 
-`disableBuiltins` hides the package's bundled roles, not arbitrary user or package agents. Keep subagent tool calls on `agentScope: "project"`; the checked-in policy permits only `implementer` even if a machine has other user-scoped agents.
+## Normal operation
 
-File contents alone do not prove model entitlement, package restoration, or live routing. Record those results in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) when verified.
+1. Use `sidechat_task_context` when task ownership or collision risk is unclear.
+2. Call `context-builder` only for a bounded semantic question.
+3. Give `implementer` one behavior, one primary boundary, and explicit paths.
+4. Call `sidechat_verify` with those paths; start focused and expand only when justified.
+5. On failure, give `failure-analyst` the returned `.pi/runtime/verification/...` path.
+6. Add browser evidence or risk audit only when the change requires it.
 
-## Delegate implementation
-
-Before delegation, the parent must establish the outcome, owned files or boundary, applicable source-of-truth docs, constraints, acceptance criteria, and verification target. The implementer may then inspect the assigned path, edit it, run focused checks, and report evidence.
-
-Use worktree isolation only for independent write tasks and only when the repository state makes that safe. Never run concurrent implementers against the same checkout or overlapping files.
+Use worktree isolation only for independent write tasks. Never run concurrent implementers against the same checkout or overlapping files.
 
 ## Troubleshooting
 
 If project settings do not load, start at the repository root, inspect trust state without printing credentials, restart Pi, and run `/subagents-doctor`.
 
-If the child model is wrong, inspect `/subagents-models implementer`, confirm the full provider-qualified model in the agent file, and confirm the same model appears in `subagents.modelScope.allow`.
+If an agent or model is wrong, inspect `/subagents-models <name>`, its `.pi/agents/<name>.md` frontmatter, and the base model in `subagents.modelScope.allow`.
 
-If an unexpected built-in role appears, confirm `subagents.disableBuiltins` is `true`, reload or restart Pi, and repeat the model listing.
+If deterministic tools are missing, reload Pi and inspect `.pi/extensions/sidechat-orchestrator/index.ts` load errors. Do not copy the extension into production source.
 
-If shell commands resolve through the wrong Windows shell, repair the machine-global Pi `shellPath`; do not add a personal absolute path to this repository.
+If shell commands use the wrong Windows shell, repair machine-global Pi `shellPath`; never commit a personal absolute path.
