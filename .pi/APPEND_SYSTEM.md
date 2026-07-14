@@ -25,7 +25,7 @@ Invoke only these project-scoped agents with `agentScope: "project"`, `context: 
 | `implementer`      | One approved behavior in one primary ownership boundary                               | `timeoutMs: 600000`, `turnBudget: {"maxTurns":16,"graceTurns":4}` |
 | `failure-analyst`  | One failed deterministic command                                                      | `timeoutMs: 120000`, `turnBudget: {"maxTurns":3,"graceTurns":1}`  |
 | `browser-evidence` | One visible scenario after deterministic checks pass                                  | `timeoutMs: 300000`, `turnBudget: {"maxTurns":6,"graceTurns":1}`  |
-| `risk-auditor`     | Conditional audit of a high-risk completed change                                     | `timeoutMs: 180000`, `turnBudget: {"maxTurns":4,"graceTurns":1}`  |
+| `risk-auditor`     | Conditional audit of a high-risk completed change                                     | `timeoutMs: 300000`, `turnBudget: {"maxTurns":4,"graceTurns":1}`  |
 
 Agent files impose hard tool ceilings. Only `implementer` may spawn children, limited to the read-only `context-builder` and `failure-analyst` helpers; helpers are leaves. Tighten a budget when the task is smaller; do not silently loosen one.
 

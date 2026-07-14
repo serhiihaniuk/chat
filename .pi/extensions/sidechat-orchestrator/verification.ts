@@ -217,17 +217,15 @@ function executeCommand(
   if (process.platform !== "win32") {
     return pi.exec(command.command, command.args, { cwd, signal, timeout: COMMAND_TIMEOUT_MS });
   }
+  // Base64 JSON keeps tokens like `--` byte-exact; PowerShell's parameter
+  // binder consumes them from plain -File arguments.
+  const payload = Buffer.from(
+    JSON.stringify([command.command, ...command.args]),
+    "utf8",
+  ).toString("base64");
   return pi.exec(
     "powershell.exe",
-    [
-      "-NoLogo",
-      "-NoProfile",
-      "-NonInteractive",
-      "-File",
-      WINDOWS_COMMAND_RUNNER,
-      command.command,
-      ...command.args,
-    ],
+    ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", WINDOWS_COMMAND_RUNNER, payload],
     { cwd, signal, timeout: COMMAND_TIMEOUT_MS },
   );
 }
