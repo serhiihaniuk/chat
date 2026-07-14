@@ -96,6 +96,21 @@ describe("service settings", () => {
     );
   });
 
+  it("requires host-context enablement to be a boolean", () => {
+    const config = createDefaultConfig();
+    const result = validateSettings({
+      ...config,
+      hostContext: { ...config.hostContext, enabled: "true" },
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toContainEqual({
+      path: "hostContext.enabled",
+      message: "must be a boolean",
+    });
+  });
+
   it("requires one database for legal-hold-safe Workflow maintenance", () => {
     const result = resolveTestSettings(
       createDefaultConfig({

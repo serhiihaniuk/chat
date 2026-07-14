@@ -1,5 +1,6 @@
 import { createCompatibilityApp } from "#adapters/http/compatibility-app";
 import { createChatRoutes } from "#adapters/http/chat/chat-routes";
+import { createCapabilityRoutes } from "#adapters/http/capabilities/capability-routes";
 import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
 import { EMPTY_STRUCTURED_PART_CATALOGS } from "#application/conversations/read-conversation-history";
 import { createHttpApp, type Readiness } from "#adapters/http/health/health-app";
@@ -168,7 +169,7 @@ async function startTestingServiceWithPersistence<
       outboundTransforms: [() => createScrubTransform()],
       modelPolicy: configuredTurnModelCatalog(configuredModelCatalog(settings)),
       serverToolNames,
-      hostContextLimits: settings.hostContext,
+      hostContextPolicy: settings.hostContext,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable
@@ -176,6 +177,7 @@ async function startTestingServiceWithPersistence<
         : { routeFinalization: { turns: turnState, messages: turnState } }),
     }),
   );
+  app.route("/", createCapabilityRoutes({ hostContextPolicy: settings.hostContext }));
   app.route(
     "/",
     createQueryRoutes({

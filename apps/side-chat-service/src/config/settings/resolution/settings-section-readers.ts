@@ -4,6 +4,7 @@ import {
   readArray,
   readObject,
   readOptionalString,
+  readRequiredBoolean,
   readRequiredPositiveInteger,
   readRequiredCatalogValue,
   readRequiredString,
@@ -60,6 +61,7 @@ function readServerTools(candidate: unknown, issues: SettingsIssue[]): readonly 
 function readHostContext(candidate: unknown, issues: SettingsIssue[]): Settings["hostContext"] {
   const value = readObject(candidate, "hostContext", issues);
   return {
+    enabled: readRequiredBoolean(value["enabled"], "hostContext.enabled", issues),
     maxSerializedBytes: readRequiredPositiveInteger(
       value["maxSerializedBytes"],
       "hostContext.maxSerializedBytes",

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { HostContextLimits } from "#domain/host-context";
+import type { HostContextPolicy } from "#domain/host-context";
 
 import { parseHostContext } from "./host-context-schema.js";
 
-const LIMITS: HostContextLimits = {
+const POLICY: HostContextPolicy = {
+  enabled: true,
   maxSerializedBytes: 16_384,
   maxStringLength: 4_096,
   maxMetadataDepth: 8,
@@ -26,7 +27,7 @@ describe("host context HTTP schema", () => {
             score: 12.5,
           },
         },
-        LIMITS,
+        POLICY,
       ),
     ).toEqual({
       schemaVersion: "host.v1",
@@ -59,7 +60,7 @@ describe("host context HTTP schema", () => {
     ["excess metadata entries", { schemaVersion: "host.v1", metadata: wideMetadata(129) }],
     ["excess serialized bytes", oversizedSerializedContext()],
   ])("rejects %s", (_case, value) => {
-    expect(parseHostContext(value, LIMITS)).toBeUndefined();
+    expect(parseHostContext(value, POLICY)).toBeUndefined();
   });
 });
 
@@ -76,7 +77,7 @@ function wideMetadata(entries: number): Record<string, boolean> {
 }
 
 function oversizedSerializedContext() {
-  const value = "x".repeat(LIMITS.maxStringLength);
+  const value = "x".repeat(POLICY.maxStringLength);
   return {
     schemaVersion: "host.v1",
     origin: value,

@@ -40,6 +40,7 @@ const config: SideChatConfig = defineSideChatConfig({
   },
   serverTools: [],
   hostContext: {
+    enabled: true,
     maxSerializedBytes: 16_384,
     maxStringLength: 4_096,
     maxMetadataDepth: 8,

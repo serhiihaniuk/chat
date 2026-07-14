@@ -4,6 +4,7 @@ import {
   type ArchiveWorkflowJournal,
 } from "@side-chat/db";
 import { createChatRoutes } from "#adapters/http/chat/chat-routes";
+import { createCapabilityRoutes } from "#adapters/http/capabilities/capability-routes";
 import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
 import { EMPTY_STRUCTURED_PART_CATALOGS } from "#application/conversations/read-conversation-history";
 import { recordServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
@@ -97,7 +98,7 @@ export async function startProductionService(
       outboundTransforms: [() => createScrubTransform()],
       modelPolicy: configuredTurnModelCatalog(modelCatalog),
       serverToolNames: new Set(serverTools.map((definition) => definition.name)),
-      hostContextLimits: settings.hostContext,
+      hostContextPolicy: settings.hostContext,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable
@@ -118,6 +119,7 @@ export async function startProductionService(
       },
     }),
   );
+  app.route("/", createCapabilityRoutes({ hostContextPolicy: settings.hostContext }));
   app.route(
     "/",
     createQueryRoutes({

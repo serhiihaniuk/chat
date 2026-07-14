@@ -39,6 +39,16 @@ export function readRequiredPositiveInteger(
   return 0;
 }
 
+export function readRequiredBoolean(
+  value: unknown,
+  path: string,
+  issues: SettingsIssue[],
+): boolean {
+  if (typeof value === "boolean") return value;
+  issues.push({ path, message: "must be a boolean" });
+  return false;
+}
+
 export function readOptionalString(
   value: unknown,
   path: string,

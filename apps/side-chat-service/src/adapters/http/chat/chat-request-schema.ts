@@ -12,7 +12,7 @@ import {
 } from "#application/turn/tools/client-tool-catalog";
 import { SERVER_TOOL_CATALOG_LIMITS } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { isSupportedClientToolSchema } from "#application/turn/tools/client-tool-schema";
-import type { HostContext, HostContextLimits } from "#domain/host-context";
+import type { HostContext, HostContextPolicy } from "#domain/host-context";
 import { TURN_MESSAGE_ROLES, type TurnMessage, type TurnMessageRole } from "#domain/turn/turn";
 
 import { parseHostContext } from "./host-context/host-context-schema.js";
@@ -79,11 +79,11 @@ export type ChatRequest = Readonly<{
 export async function parseChatRequest(
   value: unknown,
   serverToolNames: ReadonlySet<string> = new Set(),
-  hostContextLimits?: HostContextLimits,
+  hostContextPolicy?: HostContextPolicy,
 ): Promise<ChatRequest | undefined> {
   const envelope = chatEnvelopeSchema.safeParse(value);
   if (!envelope.success) return undefined;
-  const hostContext = readHostContext(envelope.data, hostContextLimits);
+  const hostContext = readHostContext(envelope.data, hostContextPolicy);
   if (hostContext === INVALID_HOST_CONTEXT) return undefined;
   const turnMessages = await readTurnMessages(envelope.data.messages);
   if (turnMessages === undefined) return undefined;
@@ -133,11 +133,11 @@ const INVALID_HOST_CONTEXT = Symbol("invalid-host-context");
 
 function readHostContext(
   envelope: Readonly<Record<string, unknown>>,
-  limits: HostContextLimits | undefined,
+  policy: HostContextPolicy | undefined,
 ): HostContext | typeof INVALID_HOST_CONTEXT | undefined {
   if (!Object.hasOwn(envelope, "hostContext")) return undefined;
-  if (limits === undefined) return INVALID_HOST_CONTEXT;
-  return parseHostContext(envelope["hostContext"], limits) ?? INVALID_HOST_CONTEXT;
+  if (policy === undefined) return INVALID_HOST_CONTEXT;
+  return parseHostContext(envelope["hostContext"], policy) ?? INVALID_HOST_CONTEXT;
 }
 
 function toTurnMessage(message: UIMessage): TurnMessage {

@@ -32,7 +32,10 @@ describe("chat host context", () => {
 
     for (const hostContext of contexts) {
       const execution = new DeterministicTurnExecution();
-      const harness = await createServiceTestHarness({ turnExecution: execution });
+      const harness = await createServiceTestHarness({
+        hostContext: { enabled: true },
+        turnExecution: execution,
+      });
       try {
         const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest(hostContext));
         expect(response.status).toBe(200);
@@ -65,6 +68,38 @@ describe("chat host context", () => {
       }
       expect(execution.started).toEqual([]);
       expect(harness.turnState.userMessages).toEqual([]);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("rejects supplied context when disabled while accepting an absent context", async () => {
+    const execution = new DeterministicTurnExecution();
+    const harness = await createServiceTestHarness({
+      hostContext: { enabled: false },
+      turnExecution: execution,
+    });
+    try {
+      const rejected = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest({ schemaVersion: "host.v1", title: "Forbidden by policy" }),
+      );
+      expect(rejected.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
+      const rejectionBody = await rejected.text();
+      expect(rejectionBody).toContain(HTTP_ERROR.BAD_REQUEST.CODE);
+      expect(rejectionBody).not.toContain("Forbidden by policy");
+
+      const accepted = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequestWithoutHostContext(),
+      );
+      expect(accepted.status).toBe(200);
+      await accepted.text();
+
+      expect(execution.started).toHaveLength(1);
+      expect(execution.started[0]?.messages).toEqual([
+        { id: USER_MESSAGE.id, role: TURN_MESSAGE_ROLES.USER, text: USER_MESSAGE_TEXT },
+      ]);
     } finally {
       await harness.close();
     }
@@ -105,6 +140,14 @@ describe("chat host context", () => {
 });
 
 function chatRequest(hostContext: unknown): RequestInit {
+  return chatRequestWithBody({ hostContext });
+}
+
+function chatRequestWithoutHostContext(): RequestInit {
+  return chatRequestWithBody({});
+}
+
+function chatRequestWithBody(optionalFields: Readonly<Record<string, unknown>>): RequestInit {
   return {
     method: "POST",
     body: JSON.stringify({
@@ -112,7 +155,7 @@ function chatRequest(hostContext: unknown): RequestInit {
       conversationId: CONVERSATION.conversationId,
       messages: [USER_MESSAGE],
       modelPreference: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
-      hostContext,
+      ...optionalFields,
     }),
   };
 }

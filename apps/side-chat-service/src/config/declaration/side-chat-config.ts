@@ -104,8 +104,9 @@ export interface SideChatConfig {
   };
   /** Registered server-tool names exposed by this deployment. */
   readonly serverTools: readonly string[];
-  /** Limits applied to optional browser-supplied page reference data. */
+  /** Deployment policy and limits for optional browser-supplied page reference data. */
   readonly hostContext: {
+    readonly enabled: boolean;
     readonly maxSerializedBytes: ConfigValue<number>;
     readonly maxStringLength: ConfigValue<number>;
     readonly maxMetadataDepth: ConfigValue<number>;

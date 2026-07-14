@@ -23,8 +23,9 @@ export type HostContext = Readonly<{
   metadata?: HostContextMetadata | undefined;
 }>;
 
-/** Limits the HTTP adapter applies before host context enters the application. */
-export type HostContextLimits = Readonly<{
+/** Deployment policy the HTTP boundary applies to optional host page context. */
+export type HostContextPolicy = Readonly<{
+  enabled: boolean;
   maxSerializedBytes: number;
   maxStringLength: number;
   maxMetadataDepth: number;

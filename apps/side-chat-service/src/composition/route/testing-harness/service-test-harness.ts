@@ -37,11 +37,15 @@ export async function createServiceTestHarness(
     readonly resumeToolApproval?: ResumeToolApproval;
     readonly serverTools?: readonly ServerToolDefinition[];
     readonly models?: SideChatConfig["models"];
+    readonly hostContext?: Partial<SideChatConfig["hostContext"]>;
   } = {},
 ) {
-  const { models, ...serviceOverrides } = overrides;
+  const { hostContext, models, ...serviceOverrides } = overrides;
   const settingsResult = validateSettings(
-    createDefaultConfig(models === undefined ? {} : { models }),
+    createDefaultConfig({
+      ...(hostContext === undefined ? {} : { hostContext }),
+      ...(models === undefined ? {} : { models }),
+    }),
   );
   if (!settingsResult.ok) throw new Error("Default test settings must be valid");
   const previousTelemetry = globalThis.AI_SDK_TELEMETRY_INTEGRATIONS;

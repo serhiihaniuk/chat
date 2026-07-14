@@ -15,6 +15,7 @@ export const CHAT_HTTP_ROUTES = {
 } as const;
 
 export const QUERY_HTTP_ROUTES = {
+  CAPABILITIES: "/api/capabilities",
   CONVERSATIONS: "/api/conversations",
   MESSAGES: "/api/conversations/:conversationId/messages",
   ACTIVE_TURN: "/api/conversations/:conversationId/active-turn",
