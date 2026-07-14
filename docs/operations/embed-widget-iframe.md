@@ -59,7 +59,12 @@ A non-Vite host (nginx, Express, Caddy, etc.) applies the same two rules. The re
 Add a toggle button and the same-origin frame to your page. The widget reads its query params in [`test-harness/widget-harness/src/config/modes.ts:29-41`](../../test-harness/widget-harness/src/config/modes.ts):
 
 ```html
-<button id="side-chat-toggle" type="button" aria-controls="side-chat-frame" aria-expanded="false">
+<button
+  id="side-chat-toggle"
+  type="button"
+  aria-controls="side-chat-frame"
+  aria-expanded="false"
+>
   Open assistant
 </button>
 <iframe
@@ -141,7 +146,9 @@ Your app owns the visible state and drives the iframe with three `postMessage` t
 Send `setOpen` on button click, on frame `load`, and on `ready`; listen for `openChange` to follow a close from inside the widget:
 
 ```ts
-const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Workspace Assistant"]');
+const frame = document.querySelector<HTMLIFrameElement>(
+  'iframe[title="Workspace Assistant"]',
+);
 const button = document.querySelector<HTMLButtonElement>("#side-chat-toggle");
 let open = false;
 
@@ -172,6 +179,31 @@ window.addEventListener("message", (event) => {
 ```
 
 `test-harness/widget-harness/public/workbench-embed.html` is a standalone reference implementation of this exact markup + handshake — copy from it if useful.
+
+## Register page context across the iframe
+
+The parent host owns page data. The iframe must not inspect the parent DOM, and a callback cannot be passed through HTML. Register the callback on the parent side before the frame connects:
+
+```ts
+import { registerIframeHostContextProvider } from "@side-chat/host-bridge";
+
+const unregisterContext = registerIframeHostContextProvider({
+  frame,
+  targetOrigin: new URL(frame.src).origin,
+  getContext: async ({ requestId }) => ({
+    schemaVersion: "workbench.page.v1",
+    collectedAt: new Date().toISOString(),
+    origin: window.location.origin,
+    url: window.location.href,
+    title: document.title,
+    metadata: { requestId, activeRecordId },
+  }),
+});
+```
+
+The frame-side bootstrap calls `connectIframeHostContextProvider({ targetOrigin })` and passes the returned provider into the widget bridge. A missing registration returns no provider, so **Include page context** stays absent. The option also stays absent when the service config has `hostContext.enabled: false`. When both gates exist, the user can toggle the option in the `+` menu; only opted-in sends request a fresh parent snapshot.
+
+Keep the registration for the frame lifetime and call `unregisterContext()` when the frame is removed. The adapter checks the exact source window, origin, correlation id, response shape, and timeout. Do not replace it with `"*"`, a DOM reach-through, a mount-time page dump, or a query-string payload.
 
 ## Host commands across the iframe
 

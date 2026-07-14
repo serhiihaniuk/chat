@@ -20,17 +20,25 @@ Not source of truth for: runtime tools or backend persistence.
 
 ## Public Surface
 
-`createHostBridge` binds one capability source to both legacy
-`dispatchCommand` and native `dispatchToolCall`. `WidgetHostBridge` is the
-widget-facing view. The native workflow branch reads `getCapabilities`, maps the
-declarations to its per-turn client-tool catalog, and posts the dispatch result
-through its service client.
+`createHostBridge` binds direct host integrations. Page context is an optional,
+independent provider: the host registers `contextProvider.getContext`, and the
+widget calls it only after the user enables **Include page context** for a send.
+Legacy `dispatchCommand` and native `dispatchToolCall` remain a separate
+capability source. `WidgetHostBridge` is the widget-facing partial view, so a
+commands-only bridge does not imply page-context access.
+
+Iframe hosts use the same provider contract through
+`registerIframeHostContextProvider` in the parent and
+`connectIframeHostContextProvider` in the frame. The correlated `postMessage`
+adapter checks exact source, origin, request id, response shape, and timeout; the
+frame never reads the parent DOM.
 
 ## Main Flows
 
 ```txt
-protocol branch -> context or host-command event -> dispatchCommand
+protocol branch -> compatibility context or host-command event -> dispatchCommand
 workflow branch -> dynamic client-tool call -> dispatchToolCall -> durable output endpoint
+opted-in workflow send -> direct/iframe context provider -> untrusted request context
 ```
 
 ## Boundary Rules

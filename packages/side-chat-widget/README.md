@@ -46,7 +46,7 @@ protocol and workflow transports share one `SideChatPanelView` for settings,
 sidebar, header, switcher, refresh, and busy-safe navigation while retaining
 their own feed/session content.
 
-Workflow catalog, history, active-turn, model, and tool reads use one exported
+Workflow catalog, history, active-turn, model, tool, and capability reads use one exported
 TanStack Query prefix. Refresh invalidates that prefix; a persisted conversation
 remounts after refetch for replay, while a local draft remains New chat. The
 currently mounted chat retains ownership of a run it accepted so persistence
@@ -54,12 +54,16 @@ loading cannot erase live or just-finished messages.
 
 The native branch renders the validated AI SDK `UIMessage` part timeline with
 source-ordered text, reasoning, tool lifecycle, source, file, approval, and
-terminal presentations. An optional `hostBridge` advertises page capabilities
-as native client tools, dispatches dynamic `onToolCall` requests once, and posts
-their safe outcome to the durable workflow hook. Approval cards post decisions
+terminal presentations. An optional `hostBridge` keeps page context separate
+from native client tools. **Include page context** appears only when authenticated
+service capabilities enable it and `hostBridge.getContext` is registered; it
+defaults off and collects one fresh snapshot only for an opted-in send or
+regenerate. `hostBridge.getCapabilities` advertises native client tools,
+dispatches dynamic `onToolCall` requests once, and posts their safe outcome to
+the durable workflow hook. Approval cards post decisions
 to the service; the server owns continuation and replay updates the same tool
 row. Both transports accept the same `renderActivityItem` callback. Protocol-specific
-host context and turn profiles remain available only on the `client` branch.
+turn profiles remain available only on the `client` branch.
 
 The protocol-backed branch accepts `client` and exports
 `createSideChatApiClient` for service-backed consumers. `SideChatApiClient` drives

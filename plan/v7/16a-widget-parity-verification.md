@@ -105,6 +105,14 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 - `prepareTurn` preserves the exact accepted user message for persistence and title generation. A named application stage augments only the latest accepted user message passed to execution, labels the page reference as untrusted user-provided data, keeps the role `user`, and never inserts a system message.
 - Evidence: direct service TypeScript passes; focused request/config/preparation/Workflow coverage passes 9 files / 57 tests; the non-integration service suite passes 58 files / 269 tests; `lint:custom`, scoped Oxlint, scoped formatting, and the diff check pass. Those tests cover config validation, safe HTTP rejection for malformed/oversize/deep/wide/unknown input, auth isolation, exact persistence and title input, latest-message-only augmentation, absent-context identity, and user-role Workflow serialization. Native browser capture/transport remains open for the next slice, so this service evidence does not close the overall host-context parity row.
 
+### Approved host-context interaction correction — three gates, direct or iframe
+
+- Add `hostContext.enabled` to every readable replacement-service config. Publish it through authenticated `/api/capabilities`, and reject supplied context while disabled.
+- Treat provider registration independently from host commands. Direct React embedding registers `getContext`; iframe embedding registers the callback in the parent and uses the public correlated `postMessage` adapter. The iframe never reads the parent DOM.
+- Show **Include page context** in the shared `+` menu only when the service flag is on and a provider is registered. Default it off, keep it in mounted-widget memory, and clear it when either prerequisite disappears.
+- A send or regenerate creates one request id and, only when opted in, collects one fresh snapshot with that id before fetch. Provider failure sends no chat request. Reconnect, replay, cancel, approval, and client-tool-result paths never collect context.
+- Required proof: strict capability DTO tests, disabled-request rejection, direct-provider and iframe handshake/source/origin/timeout tests, menu visibility and toggle tests, exact request-body assertions for off/on/repeated sends, provider-failure no-fetch proof, refresh invalidation, and direct plus iframe browser evidence.
+
 ### At parity (native = legacy), browser-verified
 
 - **Settings view + header gear** — theme (all four), accent, corners, density, elevation, text size, typeface, send preference, tool-detail level. Reuses the shared `SettingsView`. Evidence: `evidence/task-16a-widget-parity/settings-view.png`.

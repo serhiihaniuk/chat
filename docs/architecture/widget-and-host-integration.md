@@ -53,11 +53,13 @@ The native branch is still pre-cutover. Steps [16](../../plan/v7/16-widget-recov
 
 Both transports compose `SideChatPanelView`. It owns settings-open state, sidebar, header, narrow switcher, labels, New chat/select/refresh controls, and busy/running navigation policy; the protocol feed/footer and native workflow content remain transport-specific slots. Workflow chat status is lifted to this shell. A locally accepted session stays mounted while history/discovery catch up, so query loading cannot replace a live stream.
 
-All native workflow reads share the exported `WORKFLOW_CHAT_QUERY_SCOPE` TanStack Query prefix. Refresh invalidates active catalog, selected history, active-turn discovery, model, and tool reads. After those reads settle, a persisted conversation remounts for replay; a local draft remains New chat and selection never changes as a side effect of refresh.
+All native workflow reads share the exported `WORKFLOW_CHAT_QUERY_SCOPE` TanStack Query prefix. Refresh invalidates active catalog, selected history, active-turn discovery, model, tool, and service-capability reads. After those reads settle, a persisted conversation remounts for replay; a local draft remains New chat and selection never changes as a side effect of refresh.
 
 The `workflowChat` branch reads `/api/conversations/:conversationId/messages` only for server-known conversations and validates non-empty history as native `UIMessage[]`. A local draft mounts an empty keyed session without history or discovery. Selecting a server-listed conversation restores those reads. Only after a required history read settles does `useWorkflowWidgetChat` create one `useChat` instance with `id = conversationId`, so the history seed cannot race a streamed assistant into a duplicate bubble.
 
-`createWorkflowChatTransport` binds `WorkflowChatTransport` to the service envelope. Every send and reconnect resolves `getRequestConfig()` at request time, POSTs the strict `{requestId, conversationId, messages, modelPreference?, reasoningEffort?, hostContext?, enabledToolNames?}` body to `/api/chat`, and uses the returned `x-workflow-run-id` for `/api/chat/:runId/stream`. The replacement service already validates and safely renders the optional host context as untrusted user-level reference data; the native browser branch still needs to request and attach that snapshot on every submission. The native composer reads the authenticated display-only `/api/tools` catalog through TanStack Query; its enabled subset is optional when unavailable or empty, and an explicit `[]` disables every returned tool for that turn. The service intersects names with its trusted catalog, so the browser can only narrow authority; client-tool names may not collide with any registered server tool. Stop aborts the local reader and POSTs `{conversationId}` to `/api/chat/:runId/cancel`. Aborted response-body errors close cleanly before the transport's reconnect check, so cancellation stays calm without hiding non-abort transport failures.
+`createWorkflowChatTransport` binds `WorkflowChatTransport` to the service envelope. Every send and reconnect resolves `getRequestConfig()` at request time, while only a new send or regenerate may collect host page context. A send creates one `requestId`, asks the registered provider for a fresh snapshot with that id only when the user enabled **Include page context**, then POSTs the strict `{requestId, conversationId, messages, modelPreference?, reasoningEffort?, hostContext?, enabledToolNames?}` body to `/api/chat`. Reconnect, replay, cancel, approval, and client-tool-result requests never recollect page context. Provider failure rejects before the chat request is sent.
+
+The native widget reads authenticated `/api/capabilities` and `/api/tools` catalogs through TanStack Query. **Include page context** appears in the `+` menu only when the service publishes `hostContext.enabled = true` and the embedding app registered a callable context provider. It defaults off, remains an in-memory composer preference for the mounted widget, and is forced off if either prerequisite disappears. The server rejects a supplied `hostContext` while the capability is disabled; it never silently accepts or drops data that deployment policy forbids. The tool catalog remains independent: its enabled subset is optional when unavailable or empty, and an explicit `[]` disables every returned tool for that turn. The service intersects names with its trusted catalog, so the browser can only narrow authority; client-tool names may not collide with any registered server tool. Stop aborts the local reader and POSTs `{conversationId}` to `/api/chat/:runId/cancel`. Aborted response-body errors close cleanly before the transport's reconnect check, so cancellation stays calm without hiding non-abort transport failures.
 
 The workflow branch projects validated native `UIMessage` parts in source order: text and reasoning, static or dynamic tool lifecycles, approval decisions, sources, sanctioned files, and terminal notices. Reasoning and non-approval tools are normalized to the widget-owned `SideChatActivityItem` before an optional `renderActivityItem` callback; no AI SDK part crosses that public seam. Tool-detail policy is evaluated before customization (`hidden` drops, `name` stays compact, `full` may customize), and approval cards never yield to the callback. Completed native traces read their replay-safe `activityDurationMs` metadata and use the same rounded `Thought for Ns` label as the legacy path; older messages without the field retain `Thought process`. Completed assistant text in both widget paths uses the shared Copy action; streaming or empty answers do not expose it. `SideChatDataParts` is empty, so no widget-owned `data-*` vocabulary is introduced. An optional `hostBridge` advertises page capabilities as the request's native client-tool catalog.
 
@@ -98,17 +100,25 @@ Idempotency is load-bearing in three places that reconnect depends on: the `crea
 
 ## Host bridge contract
 
-The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **browser seam**. Both transport branches must request host context before each turn. The protocol branch also dispatches legacy host commands; the native workflow branch uses the same capability source for browser-executed client tools. The replacement service request schema and preparation pipeline accept bounded host context, keep it out of trusted/system channels, and preserve the exact user message for persistence and titles. Native browser transport remains the open Step 16a correction. Neither browser action is a backend RuntimeTool; a server-executed model tool needs a separate runtime registration.
+The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **browser seam**. Page context and browser-executed tools are separate optional capabilities: registering commands must not imply page-context access, and registering a page-context provider must not grant a command. The replacement service request schema and preparation pipeline accept bounded host context, keep it out of trusted/system channels, and preserve the exact user message for persistence and titles. Neither browser action is a backend RuntimeTool; a server-executed model tool needs a separate runtime registration.
 
-`createHostBridge(options)` returns a `HostBridge` of `{getContext, getCapabilities, dispatchCommand, dispatchToolCall}`. The widget consumes the narrowed `WidgetHostBridge` view. `dispatchToolCall` can use a native tool dispatcher or adapt the existing command dispatcher during the pre-alpha cutover window.
+`createHostBridge(options)` binds direct React integrations. A host registers its context callback as `contextProvider.getContext`; the widget-facing `WidgetHostBridge.getContext` exists only when that provider is registered. Capability and dispatch methods remain independently optional on the narrowed widget view. The provider is called at send time, after the user has opted in, so it observes the current page rather than a mount-time snapshot.
 
-| Branch   | When                       | Method                                                                     | Owner in the widget                                                  |
-| -------- | -------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Protocol | On every submit or retry   | `getContext({requestId})` returns context attached to the protocol request | `features/chat/model/use-widget-chat-actions.ts`                     |
-| Protocol | During stream consumption  | `dispatchCommand(event)` runs one legacy host-command activity             | `features/chat/model/subscription/`                                  |
-| Workflow | On every submit or retry   | `getContext({requestId})` returns context attached to the workflow request | Step 16a correction: browser transport; service preparation is ready |
-| Workflow | Before each send           | `getCapabilities()` supplies the native client-tool catalog                | `features/workflow-chat/model/use-workflow-widget-chat.ts`           |
-| Workflow | On a dynamic tool callback | `dispatchToolCall(call)` runs one capability-gated browser action          | `features/workflow-chat/model/client-tools/`                         |
+Page context has three independent gates, all of which must be true:
+
+1. Deployment policy: the readable service config sets `hostContext.enabled: true`, and authenticated `/api/capabilities` publishes that fact.
+2. Host integration: the direct host supplies `getContext`, or an iframe parent registers a provider through `registerIframeHostContextProvider` and the child connects through `connectIframeHostContextProvider`.
+3. User intent: the composer `+` menu has **Include page context** enabled for the next send.
+
+The first two gates control whether the menu row exists. The third controls whether the request contains `hostContext`. A context snapshot is reference data only; origin, URL, title, metadata, and collection timestamps never prove identity, authorization, tenant, workspace, or tool authority.
+
+| Branch   | When                       | Method                                                                     | Owner in the widget                                        |
+| -------- | -------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Protocol | Compatibility submit path  | `getContext({requestId})` returns context attached to the protocol request | `features/chat/model/use-widget-chat-actions.ts`           |
+| Protocol | During stream consumption  | `dispatchCommand(event)` runs one legacy host-command activity             | `features/chat/model/subscription/`                        |
+| Workflow | On opted-in send or retry  | `getContext({requestId})` returns context attached to the workflow request | `features/workflow-chat/model/use-workflow-widget-chat.ts` |
+| Workflow | Before each send           | `getCapabilities()` supplies the native client-tool catalog                | `features/workflow-chat/model/use-workflow-widget-chat.ts` |
+| Workflow | On a dynamic tool callback | `dispatchToolCall(call)` runs one capability-gated browser action          | `features/workflow-chat/model/client-tools/`               |
 
 `dispatchCommand` runs **once per `activityId`**, only when an `ACTIVITY` event is a host-command event (guard at `widget-run-subscription.ts:69`). The result always folds back into the timeline:
 
@@ -119,6 +129,17 @@ The host bridge (`packages/host-bridge`, public API in `src/index.ts`) is the **
 Do not add ad-hoc retry around dispatch; a failed row is the recorded outcome.
 
 The native branch has two dedupe guards. A settled `UIMessage` tool part is never dispatched, including after refresh or replay. An in-memory set keyed by `toolCallId` prevents a re-render from starting the same unsettled dispatch twice. Bridge exceptions and missing capabilities become failed outputs posted to the service instead of React errors.
+
+### Iframe page-context registration
+
+An iframe cannot receive a JavaScript callback prop from its parent and must not reach through `window.parent.document`. The public host-bridge package therefore owns a request/response `postMessage` adapter:
+
+- The parent calls `registerIframeHostContextProvider` with the exact frame window, allowed frame origin, and provider callback before the frame connects.
+- The child calls `connectIframeHostContextProvider` with the exact parent origin. A successful handshake yields the same provider interface used by direct embedding; no registration yields `undefined`, so the menu row stays hidden.
+- Each opted-in send posts a correlated request. Replies must match request id, `event.source`, and exact origin. Timeouts and provider errors reject with a safe integration error and no chat request is sent.
+- The parent returns a newly collected snapshot. The adapter validates the reply shape before it crosses into widget state; the service then applies its own independent size and trust-boundary validation.
+
+This transport is capability plumbing, not authority. Same-origin development is supported, but origin and source checks remain mandatory so the production pattern also works when the parent and frame use different trusted origins.
 
 ## Copied-UI quarantine
 
