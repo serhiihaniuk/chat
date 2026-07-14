@@ -229,6 +229,14 @@ A browser lane proves both the direct widget page and an iframe-hosted page agai
 npm run test:e2e
 ```
 
+The native Workflow iframe contract also has an isolated no-provider lane. It starts the
+workflow fixture, widget frame, and parent proxy; then proves the default-off toggle, exact
+request correlation, parent-owned surface metadata, and auth-query exclusion:
+
+```sh
+npx playwright test workflow-iframe.spec.ts --config test-harness/widget-harness/e2e/workflow.playwright.config.ts
+```
+
 If the default E2E ports (widget `5174`, service `3101`; `playwright.config.ts:3,5`) are busy, override them:
 
 ```powershell

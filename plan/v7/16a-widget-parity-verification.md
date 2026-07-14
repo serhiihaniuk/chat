@@ -59,12 +59,12 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 | Surface             | Legacy contract to preserve                                                            | Workflow correction status                                                                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Conversation shell  | New chat, select, title, refresh, running indicators, busy-safe controls               | Partial: one shared shell now owns New chat/select/refresh/settings/header/switcher, and real running/busy state is wired; conversation-specific title semantics remain to reverify |
-| Prompting           | quick actions, model/turn choice, host context, host/client tool integration           | Partial: the service accepts bounded host context and renders it only as untrusted current-user reference data; native browser capture/transport remains open                       |
+| Prompting           | quick actions, model/turn choice, host context, host/client tool integration           | Closed for the correction scope: model/reasoning and tool catalogs are mapped; page context requires service policy, a direct or iframe host provider, and explicit per-mount user opt-in |
 | Settings            | theme, appearance, send preference, reasoning visibility, tool detail                  | Reverified after shared-shell consolidation in the paired look fixture and interaction suite                                                                                        |
 | Message composition | reasoning/tools fold, duration, activity override, citations, images/files, copy/retry | Partial: activity override is mapped through one transport-neutral contract; the other composition behavior remains unchanged and must stay covered at cutover                      |
 | Recovery            | idle New chat, active refresh reattach, drop retry, multi-tab convergence              | Reopened in Step 16                                                                                                                                                                 |
 | Configuration       | one readable deployment declaration                                                    | Closed: default, Azure, and fake variants are standalone declarations; boot validates relationships and both HTTP and Workflow consume the same filtered catalogs                   |
-| Styling             | shared design tokens across legacy and workflow Streamdown messages                    | Open                                                                                                                                                                                |
+| Styling             | shared design tokens across legacy and workflow Streamdown messages                    | Closed: `MarkdownContent` alone owns `.sc-markdown`; generated Streamdown DOM consumes documented `--message-*` component tokens                                                     |
 
 ### Verification gaps found by the audit
 
@@ -103,22 +103,31 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 - Every standalone replacement-service config declares the consumed host-context limits: 16,384 serialized UTF-8 bytes, 4,096 characters per direct or metadata string/key, metadata depth 8, and 128 total nested object properties plus array items.
 - The service owns an immutable host-context type. HTTP rejects unknown keys, malformed JSON metadata, non-finite numbers, and every limit violation with the existing safe `400`; it never logs the raw context.
 - `prepareTurn` preserves the exact accepted user message for persistence and title generation. A named application stage augments only the latest accepted user message passed to execution, labels the page reference as untrusted user-provided data, keeps the role `user`, and never inserts a system message.
-- Evidence: direct service TypeScript passes; focused request/config/preparation/Workflow coverage passes 9 files / 57 tests; the non-integration service suite passes 58 files / 269 tests; `lint:custom`, scoped Oxlint, scoped formatting, and the diff check pass. Those tests cover config validation, safe HTTP rejection for malformed/oversize/deep/wide/unknown input, auth isolation, exact persistence and title input, latest-message-only augmentation, absent-context identity, and user-role Workflow serialization. Native browser capture/transport remains open for the next slice, so this service evidence does not close the overall host-context parity row.
+- Evidence: direct service TypeScript passes; focused request/config/preparation/Workflow coverage passes 9 files / 57 tests; the non-integration service suite passes 58 files / 269 tests; `lint:custom`, scoped Oxlint, scoped formatting, and the diff check pass. Those tests cover config validation, safe HTTP rejection for malformed/oversize/deep/wide/unknown input, auth isolation, exact persistence and title input, latest-message-only augmentation, absent-context identity, and user-role Workflow serialization. Browser collection and transport are closed by the following interaction slice; this service evidence remains intentionally separate from that browser proof.
 
-### Approved host-context interaction correction — three gates, direct or iframe
+### Complete — host-context interaction through three gates, direct or iframe
 
 - Add `hostContext.enabled` to every readable replacement-service config. Publish it through authenticated `/api/capabilities`, and reject supplied context while disabled.
 - Treat provider registration independently from host commands. Direct React embedding registers `getContext`; iframe embedding registers the callback in the parent and uses the public correlated `postMessage` adapter. The iframe never reads the parent DOM.
 - Show **Include page context** in the shared `+` menu only when the service flag is on and a provider is registered. Default it off, keep it in mounted-widget memory, and clear it when either prerequisite disappears.
 - A send or regenerate creates one request id and, only when opted in, collects one fresh snapshot with that id before fetch. Provider failure sends no chat request. Reconnect, replay, cancel, approval, and client-tool-result paths never collect context.
 - Required proof: strict capability DTO tests, disabled-request rejection, direct-provider and iframe handshake/source/origin/timeout tests, menu visibility and toggle tests, exact request-body assertions for off/on/repeated sends, provider-failure no-fetch proof, refresh invalidation, and direct plus iframe browser evidence.
+- Implemented: every readable service config declares `hostContext.enabled`; authenticated capabilities publish only that flag; disabled services reject supplied context. `WidgetHostBridge` keeps context independent from command and tool methods. Direct hosts register `getContext`; iframe parents register the exported callback against one frame and exact origin, while the child connects through correlated requests without parent-DOM access.
+- Interaction: **Include page context** appears only after both service policy and provider discovery succeed. It defaults off, resets when a prerequisite disappears, and collects once with the turn request id immediately before each opted-in send or regenerate. Provider failure prevents fetch; replay, reconnect, approval, cancellation, and client-tool continuation never recollect.
+- Evidence: host bridge 14 tests; widget capability, selection, menu, and transport coverage 7 files / 60 tests; production widget and harness TypeScript; scoped Oxlint; custom governance; and isolated iframe Playwright 1/1 asserting default-off toggle state, exact request correlation, parent-owned surface metadata, and auth-query exclusion.
+
+### Complete — Streamdown token ownership
+
+- `MarkdownContent` is the only `.sc-markdown` owner. `Message` owns only reading measure and typography layout, so legacy and workflow assistant messages render through the same single hook.
+- The documented message token group now owns Markdown block/item rhythm, links, code surfaces, list indent, headings, blockquotes, and table cells. The stylesheet value for `--message-block-gap` again matches the design-system table.
+- Evidence: focused Markdown ownership/token tests 3 files / 6 tests, widget production TypeScript, scoped Oxlint and formatting, the custom governance gate, and a production Vite build. The contract test rejects the raw spacing utilities that caused this regression.
 
 ### At parity (native = legacy), browser-verified
 
 - **Settings view + header gear** — theme (all four), accent, corners, density, elevation, text size, typeface, send preference, tool-detail level. Reuses the shared `SettingsView`. Evidence: `evidence/task-16a-widget-parity/settings-view.png`.
 - **Empty state + quick actions** — greeting, agent mark, context-aware description, host starter prompts. Evidence: `evidence/task-16a-widget-parity/empty-state.png`.
 - **Conversation sidebar + switcher (multi-conversation)** — the shared shell now owns both compositions. The workflow path has no newest-chat fallback or URL notification, promotes on service acceptance, displays catalog running ids, and applies busy-safe navigation guards. Conversation-specific title semantics remain to reverify before this row closes.
-- **Composer footer + model selector** — the native path uses the shared `WidgetFooter` (same composer as legacy); the model selector reads `GET /api/models` and sends the chosen id as `modelPreference`. The documented `+` control remains visible with an empty production tool catalog and honestly reports that no tools are available.
+- **Composer footer + model selector** — the native path uses the shared `WidgetFooter` (same composer as legacy); the model selector reads `GET /api/models` and sends the chosen id as `modelPreference`. The documented `+` control remains visible with an empty production tool catalog. It shows **Include page context** only when service policy and a host provider both exist; otherwise it honestly reports that no tools are available.
 - **Tool-detail level** — `hidden` drops tool rows, `name` pins a compact row, `full` keeps the expandable detail (unit-tested).
 - **Reasoning visibility** — `detailed` holds a completed trace open (unit-tested).
 - **Agent mark** — `renderAgentMark` flows to the header title and the empty state.
@@ -165,7 +174,7 @@ None approved.
 - Focused state tests cover draft creation, persisted selection, missing selection, service-accept promotion, terminal cursor cleanup, and no implicit fallback.
 - Browser tests cover empty-store refresh, idle refresh with existing chats, mid-turn refresh, no URL mutation, and two-tab running-state selection.
 - The parity matrix has no open row or each remaining cut has explicit user approval in the sign-off section.
-- The replacement config can be read top to bottom to identify provider routing, every request-selectable model and reasoning choice, the title job, exposed server tools, host-context limits, and every wired timer. Native browser transport remains open; future capacity policy must add enforcement before configuration.
+- The replacement config can be read top to bottom to identify provider routing, every request-selectable model and reasoning choice, the title job, exposed server tools, host-context policy and limits, and every wired timer. Direct and iframe browser transport are verified; future capacity policy must add enforcement before configuration.
 - Streamdown spacing/color/typography selectors consume documented tier-2 component tokens and one wrapper owns `.sc-markdown`.
 - Focused tests, widget/service typechecks, scoped Oxlint, custom governance, and touched formatting pass; root baseline failures, if any, are separated from touched regressions.
 
@@ -174,9 +183,9 @@ None approved.
 - [x] Correct refresh/selection contract implemented and verified with no URL tracking or implicit fallback.
 - [x] Shared shell/presentation ownership restores refresh, busy safeguards, and running indicators without duplicate orchestration.
 - [x] Custom activity rendering is mapped one-to-one through a transport-neutral public contract.
-- [ ] Host context and the complete model/tool/profile contract are mapped one-to-one.
+- [x] Host context and the complete model/tool/profile contract are mapped one-to-one.
 - [x] One readable replacement-service config satisfies ADR 0010 in code and documentation.
-- [ ] Streamdown message styling uses documented component tokens with one `.sc-markdown` owner.
+- [x] Streamdown message styling uses documented component tokens with one `.sc-markdown` owner.
 - [x] Existing settings, composer, usage, copy, durable duration, and look-identity behavior is reverified after consolidation.
 - [ ] Step 16 has real refresh and multi-tab evidence and is complete before this gate closes.
 - [x] Step 20 references this gate as a hard precondition.

@@ -319,9 +319,30 @@
   /* Message stack — one gap for a message's stacked parts (reasoning, answer,
      sources fold), so the vertical rhythm is a single density-driven token. */
   --message-stack-gap: calc(var(--spacing) * 2);
-  --message-block-gap: calc(var(--spacing) * 2);
+  --message-block-gap: calc(var(--spacing) * 1);
   --message-item-gap: calc(var(--spacing) * 0.5);
   --message-leading: 1.5;
+  --message-link-foreground: var(--primary);
+  --message-link-underline-offset: calc(var(--spacing) * 0.5);
+  --message-markdown-border: var(--border);
+  --message-markdown-border-width: 1px;
+  --message-muted-background: var(--muted);
+  --message-muted-foreground: var(--muted-foreground);
+  --message-inline-code-px: calc(var(--spacing) * 1);
+  --message-inline-code-py: calc(var(--spacing) * 0.5);
+  --message-inline-code-radius: var(--radius-sm);
+  --message-code-block-pad: calc(var(--spacing) * 3);
+  --message-code-block-radius: var(--radius-md);
+  --message-code-font-size: var(--text-sm);
+  --message-list-indent: calc(var(--spacing) * 5);
+  --message-heading-gap-before: calc(var(--spacing) * 4);
+  --message-heading-gap-after: calc(var(--spacing) * 2);
+  --message-heading-weight: 600;
+  --message-quote-border-width: 2px;
+  --message-quote-indent: calc(var(--spacing) * 3);
+  --message-table-font-size: var(--text-sm);
+  --message-table-cell-px: calc(var(--spacing) * 2);
+  --message-table-cell-py: calc(var(--spacing) * 1);
 
   /* Tool detail — the expanded payload tree: row/key-value rhythm, the
      Input/Result panel padding, and the one-per-level nested indent. All resolve
@@ -1267,46 +1288,70 @@ a.sc-cite-source:hover {
     line-height: var(--message-leading);
   }
   & :where(p) {
-    @apply my-(--message-block-gap);
+    margin-block: var(--message-block-gap);
   }
   /* The answer's first block sits flush with its top and its last block flush with
      its bottom — whatever the block type — so a leading/trailing list, heading, or
      code block never adds padding on top of the message's own --message-stack-gap. */
-  & :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4):first-child {
+  & :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4, h5, h6):first-child {
     margin-top: 0;
   }
-  & :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4):last-child {
+  & :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4, h5, h6):last-child {
     margin-bottom: 0;
   }
   & :where(a) {
-    @apply text-primary underline underline-offset-2;
+    color: var(--message-link-foreground);
+    text-decoration-line: underline;
+    text-underline-offset: var(--message-link-underline-offset);
   }
   & :where(code):not(:where(pre *)) {
-    @apply rounded-sm border border-border bg-muted px-1 py-0.5 text-sm;
+    padding: var(--message-inline-code-py) var(--message-inline-code-px);
+    border: var(--message-markdown-border-width) solid var(--message-markdown-border);
+    border-radius: var(--message-inline-code-radius);
+    background: var(--message-muted-background);
+    font-size: var(--message-code-font-size);
   }
   & :where(pre) {
-    @apply my-(--message-block-gap) overflow-x-auto rounded-md border border-border bg-muted p-3 text-sm;
+    margin-block: var(--message-block-gap);
+    overflow-x: auto;
+    padding: var(--message-code-block-pad);
+    border: var(--message-markdown-border-width) solid var(--message-markdown-border);
+    border-radius: var(--message-code-block-radius);
+    background: var(--message-muted-background);
+    font-size: var(--message-code-font-size);
   }
   & :where(ul) {
-    @apply my-(--message-block-gap) list-disc pl-5;
+    margin-block: var(--message-block-gap);
+    padding-inline-start: var(--message-list-indent);
+    list-style-type: disc;
   }
   & :where(ol) {
-    @apply my-(--message-block-gap) list-decimal pl-5;
+    margin-block: var(--message-block-gap);
+    padding-inline-start: var(--message-list-indent);
+    list-style-type: decimal;
   }
   & :where(li) {
-    @apply my-(--message-item-gap);
+    margin-block: var(--message-item-gap);
   }
-  & :where(h1, h2, h3, h4) {
-    @apply mt-4 mb-2 font-semibold;
+  & :where(h1, h2, h3, h4, h5, h6) {
+    margin-block: var(--message-heading-gap-before) var(--message-heading-gap-after);
+    font-weight: var(--message-heading-weight);
   }
   & :where(blockquote) {
-    @apply my-(--message-block-gap) border-l-2 border-border pl-3 text-muted-foreground;
+    margin-block: var(--message-block-gap);
+    padding-inline-start: var(--message-quote-indent);
+    border-inline-start: var(--message-quote-border-width) solid var(--message-markdown-border);
+    color: var(--message-muted-foreground);
   }
   & :where(table) {
-    @apply my-(--message-block-gap) w-full text-sm;
+    width: 100%;
+    margin-block: var(--message-block-gap);
+    font-size: var(--message-table-font-size);
   }
   & :where(th, td) {
-    @apply border border-border px-2 py-1 text-left;
+    padding: var(--message-table-cell-py) var(--message-table-cell-px);
+    border: var(--message-markdown-border-width) solid var(--message-markdown-border);
+    text-align: left;
   }
 }
 

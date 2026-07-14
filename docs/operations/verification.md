@@ -67,6 +67,14 @@ Every command below is a root `package.json` script (`package.json:11-31`).
 | `npm run smoke:provider:openai` | A live OpenAI run streams end to end on the connection-bound POST.                   | No           |
 | `npm run audit`                 | `npm audit` reports no high-or-above advisory.                                       | No           |
 
+The native iframe host-context contract has a narrower no-Docker lane. It proves the
+public parent/child adapter, default-off user choice, request correlation, and exclusion
+of the harness auth query:
+
+```sh
+npx playwright test workflow-iframe.spec.ts --config test-harness/widget-harness/e2e/workflow.playwright.config.ts
+```
+
 The provider smoke refuses to run until you set **both** acknowledgement flags:
 `SIDECHAT_OPENAI_API_KEY` and `SIDECHAT_LIVE_PROVIDER_SMOKE=approved`
 (`scripts/smoke-openai-provider.mjs:5-12`).

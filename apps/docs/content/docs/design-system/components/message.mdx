@@ -39,6 +39,11 @@ import { Message } from '@side-chat/side-chat-widget/ui/message';
 Markdown. Pass `mode="streaming"` while tokens are still arriving so the Markdown wrapper
 renders incrementally.
 
+`MarkdownContent` is the single owner of the `.sc-markdown` hook. Streamdown owns the
+generated elements under that hook; links, code, lists, headings, quotes, and tables consume
+the message tokens below instead of raw spacing, color, or typography utilities. This keeps
+legacy and workflow messages on the same theme and density contract.
+
 ## Tokens
 
 <TokenTable group="message" />

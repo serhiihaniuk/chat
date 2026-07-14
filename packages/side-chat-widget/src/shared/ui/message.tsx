@@ -37,7 +37,7 @@ export function Message({
           {text}
         </div>
       ) : (
-        <div className="sc-markdown max-w-measure-message text-md">
+        <div className="max-w-measure-message text-md">
           <MarkdownContent mode={mode}>{text}</MarkdownContent>
         </div>
       )}

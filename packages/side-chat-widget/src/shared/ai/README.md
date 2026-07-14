@@ -8,6 +8,10 @@ This folder now contains only the Markdown/Streamdown wrapper used by assistant
 messages. The copied visual primitives that used to live here were retired when
 the widget moved to project-owned components under `shared/ui`.
 
+`MarkdownContent` alone owns the `.sc-markdown` hook. The package stylesheet
+styles Streamdown's generated DOM through documented `--message-*` component
+tokens; callers provide only layout and reading-measure classes.
+
 ## Allowed
 
 - Markdown/Streamdown wrapper maintenance.
