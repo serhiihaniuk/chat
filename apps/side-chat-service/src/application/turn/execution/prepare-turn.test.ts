@@ -5,6 +5,7 @@ import type { TurnStore } from "#application/ports/turn/turn-store";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
+import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
 import { DeterministicTurnExecution } from "#testing/turn/deterministic-turn-execution";
 import {
@@ -35,6 +36,7 @@ describe("prepareTurn", () => {
     const execution = new DeterministicTurnExecution();
     const prepared = await prepareTurn(
       {
+        modelPolicy: traceModelPolicy(calls),
         admission: traceAdmission(admission, calls),
         turns: traceTurnStore(state, calls),
         execution: traceExecution(execution, calls),
@@ -42,7 +44,14 @@ describe("prepareTurn", () => {
       input(),
     );
 
-    expect(calls).toEqual(["preflight", "admission", "begin-turn", "execution", "bind-run"]);
+    expect(calls).toEqual([
+      "model-policy",
+      "preflight",
+      "admission",
+      "begin-turn",
+      "execution",
+      "bind-run",
+    ]);
     expect(prepared.execution.runId).toBe("run-turn-1");
     expect(admission.released).toBe(0);
   });
@@ -55,6 +64,7 @@ describe("prepareTurn", () => {
     await expect(
       prepareTurn(
         {
+          modelPolicy: selectTestModel,
           admission,
           turns: state,
           execution: new DeterministicTurnExecution(),
@@ -68,6 +78,35 @@ describe("prepareTurn", () => {
     expect(state.terminals.size).toBe(0);
   });
 
+  it("rejects model policy before preflight, admission, persistence, or execution", async () => {
+    const calls: string[] = [];
+    const state = createState();
+    const admission = new DeterministicTurnAdmission();
+    const execution = new DeterministicTurnExecution();
+
+    await expect(
+      prepareTurn(
+        {
+          modelPolicy: () => {
+            calls.push("model-policy");
+            throw new TurnRejectedError(
+              TURN_REJECTION_CODES.MODEL_NOT_ALLOWED,
+              "Model is not available",
+            );
+          },
+          admission: traceAdmission(admission, calls),
+          turns: traceTurnStore(state, calls),
+          execution: traceExecution(execution, calls),
+        },
+        input({ requestedModelId: "unknown-model" }),
+      ),
+    ).rejects.toMatchObject({ code: TURN_REJECTION_CODES.MODEL_NOT_ALLOWED });
+    expect(calls).toEqual(["model-policy"]);
+    expect(admission.admitted).toBe(0);
+    expect(state.userMessages).toEqual([]);
+    expect(execution.started).toEqual([]);
+  });
+
   it("releases admission when execution cannot start", async () => {
     const state = createState();
     const admission = new DeterministicTurnAdmission();
@@ -75,6 +114,7 @@ describe("prepareTurn", () => {
     await expect(
       prepareTurn(
         {
+          modelPolicy: selectTestModel,
           admission,
           turns: state,
           execution: new DeterministicTurnExecution(new Error("start failed")),
@@ -109,6 +149,7 @@ describe("prepareTurn", () => {
     await expect(
       prepareTurn(
         {
+          modelPolicy: selectTestModel,
           admission,
           turns,
           execution: new DeterministicTurnExecution(),
@@ -132,15 +173,27 @@ function createState(): InMemoryTurnState {
   ]);
 }
 
-function input() {
+function input(overrides: { requestedModelId?: string } = {}) {
   return {
     auth,
     conversationId: "conversation-1",
     requestId: "request-1",
-    modelId: "test-model",
+    requestedModelId: overrides.requestedModelId ?? "test-model",
     messages: [userMessage],
     acceptedUserMessage: userMessage,
   } as const;
+}
+
+const selectTestModel: TurnModelPolicy = (requestedModelId, requestedReasoningEffort) => ({
+  modelId: requestedModelId ?? "test-model",
+  ...(requestedReasoningEffort === undefined ? {} : { reasoningEffort: requestedReasoningEffort }),
+});
+
+function traceModelPolicy(calls: string[]): TurnModelPolicy {
+  return (requestedModelId, requestedReasoningEffort) => {
+    calls.push("model-policy");
+    return selectTestModel(requestedModelId, requestedReasoningEffort);
+  };
 }
 
 function traceAdmission(admission: TurnAdmission, calls: string[]): TurnAdmission {

@@ -4,6 +4,7 @@ import type { TurnAdmission, TurnAdmissionLease } from "#application/ports/turn/
 import type { StartedTurnExecution, TurnExecution } from "#application/ports/turn/turn-execution";
 import type { TurnStore } from "#application/ports/turn/turn-store";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
+import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 import type { AuthContext } from "#domain/auth-context";
 import {
   TURN_EXECUTION_ERROR_CODES,
@@ -17,8 +18,8 @@ export type PrepareTurnInput = Readonly<{
   auth: AuthContext;
   conversationId: string;
   requestId: string;
-  modelId: string;
-  reasoningEffort?: SideChatReasoningEffort | undefined;
+  requestedModelId?: string | undefined;
+  requestedReasoningEffort?: SideChatReasoningEffort | undefined;
   messages: readonly TurnMessage[];
   acceptedUserMessage: TurnMessage;
   clientTools?: readonly ClientToolDefinition[];
@@ -32,6 +33,7 @@ export type PreparedTurn = Readonly<{
 }>;
 
 export type PrepareTurnDependencies = Readonly<{
+  modelPolicy: TurnModelPolicy;
   admission: TurnAdmission;
   turns: TurnStore;
   execution: TurnExecution;
@@ -47,6 +49,7 @@ export async function prepareTurn(
   dependencies: PrepareTurnDependencies,
   input: PrepareTurnInput,
 ): Promise<PreparedTurn> {
+  const model = dependencies.modelPolicy(input.requestedModelId, input.requestedReasoningEffort);
   await dependencies.turns.assertCanBegin(input.auth, input.conversationId);
   const admission = await dependencies.admission.admitTurn(input.conversationId);
 
@@ -61,8 +64,8 @@ export async function prepareTurn(
       ...turn,
       auth: input.auth,
       requestId: input.requestId,
-      modelId: input.modelId,
-      ...(input.reasoningEffort === undefined ? {} : { reasoningEffort: input.reasoningEffort }),
+      modelId: model.modelId,
+      ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: model.reasoningEffort }),
       messages: input.messages,
       clientTools: input.clientTools ?? [],
       ...(input.enabledToolNames === undefined ? {} : { enabledToolNames: input.enabledToolNames }),

@@ -26,17 +26,20 @@ import {
 } from "#application/ports/turn/tools/tool-approval-store";
 import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
-import { configuredTurnModel, type TurnModelPolicy } from "#application/turn/turn-model-policy";
+import { configuredTurnModelCatalog } from "#application/turn/turn-model-policy";
 import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
-import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
+import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import type { Settings } from "#config/settings/resolve-settings";
-import { OPENAI_PROVIDER, openAIReasoningSupport } from "#config/providers/openai-provider-config";
 import { scriptedModelProvider } from "#testing/scripted-language-model";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
 import { DeterministicTurnExecution } from "#testing/turn/deterministic-turn-execution";
 
 import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
+import {
+  configuredModelCatalog,
+  publishedModelCatalog,
+} from "../providers/configured-model-catalog.js";
 import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
 
@@ -55,9 +58,10 @@ const unavailableToolApprovals: ToolApprovalDecisionStore = {
 };
 
 function resolveServerTools(
+  settings: Settings,
   serverTools: readonly ServerToolDefinition[] | undefined,
 ): readonly ServerToolDefinition[] {
-  return serverTools ?? REGISTERED_SERVER_TOOLS;
+  return serverTools ?? selectRegisteredServerTools(settings.serverTools);
 }
 
 export async function startTestingService(
@@ -145,7 +149,7 @@ async function startTestingServiceWithPersistence<
   const turnState = persistence.store;
   const telemetrySink = overrides.telemetrySink ?? { record: () => undefined };
   const turnExecution = overrides.turnExecution ?? new DeterministicTurnExecution();
-  const serverTools = resolveServerTools(overrides.serverTools);
+  const serverTools = resolveServerTools(settings, overrides.serverTools);
   const serverToolNames = new Set(serverTools.map((definition) => definition.name));
   const turnReplay = resolveTurnReplay(overrides.turnReplay);
   const approvalDependencies = testingApprovalDependencies(overrides, persistence);
@@ -162,7 +166,7 @@ async function startTestingServiceWithPersistence<
       ...approvalDependencies,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
-      selectModel: testingTurnModelPolicy(settings),
+      modelPolicy: configuredTurnModelCatalog(configuredModelCatalog(settings)),
       serverToolNames,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
@@ -176,11 +180,7 @@ async function startTestingServiceWithPersistence<
     createQueryRoutes({
       queries: overrides.conversationQueries ?? turnState,
       telemetry: telemetrySink,
-      model: {
-        id: settings.models.modelId,
-        provider: settings.models.provider,
-        contextWindowTokens: settings.models.contextWindowTokens,
-      },
+      modelCatalog: publishedModelCatalog(settings),
       structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
       serverTools,
     }),
@@ -254,24 +254,4 @@ function inMemoryPersistence(store: InMemoryTurnState): TestingPersistence<InMem
       close: () => undefined,
     }),
   };
-}
-
-function testingTurnModelPolicy(settings: Settings): TurnModelPolicy {
-  if (settings.models.provider === OPENAI_PROVIDER.KIND) {
-    const reasoning = openAIReasoningSupport(
-      settings.models.modelId,
-      settings.models.reasoningEffort,
-    );
-    return configuredTurnModel({
-      id: settings.models.modelId,
-      ...(reasoning === undefined ? {} : { reasoning }),
-    });
-  }
-  if (settings.models.provider !== "scripted") {
-    return configuredTurnModel({ id: settings.models.modelId });
-  }
-  return (requested, reasoningEffort) => ({
-    modelId: requested ?? settings.models.modelId,
-    ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
-  });
 }

@@ -11,11 +11,23 @@ import {
   defineServerTool,
 } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
+import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
 
 describe("conversation query routes", () => {
   it("serves route-owned conversation and model DTOs behind authentication", async () => {
     const harness = await createServiceTestHarness({
       conversationQueries: queryStore(),
+      models: {
+        provider: SCRIPTED_PROVIDER.KIND,
+        defaultModelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+        availableModels: [
+          {
+            id: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+            contextWindowTokens: SCRIPTED_PROVIDER.MODELS.COMPLETE.CONTEXT_WINDOW_TOKENS,
+          },
+          { id: "block", contextWindowTokens: 8_000 },
+        ],
+      },
     });
     try {
       const conversations = await harness.request("/api/conversations");
@@ -33,7 +45,10 @@ describe("conversation query routes", () => {
 
       const models = await harness.request("/api/models");
       expect(await models.json()).toEqual({
-        models: [{ id: "complete", provider: "scripted", contextWindowTokens: 16_000 }],
+        models: [
+          { id: "complete", provider: "scripted", contextWindowTokens: 16_000 },
+          { id: "block", provider: "scripted", contextWindowTokens: 8_000 },
+        ],
         defaultModelId: "complete",
       });
 

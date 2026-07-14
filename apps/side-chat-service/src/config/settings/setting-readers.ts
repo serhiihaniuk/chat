@@ -13,6 +13,16 @@ export function readObject(value: unknown, path: string, issues: SettingsIssue[]
   return {};
 }
 
+export function readArray(
+  value: unknown,
+  path: string,
+  issues: SettingsIssue[],
+): readonly unknown[] {
+  if (Array.isArray(value)) return value;
+  issues.push({ path, message: "must be an array" });
+  return [];
+}
+
 export function readRequiredString(value: unknown, path: string, issues: SettingsIssue[]): string {
   if (typeof value === "string" && value.trim().length > 0) return value;
   issues.push({ path, message: "must be a non-empty string" });

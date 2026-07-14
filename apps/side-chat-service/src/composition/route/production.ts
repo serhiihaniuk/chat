@@ -30,17 +30,20 @@ import {
   type ClientToolDispatchStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { Settings } from "#config/settings/resolve-settings";
-import { configuredTurnModel, type ConfiguredTurnModel } from "#application/turn/turn-model-policy";
-import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
+import { configuredTurnModelCatalog } from "#application/turn/turn-model-policy";
+import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import { AUTH_PROFILES, WORKFLOW_JOURNAL_CLASSES } from "#config/declaration/side-chat-config";
-import { OPENAI_PROVIDER, openAIReasoningSupport } from "#config/providers/openai-provider-config";
 
 import { assertAiSdkDefaultProviderIsUnset } from "../lifecycle/ai-sdk-global-guard.js";
 import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
 import { createWorkflowReadiness } from "../lifecycle/readiness/workflow-readiness.js";
 import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
 import { createProductionModelProvider } from "../providers/production-model-provider.js";
+import {
+  configuredModelCatalog,
+  publishedModelCatalog,
+} from "../providers/configured-model-catalog.js";
 import { startConfiguredTelemetry } from "../lifecycle/telemetry/configured-telemetry.js";
 import { startWorkflowJournalSweeper } from "../lifecycle/maintenance/workflow-journal-sweeper.js";
 import { PASS_THROUGH_TURN_ADMISSION } from "../turn/pass-through-admission.js";
@@ -61,7 +64,8 @@ export async function startProductionService(
 ) {
   assertAiSdkDefaultProviderIsUnset();
   const modelProvider = createProductionModelProvider(settings);
-  const configuredModel = configuredProductionModel(settings);
+  const modelCatalog = configuredModelCatalog(settings);
+  const serverTools = selectRegisteredServerTools(settings.serverTools);
   const authorizer = createServiceAuthorizer(settings.auth);
   const persistence = createProductionPersistence(settings);
   const maintenanceStarters = createMaintenanceStarters(settings, options.archiveWorkflowJournal);
@@ -91,8 +95,8 @@ export async function startProductionService(
       resumeToolApproval,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
-      selectModel: configuredTurnModel(configuredModel),
-      serverToolNames: new Set(REGISTERED_SERVER_TOOLS.map((definition) => definition.name)),
+      modelPolicy: configuredTurnModelCatalog(modelCatalog),
+      serverToolNames: new Set(serverTools.map((definition) => definition.name)),
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable
@@ -107,8 +111,8 @@ export async function startProductionService(
         titles: persistence.store,
         workflow: productionConversationTitleWorkflowStarter,
         telemetry: { record: recordServiceTelemetry },
-        modelId: settings.models.titleModelId,
-        timeoutMs: settings.timeouts.titleMs,
+        modelId: settings.conversationTitle.modelId,
+        timeoutMs: settings.conversationTitle.timeoutMs,
         persistInWorkflow: settings.persistence.databaseUrl !== undefined,
       },
     }),
@@ -118,11 +122,11 @@ export async function startProductionService(
     createQueryRoutes({
       queries: persistence.store,
       telemetry: { record: recordServiceTelemetry },
-      model: configuredModel,
+      modelCatalog: publishedModelCatalog(settings),
       // The display catalog is public; server schemas remain private and are
       // not admitted into persisted structured-part validation yet.
       structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
-      serverTools: REGISTERED_SERVER_TOOLS,
+      serverTools,
     }),
   );
   return {
@@ -130,29 +134,6 @@ export async function startProductionService(
     modelProvider,
     scope,
   };
-}
-
-type PublishedConfiguredModel = ConfiguredTurnModel &
-  Readonly<{
-    provider: string;
-    contextWindowTokens: number;
-  }>;
-
-function configuredProductionModel(settings: Settings): PublishedConfiguredModel {
-  const model = {
-    id: settings.models.modelId,
-    provider: settings.models.provider,
-    contextWindowTokens: settings.models.contextWindowTokens,
-  };
-  if (settings.models.provider !== OPENAI_PROVIDER.KIND) return model;
-
-  const reasoning = openAIReasoningSupport(
-    settings.models.modelId,
-    settings.models.reasoningEffort,
-  );
-  if (reasoning !== undefined) return { ...model, reasoning };
-  if (settings.models.reasoningEffort === undefined) return model;
-  throw new Error(`OpenAI reasoning policy is invalid for model ${settings.models.modelId}`);
 }
 
 function createMaintenanceStarters(

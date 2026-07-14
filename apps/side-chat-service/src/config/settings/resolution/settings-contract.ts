@@ -1,9 +1,6 @@
 import type { AuthSettings, ModelSettings } from "../deployment-settings.js";
 import type { SettingsIssue } from "../setting-readers.js";
-import type {
-  TELEMETRY_MODES,
-  WorkflowJournalClass,
-} from "../../declaration/side-chat-config.js";
+import type { TELEMETRY_MODES, WorkflowJournalClass } from "../../declaration/side-chat-config.js";
 
 export type SettingsResult =
   | { readonly ok: true; readonly settings: Settings }
@@ -11,24 +8,20 @@ export type SettingsResult =
 
 export type Settings = Readonly<{
   models: ModelSettings;
+  conversationTitle: Readonly<{ modelId: string; timeoutMs: number }>;
+  serverTools: readonly string[];
   auth: AuthSettings;
   timeouts: Readonly<{
-    requestMs: number;
     queueMs: number;
     providerMs: number;
     clientToolMs: number;
-    titleMs: number;
   }>;
   agent: Readonly<{
     instructions: string;
     maxSteps: number;
-    totalTokenBudget: number;
-    chunkTokenBudget: number;
-    toolTokenBudget: number;
   }>;
-  capacity: Readonly<{ activeGenerations: number }>;
   persistence: Readonly<{ databaseUrl?: string | undefined }>;
-  keepalive: Readonly<{ intervalMs: number; proxyIdleBudgetMs: number }>;
+  keepalive: Readonly<{ intervalMs: number }>;
   telemetry:
     | Readonly<{ mode: typeof TELEMETRY_MODES.OFF }>
     | Readonly<{ mode: typeof TELEMETRY_MODES.CONSOLE }>
@@ -38,8 +31,6 @@ export type Settings = Readonly<{
         serviceName: string;
       }>;
   workflow: Readonly<{
-    workerConcurrency: number;
-    concurrencyHeadroom: number;
     journalPruneAfterDays: number;
     journalSweepIntervalMs: number;
     journalClass: WorkflowJournalClass;

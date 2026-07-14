@@ -14,7 +14,6 @@ import {
   submitToolApproval,
   type ResumeToolApproval,
 } from "#application/turn/tools/approvals/submit-tool-approval";
-import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 
@@ -36,7 +35,6 @@ export type ChatRouteDependencies = RunTurnDependencies &
   Readonly<{
     keepaliveIntervalMs: number;
     outboundTransforms?: readonly OutboundTransformFactory[];
-    selectModel: TurnModelPolicy;
     replay: TurnReplay;
     runAccess: TurnRunAccess;
     clientToolDispatches: ClientToolDispatchStore;
@@ -61,7 +59,6 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
     }
 
     try {
-      const model = dependencies.selectModel(request.requestedModelId, request.reasoningEffort);
       const running = await runTurn(dependencies, {
         auth: context.get("authContext"),
         requestId: request.requestId,
@@ -70,8 +67,12 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         acceptedUserMessage: request.acceptedUserMessage,
         clientTools: request.clientTools,
         enabledToolNames: request.enabledToolNames,
-        modelId: model.modelId,
-        ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: model.reasoningEffort }),
+        ...(request.requestedModelId === undefined
+          ? {}
+          : { requestedModelId: request.requestedModelId }),
+        ...(request.reasoningEffort === undefined
+          ? {}
+          : { requestedReasoningEffort: request.reasoningEffort }),
       });
       return createChatStreamResponse({
         stream: running.stream,

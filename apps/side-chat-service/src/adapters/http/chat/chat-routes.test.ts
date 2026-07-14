@@ -13,6 +13,7 @@ import type {
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES, type TurnMessage } from "#domain/turn/turn";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
+import { OPENAI_PROVIDER } from "#config/providers/openai-provider-config";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
 
 const TEST_CONVERSATION = {
@@ -98,11 +99,15 @@ describe("chat routes", () => {
     );
     const harness = await createServiceTestHarness({
       turnExecution: execution,
+      models: openAiReasoningModels(),
     });
     try {
       const response = await harness.request(
         CHAT_HTTP_ROUTES.START,
-        chatRequest({ reasoningEffort: "low" }),
+        chatRequest({
+          modelPreference: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+          reasoningEffort: "low",
+        }),
       );
       expect(response.status).toBe(SUCCESS_HTTP_STATUS);
       await response.text();
@@ -112,17 +117,26 @@ describe("chat routes", () => {
     }
   });
 
-  it("rejects an invalid reasoning effort before execution", async () => {
+  it("rejects unavailable model policy before admission, writes, or execution", async () => {
     const execution = new ControlledTurnExecution(chunks(), neverTerminal());
+    const admission = new DeterministicTurnAdmission();
     const harness = await createServiceTestHarness({
       turnExecution: execution,
+      turnAdmission: admission,
     });
     try {
-      const response = await harness.request(
+      const unavailableReasoning = await harness.request(
         CHAT_HTTP_ROUTES.START,
-        chatRequest({ reasoningEffort: "turbo" }),
+        chatRequest({ reasoningEffort: "xhigh" }),
       );
-      expect(response.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
+      const unavailableModel = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest({ modelPreference: "unknown-model" }),
+      );
+      expect(unavailableReasoning.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
+      expect(unavailableModel.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
+      expect(admission.admitted).toBe(0);
+      expect(harness.turnState.userMessages).toEqual([]);
       expect(execution.started).toEqual([]);
     } finally {
       await harness.close();
@@ -338,6 +352,24 @@ class ControlledTurnExecution implements TurnExecution {
   async cancel(runId: string): Promise<void> {
     this.cancelled.push(runId);
   }
+}
+
+function openAiReasoningModels() {
+  return {
+    provider: OPENAI_PROVIDER.KIND,
+    connection: { apiKey: "test-key" },
+    defaultModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+    availableModels: [
+      {
+        id: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+        contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
+        reasoning: {
+          defaultEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+          efforts: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.SUPPORTED_REASONING_EFFORTS,
+        },
+      },
+    ],
+  } as const;
 }
 
 function chatRequest(extra: Record<string, unknown> = {}): RequestInit {

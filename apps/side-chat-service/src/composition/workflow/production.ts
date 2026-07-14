@@ -1,5 +1,6 @@
 import { serviceProcessEnv } from "#config/environment/process-environment";
-import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
+import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
+import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
 import {
   initializeWorkflowServices,
   workflowServices,
@@ -16,11 +17,19 @@ export function initializeProductionWorkflowServices(): WorkflowServices {
     const settings = resolveServiceSettings(serviceProcessEnv());
     initializeWorkflowServices({
       modelProvider: createProductionModelProvider(settings),
-      serverTools: REGISTERED_SERVER_TOOLS,
+      serverTools: selectRegisteredServerTools(settings.serverTools),
       ...(settings.persistence.databaseUrl === undefined
         ? {}
         : { databaseUrl: settings.persistence.databaseUrl }),
     });
   }
   return workflowServices();
+}
+
+/** Reload the deployment-selected definition inside a post-approval step. */
+export function findConfiguredProductionServerTool(name: string): ServerToolDefinition | undefined {
+  const settings = resolveServiceSettings(serviceProcessEnv());
+  return selectRegisteredServerTools(settings.serverTools).find(
+    (definition) => definition.name === name,
+  );
 }

@@ -1,5 +1,5 @@
 import type { ToolApprovalInput } from "#application/ports/turn/tools/tool-approval-store";
-import { findRegisteredServerTool } from "#application/turn/tools/server-tools/registered-server-tools";
+import { findConfiguredProductionServerTool } from "#composition/workflow/production";
 import {
   requiresServerToolApproval,
   type ServerToolDefinition,
@@ -21,7 +21,7 @@ export async function runApprovedServerToolStep(
 ): Promise<unknown> {
   "use step";
 
-  const definition = findRegisteredServerTool(command.toolName);
+  const definition = findConfiguredProductionServerTool(command.toolName);
   return executeApprovedServerTool(definition, command);
 }
 

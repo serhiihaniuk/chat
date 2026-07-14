@@ -117,7 +117,7 @@ The rewrite is NOT "one service instead of packages." A package exists where the
 
 ## The turn, end to end (the worked example)
 
-> **Conformance reopened 2026-07-14.** The current replacement service does not yet match this worked example. `prepare-turn.ts` performs assertion, admission, record start, workflow start, and run binding, while model/effort selection remains in the Hono route; host context and the full staged policy/guard contract are absent. `chat-routes.ts` and `run-turn.ts` therefore own orchestration that this document assigns to named application stages. Step 16a now blocks cutover until the call graph and this source of truth agree again; a passing import-direction lint is not sufficient evidence.
+> **Conformance correction 2026-07-14.** Model and reasoning selection belongs to `prepare-turn.ts`, before conversation preflight, admission, persistence, or Workflow start. Hono validates and translates only. Host context and the full staged guard contract remain absent, so Step 16a still blocks cutover after this ownership correction.
 
 The old core's `prepareStreamChatTurn` — the staged, commented, everything-before-the-stream-opens pipeline — is the style this architecture preserves. Its qualities were the staging discipline and the pre-stream contract, not Effect and not the protocol machinery beneath it. The new anatomy:
 
@@ -125,20 +125,17 @@ The old core's `prepareStreamChatTurn` — the staged, commented, everything-bef
 
 ```ts
 export async function prepareTurn(deps: TurnDeps, input: TurnRequest): Promise<PreparedTurn> {
-  // Prove the caller may act in this workspace.
-  const auth = await deps.authorize(input);
-  // Choose the model, tools, and limits for this turn.
-  const plan = resolveTurnPlan(deps.settings, input, auth);
-  // Block unsafe requests before any durable write.
-  await runTurnGuards(deps, input, auth, plan);
-  // Load or create only the conversation this subject may access.
-  const conversation = await deps.conversations.ensureAuthorized(input, auth);
-  // Bound concurrent generations before any durable write.
-  const slot = await deps.admission.admitTurn();
-  // Store the user message and the turn record the run attaches to.
-  const userMessage = await deps.messages.appendUser(conversation, input);
-  const turn = await deps.turns.startRecord(conversation, plan, userMessage); // unique index = race-safe busy guard
-  return { auth, plan, conversation, turn, slot };
+  // Resolve request policy before any stateful dependency can run.
+  const model = deps.modelPolicy(input.requestedModelId, input.requestedReasoningEffort);
+  // Prove the authorized conversation is idle before admission or writes.
+  await deps.turns.assertCanBegin(input.auth, input.conversationId);
+  const admission = await deps.admission.admitTurn(input.conversationId);
+  // Atomically store the accepted user message and running turn.
+  const turn = await deps.turns.beginTurn({ ...input, model });
+  // Start the durable run with only the resolved model selection.
+  const execution = await deps.execution.start({ ...turn, ...input, ...model });
+  await deps.turns.bindRun(turn, execution.runId);
+  return { turn, execution, admission };
 }
 ```
 

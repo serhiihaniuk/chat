@@ -11,9 +11,7 @@ describe("createOpenAIModelAdapter", () => {
     let body: unknown;
     const provider = createOpenAIModelAdapter({
       apiKey: "test-key",
-      modelId: "gpt-5.6-luna",
-      titleModelId: "gpt-5.6-luna",
-      reasoningEffort: "medium",
+      configuredModelIds: ["gpt-5.6-luna"],
       fetch: (_url, init) => {
         body = JSON.parse(String(init?.body));
         return Promise.resolve(
@@ -29,7 +27,7 @@ describe("createOpenAIModelAdapter", () => {
     const result = streamText({
       model: resolved,
       prompt: "hello",
-      providerOptions: provider.providerOptions,
+      providerOptions: provider.providerOptionsFor("medium"),
     });
     for await (const _part of result.fullStream) {
       // Consuming the stream makes the mocked provider request observable.
@@ -47,9 +45,7 @@ describe("createOpenAIModelAdapter", () => {
     const efforts: SideChatReasoningEffort[] = [];
     const provider = createOpenAIModelAdapter({
       apiKey: "test-key",
-      modelId: "gpt-5.6-luna",
-      titleModelId: "gpt-5.6-luna",
-      reasoningEffort: "medium",
+      configuredModelIds: ["gpt-5.6-luna"],
       fetch: (_url, init) => {
         const body: unknown = JSON.parse(String(init?.body));
         if (isRecord(body) && isRecord(body["reasoning"])) {

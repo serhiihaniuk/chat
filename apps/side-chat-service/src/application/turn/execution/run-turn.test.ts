@@ -154,6 +154,12 @@ function createHarness(
   const admission = new DeterministicTurnAdmission();
   const execution = new FixedTurnExecution(terminal);
   const dependencies: RunTurnDependencies = {
+    modelPolicy: (requestedModelId, requestedReasoningEffort) => ({
+      modelId: requestedModelId ?? "test-model",
+      ...(requestedReasoningEffort === undefined
+        ? {}
+        : { reasoningEffort: requestedReasoningEffort }),
+    }),
     admission,
     turns: state,
     execution,
@@ -194,7 +200,7 @@ function turnInput() {
     auth: AUTH,
     conversationId: "conversation-1",
     requestId: "request-1",
-    modelId: "test-model",
+    requestedModelId: "test-model",
     messages: [USER_MESSAGE],
     acceptedUserMessage: USER_MESSAGE,
   } as const;

@@ -10,10 +10,8 @@ import type { ProviderOptions } from "#application/ports/model-provider";
 
 export type OpenAIModelProviderOptions = {
   readonly apiKey: string;
-  readonly modelId: string;
-  readonly titleModelId: string;
+  readonly configuredModelIds: readonly string[];
   readonly baseUrl?: string | undefined;
-  readonly reasoningEffort?: SideChatReasoningEffort | undefined;
   readonly reasoningSummary?:
     | NonNullable<OpenAIResponsesProviderOptions["reasoningSummary"]>
     | undefined;
@@ -41,14 +39,14 @@ export function createOpenAIModelAdapter(options: OpenAIModelProviderOptions): O
 }
 
 function assertConfiguredModel(options: OpenAIModelProviderOptions, modelId: string): void {
-  if (modelId !== options.modelId && modelId !== options.titleModelId) {
+  if (!options.configuredModelIds.includes(modelId)) {
     throw new Error(`OpenAI model is not configured: ${modelId}`);
   }
 }
 
 function createProviderOptions(
   options: OpenAIModelProviderOptions,
-  effort: SideChatReasoningEffort | undefined = options.reasoningEffort,
+  effort?: SideChatReasoningEffort,
 ): ProviderOptions {
   const openaiOptions = {
     store: false,

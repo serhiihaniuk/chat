@@ -24,11 +24,14 @@ import { HTTP_HEADERS, QUERY_HTTP_ROUTES } from "../http-contract.js";
 export type QueryRouteDependencies = Readonly<{
   queries: ConversationQueryStore;
   telemetry: Pick<TelemetrySink, "record">;
-  model: Readonly<{
-    id: string;
-    provider: string;
-    contextWindowTokens: number;
-    reasoning?: SideChatReasoningSupport | undefined;
+  modelCatalog: Readonly<{
+    models: readonly Readonly<{
+      id: string;
+      provider: string;
+      contextWindowTokens: number;
+      reasoning?: SideChatReasoningSupport | undefined;
+    }>[];
+    defaultModelId: string;
   }>;
   /** Current tool/data schemas honored when validating persisted history parts. */
   structuredPartCatalogs?: StructuredPartCatalogs | undefined;
@@ -50,12 +53,7 @@ export function createQueryRoutes(dependencies: QueryRouteDependencies): Hono<Au
     return context.json({ conversations, runningConversationIds });
   });
 
-  app.get(QUERY_HTTP_ROUTES.MODELS, (context) =>
-    context.json({
-      models: [dependencies.model],
-      defaultModelId: dependencies.model.id,
-    }),
-  );
+  app.get(QUERY_HTTP_ROUTES.MODELS, (context) => context.json(dependencies.modelCatalog));
 
   app.get(QUERY_HTTP_ROUTES.TOOLS, (context) =>
     context.json({ tools: toServerToolCatalog(dependencies.serverTools) }),

@@ -13,14 +13,32 @@ import { OPENAI_PROVIDER } from "./src/config/providers/openai-provider-config.j
 const config: SideChatConfig = defineSideChatConfig({
   models: {
     provider: OPENAI_PROVIDER.KIND,
-    modelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
-    titleModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
-    contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
-    apiKey: readEnv.secret(OPENAI_PROVIDER.SECRET_ENV_KEYS.API_KEY),
-    baseUrl: readEnv(OPENAI_PROVIDER.TRANSPORT_ENV_KEYS.BASE_URL),
-    reasoningEffort: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.DEFAULT_REASONING_EFFORT,
+    connection: {
+      apiKey: readEnv.secret(OPENAI_PROVIDER.SECRET_ENV_KEYS.API_KEY),
+      baseUrl: readEnv(OPENAI_PROVIDER.TRANSPORT_ENV_KEYS.BASE_URL),
+    },
     reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
+    defaultModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+    availableModels: [
+      {
+        id: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+        contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
+        reasoning: {
+          defaultEffort: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.DEFAULT_REASONING_EFFORT,
+          efforts: [
+            OPENAI_PROVIDER.REASONING_EFFORTS.LOW,
+            OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+            OPENAI_PROVIDER.REASONING_EFFORTS.HIGH,
+          ],
+        },
+      },
+    ],
   },
+  conversationTitle: {
+    modelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+    timeoutMs: 10_000,
+  },
+  serverTools: [],
   auth: {
     profile: AUTH_PROFILES.PRODUCTION,
     bearerToken: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_AUTH_TOKEN),
@@ -29,31 +47,23 @@ const config: SideChatConfig = defineSideChatConfig({
     }),
   },
   timeouts: {
-    requestMs: 60_000,
     queueMs: 5_000,
     providerMs: 45_000,
     clientToolMs: 30_000,
-    titleMs: 10_000,
   },
   agent: {
     instructions:
       "You are a concise enterprise assistant. Use only the context and tools provided.",
     maxSteps: 8,
-    totalTokenBudget: 16_000,
-    chunkTokenBudget: 4_000,
-    toolTokenBudget: 4_000,
   },
-  capacity: { activeGenerations: 8 },
   persistence: {
     databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL, {
       required: true,
     }),
   },
-  keepalive: { intervalMs: 15_000, proxyIdleBudgetMs: 60_000 },
+  keepalive: { intervalMs: 15_000 },
   telemetry: { mode: TELEMETRY_MODES.CONSOLE },
   workflow: {
-    workerConcurrency: 10,
-    concurrencyHeadroom: 2,
     journalPruneAfterDays: 30,
     journalSweepIntervalMs: 3_600_000,
     journalClass: WORKFLOW_JOURNAL_CLASSES.OPERATIONAL,

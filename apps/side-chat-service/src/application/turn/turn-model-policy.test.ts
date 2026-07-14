@@ -2,7 +2,7 @@ import { SIDE_CHAT_REASONING_EFFORTS } from "@side-chat/stream-profile";
 import { describe, expect, it } from "vitest";
 
 import { TURN_REJECTION_CODES, TurnRejectedError } from "./turn-errors.js";
-import { configuredTurnModel } from "./turn-model-policy.js";
+import { configuredTurnModelCatalog } from "./turn-model-policy.js";
 
 const luna = {
   id: "gpt-5.6-luna",
@@ -16,9 +16,12 @@ const luna = {
   },
 } as const;
 
-describe("configuredTurnModel", () => {
-  it("uses the selected model's default and accepts only its advertised efforts", () => {
-    const select = configuredTurnModel(luna);
+describe("configuredTurnModelCatalog", () => {
+  it("uses the configured default and selects any advertised model", () => {
+    const select = configuredTurnModelCatalog({
+      defaultModelId: luna.id,
+      availableModels: [luna, { id: "plain-model" }],
+    });
 
     expect(select(undefined, undefined)).toEqual({
       modelId: luna.id,
@@ -28,15 +31,22 @@ describe("configuredTurnModel", () => {
       modelId: luna.id,
       reasoningEffort: SIDE_CHAT_REASONING_EFFORTS.LOW,
     });
+    expect(select("plain-model", undefined)).toEqual({ modelId: "plain-model" });
     expect(() => select(luna.id, SIDE_CHAT_REASONING_EFFORTS.XHIGH)).toThrowError(
       expect.objectContaining({ code: TURN_REJECTION_CODES.MODEL_NOT_ALLOWED }),
     );
   });
 
-  it("rejects reasoning for a model that does not advertise it", () => {
-    const select = configuredTurnModel({ id: "plain-model" });
+  it("rejects unavailable models and reasoning outside the selected model policy", () => {
+    const select = configuredTurnModelCatalog({
+      defaultModelId: "plain-model",
+      availableModels: [{ id: "plain-model" }],
+    });
 
     expect(select(undefined, undefined)).toEqual({ modelId: "plain-model" });
     expect(() => select(undefined, SIDE_CHAT_REASONING_EFFORTS.LOW)).toThrow(TurnRejectedError);
+    expect(() => select("unknown-model", undefined)).toThrowError(
+      expect.objectContaining({ code: TURN_REJECTION_CODES.MODEL_NOT_ALLOWED }),
+    );
   });
 });

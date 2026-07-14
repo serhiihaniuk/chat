@@ -37,14 +37,11 @@ export const WORKFLOW_JOURNAL_CLASSES = {
 
 export const AUTH_PROFILE_VALUES = Object.values(AUTH_PROFILES);
 export const TELEMETRY_MODE_VALUES = Object.values(TELEMETRY_MODES);
-export const WORKFLOW_JOURNAL_CLASS_VALUES = Object.values(
-  WORKFLOW_JOURNAL_CLASSES,
-);
+export const WORKFLOW_JOURNAL_CLASS_VALUES = Object.values(WORKFLOW_JOURNAL_CLASSES);
 
 export type AuthProfile = (typeof AUTH_PROFILE_VALUES)[number];
 export type TelemetryMode = (typeof TELEMETRY_MODE_VALUES)[number];
-export type WorkflowJournalClass =
-  (typeof WORKFLOW_JOURNAL_CLASS_VALUES)[number];
+export type WorkflowJournalClass = (typeof WORKFLOW_JOURNAL_CLASS_VALUES)[number];
 
 export const ENV_REFERENCE_KINDS = { ENV: "env" } as const;
 export const ENV_VALUE_TYPES = { STRING: "string", NUMBER: "number" } as const;
@@ -69,10 +66,7 @@ type ReadEnv = {
   readonly number: (key: string, options?: EnvOptions<number>) => EnvReference;
 };
 
-const stringReference = (
-  key: string,
-  options: EnvOptions<string> = {},
-): EnvReference =>
+const stringReference = (key: string, options: EnvOptions<string> = {}): EnvReference =>
   createEnvReference(
     key,
     ENV_VALUE_TYPES.STRING,
@@ -104,27 +98,25 @@ export type ConfigValue<T> = T | EnvReference;
 
 export interface SideChatConfig {
   readonly models: OpenAIModelConfig | AzureModelConfig | ScriptedModelConfig;
+  readonly conversationTitle: {
+    readonly modelId: ConfigValue<string>;
+    readonly timeoutMs: ConfigValue<number>;
+  };
+  /** Registered server-tool names exposed by this deployment. */
+  readonly serverTools: readonly string[];
   readonly auth: {
     readonly profile: AuthProfile;
     readonly bearerToken: ConfigValue<string>;
     readonly workspaceId: ConfigValue<string>;
   };
   readonly timeouts: {
-    readonly requestMs: ConfigValue<number>;
     readonly queueMs: ConfigValue<number>;
     readonly providerMs: ConfigValue<number>;
     readonly clientToolMs: ConfigValue<number>;
-    readonly titleMs: ConfigValue<number>;
   };
   readonly agent: {
     readonly instructions: ConfigValue<string>;
     readonly maxSteps: ConfigValue<number>;
-    readonly totalTokenBudget: ConfigValue<number>;
-    readonly chunkTokenBudget: ConfigValue<number>;
-    readonly toolTokenBudget: ConfigValue<number>;
-  };
-  readonly capacity: {
-    readonly activeGenerations: ConfigValue<number>;
   };
   readonly persistence: {
     /** Product Postgres URL. Absent selects the in-memory store (development only). */
@@ -132,7 +124,6 @@ export interface SideChatConfig {
   };
   readonly keepalive: {
     readonly intervalMs: ConfigValue<number>;
-    readonly proxyIdleBudgetMs: ConfigValue<number>;
   };
   readonly telemetry:
     | { readonly mode: typeof TELEMETRY_MODES.OFF }
@@ -143,8 +134,6 @@ export interface SideChatConfig {
         readonly serviceName: ConfigValue<string>;
       };
   readonly workflow: {
-    readonly workerConcurrency: ConfigValue<number>;
-    readonly concurrencyHeadroom: ConfigValue<number>;
     readonly journalPruneAfterDays: ConfigValue<number>;
     readonly journalSweepIntervalMs: ConfigValue<number>;
     readonly journalClass: WorkflowJournalClass;
@@ -152,9 +141,8 @@ export interface SideChatConfig {
   };
 }
 
-export const defineSideChatConfig = <const Config extends SideChatConfig>(
-  config: Config,
-): Config => Object.freeze(config);
+export const defineSideChatConfig = <const Config extends SideChatConfig>(config: Config): Config =>
+  Object.freeze(config);
 
 function createEnvReference(
   key: string,

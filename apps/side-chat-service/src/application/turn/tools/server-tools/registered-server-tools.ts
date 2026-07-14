@@ -6,6 +6,12 @@ import type { ServerToolDefinition } from "./server-tool-catalog.js";
  */
 export const REGISTERED_SERVER_TOOLS: readonly ServerToolDefinition[] = Object.freeze([]);
 
-export function findRegisteredServerTool(name: string): ServerToolDefinition | undefined {
-  return REGISTERED_SERVER_TOOLS.find((definition) => definition.name === name);
+export function selectRegisteredServerTools(
+  names: readonly string[],
+): readonly ServerToolDefinition[] {
+  return names.map((name) => {
+    const definition = REGISTERED_SERVER_TOOLS.find((candidate) => candidate.name === name);
+    if (definition === undefined) throw new Error(`Server tool is not registered: ${name}`);
+    return definition;
+  });
 }

@@ -94,7 +94,14 @@ export class ProductionModelHandle implements LanguageModelV4 {
 export function createProductionModelProvider(settings: Settings): ModelProvider {
   const models = settings.models;
   if (models.provider === OPENAI_PROVIDER.KIND) {
-    const adapter = createOpenAIModelAdapter(models);
+    const adapter = createOpenAIModelAdapter({
+      apiKey: models.connection.apiKey,
+      configuredModelIds: configuredModelIds(settings),
+      ...(models.connection.baseUrl === undefined ? {} : { baseUrl: models.connection.baseUrl }),
+      ...(models.reasoningSummary === undefined
+        ? {}
+        : { reasoningSummary: models.reasoningSummary }),
+    });
     return createSerializableModelProvider({
       modelFor: adapter.modelFor,
       descriptorFor: (modelId) => openAiDescriptor(models, modelId),
@@ -103,7 +110,13 @@ export function createProductionModelProvider(settings: Settings): ModelProvider
     });
   }
   if (models.provider === AZURE_PROVIDER.KIND) {
-    const adapter = createAzureModelAdapter(models);
+    const adapter = createAzureModelAdapter({
+      ...models.connection,
+      models: models.availableModels.map((model) => ({
+        id: model.id,
+        deployment: model.deployment,
+      })),
+    });
     return createSerializableModelProvider({
       modelFor: adapter.modelFor,
       descriptorFor: (modelId) => azureDescriptor(models, modelId),
@@ -138,19 +151,25 @@ function openAiDescriptor(
   options: OpenAIModelSettings,
   modelId: string,
 ): ProductionModelDescriptor {
-  if (options.baseUrl === undefined) {
+  if (options.connection.baseUrl === undefined) {
     return { provider: OPENAI_PROVIDER.KIND, modelId };
   }
-  return { provider: OPENAI_PROVIDER.KIND, modelId, baseUrl: options.baseUrl };
+  return {
+    provider: OPENAI_PROVIDER.KIND,
+    modelId,
+    baseUrl: options.connection.baseUrl,
+  };
 }
 
 function azureDescriptor(options: AzureModelSettings, modelId: string): ProductionModelDescriptor {
+  const model = options.availableModels.find((candidate) => candidate.id === modelId);
+  if (model === undefined) throw new Error(`Azure model is not configured: ${modelId}`);
   return {
     provider: AZURE_PROVIDER.KIND,
     modelId,
-    endpoint: options.endpoint,
-    apiVersion: options.apiVersion,
-    deployment: options.deployment,
+    endpoint: options.connection.endpoint,
+    apiVersion: options.connection.apiVersion,
+    deployment: model.deployment,
   };
 }
 
@@ -173,8 +192,7 @@ function reconstructOpenAiModel(
   );
   const adapter = createOpenAIModelAdapter({
     apiKey,
-    modelId: descriptor.modelId,
-    titleModelId: descriptor.modelId,
+    configuredModelIds: [descriptor.modelId],
     ...(descriptor.baseUrl === undefined ? {} : { baseUrl: descriptor.baseUrl }),
   });
   return adapter.modelFor(descriptor.modelId);
@@ -191,11 +209,16 @@ function reconstructAzureModel(
     apiKey,
     endpoint: descriptor.endpoint,
     apiVersion: descriptor.apiVersion,
-    modelId: descriptor.modelId,
-    titleModelId: descriptor.modelId,
-    deployment: descriptor.deployment,
+    models: [{ id: descriptor.modelId, deployment: descriptor.deployment }],
   });
   return adapter.modelFor(descriptor.modelId);
+}
+
+function configuredModelIds(settings: Settings): readonly string[] {
+  return [
+    ...settings.models.availableModels.map((model) => model.id),
+    settings.conversationTitle.modelId,
+  ];
 }
 
 function requiredProviderCredential(key: string, missingMessage: string): string {

@@ -11,9 +11,10 @@ describe("createAzureModelAdapter", () => {
       apiKey: "azure-test-key",
       endpoint: "https://test-resource.cognitiveservices.azure.com/",
       apiVersion: "2025-01-01-preview",
-      modelId: "gpt-4o",
-      titleModelId: "gpt-4o",
-      deployment: "side-chat-production",
+      models: [
+        { id: "gpt-4o", deployment: "side-chat-production" },
+        { id: "gpt-4o-mini", deployment: "side-chat-mini" },
+      ],
       fetch: (url, init) => {
         requestUrl = String(url);
         requestHeaders = new Headers(init?.headers);
@@ -29,14 +30,14 @@ describe("createAzureModelAdapter", () => {
         );
       },
     });
-    const model = provider.modelFor("gpt-4o");
+    const model = provider.modelFor("gpt-4o-mini");
 
     const result = streamText({ model, prompt: "hello" });
     for await (const _part of result.fullStream) {
       // Consume the stream to complete the mocked provider call.
     }
 
-    expect(requestUrl).toContain("/openai/deployments/side-chat-production/");
+    expect(requestUrl).toContain("/openai/deployments/side-chat-mini/");
     expect(requestUrl).toContain("api-version=2025-01-01-preview");
     expect(requestHeaders.get("api-key")).toBe("azure-test-key");
   });

@@ -27,17 +27,18 @@ One typed object per deployment variant, in one big file, optimized for human
 reading — **deliberately repetitive, deliberately not abstracted**:
 
 - **One file answers everything.** `apps/partner-ai-service/sidechat.config.ts`
-  (`defineSideChatConfig({...}) satisfies SideChatConfig`) declares the entire
-  behavior of one deployment, top to bottom. The config file _is_ the
-  documentation of the deployment.
+  and `apps/side-chat-service/sidechat.config.ts` each declare the behavior of
+  one deployment, top to bottom. The config file _is_ the documentation of the
+  deployment.
 - **No config-generating code.** No loops, factories, spreads, or conditionals
   that assemble entries. Every model, tool, and command is spelled out, even
   when entries look near-identical. Saving lines here costs the at-a-glance
   answer — the repetition is the feature, not an oversight to clean up.
 - **Variants are standalone complete files**, not parameterized derivations:
-  `sidechat.azure.config.ts` repeats what it shares with the default config.
-  A variant must read on its own; selection is `SIDECHAT_CONFIG_PATH` or a
-  named entry in a `SIDECHAT_CONFIGS` registry — never an env-driven branch
+  each service's `sidechat.azure.config.ts` repeats what it shares with the
+  default config, and the replacement service's `sidechat.fake.config.ts`
+  repeats its testing deployment. A variant must read on its own; selection is
+  a config path or named bundled entry, never an env-driven behavior branch
   inside one config.
 - **Env is declared inside the object, not read around it.** Process inputs
   are `readEnv(key, { description, defaultValue })` references, so every env
@@ -48,6 +49,12 @@ reading — **deliberately repetitive, deliberately not abstracted**:
   `src/config/catalog/` (`PROVIDERS`, `TOOLS`, `EXECUTORS`, `HOST_COMMANDS`) —
   entries are picked from a typed menu, and `satisfies` annotations keep the
   file checked without inference tricks.
+- **Selections remain in the deployment file.** Catalog modules may define
+  provider/model constants and application modules may register tool
+  executors, but `defaultModelId`, every request-selectable `availableModels`
+  entry, the conversation-title model, and every exposed server-tool name are
+  spelled out in each replacement-service config. A catalog that silently
+  becomes deployment policy violates this decision.
 
 ## Alternatives rejected
 

@@ -3,11 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SettingsIssue } from "../settings/setting-readers.js";
 
 import { AZURE_PROVIDER, readAzureModelSettings } from "./azure-provider-config.js";
-import {
-  OPENAI_PROVIDER,
-  openAIReasoningSupport,
-  readOpenAIModelSettings,
-} from "./openai-provider-config.js";
+import { OPENAI_PROVIDER, readOpenAIModelSettings } from "./openai-provider-config.js";
 import { PROVIDER_KIND_VALUES } from "./provider-config.js";
 import { SCRIPTED_PROVIDER } from "./scripted-provider-config.js";
 
@@ -28,50 +24,69 @@ describe("provider configuration catalogs", () => {
     expect(AZURE_PROVIDER.TRANSPORT_ENV_KEYS.DEPLOYMENT).toBe("AZURE_OPENAI_DEPLOYMENT");
   });
 
-  it("keeps supported reasoning and its default on the Luna model descriptor", () => {
+  it("keeps provider constants available for readable deployment declarations", () => {
     const luna = OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA;
 
-    expect(openAIReasoningSupport(luna.MODEL_ID)).toEqual({
-      efforts: luna.SUPPORTED_REASONING_EFFORTS,
-      defaultEffort: luna.DEFAULT_REASONING_EFFORT,
-    });
-    expect(openAIReasoningSupport("unregistered-model")).toBeUndefined();
+    expect(luna.SUPPORTED_REASONING_EFFORTS).toEqual(["low", "medium", "high"]);
+    expect(luna.DEFAULT_REASONING_EFFORT).toBe("medium");
   });
 
   it("decodes provider settings beside the provider catalog", () => {
     const openAiIssues: SettingsIssue[] = [];
     const openAi = readOpenAIModelSettings(
       {
-        modelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
-        titleModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
-        contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
-        apiKey: "test-key",
-        reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+        connection: { apiKey: "test-key" },
+        defaultModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+        availableModels: [
+          {
+            id: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+            contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
+            reasoning: {
+              defaultEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+              efforts: [OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM],
+            },
+          },
+        ],
       },
       openAiIssues,
     );
     const azureIssues: SettingsIssue[] = [];
     const azure = readAzureModelSettings(
       {
-        modelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
-        titleModelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
-        contextWindowTokens: AZURE_PROVIDER.MODELS.GPT_4O.CONTEXT_WINDOW_TOKENS,
-        deployment: "test-deployment",
-        apiKey: "test-key",
-        endpoint: "https://azure.test",
-        apiVersion: "test-version",
+        connection: {
+          apiKey: "test-key",
+          endpoint: "https://azure.test",
+          apiVersion: "test-version",
+        },
+        defaultModelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
+        availableModels: [
+          {
+            id: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
+            contextWindowTokens: AZURE_PROVIDER.MODELS.GPT_4O.CONTEXT_WINDOW_TOKENS,
+            deployment: "test-deployment",
+          },
+        ],
       },
       azureIssues,
     );
 
     expect(openAi).toMatchObject({
       provider: OPENAI_PROVIDER.KIND,
-      contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
-      reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+      defaultModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+      availableModels: [
+        expect.objectContaining({
+          contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
+        }),
+      ],
     });
     expect(azure).toMatchObject({
       provider: AZURE_PROVIDER.KIND,
-      contextWindowTokens: AZURE_PROVIDER.MODELS.GPT_4O.CONTEXT_WINDOW_TOKENS,
+      availableModels: [
+        expect.objectContaining({
+          deployment: "test-deployment",
+          contextWindowTokens: AZURE_PROVIDER.MODELS.GPT_4O.CONTEXT_WINDOW_TOKENS,
+        }),
+      ],
     });
     expect(openAiIssues).toEqual([]);
     expect(azureIssues).toEqual([]);

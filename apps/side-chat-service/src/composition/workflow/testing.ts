@@ -1,10 +1,8 @@
 import { scriptedModelProvider } from "#testing/scripted-language-model";
-import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
+import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
+import { BUNDLED_CONFIG_NAMES } from "#config/declaration/bundled-config-catalog";
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
-import {
-  envValue,
-  serviceProcessEnv,
-} from "#config/environment/process-environment";
+import { serviceProcessEnv } from "#config/environment/process-environment";
 import {
   initializeWorkflowServices,
   resetWorkflowServices,
@@ -13,16 +11,19 @@ import {
   type WorkflowServices,
 } from "#workflows/registry";
 
+import { resolveServiceSettings } from "../settings/resolve-service-settings.js";
+
 /** Initialize dependencies in the workflow bundle, not the route-bundle module instance. */
 export function initializeTestingWorkflowServices(): WorkflowServices {
   if (!workflowServicesAreInitialized()) {
-    const databaseUrl = envValue(
-      serviceProcessEnv(),
-      SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL,
-    );
+    const settings = resolveServiceSettings({
+      ...serviceProcessEnv(),
+      [SERVICE_ENV_KEYS.CONFIG_NAME]: BUNDLED_CONFIG_NAMES.FAKE,
+    });
+    const databaseUrl = settings.persistence.databaseUrl;
     initializeWorkflowServices({
       modelProvider: scriptedModelProvider,
-      serverTools: REGISTERED_SERVER_TOOLS,
+      serverTools: selectRegisteredServerTools(settings.serverTools),
       ...(databaseUrl === undefined ? {} : { databaseUrl }),
     });
   }

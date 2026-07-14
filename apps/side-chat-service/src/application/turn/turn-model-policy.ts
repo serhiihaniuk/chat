@@ -7,6 +7,11 @@ export type ConfiguredTurnModel = Readonly<{
   reasoning?: SideChatReasoningSupport | undefined;
 }>;
 
+export type ConfiguredTurnModelCatalog = Readonly<{
+  defaultModelId: string;
+  availableModels: readonly ConfiguredTurnModel[];
+}>;
+
 export type SelectedTurnModel = Readonly<{
   modelId: string;
   reasoningEffort?: SideChatReasoningEffort | undefined;
@@ -18,17 +23,17 @@ export type TurnModelPolicy = (
 ) => SelectedTurnModel;
 
 /** Resolve a request only against the selected model's advertised reasoning policy. */
-export function configuredTurnModel(configuredModel: ConfiguredTurnModel): TurnModelPolicy {
+export function configuredTurnModelCatalog(catalog: ConfiguredTurnModelCatalog): TurnModelPolicy {
   return (requestedModelId, requestedReasoningEffort) => {
-    if (requestedModelId !== undefined && requestedModelId !== configuredModel.id) {
-      throw modelNotAllowed("Model is not available");
-    }
+    const modelId = requestedModelId ?? catalog.defaultModelId;
+    const configuredModel = catalog.availableModels.find((model) => model.id === modelId);
+    if (configuredModel === undefined) throw modelNotAllowed("Model is not available");
     const reasoningEffort = selectReasoningEffort(
       configuredModel.reasoning,
       requestedReasoningEffort,
     );
     return {
-      modelId: configuredModel.id,
+      modelId,
       ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
     };
   };

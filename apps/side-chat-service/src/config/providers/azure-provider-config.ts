@@ -1,5 +1,7 @@
 import type { ConfigValue } from "../declaration/side-chat-config.js";
 import {
+  readArray,
+  readObject,
   readRequiredPositiveInteger,
   readRequiredString,
   type SettingsIssue,
@@ -11,76 +13,87 @@ import { PROVIDER_KINDS } from "./provider-config.js";
 export const AZURE_PROVIDER = {
   KIND: PROVIDER_KINDS.AZURE,
   MODELS: {
-    GPT_4O: {
-      MODEL_ID: "gpt-4o",
-      CONTEXT_WINDOW_TOKENS: 128_000,
-    },
+    GPT_4O: { MODEL_ID: "gpt-4o", CONTEXT_WINDOW_TOKENS: 128_000 },
   },
-  SECRET_ENV_KEYS: {
-    API_KEY: "AZURE_OPENAI_API_KEY",
-  },
+  SECRET_ENV_KEYS: { API_KEY: "AZURE_OPENAI_API_KEY" },
   TRANSPORT_ENV_KEYS: {
     ENDPOINT: "AZURE_OPENAI_ENDPOINT",
     API_VERSION: "AZURE_OPENAI_API_VERSION",
     DEPLOYMENT: "AZURE_OPENAI_DEPLOYMENT",
   },
-  SETTINGS_FIELDS: {
-    MODEL_ID: { KEY: "modelId", PATH: "models.modelId" },
-    TITLE_MODEL_ID: { KEY: "titleModelId", PATH: "models.titleModelId" },
-    CONTEXT_WINDOW_TOKENS: {
-      KEY: "contextWindowTokens",
-      PATH: "models.contextWindowTokens",
-    },
-    DEPLOYMENT: { KEY: "deployment", PATH: "models.deployment" },
-    API_KEY: { KEY: "apiKey", PATH: "models.apiKey" },
-    ENDPOINT: { KEY: "endpoint", PATH: "models.endpoint" },
-    API_VERSION: { KEY: "apiVersion", PATH: "models.apiVersion" },
-  },
 } as const;
+
+type AzureAvailableModelConfig = Readonly<{
+  id: ConfigValue<string>;
+  contextWindowTokens: ConfigValue<number>;
+  deployment: ConfigValue<string>;
+}>;
 
 export type AzureModelConfig = Readonly<{
   provider: typeof AZURE_PROVIDER.KIND;
-  modelId: ConfigValue<string>;
-  titleModelId: ConfigValue<string>;
-  contextWindowTokens: ConfigValue<number>;
-  deployment: ConfigValue<string>;
-  apiKey: ConfigValue<string>;
-  endpoint: ConfigValue<string>;
-  apiVersion: ConfigValue<string>;
+  connection: Readonly<{
+    apiKey: ConfigValue<string>;
+    endpoint: ConfigValue<string>;
+    apiVersion: ConfigValue<string>;
+  }>;
+  defaultModelId: ConfigValue<string>;
+  availableModels: readonly AzureAvailableModelConfig[];
+}>;
+
+export type AzureAvailableModelSettings = Readonly<{
+  id: string;
+  contextWindowTokens: number;
+  deployment: string;
 }>;
 
 export type AzureModelSettings = Readonly<{
   provider: typeof AZURE_PROVIDER.KIND;
-  modelId: string;
-  titleModelId: string;
-  contextWindowTokens: number;
-  deployment: string;
-  apiKey: string;
-  endpoint: string;
-  apiVersion: string;
+  connection: Readonly<{
+    apiKey: string;
+    endpoint: string;
+    apiVersion: string;
+  }>;
+  defaultModelId: string;
+  availableModels: readonly AzureAvailableModelSettings[];
 }>;
 
 export function readAzureModelSettings(
   models: SettingsObject,
   issues: SettingsIssue[],
 ): AzureModelSettings {
-  const fields = AZURE_PROVIDER.SETTINGS_FIELDS;
+  const connection = readObject(models["connection"], "models.connection", issues);
   return {
     provider: AZURE_PROVIDER.KIND,
-    modelId: readRequiredString(models[fields.MODEL_ID.KEY], fields.MODEL_ID.PATH, issues),
-    titleModelId: readRequiredString(
-      models[fields.TITLE_MODEL_ID.KEY],
-      fields.TITLE_MODEL_ID.PATH,
-      issues,
+    connection: {
+      apiKey: readRequiredString(connection["apiKey"], "models.connection.apiKey", issues),
+      endpoint: readRequiredString(connection["endpoint"], "models.connection.endpoint", issues),
+      apiVersion: readRequiredString(
+        connection["apiVersion"],
+        "models.connection.apiVersion",
+        issues,
+      ),
+    },
+    defaultModelId: readRequiredString(models["defaultModelId"], "models.defaultModelId", issues),
+    availableModels: readArray(models["availableModels"], "models.availableModels", issues).map(
+      (candidate, index) => readAvailableModel(candidate, index, issues),
     ),
+  };
+}
+
+function readAvailableModel(
+  candidate: unknown,
+  index: number,
+  issues: SettingsIssue[],
+): AzureAvailableModelSettings {
+  const path = `models.availableModels.${index}`;
+  const model = readObject(candidate, path, issues);
+  return {
+    id: readRequiredString(model["id"], `${path}.id`, issues),
     contextWindowTokens: readRequiredPositiveInteger(
-      models[fields.CONTEXT_WINDOW_TOKENS.KEY],
-      fields.CONTEXT_WINDOW_TOKENS.PATH,
+      model["contextWindowTokens"],
+      `${path}.contextWindowTokens`,
       issues,
     ),
-    deployment: readRequiredString(models[fields.DEPLOYMENT.KEY], fields.DEPLOYMENT.PATH, issues),
-    apiKey: readRequiredString(models[fields.API_KEY.KEY], fields.API_KEY.PATH, issues),
-    endpoint: readRequiredString(models[fields.ENDPOINT.KEY], fields.ENDPOINT.PATH, issues),
-    apiVersion: readRequiredString(models[fields.API_VERSION.KEY], fields.API_VERSION.PATH, issues),
+    deployment: readRequiredString(model["deployment"], `${path}.deployment`, issues),
   };
 }

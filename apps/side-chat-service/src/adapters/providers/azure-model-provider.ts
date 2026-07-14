@@ -5,9 +5,7 @@ export type AzureModelProviderOptions = {
   readonly apiKey: string;
   readonly endpoint: string;
   readonly apiVersion: string;
-  readonly modelId: string;
-  readonly titleModelId: string;
-  readonly deployment: string;
+  readonly models: readonly Readonly<{ id: string; deployment: string }>[];
   readonly fetch?: typeof fetch | undefined;
 };
 
@@ -21,16 +19,19 @@ export function createAzureModelAdapter(options: AzureModelProviderOptions): Azu
   const azure = createAzureClient(options);
   return {
     modelFor: (modelId) => {
-      assertConfiguredModel(options, modelId);
-      return azure.chat(options.deployment);
+      const model = configuredModel(options, modelId);
+      return azure.chat(model.deployment);
     },
   };
 }
 
-function assertConfiguredModel(options: AzureModelProviderOptions, modelId: string): void {
-  if (modelId !== options.modelId && modelId !== options.titleModelId) {
-    throw new Error(`Azure model is not configured: ${modelId}`);
-  }
+function configuredModel(
+  options: AzureModelProviderOptions,
+  modelId: string,
+): Readonly<{ id: string; deployment: string }> {
+  const model = options.models.find((candidate) => candidate.id === modelId);
+  if (model === undefined) throw new Error(`Azure model is not configured: ${modelId}`);
+  return model;
 }
 
 function createAzureClient(options: AzureModelProviderOptions) {

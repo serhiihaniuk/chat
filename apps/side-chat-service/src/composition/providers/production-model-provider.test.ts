@@ -44,12 +44,12 @@ describe("production Workflow model serialization", () => {
     );
     const settings = settingsWith({
       provider: OPENAI_PROVIDER.KIND,
-      modelId: "gpt-5.6-luna",
-      titleModelId: "gpt-5.6-luna",
-      contextWindowTokens: 16_000,
-      apiKey: CREDENTIAL_SENTINEL,
-      baseUrl: "https://openai.test/v1",
-      reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+      connection: {
+        apiKey: CREDENTIAL_SENTINEL,
+        baseUrl: "https://openai.test/v1",
+      },
+      defaultModelId: "gpt-5.6-luna",
+      availableModels: [openAiModel()],
     });
     const resolved = createProductionModelProvider(settings).modelFor({
       modelId: "gpt-5.6-luna",
@@ -70,31 +70,27 @@ describe("production Workflow model serialization", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it("selects the configured default and each per-turn OpenAI reasoning effort", () => {
+  it("forwards only the reasoning effort already selected by application policy", () => {
     const settings = settingsWith({
       provider: OPENAI_PROVIDER.KIND,
-      modelId: "gpt-5.6-luna",
-      titleModelId: "gpt-5.6-luna",
-      contextWindowTokens: 372_000,
-      apiKey: CREDENTIAL_SENTINEL,
-      reasoningEffort: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.DEFAULT_REASONING_EFFORT,
+      connection: { apiKey: CREDENTIAL_SENTINEL },
+      defaultModelId: "gpt-5.6-luna",
+      availableModels: [openAiModel()],
       reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
     });
     const provider = createProductionModelProvider(settings);
     const defaultSelection = provider.modelFor({
-      modelId: settings.models.modelId,
+      modelId: settings.models.defaultModelId,
       requestId: "request-default",
     });
     expect(defaultSelection.providerOptions).toMatchObject({
-      openai: {
-        reasoningEffort: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.DEFAULT_REASONING_EFFORT,
-        reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
-      },
+      openai: { reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE },
     });
+    expect(defaultSelection.providerOptions?.["openai"]).not.toHaveProperty("reasoningEffort");
 
     for (const reasoningEffort of OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.SUPPORTED_REASONING_EFFORTS) {
       const selection = provider.modelFor({
-        modelId: settings.models.modelId,
+        modelId: settings.models.defaultModelId,
         requestId: `request-${reasoningEffort}`,
         reasoningEffort,
       });
@@ -123,13 +119,19 @@ describe("production Workflow model serialization", () => {
     );
     const settings = settingsWith({
       provider: AZURE_PROVIDER.KIND,
-      modelId: "gpt-4o",
-      titleModelId: "gpt-4o",
-      contextWindowTokens: 128_000,
-      deployment: "side-chat-test",
-      apiKey: CREDENTIAL_SENTINEL,
-      endpoint: "https://azure.test",
-      apiVersion: "2025-01-01-preview",
+      connection: {
+        apiKey: CREDENTIAL_SENTINEL,
+        endpoint: "https://azure.test",
+        apiVersion: "2025-01-01-preview",
+      },
+      defaultModelId: "gpt-4o",
+      availableModels: [
+        {
+          id: "gpt-4o",
+          contextWindowTokens: 128_000,
+          deployment: "side-chat-test",
+        },
+      ],
     });
     const resolved = createProductionModelProvider(settings).modelFor({
       modelId: "gpt-4o",
@@ -178,10 +180,25 @@ function settingsWith(models: SideChatConfig["models"]): Settings {
 function scriptedModels(): SideChatConfig["models"] {
   return {
     provider: SCRIPTED_PROVIDER.KIND,
-    modelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
-    titleModelId: SCRIPTED_PROVIDER.MODELS.TITLE.MODEL_ID,
-    contextWindowTokens: SCRIPTED_PROVIDER.MODELS.COMPLETE.CONTEXT_WINDOW_TOKENS,
+    defaultModelId: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+    availableModels: [
+      {
+        id: SCRIPTED_PROVIDER.MODELS.COMPLETE.MODEL_ID,
+        contextWindowTokens: SCRIPTED_PROVIDER.MODELS.COMPLETE.CONTEXT_WINDOW_TOKENS,
+      },
+    ],
   };
+}
+
+function openAiModel() {
+  return {
+    id: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+    contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
+    reasoning: {
+      defaultEffort: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.DEFAULT_REASONING_EFFORT,
+      efforts: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.SUPPORTED_REASONING_EFFORTS,
+    },
+  } as const;
 }
 
 function requireProductionHandle(model: DurableLanguageModel): ProductionModelHandle {

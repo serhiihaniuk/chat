@@ -11,6 +11,7 @@ import type { ResumeClientTool } from "#application/turn/tools/submit-client-too
 import type { ToolApprovalDecisionStore } from "#application/ports/turn/tools/tool-approval-store";
 import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
 import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
+import type { SideChatConfig } from "#config/declaration/side-chat-config";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { createCollectingTelemetrySink } from "#testing/collecting-telemetry-sink";
@@ -35,15 +36,19 @@ export async function createServiceTestHarness(
     readonly toolApprovals?: ToolApprovalDecisionStore;
     readonly resumeToolApproval?: ResumeToolApproval;
     readonly serverTools?: readonly ServerToolDefinition[];
+    readonly models?: SideChatConfig["models"];
   } = {},
 ) {
-  const settingsResult = validateSettings(createDefaultConfig());
+  const { models, ...serviceOverrides } = overrides;
+  const settingsResult = validateSettings(
+    createDefaultConfig(models === undefined ? {} : { models }),
+  );
   if (!settingsResult.ok) throw new Error("Default test settings must be valid");
   const previousTelemetry = globalThis.AI_SDK_TELEMETRY_INTEGRATIONS;
   globalThis.AI_SDK_TELEMETRY_INTEGRATIONS = undefined;
   const telemetry = createCollectingTelemetrySink();
   const service = await startTestingService(settingsResult.settings, [], {
-    ...overrides,
+    ...serviceOverrides,
     telemetrySink: telemetry,
   });
   const request = (path: string, init: RequestInit = {}) =>

@@ -1,6 +1,9 @@
 import { readSettings } from "./resolution/settings-section-readers.js";
 import type { SettingsResult } from "./resolution/settings-contract.js";
-import { validateSettingsPolicy } from "./resolution/settings-policy.js";
+import {
+  validateSettingsPolicy,
+  type SettingsValidationCatalogs,
+} from "./resolution/settings-policy.js";
 import type { SettingsIssue } from "./setting-readers.js";
 
 /**
@@ -11,12 +14,19 @@ import type { SettingsIssue } from "./setting-readers.js";
 export type { Settings, SettingsResult } from "./resolution/settings-contract.js";
 export type { SettingsIssue } from "./setting-readers.js";
 
-export function validateSettings(candidate: unknown): SettingsResult {
+const EMPTY_VALIDATION_CATALOGS: SettingsValidationCatalogs = {
+  registeredServerToolNames: [],
+};
+
+export function validateSettings(
+  candidate: unknown,
+  catalogs: SettingsValidationCatalogs = EMPTY_VALIDATION_CATALOGS,
+): SettingsResult {
   const issues: SettingsIssue[] = [];
   const settings = readSettings(candidate, issues);
   if (issues.length > 0) return { ok: false, issues };
 
-  validateSettingsPolicy(settings, issues);
+  validateSettingsPolicy(settings, issues, catalogs);
   if (issues.length > 0) return { ok: false, issues };
 
   return { ok: true, settings: deepFreeze(settings) };

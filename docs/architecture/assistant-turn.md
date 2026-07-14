@@ -25,6 +25,15 @@ validates the pinned World schema, skips legal holds and non-terminal runs, and
 prunes eligible journals transactionally. The legacy connection-bound lifecycle below remains authoritative
 only for `apps/partner-ai-service` during this transition.
 
+The replacement route validates and translates the HTTP request; it does not
+choose a model. `PrepareTurnInput` carries the requested model and reasoning
+effort, while `PrepareTurnDependencies` owns the configured model policy.
+`prepareTurn` resolves that policy first, then checks the conversation, obtains
+admission, writes the user message and turn record, starts Workflow execution,
+and binds its run id. An unavailable model or reasoning effort therefore
+rejects before `assertCanBegin`, admission, persistence, or execution has any
+observable effect.
+
 ## Legacy service model
 
 A turn is **server-owned and connection-bound** (ADR 0007). The browser starts

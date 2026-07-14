@@ -6,11 +6,59 @@ Not source of truth for: gate commands (see [verification.md](verification.md)),
 
 Side Chat's runnable app, `apps/partner-ai-service`, declares its entire behavior in one typed object: `defineSideChatConfig({...}) satisfies SideChatConfig` in [`apps/partner-ai-service/sidechat.config.ts`](../../apps/partner-ai-service/sidechat.config.ts). The server loads that object at boot and builds its options from it. Process inputs (secrets, port, profile) are declared _inside_ the same object as `readEnv(...)` references, so the config stays the single, readable map of what the service does. Reading `process.env` ad-hoc anywhere else fails a governance gate.
 
-The AI SDK 7 replacement wing is intended to follow the same readable-declaration rule in [`apps/side-chat-service/sidechat.config.ts`](../../apps/side-chat-service/sidechat.config.ts), with standalone `azure` and testing-only `fake` variants. It does not yet satisfy that contract: the file selects one model while the complete model policy, production tool exposure, request policy, host-context policy, and auxiliary behavior must be reconstructed from implementation modules. Step 16a is reopened until one deployment file again answers provider, models, reasoning, tools, policy, context budgets, and timers from top to bottom. Catalog modules may provide typed values and executors may remain in application code, but they must not hide which capabilities the deployment selects.
+The AI SDK 7 replacement wing follows the same readable-declaration rule in [`apps/side-chat-service/sidechat.config.ts`](../../apps/side-chat-service/sidechat.config.ts), with standalone `azure` and testing-only `fake` variants. Each file declares the provider connection, the default request model, every request-selectable model and its exact reasoning policy, the conversation-title job, and the selected server tools. Catalog modules provide typed constants and registered executors remain in application code, but neither may hide which capabilities a deployment selects.
 
 The file's shape is a recorded decision, not an accident: it is one big, deliberately repetitive file per deployment variant, with no loops, factories, or shared fragments — do not "clean it up" ([ADR 0010](../adr/0010-readable-declarative-config.md)).
 
-## The shipped config object
+## Replacement service config object
+
+The replacement config uses these behavior-owning sections:
+
+```ts
+defineSideChatConfig({
+  models: {
+    provider: OPENAI_PROVIDER.KIND,
+    connection: {
+      apiKey: readEnv.secret(OPENAI_PROVIDER.SECRET_ENV_KEYS.API_KEY),
+      baseUrl: readEnv(OPENAI_PROVIDER.TRANSPORT_ENV_KEYS.BASE_URL),
+    },
+    reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
+    defaultModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+    availableModels: [
+      {
+        id: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+        contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
+        reasoning: {
+          defaultEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+          efforts: [
+            OPENAI_PROVIDER.REASONING_EFFORTS.LOW,
+            OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+            OPENAI_PROVIDER.REASONING_EFFORTS.HIGH,
+          ],
+        },
+      },
+    ],
+  },
+  conversationTitle: {
+    modelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+    timeoutMs: 10_000,
+  },
+  serverTools: [],
+  // auth, timeouts, agent, persistence, keepalive, telemetry, workflow
+});
+```
+
+`models.availableModels` is the request allowlist. `models.defaultModelId` must name one entry, each model id must be unique, and a reasoning default must be one of that model's listed efforts. `/api/models` publishes the whole list plus the default. `prepareTurn` resolves the request against this catalog before conversation checks, admission, persistence, or Workflow start.
+
+Azure keeps credentials, endpoint, and API version in `models.connection`, but each `availableModels` entry owns its deployment name. The adapter therefore resolves `modelId` to the selected model's deployment instead of treating one deployment as provider-wide. The scripted variant lists only request-selectable scripted behaviors; its separate title model stays visible under `conversationTitle`.
+
+`serverTools` is the deployment's selected list of registered server-tool names. Boot rejects duplicates and names absent from the registered executor catalog. The filtered definitions are the only tools published by `/api/tools` and the only server tools installed in the Workflow agent; a per-turn `enabledToolNames` request may narrow that list but cannot widen it. Production currently declares an honest empty list.
+
+Only behavior that is wired remains configurable. The replacement retains queue, provider, client-tool, and title timeouts; agent instructions and step cap; persistence; SSE keepalive interval; telemetry; and Workflow journal retention, sweep, class, and database settings. It deliberately has no request timeout, agent token budgets, active-generation count, proxy-idle budget, or worker-concurrency/headroom fields because those values did not control runtime behavior. Step 17 owns any future capacity policy and must add real enforcement before adding capacity configuration.
+
+Host-context admission is still a Step 16a gap. It is not represented by a decorative config field before the application seam exists.
+
+## Legacy service config object
 
 One file, one default export: `defineSideChatConfig({...}) satisfies SideChatConfig` (`sidechat.config.ts:32`, `:227-229`). It is one production OpenAI config, not a local/openai switchboard. A second standalone file, [`sidechat.azure.config.ts`](../../apps/partner-ai-service/sidechat.azure.config.ts), holds the Azure OpenAI variant; the local launcher boots it by pointing `SIDECHAT_CONFIG_PATH` at it.
 
