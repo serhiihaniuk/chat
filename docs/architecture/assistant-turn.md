@@ -34,6 +34,15 @@ and binds its run id. An unavailable model or reasoning effort therefore
 rejects before `assertCanBegin`, admission, persistence, or execution has any
 observable effect.
 
+Optional host context is validated at the replacement HTTP boundary against the
+deployment's explicit size, string, depth, and entry limits. `prepareTurn` keeps
+the accepted user message unchanged for `beginTurn` and later title generation,
+then runs a named execution-only rendering stage. That stage augments only the
+latest accepted user message with a clearly delimited untrusted page-reference
+block. Its role remains `user`; earlier history is unchanged, and host context
+never becomes authentication, authorization, workspace authority, or system
+instructions.
+
 ## Legacy service model
 
 A turn is **server-owned and connection-bound** (ADR 0007). The browser starts

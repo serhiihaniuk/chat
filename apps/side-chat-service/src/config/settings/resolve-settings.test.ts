@@ -68,7 +68,32 @@ describe("service settings", () => {
     if (!result.ok) return;
     expect(Object.isFrozen(result.settings)).toBe(true);
     expect(Object.isFrozen(result.settings.workflow)).toBe(true);
+    expect(Object.isFrozen(result.settings.hostContext)).toBe(true);
     expect(Object.isFrozen(result.settings.models.availableModels)).toBe(true);
+  });
+
+  it("requires every consumed host-context limit to be a positive integer", () => {
+    const result = resolveTestSettings(
+      createDefaultConfig({
+        hostContext: {
+          maxSerializedBytes: 0,
+          maxStringLength: -1,
+          maxMetadataDepth: 1.5,
+          maxMetadataEntries: Number.NaN,
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        { path: "hostContext.maxSerializedBytes", message: "must be a positive integer" },
+        { path: "hostContext.maxStringLength", message: "must be a positive integer" },
+        { path: "hostContext.maxMetadataDepth", message: "must be a positive integer" },
+        { path: "hostContext.maxMetadataEntries", message: "must be a positive integer" },
+      ]),
+    );
   });
 
   it("requires one database for legal-hold-safe Workflow maintenance", () => {

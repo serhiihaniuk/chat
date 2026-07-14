@@ -8,6 +8,7 @@ import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
 import { DeterministicTurnExecution } from "#testing/turn/deterministic-turn-execution";
+import type { HostContext } from "#domain/host-context";
 import {
   TURN_EXECUTION_ERROR_CODES,
   TURN_MESSAGE_ROLES,
@@ -26,6 +27,13 @@ const userMessage: TurnMessage = {
   id: "user-1",
   role: TURN_MESSAGE_ROLES.USER,
   text: "Hello",
+};
+const hostContext: HostContext = {
+  schemaVersion: "host.v1",
+  origin: "https://admin.example.test",
+  url: "https://admin.example.test/deployments/7",
+  title: "Deployment 7",
+  metadata: { deploymentId: 7 },
 };
 
 describe("prepareTurn", () => {
@@ -105,6 +113,45 @@ describe("prepareTurn", () => {
     expect(admission.admitted).toBe(0);
     expect(state.userMessages).toEqual([]);
     expect(execution.started).toEqual([]);
+  });
+
+  it("keeps the accepted message exact while context changes only its execution copy", async () => {
+    const state = createState();
+    const execution = new DeterministicTurnExecution();
+    const earlierUser: TurnMessage = {
+      id: "user-0",
+      role: TURN_MESSAGE_ROLES.USER,
+      text: "Earlier question",
+    };
+    const earlierAssistant: TurnMessage = {
+      id: "assistant-0",
+      role: TURN_MESSAGE_ROLES.ASSISTANT,
+      text: "Earlier answer",
+    };
+
+    await prepareTurn(
+      {
+        modelPolicy: selectTestModel,
+        admission: new DeterministicTurnAdmission(),
+        turns: state,
+        execution,
+      },
+      {
+        ...input(),
+        messages: [earlierUser, earlierAssistant, userMessage],
+        hostContext,
+      },
+    );
+
+    expect(state.userMessages).toEqual([userMessage]);
+    expect(execution.started[0]?.messages.slice(0, -1)).toEqual([earlierUser, earlierAssistant]);
+    expect(execution.started[0]?.messages.at(-1)).toMatchObject({
+      id: userMessage.id,
+      role: TURN_MESSAGE_ROLES.USER,
+    });
+    expect(execution.started[0]?.messages.at(-1)?.text).toContain("Deployment 7");
+    expect(execution.started[0]?.messages.at(-1)?.text).toContain(userMessage.text);
+    expect(execution.started[0]?.messages.at(-1)?.text).not.toBe(userMessage.text);
   });
 
   it("releases admission when execution cannot start", async () => {

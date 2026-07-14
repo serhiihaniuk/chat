@@ -4,6 +4,7 @@ import {
   readArray,
   readObject,
   readOptionalString,
+  readRequiredPositiveInteger,
   readRequiredCatalogValue,
   readRequiredString,
   type SettingsIssue,
@@ -24,6 +25,7 @@ export function readSettings(candidate: unknown, issues: SettingsIssue[]): Setti
     models: deployment.models,
     conversationTitle: readConversationTitle(root["conversationTitle"], issues),
     serverTools: readServerTools(root["serverTools"], issues),
+    hostContext: readHostContext(root["hostContext"], issues),
     auth: deployment.auth,
     timeouts: readTimeouts(root["timeouts"], issues),
     agent: readAgent(root["agent"], issues),
@@ -41,7 +43,11 @@ function readConversationTitle(
   const value = readObject(candidate, "conversationTitle", issues);
   return {
     modelId: readRequiredString(value["modelId"], "conversationTitle.modelId", issues),
-    timeoutMs: readPositiveInteger(value["timeoutMs"], "conversationTitle.timeoutMs", issues),
+    timeoutMs: readRequiredPositiveInteger(
+      value["timeoutMs"],
+      "conversationTitle.timeoutMs",
+      issues,
+    ),
   };
 }
 
@@ -51,12 +57,42 @@ function readServerTools(candidate: unknown, issues: SettingsIssue[]): readonly 
   );
 }
 
+function readHostContext(candidate: unknown, issues: SettingsIssue[]): Settings["hostContext"] {
+  const value = readObject(candidate, "hostContext", issues);
+  return {
+    maxSerializedBytes: readRequiredPositiveInteger(
+      value["maxSerializedBytes"],
+      "hostContext.maxSerializedBytes",
+      issues,
+    ),
+    maxStringLength: readRequiredPositiveInteger(
+      value["maxStringLength"],
+      "hostContext.maxStringLength",
+      issues,
+    ),
+    maxMetadataDepth: readRequiredPositiveInteger(
+      value["maxMetadataDepth"],
+      "hostContext.maxMetadataDepth",
+      issues,
+    ),
+    maxMetadataEntries: readRequiredPositiveInteger(
+      value["maxMetadataEntries"],
+      "hostContext.maxMetadataEntries",
+      issues,
+    ),
+  };
+}
+
 function readTimeouts(candidate: unknown, issues: SettingsIssue[]): Settings["timeouts"] {
   const value = readObject(candidate, "timeouts", issues);
   return {
-    queueMs: readPositiveInteger(value["queueMs"], "timeouts.queueMs", issues),
-    providerMs: readPositiveInteger(value["providerMs"], "timeouts.providerMs", issues),
-    clientToolMs: readPositiveInteger(value["clientToolMs"], "timeouts.clientToolMs", issues),
+    queueMs: readRequiredPositiveInteger(value["queueMs"], "timeouts.queueMs", issues),
+    providerMs: readRequiredPositiveInteger(value["providerMs"], "timeouts.providerMs", issues),
+    clientToolMs: readRequiredPositiveInteger(
+      value["clientToolMs"],
+      "timeouts.clientToolMs",
+      issues,
+    ),
   };
 }
 
@@ -64,7 +100,7 @@ function readAgent(candidate: unknown, issues: SettingsIssue[]): Settings["agent
   const value = readObject(candidate, "agent", issues);
   return {
     instructions: readRequiredString(value["instructions"], "agent.instructions", issues),
-    maxSteps: readPositiveInteger(value["maxSteps"], "agent.maxSteps", issues),
+    maxSteps: readRequiredPositiveInteger(value["maxSteps"], "agent.maxSteps", issues),
   };
 }
 
@@ -77,7 +113,7 @@ function readPersistence(candidate: unknown, issues: SettingsIssue[]): Settings[
 function readKeepalive(candidate: unknown, issues: SettingsIssue[]): Settings["keepalive"] {
   const value = readObject(candidate, "keepalive", issues);
   return {
-    intervalMs: readPositiveInteger(value["intervalMs"], "keepalive.intervalMs", issues),
+    intervalMs: readRequiredPositiveInteger(value["intervalMs"], "keepalive.intervalMs", issues),
   };
 }
 
@@ -102,12 +138,12 @@ function readTelemetry(candidate: unknown, issues: SettingsIssue[]): Settings["t
 function readWorkflow(candidate: unknown, issues: SettingsIssue[]): Settings["workflow"] {
   const value = readObject(candidate, "workflow", issues);
   return {
-    journalPruneAfterDays: readPositiveInteger(
+    journalPruneAfterDays: readRequiredPositiveInteger(
       value["journalPruneAfterDays"],
       "workflow.journalPruneAfterDays",
       issues,
     ),
-    journalSweepIntervalMs: readPositiveInteger(
+    journalSweepIntervalMs: readRequiredPositiveInteger(
       value["journalSweepIntervalMs"],
       "workflow.journalSweepIntervalMs",
       issues,
@@ -121,10 +157,4 @@ function readWorkflow(candidate: unknown, issues: SettingsIssue[]): Settings["wo
     ),
     postgresUrl: readOptionalString(value["postgresUrl"], "workflow.postgresUrl", issues),
   };
-}
-
-function readPositiveInteger(value: unknown, path: string, issues: SettingsIssue[]): number {
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
-  issues.push({ path, message: "must be a positive integer" });
-  return 0;
 }

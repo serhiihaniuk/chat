@@ -59,7 +59,7 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 | Surface             | Legacy contract to preserve                                                            | Workflow correction status                                                                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Conversation shell  | New chat, select, title, refresh, running indicators, busy-safe controls               | Partial: one shared shell now owns New chat/select/refresh/settings/header/switcher, and real running/busy state is wired; conversation-specific title semantics remain to reverify |
-| Prompting           | quick actions, model/turn choice, host context, host/client tool integration           | Partial: quick actions, complete request model catalog, reasoning policy, client tools, and configured server tools exist; host context remains open                                |
+| Prompting           | quick actions, model/turn choice, host context, host/client tool integration           | Partial: the service accepts bounded host context and renders it only as untrusted current-user reference data; native browser capture/transport remains open                       |
 | Settings            | theme, appearance, send preference, reasoning visibility, tool detail                  | Reverified after shared-shell consolidation in the paired look fixture and interaction suite                                                                                        |
 | Message composition | reasoning/tools fold, duration, activity override, citations, images/files, copy/retry | Partial: activity override is mapped through one transport-neutral contract; the other composition behavior remains unchanged and must stay covered at cutover                      |
 | Recovery            | idle New chat, active refresh reattach, drop retry, multi-tab convergence              | Reopened in Step 16                                                                                                                                                                 |
@@ -97,6 +97,13 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 - Azure deployment belongs to each model entry and the adapter resolves the selected id to that deployment. OpenAI receives only the reasoning value already selected by application policy.
 - `serverTools` selects registered executors at boot. The same filtered definitions drive request validation, `/api/tools`, Workflow agent initialization, and post-approval reloading. Production honestly selects none.
 - Evidence: direct service TypeScript passes; the non-integration service suite passes 55 files / 250 tests; compiled testing and production Workflow compatibility passes 13/13; focused provider/config/model/route/workflow tests pass. This closes configuration ownership, not host-context or Streamdown-token parity.
+
+### Service host-context correction slice — bounded untrusted reference data
+
+- Every standalone replacement-service config declares the consumed host-context limits: 16,384 serialized UTF-8 bytes, 4,096 characters per direct or metadata string/key, metadata depth 8, and 128 total nested object properties plus array items.
+- The service owns an immutable host-context type. HTTP rejects unknown keys, malformed JSON metadata, non-finite numbers, and every limit violation with the existing safe `400`; it never logs the raw context.
+- `prepareTurn` preserves the exact accepted user message for persistence and title generation. A named application stage augments only the latest accepted user message passed to execution, labels the page reference as untrusted user-provided data, keeps the role `user`, and never inserts a system message.
+- Evidence: direct service TypeScript passes; focused request/config/preparation/Workflow coverage passes 9 files / 57 tests; the non-integration service suite passes 58 files / 269 tests; `lint:custom`, scoped Oxlint, scoped formatting, and the diff check pass. Those tests cover config validation, safe HTTP rejection for malformed/oversize/deep/wide/unknown input, auth isolation, exact persistence and title input, latest-message-only augmentation, absent-context identity, and user-role Workflow serialization. Native browser capture/transport remains open for the next slice, so this service evidence does not close the overall host-context parity row.
 
 ### At parity (native = legacy), browser-verified
 
@@ -150,7 +157,7 @@ None approved.
 - Focused state tests cover draft creation, persisted selection, missing selection, service-accept promotion, terminal cursor cleanup, and no implicit fallback.
 - Browser tests cover empty-store refresh, idle refresh with existing chats, mid-turn refresh, no URL mutation, and two-tab running-state selection.
 - The parity matrix has no open row or each remaining cut has explicit user approval in the sign-off section.
-- The replacement config can be read top to bottom to identify provider routing, every request-selectable model and reasoning choice, the title job, exposed server tools, and every wired timer. Host-context admission remains a separate open application seam; future capacity policy must add enforcement before configuration.
+- The replacement config can be read top to bottom to identify provider routing, every request-selectable model and reasoning choice, the title job, exposed server tools, host-context limits, and every wired timer. Native browser transport remains open; future capacity policy must add enforcement before configuration.
 - Streamdown spacing/color/typography selectors consume documented tier-2 component tokens and one wrapper owns `.sc-markdown`.
 - Focused tests, widget/service typechecks, scoped Oxlint, custom governance, and touched formatting pass; root baseline failures, if any, are separated from touched regressions.
 

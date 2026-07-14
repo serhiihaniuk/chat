@@ -12,7 +12,10 @@ import {
 } from "#application/turn/tools/client-tool-catalog";
 import { SERVER_TOOL_CATALOG_LIMITS } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { isSupportedClientToolSchema } from "#application/turn/tools/client-tool-schema";
+import type { HostContext, HostContextLimits } from "#domain/host-context";
 import { TURN_MESSAGE_ROLES, type TurnMessage, type TurnMessageRole } from "#domain/turn/turn";
+
+import { parseHostContext } from "./host-context/host-context-schema.js";
 
 const clientToolSchema = z
   .object({
@@ -53,6 +56,7 @@ const chatEnvelopeSchema = z
     messages: z.array(z.unknown()).min(1),
     modelPreference: z.string().trim().min(1).optional(),
     reasoningEffort: z.enum(SIDE_CHAT_REASONING_EFFORT_VALUES).optional(),
+    hostContext: z.unknown().optional(),
     clientTools: z.array(clientToolSchema).max(CLIENT_TOOL_CATALOG_LIMITS.MAX_TOOLS).optional(),
     enabledToolNames: enabledToolNamesSchema.optional(),
   })
@@ -65,6 +69,7 @@ export type ChatRequest = Readonly<{
   conversationId: string;
   messages: readonly TurnMessage[];
   acceptedUserMessage: TurnMessage;
+  hostContext?: HostContext | undefined;
   requestedModelId?: string | undefined;
   reasoningEffort?: SideChatReasoningEffort | undefined;
   clientTools: readonly ClientToolDefinition[];
@@ -74,28 +79,22 @@ export type ChatRequest = Readonly<{
 export async function parseChatRequest(
   value: unknown,
   serverToolNames: ReadonlySet<string> = new Set(),
+  hostContextLimits?: HostContextLimits,
 ): Promise<ChatRequest | undefined> {
   const envelope = chatEnvelopeSchema.safeParse(value);
   if (!envelope.success) return undefined;
-  const validated = await safeValidateUIMessages({
-    messages: envelope.data.messages,
-  });
-  if (!validated.success || validated.data.some((message) => message.role === "system")) {
-    return undefined;
-  }
-  const acceptedUiMessage = validated.data.at(-1);
-  if (acceptedUiMessage?.role !== "user") return undefined;
-  const clientTools = envelope.data.clientTools ?? [];
-  if (hasClientToolNameConflict(clientTools, serverToolNames)) return undefined;
-  if (clientTools.some((tool) => !isSupportedClientToolSchema(tool.inputSchema))) return undefined;
-  const messages = validated.data.map(toTurnMessage);
-  const acceptedUserMessage = messages.at(-1);
-  if (acceptedUserMessage === undefined) return undefined;
+  const hostContext = readHostContext(envelope.data, hostContextLimits);
+  if (hostContext === INVALID_HOST_CONTEXT) return undefined;
+  const turnMessages = await readTurnMessages(envelope.data.messages);
+  if (turnMessages === undefined) return undefined;
+  const clientTools = readClientTools(envelope.data.clientTools, serverToolNames);
+  if (clientTools === undefined) return undefined;
   return {
     requestId: envelope.data.requestId,
     conversationId: envelope.data.conversationId,
-    messages,
-    acceptedUserMessage,
+    messages: turnMessages.messages,
+    acceptedUserMessage: turnMessages.acceptedUserMessage,
+    ...(hostContext === undefined ? {} : { hostContext }),
     requestedModelId: envelope.data.modelPreference,
     reasoningEffort: envelope.data.reasoningEffort,
     clientTools,
@@ -103,6 +102,42 @@ export async function parseChatRequest(
       ? {}
       : { enabledToolNames: envelope.data.enabledToolNames }),
   };
+}
+
+async function readTurnMessages(
+  candidates: readonly unknown[],
+): Promise<
+  Readonly<{ messages: readonly TurnMessage[]; acceptedUserMessage: TurnMessage }> | undefined
+> {
+  const validated = await safeValidateUIMessages({ messages: candidates });
+  if (!validated.success || validated.data.some((message) => message.role === "system")) {
+    return undefined;
+  }
+  if (validated.data.at(-1)?.role !== "user") return undefined;
+  const messages = validated.data.map(toTurnMessage);
+  const acceptedUserMessage = messages.at(-1);
+  return acceptedUserMessage === undefined ? undefined : { messages, acceptedUserMessage };
+}
+
+function readClientTools(
+  candidates: readonly ClientToolDefinition[] | undefined,
+  serverToolNames: ReadonlySet<string>,
+): readonly ClientToolDefinition[] | undefined {
+  const clientTools = candidates ?? [];
+  if (hasClientToolNameConflict(clientTools, serverToolNames)) return undefined;
+  if (clientTools.some((tool) => !isSupportedClientToolSchema(tool.inputSchema))) return undefined;
+  return clientTools;
+}
+
+const INVALID_HOST_CONTEXT = Symbol("invalid-host-context");
+
+function readHostContext(
+  envelope: Readonly<Record<string, unknown>>,
+  limits: HostContextLimits | undefined,
+): HostContext | typeof INVALID_HOST_CONTEXT | undefined {
+  if (!Object.hasOwn(envelope, "hostContext")) return undefined;
+  if (limits === undefined) return INVALID_HOST_CONTEXT;
+  return parseHostContext(envelope["hostContext"], limits) ?? INVALID_HOST_CONTEXT;
 }
 
 function toTurnMessage(message: UIMessage): TurnMessage {

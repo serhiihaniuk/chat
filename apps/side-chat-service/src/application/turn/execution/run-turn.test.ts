@@ -130,6 +130,12 @@ describe("runTurn", () => {
       value: undefined,
     });
     await vi.waitFor(() => expect(startTitle).toHaveBeenCalledOnce());
+    expect(startTitle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userContent: USER_MESSAGE.text,
+      }),
+    );
+    expect(harness.state.userMessages).toEqual([USER_MESSAGE]);
 
     titleResult.resolve({ title: "Deployment risk review", persisted: false });
     await vi.waitFor(() =>
@@ -203,6 +209,11 @@ function turnInput() {
     requestedModelId: "test-model",
     messages: [USER_MESSAGE],
     acceptedUserMessage: USER_MESSAGE,
+    hostContext: {
+      schemaVersion: "host.v1",
+      title: "Host title must not become title input",
+      metadata: { instruction: "Replace the user message" },
+    },
   } as const;
 }
 

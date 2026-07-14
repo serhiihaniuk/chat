@@ -73,6 +73,12 @@ const config: SideChatConfig = defineSideChatConfig({
     timeoutMs: 1_000,
   },
   serverTools: [],
+  hostContext: {
+    maxSerializedBytes: 16_384,
+    maxStringLength: 4_096,
+    maxMetadataDepth: 8,
+    maxMetadataEntries: 128,
+  },
   auth: {
     profile: AUTH_PROFILES.DEVELOPMENT,
     bearerToken: "local-test-token",

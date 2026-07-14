@@ -44,6 +44,12 @@ defineSideChatConfig({
     timeoutMs: 10_000,
   },
   serverTools: [],
+  hostContext: {
+    maxSerializedBytes: 16_384,
+    maxStringLength: 4_096,
+    maxMetadataDepth: 8,
+    maxMetadataEntries: 128,
+  },
   // auth, timeouts, agent, persistence, keepalive, telemetry, workflow
 });
 ```
@@ -54,9 +60,11 @@ Azure keeps credentials, endpoint, and API version in `models.connection`, but e
 
 `serverTools` is the deployment's selected list of registered server-tool names. Boot rejects duplicates and names absent from the registered executor catalog. The filtered definitions are the only tools published by `/api/tools` and the only server tools installed in the Workflow agent; a per-turn `enabledToolNames` request may narrow that list but cannot widen it. Production currently declares an honest empty list.
 
+`hostContext` bounds optional browser-supplied page reference data before a turn reaches application policy. The HTTP boundary rejects unknown host-context keys, strings over `maxStringLength`, non-finite metadata numbers, metadata deeper than `maxMetadataDepth`, metadata with more than `maxMetadataEntries` nested object properties and array items, or a normalized UTF-8 serialization over `maxSerializedBytes`. The accepted value remains untrusted user-level data: it may be rendered into the current user message for model execution, but it never supplies identity, authorization, workspace scope, or system instructions.
+
 Only behavior that is wired remains configurable. The replacement retains queue, provider, client-tool, and title timeouts; agent instructions and step cap; persistence; SSE keepalive interval; telemetry; and Workflow journal retention, sweep, class, and database settings. It deliberately has no request timeout, agent token budgets, active-generation count, proxy-idle budget, or worker-concurrency/headroom fields because those values did not control runtime behavior. Step 17 owns any future capacity policy and must add real enforcement before adding capacity configuration.
 
-Host-context admission is still a Step 16a gap. It is not represented by a decorative config field before the application seam exists.
+The replacement service consumes every `hostContext` limit directly in request validation. Browser transport from the native widget remains a separate Step 16a gap until that branch requests and sends the host bridge snapshot on every submission.
 
 ## Legacy service config object
 

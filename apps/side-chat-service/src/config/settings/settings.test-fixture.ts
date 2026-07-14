@@ -36,6 +36,12 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
       timeoutMs: 10_000,
     },
     serverTools: [],
+    hostContext: {
+      maxSerializedBytes: 16_384,
+      maxStringLength: 4_096,
+      maxMetadataDepth: 8,
+      maxMetadataEntries: 128,
+    },
     auth: {
       profile: AUTH_PROFILES.DEVELOPMENT,
       bearerToken: "local-test-token",
@@ -67,6 +73,7 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
       ...overrides.conversationTitle,
     },
     serverTools: overrides.serverTools ?? defaults.serverTools,
+    hostContext: { ...defaults.hostContext, ...overrides.hostContext },
     auth: { ...defaults.auth, ...overrides.auth },
     timeouts: { ...defaults.timeouts, ...overrides.timeouts },
     agent: { ...defaults.agent, ...overrides.agent },

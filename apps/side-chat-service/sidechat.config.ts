@@ -39,6 +39,12 @@ const config: SideChatConfig = defineSideChatConfig({
     timeoutMs: 10_000,
   },
   serverTools: [],
+  hostContext: {
+    maxSerializedBytes: 16_384,
+    maxStringLength: 4_096,
+    maxMetadataDepth: 8,
+    maxMetadataEntries: 128,
+  },
   auth: {
     profile: AUTH_PROFILES.PRODUCTION,
     bearerToken: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_AUTH_TOKEN),

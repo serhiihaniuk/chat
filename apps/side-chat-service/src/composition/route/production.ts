@@ -97,6 +97,7 @@ export async function startProductionService(
       outboundTransforms: [() => createScrubTransform()],
       modelPolicy: configuredTurnModelCatalog(modelCatalog),
       serverToolNames: new Set(serverTools.map((definition) => definition.name)),
+      hostContextLimits: settings.hostContext,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable

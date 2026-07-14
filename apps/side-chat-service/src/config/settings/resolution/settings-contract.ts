@@ -10,6 +10,12 @@ export type Settings = Readonly<{
   models: ModelSettings;
   conversationTitle: Readonly<{ modelId: string; timeoutMs: number }>;
   serverTools: readonly string[];
+  hostContext: Readonly<{
+    maxSerializedBytes: number;
+    maxStringLength: number;
+    maxMetadataDepth: number;
+    maxMetadataEntries: number;
+  }>;
   auth: AuthSettings;
   timeouts: Readonly<{
     queueMs: number;

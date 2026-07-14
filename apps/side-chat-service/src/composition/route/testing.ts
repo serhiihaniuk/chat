@@ -168,6 +168,7 @@ async function startTestingServiceWithPersistence<
       outboundTransforms: [() => createScrubTransform()],
       modelPolicy: configuredTurnModelCatalog(configuredModelCatalog(settings)),
       serverToolNames,
+      hostContextLimits: settings.hostContext,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable

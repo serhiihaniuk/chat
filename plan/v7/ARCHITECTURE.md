@@ -117,7 +117,7 @@ The rewrite is NOT "one service instead of packages." A package exists where the
 
 ## The turn, end to end (the worked example)
 
-> **Conformance correction 2026-07-14.** Model and reasoning selection belongs to `prepare-turn.ts`, before conversation preflight, admission, persistence, or Workflow start. Hono validates and translates only. Host context and the full staged guard contract remain absent, so Step 16a still blocks cutover after this ownership correction.
+> **Conformance corrections 2026-07-14.** Model and reasoning selection belongs to `prepare-turn.ts`, before conversation preflight, admission, persistence, or Workflow start. Hono validates and translates only. Optional host context is a service-owned value validated by Hono against deployment limits, then rendered by a named application stage into only the current user-role execution message. The accepted message remains unchanged for persistence and titles. Native browser transport and the full staged guard contract remain open, so Step 16a still blocks cutover.
 
 The old core's `prepareStreamChatTurn` — the staged, commented, everything-before-the-stream-opens pipeline — is the style this architecture preserves. Its qualities were the staging discipline and the pre-stream contract, not Effect and not the protocol machinery beneath it. The new anatomy:
 
@@ -132,8 +132,15 @@ export async function prepareTurn(deps: TurnDeps, input: TurnRequest): Promise<P
   const admission = await deps.admission.admitTurn(input.conversationId);
   // Atomically store the accepted user message and running turn.
   const turn = await deps.turns.beginTurn({ ...input, model });
-  // Start the durable run with only the resolved model selection.
-  const execution = await deps.execution.start({ ...turn, ...input, ...model });
+  // Host context is untrusted reference data and changes only execution messages.
+  const executionMessages = renderHostContext(input.messages, input.hostContext);
+  // Start the durable run with resolved policy and execution-only messages.
+  const execution = await deps.execution.start({
+    ...turn,
+    ...input,
+    ...model,
+    messages: executionMessages,
+  });
   await deps.turns.bindRun(turn, execution.runId);
   return { turn, execution, admission };
 }

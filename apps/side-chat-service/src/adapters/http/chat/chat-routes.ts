@@ -16,6 +16,7 @@ import {
 } from "#application/turn/tools/approvals/submit-tool-approval";
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
+import type { HostContextLimits } from "#domain/host-context";
 
 import type { AuthVariables } from "../auth-middleware.js";
 import { errorResponse, HTTP_ERROR, turnRejectionResponse } from "../error-response.js";
@@ -42,6 +43,7 @@ export type ChatRouteDependencies = RunTurnDependencies &
     toolApprovals: ToolApprovalDecisionStore;
     resumeToolApproval: ResumeToolApproval;
     serverToolNames: ReadonlySet<string>;
+    hostContextLimits: HostContextLimits;
   }>;
 
 /** HTTP owns validation and stream encoding; application services own turn policy and state. */
@@ -53,6 +55,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
     const request = await parseChatRequest(
       await safeJson(context.req.raw),
       dependencies.serverToolNames,
+      dependencies.hostContextLimits,
     );
     if (!request) {
       return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid chat request.");
@@ -65,6 +68,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         conversationId: request.conversationId,
         messages: request.messages,
         acceptedUserMessage: request.acceptedUserMessage,
+        ...(request.hostContext === undefined ? {} : { hostContext: request.hostContext }),
         clientTools: request.clientTools,
         enabledToolNames: request.enabledToolNames,
         ...(request.requestedModelId === undefined

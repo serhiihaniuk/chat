@@ -6,6 +6,7 @@ import type { TurnStore } from "#application/ports/turn/turn-store";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 import type { AuthContext } from "#domain/auth-context";
+import type { HostContext } from "#domain/host-context";
 import {
   TURN_EXECUTION_ERROR_CODES,
   TURN_TERMINAL_STATUSES,
@@ -13,6 +14,8 @@ import {
   type TurnMessage,
   type TurnRef,
 } from "#domain/turn/turn";
+
+import { renderHostContextForExecution } from "./host-context/render-host-context.js";
 
 export type PrepareTurnInput = Readonly<{
   auth: AuthContext;
@@ -22,6 +25,7 @@ export type PrepareTurnInput = Readonly<{
   requestedReasoningEffort?: SideChatReasoningEffort | undefined;
   messages: readonly TurnMessage[];
   acceptedUserMessage: TurnMessage;
+  hostContext?: HostContext | undefined;
   clientTools?: readonly ClientToolDefinition[];
   enabledToolNames?: readonly string[] | undefined;
 }>;
@@ -60,13 +64,18 @@ export async function prepareTurn(
       requestId: input.requestId,
       userMessage: input.acceptedUserMessage,
     });
+    const executionMessages = renderHostContextForExecution(
+      input.messages,
+      input.acceptedUserMessage,
+      input.hostContext,
+    );
     const executionInput = {
       ...turn,
       auth: input.auth,
       requestId: input.requestId,
       modelId: model.modelId,
       ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: model.reasoningEffort }),
-      messages: input.messages,
+      messages: executionMessages,
       clientTools: input.clientTools ?? [],
       ...(input.enabledToolNames === undefined ? {} : { enabledToolNames: input.enabledToolNames }),
     };
