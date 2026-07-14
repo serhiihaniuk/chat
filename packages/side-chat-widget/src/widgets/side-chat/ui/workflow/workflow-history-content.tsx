@@ -12,6 +12,7 @@ export function selectWorkflowHistoryContent({
   isRecoveryPending,
   labels,
   onRetry,
+  preserveSession,
   session,
 }: Readonly<{
   error: Error | null;
@@ -20,8 +21,11 @@ export function selectWorkflowHistoryContent({
   isRecoveryPending: boolean;
   labels: WidgetLabels;
   onRetry: () => void;
+  /** The mounted chat owns a run accepted in this tab; query refreshes must not replace it. */
+  preserveSession: boolean;
   session: ReactNode;
 }>): ReactNode {
+  if (preserveSession) return session;
   if (!isLocalDraft && (isPending || isRecoveryPending)) {
     return <Conversation aria-label={labels.headerConversationFeed}>{null}</Conversation>;
   }

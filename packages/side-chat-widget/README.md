@@ -39,6 +39,19 @@ approval pauses, and is cleared at a true terminal or cancel. On refresh the
 service's active-turn discovery must confirm the cursor before reattachment;
 missing or mismatched discovery returns the widget to New chat.
 
+The authenticated workflow conversation catalog is `{ conversations,
+runningConversationIds }`. Running ids are display/busy state only: they are
+filtered to validated catalog rows and do not choose a conversation. The
+protocol and workflow transports share one `SideChatPanelView` for settings,
+sidebar, header, switcher, refresh, and busy-safe navigation while retaining
+their own feed/session content.
+
+Workflow catalog, history, active-turn, model, and tool reads use one exported
+TanStack Query prefix. Refresh invalidates that prefix; a persisted conversation
+remounts after refetch for replay, while a local draft remains New chat. The
+currently mounted chat retains ownership of a run it accepted so persistence
+loading cannot erase live or just-finished messages.
+
 The native branch renders the validated AI SDK `UIMessage` part timeline with
 source-ordered text, reasoning, tool lifecycle, source, file, approval, and
 terminal presentations. An optional `hostBridge` advertises page capabilities

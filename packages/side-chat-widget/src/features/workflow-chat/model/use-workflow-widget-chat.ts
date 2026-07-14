@@ -143,6 +143,10 @@ export function useWorkflowWidgetChat(
     // On a cold load, seed the discovered run and resume its stream once. Replay
     // reconciles with the seeded history by message id, so no bubbles duplicate.
     if (reattachedRef.current || activeTurn === undefined) return;
+    if (activeRunIdRef.current === activeTurn.runId) {
+      reattachedRef.current = true;
+      return;
+    }
     reattachedRef.current = true;
     activeRunIdRef.current = activeTurn.runId;
     void chat.resumeStream();

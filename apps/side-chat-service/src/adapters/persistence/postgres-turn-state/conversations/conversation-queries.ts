@@ -29,6 +29,24 @@ export function createPostgresConversationQueries(
         lastMessageAt: record.lastMessageAt,
       }));
     },
+    listActiveTurns: async (auth) => {
+      const records = await repositories.listActiveAssistantTurns({
+        workspaceId: auth.workspaceId,
+        subjectId: auth.subjectId,
+      });
+      return records.flatMap((record) =>
+        record.runId
+          ? [
+              {
+                conversationId: record.conversationId,
+                turnId: record.assistantTurnId,
+                runId: record.runId,
+                status: "running" as const,
+              },
+            ]
+          : [],
+      );
+    },
     findActiveTurn: async (auth, conversationId) => {
       const record = await repositories.findActiveAssistantTurn({
         workspaceId: auth.workspaceId,

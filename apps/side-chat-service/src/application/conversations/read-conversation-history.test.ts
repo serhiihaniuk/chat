@@ -190,6 +190,7 @@ describe("readConversationHistory", () => {
         });
       },
       listConversations: () => Promise.resolve([]),
+      listActiveTurns: () => Promise.resolve([]),
       findActiveTurn: () => Promise.resolve(undefined),
     };
 
@@ -217,6 +218,7 @@ function queryStore(messages: readonly StoredConversationMessage[]): Conversatio
   return {
     readHistory: () => Promise.resolve({ messages, hasMoreBefore: false }),
     listConversations: () => Promise.resolve([]),
+    listActiveTurns: () => Promise.resolve([]),
     findActiveTurn: () => Promise.resolve(undefined),
   };
 }

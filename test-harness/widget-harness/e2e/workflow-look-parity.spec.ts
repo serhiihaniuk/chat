@@ -64,8 +64,7 @@ const nativeMessages = [
   },
 ] as const;
 
-const workflowUrl =
-  "/side-chat-frame/?mode=workflow-service&conversationId=conversation-look-parity";
+const workflowUrl = "/side-chat-frame/?mode=workflow-service";
 const legacyUrl = "/side-chat-frame/?mode=mock-stream&scenario=tool";
 
 test.beforeAll(() => mkdirSync(evidenceDirectory, { recursive: true }));
@@ -90,6 +89,7 @@ test("captures legacy and native look parity across every theme and density", as
       const native = requiredFrame(page, "native-widget");
       await legacy.getByLabel("Message").fill(fixturePrompt);
       await legacy.getByRole("button", { name: "Send" }).click();
+      await native.getByText("Look parity fixture").click();
 
       await expect(legacy.getByText(fixtureAnswer)).toBeVisible();
       await expect(native.getByText(fixtureAnswer)).toBeVisible();
@@ -115,7 +115,18 @@ async function routeNativeFixture(page: Page): Promise<void> {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (path.endsWith("/conversations")) {
-      await route.fulfill({ json: { conversations: [] } });
+      await route.fulfill({
+        json: {
+          conversations: [
+            {
+              id: "conversation-look-parity",
+              title: "Look parity fixture",
+              lastMessageAt: "2026-07-14T12:00:00Z",
+            },
+          ],
+          runningConversationIds: [],
+        },
+      });
       return;
     }
     if (path.endsWith("/models")) {

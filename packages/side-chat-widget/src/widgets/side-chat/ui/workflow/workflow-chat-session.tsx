@@ -17,6 +17,7 @@ import {
   useWorkflowWidgetChat,
   type WorkflowModelSelection,
   WORKFLOW_WIDGET_CHAT_STATUS,
+  type WorkflowWidgetChatStatus,
   type WorkflowChatTerminal,
   WorkflowMessageTimeline,
 } from "#features/workflow-chat";
@@ -38,9 +39,9 @@ export function WorkflowChatSession({
   labels,
   hostBridge,
   activeTurn,
-  onConversationsChanged,
   onRunAccepted,
   onRunTerminal,
+  onStatusChange,
   quickActions,
   reasoningVisibility,
   renderAgentMark,
@@ -55,10 +56,9 @@ export function WorkflowChatSession({
   readonly sendOnEnter: boolean;
   readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
   readonly activeTurn: WorkflowActiveTurn | undefined;
-  /** Called when a turn settles, so the parent can refresh the conversation list. */
-  readonly onConversationsChanged: () => void;
   readonly onRunAccepted: (runId: string) => void;
   readonly onRunTerminal: (runId: string) => void;
+  readonly onStatusChange: (status: WorkflowWidgetChatStatus) => void;
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
   readonly reasoningVisibility: ReasoningVisibility;
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
@@ -85,17 +85,12 @@ export function WorkflowChatSession({
     onRunAccepted,
     onRunTerminal,
   });
+  useEffect(() => onStatusChange(chat.status), [chat.status, onStatusChange]);
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
   const contextUsedTokens = projectLatestAssistantUsage(chat.messages);
   const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);
   const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
   const isEmpty = chat.messages.length === 0 && chat.terminal.kind === "none" && !chat.error;
-  // A settled turn may have created this conversation or updated its title/time;
-  // let the parent refresh the sidebar list once the turn reaches a terminal.
-  const terminalKind = chat.terminal.kind;
-  useEffect(() => {
-    if (terminalKind !== "none") onConversationsChanged();
-  }, [terminalKind, onConversationsChanged]);
   return (
     <>
       <Conversation aria-label={labels.headerConversationFeed}>

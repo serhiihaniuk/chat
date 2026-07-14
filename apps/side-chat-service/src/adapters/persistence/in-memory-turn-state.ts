@@ -16,6 +16,12 @@ import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-
 import type { AuthContext } from "#domain/auth-context";
 import type { TurnMessage, TurnRef, TurnTerminal } from "#domain/turn/turn";
 
+import {
+  findLatestBoundTurn,
+  listOwnedActiveTurns,
+  sameOwner,
+  type InMemoryStoredTurn,
+} from "./in-memory-turn-state/active-turns.js";
 import { storedUIMessage, storedUserMessage } from "./in-memory-turn-state/messages.js";
 
 export type SeedConversation = Readonly<{
@@ -23,12 +29,6 @@ export type SeedConversation = Readonly<{
   workspaceId: string;
   subjectId: string;
   title?: string | undefined;
-}>;
-
-type StoredTurn = Readonly<{
-  reference: TurnRef;
-  requestId: string;
-  runId?: string;
 }>;
 
 /**
@@ -53,7 +53,7 @@ export class InMemoryTurnState
 
   private readonly conversations = new Map<string, SeedConversation>();
   private readonly conversationMessages = new Map<string, StoredConversationMessage[]>();
-  private readonly turns = new Map<string, StoredTurn>();
+  private readonly turns = new Map<string, InMemoryStoredTurn>();
   private nextTurnNumber = 1;
 
   constructor(seedConversations: readonly SeedConversation[]) {
@@ -110,6 +110,12 @@ export class InMemoryTurnState
     return Promise.resolve(conversations);
   }
 
+  listActiveTurns(auth: AuthContext) {
+    return Promise.resolve(
+      listOwnedActiveTurns(auth, this.runningTurns, this.conversations, this.turns.values()),
+    );
+  }
+
   readTitleEligibility(auth: AuthContext, conversationId: string, initialUserMessageId: string) {
     const conversation = this.requireOwnedConversation(auth, conversationId);
     const firstMessage = this.conversationMessages.get(conversationId)?.[0];
@@ -135,12 +141,9 @@ export class InMemoryTurnState
   findActiveTurn(auth: AuthContext, conversationId: string) {
     try {
       this.requireOwnedConversation(auth, conversationId);
-      const active = [...this.turns.values()].find(
-        (turn) =>
-          turn.reference.conversationId === conversationId &&
-          this.runningTurns.has(conversationId) &&
-          turn.runId !== undefined,
-      );
+      const active = this.runningTurns.has(conversationId)
+        ? findLatestBoundTurn(this.turns.values(), conversationId)
+        : undefined;
       return Promise.resolve(
         active?.runId
           ? { turnId: active.reference.turnId, runId: active.runId, status: "running" as const }
@@ -213,7 +216,7 @@ export class InMemoryTurnState
       if (error instanceof TurnRejectedError) {
         return Promise.reject(runNotFound());
       }
-      return Promise.reject(error);
+      return Promise.reject(asError(error));
     }
   }
 
@@ -254,7 +257,7 @@ export class InMemoryTurnState
     );
   }
 
-  private requireTurn(turn: TurnRef): StoredTurn {
+  private requireTurn(turn: TurnRef): InMemoryStoredTurn {
     const stored = this.turns.get(turn.turnId);
     if (stored?.reference.conversationId !== turn.conversationId) {
       throw new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn not found");
@@ -280,10 +283,6 @@ export class InMemoryTurnState
     const messages = this.conversationMessages.get(conversationId) ?? [];
     this.conversationMessages.set(conversationId, [...messages, message]);
   }
-}
-
-function sameOwner(auth: AuthContext, conversation: SeedConversation): boolean {
-  return auth.workspaceId === conversation.workspaceId && auth.subjectId === conversation.subjectId;
 }
 
 function asError(error: unknown): Error {

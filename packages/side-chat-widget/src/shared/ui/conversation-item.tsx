@@ -19,12 +19,14 @@ export function ConversationItem({
   title,
   when,
   active,
+  disabled,
   running,
   onSelect,
 }: {
   title: string;
   when: string;
   active?: boolean | undefined;
+  disabled?: boolean | undefined;
   running?: boolean | undefined;
   onSelect?: (() => void) | undefined;
 }): ReactElement {
@@ -33,10 +35,11 @@ export function ConversationItem({
     <button
       type="button"
       aria-current={active === true ? true : undefined}
+      disabled={disabled}
       onClick={onSelect}
       className={cn(
         conversationItemClass,
-        "hover:bg-(--convo-item-bg-hover) aria-current:bg-(--convo-item-bg-active)",
+        "hover:bg-(--convo-item-bg-hover) aria-current:bg-(--convo-item-bg-active) disabled:cursor-not-allowed disabled:opacity-60",
       )}
     >
       <span className="flex flex-col min-w-0 gap-0.5">

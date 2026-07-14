@@ -3,22 +3,14 @@ import { useMemo, useState } from "react";
 
 import { useWidgetChat } from "#features/chat";
 import {
-  ConversationSidebar,
-  ConversationSwitcher,
   emptyStateDescription,
   toEmptyStateSuggestions,
   WidgetConversation,
   WidgetEmptyState,
-  WidgetHeaderTitle,
 } from "#features/conversation";
-import {
-  ClosedWidgetLauncher,
-  ResizablePanel,
-  useWidgetPanelSize,
-  WidgetHeader,
-} from "#features/panel";
+import { ClosedWidgetLauncher, ResizablePanel, useWidgetPanelSize } from "#features/panel";
 import { WidgetFooter } from "#features/prompt";
-import { SettingsView, useSendPreference, useToolDetailPreference } from "#features/settings";
+import { useSendPreference, useToolDetailPreference } from "#features/settings";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import { contextTokensFromUsage } from "#entities/chat";
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
@@ -31,6 +23,7 @@ import type {
   ProtocolSideChatWidgetProps,
   SideChatWidgetProps,
 } from "../model/side-chat-widget.types.js";
+import { SideChatPanelView } from "./panel/side-chat-panel-view.js";
 import { WorkflowSideChatWidget } from "./workflow/workflow-side-chat-widget.js";
 
 export type {
@@ -98,7 +91,6 @@ const SideChatWidgetContent = ({
   const labels = useMemo(() => resolveWidgetLabels(labelsProp), [labelsProp]);
   const initialProfileId = resolveInitialProfileId(defaultTurnProfileId, turnProfiles);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { panelSize, setPanelSize } = useWidgetPanelSize({
     defaultPanelSize,
     storageKey: panelSizeStorageKey,
@@ -156,69 +148,11 @@ const SideChatWidgetContent = ({
         style={appearance.appearanceRootProps.style}
         theme={theme.themeId}
       >
-        {isSettingsOpen ? (
-          <SettingsView
-            accent={appearance.accent}
-            corners={appearance.corners}
-            density={appearance.density}
-            elevation={appearance.elevation}
-            onAccentChange={appearance.setAccent}
-            onBack={() => setIsSettingsOpen(false)}
-            onCornersChange={appearance.setCorners}
-            onDensityChange={appearance.setDensity}
-            onElevationChange={appearance.setElevation}
-            onSelectTheme={theme.setTheme}
-            onSendWithCtrlEnterChange={sendPreference.setSendWithCtrlEnter}
-            onTextSizeChange={appearance.setTextSize}
-            onToolDetailChange={toolDetailPreference.setToolDetail}
-            onTypefaceChange={appearance.setTypeface}
-            sendWithCtrlEnter={sendPreference.sendWithCtrlEnter}
-            textSize={appearance.textSize}
-            themeId={theme.themeId}
-            toolDetail={toolDetailPreference.toolDetail}
-            typeface={appearance.typeface}
-          />
-        ) : (
-          // Sidebar is full height; the header lives inside the main column beside it.
-          <div className="flex min-h-0 flex-1">
-            <div className="sc-wide-slot min-h-0 shrink-0">
-              <ConversationSidebar
-                conversations={chat.conversations}
-                onNewConversation={chat.startNewConversation}
-                onSelectConversation={chat.selectConversation}
-                selectedConversationId={chat.conversationId}
-                runningConversationIds={chat.runningConversationIds}
-              />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col">
-              <WidgetHeader
-                newConversationDisabled={isBusy && chat.conversationId === undefined}
-                onClose={() => {
-                  panelActions?.onClose?.();
-                  requestOpenChange(false);
-                }}
-                onNewConversation={chat.startNewConversation}
-                onOpenSettings={() => setIsSettingsOpen(true)}
-                onRefresh={chat.refresh}
-                title={
-                  <>
-                    <span className="sc-wide-slot min-w-0">
-                      <WidgetHeaderTitle title={labels.title} renderAgentMark={renderAgentMark} />
-                    </span>
-                    <span className="sc-narrow-slot min-w-0">
-                      <ConversationSwitcher
-                        conversations={chat.conversations}
-                        disabled={isBusy}
-                        onNewConversation={chat.startNewConversation}
-                        onSelectConversation={chat.selectConversation}
-                        selectedConversationId={chat.conversationId}
-                        runningConversationIds={chat.runningConversationIds}
-                        title={labels.title}
-                      />
-                    </span>
-                  </>
-                }
-              />
+        <SideChatPanelView
+          appearance={appearance}
+          conversations={chat.conversations}
+          content={
+            <>
               <WidgetConversation
                 emptyState={
                   <WidgetEmptyState
@@ -255,9 +189,25 @@ const SideChatWidgetContent = ({
                 stop={chat.stop}
                 tools={toolSelection.tools}
               />
-            </div>
-          </div>
-        )}
+            </>
+          }
+          hasPersistedSelection={chat.conversationId !== undefined}
+          isBusy={isBusy}
+          labels={labels}
+          onClose={() => {
+            panelActions?.onClose?.();
+            requestOpenChange(false);
+          }}
+          onNewConversation={chat.startNewConversation}
+          onRefresh={chat.refresh}
+          onSelectConversation={(conversationId) => chat.selectConversation(conversationId)}
+          renderAgentMark={renderAgentMark}
+          runningConversationIds={chat.runningConversationIds}
+          selectedConversationId={chat.conversationId}
+          sendPreference={sendPreference}
+          theme={theme}
+          toolDetailPreference={toolDetailPreference}
+        />
       </ResizablePanel>
     </WidgetLabelsProvider>
   );

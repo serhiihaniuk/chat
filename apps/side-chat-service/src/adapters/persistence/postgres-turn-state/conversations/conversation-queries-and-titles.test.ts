@@ -1,4 +1,5 @@
 import type {
+  ListActiveAssistantTurnsCommand,
   PrepareConversationTitleCommand,
   ReadConversationHistoryCommand,
 } from "@side-chat/db";
@@ -101,6 +102,30 @@ describe("postgres turn state query and title mapping", () => {
     );
 
     await expect(state.findActiveTurn(AUTH, "conversation_1")).resolves.toBeUndefined();
+  });
+
+  it("maps one scoped active-turn query without per-conversation reads", async () => {
+    let command: ListActiveAssistantTurnsCommand | undefined;
+    const state = createTurnStateFromRepositories(
+      fakeRepositories({
+        listActiveAssistantTurns: (input) => {
+          command = input;
+          return Promise.resolve([
+            { ...assistantTurnRecord("turn_running"), runId: "run_running" },
+          ]);
+        },
+      }),
+    );
+
+    await expect(state.listActiveTurns(AUTH)).resolves.toEqual([
+      {
+        conversationId: "conversation_1",
+        turnId: "turn_running",
+        runId: "run_running",
+        status: "running",
+      },
+    ]);
+    expect(command).toEqual({ workspaceId: AUTH.workspaceId, subjectId: AUTH.subjectId });
   });
 
   it("checks title eligibility and delegates the conditional title write", async () => {

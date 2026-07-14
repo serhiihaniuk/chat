@@ -2,11 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import type { SideChatReasoningEffort } from "@side-chat/stream-profile";
 import { useCallback, useMemo, useState } from "react";
 
-import { readWorkflowModels, type WorkflowChatClient } from "#entities/workflow-chat";
+import {
+  readWorkflowModels,
+  WORKFLOW_CHAT_QUERY_SCOPE,
+  type WorkflowChatClient,
+} from "#entities/workflow-chat";
 
 const WORKFLOW_MODELS_QUERY = {
   RESOURCE: "models",
-  SCOPE: "workflow-chat",
 } as const;
 
 const NO_REASONING_EFFORTS: readonly SideChatReasoningEffort[] = [];
@@ -40,7 +43,7 @@ export function useWorkflowModelSelection(client: WorkflowChatClient): WorkflowM
     SideChatReasoningEffort | undefined
   >(undefined);
   const catalog = useQuery({
-    queryKey: [WORKFLOW_MODELS_QUERY.SCOPE, WORKFLOW_MODELS_QUERY.RESOURCE, client.baseUrl],
+    queryKey: [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_MODELS_QUERY.RESOURCE, client.baseUrl],
     queryFn: ({ signal }) => readWorkflowModels(client, signal),
   });
   const selectedModelKey = chosenModelId ?? catalog.data?.defaultModelId;

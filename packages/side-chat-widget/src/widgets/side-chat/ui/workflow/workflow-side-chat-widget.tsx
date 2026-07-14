@@ -1,38 +1,35 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
-import {
-  readWorkflowActiveTurn,
-  readWorkflowChatHistory,
-  readWorkflowConversations,
-  type WorkflowConversationSummary,
-} from "#entities/workflow-chat";
+import type { WorkflowConversationSummary } from "#entities/workflow-chat";
 import type { ConversationSummaryView } from "#features/conversation";
 import { ClosedWidgetLauncher, ResizablePanel, useWidgetPanelSize } from "#features/panel";
 import { useSendPreference, useToolDetailPreference } from "#features/settings";
-import { useWorkflowModelSelection, type WorkflowModelSelection } from "#features/workflow-chat";
+import {
+  useWorkflowModelSelection,
+  type WorkflowModelSelection,
+  type WorkflowWidgetChatStatus,
+  WORKFLOW_WIDGET_CHAT_STATUS,
+} from "#features/workflow-chat";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import { resolveWidgetLabels, WidgetLabelsProvider } from "#shared/lib/widget-labels";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 
 import type { WorkflowSideChatWidgetProps } from "../../model/side-chat-widget.types.js";
+import { useWorkflowConversationQueries } from "../../model/queries/use-workflow-conversation-queries.js";
 import {
   useWorkflowToolSelection,
   type WidgetToolSelection,
 } from "../../model/selection/side-chat-tool-selection.js";
+import { useWorkflowPanelRefresh } from "../../model/refresh/use-workflow-panel-refresh.js";
 import { useWorkflowConversationSelection } from "../../model/selection/workflow/use-workflow-conversation-selection.js";
 import { resolveWorkflowRecoveryValidation } from "../../model/selection/workflow-recovery/workflow-recovery-validation.js";
+import { SideChatPanelView } from "../panel/side-chat-panel-view.js";
 import { WorkflowChatSession } from "./workflow-chat-session.js";
 import { selectWorkflowHistoryContent } from "./workflow-history-content.js";
-import { WorkflowPanelView } from "./workflow-panel-view.js";
 
-const WORKFLOW_QUERY = {
-  ACTIVE_TURN: "active-turn",
-  CONVERSATIONS: "conversations",
-  HISTORY: "history",
-  SCOPE: "workflow-chat",
-} as const;
+const NO_RUNNING_CONVERSATIONS: ReadonlySet<string> = new Set();
 
 function toConversationViews(
   conversations: readonly WorkflowConversationSummary[] | undefined,
@@ -173,37 +170,12 @@ function WorkflowConversationPanel({
     selectConversation,
     startNewConversation,
   } = useWorkflowConversationSelection(initialConversationId, workflowActiveTurnStorageKey);
-  const conversationClient = useMemo(
-    () => ({ ...workflowChat, conversationId: activeConversationId }),
-    [workflowChat, activeConversationId],
+  const [sessionStatus, setSessionStatus] = useState<WorkflowWidgetChatStatus>(
+    WORKFLOW_WIDGET_CHAT_STATUS.IDLE,
   );
-  const conversations = useQuery({
-    queryKey: [WORKFLOW_QUERY.SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
-    queryFn: ({ signal }) => readWorkflowConversations(workflowChat, signal),
-  });
-  const history = useQuery({
-    queryKey: [
-      WORKFLOW_QUERY.SCOPE,
-      WORKFLOW_QUERY.HISTORY,
-      workflowChat.baseUrl,
-      activeConversationId,
-    ],
-    enabled: !isLocalDraft,
-    queryFn: ({ signal }) => readWorkflowChatHistory(conversationClient, signal),
-  });
-  const discovery = useQuery({
-    queryKey: [
-      WORKFLOW_QUERY.SCOPE,
-      WORKFLOW_QUERY.ACTIVE_TURN,
-      workflowChat.baseUrl,
-      activeConversationId,
-    ],
-    enabled: !isLocalDraft,
-    // TanStack forbids an undefined result, so a run-less conversation reads null.
-    queryFn: async ({ signal }) =>
-      (await readWorkflowActiveTurn(conversationClient, signal)) ?? null,
-  });
-  const conversationViews = toConversationViews(conversations.data, labels.conversationNewChat);
+  const [sessionOwnsConversation, setSessionOwnsConversation] = useState(false);
+  const { catalog, conversationClient, discovery, history, refreshConversationCatalog } =
+    useWorkflowConversationQueries(queryClient, workflowChat, activeConversationId, isLocalDraft);
   const recovery = resolveWorkflowRecoveryValidation({
     activeConversationId,
     activeTurn: discovery.data,
@@ -215,12 +187,50 @@ function WorkflowConversationPanel({
   useEffect(() => {
     if (recovery.invalidCursor) discardInvalidRecovery(recovery.invalidCursor);
   }, [discardInvalidRecovery, recovery.invalidCursor]);
-  const refreshConversations = useCallback((): void => {
-    void queryClient.invalidateQueries({
-      queryKey: [WORKFLOW_QUERY.SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
-    });
-  }, [queryClient, workflowChat.baseUrl]);
-
+  const handleRunAccepted = useCallback(
+    (runId: string): void => {
+      setSessionOwnsConversation(true);
+      acceptedRun(runId);
+      refreshConversationCatalog();
+    },
+    [acceptedRun, refreshConversationCatalog],
+  );
+  const handleRunTerminal = useCallback(
+    (runId: string): void => {
+      clearTerminalRun(runId);
+      refreshConversationCatalog();
+    },
+    [clearTerminalRun, refreshConversationCatalog],
+  );
+  const selectPersistedConversation = useCallback(
+    (conversationId: string): void => {
+      setSessionStatus(WORKFLOW_WIDGET_CHAT_STATUS.IDLE);
+      setSessionOwnsConversation(false);
+      selectConversation(conversationId);
+    },
+    [selectConversation],
+  );
+  const selectNewConversation = useCallback((): void => {
+    setSessionStatus(WORKFLOW_WIDGET_CHAT_STATUS.IDLE);
+    setSessionOwnsConversation(false);
+    startNewConversation();
+  }, [startNewConversation]);
+  const { refresh, sessionRevision } = useWorkflowPanelRefresh(
+    queryClient,
+    activeConversationId,
+    isLocalDraft,
+  );
+  const refreshPanel = useCallback((): void => {
+    setSessionOwnsConversation(false);
+    refresh();
+  }, [refresh]);
+  const conversationViews = toConversationViews(
+    catalog.data?.conversations,
+    labels.conversationNewChat,
+  );
+  const runningConversationIds = catalog.data?.runningConversationIds ?? NO_RUNNING_CONVERSATIONS;
+  const isBusy =
+    isWorkflowBusyStatus(sessionStatus) || runningConversationIds.has(activeConversationId);
   const historyContent = selectWorkflowHistoryContent({
     error: history.error,
     isLocalDraft,
@@ -228,16 +238,17 @@ function WorkflowConversationPanel({
     isRecoveryPending: recovery.isPending,
     labels,
     onRetry: () => void history.refetch(),
+    preserveSession: sessionOwnsConversation,
     session: (
       <WorkflowChatSession
         activeTurn={isLocalDraft ? undefined : recovery.activeTurn}
         hostBridge={hostBridge}
         initialMessages={isLocalDraft ? [] : (history.data ?? [])}
-        key={activeConversationId}
+        key={`${activeConversationId}:${sessionRevision}`}
         labels={labels}
-        onConversationsChanged={refreshConversations}
-        onRunAccepted={acceptedRun}
-        onRunTerminal={clearTerminalRun}
+        onRunAccepted={handleRunAccepted}
+        onRunTerminal={handleRunTerminal}
+        onStatusChange={setSessionStatus}
         quickActions={quickActions}
         reasoningVisibility={reasoningVisibility ?? DEFAULT_REASONING_VISIBILITY}
         renderAgentMark={renderAgentMark}
@@ -251,19 +262,30 @@ function WorkflowConversationPanel({
   });
 
   return (
-    <WorkflowPanelView
-      activeConversationId={activeConversationId}
+    <SideChatPanelView
       appearance={appearance}
+      content={historyContent}
       conversations={conversationViews}
-      historyContent={historyContent}
+      hasPersistedSelection={!isLocalDraft}
+      isBusy={isBusy}
       labels={labels}
       onClose={onClose}
-      onNewConversation={startNewConversation}
-      onSelectConversation={selectConversation}
+      onNewConversation={selectNewConversation}
+      onRefresh={refreshPanel}
+      onSelectConversation={selectPersistedConversation}
       renderAgentMark={renderAgentMark}
+      runningConversationIds={runningConversationIds}
+      selectedConversationId={activeConversationId}
       sendPreference={sendPreference}
       theme={theme}
       toolDetailPreference={toolDetailPreference}
     />
+  );
+}
+
+function isWorkflowBusyStatus(status: WorkflowWidgetChatStatus): boolean {
+  return (
+    status === WORKFLOW_WIDGET_CHAT_STATUS.SUBMITTED ||
+    status === WORKFLOW_WIDGET_CHAT_STATUS.STREAMING
   );
 }

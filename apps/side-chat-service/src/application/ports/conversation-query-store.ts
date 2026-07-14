@@ -22,6 +22,11 @@ export type ActiveConversationTurn = Readonly<{
   status: "running";
 }>;
 
+export type ActiveConversationTurnSummary = ActiveConversationTurn &
+  Readonly<{
+    conversationId: string;
+  }>;
+
 /** Default newest-first page size when a caller does not request one. */
 export const DEFAULT_HISTORY_PAGE_LIMIT = 100;
 
@@ -55,6 +60,8 @@ export interface ConversationQueryStore {
     query?: ConversationHistoryQuery,
   ): Promise<ConversationHistoryPage>;
   listConversations(auth: AuthContext): Promise<readonly ConversationSummary[]>;
+  /** Read every bound running turn owned by this authenticated subject. */
+  listActiveTurns(auth: AuthContext): Promise<readonly ActiveConversationTurnSummary[]>;
   findActiveTurn(
     auth: AuthContext,
     conversationId: string,

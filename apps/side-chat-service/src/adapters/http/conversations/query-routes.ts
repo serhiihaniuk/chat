@@ -41,8 +41,13 @@ export function createQueryRoutes(dependencies: QueryRouteDependencies): Hono<Au
   const app = new Hono<AuthVariables>();
 
   app.get(QUERY_HTTP_ROUTES.CONVERSATIONS, async (context) => {
-    const conversations = await dependencies.queries.listConversations(context.get("authContext"));
-    return context.json({ conversations });
+    const auth = context.get("authContext");
+    const [conversations, activeTurns] = await Promise.all([
+      dependencies.queries.listConversations(auth),
+      dependencies.queries.listActiveTurns(auth),
+    ]);
+    const runningConversationIds = [...new Set(activeTurns.map((turn) => turn.conversationId))];
+    return context.json({ conversations, runningConversationIds });
   });
 
   app.get(QUERY_HTTP_ROUTES.MODELS, (context) =>

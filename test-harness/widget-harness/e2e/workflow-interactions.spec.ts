@@ -541,6 +541,7 @@ type WorkflowReadFixture = Readonly<{
   activeTurn: Readonly<Record<string, unknown>> | null;
   conversations: readonly Readonly<Record<string, unknown>>[];
   messages: readonly Readonly<Record<string, unknown>>[];
+  runningConversationIds?: readonly string[] | undefined;
   tools: readonly Readonly<Record<string, unknown>>[];
 }>;
 
@@ -551,7 +552,12 @@ async function fulfillWorkflowRead(
 ): Promise<boolean> {
   if (route.request().method() !== "GET") return false;
   if (path.endsWith("/conversations")) {
-    await route.fulfill({ json: { conversations: fixture.conversations } });
+    await route.fulfill({
+      json: {
+        conversations: fixture.conversations,
+        runningConversationIds: fixture.runningConversationIds ?? [],
+      },
+    });
     return true;
   }
   if (path.endsWith("/models")) {

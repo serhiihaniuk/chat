@@ -6,7 +6,11 @@ import {
   type SideChatApiClient,
   type ToolCatalogOption,
 } from "#entities/conversation";
-import { readWorkflowTools, type WorkflowChatClient } from "#entities/workflow-chat";
+import {
+  readWorkflowTools,
+  WORKFLOW_CHAT_QUERY_SCOPE,
+  type WorkflowChatClient,
+} from "#entities/workflow-chat";
 
 type WidgetToolSelectionInput = {
   readonly client: SideChatApiClient;
@@ -40,12 +44,11 @@ export type WidgetToolSelection = {
  */
 const WORKFLOW_TOOLS_QUERY = {
   RESOURCE: "tools",
-  SCOPE: "workflow-chat",
 } as const;
 
 export const useWorkflowToolSelection = (client: WorkflowChatClient): WidgetToolSelection => {
   const toolCatalog = useQuery({
-    queryKey: [WORKFLOW_TOOLS_QUERY.SCOPE, WORKFLOW_TOOLS_QUERY.RESOURCE, client.baseUrl],
+    queryKey: [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_TOOLS_QUERY.RESOURCE, client.baseUrl],
     queryFn: ({ signal }) => readWorkflowTools(client, signal),
   });
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});

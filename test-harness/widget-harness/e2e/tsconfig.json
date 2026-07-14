@@ -1,0 +1,17 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declarationMap": false,
+    "noEmit": true,
+    "sourceMap": false,
+    "tsBuildInfoFile": "../test-results/e2e-tsconfig.tsbuildinfo",
+    "types": ["node"]
+  },
+  "include": ["*.ts"],
+  "references": [
+    {
+      "path": "../../../packages/chat-protocol"
+    }
+  ]
+}

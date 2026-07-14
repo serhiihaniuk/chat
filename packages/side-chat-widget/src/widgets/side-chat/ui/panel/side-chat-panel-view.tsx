@@ -13,49 +13,69 @@ import {
   type useToolDetailPreference,
 } from "#features/settings";
 import type { useWidgetAppearance, useWidgetTheme } from "#features/theme";
-import type { resolveWidgetLabels } from "#shared/lib/widget-labels";
+import type { WidgetLabels } from "#shared/lib/widget-labels";
 
-import type { WorkflowSideChatWidgetProps } from "../../model/side-chat-widget.types.js";
+export type SideChatPanelGuards = Readonly<{
+  conversationSelectionDisabled: boolean;
+  newConversationDisabled: boolean;
+}>;
 
-// The native path knows only the active conversation's run state (discovery is
-// per-conversation), so the sidebar's per-conversation "running" dot stays empty.
-const NO_RUNNING_CONVERSATIONS: ReadonlySet<string> = new Set();
+/** Keep shell-level navigation policy identical across both transports. */
+export function resolveSideChatPanelGuards(
+  isBusy: boolean,
+  hasPersistedSelection: boolean,
+): SideChatPanelGuards {
+  return {
+    conversationSelectionDisabled: isBusy,
+    newConversationDisabled: isBusy && !hasPersistedSelection,
+  };
+}
 
-/**
- * The panel's inner chrome: the settings view, or the conversation sidebar plus
- * the header (with the narrow-mode switcher) and the active conversation feed.
- * Owns `isSettingsOpen` and the new/select conversation actions.
- */
-export function WorkflowPanelView({
-  activeConversationId,
+/** Transport-neutral settings, conversation navigation, and header shell. */
+export function SideChatPanelView({
   appearance,
+  content,
   conversations,
-  historyContent,
+  hasPersistedSelection,
+  isBusy,
   labels,
   onClose,
   onNewConversation,
+  onRefresh,
   onSelectConversation,
   renderAgentMark,
+  runningConversationIds,
+  selectedConversationId,
   sendPreference,
   theme,
   toolDetailPreference,
-}: {
-  readonly activeConversationId: string;
-  readonly appearance: ReturnType<typeof useWidgetAppearance>;
-  readonly conversations: readonly ConversationSummaryView[];
-  readonly historyContent: ReactNode;
-  readonly labels: ReturnType<typeof resolveWidgetLabels>;
-  readonly onClose: () => void;
-  readonly onNewConversation: () => void;
-  readonly onSelectConversation: (conversationId: string) => void;
-  readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
-  readonly sendPreference: ReturnType<typeof useSendPreference>;
-  readonly theme: ReturnType<typeof useWidgetTheme>;
-  readonly toolDetailPreference: ReturnType<typeof useToolDetailPreference>;
-}): ReactNode {
+}: Readonly<{
+  appearance: ReturnType<typeof useWidgetAppearance>;
+  content: ReactNode;
+  conversations: readonly ConversationSummaryView[];
+  hasPersistedSelection: boolean;
+  isBusy: boolean;
+  labels: WidgetLabels;
+  onClose: () => void;
+  onNewConversation: () => void;
+  onRefresh: () => void;
+  onSelectConversation: (conversationId: string) => void;
+  renderAgentMark?: (() => ReactNode) | undefined;
+  runningConversationIds: ReadonlySet<string>;
+  selectedConversationId: string | undefined;
+  sendPreference: ReturnType<typeof useSendPreference>;
+  theme: ReturnType<typeof useWidgetTheme>;
+  toolDetailPreference: ReturnType<typeof useToolDetailPreference>;
+}>): ReactNode {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const guards = resolveSideChatPanelGuards(isBusy, hasPersistedSelection);
   const selectConversation = (conversationId: string | undefined): void => {
-    if (conversationId) onSelectConversation(conversationId);
+    if (!guards.conversationSelectionDisabled && conversationId) {
+      onSelectConversation(conversationId);
+    }
+  };
+  const startNewConversation = (): void => {
+    if (!guards.newConversationDisabled) onNewConversation();
   };
 
   if (isSettingsOpen) {
@@ -84,23 +104,26 @@ export function WorkflowPanelView({
     );
   }
 
-  // Sidebar is full height; the header lives inside the main column beside it.
   return (
     <div className="flex min-h-0 flex-1">
       <div className="sc-wide-slot min-h-0 shrink-0">
         <ConversationSidebar
+          conversationSelectionDisabled={guards.conversationSelectionDisabled}
           conversations={conversations}
-          onNewConversation={onNewConversation}
+          newConversationDisabled={guards.newConversationDisabled}
+          onNewConversation={startNewConversation}
           onSelectConversation={selectConversation}
-          runningConversationIds={NO_RUNNING_CONVERSATIONS}
-          selectedConversationId={activeConversationId}
+          runningConversationIds={runningConversationIds}
+          selectedConversationId={selectedConversationId}
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <WidgetHeader
+          newConversationDisabled={guards.newConversationDisabled}
           onClose={onClose}
-          onNewConversation={onNewConversation}
+          onNewConversation={startNewConversation}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onRefresh={onRefresh}
           title={
             <>
               <span className="sc-wide-slot min-w-0">
@@ -109,18 +132,18 @@ export function WorkflowPanelView({
               <span className="sc-narrow-slot min-w-0">
                 <ConversationSwitcher
                   conversations={conversations}
-                  disabled={false}
-                  onNewConversation={onNewConversation}
+                  disabled={guards.conversationSelectionDisabled}
+                  onNewConversation={startNewConversation}
                   onSelectConversation={selectConversation}
-                  runningConversationIds={NO_RUNNING_CONVERSATIONS}
-                  selectedConversationId={activeConversationId}
+                  runningConversationIds={runningConversationIds}
+                  selectedConversationId={selectedConversationId}
                   title={labels.title}
                 />
               </span>
             </>
           }
         />
-        {historyContent}
+        {content}
       </div>
     </div>
   );

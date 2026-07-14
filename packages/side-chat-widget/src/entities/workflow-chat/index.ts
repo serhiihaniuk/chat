@@ -21,14 +21,16 @@ export {
   readWorkflowConversations,
   readWorkflowModels,
   readWorkflowTools,
-} from "./model/workflow-chat-catalog.js";
+} from "./model/catalog/workflow-chat-catalog.js";
 export type {
+  WorkflowConversationCatalog,
   WorkflowConversationSummary,
   WorkflowModel,
   WorkflowModelCatalog,
   WorkflowTool,
   WorkflowToolCatalog,
-} from "./model/workflow-chat-catalog.js";
+} from "./model/catalog/workflow-chat-catalog.js";
+export { WORKFLOW_CHAT_QUERY_SCOPE } from "./model/workflow-chat-query.js";
 export {
   postWorkflowApprovalDecision,
   postWorkflowClientToolOutput,

@@ -72,6 +72,25 @@ describe("InMemoryTurnState", () => {
     });
   });
 
+  it("lists only bound running turns owned by the authenticated subject", async () => {
+    const state = seededState();
+    const turn = await state.beginTurn(beginInput());
+
+    await expect(state.listActiveTurns(AUTH)).resolves.toEqual([]);
+    await state.bindRun(turn, "run-1");
+    await expect(state.listActiveTurns(AUTH)).resolves.toEqual([
+      {
+        conversationId: "conversation-1",
+        turnId: turn.turnId,
+        runId: "run-1",
+        status: "running",
+      },
+    ]);
+    await expect(state.listActiveTurns({ ...AUTH, subjectId: "another-subject" })).resolves.toEqual(
+      [],
+    );
+  });
+
   it("titles only the persisted initial exchange and keeps the first title", async () => {
     const state = seededState();
     await state.beginTurn(beginInput());

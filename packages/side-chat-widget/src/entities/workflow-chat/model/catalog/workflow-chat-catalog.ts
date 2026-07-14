@@ -12,7 +12,7 @@ import {
   workflowChatFetch,
   workflowChatUrl,
   type WorkflowChatClient,
-} from "./workflow-chat-client.js";
+} from "../workflow-chat-client.js";
 
 /** One conversation summary for the sidebar and switcher list. */
 export type WorkflowConversationSummary = Readonly<{
@@ -20,6 +20,11 @@ export type WorkflowConversationSummary = Readonly<{
   /** The service's generated title, or "" before one exists; the UI supplies a fallback. */
   title: string;
   lastMessageAt?: string | undefined;
+}>;
+
+export type WorkflowConversationCatalog = Readonly<{
+  conversations: readonly WorkflowConversationSummary[];
+  runningConversationIds: ReadonlySet<string>;
 }>;
 
 /**
@@ -32,7 +37,7 @@ export type WorkflowConversationSummary = Readonly<{
 export async function readWorkflowConversations(
   client: WorkflowChatClient,
   signal?: AbortSignal,
-): Promise<readonly WorkflowConversationSummary[]> {
+): Promise<WorkflowConversationCatalog> {
   const request = await resolveWorkflowChatRequestConfig(client);
   const response = await workflowChatFetch(client)(
     workflowChatUrl(client, "/api/conversations"),
@@ -41,7 +46,11 @@ export async function readWorkflowConversations(
   if (!response.ok) throw await readWorkflowChatHttpError(response);
 
   const payload: unknown = await response.json();
-  if (!isRecord(payload) || !Array.isArray(payload["conversations"])) {
+  if (
+    !isRecord(payload) ||
+    !Array.isArray(payload["conversations"]) ||
+    !Array.isArray(payload["runningConversationIds"])
+  ) {
     throw new Error("Conversation list response is invalid.");
   }
   const summaries: WorkflowConversationSummary[] = [];
@@ -49,7 +58,14 @@ export async function readWorkflowConversations(
     const summary = toConversationSummary(entry);
     if (summary) summaries.push(summary);
   }
-  return summaries;
+  const conversationIds = new Set(summaries.map((summary) => summary.id));
+  const runningConversationIds = new Set<string>();
+  for (const conversationId of payload["runningConversationIds"]) {
+    if (typeof conversationId === "string" && conversationIds.has(conversationId)) {
+      runningConversationIds.add(conversationId);
+    }
+  }
+  return { conversations: summaries, runningConversationIds };
 }
 
 function toConversationSummary(entry: unknown): WorkflowConversationSummary | undefined {

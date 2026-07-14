@@ -61,20 +61,32 @@ rg -n "widget-run-marker|widget-transport-recovery" packages/side-chat-widget/sr
 
 Browser evidence via the preview workflow: refresh mid-turn and a two-tab session, screenshots. Import-graph proof that the old recovery/reconnect modules have no consumer on the new path.
 
+### Landed correction slice — 2026-07-14
+
+- Workflow selection now distinguishes a client-only `draft` from a server-known `persisted` conversation. Idle mounts do not issue fabricated history/discovery reads, missing recovery never falls back to the newest catalog row, service acceptance promotes the draft, and only the active-run cursor uses tab-scoped storage. Selection does not read or write `conversationId` URL state.
+- `GET /api/conversations` now returns tenant-scoped `runningConversationIds` beside the summaries. The in-memory adapter projects only owned running turns; the PostgreSQL adapter maps one existing `listActiveAssistantTurns` query rather than polling each conversation. The widget accepts only running ids that also name a validated catalog row.
+- Both transports now compose one `SideChatPanelView` for settings, sidebar, header, narrow switcher, labels, refresh, and navigation guards. The workflow branch supplies real session status and catalog running state; switching is blocked while busy, while New chat remains available from a persisted busy conversation.
+- Workflow Refresh invalidates the single exported workflow query prefix, so catalog, selected history, active-turn discovery, models, and tools refetch together. A persisted selection remounts for replay after refetch; a New chat draft remains New chat. A locally accepted session stays mounted while its persistence reads catch up, preventing streamed content from disappearing.
+- The deterministic two-tab service proof starts tab B at New chat with no URL/cursor state, exposes tab A's running dot, replays after explicit selection, proves every workflow read advances on Refresh, and finishes both tabs with the same answer and no running marker.
+
+Fresh verification for this slice: the widget suite passes 56 files / 322 tests, the focused service suite passes 4 files / 27 tests, direct service/widget/E2E TypeScript checks pass, custom governance and scoped Oxlint pass, and the isolated Workflow browser suite passes 11/11 cases.
+
+Still open in Step 16: retry exhaustion/manual reconnect presentation, simultaneous-send busy conflict, idle network loss, terminal-while-offline discovery, and the remaining dedicated refresh/drop cases. This slice does not close the step.
+
 ## Completion checklist
 
-- [ ] Idle mount and idle refresh render New chat without a history 404 or implicit existing-chat selection.
-- [ ] An accepted draft turn records a tab-scoped recovery cursor before stream completion; mid-turn refresh reattaches, and terminal completion clears the cursor.
-- [ ] Conversation selection is independent of the URL; no widget or harness callback mutates `conversationId` query state.
+- [x] Idle mount and idle refresh render New chat without a history 404 or implicit existing-chat selection.
+- [x] An accepted draft turn records a tab-scoped recovery cursor before stream completion; mid-turn refresh reattaches, and terminal completion clears the cursor.
+- [x] Conversation selection is independent of the URL; no widget or harness callback mutates `conversationId` query state.
 - [ ] Transport-drop presentation keeps the typed 4xx/retry boundary and manual reconnect behavior.
-- [ ] The conversation catalog exposes real running ids; New chat and conversation switching are disabled while the selected session is busy where the legacy shell disabled them.
+- [x] The conversation catalog exposes real running ids; New chat and conversation switching are disabled while the selected session is busy where the legacy shell disabled them.
 - [ ] Dedicated browser cases prove empty-store refresh, idle refresh with existing chats, mid-turn refresh, and a real two-tab running-conversation flow.
 - [ ] Old recovery ladder remains consumer-free on the native path and the replacement cursor has focused lifecycle tests.
 
 ## Handoff record
 
-Recovery/discovery wiring: reopened 2026-07-14; current selection fallback and terminal-time draft commit are invalid.
+Recovery/discovery wiring: the 2026-07-14 selection/cursor correction and real two-tab catalog/replay slice have landed. Transport-drop and the remaining edge-case matrix above are still open.
 
 Classification table (retryable vs fatal): retain the current typed HTTP versus status-less transport boundary and reverify it after the selection rewrite.
 
-Multi-tab evidence: required; the earlier statement that a second tab was equivalent to cold load is not accepted evidence.
+Multi-tab evidence: a stateful two-tab browser case now proves independent tab state, visible cross-tab running status, explicit watcher selection, replay, Refresh refetches, and terminal convergence. Simultaneous-send conflict remains open.

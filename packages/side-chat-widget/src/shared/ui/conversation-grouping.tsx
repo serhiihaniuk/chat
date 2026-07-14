@@ -28,10 +28,12 @@ type Bucket = {
 export function ConversationGrouping({
   buckets,
   activeId,
+  disabled,
   onSelect,
 }: {
   buckets: readonly Bucket[];
   activeId?: string | undefined;
+  disabled?: boolean | undefined;
   onSelect?: ((id: string) => void) | undefined;
 }): ReactElement {
   return (
@@ -51,6 +53,7 @@ export function ConversationGrouping({
                   title={conversation.title}
                   when={conversation.when}
                   active={conversation.id === activeId}
+                  disabled={disabled}
                   running={conversation.running}
                   onSelect={() => onSelect?.(conversation.id)}
                 />

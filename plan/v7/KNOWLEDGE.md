@@ -110,6 +110,9 @@ Full evidence: [`evidence/02-workflow-cancellation-reexamination.md`](./evidence
 - `useChat` (React) + transport abstraction: `DefaultChatTransport` (api/headers/credentials/body as functions; `prepareSendMessagesRequest`, `prepareReconnectToStreamRequest`), `WorkflowChatTransport` on the workflow branch. Headless `AbstractChat` exists but is less contractually stable than the wire spec.
 - `UIMessage` is both the stream shape and the recommended persistence shape (`validateUIMessages` on load; save in `onEnd`; server-side ids via `generateMessageId`). This collapses the old HistoryMessage/stream duality.
 - Multi-tab: each tab holds its own SSE reader over the durable run stream (workflow branch); tab discovery of an active run is ours (store runId on the turn row; "active turn for conversation" query).
+- Step 16/16a correction (2026-07-14): selection is `draft | persisted`, is not URL state, and only an accepted in-flight run gets a tab-scoped recovery cursor. The conversation catalog carries tenant-scoped `runningConversationIds`; it never chooses the active row.
+- The protocol and workflow branches share one shell for settings, conversation navigation, refresh, running indicators, and busy policy. Their feed/footer/session content stays transport-specific. All workflow reads share one query prefix so Refresh cannot miss models, tools, catalog, history, or active-turn discovery.
+- A chat session that accepted a run remains mounted while persistence reads catch up. Otherwise draft promotion or terminal catalog refresh can replace the live `useChat` instance with an empty history-loading surface and lose the rendered stream.
 
 ## Scale model (for capacity settings)
 

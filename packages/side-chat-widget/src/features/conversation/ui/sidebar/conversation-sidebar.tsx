@@ -11,13 +11,17 @@ import {
 } from "../../model/conversation-options.js";
 
 export const ConversationSidebar = ({
+  conversationSelectionDisabled = false,
   conversations,
+  newConversationDisabled = false,
   onNewConversation,
   onSelectConversation,
   selectedConversationId,
   runningConversationIds,
 }: {
+  readonly conversationSelectionDisabled?: boolean | undefined;
   readonly conversations: readonly ConversationSummaryView[];
+  readonly newConversationDisabled?: boolean | undefined;
   readonly onNewConversation: () => void;
   readonly onSelectConversation: (conversationId: string | undefined) => void;
   readonly selectedConversationId: string | undefined;
@@ -29,6 +33,7 @@ export const ConversationSidebar = ({
       <div className="sc-rail-newchat border-b border-border">
         <Button
           className="w-full justify-start gap-2 px-2.5 py-2 text-left"
+          disabled={newConversationDisabled}
           onClick={onNewConversation}
           type="button"
           variant="secondary"
@@ -42,6 +47,7 @@ export const ConversationSidebar = ({
           <ConversationGrouping
             activeId={selectedConversationId}
             buckets={toConversationBuckets(conversations, runningConversationIds, labels)}
+            disabled={conversationSelectionDisabled}
             onSelect={onSelectConversation}
           />
         </ScrollArea>

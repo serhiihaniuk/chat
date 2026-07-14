@@ -28,6 +28,7 @@ describe("conversation query routes", () => {
             lastMessageAt: "2026-07-11T00:00:00Z",
           },
         ],
+        runningConversationIds: ["conversation-1"],
       });
 
       const models = await harness.request("/api/models");
@@ -258,6 +259,7 @@ describe("conversation query routes", () => {
             lastMessageAt: "2026-07-11T00:00:00Z",
           },
         ],
+        runningConversationIds: ["conversation-a"],
       });
 
       const ownHistory = await requestAs("a", "/api/conversations/conversation-a/messages");
@@ -311,6 +313,7 @@ function queryStore(history: { readonly parts: readonly JsonObject[] } = { parts
   const store: {
     readHistory: ConversationQueryStore["readHistory"];
     listConversations: ConversationQueryStore["listConversations"];
+    listActiveTurns: ConversationQueryStore["listActiveTurns"];
     findActiveTurn: ConversationQueryStore["findActiveTurn"];
   } = {
     readHistory: () =>
@@ -334,6 +337,15 @@ function queryStore(history: { readonly parts: readonly JsonObject[] } = { parts
           lastMessageAt: "2026-07-11T00:00:00Z",
         },
       ]),
+    listActiveTurns: () =>
+      Promise.resolve([
+        {
+          conversationId: "conversation-1",
+          turnId: "turn-1",
+          runId: "run-1",
+          status: "running",
+        },
+      ]),
     findActiveTurn: () => Promise.resolve(undefined),
   };
   return store;
@@ -349,6 +361,15 @@ function tenantQueryStore(): ConversationQueryStore {
           id: `conversation-${auth.workspaceId.slice(-1)}`,
           status: "active",
           lastMessageAt: "2026-07-11T00:00:00Z",
+        },
+      ]),
+    listActiveTurns: (auth) =>
+      Promise.resolve([
+        {
+          conversationId: `conversation-${auth.workspaceId.slice(-1)}`,
+          turnId: `turn-${auth.workspaceId}`,
+          runId: `run-${auth.workspaceId}`,
+          status: "running",
         },
       ]),
     readHistory: (auth, conversationId) => {

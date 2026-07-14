@@ -46,9 +46,13 @@ The widget is provider-free and Effect-free. The isolated `workflow-chat` slices
 
 ## Native v7 live-turn data flow
 
-The native branch is still pre-cutover. Steps [16](../../plan/v7/16-widget-recovery-multitab.md) and [16a](../../plan/v7/16a-widget-parity-verification.md) were reopened on 2026-07-14 because the implementation below drifted from the intended contract. In particular, the current code accepts a mandatory initial conversation id, repairs a missing id by selecting the newest conversation, exposes a notification seam used to mutate the harness URL, and waits for terminal completion before promoting a draft. Those behaviors are defects, not architecture to preserve.
+The native branch is still pre-cutover. Steps [16](../../plan/v7/16-widget-recovery-multitab.md) and [16a](../../plan/v7/16a-widget-parity-verification.md) remain open, but their first correction slice landed on 2026-07-14: no initial id means a local New chat draft; ordinary and idle refreshes stay on New chat; a server-listed selection reads history and discovers an active run; service acceptance promotes a draft immediately; only a tab-scoped in-flight recovery cursor survives refresh; terminal completion clears it; and conversation selection never reads or mutates the URL.
 
-The correction contract is: no initial id means a local New chat draft; ordinary and idle refreshes stay on New chat; a server-listed selection reads history and discovers an active run; service acceptance promotes a draft immediately; only a tab-scoped in-flight recovery cursor survives refresh; terminal completion clears it; and conversation selection never mutates the URL. The shared shell must receive real busy and cross-conversation running state instead of hardcoded values.
+`GET /api/conversations` returns `{ conversations, runningConversationIds }` for the authenticated workspace and subject. The service query port projects owned active turns; PostgreSQL uses one active-turn list query rather than one discovery request per conversation. The widget validates summaries first, then retains only running ids that name one of those rows. This catalog state is presentation input, not selection persistence.
+
+Both transports compose `SideChatPanelView`. It owns settings-open state, sidebar, header, narrow switcher, labels, New chat/select/refresh controls, and busy/running navigation policy; the protocol feed/footer and native workflow content remain transport-specific slots. Workflow chat status is lifted to this shell. A locally accepted session stays mounted while history/discovery catch up, so query loading cannot replace a live stream.
+
+All native workflow reads share the exported `WORKFLOW_CHAT_QUERY_SCOPE` TanStack Query prefix. Refresh invalidates active catalog, selected history, active-turn discovery, model, and tool reads. After those reads settle, a persisted conversation remounts for replay; a local draft remains New chat and selection never changes as a side effect of refresh.
 
 The `workflowChat` branch reads `/api/conversations/:conversationId/messages` only for server-known conversations and validates non-empty history as native `UIMessage[]`. A local draft mounts an empty keyed session without history or discovery. Selecting a server-listed conversation restores those reads. Only after a required history read settles does `useWorkflowWidgetChat` create one `useChat` instance with `id = conversationId`, so the history seed cannot race a streamed assistant into a duplicate bubble.
 
@@ -58,7 +62,7 @@ The workflow branch projects validated native `UIMessage` parts in source order:
 
 Dynamic `onToolCall` callbacks execute once per unsettled call and post a safe outcome to the durable result endpoint; settled replay parts never execute again. Approval cards post approve or deny decisions to the service, which resumes the durable hook. The widget does not call `addToolOutput` or configure `sendAutomaticallyWhen`, so continuation remains server-owned.
 
-The projection ignores unknown future parts with a development-build console note, bounds rendering at the observed terminal part count, and leaves reconnect or multi-tab recovery to the next responsibility.
+The projection ignores unknown future parts with a development-build console note and bounds rendering at the observed terminal part count. A deterministic two-tab proof now covers cross-tab running state, explicit watcher selection, replay, refresh refetches, and terminal convergence. Retry exhaustion/manual reconnect and the remaining Step 16 edge cases are still open.
 
 ## Protocol-backed live-turn data flow
 
