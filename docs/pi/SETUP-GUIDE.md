@@ -82,18 +82,19 @@ Use worktree isolation only for independent write tasks. Never run concurrent im
 
 ## Track cost and waste
 
-The session footer tracks the live session, for example:
+The session footer tracks the live session as plain `label value` pairs, for example:
 
 ```text
-████▏ wk83 5h97 · Σ $2.51 ↑2.1M ↓89k CH93 · sub 3✓ 1✗$0.25 $0.55 · chk 2✓ 1✗
+quota 52% · spent $1.00 · agents 5/7 · waste $0.08 · checks 1/2
 ```
 
-- The eighth-block meter shows the tightest quota window (its label is bold; the other window and any reset countdown stay dim). Meter color turns amber at 40% remaining and red at 20%.
-- `Σ` leads with total session cost in bold; token flows and cache-hit rate follow dim.
-- `sub` shows child-run outcomes; the aborted cost glues to the `✗` count in red, and the dim trailing figure is total child spend.
-- `chk` counts deterministic `sidechat_verify` calls (passes green, failures red).
+- `quota` is the remaining percentage of the tightest Codex window (green, amber at 40%, red at 20%); a dim `↻` countdown appears when the short window binds.
+- `spent` is the total session cost, parent plus children, in bold.
+- `agents` counts completed child runs over total (red when any aborted).
+- `waste` is the cost of child runs that died before a usable report; it appears only when non-zero.
+- `checks` counts passing deterministic `sidechat_verify` calls over total (red on any failure).
 
-The `sub` and `chk` segments appear only after the first child run or check.
+The `agents`, `waste`, and `checks` segments stay hidden until they have data, so an idle session shows only `quota` and `spent`.
 
 For history across sessions:
 
