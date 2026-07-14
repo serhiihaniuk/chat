@@ -35,6 +35,7 @@ export {
   createHostBridge,
   type HostBridge,
   type HostBridgeOptions,
+  type HostCapabilityProvider,
   type WidgetHostBridge,
 } from "./bridge/bridge.js";
 export {
@@ -45,3 +46,9 @@ export {
   type HostContextSnapshot,
   type HostSurface,
 } from "./context/host-context.js";
+export {
+  connectIframeHostContextProvider,
+  registerIframeHostContextProvider,
+  type ConnectIframeHostContextProviderOptions,
+  type RegisterIframeHostContextProviderOptions,
+} from "./context/iframe-host-context.js";

@@ -1,8 +1,6 @@
 import type { HostContext } from "@side-chat/chat-protocol";
 import { omitUndefinedProperties, type JsonObject } from "@side-chat/shared";
 
-import type { HostCapabilities } from "#commands/capability";
-
 /** Host resource currently visible to the user when context is collected. */
 export type HostSurface = {
   readonly surfaceId: string;
@@ -33,26 +31,19 @@ export type HostContextRequest = {
 };
 
 /**
- * Host callbacks that collect page context and, optionally, a per-page command menu.
- *
- * `getCapabilities` may vary with the current surface and is read for the same
- * turn as `getContext`; implementations should reject when collection fails
- * instead of returning a partially trusted snapshot.
+ * Host callback that collects page context for one explicit widget request.
+ * Command capabilities are a separate bridge option.
  */
 export type HostContextProvider = {
   readonly getContext: (request: HostContextRequest) => Promise<HostContextSnapshot>;
-  readonly getCapabilities?: (() => Promise<HostCapabilities>) | undefined;
 };
 
 /** Build a provider that always returns one already-collected snapshot. */
 export const createStaticHostContextProvider = (
   snapshot: HostContextSnapshot,
-  capabilities?: HostCapabilities,
-): HostContextProvider =>
-  omitUndefinedProperties({
-    getContext: () => Promise.resolve(snapshot),
-    getCapabilities: capabilities ? () => Promise.resolve(capabilities) : undefined,
-  });
+): HostContextProvider => ({
+  getContext: () => Promise.resolve(snapshot),
+});
 
 export const toProtocolHostContext = (snapshot: HostContextSnapshot): HostContext =>
   omitUndefinedProperties({

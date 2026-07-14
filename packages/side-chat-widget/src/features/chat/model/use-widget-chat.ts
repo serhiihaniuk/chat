@@ -85,10 +85,15 @@ export const useWidgetChat = ({
       client,
       initialConversations: initialConversationStore.conversations,
     });
+  const hostCommandBridge = useMemo(
+    () =>
+      hostBridge?.dispatchCommand ? { dispatchCommand: hostBridge.dispatchCommand } : undefined,
+    [hostBridge],
+  );
 
   const controller = useWidgetRunController({
     client,
-    hostBridge,
+    hostBridge: hostCommandBridge,
     // Namespace the run store + subscription slot by storage key AND service, so
     // two widgets pointed at different services never share a live run.
     storeKey: { storageKey: conversationStorageKey, baseUrl: client.baseUrl },
@@ -129,7 +134,11 @@ export const useWidgetChat = ({
   // run store holds only the current run, so multi-turn history is carried in.
   const visibleMessagesRef = useLatestRef(visibleMessages);
 
-  usePersistConversationStore({ conversationId, conversationStorageKey, conversations });
+  usePersistConversationStore({
+    conversationId,
+    conversationStorageKey,
+    conversations,
+  });
   useConversationQueryErrors({
     conversationsError: conversationsQuery.error,
     historyError: historyQuery.error,

@@ -75,7 +75,9 @@ export const useWidgetChatActions = (input: WidgetChatActionsInput): WidgetChatA
       shellBridge.markTurnSubmitted(messageText);
       setErrorMessage(undefined);
 
-      const hostContext = await hostBridge?.getContext({ requestId: ids.requestId });
+      const hostContext = await hostBridge?.getContext?.({
+        requestId: ids.requestId,
+      });
       const hostCommands = await readHostCommands(hostBridge);
       await controller.startRun({
         request: createWidgetChatRequest({
