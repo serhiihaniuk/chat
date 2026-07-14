@@ -44,6 +44,7 @@ export function WorkflowChatSession({
   onStatusChange,
   quickActions,
   reasoningVisibility,
+  renderActivityItem,
   renderAgentMark,
   sendOnEnter,
   toolDetail,
@@ -61,6 +62,7 @@ export function WorkflowChatSession({
   readonly onStatusChange: (status: WorkflowWidgetChatStatus) => void;
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
   readonly reasoningVisibility: ReasoningVisibility;
+  readonly renderActivityItem: WorkflowSideChatWidgetProps["renderActivityItem"];
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
   readonly toolDetail: ToolDetailLevel;
   readonly workflowChat: WorkflowConversationClient;
@@ -120,6 +122,7 @@ export function WorkflowChatSession({
                   approvalDecisions={chat.approvalDecisions}
                   onApprovalDecision={chat.decideApproval}
                   reasoningVisibility={reasoningVisibility}
+                  renderActivityItem={renderActivityItem}
                   terminal={terminalForMessage(
                     chat.terminal,
                     message.id,
@@ -140,6 +143,7 @@ export function WorkflowChatSession({
                   approvalDecisions={chat.approvalDecisions}
                   onApprovalDecision={chat.decideApproval}
                   reasoningVisibility={reasoningVisibility}
+                  renderActivityItem={renderActivityItem}
                   terminal={chat.terminal}
                   toolDetail={toolDetail}
                 />

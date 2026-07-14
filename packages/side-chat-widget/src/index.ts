@@ -1,6 +1,7 @@
 export {
   SideChatWidget,
   type RenderActivityItem,
+  type SideChatActivityItem,
   type SideChatWidgetLabels,
   type SideChatWidgetPanelActions,
   type SideChatWidgetProps,
@@ -9,7 +10,6 @@ export {
   type WorkflowSideChatWidgetProps,
   type SideChatWidgetQuickAction,
   type ReasoningVisibility,
-  type WidgetActivityItem,
   type WidgetThemeId,
   SIDE_CHAT_API_ERROR_CODES,
   createSideChatApiClient,

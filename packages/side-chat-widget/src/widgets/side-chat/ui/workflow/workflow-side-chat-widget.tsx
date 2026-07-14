@@ -56,6 +56,7 @@ export function WorkflowSideChatWidget({
   panelSizeStorageKey,
   quickActions = [],
   reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
+  renderActivityItem,
   renderAgentMark,
   renderClosedLauncher = true,
   themeStorageKey,
@@ -114,6 +115,7 @@ export function WorkflowSideChatWidget({
           }}
           quickActions={quickActions}
           reasoningVisibility={reasoningVisibility}
+          renderActivityItem={renderActivityItem}
           renderAgentMark={renderAgentMark}
           theme={theme}
           workflowChat={workflowChat}
@@ -135,6 +137,7 @@ function WorkflowConversationPanel({
   onClose,
   quickActions,
   reasoningVisibility,
+  renderActivityItem,
   renderAgentMark,
   theme,
   workflowChat,
@@ -149,6 +152,7 @@ function WorkflowConversationPanel({
   readonly onClose: () => void;
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
   readonly reasoningVisibility: WorkflowSideChatWidgetProps["reasoningVisibility"];
+  readonly renderActivityItem: WorkflowSideChatWidgetProps["renderActivityItem"];
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
   readonly theme: ReturnType<typeof useWidgetTheme>;
   readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
@@ -251,6 +255,7 @@ function WorkflowConversationPanel({
         onStatusChange={setSessionStatus}
         quickActions={quickActions}
         reasoningVisibility={reasoningVisibility ?? DEFAULT_REASONING_VISIBILITY}
+        renderActivityItem={renderActivityItem}
         renderAgentMark={renderAgentMark}
         sendOnEnter={!sendPreference.sendWithCtrlEnter}
         toolDetail={toolDetailPreference.toolDetail}

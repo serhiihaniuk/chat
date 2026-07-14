@@ -9,5 +9,5 @@ export {
   updateMessage,
 } from "./model/widget-chat.js";
 export { baseEvent, completed, delta, started } from "./model/widget-stream-fixtures.js";
-export type { WidgetActivityItem, WidgetActivityTimeline } from "./model/activity.js";
+export type { WidgetActivityTimeline } from "./model/activity.js";
 export type { WidgetMessage } from "./model/widget-chat.js";

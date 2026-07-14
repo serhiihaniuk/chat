@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 
+import type { RenderActivityItem } from "#entities/activity";
 import type { WidgetMessage } from "#entities/chat";
 import {
   DEFAULT_TOOL_DETAIL_LEVEL,
@@ -17,7 +18,6 @@ import {
   readMessageImages,
   readMessageSources,
   toReasoningItems,
-  type RenderActivityItem,
 } from "./activity/widget-activity-content.js";
 
 // Wrapped in memo so a streaming token only re-renders the message that actually

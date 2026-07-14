@@ -30,7 +30,7 @@ Contract types live in `packages/*`; binding happens in `apps/partner-ai-service
 | Add a persistence adapter | `SidechatRepositories` + `RepositoryAdapterKind` (`@side-chat/db`)                                                                                                                                                                                                                 | `options.repositories` / `options.persistence`, resolved by `createServicePersistenceBundle`                                                                                                                                                                                                 | Injected port; repos must declare `adapterKind` or fail closed                                                     |
 | Change model parameters   | `RuntimeCallSettings` ([ai-runtime-contract](../../packages/ai-runtime-contract/src/index.ts)) / `SideChatCallSettings` ([types.ts](../../apps/partner-ai-service/src/config/sidechat-config/types.ts))                                                                            | `chat.turnProfile.callSettings` in `sidechat.config.ts`; threads profile → `TurnPolicyDecision` → `buildModelTurnRequest` → the runtime call                                                                                                                                                 | Config bag: `temperature`, `maxOutputTokens`, `topP`, `stopSequences`, `maxToolSteps`                              |
 | Plug in auth              | `ServiceAuthVerifier` ([service-auth.ts:37](../../apps/partner-ai-service/src/adapters/auth/service-auth.ts)); returns an `AuthContext` (`@side-chat/partner-ai-core`)                                                                                                             | `options.authVerifier` ([app.ts:95](../../apps/partner-ai-service/src/inbound/http/app.ts)); when absent the static-token adapter from `auth` config is the dev default                                                                                                                      | Injected port; `AuthContext.subject.subjectId` is the identity every read/write scopes by                          |
-| Render an activity item   | `RenderActivityItem` / `WidgetActivityItem` ([side-chat-widget.types.ts](../../packages/side-chat-widget/src/widgets/side-chat/model/side-chat-widget.types.ts), both exported from `@side-chat/side-chat-widget`)                                                                 | `renderActivityItem` prop on `SideChatWidget`                                                                                                                                                                                                                                                | Rendering seam only: return a node to replace one item's default rendering, `undefined` to keep it                 |
+| Render an activity item   | `RenderActivityItem` / `SideChatActivityItem` ([side-chat-activity-item.ts](../../packages/side-chat-widget/src/entities/activity/model/side-chat-activity-item.ts), both exported from `@side-chat/side-chat-widget`)                                                             | `renderActivityItem` prop on either `SideChatWidget` transport branch                                                                                                                                                                                                                        | Rendering seam only: return a node to replace one eligible item's default rendering, `undefined` to keep it        |
 | Feed a context source     | `ContextManagerPort` ([context-manager.ts:11](../../packages/partner-ai-core/src/ports/context-manager.ts)); source types are the closed `CONTEXT_CANDIDATE_SOURCE_TYPES` ([capabilities.ts:39](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) | Tune admission via `options.capabilities` (config). No options hook to swap the port yet; a **new source type** is a cross-package change — see [Feed a context source](#feed-a-context-source)                                                                                              | Config tunes limits; replacing the manager or adding a source type is code, not config                             |
 
 The capability rule keeps three stages separate: a manifest `ToolCapability` is a declaration, not model access; the per-turn policy decides which names are allowed; runtime executes only registered `RuntimeTool`s named in that allowlist. Declaring a tool capability without an executable is impossible because one registration supplies both.
@@ -162,21 +162,23 @@ Each field is optional, so an absent block (or field) keeps the runtime/provider
 
 ### Render an activity item
 
-The widget renders protocol activity content by default: tools and host commands with disclosable payloads are expandable detail rows (input/result JSON, host-command `status · resultCode`), attributed sources fold under the answer as an "N sources" list, and produced images render as constrained inline thumbnails. To replace the rendering of one item — the usual first customization is a custom card for your own tool's result — pass `renderActivityItem`:
+Both widget transports expose the same activity-rendering seam. The callback receives a widget-owned, transport-neutral `SideChatActivityItem`; protocol events and native AI SDK parts are normalized before the callback. Tool and host-command variants expose only their stable widget detail (`tool` or `hostCommand`). Provider DTOs, protocol detail objects, sources, images, approval payloads, and execution authority never cross this seam.
+
+To replace one eligible item — usually a custom card for a known tool result — pass `renderActivityItem`:
 
 ```tsx
 <SideChatWidget
   client={client}
   renderActivityItem={
     (item) =>
-      item.details?.tool?.toolName === "ticket_lookup" ? (
-        <TicketCard result={item.details.tool.result} status={item.status} />
+      item.kind === "tool" && item.tool.toolName === "ticket_lookup" ? (
+        <TicketCard result={item.tool.result} status={item.status} />
       ) : undefined // every other item keeps the default rendering
   }
 />
 ```
 
-The callback receives each `WidgetActivityItem` (id, kind, status, title, protocol `details`) and returns a replacement node or `undefined` to fall through. It is a rendering seam only — projection of protocol events into widget state and host-command dispatch are not overridable here.
+The callback receives each eligible `SideChatActivityItem` (`id`, discriminating `kind`, `status`, `title`, optional `body`, and normalized tool/host detail) and returns a replacement node or `undefined` to fall through. Reasoning always tries the callback before its default. Tool-detail policy stays authoritative: `hidden` drops a tool without invoking the callback, `name` keeps the compact default without invoking it, and `full` tries the callback before the existing detailed/default row. Native approval cards are security-owned interaction surfaces and never invoke or yield to the custom renderer. The callback cannot change event projection, tool execution, approval decisions, or host-command dispatch.
 
 ### Feed a context source
 

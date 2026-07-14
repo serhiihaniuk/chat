@@ -50,6 +50,7 @@ export type WorkflowTimelineItem =
       readonly id: string;
       readonly kind: "tool";
       readonly toolCallId?: string | undefined;
+      readonly toolName: string;
       readonly name: string;
       readonly state: WorkflowTimelineToolState;
       readonly approval?:
@@ -61,7 +62,6 @@ export type WorkflowTimelineItem =
         | undefined;
       readonly input?: unknown;
       readonly output?: unknown;
-      readonly errorText?: string | undefined;
     }
   | {
       readonly id: string;
@@ -167,17 +167,16 @@ function projectToolPart(
     noteUnknownNativePart(`${type}:state`);
     return undefined;
   }
-  const name = type === "dynamic-tool" ? readString(part, "toolName") : type.slice(5);
-  const errorText = readString(part, "errorText");
+  const toolName = type === "dynamic-tool" ? readString(part, "toolName") : type.slice(5);
   const toolCallId = readString(part, "toolCallId");
   const base = {
     id: toolCallId ? `${id}-tool-${toolCallId}` : id,
     kind: "tool" as const,
-    name: humanizeToolName(name || "Tool"),
+    toolName: toolName || "Tool",
+    name: humanizeToolName(toolName || "Tool"),
     state,
     input: part["input"],
     output: part["output"],
-    errorText,
   };
   return {
     ...base,

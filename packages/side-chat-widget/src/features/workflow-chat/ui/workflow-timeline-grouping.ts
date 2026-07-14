@@ -1,11 +1,13 @@
 import type { ReactElement } from "react";
 
+import type { RenderActivityItem } from "#entities/activity";
 import type { ToolDetailLevel } from "#entities/settings";
 import type { CitationSource } from "#shared/ui/activity/citations";
 import type { ReasoningItem } from "#shared/ui/reasoning";
 
 import type { WorkflowTimelineItem } from "../model/native-message-projection.js";
 import type { WorkflowApprovalDecisions } from "../model/use-workflow-widget-chat.js";
+import { toWorkflowSideChatActivityItem } from "./activity/workflow-activity-item.js";
 import { usesApprovalCard } from "./workflow-tool-presentation.js";
 
 export type ToolItem = Extract<WorkflowTimelineItem, { kind: "tool" }>;
@@ -29,10 +31,11 @@ export function groupTimelineItems(
   items: readonly WorkflowTimelineItem[],
   approvalDecisions: WorkflowApprovalDecisions | undefined,
   toolDetail: ToolDetailLevel,
+  renderActivityItem: RenderActivityItem | undefined,
   renderTool: (item: ToolItem) => ReactElement,
 ): TimelineGroups {
   return {
-    trace: collectTrace(items, approvalDecisions, toolDetail, renderTool),
+    trace: collectTrace(items, approvalDecisions, toolDetail, renderActivityItem, renderTool),
     approvals: items.filter(
       (item): item is ToolItem => item.kind === "tool" && usesApprovalCard(item, approvalDecisions),
     ),
@@ -48,18 +51,60 @@ function collectTrace(
   items: readonly WorkflowTimelineItem[],
   approvalDecisions: WorkflowApprovalDecisions | undefined,
   toolDetail: ToolDetailLevel,
+  renderActivityItem: RenderActivityItem | undefined,
   renderTool: (item: ToolItem) => ReactElement,
 ): ReasoningItem[] {
   const trace: ReasoningItem[] = [];
   for (const item of items) {
-    if (item.kind === "reasoning") {
-      trace.push({ kind: "thought", id: item.id, text: item.text });
-    } else if (item.kind === "tool" && !usesApprovalCard(item, approvalDecisions)) {
-      if (toolDetail === "hidden") continue;
-      trace.push({ kind: "node", id: item.id, node: renderTool(item) });
-    }
+    const traceItem = toTraceItem(
+      item,
+      approvalDecisions,
+      toolDetail,
+      renderActivityItem,
+      renderTool,
+    );
+    if (traceItem) trace.push(traceItem);
   }
   return trace;
+}
+
+function toTraceItem(
+  item: WorkflowTimelineItem,
+  approvalDecisions: WorkflowApprovalDecisions | undefined,
+  toolDetail: ToolDetailLevel,
+  renderActivityItem: RenderActivityItem | undefined,
+  renderTool: (item: ToolItem) => ReactElement,
+): ReasoningItem | undefined {
+  if (item.kind === "reasoning") return toReasoningTraceItem(item, renderActivityItem);
+  if (item.kind !== "tool") return undefined;
+  return toToolTraceItem(item, approvalDecisions, toolDetail, renderActivityItem, renderTool);
+}
+
+function toReasoningTraceItem(
+  item: Extract<WorkflowTimelineItem, { kind: "reasoning" }>,
+  renderActivityItem: RenderActivityItem | undefined,
+): ReasoningItem {
+  const custom = renderActivityItem?.(toWorkflowSideChatActivityItem(item));
+  return custom === undefined
+    ? { kind: "thought", id: item.id, text: item.text }
+    : { kind: "node", id: item.id, node: custom };
+}
+
+function toToolTraceItem(
+  item: ToolItem,
+  approvalDecisions: WorkflowApprovalDecisions | undefined,
+  toolDetail: ToolDetailLevel,
+  renderActivityItem: RenderActivityItem | undefined,
+  renderTool: (item: ToolItem) => ReactElement,
+): ReasoningItem | undefined {
+  if (usesApprovalCard(item, approvalDecisions) || toolDetail === "hidden") return undefined;
+  const custom =
+    toolDetail === "full" ? renderActivityItem?.(toWorkflowSideChatActivityItem(item)) : undefined;
+  return {
+    kind: "node",
+    id: item.id,
+    node: custom === undefined ? renderTool(item) : custom,
+  };
 }
 
 function collectSources(items: readonly WorkflowTimelineItem[]): CitationSource[] {

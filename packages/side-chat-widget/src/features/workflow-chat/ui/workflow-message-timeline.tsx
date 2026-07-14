@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { FileText } from "lucide-react";
 
+import type { RenderActivityItem } from "#entities/activity";
 import {
   DEFAULT_REASONING_VISIBILITY,
   DEFAULT_TOOL_DETAIL_LEVEL,
@@ -40,6 +41,7 @@ export function WorkflowMessageTimeline({
   onApprovalDecision,
   onRetry,
   reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
+  renderActivityItem,
   terminal,
   toolDetail = DEFAULT_TOOL_DETAIL_LEVEL,
 }: {
@@ -49,6 +51,7 @@ export function WorkflowMessageTimeline({
   readonly approvalDecisions?: WorkflowApprovalDecisions | undefined;
   readonly onApprovalDecision?: WorkflowApprovalDecisionHandler | undefined;
   readonly reasoningVisibility?: ReasoningVisibility | undefined;
+  readonly renderActivityItem?: RenderActivityItem | undefined;
   readonly terminal?: WorkflowChatTerminal | undefined;
   readonly toolDetail?: ToolDetailLevel | undefined;
 }): ReactElement {
@@ -75,6 +78,7 @@ export function WorkflowMessageTimeline({
         messageIsBlocked={messageTerminal?.kind === "blocked" && role === "assistant"}
         onApprovalDecision={onApprovalDecision}
         reasoningVisibility={reasoningVisibility}
+        renderActivityItem={renderActivityItem}
         role={role}
         toolDetail={toolDetail}
       />
@@ -112,6 +116,7 @@ function MessageBody({
   labels,
   onApprovalDecision,
   reasoningVisibility,
+  renderActivityItem,
   role,
   toolDetail,
 }: {
@@ -122,6 +127,7 @@ function MessageBody({
   readonly labels: WidgetLabels;
   readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
   readonly reasoningVisibility: ReasoningVisibility;
+  readonly renderActivityItem: RenderActivityItem | undefined;
   readonly role: "user" | "assistant";
   readonly toolDetail: ToolDetailLevel;
 }): ReactElement {
@@ -129,6 +135,7 @@ function MessageBody({
     items,
     approvalDecisions,
     toolDetail,
+    renderActivityItem,
     (item) => (
       <WorkflowToolPresentation
         approvalDecisions={approvalDecisions}

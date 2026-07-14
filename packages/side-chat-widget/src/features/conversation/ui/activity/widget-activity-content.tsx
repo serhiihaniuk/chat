@@ -1,6 +1,6 @@
 import { ACTIVITY_KINDS, ACTIVITY_STATUSES } from "@side-chat/chat-protocol";
-import type { ReactNode } from "react";
 
+import type { RenderActivityItem } from "#entities/activity";
 import type { WidgetActivityItem, WidgetMessage } from "#entities/chat";
 import type { ToolDetailLevel } from "#entities/settings";
 import type { ActivityImageData } from "#shared/ui/activity/activity-images";
@@ -8,14 +8,7 @@ import type { CitationSource } from "#shared/ui/activity/citations";
 import { hasToolDetail, ToolDetailRow, type ToolDetail } from "#shared/ui/activity/tool-detail";
 import type { ReasoningItem } from "#shared/ui/reasoning";
 import type { ToolState } from "#shared/ui/tool-row";
-
-/**
- * Custom rendering seam for one activity item (tool call, host command,
- * reasoning row). Return a node to replace the default rendering of that item;
- * return `undefined` to fall through to the defaults. Rendering only — the
- * protocol projection and host-command dispatch are not affected.
- */
-export type RenderActivityItem = (item: WidgetActivityItem) => ReactNode | undefined;
+import { toProtocolSideChatActivityItem } from "./protocol-activity-item.js";
 
 /**
  * Project a message's activity timeline into reasoning-fold entries.
@@ -38,7 +31,7 @@ export const toReasoningItems = (
       if (toolDetail === "name") return [toCompactToolItem(item)];
     }
 
-    const custom = renderActivityItem?.(item);
+    const custom = renderActivityItem?.(toProtocolSideChatActivityItem(item));
     if (custom !== undefined) {
       return [{ kind: "node", id: item.id, node: custom } as const];
     }

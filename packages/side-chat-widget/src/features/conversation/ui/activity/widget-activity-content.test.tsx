@@ -1,7 +1,8 @@
 import { SIDECHAT_PROTOCOL_VERSION, type ActivityEvent } from "@side-chat/chat-protocol";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import type { RenderActivityItem } from "#entities/activity";
 import {
   applyActivityEvent,
   type WidgetActivityTimeline,
@@ -73,7 +74,7 @@ describe("activity content rendering", () => {
         reasoningVisibility="detailed"
         toolDetail="full"
         renderActivityItem={(item) =>
-          item.details?.tool?.toolName === "mock_web_search" ? (
+          item.kind === "tool" && item.tool.toolName === "mock_web_search" ? (
             <div data-testid="custom-tool">Custom search card</div>
           ) : undefined
         }
@@ -85,6 +86,48 @@ describe("activity content rendering", () => {
     expect(html).not.toContain("Mock web search");
     // ...while non-matching items keep their defaults.
     expect(html).toContain("Prepared final answer");
+  });
+
+  it("keeps hidden and name tool disclosure ahead of custom rendering", () => {
+    const message = createAssistantMessage({
+      activityEvents: [
+        createActivity({
+          activityId: "tool_call_001",
+          activityKind: "tool",
+          status: "completed",
+          details: {
+            tool: {
+              toolCallId: "tool_call_001",
+              toolName: "mock_web_search",
+              result: { summary: "private-result" },
+            },
+          },
+        }),
+      ],
+    });
+    const renderActivityItem = vi.fn<RenderActivityItem>(() => <div>custom-tool-result</div>);
+
+    const hidden = renderToStaticMarkup(
+      <WidgetMessageView
+        message={message}
+        reasoningVisibility="detailed"
+        renderActivityItem={renderActivityItem}
+        toolDetail="hidden"
+      />,
+    );
+    const name = renderToStaticMarkup(
+      <WidgetMessageView
+        message={message}
+        reasoningVisibility="detailed"
+        renderActivityItem={renderActivityItem}
+        toolDetail="name"
+      />,
+    );
+
+    expect(renderActivityItem).not.toHaveBeenCalled();
+    expect(hidden).not.toContain("custom-tool-result");
+    expect(name).toContain("Mock web search");
+    expect(name).not.toContain("private-result");
   });
 
   it("renders sources as a message-level fold and images as inline thumbnails", () => {

@@ -58,9 +58,8 @@ terminal presentations. An optional `hostBridge` advertises page capabilities
 as native client tools, dispatches dynamic `onToolCall` requests once, and posts
 their safe outcome to the durable workflow hook. Approval cards post decisions
 to the service; the server owns continuation and replay updates the same tool
-row. Protocol-specific host context, activity renderers, quick actions,
-reasoning presentation, and turn profiles remain available only on the `client`
-branch.
+row. Both transports accept the same `renderActivityItem` callback. Protocol-specific
+host context and turn profiles remain available only on the `client` branch.
 
 The protocol-backed branch accepts `client` and exports
 `createSideChatApiClient` for service-backed consumers. `SideChatApiClient` drives
@@ -112,16 +111,19 @@ overrides, not component-local styles.
 with `renderClosedLauncher={false}` when the host renders its own launcher
 button outside the Side Chat frame.
 
-`renderActivityItem` is the custom-rendering seam for one activity item in the
-message trace (tool call, host command, reasoning row). It receives a
-`WidgetActivityItem` (exported type: id, kind, status, title, and the protocol
-`details` with tool input/result, host-command payload/result, sources, and
-images) and returns a `ReactNode` to replace only that item's default rendering,
-or `undefined` to keep the default. It is a rendering seam only — protocol
-projection and host-command dispatch are unaffected. Defaults without it: tools
-and host commands with disclosable payloads render as expandable detail rows,
-attributed sources render as a foldable "N sources" list under the answer, and
-produced images render as constrained inline thumbnails.
+`renderActivityItem` is the shared custom-rendering seam for eligible activity in
+either transport's message trace. It receives the exported, widget-owned
+`SideChatActivityItem`: `id`, discriminating `kind`, `status`, `title`, optional
+`body`, and normalized `tool` or `hostCommand` detail. It contains no protocol,
+AI SDK, provider, source, image, or approval DTO. Return a `ReactNode` to replace
+that item's default, or `undefined` to keep it.
+
+Reasoning tries the callback before its default. Tool-detail policy remains the
+disclosure boundary: `hidden` drops tools without calling it, `name` keeps the
+compact default without calling it, and `full` tries it before existing detail.
+Interactive approval cards always use the security-owned default and never call
+the callback. The seam cannot change projection, execution, approval decisions,
+or host-command dispatch; sources and images retain their message-level defaults.
 
 `@side-chat/side-chat-widget/testing` exports widget model projection helpers
 for harness tests. It is not a host application API.

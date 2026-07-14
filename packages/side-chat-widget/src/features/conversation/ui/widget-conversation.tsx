@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import type { RenderActivityItem } from "#entities/activity";
 import type { WidgetMessage, WidgetRunNotice } from "#entities/chat";
 import {
   DEFAULT_TOOL_DETAIL_LEVEL,
@@ -14,7 +15,6 @@ import {
   ConversationScrollButton,
 } from "#shared/ui/conversation";
 import { BlockedNotice, ErrorNotice } from "#shared/ui/error-notice";
-import type { RenderActivityItem } from "./activity/widget-activity-content.js";
 import { WidgetMessageView } from "./widget-message-view.js";
 
 export const WidgetConversation = ({

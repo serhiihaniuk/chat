@@ -2,20 +2,19 @@ import type { ReactNode } from "react";
 
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
-import type { WidgetActivityItem } from "#entities/chat";
+import type { RenderActivityItem, SideChatActivityItem } from "#entities/activity";
 import type { SideChatApiClient } from "#entities/conversation";
 import type { SideChatWidgetPanelSize } from "#entities/panel";
 import type { ReasoningVisibility } from "#entities/settings";
 import type { WidgetThemeId } from "#entities/theme";
 import type { WorkflowChatClient } from "#entities/workflow-chat";
-import type { RenderActivityItem } from "#features/conversation";
 import type { SideChatWidgetLabels } from "#shared/lib/widget-labels";
 
 export type {
   ReasoningVisibility,
   RenderActivityItem,
+  SideChatActivityItem,
   SideChatWidgetLabels,
-  WidgetActivityItem,
   WidgetThemeId,
 };
 
@@ -81,6 +80,11 @@ type SideChatWidgetShellProps = {
    * to a shared key when omitted; pass a workspace-scoped key to isolate hosts.
    */
   readonly panelSizeStorageKey?: string | undefined;
+  /**
+   * Replace one eligible activity row after its transport state is normalized.
+   * Tool-detail disclosure and native approval-card ownership remain authoritative.
+   */
+  readonly renderActivityItem?: RenderActivityItem | undefined;
 };
 
 /** Configuration owned by the protocol-backed conversation and activity model. */
@@ -109,13 +113,6 @@ type ProtocolSideChatWidgetOptions = {
    * reasoning still opens only after the stream emits an activity trace.
    */
   readonly reasoningVisibility?: ReasoningVisibility | undefined;
-  /**
-   * Custom rendering for one activity item (tool call, host command, reasoning
-   * row) in the message trace. Return a node to replace only that item's
-   * default rendering; return `undefined` to keep the default. A rendering
-   * seam only — protocol projection and host-command dispatch are unaffected.
-   */
-  readonly renderActivityItem?: RenderActivityItem | undefined;
   /**
    * Replace the built-in agent mark (the greeting + header glyph) with custom
    * branding. Returns a node rendered in place of the default `AgentMark`; omit to

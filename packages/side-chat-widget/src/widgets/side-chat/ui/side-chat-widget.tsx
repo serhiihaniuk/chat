@@ -28,6 +28,7 @@ import { WorkflowSideChatWidget } from "./workflow/workflow-side-chat-widget.js"
 
 export type {
   RenderActivityItem,
+  SideChatActivityItem,
   SideChatWidgetTurnProfile,
   SideChatWidgetLabels,
   SideChatWidgetPanelActions,
@@ -35,7 +36,6 @@ export type {
   SideChatWidgetProps,
   WorkflowSideChatWidgetProps,
   SideChatWidgetQuickAction,
-  WidgetActivityItem,
 } from "../model/side-chat-widget.types.js";
 
 /**

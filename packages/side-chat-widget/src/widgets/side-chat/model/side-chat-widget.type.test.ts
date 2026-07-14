@@ -1,6 +1,11 @@
 import { describe, expectTypeOf, it } from "vitest";
 
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
+import type {
+  RenderActivityItem as PublicRenderActivityItem,
+  SideChatActivityItem as PublicSideChatActivityItem,
+} from "@side-chat/side-chat-widget";
+import type { RenderActivityItem, SideChatActivityItem } from "#entities/activity";
 import type { SideChatApiClient } from "#entities/conversation";
 import type { WorkflowChatClient } from "#entities/workflow-chat";
 import type {
@@ -19,5 +24,17 @@ describe("side chat widget public props", () => {
       NonNullable<WorkflowSideChatWidgetProps["hostBridge"]>
     >().toEqualTypeOf<WidgetHostBridge>();
     expectTypeOf<WorkflowSideChatWidgetProps>().not.toHaveProperty("onConversationIdChange");
+  });
+
+  it("exports one transport-neutral activity rendering contract for both branches", () => {
+    expectTypeOf<PublicSideChatActivityItem>().toEqualTypeOf<SideChatActivityItem>();
+    expectTypeOf<PublicRenderActivityItem>().toEqualTypeOf<RenderActivityItem>();
+    expectTypeOf<
+      NonNullable<ProtocolSideChatWidgetProps["renderActivityItem"]>
+    >().toEqualTypeOf<RenderActivityItem>();
+    expectTypeOf<
+      NonNullable<WorkflowSideChatWidgetProps["renderActivityItem"]>
+    >().toEqualTypeOf<RenderActivityItem>();
+    expectTypeOf<SideChatActivityItem>().not.toHaveProperty("details");
   });
 });
