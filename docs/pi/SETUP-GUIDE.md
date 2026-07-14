@@ -82,19 +82,17 @@ Use worktree isolation only for independent write tasks. Never run concurrent im
 
 ## Track cost and waste
 
-The session footer tracks the live session as plain `label value` pairs, for example:
+The session footer tracks the live session in three bulleted groups — quota, money, cache — with the headline numbers rendered as reverse-video pills. Roughly:
 
 ```text
-quota 52% · spent $1.00 · agents 5/7 · waste $0.08 · checks 1/2
+● weekly [49%]   ● main $1.00 sub $0.24 [Σ $1.24]   ● cache 72%
 ```
 
-- `quota` is the remaining percentage of the tightest Codex window (green, amber at 40%, red at 20%); a dim `↻` countdown appears when the short window binds.
-- `spent` is the total session cost, parent plus children, in bold.
-- `agents` counts completed child runs over total (red when any aborted).
-- `waste` is the cost of child runs that died before a usable report; it appears only when non-zero.
-- `checks` counts passing deterministic `sidechat_verify` calls over total (red on any failure).
+- A colored bullet anchors each group. The quota bullet and its `[49%]` pill are health-colored (green, amber at 40%, red at 20%); a dim `↻` countdown appears if only a shorter window is reported.
+- The money group shows the parent `main` and delegated `sub` spend, then the session `[Σ total]` as a pill. Without delegation it collapses to a single `spent` pill, since main equals total.
+- `cache` is the prompt-cache hit rate; it is hidden while idle.
 
-The `agents`, `waste`, and `checks` segments stay hidden until they have data, so an idle session shows only `quota` and `spent`.
+Pills use reverse video, so they borrow the terminal's own theme colors; a terminal that ignores the sequence shows plain colored text instead. Historical run outcomes and waste stay in `scripts/pi-run-stats.mjs`.
 
 For history across sessions:
 
