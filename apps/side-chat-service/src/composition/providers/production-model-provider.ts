@@ -11,6 +11,7 @@ import { createOpenAIModelAdapter } from "#adapters/providers/openai-model-provi
 import {
   DURABLE_MODEL_HANDLE,
   type ModelProvider,
+  type ModelReasoningEffort,
   type ProviderOptions,
 } from "#application/ports/model-provider";
 import { envValue, serviceProcessEnv } from "#config/environment/process-environment";
@@ -98,6 +99,7 @@ export function createProductionModelProvider(settings: Settings): ModelProvider
       modelFor: adapter.modelFor,
       descriptorFor: (modelId) => openAiDescriptor(models, modelId),
       providerOptions: adapter.providerOptions,
+      providerOptionsFor: adapter.providerOptionsFor,
     });
   }
   if (models.provider === AZURE_PROVIDER.KIND) {
@@ -114,11 +116,18 @@ function createSerializableModelProvider(options: {
   readonly modelFor: (modelId: string) => LanguageModelV4;
   readonly descriptorFor: (modelId: string) => ProductionModelDescriptor;
   readonly providerOptions?: ProviderOptions | undefined;
+  readonly providerOptionsFor?: ((effort?: ModelReasoningEffort) => ProviderOptions) | undefined;
 }): ModelProvider {
   return {
-    modelFor: ({ modelId }) => {
+    modelFor: ({ modelId, reasoningEffort }) => {
       const delegate = options.modelFor(modelId);
       const model = new ProductionModelHandle(options.descriptorFor(modelId), delegate);
+      if (options.providerOptionsFor !== undefined) {
+        return {
+          model,
+          providerOptions: options.providerOptionsFor(reasoningEffort),
+        };
+      }
       if (options.providerOptions === undefined) return { model };
       return { model, providerOptions: options.providerOptions };
     },

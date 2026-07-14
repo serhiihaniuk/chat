@@ -16,7 +16,7 @@ Protocol version is pinned and both sides move together:
 | ------------------------------- | ----- |
 | `x-vercel-ai-ui-message-stream` | `v1`  |
 
-The shared, browser-safe vocabulary — error codes, finish reasons, and the `data-*` type surface — lives in [`packages/stream-profile`](../../packages/stream-profile/README.md) and is imported by both the service and the widget.
+The shared, browser-safe vocabulary — error codes, finish reasons, native reasoning efforts, and the `data-*` type surface — lives in [`packages/stream-profile`](../../packages/stream-profile/README.md) and is imported by both the service and the widget. Each provider model descriptor owns its supported reasoning efforts and default; `/api/models` publishes that per-model subset, and the widget renders only the selected model's advertised choices. Luna currently advertises `low`, `medium`, and `high`, displayed as Light, Medium, and High. The request carries the exact provider-neutral value as optional `reasoningEffort`; the service validates it against the selected model and resolves it into provider options inside the durable turn. Omission uses that model's configured default.
 
 ## Parts
 
@@ -92,7 +92,7 @@ Exactly one terminal-class part (`finish`, `error`, or `abort`) reaches the clie
 
 | Concern         | Contract                                                                                                                                                                                  |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Start a turn    | `POST /api/chat` — streams the response; returns `x-workflow-run-id`.                                                                                                                     |
+| Start a turn    | `POST /api/chat` — streams the response; returns `x-workflow-run-id`; optional `modelPreference`, `reasoningEffort`, and `enabledToolNames` may only narrow/select advertised policy.     |
 | Cancel a turn   | `POST /api/chat/:runId/cancel` — auth/ownership first, then a durable abort.                                                                                                              |
 | Auth            | `authorization` header, verified before any run, stream, or cancel.                                                                                                                       |
 | Request tracing | `x-request-id` (echoed if provided, generated otherwise).                                                                                                                                 |

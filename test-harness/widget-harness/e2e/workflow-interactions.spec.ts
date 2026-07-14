@@ -22,8 +22,18 @@ const parityEvidenceDirectory = resolve(
 const parityWidgetUrl =
   "/side-chat-frame/?mode=workflow-service&conversationId=conversation-parity";
 const modelCatalog = {
-  models: [{ id: "workspace-gpt-5", provider: "openai", contextWindowTokens: 128_000 }],
-  defaultModelId: "workspace-gpt-5",
+  models: [
+    {
+      id: "gpt-5.6-luna",
+      provider: "openai",
+      contextWindowTokens: 372_000,
+      reasoning: {
+        efforts: ["low", "medium", "high"],
+        defaultEffort: "medium",
+      },
+    },
+  ],
+  defaultModelId: "gpt-5.6-luna",
 };
 const toolCatalog = {
   tools: [
@@ -146,15 +156,27 @@ test("reattaches to an in-progress run on cold load and reassembles the answer",
 }) => {
   await routeWorkflowRecovery(page, {
     runId: "run-refresh",
-    activeTurn: { turnId: "turn-refresh", runId: "run-refresh", status: "running" },
+    activeTurn: {
+      turnId: "turn-refresh",
+      runId: "run-refresh",
+      status: "running",
+    },
     history: [
-      { id: "user-refresh", role: "user", parts: [{ type: "text", text: "Summarize the ticket" }] },
+      {
+        id: "user-refresh",
+        role: "user",
+        parts: [{ type: "text", text: "Summarize the ticket" }],
+      },
     ],
     streamChunks: [
       { type: "start", messageId: "assistant-refresh" },
       { type: "start-step" },
       { type: "text-start", id: "text-1" },
-      { type: "text-delta", id: "text-1", delta: "The ticket reports a billing error." },
+      {
+        type: "text-delta",
+        id: "text-1",
+        delta: "The ticket reports a billing error.",
+      },
       { type: "text-end", id: "text-1" },
       { type: "finish-step" },
       { type: "finish" },
@@ -181,7 +203,7 @@ test("shows the empty state with quick actions before the first message", async 
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
   await expect(page.getByRole("button", { name: "Summarize this page" })).toBeVisible();
   // The restored composer footer surfaces the workflow model selector.
-  await expect(page.getByText("workspace-gpt-5")).toBeVisible();
+  await expect(page.getByText("gpt-5.6-luna")).toBeVisible();
   await page.screenshot({
     path: resolve(parityEvidenceDirectory, "empty-state.png"),
     fullPage: true,
@@ -192,19 +214,46 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
   page,
 }) => {
   let newChatSelected = false;
+  let draftPersisted = false;
+  let draftConversationId: string | undefined;
   let draftHistoryRequests = 0;
   let draftActiveTurnRequests = 0;
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (newChatSelected && request.method() === "GET" && path.endsWith("/messages")) {
+    if (
+      newChatSelected &&
+      !draftPersisted &&
+      request.method() === "GET" &&
+      path.endsWith("/messages")
+    ) {
       draftHistoryRequests += 1;
       await route.fulfill({ status: 404, json: { error: "not_found" } });
       return;
     }
-    if (newChatSelected && request.method() === "GET" && path.endsWith("/active-turn")) {
+    if (
+      newChatSelected &&
+      !draftPersisted &&
+      request.method() === "GET" &&
+      path.endsWith("/active-turn")
+    ) {
       draftActiveTurnRequests += 1;
       await route.fulfill({ status: 404, json: { error: "not_found" } });
+      return;
+    }
+    if (newChatSelected && request.method() === "POST" && path.endsWith("/api/chat")) {
+      const body: unknown = request.postDataJSON();
+      const conversationId =
+        body !== null && typeof body === "object" && !Array.isArray(body)
+          ? Reflect.get(body, "conversationId")
+          : undefined;
+      if (typeof conversationId !== "string") throw new Error("Draft request needs an id.");
+      draftConversationId = conversationId;
+      draftPersisted = true;
+      await fulfillWorkflowStream(route, {
+        runId: "run-new-chat-draft",
+        chunks: [{ type: "start", messageId: "assistant-new-chat-draft" }, { type: "finish" }],
+      });
       return;
     }
     const fulfilled = await fulfillWorkflowRead(route, path, {
@@ -224,19 +273,32 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
 
   await page.goto(parityWidgetUrl);
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
+  await page.getByText("gpt-5.6-luna", { exact: true }).first().click();
+  await page.getByRole("button", { name: "High" }).click();
+  await page.keyboard.press("Escape");
   newChatSelected = true;
   await page.getByRole("button", { name: "New chat", exact: true }).click();
 
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
   await expect(page.getByLabel("Message")).toBeVisible();
-  await expect(page.getByText("workspace-gpt-5")).toBeVisible();
+  await expect(page.getByText("gpt-5.6-luna")).toBeVisible();
+  await expect(page.getByText("/ High", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add context and tools" })).toBeVisible();
   await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
   expect(draftHistoryRequests).toBe(0);
   expect(draftActiveTurnRequests).toBe(0);
+  expect(new URL(page.url()).searchParams.get("conversationId")).toBe("conversation-parity");
 
   await page.getByRole("button", { name: "Add context and tools" }).click();
   await expect(page.getByText("No tools available", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByLabel("Message").fill("Persist this draft");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect.poll(() => draftConversationId).not.toBeUndefined();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("conversationId"))
+    .toBe(draftConversationId);
+  await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
 });
 
 test("selects server tools per turn and renders terminal context usage", async ({ page }) => {
@@ -285,6 +347,12 @@ test("selects server tools per turn and renders terminal context usage", async (
       },
     });
   });
+  await page.getByText("gpt-5.6-luna", { exact: true }).first().click();
+  await expect(page.getByRole("button", { name: "Light" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Medium" })).toBeVisible();
+  await page.getByRole("button", { name: "High" }).click();
+  await page.keyboard.press("Escape");
+
   await page.getByRole("button", { name: "Add context and tools" }).click();
   const toolsPopup = page.locator('[data-slot="dropdown-menu-content"]');
   await expect(page.getByText("Available tools")).toBeVisible();
@@ -308,11 +376,19 @@ test("selects server tools per turn and renders terminal context usage", async (
   await expect
     .poll(() => page.evaluate(() => sessionStorage.getItem("sidechat-e2e-copied-text")))
     .toBe(answer);
-  await expect.poll(() => chatRequest).toMatchObject({ enabledToolNames: ["calculator"] });
+  await expect
+    .poll(() => chatRequest)
+    .toMatchObject({
+      modelPreference: "gpt-5.6-luna",
+      reasoningEffort: "high",
+      enabledToolNames: ["calculator"],
+    });
   const contextMeter = page.getByRole("meter", { name: "Context used" });
-  await expect(contextMeter).toHaveAttribute("aria-valuetext", "12,800 / 128,000 tokens (10%)");
+  await expect(contextMeter).toHaveAttribute("aria-valuetext", "12,800 / 372,000 tokens (3%)");
   await contextMeter.hover();
-  const usageTooltip = page.getByText("12,800 / 128,000 tokens (10%)", { exact: true });
+  const usageTooltip = page.getByText("12,800 / 372,000 tokens (3%)", {
+    exact: true,
+  });
   await expect(usageTooltip).toBeVisible();
   await expect(usageTooltip).toHaveCSS("opacity", "1");
   await waitForBrowserPaint(page);
@@ -321,6 +397,48 @@ test("selects server tools per turn and renders terminal context usage", async (
     path: resolve(parityEvidenceDirectory, "usage-meter.png"),
     fullPage: true,
   });
+});
+
+test("repairs a stale routed conversation with the newest authorized conversation", async ({
+  page,
+}) => {
+  await page.route("**/side-chat-api/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === "GET" && path.includes("/conversation-stale/messages")) {
+      await route.fulfill({ status: 404, json: { error: "not_found" } });
+      return;
+    }
+    const messages = path.includes("/conversation-recovered/messages")
+      ? [
+          {
+            id: "user-recovered",
+            role: "user",
+            parts: [{ type: "text", text: "Recovered conversation" }],
+          },
+        ]
+      : [];
+    const fulfilled = await fulfillWorkflowRead(route, path, {
+      activeTurn: null,
+      conversations: [
+        {
+          id: "conversation-recovered",
+          title: "Recovered",
+          lastMessageAt: "2026-07-13T11:00:00Z",
+        },
+      ],
+      messages,
+      tools: [],
+    });
+    if (!fulfilled) await route.abort("failed");
+  });
+
+  await page.goto("/side-chat-frame/?mode=workflow-service&conversationId=conversation-stale");
+
+  await expect(page.getByText("Recovered conversation")).toBeVisible();
+  await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("conversationId"))
+    .toBe("conversation-recovered");
 });
 
 test("opens the settings view from the header gear and returns to the chat", async ({ page }) => {
@@ -384,6 +502,9 @@ test("lists workspace conversations in the sidebar and opens a different one", a
   // Selecting another conversation remounts the session against its history.
   await page.getByText("Refund policy").click();
   await expect(page.getByText("What is the refund window?")).toBeVisible();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("conversationId"))
+    .toBe("conversation-refund");
 });
 
 // A run-less conversation: empty history, no active turn, and no other workspace

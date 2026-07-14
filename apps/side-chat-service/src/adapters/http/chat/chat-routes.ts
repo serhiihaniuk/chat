@@ -61,6 +61,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
     }
 
     try {
+      const model = dependencies.selectModel(request.requestedModelId, request.reasoningEffort);
       const running = await runTurn(dependencies, {
         auth: context.get("authContext"),
         requestId: request.requestId,
@@ -69,7 +70,8 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         acceptedUserMessage: request.acceptedUserMessage,
         clientTools: request.clientTools,
         enabledToolNames: request.enabledToolNames,
-        modelId: dependencies.selectModel(request.requestedModelId),
+        modelId: model.modelId,
+        ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: model.reasoningEffort }),
       });
       return createChatStreamResponse({
         stream: running.stream,

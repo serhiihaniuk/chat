@@ -26,6 +26,7 @@ const TURN_INPUT = {
   turnId: "turn-1",
   requestId: "request-1",
   modelId: "test-model",
+  reasoningEffort: "low",
   messages: [{ id: "user-1", role: TURN_MESSAGE_ROLES.USER, text: "Hello" }],
   clientTools: [],
 } as const;
@@ -90,6 +91,7 @@ describe("createWorkflowTurnExecution", () => {
         clientToolTimeoutMs: settings.timeouts.clientToolMs,
         clientTools,
         enabledToolNames: ["server_tool"],
+        reasoningEffort: TURN_INPUT.reasoningEffort,
       }),
     );
   });

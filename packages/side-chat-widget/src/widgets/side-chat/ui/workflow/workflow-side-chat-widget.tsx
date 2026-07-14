@@ -10,6 +10,7 @@ import {
 import type { ConversationSummaryView } from "#features/conversation";
 import { ClosedWidgetLauncher, ResizablePanel, useWidgetPanelSize } from "#features/panel";
 import { useSendPreference, useToolDetailPreference } from "#features/settings";
+import { useWorkflowModelSelection, type WorkflowModelSelection } from "#features/workflow-chat";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import { resolveWidgetLabels, WidgetLabelsProvider } from "#shared/lib/widget-labels";
 import { Conversation, ConversationContent } from "#shared/ui/conversation";
@@ -17,6 +18,14 @@ import { ErrorNotice } from "#shared/ui/error-notice";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 
 import type { WorkflowSideChatWidgetProps } from "../../model/side-chat-widget.types.js";
+import {
+  useWorkflowToolSelection,
+  type WidgetToolSelection,
+} from "../../model/selection/side-chat-tool-selection.js";
+import {
+  useMissingConversationFallback,
+  useWorkflowConversationSelection,
+} from "../../model/selection/use-workflow-conversation-selection.js";
 import { WorkflowChatSession } from "./workflow-chat-session.js";
 import { WorkflowPanelView } from "./workflow-panel-view.js";
 
@@ -34,6 +43,7 @@ export function WorkflowSideChatWidget({
   defaultTheme,
   labels: labelsProp,
   hostBridge,
+  onConversationIdChange,
   onOpenChange,
   open,
   panelActions,
@@ -54,6 +64,8 @@ export function WorkflowSideChatWidget({
   });
   const theme = useWidgetTheme({ defaultTheme, storageKey: themeStorageKey });
   const appearance = useWidgetAppearance();
+  const modelSelection = useWorkflowModelSelection(workflowChat);
+  const toolSelection = useWorkflowToolSelection(workflowChat);
 
   const requestOpenChange = (nextOpen: boolean): void => {
     if (open === undefined) setUncontrolledOpen(nextOpen);
@@ -88,6 +100,7 @@ export function WorkflowSideChatWidget({
           appearance={appearance}
           hostBridge={hostBridge}
           labels={labels}
+          onConversationIdChange={onConversationIdChange}
           onClose={() => {
             panelActions?.onClose?.();
             requestOpenChange(false);
@@ -97,6 +110,8 @@ export function WorkflowSideChatWidget({
           renderAgentMark={renderAgentMark}
           theme={theme}
           workflowChat={workflowChat}
+          modelSelection={modelSelection}
+          toolSelection={toolSelection}
         />
       </ResizablePanel>
     </WidgetLabelsProvider>
@@ -139,57 +154,43 @@ function selectWorkflowHistoryContent({
   return session;
 }
 
-function useWorkflowConversationSelection(initialConversationId: string): Readonly<{
-  activeConversationId: string;
-  isLocalDraft: boolean;
-  selectConversation: (conversationId: string) => void;
-  startNewConversation: () => void;
-}> {
-  const [activeConversationId, setActiveConversationId] = useState(initialConversationId);
-  const [localDraftConversationId, setLocalDraftConversationId] = useState<string>();
-  const startNewConversation = useCallback((): void => {
-    const conversationId = crypto.randomUUID();
-    setLocalDraftConversationId(conversationId);
-    setActiveConversationId(conversationId);
-  }, []);
-  const selectConversation = useCallback((conversationId: string): void => {
-    setLocalDraftConversationId(undefined);
-    setActiveConversationId(conversationId);
-  }, []);
-  return {
-    activeConversationId,
-    isLocalDraft: localDraftConversationId === activeConversationId,
-    selectConversation,
-    startNewConversation,
-  };
-}
-
 function WorkflowConversationPanel({
   appearance,
   hostBridge,
   labels,
   onClose,
+  onConversationIdChange,
   quickActions,
   reasoningVisibility,
   renderAgentMark,
   theme,
   workflowChat,
+  modelSelection,
+  toolSelection,
 }: {
   readonly appearance: ReturnType<typeof useWidgetAppearance>;
   readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
   readonly labels: ReturnType<typeof resolveWidgetLabels>;
   readonly onClose: () => void;
+  readonly onConversationIdChange: WorkflowSideChatWidgetProps["onConversationIdChange"];
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
   readonly reasoningVisibility: WorkflowSideChatWidgetProps["reasoningVisibility"];
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
   readonly theme: ReturnType<typeof useWidgetTheme>;
   readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
+  readonly modelSelection: WorkflowModelSelection;
+  readonly toolSelection: WidgetToolSelection;
 }): ReactNode {
   const queryClient = useQueryClient();
   const sendPreference = useSendPreference();
   const toolDetailPreference = useToolDetailPreference();
-  const { activeConversationId, isLocalDraft, selectConversation, startNewConversation } =
-    useWorkflowConversationSelection(workflowChat.conversationId);
+  const {
+    activeConversationId,
+    commitLocalDraft,
+    isLocalDraft,
+    selectConversation,
+    startNewConversation,
+  } = useWorkflowConversationSelection(workflowChat.conversationId, onConversationIdChange);
   const conversationClient = useMemo(
     () => ({ ...workflowChat, conversationId: activeConversationId }),
     [workflowChat, activeConversationId],
@@ -229,11 +230,19 @@ function WorkflowConversationPanel({
       })),
     [conversations.data, labels.conversationNewChat],
   );
+  useMissingConversationFallback({
+    activeConversationId,
+    conversations: conversations.data,
+    error: history.error,
+    isLocalDraft,
+    selectConversation,
+  });
   const refreshConversations = useCallback((): void => {
+    commitLocalDraft();
     void queryClient.invalidateQueries({
       queryKey: [WORKFLOW_QUERY.SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
     });
-  }, [queryClient, workflowChat.baseUrl]);
+  }, [commitLocalDraft, queryClient, workflowChat.baseUrl]);
 
   const historyContent = selectWorkflowHistoryContent({
     error: history.error,
@@ -255,6 +264,8 @@ function WorkflowConversationPanel({
         sendOnEnter={!sendPreference.sendWithCtrlEnter}
         toolDetail={toolDetailPreference.toolDetail}
         workflowChat={conversationClient}
+        modelSelection={modelSelection}
+        toolSelection={toolSelection}
       />
     ),
   });

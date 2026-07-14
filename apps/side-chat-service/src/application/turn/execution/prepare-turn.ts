@@ -1,3 +1,5 @@
+import type { SideChatReasoningEffort } from "@side-chat/stream-profile";
+
 import type { TurnAdmission, TurnAdmissionLease } from "#application/ports/turn/turn-admission";
 import type { StartedTurnExecution, TurnExecution } from "#application/ports/turn/turn-execution";
 import type { TurnStore } from "#application/ports/turn/turn-store";
@@ -16,6 +18,7 @@ export type PrepareTurnInput = Readonly<{
   conversationId: string;
   requestId: string;
   modelId: string;
+  reasoningEffort?: SideChatReasoningEffort | undefined;
   messages: readonly TurnMessage[];
   acceptedUserMessage: TurnMessage;
   clientTools?: readonly ClientToolDefinition[];
@@ -59,6 +62,7 @@ export async function prepareTurn(
       auth: input.auth,
       requestId: input.requestId,
       modelId: input.modelId,
+      ...(input.reasoningEffort === undefined ? {} : { reasoningEffort: input.reasoningEffort }),
       messages: input.messages,
       clientTools: input.clientTools ?? [],
       ...(input.enabledToolNames === undefined ? {} : { enabledToolNames: input.enabledToolNames }),

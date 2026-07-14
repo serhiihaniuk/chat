@@ -1,4 +1,8 @@
 import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type { SideChatReasoningEffort } from "@side-chat/stream-profile";
+
+/** Provider-neutral reasoning value admitted by the native chat boundary. */
+export type ModelReasoningEffort = SideChatReasoningEffort;
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type ProviderOptions = Record<string, Record<string, JsonValue>>;
@@ -25,6 +29,7 @@ export interface ModelProvider {
 export interface ModelSelection {
   readonly modelId: string;
   readonly requestId: string;
+  readonly reasoningEffort?: ModelReasoningEffort | undefined;
 }
 
 /** Reject ids and opaque SDK models that cannot safely cross a Workflow boundary. */

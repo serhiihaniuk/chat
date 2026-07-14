@@ -144,6 +144,7 @@ const createWidgetHarnessProps = (
   if (config.mode === "workflow-service") {
     return {
       workflowChat: createWorkflowServiceClient(config),
+      onConversationIdChange: replaceWorkflowConversationId,
       hostBridge,
       defaultOpen: config.defaultOpen,
       defaultPanelSize: resolveHarnessPanelSize(),
@@ -178,6 +179,13 @@ const createWidgetHarnessProps = (
     quickActions: HARNESS_QUICK_ACTIONS,
   };
   return props;
+};
+
+const replaceWorkflowConversationId = (conversationId: string): void => {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("conversationId") === conversationId) return;
+  url.searchParams.set("conversationId", conversationId);
+  window.history.replaceState(window.history.state, "", url);
 };
 
 const resolveHarnessPanelSize = (): {

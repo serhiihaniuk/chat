@@ -96,45 +96,13 @@ Use the repository's human cognitive-load targets as the default: ordinary funct
 
 Every readability finding must include a simpler shape. Describe the extraction, deletion, rename, explicit stage, or boundary repair that would make the code easier to read. Prefer a small example of the proposed control flow over abstract clean-code language.
 
-### 3. Effect usage and idioms — very important
-
-This repository pins **Effect v4** (a beta release). Reviewer rule: verify every Effect API claim against the installed declarations in `node_modules/effect/dist/*.d.ts` and against `docs/architecture/effect.md` — never against Effect v3 knowledge. v4 renamed and reshaped APIs, so a construct that looks wrong from v3 experience may be the current idiom, and a v3 idiom that still compiles may be deprecated. Rank Effect-readability findings at lens-2 priority.
-
-Check in both directions.
-
-Reinvented built-ins — hand-rolled code doing what Effect already provides:
-
-- Manual retry/backoff loops instead of `Effect.retry` + `Schedule` combinators.
-- `setTimeout` races or deadline bookkeeping instead of `Effect.timeout*`.
-- `try/finally` or manual cleanup callbacks instead of `Effect.acquireRelease`, `Scope`, `Stream.ensuring`, or `Effect.onExit`.
-- Hand-built promise resolvers instead of `Deferred`; polling loops instead of `Queue`/`PubSub`/`Stream` signaling.
-- Mutable closures shared across fibers instead of `Ref`; ad-hoc buffers instead of `Queue`/`Stream` with an explicit capacity policy.
-- Manual fiber bookkeeping instead of `FiberMap`/`forkScoped`; bespoke concurrency throttles instead of `{ concurrency }` options on `forEach`/`all`.
-
-The reverse — Effect ceremony where plain code is simpler:
-
-- Pure synchronous logic wrapped in `Effect.gen`/`Effect.sync` with no compositional gain.
-- Promise→Effect→Promise round-trips that add no typed errors, no interruption, and no resource safety.
-- `runSync`/`runPromise` escapes in the middle of a pipeline rather than at composition roots and adapter edges.
-
-Readability of the Effect code itself (this is the part that matters most):
-
-- Sequencing reads top-to-bottom through `Effect.gen` + `yield*`; long `.pipe` chains are reserved for genuinely linear transforms.
-- No inside-out expressions (`Stream.unwrap(Effect.map(...))` and similar) where named prepare → open → map → finalize stages would read straight down. The custom lints warn on some of these shapes; review what they miss.
-- Pipelines are built from named stage functions with doc comments stating the invariant, not anonymous lambdas nested several levels deep.
-- Error channels are honest: typed failures via `Effect.fail`/tagged errors, defects kept distinct from failures at boundaries, no `catch` that silently converts one into the other.
-- Interruption reaches finalizers on every path — cancel, shutdown, and lease-fence included — and scopes own every forked fiber's lifetime so nothing outlives shutdown.
-- Effect never leaks into browser packages or through ports typed for plain values; adapters convert exactly once at the boundary.
-
-Where `docs/architecture/effect.md` and the code disagree about the intended idiom, report the drift.
-
-### 4. Correctness and failure behavior
+### 3. Correctness and failure behavior
 
 Trace success, validation failure, typed failure, provider failure, tool failure, timeout, cancellation, client disconnect, process crash, database failure, duplicate request, retry, partial stream, malformed event, and shutdown paths. Check that each path reaches a valid terminal state and that no work, fiber, subscription, lock, lease, timer, request, or database row remains stranded.
 
 Check idempotency, ordering, replay, resume, deduplication, optimistic concurrency, transaction boundaries, race conditions, exactly-once versus at-least-once assumptions, and whether tests exercise the real failure path rather than a simplified fake.
 
-### 5. Architecture and boundaries
+### 6. Architecture and boundaries
 
 Verify dependency direction and ownership against the canonical package-boundary docs. Check that browser packages remain Effect-free and provider-free, AI SDK/provider details remain in the runtime, database details remain in the database package, HTTP details remain in the service, and `sidechat.v1` remains a deliberate browser/service contract.
 
@@ -144,7 +112,7 @@ Check whether the actual lifecycle matches `assistant-turn.md`, whether event vo
 
 Review every homegrown mechanism for conventionality. For each bespoke construct — registry, relay, lease, reducer, state machine, cache, bus, scheduler, validation layer — ask: is this a standard, nameable pattern (ports and adapters, outbox, lease with fencing tokens, CAS state machine, reducer/projection, pub/sub) implemented the standard way, or an invention that a well-known pattern, an Effect built-in, a PostgreSQL feature, or an established library facility already provides with less bespoke code? When it is an invention, name the conventional alternative in the finding and state what adopting it would delete. Check the reverse too: patterns imported without need — layers, event machinery, or indirection that exists to look architectural rather than to serve a real caller. Novelty is a defect only when a boring, common shape would do the same job more simply; say which shape.
 
-### 6. Performance: UI
+### 7. Performance: UI
 
 Inspect render frequency, state granularity, selector stability, memoization, list rendering, message/activity virtualization, markdown or rich-content cost, syntax highlighting, portal/font/theme work, iframe startup, bundle size, hydration or mount work, and unnecessary query invalidation/refetching.
 
@@ -152,13 +120,13 @@ For streaming UI, check delta coalescing, reducer work, backpressure, dropped or
 
 Do not recommend memoization by default. Identify the render trigger, the component subtree affected, the repeated calculation, and the measurement or profiling path that would validate the change.
 
-### 7. Performance: server and runtime
+### 8. Performance: server and runtime
 
 Inspect request latency, synchronous CPU work, serialization, logging, provider stream handling, Effect fiber lifetime, cancellation propagation, timers, retries, queues, subscriber registries, memory growth, connection pools, concurrency limits, and backpressure.
 
 Check whether every background task has bounded lifetime and cleanup, whether a client disconnect leaves model work running intentionally, whether one slow consumer can affect others, and whether per-turn or per-instance state has explicit limits and eviction. Identify hot paths and estimate cost per request, turn, message, event, tool call, and active connection.
 
-### 8. Database performance and correctness
+### 9. Database performance and correctness
 
 Review the schema, indexes, foreign keys, uniqueness constraints, nullability, enum/status columns, timestamps, row ownership, and query patterns together. For every important query, check:
 
@@ -177,7 +145,7 @@ Review the schema, indexes, foreign keys, uniqueness constraints, nullability, e
 
 When possible, inspect generated SQL and run safe `EXPLAIN` or `EXPLAIN (ANALYZE, BUFFERS)` only against disposable/test data. If a conclusion needs production cardinalities, say so and provide the exact measurement to collect.
 
-### 9. Scaling and operability
+### 10. Scaling and operability
 
 Evaluate horizontal scaling across multiple service instances, load-balancer behavior, connection affinity, instance-local state, cross-instance turn ownership, cancellation, host-command results, notifications, retries, and reconnects. Identify every feature that silently assumes one process.
 
@@ -185,7 +153,7 @@ Check capacity limits and failure domains: active streams, concurrent model call
 
 Do not assume a distributed system is scalable because it uses PostgreSQL or async code. State the bottleneck, the scaling dimension, the failure mode, and the smallest change that removes or documents the limit.
 
-### 10. Tests, verification, and reviewability
+### 11. Tests, verification, and reviewability
 
 Check whether tests cover the actual public contracts and failure modes above. Look for tests that use unrealistic fakes, bypass boundary adapters, assert implementation details, omit authorization/tenant isolation, skip multi-instance behavior, or fail to verify database query shape and constraints.
 

@@ -1,4 +1,5 @@
 import type { UIMessage, UIMessageChunk } from "ai";
+import type { SideChatReasoningEffort } from "@side-chat/stream-profile";
 
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import type { AuthContext } from "#domain/auth-context";
@@ -15,6 +16,7 @@ export type TurnExecutionInput = TurnRef &
     auth: AuthContext;
     requestId: string;
     modelId: string;
+    reasoningEffort?: SideChatReasoningEffort | undefined;
     messages: readonly TurnMessage[];
     clientTools: readonly ClientToolDefinition[];
     enabledToolNames?: readonly string[] | undefined;

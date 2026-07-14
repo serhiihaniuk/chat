@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { SideChatReasoningSupport } from "@side-chat/stream-profile";
 
 import {
   readConversationHistory,
@@ -27,6 +28,7 @@ export type QueryRouteDependencies = Readonly<{
     id: string;
     provider: string;
     contextWindowTokens: number;
+    reasoning?: SideChatReasoningSupport | undefined;
   }>;
   /** Current tool/data schemas honored when validating persisted history parts. */
   structuredPartCatalogs?: StructuredPartCatalogs | undefined;

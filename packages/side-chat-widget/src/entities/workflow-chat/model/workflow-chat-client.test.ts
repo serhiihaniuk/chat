@@ -203,6 +203,15 @@ describe("readWorkflowModels", () => {
             id: "workspace-gpt-5",
             provider: "openai",
             contextWindowTokens: 128_000,
+            reasoning: {
+              efforts: ["low", "medium", "high"],
+              defaultEffort: "medium",
+            },
+          },
+          {
+            id: "invalid-reasoning",
+            contextWindowTokens: 16_000,
+            reasoning: { efforts: ["low"], defaultEffort: "xhigh" },
           },
           { provider: "no id" },
           7,
@@ -217,6 +226,10 @@ describe("readWorkflowModels", () => {
           id: "workspace-gpt-5",
           provider: "openai",
           contextWindowTokens: 128_000,
+          reasoning: {
+            efforts: ["low", "medium", "high"],
+            defaultEffort: "medium",
+          },
         },
       ],
       defaultModelId: "workspace-gpt-5",
@@ -277,16 +290,45 @@ describe("readWorkflowTools", () => {
   it.each([
     {
       tools: [
-        { name: "tool", label: "Tool", description: "Desc", defaultEnabled: true, secret: "x" },
+        {
+          name: "tool",
+          label: "Tool",
+          description: "Desc",
+          defaultEnabled: true,
+          secret: "x",
+        },
       ],
     },
-    { tools: [{ name: "tool", label: "", description: "Desc", defaultEnabled: true }] },
-    { tools: [{ name: " tool ", label: "Tool", description: "Desc", defaultEnabled: true }] },
-    { tools: [{ name: "tool", label: "Tool", description: "", defaultEnabled: true }] },
+    {
+      tools: [{ name: "tool", label: "", description: "Desc", defaultEnabled: true }],
+    },
     {
       tools: [
-        { name: "tool", label: "Tool", description: "Desc", defaultEnabled: true },
-        { name: "tool", label: "Other", description: "Desc", defaultEnabled: false },
+        {
+          name: " tool ",
+          label: "Tool",
+          description: "Desc",
+          defaultEnabled: true,
+        },
+      ],
+    },
+    {
+      tools: [{ name: "tool", label: "Tool", description: "", defaultEnabled: true }],
+    },
+    {
+      tools: [
+        {
+          name: "tool",
+          label: "Tool",
+          description: "Desc",
+          defaultEnabled: true,
+        },
+        {
+          name: "tool",
+          label: "Other",
+          description: "Desc",
+          defaultEnabled: false,
+        },
       ],
     },
     { tools: [{ name: "tool" }] },

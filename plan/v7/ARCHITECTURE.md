@@ -117,6 +117,8 @@ The rewrite is NOT "one service instead of packages." A package exists where the
 
 ## The turn, end to end (the worked example)
 
+> **Conformance reopened 2026-07-14.** The current replacement service does not yet match this worked example. `prepare-turn.ts` performs assertion, admission, record start, workflow start, and run binding, while model/effort selection remains in the Hono route; host context and the full staged policy/guard contract are absent. `chat-routes.ts` and `run-turn.ts` therefore own orchestration that this document assigns to named application stages. Step 16a now blocks cutover until the call graph and this source of truth agree again; a passing import-direction lint is not sufficient evidence.
+
 The old core's `prepareStreamChatTurn` — the staged, commented, everything-before-the-stream-opens pipeline — is the style this architecture preserves. Its qualities were the staging discipline and the pre-stream contract, not Effect and not the protocol machinery beneath it. The new anatomy:
 
 **1. Route bundle, request time — `application/turn/prepare-turn.ts`.** Plain async, one named stage per line, same contract as the old core: everything that must succeed before the stream opens; a failure rejects the HTTP request instead of half-opening an SSE response.

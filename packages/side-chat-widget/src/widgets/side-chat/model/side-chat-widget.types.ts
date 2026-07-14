@@ -135,6 +135,11 @@ export type WorkflowSideChatWidgetProps = SideChatWidgetShellProps & {
   readonly client?: never;
   /** Native AI SDK transport and dynamic request configuration for one conversation. */
   readonly workflowChat: WorkflowChatClient;
+  /**
+   * Notifies the host after a server-known conversation becomes active. Local
+   * New chat drafts notify only after their first settled turn creates them.
+   */
+  readonly onConversationIdChange?: ((conversationId: string) => void) | undefined;
   /** Optional browser-safe host capability and client-tool dispatch seam. */
   readonly hostBridge?: WidgetHostBridge | undefined;
   /** Starter prompts shown only before the conversation has messages. */

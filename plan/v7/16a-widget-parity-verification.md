@@ -31,11 +31,54 @@ Each row must work in the native widget or be a signed-off cut.
 
 Recorded after the client-portable parity pass, grounded in a backend capability audit of `apps/side-chat-service` (route table, chat request schema, stream assembly).
 
+> **Gate reopened 2026-07-14.** A code-level audit found that the browser captures and focused tests did not prove the full contract below. Every prior completion check is provisional until the correction acceptance section passes. Existing screenshots remain useful visual evidence, but they are not completion evidence for behavior, architecture, configuration, or token ownership.
+
+## Correction audit — 2026-07-14
+
+| Reported issue | Repository evidence | Required correction |
+| --- | --- | --- |
+| Code quality regressed | `workflow-side-chat-widget.tsx` and `workflow-message-timeline.tsx` approach the production file-size ceiling; the workflow branch duplicates shell and timeline orchestration already owned by the protocol branch; `WorkflowPanelView` hardcodes missing behavior. | Use one explicit selection model and one shared shell/presentation contract. Split policy, querying, session lifecycle, and rendering by responsibility, with direct tests for the state model. |
+| Refresh without a chat errors | `WorkflowChatClient.conversationId` is mandatory; the harness substitutes `conversation-1`; history then requests a record that may not exist. | Make the initial conversation optional. A missing id means a local draft and suppresses history/discovery until the server accepts the first turn. |
+| Refresh opens an existing chat | `useMissingConversationFallback` handles a 404 by selecting `conversations[0]`; the repository lists newest first. | Delete newest-chat fallback. Idle reload always opens New chat, even when the workspace already has conversations. |
+| Chat selection is tracked by URL | The workflow widget exposes `onConversationIdChange`, and the harness writes `conversationId` with `history.replaceState`; there is no controlled navigation or `popstate` contract. | Remove URL mutation from the default/public workflow path. Routing may be added later only as a complete host-owned controlled contract, not a notification side effect. |
+| Architecture is worse than the pre-v7 Effect path | The native widget duplicates composition while omitting behavior. `ARCHITECTURE.md` describes a staged `prepareTurn` and thin route, but current model selection remains in the Hono route and the route/runner are large orchestration surfaces. | Restore named preparation stages and honest ownership. Consolidate shared widget presentation, keep transport-specific state at the edge, and update architecture docs to match the implemented call graph. |
+| Config is no longer one readable file | ADR 0010 requires one deployment file to reveal provider, models, tools, policy, budgets, and timers. The replacement config declares one model while model policy and the production tool catalog live in separate modules. | Make `apps/side-chat-service/sidechat.config.ts` the complete readable declaration. Catalog modules may supply typed values, but may not hide selected models, tool exposure, request policy, context, or auxiliary jobs. |
+| Features are not mapped one-to-one | Workflow props omit `renderActivityItem`, turn-profile compatibility, and storage semantics. The header omits refresh; busy controls and cross-conversation running ids are hardcoded; host `getContext` is not sent with workflow turns; `/api/models` exposes only one selected model. | Maintain an explicit parity matrix and either wire each legacy capability or record an approved cut. No cut is currently approved. |
+| Streamdown messages bypass CSS tokens | `.sc-markdown` uses raw spacing utilities for inline code, code blocks, lists, headings, blockquotes, and tables. `Message` and `MarkdownContent` both add `.sc-markdown`, and the documented `--message-block-gap` value disagrees with CSS. | Give one wrapper ownership of `.sc-markdown`; introduce documented tier-2 message tokens before CSS use; remove raw design-significant spacing from Streamdown selectors; add token contract tests. |
+
+### Refresh and selection contract
+
+- Selection is a discriminated state: `draft` or `persisted`, never a bare string plus a second "local draft id" variable.
+- Initial persisted selection is optional. Absence means New chat; a 404 remains a visible/typed missing selection and never chooses another conversation.
+- Draft promotion happens when the service accepts the turn and returns the workflow run id, not when the turn reaches a terminal.
+- Only an in-flight, tab-scoped recovery cursor survives refresh. It is cleared at terminal completion. Normal selection is not written to URL or persistent browser history.
+- Conversation list refresh is independent of draft promotion and cannot silently change the active selection.
+
+### Required one-to-one feature map
+
+| Surface | Legacy contract to preserve | Workflow correction status |
+| --- | --- | --- |
+| Conversation shell | New chat, select, title, refresh, running indicators, busy-safe controls | Open |
+| Prompting | quick actions, model/turn choice, host context, host/client tool integration | Open; quick actions and model/client tools exist, host context and complete model catalog do not |
+| Settings | theme, appearance, send preference, reasoning visibility, tool detail | Reverify after shared-shell consolidation |
+| Message composition | reasoning/tools fold, duration, activity override, citations, images/files, copy/retry | Open; custom activity rendering is missing |
+| Recovery | idle New chat, active refresh reattach, drop retry, multi-tab convergence | Reopened in Step 16 |
+| Configuration | one readable deployment declaration | Open |
+| Styling | shared design tokens across legacy and workflow Streamdown messages | Open |
+
+### Verification gaps found by the audit
+
+- There is no direct unit suite for the workflow conversation-selection state machine.
+- The browser spec encodes the wrong behavior: draft URL change only after terminal and stale-route fallback to the newest conversation.
+- The workflow browser spec exceeds the repository complexity budget and contains an unsafe assignment.
+- Root typecheck currently includes touched workflow transport test errors and a stale widget type assertion, in addition to unrelated legacy baseline failures.
+- `lint:custom` passing proves package and source-shape rules, not parity or refresh correctness.
+
 ### At parity (native = legacy), browser-verified
 
 - **Settings view + header gear** — theme (all four), accent, corners, density, elevation, text size, typeface, send preference, tool-detail level. Reuses the shared `SettingsView`. Evidence: `evidence/task-16a-widget-parity/settings-view.png`.
 - **Empty state + quick actions** — greeting, agent mark, context-aware description, host starter prompts. Evidence: `evidence/task-16a-widget-parity/empty-state.png`.
-- **Conversation sidebar + switcher (multi-conversation)** — the widget owns the active conversation; lists workspace conversations (`GET /api/conversations`, server-generated titles); new/select remounts a keyed session; a new client-local draft skips history/discovery until first submit creates it; a settled turn refreshes the list. Evidence: `evidence/task-16a-widget-parity/sidebar.png`. Signed-off degradation: cross-conversation running dots stay empty (native discovery is per-conversation).
+- **Conversation sidebar + switcher (multi-conversation)** — visual composition is present, but behavioral parity is reopened. The current path uses newest-chat fallback, URL notification, terminal-time draft promotion, hardcoded empty running ids, and always-enabled switching controls. The prior running-dot degradation was never entered in the sign-off section and is not approved.
 - **Composer footer + model selector** — the native path uses the shared `WidgetFooter` (same composer as legacy); the model selector reads `GET /api/models` and sends the chosen id as `modelPreference`. The documented `+` control remains visible with an empty production tool catalog and honestly reports that no tools are available.
 - **Tool-detail level** — `hidden` drops tool rows, `name` pins a compact row, `full` keeps the expandable detail (unit-tested).
 - **Reasoning visibility** — `detailed` holds a completed trace open (unit-tested).
@@ -53,10 +96,10 @@ Production no longer passes raw OpenAI/Azure SDK models across WorkflowAgent's i
 - **Usage / context meter** — live and replayed terminal finishes carry schema-validated folded `messageMetadata.usage`; completed assistant history persists the same safe object and degrades invalid metadata before transport; `/api/models` publishes the configured `contextWindowTokens`; the widget validates both, projects the newest assistant usage, and supplies the existing `WidgetFooter` meter. Evidence: 11 focused files / 102 tests plus browser assertion and the visible tooltip capture at `evidence/task-16a-widget-parity/usage-meter.png`.
 - **Server tools menu** — authenticated `/api/tools` exposes only the display projection `{ name, label, description, defaultEnabled }` of the trusted server catalog; schemas, executors, approval predicates, and provider data stay private. The native menu reads it through TanStack Query, preserves `undefined` when unavailable/empty and `[]` when every returned tool is disabled, and sends the optional allowlist on every new turn. The service rejects malformed/duplicate selections and client/server name collisions, intersects the request with the trusted catalog, and threads the plain selection through the durable workflow. The production catalog remains empty. Evidence: focused B4 contracts 8 files / 74 tests, service suite 54 files / 240 passed / 12 skipped, widget suite 50 files / 302 tests, direct service/widget TypeScript, scoped Oxlint, custom governance, and the browser allowlist assertion/capture at `evidence/task-16a-widget-parity/tools-menu.png`.
 
-### Newly requested model control (provider target required)
+### Complete — real Luna model and per-model reasoning control
 
-- **Luna model** — the user requested Luna instead of GPT-5.4. The application service currently has only the OpenAI provider id `gpt-5.4`; Pi's Luna orchestration name is not an application-provider model id. The actual Luna API model id/endpoint must be supplied before changing execution. The UI must not relabel GPT-5.4 as Luna.
-- **Reasoning-effort control** — the user requested Light / Medium / High. Today effort is baked into provider config and is not a request field. Implementing this requires a validated per-turn `low | medium | high` value (displaying `low` as Light) threaded through HTTP, workflow input, model selection/provider options, and replay-safe request handling after the real model target is known.
+- **Luna model** — production OpenAI turns and title generation now select the actual Responses API model id `gpt-5.6-luna`; GPT-5.4 was removed from the replacement service configuration rather than cosmetically relabeled. The provider's durable serde boundary remains unchanged: only the real model id and safe routing cross Workflow, while the current application credential reconstructs the SDK delegate in the step realm.
+- **Reasoning-effort control** — the browser-safe stream profile owns the wire vocabulary, but each provider model descriptor owns its supported subset and default, matching the pre-v7 configuration pattern. Luna advertises `low | medium | high` through authenticated `/api/models`; the widget renders those exact selected-model options as Light / Medium / High, preserves the selection across New chat, and sends it per turn. HTTP validates the vocabulary, turn policy rejects efforts outside the selected model's catalog, and the durable OpenAI adapter maps the resolved value to `providerOptions.openai.reasoningEffort`. Browser evidence and the exact request assertion are refreshed in `evidence/task-16a-widget-parity/`.
 
 ## Look identity — visual parity
 
@@ -75,14 +118,24 @@ Production no longer passes raw OpenAI/Azure SDK models across WorkflowAgent's i
 
 Any legacy feature or visual detail deliberately not carried into the native widget is listed here with a one-line rationale and explicit approval. An unlisted difference blocks cutover.
 
+None approved.
+
+## Correction acceptance
+
+- Focused state tests cover draft creation, persisted selection, missing selection, service-accept promotion, terminal cursor cleanup, and no implicit fallback.
+- Browser tests cover empty-store refresh, idle refresh with existing chats, mid-turn refresh, no URL mutation, and two-tab running-state selection.
+- The parity matrix has no open row or each remaining cut has explicit user approval in the sign-off section.
+- The replacement config can be read top to bottom to identify all selected models, reasoning choices, exposed server tools, request policy, host-context policy, budgets, and timers.
+- Streamdown spacing/color/typography selectors consume documented tier-2 component tokens and one wrapper owns `.sc-markdown`.
+- Focused tests, widget/service typechecks, scoped Oxlint, custom governance, and touched formatting pass; root baseline failures, if any, are separated from touched regressions.
+
 ## Completion checklist
 
-- [x] Client-portable feature parity implemented and browser-verified (settings, empty state, quick actions, tool-detail, reasoning-visibility, agent mark, activity fold).
-- [x] Multi-conversation sidebar/switcher: built and browser-verified.
-- [x] Composer footer + model selector restored (shared `WidgetFooter`); multi-model is a product decision, reasoning-effort backend-gated.
-- [x] Composer tools menu + usage meter: B3/B4 implementation, request narrowing, visible menu, and terminal meter browser-verified.
-- [x] Completed assistant message-action copy is shared by legacy and native paths and browser-verified.
-- [x] "Thought for N seconds" uses durable metadata across live, replay, persistence, history, and browser rendering; no live-only approximation was introduced.
-- [x] Look-identity side-by-side captured across all four themes and compact/cozy/roomy density.
-- [x] Design-system theme/density audit passes on the paired native roots; this slice added no styles or tokens.
+- [ ] Correct refresh/selection contract implemented and verified with no URL tracking or implicit fallback.
+- [ ] Shared shell/presentation ownership restores refresh, busy safeguards, and running indicators without duplicate orchestration.
+- [ ] Host context, custom activity rendering, and the complete model/tool/profile contract are mapped one-to-one.
+- [ ] One readable replacement-service config satisfies ADR 0010 in code and documentation.
+- [ ] Streamdown message styling uses documented component tokens with one `.sc-markdown` owner.
+- [ ] Existing settings, composer, usage, copy, durable duration, and look-identity behavior is reverified after consolidation.
+- [ ] Step 16 has real refresh and multi-tab evidence and is complete before this gate closes.
 - [x] Step 20 references this gate as a hard precondition.

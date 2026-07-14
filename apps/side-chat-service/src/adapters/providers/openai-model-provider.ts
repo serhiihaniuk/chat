@@ -4,6 +4,7 @@ import {
   type OpenAIResponsesProviderOptions,
 } from "@ai-sdk/openai";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type { SideChatReasoningEffort } from "@side-chat/stream-profile";
 
 import type { ProviderOptions } from "#application/ports/model-provider";
 
@@ -12,9 +13,7 @@ export type OpenAIModelProviderOptions = {
   readonly modelId: string;
   readonly titleModelId: string;
   readonly baseUrl?: string | undefined;
-  readonly reasoningEffort?:
-    | NonNullable<OpenAIResponsesProviderOptions["reasoningEffort"]>
-    | undefined;
+  readonly reasoningEffort?: SideChatReasoningEffort | undefined;
   readonly reasoningSummary?:
     | NonNullable<OpenAIResponsesProviderOptions["reasoningSummary"]>
     | undefined;
@@ -25,6 +24,7 @@ export type OpenAIModelProviderOptions = {
 export type OpenAIModelAdapter = Readonly<{
   readonly modelFor: (modelId: string) => LanguageModelV4;
   readonly providerOptions: ProviderOptions;
+  readonly providerOptionsFor: (effort?: SideChatReasoningEffort) => ProviderOptions;
 }>;
 
 /** Bind OpenAI retention and reasoning policy outside durable workflow code. */
@@ -36,6 +36,7 @@ export function createOpenAIModelAdapter(options: OpenAIModelProviderOptions): O
       return openai.responses(modelId);
     },
     providerOptions: createProviderOptions(options),
+    providerOptionsFor: (effort) => createProviderOptions(options, effort),
   };
 }
 
@@ -45,11 +46,14 @@ function assertConfiguredModel(options: OpenAIModelProviderOptions, modelId: str
   }
 }
 
-function createProviderOptions(options: OpenAIModelProviderOptions): ProviderOptions {
+function createProviderOptions(
+  options: OpenAIModelProviderOptions,
+  effort: SideChatReasoningEffort | undefined = options.reasoningEffort,
+): ProviderOptions {
   const openaiOptions = {
     store: false,
     reasoningSummary: options.reasoningSummary ?? null,
-    ...(options.reasoningEffort === undefined ? {} : { reasoningEffort: options.reasoningEffort }),
+    ...(effort === undefined ? {} : { reasoningEffort: effort }),
   };
   return { openai: openaiOptions };
 }

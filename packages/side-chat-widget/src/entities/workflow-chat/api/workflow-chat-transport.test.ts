@@ -99,13 +99,38 @@ describe("createWorkflowChatTransport", () => {
     );
   });
 
+  it("serializes the current model and its catalog-selected reasoning effort", async () => {
+    let requestBody: unknown;
+    const request = vi.fn<typeof fetch>(async (_input, init) => {
+      requestBody = JSON.parse(String(init?.body));
+      return finishedResponse();
+    });
+    const transport = createTransport({
+      fetch: request,
+      modelPreference: "gpt-5.6-luna",
+      reasoningEffort: "high",
+    });
+
+    await sendAndRead(transport, [USER_MESSAGE]);
+
+    expect(requestBody).toEqual(
+      expect.objectContaining({
+        modelPreference: "gpt-5.6-luna",
+        reasoningEffort: "high",
+      }),
+    );
+  });
+
   it("serializes the selected server tools, including an explicit empty selection", async () => {
     const requestBodies: unknown[] = [];
     const request = vi.fn<typeof fetch>(async (_input, init) => {
       requestBodies.push(JSON.parse(String(init?.body)));
       return finishedResponse();
     });
-    const selected = createTransport({ fetch: request, enabledToolNames: ["web_search"] });
+    const selected = createTransport({
+      fetch: request,
+      enabledToolNames: ["web_search"],
+    });
     await sendAndRead(selected, [USER_MESSAGE]);
     const none = createTransport({ fetch: request, enabledToolNames: [] });
     await sendAndRead(none, [USER_MESSAGE]);

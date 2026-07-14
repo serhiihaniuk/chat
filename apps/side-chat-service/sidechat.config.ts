@@ -13,12 +13,13 @@ import { OPENAI_PROVIDER } from "./src/config/providers/openai-provider-config.j
 const config: SideChatConfig = defineSideChatConfig({
   models: {
     provider: OPENAI_PROVIDER.KIND,
-    modelId: OPENAI_PROVIDER.MODELS.GPT_5_4.MODEL_ID,
-    titleModelId: OPENAI_PROVIDER.MODELS.GPT_5_4.MODEL_ID,
-    contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_4.CONTEXT_WINDOW_TOKENS,
+    modelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+    titleModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
+    contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
     apiKey: readEnv.secret(OPENAI_PROVIDER.SECRET_ENV_KEYS.API_KEY),
     baseUrl: readEnv(OPENAI_PROVIDER.TRANSPORT_ENV_KEYS.BASE_URL),
-    reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
+    reasoningEffort: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.DEFAULT_REASONING_EFFORT,
+    reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
   },
   auth: {
     profile: AUTH_PROFILES.PRODUCTION,

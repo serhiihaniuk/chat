@@ -31,7 +31,13 @@ import { createClientTools, preserveDynamicClientToolIdentity } from "./client-t
 import { runChatTurnFinalizeStep } from "./production/chat-turn-finalize.js";
 import { createSuspendableTurnTimeout } from "./timeout/turn-timeout.js";
 import { createServerTools, type ApprovalWorkflowStreamPart } from "./server-tools/index.js";
+import {
+  type ChatTurnWorkflowInput,
+  type SerializableChatMessage,
+} from "./input/chat-turn-input.js";
 import { normalizeApprovalUIChunk } from "./tool-approvals/approval-output.js";
+
+export type { ChatTurnWorkflowInput, SerializableChatMessage } from "./input/chat-turn-input.js";
 
 const CHAT_TURN_WORKFLOW = {
   AGENT_ID: "side-chat-turn",
@@ -48,28 +54,6 @@ const CHAT_TURN_WORKFLOW = {
 const DEFERRED_OUTCOME: Promise<never> = new Promise(() => {
   // Intentionally never settles.
 });
-
-export interface SerializableChatMessage {
-  readonly role: "assistant" | "user";
-  readonly content: string;
-}
-
-/** Everything crossing into the workflow realm is plain configuration data. */
-export interface ChatTurnWorkflowInput {
-  readonly workspaceId: string;
-  readonly subjectId: string;
-  readonly conversationId: string;
-  readonly turnId: string;
-  readonly requestId: string;
-  readonly modelId: string;
-  readonly instructions: string;
-  readonly maxSteps: number;
-  readonly providerTimeoutMs: number;
-  readonly clientToolTimeoutMs: number;
-  readonly messages: readonly SerializableChatMessage[];
-  readonly clientTools: readonly ClientToolDefinition[];
-  readonly enabledToolNames?: readonly string[] | undefined;
-}
 
 export interface StartedChatTurn {
   readonly runId: string;
@@ -106,6 +90,7 @@ export async function executeChatTurn(
   const resolvedModel = modelProvider.modelFor({
     modelId: input.modelId,
     requestId: input.requestId,
+    ...(input.reasoningEffort === undefined ? {} : { reasoningEffort: input.reasoningEffort }),
   });
   assertDurableModelHandle(resolvedModel.model);
   const providerTimeout = createSuspendableTurnTimeout(input.providerTimeoutMs);

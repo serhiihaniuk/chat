@@ -4,7 +4,7 @@ import type { WidgetStatus } from "#entities/chat";
 import { Composer } from "#shared/ui/composer";
 import { ModelSelector, type Model, type ThinkingLevel } from "#shared/ui/model-selector";
 import { ToolsMenu, type ToolMenuItem } from "#shared/ui/tools-menu";
-import type { ChatReasoningEffort } from "@side-chat/chat-protocol";
+import type { SideChatReasoningEffort as ChatReasoningEffort } from "@side-chat/stream-profile";
 
 type WidgetFooterLabels = {
   readonly placeholder: string;
@@ -123,16 +123,22 @@ const toThinkingLevels = (efforts: readonly ChatReasoningEffort[]): readonly Thi
   }));
 
 const iconForReasoningEffort = (effort: ChatReasoningEffort): LucideIcon => {
-  if (effort === "high") return BrainCircuitIcon;
+  if (effort === "high" || effort === "xhigh") return BrainCircuitIcon;
   if (effort === "medium") return GaugeIcon;
   return SparklesIcon;
 };
 
 const describeReasoningEffort = (effort: ChatReasoningEffort): string => {
+  if (effort === "none") return "No additional reasoning";
+  if (effort === "minimal") return "Minimal reasoning";
   if (effort === "low") return "Light reasoning";
   if (effort === "medium") return "Balanced reasoning";
+  if (effort === "xhigh") return "Deepest reasoning";
   return "Deeper reasoning";
 };
 
-const formatReasoningEffort = (effort: ChatReasoningEffort): string =>
-  `${effort[0]?.toUpperCase()}${effort.slice(1)}`;
+const formatReasoningEffort = (effort: ChatReasoningEffort): string => {
+  if (effort === "low") return "Light";
+  if (effort === "xhigh") return "Extra high";
+  return `${effort[0]?.toUpperCase()}${effort.slice(1)}`;
+};

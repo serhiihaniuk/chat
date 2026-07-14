@@ -30,10 +30,11 @@ import {
   type ClientToolDispatchStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { Settings } from "#config/settings/resolve-settings";
-import { configuredTurnModel } from "#application/turn/turn-model-policy";
+import { configuredTurnModel, type ConfiguredTurnModel } from "#application/turn/turn-model-policy";
 import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import { AUTH_PROFILES, WORKFLOW_JOURNAL_CLASSES } from "#config/declaration/side-chat-config";
+import { OPENAI_PROVIDER, openAIReasoningSupport } from "#config/providers/openai-provider-config";
 
 import { assertAiSdkDefaultProviderIsUnset } from "../lifecycle/ai-sdk-global-guard.js";
 import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
@@ -60,6 +61,7 @@ export async function startProductionService(
 ) {
   assertAiSdkDefaultProviderIsUnset();
   const modelProvider = createProductionModelProvider(settings);
+  const configuredModel = configuredProductionModel(settings);
   const authorizer = createServiceAuthorizer(settings.auth);
   const persistence = createProductionPersistence(settings);
   const maintenanceStarters = createMaintenanceStarters(settings, options.archiveWorkflowJournal);
@@ -89,7 +91,7 @@ export async function startProductionService(
       resumeToolApproval,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       outboundTransforms: [() => createScrubTransform()],
-      selectModel: configuredTurnModel(settings.models.modelId),
+      selectModel: configuredTurnModel(configuredModel),
       serverToolNames: new Set(REGISTERED_SERVER_TOOLS.map((definition) => definition.name)),
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
@@ -116,11 +118,7 @@ export async function startProductionService(
     createQueryRoutes({
       queries: persistence.store,
       telemetry: { record: recordServiceTelemetry },
-      model: {
-        id: settings.models.modelId,
-        provider: settings.models.provider,
-        contextWindowTokens: settings.models.contextWindowTokens,
-      },
+      model: configuredModel,
       // The display catalog is public; server schemas remain private and are
       // not admitted into persisted structured-part validation yet.
       structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
@@ -132,6 +130,29 @@ export async function startProductionService(
     modelProvider,
     scope,
   };
+}
+
+type PublishedConfiguredModel = ConfiguredTurnModel &
+  Readonly<{
+    provider: string;
+    contextWindowTokens: number;
+  }>;
+
+function configuredProductionModel(settings: Settings): PublishedConfiguredModel {
+  const model = {
+    id: settings.models.modelId,
+    provider: settings.models.provider,
+    contextWindowTokens: settings.models.contextWindowTokens,
+  };
+  if (settings.models.provider !== OPENAI_PROVIDER.KIND) return model;
+
+  const reasoning = openAIReasoningSupport(
+    settings.models.modelId,
+    settings.models.reasoningEffort,
+  );
+  if (reasoning !== undefined) return { ...model, reasoning };
+  if (settings.models.reasoningEffort === undefined) return model;
+  throw new Error(`OpenAI reasoning policy is invalid for model ${settings.models.modelId}`);
 }
 
 function createMaintenanceStarters(

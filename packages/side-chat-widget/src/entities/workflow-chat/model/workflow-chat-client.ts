@@ -1,6 +1,7 @@
 import { safeValidateUIMessages, type UIMessage } from "ai";
 import {
   isSideChatErrorCode,
+  type SideChatReasoningEffort,
   SIDE_CHAT_ERROR_VOCABULARY,
   sideChatMessageMetadataSchema,
   type SideChatDataParts,
@@ -40,6 +41,8 @@ export type WorkflowChatClient = Readonly<{
   maxConsecutiveErrors?: number | undefined;
   /** Optional server-recognized model preference included with the next send. */
   modelPreference?: string | undefined;
+  /** Optional provider-neutral reasoning effort included with the next send. */
+  reasoningEffort?: SideChatReasoningEffort | undefined;
   /** Optional server-tool narrowing included with the next send. */
   enabledToolNames?: readonly string[] | undefined;
 }>;

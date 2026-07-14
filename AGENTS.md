@@ -222,3 +222,5 @@ End every implementation response with:
 - remaining risk, dense areas, or follow-up work.
 
 Stop when the requested result is implemented and verified, or when a real blocker requires user input. Do not leave the repository in a half-finished state merely because a stronger optional check would be useful.
+
+BE BRIEF

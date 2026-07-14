@@ -1,4 +1,8 @@
 import { safeValidateUIMessages, type UIMessage } from "ai";
+import {
+  SIDE_CHAT_REASONING_EFFORT_VALUES,
+  type SideChatReasoningEffort,
+} from "@side-chat/stream-profile";
 import { z } from "zod";
 
 import {
@@ -35,7 +39,10 @@ const enabledToolNamesSchema = z
   .max(SERVER_TOOL_CATALOG_LIMITS.MAX_TOOLS)
   .superRefine((names, context) => {
     if (new Set(names).size !== names.length) {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate tool names." });
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Duplicate tool names.",
+      });
     }
   });
 
@@ -45,6 +52,7 @@ const chatEnvelopeSchema = z
     conversationId: z.string().trim().min(1),
     messages: z.array(z.unknown()).min(1),
     modelPreference: z.string().trim().min(1).optional(),
+    reasoningEffort: z.enum(SIDE_CHAT_REASONING_EFFORT_VALUES).optional(),
     clientTools: z.array(clientToolSchema).max(CLIENT_TOOL_CATALOG_LIMITS.MAX_TOOLS).optional(),
     enabledToolNames: enabledToolNamesSchema.optional(),
   })
@@ -58,6 +66,7 @@ export type ChatRequest = Readonly<{
   messages: readonly TurnMessage[];
   acceptedUserMessage: TurnMessage;
   requestedModelId?: string | undefined;
+  reasoningEffort?: SideChatReasoningEffort | undefined;
   clientTools: readonly ClientToolDefinition[];
   enabledToolNames?: readonly string[] | undefined;
 }>;
@@ -88,6 +97,7 @@ export async function parseChatRequest(
     messages,
     acceptedUserMessage,
     requestedModelId: envelope.data.modelPreference,
+    reasoningEffort: envelope.data.reasoningEffort,
     clientTools,
     ...(envelope.data.enabledToolNames === undefined
       ? {}

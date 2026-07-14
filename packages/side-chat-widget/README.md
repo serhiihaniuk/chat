@@ -27,7 +27,10 @@ Not source of truth for: backend workflow or protocol definitions.
 request-time `getRequestConfig` callback. That branch validates history, seeds
 one `useChat` instance, and uses `WorkflowChatTransport` for POST, replay, and
 cancel requests. Request configuration is resolved for every request so a
-refreshed auth token is not captured at mount time.
+refreshed auth token is not captured at mount time. Hosts that persist the
+active conversation in routing state use `onConversationIdChange`; it reports
+server-listed selections immediately and local drafts only after their first
+settled turn creates the server resource.
 
 The native branch renders the validated AI SDK `UIMessage` part timeline with
 source-ordered text, reasoning, tool lifecycle, source, file, approval, and

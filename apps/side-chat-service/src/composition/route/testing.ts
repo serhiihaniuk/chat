@@ -31,6 +31,7 @@ import type { ServerToolDefinition } from "#application/turn/tools/server-tools/
 import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
 import { createScrubTransform } from "#application/turn/stream/scrub-filter";
 import type { Settings } from "#config/settings/resolve-settings";
+import { OPENAI_PROVIDER, openAIReasoningSupport } from "#config/providers/openai-provider-config";
 import { scriptedModelProvider } from "#testing/scripted-language-model";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
 import { DeterministicTurnExecution } from "#testing/turn/deterministic-turn-execution";
@@ -256,8 +257,21 @@ function inMemoryPersistence(store: InMemoryTurnState): TestingPersistence<InMem
 }
 
 function testingTurnModelPolicy(settings: Settings): TurnModelPolicy {
-  if (settings.models.provider !== "scripted") {
-    return configuredTurnModel(settings.models.modelId);
+  if (settings.models.provider === OPENAI_PROVIDER.KIND) {
+    const reasoning = openAIReasoningSupport(
+      settings.models.modelId,
+      settings.models.reasoningEffort,
+    );
+    return configuredTurnModel({
+      id: settings.models.modelId,
+      ...(reasoning === undefined ? {} : { reasoning }),
+    });
   }
-  return (requested) => requested ?? settings.models.modelId;
+  if (settings.models.provider !== "scripted") {
+    return configuredTurnModel({ id: settings.models.modelId });
+  }
+  return (requested, reasoningEffort) => ({
+    modelId: requested ?? settings.models.modelId,
+    ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+  });
 }

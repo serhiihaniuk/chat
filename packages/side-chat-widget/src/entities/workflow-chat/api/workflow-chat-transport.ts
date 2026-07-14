@@ -68,6 +68,7 @@ export function createWorkflowChatTransport({
         requestId: crypto.randomUUID(),
       };
       if (client.modelPreference !== undefined) body.modelPreference = client.modelPreference;
+      if (client.reasoningEffort !== undefined) body.reasoningEffort = client.reasoningEffort;
       if (client.enabledToolNames !== undefined) {
         body.enabledToolNames = client.enabledToolNames;
       }
@@ -178,6 +179,7 @@ type WorkflowChatRequestBody = {
   clientTools?: readonly WorkflowClientToolDefinition[];
   enabledToolNames?: readonly string[];
   modelPreference?: string;
+  reasoningEffort?: WorkflowChatClient["reasoningEffort"];
 };
 
 type PreparedWorkflowRequest = {

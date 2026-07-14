@@ -10,11 +10,7 @@ import type {
   TurnExecutionInput,
   TurnExecutionTerminal,
 } from "#application/ports/turn/turn-execution";
-import {
-  TURN_MESSAGE_ROLES,
-  TURN_TERMINAL_STATUSES,
-  type TurnMessage,
-} from "#domain/turn/turn";
+import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES, type TurnMessage } from "#domain/turn/turn";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
@@ -66,15 +62,10 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      const response = await harness.request(
-        CHAT_HTTP_ROUTES.START,
-        chatRequest(),
-      );
+      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
       expect(response.status).toBe(SUCCESS_HTTP_STATUS);
       expect(response.headers.get("x-vercel-ai-ui-message-stream")).toBe("v1");
-      expect(response.headers.get(HTTP_HEADERS.WORKFLOW_RUN_ID)).toBe(
-        TEST_RUN_ID,
-      );
+      expect(response.headers.get(HTTP_HEADERS.WORKFLOW_RUN_ID)).toBe(TEST_RUN_ID);
       const parts = await responseChunks(response);
       expect(parts.map((part) => part["type"])).toEqual([
         "start",
@@ -85,10 +76,54 @@ describe("chat routes", () => {
       ]);
       expect(parts.filter((part) => part["type"] === "finish")).toHaveLength(1);
       await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
-      expect([...harness.turnState.terminals.values()][0]?.usage).toEqual(
-        usage(7, 10),
-      );
+      expect([...harness.turnState.terminals.values()][0]?.usage).toEqual(usage(7, 10));
       expect(harness.turnState.assistantMessages).toHaveLength(1);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("threads a valid per-turn reasoning effort into execution", async () => {
+    const execution = new ControlledTurnExecution(
+      chunks({ type: "start", messageId: "assistant-1" }, { type: "finish" }),
+      Promise.resolve({
+        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        stepUsage: [],
+        assistantMessage: {
+          id: "assistant-1",
+          role: TURN_MESSAGE_ROLES.ASSISTANT,
+          parts: [],
+        },
+      }),
+    );
+    const harness = await createServiceTestHarness({
+      turnExecution: execution,
+    });
+    try {
+      const response = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest({ reasoningEffort: "low" }),
+      );
+      expect(response.status).toBe(SUCCESS_HTTP_STATUS);
+      await response.text();
+      expect(execution.started[0]?.reasoningEffort).toBe("low");
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("rejects an invalid reasoning effort before execution", async () => {
+    const execution = new ControlledTurnExecution(chunks(), neverTerminal());
+    const harness = await createServiceTestHarness({
+      turnExecution: execution,
+    });
+    try {
+      const response = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest({ reasoningEffort: "turbo" }),
+      );
+      expect(response.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
+      expect(execution.started).toEqual([]);
     } finally {
       await harness.close();
     }
@@ -110,10 +145,7 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      const response = await harness.request(
-        CHAT_HTTP_ROUTES.START,
-        chatRequest(),
-      );
+      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
       const parts = await responseChunks(response);
       const finish = parts.find((part) => part["type"] === "finish");
       expect(finish?.["finishReason"]).toBe("content-filter");
@@ -178,10 +210,7 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      const response = await harness.request(
-        CHAT_HTTP_ROUTES.START,
-        chatRequest(),
-      );
+      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
       const parts = await responseChunks(response);
       expect(parts.map((part) => part["type"])).toEqual([
         "start",
@@ -197,9 +226,7 @@ describe("chat routes", () => {
     }
   });
 
-  const errorCases: ReadonlyArray<
-    readonly [string, readonly UIMessageChunk[]]
-  > = [
+  const errorCases: ReadonlyArray<readonly [string, readonly UIMessageChunk[]]> = [
     ["before output", [{ type: "error", errorText: RAW_PROVIDER_SENTINEL }]],
     [
       "after partial output",
@@ -210,41 +237,33 @@ describe("chat routes", () => {
       ],
     ],
   ];
-  it.each(errorCases)(
-    "scrubs provider errors to a safe code %s",
-    async (_label, streamParts) => {
-      const execution = new ControlledTurnExecution(
-        chunks(...streamParts),
-        Promise.resolve({
-          status: TURN_TERMINAL_STATUSES.FAILED,
-          stepUsage: [],
-        }),
-      );
-      const harness = await createServiceTestHarness({
-        turnExecution: execution,
-      });
-      try {
-        const response = await harness.request(
-          CHAT_HTTP_ROUTES.START,
-          chatRequest(),
-        );
-        expect(response.status).toBe(SUCCESS_HTTP_STATUS);
-        const body = await responseText(response);
-        expect(body).not.toContain(RAW_PROVIDER_SENTINEL);
-        const parts = decodeChunks(body);
-        const errors = parts.filter((part) => part["type"] === "error");
-        expect(errors).toHaveLength(1);
-        expect(errors[0]?.["errorText"]).toBe("provider_failed");
-        expect(parts.at(-1)?.["type"]).toBe("error");
-        await vi.waitFor(() =>
-          expect(harness.turnState.terminals.size).toBe(1),
-        );
-        expect(harness.turnState.assistantMessages).toEqual([]);
-      } finally {
-        await harness.close();
-      }
-    },
-  );
+  it.each(errorCases)("scrubs provider errors to a safe code %s", async (_label, streamParts) => {
+    const execution = new ControlledTurnExecution(
+      chunks(...streamParts),
+      Promise.resolve({
+        status: TURN_TERMINAL_STATUSES.FAILED,
+        stepUsage: [],
+      }),
+    );
+    const harness = await createServiceTestHarness({
+      turnExecution: execution,
+    });
+    try {
+      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
+      expect(response.status).toBe(SUCCESS_HTTP_STATUS);
+      const body = await responseText(response);
+      expect(body).not.toContain(RAW_PROVIDER_SENTINEL);
+      const parts = decodeChunks(body);
+      const errors = parts.filter((part) => part["type"] === "error");
+      expect(errors).toHaveLength(1);
+      expect(errors[0]?.["errorText"]).toBe("provider_failed");
+      expect(parts.at(-1)?.["type"]).toBe("error");
+      await vi.waitFor(() => expect(harness.turnState.terminals.size).toBe(1));
+      expect(harness.turnState.assistantMessages).toEqual([]);
+    } finally {
+      await harness.close();
+    }
+  });
 
   it("rejects a busy conversation before admission, writes, or execution", async () => {
     const state = ownedState();
@@ -257,10 +276,7 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      const response = await harness.request(
-        CHAT_HTTP_ROUTES.START,
-        chatRequest(),
-      );
+      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
       expect(response.status).toBe(HTTP_ERROR.CONFLICT.STATUS);
       expect(admission.admitted).toBe(0);
       expect(state.userMessages).toEqual([]);
@@ -284,9 +300,9 @@ describe("chat routes", () => {
       turnExecution: execution,
     });
     try {
-      expect(
-        (await harness.request(CHAT_HTTP_ROUTES.START, chatRequest())).status,
-      ).toBe(HTTP_ERROR.FORBIDDEN.STATUS);
+      expect((await harness.request(CHAT_HTTP_ROUTES.START, chatRequest())).status).toBe(
+        HTTP_ERROR.FORBIDDEN.STATUS,
+      );
       expect(
         (
           await harness.request(cancelRoute(UNKNOWN_RUN_ID), {
@@ -350,9 +366,7 @@ async function responseText(response: Response): Promise<string> {
   return response.text();
 }
 
-async function responseChunks(
-  response: Response,
-): Promise<Array<Record<string, unknown>>> {
+async function responseChunks(response: Response): Promise<Array<Record<string, unknown>>> {
   return decodeChunks(await response.text());
 }
 

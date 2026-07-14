@@ -12,3 +12,10 @@ export {
   type SideChatDataParts,
   type SideChatMessageMetadata,
 } from "./data-parts.js";
+export {
+  SIDE_CHAT_REASONING_EFFORTS,
+  SIDE_CHAT_REASONING_EFFORT_VALUES,
+  isSideChatReasoningEffort,
+  type SideChatReasoningEffort,
+  type SideChatReasoningSupport,
+} from "./reasoning/reasoning-efforts.js";

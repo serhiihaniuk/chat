@@ -54,6 +54,7 @@ export function createWorkflowTurnExecution(
         turnId: input.turnId,
         requestId: input.requestId,
         modelId: input.modelId,
+        ...(input.reasoningEffort === undefined ? {} : { reasoningEffort: input.reasoningEffort }),
         instructions: settings.agent.instructions,
         maxSteps: settings.agent.maxSteps,
         providerTimeoutMs: settings.timeouts.providerMs,
@@ -133,7 +134,9 @@ export function stampFinishReason(
                   usage: sumTurnUsage(terminalOutcome.stepUsage),
                   ...(terminalOutcome.activityDurationMs === undefined
                     ? {}
-                    : { activityDurationMs: terminalOutcome.activityDurationMs }),
+                    : {
+                        activityDurationMs: terminalOutcome.activityDurationMs,
+                      }),
                 },
               };
         controller.enqueue(

@@ -1,4 +1,9 @@
 import { isRecord } from "@side-chat/shared";
+import {
+  isSideChatReasoningEffort,
+  type SideChatReasoningEffort,
+  type SideChatReasoningSupport,
+} from "@side-chat/stream-profile";
 
 import {
   createHistoryRequestInit,
@@ -60,6 +65,7 @@ export type WorkflowModel = Readonly<{
   id: string;
   provider?: string | undefined;
   contextWindowTokens: number;
+  reasoning?: SideChatReasoningSupport | undefined;
 }>;
 
 /** The workflow service's turn model catalog and its default selection. */
@@ -157,7 +163,9 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): b
 }
 
 function toWorkflowModel(entry: unknown): WorkflowModel | undefined {
-  if (!isRecord(entry) || typeof entry["id"] !== "string") return undefined;
+  if (!isRecord(entry) || !hasKnownModelKeys(entry) || typeof entry["id"] !== "string") {
+    return undefined;
+  }
   const contextWindowTokens = entry["contextWindowTokens"];
   if (
     typeof contextWindowTokens !== "number" ||
@@ -167,5 +175,44 @@ function toWorkflowModel(entry: unknown): WorkflowModel | undefined {
     return undefined;
   }
   const provider = typeof entry["provider"] === "string" ? entry["provider"] : undefined;
-  return { id: entry["id"], provider, contextWindowTokens };
+  const reasoningCandidate = entry["reasoning"];
+  const reasoning = toReasoningSupport(reasoningCandidate);
+  if (reasoningCandidate !== undefined && reasoning === undefined) return undefined;
+  return {
+    id: entry["id"],
+    ...(provider === undefined ? {} : { provider }),
+    contextWindowTokens,
+    ...(reasoning === undefined ? {} : { reasoning }),
+  };
+}
+
+function toReasoningSupport(value: unknown): SideChatReasoningSupport | undefined {
+  if (!isRecord(value) || !hasKnownReasoningKeys(value)) return undefined;
+  const efforts = readReasoningEfforts(value["efforts"]);
+  const defaultEffort = value["defaultEffort"];
+  if (efforts === undefined || !isSideChatReasoningEffort(defaultEffort)) return undefined;
+  if (!efforts.includes(defaultEffort)) return undefined;
+  const uniqueEfforts = new Set(efforts);
+  if (uniqueEfforts.size !== efforts.length) return undefined;
+  return { efforts, defaultEffort };
+}
+
+function readReasoningEfforts(value: unknown): readonly SideChatReasoningEffort[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const efforts: SideChatReasoningEffort[] = [];
+  for (const effort of value) {
+    if (!isSideChatReasoningEffort(effort)) return undefined;
+    efforts.push(effort);
+  }
+  return efforts;
+}
+
+function hasKnownModelKeys(entry: Record<string, unknown>): boolean {
+  const keys = new Set(["id", "provider", "contextWindowTokens", "reasoning"]);
+  return Object.keys(entry).every((key) => keys.has(key));
+}
+
+function hasKnownReasoningKeys(value: Record<string, unknown>): boolean {
+  const keys = new Set(["efforts", "defaultEffort"]);
+  return Object.keys(value).every((key) => keys.has(key));
 }

@@ -10,13 +10,13 @@ import {
 import { WidgetFooter } from "#features/prompt";
 import {
   projectLatestAssistantUsage,
-  useWorkflowModelSelection,
   useWorkflowWidgetChat,
+  type WorkflowModelSelection,
   WORKFLOW_WIDGET_CHAT_STATUS,
   type WorkflowChatTerminal,
   WorkflowMessageTimeline,
 } from "#features/workflow-chat";
-import { useWorkflowToolSelection } from "../../model/selection/side-chat-tool-selection.js";
+import type { WidgetToolSelection } from "../../model/selection/side-chat-tool-selection.js";
 import type { WidgetLabels } from "#shared/lib/widget-labels";
 import { Conversation, ConversationContent } from "#shared/ui/conversation";
 import { ErrorNotice } from "#shared/ui/error-notice";
@@ -27,9 +27,6 @@ const UI_MESSAGE_ROLE = {
   ASSISTANT: "assistant",
   USER: "user",
 } as const;
-
-// Reasoning effort remains backend-configured; server tools are selected per turn.
-const NO_OP = (): void => undefined;
 
 /** The conversation feed and composer for one native workflow chat. */
 export function WorkflowChatSession({
@@ -44,6 +41,8 @@ export function WorkflowChatSession({
   sendOnEnter,
   toolDetail,
   workflowChat,
+  modelSelection,
+  toolSelection,
 }: {
   readonly initialMessages: readonly WorkflowUIMessage[];
   readonly labels: WidgetLabels;
@@ -57,16 +56,22 @@ export function WorkflowChatSession({
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
   readonly toolDetail: ToolDetailLevel;
   readonly workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
+  readonly modelSelection: WorkflowModelSelection;
+  readonly toolSelection: WidgetToolSelection;
 }) {
-  const modelSelection = useWorkflowModelSelection(workflowChat);
-  const toolSelection = useWorkflowToolSelection(workflowChat);
   const sessionClient = useMemo(
     () => ({
       ...workflowChat,
       modelPreference: modelSelection.modelPreference,
+      reasoningEffort: modelSelection.reasoningEffort,
       enabledToolNames: toolSelection.enabledToolNames,
     }),
-    [workflowChat, modelSelection.modelPreference, toolSelection.enabledToolNames],
+    [
+      workflowChat,
+      modelSelection.modelPreference,
+      modelSelection.reasoningEffort,
+      toolSelection.enabledToolNames,
+    ],
   );
   const chat = useWorkflowWidgetChat(sessionClient, initialMessages, hostBridge, activeTurn);
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
@@ -148,12 +153,12 @@ export function WorkflowChatSession({
         labels={labels}
         models={modelSelection.footerModels}
         onModelSelect={modelSelection.onModelSelect}
-        onReasoningEffortSelect={NO_OP}
+        onReasoningEffortSelect={modelSelection.setSelectedReasoningEffort}
         onSubmitMessage={chat.submitMessage}
         onToggleTool={toolSelection.toggleTool}
-        reasoningEfforts={[]}
+        reasoningEfforts={modelSelection.reasoningEfforts}
         selectedModelKey={modelSelection.selectedModelKey}
-        selectedReasoningEffort={undefined}
+        selectedReasoningEffort={modelSelection.selectedReasoningEffort}
         sendOnEnter={sendOnEnter}
         status={chat.status}
         stop={chat.stop}

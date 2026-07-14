@@ -29,24 +29,30 @@ describe("production Workflow model serialization", () => {
       "fetch",
       vi.fn(() =>
         Promise.resolve(
-          new Response(openAiEvent({ type: "response.completed", response: { usage: {} } }), {
-            status: 200,
-            headers: { "content-type": "text/event-stream" },
-          }),
+          new Response(
+            openAiEvent({
+              type: "response.completed",
+              response: { usage: {} },
+            }),
+            {
+              status: 200,
+              headers: { "content-type": "text/event-stream" },
+            },
+          ),
         ),
       ),
     );
     const settings = settingsWith({
       provider: OPENAI_PROVIDER.KIND,
-      modelId: "gpt-5.4",
-      titleModelId: "gpt-5.4",
+      modelId: "gpt-5.6-luna",
+      titleModelId: "gpt-5.6-luna",
       contextWindowTokens: 16_000,
       apiKey: CREDENTIAL_SENTINEL,
       baseUrl: "https://openai.test/v1",
       reasoningEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
     });
     const resolved = createProductionModelProvider(settings).modelFor({
-      modelId: "gpt-5.4",
+      modelId: "gpt-5.6-luna",
       requestId: "request-openai",
     });
     const handle = requireProductionHandle(resolved.model);
@@ -55,13 +61,47 @@ describe("production Workflow model serialization", () => {
     expect(JSON.stringify(descriptor)).not.toContain(CREDENTIAL_SENTINEL);
     expect(descriptor).toEqual({
       provider: OPENAI_PROVIDER.KIND,
-      modelId: "gpt-5.4",
+      modelId: "gpt-5.6-luna",
       baseUrl: "https://openai.test/v1",
     });
 
     const rehydrated = ProductionModelHandle[WORKFLOW_DESERIALIZE](descriptor);
     await consumeModel(rehydrated, resolved.providerOptions);
     expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("selects the configured default and each per-turn OpenAI reasoning effort", () => {
+    const settings = settingsWith({
+      provider: OPENAI_PROVIDER.KIND,
+      modelId: "gpt-5.6-luna",
+      titleModelId: "gpt-5.6-luna",
+      contextWindowTokens: 372_000,
+      apiKey: CREDENTIAL_SENTINEL,
+      reasoningEffort: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.DEFAULT_REASONING_EFFORT,
+      reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
+    });
+    const provider = createProductionModelProvider(settings);
+    const defaultSelection = provider.modelFor({
+      modelId: settings.models.modelId,
+      requestId: "request-default",
+    });
+    expect(defaultSelection.providerOptions).toMatchObject({
+      openai: {
+        reasoningEffort: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.DEFAULT_REASONING_EFFORT,
+        reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
+      },
+    });
+
+    for (const reasoningEffort of OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.SUPPORTED_REASONING_EFFORTS) {
+      const selection = provider.modelFor({
+        modelId: settings.models.modelId,
+        requestId: `request-${reasoningEffort}`,
+        reasoningEffort,
+      });
+      expect(selection.providerOptions).toMatchObject({
+        openai: { reasoningEffort },
+      });
+    }
   });
 
   it("rehydrates a callable Azure model from non-secret deployment routing", async () => {
@@ -117,7 +157,7 @@ describe("production Workflow model serialization", () => {
     expect(() =>
       ProductionModelHandle[WORKFLOW_DESERIALIZE]({
         provider: OPENAI_PROVIDER.KIND,
-        modelId: "gpt-5.4",
+        modelId: "gpt-5.6-luna",
       }),
     ).toThrow("OpenAI provider credential is not configured");
   });

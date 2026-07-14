@@ -6,7 +6,7 @@ import { assertDurableModelHandle } from "./model-provider.js";
 
 describe("assertDurableModelHandle", () => {
   it("rejects ids and accepts the serde scripted handle", () => {
-    expect(() => assertDurableModelHandle("openai/gpt-5.4")).toThrow(
+    expect(() => assertDurableModelHandle("openai/gpt-5.6-luna")).toThrow(
       "Workflow-serializable model handle",
     );
     expect(() =>

@@ -32,7 +32,9 @@ host proxy -> /side-chat-frame iframe UI + /side-chat-api service API
 ```
 
 Use `?mode=workflow-service&authToken=local-test-token&conversationId=conversation-1`
-to exercise the native `useChat` transport against the v7 service. This mode is
+to exercise the native `useChat` transport against the v7 service. The harness
+replaces that query parameter when a server-known conversation becomes active,
+so refreshing keeps the selected or newly persisted conversation. This mode is
 separate from `local-service`, which remains the legacy protocol regression path.
 
 ## Boundary Rules

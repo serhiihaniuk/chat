@@ -22,9 +22,13 @@ A user can refresh, lose network, or open a second tab at any moment and the wid
 
 ### Cold load / refresh
 
-1. History query seeds messages (Step 13).
-2. Active-turn discovery (Step 10): if a run is live, reconnect via the transport (`initialStartIndex` per the Step 07 verified semantics) — the replayed stream rebuilds the in-progress assistant message; reconcile with the seeded history by message id (no duplicate bubbles).
-3. No localStorage markers anywhere in the new path.
+1. An ordinary mount or idle refresh starts in a client-only **New chat** draft. It does not request history or active-turn discovery for a fabricated id, and it never selects an existing conversation as a fallback.
+2. Selecting a server-known conversation seeds history, then discovers and reconnects to its active turn when one exists. Replay reconciles with seeded history by message id, so no bubbles duplicate.
+3. The service-accepted start of a draft turn promotes that draft to a persisted selection immediately. The browser retains only the narrow, tab-scoped recovery cursor needed to survive a refresh while that turn is active; terminal completion clears it. This cursor is not selected-chat persistence and never changes the URL.
+4. A refresh with an active recovery cursor reattaches to that conversation. A refresh after the turn settles returns to New chat.
+5. A second tab starts at New chat. The conversation catalog exposes real running state so the user can see and select a running conversation; selection then follows the same history + discovery path.
+
+The earlier statement that the native path needed no browser recovery state was too broad. Per-conversation discovery cannot identify which of several conversations a refreshed tab owned. The replacement is one bounded active-turn cursor, not the legacy watchdog/backoff/polling ladder.
 
 ### Transport drops
 
@@ -41,7 +45,7 @@ Each tab: own `useChat`, own reconnect; both receive the full stream. Sender tab
 3. refresh mid-client-tool → Step 15's dedupe holds after reload;
 4. transport drops N<max times then recovers → reconnecting shown, stream continues, no user-visible loss;
 5. transport exhausts retries → calm connection-lost + manual retry works;
-6. second tab opened mid-turn → catches up and tails live; both tabs converge to identical final state;
+6. second tab opened mid-turn → opens at New chat, shows the running conversation, and catches up after selecting it; both tabs then converge to identical final state;
 7. two tabs send simultaneously → one succeeds, one renders busy calmly;
 8. network loss during idle (no active turn) → no reconnect storm; next send works;
 9. discovery returns terminal (turn finished while offline) → history refetch shows the final message; no ghost pending bubble.
@@ -59,15 +63,18 @@ Browser evidence via the preview workflow: refresh mid-turn and a two-tab sessio
 
 ## Completion checklist
 
-- [x] Cold-load reattach via discovery; no markers.
-- [x] Transport-drop presentation with correct error classification (status-less drop → connection-lost + reconnect; typed 4xx not retried).
-- [x] Recovery paths covered by unit tests (reattach + dedupe-by-id, reconnect, connection-lost, busy conflict) and a refresh-mid-turn browser proof. A second tab is a second cold load over the same proven reattach path; a dedicated two-tab e2e screenshot is a follow-up.
-- [x] Old recovery ladder consumer-free on the native path (deleted in Step 20).
+- [ ] Idle mount and idle refresh render New chat without a history 404 or implicit existing-chat selection.
+- [ ] An accepted draft turn records a tab-scoped recovery cursor before stream completion; mid-turn refresh reattaches, and terminal completion clears the cursor.
+- [ ] Conversation selection is independent of the URL; no widget or harness callback mutates `conversationId` query state.
+- [ ] Transport-drop presentation keeps the typed 4xx/retry boundary and manual reconnect behavior.
+- [ ] The conversation catalog exposes real running ids; New chat and conversation switching are disabled while the selected session is busy where the legacy shell disabled them.
+- [ ] Dedicated browser cases prove empty-store refresh, idle refresh with existing chats, mid-turn refresh, and a real two-tab running-conversation flow.
+- [ ] Old recovery ladder remains consumer-free on the native path and the replacement cursor has focused lifecycle tests.
 
 ## Handoff record
 
-Recovery/discovery wiring: pending
+Recovery/discovery wiring: reopened 2026-07-14; current selection fallback and terminal-time draft commit are invalid.
 
-Classification table (retryable vs fatal): pending
+Classification table (retryable vs fatal): retain the current typed HTTP versus status-less transport boundary and reverify it after the selection rewrite.
 
-Multi-tab evidence: pending
+Multi-tab evidence: required; the earlier statement that a second tab was equivalent to cold load is not accepted evidence.

@@ -10,19 +10,27 @@ import {
 
 import { PROVIDER_KINDS } from "./provider-config.js";
 
+const OPENAI_REASONING_EFFORTS = {
+  LOW: "low",
+  MEDIUM: "medium",
+  HIGH: "high",
+} as const;
+
 export const OPENAI_PROVIDER = {
   KIND: PROVIDER_KINDS.OPENAI,
   MODELS: {
-    GPT_5_4: {
-      MODEL_ID: "gpt-5.4",
-      CONTEXT_WINDOW_TOKENS: 1_000_000,
+    GPT_5_6_LUNA: {
+      MODEL_ID: "gpt-5.6-luna",
+      CONTEXT_WINDOW_TOKENS: 372_000,
+      DEFAULT_REASONING_EFFORT: OPENAI_REASONING_EFFORTS.MEDIUM,
+      SUPPORTED_REASONING_EFFORTS: [
+        OPENAI_REASONING_EFFORTS.LOW,
+        OPENAI_REASONING_EFFORTS.MEDIUM,
+        OPENAI_REASONING_EFFORTS.HIGH,
+      ],
     },
   },
-  REASONING_EFFORTS: {
-    LOW: "low",
-    MEDIUM: "medium",
-    HIGH: "high",
-  },
+  REASONING_EFFORTS: OPENAI_REASONING_EFFORTS,
   REASONING_SUMMARIES: {
     AUTO: "auto",
     CONCISE: "concise",
@@ -80,6 +88,26 @@ export type OpenAIModelSettings = Readonly<{
   baseUrl?: string | undefined;
   reasoningEffort?: OpenAIReasoningEffort | undefined;
   reasoningSummary?: OpenAIReasoningSummary | undefined;
+}>;
+
+/** Resolve the exact reasoning policy owned by an enabled OpenAI model descriptor. */
+export function openAIReasoningSupport(
+  modelId: string,
+  configuredDefault?: OpenAIReasoningEffort,
+): OpenAIReasoningSupport | undefined {
+  const model = Object.values(OPENAI_PROVIDER.MODELS).find(
+    (candidate) => candidate.MODEL_ID === modelId,
+  );
+  if (model === undefined) return undefined;
+  const efforts = model.SUPPORTED_REASONING_EFFORTS;
+  const defaultEffort = configuredDefault ?? model.DEFAULT_REASONING_EFFORT;
+  if (!efforts.some((effort) => effort === defaultEffort)) return undefined;
+  return { efforts, defaultEffort };
+}
+
+type OpenAIReasoningSupport = Readonly<{
+  efforts: readonly OpenAIReasoningEffort[];
+  defaultEffort: OpenAIReasoningEffort;
 }>;
 
 export function readOpenAIModelSettings(
